@@ -1,0 +1,38 @@
+{
+  "name": "@bhd-r/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --turbopack -p 3000",
+    "build": "next build --turbopack",
+    "start": "next start -p 3000",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\"",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "clean": "rimraf .next coverage playwright-report test-results"
+  },
+  "dependencies": {
+    "@bhd-r/contracts": "workspace:*",
+    "@bhd-r/country-packs": "workspace:*",
+    "@bhd-r/i18n": "workspace:*",
+    "@bhd-r/ui": "workspace:*",
+    "next": "^16.3.0",
+    "next-intl": "^4.8.3",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "zod": "^4.1.13"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@tailwindcss/postcss": "^4.1.18",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.1",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "jsdom": "^27.3.0",
+    "tailwindcss": "^4.1.18"
+  }
+}

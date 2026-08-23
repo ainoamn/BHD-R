@@ -1,0 +1,36 @@
+name: Public performance budget
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lighthouse:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_API_ORIGIN: http://127.0.0.1:4000
+      NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+      API_ORIGIN: http://127.0.0.1:4000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @bhd-r/web... build
+      - name: Run a local server and Lighthouse three times per locale
+        run: pnpm dlx start-server-and-test@2.0.12 "pnpm --filter @bhd-r/web start" http://127.0.0.1:3000/ar "pnpm dlx @lhci/cli@0.15.1 autorun --config=.github/lighthouserc.cjs"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lighthouse-report
+          path: lighthouse-report
+          if-no-files-found: ignore
+          retention-days: 30

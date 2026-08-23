@@ -1,0 +1,53 @@
+{
+  "name": "@bhd-r/root",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BHD R — Oman-first bilingual property management platform",
+  "packageManager": "pnpm@10.14.0",
+  "pnpm": {
+    "overrides": {
+      "@esbuild-kit/core-utils>esbuild": "^0.25.0"
+    },
+    "onlyBuiltDependencies": [
+      "@nestjs/core",
+      "@parcel/watcher",
+      "@swc/core",
+      "esbuild",
+      "msgpackr-extract",
+      "sharp"
+    ]
+  },
+  "engines": {
+    "node": ">=24.0.0",
+    "pnpm": ">=10.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:coverage": "turbo run test:coverage",
+    "test:e2e": "turbo run test:e2e",
+    "check": "pnpm verify:source && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "verify:source": "node scripts/verify-source.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:generate": "pnpm --filter @bhd-r/db generate",
+    "db:migrate": "pnpm --filter @bhd-r/db migrate",
+    "db:seed": "pnpm --filter @bhd-r/db seed",
+    "clean": "turbo run clean"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^24.10.1",
+    "@vitest/coverage-v8": "^4.0.15",
+    "eslint": "^10.9.0",
+    "prettier": "^3.7.4",
+    "rimraf": "^6.1.2",
+    "turbo": "^2.7.3",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.67.0",
+    "vitest": "^4.0.15"
+  }
+}

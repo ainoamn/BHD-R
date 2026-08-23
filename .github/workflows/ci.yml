@@ -1,0 +1,193 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: docker compose --profile app config --quiet
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test:coverage
+      - run: pnpm build
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: '**/coverage'
+          if-no-files-found: ignore
+          retention-days: 14
+
+  migrations:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5-alpine
+        env:
+          POSTGRES_DB: bhd_r
+          POSTGRES_USER: bhd_r_migrator
+          POSTGRES_PASSWORD: ci-only-migrator-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U bhd_r_migrator -d bhd_r"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      MIGRATION_DATABASE_URL: postgresql://bhd_r_migrator:ci-only-migrator-password@localhost:5432/bhd_r
+      TEST_MIGRATION_DATABASE_URL: postgresql://bhd_r_migrator:ci-only-migrator-password@localhost:5432/bhd_r
+      TEST_DATABASE_URL: postgresql://bhd_r_api_login:ci-only-api-password@localhost:5432/bhd_r
+      WORKER_DATABASE_URL: postgresql://bhd_r_worker_login:ci-only-worker-password@localhost:5432/bhd_r
+      APPLY_PRIVILEGED_ROLES: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Verify Drizzle metadata is internally consistent
+        run: pnpm --filter @bhd-r/db exec drizzle-kit check
+      - run: pnpm db:migrate
+      - name: Create non-superuser runtime logins
+        run: >-
+          psql "$MIGRATION_DATABASE_URL" --set=api_password=ci-only-api-password
+          --set=system_password=ci-only-system-password --set=worker_password=ci-only-worker-password
+          --file=.github/scripts/create-ci-logins.sql
+      - name: Verify RLS through an actual non-superuser connection
+        run: pnpm --filter @bhd-r/db test
+      - name: Verify worker role is non-superuser and RLS-enabled
+        run: >-
+          psql "$WORKER_DATABASE_URL" --set=ON_ERROR_STOP=1
+          --command="BEGIN; SET LOCAL app.worker = 'true'; SELECT count(*) FROM outbox_events; ROLLBACK"
+      - name: Verify migrations are repeatable
+        run: pnpm db:migrate
+
+  e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5-alpine
+        env:
+          POSTGRES_DB: bhd_r
+          POSTGRES_USER: bhd_r_migrator
+          POSTGRES_PASSWORD: ci-only-migrator-password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U bhd_r_migrator -d bhd_r"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7.4-alpine
+        ports: ['6379:6379']
+    env:
+      NODE_ENV: test
+      MIGRATION_DATABASE_URL: postgresql://bhd_r_migrator:ci-only-migrator-password@localhost:5432/bhd_r
+      DATABASE_URL: postgresql://bhd_r_api_login:ci-only-api-password@localhost:5432/bhd_r
+      SYSTEM_DATABASE_URL: postgresql://bhd_r_system_login:ci-only-system-password@localhost:5432/bhd_r
+      APPLY_PRIVILEGED_ROLES: 'true'
+      REDIS_URL: redis://localhost:6379
+      WEB_ORIGIN: http://127.0.0.1:3000
+      API_ORIGIN: http://127.0.0.1:4000
+      PUBLIC_PROPERTY_BASE_URL: http://127.0.0.1:3000
+      PUBLIC_MEDIA_BASE_URL: http://127.0.0.1:9000/bhd-r-public
+      MEDIA_PUBLIC_BASE_URL: http://127.0.0.1:9000/bhd-r-public
+      BHD_IDENTITY_ISSUER: https://id.example.test
+      BHD_IDENTITY_CLIENT_ID: bhd-r
+      BHD_IDENTITY_CLIENT_SECRET: ci-only-identity-secret
+      BHD_IDENTITY_REDIRECT_URI: http://127.0.0.1:3000/v1/auth/oidc/callback
+      BHD_R_SESSION_SECRET: ci-only-session-secret-at-least-32-bytes
+      CSRF_SECRET: ci-only-csrf-secret-at-least-32-bytes
+      FIELD_ENCRYPTION_KEY_V1: Y2ktb25seS0zMi1ieXRlLWZpZWxkLWtleS0wMQ==
+      FIELD_ENCRYPTION_ACTIVE_VERSION: v1
+      PAYMENT_WEBHOOK_SECRET: ci-only-webhook-secret
+      PAYMENT_GATEWAY_ALLOWED_HOSTS: payments.example.test
+      LOCAL_AUTH_ENABLED: 'true'
+      TRUST_PROXY_HOPS: '0'
+      S3_ENDPOINT: http://127.0.0.1:9000
+      S3_REGION: us-east-1
+      S3_BUCKET_PRIVATE: bhd-r-private
+      S3_BUCKET_PUBLIC: bhd-r-public
+      S3_ACCESS_KEY: ci-only-access-key
+      S3_SECRET_KEY: ci-only-secret-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm db:migrate
+      - name: Create non-superuser runtime logins
+        run: >-
+          psql "$MIGRATION_DATABASE_URL" --set=api_password=ci-only-api-password
+          --set=system_password=ci-only-system-password --set=worker_password=ci-only-worker-password
+          --file=.github/scripts/create-ci-logins.sql
+      - run: pnpm test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: '**/playwright-report'
+          if-no-files-found: ignore
+          retention-days: 14
+
+  containers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: api
+            dockerfile: Dockerfile.api
+          - name: web
+            dockerfile: Dockerfile.web
+          - name: worker
+            dockerfile: Dockerfile.worker
+          - name: migrate
+            dockerfile: Dockerfile.migrate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: false
+          tags: bhd-r/${{ matrix.name }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}

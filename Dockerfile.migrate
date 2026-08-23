@@ -1,0 +1,21 @@
+FROM node:24-bookworm-slim AS build
+ENV TURBO_TELEMETRY_DISABLED=1
+WORKDIR /app
+RUN npm install --global pnpm@10.14.0
+COPY . .
+RUN --mount=type=cache,id=bhd-r-pnpm-store,target=/pnpm/store,sharing=locked \
+    pnpm config set store-dir /pnpm/store \
+    && pnpm install --frozen-lockfile
+RUN pnpm exec turbo run build --filter=@bhd-r/db...
+RUN --mount=type=cache,id=bhd-r-pnpm-store,target=/pnpm/store,sharing=locked \
+    pnpm --filter @bhd-r/db deploy --prod --legacy /prod/migrate \
+    && node -e "const fs=require('node:fs'); for (const p of ['src','test','coverage','.turbo']) fs.rmSync('/prod/migrate/'+p,{recursive:true,force:true})"
+
+FROM node:24-bookworm-slim AS runtime
+ENV NODE_ENV=production
+WORKDIR /app
+RUN groupmod --gid 10001 node \
+    && usermod --uid 10001 --gid 10001 node
+COPY --from=build --chown=node:node /prod/migrate /app
+USER node
+CMD ["node", "dist/migrate.js"]

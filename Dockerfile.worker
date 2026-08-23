@@ -1,0 +1,28 @@
+FROM node:24-bookworm-slim AS build
+ENV TURBO_TELEMETRY_DISABLED=1
+WORKDIR /app
+RUN npm install --global pnpm@10.14.0
+COPY . .
+RUN --mount=type=cache,id=bhd-r-pnpm-store,target=/pnpm/store,sharing=locked \
+    pnpm config set store-dir /pnpm/store \
+    && pnpm install --frozen-lockfile
+RUN pnpm exec turbo run build --filter=@bhd-r/worker...
+RUN --mount=type=cache,id=bhd-r-pnpm-store,target=/pnpm/store,sharing=locked \
+    pnpm --filter @bhd-r/worker deploy --prod --legacy /prod/worker \
+    && node -e "const fs=require('node:fs'); for (const p of ['src','tests','coverage','.turbo']) fs.rmSync('/prod/worker/'+p,{recursive:true,force:true})"
+
+FROM node:24-bookworm-slim AS runtime
+ENV NODE_ENV=production \
+    CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
+WORKDIR /app
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends chromium dumb-init fonts-noto-core fonts-noto-color-emoji \
+    && rm -rf /var/lib/apt/lists/* \
+    && npm install --global pnpm@10.14.0 \
+    && groupmod --gid 10001 node \
+    && usermod --uid 10001 --gid 10001 node
+COPY --from=build --chown=node:node /prod/worker /app
+USER node
+EXPOSE 4001
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["node", "dist/main.js"]

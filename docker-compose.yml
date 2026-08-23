@@ -1,0 +1,308 @@
+name: bhd-r
+
+x-app-security: &app-security
+  restart: unless-stopped
+  init: true
+  read_only: true
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=256m
+  security_opt:
+    - no-new-privileges:true
+
+x-app-env: &app-env
+  NODE_ENV: production
+  WEB_ORIGIN: http://localhost:3000
+  API_ORIGIN: http://localhost:3000
+  PUBLIC_PROPERTY_BASE_URL: http://localhost:3000
+  OTEL_EXPORTER_OTLP_ENDPOINT: ''
+  SENTRY_DSN: ''
+  REDIS_URL: redis://:${REDIS_PASSWORD:-bhd-r-local-redis}@redis:6379
+  S3_ENDPOINT: http://minio:9000
+  S3_REGION: us-east-1
+  S3_BUCKET_PRIVATE: bhd-r-private
+  S3_BUCKET_PUBLIC: bhd-r-public
+  S3_ACCESS_KEY: ${MINIO_ROOT_USER:-bhd-r-local-minio}
+  S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-bhd-r-local-minio-secret}
+  S3_FORCE_PATH_STYLE: 'true'
+
+services:
+  postgres:
+    image: postgis/postgis:17-3.5-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bhd_r
+      POSTGRES_USER: bhd_r_migrator
+      POSTGRES_PASSWORD: ${MIGRATOR_DB_PASSWORD:-local-only-migrator-db-password}
+      BHD_R_API_DB_PASSWORD: ${API_DB_PASSWORD:-local-only-api-db-password}
+      BHD_R_SYSTEM_DB_PASSWORD: ${SYSTEM_DB_PASSWORD:-local-only-system-db-password}
+      BHD_R_WORKER_DB_PASSWORD: ${WORKER_DB_PASSWORD:-local-only-worker-db-password}
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U bhd_r_migrator -d bhd_r']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [backend]
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command:
+      [
+        'redis-server',
+        '--appendonly',
+        'yes',
+        '--requirepass',
+        '${REDIS_PASSWORD:-bhd-r-local-redis}',
+      ]
+    ports:
+      - '127.0.0.1:6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD:-bhd-r-local-redis}', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [backend]
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    restart: unless-stopped
+    command: server /data --console-address :9001
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-bhd-r-local-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-bhd-r-local-minio-secret}
+    ports:
+      - '127.0.0.1:9000:9000'
+      - '127.0.0.1:9001:9001'
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'curl --fail --silent http://127.0.0.1:9000/minio/health/live >/dev/null']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [backend]
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    restart: 'no'
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: ['/bin/sh', '-ec']
+    command:
+      - |
+        mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"
+        mc mb --ignore-existing local/bhd-r-private
+        mc mb --ignore-existing local/bhd-r-public
+        mc anonymous set download local/bhd-r-public
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-bhd-r-local-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-bhd-r-local-minio-secret}
+    networks: [backend]
+
+  mailpit:
+    image: axllent/mailpit:v1.27.8
+    restart: unless-stopped
+    environment:
+      MP_MAX_MESSAGES: 500
+      MP_SMTP_AUTH_ACCEPT_ANY: '1'
+      MP_SMTP_AUTH_ALLOW_INSECURE: '1'
+    ports:
+      - '127.0.0.1:1025:1025'
+      - '127.0.0.1:8025:8025'
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [backend]
+
+  clamav:
+    image: clamav/clamav:1.4.3
+    restart: unless-stopped
+    volumes:
+      - clamav_data:/var/lib/clamav
+    healthcheck:
+      test: ['CMD-SHELL', 'clamdscan --ping 1']
+      interval: 15s
+      timeout: 10s
+      retries: 40
+      start_period: 60s
+    networks: [backend]
+
+  migrate:
+    <<: *app-security
+    profiles: [app]
+    build:
+      context: .
+      dockerfile: Dockerfile.migrate
+    restart: 'no'
+    environment:
+      NODE_ENV: production
+      MIGRATION_DATABASE_URL: postgresql://bhd_r_migrator:${MIGRATOR_DB_PASSWORD:-local-only-migrator-db-password}@postgres:5432/bhd_r
+      DATABASE_URL: postgresql://bhd_r_migrator:${MIGRATOR_DB_PASSWORD:-local-only-migrator-db-password}@postgres:5432/bhd_r
+      APPLY_PRIVILEGED_ROLES: 'true'
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [backend]
+
+  provision-db-logins:
+    image: postgis/postgis:17-3.5-alpine
+    profiles: [app]
+    restart: 'no'
+    entrypoint: ['/bin/bash', '/opt/bhd-r/010-runtime-logins.sh']
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGPASSWORD: ${MIGRATOR_DB_PASSWORD:-local-only-migrator-db-password}
+      POSTGRES_DB: bhd_r
+      POSTGRES_USER: bhd_r_migrator
+      BHD_R_API_DB_PASSWORD: ${API_DB_PASSWORD:-local-only-api-db-password}
+      BHD_R_SYSTEM_DB_PASSWORD: ${SYSTEM_DB_PASSWORD:-local-only-system-db-password}
+      BHD_R_WORKER_DB_PASSWORD: ${WORKER_DB_PASSWORD:-local-only-worker-db-password}
+    volumes:
+      - ./docker/postgres/init/010-runtime-logins.sh:/opt/bhd-r/010-runtime-logins.sh:ro
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    networks: [backend]
+
+  api:
+    <<: *app-security
+    profiles: [app]
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    environment:
+      <<: *app-env
+      PORT: 4000
+      DATABASE_URL: postgresql://bhd_r_api_login:${API_DB_PASSWORD:-local-only-api-db-password}@postgres:5432/bhd_r
+      SYSTEM_DATABASE_URL: postgresql://bhd_r_system_login:${SYSTEM_DB_PASSWORD:-local-only-system-db-password}@postgres:5432/bhd_r
+      WEB_ORIGIN: http://localhost:3000
+      BHD_IDENTITY_ISSUER: ${BHD_IDENTITY_ISSUER:-https://id.bhd-om.com}
+      BHD_IDENTITY_CLIENT_ID: ${BHD_IDENTITY_CLIENT_ID:-bhd-r}
+      BHD_IDENTITY_CLIENT_SECRET: ${BHD_IDENTITY_CLIENT_SECRET:-local-only-identity-secret}
+      BHD_IDENTITY_REDIRECT_URI: ${BHD_IDENTITY_REDIRECT_URI:-http://localhost:3000/v1/auth/oidc/callback}
+      BHD_R_SESSION_SECRET: ${BHD_R_SESSION_SECRET:-local-only-session-secret-at-least-32-bytes}
+      FIELD_ENCRYPTION_KEY_V1: ${FIELD_ENCRYPTION_KEY_V1:-local-only-field-encryption-secret-32-bytes}
+      FIELD_ENCRYPTION_ACTIVE_VERSION: ${FIELD_ENCRYPTION_ACTIVE_VERSION:-v1}
+      CSRF_SECRET: ${CSRF_SECRET:-local-only-csrf-secret-at-least-32-bytes}
+      PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:-local-only-webhook-secret}
+      PAYMENT_GATEWAY_ALLOWED_HOSTS: ${PAYMENT_GATEWAY_ALLOWED_HOSTS:-}
+      LOCAL_AUTH_ENABLED: ${LOCAL_AUTH_ENABLED:-false}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-0}
+      PUBLIC_MEDIA_BASE_URL: ${PUBLIC_MEDIA_BASE_URL:-http://localhost:9000/bhd-r-public}
+      MEDIA_PUBLIC_BASE_URL: ${MEDIA_PUBLIC_BASE_URL:-http://localhost:9000/bhd-r-public}
+    ports:
+      - '127.0.0.1:4000:4000'
+    depends_on:
+      provision-db-logins: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+      minio-init: { condition: service_completed_successfully }
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4000/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks: [backend, frontend]
+
+  worker:
+    <<: *app-security
+    profiles: [app]
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    environment:
+      <<: *app-env
+      WORKER_PORT: 4001
+      DATABASE_URL: postgresql://bhd_r_worker_login:${WORKER_DB_PASSWORD:-local-only-worker-db-password}@postgres:5432/bhd_r
+      WORKER_DATABASE_URL: postgresql://bhd_r_worker_login:${WORKER_DB_PASSWORD:-local-only-worker-db-password}@postgres:5432/bhd_r
+      MEDIA_SCAN_MODE: required
+      CLAMAV_HOST: clamav
+      CLAMAV_PORT: 3310
+      CHROMIUM_EXECUTABLE_PATH: /usr/bin/chromium
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      EMAIL_FROM: no-reply@bhd-om.com
+      FIELD_ENCRYPTION_KEY_V1: ${FIELD_ENCRYPTION_KEY_V1:-local-only-field-encryption-secret-32-bytes}
+      FIELD_ENCRYPTION_ACTIVE_VERSION: ${FIELD_ENCRYPTION_ACTIVE_VERSION:-v1}
+    depends_on:
+      provision-db-logins: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+      minio-init: { condition: service_completed_successfully }
+      clamav: { condition: service_healthy }
+      mailpit: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4001/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks: [backend]
+    shm_size: 512m
+
+  web:
+    <<: *app-security
+    profiles: [app]
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        NEXT_PUBLIC_API_ORIGIN: ${PUBLIC_API_ORIGIN:-http://localhost:3000}
+        NEXT_PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-http://localhost:3000}
+        API_INTERNAL_ORIGIN: http://api:4000
+        MEDIA_PUBLIC_BASE_URL: ${MEDIA_PUBLIC_BASE_URL:-http://localhost:9000/bhd-r-public}
+    environment:
+      NODE_ENV: production
+      API_INTERNAL_ORIGIN: http://api:4000
+      NEXT_PUBLIC_API_ORIGIN: ${PUBLIC_API_ORIGIN:-http://localhost:3000}
+      NEXT_PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-http://localhost:3000}
+      MEDIA_PUBLIC_BASE_URL: ${MEDIA_PUBLIC_BASE_URL:-http://localhost:9000/bhd-r-public}
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=128m,uid=10001,gid=10001
+      - /app/apps/web/.next/cache:rw,noexec,nosuid,size=128m,uid=10001,gid=10001
+    ports:
+      - '127.0.0.1:3000:3000'
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/ar').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks: [frontend]
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  clamav_data:
+
+networks:
+  frontend:
+  backend:
+    internal: true
