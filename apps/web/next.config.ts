@@ -13,7 +13,9 @@ const mediaPattern = new URL(
 );
 
 const config: NextConfig = {
-  output: 'standalone',
+  // Vercel injects an adapter that skips next-server.js.nft.json; standalone + that combo
+  // fails on Next 16.3+. Keep standalone for Docker/self-host only.
+  ...(process.env.VERCEL ? {} : { output: 'standalone' as const }),
   outputFileTracingRoot: monorepoRoot,
   poweredByHeader: false,
   reactStrictMode: true,

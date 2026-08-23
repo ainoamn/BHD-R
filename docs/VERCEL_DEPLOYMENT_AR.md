@@ -47,8 +47,10 @@ BHD R Monorepo متعدد الخدمات. **Vercel مناسب أساساً لـ 
 | Output Directory | (اترك افتراضي Next — لا تملأه يدوياً) |
 | Node.js Version | 24.x |
 
-أمر بناء الويب يبني أولاً حزم workspace (`@bhd-r/contracts`, `country-packs`, `i18n`, `ui`) إلى `dist/` ثم يشغّل `next build`.  
-إذا كان في لوحة Vercel **Override** لـ Build Command بقيمة `pnpm --filter @bhd-r/web build` بدون `run` أو بدون `cd ../..`، امسحه أو طابقه مع الجدول أعلاه.
+ملاحظة: `output: 'standalone'` يُعطَّل تلقائياً على Vercel (متغير `VERCEL`) ويبقى مفعّلاً لصور Docker. لا تضف `output: standalone` يدوياً في إعدادات Vercel.
+
+أمر بناء الويب يبني أولاً حزم workspace إلى `dist/` ثم يشغّل `next build`.  
+إذا كان في لوحة Vercel **Override** لـ Build Command، طابقه مع الجدول أعلاه أو امسحه.
 
 ملف الإعداد داخل المستودع: [`apps/web/vercel.json`](../apps/web/vercel.json).
 
