@@ -226,6 +226,7 @@ sequenceDiagram
 | نَسَب | `bhd-nasab` | `https://nasab.bhd-om.com` | `https://nasab.bhd-om.com/api/auth/bhd/callback` |
 | المتجر | `bhd-store` | `https://bhdstor.bhd-om.com` | `https://bhdstor.bhd-om.com/api/auth/bhd/callback` |
 | بيتك | `bhd-baitak` | `https://baitak.bhd-om.com` | `https://baitak.bhd-om.com/api/auth/bhd/callback` |
+| BHD R | `bhd-r` | `https://r.bhd-om.com` (حي: `https://bhd-r-api-phi.vercel.app`) | `https://bhd-r-api-phi.vercel.app/api/auth/bhd/callback` (+ `https://r.bhd-om.com/api/auth/bhd/callback`) |
 | المكتب | `bhd-office` | داخلي | `{origin}/api/auth/bhd/callback` |
 
 محلياً يُسمح أيضاً بـ `http://localhost:3000/api/auth/bhd/callback` (وازن أيضاً `:3001`). المقارنة **مطابقة تامة**.
@@ -694,22 +695,15 @@ authorize وtoken دائماً على https://id.bhd-om.com وليس أصل ال
 | ما بقي محلياً ولم يُوحَّد | |
 | فريق الصيانة | |
 
-### 12.9 BHD R — `ainoamn/BHD-R` (سجل المنتج في هذا المستودع)
+### 12.9 BHD R — `ainoamn/BHD-R`
 
 | البند | التوثيق |
 |---|---|
-| تاريخ التثبيت | 23 أغسطس 2026 — `/api/auth/bhd/*` + §0.7 + مشغّل + فوتر برامجنا |
-| `client_id` | `bhd-r` (تسجيل على ONE-BHD مطلوب قبل الإنتاج) |
-| الأصل | `https://bhd-r-api-phi.vercel.app` (هدف: `https://r.bhd-om.com`) |
-| `redirect_uri` | `{origin}/api/auth/bhd/callback` + localhost |
-| كيف ثُبّت | القسم 4 + **0.7** + **4.9** + `BHD-PRODUCT-SSO-ADMIN` — انظر `docs/BHD-R-SSO-COMPLIANCE.md` |
-| كيف يعمل الدخول | غلاف `/login` → `start` → `id.bhd-om.com/oauth/authorize` → `callback` يبدّل الكود ثم `POST /v1/auth/identity/session` → كوكي Host-only `bhd_r_session` |
-| ربط المستخدم | `users.identity_subject` (= `bhd_sub`)؛ بريد موثّق يربط الأدمن القديم؛ وإلا مستخدم + org starter بملكية محلية فقط |
-| المشغّل | `BhdAppSwitcher` + كتالوج `apps/web/src/lib/bhd/apps.ts`؛ الحساب → `id.bhd-om.com/account`؛ خروج → `/api/auth/bhd/logout` |
-| الإدارة | `GET /api/auth/admin-entry` → SSO → `/platform`؛ الأدوار من memberships المحلية |
-| الفوتر | صف برامجنا + روابط www.bhd-om.com + دخول الإدارة |
-| أسرار (أسماء فقط) | `BHD_IDENTITY_ISSUER`, `BHD_OAUTH_CLIENT_ID`, `BHD_OAUTH_CLIENT_SECRET`, `BHD_OAUTH_REDIRECT_URI`, `BHD_IDENTITY_TOKEN_SECRET`, `BHD_R_SESSION_SECRET`, `API_INTERNAL_ORIGIN`, `DATABASE_URL` |
-| التقنيات | Next.js 16 · React 19 · NestJS 11 Fastify · Drizzle · PostgreSQL/PostGIS · Redis · pnpm/Turbo · Vercel (`apps/web`) |
-| ما لم يُوحَّد | العقارات، الوحدات، العقود، الإيجارات، الفواتير، المدفوعات، الصيانة، أدوار المنتج |
-| فريق الصيانة | مستودع `ainoamn/BHD-R` |
+| تاريخ تسجيل العميل | 23 أغسطس 2026 — أُضيف `bhd-r` إلى `app/lib/identity/clients.ts` |
+| `client_id` | `bhd-r` |
+| الأصل الحي | `https://bhd-r-api-phi.vercel.app` (هدف: `https://r.bhd-om.com`) |
+| `redirect_uri` | `https://bhd-r-api-phi.vercel.app/api/auth/bhd/callback` (+ legacy `/v1/auth/oidc/callback` + `r.bhd-om.com` + localhost) |
+| المشغّل | عنصر `bhd-r` في `apps.ts` بـ `mode: "sso"` بعد تحقق 302 لـ `start` |
+| سر العميل | مشتق من `AUTH_SECRET` عبر `BHD_OAUTH_CLIENT_SECRET_R` / HMAC `bhd-oauth:bhd-r` ما لم يُضبط صراحة |
+| مستودع المنتج | `ainoamn/BHD-R` — `docs/BHD-R-IDENTITY-SETUP.md` |
 

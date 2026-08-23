@@ -9,6 +9,16 @@
 اكتشاف OIDC الحي: https://id.bhd-om.com/.well-known/openid-configuration  
 واجهة الدخول الحالية: https://bhd-r-api-phi.vercel.app/ar/login → `/api/auth/bhd/start`
 
+## حالة التسجيل الحية (23 أغسطس 2026)
+
+- `bhd-r` مُدرَج في اكتشاف الهوية:  
+  https://id.bhd-om.com/.well-known/openid-configuration → `clients` يتضمن `bhd-r`
+- `redirect_uri` المسموح:  
+  `https://bhd-r-api-phi.vercel.app/api/auth/bhd/callback`  
+  (+ legacy `/v1/auth/oidc/callback` و`https://r.bhd-om.com/api/auth/bhd/callback` وlocalhost)
+- سر العميل على Vercel: `BHD_OAUTH_CLIENT_SECRET` يطابق اشتقاق الهوية من `AUTH_SECRET` (`HMAC-SHA256` على `bhd-oauth:bhd-r`) ما لم يُضبط `BHD_OAUTH_CLIENT_SECRET_R` على ONE-BHD.
+- كتالوج المشغّل في ONE-BHD: عنصر `bhd-r` بـ `mode: "sso"`.
+
 ## مسار المنتج الإلزامي (§3.1)
 
 | المسار | السلوك |

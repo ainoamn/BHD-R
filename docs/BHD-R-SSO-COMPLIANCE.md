@@ -16,9 +16,9 @@
 | فوتر «برامجنا» + دخول الإدارة | منفَّذ | `site-footer.tsx` |
 | ربط أدمن قديم بالبريد (§3.3) | منفَّذ | `auth.service.ts` |
 | مشغّل بكتالوج مجمد + خروج موحّد | منفَّذ | `lib/bhd/apps.ts` + `bhd-app-switcher.tsx` |
-| تسجيل عميل `bhd-r` في ONE-BHD | مطلوب خارج المستودع | راجع Identity Setup |
-| قلب `mode=sso` في كتالوج ONE-BHD | بعد تحقق start الحي | أبلغ فريق الهوية |
-| `API_INTERNAL_ORIGIN` عام على Vercel | مطلوب للتشغيل الحي | بدونها `?bhd=api` |
+| تسجيل عميل `bhd-r` في ONE-BHD | منفَّذ 23 أغسطس 2026 | `clients` في الاكتشاف الحي |
+| قلب `mode=sso` في كتالوج ONE-BHD | منفَّذ | `apps.ts` في ONE-BHD |
+| `API_INTERNAL_ORIGIN` عام على Vercel | مطلوب لإتمام الجلسة بعد الكود | بدونها `?bhd=api` |
 
 ## سجل تثبيت (§12 قالب الموحّد) — BHD R
 
