@@ -17,6 +17,7 @@ import {
   sessions,
   signatureChallenges,
   units,
+  workflowEvents,
 } from '@bhd-r/db';
 import type { SessionClaims } from '@bhd-r/authz';
 import type { CreateHoldInput, CreateLeaseInput } from '@bhd-r/contracts';
@@ -97,7 +98,10 @@ export class LeasingService {
 
   createLeaseAndContract(
     claims: SessionClaims,
-    input: CreateLeaseInput & { additionalTerms?: string | undefined },
+    input: CreateLeaseInput & {
+      additionalTerms?: string | undefined;
+      reservationId?: string | undefined;
+    },
   ) {
     return this.database.asSystem(async (transaction) => {
       await this.lockAndAssertAvailable(transaction, claims.organizationId!, input.unitId);
@@ -176,6 +180,26 @@ export class LeasingService {
         displayName: tenant.displayName,
         email: tenant.email,
       });
+      if (input.reservationId) {
+        const reservationRows = await transaction
+          .update(reservations)
+          .set({
+            status: 'converted',
+            convertedLeaseId: leaseRows[0]!.id,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(reservations.id, input.reservationId),
+              eq(reservations.organizationId, claims.organizationId!),
+              eq(reservations.unitId, input.unitId),
+              inArray(reservations.status, ['pending', 'confirmed']),
+            ),
+          )
+          .returning({ id: reservations.id });
+        if (!reservationRows[0])
+          throw new ConflictException('Reservation cannot be converted to this lease');
+      }
       await transaction.insert(outboxEvents).values({
         organizationId: claims.organizationId!,
         topic: 'lease.created',
@@ -375,6 +399,154 @@ export class LeasingService {
         rentMinor: row.rentMinor.toString(),
         depositMinor: row.depositMinor?.toString() ?? null,
       }));
+    });
+  }
+
+  listHolds(claims: SessionClaims) {
+    return this.database.withinTenant(claims, (transaction) =>
+      transaction.select().from(holds).where(eq(holds.organizationId, claims.organizationId!)),
+    );
+  }
+
+  listReservations(claims: SessionClaims) {
+    return this.database.withinTenant(claims, (transaction) =>
+      transaction
+        .select()
+        .from(reservations)
+        .where(eq(reservations.organizationId, claims.organizationId!)),
+    );
+  }
+
+  listContracts(claims: SessionClaims) {
+    return this.database.withinTenant(claims, (transaction) =>
+      transaction
+        .select()
+        .from(contracts)
+        .where(eq(contracts.organizationId, claims.organizationId!)),
+    );
+  }
+
+  cancelHold(claims: SessionClaims, id: string) {
+    return this.database.withinTenant(claims, async (transaction) => {
+      const rows = await transaction
+        .update(holds)
+        .set({ status: 'cancelled', updatedAt: new Date() })
+        .where(
+          and(
+            eq(holds.id, id),
+            eq(holds.organizationId, claims.organizationId!),
+            eq(holds.status, 'active'),
+          ),
+        )
+        .returning();
+      if (!rows[0]) throw new ConflictException('Only an active hold can be cancelled');
+      await transaction.insert(workflowEvents).values({
+        organizationId: claims.organizationId!,
+        actorUserId: claims.sub,
+        resourceType: 'hold',
+        resourceId: id,
+        eventType: 'hold.cancelled',
+        fromStatus: 'active',
+        toStatus: 'cancelled',
+      });
+      return rows[0];
+    });
+  }
+
+  updateReservation(
+    claims: SessionClaims,
+    id: string,
+    input: { status: 'confirmed' | 'cancelled'; note?: string | undefined },
+  ) {
+    return this.database.withinTenant(claims, async (transaction) => {
+      const current = await transaction.query.reservations.findFirst({
+        where: and(
+          eq(reservations.id, id),
+          eq(reservations.organizationId, claims.organizationId!),
+        ),
+      });
+      if (!current) throw new NotFoundException('Reservation not found');
+      const allowed =
+        current.status === 'pending'
+          ? ['confirmed', 'cancelled']
+          : current.status === 'confirmed'
+            ? ['cancelled']
+            : [];
+      if (!allowed.includes(input.status))
+        throw new ConflictException(`Invalid reservation transition: ${current.status}`);
+      const rows = await transaction
+        .update(reservations)
+        .set({ status: input.status, updatedAt: new Date() })
+        .where(eq(reservations.id, id))
+        .returning();
+      await transaction.insert(workflowEvents).values({
+        organizationId: claims.organizationId!,
+        actorUserId: claims.sub,
+        resourceType: 'reservation',
+        resourceId: id,
+        eventType: 'reservation.status_changed',
+        fromStatus: current.status,
+        toStatus: input.status,
+        note: input.note,
+      });
+      return rows[0]!;
+    });
+  }
+
+  updateLease(
+    claims: SessionClaims,
+    id: string,
+    input: {
+      action: 'activate' | 'end' | 'terminate' | 'renew';
+      endsOn?: string | undefined;
+      note?: string | undefined;
+    },
+  ) {
+    return this.database.withinTenant(claims, async (transaction) => {
+      const current = await transaction.query.leases.findFirst({
+        where: and(eq(leases.id, id), eq(leases.organizationId, claims.organizationId!)),
+      });
+      if (!current) throw new NotFoundException('Lease not found');
+      let nextStatus = current.status;
+      let nextEndsOn = current.endsOn;
+      if (input.action === 'activate' && current.status === 'draft') nextStatus = 'active';
+      else if (input.action === 'end' && current.status === 'active') nextStatus = 'ended';
+      else if (input.action === 'terminate' && ['draft', 'active'].includes(current.status))
+        nextStatus = 'terminated';
+      else if (input.action === 'renew' && current.status === 'active' && input.endsOn) {
+        if (input.endsOn <= current.endsOn)
+          throw new ConflictException('Renewal date must extend the current lease');
+        nextEndsOn = input.endsOn;
+      } else throw new ConflictException(`Invalid lease action: ${input.action}`);
+      const rows = await transaction
+        .update(leases)
+        .set({ status: nextStatus, endsOn: nextEndsOn, updatedAt: new Date() })
+        .where(eq(leases.id, id))
+        .returning();
+      await transaction.insert(workflowEvents).values({
+        organizationId: claims.organizationId!,
+        actorUserId: claims.sub,
+        resourceType: 'lease',
+        resourceId: id,
+        eventType: `lease.${input.action}`,
+        fromStatus: current.status,
+        toStatus: nextStatus,
+        note: input.note,
+        metadata: { previousEndsOn: current.endsOn, nextEndsOn },
+      });
+      await transaction.insert(outboxEvents).values({
+        organizationId: claims.organizationId!,
+        topic: `lease.${input.action}`,
+        aggregateType: 'lease',
+        aggregateId: id,
+        payload: { status: nextStatus, endsOn: nextEndsOn },
+      });
+      const row = rows[0]!;
+      return {
+        ...row,
+        rentMinor: row.rentMinor.toString(),
+        depositMinor: row.depositMinor?.toString() ?? null,
+      };
     });
   }
 

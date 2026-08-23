@@ -18,7 +18,9 @@ interface UnitDraft {
   bedrooms: string;
   bathrooms: string;
   area: string;
+  listingPurpose: 'rent' | 'sale' | 'both';
   rent: string;
+  salePrice: string;
   deposit: string;
   publishWhenAvailable: boolean;
 }
@@ -42,7 +44,9 @@ const blankUnit = (index: number): UnitDraft => ({
   bedrooms: '0',
   bathrooms: '1',
   area: '',
+  listingPurpose: 'rent',
   rent: '',
+  salePrice: '',
   deposit: '',
   publishWhenAvailable: false,
 });
@@ -85,6 +89,25 @@ export function PropertyWizard({
     street: '',
   });
   const [units, setUnits] = useState<UnitDraft[]>([blankUnit(1)]);
+  const [profile, setProfile] = useState({
+    deedNumber: '',
+    plotNumber: '',
+    municipalityNumber: '',
+    landArea: '',
+    builtUpArea: '',
+    yearBuilt: '',
+    floorsCount: '',
+    parkingSpaces: '',
+    furnishing: 'unfurnished' as 'unfurnished' | 'semi_furnished' | 'furnished',
+    managementStartedOn: '',
+    managementFee: '',
+    electricityMeter: '',
+    waterMeter: '',
+    insuranceNumber: '',
+    insuranceExpiresOn: '',
+    notes: '',
+  });
+  const [amenities, setAmenities] = useState<string[]>([]);
   const [images, setImages] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,9 +116,23 @@ export function PropertyWizard({
   const steps = [
     t('PropertyForm.basics'),
     t('PropertyForm.units'),
+    locale === 'ar' ? 'التشغيل والمرافق' : 'Operations & amenities',
+    locale === 'ar' ? 'الملكية والوثائق' : 'Ownership & documents',
     t('PropertyForm.media'),
     t('PropertyForm.review'),
   ];
+  const amenityOptions = [
+    ['parking', 'مواقف', 'Parking'],
+    ['elevator', 'مصعد', 'Elevator'],
+    ['security', 'حراسة', 'Security'],
+    ['cctv', 'كاميرات مراقبة', 'CCTV'],
+    ['pool', 'مسبح', 'Pool'],
+    ['gym', 'نادي صحي', 'Gym'],
+    ['garden', 'حديقة', 'Garden'],
+    ['central_ac', 'تكييف مركزي', 'Central AC'],
+    ['accessible', 'مهيأ لذوي الإعاقة', 'Accessible'],
+    ['fire_system', 'نظام حريق', 'Fire system'],
+  ] as const;
   const validImages = useMemo(
     () =>
       images.every(
@@ -115,6 +152,9 @@ export function PropertyWizard({
   function updateProperty(field: keyof typeof property, value: string) {
     setProperty((current) => ({ ...current, [field]: value }));
   }
+  function updateProfile(field: keyof typeof profile, value: string) {
+    setProfile((current) => ({ ...current, [field]: value }));
+  }
   function selectImages(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []).slice(0, 12);
     setImages(files);
@@ -131,7 +171,7 @@ export function PropertyWizard({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (step < 3) {
+    if (step < steps.length - 1) {
       setStep((value) => value + 1);
       return;
     }
@@ -162,6 +202,58 @@ export function PropertyWizard({
                 street: property.street || undefined,
               },
               defaultCurrency: currency,
+              profile: {
+                deedNumber: profile.deedNumber || undefined,
+                plotNumber: profile.plotNumber || undefined,
+                municipalityNumber: profile.municipalityNumber || undefined,
+                landAreaSquareMeters: profile.landArea || undefined,
+                builtUpAreaSquareMeters: profile.builtUpArea || undefined,
+                yearBuilt: profile.yearBuilt ? Number(profile.yearBuilt) : undefined,
+                floorsCount: profile.floorsCount ? Number(profile.floorsCount) : undefined,
+                parkingSpaces: profile.parkingSpaces ? Number(profile.parkingSpaces) : undefined,
+                furnishing: profile.furnishing,
+                managementStartedOn: profile.managementStartedOn || undefined,
+                managementFee: profile.managementFee
+                  ? { amountMinor: toMinorUnits(profile.managementFee, currency), currency }
+                  : undefined,
+                notes: profile.notes || undefined,
+              },
+              amenities: amenities.map((code) => {
+                const option = amenityOptions.find(([value]) => value === code)!;
+                return { code, labelAr: option[1], labelEn: option[2] };
+              }),
+              meters: [
+                ...(profile.electricityMeter
+                  ? [
+                      {
+                        utilityType: 'electricity' as const,
+                        meterNumber: profile.electricityMeter,
+                      },
+                    ]
+                  : []),
+                ...(profile.waterMeter
+                  ? [{ utilityType: 'water' as const, meterNumber: profile.waterMeter }]
+                  : []),
+              ],
+              documents: [
+                ...(profile.deedNumber
+                  ? [
+                      {
+                        documentType: 'title_deed' as const,
+                        documentNumber: profile.deedNumber,
+                      },
+                    ]
+                  : []),
+                ...(profile.insuranceNumber
+                  ? [
+                      {
+                        documentType: 'insurance' as const,
+                        documentNumber: profile.insuranceNumber,
+                        expiresOn: profile.insuranceExpiresOn || undefined,
+                      },
+                    ]
+                  : []),
+              ],
             },
             units: units.map((unit) => ({
               code: unit.code,
@@ -171,7 +263,14 @@ export function PropertyWizard({
               bedrooms: Number(unit.bedrooms),
               bathrooms: Number(unit.bathrooms),
               areaSquareMeters: unit.area || undefined,
-              rent: { amountMinor: toMinorUnits(unit.rent, currency), currency },
+              listingPurpose: unit.listingPurpose,
+              rent: {
+                amountMinor: toMinorUnits(unit.rent || '0', currency),
+                currency,
+              },
+              salePrice: unit.salePrice
+                ? { amountMinor: toMinorUnits(unit.salePrice, currency), currency }
+                : undefined,
               deposit: unit.deposit
                 ? { amountMinor: toMinorUnits(unit.deposit, currency), currency }
                 : undefined,
@@ -473,13 +572,38 @@ export function PropertyWizard({
                         value={unit.area}
                         onChange={(event) => updateUnit(unit.localId, 'area', event.target.value)}
                       />
+                      <SelectField
+                        id={`unit-purpose-${unit.localId}`}
+                        label={locale === 'ar' ? 'غرض العرض' : 'Listing purpose'}
+                        value={unit.listingPurpose}
+                        onChange={(event) =>
+                          updateUnit(unit.localId, 'listingPurpose', event.target.value)
+                        }
+                        required
+                      >
+                        <option value="rent">{locale === 'ar' ? 'للإيجار' : 'For rent'}</option>
+                        <option value="sale">{locale === 'ar' ? 'للبيع' : 'For sale'}</option>
+                        <option value="both">
+                          {locale === 'ar' ? 'للبيع أو الإيجار' : 'Sale or rent'}
+                        </option>
+                      </SelectField>
                       <Field
                         id={`unit-rent-${unit.localId}`}
                         inputMode="decimal"
                         label={`${t('PropertyForm.rent')} (${currency})`}
                         value={unit.rent}
                         onChange={(event) => updateUnit(unit.localId, 'rent', event.target.value)}
-                        required
+                        required={unit.listingPurpose !== 'sale'}
+                      />
+                      <Field
+                        id={`unit-sale-price-${unit.localId}`}
+                        inputMode="decimal"
+                        label={`${locale === 'ar' ? 'سعر البيع' : 'Sale price'} (${currency})`}
+                        value={unit.salePrice}
+                        onChange={(event) =>
+                          updateUnit(unit.localId, 'salePrice', event.target.value)
+                        }
+                        required={unit.listingPurpose !== 'rent'}
                       />
                       <Field
                         id={`unit-deposit-${unit.localId}`}
@@ -516,6 +640,159 @@ export function PropertyWizard({
               </div>
             ) : null}
             {step === 2 ? (
+              <div>
+                <div className="form-grid">
+                  <Field
+                    id="land-area"
+                    inputMode="decimal"
+                    label={locale === 'ar' ? 'مساحة الأرض (م²)' : 'Land area (m²)'}
+                    value={profile.landArea}
+                    onChange={(event) => updateProfile('landArea', event.target.value)}
+                  />
+                  <Field
+                    id="built-area"
+                    inputMode="decimal"
+                    label={locale === 'ar' ? 'المساحة المبنية (م²)' : 'Built-up area (m²)'}
+                    value={profile.builtUpArea}
+                    onChange={(event) => updateProfile('builtUpArea', event.target.value)}
+                  />
+                  <Field
+                    id="year-built"
+                    type="number"
+                    min={1800}
+                    max={2200}
+                    label={locale === 'ar' ? 'سنة البناء' : 'Year built'}
+                    value={profile.yearBuilt}
+                    onChange={(event) => updateProfile('yearBuilt', event.target.value)}
+                  />
+                  <Field
+                    id="floors-count"
+                    type="number"
+                    min={0}
+                    label={locale === 'ar' ? 'عدد الطوابق' : 'Floors'}
+                    value={profile.floorsCount}
+                    onChange={(event) => updateProfile('floorsCount', event.target.value)}
+                  />
+                  <Field
+                    id="parking-spaces"
+                    type="number"
+                    min={0}
+                    label={locale === 'ar' ? 'عدد المواقف' : 'Parking spaces'}
+                    value={profile.parkingSpaces}
+                    onChange={(event) => updateProfile('parkingSpaces', event.target.value)}
+                  />
+                  <SelectField
+                    id="furnishing"
+                    label={locale === 'ar' ? 'التأثيث' : 'Furnishing'}
+                    value={profile.furnishing}
+                    onChange={(event) => updateProfile('furnishing', event.target.value)}
+                  >
+                    <option value="unfurnished">
+                      {locale === 'ar' ? 'غير مؤثث' : 'Unfurnished'}
+                    </option>
+                    <option value="semi_furnished">
+                      {locale === 'ar' ? 'شبه مؤثث' : 'Semi-furnished'}
+                    </option>
+                    <option value="furnished">{locale === 'ar' ? 'مؤثث' : 'Furnished'}</option>
+                  </SelectField>
+                  <Field
+                    id="management-start"
+                    type="date"
+                    label={locale === 'ar' ? 'بدء الإدارة' : 'Management start'}
+                    value={profile.managementStartedOn}
+                    onChange={(event) => updateProfile('managementStartedOn', event.target.value)}
+                  />
+                  <Field
+                    id="management-fee"
+                    inputMode="decimal"
+                    label={`${locale === 'ar' ? 'رسوم الإدارة' : 'Management fee'} (${currency})`}
+                    value={profile.managementFee}
+                    onChange={(event) => updateProfile('managementFee', event.target.value)}
+                  />
+                </div>
+                <fieldset className="amenity-picker">
+                  <legend>{locale === 'ar' ? 'المرافق والخدمات' : 'Amenities & services'}</legend>
+                  <div className="amenity-picker__grid">
+                    {amenityOptions.map(([code, ar, en]) => (
+                      <label className="checkbox-row" key={code}>
+                        <input
+                          type="checkbox"
+                          checked={amenities.includes(code)}
+                          onChange={(event) =>
+                            setAmenities((current) =>
+                              event.target.checked
+                                ? [...current, code]
+                                : current.filter((value) => value !== code),
+                            )
+                          }
+                        />
+                        {locale === 'ar' ? ar : en}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              </div>
+            ) : null}
+            {step === 3 ? (
+              <div className="form-grid">
+                <Field
+                  id="deed-number"
+                  label={locale === 'ar' ? 'رقم سند الملكية' : 'Title deed number'}
+                  value={profile.deedNumber}
+                  onChange={(event) => updateProfile('deedNumber', event.target.value)}
+                />
+                <Field
+                  id="plot-number"
+                  label={locale === 'ar' ? 'رقم القطعة' : 'Plot number'}
+                  value={profile.plotNumber}
+                  onChange={(event) => updateProfile('plotNumber', event.target.value)}
+                />
+                <Field
+                  id="municipality-number"
+                  label={locale === 'ar' ? 'الرقم البلدي' : 'Municipality number'}
+                  value={profile.municipalityNumber}
+                  onChange={(event) => updateProfile('municipalityNumber', event.target.value)}
+                />
+                <Field
+                  id="insurance-number"
+                  label={locale === 'ar' ? 'رقم وثيقة التأمين' : 'Insurance policy number'}
+                  value={profile.insuranceNumber}
+                  onChange={(event) => updateProfile('insuranceNumber', event.target.value)}
+                />
+                <Field
+                  id="insurance-expiry"
+                  type="date"
+                  label={locale === 'ar' ? 'انتهاء التأمين' : 'Insurance expiry'}
+                  value={profile.insuranceExpiresOn}
+                  onChange={(event) => updateProfile('insuranceExpiresOn', event.target.value)}
+                />
+                <Field
+                  id="electricity-meter"
+                  label={locale === 'ar' ? 'عداد الكهرباء' : 'Electricity meter'}
+                  value={profile.electricityMeter}
+                  onChange={(event) => updateProfile('electricityMeter', event.target.value)}
+                />
+                <Field
+                  id="water-meter"
+                  label={locale === 'ar' ? 'عداد المياه' : 'Water meter'}
+                  value={profile.waterMeter}
+                  onChange={(event) => updateProfile('waterMeter', event.target.value)}
+                />
+                <TextAreaField
+                  id="property-notes"
+                  label={locale === 'ar' ? 'ملاحظات تشغيلية وقانونية' : 'Operational/legal notes'}
+                  value={profile.notes}
+                  onChange={(event) => updateProfile('notes', event.target.value)}
+                  maxLength={5000}
+                />
+                <p className="notice notice--info span-2">
+                  {locale === 'ar'
+                    ? 'يسجل النظام المالك المختار بحصة 100%، ويمكن تعديل الشركاء والحصص لاحقاً من سجل الملكية.'
+                    : 'The selected owner is recorded at 100%; co-owners and shares can be maintained later.'}
+                </p>
+              </div>
+            ) : null}
+            {step === 4 ? (
               <div className="upload-zone">
                 <label htmlFor="property-images">
                   <strong>{t('PropertyForm.images')}</strong>
@@ -537,7 +814,7 @@ export function PropertyWizard({
                 </ul>
               </div>
             ) : null}
-            {step === 3 ? (
+            {step === 5 ? (
               <div>
                 <h2>{t('PropertyForm.review')}</h2>
                 <dl className="detail-facts">
@@ -554,6 +831,14 @@ export function PropertyWizard({
                   <div>
                     <dt>{t('PropertyForm.media')}</dt>
                     <dd>{images.length}</dd>
+                  </div>
+                  <div>
+                    <dt>{locale === 'ar' ? 'المرافق' : 'Amenities'}</dt>
+                    <dd>{amenities.length}</dd>
+                  </div>
+                  <div>
+                    <dt>{locale === 'ar' ? 'غرض العرض' : 'Listing purpose'}</dt>
+                    <dd>{units.map((unit) => unit.listingPurpose).join('، ')}</dd>
                   </div>
                 </dl>
                 <p className="notice notice--info">{t('Property.watermark')}</p>
@@ -581,7 +866,7 @@ export function PropertyWizard({
               ) : (
                 <span />
               )}
-              {step < 3 ? (
+              {step < steps.length - 1 ? (
                 <Button type="submit" disabled={!validImages}>
                   {t('Common.continue')}
                 </Button>

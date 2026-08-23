@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, EmptyState, StatusBadge } from '@bhd-r/u
 import { getTranslations } from 'next-intl/server';
 import { apiFetch } from '@/lib/server-api';
 import type { PortalRole } from '@/lib/types';
+import { OperationsWorkspace, type OperationsSection } from './operations-workspace';
 
 interface Row {
   id: string;
@@ -15,10 +16,66 @@ interface Row {
 
 const allowedSections: Record<PortalRole, string[]> = {
   platform: ['organizations', 'users', 'audit', 'reports', 'settings'],
-  owner: ['properties', 'contracts', 'invoices', 'payments', 'maintenance', 'reports', 'team'],
-  developer: ['properties', 'contracts', 'invoices', 'payments', 'maintenance', 'reports', 'team'],
-  tenant: ['contracts', 'invoices', 'payments', 'maintenance'],
+  owner: [
+    'properties',
+    'requests',
+    'bookings',
+    'leasing',
+    'sales',
+    'contracts',
+    'invoices',
+    'payments',
+    'accounting',
+    'expenses',
+    'maintenance',
+    'work-orders',
+    'tasks',
+    'legal',
+    'approvals',
+    'reports',
+    'team',
+  ],
+  developer: [
+    'properties',
+    'requests',
+    'bookings',
+    'leasing',
+    'sales',
+    'contracts',
+    'invoices',
+    'payments',
+    'accounting',
+    'expenses',
+    'maintenance',
+    'work-orders',
+    'tasks',
+    'legal',
+    'approvals',
+    'reports',
+    'team',
+  ],
+  tenant: ['requests', 'contracts', 'invoices', 'payments', 'maintenance'],
 };
+
+const operationalSections = new Set<OperationsSection>([
+  'properties',
+  'requests',
+  'bookings',
+  'leasing',
+  'sales',
+  'contracts',
+  'invoices',
+  'payments',
+  'accounting',
+  'expenses',
+  'maintenance',
+  'work-orders',
+  'tasks',
+  'legal',
+  'approvals',
+  'reports',
+  'team',
+]);
 
 const labelKeys: Record<string, string> = {
   properties: 'Common.properties',
@@ -44,6 +101,11 @@ export async function PortalSection({
   const t = await getTranslations();
   const section = segments[0] ?? '';
   if (!allowedSections[portal].includes(section)) return <EmptyState title="404" />;
+
+  if (portal !== 'platform' && operationalSections.has(section as OperationsSection)) {
+    return <OperationsWorkspace portal={portal} section={section as OperationsSection} />;
+  }
+
   const endpoint: Record<string, string> = {
     'platform:organizations': '/v1/platform/organizations',
     'platform:audit': '/v1/platform/audit',

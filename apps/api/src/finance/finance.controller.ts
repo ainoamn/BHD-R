@@ -74,6 +74,12 @@ export class FinanceController {
     return this.service.recordPayment(request.auth!, body);
   }
 
+  @RequirePermissions('payment.read')
+  @Get('payments')
+  payments(@Req() request: FastifyRequest) {
+    return this.service.listPayments(request.auth!);
+  }
+
   @RequirePermissions('invoice.read')
   @Idempotent()
   @Post('invoices/:id/public-link')

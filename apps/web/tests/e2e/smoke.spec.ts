@@ -65,3 +65,29 @@ for (const portal of ['platform', 'owner', 'developer', 'tenant'] as const) {
     }
   });
 }
+
+test('owner portal exposes specialized operational modules with real records', async ({ page }) => {
+  const sections = [
+    ['requests', 'مركز الطلبات وخدمة العملاء', 'REQ-2026-0142'],
+    ['bookings', 'الحجوزات والمعاينات', 'VIEW-0041'],
+    ['sales', 'مبيعات العقارات', 'SALE-2026-008'],
+    ['accounting', 'المحاسبة والأستاذ العام', 'JV-2026-0038'],
+    ['work-orders', 'أوامر العمل والموردون', 'WO-2026-0077'],
+    ['legal', 'المحاماة والقضايا', 'LEG-2026-0014'],
+  ] as const;
+  for (const [section, heading, reference] of sections) {
+    await page.goto(`/ar/owner/${section}`);
+    await expect(page.locator('.ops-workspace')).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
+    await expect(page.getByText(reference, { exact: true })).toBeVisible();
+  }
+});
+
+test('complete property intake has operations, documents, media and review stages', async ({
+  page,
+}) => {
+  await page.goto('/ar/owner/properties/new');
+  await expect(page.locator('.steps li')).toHaveCount(6);
+  await expect(page.getByText('التشغيل والمرافق', { exact: true })).toBeVisible();
+  await expect(page.getByText('الملكية والوثائق', { exact: true })).toBeVisible();
+});

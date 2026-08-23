@@ -37,7 +37,7 @@ export const attachmentJobSchema = z.object({
 export const pdfJobSchema = z.object({
   ...context,
   documentId: z.string().uuid(),
-  documentType: z.enum(['contract', 'invoice', 'receipt']),
+  documentType: z.enum(['contract', 'invoice', 'receipt', 'report']),
   html: z.string().min(1).max(2_000_000),
   outputKey: z.string().min(1).max(1024),
   locale: z.enum(['ar', 'en']),
@@ -59,4 +59,13 @@ export const credentialNotificationJobSchema = z.object({
   outboxEventId: z.string().uuid(),
   credentialTokenId: z.string().uuid(),
   kind: z.enum(['activation', 'password_reset']),
+});
+
+export const domainEventJobSchema = z.object({
+  eventId: z.string().uuid(),
+  organizationId: z.string().uuid(),
+  aggregateType: z.string().min(1).max(100),
+  aggregateId: z.string().uuid(),
+  topic: z.string().min(1).max(160),
+  payload: z.unknown(),
 });

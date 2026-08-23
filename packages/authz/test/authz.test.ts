@@ -22,6 +22,16 @@ describe('central role permissions regression', () => {
     expect(combined).toContain('property.update');
     expect(combined).toContain('payment.reconcile');
   });
+
+  it('separates legal, maintenance and accounting duties', () => {
+    expect(rolePermissions.maintenance_agent).toContain('work_order.manage');
+    expect(rolePermissions.maintenance_agent).not.toContain('accounting.post');
+    expect(rolePermissions.finance_manager).toContain('accounting.post');
+    expect(rolePermissions.finance_manager).toContain('accounting.manage');
+    expect(rolePermissions.tenant).toContain('request.create');
+    expect(rolePermissions.tenant).not.toContain('legal.manage');
+    expect(rolePermissions.tenant).not.toContain('sale.manage');
+  });
 });
 
 describe('OIDC identity claims regression', () => {

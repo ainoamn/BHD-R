@@ -261,7 +261,12 @@ WITH CHECK (
 DO $worker_select$
 DECLARE table_name text;
 BEGIN
-  FOREACH table_name IN ARRAY ARRAY['outbox_events','media_assets','unit_media','units','contracts','contract_templates','invoices','credential_tokens','users'] LOOP
+  FOREACH table_name IN ARRAY ARRAY[
+    'outbox_events','media_assets','unit_media','units','contracts','contract_templates',
+    'invoices','credential_tokens','users','report_jobs','properties','leases','payments',
+    'maintenance_tickets','sales_deals','legal_cases','work_tasks','operational_requests',
+    'ledger_accounts','journal_entries','journal_lines','expenses','parties','addresses'
+  ] LOOP
     EXECUTE format('DROP POLICY IF EXISTS worker_select ON %I', table_name);
     EXECUTE format('CREATE POLICY worker_select ON %I FOR SELECT USING (app_private.is_worker())', table_name);
   END LOOP;
@@ -273,6 +278,67 @@ DROP POLICY IF EXISTS worker_update ON media_assets;
 CREATE POLICY worker_update ON media_assets FOR UPDATE USING (app_private.is_worker()) WITH CHECK (app_private.is_worker());
 DROP POLICY IF EXISTS worker_update ON contracts;
 CREATE POLICY worker_update ON contracts FOR UPDATE USING (app_private.is_worker()) WITH CHECK (app_private.is_worker());
+DROP POLICY IF EXISTS worker_update ON report_jobs;
+CREATE POLICY worker_update ON report_jobs FOR UPDATE USING (app_private.is_worker()) WITH CHECK (app_private.is_worker());
+
+-- Operational suites are organization-private. Tenants can only see or submit their own
+-- general requests; accounting, sales, legal, task and vendor records remain staff-only.
+ALTER TABLE operational_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE operational_requests FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS operational_requests_isolation ON operational_requests;
+CREATE POLICY operational_requests_isolation ON operational_requests
+USING (
+  app_private.is_platform_admin()
+  OR (
+    organization_id = app_private.current_organization_id()
+    AND (NOT app_private.is_tenant() OR requester_party_id = app_private.current_party_id())
+  )
+)
+WITH CHECK (
+  app_private.is_platform_admin()
+  OR (
+    organization_id = app_private.current_organization_id()
+    AND (NOT app_private.is_tenant() OR requester_party_id = app_private.current_party_id())
+  )
+);
+
+DO $operations_rls$
+DECLARE table_name text;
+BEGIN
+  FOREACH table_name IN ARRAY ARRAY[
+    'work_tasks','viewing_requests','sales_deals','vendors','maintenance_work_orders',
+    'legal_cases','legal_events','ledger_accounts','journal_entries','journal_lines',
+    'expenses','approval_requests','workflow_events'
+  ] LOOP
+    EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', table_name);
+    EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', table_name);
+    EXECUTE format('DROP POLICY IF EXISTS staff_isolation ON %I', table_name);
+    EXECUTE format(
+      'CREATE POLICY staff_isolation ON %I USING (app_private.is_platform_admin() OR (organization_id = app_private.current_organization_id() AND NOT app_private.is_tenant())) WITH CHECK (app_private.is_platform_admin() OR (organization_id = app_private.current_organization_id() AND NOT app_private.is_tenant()))',
+      table_name
+    );
+  END LOOP;
+END $operations_rls$;
+
+-- Detailed ownership, facility, meter and compliance records are deliberately
+-- private to organization staff. Public listing endpoints expose only an explicit
+-- allow-list assembled by the portfolio service.
+DO $property_operations_rls$
+DECLARE table_name text;
+BEGIN
+  FOREACH table_name IN ARRAY ARRAY[
+    'property_profiles','property_amenities','property_ownership_interests',
+    'utility_meters','property_documents'
+  ] LOOP
+    EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', table_name);
+    EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', table_name);
+    EXECUTE format('DROP POLICY IF EXISTS staff_isolation ON %I', table_name);
+    EXECUTE format(
+      'CREATE POLICY staff_isolation ON %I USING (app_private.is_platform_admin() OR (organization_id = app_private.current_organization_id() AND NOT app_private.is_tenant())) WITH CHECK (app_private.is_platform_admin() OR (organization_id = app_private.current_organization_id() AND NOT app_private.is_tenant()))',
+      table_name
+    );
+  END LOOP;
+END $property_operations_rls$;
 
 
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC;

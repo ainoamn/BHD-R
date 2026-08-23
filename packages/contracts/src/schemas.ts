@@ -18,6 +18,64 @@ export const addressSchema = z.object({
   longitude: z.number().min(-180).max(180).optional(),
 });
 
+export const propertyProfileSchema = z.object({
+  deedNumber: z.string().trim().max(120).optional(),
+  plotNumber: z.string().trim().max(120).optional(),
+  municipalityNumber: z.string().trim().max(120).optional(),
+  electricityAccountNumber: z.string().trim().max(120).optional(),
+  waterAccountNumber: z.string().trim().max(120).optional(),
+  landAreaSquareMeters: z
+    .string()
+    .regex(/^\d+(\.\d{1,3})?$/)
+    .optional(),
+  builtUpAreaSquareMeters: z
+    .string()
+    .regex(/^\d+(\.\d{1,3})?$/)
+    .optional(),
+  yearBuilt: z.number().int().min(1800).max(2200).optional(),
+  floorsCount: z.number().int().min(0).max(300).optional(),
+  parkingSpaces: z.number().int().min(0).max(10_000).optional(),
+  furnishing: z.enum(['unfurnished', 'semi_furnished', 'furnished']).default('unfurnished'),
+  managementStartedOn: z.iso.date().optional(),
+  managementFee: moneySchema.optional(),
+  notes: z.string().trim().max(5_000).optional(),
+});
+
+export const propertyAmenitySchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .min(1)
+    .max(80)
+    .regex(/^[a-z0-9_-]+$/),
+  labelAr: z.string().trim().max(120).optional(),
+  labelEn: z.string().trim().max(120).optional(),
+});
+
+export const utilityMeterSchema = z.object({
+  unitCode: z.string().trim().max(50).optional(),
+  utilityType: z.enum(['electricity', 'water', 'gas', 'internet', 'cooling', 'other']),
+  meterNumber: z.string().trim().min(1).max(120),
+  provider: z.string().trim().max(160).optional(),
+  accountNumber: z.string().trim().max(120).optional(),
+});
+
+export const propertyDocumentSchema = z.object({
+  documentType: z.enum([
+    'title_deed',
+    'municipality',
+    'insurance',
+    'management_agreement',
+    'noc',
+    'floor_plan',
+    'other',
+  ]),
+  documentNumber: z.string().trim().max(120).optional(),
+  issuedOn: z.iso.date().optional(),
+  expiresOn: z.iso.date().optional(),
+  notes: z.string().trim().max(2_000).optional(),
+});
+
 export const createPropertySchema = z.object({
   organizationId: uuidSchema,
   ownerPartyId: uuidSchema,
@@ -38,6 +96,10 @@ export const createPropertySchema = z.object({
   descriptionEn: z.string().trim().max(5_000).optional(),
   address: addressSchema,
   defaultCurrency: currencyCodeSchema.default('OMR'),
+  profile: propertyProfileSchema.optional(),
+  amenities: z.array(propertyAmenitySchema).max(100).default([]),
+  meters: z.array(utilityMeterSchema).max(500).default([]),
+  documents: z.array(propertyDocumentSchema).max(100).default([]),
 });
 
 export const createUnitSchema = z.object({
@@ -52,7 +114,9 @@ export const createUnitSchema = z.object({
     .string()
     .regex(/^\d+(\.\d{1,3})?$/)
     .optional(),
+  listingPurpose: z.enum(['rent', 'sale', 'both']).default('rent'),
   rent: moneySchema,
+  salePrice: moneySchema.optional(),
   deposit: moneySchema.optional(),
   publishWhenAvailable: z.boolean().default(false),
 });
@@ -64,6 +128,7 @@ export const listingSearchSchema = z.object({
   category: createPropertySchema.shape.category.optional(),
   bedrooms: z.coerce.number().int().min(0).optional(),
   currency: currencyCodeSchema.optional(),
+  listingPurpose: z.enum(['rent', 'sale']).optional(),
   minRentMinor: z.coerce.bigint().nonnegative().optional(),
   maxRentMinor: z.coerce.bigint().nonnegative().optional(),
   cursor: z.string().max(512).optional(),
@@ -85,7 +150,9 @@ export const publicListingSchema = z.object({
   bedrooms: z.number().int().nonnegative(),
   bathrooms: z.number().int().nonnegative(),
   areaSquareMeters: z.string().nullable(),
+  listingPurpose: z.enum(['rent', 'sale', 'both']),
   rent: moneySchema,
+  salePrice: moneySchema.nullable(),
   coverImageUrl: z.url().nullable(),
   available: z.literal(true),
   publishedAt: z.iso.datetime(),

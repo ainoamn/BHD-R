@@ -150,6 +150,20 @@ export class FinanceService {
     });
   }
 
+  listPayments(claims: SessionClaims) {
+    return this.database.withinTenant(claims, async (transaction) => {
+      const rows = await transaction
+        .select()
+        .from(payments)
+        .where(eq(payments.organizationId, claims.organizationId!));
+      return rows.map((row) => ({
+        ...row,
+        amountMinor: row.amountMinor.toString(),
+        refundedMinor: row.refundedMinor.toString(),
+      }));
+    });
+  }
+
   recordPayment(claims: SessionClaims, input: RecordPaymentInput) {
     return this.database.withinTenant(claims, (transaction) =>
       this.recordPaymentInTransaction(transaction, claims.organizationId!, input),

@@ -6,7 +6,21 @@ import { ZodPipe } from '../common/zod.pipe.js';
 import { ReportsService } from './reports.service.js';
 
 const reportSchema = z.object({
-  type: z.enum(['occupancy', 'rent_roll', 'income', 'arrears', 'maintenance', 'portfolio']),
+  type: z.enum([
+    'occupancy',
+    'rent_roll',
+    'income',
+    'arrears',
+    'maintenance',
+    'portfolio',
+    'sales_pipeline',
+    'legal_cases',
+    'task_performance',
+    'requests',
+    'trial_balance',
+    'general_ledger',
+    'expenses',
+  ]),
   format: z.enum(['csv', 'xlsx', 'pdf']),
   filters: z.record(z.string(), z.unknown()).default({}),
 });
@@ -15,6 +29,11 @@ export class ReportsController {
   constructor(private readonly service: ReportsService) {}
   @RequirePermissions('report.read') @Get() list(@Req() request: FastifyRequest) {
     return this.service.list(request.auth!);
+  }
+  @RequirePermissions('report.read') @Get('operational-summary') summary(
+    @Req() request: FastifyRequest,
+  ) {
+    return this.service.operationalSummary(request.auth!);
   }
   @RequirePermissions('report.read') @Get(':id') get(
     @Req() request: FastifyRequest,

@@ -36,7 +36,7 @@ export interface AttachmentJob extends JobContext {
 
 export interface PdfJob extends JobContext {
   documentId: string;
-  documentType: 'contract' | 'invoice' | 'receipt';
+  documentType: 'contract' | 'invoice' | 'receipt' | 'report';
   html: string;
   outputKey: string;
   locale: 'ar' | 'en';
@@ -56,6 +56,15 @@ export interface CredentialNotificationJob extends JobContext {
   outboxEventId: string;
   credentialTokenId: string;
   kind: 'activation' | 'password_reset';
+}
+
+export interface DomainEventJob {
+  eventId: string;
+  organizationId: string;
+  aggregateType: string;
+  aggregateId: string;
+  topic: string;
+  payload: unknown;
 }
 
 export interface DeadLetterJob {

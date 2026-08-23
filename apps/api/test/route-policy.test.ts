@@ -22,6 +22,8 @@ import {
 import { MaintenanceController } from '../src/maintenance/maintenance.controller.js';
 import { MediaController } from '../src/media/media.controller.js';
 import { ReportsController } from '../src/reports/reports.controller.js';
+import { AccountingController } from '../src/accounting/accounting.controller.js';
+import { OperationsController } from '../src/operations/operations.controller.js';
 import { PlatformController } from '../src/platform/platform.controller.js';
 import { HealthController } from '../src/health/health.controller.js';
 import {
@@ -46,6 +48,8 @@ const controllers = [
   MaintenanceController,
   MediaController,
   ReportsController,
+  AccountingController,
+  OperationsController,
   PlatformController,
   HealthController,
   DeveloperPortalController,

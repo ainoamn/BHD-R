@@ -23,9 +23,14 @@ import {
   outboxEvents,
   parties,
   properties,
+  propertyAmenities,
+  propertyDocuments,
+  propertyOwnershipInterests,
+  propertyProfiles,
   reservations,
   unitMedia,
   units,
+  utilityMeters,
 } from '@bhd-r/db';
 import type { SessionClaims } from '@bhd-r/authz';
 import {
@@ -135,13 +140,50 @@ export class PortfolioService {
         })
         .returning();
       const property = propertyRows[0]!;
+      await transaction.insert(propertyOwnershipInterests).values({
+        organizationId: claims.organizationId!,
+        propertyId: property.id,
+        partyId: input.property.ownerPartyId,
+        role: 'owner',
+        shareBasisPoints: 10_000,
+      });
+      if (input.property.profile) {
+        const { managementFee, ...profile } = input.property.profile;
+        if (managementFee && managementFee.currency !== input.property.defaultCurrency)
+          throw new ConflictException('Management fee currency must match property currency');
+        await transaction.insert(propertyProfiles).values({
+          organizationId: claims.organizationId!,
+          propertyId: property.id,
+          ...profile,
+          managementFeeMinor: managementFee ? BigInt(managementFee.amountMinor) : null,
+        });
+      }
+      if (input.property.amenities.length) {
+        await transaction.insert(propertyAmenities).values(
+          input.property.amenities.map((amenity) => ({
+            organizationId: claims.organizationId!,
+            propertyId: property.id,
+            ...amenity,
+          })),
+        );
+      }
+      if (input.property.documents.length) {
+        await transaction.insert(propertyDocuments).values(
+          input.property.documents.map((document) => ({
+            organizationId: claims.organizationId!,
+            propertyId: property.id,
+            ...document,
+          })),
+        );
+      }
       const unitRows = await transaction
         .insert(units)
         .values(
           input.units.map((unit) => {
             if (
               unit.rent.currency !== input.property.defaultCurrency ||
-              (unit.deposit && unit.deposit.currency !== unit.rent.currency)
+              (unit.deposit && unit.deposit.currency !== unit.rent.currency) ||
+              (unit.salePrice && unit.salePrice.currency !== unit.rent.currency)
             )
               throw new ConflictException('Unit currencies must match property currency');
             return {
@@ -155,15 +197,33 @@ export class PortfolioService {
               bathrooms: unit.bathrooms,
               areaSquareMeters: unit.areaSquareMeters,
               rentMinor: BigInt(unit.rent.amountMinor),
+              salePriceMinor: unit.salePrice ? BigInt(unit.salePrice.amountMinor) : null,
               depositMinor: unit.deposit ? BigInt(unit.deposit.amountMinor) : null,
               currency: unit.rent.currency,
               minorUnit: currencyMinorUnits[unit.rent.currency],
+              listingPurpose: unit.listingPurpose,
               publishWhenAvailable: unit.publishWhenAvailable,
               status: 'active' as const,
             };
           }),
         )
         .returning();
+      if (input.property.meters.length) {
+        const unitsByCode = new Map(unitRows.map((unit) => [unit.code, unit.id]));
+        await transaction.insert(utilityMeters).values(
+          input.property.meters.map(({ unitCode, ...meter }) => {
+            const unitId = unitCode ? unitsByCode.get(unitCode) : undefined;
+            if (unitCode && !unitId)
+              throw new NotFoundException(`Utility meter unit code not found: ${unitCode}`);
+            return {
+              organizationId: claims.organizationId!,
+              propertyId: property.id,
+              unitId: unitId ?? null,
+              ...meter,
+            };
+          }),
+        );
+      }
       for (const [position, unit] of unitRows.entries()) {
         await transaction.insert(listings).values({
           organizationId: claims.organizationId!,
@@ -192,6 +252,7 @@ export class PortfolioService {
         units: unitRows.map((unit) => ({
           ...unit,
           rentMinor: unit.rentMinor.toString(),
+          salePriceMinor: unit.salePriceMinor?.toString() ?? null,
           depositMinor: unit.depositMinor?.toString() ?? null,
         })),
       };
@@ -211,11 +272,43 @@ export class PortfolioService {
             .select()
             .from(units)
             .where(eq(units.propertyId, property.id));
+          const [profile, amenities, meters, documents, ownership] = await Promise.all([
+            transaction.query.propertyProfiles.findFirst({
+              where: eq(propertyProfiles.propertyId, property.id),
+            }),
+            transaction
+              .select()
+              .from(propertyAmenities)
+              .where(eq(propertyAmenities.propertyId, property.id)),
+            transaction
+              .select()
+              .from(utilityMeters)
+              .where(eq(utilityMeters.propertyId, property.id)),
+            transaction
+              .select()
+              .from(propertyDocuments)
+              .where(eq(propertyDocuments.propertyId, property.id)),
+            transaction
+              .select()
+              .from(propertyOwnershipInterests)
+              .where(eq(propertyOwnershipInterests.propertyId, property.id)),
+          ]);
           return {
             ...property,
+            profile: profile
+              ? {
+                  ...profile,
+                  managementFeeMinor: profile.managementFeeMinor?.toString() ?? null,
+                }
+              : null,
+            amenities,
+            meters,
+            documents,
+            ownership,
             units: unitRows.map((unit) => ({
               ...unit,
               rentMinor: unit.rentMinor.toString(),
+              salePriceMinor: unit.salePriceMinor?.toString() ?? null,
               depositMinor: unit.depositMinor?.toString() ?? null,
             })),
           };
@@ -299,6 +392,8 @@ export class PortfolioService {
       if (input.category) conditions.push(eq(properties.category, input.category));
       if (input.bedrooms !== undefined) conditions.push(eq(units.bedrooms, input.bedrooms));
       if (input.currency) conditions.push(eq(units.currency, input.currency));
+      if (input.listingPurpose)
+        conditions.push(inArray(units.listingPurpose, [input.listingPurpose, 'both']));
       if (input.minRentMinor !== undefined)
         conditions.push(sql`${units.rentMinor} >= ${input.minRentMinor}`);
       if (input.maxRentMinor !== undefined)
@@ -326,7 +421,9 @@ export class PortfolioService {
           bedrooms: units.bedrooms,
           bathrooms: units.bathrooms,
           areaSquareMeters: units.areaSquareMeters,
+          listingPurpose: units.listingPurpose,
           rentMinor: units.rentMinor,
+          salePriceMinor: units.salePriceMinor,
           currency: units.currency,
           governorate: addresses.governorate,
           wilayat: addresses.wilayat,
@@ -360,7 +457,12 @@ export class PortfolioService {
           bedrooms: row.bedrooms,
           bathrooms: row.bathrooms,
           areaSquareMeters: row.areaSquareMeters,
+          listingPurpose: row.listingPurpose,
           rent: { amountMinor: row.rentMinor.toString(), currency: row.currency },
+          salePrice:
+            row.salePriceMinor === null
+              ? null
+              : { amountMinor: row.salePriceMinor.toString(), currency: row.currency },
           coverImageUrl: publicAssetUrl(row.coverObjectKey),
           available: true,
           publishedAt: row.publishedAt!.toISOString(),
@@ -407,7 +509,9 @@ export class PortfolioService {
           bedrooms: units.bedrooms,
           bathrooms: units.bathrooms,
           areaSquareMeters: units.areaSquareMeters,
+          listingPurpose: units.listingPurpose,
           rentMinor: units.rentMinor,
+          salePriceMinor: units.salePriceMinor,
           depositMinor: units.depositMinor,
           currency: units.currency,
           governorate: addresses.governorate,
@@ -458,7 +562,12 @@ export class PortfolioService {
         bedrooms: row.bedrooms,
         bathrooms: row.bathrooms,
         areaSquareMeters: row.areaSquareMeters,
+        listingPurpose: row.listingPurpose,
         rent: { amountMinor: row.rentMinor.toString(), currency: row.currency },
+        salePrice:
+          row.salePriceMinor === null
+            ? null
+            : { amountMinor: row.salePriceMinor.toString(), currency: row.currency },
         deposit:
           row.depositMinor === null
             ? null
@@ -516,7 +625,9 @@ export class PortfolioService {
           bedrooms: units.bedrooms,
           bathrooms: units.bathrooms,
           areaSquareMeters: units.areaSquareMeters,
+          listingPurpose: units.listingPurpose,
           rentMinor: units.rentMinor,
+          salePriceMinor: units.salePriceMinor,
           currency: units.currency,
           governorate: addresses.governorate,
           wilayat: addresses.wilayat,
@@ -546,7 +657,12 @@ export class PortfolioService {
           bedrooms: row.bedrooms,
           bathrooms: row.bathrooms,
           areaSquareMeters: row.areaSquareMeters,
+          listingPurpose: row.listingPurpose,
           rent: { amountMinor: row.rentMinor.toString(), currency: row.currency },
+          salePrice:
+            row.salePriceMinor === null
+              ? null
+              : { amountMinor: row.salePriceMinor.toString(), currency: row.currency },
           governorate: row.governorate,
           wilayat: row.wilayat,
           coverImageUrl: publicAssetUrl(row.coverObjectKey),

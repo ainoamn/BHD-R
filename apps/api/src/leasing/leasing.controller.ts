@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Req } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { createHoldSchema, createLeaseSchema } from '@bhd-r/contracts';
@@ -13,6 +13,7 @@ const reservationSchema = z.object({
 });
 const leaseSchema = createLeaseSchema.extend({
   additionalTerms: z.string().max(10_000).optional(),
+  reservationId: z.uuid().optional(),
 });
 const challengeSchema = z.discriminatedUnion('authenticationMethod', [
   z.object({ authenticationMethod: z.literal('oidc_reauthentication') }),
@@ -98,5 +99,74 @@ export class LeasingController {
   @Get('leases')
   list(@Req() request: FastifyRequest) {
     return this.service.listTenantLeases(request.auth!);
+  }
+
+  @RequirePermissions('reservation.read')
+  @Get('holds')
+  holds(@Req() request: FastifyRequest) {
+    return this.service.listHolds(request.auth!);
+  }
+
+  @RequirePermissions('reservation.manage')
+  @Patch('holds/:id/cancel')
+  cancelHold(@Req() request: FastifyRequest, @Param('id', ParseUUIDPipe) id: string) {
+    return this.service.cancelHold(request.auth!, id);
+  }
+
+  @RequirePermissions('reservation.read')
+  @Get('reservations')
+  reservations(@Req() request: FastifyRequest) {
+    return this.service.listReservations(request.auth!);
+  }
+
+  @RequirePermissions('reservation.manage')
+  @Patch('reservations/:id')
+  updateReservation(
+    @Req() request: FastifyRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(
+      new ZodPipe(
+        z
+          .object({
+            status: z.enum(['confirmed', 'cancelled']),
+            note: z.string().max(5000).optional(),
+          })
+          .strict(),
+      ),
+    )
+    body: { status: 'confirmed' | 'cancelled'; note?: string },
+  ) {
+    return this.service.updateReservation(request.auth!, id, body);
+  }
+
+  @RequirePermissions('contract.read')
+  @Get('contracts')
+  contracts(@Req() request: FastifyRequest) {
+    return this.service.listContracts(request.auth!);
+  }
+
+  @RequirePermissions('lease.update')
+  @Patch('leases/:id')
+  updateLease(
+    @Req() request: FastifyRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(
+      new ZodPipe(
+        z
+          .object({
+            action: z.enum(['activate', 'end', 'terminate', 'renew']),
+            endsOn: z.iso.date().optional(),
+            note: z.string().max(5000).optional(),
+          })
+          .strict(),
+      ),
+    )
+    body: {
+      action: 'activate' | 'end' | 'terminate' | 'renew';
+      endsOn?: string;
+      note?: string;
+    },
+  ) {
+    return this.service.updateLease(request.auth!, id, body);
   }
 }

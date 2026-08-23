@@ -976,6 +976,23 @@ h3 {
   height: 1.15rem;
   accent-color: var(--maroon-800);
 }
+.amenity-picker {
+  padding: 1rem;
+  margin-top: 1.1rem;
+  background: #f8faf8;
+  border: 1px solid #dfe8e2;
+  border-radius: 0.8rem;
+}
+.amenity-picker legend {
+  padding-inline: 0.45rem;
+  color: var(--oman-deep);
+  font-weight: 900;
+}
+.amenity-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
 .upload-zone {
   padding: 2rem;
   border: 2px dashed var(--gold-300);
@@ -2422,5 +2439,338 @@ h3 {
   }
   .login-brand-panel {
     min-height: 22rem;
+  }
+}
+
+/* Operational workspaces */
+.portal-sidebar {
+  position: sticky;
+  inset-block-start: 0;
+  height: 100svh;
+  overflow-y: auto;
+  background:
+    radial-gradient(circle at 22% 0%, rgb(212 175 55 / 0.14), transparent 21rem),
+    linear-gradient(165deg, #092d24 0%, #061f19 54%, #071a25 100%);
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.24) transparent;
+}
+.portal-main {
+  background:
+    radial-gradient(circle at 100% 0%, rgb(12 107 69 / 0.055), transparent 30rem), #f8f6f1;
+}
+.ops-workspace {
+  width: min(100%, 100rem);
+  margin-inline: auto;
+}
+.ops-header {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: clamp(1.25rem, 2.5vw, 2rem);
+  overflow: hidden;
+  color: white;
+  background:
+    linear-gradient(110deg, rgb(4 42 33 / 0.97), rgb(8 82 61 / 0.92)),
+    url('/images/oman-pattern.svg') center / 520px;
+  border: 1px solid rgb(255 255 255 / 0.08);
+  border-radius: 1.25rem;
+  box-shadow: 0 1.1rem 2.8rem rgb(5 39 31 / 0.13);
+}
+.ops-header::after {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  width: 0.32rem;
+  content: '';
+  background: linear-gradient(var(--oman-red) 0 34%, white 34% 66%, #15915e 66%);
+}
+.ops-header h1 {
+  margin: 0.15rem 0 0.45rem;
+  color: white;
+  font-size: clamp(1.65rem, 3vw, 2.5rem);
+  letter-spacing: -0.025em;
+}
+.ops-header p {
+  max-width: 49rem;
+  margin: 0;
+  color: rgb(255 255 255 / 0.72);
+  line-height: 1.75;
+}
+.ops-header__actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.ops-kicker {
+  color: var(--gold-300);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.ops-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-block: 1rem;
+}
+.ops-metrics > div {
+  min-width: 0;
+  padding: 1rem 1.1rem;
+  background: rgb(255 255 255 / 0.82);
+  border: 1px solid rgb(9 71 54 / 0.09);
+  border-radius: 0.95rem;
+  box-shadow: 0 0.45rem 1.5rem rgb(5 39 31 / 0.045);
+}
+.ops-metrics span,
+.ops-metrics small {
+  display: block;
+  overflow: hidden;
+  color: #6a7771;
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ops-metrics strong {
+  display: block;
+  margin-block: 0.3rem 0.1rem;
+  overflow: hidden;
+  color: var(--oman-deep);
+  font-size: clamp(1.25rem, 2.2vw, 1.85rem);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ops-metric--accent {
+  color: white !important;
+  background: linear-gradient(145deg, #0a6b4b, #074939) !important;
+}
+.ops-metric--accent span,
+.ops-metric--accent small,
+.ops-metric--accent strong {
+  color: inherit;
+}
+.ops-flow {
+  display: flex;
+  gap: 0.3rem;
+  padding: 0.35rem;
+  margin-bottom: 1rem;
+  overflow-x: auto;
+  background: #ede9df;
+  border: 1px solid rgb(9 71 54 / 0.08);
+  border-radius: 0.8rem;
+  scrollbar-width: thin;
+}
+.ops-flow > span {
+  position: relative;
+  flex: 1 0 auto;
+  min-width: 7rem;
+  padding: 0.62rem 0.8rem;
+  color: #5d6e66;
+  background: rgb(255 255 255 / 0.72);
+  border-radius: 0.55rem;
+  text-align: center;
+  font-size: 0.73rem;
+  font-weight: 800;
+}
+.ops-panel {
+  overflow: hidden;
+  background: rgb(255 255 255 / 0.94);
+  border: 1px solid rgb(9 71 54 / 0.1);
+  border-radius: 1rem;
+  box-shadow: 0 0.7rem 2rem rgb(5 39 31 / 0.045);
+}
+.ops-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.9rem 1rem;
+  background: #fbfaf7;
+  border-bottom: 1px solid #ece8df;
+}
+.ops-search {
+  position: relative;
+  flex: 1;
+}
+.ops-search input {
+  width: 100%;
+  min-height: 2.65rem;
+  padding-inline: 2.5rem 0.8rem;
+  background: white;
+  border: 1px solid #dedbd3;
+  border-radius: 0.7rem;
+}
+.ops-search::before {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 0.9rem;
+  color: #718079;
+  content: '⌕';
+  transform: translateY(-50%);
+}
+.ops-toolbar .select {
+  width: auto;
+  min-width: 10rem;
+}
+.ops-result-count {
+  flex: 0 0 auto;
+  color: #6a7771;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+.ops-table th {
+  color: #304a40;
+  background: #f5f3ed;
+  border-color: #e6e1d8;
+  font-weight: 900;
+}
+.ops-table tbody tr {
+  transition: background 120ms ease;
+}
+.ops-table tbody tr:hover {
+  background: #f7fbf9;
+}
+.ops-table td {
+  max-width: 19rem;
+  overflow: hidden;
+  color: #2d3d37;
+  text-overflow: ellipsis;
+}
+.ops-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.28rem 0.55rem;
+  color: #4f5e58;
+  background: #edf0ee;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+.ops-status::before {
+  width: 0.4rem;
+  height: 0.4rem;
+  content: '';
+  background: currentColor;
+  border-radius: 50%;
+}
+.ops-status--positive {
+  color: #08734c;
+  background: #e7f6ef;
+}
+.ops-status--warning {
+  color: #9a6100;
+  background: #fff4d6;
+}
+.ops-status--danger {
+  color: #a3292d;
+  background: #feecec;
+}
+.ops-status--info {
+  color: #1b5e91;
+  background: #eaf4fc;
+}
+.ops-action {
+  min-height: 2rem;
+  padding: 0.35rem 0.55rem;
+  color: var(--oman-deep);
+  background: #eef6f2;
+  border: 1px solid #d2e7dc;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+.ops-action:hover {
+  color: white;
+  background: var(--bhd-teal);
+}
+.ops-empty {
+  display: grid;
+  min-height: 18rem;
+  place-content: center;
+  padding: 2rem;
+  color: #6a7771;
+  text-align: center;
+}
+.ops-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  overflow-y: auto;
+  background: rgb(3 25 20 / 0.72);
+  backdrop-filter: blur(8px);
+}
+.ops-modal__card {
+  width: min(100%, 52rem);
+  max-height: calc(100svh - 2rem);
+  padding: clamp(1rem, 3vw, 1.7rem);
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid rgb(255 255 255 / 0.4);
+  border-radius: 1.15rem;
+  box-shadow: 0 2rem 6rem rgb(0 0 0 / 0.28);
+}
+.ops-modal__card > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.ops-modal__card h2 {
+  margin: 0;
+  color: var(--oman-deep);
+}
+
+@media (max-width: 1100px) {
+  .ops-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .portal-sidebar {
+    position: static;
+    height: auto;
+    overflow: visible;
+  }
+  .ops-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .ops-toolbar {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+  .ops-search {
+    flex-basis: 100%;
+  }
+  .ops-toolbar .select {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .ops-metrics {
+    grid-template-columns: 1fr;
+  }
+  .ops-header__actions,
+  .ops-header__actions .button {
+    width: 100%;
+  }
+  .ops-flow > span {
+    min-width: 6.5rem;
+  }
+  .amenity-picker__grid {
+    grid-template-columns: 1fr;
   }
 }

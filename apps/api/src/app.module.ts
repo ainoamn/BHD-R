@@ -13,6 +13,8 @@ import { ReportsModule } from './reports/reports.module.js';
 import { PlatformModule } from './platform/platform.module.js';
 import { HealthModule } from './health/health.module.js';
 import { PortalsModule } from './portals/portals.module.js';
+import { OperationsModule } from './operations/operations.module.js';
+import { AccountingModule } from './accounting/accounting.module.js';
 import { AuthenticationGuard } from './common/auth.guard.js';
 import { CsrfGuard } from './common/csrf.guard.js';
 import { PermissionGuard } from './common/permission.guard.js';
@@ -34,6 +36,8 @@ import { HttpExceptionFilter } from './common/http-exception.filter.js';
     ReportsModule,
     PlatformModule,
     PortalsModule,
+    OperationsModule,
+    AccountingModule,
     HealthModule,
   ],
   providers: [

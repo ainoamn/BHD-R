@@ -14,12 +14,14 @@ import { ClamAvScanner, DisabledScanner } from './media/scanner.js';
 import { createNotificationProcessor } from './notifications/processor.js';
 import { OutboxDispatcher } from './outbox.js';
 import { createPdfProcessor } from './pdf/processor.js';
+import { createReportProcessor } from './reports/processor.js';
 import { ObjectStorage } from './storage.js';
 import {
   QUEUES,
   type AttachmentJob,
   type CredentialNotificationJob,
   type DeadLetterJob,
+  type DomainEventJob,
   type MediaJob,
   type NotificationJob,
   type PdfJob,
@@ -27,6 +29,7 @@ import {
 import {
   attachmentJobSchema,
   credentialNotificationJobSchema,
+  domainEventJobSchema,
   mediaJobSchema,
   notificationJobSchema,
   pdfJobSchema,
@@ -52,6 +55,7 @@ const processMedia = createMediaProcessor(config, storage, scanner);
 const processAttachment = createAttachmentProcessor(config, storage, scanner);
 const processPdf = createPdfProcessor(config, storage);
 const processNotification = createNotificationProcessor(config);
+const processReport = createReportProcessor(pool, storage, processPdf);
 
 const credentialPayloadSchema = z.object({
   tokenEncrypted: z.string().min(1).max(10_000),
@@ -250,12 +254,22 @@ const workers = [
       }),
     { connection: connection(), concurrency: 5, limiter: { max: 15, duration: 1_000 } },
   ),
+  new Worker(
+    QUEUES.domain,
+    (job: Job<DomainEventJob>) =>
+      runPermanentSafe(() => processReport(domainEventJobSchema.parse(job.data))),
+    { connection: connection(), concurrency: 2, limiter: { max: 5, duration: 1_000 } },
+  ),
 ];
 
 for (const worker of workers) {
   worker.on('completed', (job) => {
     logger.info(
-      { queue: worker.name, jobId: job.id, correlationId: job.data.correlationId },
+      {
+        queue: worker.name,
+        jobId: job.id,
+        correlationId: 'correlationId' in job.data ? job.data.correlationId : job.data.eventId,
+      },
       'Job completed',
     );
   });
@@ -267,7 +281,7 @@ for (const worker of workers) {
       {
         queue: worker.name,
         jobId: job.id,
-        correlationId: job.data.correlationId,
+        correlationId: 'correlationId' in job.data ? job.data.correlationId : job.data.eventId,
         attemptsMade: job.attemptsMade,
         err: error,
       },
@@ -280,9 +294,11 @@ for (const worker of workers) {
       {
         queue: worker.name,
         jobId: String(job.id),
-        ...(typeof job.data.correlationId === 'string'
+        ...('correlationId' in job.data && typeof job.data.correlationId === 'string'
           ? { correlationId: job.data.correlationId }
-          : {}),
+          : 'eventId' in job.data
+            ? { correlationId: job.data.eventId }
+            : {}),
         attemptsMade: job.attemptsMade,
         errorCode: errorCode.slice(0, 100),
         failedAt: new Date().toISOString(),
