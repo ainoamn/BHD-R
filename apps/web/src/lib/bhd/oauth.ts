@@ -13,10 +13,14 @@ export function identitySettings(origin: string) {
     process.env.BHD_OAUTH_CLIENT_ID ?? process.env.BHD_IDENTITY_CLIENT_ID ?? 'bhd-r';
   const clientSecret =
     process.env.BHD_OAUTH_CLIENT_SECRET ?? process.env.BHD_IDENTITY_CLIENT_SECRET ?? '';
-  const redirectUri =
-    process.env.BHD_OAUTH_REDIRECT_URI ??
-    process.env.BHD_IDENTITY_REDIRECT_URI ??
-    `${origin.replace(/\/$/, '')}/api/auth/bhd/callback`;
+  const configured =
+    process.env.BHD_OAUTH_REDIRECT_URI ?? process.env.BHD_IDENTITY_REDIRECT_URI ?? '';
+  // Canonical product path per BHD-PRODUCT-SSO-ADMIN; rewrite legacy Nest/OIDC path if still in env
+  const redirectUri = (
+    configured.includes('/v1/auth/oidc/callback')
+      ? configured.replace('/v1/auth/oidc/callback', '/api/auth/bhd/callback')
+      : configured || `${origin.replace(/\/$/, '')}/api/auth/bhd/callback`
+  ).replace(/\/$/, '');
   return { issuer, clientId, clientSecret, redirectUri };
 }
 
