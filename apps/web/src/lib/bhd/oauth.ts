@@ -9,18 +9,38 @@ export type OidcState = {
 
 export function identitySettings(origin: string) {
   const issuer = (process.env.BHD_IDENTITY_ISSUER ?? 'https://id.bhd-om.com').replace(/\/$/, '');
-  const clientId =
-    process.env.BHD_OAUTH_CLIENT_ID ?? process.env.BHD_IDENTITY_CLIENT_ID ?? 'bhd-r';
-  const clientSecret =
-    process.env.BHD_OAUTH_CLIENT_SECRET ?? process.env.BHD_IDENTITY_CLIENT_SECRET ?? '';
-  const configured =
-    process.env.BHD_OAUTH_REDIRECT_URI ?? process.env.BHD_IDENTITY_REDIRECT_URI ?? '';
-  // Canonical product path per BHD-PRODUCT-SSO-ADMIN; rewrite legacy Nest/OIDC path if still in env
-  const redirectUri = (
-    configured.includes('/v1/auth/oidc/callback')
+  const clientId = (
+    process.env.BHD_OAUTH_CLIENT_ID ??
+    process.env.BHD_IDENTITY_CLIENT_ID ??
+    'bhd-r'
+  )
+    .replace(/^\uFEFF/, '')
+    .trim();
+  const clientSecret = (
+    process.env.BHD_OAUTH_CLIENT_SECRET ??
+    process.env.BHD_IDENTITY_CLIENT_SECRET ??
+    ''
+  )
+    .replace(/^\uFEFF/, '')
+    .trim();
+  const configured = (
+    process.env.BHD_OAUTH_REDIRECT_URI ??
+    process.env.BHD_IDENTITY_REDIRECT_URI ??
+    ''
+  )
+    .replace(/^\uFEFF/, '')
+    .trim();
+  const canonical = `${origin.replace(/\/$/, '')}/api/auth/bhd/callback`;
+  // Prefer request origin so Host-only cookies and authorize stay aligned; sanitize legacy env paths
+  let redirectUri = canonical;
+  if (configured) {
+    const normalized = configured.includes('/v1/auth/oidc/callback')
       ? configured.replace('/v1/auth/oidc/callback', '/api/auth/bhd/callback')
-      : configured || `${origin.replace(/\/$/, '')}/api/auth/bhd/callback`
-  ).replace(/\/$/, '');
+      : configured;
+    if (/^https?:\/\/[^\s]+\/api\/auth\/bhd\/callback$/i.test(normalized)) {
+      redirectUri = normalized;
+    }
+  }
   return { issuer, clientId, clientSecret, redirectUri };
 }
 
