@@ -20,8 +20,20 @@ const bhdErrors: Record<string, { ar: string; en: string }> = {
     en: 'Identity token exchange failed.',
   },
   api: {
-    ar: 'لم تُضبط قاعدة البيانات أو عنوان API على Vercel (DATABASE_URL أو API_INTERNAL_ORIGIN).',
-    en: 'Database or public API is not configured on Vercel (DATABASE_URL or API_INTERNAL_ORIGIN).',
+    ar: 'لم تُضبط قاعدة البيانات على Vercel (DATABASE_URL).',
+    en: 'DATABASE_URL is not configured on Vercel.',
+  },
+  verify: {
+    ar: 'تعذّر التحقق من توكن الهوية. راجع BHD_IDENTITY_TOKEN_SECRET.',
+    en: 'Could not verify the identity token. Check BHD_IDENTITY_TOKEN_SECRET.',
+  },
+  db: {
+    ar: 'تعذّر الاتصال بقاعدة بيانات BHD R.',
+    en: 'Could not reach the BHD R database.',
+  },
+  upsert: {
+    ar: 'تعذّر ربط أو إنشاء مستخدم المنتج بعد الدخول.',
+    en: 'Could not link or create the product user after sign-in.',
   },
   session: {
     ar: 'تعذّر إنشاء جلسة BHD R بعد التحقق من الهوية.',

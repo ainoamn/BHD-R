@@ -154,15 +154,20 @@ async function provisionIdentityUser(
 export async function issueIdentitySession(input: {
   idToken: string;
   nonce: string;
+  accessToken?: string;
 }): Promise<IssuedSession> {
   const identityTokenSecret =
-    process.env.BHD_IDENTITY_TOKEN_SECRET ?? process.env.IDENTITY_TOKEN_SECRET;
+    process.env.BHD_IDENTITY_TOKEN_SECRET?.trim() ||
+    process.env.IDENTITY_TOKEN_SECRET?.trim() ||
+    process.env.AUTH_SECRET?.trim() ||
+    undefined;
   const identity = await verifyIdentityToken({
     token: input.idToken,
     issuer: process.env.BHD_IDENTITY_ISSUER ?? 'https://id.bhd-om.com',
     clientId: process.env.BHD_OAUTH_CLIENT_ID ?? process.env.BHD_IDENTITY_CLIENT_ID ?? 'bhd-r',
     expectedNonce: input.nonce,
     ...(identityTokenSecret ? { sharedSecret: identityTokenSecret } : {}),
+    ...(input.accessToken ? { accessToken: input.accessToken } : {}),
   });
   const verifiedClaims = decodeJwt(input.idToken);
   if (verifiedClaims.nonce !== input.nonce) throw new Error('Identity nonce mismatch');

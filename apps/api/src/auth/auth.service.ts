@@ -243,7 +243,10 @@ export class AuthService {
     expectedNonce: string,
   ): Promise<IssuedSession> {
     const identityTokenSecret =
-      process.env.BHD_IDENTITY_TOKEN_SECRET ?? process.env.IDENTITY_TOKEN_SECRET;
+      process.env.BHD_IDENTITY_TOKEN_SECRET?.trim() ||
+      process.env.IDENTITY_TOKEN_SECRET?.trim() ||
+      process.env.AUTH_SECRET?.trim() ||
+      undefined;
     const identity = await verifyIdentityToken({
       token: idToken,
       issuer: process.env.BHD_IDENTITY_ISSUER ?? 'https://id.bhd-om.com',

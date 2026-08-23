@@ -10,7 +10,17 @@ import { hasDatabaseUrl, issueIdentitySession } from '@/lib/bhd/identity-session
 
 export const runtime = 'nodejs';
 
-/** GET /api/auth/bhd/callback — required by BHD-PRODUCT-SSO-ADMIN §3.1 */
+function classifySessionError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/missing_hs256|JWKS|jwt|userinfo|nonce|audience|issuer|alg|secret/i.test(message)) {
+    return 'verify';
+  }
+  if (/DATABASE|connect|ECONN|timeout|ssl|Neon/i.test(message)) return 'db';
+  if (/membership|organization|insert|unique|constraint/i.test(message)) return 'upsert';
+  return 'session';
+}
+
+/** GET /api/auth/bhd/callback — same product flow as Nasab / WAZEN / bhd-om */
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
@@ -58,68 +68,69 @@ export async function GET(request: Request) {
     return clearAndRedirect('/ar/login?bhd=unsafe');
   }
 
+  const tokenBody = new URLSearchParams({
+    grant_type: 'authorization_code',
+    code,
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    code_verifier: saved.verifier,
+  });
+  // Match Nasab/WAZEN: send client_secret when configured (first-party may omit)
+  if (clientSecret) tokenBody.set('client_secret', clientSecret);
+
   const tokenResponse = await fetch(discovery.token_endpoint, {
     method: 'POST',
     signal: AbortSignal.timeout(8_000),
     redirect: 'error',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'authorization_code',
-      code,
-      client_id: clientId,
-      client_secret: clientSecret,
-      redirect_uri: redirectUri,
-      code_verifier: saved.verifier,
-    }),
+    body: tokenBody,
   });
-  if (!tokenResponse.ok) return clearAndRedirect('/ar/login?bhd=token');
-  const tokens = z.object({ id_token: z.string().min(20) }).parse(await tokenResponse.json());
+  if (!tokenResponse.ok) {
+    console.error('[bhd callback] token', tokenResponse.status, await tokenResponse.text());
+    return clearAndRedirect('/ar/login?bhd=token');
+  }
+  const tokens = z
+    .object({
+      id_token: z.string().min(20),
+      access_token: z.string().min(8).optional(),
+    })
+    .parse(await tokenResponse.json());
 
   let issued: { token: string; csrf: string };
   try {
-    if (hasDatabaseUrl()) {
-      issued = await issueIdentitySession({
-        idToken: tokens.id_token,
-        nonce: saved.nonce,
-      });
-    } else {
-      const apiOrigin = (process.env.API_INTERNAL_ORIGIN ?? process.env.API_ORIGIN ?? '').replace(
-        /\/$/,
-        '',
-      );
-      const apiPublic =
-        /^https:\/\//i.test(apiOrigin) &&
-        !/localhost|127\.0\.0\.1|\.local|\.internal/i.test(apiOrigin);
-
-      if (!apiPublic && process.env.VERCEL) {
-        return clearAndRedirect('/ar/login?bhd=api');
-      }
-
-      const sessionApi = apiPublic
-        ? `${apiOrigin}/v1/auth/identity/session`
-        : `${process.env.API_INTERNAL_ORIGIN ?? 'http://127.0.0.1:4000'}/v1/auth/identity/session`;
-
-      const sessionResponse = await fetch(sessionApi, {
-        method: 'POST',
-        signal: AbortSignal.timeout(10_000),
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ idToken: tokens.id_token, nonce: saved.nonce }),
-      }).catch(() => null);
-
-      if (!sessionResponse?.ok) {
-        const codeHint = sessionResponse?.status === 401 ? 'account' : 'session';
-        return clearAndRedirect(`/ar/login?bhd=${codeHint}`);
-      }
-
-      issued = z
-        .object({ token: z.string().min(20), csrf: z.string().min(8) })
-        .parse(await sessionResponse.json());
+    if (!hasDatabaseUrl()) {
+      return clearAndRedirect('/ar/login?bhd=api');
     }
-  } catch {
-    return clearAndRedirect('/ar/login?bhd=session');
+    issued = await issueIdentitySession({
+      idToken: tokens.id_token,
+      nonce: saved.nonce,
+      ...(tokens.access_token ? { accessToken: tokens.access_token } : {}),
+    });
+  } catch (error) {
+    console.error('[bhd callback] session', error);
+    return clearAndRedirect(`/ar/login?bhd=${classifySessionError(error)}`);
   }
 
   const response = clearAndRedirect(saved.returnTo);
+  // §0.7 — clear any prior product session cookies before setting new ones
+  response.cookies.set({
+    name: 'bhd_r_session',
+    value: '',
+    httpOnly: true,
+    secure: secureCookies(),
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 0,
+  });
+  response.cookies.set({
+    name: 'bhd_r_csrf',
+    value: '',
+    httpOnly: false,
+    secure: secureCookies(),
+    sameSite: 'strict',
+    path: '/',
+    maxAge: 0,
+  });
   response.cookies.set({
     name: 'bhd_r_session',
     value: issued.token,
