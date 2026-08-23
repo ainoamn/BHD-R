@@ -2,6 +2,14 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.1.3 — 2026-08-23
+
+- Live SSO session minting on Vercel via `DATABASE_URL` (Neon) without requiring Nest for callback.
+- Identity token verify aligned with Nasab/WAZEN: alg-aware HS256 + `/oauth/userinfo` fallback.
+- Portal footer programmes row matched to www.bhd-om.com; client `bhd-r` registered on ONE-BHD.
+- Viewer resolution from Host-only session cookie when DB is configured.
+- Docs: `BHD-R-SSO-COMPLIANCE`, identity setup (Neon project + `?bhd=` error codes).
+
 ## 0.1.2 — 2026-08-23
 
 - Canonical BHD product SSO: `/api/auth/bhd/start|callback|logout` and `/api/auth/admin-entry`.

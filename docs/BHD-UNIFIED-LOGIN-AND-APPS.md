@@ -509,6 +509,7 @@ CREATE INDEX IF NOT EXISTS users_bhd_sub_idx ON <users>(bhd_sub);
 | بيتك | لم يُربط | — | `browse` | 12.5 |
 | المتجر | نعم | نعم | `sso` | 12.6 |
 | المكتب | نعم (على نطاق بيتك الحالي) | نعم | `sso` · `enabled: true` | 12.7 |
+| BHD R | نعم — حي 23 أغسطس 2026 | نعم | `sso` | 12.9 |
 
 ---
 
@@ -699,11 +700,15 @@ authorize وtoken دائماً على https://id.bhd-om.com وليس أصل ال
 
 | البند | التوثيق |
 |---|---|
-| تاريخ تسجيل العميل | 23 أغسطس 2026 — أُضيف `bhd-r` إلى `app/lib/identity/clients.ts` |
+| تاريخ التثبيت الحي | 23 أغسطس 2026 — مسارات `/api/auth/bhd/*` + `admin-entry` + جلسة من Next عبر Neon |
 | `client_id` | `bhd-r` |
 | الأصل الحي | `https://bhd-r-api-phi.vercel.app` (هدف: `https://r.bhd-om.com`) |
 | `redirect_uri` | `https://bhd-r-api-phi.vercel.app/api/auth/bhd/callback` (+ legacy `/v1/auth/oidc/callback` + `r.bhd-om.com` + localhost) |
-| المشغّل | عنصر `bhd-r` في `apps.ts` بـ `mode: "sso"` بعد تحقق 302 لـ `start` |
+| عمود `bhd_sub` | `users.identity_subject` |
+| كيف ثُبّت | Next `start|callback|logout` + `admin-entry` · تحقق توكن مثل نَسَب/وازن (HS256 + احتياطي userinfo) · جلسة Host-only من `DATABASE_URL` على Vercel بلا Nest إلزامي |
+| المشغّل | عنصر `bhd-r` في `apps.ts` بـ `mode: "sso"` |
+| Neon المنتج | مشروع `nameless-shadow-43571265` (eu-west-2) — منفصل عن Neon الهوية |
 | سر العميل | مشتق من `AUTH_SECRET` عبر `BHD_OAUTH_CLIENT_SECRET_R` / HMAC `bhd-oauth:bhd-r` ما لم يُضبط صراحة |
-| مستودع المنتج | `ainoamn/BHD-R` — `docs/BHD-R-IDENTITY-SETUP.md` |
+| أسرار (أسماء فقط) | `BHD_IDENTITY_ISSUER`, `BHD_OAUTH_CLIENT_*`, `BHD_IDENTITY_TOKEN_SECRET`, `BHD_R_SESSION_SECRET`, `CSRF_SECRET`, `DATABASE_URL` |
+| مستودع المنتج | `ainoamn/BHD-R` — `docs/BHD-R-SSO-COMPLIANCE.md` · `docs/BHD-R-IDENTITY-SETUP.md` |
 

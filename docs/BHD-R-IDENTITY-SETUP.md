@@ -101,7 +101,7 @@ Aliases `BHD_IDENTITY_*` مدعومة أيضاً.
 
 ## 3) API (إلزامي لإتمام الجلسة)
 
-الواجهة وحدها لا تكفي بعد عودة `code`. انشر Nest + Neon + Redis، ثم نفس أسرار الهوية + `DATABASE_URL` + `BHD_R_SESSION_SECRET` + `CSRF_SECRET` + `BHD_IDENTITY_TOKEN_SECRET` إن لزم HS256.
+على Vercel الحالي (`bhd-r-api` + `DATABASE_URL`) يكفي الويب لإكمال الدخول بعد `code`. Nest + Redis يبقيان للوحات التشغيل الكاملة لاحقاً؛ أبقِ نفس أسرار الهوية + `BHD_R_SESSION_SECRET` + `CSRF_SECRET` + `BHD_IDENTITY_TOKEN_SECRET`.
 
 **ممنوع على Vercel:** `API_INTERNAL_ORIGIN=http://localhost:4000`.
 

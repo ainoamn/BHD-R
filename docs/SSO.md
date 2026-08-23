@@ -10,7 +10,7 @@
 - أسماء المتغيرات المدعومة: `BHD_IDENTITY_*` و`BHD_OAUTH_*` (مرادفات ONE-BHD).
 - Authorization Code + PKCE S256، مع `state` و`nonce` أحاديي الاستخدام.
 - redirect URIs allowlist حرفي لكل بيئة، ولا wildcard.
-- التحقق: JWKS من `{issuer}/oauth/jwks.json` بخوارزمية RS256/ES256؛ احتياطي HS256 عبر `BHD_IDENTITY_TOKEN_SECRET` بينما JWKS غير جاهز (حسب مواصفة الهوية).
+- التحقق: حسب `alg` — JWKS لـ RS256/ES256؛ HS256 عبر `BHD_IDENTITY_TOKEN_SECRET` (= `IDENTITY_TOKEN_SECRET` على الهوية)؛ احتياطي مقبول `GET /oauth/userinfo` بـ Bearer بعد نجاح تبديل الكود (مثل نَسَب/وازن/حسابي).
 - لا تقبل خوارزمية `none`.
 
 ## تدفق الدخول
