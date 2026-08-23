@@ -156,10 +156,12 @@ export async function issueIdentitySession(input: {
   nonce: string;
   accessToken?: string;
 }): Promise<IssuedSession> {
+  const cleanSecret = (value: string | undefined) =>
+    value?.replace(/^\uFEFF/, '').replace(/\\r\\n$/i, '').trim() || undefined;
   const identityTokenSecret =
-    process.env.BHD_IDENTITY_TOKEN_SECRET?.trim() ||
-    process.env.IDENTITY_TOKEN_SECRET?.trim() ||
-    process.env.AUTH_SECRET?.trim() ||
+    cleanSecret(process.env.BHD_IDENTITY_TOKEN_SECRET) ||
+    cleanSecret(process.env.IDENTITY_TOKEN_SECRET) ||
+    cleanSecret(process.env.AUTH_SECRET) ||
     undefined;
   const identity = await verifyIdentityToken({
     token: input.idToken,

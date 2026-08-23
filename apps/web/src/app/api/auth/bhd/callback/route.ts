@@ -12,7 +12,11 @@ export const runtime = 'nodejs';
 
 function classifySessionError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
-  if (/missing_hs256|JWKS|jwt|userinfo|nonce|audience|issuer|alg|secret/i.test(message)) {
+  if (
+    /missing_hs256|JWKS|jwt|jws|signature|userinfo|nonce|audience|issuer|alg|secret|azp|authorized party/i.test(
+      message,
+    )
+  ) {
     return 'verify';
   }
   if (/DATABASE|connect|ECONN|timeout|ssl|Neon/i.test(message)) return 'db';

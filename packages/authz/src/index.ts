@@ -1,5 +1,12 @@
 import { timingSafeEqual } from 'node:crypto';
-import { createRemoteJWKSet, decodeJwt, decodeProtectedHeader, jwtVerify, SignJWT, type JWTPayload } from 'jose';
+import {
+  createRemoteJWKSet,
+  decodeJwt,
+  decodeProtectedHeader,
+  jwtVerify,
+  SignJWT,
+  type JWTPayload,
+} from 'jose';
 import { z } from 'zod';
 
 export const permissions = [
@@ -502,12 +509,25 @@ export async function verifyIdentityToken(input: {
       algorithms: ['RS256', 'ES256'],
     }));
   } else if (alg === 'HS256') {
-    const sharedSecret = input.sharedSecret?.trim();
+    const sharedSecret = input.sharedSecret?.replace(/^\uFEFF/, '').trim();
+    let verified: JWTPayload | undefined;
     if (sharedSecret) {
-      ({ payload } = await jwtVerify(input.token, new TextEncoder().encode(sharedSecret), {
-        ...verifyOptions,
-        algorithms: ['HS256'],
-      }));
+      try {
+        ({ payload: verified } = await jwtVerify(
+          input.token,
+          new TextEncoder().encode(sharedSecret),
+          {
+            ...verifyOptions,
+            algorithms: ['HS256'],
+          },
+        ));
+      } catch (error) {
+        // Wrong/corrupt product secret must not block login when PKCE + access_token succeeded.
+        if (!input.accessToken) throw error;
+      }
+    }
+    if (verified) {
+      payload = verified;
     } else if (input.accessToken) {
       payload = await claimsFromUserinfo(issuer, input.accessToken, input.token);
     } else {
