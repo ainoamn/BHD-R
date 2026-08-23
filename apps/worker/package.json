@@ -20,7 +20,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.922.0",
     "@bhd-r/security": "workspace:*",
-    "bullmq": "^5.65.0",
+    "bullmq": "^6.1.2",
     "ioredis": "^5.8.2",
     "nodemailer": "^9.0.1",
     "pg": "^8.16.3",
