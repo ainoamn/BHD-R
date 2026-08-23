@@ -244,17 +244,26 @@ export class AuthService {
   ): Promise<IssuedSession> {
     const identity = await verifyIdentityToken({
       token: idToken,
-      issuer: process.env.BHD_IDENTITY_ISSUER ?? 'https://identity.example.invalid',
-      clientId: process.env.BHD_IDENTITY_CLIENT_ID ?? 'bhd-r',
+      issuer: process.env.BHD_IDENTITY_ISSUER ?? 'https://id.bhd-om.com',
+      clientId:
+        process.env.BHD_OAUTH_CLIENT_ID ?? process.env.BHD_IDENTITY_CLIENT_ID ?? 'bhd-r',
       expectedNonce,
+      ...(process.env.BHD_IDENTITY_TOKEN_SECRET || process.env.IDENTITY_TOKEN_SECRET
+        ? {
+            sharedSecret:
+              process.env.BHD_IDENTITY_TOKEN_SECRET ?? process.env.IDENTITY_TOKEN_SECRET,
+          }
+        : {}),
     });
     const verifiedClaims = decodeJwt(idToken);
     if (verifiedClaims.nonce !== expectedNonce)
       throw new UnauthorizedException('Identity nonce mismatch');
+    const clientId =
+      process.env.BHD_OAUTH_CLIENT_ID ?? process.env.BHD_IDENTITY_CLIENT_ID ?? 'bhd-r';
     if (
       Array.isArray(verifiedClaims.aud) &&
       verifiedClaims.aud.length > 1 &&
-      verifiedClaims.azp !== (process.env.BHD_IDENTITY_CLIENT_ID ?? 'bhd-r')
+      verifiedClaims.azp !== clientId
     ) {
       throw new UnauthorizedException('Identity authorized party mismatch');
     }

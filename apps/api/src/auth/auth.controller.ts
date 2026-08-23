@@ -190,10 +190,13 @@ export class AuthController {
     @Query('returnTo') requestedReturnTo: string | undefined,
     @Res() reply: FastifyReply,
   ) {
-    const issuer = (process.env.BHD_IDENTITY_ISSUER ?? '').replace(/\/$/, '');
-    const clientId = process.env.BHD_IDENTITY_CLIENT_ID ?? 'bhd-r';
+    const issuer = (process.env.BHD_IDENTITY_ISSUER ?? 'https://id.bhd-om.com').replace(/\/$/, '');
+    const clientId =
+      process.env.BHD_OAUTH_CLIENT_ID ?? process.env.BHD_IDENTITY_CLIENT_ID ?? 'bhd-r';
     const redirectUri =
-      process.env.BHD_IDENTITY_REDIRECT_URI ?? 'http://localhost:3000/v1/auth/oidc/callback';
+      process.env.BHD_OAUTH_REDIRECT_URI ??
+      process.env.BHD_IDENTITY_REDIRECT_URI ??
+      'http://localhost:3000/v1/auth/oidc/callback';
     const state = randomBytes(24).toString('base64url');
     const nonce = randomBytes(24).toString('base64url');
     const verifier = randomBytes(48).toString('base64url');
@@ -253,7 +256,15 @@ export class AuthController {
           requestId: request.id,
         },
       });
-    const issuer = (process.env.BHD_IDENTITY_ISSUER ?? '').replace(/\/$/, '');
+    const issuer = (process.env.BHD_IDENTITY_ISSUER ?? 'https://id.bhd-om.com').replace(/\/$/, '');
+    const clientId =
+      process.env.BHD_OAUTH_CLIENT_ID ?? process.env.BHD_IDENTITY_CLIENT_ID ?? 'bhd-r';
+    const clientSecret =
+      process.env.BHD_OAUTH_CLIENT_SECRET ?? process.env.BHD_IDENTITY_CLIENT_SECRET ?? '';
+    const redirectUri =
+      process.env.BHD_OAUTH_REDIRECT_URI ??
+      process.env.BHD_IDENTITY_REDIRECT_URI ??
+      'http://localhost:3000/v1/auth/oidc/callback';
     const discoveryResponse = await fetch(`${issuer}/.well-known/openid-configuration`, {
       signal: AbortSignal.timeout(5_000),
       redirect: 'error',
@@ -275,10 +286,9 @@ export class AuthController {
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code,
-        client_id: process.env.BHD_IDENTITY_CLIENT_ID ?? 'bhd-r',
-        client_secret: process.env.BHD_IDENTITY_CLIENT_SECRET ?? '',
-        redirect_uri:
-          process.env.BHD_IDENTITY_REDIRECT_URI ?? 'http://localhost:3000/v1/auth/oidc/callback',
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
         code_verifier: saved.verifier,
       }),
     });

@@ -11,7 +11,8 @@
 | [ARCHITECTURE.md](./ARCHITECTURE.md)                       | البنية، حدود الوحدات وتدفق البيانات                               |
 | [LOCAL_DEVELOPMENT.md](./LOCAL_DEVELOPMENT.md)             | تشغيل بيئة التطوير من الصفر                                       |
 | [API_OVERVIEW.md](./API_OVERVIEW.md)                       | قواعد API، الأخطاء، idempotency وwebhooks                         |
-| [SSO.md](./SSO.md)                                         | الدخول الموحد وربط هوية BHD                                       |
+| [BHD-R-IDENTITY-SETUP.md](./BHD-R-IDENTITY-SETUP.md) | ربط هوية BHD وVercel لنطاق النشر الحالي |
+| [SSO.md](./SSO.md)                                     | الدخول الموحد وربط هوية BHD                                       |
 | [COUNTRY_PACKS.md](./COUNTRY_PACKS.md)                     | الدول والعملات والترجمة                                           |
 | [SECURITY_CONTROLS.md](./SECURITY_CONTROLS.md)             | ضوابط الأمن وطريقة إثباتها                                        |
 | [THREAT_MODEL.md](./THREAT_MODEL.md)                       | نموذج التهديد وحدود الثقة                                         |

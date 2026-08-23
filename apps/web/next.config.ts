@@ -12,6 +12,26 @@ const mediaPattern = new URL(
   `${mediaBaseUrl.origin}${mediaBaseUrl.pathname.replace(/\/$/, '')}/**`,
 );
 
+function isPublicApiOrigin(origin: string): boolean {
+  try {
+    const url = new URL(origin);
+    if (url.protocol !== 'https:' && process.env.VERCEL) return false;
+    const host = url.hostname.toLowerCase();
+    if (
+      host === 'localhost' ||
+      host === '127.0.0.1' ||
+      host === '::1' ||
+      host.endsWith('.local') ||
+      host.endsWith('.internal')
+    ) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const config: NextConfig = {
   // Vercel injects an adapter that skips next-server.js.nft.json; standalone + that combo
   // fails on Next 16.3+. Keep standalone for Docker/self-host only.
@@ -34,6 +54,8 @@ const config: NextConfig = {
     formats: ['image/avif', 'image/webp'],
   },
   async rewrites() {
+    // Never proxy /v1 to localhost/private hosts on Vercel (DNS_HOSTNAME_RESOLVED_PRIVATE).
+    if (process.env.VERCEL && !isPublicApiOrigin(apiOrigin)) return [];
     return [{ source: '/v1/:path*', destination: `${apiOrigin}/v1/:path*` }];
   },
   async headers() {

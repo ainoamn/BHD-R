@@ -337,17 +337,33 @@ export async function verifyIdentityToken(input: {
   issuer: string;
   clientId: string;
   expectedNonce?: string;
+  /** Temporary HS256 secret while ONE-BHD JWKS/RS256 is not active. */
+  sharedSecret?: string;
+  /** Override JWKS URI; defaults to `{issuer}/oauth/jwks.json` per bhd-identity.v1. */
+  jwksUri?: string;
 }): Promise<{ subject: string; email?: string; emailVerified: boolean; name?: string }> {
-  const jwks = createRemoteJWKSet(
-    new URL(`${input.issuer.replace(/\/$/, '')}/.well-known/jwks.json`),
-  );
-  const { payload } = await jwtVerify(input.token, jwks, {
-    issuer: input.issuer,
+  const issuer = input.issuer.replace(/\/$/, '');
+  const verifyOptions = {
+    issuer,
     audience: input.clientId,
-    algorithms: ['RS256', 'ES256'],
-  });
+  } as const;
 
-  return parseVerifiedIdentityClaims(payload, input.expectedNonce);
+  try {
+    const jwks = createRemoteJWKSet(new URL(input.jwksUri ?? `${issuer}/oauth/jwks.json`));
+    const { payload } = await jwtVerify(input.token, jwks, {
+      ...verifyOptions,
+      algorithms: ['RS256', 'ES256'],
+    });
+    return parseVerifiedIdentityClaims(payload, input.expectedNonce);
+  } catch (jwksError) {
+    const sharedSecret = input.sharedSecret?.trim();
+    if (!sharedSecret) throw jwksError;
+    const { payload } = await jwtVerify(input.token, new TextEncoder().encode(sharedSecret), {
+      ...verifyOptions,
+      algorithms: ['HS256'],
+    });
+    return parseVerifiedIdentityClaims(payload, input.expectedNonce);
+  }
 }
 
 function sameSecretValue(actual: string, expected: string): boolean {
