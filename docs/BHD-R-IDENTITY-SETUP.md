@@ -17,6 +17,7 @@
   `https://bhd-r-api-phi.vercel.app/api/auth/bhd/callback`  
   (+ legacy `/v1/auth/oidc/callback` و`https://r.bhd-om.com/api/auth/bhd/callback` وlocalhost)
 - سر العميل على Vercel: `BHD_OAUTH_CLIENT_SECRET` يطابق اشتقاق الهوية من `AUTH_SECRET` (`HMAC-SHA256` على `bhd-oauth:bhd-r`) ما لم يُضبط `BHD_OAUTH_CLIENT_SECRET_R` على ONE-BHD.
+- **`BHD_IDENTITY_TOKEN_SECRET`** يجب أن يطابق `IDENTITY_TOKEN_SECRET` (أو `AUTH_SECRET`) على الهوية — نفس أسلوب نَسَب/وازن/حسابي للتحقق من ID Token (HS256) مع احتياطي `/oauth/userinfo`.
 - كتالوج المشغّل في ONE-BHD: عنصر `bhd-r` بـ `mode: "sso"`.
 
 ## مسار المنتج الإلزامي (§3.1)
