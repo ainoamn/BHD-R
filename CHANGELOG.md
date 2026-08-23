@@ -2,6 +2,15 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.1.1 — 2026-08-23
+
+- Omani visual redesign for the public site and unified login (fort and Al Alam imagery, official BHD mark, Oman flag accent bar).
+- ONE-BHD-style login shell with primary OIDC handoff to BHD Identity.
+- BHD app switcher and account menu after sign-in.
+- WebP + `next/image` media; expanded E2E coverage for header, login, and responsive shells.
+- TypeScript fix for optional identity token secret forwarding.
+- See `docs/OMANI_UI_2026-08-23.md`.
+
 ## 0.1.0 — 2026-08-23
 
 - Initial BHD R modular-monolith foundation.

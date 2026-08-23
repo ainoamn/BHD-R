@@ -2,17 +2,50 @@
 
 import { Logo } from '@bhd-r/ui';
 import { useLocale, useTranslations } from 'next-intl';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, usePathname } from '@/i18n/navigation';
+import { BhdAppSwitcher } from '@/components/bhd-app-switcher';
+import type { Viewer } from '@/lib/types';
+
+type AuthState =
+  { status: 'loading' } | { status: 'anonymous' } | { status: 'signed-in'; viewer: Viewer };
 
 export function SiteHeader() {
   const t = useTranslations();
   const locale = useLocale() as 'ar' | 'en';
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  if (/^\/(platform|owner|developer|tenant)(\/|$)/.test(pathname)) return null;
+  const [auth, setAuth] = useState<AuthState>({ status: 'loading' });
+  const hidden =
+    /^\/(platform|owner|developer|tenant|login|forgot-password|reset-password|activate)(\/|$)/.test(
+      pathname,
+    );
+
+  useEffect(() => {
+    if (hidden) return;
+    let cancelled = false;
+    fetch('/v1/me', { credentials: 'same-origin', headers: { accept: 'application/json' } })
+      .then(async (response) => {
+        if (!response.ok) return null;
+        return (await response.json()) as Viewer;
+      })
+      .then((viewer) => {
+        if (!cancelled) setAuth(viewer ? { status: 'signed-in', viewer } : { status: 'anonymous' });
+      })
+      .catch(() => {
+        if (!cancelled) setAuth({ status: 'anonymous' });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [hidden]);
+
+  if (hidden) return null;
+  const signInHref = `/v1/auth/oidc/start?returnTo=${encodeURIComponent(`/${locale}/portal`)}`;
+
   return (
     <header className="site-header">
+      <div className="oman-flag-line" aria-hidden="true" />
       <div className="container header-row">
         <Link
           href="/"
@@ -45,9 +78,6 @@ export function SiteHeader() {
           <Link href="/trust" onClick={() => setOpen(false)}>
             {t('Nav.trust')}
           </Link>
-          <Link href="/login" className="button button--secondary" onClick={() => setOpen(false)}>
-            {t('Nav.login')}
-          </Link>
           <Link
             href={pathname}
             locale={locale === 'ar' ? 'en' : 'ar'}
@@ -56,6 +86,22 @@ export function SiteHeader() {
           >
             {t('Nav.language')}
           </Link>
+          <span className="header-auth-slot">
+            {auth.status === 'loading' ? (
+              <span className="header-auth-loading" aria-hidden="true" />
+            ) : auth.status === 'signed-in' ? (
+              <>
+                <Link href="/portal" className="header-portal-link" onClick={() => setOpen(false)}>
+                  {locale === 'ar' ? 'مساحتي' : 'Workspace'}
+                </Link>
+                <BhdAppSwitcher viewer={auth.viewer} locale={locale} />
+              </>
+            ) : (
+              <a href={signInHref} className="button button--secondary">
+                {t('Nav.login')}
+              </a>
+            )}
+          </span>
         </nav>
       </div>
     </header>

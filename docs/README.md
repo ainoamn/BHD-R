@@ -11,6 +11,7 @@
 | [ARCHITECTURE.md](./ARCHITECTURE.md)                       | البنية، حدود الوحدات وتدفق البيانات                               |
 | [LOCAL_DEVELOPMENT.md](./LOCAL_DEVELOPMENT.md)             | تشغيل بيئة التطوير من الصفر                                       |
 | [API_OVERVIEW.md](./API_OVERVIEW.md)                       | قواعد API، الأخطاء، idempotency وwebhooks                         |
+| [OMANI_UI_2026-08-23.md](./OMANI_UI_2026-08-23.md) | إعادة التصميم العُماني والدخول الموحّد |
 | [BHD-R-IDENTITY-SETUP.md](./BHD-R-IDENTITY-SETUP.md) | ربط هوية BHD وVercel لنطاق النشر الحالي |
 | [SSO.md](./SSO.md)                                     | الدخول الموحد وربط هوية BHD                                       |
 | [COUNTRY_PACKS.md](./COUNTRY_PACKS.md)                     | الدول والعملات والترجمة                                           |

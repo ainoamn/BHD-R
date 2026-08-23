@@ -7,7 +7,12 @@ import { Link, usePathname } from '@/i18n/navigation';
 export function SiteFooter() {
   const t = useTranslations();
   const pathname = usePathname();
-  if (/^\/(platform|owner|developer|tenant)(\/|$)/.test(pathname)) return null;
+  if (
+    /^\/(platform|owner|developer|tenant|login|forgot-password|reset-password|activate)(\/|$)/.test(
+      pathname,
+    )
+  )
+    return null;
   return (
     <footer className="site-footer">
       <div className="container footer-grid">

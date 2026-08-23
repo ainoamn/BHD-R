@@ -242,18 +242,14 @@ export class AuthService {
     organizationId: string | undefined,
     expectedNonce: string,
   ): Promise<IssuedSession> {
+    const identityTokenSecret =
+      process.env.BHD_IDENTITY_TOKEN_SECRET ?? process.env.IDENTITY_TOKEN_SECRET;
     const identity = await verifyIdentityToken({
       token: idToken,
       issuer: process.env.BHD_IDENTITY_ISSUER ?? 'https://id.bhd-om.com',
-      clientId:
-        process.env.BHD_OAUTH_CLIENT_ID ?? process.env.BHD_IDENTITY_CLIENT_ID ?? 'bhd-r',
+      clientId: process.env.BHD_OAUTH_CLIENT_ID ?? process.env.BHD_IDENTITY_CLIENT_ID ?? 'bhd-r',
       expectedNonce,
-      ...(process.env.BHD_IDENTITY_TOKEN_SECRET || process.env.IDENTITY_TOKEN_SECRET
-        ? {
-            sharedSecret:
-              process.env.BHD_IDENTITY_TOKEN_SECRET ?? process.env.IDENTITY_TOKEN_SECRET,
-          }
-        : {}),
+      ...(identityTokenSecret ? { sharedSecret: identityTokenSecret } : {}),
     });
     const verifiedClaims = decodeJwt(idToken);
     if (verifiedClaims.nonce !== expectedNonce)

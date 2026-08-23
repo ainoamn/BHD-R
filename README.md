@@ -3,8 +3,10 @@
 منصة عمانية ثنائية اللغة لإدارة العقارات، الوحدات، العقود، المستأجرين، التحصيل، الصيانة، والإعلانات العامة. الحرف **R** يعني **Real Estate Management — إدارة العقارات**.
 
 **التوثيق المفصل:** [`docs/PROJECT_DOCUMENTATION_AR.md`](./docs/PROJECT_DOCUMENTATION_AR.md)  
+**واجهة عُمانية 2026-08-23:** [`docs/OMANI_UI_2026-08-23.md`](./docs/OMANI_UI_2026-08-23.md)  
 **مصفوفة الأمن:** [`docs/SECURITY_CHECKLIST_MATRIX_AR.md`](./docs/SECURITY_CHECKLIST_MATRIX_AR.md)  
 **ربط Vercel:** [`docs/VERCEL_DEPLOYMENT_AR.md`](./docs/VERCEL_DEPLOYMENT_AR.md) — Root Directory = `apps/web`  
+**هوية BHD:** [`docs/BHD-R-IDENTITY-SETUP.md`](./docs/BHD-R-IDENTITY-SETUP.md)  
 **مراجعات BHD-OM:** [`docs/legacy-reviews/`](./docs/legacy-reviews/)
 
 ## الحالة

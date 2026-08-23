@@ -22,6 +22,8 @@ const listing = {
 };
 const viewer = {
   id: '00000000-0000-4000-8000-000000000002',
+  username: 'bhd-r-test',
+  email: 'test@bhd-om.example',
   partyId: '00000000-0000-4000-8000-000000000003',
   displayName: 'BHD R Test User',
   locale: 'ar',

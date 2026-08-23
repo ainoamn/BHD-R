@@ -9,6 +9,8 @@ export type PortalRole = 'platform' | 'owner' | 'developer' | 'tenant';
 
 export interface Viewer {
   id: string;
+  username?: string | null;
+  email?: string;
   displayName: string;
   partyId: string | null;
   locale: 'ar' | 'en';

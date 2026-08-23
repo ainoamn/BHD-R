@@ -18,6 +18,39 @@ for (const locale of ['ar', 'en'] as const) {
       });
     await page.keyboard.press('Tab');
     await expect(page.locator('.skip-link')).toBeFocused();
+
+    const appsButton = page.getByRole('button', {
+      name: locale === 'ar' ? 'تطبيقات BHD' : 'BHD apps',
+    });
+    if (testInfo.project.name === 'mobile') {
+      await page
+        .getByRole('button', {
+          name: locale === 'ar' ? 'فتح القائمة' : 'Open menu',
+        })
+        .click();
+    }
+    await expect(appsButton).toBeVisible();
+    await appsButton.click();
+    await expect(
+      page.getByRole('dialog', { name: locale === 'ar' ? 'تطبيقات BHD' : 'BHD apps' }),
+    ).toBeVisible();
+    await expect(page.getByRole('link', { name: 'R BHD R' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+  });
+
+  test(`${locale} unified login uses the BHD gateway layout`, async ({ page }) => {
+    await page.goto(`/${locale}/login`);
+    await expect(page.locator('.site-header')).toHaveCount(0);
+    await expect(page.locator('.site-footer')).toHaveCount(0);
+    await expect(page.locator('.login-stage')).toBeVisible();
+    await expect(page.locator('.login-brand-panel')).toBeVisible();
+    await expect(
+      page.getByRole('link', {
+        name: locale === 'ar' ? 'المتابعة عبر هوية BHD' : 'Continue with BHD Identity',
+      }),
+    ).toHaveAttribute('href', new RegExp('^/v1/auth/oidc/start\\?returnTo='));
   });
 }
 
