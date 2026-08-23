@@ -90,7 +90,13 @@ export async function getViewer(): Promise<Viewer | null> {
 export async function requirePortal(locale: string, portal: PortalRole): Promise<Viewer> {
   const { redirect } = await import('next/navigation');
   const viewer = await getViewer();
-  if (!viewer) redirect(`/${locale}/login`);
-  if (!viewer.portals.includes(portal)) redirect(`/${locale}/portal?denied=${portal}`);
-  return viewer as Viewer;
+  if (viewer === null) {
+    redirect(`/${locale}/login`);
+    throw new Error('unreachable');
+  }
+  if (!viewer.portals.includes(portal)) {
+    redirect(`/${locale}/portal?denied=${portal}`);
+    throw new Error('unreachable');
+  }
+  return viewer;
 }
