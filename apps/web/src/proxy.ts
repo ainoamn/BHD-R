@@ -33,5 +33,5 @@ export default function proxy(request: NextRequest): NextResponse {
 }
 
 export const config = {
-  matcher: ['/((?!v1|_next|.*\\..*).*)'],
+  matcher: ['/((?!api|v1|_next|.*\\..*).*)'],
 };
