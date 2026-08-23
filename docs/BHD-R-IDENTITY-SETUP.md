@@ -35,11 +35,14 @@
 للنشر الحالي على `bhd-r-api` يكفي:
 
 ```env
-DATABASE_URL=postgresql://…neon…
+DATABASE_URL=postgresql://…@…neon.tech/neondb?sslmode=require
 BHD_IDENTITY_TOKEN_SECRET=<نفس IDENTITY_TOKEN_SECRET من الهوية>
 BHD_R_SESSION_SECRET=<≥32>
 CSRF_SECRET=<≥32>
 ```
+
+قاعدة الإنتاج الحالية: مشروع Neon `nameless-shadow-43571265` (eu-west-2) —  
+https://console.neon.tech/app/projects/nameless-shadow-43571265?database=neondb
 
 `callback` ينشئ المستخدم/الجلسة مباشرة عبر `@bhd-r/db` عند وجود `DATABASE_URL`.  
 `API_INTERNAL_ORIGIN` يبقى اختيارياً عندما يُنشر Nest API لاحقاً.
