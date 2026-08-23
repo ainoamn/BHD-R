@@ -129,6 +129,30 @@ export class AuthController {
     return { revoked: true };
   }
 
+  /** JSON session for Next `/api/auth/bhd/callback` (cookies must be set on the web origin). */
+  @Public()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @Post('identity/session')
+  async identitySession(
+    @Body(
+      new ZodPipe(
+        z.object({
+          idToken: z.string().min(20),
+          nonce: z.string().min(8),
+          organizationId: z.uuid().optional(),
+        }),
+      ),
+    )
+    body: { idToken: string; nonce: string; organizationId?: string },
+  ) {
+    const issued = await this.authService.loginWithIdentity(
+      body.idToken,
+      body.organizationId,
+      body.nonce,
+    );
+    return { token: issued.token, csrf: issued.csrf, user: issued.claims };
+  }
+
   @Post('sessions/revoke-all')
   @Authenticated()
   async revoke(@Req() request: FastifyRequest, @Res({ passthrough: true }) reply: FastifyReply) {
@@ -196,7 +220,7 @@ export class AuthController {
     const redirectUri =
       process.env.BHD_OAUTH_REDIRECT_URI ??
       process.env.BHD_IDENTITY_REDIRECT_URI ??
-      'http://localhost:3000/v1/auth/oidc/callback';
+      'http://localhost:3000/api/auth/bhd/callback';
     const state = randomBytes(24).toString('base64url');
     const nonce = randomBytes(24).toString('base64url');
     const verifier = randomBytes(48).toString('base64url');
@@ -264,7 +288,7 @@ export class AuthController {
     const redirectUri =
       process.env.BHD_OAUTH_REDIRECT_URI ??
       process.env.BHD_IDENTITY_REDIRECT_URI ??
-      'http://localhost:3000/v1/auth/oidc/callback';
+      'http://localhost:3000/api/auth/bhd/callback';
     const discoveryResponse = await fetch(`${issuer}/.well-known/openid-configuration`, {
       signal: AbortSignal.timeout(5_000),
       redirect: 'error',

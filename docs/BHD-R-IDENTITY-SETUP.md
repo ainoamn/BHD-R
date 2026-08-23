@@ -1,25 +1,49 @@
 # ربط BHD R بهوية BHD الموحّدة — قيم التشغيل
 
-المصدر المعتمد: [docs/BHD-IDENTITY-SSO.md في ONE-BHD](https://github.com/ainoamn/ONE-BHD/blob/main/docs/BHD-IDENTITY-SSO.md)  
-اكتشاف OIDC الحي: https://one-bhd.vercel.app/.well-known/openid-configuration  
-واجهة الدخول الحالية: https://bhd-r-api-phi.vercel.app/ar/login
+المصادر المعتمدة (منسوخة داخل المستودع):
 
-## لماذا ظهر `DNS_HOSTNAME_RESOLVED_PRIVATE`؟
+- [`BHD-PRODUCT-SSO-ADMIN.md`](./BHD-PRODUCT-SSO-ADMIN.md)
+- [`BHD-UNIFIED-LOGIN-AND-APPS.md`](./BHD-UNIFIED-LOGIN-AND-APPS.md)
+- [`BHD-APP-SWITCHER.md`](./BHD-APP-SWITCHER.md)
 
-الويب يعيد كتابة `/v1/*` إلى `API_INTERNAL_ORIGIN`. إن بقي الافتراضي `http://localhost:4000` فإن شبكة Vercel ترفض العنوان الخاص. تم تعطيل إعادة الكتابة إلى عناوين خاصة على Vercel، مع مسار احتياطي لبدء OIDC من Next.
+اكتشاف OIDC الحي: https://id.bhd-om.com/.well-known/openid-configuration  
+واجهة الدخول الحالية: https://bhd-r-api-phi.vercel.app/ar/login → `/api/auth/bhd/start`
 
-## 1) سجّل عميل `bhd-r` في مشروع الهوية (`one-bhd`)
+## مسار المنتج الإلزامي (§3.1)
 
-أضف إلى `BHD_OAUTH_CLIENTS` / جدول العملاء (نفس شكل وازن/حسابي):
+| المسار | السلوك |
+| --- | --- |
+| `GET /api/auth/bhd/start` | 302 إلى `https://id.bhd-om.com/oauth/authorize` + كوكي `bhd_oauth_state` |
+| `GET /api/auth/bhd/callback` | تبديل الكود على الخادم → `POST {API}/v1/auth/identity/session` → كوكي `bhd_r_session` / `bhd_r_csrf` |
+| `GET /api/auth/bhd/logout` | مسح جلسة المنتج ثم `…/oauth/end-session` |
+| `GET /api/auth/admin-entry` | → `start?returnTo=/platform` (أو `next` الآمن) |
+
+المسارات القديمة `/v1/auth/oidc/start|callback` تحوّل إلى المسارات أعلاه.
+
+## ربط المستخدم (§3.3 / §0.7)
+
+بعد التحقق من `id_token` في Nest `loginWithIdentity`:
+
+1. `users.identity_subject = sub` موجود → حدّث الاسم وافتح الجلسة (الأدوار كما هي).
+2. وإلا بريد موثّق + `identity_subject` فارغ → اربط `sub` واحتفظ بالعضويات/الأدوار.
+3. وإلا أنشئ مستخدماً + مؤسسة فردية `starter` بدور `organization_owner` فقط (ليس `platform_admin`).
+4. امسح جلسات المنتج السابقة وارفع `session_version` قبل إصدار الكوكي.
+
+## 1) سجّل عميل `bhd-r` في الهوية (`one-bhd`)
 
 ```json
 {
   "client_id": "bhd-r",
   "client_secret_hash": "<bcrypt للسر>",
   "redirect_uris": [
-    "https://bhd-r-api-phi.vercel.app/v1/auth/oidc/callback",
-    "https://r.bhd-om.com/v1/auth/oidc/callback",
-    "http://localhost:3000/v1/auth/oidc/callback"
+    "https://bhd-r-api-phi.vercel.app/api/auth/bhd/callback",
+    "https://r.bhd-om.com/api/auth/bhd/callback",
+    "http://localhost:3000/api/auth/bhd/callback"
+  ],
+  "post_logout_redirect_uris": [
+    "https://bhd-r-api-phi.vercel.app/",
+    "https://r.bhd-om.com/",
+    "http://localhost:3000/"
   ],
   "scopes": ["openid", "profile", "email"],
   "first_party": true,
@@ -27,9 +51,9 @@
 }
 ```
 
-ملاحظة: قائمة الاكتشاف الحالية تضم `bhd-baitak` وليس `bhd-r` بعد. حتى يُضاف `bhd-r` يمكن مؤقتاً استخدام `bhd-baitak` إذا كان redirect محدّثاً لنطاق BHD R — لكن القرار المعتمد للمنتج هو **`bhd-r`**.
+بعد نجاح `GET {origin}/api/auth/bhd/start` بـ 302 إلى `id.bhd-om.com`، اطلب من ONE-BHD قلب عنصر المنتج في `apps.ts` إلى `mode: "sso"`.
 
-## 2) متغيرات مشروع الويب على Vercel (`bhd-r-api` / الجذر `apps/web`)
+## 2) متغيرات الويب على Vercel (`Root Directory = apps/web`)
 
 ```env
 NEXT_PUBLIC_SITE_URL=https://bhd-r-api-phi.vercel.app
@@ -37,50 +61,31 @@ PUBLIC_SITE_URL=https://bhd-r-api-phi.vercel.app
 WEB_ORIGIN=https://bhd-r-api-phi.vercel.app
 BHD_IDENTITY_ISSUER=https://id.bhd-om.com
 BHD_OAUTH_CLIENT_ID=bhd-r
-BHD_OAUTH_CLIENT_SECRET=<سر العميل من الهوية>
-BHD_OAUTH_REDIRECT_URI=https://bhd-r-api-phi.vercel.app/v1/auth/oidc/callback
-BHD_IDENTITY_CLIENT_ID=bhd-r
-BHD_IDENTITY_CLIENT_SECRET=<نفس السر>
-BHD_IDENTITY_REDIRECT_URI=https://bhd-r-api-phi.vercel.app/v1/auth/oidc/callback
+BHD_OAUTH_CLIENT_SECRET=<سر العميل>
+BHD_OAUTH_REDIRECT_URI=https://bhd-r-api-phi.vercel.app/api/auth/bhd/callback
+BHD_OAUTH_POST_LOGOUT_REDIRECT_URI=https://bhd-r-api-phi.vercel.app/
+BHD_R_SESSION_SECRET=<≥32 حرفاً>
+API_INTERNAL_ORIGIN=https://YOUR-PUBLIC-HTTPS-API
 COOKIE_SECURE=true
 ```
 
-Aliases `BHD_OAUTH_*` و`BHD_IDENTITY_*` مدعومة معاً حسب مواصفة ONE-BHD.
+Aliases `BHD_IDENTITY_*` مدعومة أيضاً.
 
-## 3) انشر API (إلزامي لإتمام الجلسة)
+## 3) API (إلزامي لإتمام الجلسة)
 
-الواجهة وحدها لا تكفي بعد عودة `code` من الهوية. تحتاج:
+الواجهة وحدها لا تكفي بعد عودة `code`. انشر Nest + Neon + Redis، ثم نفس أسرار الهوية + `DATABASE_URL` + `BHD_R_SESSION_SECRET` + `CSRF_SECRET` + `BHD_IDENTITY_TOKEN_SECRET` إن لزم HS256.
 
-| المكوّن | مثال |
-| --- | --- |
-| Nest API `apps/api` | `https://bhd-r-api.fly.dev` أو Render |
-| PostgreSQL + PostGIS | Neon |
-| Redis | Upstash |
+**ممنوع على Vercel:** `API_INTERNAL_ORIGIN=http://localhost:4000`.
 
-ثم على الويب:
+## 4) غلاف الدخول (§3.2)
 
-```env
-API_INTERNAL_ORIGIN=https://YOUR-PUBLIC-API
-```
-
-وعلى الـ API نفس متغيرات الهوية + `DATABASE_URL` + `BHD_R_SESSION_SECRET` + `CSRF_SECRET` + مفاتيح التشفير من `.env.example`.
-
-إن كان مزوّد الهوية ما زال يوقّع ID Token بـ HS256 مؤقتاً، ضع على الـ API أيضاً:
-
-```env
-BHD_IDENTITY_TOKEN_SECRET=<نفس IDENTITY_TOKEN_SECRET من one-bhd>
-```
-
-## 4) تدفق النجاح المتوقع
-
-1. https://bhd-r-api-phi.vercel.app/ar/login  
-2. «المتابعة عبر هوية BHD» → `id.bhd-om.com/oauth/authorize`  
-3. بعد الدخول → callback على نفس نطاق الويب `/v1/auth/oidc/callback`  
-4. الـ API يبدّل `code`، يتحقق من ID Token (JWKS RS256 أو HS256 احتياطي)، يربط `sub` → جلسة BHD R  
+- `/ar/login` و`/en/login` → `/api/auth/bhd/start` إلا طوارئ `?local=1` (حساب مستأجر محلي).
+- `local=1` مع مسار إدارة → `/api/auth/admin-entry`.
+- لا زر Google على واجهة المنتج.
 
 ## 5) ما لا يُفعل
 
-- لا تضبط `API_INTERNAL_ORIGIN=http://localhost:4000` على Vercel.  
-- لا تشارك `DATABASE_URL` مع وازن/حسابي/الهوية.  
-- لا تمنح أدوار مدير عبر الهوية؛ الأدوار محلية بعد `sub`.  
-- لا تضع زر Google على واجهة BHD R؛ جوجل فقط على نطاق الهوية.
+- لا تشارك `DATABASE_URL` مع منتجات أخرى أو الهوية.
+- لا كوكي `Domain=.bhd-om.com`.
+- لا تمنح أدوار مدير عبر الهوية.
+- لا تستخدم `?local=1` لدخول الأدمن.

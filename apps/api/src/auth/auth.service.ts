@@ -264,13 +264,108 @@ export class AuthService {
       throw new UnauthorizedException('Identity authorized party mismatch');
     }
     return this.database.asSystem(async (transaction) => {
-      const user = await transaction.query.users.findFirst({
+      // BHD-PRODUCT-SSO-ADMIN §3.3 / UNIFIED §0.7 — link by bhd_sub then verified email
+      let user = await transaction.query.users.findFirst({
         where: eq(users.identitySubject, identity.subject),
       });
+
+      if (!user && identity.email && identity.emailVerified) {
+        const byEmail = await transaction.query.users.findFirst({
+          where: eq(users.email, identity.email.trim().toLowerCase()),
+        });
+        if (byEmail && !byEmail.identitySubject) {
+          const linked = await transaction
+            .update(users)
+            .set({
+              identitySubject: identity.subject,
+              displayName: identity.name?.trim() || byEmail.displayName,
+            })
+            .where(and(eq(users.id, byEmail.id), isNull(users.identitySubject)))
+            .returning();
+          user = linked[0] ?? byEmail;
+        }
+      }
+
+      if (!user) {
+        user = await this.provisionIdentityUser(transaction, {
+          subject: identity.subject,
+          ...(identity.email ? { email: identity.email } : {}),
+          ...(identity.name ? { name: identity.name } : {}),
+        });
+      }
+
       if (!user || user.disabledAt)
         throw new UnauthorizedException('No BHD R account is assigned to this identity');
+
+      if (identity.name?.trim() && identity.name.trim() !== user.displayName) {
+        await transaction
+          .update(users)
+          .set({ displayName: identity.name.trim() })
+          .where(eq(users.id, user.id));
+      }
+
+      await transaction
+        .update(sessions)
+        .set({ revokedAt: new Date() })
+        .where(and(eq(sessions.userId, user.id), isNull(sessions.revokedAt)));
+      await transaction
+        .update(users)
+        .set({ sessionVersion: sql`${users.sessionVersion} + 1` })
+        .where(eq(users.id, user.id));
+
       return this.issueForUser(transaction, user.id, organizationId);
     });
+  }
+
+  /** New SSO user: default org owner of a personal STARTER org — never platform_admin. */
+  private async provisionIdentityUser(
+    transaction: DatabaseTransaction,
+    identity: { subject: string; email?: string; name?: string },
+  ) {
+    const email =
+      identity.email?.trim().toLowerCase() ||
+      `${identity.subject.replace(/[^a-z0-9]/gi, '').slice(0, 24) || 'user'}@identity.bhd-om.local`;
+    const displayName = identity.name?.trim() || email.split('@')[0] || 'BHD user';
+    const base =
+      email
+        .split('@')[0]!
+        .replace(/[^a-z0-9]/gi, '')
+        .toLowerCase()
+        .slice(0, 16) || 'user';
+    const username = `${base}.${randomBytes(3).toString('hex')}`;
+    const slug = `sso-${identity.subject.replace(/[^a-z0-9-]/gi, '').slice(0, 40) || randomBytes(6).toString('hex')}`;
+
+    const insertedUsers = await transaction
+      .insert(users)
+      .values({
+        username,
+        email,
+        displayName,
+        identitySubject: identity.subject,
+      })
+      .returning();
+    const user = insertedUsers[0]!;
+
+    const insertedOrgs = await transaction
+      .insert(organizations)
+      .values({
+        type: 'individual',
+        slug,
+        legalName: displayName,
+        displayNameAr: displayName,
+        displayNameEn: displayName,
+        planKey: 'starter',
+      })
+      .returning();
+    const organization = insertedOrgs[0]!;
+
+    await transaction.insert(memberships).values({
+      organizationId: organization.id,
+      userId: user.id,
+      roleKey: 'organization_owner',
+    });
+
+    return user;
   }
 
   async activate(token: string, password: string): Promise<IssuedSession> {

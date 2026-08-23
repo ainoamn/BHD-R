@@ -1020,13 +1020,17 @@ h3 {
 }
 .footer-grid {
   display: grid;
-  grid-template-columns: 1.4fr 1fr auto;
+  grid-template-columns: 1.4fr 1fr 1fr auto;
   gap: 2rem;
   align-items: start;
 }
 .site-footer nav {
   display: grid;
   gap: 0.45rem;
+}
+.site-footer nav strong {
+  color: white;
+  margin-bottom: 0.25rem;
 }
 .site-footer nav a:hover {
   color: var(--gold-300);

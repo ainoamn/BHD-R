@@ -4,7 +4,6 @@ import { Logo } from '@bhd-r/ui';
 import { useLocale, useTranslations } from 'next-intl';
 import { Link, usePathname } from '@/i18n/navigation';
 import type { PortalRole } from '@/lib/types';
-import { browserMutation } from '@/lib/api';
 
 const nav: Record<PortalRole, Array<{ path: string; label: string; mark: string }>> = {
   platform: [
@@ -49,9 +48,8 @@ export function PortalNav({ portal, displayName }: { portal: PortalRole; display
   const pathname = usePathname();
   const locale = useLocale() as 'ar' | 'en';
   const root = `/${portal}`;
-  async function signOut() {
-    await browserMutation('/v1/auth/logout', { method: 'POST' }).catch(() => undefined);
-    window.location.assign(`/${locale}/login`);
+  function signOut() {
+    window.location.assign('/api/auth/bhd/logout');
   }
   return (
     <aside className="portal-sidebar">

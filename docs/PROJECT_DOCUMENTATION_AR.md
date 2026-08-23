@@ -1,10 +1,11 @@
 # توثيق مشروع BHD R — إدارة العقارات
 
-**الإصدار:** 0.1.0  
+**الإصدار:** 0.1.2  
 **التاريخ:** 23 أغسطس 2026  
 **المستودع المستهدف:** [ainoamn/BHD-R](https://github.com/ainoamn/BHD-R)  
 **النطاق المقترح:** `r.bhd-om.com`  
-**عميل الهوية:** `bhd-r`
+**عميل الهوية:** `bhd-r`  
+**مسار SSO:** `/api/auth/bhd/start|callback|logout` · `admin-entry` — راجع [`BHD-R-SSO-COMPLIANCE.md`](./BHD-R-SSO-COMPLIANCE.md)
 
 هذه الوثيقة هي المرجع الشامل للمنتج: ماذا يفعل، كيف يعمل، بنيته، وحداته، أمنه، وتشغيله. للتفاصيل التشغيلية راجع الفهرس في [`docs/README.md`](./README.md).
 
@@ -19,7 +20,7 @@
 | البعد | القرار |
 | --- | --- |
 | المنتج | منصة عقارية متعددة الأدوار مع سوق عام |
-| الهوية | BHD Identity OIDC (`bhd-r`) + جلسات محلية محمية |
+| الهوية | BHD Identity OIDC (`bhd-r`) عبر `/api/auth/bhd/*` + جلسات Host-only `bhd_r_session` |
 | الواجهة | Next.js 16 + React 19 + Tailwind 4 + next-intl |
 | الـ API | NestJS 11 على Fastify |
 | البيانات | PostgreSQL 17 + PostGIS + Drizzle + RLS |

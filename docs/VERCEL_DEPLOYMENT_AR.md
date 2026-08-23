@@ -73,9 +73,15 @@ PUBLIC_API_ORIGIN=https://r.bhd-om.com
 API_INTERNAL_ORIGIN=https://api.r.bhd-om.com
 PUBLIC_MEDIA_BASE_URL=https://cdn.example.com/bhd-r-public
 COOKIE_SECURE=true
+BHD_IDENTITY_ISSUER=https://id.bhd-om.com
+BHD_OAUTH_CLIENT_ID=bhd-r
+BHD_OAUTH_CLIENT_SECRET=<secret>
+BHD_OAUTH_REDIRECT_URI=https://r.bhd-om.com/api/auth/bhd/callback
+BHD_OAUTH_POST_LOGOUT_REDIRECT_URI=https://r.bhd-om.com/
+BHD_R_SESSION_SECRET=<≥32 chars>
 ```
 
-أسرار الجلسة/OIDC/DB تُحقن في خدمة **API** وليس في Bundle المتصفح.
+أسرار الجلسة/OIDC/DB للـ **API** أيضاً (`DATABASE_URL`, `BHD_IDENTITY_TOKEN_SECRET`, …). دليل الهوية: [`BHD-R-IDENTITY-SETUP.md`](./BHD-R-IDENTITY-SETUP.md).
 
 القائمة الكاملة المرجعية: [`.env.example`](../.env.example).
 

@@ -2,6 +2,14 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.1.2 — 2026-08-23
+
+- Canonical BHD product SSO: `/api/auth/bhd/start|callback|logout` and `/api/auth/admin-entry`.
+- Login wrapper redirects to Identity except emergency `?local=1`; admin paths use `admin-entry`.
+- Identity linking per §0.7/`identity_subject`; Nest `POST /v1/auth/identity/session` for web-origin cookies.
+- Frozen app-switcher catalog, unified logout via end-session, footer «برامجنا» + admin entry.
+- Docs: `BHD-PRODUCT-SSO-ADMIN`, unified login copy with §12.9, `BHD-R-SSO-COMPLIANCE`, updated identity setup.
+
 ## 0.1.1 — 2026-08-23
 
 - Omani visual redesign for the public site and unified login (fort and Al Alam imagery, official BHD mark, Oman flag accent bar).

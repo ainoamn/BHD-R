@@ -1,20 +1,21 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { browserMutation } from '@/lib/api';
+import { BHD_APPS, type BhdApp } from '@/lib/bhd/apps';
 import type { Viewer } from '@/lib/types';
 
-const apps = [
-  { id: 'portal', ar: 'بوابة BHD', en: 'BHD Portal', mark: 'B', href: 'https://www.bhd-om.com/' },
-  { id: 'account', ar: 'الحساب', en: 'Account', mark: 'حـ', href: 'https://id.bhd-om.com/account' },
-  { id: 'wazen', ar: 'وازن', en: 'WAZEN', mark: 'و', href: 'https://wazen.bhd-om.com/' },
-  { id: 'hisaby', ar: 'حسابي', en: 'HISABY', mark: 'ح', href: 'https://hisaby.bhd-om.com/' },
-  { id: 'nasab', ar: 'نَسَب', en: 'NASAB', mark: 'ن', href: 'https://nasab.bhd-om.com/' },
-  { id: 'real-estate', ar: 'BHD R', en: 'BHD R', mark: 'R', href: '/' },
-  { id: 'store', ar: 'المتجر', en: 'BHD Store', mark: 'م', href: 'https://bhdstor.bhd-om.com/' },
-] as const;
-
 type Panel = 'apps' | 'account' | null;
+
+function isCurrentApp(app: BhdApp): boolean {
+  return app.id === 'bhd-r' || app.clientId === 'bhd-r';
+}
+
+function hrefForApp(app: BhdApp, locale: 'ar' | 'en'): string {
+  if (app.id === 'account') return 'https://id.bhd-om.com/account';
+  if (isCurrentApp(app)) return `/${locale}`;
+  if (app.mode === 'sso' && app.startUrl) return app.startUrl;
+  return `${app.origin.replace(/\/$/, '')}/`;
+}
 
 export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar' | 'en' }) {
   const [panel, setPanel] = useState<Panel>(null);
@@ -23,6 +24,7 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
   const accountId = useId();
   const initial = viewer.displayName.trim().slice(0, 1) || 'B';
   const ar = locale === 'ar';
+  const apps = BHD_APPS.filter((app) => app.enabled);
 
   useEffect(() => {
     if (!panel) return;
@@ -40,9 +42,8 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
     };
   }, [panel]);
 
-  async function signOut() {
-    await browserMutation('/v1/auth/logout', { method: 'POST' }).catch(() => undefined);
-    window.location.assign(`/${locale}`);
+  function signOut() {
+    window.location.assign('/api/auth/bhd/logout');
   }
 
   return (
@@ -87,18 +88,22 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
           </div>
           <div className="bhd-switcher-apps">
             {apps.map((app) => {
-              const current = app.id === 'real-estate';
-              const href = current ? `/${locale}` : app.href;
+              const current = isCurrentApp(app);
               return (
                 <a
                   key={app.id}
                   className={current ? 'bhd-switcher-app is-current' : 'bhd-switcher-app'}
-                  href={href}
+                  href={hrefForApp(app, locale)}
                   aria-current={current ? 'page' : undefined}
                   onClick={() => setPanel(null)}
                 >
-                  <span className={`bhd-app-mark bhd-app-mark--${app.id}`}>{app.mark}</span>
-                  <span>{ar ? app.ar : app.en}</span>
+                  <span
+                    className="bhd-app-mark"
+                    style={{ background: app.soft, color: app.accent }}
+                  >
+                    {app.mark}
+                  </span>
+                  <span>{ar ? app.nameAr : app.nameEn}</span>
                 </a>
               );
             })}
@@ -122,7 +127,7 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
           </div>
           <a href={`/${locale}/portal`}>{ar ? 'مساحتي في BHD R' : 'My BHD R workspace'}</a>
           <a href="https://id.bhd-om.com/account">{ar ? 'إدارة حساب BHD' : 'Manage BHD account'}</a>
-          <button type="button" onClick={() => void signOut()}>
+          <button type="button" onClick={signOut}>
             {ar ? 'تسجيل الخروج' : 'Sign out'}
           </button>
         </div>
