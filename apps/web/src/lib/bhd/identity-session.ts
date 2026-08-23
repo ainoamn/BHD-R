@@ -156,17 +156,25 @@ export async function issueIdentitySession(input: {
   nonce: string;
   accessToken?: string;
 }): Promise<IssuedSession> {
-  const cleanSecret = (value: string | undefined) =>
-    value?.replace(/^\uFEFF/, '').replace(/\\r\\n$/i, '').trim() || undefined;
+  const cleanEnv = (value: string | undefined) =>
+    value
+      ?.replace(/^\uFEFF/, '')
+      .replace(/\\r\\n$/i, '')
+      .replace(/\\n$/i, '')
+      .trim() || undefined;
   const identityTokenSecret =
-    cleanSecret(process.env.BHD_IDENTITY_TOKEN_SECRET) ||
-    cleanSecret(process.env.IDENTITY_TOKEN_SECRET) ||
-    cleanSecret(process.env.AUTH_SECRET) ||
+    cleanEnv(process.env.BHD_IDENTITY_TOKEN_SECRET) ||
+    cleanEnv(process.env.IDENTITY_TOKEN_SECRET) ||
+    cleanEnv(process.env.AUTH_SECRET) ||
     undefined;
   const identity = await verifyIdentityToken({
     token: input.idToken,
-    issuer: process.env.BHD_IDENTITY_ISSUER ?? 'https://id.bhd-om.com',
-    clientId: process.env.BHD_OAUTH_CLIENT_ID ?? process.env.BHD_IDENTITY_CLIENT_ID ?? 'bhd-r',
+    issuer:
+      cleanEnv(process.env.BHD_IDENTITY_ISSUER)?.replace(/\/$/, '') ?? 'https://id.bhd-om.com',
+    clientId:
+      cleanEnv(process.env.BHD_OAUTH_CLIENT_ID) ||
+      cleanEnv(process.env.BHD_IDENTITY_CLIENT_ID) ||
+      'bhd-r',
     expectedNonce: input.nonce,
     ...(identityTokenSecret ? { sharedSecret: identityTokenSecret } : {}),
     ...(input.accessToken ? { accessToken: input.accessToken } : {}),
@@ -174,7 +182,9 @@ export async function issueIdentitySession(input: {
   const verifiedClaims = decodeJwt(input.idToken);
   if (verifiedClaims.nonce !== input.nonce) throw new Error('Identity nonce mismatch');
   const clientId =
-    process.env.BHD_OAUTH_CLIENT_ID ?? process.env.BHD_IDENTITY_CLIENT_ID ?? 'bhd-r';
+    cleanEnv(process.env.BHD_OAUTH_CLIENT_ID) ||
+    cleanEnv(process.env.BHD_IDENTITY_CLIENT_ID) ||
+    'bhd-r';
   if (
     Array.isArray(verifiedClaims.aud) &&
     verifiedClaims.aud.length > 1 &&

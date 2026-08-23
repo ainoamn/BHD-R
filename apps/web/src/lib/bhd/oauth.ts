@@ -8,28 +8,28 @@ export type OidcState = {
 };
 
 export function identitySettings(origin: string) {
-  const issuer = (process.env.BHD_IDENTITY_ISSUER ?? 'https://id.bhd-om.com').replace(/\/$/, '');
-  const clientId = (
-    process.env.BHD_OAUTH_CLIENT_ID ??
-    process.env.BHD_IDENTITY_CLIENT_ID ??
-    'bhd-r'
-  )
-    .replace(/^\uFEFF/, '')
-    .trim();
-  const clientSecret = (
-    process.env.BHD_OAUTH_CLIENT_SECRET ??
-    process.env.BHD_IDENTITY_CLIENT_SECRET ??
-    ''
-  )
-    .replace(/^\uFEFF/, '')
-    .trim();
-  const configured = (
-    process.env.BHD_OAUTH_REDIRECT_URI ??
-    process.env.BHD_IDENTITY_REDIRECT_URI ??
-    ''
-  )
-    .replace(/^\uFEFF/, '')
-    .trim();
+  const clean = (value: string | undefined) =>
+    value
+      ?.replace(/^\uFEFF/, '')
+      .replace(/\\r\\n$/i, '')
+      .replace(/\\n$/i, '')
+      .trim() || '';
+  const issuer = (clean(process.env.BHD_IDENTITY_ISSUER) || 'https://id.bhd-om.com').replace(
+    /\/$/,
+    '',
+  );
+  const clientId =
+    clean(process.env.BHD_OAUTH_CLIENT_ID) ||
+    clean(process.env.BHD_IDENTITY_CLIENT_ID) ||
+    'bhd-r';
+  const clientSecret =
+    clean(process.env.BHD_OAUTH_CLIENT_SECRET) ||
+    clean(process.env.BHD_IDENTITY_CLIENT_SECRET) ||
+    '';
+  const configured =
+    clean(process.env.BHD_OAUTH_REDIRECT_URI) ||
+    clean(process.env.BHD_IDENTITY_REDIRECT_URI) ||
+    '';
   const canonical = `${origin.replace(/\/$/, '')}/api/auth/bhd/callback`;
   // Prefer request origin so Host-only cookies and authorize stay aligned; sanitize legacy env paths
   let redirectUri = canonical;
