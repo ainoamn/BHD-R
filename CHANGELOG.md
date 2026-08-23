@@ -2,6 +2,13 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.1.4 — 2026-08-23
+
+- Operations and accounting portal modules (requests, sales, expenses, journals, work orders).
+- Schema migrations `0001`/`0002` plus RLS updates for new tables.
+- Property wizard and portal navigation wired to operations workspace.
+- Identity HS256 verify falls back to `/oauth/userinfo` when product secret is corrupt.
+
 ## 0.1.3 — 2026-08-23
 
 - Live SSO session minting on Vercel via `DATABASE_URL` (Neon) without requiring Nest for callback.
