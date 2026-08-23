@@ -6,6 +6,7 @@ import {
   openOidcState,
   secureCookies,
 } from '@/lib/bhd/oauth';
+import { hasDatabaseUrl, issueIdentitySession } from '@/lib/bhd/identity-session';
 
 export const runtime = 'nodejs';
 
@@ -74,37 +75,49 @@ export async function GET(request: Request) {
   if (!tokenResponse.ok) return clearAndRedirect('/ar/login?bhd=token');
   const tokens = z.object({ id_token: z.string().min(20) }).parse(await tokenResponse.json());
 
-  const apiOrigin = (process.env.API_INTERNAL_ORIGIN ?? process.env.API_ORIGIN ?? '').replace(
-    /\/$/,
-    '',
-  );
-  const apiPublic =
-    /^https:\/\//i.test(apiOrigin) &&
-    !/localhost|127\.0\.0\.1|\.local|\.internal/i.test(apiOrigin);
+  let issued: { token: string; csrf: string };
+  try {
+    if (hasDatabaseUrl()) {
+      issued = await issueIdentitySession({
+        idToken: tokens.id_token,
+        nonce: saved.nonce,
+      });
+    } else {
+      const apiOrigin = (process.env.API_INTERNAL_ORIGIN ?? process.env.API_ORIGIN ?? '').replace(
+        /\/$/,
+        '',
+      );
+      const apiPublic =
+        /^https:\/\//i.test(apiOrigin) &&
+        !/localhost|127\.0\.0\.1|\.local|\.internal/i.test(apiOrigin);
 
-  if (!apiPublic && process.env.VERCEL) {
-    return clearAndRedirect('/ar/login?bhd=api');
+      if (!apiPublic && process.env.VERCEL) {
+        return clearAndRedirect('/ar/login?bhd=api');
+      }
+
+      const sessionApi = apiPublic
+        ? `${apiOrigin}/v1/auth/identity/session`
+        : `${process.env.API_INTERNAL_ORIGIN ?? 'http://127.0.0.1:4000'}/v1/auth/identity/session`;
+
+      const sessionResponse = await fetch(sessionApi, {
+        method: 'POST',
+        signal: AbortSignal.timeout(10_000),
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ idToken: tokens.id_token, nonce: saved.nonce }),
+      }).catch(() => null);
+
+      if (!sessionResponse?.ok) {
+        const codeHint = sessionResponse?.status === 401 ? 'account' : 'session';
+        return clearAndRedirect(`/ar/login?bhd=${codeHint}`);
+      }
+
+      issued = z
+        .object({ token: z.string().min(20), csrf: z.string().min(8) })
+        .parse(await sessionResponse.json());
+    }
+  } catch {
+    return clearAndRedirect('/ar/login?bhd=session');
   }
-
-  const sessionApi = apiPublic
-    ? `${apiOrigin}/v1/auth/identity/session`
-    : `${process.env.API_INTERNAL_ORIGIN ?? 'http://127.0.0.1:4000'}/v1/auth/identity/session`;
-
-  const sessionResponse = await fetch(sessionApi, {
-    method: 'POST',
-    signal: AbortSignal.timeout(10_000),
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ idToken: tokens.id_token, nonce: saved.nonce }),
-  }).catch(() => null);
-
-  if (!sessionResponse?.ok) {
-    const codeHint = sessionResponse?.status === 401 ? 'account' : 'session';
-    return clearAndRedirect(`/ar/login?bhd=${codeHint}`);
-  }
-
-  const issued = z
-    .object({ token: z.string().min(20), csrf: z.string().min(8) })
-    .parse(await sessionResponse.json());
 
   const response = clearAndRedirect(saved.returnTo);
   response.cookies.set({

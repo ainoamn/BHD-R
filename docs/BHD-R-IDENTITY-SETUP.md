@@ -24,11 +24,25 @@
 | المسار | السلوك |
 | --- | --- |
 | `GET /api/auth/bhd/start` | 302 إلى `https://id.bhd-om.com/oauth/authorize` + كوكي `bhd_oauth_state` |
-| `GET /api/auth/bhd/callback` | تبديل الكود على الخادم → `POST {API}/v1/auth/identity/session` → كوكي `bhd_r_session` / `bhd_r_csrf` |
+| `GET /api/auth/bhd/callback` | تبديل الكود على الخادم → إنشاء جلسة محلياً عبر `DATABASE_URL` (أو `POST {API}/v1/auth/identity/session`) → كوكي `bhd_r_session` / `bhd_r_csrf` |
 | `GET /api/auth/bhd/logout` | مسح جلسة المنتج ثم `…/oauth/end-session` |
 | `GET /api/auth/admin-entry` | → `start?returnTo=/platform` (أو `next` الآمن) |
 
 المسارات القديمة `/v1/auth/oidc/start|callback` تحوّل إلى المسارات أعلاه.
+
+## جلسة الويب على Vercel (بدون Nest منفصل)
+
+للنشر الحالي على `bhd-r-api` يكفي:
+
+```env
+DATABASE_URL=postgresql://…neon…
+BHD_IDENTITY_TOKEN_SECRET=<نفس IDENTITY_TOKEN_SECRET من الهوية>
+BHD_R_SESSION_SECRET=<≥32>
+CSRF_SECRET=<≥32>
+```
+
+`callback` ينشئ المستخدم/الجلسة مباشرة عبر `@bhd-r/db` عند وجود `DATABASE_URL`.  
+`API_INTERNAL_ORIGIN` يبقى اختيارياً عندما يُنشر Nest API لاحقاً.
 
 ## ربط المستخدم (§3.3 / §0.7)
 

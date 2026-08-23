@@ -18,7 +18,7 @@
 | مشغّل بكتالوج مجمد + خروج موحّد | منفَّذ | `lib/bhd/apps.ts` + `bhd-app-switcher.tsx` |
 | تسجيل عميل `bhd-r` في ONE-BHD | منفَّذ 23 أغسطس 2026 | `clients` في الاكتشاف الحي |
 | قلب `mode=sso` في كتالوج ONE-BHD | منفَّذ | `apps.ts` في ONE-BHD |
-| `API_INTERNAL_ORIGIN` عام على Vercel | مطلوب لإتمام الجلسة بعد الكود | بدونها `?bhd=api` |
+| `API_INTERNAL_ORIGIN` / `DATABASE_URL` على Vercel | `DATABASE_URL` مضبوط (جلسة من Next) | Nest API اختياري لاحقاً |
 
 ## سجل تثبيت (§12 قالب الموحّد) — BHD R
 

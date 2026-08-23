@@ -19,13 +19,13 @@ const bhdErrors: Record<string, { ar: string; en: string }> = {
     ar: 'تعذّر إكمال التحقق من الهوية.',
     en: 'Identity token exchange failed.',
   },
-  session: {
-    ar: 'تعذّر إنشاء جلسة BHD R. تأكد من تشغيل الـ API.',
-    en: 'Could not create a BHD R session. Ensure the API is reachable.',
-  },
   api: {
-    ar: 'لم يُضبط عنوان API العام على Vercel (API_INTERNAL_ORIGIN).',
-    en: 'Public API origin is not configured on Vercel (API_INTERNAL_ORIGIN).',
+    ar: 'لم تُضبط قاعدة البيانات أو عنوان API على Vercel (DATABASE_URL أو API_INTERNAL_ORIGIN).',
+    en: 'Database or public API is not configured on Vercel (DATABASE_URL or API_INTERNAL_ORIGIN).',
+  },
+  session: {
+    ar: 'تعذّر إنشاء جلسة BHD R بعد التحقق من الهوية.',
+    en: 'Could not create a BHD R session after identity verification.',
   },
   account: {
     ar: 'تعذّر ربط حساب الهوية بهذا المنتج.',

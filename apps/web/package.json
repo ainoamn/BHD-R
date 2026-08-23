@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev --turbopack -p 3000",
-    "build:packages": "cd ../.. && pnpm exec turbo run build --filter=@bhd-r/contracts --filter=@bhd-r/country-packs --filter=@bhd-r/i18n --filter=@bhd-r/ui --force",
+    "build:packages": "cd ../.. && pnpm exec turbo run build --filter=@bhd-r/contracts --filter=@bhd-r/country-packs --filter=@bhd-r/i18n --filter=@bhd-r/ui --filter=@bhd-r/db --filter=@bhd-r/authz --filter=@bhd-r/security --force",
     "build": "pnpm run build:packages && next build",
     "start": "next start -p 3000",
     "lint": "eslint \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\"",
@@ -16,12 +16,18 @@
     "clean": "rimraf .next coverage playwright-report test-results"
   },
   "dependencies": {
+    "@bhd-r/authz": "workspace:*",
     "@bhd-r/contracts": "workspace:*",
     "@bhd-r/country-packs": "workspace:*",
+    "@bhd-r/db": "workspace:*",
     "@bhd-r/i18n": "workspace:*",
+    "@bhd-r/security": "workspace:*",
     "@bhd-r/ui": "workspace:*",
+    "drizzle-orm": "^0.45.1",
+    "jose": "^6.1.3",
     "next": "^16.3.0",
     "next-intl": "^4.8.3",
+    "postgres": "^3.4.7",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "zod": "^4.1.13"
