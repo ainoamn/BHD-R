@@ -43,9 +43,12 @@ BHD R Monorepo متعدد الخدمات. **Vercel مناسب أساساً لـ 
 | Framework Preset | Next.js |
 | Root Directory | `apps/web` |
 | Install Command | `cd ../.. && pnpm install --frozen-lockfile` |
-| Build Command | `cd ../.. && pnpm --filter @bhd-r/web... build` |
+| Build Command | `cd ../.. && pnpm --filter @bhd-r/web run build` |
 | Output Directory | (اترك افتراضي Next — لا تملأه يدوياً) |
 | Node.js Version | 24.x |
+
+أمر بناء الويب يبني أولاً حزم workspace (`@bhd-r/contracts`, `country-packs`, `i18n`, `ui`) إلى `dist/` ثم يشغّل `next build`.  
+إذا كان في لوحة Vercel **Override** لـ Build Command بقيمة `pnpm --filter @bhd-r/web build` بدون `run` أو بدون `cd ../..`، امسحه أو طابقه مع الجدول أعلاه.
 
 ملف الإعداد داخل المستودع: [`apps/web/vercel.json`](../apps/web/vercel.json).
 
