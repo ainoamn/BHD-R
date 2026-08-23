@@ -28,20 +28,26 @@ BHD R Monorepo متعدد الخدمات. **Vercel مناسب أساساً لـ 
 
 ## 2. إعداد مشروع Vercel (Web)
 
+> **مهم جداً:** Root Directory يجب أن يكون `apps/web` فقط.  
+> إذا تُرك فارغاً أو ضُبط على `apps/api` سيظهر الخطأ:  
+> `No Next.js version detected` لأن جذر المستودع و`apps/api` لا يحتويان على حزمة `next`.
+
 1. ادفع المستودع إلى GitHub: `https://github.com/ainoamn/BHD-R`.
 2. في [vercel.com](https://vercel.com/) → **Add New Project** → استورد `ainoamn/BHD-R`.
-3. إعدادات البناء المقترحة:
+3. في **Settings → General → Root Directory** اختر **`apps/web`** واحفظ.
+4. فعّل **Include source files outside of the Root Directory** (للـ monorepo / workspace packages).
+5. إعدادات البناء المقترحة (أو اتركها لتقرأ من `apps/web/vercel.json`):
 
 | الحقل | القيمة |
 | --- | --- |
 | Framework Preset | Next.js |
 | Root Directory | `apps/web` |
 | Install Command | `cd ../.. && pnpm install --frozen-lockfile` |
-| Build Command | `cd ../.. && pnpm --filter @bhd-r/web build` |
-| Output Directory | (اترك افتراضي Next) |
+| Build Command | `cd ../.. && pnpm --filter @bhd-r/web... build` |
+| Output Directory | (اترك افتراضي Next — لا تملأه يدوياً) |
 | Node.js Version | 24.x |
 
-بديل إن دعم المشروع `pnpm` من الجذر مع `vercel.json` (انظر الملف في جذر المستودع).
+ملف الإعداد داخل المستودع: [`apps/web/vercel.json`](../apps/web/vercel.json).
 
 4. اربط النطاق المخصص `r.bhd-om.com` بعد التحقق من DNS.
 5. فعّل HTTPS؛ لا تعطّل HSTS بعد التحقق الكامل من كل الـ subdomains ذات الصلة.

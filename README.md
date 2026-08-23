@@ -4,7 +4,7 @@
 
 **التوثيق المفصل:** [`docs/PROJECT_DOCUMENTATION_AR.md`](./docs/PROJECT_DOCUMENTATION_AR.md)  
 **مصفوفة الأمن:** [`docs/SECURITY_CHECKLIST_MATRIX_AR.md`](./docs/SECURITY_CHECKLIST_MATRIX_AR.md)  
-**ربط Vercel:** [`docs/VERCEL_DEPLOYMENT_AR.md`](./docs/VERCEL_DEPLOYMENT_AR.md)  
+**ربط Vercel:** [`docs/VERCEL_DEPLOYMENT_AR.md`](./docs/VERCEL_DEPLOYMENT_AR.md) — Root Directory = `apps/web`  
 **مراجعات BHD-OM:** [`docs/legacy-reviews/`](./docs/legacy-reviews/)
 
 ## الحالة
