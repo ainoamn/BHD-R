@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "next dev --turbopack -p 3000",
-    "build:packages": "cd ../.. && pnpm exec turbo run build --filter=@bhd-r/contracts --filter=@bhd-r/country-packs --filter=@bhd-r/i18n --filter=@bhd-r/ui",
-    "build": "pnpm run build:packages && next build --turbopack",
+    "build:packages": "cd ../.. && pnpm exec turbo run build --filter=@bhd-r/contracts --filter=@bhd-r/country-packs --filter=@bhd-r/i18n --filter=@bhd-r/ui --force",
+    "build": "pnpm run build:packages && next build",
     "start": "next start -p 3000",
     "lint": "eslint \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
