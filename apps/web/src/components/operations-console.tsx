@@ -452,6 +452,17 @@ function scalar(row: DataRow, column: Column): unknown {
   return null;
 }
 
+function safeString(value: unknown): string {
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'bigint' ||
+    typeof value === 'boolean'
+  )
+    return String(value);
+  return '';
+}
+
 function labelForOption(option: OptionRow, locale: 'ar' | 'en'): string {
   return (
     (locale === 'ar' ? option.nameAr : option.nameEn) ??
@@ -480,7 +491,7 @@ function moneyFromRecord(row: DataRow, key: string, locale: 'ar' | 'en'): string
   const value = row[key];
   if (value === undefined || value === null || value === '') return '—';
   const currency = typeof row.currency === 'string' ? row.currency : 'OMR';
-  return formatMoney(String(value), currency, locale);
+  return formatMoney(safeString(value), currency, locale);
 }
 
 function statusTone(status: string): string {
@@ -527,18 +538,18 @@ function displayCell(
 ): ReactNode {
   const value = scalar(row, column);
   if (value === null) return '—';
-  if (column.format === 'count') return Array.isArray(value) ? value.length : String(value);
+  if (column.format === 'count') return Array.isArray(value) ? value.length : safeString(value);
   if (column.format === 'money') return moneyFromRecord(row, column.key, locale);
   if (column.format === 'date') {
-    const date = new Date(String(value));
+    const date = new Date(safeString(value));
     return Number.isNaN(date.valueOf())
-      ? String(value)
+      ? safeString(value)
       : new Intl.DateTimeFormat(locale === 'ar' ? 'ar-OM' : 'en-OM', {
           dateStyle: 'medium',
         }).format(date);
   }
   if (column.format === 'status') {
-    const status = String(value);
+    const status = safeString(value);
     return (
       <span className={`ops-status ops-status--${statusTone(status)}`}>
         {status.replaceAll('_', ' ')}
@@ -557,11 +568,11 @@ function displayCell(
       ...(context.maintenanceTickets ?? []),
       ...(context.leases ?? []),
     ];
-    const match = sources.find((option) => option.id === String(value));
-    return match ? labelForOption(match, locale) : String(value).slice(0, 8);
+    const match = sources.find((option) => option.id === safeString(value));
+    return match ? labelForOption(match, locale) : safeString(value).slice(0, 8);
   }
   if (typeof value === 'object') return Array.isArray(value) ? String(value.length) : '—';
-  return String(value).replaceAll('_', ' ');
+  return safeString(value).replaceAll('_', ' ');
 }
 
 function SelectOptions({
@@ -1361,8 +1372,8 @@ function creationRequest(section: OperationsSection, form: FormData) {
 }
 
 function nextAction(section: OperationsSection, row: DataRow) {
-  const status = String(row.status ?? '');
-  const id = String(row.id ?? '');
+  const status = safeString(row.status);
+  const id = safeString(row.id);
   if (!id) return null;
   const statusProgression: Partial<Record<OperationsSection, Record<string, string>>> = {
     requests: {
@@ -1449,7 +1460,7 @@ function nextAction(section: OperationsSection, row: DataRow) {
       next: 'approved',
     };
   if (section === 'bookings') {
-    const kind = String(row.recordKind ?? '');
+    const kind = safeString(row.recordKind);
     if (kind === 'reservation' && status === 'pending')
       return {
         path: `/v1/leasing/reservations/${id}`,
@@ -1496,7 +1507,7 @@ export function OperationsConsole({
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
     return records.filter((row) => {
-      if (statusFilter && String(row.status ?? '') !== statusFilter) return false;
+      if (statusFilter && safeString(row.status) !== statusFilter) return false;
       if (!normalized) return true;
       return JSON.stringify(row).toLocaleLowerCase().includes(normalized);
     });
@@ -1515,11 +1526,14 @@ export function OperationsConsole({
         'ended',
         'cancelled',
         'rejected',
-      ].includes(String(row.status ?? '')),
+      ].includes(safeString(row.status)),
   ).length;
   const completedCount = Math.max(0, records.length - openCount);
   const amountTotal = definition.moneyKey
-    ? records.reduce((total, row) => total + BigInt(String(row[definition.moneyKey!] ?? '0')), 0n)
+    ? records.reduce(
+        (total, row) => total + BigInt(safeString(row[definition.moneyKey!]) || '0'),
+        0n,
+      )
     : 0n;
 
   async function submitCreate(event: FormEvent<HTMLFormElement>) {
@@ -1629,8 +1643,12 @@ export function OperationsConsole({
           </span>
           <strong>
             {definition.moneyKey
-              ? formatMoney(amountTotal.toString(), String(records[0]?.currency ?? 'OMR'), locale)
-              : String(summary.pendingApprovals ?? summary.draftJournals ?? secondary.length ?? 0)}
+              ? formatMoney(
+                  amountTotal.toString(),
+                  safeString(records[0]?.currency) || 'OMR',
+                  locale,
+                )
+              : safeString(summary.pendingApprovals ?? summary.draftJournals ?? secondary.length)}
           </strong>
           <small>{ar ? 'محدث من البيانات التشغيلية' : 'Updated from operational data'}</small>
         </article>
@@ -1638,7 +1656,7 @@ export function OperationsConsole({
 
       <section className="ops-flow" aria-label={ar ? 'مراحل العمل' : 'Workflow stages'}>
         {definition.flow.map((stage, index) => {
-          const count = records.filter((row) => String(row.status ?? '') === stage.value).length;
+          const count = records.filter((row) => safeString(row.status) === stage.value).length;
           return (
             <article key={stage.value}>
               <span>{String(index + 1).padStart(2, '0')}</span>
@@ -1699,7 +1717,7 @@ export function OperationsConsole({
               {filtered.map((row, index) => {
                 const action = nextAction(section, row);
                 return (
-                  <tr key={String(row.id ?? row.reference ?? index)}>
+                  <tr key={safeString(row.id ?? row.reference) || String(index)}>
                     {definition.columns.map((column) => (
                       <td key={column.key}>{displayCell(row, column, locale, context)}</td>
                     ))}

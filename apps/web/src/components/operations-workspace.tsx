@@ -107,14 +107,12 @@ export async function OperationsWorkspace({
   portal: PortalRole;
   section: OperationsSection;
 }) {
-  const locale = (await getLocale()) as 'ar' | 'en';
+  const locale = await getLocale();
   const [loaded, context] = await Promise.all([
     loadSection(portal, section),
     portal === 'tenant'
       ? Promise.resolve({} as OperationsContext)
-      : apiFetch<OperationsContext>('/v1/operations/context').catch(
-          () => ({}) as OperationsContext,
-        ),
+      : apiFetch<OperationsContext>('/v1/operations/context').catch(() => ({})),
   ]);
   return (
     <OperationsConsole
