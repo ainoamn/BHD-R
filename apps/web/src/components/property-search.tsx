@@ -35,7 +35,7 @@ export async function PropertySearch({
       role="search"
     >
       {compact ? null : <h2>{t('Home.searchTitle')}</h2>}
-      <div className={compact ? undefined : 'search-grid'}>
+      <div className={compact ? 'filters-bar__grid' : 'search-grid'}>
         <div className="field">
           <label htmlFor={compact ? 'filter-country' : 'home-country'}>
             {locale === 'ar' ? 'الدولة' : 'Country'}

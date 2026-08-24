@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { NextIntlClientProvider } from 'next-intl';
@@ -19,6 +19,13 @@ const arabicFont = IBM_Plex_Sans_Arabic({
   variable: '--font-arabic',
 });
 const latinFont = Inter({ subsets: ['latin'], display: 'swap', variable: '--font-latin' });
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#092d24',
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(publicWebOrigin),

@@ -40,6 +40,19 @@ export function SiteHeader() {
     };
   }, [hidden]);
 
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [open]);
+
   if (hidden) return null;
   const signInHref = `/v1/auth/oidc/start?returnTo=${encodeURIComponent(`/${locale}/portal`)}`;
 
