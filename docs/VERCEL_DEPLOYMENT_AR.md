@@ -12,15 +12,15 @@
 
 BHD R Monorepo متعدد الخدمات. **Vercel مناسب أساساً لـ `apps/web`**.
 
-| المكوّن | التوصية |
-| --- | --- |
-| `apps/web` (Next.js 16) | **Vercel** |
+| المكوّن                                | التوصية                                                                                                       |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `apps/web` (Next.js 16)                | **Vercel**                                                                                                    |
 | `apps/api` (NestJS/Fastify طويل الأمد) | حاوية / Render / Fly / VM / Kubernetes — ليس Serverless صرفاً إن احتجت WebSockets طويلة أو اتصال DB دائم كثيف |
-| `apps/worker` (Chromium + طوابير) | **ليس على Vercel Serverless** — يحتاج حاوية مع Chromium وRedis |
-| PostgreSQL + PostGIS | Neon أو RDS أو Managed PG مع PostGIS |
-| Redis | Upstash أو Redis Cloud |
-| S3 | AWS S3 / Cloudflare R2 / متوافق |
-| البريد | مزود SMTP إنتاجي |
+| `apps/worker` (Chromium + طوابير)      | **ليس على Vercel Serverless** — يحتاج حاوية مع Chromium وRedis                                                |
+| PostgreSQL + PostGIS                   | Neon أو RDS أو Managed PG مع PostGIS                                                                          |
+| Redis                                  | Upstash أو Redis Cloud                                                                                        |
+| S3                                     | AWS S3 / Cloudflare R2 / متوافق                                                                               |
+| البريد                                 | مزود SMTP إنتاجي                                                                                              |
 
 يمكن لاحقاً وضع API على Vercel عبر adapter مخصص، لكن التصميم الافتراضي للإصدار 0.1.0 يفترض API وWorker كخدمات طويلة الأمد.
 
@@ -38,14 +38,14 @@ BHD R Monorepo متعدد الخدمات. **Vercel مناسب أساساً لـ 
 4. فعّل **Include source files outside of the Root Directory** (للـ monorepo / workspace packages).
 5. إعدادات البناء المقترحة (أو اتركها لتقرأ من `apps/web/vercel.json`):
 
-| الحقل | القيمة |
-| --- | --- |
-| Framework Preset | Next.js |
-| Root Directory | `apps/web` |
-| Install Command | `cd ../.. && pnpm install --frozen-lockfile` |
-| Build Command | `cd ../.. && pnpm --filter @bhd-r/web run build` |
-| Output Directory | (اترك افتراضي Next — لا تملأه يدوياً) |
-| Node.js Version | 24.x |
+| الحقل            | القيمة                                           |
+| ---------------- | ------------------------------------------------ |
+| Framework Preset | Next.js                                          |
+| Root Directory   | `apps/web`                                       |
+| Install Command  | `cd ../.. && pnpm install --frozen-lockfile`     |
+| Build Command    | `cd ../.. && pnpm --filter @bhd-r/web run build` |
+| Output Directory | (اترك افتراضي Next — لا تملأه يدوياً)            |
+| Node.js Version  | 24.x                                             |
 
 ملاحظة: `output: 'standalone'` يُعطَّل تلقائياً على Vercel (متغير `VERCEL`) ويبقى مفعّلاً لصور Docker. لا تضف `output: standalone` يدوياً في إعدادات Vercel.
 

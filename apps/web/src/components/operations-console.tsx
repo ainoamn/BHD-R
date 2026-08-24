@@ -1573,6 +1573,24 @@ export function OperationsConsole({
     }
   }
 
+  async function downloadReport(id: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(`/v1/reports/${encodeURIComponent(id)}/download`, {
+        credentials: 'same-origin',
+        headers: { accept: 'application/json' },
+      });
+      if (!response.ok) throw new Error(ar ? 'ملف التقرير غير متاح بعد' : 'Report is not ready');
+      const payload = (await response.json()) as { downloadUrl: string };
+      window.location.assign(payload.downloadUrl);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'download_failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const canCreate = creatable.has(section) && !(portal === 'tenant' && section !== 'requests');
   return (
     <div className={`ops-workspace ops-workspace--${section}`}>
@@ -1716,13 +1734,24 @@ export function OperationsConsole({
             <tbody>
               {filtered.map((row, index) => {
                 const action = nextAction(section, row);
+                const reportId = section === 'reports' ? safeString(row.id) : '';
+                const reportReady = Boolean(reportId && safeString(row.status) === 'completed');
                 return (
                   <tr key={safeString(row.id ?? row.reference) || String(index)}>
                     {definition.columns.map((column) => (
                       <td key={column.key}>{displayCell(row, column, locale, context)}</td>
                     ))}
                     <td>
-                      {action ? (
+                      {reportReady ? (
+                        <button
+                          className="ops-action"
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void downloadReport(reportId)}
+                        >
+                          {ar ? 'تنزيل آمن' : 'Secure download'}
+                        </button>
+                      ) : action ? (
                         <button
                           className="ops-action"
                           type="button"

@@ -1,11 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import {
-  identitySettings,
-  openOidcState,
-  secureCookies,
-} from '@/lib/bhd/oauth';
+import { identitySettings, openOidcState, secureCookies } from '@/lib/bhd/oauth';
 import { hasDatabaseUrl, issueIdentitySession } from '@/lib/bhd/identity-session';
 
 export const runtime = 'nodejs';

@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { and, count, eq, inArray, sql } from 'drizzle-orm';
+import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import {
   expenses,
   invoices,
@@ -18,6 +20,19 @@ import { DatabaseService } from '../database/database.service.js';
 
 @Injectable()
 export class ReportsService {
+  readonly #s3 = new S3Client({
+    region: process.env.S3_REGION ?? 'us-east-1',
+    forcePathStyle: true,
+    ...(process.env.S3_ENDPOINT ? { endpoint: process.env.S3_ENDPOINT } : {}),
+    ...(process.env.S3_ACCESS_KEY && process.env.S3_SECRET_KEY
+      ? {
+          credentials: {
+            accessKeyId: process.env.S3_ACCESS_KEY,
+            secretAccessKey: process.env.S3_SECRET_KEY,
+          },
+        }
+      : {}),
+  });
   constructor(private readonly database: DatabaseService) {}
   create(
     claims: SessionClaims,
@@ -60,6 +75,31 @@ export class ReportsService {
     );
     if (!row) throw new NotFoundException('Report not found');
     return row;
+  }
+
+  async download(claims: SessionClaims, id: string) {
+    const row = await this.get(claims, id);
+    if (
+      row.status !== 'completed' ||
+      !row.objectKey ||
+      (row.expiresAt && row.expiresAt <= new Date())
+    )
+      throw new NotFoundException('Report file is not available');
+    const expiresInSeconds = 180;
+    const downloadUrl = await getSignedUrl(
+      this.#s3,
+      new GetObjectCommand({
+        Bucket: process.env.S3_BUCKET_PRIVATE ?? 'bhd-r-private',
+        Key: row.objectKey,
+        ResponseContentDisposition: `attachment; filename="bhd-r-${row.type}-${row.id}.${row.format}"`,
+      }),
+      { expiresIn: expiresInSeconds },
+    );
+    return {
+      downloadUrl,
+      expiresInSeconds,
+      fileName: `bhd-r-${row.type}-${row.id}.${row.format}`,
+    };
   }
 
   operationalSummary(claims: SessionClaims) {

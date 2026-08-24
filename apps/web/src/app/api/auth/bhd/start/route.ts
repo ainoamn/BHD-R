@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server';
-import { createPkce, identitySettings, safeReturnTo, sealOidcState, secureCookies } from '@/lib/bhd/oauth';
+import {
+  createPkce,
+  identitySettings,
+  safeReturnTo,
+  sealOidcState,
+  secureCookies,
+} from '@/lib/bhd/oauth';
 
 export const runtime = 'nodejs';
 

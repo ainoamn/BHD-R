@@ -47,15 +47,21 @@
 
 ## أهم الموارد
 
-| المجال   | أمثلة المسارات                                                                     |
-| -------- | ---------------------------------------------------------------------------------- |
-| الهوية   | `/auth/login`, `/auth/callback`, `/auth/logout`, `/me`, `/sessions`                |
-| العقارات | `/properties`, `/properties/:id`, `/properties/:id/units`, `/media/upload-intents` |
-| السوق    | `/public/listings`, `/public/listings/:slug`, `/units/:id/holds`                   |
-| العقود   | `/applications`, `/contracts`, `/contracts/:id/signatures`, `/leases`              |
-| المالية  | `/invoices`, `/payments`, `/payment-webhooks/:provider`, `/reports`                |
-| الصيانة  | `/maintenance-requests`, `/work-orders`, `/vendors`                                |
-| المنصة   | `/platform/organizations`, `/plans`, `/entitlements`, `/cms`                       |
+| المجال   | أمثلة المسارات                                                                                      |
+| -------- | --------------------------------------------------------------------------------------------------- |
+| الهوية   | `/auth/login`, `/auth/callback`, `/auth/logout`, `/me`, `/sessions`                                 |
+| العقارات | `/properties`, `/properties/:id`, `/properties/:id/units`, `/media/upload-intents`                  |
+| السوق    | `/public/listings`, `/public/listings/:slug`, `/units/:id/holds`                                    |
+| الحجوزات | `/leasing/holds`, `/leasing/reservations`, `/operations/viewings`                                   |
+| العقود   | `/leasing/contracts`, `/leasing/contracts/:id/signatures`, `/leasing/leases`                        |
+| المالية  | `/finance/invoices`, `/finance/payments`, `/payment-webhooks/:provider`                             |
+| المحاسبة | `/accounting/accounts`, `/accounting/journals`, `/accounting/trial-balance`, `/accounting/expenses` |
+| التشغيل  | `/operations/requests`, `/operations/tasks`, `/operations/approvals`                                |
+| البيع    | `/operations/sales`, `/operations/sales/totals`                                                     |
+| الصيانة  | `/maintenance`, `/operations/work-orders`, `/operations/vendors`                                    |
+| المحاماة | `/operations/legal-cases`, `/operations/legal-cases/:id/events`                                     |
+| التقارير | `/reports`, `/reports/operational-summary`, `/reports/:id/download`                                 |
+| المنصة   | `/platform/organizations`, `/plans`, `/entitlements`, `/cms`                                        |
 
 ## Pagination وcache
 

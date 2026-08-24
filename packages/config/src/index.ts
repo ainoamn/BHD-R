@@ -37,16 +37,13 @@ export type Environment = z.infer<typeof environmentSchema>;
 /** Resolved BHD Identity settings — aliases match ONE-BHD `docs/BHD-IDENTITY-SSO.md`. */
 export function resolveIdentitySettings(source: NodeJS.ProcessEnv = process.env) {
   const issuer = (source.BHD_IDENTITY_ISSUER ?? 'https://id.bhd-om.com').replace(/\/$/, '');
-  const clientId =
-    source.BHD_OAUTH_CLIENT_ID ?? source.BHD_IDENTITY_CLIENT_ID ?? 'bhd-r';
-  const clientSecret =
-    source.BHD_OAUTH_CLIENT_SECRET ?? source.BHD_IDENTITY_CLIENT_SECRET ?? '';
+  const clientId = source.BHD_OAUTH_CLIENT_ID ?? source.BHD_IDENTITY_CLIENT_ID ?? 'bhd-r';
+  const clientSecret = source.BHD_OAUTH_CLIENT_SECRET ?? source.BHD_IDENTITY_CLIENT_SECRET ?? '';
   const redirectUri =
     source.BHD_OAUTH_REDIRECT_URI ??
     source.BHD_IDENTITY_REDIRECT_URI ??
     'http://localhost:3000/v1/auth/oidc/callback';
-  const tokenSecret =
-    source.BHD_IDENTITY_TOKEN_SECRET ?? source.IDENTITY_TOKEN_SECRET ?? '';
+  const tokenSecret = source.BHD_IDENTITY_TOKEN_SECRET ?? source.IDENTITY_TOKEN_SECRET ?? '';
   return { issuer, clientId, clientSecret, redirectUri, tokenSecret };
 }
 

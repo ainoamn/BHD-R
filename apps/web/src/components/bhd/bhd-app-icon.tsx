@@ -1,15 +1,7 @@
 import type { ReactNode } from 'react';
 
 type IconId =
-  | 'account'
-  | 'portal'
-  | 'wazen'
-  | 'hisaby'
-  | 'nasab'
-  | 'baitak'
-  | 'store'
-  | 'office'
-  | 'bhd-r';
+  'account' | 'portal' | 'wazen' | 'hisaby' | 'nasab' | 'baitak' | 'store' | 'office' | 'bhd-r';
 
 const ICONS: Record<IconId, { label: string; soft: string; accent: string; glyph: ReactNode }> = {
   account: {

@@ -2,6 +2,14 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.1.5 — 2026-08-24
+
+- Login brand panel: unified «بوابة BHD» gateway copy (Arabic + English).
+- Secure report download: `GET /v1/reports/:id/download` (signed S3 URL) + operations console action.
+- Operations suite documentation: `docs/OPERATIONS_SUITE_AR.md` and README link.
+- SSO hardening docs refresh; OIDC env values sanitized (issuer/client_id newlines); Turbo `globalPassThroughEnv`.
+- Locale typing fix for operations workspace (`"ar" | "en"`) so Vercel `next build` typecheck passes.
+
 ## 0.1.4 — 2026-08-23
 
 - Operations and accounting portal modules (requests, sales, expenses, journals, work orders).

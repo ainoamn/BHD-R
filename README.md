@@ -55,4 +55,8 @@ pnpm test:e2e
 pnpm audit --audit-level=high
 ```
 
+شرح الوحدات التشغيلية الجديدة وتدفقاتها موجود في
+[الحزمة التشغيلية المتكاملة](docs/OPERATIONS_SUITE_AR.md)، وتفاصيل النشر والأمان في
+`docs/DEPLOYMENT.md` و`docs/SECURITY_CONTROLS.md` و`docs/RUNBOOKS.md`.
+
 لا تُنسخ أسرار الإنتاج إلى المستودع. ابدأ من `.env.example` واستخدم مدير أسرار في بيئة النشر.

@@ -41,6 +41,12 @@ export class ReportsController {
   ) {
     return this.service.get(request.auth!, id);
   }
+  @RequirePermissions('report.read') @Get(':id/download') download(
+    @Req() request: FastifyRequest,
+    @Param('id') id: string,
+  ) {
+    return this.service.download(request.auth!, id);
+  }
   @RequirePermissions('report.export') @Idempotent() @Post() create(
     @Req() request: FastifyRequest,
     @Body(new ZodPipe(reportSchema)) body: z.infer<typeof reportSchema>,

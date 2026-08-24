@@ -19,17 +19,13 @@ export function identitySettings(origin: string) {
     '',
   );
   const clientId =
-    clean(process.env.BHD_OAUTH_CLIENT_ID) ||
-    clean(process.env.BHD_IDENTITY_CLIENT_ID) ||
-    'bhd-r';
+    clean(process.env.BHD_OAUTH_CLIENT_ID) || clean(process.env.BHD_IDENTITY_CLIENT_ID) || 'bhd-r';
   const clientSecret =
     clean(process.env.BHD_OAUTH_CLIENT_SECRET) ||
     clean(process.env.BHD_IDENTITY_CLIENT_SECRET) ||
     '';
   const configured =
-    clean(process.env.BHD_OAUTH_REDIRECT_URI) ||
-    clean(process.env.BHD_IDENTITY_REDIRECT_URI) ||
-    '';
+    clean(process.env.BHD_OAUTH_REDIRECT_URI) || clean(process.env.BHD_IDENTITY_REDIRECT_URI) || '';
   const canonical = `${origin.replace(/\/$/, '')}/api/auth/bhd/callback`;
   // Prefer request origin so Host-only cookies and authorize stay aligned; sanitize legacy env paths
   let redirectUri = canonical;
@@ -66,7 +62,12 @@ export function openOidcState(value: string): OidcState {
   return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as OidcState;
 }
 
-export function createPkce(): { state: string; nonce: string; verifier: string; challenge: string } {
+export function createPkce(): {
+  state: string;
+  nonce: string;
+  verifier: string;
+  challenge: string;
+} {
   const state = randomBytes(24).toString('base64url');
   const nonce = randomBytes(24).toString('base64url');
   const verifier = randomBytes(48).toString('base64url');

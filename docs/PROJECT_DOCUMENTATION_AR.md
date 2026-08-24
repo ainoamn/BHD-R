@@ -17,18 +17,18 @@
 
 بُنيت من الصفر كـ **Modular Monolith** داخل Monorepo، بهوية BHD الموحدة، دون دمج شيفرة النظام القديم `bhd-om`. الهدف: نفس السلوك التشغيلي المطلوب (عقار ← وحدة ← نشر ← حجز ← عقد ← توقيع ← إيجار ← فاتورة ← دفع ← صيانة)، بتقنيات أخف وأأمن وأوضح.
 
-| البعد | القرار |
-| --- | --- |
-| المنتج | منصة عقارية متعددة الأدوار مع سوق عام |
-| الهوية | BHD Identity OIDC (`bhd-r`) عبر `/api/auth/bhd/*` + جلسات Host-only `bhd_r_session` |
-| الواجهة | Next.js 16 + React 19 + Tailwind 4 + next-intl |
-| الـ API | NestJS 11 على Fastify |
-| البيانات | PostgreSQL 17 + PostGIS + Drizzle + RLS |
-| الخلفية | Worker + Redis/BullMQ + Outbox |
-| الوسائط | S3 خاص للأصل + مشتقات عامة بعلامة مائية |
-| المال | NUMERIC / Decimal — لا Float |
-| اللغات | ar (RTL) و en (LTR) |
-| العملات | OMR, BHD, KWD, AED, SAR, QAR, USD + قابلية إضافة |
+| البعد    | القرار                                                                              |
+| -------- | ----------------------------------------------------------------------------------- |
+| المنتج   | منصة عقارية متعددة الأدوار مع سوق عام                                               |
+| الهوية   | BHD Identity OIDC (`bhd-r`) عبر `/api/auth/bhd/*` + جلسات Host-only `bhd_r_session` |
+| الواجهة  | Next.js 16 + React 19 + Tailwind 4 + next-intl                                      |
+| الـ API  | NestJS 11 على Fastify                                                               |
+| البيانات | PostgreSQL 17 + PostGIS + Drizzle + RLS                                             |
+| الخلفية  | Worker + Redis/BullMQ + Outbox                                                      |
+| الوسائط  | S3 خاص للأصل + مشتقات عامة بعلامة مائية                                             |
+| المال    | NUMERIC / Decimal — لا Float                                                        |
+| اللغات   | ar (RTL) و en (LTR)                                                                 |
+| العملات  | OMR, BHD, KWD, AED, SAR, QAR, USD + قابلية إضافة                                    |
 
 ---
 
@@ -46,13 +46,13 @@
 
 ## 3. من يستخدم النظام؟ (الأدوار واللوحات)
 
-| اللوحة | المسار النموذجي | من يستخدمها | ماذا ترى |
-| --- | --- | --- | --- |
-| المنصة | `/platform` | إدارة BHD R | المؤسسات، الباقات، التدقيق، CMS، الدعم |
-| المالك | `/owner` | فرد أو شركة مالكة | العقارات، العقود، الفواتير، الممثلين، التقارير |
-| المطور | `/developer` | مطور عقاري | المشاريع، الوحدات، النشر، التحصيل |
-| المستأجر | `/tenant` | مستأجر مفعّل | عقوده، فواتيره، دفعاته، الصيانة |
-| الموقع العام | `/`, `/properties`, `/units` | الزائر | الوحدات المتاحة فقط |
+| اللوحة       | المسار النموذجي              | من يستخدمها       | ماذا ترى                                       |
+| ------------ | ---------------------------- | ----------------- | ---------------------------------------------- |
+| المنصة       | `/platform`                  | إدارة BHD R       | المؤسسات، الباقات، التدقيق، CMS، الدعم         |
+| المالك       | `/owner`                     | فرد أو شركة مالكة | العقارات، العقود، الفواتير، الممثلين، التقارير |
+| المطور       | `/developer`                 | مطور عقاري        | المشاريع، الوحدات، النشر، التحصيل              |
+| المستأجر     | `/tenant`                    | مستأجر مفعّل      | عقوده، فواتيره، دفعاته، الصيانة                |
+| الموقع العام | `/`, `/properties`, `/units` | الزائر            | الوحدات المتاحة فقط                            |
 
 **قاعدة ذهبية:** الأدوار منفصلة؛ لا دور يرث الآخر ضمنياً. كل مستخدم يرى ما له فقط عبر permission registry + resource grants + organization context.
 
@@ -150,20 +150,20 @@ BHD-R/
 
 ### 5.1 التقنيات الكاملة
 
-| الطبقة | التقنيات |
-| --- | --- |
-| Runtime | Node.js 24+, pnpm 10, Turbo |
-| اللغة | TypeScript 5.9 strict |
-| Web | Next.js 16, React 19, Tailwind 4, next-intl, Playwright |
-| API | NestJS 11, Fastify, Zod, Jose (OIDC/JWT) |
-| DB | PostgreSQL 17, PostGIS, Drizzle ORM, RLS |
-| Queue | Redis, BullMQ, Transactional Outbox |
-| Storage | S3-compatible (MinIO محلياً), Sharp |
-| PDF | Chromium + خطوط Noto للعربية |
-| Security | Helmet/CSP/HSTS, CSRF, TOTP, AES-GCM envelope encryption |
-| Observability | OpenTelemetry adapters, Sentry DSN اختياري |
-| CI/CD | GitHub Actions, Dependabot, Docker multi-image |
-| Tests | Vitest (unit/integration), Playwright E2E, RLS suite |
+| الطبقة        | التقنيات                                                 |
+| ------------- | -------------------------------------------------------- |
+| Runtime       | Node.js 24+, pnpm 10, Turbo                              |
+| اللغة         | TypeScript 5.9 strict                                    |
+| Web           | Next.js 16, React 19, Tailwind 4, next-intl, Playwright  |
+| API           | NestJS 11, Fastify, Zod, Jose (OIDC/JWT)                 |
+| DB            | PostgreSQL 17, PostGIS, Drizzle ORM, RLS                 |
+| Queue         | Redis, BullMQ, Transactional Outbox                      |
+| Storage       | S3-compatible (MinIO محلياً), Sharp                      |
+| PDF           | Chromium + خطوط Noto للعربية                             |
+| Security      | Helmet/CSP/HSTS, CSRF, TOTP, AES-GCM envelope encryption |
+| Observability | OpenTelemetry adapters, Sentry DSN اختياري               |
+| CI/CD         | GitHub Actions, Dependabot, Docker multi-image           |
+| Tests         | Vitest (unit/integration), Playwright E2E, RLS suite     |
 
 ### 5.2 تدفق الطلب
 
@@ -199,21 +199,21 @@ flowchart LR
 
 كيانات محورية:
 
-| الكيان | الدور |
-| --- | --- |
-| `organizations` | مؤسسة (فرد/شركة/مطور) مع عملة ودولة |
-| `parties` / عضويات | أشخاص وشركات وعضويات |
-| `properties` | عقار فردي أو متعدد |
-| `units` | وحدة first-class دائماً |
-| `media_assets` | صور ومرفقات |
-| `listings` | سياسة الظهور العام |
-| `holds` / `reservations` | حجز مؤقت / تأكيد |
-| `contracts` / signatures | عقد ونسخ وتوقيع |
-| `leases` | إيجار فعّال |
-| `invoices` / `payments` | فوترة وتحصيل |
-| `maintenance_requests` | صيانة |
-| `audit_events` / `outbox_events` | تدقيق وأحداث |
-| `country_packs` / `currencies` | التوسع الدولي |
+| الكيان                           | الدور                               |
+| -------------------------------- | ----------------------------------- |
+| `organizations`                  | مؤسسة (فرد/شركة/مطور) مع عملة ودولة |
+| `parties` / عضويات               | أشخاص وشركات وعضويات                |
+| `properties`                     | عقار فردي أو متعدد                  |
+| `units`                          | وحدة first-class دائماً             |
+| `media_assets`                   | صور ومرفقات                         |
+| `listings`                       | سياسة الظهور العام                  |
+| `holds` / `reservations`         | حجز مؤقت / تأكيد                    |
+| `contracts` / signatures         | عقد ونسخ وتوقيع                     |
+| `leases`                         | إيجار فعّال                         |
+| `invoices` / `payments`          | فوترة وتحصيل                        |
+| `maintenance_requests`           | صيانة                               |
+| `audit_events` / `outbox_events` | تدقيق وأحداث                        |
+| `country_packs` / `currencies`   | التوسع الدولي                       |
 
 **قواعد ملكية:**
 
@@ -228,18 +228,18 @@ flowchart LR
 
 تحت `apps/web/src/app/[locale]/`:
 
-| المسار | الوظيفة |
-| --- | --- |
-| `/` | الرئيسية والهوية العمانية |
-| `/properties`, `/properties/[id]` | بحث وتفاصيل عقار |
-| `/units/[id]` | تفاصيل وحدة |
-| `/login`, `/forgot-password`, `/reset-password`, `/activate` | دخول واستعادة وتفعيل |
-| `/platform/*` | لوحة المنصة |
-| `/owner/*`, `/owner/properties/new` | لوحة المالك + معالج عقار |
-| `/developer/*` | لوحة المطور |
-| `/tenant/*`, `/tenant/contracts/[id]` | لوحة المستأجر والعقود |
-| `/invoice/[publicToken]` | فاتورة عامة بحقول مُقلَّلة |
-| `/privacy`, `/terms`, `/trust`, `/accessibility` | صفحات الثقة والقانونية |
+| المسار                                                       | الوظيفة                    |
+| ------------------------------------------------------------ | -------------------------- |
+| `/`                                                          | الرئيسية والهوية العمانية  |
+| `/properties`, `/properties/[id]`                            | بحث وتفاصيل عقار           |
+| `/units/[id]`                                                | تفاصيل وحدة                |
+| `/login`, `/forgot-password`, `/reset-password`, `/activate` | دخول واستعادة وتفعيل       |
+| `/platform/*`                                                | لوحة المنصة                |
+| `/owner/*`, `/owner/properties/new`                          | لوحة المالك + معالج عقار   |
+| `/developer/*`                                               | لوحة المطور                |
+| `/tenant/*`, `/tenant/contracts/[id]`                        | لوحة المستأجر والعقود      |
+| `/invoice/[publicToken]`                                     | فاتورة عامة بحقول مُقلَّلة |
+| `/privacy`, `/terms`, `/trust`, `/accessibility`             | صفحات الثقة والقانونية     |
 
 SEO: `robots.ts`, `sitemap.ts`, Open Graph (`public/og.png`).
 
@@ -249,16 +249,16 @@ SEO: `robots.ts`, `sitemap.ts`, Open Graph (`public/og.png`).
 
 القاعدة: `/v1` — JSON UTF-8 — أخطاء موحّدة مع `correlationId`.
 
-| المجال | أمثلة |
-| --- | --- |
-| الهوية | `/auth/*`, `/me`, `/sessions` |
+| المجال   | أمثلة                                            |
+| -------- | ------------------------------------------------ |
+| الهوية   | `/auth/*`, `/me`, `/sessions`                    |
 | العقارات | `/properties`, `/units`, `/media/upload-intents` |
-| السوق | `/public/listings`, holds |
-| العقود | `/contracts`, signatures, `/leases` |
-| المالية | `/invoices`, `/payments`, webhooks |
-| الصيانة | `/maintenance-requests` |
-| المنصة | organizations, plans, entitlements |
-| الصحة | `/health/live`, `/health/ready` |
+| السوق    | `/public/listings`, holds                        |
+| العقود   | `/contracts`, signatures, `/leases`              |
+| المالية  | `/invoices`, `/payments`, webhooks               |
+| الصيانة  | `/maintenance-requests`                          |
+| المنصة   | organizations, plans, entitlements               |
+| الصحة    | `/health/live`, `/health/ready`                  |
 
 التفاصيل: [`API_OVERVIEW.md`](./API_OVERVIEW.md).
 
@@ -364,13 +364,13 @@ BHD R **لا ينسخ** كود [ainoamn/bhd-om](https://github.com/ainoamn/bhd-o
 
 ## 14. مراجع سريعة
 
-| الوثيقة | المحتوى |
-| --- | --- |
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | المعمارية |
-| [SECURITY_CONTROLS.md](./SECURITY_CONTROLS.md) | الضوابط |
-| [THREAT_MODEL.md](./THREAT_MODEL.md) | نموذج التهديد |
-| [DEPLOYMENT.md](./DEPLOYMENT.md) | النشر العام |
-| [PRODUCT_AND_DECISIONS.md](./PRODUCT_AND_DECISIONS.md) | قرارات المنتج |
-| [product/BHD-R-BUILD-PLAN-AR.md](./product/BHD-R-BUILD-PLAN-AR.md) | خطة البناء |
+| الوثيقة                                                              | المحتوى              |
+| -------------------------------------------------------------------- | -------------------- |
+| [ARCHITECTURE.md](./ARCHITECTURE.md)                                 | المعمارية            |
+| [SECURITY_CONTROLS.md](./SECURITY_CONTROLS.md)                       | الضوابط              |
+| [THREAT_MODEL.md](./THREAT_MODEL.md)                                 | نموذج التهديد        |
+| [DEPLOYMENT.md](./DEPLOYMENT.md)                                     | النشر العام          |
+| [PRODUCT_AND_DECISIONS.md](./PRODUCT_AND_DECISIONS.md)               | قرارات المنتج        |
+| [product/BHD-R-BUILD-PLAN-AR.md](./product/BHD-R-BUILD-PLAN-AR.md)   | خطة البناء           |
 | [SECURITY_CHECKLIST_MATRIX_AR.md](./SECURITY_CHECKLIST_MATRIX_AR.md) | مصفوفة بنودك الأمنية |
-| [VERCEL_DEPLOYMENT_AR.md](./VERCEL_DEPLOYMENT_AR.md) | ربط Vercel |
+| [VERCEL_DEPLOYMENT_AR.md](./VERCEL_DEPLOYMENT_AR.md)                 | ربط Vercel           |

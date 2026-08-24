@@ -41,7 +41,7 @@ for (const locale of ['ar', 'en'] as const) {
   });
 
   test(`${locale} unified login uses the BHD gateway layout`, async ({ page }) => {
-    await page.goto(`/${locale}/login`);
+    await page.goto(`/${locale}/login?bhd=discovery`);
     await expect(page.locator('.site-header')).toHaveCount(0);
     await expect(page.locator('.site-footer')).toHaveCount(0);
     await expect(page.locator('.login-stage')).toBeVisible();
@@ -50,7 +50,7 @@ for (const locale of ['ar', 'en'] as const) {
       page.getByRole('link', {
         name: locale === 'ar' ? 'المتابعة عبر هوية BHD' : 'Continue with BHD Identity',
       }),
-    ).toHaveAttribute('href', new RegExp('^/v1/auth/oidc/start\\?returnTo='));
+    ).toHaveAttribute('href', new RegExp('^/api/auth/bhd/start\\?returnTo='));
   });
 }
 
@@ -81,6 +81,8 @@ test('owner portal exposes specialized operational modules with real records', a
     await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
     await expect(page.getByText(reference, { exact: true })).toBeVisible();
   }
+  await page.goto('/ar/owner/reports');
+  await expect(page.getByRole('button', { name: 'تنزيل آمن' })).toBeVisible();
 });
 
 test('complete property intake has operations, documents, media and review stages', async ({
@@ -88,6 +90,6 @@ test('complete property intake has operations, documents, media and review stage
 }) => {
   await page.goto('/ar/owner/properties/new');
   await expect(page.locator('.steps li')).toHaveCount(6);
-  await expect(page.getByText('التشغيل والمرافق', { exact: true })).toBeVisible();
-  await expect(page.getByText('الملكية والوثائق', { exact: true })).toBeVisible();
+  await expect(page.locator('.steps li').filter({ hasText: 'التشغيل والمرافق' })).toBeVisible();
+  await expect(page.locator('.steps li').filter({ hasText: 'الملكية والوثائق' })).toBeVisible();
 });

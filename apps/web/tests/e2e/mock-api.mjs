@@ -381,6 +381,16 @@ const server = createServer((request, response) => {
     );
     return;
   }
+  if (/^\/v1\/reports\/[^/]+\/download$/.test(path)) {
+    response.end(
+      JSON.stringify({
+        downloadUrl: 'https://downloads.example.test/bhd-r-report.pdf?signature=e2e',
+        expiresInSeconds: 180,
+        fileName: 'bhd-r-report.pdf',
+      }),
+    );
+    return;
+  }
   if (request.method !== 'GET' && path.startsWith('/v1/')) {
     request.resume();
     response.statusCode = 200;

@@ -7,8 +7,7 @@ export const runtime = 'nodejs';
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const { issuer, clientId } = identitySettings(url.origin);
-  const postLogout =
-    process.env.BHD_OAUTH_POST_LOGOUT_REDIRECT_URI ?? `${url.origin}/`;
+  const postLogout = process.env.BHD_OAUTH_POST_LOGOUT_REDIRECT_URI ?? `${url.origin}/`;
 
   const endSession = new URL(`${issuer}/oauth/end-session`);
   endSession.search = new URLSearchParams({

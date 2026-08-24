@@ -40,20 +40,20 @@
 
 تمت فهرسة **كل ملف متعقب في Git**، وقراءة كل ملف نصي آلياً لاستخراج الحجم واللغة والاستيرادات والتصديرات ومسارات الصفحات وواجهات API واستعمال Prisma والتخزين المحلي. ثم تم تتبع المسارات الوظيفية الحرجة يدوياً من الواجهة إلى API ثم التخزين.
 
-| المقياس | النتيجة |
-|---|---:|
-| الملفات المتعقبة | 1,235 |
-| الملفات النصية المقروءة آلياً | 1,122 |
-| ملفات المصدر | 905 |
-| ملفات المصدر النشطة خارج النظام القديم | 820 |
-| أسطر المصدر النشطة | 134,116 |
-| صفحات Next.js | 84 |
-| صفحات عميلة بالكامل | 64 |
-| مسارات API | 185 |
-| عمليات HTTP المكتشفة | 241 |
-| نماذج Prisma | 49 |
-| حقول Prisma | 598 |
-| Enums | 29، وبداخلها 146 قيمة |
+| المقياس                                |               النتيجة |
+| -------------------------------------- | --------------------: |
+| الملفات المتعقبة                       |                 1,235 |
+| الملفات النصية المقروءة آلياً          |                 1,122 |
+| ملفات المصدر                           |                   905 |
+| ملفات المصدر النشطة خارج النظام القديم |                   820 |
+| أسطر المصدر النشطة                     |               134,116 |
+| صفحات Next.js                          |                    84 |
+| صفحات عميلة بالكامل                    |                    64 |
+| مسارات API                             |                   185 |
+| عمليات HTTP المكتشفة                   |                   241 |
+| نماذج Prisma                           |                    49 |
+| حقول Prisma                            |                   598 |
+| Enums                                  | 29، وبداخلها 146 قيمة |
 
 يوجد أيضاً مجلد `legacy` يحوي 212 ملفاً ونحو 538 ألف سطر نصي، أغلبها نسخ HTML/JavaScript ضخمة أو أدوات تشغيل قديمة. لذلك عبارة «حرفاً حرفاً» لا تعني أن كل بايت في صورة أو PDF حصل على تفسير بشري مستقل؛ بل تعني أن كل الملفات دخلت الفهرس، وكل المصادر النصية دخلت المسح، ثم فُحصت يدوياً الوحدات التي تصنع السلوك الحقيقي. لا يجوز مهنياً الادعاء أن مراجعة واحدة تثبت انعدام الأخطاء أو الثغرات.
 
@@ -89,21 +89,21 @@
 
 ## 4. التقنيات واللغات المستعملة
 
-| الطبقة | التقنية الحالية | الملاحظة |
-|---|---|---|
-| الواجهة والخادم | Next.js 16 App Router | يجمع الصفحات وRoute Handlers في تطبيق واحد |
-| الواجهة | React 19 + TypeScript 5 | حديث، لكن عدد كبير من الصفحات `use client` |
-| التصميم | Tailwind CSS 4 + CSS مخصص | RTL وعربي/إنجليزي |
-| الترجمة | `next-intl` | لغتان ثابتتان: العربية والإنجليزية |
-| البيانات | PostgreSQL + Prisma 7 + `@prisma/adapter-pg` | توجد فجوة إصدارات بين Prisma CLI/Client/Adapters |
-| المصادقة | NextAuth 4 Credentials + Google/Azure اختيارياً + BHD OIDC مخصص | أكثر من مسار دخول ينشئ جلسة بطرق مختلفة |
-| التحقق | Zod في بعض المسارات + تحقق يدوي في أخرى | لا توجد DTOs موحدة لكل API |
-| التخزين السريع | Upstash Redis اختيارياً | يستعمل أساساً للـrate limiting/cache |
-| الملفات | Vercel Blob أو تخزين محلي/قديم | لا يوجد File Service موحد بسياسة ملكية وفحص واحدة |
-| الدفع | Stripe وThawani وPayPal وTelr وCMI وNetwork International وHyperPay وPayFort وMyFatoorah وPayTabs وTap | 11 موصلاً، لكن طبقة الاعتمادية والتسوية تحتاج إصلاحاً |
-| OCR | Tesseract و`pdf-parse` | الاستخراج اقتراح أولي وليس ذكاء محاسبياً موثوقاً |
-| الاختبارات | Node test runner + Playwright | وحدة وE2E أولية، بلا تغطية كافية للمخاطر |
-| النشر المتوقع | Vercel + PostgreSQL/Neon | البناء الحالي يربط الهجرة بالبناء |
+| الطبقة          | التقنية الحالية                                                                                        | الملاحظة                                              |
+| --------------- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| الواجهة والخادم | Next.js 16 App Router                                                                                  | يجمع الصفحات وRoute Handlers في تطبيق واحد            |
+| الواجهة         | React 19 + TypeScript 5                                                                                | حديث، لكن عدد كبير من الصفحات `use client`            |
+| التصميم         | Tailwind CSS 4 + CSS مخصص                                                                              | RTL وعربي/إنجليزي                                     |
+| الترجمة         | `next-intl`                                                                                            | لغتان ثابتتان: العربية والإنجليزية                    |
+| البيانات        | PostgreSQL + Prisma 7 + `@prisma/adapter-pg`                                                           | توجد فجوة إصدارات بين Prisma CLI/Client/Adapters      |
+| المصادقة        | NextAuth 4 Credentials + Google/Azure اختيارياً + BHD OIDC مخصص                                        | أكثر من مسار دخول ينشئ جلسة بطرق مختلفة               |
+| التحقق          | Zod في بعض المسارات + تحقق يدوي في أخرى                                                                | لا توجد DTOs موحدة لكل API                            |
+| التخزين السريع  | Upstash Redis اختيارياً                                                                                | يستعمل أساساً للـrate limiting/cache                  |
+| الملفات         | Vercel Blob أو تخزين محلي/قديم                                                                         | لا يوجد File Service موحد بسياسة ملكية وفحص واحدة     |
+| الدفع           | Stripe وThawani وPayPal وTelr وCMI وNetwork International وHyperPay وPayFort وMyFatoorah وPayTabs وTap | 11 موصلاً، لكن طبقة الاعتمادية والتسوية تحتاج إصلاحاً |
+| OCR             | Tesseract و`pdf-parse`                                                                                 | الاستخراج اقتراح أولي وليس ذكاء محاسبياً موثوقاً      |
+| الاختبارات      | Node test runner + Playwright                                                                          | وحدة وE2E أولية، بلا تغطية كافية للمخاطر              |
+| النشر المتوقع   | Vercel + PostgreSQL/Neon                                                                               | البناء الحالي يربط الهجرة بالبناء                     |
 
 ### ملاحظة مهمة عن حداثة التقنية
 
@@ -129,12 +129,12 @@ flowchart TD
 
 ### مصادر البيانات الأربعة
 
-| المصدر | أمثلة | المشكلة |
-|---|---|---|
-| جداول طبيعية | User, Property, Project, Accounting*, Subscription, MaintenanceRequest | أفضل جزء، لكن `tenantId` وDecimal غير شاملين |
-| JSON تشغيلي | BookingStorage, ContractStorage, AddressBookContact | البحث والتفرد والعلاقات والصلاحيات تصبح أصعب |
-| إعدادات/KV | AppSetting, LegacyAppKvStore | مفيد للإعدادات، لكنه استعمل كقاعدة أعمال كاملة |
-| المتصفح | عقارات وحجوزات وعقود وقوالب وتقارير | قد يفشل التزامن أو تختلف البيانات بين الأجهزة |
+| المصدر       | أمثلة                                                                  | المشكلة                                        |
+| ------------ | ---------------------------------------------------------------------- | ---------------------------------------------- |
+| جداول طبيعية | User, Property, Project, Accounting*, Subscription, MaintenanceRequest | أفضل جزء، لكن `tenantId` وDecimal غير شاملين   |
+| JSON تشغيلي  | BookingStorage, ContractStorage, AddressBookContact                    | البحث والتفرد والعلاقات والصلاحيات تصبح أصعب   |
+| إعدادات/KV   | AppSetting, LegacyAppKvStore                                           | مفيد للإعدادات، لكنه استعمل كقاعدة أعمال كاملة |
+| المتصفح      | عقارات وحجوزات وعقود وقوالب وتقارير                                    | قد يفشل التزامن أو تختلف البيانات بين الأجهزة  |
 
 الوثائق الداخلية تقول إن PostgreSQL هو مصدر الحقيقة، لكن الكود الفعلي لا يحقق ذلك في جميع الوحدات.
 
@@ -651,17 +651,17 @@ AES-256-GCM اختيار جيد، لكن التطبيق يشتق مفتاحاً 
 
 النماذج الـ49 تنقسم تقريباً إلى:
 
-| المجال | النماذج الرئيسية |
-|---|---|
-| الهوية والمؤسسات | User, Organization |
-| العقارات والمشاريع | Property, PropertyBooking, Project, Task, Document |
-| التخزين الهجين | BookingStorage, ContractStorage, PaymentPendingStorage, AppSetting, LegacyAppKvStore |
+| المجال                 | النماذج الرئيسية                                                                                               |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------- |
+| الهوية والمؤسسات       | User, Organization                                                                                             |
+| العقارات والمشاريع     | Property, PropertyBooking, Project, Task, Document                                                             |
+| التخزين الهجين         | BookingStorage, ContractStorage, PaymentPendingStorage, AppSetting, LegacyAppKvStore                           |
 | دفتر العناوين والملفات | AddressBookContact, AddressBookContactFile, BookingDocumentFile/Storage, BookingCheckStorage, LegacyStoredFile |
-| المحاسبة | AccountingAccount, JournalEntry, JournalLine, Document, FiscalPeriod, AuditLog, UserAccountingRole |
-| الاشتراكات | Plan, Subscription, SubscriptionHistory, SubscriptionChangeRequest |
-| التشغيل | Notification, MaintenanceRequest, TenantScore/Alert/Task, DueAmount, SmartSignature, AutoUserAccount |
-| الأرشفة والتشفير | ArchiveRecord, ArchiveRestoreLog, ArchivePolicy, EncryptionKey, AuditLog |
-| الدفع | PaymentGatewayConfig |
+| المحاسبة               | AccountingAccount, JournalEntry, JournalLine, Document, FiscalPeriod, AuditLog, UserAccountingRole             |
+| الاشتراكات             | Plan, Subscription, SubscriptionHistory, SubscriptionChangeRequest                                             |
+| التشغيل                | Notification, MaintenanceRequest, TenantScore/Alert/Task, DueAmount, SmartSignature, AutoUserAccount           |
+| الأرشفة والتشفير       | ArchiveRecord, ArchiveRestoreLog, ArchivePolicy, EncryptionKey, AuditLog                                       |
+| الدفع                  | PaymentGatewayConfig                                                                                           |
 
 قاموس الحقول الكامل موجود في `BHD-OM-data-model.csv`. أهم ملاحظتين على المخطط:
 
@@ -694,37 +694,37 @@ AES-256-GCM اختيار جيد، لكن التطبيق يشتق مفتاحاً 
 
 ### P0 — تمنع الاعتماد الإنتاجي أو تهدد البيانات/المال
 
-| المشكلة | الأثر | الإصلاح المطلوب |
-|---|---|---|
-| إنشاء العقار يضيفه إلى مصفوفة في الذاكرة ولا ينشئ Prisma Property | فقدان/اختلاف العقار بعد refresh وبين الأجهزة | POST خادمي transactional إلى Property/Unit/Listing، ثم حذف المصدر الثابت من التشغيل |
-| GET/PATCH العقود يتطلبان جلسة فقط بلا tenant/ownership/role policy | IDOR وقراءة أو تعديل عقد مستخدم آخر | Contract authorization مركزي، DTO محدود، policy لكل action، واختبارات A/B tenants |
-| GET دفتر العناوين يعيد كل الجهات لأي مستخدم مسجل | تسرب PII للأفراد والشركات | tenant scope إلزامي، party permissions، masking وfield-level audit |
-| تحويل معظم المستخدمين إلى `ACCOUNTANT` في RBAC المحاسبة | عميل عادي قد يصل لوظائف مالية | أدوار محاسبية مخزنة لكل Membership ومؤسسة، deny-by-default |
-| Webhook عام غير موحد التوقيع ويقبل GET ولا يملك event id فريداً | دفع/استرداد مكرر أو مزور وقيود مزدوجة | تحقق raw-body signature لكل مزود، WebhookEvent unique، transaction وidempotency/outbox |
-| OIDC يفك JWT ويفحص claims لكنه لا يتحقق من توقيع JWS/JWKS | قبول هوية غير موقعة إذا أمكن إدخال token في المسار | استعمال مكتبة OIDC مع discovery/JWKS والتحقق من `alg/kid/signature/iss/aud/exp/iat/nonce` |
-| seed يعيد تعيين المدير إلى `admin123` ويطبعها، والتصفير لديه الافتراض نفسه | استيلاء إداري وتسريب أسرار | فصل reference seed عن bootstrap، منع production افتراضياً، سر عشوائي one-time وعدم طباعته |
-| `dev.db` متعقب في مستودع عام ويحوي سجلات مستخدمين | حادث خصوصية محتمل | incident triage، تحديد حقيقة البيانات، تدوير ما يلزم، وإزالة الملف من HEAD والتاريخ بخطة منسقة |
-| HTML الطباعة يدخل بيانات في `document.write/innerHTML` بلا تنقية كافية | Stored/DOM XSS في الفاتورة والإيصال والعقد/التقارير | templates typed، escaping افتراضي، sanitizer allowlist، PDF server-side وCSP nonce/Trusted Types |
+| المشكلة                                                                    | الأثر                                               | الإصلاح المطلوب                                                                                  |
+| -------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| إنشاء العقار يضيفه إلى مصفوفة في الذاكرة ولا ينشئ Prisma Property          | فقدان/اختلاف العقار بعد refresh وبين الأجهزة        | POST خادمي transactional إلى Property/Unit/Listing، ثم حذف المصدر الثابت من التشغيل              |
+| GET/PATCH العقود يتطلبان جلسة فقط بلا tenant/ownership/role policy         | IDOR وقراءة أو تعديل عقد مستخدم آخر                 | Contract authorization مركزي، DTO محدود، policy لكل action، واختبارات A/B tenants                |
+| GET دفتر العناوين يعيد كل الجهات لأي مستخدم مسجل                           | تسرب PII للأفراد والشركات                           | tenant scope إلزامي، party permissions، masking وfield-level audit                               |
+| تحويل معظم المستخدمين إلى `ACCOUNTANT` في RBAC المحاسبة                    | عميل عادي قد يصل لوظائف مالية                       | أدوار محاسبية مخزنة لكل Membership ومؤسسة، deny-by-default                                       |
+| Webhook عام غير موحد التوقيع ويقبل GET ولا يملك event id فريداً            | دفع/استرداد مكرر أو مزور وقيود مزدوجة               | تحقق raw-body signature لكل مزود، WebhookEvent unique، transaction وidempotency/outbox           |
+| OIDC يفك JWT ويفحص claims لكنه لا يتحقق من توقيع JWS/JWKS                  | قبول هوية غير موقعة إذا أمكن إدخال token في المسار  | استعمال مكتبة OIDC مع discovery/JWKS والتحقق من `alg/kid/signature/iss/aud/exp/iat/nonce`        |
+| seed يعيد تعيين المدير إلى `admin123` ويطبعها، والتصفير لديه الافتراض نفسه | استيلاء إداري وتسريب أسرار                          | فصل reference seed عن bootstrap، منع production افتراضياً، سر عشوائي one-time وعدم طباعته        |
+| `dev.db` متعقب في مستودع عام ويحوي سجلات مستخدمين                          | حادث خصوصية محتمل                                   | incident triage، تحديد حقيقة البيانات، تدوير ما يلزم، وإزالة الملف من HEAD والتاريخ بخطة منسقة   |
+| HTML الطباعة يدخل بيانات في `document.write/innerHTML` بلا تنقية كافية     | Stored/DOM XSS في الفاتورة والإيصال والعقد/التقارير | templates typed، escaping افتراضي، sanitizer allowlist، PDF server-side وCSP nonce/Trusted Types |
 
 ### P1 — مخاطر عالية وفجوات جوهرية
 
-| المشكلة | الملاحظة والإصلاح |
-|---|---|
-| لا عزل شركات شامل | أضف `tenantId NOT NULL` لكل سجل مملوك وفهرس/unique مركب، وrepository لا يعمل بلا TenantContext، وRLS كدفاع ثانٍ |
-| روابط عامة واسعة | `bookingId` أو بريد/هاتف/رقم مدني قد يفتح bundle؛ استبدله بـshare token عشوائي hashed، scope وTTL وone-time/audience، وأعد أقل DTO |
-| استعادة كلمة المرور غير موجودة ذاتياً | الصفحة تطلب الاتصال بالمدير؛ أضف reset token hashed قصير، rate limit، إشعاراً، `sessionVersion` وإبطال كل الجلسات |
-| CSRF غير منهجي | طبّق SameSite المناسب + Origin/Referer + Fetch Metadata + CSRF token للطلبات الحساسة، ولا تعتمد على إخفاء المسار |
-| TOTP محدود | اجعله إلزامياً للأدوار الحساسة، امنع replay لنفس time-step، recovery codes hashed، re-auth وإشعارات تغيير |
-| لا دورة حياة API Keys | أنشئ keys scoped/tenant-bound، prefix فقط للعرض، hash في DB، expires/lastUsed/rotate/revoke ورصد إساءة الاستخدام |
-| التشفير بلا فصل/إصدار/تدوير حقيقي | Envelope encryption عبر KMS، `keyId/version`, AAD، dual-read وnew-write ثم backfill ومقاييس فشل |
-| المال `Float` | PostgreSQL `numeric(p,s)` + Decimal في التطبيق، منع أي `number` داخل domain المالي، migration expand/backfill/switch |
-| الترقيم غير موحد | استعمل counter الذري الموجود لكل invoice/receipt/payment/journal، مع unique tenant+type+year+sequence |
-| المرفقات غير موحدة | private object storage، magic bytes، الحجم والعدد، AV/CDR، منع/rasterize SVG، authorization لكل تنزيل |
-| نظامان أو أكثر لكل من العقار والعقد والمحاسبة | اختر canonical model، وشغّل legacy adapter للقراءة/المقارنة فقط ثم أزله تدريجياً |
-| التقارير المتقدمة والتحليلات محاكاة | ضع شارة Demo فوراً أو عطّلها، ثم ابنِ queries حقيقية وworker للتصدير والجدولة |
-| سجل التدقيق يقبل details حرة | Secure logger مع redaction recursive وallowlist schema، وعدم قبول أسرار أو request body الخام، مع regression tests |
-| إعدادات gateway URLs بلا allowlist قوية | URL parser، HTTPS فقط، hosts ثابتة لكل مزود، منع private/link-local/redirects وDNS rebinding عند أي server fetch |
-| الاعتماديات الأمنية | التحديث فوراً إلى patches الآمنة مع lockfile موحد، ثم SCA/Dependabot/CodeQL وSBOM |
+| المشكلة                                       | الملاحظة والإصلاح                                                                                                                  |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| لا عزل شركات شامل                             | أضف `tenantId NOT NULL` لكل سجل مملوك وفهرس/unique مركب، وrepository لا يعمل بلا TenantContext، وRLS كدفاع ثانٍ                    |
+| روابط عامة واسعة                              | `bookingId` أو بريد/هاتف/رقم مدني قد يفتح bundle؛ استبدله بـshare token عشوائي hashed، scope وTTL وone-time/audience، وأعد أقل DTO |
+| استعادة كلمة المرور غير موجودة ذاتياً         | الصفحة تطلب الاتصال بالمدير؛ أضف reset token hashed قصير، rate limit، إشعاراً، `sessionVersion` وإبطال كل الجلسات                  |
+| CSRF غير منهجي                                | طبّق SameSite المناسب + Origin/Referer + Fetch Metadata + CSRF token للطلبات الحساسة، ولا تعتمد على إخفاء المسار                   |
+| TOTP محدود                                    | اجعله إلزامياً للأدوار الحساسة، امنع replay لنفس time-step، recovery codes hashed، re-auth وإشعارات تغيير                          |
+| لا دورة حياة API Keys                         | أنشئ keys scoped/tenant-bound، prefix فقط للعرض، hash في DB، expires/lastUsed/rotate/revoke ورصد إساءة الاستخدام                   |
+| التشفير بلا فصل/إصدار/تدوير حقيقي             | Envelope encryption عبر KMS، `keyId/version`, AAD، dual-read وnew-write ثم backfill ومقاييس فشل                                    |
+| المال `Float`                                 | PostgreSQL `numeric(p,s)` + Decimal في التطبيق، منع أي `number` داخل domain المالي، migration expand/backfill/switch               |
+| الترقيم غير موحد                              | استعمل counter الذري الموجود لكل invoice/receipt/payment/journal، مع unique tenant+type+year+sequence                              |
+| المرفقات غير موحدة                            | private object storage، magic bytes، الحجم والعدد، AV/CDR، منع/rasterize SVG، authorization لكل تنزيل                              |
+| نظامان أو أكثر لكل من العقار والعقد والمحاسبة | اختر canonical model، وشغّل legacy adapter للقراءة/المقارنة فقط ثم أزله تدريجياً                                                   |
+| التقارير المتقدمة والتحليلات محاكاة           | ضع شارة Demo فوراً أو عطّلها، ثم ابنِ queries حقيقية وworker للتصدير والجدولة                                                      |
+| سجل التدقيق يقبل details حرة                  | Secure logger مع redaction recursive وallowlist schema، وعدم قبول أسرار أو request body الخام، مع regression tests                 |
+| إعدادات gateway URLs بلا allowlist قوية       | URL parser، HTTPS فقط، hosts ثابتة لكل مزود، منع private/link-local/redirects وDNS rebinding عند أي server fetch                   |
+| الاعتماديات الأمنية                           | التحديث فوراً إلى patches الآمنة مع lockfile موحد، ثم SCA/Dependabot/CodeQL وSBOM                                                  |
 
 ### P2 — جودة وأداء وقابلية صيانة
 
@@ -741,46 +741,46 @@ AES-256-GCM اختيار جيد، لكن التطبيق يشتق مفتاحاً 
 
 ## 24. مصفوفة التحقق من متطلبات الأمان والهندسة المطلوبة
 
-| المتطلب | الحالة في الإصدار الحالي | ما يغلقه فعلياً |
-|---|---|---|
-| منع تسرب الأسرار إلى التدقيق مع regression | **غير متحقق** | redactor مركزي + schemas + اختبارات nested secrets/Sentry/stdout |
-| فرض الوحدات والأدوار مركزياً على كل APIs | **غير متحقق** | route manifest + Policy Engine + TenantContext + اختبارات deny لكل endpoint |
-| إغلاق XSS في الفواتير وPOS والمطعم | **غير متحقق للفواتير؛ POS/المطعم غير ظاهرين في هذا المستودع** | safe rendering/PDF؛ يلزم مستودع الوحدات الأخرى إن كانت منفصلة |
-| منع تكرار الدفعات وسباقات webhook | **غير متحقق** | signed events + unique constraints + idempotency + transaction/outbox |
-| تقليل بيانات روابط الفواتير العامة | **غير متحقق** | scoped share tokens وminimal DTO وaccess logs |
-| إغلاق SSRF في إعدادات بوابات الدفع | **جزئي/خطر كامن** | provider host allowlist وIP/DNS/redirect protections |
-| تغيير/استعادة كلمة المرور وإلغاء الجلسات | **غير متحقق** | reset/change flows وsessionVersion/revoke-all |
-| CSRF وTOTP وAPI Keys | **جزئي ضعيف** | حماية منهجية ودورة حياة مفاتيح وسياسة MFA |
-| فصل مفاتيح التشفير والإصدارات والتدوير | **غير متحقق** | KMS envelope encryption وversioned ciphertext/backfill |
-| ترقيم متزامن وDecimal | **جزئي** | توحيد counter الذري وnumeric/Decimal وDB constraints |
-| عزل الشركات واختبارات cross-tenant | **غير متحقق** | tenant columns/repositories/RLS ومصفوفة A/B tests |
-| تحديث الاعتماديات | **غير متحقق** | patch upgrades ثم audit gate وسياسة استثناء مؤقتة |
-| Backend/Frontend/Integration/E2E | **جزئي** | هرم اختبارات شامل، fixtures معزولة، coverage للمخاطر |
-| CI/CD وDocker والهجرات والإصدار | **جزئي** | فصل build/migrate/release، image immutable، canary/rollback |
-| CSP ورؤوس الأمن والمرفقات | **جزئي** | nonce CSP، Trusted Types، file service خاص، CORP/COEP حسب الحاجة |
-| Accessibility والواجهة والثقة والخصوصية | **غير مكتمل** | WCAG 2.2 AA، axe/keyboard، صفحات قانونية بمراجعة قانونية |
-| إعادة تنظيم الخدمات تدريجياً | **بدأت المحاسبة فقط** | strangler + characterization tests + feature flags |
-| Country Packs والعملات والترجمة | **غير متحقق** | CountryPack/CLDR/ISO Money وtranslation QA |
-| التوثيق وRunbooks وThreat Model | **جزئي ومتناقض** | C4/ADRs/STRIDE/data classification/runbooks/SLOs |
+| المتطلب                                    | الحالة في الإصدار الحالي                                      | ما يغلقه فعلياً                                                             |
+| ------------------------------------------ | ------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| منع تسرب الأسرار إلى التدقيق مع regression | **غير متحقق**                                                 | redactor مركزي + schemas + اختبارات nested secrets/Sentry/stdout            |
+| فرض الوحدات والأدوار مركزياً على كل APIs   | **غير متحقق**                                                 | route manifest + Policy Engine + TenantContext + اختبارات deny لكل endpoint |
+| إغلاق XSS في الفواتير وPOS والمطعم         | **غير متحقق للفواتير؛ POS/المطعم غير ظاهرين في هذا المستودع** | safe rendering/PDF؛ يلزم مستودع الوحدات الأخرى إن كانت منفصلة               |
+| منع تكرار الدفعات وسباقات webhook          | **غير متحقق**                                                 | signed events + unique constraints + idempotency + transaction/outbox       |
+| تقليل بيانات روابط الفواتير العامة         | **غير متحقق**                                                 | scoped share tokens وminimal DTO وaccess logs                               |
+| إغلاق SSRF في إعدادات بوابات الدفع         | **جزئي/خطر كامن**                                             | provider host allowlist وIP/DNS/redirect protections                        |
+| تغيير/استعادة كلمة المرور وإلغاء الجلسات   | **غير متحقق**                                                 | reset/change flows وsessionVersion/revoke-all                               |
+| CSRF وTOTP وAPI Keys                       | **جزئي ضعيف**                                                 | حماية منهجية ودورة حياة مفاتيح وسياسة MFA                                   |
+| فصل مفاتيح التشفير والإصدارات والتدوير     | **غير متحقق**                                                 | KMS envelope encryption وversioned ciphertext/backfill                      |
+| ترقيم متزامن وDecimal                      | **جزئي**                                                      | توحيد counter الذري وnumeric/Decimal وDB constraints                        |
+| عزل الشركات واختبارات cross-tenant         | **غير متحقق**                                                 | tenant columns/repositories/RLS ومصفوفة A/B tests                           |
+| تحديث الاعتماديات                          | **غير متحقق**                                                 | patch upgrades ثم audit gate وسياسة استثناء مؤقتة                           |
+| Backend/Frontend/Integration/E2E           | **جزئي**                                                      | هرم اختبارات شامل، fixtures معزولة، coverage للمخاطر                        |
+| CI/CD وDocker والهجرات والإصدار            | **جزئي**                                                      | فصل build/migrate/release، image immutable، canary/rollback                 |
+| CSP ورؤوس الأمن والمرفقات                  | **جزئي**                                                      | nonce CSP، Trusted Types، file service خاص، CORP/COEP حسب الحاجة            |
+| Accessibility والواجهة والثقة والخصوصية    | **غير مكتمل**                                                 | WCAG 2.2 AA، axe/keyboard، صفحات قانونية بمراجعة قانونية                    |
+| إعادة تنظيم الخدمات تدريجياً               | **بدأت المحاسبة فقط**                                         | strangler + characterization tests + feature flags                          |
+| Country Packs والعملات والترجمة            | **غير متحقق**                                                 | CountryPack/CLDR/ISO Money وtranslation QA                                  |
+| التوثيق وRunbooks وThreat Model            | **جزئي ومتناقض**                                              | C4/ADRs/STRIDE/data classification/runbooks/SLOs                            |
 
 ---
 
 ## 25. نتائج الاختبارات والتحقق في 23 أغسطس 2026
 
-| الفحص | النتيجة | التفاصيل |
-|---|---|---|
-| تحديث المستودع | نجح | المراجعة على آخر `master`، commit `8ec962d` |
-| `prisma generate` | نجح | كشف أن العميل المحلي كان أقدم من schema قبل التوليد |
-| `prisma validate` | نجح | schema صالح بنيوياً |
-| اختبارات الوحدة | **54/54 ناجحة** | 14 suites |
-| `tsc --noEmit` بعد generate | **فشل بـ7 أخطاء** | fixtures محاسبة ناقصة `createdAt/updatedAt/totalDebit/totalCredit` |
-| ESLint للشفرة النشطة المحددة | **فشل** | 807 ملفات، 294 خطأ و269 تحذيراً؛ 9 أخطاء فقط قابلة للإصلاح الآلي |
-| `next build` مستقل | **نجح** | compile في نحو 39 ثانية، TypeScript الخاص بالبناء نحو 28 ثانية، وتوليد 251 صفحة ثابتة |
-| `npm run build` | لم يُشغّل عمداً | لأنه يشغل `prisma migrate deploy` قبل البناء ويتطلب قاعدة ويغير حالتها؛ هذا اقتران يجب إزالته |
-| `npm audit` | **فشل أمني** | 16 تنبيهاً: 1 حرج، 10 عالية، 5 متوسطة ضمن 701 dependency |
-| E2E محلي | لم يُشغّل | Docker/PostgreSQL غير متاحان في بيئة المراجعة |
-| ملفات E2E | موجودة جزئياً | 8 ملفات و83 تعريف `test()`، لكن لم يصل CI إليها |
-| آخر GitHub Actions | **فشل** | [E2E verify 32358173347](https://github.com/ainoamn/bhd-om/actions/runs/32358173347) فشل في `Install dependencies` |
+| الفحص                        | النتيجة           | التفاصيل                                                                                                           |
+| ---------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------ |
+| تحديث المستودع               | نجح               | المراجعة على آخر `master`، commit `8ec962d`                                                                        |
+| `prisma generate`            | نجح               | كشف أن العميل المحلي كان أقدم من schema قبل التوليد                                                                |
+| `prisma validate`            | نجح               | schema صالح بنيوياً                                                                                                |
+| اختبارات الوحدة              | **54/54 ناجحة**   | 14 suites                                                                                                          |
+| `tsc --noEmit` بعد generate  | **فشل بـ7 أخطاء** | fixtures محاسبة ناقصة `createdAt/updatedAt/totalDebit/totalCredit`                                                 |
+| ESLint للشفرة النشطة المحددة | **فشل**           | 807 ملفات، 294 خطأ و269 تحذيراً؛ 9 أخطاء فقط قابلة للإصلاح الآلي                                                   |
+| `next build` مستقل           | **نجح**           | compile في نحو 39 ثانية، TypeScript الخاص بالبناء نحو 28 ثانية، وتوليد 251 صفحة ثابتة                              |
+| `npm run build`              | لم يُشغّل عمداً   | لأنه يشغل `prisma migrate deploy` قبل البناء ويتطلب قاعدة ويغير حالتها؛ هذا اقتران يجب إزالته                      |
+| `npm audit`                  | **فشل أمني**      | 16 تنبيهاً: 1 حرج، 10 عالية، 5 متوسطة ضمن 701 dependency                                                           |
+| E2E محلي                     | لم يُشغّل         | Docker/PostgreSQL غير متاحان في بيئة المراجعة                                                                      |
+| ملفات E2E                    | موجودة جزئياً     | 8 ملفات و83 تعريف `test()`، لكن لم يصل CI إليها                                                                    |
+| آخر GitHub Actions           | **فشل**           | [E2E verify 32358173347](https://github.com/ainoamn/bhd-om/actions/runs/32358173347) فشل في `Install dependencies` |
 
 نجاح `next build` مع فشل `tsc` ليس تناقضاً: إعداد بناء Next لا يدخل كل fixtures الاختبارات في فحصه، بينما الفحص الكامل يدخلها. كذلك اختبارات الوحدة الناجحة لا تمر على جميع APIs وقواعد البيانات والصلاحيات.
 
@@ -794,16 +794,16 @@ AES-256-GCM اختيار جيد، لكن التطبيق يشتق مفتاحاً 
 
 لا يمكن ضمان السرعة من فحص المصدر وحده، ولا توجد قياسات إنتاج RUM في المستودع. المطلوب ميزانية أداء تمنع التراجع:
 
-| المقياس المستهدف | هدف إطلاق مقترح عند p75/p95 |
-|---|---|
-| LCP للصفحات العامة عند p75 | أقل من 2.0 ثانية على هاتف متوسط/4G |
-| INP عند p75 | أقل من 150ms |
-| CLS | أقل من 0.05 |
-| TTFB عام cached عند p75 | أقل من 200ms في المنطقة المستهدفة |
-| API قراءة بسيطة p95 | أقل من 250ms |
-| API كتابة عادية p95 | أقل من 500ms، والمهام الثقيلة إلى queue |
-| JavaScript أولي للصفحة العامة | أقل من 120KB gzip قدر الإمكان |
-| أخطاء الواجهة/الـAPI | أقل من SLO متفق عليه مع error budget |
+| المقياس المستهدف              | هدف إطلاق مقترح عند p75/p95             |
+| ----------------------------- | --------------------------------------- |
+| LCP للصفحات العامة عند p75    | أقل من 2.0 ثانية على هاتف متوسط/4G      |
+| INP عند p75                   | أقل من 150ms                            |
+| CLS                           | أقل من 0.05                             |
+| TTFB عام cached عند p75       | أقل من 200ms في المنطقة المستهدفة       |
+| API قراءة بسيطة p95           | أقل من 250ms                            |
+| API كتابة عادية p95           | أقل من 500ms، والمهام الثقيلة إلى queue |
+| JavaScript أولي للصفحة العامة | أقل من 120KB gzip قدر الإمكان           |
+| أخطاء الواجهة/الـAPI          | أقل من SLO متفق عليه مع error budget    |
 
 ### أعلى التحسينات أثراً
 
@@ -865,21 +865,21 @@ AES-256-GCM اختيار جيد، لكن التطبيق يشتق مفتاحاً 
 
 ## 29. ما الذي يمكن إعادة استعماله، وما الذي يعاد بناؤه؟
 
-| الجزء | القرار | السبب |
-|---|---|---|
-| الهوية البصرية وبعض المكونات العامة | إعادة استعمال بعد accessibility/performance review | توفر وقتاً ولا تحمل قواعد بيانات |
-| محتوى الشركة والخدمات | ترحيل إلى CMS/Content schema | المحتوى صالح لكن التخزين الحالي مشتت |
-| قواعد أنواع العقار والوحدات | إعادة صياغة في Domain Models | معرفة تجارية جيدة، التخزين غير صالح |
-| PropertyForm الحالي | مرجع UX، لا يستعمل مباشرة | ضخم ويرتبط بمصفوفة محلية |
-| دفتر العناوين | استخراج المتطلبات، إعادة بناء البيانات/API | أغنى وظيفياً لكنه يحمل PII وتخزيناً هجيناً |
-| الحجوزات والعقود | استخراج state/fields واختبارات characterization، ثم إعادة بناء | الصلاحيات والمعاملات والحالات غير آمنة |
-| مولد الأرقام الذري | إعادة استعمال/تعميم | تصميم أفضل من `count()+1` |
-| تقارير المحاسبة وقواعد posting | إعادة استعمال بعد Decimal/tenant tests | قيمة حقيقية موجودة |
-| RBAC المحاسبة الحالي | استبدال | mapping خطير |
-| بوابات الدفع adapters | إعادة استعمال جزئي خلف Payment Orchestrator جديد | توفر جهداً، لكن webhook/idempotency يحتاجان إعادة |
-| التقارير المتقدمة/Analytics | استبدال | محاكاة لا منتج مكتمل |
-| النظام `legacy` | Adapter قراءة وترحيل فقط | لا يصلح قاعدة منتج جديد |
-| التشفير/الأرشيف الحالي | استبدال تدريجي مع قارئ legacy | لا يوجد key rotation/restore حقيقي |
+| الجزء                               | القرار                                                         | السبب                                             |
+| ----------------------------------- | -------------------------------------------------------------- | ------------------------------------------------- |
+| الهوية البصرية وبعض المكونات العامة | إعادة استعمال بعد accessibility/performance review             | توفر وقتاً ولا تحمل قواعد بيانات                  |
+| محتوى الشركة والخدمات               | ترحيل إلى CMS/Content schema                                   | المحتوى صالح لكن التخزين الحالي مشتت              |
+| قواعد أنواع العقار والوحدات         | إعادة صياغة في Domain Models                                   | معرفة تجارية جيدة، التخزين غير صالح               |
+| PropertyForm الحالي                 | مرجع UX، لا يستعمل مباشرة                                      | ضخم ويرتبط بمصفوفة محلية                          |
+| دفتر العناوين                       | استخراج المتطلبات، إعادة بناء البيانات/API                     | أغنى وظيفياً لكنه يحمل PII وتخزيناً هجيناً        |
+| الحجوزات والعقود                    | استخراج state/fields واختبارات characterization، ثم إعادة بناء | الصلاحيات والمعاملات والحالات غير آمنة            |
+| مولد الأرقام الذري                  | إعادة استعمال/تعميم                                            | تصميم أفضل من `count()+1`                         |
+| تقارير المحاسبة وقواعد posting      | إعادة استعمال بعد Decimal/tenant tests                         | قيمة حقيقية موجودة                                |
+| RBAC المحاسبة الحالي                | استبدال                                                        | mapping خطير                                      |
+| بوابات الدفع adapters               | إعادة استعمال جزئي خلف Payment Orchestrator جديد               | توفر جهداً، لكن webhook/idempotency يحتاجان إعادة |
+| التقارير المتقدمة/Analytics         | استبدال                                                        | محاكاة لا منتج مكتمل                              |
+| النظام `legacy`                     | Adapter قراءة وترحيل فقط                                       | لا يصلح قاعدة منتج جديد                           |
+| التشفير/الأرشيف الحالي              | استبدال تدريجي مع قارئ legacy                                  | لا يوجد key rotation/restore حقيقي                |
 
 ---
 
@@ -1224,36 +1224,35 @@ interface CountryPack {
 
 الروابط التالية مثبتة على commit المراجع حتى لا تتغير أرقام الأسطر:
 
-| النتيجة | موضع الدليل |
-|---|---|
-| نموذج إضافة العقار يستدعي الدالة المحلية | [`admin/properties/new/page.tsx#L78`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/app/%5Blocale%5D/admin/properties/new/page.tsx#L78) |
-| `createProperty` يحسب ID/سنة ثابتة ويدفع إلى المصفوفة | [`lib/data/properties.ts#L599-L654`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/lib/data/properties.ts#L599-L654) |
-| API قائمة العقارات لا يعرّف POST | [`app/api/admin/properties/route.ts`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/app/api/admin/properties/route.ts) |
-| المشروع الإداري ينشأ في Prisma | [`app/api/admin/projects/route.ts#L79-L119`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/app/api/admin/projects/route.ts#L79-L119) |
-| قائمة المشاريع العامة ثابتة | [`lib/data/projects.ts#L5`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/lib/data/projects.ts#L5) |
-| فحص الحجز يحمل الصفوف ثم يعمل upsert منفصلاً | [`lib/server/persistBooking.ts#L27-L42`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/lib/server/persistBooking.ts#L27-L42) |
-| قائمة العقود تتطلب auth فقط | [`app/api/contracts/route.ts#L42-L83`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/app/api/contracts/route.ts#L42-L83) |
-| تعديل العقد بلا role/resource policy مركزي | [`app/api/contracts/[id]/route.ts#L48-L135`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/app/api/contracts/%5Bid%5D/route.ts#L48-L135) |
-| دفتر العناوين يعيد القائمة بعد session فقط | [`app/api/address-book/route.ts#L60-L131`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/app/api/address-book/route.ts#L60-L131) |
-| دفتر العناوين يسمح POST واسعاً للمستخدم المسجل | [`app/api/address-book/route.ts#L178-L250`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/app/api/address-book/route.ts#L178-L250) |
-| الدور المحاسبي الافتراضي `ACCOUNTANT` والمالك `APPROVER` | [`lib/accounting/rbac/permissions.ts#L64-L70`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/lib/accounting/rbac/permissions.ts#L64-L70) |
-| fallback آخر يعطي أي session دور محاسب | [`lib/accounting/rbac/apiAuth.ts#L69-L76`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/lib/accounting/rbac/apiAuth.ts#L69-L76) |
-| تقرير PDF المتقدم محاكاة وحجم عشوائي | [`components/admin/AdvancedReports.tsx#L210-L258`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/components/admin/AdvancedReports.tsx#L210-L258) |
-| التحليلات تولد إيرادات وعقارات عشوائية | [`components/admin/AnalyticsCharts.tsx#L74-L138`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/components/admin/AnalyticsCharts.tsx#L74-L138) |
-| OIDC يفك payload ثم يفحص claims فقط | [`lib/bhd/identity.ts#L119-L159`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/lib/bhd/identity.ts#L119-L159) |
-| webhook العام يقبل POST وGET | [`app/api/webhooks/payment/route.ts#L10-L103`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/app/api/webhooks/payment/route.ts#L10-L103) |
-| رابط الإيصال يعتمد bookingId | [`app/api/bookings/public-receipt/route.ts#L1-L22`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/app/api/bookings/public-receipt/route.ts#L1-L22) |
-| وصول العقد العام يقبل bookingId أو حقلاً هوياتياً | [`app/api/bookings/public-contract-access/route.ts#L18-L45`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/app/api/bookings/public-contract-access/route.ts#L18-L45) |
-| seed يثبت `admin123` ويطبعها | [`prisma/seed.ts#L14-L53`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/prisma/seed.ts#L14-L53) |
-| تصفير البيانات لديه كلمة المدير الافتراضية نفسها | [`lib/server/dataResetKeepProperties.ts#L30-L42`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/lib/server/dataResetKeepProperties.ts#L30-L42) |
-| مسار debug يفحص `admin123` خارج production | [`app/api/debug-auth/route.ts#L8-L32`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/app/api/debug-auth/route.ts#L8-L32) |
-| سجل المحاسبة يسلسل details الحرة | [`lib/audit.ts#L10-L22`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/lib/audit.ts#L10-L22) |
-| سجل الأمن يسلسل details الحرة | [`lib/server/securityAudit.ts#L11-L21`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/lib/server/securityAudit.ts#L11-L21) |
-| طباعة الفاتورة تبني HTML وتستخدم `document.write` و`dangerouslySetInnerHTML` | [`components/admin/InvoicePrint.tsx#L244-L383`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/components/admin/InvoicePrint.tsx#L244-L383) |
-| طباعة الإيصال تستخدم `document.write` | [`lib/utils/receiptPrint.ts#L95-L157`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/lib/utils/receiptPrint.ts#L95-L157) |
-| مفتاح واحد وsalt ثابت في التشفير | [`lib/encryption/index.ts#L40-L53`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/lib/encryption/index.ts#L40-L53) |
-| rotation يغير سجل المفتاح ولا يعيد تشفير البيانات | [`lib/encryption/index.ts#L133-L164`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/lib/encryption/index.ts#L133-L164) |
-| restore يسجل العملية ولا يعيد الكيان | [`lib/archive/index.ts#L145-L173`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/lib/archive/index.ts#L145-L173) |
-| CSP يسمح `unsafe-inline` | [`next.config.ts#L40-L53`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/next.config.ts#L40-L53) |
-| البناء يشغل migrations | [`package.json#L14`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/package.json#L14) |
-
+| النتيجة                                                                      | موضع الدليل                                                                                                                                                                                            |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| نموذج إضافة العقار يستدعي الدالة المحلية                                     | [`admin/properties/new/page.tsx#L78`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/app/%5Blocale%5D/admin/properties/new/page.tsx#L78)                              |
+| `createProperty` يحسب ID/سنة ثابتة ويدفع إلى المصفوفة                        | [`lib/data/properties.ts#L599-L654`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/lib/data/properties.ts#L599-L654)                                                 |
+| API قائمة العقارات لا يعرّف POST                                             | [`app/api/admin/properties/route.ts`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/app/api/admin/properties/route.ts)                                               |
+| المشروع الإداري ينشأ في Prisma                                               | [`app/api/admin/projects/route.ts#L79-L119`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/app/api/admin/projects/route.ts#L79-L119)                                 |
+| قائمة المشاريع العامة ثابتة                                                  | [`lib/data/projects.ts#L5`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/lib/data/projects.ts#L5)                                                                   |
+| فحص الحجز يحمل الصفوف ثم يعمل upsert منفصلاً                                 | [`lib/server/persistBooking.ts#L27-L42`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/lib/server/persistBooking.ts#L27-L42)                                         |
+| قائمة العقود تتطلب auth فقط                                                  | [`app/api/contracts/route.ts#L42-L83`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/app/api/contracts/route.ts#L42-L83)                                             |
+| تعديل العقد بلا role/resource policy مركزي                                   | [`app/api/contracts/[id]/route.ts#L48-L135`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/app/api/contracts/%5Bid%5D/route.ts#L48-L135)                             |
+| دفتر العناوين يعيد القائمة بعد session فقط                                   | [`app/api/address-book/route.ts#L60-L131`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/app/api/address-book/route.ts#L60-L131)                                     |
+| دفتر العناوين يسمح POST واسعاً للمستخدم المسجل                               | [`app/api/address-book/route.ts#L178-L250`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/app/api/address-book/route.ts#L178-L250)                                   |
+| الدور المحاسبي الافتراضي `ACCOUNTANT` والمالك `APPROVER`                     | [`lib/accounting/rbac/permissions.ts#L64-L70`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/lib/accounting/rbac/permissions.ts#L64-L70)                             |
+| fallback آخر يعطي أي session دور محاسب                                       | [`lib/accounting/rbac/apiAuth.ts#L69-L76`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/lib/accounting/rbac/apiAuth.ts#L69-L76)                                     |
+| تقرير PDF المتقدم محاكاة وحجم عشوائي                                         | [`components/admin/AdvancedReports.tsx#L210-L258`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/components/admin/AdvancedReports.tsx#L210-L258)                     |
+| التحليلات تولد إيرادات وعقارات عشوائية                                       | [`components/admin/AnalyticsCharts.tsx#L74-L138`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/components/admin/AnalyticsCharts.tsx#L74-L138)                       |
+| OIDC يفك payload ثم يفحص claims فقط                                          | [`lib/bhd/identity.ts#L119-L159`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/lib/bhd/identity.ts#L119-L159)                                                       |
+| webhook العام يقبل POST وGET                                                 | [`app/api/webhooks/payment/route.ts#L10-L103`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/app/api/webhooks/payment/route.ts#L10-L103)                             |
+| رابط الإيصال يعتمد bookingId                                                 | [`app/api/bookings/public-receipt/route.ts#L1-L22`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/app/api/bookings/public-receipt/route.ts#L1-L22)                   |
+| وصول العقد العام يقبل bookingId أو حقلاً هوياتياً                            | [`app/api/bookings/public-contract-access/route.ts#L18-L45`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/app/api/bookings/public-contract-access/route.ts#L18-L45) |
+| seed يثبت `admin123` ويطبعها                                                 | [`prisma/seed.ts#L14-L53`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/prisma/seed.ts#L14-L53)                                                                     |
+| تصفير البيانات لديه كلمة المدير الافتراضية نفسها                             | [`lib/server/dataResetKeepProperties.ts#L30-L42`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/lib/server/dataResetKeepProperties.ts#L30-L42)                       |
+| مسار debug يفحص `admin123` خارج production                                   | [`app/api/debug-auth/route.ts#L8-L32`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/app/api/debug-auth/route.ts#L8-L32)                                             |
+| سجل المحاسبة يسلسل details الحرة                                             | [`lib/audit.ts#L10-L22`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/lib/audit.ts#L10-L22)                                                                         |
+| سجل الأمن يسلسل details الحرة                                                | [`lib/server/securityAudit.ts#L11-L21`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/lib/server/securityAudit.ts#L11-L21)                                           |
+| طباعة الفاتورة تبني HTML وتستخدم `document.write` و`dangerouslySetInnerHTML` | [`components/admin/InvoicePrint.tsx#L244-L383`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/components/admin/InvoicePrint.tsx#L244-L383)                           |
+| طباعة الإيصال تستخدم `document.write`                                        | [`lib/utils/receiptPrint.ts#L95-L157`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/lib/utils/receiptPrint.ts#L95-L157)                                             |
+| مفتاح واحد وsalt ثابت في التشفير                                             | [`lib/encryption/index.ts#L40-L53`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/lib/encryption/index.ts#L40-L53)                                                   |
+| rotation يغير سجل المفتاح ولا يعيد تشفير البيانات                            | [`lib/encryption/index.ts#L133-L164`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/lib/encryption/index.ts#L133-L164)                                               |
+| restore يسجل العملية ولا يعيد الكيان                                         | [`lib/archive/index.ts#L145-L173`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/lib/archive/index.ts#L145-L173)                                                     |
+| CSP يسمح `unsafe-inline`                                                     | [`next.config.ts#L40-L53`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/next.config.ts#L40-L53)                                                                     |
+| البناء يشغل migrations                                                       | [`package.json#L14`](https://github.com/ainoamn/bhd-om/blob/8ec962d59a6a814c0b047cab8202ad6f832e470a/package.json#L14)                                                                                 |

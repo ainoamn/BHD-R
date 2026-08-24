@@ -226,7 +226,10 @@ export async function issueIdentitySession(input: {
     if (!user || user.disabledAt) throw new Error('Identity account cannot sign in');
 
     if (identity.name?.trim() && identity.name.trim() !== user.displayName) {
-      await tx.update(users).set({ displayName: identity.name.trim() }).where(eq(users.id, user.id));
+      await tx
+        .update(users)
+        .set({ displayName: identity.name.trim() })
+        .where(eq(users.id, user.id));
     }
 
     await tx

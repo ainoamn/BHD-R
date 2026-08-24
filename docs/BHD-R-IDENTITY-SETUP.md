@@ -18,16 +18,17 @@
   (+ legacy `/v1/auth/oidc/callback` و`https://r.bhd-om.com/api/auth/bhd/callback` وlocalhost)
 - سر العميل على Vercel: `BHD_OAUTH_CLIENT_SECRET` يطابق اشتقاق الهوية من `AUTH_SECRET` (`HMAC-SHA256` على `bhd-oauth:bhd-r`) ما لم يُضبط `BHD_OAUTH_CLIENT_SECRET_R` على ONE-BHD.
 - **`BHD_IDENTITY_TOKEN_SECRET`** يجب أن يطابق `IDENTITY_TOKEN_SECRET` (أو `AUTH_SECRET`) على الهوية — نفس أسلوب نَسَب/وازن/حسابي للتحقق من ID Token (HS256) مع احتياطي `/oauth/userinfo`.
+- عند ضبط أسرار Vercel: لا تُلحق سطرًا جديدًا أو `\n` حرفيًا بالقيم. الكود ينظّف BOM/`\n` من `issuer` و`client_id` والأسرار قبل التحقق (فشل شائع: `unexpected "iss" claim`).
 - كتالوج المشغّل في ONE-BHD: عنصر `bhd-r` بـ `mode: "sso"`.
 
 ## مسار المنتج الإلزامي (§3.1)
 
-| المسار | السلوك |
-| --- | --- |
-| `GET /api/auth/bhd/start` | 302 إلى `https://id.bhd-om.com/oauth/authorize` + كوكي `bhd_oauth_state` |
+| المسار                       | السلوك                                                                                                                                         |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/auth/bhd/start`    | 302 إلى `https://id.bhd-om.com/oauth/authorize` + كوكي `bhd_oauth_state`                                                                       |
 | `GET /api/auth/bhd/callback` | تبديل الكود على الخادم → إنشاء جلسة محلياً عبر `DATABASE_URL` (أو `POST {API}/v1/auth/identity/session`) → كوكي `bhd_r_session` / `bhd_r_csrf` |
-| `GET /api/auth/bhd/logout` | مسح جلسة المنتج ثم `…/oauth/end-session` |
-| `GET /api/auth/admin-entry` | → `start?returnTo=/platform` (أو `next` الآمن) |
+| `GET /api/auth/bhd/logout`   | مسح جلسة المنتج ثم `…/oauth/end-session`                                                                                                       |
+| `GET /api/auth/admin-entry`  | → `start?returnTo=/platform` (أو `next` الآمن)                                                                                                 |
 
 المسارات القديمة `/v1/auth/oidc/start|callback` تحوّل إلى المسارات أعلاه.
 

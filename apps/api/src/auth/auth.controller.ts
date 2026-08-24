@@ -143,7 +143,11 @@ export class AuthController {
         }),
       ),
     )
-    body: { idToken: string; nonce: string; organizationId?: string },
+    body: {
+      idToken: string;
+      nonce: string;
+      organizationId?: string;
+    },
   ) {
     const issued = await this.authService.loginWithIdentity(
       body.idToken,

@@ -60,21 +60,21 @@ sequenceDiagram
 
 ## 2. قيم مجمّدة — لا تغيّرها
 
-| المفتاح | القيمة |
-|---|---|
-| مواصفة المشغّل | `bhd-appswitcher.v1` |
-| اسم المكوّن | `BhdAppSwitcher` |
-| مسار المكوّن | `components/bhd/BhdAppSwitcher.tsx` |
-| مسار الكتالوج | `lib/bhd/apps.ts` |
-| مسار الشعار | `components/bhd/BhdAppIcon.tsx` |
-| بادئة CSS | `bhd-switcher-` |
-| اتجاه الواجهة | `dir="rtl"` للعربية |
-| أعمدة الشبكة | 3 |
-| أقصى ارتفاع للبطاقة | 360px مع تمرير داخلي |
-| عرض البطاقة | 320px (على الجوال: عرض الشاشة ناقص 24px) |
-| حجم هدف اللمس | 44×44px للأيقونة وللعنصر |
-| `z-index` البطاقة | 80 |
-| إغلاق | Escape + نقرة خارج البطاقة + اختيار عنصر |
+| المفتاح             | القيمة                                   |
+| ------------------- | ---------------------------------------- |
+| مواصفة المشغّل      | `bhd-appswitcher.v1`                     |
+| اسم المكوّن         | `BhdAppSwitcher`                         |
+| مسار المكوّن        | `components/bhd/BhdAppSwitcher.tsx`      |
+| مسار الكتالوج       | `lib/bhd/apps.ts`                        |
+| مسار الشعار         | `components/bhd/BhdAppIcon.tsx`          |
+| بادئة CSS           | `bhd-switcher-`                          |
+| اتجاه الواجهة       | `dir="rtl"` للعربية                      |
+| أعمدة الشبكة        | 3                                        |
+| أقصى ارتفاع للبطاقة | 360px مع تمرير داخلي                     |
+| عرض البطاقة         | 320px (على الجوال: عرض الشاشة ناقص 24px) |
+| حجم هدف اللمس       | 44×44px للأيقونة وللعنصر                 |
+| `z-index` البطاقة   | 80                                       |
+| إغلاق               | Escape + نقرة خارج البطاقة + اختيار عنصر |
 
 ### 2.1 ترتيب شريط الحساب (بعد الدخول فقط)
 
@@ -88,13 +88,13 @@ sequenceDiagram
 
 ### 2.2 بطاقة الحساب (من زر الصورة)
 
-| الحقل | المصدر |
-|---|---|
-| الصورة | جلسة المنتج (`picture`) وإلا الحرف الأول من `name` |
-| الاسم | جلسة المنتج |
-| البريد | جلسة المنتج |
-| رابط «الحساب» | على البوابة/الهوية: `/account`. على بقية المنتجات: `https://id.bhd-om.com/account` |
-| خروج | `POST` مسار الخروج الحالي للمنتج ثم تحويل إلى `{ISSUER}/oauth/end-session` كما في قسم 6.5 من SSO |
+| الحقل         | المصدر                                                                                           |
+| ------------- | ------------------------------------------------------------------------------------------------ |
+| الصورة        | جلسة المنتج (`picture`) وإلا الحرف الأول من `name`                                               |
+| الاسم         | جلسة المنتج                                                                                      |
+| البريد        | جلسة المنتج                                                                                      |
+| رابط «الحساب» | على البوابة/الهوية: `/account`. على بقية المنتجات: `https://id.bhd-om.com/account`               |
+| خروج          | `POST` مسار الخروج الحالي للمنتج ثم تحويل إلى `{ISSUER}/oauth/end-session` كما في قسم 6.5 من SSO |
 
 ---
 
@@ -102,13 +102,13 @@ sequenceDiagram
 
 لكل عنصر في الكتالوج:
 
-| الحالة | السلوك |
-|---|---|
-| `id` يساوي موقعك الحالي (`current`) | أغلق البطاقة. لا تنقل. إلا «الحساب»: افتح `/account` إن لم تكن عليها |
-| `enabled: false` | العنصر ظاهر باهتًا، `aria-disabled="true"`، لا نقر |
-| `mode: "sso"` | `window.location.assign(app.startUrl)` |
-| `mode: "browse"` | `window.location.assign(app.origin + "/")` |
-| `mode: "identity"` | `window.location.assign` لصفحة الحساب (`/account` على البوابة، وإلا `https://id.bhd-om.com/account`) |
+| الحالة                              | السلوك                                                                                               |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `id` يساوي موقعك الحالي (`current`) | أغلق البطاقة. لا تنقل. إلا «الحساب»: افتح `/account` إن لم تكن عليها                                 |
+| `enabled: false`                    | العنصر ظاهر باهتًا، `aria-disabled="true"`، لا نقر                                                   |
+| `mode: "sso"`                       | `window.location.assign(app.startUrl)`                                                               |
+| `mode: "browse"`                    | `window.location.assign(app.origin + "/")`                                                           |
+| `mode: "identity"`                  | `window.location.assign` لصفحة الحساب (`/account` على البوابة، وإلا `https://id.bhd-om.com/account`) |
 
 `startUrl` ثابت:
 
@@ -127,7 +127,7 @@ sequenceDiagram
 انسخ هذا الملف كما هو. `current` يُحسب في المكوّن بمقارنة `window.location.origin` مع `origin` بعد إزالة الشرطة النهائية.
 
 ```ts
-export type BhdAppMode = "identity" | "sso" | "browse";
+export type BhdAppMode = 'identity' | 'sso' | 'browse';
 
 export type BhdApp = {
   id: string;
@@ -143,112 +143,112 @@ export type BhdApp = {
   soft: string;
 };
 
-export const BHD_APP_SWITCHER_SPEC = "bhd-appswitcher.v1";
+export const BHD_APP_SWITCHER_SPEC = 'bhd-appswitcher.v1';
 
 export const BHD_APPS: BhdApp[] = [
   {
-    id: "account",
+    id: 'account',
     clientId: null,
-    nameAr: "الحساب",
-    nameEn: "Account",
-    origin: "https://id.bhd-om.com",
+    nameAr: 'الحساب',
+    nameEn: 'Account',
+    origin: 'https://id.bhd-om.com',
     startUrl: null,
-    mode: "identity",
+    mode: 'identity',
     enabled: true,
-    mark: "حـ",
-    accent: "#092d24",
-    soft: "#e8f4f1",
+    mark: 'حـ',
+    accent: '#092d24',
+    soft: '#e8f4f1',
   },
   {
-    id: "portal",
-    clientId: "bhd-portal",
-    nameAr: "البوابة",
-    nameEn: "Portal",
-    origin: "https://www.bhd-om.com",
-    startUrl: "https://www.bhd-om.com/api/auth/bhd/start?returnTo=/",
-    mode: "sso",
+    id: 'portal',
+    clientId: 'bhd-portal',
+    nameAr: 'البوابة',
+    nameEn: 'Portal',
+    origin: 'https://www.bhd-om.com',
+    startUrl: 'https://www.bhd-om.com/api/auth/bhd/start?returnTo=/',
+    mode: 'sso',
     enabled: true,
-    mark: "B",
-    accent: "#075c45",
-    soft: "#e6f1ec",
+    mark: 'B',
+    accent: '#075c45',
+    soft: '#e6f1ec',
   },
   {
-    id: "wazen",
-    clientId: "bhd-wazen",
-    nameAr: "وازن",
-    nameEn: "WAZEN",
-    origin: "https://wazen.bhd-om.com",
-    startUrl: "https://wazen.bhd-om.com/api/auth/bhd/start?returnTo=/",
-    mode: "browse",
+    id: 'wazen',
+    clientId: 'bhd-wazen',
+    nameAr: 'وازن',
+    nameEn: 'WAZEN',
+    origin: 'https://wazen.bhd-om.com',
+    startUrl: 'https://wazen.bhd-om.com/api/auth/bhd/start?returnTo=/',
+    mode: 'browse',
     enabled: true,
-    mark: "و",
-    accent: "#126b63",
-    soft: "#e8f4f1",
+    mark: 'و',
+    accent: '#126b63',
+    soft: '#e8f4f1',
   },
   {
-    id: "hisaby",
-    clientId: "bhd-hisaby",
-    nameAr: "حسابي",
-    nameEn: "HISAB",
-    origin: "https://hisaby.bhd-om.com",
-    startUrl: "https://hisaby.bhd-om.com/api/auth/bhd/start?returnTo=/",
-    mode: "browse",
+    id: 'hisaby',
+    clientId: 'bhd-hisaby',
+    nameAr: 'حسابي',
+    nameEn: 'HISAB',
+    origin: 'https://hisaby.bhd-om.com',
+    startUrl: 'https://hisaby.bhd-om.com/api/auth/bhd/start?returnTo=/',
+    mode: 'browse',
     enabled: true,
-    mark: "ح",
-    accent: "#075c45",
-    soft: "#e6f1ec",
+    mark: 'ح',
+    accent: '#075c45',
+    soft: '#e6f1ec',
   },
   {
-    id: "nasab",
-    clientId: "bhd-nasab",
-    nameAr: "نَسَب",
-    nameEn: "NASAB",
-    origin: "https://nasab.bhd-om.com",
-    startUrl: "https://nasab.bhd-om.com/api/auth/bhd/start?returnTo=/",
-    mode: "sso",
+    id: 'nasab',
+    clientId: 'bhd-nasab',
+    nameAr: 'نَسَب',
+    nameEn: 'NASAB',
+    origin: 'https://nasab.bhd-om.com',
+    startUrl: 'https://nasab.bhd-om.com/api/auth/bhd/start?returnTo=/',
+    mode: 'sso',
     enabled: true,
-    mark: "ن",
-    accent: "#8a3c45",
-    soft: "#f6e9eb",
+    mark: 'ن',
+    accent: '#8a3c45',
+    soft: '#f6e9eb',
   },
   {
-    id: "baitak",
-    clientId: "bhd-baitak",
-    nameAr: "بيتك",
-    nameEn: "BAITAK",
-    origin: "https://baitak.bhd-om.com",
-    startUrl: "https://baitak.bhd-om.com/api/auth/bhd/start?returnTo=/",
-    mode: "browse",
+    id: 'baitak',
+    clientId: 'bhd-baitak',
+    nameAr: 'بيتك',
+    nameEn: 'BAITAK',
+    origin: 'https://baitak.bhd-om.com',
+    startUrl: 'https://baitak.bhd-om.com/api/auth/bhd/start?returnTo=/',
+    mode: 'browse',
     enabled: true,
-    mark: "ب",
-    accent: "#a66b2d",
-    soft: "#f8efe4",
+    mark: 'ب',
+    accent: '#a66b2d',
+    soft: '#f8efe4',
   },
   {
-    id: "store",
-    clientId: "bhd-store",
-    nameAr: "المتجر",
-    nameEn: "BHD Store",
-    origin: "https://bhdstor.bhd-om.com",
-    startUrl: "https://bhdstor.bhd-om.com/api/auth/bhd/start?returnTo=/",
-    mode: "sso",
+    id: 'store',
+    clientId: 'bhd-store',
+    nameAr: 'المتجر',
+    nameEn: 'BHD Store',
+    origin: 'https://bhdstor.bhd-om.com',
+    startUrl: 'https://bhdstor.bhd-om.com/api/auth/bhd/start?returnTo=/',
+    mode: 'sso',
     enabled: true,
-    mark: "م",
-    accent: "#315d89",
-    soft: "#e9f0f7",
+    mark: 'م',
+    accent: '#315d89',
+    soft: '#e9f0f7',
   },
   {
-    id: "office",
-    clientId: "bhd-office",
-    nameAr: "المكتب",
-    nameEn: "BHD Office",
-    origin: "",
+    id: 'office',
+    clientId: 'bhd-office',
+    nameAr: 'المكتب',
+    nameEn: 'BHD Office',
+    origin: '',
     startUrl: null,
-    mode: "browse",
+    mode: 'browse',
     enabled: false,
-    mark: "B",
-    accent: "#283b4d",
-    soft: "#e9edf0",
+    mark: 'B',
+    accent: '#283b4d',
+    soft: '#e9edf0',
   },
 ];
 ```
@@ -307,12 +307,12 @@ export const BHD_APPS: BhdApp[] = [
 
 المشغّل **لا يغني** عن SSO. هو واجهة تنقّل فوقه.
 
-| قبل إطلاق المشغّل في منتج | المطلوب |
-|---|---|
-| جلسة منتج بعد OIDC | قسم 6 من `BHD-IDENTITY-SSO.md` |
-| مسار البدء | `GET /api/auth/bhd/start` |
-| مسار النداء | `GET /api/auth/bhd/callback` |
-| الخروج | قسم 6.5 (مسح جلسة المنتج ثم `end-session`) |
+| قبل إطلاق المشغّل في منتج | المطلوب                                    |
+| ------------------------- | ------------------------------------------ |
+| جلسة منتج بعد OIDC        | قسم 6 من `BHD-IDENTITY-SSO.md`             |
+| مسار البدء                | `GET /api/auth/bhd/start`                  |
+| مسار النداء               | `GET /api/auth/bhd/callback`               |
+| الخروج                    | قسم 6.5 (مسح جلسة المنتج ثم `end-session`) |
 
 على البوابة اليوم `mode: "sso"` لأن مسار البدء موجود. بقية المنتجات تبقى `"browse"` حتى يُنفَّذ القسم 6 ثم يُحدَّث الكتالوج هنا.
 
@@ -324,10 +324,7 @@ export const BHD_APPS: BhdApp[] = [
 
 ```tsx
 <div className="bhd-switcher-slot">
-  <BhdAppSwitcher
-    user={{ name, email, picture }}
-    onSignOut={signOut}
-  />
+  <BhdAppSwitcher user={{ name, email, picture }} onSignOut={signOut} />
 </div>
 ```
 
@@ -355,12 +352,12 @@ export const BHD_APPS: BhdApp[] = [
 
 ## 11. مراحل التنفيذ (ترتيب ملزم)
 
-| المرحلة | أين | تعريف «تم» |
-|---|---|---|
-| **A** | ONE-BHD | هذه المواصفة في `docs/` ونسخ البوابة |
-| **B** | بوابة `v1.1.0` | `BhdAppSwitcher` يعمل بعد الدخول على `www` و`id` |
-| **C** | كل منتج بعد قسم 6 SSO | نسخ المكوّن + `apps.ts` كما هما في شريط الحساب |
-| **D** | ONE-BHD | قلب `mode` إلى `"sso"` لذلك المنتج ثم إعادة نسخ `apps.ts` |
+| المرحلة | أين                   | تعريف «تم»                                                |
+| ------- | --------------------- | --------------------------------------------------------- |
+| **A**   | ONE-BHD               | هذه المواصفة في `docs/` ونسخ البوابة                      |
+| **B**   | بوابة `v1.1.0`        | `BhdAppSwitcher` يعمل بعد الدخول على `www` و`id`          |
+| **C**   | كل منتج بعد قسم 6 SSO | نسخ المكوّن + `apps.ts` كما هما في شريط الحساب            |
+| **D**   | ONE-BHD               | قلب `mode` إلى `"sso"` لذلك المنتج ثم إعادة نسخ `apps.ts` |
 
 لا تبدأ C في منتج قبل نجاح دخول OIDC فيه. لا تبدأ D قبل أن يرد `GET {origin}/api/auth/bhd/start` بتحويل 302 إلى الهوية.
 
