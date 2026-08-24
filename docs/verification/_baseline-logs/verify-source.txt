@@ -1,0 +1,6 @@
+
+> @bhd-r/root@0.2.0 verify:source C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R
+> node scripts/verify-source.mjs
+
+Source secret regression scan passed.
+exit=0

@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.1 — 2026-08-24
+
+- Enterprise build Phase 0: archived OM operational review + Cursor build command; GAP register and baseline verification (`docs/verification/phase-0.md`).
+- Phase 1 progress: TOTP hashed recovery codes (migration `0008`), login accepts recovery or TOTP, `can()` policy helper in `@bhd-r/authz`.
+
 ## 0.2.0 — 2026-08-24
 
 - V1 operational core complete: property wizard through leases, dual-party signature, renewals (independent addenda), tenant activation, billing/refunds, double-entry accounting, maintenance/legal/sales/approvals, and signed reports.

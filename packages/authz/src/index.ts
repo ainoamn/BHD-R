@@ -534,6 +534,33 @@ export function hasPermission(claims: SessionClaims, permission: Permission): bo
   return claims.permissions.includes(permission);
 }
 
+/** Central policy decision helper used by guards and domain services. */
+export function can(
+  actor: SessionClaims,
+  action: Permission,
+  _resource?: { organizationId?: string; type?: string; id?: string },
+  tenantContext?: { organizationId?: string },
+): boolean {
+  const isPlatformAdmin = actor.roles.includes('platform_admin');
+  if (
+    tenantContext?.organizationId &&
+    actor.organizationId &&
+    tenantContext.organizationId !== actor.organizationId &&
+    !isPlatformAdmin
+  ) {
+    return false;
+  }
+  if (
+    _resource?.organizationId &&
+    actor.organizationId &&
+    _resource.organizationId !== actor.organizationId &&
+    !isPlatformAdmin
+  ) {
+    return false;
+  }
+  return hasPermission(actor, action);
+}
+
 export async function issueSessionToken(
   claims: SessionClaims,
   secret: Uint8Array,

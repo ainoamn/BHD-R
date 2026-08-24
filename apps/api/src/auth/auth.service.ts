@@ -32,9 +32,12 @@ import {
   decryptField,
   encryptField,
   generateApiKey,
+  generateTotpRecoveryCodes,
   generateTotpSecret,
   hashApiKey,
   hashPassword,
+  hashTotpRecoveryCode,
+  consumeTotpRecoveryDigest,
   rotateEncryptedField,
   totpUri,
   verifyPassword,
@@ -53,6 +56,10 @@ const sessionSecret = () =>
 const apiPepper = () =>
   createHash('sha256')
     .update(`${process.env.BHD_R_SESSION_SECRET ?? 'development'}\0api-keys`)
+    .digest('base64url');
+const totpRecoveryPepper = () =>
+  createHash('sha256')
+    .update(`${process.env.BHD_R_SESSION_SECRET ?? 'development'}\0totp-recovery`)
     .digest('base64url');
 const tokenHash = (token: string) => createHash('sha256').update(token).digest('hex');
 
@@ -211,36 +218,44 @@ export class AuthService {
       )
         throw new UnauthorizedException('Invalid credentials');
       if (user.totpConfirmedAt) {
-        if (!input.totpCode || !user.totpSecretEncrypted)
-          throw new UnauthorizedException('TOTP code is required');
-        const keyring = encryptionKeyring('totp');
-        const encrypted = rotateEncryptedField(
-          user.totpSecretEncrypted,
-          keyring,
-          `totp:${user.id}`,
+        if (!input.totpCode) throw new UnauthorizedException('TOTP code is required');
+        const usedRecovery = await this.consumeRecoveryCode(
+          transaction,
+          user.id,
+          user.totpRecoveryDigests ?? [],
+          input.totpCode,
         );
-        const secret = decryptField(encrypted, keyring, `totp:${user.id}`);
-        const verification = verifyTotp({
-          code: input.totpCode,
-          secret,
-          lastAcceptedCounter: user.totpLastAcceptedCounter,
-        });
-        if (!verification.valid || verification.counter === null)
-          throw new UnauthorizedException('Invalid or replayed TOTP code');
-        const accepted = await transaction
-          .update(users)
-          .set({ totpLastAcceptedCounter: verification.counter, totpSecretEncrypted: encrypted })
-          .where(
-            and(
-              eq(users.id, user.id),
-              or(
-                isNull(users.totpLastAcceptedCounter),
-                lt(users.totpLastAcceptedCounter, verification.counter),
+        if (!usedRecovery) {
+          if (!user.totpSecretEncrypted) throw new UnauthorizedException('TOTP code is required');
+          const keyring = encryptionKeyring('totp');
+          const encrypted = rotateEncryptedField(
+            user.totpSecretEncrypted,
+            keyring,
+            `totp:${user.id}`,
+          );
+          const secret = decryptField(encrypted, keyring, `totp:${user.id}`);
+          const verification = verifyTotp({
+            code: input.totpCode,
+            secret,
+            lastAcceptedCounter: user.totpLastAcceptedCounter,
+          });
+          if (!verification.valid || verification.counter === null)
+            throw new UnauthorizedException('Invalid or replayed TOTP code');
+          const accepted = await transaction
+            .update(users)
+            .set({ totpLastAcceptedCounter: verification.counter, totpSecretEncrypted: encrypted })
+            .where(
+              and(
+                eq(users.id, user.id),
+                or(
+                  isNull(users.totpLastAcceptedCounter),
+                  lt(users.totpLastAcceptedCounter, verification.counter),
+                ),
               ),
-            ),
-          )
-          .returning({ id: users.id });
-        if (accepted.length === 0) throw new UnauthorizedException('TOTP code was already used');
+            )
+            .returning({ id: users.id });
+          if (accepted.length === 0) throw new UnauthorizedException('TOTP code was already used');
+        }
       }
       return this.issueForUser(transaction, user.id, input.organizationId);
     });
@@ -559,14 +574,18 @@ export class AuthService {
           totpSecretEncrypted: encryptField(secret, encryptionKeyring('totp'), `totp:${user.id}`),
           totpConfirmedAt: null,
           totpLastAcceptedCounter: null,
+          totpRecoveryDigests: [],
         })
         .where(eq(users.id, user.id));
     });
     return { secret, uri: totpUri({ secret, account: claims.sub }) };
   }
 
-  async confirmTotp(claims: SessionClaims, code: string): Promise<void> {
-    await this.database.asSystem(async (transaction) => {
+  async confirmTotp(
+    claims: SessionClaims,
+    code: string,
+  ): Promise<{ confirmed: true; recoveryCodes: string[] }> {
+    return this.database.asSystem(async (transaction) => {
       const user = await transaction.query.users.findFirst({ where: eq(users.id, claims.sub) });
       if (!user?.totpSecretEncrypted)
         throw new BadRequestException('TOTP enrollment was not started');
@@ -575,11 +594,47 @@ export class AuthService {
       const verification = verifyTotp({ code, secret, window: 1 });
       if (!verification.valid || verification.counter === null)
         throw new BadRequestException('Invalid TOTP code');
+      const recoveryCodes = generateTotpRecoveryCodes(10);
+      const digests = recoveryCodes.map((item) => hashTotpRecoveryCode(item, totpRecoveryPepper()));
       await transaction
         .update(users)
-        .set({ totpConfirmedAt: new Date(), totpLastAcceptedCounter: verification.counter })
+        .set({
+          totpConfirmedAt: new Date(),
+          totpLastAcceptedCounter: verification.counter,
+          totpRecoveryDigests: digests,
+        })
         .where(eq(users.id, user.id));
+      return { confirmed: true as const, recoveryCodes };
     });
+  }
+
+  private async consumeRecoveryCode(
+    transaction: DatabaseTransaction,
+    userId: string,
+    digests: string[],
+    code: string,
+  ): Promise<boolean> {
+    if (!digests.length || /^\d{6}$/.test(code.trim())) return false;
+    const result = consumeTotpRecoveryDigest(digests, code, totpRecoveryPepper());
+    if (!result.matched) return false;
+    const matchedDigest = digests.find((digest) => !result.remaining.includes(digest));
+    if (!matchedDigest) return false;
+    const updated = await transaction
+      .update(users)
+      .set({ totpRecoveryDigests: result.remaining })
+      .where(
+        and(
+          eq(users.id, userId),
+          sql`EXISTS (
+            SELECT 1
+            FROM jsonb_array_elements_text(${users.totpRecoveryDigests}) AS digest(value)
+            WHERE digest.value = ${matchedDigest}
+          )`,
+        ),
+      )
+      .returning({ id: users.id });
+    if (updated.length === 0) throw new UnauthorizedException('Recovery code was already used');
+    return true;
   }
 
   async verifyTotpChallenge(claims: SessionClaims, code: string): Promise<void> {

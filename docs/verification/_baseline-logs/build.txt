@@ -1,0 +1,200 @@
+
+> @bhd-r/root@0.2.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R
+> turbo run build
+
+• turbo 2.10.11
+
+   • Packages in scope: @bhd-r/api, @bhd-r/authz, @bhd-r/config, @bhd-r/contracts, @bhd-r/country-packs, @bhd-r/db, @bhd-r/domain, @bhd-r/i18n, @bhd-r/observability, @bhd-r/security, @bhd-r/ui, @bhd-r/web, @bhd-r/worker
+   • Running build in 13 packages
+   • Remote caching disabled
+
+@bhd-r/config:build: cache hit, replaying logs f43513388fddb149
+@bhd-r/config:build: 
+@bhd-r/config:build: > @bhd-r/config@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\config
+@bhd-r/config:build: > tsc -p tsconfig.json
+@bhd-r/config:build: 
+@bhd-r/i18n:build: cache hit, replaying logs bcf0693ae2a2607c
+@bhd-r/i18n:build: 
+@bhd-r/i18n:build: > @bhd-r/i18n@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\i18n
+@bhd-r/i18n:build: > node --input-type=module -e "import fs from 'node:fs'; fs.rmSync('dist',{recursive:true,force:true})" && tsc -p tsconfig.json
+@bhd-r/i18n:build: 
+@bhd-r/observability:build: cache hit, replaying logs 5bc89f245726ed7b
+@bhd-r/observability:build: 
+@bhd-r/observability:build: > @bhd-r/observability@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\observability
+@bhd-r/observability:build: > tsc -p tsconfig.json
+@bhd-r/observability:build: 
+@bhd-r/contracts:build: cache hit, replaying logs 0a8e5e1678f9a2d0
+@bhd-r/authz:build: cache hit, replaying logs 8f969e573693822e
+@bhd-r/contracts:build: 
+@bhd-r/contracts:build: > @bhd-r/contracts@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\contracts
+@bhd-r/authz:build: 
+@bhd-r/authz:build: > @bhd-r/authz@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\authz
+@bhd-r/contracts:build: > tsc -p tsconfig.json
+@bhd-r/contracts:build: 
+@bhd-r/authz:build: > tsc -p tsconfig.json
+@bhd-r/authz:build: 
+@bhd-r/ui:build: cache hit, replaying logs 9df4d51972909eee
+@bhd-r/ui:build: 
+@bhd-r/ui:build: > @bhd-r/ui@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\ui
+@bhd-r/ui:build: > node --input-type=module -e "import fs from 'node:fs'; fs.rmSync('dist',{recursive:true,force:true})" && tsc -p tsconfig.json
+@bhd-r/ui:build: 
+@bhd-r/country-packs:build: cache hit, replaying logs 5e8e3aae9b66ec95
+@bhd-r/security:build: cache hit, replaying logs 2f770d7cc84d3db5
+@bhd-r/country-packs:build: 
+@bhd-r/country-packs:build: > @bhd-r/country-packs@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\country-packs
+@bhd-r/security:build: 
+@bhd-r/security:build: > @bhd-r/security@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\security
+@bhd-r/security:build: > tsc -p tsconfig.json
+@bhd-r/security:build: 
+@bhd-r/country-packs:build: > tsc -p tsconfig.json
+@bhd-r/country-packs:build: 
+@bhd-r/domain:build: cache hit, replaying logs 756efce858dbc866
+@bhd-r/domain:build: 
+@bhd-r/domain:build: > @bhd-r/domain@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\domain
+@bhd-r/domain:build: > tsc -p tsconfig.build.json
+@bhd-r/domain:build: 
+@bhd-r/db:build: cache hit, replaying logs 7d40f8f8a8cb99db
+@bhd-r/db:build: 
+@bhd-r/db:build: > @bhd-r/db@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\db
+@bhd-r/db:build: > tsc -p tsconfig.build.json
+@bhd-r/db:build: 
+@bhd-r/worker:build: cache hit, replaying logs 2bec46e378041321
+@bhd-r/worker:build: 
+@bhd-r/worker:build: > @bhd-r/worker@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\apps\worker
+@bhd-r/worker:build: > tsc -p tsconfig.build.json
+@bhd-r/worker:build: 
+@bhd-r/api:build: cache hit, replaying logs 947a4edb0165f9d8
+@bhd-r/api:build: 
+@bhd-r/api:build: > @bhd-r/api@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\apps\api
+@bhd-r/api:build: > nest build
+@bhd-r/api:build: 
+@bhd-r/web:build: cache hit, replaying logs 531add1b04add976
+@bhd-r/web:build: 
+@bhd-r/web:build: > @bhd-r/web@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\apps\web
+@bhd-r/web:build: > pnpm run build:packages && next build
+@bhd-r/web:build: 
+@bhd-r/web:build: 
+@bhd-r/web:build: > @bhd-r/web@0.1.0 build:packages C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\apps\web
+@bhd-r/web:build: > cd ../.. && pnpm exec turbo run build --filter=@bhd-r/contracts --filter=@bhd-r/country-packs --filter=@bhd-r/i18n --filter=@bhd-r/ui --filter=@bhd-r/db --filter=@bhd-r/authz --filter=@bhd-r/security --force
+@bhd-r/web:build: 
+@bhd-r/web:build: • turbo 2.10.11
+@bhd-r/web:build: 
+@bhd-r/web:build:    • Packages in scope: @bhd-r/authz, @bhd-r/contracts, @bhd-r/country-packs, @bhd-r/db, @bhd-r/i18n, @bhd-r/security, @bhd-r/ui
+@bhd-r/web:build:    • Running build in 7 packages
+@bhd-r/web:build:    • Remote caching disabled
+@bhd-r/web:build: 
+@bhd-r/web:build: @bhd-r/contracts:build: cache bypass, force executing 0a8e5e1678f9a2d0
+@bhd-r/web:build: @bhd-r/ui:build: cache bypass, force executing 9df4d51972909eee
+@bhd-r/web:build: @bhd-r/security:build: cache bypass, force executing 2f770d7cc84d3db5
+@bhd-r/web:build: @bhd-r/authz:build: cache bypass, force executing 8f969e573693822e
+@bhd-r/web:build: @bhd-r/i18n:build: cache bypass, force executing bcf0693ae2a2607c
+@bhd-r/web:build: @bhd-r/db:build: cache bypass, force executing 7d40f8f8a8cb99db
+@bhd-r/web:build: @bhd-r/contracts:build: 
+@bhd-r/web:build: @bhd-r/contracts:build: > @bhd-r/contracts@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\contracts
+@bhd-r/web:build: @bhd-r/contracts:build: > tsc -p tsconfig.json
+@bhd-r/web:build: @bhd-r/contracts:build: 
+@bhd-r/web:build: @bhd-r/ui:build: 
+@bhd-r/web:build: @bhd-r/ui:build: > @bhd-r/ui@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\ui
+@bhd-r/web:build: @bhd-r/ui:build: > node --input-type=module -e "import fs from 'node:fs'; fs.rmSync('dist',{recursive:true,force:true})" && tsc -p tsconfig.json
+@bhd-r/web:build: @bhd-r/ui:build: 
+@bhd-r/web:build: @bhd-r/security:build: 
+@bhd-r/web:build: @bhd-r/security:build: > @bhd-r/security@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\security
+@bhd-r/web:build: @bhd-r/security:build: > tsc -p tsconfig.json
+@bhd-r/web:build: @bhd-r/security:build: 
+@bhd-r/web:build: @bhd-r/authz:build: 
+@bhd-r/web:build: @bhd-r/authz:build: > @bhd-r/authz@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\authz
+@bhd-r/web:build: @bhd-r/authz:build: > tsc -p tsconfig.json
+@bhd-r/web:build: @bhd-r/authz:build: 
+@bhd-r/web:build: @bhd-r/db:build: 
+@bhd-r/web:build: @bhd-r/db:build: > @bhd-r/db@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\db
+@bhd-r/web:build: @bhd-r/db:build: > tsc -p tsconfig.build.json
+@bhd-r/web:build: @bhd-r/db:build: 
+@bhd-r/web:build: @bhd-r/i18n:build: 
+@bhd-r/web:build: @bhd-r/i18n:build: > @bhd-r/i18n@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\i18n
+@bhd-r/web:build: @bhd-r/i18n:build: > node --input-type=module -e "import fs from 'node:fs'; fs.rmSync('dist',{recursive:true,force:true})" && tsc -p tsconfig.json
+@bhd-r/web:build: @bhd-r/i18n:build: 
+@bhd-r/web:build: @bhd-r/country-packs:build: cache bypass, force executing 5e8e3aae9b66ec95
+@bhd-r/web:build: @bhd-r/country-packs:build: 
+@bhd-r/web:build: @bhd-r/country-packs:build: > @bhd-r/country-packs@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\country-packs
+@bhd-r/web:build: @bhd-r/country-packs:build: > tsc -p tsconfig.json
+@bhd-r/web:build: @bhd-r/country-packs:build: 
+@bhd-r/web:build: 
+@bhd-r/web:build:  Tasks:    7 successful, 7 total
+@bhd-r/web:build: Cached:    0 cached, 7 total
+@bhd-r/web:build:   Time:    9.788s 
+@bhd-r/web:build: 
+@bhd-r/web:build: ▲ Next.js 16.3.2 (Turbopack)
+@bhd-r/web:build: ✓ Running next.config.ts took 114ms
+@bhd-r/web:build: - Experiments (use with caution):
+@bhd-r/web:build:   · optimizePackageImports
+@bhd-r/web:build: 
+@bhd-r/web:build:   Creating an optimized production build ...
+@bhd-r/web:build: ✓ Compiled successfully in 3.1s
+@bhd-r/web:build:   Running TypeScript ...
+@bhd-r/web:build:   Finished TypeScript in 4.4s ...
+@bhd-r/web:build:   Collecting page data using 6 workers ...
+@bhd-r/web:build:   Generating static pages using 6 workers (0/48) ...
+@bhd-r/web:build:   Generating static pages using 6 workers (12/48) 
+@bhd-r/web:build:   Generating static pages using 6 workers (24/48) 
+@bhd-r/web:build:   Generating static pages using 6 workers (36/48) 
+@bhd-r/web:build: ✓ Generating static pages using 6 workers (48/48) in 427ms
+@bhd-r/web:build:   Finalizing page optimization ...
+@bhd-r/web:build: 
+@bhd-r/web:build: Route (app)                                        Revalidate  Expire
+@bhd-r/web:build: ┌ ○ /_not-found
+@bhd-r/web:build: ├ ƒ /[locale]
+@bhd-r/web:build: ├ ƒ /[locale]/accessibility
+@bhd-r/web:build: ├ ƒ /[locale]/activate
+@bhd-r/web:build: ├ ƒ /[locale]/developer
+@bhd-r/web:build: ├ ƒ /[locale]/developer/[...section]
+@bhd-r/web:build: ├ ƒ /[locale]/developer/bookings/[reservationId]
+@bhd-r/web:build: ├ ƒ /[locale]/developer/contracts/[contractId]
+@bhd-r/web:build: ├ ƒ /[locale]/developer/properties/[propertyId]
+@bhd-r/web:build: ├ ƒ /[locale]/developer/properties/new
+@bhd-r/web:build: ├ ƒ /[locale]/forgot-password
+@bhd-r/web:build: ├ ƒ /[locale]/invoice/[publicToken]
+@bhd-r/web:build: ├ ƒ /[locale]/login
+@bhd-r/web:build: ├ ƒ /[locale]/owner
+@bhd-r/web:build: ├ ƒ /[locale]/owner/[...section]
+@bhd-r/web:build: ├ ƒ /[locale]/owner/bookings/[reservationId]
+@bhd-r/web:build: ├ ƒ /[locale]/owner/contracts/[contractId]
+@bhd-r/web:build: ├ ƒ /[locale]/owner/properties/[propertyId]
+@bhd-r/web:build: ├ ƒ /[locale]/owner/properties/new
+@bhd-r/web:build: ├ ƒ /[locale]/payments/sandbox/[sessionReference]
+@bhd-r/web:build: ├ ƒ /[locale]/platform
+@bhd-r/web:build: ├ ƒ /[locale]/platform/[...section]
+@bhd-r/web:build: ├ ƒ /[locale]/portal
+@bhd-r/web:build: ├ ƒ /[locale]/privacy
+@bhd-r/web:build: ├ ƒ /[locale]/properties
+@bhd-r/web:build: ├ ƒ /[locale]/properties/[propertyId]
+@bhd-r/web:build: ├ ƒ /[locale]/reset-password
+@bhd-r/web:build: ├ ƒ /[locale]/tenant
+@bhd-r/web:build: ├ ƒ /[locale]/tenant/[...section]
+@bhd-r/web:build: ├ ƒ /[locale]/tenant/contracts/[contractId]
+@bhd-r/web:build: ├ ƒ /[locale]/tenant/maintenance/new
+@bhd-r/web:build: ├ ƒ /[locale]/tenant/reservations
+@bhd-r/web:build: ├ ƒ /[locale]/tenant/reservations/[reservationId]
+@bhd-r/web:build: ├ ƒ /[locale]/terms
+@bhd-r/web:build: ├ ƒ /[locale]/trust
+@bhd-r/web:build: ├ ƒ /[locale]/units/[unitId]
+@bhd-r/web:build: ├ ƒ /api/auth/admin-entry
+@bhd-r/web:build: ├ ƒ /api/auth/bhd/callback
+@bhd-r/web:build: ├ ƒ /api/auth/bhd/logout
+@bhd-r/web:build: ├ ƒ /api/auth/bhd/start
+@bhd-r/web:build: ├ ○ /robots.txt
+@bhd-r/web:build: ├ ○ /sitemap.xml                                           5m      1y
+@bhd-r/web:build: ├ ƒ /v1/auth/oidc/callback
+@bhd-r/web:build: └ ƒ /v1/auth/oidc/start
+@bhd-r/web:build: 
+@bhd-r/web:build: 
+@bhd-r/web:build: ƒ Proxy (Middleware)
+@bhd-r/web:build: 
+@bhd-r/web:build: ○  (Static)   prerendered as static content
+@bhd-r/web:build: ƒ  (Dynamic)  server-rendered on demand
+@bhd-r/web:build: 
+
+ Tasks:    13 successful, 13 total
+Cached:    13 cached, 13 total
+  Time:    1.006s >>> FULL TURBO
+
+exit=0

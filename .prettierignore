@@ -7,3 +7,5 @@ apps/api/drizzle
 playwright-report
 test-results
 apps/web/next-env.d.ts
+
+docs/verification/_baseline-logs/

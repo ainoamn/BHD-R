@@ -269,6 +269,7 @@ export const users = pgTable(
     totpSecretEncrypted: text('totp_secret_encrypted'),
     totpConfirmedAt: timestamp('totp_confirmed_at', { withTimezone: true }),
     totpLastAcceptedCounter: bigint('totp_last_accepted_counter', { mode: 'number' }),
+    totpRecoveryDigests: jsonb('totp_recovery_digests').$type<string[]>().notNull().default([]),
     disabledAt: timestamp('disabled_at', { withTimezone: true }),
   },
   (table) => [

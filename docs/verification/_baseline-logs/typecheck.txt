@@ -1,0 +1,131 @@
+
+> @bhd-r/root@0.2.0 typecheck C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R
+> turbo run typecheck
+
+• turbo 2.10.11
+
+   • Packages in scope: @bhd-r/api, @bhd-r/authz, @bhd-r/config, @bhd-r/contracts, @bhd-r/country-packs, @bhd-r/db, @bhd-r/domain, @bhd-r/i18n, @bhd-r/observability, @bhd-r/security, @bhd-r/ui, @bhd-r/web, @bhd-r/worker
+   • Running typecheck in 13 packages
+   • Remote caching disabled
+
+@bhd-r/db:typecheck: cache miss, executing e2717a557ebfc760
+@bhd-r/config:typecheck: cache hit, replaying logs 3024eeb444ea183e
+@bhd-r/authz:typecheck: cache hit, replaying logs fab7b2dffb0f9164
+@bhd-r/db:build: cache hit, replaying logs 7d40f8f8a8cb99db
+@bhd-r/config:typecheck: 
+@bhd-r/config:typecheck: > @bhd-r/config@0.1.0 typecheck C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\config
+@bhd-r/config:typecheck: > tsc -p tsconfig.json --noEmit
+@bhd-r/config:typecheck: 
+@bhd-r/authz:typecheck: 
+@bhd-r/authz:typecheck: > @bhd-r/authz@0.1.0 typecheck C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\authz
+@bhd-r/authz:typecheck: > tsc -p tsconfig.json --noEmit
+@bhd-r/authz:typecheck: 
+@bhd-r/ui:build: cache hit, replaying logs 9df4d51972909eee
+@bhd-r/security:build: cache hit, replaying logs 2f770d7cc84d3db5
+@bhd-r/db:build: 
+@bhd-r/db:build: > @bhd-r/db@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\db
+@bhd-r/db:build: > tsc -p tsconfig.build.json
+@bhd-r/db:build: 
+@bhd-r/ui:build: 
+@bhd-r/ui:build: > @bhd-r/ui@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\ui
+@bhd-r/ui:build: > node --input-type=module -e "import fs from 'node:fs'; fs.rmSync('dist',{recursive:true,force:true})" && tsc -p tsconfig.json
+@bhd-r/ui:build: 
+@bhd-r/i18n:typecheck: cache hit, replaying logs d782e0bcce776de0
+@bhd-r/contracts:build: cache hit, replaying logs 0a8e5e1678f9a2d0
+@bhd-r/i18n:typecheck: 
+@bhd-r/i18n:typecheck: > @bhd-r/i18n@0.1.0 typecheck C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\i18n
+@bhd-r/i18n:typecheck: > tsc -p tsconfig.json --noEmit
+@bhd-r/i18n:typecheck: 
+@bhd-r/security:build: 
+@bhd-r/security:build: > @bhd-r/security@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\security
+@bhd-r/security:build: > tsc -p tsconfig.json
+@bhd-r/security:build: 
+@bhd-r/contracts:build: 
+@bhd-r/contracts:build: > @bhd-r/contracts@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\contracts
+@bhd-r/contracts:build: > tsc -p tsconfig.json
+@bhd-r/contracts:build: 
+@bhd-r/observability:build: cache hit, replaying logs 5bc89f245726ed7b
+@bhd-r/i18n:build: cache hit, replaying logs bcf0693ae2a2607c
+@bhd-r/i18n:build: 
+@bhd-r/i18n:build: > @bhd-r/i18n@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\i18n
+@bhd-r/i18n:build: > node --input-type=module -e "import fs from 'node:fs'; fs.rmSync('dist',{recursive:true,force:true})" && tsc -p tsconfig.json
+@bhd-r/i18n:build: 
+@bhd-r/observability:build: 
+@bhd-r/observability:build: > @bhd-r/observability@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\observability
+@bhd-r/observability:build: > tsc -p tsconfig.json
+@bhd-r/observability:build: 
+@bhd-r/authz:build: cache hit, replaying logs 8f969e573693822e
+@bhd-r/contracts:typecheck: cache hit, replaying logs 0dc221be27f68245
+@bhd-r/observability:typecheck: cache hit, replaying logs 410f8ec1cc06d438
+@bhd-r/config:build: cache hit, replaying logs f43513388fddb149
+@bhd-r/authz:build: 
+@bhd-r/authz:build: > @bhd-r/authz@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\authz
+@bhd-r/authz:build: > tsc -p tsconfig.json
+@bhd-r/authz:build: 
+@bhd-r/observability:typecheck: 
+@bhd-r/observability:typecheck: > @bhd-r/observability@0.1.0 typecheck C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\observability
+@bhd-r/observability:typecheck: > tsc -p tsconfig.json --noEmit
+@bhd-r/observability:typecheck: 
+@bhd-r/ui:typecheck: cache hit, replaying logs b682d9f82dc13206
+@bhd-r/config:build: 
+@bhd-r/config:build: > @bhd-r/config@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\config
+@bhd-r/config:build: > tsc -p tsconfig.json
+@bhd-r/config:build: 
+@bhd-r/contracts:typecheck: 
+@bhd-r/contracts:typecheck: > @bhd-r/contracts@0.1.0 typecheck C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\contracts
+@bhd-r/contracts:typecheck: > tsc -p tsconfig.json --noEmit
+@bhd-r/contracts:typecheck: 
+@bhd-r/ui:typecheck: 
+@bhd-r/ui:typecheck: > @bhd-r/ui@0.1.0 typecheck C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\ui
+@bhd-r/ui:typecheck: > tsc -p tsconfig.json --noEmit
+@bhd-r/ui:typecheck: 
+@bhd-r/worker:typecheck: cache hit, replaying logs eb01d2b178ce68d2
+@bhd-r/domain:typecheck: cache hit, replaying logs 4091694de0ce5ad0
+@bhd-r/domain:build: cache hit, replaying logs 756efce858dbc866
+@bhd-r/worker:typecheck: 
+@bhd-r/worker:typecheck: > @bhd-r/worker@0.1.0 typecheck C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\apps\worker
+@bhd-r/worker:typecheck: > tsc -p tsconfig.json --noEmit
+@bhd-r/worker:typecheck: 
+@bhd-r/domain:typecheck: 
+@bhd-r/domain:typecheck: > @bhd-r/domain@0.1.0 typecheck C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\domain
+@bhd-r/domain:typecheck: > tsc -p tsconfig.json --noEmit
+@bhd-r/domain:typecheck: 
+@bhd-r/country-packs:typecheck: cache hit, replaying logs 617c85bac8cb1dc8
+@bhd-r/security:typecheck: cache hit, replaying logs af9bc4ee24cb2e36
+@bhd-r/country-packs:typecheck: 
+@bhd-r/country-packs:typecheck: > @bhd-r/country-packs@0.1.0 typecheck C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\country-packs
+@bhd-r/country-packs:typecheck: > tsc -p tsconfig.json --noEmit
+@bhd-r/country-packs:typecheck: 
+@bhd-r/domain:build: 
+@bhd-r/domain:build: > @bhd-r/domain@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\domain
+@bhd-r/domain:build: > tsc -p tsconfig.build.json
+@bhd-r/domain:build: 
+@bhd-r/country-packs:build: cache hit, replaying logs 5e8e3aae9b66ec95
+@bhd-r/security:typecheck: 
+@bhd-r/security:typecheck: > @bhd-r/security@0.1.0 typecheck C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\security
+@bhd-r/security:typecheck: > tsc -p tsconfig.json --noEmit
+@bhd-r/security:typecheck: 
+@bhd-r/api:typecheck: cache hit, replaying logs bacd6f8103ec7778
+@bhd-r/country-packs:build: 
+@bhd-r/country-packs:build: > @bhd-r/country-packs@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\country-packs
+@bhd-r/country-packs:build: > tsc -p tsconfig.json
+@bhd-r/country-packs:build: 
+@bhd-r/web:typecheck: cache miss, executing 66827adcdc764ae0
+@bhd-r/api:typecheck: 
+@bhd-r/api:typecheck: > @bhd-r/api@0.1.0 typecheck C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\apps\api
+@bhd-r/api:typecheck: > tsc -p tsconfig.json --noEmit
+@bhd-r/api:typecheck: 
+@bhd-r/db:typecheck: 
+@bhd-r/db:typecheck: > @bhd-r/db@0.1.0 typecheck C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\db
+@bhd-r/db:typecheck: > tsc -p tsconfig.json --noEmit
+@bhd-r/db:typecheck: 
+@bhd-r/web:typecheck: 
+@bhd-r/web:typecheck: > @bhd-r/web@0.1.0 typecheck C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\apps\web
+@bhd-r/web:typecheck: > tsc --noEmit
+@bhd-r/web:typecheck: 
+
+ Tasks:    23 successful, 23 total
+Cached:    21 cached, 23 total
+  Time:    13.435s 
+
+exit=0

@@ -57,6 +57,13 @@
       "when": 1787568750850,
       "tag": "0007_sharp_genesis",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787572800000,
+      "tag": "0008_totp_recovery",
+      "breakpoints": true
     }
   ]
 }

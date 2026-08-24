@@ -1,0 +1,13 @@
+
+> @bhd-r/root@0.2.0 format:check C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R
+> prettier --check .
+
+Checking formatting...
+[warn] docs/CODEX_WORKSPACE_2026-08-11_AR.md
+[warn] docs/legacy-reviews/BHD-OM-operational-workflows-deep-review-ar.md
+[warn] docs/PARENT_FOLDER_SYNC_AR.md
+[warn] docs/product/CURSOR-BHD-R-enterprise-build-command-ar.md
+[warn] docs/README.md
+[warn] Code style issues found in 5 files. Run Prettier with --write to fix.
+ ELIFECYCLE  Command failed with exit code 1.
+exit=1

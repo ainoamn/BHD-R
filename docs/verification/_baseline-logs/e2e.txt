@@ -1,0 +1,261 @@
+
+> @bhd-r/root@0.2.0 test:e2e C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R
+> turbo run test:e2e
+
+• turbo 2.10.11
+
+   • Packages in scope: @bhd-r/api, @bhd-r/authz, @bhd-r/config, @bhd-r/contracts, @bhd-r/country-packs, @bhd-r/db, @bhd-r/domain, @bhd-r/i18n, @bhd-r/observability, @bhd-r/security, @bhd-r/ui, @bhd-r/web, @bhd-r/worker
+   • Running test:e2e in 13 packages
+   • Remote caching disabled
+
+@bhd-r/config:build: cache hit, replaying logs f43513388fddb149
+@bhd-r/config:build: 
+@bhd-r/config:build: > @bhd-r/config@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\config
+@bhd-r/config:build: > tsc -p tsconfig.json
+@bhd-r/config:build: 
+@bhd-r/i18n:build: cache hit, replaying logs bcf0693ae2a2607c
+@bhd-r/observability:build: cache hit, replaying logs 5bc89f245726ed7b
+@bhd-r/contracts:build: cache hit, replaying logs 0a8e5e1678f9a2d0
+@bhd-r/security:build: cache hit, replaying logs 2f770d7cc84d3db5
+@bhd-r/ui:build: cache hit, replaying logs 9df4d51972909eee
+@bhd-r/i18n:build: 
+@bhd-r/observability:build: 
+@bhd-r/observability:build: > @bhd-r/observability@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\observability
+@bhd-r/db:build: cache hit, replaying logs 7d40f8f8a8cb99db
+@bhd-r/i18n:build: > @bhd-r/i18n@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\i18n
+@bhd-r/observability:build: > tsc -p tsconfig.json
+@bhd-r/observability:build: 
+@bhd-r/security:build: 
+@bhd-r/contracts:build: 
+@bhd-r/i18n:build: > node --input-type=module -e "import fs from 'node:fs'; fs.rmSync('dist',{recursive:true,force:true})" && tsc -p tsconfig.json
+@bhd-r/i18n:build: 
+@bhd-r/security:build: > @bhd-r/security@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\security
+@bhd-r/security:build: > tsc -p tsconfig.json
+@bhd-r/contracts:build: > @bhd-r/contracts@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\contracts
+@bhd-r/contracts:build: > tsc -p tsconfig.json
+@bhd-r/contracts:build: 
+@bhd-r/security:build: 
+@bhd-r/db:build: 
+@bhd-r/db:build: > @bhd-r/db@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\db
+@bhd-r/db:build: > tsc -p tsconfig.build.json
+@bhd-r/db:build: 
+@bhd-r/ui:build: 
+@bhd-r/ui:build: > @bhd-r/ui@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\ui
+@bhd-r/ui:build: > node --input-type=module -e "import fs from 'node:fs'; fs.rmSync('dist',{recursive:true,force:true})" && tsc -p tsconfig.json
+@bhd-r/ui:build: 
+@bhd-r/authz:build: cache hit, replaying logs 8f969e573693822e
+@bhd-r/authz:build: 
+@bhd-r/authz:build: > @bhd-r/authz@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\authz
+@bhd-r/authz:build: > tsc -p tsconfig.json
+@bhd-r/authz:build: 
+@bhd-r/country-packs:build: cache hit, replaying logs 5e8e3aae9b66ec95
+@bhd-r/country-packs:build: 
+@bhd-r/country-packs:build: > @bhd-r/country-packs@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\country-packs
+@bhd-r/country-packs:build: > tsc -p tsconfig.json
+@bhd-r/country-packs:build: 
+@bhd-r/worker:build: cache hit, replaying logs 2bec46e378041321
+@bhd-r/worker:build: 
+@bhd-r/worker:build: > @bhd-r/worker@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\apps\worker
+@bhd-r/worker:build: > tsc -p tsconfig.build.json
+@bhd-r/worker:build: 
+@bhd-r/domain:build: cache hit, replaying logs 756efce858dbc866
+@bhd-r/domain:build: 
+@bhd-r/domain:build: > @bhd-r/domain@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\domain
+@bhd-r/domain:build: > tsc -p tsconfig.build.json
+@bhd-r/domain:build: 
+@bhd-r/api:build: cache hit, replaying logs 947a4edb0165f9d8
+@bhd-r/api:build: 
+@bhd-r/api:build: > @bhd-r/api@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\apps\api
+@bhd-r/api:build: > nest build
+@bhd-r/api:build: 
+@bhd-r/api:test:e2e: cache bypass, force executing daf01d23ba980d27
+@bhd-r/web:build: cache hit, replaying logs 531add1b04add976
+@bhd-r/web:build: 
+@bhd-r/web:build: > @bhd-r/web@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\apps\web
+@bhd-r/web:build: > pnpm run build:packages && next build
+@bhd-r/web:build: 
+@bhd-r/web:build: 
+@bhd-r/web:build: > @bhd-r/web@0.1.0 build:packages C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\apps\web
+@bhd-r/web:build: > cd ../.. && pnpm exec turbo run build --filter=@bhd-r/contracts --filter=@bhd-r/country-packs --filter=@bhd-r/i18n --filter=@bhd-r/ui --filter=@bhd-r/db --filter=@bhd-r/authz --filter=@bhd-r/security --force
+@bhd-r/web:build: 
+@bhd-r/web:build: • turbo 2.10.11
+@bhd-r/web:build: 
+@bhd-r/web:build:    • Packages in scope: @bhd-r/authz, @bhd-r/contracts, @bhd-r/country-packs, @bhd-r/db, @bhd-r/i18n, @bhd-r/security, @bhd-r/ui
+@bhd-r/web:build:    • Running build in 7 packages
+@bhd-r/web:build:    • Remote caching disabled
+@bhd-r/web:build: 
+@bhd-r/web:build: @bhd-r/contracts:build: cache bypass, force executing 0a8e5e1678f9a2d0
+@bhd-r/web:build: @bhd-r/ui:build: cache bypass, force executing 9df4d51972909eee
+@bhd-r/web:build: @bhd-r/security:build: cache bypass, force executing 2f770d7cc84d3db5
+@bhd-r/web:build: @bhd-r/authz:build: cache bypass, force executing 8f969e573693822e
+@bhd-r/web:build: @bhd-r/i18n:build: cache bypass, force executing bcf0693ae2a2607c
+@bhd-r/web:build: @bhd-r/db:build: cache bypass, force executing 7d40f8f8a8cb99db
+@bhd-r/web:build: @bhd-r/contracts:build: 
+@bhd-r/web:build: @bhd-r/contracts:build: > @bhd-r/contracts@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\contracts
+@bhd-r/web:build: @bhd-r/contracts:build: > tsc -p tsconfig.json
+@bhd-r/web:build: @bhd-r/contracts:build: 
+@bhd-r/web:build: @bhd-r/ui:build: 
+@bhd-r/web:build: @bhd-r/ui:build: > @bhd-r/ui@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\ui
+@bhd-r/web:build: @bhd-r/ui:build: > node --input-type=module -e "import fs from 'node:fs'; fs.rmSync('dist',{recursive:true,force:true})" && tsc -p tsconfig.json
+@bhd-r/web:build: @bhd-r/ui:build: 
+@bhd-r/web:build: @bhd-r/security:build: 
+@bhd-r/web:build: @bhd-r/security:build: > @bhd-r/security@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\security
+@bhd-r/web:build: @bhd-r/security:build: > tsc -p tsconfig.json
+@bhd-r/web:build: @bhd-r/security:build: 
+@bhd-r/web:build: @bhd-r/authz:build: 
+@bhd-r/web:build: @bhd-r/authz:build: > @bhd-r/authz@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\authz
+@bhd-r/web:build: @bhd-r/authz:build: > tsc -p tsconfig.json
+@bhd-r/web:build: @bhd-r/authz:build: 
+@bhd-r/web:build: @bhd-r/db:build: 
+@bhd-r/web:build: @bhd-r/db:build: > @bhd-r/db@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\db
+@bhd-r/web:build: @bhd-r/db:build: > tsc -p tsconfig.build.json
+@bhd-r/web:build: @bhd-r/db:build: 
+@bhd-r/web:build: @bhd-r/i18n:build: 
+@bhd-r/web:build: @bhd-r/i18n:build: > @bhd-r/i18n@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\i18n
+@bhd-r/web:build: @bhd-r/i18n:build: > node --input-type=module -e "import fs from 'node:fs'; fs.rmSync('dist',{recursive:true,force:true})" && tsc -p tsconfig.json
+@bhd-r/web:build: @bhd-r/i18n:build: 
+@bhd-r/web:build: @bhd-r/country-packs:build: cache bypass, force executing 5e8e3aae9b66ec95
+@bhd-r/web:build: @bhd-r/country-packs:build: 
+@bhd-r/web:build: @bhd-r/country-packs:build: > @bhd-r/country-packs@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\country-packs
+@bhd-r/web:build: @bhd-r/country-packs:build: > tsc -p tsconfig.json
+@bhd-r/web:build: @bhd-r/country-packs:build: 
+@bhd-r/web:build: 
+@bhd-r/web:build:  Tasks:    7 successful, 7 total
+@bhd-r/web:build: Cached:    0 cached, 7 total
+@bhd-r/web:build:   Time:    9.788s 
+@bhd-r/web:build: 
+@bhd-r/web:build: ▲ Next.js 16.3.2 (Turbopack)
+@bhd-r/web:build: ✓ Running next.config.ts took 114ms
+@bhd-r/web:build: - Experiments (use with caution):
+@bhd-r/web:build:   · optimizePackageImports
+@bhd-r/web:build: 
+@bhd-r/web:build:   Creating an optimized production build ...
+@bhd-r/web:build: ✓ Compiled successfully in 3.1s
+@bhd-r/web:build:   Running TypeScript ...
+@bhd-r/web:build:   Finished TypeScript in 4.4s ...
+@bhd-r/web:build:   Collecting page data using 6 workers ...
+@bhd-r/web:build:   Generating static pages using 6 workers (0/48) ...
+@bhd-r/web:build:   Generating static pages using 6 workers (12/48) 
+@bhd-r/web:build:   Generating static pages using 6 workers (24/48) 
+@bhd-r/web:build:   Generating static pages using 6 workers (36/48) 
+@bhd-r/web:build: ✓ Generating static pages using 6 workers (48/48) in 427ms
+@bhd-r/web:build:   Finalizing page optimization ...
+@bhd-r/web:build: 
+@bhd-r/web:build: Route (app)                                        Revalidate  Expire
+@bhd-r/web:build: ┌ ○ /_not-found
+@bhd-r/web:build: ├ ƒ /[locale]
+@bhd-r/web:build: ├ ƒ /[locale]/accessibility
+@bhd-r/web:build: ├ ƒ /[locale]/activate
+@bhd-r/web:build: ├ ƒ /[locale]/developer
+@bhd-r/web:build: ├ ƒ /[locale]/developer/[...section]
+@bhd-r/web:build: ├ ƒ /[locale]/developer/bookings/[reservationId]
+@bhd-r/web:build: ├ ƒ /[locale]/developer/contracts/[contractId]
+@bhd-r/web:build: ├ ƒ /[locale]/developer/properties/[propertyId]
+@bhd-r/web:build: ├ ƒ /[locale]/developer/properties/new
+@bhd-r/web:build: ├ ƒ /[locale]/forgot-password
+@bhd-r/web:build: ├ ƒ /[locale]/invoice/[publicToken]
+@bhd-r/web:build: ├ ƒ /[locale]/login
+@bhd-r/web:build: ├ ƒ /[locale]/owner
+@bhd-r/web:build: ├ ƒ /[locale]/owner/[...section]
+@bhd-r/web:build: ├ ƒ /[locale]/owner/bookings/[reservationId]
+@bhd-r/web:build: ├ ƒ /[locale]/owner/contracts/[contractId]
+@bhd-r/web:build: ├ ƒ /[locale]/owner/properties/[propertyId]
+@bhd-r/web:build: ├ ƒ /[locale]/owner/properties/new
+@bhd-r/web:build: ├ ƒ /[locale]/payments/sandbox/[sessionReference]
+@bhd-r/web:build: ├ ƒ /[locale]/platform
+@bhd-r/web:build: ├ ƒ /[locale]/platform/[...section]
+@bhd-r/web:build: ├ ƒ /[locale]/portal
+@bhd-r/web:build: ├ ƒ /[locale]/privacy
+@bhd-r/web:build: ├ ƒ /[locale]/properties
+@bhd-r/web:build: ├ ƒ /[locale]/properties/[propertyId]
+@bhd-r/web:build: ├ ƒ /[locale]/reset-password
+@bhd-r/web:build: ├ ƒ /[locale]/tenant
+@bhd-r/web:build: ├ ƒ /[locale]/tenant/[...section]
+@bhd-r/web:build: ├ ƒ /[locale]/tenant/contracts/[contractId]
+@bhd-r/web:build: ├ ƒ /[locale]/tenant/maintenance/new
+@bhd-r/web:build: ├ ƒ /[locale]/tenant/reservations
+@bhd-r/web:build: ├ ƒ /[locale]/tenant/reservations/[reservationId]
+@bhd-r/web:build: ├ ƒ /[locale]/terms
+@bhd-r/web:build: ├ ƒ /[locale]/trust
+@bhd-r/web:build: ├ ƒ /[locale]/units/[unitId]
+@bhd-r/web:build: ├ ƒ /api/auth/admin-entry
+@bhd-r/web:build: ├ ƒ /api/auth/bhd/callback
+@bhd-r/web:build: ├ ƒ /api/auth/bhd/logout
+@bhd-r/web:build: ├ ƒ /api/auth/bhd/start
+@bhd-r/web:build: ├ ○ /robots.txt
+@bhd-r/web:build: ├ ○ /sitemap.xml                                           5m      1y
+@bhd-r/web:build: ├ ƒ /v1/auth/oidc/callback
+@bhd-r/web:build: └ ƒ /v1/auth/oidc/start
+@bhd-r/web:build: 
+@bhd-r/web:build: 
+@bhd-r/web:build: ƒ Proxy (Middleware)
+@bhd-r/web:build: 
+@bhd-r/web:build: ○  (Static)   prerendered as static content
+@bhd-r/web:build: ƒ  (Dynamic)  server-rendered on demand
+@bhd-r/web:build: 
+@bhd-r/web:test:e2e: cache bypass, force executing c4704a40ee31d309
+@bhd-r/api:test:e2e: 
+@bhd-r/api:test:e2e: > @bhd-r/api@0.1.0 test:e2e C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\apps\api
+@bhd-r/api:test:e2e: > vitest run --config vitest.e2e.config.ts --passWithNoTests
+@bhd-r/api:test:e2e: 
+@bhd-r/web:test:e2e: 
+@bhd-r/web:test:e2e: > @bhd-r/web@0.1.0 test:e2e C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\apps\web
+@bhd-r/web:test:e2e: > playwright test
+@bhd-r/web:test:e2e: 
+@bhd-r/api:test:e2e: 
+@bhd-r/api:test:e2e:  RUN  v4.1.11 C:/Users/ahami/Documents/Codex/2026-08-11/https-github-com-ainoamn-bhd-om/BHD-R/apps/api
+@bhd-r/api:test:e2e: 
+@bhd-r/web:test:e2e: [WebServer] ⚠ "next start" does not work with "output: standalone" configuration. Use "node .next/standalone/server.js" instead.
+@bhd-r/web:test:e2e: 
+@bhd-r/web:test:e2e: Running 22 tests using 3 workers
+@bhd-r/web:test:e2e: 
+@bhd-r/web:test:e2e: (node:21296) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+@bhd-r/web:test:e2e: (Use `node --trace-warnings ...` to show where the warning was created)
+@bhd-r/web:test:e2e: (node:21292) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+@bhd-r/web:test:e2e: (Use `node --trace-warnings ...` to show where the warning was created)
+@bhd-r/web:test:e2e: (node:7772) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+@bhd-r/web:test:e2e: (Use `node --trace-warnings ...` to show where the warning was created)
+@bhd-r/web:test:e2e:   ok  1 [chromium] › tests\e2e\smoke.spec.ts:43:3 › ar unified login uses the BHD gateway layout (3.1s)
+@bhd-r/web:test:e2e:   ok  2 [chromium] › tests\e2e\smoke.spec.ts:4:3 › en public experience has correct direction and accessibility basics (4.5s)
+@bhd-r/web:test:e2e:   ok  4 [chromium] › tests\e2e\smoke.spec.ts:43:3 › en unified login uses the BHD gateway layout (1.4s)
+@bhd-r/web:test:e2e:   ok  3 [chromium] › tests\e2e\smoke.spec.ts:4:3 › ar public experience has correct direction and accessibility basics (4.6s)
+@bhd-r/web:test:e2e:   ok  5 [chromium] › tests\e2e\smoke.spec.ts:58:3 › platform portal smoke in both languages (2.0s)
+@bhd-r/web:test:e2e:   ok  6 [chromium] › tests\e2e\smoke.spec.ts:58:3 › owner portal smoke in both languages (1.9s)
+@bhd-r/web:test:e2e:   ok  7 [chromium] › tests\e2e\smoke.spec.ts:58:3 › developer portal smoke in both languages (2.0s)
+@bhd-r/web:test:e2e:   ok 10 [chromium] › tests\e2e\smoke.spec.ts:88:1 › complete property intake has operations, documents, media and review stages (968ms)
+@bhd-r/web:test:e2e:   ok  8 [chromium] › tests\e2e\smoke.spec.ts:58:3 › tenant portal smoke in both languages (1.6s)
+@bhd-r/api:test:e2e:  ✓ test/api.e2e.test.ts (3 tests) 6639ms
+@bhd-r/api:test:e2e:      ✓ serves the liveness endpoint from the assembled application  656ms
+@bhd-r/api:test:e2e: 
+@bhd-r/api:test:e2e:  Test Files  1 passed (1)
+@bhd-r/api:test:e2e:       Tests  3 passed (3)
+@bhd-r/api:test:e2e:    Start at  16:07:59
+@bhd-r/api:test:e2e:    Duration  29.62s (transform 2.52s, setup 0ms, import 22.68s, tests 6.64s, environment 0ms)
+@bhd-r/api:test:e2e: 
+@bhd-r/web:test:e2e: (node:24992) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+@bhd-r/web:test:e2e: (Use `node --trace-warnings ...` to show where the warning was created)
+@bhd-r/web:test:e2e:   ok  9 [chromium] › tests\e2e\smoke.spec.ts:69:1 › owner portal exposes specialized operational modules with real records (3.4s)
+@bhd-r/web:test:e2e: (node:11836) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+@bhd-r/web:test:e2e: (Use `node --trace-warnings ...` to show where the warning was created)
+@bhd-r/web:test:e2e:   ok 11 [chromium] › tests\e2e\smoke.spec.ts:97:1 › public visitor can submit a real viewing request without creating an account (3.2s)
+@bhd-r/web:test:e2e:   ok 12 [mobile] › tests\e2e\smoke.spec.ts:4:3 › ar public experience has correct direction and accessibility basics (1.1s)
+@bhd-r/web:test:e2e:   ok 13 [mobile] › tests\e2e\smoke.spec.ts:43:3 › en unified login uses the BHD gateway layout (506ms)
+@bhd-r/web:test:e2e:   ok 14 [mobile] › tests\e2e\smoke.spec.ts:43:3 › ar unified login uses the BHD gateway layout (680ms)
+@bhd-r/web:test:e2e: (node:3336) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+@bhd-r/web:test:e2e: (Use `node --trace-warnings ...` to show where the warning was created)
+@bhd-r/web:test:e2e:   ok 15 [mobile] › tests\e2e\smoke.spec.ts:58:3 › platform portal smoke in both languages (1.0s)
+@bhd-r/web:test:e2e:   ok 16 [mobile] › tests\e2e\smoke.spec.ts:58:3 › owner portal smoke in both languages (1.1s)
+@bhd-r/web:test:e2e:   ok 17 [mobile] › tests\e2e\smoke.spec.ts:4:3 › en public experience has correct direction and accessibility basics (1.1s)
+@bhd-r/web:test:e2e:   ok 18 [mobile] › tests\e2e\smoke.spec.ts:58:3 › developer portal smoke in both languages (1.2s)
+@bhd-r/web:test:e2e:   ok 19 [mobile] › tests\e2e\smoke.spec.ts:58:3 › tenant portal smoke in both languages (978ms)
+@bhd-r/web:test:e2e:   ok 21 [mobile] › tests\e2e\smoke.spec.ts:88:1 › complete property intake has operations, documents, media and review stages (709ms)
+@bhd-r/web:test:e2e:   ok 20 [mobile] › tests\e2e\smoke.spec.ts:69:1 › owner portal exposes specialized operational modules with real records (2.1s)
+@bhd-r/web:test:e2e:   ok 22 [mobile] › tests\e2e\smoke.spec.ts:97:1 › public visitor can submit a real viewing request without creating an account (2.5s)
+@bhd-r/web:test:e2e: 
+@bhd-r/web:test:e2e:   22 passed (35.9s)
+
+ Tasks:    15 successful, 15 total
+Cached:    13 cached, 15 total
+  Time:    40.038s 
+
+exit=0

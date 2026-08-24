@@ -1,0 +1,131 @@
+
+> @bhd-r/root@0.2.0 lint C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R
+> turbo run lint
+
+• turbo 2.10.11
+
+   • Packages in scope: @bhd-r/api, @bhd-r/authz, @bhd-r/config, @bhd-r/contracts, @bhd-r/country-packs, @bhd-r/db, @bhd-r/domain, @bhd-r/i18n, @bhd-r/observability, @bhd-r/security, @bhd-r/ui, @bhd-r/web, @bhd-r/worker
+   • Running lint in 13 packages
+   • Remote caching disabled
+
+@bhd-r/security:build: cache hit, replaying logs 2f770d7cc84d3db5
+@bhd-r/config:build: cache hit, replaying logs f43513388fddb149
+@bhd-r/authz:build: cache hit, replaying logs 8f969e573693822e
+@bhd-r/config:build: 
+@bhd-r/config:build: > @bhd-r/config@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\config
+@bhd-r/config:lint: cache hit, replaying logs 8bfc2d6382cccde3
+@bhd-r/security:build: 
+@bhd-r/security:build: > @bhd-r/security@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\security
+@bhd-r/security:build: > tsc -p tsconfig.json
+@bhd-r/security:build: 
+@bhd-r/config:build: > tsc -p tsconfig.json
+@bhd-r/config:build: 
+@bhd-r/authz:build: 
+@bhd-r/authz:build: > @bhd-r/authz@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\authz
+@bhd-r/observability:build: cache hit, replaying logs 5bc89f245726ed7b
+@bhd-r/authz:build: > tsc -p tsconfig.json
+@bhd-r/authz:build: 
+@bhd-r/ui:build: cache hit, replaying logs 9df4d51972909eee
+@bhd-r/observability:build: 
+@bhd-r/observability:build: > @bhd-r/observability@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\observability
+@bhd-r/observability:build: > tsc -p tsconfig.json
+@bhd-r/observability:build: 
+@bhd-r/ui:lint: cache hit, replaying logs 95703e6736925e3f
+@bhd-r/config:lint: 
+@bhd-r/config:lint: > @bhd-r/config@0.1.0 lint C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\config
+@bhd-r/config:lint: > eslint src
+@bhd-r/config:lint: 
+@bhd-r/ui:build: 
+@bhd-r/ui:build: > @bhd-r/ui@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\ui
+@bhd-r/ui:build: > node --input-type=module -e "import fs from 'node:fs'; fs.rmSync('dist',{recursive:true,force:true})" && tsc -p tsconfig.json
+@bhd-r/ui:build: 
+@bhd-r/security:lint: cache hit, replaying logs b550d0ac801c1b7d
+@bhd-r/contracts:build: cache hit, replaying logs 0a8e5e1678f9a2d0
+@bhd-r/i18n:build: cache hit, replaying logs bcf0693ae2a2607c
+@bhd-r/security:lint: 
+@bhd-r/security:lint: > @bhd-r/security@0.1.0 lint C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\security
+@bhd-r/security:lint: > eslint src test
+@bhd-r/security:lint: 
+@bhd-r/db:lint: cache miss, executing 2b9131853c1e246b
+@bhd-r/ui:lint: 
+@bhd-r/ui:lint: > @bhd-r/ui@0.1.0 lint C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\ui
+@bhd-r/ui:lint: > eslint src
+@bhd-r/ui:lint: 
+@bhd-r/contracts:build: 
+@bhd-r/contracts:build: > @bhd-r/contracts@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\contracts
+@bhd-r/contracts:build: > tsc -p tsconfig.json
+@bhd-r/contracts:build: 
+@bhd-r/authz:lint: cache hit, replaying logs 0a8c91738df72d23
+@bhd-r/db:build: cache hit, replaying logs 7d40f8f8a8cb99db
+@bhd-r/i18n:build: 
+@bhd-r/i18n:build: > @bhd-r/i18n@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\i18n
+@bhd-r/i18n:build: > node --input-type=module -e "import fs from 'node:fs'; fs.rmSync('dist',{recursive:true,force:true})" && tsc -p tsconfig.json
+@bhd-r/i18n:build: 
+@bhd-r/authz:lint: 
+@bhd-r/authz:lint: > @bhd-r/authz@0.1.0 lint C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\authz
+@bhd-r/authz:lint: > eslint src test
+@bhd-r/authz:lint: 
+@bhd-r/i18n:lint: cache hit, replaying logs 809600cfdf637ffe
+@bhd-r/db:build: 
+@bhd-r/db:build: > @bhd-r/db@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\db
+@bhd-r/db:build: > tsc -p tsconfig.build.json
+@bhd-r/db:build: 
+@bhd-r/contracts:lint: cache hit, replaying logs 9ebd04a57202fcb4
+@bhd-r/observability:lint: cache hit, replaying logs 242a94bf2cb80842
+@bhd-r/contracts:lint: 
+@bhd-r/contracts:lint: > @bhd-r/contracts@0.1.0 lint C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\contracts
+@bhd-r/contracts:lint: > eslint src test
+@bhd-r/contracts:lint: 
+@bhd-r/domain:lint: cache hit, replaying logs 5adf47ccd5875766
+@bhd-r/observability:lint: 
+@bhd-r/observability:lint: > @bhd-r/observability@0.1.0 lint C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\observability
+@bhd-r/observability:lint: > eslint src test
+@bhd-r/observability:lint: 
+@bhd-r/worker:lint: cache hit, replaying logs 005da5d25ae3c581
+@bhd-r/country-packs:lint: cache hit, replaying logs 2494798e568f062f
+@bhd-r/domain:lint: 
+@bhd-r/domain:lint: > @bhd-r/domain@0.1.0 lint C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\domain
+@bhd-r/domain:lint: > eslint src test
+@bhd-r/domain:lint: 
+@bhd-r/worker:lint: 
+@bhd-r/worker:lint: > @bhd-r/worker@0.1.0 lint C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\apps\worker
+@bhd-r/worker:lint: > eslint src tests --max-warnings=0
+@bhd-r/worker:lint: 
+@bhd-r/country-packs:lint: 
+@bhd-r/country-packs:lint: > @bhd-r/country-packs@0.1.0 lint C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\country-packs
+@bhd-r/country-packs:lint: > eslint src test
+@bhd-r/country-packs:lint: 
+@bhd-r/domain:build: cache hit, replaying logs 756efce858dbc866
+@bhd-r/country-packs:build: cache hit, replaying logs 5e8e3aae9b66ec95
+@bhd-r/i18n:lint: 
+@bhd-r/i18n:lint: > @bhd-r/i18n@0.1.0 lint C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\i18n
+@bhd-r/i18n:lint: > eslint src
+@bhd-r/i18n:lint: 
+@bhd-r/domain:build: 
+@bhd-r/domain:build: > @bhd-r/domain@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\domain
+@bhd-r/domain:build: > tsc -p tsconfig.build.json
+@bhd-r/domain:build: 
+@bhd-r/country-packs:build: 
+@bhd-r/country-packs:build: > @bhd-r/country-packs@0.1.0 build C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\country-packs
+@bhd-r/country-packs:build: > tsc -p tsconfig.json
+@bhd-r/country-packs:build: 
+@bhd-r/web:lint: cache miss, executing 27165984f3f59fde
+@bhd-r/api:lint: cache hit, replaying logs 4a796df92133eb27
+@bhd-r/api:lint: 
+@bhd-r/api:lint: > @bhd-r/api@0.1.0 lint C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\apps\api
+@bhd-r/api:lint: > eslint src test
+@bhd-r/api:lint: 
+@bhd-r/db:lint: 
+@bhd-r/db:lint: > @bhd-r/db@0.1.0 lint C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\packages\db
+@bhd-r/db:lint: > eslint src test
+@bhd-r/db:lint: 
+@bhd-r/web:lint: 
+@bhd-r/web:lint: > @bhd-r/web@0.1.0 lint C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om\BHD-R\apps\web
+@bhd-r/web:lint: > eslint "src/**/*.{ts,tsx}" "tests/**/*.{ts,tsx}"
+@bhd-r/web:lint: 
+
+ Tasks:    23 successful, 23 total
+Cached:    21 cached, 23 total
+  Time:    44.673s 
+
+exit=0

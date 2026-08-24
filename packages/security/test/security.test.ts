@@ -89,4 +89,18 @@ describe('security primitives', () => {
       false,
     );
   });
+
+  it('hashes TOTP recovery codes and consumes one digest only', async () => {
+    const { consumeTotpRecoveryDigest, generateTotpRecoveryCodes, hashTotpRecoveryCode } =
+      await import('../src/totp-recovery.js');
+    const pepper = 'test-pepper';
+    const codes = generateTotpRecoveryCodes(10);
+    expect(codes).toHaveLength(10);
+    const digests = codes.map((code) => hashTotpRecoveryCode(code, pepper));
+    const first = consumeTotpRecoveryDigest(digests, codes[0]!, pepper);
+    expect(first.matched).toBe(true);
+    expect(first.remaining).toHaveLength(9);
+    const replay = consumeTotpRecoveryDigest(first.remaining, codes[0]!, pepper);
+    expect(replay.matched).toBe(false);
+  });
 });

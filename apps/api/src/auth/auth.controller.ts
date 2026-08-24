@@ -26,7 +26,7 @@ const loginSchema = z.object({
   organizationId: z.uuid().optional(),
   totpCode: z
     .string()
-    .regex(/^\d{6}$/)
+    .regex(/^(\d{6}|[A-Za-z0-9]{4}-[A-Za-z0-9]{4})$/)
     .optional(),
 });
 const credentialSchema = z.object({
@@ -218,8 +218,7 @@ export class AuthController {
     @Req() request: FastifyRequest,
     @Body(new ZodPipe(totpSchema)) body: z.infer<typeof totpSchema>,
   ) {
-    await this.authService.confirmTotp(request.auth!, body.code);
-    return { confirmed: true };
+    return this.authService.confirmTotp(request.auth!, body.code);
   }
 
   @RequirePermissions('api_key.write')
