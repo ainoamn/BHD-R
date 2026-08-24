@@ -2111,7 +2111,7 @@ h3 {
   letter-spacing: 0.09em;
 }
 .login-brand-panel h1 {
-  max-width: 16ch;
+  max-width: 22ch;
   margin: 0;
   color: white;
   font-size: clamp(1.75rem, 3.2vw, 2.75rem);
@@ -2130,6 +2130,11 @@ h3 {
 .login-brand-promise {
   margin-top: 0.65rem;
   font-size: 1.35rem;
+}
+.login-brand-closing {
+  margin-top: 0.35rem !important;
+  color: rgb(255 255 255 / 0.7) !important;
+  font-size: 0.95rem;
 }
 .login-brand-panel small {
   color: rgb(255 255 255 / 0.62);

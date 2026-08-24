@@ -117,16 +117,28 @@ export default async function LoginPage({
 
         <div className="login-stage">
           <aside className="login-brand-panel">
-            <span className="login-brand-kicker">{ar ? 'بوابة BHD R' : 'BHD R Gateway'}</span>
+            <span className="login-brand-kicker">{ar ? 'بوابة BHD' : 'BHD Gateway'}</span>
             <h1>
-              {ar ? 'من هنا تبدأ إدارة عقار أوضح' : 'Clearer property management starts here'}
+              {ar
+                ? 'من هنا تبدأ الخطوة نحو أحلام أكبر'
+                : 'This is where the step toward bigger dreams begins'}
             </h1>
             <p>
               {ar
-                ? 'سجّل دخولك إلى منظومة بن حمود للتطوير بهوية رقمية واحدة.'
-                : 'Sign in to the Bin Hamood Development ecosystem with one digital identity.'}
+                ? 'سجّل دخولك إلى المنظومة الرقمية لـ بن حمود للتطوير، واستمتع بوصول موحّد إلى جميع خدمات ومنصات BHD من خلال هوية رقمية واحدة.'
+                : 'Sign in to the Bin Hamood Development digital ecosystem and enjoy unified access to all BHD services and platforms with one digital identity.'}
+            </p>
+            <p>
+              {ar
+                ? 'بوابة واحدة تجمع أعمالك، خدماتك، ومشاريعك في مكان واحد.'
+                : 'One gateway that brings your work, services, and projects together.'}
             </p>
             <strong className="login-brand-promise">Build Higher Dreams</strong>
+            <p className="login-brand-closing">
+              {ar
+                ? 'مع بن حمود للتطوير، تبدأ الأحلام وتكبر.'
+                : 'With Bin Hamood Development, dreams begin and grow.'}
+            </p>
           </aside>
 
           <div className="login-card">
