@@ -765,6 +765,11 @@ h3 {
   display: grid;
   grid-template-columns: 16.5rem minmax(0, 1fr);
 }
+.portal-mobile-bar,
+.portal-nav-backdrop,
+.portal-sidebar__close {
+  display: none;
+}
 .portal-sidebar {
   padding: 1.3rem 1rem;
   color: white;
@@ -1256,30 +1261,127 @@ h3 {
   .portal-layout {
     grid-template-columns: 1fr;
   }
-  .portal-sidebar {
-    position: static;
-    padding: 0.8rem 1rem;
+  .portal-mobile-bar {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 90;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.7rem 0.85rem;
+    color: white;
+    background: linear-gradient(165deg, #092d24 0%, #061f19 100%);
+    border-bottom: 1px solid rgb(255 255 255 / 0.12);
+    box-shadow: 0 10px 28px rgb(5 30 24 / 0.18);
   }
-  .portal-sidebar__title {
-    display: none;
-  }
-  .portal-nav {
-    display: flex;
+  .portal-menu-toggle {
+    display: inline-flex;
+    align-items: center;
     gap: 0.45rem;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scroll-snap-type: x proximity;
-    -webkit-overflow-scrolling: touch;
-    padding-block: 0.55rem 0.35rem;
-    scrollbar-width: thin;
+    min-height: 2.4rem;
+    padding: 0.35rem 0.7rem;
+    color: white;
+    background: rgb(255 255 255 / 0.1);
+    border: 1px solid rgb(255 255 255 / 0.16);
+    border-radius: 0.65rem;
+    font-size: 0.82rem;
+    font-weight: 800;
+    cursor: pointer;
   }
-  .portal-nav a {
-    flex: 0 0 auto;
-    scroll-snap-align: start;
+  .portal-mobile-bar__current {
+    overflow: hidden;
+    color: rgb(255 255 255 / 0.86);
+    font-size: 0.86rem;
+    font-weight: 800;
+    text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .portal-mobile-bar__home {
+    width: 2.35rem;
+    height: 2.35rem;
+    display: grid;
+    place-content: center;
+    color: #e8c989;
+    background: rgb(255 255 255 / 0.08);
+    border-radius: 0.65rem;
+    font-size: 1.05rem;
+  }
+  .portal-nav-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 110;
+    display: block;
+    background: rgb(3 20 16 / 0.55);
+    border: 0;
+    cursor: pointer;
+  }
+  .portal-sidebar {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-start: 0;
+    z-index: 120;
+    width: min(19.5rem, 88vw);
+    height: 100svh;
+    padding: 1rem 0.85rem 1.25rem;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    transform: translate3d(-105%, 0, 0);
+    transition: transform 0.22s ease;
+    box-shadow: 0 0 40px rgb(0 0 0 / 0.28);
+  }
+  [dir='rtl'] .portal-sidebar {
+    transform: translate3d(105%, 0, 0);
+  }
+  .portal-sidebar--open,
+  [dir='rtl'] .portal-sidebar--open {
+    transform: translate3d(0, 0, 0);
+  }
+  .portal-sidebar__close {
+    display: inline-grid;
+    place-content: center;
+    width: 2.2rem;
+    height: 2.2rem;
+    color: white;
+    background: rgb(255 255 255 / 0.1);
+    border: 0;
+    border-radius: 0.55rem;
+    font-size: 1.35rem;
+    cursor: pointer;
+  }
+  .portal-sidebar__title {
+    display: block;
+  }
+  .portal-nav {
+    display: grid;
+    gap: 0.2rem;
+    overflow: visible;
+    padding: 0;
+    scroll-snap-type: none;
+  }
+  .portal-nav a {
+    flex: initial;
+    white-space: normal;
+  }
   .portal-user {
-    margin-top: 0.65rem;
+    margin-top: 1rem;
+  }
+  .portal-main {
+    padding: 1rem 0.85rem 1.5rem;
+  }
+  .portal-topbar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.85rem;
+    margin-bottom: 1.25rem;
+  }
+  .portal-topbar .button {
+    width: 100%;
+    justify-content: center;
+  }
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
   }
   .price-panel {
     position: static;
@@ -1352,10 +1454,10 @@ h3 {
     grid-column: 1 / -1;
   }
   .portal-main {
-    padding: 1rem;
+    padding: 0.85rem 0.75rem 1.35rem;
   }
   .portal-topbar {
-    align-items: start;
+    align-items: stretch;
     flex-direction: column;
   }
   .gallery {
@@ -2553,6 +2655,13 @@ h3 {
   scrollbar-width: thin;
   scrollbar-color: rgb(255 255 255 / 0.24) transparent;
 }
+@media (max-width: 760px) {
+  .portal-sidebar {
+    position: fixed;
+    height: 100svh;
+    overflow-y: auto;
+  }
+}
 .portal-main {
   background:
     radial-gradient(circle at 100% 0%, rgb(12 107 69 / 0.055), transparent 30rem), #f8f6f1;
@@ -2836,11 +2945,6 @@ h3 {
 }
 
 @media (max-width: 760px) {
-  .portal-sidebar {
-    position: static;
-    height: auto;
-    overflow: visible;
-  }
   .ops-header {
     align-items: flex-start;
     flex-direction: column;

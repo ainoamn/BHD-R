@@ -83,14 +83,13 @@ jobs:
           --file=.github/scripts/create-ci-logins.sql
       - name: Verify RLS through an actual non-superuser connection
         run: pnpm --filter @bhd-r/db test
-      - name: Verify worker role is non-superuser and RLS-enabled
-        run: >-
-          psql "$WORKER_DATABASE_URL" --set=ON_ERROR_STOP=1
-          --command="BEGIN; SET LOCAL app.worker = 'true'; SELECT count(*) FROM outbox_events; ROLLBACK"
+      - name: Verify worker role and every report query against PostgreSQL
+        run: pnpm --filter @bhd-r/worker test
       - name: Verify migrations are repeatable
         run: pnpm db:migrate
 
   e2e:
+    name: Browser E2E (deterministic API fixture)
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     services:

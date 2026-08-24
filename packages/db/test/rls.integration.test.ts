@@ -12,9 +12,11 @@ import {
   currencies,
   invoices,
   leases,
+  operationalRequests,
   organizations,
   parties,
   properties,
+  salesDeals,
   units,
 } from '../src/index.js';
 
@@ -193,6 +195,53 @@ integration('PostgreSQL row-level tenant isolation', () => {
             },
           ])
           .returning();
+        const [requestA1] = await transaction
+          .insert(operationalRequests)
+          .values([
+            {
+              organizationId: orgA!.id,
+              reference: `REQ-A1-${suffix}`,
+              type: 'tenant_service',
+              requesterPartyId: tenantA1!.id,
+              propertyId: propertyA!.id,
+              unitId: unitA1!.id,
+              subject: 'Tenant A1 request',
+            },
+            {
+              organizationId: orgA!.id,
+              reference: `REQ-A2-${suffix}`,
+              type: 'tenant_service',
+              requesterPartyId: tenantA2!.id,
+              propertyId: propertyA!.id,
+              unitId: unitA2!.id,
+              subject: 'Tenant A2 request',
+            },
+          ])
+          .returning();
+        const [saleA, saleB] = await transaction
+          .insert(salesDeals)
+          .values([
+            {
+              organizationId: orgA!.id,
+              reference: `SALE-A-${suffix}`,
+              propertyId: propertyA!.id,
+              unitId: unitA1!.id,
+              sellerPartyId: ownerA!.id,
+              askingPriceMinor: 100_000_000n,
+              currency: 'OMR',
+              minorUnit: 3,
+            },
+            {
+              organizationId: orgB!.id,
+              reference: `SALE-B-${suffix}`,
+              propertyId: propertyB!.id,
+              sellerPartyId: ownerB!.id,
+              askingPriceMinor: 200_000_000n,
+              currency: 'OMR',
+              minorUnit: 3,
+            },
+          ])
+          .returning();
         await transaction.insert(invoices).values([
           {
             organizationId: orgA!.id,
@@ -227,6 +276,9 @@ integration('PostgreSQL row-level tenant isolation', () => {
           propertyB: propertyB!.id,
           tenantA1: tenantA1!.id,
           leaseA1: leaseA1!.id,
+          requestA1: requestA1!.id,
+          saleA: saleA!.id,
+          saleB: saleB!.id,
         };
       });
 
@@ -249,6 +301,16 @@ integration('PostgreSQL row-level tenant isolation', () => {
             .where(eq(properties.id, seeded.propertyB))
             .returning(),
         ).toEqual([]);
+        expect((await transaction.select().from(salesDeals)).map((row) => row.id)).toEqual([
+          seeded.saleA,
+        ]);
+        expect(
+          await transaction
+            .update(salesDeals)
+            .set({ status: 'qualified' })
+            .where(eq(salesDeals.id, seeded.saleB))
+            .returning(),
+        ).toEqual([]);
       });
 
       await runtime.db.transaction(async (transaction) => {
@@ -260,9 +322,13 @@ integration('PostgreSQL row-level tenant isolation', () => {
         await transaction.execute(sql`select set_config('app.is_tenant', 'true', true)`);
         const visibleLeases = await transaction.select().from(leases);
         const visibleInvoices = await transaction.select().from(invoices);
+        const visibleRequests = await transaction.select().from(operationalRequests);
+        const visibleSales = await transaction.select().from(salesDeals);
         expect(visibleLeases.map((row) => row.id)).toEqual([seeded.leaseA1]);
         expect(visibleInvoices).toHaveLength(1);
         expect(visibleInvoices[0]!.tenantPartyId).toBe(seeded.tenantA1);
+        expect(visibleRequests.map((row) => row.id)).toEqual([seeded.requestA1]);
+        expect(visibleSales).toEqual([]);
       });
     } finally {
       if (runtime) await runtime.client.end();

@@ -8,10 +8,16 @@ END $worker_role$;
 
 GRANT USAGE ON SCHEMA public, app_private TO bhd_r_worker;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA app_private TO bhd_r_worker;
-GRANT SELECT ON outbox_events, media_assets, unit_media, units, contracts, contract_templates, invoices, credential_tokens, users TO bhd_r_worker;
+GRANT SELECT ON
+  outbox_events, media_assets, unit_media, units, contracts, contract_templates, invoices,
+  credential_tokens, users, report_jobs, properties, leases, payments, maintenance_tickets,
+  sales_deals, legal_cases, work_tasks, operational_requests, ledger_accounts, journal_entries,
+  journal_lines, expenses, parties, addresses
+TO bhd_r_worker;
 GRANT UPDATE (published_at, attempts) ON outbox_events TO bhd_r_worker;
 GRANT UPDATE (processing_status, scan_status, private_object_key, public_object_key, metadata, sha256, updated_at) ON media_assets TO bhd_r_worker;
 GRANT UPDATE (rendered_pdf_object_key, rendered_pdf_hash, updated_at) ON contracts TO bhd_r_worker;
+GRANT UPDATE (status, object_key, expires_at, updated_at) ON report_jobs TO bhd_r_worker;
 
 -- Example after the deployment login role has been provisioned by the platform:
 -- GRANT bhd_r_worker TO bhd_r_worker_login;

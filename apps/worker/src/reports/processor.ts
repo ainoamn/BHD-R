@@ -21,7 +21,7 @@ interface ReportData {
   rows: Cell[][];
 }
 
-const reportQueries: Record<string, { title: string; sql: string }> = {
+export const reportQueries: Record<string, { title: string; sql: string }> = {
   occupancy: {
     title: 'Occupancy / الإشغال',
     sql: `SELECT p.name_en AS property, count(u.id)::text AS units,
@@ -55,7 +55,7 @@ const reportQueries: Record<string, { title: string; sql: string }> = {
   },
   maintenance: {
     title: 'Maintenance / الصيانة',
-    sql: `SELECT reference, title, priority, status, blocks_availability::text,
+    sql: `SELECT id::text AS reference, title, category, priority, status, blocks_availability::text,
                  created_at::text, resolved_at::text
           FROM maintenance_tickets WHERE organization_id = $1 ORDER BY created_at DESC`,
   },
@@ -74,14 +74,14 @@ const reportQueries: Record<string, { title: string; sql: string }> = {
   },
   legal_cases: {
     title: 'Legal cases / القضايا',
-    sql: `SELECT reference, title, case_type, status, court_name, case_number,
-                 next_hearing_at::text, claimed_amount_minor::text, recovered_amount_minor::text, currency
+    sql: `SELECT reference, title, case_type, status, court, case_number,
+                 next_hearing_at::text, claim_amount_minor::text, recovered_amount_minor::text, currency
           FROM legal_cases WHERE organization_id = $1 ORDER BY created_at DESC`,
   },
   task_performance: {
     title: 'Task performance / أداء المهام',
-    sql: `SELECT reference, title, priority, status, due_at::text, completed_at::text,
-                 estimated_minutes::text, actual_minutes::text
+    sql: `SELECT reference, title, category, priority, status, starts_at::text,
+                 due_at::text, completed_at::text, created_at::text
           FROM work_tasks WHERE organization_id = $1 ORDER BY created_at DESC`,
   },
   requests: {
@@ -92,10 +92,12 @@ const reportQueries: Record<string, { title: string; sql: string }> = {
   },
   trial_balance: {
     title: 'Trial balance / ميزان المراجعة',
-    sql: `SELECT a.code, a.name_en, a.type, coalesce(sum(l.debit_minor),0)::text AS debit_minor,
-                 coalesce(sum(l.credit_minor),0)::text AS credit_minor, coalesce(l.currency,a.currency,'OMR') AS currency
+    sql: `SELECT a.code, a.name_en, a.type,
+                 coalesce(sum(l.debit_minor) FILTER (WHERE j.status = 'posted'),0)::text AS debit_minor,
+                 coalesce(sum(l.credit_minor) FILTER (WHERE j.status = 'posted'),0)::text AS credit_minor,
+                 coalesce(l.currency,a.currency,'OMR') AS currency
           FROM ledger_accounts a LEFT JOIN journal_lines l ON l.account_id = a.id
-          LEFT JOIN journal_entries j ON j.id = l.journal_entry_id AND j.status = 'posted'
+          LEFT JOIN journal_entries j ON j.id = l.journal_entry_id
           WHERE a.organization_id = $1 GROUP BY a.id, l.currency ORDER BY a.code`,
   },
   general_ledger: {
@@ -109,9 +111,9 @@ const reportQueries: Record<string, { title: string; sql: string }> = {
   },
   expenses: {
     title: 'Expenses / المصروفات',
-    sql: `SELECT reference, expense_date::text, description, category, status,
+    sql: `SELECT reference, issued_on::text, due_on::text, description, category, status,
                  amount_minor::text, tax_minor::text, currency, paid_at::text
-          FROM expenses WHERE organization_id = $1 ORDER BY expense_date DESC`,
+          FROM expenses WHERE organization_id = $1 ORDER BY issued_on DESC`,
   },
 };
 
@@ -250,13 +252,16 @@ export function createReportProcessor(
       return result.rows[0];
     });
     if (!report) throw new PermanentJobError('REPORT_NOT_FOUND', 'Report job was not found');
-    const definition = reportQueries[report.type];
-    if (!definition)
-      throw new PermanentJobError('REPORT_TYPE_UNSUPPORTED', `Unsupported report: ${report.type}`);
-    const format = report.format as ReportFormat;
-    if (!['csv', 'xlsx', 'pdf'].includes(format))
-      throw new PermanentJobError('REPORT_FORMAT_UNSUPPORTED', `Unsupported format: ${format}`);
     try {
+      const definition = reportQueries[report.type];
+      if (!definition)
+        throw new PermanentJobError(
+          'REPORT_TYPE_UNSUPPORTED',
+          `Unsupported report: ${report.type}`,
+        );
+      const format = report.format as ReportFormat;
+      if (!['csv', 'xlsx', 'pdf'].includes(format))
+        throw new PermanentJobError('REPORT_FORMAT_UNSUPPORTED', `Unsupported format: ${format}`);
       const result = await asWorker(pool, (client) =>
         client.query<QueryResultRow>(definition.sql, [event.organizationId]),
       );

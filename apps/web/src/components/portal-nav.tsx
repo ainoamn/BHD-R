@@ -2,6 +2,7 @@
 
 import { Logo } from '@bhd-r/ui';
 import { useLocale, useTranslations } from 'next-intl';
+import { useEffect, useId, useState } from 'react';
 import { Link, usePathname } from '@/i18n/navigation';
 import type { PortalRole } from '@/lib/types';
 
@@ -68,39 +69,120 @@ export function PortalNav({ portal, displayName }: { portal: PortalRole; display
   const t = useTranslations();
   const pathname = usePathname();
   const locale = useLocale() as 'ar' | 'en';
+  const [open, setOpen] = useState(false);
+  const panelId = useId();
   const root = `/${portal}`;
+  const activeItem =
+    nav[portal].find(
+      (item) =>
+        pathname === `${root}${item.path}` ||
+        (item.path !== '' && pathname.startsWith(`${root}${item.path}/`)),
+    ) ?? nav[portal][0]!;
+
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
   function signOut() {
     window.location.assign('/api/auth/bhd/logout');
   }
+
   return (
-    <aside className="portal-sidebar">
-      <div className="portal-sidebar__head">
-        <Logo descriptor={t(`Portal.${portal}`)} compact />
-      </div>
-      <p className="portal-sidebar__title">{t(`Portal.${portal}`)}</p>
-      <nav className="portal-nav" aria-label={t(`Portal.${portal}`)}>
-        {nav[portal].map((item) => {
-          const href = `${root}${item.path}`;
-          const active = pathname === href || (item.path !== '' && pathname.startsWith(`${href}/`));
-          return (
-            <Link key={item.path} href={href} aria-current={active ? 'page' : undefined}>
-              <span className="portal-nav__mark" aria-hidden="true">
-                {item.mark}
-              </span>
-              {t(item.label)}
-            </Link>
-          );
-        })}
-      </nav>
-      <div className="portal-user">
-        <strong>{displayName}</strong>
-        <Link href={pathname} locale={locale === 'ar' ? 'en' : 'ar'}>
-          {locale === 'ar' ? 'English' : 'العربية'}
-        </Link>
-        <button type="button" onClick={() => void signOut()}>
-          {t('Common.signOut')}
+    <>
+      <div className="portal-mobile-bar">
+        <button
+          type="button"
+          className="portal-menu-toggle"
+          aria-expanded={open}
+          aria-controls={panelId}
+          onClick={() => setOpen((value) => !value)}
+        >
+          <span aria-hidden="true">{open ? '×' : '☰'}</span>
+          <span>{open ? (locale === 'ar' ? 'إغلاق' : 'Close') : t(`Portal.${portal}`)}</span>
         </button>
+        <span className="portal-mobile-bar__current">{t(activeItem.label)}</span>
+        <Link
+          href={`/${portal}`}
+          className="portal-mobile-bar__home"
+          aria-label={t('Common.dashboard')}
+        >
+          ⌂
+        </Link>
       </div>
-    </aside>
+
+      {open ? (
+        <button
+          type="button"
+          className="portal-nav-backdrop"
+          aria-label={locale === 'ar' ? 'إغلاق القائمة' : 'Close menu'}
+          onClick={() => setOpen(false)}
+        />
+      ) : null}
+
+      <aside
+        id={panelId}
+        className={open ? 'portal-sidebar portal-sidebar--open' : 'portal-sidebar'}
+      >
+        <div className="portal-sidebar__head">
+          <Logo descriptor={t(`Portal.${portal}`)} compact />
+          <button
+            type="button"
+            className="portal-sidebar__close"
+            onClick={() => setOpen(false)}
+            aria-label={locale === 'ar' ? 'إغلاق' : 'Close'}
+          >
+            ×
+          </button>
+        </div>
+        <p className="portal-sidebar__title">{t(`Portal.${portal}`)}</p>
+        <nav className="portal-nav" aria-label={t(`Portal.${portal}`)}>
+          {nav[portal].map((item) => {
+            const href = `${root}${item.path}`;
+            const active =
+              pathname === href || (item.path !== '' && pathname.startsWith(`${href}/`));
+            return (
+              <Link
+                key={item.path}
+                href={href}
+                aria-current={active ? 'page' : undefined}
+                onClick={() => setOpen(false)}
+              >
+                <span className="portal-nav__mark" aria-hidden="true">
+                  {item.mark}
+                </span>
+                {t(item.label)}
+              </Link>
+            );
+          })}
+        </nav>
+        <div className="portal-user">
+          <strong>{displayName}</strong>
+          <Link
+            href={pathname}
+            locale={locale === 'ar' ? 'en' : 'ar'}
+            onClick={() => setOpen(false)}
+          >
+            {locale === 'ar' ? 'English' : 'العربية'}
+          </Link>
+          <button type="button" onClick={() => void signOut()}>
+            {t('Common.signOut')}
+          </button>
+        </div>
+      </aside>
+    </>
   );
 }
