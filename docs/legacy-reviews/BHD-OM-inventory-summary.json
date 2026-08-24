@@ -1,0 +1,166 @@
+{
+  "commit": "8ec962d59a6a814c0b047cab8202ad6f832e470a",
+  "trackedFiles": 1235,
+  "textFiles": 1122,
+  "sourceFiles": 905,
+  "activeSourceFiles": 820,
+  "activeSourceLines": 134116,
+  "apiRoutes": 185,
+  "apiMethods": 241,
+  "pages": 84,
+  "clientPages": 64,
+  "localStoragePages": 6,
+  "apiRoutesWithoutDetectedAuth": 68,
+  "topLargestActiveSource": [
+    {
+      "file": "app/[locale]/admin/contracts/[id]/page.tsx",
+      "lines": 4013,
+      "bytes": 246817
+    },
+    {
+      "file": "app/[locale]/properties/[id]/contract-terms/page.tsx",
+      "lines": 3182,
+      "bytes": 215808
+    },
+    {
+      "file": "app/[locale]/admin/address-book/page.tsx",
+      "lines": 2660,
+      "bytes": 160253
+    },
+    {
+      "file": "lib/data/addressBook.ts",
+      "lines": 1754,
+      "bytes": 77656
+    },
+    {
+      "file": "app/[locale]/admin/bookings/page.tsx",
+      "lines": 1662,
+      "bytes": 108399
+    },
+    {
+      "file": "app/[locale]/admin/contract-review/page.tsx",
+      "lines": 1625,
+      "bytes": 90234
+    },
+    {
+      "file": "lib/server/legacyBridge.ts",
+      "lines": 1503,
+      "bytes": 61908
+    },
+    {
+      "file": "app/[locale]/properties/[id]/book/page.tsx",
+      "lines": 1499,
+      "bytes": 103875
+    },
+    {
+      "file": "components/admin/BookingDocumentsPanel.tsx",
+      "lines": 1391,
+      "bytes": 82117
+    },
+    {
+      "file": "lib/accounting/data/dbService.ts",
+      "lines": 1312,
+      "bytes": 50560
+    },
+    {
+      "file": "app/[locale]/admin/data/page.tsx",
+      "lines": 1300,
+      "bytes": 63973
+    },
+    {
+      "file": "lib/data/accounting.ts",
+      "lines": 1289,
+      "bytes": 54388
+    },
+    {
+      "file": "components/admin/PropertyForm.tsx",
+      "lines": 1258,
+      "bytes": 68544
+    },
+    {
+      "file": "app/[locale]/admin/my-account/page.tsx",
+      "lines": 1208,
+      "bytes": 71597
+    },
+    {
+      "file": "app/[locale]/admin/subscriptions/page.tsx",
+      "lines": 1005,
+      "bytes": 55741
+    },
+    {
+      "file": "components/properties/PropertyDetails.tsx",
+      "lines": 981,
+      "bytes": 58497
+    },
+    {
+      "file": "app/[locale]/admin/users/page.tsx",
+      "lines": 932,
+      "bytes": 44463
+    },
+    {
+      "file": "components/admin/accounting/AccountingReportsTab.tsx",
+      "lines": 898,
+      "bytes": 50078
+    },
+    {
+      "file": "components/admin/PropertyExtraDataForm.tsx",
+      "lines": 889,
+      "bytes": 44911
+    },
+    {
+      "file": "app/[locale]/admin/users/[id]/page.tsx",
+      "lines": 858,
+      "bytes": 42708
+    },
+    {
+      "file": "components/admin/AdvancedReports.tsx",
+      "lines": 852,
+      "bytes": 36010
+    },
+    {
+      "file": "lib/data/contracts.ts",
+      "lines": 840,
+      "bytes": 37448
+    },
+    {
+      "file": "lib/data/properties.ts",
+      "lines": 820,
+      "bytes": 36895
+    },
+    {
+      "file": "lib/data/bookings.ts",
+      "lines": 786,
+      "bytes": 35364
+    },
+    {
+      "file": "app/[locale]/admin/AdminLayoutInner.tsx",
+      "lines": 762,
+      "bytes": 36699
+    },
+    {
+      "file": "components/portal/SignatureModal.tsx",
+      "lines": 746,
+      "bytes": 28086
+    },
+    {
+      "file": "components/admin/InvoiceTemplateEditor.tsx",
+      "lines": 742,
+      "bytes": 42505
+    },
+    {
+      "file": "components/admin/real-estate/RealEstateContractModal.tsx",
+      "lines": 739,
+      "bytes": 29375
+    },
+    {
+      "file": "components/admin/ModernAdminLayout.tsx",
+      "lines": 737,
+      "bytes": 21045
+    },
+    {
+      "file": "components/admin/CleanAdminLayout.tsx",
+      "lines": 724,
+      "bytes": 20149
+    }
+  ]
+}

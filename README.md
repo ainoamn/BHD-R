@@ -8,6 +8,8 @@
 **ربط Vercel:** [`docs/VERCEL_DEPLOYMENT_AR.md`](./docs/VERCEL_DEPLOYMENT_AR.md) — Root Directory = `apps/web`  
 **هوية BHD:** [`docs/BHD-R-IDENTITY-SETUP.md`](./docs/BHD-R-IDENTITY-SETUP.md)  
 **مزامنة الحزمة 0.1.6:** [`docs/RELEASE_SYNC_0.1.6.md`](./docs/RELEASE_SYNC_0.1.6.md)  
+**خريطة مجلد العمل الأب:** [`docs/PARENT_FOLDER_SYNC_AR.md`](./docs/PARENT_FOLDER_SYNC_AR.md)  
+**لقطات النظام:** [`docs/screenshots/2026-08-23/`](./docs/screenshots/2026-08-23/)  
 **مراجعات BHD-OM:** [`docs/legacy-reviews/`](./docs/legacy-reviews/)
 
 ## الحالة

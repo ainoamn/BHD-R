@@ -1,0 +1,753 @@
+model,field,type,optional,list,attributes,description,row_kind
+User,id,String,no,no,@id @default(cuid()),,field
+User,serialNumber,String,no,no,@unique  // USR-A-2025-0001 حسب الدور والسنة,,field
+User,email,String,no,no,@unique,,field
+User,password,String,no,no,,,field
+User,bhdSub,String,yes,no,@unique,,field
+User,name,String,no,no,,,field
+User,phone,String,yes,no,,,field
+User,phoneHash,String,yes,no,@unique // HMAC للبحث — الهاتف الفعلي مشفّر في phone,,field
+User,role,UserRole,no,no,@default(CLIENT),,field
+User,isSuperAdmin,Boolean,no,no,@default(false)  // أدمن كامل الصلاحيات,,field
+User,adminPermissions,String,yes,no,"// JSON: مصفوفة صلاحيات للأدمن الجزئي، مثل [""MANAGE_USERS"",""MANAGE_PROPERTIES""]",,field
+User,organizationId,String,yes,no,// موظف شركة → الشركة التابع لها,,field
+User,createdAt,DateTime,no,no,@default(now()),,field
+User,updatedAt,DateTime,no,no,@updatedAt,,field
+User,projects,Project,no,yes,,,field
+User,tasks,Task,no,yes,,,field
+User,documents,Document,no,yes,,,field
+User,accounts,Account,no,yes,,,field
+User,organization,Organization,yes,no,"@relation(""OrgMembers"", fields: [organizationId], references: [id])",,field
+User,ownedOrganization,Organization,yes,no,"@relation(""OrgOwner"")",,field
+User,createdProperties,Property,no,yes,,,field
+User,ownedProperties,Property,no,yes,"@relation(""PropertyOwner"")  // عقارات يملكها (د) — للمتابعة والاطلاع فقط",,field
+User,subscriptions,Subscription,no,yes,,,field
+User,notifications,Notification,no,yes,,,field
+User,,,,,@@index([role]),,model-attribute
+User,,,,,@@index([createdAt]),,model-attribute
+User,,,,,@@index([email]),,model-attribute
+User,,,,,@@index([phoneHash]),,model-attribute
+User,,,,,@@index([organizationId]),,model-attribute
+User,,,,,@@index([bhdSub]),,model-attribute
+Project,id,String,no,no,@id @default(cuid()),,field
+Project,serialNumber,String,no,no,@unique  // PRJ-C-2025-0001 حسب الحالة والسنة,,field
+Project,titleAr,String,no,no,,,field
+Project,titleEn,String,no,no,,,field
+Project,descriptionAr,String,no,no,,,field
+Project,descriptionEn,String,no,no,,,field
+Project,status,ProjectStatus,no,no,,,field
+Project,locationAr,String,no,no,,,field
+Project,locationEn,String,no,no,,,field
+Project,area,Float,yes,no,,,field
+Project,units,Int,yes,no,,,field
+Project,startDate,DateTime,yes,no,,,field
+Project,completionDate,DateTime,yes,no,,,field
+Project,imageUrl,String,yes,no,,,field
+Project,images,String,no,no,// JSON array of image URLs,,field
+Project,createdAt,DateTime,no,no,@default(now()),,field
+Project,updatedAt,DateTime,no,no,@updatedAt,,field
+Project,userId,String,no,no,,,field
+Project,user,User,no,no,"@relation(fields: [userId], references: [id])",,field
+Project,tasks,Task,no,yes,,,field
+Project,documents,Document,no,yes,,,field
+Project,accounts,Account,no,yes,,,field
+Project,serialHistory,SerialNumberHistory,no,yes,,,field
+Project,,,,,@@index([status]),,model-attribute
+Project,,,,,@@index([createdAt]),,model-attribute
+Task,id,String,no,no,@id @default(cuid()),,field
+Task,titleAr,String,no,no,,,field
+Task,titleEn,String,no,no,,,field
+Task,descriptionAr,String,no,no,,,field
+Task,descriptionEn,String,no,no,,,field
+Task,status,TaskStatus,no,no,@default(PENDING),,field
+Task,dueDate,DateTime,yes,no,,,field
+Task,completedAt,DateTime,yes,no,,,field
+Task,createdAt,DateTime,no,no,@default(now()),,field
+Task,updatedAt,DateTime,no,no,@updatedAt,,field
+Task,userId,String,no,no,,,field
+Task,user,User,no,no,"@relation(fields: [userId], references: [id])",,field
+Task,projectId,String,yes,no,,,field
+Task,project,Project,yes,no,"@relation(fields: [projectId], references: [id])",,field
+Document,id,String,no,no,@id @default(cuid()),,field
+Document,titleAr,String,no,no,,,field
+Document,titleEn,String,no,no,,,field
+Document,type,DocumentType,no,no,,,field
+Document,fileUrl,String,no,no,,,field
+Document,fileName,String,no,no,,,field
+Document,fileSize,Int,no,no,,,field
+Document,mimeType,String,no,no,,,field
+Document,descriptionAr,String,yes,no,,,field
+Document,descriptionEn,String,yes,no,,,field
+Document,createdAt,DateTime,no,no,@default(now()),,field
+Document,updatedAt,DateTime,no,no,@updatedAt,,field
+Document,userId,String,no,no,,,field
+Document,user,User,no,no,"@relation(fields: [userId], references: [id])",,field
+Document,projectId,String,yes,no,,,field
+Document,project,Project,yes,no,"@relation(fields: [projectId], references: [id])",,field
+Account,id,String,no,no,@id @default(cuid()),,field
+Account,accountNumber,String,no,no,@unique,,field
+Account,balance,Float,no,no,@default(0),,field
+Account,currency,String,no,no,"@default(""OMR"")",,field
+Account,descriptionAr,String,yes,no,,,field
+Account,descriptionEn,String,yes,no,,,field
+Account,createdAt,DateTime,no,no,@default(now()),,field
+Account,updatedAt,DateTime,no,no,@updatedAt,,field
+Account,userId,String,no,no,,,field
+Account,user,User,no,no,"@relation(fields: [userId], references: [id])",,field
+Account,projectId,String,yes,no,,,field
+Account,project,Project,yes,no,"@relation(fields: [projectId], references: [id])",,field
+Account,transactions,Transaction,no,yes,,,field
+Transaction,id,String,no,no,@id @default(cuid()),,field
+Transaction,amount,Float,no,no,,,field
+Transaction,type,String,no,no,// DEBIT or CREDIT,,field
+Transaction,descriptionAr,String,yes,no,,,field
+Transaction,descriptionEn,String,yes,no,,,field
+Transaction,date,DateTime,no,no,@default(now()),,field
+Transaction,createdAt,DateTime,no,no,@default(now()),,field
+Transaction,accountId,String,no,no,,,field
+Transaction,account,Account,no,no,"@relation(fields: [accountId], references: [id])",,field
+SiteContent,id,String,no,no,@id @default(cuid()),,field
+SiteContent,key,String,no,no,@unique,,field
+SiteContent,contentAr,String,no,no,,,field
+SiteContent,contentEn,String,no,no,,,field
+SiteContent,type,String,no,no,"// TEXT, HTML, IMAGE, etc.",,field
+SiteContent,page,String,no,no,"// home, about, services, etc.",,field
+SiteContent,section,String,yes,no,"// hero, services, etc.",,field
+SiteContent,createdAt,DateTime,no,no,@default(now()),,field
+SiteContent,updatedAt,DateTime,no,no,@updatedAt,,field
+Property,id,String,no,no,@id @default(cuid()),,field
+Property,serialNumber,String,no,no,@unique  // PRP-R-2025-0001 حسب النوع والسنة,,field
+Property,titleAr,String,no,no,,,field
+Property,titleEn,String,no,no,,,field
+Property,descriptionAr,String,no,no,,,field
+Property,descriptionEn,String,no,no,,,field
+Property,type,PropertyType,no,no,,,field
+Property,status,PropertyStatus,no,no,@default(ACTIVE),,field
+Property,propertyTypeAr,String,no,no,,,field
+Property,propertyTypeEn,String,no,no,,,field
+Property,governorateAr,String,no,no,,,field
+Property,governorateEn,String,no,no,,,field
+Property,stateAr,String,no,no,,,field
+Property,stateEn,String,no,no,,,field
+Property,villageAr,String,no,no,,,field
+Property,villageEn,String,no,no,,,field
+Property,price,Float,no,no,,,field
+Property,area,Float,no,no,,,field
+Property,bedrooms,Int,yes,no,,,field
+Property,bathrooms,Int,yes,no,,,field
+Property,livingRooms,Int,yes,no,,,field
+Property,majlis,Int,yes,no,,,field
+Property,parkingSpaces,Int,yes,no,,,field
+Property,floors,Int,yes,no,,,field
+Property,balconies,Int,yes,no,,,field
+Property,image,String,no,no,,,field
+Property,images,String,yes,no,// JSON array of image URLs,,field
+Property,googleMapsUrl,String,yes,no,,,field
+Property,lat,Float,yes,no,,,field
+Property,lng,Float,yes,no,,,field
+Property,isArchived,Boolean,no,no,@default(false),,field
+Property,createdById,String,yes,no,// من أضاف العقار (ب أو ر),,field
+Property,organizationId,String,yes,no,// الشركة (ب) التي تدير العقار,,field
+Property,ownerId,String,yes,no,// المالك (د) — يظهر العقار في لوحته للمتابعة والاطلاع فقط,,field
+Property,createdAt,DateTime,no,no,@default(now()),,field
+Property,updatedAt,DateTime,no,no,@updatedAt,,field
+Property,createdBy,User,yes,no,"@relation(fields: [createdById], references: [id])",,field
+Property,organization,Organization,yes,no,"@relation(fields: [organizationId], references: [id])",,field
+Property,owner,User,yes,no,"@relation(""PropertyOwner"", fields: [ownerId], references: [id])",,field
+Property,bookings,PropertyBooking,no,yes,,,field
+Property,serialHistory,SerialNumberHistory,no,yes,,,field
+Property,,,,,@@index([type]),,model-attribute
+Property,,,,,@@index([status]),,model-attribute
+Property,,,,,@@index([createdAt]),,model-attribute
+Property,,,,,"@@index([type, status])",,model-attribute
+Property,,,,,@@index([governorateAr]),,model-attribute
+Property,,,,,@@index([price]),,model-attribute
+Property,,,,,@@index([createdById]),,model-attribute
+Property,,,,,@@index([organizationId]),,model-attribute
+Property,,,,,@@index([ownerId]),,model-attribute
+Property,,,,,@@index([isArchived]),,model-attribute
+Property,,,,,"@@index([isArchived, createdAt])",,model-attribute
+PropertyBooking,id,String,no,no,@id @default(cuid()),,field
+PropertyBooking,propertyId,String,no,no,,,field
+PropertyBooking,property,Property,no,no,"@relation(fields: [propertyId], references: [id], onDelete: Cascade)",,field
+PropertyBooking,name,String,no,no,,,field
+PropertyBooking,email,String,no,no,,,field
+PropertyBooking,phone,String,no,no,,,field
+PropertyBooking,message,String,yes,no,,,field
+PropertyBooking,type,String,no,no,"// BOOKING, VIEWING",,field
+PropertyBooking,status,String,no,no,"@default(""PENDING"") // PENDING, CONFIRMED, CANCELLED",,field
+PropertyBooking,createdAt,DateTime,no,no,@default(now()),,field
+PropertyBooking,updatedAt,DateTime,no,no,@updatedAt,,field
+PropertyBooking,,,,,@@index([propertyId]),,model-attribute
+PropertyBooking,,,,,@@index([status]),,model-attribute
+PropertyBooking,,,,,@@index([createdAt]),,model-attribute
+PropertyBooking,,,,,"@@index([propertyId, status])",,model-attribute
+PropertyBooking,,,,,@@index([email]),,model-attribute
+PropertyBooking,,,,,@@index([type]),,model-attribute
+SerialCounter,id,String,no,no,@id @default(cuid()),,field
+SerialCounter,key,String,no,no,"@unique  // PRP-R-2025, PRJ-C-2025, USR-A-2025",,field
+SerialCounter,lastValue,Int,no,no,@default(0),,field
+SerialCounter,updatedAt,DateTime,no,no,@updatedAt,,field
+SerialNumberHistory,id,String,no,no,@id @default(cuid()),,field
+SerialNumberHistory,entityType,String,no,no,"// PROJECT, PROPERTY",,field
+SerialNumberHistory,entityId,String,no,no,,,field
+SerialNumberHistory,serialNumber,String,no,no,// الرقم السابق,,field
+SerialNumberHistory,typeOrStatus,String,no,no,// النوع أو الحالة السابقة,,field
+SerialNumberHistory,changedAt,DateTime,no,no,@default(now()),,field
+SerialNumberHistory,projectId,String,yes,no,,,field
+SerialNumberHistory,project,Project,yes,no,"@relation(fields: [projectId], references: [id], onDelete: Cascade)",,field
+SerialNumberHistory,propertyId,String,yes,no,,,field
+SerialNumberHistory,property,Property,yes,no,"@relation(fields: [propertyId], references: [id], onDelete: Cascade)",,field
+ContactSubmission,id,String,no,no,@id @default(cuid()),,field
+ContactSubmission,name,String,no,no,,,field
+ContactSubmission,email,String,no,no,,,field
+ContactSubmission,phone,String,yes,no,,,field
+ContactSubmission,message,String,yes,no,,,field
+ContactSubmission,type,String,no,no,"// CONTACT, CALLBACK",,field
+ContactSubmission,isRead,Boolean,no,no,@default(false),,field
+ContactSubmission,createdAt,DateTime,no,no,@default(now()),,field
+ContactSubmission,,,,,@@index([createdAt]),,model-attribute
+ContactSubmission,,,,,@@index([type]),,model-attribute
+BookingStorage,id,String,no,no,@id @default(cuid()),,field
+BookingStorage,bookingId,String,no,no,@unique // BKG-xxx من الواجهة,,field
+BookingStorage,data,String,no,no,// JSON كامل للحجز (PropertyBooking),,field
+BookingStorage,propertyId,Int,yes,no,,,field
+BookingStorage,status,String,yes,no,,,field
+BookingStorage,bookingType,String,yes,no,,,field
+BookingStorage,emailNorm,String,yes,no,,,field
+BookingStorage,createdAt,DateTime,no,no,@default(now()),,field
+BookingStorage,updatedAt,DateTime,no,no,@updatedAt,,field
+BookingStorage,,,,,@@index([createdAt]),,model-attribute
+BookingStorage,,,,,@@index([updatedAt]),,model-attribute
+BookingStorage,,,,,@@index([propertyId]),,model-attribute
+BookingStorage,,,,,@@index([status]),,model-attribute
+BookingStorage,,,,,@@index([bookingType]),,model-attribute
+BookingStorage,,,,,"@@index([propertyId, status])",,model-attribute
+PaymentPendingStorage,id,String,no,no,@id @default(cuid()),,field
+PaymentPendingStorage,sessionId,String,no,no,@unique,,field
+PaymentPendingStorage,userId,String,yes,no,,,field
+PaymentPendingStorage,propertyId,Int,yes,no,,,field
+PaymentPendingStorage,bookingPayload,String,no,no,,,field
+PaymentPendingStorage,status,String,no,no,"@default(""PENDING"")",,field
+PaymentPendingStorage,createdAt,DateTime,no,no,@default(now()),,field
+PaymentPendingStorage,updatedAt,DateTime,no,no,@updatedAt,,field
+PaymentPendingStorage,,,,,@@index([status]),,model-attribute
+PaymentPendingStorage,,,,,@@index([userId]),,model-attribute
+PaymentPendingStorage,,,,,@@index([propertyId]),,model-attribute
+PaymentPendingStorage,,,,,@@index([createdAt]),,model-attribute
+ContractStorage,id,String,no,no,@id @default(cuid()),,field
+ContractStorage,contractId,String,no,no,@unique // CNT-xxx,,field
+ContractStorage,bookingId,String,no,no,@unique,,field
+ContractStorage,data,String,no,no,// JSON كامل للعقد (RentalContract),,field
+ContractStorage,propertyId,Int,yes,no,,,field
+ContractStorage,status,String,yes,no,,,field
+ContractStorage,contractKind,String,yes,no,,,field
+ContractStorage,emailNorm,String,yes,no,,,field
+ContractStorage,createdAt,DateTime,no,no,@default(now()),,field
+ContractStorage,updatedAt,DateTime,no,no,@updatedAt,,field
+ContractStorage,,,,,@@index([createdAt]),,model-attribute
+ContractStorage,,,,,@@index([updatedAt]),,model-attribute
+ContractStorage,,,,,@@index([propertyId]),,model-attribute
+ContractStorage,,,,,@@index([status]),,model-attribute
+ContractStorage,,,,,@@index([contractKind]),,model-attribute
+ContractStorage,,,,,@@index([bookingId]),,model-attribute
+ContractStorage,,,,,"@@index([propertyId, status])",,model-attribute
+BookingDocumentFile,id,String,no,no,@id @default(cuid()),,field
+BookingDocumentFile,fileName,String,no,no,,,field
+BookingDocumentFile,mimeType,String,yes,no,,,field
+BookingDocumentFile,content,Bytes,no,no,,,field
+BookingDocumentFile,createdAt,DateTime,no,no,@default(now()),,field
+BookingDocumentFile,,,,,@@index([createdAt]),,model-attribute
+BookingDocumentStorage,id,String,no,no,@id @default(cuid()),,field
+BookingDocumentStorage,documentId,String,no,no,@unique // BDOC-xxx,,field
+BookingDocumentStorage,bookingId,String,no,no,,,field
+BookingDocumentStorage,data,String,no,no,// JSON كامل (BookingDocument),,field
+BookingDocumentStorage,propertyId,Int,yes,no,,,field
+BookingDocumentStorage,status,String,yes,no,// PENDING | UPLOADED | APPROVED | REJECTED,,field
+BookingDocumentStorage,docTypeId,String,yes,no,,,field
+BookingDocumentStorage,isRequired,Boolean,no,no,@default(false),,field
+BookingDocumentStorage,emailNorm,String,yes,no,// uploadedBy normalized,,field
+BookingDocumentStorage,createdAt,DateTime,no,no,@default(now()),,field
+BookingDocumentStorage,updatedAt,DateTime,no,no,@updatedAt,,field
+BookingDocumentStorage,,,,,@@index([bookingId]),,model-attribute
+BookingDocumentStorage,,,,,@@index([propertyId]),,model-attribute
+BookingDocumentStorage,,,,,@@index([status]),,model-attribute
+BookingDocumentStorage,,,,,@@index([docTypeId]),,model-attribute
+BookingDocumentStorage,,,,,"@@index([bookingId, status])",,model-attribute
+BookingDocumentStorage,,,,,"@@index([propertyId, status])",,model-attribute
+BookingDocumentStorage,,,,,@@index([updatedAt]),,model-attribute
+BookingCheckStorage,id,String,no,no,@id @default(cuid()),,field
+BookingCheckStorage,bookingId,String,no,no,,,field
+BookingCheckStorage,checkTypeId,String,no,no,,,field
+BookingCheckStorage,data,String,no,no,// JSON كامل (BookingCheckEntry),,field
+BookingCheckStorage,propertyId,Int,yes,no,,,field
+BookingCheckStorage,isApproved,Boolean,no,no,@default(false),,field
+BookingCheckStorage,isRejected,Boolean,no,no,@default(false),,field
+BookingCheckStorage,createdAt,DateTime,no,no,@default(now()),,field
+BookingCheckStorage,updatedAt,DateTime,no,no,@updatedAt,,field
+BookingCheckStorage,,,,,"@@unique([bookingId, checkTypeId])",,model-attribute
+BookingCheckStorage,,,,,@@index([bookingId]),,model-attribute
+BookingCheckStorage,,,,,@@index([propertyId]),,model-attribute
+BookingCheckStorage,,,,,@@index([isApproved]),,model-attribute
+BookingCheckStorage,,,,,@@index([isRejected]),,model-attribute
+BookingCheckStorage,,,,,"@@index([bookingId, isApproved])",,model-attribute
+BookingCheckStorage,,,,,@@index([updatedAt]),,model-attribute
+AddressBookContact,id,String,no,no,@id @default(cuid()),,field
+AddressBookContact,contactId,String,no,no,@unique // معرف الجهة من الواجهة (UUID نمط CNT-...),,field
+AddressBookContact,linkedUserId,String,yes,no,@unique // ربط بحساب مستخدم — جهة واحدة لكل مستخدم مرتبط,,field
+AddressBookContact,data,Json,no,no,// كائن Contact كامل (من lib/data/addressBook),,field
+AddressBookContact,createdAt,DateTime,no,no,@default(now()),,field
+AddressBookContact,updatedAt,DateTime,no,no,@updatedAt,,field
+AddressBookContact,,,,,@@index([createdAt]),,model-attribute
+AddressBookContact,,,,,@@index([updatedAt]),,model-attribute
+AddressBookContact,,,,,@@index([contactId]),,model-attribute
+AddressBookContact,,,,,@@index([linkedUserId]),,model-attribute
+AddressBookContactFile,id,String,no,no,@id @default(cuid()),,field
+AddressBookContactFile,contactId,String,yes,no,,,field
+AddressBookContactFile,fieldKey,String,yes,no,,,field
+AddressBookContactFile,fileName,String,no,no,,,field
+AddressBookContactFile,mimeType,String,yes,no,,,field
+AddressBookContactFile,sizeBytes,Int,yes,no,,,field
+AddressBookContactFile,blobUrl,String,yes,no,,,field
+AddressBookContactFile,content,Bytes,yes,no,,,field
+AddressBookContactFile,createdAt,DateTime,no,no,@default(now()),,field
+AddressBookContactFile,updatedAt,DateTime,no,no,@updatedAt,,field
+AddressBookContactFile,,,,,@@index([contactId]),,model-attribute
+AddressBookContactFile,,,,,"@@index([contactId, fieldKey])",,model-attribute
+AddressBookContactFile,,,,,@@index([createdAt]),,model-attribute
+LegacyAppKvStore,id,String,no,no,@id @default(cuid()),,field
+LegacyAppKvStore,kvKey,String,no,no,@unique,,field
+LegacyAppKvStore,category,String,yes,no,,,field
+LegacyAppKvStore,data,String,no,no,@db.Text,,field
+LegacyAppKvStore,createdAt,DateTime,no,no,@default(now()),,field
+LegacyAppKvStore,updatedAt,DateTime,no,no,@updatedAt,,field
+LegacyAppKvStore,,,,,@@index([category]),,model-attribute
+LegacyAppKvStore,,,,,@@index([updatedAt]),,model-attribute
+LegacyAppKvStore,,,,,@@index([kvKey]),,model-attribute
+LegacyStoredFile,id,String,no,no,@id @default(cuid()),,field
+LegacyStoredFile,storeContext,String,yes,no,,,field
+LegacyStoredFile,storeKey,String,yes,no,,,field
+LegacyStoredFile,fieldKey,String,yes,no,,,field
+LegacyStoredFile,fileName,String,no,no,,,field
+LegacyStoredFile,mimeType,String,yes,no,,,field
+LegacyStoredFile,sizeBytes,Int,yes,no,,,field
+LegacyStoredFile,blobUrl,String,yes,no,,,field
+LegacyStoredFile,content,Bytes,yes,no,,,field
+LegacyStoredFile,createdAt,DateTime,no,no,@default(now()),,field
+LegacyStoredFile,updatedAt,DateTime,no,no,@updatedAt,,field
+LegacyStoredFile,,,,,@@index([storeContext]),,model-attribute
+LegacyStoredFile,,,,,@@index([storeKey]),,model-attribute
+LegacyStoredFile,,,,,"@@index([storeContext, storeKey])",,model-attribute
+LegacyStoredFile,,,,,@@index([createdAt]),,model-attribute
+AccountingAccount,id,String,no,no,@id @default(cuid()),,field
+AccountingAccount,code,String,no,no,@unique,,field
+AccountingAccount,nameAr,String,no,no,,,field
+AccountingAccount,nameEn,String,no,no,,,field
+AccountingAccount,type,AccountingAccountType,no,no,,,field
+AccountingAccount,description,String,yes,no,,,field
+AccountingAccount,balance,Float,no,no,@default(0),,field
+AccountingAccount,currency,String,no,no,"@default(""OMR"")",,field
+AccountingAccount,isActive,Boolean,no,no,@default(true),,field
+AccountingAccount,parentId,String,yes,no,,,field
+AccountingAccount,parent,AccountingAccount,yes,no,"@relation(""AccountHierarchy"", fields: [parentId], references: [id])",,field
+AccountingAccount,children,AccountingAccount,no,yes,"@relation(""AccountHierarchy"")",,field
+AccountingAccount,journalLines,AccountingJournalLine,no,yes,,,field
+AccountingAccount,createdAt,DateTime,no,no,@default(now()),,field
+AccountingAccount,updatedAt,DateTime,no,no,@updatedAt,,field
+AccountingAccount,,,,,@@index([type]),,model-attribute
+AccountingAccount,,,,,@@index([code]),,model-attribute
+AccountingJournalEntry,id,String,no,no,@id @default(cuid()),,field
+AccountingJournalEntry,serialNumber,String,no,no,,,field
+AccountingJournalEntry,version,Int,no,no,@default(1),,field
+AccountingJournalEntry,date,DateTime,no,no,,,field
+AccountingJournalEntry,totalDebit,Float,no,no,@default(0),,field
+AccountingJournalEntry,totalCredit,Float,no,no,@default(0),,field
+AccountingJournalEntry,descriptionAr,String,yes,no,,,field
+AccountingJournalEntry,descriptionEn,String,yes,no,,,field
+AccountingJournalEntry,reference,String,yes,no,,,field
+AccountingJournalEntry,status,AccountingEntryStatus,no,no,@default(PENDING),,field
+AccountingJournalEntry,approvedBy,String,yes,no,,,field
+AccountingJournalEntry,approvedAt,DateTime,yes,no,,,field
+AccountingJournalEntry,postedBy,String,yes,no,,,field
+AccountingJournalEntry,postedAt,DateTime,yes,no,,,field
+AccountingJournalEntry,documentId,String,yes,no,,,field
+AccountingJournalEntry,bankAccountId,String,yes,no,,,field
+AccountingJournalEntry,contactId,String,yes,no,,,field
+AccountingJournalEntry,createdBy,String,no,no,,,field
+AccountingJournalEntry,createdAt,DateTime,no,no,@default(now()),,field
+AccountingJournalEntry,updatedAt,DateTime,no,no,@updatedAt,,field
+AccountingJournalEntry,lines,AccountingJournalLine,no,yes,,,field
+AccountingJournalEntry,,,,,@@index([date]),,model-attribute
+AccountingJournalEntry,,,,,@@index([status]),,model-attribute
+AccountingJournalEntry,,,,,@@index([documentId]),,model-attribute
+AccountingJournalEntry,,,,,@@index([bankAccountId]),,model-attribute
+AccountingJournalEntry,,,,,@@index([contactId]),,model-attribute
+AccountingJournalEntry,,,,,@@index([createdAt]),,model-attribute
+AccountingJournalLine,id,String,no,no,@id @default(cuid()),,field
+AccountingJournalLine,journalId,String,no,no,,,field
+AccountingJournalLine,accountId,String,no,no,,,field
+AccountingJournalLine,debit,Float,no,no,@default(0),,field
+AccountingJournalLine,credit,Float,no,no,@default(0),,field
+AccountingJournalLine,descriptionAr,String,yes,no,,,field
+AccountingJournalLine,descriptionEn,String,yes,no,,,field
+AccountingJournalLine,createdAt,DateTime,no,no,@default(now()),,field
+AccountingJournalLine,updatedAt,DateTime,no,no,@updatedAt,,field
+AccountingJournalLine,journal,AccountingJournalEntry,no,no,"@relation(fields: [journalId], references: [id], onDelete: Cascade)",,field
+AccountingJournalLine,account,AccountingAccount,no,no,"@relation(fields: [accountId], references: [id])",,field
+AccountingDocument,id,String,no,no,@id @default(cuid()),,field
+AccountingDocument,serialNumber,String,no,no,,,field
+AccountingDocument,type,AccountingDocType,no,no,,,field
+AccountingDocument,status,AccountingDocStatus,no,no,,,field
+AccountingDocument,date,DateTime,no,no,,,field
+AccountingDocument,dueDate,DateTime,yes,no,,,field
+AccountingDocument,totalAmount,Float,no,no,@default(0),,field
+AccountingDocument,vatRate,Float,yes,no,,,field
+AccountingDocument,vatAmount,Float,yes,no,,,field
+AccountingDocument,netAmount,Float,no,no,@default(0),,field
+AccountingDocument,descriptionAr,String,yes,no,,,field
+AccountingDocument,descriptionEn,String,yes,no,,,field
+AccountingDocument,reference,String,yes,no,,,field
+AccountingDocument,contactId,String,yes,no,,,field
+AccountingDocument,bankAccountId,String,yes,no,,,field
+AccountingDocument,propertyId,Int,yes,no,,,field
+AccountingDocument,projectId,String,yes,no,,,field
+AccountingDocument,attachmentsJson,String,yes,no,"// JSON [{url, name}]",,field
+AccountingDocument,purchaseOrder,String,yes,no,,,field
+AccountingDocument,branch,String,yes,no,,,field
+AccountingDocument,journalEntryId,String,yes,no,,,field
+AccountingDocument,createdBy,String,no,no,,,field
+AccountingDocument,createdAt,DateTime,no,no,@default(now()),,field
+AccountingDocument,updatedAt,DateTime,no,no,@updatedAt,,field
+AccountingDocument,,,,,@@index([type]),,model-attribute
+AccountingDocument,,,,,@@index([status]),,model-attribute
+AccountingDocument,,,,,@@index([date]),,model-attribute
+AccountingDocument,,,,,@@index([dueDate]),,model-attribute
+AccountingDocument,,,,,@@index([contactId]),,model-attribute
+AccountingDocument,,,,,@@index([journalEntryId]),,model-attribute
+AccountingDocument,,,,,@@index([createdAt]),,model-attribute
+AccountingFiscalPeriod,id,String,no,no,@id @default(cuid()),,field
+AccountingFiscalPeriod,code,String,no,no,,,field
+AccountingFiscalPeriod,startDate,DateTime,no,no,,,field
+AccountingFiscalPeriod,endDate,DateTime,no,no,,,field
+AccountingFiscalPeriod,isLocked,Boolean,no,no,@default(false),,field
+AccountingFiscalPeriod,closedAt,DateTime,yes,no,,,field
+AccountingFiscalPeriod,closedBy,String,yes,no,,,field
+AccountingAuditLog,id,String,no,no,@id @default(cuid()),,field
+AccountingAuditLog,timestamp,DateTime,no,no,@default(now()),,field
+AccountingAuditLog,action,String,no,no,,,field
+AccountingAuditLog,entityType,String,no,no,,,field
+AccountingAuditLog,entityId,String,no,no,,,field
+AccountingAuditLog,userId,String,yes,no,,,field
+AccountingAuditLog,reason,String,yes,no,,,field
+AccountingAuditLog,previousState,String,yes,no,,,field
+AccountingAuditLog,newState,String,yes,no,,,field
+AccountingAuditLog,,,,,@@index([timestamp]),,model-attribute
+AccountingAuditLog,,,,,"@@index([entityType, entityId])",,model-attribute
+AccountingAuditLog,,,,,@@index([userId]),,model-attribute
+UserAccountingRole,id,String,no,no,@id @default(cuid()),,field
+UserAccountingRole,userId,String,no,no,,,field
+UserAccountingRole,role,String,no,no,"// ACCOUNTANT, APPROVER, AUDITOR, ADMIN",,field
+UserAccountingRole,permissions,String,no,no,// JSON array of AccountingPermission,,field
+UserAccountingRole,createdAt,DateTime,no,no,@default(now()),,field
+AppSetting,id,String,no,no,@id @default(cuid()),,field
+AppSetting,key,String,no,no,@unique // مثلاً: dashboard_settings,,field
+AppSetting,value,String,no,no,// JSON,,field
+AppSetting,updatedAt,DateTime,no,no,@updatedAt,,field
+AppSetting,,,,,@@index([updatedAt]),,model-attribute
+Organization,id,String,no,no,@id @default(cuid()),,field
+Organization,nameAr,String,no,no,,,field
+Organization,nameEn,String,no,no,,,field
+Organization,ownerId,String,no,no,@unique  // صاحب الشركة (User),,field
+Organization,createdAt,DateTime,no,no,@default(now()),,field
+Organization,updatedAt,DateTime,no,no,@updatedAt,,field
+Organization,owner,User,no,no,"@relation(""OrgOwner"", fields: [ownerId], references: [id], onDelete: Cascade)",,field
+Organization,members,User,no,yes,"@relation(""OrgMembers"")",,field
+Organization,properties,Property,no,yes,,,field
+Plan,id,String,no,no,@id @default(cuid()),,field
+Plan,code,String,no,no,"@unique   // basic, standard, premium, enterprise",,field
+Plan,nameAr,String,no,no,,,field
+Plan,nameEn,String,no,no,,,field
+Plan,priceMonthly,Float,no,no,@default(0),,field
+Plan,priceYearly,Float,yes,no,@default(0),,field
+Plan,currency,String,no,no,"@default(""OMR"")",,field
+Plan,featuresJson,String,yes,no,// JSON: قائمة الميزات المعروضة,,field
+Plan,limitsJson,String,yes,no,"// JSON: maxProperties, maxUsers, storageGB, etc.",,field
+Plan,permissionsJson,String,yes,no,"// JSON: مصفوفة صلاحيات الباقة [id, id, ...]",,field
+Plan,isActive,Boolean,no,no,@default(true),,field
+Plan,sortOrder,Int,no,no,@default(0),,field
+Plan,createdAt,DateTime,no,no,@default(now()),,field
+Plan,updatedAt,DateTime,no,no,@updatedAt,,field
+Plan,subscriptions,Subscription,no,yes,,,field
+Subscription,id,String,no,no,@id @default(cuid()),,field
+Subscription,userId,String,no,no,,,field
+Subscription,planId,String,no,no,,,field
+Subscription,status,String,no,no,"@default(""active"")  // active, expired, cancelled, pending",,field
+Subscription,startAt,DateTime,no,no,@default(now()),,field
+Subscription,endAt,DateTime,no,no,,,field
+Subscription,usageJson,String,yes,no,// JSON: استخدام حالي (عقارات، مستخدمين، إلخ),,field
+Subscription,receiptDocumentId,String,yes,no,// إيصال دفع الباقة الحالية (من المحاسبة),,field
+Subscription,createdAt,DateTime,no,no,@default(now()),,field
+Subscription,updatedAt,DateTime,no,no,@updatedAt,,field
+Subscription,user,User,no,no,"@relation(fields: [userId], references: [id], onDelete: Cascade)",,field
+Subscription,plan,Plan,no,no,"@relation(fields: [planId], references: [id], onDelete: Restrict)",,field
+Subscription,changeRequests,SubscriptionChangeRequest,no,yes,,,field
+Subscription,,,,,@@unique([userId]),,model-attribute
+Subscription,,,,,@@index([userId]),,model-attribute
+Subscription,,,,,@@index([planId]),,model-attribute
+Subscription,,,,,@@index([status]),,model-attribute
+Subscription,,,,,@@index([endAt]),,model-attribute
+SubscriptionHistory,id,String,no,no,@id @default(cuid()),,field
+SubscriptionHistory,userId,String,no,no,,,field
+SubscriptionHistory,planId,String,no,no,,,field
+SubscriptionHistory,planNameAr,String,no,no,,,field
+SubscriptionHistory,planNameEn,String,no,no,,,field
+SubscriptionHistory,startAt,DateTime,no,no,,,field
+SubscriptionHistory,endAt,DateTime,no,no,,,field
+SubscriptionHistory,amountPaid,Float,yes,no,// المبلغ المدفوع في هذه الفترة إن وُجد,,field
+SubscriptionHistory,receiptDocumentId,String,yes,no,// مرجع إيصال الدفع في المحاسبة إن وُجد,,field
+SubscriptionHistory,createdAt,DateTime,no,no,@default(now()),,field
+SubscriptionHistory,,,,,@@index([userId]),,model-attribute
+SubscriptionHistory,,,,,@@index([endAt]),,model-attribute
+SubscriptionChangeRequest,id,String,no,no,@id @default(cuid()),,field
+SubscriptionChangeRequest,userId,String,no,no,,,field
+SubscriptionChangeRequest,subscriptionId,String,no,no,,,field
+SubscriptionChangeRequest,requestedPlanId,String,no,no,,,field
+SubscriptionChangeRequest,direction,String,no,no,// upgrade | downgrade,,field
+SubscriptionChangeRequest,status,String,no,no,"@default(""pending"")  // pending | approved | rejected",,field
+SubscriptionChangeRequest,reason,String,yes,no,// سبب الطلب (اختياري),,field
+SubscriptionChangeRequest,reviewedAt,DateTime,yes,no,,,field
+SubscriptionChangeRequest,reviewedById,String,yes,no,,,field
+SubscriptionChangeRequest,createdAt,DateTime,no,no,@default(now()),,field
+SubscriptionChangeRequest,updatedAt,DateTime,no,no,@updatedAt,,field
+SubscriptionChangeRequest,subscription,Subscription,no,no,"@relation(fields: [subscriptionId], references: [id], onDelete: Cascade)",,field
+SubscriptionChangeRequest,,,,,@@index([userId]),,model-attribute
+SubscriptionChangeRequest,,,,,@@index([status]),,model-attribute
+SubscriptionChangeRequest,,,,,"@@index([subscriptionId, status])",,model-attribute
+Notification,id,String,no,no,@id @default(cuid()),,field
+Notification,userId,String,no,no,,,field
+Notification,user,User,no,no,"@relation(fields: [userId], references: [id], onDelete: Cascade)",,field
+Notification,kind,NotificationKind,no,no,@default(SYSTEM),,field
+Notification,titleAr,String,no,no,,,field
+Notification,titleEn,String,no,no,,,field
+Notification,bodyAr,String,yes,no,,,field
+Notification,bodyEn,String,yes,no,,,field
+Notification,href,String,yes,no,,,field
+Notification,dedupeKey,String,yes,no,@unique,,field
+Notification,readAt,DateTime,yes,no,,,field
+Notification,createdAt,DateTime,no,no,@default(now()),,field
+Notification,,,,,"@@index([userId, readAt])",,model-attribute
+Notification,,,,,"@@index([userId, createdAt])",,model-attribute
+MaintenanceRequest,id,String,no,no,@id @default(cuid()),,field
+MaintenanceRequest,propertyId,Int,yes,no,,,field
+MaintenanceRequest,propertyLabelAr,String,yes,no,,,field
+MaintenanceRequest,propertyLabelEn,String,yes,no,,,field
+MaintenanceRequest,descriptionAr,String,no,no,,,field
+MaintenanceRequest,descriptionEn,String,yes,no,,,field
+MaintenanceRequest,status,MaintenanceStatus,no,no,@default(OPEN),,field
+MaintenanceRequest,priority,String,no,no,"@default(""NORMAL"")",,field
+MaintenanceRequest,reporterName,String,yes,no,,,field
+MaintenanceRequest,reporterPhone,String,yes,no,,,field
+MaintenanceRequest,reporterUserId,String,yes,no,,,field
+MaintenanceRequest,notes,String,yes,no,,,field
+MaintenanceRequest,createdAt,DateTime,no,no,@default(now()),,field
+MaintenanceRequest,updatedAt,DateTime,no,no,@updatedAt,,field
+MaintenanceRequest,,,,,@@index([status]),,model-attribute
+MaintenanceRequest,,,,,@@index([createdAt]),,model-attribute
+MaintenanceRequest,,,,,"@@index([reporterUserId, createdAt])",,model-attribute
+ArchiveRecord,id,String,no,no,@id @default(cuid()),,field
+ArchiveRecord,entityType,ArchiveEntityType,no,no,,,field
+ArchiveRecord,entityId,String,no,no,,,field
+ArchiveRecord,entityTitle,String,no,no,,,field
+ArchiveRecord,action,ArchiveAction,no,no,,,field
+ArchiveRecord,status,ArchiveStatus,no,no,,,field
+ArchiveRecord,reason,String,yes,no,,,field
+ArchiveRecord,notes,String,yes,no,,,field
+ArchiveRecord,dataSnapshot,String,no,no,@db.Text,,field
+ArchiveRecord,checksum,String,no,no,,,field
+ArchiveRecord,archivedById,String,no,no,,,field
+ArchiveRecord,isAutoArchive,Boolean,no,no,@default(false),,field
+ArchiveRecord,policyId,String,yes,no,,,field
+ArchiveRecord,createdAt,DateTime,no,no,@default(now()),,field
+ArchiveRecord,updatedAt,DateTime,no,no,@updatedAt,,field
+ArchiveRecord,,,,,"@@index([entityType, entityId])",,model-attribute
+ArchiveRecord,,,,,@@index([archivedById]),,model-attribute
+ArchiveRecord,,,,,@@index([createdAt]),,model-attribute
+ArchiveRecord,,,,,@@index([status]),,model-attribute
+ArchiveRestoreLog,id,String,no,no,@id @default(cuid()),,field
+ArchiveRestoreLog,archiveId,String,no,no,,,field
+ArchiveRestoreLog,entityType,ArchiveEntityType,no,no,,,field
+ArchiveRestoreLog,entityId,String,no,no,,,field
+ArchiveRestoreLog,entityTitle,String,no,no,,,field
+ArchiveRestoreLog,restoredById,String,no,no,,,field
+ArchiveRestoreLog,restoredAt,DateTime,no,no,@default(now()),,field
+ArchiveRestoreLog,success,Boolean,no,no,,,field
+ArchiveRestoreLog,errorMessage,String,yes,no,,,field
+ArchiveRestoreLog,dataSnapshot,String,yes,no,@db.Text,,field
+ArchiveRestoreLog,,,,,@@index([archiveId]),,model-attribute
+ArchiveRestoreLog,,,,,"@@index([entityType, entityId])",,model-attribute
+ArchiveRestoreLog,,,,,@@index([restoredById]),,model-attribute
+ArchiveRestoreLog,,,,,@@index([restoredAt]),,model-attribute
+ArchivePolicy,id,String,no,no,@id @default(cuid()),,field
+ArchivePolicy,name,String,no,no,,,field
+ArchivePolicy,entityType,ArchiveEntityType,no,no,,,field
+ArchivePolicy,condition,String,no,no,"// INACTIVE_DAYS, EXPIRED, MANUAL, CUSTOM",,field
+ArchivePolicy,conditionValue,Int,yes,no,// عدد الأيام أو القيمة,,field
+ArchivePolicy,isActive,Boolean,no,no,@default(true),,field
+ArchivePolicy,organizationId,String,yes,no,,,field
+ArchivePolicy,createdAt,DateTime,no,no,@default(now()),,field
+ArchivePolicy,updatedAt,DateTime,no,no,@updatedAt,,field
+ArchivePolicy,,,,,"@@index([entityType, isActive])",,model-attribute
+ArchivePolicy,,,,,@@index([organizationId]),,model-attribute
+EncryptionKey,id,String,no,no,@id @default(cuid()),,field
+EncryptionKey,keyId,String,no,no,@unique,,field
+EncryptionKey,keyHash,String,no,no,,,field
+EncryptionKey,status,KeyStatus,no,no,@default(ACTIVE),,field
+EncryptionKey,createdAt,DateTime,no,no,@default(now()),,field
+EncryptionKey,rotatedAt,DateTime,yes,no,,,field
+EncryptionKey,revokedAt,DateTime,yes,no,,,field
+EncryptionKey,,,,,@@index([keyId]),,model-attribute
+EncryptionKey,,,,,@@index([status]),,model-attribute
+AuditLog,id,String,no,no,@id @default(cuid()),,field
+AuditLog,userId,String,yes,no,,,field
+AuditLog,action,String,no,no,,,field
+AuditLog,entityType,String,no,no,,,field
+AuditLog,entityId,String,no,no,,,field
+AuditLog,details,String,yes,no,@db.Text,,field
+AuditLog,ipAddress,String,yes,no,,,field
+AuditLog,userAgent,String,yes,no,,,field
+AuditLog,severity,String,no,no,"@default(""INFO"")",,field
+AuditLog,createdAt,DateTime,no,no,@default(now()),,field
+AuditLog,,,,,"@@index([userId, createdAt])",,model-attribute
+AuditLog,,,,,"@@index([entityType, entityId])",,model-attribute
+AuditLog,,,,,@@index([action]),,model-attribute
+AuditLog,,,,,@@index([createdAt]),,model-attribute
+AuditLog,,,,,@@index([severity]),,model-attribute
+TenantScore,id,String,no,no,@id @default(cuid()),,field
+TenantScore,tenantUserId,String,no,no,// معرف المستأجر,,field
+TenantScore,category,ScoreCategory,no,no,// نوع التقييم,,field
+TenantScore,score,Int,no,no,// 0-100,,field
+TenantScore,level,ScoreLevel,no,no,// مستوى التقييم,,field
+TenantScore,notes,String,yes,no,@db.Text // ملاحظات (سلبية/إيجابية),,field
+TenantScore,evidenceJson,String,yes,no,@db.Text // أدلة التقييم (JSON),,field
+TenantScore,evaluatedBy,String,yes,no,// من قام بالتقييم,,field
+TenantScore,createdAt,DateTime,no,no,@default(now()),,field
+TenantScore,updatedAt,DateTime,no,no,@updatedAt,,field
+TenantScore,,,,,"@@unique([tenantUserId, category])",,model-attribute
+TenantScore,,,,,"@@index([tenantUserId, category])",,model-attribute
+TenantScore,,,,,"@@index([tenantUserId, createdAt])",,model-attribute
+TenantScore,,,,,@@index([score]),,model-attribute
+TenantScore,,,,,@@index([level]),,model-attribute
+TenantAlert,id,String,no,no,@id @default(cuid()),,field
+TenantAlert,userId,String,no,no,// المستهدف (مستأجر/مالك),,field
+TenantAlert,type,AlertType,no,no,,,field
+TenantAlert,title,String,no,no,,,field
+TenantAlert,message,String,no,no,@db.Text,,field
+TenantAlert,priority,AlertPriority,no,no,@default(MEDIUM),,field
+TenantAlert,status,AlertStatus,no,no,@default(UNREAD),,field
+TenantAlert,dueDate,DateTime,yes,no,// تاريخ الاستحقاق,,field
+TenantAlert,relatedId,String,yes,no,// معرف العقد/الفاتورة المرتبطة,,field
+TenantAlert,actionUrl,String,yes,no,// رابط الإجراء,,field
+TenantAlert,createdAt,DateTime,no,no,@default(now()),,field
+TenantAlert,readAt,DateTime,yes,no,,,field
+TenantAlert,,,,,"@@index([userId, status])",,model-attribute
+TenantAlert,,,,,"@@index([userId, type])",,model-attribute
+TenantAlert,,,,,@@index([priority]),,model-attribute
+TenantAlert,,,,,@@index([dueDate]),,model-attribute
+TenantAlert,,,,,@@index([createdAt]),,model-attribute
+TenantTask,id,String,no,no,@id @default(cuid()),,field
+TenantTask,assignerId,String,no,no,// من أنشأ المهمة (المالك/المدير),,field
+TenantTask,assigneeId,String,no,no,// المكلف (المستأجر/المالك),,field
+TenantTask,type,TaskType,no,no,,,field
+TenantTask,title,String,no,no,,,field
+TenantTask,description,String,yes,no,@db.Text,,field
+TenantTask,status,TenantTaskStatus,no,no,@default(PENDING),,field
+TenantTask,dueDate,DateTime,yes,no,,,field
+TenantTask,completedAt,DateTime,yes,no,,,field
+TenantTask,relatedId,String,yes,no,// عقد/عقار مرتبط,,field
+TenantTask,createdAt,DateTime,no,no,@default(now()),,field
+TenantTask,updatedAt,DateTime,no,no,@updatedAt,,field
+TenantTask,,,,,"@@index([assigneeId, status])",,model-attribute
+TenantTask,,,,,"@@index([assigneeId, dueDate])",,model-attribute
+TenantTask,,,,,@@index([assignerId]),,model-attribute
+TenantTask,,,,,@@index([type]),,model-attribute
+TenantTask,,,,,@@index([dueDate]),,model-attribute
+DueAmount,id,String,no,no,@id @default(cuid()),,field
+DueAmount,userId,String,no,no,// المستأجر المستحق عليه,,field
+DueAmount,propertyId,String,yes,no,// العقار المرتبط,,field
+DueAmount,contractId,String,yes,no,// العقد المرتبط,,field
+DueAmount,type,DueType,no,no,,,field
+DueAmount,amount,Float,no,no,// المبلغ,,field
+DueAmount,currency,String,no,no,"@default(""OMR"")",,field
+DueAmount,status,DueStatus,no,no,@default(PENDING),,field
+DueAmount,dueDate,DateTime,no,no,// تاريخ الاستحقاق,,field
+DueAmount,paidAmount,Float,no,no,@default(0),,field
+DueAmount,paidAt,DateTime,yes,no,,,field
+DueAmount,description,String,yes,no,,,field
+DueAmount,createdAt,DateTime,no,no,@default(now()),,field
+DueAmount,updatedAt,DateTime,no,no,@updatedAt,,field
+DueAmount,,,,,"@@index([userId, status])",,model-attribute
+DueAmount,,,,,"@@index([userId, dueDate])",,model-attribute
+DueAmount,,,,,@@index([contractId]),,model-attribute
+DueAmount,,,,,"@@index([status, dueDate])",,model-attribute
+DueAmount,,,,,@@index([createdAt]),,model-attribute
+SmartSignature,id,String,no,no,@id @default(cuid()),,field
+SmartSignature,contractId,String,no,no,// العقد المرتبط,,field
+SmartSignature,tenantId,String,no,no,// المستأجر,,field
+SmartSignature,method,SignatureMethod,no,no,// طريقة التوقيع,,field
+SmartSignature,status,SignatureStatus,no,no,@default(PENDING),,field
+SmartSignature,otpCode,String,yes,no,// كود OTP (مشفّر),,field
+SmartSignature,otpSentTo,String,yes,no,// رقم/بريد المرسل إليه,,field
+SmartSignature,otpExpiry,DateTime,yes,no,// انتهاء صلاحية OTP,,field
+SmartSignature,signatureData,String,yes,no,@db.Text // بيانات التوقيع (base64),,field
+SmartSignature,ipAddress,String,yes,no,// IP الموقّع,,field
+SmartSignature,deviceInfo,String,yes,no,// معلومات الجهاز,,field
+SmartSignature,signedAt,DateTime,yes,no,,,field
+SmartSignature,createdAt,DateTime,no,no,@default(now()),,field
+SmartSignature,updatedAt,DateTime,no,no,@updatedAt,,field
+SmartSignature,,,,,"@@index([contractId, status])",,model-attribute
+SmartSignature,,,,,"@@index([tenantId, status])",,model-attribute
+SmartSignature,,,,,@@index([status]),,model-attribute
+SmartSignature,,,,,@@index([createdAt]),,model-attribute
+AutoUserAccount,id,String,no,no,@id @default(cuid()),,field
+AutoUserAccount,contactId,String,no,no,// رابط بدفتر العناوين,,field
+AutoUserAccount,userId,String,yes,no,// رابط بالمستخدم (بعد الإنشاء),,field
+AutoUserAccount,username,String,no,no,@unique // اسم المستخدم التلقائي,,field
+AutoUserAccount,tempPassword,String,no,no,// كلمة المرور المؤقتة (مشفّرة),,field
+AutoUserAccount,role,String,no,no,// الدور: TENANT / OWNER / MANAGER,,field
+AutoUserAccount,classification,String,no,no,// التصنيف من دفتر العناوين,,field
+AutoUserAccount,status,AutoAccountStatus,no,no,@default(PENDING),,field
+AutoUserAccount,sentVia,String,yes,no,// طريقة الإرسال: SMS / EMAIL / WHATSAPP,,field
+AutoUserAccount,sentAt,DateTime,yes,no,,,field
+AutoUserAccount,activatedAt,DateTime,yes,no,,,field
+AutoUserAccount,createdAt,DateTime,no,no,@default(now()),,field
+AutoUserAccount,createdBy,String,no,no,// من أنشأ الحساب,,field
+AutoUserAccount,,,,,@@index([contactId]),,model-attribute
+AutoUserAccount,,,,,@@index([userId]),,model-attribute
+AutoUserAccount,,,,,@@index([status]),,model-attribute
+AutoUserAccount,,,,,@@index([role]),,model-attribute
+PaymentGatewayConfig,id,String,no,no,@id @default(cuid()),,field
+PaymentGatewayConfig,provider,String,no,no,@unique,,field
+PaymentGatewayConfig,isEnabled,Boolean,no,no,@default(false),,field
+PaymentGatewayConfig,displayNameAr,String,no,no,"@default("""")",,field
+PaymentGatewayConfig,displayNameEn,String,no,no,"@default("""")",,field
+PaymentGatewayConfig,apiKey,String,yes,no,"@default("""")",,field
+PaymentGatewayConfig,apiSecret,String,yes,no,"@default("""")",,field
+PaymentGatewayConfig,merchantId,String,yes,no,"@default("""")",,field
+PaymentGatewayConfig,storeKey,String,yes,no,"@default("""")",,field
+PaymentGatewayConfig,outletRef,String,yes,no,"@default("""")",,field
+PaymentGatewayConfig,profileId,String,yes,no,"@default("""")",,field
+PaymentGatewayConfig,entityId,String,yes,no,"@default("""")",,field
+PaymentGatewayConfig,accessToken,String,yes,no,"@default("""")",,field
+PaymentGatewayConfig,publicKey,String,yes,no,"@default("""")",,field
+PaymentGatewayConfig,sandbox,Boolean,no,no,@default(true),,field
+PaymentGatewayConfig,webhookUrl,String,yes,no,"@default("""")",,field
+PaymentGatewayConfig,successUrl,String,yes,no,"@default("""")",,field
+PaymentGatewayConfig,cancelUrl,String,yes,no,"@default("""")",,field
+PaymentGatewayConfig,metadata,String,yes,no,"@default("""")",,field
+PaymentGatewayConfig,lastTestedAt,DateTime,yes,no,,,field
+PaymentGatewayConfig,lastTestResult,String,yes,no,"@default("""")",,field
+PaymentGatewayConfig,createdAt,DateTime,no,no,@default(now()),,field
+PaymentGatewayConfig,updatedAt,DateTime,no,no,@updatedAt,,field
+PaymentGatewayConfig,updatedBy,String,yes,no,,,field
+PaymentGatewayConfig,,,,,@@index([provider]),,model-attribute
+PaymentGatewayConfig,,,,,@@index([isEnabled]),,model-attribute

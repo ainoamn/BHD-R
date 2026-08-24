@@ -3,6 +3,7 @@
 ## بطاقة المشاركة الاجتماعية
 
 - الملف الإنتاجي: `apps/web/public/og.png`
+- المصدر غير المضغوط (مرجع): `docs/assets/source/bhd-r-open-graph.png`
 - المقاس: `1200×630`
 - الاستخدام: Open Graph وTwitter/X والروابط المشتركة التي لا تملك صورة عقار خاصة.
 - الإنشاء: مولّد الصور المدمج في Codex، ثم تحسين PNG محلياً باستخدام Sharp دون تغيير التصميم.
@@ -28,3 +29,18 @@ Avoid: any text beyond the two verbatim strings; watermarks; signatures; mockup 
 ```
 
 تستخدم صفحات العقارات والوحدات صورة السجل الأساسية عند توفرها، وتزيل صفحات الفواتير والصفحات غير المتاحة بيانات الصور الموروثة صراحةً لمنع أي تسريب أو معاينة مضللة.
+
+## لقطات النظام (2026-08-23)
+
+المجلد: [`docs/screenshots/2026-08-23/`](./screenshots/2026-08-23/)
+
+| الملف | الشاشة |
+| --- | --- |
+| `01-platform-dashboard-ar.png` | لوحة المنصة |
+| `02-owner-dashboard-ar.png` | لوحة المالك |
+| `03-developer-dashboard-ar.png` | لوحة المطوّر |
+| `04-tenant-dashboard-ar.png` | لوحة المستأجر |
+| `05-add-property-basics-ar.png` | إضافة عقار — الأساسيات |
+| `06-add-property-units-ar.png` | إضافة عقار — الوحدات |
+| `07-add-property-media-ar.png` | إضافة عقار — الوسائط |
+| `08-add-property-review-ar.png` | إضافة عقار — المراجعة |
