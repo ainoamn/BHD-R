@@ -64,6 +64,13 @@
       "when": 1787572800000,
       "tag": "0008_totp_recovery",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787576400000,
+      "tag": "0009_organization_invitations",
+      "breakpoints": true
     }
   ]
 }

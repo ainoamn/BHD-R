@@ -42,6 +42,28 @@ describe('state machines', () => {
   });
 });
 
+describe('entitlements', () => {
+  it('rejects property creates past the starter plan limit', async () => {
+    const { assertWithinEntitlement } = await import('../src/entitlements.js');
+    expect(
+      assertWithinEntitlement({
+        planKey: 'starter',
+        metric: 'properties',
+        current: 5,
+        requested: 1,
+      }).ok,
+    ).toBe(false);
+    expect(
+      assertWithinEntitlement({
+        planKey: 'starter',
+        metric: 'representatives',
+        current: 1,
+        requested: 1,
+      }).ok,
+    ).toBe(true);
+  });
+});
+
 describe('public invoice projection', () => {
   it('does not leak tenant or tenancy identifiers', () => {
     const output = toPublicInvoice({

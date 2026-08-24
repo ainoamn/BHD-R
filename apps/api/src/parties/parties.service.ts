@@ -1,5 +1,5 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, eq, ilike, inArray, or } from 'drizzle-orm';
+import { and, asc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 import { createHash, createHmac, randomUUID } from 'node:crypto';
 import type { SessionClaims } from '@bhd-r/authz';
 import {
@@ -13,6 +13,7 @@ import {
   representationAuthorities,
 } from '@bhd-r/db';
 import { decryptField, encryptField, type Keyring } from '@bhd-r/security';
+import { assertOrganizationEntitlement } from '../common/entitlements.js';
 import { DatabaseService, type DatabaseTransaction } from '../database/database.service.js';
 
 export type PartyRoleKey =
@@ -303,6 +304,12 @@ export class PartiesService {
     },
   ) {
     return this.database.withinTenant(claims, async (transaction) => {
+      await assertOrganizationEntitlement(
+        transaction,
+        claims.organizationId!,
+        'representatives',
+        1,
+      );
       const [principal, representative] = await Promise.all([
         this.assertParty(transaction, claims.organizationId!, principalPartyId),
         this.assertParty(transaction, claims.organizationId!, input.representativePartyId),
@@ -333,6 +340,30 @@ export class PartiesService {
           target: [partyRoles.organizationId, partyRoles.partyId, partyRoles.roleKey],
           set: { status: 'active', updatedAt: new Date() },
         });
+      return rows[0];
+    });
+  }
+
+  revokeRepresentative(claims: SessionClaims, principalPartyId: string, authorityId: string) {
+    return this.database.withinTenant(claims, async (transaction) => {
+      await this.assertParty(transaction, claims.organizationId!, principalPartyId);
+      const rows = await transaction
+        .update(representationAuthorities)
+        .set({
+          status: 'inactive',
+          endsOn: sql`CURRENT_DATE`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(representationAuthorities.id, authorityId),
+            eq(representationAuthorities.organizationId, claims.organizationId!),
+            eq(representationAuthorities.principalPartyId, principalPartyId),
+            eq(representationAuthorities.status, 'active'),
+          ),
+        )
+        .returning();
+      if (!rows[0]) throw new NotFoundException('Active representation authority not found');
       return rows[0];
     });
   }

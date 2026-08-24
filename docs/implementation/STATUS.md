@@ -1,14 +1,14 @@
 # Implementation status
 
 **Updated:** 2026-08-24  
-**Active phase:** 2+ residuals (Phase 1 security closed)  
-**Product version:** 0.2.2
+**Active phase:** 3+ residuals (Phase 2 parties/entitlements closed)  
+**Product version:** 0.2.3
 
 | Phase                    | Status   | Notes                                                                        |
 | ------------------------ | -------- | ---------------------------------------------------------------------------- |
 | 0 Baseline / GAP         | complete | `docs/verification/phase-0.md`                                               |
 | 1 Identity / security    | complete | TOTP recovery, `can()`, encryption backfill — `docs/verification/phase-1.md` |
-| 2 Parties                | pending  | Mostly complete — entitlement limit E2E                                      |
+| 2 Parties                | complete | Entitlements + invitations + revoke — `docs/verification/phase-2.md`         |
 | 3 Portfolio / media      | pending  | SEO/Lighthouse budgets                                                       |
 | 4 Viewing / booking      | pending  | Cheques; concurrency stress                                                  |
 | 5 Contracts              | pending  | Wire services to domain FSMs                                                 |
@@ -20,4 +20,4 @@
 
 ## Next
 
-Wire `assertTransition` into leasing/accounting/maintenance services; FiscalPeriod; legal depth.
+Phase 3 residuals (SEO/Lighthouse); wire `assertTransition` into leasing/accounting/maintenance; FiscalPeriod; legal depth.

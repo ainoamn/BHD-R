@@ -77,7 +77,7 @@ DECLARE table_name text;
 BEGIN
   FOREACH table_name IN ARRAY ARRAY[
     'holds','reservations','contract_templates',
-    'payment_gateway_settings','idempotency_keys','audit_logs','report_jobs','outbox_events','api_keys','signature_challenges',
+    'payment_gateway_settings','idempotency_keys','audit_logs','report_jobs','outbox_events','api_keys','signature_challenges','organization_invitations',
     'contract_sequences','receipt_sequences'
   ] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', table_name);

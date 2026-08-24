@@ -45,6 +45,7 @@ import {
   type CreateUnitInput,
   type ListingSearchInput,
 } from '@bhd-r/contracts';
+import { assertOrganizationEntitlement } from '../common/entitlements.js';
 import { DatabaseService } from '../database/database.service.js';
 
 interface PropertyBundleInput {
@@ -142,6 +143,13 @@ export class PortfolioService {
     if (input.property.kind === 'multi_unit' && input.units.length < 1)
       throw new ConflictException('A multi-unit property requires units');
     return this.database.withinTenant(claims, async (transaction) => {
+      await assertOrganizationEntitlement(transaction, claims.organizationId!, 'properties', 1);
+      await assertOrganizationEntitlement(
+        transaction,
+        claims.organizationId!,
+        'units',
+        input.units.length,
+      );
       const owner = await transaction.query.parties.findFirst({
         where: and(
           eq(parties.id, input.property.ownerPartyId),
@@ -484,6 +492,7 @@ export class PortfolioService {
 
   addUnit(claims: SessionClaims, propertyId: string, input: Omit<CreateUnitInput, 'propertyId'>) {
     return this.database.withinTenant(claims, async (transaction) => {
+      await assertOrganizationEntitlement(transaction, claims.organizationId!, 'units', 1);
       const property = await transaction.query.properties.findFirst({
         where: and(
           eq(properties.id, propertyId),

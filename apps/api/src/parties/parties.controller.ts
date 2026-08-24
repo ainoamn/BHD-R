@@ -192,6 +192,16 @@ export class PartiesController {
     return this.service.addRepresentative(request.auth!, id, body);
   }
 
+  @RequirePermissions('party.representative.manage')
+  @Post(':id/representatives/:authorityId/revoke')
+  revokeRepresentative(
+    @Req() request: FastifyRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('authorityId', ParseUUIDPipe) authorityId: string,
+  ) {
+    return this.service.revokeRepresentative(request.auth!, id, authorityId);
+  }
+
   @RequirePermissions('party.write')
   @Delete(':id')
   archive(@Req() request: FastifyRequest, @Param('id', ParseUUIDPipe) id: string) {

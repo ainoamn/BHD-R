@@ -520,6 +520,35 @@ export const representationAuthorities = pgTable(
   ],
 );
 
+export const organizationInvitations = pgTable(
+  'organization_invitations',
+  {
+    ...identityColumns,
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    email: varchar('email', { length: 320 }).notNull(),
+    roleKey: varchar('role_key', { length: 80 }).notNull().default('organization_admin'),
+    principalPartyId: uuid('principal_party_id').references(() => parties.id),
+    scopes: jsonb('scopes').$type<string[]>().notNull().default([]),
+    tokenDigest: varchar('token_digest', { length: 128 }).notNull(),
+    invitedByUserId: uuid('invited_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('organization_invitations_token_unique').on(table.tokenDigest),
+    index('organization_invitations_org_email_idx').on(table.organizationId, table.email),
+    check(
+      'organization_invitations_open_check',
+      sql`${table.acceptedAt} IS NULL OR ${table.revokedAt} IS NULL`,
+    ),
+  ],
+);
+
 export const properties = pgTable(
   'properties',
   {

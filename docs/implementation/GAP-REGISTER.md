@@ -10,7 +10,7 @@ Statuses: `complete` | `partial` | `missing` | `unsafe` | `not-applicable` | `de
 
 | ID  | Capability                                                 | Status   | Evidence / gap                                                                                                         | Closes in |
 | --- | ---------------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------- | --------- |
-| F01 | Single PostgreSQL SoT (no business localStorage/JSON core) | complete | No web `localStorage` business SoT; Drizzle schema + migrations 0000–0007                                              | —         |
+| F01 | Single PostgreSQL SoT (no business localStorage/JSON core) | complete | No web `localStorage` business SoT; Drizzle schema + migrations 0000–0009                                              | —         |
 | F02 | `organization_id` on tenant tables                         | complete | `packages/db/src/schema.ts`                                                                                            | —         |
 | F03 | RLS forced + A/B tests                                     | complete | `migrations/custom/0001_rls.sql`, `packages/db/test/rls.integration.test.ts`                                           | —         |
 | F04 | Central policy / route classification                      | complete | Global `PermissionGuard` + `@RequirePermissions` + `can()` in `@bhd-r/authz`                                           | 1         |
@@ -58,9 +58,9 @@ Statuses: `complete` | `partial` | `missing` | `unsafe` | `not-applicable` | `de
 
 | Phase | Theme                                 | Overall         | Blocking residuals                                                                   |
 | ----- | ------------------------------------- | --------------- | ------------------------------------------------------------------------------------ |
-| 0     | Baseline / GAP / manifests            | **in progress** | Format gate; full test/build/e2e run; FSM docs                                       |
+| 0     | Baseline / GAP / manifests            | complete        | `docs/verification/phase-0.md`                                                       |
 | 1     | Identity / authz / security           | complete        | TOTP recovery, `can()`, encryption backfill                                          |
-| 2     | Parties / reps / entitlements         | mostly complete | Package entitlement hard limits E2E if not covered                                   |
+| 2     | Parties / reps / entitlements         | complete        | Plan limits + hashed invites + revoke authority — `docs/verification/phase-2.md`     |
 | 3     | Portfolio / media / public SEO        | mostly complete | Lighthouse budgets in CI; listing JSON-LD completeness audit                         |
 | 4     | CRM / viewing / reservation / cheques | partial         | Dedicated cheque entities; 50-parallel booking stress; Lead/RentalApplication models |
 | 5     | Contracts / signature / renewals      | mostly complete | Machine-readable FSM diagrams; expand sequential signature policy tests              |
