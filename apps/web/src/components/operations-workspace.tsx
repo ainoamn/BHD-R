@@ -107,7 +107,7 @@ export async function OperationsWorkspace({
   portal: PortalRole;
   section: OperationsSection;
 }) {
-  const locale = await getLocale();
+  const locale = (await getLocale()) === 'en' ? 'en' : 'ar';
   const [loaded, context] = await Promise.all([
     loadSection(portal, section),
     portal === 'tenant'
