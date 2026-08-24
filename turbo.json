@@ -1,6 +1,20 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "ui": "stream",
+  "globalPassThroughEnv": [
+    "DATABASE_URL",
+    "BHD_IDENTITY_ISSUER",
+    "BHD_OAUTH_CLIENT_ID",
+    "BHD_OAUTH_CLIENT_SECRET",
+    "BHD_OAUTH_REDIRECT_URI",
+    "BHD_IDENTITY_CLIENT_SECRET",
+    "BHD_IDENTITY_REDIRECT_URI",
+    "BHD_IDENTITY_TOKEN_SECRET",
+    "IDENTITY_TOKEN_SECRET",
+    "BHD_R_SESSION_SECRET",
+    "CSRF_SECRET",
+    "COOKIE_SECURE"
+  ],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
