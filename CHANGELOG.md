@@ -12,6 +12,7 @@ All notable changes are documented here. The project follows Semantic Versioning
 - Clarified the deterministic browser E2E job while retaining live database/RLS integration gates in CI.
 - Verified `BHD-R-complete-0.1.6` package against repo (content match); sync notes in `docs/RELEASE_SYNC_0.1.6.md`.
 - Archived parent-folder assets into repo: system screenshots, OG source, phase-0 specs, BHD-OM inventory CSVs (`docs/PARENT_FOLDER_SYNC_AR.md`).
+- Operations suite doc refreshed for 0.1.6 (portal mobile shell, signed report download, cross-links).
 
 ## 0.1.5 — 2026-08-24
 

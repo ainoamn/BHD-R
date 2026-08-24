@@ -12,8 +12,11 @@
 | [LOCAL_DEVELOPMENT.md](./LOCAL_DEVELOPMENT.md)                       | تشغيل بيئة التطوير من الصفر                                       |
 | [API_OVERVIEW.md](./API_OVERVIEW.md)                                 | قواعد API، الأخطاء، idempotency وwebhooks                         |
 | [OMANI_UI_2026-08-23.md](./OMANI_UI_2026-08-23.md)                   | إعادة التصميم العُماني والدخول الموحّد                            |
-| [OPERATIONS_SUITE_AR.md](./OPERATIONS_SUITE_AR.md)                   | الحزمة التشغيلية المتكاملة (عقارات، عقود، محاسبة، تقارير…)        |
-| [BHD-R-IDENTITY-SETUP.md](./BHD-R-IDENTITY-SETUP.md)                 | ربط هوية BHD وVercel لنطاق النشر الحالي                           |
+| [OPERATIONS_SUITE_AR.md](./OPERATIONS_SUITE_AR.md)                   | **الحزمة التشغيلية المتكاملة** (عقارات، عقود، محاسبة، تقارير…) |
+| [RELEASE_SYNC_0.1.6.md](./RELEASE_SYNC_0.1.6.md)                     | تحقق مزامنة حزمة complete 0.1.6                               |
+| [PARENT_FOLDER_SYNC_AR.md](./PARENT_FOLDER_SYNC_AR.md)               | خريطة مجلد العمل الأب → مسارات المستودع                       |
+| [screenshots/2026-08-23/](./screenshots/2026-08-23/)                 | لقطات لوحات النظام ومعالج العقار                              |
+| [BHD-R-IDENTITY-SETUP.md](./BHD-R-IDENTITY-SETUP.md)                 | ربط هوية BHD وVercel لنطاق النشر الحالي                       |
 | [SSO.md](./SSO.md)                                                   | الدخول الموحد وربط هوية BHD                                       |
 | [COUNTRY_PACKS.md](./COUNTRY_PACKS.md)                               | الدول والعملات والترجمة                                           |
 | [SECURITY_CONTROLS.md](./SECURITY_CONTROLS.md)                       | ضوابط الأمن وطريقة إثباتها                                        |
@@ -31,6 +34,6 @@
 | [PRODUCT_AND_DECISIONS.md](./PRODUCT_AND_DECISIONS.md)               | ملخص المرحلة صفر وقرارات المنتج/ADRs                              |
 | [ASSETS.md](./ASSETS.md)                                             | أصول الهوية المولّدة ومصدرها وتعليمات إعادة إنتاجها               |
 | [الخطة الهندسية العربية](./product/BHD-R-BUILD-PLAN-AR.md)           | الخطة المعتمدة الكاملة ومراحل البناء                              |
-| [حزمة المرحلة صفر](./product/phase-0/00-README.md)                   | تعريف المنتج، الرحلات، الصلاحيات، المجال، التهديدات وADRs الأصلية |
+| [حزمة المرحلة صفر](./phase-0/00-README.md)                           | تعريف المنتج، الرحلات، الصلاحيات، المجال، التهديدات وADRs الأصلية |
 
 الوثائق تصف هدفاً إنتاجياً، لكن لا تعني أن البنية التحتية الخارجية أو مفاتيح الدفع دُوّرت. تلك الإجراءات تُنفذ فقط بصلاحيات بيئة الإنتاج وسجل تغيير معتمد.

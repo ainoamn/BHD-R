@@ -2,6 +2,7 @@
 
 منصة عمانية ثنائية اللغة لإدارة العقارات، الوحدات، العقود، المستأجرين، التحصيل، الصيانة، والإعلانات العامة. الحرف **R** يعني **Real Estate Management — إدارة العقارات**.
 
+**الحزمة التشغيلية (مرجع المنتج):** [`docs/OPERATIONS_SUITE_AR.md`](./docs/OPERATIONS_SUITE_AR.md)  
 **التوثيق المفصل:** [`docs/PROJECT_DOCUMENTATION_AR.md`](./docs/PROJECT_DOCUMENTATION_AR.md)  
 **واجهة عُمانية 2026-08-23:** [`docs/OMANI_UI_2026-08-23.md`](./docs/OMANI_UI_2026-08-23.md)  
 **مصفوفة الأمن:** [`docs/SECURITY_CHECKLIST_MATRIX_AR.md`](./docs/SECURITY_CHECKLIST_MATRIX_AR.md)  

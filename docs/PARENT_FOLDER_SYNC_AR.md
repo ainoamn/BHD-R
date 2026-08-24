@@ -4,6 +4,12 @@
 
 `C:\Users\ahami\Documents\Codex\2026-08-11\https-github-com-ainoamn-bhd-om`
 
+## مرجع الحزمة التشغيلية
+
+للاطلاع على وصف الوحدات والـAPI والنشر الوظيفي راجع الوثيقة المعتمدة:
+
+[`OPERATIONS_SUITE_AR.md`](./OPERATIONS_SUITE_AR.md)
+
 ## خريطة المحتويات → المكان الصحيح
 
 | المصدر في المجلد الأب | الوجهة في المستودع / القرار |
