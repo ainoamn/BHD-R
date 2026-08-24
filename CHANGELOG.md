@@ -2,6 +2,15 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.1.6 — 2026-08-24
+
+- Owner/developer/tenant portal mobile shell: sticky bar + slide-out drawer navigation (RTL-aware).
+- Fixed restricted worker SQL grants for generated reports and added a live PostgreSQL contract test for every report query.
+- Corrected maintenance, legal, task, expense, and trial-balance report queries; draft journal entries no longer affect the trial balance.
+- Unsupported report requests now transition to `failed` instead of remaining stuck in `running`.
+- Expanded tenant-isolation regression coverage to operational requests and cross-organization sales deals.
+- Clarified the deterministic browser E2E job while retaining live database/RLS integration gates in CI.
+
 ## 0.1.5 — 2026-08-24
 
 - Login brand panel: unified «بوابة BHD» gateway copy (Arabic + English).
