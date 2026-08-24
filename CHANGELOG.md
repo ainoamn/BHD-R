@@ -10,6 +10,7 @@ All notable changes are documented here. The project follows Semantic Versioning
 - Unsupported report requests now transition to `failed` instead of remaining stuck in `running`.
 - Expanded tenant-isolation regression coverage to operational requests and cross-organization sales deals.
 - Clarified the deterministic browser E2E job while retaining live database/RLS integration gates in CI.
+- Verified `BHD-R-complete-0.1.6` package against repo (content match); sync notes in `docs/RELEASE_SYNC_0.1.6.md`.
 
 ## 0.1.5 — 2026-08-24
 

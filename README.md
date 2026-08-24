@@ -7,6 +7,7 @@
 **مصفوفة الأمن:** [`docs/SECURITY_CHECKLIST_MATRIX_AR.md`](./docs/SECURITY_CHECKLIST_MATRIX_AR.md)  
 **ربط Vercel:** [`docs/VERCEL_DEPLOYMENT_AR.md`](./docs/VERCEL_DEPLOYMENT_AR.md) — Root Directory = `apps/web`  
 **هوية BHD:** [`docs/BHD-R-IDENTITY-SETUP.md`](./docs/BHD-R-IDENTITY-SETUP.md)  
+**مزامنة الحزمة 0.1.6:** [`docs/RELEASE_SYNC_0.1.6.md`](./docs/RELEASE_SYNC_0.1.6.md)  
 **مراجعات BHD-OM:** [`docs/legacy-reviews/`](./docs/legacy-reviews/)
 
 ## الحالة
