@@ -8,6 +8,7 @@ All notable changes are documented here. The project follows Semantic Versioning
 - New portal surfaces for owner/developer bookings & contracts, tenant reservations/compliance, public viewing requests, and sandbox payments.
 - Parties/CRM module, default contract template, migrations `0003`–`0007`, expanded RLS/roles, and full verification evidence in `docs/V1-COMPLETION-REPORT-AR.md`.
 - Production cutover still requires backup, migrate `0003`–`0007`, re-apply RLS/runtime roles, secrets, then API+Worker+Web canary smoke (not claimed done by this tag alone).
+- Workspace inventory of `Codex/2026-08-11`: `docs/CODEX_WORKSPACE_2026-08-11_AR.md`; local export `BHD-R-complete-0.2.0` supersedes `0.1.6` packages (do not overwrite live repo with older zips).
 
 ## 0.1.6 — 2026-08-24
 

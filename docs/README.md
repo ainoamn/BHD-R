@@ -5,6 +5,7 @@
 | الوثيقة                                                              | الغرض                                                             |
 | -------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | [V1-COMPLETION-REPORT-AR.md](./V1-COMPLETION-REPORT-AR.md)           | **تقرير اكتمال V1 وأدلة التحقق والهجرات وحدود التسليم**           |
+| [CODEX_WORKSPACE_2026-08-11_AR.md](./CODEX_WORKSPACE_2026-08-11_AR.md) | جرد مساحة Codex 2026-08-11 واستبدال الحزم القديمة                 |
 | [PROJECT_DOCUMENTATION_AR.md](./PROJECT_DOCUMENTATION_AR.md)         | **التوثيق المفصل الشامل للمنتج والتشغيل**                         |
 | [SECURITY_CHECKLIST_MATRIX_AR.md](./SECURITY_CHECKLIST_MATRIX_AR.md) | مصفوفة بنود الأمن المطلوبة مقابل التنفيذ                          |
 | [VERCEL_DEPLOYMENT_AR.md](./VERCEL_DEPLOYMENT_AR.md)                 | تمهيد الربط على Vercel                                            |

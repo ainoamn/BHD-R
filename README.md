@@ -4,8 +4,8 @@
 
 **الحزمة التشغيلية (مرجع المنتج):** [`docs/OPERATIONS_SUITE_AR.md`](./docs/OPERATIONS_SUITE_AR.md)
 
-**تقرير اكتمال V1:** [`docs/V1-COMPLETION-REPORT-AR.md`](./docs/V1-COMPLETION-REPORT-AR.md)
-
+**تقرير اكتمال V1:** [`docs/V1-COMPLETION-REPORT-AR.md`](./docs/V1-COMPLETION-REPORT-AR.md)  
+**جرد مساحة Codex 2026-08-11:** [`docs/CODEX_WORKSPACE_2026-08-11_AR.md`](./docs/CODEX_WORKSPACE_2026-08-11_AR.md)  
 **التوثيق المفصل:** [`docs/PROJECT_DOCUMENTATION_AR.md`](./docs/PROJECT_DOCUMENTATION_AR.md)
 
 **واجهة عُمانية 2026-08-23:** [`docs/OMANI_UI_2026-08-23.md`](./docs/OMANI_UI_2026-08-23.md)
