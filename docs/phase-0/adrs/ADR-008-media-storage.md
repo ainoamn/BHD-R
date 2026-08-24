@@ -16,4 +16,3 @@
 
 - يمكن تغيير العلامة وإعادة التوليد دون فقد الأصل.
 - يلزم Storage lifecycle وchecksum وorphan cleanup وrestore policy.
-

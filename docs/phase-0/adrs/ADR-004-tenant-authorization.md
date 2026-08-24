@@ -20,4 +20,3 @@
 - جميع Repositories تحتاج Tenant context.
 - التقارير والبحث والتصدير والملفات تخضع للاختبارات نفسها.
 - Service accounts لا تستخدم RLS bypass داخل Web request.
-

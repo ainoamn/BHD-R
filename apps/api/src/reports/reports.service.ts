@@ -129,8 +129,9 @@ export class ReportsService {
           .where(inArray(reservations.status, ['pending', 'confirmed'])),
         transaction
           .select({
+            currency: salesDeals.currency,
             count: count(),
-            valueMinor: sql<string>`coalesce(sum(${salesDeals.agreedPriceMinor}), 0)`,
+            valueMinor: sql<string>`coalesce(sum(coalesce(${salesDeals.agreedPriceMinor}, ${salesDeals.offerPriceMinor}, ${salesDeals.askingPriceMinor}, 0)), 0)`,
           })
           .from(salesDeals)
           .where(
@@ -143,7 +144,8 @@ export class ReportsService {
               'reserved',
               'contracting',
             ]),
-          ),
+          )
+          .groupBy(salesDeals.currency),
         transaction
           .select({ value: count() })
           .from(maintenanceTickets)
@@ -164,36 +166,50 @@ export class ReportsService {
           ),
         transaction
           .select({
+            currency: invoices.currency,
             valueMinor: sql<string>`coalesce(sum(${invoices.totalMinor} - ${invoices.paidMinor}), 0)`,
           })
           .from(invoices)
-          .where(inArray(invoices.status, ['issued', 'partially_paid', 'overdue'])),
+          .where(inArray(invoices.status, ['issued', 'partially_paid', 'overdue']))
+          .groupBy(invoices.currency),
         transaction
           .select({
+            currency: expenses.currency,
             valueMinor: sql<string>`coalesce(sum(${expenses.amountMinor} + ${expenses.taxMinor}), 0)`,
           })
           .from(expenses)
-          .where(inArray(expenses.status, ['approved', 'in_progress', 'completed'])),
+          .where(inArray(expenses.status, ['approved', 'in_progress', 'completed']))
+          .groupBy(expenses.currency),
         transaction
           .select({ value: count() })
           .from(journalEntries)
           .where(eq(journalEntries.status, 'draft')),
       ]);
+      const financialCurrencies = new Set([
+        ...receivables.map((row) => row.currency),
+        ...expenseTotal.map((row) => row.currency),
+      ]);
       return {
         generatedAt: new Date().toISOString(),
-        currency: 'OMR',
         requests: { open: requests[0]?.value ?? 0 },
         tasks: { open: tasks[0]?.value ?? 0 },
         reservations: { active: reservationsCount[0]?.value ?? 0 },
         sales: {
-          active: sales[0]?.count ?? 0,
-          pipelineMinor: sales[0]?.valueMinor ?? '0',
+          active: sales.reduce((sum, row) => sum + Number(row.count), 0),
+          totals: sales.map((row) => ({
+            currency: row.currency,
+            pipelineMinor: row.valueMinor,
+          })),
         },
         maintenance: { open: maintenance[0]?.value ?? 0 },
         legal: { active: legal[0]?.value ?? 0 },
         accounting: {
-          receivableMinor: receivables[0]?.valueMinor ?? '0',
-          expenseMinor: expenseTotal[0]?.valueMinor ?? '0',
+          totals: [...financialCurrencies].sort().map((currency) => ({
+            currency,
+            receivableMinor:
+              receivables.find((row) => row.currency === currency)?.valueMinor ?? '0',
+            expenseMinor: expenseTotal.find((row) => row.currency === currency)?.valueMinor ?? '0',
+          })),
           draftJournals: draftJournals[0]?.value ?? 0,
         },
       };

@@ -75,6 +75,8 @@ export function PropertyWizard({
     city: string;
     area: string;
     street: string;
+    latitude: string;
+    longitude: string;
   }>({
     countryCode: 'OM',
     category: 'apartment',
@@ -87,6 +89,8 @@ export function PropertyWizard({
     city: '',
     area: '',
     street: '',
+    latitude: '',
+    longitude: '',
   });
   const [units, setUnits] = useState<UnitDraft[]>([blankUnit(1)]);
   const [profile, setProfile] = useState({
@@ -200,6 +204,8 @@ export function PropertyWizard({
                 city: property.city,
                 area: property.area || undefined,
                 street: property.street || undefined,
+                latitude: property.latitude ? Number(property.latitude) : undefined,
+                longitude: property.longitude ? Number(property.longitude) : undefined,
               },
               defaultCurrency: currency,
               profile: {
@@ -485,6 +491,28 @@ export function PropertyWizard({
                   label={t('PropertyForm.street')}
                   value={property.street}
                   onChange={(event) => updateProperty('street', event.target.value)}
+                />
+                <Field
+                  id="latitude"
+                  label={locale === 'ar' ? 'خط العرض (اختياري)' : 'Latitude (optional)'}
+                  value={property.latitude}
+                  onChange={(event) => updateProperty('latitude', event.target.value)}
+                  type="number"
+                  min={-90}
+                  max={90}
+                  step="any"
+                  dir="ltr"
+                />
+                <Field
+                  id="longitude"
+                  label={locale === 'ar' ? 'خط الطول (اختياري)' : 'Longitude (optional)'}
+                  value={property.longitude}
+                  onChange={(event) => updateProperty('longitude', event.target.value)}
+                  type="number"
+                  min={-180}
+                  max={180}
+                  step="any"
+                  dir="ltr"
                 />
               </div>
             ) : null}

@@ -1,11 +1,13 @@
 import type { Queue } from 'bullmq';
 import type { Pool, PoolClient } from 'pg';
+import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { logger } from './logger.js';
 import type {
   AttachmentJob,
   CredentialNotificationJob,
   MediaJob,
+  NotificationJob,
   OutboxRecord,
   PdfJob,
 } from './types.js';
@@ -44,6 +46,15 @@ interface ContractRow {
   payload_snapshot: Record<string, unknown>;
 }
 
+interface ContractRecipientRow {
+  party_id: string;
+  display_name: string;
+  email: string | null;
+  party_role: 'owner' | 'tenant';
+  reference: string | null;
+  status: string;
+}
+
 interface InvoiceRow {
   invoice_number: string;
   currency: string;
@@ -53,6 +64,17 @@ interface InvoiceRow {
   total_minor: string;
   issued_on: string;
   due_on: string;
+}
+
+interface ReceiptRow {
+  receipt_number: string;
+  amount_minor: string;
+  currency: string;
+  minor_unit: number;
+  issued_at: string;
+  invoice_number: string;
+  provider: string;
+  provider_reference: string;
 }
 
 export class OutboxDispatcher {
@@ -153,17 +175,56 @@ export class OutboxDispatcher {
             options,
           );
           break;
-        case 'contract.signature-requested':
+        case 'contract.signature-requested': {
           await this.queues.pdf.add(
             'render-pdf',
             pdfJobSchema.parse(await this.materializeContract(client, record)),
             options,
           );
+          const invitations = await this.materializeContractNotifications(
+            client,
+            record,
+            'signature_requested',
+          );
+          await Promise.all(
+            invitations.map((invitation) =>
+              this.queues.notification.add(
+                'send-email',
+                notificationJobSchema.parse(invitation.job),
+                { ...options, jobId: invitation.jobId },
+              ),
+            ),
+          );
           break;
+        }
+        case 'contract.signed': {
+          const notifications = await this.materializeContractNotifications(
+            client,
+            record,
+            'signature_updated',
+          );
+          await Promise.all(
+            notifications.map((notification) =>
+              this.queues.notification.add(
+                'send-email',
+                notificationJobSchema.parse(notification.job),
+                { ...options, jobId: notification.jobId },
+              ),
+            ),
+          );
+          break;
+        }
         case 'invoice.issued':
           await this.queues.pdf.add(
             'render-pdf',
             pdfJobSchema.parse(await this.materializeInvoice(client, record)),
+            options,
+          );
+          break;
+        case 'receipt.issued':
+          await this.queues.pdf.add(
+            'render-pdf',
+            pdfJobSchema.parse(await this.materializeReceipt(client, record)),
             options,
           );
           break;
@@ -319,6 +380,68 @@ export class OutboxDispatcher {
     };
   }
 
+  private async materializeContractNotifications(
+    client: PoolClient,
+    record: OutboxRecord,
+    kind: 'signature_requested' | 'signature_updated',
+  ): Promise<Array<{ jobId: string; job: NotificationJob }>> {
+    if (!record.organization_id) throw new Error('Contract organization was not found');
+    const result = await client.query<ContractRecipientRow>(
+      `SELECT p.id AS party_id,
+              p.display_name,
+              p.email,
+              participant.party_role,
+              c.reference,
+              c.status
+       FROM contracts c
+       CROSS JOIN LATERAL (
+         VALUES (c.owner_party_id, 'owner'::text), (c.tenant_party_id, 'tenant'::text)
+       ) AS participant(party_id, party_role)
+       JOIN parties p ON p.id = participant.party_id AND p.organization_id = c.organization_id
+       WHERE c.id = $1 AND c.organization_id = $2`,
+      [record.aggregate_id, record.organization_id],
+    );
+    const completed = result.rows[0]?.status === 'signed';
+    return result.rows
+      .filter(
+        (recipient) =>
+          recipient.email && (kind === 'signature_updated' || recipient.party_role === 'tenant'),
+      )
+      .map((recipient) => {
+        const reference = recipient.reference ?? record.aggregate_id.slice(0, 8);
+        const portal = recipient.party_role === 'tenant' ? 'tenant' : 'owner';
+        const link = `${process.env.WEB_ORIGIN ?? 'http://localhost:3000'}/ar/${portal}/contracts/${record.aggregate_id}`;
+        const isRequest = kind === 'signature_requested';
+        const subject = isRequest
+          ? `عقد بانتظار توقيعك ${reference} / Contract awaiting your signature`
+          : completed
+            ? `اكتمل توقيع العقد ${reference} / Contract signed`
+            : `تم تحديث توقيعات العقد ${reference} / Contract signature updated`;
+        const actionAr = isRequest
+          ? 'يرجى مراجعة العقد وتوقيعه إلكترونياً من بوابتك الآمنة.'
+          : completed
+            ? 'اكتمل توقيع العقد من جميع الأطراف وأصبح المستند النهائي متاحاً في بوابتك.'
+            : 'وقّع أحد الأطراف العقد. يمكنك مراجعة حالة التوقيع الحالية في بوابتك.';
+        const actionEn = isRequest
+          ? 'Please review and electronically sign the contract in your secure portal.'
+          : completed
+            ? 'All parties have signed the contract. The final document is available in your portal.'
+            : 'A party has signed the contract. You can review its current signature status in your portal.';
+        return {
+          jobId: `${record.id}-${recipient.party_role}`,
+          job: {
+            notificationId: deterministicUuid(`${record.id}:${recipient.party_id}:${kind}`),
+            channel: 'email' as const,
+            recipient: recipient.email!,
+            subject,
+            text: `مرحباً ${recipient.display_name}\n${actionAr}\n\nHello ${recipient.display_name}\n${actionEn}\n\n${link}`,
+            correlationId: record.correlation_id,
+            organizationId: record.organization_id!,
+          },
+        };
+      });
+  }
+
   private async materializeInvoice(client: PoolClient, record: OutboxRecord): Promise<PdfJob> {
     const result = await client.query<InvoiceRow>(
       `SELECT invoice_number, currency, minor_unit, subtotal_minor::text, tax_minor::text,
@@ -336,6 +459,37 @@ export class OutboxDispatcher {
       documentType: 'invoice',
       html,
       outputKey: `invoices/${record.organization_id}/${record.aggregate_id}.pdf`,
+      locale: 'ar',
+      correlationId: record.correlation_id,
+      organizationId: record.organization_id,
+    };
+  }
+
+  private async materializeReceipt(client: PoolClient, record: OutboxRecord): Promise<PdfJob> {
+    const result = await client.query<ReceiptRow>(
+      `SELECT r.receipt_number,
+              r.amount_minor::text,
+              r.currency,
+              p.minor_unit,
+              r.issued_at::text,
+              i.invoice_number,
+              p.provider,
+              p.provider_reference
+       FROM receipts r
+       JOIN payments p ON p.id = r.payment_id AND p.organization_id = r.organization_id
+       JOIN invoices i ON i.id = p.invoice_id AND i.organization_id = r.organization_id
+       WHERE r.id = $1 AND r.organization_id = $2`,
+      [record.aggregate_id, record.organization_id],
+    );
+    const receipt = result.rows[0];
+    if (!receipt || !record.organization_id) throw new Error('Receipt render source was not found');
+    const amount = `${formatMinorUnits(receipt.amount_minor, receipt.minor_unit)} ${escapeHtml(receipt.currency)}`;
+    const html = `<article dir="rtl"><h1>إيصال استلام / Payment receipt</h1><table><tbody><tr><th>رقم الإيصال / Receipt</th><td><strong>${escapeHtml(receipt.receipt_number)}</strong></td></tr><tr><th>الفاتورة / Invoice</th><td>${escapeHtml(receipt.invoice_number)}</td></tr><tr><th>المبلغ / Amount</th><td>${amount}</td></tr><tr><th>طريقة التحصيل / Provider</th><td>${escapeHtml(receipt.provider)}</td></tr><tr><th>مرجع الدفع / Payment reference</th><td>${escapeHtml(receipt.provider_reference)}</td></tr><tr><th>تاريخ الاستلام / Received</th><td>${escapeHtml(receipt.issued_at)}</td></tr></tbody></table></article>`;
+    return {
+      documentId: record.aggregate_id,
+      documentType: 'receipt',
+      html,
+      outputKey: `receipts/${record.organization_id}/${record.aggregate_id}.pdf`,
       locale: 'ar',
       correlationId: record.correlation_id,
       organizationId: record.organization_id,
@@ -382,4 +536,12 @@ function renderPlaceholders(template: string, snapshot: Record<string, unknown>)
     }, snapshot);
     return escapeHtml(value);
   });
+}
+
+function deterministicUuid(value: string): string {
+  const hex = createHash('sha256').update(value).digest('hex').slice(0, 32).split('');
+  hex[12] = '5';
+  hex[16] = ((Number.parseInt(hex[16] ?? '0', 16) & 0x3) | 0x8).toString(16);
+  const joined = hex.join('');
+  return `${joined.slice(0, 8)}-${joined.slice(8, 12)}-${joined.slice(12, 16)}-${joined.slice(16, 20)}-${joined.slice(20)}`;
 }

@@ -18,6 +18,7 @@ const allowedSections: Record<PortalRole, string[]> = {
   platform: ['organizations', 'users', 'audit', 'reports', 'settings'],
   owner: [
     'properties',
+    'contacts',
     'requests',
     'bookings',
     'leasing',
@@ -34,9 +35,11 @@ const allowedSections: Record<PortalRole, string[]> = {
     'approvals',
     'reports',
     'team',
+    'api-keys',
   ],
   developer: [
     'properties',
+    'contacts',
     'requests',
     'bookings',
     'leasing',
@@ -53,12 +56,14 @@ const allowedSections: Record<PortalRole, string[]> = {
     'approvals',
     'reports',
     'team',
+    'api-keys',
   ],
   tenant: ['requests', 'contracts', 'invoices', 'payments', 'maintenance'],
 };
 
 const operationalSections = new Set<OperationsSection>([
   'properties',
+  'contacts',
   'requests',
   'bookings',
   'leasing',
@@ -75,16 +80,19 @@ const operationalSections = new Set<OperationsSection>([
   'approvals',
   'reports',
   'team',
+  'api-keys',
 ]);
 
 const labelKeys: Record<string, string> = {
   properties: 'Common.properties',
+  contacts: 'Common.contacts',
   contracts: 'Common.contracts',
   invoices: 'Common.invoices',
   payments: 'Common.payments',
   maintenance: 'Common.maintenance',
   reports: 'Common.reports',
   team: 'Common.team',
+  'api-keys': 'Common.apiKeys',
   organizations: 'Common.organizations',
   users: 'Common.users',
   audit: 'Common.audit',

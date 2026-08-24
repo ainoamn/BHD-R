@@ -13,19 +13,37 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: page === '' ? 1 : 0.7,
     })),
   );
-  const listings = await publicApiFetch<ListingCollection>(
-    '/v1/public/listings?locale=en&limit=50',
-    300,
-  ).catch(() => ({ data: [], pagination: { nextCursor: null, hasMore: false } }));
+  const listingRows: ListingCollection['data'] = [];
+  let cursor: string | null = null;
+  for (let page = 0; page < 20; page += 1) {
+    const query = new URLSearchParams({ locale: 'en', limit: '50' });
+    if (cursor) query.set('cursor', cursor);
+    const listings = await publicApiFetch<ListingCollection>(
+      `/v1/public/listings?${query.toString()}`,
+      300,
+    ).catch(() => ({ data: [], pagination: { nextCursor: null, hasMore: false } }));
+    listingRows.push(...listings.data);
+    cursor = listings.pagination.nextCursor;
+    if (!listings.pagination.hasMore || !cursor) break;
+  }
   return [
     ...staticEntries,
-    ...listings.data.flatMap((listing) =>
+    ...listingRows.flatMap((listing) =>
       ['ar', 'en'].map((locale) => ({
         url: `${base}/${locale}/units/${listing.unitId}`,
         lastModified: new Date(listing.publishedAt),
         changeFrequency: 'daily' as const,
         priority: 0.8,
       })),
+    ),
+    ...[...new Map(listingRows.map((listing) => [listing.propertyId, listing])).values()].flatMap(
+      (listing) =>
+        ['ar', 'en'].map((locale) => ({
+          url: `${base}/${locale}/properties/${listing.propertyId}`,
+          lastModified: new Date(listing.publishedAt),
+          changeFrequency: 'daily' as const,
+          priority: 0.75,
+        })),
     ),
   ];
 }

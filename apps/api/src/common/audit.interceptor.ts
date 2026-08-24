@@ -12,6 +12,16 @@ import { auditLogs } from '@bhd-r/db';
 import { DatabaseService } from '../database/database.service.js';
 import { createHash } from 'node:crypto';
 
+const sensitiveAuditField =
+  /(?:password|passphrase|secret|token|authorization|cookie|credential|api[-_]?key|totp|signature|card|cvv|national[-_]?id|civil[-_]?id|registration[-_]?number)/i;
+
+export function auditChangedFields(body: unknown): string[] {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return [];
+  return Object.keys(body)
+    .filter((field) => !sensitiveAuditField.test(field))
+    .slice(0, 50);
+}
+
 @Injectable()
 export class AuditInterceptor implements NestInterceptor {
   readonly #logger = new Logger(AuditInterceptor.name);
@@ -46,10 +56,7 @@ export class AuditInterceptor implements NestInterceptor {
           outcome,
           durationMs: Date.now() - started,
           requiredPermissions: request.requiredPermissions,
-          changedFields:
-            request.body && typeof request.body === 'object' && !Array.isArray(request.body)
-              ? Object.keys(request.body).slice(0, 50)
-              : [],
+          changedFields: auditChangedFields(request.body),
         },
       });
       await this.database.asSystem(async (transaction) => {

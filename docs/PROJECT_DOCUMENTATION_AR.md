@@ -1,10 +1,15 @@
 # توثيق مشروع BHD R — إدارة العقارات
 
-**الإصدار:** 0.1.2  
-**التاريخ:** 23 أغسطس 2026  
-**المستودع المستهدف:** [ainoamn/BHD-R](https://github.com/ainoamn/BHD-R)  
-**النطاق المقترح:** `r.bhd-om.com`  
-**عميل الهوية:** `bhd-r`  
+**الإصدار:** 0.1.6
+
+**التاريخ:** 24 أغسطس 2026
+
+**المستودع المستهدف:** [ainoamn/BHD-R](https://github.com/ainoamn/BHD-R)
+
+**النطاق المقترح:** `r.bhd-om.com`
+
+**عميل الهوية:** `bhd-r`
+
 **مسار SSO:** `/api/auth/bhd/start|callback|logout` · `admin-entry` — راجع [`BHD-R-SSO-COMPLIANCE.md`](./BHD-R-SSO-COMPLIANCE.md)
 
 هذه الوثيقة هي المرجع الشامل للمنتج: ماذا يفعل، كيف يعمل، بنيته، وحداته، أمنه، وتشغيله. للتفاصيل التشغيلية راجع الفهرس في [`docs/README.md`](./README.md).
@@ -320,14 +325,16 @@ pnpm audit --audit-level=high
 
 ### Vercel
 
-دليل الربط: [`VERCEL_DEPLOYMENT_AR.md`](./VERCEL_DEPLOYMENT_AR.md).  
+دليل الربط: [`VERCEL_DEPLOYMENT_AR.md`](./VERCEL_DEPLOYMENT_AR.md).
+
 Web على Vercel؛ API/Worker/DB عادة على منصة حاويات أو managed services (لأن Worker يحتاج Chromium وطوابير طويلة).
 
 ---
 
 ## 11. علاقة النظام القديم (BHD-OM)
 
-BHD R **لا ينسخ** كود [ainoamn/bhd-om](https://github.com/ainoamn/bhd-om).  
+BHD R **لا ينسخ** كود [ainoamn/bhd-om](https://github.com/ainoamn/bhd-om).
+
 نُقلت دروس المراجعة الأمنية والوظيفية كتوثيق مرجعي تحت:
 
 - [`legacy-reviews/BHD-OM-technical-security-audit-ar.md`](./legacy-reviews/BHD-OM-technical-security-audit-ar.md)
@@ -338,20 +345,20 @@ BHD R **لا ينسخ** كود [ainoamn/bhd-om](https://github.com/ainoamn/bhd-o
 
 ---
 
-## 12. حالة التحقق 0.1.0
+## 12. حالة التحقق 0.1.6
 
 حسب [`VERIFICATION.md`](./VERIFICATION.md):
 
 - lint + TypeScript عبر الحزم
 - Unit / Backend / Frontend / Integration / E2E
-- 4 اختبارات RLS فعلية
-- بناء 40 صفحة Next.js
+- 6 اختبارات قاعدة بيانات، منها RLS فعلي بحساب non-superuser
+- بناء 48 صفحة Next.js
 - صور Docker تعمل read-only
 - `pnpm audit` نظيف وقت التسليم
 
 ---
 
-## 13. خارطة ما بعد 0.1.0 (مقترحة)
+## 13. خارطة ما بعد 0.1.6 (مقترحة)
 
 1. ربط DNS + OIDC إنتاجي على `r.bhd-om.com`.
 2. Staging كامل مع Neon/Redis/S3/Sentry.

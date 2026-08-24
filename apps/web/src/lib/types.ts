@@ -22,8 +22,9 @@ export interface Viewer {
 
 export interface PortalOverview {
   occupancyPercent: number | null;
-  collectedMinor: string | null;
-  currency: string;
+  collected: Array<{ currency: string; amountMinor: string }>;
+  collectedMinor?: string | null;
+  currency?: string;
   openTickets: number | null;
   expiringContracts: number | null;
   recentActivity: Array<{ id: string; title: string; occurredAt: string; status?: string }>;

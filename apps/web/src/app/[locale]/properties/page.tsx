@@ -6,10 +6,24 @@ import { PropertySearch } from '@/components/property-search';
 import { publicApiFetch } from '@/lib/server-api';
 import type { ListingCollection } from '@/lib/types';
 
-export const metadata: Metadata = {
-  title: 'العقارات المتاحة | Available properties',
-  description: 'وحدات منشورة ومتاحة فعلياً للإيجار عبر BHD R.',
-};
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return {
+    title: locale === 'ar' ? 'العقارات المتاحة' : 'Available properties',
+    description:
+      locale === 'ar'
+        ? 'وحدات منشورة ومتاحة فعلياً للإيجار والبيع عبر BHD R.'
+        : 'Live, publicly available properties for rent and sale through BHD R.',
+    alternates: {
+      canonical: `/${locale}/properties`,
+      languages: { ar: '/ar/properties', en: '/en/properties' },
+    },
+  };
+}
 
 export default async function PropertiesPage({
   params,

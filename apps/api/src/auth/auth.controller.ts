@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Post, Query, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  Req,
+  Res,
+} from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
@@ -26,9 +37,21 @@ const resetRequestSchema = z.object({ email: z.email().max(320) });
 const totpSchema = z.object({ code: z.string().regex(/^\d{6}$/) });
 const apiKeySchema = z.object({
   name: z.string().trim().min(2).max(120),
-  scopes: z.array(permissionSchema).min(1).max(50),
+  scopes: z.array(permissionSchema).min(1).max(25),
   expiresAt: z.iso.datetime().optional(),
+  totpCode: z
+    .string()
+    .regex(/^\d{6}$/)
+    .optional(),
 });
+const apiKeyActionSchema = z
+  .object({
+    totpCode: z
+      .string()
+      .regex(/^\d{6}$/)
+      .optional(),
+  })
+  .strict();
 
 function setSessionCookies(reply: FastifyReply, issued: IssuedSession): void {
   const secure = secureCookies();
@@ -200,6 +223,7 @@ export class AuthController {
   }
 
   @RequirePermissions('api_key.write')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('api-keys')
   async createApiKey(
     @Req() request: FastifyRequest,
@@ -209,7 +233,26 @@ export class AuthController {
       name: body.name,
       scopes: body.scopes,
       ...(body.expiresAt ? { expiresAt: new Date(body.expiresAt) } : {}),
+      ...(body.totpCode ? { totpCode: body.totpCode } : {}),
     });
+  }
+
+  @RequirePermissions('api_key.read')
+  @Get('api-keys')
+  apiKeys(@Req() request: FastifyRequest) {
+    return this.authService.listApiKeys(request.auth!);
+  }
+
+  @RequirePermissions('api_key.write')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Patch('api-keys/:id/revoke')
+  async revokeApiKey(
+    @Req() request: FastifyRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(apiKeyActionSchema)) body: z.infer<typeof apiKeyActionSchema>,
+  ) {
+    await this.authService.revokeApiKey(request.auth!, id, body.totpCode);
+    return { revoked: true };
   }
 
   @Public()

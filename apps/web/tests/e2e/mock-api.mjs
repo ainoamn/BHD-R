@@ -22,6 +22,15 @@ const listing = {
   available: true,
   publishedAt: '2026-08-01T00:00:00.000Z',
 };
+const unitDetail = {
+  ...listing,
+  code: 'U-102',
+  descriptionAr: 'شقة حديثة في القرم',
+  descriptionEn: 'Modern apartment in Qurum',
+  city: 'Muscat',
+  deposit: { amountMinor: '450000', currency: 'OMR' },
+  images: [],
+};
 const viewer = {
   id: '00000000-0000-4000-8000-000000000002',
   username: 'bhd-r-test',
@@ -347,6 +356,21 @@ const server = createServer((request, response) => {
     response.end(
       JSON.stringify({ data: [listing], pagination: { nextCursor: null, hasMore: false } }),
     );
+    return;
+  }
+  if (path === `/v1/public/units/${ids.unit}` && request.method === 'GET') {
+    response.end(JSON.stringify(unitDetail));
+    return;
+  }
+  if (path === `/v1/public/units/${ids.unit}/viewing-requests` && request.method === 'POST') {
+    request.resume();
+    response.end(
+      JSON.stringify({ accepted: true, reference: 'WEB-E2E-0001', status: 'requested' }),
+    );
+    return;
+  }
+  if (path === '/v1/finance/receipts') {
+    response.end(JSON.stringify([]));
     return;
   }
   if (path === '/v1/me') {

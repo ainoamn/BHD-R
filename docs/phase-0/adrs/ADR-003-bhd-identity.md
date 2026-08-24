@@ -21,4 +21,3 @@
 - تجربة دخول موحدة وفصل مسؤوليات.
 - يعتمد onboarding على Internal invitation API يجب إضافتها إلى Identity.
 - تعطل Identity يوقف دخولاً جديداً ولا يمنع قراءة Session سارية ضمن TTL وسياسة المخاطر.
-

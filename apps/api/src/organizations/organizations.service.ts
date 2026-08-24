@@ -5,13 +5,17 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { and, count, eq, notInArray, sql } from 'drizzle-orm';
-import { memberships, organizations, parties, users } from '@bhd-r/db';
+import { memberships, organizations, parties, partyRoles, sessions, users } from '@bhd-r/db';
 import type { RoleKey, SessionClaims } from '@bhd-r/authz';
 import { DatabaseService } from '../database/database.service.js';
+import { AuthService } from '../auth/auth.service.js';
 
 @Injectable()
 export class OrganizationsService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly auth: AuthService,
+  ) {}
 
   getCurrent(claims: SessionClaims) {
     return this.database.withinTenant(claims, async (transaction) => {
@@ -30,9 +34,10 @@ export class OrganizationsService {
           userId: users.id,
           displayName: users.displayName,
           email: users.email,
-          role: memberships.roleKey,
+          roleKey: memberships.roleKey,
           status: memberships.status,
           partyId: memberships.partyId,
+          createdAt: memberships.createdAt,
         })
         .from(memberships)
         .innerJoin(users, eq(users.id, memberships.userId))
@@ -113,21 +118,7 @@ export class OrganizationsService {
       if ((memberCount[0]?.count ?? 0) >= limit)
         throw new ConflictException('Representative limit for this plan has been reached');
       const normalizedEmail = input.email.trim().toLowerCase();
-      let user = await transaction.query.users.findFirst({
-        where: eq(users.email, normalizedEmail),
-      });
-      if (!user) {
-        const rows = await transaction
-          .insert(users)
-          .values({
-            username: normalizedEmail,
-            email: normalizedEmail,
-            displayName: input.displayName,
-          })
-          .returning();
-        user = rows[0];
-      }
-      if (!user) throw new NotFoundException();
+      let partyId = input.partyId;
       if (input.partyId) {
         const party = await transaction.query.parties.findFirst({
           where: and(
@@ -136,17 +127,84 @@ export class OrganizationsService {
           ),
         });
         if (!party) throw new NotFoundException('Representative party not found');
+      } else {
+        const existingParty = await transaction.query.parties.findFirst({
+          where: and(
+            eq(parties.organizationId, claims.organizationId!),
+            eq(parties.email, normalizedEmail),
+          ),
+        });
+        const party =
+          existingParty ??
+          (
+            await transaction
+              .insert(parties)
+              .values({
+                organizationId: claims.organizationId!,
+                type: 'person',
+                displayName: input.displayName,
+                email: normalizedEmail,
+                metadata: { source: 'team_invitation' },
+              })
+              .returning()
+          )[0];
+        if (!party) throw new ConflictException('Could not create representative party');
+        partyId = party.id;
+        await transaction
+          .insert(partyRoles)
+          .values({
+            organizationId: claims.organizationId!,
+            partyId,
+            roleKey: 'authorized_representative',
+          })
+          .onConflictDoNothing();
       }
-      await transaction
-        .insert(memberships)
-        .values({
-          organizationId: claims.organizationId!,
-          userId: user.id,
-          roleKey: input.roleKey,
-          ...(input.partyId ? { partyId: input.partyId } : {}),
-        })
-        .onConflictDoNothing();
-      return { userId: user.id };
+      return this.auth.provisionTenantAccess(transaction, {
+        organizationId: claims.organizationId!,
+        partyId: partyId!,
+        displayName: input.displayName,
+        email: normalizedEmail,
+        roleKey: input.roleKey,
+      });
+    });
+  }
+
+  updateMember(
+    claims: SessionClaims,
+    userId: string,
+    input: { roleKey: RoleKey; status: 'active' | 'inactive' },
+  ) {
+    if (userId === claims.sub) throw new ForbiddenException('You cannot disable your own access');
+    if (input.roleKey === 'organization_owner' && !claims.roles.includes('platform_admin'))
+      throw new ForbiddenException('Only a platform administrator can change an owner membership');
+    return this.database.asSystem(async (transaction) => {
+      const rows = await transaction
+        .update(memberships)
+        .set({ status: input.status })
+        .where(
+          and(
+            eq(memberships.organizationId, claims.organizationId!),
+            eq(memberships.userId, userId),
+            eq(memberships.roleKey, input.roleKey),
+          ),
+        )
+        .returning({
+          userId: memberships.userId,
+          roleKey: memberships.roleKey,
+          status: memberships.status,
+        });
+      if (!rows[0]) throw new NotFoundException('Membership not found');
+      if (input.status === 'inactive') {
+        await transaction
+          .update(users)
+          .set({ sessionVersion: sql`${users.sessionVersion} + 1`, updatedAt: new Date() })
+          .where(eq(users.id, userId));
+        await transaction
+          .update(sessions)
+          .set({ revokedAt: new Date(), updatedAt: new Date() })
+          .where(and(eq(sessions.userId, userId), sql`${sessions.revokedAt} IS NULL`));
+      }
+      return rows[0];
     });
   }
 }

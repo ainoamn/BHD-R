@@ -36,46 +36,46 @@ Authentication → Active context → Tenant/Grant scope → Permission policy �
 
 ## 3. الأدوار المختصرة في المصفوفة
 
-| الرمز | الدور |
-|---|---|
-| PUB | زائر عام |
-| PSA | Platform Super Admin |
-| PA | Platform Admin |
-| LM | Listing Moderator |
-| SUP | Support Agent |
-| PFO | Platform Finance Operator |
-| SAUD | Security Auditor |
-| CE | Content Editor |
-| OA | Owner Admin |
-| PM | Property Manager |
-| LA | Leasing Agent |
-| FM | Finance Manager |
-| MC | Maintenance Coordinator |
-| OV | Organization Viewer/Auditor |
-| DA | Developer Admin |
-| DPM | Developer Project Manager |
-| DIM | Developer Inventory Manager |
-| DLA | Developer Sales/Leasing Agent |
-| DFV | Developer Finance Viewer |
-| DRV | Developer Report Viewer |
-| LGL | Contract/Legal Reviewer داخل المؤسسة أو المنصة بحسب التكليف |
-| TP | Tenant Primary |
-| TR | Tenant Representative |
-| OCV | Occupant Viewer |
-| SYS | Worker/Internal service identity |
+| الرمز | الدور                                                       |
+| ----- | ----------------------------------------------------------- |
+| PUB   | زائر عام                                                    |
+| PSA   | Platform Super Admin                                        |
+| PA    | Platform Admin                                              |
+| LM    | Listing Moderator                                           |
+| SUP   | Support Agent                                               |
+| PFO   | Platform Finance Operator                                   |
+| SAUD  | Security Auditor                                            |
+| CE    | Content Editor                                              |
+| OA    | Owner Admin                                                 |
+| PM    | Property Manager                                            |
+| LA    | Leasing Agent                                               |
+| FM    | Finance Manager                                             |
+| MC    | Maintenance Coordinator                                     |
+| OV    | Organization Viewer/Auditor                                 |
+| DA    | Developer Admin                                             |
+| DPM   | Developer Project Manager                                   |
+| DIM   | Developer Inventory Manager                                 |
+| DLA   | Developer Sales/Leasing Agent                               |
+| DFV   | Developer Finance Viewer                                    |
+| DRV   | Developer Report Viewer                                     |
+| LGL   | Contract/Legal Reviewer داخل المؤسسة أو المنصة بحسب التكليف |
+| TP    | Tenant Primary                                              |
+| TR    | Tenant Representative                                       |
+| OCV   | Occupant Viewer                                             |
+| SYS   | Worker/Internal service identity                            |
 
 ## 4. رموز المصفوفة
 
-| الرمز | المعنى |
-|---|---|
-| A | على مستوى المنصة وفق Policy إضافية |
-| O | داخل المؤسسة النشطة فقط |
-| R | على الموارد المسندة للمستخدم داخل المؤسسة |
-| G | على مورد حصل عليه عبر ResourceGrant |
-| S | على بياناته الشخصية فقط |
-| C | مشروط بباقة/Feature flag/اعتماد إضافي |
-| I | عملية داخلية للخدمة وليست للمستخدم |
-| N | مرفوض |
+| الرمز | المعنى                                    |
+| ----- | ----------------------------------------- |
+| A     | على مستوى المنصة وفق Policy إضافية        |
+| O     | داخل المؤسسة النشطة فقط                   |
+| R     | على الموارد المسندة للمستخدم داخل المؤسسة |
+| G     | على مورد حصل عليه عبر ResourceGrant       |
+| S     | على بياناته الشخصية فقط                   |
+| C     | مشروط بباقة/Feature flag/اعتماد إضافي     |
+| I     | عملية داخلية للخدمة وليست للمستخدم        |
+| N     | مرفوض                                     |
 
 القيمة `O+C` تعني أن الشرطين مطلوبان. المصفوفة Seed أولي لا بديل عن Resource context.
 

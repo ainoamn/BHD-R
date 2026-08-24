@@ -93,3 +93,17 @@ test('complete property intake has operations, documents, media and review stage
   await expect(page.locator('.steps li').filter({ hasText: 'التشغيل والمرافق' })).toBeVisible();
   await expect(page.locator('.steps li').filter({ hasText: 'الملكية والوثائق' })).toBeVisible();
 });
+
+test('public visitor can submit a real viewing request without creating an account', async ({
+  page,
+}) => {
+  await page.goto('/ar/units/00000000-0000-4000-8000-000000000010');
+  await expect(page.getByRole('heading', { name: 'اطلب معاينة العقار' })).toBeVisible();
+  await page.getByLabel('الاسم الكامل').fill('مريم الحارثية');
+  await page.getByLabel('البريد الإلكتروني').fill('maryam@example.test');
+  await page.getByLabel('رقم الهاتف').fill('+96899112233');
+  await page.getByLabel(/أوافق على استخدام بياناتي/).check();
+  await page.getByRole('button', { name: 'إرسال طلب المعاينة' }).click();
+  await expect(page.getByText('تم استلام طلبك')).toBeVisible();
+  await expect(page.getByText('WEB-E2E-0001')).toBeVisible();
+});

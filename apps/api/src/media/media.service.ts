@@ -1,9 +1,9 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { mediaAssets, outboxEvents, unitMedia, units } from '@bhd-r/db';
+import { mediaAssets, outboxEvents, reservations, unitMedia, units } from '@bhd-r/db';
 import type { SessionClaims } from '@bhd-r/authz';
 import { DatabaseService } from '../database/database.service.js';
 
@@ -30,8 +30,9 @@ export class MediaService {
   async createUploadIntent(
     claims: SessionClaims,
     input: {
-      purpose: 'property_image' | 'attachment';
+      purpose: 'property_image' | 'attachment' | 'reservation_document';
       unitId?: string | undefined;
+      reservationId?: string | undefined;
       mimeType: string;
       byteSize: number;
     },
@@ -45,6 +46,8 @@ export class MediaService {
       throw new ConflictException('File type or size is not allowed');
     if (input.purpose === 'property_image' && !input.unitId)
       throw new ConflictException('Property images require a unit');
+    if (input.purpose === 'reservation_document' && !input.reservationId)
+      throw new ConflictException('Reservation documents require a reservation');
     const extension =
       input.mimeType === 'image/jpeg'
         ? 'jpg'
@@ -61,6 +64,16 @@ export class MediaService {
         });
         if (!unit) throw new NotFoundException('Unit not found');
       }
+      if (input.reservationId) {
+        const reservation = await transaction.query.reservations.findFirst({
+          where: and(
+            eq(reservations.id, input.reservationId),
+            eq(reservations.organizationId, claims.organizationId!),
+          ),
+        });
+        if (!reservation || !['pending', 'confirmed'].includes(reservation.status))
+          throw new NotFoundException('Open reservation not found');
+      }
       const rows = await transaction
         .insert(mediaAssets)
         .values({
@@ -69,7 +82,11 @@ export class MediaService {
           privateObjectKey: objectKey,
           mimeType: input.mimeType,
           byteSize: BigInt(input.byteSize),
-          metadata: { purpose: input.purpose, unitId: input.unitId },
+          metadata: {
+            purpose: input.purpose,
+            ...(input.unitId ? { unitId: input.unitId } : {}),
+            ...(input.reservationId ? { reservationId: input.reservationId } : {}),
+          },
         })
         .returning();
       return rows[0]!;
@@ -93,7 +110,11 @@ export class MediaService {
   complete(
     claims: SessionClaims,
     assetId: string,
-    input: { sha256: string; unitId?: string | undefined },
+    input: {
+      sha256: string;
+      unitId?: string | undefined;
+      reservationId?: string | undefined;
+    },
   ) {
     return this.database.withinTenant(claims, async (transaction) => {
       const rows = await transaction
@@ -109,6 +130,13 @@ export class MediaService {
         .returning();
       const asset = rows[0];
       if (!asset) throw new NotFoundException('Upload intent not found or already completed');
+      const metadata = asset.metadata as Record<string, unknown>;
+      if (
+        input.reservationId &&
+        (metadata.purpose !== 'reservation_document' ||
+          metadata.reservationId !== input.reservationId)
+      )
+        throw new ConflictException('Upload intent does not belong to this reservation');
       if (input.unitId) {
         const unit = await transaction.query.units.findFirst({
           where: and(eq(units.id, input.unitId), eq(units.organizationId, claims.organizationId!)),
@@ -132,5 +160,44 @@ export class MediaService {
       });
       return { assetId: asset.id, status: 'queued' };
     });
+  }
+
+  async reservationDocumentUrl(claims: SessionClaims, assetId: string) {
+    const asset = await this.database.withinTenant(claims, async (transaction) => {
+      const row = await transaction.query.mediaAssets.findFirst({
+        where: and(
+          eq(mediaAssets.id, assetId),
+          eq(mediaAssets.organizationId, claims.organizationId!),
+        ),
+      });
+      const metadata = row?.metadata as Record<string, unknown> | undefined;
+      if (
+        !row ||
+        metadata?.purpose !== 'reservation_document' ||
+        row.processingStatus !== 'ready' ||
+        row.scanStatus !== 'clean'
+      )
+        throw new NotFoundException('Clean reservation document not found');
+      return row;
+    });
+    const extension =
+      asset.mimeType === 'application/pdf'
+        ? 'pdf'
+        : asset.mimeType === 'image/png'
+          ? 'png'
+          : asset.mimeType === 'image/webp'
+            ? 'webp'
+            : 'jpg';
+    const url = await getSignedUrl(
+      this.#s3,
+      new GetObjectCommand({
+        Bucket: process.env.S3_BUCKET_PRIVATE ?? 'bhd-r-private',
+        Key: asset.privateObjectKey,
+        ResponseContentDisposition: `inline; filename="reservation-document-${asset.id}.${extension}"`,
+        ResponseContentType: asset.mimeType,
+      }),
+      { expiresIn: 180 },
+    );
+    return { url, expiresInSeconds: 180 };
   }
 }

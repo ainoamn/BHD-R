@@ -15,7 +15,10 @@ export function PayInvoiceButton({ publicToken }: { publicToken: string }) {
     try {
       const session = await browserPublicMutation<{ redirectUrl: string }>(
         `/v1/public/invoices/${encodeURIComponent(publicToken)}/payment-sessions`,
-        { returnPath: `/${locale}/invoice/${encodeURIComponent(publicToken)}` },
+        {
+          locale: locale === 'en' ? 'en' : 'ar',
+          returnPath: `/${locale}/invoice/${encodeURIComponent(publicToken)}`,
+        },
       );
       const target = new URL(session.redirectUrl);
       if (

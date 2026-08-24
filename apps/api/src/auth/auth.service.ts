@@ -1,11 +1,18 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
-import { and, eq, gt, isNull, lt, or, sql } from 'drizzle-orm';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { and, desc, eq, gt, isNull, lt, or, sql } from 'drizzle-orm';
 import {
   apiKeys,
   credentialTokens,
   memberships,
   organizations,
   outboxEvents,
+  parties,
+  partyRoles,
   sessions,
   users,
 } from '@bhd-r/db';
@@ -17,6 +24,7 @@ import {
   verifyIdentityToken,
   verifySessionToken,
   type Permission,
+  type RoleKey,
   type SessionClaims,
 } from '@bhd-r/authz';
 import {
@@ -36,6 +44,7 @@ import {
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { decodeJwt } from 'jose';
 import { DatabaseService, type DatabaseTransaction } from '../database/database.service.js';
+import { ensureDefaultContractTemplate } from '../common/default-contract-template.js';
 
 const sessionSecret = () =>
   new TextEncoder().encode(
@@ -362,11 +371,29 @@ export class AuthService {
       .returning();
     const organization = insertedOrgs[0]!;
 
+    const ownerPartyRows = await transaction
+      .insert(parties)
+      .values({
+        organizationId: organization.id,
+        type: 'person',
+        displayName,
+        email,
+      })
+      .returning({ id: parties.id });
+    const ownerPartyId = ownerPartyRows[0]!.id;
+    await transaction.insert(partyRoles).values({
+      organizationId: organization.id,
+      partyId: ownerPartyId,
+      roleKey: 'owner',
+    });
+
     await transaction.insert(memberships).values({
       organizationId: organization.id,
       userId: user.id,
+      partyId: ownerPartyId,
       roleKey: 'organization_owner',
     });
+    await ensureDefaultContractTemplate(transaction, organization.id);
 
     return user;
   }
@@ -589,11 +616,33 @@ export class AuthService {
   }
 
   async createApiKey(
-    claims: SessionClaims,
-    input: { name: string; scopes: Permission[]; expiresAt?: Date | undefined },
+    claims: SessionClaims & { authenticationMethod?: 'session' | 'bearer' | 'api_key' },
+    input: {
+      name: string;
+      scopes: Permission[];
+      expiresAt?: Date | undefined;
+      totpCode?: string | undefined;
+    },
   ): Promise<{ id: string; key: string; prefix: string }> {
+    await this.assertApiKeyStepUp(claims, input.totpCode);
     if (input.scopes.some((scope) => !claims.permissions.includes(scope)))
       throw new UnauthorizedException('API key scopes cannot exceed the creator permissions');
+    const nonDelegable = new Set<Permission>([
+      'api_key.write',
+      'contract.sign',
+      'payment.gateway.write',
+      'platform.settings.write',
+      'country_pack.write',
+    ]);
+    if (input.scopes.some((scope) => nonDelegable.has(scope)))
+      throw new UnauthorizedException('One or more scopes require an interactive user session');
+    const expiresAt = input.expiresAt ?? new Date(Date.now() + 90 * 24 * 60 * 60_000);
+    if (
+      expiresAt <= new Date(Date.now() + 60 * 60_000) ||
+      expiresAt > new Date(Date.now() + 366 * 24 * 60 * 60_000)
+    ) {
+      throw new BadRequestException('API keys must expire between one hour and one year');
+    }
     const generated = generateApiKey(apiPepper());
     return this.database.withinTenant(claims, async (transaction) => {
       const rows = await transaction
@@ -605,48 +654,154 @@ export class AuthService {
           prefix: generated.prefix,
           secretDigest: generated.digest,
           scopes: input.scopes,
-          expiresAt: input.expiresAt,
+          expiresAt,
         })
         .returning({ id: apiKeys.id });
       return { id: rows[0]!.id, key: generated.plaintext, prefix: generated.prefix };
     });
   }
 
+  listApiKeys(claims: SessionClaims) {
+    return this.database.withinTenant(claims, async (transaction) => {
+      const rows = await transaction
+        .select({
+          id: apiKeys.id,
+          name: apiKeys.name,
+          prefix: apiKeys.prefix,
+          scopes: apiKeys.scopes,
+          createdByUserId: apiKeys.createdByUserId,
+          lastUsedAt: apiKeys.lastUsedAt,
+          expiresAt: apiKeys.expiresAt,
+          revokedAt: apiKeys.revokedAt,
+          createdAt: apiKeys.createdAt,
+        })
+        .from(apiKeys)
+        .where(eq(apiKeys.organizationId, claims.organizationId!))
+        .orderBy(desc(apiKeys.createdAt));
+      return rows.map((row) => ({
+        ...row,
+        status: row.revokedAt
+          ? 'revoked'
+          : row.expiresAt && row.expiresAt <= new Date()
+            ? 'expired'
+            : 'active',
+      }));
+    });
+  }
+
+  async revokeApiKey(
+    claims: SessionClaims & { authenticationMethod?: 'session' | 'bearer' | 'api_key' },
+    id: string,
+    totpCode?: string,
+  ): Promise<void> {
+    await this.assertApiKeyStepUp(claims, totpCode);
+    const revoked = await this.database.withinTenant(claims, (transaction) =>
+      transaction
+        .update(apiKeys)
+        .set({ revokedAt: new Date(), updatedAt: new Date() })
+        .where(
+          and(
+            eq(apiKeys.id, id),
+            eq(apiKeys.organizationId, claims.organizationId!),
+            isNull(apiKeys.revokedAt),
+          ),
+        )
+        .returning({ id: apiKeys.id }),
+    );
+    if (!revoked[0]) throw new NotFoundException('Active API key not found');
+  }
+
+  private async assertApiKeyStepUp(
+    claims: SessionClaims & { authenticationMethod?: 'session' | 'bearer' | 'api_key' },
+    totpCode?: string,
+  ): Promise<void> {
+    if (claims.authenticationMethod === 'api_key') {
+      throw new UnauthorizedException('API keys cannot manage other API keys');
+    }
+    const state = await this.database.asSystem(async (transaction) => {
+      const [user, session] = await Promise.all([
+        transaction.query.users.findFirst({ where: eq(users.id, claims.sub) }),
+        transaction.query.sessions.findFirst({
+          where: and(
+            eq(sessions.id, claims.sid),
+            eq(sessions.userId, claims.sub),
+            isNull(sessions.revokedAt),
+          ),
+        }),
+      ]);
+      return { mfaEnabled: Boolean(user?.totpConfirmedAt), sessionCreatedAt: session?.createdAt };
+    });
+    if (!state.sessionCreatedAt || state.sessionCreatedAt < new Date(Date.now() - 10 * 60_000)) {
+      throw new UnauthorizedException('A recent sign-in is required');
+    }
+    if (state.mfaEnabled) {
+      if (!totpCode) throw new UnauthorizedException('TOTP confirmation is required');
+      await this.verifyTotpChallenge(claims, totpCode);
+    }
+  }
+
   async provisionTenantAccess(
     transaction: DatabaseTransaction,
-    input: { organizationId: string; partyId: string; displayName: string; email: string },
-  ): Promise<{ userId: string; username: string }> {
+    input: {
+      organizationId: string;
+      partyId: string;
+      displayName: string;
+      email: string;
+      roleKey?: RoleKey | undefined;
+    },
+  ): Promise<{ userId: string; username: string; activationRequired: boolean }> {
+    const roleKey = input.roleKey ?? 'tenant';
     const existingMembership = await transaction.query.memberships.findFirst({
       where: and(
         eq(memberships.organizationId, input.organizationId),
         eq(memberships.partyId, input.partyId),
-        eq(memberships.roleKey, 'tenant'),
+        eq(memberships.roleKey, roleKey),
       ),
     });
-    if (existingMembership) {
-      const user = await transaction.query.users.findFirst({
-        where: eq(users.id, existingMembership.userId),
-      });
-      return { userId: existingMembership.userId, username: user?.username ?? '' };
-    }
     const base =
       input.email
         .split('@')[0]!
         .replace(/[^a-z0-9]/gi, '')
         .toLowerCase()
-        .slice(0, 16) || 'tenant';
-    const username = `${base}.${randomBytes(3).toString('hex')}`;
-    const insertedUsers = await transaction
-      .insert(users)
-      .values({ username, email: input.email.toLowerCase(), displayName: input.displayName })
-      .returning();
-    const user = insertedUsers[0]!;
-    await transaction.insert(memberships).values({
-      organizationId: input.organizationId,
-      userId: user.id,
-      partyId: input.partyId,
-      roleKey: 'tenant',
-    });
+        .slice(0, 16) || roleKey.replaceAll('_', '').slice(0, 16);
+    const email = input.email.toLowerCase();
+    let user = existingMembership
+      ? await transaction.query.users.findFirst({ where: eq(users.id, existingMembership.userId) })
+      : await transaction.query.users.findFirst({ where: eq(users.email, email) });
+    if (!user) {
+      const username = `${base}.${randomBytes(3).toString('hex')}`;
+      const insertedUsers = await transaction
+        .insert(users)
+        .values({ username, email, displayName: input.displayName })
+        .returning();
+      user = insertedUsers[0]!;
+    }
+    await transaction
+      .insert(memberships)
+      .values({
+        organizationId: input.organizationId,
+        userId: user.id,
+        partyId: input.partyId,
+        roleKey,
+      })
+      .onConflictDoUpdate({
+        target: [memberships.organizationId, memberships.userId, memberships.roleKey],
+        set: { partyId: input.partyId, status: 'active' },
+      });
+    const activationRequired = !user.credentialHash && !user.identitySubject;
+    if (!activationRequired) {
+      return { userId: user.id, username: user.username, activationRequired: false };
+    }
+    await transaction
+      .update(credentialTokens)
+      .set({ usedAt: new Date() })
+      .where(
+        and(
+          eq(credentialTokens.userId, user.id),
+          eq(credentialTokens.purpose, 'activation'),
+          isNull(credentialTokens.usedAt),
+        ),
+      );
     const token = randomBytes(32).toString('base64url');
     const credentials = await transaction
       .insert(credentialTokens)
@@ -665,7 +820,7 @@ export class AuthService {
       payload: {
         userId: user.id,
         partyId: input.partyId,
-        username,
+        username: user.username,
         tokenEncrypted: encryptField(
           token,
           encryptionKeyring('notification-token'),
@@ -673,7 +828,7 @@ export class AuthService {
         ),
       },
     });
-    return { userId: user.id, username };
+    return { userId: user.id, username: user.username, activationRequired: true };
   }
 
   private async issueForUser(
@@ -691,9 +846,63 @@ export class AuthService {
       : allMemberships;
     if (selected.length === 0) throw new UnauthorizedException('No active organization membership');
     const selectedOrganization = organizationId ?? selected[0]!.organizationId;
-    const organizationMemberships = selected.filter(
+    let organizationMemberships = selected.filter(
       (membership) => membership.organizationId === selectedOrganization,
     );
+    const ownerMembership = organizationMemberships.find(
+      (membership) => membership.roleKey === 'organization_owner',
+    );
+    if (ownerMembership) {
+      let ownerPartyId = ownerMembership.partyId;
+      if (!ownerPartyId) {
+        const ownerPartyRows = await transaction
+          .insert(parties)
+          .values({
+            organizationId: selectedOrganization,
+            type: 'person',
+            displayName: user.displayName,
+            email: user.email,
+          })
+          .onConflictDoNothing()
+          .returning({ id: parties.id });
+        ownerPartyId = ownerPartyRows[0]?.id ?? null;
+        if (!ownerPartyId) {
+          const existing = await transaction.query.parties.findFirst({
+            where: and(
+              eq(parties.organizationId, selectedOrganization),
+              eq(parties.email, user.email),
+            ),
+          });
+          ownerPartyId = existing?.id ?? null;
+        }
+        if (!ownerPartyId) throw new UnauthorizedException('Owner party bootstrap failed');
+        await transaction
+          .update(memberships)
+          .set({ partyId: ownerPartyId })
+          .where(
+            and(
+              eq(memberships.organizationId, selectedOrganization),
+              eq(memberships.userId, userId),
+              eq(memberships.roleKey, 'organization_owner'),
+            ),
+          );
+      }
+      await transaction
+        .insert(partyRoles)
+        .values({
+          organizationId: selectedOrganization,
+          partyId: ownerPartyId,
+          roleKey: 'owner',
+        })
+        .onConflictDoUpdate({
+          target: [partyRoles.organizationId, partyRoles.partyId, partyRoles.roleKey],
+          set: { status: 'active', updatedAt: new Date() },
+        });
+      organizationMemberships = organizationMemberships.map((membership) =>
+        membership === ownerMembership ? { ...membership, partyId: ownerPartyId } : membership,
+      );
+      await ensureDefaultContractTemplate(transaction, selectedOrganization);
+    }
     const roles = organizationMemberships
       .map((membership) => roleKeySchema.safeParse(membership.roleKey))
       .filter((result) => result.success)

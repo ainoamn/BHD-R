@@ -18,6 +18,7 @@ const nav: Record<PortalRole, Array<{ path: string; label: string; mark: string 
   owner: [
     { path: '', label: 'Common.dashboard', mark: '⌂' },
     { path: '/properties', label: 'Common.properties', mark: '▤' },
+    { path: '/contacts', label: 'Common.contacts', mark: '◎' },
     { path: '/requests', label: 'Common.requests', mark: '◌' },
     { path: '/bookings', label: 'Common.bookings', mark: '⌁' },
     { path: '/leasing', label: 'Common.leasing', mark: '⌂' },
@@ -34,10 +35,12 @@ const nav: Record<PortalRole, Array<{ path: string; label: string; mark: string 
     { path: '/approvals', label: 'Common.approvals', mark: '◎' },
     { path: '/reports', label: 'Common.reports', mark: '↗' },
     { path: '/team', label: 'Common.team', mark: '◎' },
+    { path: '/api-keys', label: 'Common.apiKeys', mark: '⌘' },
   ],
   developer: [
     { path: '', label: 'Common.dashboard', mark: '⌂' },
     { path: '/properties', label: 'Common.properties', mark: '▤' },
+    { path: '/contacts', label: 'Common.contacts', mark: '◎' },
     { path: '/requests', label: 'Common.requests', mark: '◌' },
     { path: '/bookings', label: 'Common.bookings', mark: '⌁' },
     { path: '/leasing', label: 'Common.leasing', mark: '⌂' },
@@ -54,9 +57,11 @@ const nav: Record<PortalRole, Array<{ path: string; label: string; mark: string 
     { path: '/approvals', label: 'Common.approvals', mark: '◎' },
     { path: '/reports', label: 'Common.reports', mark: '↗' },
     { path: '/team', label: 'Common.team', mark: '◎' },
+    { path: '/api-keys', label: 'Common.apiKeys', mark: '⌘' },
   ],
   tenant: [
     { path: '', label: 'Common.dashboard', mark: '⌂' },
+    { path: '/reservations', label: 'Common.bookings', mark: '⌁' },
     { path: '/contracts', label: 'Common.contracts', mark: '✎' },
     { path: '/invoices', label: 'Common.invoices', mark: '▧' },
     { path: '/payments', label: 'Common.payments', mark: '◇' },

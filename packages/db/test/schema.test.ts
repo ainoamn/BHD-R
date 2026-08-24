@@ -14,6 +14,8 @@ import {
   properties,
   propertyDocuments,
   propertyProfiles,
+  reservationDocuments,
+  reservationRequirements,
   salesDeals,
   units,
 } from '../src/schema.js';
@@ -33,6 +35,8 @@ describe('schema invariants', () => {
       journalLines,
       propertyProfiles,
       propertyDocuments,
+      reservationRequirements,
+      reservationDocuments,
     ]) {
       expect(getTableColumns(table)).toHaveProperty('organizationId');
     }
@@ -51,6 +55,13 @@ describe('schema invariants', () => {
     expect(getTableColumns(propertyProfiles)).toHaveProperty('deedNumber');
     expect(getTableColumns(propertyDocuments)).toHaveProperty('verificationStatus');
     expect(getTableColumns(units)).toHaveProperty('listingPurpose');
+  });
+
+  it('keeps reservation requirements and reviewed documents as tenant-scoped records', () => {
+    expect(getTableColumns(reservationRequirements)).toHaveProperty('reservationId');
+    expect(getTableColumns(reservationRequirements)).toHaveProperty('required');
+    expect(getTableColumns(reservationDocuments)).toHaveProperty('mediaAssetId');
+    expect(getTableColumns(reservationDocuments)).toHaveProperty('reviewedByUserId');
   });
 
   it('emits the PostGIS geography typmod as SQL instead of a quoted type name', () => {

@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  Query,
+  Req,
+} from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { createHoldSchema, createLeaseSchema } from '@bhd-r/contracts';
@@ -11,16 +21,69 @@ const reservationSchema = z.object({
   tenantPartyId: z.uuid(),
   expiresAt: z.iso.datetime(),
 });
+const reservationRequirementSchema = z
+  .object({
+    code: z
+      .string()
+      .trim()
+      .min(2)
+      .max(80)
+      .regex(/^[a-z0-9_-]+$/),
+    labelAr: z.string().trim().min(2).max(200),
+    labelEn: z.string().trim().min(2).max(200),
+    required: z.boolean().default(true),
+    dueAt: z.iso.datetime().optional(),
+    notes: z.string().trim().max(5000).optional(),
+  })
+  .strict();
+const reservationDocumentSchema = z
+  .object({
+    requirementId: z.uuid().optional(),
+    mediaAssetId: z.uuid(),
+    documentType: z.string().trim().min(2).max(80),
+  })
+  .strict();
+const reservationDocumentReviewSchema = z
+  .object({
+    decision: z.enum(['approved', 'rejected']),
+    notes: z.string().trim().max(5000).optional(),
+  })
+  .strict();
 const leaseSchema = createLeaseSchema.extend({
   additionalTerms: z.string().max(10_000).optional(),
   reservationId: z.uuid().optional(),
 });
+const renewalSchema = z
+  .object({
+    templateVersionId: z.uuid(),
+    endsOn: z.iso.date(),
+    rent: z
+      .object({
+        amountMinor: z.string().regex(/^\d+$/),
+        currency: z.string().regex(/^[A-Z]{3}$/),
+      })
+      .optional(),
+    additionalTerms: z.string().trim().max(10_000).optional(),
+  })
+  .strict();
 const challengeSchema = z.discriminatedUnion('authenticationMethod', [
+  z.object({ authenticationMethod: z.literal('recent_sign_in') }),
   z.object({ authenticationMethod: z.literal('oidc_reauthentication') }),
   z.object({ authenticationMethod: z.literal('totp'), totpCode: z.string().regex(/^\d{6}$/) }),
 ]);
 const signingSchema = z
   .object({ challengeId: z.uuid(), consentTextVersion: z.string().min(1).max(80) })
+  .strict();
+const contractTemplateSchema = z
+  .object({
+    key: z
+      .string()
+      .trim()
+      .regex(/^[a-z0-9-]{3,80}$/),
+    language: z.enum(['ar', 'en']),
+    html: z.string().min(20).max(200_000),
+    active: z.boolean().default(true),
+  })
   .strict();
 
 @Controller('v1/leasing')
@@ -57,11 +120,29 @@ export class LeasingController {
     return this.service.createLeaseAndContract(request.auth!, body);
   }
 
+  @RequirePermissions('lease.update', 'contract.create')
+  @Idempotent()
+  @Post('leases/:id/renewals')
+  createRenewal(
+    @Req() request: FastifyRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(renewalSchema)) body: z.infer<typeof renewalSchema>,
+  ) {
+    return this.service.createRenewalContract(request.auth!, id, body);
+  }
+
   @RequirePermissions('contract.send')
   @Idempotent()
   @Post('contracts/:id/send')
   send(@Req() request: FastifyRequest, @Param('id') id: string) {
     return this.service.sendContract(request.auth!, id);
+  }
+
+  @RequirePermissions('contract.create')
+  @Idempotent()
+  @Post('contracts/:id/request-approval')
+  requestApproval(@Req() request: FastifyRequest, @Param('id', ParseUUIDPipe) id: string) {
+    return this.service.requestContractApproval(request.auth!, id);
   }
 
   @RequirePermissions('contract.sign')
@@ -119,6 +200,47 @@ export class LeasingController {
     return this.service.listReservations(request.auth!);
   }
 
+  @RequirePermissions('reservation.read')
+  @Get('reservations/:id/compliance')
+  reservationCompliance(@Req() request: FastifyRequest, @Param('id', ParseUUIDPipe) id: string) {
+    return this.service.reservationCompliance(request.auth!, id);
+  }
+
+  @RequirePermissions('reservation.manage')
+  @Idempotent()
+  @Post('reservations/:id/requirements')
+  addReservationRequirement(
+    @Req() request: FastifyRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(reservationRequirementSchema))
+    body: z.infer<typeof reservationRequirementSchema>,
+  ) {
+    return this.service.addReservationRequirement(request.auth!, id, body);
+  }
+
+  @RequirePermissions('reservation.document.submit')
+  @Idempotent()
+  @Post('reservations/:id/documents')
+  submitReservationDocument(
+    @Req() request: FastifyRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(reservationDocumentSchema))
+    body: z.infer<typeof reservationDocumentSchema>,
+  ) {
+    return this.service.submitReservationDocument(request.auth!, id, body);
+  }
+
+  @RequirePermissions('reservation.manage')
+  @Patch('reservation-documents/:id/review')
+  reviewReservationDocument(
+    @Req() request: FastifyRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(reservationDocumentReviewSchema))
+    body: z.infer<typeof reservationDocumentReviewSchema>,
+  ) {
+    return this.service.reviewReservationDocument(request.auth!, id, body);
+  }
+
   @RequirePermissions('reservation.manage')
   @Patch('reservations/:id')
   updateReservation(
@@ -145,6 +267,28 @@ export class LeasingController {
     return this.service.listContracts(request.auth!);
   }
 
+  @RequirePermissions('contract.read')
+  @Get('contracts/:id')
+  contract(@Req() request: FastifyRequest, @Param('id', ParseUUIDPipe) id: string) {
+    return this.service.contractDetail(request.auth!, id);
+  }
+
+  @RequirePermissions('contract.template.read')
+  @Get('contract-templates')
+  templates(@Req() request: FastifyRequest, @Query('includeInactive') includeInactive?: string) {
+    return this.service.listContractTemplates(request.auth!, includeInactive === 'true');
+  }
+
+  @RequirePermissions('contract.template.write')
+  @Idempotent()
+  @Post('contract-templates')
+  template(
+    @Req() request: FastifyRequest,
+    @Body(new ZodPipe(contractTemplateSchema)) body: z.infer<typeof contractTemplateSchema>,
+  ) {
+    return this.service.createContractTemplate(request.auth!, body);
+  }
+
   @RequirePermissions('lease.update')
   @Patch('leases/:id')
   updateLease(
@@ -154,16 +298,14 @@ export class LeasingController {
       new ZodPipe(
         z
           .object({
-            action: z.enum(['activate', 'end', 'terminate', 'renew']),
-            endsOn: z.iso.date().optional(),
+            action: z.enum(['activate', 'end', 'terminate']),
             note: z.string().max(5000).optional(),
           })
           .strict(),
       ),
     )
     body: {
-      action: 'activate' | 'end' | 'terminate' | 'renew';
-      endsOn?: string;
+      action: 'activate' | 'end' | 'terminate';
       note?: string;
     },
   ) {

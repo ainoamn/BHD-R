@@ -6,18 +6,18 @@
 
 ## 2. المصادر المعروفة
 
-| المصدر القديم | طبيعة البيانات | الخطر |
-|---|---|---|
-| Prisma `Property` و`PropertyBooking` | جزء من الأصل والحجز | Float وغياب Unit حقيقية |
-| `lib/data/properties.ts` | عقارات ثابتة وتفاصيل وحدات | تعارض مع DB/Overrides |
-| Property overrides | حالات نشر/توافر | RESERVED يظهر أحياناً وتناقضات |
-| `BookingStorage.data` | JSON حجز كامل | Schema drift وPII/Base64 |
-| `ContractStorage.data` | JSON عقد | تكرار مع الحجز ونسخ غير واضحة |
-| `PaymentPendingStorage` | دفع انتقالي | مطابقة وIdempotency غير مؤكدة |
-| `LegacyAppKvStore` | بيانات النظام الموروث | مفاتيح وفئات غير موحدة |
-| `LegacyStoredFile`/Blob | صور ومستندات | روابط/أنواع/تكرار/EXIF |
-| `AddressBookContact` | أطراف واتصال | تكرار وربط بالبريد/الهاتف |
-| Users/AutoUserAccount | حسابات وأدوار | لا نقل كلمات المرور أو temp credentials |
+| المصدر القديم                        | طبيعة البيانات             | الخطر                                   |
+| ------------------------------------ | -------------------------- | --------------------------------------- |
+| Prisma `Property` و`PropertyBooking` | جزء من الأصل والحجز        | Float وغياب Unit حقيقية                 |
+| `lib/data/properties.ts`             | عقارات ثابتة وتفاصيل وحدات | تعارض مع DB/Overrides                   |
+| Property overrides                   | حالات نشر/توافر            | RESERVED يظهر أحياناً وتناقضات          |
+| `BookingStorage.data`                | JSON حجز كامل              | Schema drift وPII/Base64                |
+| `ContractStorage.data`               | JSON عقد                   | تكرار مع الحجز ونسخ غير واضحة           |
+| `PaymentPendingStorage`              | دفع انتقالي                | مطابقة وIdempotency غير مؤكدة           |
+| `LegacyAppKvStore`                   | بيانات النظام الموروث      | مفاتيح وفئات غير موحدة                  |
+| `LegacyStoredFile`/Blob              | صور ومستندات               | روابط/أنواع/تكرار/EXIF                  |
+| `AddressBookContact`                 | أطراف واتصال               | تكرار وربط بالبريد/الهاتف               |
+| Users/AutoUserAccount                | حسابات وأدوار              | لا نقل كلمات المرور أو temp credentials |
 
 ## 3. قواعد الترحيل
 
@@ -134,4 +134,3 @@ flowchart LR
 - Cross-tenant tests على البيانات المرحّلة.
 - عينة بشرية معتمدة لكل نوع عقار وعقد.
 - Restore وrollback rehearsal ناجحان.
-

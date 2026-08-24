@@ -4,21 +4,35 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, lt, lte, sql } from 'drizzle-orm';
 import { lookup } from 'node:dns/promises';
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import {
   invoiceLines,
   invoices,
+  journalEntries,
+  journalLines,
+  ledgerAccounts,
+  billingSchedules,
   leases,
   organizations,
   outboxEvents,
   paymentGatewaySettings,
+  paymentSessions,
   payments,
+  receipts,
+  refunds,
   webhookEvents,
 } from '@bhd-r/db';
 import type { SessionClaims } from '@bhd-r/authz';
-import { currencyMinorUnits, publicInvoiceSchema, type RecordPaymentInput } from '@bhd-r/contracts';
+import {
+  currencyMinorUnits,
+  publicInvoiceSchema,
+  type CurrencyCode,
+  type RecordPaymentInput,
+} from '@bhd-r/contracts';
 import { calculateInvoice } from '@bhd-r/domain';
 import { assertSafeOutboundUrl, encryptField, type Keyring } from '@bhd-r/security';
 import { DatabaseService, type DatabaseTransaction } from '../database/database.service.js';
@@ -38,6 +52,8 @@ interface CreateInvoiceInput {
     taxRateBasisPoints?: number | undefined;
   }>;
   notes?: string | undefined;
+  billingPeriodStart?: string | undefined;
+  billingPeriodEnd?: string | undefined;
 }
 
 function secretKeyring(purpose: string): Keyring {
@@ -61,83 +77,43 @@ function secretKeyring(purpose: string): Keyring {
 
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
 
+function isoDate(value: Date): string {
+  return value.toISOString().slice(0, 10);
+}
+
+function addDays(date: string, days: number): string {
+  const value = new Date(`${date}T00:00:00.000Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return isoDate(value);
+}
+
+function nextBillingDate(current: string, billingDay: number): string {
+  const value = new Date(`${current}T00:00:00.000Z`);
+  return isoDate(new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth() + 1, billingDay)));
+}
+
 @Injectable()
 export class FinanceService {
+  readonly #s3 = new S3Client({
+    region: process.env.S3_REGION ?? 'us-east-1',
+    forcePathStyle: process.env.S3_FORCE_PATH_STYLE !== 'false',
+    ...(process.env.S3_ENDPOINT ? { endpoint: process.env.S3_ENDPOINT } : {}),
+    ...(process.env.S3_ACCESS_KEY && process.env.S3_SECRET_KEY
+      ? {
+          credentials: {
+            accessKeyId: process.env.S3_ACCESS_KEY,
+            secretAccessKey: process.env.S3_SECRET_KEY,
+          },
+        }
+      : {}),
+  });
+
   constructor(private readonly database: DatabaseService) {}
 
   createInvoice(claims: SessionClaims, input: CreateInvoiceInput) {
-    return this.database.withinTenant(claims, async (transaction) => {
-      const lease = await transaction.query.leases.findFirst({
-        where: and(eq(leases.id, input.leaseId), eq(leases.organizationId, claims.organizationId!)),
-      });
-      if (!lease) throw new NotFoundException('Lease not found');
-      if (input.lines.some((line) => line.unitAmount.currency !== lease.currency))
-        throw new ConflictException('Invoice currency must match the lease');
-      const calculated = calculateInvoice(
-        input.lines.map((line) => ({
-          description: line.description,
-          quantity: line.quantity,
-          ...(line.taxRateBasisPoints !== undefined
-            ? { taxRateBasisPoints: line.taxRateBasisPoints }
-            : {}),
-          unitAmount: {
-            amountMinor: BigInt(line.unitAmount.amountMinor),
-            currency: line.unitAmount.currency,
-            minorUnit: currencyMinorUnits[line.unitAmount.currency],
-          },
-        })),
-      );
-      const year = Number(input.issuedOn.slice(0, 4));
-      const sequence = await transaction.execute(sql<{ allocated: bigint }>`
-        insert into invoice_sequences (organization_id, year, next_value)
-        values (${claims.organizationId!}, ${year}, 2)
-        on conflict (organization_id, year)
-        do update set next_value = invoice_sequences.next_value + 1
-        returning next_value - 1 as allocated
-      `);
-      const allocated = BigInt(String(sequence[0]!.allocated));
-      const invoiceNumber = `INV-${year}-${allocated.toString().padStart(6, '0')}`;
-      const rows = await transaction
-        .insert(invoices)
-        .values({
-          organizationId: claims.organizationId!,
-          leaseId: lease.id,
-          tenantPartyId: lease.tenantPartyId,
-          invoiceNumber,
-          status: 'issued',
-          currency: calculated.total.currency,
-          minorUnit: calculated.total.minorUnit,
-          subtotalMinor: calculated.subtotal.amountMinor,
-          taxMinor: calculated.tax.amountMinor,
-          totalMinor: calculated.total.amountMinor,
-          issuedOn: input.issuedOn,
-          dueOn: input.dueOn,
-          notes: input.notes,
-        })
-        .returning();
-      const invoice = rows[0]!;
-      await transaction.insert(invoiceLines).values(
-        calculated.lines.map((line) => ({
-          organizationId: claims.organizationId!,
-          invoiceId: invoice.id,
-          description: line.description,
-          quantity: line.quantity,
-          unitAmountMinor: line.unitAmount.amountMinor,
-          taxRateBasisPoints: line.taxRateBasisPoints ?? 0,
-          subtotalMinor: line.subtotalMinor,
-          taxMinor: line.taxMinor,
-          totalMinor: line.totalMinor,
-        })),
-      );
-      await transaction.insert(outboxEvents).values({
-        organizationId: claims.organizationId!,
-        topic: 'invoice.issued',
-        aggregateType: 'invoice',
-        aggregateId: invoice.id,
-        payload: { invoiceNumber },
-      });
-      return this.serializeInvoice(invoice);
-    });
+    return this.database.withinTenant(claims, (transaction) =>
+      this.createInvoiceInTransaction(transaction, claims.organizationId!, input),
+    );
   }
 
   listInvoices(claims: SessionClaims) {
@@ -147,6 +123,53 @@ export class FinanceService {
         .from(invoices)
         .where(eq(invoices.organizationId, claims.organizationId!));
       return rows.map((row) => this.serializeInvoice(row));
+    });
+  }
+
+  listBillingSchedules(claims: SessionClaims) {
+    return this.database.withinTenant(claims, async (transaction) => {
+      const rows = await transaction
+        .select({
+          id: billingSchedules.id,
+          leaseId: billingSchedules.leaseId,
+          status: billingSchedules.status,
+          frequency: billingSchedules.frequency,
+          billingDay: billingSchedules.billingDay,
+          dueDays: billingSchedules.dueDays,
+          taxRateBasisPoints: billingSchedules.taxRateBasisPoints,
+          nextIssueOn: billingSchedules.nextIssueOn,
+          lastIssuedOn: billingSchedules.lastIssuedOn,
+          descriptionAr: billingSchedules.descriptionAr,
+          descriptionEn: billingSchedules.descriptionEn,
+        })
+        .from(billingSchedules)
+        .where(eq(billingSchedules.organizationId, claims.organizationId!))
+        .orderBy(asc(billingSchedules.nextIssueOn));
+      return rows;
+    });
+  }
+
+  runDueBilling(claims: SessionClaims, throughOn = isoDate(new Date())) {
+    return this.database.withinTenant(claims, (transaction) =>
+      this.generateDueInvoices(transaction, claims.organizationId!, throughOn),
+    );
+  }
+
+  runAllDueBilling(throughOn = isoDate(new Date())) {
+    return this.database.asSystem(async (transaction) => {
+      const organizationRows = await transaction
+        .select({ id: organizations.id })
+        .from(organizations)
+        .where(eq(organizations.status, 'active'));
+      const results = [];
+      for (const organization of organizationRows) {
+        results.push(await this.generateDueInvoices(transaction, organization.id, throughOn));
+      }
+      return {
+        throughOn,
+        organizations: results.length,
+        invoicesCreated: results.reduce((sum, result) => sum + result.invoicesCreated, 0),
+      };
     });
   }
 
@@ -161,6 +184,190 @@ export class FinanceService {
         amountMinor: row.amountMinor.toString(),
         refundedMinor: row.refundedMinor.toString(),
       }));
+    });
+  }
+
+  listReceipts(claims: SessionClaims) {
+    return this.database.withinTenant(claims, async (transaction) => {
+      const rows = await transaction
+        .select()
+        .from(receipts)
+        .where(eq(receipts.organizationId, claims.organizationId!))
+        .orderBy(asc(receipts.issuedAt));
+      return rows.map((row) => ({
+        id: row.id,
+        paymentId: row.paymentId,
+        receiptNumber: row.receiptNumber,
+        amountMinor: row.amountMinor.toString(),
+        currency: row.currency,
+        issuedAt: row.issuedAt,
+        documentReady: Boolean(row.renderedPdfObjectKey && row.renderedPdfHash),
+        documentHash: row.renderedPdfHash,
+      }));
+    });
+  }
+
+  async documentUrl(claims: SessionClaims, kind: 'invoice' | 'receipt', id: string) {
+    const document = await this.database.withinTenant(claims, async (transaction) => {
+      if (kind === 'invoice') {
+        const row = await transaction.query.invoices.findFirst({
+          where: and(eq(invoices.id, id), eq(invoices.organizationId, claims.organizationId!)),
+        });
+        return row
+          ? {
+              objectKey: row.renderedPdfObjectKey,
+              hash: row.renderedPdfHash,
+              filename: `${row.invoiceNumber}.pdf`,
+            }
+          : null;
+      }
+      const row = await transaction.query.receipts.findFirst({
+        where: and(eq(receipts.id, id), eq(receipts.organizationId, claims.organizationId!)),
+      });
+      return row
+        ? {
+            objectKey: row.renderedPdfObjectKey,
+            hash: row.renderedPdfHash,
+            filename: `${row.receiptNumber}.pdf`,
+          }
+        : null;
+    });
+    if (!document) throw new NotFoundException('Document not found');
+    if (!document.objectKey || !document.hash)
+      throw new ConflictException('Document generation is still in progress');
+    const expiresInSeconds = 180;
+    const url = await getSignedUrl(
+      this.#s3,
+      new GetObjectCommand({
+        Bucket: process.env.S3_BUCKET_PRIVATE ?? 'bhd-r-private',
+        Key: document.objectKey,
+        ResponseContentDisposition: `inline; filename="${document.filename}"`,
+        ResponseContentType: 'application/pdf',
+      }),
+      { expiresIn: expiresInSeconds },
+    );
+    return { url, expiresInSeconds, sha256: document.hash };
+  }
+
+  listRefunds(claims: SessionClaims) {
+    return this.database.withinTenant(claims, async (transaction) => {
+      const rows = await transaction
+        .select()
+        .from(refunds)
+        .where(eq(refunds.organizationId, claims.organizationId!))
+        .orderBy(asc(refunds.createdAt));
+      return rows.map((row) => ({ ...row, amountMinor: row.amountMinor.toString() }));
+    });
+  }
+
+  recordRefund(
+    claims: SessionClaims,
+    paymentId: string,
+    input: {
+      amountMinor: string;
+      providerReference: string;
+      reason: string;
+      completedAt?: string | undefined;
+    },
+  ) {
+    return this.database.withinTenant(claims, async (transaction) => {
+      await transaction.execute(
+        sql`select pg_advisory_xact_lock(hashtextextended(${paymentId}, 19))`,
+      );
+      const payment = await transaction.query.payments.findFirst({
+        where: and(eq(payments.id, paymentId), eq(payments.organizationId, claims.organizationId!)),
+      });
+      if (!payment) throw new NotFoundException('Payment not found');
+      if (payment.status === 'failed' || payment.status === 'pending') {
+        throw new ConflictException('Only a captured payment can be refunded');
+      }
+      const amountMinor = BigInt(input.amountMinor);
+      if (amountMinor <= 0n || payment.refundedMinor + amountMinor > payment.amountMinor) {
+        throw new ConflictException('Refund exceeds the refundable balance');
+      }
+      const refundRows = await transaction
+        .insert(refunds)
+        .values({
+          organizationId: claims.organizationId!,
+          paymentId: payment.id,
+          requestedByUserId: claims.sub,
+          amountMinor,
+          currency: payment.currency,
+          provider: payment.provider,
+          providerReference: input.providerReference,
+          status: 'succeeded',
+          reason: input.reason,
+          completedAt: input.completedAt ? new Date(input.completedAt) : new Date(),
+        })
+        .onConflictDoNothing()
+        .returning();
+      if (!refundRows[0]) {
+        const existing = await transaction.query.refunds.findFirst({
+          where: and(
+            eq(refunds.provider, payment.provider),
+            eq(refunds.providerReference, input.providerReference),
+          ),
+        });
+        if (existing?.paymentId !== payment.id || existing.amountMinor !== amountMinor) {
+          throw new ConflictException('Refund provider reference collision');
+        }
+        return { ...existing, amountMinor: existing.amountMinor.toString(), duplicate: true };
+      }
+      const refundedMinor = payment.refundedMinor + amountMinor;
+      await transaction
+        .update(payments)
+        .set({
+          refundedMinor,
+          status: refundedMinor === payment.amountMinor ? 'refunded' : 'partially_refunded',
+          updatedAt: new Date(),
+        })
+        .where(eq(payments.id, payment.id));
+      const invoice = await transaction.query.invoices.findFirst({
+        where: eq(invoices.id, payment.invoiceId),
+      });
+      if (!invoice || invoice.paidMinor < amountMinor) {
+        throw new ConflictException('Invoice payment balance is inconsistent');
+      }
+      const paidMinor = invoice.paidMinor - amountMinor;
+      await transaction
+        .update(invoices)
+        .set({
+          paidMinor,
+          status: paidMinor === 0n ? 'issued' : 'partially_paid',
+          updatedAt: new Date(),
+        })
+        .where(eq(invoices.id, invoice.id));
+      const lease = await transaction.query.leases.findFirst({
+        where: and(
+          eq(leases.id, invoice.leaseId),
+          eq(leases.organizationId, claims.organizationId!),
+        ),
+      });
+      await this.postFinanceJournal(transaction, claims.organizationId!, {
+        sourceType: 'payment_refund',
+        sourceId: refundRows[0].id,
+        occurredOn: isoDate(input.completedAt ? new Date(input.completedAt) : new Date()),
+        description: `Refund ${refundRows[0].providerReference}`,
+        partyId: invoice.tenantPartyId,
+        unitId: lease?.unitId,
+        currency: payment.currency as CurrencyCode,
+        lines: [
+          { accountCode: '1100', debitMinor: amountMinor, creditMinor: 0n },
+          { accountCode: '1000', debitMinor: 0n, creditMinor: amountMinor },
+        ],
+      });
+      await transaction.insert(outboxEvents).values({
+        organizationId: claims.organizationId!,
+        topic: 'payment.refunded',
+        aggregateType: 'refund',
+        aggregateId: refundRows[0].id,
+        payload: {
+          paymentId: payment.id,
+          invoiceId: invoice.id,
+          amountMinor: amountMinor.toString(),
+        },
+      });
+      return { ...refundRows[0], amountMinor: amountMinor.toString(), duplicate: false };
     });
   }
 
@@ -192,9 +399,11 @@ export class FinanceService {
   }
 
   async getPublicInvoice(token: string) {
-    const result = await this.database.asSystem(async (transaction) =>
-      transaction
+    const publicView = await this.database.asSystem(async (transaction) => {
+      const result = await transaction
         .select({
+          id: invoices.id,
+          organizationId: invoices.organizationId,
           invoiceNumber: invoices.invoiceNumber,
           status: invoices.status,
           issuedOn: invoices.issuedOn,
@@ -208,11 +417,23 @@ export class FinanceService {
         .from(invoices)
         .innerJoin(organizations, eq(organizations.id, invoices.organizationId))
         .where(eq(invoices.publicTokenHash, hashToken(token)))
-        .limit(1),
-    );
-    const invoice = result[0];
+        .limit(1);
+      const invoice = result[0];
+      const gateway = invoice
+        ? await transaction.query.paymentGatewaySettings.findFirst({
+            where: and(
+              eq(paymentGatewaySettings.organizationId, invoice.organizationId),
+              eq(paymentGatewaySettings.active, true),
+            ),
+          })
+        : null;
+      return { invoice, gateway };
+    });
+    const invoice = publicView.invoice;
     if (!invoice?.expiresAt || invoice.expiresAt <= new Date())
       throw new NotFoundException('Invoice link is invalid or expired');
+    const sandboxEnabled =
+      process.env.PAYMENT_SANDBOX_ENABLED === 'true' && process.env.NODE_ENV !== 'production';
     return publicInvoiceSchema.parse({
       publicReference: invoice.invoiceNumber,
       status: invoice.status,
@@ -224,24 +445,179 @@ export class FinanceService {
         currency: invoice.currency,
       },
       merchantName: invoice.merchantName,
-      paymentEnabled: false,
+      paymentEnabled:
+        BigInt(invoice.totalMinor) > BigInt(invoice.paidMinor) &&
+        (publicView.gateway?.provider === 'sandbox' || sandboxEnabled),
+    });
+  }
+
+  async createPublicPaymentSession(
+    token: string,
+    idempotencyKey: string,
+    locale: 'ar' | 'en',
+    returnPath: string,
+  ) {
+    return this.database.asSystem(async (transaction) => {
+      const invoice = await transaction.query.invoices.findFirst({
+        where: and(
+          eq(invoices.publicTokenHash, hashToken(token)),
+          sql`${invoices.publicTokenExpiresAt} > now()`,
+        ),
+      });
+      if (!invoice) throw new NotFoundException('Invoice link is invalid or expired');
+      const outstandingMinor = invoice.totalMinor - invoice.paidMinor;
+      if (outstandingMinor <= 0n) throw new ConflictException('Invoice is already paid');
+      const existing = await transaction.query.paymentSessions.findFirst({
+        where: and(
+          eq(paymentSessions.organizationId, invoice.organizationId),
+          eq(paymentSessions.idempotencyKey, idempotencyKey),
+        ),
+      });
+      if (existing) {
+        if (existing.invoiceId !== invoice.id || existing.amountMinor !== outstandingMinor) {
+          throw new ConflictException('Payment session idempotency key was reused');
+        }
+        return {
+          sessionReference: existing.sessionReference,
+          redirectUrl: existing.redirectUrl,
+          expiresAt: existing.expiresAt.toISOString(),
+          duplicate: true,
+        };
+      }
+      const configured = await transaction.query.paymentGatewaySettings.findFirst({
+        where: and(
+          eq(paymentGatewaySettings.organizationId, invoice.organizationId),
+          eq(paymentGatewaySettings.active, true),
+        ),
+      });
+      const sandboxEnabled =
+        process.env.PAYMENT_SANDBOX_ENABLED === 'true' && process.env.NODE_ENV !== 'production';
+      const provider = configured?.provider ?? (sandboxEnabled ? 'sandbox' : null);
+      if (provider !== 'sandbox') {
+        throw new ConflictException('No supported online payment adapter is active');
+      }
+      const sessionReference = randomBytes(24).toString('base64url');
+      const expiresAt = new Date(Date.now() + 20 * 60_000);
+      const origin = (process.env.WEB_ORIGIN ?? 'http://localhost:3000').replace(/\/$/, '');
+      const redirectUrl = `${origin}/${locale}/payments/sandbox/${sessionReference}`;
+      await transaction.insert(paymentSessions).values({
+        organizationId: invoice.organizationId,
+        invoiceId: invoice.id,
+        provider,
+        sessionReference,
+        idempotencyKey,
+        amountMinor: outstandingMinor,
+        currency: invoice.currency,
+        redirectUrl,
+        expiresAt,
+        metadata: { returnPath },
+      });
+      return {
+        sessionReference,
+        redirectUrl,
+        expiresAt: expiresAt.toISOString(),
+        duplicate: false,
+      };
+    });
+  }
+
+  completeSandboxPayment(sessionReference: string) {
+    if (process.env.PAYMENT_SANDBOX_ENABLED !== 'true' || process.env.NODE_ENV === 'production') {
+      throw new NotFoundException('Sandbox payments are disabled');
+    }
+    return this.database.asSystem(async (transaction) => {
+      await transaction.execute(
+        sql`select pg_advisory_xact_lock(hashtextextended(${sessionReference}, 23))`,
+      );
+      const session = await transaction.query.paymentSessions.findFirst({
+        where: and(
+          eq(paymentSessions.sessionReference, sessionReference),
+          eq(paymentSessions.provider, 'sandbox'),
+        ),
+      });
+      if (!session) throw new NotFoundException('Payment session not found');
+      if (session.status === 'completed') {
+        return {
+          completed: true,
+          duplicate: true,
+          invoiceId: session.invoiceId,
+          returnPath:
+            typeof session.metadata === 'object' &&
+            session.metadata !== null &&
+            'returnPath' in session.metadata
+              ? String((session.metadata as Record<string, unknown>).returnPath)
+              : null,
+        };
+      }
+      if (session.expiresAt <= new Date()) {
+        await transaction
+          .update(paymentSessions)
+          .set({ status: 'expired', updatedAt: new Date() })
+          .where(eq(paymentSessions.id, session.id));
+        throw new ConflictException('Payment session expired');
+      }
+      if (!(session.currency in currencyMinorUnits)) {
+        throw new ConflictException('Payment session currency is unsupported');
+      }
+      const currency = session.currency as CurrencyCode;
+      const payment = await this.recordPaymentInTransaction(transaction, session.organizationId, {
+        invoiceId: session.invoiceId,
+        amount: { amountMinor: session.amountMinor.toString(), currency },
+        provider: 'sandbox',
+        providerReference: `sandbox:${session.sessionReference}`,
+        receivedAt: new Date().toISOString(),
+        method: 'card',
+      });
+      await transaction
+        .update(paymentSessions)
+        .set({ status: 'completed', updatedAt: new Date() })
+        .where(eq(paymentSessions.id, session.id));
+      return {
+        completed: true,
+        duplicate: false,
+        invoiceId: session.invoiceId,
+        returnPath:
+          typeof session.metadata === 'object' &&
+          session.metadata !== null &&
+          'returnPath' in session.metadata
+            ? String((session.metadata as Record<string, unknown>).returnPath)
+            : null,
+        payment,
+      };
     });
   }
 
   async configureGateway(
     claims: SessionClaims,
-    input: { provider: string; endpoint: string; credentials: Record<string, string> },
+    input: {
+      provider: string;
+      endpoint: string;
+      credentials: Record<string, string>;
+      active: boolean;
+    },
   ) {
     const allowedHosts = (process.env.PAYMENT_GATEWAY_ALLOWED_HOSTS ?? '')
       .split(',')
       .map((host) => host.trim())
       .filter(Boolean);
-    const safeTarget = await assertSafeOutboundUrl(
-      input.endpoint,
-      async (hostname) =>
-        (await lookup(hostname, { all: true, verbatim: true })).map((record) => record.address),
-      allowedHosts,
-    );
+    const sandbox = input.provider === 'sandbox';
+    if (
+      sandbox &&
+      (process.env.NODE_ENV === 'production' || process.env.PAYMENT_SANDBOX_ENABLED !== 'true')
+    ) {
+      throw new ConflictException('Sandbox gateway is disabled');
+    }
+    const safeTarget = sandbox
+      ? {
+          url: new URL((process.env.WEB_ORIGIN ?? 'http://localhost:3000').replace(/\/$/, '')),
+          resolvedAddresses: [] as string[],
+        }
+      : await assertSafeOutboundUrl(
+          input.endpoint,
+          async (hostname) =>
+            (await lookup(hostname, { all: true, verbatim: true })).map((record) => record.address),
+          allowedHosts,
+        );
     const encrypted = encryptField(
       JSON.stringify({
         credentials: input.credentials,
@@ -251,6 +627,12 @@ export class FinanceService {
       `gateway:${claims.organizationId}:${input.provider}`,
     );
     return this.database.withinTenant(claims, async (transaction) => {
+      if (input.active) {
+        await transaction
+          .update(paymentGatewaySettings)
+          .set({ active: false, updatedAt: new Date() })
+          .where(eq(paymentGatewaySettings.organizationId, claims.organizationId!));
+      }
       const rows = await transaction
         .insert(paymentGatewaySettings)
         .values({
@@ -259,6 +641,7 @@ export class FinanceService {
           endpoint: safeTarget.url.toString(),
           credentialsEncrypted: encrypted,
           encryptionVersion: secretKeyring('payment-gateway').activeVersion,
+          active: input.active,
         })
         .onConflictDoUpdate({
           target: [paymentGatewaySettings.organizationId, paymentGatewaySettings.provider],
@@ -266,6 +649,7 @@ export class FinanceService {
             endpoint: safeTarget.url.toString(),
             credentialsEncrypted: encrypted,
             encryptionVersion: secretKeyring('payment-gateway').activeVersion,
+            active: input.active,
             updatedAt: new Date(),
           },
         })
@@ -340,6 +724,219 @@ export class FinanceService {
     });
   }
 
+  private async createInvoiceInTransaction(
+    transaction: DatabaseTransaction,
+    organizationId: string,
+    input: CreateInvoiceInput,
+  ) {
+    const lease = await transaction.query.leases.findFirst({
+      where: and(eq(leases.id, input.leaseId), eq(leases.organizationId, organizationId)),
+    });
+    if (!lease) throw new NotFoundException('Lease not found');
+    if (input.lines.some((line) => line.unitAmount.currency !== lease.currency)) {
+      throw new ConflictException('Invoice currency must match the lease');
+    }
+    if (input.billingPeriodStart) {
+      const existing = await transaction.query.invoices.findFirst({
+        where: and(
+          eq(invoices.organizationId, organizationId),
+          eq(invoices.leaseId, lease.id),
+          eq(invoices.billingPeriodStart, input.billingPeriodStart),
+        ),
+      });
+      if (existing) return { ...this.serializeInvoice(existing), duplicate: true };
+    }
+    const calculated = calculateInvoice(
+      input.lines.map((line) => ({
+        description: line.description,
+        quantity: line.quantity,
+        ...(line.taxRateBasisPoints !== undefined
+          ? { taxRateBasisPoints: line.taxRateBasisPoints }
+          : {}),
+        unitAmount: {
+          amountMinor: BigInt(line.unitAmount.amountMinor),
+          currency: line.unitAmount.currency,
+          minorUnit: currencyMinorUnits[line.unitAmount.currency],
+        },
+      })),
+    );
+    const year = Number(input.issuedOn.slice(0, 4));
+    const sequence = await transaction.execute(sql<{ allocated: bigint }>`
+      insert into invoice_sequences (organization_id, year, next_value)
+      values (${organizationId}, ${year}, 2)
+      on conflict (organization_id, year)
+      do update set next_value = invoice_sequences.next_value + 1
+      returning next_value - 1 as allocated
+    `);
+    const allocated = BigInt(String(sequence[0]!.allocated));
+    const invoiceNumber = `INV-${year}-${allocated.toString().padStart(6, '0')}`;
+    const rows = await transaction
+      .insert(invoices)
+      .values({
+        organizationId,
+        leaseId: lease.id,
+        tenantPartyId: lease.tenantPartyId,
+        invoiceNumber,
+        status: 'issued',
+        currency: calculated.total.currency,
+        minorUnit: calculated.total.minorUnit,
+        subtotalMinor: calculated.subtotal.amountMinor,
+        taxMinor: calculated.tax.amountMinor,
+        totalMinor: calculated.total.amountMinor,
+        issuedOn: input.issuedOn,
+        dueOn: input.dueOn,
+        billingPeriodStart: input.billingPeriodStart,
+        billingPeriodEnd: input.billingPeriodEnd,
+        notes: input.notes,
+      })
+      .returning();
+    const invoice = rows[0]!;
+    await transaction.insert(invoiceLines).values(
+      calculated.lines.map((line) => ({
+        organizationId,
+        invoiceId: invoice.id,
+        description: line.description,
+        quantity: line.quantity,
+        unitAmountMinor: line.unitAmount.amountMinor,
+        taxRateBasisPoints: line.taxRateBasisPoints ?? 0,
+        subtotalMinor: line.subtotalMinor,
+        taxMinor: line.taxMinor,
+        totalMinor: line.totalMinor,
+      })),
+    );
+    await this.postFinanceJournal(transaction, organizationId, {
+      sourceType: 'invoice_issue',
+      sourceId: invoice.id,
+      occurredOn: input.issuedOn,
+      description: `Invoice ${invoiceNumber}`,
+      partyId: lease.tenantPartyId,
+      unitId: lease.unitId,
+      currency: input.lines[0]!.unitAmount.currency,
+      lines: [
+        {
+          accountCode: '1100',
+          debitMinor: calculated.total.amountMinor,
+          creditMinor: 0n,
+        },
+        {
+          accountCode: '4000',
+          debitMinor: 0n,
+          creditMinor: calculated.subtotal.amountMinor,
+        },
+        ...(calculated.tax.amountMinor > 0n
+          ? [
+              {
+                accountCode: '2200' as const,
+                debitMinor: 0n,
+                creditMinor: calculated.tax.amountMinor,
+              },
+            ]
+          : []),
+      ],
+    });
+    await transaction.insert(outboxEvents).values({
+      organizationId,
+      topic: 'invoice.issued',
+      aggregateType: 'invoice',
+      aggregateId: invoice.id,
+      payload: { invoiceNumber, billingPeriodStart: input.billingPeriodStart ?? null },
+    });
+    return { ...this.serializeInvoice(invoice), duplicate: false };
+  }
+
+  private async generateDueInvoices(
+    transaction: DatabaseTransaction,
+    organizationId: string,
+    throughOn: string,
+  ): Promise<{ organizationId: string; invoicesCreated: number; scheduleCount: number }> {
+    await transaction
+      .update(invoices)
+      .set({ status: 'overdue', updatedAt: new Date() })
+      .where(
+        and(
+          eq(invoices.organizationId, organizationId),
+          inArray(invoices.status, ['issued', 'partially_paid']),
+          lt(invoices.dueOn, throughOn),
+        ),
+      );
+    const schedules = await transaction
+      .select()
+      .from(billingSchedules)
+      .where(
+        and(
+          eq(billingSchedules.organizationId, organizationId),
+          eq(billingSchedules.status, 'active'),
+          lte(billingSchedules.nextIssueOn, throughOn),
+        ),
+      )
+      .orderBy(asc(billingSchedules.nextIssueOn));
+    let invoicesCreated = 0;
+    for (const schedule of schedules) {
+      await transaction.execute(
+        sql`select pg_advisory_xact_lock(hashtextextended(${schedule.id}, 29))`,
+      );
+      const lease = await transaction.query.leases.findFirst({
+        where: and(eq(leases.id, schedule.leaseId), eq(leases.organizationId, organizationId)),
+      });
+      if (!lease || lease.status !== 'active') {
+        await transaction
+          .update(billingSchedules)
+          .set({
+            status: lease?.status === 'ended' ? 'completed' : 'paused',
+            updatedAt: new Date(),
+          })
+          .where(eq(billingSchedules.id, schedule.id));
+        continue;
+      }
+      if (!(lease.currency in currencyMinorUnits)) {
+        throw new ConflictException(`Unsupported lease currency: ${lease.currency}`);
+      }
+      const leaseCurrency = lease.currency as CurrencyCode;
+      let nextIssueOn = schedule.nextIssueOn;
+      let generatedForSchedule = 0;
+      while (nextIssueOn <= throughOn && generatedForSchedule < 24) {
+        if (nextIssueOn > lease.endsOn) {
+          await transaction
+            .update(billingSchedules)
+            .set({ status: 'completed', updatedAt: new Date() })
+            .where(eq(billingSchedules.id, schedule.id));
+          break;
+        }
+        const nextPeriodStart = nextBillingDate(nextIssueOn, schedule.billingDay);
+        const invoice = await this.createInvoiceInTransaction(transaction, organizationId, {
+          leaseId: lease.id,
+          issuedOn: nextIssueOn,
+          dueOn: addDays(nextIssueOn, schedule.dueDays),
+          billingPeriodStart: nextIssueOn,
+          billingPeriodEnd: addDays(nextPeriodStart, -1),
+          lines: [
+            {
+              description: schedule.descriptionAr,
+              quantity: '1',
+              unitAmount: {
+                amountMinor: lease.rentMinor.toString(),
+                currency: leaseCurrency,
+              },
+              taxRateBasisPoints: schedule.taxRateBasisPoints,
+            },
+          ],
+        });
+        if (!invoice.duplicate) invoicesCreated += 1;
+        await transaction
+          .update(billingSchedules)
+          .set({
+            lastIssuedOn: nextIssueOn,
+            nextIssueOn: nextPeriodStart,
+            updatedAt: new Date(),
+          })
+          .where(eq(billingSchedules.id, schedule.id));
+        nextIssueOn = nextPeriodStart;
+        generatedForSchedule += 1;
+      }
+    }
+    return { organizationId, invoicesCreated, scheduleCount: schedules.length };
+  }
+
   private async recordPaymentInTransaction(
     transaction: DatabaseTransaction,
     organizationId: string,
@@ -382,8 +979,38 @@ export class FinanceService {
       });
       if (existing?.invoiceId !== invoice.id || existing.amountMinor !== amountMinor)
         throw new ConflictException('Provider reference collision');
-      return { ...existing, amountMinor: existing.amountMinor.toString(), duplicate: true };
+      const receipt = existing
+        ? await transaction.query.receipts.findFirst({ where: eq(receipts.paymentId, existing.id) })
+        : null;
+      return {
+        ...existing,
+        amountMinor: existing.amountMinor.toString(),
+        duplicate: true,
+        receipt: receipt ? { ...receipt, amountMinor: receipt.amountMinor.toString() } : null,
+      };
     }
+    const receiptYear = new Date(input.receivedAt).getUTCFullYear();
+    const receiptSequence = await transaction.execute(sql<{ allocated: bigint }>`
+      insert into receipt_sequences (organization_id, year, next_value)
+      values (${organizationId}, ${receiptYear}, 2)
+      on conflict (organization_id, year)
+      do update set next_value = receipt_sequences.next_value + 1
+      returning next_value - 1 as allocated
+    `);
+    const receiptNumber = `RCT-${receiptYear}-${BigInt(String(receiptSequence[0]!.allocated))
+      .toString()
+      .padStart(6, '0')}`;
+    const receiptRows = await transaction
+      .insert(receipts)
+      .values({
+        organizationId,
+        paymentId: rows[0]!.id,
+        receiptNumber,
+        amountMinor,
+        currency: input.amount.currency,
+        issuedAt: new Date(input.receivedAt),
+      })
+      .returning();
     const paidMinor = invoice.paidMinor + amountMinor;
     await transaction
       .update(invoices)
@@ -393,6 +1020,22 @@ export class FinanceService {
         updatedAt: new Date(),
       })
       .where(eq(invoices.id, invoice.id));
+    const lease = await transaction.query.leases.findFirst({
+      where: and(eq(leases.id, invoice.leaseId), eq(leases.organizationId, organizationId)),
+    });
+    await this.postFinanceJournal(transaction, organizationId, {
+      sourceType: 'payment_receipt',
+      sourceId: rows[0]!.id,
+      occurredOn: isoDate(new Date(input.receivedAt)),
+      description: `Payment ${input.providerReference}`,
+      partyId: invoice.tenantPartyId,
+      unitId: lease?.unitId,
+      currency: input.amount.currency,
+      lines: [
+        { accountCode: '1000', debitMinor: amountMinor, creditMinor: 0n },
+        { accountCode: '1100', debitMinor: 0n, creditMinor: amountMinor },
+      ],
+    });
     await transaction.insert(outboxEvents).values({
       organizationId,
       topic: 'payment.recorded',
@@ -400,12 +1043,133 @@ export class FinanceService {
       aggregateId: rows[0]!.id,
       payload: { invoiceId: invoice.id, amountMinor: amountMinor.toString() },
     });
+    await transaction.insert(outboxEvents).values({
+      organizationId,
+      topic: 'receipt.issued',
+      aggregateType: 'receipt',
+      aggregateId: receiptRows[0]!.id,
+      payload: { invoiceId: invoice.id, paymentId: rows[0]!.id, receiptNumber },
+    });
     return {
       ...rows[0],
       amountMinor: rows[0]!.amountMinor.toString(),
       refundedMinor: rows[0]!.refundedMinor.toString(),
       duplicate: false,
+      receipt: { ...receiptRows[0]!, amountMinor: receiptRows[0]!.amountMinor.toString() },
     };
+  }
+
+  private async postFinanceJournal(
+    transaction: DatabaseTransaction,
+    organizationId: string,
+    input: {
+      sourceType: 'invoice_issue' | 'payment_receipt' | 'payment_refund';
+      sourceId: string;
+      occurredOn: string;
+      description: string;
+      partyId: string;
+      unitId?: string | undefined;
+      currency: CurrencyCode;
+      lines: Array<{
+        accountCode: '1000' | '1100' | '2200' | '4000';
+        debitMinor: bigint;
+        creditMinor: bigint;
+      }>;
+    },
+  ) {
+    const existing = await transaction.query.journalEntries.findFirst({
+      where: and(
+        eq(journalEntries.organizationId, organizationId),
+        eq(journalEntries.sourceType, input.sourceType),
+        eq(journalEntries.sourceId, input.sourceId),
+      ),
+    });
+    if (existing) return existing;
+    const defaults = [
+      { code: '1000', nameAr: 'النقد والبنوك', nameEn: 'Cash and banks', type: 'asset' as const },
+      {
+        code: '1100',
+        nameAr: 'ذمم المستأجرين',
+        nameEn: 'Tenant receivables',
+        type: 'asset' as const,
+      },
+      {
+        code: '2200',
+        nameAr: 'ضريبة القيمة المضافة',
+        nameEn: 'VAT payable',
+        type: 'liability' as const,
+      },
+      {
+        code: '4000',
+        nameAr: 'إيرادات الإيجار',
+        nameEn: 'Rental income',
+        type: 'revenue' as const,
+      },
+    ];
+    await transaction
+      .insert(ledgerAccounts)
+      .values(defaults.map((account) => ({ organizationId, ...account, system: true })))
+      .onConflictDoNothing({ target: [ledgerAccounts.organizationId, ledgerAccounts.code] });
+    const accountRows = await transaction
+      .select({ id: ledgerAccounts.id, code: ledgerAccounts.code })
+      .from(ledgerAccounts)
+      .where(
+        and(
+          eq(ledgerAccounts.organizationId, organizationId),
+          inArray(ledgerAccounts.code, [...new Set(input.lines.map((line) => line.accountCode))]),
+        ),
+      );
+    const accounts = new Map(accountRows.map((account) => [account.code, account.id]));
+    if (accounts.size !== new Set(input.lines.map((line) => line.accountCode)).size) {
+      throw new ConflictException('Required system ledger accounts are unavailable');
+    }
+    const year = Number(input.occurredOn.slice(0, 4));
+    const sequence = await transaction.execute(sql<{ allocated: bigint }>`
+      insert into journal_sequences (organization_id, year, kind, next_value)
+      values (${organizationId}, ${year}, 'JRN', 2)
+      on conflict (organization_id, year, kind)
+      do update set next_value = journal_sequences.next_value + 1
+      returning next_value - 1 as allocated
+    `);
+    const reference = `JRN-${year}-${BigInt(String(sequence[0]!.allocated))
+      .toString()
+      .padStart(6, '0')}`;
+    const entries = await transaction
+      .insert(journalEntries)
+      .values({
+        organizationId,
+        reference,
+        occurredOn: input.occurredOn,
+        description: input.description,
+        status: 'posted',
+        sourceType: input.sourceType,
+        sourceId: input.sourceId,
+        postedAt: new Date(),
+      })
+      .returning();
+    const entry = entries[0]!;
+    await transaction.insert(journalLines).values(
+      input.lines.map((line) => ({
+        organizationId,
+        journalEntryId: entry.id,
+        accountId: accounts.get(line.accountCode)!,
+        partyId: input.partyId,
+        unitId: input.unitId,
+        debitMinor: line.debitMinor,
+        creditMinor: line.creditMinor,
+        currency: input.currency,
+        minorUnit: currencyMinorUnits[input.currency],
+        memo: input.description,
+      })),
+    );
+    await transaction.insert(outboxEvents).values({
+      organizationId,
+      topic: 'accounting.journal-posted',
+      aggregateType: 'journal_entry',
+      aggregateId: entry.id,
+      payload: { reference, sourceType: input.sourceType, sourceId: input.sourceId },
+    });
+    return entry;
   }
 
   private verifyWebhookSignature(signatureHeader: string, body: Buffer): void {
@@ -469,6 +1233,10 @@ export class FinanceService {
       issuedOn: invoice.issuedOn,
       dueOn: invoice.dueOn,
       notes: invoice.notes,
+      billingPeriodStart: invoice.billingPeriodStart,
+      billingPeriodEnd: invoice.billingPeriodEnd,
+      documentReady: Boolean(invoice.renderedPdfObjectKey && invoice.renderedPdfHash),
+      documentHash: invoice.renderedPdfHash,
       createdAt: invoice.createdAt,
       updatedAt: invoice.updatedAt,
     };

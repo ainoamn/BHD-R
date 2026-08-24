@@ -4,6 +4,7 @@
 
 | الوثيقة                                                              | الغرض                                                             |
 | -------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| [V1-COMPLETION-REPORT-AR.md](./V1-COMPLETION-REPORT-AR.md)           | **تقرير اكتمال V1 وأدلة التحقق والهجرات وحدود التسليم**           |
 | [PROJECT_DOCUMENTATION_AR.md](./PROJECT_DOCUMENTATION_AR.md)         | **التوثيق المفصل الشامل للمنتج والتشغيل**                         |
 | [SECURITY_CHECKLIST_MATRIX_AR.md](./SECURITY_CHECKLIST_MATRIX_AR.md) | مصفوفة بنود الأمن المطلوبة مقابل التنفيذ                          |
 | [VERCEL_DEPLOYMENT_AR.md](./VERCEL_DEPLOYMENT_AR.md)                 | تمهيد الربط على Vercel                                            |
@@ -12,11 +13,11 @@
 | [LOCAL_DEVELOPMENT.md](./LOCAL_DEVELOPMENT.md)                       | تشغيل بيئة التطوير من الصفر                                       |
 | [API_OVERVIEW.md](./API_OVERVIEW.md)                                 | قواعد API، الأخطاء، idempotency وwebhooks                         |
 | [OMANI_UI_2026-08-23.md](./OMANI_UI_2026-08-23.md)                   | إعادة التصميم العُماني والدخول الموحّد                            |
-| [OPERATIONS_SUITE_AR.md](./OPERATIONS_SUITE_AR.md)                   | **الحزمة التشغيلية المتكاملة** (عقارات، عقود، محاسبة، تقارير…) |
-| [RELEASE_SYNC_0.1.6.md](./RELEASE_SYNC_0.1.6.md)                     | تحقق مزامنة حزمة complete 0.1.6                               |
-| [PARENT_FOLDER_SYNC_AR.md](./PARENT_FOLDER_SYNC_AR.md)               | خريطة مجلد العمل الأب → مسارات المستودع                       |
-| [screenshots/2026-08-23/](./screenshots/2026-08-23/)                 | لقطات لوحات النظام ومعالج العقار                              |
-| [BHD-R-IDENTITY-SETUP.md](./BHD-R-IDENTITY-SETUP.md)                 | ربط هوية BHD وVercel لنطاق النشر الحالي                       |
+| [OPERATIONS_SUITE_AR.md](./OPERATIONS_SUITE_AR.md)                   | **الحزمة التشغيلية المتكاملة** (عقارات، عقود، محاسبة، تقارير…)    |
+| [RELEASE_SYNC_0.1.6.md](./RELEASE_SYNC_0.1.6.md)                     | تحقق مزامنة حزمة complete 0.1.6                                   |
+| [PARENT_FOLDER_SYNC_AR.md](./PARENT_FOLDER_SYNC_AR.md)               | خريطة مجلد العمل الأب → مسارات المستودع                           |
+| [screenshots/2026-08-23/](./screenshots/2026-08-23/)                 | لقطات لوحات النظام ومعالج العقار                                  |
+| [BHD-R-IDENTITY-SETUP.md](./BHD-R-IDENTITY-SETUP.md)                 | ربط هوية BHD وVercel لنطاق النشر الحالي                           |
 | [SSO.md](./SSO.md)                                                   | الدخول الموحد وربط هوية BHD                                       |
 | [COUNTRY_PACKS.md](./COUNTRY_PACKS.md)                               | الدول والعملات والترجمة                                           |
 | [SECURITY_CONTROLS.md](./SECURITY_CONTROLS.md)                       | ضوابط الأمن وطريقة إثباتها                                        |

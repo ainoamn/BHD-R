@@ -46,7 +46,7 @@ const expenseSchema = z
     workOrderId: optionalUuid,
     category: z.string().min(2).max(80),
     description: z.string().min(2).max(500),
-    amountMinor: z.string().regex(/^\d+$/),
+    amountMinor: z.string().regex(/^[1-9]\d*$/),
     taxMinor: z.string().regex(/^\d+$/).optional(),
     currency: currencyCodeSchema,
     issuedOn: z.iso.date(),

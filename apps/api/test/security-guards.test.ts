@@ -8,6 +8,7 @@ import { PermissionGuard } from '../src/common/permission.guard.js';
 import { REQUIRED_PERMISSIONS } from '../src/common/decorators.js';
 import { signingRoleForParty } from '../src/leasing/leasing.service.js';
 import { createInternalRequestId } from '../src/common/request-id.js';
+import { auditChangedFields } from '../src/common/audit.interceptor.js';
 
 function context(handler: () => void, request: Record<string, unknown>): ExecutionContext {
   return {
@@ -60,6 +61,18 @@ describe('CSRF', () => {
         context(() => undefined, { ...base, headers: { 'x-csrf-token': `${token}x` } }),
       ),
     ).toThrow(ForbiddenException);
+    expect(() =>
+      guard.canActivate(
+        context(() => undefined, {
+          ...base,
+          headers: {
+            'x-csrf-token': token,
+            origin: 'https://attacker.example',
+            'sec-fetch-site': 'cross-site',
+          },
+        }),
+      ),
+    ).toThrow('Cross-site request rejected');
   });
 });
 
@@ -79,5 +92,21 @@ describe('audit request correlation', () => {
     const generated = createInternalRequestId();
     expect(generated).not.toBe(supplied);
     expect(generated).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it('never copies secrets or sensitive field names into audit metadata', () => {
+    const metadata = {
+      changedFields: auditChangedFields({
+        displayName: 'Safe change',
+        password: 'Plaintext must never be logged',
+        apiKey: 'bhd_live_secret',
+        credentials: { merchantSecret: 'gateway-secret' },
+        totpCode: '123456',
+      }),
+    };
+    expect(metadata.changedFields).toEqual(['displayName']);
+    expect(JSON.stringify(metadata)).not.toMatch(
+      /Plaintext|bhd_live|gateway-secret|123456|password|apiKey|credentials|totp/i,
+    );
   });
 });

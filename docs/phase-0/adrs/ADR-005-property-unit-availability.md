@@ -18,4 +18,3 @@
 - انتهاء الحجز يعيد الوحدة إن بقي زر العرض مفعلاً.
 - لا JSON units ولا مفاتيح نصية Legacy.
 - يحتاج Cache/Sitemap invalidation عند كل availability event.
-

@@ -34,13 +34,13 @@ Avoid: any text beyond the two verbatim strings; watermarks; signatures; mockup 
 
 المجلد: [`docs/screenshots/2026-08-23/`](./screenshots/2026-08-23/)
 
-| الملف | الشاشة |
-| --- | --- |
-| `01-platform-dashboard-ar.png` | لوحة المنصة |
-| `02-owner-dashboard-ar.png` | لوحة المالك |
-| `03-developer-dashboard-ar.png` | لوحة المطوّر |
-| `04-tenant-dashboard-ar.png` | لوحة المستأجر |
+| الملف                           | الشاشة                 |
+| ------------------------------- | ---------------------- |
+| `01-platform-dashboard-ar.png`  | لوحة المنصة            |
+| `02-owner-dashboard-ar.png`     | لوحة المالك            |
+| `03-developer-dashboard-ar.png` | لوحة المطوّر           |
+| `04-tenant-dashboard-ar.png`    | لوحة المستأجر          |
 | `05-add-property-basics-ar.png` | إضافة عقار — الأساسيات |
-| `06-add-property-units-ar.png` | إضافة عقار — الوحدات |
-| `07-add-property-media-ar.png` | إضافة عقار — الوسائط |
-| `08-add-property-review-ar.png` | إضافة عقار — المراجعة |
+| `06-add-property-units-ar.png`  | إضافة عقار — الوحدات   |
+| `07-add-property-media-ar.png`  | إضافة عقار — الوسائط   |
+| `08-add-property-review-ar.png` | إضافة عقار — المراجعة  |

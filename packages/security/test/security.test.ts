@@ -9,6 +9,7 @@ import {
   generateTotpSecret,
   hashPassword,
   rotateEncryptedField,
+  sanitizeDocumentTemplate,
   sanitizeRichText,
   verifyCsrfToken,
   verifyPassword,
@@ -68,6 +69,14 @@ describe('security primitives', () => {
       sanitizeRichText('<img src=x onerror=alert(1)><p onclick=x>safe</p><script>x</script>'),
     ).toBe('<p>safe</p>');
     expect(escapeHtml('<svg onload=alert(1)>')).not.toContain('<svg');
+  });
+
+  it('closes contract, invoice, POS and restaurant print-template XSS vectors', () => {
+    const safe = sanitizeDocumentTemplate(
+      '<section><h1>Invoice</h1><img src="javascript:alert(1)" onerror="alert(2)"><a href="javascript:alert(3)">pay</a><style>@import url(https://evil.test/x);</style><script>alert(4)</script></section>',
+    );
+    expect(safe).toContain('<section><h1>Invoice</h1>');
+    expect(safe).not.toMatch(/javascript:|onerror|@import|<script/i);
   });
 
   it('accepts TOTP once and rejects replayed counters', () => {

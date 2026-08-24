@@ -229,4 +229,3 @@ flowchart LR
 لكل صفحة: Loading، Empty، Error قابل للإجراء، Permission denied، Plan limit، Offline/timeout، Stale version، Processing job، وPartial external outage.
 
 لا تستخدم Demo fallback ببيانات مزيفة في الإنتاج؛ Empty state صادق أفضل.
-

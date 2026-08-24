@@ -9,14 +9,20 @@ import type { PortalOverview as OverviewData, PortalRole } from '@/lib/types';
 export async function PortalOverview({ locale, portal }: { locale: string; portal: PortalRole }) {
   const t = await getTranslations();
   const viewer = await requirePortal(locale, portal);
-  const overview = await apiFetch<OverviewData>(`/v1/${portal}/overview`).catch(() => ({
-    occupancyPercent: null,
-    collectedMinor: null,
-    currency: 'OMR',
-    openTickets: null,
-    expiringContracts: null,
-    recentActivity: [],
-  }));
+  const overview: OverviewData = await apiFetch<OverviewData>(`/v1/${portal}/overview`).catch(
+    (): OverviewData => ({
+      occupancyPercent: null,
+      collected: [],
+      openTickets: null,
+      expiringContracts: null,
+      recentActivity: [],
+    }),
+  );
+  const collected =
+    overview.collected ??
+    (overview.collectedMinor !== null && overview.collectedMinor !== undefined
+      ? [{ amountMinor: overview.collectedMinor, currency: overview.currency ?? 'OMR' }]
+      : []);
   const value = (input: number | null, suffix = '') => (input === null ? '—' : `${input}${suffix}`);
   return (
     <>
@@ -38,10 +44,14 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
         </Card>
         <Card className="metric">
           <p>{t('Portal.collected')}</p>
-          <strong>
-            {overview.collectedMinor === null
-              ? '—'
-              : formatMoney(overview.collectedMinor, overview.currency, locale)}
+          <strong className="metric-money-stack">
+            {collected.length
+              ? collected.map((amount) => (
+                  <span key={amount.currency}>
+                    {formatMoney(amount.amountMinor, amount.currency, locale)}
+                  </span>
+                ))
+              : '—'}
           </strong>
         </Card>
         <Card className="metric">

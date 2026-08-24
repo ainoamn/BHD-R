@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import type { SessionClaims } from '@bhd-r/authz';
 import { currencyMinorUnits, type CurrencyCode } from '@bhd-r/contracts';
 import {
+  approvalRequests,
   expenses,
   invoices,
   journalEntries,
@@ -103,6 +104,23 @@ async function logWorkflow(
   });
 }
 
+async function allocateJournalReference(
+  transaction: DatabaseTransaction,
+  organizationId: string,
+  occurredOn: string,
+  kind: 'JRN' | 'REV',
+): Promise<string> {
+  const year = Number(occurredOn.slice(0, 4));
+  const sequence = await transaction.execute(sql<{ allocated: bigint }>`
+    insert into journal_sequences (organization_id, year, kind, next_value)
+    values (${organizationId}, ${year}, ${kind}, 2)
+    on conflict (organization_id, year, kind)
+    do update set next_value = journal_sequences.next_value + 1
+    returning next_value - 1 as allocated
+  `);
+  return `${kind}-${year}-${BigInt(String(sequence[0]!.allocated)).toString().padStart(6, '0')}`;
+}
+
 @Injectable()
 export class AccountingService {
   constructor(private readonly database: DatabaseService) {}
@@ -112,31 +130,46 @@ export class AccountingService {
       const [receivable, collected, expenseTotal, draftJournals, overdue] = await Promise.all([
         transaction
           .select({
+            currency: invoices.currency,
             value: sql<string>`coalesce(sum(${invoices.totalMinor} - ${invoices.paidMinor}), 0)`,
           })
           .from(invoices)
-          .where(inArray(invoices.status, ['issued', 'partially_paid', 'overdue'])),
-        transaction
-          .select({ value: sql<string>`coalesce(sum(${payments.amountMinor}), 0)` })
-          .from(payments)
-          .where(eq(payments.status, 'succeeded')),
+          .where(inArray(invoices.status, ['issued', 'partially_paid', 'overdue']))
+          .groupBy(invoices.currency),
         transaction
           .select({
+            currency: payments.currency,
+            value: sql<string>`coalesce(sum(${payments.amountMinor} - ${payments.refundedMinor}), 0)`,
+          })
+          .from(payments)
+          .where(inArray(payments.status, ['succeeded', 'partially_refunded', 'refunded']))
+          .groupBy(payments.currency),
+        transaction
+          .select({
+            currency: expenses.currency,
             value: sql<string>`coalesce(sum(${expenses.amountMinor} + ${expenses.taxMinor}), 0)`,
           })
           .from(expenses)
-          .where(inArray(expenses.status, ['approved', 'in_progress', 'completed'])),
+          .where(inArray(expenses.status, ['approved', 'in_progress', 'completed']))
+          .groupBy(expenses.currency),
         transaction
           .select({ value: count() })
           .from(journalEntries)
           .where(eq(journalEntries.status, 'draft')),
         transaction.select({ value: count() }).from(invoices).where(eq(invoices.status, 'overdue')),
       ]);
+      const currencies = new Set([
+        ...receivable.map((row) => row.currency),
+        ...collected.map((row) => row.currency),
+        ...expenseTotal.map((row) => row.currency),
+      ]);
       return {
-        currency: 'OMR',
-        receivableMinor: receivable[0]?.value ?? '0',
-        collectedMinor: collected[0]?.value ?? '0',
-        expenseMinor: expenseTotal[0]?.value ?? '0',
+        totalsByCurrency: [...currencies].sort().map((currency) => ({
+          currency,
+          receivableMinor: receivable.find((row) => row.currency === currency)?.value ?? '0',
+          collectedMinor: collected.find((row) => row.currency === currency)?.value ?? '0',
+          expenseMinor: expenseTotal.find((row) => row.currency === currency)?.value ?? '0',
+        })),
         draftJournals: draftJournals[0]?.value ?? 0,
         overdueInvoices: overdue[0]?.value ?? 0,
       };
@@ -153,6 +186,12 @@ export class AccountingService {
       { code: '1000', nameAr: 'النقد والبنوك', nameEn: 'Cash and banks', type: 'asset' },
       { code: '1100', nameAr: 'ذمم المستأجرين', nameEn: 'Tenant receivables', type: 'asset' },
       { code: '1200', nameAr: 'دفعات مقدمة', nameEn: 'Prepayments', type: 'asset' },
+      {
+        code: '1300',
+        nameAr: 'ضريبة مدخلات قابلة للاسترداد',
+        nameEn: 'Recoverable input VAT',
+        type: 'asset',
+      },
       { code: '2100', nameAr: 'تأمينات المستأجرين', nameEn: 'Tenant deposits', type: 'liability' },
       { code: '2200', nameAr: 'ضريبة القيمة المضافة', nameEn: 'VAT payable', type: 'liability' },
       { code: '3000', nameAr: 'حقوق الملاك', nameEn: 'Owners equity', type: 'equity' },
@@ -227,13 +266,41 @@ export class AccountingService {
           sourceId: journalEntries.sourceId,
           postedAt: journalEntries.postedAt,
           createdAt: journalEntries.createdAt,
-          debitMinor: sql<string>`coalesce((select sum(jl.debit_minor) from journal_lines jl where jl.journal_entry_id = ${journalEntries.id}), 0)`,
-          creditMinor: sql<string>`coalesce((select sum(jl.credit_minor) from journal_lines jl where jl.journal_entry_id = ${journalEntries.id}), 0)`,
         })
         .from(journalEntries)
         .where(eq(journalEntries.organizationId, claims.organizationId!))
         .orderBy(desc(journalEntries.occurredOn), desc(journalEntries.createdAt));
-      return rows;
+      const totals = rows.length
+        ? await transaction
+            .select({
+              journalEntryId: journalLines.journalEntryId,
+              currency: journalLines.currency,
+              debitMinor: sql<string>`coalesce(sum(${journalLines.debitMinor}), 0)`,
+              creditMinor: sql<string>`coalesce(sum(${journalLines.creditMinor}), 0)`,
+            })
+            .from(journalLines)
+            .where(
+              inArray(
+                journalLines.journalEntryId,
+                rows.map((row) => row.id),
+              ),
+            )
+            .groupBy(journalLines.journalEntryId, journalLines.currency)
+        : [];
+      return rows.map((row) => {
+        const amounts = totals.filter((total) => total.journalEntryId === row.id);
+        return {
+          ...row,
+          amounts,
+          ...(amounts.length === 1
+            ? {
+                currency: amounts[0]!.currency,
+                debitMinor: amounts[0]!.debitMinor,
+                creditMinor: amounts[0]!.creditMinor,
+              }
+            : { currency: null, debitMinor: null, creditMinor: null }),
+        };
+      });
     });
   }
 
@@ -291,7 +358,12 @@ export class AccountingService {
         .insert(journalEntries)
         .values({
           organizationId: claims.organizationId!,
-          reference: reference('JRN'),
+          reference: await allocateJournalReference(
+            transaction,
+            claims.organizationId!,
+            input.occurredOn,
+            'JRN',
+          ),
           occurredOn: input.occurredOn,
           description: input.description,
           sourceType: input.sourceType,
@@ -405,7 +477,12 @@ export class AccountingService {
         .insert(journalEntries)
         .values({
           organizationId: claims.organizationId!,
-          reference: reference('REV'),
+          reference: await allocateJournalReference(
+            transaction,
+            claims.organizationId!,
+            occurredOn,
+            'REV',
+          ),
           occurredOn,
           description: note ?? `Reversal of ${entry.reference}`,
           status: 'posted',
@@ -534,6 +611,22 @@ export class AccountingService {
         eventType: 'expense.created',
         toStatus: row.status,
       });
+      await transaction.insert(approvalRequests).values({
+        organizationId: claims.organizationId!,
+        reference: `APR-${row.reference}`,
+        type: 'expense_approval',
+        subject: `Expense ${row.reference}: ${row.description}`.slice(0, 240),
+        resourceType: 'expense',
+        resourceId: row.id,
+        requestedByUserId: claims.sub,
+      });
+      await transaction.insert(outboxEvents).values({
+        organizationId: claims.organizationId!,
+        topic: 'approval.requested',
+        aggregateType: 'expense',
+        aggregateId: row.id,
+        payload: { reference: row.reference },
+      });
       return {
         ...row,
         amountMinor: row.amountMinor.toString(),
@@ -552,6 +645,12 @@ export class AccountingService {
         where: and(eq(expenses.id, id), eq(expenses.organizationId, claims.organizationId!)),
       });
       if (!current) throw new NotFoundException('Expense not found');
+      if (
+        current.status === 'pending' &&
+        (input.status === 'approved' || input.status === 'rejected')
+      ) {
+        throw new ConflictException('Use the approval center to decide this expense');
+      }
       assertExpenseTransition(current.status, input.status);
       const rows = await transaction
         .update(expenses)
@@ -571,11 +670,163 @@ export class AccountingService {
         note: input.note,
       });
       const row = rows[0]!;
+      if (input.status === 'completed' && current.status !== 'completed') {
+        await this.postExpenseJournal(transaction, claims, row);
+      }
       return {
         ...row,
         amountMinor: row.amountMinor.toString(),
         taxMinor: row.taxMinor.toString(),
       };
     });
+  }
+
+  private async postExpenseJournal(
+    transaction: DatabaseTransaction,
+    claims: SessionClaims,
+    expense: typeof expenses.$inferSelect,
+  ) {
+    if (!(expense.currency in currencyMinorUnits)) {
+      throw new ConflictException(`Unsupported expense currency: ${expense.currency}`);
+    }
+    const existing = await transaction.query.journalEntries.findFirst({
+      where: and(
+        eq(journalEntries.organizationId, claims.organizationId!),
+        eq(journalEntries.sourceType, 'expense_payment'),
+        eq(journalEntries.sourceId, expense.id),
+      ),
+    });
+    if (existing) return existing;
+    const expenseCode = expense.category.toLowerCase().includes('legal')
+      ? '5100'
+      : expense.category.toLowerCase().includes('maintenance')
+        ? '5000'
+        : '5200';
+    const defaults = [
+      { code: '1000', nameAr: 'النقد والبنوك', nameEn: 'Cash and banks', type: 'asset' as const },
+      {
+        code: '1300',
+        nameAr: 'ضريبة مدخلات قابلة للاسترداد',
+        nameEn: 'Recoverable input VAT',
+        type: 'asset' as const,
+      },
+      {
+        code: '5000',
+        nameAr: 'مصروفات الصيانة',
+        nameEn: 'Maintenance expense',
+        type: 'expense' as const,
+      },
+      {
+        code: '5100',
+        nameAr: 'مصروفات قانونية',
+        nameEn: 'Legal expense',
+        type: 'expense' as const,
+      },
+      {
+        code: '5200',
+        nameAr: 'مصروفات تشغيلية',
+        nameEn: 'Operating expense',
+        type: 'expense' as const,
+      },
+    ];
+    await transaction
+      .insert(ledgerAccounts)
+      .values(
+        defaults.map((account) => ({
+          organizationId: claims.organizationId!,
+          ...account,
+          system: true,
+        })),
+      )
+      .onConflictDoNothing({ target: [ledgerAccounts.organizationId, ledgerAccounts.code] });
+    const requiredCodes = ['1000', expenseCode, ...(expense.taxMinor > 0n ? ['1300'] : [])];
+    const accountRows = await transaction
+      .select({ id: ledgerAccounts.id, code: ledgerAccounts.code })
+      .from(ledgerAccounts)
+      .where(
+        and(
+          eq(ledgerAccounts.organizationId, claims.organizationId!),
+          inArray(ledgerAccounts.code, requiredCodes),
+        ),
+      );
+    const accounts = new Map(accountRows.map((account) => [account.code, account.id]));
+    if (accounts.size !== new Set(requiredCodes).size) {
+      throw new ConflictException('Required system ledger accounts are unavailable');
+    }
+    const occurredOn = expense.paidAt
+      ? expense.paidAt.toISOString().slice(0, 10)
+      : new Date().toISOString().slice(0, 10);
+    const entryRows = await transaction
+      .insert(journalEntries)
+      .values({
+        organizationId: claims.organizationId!,
+        reference: await allocateJournalReference(
+          transaction,
+          claims.organizationId!,
+          occurredOn,
+          'JRN',
+        ),
+        occurredOn,
+        description: `Expense payment ${expense.reference}`,
+        status: 'posted',
+        sourceType: 'expense_payment',
+        sourceId: expense.id,
+        postedByUserId: claims.sub,
+        postedAt: new Date(),
+      })
+      .returning();
+    const entry = entryRows[0]!;
+    const currency = expense.currency as CurrencyCode;
+    const total = expense.amountMinor + expense.taxMinor;
+    await transaction.insert(journalLines).values([
+      {
+        organizationId: claims.organizationId!,
+        journalEntryId: entry.id,
+        accountId: accounts.get(expenseCode)!,
+        propertyId: expense.propertyId,
+        unitId: expense.unitId,
+        debitMinor: expense.amountMinor,
+        creditMinor: 0n,
+        currency,
+        minorUnit: currencyMinorUnits[currency],
+        memo: expense.description,
+      },
+      ...(expense.taxMinor > 0n
+        ? [
+            {
+              organizationId: claims.organizationId!,
+              journalEntryId: entry.id,
+              accountId: accounts.get('1300')!,
+              propertyId: expense.propertyId,
+              unitId: expense.unitId,
+              debitMinor: expense.taxMinor,
+              creditMinor: 0n,
+              currency,
+              minorUnit: currencyMinorUnits[currency],
+              memo: `Tax: ${expense.description}`,
+            },
+          ]
+        : []),
+      {
+        organizationId: claims.organizationId!,
+        journalEntryId: entry.id,
+        accountId: accounts.get('1000')!,
+        propertyId: expense.propertyId,
+        unitId: expense.unitId,
+        debitMinor: 0n,
+        creditMinor: total,
+        currency,
+        minorUnit: currencyMinorUnits[currency],
+        memo: expense.description,
+      },
+    ]);
+    await transaction.insert(outboxEvents).values({
+      organizationId: claims.organizationId!,
+      topic: 'accounting.journal-posted',
+      aggregateType: 'journal_entry',
+      aggregateId: entry.id,
+      payload: { reference: entry.reference, sourceType: 'expense_payment', sourceId: expense.id },
+    });
+    return entry;
   }
 }

@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { Button, Card, CardContent, Field } from '@bhd-r/ui';
 import { useLocale, useTranslations } from 'next-intl';
 import { browserMutation } from '@/lib/api';
+import { usePathname } from 'next/navigation';
 
 export function SignatureForm({
   contractId,
@@ -14,21 +15,29 @@ export function SignatureForm({
 }) {
   const t = useTranslations();
   const locale = useLocale();
+  const pathname = usePathname();
   const text = (ar: string, en: string) => (locale === 'ar' ? ar : en);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [consent, setConsent] = useState(false);
+  const [needsReauthentication, setNeedsReauthentication] = useState(false);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
     setMessage(null);
+    setNeedsReauthentication(false);
     const form = new FormData(event.currentTarget);
     try {
+      const otp = formText(form, 'otp');
       const challenge = await browserMutation<{ challengeId: string }>(
         `/v1/leasing/contracts/${contractId}/signature-challenges`,
         {
           method: 'POST',
-          body: JSON.stringify({ authenticationMethod: 'totp', totpCode: formText(form, 'otp') }),
+          body: JSON.stringify(
+            otp
+              ? { authenticationMethod: 'totp', totpCode: otp }
+              : { authenticationMethod: 'recent_sign_in' },
+          ),
         },
       );
       await browserMutation(`/v1/leasing/contracts/${contractId}/signatures`, {
@@ -46,7 +55,9 @@ export function SignatureForm({
         ),
       );
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'request_failed');
+      const reason = error instanceof Error ? error.message : 'request_failed';
+      setMessage(reason);
+      setNeedsReauthentication(/recent sign-in|required|reauth/i.test(reason));
     } finally {
       setBusy(false);
     }
@@ -57,8 +68,8 @@ export function SignatureForm({
         <h2>{text('التوقيع الإلكتروني', 'Electronic signature')}</h2>
         <p className="muted">
           {text(
-            `الموقّع: ${expectedName}. أدخل رمز التحقق. سيُحفظ وقت الموافقة ونسخة العقد وبصمتها الرقمية.`,
-            `Signer: ${expectedName}. Enter the verification code. The consent time, lease version and document hash are recorded.`,
+            `الموقّع: ${expectedName}. أدخل رمز TOTP إن كان مفعلاً، أو تابع خلال عشر دقائق من تسجيل الدخول. سيُحفظ وقت الموافقة ونسخة العقد وبصمتها الرقمية.`,
+            `Signer: ${expectedName}. Enter TOTP when enabled, or continue within ten minutes of a fresh sign-in. Consent time, lease version and document hash are recorded.`,
           )}
         </p>
         <form className="form-grid" onSubmit={(event) => void submit(event)}>
@@ -70,7 +81,6 @@ export function SignatureForm({
             autoComplete="one-time-code"
             pattern="[0-9]{6}"
             maxLength={6}
-            required
           />
           <label className="checkbox-row span-2">
             <input
@@ -88,6 +98,14 @@ export function SignatureForm({
             <div className="notice notice--info span-2" role="status">
               {message}
             </div>
+          ) : null}
+          {needsReauthentication ? (
+            <a
+              className="button button--secondary span-2"
+              href={`/api/auth/bhd/start?returnTo=${encodeURIComponent(pathname)}`}
+            >
+              {text('إعادة التحقق عبر هوية BHD', 'Re-authenticate with BHD Identity')}
+            </a>
           ) : null}
           <Button type="submit" disabled={busy || !consent}>
             {busy ? t('Common.saving') : text('توقيع العقد', 'Sign lease')}

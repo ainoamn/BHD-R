@@ -200,6 +200,20 @@ const workers = [
             [input.documentId, result.key, result.sha256, input.organizationId],
           );
         }
+        if (input.documentType === 'invoice') {
+          await workerQuery(
+            `UPDATE invoices SET rendered_pdf_object_key = $2, rendered_pdf_hash = $3, updated_at = now()
+             WHERE id = $1 AND organization_id = $4`,
+            [input.documentId, result.key, result.sha256, input.organizationId],
+          );
+        }
+        if (input.documentType === 'receipt') {
+          await workerQuery(
+            `UPDATE receipts SET rendered_pdf_object_key = $2, rendered_pdf_hash = $3, updated_at = now()
+             WHERE id = $1 AND organization_id = $4`,
+            [input.documentId, result.key, result.sha256, input.organizationId],
+          );
+        }
         return result;
       }),
     { connection: connection(), concurrency: 2, limiter: { max: 6, duration: 1_000 } },

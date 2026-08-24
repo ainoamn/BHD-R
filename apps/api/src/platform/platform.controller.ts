@@ -11,6 +11,12 @@ export class PlatformController {
   @RequirePermissions('platform.audit.read') @Get('audit') audit() {
     return this.service.listAudit();
   }
+  @RequirePermissions('platform.settings.read') @Get('users') users() {
+    return this.service.listUsers();
+  }
+  @RequirePermissions('platform.settings.read') @Get('settings') settings() {
+    return this.service.settingsHealth();
+  }
   @Public() @Get('country-packs') countryPacks() {
     return this.service.listCountryPacks();
   }

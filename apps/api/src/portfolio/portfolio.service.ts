@@ -9,6 +9,7 @@ import {
   isNotNull,
   lt,
   lte,
+  ne,
   notExists,
   or,
   sql,
@@ -22,6 +23,7 @@ import {
   mediaAssets,
   outboxEvents,
   parties,
+  partyRoles,
   properties,
   propertyAmenities,
   propertyDocuments,
@@ -31,6 +33,7 @@ import {
   unitMedia,
   units,
   utilityMeters,
+  viewingRequests,
 } from '@bhd-r/db';
 import type { SessionClaims } from '@bhd-r/authz';
 import {
@@ -47,6 +50,43 @@ import { DatabaseService } from '../database/database.service.js';
 interface PropertyBundleInput {
   property: Omit<CreatePropertyInput, 'organizationId'>;
   units: Array<Omit<CreateUnitInput, 'propertyId'>>;
+}
+
+interface UpdatePropertyInput {
+  category?: CreatePropertyInput['category'] | undefined;
+  nameAr?: string | undefined;
+  nameEn?: string | undefined;
+  descriptionAr?: string | null | undefined;
+  descriptionEn?: string | null | undefined;
+  address?:
+    | {
+        countryCode?: string | undefined;
+        governorate?: string | undefined;
+        wilayat?: string | undefined;
+        city?: string | undefined;
+        area?: string | undefined;
+        street?: string | undefined;
+        buildingNumber?: string | undefined;
+        postalCode?: string | undefined;
+        latitude?: number | undefined;
+        longitude?: number | undefined;
+      }
+    | undefined;
+}
+
+interface UpdateUnitInput {
+  code?: string | undefined;
+  nameAr?: string | undefined;
+  nameEn?: string | undefined;
+  floor?: string | null | undefined;
+  bedrooms?: number | undefined;
+  bathrooms?: number | undefined;
+  areaSquareMeters?: string | null | undefined;
+  listingPurpose?: 'rent' | 'sale' | 'both' | undefined;
+  rent?: CreateUnitInput['rent'] | undefined;
+  salePrice?: CreateUnitInput['salePrice'] | null | undefined;
+  deposit?: CreateUnitInput['deposit'] | null | undefined;
+  status?: 'active' | 'inactive' | undefined;
 }
 
 function slugify(value: string): string {
@@ -317,6 +357,316 @@ export class PortfolioService {
     });
   }
 
+  getProperty(claims: SessionClaims, propertyId: string) {
+    return this.database.withinTenant(claims, async (transaction) => {
+      const property = await transaction.query.properties.findFirst({
+        where: and(
+          eq(properties.id, propertyId),
+          eq(properties.organizationId, claims.organizationId!),
+        ),
+      });
+      if (!property) throw new NotFoundException('Property not found');
+      const [address, profile, amenities, meters, documents, ownership, unitRows] =
+        await Promise.all([
+          transaction.query.addresses.findFirst({ where: eq(addresses.id, property.addressId) }),
+          transaction.query.propertyProfiles.findFirst({
+            where: eq(propertyProfiles.propertyId, property.id),
+          }),
+          transaction
+            .select()
+            .from(propertyAmenities)
+            .where(eq(propertyAmenities.propertyId, property.id)),
+          transaction.select().from(utilityMeters).where(eq(utilityMeters.propertyId, property.id)),
+          transaction
+            .select()
+            .from(propertyDocuments)
+            .where(eq(propertyDocuments.propertyId, property.id)),
+          transaction
+            .select()
+            .from(propertyOwnershipInterests)
+            .where(eq(propertyOwnershipInterests.propertyId, property.id)),
+          transaction
+            .select({
+              id: units.id,
+              propertyId: units.propertyId,
+              code: units.code,
+              nameAr: units.nameAr,
+              nameEn: units.nameEn,
+              floor: units.floor,
+              bedrooms: units.bedrooms,
+              bathrooms: units.bathrooms,
+              areaSquareMeters: units.areaSquareMeters,
+              rentMinor: units.rentMinor,
+              salePriceMinor: units.salePriceMinor,
+              depositMinor: units.depositMinor,
+              currency: units.currency,
+              minorUnit: units.minorUnit,
+              listingPurpose: units.listingPurpose,
+              publishWhenAvailable: units.publishWhenAvailable,
+              status: units.status,
+              listingId: listings.id,
+              listingEnabled: listings.enabled,
+              listingSlug: listings.slug,
+            })
+            .from(units)
+            .leftJoin(listings, eq(listings.unitId, units.id))
+            .where(eq(units.propertyId, property.id))
+            .orderBy(asc(units.code)),
+        ]);
+      return {
+        ...property,
+        address,
+        profile: profile
+          ? {
+              ...profile,
+              managementFeeMinor: profile.managementFeeMinor?.toString() ?? null,
+            }
+          : null,
+        amenities,
+        meters,
+        documents,
+        ownership,
+        units: unitRows.map((unit) => ({
+          ...unit,
+          rentMinor: unit.rentMinor.toString(),
+          salePriceMinor: unit.salePriceMinor?.toString() ?? null,
+          depositMinor: unit.depositMinor?.toString() ?? null,
+        })),
+      };
+    });
+  }
+
+  updateProperty(claims: SessionClaims, propertyId: string, input: UpdatePropertyInput) {
+    return this.database.withinTenant(claims, async (transaction) => {
+      const property = await transaction.query.properties.findFirst({
+        where: and(
+          eq(properties.id, propertyId),
+          eq(properties.organizationId, claims.organizationId!),
+        ),
+      });
+      if (!property) throw new NotFoundException('Property not found');
+      if (property.status === 'archived')
+        throw new ConflictException('Archived properties cannot be edited');
+      if (input.address) {
+        const location =
+          input.address.latitude !== undefined && input.address.longitude !== undefined
+            ? `SRID=4326;POINT(${input.address.longitude} ${input.address.latitude})`
+            : undefined;
+        await transaction
+          .update(addresses)
+          .set({ ...input.address, ...(location ? { location } : {}), updatedAt: new Date() })
+          .where(
+            and(
+              eq(addresses.id, property.addressId),
+              eq(addresses.organizationId, claims.organizationId!),
+            ),
+          );
+      }
+      const { address: _address, ...propertyPatch } = input;
+      void _address;
+      const rows = await transaction
+        .update(properties)
+        .set({ ...propertyPatch, updatedAt: new Date() })
+        .where(
+          and(eq(properties.id, propertyId), eq(properties.organizationId, claims.organizationId!)),
+        )
+        .returning();
+      await transaction.insert(outboxEvents).values({
+        organizationId: claims.organizationId!,
+        topic: 'property.updated',
+        aggregateType: 'property',
+        aggregateId: propertyId,
+        payload: { changedFields: Object.keys(input) },
+      });
+      return rows[0]!;
+    });
+  }
+
+  addUnit(claims: SessionClaims, propertyId: string, input: Omit<CreateUnitInput, 'propertyId'>) {
+    return this.database.withinTenant(claims, async (transaction) => {
+      const property = await transaction.query.properties.findFirst({
+        where: and(
+          eq(properties.id, propertyId),
+          eq(properties.organizationId, claims.organizationId!),
+        ),
+      });
+      if (!property || property.status === 'archived')
+        throw new NotFoundException('Active property not found');
+      if (property.kind === 'single_unit')
+        throw new ConflictException('Additional units require a multi-unit property');
+      this.assertUnitCurrency(property.defaultCurrency, input);
+      const rows = await transaction
+        .insert(units)
+        .values({
+          organizationId: claims.organizationId!,
+          propertyId,
+          code: input.code,
+          nameAr: input.nameAr,
+          nameEn: input.nameEn,
+          floor: input.floor,
+          bedrooms: input.bedrooms,
+          bathrooms: input.bathrooms,
+          areaSquareMeters: input.areaSquareMeters,
+          rentMinor: BigInt(input.rent.amountMinor),
+          salePriceMinor: input.salePrice ? BigInt(input.salePrice.amountMinor) : null,
+          depositMinor: input.deposit ? BigInt(input.deposit.amountMinor) : null,
+          currency: input.rent.currency,
+          minorUnit: currencyMinorUnits[input.rent.currency],
+          listingPurpose: input.listingPurpose,
+          publishWhenAvailable: input.publishWhenAvailable,
+          status: 'active',
+        })
+        .returning();
+      const unit = rows[0]!;
+      await transaction.insert(listings).values({
+        organizationId: claims.organizationId!,
+        unitId: unit.id,
+        slug: `${slugify(property.nameEn)}-${slugify(unit.code)}-${unit.id.slice(0, 8)}`,
+        enabled: input.publishWhenAvailable,
+        publishedAt: input.publishWhenAvailable ? new Date() : null,
+      });
+      await transaction.insert(outboxEvents).values({
+        organizationId: claims.organizationId!,
+        topic: 'unit.created',
+        aggregateType: 'unit',
+        aggregateId: unit.id,
+        payload: { propertyId },
+      });
+      return {
+        ...unit,
+        rentMinor: unit.rentMinor.toString(),
+        salePriceMinor: unit.salePriceMinor?.toString() ?? null,
+        depositMinor: unit.depositMinor?.toString() ?? null,
+      };
+    });
+  }
+
+  updateUnit(claims: SessionClaims, unitId: string, input: UpdateUnitInput) {
+    return this.database.withinTenant(claims, async (transaction) => {
+      const unit = await transaction.query.units.findFirst({
+        where: and(eq(units.id, unitId), eq(units.organizationId, claims.organizationId!)),
+      });
+      if (!unit) throw new NotFoundException('Unit not found');
+      const currency = input.rent?.currency ?? unit.currency;
+      if (
+        currency !== unit.currency ||
+        (input.salePrice && input.salePrice.currency !== unit.currency) ||
+        (input.deposit && input.deposit.currency !== unit.currency)
+      )
+        throw new ConflictException('Unit currency cannot be changed independently');
+      const { rent, salePrice, deposit, ...scalarPatch } = input;
+      const rows = await transaction
+        .update(units)
+        .set({
+          ...scalarPatch,
+          ...(rent ? { rentMinor: BigInt(rent.amountMinor) } : {}),
+          ...(salePrice !== undefined
+            ? { salePriceMinor: salePrice ? BigInt(salePrice.amountMinor) : null }
+            : {}),
+          ...(deposit !== undefined
+            ? { depositMinor: deposit ? BigInt(deposit.amountMinor) : null }
+            : {}),
+          updatedAt: new Date(),
+        })
+        .where(and(eq(units.id, unitId), eq(units.organizationId, claims.organizationId!)))
+        .returning();
+      if (input.status === 'inactive') {
+        await transaction
+          .update(listings)
+          .set({ enabled: false, publishedAt: null, updatedAt: new Date() })
+          .where(
+            and(eq(listings.unitId, unitId), eq(listings.organizationId, claims.organizationId!)),
+          );
+      }
+      const updated = rows[0]!;
+      return {
+        ...updated,
+        rentMinor: updated.rentMinor.toString(),
+        salePriceMinor: updated.salePriceMinor?.toString() ?? null,
+        depositMinor: updated.depositMinor?.toString() ?? null,
+      };
+    });
+  }
+
+  archiveProperty(claims: SessionClaims, propertyId: string) {
+    return this.database.withinTenant(claims, async (transaction) => {
+      const activeLease = await transaction
+        .select({ id: leases.id })
+        .from(leases)
+        .innerJoin(units, eq(units.id, leases.unitId))
+        .where(
+          and(
+            eq(units.propertyId, propertyId),
+            eq(leases.organizationId, claims.organizationId!),
+            inArray(leases.status, ['draft', 'active']),
+          ),
+        )
+        .limit(1);
+      if (activeLease[0])
+        throw new ConflictException('Property with an active or draft lease cannot be archived');
+      const rows = await transaction
+        .update(properties)
+        .set({ status: 'archived', updatedAt: new Date() })
+        .where(
+          and(
+            eq(properties.id, propertyId),
+            eq(properties.organizationId, claims.organizationId!),
+            ne(properties.status, 'archived'),
+          ),
+        )
+        .returning({ id: properties.id, status: properties.status });
+      if (!rows[0]) throw new NotFoundException('Active property not found');
+      await transaction
+        .update(units)
+        .set({ publishWhenAvailable: false, status: 'inactive', updatedAt: new Date() })
+        .where(
+          and(eq(units.propertyId, propertyId), eq(units.organizationId, claims.organizationId!)),
+        );
+      await transaction
+        .update(listings)
+        .set({ enabled: false, publishedAt: null, updatedAt: new Date() })
+        .where(
+          and(
+            eq(listings.organizationId, claims.organizationId!),
+            sql`${listings.unitId} IN (SELECT id FROM units WHERE property_id = ${propertyId})`,
+          ),
+        );
+      await transaction.insert(outboxEvents).values({
+        organizationId: claims.organizationId!,
+        topic: 'property.archived',
+        aggregateType: 'property',
+        aggregateId: propertyId,
+        payload: {},
+      });
+      return rows[0];
+    });
+  }
+
+  restoreProperty(claims: SessionClaims, propertyId: string) {
+    return this.database.withinTenant(claims, async (transaction) => {
+      const rows = await transaction
+        .update(properties)
+        .set({ status: 'active', updatedAt: new Date() })
+        .where(
+          and(
+            eq(properties.id, propertyId),
+            eq(properties.organizationId, claims.organizationId!),
+            eq(properties.status, 'archived'),
+          ),
+        )
+        .returning({ id: properties.id, status: properties.status });
+      if (!rows[0]) throw new NotFoundException('Archived property not found');
+      await transaction.insert(outboxEvents).values({
+        organizationId: claims.organizationId!,
+        topic: 'property.restored',
+        aggregateType: 'property',
+        aggregateId: propertyId,
+        payload: { listingsRepublished: false },
+      });
+      return rows[0];
+    });
+  }
+
   async setListing(claims: SessionClaims, unitId: string, enabled: boolean) {
     return this.database.withinTenant(claims, async (transaction) => {
       const unit = await transaction.query.units.findFirst({
@@ -334,6 +684,18 @@ export class PortfolioService {
         .returning();
       return rows[0];
     });
+  }
+
+  private assertUnitCurrency(
+    propertyCurrency: string,
+    input: Omit<CreateUnitInput, 'propertyId'>,
+  ): void {
+    if (
+      input.rent.currency !== propertyCurrency ||
+      (input.deposit && input.deposit.currency !== input.rent.currency) ||
+      (input.salePrice && input.salePrice.currency !== input.rent.currency)
+    )
+      throw new ConflictException('Unit currencies must match property currency');
   }
 
   searchPublic(input: ListingSearchInput) {
@@ -522,7 +884,60 @@ export class PortfolioService {
         .innerJoin(units, eq(units.id, listings.unitId))
         .innerJoin(properties, eq(properties.id, units.propertyId))
         .innerJoin(addresses, eq(addresses.id, properties.addressId))
-        .where(and(eq(units.id, unitId), eq(listings.enabled, true)))
+        .where(
+          and(
+            eq(units.id, unitId),
+            eq(listings.enabled, true),
+            isNotNull(listings.publishedAt),
+            eq(units.publishWhenAvailable, true),
+            eq(units.status, 'active'),
+            eq(properties.status, 'active'),
+            notExists(
+              transaction
+                .select({ id: holds.id })
+                .from(holds)
+                .where(
+                  and(
+                    eq(holds.unitId, units.id),
+                    eq(holds.status, 'active'),
+                    gt(holds.expiresAt, new Date()),
+                  ),
+                ),
+            ),
+            notExists(
+              transaction
+                .select({ id: reservations.id })
+                .from(reservations)
+                .where(
+                  and(
+                    eq(reservations.unitId, units.id),
+                    inArray(reservations.status, ['pending', 'confirmed']),
+                    gt(reservations.expiresAt, new Date()),
+                  ),
+                ),
+            ),
+            notExists(
+              transaction
+                .select({ id: leases.id })
+                .from(leases)
+                .where(
+                  and(eq(leases.unitId, units.id), inArray(leases.status, ['draft', 'active'])),
+                ),
+            ),
+            notExists(
+              transaction
+                .select({ id: maintenanceTickets.id })
+                .from(maintenanceTickets)
+                .where(
+                  and(
+                    eq(maintenanceTickets.unitId, units.id),
+                    eq(maintenanceTickets.blocksAvailability, true),
+                    inArray(maintenanceTickets.status, ['open', 'assigned', 'in_progress']),
+                  ),
+                ),
+            ),
+          ),
+        )
         .limit(1);
       const row = rows[0];
       if (!row) throw new NotFoundException('Unit unavailable');
@@ -593,6 +1008,160 @@ export class PortfolioService {
     });
   }
 
+  async createPublicViewingRequest(input: {
+    submissionId: string;
+    unitId: string;
+    displayName: string;
+    email: string;
+    phone?: string | undefined;
+    preferredAt?: string | undefined;
+    notes?: string | undefined;
+    locale: 'ar' | 'en';
+    consent: true;
+    website?: string | undefined;
+  }) {
+    if (input.website) return { accepted: true };
+    return this.database.asSystem(async (transaction) => {
+      const now = new Date();
+      const rows = await transaction
+        .select({ organizationId: listings.organizationId })
+        .from(listings)
+        .innerJoin(units, eq(units.id, listings.unitId))
+        .innerJoin(properties, eq(properties.id, units.propertyId))
+        .where(
+          and(
+            eq(units.id, input.unitId),
+            eq(listings.enabled, true),
+            isNotNull(listings.publishedAt),
+            eq(units.publishWhenAvailable, true),
+            eq(units.status, 'active'),
+            eq(properties.status, 'active'),
+            notExists(
+              transaction
+                .select({ id: holds.id })
+                .from(holds)
+                .where(
+                  and(
+                    eq(holds.unitId, units.id),
+                    eq(holds.status, 'active'),
+                    gt(holds.expiresAt, now),
+                  ),
+                ),
+            ),
+            notExists(
+              transaction
+                .select({ id: reservations.id })
+                .from(reservations)
+                .where(
+                  and(
+                    eq(reservations.unitId, units.id),
+                    inArray(reservations.status, ['pending', 'confirmed']),
+                    gt(reservations.expiresAt, now),
+                  ),
+                ),
+            ),
+            notExists(
+              transaction
+                .select({ id: leases.id })
+                .from(leases)
+                .where(
+                  and(eq(leases.unitId, units.id), inArray(leases.status, ['draft', 'active'])),
+                ),
+            ),
+          ),
+        )
+        .limit(1);
+      const listing = rows[0];
+      if (!listing) throw new ConflictException('Unit is no longer available');
+
+      const reference = `WEB-${input.submissionId}`;
+      const previous = await transaction.query.viewingRequests.findFirst({
+        where: and(
+          eq(viewingRequests.organizationId, listing.organizationId),
+          eq(viewingRequests.reference, reference),
+        ),
+      });
+      if (previous)
+        return { accepted: true, reference: previous.reference, status: previous.status };
+
+      const normalizedEmail = input.email.trim().toLowerCase();
+      const existingParty = await transaction.query.parties.findFirst({
+        where: and(
+          eq(parties.organizationId, listing.organizationId),
+          eq(parties.email, normalizedEmail),
+        ),
+      });
+      const party =
+        existingParty ??
+        (
+          await transaction
+            .insert(parties)
+            .values({
+              organizationId: listing.organizationId,
+              type: 'person',
+              displayName: input.displayName.trim(),
+              email: normalizedEmail,
+              phone: input.phone?.trim() || null,
+              metadata: { source: 'public_listing', preferredLocale: input.locale },
+            })
+            .onConflictDoNothing()
+            .returning()
+        )[0] ??
+        (await transaction.query.parties.findFirst({
+          where: and(
+            eq(parties.organizationId, listing.organizationId),
+            eq(parties.email, normalizedEmail),
+          ),
+        }));
+      if (!party) throw new ConflictException('Could not register the viewing request');
+      await transaction
+        .insert(partyRoles)
+        .values({
+          organizationId: listing.organizationId,
+          partyId: party.id,
+          roleKey: 'prospect',
+        })
+        .onConflictDoUpdate({
+          target: [partyRoles.organizationId, partyRoles.partyId, partyRoles.roleKey],
+          set: { status: 'active', updatedAt: now },
+        });
+
+      const inserted = await transaction
+        .insert(viewingRequests)
+        .values({
+          organizationId: listing.organizationId,
+          reference,
+          unitId: input.unitId,
+          prospectPartyId: party.id,
+          channel: 'website',
+          status: 'requested',
+          preferredAt: input.preferredAt ? new Date(input.preferredAt) : null,
+          notes: input.notes?.trim() || null,
+        })
+        .onConflictDoNothing()
+        .returning();
+      const viewing =
+        inserted[0] ??
+        (await transaction.query.viewingRequests.findFirst({
+          where: and(
+            eq(viewingRequests.organizationId, listing.organizationId),
+            eq(viewingRequests.reference, reference),
+          ),
+        }));
+      if (!viewing) throw new ConflictException('Could not register the viewing request');
+      if (inserted[0]) {
+        await transaction.insert(outboxEvents).values({
+          organizationId: listing.organizationId,
+          topic: 'viewing.created',
+          aggregateType: 'viewing_request',
+          aggregateId: viewing.id,
+          payload: { unitId: input.unitId, source: 'public_listing' },
+        });
+      }
+      return { accepted: true, reference: viewing.reference, status: viewing.status };
+    });
+  }
+
   async publicPropertyById(propertyId: string) {
     return this.database.asPublic(async (transaction) => {
       const propertyRows = await transaction
@@ -640,8 +1209,62 @@ export class PortfolioService {
         .innerJoin(units, eq(units.id, listings.unitId))
         .innerJoin(properties, eq(properties.id, units.propertyId))
         .innerJoin(addresses, eq(addresses.id, properties.addressId))
-        .where(and(eq(properties.id, propertyId), eq(listings.enabled, true)))
+        .where(
+          and(
+            eq(properties.id, propertyId),
+            eq(listings.enabled, true),
+            isNotNull(listings.publishedAt),
+            eq(units.publishWhenAvailable, true),
+            eq(units.status, 'active'),
+            eq(properties.status, 'active'),
+            notExists(
+              transaction
+                .select({ id: holds.id })
+                .from(holds)
+                .where(
+                  and(
+                    eq(holds.unitId, units.id),
+                    eq(holds.status, 'active'),
+                    gt(holds.expiresAt, new Date()),
+                  ),
+                ),
+            ),
+            notExists(
+              transaction
+                .select({ id: reservations.id })
+                .from(reservations)
+                .where(
+                  and(
+                    eq(reservations.unitId, units.id),
+                    inArray(reservations.status, ['pending', 'confirmed']),
+                    gt(reservations.expiresAt, new Date()),
+                  ),
+                ),
+            ),
+            notExists(
+              transaction
+                .select({ id: leases.id })
+                .from(leases)
+                .where(
+                  and(eq(leases.unitId, units.id), inArray(leases.status, ['draft', 'active'])),
+                ),
+            ),
+            notExists(
+              transaction
+                .select({ id: maintenanceTickets.id })
+                .from(maintenanceTickets)
+                .where(
+                  and(
+                    eq(maintenanceTickets.unitId, units.id),
+                    eq(maintenanceTickets.blocksAvailability, true),
+                    inArray(maintenanceTickets.status, ['open', 'assigned', 'in_progress']),
+                  ),
+                ),
+            ),
+          ),
+        )
         .orderBy(desc(listings.publishedAt));
+      if (unitRows.length === 0) throw new NotFoundException('Property unavailable');
       return publicPropertyDetailSchema.parse({
         ...property,
         units: unitRows.map((row) => ({

@@ -3,5 +3,10 @@ import { AuthModule } from '../auth/auth.module.js';
 import { LeasingController } from './leasing.controller.js';
 import { LeasingService } from './leasing.service.js';
 
-@Module({ imports: [AuthModule], controllers: [LeasingController], providers: [LeasingService] })
+@Module({
+  imports: [AuthModule],
+  controllers: [LeasingController],
+  providers: [LeasingService],
+  exports: [LeasingService],
+})
 export class LeasingModule {}

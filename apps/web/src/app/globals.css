@@ -875,6 +875,12 @@ h3 {
     700 1.55rem Georgia,
     serif;
 }
+
+.metric-money-stack {
+  display: grid;
+  gap: 0.1rem;
+  font-size: clamp(1rem, 2vw, 1.45rem) !important;
+}
 .portal-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.45fr) minmax(17rem, 0.75fr);
@@ -959,6 +965,169 @@ h3 {
 }
 .form-actions .button {
   min-width: min(100%, 8.5rem);
+}
+.viewing-form {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--sand-200);
+}
+.viewing-form h3,
+.viewing-success p {
+  margin: 0;
+}
+.viewing-form .textarea {
+  min-height: 5rem;
+}
+.viewing-form .button {
+  width: 100%;
+}
+.viewing-success {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+  padding: 1rem;
+  color: var(--green-900, #0a4b3b);
+  background: #edf7f1;
+  border: 1px solid #add8bf;
+  border-radius: 0.8rem;
+}
+.public-honeypot {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.ops-inline-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.ops-action--danger {
+  color: var(--danger);
+}
+
+.property-manager {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.managed-unit-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.managed-unit {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  background: color-mix(in srgb, var(--surface) 94%, var(--oman-teal) 6%);
+}
+
+.managed-unit > header,
+.property-danger-zone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.managed-unit > header div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.property-danger-zone {
+  border-inline-start: 4px solid var(--danger);
+  margin-bottom: 0;
+}
+
+.property-danger-zone p {
+  margin-bottom: 0;
+  color: var(--muted);
+}
+
+.compliance-manager {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.compliance-list,
+.compliance-documents {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.compliance-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  background: var(--surface);
+}
+
+.compliance-item > header,
+.compliance-document,
+.compliance-upload {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.compliance-item > header div,
+.compliance-document div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.compliance-documents {
+  margin-block: 0.8rem;
+}
+
+.compliance-document {
+  border-radius: var(--radius-md);
+  padding: 0.75rem;
+  background: var(--surface-soft);
+}
+
+.compliance-upload {
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--border);
+}
+
+@media (max-width: 700px) {
+  .managed-unit > header,
+  .property-danger-zone,
+  .compliance-item > header,
+  .compliance-document,
+  .compliance-upload {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+.permission-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem 1rem;
+}
+.api-key-secret {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+.api-key-secret p {
+  margin: 0;
+}
+.api-key-secret code {
+  display: block;
+  padding: 1rem;
+  overflow-wrap: anywhere;
+  color: white;
+  background: var(--ink-900);
+  border-radius: 0.75rem;
 }
 .unit-editor {
   padding: 1rem;
@@ -2757,6 +2926,29 @@ h3 {
   color: white !important;
   background: linear-gradient(145deg, #0a6b4b, #074939) !important;
 }
+
+.ops-currency-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.ops-currency-totals article {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 12rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.ops-currency-totals span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
 .ops-metric--accent span,
 .ops-metric--accent small,
 .ops-metric--accent strong {
@@ -2897,6 +3089,42 @@ h3 {
   color: white;
   background: var(--bhd-teal);
 }
+.contract-detail {
+  display: grid;
+  gap: 1rem;
+}
+.contract-detail__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.contract-detail code {
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+}
+.contract-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+.contract-signatures {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0;
+  list-style: none;
+}
+.contract-signatures li {
+  display: grid;
+  grid-template-columns: minmax(8rem, 0.7fr) 1fr 1fr;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.75rem;
+  background: #f7faf8;
+  border: 1px solid #deebe5;
+  border-radius: 0.65rem;
+}
 .ops-empty {
   display: grid;
   min-height: 18rem;
@@ -2945,6 +3173,12 @@ h3 {
 }
 
 @media (max-width: 760px) {
+  .contract-detail__grid {
+    grid-template-columns: 1fr;
+  }
+  .contract-signatures li {
+    grid-template-columns: 1fr;
+  }
   .ops-header {
     align-items: flex-start;
     flex-direction: column;

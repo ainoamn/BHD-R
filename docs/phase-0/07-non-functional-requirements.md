@@ -2,16 +2,16 @@
 
 ## 1. الأداء
 
-| المؤشر | هدف V1 |
-|---|---:|
-| Mobile p75 LCP للعام | `< 2.0s` |
-| p75 INP | `< 200ms` |
-| CLS | `< 0.10` |
-| Cached TTFB | `< 300ms` |
-| p95 API read شائع | `< 500ms` داخل المنطقة المستهدفة |
-| p95 API mutation غير async | `< 800ms` باستثناء الطرف الخارجي |
-| Initial JS للصفحات العامة | هدف `100–150KB gzip` |
-| صور الغلاف | responsive variant + أبعاد ثابتة + lazy load لما بعد الأولى |
+| المؤشر                     |                                                      هدف V1 |
+| -------------------------- | ----------------------------------------------------------: |
+| Mobile p75 LCP للعام       |                                                    `< 2.0s` |
+| p75 INP                    |                                                   `< 200ms` |
+| CLS                        |                                                    `< 0.10` |
+| Cached TTFB                |                                                   `< 300ms` |
+| p95 API read شائع          |                            `< 500ms` داخل المنطقة المستهدفة |
+| p95 API mutation غير async |                            `< 800ms` باستثناء الطرف الخارجي |
+| Initial JS للصفحات العامة  |                                        هدف `100–150KB gzip` |
+| صور الغلاف                 | responsive variant + أبعاد ثابتة + lazy load لما بعد الأولى |
 
 Budgets تفشل CI على Routes الحرجة إذا تجاوزت الحد المعتمد بعد Baseline.
 
@@ -134,4 +134,3 @@ Budgets تفشل CI على Routes الحرجة إذا تجاوزت الحد ال
 - هجرة destructive بلا backup/restore proof.
 - اختبار E2E حرج flaky أو معطل.
 - Critical/High vulnerability غير مستثناة بتوقيع وموعد.
-

@@ -25,4 +25,3 @@
 - Architecture tests تمنع imports بين Modules بغير العقود.
 - لا Module يقرأ جداول Module آخر مباشرة إلا عبر Application service/read model موثق.
 - Outbox للأحداث المؤثرة.
-

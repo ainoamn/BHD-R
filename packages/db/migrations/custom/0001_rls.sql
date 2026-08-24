@@ -77,7 +77,8 @@ DECLARE table_name text;
 BEGIN
   FOREACH table_name IN ARRAY ARRAY[
     'holds','reservations','contract_templates',
-    'payment_gateway_settings','idempotency_keys','audit_logs','report_jobs','outbox_events','api_keys','signature_challenges'
+    'payment_gateway_settings','idempotency_keys','audit_logs','report_jobs','outbox_events','api_keys','signature_challenges',
+    'contract_sequences','receipt_sequences'
   ] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', table_name);
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', table_name);
@@ -122,6 +123,44 @@ ALTER TABLE parties FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS parties_isolation ON parties;
 CREATE POLICY parties_isolation ON parties
 USING (app_private.is_platform_admin() OR (organization_id = app_private.current_organization_id() AND (NOT app_private.is_tenant() OR id = app_private.current_party_id())))
+WITH CHECK (app_private.is_platform_admin() OR (organization_id = app_private.current_organization_id() AND NOT app_private.is_tenant()));
+
+ALTER TABLE party_roles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE party_roles FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS party_roles_isolation ON party_roles;
+CREATE POLICY party_roles_isolation ON party_roles
+USING (app_private.is_platform_admin() OR (organization_id = app_private.current_organization_id() AND (NOT app_private.is_tenant() OR party_id = app_private.current_party_id())))
+WITH CHECK (app_private.is_platform_admin() OR (organization_id = app_private.current_organization_id() AND NOT app_private.is_tenant()));
+
+ALTER TABLE party_addresses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE party_addresses FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS party_addresses_isolation ON party_addresses;
+CREATE POLICY party_addresses_isolation ON party_addresses
+USING (app_private.is_platform_admin() OR (organization_id = app_private.current_organization_id() AND (NOT app_private.is_tenant() OR party_id = app_private.current_party_id())))
+WITH CHECK (app_private.is_platform_admin() OR (organization_id = app_private.current_organization_id() AND NOT app_private.is_tenant()));
+
+ALTER TABLE party_identity_documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE party_identity_documents FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS party_identity_documents_isolation ON party_identity_documents;
+CREATE POLICY party_identity_documents_isolation ON party_identity_documents
+USING (app_private.is_platform_admin() OR (organization_id = app_private.current_organization_id() AND (NOT app_private.is_tenant() OR party_id = app_private.current_party_id())))
+WITH CHECK (app_private.is_platform_admin() OR (organization_id = app_private.current_organization_id() AND NOT app_private.is_tenant()));
+
+ALTER TABLE representation_authorities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE representation_authorities FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS representation_authorities_isolation ON representation_authorities;
+CREATE POLICY representation_authorities_isolation ON representation_authorities
+USING (
+  app_private.is_platform_admin()
+  OR (
+    organization_id = app_private.current_organization_id()
+    AND (
+      NOT app_private.is_tenant()
+      OR principal_party_id = app_private.current_party_id()
+      OR representative_party_id = app_private.current_party_id()
+    )
+  )
+)
 WITH CHECK (app_private.is_platform_admin() OR (organization_id = app_private.current_organization_id() AND NOT app_private.is_tenant()));
 
 ALTER TABLE properties ENABLE ROW LEVEL SECURITY;
@@ -185,12 +224,35 @@ CREATE POLICY invoices_isolation ON invoices
 USING (app_private.is_platform_admin() OR (organization_id = app_private.current_organization_id() AND (NOT app_private.is_tenant() OR tenant_party_id = app_private.current_party_id())))
 WITH CHECK (app_private.is_platform_admin() OR (organization_id = app_private.current_organization_id() AND NOT app_private.is_tenant()));
 
+ALTER TABLE billing_schedules ENABLE ROW LEVEL SECURITY;
+ALTER TABLE billing_schedules FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS billing_schedules_isolation ON billing_schedules;
+CREATE POLICY billing_schedules_isolation ON billing_schedules
+USING (
+  app_private.is_platform_admin()
+  OR (
+    organization_id = app_private.current_organization_id()
+    AND (
+      NOT app_private.is_tenant()
+      OR EXISTS (
+        SELECT 1 FROM leases l
+        WHERE l.id = billing_schedules.lease_id
+          AND l.tenant_party_id = app_private.current_party_id()
+      )
+    )
+  )
+)
+WITH CHECK (app_private.is_platform_admin() OR (organization_id = app_private.current_organization_id() AND NOT app_private.is_tenant()));
+
 DO $sensitive$
 DECLARE pair text[];
 BEGIN
   FOREACH pair SLICE 1 IN ARRAY ARRAY[
     ['invoice_lines','EXISTS (SELECT 1 FROM invoices i WHERE i.id = invoice_id AND (NOT app_private.is_tenant() OR i.tenant_party_id = app_private.current_party_id()))'],
     ['payments','EXISTS (SELECT 1 FROM invoices i WHERE i.id = invoice_id AND (NOT app_private.is_tenant() OR i.tenant_party_id = app_private.current_party_id()))'],
+    ['payment_sessions','EXISTS (SELECT 1 FROM invoices i WHERE i.id = invoice_id AND (NOT app_private.is_tenant() OR i.tenant_party_id = app_private.current_party_id()))'],
+    ['refunds','EXISTS (SELECT 1 FROM payments p JOIN invoices i ON i.id = p.invoice_id WHERE p.id = payment_id AND (NOT app_private.is_tenant() OR i.tenant_party_id = app_private.current_party_id()))'],
+    ['receipts','EXISTS (SELECT 1 FROM payments p JOIN invoices i ON i.id = p.invoice_id WHERE p.id = payment_id AND (NOT app_private.is_tenant() OR i.tenant_party_id = app_private.current_party_id()))'],
     ['maintenance_tickets','(NOT app_private.is_tenant() OR app_private.tenant_has_unit(unit_id))'],
     ['unit_media','(NOT app_private.is_tenant() OR app_private.tenant_has_unit(unit_id))'],
     ['media_assets','NOT app_private.is_tenant() OR EXISTS (SELECT 1 FROM unit_media um WHERE um.media_asset_id = id AND app_private.tenant_has_unit(um.unit_id))']
@@ -215,9 +277,96 @@ DROP POLICY IF EXISTS tenant_isolation ON media_assets;
 CREATE POLICY tenant_isolation ON media_assets
 USING (
   app_private.is_platform_admin()
-  OR (organization_id = app_private.current_organization_id() AND (NOT app_private.is_tenant() OR EXISTS (SELECT 1 FROM unit_media um WHERE um.media_asset_id = id AND app_private.tenant_has_unit(um.unit_id))))
+  OR (
+    organization_id = app_private.current_organization_id()
+    AND (
+      NOT app_private.is_tenant()
+      OR EXISTS (SELECT 1 FROM unit_media um WHERE um.media_asset_id = id AND app_private.tenant_has_unit(um.unit_id))
+      OR EXISTS (
+        SELECT 1 FROM reservations r
+        WHERE r.id = nullif(media_assets.metadata->>'reservationId', '')::uuid
+          AND r.tenant_party_id = app_private.current_party_id()
+      )
+    )
+  )
   OR (app_private.is_public() AND processing_status = 'ready' AND scan_status = 'clean' AND EXISTS (SELECT 1 FROM unit_media um WHERE um.media_asset_id = id AND app_private.public_unit_available(um.unit_id)))
 )
+WITH CHECK (
+  app_private.is_platform_admin()
+  OR (
+    organization_id = app_private.current_organization_id()
+    AND (
+      NOT app_private.is_tenant()
+      OR (
+        uploaded_by_user_id = app_private.current_user_id()
+        AND EXISTS (
+          SELECT 1 FROM reservations r
+          WHERE r.id = nullif(media_assets.metadata->>'reservationId', '')::uuid
+            AND r.tenant_party_id = app_private.current_party_id()
+        )
+      )
+    )
+  )
+);
+
+ALTER TABLE reservation_requirements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reservation_requirements FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS reservation_requirements_select ON reservation_requirements;
+CREATE POLICY reservation_requirements_select ON reservation_requirements FOR SELECT
+USING (
+  app_private.is_platform_admin()
+  OR (
+    organization_id = app_private.current_organization_id()
+    AND (
+      NOT app_private.is_tenant()
+      OR EXISTS (
+        SELECT 1 FROM reservations r
+        WHERE r.id = reservation_id AND r.tenant_party_id = app_private.current_party_id()
+      )
+    )
+  )
+);
+DROP POLICY IF EXISTS reservation_requirements_staff_write ON reservation_requirements;
+CREATE POLICY reservation_requirements_staff_write ON reservation_requirements FOR ALL
+USING (app_private.is_platform_admin() OR (organization_id = app_private.current_organization_id() AND NOT app_private.is_tenant()))
+WITH CHECK (app_private.is_platform_admin() OR (organization_id = app_private.current_organization_id() AND NOT app_private.is_tenant()));
+
+ALTER TABLE reservation_documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reservation_documents FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS reservation_documents_select ON reservation_documents;
+CREATE POLICY reservation_documents_select ON reservation_documents FOR SELECT
+USING (
+  app_private.is_platform_admin()
+  OR (
+    organization_id = app_private.current_organization_id()
+    AND (
+      NOT app_private.is_tenant()
+      OR EXISTS (
+        SELECT 1 FROM reservations r
+        WHERE r.id = reservation_id AND r.tenant_party_id = app_private.current_party_id()
+      )
+    )
+  )
+);
+DROP POLICY IF EXISTS reservation_documents_insert ON reservation_documents;
+CREATE POLICY reservation_documents_insert ON reservation_documents FOR INSERT
+WITH CHECK (
+  app_private.is_platform_admin()
+  OR (
+    organization_id = app_private.current_organization_id()
+    AND submitted_by_user_id = app_private.current_user_id()
+    AND (
+      NOT app_private.is_tenant()
+      OR EXISTS (
+        SELECT 1 FROM reservations r
+        WHERE r.id = reservation_id AND r.tenant_party_id = app_private.current_party_id()
+      )
+    )
+  )
+);
+DROP POLICY IF EXISTS reservation_documents_staff_update ON reservation_documents;
+CREATE POLICY reservation_documents_staff_update ON reservation_documents FOR UPDATE
+USING (app_private.is_platform_admin() OR (organization_id = app_private.current_organization_id() AND NOT app_private.is_tenant()))
 WITH CHECK (app_private.is_platform_admin() OR (organization_id = app_private.current_organization_id() AND NOT app_private.is_tenant()));
 
 ALTER TABLE invoice_sequences ENABLE ROW LEVEL SECURITY;
@@ -265,7 +414,9 @@ BEGIN
     'outbox_events','media_assets','unit_media','units','contracts','contract_templates',
     'invoices','credential_tokens','users','report_jobs','properties','leases','payments',
     'maintenance_tickets','sales_deals','legal_cases','work_tasks','operational_requests',
-    'ledger_accounts','journal_entries','journal_lines','expenses','parties','addresses'
+    'ledger_accounts','journal_entries','journal_sequences','journal_lines','expenses','parties','addresses',
+    'party_roles','party_addresses','representation_authorities','billing_schedules',
+    'payment_sessions','refunds','receipts','receipt_sequences','contract_sequences'
   ] LOOP
     EXECUTE format('DROP POLICY IF EXISTS worker_select ON %I', table_name);
     EXECUTE format('CREATE POLICY worker_select ON %I FOR SELECT USING (app_private.is_worker())', table_name);
@@ -278,6 +429,10 @@ DROP POLICY IF EXISTS worker_update ON media_assets;
 CREATE POLICY worker_update ON media_assets FOR UPDATE USING (app_private.is_worker()) WITH CHECK (app_private.is_worker());
 DROP POLICY IF EXISTS worker_update ON contracts;
 CREATE POLICY worker_update ON contracts FOR UPDATE USING (app_private.is_worker()) WITH CHECK (app_private.is_worker());
+DROP POLICY IF EXISTS worker_update ON invoices;
+CREATE POLICY worker_update ON invoices FOR UPDATE USING (app_private.is_worker()) WITH CHECK (app_private.is_worker());
+DROP POLICY IF EXISTS worker_update ON receipts;
+CREATE POLICY worker_update ON receipts FOR UPDATE USING (app_private.is_worker()) WITH CHECK (app_private.is_worker());
 DROP POLICY IF EXISTS worker_update ON report_jobs;
 CREATE POLICY worker_update ON report_jobs FOR UPDATE USING (app_private.is_worker()) WITH CHECK (app_private.is_worker());
 
@@ -307,7 +462,7 @@ DECLARE table_name text;
 BEGIN
   FOREACH table_name IN ARRAY ARRAY[
     'work_tasks','viewing_requests','sales_deals','vendors','maintenance_work_orders',
-    'legal_cases','legal_events','ledger_accounts','journal_entries','journal_lines',
+    'legal_cases','legal_events','ledger_accounts','journal_entries','journal_sequences','journal_lines',
     'expenses','approval_requests','workflow_events'
   ] LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', table_name);

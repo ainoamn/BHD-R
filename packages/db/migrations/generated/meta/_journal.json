@@ -22,6 +22,41 @@
       "when": 1787491909387,
       "tag": "0002_hard_mac_gargan",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787565272122,
+      "tag": "0003_fast_bucky",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787566634060,
+      "tag": "0004_tired_wolverine",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787566763397,
+      "tag": "0005_flowery_stature",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787567762836,
+      "tag": "0006_sloppy_zaladane",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787568750850,
+      "tag": "0007_sharp_genesis",
+      "breakpoints": true
     }
   ]
 }

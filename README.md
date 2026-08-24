@@ -2,15 +2,26 @@
 
 منصة عمانية ثنائية اللغة لإدارة العقارات، الوحدات، العقود، المستأجرين، التحصيل، الصيانة، والإعلانات العامة. الحرف **R** يعني **Real Estate Management — إدارة العقارات**.
 
-**الحزمة التشغيلية (مرجع المنتج):** [`docs/OPERATIONS_SUITE_AR.md`](./docs/OPERATIONS_SUITE_AR.md)  
-**التوثيق المفصل:** [`docs/PROJECT_DOCUMENTATION_AR.md`](./docs/PROJECT_DOCUMENTATION_AR.md)  
-**واجهة عُمانية 2026-08-23:** [`docs/OMANI_UI_2026-08-23.md`](./docs/OMANI_UI_2026-08-23.md)  
-**مصفوفة الأمن:** [`docs/SECURITY_CHECKLIST_MATRIX_AR.md`](./docs/SECURITY_CHECKLIST_MATRIX_AR.md)  
-**ربط Vercel:** [`docs/VERCEL_DEPLOYMENT_AR.md`](./docs/VERCEL_DEPLOYMENT_AR.md) — Root Directory = `apps/web`  
-**هوية BHD:** [`docs/BHD-R-IDENTITY-SETUP.md`](./docs/BHD-R-IDENTITY-SETUP.md)  
-**مزامنة الحزمة 0.1.6:** [`docs/RELEASE_SYNC_0.1.6.md`](./docs/RELEASE_SYNC_0.1.6.md)  
-**خريطة مجلد العمل الأب:** [`docs/PARENT_FOLDER_SYNC_AR.md`](./docs/PARENT_FOLDER_SYNC_AR.md)  
-**لقطات النظام:** [`docs/screenshots/2026-08-23/`](./docs/screenshots/2026-08-23/)  
+**الحزمة التشغيلية (مرجع المنتج):** [`docs/OPERATIONS_SUITE_AR.md`](./docs/OPERATIONS_SUITE_AR.md)
+
+**تقرير اكتمال V1:** [`docs/V1-COMPLETION-REPORT-AR.md`](./docs/V1-COMPLETION-REPORT-AR.md)
+
+**التوثيق المفصل:** [`docs/PROJECT_DOCUMENTATION_AR.md`](./docs/PROJECT_DOCUMENTATION_AR.md)
+
+**واجهة عُمانية 2026-08-23:** [`docs/OMANI_UI_2026-08-23.md`](./docs/OMANI_UI_2026-08-23.md)
+
+**مصفوفة الأمن:** [`docs/SECURITY_CHECKLIST_MATRIX_AR.md`](./docs/SECURITY_CHECKLIST_MATRIX_AR.md)
+
+**ربط Vercel:** [`docs/VERCEL_DEPLOYMENT_AR.md`](./docs/VERCEL_DEPLOYMENT_AR.md) — Root Directory = `apps/web`
+
+**هوية BHD:** [`docs/BHD-R-IDENTITY-SETUP.md`](./docs/BHD-R-IDENTITY-SETUP.md)
+
+**مزامنة الحزمة 0.1.6:** [`docs/RELEASE_SYNC_0.1.6.md`](./docs/RELEASE_SYNC_0.1.6.md)
+
+**خريطة مجلد العمل الأب:** [`docs/PARENT_FOLDER_SYNC_AR.md`](./docs/PARENT_FOLDER_SYNC_AR.md)
+
+**لقطات النظام:** [`docs/screenshots/2026-08-23/`](./docs/screenshots/2026-08-23/)
+
 **مراجعات BHD-OM:** [`docs/legacy-reviews/`](./docs/legacy-reviews/)
 
 ## الحالة

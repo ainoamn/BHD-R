@@ -15,9 +15,11 @@ import {
   operationalRequests,
   organizations,
   parties,
+  payments,
   properties,
   salesDeals,
   units,
+  webhookEvents,
 } from '../src/index.js';
 
 const migrationDatabaseUrl = process.env.TEST_MIGRATION_DATABASE_URL;
@@ -26,7 +28,9 @@ const integration = migrationDatabaseUrl && runtimeDatabaseUrl ? describe : desc
 
 integration('PostgreSQL row-level tenant isolation', () => {
   it('prevents organization and tenant-party cross access', async () => {
-    const { client: adminClient, db: adminDb } = createDatabase(migrationDatabaseUrl!, { max: 1 });
+    const { client: adminClient, db: adminDb } = createDatabase(migrationDatabaseUrl!, {
+      max: 20,
+    });
     let runtime: ReturnType<typeof createDatabase> | undefined;
     const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
     try {
@@ -242,44 +246,99 @@ integration('PostgreSQL row-level tenant isolation', () => {
             },
           ])
           .returning();
-        await transaction.insert(invoices).values([
-          {
-            organizationId: orgA!.id,
-            leaseId: leaseA1!.id,
-            tenantPartyId: tenantA1!.id,
-            invoiceNumber: `A1-${suffix}`,
-            status: 'issued',
-            currency: 'OMR',
-            minorUnit: 3,
-            subtotalMinor: 100_000n,
-            totalMinor: 100_000n,
-            issuedOn: '2026-01-01',
-            dueOn: '2026-01-07',
-          },
-          {
-            organizationId: orgA!.id,
-            leaseId: leaseA2!.id,
-            tenantPartyId: tenantA2!.id,
-            invoiceNumber: `A2-${suffix}`,
-            status: 'issued',
-            currency: 'OMR',
-            minorUnit: 3,
-            subtotalMinor: 100_000n,
-            totalMinor: 100_000n,
-            issuedOn: '2026-01-01',
-            dueOn: '2026-01-07',
-          },
-        ]);
+        const insertedInvoices = await transaction
+          .insert(invoices)
+          .values([
+            {
+              organizationId: orgA!.id,
+              leaseId: leaseA1!.id,
+              tenantPartyId: tenantA1!.id,
+              invoiceNumber: `A1-${suffix}`,
+              status: 'issued',
+              currency: 'OMR',
+              minorUnit: 3,
+              subtotalMinor: 100_000n,
+              totalMinor: 100_000n,
+              issuedOn: '2026-01-01',
+              dueOn: '2026-01-07',
+            },
+            {
+              organizationId: orgA!.id,
+              leaseId: leaseA2!.id,
+              tenantPartyId: tenantA2!.id,
+              invoiceNumber: `A2-${suffix}`,
+              status: 'issued',
+              currency: 'OMR',
+              minorUnit: 3,
+              subtotalMinor: 100_000n,
+              totalMinor: 100_000n,
+              issuedOn: '2026-01-01',
+              dueOn: '2026-01-07',
+            },
+          ])
+          .returning({ id: invoices.id });
         return {
           orgA: orgA!.id,
           orgB: orgB!.id,
           propertyB: propertyB!.id,
           tenantA1: tenantA1!.id,
           leaseA1: leaseA1!.id,
+          invoiceA1: insertedInvoices[0]!.id,
           requestA1: requestA1!.id,
           saleA: saleA!.id,
           saleB: saleB!.id,
         };
+      });
+
+      const webhookEventId = `webhook-${suffix}`;
+      const providerReference = `payment-${suffix}`;
+      const acceptedAttempts = await Promise.all(
+        Array.from({ length: 100 }, async () =>
+          adminDb.transaction(async (transaction) => {
+            await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
+            const claimed = await transaction
+              .insert(webhookEvents)
+              .values({
+                provider: 'regression-gateway',
+                providerEventId: webhookEventId,
+                organizationId: seeded.orgA,
+                payloadHash: 'a'.repeat(64),
+                signatureVerified: true,
+              })
+              .onConflictDoNothing()
+              .returning({ id: webhookEvents.id });
+            if (claimed.length === 0) return false;
+            await transaction.insert(payments).values({
+              organizationId: seeded.orgA,
+              invoiceId: seeded.invoiceA1,
+              status: 'succeeded',
+              amountMinor: 100_000n,
+              currency: 'OMR',
+              minorUnit: 3,
+              provider: 'regression-gateway',
+              providerReference,
+              method: 'card',
+              receivedAt: new Date(),
+            });
+            return true;
+          }),
+        ),
+      );
+      expect(acceptedAttempts.filter(Boolean)).toHaveLength(1);
+      await adminDb.transaction(async (transaction) => {
+        await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
+        expect(
+          await transaction
+            .select()
+            .from(webhookEvents)
+            .where(eq(webhookEvents.providerEventId, webhookEventId)),
+        ).toHaveLength(1);
+        expect(
+          await transaction
+            .select()
+            .from(payments)
+            .where(eq(payments.providerReference, providerReference)),
+        ).toHaveLength(1);
       });
 
       runtime = createDatabase(runtimeDatabaseUrl!, { max: 1 });

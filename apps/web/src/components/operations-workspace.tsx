@@ -5,6 +5,7 @@ import { OperationsConsole, type OperationsContext } from './operations-console'
 
 export type OperationsSection =
   | 'properties'
+  | 'contacts'
   | 'requests'
   | 'bookings'
   | 'leasing'
@@ -20,7 +21,8 @@ export type OperationsSection =
   | 'legal'
   | 'approvals'
   | 'reports'
-  | 'team';
+  | 'team'
+  | 'api-keys';
 
 type DataRow = Record<string, unknown>;
 
@@ -37,6 +39,8 @@ async function loadSection(portal: PortalRole, section: OperationsSection) {
           portal === 'developer' ? '/v1/developer/projects' : '/v1/owner/properties',
         ),
       };
+    case 'contacts':
+      return { records: await safeRows('/v1/parties') };
     case 'requests':
       return { records: await safeRows('/v1/operations/requests') };
     case 'bookings': {
@@ -66,8 +70,18 @@ async function loadSection(portal: PortalRole, section: OperationsSection) {
       return { records: await safeRows('/v1/leasing/contracts') };
     case 'invoices':
       return { records: await safeRows('/v1/finance/invoices') };
-    case 'payments':
-      return { records: await safeRows('/v1/finance/payments') };
+    case 'payments': {
+      const [payments, receipts] = await Promise.all([
+        safeRows('/v1/finance/payments'),
+        safeRows('/v1/finance/receipts'),
+      ]);
+      return {
+        records: [
+          ...payments.map((row) => ({ ...row, recordKind: 'payment' })),
+          ...receipts.map((row) => ({ ...row, recordKind: 'receipt', status: 'issued' })),
+        ],
+      };
+    }
     case 'accounting': {
       const [records, dashboard, trialBalance] = await Promise.all([
         safeRows('/v1/accounting/journals'),
@@ -97,6 +111,8 @@ async function loadSection(portal: PortalRole, section: OperationsSection) {
     }
     case 'team':
       return { records: await safeRows('/v1/organizations/current/members') };
+    case 'api-keys':
+      return { records: await safeRows('/v1/auth/api-keys') };
   }
 }
 

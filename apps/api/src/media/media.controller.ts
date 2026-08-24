@@ -1,4 +1,4 @@
-import { Body, Controller, Param, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Req } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { Idempotent, RequirePermissions } from '../common/decorators.js';
@@ -19,6 +19,13 @@ const completeSchema = z.object({
   sha256: z.string().regex(/^[a-f0-9]{64}$/),
   unitId: z.uuid().optional(),
 });
+const reservationIntentSchema = intentSchema
+  .omit({ purpose: true, unitId: true })
+  .extend({ reservationId: z.uuid() });
+const reservationCompleteSchema = z.object({
+  sha256: z.string().regex(/^[a-f0-9]{64}$/),
+  reservationId: z.uuid(),
+});
 
 @Controller('v1/media')
 export class MediaController {
@@ -35,5 +42,35 @@ export class MediaController {
     @Body(new ZodPipe(completeSchema)) body: z.infer<typeof completeSchema>,
   ) {
     return this.service.complete(request.auth!, id, body);
+  }
+
+  @RequirePermissions('reservation.document.submit')
+  @Post('reservation-upload-intents')
+  reservationIntent(
+    @Req() request: FastifyRequest,
+    @Body(new ZodPipe(reservationIntentSchema)) body: z.infer<typeof reservationIntentSchema>,
+  ) {
+    return this.service.createUploadIntent(request.auth!, {
+      ...body,
+      purpose: 'reservation_document',
+    });
+  }
+
+  @RequirePermissions('reservation.document.submit')
+  @Idempotent()
+  @Post(':id/complete-reservation')
+  completeReservation(
+    @Req() request: FastifyRequest,
+    @Param('id') id: string,
+    @Body(new ZodPipe(reservationCompleteSchema))
+    body: z.infer<typeof reservationCompleteSchema>,
+  ) {
+    return this.service.complete(request.auth!, id, body);
+  }
+
+  @RequirePermissions('reservation.read')
+  @Get(':id/reservation-document')
+  reservationDocument(@Req() request: FastifyRequest, @Param('id', ParseUUIDPipe) id: string) {
+    return this.service.reservationDocumentUrl(request.auth!, id);
   }
 }

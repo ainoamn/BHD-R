@@ -41,7 +41,20 @@ export async function generateMetadata({
   return {
     title,
     description,
-    openGraph: { title, description, images: image ? [{ url: image }] : [] },
+    alternates: {
+      canonical: `/${locale}/properties/${property.id}`,
+      languages: {
+        ar: `/ar/properties/${property.id}`,
+        en: `/en/properties/${property.id}`,
+      },
+    },
+    openGraph: {
+      title,
+      description,
+      url: `/${locale}/properties/${property.id}`,
+      type: 'website',
+      images: image ? [{ url: image }] : [],
+    },
     twitter: { title, description, images: image ? [image] : [] },
   };
 }

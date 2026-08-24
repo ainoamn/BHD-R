@@ -50,6 +50,7 @@ async function bootstrap(): Promise<void> {
       'x-organization-id',
       'idempotency-key',
       'x-request-id',
+      'x-requested-with',
     ],
   });
   app.enableShutdownHooks();

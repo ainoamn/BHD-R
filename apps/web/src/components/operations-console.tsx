@@ -33,6 +33,7 @@ export interface OperationsContext {
   vendors?: OptionRow[];
   maintenanceTickets?: OptionRow[];
   leases?: OptionRow[];
+  reservations?: Array<OptionRow & { unitId?: string; tenantPartyId?: string }>;
   invoices?: OptionRow[];
   contractTemplates?: OptionRow[];
   ledgerAccounts?: OptionRow[];
@@ -77,6 +78,28 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
       { value: 'draft', ar: 'مسودة', en: 'Draft' },
       { value: 'active', ar: 'نشط', en: 'Active' },
       { value: 'inactive', ar: 'متوقف', en: 'Inactive' },
+      { value: 'archived', ar: 'مؤرشف', en: 'Archived' },
+    ],
+  },
+  contacts: {
+    titleAr: 'الأطراف ودفتر العناوين',
+    titleEn: 'Parties & address book',
+    introAr: 'سجل موحد وآمن للأفراد والشركات والملاك والمستأجرين والموردين والمفوّضين وعناوينهم.',
+    introEn:
+      'A secure register for people, companies, owners, tenants, vendors, representatives and addresses.',
+    createAr: 'إضافة طرف',
+    createEn: 'Add party',
+    columns: [
+      { key: 'displayName', ar: 'الاسم', en: 'Name' },
+      { key: 'type', ar: 'النوع', en: 'Type', format: 'kind' },
+      { key: 'roles', ar: 'الأدوار', en: 'Roles', format: 'count' },
+      { key: 'email', ar: 'البريد', en: 'Email' },
+      { key: 'phone', ar: 'الهاتف', en: 'Phone' },
+      { key: 'status', ar: 'الحالة', en: 'Status', format: 'status' },
+    ],
+    flow: [
+      { value: 'active', ar: 'نشط', en: 'Active' },
+      { value: 'inactive', ar: 'غير نشط', en: 'Inactive' },
       { value: 'archived', ar: 'مؤرشف', en: 'Archived' },
     ],
   },
@@ -185,8 +208,10 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
     introAr: 'إعداد العقود وإرسالها ومتابعة توقيع أطرافها وحفظ دليل التوقيع والنسخة النهائية.',
     introEn: 'Prepare, send and track multi-party signatures and final evidence.',
     columns: [
-      { key: 'id', ar: 'العقد', en: 'Contract' },
+      { key: 'reference', fallbackKeys: ['id'], ar: 'العقد', en: 'Contract' },
+      { key: 'kind', ar: 'النوع', en: 'Type', format: 'kind' },
       { key: 'status', ar: 'الحالة', en: 'Status', format: 'status' },
+      { key: 'approvalStatus', ar: 'الاعتماد', en: 'Approval', format: 'status' },
       { key: 'unitId', ar: 'الوحدة', en: 'Unit' },
       { key: 'sentAt', ar: 'تاريخ الإرسال', en: 'Sent', format: 'date' },
       { key: 'completedAt', ar: 'تاريخ الاكتمال', en: 'Completed', format: 'date' },
@@ -228,7 +253,13 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
     createAr: 'تسجيل دفعة',
     createEn: 'Record payment',
     columns: [
-      { key: 'providerReference', ar: 'مرجع الدفع', en: 'Payment reference' },
+      { key: 'recordKind', ar: 'السجل', en: 'Record', format: 'kind' },
+      {
+        key: 'providerReference',
+        fallbackKeys: ['receiptNumber'],
+        ar: 'المرجع',
+        en: 'Reference',
+      },
       { key: 'status', ar: 'الحالة', en: 'Status', format: 'status' },
       { key: 'amountMinor', ar: 'المبلغ', en: 'Amount', format: 'money' },
       { key: 'method', ar: 'الطريقة', en: 'Method', format: 'kind' },
@@ -441,6 +472,28 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
       { value: 'inactive', ar: 'موقوف', en: 'Inactive' },
     ],
   },
+  'api-keys': {
+    titleAr: 'مفاتيح التكامل API',
+    titleEn: 'Integration API keys',
+    introAr: 'مفاتيح محدودة الصلاحية والمدة للتكاملات الخارجية؛ تظهر القيمة السرية مرة واحدة فقط.',
+    introEn:
+      'Time- and scope-limited keys for external integrations; the secret is shown only once.',
+    createAr: 'إنشاء مفتاح API',
+    createEn: 'Create API key',
+    columns: [
+      { key: 'name', ar: 'الاسم', en: 'Name' },
+      { key: 'prefix', ar: 'البادئة', en: 'Prefix' },
+      { key: 'scopes', ar: 'الصلاحيات', en: 'Scopes', format: 'count' },
+      { key: 'status', ar: 'الحالة', en: 'Status', format: 'status' },
+      { key: 'lastUsedAt', ar: 'آخر استخدام', en: 'Last used', format: 'date' },
+      { key: 'expiresAt', ar: 'ينتهي', en: 'Expires', format: 'date' },
+    ],
+    flow: [
+      { value: 'active', ar: 'نشط', en: 'Active' },
+      { value: 'expired', ar: 'منتهي', en: 'Expired' },
+      { value: 'revoked', ar: 'ملغى', en: 'Revoked' },
+    ],
+  },
 };
 
 function scalar(row: DataRow, column: Column): unknown {
@@ -489,8 +542,21 @@ function toIsoDateTime(value: string): string | undefined {
 
 function moneyFromRecord(row: DataRow, key: string, locale: 'ar' | 'en'): string {
   const value = row[key];
-  if (value === undefined || value === null || value === '') return '—';
-  const currency = typeof row.currency === 'string' ? row.currency : 'OMR';
+  if (value === undefined || value === null || value === '') {
+    if (Array.isArray(row.amounts)) {
+      const rendered = row.amounts.flatMap((amount) => {
+        if (!amount || typeof amount !== 'object') return [];
+        const item = amount as DataRow;
+        const currency = safeString(item.currency);
+        const minor = safeString(item[key]);
+        return currency && minor ? [formatMoney(minor, currency, locale)] : [];
+      });
+      if (rendered.length) return rendered.join(' · ');
+    }
+    return '—';
+  }
+  if (typeof row.currency !== 'string') return '—';
+  const currency = row.currency;
   return formatMoney(safeString(value), currency, locale);
 }
 
@@ -610,6 +676,7 @@ function Input({
   required = false,
   defaultValue,
   min,
+  step,
 }: {
   name: string;
   label: string;
@@ -617,6 +684,7 @@ function Input({
   required?: boolean;
   defaultValue?: string;
   min?: string;
+  step?: string;
 }) {
   return (
     <label className="field">
@@ -628,6 +696,7 @@ function Input({
         required={required}
         defaultValue={defaultValue}
         min={min}
+        step={step}
       />
     </label>
   );
@@ -672,7 +741,55 @@ function CreateFields({
   const ar = locale === 'ar';
   const today = new Date().toISOString().slice(0, 10);
   const inOneMonth = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
+  const nextHour = new Date(Date.now() + 60 * 60_000).toISOString().slice(0, 16);
+  const tomorrow = new Date(Date.now() + 24 * 60 * 60_000).toISOString().slice(0, 16);
   switch (section) {
+    case 'contacts':
+      return (
+        <>
+          <label className="field">
+            <span>{ar ? 'نوع الطرف' : 'Party type'}</span>
+            <select className="select" name="partyType" defaultValue="person">
+              <option value="person">{ar ? 'فرد' : 'Person'}</option>
+              <option value="company">{ar ? 'شركة' : 'Company'}</option>
+            </select>
+          </label>
+          <label className="field">
+            <span>{ar ? 'الدور الرئيسي' : 'Primary role'}</span>
+            <select className="select" name="partyRole" defaultValue="tenant">
+              <option value="tenant">{ar ? 'مستأجر' : 'Tenant'}</option>
+              <option value="owner">{ar ? 'مالك' : 'Owner'}</option>
+              <option value="prospect">{ar ? 'عميل محتمل' : 'Prospect'}</option>
+              <option value="supplier">{ar ? 'مورد' : 'Supplier'}</option>
+              <option value="partner">{ar ? 'شريك' : 'Partner'}</option>
+              <option value="authorized_representative">
+                {ar ? 'مفوّض بالتوقيع' : 'Authorized representative'}
+              </option>
+              <option value="lawyer">{ar ? 'محامٍ' : 'Lawyer'}</option>
+              <option value="government">{ar ? 'جهة حكومية' : 'Government'}</option>
+              <option value="other">{ar ? 'أخرى' : 'Other'}</option>
+            </select>
+          </label>
+          <Input
+            name="displayName"
+            label={ar ? 'الاسم الكامل/التجاري' : 'Full/legal name'}
+            required
+          />
+          <Input name="email" label={ar ? 'البريد الإلكتروني' : 'Email'} type="email" />
+          <Input name="phone" label={ar ? 'رقم الهاتف' : 'Phone'} />
+          <Input name="civilId" label={ar ? 'الرقم المدني (للفرد)' : 'Civil ID (person)'} />
+          <Input
+            name="commercialRegistration"
+            label={ar ? 'السجل التجاري (للشركة)' : 'Commercial registration (company)'}
+          />
+          <Input name="governorate" label={ar ? 'المحافظة' : 'Governorate'} required />
+          <Input name="wilayat" label={ar ? 'الولاية' : 'Wilayat'} required />
+          <Input name="city" label={ar ? 'المدينة/القرية' : 'City/village'} required />
+          <Input name="area" label={ar ? 'المنطقة' : 'Area'} />
+          <Input name="street" label={ar ? 'الشارع' : 'Street'} />
+          <Input name="buildingNumber" label={ar ? 'رقم المبنى' : 'Building number'} />
+        </>
+      );
     case 'requests':
       return (
         <>
@@ -736,6 +853,14 @@ function CreateFields({
     case 'bookings':
       return (
         <>
+          <label className="field">
+            <span>{ar ? 'نوع الإجراء' : 'Booking action'}</span>
+            <select className="select" name="bookingKind" defaultValue="viewing">
+              <option value="viewing">{ar ? 'طلب معاينة' : 'Viewing request'}</option>
+              <option value="hold">{ar ? 'حجز مؤقت' : 'Temporary hold'}</option>
+              <option value="reservation">{ar ? 'حجز مؤكد' : 'Confirmed reservation'}</option>
+            </select>
+          </label>
           <SelectOptions
             name="unitId"
             label={ar ? 'الوحدة' : 'Unit'}
@@ -754,6 +879,14 @@ function CreateFields({
             name="scheduledAt"
             label={ar ? 'موعد المعاينة' : 'Viewing time'}
             type="datetime-local"
+            defaultValue={nextHour}
+            required
+          />
+          <Input
+            name="expiresAt"
+            label={ar ? 'انتهاء الحجز' : 'Hold/reservation expiry'}
+            type="datetime-local"
+            defaultValue={tomorrow}
             required
           />
           <Input name="channel" label={ar ? 'المصدر' : 'Channel'} defaultValue="website" required />
@@ -793,6 +926,12 @@ function CreateFields({
             options={context.contractTemplates ?? []}
             locale={locale}
             required
+          />
+          <SelectOptions
+            name="reservationId"
+            label={ar ? 'التحويل من حجز (اختياري)' : 'Convert from reservation (optional)'}
+            options={context.reservations ?? []}
+            locale={locale}
           />
           <Input
             name="startsOn"
@@ -1157,12 +1296,76 @@ function CreateFields({
           </label>
         </>
       );
+    case 'team':
+      return (
+        <>
+          <Input name="displayName" label={ar ? 'الاسم الكامل' : 'Full name'} required />
+          <Input name="email" label={ar ? 'البريد الإلكتروني' : 'Email'} type="email" required />
+          <label className="field span-2">
+            <span>{ar ? 'الدور المفوض' : 'Delegated role'}</span>
+            <select className="select" name="roleKey" defaultValue="property_manager" required>
+              <option value="organization_admin">organization admin</option>
+              <option value="developer_admin">developer admin</option>
+              <option value="property_manager">property manager</option>
+              <option value="finance_manager">finance manager</option>
+              <option value="maintenance_agent">maintenance agent</option>
+              <option value="auditor">auditor</option>
+            </select>
+          </label>
+          <p className="notice notice--info span-2">
+            {ar
+              ? 'سيُنشأ حساب موحد ويرسل رابط تفعيل أحادي الاستخدام. يخضع العدد لحد الباقة.'
+              : 'A unified account and one-time activation link will be created. Plan limits apply.'}
+          </p>
+        </>
+      );
+    case 'api-keys':
+      return (
+        <>
+          <Input name="name" label={ar ? 'اسم المفتاح' : 'Key name'} required />
+          <Input
+            name="expiresAt"
+            label={ar ? 'تاريخ الانتهاء' : 'Expiry'}
+            type="datetime-local"
+            defaultValue={new Date(Date.now() + 90 * 86_400_000).toISOString().slice(0, 16)}
+            required
+          />
+          <fieldset className="field span-2">
+            <legend>{ar ? 'الصلاحيات المحدودة' : 'Limited scopes'}</legend>
+            <div className="permission-grid">
+              {[
+                'property.read',
+                'unit.read',
+                'party.read',
+                'contract.read',
+                'lease.read',
+                'invoice.read',
+                'payment.read',
+                'maintenance.read',
+                'request.create',
+                'report.read',
+                'webhook.read',
+              ].map((scope) => (
+                <label className="checkbox-row" key={scope}>
+                  <input name="scopes" type="checkbox" value={scope} />
+                  <span>{scope}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <Input
+            name="totpCode"
+            label={ar ? 'رمز TOTP (إذا كان مفعلاً)' : 'TOTP code (when enabled)'}
+          />
+        </>
+      );
     default:
       return null;
   }
 }
 
 const creatable = new Set<OperationsSection>([
+  'contacts',
   'requests',
   'bookings',
   'leasing',
@@ -1176,12 +1379,53 @@ const creatable = new Set<OperationsSection>([
   'tasks',
   'legal',
   'reports',
+  'team',
+  'api-keys',
 ]);
 
 function creationRequest(section: OperationsSection, form: FormData) {
   const currency = (text(form.get('currency')) || 'OMR') as CurrencyCode;
   const amount = (name: string) => toMinorUnits(text(form.get(name)) || '0', currency);
   switch (section) {
+    case 'contacts': {
+      const type = text(form.get('partyType')) as 'person' | 'company';
+      const civilId = text(form.get('civilId'));
+      const registration = text(form.get('commercialRegistration'));
+      return {
+        path: '/v1/parties',
+        body: {
+          type,
+          displayName: text(form.get('displayName')),
+          email: optional(text(form.get('email'))),
+          phone: optional(text(form.get('phone'))),
+          roles: [text(form.get('partyRole'))],
+          address: {
+            countryCode: 'OM',
+            governorate: text(form.get('governorate')),
+            wilayat: text(form.get('wilayat')),
+            city: text(form.get('city')),
+            area: optional(text(form.get('area'))),
+            street: optional(text(form.get('street'))),
+            buildingNumber: optional(text(form.get('buildingNumber'))),
+            primary: true,
+          },
+          identityDocuments: [
+            ...(civilId
+              ? [{ documentType: 'civil_id' as const, number: civilId, issuingCountryCode: 'OM' }]
+              : []),
+            ...(registration
+              ? [
+                  {
+                    documentType: 'commercial_registration' as const,
+                    number: registration,
+                    issuingCountryCode: 'OM',
+                  },
+                ]
+              : []),
+          ],
+        },
+      };
+    }
     case 'requests':
       return {
         path: '/v1/operations/requests',
@@ -1209,6 +1453,25 @@ function creationRequest(section: OperationsSection, form: FormData) {
         },
       };
     case 'bookings':
+      if (text(form.get('bookingKind')) === 'hold')
+        return {
+          path: '/v1/leasing/holds',
+          body: {
+            unitId: text(form.get('unitId')),
+            prospectPartyId: text(form.get('prospectPartyId')),
+            expiresAt: toIsoDateTime(text(form.get('expiresAt'))),
+            note: optional(text(form.get('notes'))),
+          },
+        };
+      if (text(form.get('bookingKind')) === 'reservation')
+        return {
+          path: '/v1/leasing/reservations',
+          body: {
+            unitId: text(form.get('unitId')),
+            tenantPartyId: text(form.get('prospectPartyId')),
+            expiresAt: toIsoDateTime(text(form.get('expiresAt'))),
+          },
+        };
       return {
         path: '/v1/operations/viewings',
         body: {
@@ -1234,6 +1497,9 @@ function creationRequest(section: OperationsSection, form: FormData) {
             ? { deposit: { amountMinor: amount('deposit'), currency } }
             : {}),
           billingDay: Number(text(form.get('billingDay'))),
+          ...(text(form.get('reservationId'))
+            ? { reservationId: text(form.get('reservationId')) }
+            : {}),
         },
       };
     case 'sales':
@@ -1366,6 +1632,27 @@ function creationRequest(section: OperationsSection, form: FormData) {
           filters: {},
         },
       };
+    case 'team':
+      return {
+        path: '/v1/organizations/current/representatives',
+        body: {
+          displayName: text(form.get('displayName')),
+          email: text(form.get('email')),
+          roleKey: text(form.get('roleKey')),
+        },
+      };
+    case 'api-keys':
+      return {
+        path: '/v1/auth/api-keys',
+        body: {
+          name: text(form.get('name')),
+          scopes: form
+            .getAll('scopes')
+            .filter((scope): scope is string => typeof scope === 'string'),
+          expiresAt: toIsoDateTime(text(form.get('expiresAt'))),
+          totpCode: optional(text(form.get('totpCode'))),
+        },
+      };
     default:
       throw new Error('create_not_supported');
   }
@@ -1399,7 +1686,6 @@ function nextAction(section: OperationsSection, row: DataRow) {
     },
     expenses: {
       draft: 'pending',
-      pending: 'approved',
       approved: 'in_progress',
       in_progress: 'completed',
     },
@@ -1412,7 +1698,6 @@ function nextAction(section: OperationsSection, row: DataRow) {
     'work-orders': {
       draft: 'quoted',
       quoted: 'awaiting_approval',
-      awaiting_approval: 'approved',
       approved: 'scheduled',
       scheduled: 'in_progress',
       in_progress: 'completed',
@@ -1443,15 +1728,12 @@ function nextAction(section: OperationsSection, row: DataRow) {
   }
   if (section === 'accounting' && status === 'draft')
     return { path: `/v1/accounting/journals/${id}/post`, method: 'POST', body: {}, next: 'posted' };
-  if (section === 'contracts' && status === 'draft')
+  if (
+    section === 'contracts' &&
+    status === 'draft' &&
+    safeString(row.approvalStatus) === 'approved'
+  )
     return { path: `/v1/leasing/contracts/${id}/send`, method: 'POST', body: {}, next: 'sent' };
-  if (section === 'leasing' && status === 'draft')
-    return {
-      path: `/v1/leasing/leases/${id}`,
-      method: 'PATCH',
-      body: { action: 'activate' },
-      next: 'active',
-    };
   if (section === 'approvals' && status === 'pending')
     return {
       path: `/v1/operations/approvals/${id}`,
@@ -1504,6 +1786,8 @@ export function OperationsConsole({
   const [showCreate, setShowCreate] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [apiKeySecret, setApiKeySecret] = useState<string | null>(null);
+  const [renewingLease, setRenewingLease] = useState<DataRow | null>(null);
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
     return records.filter((row) => {
@@ -1529,12 +1813,25 @@ export function OperationsConsole({
       ].includes(safeString(row.status)),
   ).length;
   const completedCount = Math.max(0, records.length - openCount);
-  const amountTotal = definition.moneyKey
-    ? records.reduce(
-        (total, row) => total + BigInt(safeString(row[definition.moneyKey!]) || '0'),
-        0n,
-      )
-    : 0n;
+  const amountTotals = new Map<string, bigint>();
+  if (definition.moneyKey) {
+    for (const row of records) {
+      const nested = Array.isArray(row.amounts) ? row.amounts : [row];
+      for (const candidate of nested) {
+        if (!candidate || typeof candidate !== 'object') continue;
+        const item = candidate as DataRow;
+        const currency = safeString(item.currency);
+        const amount = safeString(item[definition.moneyKey]);
+        if (!currency || !/^-?\d+$/.test(amount)) continue;
+        amountTotals.set(currency, (amountTotals.get(currency) ?? 0n) + BigInt(amount));
+      }
+    }
+  }
+
+  function closeCreate() {
+    setApiKeySecret(null);
+    setShowCreate(false);
+  }
 
   async function submitCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1542,10 +1839,15 @@ export function OperationsConsole({
     setError(null);
     try {
       const request = creationRequest(section, new FormData(event.currentTarget));
-      await browserMutation(request.path, {
+      const result = await browserMutation<{ key?: string }>(request.path, {
         method: 'POST',
         body: JSON.stringify(request.body),
       });
+      if (section === 'api-keys' && result.key) {
+        setApiKeySecret(result.key);
+        router.refresh();
+        return;
+      }
       setShowCreate(false);
       router.refresh();
     } catch (caught) {
@@ -1573,6 +1875,107 @@ export function OperationsConsole({
     }
   }
 
+  async function submitRenewal(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!renewingLease) return;
+    const leaseId = safeString(renewingLease.id);
+    const currency = safeString(renewingLease.currency) as CurrencyCode;
+    const form = new FormData(event.currentTarget);
+    const rent = text(form.get('rent'));
+    setBusy(true);
+    setError(null);
+    try {
+      await browserMutation(`/v1/leasing/leases/${encodeURIComponent(leaseId)}/renewals`, {
+        method: 'POST',
+        body: JSON.stringify({
+          templateVersionId: text(form.get('templateVersionId')),
+          endsOn: text(form.get('endsOn')),
+          ...(rent ? { rent: { amountMinor: toMinorUnits(rent, currency), currency } } : {}),
+          ...(text(form.get('additionalTerms'))
+            ? { additionalTerms: text(form.get('additionalTerms')) }
+            : {}),
+        }),
+      });
+      setRenewingLease(null);
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'request_failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function decideApproval(row: DataRow, decision: 'approved' | 'rejected') {
+    const id = safeString(row.id);
+    if (!id) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await browserMutation(`/v1/operations/approvals/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ decision }),
+      });
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'request_failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function revokeApiKey(row: DataRow) {
+    const id = safeString(row.id);
+    if (!id) return;
+    const totpCode = window.prompt(
+      ar
+        ? 'أدخل رمز TOTP إذا كان مفعلاً، أو اتركه فارغاً ثم اضغط موافق.'
+        : 'Enter your TOTP code when enabled, or leave it blank and press OK.',
+      '',
+    );
+    if (totpCode === null) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await browserMutation(`/v1/auth/api-keys/${encodeURIComponent(id)}/revoke`, {
+        method: 'PATCH',
+        body: JSON.stringify({ ...(totpCode ? { totpCode } : {}) }),
+      });
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'request_failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function updateMemberAccess(row: DataRow, status: 'active' | 'inactive') {
+    const userId = safeString(row.userId);
+    const roleKey = safeString(row.roleKey);
+    if (!userId || !roleKey) return;
+    if (
+      status === 'inactive' &&
+      !window.confirm(
+        ar
+          ? 'سيتم إلغاء جلسات هذا المستخدم فوراً. هل تريد المتابعة؟'
+          : 'This user’s sessions will be revoked immediately. Continue?',
+      )
+    )
+      return;
+    setBusy(true);
+    setError(null);
+    try {
+      await browserMutation(`/v1/organizations/current/members/${encodeURIComponent(userId)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ roleKey, status }),
+      });
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'request_failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function downloadReport(id: string) {
     setBusy(true);
     setError(null);
@@ -1584,6 +1987,31 @@ export function OperationsConsole({
       if (!response.ok) throw new Error(ar ? 'ملف التقرير غير متاح بعد' : 'Report is not ready');
       const payload = (await response.json()) as { downloadUrl: string };
       window.location.assign(payload.downloadUrl);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'download_failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function downloadFinanceDocument(kind: 'invoice' | 'receipt', id: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/v1/finance/${kind === 'invoice' ? 'invoices' : 'receipts'}/${encodeURIComponent(id)}/document`,
+        { credentials: 'same-origin', headers: { accept: 'application/json' } },
+      );
+      if (!response.ok)
+        throw new Error(ar ? 'المستند غير جاهز بعد' : 'The document is not ready yet');
+      const payload = (await response.json()) as { url: string };
+      const target = new URL(payload.url);
+      if (
+        target.protocol !== 'https:' &&
+        !(target.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(target.hostname))
+      )
+        throw new Error(ar ? 'رابط مستند غير آمن' : 'Unsafe document URL');
+      window.location.assign(target.href);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'download_failed');
     } finally {
@@ -1625,7 +2053,10 @@ export function OperationsConsole({
             <button
               className="button button--primary"
               type="button"
-              onClick={() => setShowCreate(true)}
+              onClick={() => {
+                setApiKeySecret(null);
+                setShowCreate(true);
+              }}
             >
               ＋ {ar ? definition.createAr : definition.createEn}
             </button>
@@ -1661,16 +2092,34 @@ export function OperationsConsole({
           </span>
           <strong>
             {definition.moneyKey
-              ? formatMoney(
-                  amountTotal.toString(),
-                  safeString(records[0]?.currency) || 'OMR',
-                  locale,
-                )
+              ? amountTotals.size === 1
+                ? [...amountTotals].map(([currency, amount]) =>
+                    formatMoney(amount.toString(), currency, locale),
+                  )[0]
+                : amountTotals.size > 1
+                  ? `${amountTotals.size} ${ar ? 'عملات' : 'currencies'}`
+                  : '—'
               : safeString(summary.pendingApprovals ?? summary.draftJournals ?? secondary.length)}
           </strong>
           <small>{ar ? 'محدث من البيانات التشغيلية' : 'Updated from operational data'}</small>
         </article>
       </section>
+
+      {definition.moneyKey && amountTotals.size > 1 ? (
+        <section
+          className="ops-currency-totals"
+          aria-label={ar ? 'الإجماليات حسب العملة' : 'Totals by currency'}
+        >
+          {[...amountTotals]
+            .sort(([left], [right]) => left.localeCompare(right))
+            .map(([currency, amount]) => (
+              <article key={currency}>
+                <span>{currency}</span>
+                <strong>{formatMoney(amount.toString(), currency, locale)}</strong>
+              </article>
+            ))}
+        </section>
+      ) : null}
 
       <section className="ops-flow" aria-label={ar ? 'مراحل العمل' : 'Workflow stages'}>
         {definition.flow.map((stage, index) => {
@@ -1736,13 +2185,113 @@ export function OperationsConsole({
                 const action = nextAction(section, row);
                 const reportId = section === 'reports' ? safeString(row.id) : '';
                 const reportReady = Boolean(reportId && safeString(row.status) === 'completed');
+                const documentKind =
+                  section === 'invoices' && row.documentReady
+                    ? 'invoice'
+                    : section === 'payments' &&
+                        safeString(row.recordKind) === 'receipt' &&
+                        row.documentReady
+                      ? 'receipt'
+                      : null;
                 return (
                   <tr key={safeString(row.id ?? row.reference) || String(index)}>
                     {definition.columns.map((column) => (
                       <td key={column.key}>{displayCell(row, column, locale, context)}</td>
                     ))}
                     <td>
-                      {reportReady ? (
+                      {section === 'leasing' && safeString(row.status) === 'active' ? (
+                        <button
+                          className="ops-action"
+                          type="button"
+                          disabled={busy}
+                          onClick={() => {
+                            setError(null);
+                            setRenewingLease(row);
+                          }}
+                        >
+                          {ar ? 'ملحق تجديد موقّع' : 'Signed renewal addendum'}
+                        </button>
+                      ) : section === 'team' ? (
+                        <button
+                          className={`ops-action ${safeString(row.status) === 'active' ? 'ops-action--danger' : ''}`}
+                          type="button"
+                          disabled={busy}
+                          onClick={() =>
+                            void updateMemberAccess(
+                              row,
+                              safeString(row.status) === 'active' ? 'inactive' : 'active',
+                            )
+                          }
+                        >
+                          {safeString(row.status) === 'active'
+                            ? ar
+                              ? 'تعطيل وإلغاء الجلسات'
+                              : 'Disable & revoke sessions'
+                            : ar
+                              ? 'إعادة التفعيل'
+                              : 'Reactivate'}
+                        </button>
+                      ) : section === 'api-keys' && safeString(row.status) === 'active' ? (
+                        <button
+                          className="ops-action ops-action--danger"
+                          type="button"
+                          disabled={busy}
+                          onClick={() => void revokeApiKey(row)}
+                        >
+                          {ar ? 'إلغاء المفتاح' : 'Revoke key'}
+                        </button>
+                      ) : section === 'approvals' && safeString(row.status) === 'pending' ? (
+                        <span className="ops-inline-actions">
+                          <button
+                            className="ops-action"
+                            type="button"
+                            disabled={busy}
+                            onClick={() => void decideApproval(row, 'approved')}
+                          >
+                            {ar ? 'اعتماد' : 'Approve'}
+                          </button>
+                          <button
+                            className="ops-action ops-action--danger"
+                            type="button"
+                            disabled={busy}
+                            onClick={() => void decideApproval(row, 'rejected')}
+                          >
+                            {ar ? 'رفض' : 'Reject'}
+                          </button>
+                        </span>
+                      ) : section === 'bookings' && safeString(row.recordKind) === 'reservation' ? (
+                        <a
+                          className="ops-action"
+                          href={`/${locale}/${portal}/bookings/${encodeURIComponent(safeString(row.id))}`}
+                        >
+                          {ar ? 'المتطلبات والمستندات' : 'Requirements & documents'}
+                        </a>
+                      ) : section === 'properties' ? (
+                        <a
+                          className="ops-action"
+                          href={`/${locale}/${portal}/properties/${encodeURIComponent(safeString(row.id))}`}
+                        >
+                          {ar ? 'إدارة العقار' : 'Manage property'}
+                        </a>
+                      ) : section === 'contracts' ? (
+                        <a
+                          className="ops-action"
+                          href={`/${locale}/${portal}/contracts/${encodeURIComponent(safeString(row.id))}`}
+                        >
+                          {ar ? 'عرض العقد' : 'View contract'}
+                        </a>
+                      ) : documentKind ? (
+                        <button
+                          className="ops-action"
+                          type="button"
+                          disabled={busy}
+                          onClick={() =>
+                            void downloadFinanceDocument(documentKind, safeString(row.id))
+                          }
+                        >
+                          {ar ? 'عرض PDF آمن' : 'View secure PDF'}
+                        </button>
+                      ) : reportReady ? (
                         <button
                           className="ops-action"
                           type="button"
@@ -1789,12 +2338,102 @@ export function OperationsConsole({
         </div>
       </section>
 
+      {renewingLease ? (
+        <div
+          className="ops-modal"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setRenewingLease(null);
+          }}
+        >
+          <section
+            className="ops-modal__card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ops-renewal-title"
+          >
+            <header>
+              <div>
+                <span className="ops-kicker">BHD R · CONTRACT CONTROL</span>
+                <h2 id="ops-renewal-title">
+                  {ar ? 'إنشاء ملحق تجديد' : 'Create renewal addendum'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRenewingLease(null)}
+                aria-label={ar ? 'إغلاق' : 'Close'}
+              >
+                ×
+              </button>
+            </header>
+            <p className="muted">
+              {ar
+                ? 'لن يتغير العقد الحالي حتى يُعتمد الملحق ويوقعه المالك والمستأجر.'
+                : 'The current lease will not change until the addendum is approved and signed by both owner and tenant.'}
+            </p>
+            <form onSubmit={(event) => void submitRenewal(event)}>
+              <div className="form-grid">
+                <SelectOptions
+                  name="templateVersionId"
+                  label={ar ? 'قالب ملحق العقد' : 'Addendum template'}
+                  options={context.contractTemplates ?? []}
+                  locale={locale}
+                  required
+                />
+                <Input
+                  name="endsOn"
+                  label={ar ? 'تاريخ النهاية الجديد' : 'New end date'}
+                  type="date"
+                  min={safeString(renewingLease.endsOn)}
+                  required
+                />
+                <Input
+                  name="rent"
+                  label={`${ar ? 'الإيجار الجديد (اختياري)' : 'New rent (optional)'} · ${safeString(renewingLease.currency)}`}
+                  type="number"
+                  min="0"
+                  step="0.001"
+                />
+                <label className="field span-2">
+                  <span>{ar ? 'شروط إضافية' : 'Additional terms'}</span>
+                  <textarea className="textarea" name="additionalTerms" maxLength={10000} />
+                </label>
+              </div>
+              {error ? (
+                <div className="notice notice--error" role="alert">
+                  {error}
+                </div>
+              ) : null}
+              <div className="form-actions">
+                <button
+                  className="button button--quiet"
+                  type="button"
+                  onClick={() => setRenewingLease(null)}
+                >
+                  {ar ? 'إلغاء' : 'Cancel'}
+                </button>
+                <button className="button button--primary" type="submit" disabled={busy}>
+                  {busy
+                    ? ar
+                      ? 'جارٍ الحفظ…'
+                      : 'Saving…'
+                    : ar
+                      ? 'حفظ وإرسال للاعتماد'
+                      : 'Save & request approval'}
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
+
       {showCreate ? (
         <div
           className="ops-modal"
           role="presentation"
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setShowCreate(false);
+            if (event.target === event.currentTarget) closeCreate();
           }}
         >
           <section
@@ -1808,42 +2447,55 @@ export function OperationsConsole({
                 <span className="ops-kicker">BHD R WORKFLOW</span>
                 <h2 id="ops-create-title">{ar ? definition.createAr : definition.createEn}</h2>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowCreate(false)}
-                aria-label={ar ? 'إغلاق' : 'Close'}
-              >
+              <button type="button" onClick={closeCreate} aria-label={ar ? 'إغلاق' : 'Close'}>
                 ×
               </button>
             </header>
-            <form onSubmit={(event) => void submitCreate(event)}>
-              <div className="form-grid">
-                <CreateFields section={section} locale={locale} context={context} />
-              </div>
-              {error ? (
-                <div className="notice notice--error" role="alert">
-                  {error}
-                </div>
-              ) : null}
-              <div className="form-actions">
+            {apiKeySecret ? (
+              <div className="api-key-secret" role="status">
+                <strong>{ar ? 'انسخ المفتاح الآن' : 'Copy the key now'}</strong>
+                <p>
+                  {ar
+                    ? 'لن تظهر القيمة السرية مرة أخرى بعد إغلاق هذه النافذة.'
+                    : 'The secret will not be shown again after you close this dialog.'}
+                </p>
+                <code dir="ltr">{apiKeySecret}</code>
                 <button
-                  className="button button--quiet"
+                  className="button button--primary"
                   type="button"
-                  onClick={() => setShowCreate(false)}
+                  onClick={() => {
+                    closeCreate();
+                  }}
                 >
-                  {ar ? 'إلغاء' : 'Cancel'}
-                </button>
-                <button className="button button--primary" type="submit" disabled={busy}>
-                  {busy
-                    ? ar
-                      ? 'جارٍ الحفظ…'
-                      : 'Saving…'
-                    : ar
-                      ? 'حفظ وبدء سير العمل'
-                      : 'Save & start workflow'}
+                  {ar ? 'تم النسخ والإغلاق' : 'Copied, close'}
                 </button>
               </div>
-            </form>
+            ) : (
+              <form onSubmit={(event) => void submitCreate(event)}>
+                <div className="form-grid">
+                  <CreateFields section={section} locale={locale} context={context} />
+                </div>
+                {error ? (
+                  <div className="notice notice--error" role="alert">
+                    {error}
+                  </div>
+                ) : null}
+                <div className="form-actions">
+                  <button className="button button--quiet" type="button" onClick={closeCreate}>
+                    {ar ? 'إلغاء' : 'Cancel'}
+                  </button>
+                  <button className="button button--primary" type="submit" disabled={busy}>
+                    {busy
+                      ? ar
+                        ? 'جارٍ الحفظ…'
+                        : 'Saving…'
+                      : ar
+                        ? 'حفظ وبدء سير العمل'
+                        : 'Save & start workflow'}
+                  </button>
+                </div>
+              </form>
+            )}
           </section>
         </div>
       ) : null}

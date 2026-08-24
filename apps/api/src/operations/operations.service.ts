@@ -6,6 +6,7 @@ import { currencyMinorUnits, type CurrencyCode } from '@bhd-r/contracts';
 import {
   approvalRequests,
   contractTemplates,
+  expenses,
   invoices,
   leases,
   ledgerAccounts,
@@ -18,6 +19,7 @@ import {
   outboxEvents,
   parties,
   properties,
+  reservations,
   salesDeals,
   units,
   users,
@@ -270,6 +272,7 @@ export class OperationsService {
         leaseRows,
         invoiceRows,
         templateRows,
+        reservationRows,
         accountRows,
       ] = await Promise.all([
         transaction
@@ -352,6 +355,21 @@ export class OperationsService {
           .orderBy(desc(contractTemplates.version)),
         transaction
           .select({
+            id: reservations.id,
+            unitId: reservations.unitId,
+            tenantPartyId: reservations.tenantPartyId,
+            status: reservations.status,
+          })
+          .from(reservations)
+          .where(
+            and(
+              eq(reservations.organizationId, claims.organizationId!),
+              inArray(reservations.status, ['pending', 'confirmed']),
+            ),
+          )
+          .orderBy(desc(reservations.createdAt)),
+        transaction
+          .select({
             id: ledgerAccounts.id,
             code: ledgerAccounts.code,
             nameAr: ledgerAccounts.nameAr,
@@ -375,6 +393,10 @@ export class OperationsService {
           outstandingMinor: row.outstandingMinor.toString(),
         })),
         contractTemplates: templateRows,
+        reservations: reservationRows.map((row) => ({
+          ...row,
+          name: `${row.id.slice(0, 8)} · ${row.status}`,
+        })),
         ledgerAccounts: accountRows,
       };
     });
@@ -888,6 +910,12 @@ export class OperationsService {
         ),
       });
       if (!current) throw new NotFoundException('Work order not found');
+      if (
+        current.status === 'awaiting_approval' &&
+        (input.status === 'approved' || input.status === 'quoted')
+      ) {
+        throw new ConflictException('Use the approval center to decide this work order');
+      }
       assertTransition(current.status, input.status, workOrderTransitions);
       const rows = await transaction
         .update(maintenanceWorkOrders)
@@ -913,6 +941,25 @@ export class OperationsService {
         note: input.note,
       });
       const row = rows[0]!;
+      if (input.status === 'awaiting_approval' && current.status !== 'awaiting_approval') {
+        await transaction.insert(approvalRequests).values({
+          organizationId: claims.organizationId!,
+          reference: reference('APR-WO'),
+          type: 'maintenance_work_order_approval',
+          subject: `Work order ${row.reference}`,
+          resourceType: 'maintenance_work_order',
+          resourceId: row.id,
+          requestedByUserId: claims.sub,
+        });
+        await emitOutbox(
+          transaction,
+          claims,
+          'approval.requested',
+          'maintenance_work_order',
+          row.id,
+          { reference: row.reference },
+        );
+      }
       return {
         ...row,
         estimateMinor: row.estimateMinor.toString(),
@@ -1118,6 +1165,74 @@ export class OperationsService {
         toStatus: input.decision,
         note: input.note,
       });
+      if (current.resourceType === 'maintenance_work_order') {
+        const targetStatus = input.decision === 'approved' ? 'approved' : 'quoted';
+        const workOrders = await transaction
+          .update(maintenanceWorkOrders)
+          .set({
+            status: targetStatus,
+            approvedMinor:
+              input.decision === 'approved'
+                ? sql`GREATEST(${maintenanceWorkOrders.approvedMinor}, ${maintenanceWorkOrders.estimateMinor})`
+                : maintenanceWorkOrders.approvedMinor,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(maintenanceWorkOrders.id, current.resourceId),
+              eq(maintenanceWorkOrders.organizationId, claims.organizationId!),
+              eq(maintenanceWorkOrders.status, 'awaiting_approval'),
+            ),
+          )
+          .returning({ id: maintenanceWorkOrders.id });
+        if (!workOrders[0]) throw new ConflictException('Approval target is no longer pending');
+        await appendWorkflowEvent(transaction, claims, {
+          resourceType: current.resourceType,
+          resourceId: current.resourceId,
+          eventType: 'work_order.approval_decided',
+          fromStatus: 'awaiting_approval',
+          toStatus: targetStatus,
+          note: input.note,
+        });
+      } else if (current.resourceType === 'expense') {
+        const targetStatus = input.decision;
+        const expenseRows = await transaction
+          .update(expenses)
+          .set({ status: targetStatus, updatedAt: new Date() })
+          .where(
+            and(
+              eq(expenses.id, current.resourceId),
+              eq(expenses.organizationId, claims.organizationId!),
+              eq(expenses.status, 'pending'),
+            ),
+          )
+          .returning({ id: expenses.id });
+        if (!expenseRows[0]) throw new ConflictException('Approval target is no longer pending');
+        await appendWorkflowEvent(transaction, claims, {
+          resourceType: current.resourceType,
+          resourceId: current.resourceId,
+          eventType: 'expense.approval_decided',
+          fromStatus: 'pending',
+          toStatus: targetStatus,
+          note: input.note,
+        });
+      } else {
+        await appendWorkflowEvent(transaction, claims, {
+          resourceType: current.resourceType,
+          resourceId: current.resourceId,
+          eventType: 'resource.approval_decided',
+          toStatus: input.decision,
+          note: input.note,
+        });
+      }
+      await emitOutbox(
+        transaction,
+        claims,
+        'approval.decided',
+        current.resourceType,
+        current.resourceId,
+        { approvalId: current.id, decision: input.decision },
+      );
       return rows[0]!;
     });
   }
@@ -1140,13 +1255,15 @@ export class OperationsService {
 
   async ensureSalesTotals(claims: SessionClaims) {
     return this.database.withinTenant(claims, async (transaction) => {
-      const [row] = await transaction
+      const rows = await transaction
         .select({
-          pipelineMinor: sql<string>`coalesce(sum(${salesDeals.agreedPriceMinor}), sum(${salesDeals.offerPriceMinor}), sum(${salesDeals.askingPriceMinor}), 0)`,
+          currency: salesDeals.currency,
+          pipelineMinor: sql<string>`coalesce(sum(coalesce(${salesDeals.agreedPriceMinor}, ${salesDeals.offerPriceMinor}, ${salesDeals.askingPriceMinor}, 0)), 0)`,
         })
         .from(salesDeals)
-        .where(eq(salesDeals.organizationId, claims.organizationId!));
-      return { pipelineMinor: row?.pipelineMinor ?? '0' };
+        .where(eq(salesDeals.organizationId, claims.organizationId!))
+        .groupBy(salesDeals.currency);
+      return { totals: rows };
     });
   }
 }

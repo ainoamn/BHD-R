@@ -153,6 +153,26 @@ export const ledgerAccountType = pgEnum('ledger_account_type', [
   'expense',
 ]);
 export const journalStatus = pgEnum('journal_status', ['draft', 'posted', 'reversed']);
+export const billingScheduleStatus = pgEnum('billing_schedule_status', [
+  'pending_activation',
+  'active',
+  'paused',
+  'completed',
+  'cancelled',
+]);
+export const paymentSessionStatus = pgEnum('payment_session_status', [
+  'created',
+  'redirected',
+  'completed',
+  'expired',
+  'cancelled',
+]);
+export const refundStatus = pgEnum('refund_status', [
+  'pending',
+  'succeeded',
+  'failed',
+  'cancelled',
+]);
 
 export const countryPacks = pgTable('country_packs', {
   countryCode: varchar('country_code', { length: 2 }).primaryKey(),
@@ -215,12 +235,23 @@ export const parties = pgTable(
     email: varchar('email', { length: 320 }),
     phone: varchar('phone', { length: 40 }),
     nationalIdEncrypted: text('national_id_encrypted'),
+    nationalIdLookupHash: varchar('national_id_lookup_hash', { length: 64 }),
     registrationNumberEncrypted: text('registration_number_encrypted'),
+    registrationNumberLookupHash: varchar('registration_number_lookup_hash', { length: 64 }),
+    status: lifecycleStatus('status').notNull().default('active'),
     metadata: jsonb('metadata').notNull().default({}),
   },
   (table) => [
     index('parties_org_idx').on(table.organizationId),
     uniqueIndex('parties_org_email_unique').on(table.organizationId, table.email),
+    uniqueIndex('parties_org_national_id_unique').on(
+      table.organizationId,
+      table.nationalIdLookupHash,
+    ),
+    uniqueIndex('parties_org_registration_unique').on(
+      table.organizationId,
+      table.registrationNumberLookupHash,
+    ),
   ],
 );
 
@@ -349,6 +380,142 @@ export const addresses = pgTable(
   (table) => [
     index('addresses_org_idx').on(table.organizationId),
     index('addresses_location_gist_idx').using('gist', table.location),
+  ],
+);
+
+export const partyRoles = pgTable(
+  'party_roles',
+  {
+    ...identityColumns,
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    partyId: uuid('party_id')
+      .notNull()
+      .references(() => parties.id),
+    roleKey: varchar('role_key', { length: 48 }).notNull(),
+    status: lifecycleStatus('status').notNull().default('active'),
+    startsOn: date('starts_on'),
+    endsOn: date('ends_on'),
+  },
+  (table) => [
+    uniqueIndex('party_roles_org_party_role_unique').on(
+      table.organizationId,
+      table.partyId,
+      table.roleKey,
+    ),
+    index('party_roles_org_role_idx').on(table.organizationId, table.roleKey, table.status),
+    check(
+      'party_roles_key_check',
+      sql`${table.roleKey} IN ('prospect', 'tenant', 'owner', 'supplier', 'partner', 'government', 'authorized_representative', 'lawyer', 'other')`,
+    ),
+    check(
+      'party_roles_dates_check',
+      sql`${table.endsOn} IS NULL OR ${table.startsOn} IS NULL OR ${table.endsOn} >= ${table.startsOn}`,
+    ),
+  ],
+);
+
+export const partyAddresses = pgTable(
+  'party_addresses',
+  {
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    partyId: uuid('party_id')
+      .notNull()
+      .references(() => parties.id),
+    addressId: uuid('address_id')
+      .notNull()
+      .references(() => addresses.id),
+    label: varchar('label', { length: 40 }).notNull().default('primary'),
+    primary: boolean('primary').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.partyId, table.addressId] }),
+    index('party_addresses_org_idx').on(table.organizationId),
+  ],
+);
+
+export const partyIdentityDocuments = pgTable(
+  'party_identity_documents',
+  {
+    ...identityColumns,
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    partyId: uuid('party_id')
+      .notNull()
+      .references(() => parties.id),
+    documentType: varchar('document_type', { length: 40 }).notNull(),
+    numberEncrypted: text('number_encrypted').notNull(),
+    numberLookupHash: varchar('number_lookup_hash', { length: 64 }).notNull(),
+    numberLast4: varchar('number_last4', { length: 4 }).notNull(),
+    issuingCountryCode: varchar('issuing_country_code', { length: 2 }).notNull().default('OM'),
+    issuedOn: date('issued_on'),
+    expiresOn: date('expires_on'),
+    verificationStatus: varchar('verification_status', { length: 24 }).notNull().default('pending'),
+    metadata: jsonb('metadata').notNull().default({}),
+  },
+  (table) => [
+    uniqueIndex('party_identity_document_number_unique').on(
+      table.organizationId,
+      table.documentType,
+      table.numberLookupHash,
+    ),
+    index('party_identity_documents_party_idx').on(table.partyId),
+    index('party_identity_documents_expiry_idx').on(table.organizationId, table.expiresOn),
+    check(
+      'party_identity_documents_type_check',
+      sql`${table.documentType} IN ('civil_id', 'passport', 'commercial_registration', 'tax_card', 'other')`,
+    ),
+    check(
+      'party_identity_documents_verification_check',
+      sql`${table.verificationStatus} IN ('pending', 'verified', 'rejected', 'expired')`,
+    ),
+  ],
+);
+
+export const representationAuthorities = pgTable(
+  'representation_authorities',
+  {
+    ...identityColumns,
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    principalPartyId: uuid('principal_party_id')
+      .notNull()
+      .references(() => parties.id),
+    representativePartyId: uuid('representative_party_id')
+      .notNull()
+      .references(() => parties.id),
+    title: varchar('title', { length: 160 }).notNull(),
+    scopes: jsonb('scopes').$type<string[]>().notNull().default([]),
+    startsOn: date('starts_on'),
+    endsOn: date('ends_on'),
+    status: lifecycleStatus('status').notNull().default('active'),
+  },
+  (table) => [
+    uniqueIndex('representation_authority_unique').on(
+      table.organizationId,
+      table.principalPartyId,
+      table.representativePartyId,
+      table.title,
+    ),
+    index('representation_authority_representative_idx').on(
+      table.organizationId,
+      table.representativePartyId,
+      table.status,
+    ),
+    check(
+      'representation_authority_distinct_parties',
+      sql`${table.principalPartyId} <> ${table.representativePartyId}`,
+    ),
+    check(
+      'representation_authority_dates_check',
+      sql`${table.endsOn} IS NULL OR ${table.startsOn} IS NULL OR ${table.endsOn} >= ${table.startsOn}`,
+    ),
   ],
 );
 
@@ -687,6 +854,83 @@ export const reservations = pgTable(
   ],
 );
 
+export const reservationRequirements = pgTable(
+  'reservation_requirements',
+  {
+    ...identityColumns,
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    reservationId: uuid('reservation_id')
+      .notNull()
+      .references(() => reservations.id),
+    code: varchar('code', { length: 80 }).notNull(),
+    labelAr: varchar('label_ar', { length: 200 }).notNull(),
+    labelEn: varchar('label_en', { length: 200 }).notNull(),
+    required: boolean('required').notNull().default(true),
+    status: varchar('status', { length: 24 }).notNull().default('pending'),
+    dueAt: timestamp('due_at', { withTimezone: true }),
+    notes: text('notes'),
+  },
+  (table) => [
+    uniqueIndex('reservation_requirements_code_unique').on(table.reservationId, table.code),
+    index('reservation_requirements_org_idx').on(table.organizationId),
+    check(
+      'reservation_requirements_status_check',
+      sql`${table.status} IN ('pending', 'submitted', 'approved', 'rejected', 'waived')`,
+    ),
+  ],
+);
+
+export const reservationDocuments = pgTable(
+  'reservation_documents',
+  {
+    ...identityColumns,
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    reservationId: uuid('reservation_id')
+      .notNull()
+      .references(() => reservations.id),
+    requirementId: uuid('requirement_id').references(() => reservationRequirements.id),
+    mediaAssetId: uuid('media_asset_id')
+      .notNull()
+      .references(() => mediaAssets.id),
+    documentType: varchar('document_type', { length: 80 }).notNull(),
+    status: varchar('status', { length: 24 }).notNull().default('submitted'),
+    submittedByUserId: uuid('submitted_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    reviewedByUserId: uuid('reviewed_by_user_id').references(() => users.id),
+    reviewNotes: text('review_notes'),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    metadata: jsonb('metadata').notNull().default({}),
+  },
+  (table) => [
+    uniqueIndex('reservation_documents_media_unique').on(table.mediaAssetId),
+    index('reservation_documents_reservation_idx').on(table.reservationId),
+    index('reservation_documents_org_idx').on(table.organizationId),
+    check(
+      'reservation_documents_status_check',
+      sql`${table.status} IN ('submitted', 'approved', 'rejected', 'superseded')`,
+    ),
+  ],
+);
+
+export const contractSequences = pgTable(
+  'contract_sequences',
+  {
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    year: integer('year').notNull(),
+    nextValue: bigint('next_value', { mode: 'bigint' })
+      .notNull()
+      .default(sql`1`),
+  },
+  (table) => [primaryKey({ columns: [table.organizationId, table.year] })],
+);
+
 export const contractTemplates = pgTable(
   'contract_templates',
   {
@@ -718,6 +962,9 @@ export const contracts = pgTable(
     organizationId: uuid('organization_id')
       .notNull()
       .references(() => organizations.id),
+    reference: varchar('reference', { length: 64 }),
+    kind: varchar('kind', { length: 24 }).notNull().default('initial'),
+    parentContractId: uuid('parent_contract_id'),
     templateVersionId: uuid('template_version_id')
       .notNull()
       .references(() => contractTemplates.id),
@@ -740,6 +987,12 @@ export const contracts = pgTable(
   (table) => [
     index('contracts_org_idx').on(table.organizationId),
     index('contracts_tenant_idx').on(table.tenantPartyId),
+    index('contracts_parent_idx').on(table.parentContractId),
+    uniqueIndex('contracts_org_reference_unique').on(table.organizationId, table.reference),
+    check(
+      'contracts_kind_check',
+      sql`${table.kind} IN ('initial', 'renewal', 'amendment', 'termination')`,
+    ),
   ],
 );
 
@@ -828,6 +1081,36 @@ export const leases = pgTable(
   ],
 );
 
+export const billingSchedules = pgTable(
+  'billing_schedules',
+  {
+    ...identityColumns,
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    leaseId: uuid('lease_id')
+      .notNull()
+      .references(() => leases.id),
+    status: billingScheduleStatus('status').notNull().default('pending_activation'),
+    frequency: varchar('frequency', { length: 24 }).notNull().default('monthly'),
+    billingDay: integer('billing_day').notNull(),
+    dueDays: integer('due_days').notNull().default(7),
+    taxRateBasisPoints: integer('tax_rate_basis_points').notNull().default(0),
+    descriptionAr: varchar('description_ar', { length: 300 }).notNull(),
+    descriptionEn: varchar('description_en', { length: 300 }).notNull(),
+    nextIssueOn: date('next_issue_on').notNull(),
+    lastIssuedOn: date('last_issued_on'),
+  },
+  (table) => [
+    uniqueIndex('billing_schedules_lease_unique').on(table.leaseId),
+    index('billing_schedules_due_idx').on(table.organizationId, table.status, table.nextIssueOn),
+    check('billing_schedules_frequency_check', sql`${table.frequency} IN ('monthly')`),
+    check('billing_schedules_billing_day_check', sql`${table.billingDay} BETWEEN 1 AND 28`),
+    check('billing_schedules_due_days_check', sql`${table.dueDays} BETWEEN 0 AND 90`),
+    check('billing_schedules_tax_rate_check', sql`${table.taxRateBasisPoints} BETWEEN 0 AND 10000`),
+  ],
+);
+
 export const invoiceSequences = pgTable(
   'invoice_sequences',
   {
@@ -869,13 +1152,22 @@ export const invoices = pgTable(
       .default(sql`0`),
     issuedOn: date('issued_on').notNull(),
     dueOn: date('due_on').notNull(),
+    billingPeriodStart: date('billing_period_start'),
+    billingPeriodEnd: date('billing_period_end'),
     publicTokenHash: varchar('public_token_hash', { length: 64 }),
     publicTokenExpiresAt: timestamp('public_token_expires_at', { withTimezone: true }),
+    renderedPdfObjectKey: text('rendered_pdf_object_key'),
+    renderedPdfHash: varchar('rendered_pdf_hash', { length: 64 }),
     notes: text('notes'),
   },
   (table) => [
     uniqueIndex('invoices_org_number_unique').on(table.organizationId, table.invoiceNumber),
     uniqueIndex('invoices_public_token_unique').on(table.publicTokenHash),
+    uniqueIndex('invoices_lease_period_unique').on(
+      table.organizationId,
+      table.leaseId,
+      table.billingPeriodStart,
+    ),
     index('invoices_tenant_idx').on(table.tenantPartyId),
   ],
 );
@@ -927,6 +1219,106 @@ export const payments = pgTable(
     uniqueIndex('payments_provider_reference_unique').on(table.provider, table.providerReference),
     index('payments_invoice_idx').on(table.invoiceId),
     index('payments_org_idx').on(table.organizationId),
+  ],
+);
+
+export const paymentSessions = pgTable(
+  'payment_sessions',
+  {
+    ...identityColumns,
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    invoiceId: uuid('invoice_id')
+      .notNull()
+      .references(() => invoices.id),
+    provider: varchar('provider', { length: 80 }).notNull(),
+    sessionReference: varchar('session_reference', { length: 160 }).notNull(),
+    idempotencyKey: varchar('idempotency_key', { length: 200 }).notNull(),
+    status: paymentSessionStatus('status').notNull().default('created'),
+    amountMinor: bigint('amount_minor', { mode: 'bigint' }).notNull(),
+    currency: varchar('currency', { length: 3 }).notNull(),
+    redirectUrl: text('redirect_url'),
+    providerSessionId: varchar('provider_session_id', { length: 200 }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    metadata: jsonb('metadata').notNull().default({}),
+  },
+  (table) => [
+    uniqueIndex('payment_sessions_org_idempotency_unique').on(
+      table.organizationId,
+      table.idempotencyKey,
+    ),
+    uniqueIndex('payment_sessions_provider_reference_unique').on(
+      table.provider,
+      table.sessionReference,
+    ),
+    index('payment_sessions_invoice_idx').on(table.invoiceId, table.status),
+  ],
+);
+
+export const refunds = pgTable(
+  'refunds',
+  {
+    ...identityColumns,
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    paymentId: uuid('payment_id')
+      .notNull()
+      .references(() => payments.id),
+    requestedByUserId: uuid('requested_by_user_id')
+      .notNull()
+      .references(() => users.id),
+    amountMinor: bigint('amount_minor', { mode: 'bigint' }).notNull(),
+    currency: varchar('currency', { length: 3 }).notNull(),
+    provider: varchar('provider', { length: 80 }).notNull(),
+    providerReference: varchar('provider_reference', { length: 200 }).notNull(),
+    status: refundStatus('status').notNull().default('pending'),
+    reason: varchar('reason', { length: 500 }).notNull(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('refunds_provider_reference_unique').on(table.provider, table.providerReference),
+    index('refunds_payment_idx').on(table.paymentId),
+    check('refunds_amount_positive', sql`${table.amountMinor} > 0`),
+  ],
+);
+
+export const receiptSequences = pgTable(
+  'receipt_sequences',
+  {
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    year: integer('year').notNull(),
+    nextValue: bigint('next_value', { mode: 'bigint' })
+      .notNull()
+      .default(sql`1`),
+  },
+  (table) => [primaryKey({ columns: [table.organizationId, table.year] })],
+);
+
+export const receipts = pgTable(
+  'receipts',
+  {
+    ...identityColumns,
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    paymentId: uuid('payment_id')
+      .notNull()
+      .references(() => payments.id),
+    receiptNumber: varchar('receipt_number', { length: 64 }).notNull(),
+    amountMinor: bigint('amount_minor', { mode: 'bigint' }).notNull(),
+    currency: varchar('currency', { length: 3 }).notNull(),
+    issuedAt: timestamp('issued_at', { withTimezone: true }).notNull().defaultNow(),
+    renderedPdfObjectKey: text('rendered_pdf_object_key'),
+    renderedPdfHash: varchar('rendered_pdf_hash', { length: 64 }),
+  },
+  (table) => [
+    uniqueIndex('receipts_payment_unique').on(table.paymentId),
+    uniqueIndex('receipts_org_number_unique').on(table.organizationId, table.receiptNumber),
+    index('receipts_org_idx').on(table.organizationId, table.issuedAt),
   ],
 );
 
@@ -1289,8 +1681,28 @@ export const journalEntries = pgTable(
   },
   (table) => [
     uniqueIndex('journal_entries_org_reference_unique').on(table.organizationId, table.reference),
+    uniqueIndex('journal_entries_org_source_unique').on(
+      table.organizationId,
+      table.sourceType,
+      table.sourceId,
+    ),
     index('journal_entries_org_date_idx').on(table.organizationId, table.occurredOn),
   ],
+);
+
+export const journalSequences = pgTable(
+  'journal_sequences',
+  {
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    year: integer('year').notNull(),
+    kind: varchar('kind', { length: 12 }).notNull().default('JRN'),
+    nextValue: bigint('next_value', { mode: 'bigint' })
+      .notNull()
+      .default(sql`1`),
+  },
+  (table) => [primaryKey({ columns: [table.organizationId, table.year, table.kind] })],
 );
 
 export const journalLines = pgTable(
@@ -1358,10 +1770,7 @@ export const expenses = pgTable(
   (table) => [
     uniqueIndex('expenses_org_reference_unique').on(table.organizationId, table.reference),
     index('expenses_org_status_idx').on(table.organizationId, table.status),
-    check(
-      'expenses_amounts_nonnegative',
-      sql`${table.amountMinor} >= 0 and ${table.taxMinor} >= 0`,
-    ),
+    check('expenses_amounts_nonnegative', sql`${table.amountMinor} > 0 and ${table.taxMinor} >= 0`),
   ],
 );
 

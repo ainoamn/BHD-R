@@ -22,5 +22,8 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA app_private REVOKE EXECUTE ON FUNCTIONS FROM 
 ALTER DEFAULT PRIVILEGES IN SCHEMA app_private GRANT EXECUTE ON FUNCTIONS TO bhd_r_app, bhd_r_system;
 
 -- Replace these examples with secrets created by the deployment platform:
+-- Ensure login roles are INHERIT before granting memberships (important on PostgreSQL 17+).
+-- ALTER ROLE bhd_r_api_login INHERIT;
+-- ALTER ROLE bhd_r_system_login INHERIT;
 -- GRANT bhd_r_app TO bhd_r_api_login;
 -- GRANT bhd_r_system TO bhd_r_system_login;

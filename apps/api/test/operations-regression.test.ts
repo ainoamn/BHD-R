@@ -3,6 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { createPropertySchema, createUnitSchema } from '@bhd-r/contracts';
 import { validateBalanced } from '../src/accounting/accounting.service.js';
 import { assertTransition, salesTransitions } from '../src/operations/operations.service.js';
+import {
+  assertRenewalTerms,
+  assertReservationRequirementsApproved,
+} from '../src/leasing/leasing.service.js';
 
 describe('financial accounting invariants', () => {
   it('balances with exact integer minor units instead of floating point arithmetic', () => {
@@ -45,6 +49,36 @@ describe('workflow transition invariants', () => {
     expect(() => assertTransition('lead', 'qualified', salesTransitions)).not.toThrow();
     expect(() => assertTransition('contracting', 'closed_won', salesTransitions)).not.toThrow();
     expect(() => assertTransition('closed_won', 'lead', salesTransitions)).toThrow(
+      ConflictException,
+    );
+  });
+});
+
+describe('reservation compliance gate', () => {
+  it('blocks contract conversion until every required item is approved or waived', () => {
+    expect(() =>
+      assertReservationRequirementsApproved([{ status: 'approved' }, { status: 'waived' }]),
+    ).not.toThrow();
+    expect(() =>
+      assertReservationRequirementsApproved([{ status: 'approved' }, { status: 'submitted' }]),
+    ).toThrow(ConflictException);
+    expect(() => assertReservationRequirementsApproved([{ status: 'rejected' }])).toThrow(
+      ConflictException,
+    );
+    expect(() => assertReservationRequirementsApproved([])).toThrow(ConflictException);
+  });
+});
+
+describe('signed lease renewal invariants', () => {
+  it('requires a later end date and preserves the original currency', () => {
+    const current = { endsOn: '2027-12-31', currency: 'OMR' };
+    expect(() =>
+      assertRenewalTerms(current, { endsOn: '2028-12-31', currency: 'OMR' }),
+    ).not.toThrow();
+    expect(() => assertRenewalTerms(current, { endsOn: '2027-12-31', currency: 'OMR' })).toThrow(
+      ConflictException,
+    );
+    expect(() => assertRenewalTerms(current, { endsOn: '2028-12-31', currency: 'USD' })).toThrow(
       ConflictException,
     );
   });

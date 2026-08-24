@@ -16,4 +16,3 @@
 
 - الحسابات تحتاج مكتبة Money type مشتركة واختبارات Golden/Property-based.
 - JSON API يرسل BigInt كمقادير string أو Money DTO محدد، لا Number غير آمن.
-

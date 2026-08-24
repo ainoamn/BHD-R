@@ -16,9 +16,12 @@ import {
 import { LeasingController } from '../src/leasing/leasing.controller.js';
 import {
   FinanceController,
+  InternalBillingController,
   PaymentWebhookController,
   PublicInvoiceController,
+  PublicPaymentSessionController,
 } from '../src/finance/finance.controller.js';
+import { PartiesController } from '../src/parties/parties.controller.js';
 import { MaintenanceController } from '../src/maintenance/maintenance.controller.js';
 import { MediaController } from '../src/media/media.controller.js';
 import { ReportsController } from '../src/reports/reports.controller.js';
@@ -43,8 +46,11 @@ const controllers = [
   PublicPropertiesController,
   LeasingController,
   FinanceController,
+  InternalBillingController,
   PaymentWebhookController,
   PublicInvoiceController,
+  PublicPaymentSessionController,
+  PartiesController,
   MaintenanceController,
   MediaController,
   ReportsController,

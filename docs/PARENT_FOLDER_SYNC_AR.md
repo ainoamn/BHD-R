@@ -12,20 +12,20 @@
 
 ## خريطة المحتويات → المكان الصحيح
 
-| المصدر في المجلد الأب | الوجهة في المستودع / القرار |
-| --- | --- |
-| `BHD-R/` | المستودع التشغيلي النشط (`ainoamn/BHD-R`) |
-| `BHD-R-complete-0.1.6/` + `.zip` | مصدر الإصدار **0.1.6** — يُزامَن إلى `BHD-R/` (محتوى الكود متطابق) |
-| `BHD-R-complete-0.1.4.zip` | أرشيف أقدم — **لا يُطبَّق** فوق 0.1.6 |
-| `BHD-R-0.1.0-source/` + `.zip` | أرشيف تاريخي — **لا يُطبَّق** فوق الإصدار الحالي |
-| `BHD-R-Omani-UI-2026-08-23/` + `.zip` | حزمة واجهة أقدم — مدمجة سابقًا؛ **لا تُستبدل** 0.1.6 |
-| `BHD-R-System-Screenshots(-2026-08-23)/` | → `docs/screenshots/2026-08-23/*.png` |
-| `generated-assets/bhd-r-open-graph.png` | مصدر OG → `docs/assets/source/`؛ الإنتاج `apps/web/public/og.png` |
-| `outputs/BHD-R-phase-0/` | → `docs/phase-0/` |
-| `outputs/BHD-OM-*.{md,csv,json}` | المراجعات موجودة في `docs/legacy-reviews/`؛ أُضيفت الفهارس CSV/JSON الناقصة |
-| `outputs/BHD-R-BUILD-PLAN-AR.md` | النسخة المعتمدة: `docs/product/BHD-R-BUILD-PLAN-AR.md` |
-| `work/` (أدوات + نسخة BHD-OM قديمة) | مساحة عمل محلية — **لا تُرفع** (قد تحتوي `.env` / `dev.db`) |
-| `Untitled` | سجل بناء Vercel خام — أرشيف محلي فقط |
+| المصدر في المجلد الأب                    | الوجهة في المستودع / القرار                                                 |
+| ---------------------------------------- | --------------------------------------------------------------------------- |
+| `BHD-R/`                                 | المستودع التشغيلي النشط (`ainoamn/BHD-R`)                                   |
+| `BHD-R-complete-0.1.6/` + `.zip`         | مصدر الإصدار **0.1.6** — يُزامَن إلى `BHD-R/` (محتوى الكود متطابق)          |
+| `BHD-R-complete-0.1.4.zip`               | أرشيف أقدم — **لا يُطبَّق** فوق 0.1.6                                       |
+| `BHD-R-0.1.0-source/` + `.zip`           | أرشيف تاريخي — **لا يُطبَّق** فوق الإصدار الحالي                            |
+| `BHD-R-Omani-UI-2026-08-23/` + `.zip`    | حزمة واجهة أقدم — مدمجة سابقًا؛ **لا تُستبدل** 0.1.6                        |
+| `BHD-R-System-Screenshots(-2026-08-23)/` | → `docs/screenshots/2026-08-23/*.png`                                       |
+| `generated-assets/bhd-r-open-graph.png`  | مصدر OG → `docs/assets/source/`؛ الإنتاج `apps/web/public/og.png`           |
+| `outputs/BHD-R-phase-0/`                 | → `docs/phase-0/`                                                           |
+| `outputs/BHD-OM-*.{md,csv,json}`         | المراجعات موجودة في `docs/legacy-reviews/`؛ أُضيفت الفهارس CSV/JSON الناقصة |
+| `outputs/BHD-R-BUILD-PLAN-AR.md`         | النسخة المعتمدة: `docs/product/BHD-R-BUILD-PLAN-AR.md`                      |
+| `work/` (أدوات + نسخة BHD-OM قديمة)      | مساحة عمل محلية — **لا تُرفع** (قد تحتوي `.env` / `dev.db`)                 |
+| `Untitled`                               | سجل بناء Vercel خام — أرشيف محلي فقط                                        |
 
 ## تحقق حزمة 0.1.6
 

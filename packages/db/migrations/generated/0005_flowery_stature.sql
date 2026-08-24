@@ -1,0 +1,2 @@
+ALTER TABLE "expenses" DROP CONSTRAINT "expenses_amounts_nonnegative";--> statement-breakpoint
+ALTER TABLE "expenses" ADD CONSTRAINT "expenses_amounts_nonnegative" CHECK ("expenses"."amount_minor" > 0 and "expenses"."tax_minor" >= 0);

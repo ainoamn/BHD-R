@@ -16,12 +16,27 @@ describe('audit redaction regression', () => {
     expect(sanitizeForAudit({ [key]: 'do-not-leak' })).toEqual({ [key]: REDACTED });
   });
 
-  it('redacts nested arrays, bearer values and JWT-like values', () => {
+  it('redacts secrets nested in arrays, headers and request bodies', () => {
     const result = sanitizeForAudit({
-      nested: [{ note: 'Bearer very-secret-token' }],
-      jwt: 'not reached',
+      headers: { authorization: 'Bearer very-secret-token', cookie: 'session=secret' },
+      body: {
+        contacts: [
+          { name: 'Safe name', credentials: { clientSecret: 'gateway-secret' } },
+          { apiKey: 'bhd_live_secret' },
+        ],
+      },
+      jwt: 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.signature',
     });
-    expect(result).toEqual({ nested: [{ note: `Bearer ${REDACTED}` }], jwt: REDACTED });
+    expect(result).toEqual({
+      headers: { authorization: REDACTED, cookie: REDACTED },
+      body: {
+        contacts: [{ name: 'Safe name', credentials: REDACTED }, { apiKey: REDACTED }],
+      },
+      jwt: REDACTED,
+    });
+    expect(JSON.stringify(result)).not.toMatch(
+      /very-secret-token|session=secret|gateway-secret|bhd_live_secret|eyJhbGci/i,
+    );
   });
 
   it('masks emails in free text', () => {

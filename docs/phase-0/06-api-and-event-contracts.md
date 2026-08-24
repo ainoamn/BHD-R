@@ -223,16 +223,16 @@ POST /api/v1/organizations/{orgId}/report-jobs/{id}/download-intent
 
 ### التطبيق
 
-| البند | القيمة المقترحة |
-|---|---|
-| Issuer | `https://id.bhd-om.com` |
-| Client ID | `bhd-r` |
-| Origin | `https://r.bhd-om.com` |
+| البند        | القيمة المقترحة                              |
+| ------------ | -------------------------------------------- |
+| Issuer       | `https://id.bhd-om.com`                      |
+| Client ID    | `bhd-r`                                      |
+| Origin       | `https://r.bhd-om.com`                       |
 | Redirect URI | `https://r.bhd-om.com/api/auth/bhd/callback` |
-| Post logout | `https://r.bhd-om.com/` |
-| Flow | Authorization Code + PKCE S256 |
-| Scopes | `openid profile email`؛ phone عند دعم موثق |
-| Cookie | Host-only + HttpOnly + Secure + SameSite=Lax |
+| Post logout  | `https://r.bhd-om.com/`                      |
+| Flow         | Authorization Code + PKCE S256               |
+| Scopes       | `openid profile email`؛ phone عند دعم موثق   |
+| Cookie       | Host-only + HttpOnly + Secure + SameSite=Lax |
 
 ### تحقق ID token
 
@@ -270,20 +270,20 @@ POST /internal/v1/product-invitations
 
 ## 6. Domain events
 
-| الحدث | المنتج | المستهلكون | Idempotency key |
-|---|---|---|---|
-| `property.created.v1` | Property | audit، search | event id |
-| `unit.availability_changed.v1` | Availability | listing cache، sitemap، notifications | aggregate version |
-| `listing.published.v1` | Listing | CDN invalidation، search | listing id + version |
-| `hold.created.v1` | Leasing | availability، notifications | hold id |
-| `hold.expired.v1` | Worker | availability، listing | hold id + expiry |
-| `reservation.confirmed.v1` | Leasing | contract workflow | reservation id |
-| `contract.executed.v1` | Contracts | lease activation، document archive | contract version id |
-| `lease.activated.v1` | Lease | tenant invitation، rent schedule، listing hide | lease id + version |
-| `identity.invitation_requested.v1` | Lease | Identity adapter | lease party id |
-| `invoice.issued.v1` | Finance | PDF، notification | invoice id |
-| `payment.confirmed.v1` | Payments | allocation، receipt، reports | payment id |
-| `maintenance.created.v1` | Maintenance | notification/SLA | request id |
+| الحدث                              | المنتج       | المستهلكون                                     | Idempotency key      |
+| ---------------------------------- | ------------ | ---------------------------------------------- | -------------------- |
+| `property.created.v1`              | Property     | audit، search                                  | event id             |
+| `unit.availability_changed.v1`     | Availability | listing cache، sitemap، notifications          | aggregate version    |
+| `listing.published.v1`             | Listing      | CDN invalidation، search                       | listing id + version |
+| `hold.created.v1`                  | Leasing      | availability، notifications                    | hold id              |
+| `hold.expired.v1`                  | Worker       | availability، listing                          | hold id + expiry     |
+| `reservation.confirmed.v1`         | Leasing      | contract workflow                              | reservation id       |
+| `contract.executed.v1`             | Contracts    | lease activation، document archive             | contract version id  |
+| `lease.activated.v1`               | Lease        | tenant invitation، rent schedule، listing hide | lease id + version   |
+| `identity.invitation_requested.v1` | Lease        | Identity adapter                               | lease party id       |
+| `invoice.issued.v1`                | Finance      | PDF، notification                              | invoice id           |
+| `payment.confirmed.v1`             | Payments     | allocation، receipt، reports                   | payment id           |
+| `maintenance.created.v1`           | Maintenance  | notification/SLA                               | request id           |
 
 كل Event envelope يحمل:
 
@@ -318,4 +318,3 @@ POST /internal/v1/product-invitations
 - DTO field additive لا يكسر العميل.
 - Deprecation header ووثيقة موعد إزالة.
 - Contract tests بين Web/API وIdentity/payment adapters في CI.
-
