@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.2 — 2026-08-24
+
+- Phase 1 complete: resumable field-encryption backfill worker (encryption.backfill) + platform enqueue API.
+- Domain state machines for reservation/contract/journal/maintenance (packages/domain).
+
 ## 0.2.1 — 2026-08-24
 
 - Enterprise build Phase 0: archived OM operational review + Cursor build command; GAP register and baseline verification (`docs/verification/phase-0.md`).

@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { desc } from 'drizzle-orm';
-import { auditLogs, countryPacks, currencies, organizations, users } from '@bhd-r/db';
+import { auditLogs, countryPacks, currencies, organizations, outboxEvents, users } from '@bhd-r/db';
+import type { SessionClaims } from '@bhd-r/authz';
+import { randomUUID } from 'node:crypto';
 import { DatabaseService } from '../database/database.service.js';
 
 @Injectable()
@@ -74,7 +76,52 @@ export class PlatformService {
             ? 'configured'
             : 'optional',
       },
+      {
+        id: 'field-encryption',
+        title: 'Field encryption keyring',
+        status:
+          configured('FIELD_ENCRYPTION_ACTIVE_VERSION') &&
+          Object.keys(process.env).some((key) => /^FIELD_ENCRYPTION_KEY_V\d+$/.test(key))
+            ? 'configured'
+            : 'incomplete',
+      },
     ];
+  }
+  enqueueEncryptionBackfill(
+    claims: SessionClaims,
+    input: {
+      target:
+        | 'users.totp_secret_encrypted'
+        | 'parties.national_id_encrypted'
+        | 'parties.registration_number_encrypted'
+        | 'party_identity_documents.number_encrypted'
+        | 'payment_gateway_settings.credentials_encrypted';
+      batchSize?: number | undefined;
+    },
+  ) {
+    const aggregateId = randomUUID();
+    return this.database.asSystem(async (transaction) => {
+      const rows = await transaction
+        .insert(outboxEvents)
+        .values({
+          topic: 'encryption.backfill',
+          aggregateType: 'encryption_backfill',
+          aggregateId,
+          payload: {
+            target: input.target,
+            afterId: null,
+            batchSize: input.batchSize ?? 50,
+            continue: true,
+            requestedBy: claims.sub,
+          },
+        })
+        .returning({ id: outboxEvents.id });
+      return {
+        queued: true,
+        outboxEventId: rows[0]!.id,
+        target: input.target,
+      };
+    });
   }
   listCountryPacks() {
     return this.database.asSystem((transaction) => transaction.select().from(countryPacks));

@@ -60,7 +60,7 @@ export interface CredentialNotificationJob extends JobContext {
 
 export interface DomainEventJob {
   eventId: string;
-  organizationId: string;
+  organizationId: string | null;
   aggregateType: string;
   aggregateId: string;
   topic: string;

@@ -4,13 +4,16 @@ import {
   createCsrfToken,
   createTotpCode,
   decryptField,
+  emptyBackfillMetrics,
   encryptField,
   escapeHtml,
   generateTotpSecret,
   hashPassword,
+  needsKeyRotation,
   rotateEncryptedField,
   sanitizeDocumentTemplate,
   sanitizeRichText,
+  tryRotateEncryptedField,
   verifyCsrfToken,
   verifyPassword,
   verifyTotp,
@@ -87,6 +90,36 @@ describe('security primitives', () => {
     expect(first.valid).toBe(true);
     expect(verifyTotp({ code, secret, timeMs, lastAcceptedCounter: first.counter }).valid).toBe(
       false,
+    );
+  });
+
+  it('rotates ciphertext only when envelope version differs', () => {
+    const v1 = new Uint8Array(32).fill(3);
+    const v2 = new Uint8Array(32).fill(4);
+    const encrypted = encryptField(
+      'secret-value',
+      { activeVersion: 'v1', keys: { v1 } },
+      'ctx:test',
+    );
+    const metrics = emptyBackfillMetrics();
+    const same = tryRotateEncryptedField(
+      encrypted,
+      { activeVersion: 'v1', keys: { v1 } },
+      'ctx:test',
+      metrics,
+    );
+    expect(same.changed).toBe(false);
+    expect(metrics.skippedCurrent).toBe(1);
+    const rotated = tryRotateEncryptedField(
+      encrypted,
+      { activeVersion: 'v2', keys: { v1, v2 } },
+      'ctx:test',
+      metrics,
+    );
+    expect(rotated.changed).toBe(true);
+    expect(needsKeyRotation(rotated.value, 'v2')).toBe(false);
+    expect(decryptField(rotated.value, { activeVersion: 'v2', keys: { v1, v2 } }, 'ctx:test')).toBe(
+      'secret-value',
     );
   });
 

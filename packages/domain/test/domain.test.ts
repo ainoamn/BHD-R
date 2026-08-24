@@ -34,6 +34,14 @@ describe('availability', () => {
   });
 });
 
+describe('state machines', () => {
+  it('rejects illegal contract jumps from draft to active', async () => {
+    const { assertTransition, contractMachine } = await import('../src/state-machines.js');
+    expect(assertTransition(contractMachine, 'draft', 'active').ok).toBe(false);
+    expect(assertTransition(contractMachine, 'draft', 'compliance_ready').ok).toBe(true);
+  });
+});
+
 describe('public invoice projection', () => {
   it('does not leak tenant or tenancy identifiers', () => {
     const output = toPublicInvoice({

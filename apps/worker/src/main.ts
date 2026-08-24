@@ -1,7 +1,7 @@
 import { Queue, UnrecoverableError, Worker, type Job } from 'bullmq';
 import { Redis } from 'ioredis';
 import { Pool, type QueryResult, type QueryResultRow } from 'pg';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { decryptField, type Keyring } from '@bhd-r/security';
 import { z } from 'zod';
 import { loadConfig } from './config.js';
@@ -14,6 +14,10 @@ import { ClamAvScanner, DisabledScanner } from './media/scanner.js';
 import { createNotificationProcessor } from './notifications/processor.js';
 import { OutboxDispatcher } from './outbox.js';
 import { createPdfProcessor } from './pdf/processor.js';
+import {
+  createEncryptionBackfillProcessor,
+  encryptionBackfillPayloadSchema,
+} from './encryption/backfill.js';
 import { createReportProcessor } from './reports/processor.js';
 import { ObjectStorage } from './storage.js';
 import {
@@ -81,6 +85,8 @@ function encryptionKeyring(purpose: string): Keyring {
   );
   return { activeVersion: config.FIELD_ENCRYPTION_ACTIVE_VERSION, keys };
 }
+
+const processEncryptionBackfill = createEncryptionBackfillProcessor(pool, encryptionKeyring);
 
 function connection(): Redis {
   return redis.duplicate({ connectionName: 'bhd-r-bullmq' });
@@ -271,7 +277,29 @@ const workers = [
   new Worker(
     QUEUES.domain,
     (job: Job<DomainEventJob>) =>
-      runPermanentSafe(() => processReport(domainEventJobSchema.parse(job.data))),
+      runPermanentSafe(async () => {
+        const event = domainEventJobSchema.parse(job.data);
+        if (event.topic === 'encryption.backfill') {
+          const payload = encryptionBackfillPayloadSchema.parse(event.payload);
+          const result = await processEncryptionBackfill(payload);
+          if (!result.done && payload.continue && result.nextAfterId) {
+            await domainQueue.add(
+              'domain-event',
+              {
+                ...event,
+                eventId: randomUUID(),
+                payload: {
+                  ...payload,
+                  afterId: result.nextAfterId,
+                },
+              },
+              { jobId: `encryption-backfill:${payload.target}:${result.nextAfterId}` },
+            );
+          }
+          return result;
+        }
+        return processReport(event);
+      }),
     { connection: connection(), concurrency: 2, limiter: { max: 5, duration: 1_000 } },
   ),
 ];

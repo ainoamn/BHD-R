@@ -243,11 +243,15 @@ export function createReportProcessor(
 ) {
   return async (event: DomainEventJob) => {
     if (event.topic !== 'report.requested') return { ignored: true, topic: event.topic };
+    if (!event.organizationId) {
+      throw new PermanentJobError('REPORT_ORG_REQUIRED', 'Report jobs require organizationId');
+    }
+    const organizationId = event.organizationId;
     const report = await asWorker(pool, async (client) => {
       const result = await client.query<ReportJobRow>(
         `UPDATE report_jobs SET status = 'running', updated_at = now()
          WHERE id = $1 AND organization_id = $2 AND status IN ('queued','failed') RETURNING *`,
-        [event.aggregateId, event.organizationId],
+        [event.aggregateId, organizationId],
       );
       return result.rows[0];
     });
@@ -263,7 +267,7 @@ export function createReportProcessor(
       if (!['csv', 'xlsx', 'pdf'].includes(format))
         throw new PermanentJobError('REPORT_FORMAT_UNSUPPORTED', `Unsupported format: ${format}`);
       const result = await asWorker(pool, (client) =>
-        client.query<QueryResultRow>(definition.sql, [event.organizationId]),
+        client.query<QueryResultRow>(definition.sql, [organizationId]),
       );
       const columns = result.fields.map((field) => field.name);
       const data: ReportData = {
@@ -271,7 +275,7 @@ export function createReportProcessor(
         columns,
         rows: result.rows.map((row) => columns.map((column) => row[column] as Cell)),
       };
-      const objectKey = `reports/${event.organizationId}/${report.id}.${format}`;
+      const objectKey = `reports/${organizationId}/${report.id}.${format}`;
       if (format === 'pdf') {
         await processPdf({
           documentId: report.id,
@@ -280,7 +284,7 @@ export function createReportProcessor(
           outputKey: objectKey,
           locale: 'ar',
           correlationId: event.eventId,
-          organizationId: event.organizationId,
+          organizationId,
         });
       } else {
         const bytes = format === 'xlsx' ? renderXlsx(data) : renderCsv(data);

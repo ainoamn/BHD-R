@@ -63,7 +63,7 @@ export const credentialNotificationJobSchema = z.object({
 
 export const domainEventJobSchema = z.object({
   eventId: z.string().uuid(),
-  organizationId: z.string().uuid(),
+  organizationId: z.string().uuid().nullable(),
   aggregateType: z.string().min(1).max(100),
   aggregateId: z.string().uuid(),
   topic: z.string().min(1).max(160),

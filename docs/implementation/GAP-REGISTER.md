@@ -8,30 +8,30 @@ Statuses: `complete` | `partial` | `missing` | `unsafe` | `not-applicable` | `de
 
 ## A. Cross-cutting foundation
 
-| ID  | Capability                                                 | Status              | Evidence / gap                                                                                                         | Closes in |
-| --- | ---------------------------------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------- | --------- |
-| F01 | Single PostgreSQL SoT (no business localStorage/JSON core) | complete            | No web `localStorage` business SoT; Drizzle schema + migrations 0000–0007                                              | —         |
-| F02 | `organization_id` on tenant tables                         | complete            | `packages/db/src/schema.ts`                                                                                            | —         |
-| F03 | RLS forced + A/B tests                                     | complete            | `migrations/custom/0001_rls.sql`, `packages/db/test/rls.integration.test.ts`                                           | —         |
-| F04 | Central policy / route classification                      | complete            | Global `PermissionGuard` + `@RequirePermissions` + `can()` in `@bhd-r/authz`                                           | 1         |
-| F05 | Money as `bigint` minor units                              | complete            | Schema + `packages/domain` money helpers; no float money stores                                                        | —         |
-| F06 | Explicit status machines (no free PATCH status)            | partial             | Service-level transitions; no machine-readable FSMs in `packages/domain`                                               | 0→5       |
-| F07 | Idempotency-Key on sensitive creates                       | complete            | `idempotency_keys` + finance/leasing/portfolio usage                                                                   | —         |
-| F08 | Webhook signature + unique event                           | complete            | `webhook_events` unique; finance webhook path; concurrency test claimed in V1 report — re-verify Phase 0 gate          | 0         |
-| F09 | No migrations in `next build`                              | complete            | Separate `db:migrate`; web build does not migrate                                                                      | —         |
-| F10 | Activation / no permanent temp passwords                   | complete            | Auth activate + Identity SSO paths                                                                                     | —         |
-| F11 | HTML sanitize / no unsafe user HTML in print               | partial             | `packages/security/src/html.ts` + PDF worker constraints; need continuous XSS regression payloads in every print field | 6         |
-| F12 | Media as object keys (no Data URL business records)        | complete            | `media_assets` + media service                                                                                         | —         |
-| F13 | Actors from session (`actor_id`/`request_id`)              | complete            | Audit interceptor pattern                                                                                              | —         |
-| F14 | KPI/reports from real queries only                         | complete            | Worker report SQL + fail unsupported types                                                                             | —         |
-| F15 | Deep secret redaction                                      | complete            | observability redaction tests                                                                                          | —         |
-| F16 | No legacy runtime port                                     | complete            | No `legacy/` in runtime apps                                                                                           | —         |
-| F17 | CSRF (origin + double-submit)                              | complete            | `csrf.guard.ts`, auth CSRF endpoint                                                                                    | —         |
-| F18 | TOTP (encrypted, anti-replay)                              | complete            | Enroll/confirm + anti-replay + hashed single-use recovery codes (`0008`)                                               | —         |
-| F19 | API keys (hash, scopes, revoke)                            | complete            | `api_keys` + auth endpoints                                                                                            | —         |
-| F20 | Encryption versioned + dual-read                           | partial             | Envelope + rotate helper; **no resumable backfill job/metrics**                                                        | 1         |
-| F21 | CSP/security headers                                       | partial             | Headers present; tighten `unsafe-inline` toward nonce where possible                                                   | 10        |
-| F22 | `docs/implementation` + `docs/verification` gates          | missing→in-progress | Being created in Phase 0                                                                                               | 0         |
+| ID  | Capability                                                 | Status   | Evidence / gap                                                                                                         | Closes in |
+| --- | ---------------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------- | --------- |
+| F01 | Single PostgreSQL SoT (no business localStorage/JSON core) | complete | No web `localStorage` business SoT; Drizzle schema + migrations 0000–0007                                              | —         |
+| F02 | `organization_id` on tenant tables                         | complete | `packages/db/src/schema.ts`                                                                                            | —         |
+| F03 | RLS forced + A/B tests                                     | complete | `migrations/custom/0001_rls.sql`, `packages/db/test/rls.integration.test.ts`                                           | —         |
+| F04 | Central policy / route classification                      | complete | Global `PermissionGuard` + `@RequirePermissions` + `can()` in `@bhd-r/authz`                                           | 1         |
+| F05 | Money as `bigint` minor units                              | complete | Schema + `packages/domain` money helpers; no float money stores                                                        | —         |
+| F06 | Explicit status machines (no free PATCH status)            | partial  | Domain FSMs in `packages/domain/state-machines.ts`; service wiring still partial                                       | 5         |
+| F07 | Idempotency-Key on sensitive creates                       | complete | `idempotency_keys` + finance/leasing/portfolio usage                                                                   | —         |
+| F08 | Webhook signature + unique event                           | complete | `webhook_events` unique; finance webhook path; concurrency test claimed in V1 report — re-verify Phase 0 gate          | 0         |
+| F09 | No migrations in `next build`                              | complete | Separate `db:migrate`; web build does not migrate                                                                      | —         |
+| F10 | Activation / no permanent temp passwords                   | complete | Auth activate + Identity SSO paths                                                                                     | —         |
+| F11 | HTML sanitize / no unsafe user HTML in print               | partial  | `packages/security/src/html.ts` + PDF worker constraints; need continuous XSS regression payloads in every print field | 6         |
+| F12 | Media as object keys (no Data URL business records)        | complete | `media_assets` + media service                                                                                         | —         |
+| F13 | Actors from session (`actor_id`/`request_id`)              | complete | Audit interceptor pattern                                                                                              | —         |
+| F14 | KPI/reports from real queries only                         | complete | Worker report SQL + fail unsupported types                                                                             | —         |
+| F15 | Deep secret redaction                                      | complete | observability redaction tests                                                                                          | —         |
+| F16 | No legacy runtime port                                     | complete | No `legacy/` in runtime apps                                                                                           | —         |
+| F17 | CSRF (origin + double-submit)                              | complete | `csrf.guard.ts`, auth CSRF endpoint                                                                                    | —         |
+| F18 | TOTP (encrypted, anti-replay)                              | complete | Enroll/confirm + anti-replay + hashed single-use recovery codes (`0008`)                                               | —         |
+| F19 | API keys (hash, scopes, revoke)                            | complete | `api_keys` + auth endpoints                                                                                            | —         |
+| F20 | Encryption versioned + dual-read                           | complete | Envelope + dual-read + resumable worker backfill + platform enqueue + metrics                                          | —         |
+| F21 | CSP/security headers                                       | partial  | Headers present; tighten `unsafe-inline` toward nonce where possible                                                   | 10        |
+| F22 | `docs/implementation` + `docs/verification` gates          | complete | GAP/STATUS/phase plans + verification evidence present                                                                 | —         |
 
 ## B. Journeys from BHD-OM operational review (§19)
 
@@ -59,7 +59,7 @@ Statuses: `complete` | `partial` | `missing` | `unsafe` | `not-applicable` | `de
 | Phase | Theme                                 | Overall         | Blocking residuals                                                                   |
 | ----- | ------------------------------------- | --------------- | ------------------------------------------------------------------------------------ |
 | 0     | Baseline / GAP / manifests            | **in progress** | Format gate; full test/build/e2e run; FSM docs                                       |
-| 1     | Identity / authz / security           | mostly complete | TOTP recovery; optional `can()` helper; encryption backfill                          |
+| 1     | Identity / authz / security           | complete        | TOTP recovery, `can()`, encryption backfill                                          |
 | 2     | Parties / reps / entitlements         | mostly complete | Package entitlement hard limits E2E if not covered                                   |
 | 3     | Portfolio / media / public SEO        | mostly complete | Lighthouse budgets in CI; listing JSON-LD completeness audit                         |
 | 4     | CRM / viewing / reservation / cheques | partial         | Dedicated cheque entities; 50-parallel booking stress; Lead/RentalApplication models |
@@ -86,6 +86,6 @@ Statuses: `complete` | `partial` | `missing` | `unsafe` | `not-applicable` | `de
 - [ ] Baseline commands green: format, verify:source, lint, typecheck, test, build, test:e2e (+ DB when available)
 - [ ] `docs/verification/phase-0.md` with command outputs
 - [ ] Route + schema/RLS matrix noted (see explore inventory)
-- [ ] No Phase 1 code until baseline documented; then close F18/F20/F04 residuals first
+- [x] Baseline documented; F18/F04/F20 closed in Phase 1
 
 Owner: Cursor Agent (enterprise build command execution)

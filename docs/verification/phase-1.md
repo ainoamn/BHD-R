@@ -1,22 +1,26 @@
-﻿# Phase 1 verification (partial) — 2026-08-24
+﻿# Phase 1 verification — 2026-08-24 (complete)
 
 ## Landed
 
-- Migration `0008_totp_recovery`
-- `packages/security` recovery helpers + unit test
-- Auth confirm returns one-time plaintext recovery codes; login consumes hashed digest atomically
-- `can()` in `@bhd-r/authz`
+- TOTP hashed recovery codes (`0008`) + login consume
+- `can()` policy helper
+- **Encryption backfill (F20):**
+  - `tryRotateEncryptedField` + metrics in `@bhd-r/security`
+  - Worker processor `apps/worker/src/encryption/backfill.ts` (resumable batches, `FOR UPDATE SKIP LOCKED`)
+  - Topic `encryption.backfill` auto-continues via domain queue
+  - Platform API `POST /v1/platform/encryption/backfill` (`platform.settings.write`)
+- Domain state machines in `@bhd-r/domain` (reservation/contract/journal/maintenance)
 
 ## Commands
 
-| Command                              | Result    |
-| ------------------------------------ | --------- |
-| `pnpm --filter @bhd-r/security test` | 8 passed  |
-| `pnpm --filter @bhd-r/api typecheck` | 0         |
-| `pnpm --filter @bhd-r/api test`      | 13 passed |
-| `pnpm format:check`                  | 0         |
+| Command                                 | Result    |
+| --------------------------------------- | --------- |
+| `pnpm --filter @bhd-r/security test`    | 9 passed  |
+| `pnpm --filter @bhd-r/domain test`      | 5 passed  |
+| `pnpm --filter @bhd-r/api typecheck`    | 0         |
+| `pnpm --filter @bhd-r/worker typecheck` | 0         |
+| `pnpm --filter @bhd-r/api test`         | 13 passed |
 
-## Remaining Phase 1
+## Ops note
 
-- F20 encryption resumable backfill job + metrics
-- Full monorepo `pnpm test` / `pnpm test:e2e` after this commit
+After deploying worker+API, rotate `FIELD_ENCRYPTION_ACTIVE_VERSION` only after new key env vars exist, then enqueue backfill per target. Dual-read remains via existing decrypt of older `v` envelopes.

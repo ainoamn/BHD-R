@@ -56,3 +56,56 @@ export function rotateEncryptedField(encrypted: string, keyring: Keyring, contex
   if (envelope.v === keyring.activeVersion) return encrypted;
   return encryptField(decryptField(encrypted, keyring, context), keyring, context);
 }
+
+export function readEnvelopeVersion(encrypted: string): string {
+  return envelopeSchema.parse(JSON.parse(encrypted)).v;
+}
+
+export function needsKeyRotation(encrypted: string, activeVersion: string): boolean {
+  return readEnvelopeVersion(encrypted) !== activeVersion;
+}
+
+export interface EncryptionBackfillMetrics {
+  scanned: number;
+  rotated: number;
+  skippedCurrent: number;
+  failed: number;
+}
+
+export function emptyBackfillMetrics(): EncryptionBackfillMetrics {
+  return { scanned: 0, rotated: 0, skippedCurrent: 0, failed: 0 };
+}
+
+export function mergeBackfillMetrics(
+  left: EncryptionBackfillMetrics,
+  right: EncryptionBackfillMetrics,
+): EncryptionBackfillMetrics {
+  return {
+    scanned: left.scanned + right.scanned,
+    rotated: left.rotated + right.rotated,
+    skippedCurrent: left.skippedCurrent + right.skippedCurrent,
+    failed: left.failed + right.failed,
+  };
+}
+
+/** Rotate one ciphertext; increments metrics; never throws for decrypt failures (counts failed). */
+export function tryRotateEncryptedField(
+  encrypted: string,
+  keyring: Keyring,
+  context: string,
+  metrics: EncryptionBackfillMetrics,
+): { value: string; changed: boolean } {
+  metrics.scanned += 1;
+  try {
+    if (!needsKeyRotation(encrypted, keyring.activeVersion)) {
+      metrics.skippedCurrent += 1;
+      return { value: encrypted, changed: false };
+    }
+    const rotated = rotateEncryptedField(encrypted, keyring, context);
+    metrics.rotated += 1;
+    return { value: rotated, changed: true };
+  } catch {
+    metrics.failed += 1;
+    return { value: encrypted, changed: false };
+  }
+}
