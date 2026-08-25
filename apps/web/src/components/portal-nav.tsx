@@ -163,6 +163,7 @@ export function PortalNav({ portal, displayName }: { portal: PortalRole; display
               <Link
                 key={item.path}
                 href={href}
+                prefetch
                 aria-current={active ? 'page' : undefined}
                 onClick={() => setOpen(false)}
               >
