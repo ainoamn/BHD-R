@@ -79,4 +79,4 @@ After each OM step: commit → `git push origin main` → Vercel Production depl
 | 12 Lease lifecycle UI | `ad27d7d` | Ready |
 | 13 Vacancy maint+legal | `d5403cf` | Ready |
 | 14–15 Accounts + API banner | `777bc4b` | Ready |
-| 16–17 Deposit UI + vacancy pipeline | (this release) | after push |
+| 16–17 Deposit UI + vacancy pipeline | `09cd3d2` | Ready |
