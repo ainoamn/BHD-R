@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.22 — 2026-08-25
+
+- Portal dashboard: live stats (properties, units, leases, vacant, tickets, expiring, open invoices), clickable alerts, finance pulse, shortcuts, and last-updated timestamp from overview API.
+- Operations console chrome elevated to wizard-level glass headers, rainbow metric accents, refined toolbar/search/table actions across shared portal sections.
+- Docs: `docs/implementation/PORTAL-DASHBOARD-AR.md`.
+
 ## 0.2.21 — 2026-08-25
 
 - Property wizard UX: 7 steps with slide transitions; bilingual name/description pairs; amenity icons; rainbow/red progress dots.

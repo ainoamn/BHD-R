@@ -27,6 +27,13 @@ export interface PortalOverview {
   currency?: string;
   openTickets: number | null;
   expiringContracts: number | null;
+  properties?: number | null;
+  units?: number | null;
+  activeLeases?: number | null;
+  vacantUnits?: number | null;
+  openInvoices?: number | null;
+  alerts?: Array<{ severity: 'danger' | 'warning' | 'info'; code: string; count: number }>;
+  generatedAt?: string;
   recentActivity: Array<{ id: string; title: string; occurredAt: string; status?: string }>;
 }
 

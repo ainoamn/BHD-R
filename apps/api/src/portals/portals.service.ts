@@ -228,15 +228,60 @@ export class PortalsService {
       ]);
       const activeUnits = Number(unitCount[0]?.value ?? 0);
       const occupied = Number(activeLeaseCount[0]?.value ?? 0);
+      const openTickets = Number(openMaintenanceCount[0]?.value ?? 0);
+      const expiring = Number(expiringContracts[0]?.value ?? 0);
+      const propertiesTotal = Number(propertyCount[0]?.value ?? 0);
+      const vacantUnits = Math.max(0, activeUnits - occupied);
+
+      const openInvoiceFilter = ownerPartyId
+        ? and(
+            eq(invoices.organizationId, orgId),
+            inArray(invoices.status, ['issued', 'partially_paid', 'overdue']),
+            eq(leases.ownerPartyId, ownerPartyId),
+          )
+        : and(
+            eq(invoices.organizationId, orgId),
+            inArray(invoices.status, ['issued', 'partially_paid', 'overdue']),
+          );
+
+      const openInvoicesQuery = ownerPartyId
+        ? transaction
+            .select({ value: count() })
+            .from(invoices)
+            .innerJoin(leases, eq(invoices.leaseId, leases.id))
+            .where(openInvoiceFilter)
+        : transaction.select({ value: count() }).from(invoices).where(openInvoiceFilter);
+
+      const openInvoicesRows = await openInvoicesQuery;
+      const openInvoices = Number(openInvoicesRows[0]?.value ?? 0);
+
+      const alerts: Array<{
+        severity: 'danger' | 'warning' | 'info';
+        code: string;
+        count: number;
+      }> = [];
+      if (openTickets > 0)
+        alerts.push({ severity: 'danger', code: 'open_tickets', count: openTickets });
+      if (expiring > 0)
+        alerts.push({ severity: 'warning', code: 'expiring_leases', count: expiring });
+      if (openInvoices > 0)
+        alerts.push({ severity: 'warning', code: 'open_invoices', count: openInvoices });
+      if (vacantUnits > 0)
+        alerts.push({ severity: 'info', code: 'vacant_units', count: vacantUnits });
+
       return {
-        properties: propertyCount[0]?.value ?? 0,
-        units: unitCount[0]?.value ?? 0,
-        activeLeases: activeLeaseCount[0]?.value ?? 0,
+        properties: propertiesTotal,
+        units: activeUnits,
+        activeLeases: occupied,
+        vacantUnits,
+        openInvoices,
         occupancyPercent: activeUnits ? Math.round((occupied / activeUnits) * 10_000) / 100 : 0,
         collected,
-        openTickets: openMaintenanceCount[0]?.value ?? 0,
-        expiringContracts: expiringContracts[0]?.value ?? 0,
+        openTickets,
+        expiringContracts: expiring,
+        alerts,
         recentActivity: activity,
+        generatedAt: new Date().toISOString(),
         scopedToPartyId: ownerPartyId,
       };
     });

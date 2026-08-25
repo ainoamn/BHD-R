@@ -20,6 +20,8 @@
 
 **معالج إضافة عقار (0.2.21):** [`docs/implementation/PROPERTY-WIZARD-AR.md`](./docs/implementation/PROPERTY-WIZARD-AR.md)
 
+**لوحة التحكم ورفع أقسام البوابة (0.2.22):** [`docs/implementation/PORTAL-DASHBOARD-AR.md`](./docs/implementation/PORTAL-DASHBOARD-AR.md)
+
 **هوية BHD:** [`docs/BHD-R-IDENTITY-SETUP.md`](./docs/BHD-R-IDENTITY-SETUP.md)
 
 **مزامنة الحزمة 0.1.6:** [`docs/RELEASE_SYNC_0.1.6.md`](./docs/RELEASE_SYNC_0.1.6.md)

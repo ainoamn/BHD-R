@@ -1,10 +1,49 @@
-import { Card, CardContent, CardHeader, EmptyState } from '@bhd-r/ui';
+import { EmptyState } from '@bhd-r/ui';
 import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { apiFetch } from '@/lib/server-api';
 import { formatMoney } from '@/lib/format';
 import { requirePortal } from '@/lib/viewer';
 import type { PortalOverview as OverviewData, PortalRole } from '@/lib/types';
+
+function value(input: number | null | undefined, suffix = ''): string {
+  if (input === null || input === undefined) return '—';
+  return `${input}${suffix}`;
+}
+
+function alertCopy(
+  code: string,
+  count: number,
+  t: Awaited<ReturnType<typeof getTranslations>>,
+): string {
+  switch (code) {
+    case 'open_tickets':
+      return t('Portal.alertOpenTickets', { count });
+    case 'expiring_leases':
+      return t('Portal.alertExpiring', { count });
+    case 'open_invoices':
+      return t('Portal.alertInvoices', { count });
+    case 'vacant_units':
+      return t('Portal.alertVacant', { count });
+    default:
+      return `${code}: ${count}`;
+  }
+}
+
+function alertHref(portal: PortalRole, code: string): string {
+  switch (code) {
+    case 'open_tickets':
+      return `/${portal}/maintenance`;
+    case 'expiring_leases':
+      return `/${portal}/leasing`;
+    case 'open_invoices':
+      return `/${portal}/invoices`;
+    case 'vacant_units':
+      return `/${portal}/bookings`;
+    default:
+      return `/${portal}`;
+  }
+}
 
 export async function PortalOverview({ locale, portal }: { locale: string; portal: PortalRole }) {
   const t = await getTranslations();
@@ -16,6 +55,7 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
       openTickets: null,
       expiringContracts: null,
       recentActivity: [],
+      alerts: [],
     }),
   );
   const collected =
@@ -23,26 +63,112 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
     (overview.collectedMinor !== null && overview.collectedMinor !== undefined
       ? [{ amountMinor: overview.collectedMinor, currency: overview.currency ?? 'OMR' }]
       : []);
-  const value = (input: number | null, suffix = '') => (input === null ? '—' : `${input}${suffix}`);
+  const alerts = overview.alerts ?? [];
+  const updatedLabel = overview.generatedAt
+    ? new Intl.DateTimeFormat(locale === 'ar' ? 'ar-OM' : 'en-OM', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }).format(new Date(overview.generatedAt))
+    : null;
+
   return (
-    <>
-      <header className="portal-topbar">
-        <div>
-          <h1>{t(`Portal.${portal}`)}</h1>
-          <p>{t('Portal.welcome', { name: viewer.displayName })}</p>
+    <div className="dash-shell">
+      <header className="dash-hero">
+        <div className="dash-hero__copy">
+          <p className="dash-hero__kicker">{t(`Portal.${portal}`)}</p>
+          <h1>{t('Portal.welcome', { name: viewer.displayName })}</h1>
+          <p>{t('Portal.dashboardIntro')}</p>
+          {updatedLabel ? (
+            <p className="dash-hero__meta">
+              {t('Portal.updatedAt')}: {updatedLabel}
+            </p>
+          ) : null}
         </div>
-        {portal === 'owner' || portal === 'developer' ? (
-          <Link href={`/${portal}/properties/new`} className="button button--primary" prefetch>
-            ＋ {t('Portal.addProperty')}
+        <div className="dash-hero__actions">
+          {portal === 'owner' || portal === 'developer' ? (
+            <Link href={`/${portal}/properties/new`} className="button button--primary" prefetch>
+              ＋ {t('Portal.addProperty')}
+            </Link>
+          ) : null}
+          {portal === 'tenant' ? (
+            <Link href="/tenant/maintenance/new" className="button button--primary">
+              {t('Maintenance.new')}
+            </Link>
+          ) : null}
+          <Link href={`/${portal}/reports`} className="button button--quiet">
+            {t('Common.reports')}
           </Link>
-        ) : null}
+        </div>
       </header>
-      <div className="metric-grid">
-        <Card className="metric">
-          <p>{t('Portal.occupancy')}</p>
-          <strong>{value(overview.occupancyPercent, '%')}</strong>
-        </Card>
-        <Card className="metric">
+
+      <section className="dash-alerts" aria-label={t('Portal.alertsTitle')}>
+        <div className="dash-section-head">
+          <h2>{t('Portal.alertsTitle')}</h2>
+        </div>
+        {alerts.length ? (
+          <ul className="dash-alerts__list">
+            {alerts.map((alert) => (
+              <li key={alert.code} className={`dash-alert dash-alert--${alert.severity}`}>
+                <Link href={alertHref(portal, alert.code)}>
+                  <strong>{alert.count}</strong>
+                  <span>{alertCopy(alert.code, alert.count, t)}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="dash-alerts__empty">{t('Portal.noAlerts')}</p>
+        )}
+      </section>
+
+      <section aria-label={t('Portal.liveStats')}>
+        <div className="dash-section-head">
+          <h2>{t('Portal.liveStats')}</h2>
+        </div>
+        <div className="dash-metrics">
+          <article className="dash-metric dash-metric--1">
+            <span>{t('Portal.occupancy')}</span>
+            <strong>{value(overview.occupancyPercent, '%')}</strong>
+          </article>
+          <article className="dash-metric dash-metric--2">
+            <span>{t('Portal.propertiesCount')}</span>
+            <strong>{value(overview.properties ?? null)}</strong>
+          </article>
+          <article className="dash-metric dash-metric--3">
+            <span>{t('Portal.unitsCount')}</span>
+            <strong>{value(overview.units ?? null)}</strong>
+          </article>
+          <article className="dash-metric dash-metric--4">
+            <span>{t('Portal.activeLeases')}</span>
+            <strong>{value(overview.activeLeases ?? null)}</strong>
+          </article>
+          <article className="dash-metric dash-metric--5">
+            <span>{t('Portal.vacantUnits')}</span>
+            <strong>{value(overview.vacantUnits ?? null)}</strong>
+          </article>
+          <article className="dash-metric dash-metric--6">
+            <span>{t('Portal.openTickets')}</span>
+            <strong>{value(overview.openTickets)}</strong>
+          </article>
+          <article className="dash-metric dash-metric--7">
+            <span>{t('Portal.expiringContracts')}</span>
+            <strong>{value(overview.expiringContracts)}</strong>
+          </article>
+          <article className="dash-metric dash-metric--8">
+            <span>{t('Portal.openInvoices')}</span>
+            <strong>{value(overview.openInvoices ?? null)}</strong>
+          </article>
+        </div>
+      </section>
+
+      <section className="dash-finance" aria-label={t('Portal.accountingPulse')}>
+        <div className="dash-section-head">
+          <h2>{t('Portal.accountingPulse')}</h2>
+          <Link href={`/${portal}/accounting`} className="button button--quiet">
+            {t('Common.accounting')}
+          </Link>
+        </div>
+        <div className="dash-finance__card">
           <p>{t('Portal.collected')}</p>
           <strong className="metric-money-stack">
             {collected.length
@@ -53,87 +179,103 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
                 ))
               : '—'}
           </strong>
-        </Card>
-        <Card className="metric">
-          <p>{t('Portal.openTickets')}</p>
-          <strong>{value(overview.openTickets)}</strong>
-        </Card>
-        <Card className="metric">
-          <p>{t('Portal.expiringContracts')}</p>
-          <strong>{value(overview.expiringContracts)}</strong>
-        </Card>
-      </div>
-      {(portal === 'owner' || portal === 'developer' || portal === 'tenant') && (
-        <div className="portal-quick-links">
-          <Link href={`/${portal}/leasing`} className="button button--quiet">
-            {locale === 'ar' ? 'العقود السارية / التأجير' : 'Active leases'}
-          </Link>
-          <Link href={`/${portal}/contracts`} className="button button--quiet">
-            {locale === 'ar' ? 'العقود والمستندات' : 'Contracts'}
-          </Link>
-          <Link href={`/${portal}/invoices`} className="button button--quiet">
-            {locale === 'ar' ? 'الفواتير' : 'Invoices'}
-          </Link>
-          {portal !== 'tenant' ? (
-            <Link href={`/${portal}/bookings`} className="button button--quiet">
-              {locale === 'ar' ? 'الوحدات الشاغرة والحجز' : 'Vacant & bookings'}
-            </Link>
-          ) : null}
+          <div className="dash-finance__links">
+            <Link href={`/${portal}/invoices`}>{t('Common.invoices')}</Link>
+            <Link href={`/${portal}/payments`}>{t('Common.payments')}</Link>
+            <Link href={`/${portal}/expenses`}>{t('Common.expenses')}</Link>
+          </div>
         </div>
+      </section>
+
+      {(portal === 'owner' || portal === 'developer' || portal === 'tenant') && (
+        <nav className="dash-shortcuts" aria-label={t('Portal.quickActions')}>
+          <Link href={portal === 'tenant' ? `/${portal}/leases` : `/${portal}/leasing`}>
+            {t('Common.leasing')}
+          </Link>
+          <Link href={`/${portal}/contracts`}>{t('Common.contracts')}</Link>
+          <Link href={`/${portal}/invoices`}>{t('Common.invoices')}</Link>
+          {portal !== 'tenant' ? (
+            <Link href={`/${portal}/bookings`}>{t('Common.bookings')}</Link>
+          ) : (
+            <Link href={`/${portal}/reservations`}>{t('Common.bookings')}</Link>
+          )}
+          <Link href={`/${portal}/maintenance`}>{t('Common.maintenance')}</Link>
+          {portal !== 'tenant' ? (
+            <Link href={`/${portal}/contacts`}>{t('Common.contacts')}</Link>
+          ) : null}
+        </nav>
       )}
-      <div className="portal-grid">
-        <Card>
-          <CardHeader>
-            <h2>{t('Portal.overview')}</h2>
-          </CardHeader>
-          <CardContent>
-            {overview.recentActivity.length ? (
-              <ul className="data-list">
-                {overview.recentActivity.map((item) => (
-                  <li key={item.id}>
-                    <span>{item.title}</span>
-                    <time dateTime={item.occurredAt}>
-                      {new Intl.DateTimeFormat(locale === 'ar' ? 'ar-OM' : 'en-OM', {
-                        dateStyle: 'medium',
-                      }).format(new Date(item.occurredAt))}
-                    </time>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <EmptyState title={t('Portal.noData')} />
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <h2>{t('Common.actions')}</h2>
-          </CardHeader>
-          <CardContent>
-            <div className="data-list">
-              {portal === 'tenant' ? (
+
+      <div className="dash-grid">
+        <section className="dash-panel">
+          <div className="dash-section-head">
+            <h2>{t('Portal.recentActivity')}</h2>
+          </div>
+          {overview.recentActivity.length ? (
+            <ul className="dash-activity">
+              {overview.recentActivity.map((item) => (
+                <li key={item.id}>
+                  <div>
+                    <strong>{item.title}</strong>
+                    {item.status ? <span className="dash-activity__status">{item.status}</span> : null}
+                  </div>
+                  <time dateTime={item.occurredAt}>
+                    {new Intl.DateTimeFormat(locale === 'ar' ? 'ar-OM' : 'en-OM', {
+                      dateStyle: 'medium',
+                      timeStyle: 'short',
+                    }).format(new Date(item.occurredAt))}
+                  </time>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <EmptyState title={t('Portal.noData')} />
+          )}
+        </section>
+        <section className="dash-panel">
+          <div className="dash-section-head">
+            <h2>{t('Portal.quickActions')}</h2>
+          </div>
+          <div className="dash-actions">
+            {portal === 'owner' || portal === 'developer' ? (
+              <>
+                <Link className="button button--primary" href={`/${portal}/properties/new`} prefetch>
+                  {t('Portal.addProperty')}
+                </Link>
+                <Link className="button button--quiet" href={`/${portal}/properties`}>
+                  {t('Common.properties')}
+                </Link>
+                <Link className="button button--quiet" href={`/${portal}/approvals`}>
+                  {t('Common.approvals')}
+                </Link>
+                <Link className="button button--quiet" href={`/${portal}/team`}>
+                  {t('Common.team')}
+                </Link>
+              </>
+            ) : null}
+            {portal === 'tenant' ? (
+              <>
                 <Link className="button button--primary" href="/tenant/maintenance/new">
                   {t('Maintenance.new')}
                 </Link>
-              ) : null}
-              {portal === 'owner' || portal === 'developer' ? (
-                <>
-                  <Link
-                    className="button button--primary"
-                    href={`/${portal}/properties/new`}
-                    prefetch
-                  >
-                    {t('Portal.addProperty')}
-                  </Link>
-                  <Link className="button button--quiet" href={`/${portal}/reports`}>
-                    {t('Common.reports')}
-                  </Link>
-                </>
-              ) : null}
-            </div>
-          </CardContent>
-        </Card>
+                <Link className="button button--quiet" href="/tenant/invoices">
+                  {t('Common.invoices')}
+                </Link>
+              </>
+            ) : null}
+            {portal === 'platform' ? (
+              <>
+                <Link className="button button--quiet" href="/platform/organizations">
+                  {t('Common.organizations')}
+                </Link>
+                <Link className="button button--quiet" href="/platform/users">
+                  {t('Common.users')}
+                </Link>
+              </>
+            ) : null}
+          </div>
+        </section>
       </div>
-    </>
+    </div>
   );
 }
