@@ -2,6 +2,13 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.18 — 2026-08-25
+
+- Portal chrome redesign for owner/developer/tenant/platform: sticky header with user identity, bilingual switch, BHD app switcher; grouped sidebar nav.
+- Responsive drawer (RTL-aware) for phones/tablets; ops tables scroll horizontally on narrow viewports.
+- Latin UI font: IBM Plex Sans (paired with IBM Plex Sans Arabic).
+- Docs: `docs/implementation/PORTAL-CHROME-AR.md`.
+
 ## 0.2.6 — 2026-08-25
 
 - Unified login alignment with BHD Identity: `/login` always starts OIDC on `id.bhd-om.com` (local password only via `?local=1`).

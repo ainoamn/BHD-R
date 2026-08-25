@@ -6,7 +6,7 @@ import { getMessages, setRequestLocale } from 'next-intl/server';
 import { isAppLocale, localeConfig, locales } from '@bhd-r/i18n';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
-import { IBM_Plex_Sans_Arabic, Inter } from 'next/font/google';
+import { IBM_Plex_Sans, IBM_Plex_Sans_Arabic } from 'next/font/google';
 import '../globals.css';
 
 const publicWebOrigin =
@@ -18,7 +18,12 @@ const arabicFont = IBM_Plex_Sans_Arabic({
   display: 'swap',
   variable: '--font-arabic',
 });
-const latinFont = Inter({ subsets: ['latin'], display: 'swap', variable: '--font-latin' });
+const latinFont = IBM_Plex_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  display: 'swap',
+  variable: '--font-latin',
+});
 
 export const viewport: Viewport = {
   width: 'device-width',

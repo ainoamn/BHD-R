@@ -14,7 +14,7 @@ export async function PortalShell({
   const viewer = await requirePortal(locale, portal);
   return (
     <div className="portal-layout">
-      <PortalNav portal={portal} displayName={viewer.displayName} />
+      <PortalNav portal={portal} viewer={viewer} />
       <div className="portal-main">{children}</div>
     </div>
   );
