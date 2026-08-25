@@ -13,6 +13,10 @@ import {
   generateListingDescriptions,
   translateText,
 } from '@/lib/property-listing-copy';
+import {
+  googleMapsEmbedSrc,
+  parseGoogleMapsUrl,
+} from '@/lib/parse-google-maps-url';
 import { ListingCardPreview } from '@/components/listing-card-preview';
 
 interface UnitDraft {
@@ -51,8 +55,8 @@ const blankUnit = (index: number): UnitDraft => ({
   nameAr: '',
   nameEn: '',
   floor: '',
-  bedrooms: '0',
-  bathrooms: '1',
+  bedrooms: '',
+  bathrooms: '',
   area: '',
   listingPurpose: 'rent',
   rent: '',
@@ -60,6 +64,10 @@ const blankUnit = (index: number): UnitDraft => ({
   deposit: '',
   publishWhenAvailable: false,
 });
+
+const BEDROOM_OPTIONS = Array.from({ length: 16 }, (_, i) => String(i)); // 0–15
+const BATHROOM_OPTIONS = Array.from({ length: 11 }, (_, i) => String(i)); // 0–10
+const FLOOR_OPTIONS = Array.from({ length: 51 }, (_, i) => String(i)); // 0–50
 
 const BASE_AMENITIES = [
   ['parking', 'مواقف', 'Parking', '🅿'],
@@ -120,6 +128,7 @@ export function PropertyWizard({
     city: '',
     area: '',
     street: '',
+    mapsUrl: '',
     latitude: '',
     longitude: '',
   });
@@ -220,6 +229,28 @@ export function PropertyWizard({
   function updateProperty(field: keyof typeof property, value: string) {
     setProperty((current) => ({ ...current, [field]: value }));
   }
+
+  function applyMapsUrl(value: string) {
+    const coords = parseGoogleMapsUrl(value);
+    setProperty((current) => ({
+      ...current,
+      mapsUrl: value,
+      latitude: coords ? String(coords.latitude) : '',
+      longitude: coords ? String(coords.longitude) : '',
+    }));
+  }
+
+  function unitDisplayNames(unit: UnitDraft): { nameAr: string; nameEn: string } {
+    if (kind === 'single_unit') {
+      return { nameAr: property.nameAr.trim(), nameEn: property.nameEn.trim() };
+    }
+    const code = unit.code.trim() || 'U';
+    return {
+      nameAr: `${property.nameAr.trim()} (${code})`,
+      nameEn: `${property.nameEn.trim()} (${code})`,
+    };
+  }
+
   function updateProfile(field: keyof typeof profile, value: string) {
     setProfile((current) => ({ ...current, [field]: value }));
   }
@@ -239,13 +270,17 @@ export function PropertyWizard({
         if (!property.wilayat) issues.push(t('PropertyForm.wilayat'));
         if (!property.city) issues.push(t('PropertyForm.city'));
       }
+      if (!property.mapsUrl.trim()) issues.push(t('PropertyForm.mapsUrl'));
+      else if (!parseGoogleMapsUrl(property.mapsUrl)) issues.push(t('PropertyForm.mapsUrlInvalid'));
     }
     if (index === 1) {
       units.forEach((unit, i) => {
         const label = `${t('PropertyForm.unit')} ${i + 1}`;
-        if (!unit.code.trim()) issues.push(`${label}: ${t('PropertyForm.code')}`);
-        if (unit.nameAr.trim().length < 2) issues.push(`${label}: ${t('PropertyForm.nameAr')}`);
-        if (unit.nameEn.trim().length < 2) issues.push(`${label}: ${t('PropertyForm.nameEn')}`);
+        if (kind === 'multi_unit' && !unit.code.trim())
+          issues.push(`${label}: ${t('PropertyForm.code')}`);
+        if (!unit.floor.trim()) issues.push(`${label}: ${t('PropertyForm.floor')}`);
+        if (unit.bedrooms === '') issues.push(`${label}: ${t('PropertyForm.bedrooms')}`);
+        if (unit.bathrooms === '') issues.push(`${label}: ${t('PropertyForm.bathrooms')}`);
         if (unit.listingPurpose !== 'sale' && !unit.rent.trim())
           issues.push(`${label}: ${t('PropertyForm.rent')}`);
         if (unit.listingPurpose !== 'rent' && !unit.salePrice.trim())
@@ -463,7 +498,12 @@ export function PropertyWizard({
                 managementFee: profile.managementFee
                   ? { amountMinor: toMinorUnits(profile.managementFee, currency), currency }
                   : undefined,
-                notes: profile.notes || undefined,
+                notes: [
+                  profile.notes.trim(),
+                  property.mapsUrl.trim() ? `Google Maps: ${property.mapsUrl.trim()}` : '',
+                ]
+                  .filter(Boolean)
+                  .join('\n') || undefined,
               },
               amenities: amenityPayload,
               meters: [
@@ -489,27 +529,30 @@ export function PropertyWizard({
                   : []),
               ],
             },
-            units: units.map((unit) => ({
-              code: unit.code,
-              nameAr: unit.nameAr,
-              nameEn: unit.nameEn,
-              floor: unit.floor || undefined,
-              bedrooms: Number(unit.bedrooms),
-              bathrooms: Number(unit.bathrooms),
-              areaSquareMeters: unit.area || undefined,
-              listingPurpose: unit.listingPurpose,
-              rent: {
-                amountMinor: toMinorUnits(unit.rent || '0', currency),
-                currency,
-              },
-              salePrice: unit.salePrice
-                ? { amountMinor: toMinorUnits(unit.salePrice, currency), currency }
-                : undefined,
-              deposit: unit.deposit
-                ? { amountMinor: toMinorUnits(unit.deposit, currency), currency }
-                : undefined,
-              publishWhenAvailable: unit.publishWhenAvailable,
-            })),
+            units: units.map((unit) => {
+              const names = unitDisplayNames(unit);
+              return {
+                code: unit.code || 'U-01',
+                nameAr: names.nameAr,
+                nameEn: names.nameEn,
+                floor: unit.floor || undefined,
+                bedrooms: Number(unit.bedrooms),
+                bathrooms: Number(unit.bathrooms),
+                areaSquareMeters: unit.area || undefined,
+                listingPurpose: unit.listingPurpose,
+                rent: {
+                  amountMinor: toMinorUnits(unit.rent || '0', currency),
+                  currency,
+                },
+                salePrice: unit.salePrice
+                  ? { amountMinor: toMinorUnits(unit.salePrice, currency), currency }
+                  : undefined,
+                deposit: unit.deposit
+                  ? { amountMinor: toMinorUnits(unit.deposit, currency), currency }
+                  : undefined,
+                publishWhenAvailable: unit.publishWhenAvailable,
+              };
+            }),
           }),
         },
       );
@@ -551,9 +594,9 @@ export function PropertyWizard({
 
   const primary = units[0]!;
   const coverUrl = images.find((item) => item.id === coverId)?.url ?? images[0]?.url ?? null;
-  const previewTitle = `${locale === 'ar' ? property.nameAr || '—' : property.nameEn || '—'} — ${
-    locale === 'ar' ? primary.nameAr || t('PropertyForm.unit') : primary.nameEn || t('PropertyForm.unit')
-  }`;
+  const previewTitle =
+    locale === 'ar' ? property.nameAr || '—' : property.nameEn || '—';
+  const mapCoords = parseGoogleMapsUrl(property.mapsUrl);
   const previewLocation = [property.governorate, property.wilayat, property.city]
     .filter(Boolean)
     .join(' · ');
@@ -881,28 +924,41 @@ export function PropertyWizard({
                   value={property.street}
                   onChange={(event) => updateProperty('street', event.target.value)}
                 />
-                <Field
-                  id="latitude"
-                  label={ar ? 'خط العرض (اختياري)' : 'Latitude (optional)'}
-                  value={property.latitude}
-                  onChange={(event) => updateProperty('latitude', event.target.value)}
-                  type="number"
-                  min={-90}
-                  max={90}
-                  step="any"
-                  dir="ltr"
-                />
-                <Field
-                  id="longitude"
-                  label={ar ? 'خط الطول (اختياري)' : 'Longitude (optional)'}
-                  value={property.longitude}
-                  onChange={(event) => updateProperty('longitude', event.target.value)}
-                  type="number"
-                  min={-180}
-                  max={180}
-                  step="any"
-                  dir="ltr"
-                />
+                <div className="span-2 maps-field">
+                  <Field
+                    id="mapsUrl"
+                    label={t('PropertyForm.mapsUrl')}
+                    value={property.mapsUrl}
+                    tone={
+                      !property.mapsUrl.trim()
+                        ? tone('', true, showErrors)
+                        : mapCoords
+                          ? 'ok'
+                          : showErrors
+                            ? 'missing'
+                            : 'neutral'
+                    }
+                    onChange={(event) => applyMapsUrl(event.target.value)}
+                    hint={t('PropertyForm.mapsUrlHint')}
+                    required
+                    dir="ltr"
+                    placeholder="https://maps.google.com/..."
+                  />
+                  {mapCoords ? (
+                    <div className="maps-preview">
+                      <p className="maps-preview__label">{t('PropertyForm.mapsPreview')}</p>
+                      <iframe
+                        title={t('PropertyForm.mapsPreview')}
+                        className="maps-preview__frame"
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                        src={googleMapsEmbedSrc(mapCoords.latitude, mapCoords.longitude)}
+                      />
+                    </div>
+                  ) : property.mapsUrl.trim() ? (
+                    <p className="field__error">{t('PropertyForm.mapsUrlInvalid')}</p>
+                  ) : null}
+                </div>
               </div>
             ) : null}
 
@@ -932,101 +988,66 @@ export function PropertyWizard({
                       ) : null}
                     </div>
                     <div className="form-grid">
-                      <div className="bilingual-pair span-2">
+                      <p className="span-2 field__hint">{t('PropertyForm.nameSharedHint')}</p>
+                      {kind === 'multi_unit' ? (
                         <Field
-                          id={`unit-name-ar-${unit.localId}`}
-                          label={t('PropertyForm.nameAr')}
-                          value={unit.nameAr}
-                          tone={tone(unit.nameAr, true, showErrors)}
-                          onChange={(event) =>
-                            updateUnit(unit.localId, 'nameAr', event.target.value)
-                          }
+                          id={`unit-code-${unit.localId}`}
+                          label={t('PropertyForm.code')}
+                          value={unit.code}
+                          tone={tone(unit.code, true, showErrors)}
+                          onChange={(event) => updateUnit(unit.localId, 'code', event.target.value)}
                           required
                         />
-                        <div className="bilingual-pair__actions">
-                          <Button
-                            type="button"
-                            variant="quiet"
-                            disabled={translating !== null || !unit.nameAr.trim()}
-                            onClick={() =>
-                              void translateField(
-                                unit.nameAr,
-                                'en',
-                                (value) => updateUnit(unit.localId, 'nameEn', value),
-                                'name-en',
-                              )
-                            }
-                          >
-                            {translating === 'name-en' ? '…' : 'AR → EN'}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="quiet"
-                            disabled={translating !== null || !unit.nameEn.trim()}
-                            onClick={() =>
-                              void translateField(
-                                unit.nameEn,
-                                'ar',
-                                (value) => updateUnit(unit.localId, 'nameAr', value),
-                                'name-ar',
-                              )
-                            }
-                          >
-                            {translating === 'name-ar' ? '…' : 'EN → AR'}
-                          </Button>
-                        </div>
-                        <Field
-                          id={`unit-name-en-${unit.localId}`}
-                          label={t('PropertyForm.nameEn')}
-                          value={unit.nameEn}
-                          tone={tone(unit.nameEn, true, showErrors)}
-                          onChange={(event) =>
-                            updateUnit(unit.localId, 'nameEn', event.target.value)
-                          }
-                          required
-                          dir="ltr"
-                        />
-                      </div>
-                      <Field
-                        id={`unit-code-${unit.localId}`}
-                        label={t('PropertyForm.code')}
-                        value={unit.code}
-                        tone={tone(unit.code, true, showErrors)}
-                        onChange={(event) => updateUnit(unit.localId, 'code', event.target.value)}
-                        required
-                      />
-                      <Field
+                      ) : null}
+                      <SelectField
                         id={`unit-floor-${unit.localId}`}
                         label={t('PropertyForm.floor')}
                         value={unit.floor}
+                        tone={tone(unit.floor, true, showErrors)}
                         onChange={(event) => updateUnit(unit.localId, 'floor', event.target.value)}
-                      />
-                      <Field
+                        required
+                      >
+                        <option value="">{t('PropertyForm.selectFloor')}</option>
+                        {FLOOR_OPTIONS.map((value) => (
+                          <option key={value} value={value}>
+                            {value === '0' ? t('PropertyForm.floorGround') : value}
+                          </option>
+                        ))}
+                      </SelectField>
+                      <SelectField
                         id={`unit-beds-${unit.localId}`}
-                        type="number"
-                        min={0}
-                        max={50}
                         label={t('PropertyForm.bedrooms')}
                         value={unit.bedrooms}
-                        tone="ok"
+                        tone={tone(unit.bedrooms, true, showErrors)}
                         onChange={(event) =>
                           updateUnit(unit.localId, 'bedrooms', event.target.value)
                         }
                         required
-                      />
-                      <Field
+                      >
+                        <option value="">{t('PropertyForm.selectBedrooms')}</option>
+                        {BEDROOM_OPTIONS.map((value) => (
+                          <option key={value} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </SelectField>
+                      <SelectField
                         id={`unit-baths-${unit.localId}`}
-                        type="number"
-                        min={0}
-                        max={50}
                         label={t('PropertyForm.bathrooms')}
                         value={unit.bathrooms}
-                        tone="ok"
+                        tone={tone(unit.bathrooms, true, showErrors)}
                         onChange={(event) =>
                           updateUnit(unit.localId, 'bathrooms', event.target.value)
                         }
                         required
-                      />
+                      >
+                        <option value="">{t('PropertyForm.selectBathrooms')}</option>
+                        {BATHROOM_OPTIONS.map((value) => (
+                          <option key={value} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </SelectField>
                       <Field
                         id={`unit-area-${unit.localId}`}
                         inputMode="decimal"
