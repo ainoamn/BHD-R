@@ -50,6 +50,21 @@ Redeploy web after env change.
 4. Confirm reservation deposit → journal appears in accounting  
 5. End lease → vacancy task in Tasks  
 
+## Required env checklist (Render will fail without these)
+
+After Docker build, Nest boots with `loadEnvironment`. Missing keys abort the process.
+
+| Key | Source |
+|-----|--------|
+| `DATABASE_URL` | Neon |
+| `REDIS_URL` | Upstash or Render Redis |
+| `S3_ENDPOINT`, `S3_BUCKET_PRIVATE`, `S3_BUCKET_PUBLIC`, `S3_ACCESS_KEY`, `S3_SECRET_KEY` | S3 / R2 / MinIO |
+| `BHD_IDENTITY_CLIENT_ID` | `bhd-r` (or set `BHD_OAUTH_CLIENT_ID` — accepted as alias) |
+| `BHD_IDENTITY_CLIENT_SECRET`, `BHD_IDENTITY_ISSUER`, `BHD_IDENTITY_REDIRECT_URI` | Identity / Vercel |
+| `BHD_R_SESSION_SECRET`, `CSRF_SECRET`, `FIELD_ENCRYPTION_KEY_V1` | Generate ≥32 chars; keep stable |
+| `PAYMENT_WEBHOOK_SECRET` | Generate ≥8 chars (placeholder OK until payments) |
+| `PUBLIC_PROPERTY_BASE_URL` | `https://r.bhd-om.com` |
+
 ## Security
 
 - Never set `API_INTERNAL_ORIGIN=http://localhost:4000` on Vercel.  

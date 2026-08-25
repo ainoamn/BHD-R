@@ -48,7 +48,13 @@ export function resolveIdentitySettings(source: NodeJS.ProcessEnv = process.env)
 }
 
 export function loadEnvironment(source: NodeJS.ProcessEnv = process.env): Environment {
-  const result = environmentSchema.safeParse(source);
+  const normalized: NodeJS.ProcessEnv = {
+    ...source,
+    BHD_IDENTITY_CLIENT_ID: source.BHD_IDENTITY_CLIENT_ID ?? source.BHD_OAUTH_CLIENT_ID,
+    BHD_IDENTITY_CLIENT_SECRET: source.BHD_IDENTITY_CLIENT_SECRET ?? source.BHD_OAUTH_CLIENT_SECRET,
+    BHD_IDENTITY_REDIRECT_URI: source.BHD_IDENTITY_REDIRECT_URI ?? source.BHD_OAUTH_REDIRECT_URI,
+  };
+  const result = environmentSchema.safeParse(normalized);
   if (!result.success) {
     const fields = result.error.issues.map((issue) => issue.path.join('.')).join(', ');
     throw new Error(`Invalid environment configuration: ${fields}`);
