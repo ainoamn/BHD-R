@@ -22,6 +22,8 @@ Project `bhd-r-api` Root Directory is `apps/web` (Next.js). Nest is a long-lived
    - `BHD_R_SESSION_SECRET`, field encryption keys
    - `S3_*` as needed
    - `WEB_ORIGIN` / `PUBLIC_WEB_ORIGIN` = `https://r.bhd-om.com`
+   - Optional `WEB_ORIGINS` = comma list of extra browser origins (staging, etc.)
+   - Preview Vercel hosts `bhd-r-api-*.vercel.app` are allowed by default for CSRF/CORS (disable with `WEB_ORIGIN_ALLOW_VERCEL_PREVIEWS=0`)
    - `CORS` / cookie domain settings as documented in identity setup
 4. After deploy, note the service URL, e.g. `https://bhd-r-api.onrender.com`.
 5. Optional DNS: `api.r.bhd-om.com` → Render.

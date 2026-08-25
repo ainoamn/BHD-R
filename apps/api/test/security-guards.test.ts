@@ -46,6 +46,7 @@ describe('central authorization', () => {
 describe('CSRF', () => {
   it('accepts a session-bound double-submit token and rejects a mismatch', () => {
     process.env.CSRF_SECRET = 'test-csrf-secret-that-is-at-least-32-characters';
+    process.env.WEB_ORIGIN = 'https://r.bhd-om.com';
     const sid = '352f632d-710c-463a-a42d-73af64318529';
     const token = createCsrfToken(sid, process.env.CSRF_SECRET);
     const guard = new CsrfGuard();
@@ -73,6 +74,45 @@ describe('CSRF', () => {
         }),
       ),
     ).toThrow('Cross-site request rejected');
+  });
+
+  it('allows configured WEB_ORIGINS and BHD-R Vercel preview hosts', () => {
+    process.env.CSRF_SECRET = 'test-csrf-secret-that-is-at-least-32-characters';
+    process.env.WEB_ORIGIN = 'https://r.bhd-om.com';
+    process.env.WEB_ORIGINS = 'https://r.bhd-om.com, https://staging.example.com';
+    delete process.env.WEB_ORIGIN_ALLOW_VERCEL_PREVIEWS;
+    const sid = '352f632d-710c-463a-a42d-73af64318529';
+    const token = createCsrfToken(sid, process.env.CSRF_SECRET);
+    const guard = new CsrfGuard();
+    const base = {
+      method: 'POST',
+      auth: { authenticationMethod: 'session', sid },
+      cookies: { bhd_r_csrf: token },
+    };
+    expect(
+      guard.canActivate(
+        context(() => undefined, {
+          ...base,
+          headers: {
+            'x-csrf-token': token,
+            origin: 'https://staging.example.com',
+            'sec-fetch-site': 'same-origin',
+          },
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      guard.canActivate(
+        context(() => undefined, {
+          ...base,
+          headers: {
+            'x-csrf-token': token,
+            origin: 'https://bhd-r-api-phi.vercel.app',
+            'sec-fetch-site': 'same-origin',
+          },
+        }),
+      ),
+    ).toBe(true);
   });
 });
 

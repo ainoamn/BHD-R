@@ -6,6 +6,7 @@ import helmet from '@fastify/helmet';
 import { loadEnvironment } from '@bhd-r/config';
 import { AppModule } from './app.module.js';
 import { createInternalRequestId } from './common/request-id.js';
+import { corsOriginDelegate } from './common/web-origins.js';
 
 async function bootstrap(): Promise<void> {
   const environment = loadEnvironment();
@@ -39,7 +40,7 @@ async function bootstrap(): Promise<void> {
     rawBody: true,
   });
   app.enableCors({
-    origin: [environment.WEB_ORIGIN],
+    origin: corsOriginDelegate,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [

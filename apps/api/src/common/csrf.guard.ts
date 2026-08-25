@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import { verifyCsrfToken } from '@bhd-r/security';
+import { isAllowedWebOrigin } from './web-origins.js';
 
 const safeMethods = new Set(['GET', 'HEAD', 'OPTIONS']);
 
@@ -17,11 +18,10 @@ export class CsrfGuard implements CanActivate {
       return true;
     const fetchSite = request.headers['sec-fetch-site'];
     const origin = request.headers.origin;
-    const expectedOrigin = (process.env.WEB_ORIGIN ?? 'http://localhost:3000').replace(/\/$/, '');
     if (
       (typeof fetchSite === 'string' &&
         !['same-origin', 'same-site', 'none'].includes(fetchSite)) ||
-      (typeof origin === 'string' && origin.replace(/\/$/, '') !== expectedOrigin)
+      (typeof origin === 'string' && !isAllowedWebOrigin(origin))
     ) {
       throw new ForbiddenException('Cross-site request rejected');
     }
