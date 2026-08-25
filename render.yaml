@@ -1,0 +1,45 @@
+# BHD-R Render Blueprint — Nest API
+# Docs: docs/implementation/NEST-API-HOSTING.md
+# Apply in Render Dashboard → New → Blueprint → this repo
+
+services:
+  - type: web
+    name: bhd-r-api
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile.api
+    dockerContext: .
+    healthCheckPath: /health/ready
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: '4000'
+      - key: WEB_ORIGIN
+        sync: false
+      - key: PUBLIC_WEB_ORIGIN
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: BHD_IDENTITY_ISSUER
+        value: https://id.bhd-om.com
+      - key: BHD_OAUTH_CLIENT_ID
+        value: bhd-r
+      - key: BHD_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: BHD_OAUTH_REDIRECT_URI
+        value: https://r.bhd-om.com/api/auth/bhd/callback
+      - key: BHD_OAUTH_POST_LOGOUT_REDIRECT_URI
+        value: https://r.bhd-om.com/
+      - key: BHD_IDENTITY_TOKEN_SECRET
+        sync: false
+      - key: BHD_R_SESSION_SECRET
+        sync: false
+      - key: FIELD_ENCRYPTION_KEY_V1
+        sync: false
+      - key: FIELD_ENCRYPTION_ACTIVE_VERSION
+        value: v1
+      - key: COOKIE_SECURE
+        value: 'true'

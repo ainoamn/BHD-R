@@ -46,5 +46,5 @@ After each OM step: commit → `git push origin main` → Vercel Production depl
 |------|--------|--------|
 | 8 Deposit journal | `f27f2de` | Ready |
 | 9 Vacancy task | `0a4c297` | Ready |
-| 10 Party-scoped portals | (this release) | after push |
-| 11 Nest hosting scaffold | (follow-up) | after push |
+| 10 Party-scoped portals | `8edaf35` | Ready |
+| 11 Nest hosting scaffold | (this release) | after push |
