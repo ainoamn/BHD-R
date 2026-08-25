@@ -45,5 +45,5 @@ After each OM step: commit → `git push origin main` → Vercel Production depl
 
 | Step | Commit | Vercel |
 |------|--------|--------|
-| 8 Deposit journal | `f27f2de` | Ready (web UI copy + docs) |
-| 9 Vacancy task | (this release) | Ready after push |
+| 8 Deposit journal | `f27f2de` | Ready |
+| 9 Vacancy task | `0a4c297` | Ready |
