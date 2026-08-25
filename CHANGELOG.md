@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.25 — 2026-08-25
+
+- Fix Nest/Render Docker build: CORS origin must be Nest sync resolver (`resolveCorsOrigin`), not Express-style callback — unblocks API deploys stuck since `5766f9a` and restores media-ingress save path.
+
 ## 0.2.24 — 2026-08-25
 
 - Fix property save `Failed to fetch`: media uploads via Nest ingress token (same-origin `/v1/media/ingress/...`) instead of browser→S3; CSP connect-src allows Nest; clearer Arabic network errors; BFF `maxDuration` 60s; wizard warms API on open.

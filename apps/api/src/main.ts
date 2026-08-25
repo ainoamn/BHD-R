@@ -6,7 +6,7 @@ import helmet from '@fastify/helmet';
 import { loadEnvironment } from '@bhd-r/config';
 import { AppModule } from './app.module.js';
 import { createInternalRequestId } from './common/request-id.js';
-import { corsOriginDelegate } from './common/web-origins.js';
+import { resolveCorsOrigin } from './common/web-origins.js';
 
 async function bootstrap(): Promise<void> {
   const environment = loadEnvironment();
@@ -51,7 +51,7 @@ async function bootstrap(): Promise<void> {
   fastify.addContentTypeParser('image/png', { parseAs: 'buffer' }, asBuffer);
   fastify.addContentTypeParser('image/webp', { parseAs: 'buffer' }, asBuffer);
   app.enableCors({
-    origin: corsOriginDelegate,
+    origin: resolveCorsOrigin,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [

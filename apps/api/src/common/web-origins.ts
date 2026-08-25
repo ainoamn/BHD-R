@@ -42,13 +42,11 @@ export function isAllowedWebOrigin(origin: string | undefined): boolean {
   return isTrustedVercelWebOrigin(normalized);
 }
 
-export function corsOriginDelegate(
-  origin: string | undefined,
-  callback: (err: Error | null, allow?: boolean | string) => void,
-): void {
-  if (!origin || isAllowedWebOrigin(origin)) {
-    callback(null, origin ?? true);
-    return;
-  }
-  callback(null, false);
+/**
+ * Nest/Fastify CORS origin resolver (sync / async-compatible — not Express callback style).
+ * Returns the request origin when allowed, otherwise false.
+ */
+export function resolveCorsOrigin(origin: string | undefined): boolean | string {
+  if (!origin) return true;
+  return isAllowedWebOrigin(origin) ? origin : false;
 }
