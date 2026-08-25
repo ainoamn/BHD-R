@@ -3293,6 +3293,66 @@ h3 {
   font-size: 0.86rem;
   line-height: 1.45;
 }
+.ops-vacant-strip {
+  margin: 0 0 1.25rem;
+  padding: 1rem 1.15rem;
+  border-radius: 1rem;
+  background: linear-gradient(180deg, rgb(9 45 36 / 0.04), rgb(181 141 85 / 0.08));
+  border: 1px solid rgb(9 45 36 / 0.08);
+}
+.ops-vacant-strip header {
+  margin-bottom: 0.85rem;
+}
+.ops-vacant-strip h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+.ops-vacant-strip p {
+  margin: 0;
+  color: #53665e;
+  font-size: 0.88rem;
+}
+.ops-vacant-strip ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+.ops-vacant-strip li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 1rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.75rem;
+  background: white;
+}
+.ops-vacant-strip__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.ops-vacant-strip__actions a {
+  display: inline-flex;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  background: rgb(9 45 36 / 0.08);
+  color: #092d24;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.portal-quick-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin: 0 0 1.25rem;
+}
+
+/* Soft portal transitions — keep shell, avoid empty-state flash */
+.portal-route-pending {
   display: grid;
   gap: 1rem;
   padding-block: 0.35rem 1.25rem;

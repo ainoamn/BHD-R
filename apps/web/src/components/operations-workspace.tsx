@@ -83,12 +83,28 @@ async function loadSection(portal: PortalRole, section: OperationsSection) {
       };
     }
     case 'accounting': {
-      const [records, dashboard, trialBalance] = await Promise.all([
+      const [records, dashboard, trialBalance, chequeRows, invoiceRows] = await Promise.all([
         safeRows('/v1/accounting/journals'),
         apiFetch<Record<string, unknown>>('/v1/accounting/dashboard').catch(() => ({})),
         safeRows('/v1/accounting/trial-balance'),
+        safeRows('/v1/finance/cheques'),
+        safeRows('/v1/finance/invoices'),
       ]);
-      return { records, summary: dashboard, secondary: trialBalance };
+      return {
+        records,
+        summary: {
+          ...dashboard,
+          activeLeaseInvoices: invoiceRows.filter((row) => row.leaseId && row.status !== 'void')
+            .length,
+          pendingCheques: chequeRows.filter((row) => row.reviewStatus === 'pending').length,
+        },
+        secondary: [
+          ...chequeRows.map((row) => ({ ...row, recordKind: 'cheque', status: row.reviewStatus })),
+          ...invoiceRows
+            .filter((row) => row.leaseId)
+            .map((row) => ({ ...row, recordKind: 'lease_invoice' })),
+        ],
+      };
     }
     case 'expenses':
       return { records: await safeRows('/v1/accounting/expenses') };

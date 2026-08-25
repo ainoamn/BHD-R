@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import type { CurrencyCode } from '@bhd-r/contracts';
 import { browserMutation } from '@/lib/api';
@@ -656,17 +656,19 @@ function SelectOptions({
   options,
   locale,
   required = false,
+  defaultValue = '',
 }: {
   name: string;
   label: string;
   options: OptionRow[];
   locale: 'ar' | 'en';
   required?: boolean;
+  defaultValue?: string;
 }) {
   return (
     <label className="field">
       <span>{label}</span>
-      <select className="select" name={name} required={required} defaultValue="">
+      <select className="select" name={name} required={required} defaultValue={defaultValue}>
         <option value="">{locale === 'ar' ? 'اختر…' : 'Select…'}</option>
         {options.map((option) => (
           <option key={option.id} value={option.id}>
@@ -742,16 +744,23 @@ function CreateFields({
   section,
   locale,
   context,
+  prefillUnitId = '',
 }: {
   section: OperationsSection;
   locale: 'ar' | 'en';
   context: OperationsContext;
+  prefillUnitId?: string;
 }) {
   const ar = locale === 'ar';
   const today = new Date().toISOString().slice(0, 10);
   const inOneMonth = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
   const nextHour = new Date(Date.now() + 60 * 60_000).toISOString().slice(0, 16);
   const tomorrow = new Date(Date.now() + 24 * 60 * 60_000).toISOString().slice(0, 16);
+  const unitOptions = context.vacantUnits?.length
+    ? [...(context.vacantUnits ?? []), ...(context.units ?? [])].filter(
+        (row, index, all) => all.findIndex((item) => item.id === row.id) === index,
+      )
+    : (context.units ?? []);
   switch (section) {
     case 'contacts':
       return (
@@ -852,6 +861,13 @@ function CreateFields({
             options={context.properties ?? []}
             locale={locale}
           />
+          <SelectOptions
+            name="unitId"
+            label={ar ? 'الوحدة الشاغرة/المرتبطة' : 'Related / vacant unit'}
+            options={unitOptions}
+            locale={locale}
+            defaultValue={prefillUnitId}
+          />
           <Input name="dueAt" label={ar ? 'موعد الإنجاز' : 'Due'} type="datetime-local" />
           <label className="field span-2">
             <span>{ar ? 'الوصف' : 'Description'}</span>
@@ -876,6 +892,7 @@ function CreateFields({
             options={context.vacantUnits?.length ? context.vacantUnits : (context.units ?? [])}
             locale={locale}
             required
+            defaultValue={prefillUnitId}
           />
           <SelectOptions
             name="prospectPartyId"
@@ -1189,6 +1206,13 @@ function CreateFields({
           />
           <Input name="amount" label={ar ? 'المبلغ' : 'Amount'} type="number" min="0" required />
           <CurrencySelect locale={locale} />
+          <SelectOptions
+            name="unitId"
+            label={ar ? 'الوحدة المرتبطة (شاغرة)' : 'Linked vacant unit'}
+            options={unitOptions}
+            locale={locale}
+            defaultValue={prefillUnitId}
+          />
         </>
       );
     case 'expenses':
@@ -1234,6 +1258,7 @@ function CreateFields({
             options={context.units ?? []}
             locale={locale}
             required
+            defaultValue={prefillUnitId}
           />
           <Input name="title" label={ar ? 'عنوان البلاغ' : 'Ticket title'} required />
           <label className="field">
@@ -1296,6 +1321,13 @@ function CreateFields({
             label={ar ? 'نوع القضية' : 'Case type'}
             defaultValue="collection"
             required
+          />
+          <SelectOptions
+            name="unitId"
+            label={ar ? 'الوحدة المرتبطة' : 'Related unit'}
+            options={unitOptions}
+            locale={locale}
+            defaultValue={prefillUnitId}
           />
           <Input name="caseNumber" label={ar ? 'رقم القضية' : 'Case number'} />
           <Input name="court" label={ar ? 'المحكمة' : 'Court'} />
@@ -1525,6 +1557,7 @@ function creationRequest(section: OperationsSection, form: FormData) {
           description: optional(text(form.get('description'))),
           assignedToUserId: optional(text(form.get('assignedToUserId'))),
           propertyId: optional(text(form.get('propertyId'))),
+          unitId: optional(text(form.get('unitId'))),
           dueAt: toIsoDateTime(text(form.get('dueAt'))),
         },
       };
@@ -1644,6 +1677,7 @@ function creationRequest(section: OperationsSection, form: FormData) {
       };
     case 'accounting': {
       const value = amount('amount');
+      const unitId = optional(text(form.get('unitId')));
       return {
         path: '/v1/accounting/journals',
         body: {
@@ -1655,12 +1689,14 @@ function creationRequest(section: OperationsSection, form: FormData) {
               debitMinor: value,
               creditMinor: '0',
               currency,
+              ...(unitId ? { unitId } : {}),
             },
             {
               accountId: text(form.get('creditAccountId')),
               debitMinor: '0',
               creditMinor: value,
               currency,
+              ...(unitId ? { unitId } : {}),
             },
           ],
         },
@@ -1713,6 +1749,7 @@ function creationRequest(section: OperationsSection, form: FormData) {
           court: optional(text(form.get('court'))),
           counterpartyId: optional(text(form.get('counterpartyId'))),
           lawyerPartyId: optional(text(form.get('lawyerPartyId'))),
+          unitId: optional(text(form.get('unitId'))),
           claimAmountMinor: amount('claimAmount'),
           currency,
           openedOn: text(form.get('openedOn')),
@@ -1882,12 +1919,22 @@ export function OperationsConsole({
   const definition = definitions[section];
   const ar = locale === 'ar';
   const [query, setQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState(section === 'leasing' ? 'active' : '');
   const [showCreate, setShowCreate] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [apiKeySecret, setApiKeySecret] = useState<string | null>(null);
   const [renewingLease, setRenewingLease] = useState<DataRow | null>(null);
+  const [prefillUnitId, setPrefillUnitId] = useState('');
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const unitId = params.get('unitId') ?? '';
+    setPrefillUnitId(unitId);
+    if (params.get('create') === '1') setShowCreate(true);
+  }, [section]);
+
+  const vacantUnits = context.vacantUnits ?? [];
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
     return records.filter((row) => {
@@ -2238,6 +2285,51 @@ export function OperationsConsole({
         })}
       </section>
 
+      {vacantUnits.length &&
+      (section === 'bookings' ||
+        section === 'tasks' ||
+        section === 'maintenance' ||
+        section === 'legal' ||
+        section === 'accounting') ? (
+        <section className="ops-vacant-strip" aria-label={ar ? 'الوحدات الشاغرة' : 'Vacant units'}>
+          <header>
+            <h2>{ar ? 'وحدات شاغرة — إجراءات سريعة' : 'Vacant units — quick actions'}</h2>
+            <p>
+              {ar
+                ? 'بعد شغور الوحدة اربطها بمهمة أو صيانة أو محاماة أو قيد محاسبي.'
+                : 'When a unit is vacant, link it to a task, maintenance, legal case, or journal.'}
+            </p>
+          </header>
+          <ul>
+            {vacantUnits.slice(0, 12).map((unit) => {
+              const label = labelForOption(unit, locale);
+              return (
+                <li key={unit.id}>
+                  <strong>{label}</strong>
+                  <div className="ops-vacant-strip__actions">
+                    <a href={`/${locale}/${portal}/bookings?create=1&unitId=${unit.id}`}>
+                      {ar ? 'حجز' : 'Book'}
+                    </a>
+                    <a href={`/${locale}/${portal}/tasks?create=1&unitId=${unit.id}`}>
+                      {ar ? 'مهمة' : 'Task'}
+                    </a>
+                    <a href={`/${locale}/${portal}/maintenance?create=1&unitId=${unit.id}`}>
+                      {ar ? 'صيانة' : 'Maintenance'}
+                    </a>
+                    <a href={`/${locale}/${portal}/legal?create=1&unitId=${unit.id}`}>
+                      {ar ? 'محاماة' : 'Legal'}
+                    </a>
+                    <a href={`/${locale}/${portal}/accounting?create=1&unitId=${unit.id}`}>
+                      {ar ? 'حسابات' : 'Accounts'}
+                    </a>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
+
       <section className="ops-panel">
         <div className="ops-toolbar">
           <label className="ops-search">
@@ -2573,7 +2665,12 @@ export function OperationsConsole({
             ) : (
               <form onSubmit={(event) => void submitCreate(event)}>
                 <div className="form-grid">
-                  <CreateFields section={section} locale={locale} context={context} />
+                  <CreateFields
+                    section={section}
+                    locale={locale}
+                    context={context}
+                    prefillUnitId={prefillUnitId}
+                  />
                 </div>
                 {error ? (
                   <div className="notice notice--error" role="alert">

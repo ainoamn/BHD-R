@@ -63,6 +63,40 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
           <strong>{value(overview.expiringContracts)}</strong>
         </Card>
       </div>
+      {(portal === 'owner' || portal === 'developer' || portal === 'tenant') && (
+        <div className="portal-quick-links">
+          <Link href={`/${portal}/leasing`} className="button button--quiet">
+            {locale === 'ar' ? 'العقود السارية / التأجير' : 'Active leases'}
+          </Link>
+          <Link href={`/${portal}/contracts`} className="button button--quiet">
+            {locale === 'ar' ? 'العقود والمستندات' : 'Contracts'}
+          </Link>
+          <Link href={`/${portal}/invoices`} className="button button--quiet">
+            {locale === 'ar' ? 'الفواتير' : 'Invoices'}
+          </Link>
+          {portal !== 'tenant' ? (
+            <Link href={`/${portal}/bookings`} className="button button--quiet">
+              {locale === 'ar' ? 'الوحدات الشاغرة والحجز' : 'Vacant & bookings'}
+            </Link>
+          ) : null}
+        </div>
+      )}
+      {portal === 'accountant' && (
+        <div className="portal-quick-links">
+          <Link href="/accountant/leasing" className="button button--quiet">
+            {locale === 'ar' ? 'العقود السارية' : 'Active leases'}
+          </Link>
+          <Link href="/accountant/accounting" className="button button--quiet">
+            {locale === 'ar' ? 'القيود والشيكات' : 'Journals & cheques'}
+          </Link>
+          <Link href="/accountant/invoices" className="button button--quiet">
+            {locale === 'ar' ? 'الفواتير' : 'Invoices'}
+          </Link>
+          <Link href="/accountant/bookings" className="button button--quiet">
+            {locale === 'ar' ? 'تأكيد العربون' : 'Deposit confirmations'}
+          </Link>
+        </div>
+      )}
       <div className="portal-grid">
         <Card>
           <CardHeader>

@@ -102,6 +102,25 @@ const APPROVAL_CHAIN_STAGES = {
 
 type ApprovalChainKey = keyof typeof APPROVAL_CHAIN_STAGES;
 
+function isTenantFacingClaims(claims: SessionClaims): boolean {
+  const staffRoles = new Set([
+    'organization_owner',
+    'organization_admin',
+    'property_manager',
+    'finance_manager',
+    'maintenance_agent',
+    'auditor',
+    'platform_admin',
+    'platform_support',
+    'developer_admin',
+  ]);
+  return (
+    Boolean(claims.partyId) &&
+    claims.roles.includes('tenant') &&
+    !claims.roles.some((role) => staffRoles.has(role))
+  );
+}
+
 export function assertRenewalTerms(
   current: { endsOn: string; currency: string },
   proposed: { endsOn: string; currency?: string | undefined },
@@ -1145,10 +1164,19 @@ export class LeasingService {
 
   listTenantLeases(claims: SessionClaims) {
     return this.database.withinTenant(claims, async (transaction) => {
+      const scopedToTenant = isTenantFacingClaims(claims);
       const rows = await transaction
         .select()
         .from(leases)
-        .where(eq(leases.organizationId, claims.organizationId!));
+        .where(
+          and(
+            eq(leases.organizationId, claims.organizationId!),
+            ...(scopedToTenant && claims.partyId
+              ? [eq(leases.tenantPartyId, claims.partyId)]
+              : []),
+          ),
+        )
+        .orderBy(desc(leases.createdAt));
       return rows.map((row) => ({
         ...row,
         rentMinor: row.rentMinor.toString(),
@@ -1378,8 +1406,9 @@ export class LeasingService {
   }
 
   listContracts(claims: SessionClaims) {
-    return this.database.withinTenant(claims, (transaction) =>
-      transaction
+    return this.database.withinTenant(claims, (transaction) => {
+      const scopedToTenant = isTenantFacingClaims(claims);
+      return transaction
         .select({
           id: contracts.id,
           reference: contracts.reference,
@@ -1404,9 +1433,16 @@ export class LeasingService {
           )`,
         })
         .from(contracts)
-        .where(eq(contracts.organizationId, claims.organizationId!))
-        .orderBy(desc(contracts.createdAt)),
-    );
+        .where(
+          and(
+            eq(contracts.organizationId, claims.organizationId!),
+            ...(scopedToTenant && claims.partyId
+              ? [eq(contracts.tenantPartyId, claims.partyId)]
+              : []),
+          ),
+        )
+        .orderBy(desc(contracts.createdAt));
+    });
   }
 
   cancelHold(claims: SessionClaims, id: string) {

@@ -32,8 +32,8 @@
 | 3 Vacant listing | Ops context `vacantUnits` + bookings filter |
 | 4 Booking → accountant → lease | **Gate wired in leasing service** |
 | 5 Contract amounts / cheques / e-sign / approvals | **Wired** — grace, cheque schedule, multi-stage approval chain, cheque gate before send/activate |
-| 6 Portal reflection | Partial portals; deepen after Nest is live |
-| 7 Vacant → tasks/maintenance/legal/accounts | Manual ops today; automation later |
+| 6 Portal reflection | **Wired** — tenant-scoped leases/contracts; leasing defaults to `active`; owner/tenant/accountant overview quick links; accounting shows lease invoices + cheques |
+| 7 Vacant → tasks/maintenance/legal/accounts | **Wired** — vacant strip deep-links `?create=1&unitId=` into bookings/tasks/maintenance/legal/accounting forms |
 
 ## Deploy note
 
