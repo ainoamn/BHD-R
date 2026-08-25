@@ -17,7 +17,6 @@ import {
   googleMapsEmbedSrc,
   parseGoogleMapsUrl,
 } from '@/lib/parse-google-maps-url';
-import { ListingCardPreview } from '@/components/listing-card-preview';
 
 interface UnitDraft {
   localId: string;
@@ -47,7 +46,14 @@ interface UploadIntent {
 }
 
 type MediaItem = { id: string; file: File; url: string };
-type DocItem = { id: string; file: File; url: string; kind: string };
+type PrivateDocType = 'title_deed' | 'floor_plan' | 'other';
+type DocItem = {
+  id: string;
+  file: File;
+  url: string;
+  kind: 'pdf' | 'image';
+  documentType: PrivateDocType;
+};
 
 const blankUnit = (index: number): UnitDraft => ({
   localId: crypto.randomUUID(),
@@ -140,7 +146,6 @@ export function PropertyWizard({
     landArea: '',
     builtUpArea: '',
     yearBuilt: '',
-    floorsCount: '',
     parkingSpaces: '',
     furnishing: 'unfurnished' as 'unfurnished' | 'semi_furnished' | 'furnished',
     managementStartedOn: '',
@@ -172,6 +177,7 @@ export function PropertyWizard({
     t('PropertyForm.ownershipDocuments'),
     t('PropertyForm.media'),
     t('PropertyForm.descriptionReview'),
+    t('PropertyForm.listingPreview'),
   ];
 
   const amenityOptions = useMemo(
@@ -276,8 +282,6 @@ export function PropertyWizard({
     if (index === 1) {
       units.forEach((unit, i) => {
         const label = `${t('PropertyForm.unit')} ${i + 1}`;
-        if (kind === 'multi_unit' && !unit.code.trim())
-          issues.push(`${label}: ${t('PropertyForm.code')}`);
         if (!unit.floor.trim()) issues.push(`${label}: ${t('PropertyForm.floor')}`);
         if (unit.bedrooms === '') issues.push(`${label}: ${t('PropertyForm.bedrooms')}`);
         if (unit.bathrooms === '') issues.push(`${label}: ${t('PropertyForm.bathrooms')}`);
@@ -288,6 +292,7 @@ export function PropertyWizard({
       });
     }
     if (index === 4) {
+      if (images.length < 2) issues.push(t('PropertyForm.imagesMinTwo'));
       const bad = images.some(
         (item) =>
           !['image/jpeg', 'image/png', 'image/webp'].includes(item.file.type) ||
@@ -344,19 +349,35 @@ export function PropertyWizard({
     event.target.value = '';
   }
 
-  function selectDocuments(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? []).slice(0, 8);
-    const next = files.map((file) => ({
+  function selectDocuments(documentType: PrivateDocType, event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    if (!allowed.includes(file.type) || file.size > 25 * 1024 * 1024) {
+      setError(t('PropertyForm.documentHelp'));
+      return;
+    }
+    const next: DocItem = {
       id: crypto.randomUUID(),
       file,
       url: URL.createObjectURL(file),
       kind: file.type.includes('pdf') ? 'pdf' : 'image',
-    }));
+      documentType,
+    };
     setDocuments((current) => {
-      current.forEach((item) => URL.revokeObjectURL(item.url));
-      return next;
+      const previous = current.find((item) => item.documentType === documentType);
+      if (previous) URL.revokeObjectURL(previous.url);
+      return [...current.filter((item) => item.documentType !== documentType), next];
     });
-    event.target.value = '';
+  }
+
+  function removeDocument(documentType: PrivateDocType) {
+    setDocuments((current) => {
+      const previous = current.find((item) => item.documentType === documentType);
+      if (previous) URL.revokeObjectURL(previous.url);
+      return current.filter((item) => item.documentType !== documentType);
+    });
   }
 
   function addCustomAmenity() {
@@ -491,7 +512,6 @@ export function PropertyWizard({
                 landAreaSquareMeters: profile.landArea || undefined,
                 builtUpAreaSquareMeters: profile.builtUpArea || undefined,
                 yearBuilt: profile.yearBuilt ? Number(profile.yearBuilt) : undefined,
-                floorsCount: profile.floorsCount ? Number(profile.floorsCount) : undefined,
                 parkingSpaces: profile.parkingSpaces ? Number(profile.parkingSpaces) : undefined,
                 furnishing: profile.furnishing,
                 managementStartedOn: profile.managementStartedOn || undefined,
@@ -527,12 +547,28 @@ export function PropertyWizard({
                       },
                     ]
                   : []),
+                ...documents.map((doc) => ({
+                  documentType: doc.documentType,
+                  notes:
+                    doc.documentType === 'other'
+                      ? ar
+                        ? 'بطاقة المالك — خاص بالمالك فقط'
+                        : 'Owner ID — owner-private only'
+                      : doc.documentType === 'floor_plan'
+                        ? ar
+                          ? 'رسم مساحي (كروكي) — خاص بالمالك فقط'
+                          : 'Survey sketch — owner-private only'
+                        : ar
+                          ? 'سند ملكية — خاص بالمالك فقط'
+                          : 'Title deed — owner-private only',
+                })),
               ],
             },
-            units: units.map((unit) => {
+            units: units.map((unit, index) => {
               const names = unitDisplayNames(unit);
+              const autoCode = `U-${String(index + 1).padStart(2, '0')}`;
               return {
-                code: unit.code || 'U-01',
+                code: autoCode,
                 nameAr: names.nameAr,
                 nameEn: names.nameEn,
                 floor: unit.floor || undefined,
@@ -593,7 +629,6 @@ export function PropertyWizard({
   }
 
   const primary = units[0]!;
-  const coverUrl = images.find((item) => item.id === coverId)?.url ?? images[0]?.url ?? null;
   const previewTitle =
     locale === 'ar' ? property.nameAr || '—' : property.nameEn || '—';
   const mapCoords = parseGoogleMapsUrl(property.mapsUrl);
@@ -989,16 +1024,13 @@ export function PropertyWizard({
                     </div>
                     <div className="form-grid">
                       <p className="span-2 field__hint">{t('PropertyForm.nameSharedHint')}</p>
-                      {kind === 'multi_unit' ? (
-                        <Field
-                          id={`unit-code-${unit.localId}`}
-                          label={t('PropertyForm.code')}
-                          value={unit.code}
-                          tone={tone(unit.code, true, showErrors)}
-                          onChange={(event) => updateUnit(unit.localId, 'code', event.target.value)}
-                          required
-                        />
-                      ) : null}
+                      <div className="field">
+                        <label>{t('PropertyForm.code')}</label>
+                        <div className="wizard-readonly" dir="ltr">
+                          {`U-${String(index + 1).padStart(2, '0')}`}
+                        </div>
+                        <p className="field__hint">{t('PropertyForm.codeAutoHint')}</p>
+                      </div>
                       <SelectField
                         id={`unit-floor-${unit.localId}`}
                         label={t('PropertyForm.floor')}
@@ -1163,14 +1195,6 @@ export function PropertyWizard({
                     onChange={(event) => updateProfile('yearBuilt', event.target.value)}
                   />
                   <Field
-                    id="floors-count"
-                    type="number"
-                    min={0}
-                    label={ar ? 'عدد الطوابق' : 'Floors'}
-                    value={profile.floorsCount}
-                    onChange={(event) => updateProfile('floorsCount', event.target.value)}
-                  />
-                  <Field
                     id="parking-spaces"
                     type="number"
                     min={0}
@@ -1302,44 +1326,75 @@ export function PropertyWizard({
                   onChange={(event) => updateProfile('notes', event.target.value)}
                   maxLength={5000}
                 />
-                <div className="span-2 upload-zone">
-                  <label htmlFor="property-docs">
-                    <strong>{t('PropertyForm.documentAttachments')}</strong>
-                    <p>{t('PropertyForm.documentHelp')}</p>
-                  </label>
-                  <input
-                    id="property-docs"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,application/pdf"
-                    multiple
-                    onChange={selectDocuments}
-                  />
-                  <ul className="media-icon-grid">
-                    {documents.map((doc) => (
-                      <li key={doc.id}>
-                        <button
-                          type="button"
-                          className="media-icon"
-                          onClick={() => setPreviewId(doc.id)}
-                        >
-                          <span aria-hidden="true">{doc.kind === 'pdf' ? 'PDF' : 'IMG'}</span>
-                          <small>{doc.file.name}</small>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
+                <div className="span-2 private-docs">
+                  <div className="private-docs__banner" role="note">
+                    <strong>{t('PropertyForm.privateDocsTitle')}</strong>
+                    <p>{t('PropertyForm.privateDocsNote')}</p>
+                  </div>
+                  {(
+                    [
+                      ['title_deed', 'docOwnership'],
+                      ['floor_plan', 'docSurvey'],
+                      ['other', 'docOwnerId'],
+                    ] as const
+                  ).map(([docType, labelKey]) => {
+                    const current = documents.find((item) => item.documentType === docType);
+                    const inputId = `property-doc-${docType}`;
+                    return (
+                      <div className="private-docs__slot" key={docType}>
+                        <div className="private-docs__head">
+                          <strong>{t(`PropertyForm.${labelKey}`)}</strong>
+                          <span>{t('PropertyForm.optional')}</span>
+                        </div>
+                        <label className="private-docs__drop" htmlFor={inputId}>
+                          <input
+                            id={inputId}
+                            className="sr-only"
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,application/pdf"
+                            onChange={(event) => selectDocuments(docType, event)}
+                          />
+                          {current ? (
+                            <span className="private-docs__file">
+                              <button
+                                type="button"
+                                className="media-icon"
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  setPreviewId(current.id);
+                                }}
+                              >
+                                <span aria-hidden="true">{current.kind === 'pdf' ? 'PDF' : 'IMG'}</span>
+                                <small>{current.file.name}</small>
+                              </button>
+                            </span>
+                          ) : (
+                            <span>{t('PropertyForm.chooseFile')}</span>
+                          )}
+                        </label>
+                        {current ? (
+                          <Button type="button" variant="quiet" onClick={() => removeDocument(docType)}>
+                            {t('PropertyForm.removeFile')}
+                          </Button>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ) : null}
 
             {step === 4 ? (
               <div className="upload-zone">
-                <label htmlFor="property-images">
+                <label htmlFor="property-images" className="upload-zone__label">
                   <strong>{t('PropertyForm.images')}</strong>
-                  <p>{t('PropertyForm.imageHelp')}</p>
+                  <p>{t('PropertyForm.imagesMinTwo')}</p>
+                  <p className="field__hint">{t('PropertyForm.imageHelp')}</p>
+                  <span className="button button--quiet">{t('PropertyForm.chooseImages')}</span>
                 </label>
                 <input
                   id="property-images"
+                  className="sr-only"
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
                   multiple
@@ -1367,6 +1422,11 @@ export function PropertyWizard({
                     </li>
                   ))}
                 </ul>
+                {showErrors && images.length < 2 ? (
+                  <p className="field__error" role="alert">
+                    {t('PropertyForm.imagesMinTwo')}
+                  </p>
+                ) : null}
               </div>
             ) : null}
 
@@ -1433,24 +1493,130 @@ export function PropertyWizard({
                   </div>
                   <p className="field__hint">{t('PropertyForm.serialHint')}</p>
                 </section>
-                <section className="wizard-review__preview">
-                  <h2>{t('PropertyForm.homepagePreview')}</h2>
-                  <ListingCardPreview
-                    locale={locale}
-                    title={previewTitle}
-                    location={previewLocation || t('PropertyForm.locationFallback')}
-                    bedrooms={Number(primary.bedrooms) || 0}
-                    bathrooms={Number(primary.bathrooms) || 0}
-                    {...(primary.area.trim() ? { area: primary.area } : {})}
-                    priceLabel={priceLabel}
-                    {...(coverUrl ? { coverUrl } : {})}
-                    availableLabel={t('Property.available')}
-                    bedsLabel={t('Property.beds')}
-                    bathsLabel={t('Property.baths')}
-                    areaLabel={t('Property.area')}
-                    monthlyLabel={t('Common.monthly')}
-                  />
-                  <p className="notice notice--info">{t('Property.watermark')}</p>
+              </div>
+            ) : null}
+
+            {step === 6 ? (
+              <div className="listing-showcase">
+                <header className="listing-showcase__hero">
+                  <p className="listing-showcase__eyebrow">{t('PropertyForm.listingPreviewHint')}</p>
+                  <h2>{previewTitle}</h2>
+                  <p>{previewLocation || t('PropertyForm.locationFallback')}</p>
+                  <div className="listing-showcase__price">
+                    <strong>{priceLabel}</strong>
+                    <span>{t('Common.monthly')}</span>
+                  </div>
+                </header>
+                <div className="listing-showcase__gallery">
+                  {images.map((item, index) => (
+                    <button
+                      type="button"
+                      key={item.id}
+                      className={
+                        item.id === coverId
+                          ? 'listing-showcase__shot is-cover'
+                          : 'listing-showcase__shot'
+                      }
+                      onClick={() => setPreviewId(item.id)}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={item.url} alt="" />
+                      {index === 0 || item.id === coverId ? (
+                        <span>{t('PropertyForm.coverImage')}</span>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+                <div className="listing-showcase__grid">
+                  <section className="listing-showcase__panel">
+                    <h3>{t('Property.details')}</h3>
+                    <dl className="detail-facts">
+                      <div>
+                        <dt>{t('PropertyForm.code')}</dt>
+                        <dd dir="ltr">U-01</dd>
+                      </div>
+                      <div>
+                        <dt>{t('PropertyForm.floor')}</dt>
+                        <dd>{primary.floor || '—'}</dd>
+                      </div>
+                      <div>
+                        <dt>{t('Property.beds')}</dt>
+                        <dd>{primary.bedrooms || '—'}</dd>
+                      </div>
+                      <div>
+                        <dt>{t('Property.baths')}</dt>
+                        <dd>{primary.bathrooms || '—'}</dd>
+                      </div>
+                      {primary.area ? (
+                        <div>
+                          <dt>{t('Property.area')}</dt>
+                          <dd>
+                            {primary.area} m²
+                          </dd>
+                        </div>
+                      ) : null}
+                      <div>
+                        <dt>{t('PropertyForm.category')}</dt>
+                        <dd>
+                          {
+                            (
+                              {
+                                apartment: t('PropertyForm.categoryApartment'),
+                                villa: t('PropertyForm.categoryVilla'),
+                                building: t('PropertyForm.categoryBuilding'),
+                                office: t('PropertyForm.categoryOffice'),
+                                shop: t('PropertyForm.categoryShop'),
+                                warehouse: t('PropertyForm.categoryWarehouse'),
+                                land: t('PropertyForm.categoryLand'),
+                                other: t('PropertyForm.categoryOther'),
+                              } as Record<string, string>
+                            )[property.category]
+                          }
+                        </dd>
+                      </div>
+                    </dl>
+                    <p>
+                      {locale === 'ar'
+                        ? property.descriptionAr || '—'
+                        : property.descriptionEn || '—'}
+                    </p>
+                  </section>
+                  <aside className="listing-showcase__aside">
+                    <div className="listing-showcase__book">
+                      <p>{t('Property.available')}</p>
+                      <h3>
+                        {priceLabel} <small>{t('Common.monthly')}</small>
+                      </h3>
+                      <p className="field__hint">{t('PropertyForm.listingPreviewCta')}</p>
+                    </div>
+                    {mapCoords ? (
+                      <iframe
+                        title={t('PropertyForm.mapsPreview')}
+                        className="maps-preview__frame"
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                        src={googleMapsEmbedSrc(mapCoords.latitude, mapCoords.longitude)}
+                      />
+                    ) : null}
+                  </aside>
+                </div>
+                <section className="listing-showcase__amenities">
+                  <h3>{t('PropertyForm.amenitiesLegend')}</h3>
+                  <div className="amenity-picker__grid">
+                    {amenityOptions
+                      .filter(([code]) => amenities.includes(code))
+                      .map(([code, labelAr, labelEn, icon]) => (
+                        <div className="amenity-chip is-selected" key={code}>
+                          <span className="amenity-chip__icon" aria-hidden="true">
+                            {icon}
+                          </span>
+                          <span>{ar ? labelAr : labelEn}</span>
+                        </div>
+                      ))}
+                    {!amenities.length ? (
+                      <p className="field__hint">{ar ? 'لم تُختر مرافق بعد.' : 'No amenities selected yet.'}</p>
+                    ) : null}
+                  </div>
                 </section>
               </div>
             ) : null}

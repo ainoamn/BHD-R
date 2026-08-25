@@ -1303,7 +1303,7 @@ h3 {
 }
 .wizard-progress__list {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 0.35rem;
   margin: 0;
   padding: 0;
@@ -1707,6 +1707,177 @@ h3 {
   height: 16rem;
   border: 0;
   display: block;
+}
+.wizard-readonly {
+  display: flex;
+  align-items: center;
+  min-height: 2.95rem;
+  padding: 0.65rem 0.9rem;
+  color: var(--oman-deep);
+  background: rgb(9 45 36 / 0.04);
+  border: 1px dashed rgb(9 45 36 / 0.18);
+  border-radius: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.private-docs {
+  display: grid;
+  gap: 0.85rem;
+}
+.private-docs__banner {
+  padding: 0.9rem 1rem;
+  color: #3d4f46;
+  background: rgb(181 141 85 / 0.12);
+  border: 1px solid rgb(181 141 85 / 0.28);
+  border-radius: 0.95rem;
+}
+.private-docs__banner p {
+  margin: 0.35rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+.private-docs__slot {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.9rem;
+  background: white;
+  border: 1px solid rgb(9 45 36 / 0.1);
+  border-radius: 1rem;
+}
+.private-docs__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+.private-docs__head span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+.private-docs__drop {
+  display: grid;
+  place-items: center;
+  min-height: 5.5rem;
+  padding: 0.85rem;
+  color: var(--muted);
+  background: rgb(9 45 36 / 0.03);
+  border: 1.5px dashed rgb(9 45 36 / 0.16);
+  border-radius: 0.85rem;
+  cursor: pointer;
+  text-align: center;
+  font-weight: 700;
+}
+.private-docs__drop:hover {
+  border-color: rgb(8 163 159 / 0.45);
+  background: rgb(8 163 159 / 0.05);
+}
+.upload-zone__label {
+  display: grid;
+  gap: 0.45rem;
+  justify-items: start;
+  cursor: pointer;
+}
+.listing-showcase {
+  display: grid;
+  gap: 1.25rem;
+}
+.listing-showcase__hero {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1.1rem 1.2rem;
+  background:
+    radial-gradient(circle at 100% 0%, rgb(8 163 159 / 0.12), transparent 18rem),
+    linear-gradient(160deg, #0b3a2f, #174b70);
+  color: white;
+  border-radius: 1.15rem;
+}
+.listing-showcase__eyebrow {
+  margin: 0;
+  opacity: 0.85;
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+.listing-showcase__hero h2 {
+  margin: 0;
+  font-size: clamp(1.35rem, 2.4vw, 1.85rem);
+}
+.listing-showcase__hero > p {
+  margin: 0;
+  opacity: 0.88;
+}
+.listing-showcase__price {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+}
+.listing-showcase__price strong {
+  font-size: 1.35rem;
+}
+.listing-showcase__gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 0.65rem;
+}
+.listing-showcase__shot {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  padding: 0;
+  border: 0;
+  border-radius: 0.85rem;
+  cursor: pointer;
+  background: #e8eeea;
+}
+.listing-showcase__shot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.listing-showcase__shot span {
+  position: absolute;
+  inset-inline-start: 0.45rem;
+  inset-block-end: 0.45rem;
+  padding: 0.2rem 0.45rem;
+  color: white;
+  background: rgb(9 45 36 / 0.72);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+.listing-showcase__shot.is-cover {
+  outline: 2px solid var(--bhd-teal);
+}
+.listing-showcase__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(16rem, 0.8fr);
+  gap: 1rem;
+}
+.listing-showcase__panel,
+.listing-showcase__aside,
+.listing-showcase__amenities {
+  padding: 1rem;
+  background: white;
+  border: 1px solid rgb(9 45 36 / 0.08);
+  border-radius: 1rem;
+}
+.listing-showcase__book {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 0.85rem;
+  padding: 0.9rem;
+  background: rgb(8 163 159 / 0.08);
+  border-radius: 0.85rem;
+}
+.listing-showcase__book h3 {
+  margin: 0;
+}
+@media (max-width: 900px) {
+  .listing-showcase__grid {
+    grid-template-columns: 1fr;
+  }
 }
 .publish-hint {
   display: grid;
