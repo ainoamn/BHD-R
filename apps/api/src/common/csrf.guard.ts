@@ -16,15 +16,25 @@ export class CsrfGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<FastifyRequest>();
     if (safeMethods.has(request.method) || request.auth?.authenticationMethod !== 'session')
       return true;
+
     const fetchSite = request.headers['sec-fetch-site'];
     const origin = request.headers.origin;
-    if (
-      (typeof fetchSite === 'string' &&
-        !['same-origin', 'same-site', 'none'].includes(fetchSite)) ||
-      (typeof origin === 'string' && !isAllowedWebOrigin(origin))
-    ) {
+
+    // Explicit cross-site browser navigation/fetch is never allowed for cookie sessions.
+    if (typeof fetchSite === 'string' && fetchSite === 'cross-site') {
       throw new ForbiddenException('Cross-site request rejected');
     }
+
+    // same-origin / same-site: page host matched (Next rewrite/BFF). Preview Origin may differ
+    // from WEB_ORIGIN — do not reject solely on Origin.
+    const browserSameSite =
+      typeof fetchSite === 'string' &&
+      (fetchSite === 'same-origin' || fetchSite === 'same-site');
+
+    if (!browserSameSite && typeof origin === 'string' && !isAllowedWebOrigin(origin)) {
+      throw new ForbiddenException('Cross-site request rejected');
+    }
+
     const header = request.headers['x-csrf-token'];
     const cookie = request.cookies?.bhd_r_csrf;
     if (

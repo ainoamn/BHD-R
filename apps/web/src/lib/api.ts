@@ -12,7 +12,8 @@ export class ApiError extends Error {
 
 export function browserApiPath(path: string): string {
   if (!path.startsWith('/v1/')) throw new Error('Browser API path must begin with /v1/');
-  return path;
+  // Same-origin BFF → Nest. Rewrites Origin to WEB_ORIGIN so CSRF accepts preview + prod.
+  return `/api/backend${path}`;
 }
 
 export async function browserMutation<T>(path: string, init: RequestInit): Promise<T> {

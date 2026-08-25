@@ -38,9 +38,11 @@ vercel env add API_ORIGIN production
 # same value if used by rewrites
 ```
 
+Browser mutations call `/api/backend/v1/*` (Next BFF) which forwards cookies and sets `Origin` to `WEB_ORIGIN` / `PUBLIC_WEB_ORIGIN`, so CSRF accepts both production and Vercel preview hosts without false “Cross-site request rejected”.
+
 Also ensure `NEXT_PUBLIC_API_ORIGIN=https://r.bhd-om.com` (same-origin browser) remains as today.
 
-Redeploy web after env change.
+Redeploy **web (Vercel)** after this change. Redeploy **Nest (Render)** when pulling CSRF guard updates.
 
 **Arabic click-by-click for Vercel:** [`VERCEL-MANUAL-AR.md`](./VERCEL-MANUAL-AR.md).
 

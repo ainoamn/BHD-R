@@ -96,7 +96,6 @@ describe('CSRF', () => {
           headers: {
             'x-csrf-token': token,
             origin: 'https://staging.example.com',
-            'sec-fetch-site': 'same-origin',
           },
         }),
       ),
@@ -108,11 +107,33 @@ describe('CSRF', () => {
           headers: {
             'x-csrf-token': token,
             origin: 'https://bhd-r-api-phi.vercel.app',
+          },
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      guard.canActivate(
+        context(() => undefined, {
+          ...base,
+          headers: {
+            'x-csrf-token': token,
+            origin: 'https://evil.example',
             'sec-fetch-site': 'same-origin',
           },
         }),
       ),
     ).toBe(true);
+    expect(() =>
+      guard.canActivate(
+        context(() => undefined, {
+          ...base,
+          headers: {
+            'x-csrf-token': token,
+            origin: 'https://evil.example',
+          },
+        }),
+      ),
+    ).toThrow('Cross-site request rejected');
   });
 });
 
