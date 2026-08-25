@@ -6,14 +6,39 @@ import { routing } from './i18n/routing';
 const intlMiddleware = createMiddleware(routing);
 const mediaOrigin = new URL(process.env.MEDIA_PUBLIC_BASE_URL ?? 'http://localhost:9000').origin;
 
+function nestConnectOrigins(): string[] {
+  const candidates = [
+    process.env.NEXT_PUBLIC_NEST_ORIGIN,
+    process.env.PUBLIC_NEST_ORIGIN,
+    process.env.MEDIA_UPLOAD_BASE_URL,
+    process.env.API_INTERNAL_ORIGIN,
+    process.env.API_ORIGIN,
+    'https://bhd-r.onrender.com',
+  ];
+  const origins: string[] = [];
+  for (const value of candidates) {
+    if (!value?.trim()) continue;
+    try {
+      const origin = new URL(value.trim()).origin;
+      if (origin.startsWith('http')) origins.push(origin);
+    } catch {
+      /* ignore invalid */
+    }
+  }
+  return [...new Set(origins)];
+}
+
 function csp(nonce: string): string {
+  const connect = ["'self'", 'https://nominatim.openstreetmap.org', ...nestConnectOrigins()].join(
+    ' ',
+  );
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob: ${mediaOrigin} https://*.tile.openstreetmap.org https://tile.openstreetmap.org`,
     "font-src 'self' data:",
-    "connect-src 'self' https://nominatim.openstreetmap.org",
+    `connect-src ${connect}`,
     "frame-src 'self' https://www.google.com https://maps.google.com https://www.google.com/maps",
     "frame-ancestors 'none'",
     "base-uri 'self'",

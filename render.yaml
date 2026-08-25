@@ -43,3 +43,9 @@ services:
         value: v1
       - key: COOKIE_SECURE
         value: 'true'
+      - key: PUBLIC_NEST_ORIGIN
+        sync: false
+      - key: MEDIA_UPLOAD_BASE_URL
+        sync: false
+      - key: TRUST_PROXY_HOPS
+        value: '1'

@@ -1,6 +1,11 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { mediaAssets, outboxEvents, reservations, unitMedia, units } from '@bhd-r/db';
@@ -9,6 +14,60 @@ import { DatabaseService } from '../database/database.service.js';
 
 const allowedImages = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const allowedDocuments = new Set(['application/pdf']);
+
+type IngressClaims = {
+  assetId: string;
+  organizationId: string;
+  objectKey: string;
+  mimeType: string;
+  byteSize: number;
+  exp: number;
+};
+
+function ingressSecret(): string {
+  return (
+    process.env.MEDIA_INGRESS_SECRET ??
+    process.env.CSRF_SECRET ??
+    process.env.BHD_R_SESSION_SECRET ??
+    'development-media-ingress-secret-must-be-long'
+  );
+}
+
+function mediaUploadBaseUrl(): string {
+  const configured =
+    process.env.MEDIA_UPLOAD_BASE_URL?.trim() || process.env.PUBLIC_NEST_ORIGIN?.trim();
+  if (configured) return configured.replace(/\/$/, '');
+  const render = process.env.RENDER_EXTERNAL_URL?.trim();
+  if (render) return render.replace(/\/$/, '');
+  return `http://127.0.0.1:${process.env.PORT ?? 4000}`;
+}
+
+function signIngress(claims: IngressClaims): string {
+  const body = Buffer.from(JSON.stringify(claims), 'utf8').toString('base64url');
+  const sig = createHmac('sha256', ingressSecret()).update(body).digest('base64url');
+  return `${body}.${sig}`;
+}
+
+function verifyIngress(token: string): IngressClaims {
+  const [body, sig] = token.split('.');
+  if (!body || !sig) throw new UnauthorizedException('Invalid upload token');
+  const expected = createHmac('sha256', ingressSecret()).update(body).digest('base64url');
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !timingSafeEqual(a, b))
+    throw new UnauthorizedException('Invalid upload token');
+  let claims: IngressClaims;
+  try {
+    claims = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as IngressClaims;
+  } catch {
+    throw new UnauthorizedException('Invalid upload token');
+  }
+  if (!claims.assetId || !claims.objectKey || !claims.mimeType || !claims.exp)
+    throw new UnauthorizedException('Invalid upload token');
+  if (claims.exp < Math.floor(Date.now() / 1000))
+    throw new UnauthorizedException('Upload token expired');
+  return claims;
+}
 
 @Injectable()
 export class MediaService {
@@ -91,20 +150,56 @@ export class MediaService {
         .returning();
       return rows[0]!;
     });
-    const command = new PutObjectCommand({
-      Bucket: process.env.S3_BUCKET_PRIVATE ?? 'bhd-r-private',
-      Key: objectKey,
-      ContentType: input.mimeType,
-      ContentLength: input.byteSize,
-      Metadata: { assetid: asset.id, organizationid: claims.organizationId! },
+    const expiresInSeconds = 300;
+    const ingressToken = signIngress({
+      assetId: asset.id,
+      organizationId: claims.organizationId!,
+      objectKey,
+      mimeType: input.mimeType,
+      byteSize: input.byteSize,
+      exp: Math.floor(Date.now() / 1000) + expiresInSeconds,
     });
-    const uploadUrl = await getSignedUrl(this.#s3, command, { expiresIn: 300 });
+    // Prefer same-origin `/v1/...` (Next rewrite → Nest) so CSP connect-src 'self' allows the PUT.
+    // Absolute Nest URL remains as fallback when rewrite is unavailable.
+    const uploadPath = `/v1/media/ingress/${ingressToken}`;
+    const uploadUrl = `${mediaUploadBaseUrl()}${uploadPath}`;
     return {
       assetId: asset.id,
       uploadUrl,
-      expiresInSeconds: 300,
+      uploadPath,
+      expiresInSeconds,
       requiredHeaders: { 'content-type': input.mimeType },
     };
+  }
+
+  async acceptIngressUpload(token: string, body: Buffer, contentType: string | undefined) {
+    const claims = verifyIngress(token);
+    if (body.byteLength < 1 || body.byteLength > claims.byteSize + 1024)
+      throw new ConflictException('Upload size mismatch');
+    if (contentType && contentType.split(';')[0]!.trim() !== claims.mimeType)
+      throw new ConflictException('Upload content type mismatch');
+    const asset = await this.database.asSystem(async (transaction) => {
+      return transaction.query.mediaAssets.findFirst({
+        where: and(
+          eq(mediaAssets.id, claims.assetId),
+          eq(mediaAssets.organizationId, claims.organizationId),
+          eq(mediaAssets.processingStatus, 'pending'),
+        ),
+      });
+    });
+    if (!asset || asset.privateObjectKey !== claims.objectKey)
+      throw new NotFoundException('Upload intent not found');
+    await this.#s3.send(
+      new PutObjectCommand({
+        Bucket: process.env.S3_BUCKET_PRIVATE ?? 'bhd-r-private',
+        Key: claims.objectKey,
+        Body: body,
+        ContentType: claims.mimeType,
+        ContentLength: body.byteLength,
+        Metadata: { assetid: claims.assetId, organizationid: claims.organizationId },
+      }),
+    );
+    return { assetId: claims.assetId, receivedBytes: body.byteLength };
   }
 
   complete(

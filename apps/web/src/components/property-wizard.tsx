@@ -6,7 +6,7 @@ import { Button, Card, CardContent, Field, SelectField, TextAreaField } from '@b
 import { supportedCurrencyCodes, type CurrencyCode } from '@bhd-r/contracts';
 import { countryPacks, type CountryPackCode } from '@bhd-r/country-packs';
 import { useLocale, useTranslations } from 'next-intl';
-import { browserMutation } from '@/lib/api';
+import { browserMediaPut, browserMutation } from '@/lib/api';
 import { toMinorUnits } from '@/lib/format';
 import { omanLocations } from '@/lib/oman-locations';
 import {
@@ -44,6 +44,7 @@ interface CreatedPropertyBundle {
 interface UploadIntent {
   assetId: string;
   uploadUrl: string;
+  uploadPath?: string;
   requiredHeaders?: Record<string, string>;
 }
 
@@ -195,6 +196,14 @@ export function PropertyWizard({
   const [translating, setTranslating] = useState<'name-en' | 'name-ar' | 'desc-en' | 'desc-ar' | null>(
     null,
   );
+
+  useEffect(() => {
+    // Warm Nest (Render cold start) before the user hits save.
+    void fetch('/api/backend/v1/auth/csrf', {
+      credentials: 'same-origin',
+      headers: { accept: 'application/json' },
+    }).catch(() => undefined);
+  }, []);
 
   async function translateField(
     source: string,
@@ -445,17 +454,16 @@ export function PropertyWizard({
         byteSize: file.size,
       }),
     });
-    const safeUploadHeaders = Object.fromEntries(
-      Object.entries(intent.requiredHeaders ?? {}).filter(
-        ([name]) => name.toLowerCase() !== 'content-length',
-      ),
-    );
-    const uploaded = await fetch(intent.uploadUrl, {
-      method: 'PUT',
-      body: file,
-      headers: { ...safeUploadHeaders, 'content-type': file.type },
-    });
-    if (!uploaded.ok) throw new Error(`upload_failed:${file.name}`);
+    try {
+      await browserMediaPut(intent, file);
+    } catch (error) {
+      const hint = ar
+        ? `تعذر رفع الملف (${file.name}). تأكد من اتصال الخادم ثم أعد المحاولة.`
+        : `Could not upload ${file.name}. Check API connectivity and retry.`;
+      throw error instanceof Error && error.message
+        ? new Error(`${hint} (${error.message})`)
+        : new Error(hint);
+    }
     const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
     const sha256 = Array.from(new Uint8Array(digest), (byte) =>
       byte.toString(16).padStart(2, '0'),

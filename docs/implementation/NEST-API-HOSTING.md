@@ -40,6 +40,15 @@ vercel env add API_ORIGIN production
 
 Browser mutations call `/api/backend/v1/*` (Next BFF) which forwards cookies and sets `Origin` to `WEB_ORIGIN` / `PUBLIC_WEB_ORIGIN`, so CSRF accepts both production and Vercel preview hosts without false “Cross-site request rejected”.
 
+### Media uploads (property wizard)
+
+Browsers must **not** PUT directly to private MinIO/S3 URLs (CSP `connect-src` + CORS → `Failed to fetch`). Nest issues a short-lived ingress token:
+
+- `PUT /v1/media/ingress/:token` (`@Public`) accepts the raw file body and writes to S3 server-side.
+- Web prefers same-origin `/v1/media/ingress/...` (Next rewrite) with absolute `PUBLIC_NEST_ORIGIN` fallback.
+- Set on Render: `PUBLIC_NEST_ORIGIN=https://bhd-r.onrender.com` (Render also exposes `RENDER_EXTERNAL_URL`).
+- Web CSP allows Nest origins via `API_INTERNAL_ORIGIN` / `PUBLIC_NEST_ORIGIN` / `https://bhd-r.onrender.com`.
+
 Also ensure `NEXT_PUBLIC_API_ORIGIN=https://r.bhd-om.com` (same-origin browser) remains as today.
 
 Redeploy **web (Vercel)** after this change. Redeploy **Nest (Render)** when pulling CSRF guard updates.

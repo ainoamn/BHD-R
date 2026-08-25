@@ -1,7 +1,17 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Put,
+  Req,
+  UnsupportedMediaTypeException,
+} from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { Idempotent, RequirePermissions } from '../common/decorators.js';
+import { Idempotent, Public, RequirePermissions } from '../common/decorators.js';
 import { ZodPipe } from '../common/zod.pipe.js';
 import { MediaService } from './media.service.js';
 
@@ -37,6 +47,21 @@ export class MediaController {
   ) {
     return this.service.createUploadIntent(request.auth!, body);
   }
+
+  /** Browser → Nest binary upload (token). Avoids direct S3 CORS / Failed to fetch. */
+  @Public()
+  @Put('ingress/:token')
+  ingress(@Param('token') token: string, @Req() request: FastifyRequest) {
+    const body = request.body;
+    if (!Buffer.isBuffer(body))
+      throw new UnsupportedMediaTypeException('Expected raw upload body');
+    const contentType =
+      typeof request.headers['content-type'] === 'string'
+        ? request.headers['content-type']
+        : undefined;
+    return this.service.acceptIngressUpload(token, body, contentType);
+  }
+
   @RequirePermissions('media.create') @Idempotent() @Post(':id/complete') complete(
     @Req() request: FastifyRequest,
     @Param('id') id: string,

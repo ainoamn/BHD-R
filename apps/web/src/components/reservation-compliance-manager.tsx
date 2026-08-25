@@ -2,7 +2,7 @@
 
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { browserMutation } from '@/lib/api';
+import { browserMediaPut, browserMutation } from '@/lib/api';
 
 function formText(form: FormData, name: string): string {
   const entry = form.get(name);
@@ -51,6 +51,7 @@ export interface ReservationCompliance {
 interface UploadIntent {
   assetId: string;
   uploadUrl: string;
+  uploadPath?: string;
   requiredHeaders?: Record<string, string>;
 }
 
@@ -103,17 +104,7 @@ export function ReservationComplianceManager({
           byteSize: file.size,
         }),
       });
-      const headers = Object.fromEntries(
-        Object.entries(intent.requiredHeaders ?? {}).filter(
-          ([name]) => name.toLowerCase() !== 'content-length',
-        ),
-      );
-      const uploaded = await fetch(intent.uploadUrl, {
-        method: 'PUT',
-        body: file,
-        headers: { ...headers, 'content-type': file.type },
-      });
-      if (!uploaded.ok) throw new Error('upload_failed');
+      await browserMediaPut(intent, file);
       await browserMutation(`/v1/media/${intent.assetId}/complete-reservation`, {
         method: 'POST',
         body: JSON.stringify({

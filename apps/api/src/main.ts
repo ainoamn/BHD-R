@@ -14,7 +14,8 @@ async function bootstrap(): Promise<void> {
   const adapter = new FastifyAdapter({
     trustProxy:
       Number.isInteger(trustedProxyHops) && trustedProxyHops > 0 ? trustedProxyHops : false,
-    bodyLimit: 2 * 1024 * 1024,
+    // Property images/docs upload through Nest ingress (up to 25MB).
+    bodyLimit: 26 * 1024 * 1024,
     genReqId: createInternalRequestId,
   });
   await adapter.register(cookie as never);
@@ -28,7 +29,8 @@ async function bootstrap(): Promise<void> {
         formAction: ["'self'"],
       },
     },
-    crossOriginResourcePolicy: { policy: 'same-site' },
+    // Allow browser CORS reads from the web origin (media ingress PUT).
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
     referrerPolicy: { policy: 'no-referrer' },
     strictTransportSecurity:
       environment.NODE_ENV === 'production'
@@ -39,6 +41,15 @@ async function bootstrap(): Promise<void> {
     bufferLogs: true,
     rawBody: true,
   });
+  const fastify = app.getHttpAdapter().getInstance();
+  const asBuffer = (_request: unknown, body: Buffer, done: (err: null, body: Buffer) => void) => {
+    done(null, body);
+  };
+  fastify.addContentTypeParser('application/octet-stream', { parseAs: 'buffer' }, asBuffer);
+  fastify.addContentTypeParser('application/pdf', { parseAs: 'buffer' }, asBuffer);
+  fastify.addContentTypeParser('image/jpeg', { parseAs: 'buffer' }, asBuffer);
+  fastify.addContentTypeParser('image/png', { parseAs: 'buffer' }, asBuffer);
+  fastify.addContentTypeParser('image/webp', { parseAs: 'buffer' }, asBuffer);
   app.enableCors({
     origin: corsOriginDelegate,
     credentials: true,

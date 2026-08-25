@@ -57,6 +57,20 @@
 
 المتصفح يستدعي `/api/backend/v1/*` (BFF على Vercel) الذي يوجّه إلى Nest مع `Origin` = `WEB_ORIGIN` لتفادي `Cross-site request rejected` على معاينات Vercel.
 
+### رفع الصور (إصلاح Failed to fetch — 0.2.24)
+
+سابقاً كان المتصفح يرفع مباشرة إلى رابط S3/MinIO موقّع، وCSP (`connect-src 'self'`) أو CORS كانا يمنعان الطلب فيظهر **Failed to fetch**.
+
+الآن:
+
+1. `POST /v1/media/upload-intents` يعيد `uploadPath` = `/v1/media/ingress/:token` و`uploadUrl` مطلق لـ Nest.
+2. المتصفح يرفع `PUT` عبر نفس أصل الموقع (rewrite Next → Nest) ثم يكمل `complete`.
+3. Nest يكتب إلى S3 داخلياً (لا حاجة لـ CORS على الـ bucket للرفع من المتصفح).
+4. CSP يسمح أيضاً بـ `https://bhd-r.onrender.com` كاحتياط.
+
+**على Render:** اضبط `PUBLIC_NEST_ORIGIN=https://bhd-r.onrender.com` (أو دع `RENDER_EXTERNAL_URL`).  
+**على Vercel:** `API_INTERNAL_ORIGIN` يجب أن يشير إلى نفس Nest حتى يعمل rewrite `/v1/*`.
+
 راجع: [`NEST-API-HOSTING.md`](./NEST-API-HOSTING.md)
 
 ## تجربة الواجهة
