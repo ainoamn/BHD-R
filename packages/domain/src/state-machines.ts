@@ -87,9 +87,47 @@ export const maintenanceTicketMachine: StateMachine = {
   },
 };
 
+export const viewingMachine: StateMachine = {
+  name: 'viewing_request',
+  initial: 'requested',
+  terminals: ['converted', 'cancelled'],
+  transitions: {
+    requested: ['scheduled', 'cancelled'],
+    scheduled: ['completed', 'no_show', 'cancelled'],
+    completed: ['converted'],
+    no_show: ['scheduled', 'cancelled'],
+  },
+};
+
+export const leadMachine: StateMachine = {
+  name: 'lead',
+  initial: 'new',
+  terminals: ['converted', 'lost', 'cancelled'],
+  transitions: {
+    new: ['contacted', 'qualified', 'lost', 'cancelled'],
+    contacted: ['qualified', 'lost', 'cancelled'],
+    qualified: ['converted', 'lost', 'cancelled'],
+  },
+};
+
+export const chequeMachine: StateMachine = {
+  name: 'cheque',
+  initial: 'pending',
+  terminals: ['cleared', 'bounced', 'cancelled'],
+  transitions: {
+    pending: ['accepted', 'rejected', 'cancelled'],
+    accepted: ['deposited', 'cancelled'],
+    deposited: ['cleared', 'bounced'],
+    rejected: ['pending', 'cancelled'],
+  },
+};
+
 export const STATE_MACHINES = {
   reservation: reservationMachine,
   contract: contractMachine,
   journal_entry: journalMachine,
   maintenance_ticket: maintenanceTicketMachine,
+  viewing_request: viewingMachine,
+  lead: leadMachine,
+  cheque: chequeMachine,
 } as const;

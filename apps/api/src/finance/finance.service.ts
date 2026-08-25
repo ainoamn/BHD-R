@@ -16,9 +16,11 @@ import {
   journalLines,
   ledgerAccounts,
   billingSchedules,
+  cheques,
   leases,
   organizations,
   outboxEvents,
+  parties,
   paymentGatewaySettings,
   paymentSessions,
   payments,
@@ -33,7 +35,7 @@ import {
   type CurrencyCode,
   type RecordPaymentInput,
 } from '@bhd-r/contracts';
-import { calculateInvoice } from '@bhd-r/domain';
+import { assertTransition, calculateInvoice, chequeMachine } from '@bhd-r/domain';
 import { assertSafeOutboundUrl, encryptField, type Keyring } from '@bhd-r/security';
 import { DatabaseService, type DatabaseTransaction } from '../database/database.service.js';
 import { z } from 'zod';
@@ -1214,6 +1216,100 @@ export class FinanceService {
         method: z.enum(['bank_transfer', 'card', 'cash', 'cheque', 'other']),
       })
       .parse(value);
+  }
+
+  listCheques(claims: SessionClaims) {
+    return this.database.withinTenant(claims, async (transaction) =>
+      transaction
+        .select()
+        .from(cheques)
+        .where(eq(cheques.organizationId, claims.organizationId!))
+        .orderBy(asc(cheques.dueOn)),
+    );
+  }
+
+  createCheque(
+    claims: SessionClaims,
+    input: {
+      ownerPartyId: string;
+      bankName: string;
+      chequeNumber: string;
+      amountMinor: string;
+      currency: CurrencyCode;
+      dueOn: string;
+      reservationId?: string | undefined;
+      leaseId?: string | undefined;
+      attachmentMediaId?: string | undefined;
+    },
+  ) {
+    return this.database.withinTenant(claims, async (transaction) => {
+      const owner = await transaction.query.parties.findFirst({
+        where: and(
+          eq(parties.id, input.ownerPartyId),
+          eq(parties.organizationId, claims.organizationId!),
+        ),
+      });
+      if (!owner) throw new NotFoundException('Cheque owner party not found');
+      const rows = await transaction
+        .insert(cheques)
+        .values({
+          organizationId: claims.organizationId!,
+          ownerPartyId: input.ownerPartyId,
+          bankName: input.bankName,
+          chequeNumber: input.chequeNumber.trim(),
+          amountMinor: BigInt(input.amountMinor),
+          currency: input.currency,
+          dueOn: input.dueOn,
+          reservationId: input.reservationId,
+          leaseId: input.leaseId,
+          attachmentMediaId: input.attachmentMediaId,
+        })
+        .returning();
+      await transaction.insert(outboxEvents).values({
+        organizationId: claims.organizationId!,
+        topic: 'cheque.created',
+        aggregateType: 'cheque',
+        aggregateId: rows[0]!.id,
+        payload: { chequeId: rows[0]!.id, reviewStatus: rows[0]!.reviewStatus },
+      });
+      return {
+        ...rows[0]!,
+        amountMinor: rows[0]!.amountMinor.toString(),
+      };
+    });
+  }
+
+  reviewCheque(
+    claims: SessionClaims,
+    chequeId: string,
+    input: {
+      reviewStatus: 'accepted' | 'rejected' | 'deposited' | 'cleared' | 'bounced' | 'cancelled';
+      notes?: string | undefined;
+    },
+  ) {
+    return this.database.withinTenant(claims, async (transaction) => {
+      const existing = await transaction.query.cheques.findFirst({
+        where: and(eq(cheques.id, chequeId), eq(cheques.organizationId, claims.organizationId!)),
+      });
+      if (!existing) throw new NotFoundException('Cheque not found');
+      const transition = assertTransition(chequeMachine, existing.reviewStatus, input.reviewStatus);
+      if (!transition.ok) throw new ConflictException(transition.reason);
+      const rows = await transaction
+        .update(cheques)
+        .set({
+          reviewStatus: input.reviewStatus,
+          reviewedByUserId: claims.sub,
+          reviewedAt: new Date(),
+          reviewNotes: input.notes,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(cheques.id, chequeId), eq(cheques.organizationId, claims.organizationId!)))
+        .returning();
+      return {
+        ...rows[0]!,
+        amountMinor: rows[0]!.amountMinor.toString(),
+      };
+    });
   }
 
   private serializeInvoice(invoice: typeof invoices.$inferSelect) {

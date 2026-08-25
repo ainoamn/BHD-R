@@ -61,6 +61,24 @@ const publicPaymentSessionSchema = z
     returnPath: z.string().regex(/^\/(ar|en)\/invoice\/[A-Za-z0-9_-]{20,200}$/),
   })
   .strict();
+const chequeSchema = z
+  .object({
+    ownerPartyId: z.uuid(),
+    bankName: z.string().trim().min(2).max(160),
+    chequeNumber: z.string().trim().min(1).max(80),
+    amount: moneySchema,
+    dueOn: z.iso.date(),
+    reservationId: z.uuid().optional(),
+    leaseId: z.uuid().optional(),
+    attachmentMediaId: z.uuid().optional(),
+  })
+  .strict();
+const chequeReviewSchema = z
+  .object({
+    reviewStatus: z.enum(['accepted', 'rejected', 'deposited', 'cleared', 'bounced', 'cancelled']),
+    notes: z.string().trim().max(1_000).optional(),
+  })
+  .strict();
 
 @Controller('v1/finance')
 export class FinanceController {
@@ -164,6 +182,42 @@ export class FinanceController {
     @Body(new ZodPipe(gatewaySchema)) body: z.infer<typeof gatewaySchema>,
   ) {
     return this.service.configureGateway(request.auth!, body);
+  }
+
+  @RequirePermissions('cheque.read')
+  @Get('cheques')
+  listCheques(@Req() request: FastifyRequest) {
+    return this.service.listCheques(request.auth!);
+  }
+
+  @RequirePermissions('cheque.manage')
+  @Idempotent()
+  @Post('cheques')
+  createCheque(
+    @Req() request: FastifyRequest,
+    @Body(new ZodPipe(chequeSchema)) body: z.infer<typeof chequeSchema>,
+  ) {
+    return this.service.createCheque(request.auth!, {
+      ownerPartyId: body.ownerPartyId,
+      bankName: body.bankName,
+      chequeNumber: body.chequeNumber,
+      amountMinor: body.amount.amountMinor,
+      currency: body.amount.currency,
+      dueOn: body.dueOn,
+      reservationId: body.reservationId,
+      leaseId: body.leaseId,
+      attachmentMediaId: body.attachmentMediaId,
+    });
+  }
+
+  @RequirePermissions('cheque.review')
+  @Post('cheques/:chequeId/review')
+  reviewCheque(
+    @Req() request: FastifyRequest,
+    @Param('chequeId', ParseUUIDPipe) chequeId: string,
+    @Body(new ZodPipe(chequeReviewSchema)) body: z.infer<typeof chequeReviewSchema>,
+  ) {
+    return this.service.reviewCheque(request.auth!, chequeId, body);
   }
 }
 

@@ -461,7 +461,7 @@ DO $operations_rls$
 DECLARE table_name text;
 BEGIN
   FOREACH table_name IN ARRAY ARRAY[
-    'work_tasks','viewing_requests','sales_deals','vendors','maintenance_work_orders',
+    'work_tasks','viewing_requests','sales_deals','vendors','maintenance_work_orders','leads','rental_applications','cheques',
     'legal_cases','legal_events','ledger_accounts','journal_entries','journal_sequences','journal_lines',
     'expenses','approval_requests','workflow_events'
   ] LOOP

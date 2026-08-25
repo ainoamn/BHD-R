@@ -127,6 +127,10 @@ export class LeasingService {
         ),
       });
       if (!tenant) throw new NotFoundException('Tenant not found in this organization');
+      const unit = await transaction.query.units.findFirst({
+        where: and(eq(units.id, input.unitId), eq(units.organizationId, claims.organizationId!)),
+      });
+      if (!unit) throw new NotFoundException('Unit not found');
       const rows = await transaction
         .insert(reservations)
         .values({
@@ -135,6 +139,13 @@ export class LeasingService {
           tenantPartyId: input.tenantPartyId,
           expiresAt: new Date(input.expiresAt),
           status: 'confirmed',
+          rentMinor: unit.rentMinor,
+          currency: unit.currency,
+          termsSnapshot: {
+            listingPurpose: unit.listingPurpose,
+            depositMinor: unit.depositMinor?.toString() ?? null,
+            capturedAt: new Date().toISOString(),
+          },
         })
         .returning();
       await transaction.insert(reservationRequirements).values([

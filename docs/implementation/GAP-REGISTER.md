@@ -41,7 +41,7 @@ Statuses: `complete` | `partial` | `missing` | `unsafe` | `not-applicable` | `de
 | J02 | Multi-unit real units (stable ids)                     | complete | Wizard units                                                                                                | 3     |
 | J03 | Held/leased/maintenance hidden from public             | complete | `deriveAvailability` + public listings                                                                      | 3     |
 | J04 | Viewing separate from Reservation                      | complete | `viewing_requests` + public POST                                                                            | 4     |
-| J05 | Concurrent booking → one active                        | partial  | Constraints + holds; re-run 50-parallel stress in Phase 4 gate                                              | 4     |
+| J05 | Concurrent booking → one active                        | complete | Advisory lock + unique active indexes + 50-contender model test                                             | 4     |
 | J06 | Payment only via signed unique webhook                 | complete | Finance webhook + uniqueness                                                                                | 6     |
 | J07 | Contract after accounting + requirements gate          | partial  | Compliance APIs + leasing flow; expand E2E proof                                                            | 4–5   |
 | J08 | ApprovalRequest/Decision with actor/version            | partial  | `approval_requests` + workflow_events; deepen decision audit fields                                         | 5/7   |
@@ -56,19 +56,19 @@ Statuses: `complete` | `partial` | `missing` | `unsafe` | `not-applicable` | `de
 
 ## C. Phase checklist (build command §5–15)
 
-| Phase | Theme                                 | Overall         | Blocking residuals                                                                   |
-| ----- | ------------------------------------- | --------------- | ------------------------------------------------------------------------------------ |
-| 0     | Baseline / GAP / manifests            | complete        | `docs/verification/phase-0.md`                                                       |
-| 1     | Identity / authz / security           | complete        | TOTP recovery, `can()`, encryption backfill                                          |
-| 2     | Parties / reps / entitlements         | complete        | Plan limits + hashed invites + revoke authority — `docs/verification/phase-2.md`     |
-| 3     | Portfolio / media / public SEO        | complete        | JSON-LD + LHCI mobile + portal noindex — `docs/verification/phase-3.md`              |
-| 4     | CRM / viewing / reservation / cheques | partial         | Dedicated cheque entities; 50-parallel booking stress; Lead/RentalApplication models |
-| 5     | Contracts / signature / renewals      | mostly complete | Machine-readable FSM diagrams; expand sequential signature policy tests              |
-| 6     | Finance / accounting / subscriptions  | partial         | FiscalPeriod; subscription product entitlements depth; print XSS matrix              |
-| 7     | Maintenance / tasks / approvals       | partial         | Quote/warranty/cost allocation; auto-task unique keys                                |
-| 8     | Legal                                 | partial         | Expand legal schema beyond case+event                                                |
-| 9     | Portals / CMS / archive / ETL         | partial         | CMS versioning; archive restore proof; OM ETL rehearsal                              |
-| 10    | Perf / a11y / CI / release            | partial         | Load tests; stricter CSP; SBOM/CodeQL in CI                                          |
+| Phase | Theme                                 | Overall         | Blocking residuals                                                                |
+| ----- | ------------------------------------- | --------------- | --------------------------------------------------------------------------------- |
+| 0     | Baseline / GAP / manifests            | complete        | `docs/verification/phase-0.md`                                                    |
+| 1     | Identity / authz / security           | complete        | TOTP recovery, `can()`, encryption backfill                                       |
+| 2     | Parties / reps / entitlements         | complete        | Plan limits + hashed invites + revoke authority — `docs/verification/phase-2.md`  |
+| 3     | Portfolio / media / public SEO        | complete        | JSON-LD + LHCI mobile + portal noindex — `docs/verification/phase-3.md`           |
+| 4     | CRM / viewing / reservation / cheques | complete        | Cheques + leads/applications + concurrency model — `docs/verification/phase-4.md` |
+| 5     | Contracts / signature / renewals      | mostly complete | Machine-readable FSM diagrams; expand sequential signature policy tests           |
+| 6     | Finance / accounting / subscriptions  | partial         | FiscalPeriod; subscription product entitlements depth; print XSS matrix           |
+| 7     | Maintenance / tasks / approvals       | partial         | Quote/warranty/cost allocation; auto-task unique keys                             |
+| 8     | Legal                                 | partial         | Expand legal schema beyond case+event                                             |
+| 9     | Portals / CMS / archive / ETL         | partial         | CMS versioning; archive restore proof; OM ETL rehearsal                           |
+| 10    | Perf / a11y / CI / release            | partial         | Load tests; stricter CSP; SBOM/CodeQL in CI                                       |
 
 ## D. Explicit non-goals (not-applicable / deferred-v2)
 

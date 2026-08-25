@@ -857,6 +857,9 @@ export const holds = pgTable(
   (table) => [
     index('holds_unit_status_idx').on(table.unitId, table.status),
     index('holds_org_idx').on(table.organizationId),
+    uniqueIndex('holds_one_active_per_unit')
+      .on(table.unitId)
+      .where(sql`${table.status} = 'active'`),
   ],
 );
 
@@ -877,10 +880,16 @@ export const reservations = pgTable(
     startsAt: timestamp('starts_at', { withTimezone: true }).notNull().defaultNow(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     convertedLeaseId: uuid('converted_lease_id'),
+    rentMinor: bigint('rent_minor', { mode: 'bigint' }),
+    currency: varchar('currency', { length: 3 }),
+    termsSnapshot: jsonb('terms_snapshot').$type<Record<string, unknown>>().notNull().default({}),
   },
   (table) => [
     index('reservations_unit_status_idx').on(table.unitId, table.status),
     index('reservations_org_idx').on(table.organizationId),
+    uniqueIndex('reservations_one_active_per_unit')
+      .on(table.unitId)
+      .where(sql`${table.status} IN ('pending', 'confirmed')`),
   ],
 );
 
@@ -1948,4 +1957,110 @@ export const outboxEvents = pgTable(
     attempts: integer('attempts').notNull().default(0),
   },
   (table) => [index('outbox_unpublished_idx').on(table.publishedAt, table.occurredAt)],
+);
+
+export const leadStatus = pgEnum('lead_status', [
+  'new',
+  'contacted',
+  'qualified',
+  'converted',
+  'lost',
+  'cancelled',
+]);
+
+export const leads = pgTable(
+  'leads',
+  {
+    ...identityColumns,
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    partyId: uuid('party_id').references(() => parties.id),
+    unitId: uuid('unit_id').references(() => units.id),
+    source: varchar('source', { length: 80 }).notNull().default('website'),
+    status: leadStatus('status').notNull().default('new'),
+    displayName: varchar('display_name', { length: 200 }).notNull(),
+    email: varchar('email', { length: 320 }),
+    phone: varchar('phone', { length: 40 }),
+    assignedToUserId: uuid('assigned_to_user_id').references(() => users.id),
+    notes: text('notes'),
+  },
+  (table) => [
+    index('leads_org_status_idx').on(table.organizationId, table.status),
+    index('leads_org_idx').on(table.organizationId),
+  ],
+);
+
+export const rentalApplicationStatus = pgEnum('rental_application_status', [
+  'draft',
+  'submitted',
+  'under_review',
+  'approved',
+  'rejected',
+  'withdrawn',
+  'converted',
+]);
+
+export const rentalApplications = pgTable(
+  'rental_applications',
+  {
+    ...identityColumns,
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    unitId: uuid('unit_id')
+      .notNull()
+      .references(() => units.id),
+    applicantPartyId: uuid('applicant_party_id')
+      .notNull()
+      .references(() => parties.id),
+    viewingRequestId: uuid('viewing_request_id').references(() => viewingRequests.id),
+    reservationId: uuid('reservation_id').references(() => reservations.id),
+    status: rentalApplicationStatus('status').notNull().default('draft'),
+    payload: jsonb('payload').$type<Record<string, unknown>>().notNull().default({}),
+  },
+  (table) => [
+    index('rental_applications_org_status_idx').on(table.organizationId, table.status),
+    index('rental_applications_unit_idx').on(table.unitId),
+  ],
+);
+
+export const chequeReviewStatus = pgEnum('cheque_review_status', [
+  'pending',
+  'accepted',
+  'rejected',
+  'deposited',
+  'cleared',
+  'bounced',
+  'cancelled',
+]);
+
+export const cheques = pgTable(
+  'cheques',
+  {
+    ...identityColumns,
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    reservationId: uuid('reservation_id').references(() => reservations.id),
+    leaseId: uuid('lease_id').references(() => leases.id),
+    ownerPartyId: uuid('owner_party_id')
+      .notNull()
+      .references(() => parties.id),
+    bankName: varchar('bank_name', { length: 160 }).notNull(),
+    chequeNumber: varchar('cheque_number', { length: 80 }).notNull(),
+    amountMinor: bigint('amount_minor', { mode: 'bigint' }).notNull(),
+    currency: varchar('currency', { length: 3 }).notNull(),
+    dueOn: date('due_on').notNull(),
+    attachmentMediaId: uuid('attachment_media_id').references(() => mediaAssets.id),
+    reviewStatus: chequeReviewStatus('review_status').notNull().default('pending'),
+    reviewedByUserId: uuid('reviewed_by_user_id').references(() => users.id),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    reviewNotes: text('review_notes'),
+  },
+  (table) => [
+    uniqueIndex('cheques_org_number_unique').on(table.organizationId, table.chequeNumber),
+    index('cheques_org_status_idx').on(table.organizationId, table.reviewStatus),
+    index('cheques_due_idx').on(table.organizationId, table.dueOn),
+  ],
 );

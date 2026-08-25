@@ -22,7 +22,7 @@ for (const locale of ['ar', 'en'] as const) {
     const appsButton = page.getByRole('button', {
       name: locale === 'ar' ? 'تطبيقات BHD' : 'BHD apps',
     });
-    if (testInfo.project.name === 'mobile') {
+    if (testInfo.project.name === 'mobile' || testInfo.project.name === 'tablet') {
       await page
         .getByRole('button', {
           name: locale === 'ar' ? 'فتح القائمة' : 'Open menu',
@@ -55,16 +55,36 @@ for (const locale of ['ar', 'en'] as const) {
 }
 
 for (const portal of ['platform', 'owner', 'developer', 'tenant'] as const) {
-  test(`${portal} portal smoke in both languages`, async ({ page }) => {
+  test(`${portal} portal smoke in both languages`, async ({ page }, testInfo) => {
     for (const locale of ['ar', 'en'] as const) {
       await page.goto(`/${locale}/${portal}`);
       await expect(page.locator('html')).toHaveAttribute('dir', locale === 'ar' ? 'rtl' : 'ltr');
       await expect(page.locator('.portal-layout')).toBeVisible();
       await expect(page.locator('.portal-nav')).toBeVisible();
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+      if (testInfo.project.name === 'mobile' && locale === 'ar') {
+        await page.locator('.portal-menu-toggle').click();
+        await expect(page.locator('.portal-nav')).toBeVisible();
+        await expect(page.locator('.portal-nav a').first()).toBeVisible();
+      }
+      const noHorizontalOverflow = await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth + 1,
+      );
+      expect(noHorizontalOverflow).toBe(true);
     }
   });
 }
+
+test('public pages stay within the viewport on mobile', async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== 'mobile', 'mobile overflow gate');
+  for (const path of ['/ar', '/ar/properties', '/en/properties'] as const) {
+    await page.goto(path);
+    const noHorizontalOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth + 1,
+    );
+    expect(noHorizontalOverflow).toBe(true);
+  }
+});
 
 test('owner portal exposes specialized operational modules with real records', async ({ page }) => {
   const sections = [
