@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.20 — 2026-08-25
+
+- Fix Vercel TypeScript build (`exactOptionalPropertyTypes` on listing preview `area`/`coverUrl`).
+- Property wizard labels moved into i18n (AR/EN) including steps, categories, and publish hints; tighter mobile wizard layout.
+
 ## 0.2.19 — 2026-08-25
 
 - Property wizard redesign: numbered gated steps, required field tones, Oman gov→wilayat→village cascade, expanded amenities + custom, media icons/cover, AI-assisted bilingual description, homepage listing preview.

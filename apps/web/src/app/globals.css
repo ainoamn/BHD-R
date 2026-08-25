@@ -2107,6 +2107,19 @@ h3 {
   .wizard-steps {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+  .wizard-review__head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .wizard-review__head .hero-actions {
+    flex-wrap: wrap;
+  }
+  .wizard-review__head .button {
+    flex: 1 1 auto;
+  }
+  .listing-card--preview {
+    max-width: none;
+  }
   .steps li {
     flex: 0 0 auto;
     min-width: 7.5rem;

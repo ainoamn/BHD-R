@@ -1,8 +1,8 @@
 # Implementation status
 
 **Updated:** 2026-08-25  
-**Active phase:** Property wizard UX shipped; apply Neon migrations `0011` + `0012`  
-**Product version:** 0.2.19  
+**Product version:** 0.2.20  
+**Active phase:** Property wizard build fixed + bilingual i18n; apply Neon migrations `0011` + `0012`  
 **Cycle reference:** [`TRANSACTION-FLOW-MAP.md`](./TRANSACTION-FLOW-MAP.md) **v1.3** · [`CYCLE-APPROVAL.md`](./CYCLE-APPROVAL.md)  
 **Portal UI:** [`PORTAL-CHROME-AR.md`](./PORTAL-CHROME-AR.md)  
 **Property wizard:** [`PROPERTY-WIZARD-AR.md`](./PROPERTY-WIZARD-AR.md)

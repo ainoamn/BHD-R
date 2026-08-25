@@ -158,10 +158,10 @@ export function PropertyWizard({
   const steps = [
     t('PropertyForm.basics'),
     t('PropertyForm.units'),
-    ar ? 'التشغيل والمرافق' : 'Operations & amenities',
-    ar ? 'الملكية والوثائق' : 'Ownership & documents',
+    t('PropertyForm.operationsAmenities'),
+    t('PropertyForm.ownershipDocuments'),
     t('PropertyForm.media'),
-    ar ? 'الوصف والمراجعة' : 'Description & review',
+    t('PropertyForm.descriptionReview'),
   ];
 
   const amenityOptions = useMemo(
@@ -205,7 +205,7 @@ export function PropertyWizard({
       if (property.countryCode === 'OM') {
         if (!property.governorate) issues.push(t('PropertyForm.governorate'));
         if (!property.wilayat) issues.push(t('PropertyForm.wilayat'));
-        if (!property.city) issues.push(ar ? 'القرية / المنطقة' : 'Village / area');
+        if (!property.city) issues.push(t('PropertyForm.village'));
       } else {
         if (!property.governorate) issues.push(t('PropertyForm.governorate'));
         if (!property.wilayat) issues.push(t('PropertyForm.wilayat'));
@@ -221,7 +221,7 @@ export function PropertyWizard({
         if (unit.listingPurpose !== 'sale' && !unit.rent.trim())
           issues.push(`${label}: ${t('PropertyForm.rent')}`);
         if (unit.listingPurpose !== 'rent' && !unit.salePrice.trim())
-          issues.push(`${label}: ${ar ? 'سعر البيع' : 'Sale price'}`);
+          issues.push(`${label}: ${t('PropertyForm.salePrice')}`);
       });
     }
     if (index === 4) {
@@ -383,7 +383,7 @@ export function PropertyWizard({
     if (issues.length) {
       setShowErrors(true);
       setMissingHints(issues);
-      setError(ar ? 'راجع الحقول الناقصة قبل الحفظ.' : 'Fix missing fields before saving.');
+      setError(t('PropertyForm.fixBeforeSave'));
       return;
     }
     setBusy(true);
@@ -541,7 +541,7 @@ export function PropertyWizard({
         </div>
       </header>
 
-      <ol className="wizard-steps" aria-label={ar ? 'مراحل إضافة العقار' : 'Property wizard steps'}>
+      <ol className="wizard-steps" aria-label={t('PropertyForm.wizardStepsAria')}>
         {steps.map((label, index) => {
           const reached = index <= maxReached;
           const done = index < step;
@@ -569,11 +569,7 @@ export function PropertyWizard({
                     const issues = validateStep(step);
                     setShowErrors(true);
                     setMissingHints(issues);
-                    setError(
-                      ar
-                        ? 'لا يمكن الانتقال للمرحلة التالية قبل إكمال الحالية.'
-                        : 'Complete the current step before moving ahead.',
-                    );
+                    setError(t('PropertyForm.completeBeforeNext'));
                   }
                 }}
               >
@@ -589,7 +585,7 @@ export function PropertyWizard({
 
       {missingHints.length ? (
         <div className="wizard-missing" role="alert">
-          <strong>{ar ? 'حقول ناقصة في هذه المرحلة:' : 'Missing on this step:'}</strong>
+          <strong>{t('PropertyForm.missingFields')}</strong>
           <ul>
             {missingHints.map((hint) => (
               <li key={hint}>{hint}</li>
@@ -631,7 +627,7 @@ export function PropertyWizard({
                 </div>
                 <SelectField
                   id="country"
-                  label={ar ? 'الدولة' : 'Country'}
+                  label={t('PropertyForm.country')}
                   value={property.countryCode}
                   tone="ok"
                   onChange={(event) => {
@@ -658,22 +654,20 @@ export function PropertyWizard({
                   onChange={(event) => updateProperty('category', event.target.value)}
                   required
                 >
-                  {Object.keys(
-                    Object.fromEntries(
-                      [
-                        'apartment',
-                        'villa',
-                        'building',
-                        'office',
-                        'shop',
-                        'warehouse',
-                        'land',
-                        'other',
-                      ].map((v) => [v, v]),
-                    ),
-                  ).map((value) => (
+                  {(
+                    [
+                      ['apartment', 'categoryApartment'],
+                      ['villa', 'categoryVilla'],
+                      ['building', 'categoryBuilding'],
+                      ['office', 'categoryOffice'],
+                      ['shop', 'categoryShop'],
+                      ['warehouse', 'categoryWarehouse'],
+                      ['land', 'categoryLand'],
+                      ['other', 'categoryOther'],
+                    ] as const
+                  ).map(([value, key]) => (
                     <option key={value} value={value}>
-                      {value}
+                      {t(`PropertyForm.${key}`)}
                     </option>
                   ))}
                 </SelectField>
@@ -719,7 +713,7 @@ export function PropertyWizard({
                       updateProperty('nameEn', assistTranslate(property.nameAr, 'en') || property.nameAr)
                     }
                   >
-                    {ar ? 'ترجمة للاسم EN' : 'Assist EN name'}
+                    {t('PropertyForm.assistEnName')}
                   </Button>
                 </div>
 
@@ -737,7 +731,7 @@ export function PropertyWizard({
                       }}
                       required
                     >
-                      <option value="">{ar ? 'اختر المحافظة' : 'Select governorate'}</option>
+                      <option value="">{t('PropertyForm.selectGovernorate')}</option>
                       {omanLocations.map((g) => (
                         <option key={g.en} value={g.ar}>
                           {ar ? g.ar : g.en}
@@ -756,7 +750,7 @@ export function PropertyWizard({
                         }}
                         required
                       >
-                        <option value="">{ar ? 'اختر الولاية' : 'Select wilayat'}</option>
+                        <option value="">{t('PropertyForm.selectWilayat')}</option>
                         {(selectedGov?.states ?? []).map((s) => (
                           <option key={s.en} value={s.ar}>
                             {ar ? s.ar : s.en}
@@ -767,13 +761,13 @@ export function PropertyWizard({
                     {property.wilayat ? (
                       <SelectField
                         id="village"
-                        label={ar ? 'القرية / المنطقة' : 'Village / area'}
+                        label={t('PropertyForm.village')}
                         value={property.city}
                         tone={tone(property.city, true, showErrors)}
                         onChange={(event) => updateProperty('city', event.target.value)}
                         required
                       >
-                        <option value="">{ar ? 'اختر القرية' : 'Select village'}</option>
+                        <option value="">{t('PropertyForm.selectVillage')}</option>
                         {(selectedWilayat?.villages ?? []).map((v) => (
                           <option key={v.ar} value={v.ar}>
                             {v.ar}
@@ -933,7 +927,7 @@ export function PropertyWizard({
                       />
                       <SelectField
                         id={`unit-purpose-${unit.localId}`}
-                        label={ar ? 'غرض العرض' : 'Listing purpose'}
+                        label={t('PropertyForm.listingPurpose')}
                         value={unit.listingPurpose}
                         tone="ok"
                         onChange={(event) =>
@@ -941,9 +935,9 @@ export function PropertyWizard({
                         }
                         required
                       >
-                        <option value="rent">{ar ? 'للإيجار' : 'For rent'}</option>
-                        <option value="sale">{ar ? 'للبيع' : 'For sale'}</option>
-                        <option value="both">{ar ? 'للبيع أو الإيجار' : 'Sale or rent'}</option>
+                        <option value="rent">{t('PropertyForm.forRent')}</option>
+                        <option value="sale">{t('PropertyForm.forSale')}</option>
+                        <option value="both">{t('PropertyForm.forBoth')}</option>
                       </SelectField>
                       <Field
                         id={`unit-rent-${unit.localId}`}
@@ -961,7 +955,7 @@ export function PropertyWizard({
                       <Field
                         id={`unit-sale-price-${unit.localId}`}
                         inputMode="decimal"
-                        label={`${ar ? 'سعر البيع' : 'Sale price'} (${currency})`}
+                        label={`${t('PropertyForm.salePrice')} (${currency})`}
                         value={unit.salePrice}
                         tone={
                           unit.listingPurpose === 'rent'
@@ -993,11 +987,7 @@ export function PropertyWizard({
                           />
                           {t('PropertyForm.publish')}
                         </label>
-                        <p className="field__hint">
-                          {ar
-                            ? 'عند التفعيل: تظهر الوحدة في الصفحة الرئيسية (/) وصفحة العقارات المتاحة (/properties) للزوّار بعد أن تصبح الحالة «متاحة» ويمرّ النشر العام. لا تظهر داخل بوابة المالك فقط.'
-                            : 'When enabled: the unit appears on the public home page (/) and /properties once it is available and publicly listed — not only inside the owner portal.'}
-                        </p>
+                        <p className="field__hint">{t('PropertyForm.publishHint')}</p>
                       </div>
                     </div>
                   </fieldset>
@@ -1070,7 +1060,7 @@ export function PropertyWizard({
                   </SelectField>
                 </div>
                 <fieldset className="amenity-picker">
-                  <legend>{ar ? 'المرافق والخدمات' : 'Amenities & services'}</legend>
+                  <legend>{t('PropertyForm.amenitiesLegend')}</legend>
                   <div className="amenity-picker__grid">
                     {amenityOptions.map(([code, labelAr, labelEn]) => (
                       <label className="checkbox-row" key={code}>
@@ -1092,7 +1082,7 @@ export function PropertyWizard({
                   <div className="amenity-custom form-grid">
                     <Field
                       id="custom-amenity-ar"
-                      label={ar ? 'مرفق غير مدرج (عربي)' : 'Custom amenity (AR)'}
+                      label={t('PropertyForm.customAmenityAr')}
                       value={customDraft.ar}
                       onChange={(event) =>
                         setCustomDraft((c) => ({ ...c, ar: event.target.value }))
@@ -1100,7 +1090,7 @@ export function PropertyWizard({
                     />
                     <Field
                       id="custom-amenity-en"
-                      label={ar ? 'مرفق غير مدرج (إنجليزي)' : 'Custom amenity (EN)'}
+                      label={t('PropertyForm.customAmenityEn')}
                       value={customDraft.en}
                       onChange={(event) =>
                         setCustomDraft((c) => ({ ...c, en: event.target.value }))
@@ -1108,7 +1098,7 @@ export function PropertyWizard({
                       dir="ltr"
                     />
                     <Button type="button" variant="quiet" onClick={addCustomAmenity}>
-                      {ar ? '＋ إضافة للقائمة' : '＋ Add to list'}
+                      {t('PropertyForm.addCustomAmenity')}
                     </Button>
                   </div>
                 </fieldset>
@@ -1169,12 +1159,8 @@ export function PropertyWizard({
                 />
                 <div className="span-2 upload-zone">
                   <label htmlFor="property-docs">
-                    <strong>{ar ? 'مرفقات الوثائق' : 'Document attachments'}</strong>
-                    <p>
-                      {ar
-                        ? 'PDF أو صور — تظهر كأيقونات ويمكن فتحها للمعاينة.'
-                        : 'PDF or images — shown as icons and openable for preview.'}
-                    </p>
+                    <strong>{t('PropertyForm.documentAttachments')}</strong>
+                    <p>{t('PropertyForm.documentHelp')}</p>
                   </label>
                   <input
                     id="property-docs"
@@ -1231,7 +1217,7 @@ export function PropertyWizard({
                           checked={coverId === item.id}
                           onChange={() => setCoverId(item.id)}
                         />
-                        {ar ? 'صورة الغلاف' : 'Cover image'}
+                        {t('PropertyForm.coverImage')}
                       </label>
                     </li>
                   ))}
@@ -1243,10 +1229,10 @@ export function PropertyWizard({
               <div className="wizard-review">
                 <section className="wizard-review__copy">
                   <header className="wizard-review__head">
-                    <h2>{ar ? 'الوصف الاحترافي' : 'Professional description'}</h2>
+                    <h2>{t('PropertyForm.professionalDescription')}</h2>
                     <div className="hero-actions">
                       <Button type="button" variant="quiet" onClick={runAiDescription}>
-                        {ar ? 'توليد بالذكاء من البيانات' : 'Generate from data'}
+                        {t('PropertyForm.generateDescription')}
                       </Button>
                       <Button
                         type="button"
@@ -1259,7 +1245,7 @@ export function PropertyWizard({
                           )
                         }
                       >
-                        {ar ? 'ترجمة فورية ← EN' : 'Instant assist → EN'}
+                        {t('PropertyForm.translateToEn')}
                       </Button>
                       <Button
                         type="button"
@@ -1272,7 +1258,7 @@ export function PropertyWizard({
                           )
                         }
                       >
-                        {ar ? 'ترجمة فورية ← AR' : 'Instant assist → AR'}
+                        {t('PropertyForm.translateToAr')}
                       </Button>
                     </div>
                   </header>
@@ -1293,23 +1279,19 @@ export function PropertyWizard({
                       dir="ltr"
                     />
                   </div>
-                  <p className="field__hint">
-                    {ar
-                      ? 'يُعيَّن رقم متسلسل تلقائياً عند الحفظ بصيغة BHD-YYYY-PRP-… كما في نظام bhd-om.'
-                      : 'A sequential serial (BHD-YYYY-PRP-…) is assigned on save, matching the bhd-om pattern.'}
-                  </p>
+                  <p className="field__hint">{t('PropertyForm.serialHint')}</p>
                 </section>
                 <section className="wizard-review__preview">
-                  <h2>{ar ? 'معاينة الظهور في الصفحة الرئيسية' : 'Homepage listing preview'}</h2>
+                  <h2>{t('PropertyForm.homepagePreview')}</h2>
                   <ListingCardPreview
                     locale={locale}
                     title={previewTitle}
-                    location={previewLocation || (ar ? 'الموقع' : 'Location')}
+                    location={previewLocation || t('PropertyForm.locationFallback')}
                     bedrooms={Number(primary.bedrooms) || 0}
                     bathrooms={Number(primary.bathrooms) || 0}
-                    area={primary.area || undefined}
+                    {...(primary.area.trim() ? { area: primary.area } : {})}
                     priceLabel={priceLabel}
-                    coverUrl={coverUrl}
+                    {...(coverUrl ? { coverUrl } : {})}
                     availableLabel={t('Property.available')}
                     bedsLabel={t('Property.beds')}
                     bathsLabel={t('Property.baths')}

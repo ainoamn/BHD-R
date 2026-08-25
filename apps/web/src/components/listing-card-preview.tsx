@@ -20,9 +20,9 @@ export function ListingCardPreview({
   location: string;
   bedrooms: number;
   bathrooms: number;
-  area?: string;
+  area?: string | undefined;
   priceLabel: string;
-  coverUrl?: string | null;
+  coverUrl?: string | null | undefined;
   availableLabel: string;
   bedsLabel: string;
   bathsLabel: string;
