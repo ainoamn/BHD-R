@@ -1,10 +1,6 @@
 import { getLocale } from 'next-intl/server';
 import { ApiError } from '@/lib/api';
-import {
-  apiFetch,
-  isNestApiConfiguredForRuntime,
-  probeNestReady,
-} from '@/lib/server-api';
+import { apiFetch, isNestApiConfiguredForRuntime } from '@/lib/server-api';
 import type { PortalRole } from '@/lib/types';
 import { OperationsConsole, type OperationsContext } from './operations-console';
 
@@ -146,29 +142,34 @@ export async function OperationsWorkspace({
 }) {
   const locale = (await getLocale()) === 'en' ? 'en' : 'ar';
   const nestConfigured = isNestApiConfiguredForRuntime();
-  const [loaded, nestReady, contextResult] = await Promise.all([
+  // Avoid a separate /health/ready round-trip on every section click (cold Nest × 2).
+  // Online = Nest answered context (ok or 401). Offline = network/unreachable.
+  const [loaded, contextResult] = await Promise.all([
     loadSection(portal, section),
-    portal === 'tenant' ? Promise.resolve(true) : probeNestReady(),
     portal === 'tenant'
       ? Promise.resolve({
           ok: true as const,
           unauthorized: false,
+          unreachable: false,
           context: {} as OperationsContext,
         })
       : apiFetch<OperationsContext>('/v1/operations/context')
           .then((payload) => ({
             ok: true as const,
             unauthorized: false,
+            unreachable: false,
             context: payload,
           }))
           .catch((error: unknown) => ({
             ok: false as const,
             unauthorized: error instanceof ApiError && error.status === 401,
+            unreachable:
+              error instanceof ApiError &&
+              (error.status === 503 || error.code === 'api_unreachable'),
             context: {} as OperationsContext,
           })),
   ]);
-  // Infrastructure up ≠ authorized. Only treat Nest as offline when health fails.
-  const apiOnline = portal === 'tenant' ? true : nestReady;
+  const apiOnline = portal === 'tenant' ? true : !contextResult.unreachable;
   const context = contextResult.context;
   const recordsEmpty = !loaded.records.length;
   return (

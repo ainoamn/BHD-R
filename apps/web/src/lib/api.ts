@@ -17,30 +17,59 @@ export function browserApiPath(path: string): string {
 }
 
 function networkFailureMessage(error: unknown): string {
-  if (error instanceof TypeError || (error instanceof Error && /failed to fetch/i.test(error.message))) {
+  if (
+    error instanceof TypeError ||
+    (error instanceof Error && /failed to fetch/i.test(error.message))
+  ) {
     return 'تعذر الاتصال بالخادم. تحقق من الشبكة أو أعد المحاولة بعد لحظات.';
   }
   if (error instanceof Error) return error.message;
   return 'request_failed';
 }
 
-export async function browserMutation<T>(path: string, init: RequestInit): Promise<T> {
-  let csrfResponse: Response;
+let cachedCsrfToken: string | null = null;
+let csrfInflight: Promise<string> | null = null;
+
+export function clearBrowserCsrfCache(): void {
+  cachedCsrfToken = null;
+  csrfInflight = null;
+}
+
+async function getCsrfToken(force = false): Promise<string> {
+  if (!force && cachedCsrfToken) return cachedCsrfToken;
+  if (!force && csrfInflight) return csrfInflight;
+  csrfInflight = (async () => {
+    let csrfResponse: Response;
+    try {
+      csrfResponse = await fetch(browserApiPath('/v1/auth/csrf'), {
+        credentials: 'same-origin',
+        headers: { accept: 'application/json' },
+      });
+    } catch (error) {
+      throw new ApiError(0, 'network_error', networkFailureMessage(error));
+    }
+    if (!csrfResponse.ok)
+      throw new ApiError(
+        csrfResponse.status,
+        'csrf_unavailable',
+        'Could not establish a secure request',
+      );
+    const csrf = (await csrfResponse.json()) as { token: string };
+    cachedCsrfToken = csrf.token;
+    return csrf.token;
+  })();
   try {
-    csrfResponse = await fetch(browserApiPath('/v1/auth/csrf'), {
-      credentials: 'same-origin',
-      headers: { accept: 'application/json' },
-    });
-  } catch (error) {
-    throw new ApiError(0, 'network_error', networkFailureMessage(error));
+    return await csrfInflight;
+  } finally {
+    csrfInflight = null;
   }
-  if (!csrfResponse.ok)
-    throw new ApiError(
-      csrfResponse.status,
-      'csrf_unavailable',
-      'Could not establish a secure request',
-    );
-  const csrf = (await csrfResponse.json()) as { token: string };
+}
+
+async function browserMutationOnce<T>(
+  path: string,
+  init: RequestInit,
+  csrfToken: string,
+): Promise<T> {
   let response: Response;
   try {
     response = await fetch(browserApiPath(path), {
@@ -49,7 +78,7 @@ export async function browserMutation<T>(path: string, init: RequestInit): Promi
       headers: {
         accept: 'application/json',
         'content-type': 'application/json',
-        'x-csrf-token': csrf.token,
+        'x-csrf-token': csrfToken,
         'idempotency-key': crypto.randomUUID(),
         ...init.headers,
       },
@@ -70,6 +99,24 @@ export async function browserMutation<T>(path: string, init: RequestInit): Promi
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
+}
+
+export async function browserMutation<T>(path: string, init: RequestInit): Promise<T> {
+  const token = await getCsrfToken();
+  try {
+    return await browserMutationOnce<T>(path, init, token);
+  } catch (error) {
+    if (
+      error instanceof ApiError &&
+      error.status === 403 &&
+      /csrf/i.test(`${error.code} ${error.message}`)
+    ) {
+      clearBrowserCsrfCache();
+      const fresh = await getCsrfToken(true);
+      return browserMutationOnce<T>(path, init, fresh);
+    }
+    throw error;
+  }
 }
 
 /** PUT file to Nest media ingress (same-origin rewrite first, absolute Nest URL fallback). */
@@ -130,4 +177,24 @@ export async function browserPublicMutation<T>(path: string, body: unknown): Pro
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
+}
+
+/** Run async work over items with a fixed concurrency limit. */
+export async function mapWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T, index: number) => Promise<void>,
+): Promise<void> {
+  if (!items.length) return;
+  const limit = Math.max(1, Math.min(concurrency, items.length));
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: limit }, async () => {
+      while (true) {
+        const index = next++;
+        if (index >= items.length) return;
+        await worker(items[index]!, index);
+      }
+    }),
+  );
 }

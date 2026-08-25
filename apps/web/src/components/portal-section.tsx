@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, EmptyState, StatusBadge } from '@bhd-r/ui';
 import { getLocale, getTranslations } from 'next-intl/server';
+import { Link } from '@/i18n/navigation';
 import { apiFetch } from '@/lib/server-api';
 import type { PortalRole } from '@/lib/types';
 import { OperationsWorkspace, type OperationsSection } from './operations-workspace';
@@ -148,14 +149,14 @@ export async function PortalSection({
           <p>{t(`Portal.${portal}`)}</p>
         </div>
         {section === 'properties' && portal !== 'tenant' ? (
-          <a className="button button--primary" href={`/${locale}/${portal}/properties/new`}>
+          <Link className="button button--primary" href={`/${portal}/properties/new`} prefetch>
             ＋ {t('Portal.addProperty')}
-          </a>
+          </Link>
         ) : null}
         {section === 'maintenance' && portal === 'tenant' ? (
-          <a className="button button--primary" href={`/${locale}/tenant/maintenance/new`}>
+          <Link className="button button--primary" href="/tenant/maintenance/new" prefetch>
             ＋ {t('Maintenance.new')}
-          </a>
+          </Link>
         ) : null}
       </header>
       <Card>

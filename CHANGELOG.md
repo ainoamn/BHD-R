@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.26 — 2026-08-25
+
+- Portal performance: NestKeepAlive `/api/warm`, drop per-nav health probe, SPA `Link`+prefetch in ops console, CSRF token reuse, parallel media uploads (×3), Next `staleTimes` for soft nav.
+- Docs: `docs/implementation/PORTAL-PERF-AR.md`.
+
 ## 0.2.25 — 2026-08-25
 
 - Fix Nest/Render Docker build: CORS origin must be Nest sync resolver (`resolveCorsOrigin`), not Express-style callback — unblocks API deploys stuck since `5766f9a` and restores media-ingress save path.

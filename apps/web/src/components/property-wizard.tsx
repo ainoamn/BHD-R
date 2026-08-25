@@ -6,7 +6,7 @@ import { Button, Card, CardContent, Field, SelectField, TextAreaField } from '@b
 import { supportedCurrencyCodes, type CurrencyCode } from '@bhd-r/contracts';
 import { countryPacks, type CountryPackCode } from '@bhd-r/country-packs';
 import { useLocale, useTranslations } from 'next-intl';
-import { browserMediaPut, browserMutation } from '@/lib/api';
+import { browserMediaPut, browserMutation, mapWithConcurrency } from '@/lib/api';
 import { toMinorUnits } from '@/lib/format';
 import { omanLocations } from '@/lib/oman-locations';
 import {
@@ -199,6 +199,7 @@ export function PropertyWizard({
 
   useEffect(() => {
     // Warm Nest (Render cold start) before the user hits save.
+    void fetch('/api/warm', { cache: 'no-store' }).catch(() => undefined);
     void fetch('/api/backend/v1/auth/csrf', {
       credentials: 'same-origin',
       headers: { accept: 'application/json' },
@@ -620,17 +621,29 @@ export function PropertyWizard({
           ...images.filter((item) => item.id === coverId),
           ...images.filter((item) => item.id !== coverId),
         ];
-        let position = 0;
-        for (const item of ordered) {
-          await uploadFile(item.file, mediaUnitId, 'property_image', position++);
-        }
-        for (const doc of documents) {
-          const mimeOk = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'].includes(
-            doc.file.type,
-          );
-          if (!mimeOk) continue;
-          await uploadFile(doc.file, mediaUnitId, 'attachment', position++);
-        }
+        const imageJobs = ordered.map((item, position) => ({
+          file: item.file,
+          purpose: 'property_image' as const,
+          position,
+        }));
+        const docJobs = documents
+          .filter((doc) =>
+            ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'].includes(doc.file.type),
+          )
+          .map((doc, index) => ({
+            file: doc.file,
+            purpose: 'attachment' as const,
+            position: imageJobs.length + index,
+          }));
+        const jobs = [...imageJobs, ...docJobs];
+        setSuccess(
+          ar
+            ? `جاري رفع الملفات (${jobs.length})…`
+            : `Uploading media (${jobs.length})…`,
+        );
+        await mapWithConcurrency(jobs, 3, async (job) => {
+          await uploadFile(job.file, mediaUnitId, job.purpose, job.position);
+        });
       }
       bundleIdempotencyKey.current = `property-bundle:${crypto.randomUUID()}`;
       const serial = createdProperty.serialNumber;

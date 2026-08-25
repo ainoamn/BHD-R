@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import type { CurrencyCode } from '@bhd-r/contracts';
+import { Link } from '@/i18n/navigation';
 import { browserMutation } from '@/lib/api';
 import { formatMoney, toMinorUnits } from '@/lib/format';
 import type { PortalRole } from '@/lib/types';
@@ -2372,9 +2373,9 @@ export function OperationsConsole({
         </div>
         <div className="ops-header__actions">
           {section === 'properties' ? (
-            <a className="button button--primary" href={`/${locale}/${portal}/properties/new`}>
+            <Link className="button button--primary" href={`/${portal}/properties/new`} prefetch>
               ＋ {ar ? definition.createAr : definition.createEn}
-            </a>
+            </Link>
           ) : null}
           {section === 'accounting' && !context.ledgerAccounts?.length ? (
             <button
@@ -2493,12 +2494,13 @@ export function OperationsConsole({
                   >
                     {ar ? 'تأكيد العربون' : 'Confirm deposit'}
                   </button>
-                  <a
-                    href={`/${locale}/${portal}/bookings/${encodeURIComponent(row.id)}`}
+                  <Link
+                    href={`/${portal}/bookings/${encodeURIComponent(row.id)}`}
                     className="ops-action"
+                    prefetch
                   >
                     {ar ? 'المستندات' : 'Documents'}
-                  </a>
+                  </Link>
                 </div>
               </li>
             ))}
@@ -2708,24 +2710,24 @@ export function OperationsConsole({
           </header>
           <ul>
             <li>
-              <a href={`/${locale}/${portal}/tasks`}>
+              <Link href={`/${portal}/tasks`} prefetch>
                 {ar ? 'مهام' : 'Tasks'} <strong>{vacancyFollowUps?.tasks ?? 0}</strong>
-              </a>
+              </Link>
             </li>
             <li>
-              <a href={`/${locale}/${portal}/maintenance`}>
+              <Link href={`/${portal}/maintenance`} prefetch>
                 {ar ? 'صيانة' : 'Maintenance'} <strong>{vacancyFollowUps?.maintenance ?? 0}</strong>
-              </a>
+              </Link>
             </li>
             <li>
-              <a href={`/${locale}/${portal}/legal`}>
+              <Link href={`/${portal}/legal`} prefetch>
                 {ar ? 'محاماة' : 'Legal'} <strong>{vacancyFollowUps?.legal ?? 0}</strong>
-              </a>
+              </Link>
             </li>
             <li>
-              <a href={`/${locale}/${portal}/expenses`}>
+              <Link href={`/${portal}/expenses`} prefetch>
                 {ar ? 'مصروفات' : 'Expenses'} <strong>{vacancyFollowUps?.expenses ?? 0}</strong>
-              </a>
+              </Link>
             </li>
           </ul>
         </section>
@@ -2753,21 +2755,21 @@ export function OperationsConsole({
                 <li key={unit.id}>
                   <strong>{label}</strong>
                   <div className="ops-vacant-strip__actions">
-                    <a href={`/${locale}/${portal}/bookings?create=1&unitId=${unit.id}`}>
+                    <Link href={`/${portal}/bookings?create=1&unitId=${unit.id}`} prefetch>
                       {ar ? 'حجز' : 'Book'}
-                    </a>
-                    <a href={`/${locale}/${portal}/tasks?create=1&unitId=${unit.id}`}>
+                    </Link>
+                    <Link href={`/${portal}/tasks?create=1&unitId=${unit.id}`} prefetch>
                       {ar ? 'مهمة' : 'Task'}
-                    </a>
-                    <a href={`/${locale}/${portal}/maintenance?create=1&unitId=${unit.id}`}>
+                    </Link>
+                    <Link href={`/${portal}/maintenance?create=1&unitId=${unit.id}`} prefetch>
                       {ar ? 'صيانة' : 'Maintenance'}
-                    </a>
-                    <a href={`/${locale}/${portal}/legal?create=1&unitId=${unit.id}`}>
+                    </Link>
+                    <Link href={`/${portal}/legal?create=1&unitId=${unit.id}`} prefetch>
                       {ar ? 'محاماة' : 'Legal'}
-                    </a>
-                    <a href={`/${locale}/${portal}/accounting?create=1&unitId=${unit.id}`}>
+                    </Link>
+                    <Link href={`/${portal}/accounting?create=1&unitId=${unit.id}`} prefetch>
                       {ar ? 'حسابات' : 'Accounts'}
-                    </a>
+                    </Link>
                   </div>
                 </li>
               );
@@ -2997,39 +2999,43 @@ export function OperationsConsole({
                             </button>
                           ) : null}
                           {safeString(row.status) === 'confirmed' ? (
-                            <a
+                            <Link
                               className="ops-action"
-                              href={`/${locale}/${portal}/leasing?create=1&reservationId=${encodeURIComponent(safeString(row.id))}&unitId=${encodeURIComponent(safeString(row.unitId))}&tenantId=${encodeURIComponent(safeString(row.tenantPartyId))}`}
+                              href={`/${portal}/leasing?create=1&reservationId=${encodeURIComponent(safeString(row.id))}&unitId=${encodeURIComponent(safeString(row.unitId))}&tenantId=${encodeURIComponent(safeString(row.tenantPartyId))}`}
+                              prefetch
                             >
                               {ar ? 'تحويل لعقد قيد الإجراء' : 'Convert to lease'}
-                            </a>
+                            </Link>
                           ) : null}
-                          <a
+                          <Link
                             className="ops-action"
-                            href={`/${locale}/${portal}/bookings/${encodeURIComponent(safeString(row.id))}`}
+                            href={`/${portal}/bookings/${encodeURIComponent(safeString(row.id))}`}
+                            prefetch
                           >
                             {ar ? 'المستندات' : 'Documents'}
-                          </a>
+                          </Link>
                           {safeString(row.status) === 'confirmed' ? (
-                            <a className="ops-action" href={`/${locale}/${portal}/accounting`}>
+                            <Link className="ops-action" href={`/${portal}/accounting`} prefetch>
                               {ar ? 'القيد المحاسبي' : 'Ledger'}
-                            </a>
+                            </Link>
                           ) : null}
                         </span>
                       ) : section === 'properties' ? (
-                        <a
+                        <Link
                           className="ops-action"
-                          href={`/${locale}/${portal}/properties/${encodeURIComponent(safeString(row.id))}`}
+                          href={`/${portal}/properties/${encodeURIComponent(safeString(row.id))}`}
+                          prefetch
                         >
                           {ar ? 'إدارة العقار' : 'Manage property'}
-                        </a>
+                        </Link>
                       ) : section === 'contracts' ? (
-                        <a
+                        <Link
                           className="ops-action"
-                          href={`/${locale}/${portal}/contracts/${encodeURIComponent(safeString(row.id))}`}
+                          href={`/${portal}/contracts/${encodeURIComponent(safeString(row.id))}`}
+                          prefetch
                         >
                           {ar ? 'عرض العقد' : 'View contract'}
-                        </a>
+                        </Link>
                       ) : documentKind ? (
                         <button
                           className="ops-action"
