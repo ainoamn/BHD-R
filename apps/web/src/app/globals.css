@@ -5036,6 +5036,17 @@ h3 {
   margin-top: 0.55rem !important;
   font-weight: 600;
 }
+.ops-api-banner__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+}
+.ops-api-banner__actions .ops-api-banner__note {
+  flex: 1 1 100%;
+  margin-top: 0.25rem;
+}
 .ops-vacancy-pipeline {
   margin: 0 0 1.25rem;
   padding: 1rem 1.15rem;
