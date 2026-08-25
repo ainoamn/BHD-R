@@ -6,8 +6,9 @@ All notable changes are documented here. The project follows Semantic Versioning
 
 - Unified login alignment with BHD Identity: `/login` always starts OIDC on `id.bhd-om.com` (local password only via `?local=1`).
 - Callback OAuth state cookie `Path=/`, sealed `redirectUri` at `/start` (Nasab/WAZEN pattern).
-- Identity token verify moved into `apps/web` (`verify-id-token.ts`): prefer `/oauth/userinfo` after PKCE while JWKS is empty; tolerate null userinfo fields; HS256 fallback with cleaned secrets.
-- Clearer `?bhd=` error codes (`verify_userinfo`, `verify_nonce`, `verify_claims`) and compact error UI (no product-hosted identity clone).
+- Identity token verify moved into `apps/web` (`verify-id-token.ts`): access_token HS256 bind → `/oauth/userinfo` → id_token HS256; null-tolerant userinfo; error detail in `?x=`.
+- Applied missing Neon column `users.totp_recovery_digests` (migration `0008`) which broke post-verify user load.
+- Clearer `?bhd=` error codes and compact error UI (no product-hosted identity clone).
 - Ops: `scripts/fix-vercel-identity-env.mjs` + `.vercelignore`; transpile `@bhd-r/authz`/`db`/`security` in Next.
 - Docs: `BHD-PRODUCT-SSO-ADMIN` checklist — `bhd-r` flipped to `mode=sso` on Identity catalog.
 

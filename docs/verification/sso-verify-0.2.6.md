@@ -25,4 +25,9 @@
 
 1. Private window → https://bhd-r-api-phi.vercel.app/ar/login → lands on `id.bhd-om.com`.
 2. After password → returns to portal without `?bhd=verify`.
-3. App switcher opens BHD R via SSO start URL.
+3. If it fails, URL includes `?bhd=…&x=…` with a short technical reason (safe to share).
+4. App switcher opens BHD R via SSO start URL.
+
+## Neon note (2026-08-25)
+
+Production was missing `users.totp_recovery_digests` from migration `0008`. Applied with `ADD COLUMN IF NOT EXISTS` so Drizzle user queries no longer fail after a successful Identity callback.

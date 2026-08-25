@@ -75,6 +75,7 @@ export default async function LoginPage({
   const ar = locale === 'ar';
   const local = query.local === '1';
   const bhdCode = typeof query.bhd === 'string' ? query.bhd : undefined;
+  const bhdDetail = typeof query.x === 'string' ? query.x.slice(0, 200) : undefined;
   const nextRaw = typeof query.next === 'string' ? query.next : '';
   const returnTo =
     typeof query.returnTo === 'string' &&
@@ -137,6 +138,11 @@ export default async function LoginPage({
               </span>
               <h2>{ar ? 'لم يكتمل الدخول الموحّد' : 'Unified sign-in did not finish'}</h2>
               <p role="alert">{ar ? errorCopy.ar : errorCopy.en}</p>
+              {bhdDetail ? (
+                <p className="muted" dir="ltr" style={{ wordBreak: 'break-all', fontSize: '0.85rem' }}>
+                  {bhdDetail}
+                </p>
+              ) : null}
               <p>
                 {ar
                   ? 'كلمات المرور تُدخل فقط على بوابة الهوية الموحّدة، وليست على BHD R:'

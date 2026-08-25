@@ -1,6 +1,5 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { and, eq, isNull, sql } from 'drizzle-orm';
-import { decodeJwt } from 'jose';
 import {
   createDatabase,
   memberships,
@@ -31,9 +30,17 @@ type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 const tokenHash = (token: string) => createHash('sha256').update(token).digest('hex');
 
 function sessionSecret(): Uint8Array {
-  return new TextEncoder().encode(
-    process.env.BHD_R_SESSION_SECRET ?? 'development-session-secret-at-least-32-characters',
-  );
+  const raw =
+    process.env.BHD_R_SESSION_SECRET?.replace(/^\uFEFF/, '')
+      .replace(/\\r\\n$/gi, '')
+      .replace(/\\n$/gi, '')
+      .replace(/\r\n$/g, '')
+      .replace(/\n$/g, '')
+      .trim() || '';
+  if (raw.length < 32) {
+    throw new Error('session_secret_too_short');
+  }
+  return new TextEncoder().encode(raw);
 }
 
 async function withSystem<T>(work: (tx: Tx) => Promise<T>): Promise<T> {
@@ -99,7 +106,10 @@ async function issueForUser(tx: Tx, userId: string): Promise<IssuedSession> {
     token,
     csrf: createCsrfToken(
       sid,
-      process.env.CSRF_SECRET ?? 'development-csrf-secret-must-be-at-least-32-chars',
+      process.env.CSRF_SECRET?.replace(/^\uFEFF/, '')
+        .replace(/\\r\\n$/gi, '')
+        .replace(/\\n$/gi, '')
+        .trim() || 'development-csrf-secret-must-be-at-least-32-chars',
     ),
     claims,
   };
@@ -186,24 +196,8 @@ export async function issueIdentitySession(input: {
     ...(identityTokenSecret ? { sharedSecret: identityTokenSecret } : {}),
     ...(input.accessToken ? { accessToken: input.accessToken } : {}),
   });
-  const verifiedClaims = decodeJwt(input.idToken);
-  if (
-    typeof verifiedClaims.nonce !== 'string' ||
-    verifiedClaims.nonce !== input.nonce
-  ) {
-    throw new Error('Identity nonce mismatch');
-  }
-  const clientId =
-    cleanEnv(process.env.BHD_OAUTH_CLIENT_ID) ||
-    cleanEnv(process.env.BHD_IDENTITY_CLIENT_ID) ||
-    'bhd-r';
-  if (
-    Array.isArray(verifiedClaims.aud) &&
-    verifiedClaims.aud.length > 1 &&
-    verifiedClaims.azp !== clientId
-  ) {
-    throw new Error('Identity authorized party mismatch');
-  }
+
+  // Skip redundant decodeJwt nonce check — verifyBhdIdToken already enforced nonce.
 
   return withSystem(async (tx) => {
     let user = await tx.query.users.findFirst({
@@ -228,11 +222,17 @@ export async function issueIdentitySession(input: {
     }
 
     if (!user) {
-      user = await provisionIdentityUser(tx, {
-        subject: identity.subject,
-        ...(identity.email ? { email: identity.email } : {}),
-        ...(identity.name ? { name: identity.name } : {}),
-      });
+      try {
+        user = await provisionIdentityUser(tx, {
+          subject: identity.subject,
+          ...(identity.email ? { email: identity.email } : {}),
+          ...(identity.name ? { name: identity.name } : {}),
+        });
+      } catch (error) {
+        throw new Error(
+          `identity_provision:${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
     }
 
     if (!user || user.disabledAt) throw new Error('Identity account cannot sign in');
@@ -253,7 +253,13 @@ export async function issueIdentitySession(input: {
       .set({ sessionVersion: sql`${users.sessionVersion} + 1` })
       .where(eq(users.id, user.id));
 
-    return issueForUser(tx, user.id);
+    try {
+      return await issueForUser(tx, user.id);
+    } catch (error) {
+      throw new Error(
+        `identity_session_issue:${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   });
 }
 

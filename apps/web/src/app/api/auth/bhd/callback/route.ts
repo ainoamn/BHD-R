@@ -6,18 +6,25 @@ import { hasDatabaseUrl, issueIdentitySession } from '@/lib/bhd/identity-session
 
 export const runtime = 'nodejs';
 
-function classifySessionError(error: unknown): string {
+function classifySessionError(error: unknown): { code: string; detail: string } {
   const message = error instanceof Error ? error.message : String(error);
   console.error('[bhd callback] session detail', message);
-  if (/userinfo/i.test(message)) return 'verify_userinfo';
-  if (/nonce/i.test(message)) return 'verify_nonce';
-  if (/audience|issuer|azp|authorized party|missing_sub/i.test(message)) return 'verify_claims';
-  if (/missing_hs256|JWKS|jwt|jws|signature|alg|secret|ERR_JOSE|ERR_JWS|ERR_JWT/i.test(message)) {
-    return 'verify';
+  const detail = message.replace(/\s+/g, ' ').slice(0, 160);
+  if (/identity_verify_failed|userinfo|access:|id_token:|missing_access_token|missing_hs256/i.test(message)) {
+    return { code: 'verify', detail };
   }
-  if (/DATABASE|connect|ECONN|timeout|ssl|Neon/i.test(message)) return 'db';
-  if (/membership|organization|insert|unique|constraint/i.test(message)) return 'upsert';
-  return 'session';
+  if (/nonce/i.test(message)) return { code: 'verify_nonce', detail };
+  if (/missing_sub|access_id_sub|authorized party/i.test(message)) {
+    return { code: 'verify_claims', detail };
+  }
+  if (/identity_provision|membership|organization|insert|unique|constraint/i.test(message)) {
+    return { code: 'upsert', detail };
+  }
+  if (/identity_session_issue|session_secret/i.test(message)) {
+    return { code: 'session', detail };
+  }
+  if (/DATABASE|connect|ECONN|timeout|ssl|Neon/i.test(message)) return { code: 'db', detail };
+  return { code: 'session', detail };
 }
 
 function clearOauthCookie(response: NextResponse) {
@@ -63,7 +70,6 @@ export async function GET(request: Request) {
   const { issuer, clientId, clientSecret, redirectUri: originRedirect } = identitySettings(
     url.origin,
   );
-  // Prefer redirect_uri sealed at /start (Nasab pattern); fall back to this host.
   const redirectUri =
     typeof saved.redirectUri === 'string' && saved.redirectUri.startsWith('https://')
       ? saved.redirectUri
@@ -108,6 +114,10 @@ export async function GET(request: Request) {
     })
     .parse(await tokenResponse.json());
 
+  if (!tokens.access_token) {
+    return clearAndRedirect('/ar/login?bhd=verify&x=missing_access_token');
+  }
+
   let issued: { token: string; csrf: string };
   try {
     if (!hasDatabaseUrl()) {
@@ -116,11 +126,15 @@ export async function GET(request: Request) {
     issued = await issueIdentitySession({
       idToken: tokens.id_token,
       nonce: saved.nonce,
-      ...(tokens.access_token ? { accessToken: tokens.access_token } : {}),
+      accessToken: tokens.access_token,
     });
   } catch (error) {
-    console.error('[bhd callback] session', error);
-    return clearAndRedirect(`/ar/login?bhd=${classifySessionError(error)}`);
+    const classified = classifySessionError(error);
+    console.error('[bhd callback] session', classified);
+    const target = new URL(`/ar/login`, url.origin);
+    target.searchParams.set('bhd', classified.code);
+    target.searchParams.set('x', classified.detail);
+    return clearOauthCookie(NextResponse.redirect(target, 302));
   }
 
   const response = clearAndRedirect(saved.returnTo);

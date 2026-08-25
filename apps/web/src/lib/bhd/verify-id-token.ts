@@ -18,9 +18,22 @@ function cleanSecret(value: string | undefined): string | undefined {
   );
 }
 
+function assertNonceAndSub(
+  payload: JWTPayload,
+  expectedNonce: string,
+): asserts payload is JWTPayload & { sub: string; nonce: string } {
+  if (typeof payload.nonce !== 'string' || payload.nonce !== expectedNonce) {
+    throw new Error('OIDC nonce validation failed');
+  }
+  if (typeof payload.sub !== 'string' || !payload.sub) {
+    throw new Error('missing_sub');
+  }
+}
+
 /**
- * Product-local identity verify (Nasab/WAZEN pattern).
- * Kept inside apps/web so Vercel Root Directory deploys cannot ship a stale @bhd-r/authz dist.
+ * Product-local identity verify (Nasab/WAZEN / bhd-identity.v1).
+ * After a successful authorization_code + PKCE exchange, prefer binding via
+ * access_token (local HS256 or /oauth/userinfo) rather than id_token alone.
  */
 export async function verifyBhdIdToken(input: {
   token: string;
@@ -33,52 +46,74 @@ export async function verifyBhdIdToken(input: {
   const issuer = input.issuer.replace(/\/$/, '');
   const header = decodeProtectedHeader(input.token);
   const alg = header.alg;
-  const verifyOptions = { issuer, audience: input.clientId, clockTolerance: 30 } as const;
-
-  let payload: JWTPayload;
-
-  if (alg === 'RS256' || alg === 'ES256') {
-    throw new Error('jwks_empty_use_hs256_or_userinfo');
+  if (alg && alg !== 'HS256' && alg !== 'RS256' && alg !== 'ES256') {
+    throw new Error(`unsupported_id_token_alg:${alg}`);
   }
 
-  if (alg !== 'HS256') {
-    throw new Error(`unsupported_id_token_alg:${alg ?? 'unknown'}`);
+  const sharedSecret = cleanSecret(input.sharedSecret);
+  const key = sharedSecret ? new TextEncoder().encode(sharedSecret) : undefined;
+  const errors: string[] = [];
+
+  // 1) Prove possession via access_token signature (same IDENTITY_TOKEN_SECRET as Identity).
+  if (input.accessToken && key) {
+    try {
+      const { payload: access } = await jwtVerify(input.accessToken, key, {
+        issuer,
+        algorithms: ['HS256'],
+        clockTolerance: 60,
+      });
+      if (access.token_use !== 'access') throw new Error('not_access_token');
+      const idClaims = decodeJwt(input.token);
+      if (idClaims.sub !== access.sub) throw new Error('access_id_sub_mismatch');
+      assertNonceAndSub(idClaims, input.expectedNonce);
+      return toIdentity(idClaims);
+    } catch (error) {
+      errors.push(`access:${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
-  // After PKCE code exchange, userinfo is the durable path while Identity JWKS is empty.
+  // 2) /oauth/userinfo — Identity validates the bearer with its own secret.
   if (input.accessToken) {
     try {
-      payload = await claimsFromUserinfo(issuer, input.accessToken, input.token);
-    } catch (userinfoError) {
-      const sharedSecret = cleanSecret(input.sharedSecret);
-      if (!sharedSecret) throw userinfoError;
-      try {
-        ({ payload } = await jwtVerify(input.token, new TextEncoder().encode(sharedSecret), {
-          ...verifyOptions,
-          algorithms: ['HS256'],
-        }));
-      } catch {
-        throw userinfoError;
-      }
+      const payload = await claimsFromUserinfo(issuer, input.accessToken, input.token);
+      assertNonceAndSub(payload, input.expectedNonce);
+      return toIdentity(payload);
+    } catch (error) {
+      errors.push(`userinfo:${error instanceof Error ? error.message : String(error)}`);
     }
   } else {
-    const sharedSecret = cleanSecret(input.sharedSecret);
-    if (!sharedSecret) throw new Error('missing_hs256_secret');
-    ({ payload } = await jwtVerify(input.token, new TextEncoder().encode(sharedSecret), {
-      ...verifyOptions,
-      algorithms: ['HS256'],
-    }));
+    errors.push('userinfo:missing_access_token');
   }
 
-  if (typeof payload.nonce !== 'string' || payload.nonce !== input.expectedNonce) {
-    throw new Error('OIDC nonce validation failed');
-  }
-  if (typeof payload.sub !== 'string' || !payload.sub) {
-    throw new Error('missing_sub');
+  // 3) Direct id_token HS256 (requires product secret == Identity secret).
+  if (key && (alg === 'HS256' || !alg)) {
+    try {
+      const { payload } = await jwtVerify(input.token, key, {
+        issuer,
+        audience: input.clientId,
+        algorithms: ['HS256'],
+        clockTolerance: 60,
+      });
+      assertNonceAndSub(payload, input.expectedNonce);
+      return toIdentity(payload);
+    } catch (error) {
+      errors.push(`id_token:${error instanceof Error ? error.message : String(error)}`);
+    }
+  } else if (!key) {
+    errors.push('id_token:missing_hs256_secret');
   }
 
+  throw new Error(`identity_verify_failed:${errors.join('|')}`);
+}
+
+function toIdentity(payload: JWTPayload): {
+  subject: string;
+  email?: string;
+  emailVerified: boolean;
+  name?: string;
+} {
   return {
-    subject: payload.sub,
+    subject: String(payload.sub),
     ...(typeof payload.email === 'string' && payload.email.includes('@')
       ? { email: payload.email }
       : {}),
@@ -99,7 +134,8 @@ async function claimsFromUserinfo(
     cache: 'no-store',
   });
   if (!response.ok) {
-    throw new Error(`userinfo_failed:${response.status}`);
+    const body = await response.text().catch(() => '');
+    throw new Error(`userinfo_failed:${response.status}:${body.slice(0, 80)}`);
   }
   const info = z
     .object({
