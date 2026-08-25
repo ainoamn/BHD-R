@@ -577,11 +577,13 @@ export const properties = pgTable(
     descriptionAr: text('description_ar'),
     descriptionEn: text('description_en'),
     defaultCurrency: varchar('default_currency', { length: 3 }).notNull(),
+    serialNumber: varchar('serial_number', { length: 40 }),
     status: lifecycleStatus('status').notNull().default('draft'),
   },
   (table) => [
     index('properties_org_idx').on(table.organizationId),
     index('properties_owner_idx').on(table.ownerPartyId),
+    uniqueIndex('properties_org_serial_unique').on(table.organizationId, table.serialNumber),
   ],
 );
 
@@ -976,6 +978,21 @@ export const contractSequences = pgTable(
       .default(sql`1`),
   },
   (table) => [primaryKey({ columns: [table.organizationId, table.year] })],
+);
+
+export const propertySequences = pgTable(
+  'property_sequences',
+  {
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    year: integer('year').notNull(),
+    typeCode: varchar('type_code', { length: 16 }).notNull(),
+    nextValue: bigint('next_value', { mode: 'bigint' })
+      .notNull()
+      .default(sql`1`),
+  },
+  (table) => [primaryKey({ columns: [table.organizationId, table.year, table.typeCode] })],
 );
 
 export const contractTemplates = pgTable(

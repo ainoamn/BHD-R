@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.19 — 2026-08-25
+
+- Property wizard redesign: numbered gated steps, required field tones, Oman gov→wilayat→village cascade, expanded amenities + custom, media icons/cover, AI-assisted bilingual description, homepage listing preview.
+- Property serials `BHD-YYYY-PRP-*` via migration `0012_property_serials`; media complete accepts `position` for cover ordering.
+- Docs: `docs/implementation/PROPERTY-WIZARD-AR.md`.
+
 ## 0.2.18 — 2026-08-25
 
 - Portal chrome redesign for owner/developer/tenant/platform: sticky header with user identity, bilingual switch, BHD app switcher; grouped sidebar nav.

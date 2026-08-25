@@ -114,6 +114,7 @@ export class MediaService {
       sha256: string;
       unitId?: string | undefined;
       reservationId?: string | undefined;
+      position?: number | undefined;
     },
   ) {
     return this.database.withinTenant(claims, async (transaction) => {
@@ -148,6 +149,7 @@ export class MediaService {
             organizationId: claims.organizationId!,
             unitId: input.unitId,
             mediaAssetId: asset.id,
+            position: input.position ?? 0,
           })
           .onConflictDoNothing();
       }

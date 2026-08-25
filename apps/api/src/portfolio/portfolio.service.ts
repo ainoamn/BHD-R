@@ -162,6 +162,18 @@ export class PortfolioService {
         input.property.address.longitude !== undefined
           ? `SRID=4326;POINT(${input.property.address.longitude} ${input.property.address.latitude})`
           : null;
+      const year = new Date().getUTCFullYear();
+      const purpose = input.units[0]?.listingPurpose ?? 'rent';
+      const typeCode = purpose === 'sale' ? 'PRP-S' : purpose === 'both' ? 'PRP-I' : 'PRP-R';
+      const sequence = await transaction.execute(sql<{ allocated: bigint }>`
+        insert into property_sequences (organization_id, year, type_code, next_value)
+        values (${claims.organizationId!}, ${year}, ${typeCode}, 2)
+        on conflict (organization_id, year, type_code)
+        do update set next_value = property_sequences.next_value + 1
+        returning next_value - 1 as allocated
+      `);
+      const seq = BigInt(String(sequence[0]!.allocated));
+      const serialNumber = `BHD-${year}-${typeCode}-${seq.toString().padStart(4, '0')}`;
       const addressRows = await transaction
         .insert(addresses)
         .values({
@@ -184,6 +196,7 @@ export class PortfolioService {
           descriptionAr: input.property.descriptionAr,
           descriptionEn: input.property.descriptionEn,
           defaultCurrency: input.property.defaultCurrency,
+          serialNumber,
           status: 'active',
         })
         .returning();

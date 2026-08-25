@@ -5,7 +5,14 @@ import type {
   TextareaHTMLAttributes,
 } from 'react';
 
-type FieldBase = { label: string; hint?: string; error?: string; requiredLabel?: string };
+type FieldBase = {
+  label: string;
+  hint?: string;
+  error?: string;
+  requiredLabel?: string;
+  /** Visual required-state: empty=red border, filled=green */
+  tone?: 'ok' | 'missing' | 'neutral';
+};
 
 function FieldFrame({
   id,
@@ -14,11 +21,14 @@ function FieldFrame({
   error,
   required,
   requiredLabel,
+  tone = 'neutral',
   children,
 }: FieldBase & { id: string; required?: boolean; children: ReactNode }) {
   const descriptionId = hint || error ? `${id}-description` : undefined;
+  const toneClass =
+    tone === 'ok' ? 'field--ok' : tone === 'missing' ? 'field--missing' : '';
   return (
-    <div className="field">
+    <div className={`field ${toneClass}`.trim()}>
       <label htmlFor={id}>
         {label}
         {required ? <span className="field__required"> {requiredLabel ?? '*'}</span> : null}
@@ -38,6 +48,7 @@ export function Field({
   hint,
   error,
   requiredLabel,
+  tone,
   id,
   className = '',
   ...props
@@ -50,11 +61,12 @@ export function Field({
       {...(error === undefined ? {} : { error })}
       {...(props.required === undefined ? {} : { required: props.required })}
       {...(requiredLabel === undefined ? {} : { requiredLabel })}
+      {...(tone === undefined ? {} : { tone })}
     >
       <input
         id={id}
         className={`input ${className}`.trim()}
-        aria-invalid={Boolean(error)}
+        aria-invalid={Boolean(error) || tone === 'missing'}
         aria-describedby={hint || error ? `${id}-description` : undefined}
         {...props}
       />
@@ -67,6 +79,7 @@ export function SelectField({
   hint,
   error,
   requiredLabel,
+  tone,
   id,
   className = '',
   children,
@@ -80,11 +93,12 @@ export function SelectField({
       {...(error === undefined ? {} : { error })}
       {...(props.required === undefined ? {} : { required: props.required })}
       {...(requiredLabel === undefined ? {} : { requiredLabel })}
+      {...(tone === undefined ? {} : { tone })}
     >
       <select
         id={id}
         className={`select ${className}`.trim()}
-        aria-invalid={Boolean(error)}
+        aria-invalid={Boolean(error) || tone === 'missing'}
         aria-describedby={hint || error ? `${id}-description` : undefined}
         {...props}
       >
@@ -99,6 +113,7 @@ export function TextAreaField({
   hint,
   error,
   requiredLabel,
+  tone,
   id,
   className = '',
   ...props
@@ -111,11 +126,12 @@ export function TextAreaField({
       {...(error === undefined ? {} : { error })}
       {...(props.required === undefined ? {} : { required: props.required })}
       {...(requiredLabel === undefined ? {} : { requiredLabel })}
+      {...(tone === undefined ? {} : { tone })}
     >
       <textarea
         id={id}
         className={`textarea ${className}`.trim()}
-        aria-invalid={Boolean(error)}
+        aria-invalid={Boolean(error) || tone === 'missing'}
         aria-describedby={hint || error ? `${id}-description` : undefined}
         {...props}
       />

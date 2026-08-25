@@ -18,6 +18,7 @@ const intentSchema = z.object({
 const completeSchema = z.object({
   sha256: z.string().regex(/^[a-f0-9]{64}$/),
   unitId: z.uuid().optional(),
+  position: z.number().int().min(0).max(500).optional(),
 });
 const reservationIntentSchema = intentSchema
   .omit({ purpose: true, unitId: true })
