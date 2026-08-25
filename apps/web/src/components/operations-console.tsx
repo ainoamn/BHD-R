@@ -754,11 +754,15 @@ function CreateFields({
   locale,
   context,
   prefillUnitId = '',
+  prefillReservationId = '',
+  prefillTenantId = '',
 }: {
   section: OperationsSection;
   locale: 'ar' | 'en';
   context: OperationsContext;
   prefillUnitId?: string;
+  prefillReservationId?: string;
+  prefillTenantId?: string;
 }) {
   const ar = locale === 'ar';
   const today = new Date().toISOString().slice(0, 10);
@@ -947,6 +951,7 @@ function CreateFields({
                 : (context.reservations ?? [])
             }
             locale={locale}
+            defaultValue={prefillReservationId}
           />
           <SelectOptions
             name="unitId"
@@ -954,6 +959,7 @@ function CreateFields({
             options={context.units ?? []}
             locale={locale}
             required
+            defaultValue={prefillUnitId}
           />
           <SelectOptions
             name="ownerPartyId"
@@ -968,6 +974,7 @@ function CreateFields({
             options={context.tenants?.length ? context.tenants : (context.parties ?? [])}
             locale={locale}
             required
+            defaultValue={prefillTenantId}
           />
           <SelectOptions
             name="templateVersionId"
@@ -1955,15 +1962,30 @@ export function OperationsConsole({
   const [apiKeySecret, setApiKeySecret] = useState<string | null>(null);
   const [renewingLease, setRenewingLease] = useState<DataRow | null>(null);
   const [prefillUnitId, setPrefillUnitId] = useState('');
+  const [prefillReservationId, setPrefillReservationId] = useState('');
+  const [prefillTenantId, setPrefillTenantId] = useState('');
+  const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const unitId = params.get('unitId') ?? '';
+    const reservationId = params.get('reservationId') ?? '';
+    const tenantId = params.get('tenantId') ?? '';
     setPrefillUnitId(unitId);
+    setPrefillReservationId(reservationId);
+    setPrefillTenantId(tenantId);
+    if (reservationId && !tenantId) {
+      const match = (context.confirmedReservations ?? context.reservations ?? []).find(
+        (row) => row.id === reservationId,
+      );
+      if (match?.tenantPartyId) setPrefillTenantId(match.tenantPartyId);
+      if (match?.unitId && !unitId) setPrefillUnitId(match.unitId);
+    }
     if (params.get('create') === '1') setShowCreate(true);
-  }, [section]);
+  }, [section, context.confirmedReservations, context.reservations]);
 
   const vacantUnits = context.vacantUnits ?? [];
+  const pendingDeposits = context.pendingDepositReservations ?? [];
   const vacancyFollowUps = context.vacancyFollowUps;
   const vacancyFollowUpTotal = vacancyFollowUps
     ? vacancyFollowUps.tasks +
@@ -2045,11 +2067,23 @@ export function OperationsConsole({
     if (!action) return;
     setBusy(true);
     setError(null);
+    setSuccessNotice(null);
     try {
       await browserMutation(action.path, {
         method: action.method,
         body: JSON.stringify(action.body),
       });
+      if (
+        section === 'bookings' &&
+        safeString(row.recordKind) === 'reservation' &&
+        action.next === 'confirmed'
+      ) {
+        setSuccessNotice(
+          ar
+            ? 'تم تأكيد العربون وترحيل القيد المحاسبي (إن وُجد مبلغ ضمان). يمكنك الآن تحويل الحجز لعقد قيد الإجراء.'
+            : 'Deposit confirmed and ledger journal posted (when deposit amount exists). You can convert the reservation to an in-progress lease.',
+        );
+      }
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'request_failed');
@@ -2293,6 +2327,58 @@ export function OperationsConsole({
             </p>
           ) : null}
         </div>
+      ) : null}
+
+      {successNotice ? (
+        <div className="notice notice--success" role="status">
+          {successNotice}
+        </div>
+      ) : null}
+
+      {section === 'bookings' && pendingDeposits.length ? (
+        <section
+          className="ops-deposit-queue"
+          aria-label={ar ? 'طابور تأكيد العربون' : 'Deposit confirmation queue'}
+        >
+          <header>
+            <h2>{ar ? 'بانتظار تأكيد المحاسب للعربون' : 'Awaiting accountant deposit confirmation'}</h2>
+            <p>
+              {ar
+                ? 'أكد الاستلام لترحيل القيد ثم حوّل الحجز لعقد قيد الإجراء.'
+                : 'Confirm receipt to post the ledger entry, then convert to an in-progress lease.'}
+            </p>
+          </header>
+          <ul>
+            {pendingDeposits.slice(0, 12).map((row) => (
+              <li key={row.id}>
+                <strong>{labelForOption(row, locale)}</strong>
+                <div className="ops-vacant-strip__actions">
+                  <button
+                    className="ops-action"
+                    type="button"
+                    disabled={busy}
+                    onClick={() =>
+                      void advance({
+                        ...row,
+                        recordKind: 'reservation',
+                        status: 'pending',
+                        id: row.id,
+                      })
+                    }
+                  >
+                    {ar ? 'تأكيد العربون' : 'Confirm deposit'}
+                  </button>
+                  <a
+                    href={`/${locale}/${portal}/bookings/${encodeURIComponent(row.id)}`}
+                    className="ops-action"
+                  >
+                    {ar ? 'المستندات' : 'Documents'}
+                  </a>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : null}
 
       <section className="ops-metrics" aria-label={ar ? 'المؤشرات' : 'Metrics'}>
@@ -2627,7 +2713,7 @@ export function OperationsConsole({
                           {safeString(row.status) === 'confirmed' ? (
                             <a
                               className="ops-action"
-                              href={`/${locale}/${portal}/leasing?create=1`}
+                              href={`/${locale}/${portal}/leasing?create=1&reservationId=${encodeURIComponent(safeString(row.id))}&unitId=${encodeURIComponent(safeString(row.unitId))}&tenantId=${encodeURIComponent(safeString(row.tenantPartyId))}`}
                             >
                               {ar ? 'تحويل لعقد قيد الإجراء' : 'Convert to lease'}
                             </a>
@@ -2856,6 +2942,8 @@ export function OperationsConsole({
                     locale={locale}
                     context={context}
                     prefillUnitId={prefillUnitId}
+                    prefillReservationId={prefillReservationId}
+                    prefillTenantId={prefillTenantId}
                   />
                 </div>
                 {error ? (

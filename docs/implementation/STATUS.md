@@ -1,14 +1,13 @@
 # Implementation status
 
 **Updated:** 2026-08-25  
-**Active phase:** OM steps 1–17 in code; Nest URL + Vercel env still human  
-**Product version:** 0.2.13
+**Active phase:** OM steps 1–19 in code; Nest URL + Vercel env still human  
+**Product version:** 0.2.14
 
 | Phase                    | Status   | Notes                                                                             |
 | ------------------------ | -------- | --------------------------------------------------------------------------------- |
 | 0–4                      | complete | Phases 0–4 verified                                                               |
-| **OM ops flow**          | **active** | Steps 1–17 coded; Nest public URL + Vercel `API_INTERNAL_ORIGIN` still manual |
-| 5–10 product phases      | partial/pending | See earlier STATUS rows                                                       |
+| **OM ops flow**          | **active** | Steps 1–19 coded; Nest public URL + Vercel `API_INTERNAL_ORIGIN` still manual |
 
 ## Next (human)
 

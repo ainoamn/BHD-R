@@ -1,23 +1,17 @@
 # Operational flow: BHD-OM → BHD-R
 
-**Source of truth (behavior):** `C:\dev\bhd-om` legacy ops.  
-**Implementation:** BHD-R Nest API + web ops console.  
-**Updated:** 2026-08-25
+**Updated:** 2026-08-25  
+**Steps 1–19** wired in API/ops UI (Nest host still human).
 
-## Hard rules
-
-1–15 as previously documented, plus:
-16. Bookings row exposes accountant **Confirm deposit** and post-confirm links (lease convert + ledger).
-17. Ops context exposes `vacancyFollowUps` counts; console shows vacancy pipeline strip.
-
-## Phase checklist
+## Latest steps
 
 | Step | Status |
 |------|--------|
-| 1–15 | **Wired** |
-| 16 Deposit confirm visible in bookings UI | **Wired** |
+| 16 Deposit confirm in bookings UI | **Wired** |
 | 17 Vacancy follow-up pipeline strip | **Wired** |
-| 11 Nest host | **Scaffolded** — human: `VERCEL-MANUAL-AR.md` |
+| 18 Prefill lease from confirmed reservation URL | **Wired** |
+| 19 Pending-deposit accountant queue strip | **Wired** |
+| 11 Nest host | **Scaffolded** — `VERCEL-MANUAL-AR.md` |
 
 ## Deploy note
 

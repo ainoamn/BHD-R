@@ -25,6 +25,8 @@
 | 15 | Ops Nest-missing banner | Banner when `API_*` unset or context fails | Wired |
 | 16 | Deposit confirm in bookings UI | Pending row: Confirm deposit; confirmed: convert + ledger links | Wired |
 | 17 | Vacancy follow-up pipeline | `vacancyFollowUps` in ops context + pipeline strip | Wired |
+| 18 | Prefill lease from reservation | `leasing?create=1&reservationId&unitId&tenantId` + form defaults | Wired |
+| 19 | Pending deposit queue | Bookings strip lists pending deposits with confirm action | Wired |
 
 ## Step 10 acceptance
 
@@ -80,3 +82,4 @@ After each OM step: commit → `git push origin main` → Vercel Production depl
 | 13 Vacancy maint+legal | `d5403cf` | Ready |
 | 14–15 Accounts + API banner | `777bc4b` | Ready |
 | 16–17 Deposit UI + vacancy pipeline | `09cd3d2` | Ready |
+| 18–19 Prefill lease + deposit queue | (this release) | after push |
