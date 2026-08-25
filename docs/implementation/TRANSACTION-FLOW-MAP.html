@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>خارطة مسار المعاملة — BHD-R</title>
+    <title>خارطة مسار المعاملة — BHD-R v1.1</title>
     <script type="module">
       import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
       mermaid.initialize({
@@ -21,7 +21,7 @@
         --card: #ffffff;
         --line: #d7ddd8;
         --accent: #0f6e56;
-        --warn: #9a5b12;
+        --ok: #0f6e56;
       }
       * {
         box-sizing: border-box;
@@ -46,6 +46,17 @@
         margin: 0;
         color: var(--muted);
         font-size: 0.95rem;
+      }
+      .badge {
+        display: inline-block;
+        margin-top: 0.5rem;
+        background: #e6f4ef;
+        color: var(--ok);
+        border: 1px solid #b7dfd0;
+        border-radius: 6px;
+        padding: 0.2rem 0.55rem;
+        font-size: 0.8rem;
+        font-weight: 700;
       }
       nav {
         display: flex;
@@ -81,61 +92,54 @@
         border-radius: 12px;
         padding: 1rem 1.1rem 1.2rem;
       }
-      h2 {
+      section h2 {
         margin: 0 0 0.75rem;
         font-size: 1.15rem;
         color: var(--accent);
       }
-      h3 {
+      section h3 {
         margin: 1rem 0 0.5rem;
         font-size: 1rem;
       }
       .mermaid {
-        background: #fbfcfa;
+        background: #fafbfa;
         border: 1px solid var(--line);
-        border-radius: 10px;
+        border-radius: 8px;
         padding: 0.75rem;
         overflow-x: auto;
-        direction: ltr;
-        text-align: center;
       }
       table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 0.92rem;
+        font-size: 0.9rem;
       }
       th,
       td {
         border: 1px solid var(--line);
-        padding: 0.55rem 0.65rem;
+        padding: 0.45rem 0.55rem;
         text-align: right;
         vertical-align: top;
       }
       th {
         background: #eef3f0;
       }
-      ul {
-        margin: 0.35rem 0 0;
-        padding-inline-start: 1.2rem;
-      }
-      .note {
-        border: 1px solid #e4c38a;
-        background: #fff8ea;
-        color: #6b4a12;
-        border-radius: 10px;
-        padding: 0.85rem 1rem;
-      }
       code {
-        font-family: Consolas, 'Courier New', monospace;
-        font-size: 0.86em;
+        font-size: 0.85em;
         background: #eef3f0;
         padding: 0.05rem 0.3rem;
         border-radius: 4px;
       }
+      ul {
+        margin: 0.4rem 0 0;
+        padding-right: 1.2rem;
+      }
+      .ok {
+        background: #f3faf7;
+        border-color: #b7dfd0;
+      }
       footer {
-        max-width: 1100px;
-        margin: 0 auto 2rem;
-        padding: 0 1.25rem;
+        text-align: center;
+        padding: 1.25rem;
         color: var(--muted);
         font-size: 0.85rem;
       }
@@ -145,46 +149,114 @@
     <header>
       <h1>خارطة مسار المعاملة — BHD-R</h1>
       <p>
-        للمراجعة والتصحيح · إيجار · بيع · إعادة تأجير · المصدر:
+        مرجع رسمي للدورة · يُحدَّث مع كل قرار عمل · المصدر:
         <code>docs/implementation/TRANSACTION-FLOW-MAP.md</code>
       </p>
+      <span class="badge">الإصدار 1.1 · معتمد 2026-08-25</span>
     </header>
 
     <nav>
+      <a href="#rules">القرارات المعتمدة</a>
       <a href="#lease">مسار الإيجار</a>
       <a href="#sale">مسار البيع</a>
       <a href="#cycle">حلقة الوحدة</a>
-      <a href="#review">نقاط المراجعة</a>
+      <a href="#gap">فجوة التنفيذ</a>
     </nav>
 
     <main>
+      <section id="rules" class="ok">
+        <h2>قرارات العمل المعتمدة (1.1)</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>الموضوع</th>
+              <th>القرار</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>R1</td>
+              <td>إلغاء / فسخ الإيجار</td>
+              <td>
+                المستأجر يقدّم <strong>طلب إلغاء</strong> → الإدارة تعتمد ويُثبَّت
+                <strong>تاريخ الإلغاء</strong>. الإدارة أيضاً تستطيع بدء الإلغاء. قبل ظهور
+                «ملغي» للمستأجر: <strong>اعتماد المحاسب</strong> (لا متأخرات/مطالبات + تصفية
+                فواتير الخدمة). بعدها يظهر للمستأجر <strong>ملغي</strong>.
+              </td>
+            </tr>
+            <tr>
+              <td>R2</td>
+              <td>التأمين / الضمان</td>
+              <td>في <strong>كل</strong> حالات الخروج (إنهاء أو فسخ/إلغاء) التأمين مرتبط بالمخالصة.</td>
+            </tr>
+            <tr>
+              <td>R3</td>
+              <td>التجديد</td>
+              <td>
+                ملحق <strong>موقّع</strong> ثم إلزاماً: جداول الشيكات + تصفية الفواتير + تأكيد
+                المحاسب. التجاهل فقط باستثناء <strong>المدير</strong>.
+              </td>
+            </tr>
+            <tr>
+              <td>R4</td>
+              <td>بيع ناجح</td>
+              <td>
+                نقل ملكية <strong>داخل النظام</strong> للمشتري؛ اسم المالك الجديد يظهر؛ أرشفة /
+                تفعيل لاحقاً؛ المالك السابق يبقى في السجل كمالك سابق.
+              </td>
+            </tr>
+            <tr>
+              <td>R5</td>
+              <td>بيع وحدة مؤجرة</td>
+              <td>
+                <strong>مسموح</strong>. تُنقل حقوق ملكية الإيجار إلى المالك الجديد دون إنهاء
+                الإيجار أولاً.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
       <section id="lease">
-        <h2>أ) مسار الإيجار — من تخزين العقار حتى الشغور ثم الإيجار من جديد</h2>
+        <h2>أ) مسار الإيجار الكامل</h2>
         <pre class="mermaid">
 flowchart TD
   A["سجل العناوين<br/>مالك / مستأجر / مستخدم"] --> B["تسجيل عقار + وحدات<br/>ربط المالك من السجل"]
   B --> C{"وحدة شاغرة؟"}
-  C -->|نعم| D["حجز: وحدة شاغرة + مستأجر<br/>status = pending"]
-  D --> E["المحاسب يؤكد العربون<br/>status = confirmed"]
-  E --> F["قيد محاسبي تلقائي<br/>Dr 1000 / Cr 2100"]
-  F --> G["عقد إيجار قيد الإجراء<br/>leases.draft"]
-  G --> H["مبالغ: إيجار / ضمان / سماح / أخرى / شيكات"]
-  H --> I["سلسلة اعتماد<br/>محاسب → مالي → إدارة"]
-  I --> J["إرسال للتوقيع الإلكتروني"]
-  J --> K["توقيع الأطراف"]
-  K --> L["تفعيل → leases.active"]
-  L --> M["ظهور في البوابات<br/>خروج من قوائم الشاغر"]
-  M --> N{"قرار لاحق"}
-  N -->|تجديد| O["ملحق تجديد موقّع"]
-  O --> G
-  N -->|إنهاء طبيعي| P["leases.ended"]
-  N -->|فسخ| Q["leases.terminated"]
-  P --> R["تلقائي: مهمة شغور"]
-  Q --> R
-  R --> S["صيانة تسليم"]
-  S --> T["محاماة مراجعة تأمين"]
-  T --> U["مصروف مخالصة"]
-  U --> C
+  C -->|نعم| D["حجز: وحدة شاغرة + مستأجر<br/>pending"]
+  D --> E["المحاسب يؤكد العربون<br/>confirmed"]
+  E --> F["قيد تأمينات تلقائي<br/>Dr 1000 / Cr 2100"]
+  F --> G["عقد قيد الإجراء<br/>leases.draft"]
+  G --> H["إيجار / ضمان / سماح / أخرى / شيكات"]
+  H --> I["اعتمادات محاسب→مالي→إدارة"]
+  I --> J["توقيع إلكتروني"]
+  J --> K["تفعيل → active"]
+  K --> L["ظهور في البوابات / خروج من الشاغر"]
+  L --> N{"قرار لاحق"}
+
+  N -->|تجديد| REN1["ملحق تجديد موقّع"]
+  REN1 --> REN2["جداول شيكات جديدة"]
+  REN2 --> REN3["تصفية فواتير مستحقة"]
+  REN3 --> REN4{"تأكيد المحاسب إلزامي"}
+  REN4 -->|معتمد| REN5["تفعيل الفترة الجديدة"]
+  REN4 -->|استثناء المدير فقط| REN5
+  REN5 --> L
+
+  N -->|طلب إلغاء من المستأجر| CX1["طلب إلغاء + تاريخ مقترح"]
+  N -->|إلغاء من الإدارة| CX1
+  CX1 --> CX2["اعتماد الإدارة + تثبيت تاريخ الإلغاء"]
+  CX2 --> CX3["بوابة المحاسب: لا متأخرات/مطالبات"]
+  CX3 --> CX4["تصفية فواتير الخدمة"]
+  CX4 --> CX5["مخالصة التأمين/الضمان مرتبطة"]
+  CX5 --> CX6["ملغي للمستأجر<br/>cancelled / terminated"]
+  CX6 --> VAC["متابعة شغور تلقائية"]
+
+  N -->|إنهاء طبيعي بنهاية المدة| END1["انتهاء المدة"]
+  END1 --> CX3
+
+  VAC --> VAC2["مهمة + صيانة + محاماة تأمين + مصروف مخالصة"]
+  VAC2 --> C
         </pre>
 
         <h3>حالات الإيجار</h3>
@@ -192,7 +264,7 @@ flowchart TD
           <thead>
             <tr>
               <th>المرحلة</th>
-              <th>الكود في النظام</th>
+              <th>الحالة المتوقعة</th>
               <th>المسؤول</th>
             </tr>
           </thead>
@@ -204,28 +276,38 @@ flowchart TD
             </tr>
             <tr>
               <td>عربون مؤكد</td>
-              <td><code>reservations.confirmed</code> + قيد <code>reservation_deposit</code></td>
+              <td><code>confirmed</code> + قيد <code>reservation_deposit</code></td>
               <td>محاسب</td>
             </tr>
             <tr>
               <td>قيد الإجراء</td>
-              <td><code>leases.draft</code> + اعتمادات + شيكات</td>
+              <td><code>leases.draft</code> + اعتمادات/شيكات/توقيع</td>
               <td>محاسب / مالي / إدارة</td>
             </tr>
             <tr>
               <td>ساري</td>
-              <td><code>leases.active</code> بعد توقيع</td>
+              <td><code>leases.active</code></td>
               <td>عمليات</td>
+            </tr>
+            <tr>
+              <td>طلب إلغاء</td>
+              <td>طلب مستأجر أو إدارة + تاريخ إلغاء</td>
+              <td>مستأجر / إدارة</td>
+            </tr>
+            <tr>
+              <td>بانتظار المحاسب قبل الإلغاء</td>
+              <td>لا متأخرات · فواتير خدمة · مخالصة تأمين</td>
+              <td>محاسب</td>
+            </tr>
+            <tr>
+              <td>ملغي (ظاهر للمستأجر)</td>
+              <td>بعد اعتماد المحاسب</td>
+              <td>نظام</td>
             </tr>
             <tr>
               <td>تجديد</td>
-              <td>ملحق → يعود لدورة مسودة/ساري</td>
-              <td>عمليات</td>
-            </tr>
-            <tr>
-              <td>منتهٍ / مفسوخ</td>
-              <td><code>ended</code> / <code>terminated</code></td>
-              <td>عمليات</td>
+              <td>ملحق → شيكات → فواتير → محاسب (أو استثناء مدير)</td>
+              <td>عمليات + محاسب</td>
             </tr>
             <tr>
               <td>شاغر مرة أخرى</td>
@@ -237,11 +319,11 @@ flowchart TD
       </section>
 
       <section id="sale">
-        <h2>ب) مسار البيع (منفصل عن الإيجار)</h2>
+        <h2>ب) مسار البيع + نقل الملكية</h2>
         <pre class="mermaid">
 flowchart TD
-  A["سجل العناوين"] --> B["عقار/وحدة لغرض البيع"]
-  B --> C["sales_deals: lead"]
+  A["سجل العناوين"] --> B["عقار/وحدة للبيع"]
+  B --> C["lead"]
   C --> D["qualified"]
   D --> E["viewing"]
   E --> F["offer"]
@@ -249,6 +331,19 @@ flowchart TD
   G --> H["reserved"]
   H --> I["contracting"]
   I --> J["closed_won"]
+
+  J --> OWN1["نقل ملكية داخل النظام للمشتري"]
+  OWN1 --> OWN2["ظهور اسم المالك الجديد"]
+  OWN2 --> OWN3["المالك السابق يُحفظ كمالك سابق"]
+  OWN3 --> OWN4{"العقار"}
+  OWN4 -->|نشط| OWN5["إدارة تحت المالك الجديد"]
+  OWN4 -->|أرشفة لاحقاً| OWN6["archived — قابل لإعادة التفعيل"]
+
+  J --> LEASE{"هل الوحدة مؤجرة؟"}
+  LEASE -->|نعم| TR["نقل حقوق عقد الإيجار الساري<br/>إلى المالك الجديد"]
+  LEASE -->|لا| OWN5
+  TR --> OWN5
+
   C -.-> X["closed_lost / cancelled"]
   D -.-> X
   E -.-> X
@@ -256,103 +351,84 @@ flowchart TD
   G -.-> X
   H -.-> X
   I -.-> X
-  X -.->|"من closed_lost فقط"| C
+  X -.->|"من closed_lost"| C
         </pre>
 
-        <h3>حالات البيع</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>المرحلة</th>
-              <th>الكود</th>
-              <th>ملاحظة</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>عميل محتمل</td>
-              <td><code>lead</code></td>
-              <td>بداية الصفقة</td>
-            </tr>
-            <tr>
-              <td>مؤهل</td>
-              <td><code>qualified</code></td>
-              <td></td>
-            </tr>
-            <tr>
-              <td>معاينة</td>
-              <td><code>viewing</code></td>
-              <td>قد ترتبط بطلب معاينة تشغيلي</td>
-            </tr>
-            <tr>
-              <td>عرض / تفاوض</td>
-              <td><code>offer → negotiation</code></td>
-              <td></td>
-            </tr>
-            <tr>
-              <td>محجوز بيع</td>
-              <td><code>reserved</code></td>
-              <td>ليس نفس حجز الإيجار</td>
-            </tr>
-            <tr>
-              <td>تعاقد</td>
-              <td><code>contracting</code></td>
-              <td></td>
-            </tr>
-            <tr>
-              <td>ناجح</td>
-              <td><code>closed_won</code></td>
-              <td>نهاية سعيدة</td>
-            </tr>
-            <tr>
-              <td>خسارة / إلغاء</td>
-              <td><code>closed_lost</code> / <code>cancelled</code></td>
-              <td>من الخسارة يمكن الرجوع لـ lead</td>
-            </tr>
-          </tbody>
-        </table>
+        <h3>قواعد البيع</h3>
+        <ul>
+          <li>البيع لا يُمنع بسبب وجود إيجار ساري.</li>
+          <li>
+            عند البيع والوحدة مؤجرة: تُنقل حقوق ملكية الإيجار إلى المالك الجديد؛ المستأجر يبقى
+            على عقده ما لم يُلغَ بمسار الإلغاء المعتمد.
+          </li>
+          <li>بعد <code>closed_won</code>: نقل ملكية داخل النظام + سجل تاريخي للملاك.</li>
+        </ul>
       </section>
 
       <section id="cycle">
         <h2>ج) حلقة حياة الوحدة</h2>
         <pre class="mermaid">
 stateDiagram-v2
-  [*] --> Vacant: شاغر
-  Vacant --> Leased: حجز → عربون → عقد → تفعيل
-  Leased --> Vacant: إنهاء أو فسخ + متابعة شغور
-  Vacant --> Sold: مسار بيع closed_won
-  Leased --> Leased: تجديد
+  [*] --> Vacant
+  Vacant --> Leased: حجز→عربون→عقد→تفعيل
+  Leased --> Leased: تجديد ملحق+شيكات+فواتير+محاسب
+  Leased --> CancelPending: طلب إلغاء / إلغاء إدارة
+  CancelPending --> AccountantGate: اعتماد إدارة + تاريخ
+  AccountantGate --> Cancelled: لا متأخرات + فواتير + تأمين
+  Cancelled --> Vacant: متابعة شغور
+  Vacant --> Sold: closed_won + نقل ملكية
+  Leased --> Sold: بيع مؤجّر + نقل حقوق الإيجار
+  Sold --> Managed: مالك جديد نشط أو مؤرشف
         </pre>
       </section>
 
-      <section id="review" class="note">
-        <h2 style="color: var(--warn)">د) نقاط تحتاج رأيك</h2>
-        <ul>
-          <li>
-            <strong>بعد بيع ناجح:</strong> هل تريد نقل ملكية تلقائي داخل النظام أم إجراء يدوي
-            خارجي؟
-          </li>
-          <li>
-            <strong>التجديد:</strong> هل يكفي ملحق موقّع ثم تفعيل، أم جدول شيكات/فوترة جديد إلزامي
-            كل مرة؟
-          </li>
-          <li><strong>الفسخ مقابل الإنهاء:</strong> هل مخالصة التأمين تختلف بينهما؟</li>
-          <li><strong>بيع وحدة مؤجرة:</strong> هل يُمنع البيع إلا بعد إنهاء الإيجار؟</li>
-          <li>
-            <strong>Nest على الإنتاج:</strong> بدون
-            <code>API_INTERNAL_ORIGIN</code> المسار التشغيلي لا يكتمل على Vercel.
-          </li>
-        </ul>
-        <p style="margin: 0.85rem 0 0">
-          اكتب تصحيحاتك في المحادثة أو في ملف
-          <code>TRANSACTION-FLOW-MAP.md</code> وسأحدّث المخطط والكود.
+      <section id="gap">
+        <h2>د) فجوة التنفيذ مقابل القرار</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>القرار</th>
+              <th>في الكود اليوم</th>
+              <th>المطلوب لاحقاً</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>R1</td>
+              <td><code>end</code> / <code>terminate</code> مباشر</td>
+              <td>طلب → إدارة → محاسب → ثم ملغي للمستأجر</td>
+            </tr>
+            <tr>
+              <td>R2</td>
+              <td>مخالصة/مهمة شغور جزئياً</td>
+              <td>ربط إلزامي بمخالصة التأمين قبل الإغلاق</td>
+            </tr>
+            <tr>
+              <td>R3</td>
+              <td>ملحق تجديد موقّع</td>
+              <td>بوابة محاسب إلزامية + استثناء مدير</td>
+            </tr>
+            <tr>
+              <td>R4</td>
+              <td>صفقة بيع بلا نقل ملكية كامل</td>
+              <td>نقل المالك + تاريخ ملاك سابقين</td>
+            </tr>
+            <tr>
+              <td>R5</td>
+              <td>غير مكتمل</td>
+              <td>تحديث مالك العقد/الوحدة مع بقاء المستأجر</td>
+            </tr>
+          </tbody>
+        </table>
+        <p style="margin: 0.85rem 0 0; color: var(--muted); font-size: 0.9rem">
+          أي قرار جديد: زد الإصدار في
+          <code>TRANSACTION-FLOW-MAP.md</code> ثم حدّث هذا الملف HTML ثم نفّذ في الكود.
         </p>
       </section>
     </main>
 
     <footer>
-      BHD-R · TRANSACTION-FLOW-MAP · افتح هذا الملف بالمتصفح (Chrome / Edge) حتى تظهر الرسوم.
-      يحتاج اتصال إنترنت لأول مرة لتحميل مكتبة Mermaid.
+      BHD-R · TRANSACTION-FLOW-MAP v1.1 · افتح في Chrome / Edge · يحتاج إنترنت لأول تحميل Mermaid
     </footer>
   </body>
 </html>

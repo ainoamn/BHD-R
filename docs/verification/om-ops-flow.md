@@ -83,3 +83,15 @@ After each OM step: commit → `git push origin main` → Vercel Production depl
 | 14–15 Accounts + API banner | `777bc4b` | Ready |
 | 16–17 Deposit UI + vacancy pipeline | `09cd3d2` | Ready |
 | 18–19 Prefill lease + deposit queue | `bff75a7` | Ready |
+
+## Cycle rules v1.1 (documented — code pending)
+
+Source of truth: `docs/implementation/TRANSACTION-FLOW-MAP.md` (+ HTML).
+
+| ID | Rule | Code status |
+|----|------|-------------|
+| R1 | Cancel request → admin date → accountant clearance → tenant sees cancelled | Pending |
+| R2 | Deposit settlement tied on every exit path | Partial (vacancy follow-ups) |
+| R3 | Renewal: signed addendum → cheques + invoices → accountant (manager exception) | Pending |
+| R4 | `closed_won` → in-system ownership transfer + prior owner history | Pending |
+| R5 | Sale of leased unit allowed; lease rights follow new owner | Pending |
