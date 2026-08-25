@@ -211,6 +211,42 @@ export const createLeaseSchema = z.object({
   deposit: moneySchema.optional(),
   billingDay: z.number().int().min(1).max(28),
   templateVersionId: uuidSchema,
+  /** OM: أيام السماح بعد الاستحقاق */
+  graceDays: z.number().int().min(0).max(90).default(0),
+  /** OM: مبلغ السماح/الغرامة المرتبطة */
+  graceAmount: moneySchema.optional(),
+  /** OM: تاريخ تسليم الوحدة */
+  handoverOn: z.iso.date().optional(),
+  /** OM: مبالغ أخرى (تأمين إضافي، رسوم…) */
+  otherCharges: z
+    .array(
+      z.object({
+        labelAr: z.string().trim().min(1).max(160),
+        labelEn: z.string().trim().min(1).max(160),
+        amount: moneySchema,
+      }),
+    )
+    .max(20)
+    .default([]),
+  /** OM: جدول الشيكات المرفقة بالعقد */
+  cheques: z
+    .array(
+      z.object({
+        bankName: z.string().trim().min(2).max(160),
+        chequeNumber: z.string().trim().min(1).max(80),
+        amount: moneySchema,
+        dueOn: z.iso.date(),
+      }),
+    )
+    .max(48)
+    .default([]),
+  /**
+   * OM accounting approval presets:
+   * accountant | accountant→finance | accountant→finance→admin
+   */
+  approvalChain: z
+    .enum(['accountant', 'accountant_finance', 'accountant_finance_admin'])
+    .default('accountant'),
 });
 
 export const recordPaymentSchema = z.object({

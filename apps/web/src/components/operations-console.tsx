@@ -163,10 +163,12 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
   leasing: {
     titleAr: 'إدارة التأجير',
     titleEn: 'Leasing management',
-    introAr: 'إنشاء عقود الإيجار وتفعيلها وتجديدها وإنهاؤها مع ربط المستأجر والفوترة.',
-    introEn: 'Create, activate, renew and close leases linked to tenants and billing.',
-    createAr: 'عقد إيجار جديد',
-    createEn: 'New lease',
+    introAr:
+      'عقد قيد الإجراء: إيجار وضمان وسماح وشيكات وسلسلة اعتماد (محاسب/مالي/إدارة) ثم توقيع إلكتروني وتفعيل ليصبح ساري المفعول.',
+    introEn:
+      'In-progress lease: rent, deposit, grace, cheques, approval chain, e-sign, then activation to active.',
+    createAr: 'تحويل لعقد إيجار',
+    createEn: 'Convert to lease',
     columns: [
       { key: 'id', ar: 'العقد', en: 'Lease' },
       { key: 'status', ar: 'الحالة', en: 'Status', format: 'status' },
@@ -963,7 +965,27 @@ function CreateFields({
             defaultValue={inOneMonth}
           />
           <Input name="rent" label={ar ? 'الإيجار' : 'Rent'} type="number" min="0" required />
-          <Input name="deposit" label={ar ? 'التأمين' : 'Deposit'} type="number" min="0" />
+          <Input name="deposit" label={ar ? 'التأمين/الضمان' : 'Deposit'} type="number" min="0" />
+          <Input
+            name="graceDays"
+            label={ar ? 'أيام السماح' : 'Grace days'}
+            type="number"
+            min="0"
+            defaultValue="0"
+            required
+          />
+          <Input
+            name="graceAmount"
+            label={ar ? 'مبلغ السماح/الغرامة' : 'Grace / late amount'}
+            type="number"
+            min="0"
+          />
+          <Input
+            name="handoverOn"
+            label={ar ? 'تاريخ تسليم الوحدة' : 'Unit handover date'}
+            type="date"
+            defaultValue={today}
+          />
           <Input
             name="billingDay"
             label={ar ? 'يوم الفوترة' : 'Billing day'}
@@ -972,7 +994,46 @@ function CreateFields({
             defaultValue="1"
             required
           />
+          <label className="field">
+            <span>{ar ? 'سلسلة الاعتماد' : 'Approval chain'}</span>
+            <select className="select" name="approvalChain" defaultValue="accountant">
+              <option value="accountant">{ar ? 'محاسب فقط' : 'Accountant only'}</option>
+              <option value="accountant_finance">
+                {ar ? 'محاسب ← مدير مالي' : 'Accountant → Finance'}
+              </option>
+              <option value="accountant_finance_admin">
+                {ar ? 'محاسب ← مالي ← إدارة' : 'Accountant → Finance → Admin'}
+              </option>
+            </select>
+          </label>
+          <Input
+            name="cheque1Bank"
+            label={ar ? 'شيك 1 — البنك' : 'Cheque 1 — bank'}
+            placeholder={ar ? 'اختياري' : 'Optional'}
+          />
+          <Input name="cheque1Number" label={ar ? 'شيك 1 — الرقم' : 'Cheque 1 — number'} />
+          <Input
+            name="cheque1Amount"
+            label={ar ? 'شيك 1 — المبلغ' : 'Cheque 1 — amount'}
+            type="number"
+            min="0"
+          />
+          <Input name="cheque1DueOn" label={ar ? 'شيك 1 — الاستحقاق' : 'Cheque 1 — due'} type="date" />
+          <Input name="cheque2Bank" label={ar ? 'شيك 2 — البنك' : 'Cheque 2 — bank'} />
+          <Input name="cheque2Number" label={ar ? 'شيك 2 — الرقم' : 'Cheque 2 — number'} />
+          <Input
+            name="cheque2Amount"
+            label={ar ? 'شيك 2 — المبلغ' : 'Cheque 2 — amount'}
+            type="number"
+            min="0"
+          />
+          <Input name="cheque2DueOn" label={ar ? 'شيك 2 — الاستحقاق' : 'Cheque 2 — due'} type="date" />
           <CurrencySelect locale={locale} />
+          <p className="ops-hint">
+            {ar
+              ? 'بعد الحفظ يكون العقد قيد الإجراء. يعتمد المحاسب الشيكات والمبالغ، ثم سلسلة الاعتماد، ثم الإرسال للتوقيع الإلكتروني، وأخيراً التفعيل ليصبح ساري المفعول.'
+              : 'After save the lease stays in progress. Accounting accepts cheques, then the approval chain, then e-sign send, then activation to make it active.'}
+          </p>
         </>
       );
     case 'sales':
@@ -1512,6 +1573,27 @@ function creationRequest(section: OperationsSection, form: FormData) {
             ? { deposit: { amountMinor: amount('deposit'), currency } }
             : {}),
           billingDay: Number(text(form.get('billingDay'))),
+          graceDays: Number(text(form.get('graceDays')) || '0'),
+          ...(text(form.get('graceAmount'))
+            ? { graceAmount: { amountMinor: amount('graceAmount'), currency } }
+            : {}),
+          ...(text(form.get('handoverOn')) ? { handoverOn: text(form.get('handoverOn')) } : {}),
+          approvalChain: text(form.get('approvalChain')) || 'accountant',
+          cheques: [1, 2]
+            .map((index) => {
+              const bankName = text(form.get(`cheque${index}Bank`));
+              const chequeNumber = text(form.get(`cheque${index}Number`));
+              const chequeAmount = text(form.get(`cheque${index}Amount`));
+              const dueOn = text(form.get(`cheque${index}DueOn`));
+              if (!bankName || !chequeNumber || !chequeAmount || !dueOn) return null;
+              return {
+                bankName,
+                chequeNumber,
+                amount: { amountMinor: amount(`cheque${index}Amount`), currency },
+                dueOn,
+              };
+            })
+            .filter(Boolean),
           ...(text(form.get('reservationId'))
             ? { reservationId: text(form.get('reservationId')) }
             : {}),

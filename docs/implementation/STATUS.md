@@ -11,7 +11,7 @@
 | 2 Parties                | complete | `docs/verification/phase-2.md`                                                    |
 | 3 Portfolio / media      | complete | `docs/verification/phase-3.md`                                                    |
 | 4 Viewing / booking      | complete | Cheques + leads + concurrency — `docs/verification/phase-4.md` + responsive audit |
-| **OM ops flow**          | **active** | `docs/implementation/OPS-FLOW-FROM-BHD-OM.md` — deposit gate + vacant booking UI |
+| **OM ops flow**          | **active** | Steps 1–5 wired in API/ops UI — Nest `API_ORIGIN` still required on Vercel |
 | 5 Contracts              | pending  | Wire grace/cheques schedule + multi-approver to OM parity                         |
 | 6 Finance / accounting   | pending  | FiscalPeriod + auto journals on deposit confirm                                   |
 | 7 Maintenance / tasks    | pending  | Quote/warranty/auto-task uniqueness                                               |

@@ -13,6 +13,7 @@ import {
   contractSignatures,
   contractTemplates,
   contracts,
+  cheques,
   holds,
   leases,
   mediaAssets,
@@ -59,6 +60,47 @@ export function assertReservationRequirementsApproved(
     );
   }
 }
+
+const APPROVAL_CHAIN_STAGES = {
+  accountant: [
+    {
+      type: 'contract_approval_accountant',
+      subjectAr: 'اعتماد المحاسب للعقد والمبالغ',
+      subjectEn: 'Accountant approval of contract amounts',
+    },
+  ],
+  accountant_finance: [
+    {
+      type: 'contract_approval_accountant',
+      subjectAr: 'اعتماد المحاسب للعقد والمبالغ',
+      subjectEn: 'Accountant approval of contract amounts',
+    },
+    {
+      type: 'contract_approval_finance',
+      subjectAr: 'اعتماد المدير المالي',
+      subjectEn: 'Finance manager approval',
+    },
+  ],
+  accountant_finance_admin: [
+    {
+      type: 'contract_approval_accountant',
+      subjectAr: 'اعتماد المحاسب للعقد والمبالغ',
+      subjectEn: 'Accountant approval of contract amounts',
+    },
+    {
+      type: 'contract_approval_finance',
+      subjectAr: 'اعتماد المدير المالي',
+      subjectEn: 'Finance manager approval',
+    },
+    {
+      type: 'contract_approval_admin',
+      subjectAr: 'اعتماد مسؤول الإدارة',
+      subjectEn: 'Administration manager approval',
+    },
+  ],
+} as const;
+
+type ApprovalChainKey = keyof typeof APPROVAL_CHAIN_STAGES;
 
 export function assertRenewalTerms(
   current: { endsOn: string; currency: string },
@@ -280,6 +322,21 @@ export class LeasingService {
         (input.deposit && input.deposit.currency !== unit.currency)
       )
         throw new ConflictException('Lease currency mismatch');
+      const graceDays = input.graceDays ?? 0;
+      const approvalChain = (input.approvalChain ?? 'accountant') as ApprovalChainKey;
+      const stages = APPROVAL_CHAIN_STAGES[approvalChain];
+      const otherCharges = input.otherCharges ?? [];
+      const chequeInputs = input.cheques ?? [];
+      for (const charge of otherCharges) {
+        if (charge.amount.currency !== input.rent.currency)
+          throw new ConflictException('Other charge currency mismatch');
+      }
+      for (const cheque of chequeInputs) {
+        if (cheque.amount.currency !== input.rent.currency)
+          throw new ConflictException('Cheque currency mismatch');
+      }
+      if (input.graceAmount && input.graceAmount.currency !== input.rent.currency)
+        throw new ConflictException('Grace amount currency mismatch');
       const contractYear = Number(input.startsOn.slice(0, 4));
       const sequence = await transaction.execute(sql<{ allocated: bigint }>`
         insert into contract_sequences (organization_id, year, next_value)
@@ -310,6 +367,14 @@ export class LeasingService {
         billingDay: input.billingDay,
         rent: input.rent,
         deposit: input.deposit,
+        graceDays,
+        graceAmount: input.graceAmount ?? null,
+        handoverOn: input.handoverOn ?? null,
+        otherCharges,
+        cheques: chequeInputs,
+        approvalChain,
+        approvalStages: stages.map((stage) => stage.type),
+        lifecycleStatus: 'in_progress',
         additionalTerms: input.additionalTerms ? sanitizeRichText(input.additionalTerms) : null,
       };
       const contractRows = await transaction
@@ -346,19 +411,38 @@ export class LeasingService {
         organizationId: claims.organizationId!,
         leaseId: leaseRows[0]!.id,
         billingDay: input.billingDay,
+        dueDays: graceDays,
         descriptionAr: `إيجار الوحدة ${unit.code}`,
         descriptionEn: `Rent for unit ${unit.code}`,
         nextIssueOn: input.startsOn,
       });
-      await transaction.insert(approvalRequests).values({
-        organizationId: claims.organizationId!,
-        reference: `APR-${contractReference}`,
-        type: 'contract_approval',
-        subject: `Contract ${contractReference}`,
-        resourceType: 'contract',
-        resourceId: contract.id,
-        requestedByUserId: claims.sub,
-      });
+      for (const [index, stage] of stages.entries()) {
+        await transaction.insert(approvalRequests).values({
+          organizationId: claims.organizationId!,
+          reference: `APR-${contractReference}-${index + 1}`,
+          type: stage.type,
+          subject: `${stage.subjectEn} · ${contractReference}`,
+          resourceType: 'contract',
+          resourceId: contract.id,
+          requestedByUserId: claims.sub,
+          status: index === 0 ? 'pending' : 'on_hold',
+        });
+      }
+      if (chequeInputs.length) {
+        await transaction.insert(cheques).values(
+          chequeInputs.map((cheque) => ({
+            organizationId: claims.organizationId!,
+            leaseId: leaseRows[0]!.id,
+            reservationId: input.reservationId,
+            ownerPartyId: input.tenantPartyId,
+            bankName: cheque.bankName,
+            chequeNumber: cheque.chequeNumber,
+            amountMinor: BigInt(cheque.amount.amountMinor),
+            currency: cheque.amount.currency,
+            dueOn: cheque.dueOn,
+          })),
+        );
+      }
       const access = await this.authService.provisionTenantAccess(transaction, {
         organizationId: claims.organizationId!,
         partyId: tenant.id,
@@ -390,7 +474,13 @@ export class LeasingService {
         topic: 'lease.created',
         aggregateType: 'lease',
         aggregateId: leaseRows[0]!.id,
-        payload: { contractId: contract.id, unitId: input.unitId, contractReference },
+        payload: {
+          contractId: contract.id,
+          unitId: input.unitId,
+          contractReference,
+          approvalChain,
+          chequeCount: chequeInputs.length,
+        },
       });
       return {
         contract,
@@ -756,16 +846,63 @@ export class LeasingService {
 
   async sendContract(claims: SessionClaims, contractId: string) {
     return this.database.withinTenant(claims, async (transaction) => {
-      const approval = await transaction.query.approvalRequests.findFirst({
+      const contract = await transaction.query.contracts.findFirst({
         where: and(
-          eq(approvalRequests.organizationId, claims.organizationId!),
-          eq(approvalRequests.resourceType, 'contract'),
-          eq(approvalRequests.resourceId, contractId),
-          eq(approvalRequests.status, 'approved'),
+          eq(contracts.id, contractId),
+          eq(contracts.organizationId, claims.organizationId!),
         ),
-        orderBy: desc(approvalRequests.createdAt),
       });
-      if (!approval) throw new ConflictException('Contract approval is required before sending');
+      if (!contract) throw new NotFoundException('Contract not found');
+      const snapshot = (contract.payloadSnapshot ?? {}) as {
+        approvalStages?: string[];
+      };
+      const requiredTypes =
+        snapshot.approvalStages?.length && snapshot.approvalStages.length > 0
+          ? snapshot.approvalStages
+          : ['contract_approval', 'contract_approval_accountant'];
+      const approvals = await transaction
+        .select({
+          type: approvalRequests.type,
+          status: approvalRequests.status,
+        })
+        .from(approvalRequests)
+        .where(
+          and(
+            eq(approvalRequests.organizationId, claims.organizationId!),
+            eq(approvalRequests.resourceType, 'contract'),
+            eq(approvalRequests.resourceId, contractId),
+          ),
+        );
+      for (const type of requiredTypes) {
+        const row = approvals.find((item) => item.type === type);
+        if (!row || row.status !== 'approved') {
+          throw new ConflictException(
+            `Contract approval stage "${type}" must be approved before sending for e-signature`,
+          );
+        }
+      }
+      const lease = await transaction.query.leases.findFirst({
+        where: and(
+          eq(leases.contractId, contractId),
+          eq(leases.organizationId, claims.organizationId!),
+        ),
+      });
+      if (lease) {
+        const pendingCheques = await transaction
+          .select({ id: cheques.id, reviewStatus: cheques.reviewStatus })
+          .from(cheques)
+          .where(
+            and(eq(cheques.organizationId, claims.organizationId!), eq(cheques.leaseId, lease.id)),
+          );
+        const blocked = pendingCheques.filter(
+          (row) => !['accepted', 'deposited', 'cleared'].includes(row.reviewStatus),
+        );
+        if (blocked.length) {
+          throw new ConflictException(
+            'Accountant must accept all contract cheques before sending for e-signature',
+          );
+        }
+      }
       const rows = await transaction
         .update(contracts)
         .set({ status: 'sent', sentAt: new Date(), updatedAt: new Date() })
@@ -777,16 +914,16 @@ export class LeasingService {
           ),
         )
         .returning();
-      const contract = rows[0];
-      if (!contract) throw new ConflictException('Only a draft contract can be sent');
+      const sent = rows[0];
+      if (!sent) throw new ConflictException('Only a draft contract can be sent');
       await transaction.insert(outboxEvents).values({
         organizationId: claims.organizationId!,
         topic: 'contract.signature-requested',
         aggregateType: 'contract',
-        aggregateId: contract.id,
-        payload: { tenantPartyId: contract.tenantPartyId },
+        aggregateId: sent.id,
+        payload: { tenantPartyId: sent.tenantPartyId },
       });
-      return contract;
+      return sent;
     });
   }
 
@@ -1389,6 +1526,18 @@ export class LeasingService {
         });
         if (!contract)
           throw new ConflictException('A signed contract is required before lease activation');
+        const leaseCheques = await transaction
+          .select({ reviewStatus: cheques.reviewStatus })
+          .from(cheques)
+          .where(and(eq(cheques.organizationId, claims.organizationId!), eq(cheques.leaseId, id)));
+        const blockedCheques = leaseCheques.filter(
+          (row) => !['accepted', 'deposited', 'cleared'].includes(row.reviewStatus),
+        );
+        if (blockedCheques.length) {
+          throw new ConflictException(
+            'All lease cheques must be accepted by accounting before activation',
+          );
+        }
         nextStatus = 'active';
       } else if (input.action === 'end' && current.status === 'active') nextStatus = 'ended';
       else if (input.action === 'terminate' && ['draft', 'active'].includes(current.status))

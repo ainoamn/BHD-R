@@ -1241,6 +1241,39 @@ export class OperationsService {
         toStatus: input.decision,
         note: input.note,
       });
+      if (
+        input.decision === 'approved' &&
+        current.resourceType === 'contract' &&
+        current.type.startsWith('contract_approval')
+      ) {
+        const siblings = await transaction
+          .select()
+          .from(approvalRequests)
+          .where(
+            and(
+              eq(approvalRequests.organizationId, claims.organizationId!),
+              eq(approvalRequests.resourceType, 'contract'),
+              eq(approvalRequests.resourceId, current.resourceId),
+            ),
+          )
+          .orderBy(asc(approvalRequests.createdAt));
+        const currentIndex = siblings.findIndex((row) => row.id === id);
+        const next = currentIndex >= 0 ? siblings[currentIndex + 1] : undefined;
+        if (next && next.status === 'on_hold') {
+          await transaction
+            .update(approvalRequests)
+            .set({ status: 'pending', updatedAt: new Date() })
+            .where(eq(approvalRequests.id, next.id));
+          await appendWorkflowEvent(transaction, claims, {
+            resourceType: 'approval_request',
+            resourceId: next.id,
+            eventType: 'approval.unlocked',
+            fromStatus: 'on_hold',
+            toStatus: 'pending',
+            note: `Unlocked after ${current.type}`,
+          });
+        }
+      }
       if (current.resourceType === 'maintenance_work_order') {
         const targetStatus = input.decision === 'approved' ? 'approved' : 'quoted';
         const workOrders = await transaction

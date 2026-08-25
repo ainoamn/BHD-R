@@ -31,8 +31,8 @@
 | 2 Property + units + owner | Exists (wizard); polish ongoing |
 | 3 Vacant listing | Ops context `vacantUnits` + bookings filter |
 | 4 Booking → accountant → lease | **Gate wired in leasing service** |
-| 5 Contract amounts / cheques / e-sign / approvals | Partial (e-sign/approval exist; grace/cheque schedule next) |
-| 6 Portal reflection | Partial portals; deepen after gate |
+| 5 Contract amounts / cheques / e-sign / approvals | **Wired** — grace, cheque schedule, multi-stage approval chain, cheque gate before send/activate |
+| 6 Portal reflection | Partial portals; deepen after Nest is live |
 | 7 Vacant → tasks/maintenance/legal/accounts | Manual ops today; automation later |
 
 ## Deploy note
