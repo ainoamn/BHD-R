@@ -55,4 +55,4 @@ After each OM step: commit → `git push origin main` → Vercel Production depl
 | 9 Vacancy task | `0a4c297` | Ready |
 | 10 Party-scoped portals | `8edaf35` | Ready |
 | 11 Nest hosting scaffold | `6b4dc32` | Ready |
-| 12 Lease lifecycle UI | (this release) | after push |
+| 12 Lease lifecycle UI | `ad27d7d` | Ready |
