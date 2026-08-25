@@ -688,6 +688,7 @@ function Input({
   defaultValue,
   min,
   step,
+  placeholder,
 }: {
   name: string;
   label: string;
@@ -696,6 +697,7 @@ function Input({
   defaultValue?: string;
   min?: string;
   step?: string;
+  placeholder?: string;
 }) {
   return (
     <label className="field">
@@ -708,6 +710,7 @@ function Input({
         defaultValue={defaultValue}
         min={min}
         step={step}
+        placeholder={placeholder}
       />
     </label>
   );

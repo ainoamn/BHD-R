@@ -81,22 +81,6 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
           ) : null}
         </div>
       )}
-      {portal === 'accountant' && (
-        <div className="portal-quick-links">
-          <Link href="/accountant/leasing" className="button button--quiet">
-            {locale === 'ar' ? 'العقود السارية' : 'Active leases'}
-          </Link>
-          <Link href="/accountant/accounting" className="button button--quiet">
-            {locale === 'ar' ? 'القيود والشيكات' : 'Journals & cheques'}
-          </Link>
-          <Link href="/accountant/invoices" className="button button--quiet">
-            {locale === 'ar' ? 'الفواتير' : 'Invoices'}
-          </Link>
-          <Link href="/accountant/bookings" className="button button--quiet">
-            {locale === 'ar' ? 'تأكيد العربون' : 'Deposit confirmations'}
-          </Link>
-        </div>
-      )}
       <div className="portal-grid">
         <Card>
           <CardHeader>
