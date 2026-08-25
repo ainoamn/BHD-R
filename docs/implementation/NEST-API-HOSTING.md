@@ -94,3 +94,16 @@ After Docker build, Nest boots with `loadEnvironment`. Missing keys abort the pr
 | Browser mutations | Via Vercel BFF `/api/backend/v1/*` (sets trusted `Origin`) |
 | Vercel `API_INTERNAL_ORIGIN` | Must be Nest HTTPS on Production **and** Preview |
 | CSRF / preview | Nest allowlist + BFF; redeploy **both** Vercel and Render after API CSRF changes |
+| CORS typing (0.2.25) | Use `resolveCorsOrigin` (Nest sync). Express-style `corsOriginDelegate(origin, cb)` breaks `nest build` / Render Docker |
+
+### Render build failure (2026-08-25)
+
+Deploys after `2deea1b` failed with exit 1 during Docker build because:
+
+```text
+pnpm exec turbo run build --filter=@bhd-r/api...  →  TS2322 on origin: corsOriginDelegate
+```
+
+Fixed in `6e5b607` / **0.2.25**. Confirm Render shows **Live** for that commit (or newer) before testing property save.
+
+Arabic publish notes: [`RELEASE-0.2.25-AR.md`](./RELEASE-0.2.25-AR.md).

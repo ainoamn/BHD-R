@@ -16,11 +16,11 @@
 
 **ربط Vercel:** [`docs/VERCEL_DEPLOYMENT_AR.md`](./docs/VERCEL_DEPLOYMENT_AR.md) — Root Directory = `apps/web`
 
-**استضافة Nest API:** [`docs/implementation/NEST-API-HOSTING.md`](./docs/implementation/NEST-API-HOSTING.md)
-
-**معالج إضافة عقار (0.2.21):** [`docs/implementation/PROPERTY-WIZARD-AR.md`](./docs/implementation/PROPERTY-WIZARD-AR.md)
+**معالج إضافة عقار (0.2.25):** [`docs/implementation/PROPERTY-WIZARD-AR.md`](./docs/implementation/PROPERTY-WIZARD-AR.md) — رفع وسائط + إصلاح بناء Render: [`RELEASE-0.2.25-AR.md`](./docs/implementation/RELEASE-0.2.25-AR.md)
 
 **لوحة التحكم ورفع أقسام البوابة (0.2.23):** [`docs/implementation/PORTAL-DASHBOARD-AR.md`](./docs/implementation/PORTAL-DASHBOARD-AR.md) — تجاوب الجوال ودرج القائمة: [`PORTAL-CHROME-AR.md`](./docs/implementation/PORTAL-CHROME-AR.md)
+
+**استضافة Nest API:** [`docs/implementation/NEST-API-HOSTING.md`](./docs/implementation/NEST-API-HOSTING.md)
 
 **هوية BHD:** [`docs/BHD-R-IDENTITY-SETUP.md`](./docs/BHD-R-IDENTITY-SETUP.md)
 

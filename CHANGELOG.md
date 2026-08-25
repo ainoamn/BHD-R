@@ -5,6 +5,7 @@ All notable changes are documented here. The project follows Semantic Versioning
 ## 0.2.25 — 2026-08-25
 
 - Fix Nest/Render Docker build: CORS origin must be Nest sync resolver (`resolveCorsOrigin`), not Express-style callback — unblocks API deploys stuck since `5766f9a` and restores media-ingress save path.
+- Docs: `docs/implementation/RELEASE-0.2.25-AR.md` (publish checklist), NEST-API-HOSTING, PROPERTY-WIZARD, README.
 
 ## 0.2.24 — 2026-08-25
 

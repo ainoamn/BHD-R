@@ -2,7 +2,7 @@
 
 **المسار:** `/{ar|en}/{owner|developer}/properties/new`  
 **المكوّن:** `apps/web/src/components/property-wizard.tsx`  
-**آخر تحديث واجهة:** `main` @ `b6eeaee` (2026-08-25)
+**آخر تحديث:** `main` @ `6e5b607` / إصدار **0.2.25** (2026-08-25)
 
 ## مراحل المعالج (1–7)
 
@@ -84,10 +84,16 @@
 | سطح | مضيف | ملاحظة |
 |-----|------|--------|
 | ويب | Vercel `bhd-r-api` → `r.bhd-om.com` / preview | يُنشر تلقائياً من `main` |
-| API | Render `bhd-r.onrender.com` | أعد النشر بعد تحديثات CSRF على Nest |
+| API | Render `bhd-r.onrender.com` | يجب Live ≥ `6e5b607` (إصلاح بناء CORS + media ingress) |
 
 **متغيرات Vercel الضرورية:** `API_INTERNAL_ORIGIN`, `WEB_ORIGIN` أو `PUBLIC_WEB_ORIGIN`, نفس `BHD_R_SESSION_SECRET` / `CSRF_SECRET` مع Nest.
+
+ملاحظات النشر الكاملة: [`RELEASE-0.2.25-AR.md`](./RELEASE-0.2.25-AR.md).
 
 ## إصلاح بناء سابق
 
 `exactOptionalPropertyTypes`: تمرير `area` / `coverUrl` فقط عند وجود قيمة.
+
+### فشل Render (0.2.25)
+
+بناء Docker كان يكسر عند `corsOriginDelegate` (نمط callback). استُبدل بـ `resolveCorsOrigin`. بدون هذا الإصلاح يبقى API على نسخة قديمة ويستمر Failed to fetch عند الحفظ.
