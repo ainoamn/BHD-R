@@ -1714,7 +1714,7 @@ h3 {
 }
 .logo__product {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
   direction: ltr;
   unicode-bidi: isolate;
 }
@@ -1724,18 +1724,22 @@ h3 {
 }
 .logo__product i {
   display: grid;
-  min-width: 1.75rem;
-  min-height: 1.75rem;
+  min-width: 0.92rem;
+  min-height: 0.92rem;
   place-content: center;
-  margin-inline-start: 0.4rem;
+  margin-block-start: -0.08rem;
+  margin-inline-start: 0.18rem;
+  padding: 0.08rem 0.14rem;
   color: white;
   background: var(--higher-gold);
-  border-radius: 0.46rem 0.46rem 0.46rem 0.15rem;
+  border-radius: 0.28rem 0.28rem 0.28rem 0.1rem;
   font-family: var(--font-latin), Inter, sans-serif;
-  font-size: 1.02rem;
+  font-size: 0.62rem;
   font-style: normal;
   font-weight: 900;
-  box-shadow: 0 5px 14px rgb(181 141 85 / 0.22);
+  line-height: 1;
+  letter-spacing: 0;
+  box-shadow: 0 3px 8px rgb(181 141 85 / 0.2);
 }
 .logo__descriptor {
   color: #53665e;
@@ -2798,8 +2802,10 @@ h3 {
     width: 3.9rem;
   }
   .logo__product i {
-    min-width: 1.55rem;
-    min-height: 1.55rem;
+    min-width: 0.82rem;
+    min-height: 0.82rem;
+    font-size: 0.56rem;
+    margin-inline-start: 0.14rem;
   }
   .hero--oman {
     padding-top: 3.8rem;
