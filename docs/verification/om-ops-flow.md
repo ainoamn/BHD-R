@@ -22,7 +22,9 @@
 | 12 | Lease lifecycle ops UI | Activate / End / Terminate buttons on leasing console | Wired |
 | 13 | Vacancy → maintenance + legal | Auto `vacancy_handover` ticket + `vacancy_deposit_review` legal case | Wired |
 | 14 | Vacancy → accounts expense | Auto expense `vacancy_settlement` (`EXP-VAC-…`) | Wired |
-| 15 | Ops Nest-missing banner | Banner when `API_*` unset or `/v1/operations/context` fails | Wired |
+| 15 | Ops Nest-missing banner | Banner when `API_*` unset or context fails | Wired |
+| 16 | Deposit confirm in bookings UI | Pending row: Confirm deposit; confirmed: convert + ledger links | Wired |
+| 17 | Vacancy follow-up pipeline | `vacancyFollowUps` in ops context + pipeline strip | Wired |
 
 ## Step 10 acceptance
 
@@ -77,3 +79,4 @@ After each OM step: commit → `git push origin main` → Vercel Production depl
 | 12 Lease lifecycle UI | `ad27d7d` | Ready |
 | 13 Vacancy maint+legal | `d5403cf` | Ready |
 | 14–15 Accounts + API banner | `777bc4b` | Ready |
+| 16–17 Deposit UI + vacancy pipeline | (this release) | after push |

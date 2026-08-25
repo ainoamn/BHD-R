@@ -441,6 +441,57 @@ export class OperationsService {
       const tenantIds = new Set(
         roleRows.filter((row) => row.roleKey === 'tenant').map((row) => row.partyId),
       );
+
+      const [vacancyTasks, vacancyMaintenance, vacancyLegal, vacancyExpenses] = await Promise.all([
+        transaction
+          .select({ value: count() })
+          .from(workTasks)
+          .where(
+            and(
+              eq(workTasks.organizationId, claims.organizationId!),
+              eq(workTasks.relatedType, 'lease_vacancy'),
+              inArray(workTasks.status, ['pending', 'approved', 'in_progress', 'on_hold']),
+            ),
+          ),
+        transaction
+          .select({ value: count() })
+          .from(maintenanceTickets)
+          .where(
+            and(
+              eq(maintenanceTickets.organizationId, claims.organizationId!),
+              eq(maintenanceTickets.category, 'vacancy_handover'),
+              inArray(maintenanceTickets.status, ['open', 'assigned', 'in_progress']),
+            ),
+          ),
+        transaction
+          .select({ value: count() })
+          .from(legalCases)
+          .where(
+            and(
+              eq(legalCases.organizationId, claims.organizationId!),
+              eq(legalCases.caseType, 'vacancy_deposit_review'),
+              inArray(legalCases.status, [
+                'assessment',
+                'notice',
+                'filed',
+                'hearing',
+                'judgment',
+                'enforcement',
+              ]),
+            ),
+          ),
+        transaction
+          .select({ value: count() })
+          .from(expenses)
+          .where(
+            and(
+              eq(expenses.organizationId, claims.organizationId!),
+              eq(expenses.category, 'vacancy_settlement'),
+              inArray(expenses.status, ['draft', 'pending', 'approved', 'in_progress', 'on_hold']),
+            ),
+          ),
+      ]);
+
       return {
         properties: propertyRows,
         units: unitRows,
@@ -474,6 +525,12 @@ export class OperationsService {
             name: `${row.id.slice(0, 8)} · confirmed`,
           })),
         ledgerAccounts: accountRows,
+        vacancyFollowUps: {
+          tasks: Number(vacancyTasks[0]?.value ?? 0),
+          maintenance: Number(vacancyMaintenance[0]?.value ?? 0),
+          legal: Number(vacancyLegal[0]?.value ?? 0),
+          expenses: Number(vacancyExpenses[0]?.value ?? 0),
+        },
       };
     });
   }

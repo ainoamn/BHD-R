@@ -42,6 +42,12 @@ export interface OperationsContext {
   invoices?: OptionRow[];
   contractTemplates?: OptionRow[];
   ledgerAccounts?: OptionRow[];
+  vacancyFollowUps?: {
+    tasks: number;
+    maintenance: number;
+    legal: number;
+    expenses: number;
+  };
 }
 
 interface Column {
@@ -134,9 +140,9 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
     titleAr: 'الحجوزات والمعاينات',
     titleEn: 'Bookings & viewings',
     introAr:
-      'اختر وحدة شاغرة ومستأجراً من سجل العناوين. الحجز يبقى معلّقاً حتى يعتمد المحاسب مبلغ الضمان؛ عند التأكيد يُرحَّل قيد محاسبي تلقائي (نقد/بنك ← تأمينات مستأجرين)، ثم يُحوَّل لعقد إيجار قيد الإجراء.',
+      'اختر وحدة شاغرة ومستأجراً من سجل العناوين. الحجز يبقى معلّقاً حتى يعتمد المحاسب مبلغ الضمان؛ عند التأكيد يُرحَّل قيد محاسبي تلقائي (نقد/بنك ← تأمينات مستأجرين)، ثم يُحوَّل لعقد إيجار قيد الإجراء. زر «تأكيد العربون» يظهر في صف الحجز المعلّق.',
     introEn:
-      'Pick a vacant unit and a tenant from the address book. Reservations stay pending until the accountant confirms the deposit; confirmation auto-posts a ledger journal (cash/bank → tenant deposits), then convert to an in-progress lease.',
+      'Pick a vacant unit and a tenant from the address book. Reservations stay pending until the accountant confirms the deposit; confirmation auto-posts a ledger journal (cash/bank → tenant deposits), then convert to an in-progress lease. Use “Confirm deposit” on the pending row.',
     createAr: 'حجز جديد',
     createEn: 'New booking',
     columns: [
@@ -1958,6 +1964,13 @@ export function OperationsConsole({
   }, [section]);
 
   const vacantUnits = context.vacantUnits ?? [];
+  const vacancyFollowUps = context.vacancyFollowUps;
+  const vacancyFollowUpTotal = vacancyFollowUps
+    ? vacancyFollowUps.tasks +
+      vacancyFollowUps.maintenance +
+      vacancyFollowUps.legal +
+      vacancyFollowUps.expenses
+    : 0;
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
     return records.filter((row) => {
@@ -2356,6 +2369,50 @@ export function OperationsConsole({
         })}
       </section>
 
+      {vacancyFollowUpTotal > 0 &&
+      (section === 'tasks' ||
+        section === 'maintenance' ||
+        section === 'legal' ||
+        section === 'expenses' ||
+        section === 'accounting' ||
+        section === 'bookings') ? (
+        <section
+          className="ops-vacancy-pipeline"
+          aria-label={ar ? 'متابعة الشغور' : 'Vacancy follow-ups'}
+        >
+          <header>
+            <h2>{ar ? 'متابعة الوحدات الشاغرة (تلقائي)' : 'Vacancy follow-ups (auto)'}</h2>
+            <p>
+              {ar
+                ? 'بعد إنهاء/فسخ العقد تُنشأ مهمة وصيانة ومحاماة ومصروف مخالصة.'
+                : 'After lease end/terminate, task, maintenance, legal, and settlement expense are seeded.'}
+            </p>
+          </header>
+          <ul>
+            <li>
+              <a href={`/${locale}/${portal}/tasks`}>
+                {ar ? 'مهام' : 'Tasks'} <strong>{vacancyFollowUps?.tasks ?? 0}</strong>
+              </a>
+            </li>
+            <li>
+              <a href={`/${locale}/${portal}/maintenance`}>
+                {ar ? 'صيانة' : 'Maintenance'} <strong>{vacancyFollowUps?.maintenance ?? 0}</strong>
+              </a>
+            </li>
+            <li>
+              <a href={`/${locale}/${portal}/legal`}>
+                {ar ? 'محاماة' : 'Legal'} <strong>{vacancyFollowUps?.legal ?? 0}</strong>
+              </a>
+            </li>
+            <li>
+              <a href={`/${locale}/${portal}/expenses`}>
+                {ar ? 'مصروفات' : 'Expenses'} <strong>{vacancyFollowUps?.expenses ?? 0}</strong>
+              </a>
+            </li>
+          </ul>
+        </section>
+      ) : null}
+
       {vacantUnits.length &&
       (section === 'bookings' ||
         section === 'tasks' ||
@@ -2556,12 +2613,37 @@ export function OperationsConsole({
                           </button>
                         </span>
                       ) : section === 'bookings' && safeString(row.recordKind) === 'reservation' ? (
-                        <a
-                          className="ops-action"
-                          href={`/${locale}/${portal}/bookings/${encodeURIComponent(safeString(row.id))}`}
-                        >
-                          {ar ? 'المتطلبات والمستندات' : 'Requirements & documents'}
-                        </a>
+                        <span className="ops-inline-actions">
+                          {safeString(row.status) === 'pending' ? (
+                            <button
+                              className="ops-action"
+                              type="button"
+                              disabled={busy}
+                              onClick={() => void advance(row)}
+                            >
+                              {ar ? 'تأكيد العربون (محاسب)' : 'Confirm deposit'}
+                            </button>
+                          ) : null}
+                          {safeString(row.status) === 'confirmed' ? (
+                            <a
+                              className="ops-action"
+                              href={`/${locale}/${portal}/leasing?create=1`}
+                            >
+                              {ar ? 'تحويل لعقد قيد الإجراء' : 'Convert to lease'}
+                            </a>
+                          ) : null}
+                          <a
+                            className="ops-action"
+                            href={`/${locale}/${portal}/bookings/${encodeURIComponent(safeString(row.id))}`}
+                          >
+                            {ar ? 'المستندات' : 'Documents'}
+                          </a>
+                          {safeString(row.status) === 'confirmed' ? (
+                            <a className="ops-action" href={`/${locale}/${portal}/accounting`}>
+                              {ar ? 'القيد المحاسبي' : 'Ledger'}
+                            </a>
+                          ) : null}
+                        </span>
                       ) : section === 'properties' ? (
                         <a
                           className="ops-action"

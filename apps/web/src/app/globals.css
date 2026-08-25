@@ -3316,6 +3316,49 @@ h3 {
   margin-top: 0.55rem !important;
   font-weight: 600;
 }
+.ops-vacancy-pipeline {
+  margin: 0 0 1.25rem;
+  padding: 1rem 1.15rem;
+  border-radius: 1rem;
+  border: 1px solid rgb(9 45 36 / 0.1);
+  background: linear-gradient(180deg, rgb(240 253 250), rgb(204 251 241 / 0.45));
+}
+.ops-vacancy-pipeline header {
+  margin-bottom: 0.75rem;
+}
+.ops-vacancy-pipeline h2 {
+  margin: 0 0 0.3rem;
+  font-size: 1.02rem;
+  color: #134e4a;
+}
+.ops-vacancy-pipeline p {
+  margin: 0;
+  color: #0f766e;
+  font-size: 0.86rem;
+}
+.ops-vacancy-pipeline ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.ops-vacancy-pipeline a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 999px;
+  background: white;
+  color: #134e4a;
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.ops-vacancy-pipeline strong {
+  color: #0f766e;
+}
 .ops-vacant-strip {
   margin: 0 0 1.25rem;
   padding: 1rem 1.15rem;
