@@ -1686,6 +1686,112 @@ h3 {
   display: grid;
   gap: 0.75rem;
 }
+.maps-field__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: end;
+}
+.maps-field__pick {
+  padding-block-end: 0.15rem;
+}
+.maps-field__pick .button {
+  min-height: 2.95rem;
+  white-space: nowrap;
+  border-radius: 999px;
+  font-weight: 800;
+}
+.map-picker {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+.map-picker__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgb(9 45 36 / 0.45);
+  cursor: pointer;
+}
+.map-picker__panel {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 0.75rem;
+  width: min(52rem, 100%);
+  max-height: min(92svh, 44rem);
+  overflow: auto;
+  padding: 1.1rem;
+  background: white;
+  border-radius: 1.2rem;
+  box-shadow: 0 28px 70px rgb(9 45 36 / 0.28);
+}
+.map-picker__head h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+.map-picker__head p {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+.map-picker__search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+}
+.map-picker__search input {
+  min-height: 2.7rem;
+  padding: 0.55rem 0.8rem;
+  border: 1px solid rgb(9 45 36 / 0.14);
+  border-radius: 0.75rem;
+}
+.map-picker__map {
+  width: 100%;
+  height: min(52svh, 22rem);
+  border-radius: 0.95rem;
+  overflow: hidden;
+  border: 1px solid rgb(9 45 36 / 0.1);
+  background: #e8eeea;
+}
+.map-picker__pin {
+  background: transparent;
+  border: 0;
+}
+.map-picker__pin span {
+  display: block;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0.35rem auto 0;
+  background: #c8102e;
+  border: 2px solid white;
+  border-radius: 50% 50% 50% 0;
+  box-shadow: 0 6px 14px rgb(9 45 36 / 0.28);
+  transform: rotate(-45deg);
+}
+.map-picker__coords {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+.map-picker__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+@media (max-width: 720px) {
+  .maps-field__row {
+    grid-template-columns: 1fr;
+  }
+  .maps-field__pick .button {
+    width: 100%;
+  }
+}
 .maps-preview {
   display: grid;
   gap: 0.45rem;

@@ -15,8 +15,10 @@ import {
 } from '@/lib/property-listing-copy';
 import {
   googleMapsEmbedSrc,
+  googleMapsLinkFromCoords,
   parseGoogleMapsUrl,
 } from '@/lib/parse-google-maps-url';
+import { MapLocationPicker } from '@/components/map-location-picker';
 
 interface UnitDraft {
   localId: string;
@@ -168,6 +170,7 @@ export function PropertyWizard({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
+  const [mapPickerOpen, setMapPickerOpen] = useState(false);
   const bundleIdempotencyKey = useRef(`property-bundle:${crypto.randomUUID()}`);
 
   const steps = [
@@ -243,6 +246,15 @@ export function PropertyWizard({
       mapsUrl: value,
       latitude: coords ? String(coords.latitude) : '',
       longitude: coords ? String(coords.longitude) : '',
+    }));
+  }
+
+  function applyMapsCoords(latitude: number, longitude: number, mapsUrl?: string) {
+    setProperty((current) => ({
+      ...current,
+      mapsUrl: mapsUrl ?? googleMapsLinkFromCoords(latitude, longitude),
+      latitude: String(latitude),
+      longitude: String(longitude),
     }));
   }
 
@@ -960,25 +972,32 @@ export function PropertyWizard({
                   onChange={(event) => updateProperty('street', event.target.value)}
                 />
                 <div className="span-2 maps-field">
-                  <Field
-                    id="mapsUrl"
-                    label={t('PropertyForm.mapsUrl')}
-                    value={property.mapsUrl}
-                    tone={
-                      !property.mapsUrl.trim()
-                        ? tone('', true, showErrors)
-                        : mapCoords
-                          ? 'ok'
-                          : showErrors
-                            ? 'missing'
-                            : 'neutral'
-                    }
-                    onChange={(event) => applyMapsUrl(event.target.value)}
-                    hint={t('PropertyForm.mapsUrlHint')}
-                    required
-                    dir="ltr"
-                    placeholder="https://maps.google.com/..."
-                  />
+                  <div className="maps-field__row">
+                    <Field
+                      id="mapsUrl"
+                      label={t('PropertyForm.mapsUrl')}
+                      value={property.mapsUrl}
+                      tone={
+                        !property.mapsUrl.trim()
+                          ? tone('', true, showErrors)
+                          : mapCoords
+                            ? 'ok'
+                            : showErrors
+                              ? 'missing'
+                              : 'neutral'
+                      }
+                      onChange={(event) => applyMapsUrl(event.target.value)}
+                      hint={t('PropertyForm.mapsUrlHint')}
+                      required
+                      dir="ltr"
+                      placeholder="https://maps.google.com/..."
+                    />
+                    <div className="maps-field__pick">
+                      <Button type="button" variant="quiet" onClick={() => setMapPickerOpen(true)}>
+                        {t('PropertyForm.pickOnMap')}
+                      </Button>
+                    </div>
+                  </div>
                   {mapCoords ? (
                     <div className="maps-preview">
                       <p className="maps-preview__label">{t('PropertyForm.mapsPreview')}</p>
@@ -1659,6 +1678,28 @@ export function PropertyWizard({
           </form>
         </CardContent>
       </Card>
+
+      {mapPickerOpen ? (
+        <MapLocationPicker
+          open={mapPickerOpen}
+          locale={locale}
+          initial={mapCoords}
+          onClose={() => setMapPickerOpen(false)}
+          onConfirm={(coords, mapsUrl) => {
+            applyMapsCoords(coords.latitude, coords.longitude, mapsUrl);
+            setMapPickerOpen(false);
+          }}
+          labels={{
+            title: t('PropertyForm.pickOnMapTitle'),
+            hint: t('PropertyForm.pickOnMapHint'),
+            searchPlaceholder: t('PropertyForm.pickOnMapSearch'),
+            search: t('PropertyForm.pickOnMapSearchBtn'),
+            confirm: t('PropertyForm.pickOnMapConfirm'),
+            cancel: t('Common.back'),
+            coords: t('PropertyForm.pickOnMapCoords'),
+          }}
+        />
+      ) : null}
 
       {previewId ? (
         <div className="wizard-lightbox" role="dialog" aria-modal="true">

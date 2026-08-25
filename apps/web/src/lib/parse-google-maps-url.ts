@@ -53,3 +53,10 @@ export function googleMapsEmbedSrc(latitude: number, longitude: number): string 
   const q = encodeURIComponent(`${latitude},${longitude}`);
   return `https://maps.google.com/maps?q=${q}&z=16&hl=ar&output=embed`;
 }
+
+/** Canonical Google Maps link stored with the property. */
+export function googleMapsLinkFromCoords(latitude: number, longitude: number): string {
+  const lat = Number(latitude.toFixed(6));
+  const lng = Number(longitude.toFixed(6));
+  return `https://www.google.com/maps?q=${lat},${lng}`;
+}
