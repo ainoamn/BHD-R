@@ -77,5 +77,5 @@ After Docker build, Nest boots with `loadEnvironment`. Missing keys abort the pr
 |------|--------|
 | `Dockerfile.api` | Ready |
 | `render.yaml` | Ready (scaffold) |
-| Public Nest URL | Pending (needs Render/Fly account + secrets) |
-| Vercel `API_INTERNAL_ORIGIN` | Pending until URL exists |
+| Public Nest URL | `https://bhd-r.onrender.com` (`/health/ready` → ready) |
+| Vercel `API_INTERNAL_ORIGIN` | Set to Nest HTTPS on Production **and** Preview, then Redeploy |

@@ -1,6 +1,10 @@
 import { getLocale } from 'next-intl/server';
-import { apiFetch } from '@/lib/server-api';
-import { isNestApiConfiguredForRuntime } from '@/lib/server-api';
+import { ApiError } from '@/lib/api';
+import {
+  apiFetch,
+  isNestApiConfiguredForRuntime,
+  probeNestReady,
+} from '@/lib/server-api';
 import type { PortalRole } from '@/lib/types';
 import { OperationsConsole, type OperationsContext } from './operations-console';
 
@@ -142,18 +146,30 @@ export async function OperationsWorkspace({
 }) {
   const locale = (await getLocale()) === 'en' ? 'en' : 'ar';
   const nestConfigured = isNestApiConfiguredForRuntime();
-  let apiOnline = portal === 'tenant';
-  let context: OperationsContext = {};
-  const [loaded, contextResult] = await Promise.all([
+  const [loaded, nestReady, contextResult] = await Promise.all([
     loadSection(portal, section),
+    portal === 'tenant' ? Promise.resolve(true) : probeNestReady(),
     portal === 'tenant'
-      ? Promise.resolve({ ok: true as const, context: {} as OperationsContext })
+      ? Promise.resolve({
+          ok: true as const,
+          unauthorized: false,
+          context: {} as OperationsContext,
+        })
       : apiFetch<OperationsContext>('/v1/operations/context')
-          .then((payload) => ({ ok: true as const, context: payload }))
-          .catch(() => ({ ok: false as const, context: {} as OperationsContext })),
+          .then((payload) => ({
+            ok: true as const,
+            unauthorized: false,
+            context: payload,
+          }))
+          .catch((error: unknown) => ({
+            ok: false as const,
+            unauthorized: error instanceof ApiError && error.status === 401,
+            context: {} as OperationsContext,
+          })),
   ]);
-  apiOnline = contextResult.ok;
-  context = contextResult.context;
+  // Infrastructure up ≠ authorized. Only treat Nest as offline when health fails.
+  const apiOnline = portal === 'tenant' ? true : nestReady;
+  const context = contextResult.context;
   const recordsEmpty = !loaded.records.length;
   return (
     <OperationsConsole
@@ -167,6 +183,7 @@ export async function OperationsWorkspace({
       apiOnline={apiOnline}
       nestConfigured={nestConfigured}
       recordsEmpty={recordsEmpty}
+      apiUnauthorized={Boolean(contextResult.unauthorized)}
     />
   );
 }

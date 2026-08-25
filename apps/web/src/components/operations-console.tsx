@@ -1965,6 +1965,7 @@ export function OperationsConsole({
   apiOnline = true,
   nestConfigured = true,
   recordsEmpty = false,
+  apiUnauthorized = false,
 }: {
   portal: PortalRole;
   section: OperationsSection;
@@ -1976,6 +1977,7 @@ export function OperationsConsole({
   apiOnline?: boolean;
   nestConfigured?: boolean;
   recordsEmpty?: boolean;
+  apiUnauthorized?: boolean;
 }) {
   const router = useRouter();
   const definition = definitions[section];
@@ -2429,6 +2431,24 @@ export function OperationsConsole({
               {ar
                 ? 'لا سجلات معروضة حالياً لهذا القسم — غالباً بسبب غياب الـ API.'
                 : 'No records shown for this section — usually because the API is offline.'}
+            </p>
+          ) : null}
+        </div>
+      ) : apiUnauthorized ? (
+        <div className="ops-api-banner" role="status">
+          <strong>
+            {ar ? 'الجلسة غير مقبولة من Nest API' : 'Session not accepted by Nest API'}
+          </strong>
+          <p>
+            {ar
+              ? 'Nest يعمل، لكن طلبات العمليات ترجع 401. تأكد أن BHD_R_SESSION_SECRET متطابق بين Vercel و Render، وأن WEB_ORIGIN على Render يشمل نطاق الواجهة، ثم سجّل خروجاً وادخل مجدداً.'
+              : 'Nest is up, but operations requests return 401. Match BHD_R_SESSION_SECRET on Vercel and Render, set WEB_ORIGIN on Render to the web origin, then sign out and back in.'}
+          </p>
+          {recordsEmpty ? (
+            <p className="ops-api-banner__note">
+              {ar
+                ? 'لا سجلات معروضة حالياً لهذا القسم — غالباً بسبب رفض الجلسة.'
+                : 'No records shown for this section — usually because the session was rejected.'}
             </p>
           ) : null}
         </div>

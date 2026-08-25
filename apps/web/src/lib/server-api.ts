@@ -5,7 +5,9 @@ import { ApiError } from './api';
 export { ApiError };
 
 const DEFAULT_DEV_API = 'http://localhost:4000';
-const FETCH_TIMEOUT_MS = 8_000;
+/** Render free tier cold-start can exceed 8s; keep headroom for Vercel→Nest. */
+const FETCH_TIMEOUT_MS = 20_000;
+const HEALTH_TIMEOUT_MS = 15_000;
 
 export function configuredApiOrigin(): string | null {
   const value = process.env.API_INTERNAL_ORIGIN ?? process.env.API_ORIGIN;
@@ -44,7 +46,7 @@ export function isNestApiConfiguredForRuntime(): boolean {
 }
 
 /** Prefer a reachable API. On Vercel, never block on localhost (hangs 20–70s). */
-async function resolveApiOrigin(): Promise<string> {
+export async function resolveApiOrigin(): Promise<string> {
   const configured = configuredApiOrigin();
   if (configured) {
     if (process.env.VERCEL && isLoopbackOrPrivate(configured)) {
@@ -61,6 +63,22 @@ async function resolveApiOrigin(): Promise<string> {
   const proto = requestHeaders.get('x-forwarded-proto') ?? (process.env.VERCEL ? 'https' : 'http');
   if (host) return `${proto}://${host.split(',')[0]!.trim()}`;
   return DEFAULT_DEV_API;
+}
+
+/** Unauthenticated probe — Nest is up if /health/ready returns 200. */
+export async function probeNestReady(): Promise<boolean> {
+  if (!isNestApiConfiguredForRuntime()) return false;
+  try {
+    const origin = await resolveApiOrigin();
+    const response = await fetch(`${origin}/health/ready`, {
+      headers: { accept: 'application/json' },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
 }
 
 function mergeSignal(init?: RequestInit): AbortSignal {
