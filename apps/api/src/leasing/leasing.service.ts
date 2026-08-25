@@ -29,6 +29,7 @@ import {
   sessions,
   signatureChallenges,
   units,
+  workTasks,
   workflowEvents,
 } from '@bhd-r/db';
 import type { SessionClaims } from '@bhd-r/authz';
@@ -1645,6 +1646,50 @@ export class LeasingService {
             updatedAt: new Date(),
           })
           .where(eq(billingSchedules.leaseId, id));
+
+        // OM step 9: when the unit becomes vacant again, seed a follow-up task
+        // (tasks / maintenance / legal / accounts checklist) — idempotent per lease.
+        const existingVacancyTask = await transaction.query.workTasks.findFirst({
+          where: and(
+            eq(workTasks.organizationId, claims.organizationId!),
+            eq(workTasks.relatedType, 'lease_vacancy'),
+            eq(workTasks.relatedId, id),
+          ),
+        });
+        if (!existingVacancyTask) {
+          const unit = await transaction.query.units.findFirst({
+            where: and(
+              eq(units.id, current.unitId),
+              eq(units.organizationId, claims.organizationId!),
+            ),
+          });
+          const dueAt = new Date();
+          dueAt.setUTCDate(dueAt.getUTCDate() + 3);
+          await transaction.insert(workTasks).values({
+            organizationId: claims.organizationId!,
+            reference: `VAC-${id.replace(/-/g, '').slice(0, 12).toUpperCase()}`,
+            title:
+              input.action === 'terminate'
+                ? 'وحدة شاغرة بعد فسخ العقد — متابعة'
+                : 'وحدة شاغرة بعد انتهاء العقد — متابعة',
+            description:
+              'Auto vacancy follow-up: inspection, maintenance, legal/deposit review, and accounts settlement. Open from Tasks, or deep-link Maintenance / Legal / Accounting with this unit.',
+            category: 'vacancy',
+            priority: 'high',
+            createdByUserId: claims.sub,
+            propertyId: unit?.propertyId,
+            unitId: current.unitId,
+            relatedType: 'lease_vacancy',
+            relatedId: id,
+            dueAt,
+            checklist: [
+              { label: 'معاينة / تسليم — Inspection / handover', done: false },
+              { label: 'صيانة — Maintenance check', done: false },
+              { label: 'محاماة / تأمين — Legal / deposit review', done: false },
+              { label: 'حسابات — Final settlement', done: false },
+            ],
+          });
+        }
       }
       const row = rows[0]!;
       return {
