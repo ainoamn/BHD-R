@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>خارطة مسار المعاملة — BHD-R</title>
+    <script type="module">
+      import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+      mermaid.initialize({
+        startOnLoad: true,
+        securityLevel: 'loose',
+        theme: 'neutral',
+        flowchart: { curve: 'basis', htmlLabels: true },
+      });
+    </script>
+    <style>
+      :root {
+        --bg: #f7f4ef;
+        --ink: #1c2b26;
+        --muted: #5a6b63;
+        --card: #ffffff;
+        --line: #d7ddd8;
+        --accent: #0f6e56;
+        --warn: #9a5b12;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+        line-height: 1.55;
+      }
+      header {
+        padding: 1.5rem 1.25rem 1rem;
+        border-bottom: 1px solid var(--line);
+        background: var(--card);
+      }
+      header h1 {
+        margin: 0 0 0.35rem;
+        font-size: 1.45rem;
+      }
+      header p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+      nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        padding: 0.85rem 1.25rem;
+        background: #eef3f0;
+        border-bottom: 1px solid var(--line);
+        position: sticky;
+        top: 0;
+        z-index: 2;
+      }
+      nav a {
+        text-decoration: none;
+        color: var(--accent);
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 0.35rem 0.8rem;
+        font-size: 0.88rem;
+        font-weight: 600;
+      }
+      main {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 1.25rem;
+        display: grid;
+        gap: 1.25rem;
+      }
+      section {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 1rem 1.1rem 1.2rem;
+      }
+      h2 {
+        margin: 0 0 0.75rem;
+        font-size: 1.15rem;
+        color: var(--accent);
+      }
+      h3 {
+        margin: 1rem 0 0.5rem;
+        font-size: 1rem;
+      }
+      .mermaid {
+        background: #fbfcfa;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 0.75rem;
+        overflow-x: auto;
+        direction: ltr;
+        text-align: center;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.92rem;
+      }
+      th,
+      td {
+        border: 1px solid var(--line);
+        padding: 0.55rem 0.65rem;
+        text-align: right;
+        vertical-align: top;
+      }
+      th {
+        background: #eef3f0;
+      }
+      ul {
+        margin: 0.35rem 0 0;
+        padding-inline-start: 1.2rem;
+      }
+      .note {
+        border: 1px solid #e4c38a;
+        background: #fff8ea;
+        color: #6b4a12;
+        border-radius: 10px;
+        padding: 0.85rem 1rem;
+      }
+      code {
+        font-family: Consolas, 'Courier New', monospace;
+        font-size: 0.86em;
+        background: #eef3f0;
+        padding: 0.05rem 0.3rem;
+        border-radius: 4px;
+      }
+      footer {
+        max-width: 1100px;
+        margin: 0 auto 2rem;
+        padding: 0 1.25rem;
+        color: var(--muted);
+        font-size: 0.85rem;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>خارطة مسار المعاملة — BHD-R</h1>
+      <p>
+        للمراجعة والتصحيح · إيجار · بيع · إعادة تأجير · المصدر:
+        <code>docs/implementation/TRANSACTION-FLOW-MAP.md</code>
+      </p>
+    </header>
+
+    <nav>
+      <a href="#lease">مسار الإيجار</a>
+      <a href="#sale">مسار البيع</a>
+      <a href="#cycle">حلقة الوحدة</a>
+      <a href="#review">نقاط المراجعة</a>
+    </nav>
+
+    <main>
+      <section id="lease">
+        <h2>أ) مسار الإيجار — من تخزين العقار حتى الشغور ثم الإيجار من جديد</h2>
+        <pre class="mermaid">
+flowchart TD
+  A["سجل العناوين<br/>مالك / مستأجر / مستخدم"] --> B["تسجيل عقار + وحدات<br/>ربط المالك من السجل"]
+  B --> C{"وحدة شاغرة؟"}
+  C -->|نعم| D["حجز: وحدة شاغرة + مستأجر<br/>status = pending"]
+  D --> E["المحاسب يؤكد العربون<br/>status = confirmed"]
+  E --> F["قيد محاسبي تلقائي<br/>Dr 1000 / Cr 2100"]
+  F --> G["عقد إيجار قيد الإجراء<br/>leases.draft"]
+  G --> H["مبالغ: إيجار / ضمان / سماح / أخرى / شيكات"]
+  H --> I["سلسلة اعتماد<br/>محاسب → مالي → إدارة"]
+  I --> J["إرسال للتوقيع الإلكتروني"]
+  J --> K["توقيع الأطراف"]
+  K --> L["تفعيل → leases.active"]
+  L --> M["ظهور في البوابات<br/>خروج من قوائم الشاغر"]
+  M --> N{"قرار لاحق"}
+  N -->|تجديد| O["ملحق تجديد موقّع"]
+  O --> G
+  N -->|إنهاء طبيعي| P["leases.ended"]
+  N -->|فسخ| Q["leases.terminated"]
+  P --> R["تلقائي: مهمة شغور"]
+  Q --> R
+  R --> S["صيانة تسليم"]
+  S --> T["محاماة مراجعة تأمين"]
+  T --> U["مصروف مخالصة"]
+  U --> C
+        </pre>
+
+        <h3>حالات الإيجار</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>المرحلة</th>
+              <th>الكود في النظام</th>
+              <th>المسؤول</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>حجز معلّق</td>
+              <td><code>reservations.pending</code></td>
+              <td>عمليات</td>
+            </tr>
+            <tr>
+              <td>عربون مؤكد</td>
+              <td><code>reservations.confirmed</code> + قيد <code>reservation_deposit</code></td>
+              <td>محاسب</td>
+            </tr>
+            <tr>
+              <td>قيد الإجراء</td>
+              <td><code>leases.draft</code> + اعتمادات + شيكات</td>
+              <td>محاسب / مالي / إدارة</td>
+            </tr>
+            <tr>
+              <td>ساري</td>
+              <td><code>leases.active</code> بعد توقيع</td>
+              <td>عمليات</td>
+            </tr>
+            <tr>
+              <td>تجديد</td>
+              <td>ملحق → يعود لدورة مسودة/ساري</td>
+              <td>عمليات</td>
+            </tr>
+            <tr>
+              <td>منتهٍ / مفسوخ</td>
+              <td><code>ended</code> / <code>terminated</code></td>
+              <td>عمليات</td>
+            </tr>
+            <tr>
+              <td>شاغر مرة أخرى</td>
+              <td>مهمة + صيانة + محاماة + مصروف</td>
+              <td>تلقائي ثم متابعة</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="sale">
+        <h2>ب) مسار البيع (منفصل عن الإيجار)</h2>
+        <pre class="mermaid">
+flowchart TD
+  A["سجل العناوين"] --> B["عقار/وحدة لغرض البيع"]
+  B --> C["sales_deals: lead"]
+  C --> D["qualified"]
+  D --> E["viewing"]
+  E --> F["offer"]
+  F --> G["negotiation"]
+  G --> H["reserved"]
+  H --> I["contracting"]
+  I --> J["closed_won"]
+  C -.-> X["closed_lost / cancelled"]
+  D -.-> X
+  E -.-> X
+  F -.-> X
+  G -.-> X
+  H -.-> X
+  I -.-> X
+  X -.->|"من closed_lost فقط"| C
+        </pre>
+
+        <h3>حالات البيع</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>المرحلة</th>
+              <th>الكود</th>
+              <th>ملاحظة</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>عميل محتمل</td>
+              <td><code>lead</code></td>
+              <td>بداية الصفقة</td>
+            </tr>
+            <tr>
+              <td>مؤهل</td>
+              <td><code>qualified</code></td>
+              <td></td>
+            </tr>
+            <tr>
+              <td>معاينة</td>
+              <td><code>viewing</code></td>
+              <td>قد ترتبط بطلب معاينة تشغيلي</td>
+            </tr>
+            <tr>
+              <td>عرض / تفاوض</td>
+              <td><code>offer → negotiation</code></td>
+              <td></td>
+            </tr>
+            <tr>
+              <td>محجوز بيع</td>
+              <td><code>reserved</code></td>
+              <td>ليس نفس حجز الإيجار</td>
+            </tr>
+            <tr>
+              <td>تعاقد</td>
+              <td><code>contracting</code></td>
+              <td></td>
+            </tr>
+            <tr>
+              <td>ناجح</td>
+              <td><code>closed_won</code></td>
+              <td>نهاية سعيدة</td>
+            </tr>
+            <tr>
+              <td>خسارة / إلغاء</td>
+              <td><code>closed_lost</code> / <code>cancelled</code></td>
+              <td>من الخسارة يمكن الرجوع لـ lead</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="cycle">
+        <h2>ج) حلقة حياة الوحدة</h2>
+        <pre class="mermaid">
+stateDiagram-v2
+  [*] --> Vacant: شاغر
+  Vacant --> Leased: حجز → عربون → عقد → تفعيل
+  Leased --> Vacant: إنهاء أو فسخ + متابعة شغور
+  Vacant --> Sold: مسار بيع closed_won
+  Leased --> Leased: تجديد
+        </pre>
+      </section>
+
+      <section id="review" class="note">
+        <h2 style="color: var(--warn)">د) نقاط تحتاج رأيك</h2>
+        <ul>
+          <li>
+            <strong>بعد بيع ناجح:</strong> هل تريد نقل ملكية تلقائي داخل النظام أم إجراء يدوي
+            خارجي؟
+          </li>
+          <li>
+            <strong>التجديد:</strong> هل يكفي ملحق موقّع ثم تفعيل، أم جدول شيكات/فوترة جديد إلزامي
+            كل مرة؟
+          </li>
+          <li><strong>الفسخ مقابل الإنهاء:</strong> هل مخالصة التأمين تختلف بينهما؟</li>
+          <li><strong>بيع وحدة مؤجرة:</strong> هل يُمنع البيع إلا بعد إنهاء الإيجار؟</li>
+          <li>
+            <strong>Nest على الإنتاج:</strong> بدون
+            <code>API_INTERNAL_ORIGIN</code> المسار التشغيلي لا يكتمل على Vercel.
+          </li>
+        </ul>
+        <p style="margin: 0.85rem 0 0">
+          اكتب تصحيحاتك في المحادثة أو في ملف
+          <code>TRANSACTION-FLOW-MAP.md</code> وسأحدّث المخطط والكود.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      BHD-R · TRANSACTION-FLOW-MAP · افتح هذا الملف بالمتصفح (Chrome / Edge) حتى تظهر الرسوم.
+      يحتاج اتصال إنترنت لأول مرة لتحميل مكتبة Mermaid.
+    </footer>
+  </body>
+</html>
