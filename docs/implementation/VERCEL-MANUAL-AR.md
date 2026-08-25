@@ -110,4 +110,19 @@
 4) اختبر SSO + حجز/محاسبة
 ```
 
+## هـ) رسالة «تعذّر الوصول إلى Nest API» على الشاشة
+
+هذه الرسالة تعني أن **واجهة Next على Vercel تعمل**، لكن طلبات `/v1/*` لا تصل إلى خادم Nest.
+
+| السبب الشائع | ماذا تفعل |
+|--------------|-----------|
+| Nest لم يُنشَر بعد | أنشئ خدمة Docker من `Dockerfile.api` / `render.yaml` على Render |
+| `API_INTERNAL_ORIGIN=http://localhost:4000` | احذفها أو استبدلها برابط Nest **HTTPS** العام |
+| Nest نائم/معطل على Render | افتح الخدمة → Logs → تأكد أن `/health/ready` يرجع 200 |
+| نسيت Redeploy بعد تغيير المتغيرات | Deployments → Redeploy Production |
+
+**تحقق سريع:** في المتصفح افتح  
+`https://YOUR-NEST-HOST/health/ready`  
+إن لم يفتح أو فشل → المشكلة في Nest وليس في صفحة العقارات.
+
 دليل Nest التفصيلي: [`NEST-API-HOSTING.md`](./NEST-API-HOSTING.md)

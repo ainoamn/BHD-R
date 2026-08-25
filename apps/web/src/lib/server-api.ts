@@ -7,12 +7,12 @@ export { ApiError };
 const DEFAULT_DEV_API = 'http://localhost:4000';
 const FETCH_TIMEOUT_MS = 8_000;
 
-function configuredApiOrigin(): string | null {
+export function configuredApiOrigin(): string | null {
   const value = process.env.API_INTERNAL_ORIGIN ?? process.env.API_ORIGIN;
   return value?.trim() ? value.replace(/\/$/, '') : null;
 }
 
-function isLoopbackOrPrivate(origin: string): boolean {
+export function isLoopbackOrPrivate(origin: string): boolean {
   try {
     const url = new URL(origin);
     const host = url.hostname.toLowerCase();
@@ -26,6 +26,21 @@ function isLoopbackOrPrivate(origin: string): boolean {
   } catch {
     return true;
   }
+}
+
+/** True when Vercel can actually call a public Nest HTTPS origin (not localhost). */
+export function isNestApiConfiguredForRuntime(): boolean {
+  const configured = configuredApiOrigin();
+  if (!configured) return false;
+  if (process.env.VERCEL && isLoopbackOrPrivate(configured)) return false;
+  if (process.env.VERCEL) {
+    try {
+      return new URL(configured).protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }
+  return true;
 }
 
 /** Prefer a reachable API. On Vercel, never block on localhost (hangs 20–70s). */

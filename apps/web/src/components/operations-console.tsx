@@ -2418,11 +2418,11 @@ export function OperationsConsole({
           <p>
             {!nestConfigured
               ? ar
-                ? 'أضف API_INTERNAL_ORIGIN و API_ORIGIN (رابط Nest HTTPS) ثم أعد النشر. الدليل: docs/implementation/VERCEL-MANUAL-AR.md'
-                : 'Add API_INTERNAL_ORIGIN and API_ORIGIN (Nest HTTPS URL), then redeploy. See docs/implementation/VERCEL-MANUAL-AR.md'
+                ? 'Nest غير منشور بعد. انشر apps/api على Render (render.yaml) ثم أضف على Vercel: API_INTERNAL_ORIGIN و API_ORIGIN = رابط Nest HTTPS (ليس localhost). الدليل: docs/implementation/NEST-API-HOSTING.md و VERCEL-MANUAL-AR.md'
+                : 'Nest is not hosted yet. Deploy apps/api on Render (render.yaml), then set Vercel API_INTERNAL_ORIGIN and API_ORIGIN to that HTTPS URL (never localhost). See docs/implementation/NEST-API-HOSTING.md'
               : ar
-                ? 'تحقق من صحة رابط Nest وأن الخدمة تعمل على /health/ready. القوائم قد تظهر فارغة حتى يعود الـ API.'
-                : 'Verify the Nest URL and that /health/ready succeeds. Lists may stay empty until the API responds.'}
+                ? 'الرابط مضبوط لكن الطلب فشل. افتح /health/ready على خادم Nest وتأكد من صحة API_INTERNAL_ORIGIN ثم أعد نشر Vercel. الدليل: docs/implementation/VERCEL-MANUAL-AR.md'
+                : 'API origin is set but the request failed. Check Nest /health/ready and API_INTERNAL_ORIGIN, then redeploy. See docs/implementation/VERCEL-MANUAL-AR.md'}
           </p>
           {recordsEmpty ? (
             <p className="ops-api-banner__note">

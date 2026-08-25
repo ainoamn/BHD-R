@@ -1,5 +1,6 @@
 import { getLocale } from 'next-intl/server';
 import { apiFetch } from '@/lib/server-api';
+import { isNestApiConfiguredForRuntime } from '@/lib/server-api';
 import type { PortalRole } from '@/lib/types';
 import { OperationsConsole, type OperationsContext } from './operations-console';
 
@@ -140,9 +141,7 @@ export async function OperationsWorkspace({
   section: OperationsSection;
 }) {
   const locale = (await getLocale()) === 'en' ? 'en' : 'ar';
-  const nestConfigured = Boolean(
-    (process.env.API_INTERNAL_ORIGIN ?? process.env.API_ORIGIN ?? '').trim(),
-  );
+  const nestConfigured = isNestApiConfiguredForRuntime();
   let apiOnline = portal === 'tenant';
   let context: OperationsContext = {};
   const [loaded, contextResult] = await Promise.all([
