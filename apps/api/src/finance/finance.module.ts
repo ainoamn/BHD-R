@@ -17,5 +17,6 @@ import { FinanceService } from './finance.service.js';
     PaymentWebhookController,
   ],
   providers: [FinanceService],
+  exports: [FinanceService],
 })
 export class FinanceModule {}

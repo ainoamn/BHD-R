@@ -1061,11 +1061,39 @@ export class FinanceService {
     };
   }
 
+  async postReservationDepositJournal(
+    transaction: DatabaseTransaction,
+    organizationId: string,
+    input: {
+      reservationId: string;
+      partyId: string;
+      unitId?: string | undefined;
+      currency: CurrencyCode;
+      depositMinor: bigint;
+      occurredOn: string;
+    },
+  ) {
+    if (input.depositMinor <= 0n) return null;
+    return this.postFinanceJournal(transaction, organizationId, {
+      sourceType: 'reservation_deposit',
+      sourceId: input.reservationId,
+      occurredOn: input.occurredOn,
+      description: `Security deposit confirmed for reservation ${input.reservationId}`,
+      partyId: input.partyId,
+      unitId: input.unitId,
+      currency: input.currency,
+      lines: [
+        { accountCode: '1000', debitMinor: input.depositMinor, creditMinor: 0n },
+        { accountCode: '2100', debitMinor: 0n, creditMinor: input.depositMinor },
+      ],
+    });
+  }
+
   private async postFinanceJournal(
     transaction: DatabaseTransaction,
     organizationId: string,
     input: {
-      sourceType: 'invoice_issue' | 'payment_receipt' | 'payment_refund';
+      sourceType: 'invoice_issue' | 'payment_receipt' | 'payment_refund' | 'reservation_deposit';
       sourceId: string;
       occurredOn: string;
       description: string;
@@ -1073,7 +1101,7 @@ export class FinanceService {
       unitId?: string | undefined;
       currency: CurrencyCode;
       lines: Array<{
-        accountCode: '1000' | '1100' | '2200' | '4000';
+        accountCode: '1000' | '1100' | '2100' | '2200' | '4000';
         debitMinor: bigint;
         creditMinor: bigint;
       }>;
@@ -1094,6 +1122,12 @@ export class FinanceService {
         nameAr: 'ذمم المستأجرين',
         nameEn: 'Tenant receivables',
         type: 'asset' as const,
+      },
+      {
+        code: '2100',
+        nameAr: 'تأمينات المستأجرين',
+        nameEn: 'Tenant deposits',
+        type: 'liability' as const,
       },
       {
         code: '2200',

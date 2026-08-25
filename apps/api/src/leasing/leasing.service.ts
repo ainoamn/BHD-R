@@ -32,12 +32,13 @@ import {
   workflowEvents,
 } from '@bhd-r/db';
 import type { SessionClaims } from '@bhd-r/authz';
-import type { CreateHoldInput, CreateLeaseInput } from '@bhd-r/contracts';
+import type { CreateHoldInput, CreateLeaseInput, CurrencyCode } from '@bhd-r/contracts';
 import { currencyMinorUnits, signatureEvidenceSchema } from '@bhd-r/contracts';
 import { sanitizeDocumentTemplate, sanitizeRichText } from '@bhd-r/security';
 import { createHash, randomUUID } from 'node:crypto';
 import { DatabaseService, type DatabaseTransaction } from '../database/database.service.js';
 import { AuthService } from '../auth/auth.service.js';
+import { FinanceService } from '../finance/finance.service.js';
 
 export function signingRoleForParty(
   contract: { ownerPartyId: string; tenantPartyId: string },
@@ -150,6 +151,7 @@ export class LeasingService {
   constructor(
     private readonly database: DatabaseService,
     private readonly authService: AuthService,
+    private readonly financeService: FinanceService,
   ) {}
 
   createHold(claims: SessionClaims, input: CreateHoldInput) {
@@ -1493,6 +1495,32 @@ export class LeasingService {
             : [];
       if (!allowed.includes(input.status))
         throw new ConflictException(`Invalid reservation transition: ${current.status}`);
+      let depositJournalId: string | null = null;
+      if (input.status === 'confirmed') {
+        const snapshot = current.termsSnapshot ?? {};
+        const rawDeposit = snapshot.depositMinor;
+        const depositMinor =
+          typeof rawDeposit === 'string' && /^\d+$/.test(rawDeposit)
+            ? BigInt(rawDeposit)
+            : typeof rawDeposit === 'number' && Number.isFinite(rawDeposit) && rawDeposit >= 0
+              ? BigInt(Math.trunc(rawDeposit))
+              : 0n;
+        const currency = (current.currency ??
+          (typeof snapshot.currency === 'string' ? snapshot.currency : 'OMR')) as CurrencyCode;
+        const journal = await this.financeService.postReservationDepositJournal(
+          transaction,
+          claims.organizationId!,
+          {
+            reservationId: id,
+            partyId: current.tenantPartyId,
+            unitId: current.unitId,
+            currency,
+            depositMinor,
+            occurredOn: new Date().toISOString().slice(0, 10),
+          },
+        );
+        depositJournalId = journal?.id ?? null;
+      }
       const termsSnapshot =
         input.status === 'confirmed'
           ? {
@@ -1501,6 +1529,7 @@ export class LeasingService {
               depositConfirmedAt: new Date().toISOString(),
               depositConfirmedByUserId: claims.sub,
               depositConfirmationNote: input.note ?? null,
+              depositJournalEntryId: depositJournalId,
             }
           : current.termsSnapshot;
       const rows = await transaction

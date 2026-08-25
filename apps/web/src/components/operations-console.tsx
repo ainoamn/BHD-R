@@ -134,9 +134,9 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
     titleAr: 'الحجوزات والمعاينات',
     titleEn: 'Bookings & viewings',
     introAr:
-      'اختر وحدة شاغرة ومستأجراً من سجل العناوين. الحجز يبقى معلّقاً حتى يعتمد المحاسب مبلغ الضمان، ثم يُحوَّل لعقد إيجار قيد الإجراء.',
+      'اختر وحدة شاغرة ومستأجراً من سجل العناوين. الحجز يبقى معلّقاً حتى يعتمد المحاسب مبلغ الضمان؛ عند التأكيد يُرحَّل قيد محاسبي تلقائي (نقد/بنك ← تأمينات مستأجرين)، ثم يُحوَّل لعقد إيجار قيد الإجراء.',
     introEn:
-      'Pick a vacant unit and a tenant from the address book. Reservations stay pending until the accountant confirms the deposit, then convert to an in-progress lease.',
+      'Pick a vacant unit and a tenant from the address book. Reservations stay pending until the accountant confirms the deposit; confirmation auto-posts a ledger journal (cash/bank → tenant deposits), then convert to an in-progress lease.',
     createAr: 'حجز جديد',
     createEn: 'New booking',
     columns: [

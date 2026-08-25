@@ -1,7 +1,8 @@
 # Operational flow: BHD-OM → BHD-R
 
 **Source of truth (behavior):** `C:\dev\bhd-om` legacy ops (vacant → reserve → deposit → lease → approvals → active).  
-**Implementation:** BHD-R Nest API + web ops console (`apps/api`, `apps/web`).
+**Implementation:** BHD-R Nest API + web ops console (`apps/api`, `apps/web`).  
+**Updated:** 2026-08-25
 
 ## Hard rules (replicate exactly)
 
@@ -12,6 +13,7 @@
 5. Lease in progress: rent, grace, other amounts, cheques, e-sign, accountant re-check, multi-party approval → active.
 6. Active lease: leave vacant lists; show on owner / property / tenant / accounting.
 7. When vacant again: tasks, maintenance, legal, accounts deep-links.
+8. Accountant deposit confirm posts ledger journal (cash/bank ↔ tenant deposits liability).
 
 ## Status mapping
 
@@ -19,6 +21,7 @@
 |------------|-------------|
 | مسودة/مؤكد حجز | `reservations.status`: `pending` → `confirmed` (accountant deposit) → `converted` |
 | ضمان بانتظار المحاسب | `pending` + requirement `deposit_receipt` + `termsSnapshot.depositMinor` |
+| قيد عربون تلقائي | `journal_entries` `source_type=reservation_deposit` Dr `1000` / Cr `2100` (idempotent) |
 | عقد قيد الإجراء | `leases.status=draft` + `contracts.status=draft\|sent\|…` |
 | ساري | `leases.status=active` + signed contract |
 | شاغر | derived: no active hold/reservation/lease/blocking maintenance |
@@ -32,9 +35,16 @@
 | 3 Vacant listing | Ops context `vacantUnits` + bookings filter |
 | 4 Booking → accountant → lease | **Gate wired in leasing service** |
 | 5 Contract amounts / cheques / e-sign / approvals | **Wired** — grace, cheque schedule, multi-stage approval chain, cheque gate before send/activate |
-| 6 Portal reflection | **Wired** — tenant-scoped leases/contracts; leasing defaults to `active`; owner/tenant/accountant overview quick links; accounting shows lease invoices + cheques |
+| 6 Portal reflection | **Wired** — tenant-scoped leases/contracts; leasing defaults to `active`; owner/tenant overview quick links; accounting shows lease invoices + cheques |
 | 7 Vacant → tasks/maintenance/legal/accounts | **Wired** — vacant strip deep-links `?create=1&unitId=` into bookings/tasks/maintenance/legal/accounting forms |
+| 8 Deposit confirm → auto journal | **Wired** — `FinanceService.postReservationDepositJournal` on reservation confirm; skip if depositMinor is 0/null |
+
+## Next (step 9+)
+
+1. Host Nest API publicly and set `API_INTERNAL_ORIGIN` on Vercel (infra).
+2. Vacancy automation: auto-seed task on `lease.end` / `lease.terminate`.
+3. Party-scoped portal overview metrics.
 
 ## Deploy note
 
-Web on Vercel needs Nest at `API_INTERNAL_ORIGIN` / `API_ORIGIN` for `/v1/*` ops mutations.
+Web on Vercel needs Nest at `API_INTERNAL_ORIGIN` / `API_ORIGIN` for `/v1/*` ops mutations. Step 8 lives in Nest; it takes effect when the API process runs against Neon.
