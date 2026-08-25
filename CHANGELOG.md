@@ -2,6 +2,14 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.21 — 2026-08-25
+
+- Property wizard UX: 7 steps with slide transitions; bilingual name/description pairs; amenity icons; rainbow/red progress dots.
+- Google Maps required link + interactive map picker (Leaflet) that fills URL and coordinates.
+- Auto read-only unit codes; empty required dropdowns for floor/beds/baths; owner-private optional docs (deed / survey / owner ID); min two photos; booking-style final listing preview.
+- CSRF: browser mutations via Next BFF `/api/backend/v1/*`; Nest allows configured/preview origins and same-site Fetch Metadata.
+- Docs: `docs/implementation/PROPERTY-WIZARD-AR.md`, `NEST-API-HOSTING.md` (BFF notes).
+
 ## 0.2.20 — 2026-08-25
 
 - Fix Vercel TypeScript build (`exactOptionalPropertyTypes` on listing preview `area`/`coverUrl`).
