@@ -16,6 +16,10 @@
 
 **ربط Vercel:** [`docs/VERCEL_DEPLOYMENT_AR.md`](./docs/VERCEL_DEPLOYMENT_AR.md) — Root Directory = `apps/web`
 
+**استضافة Nest API:** [`docs/implementation/NEST-API-HOSTING.md`](./docs/implementation/NEST-API-HOSTING.md)
+
+**معالج إضافة عقار (0.2.21):** [`docs/implementation/PROPERTY-WIZARD-AR.md`](./docs/implementation/PROPERTY-WIZARD-AR.md)
+
 **هوية BHD:** [`docs/BHD-R-IDENTITY-SETUP.md`](./docs/BHD-R-IDENTITY-SETUP.md)
 
 **مزامنة الحزمة 0.1.6:** [`docs/RELEASE_SYNC_0.1.6.md`](./docs/RELEASE_SYNC_0.1.6.md)
