@@ -495,8 +495,18 @@ export function PropertyWizard({
     }
     setBusy(true);
     setError(null);
-    setSuccess(null);
+    setSuccess(ar ? 'جاري التحقق من اتصال Nest…' : 'Checking Nest connection…');
     try {
+      const warm = await fetch('/api/warm', { cache: 'no-store', signal: AbortSignal.timeout(25_000) });
+      const warmPayload = (await warm.json().catch(() => null)) as { ok?: boolean; status?: number } | null;
+      if (!warmPayload?.ok) {
+        throw new Error(
+          ar
+            ? 'خادم Nest على Render غير متاح الآن. من لوحة Render أعد تشغيل/نشر الخدمة حتى تصبح Live، ثم افتح /health/ready وأعد الحفظ.'
+            : 'Nest on Render is unavailable. Redeploy/restart the service until Live, verify /health/ready, then save again.',
+        );
+      }
+      setSuccess(ar ? 'جاري حفظ العقار…' : 'Saving property…');
       const amenityPayload = amenities.map((code) => {
         const option = amenityOptions.find(([value]) => value === code)!;
         return { code, labelAr: option[1], labelEn: option[2] };

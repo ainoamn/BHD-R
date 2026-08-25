@@ -44,16 +44,30 @@ async function getCsrfToken(force = false): Promise<string> {
       csrfResponse = await fetch(browserApiPath('/v1/auth/csrf'), {
         credentials: 'same-origin',
         headers: { accept: 'application/json' },
+        signal: AbortSignal.timeout(22_000),
       });
     } catch (error) {
-      throw new ApiError(0, 'network_error', networkFailureMessage(error));
+      throw new ApiError(
+        0,
+        'network_error',
+        'تعذر الاتصال بـ Nest API. من Render تأكد أن الخدمة Live ثم أعد المحاولة.',
+      );
     }
-    if (!csrfResponse.ok)
+    if (!csrfResponse.ok) {
+      const payload = (await csrfResponse.json().catch(() => null)) as {
+        error?: { code?: string; message?: string; messageAr?: string };
+      } | null;
+      const arMessage =
+        payload?.error?.messageAr ??
+        (csrfResponse.status === 502 || payload?.error?.code === 'api_unreachable'
+          ? 'خادم Nest غير متاح حالياً (Render). افتح لوحة Render وأعد تشغيل/نشر الخدمة، ثم تحقق من /health/ready.'
+          : 'تعذر إنشاء طلب آمن. سجّل الخروج وادخل مجدداً ثم أعد المحاولة.');
       throw new ApiError(
         csrfResponse.status,
-        'csrf_unavailable',
-        'Could not establish a secure request',
+        payload?.error?.code ?? 'csrf_unavailable',
+        arMessage,
       );
+    }
     const csrf = (await csrfResponse.json()) as { token: string };
     cachedCsrfToken = csrf.token;
     return csrf.token;
@@ -82,18 +96,23 @@ async function browserMutationOnce<T>(
         'idempotency-key': crypto.randomUUID(),
         ...init.headers,
       },
+      signal: init.signal ?? AbortSignal.timeout(45_000),
     });
   } catch (error) {
-    throw new ApiError(0, 'network_error', networkFailureMessage(error));
+    throw new ApiError(
+      0,
+      'network_error',
+      'تعذر إكمال الطلب — Nest لا يستجيب. تحقق من Render ثم أعد المحاولة.',
+    );
   }
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as {
-      error?: { code?: string; message?: string; requestId?: string };
+      error?: { code?: string; message?: string; messageAr?: string; requestId?: string };
     } | null;
     throw new ApiError(
       response.status,
       payload?.error?.code ?? 'api_error',
-      payload?.error?.message ?? 'Request failed',
+      payload?.error?.messageAr ?? payload?.error?.message ?? 'Request failed',
       payload?.error?.requestId,
     );
   }

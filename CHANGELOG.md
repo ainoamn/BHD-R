@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.27 — 2026-08-25
+
+- Property save: fail fast when Nest is down (BFF upstream timeout, Arabic CSRF/Nest errors, warm check before save) instead of hanging ~160s on «Could not establish a secure request».
+
 ## 0.2.26 — 2026-08-25
 
 - Portal performance: NestKeepAlive `/api/warm`, drop per-nav health probe, SPA `Link`+prefetch in ops console, CSRF token reuse, parallel media uploads (×3), Next `staleTimes` for soft nav.

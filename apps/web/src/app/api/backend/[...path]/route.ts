@@ -66,12 +66,25 @@ async function proxy(request: NextRequest, pathSegments: string[]): Promise<Next
     init.body = await request.arrayBuffer();
   }
 
+  // Fail fast when Nest is asleep/crashed — avoid 60–160s browser hangs on CSRF/save.
+  const isRead = request.method === 'GET' || request.method === 'HEAD';
+  const timeoutMs = isRead ? 18_000 : 40_000;
+  init.signal = AbortSignal.timeout(timeoutMs);
+
   let upstream: Response;
   try {
     upstream = await fetch(target, init);
   } catch {
     return NextResponse.json(
-      { error: { code: 'api_unreachable', message: 'Upstream API unreachable' } },
+      {
+        error: {
+          code: 'api_unreachable',
+          message:
+            'Nest API unreachable or timed out. Open Render → service Live, then https://bhd-r.onrender.com/health/ready',
+          messageAr:
+            'تعذر الوصول إلى Nest أو انتهت المهلة. من Render تأكد أن الخدمة Live ثم افتح /health/ready',
+        },
+      },
       { status: 502 },
     );
   }
