@@ -19,6 +19,7 @@ import {
   legalCases,
   mediaAssets,
   maintenanceTickets,
+  expenses,
   outboxEvents,
   parties,
   partyAddresses,
@@ -1745,6 +1746,39 @@ export class LeasingService {
               currency,
               minorUnit: currencyMinorUnits[currency],
               openedOn,
+            });
+          }
+
+          // OM step 14: accounts — draft vacancy settlement expense (idempotent by reference).
+          const expenseRef = `EXP-VAC-${id.replace(/-/g, '').slice(0, 10).toUpperCase()}`;
+          const existingExpense = await transaction.query.expenses.findFirst({
+            where: and(
+              eq(expenses.organizationId, claims.organizationId!),
+              eq(expenses.reference, expenseRef),
+            ),
+          });
+          if (!existingExpense) {
+            const currency = (current.currency ?? 'OMR') as CurrencyCode;
+            const settlementAmount =
+              current.depositMinor && current.depositMinor > 0n ? current.depositMinor : 1n;
+            const issuedOn = new Date().toISOString().slice(0, 10);
+            await transaction.insert(expenses).values({
+              organizationId: claims.organizationId!,
+              reference: expenseRef,
+              propertyId: unit?.propertyId,
+              unitId: current.unitId,
+              category: 'vacancy_settlement',
+              description:
+                input.action === 'terminate'
+                  ? 'مخالصة حسابات بعد فسخ العقد'
+                  : 'مخالصة حسابات بعد انتهاء العقد',
+              amountMinor: settlementAmount,
+              taxMinor: 0n,
+              currency,
+              minorUnit: currencyMinorUnits[currency],
+              status: 'pending',
+              issuedOn,
+              notes: `Auto vacancy settlement for lease ${id}. Adjust amount then approve.`,
             });
           }
         }

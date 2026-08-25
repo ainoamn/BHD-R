@@ -21,6 +21,8 @@
 | 11 | Nest API public host | `render.yaml` + `NEST-API-HOSTING.md` scaffold; go-live needs secrets | Scaffolded |
 | 12 | Lease lifecycle ops UI | Activate / End / Terminate buttons on leasing console | Wired |
 | 13 | Vacancy → maintenance + legal | Auto `vacancy_handover` ticket + `vacancy_deposit_review` legal case | Wired |
+| 14 | Vacancy → accounts expense | Auto expense `vacancy_settlement` (`EXP-VAC-…`) | Wired |
+| 15 | Ops Nest-missing banner | Banner when `API_*` unset or `/v1/operations/context` fails | Wired |
 
 ## Step 10 acceptance
 
@@ -47,6 +49,16 @@
 2. End/terminate creates (if missing) a legal case `caseType=vacancy_deposit_review` linked to the lease.
 3. Together with step 9 task, covers tasks / maintenance / legal for vacant-again flow.
 
+## Step 14 acceptance
+
+1. End/terminate creates expense `reference=EXP-VAC-…`, `category=vacancy_settlement` once.
+2. Amount uses deposit when > 0, else 1 minor unit placeholder with notes to adjust.
+
+## Step 15 acceptance
+
+1. Ops pages show a banner if `API_INTERNAL_ORIGIN`/`API_ORIGIN` unset on the web runtime.
+2. Banner also appears when Nest context fetch fails.
+
 ## Production blockers
 
 - Nest API not yet live on a public host (scaffold only until secrets/DNS applied).
@@ -64,3 +76,4 @@ After each OM step: commit → `git push origin main` → Vercel Production depl
 | 11 Nest hosting scaffold | `6b4dc32` | Ready |
 | 12 Lease lifecycle UI | `ad27d7d` | Ready |
 | 13 Vacancy maint+legal | `d5403cf` | Ready |
+| 14–15 Accounts + API banner | (this release) | after push |

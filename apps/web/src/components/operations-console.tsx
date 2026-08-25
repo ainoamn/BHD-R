@@ -1923,6 +1923,9 @@ export function OperationsConsole({
   summary,
   secondary,
   context,
+  apiOnline = true,
+  nestConfigured = true,
+  recordsEmpty = false,
 }: {
   portal: PortalRole;
   section: OperationsSection;
@@ -1931,6 +1934,9 @@ export function OperationsConsole({
   summary: DataRow;
   secondary: DataRow[];
   context: OperationsContext;
+  apiOnline?: boolean;
+  nestConfigured?: boolean;
+  recordsEmpty?: boolean;
 }) {
   const router = useRouter();
   const definition = definitions[section];
@@ -2245,6 +2251,36 @@ export function OperationsConsole({
           ) : null}
         </div>
       </header>
+
+      {!nestConfigured || !apiOnline ? (
+        <div className="ops-api-banner" role="status">
+          <strong>
+            {!nestConfigured
+              ? ar
+                ? 'Nest API غير مضبوط على Vercel'
+                : 'Nest API is not configured on Vercel'
+              : ar
+                ? 'تعذّر الوصول إلى Nest API'
+                : 'Nest API is unreachable'}
+          </strong>
+          <p>
+            {!nestConfigured
+              ? ar
+                ? 'أضف API_INTERNAL_ORIGIN و API_ORIGIN (رابط Nest HTTPS) ثم أعد النشر. الدليل: docs/implementation/VERCEL-MANUAL-AR.md'
+                : 'Add API_INTERNAL_ORIGIN and API_ORIGIN (Nest HTTPS URL), then redeploy. See docs/implementation/VERCEL-MANUAL-AR.md'
+              : ar
+                ? 'تحقق من صحة رابط Nest وأن الخدمة تعمل على /health/ready. القوائم قد تظهر فارغة حتى يعود الـ API.'
+                : 'Verify the Nest URL and that /health/ready succeeds. Lists may stay empty until the API responds.'}
+          </p>
+          {recordsEmpty ? (
+            <p className="ops-api-banner__note">
+              {ar
+                ? 'لا سجلات معروضة حالياً لهذا القسم — غالباً بسبب غياب الـ API.'
+                : 'No records shown for this section — usually because the API is offline.'}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       <section className="ops-metrics" aria-label={ar ? 'المؤشرات' : 'Metrics'}>
         <article>

@@ -140,12 +140,22 @@ export async function OperationsWorkspace({
   section: OperationsSection;
 }) {
   const locale = (await getLocale()) === 'en' ? 'en' : 'ar';
-  const [loaded, context] = await Promise.all([
+  const nestConfigured = Boolean(
+    (process.env.API_INTERNAL_ORIGIN ?? process.env.API_ORIGIN ?? '').trim(),
+  );
+  let apiOnline = portal === 'tenant';
+  let context: OperationsContext = {};
+  const [loaded, contextResult] = await Promise.all([
     loadSection(portal, section),
     portal === 'tenant'
-      ? Promise.resolve({} as OperationsContext)
-      : apiFetch<OperationsContext>('/v1/operations/context').catch(() => ({})),
+      ? Promise.resolve({ ok: true as const, context: {} as OperationsContext })
+      : apiFetch<OperationsContext>('/v1/operations/context')
+          .then((payload) => ({ ok: true as const, context: payload }))
+          .catch(() => ({ ok: false as const, context: {} as OperationsContext })),
   ]);
+  apiOnline = contextResult.ok;
+  context = contextResult.context;
+  const recordsEmpty = !loaded.records.length;
   return (
     <OperationsConsole
       portal={portal}
@@ -155,6 +165,9 @@ export async function OperationsWorkspace({
       summary={loaded.summary ?? {}}
       secondary={loaded.secondary ?? []}
       context={context}
+      apiOnline={apiOnline}
+      nestConfigured={nestConfigured}
+      recordsEmpty={recordsEmpty}
     />
   );
 }

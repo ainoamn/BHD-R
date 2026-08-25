@@ -19,6 +19,8 @@
 11. Nest API is hosted publicly; Vercel `API_INTERNAL_ORIGIN` points at it.
 12. Ops leasing UI exposes activate / end / terminate (end/terminate seeds vacancy task).
 13. Lease end/terminate also auto-opens maintenance (`vacancy_handover`) and legal assessment (`vacancy_deposit_review`).
+14. Lease end/terminate seeds accounts expense `vacancy_settlement` (idempotent reference).
+15. Ops console warns when Nest is missing/unreachable on Vercel.
 
 ## Status mapping
 
@@ -30,27 +32,24 @@
 | عقد قيد الإجراء | `leases.status=draft` + `contracts.status=draft\|sent\|…` |
 | ساري | `leases.status=active` + signed contract |
 | شاغر | derived: no active hold/reservation/lease/blocking maintenance |
-| مهمة شغور تلقائية | `work_tasks` `related_type=lease_vacancy` + `related_id=leaseId` on end/terminate |
-| بوابة حسب الطرف | `PortalsService` scopes by `ownerPartyId` / `tenantPartyId` when `partyId` set |
+| مهمة شغور تلقائية | `work_tasks` `related_type=lease_vacancy` |
+| صيانة/محاماة/حسابات شغور | maintenance `vacancy_handover` + legal `vacancy_deposit_review` + expense `vacancy_settlement` |
+| بوابة حسب الطرف | `PortalsService` scopes by `ownerPartyId` / `tenantPartyId` |
 
 ## Phase checklist
 
 | Step | Status |
 |------|--------|
-| 1 Address book | In progress (contacts roles already; completeness gates added with booking) |
-| 2 Property + units + owner | Exists (wizard); polish ongoing |
-| 3 Vacant listing | Ops context `vacantUnits` + bookings filter |
-| 4 Booking → accountant → lease | **Gate wired in leasing service** |
-| 5 Contract amounts / cheques / e-sign / approvals | **Wired** |
-| 6 Portal reflection | **Wired** |
-| 7 Vacant → tasks/maintenance/legal/accounts | **Wired** |
+| 1–7 | **Wired** (see earlier commits) |
 | 8 Deposit confirm → auto journal | **Wired** |
 | 9 Lease end → vacancy task | **Wired** |
-| 10 Party-scoped portal metrics | **Wired** — owner/tenant overview + lists |
-| 11 Nest API public host | **Scaffolded** — see `docs/implementation/NEST-API-HOSTING.md` |
-| 12 Lease lifecycle ops actions | **Wired** — activate / end / terminate in leasing console |
-| 13 Vacancy → maintenance + legal | **Wired** — auto ticket `vacancy_handover` + legal `vacancy_deposit_review` |
+| 10 Party-scoped portal metrics | **Wired** |
+| 11 Nest API public host | **Scaffolded** — `NEST-API-HOSTING.md` + `VERCEL-MANUAL-AR.md` |
+| 12 Lease lifecycle ops actions | **Wired** |
+| 13 Vacancy → maintenance + legal | **Wired** |
+| 14 Vacancy → accounts expense | **Wired** |
+| 15 Ops Nest-missing banner | **Wired** |
 
 ## Deploy note
 
-Web on Vercel needs Nest at `API_INTERNAL_ORIGIN` / `API_ORIGIN` for `/v1/*` ops mutations.
+Web on Vercel needs Nest at `API_INTERNAL_ORIGIN` / `API_ORIGIN`. Manual steps: `docs/implementation/VERCEL-MANUAL-AR.md`.
