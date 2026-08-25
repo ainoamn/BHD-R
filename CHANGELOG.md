@@ -5,6 +5,7 @@ All notable changes are documented here. The project follows Semantic Versioning
 ## 0.2.26 — 2026-08-25
 
 - Portal performance: NestKeepAlive `/api/warm`, drop per-nav health probe, SPA `Link`+prefetch in ops console, CSRF token reuse, parallel media uploads (×3), Next `staleTimes` for soft nav.
+- Ops banner: clearer Nest-down copy + «Reconnect to Nest» (`/api/warm` then refresh); NEST-API-HOSTING troubleshooting.
 - Docs: `docs/implementation/PORTAL-PERF-AR.md`.
 
 ## 0.2.25 — 2026-08-25

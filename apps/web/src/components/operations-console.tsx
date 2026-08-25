@@ -8,6 +8,7 @@ import { browserMutation } from '@/lib/api';
 import { formatMoney, toMinorUnits } from '@/lib/format';
 import type { PortalRole } from '@/lib/types';
 import type { OperationsSection } from './operations-workspace';
+import { NestReconnectButton } from './nest-reconnect-button';
 
 type DataRow = Record<string, unknown>;
 
@@ -2424,14 +2425,15 @@ export function OperationsConsole({
                 ? 'Nest غير منشور بعد. انشر apps/api على Render (render.yaml) ثم أضف على Vercel: API_INTERNAL_ORIGIN و API_ORIGIN = رابط Nest HTTPS (ليس localhost). الدليل: docs/implementation/NEST-API-HOSTING.md و VERCEL-MANUAL-AR.md'
                 : 'Nest is not hosted yet. Deploy apps/api on Render (render.yaml), then set Vercel API_INTERNAL_ORIGIN and API_ORIGIN to that HTTPS URL (never localhost). See docs/implementation/NEST-API-HOSTING.md'
               : ar
-                ? 'الرابط مضبوط لكن الطلب فشل. افتح /health/ready على خادم Nest وتأكد من صحة API_INTERNAL_ORIGIN ثم أعد نشر Vercel. الدليل: docs/implementation/VERCEL-MANUAL-AR.md'
-                : 'API origin is set but the request failed. Check Nest /health/ready and API_INTERNAL_ORIGIN, then redeploy. See docs/implementation/VERCEL-MANUAL-AR.md'}
+                ? 'الرابط مضبوط على Vercel لكن خادم Nest على Render لا يستجيب الآن (غالباً الخدمة نائمة أو فشل النشر). من لوحة Render افتح الخدمة → Logs، ثم Manual Deploy لآخر commit ناجح، وانتظر حتى تصبح Live.'
+                : 'Vercel has API_INTERNAL_ORIGIN set, but Nest on Render is not responding (sleeping or failed deploy). In Render open the service → Logs, Manual Deploy the latest good commit, wait until Live.'}
           </p>
+          {!nestConfigured ? null : <NestReconnectButton locale={locale} />}
           {recordsEmpty ? (
             <p className="ops-api-banner__note">
               {ar
-                ? 'لا سجلات معروضة حالياً لهذا القسم — غالباً بسبب غياب الـ API.'
-                : 'No records shown for this section — usually because the API is offline.'}
+                ? 'لا سجلات معروضة حالياً لهذا القسم — بسبب غياب استجابة الـ API.'
+                : 'No records shown for this section — because the API did not respond.'}
             </p>
           ) : null}
         </div>

@@ -55,7 +55,21 @@ Redeploy **web (Vercel)** after this change. Redeploy **Nest (Render)** when pul
 
 **Arabic click-by-click for Vercel:** [`VERCEL-MANUAL-AR.md`](./VERCEL-MANUAL-AR.md).
 
-## Smoke checklist
+## عندما تظهر «تعذّر الوصول إلى Nest API»
+
+الرسالة تعني: **Vercel مضبوط** (`API_INTERNAL_ORIGIN`) لكن **Nest على Render لا يرد**.
+
+فحص سريع (من جهازك):
+
+```text
+https://bhd-r.onrender.com/health/ready
+```
+
+- إن فشل أو بقي يحمّل طويلاً → المشكلة في **Render** وليس في الواجهة.
+- من لوحة Render: الخدمة `bhd-r` / `bhd-r-api` → **Logs** (ابحث عن crash / Invalid environment) → **Manual Deploy** لـ `main` (≥ `6e5b607`) → انتظر **Live**.
+- بعد Live أعد تحميل `/ar/owner/properties` أو اضغط «إعادة الاتصال بـ Nest».
+
+لا تغيّر `API_INTERNAL_ORIGIN` إلى localhost. القيمة الصحيحة عادة: `https://bhd-r.onrender.com`.
 
 1. `GET https://API_HOST/health/ready` → 200  
 2. SSO login on `https://r.bhd-om.com`  
