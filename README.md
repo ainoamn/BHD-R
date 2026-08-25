@@ -20,7 +20,7 @@
 
 **معالج إضافة عقار (0.2.21):** [`docs/implementation/PROPERTY-WIZARD-AR.md`](./docs/implementation/PROPERTY-WIZARD-AR.md)
 
-**لوحة التحكم ورفع أقسام البوابة (0.2.22):** [`docs/implementation/PORTAL-DASHBOARD-AR.md`](./docs/implementation/PORTAL-DASHBOARD-AR.md)
+**لوحة التحكم ورفع أقسام البوابة (0.2.23):** [`docs/implementation/PORTAL-DASHBOARD-AR.md`](./docs/implementation/PORTAL-DASHBOARD-AR.md) — تجاوب الجوال ودرج القائمة: [`PORTAL-CHROME-AR.md`](./docs/implementation/PORTAL-CHROME-AR.md)
 
 **هوية BHD:** [`docs/BHD-R-IDENTITY-SETUP.md`](./docs/BHD-R-IDENTITY-SETUP.md)
 

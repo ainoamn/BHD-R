@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.23 — 2026-08-25
+
+- Mobile portal: fix drawer sidebar stuck open (entrance `transform` animation + `≤1100px` layout cascade overriding the drawer breakpoint).
+- Mobile dashboard: stack hero/actions, tighten alerts/metrics/shortcuts/activity for phones; drawer uses `matchMedia` + `inert` when closed.
+- Docs: `PORTAL-DASHBOARD-AR.md`, `PORTAL-CHROME-AR.md`.
+
 ## 0.2.22 — 2026-08-25
 
 - Portal dashboard: live stats (properties, units, leases, vacant, tickets, expiring, open invoices), clickable alerts, finance pulse, shortcuts, and last-updated timestamp from overview API.

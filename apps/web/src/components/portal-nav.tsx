@@ -169,6 +169,7 @@ export function PortalNav({ portal, viewer }: { portal: PortalRole; viewer: View
   const pathname = usePathname();
   const locale = useLocale() as 'ar' | 'en';
   const [open, setOpen] = useState(false);
+  const [isDrawerViewport, setIsDrawerViewport] = useState(false);
   const panelId = useId();
   const root = `/${portal}`;
 
@@ -177,7 +178,19 @@ export function PortalNav({ portal, viewer }: { portal: PortalRole; viewer: View
   }, [pathname]);
 
   useEffect(() => {
-    if (!open) return;
+    const media = window.matchMedia('(max-width: 960px)');
+    const sync = () => {
+      const matches = media.matches;
+      setIsDrawerViewport(matches);
+      if (!matches) setOpen(false);
+    };
+    sync();
+    media.addEventListener('change', sync);
+    return () => media.removeEventListener('change', sync);
+  }, []);
+
+  useEffect(() => {
+    if (!open || !isDrawerViewport) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const onKey = (event: KeyboardEvent) => {
@@ -188,7 +201,9 @@ export function PortalNav({ portal, viewer }: { portal: PortalRole; viewer: View
       document.body.style.overflow = previous;
       window.removeEventListener('keydown', onKey);
     };
-  }, [open]);
+  }, [open, isDrawerViewport]);
+
+  const drawerHidden = isDrawerViewport && !open;
 
   return (
     <>
@@ -212,6 +227,8 @@ export function PortalNav({ portal, viewer }: { portal: PortalRole; viewer: View
       <aside
         id={panelId}
         className={open ? 'portal-sidebar portal-sidebar--open' : 'portal-sidebar'}
+        aria-hidden={drawerHidden || undefined}
+        {...(drawerHidden ? { inert: true } : {})}
       >
         <div className="portal-sidebar__head">
           <p className="portal-sidebar__title">{t(`Portal.${portal}`)}</p>
