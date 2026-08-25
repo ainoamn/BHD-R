@@ -102,6 +102,7 @@ export function PropertyWizard({
   const locale = useLocale() as 'ar' | 'en';
   const ar = locale === 'ar';
   const [step, setStep] = useState(0);
+  const [slideDir, setSlideDir] = useState<'forward' | 'back'>('forward');
   const [maxReached, setMaxReached] = useState(0);
   const [showErrors, setShowErrors] = useState(false);
   const [missingHints, setMissingHints] = useState<string[]>([]);
@@ -279,6 +280,7 @@ export function PropertyWizard({
       setMissingHints([]);
       setError(null);
       setMaxReached((m) => Math.max(m, next));
+      setSlideDir('forward');
       setStep(next);
       return;
     }
@@ -286,6 +288,7 @@ export function PropertyWizard({
       setShowErrors(false);
       setMissingHints([]);
       setError(null);
+      setSlideDir('back');
       setStep(next);
     }
   }
@@ -560,55 +563,67 @@ export function PropertyWizard({
   )} ${currency}`;
 
   return (
-    <div className="form-shell wizard-shell">
-      <header className="portal-topbar">
-        <div>
-          <h1>{t('PropertyForm.title')}</h1>
-          <p>{t('PropertyForm.intro')}</p>
+    <div className="form-shell wizard-shell" data-slide={slideDir}>
+      <header className="wizard-hero">
+        <p className="wizard-hero__kicker">{ar ? 'بوابة المالك' : 'Owner portal'}</p>
+        <h1>{t('PropertyForm.title')}</h1>
+        <p>{t('PropertyForm.intro')}</p>
+        <div className="wizard-hero__meta" aria-hidden="true">
+          <span>
+            {ar ? 'المرحلة' : 'Step'} {step + 1} / {steps.length}
+          </span>
+          <span className="wizard-hero__bar">
+            <i style={{ width: `${((step + 1) / steps.length) * 100}%` }} />
+          </span>
         </div>
       </header>
 
-      <ol className="wizard-steps" aria-label={t('PropertyForm.wizardStepsAria')}>
-        {steps.map((label, index) => {
-          const reached = index <= maxReached;
-          const done = index < step;
-          const current = index === step;
-          const clickable = index < step || (index === step + 1 && validateStep(step).length === 0);
-          return (
-            <li key={label}>
-              <button
-                type="button"
+      <nav className="wizard-progress" aria-label={t('PropertyForm.wizardStepsAria')}>
+        <ol className="wizard-progress__list">
+          {steps.map((label, index) => {
+            const done = index < step;
+            const current = index === step;
+            const clickable =
+              index < step || (index === step + 1 && validateStep(step).length === 0);
+            return (
+              <li
+                key={label}
                 className={
                   current
-                    ? 'wizard-steps__btn is-current'
+                    ? 'wizard-progress__item is-current'
                     : done
-                      ? 'wizard-steps__btn is-done'
-                      : reached
-                        ? 'wizard-steps__btn is-reached'
-                        : 'wizard-steps__btn'
+                      ? 'wizard-progress__item is-done'
+                      : index <= maxReached
+                        ? 'wizard-progress__item is-reached'
+                        : 'wizard-progress__item'
                 }
-                disabled={index > maxReached && index !== step}
-                aria-current={current ? 'step' : undefined}
-                onClick={() => {
-                  if (index <= step) goToStep(index);
-                  else if (clickable) goToStep(index);
-                  else {
-                    const issues = validateStep(step);
-                    setShowErrors(true);
-                    setMissingHints(issues);
-                    setError(t('PropertyForm.completeBeforeNext'));
-                  }
-                }}
               >
-                <span className="wizard-steps__num" aria-hidden="true">
-                  {index + 1}
-                </span>
-                <span className="wizard-steps__label">{label}</span>
-              </button>
-            </li>
-          );
-        })}
-      </ol>
+                <button
+                  type="button"
+                  className="wizard-progress__btn"
+                  disabled={index > maxReached && index !== step}
+                  aria-current={current ? 'step' : undefined}
+                  onClick={() => {
+                    if (index <= step) goToStep(index);
+                    else if (clickable) goToStep(index);
+                    else {
+                      const issues = validateStep(step);
+                      setShowErrors(true);
+                      setMissingHints(issues);
+                      setError(t('PropertyForm.completeBeforeNext'));
+                    }
+                  }}
+                >
+                  <span className="wizard-progress__dot" aria-hidden="true">
+                    {done ? '✓' : index + 1}
+                  </span>
+                  <span className="wizard-progress__label">{label}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
 
       {missingHints.length ? (
         <div className="wizard-missing" role="alert">
@@ -623,13 +638,19 @@ export function PropertyWizard({
 
       <Card className="wizard-card">
         <CardContent>
-          <form onSubmit={(event) => void submit(event)}>
+          <form className="wizard-form" onSubmit={(event) => void submit(event)}>
+            <div className="wizard-viewport">
+              <div
+                key={step}
+                className={`wizard-pane wizard-pane--${slideDir}`}
+                data-step={step + 1}
+              >
             {step === 0 ? (
               <div className="form-grid">
                 <div className="field span-2">
                   <label>{t('PropertyForm.basics')}</label>
-                  <div className="hero-actions">
-                    <label className="checkbox-row">
+                  <div className="wizard-seg" role="radiogroup">
+                    <label className={kind === 'single_unit' ? 'wizard-seg__item is-active' : 'wizard-seg__item'}>
                       <input
                         type="radio"
                         name="kind"
@@ -641,7 +662,7 @@ export function PropertyWizard({
                       />
                       {t('PropertyForm.single')}
                     </label>
-                    <label className="checkbox-row">
+                    <label className={kind === 'multi_unit' ? 'wizard-seg__item is-active' : 'wizard-seg__item'}>
                       <input
                         type="radio"
                         name="kind"
@@ -1412,6 +1433,8 @@ export function PropertyWizard({
                 </section>
               </div>
             ) : null}
+              </div>
+            </div>
 
             {error ? (
               <div className="notice notice--error" role="alert">
@@ -1424,7 +1447,7 @@ export function PropertyWizard({
               </div>
             ) : null}
 
-            <div className="form-actions">
+            <div className="wizard-footer form-actions">
               {step > 0 ? (
                 <Button
                   type="button"
