@@ -15,6 +15,7 @@
 7. When vacant again: tasks, maintenance, legal, accounts deep-links.
 8. Accountant deposit confirm posts ledger journal (cash/bank ↔ tenant deposits liability).
 9. Lease end/terminate auto-seeds a vacancy follow-up task (checklist for inspection / maintenance / legal / accounts).
+10. Portal metrics and lists are party-scoped (owner portfolio / tenant leases) unless the actor has org-wide staff roles.
 
 ## Status mapping
 
@@ -27,6 +28,7 @@
 | ساري | `leases.status=active` + signed contract |
 | شاغر | derived: no active hold/reservation/lease/blocking maintenance |
 | مهمة شغور تلقائية | `work_tasks` `related_type=lease_vacancy` + `related_id=leaseId` on end/terminate |
+| بوابة حسب الطرف | `PortalsService` scopes by `ownerPartyId` / `tenantPartyId` when `partyId` set |
 
 ## Phase checklist
 
@@ -36,18 +38,14 @@
 | 2 Property + units + owner | Exists (wizard); polish ongoing |
 | 3 Vacant listing | Ops context `vacantUnits` + bookings filter |
 | 4 Booking → accountant → lease | **Gate wired in leasing service** |
-| 5 Contract amounts / cheques / e-sign / approvals | **Wired** — grace, cheque schedule, multi-stage approval chain, cheque gate before send/activate |
-| 6 Portal reflection | **Wired** — tenant-scoped leases/contracts; leasing defaults to `active`; owner/tenant overview quick links; accounting shows lease invoices + cheques |
-| 7 Vacant → tasks/maintenance/legal/accounts | **Wired** — vacant strip deep-links `?create=1&unitId=` into bookings/tasks/maintenance/legal/accounting forms |
-| 8 Deposit confirm → auto journal | **Wired** — `FinanceService.postReservationDepositJournal` on reservation confirm; skip if depositMinor is 0/null |
-| 9 Lease end → vacancy task | **Wired** — idempotent `work_tasks` with vacancy checklist on `end` / `terminate` |
-
-## Next (step 10+)
-
-1. Host Nest API publicly and set `API_INTERNAL_ORIGIN` on Vercel (infra).
-2. Party-scoped portal overview metrics.
-3. Optional: auto-open maintenance ticket / legal case from vacancy checklist.
+| 5 Contract amounts / cheques / e-sign / approvals | **Wired** |
+| 6 Portal reflection | **Wired** |
+| 7 Vacant → tasks/maintenance/legal/accounts | **Wired** |
+| 8 Deposit confirm → auto journal | **Wired** |
+| 9 Lease end → vacancy task | **Wired** |
+| 10 Party-scoped portal metrics | **Wired** — owner/tenant overview + lists |
+| 11 Nest API public host | **Scaffolded** — see `docs/implementation/NEST-API-HOSTING.md` |
 
 ## Deploy note
 
-Web on Vercel needs Nest at `API_INTERNAL_ORIGIN` / `API_ORIGIN` for `/v1/*` ops mutations. Steps 8–9 live in Nest; they take effect when the API process runs against Neon.
+Web on Vercel needs Nest at `API_INTERNAL_ORIGIN` / `API_ORIGIN` for `/v1/*` ops mutations.
