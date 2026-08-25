@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, EmptyState, StatusBadge } from '@bhd-r/ui';
-import { getTranslations } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { apiFetch } from '@/lib/server-api';
 import type { PortalRole } from '@/lib/types';
 import { OperationsWorkspace, type OperationsSection } from './operations-workspace';
@@ -107,6 +107,7 @@ export async function PortalSection({
   segments: string[];
 }) {
   const t = await getTranslations();
+  const locale = await getLocale();
   const section = segments[0] ?? '';
   if (!allowedSections[portal].includes(section)) return <EmptyState title="404" />;
 
@@ -143,12 +144,12 @@ export async function PortalSection({
           <p>{t(`Portal.${portal}`)}</p>
         </div>
         {section === 'properties' && portal !== 'tenant' ? (
-          <a className="button button--primary" href={`./properties/new`}>
+          <a className="button button--primary" href={`/${locale}/${portal}/properties/new`}>
             ＋ {t('Portal.addProperty')}
           </a>
         ) : null}
         {section === 'maintenance' && portal === 'tenant' ? (
-          <a className="button button--primary" href="./maintenance/new">
+          <a className="button button--primary" href={`/${locale}/tenant/maintenance/new`}>
             ＋ {t('Maintenance.new')}
           </a>
         ) : null}

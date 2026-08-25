@@ -4,6 +4,8 @@ import {
   createDatabase,
   memberships,
   organizations,
+  parties,
+  partyRoles,
   sessions,
   users,
   type Database,
@@ -63,6 +65,64 @@ async function withSystem<T>(work: (tx: Tx) => Promise<T>): Promise<T> {
   }
 }
 
+async function ensureOwnerParty(
+  tx: Tx,
+  input: {
+    userId: string;
+    organizationId: string;
+    displayName: string;
+    email: string;
+    membershipPartyId: string | null;
+  },
+): Promise<string> {
+  let ownerPartyId = input.membershipPartyId;
+  if (!ownerPartyId) {
+    const inserted = await tx
+      .insert(parties)
+      .values({
+        organizationId: input.organizationId,
+        type: 'person',
+        displayName: input.displayName,
+        email: input.email,
+      })
+      .onConflictDoNothing()
+      .returning({ id: parties.id });
+    ownerPartyId = inserted[0]?.id ?? null;
+    if (!ownerPartyId) {
+      const existing = await tx.query.parties.findFirst({
+        where: and(
+          eq(parties.organizationId, input.organizationId),
+          eq(parties.email, input.email),
+        ),
+      });
+      ownerPartyId = existing?.id ?? null;
+    }
+    if (!ownerPartyId) throw new Error('Owner party bootstrap failed');
+    await tx
+      .update(memberships)
+      .set({ partyId: ownerPartyId })
+      .where(
+        and(
+          eq(memberships.organizationId, input.organizationId),
+          eq(memberships.userId, input.userId),
+          eq(memberships.roleKey, 'organization_owner'),
+        ),
+      );
+  }
+  await tx
+    .insert(partyRoles)
+    .values({
+      organizationId: input.organizationId,
+      partyId: ownerPartyId,
+      roleKey: 'owner',
+    })
+    .onConflictDoUpdate({
+      target: [partyRoles.organizationId, partyRoles.partyId, partyRoles.roleKey],
+      set: { status: 'active', updatedAt: new Date() },
+    });
+  return ownerPartyId;
+}
+
 async function issueForUser(tx: Tx, userId: string): Promise<IssuedSession> {
   const user = await tx.query.users.findFirst({ where: eq(users.id, userId) });
   if (!user) throw new Error('User missing after identity login');
@@ -71,9 +131,24 @@ async function issueForUser(tx: Tx, userId: string): Promise<IssuedSession> {
   });
   if (allMemberships.length === 0) throw new Error('No active organization membership');
   const selectedOrganization = allMemberships[0]!.organizationId;
-  const organizationMemberships = allMemberships.filter(
+  let organizationMemberships = allMemberships.filter(
     (membership) => membership.organizationId === selectedOrganization,
   );
+  const ownerMembership = organizationMemberships.find(
+    (membership) => membership.roleKey === 'organization_owner',
+  );
+  if (ownerMembership) {
+    const ownerPartyId = await ensureOwnerParty(tx, {
+      userId,
+      organizationId: selectedOrganization,
+      displayName: user.displayName,
+      email: user.email,
+      membershipPartyId: ownerMembership.partyId,
+    });
+    organizationMemberships = organizationMemberships.map((membership) =>
+      membership === ownerMembership ? { ...membership, partyId: ownerPartyId } : membership,
+    );
+  }
   const roles = organizationMemberships
     .map((membership) => roleKeySchema.safeParse(membership.roleKey))
     .filter((result) => result.success)
@@ -156,13 +231,42 @@ async function provisionIdentityUser(
     .returning();
   const organization = insertedOrgs[0]!;
 
+  const ownerPartyId = await ensureOwnerParty(tx, {
+    userId: user.id,
+    organizationId: organization.id,
+    displayName,
+    email,
+    membershipPartyId: null,
+  });
+
   await tx.insert(memberships).values({
     organizationId: organization.id,
     userId: user.id,
+    partyId: ownerPartyId,
     roleKey: 'organization_owner',
   });
 
   return user;
+}
+
+/** Repair SSO accounts created without an owner party (needed for property wizard). */
+export async function ensureOwnerPartyId(input: {
+  userId: string;
+  organizationId: string;
+  displayName: string;
+  email: string;
+  partyId: string | null;
+}): Promise<string> {
+  if (input.partyId) return input.partyId;
+  return withSystem((tx) =>
+    ensureOwnerParty(tx, {
+      userId: input.userId,
+      organizationId: input.organizationId,
+      displayName: input.displayName,
+      email: input.email,
+      membershipPartyId: null,
+    }),
+  );
 }
 
 /** Issue BHD R session from a verified Identity ID token (SSO §0.7). */

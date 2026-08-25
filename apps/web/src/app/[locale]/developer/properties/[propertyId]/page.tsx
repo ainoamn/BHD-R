@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { PropertyDetailManager, type ManagedProperty } from '@/components/property-detail-manager';
 import { ApiError, apiFetch } from '@/lib/server-api';
 import { requirePortal } from '@/lib/viewer';
@@ -10,6 +10,7 @@ export default async function Page({
 }) {
   const { locale: rawLocale, propertyId } = await params;
   const locale = rawLocale === 'en' ? 'en' : 'ar';
+  if (propertyId === 'new') redirect(`/${locale}/developer/properties/new`);
   await requirePortal(locale, 'developer');
   try {
     const property = await apiFetch<ManagedProperty>(

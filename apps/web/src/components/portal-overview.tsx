@@ -32,9 +32,12 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
           <p>{t('Portal.welcome', { name: viewer.displayName })}</p>
         </div>
         {portal === 'owner' || portal === 'developer' ? (
-          <Link href={`/${portal}/properties/new`} className="button button--primary">
+          <a
+            href={`/${locale}/${portal}/properties/new`}
+            className="button button--primary"
+          >
             ＋ {t('Portal.addProperty')}
-          </Link>
+          </a>
         ) : null}
       </header>
       <div className="metric-grid">
@@ -100,9 +103,12 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
               ) : null}
               {portal === 'owner' || portal === 'developer' ? (
                 <>
-                  <Link className="button button--primary" href={`/${portal}/properties/new`}>
+                  <a
+                    className="button button--primary"
+                    href={`/${locale}/${portal}/properties/new`}
+                  >
                     {t('Portal.addProperty')}
-                  </Link>
+                  </a>
                   <Link className="button button--quiet" href={`/${portal}/reports`}>
                     {t('Common.reports')}
                   </Link>
