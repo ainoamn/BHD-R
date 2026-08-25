@@ -6,7 +6,7 @@
 | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | [V1-COMPLETION-REPORT-AR.md](./V1-COMPLETION-REPORT-AR.md)                                                                       | **تقرير اكتمال V1 وأدلة التحقق والهجرات وحدود التسليم**           |
 | [CODEX_WORKSPACE_2026-08-11_AR.md](./CODEX_WORKSPACE_2026-08-11_AR.md)                                                           | جرد مساحة Codex 2026-08-11 واستبدال الحزم القديمة                 |
-| [implementation/TRANSACTION-FLOW-MAP.md](./implementation/TRANSACTION-FLOW-MAP.md)                                               | **مرجع دورة المعاملة المعتمدة v1.1** (إيجار/بيع/إلغاء/تجديد) + [HTML](./implementation/TRANSACTION-FLOW-MAP.html) |
+| [implementation/TRANSACTION-FLOW-MAP.md](./implementation/TRANSACTION-FLOW-MAP.md)                                               | **مرجع دورة المعاملة المعتمدة v1.3** (إيجار/بيع/إلغاء/تجديد) + [HTML](./implementation/TRANSACTION-FLOW-MAP.html) + [اعتماد](./implementation/CYCLE-APPROVAL.md) |
 | [implementation/GAP-REGISTER.md](./implementation/GAP-REGISTER.md)                                                               | سجل فجوات البناء المؤسسي مقابل الكود الحقيقي                      |
 | [verification/phase-0.md](./verification/phase-0.md)                                                                             | أدلة بوابة المرحلة 0                                              |
 | [legacy-reviews/BHD-OM-operational-workflows-deep-review-ar.md](./legacy-reviews/BHD-OM-operational-workflows-deep-review-ar.md) | التقرير التشغيلي المفصل لـ BHD-OM                                 |

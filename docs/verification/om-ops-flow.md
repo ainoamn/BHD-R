@@ -84,14 +84,14 @@ After each OM step: commit → `git push origin main` → Vercel Production depl
 | 16–17 Deposit UI + vacancy pipeline | `09cd3d2` | Ready |
 | 18–19 Prefill lease + deposit queue | `bff75a7` | Ready |
 
-## Cycle rules v1.1 (coded — apply migration 0011)
+## Cycle rules v1.3 (product-owner approved — coded on main)
 
-Source of truth: `docs/implementation/TRANSACTION-FLOW-MAP.md` (+ HTML) **v1.2**.
+Source of truth: `docs/implementation/TRANSACTION-FLOW-MAP.md` (+ HTML) **v1.3**.
 
 | ID | Rule | Code status |
 |----|------|-------------|
-| R1 | Cancel request → admin date → accountant clearance → tenant sees cancelled | Coded (`cancel_requested` / `clearance_pending` / `cancelled`) |
-| R2 | Deposit settlement tied on every exit path | Partial (vacancy follow-ups on clear) |
-| R3 | Renewal: signed addendum → cheques + invoices → accountant (manager exception) | Coded (pending terms + confirm/waive) |
-| R4 | `closed_won` → in-system ownership transfer + prior owner history | Coded |
-| R5 | Sale of leased unit allowed; lease rights follow new owner | Coded |
+| R1 | Cancel request → admin date → accountant clearance → tenant sees cancelled | Approved + coded |
+| R2 | Deposit settlement tied on every exit path | Approved + coded (note + vacancy seed before terminal) |
+| R3 | Renewal: signed addendum → cheques + invoices → accountant (manager exception) | Approved + coded |
+| R4 | `closed_won` → in-system ownership transfer + prior owner history | Approved + coded |
+| R5 | Sale of leased unit allowed; lease rights follow new owner | Approved + coded |

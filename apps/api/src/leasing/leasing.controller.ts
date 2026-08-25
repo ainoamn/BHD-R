@@ -64,6 +64,22 @@ const renewalSchema = z
       })
       .optional(),
     additionalTerms: z.string().trim().max(10_000).optional(),
+    /** Cycle v1.1 R3: optional cheque schedule for the renewed period */
+    cheques: z
+      .array(
+        z.object({
+          bankName: z.string().trim().min(2).max(160),
+          chequeNumber: z.string().trim().min(1).max(80),
+          amount: z.object({
+            amountMinor: z.string().regex(/^\d+$/),
+            currency: z.string().regex(/^[A-Z]{3}$/),
+          }),
+          dueOn: z.iso.date(),
+        }),
+      )
+      .max(48)
+      .optional()
+      .default([]),
   })
   .strict();
 const challengeSchema = z.discriminatedUnion('authenticationMethod', [

@@ -2135,10 +2135,27 @@ export function OperationsConsole({
       body = { action, effectiveOn: effective };
     }
     if (action === 'clear_cancellation' || action === 'confirm_renewal' || action === 'waive_renewal_gate') {
+      const noteRequired =
+        action === 'clear_cancellation' &&
+        Number(safeString(row.depositMinor) || '0') > 0;
       const note =
         window.prompt(
-          ar ? 'ملاحظة المحاسب / المدير (اختياري)' : 'Accountant/manager note (optional)',
+          noteRequired
+            ? ar
+              ? 'ملاحظة المحاسب إلزامية: تأكيد تصفية التأمين/المطالبات'
+              : 'Required: confirm deposit/claims settlement'
+            : ar
+              ? 'ملاحظة المحاسب / المدير (اختياري)'
+              : 'Accountant/manager note (optional)',
         ) ?? '';
+      if (noteRequired && !note.trim()) {
+        setError(
+          ar
+            ? 'يلزم تأكيد المحاسب لتصفية التأمين قبل الإلغاء'
+            : 'Deposit settlement note required before clearance',
+        );
+        return;
+      }
       if (note) body = { ...body, note };
     }
     setBusy(true);
@@ -2163,6 +2180,21 @@ export function OperationsConsole({
     const currency = safeString(renewingLease.currency) as CurrencyCode;
     const form = new FormData(event.currentTarget);
     const rent = text(form.get('rent'));
+    const chequeBank = text(form.get('chequeBank'));
+    const chequeNumber = text(form.get('chequeNumber'));
+    const chequeAmount = text(form.get('chequeAmount'));
+    const chequeDueOn = text(form.get('chequeDueOn'));
+    const cheques =
+      chequeBank && chequeNumber && chequeAmount && chequeDueOn
+        ? [
+            {
+              bankName: chequeBank,
+              chequeNumber,
+              amount: { amountMinor: toMinorUnits(chequeAmount, currency), currency },
+              dueOn: chequeDueOn,
+            },
+          ]
+        : [];
     setBusy(true);
     setError(null);
     try {
@@ -2175,6 +2207,7 @@ export function OperationsConsole({
           ...(text(form.get('additionalTerms'))
             ? { additionalTerms: text(form.get('additionalTerms')) }
             : {}),
+          ...(cheques.length ? { cheques } : {}),
         }),
       });
       setRenewingLease(null);
@@ -2963,6 +2996,21 @@ export function OperationsConsole({
                   <span>{ar ? 'شروط إضافية' : 'Additional terms'}</span>
                   <textarea className="textarea" name="additionalTerms" maxLength={10000} />
                 </label>
+                <p className="muted span-2" style={{ margin: 0 }}>
+                  {ar
+                    ? 'جدول شيكات الفترة الجديدة (اختياري — مطلوب قبل اعتماد المحاسب ما لم يستثنِ المدير)'
+                    : 'Renewal cheque schedule (optional — required before accountant confirm unless manager waives)'}
+                </p>
+                <Input name="chequeBank" label={ar ? 'بنك الشيك' : 'Cheque bank'} />
+                <Input name="chequeNumber" label={ar ? 'رقم الشيك' : 'Cheque number'} />
+                <Input
+                  name="chequeAmount"
+                  label={`${ar ? 'مبلغ الشيك' : 'Cheque amount'} · ${safeString(renewingLease.currency)}`}
+                  type="number"
+                  min="0"
+                  step="0.001"
+                />
+                <Input name="chequeDueOn" label={ar ? 'استحقاق الشيك' : 'Cheque due'} type="date" />
               </div>
               {error ? (
                 <div className="notice notice--error" role="alert">

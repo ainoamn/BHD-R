@@ -528,6 +528,12 @@ export class LeasingService {
       endsOn: string;
       rent?: { amountMinor: string; currency: string } | undefined;
       additionalTerms?: string | undefined;
+      cheques?: ReadonlyArray<{
+        bankName: string;
+        chequeNumber: string;
+        amount: { amountMinor: string; currency: string };
+        dueOn: string;
+      }>;
     },
   ) {
     return this.database.withinTenant(claims, async (transaction) => {
@@ -649,9 +655,30 @@ export class LeasingService {
           previousRentMinor: lease.rentMinor.toString(),
           proposedRentMinor: rentMinor,
           currency: lease.currency,
+          chequeCount: input.cheques?.length ?? 0,
         },
       });
-      return { contract, leaseId: lease.id, proposedStartsOn: startsOn };
+      const chequeInputs = input.cheques ?? [];
+      if (chequeInputs.length) {
+        await transaction.insert(cheques).values(
+          chequeInputs.map((cheque) => ({
+            organizationId: claims.organizationId!,
+            leaseId: lease.id,
+            ownerPartyId: lease.tenantPartyId,
+            bankName: cheque.bankName,
+            chequeNumber: cheque.chequeNumber,
+            amountMinor: BigInt(cheque.amount.amountMinor),
+            currency: cheque.amount.currency,
+            dueOn: cheque.dueOn,
+          })),
+        );
+      }
+      return {
+        contract,
+        leaseId: lease.id,
+        proposedStartsOn: startsOn,
+        chequeCount: chequeInputs.length,
+      };
     });
   }
 
@@ -1738,7 +1765,18 @@ export class LeasingService {
 
       if (input.action === 'clear_cancellation' && current.status === 'clearance_pending') {
         await this.assertLeaseClearanceReady(transaction, claims.organizationId!, id);
+        if (current.depositMinor && current.depositMinor > 0n && !input.note?.trim()) {
+          throw new ConflictException(
+            'Accountant clearance requires a note confirming deposit/settlement when a security deposit exists',
+          );
+        }
         const terminalStatus = current.exitKind === 'end' ? 'ended' : 'cancelled';
+        // R2: seed deposit/vacancy follow-ups before tenant sees terminal status.
+        await this.seedVacancyFollowUps(transaction, claims, {
+          lease: { ...current, status: terminalStatus },
+          id,
+          actionLabel: terminalStatus === 'ended' ? 'end' : 'terminate',
+        });
         const rows = await transaction
           .update(leases)
           .set({
@@ -1758,7 +1796,7 @@ export class LeasingService {
           action: input.action,
           note: input.note,
           endsOn: current.cancellationEffectiveOn ?? current.endsOn,
-          metadata: { exitKind: current.exitKind },
+          metadata: { exitKind: current.exitKind, depositSettled: Boolean(current.depositMinor) },
         });
         await transaction
           .update(billingSchedules)
@@ -1767,11 +1805,6 @@ export class LeasingService {
             updatedAt: now,
           })
           .where(eq(billingSchedules.leaseId, id));
-        await this.seedVacancyFollowUps(transaction, claims, {
-          lease: { ...current, status: terminalStatus },
-          id,
-          actionLabel: terminalStatus === 'ended' ? 'end' : 'terminate',
-        });
         return this.serializeLease(rows[0]!);
       }
 
