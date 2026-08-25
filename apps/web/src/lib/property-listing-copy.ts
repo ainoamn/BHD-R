@@ -1,4 +1,4 @@
-/** Professional bilingual listing copy helpers (template AI — editable by user). */
+/** Bilingual copy + translation helpers for the property wizard. */
 
 const categoryLabels: Record<string, { ar: string; en: string }> = {
   apartment: { ar: 'شقة', en: 'apartment' },
@@ -36,6 +36,64 @@ const amenityPhrase: Record<string, { ar: string; en: string }> = {
   smart_home: { ar: 'منزل ذكي', en: 'smart home' },
 };
 
+/** Exact bilingual lexicon (longest keys first) for offline/name fallback. */
+const LEXICON: Array<[string, string]> = [
+  ['مبنى فاخر', 'Luxury building'],
+  ['شقة فاخرة', 'Luxury apartment'],
+  ['فيلا فاخرة', 'Luxury villa'],
+  ['سلطنة عُمان', 'Sultanate of Oman'],
+  ['سلطنة عمان', 'Sultanate of Oman'],
+  ['مواقف سيارات', 'parking spaces'],
+  ['تكييف مركزي', 'central air conditioning'],
+  ['نظام إطفاء حريق', 'fire safety system'],
+  ['غرفة خادمة', 'maid room'],
+  ['منطقة أطفال', 'kids area'],
+  ['قرب المسجد', 'near the mosque'],
+  ['قرب المدارس', 'near schools'],
+  ['إطلالة بحرية', 'sea view'],
+  ['إطلالة جبلية', 'mountain view'],
+  ['مطبخ مجهّز', 'equipped kitchen'],
+  ['منزل ذكي', 'smart home'],
+  ['للإيجار أو البيع', 'for rent or sale'],
+  ['غير مؤثثة', 'unfurnished'],
+  ['شبه مؤثثة', 'semi-furnished'],
+  ['مؤثثة بالكامل', 'fully furnished'],
+  ['غرف النوم', 'bedrooms'],
+  ['الحمامات', 'bathrooms'],
+  ['مبنى', 'building'],
+  ['شقة', 'apartment'],
+  ['فيلا', 'villa'],
+  ['مكتب', 'office'],
+  ['محل', 'shop'],
+  ['مستودع', 'warehouse'],
+  ['أرض', 'land'],
+  ['عقار', 'property'],
+  ['للإيجار', 'for rent'],
+  ['للبيع', 'for sale'],
+  ['مسقط', 'Muscat'],
+  ['ظفار', 'Dhofar'],
+  ['صلالة', 'Salalah'],
+  ['صحار', 'Sohar'],
+  ['نزوى', 'Nizwa'],
+  ['بوشر', 'Bausher'],
+  ['السيب', 'Seeb'],
+  ['الخوير', 'Al Khuwair'],
+  ['القرم', 'Qurum'],
+  ['العذيبة', 'Azaiba'],
+  ['الغبرة', 'Al Ghubrah'],
+  ['المعبيلة', 'Mabela'],
+  ['فاخر', 'luxury'],
+  ['فاخرة', 'luxury'],
+  ['مواقف', 'parking'],
+  ['مصعد', 'elevator'],
+  ['حراسة', 'security'],
+  ['مسبح', 'swimming pool'],
+  ['حديقة', 'garden'],
+  ['شرفة', 'balcony'],
+  ['مخزن', 'storage'],
+  ['إنترنت', 'internet'],
+];
+
 export type DescriptionInput = {
   nameAr: string;
   nameEn: string;
@@ -57,8 +115,11 @@ export function generateListingDescriptions(input: DescriptionInput): {
   descriptionEn: string;
 } {
   const cat = categoryLabels[input.category] ?? categoryLabels.other!;
-  const place = [input.village, input.wilayat, input.governorate].filter(Boolean).join('، ');
-  const placeEn = [input.village, input.wilayat, input.governorate].filter(Boolean).join(', ');
+  const placeAr = [input.village, input.wilayat, input.governorate].filter(Boolean).join('، ');
+  const placeEn = [input.village, input.wilayat, input.governorate]
+    .filter(Boolean)
+    .map((part) => lexiconTranslate(part, 'en'))
+    .join(', ');
   const purposeAr =
     input.listingPurpose === 'sale'
       ? 'للبيع'
@@ -92,8 +153,11 @@ export function generateListingDescriptions(input: DescriptionInput): {
     .map((a) => amenityPhrase[a.code]?.en ?? a.labelEn)
     .filter(Boolean);
 
+  const titleEn =
+    input.nameEn.trim() || lexiconTranslate(input.nameAr, 'en') || cat.en;
+
   const descriptionAr = [
-    `نقدم لكم ${cat.ar} مميزة بعنوان «${input.nameAr || cat.ar}» ${purposeAr} في ${place || 'سلطنة عُمان'}.`,
+    `نقدم لكم ${cat.ar} مميزة بعنوان «${input.nameAr || cat.ar}» ${purposeAr} في ${placeAr || 'سلطنة عُمان'}.`,
     input.bedrooms || input.bathrooms
       ? `تضم ${input.bedrooms} غرفة نوم و${input.bathrooms} حمّام${input.area ? `، بمساحة تقارب ${input.area} م²` : ''}.`
       : null,
@@ -105,7 +169,7 @@ export function generateListingDescriptions(input: DescriptionInput): {
     .join(' ');
 
   const descriptionEn = [
-    `A distinguished ${cat.en} titled “${input.nameEn || cat.en}” ${purposeEn} in ${placeEn || 'the Sultanate of Oman'}.`,
+    `A distinguished ${cat.en} titled “${titleEn}” ${purposeEn} in ${placeEn || 'the Sultanate of Oman'}.`,
     input.bedrooms || input.bathrooms
       ? `It features ${input.bedrooms} bedroom(s) and ${input.bathrooms} bathroom(s)${input.area ? `, approximately ${input.area} m²` : ''}.`
       : null,
@@ -119,26 +183,57 @@ export function generateListingDescriptions(input: DescriptionInput): {
   return { descriptionAr, descriptionEn };
 }
 
-/** Lightweight phrase map for instant AR↔EN assist on short titles / lines. */
-const phrasePairs: Array<[RegExp, string, 'ar' | 'en']> = [
-  [/للإيجار/g, 'for rent', 'en'],
-  [/للبيع/g, 'for sale', 'en'],
-  [/شقة/g, 'apartment', 'en'],
-  [/فيلا/g, 'villa', 'en'],
-  [/مسبح/g, 'pool', 'en'],
-  [/مواقف/g, 'parking', 'en'],
-  [/for rent/gi, 'للإيجار', 'ar'],
-  [/for sale/gi, 'للبيع', 'ar'],
-  [/apartment/gi, 'شقة', 'ar'],
-  [/villa/gi, 'فيلا', 'ar'],
-  [/parking/gi, 'مواقف', 'ar'],
-  [/pool/gi, 'مسبح', 'ar'],
-];
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
-export function assistTranslate(text: string, target: 'ar' | 'en'): string {
-  let out = text;
-  for (const [pattern, replacement, dir] of phrasePairs) {
-    if (dir === target) out = out.replace(pattern, replacement);
+/** Deterministic lexicon translation (AR↔EN) for names and short phrases. */
+export function lexiconTranslate(text: string, target: 'ar' | 'en'): string {
+  const trimmed = text.trim();
+  if (!trimmed) return '';
+  let out = trimmed;
+  const ordered = [...LEXICON].sort((a, b) => b[0].length - a[0].length);
+  for (const [ar, en] of ordered) {
+    if (target === 'en') {
+      out = out.replace(new RegExp(escapeRegExp(ar), 'gi'), en);
+    } else {
+      out = out.replace(new RegExp(escapeRegExp(en), 'gi'), ar);
+    }
   }
   return out;
+}
+
+/**
+ * Translate text AR↔EN:
+ * 1) Same-origin `/api/translate` (MyMemory server-side — no CORS)
+ * 2) Lexicon fallback for titles / known Oman terms
+ */
+export async function translateText(text: string, target: 'ar' | 'en'): Promise<string> {
+  const source = text.trim();
+  if (!source) return '';
+
+  try {
+    const response = await fetch('/api/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: source, target }),
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (response.ok) {
+      const payload = (await response.json()) as { translated?: string };
+      const translated = payload.translated?.trim();
+      if (translated && translated.toLowerCase() !== source.toLowerCase()) {
+        return translated;
+      }
+    }
+  } catch {
+    /* fall through to lexicon */
+  }
+
+  return lexiconTranslate(source, target) || source;
+}
+
+/** @deprecated use translateText — kept for call-site compatibility during migrate */
+export function assistTranslate(text: string, target: 'ar' | 'en'): string {
+  return lexiconTranslate(text, target) || text;
 }

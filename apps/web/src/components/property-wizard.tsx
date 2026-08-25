@@ -10,8 +10,8 @@ import { browserMutation } from '@/lib/api';
 import { toMinorUnits } from '@/lib/format';
 import { omanLocations } from '@/lib/oman-locations';
 import {
-  assistTranslate,
   generateListingDescriptions,
+  translateText,
 } from '@/lib/property-listing-copy';
 import { ListingCardPreview } from '@/components/listing-card-preview';
 
@@ -62,28 +62,28 @@ const blankUnit = (index: number): UnitDraft => ({
 });
 
 const BASE_AMENITIES = [
-  ['parking', 'مواقف', 'Parking'],
-  ['elevator', 'مصعد', 'Elevator'],
-  ['security', 'حراسة', 'Security'],
-  ['cctv', 'كاميرات مراقبة', 'CCTV'],
-  ['pool', 'مسبح', 'Pool'],
-  ['gym', 'نادي صحي', 'Gym'],
-  ['garden', 'حديقة', 'Garden'],
-  ['central_ac', 'تكييف مركزي', 'Central AC'],
-  ['accessible', 'مهيأ لذوي الإعاقة', 'Accessible'],
-  ['fire_system', 'نظام حريق', 'Fire system'],
-  ['balcony', 'شرفة', 'Balcony'],
-  ['maid_room', 'غرفة خادمة', 'Maid room'],
-  ['storage', 'مخزن', 'Storage'],
-  ['laundry', 'غسيل ملابس', 'Laundry'],
-  ['wifi', 'إنترنت', 'Wi‑Fi'],
-  ['kids_area', 'منطقة أطفال', 'Kids area'],
-  ['mosque_nearby', 'قرب المسجد', 'Nearby mosque'],
-  ['school_nearby', 'قرب المدارس', 'Nearby schools'],
-  ['sea_view', 'إطلالة بحرية', 'Sea view'],
-  ['mountain_view', 'إطلالة جبلية', 'Mountain view'],
-  ['furnished_kit', 'مطبخ مجهّز', 'Equipped kitchen'],
-  ['smart_home', 'منزل ذكي', 'Smart home'],
+  ['parking', 'مواقف', 'Parking', '🅿'],
+  ['elevator', 'مصعد', 'Elevator', '🛗'],
+  ['security', 'حراسة', 'Security', '🛡'],
+  ['cctv', 'كاميرات مراقبة', 'CCTV', '📹'],
+  ['pool', 'مسبح', 'Pool', '🏊'],
+  ['gym', 'نادي صحي', 'Gym', '🏋'],
+  ['garden', 'حديقة', 'Garden', '🌳'],
+  ['central_ac', 'تكييف مركزي', 'Central AC', '❄'],
+  ['accessible', 'مهيأ لذوي الإعاقة', 'Accessible', '♿'],
+  ['fire_system', 'نظام حريق', 'Fire system', '🔥'],
+  ['balcony', 'شرفة', 'Balcony', '🏙'],
+  ['maid_room', 'غرفة خادمة', 'Maid room', '🚪'],
+  ['storage', 'مخزن', 'Storage', '📦'],
+  ['laundry', 'غسيل ملابس', 'Laundry', '🧺'],
+  ['wifi', 'إنترنت', 'Wi‑Fi', '📶'],
+  ['kids_area', 'منطقة أطفال', 'Kids area', '🧒'],
+  ['mosque_nearby', 'قرب المسجد', 'Nearby mosque', '🕌'],
+  ['school_nearby', 'قرب المدارس', 'Nearby schools', '🏫'],
+  ['sea_view', 'إطلالة بحرية', 'Sea view', '🌊'],
+  ['mountain_view', 'إطلالة جبلية', 'Mountain view', '⛰'],
+  ['furnished_kit', 'مطبخ مجهّز', 'Equipped kitchen', '🍳'],
+  ['smart_home', 'منزل ذكي', 'Smart home', '🏠'],
 ] as const;
 
 function tone(value: string, required: boolean, _showErrors: boolean): 'ok' | 'missing' | 'neutral' {
@@ -165,9 +165,36 @@ export function PropertyWizard({
   ];
 
   const amenityOptions = useMemo(
-    () => [...BASE_AMENITIES, ...customAmenities.map((c) => [c.code, c.labelAr, c.labelEn] as const)],
+    () => [
+      ...BASE_AMENITIES,
+      ...customAmenities.map(
+        (c) => [c.code, c.labelAr, c.labelEn, '✦'] as const,
+      ),
+    ],
     [customAmenities],
   );
+  const [translating, setTranslating] = useState<'name-en' | 'name-ar' | 'desc-en' | 'desc-ar' | null>(
+    null,
+  );
+
+  async function translateField(
+    source: string,
+    target: 'ar' | 'en',
+    apply: (value: string) => void,
+    key: 'name-en' | 'name-ar' | 'desc-en' | 'desc-ar',
+  ) {
+    if (!source.trim()) return;
+    setTranslating(key);
+    setError(null);
+    try {
+      const translated = await translateText(source, target);
+      apply(translated);
+    } catch {
+      setError(ar ? 'تعذّرت الترجمة حالياً. حاول مرة أخرى.' : 'Translation failed. Please try again.');
+    } finally {
+      setTranslating(null);
+    }
+  }
 
   const selectedGov = omanLocations.find(
     (g) => g.ar === property.governorate || g.en === property.governorate,
@@ -684,17 +711,49 @@ export function PropertyWizard({
                     <option key={value}>{value}</option>
                   ))}
                 </SelectField>
-                <Field
-                  id="nameAr"
-                  label={t('PropertyForm.nameAr')}
-                  value={property.nameAr}
-                  tone={tone(property.nameAr, true, showErrors)}
-                  onChange={(event) => updateProperty('nameAr', event.target.value)}
-                  minLength={2}
-                  maxLength={160}
-                  required
-                />
-                <div className="wizard-inline-ai">
+                <div className="bilingual-pair span-2">
+                  <Field
+                    id="nameAr"
+                    label={t('PropertyForm.nameAr')}
+                    value={property.nameAr}
+                    tone={tone(property.nameAr, true, showErrors)}
+                    onChange={(event) => updateProperty('nameAr', event.target.value)}
+                    minLength={2}
+                    maxLength={160}
+                    required
+                  />
+                  <div className="bilingual-pair__actions">
+                    <Button
+                      type="button"
+                      variant="quiet"
+                      disabled={translating !== null || !property.nameAr.trim()}
+                      onClick={() =>
+                        void translateField(
+                          property.nameAr,
+                          'en',
+                          (value) => updateProperty('nameEn', value),
+                          'name-en',
+                        )
+                      }
+                    >
+                      {translating === 'name-en' ? '…' : 'AR → EN'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="quiet"
+                      disabled={translating !== null || !property.nameEn.trim()}
+                      onClick={() =>
+                        void translateField(
+                          property.nameEn,
+                          'ar',
+                          (value) => updateProperty('nameAr', value),
+                          'name-ar',
+                        )
+                      }
+                    >
+                      {translating === 'name-ar' ? '…' : 'EN → AR'}
+                    </Button>
+                  </div>
                   <Field
                     id="nameEn"
                     label={t('PropertyForm.nameEn')}
@@ -706,15 +765,6 @@ export function PropertyWizard({
                     required
                     dir="ltr"
                   />
-                  <Button
-                    type="button"
-                    variant="quiet"
-                    onClick={() =>
-                      updateProperty('nameEn', assistTranslate(property.nameAr, 'en') || property.nameAr)
-                    }
-                  >
-                    {t('PropertyForm.assistEnName')}
-                  </Button>
                 </div>
 
                 {property.countryCode === 'OM' ? (
@@ -861,6 +911,61 @@ export function PropertyWizard({
                       ) : null}
                     </div>
                     <div className="form-grid">
+                      <div className="bilingual-pair span-2">
+                        <Field
+                          id={`unit-name-ar-${unit.localId}`}
+                          label={t('PropertyForm.nameAr')}
+                          value={unit.nameAr}
+                          tone={tone(unit.nameAr, true, showErrors)}
+                          onChange={(event) =>
+                            updateUnit(unit.localId, 'nameAr', event.target.value)
+                          }
+                          required
+                        />
+                        <div className="bilingual-pair__actions">
+                          <Button
+                            type="button"
+                            variant="quiet"
+                            disabled={translating !== null || !unit.nameAr.trim()}
+                            onClick={() =>
+                              void translateField(
+                                unit.nameAr,
+                                'en',
+                                (value) => updateUnit(unit.localId, 'nameEn', value),
+                                'name-en',
+                              )
+                            }
+                          >
+                            {translating === 'name-en' ? '…' : 'AR → EN'}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="quiet"
+                            disabled={translating !== null || !unit.nameEn.trim()}
+                            onClick={() =>
+                              void translateField(
+                                unit.nameEn,
+                                'ar',
+                                (value) => updateUnit(unit.localId, 'nameAr', value),
+                                'name-ar',
+                              )
+                            }
+                          >
+                            {translating === 'name-ar' ? '…' : 'EN → AR'}
+                          </Button>
+                        </div>
+                        <Field
+                          id={`unit-name-en-${unit.localId}`}
+                          label={t('PropertyForm.nameEn')}
+                          value={unit.nameEn}
+                          tone={tone(unit.nameEn, true, showErrors)}
+                          onChange={(event) =>
+                            updateUnit(unit.localId, 'nameEn', event.target.value)
+                          }
+                          required
+                          dir="ltr"
+                        />
+                      </div>
                       <Field
                         id={`unit-code-${unit.localId}`}
                         label={t('PropertyForm.code')}
@@ -868,23 +973,6 @@ export function PropertyWizard({
                         tone={tone(unit.code, true, showErrors)}
                         onChange={(event) => updateUnit(unit.localId, 'code', event.target.value)}
                         required
-                      />
-                      <Field
-                        id={`unit-name-ar-${unit.localId}`}
-                        label={t('PropertyForm.nameAr')}
-                        value={unit.nameAr}
-                        tone={tone(unit.nameAr, true, showErrors)}
-                        onChange={(event) => updateUnit(unit.localId, 'nameAr', event.target.value)}
-                        required
-                      />
-                      <Field
-                        id={`unit-name-en-${unit.localId}`}
-                        label={t('PropertyForm.nameEn')}
-                        value={unit.nameEn}
-                        tone={tone(unit.nameEn, true, showErrors)}
-                        onChange={(event) => updateUnit(unit.localId, 'nameEn', event.target.value)}
-                        required
-                        dir="ltr"
                       />
                       <Field
                         id={`unit-floor-${unit.localId}`}
@@ -1062,8 +1150,15 @@ export function PropertyWizard({
                 <fieldset className="amenity-picker">
                   <legend>{t('PropertyForm.amenitiesLegend')}</legend>
                   <div className="amenity-picker__grid">
-                    {amenityOptions.map(([code, labelAr, labelEn]) => (
-                      <label className="checkbox-row" key={code}>
+                    {amenityOptions.map(([code, labelAr, labelEn, icon]) => (
+                      <label
+                        className={
+                          amenities.includes(code)
+                            ? 'amenity-chip is-selected'
+                            : 'amenity-chip'
+                        }
+                        key={code}
+                      >
                         <input
                           type="checkbox"
                           checked={amenities.includes(code)}
@@ -1075,28 +1170,36 @@ export function PropertyWizard({
                             )
                           }
                         />
-                        {ar ? labelAr : labelEn}
+                        <span className="amenity-chip__icon" aria-hidden="true">
+                          {icon}
+                        </span>
+                        <span>{ar ? labelAr : labelEn}</span>
                       </label>
                     ))}
                   </div>
-                  <div className="amenity-custom form-grid">
-                    <Field
-                      id="custom-amenity-ar"
-                      label={t('PropertyForm.customAmenityAr')}
-                      value={customDraft.ar}
-                      onChange={(event) =>
-                        setCustomDraft((c) => ({ ...c, ar: event.target.value }))
-                      }
-                    />
-                    <Field
-                      id="custom-amenity-en"
-                      label={t('PropertyForm.customAmenityEn')}
-                      value={customDraft.en}
-                      onChange={(event) =>
-                        setCustomDraft((c) => ({ ...c, en: event.target.value }))
-                      }
-                      dir="ltr"
-                    />
+                  <div className="amenity-custom">
+                    <div className="bilingual-pair">
+                      <Field
+                        id="custom-amenity-ar"
+                        label={t('PropertyForm.customAmenityAr')}
+                        value={customDraft.ar}
+                        onChange={(event) =>
+                          setCustomDraft((c) => ({ ...c, ar: event.target.value }))
+                        }
+                      />
+                      <div className="bilingual-pair__actions">
+                        <span className="bilingual-pair__hint">AR ‖ EN</span>
+                      </div>
+                      <Field
+                        id="custom-amenity-en"
+                        label={t('PropertyForm.customAmenityEn')}
+                        value={customDraft.en}
+                        onChange={(event) =>
+                          setCustomDraft((c) => ({ ...c, en: event.target.value }))
+                        }
+                        dir="ltr"
+                      />
+                    </div>
                     <Button type="button" variant="quiet" onClick={addCustomAmenity}>
                       {t('PropertyForm.addCustomAmenity')}
                     </Button>
@@ -1237,32 +1340,36 @@ export function PropertyWizard({
                       <Button
                         type="button"
                         variant="quiet"
+                        disabled={translating !== null || !property.descriptionAr.trim()}
                         onClick={() =>
-                          updateProperty(
-                            'descriptionEn',
-                            assistTranslate(property.descriptionAr, 'en') ||
-                              property.descriptionAr,
+                          void translateField(
+                            property.descriptionAr,
+                            'en',
+                            (value) => updateProperty('descriptionEn', value),
+                            'desc-en',
                           )
                         }
                       >
-                        {t('PropertyForm.translateToEn')}
+                        {translating === 'desc-en' ? '…' : t('PropertyForm.translateToEn')}
                       </Button>
                       <Button
                         type="button"
                         variant="quiet"
+                        disabled={translating !== null || !property.descriptionEn.trim()}
                         onClick={() =>
-                          updateProperty(
-                            'descriptionAr',
-                            assistTranslate(property.descriptionEn, 'ar') ||
-                              property.descriptionEn,
+                          void translateField(
+                            property.descriptionEn,
+                            'ar',
+                            (value) => updateProperty('descriptionAr', value),
+                            'desc-ar',
                           )
                         }
                       >
-                        {t('PropertyForm.translateToAr')}
+                        {translating === 'desc-ar' ? '…' : t('PropertyForm.translateToAr')}
                       </Button>
                     </div>
                   </header>
-                  <div className="form-grid">
+                  <div className="bilingual-pair bilingual-pair--tall">
                     <TextAreaField
                       id="descriptionAr"
                       label={t('PropertyForm.descriptionAr')}
@@ -1270,6 +1377,9 @@ export function PropertyWizard({
                       onChange={(event) => updateProperty('descriptionAr', event.target.value)}
                       maxLength={5000}
                     />
+                    <div className="bilingual-pair__actions">
+                      <span className="bilingual-pair__hint">AR ‖ EN</span>
+                    </div>
                     <TextAreaField
                       id="descriptionEn"
                       label={t('PropertyForm.descriptionEn')}
