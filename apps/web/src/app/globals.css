@@ -1321,16 +1321,16 @@ h3 {
   inset-inline-start: calc(50% + 1.15rem);
   width: calc(100% - 2.3rem);
   height: 2px;
-  background: rgb(9 45 36 / 0.1);
+  background: rgb(192 57 43 / 0.35);
   pointer-events: none;
 }
 .wizard-progress__item.is-done:not(:last-child)::after,
 .wizard-progress__item.is-current:not(:last-child)::after {
-  background: linear-gradient(90deg, var(--bhd-teal), rgb(8 163 159 / 0.35));
+  background: linear-gradient(90deg, #2e7d32, rgb(46 125 50 / 0.45));
 }
 [dir='rtl'] .wizard-progress__item.is-done:not(:last-child)::after,
 [dir='rtl'] .wizard-progress__item.is-current:not(:last-child)::after {
-  background: linear-gradient(270deg, var(--bhd-teal), rgb(8 163 159 / 0.35));
+  background: linear-gradient(270deg, #2e7d32, rgb(46 125 50 / 0.45));
 }
 .wizard-progress__btn {
   width: 100%;
@@ -1344,8 +1344,11 @@ h3 {
   cursor: pointer;
 }
 .wizard-progress__btn:disabled {
-  opacity: 0.4;
+  opacity: 1;
   cursor: not-allowed;
+}
+.wizard-progress__btn:disabled .wizard-progress__label {
+  opacity: 0.72;
 }
 .wizard-progress__dot {
   position: relative;
@@ -1354,12 +1357,13 @@ h3 {
   place-content: center;
   width: 2.15rem;
   height: 2.15rem;
-  color: var(--oman-deep);
-  background: white;
-  border: 1.5px solid rgb(9 45 36 / 0.14);
+  color: white;
+  background: #c62828;
+  border: 2px solid #9b1c1c;
   border-radius: 50%;
   font-size: 0.8rem;
   font-weight: 800;
+  box-shadow: 0 0 0 3px rgb(198 40 40 / 0.18);
   transition:
     transform 0.25s ease,
     background 0.25s ease,
@@ -1373,25 +1377,57 @@ h3 {
   text-align: center;
   line-height: 1.25;
   max-width: 7.5rem;
+  color: #9b1c1c;
 }
+/* Completed steps: rainbow fills, green outline */
 .wizard-progress__item.is-done .wizard-progress__dot {
   color: white;
-  background: var(--success);
-  border-color: var(--success);
+  border-color: #2e7d32;
+  box-shadow:
+    0 0 0 3px rgb(46 125 50 / 0.28),
+    0 6px 14px rgb(9 45 36 / 0.12);
+}
+.wizard-progress__item.is-done .wizard-progress__label {
+  color: #2e7d32;
+}
+.wizard-progress__item.is-done:nth-child(1) .wizard-progress__dot {
+  background: #e53935;
+}
+.wizard-progress__item.is-done:nth-child(2) .wizard-progress__dot {
+  background: #fb8c00;
+}
+.wizard-progress__item.is-done:nth-child(3) .wizard-progress__dot {
+  background: #f9a825;
+  color: #3e2723;
+}
+.wizard-progress__item.is-done:nth-child(4) .wizard-progress__dot {
+  background: #43a047;
+}
+.wizard-progress__item.is-done:nth-child(5) .wizard-progress__dot {
+  background: #1e88e5;
+}
+.wizard-progress__item.is-done:nth-child(6) .wizard-progress__dot {
+  background: #5e35b1;
+}
+.wizard-progress__item.is-done:nth-child(7) .wizard-progress__dot {
+  background: #8e24aa;
 }
 .wizard-progress__item.is-current .wizard-progress__dot {
   color: white;
   background: linear-gradient(145deg, #0b3a2f, #174b70);
-  border-color: transparent;
-  box-shadow: 0 0 0 4px rgb(8 163 159 / 0.18), 0 10px 22px rgb(9 45 36 / 0.16);
+  border-color: #2e7d32;
+  box-shadow:
+    0 0 0 4px rgb(46 125 50 / 0.22),
+    0 10px 22px rgb(9 45 36 / 0.16);
   transform: scale(1.06);
 }
 .wizard-progress__item.is-current .wizard-progress__label {
   color: var(--oman-deep);
   font-weight: 850;
 }
-.wizard-progress__item.is-done .wizard-progress__label {
-  color: var(--success);
+.wizard-progress__item.is-reached:not(.is-done):not(.is-current) .wizard-progress__dot {
+  background: #e53935;
+  border-color: #b71c1c;
 }
 .wizard-missing {
   margin-bottom: 1rem;
