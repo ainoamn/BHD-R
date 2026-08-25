@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import { cookies } from 'next/headers';
-import { eq } from 'drizzle-orm';
-import { createDatabase, users, type Database } from '@bhd-r/db';
+import { and, eq } from 'drizzle-orm';
+import { createDatabase, memberships, users, type Database } from '@bhd-r/db';
 import { verifySessionToken } from '@bhd-r/authz';
 import type { PortalRole, Viewer } from './types';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
@@ -68,12 +68,27 @@ async function getViewerFromDatabase(): Promise<Viewer | null> {
       },
     });
     if (!user || user.disabledAt || user.sessionVersion !== claims.sessionVersion) return null;
+
+    // Prefer live membership.partyId — JWT may still be null after SSO repair.
+    let partyId = claims.partyId;
+    if (claims.organizationId) {
+      const orgMemberships = await db.query.memberships.findMany({
+        where: and(
+          eq(memberships.userId, claims.sub),
+          eq(memberships.organizationId, claims.organizationId),
+          eq(memberships.status, 'active'),
+        ),
+        columns: { partyId: true },
+      });
+      partyId = orgMemberships.find((row) => row.partyId)?.partyId ?? claims.partyId;
+    }
+
     return {
       id: user.id,
       username: user.username,
       email: user.email,
       displayName: user.displayName,
-      partyId: claims.partyId,
+      partyId,
       locale: user.locale === 'en' ? 'en' : 'ar',
       organizationId: claims.organizationId,
       roles: claims.roles,

@@ -1,12 +1,12 @@
 export default function Loading() {
   return (
-    <div className="container section" role="status" aria-live="polite">
-      <div className="empty-state">
-        <span className="empty-state__mark" aria-hidden="true">
-          R
-        </span>
-        <p>Loading · جارٍ التحميل…</p>
+    <div className="portal-route-pending" role="status" aria-live="polite" aria-busy="true">
+      <div className="portal-route-pending__bar" />
+      <div className="portal-route-pending__body" style={{ paddingInline: '1.25rem' }}>
+        <div className="portal-route-pending__line portal-route-pending__line--lg" />
+        <div className="portal-route-pending__line" />
       </div>
+      <span className="sr-only">Loading · جارٍ التحميل…</span>
     </div>
   );
 }
