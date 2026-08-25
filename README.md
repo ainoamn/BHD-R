@@ -8,6 +8,8 @@
 **جرد مساحة Codex 2026-08-11:** [`docs/CODEX_WORKSPACE_2026-08-11_AR.md`](./docs/CODEX_WORKSPACE_2026-08-11_AR.md)  
 **التوثيق المفصل:** [`docs/PROJECT_DOCUMENTATION_AR.md`](./docs/PROJECT_DOCUMENTATION_AR.md)
 
+**تقنيات المنصة ومقارنتها بـ bhd-om:** [`docs/TECH_STACK_AR.md`](./docs/TECH_STACK_AR.md)
+
 **واجهة عُمانية 2026-08-23:** [`docs/OMANI_UI_2026-08-23.md`](./docs/OMANI_UI_2026-08-23.md)
 
 **مصفوفة الأمن:** [`docs/SECURITY_CHECKLIST_MATRIX_AR.md`](./docs/SECURITY_CHECKLIST_MATRIX_AR.md)
