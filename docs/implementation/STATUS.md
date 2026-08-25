@@ -1,7 +1,7 @@
 # Implementation status
 
 **Updated:** 2026-08-25  
-**Active phase:** 5+ residuals (Phase 4 CRM/booking/cheques closed)  
+**Active phase:** Ops flow from BHD-OM (steps 1–4 gate)  
 **Product version:** 0.2.6
 
 | Phase                    | Status   | Notes                                                                             |
@@ -11,8 +11,9 @@
 | 2 Parties                | complete | `docs/verification/phase-2.md`                                                    |
 | 3 Portfolio / media      | complete | `docs/verification/phase-3.md`                                                    |
 | 4 Viewing / booking      | complete | Cheques + leads + concurrency — `docs/verification/phase-4.md` + responsive audit |
-| 5 Contracts              | pending  | Wire services to domain FSMs                                                      |
-| 6 Finance / accounting   | pending  | FiscalPeriod                                                                      |
+| **OM ops flow**          | **active** | `docs/implementation/OPS-FLOW-FROM-BHD-OM.md` — deposit gate + vacant booking UI |
+| 5 Contracts              | pending  | Wire grace/cheques schedule + multi-approver to OM parity                         |
+| 6 Finance / accounting   | pending  | FiscalPeriod + auto journals on deposit confirm                                   |
 | 7 Maintenance / tasks    | pending  | Quote/warranty/auto-task uniqueness                                               |
 | 8 Legal                  | pending  | Expand schema                                                                     |
 | 9 Portals / CMS / ETL    | pending  | CMS/archive/ETL                                                                   |
@@ -20,7 +21,9 @@
 
 ## Next
 
-Phase 5: wire leasing/contracts to domain FSMs; sequential signature policy tests.
+1. Deploy Nest API and set `API_INTERNAL_ORIGIN` on Vercel.  
+2. Continue OM step 5: lease grace, cheque schedule, multi-party approvals.  
+3. Steps 6–7: portal reflection + vacant deep-links.
 
 ## 0.2.6 ops note
 

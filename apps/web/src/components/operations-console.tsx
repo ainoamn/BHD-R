@@ -28,12 +28,17 @@ interface OptionRow {
 export interface OperationsContext {
   properties?: OptionRow[];
   units?: Array<OptionRow & { propertyId?: string }>;
+  vacantUnits?: Array<OptionRow & { propertyId?: string }>;
   parties?: OptionRow[];
+  owners?: OptionRow[];
+  tenants?: OptionRow[];
   users?: OptionRow[];
   vendors?: OptionRow[];
   maintenanceTickets?: OptionRow[];
   leases?: OptionRow[];
   reservations?: Array<OptionRow & { unitId?: string; tenantPartyId?: string }>;
+  pendingDepositReservations?: Array<OptionRow & { unitId?: string; tenantPartyId?: string }>;
+  confirmedReservations?: Array<OptionRow & { unitId?: string; tenantPartyId?: string }>;
   invoices?: OptionRow[];
   contractTemplates?: OptionRow[];
   ledgerAccounts?: OptionRow[];
@@ -128,10 +133,12 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
   bookings: {
     titleAr: 'الحجوزات والمعاينات',
     titleEn: 'Bookings & viewings',
-    introAr: 'من طلب المعاينة والحجز المؤقت حتى التأكيد والتحويل إلى عقد إيجار.',
-    introEn: 'From a viewing request and hold through confirmation and lease conversion.',
-    createAr: 'حجز معاينة',
-    createEn: 'Schedule viewing',
+    introAr:
+      'اختر وحدة شاغرة ومستأجراً من سجل العناوين. الحجز يبقى معلّقاً حتى يعتمد المحاسب مبلغ الضمان، ثم يُحوَّل لعقد إيجار قيد الإجراء.',
+    introEn:
+      'Pick a vacant unit and a tenant from the address book. Reservations stay pending until the accountant confirms the deposit, then convert to an in-progress lease.',
+    createAr: 'حجز جديد',
+    createEn: 'New booking',
     columns: [
       { key: 'recordKind', ar: 'السجل', en: 'Record', format: 'kind' },
       { key: 'reference', fallbackKeys: ['id'], ar: 'المرجع', en: 'Reference' },
@@ -148,8 +155,8 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
     flow: [
       { value: 'requested', ar: 'طلب معاينة', en: 'Requested' },
       { value: 'scheduled', ar: 'مجدول', en: 'Scheduled' },
-      { value: 'pending', ar: 'حجز أولي', en: 'Pending' },
-      { value: 'confirmed', ar: 'مؤكد', en: 'Confirmed' },
+      { value: 'pending', ar: 'بانتظار المحاسب', en: 'Awaiting accountant' },
+      { value: 'confirmed', ar: 'محجوز مؤكد', en: 'Deposit confirmed' },
       { value: 'converted', ar: 'تحول لعقد', en: 'Converted' },
     ],
   },
@@ -855,23 +862,23 @@ function CreateFields({
         <>
           <label className="field">
             <span>{ar ? 'نوع الإجراء' : 'Booking action'}</span>
-            <select className="select" name="bookingKind" defaultValue="viewing">
+            <select className="select" name="bookingKind" defaultValue="reservation">
+              <option value="reservation">{ar ? 'حجز وحدة شاغرة' : 'Reserve vacant unit'}</option>
               <option value="viewing">{ar ? 'طلب معاينة' : 'Viewing request'}</option>
               <option value="hold">{ar ? 'حجز مؤقت' : 'Temporary hold'}</option>
-              <option value="reservation">{ar ? 'حجز مؤكد' : 'Confirmed reservation'}</option>
             </select>
           </label>
           <SelectOptions
             name="unitId"
-            label={ar ? 'الوحدة' : 'Unit'}
-            options={context.units ?? []}
+            label={ar ? 'الوحدة الشاغرة' : 'Vacant unit'}
+            options={context.vacantUnits?.length ? context.vacantUnits : (context.units ?? [])}
             locale={locale}
             required
           />
           <SelectOptions
             name="prospectPartyId"
-            label={ar ? 'العميل المحتمل' : 'Prospect'}
-            options={context.parties ?? []}
+            label={ar ? 'المستأجر (من سجل العناوين)' : 'Tenant (address book)'}
+            options={context.tenants?.length ? context.tenants : (context.parties ?? [])}
             locale={locale}
             required
           />
@@ -880,25 +887,39 @@ function CreateFields({
             label={ar ? 'موعد المعاينة' : 'Viewing time'}
             type="datetime-local"
             defaultValue={nextHour}
-            required
           />
           <Input
             name="expiresAt"
-            label={ar ? 'انتهاء الحجز' : 'Hold/reservation expiry'}
+            label={ar ? 'انتهاء الحجز' : 'Reservation expiry'}
             type="datetime-local"
             defaultValue={tomorrow}
             required
           />
-          <Input name="channel" label={ar ? 'المصدر' : 'Channel'} defaultValue="website" required />
+          <Input name="channel" label={ar ? 'المصدر' : 'Channel'} defaultValue="ops" />
           <label className="field span-2">
-            <span>{ar ? 'ملاحظات' : 'Notes'}</span>
+            <span>{ar ? 'ملاحظات / مبالغ إضافية' : 'Notes / other amounts'}</span>
             <textarea className="textarea" name="notes" />
           </label>
+          <p className="ops-hint">
+            {ar
+              ? 'بعد الحفظ يبقى الحجز «بانتظار المحاسب». يعتمد المحاسب الضمان من زر المتابعة في الجدول، ثم يُحوَّل لعقد من التأجير.'
+              : 'After save the reservation stays “awaiting accountant”. Confirm the deposit from the row action, then convert under Leasing.'}
+          </p>
         </>
       );
     case 'leasing':
       return (
         <>
+          <SelectOptions
+            name="reservationId"
+            label={ar ? 'حجز مؤكد (إلزامي للمسار التشغيلي)' : 'Confirmed reservation (ops path)'}
+            options={
+              context.confirmedReservations?.length
+                ? context.confirmedReservations
+                : (context.reservations ?? [])
+            }
+            locale={locale}
+          />
           <SelectOptions
             name="unitId"
             label={ar ? 'الوحدة' : 'Unit'}
@@ -908,15 +929,15 @@ function CreateFields({
           />
           <SelectOptions
             name="ownerPartyId"
-            label={ar ? 'المالك' : 'Owner'}
-            options={context.parties ?? []}
+            label={ar ? 'المالك (سجل العناوين)' : 'Owner (address book)'}
+            options={context.owners?.length ? context.owners : (context.parties ?? [])}
             locale={locale}
             required
           />
           <SelectOptions
             name="tenantPartyId"
-            label={ar ? 'المستأجر' : 'Tenant'}
-            options={context.parties ?? []}
+            label={ar ? 'المستأجر (سجل العناوين)' : 'Tenant (address book)'}
+            options={context.tenants?.length ? context.tenants : (context.parties ?? [])}
             locale={locale}
             required
           />
@@ -926,12 +947,6 @@ function CreateFields({
             options={context.contractTemplates ?? []}
             locale={locale}
             required
-          />
-          <SelectOptions
-            name="reservationId"
-            label={ar ? 'التحويل من حجز (اختياري)' : 'Convert from reservation (optional)'}
-            options={context.reservations ?? []}
-            locale={locale}
           />
           <Input
             name="startsOn"
@@ -1747,7 +1762,10 @@ function nextAction(section: OperationsSection, row: DataRow) {
       return {
         path: `/v1/leasing/reservations/${id}`,
         method: 'PATCH',
-        body: { status: 'confirmed' },
+        body: {
+          status: 'confirmed',
+          note: 'Accountant confirmed security deposit receipt',
+        },
         next: 'confirmed',
       };
     if (kind === 'viewing' && status === 'requested')

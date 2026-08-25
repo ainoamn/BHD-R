@@ -7,6 +7,7 @@ import {
   approvalRequests,
   contractTemplates,
   expenses,
+  holds,
   invoices,
   leases,
   ledgerAccounts,
@@ -18,6 +19,7 @@ import {
   operationalRequests,
   outboxEvents,
   parties,
+  partyRoles,
   properties,
   reservations,
   salesDeals,
@@ -380,10 +382,72 @@ export class OperationsService {
           .where(eq(ledgerAccounts.organizationId, claims.organizationId!))
           .orderBy(asc(ledgerAccounts.code)),
       ]);
+      const blockedUnitIds = new Set<string>([
+        ...(
+          await transaction
+            .select({ unitId: holds.unitId })
+            .from(holds)
+            .where(
+              and(
+                eq(holds.organizationId, claims.organizationId!),
+                eq(holds.status, 'active'),
+                sql`${holds.expiresAt} > now()`,
+              ),
+            )
+        ).map((row) => row.unitId),
+        ...(
+          await transaction
+            .select({ unitId: reservations.unitId })
+            .from(reservations)
+            .where(
+              and(
+                eq(reservations.organizationId, claims.organizationId!),
+                inArray(reservations.status, ['pending', 'confirmed']),
+                sql`${reservations.expiresAt} > now()`,
+              ),
+            )
+        ).map((row) => row.unitId),
+        ...(
+          await transaction
+            .select({ unitId: leases.unitId })
+            .from(leases)
+            .where(
+              and(
+                eq(leases.organizationId, claims.organizationId!),
+                inArray(leases.status, ['draft', 'active']),
+              ),
+            )
+        ).map((row) => row.unitId),
+      ]);
+      const vacantUnits = unitRows
+        .filter((row) => !blockedUnitIds.has(row.id))
+        .map((row) => ({
+          ...row,
+          name: `${row.code} · ${row.nameAr}`,
+        }));
+      const roleRows = await transaction
+        .select({ partyId: partyRoles.partyId, roleKey: partyRoles.roleKey })
+        .from(partyRoles)
+        .where(
+          and(
+            eq(partyRoles.organizationId, claims.organizationId!),
+            eq(partyRoles.status, 'active'),
+            inArray(partyRoles.roleKey, ['owner', 'tenant']),
+          ),
+        );
+      const ownerIds = new Set(
+        roleRows.filter((row) => row.roleKey === 'owner').map((row) => row.partyId),
+      );
+      const tenantIds = new Set(
+        roleRows.filter((row) => row.roleKey === 'tenant').map((row) => row.partyId),
+      );
       return {
         properties: propertyRows,
         units: unitRows,
+        vacantUnits,
         parties: partyRows,
+        owners: partyRows.filter((row) => ownerIds.has(row.id)),
+        tenants: partyRows.filter((row) => tenantIds.has(row.id)),
         users: userRows,
         vendors: vendorRows,
         maintenanceTickets: ticketRows,
@@ -397,6 +461,18 @@ export class OperationsService {
           ...row,
           name: `${row.id.slice(0, 8)} · ${row.status}`,
         })),
+        pendingDepositReservations: reservationRows
+          .filter((row) => row.status === 'pending')
+          .map((row) => ({
+            ...row,
+            name: `${row.id.slice(0, 8)} · pending deposit`,
+          })),
+        confirmedReservations: reservationRows
+          .filter((row) => row.status === 'confirmed')
+          .map((row) => ({
+            ...row,
+            name: `${row.id.slice(0, 8)} · confirmed`,
+          })),
         ledgerAccounts: accountRows,
       };
     });

@@ -3283,8 +3283,16 @@ h3 {
   }
 }
 
-/* Soft portal transitions — keep shell, avoid empty-state flash */
-.portal-route-pending {
+.ops-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.75rem;
+  background: rgb(181 141 85 / 0.12);
+  color: #3d4f46;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
   display: grid;
   gap: 1rem;
   padding-block: 0.35rem 1.25rem;

@@ -18,6 +18,9 @@ import {
   mediaAssets,
   outboxEvents,
   parties,
+  partyAddresses,
+  partyIdentityDocuments,
+  partyRoles,
   properties,
   reservations,
   reservationDocuments,
@@ -127,10 +130,16 @@ export class LeasingService {
         ),
       });
       if (!tenant) throw new NotFoundException('Tenant not found in this organization');
+      await this.assertAddressBookReadyForReservation(
+        transaction,
+        claims.organizationId!,
+        tenant.id,
+      );
       const unit = await transaction.query.units.findFirst({
         where: and(eq(units.id, input.unitId), eq(units.organizationId, claims.organizationId!)),
       });
       if (!unit) throw new NotFoundException('Unit not found');
+      // OM parity: reservation starts pending until accountant confirms deposit.
       const rows = await transaction
         .insert(reservations)
         .values({
@@ -138,17 +147,29 @@ export class LeasingService {
           unitId: input.unitId,
           tenantPartyId: input.tenantPartyId,
           expiresAt: new Date(input.expiresAt),
-          status: 'confirmed',
+          status: 'pending',
           rentMinor: unit.rentMinor,
           currency: unit.currency,
           termsSnapshot: {
             listingPurpose: unit.listingPurpose,
             depositMinor: unit.depositMinor?.toString() ?? null,
+            rentMinor: unit.rentMinor?.toString() ?? null,
+            currency: unit.currency,
             capturedAt: new Date().toISOString(),
+            awaitingAccountantDeposit: true,
           },
         })
         .returning();
       await transaction.insert(reservationRequirements).values([
+        {
+          organizationId: claims.organizationId!,
+          reservationId: rows[0]!.id,
+          code: 'deposit_receipt',
+          labelAr: 'تأكيد استلام مبلغ الضمان',
+          labelEn: 'Security deposit receipt confirmation',
+          required: true,
+          dueAt: new Date(input.expiresAt),
+        },
         {
           organizationId: claims.organizationId!,
           reservationId: rows[0]!.id,
@@ -168,6 +189,15 @@ export class LeasingService {
           dueAt: new Date(input.expiresAt),
         },
       ]);
+      await transaction.insert(workflowEvents).values({
+        organizationId: claims.organizationId!,
+        actorUserId: claims.sub,
+        resourceType: 'reservation',
+        resourceId: rows[0]!.id,
+        eventType: 'reservation.created',
+        toStatus: 'pending',
+        note: 'Awaiting accountant deposit confirmation',
+      });
       return rows[0];
     });
   }
@@ -187,6 +217,18 @@ export class LeasingService {
         input.reservationId,
       );
       if (input.reservationId) {
+        const reservation = await transaction.query.reservations.findFirst({
+          where: and(
+            eq(reservations.id, input.reservationId),
+            eq(reservations.organizationId, claims.organizationId!),
+          ),
+        });
+        if (!reservation) throw new NotFoundException('Reservation not found');
+        if (reservation.status !== 'confirmed') {
+          throw new ConflictException(
+            'Accountant must confirm the reservation deposit before creating a lease',
+          );
+        }
         const requiredRequirements = await transaction
           .select({ status: reservationRequirements.status })
           .from(reservationRequirements)
@@ -1278,17 +1320,41 @@ export class LeasingService {
             : [];
       if (!allowed.includes(input.status))
         throw new ConflictException(`Invalid reservation transition: ${current.status}`);
+      const termsSnapshot =
+        input.status === 'confirmed'
+          ? {
+              ...(current.termsSnapshot ?? {}),
+              awaitingAccountantDeposit: false,
+              depositConfirmedAt: new Date().toISOString(),
+              depositConfirmedByUserId: claims.sub,
+              depositConfirmationNote: input.note ?? null,
+            }
+          : current.termsSnapshot;
       const rows = await transaction
         .update(reservations)
-        .set({ status: input.status, updatedAt: new Date() })
+        .set({ status: input.status, termsSnapshot, updatedAt: new Date() })
         .where(eq(reservations.id, id))
         .returning();
+      if (input.status === 'confirmed') {
+        await transaction
+          .update(reservationRequirements)
+          .set({ status: 'approved', updatedAt: new Date() })
+          .where(
+            and(
+              eq(reservationRequirements.reservationId, id),
+              eq(reservationRequirements.code, 'deposit_receipt'),
+            ),
+          );
+      }
       await transaction.insert(workflowEvents).values({
         organizationId: claims.organizationId!,
         actorUserId: claims.sub,
         resourceType: 'reservation',
         resourceId: id,
-        eventType: 'reservation.status_changed',
+        eventType:
+          input.status === 'confirmed'
+            ? 'reservation.deposit_confirmed'
+            : 'reservation.status_changed',
         fromStatus: current.status,
         toStatus: input.status,
         note: input.note,
@@ -1373,6 +1439,59 @@ export class LeasingService {
         depositMinor: row.depositMinor?.toString() ?? null,
       };
     });
+  }
+
+  private async assertAddressBookReadyForReservation(
+    transaction: DatabaseTransaction,
+    organizationId: string,
+    partyId: string,
+  ): Promise<void> {
+    const [role] = await transaction
+      .select({ id: partyRoles.id })
+      .from(partyRoles)
+      .where(
+        and(
+          eq(partyRoles.organizationId, organizationId),
+          eq(partyRoles.partyId, partyId),
+          eq(partyRoles.roleKey, 'tenant'),
+          eq(partyRoles.status, 'active'),
+        ),
+      )
+      .limit(1);
+    if (!role) {
+      throw new ConflictException('Tenant must be registered in the address book with role tenant');
+    }
+    const party = await transaction.query.parties.findFirst({
+      where: and(eq(parties.id, partyId), eq(parties.organizationId, organizationId)),
+    });
+    if (!party?.email || !party.phone) {
+      throw new ConflictException('Tenant address book entry requires email and phone');
+    }
+    const [address] = await transaction
+      .select({ partyId: partyAddresses.partyId })
+      .from(partyAddresses)
+      .where(
+        and(eq(partyAddresses.organizationId, organizationId), eq(partyAddresses.partyId, partyId)),
+      )
+      .limit(1);
+    if (!address) {
+      throw new ConflictException('Tenant address book entry requires a primary address');
+    }
+    const [identity] = await transaction
+      .select({ id: partyIdentityDocuments.id })
+      .from(partyIdentityDocuments)
+      .where(
+        and(
+          eq(partyIdentityDocuments.organizationId, organizationId),
+          eq(partyIdentityDocuments.partyId, partyId),
+        ),
+      )
+      .limit(1);
+    if (!identity) {
+      throw new ConflictException(
+        'Tenant address book entry requires an identity document (civil ID or CR)',
+      );
+    }
   }
 
   private async lockAndAssertAvailable(
