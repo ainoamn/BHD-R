@@ -283,7 +283,21 @@ export class PortalsService {
         ...row,
         rentMinor: row.rentMinor.toString(),
         depositMinor: row.depositMinor?.toString() ?? null,
+        renewalPendingRentMinor: row.renewalPendingRentMinor?.toString() ?? null,
       }));
+    });
+  }
+
+  requestLeaseCancellation(
+    claims: SessionClaims,
+    leaseId: string,
+    input: { proposedEndsOn?: string; note?: string },
+  ) {
+    return this.leasing.updateLease(claims, leaseId, {
+      action: 'request_cancellation',
+      source: 'tenant',
+      proposedEndsOn: input.proposedEndsOn,
+      note: input.note,
     });
   }
 
@@ -598,7 +612,12 @@ export class PortalsService {
           and(
             eq(units.organizationId, claims.organizationId!),
             eq(leases.tenantPartyId, tenantPartyId),
-            inArray(leases.status, ['draft', 'active']),
+            inArray(leases.status, [
+              'draft',
+              'active',
+              'cancel_requested',
+              'clearance_pending',
+            ]),
           ),
         );
     });

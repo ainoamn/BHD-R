@@ -63,6 +63,7 @@ const nav: Record<PortalRole, Array<{ path: string; label: string; mark: string 
     { path: '', label: 'Common.dashboard', mark: '⌂' },
     { path: '/reservations', label: 'Common.bookings', mark: '⌁' },
     { path: '/contracts', label: 'Common.contracts', mark: '✎' },
+    { path: '/leases', label: 'Common.leasing', mark: '⌂' },
     { path: '/invoices', label: 'Common.invoices', mark: '▧' },
     { path: '/payments', label: 'Common.payments', mark: '◇' },
     { path: '/maintenance', label: 'Common.maintenance', mark: '◉' },

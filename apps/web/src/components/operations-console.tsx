@@ -185,8 +185,11 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
     flow: [
       { value: 'draft', ar: 'مسودة', en: 'Draft' },
       { value: 'active', ar: 'نشط', en: 'Active' },
+      { value: 'cancel_requested', ar: 'طلب إلغاء', en: 'Cancel requested' },
+      { value: 'clearance_pending', ar: 'بانتظار المحاسب', en: 'Clearance pending' },
+      { value: 'cancelled', ar: 'ملغي', en: 'Cancelled' },
       { value: 'ended', ar: 'منتهٍ', en: 'Ended' },
-      { value: 'terminated', ar: 'مفسوخ', en: 'Terminated' },
+      { value: 'terminated', ar: 'مفسوخ (مسودة)', en: 'Terminated (draft)' },
     ],
     moneyKey: 'rentMinor',
   },
@@ -2092,15 +2095,58 @@ export function OperationsConsole({
     }
   }
 
-  async function leaseLifecycle(row: DataRow, action: 'activate' | 'end' | 'terminate') {
+  async function leaseLifecycle(
+    row: DataRow,
+    action:
+      | 'activate'
+      | 'end'
+      | 'terminate'
+      | 'request_cancellation'
+      | 'approve_cancellation'
+      | 'clear_cancellation'
+      | 'confirm_renewal'
+      | 'waive_renewal_gate',
+  ) {
     const id = safeString(row.id);
     if (!id) return;
+    let body: Record<string, string> = { action };
+    if (action === 'request_cancellation') {
+      const proposed =
+        window.prompt(
+          ar ? 'تاريخ الإلغاء المقترح (YYYY-MM-DD)' : 'Proposed cancel date (YYYY-MM-DD)',
+          safeString(row.endsOn) || undefined,
+        ) ?? '';
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(proposed)) {
+        setError(ar ? 'تاريخ غير صالح' : 'Invalid date');
+        return;
+      }
+      body = { action, proposedEndsOn: proposed, source: 'admin' };
+    }
+    if (action === 'approve_cancellation') {
+      const effective =
+        window.prompt(
+          ar ? 'تاريخ الإلغاء المعتمد (YYYY-MM-DD)' : 'Approved cancel date (YYYY-MM-DD)',
+          safeString(row.cancellationProposedOn) || safeString(row.endsOn) || undefined,
+        ) ?? '';
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(effective)) {
+        setError(ar ? 'تاريخ غير صالح' : 'Invalid date');
+        return;
+      }
+      body = { action, effectiveOn: effective };
+    }
+    if (action === 'clear_cancellation' || action === 'confirm_renewal' || action === 'waive_renewal_gate') {
+      const note =
+        window.prompt(
+          ar ? 'ملاحظة المحاسب / المدير (اختياري)' : 'Accountant/manager note (optional)',
+        ) ?? '';
+      if (note) body = { ...body, note };
+    }
     setBusy(true);
     setError(null);
     try {
       await browserMutation(`/v1/leasing/leases/${id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ action }),
+        body: JSON.stringify(body),
       });
       router.refresh();
     } catch (caught) {
@@ -2630,25 +2676,79 @@ export function OperationsConsole({
                               >
                                 {ar ? 'تجديد' : 'Renew'}
                               </button>
+                              {row.renewalPendingContractId ? (
+                                <>
+                                  <button
+                                    className="ops-action"
+                                    type="button"
+                                    disabled={busy}
+                                    onClick={() => void leaseLifecycle(row, 'confirm_renewal')}
+                                  >
+                                    {ar ? 'اعتماد تجديد (محاسب)' : 'Confirm renewal'}
+                                  </button>
+                                  <button
+                                    className="ops-action"
+                                    type="button"
+                                    disabled={busy}
+                                    onClick={() => void leaseLifecycle(row, 'waive_renewal_gate')}
+                                  >
+                                    {ar ? 'استثناء مدير' : 'Manager waive'}
+                                  </button>
+                                </>
+                              ) : null}
                               <button
                                 className="ops-action"
                                 type="button"
                                 disabled={busy}
                                 onClick={() => void leaseLifecycle(row, 'end')}
                               >
-                                {ar ? 'إنهاء' : 'End'}
+                                {ar ? 'إنهاء → محاسب' : 'End → clearance'}
                               </button>
                               <button
                                 className="ops-action ops-action--danger"
                                 type="button"
                                 disabled={busy}
-                                onClick={() => void leaseLifecycle(row, 'terminate')}
+                                onClick={() => void leaseLifecycle(row, 'request_cancellation')}
                               >
-                                {ar ? 'فسخ' : 'Terminate'}
+                                {ar ? 'طلب إلغاء' : 'Request cancel'}
                               </button>
                             </>
                           ) : null}
-                          {!['draft', 'active'].includes(safeString(row.status)) ? '—' : null}
+                          {safeString(row.status) === 'cancel_requested' ? (
+                            <button
+                              className="ops-action"
+                              type="button"
+                              disabled={busy}
+                              onClick={() => void leaseLifecycle(row, 'approve_cancellation')}
+                            >
+                              {ar ? 'اعتماد الإدارة + تاريخ' : 'Admin approve + date'}
+                            </button>
+                          ) : null}
+                          {safeString(row.status) === 'clearance_pending' ? (
+                            <button
+                              className="ops-action"
+                              type="button"
+                              disabled={busy}
+                              onClick={() => void leaseLifecycle(row, 'clear_cancellation')}
+                            >
+                              {ar ? 'تصفية محاسب (لا متأخرات)' : 'Accountant clear'}
+                            </button>
+                          ) : null}
+                          {safeString(row.status) === 'draft' ? (
+                            <button
+                              className="ops-action ops-action--danger"
+                              type="button"
+                              disabled={busy}
+                              onClick={() => void leaseLifecycle(row, 'terminate')}
+                            >
+                              {ar ? 'إلغاء مسودة' : 'Void draft'}
+                            </button>
+                          ) : null}
+                          {!['draft', 'active', 'cancel_requested', 'clearance_pending'].includes(
+                            safeString(row.status),
+                          )
+                            ? '—'
+                            : null}
                         </span>
                       ) : section === 'team' ? (
                         <button

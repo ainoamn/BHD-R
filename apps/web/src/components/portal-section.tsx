@@ -3,6 +3,7 @@ import { getLocale, getTranslations } from 'next-intl/server';
 import { apiFetch } from '@/lib/server-api';
 import type { PortalRole } from '@/lib/types';
 import { OperationsWorkspace, type OperationsSection } from './operations-workspace';
+import { TenantCancelLeaseButton } from './tenant-cancel-lease-button';
 
 interface Row {
   id: string;
@@ -11,6 +12,7 @@ interface Row {
   reference?: string;
   status?: string;
   amount?: string;
+  endsOn?: string;
   updatedAt?: string;
 }
 
@@ -58,7 +60,7 @@ const allowedSections: Record<PortalRole, string[]> = {
     'team',
     'api-keys',
   ],
-  tenant: ['requests', 'contracts', 'invoices', 'payments', 'maintenance'],
+  tenant: ['requests', 'contracts', 'leases', 'invoices', 'payments', 'maintenance'],
 };
 
 const operationalSections = new Set<OperationsSection>([
@@ -87,6 +89,7 @@ const labelKeys: Record<string, string> = {
   properties: 'Common.properties',
   contacts: 'Common.contacts',
   contracts: 'Common.contracts',
+  leases: 'Common.leasing',
   invoices: 'Common.invoices',
   payments: 'Common.payments',
   maintenance: 'Common.maintenance',
@@ -129,6 +132,7 @@ export async function PortalSection({
     'developer:reports': '/v1/reports',
     'developer:team': '/v1/organizations/current/members',
     'tenant:contracts': '/v1/tenant/contracts',
+    'tenant:leases': '/v1/tenant/leases',
     'tenant:invoices': '/v1/tenant/invoices',
     'tenant:maintenance': '/v1/tenant/maintenance',
   };
@@ -172,14 +176,29 @@ export async function PortalSection({
                 <tbody>
                   {payload.data.map((row) => (
                     <tr key={row.id}>
-                      <td>{row.title ?? row.name ?? row.reference ?? row.id}</td>
+                      <td>
+                        {row.title ?? row.name ?? row.reference ?? row.id}
+                        {portal === 'tenant' &&
+                        section === 'leases' &&
+                        row.status === 'active' ? (
+                          <div style={{ marginTop: '0.35rem' }}>
+                            <TenantCancelLeaseButton
+                              leaseId={row.id}
+                              {...(row.endsOn ? { endsOn: row.endsOn } : {})}
+                              locale={locale}
+                            />
+                          </div>
+                        ) : null}
+                      </td>
                       <td>
                         {row.status ? (
                           <StatusBadge
                             status={
                               row.status === 'active' || row.status === 'paid'
                                 ? 'positive'
-                                : 'neutral'
+                                : row.status === 'cancelled'
+                                  ? 'negative'
+                                  : 'neutral'
                             }
                             label={row.status}
                           />

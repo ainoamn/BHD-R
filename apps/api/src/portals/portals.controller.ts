@@ -1,6 +1,8 @@
-import { Controller, Get, Param, Req } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Req } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
+import { z } from 'zod';
 import { RequirePermissions } from '../common/decorators.js';
+import { ZodPipe } from '../common/zod.pipe.js';
 import { PortalsService } from './portals.service.js';
 
 @Controller('v1/platform')
@@ -74,6 +76,28 @@ export class TenantPortalController {
   }
   @RequirePermissions('lease.read') @Get('leases') leases(@Req() request: FastifyRequest) {
     return this.service.listLeases(request.auth!);
+  }
+  @RequirePermissions('lease.cancel.request')
+  @Post('leases/:id/cancellation-requests')
+  requestCancellation(
+    @Req() request: FastifyRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(
+      new ZodPipe(
+        z
+          .object({
+            proposedEndsOn: z
+              .string()
+              .regex(/^\d{4}-\d{2}-\d{2}$/)
+              .optional(),
+            note: z.string().max(5000).optional(),
+          })
+          .strict(),
+      ),
+    )
+    body: { proposedEndsOn?: string; note?: string },
+  ) {
+    return this.service.requestLeaseCancellation(request.auth!, id, body);
   }
   @RequirePermissions('invoice.read') @Get('invoices') invoices(@Req() request: FastifyRequest) {
     return this.service.listInvoices(request.auth!);

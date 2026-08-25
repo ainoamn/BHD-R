@@ -5,6 +5,7 @@ import type { SessionClaims } from '@bhd-r/authz';
 import { currencyMinorUnits, type CurrencyCode } from '@bhd-r/contracts';
 import {
   approvalRequests,
+  contracts,
   contractTemplates,
   expenses,
   holds,
@@ -21,6 +22,7 @@ import {
   parties,
   partyRoles,
   properties,
+  propertyOwnershipInterests,
   reservations,
   salesDeals,
   units,
@@ -158,12 +160,19 @@ async function appendWorkflowEvent(
     fromStatus?: string | undefined;
     toStatus?: string | undefined;
     note?: string | undefined;
+    metadata?: Record<string, unknown> | undefined;
   },
 ) {
   await transaction.insert(workflowEvents).values({
     organizationId: claims.organizationId!,
     actorUserId: claims.sub,
-    ...input,
+    resourceType: input.resourceType,
+    resourceId: input.resourceId,
+    eventType: input.eventType,
+    fromStatus: input.fromStatus,
+    toStatus: input.toStatus,
+    note: input.note,
+    metadata: input.metadata ?? {},
   });
 }
 
@@ -414,7 +423,12 @@ export class OperationsService {
             .where(
               and(
                 eq(leases.organizationId, claims.organizationId!),
-                inArray(leases.status, ['draft', 'active']),
+                inArray(leases.status, [
+                  'draft',
+                  'active',
+                  'cancel_requested',
+                  'clearance_pending',
+                ]),
               ),
             )
         ).map((row) => row.unitId),
@@ -900,6 +914,18 @@ export class OperationsService {
         })
         .where(eq(salesDeals.id, id))
         .returning();
+
+      if (input.status === 'closed_won') {
+        await this.transferOwnershipOnClosedWon(transaction, claims, {
+          dealId: id,
+          propertyId: current.propertyId,
+          unitId: current.unitId,
+          sellerPartyId: current.sellerPartyId,
+          buyerPartyId: current.buyerPartyId,
+          closedOn: rows[0]!.closedOn ?? new Date().toISOString().slice(0, 10),
+        });
+      }
+
       await appendWorkflowEvent(transaction, claims, {
         resourceType: 'sales_deal',
         resourceId: id,
@@ -916,6 +942,151 @@ export class OperationsService {
         agreedPriceMinor: row.agreedPriceMinor?.toString() ?? null,
         commissionMinor: row.commissionMinor.toString(),
       };
+    });
+  }
+
+  /** Cycle v1.1 R4/R5: in-system ownership transfer + lease rights follow buyer. */
+  private async transferOwnershipOnClosedWon(
+    transaction: DatabaseTransaction,
+    claims: SessionClaims,
+    args: {
+      dealId: string;
+      propertyId: string;
+      unitId: string | null;
+      sellerPartyId: string;
+      buyerPartyId: string | null;
+      closedOn: string;
+    },
+  ) {
+    if (!args.buyerPartyId) {
+      throw new ConflictException('closed_won requires a buyer party for ownership transfer');
+    }
+    if (args.buyerPartyId === args.sellerPartyId) {
+      throw new ConflictException('Buyer and seller must be different parties');
+    }
+
+    const property = await transaction.query.properties.findFirst({
+      where: and(
+        eq(properties.id, args.propertyId),
+        eq(properties.organizationId, claims.organizationId!),
+      ),
+    });
+    if (!property) throw new NotFoundException('Property not found for sales deal');
+
+    const priorOwnerId = property.ownerPartyId;
+    await transaction
+      .update(properties)
+      .set({ ownerPartyId: args.buyerPartyId, updatedAt: new Date() })
+      .where(eq(properties.id, args.propertyId));
+
+    const priorInterest = await transaction.query.propertyOwnershipInterests.findFirst({
+      where: and(
+        eq(propertyOwnershipInterests.organizationId, claims.organizationId!),
+        eq(propertyOwnershipInterests.propertyId, args.propertyId),
+        eq(propertyOwnershipInterests.partyId, priorOwnerId),
+      ),
+    });
+    if (priorInterest) {
+      await transaction
+        .update(propertyOwnershipInterests)
+        .set({ endsOn: args.closedOn, updatedAt: new Date() })
+        .where(eq(propertyOwnershipInterests.id, priorInterest.id));
+    } else {
+      await transaction.insert(propertyOwnershipInterests).values({
+        organizationId: claims.organizationId!,
+        propertyId: args.propertyId,
+        partyId: priorOwnerId,
+        role: 'owner',
+        shareBasisPoints: 10000,
+        endsOn: args.closedOn,
+      });
+    }
+
+    const buyerInterest = await transaction.query.propertyOwnershipInterests.findFirst({
+      where: and(
+        eq(propertyOwnershipInterests.organizationId, claims.organizationId!),
+        eq(propertyOwnershipInterests.propertyId, args.propertyId),
+        eq(propertyOwnershipInterests.partyId, args.buyerPartyId),
+      ),
+    });
+    if (buyerInterest) {
+      await transaction
+        .update(propertyOwnershipInterests)
+        .set({
+          role: 'owner',
+          shareBasisPoints: 10000,
+          startsOn: args.closedOn,
+          endsOn: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(propertyOwnershipInterests.id, buyerInterest.id));
+    } else {
+      await transaction.insert(propertyOwnershipInterests).values({
+        organizationId: claims.organizationId!,
+        propertyId: args.propertyId,
+        partyId: args.buyerPartyId,
+        role: 'owner',
+        shareBasisPoints: 10000,
+        startsOn: args.closedOn,
+      });
+    }
+
+    // R5: active/draft leases on this property (or unit) follow the new owner.
+    const openStatuses = ['draft', 'active', 'cancel_requested', 'clearance_pending'] as const;
+    const affectedLeases = args.unitId
+      ? await transaction
+          .select({ id: leases.id, contractId: leases.contractId })
+          .from(leases)
+          .where(
+            and(
+              eq(leases.organizationId, claims.organizationId!),
+              eq(leases.unitId, args.unitId),
+              inArray(leases.status, [...openStatuses]),
+            ),
+          )
+      : await transaction
+          .select({ id: leases.id, contractId: leases.contractId })
+          .from(leases)
+          .innerJoin(units, eq(leases.unitId, units.id))
+          .where(
+            and(
+              eq(leases.organizationId, claims.organizationId!),
+              eq(units.propertyId, args.propertyId),
+              inArray(leases.status, [...openStatuses]),
+            ),
+          );
+
+    for (const lease of affectedLeases) {
+      await transaction
+        .update(leases)
+        .set({ ownerPartyId: args.buyerPartyId, updatedAt: new Date() })
+        .where(eq(leases.id, lease.id));
+      if (lease.contractId) {
+        await transaction
+          .update(contracts)
+          .set({ ownerPartyId: args.buyerPartyId, updatedAt: new Date() })
+          .where(
+            and(
+              eq(contracts.id, lease.contractId),
+              eq(contracts.organizationId, claims.organizationId!),
+            ),
+          );
+      }
+    }
+
+    await appendWorkflowEvent(transaction, claims, {
+      resourceType: 'property',
+      resourceId: args.propertyId,
+      eventType: 'property.ownership_transferred',
+      fromStatus: priorOwnerId,
+      toStatus: args.buyerPartyId,
+      note: `Sale ${args.dealId}`,
+      metadata: {
+        dealId: args.dealId,
+        priorOwnerPartyId: priorOwnerId,
+        newOwnerPartyId: args.buyerPartyId,
+        leasesTransferred: affectedLeases.map((row) => row.id),
+      },
     });
   }
 

@@ -15,6 +15,7 @@ import {
   contracts,
   cheques,
   holds,
+  invoices,
   leases,
   legalCases,
   mediaAssets,
@@ -1118,11 +1119,13 @@ export class LeasingService {
           proposedCurrency !== currentLease.currency
         )
           throw new ConflictException('The signed renewal terms are no longer valid');
+        // Cycle v1.1 R3: hold terms until accountant confirms (or manager waives).
         await transaction
           .update(leases)
           .set({
-            endsOn: proposedEndsOn,
-            rentMinor: BigInt(proposedRentMinor),
+            renewalPendingContractId: contract.id,
+            renewalPendingEndsOn: proposedEndsOn,
+            renewalPendingRentMinor: BigInt(proposedRentMinor),
             updatedAt: signedAt,
           })
           .where(eq(leases.id, currentLease.id));
@@ -1131,7 +1134,7 @@ export class LeasingService {
           actorUserId: claims.sub,
           resourceType: 'lease',
           resourceId: currentLease.id,
-          eventType: 'lease.renewed',
+          eventType: 'lease.renewal_pending_clearance',
           fromStatus: currentLease.status,
           toStatus: currentLease.status,
           metadata: {
@@ -1573,8 +1576,19 @@ export class LeasingService {
     claims: SessionClaims,
     id: string,
     input: {
-      action: 'activate' | 'end' | 'terminate';
+      action:
+        | 'activate'
+        | 'end'
+        | 'terminate'
+        | 'request_cancellation'
+        | 'approve_cancellation'
+        | 'clear_cancellation'
+        | 'confirm_renewal'
+        | 'waive_renewal_gate';
       note?: string | undefined;
+      proposedEndsOn?: string | undefined;
+      effectiveOn?: string | undefined;
+      source?: 'tenant' | 'admin' | undefined;
     },
   ) {
     return this.database.withinTenant(claims, async (transaction) => {
@@ -1582,7 +1596,8 @@ export class LeasingService {
         where: and(eq(leases.id, id), eq(leases.organizationId, claims.organizationId!)),
       });
       if (!current) throw new NotFoundException('Lease not found');
-      let nextStatus: 'active' | 'ended' | 'terminated';
+      const now = new Date();
+
       if (input.action === 'activate' && current.status === 'draft') {
         if (!current.contractId)
           throw new ConflictException('A signed contract is required before lease activation');
@@ -1607,189 +1622,452 @@ export class LeasingService {
             'All lease cheques must be accepted by accounting before activation',
           );
         }
-        nextStatus = 'active';
-      } else if (input.action === 'end' && current.status === 'active') nextStatus = 'ended';
-      else if (input.action === 'terminate' && ['draft', 'active'].includes(current.status))
-        nextStatus = 'terminated';
-      else throw new ConflictException(`Invalid lease action: ${input.action}`);
-      const rows = await transaction
-        .update(leases)
-        .set({ status: nextStatus, updatedAt: new Date() })
-        .where(eq(leases.id, id))
-        .returning();
-      await transaction.insert(workflowEvents).values({
-        organizationId: claims.organizationId!,
-        actorUserId: claims.sub,
-        resourceType: 'lease',
-        resourceId: id,
-        eventType: `lease.${input.action}`,
-        fromStatus: current.status,
-        toStatus: nextStatus,
-        note: input.note,
-        metadata: { endsOn: current.endsOn },
-      });
-      await transaction.insert(outboxEvents).values({
-        organizationId: claims.organizationId!,
-        topic: `lease.${input.action}`,
-        aggregateType: 'lease',
-        aggregateId: id,
-        payload: { status: nextStatus, endsOn: current.endsOn },
-      });
-      if (input.action === 'activate') {
+        const rows = await transaction
+          .update(leases)
+          .set({ status: 'active', updatedAt: now })
+          .where(eq(leases.id, id))
+          .returning();
+        await this.writeLeaseLifecycleEvent(transaction, claims, {
+          id,
+          fromStatus: current.status,
+          toStatus: 'active',
+          action: input.action,
+          note: input.note,
+          endsOn: current.endsOn,
+        });
         await transaction
           .update(billingSchedules)
-          .set({ status: 'active', updatedAt: new Date() })
+          .set({ status: 'active', updatedAt: now })
           .where(eq(billingSchedules.leaseId, id));
+        return this.serializeLease(rows[0]!);
       }
-      if (input.action === 'end' || input.action === 'terminate') {
+
+      if (input.action === 'request_cancellation' && current.status === 'active') {
+        const proposed =
+          input.proposedEndsOn && /^\d{4}-\d{2}-\d{2}$/.test(input.proposedEndsOn)
+            ? input.proposedEndsOn
+            : current.endsOn;
+        const source = input.source === 'tenant' ? 'tenant' : 'admin';
+        if (source === 'tenant') {
+          if (!claims.partyId || claims.partyId !== current.tenantPartyId) {
+            throw new ForbiddenException('Only the lease tenant can request cancellation');
+          }
+        }
+        const rows = await transaction
+          .update(leases)
+          .set({
+            status: 'cancel_requested',
+            exitKind: 'cancel',
+            cancellationSource: source,
+            cancellationProposedOn: proposed,
+            cancellationRequestedAt: now,
+            cancellationRequestedByUserId: claims.sub,
+            updatedAt: now,
+          })
+          .where(eq(leases.id, id))
+          .returning();
+        await this.writeLeaseLifecycleEvent(transaction, claims, {
+          id,
+          fromStatus: current.status,
+          toStatus: 'cancel_requested',
+          action: input.action,
+          note: input.note,
+          endsOn: proposed,
+          metadata: { source, proposedEndsOn: proposed },
+        });
+        return this.serializeLease(rows[0]!);
+      }
+
+      if (input.action === 'approve_cancellation' && current.status === 'cancel_requested') {
+        const effectiveOn =
+          input.effectiveOn && /^\d{4}-\d{2}-\d{2}$/.test(input.effectiveOn)
+            ? input.effectiveOn
+            : (current.cancellationProposedOn ?? current.endsOn);
+        const rows = await transaction
+          .update(leases)
+          .set({
+            status: 'clearance_pending',
+            cancellationEffectiveOn: effectiveOn,
+            cancellationAdminApprovedAt: now,
+            cancellationAdminApprovedByUserId: claims.sub,
+            updatedAt: now,
+          })
+          .where(eq(leases.id, id))
+          .returning();
+        await this.writeLeaseLifecycleEvent(transaction, claims, {
+          id,
+          fromStatus: current.status,
+          toStatus: 'clearance_pending',
+          action: input.action,
+          note: input.note,
+          endsOn: effectiveOn,
+          metadata: { effectiveOn },
+        });
+        return this.serializeLease(rows[0]!);
+      }
+
+      // Natural end: active → accountant clearance → ended (deposit/invoices gate).
+      if (input.action === 'end' && current.status === 'active') {
+        const rows = await transaction
+          .update(leases)
+          .set({
+            status: 'clearance_pending',
+            exitKind: 'end',
+            cancellationSource: 'admin',
+            cancellationProposedOn: current.endsOn,
+            cancellationEffectiveOn: current.endsOn,
+            cancellationRequestedAt: now,
+            cancellationRequestedByUserId: claims.sub,
+            cancellationAdminApprovedAt: now,
+            cancellationAdminApprovedByUserId: claims.sub,
+            updatedAt: now,
+          })
+          .where(eq(leases.id, id))
+          .returning();
+        await this.writeLeaseLifecycleEvent(transaction, claims, {
+          id,
+          fromStatus: current.status,
+          toStatus: 'clearance_pending',
+          action: input.action,
+          note: input.note,
+          endsOn: current.endsOn,
+          metadata: { exitKind: 'end' },
+        });
+        return this.serializeLease(rows[0]!);
+      }
+
+      if (input.action === 'clear_cancellation' && current.status === 'clearance_pending') {
+        await this.assertLeaseClearanceReady(transaction, claims.organizationId!, id);
+        const terminalStatus = current.exitKind === 'end' ? 'ended' : 'cancelled';
+        const rows = await transaction
+          .update(leases)
+          .set({
+            status: terminalStatus,
+            cancellationClearedAt: now,
+            cancellationClearedByUserId: claims.sub,
+            cancellationClearanceNote: input.note ?? null,
+            endsOn: current.cancellationEffectiveOn ?? current.endsOn,
+            updatedAt: now,
+          })
+          .where(eq(leases.id, id))
+          .returning();
+        await this.writeLeaseLifecycleEvent(transaction, claims, {
+          id,
+          fromStatus: current.status,
+          toStatus: terminalStatus,
+          action: input.action,
+          note: input.note,
+          endsOn: current.cancellationEffectiveOn ?? current.endsOn,
+          metadata: { exitKind: current.exitKind },
+        });
         await transaction
           .update(billingSchedules)
           .set({
-            status: input.action === 'end' ? 'completed' : 'cancelled',
-            updatedAt: new Date(),
+            status: terminalStatus === 'ended' ? 'completed' : 'cancelled',
+            updatedAt: now,
           })
           .where(eq(billingSchedules.leaseId, id));
-
-        // OM step 9: when the unit becomes vacant again, seed a follow-up task
-        // (tasks / maintenance / legal / accounts checklist) — idempotent per lease.
-        const existingVacancyTask = await transaction.query.workTasks.findFirst({
-          where: and(
-            eq(workTasks.organizationId, claims.organizationId!),
-            eq(workTasks.relatedType, 'lease_vacancy'),
-            eq(workTasks.relatedId, id),
-          ),
+        await this.seedVacancyFollowUps(transaction, claims, {
+          lease: { ...current, status: terminalStatus },
+          id,
+          actionLabel: terminalStatus === 'ended' ? 'end' : 'terminate',
         });
-        if (!existingVacancyTask) {
-          const unit = await transaction.query.units.findFirst({
-            where: and(
-              eq(units.id, current.unitId),
-              eq(units.organizationId, claims.organizationId!),
-            ),
-          });
-          const dueAt = new Date();
-          dueAt.setUTCDate(dueAt.getUTCDate() + 3);
-          await transaction.insert(workTasks).values({
-            organizationId: claims.organizationId!,
-            reference: `VAC-${id.replace(/-/g, '').slice(0, 12).toUpperCase()}`,
-            title:
-              input.action === 'terminate'
-                ? 'وحدة شاغرة بعد فسخ العقد — متابعة'
-                : 'وحدة شاغرة بعد انتهاء العقد — متابعة',
-            description:
-              'Auto vacancy follow-up: inspection, maintenance, legal/deposit review, and accounts settlement. Open from Tasks, or deep-link Maintenance / Legal / Accounting with this unit.',
-            category: 'vacancy',
-            priority: 'high',
-            createdByUserId: claims.sub,
-            propertyId: unit?.propertyId,
-            unitId: current.unitId,
-            relatedType: 'lease_vacancy',
-            relatedId: id,
-            dueAt,
-            checklist: [
-              { label: 'معاينة / تسليم — Inspection / handover', done: false },
-              { label: 'صيانة — Maintenance check', done: false },
-              { label: 'محاماة / تأمين — Legal / deposit review', done: false },
-              { label: 'حسابات — Final settlement', done: false },
-            ],
-          });
+        return this.serializeLease(rows[0]!);
+      }
 
-          // OM step 13: also seed maintenance + legal assessment (idempotent).
-          const openVacancyTicket = await transaction.query.maintenanceTickets.findFirst({
-            where: and(
-              eq(maintenanceTickets.organizationId, claims.organizationId!),
-              eq(maintenanceTickets.unitId, current.unitId),
-              eq(maintenanceTickets.category, 'vacancy_handover'),
-              inArray(maintenanceTickets.status, ['open', 'assigned', 'in_progress']),
-            ),
-          });
-          if (!openVacancyTicket) {
-            await transaction.insert(maintenanceTickets).values({
-              organizationId: claims.organizationId!,
-              unitId: current.unitId,
-              openedByPartyId: claims.partyId ?? null,
-              title:
-                input.action === 'terminate'
-                  ? 'معاينة صيانة بعد فسخ العقد'
-                  : 'معاينة صيانة بعد انتهاء العقد',
-              description: `Auto-opened for vacant unit after lease ${input.action}. Lease id: ${id}`,
-              category: 'vacancy_handover',
-              priority: 'high',
-              blocksAvailability: false,
-            });
-          }
+      // Draft-only hard terminate (no active tenancy clearance).
+      if (input.action === 'terminate' && current.status === 'draft') {
+        const rows = await transaction
+          .update(leases)
+          .set({ status: 'terminated', updatedAt: now })
+          .where(eq(leases.id, id))
+          .returning();
+        await this.writeLeaseLifecycleEvent(transaction, claims, {
+          id,
+          fromStatus: current.status,
+          toStatus: 'terminated',
+          action: input.action,
+          note: input.note,
+          endsOn: current.endsOn,
+        });
+        await transaction
+          .update(billingSchedules)
+          .set({ status: 'cancelled', updatedAt: now })
+          .where(eq(billingSchedules.leaseId, id));
+        return this.serializeLease(rows[0]!);
+      }
 
-          const existingLegal = await transaction.query.legalCases.findFirst({
-            where: and(
-              eq(legalCases.organizationId, claims.organizationId!),
-              eq(legalCases.leaseId, id),
-              eq(legalCases.caseType, 'vacancy_deposit_review'),
-            ),
-          });
-          if (!existingLegal) {
-            const openedOn = new Date().toISOString().slice(0, 10);
-            const currency = (current.currency ?? 'OMR') as CurrencyCode;
-            await transaction.insert(legalCases).values({
-              organizationId: claims.organizationId!,
-              reference: `LEG-VAC-${id.replace(/-/g, '').slice(0, 10).toUpperCase()}`,
-              caseType: 'vacancy_deposit_review',
-              title:
-                input.action === 'terminate'
-                  ? 'مراجعة تأمين/مخالصة بعد فسخ'
-                  : 'مراجعة تأمين/مخالصة بعد انتهاء العقد',
-              description: `Auto legal assessment for deposit/settlement. Lease ${id}.`,
-              propertyId: unit?.propertyId,
-              unitId: current.unitId,
-              leaseId: id,
-              counterpartyId: current.tenantPartyId,
-              status: 'assessment',
-              claimAmountMinor: current.depositMinor ?? 0n,
-              currency,
-              minorUnit: currencyMinorUnits[currency],
-              openedOn,
-            });
-          }
-
-          // OM step 14: accounts — draft vacancy settlement expense (idempotent by reference).
-          const expenseRef = `EXP-VAC-${id.replace(/-/g, '').slice(0, 10).toUpperCase()}`;
-          const existingExpense = await transaction.query.expenses.findFirst({
-            where: and(
-              eq(expenses.organizationId, claims.organizationId!),
-              eq(expenses.reference, expenseRef),
-            ),
-          });
-          if (!existingExpense) {
-            const currency = (current.currency ?? 'OMR') as CurrencyCode;
-            const settlementAmount =
-              current.depositMinor && current.depositMinor > 0n ? current.depositMinor : 1n;
-            const issuedOn = new Date().toISOString().slice(0, 10);
-            await transaction.insert(expenses).values({
-              organizationId: claims.organizationId!,
-              reference: expenseRef,
-              propertyId: unit?.propertyId,
-              unitId: current.unitId,
-              category: 'vacancy_settlement',
-              description:
-                input.action === 'terminate'
-                  ? 'مخالصة حسابات بعد فسخ العقد'
-                  : 'مخالصة حسابات بعد انتهاء العقد',
-              amountMinor: settlementAmount,
-              taxMinor: 0n,
-              currency,
-              minorUnit: currencyMinorUnits[currency],
-              status: 'pending',
-              issuedOn,
-              notes: `Auto vacancy settlement for lease ${id}. Adjust amount then approve.`,
-            });
+      if (
+        (input.action === 'confirm_renewal' || input.action === 'waive_renewal_gate') &&
+        current.status === 'active'
+      ) {
+        if (!current.renewalPendingContractId || !current.renewalPendingEndsOn) {
+          throw new ConflictException('No signed renewal is awaiting accountant confirmation');
+        }
+        if (input.action === 'confirm_renewal') {
+          await this.assertLeaseClearanceReady(transaction, claims.organizationId!, id);
+          const leaseCheques = await transaction
+            .select({ reviewStatus: cheques.reviewStatus })
+            .from(cheques)
+            .where(
+              and(eq(cheques.organizationId, claims.organizationId!), eq(cheques.leaseId, id)),
+            );
+          const blocked = leaseCheques.filter(
+            (row) => !['accepted', 'deposited', 'cleared'].includes(row.reviewStatus),
+          );
+          if (blocked.length) {
+            throw new ConflictException(
+              'Lease cheques must be accepted by accounting before renewal confirmation',
+            );
           }
         }
+        const nextRent = current.renewalPendingRentMinor ?? current.rentMinor;
+        const rows = await transaction
+          .update(leases)
+          .set({
+            endsOn: current.renewalPendingEndsOn,
+            rentMinor: nextRent,
+            contractId: current.renewalPendingContractId,
+            renewalPendingContractId: null,
+            renewalPendingEndsOn: null,
+            renewalPendingRentMinor: null,
+            renewalGateWaivedAt: input.action === 'waive_renewal_gate' ? now : null,
+            renewalGateWaivedByUserId: input.action === 'waive_renewal_gate' ? claims.sub : null,
+            updatedAt: now,
+          })
+          .where(eq(leases.id, id))
+          .returning();
+        await this.writeLeaseLifecycleEvent(transaction, claims, {
+          id,
+          fromStatus: current.status,
+          toStatus: current.status,
+          action: input.action === 'waive_renewal_gate' ? 'renewal_waived' : 'renewed',
+          note: input.note,
+          endsOn: current.renewalPendingEndsOn,
+          metadata: {
+            renewalContractId: current.renewalPendingContractId,
+            nextRentMinor: nextRent.toString(),
+            waived: input.action === 'waive_renewal_gate',
+          },
+        });
+        return this.serializeLease(rows[0]!);
       }
-      const row = rows[0]!;
-      return {
-        ...row,
-        rentMinor: row.rentMinor.toString(),
-        depositMinor: row.depositMinor?.toString() ?? null,
-      };
+
+      if (input.action === 'terminate' && current.status === 'active') {
+        throw new ConflictException(
+          'Active leases require cancellation request → admin approval → accountant clearance',
+        );
+      }
+
+      throw new ConflictException(`Invalid lease action: ${input.action}`);
     });
+  }
+
+  private serializeLease(row: typeof leases.$inferSelect) {
+    return {
+      ...row,
+      rentMinor: row.rentMinor.toString(),
+      depositMinor: row.depositMinor?.toString() ?? null,
+      renewalPendingRentMinor: row.renewalPendingRentMinor?.toString() ?? null,
+    };
+  }
+
+  private async writeLeaseLifecycleEvent(
+    transaction: DatabaseTransaction,
+    claims: SessionClaims,
+    args: {
+      id: string;
+      fromStatus: string;
+      toStatus: string;
+      action: string;
+      note?: string | undefined;
+      endsOn: string;
+      metadata?: Record<string, unknown>;
+    },
+  ) {
+    await transaction.insert(workflowEvents).values({
+      organizationId: claims.organizationId!,
+      actorUserId: claims.sub,
+      resourceType: 'lease',
+      resourceId: args.id,
+      eventType: `lease.${args.action}`,
+      fromStatus: args.fromStatus,
+      toStatus: args.toStatus,
+      note: args.note,
+      metadata: { endsOn: args.endsOn, ...args.metadata },
+    });
+    await transaction.insert(outboxEvents).values({
+      organizationId: claims.organizationId!,
+      topic: `lease.${args.action}`,
+      aggregateType: 'lease',
+      aggregateId: args.id,
+      payload: { status: args.toStatus, endsOn: args.endsOn, ...args.metadata },
+    });
+  }
+
+  private async assertLeaseClearanceReady(
+    transaction: DatabaseTransaction,
+    organizationId: string,
+    leaseId: string,
+  ) {
+    const openInvoices = await transaction
+      .select({ id: invoices.id, status: invoices.status })
+      .from(invoices)
+      .where(
+        and(
+          eq(invoices.organizationId, organizationId),
+          eq(invoices.leaseId, leaseId),
+          inArray(invoices.status, ['issued', 'partially_paid', 'overdue']),
+        ),
+      );
+    if (openInvoices.length) {
+      throw new ConflictException(
+        'Accountant clearance blocked: open service/rent invoices must be settled first',
+      );
+    }
+  }
+
+  private async seedVacancyFollowUps(
+    transaction: DatabaseTransaction,
+    claims: SessionClaims,
+    args: {
+      lease: {
+        unitId: string;
+        tenantPartyId: string;
+        depositMinor: bigint | null;
+        currency: string;
+        status: string;
+      };
+      id: string;
+      actionLabel: 'end' | 'terminate';
+    },
+  ) {
+    const { lease: current, id, actionLabel } = args;
+    const existingVacancyTask = await transaction.query.workTasks.findFirst({
+      where: and(
+        eq(workTasks.organizationId, claims.organizationId!),
+        eq(workTasks.relatedType, 'lease_vacancy'),
+        eq(workTasks.relatedId, id),
+      ),
+    });
+    if (existingVacancyTask) return;
+
+    const unit = await transaction.query.units.findFirst({
+      where: and(eq(units.id, current.unitId), eq(units.organizationId, claims.organizationId!)),
+    });
+    const dueAt = new Date();
+    dueAt.setUTCDate(dueAt.getUTCDate() + 3);
+    await transaction.insert(workTasks).values({
+      organizationId: claims.organizationId!,
+      reference: `VAC-${id.replace(/-/g, '').slice(0, 12).toUpperCase()}`,
+      title:
+        actionLabel === 'terminate'
+          ? 'وحدة شاغرة بعد فسخ العقد — متابعة'
+          : 'وحدة شاغرة بعد انتهاء العقد — متابعة',
+      description:
+        'Auto vacancy follow-up: inspection, maintenance, legal/deposit review, and accounts settlement. Open from Tasks, or deep-link Maintenance / Legal / Accounting with this unit.',
+      category: 'vacancy',
+      priority: 'high',
+      createdByUserId: claims.sub,
+      propertyId: unit?.propertyId,
+      unitId: current.unitId,
+      relatedType: 'lease_vacancy',
+      relatedId: id,
+      dueAt,
+      checklist: [
+        { label: 'معاينة / تسليم — Inspection / handover', done: false },
+        { label: 'صيانة — Maintenance check', done: false },
+        { label: 'محاماة / تأمين — Legal / deposit review', done: false },
+        { label: 'حسابات — Final settlement', done: false },
+      ],
+    });
+
+    const openVacancyTicket = await transaction.query.maintenanceTickets.findFirst({
+      where: and(
+        eq(maintenanceTickets.organizationId, claims.organizationId!),
+        eq(maintenanceTickets.unitId, current.unitId),
+        eq(maintenanceTickets.category, 'vacancy_handover'),
+        inArray(maintenanceTickets.status, ['open', 'assigned', 'in_progress']),
+      ),
+    });
+    if (!openVacancyTicket) {
+      await transaction.insert(maintenanceTickets).values({
+        organizationId: claims.organizationId!,
+        unitId: current.unitId,
+        openedByPartyId: claims.partyId ?? null,
+        title:
+          actionLabel === 'terminate'
+            ? 'معاينة صيانة بعد فسخ العقد'
+            : 'معاينة صيانة بعد انتهاء العقد',
+        description: `Auto-opened for vacant unit after lease ${actionLabel}. Lease id: ${id}`,
+        category: 'vacancy_handover',
+        priority: 'high',
+        blocksAvailability: false,
+      });
+    }
+
+    const existingLegal = await transaction.query.legalCases.findFirst({
+      where: and(
+        eq(legalCases.organizationId, claims.organizationId!),
+        eq(legalCases.leaseId, id),
+        eq(legalCases.caseType, 'vacancy_deposit_review'),
+      ),
+    });
+    if (!existingLegal) {
+      const openedOn = new Date().toISOString().slice(0, 10);
+      const currency = (current.currency ?? 'OMR') as CurrencyCode;
+      await transaction.insert(legalCases).values({
+        organizationId: claims.organizationId!,
+        reference: `LEG-VAC-${id.replace(/-/g, '').slice(0, 10).toUpperCase()}`,
+        caseType: 'vacancy_deposit_review',
+        title:
+          actionLabel === 'terminate'
+            ? 'مراجعة تأمين/مخالصة بعد فسخ'
+            : 'مراجعة تأمين/مخالصة بعد انتهاء العقد',
+        description: `Auto legal assessment for deposit/settlement. Lease ${id}.`,
+        propertyId: unit?.propertyId,
+        unitId: current.unitId,
+        leaseId: id,
+        counterpartyId: current.tenantPartyId,
+        status: 'assessment',
+        claimAmountMinor: current.depositMinor ?? 0n,
+        currency,
+        minorUnit: currencyMinorUnits[currency],
+        openedOn,
+      });
+    }
+
+    const expenseRef = `EXP-VAC-${id.replace(/-/g, '').slice(0, 10).toUpperCase()}`;
+    const existingExpense = await transaction.query.expenses.findFirst({
+      where: and(
+        eq(expenses.organizationId, claims.organizationId!),
+        eq(expenses.reference, expenseRef),
+      ),
+    });
+    if (!existingExpense) {
+      const currency = (current.currency ?? 'OMR') as CurrencyCode;
+      const settlementAmount =
+        current.depositMinor && current.depositMinor > 0n ? current.depositMinor : 1n;
+      const issuedOn = new Date().toISOString().slice(0, 10);
+      await transaction.insert(expenses).values({
+        organizationId: claims.organizationId!,
+        reference: expenseRef,
+        propertyId: unit?.propertyId,
+        unitId: current.unitId,
+        category: 'vacancy_settlement',
+        description:
+          actionLabel === 'terminate'
+            ? 'مخالصة حسابات بعد فسخ العقد'
+            : 'مخالصة حسابات بعد انتهاء العقد',
+        amountMinor: settlementAmount,
+        taxMinor: 0n,
+        currency,
+        minorUnit: currencyMinorUnits[currency],
+        status: 'pending',
+        issuedOn,
+        notes: `Auto vacancy settlement for lease ${id}. Adjust amount then approve.`,
+      });
+    }
   }
 
   private async assertAddressBookReadyForReservation(

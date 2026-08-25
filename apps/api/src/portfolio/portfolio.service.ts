@@ -607,7 +607,7 @@ export class PortfolioService {
           and(
             eq(units.propertyId, propertyId),
             eq(leases.organizationId, claims.organizationId!),
-            inArray(leases.status, ['draft', 'active']),
+            inArray(leases.status, ['draft', 'active', 'cancel_requested', 'clearance_pending']),
           ),
         )
         .limit(1);
@@ -744,7 +744,7 @@ export class PortfolioService {
           transaction
             .select({ id: leases.id })
             .from(leases)
-            .where(and(eq(leases.unitId, units.id), inArray(leases.status, ['draft', 'active']))),
+            .where(and(eq(leases.unitId, units.id), inArray(leases.status, ['draft', 'active', 'cancel_requested', 'clearance_pending']))),
         ),
         notExists(
           transaction
@@ -930,7 +930,7 @@ export class PortfolioService {
                 .select({ id: leases.id })
                 .from(leases)
                 .where(
-                  and(eq(leases.unitId, units.id), inArray(leases.status, ['draft', 'active'])),
+                  and(eq(leases.unitId, units.id), inArray(leases.status, ['draft', 'active', 'cancel_requested', 'clearance_pending'])),
                 ),
             ),
             notExists(
@@ -1074,7 +1074,7 @@ export class PortfolioService {
                 .select({ id: leases.id })
                 .from(leases)
                 .where(
-                  and(eq(leases.unitId, units.id), inArray(leases.status, ['draft', 'active'])),
+                  and(eq(leases.unitId, units.id), inArray(leases.status, ['draft', 'active', 'cancel_requested', 'clearance_pending'])),
                 ),
             ),
           ),
@@ -1255,7 +1255,7 @@ export class PortfolioService {
                 .select({ id: leases.id })
                 .from(leases)
                 .where(
-                  and(eq(leases.unitId, units.id), inArray(leases.status, ['draft', 'active'])),
+                  and(eq(leases.unitId, units.id), inArray(leases.status, ['draft', 'active', 'cancel_requested', 'clearance_pending'])),
                 ),
             ),
             notExists(

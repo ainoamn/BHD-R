@@ -298,15 +298,44 @@ export class LeasingController {
       new ZodPipe(
         z
           .object({
-            action: z.enum(['activate', 'end', 'terminate']),
+            action: z.enum([
+              'activate',
+              'end',
+              'terminate',
+              'request_cancellation',
+              'approve_cancellation',
+              'clear_cancellation',
+              'confirm_renewal',
+              'waive_renewal_gate',
+            ]),
             note: z.string().max(5000).optional(),
+            proposedEndsOn: z
+              .string()
+              .regex(/^\d{4}-\d{2}-\d{2}$/)
+              .optional(),
+            effectiveOn: z
+              .string()
+              .regex(/^\d{4}-\d{2}-\d{2}$/)
+              .optional(),
+            source: z.enum(['tenant', 'admin']).optional(),
           })
           .strict(),
       ),
     )
     body: {
-      action: 'activate' | 'end' | 'terminate';
+      action:
+        | 'activate'
+        | 'end'
+        | 'terminate'
+        | 'request_cancellation'
+        | 'approve_cancellation'
+        | 'clear_cancellation'
+        | 'confirm_renewal'
+        | 'waive_renewal_gate';
       note?: string;
+      proposedEndsOn?: string;
+      effectiveOn?: string;
+      source?: 'tenant' | 'admin';
     },
   ) {
     return this.service.updateLease(request.auth!, id, body);

@@ -63,7 +63,15 @@ export const contractStatus = pgEnum('contract_status', [
   'void',
   'terminated',
 ]);
-export const leaseStatus = pgEnum('lease_status', ['draft', 'active', 'ended', 'terminated']);
+export const leaseStatus = pgEnum('lease_status', [
+  'draft',
+  'active',
+  'cancel_requested',
+  'clearance_pending',
+  'cancelled',
+  'ended',
+  'terminated',
+]);
 export const invoiceStatus = pgEnum('invoice_status', [
   'draft',
   'issued',
@@ -1112,11 +1120,44 @@ export const leases = pgTable(
     currency: varchar('currency', { length: 3 }).notNull(),
     minorUnit: integer('minor_unit').notNull(),
     billingDay: integer('billing_day').notNull(),
+    /** Cycle v1.1 R1: tenant|admin cancel request, or natural end awaiting accountant. */
+    exitKind: varchar('exit_kind', { length: 16 }),
+    cancellationSource: varchar('cancellation_source', { length: 16 }),
+    cancellationProposedOn: date('cancellation_proposed_on'),
+    cancellationEffectiveOn: date('cancellation_effective_on'),
+    cancellationRequestedAt: timestamp('cancellation_requested_at', { withTimezone: true }),
+    cancellationRequestedByUserId: uuid('cancellation_requested_by_user_id').references(
+      () => users.id,
+    ),
+    cancellationAdminApprovedAt: timestamp('cancellation_admin_approved_at', {
+      withTimezone: true,
+    }),
+    cancellationAdminApprovedByUserId: uuid('cancellation_admin_approved_by_user_id').references(
+      () => users.id,
+    ),
+    cancellationClearedAt: timestamp('cancellation_cleared_at', { withTimezone: true }),
+    cancellationClearedByUserId: uuid('cancellation_cleared_by_user_id').references(() => users.id),
+    cancellationClearanceNote: text('cancellation_clearance_note'),
+    /** Cycle v1.1 R3: signed renewal terms wait for accountant (or manager waive). */
+    renewalPendingContractId: uuid('renewal_pending_contract_id').references(() => contracts.id),
+    renewalPendingEndsOn: date('renewal_pending_ends_on'),
+    renewalPendingRentMinor: bigint('renewal_pending_rent_minor', { mode: 'bigint' }),
+    renewalGateWaivedAt: timestamp('renewal_gate_waived_at', { withTimezone: true }),
+    renewalGateWaivedByUserId: uuid('renewal_gate_waived_by_user_id').references(() => users.id),
   },
   (table) => [
     index('leases_unit_status_idx').on(table.unitId, table.status),
     index('leases_org_idx').on(table.organizationId),
+    index('leases_org_status_idx').on(table.organizationId, table.status),
     check('leases_dates_check', sql`${table.endsOn} > ${table.startsOn}`),
+    check(
+      'leases_exit_kind_check',
+      sql`${table.exitKind} IS NULL OR ${table.exitKind} IN ('cancel', 'end')`,
+    ),
+    check(
+      'leases_cancellation_source_check',
+      sql`${table.cancellationSource} IS NULL OR ${table.cancellationSource} IN ('tenant', 'admin')`,
+    ),
   ],
 );
 
