@@ -1898,6 +1898,20 @@ function nextAction(section: OperationsSection, row: DataRow) {
         next: 'scheduled',
       };
   }
+  if (section === 'leasing' && status === 'draft')
+    return {
+      path: `/v1/leasing/leases/${id}`,
+      method: 'PATCH',
+      body: { action: 'activate' },
+      next: 'active',
+    };
+  if (section === 'leasing' && status === 'active')
+    return {
+      path: `/v1/leasing/leases/${id}`,
+      method: 'PATCH',
+      body: { action: 'end' },
+      next: 'ended',
+    };
   return null;
 }
 
@@ -2016,6 +2030,24 @@ export function OperationsConsole({
       await browserMutation(action.path, {
         method: action.method,
         body: JSON.stringify(action.body),
+      });
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'request_failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function leaseLifecycle(row: DataRow, action: 'activate' | 'end' | 'terminate') {
+    const id = safeString(row.id);
+    if (!id) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await browserMutation(`/v1/leasing/leases/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ action }),
       });
       router.refresh();
     } catch (caught) {
@@ -2394,18 +2426,51 @@ export function OperationsConsole({
                       <td key={column.key}>{displayCell(row, column, locale, context)}</td>
                     ))}
                     <td>
-                      {section === 'leasing' && safeString(row.status) === 'active' ? (
-                        <button
-                          className="ops-action"
-                          type="button"
-                          disabled={busy}
-                          onClick={() => {
-                            setError(null);
-                            setRenewingLease(row);
-                          }}
-                        >
-                          {ar ? 'ملحق تجديد موقّع' : 'Signed renewal addendum'}
-                        </button>
+                      {section === 'leasing' ? (
+                        <span className="ops-inline-actions">
+                          {safeString(row.status) === 'draft' ? (
+                            <button
+                              className="ops-action"
+                              type="button"
+                              disabled={busy}
+                              onClick={() => void leaseLifecycle(row, 'activate')}
+                            >
+                              {ar ? 'تفعيل (ساري)' : 'Activate'}
+                            </button>
+                          ) : null}
+                          {safeString(row.status) === 'active' ? (
+                            <>
+                              <button
+                                className="ops-action"
+                                type="button"
+                                disabled={busy}
+                                onClick={() => {
+                                  setError(null);
+                                  setRenewingLease(row);
+                                }}
+                              >
+                                {ar ? 'تجديد' : 'Renew'}
+                              </button>
+                              <button
+                                className="ops-action"
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void leaseLifecycle(row, 'end')}
+                              >
+                                {ar ? 'إنهاء' : 'End'}
+                              </button>
+                              <button
+                                className="ops-action ops-action--danger"
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void leaseLifecycle(row, 'terminate')}
+                              >
+                                {ar ? 'فسخ' : 'Terminate'}
+                              </button>
+                            </>
+                          ) : null}
+                          {!['draft', 'active'].includes(safeString(row.status)) ? '—' : null}
+                        </span>
                       ) : section === 'team' ? (
                         <button
                           className={`ops-action ${safeString(row.status) === 'active' ? 'ops-action--danger' : ''}`}

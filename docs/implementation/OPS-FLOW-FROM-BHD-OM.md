@@ -16,6 +16,8 @@
 8. Accountant deposit confirm posts ledger journal (cash/bank ↔ tenant deposits liability).
 9. Lease end/terminate auto-seeds a vacancy follow-up task (checklist for inspection / maintenance / legal / accounts).
 10. Portal metrics and lists are party-scoped (owner portfolio / tenant leases) unless the actor has org-wide staff roles.
+11. Nest API is hosted publicly; Vercel `API_INTERNAL_ORIGIN` points at it.
+12. Ops leasing UI exposes activate / end / terminate (end/terminate seeds vacancy task).
 
 ## Status mapping
 
@@ -45,6 +47,7 @@
 | 9 Lease end → vacancy task | **Wired** |
 | 10 Party-scoped portal metrics | **Wired** — owner/tenant overview + lists |
 | 11 Nest API public host | **Scaffolded** — see `docs/implementation/NEST-API-HOSTING.md` |
+| 12 Lease lifecycle ops actions | **Wired** — activate / end / terminate in leasing console |
 
 ## Deploy note
 

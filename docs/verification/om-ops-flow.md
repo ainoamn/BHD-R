@@ -19,6 +19,7 @@
 | 9 | Lease end → vacancy task | `work_tasks` `related_type=lease_vacancy` | Wired |
 | 10 | Party-scoped portal metrics | `PortalsService` owner/tenant scope by `partyId` | Wired |
 | 11 | Nest API public host | `render.yaml` + `NEST-API-HOSTING.md` scaffold; go-live needs secrets | Scaffolded |
+| 12 | Lease lifecycle ops UI | Activate / End / Terminate buttons on leasing console | Wired |
 
 ## Step 10 acceptance
 
@@ -32,6 +33,12 @@
 1. Nest container reachable at public HTTPS URL (`/health/ready` OK).
 2. Vercel Production has `API_INTERNAL_ORIGIN` = that URL (never localhost).
 3. Web `/v1/*` mutations succeed against Neon.
+
+## Step 12 acceptance
+
+1. Draft lease row shows **Activate**.
+2. Active lease row shows **Renew**, **End**, and **Terminate**.
+3. End/Terminate calls `PATCH /v1/leasing/leases/:id` with `action` and seeds vacancy task (step 9).
 
 ## Production blockers
 
@@ -47,4 +54,5 @@ After each OM step: commit → `git push origin main` → Vercel Production depl
 | 8 Deposit journal | `f27f2de` | Ready |
 | 9 Vacancy task | `0a4c297` | Ready |
 | 10 Party-scoped portals | `8edaf35` | Ready |
-| 11 Nest hosting scaffold | (this release) | after push |
+| 11 Nest hosting scaffold | `6b4dc32` | Ready |
+| 12 Lease lifecycle UI | (this release) | after push |
