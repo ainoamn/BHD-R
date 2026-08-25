@@ -39,6 +39,29 @@ export interface OperationsContext {
   reservations?: Array<OptionRow & { unitId?: string; tenantPartyId?: string }>;
   pendingDepositReservations?: Array<OptionRow & { unitId?: string; tenantPartyId?: string }>;
   confirmedReservations?: Array<OptionRow & { unitId?: string; tenantPartyId?: string }>;
+  cancelRequestedLeases?: Array<
+    OptionRow & {
+      unitId?: string;
+      cancellationProposedOn?: string;
+      depositMinor?: string | null;
+    }
+  >;
+  clearancePendingLeases?: Array<
+    OptionRow & {
+      unitId?: string;
+      cancellationEffectiveOn?: string;
+      depositMinor?: string | null;
+      exitKind?: string | null;
+    }
+  >;
+  renewalPendingLeases?: Array<
+    OptionRow & {
+      unitId?: string;
+      renewalPendingContractId?: string | null;
+      renewalPendingEndsOn?: string | null;
+      depositMinor?: string | null;
+    }
+  >;
   invoices?: OptionRow[];
   contractTemplates?: OptionRow[];
   ledgerAccounts?: OptionRow[];
@@ -1958,7 +1981,7 @@ export function OperationsConsole({
   const definition = definitions[section];
   const ar = locale === 'ar';
   const [query, setQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState(section === 'leasing' ? 'active' : '');
+  const [statusFilter, setStatusFilter] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1989,6 +2012,9 @@ export function OperationsConsole({
 
   const vacantUnits = context.vacantUnits ?? [];
   const pendingDeposits = context.pendingDepositReservations ?? [];
+  const cancelRequestedLeases = context.cancelRequestedLeases ?? [];
+  const clearancePendingLeases = context.clearancePendingLeases ?? [];
+  const renewalPendingLeases = context.renewalPendingLeases ?? [];
   const vacancyFollowUps = context.vacancyFollowUps;
   const vacancyFollowUpTotal = vacancyFollowUps
     ? vacancyFollowUps.tasks +
@@ -2453,6 +2479,113 @@ export function OperationsConsole({
                   >
                     {ar ? 'المستندات' : 'Documents'}
                   </a>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {section === 'leasing' && cancelRequestedLeases.length ? (
+        <section
+          className="ops-deposit-queue"
+          aria-label={ar ? 'طلبات إلغاء بانتظار الإدارة' : 'Cancel requests awaiting admin'}
+        >
+          <header>
+            <h2>{ar ? 'طلبات إلغاء — اعتماد الإدارة' : 'Cancel requests — admin approval'}</h2>
+            <p>
+              {ar
+                ? 'ثبّت تاريخ الإلغاء ثم يمر للعقد إلى بوابة المحاسب.'
+                : 'Set the cancellation date, then the lease moves to accountant clearance.'}
+            </p>
+          </header>
+          <ul>
+            {cancelRequestedLeases.slice(0, 12).map((row) => (
+              <li key={safeString(row.id)}>
+                <strong>{labelForOption(row, locale)}</strong>
+                <div className="ops-vacant-strip__actions">
+                  <button
+                    className="ops-action"
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void leaseLifecycle({ ...row } as DataRow, 'approve_cancellation')}
+                  >
+                    {ar ? 'اعتماد + تاريخ' : 'Approve + date'}
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {section === 'leasing' && clearancePendingLeases.length ? (
+        <section
+          className="ops-deposit-queue"
+          aria-label={ar ? 'بانتظار تصفية المحاسب' : 'Awaiting accountant clearance'}
+        >
+          <header>
+            <h2>{ar ? 'تصفية محاسب قبل الإلغاء/الإنهاء' : 'Accountant clearance before exit'}</h2>
+            <p>
+              {ar
+                ? 'لا متأخرات ولا فواتير مفتوحة؛ ملاحظة التأمين إلزامية إن وُجد ضمان.'
+                : 'No open invoices; deposit note required when a security deposit exists.'}
+            </p>
+          </header>
+          <ul>
+            {clearancePendingLeases.slice(0, 12).map((row) => (
+              <li key={safeString(row.id)}>
+                <strong>{labelForOption(row, locale)}</strong>
+                <div className="ops-vacant-strip__actions">
+                  <button
+                    className="ops-action"
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void leaseLifecycle({ ...row } as DataRow, 'clear_cancellation')}
+                  >
+                    {ar ? 'تصفية محاسب' : 'Clear'}
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {section === 'leasing' && renewalPendingLeases.length ? (
+        <section
+          className="ops-deposit-queue"
+          aria-label={ar ? 'تجديد بانتظار الاعتماد' : 'Renewals awaiting confirmation'}
+        >
+          <header>
+            <h2>{ar ? 'تجديد موقّع — بوابة المحاسب' : 'Signed renewal — accountant gate'}</h2>
+            <p>
+              {ar
+                ? 'أكد الشيكات/الفواتير أو استخدم استثناء المدير.'
+                : 'Confirm cheques/invoices or use the manager waive.'}
+            </p>
+          </header>
+          <ul>
+            {renewalPendingLeases.slice(0, 12).map((row) => (
+              <li key={safeString(row.id)}>
+                <strong>{labelForOption(row, locale)}</strong>
+                <div className="ops-vacant-strip__actions">
+                  <button
+                    className="ops-action"
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void leaseLifecycle({ ...row } as DataRow, 'confirm_renewal')}
+                  >
+                    {ar ? 'اعتماد محاسب' : 'Confirm'}
+                  </button>
+                  <button
+                    className="ops-action"
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void leaseLifecycle({ ...row } as DataRow, 'waive_renewal_gate')}
+                  >
+                    {ar ? 'استثناء مدير' : 'Waive'}
+                  </button>
                 </div>
               </li>
             ))}

@@ -1,11 +1,16 @@
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
 import { createPropertySchema, createUnitSchema } from '@bhd-r/contracts';
+import type { SessionClaims } from '@bhd-r/authz';
+import { permissionsForRoles } from '@bhd-r/authz';
 import { validateBalanced } from '../src/accounting/accounting.service.js';
 import { assertTransition, salesTransitions } from '../src/operations/operations.service.js';
 import {
+  assertDepositClearanceNote,
+  assertLeaseActionPermission,
   assertRenewalTerms,
   assertReservationRequirementsApproved,
+  permissionForLeaseAction,
 } from '../src/leasing/leasing.service.js';
 
 describe('financial accounting invariants', () => {
@@ -81,6 +86,38 @@ describe('signed lease renewal invariants', () => {
     expect(() => assertRenewalTerms(current, { endsOn: '2028-12-31', currency: 'USD' })).toThrow(
       ConflictException,
     );
+  });
+});
+
+describe('cycle v1.3 lease clearance permissions', () => {
+  function claimsFor(roles: Parameters<typeof permissionsForRoles>[0]): SessionClaims {
+    return {
+      sub: '00000000-0000-4000-8000-000000000099',
+      sid: '00000000-0000-4000-8000-000000000098',
+      organizationId: '00000000-0000-4000-8000-000000000001',
+      roles: [...roles],
+      permissions: permissionsForRoles(roles),
+    } as SessionClaims;
+  }
+
+  it('maps clearance and renewal actions to dedicated permissions', () => {
+    expect(permissionForLeaseAction('clear_cancellation')).toBe('lease.cancel.clear');
+    expect(permissionForLeaseAction('confirm_renewal')).toBe('lease.renew.confirm');
+    expect(permissionForLeaseAction('waive_renewal_gate')).toBe('lease.renew.waive');
+    expect(permissionForLeaseAction('activate')).toBe('lease.update');
+  });
+
+  it('allows finance_manager to clear and confirm without lease.update', () => {
+    const finance = claimsFor(['finance_manager']);
+    expect(() => assertLeaseActionPermission(finance, 'clear_cancellation')).not.toThrow();
+    expect(() => assertLeaseActionPermission(finance, 'confirm_renewal')).not.toThrow();
+    expect(() => assertLeaseActionPermission(finance, 'activate')).toThrow(ForbiddenException);
+  });
+
+  it('requires a deposit clearance note when depositMinor > 0', () => {
+    expect(() => assertDepositClearanceNote(1000n, 'settled')).not.toThrow();
+    expect(() => assertDepositClearanceNote(1000n, '  ')).toThrow(ConflictException);
+    expect(() => assertDepositClearanceNote(0n, undefined)).not.toThrow();
   });
 });
 

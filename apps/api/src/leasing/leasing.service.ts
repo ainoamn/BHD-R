@@ -37,6 +37,7 @@ import {
   workflowEvents,
 } from '@bhd-r/db';
 import type { SessionClaims } from '@bhd-r/authz';
+import { hasPermission, type Permission } from '@bhd-r/authz';
 import type { CreateHoldInput, CreateLeaseInput, CurrencyCode } from '@bhd-r/contracts';
 import { currencyMinorUnits, signatureEvidenceSchema } from '@bhd-r/contracts';
 import { sanitizeDocumentTemplate, sanitizeRichText } from '@bhd-r/security';
@@ -135,6 +136,54 @@ export function assertRenewalTerms(
     throw new ConflictException('Renewal date must extend the current lease');
   if (proposed.currency && proposed.currency !== current.currency)
     throw new ConflictException('Renewal currency must match the lease currency');
+}
+
+export type LeaseLifecycleAction =
+  | 'activate'
+  | 'end'
+  | 'terminate'
+  | 'request_cancellation'
+  | 'approve_cancellation'
+  | 'clear_cancellation'
+  | 'confirm_renewal'
+  | 'waive_renewal_gate';
+
+export function permissionForLeaseAction(action: LeaseLifecycleAction): Permission {
+  switch (action) {
+    case 'request_cancellation':
+      return 'lease.cancel.request';
+    case 'approve_cancellation':
+      return 'lease.cancel.approve';
+    case 'clear_cancellation':
+      return 'lease.cancel.clear';
+    case 'confirm_renewal':
+      return 'lease.renew.confirm';
+    case 'waive_renewal_gate':
+      return 'lease.renew.waive';
+    default:
+      return 'lease.update';
+  }
+}
+
+export function assertLeaseActionPermission(
+  claims: SessionClaims,
+  action: LeaseLifecycleAction,
+): void {
+  const needed = permissionForLeaseAction(action);
+  if (hasPermission(claims, needed)) return;
+  if (needed !== 'lease.update' && hasPermission(claims, 'lease.update')) return;
+  throw new ForbiddenException(`Missing permission for lease action: ${action}`);
+}
+
+export function assertDepositClearanceNote(
+  depositMinor: bigint | null | undefined,
+  note: string | undefined,
+): void {
+  if (depositMinor && depositMinor > 0n && !note?.trim()) {
+    throw new ConflictException(
+      'Accountant clearance requires a note confirming deposit/settlement when a security deposit exists',
+    );
+  }
 }
 
 @Injectable()
@@ -1217,6 +1266,7 @@ export class LeasingService {
         ...row,
         rentMinor: row.rentMinor.toString(),
         depositMinor: row.depositMinor?.toString() ?? null,
+        renewalPendingRentMinor: row.renewalPendingRentMinor?.toString() ?? null,
       }));
     });
   }
@@ -1603,21 +1653,14 @@ export class LeasingService {
     claims: SessionClaims,
     id: string,
     input: {
-      action:
-        | 'activate'
-        | 'end'
-        | 'terminate'
-        | 'request_cancellation'
-        | 'approve_cancellation'
-        | 'clear_cancellation'
-        | 'confirm_renewal'
-        | 'waive_renewal_gate';
+      action: LeaseLifecycleAction;
       note?: string | undefined;
       proposedEndsOn?: string | undefined;
       effectiveOn?: string | undefined;
       source?: 'tenant' | 'admin' | undefined;
     },
   ) {
+    assertLeaseActionPermission(claims, input.action);
     return this.database.withinTenant(claims, async (transaction) => {
       const current = await transaction.query.leases.findFirst({
         where: and(eq(leases.id, id), eq(leases.organizationId, claims.organizationId!)),
@@ -1765,11 +1808,7 @@ export class LeasingService {
 
       if (input.action === 'clear_cancellation' && current.status === 'clearance_pending') {
         await this.assertLeaseClearanceReady(transaction, claims.organizationId!, id);
-        if (current.depositMinor && current.depositMinor > 0n && !input.note?.trim()) {
-          throw new ConflictException(
-            'Accountant clearance requires a note confirming deposit/settlement when a security deposit exists',
-          );
-        }
+        assertDepositClearanceNote(current.depositMinor, input.note);
         const terminalStatus = current.exitKind === 'end' ? 'ended' : 'cancelled';
         // R2: seed deposit/vacancy follow-ups before tenant sees terminal status.
         await this.seedVacancyFollowUps(transaction, claims, {

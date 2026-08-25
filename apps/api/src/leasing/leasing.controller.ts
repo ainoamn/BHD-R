@@ -12,7 +12,7 @@ import {
 import type { FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { createHoldSchema, createLeaseSchema } from '@bhd-r/contracts';
-import { Idempotent, RequirePermissions } from '../common/decorators.js';
+import { Idempotent, Authenticated, RequirePermissions } from '../common/decorators.js';
 import { ZodPipe } from '../common/zod.pipe.js';
 import { LeasingService } from './leasing.service.js';
 
@@ -305,7 +305,7 @@ export class LeasingController {
     return this.service.createContractTemplate(request.auth!, body);
   }
 
-  @RequirePermissions('lease.update')
+  @Authenticated()
   @Patch('leases/:id')
   updateLease(
     @Req() request: FastifyRequest,

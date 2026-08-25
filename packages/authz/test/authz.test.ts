@@ -32,6 +32,15 @@ describe('central role permissions regression', () => {
     expect(rolePermissions.tenant).not.toContain('legal.manage');
     expect(rolePermissions.tenant).not.toContain('sale.manage');
   });
+  it('grants cycle cancel/renew permissions to the right roles', () => {
+    expect(rolePermissions.tenant).toContain('lease.cancel.request');
+    expect(rolePermissions.tenant).not.toContain('lease.cancel.clear');
+    expect(rolePermissions.finance_manager).toContain('lease.cancel.clear');
+    expect(rolePermissions.finance_manager).toContain('lease.renew.confirm');
+    expect(rolePermissions.finance_manager).not.toContain('lease.update');
+    expect(rolePermissions.property_manager).toContain('lease.cancel.approve');
+    expect(rolePermissions.property_manager).toContain('lease.renew.waive');
+  });
 });
 
 describe('OIDC identity claims regression', () => {

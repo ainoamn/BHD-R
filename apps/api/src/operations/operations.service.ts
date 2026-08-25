@@ -332,8 +332,14 @@ export class OperationsService {
             status: leases.status,
             currency: leases.currency,
             rentMinor: leases.rentMinor,
+            depositMinor: leases.depositMinor,
             startsOn: leases.startsOn,
             endsOn: leases.endsOn,
+            exitKind: leases.exitKind,
+            cancellationProposedOn: leases.cancellationProposedOn,
+            cancellationEffectiveOn: leases.cancellationEffectiveOn,
+            renewalPendingContractId: leases.renewalPendingContractId,
+            renewalPendingEndsOn: leases.renewalPendingEndsOn,
           })
           .from(leases)
           .where(eq(leases.organizationId, claims.organizationId!))
@@ -516,7 +522,35 @@ export class OperationsService {
         users: userRows,
         vendors: vendorRows,
         maintenanceTickets: ticketRows,
-        leases: leaseRows.map((row) => ({ ...row, rentMinor: row.rentMinor.toString() })),
+        leases: leaseRows.map((row) => ({
+          ...row,
+          rentMinor: row.rentMinor.toString(),
+          depositMinor: row.depositMinor?.toString() ?? null,
+        })),
+        cancelRequestedLeases: leaseRows
+          .filter((row) => row.status === 'cancel_requested')
+          .map((row) => ({
+            ...row,
+            rentMinor: row.rentMinor.toString(),
+            depositMinor: row.depositMinor?.toString() ?? null,
+            name: `${row.id.slice(0, 8)} · cancel requested`,
+          })),
+        clearancePendingLeases: leaseRows
+          .filter((row) => row.status === 'clearance_pending')
+          .map((row) => ({
+            ...row,
+            rentMinor: row.rentMinor.toString(),
+            depositMinor: row.depositMinor?.toString() ?? null,
+            name: `${row.id.slice(0, 8)} · clearance pending`,
+          })),
+        renewalPendingLeases: leaseRows
+          .filter((row) => Boolean(row.renewalPendingContractId))
+          .map((row) => ({
+            ...row,
+            rentMinor: row.rentMinor.toString(),
+            depositMinor: row.depositMinor?.toString() ?? null,
+            name: `${row.id.slice(0, 8)} · renewal pending clearance`,
+          })),
         invoices: invoiceRows.map((row) => ({
           ...row,
           outstandingMinor: row.outstandingMinor.toString(),

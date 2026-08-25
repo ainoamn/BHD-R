@@ -54,7 +54,15 @@ export interface ManagedProperty {
     expiresOn: string | null;
   }>;
   meters: Array<{ id: string; utilityType: string; meterNumber: string }>;
-  ownership: Array<{ id: string; partyId: string; role: string; shareBasisPoints: number }>;
+  ownership: Array<{
+    id: string;
+    partyId: string;
+    role: string;
+    shareBasisPoints: number;
+    startsOn?: string | null;
+    endsOn?: string | null;
+    partyName?: string | null;
+  }>;
 }
 
 function majorAmount(minor: string | null, currency: CurrencyCode): string {
@@ -227,6 +235,54 @@ export function PropertyDetailManager({
           <strong>{property.status}</strong>
           <small>{property.defaultCurrency}</small>
         </article>
+      </section>
+
+      <section className="ops-panel">
+        <header className="section-heading">
+          <div>
+            <span className="eyebrow">OWN</span>
+            <h2>{ar ? 'سجل الملكية' : 'Ownership history'}</h2>
+            <p className="muted">
+              {ar
+                ? 'المالك الحالي والملاك السابقون بعد نقل الملكية داخل النظام.'
+                : 'Current owner and prior owners after in-system ownership transfer.'}
+            </p>
+          </div>
+        </header>
+        {property.ownership.length ? (
+          <div className="data-table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>{ar ? 'الطرف' : 'Party'}</th>
+                  <th>{ar ? 'الدور' : 'Role'}</th>
+                  <th>{ar ? 'من' : 'From'}</th>
+                  <th>{ar ? 'إلى' : 'To'}</th>
+                  <th>{ar ? 'الحالة' : 'State'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...property.ownership]
+                  .sort((a, b) => {
+                    if (!a.endsOn && b.endsOn) return -1;
+                    if (a.endsOn && !b.endsOn) return 1;
+                    return (b.startsOn ?? '').localeCompare(a.startsOn ?? '');
+                  })
+                  .map((row) => (
+                    <tr key={row.id}>
+                      <td>{row.partyName ?? row.partyId.slice(0, 8)}</td>
+                      <td>{row.role}</td>
+                      <td>{row.startsOn ?? '—'}</td>
+                      <td>{row.endsOn ?? '—'}</td>
+                      <td>{row.endsOn ? (ar ? 'سابق' : 'Prior') : ar ? 'حالي' : 'Current'}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="muted">{ar ? 'لا سجلات ملكية بعد.' : 'No ownership records yet.'}</p>
+        )}
       </section>
 
       <section className="ops-panel">

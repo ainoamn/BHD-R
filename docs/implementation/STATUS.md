@@ -1,25 +1,24 @@
 # Implementation status
 
 **Updated:** 2026-08-25  
-**Active phase:** Cycle **v1.3 officially approved** by product owner; code on `main`; apply migration `0011` on Neon  
-**Product version:** 0.2.16  
-**Cycle reference (canonical):** [`TRANSACTION-FLOW-MAP.md`](./TRANSACTION-FLOW-MAP.md) **v1.3** · [`TRANSACTION-FLOW-MAP.html`](./TRANSACTION-FLOW-MAP.html)
+**Active phase:** Cycle **v1.3 approved + ops queues + ownership history**; apply Neon migration `0011`  
+**Product version:** 0.2.17  
+**Cycle reference:** [`TRANSACTION-FLOW-MAP.md`](./TRANSACTION-FLOW-MAP.md) **v1.3** · [`CYCLE-APPROVAL.md`](./CYCLE-APPROVAL.md)
 
-| Phase                    | Status        | Notes |
-| ------------------------ | ------------- | ----- |
-| 0–4                      | complete      | Phases 0–4 verified |
-| **OM ops flow**          | **active**    | Steps 1–19; Nest `API_INTERNAL_ORIGIN` still manual |
-| **Cycle R1–R5**          | **approved + coded** | Product owner approved 2026-08-25; Git is source of truth |
+| Phase | Status | Notes |
+| ----- | ------ | ----- |
+| 0–4 | complete | Verified |
+| OM ops 1–19 | coded | Nest `API_INTERNAL_ORIGIN` still manual |
+| Cycle R1–R5 | **approved + coded** | Queues, finance_manager gates, ownership history UI |
 
-## Next (human / infra)
+## Next (human / infra — cannot automate without secrets)
 
-1. Run DB migration `0011_lease_cycle_v11` on Neon (`pnpm db:migrate` with `DATABASE_URL`).  
-2. Confirm Vercel Production deploy for latest `main`.  
-3. Nest public HTTPS + Vercel `API_INTERNAL_ORIGIN` — see `VERCEL-MANUAL-AR.md` / `NEST-API-HOSTING.md`.  
-4. Rotate Neon password if still exposed historically.
+1. `pnpm db:migrate` with production `DATABASE_URL` (migration `0011_lease_cycle_v11`).  
+2. Confirm Vercel Production deploy for latest `main` → `https://r.bhd-om.com`.  
+3. Nest HTTPS + Vercel `API_INTERNAL_ORIGIN` / `API_ORIGIN` — [`VERCEL-MANUAL-AR.md`](./VERCEL-MANUAL-AR.md).  
 
 ## Verification
 
 - `docs/verification/om-ops-flow.md`
 - `docs/implementation/TRANSACTION-FLOW-MAP.html`
-- `docs/PRODUCT_AND_DECISIONS.md` § دورة المعاملة
+- `pnpm --filter @bhd-r/api test` (cycle clearance permission tests)

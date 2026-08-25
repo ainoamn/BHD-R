@@ -390,8 +390,17 @@ export class PortfolioService {
             .from(propertyDocuments)
             .where(eq(propertyDocuments.propertyId, property.id)),
           transaction
-            .select()
+            .select({
+              id: propertyOwnershipInterests.id,
+              partyId: propertyOwnershipInterests.partyId,
+              role: propertyOwnershipInterests.role,
+              shareBasisPoints: propertyOwnershipInterests.shareBasisPoints,
+              startsOn: propertyOwnershipInterests.startsOn,
+              endsOn: propertyOwnershipInterests.endsOn,
+              partyName: parties.displayName,
+            })
             .from(propertyOwnershipInterests)
+            .innerJoin(parties, eq(parties.id, propertyOwnershipInterests.partyId))
             .where(eq(propertyOwnershipInterests.propertyId, property.id)),
           transaction
             .select({
