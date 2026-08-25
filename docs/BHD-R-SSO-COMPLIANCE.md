@@ -20,7 +20,7 @@
 | تسجيل عميل `bhd-r` في ONE-BHD                    | منفَّذ    | في اكتشاف OIDC الحي                                              |
 | قلب `mode=sso` في كتالوج ONE-BHD                 | منفَّذ    |                                                                  |
 | قاعدة البيانات على Vercel                        | منفَّذ    | Neon `nameless-shadow-43571265` → `DATABASE_URL`                 |
-| تحقق ID Token مثل نَسَب/وازن                     | منفَّذ    | HS256 بـ `BHD_IDENTITY_TOKEN_SECRET` + احتياطي `/oauth/userinfo` |
+| تحقق ID Token مثل نَسَب/وازن                     | منفَّذ    | بعد PKCE: `/oauth/userinfo` أولاً ثم HS256 (`verify-id-token.ts` في الويب) |
 
 ## سجل تثبيت (§12) — BHD R
 
@@ -34,7 +34,7 @@
 | عمود `bhd_sub`     | `users.identity_subject`                                                                                                                                                                                        |
 | ملفات المسار       | `apps/web/src/app/api/auth/bhd/{start,callback,logout}` · `admin-entry` · `lib/bhd/identity-session.ts`                                                                                                         |
 | الدخول             | غلاف login → start → `id.bhd-om.com/oauth/authorize` → callback يبدّل الكود ويتحقق من التوكن وينشئ جلسة Host-only                                                                                               |
-| التحقق من التوكن   | مثل نَسَب/وازن: حسب `alg`؛ HS256 بسر الهوية؛ وإلا Bearer على `/oauth/userinfo`                                                                                                                                  |
+| التحقق من التوكن   | بعد PKCE: `/oauth/userinfo` أولاً (JWKS فارغ)، ثم HS256؛ تنفيذ الويب في `verify-id-token.ts`                                                                                                                      |
 | الجلسة             | كوكي `bhd_r_session` + `bhd_r_csrf`؛ إنشاء المستخدم/العضوية محلياً عبر `DATABASE_URL` على Vercel                                                                                                                |
 | الأدمن             | صلاحيات محلية؛ `/api/auth/admin-entry` → `/platform`                                                                                                                                                            |
 | المشغّل            | بعد الجلسة؛ الحساب → `https://id.bhd-om.com/account`؛ خروج → `/api/auth/bhd/logout`                                                                                                                             |
@@ -46,17 +46,20 @@
 
 ## أكواد خطأ الدخول (`?bhd=`)
 
-| الرمز     | المعنى                               |
-| --------- | ------------------------------------ |
-| `state`   | كوكي/حالة OIDC مفقودة أو غير متطابقة |
-| `token`   | فشل تبديل الكود على `/oauth/token`   |
-| `verify`  | فشل تحقق ID Token / سر التوقيع       |
-| `db`      | فشل الاتصال بقاعدة المنتج            |
-| `upsert`  | فشل ربط/إنشاء المستخدم المحلي        |
-| `api`     | لا `DATABASE_URL` على Vercel         |
-| `session` | فشل عام بعد التوكن                   |
+| الرمز              | المعنى                                            |
+| ------------------ | ------------------------------------------------- |
+| `state`            | كوكي/حالة OIDC مفقودة أو غير متطابقة              |
+| `token`            | فشل تبديل الكود على `/oauth/token`                |
+| `verify`           | فشل تحقق ID Token / سر التوقيع                    |
+| `verify_userinfo`  | فشل `/oauth/userinfo` بعد نجاح الكود              |
+| `verify_nonce`     | فشل فحص nonce                                     |
+| `verify_claims`    | iss/aud/sub غير متطابقة                           |
+| `db`               | فشل الاتصال بقاعدة المنتج                         |
+| `upsert`           | فشل ربط/إنشاء المستخدم المحلي                     |
+| `api`              | لا `DATABASE_URL` على Vercel                      |
+| `session`          | فشل عام بعد التوكن                                |
 
-ملاحظة تشغيل (24 أغسطس 2026): إن ظهر `unexpected "iss"` في سجلات Vercel رغم أن حمولة التوكن صحيحة، راجع أن `BHD_IDENTITY_ISSUER` بلا سطر جديد زائد؛ الكود ينظّف القيم في `oauth.ts` / `identity-session.ts`.
+ملاحظة تشغيل (25 أغسطس 2026 / 0.2.6): لا تلصق أسراراً عبر `| vercel env add` من PowerShell دون إزالة `\r\n`؛ استخدم `scripts/fix-vercel-identity-env.mjs`. تفاصيل الإصلاح: [`verification/sso-verify-0.2.6.md`](./verification/sso-verify-0.2.6.md).
 
 ## قبول سريع (§4)
 

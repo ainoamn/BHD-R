@@ -17,15 +17,18 @@ export async function GET(request: Request) {
 
   const response = NextResponse.redirect(endSession.toString(), 302);
   for (const name of ['bhd_r_session', 'bhd_r_csrf', 'bhd_oauth_state']) {
-    response.cookies.set({
-      name,
-      value: '',
-      httpOnly: name !== 'bhd_r_csrf',
-      secure: secureCookies(),
-      sameSite: name === 'bhd_r_csrf' ? 'strict' : 'lax',
-      path: name === 'bhd_oauth_state' ? '/api/auth/bhd' : '/',
-      maxAge: 0,
-    });
+    const paths = name === 'bhd_oauth_state' ? (['/', '/api/auth/bhd'] as const) : (['/'] as const);
+    for (const path of paths) {
+      response.cookies.set({
+        name,
+        value: '',
+        httpOnly: name !== 'bhd_r_csrf',
+        secure: secureCookies(),
+        sameSite: name === 'bhd_r_csrf' ? 'strict' : 'lax',
+        path,
+        maxAge: 0,
+      });
+    }
   }
   return response;
 }

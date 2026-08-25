@@ -2,12 +2,12 @@
 
 **Updated:** 2026-08-25  
 **Active phase:** 5+ residuals (Phase 4 CRM/booking/cheques closed)  
-**Product version:** 0.2.5
+**Product version:** 0.2.6
 
 | Phase                    | Status   | Notes                                                                             |
 | ------------------------ | -------- | --------------------------------------------------------------------------------- |
 | 0 Baseline / GAP         | complete | `docs/verification/phase-0.md`                                                    |
-| 1 Identity / security    | complete | `docs/verification/phase-1.md`                                                    |
+| 1 Identity / security    | complete | `docs/verification/phase-1.md` + SSO verify/userinfo harden (0.2.6)             |
 | 2 Parties                | complete | `docs/verification/phase-2.md`                                                    |
 | 3 Portfolio / media      | complete | `docs/verification/phase-3.md`                                                    |
 | 4 Viewing / booking      | complete | Cheques + leads + concurrency — `docs/verification/phase-4.md` + responsive audit |
@@ -21,3 +21,8 @@
 ## Next
 
 Phase 5: wire leasing/contracts to domain FSMs; sequential signature policy tests.
+
+## 0.2.6 ops note
+
+Production SSO: credentials only on `https://id.bhd-om.com`; product `/api/auth/bhd/start|callback|logout`.  
+Env hygiene: never pipe secrets into `vercel env add` from PowerShell without stripping `\r\n` — use `scripts/fix-vercel-identity-env.mjs`.

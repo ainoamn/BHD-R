@@ -40,7 +40,15 @@ const config: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   ...(process.env.NODE_ENV === 'development' ? { allowedDevOrigins: ['127.0.0.1'] } : {}),
-  transpilePackages: ['@bhd-r/ui', '@bhd-r/i18n', '@bhd-r/contracts', '@bhd-r/country-packs'],
+  transpilePackages: [
+    '@bhd-r/ui',
+    '@bhd-r/i18n',
+    '@bhd-r/contracts',
+    '@bhd-r/country-packs',
+    '@bhd-r/authz',
+    '@bhd-r/db',
+    '@bhd-r/security',
+  ],
   experimental: {
     optimizePackageImports: ['@bhd-r/ui'],
   },

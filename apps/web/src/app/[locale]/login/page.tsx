@@ -12,20 +12,32 @@ export const metadata: Metadata = {
 
 const bhdErrors: Record<string, { ar: string; en: string }> = {
   state: {
-    ar: 'انتهت صلاحية جلسة الدخول. حاول مرة أخرى.',
-    en: 'Sign-in state expired. Please try again.',
+    ar: 'انتهت صلاحية جلسة الدخول. حاول مرة أخرى عبر بوابة الهوية.',
+    en: 'Sign-in state expired. Please try again via the identity gateway.',
   },
   token: {
-    ar: 'تعذّر إكمال التحقق من الهوية.',
-    en: 'Identity token exchange failed.',
+    ar: 'تعذّر إكمال التحقق من الهوية على الخادم.',
+    en: 'Identity token exchange failed on the server.',
   },
   api: {
     ar: 'لم تُضبط قاعدة البيانات على Vercel (DATABASE_URL).',
     en: 'DATABASE_URL is not configured on Vercel.',
   },
   verify: {
-    ar: 'تعذّر التحقق من توكن الهوية. راجع BHD_IDENTITY_TOKEN_SECRET.',
-    en: 'Could not verify the identity token. Check BHD_IDENTITY_TOKEN_SECRET.',
+    ar: 'تعذّر التحقق من توكن الهوية بعد العودة من id.bhd-om.com. راجع BHD_IDENTITY_TOKEN_SECRET.',
+    en: 'Could not verify the identity token after returning from id.bhd-om.com. Check BHD_IDENTITY_TOKEN_SECRET.',
+  },
+  verify_userinfo: {
+    ar: 'تعذّر جلب بيانات المستخدم من /oauth/userinfo بعد نجاح الكود.',
+    en: 'Could not load userinfo after a successful authorization code.',
+  },
+  verify_nonce: {
+    ar: 'فشل التحقق من nonce بين المنتج والهوية.',
+    en: 'OIDC nonce check failed between the product and Identity.',
+  },
+  verify_claims: {
+    ar: 'مطالبات التوكن (iss/aud) لا تطابق إعدادات عميل bhd-r.',
+    en: 'Token claims (iss/aud) do not match the bhd-r client settings.',
   },
   db: {
     ar: 'تعذّر الاتصال بقاعدة بيانات BHD R.',
@@ -87,26 +99,28 @@ export default async function LoginPage({
     );
   }
 
+  // §3.2 — no product password portal; credentials live only on id.bhd-om.com
   if (!local && !bhdCode) {
     redirect(`/api/auth/bhd/start?returnTo=${encodeURIComponent(returnTo)}`);
   }
 
+  const startHref = `/api/auth/bhd/start?returnTo=${encodeURIComponent(returnTo)}`;
   const errorCopy = bhdCode
     ? (bhdErrors[bhdCode] ?? {
-        ar: 'تعذّر إكمال الدخول الموحّد.',
-        en: 'Unified sign-in could not be completed.',
+        ar: 'تعذّر إكمال الدخول الموحّد عبر id.bhd-om.com.',
+        en: 'Unified sign-in via id.bhd-om.com could not be completed.',
       })
     : null;
 
   return (
     <section className="login-screen">
-      <div className="login-shell">
+      <div className="login-shell login-shell--compact">
         <header className="login-top">
           <Link href="/" className="login-logo" aria-label={ar ? 'BHD R الرئيسية' : 'BHD R home'}>
             <Logo descriptor={t('Brand.descriptor')} />
           </Link>
           <Link
-            href="/login"
+            href={local ? '/login?local=1' : '/login'}
             locale={ar ? 'en' : 'ar'}
             className="login-language"
             hrefLang={ar ? 'en' : 'ar'}
@@ -115,78 +129,62 @@ export default async function LoginPage({
           </Link>
         </header>
 
-        <div className="login-stage">
-          <aside className="login-brand-panel">
-            <span className="login-brand-kicker">{ar ? 'بوابة BHD' : 'BHD Gateway'}</span>
-            <h1>
-              {ar
-                ? 'من هنا تبدأ الخطوة نحو أحلام أكبر'
-                : 'This is where the step toward bigger dreams begins'}
-            </h1>
-            <p>
-              {ar
-                ? 'سجّل دخولك إلى المنظومة الرقمية لـ بن حمود للتطوير، واستمتع بوصول موحّد إلى جميع خدمات ومنصات BHD من خلال هوية رقمية واحدة.'
-                : 'Sign in to the Bin Hamood Development digital ecosystem and enjoy unified access to all BHD services and platforms with one digital identity.'}
-            </p>
-            <p>
-              {ar
-                ? 'بوابة واحدة تجمع أعمالك، خدماتك، ومشاريعك في مكان واحد.'
-                : 'One gateway that brings your work, services, and projects together.'}
-            </p>
-            <strong className="login-brand-promise">Build Higher Dreams</strong>
-            <p className="login-brand-closing">
-              {ar
-                ? 'مع بن حمود للتطوير، تبدأ الأحلام وتكبر.'
-                : 'With Bin Hamood Development, dreams begin and grow.'}
-            </p>
-          </aside>
-
-          <div className="login-card">
-            <span className="login-card__eyebrow">{ar ? 'الدخول الموحد' : 'Unified sign in'}</span>
-            <h2>{ar ? 'مرحباً بك في BHD R' : 'Welcome to BHD R'}</h2>
-
-            {errorCopy ? (
-              <>
-                <p role="alert">{ar ? errorCopy.ar : errorCopy.en}</p>
-                <a
-                  className="login-submit"
-                  href={`/api/auth/bhd/start?returnTo=${encodeURIComponent(returnTo)}`}
-                >
-                  <span className="login-submit__mark" aria-hidden="true">
-                    B
-                  </span>
-                  {t('Auth.action')}
-                </a>
-              </>
-            ) : (
-              <>
-                <p>
+        <div className="login-card login-card--compact">
+          {errorCopy ? (
+            <>
+              <span className="login-card__eyebrow">
+                {ar ? 'الدخول عبر بوابة الهوية' : 'Sign-in via Identity gateway'}
+              </span>
+              <h2>{ar ? 'لم يكتمل الدخول الموحّد' : 'Unified sign-in did not finish'}</h2>
+              <p role="alert">{ar ? errorCopy.ar : errorCopy.en}</p>
+              <p>
+                {ar
+                  ? 'كلمات المرور تُدخل فقط على بوابة الهوية الموحّدة، وليست على BHD R:'
+                  : 'Passwords are entered only on the unified identity gateway, not on BHD R:'}{' '}
+                <a href="https://id.bhd-om.com/login">https://id.bhd-om.com/login</a>
+              </p>
+              <a className="login-submit" href={startHref}>
+                <span className="login-submit__mark" aria-hidden="true">
+                  B
+                </span>
+                {ar ? 'إعادة المحاولة عبر id.bhd-om.com' : 'Retry via id.bhd-om.com'}
+              </a>
+            </>
+          ) : (
+            <>
+              <span className="login-card__eyebrow">
+                {ar ? 'طوارئ محلية فقط' : 'Local emergency only'}
+              </span>
+              <h2>{ar ? 'دخول مستأجر محلي' : 'Local tenant sign-in'}</h2>
+              <p>
+                {ar
+                  ? 'كلمة المرور هنا للمستأجر عند الطوارئ فقط. الدخول العادي عبر:'
+                  : 'Password here is for tenant emergencies only. Normal sign-in via:'}{' '}
+                <a href="https://id.bhd-om.com/login">id.bhd-om.com</a>
+              </p>
+              <div className="login-local__form">
+                <PasswordLoginForm />
+                <p className="muted">{t('Auth.activation')}</p>
+                <Link href="/forgot-password">
+                  {ar ? 'نسيت كلمة المرور؟' : 'Forgot password?'}
+                </Link>
+              </div>
+              <p className="login-footnote">
+                <a href={startHref}>
                   {ar
-                    ? 'طوارئ فقط: حساب مستأجر محلي مُنح مع عقد الإيجار.'
-                    : 'Emergency only: local tenant account issued with a lease.'}
-                </p>
-                <div className="login-local__form">
-                  <PasswordLoginForm />
-                  <p className="muted">{t('Auth.activation')}</p>
-                  <Link href="/forgot-password">
-                    {ar ? 'نسيت كلمة المرور؟' : 'Forgot password?'}
-                  </Link>
-                </div>
-                <p className="login-footnote">
-                  <a href={`/api/auth/bhd/start?returnTo=${encodeURIComponent(returnTo)}`}>
-                    {ar ? 'العودة إلى الدخول الموحّد' : 'Back to unified sign-in'}
-                  </a>
-                </p>
-              </>
-            )}
+                    ? 'العودة إلى الدخول الموحّد (id.bhd-om.com)'
+                    : 'Back to unified sign-in (id.bhd-om.com)'}
+                </a>
+              </p>
+            </>
+          )}
 
-            <p className="login-footnote">
-              {ar ? 'بالمتابعة فإنك توافق على ' : 'By continuing, you agree to the '}
-              <Link href="/privacy">{ar ? 'الخصوصية' : 'privacy policy'}</Link>
-              {ar ? ' و' : ' and '}
-              <Link href="/terms">{ar ? 'الشروط' : 'terms'}</Link>.
-            </p>
-          </div>
+          <p className="login-footnote">
+            {ar ? 'بالمتابعة فإنك توافق على ' : 'By continuing, you agree to the '}
+            <Link href="/privacy">{ar ? 'الخصوصية' : 'privacy policy'}</Link>
+            {ar ? ' و' : ' and '}
+            <Link href="/terms">{ar ? 'الشروط' : 'terms'}</Link>.
+          </p>
         </div>
       </div>
     </section>

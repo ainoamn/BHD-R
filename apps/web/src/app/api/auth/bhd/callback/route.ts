@@ -8,16 +8,31 @@ export const runtime = 'nodejs';
 
 function classifySessionError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
-  if (
-    /missing_hs256|JWKS|jwt|jws|signature|userinfo|nonce|audience|issuer|alg|secret|azp|authorized party/i.test(
-      message,
-    )
-  ) {
+  console.error('[bhd callback] session detail', message);
+  if (/userinfo/i.test(message)) return 'verify_userinfo';
+  if (/nonce/i.test(message)) return 'verify_nonce';
+  if (/audience|issuer|azp|authorized party|missing_sub/i.test(message)) return 'verify_claims';
+  if (/missing_hs256|JWKS|jwt|jws|signature|alg|secret|ERR_JOSE|ERR_JWS|ERR_JWT/i.test(message)) {
     return 'verify';
   }
   if (/DATABASE|connect|ECONN|timeout|ssl|Neon/i.test(message)) return 'db';
   if (/membership|organization|insert|unique|constraint/i.test(message)) return 'upsert';
   return 'session';
+}
+
+function clearOauthCookie(response: NextResponse) {
+  for (const path of ['/', '/api/auth/bhd'] as const) {
+    response.cookies.set({
+      name: 'bhd_oauth_state',
+      value: '',
+      httpOnly: true,
+      secure: secureCookies(),
+      sameSite: 'lax',
+      path,
+      maxAge: 0,
+    });
+  }
+  return response;
 }
 
 /** GET /api/auth/bhd/callback — same product flow as Nasab / WAZEN / bhd-om */
@@ -31,16 +46,7 @@ export async function GET(request: Request) {
 
   const clearAndRedirect = (path: string, status = 302) => {
     const response = NextResponse.redirect(new URL(path, url.origin), status);
-    response.cookies.set({
-      name: 'bhd_oauth_state',
-      value: '',
-      httpOnly: true,
-      secure: secureCookies(),
-      sameSite: 'lax',
-      path: '/api/auth/bhd',
-      maxAge: 0,
-    });
-    return response;
+    return clearOauthCookie(response);
   };
 
   if (oauthError) return clearAndRedirect(`/ar/login?bhd=${encodeURIComponent(oauthError)}`);
@@ -54,7 +60,14 @@ export async function GET(request: Request) {
   }
   if (saved.state !== state) return clearAndRedirect('/ar/login?bhd=state');
 
-  const { issuer, clientId, clientSecret, redirectUri } = identitySettings(url.origin);
+  const { issuer, clientId, clientSecret, redirectUri: originRedirect } = identitySettings(
+    url.origin,
+  );
+  // Prefer redirect_uri sealed at /start (Nasab pattern); fall back to this host.
+  const redirectUri =
+    typeof saved.redirectUri === 'string' && saved.redirectUri.startsWith('https://')
+      ? saved.redirectUri
+      : originRedirect;
   const discoveryResponse = await fetch(`${issuer}/.well-known/openid-configuration`, {
     signal: AbortSignal.timeout(5_000),
     redirect: 'error',
@@ -75,7 +88,6 @@ export async function GET(request: Request) {
     redirect_uri: redirectUri,
     code_verifier: saved.verifier,
   });
-  // Match Nasab/WAZEN: send client_secret when configured (first-party may omit)
   if (clientSecret) tokenBody.set('client_secret', clientSecret);
 
   const tokenResponse = await fetch(discovery.token_endpoint, {
@@ -112,7 +124,6 @@ export async function GET(request: Request) {
   }
 
   const response = clearAndRedirect(saved.returnTo);
-  // §0.7 — clear any prior product session cookies before setting new ones
   response.cookies.set({
     name: 'bhd_r_session',
     value: '',

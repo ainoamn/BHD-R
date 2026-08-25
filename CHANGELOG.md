@@ -2,6 +2,15 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.6 — 2026-08-25
+
+- Unified login alignment with BHD Identity: `/login` always starts OIDC on `id.bhd-om.com` (local password only via `?local=1`).
+- Callback OAuth state cookie `Path=/`, sealed `redirectUri` at `/start` (Nasab/WAZEN pattern).
+- Identity token verify moved into `apps/web` (`verify-id-token.ts`): prefer `/oauth/userinfo` after PKCE while JWKS is empty; tolerate null userinfo fields; HS256 fallback with cleaned secrets.
+- Clearer `?bhd=` error codes (`verify_userinfo`, `verify_nonce`, `verify_claims`) and compact error UI (no product-hosted identity clone).
+- Ops: `scripts/fix-vercel-identity-env.mjs` + `.vercelignore`; transpile `@bhd-r/authz`/`db`/`security` in Next.
+- Docs: `BHD-PRODUCT-SSO-ADMIN` checklist — `bhd-r` flipped to `mode=sso` on Identity catalog.
+
 ## 0.2.2 — 2026-08-24
 
 - Phase 1 complete: resumable field-encryption backfill worker (encryption.backfill) + platform enqueue API.

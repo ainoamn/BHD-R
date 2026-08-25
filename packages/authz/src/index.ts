@@ -631,8 +631,15 @@ export async function verifyIdentityToken(input: {
       algorithms: ['RS256', 'ES256'],
     }));
   } else if (alg === 'HS256') {
-    const sharedSecret = input.sharedSecret?.replace(/^\uFEFF/, '').trim();
+    const sharedSecret = input.sharedSecret
+      ?.replace(/^\uFEFF/, '')
+      .replace(/\\r\\n$/gi, '')
+      .replace(/\\n$/gi, '')
+      .replace(/\r\n$/g, '')
+      .replace(/\n$/g, '')
+      .trim();
     let verified: JWTPayload | undefined;
+    let hs256Error: unknown;
     if (sharedSecret) {
       try {
         ({ payload: verified } = await jwtVerify(
@@ -641,17 +648,25 @@ export async function verifyIdentityToken(input: {
           {
             ...verifyOptions,
             algorithms: ['HS256'],
+            clockTolerance: 30,
           },
         ));
       } catch (error) {
-        // Wrong/corrupt product secret must not block login when PKCE + access_token succeeded.
-        if (!input.accessToken) throw error;
+        hs256Error = error;
       }
     }
     if (verified) {
       payload = verified;
     } else if (input.accessToken) {
-      payload = await claimsFromUserinfo(issuer, input.accessToken, input.token);
+      // Acceptable fallback after PKCE code exchange (Nasab/WAZEN / bhd-identity.v1).
+      try {
+        payload = await claimsFromUserinfo(issuer, input.accessToken, input.token);
+      } catch (userinfoError) {
+        if (hs256Error) throw hs256Error;
+        throw userinfoError;
+      }
+    } else if (hs256Error) {
+      throw hs256Error;
     } else {
       throw new Error('missing_hs256_secret');
     }
@@ -677,18 +692,18 @@ async function claimsFromUserinfo(
   const info = z
     .object({
       sub: z.string().min(1),
-      email: z.string().email().optional(),
-      email_verified: z.boolean().optional(),
-      name: z.string().optional(),
+      email: z.union([z.string(), z.null()]).optional(),
+      email_verified: z.union([z.boolean(), z.null()]).optional(),
+      name: z.union([z.string(), z.null()]).optional(),
     })
     .parse(await response.json());
   if (info.sub !== decoded.sub) throw new Error('userinfo_sub_mismatch');
   return {
     ...decoded,
     sub: info.sub,
-    ...(info.email ? { email: info.email } : {}),
-    email_verified: info.email_verified ?? decoded.email_verified,
-    ...(info.name ? { name: info.name } : {}),
+    ...(typeof info.email === 'string' && info.email.includes('@') ? { email: info.email } : {}),
+    email_verified: info.email_verified === true,
+    ...(typeof info.name === 'string' ? { name: info.name } : {}),
   };
 }
 

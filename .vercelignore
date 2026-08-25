@@ -1,0 +1,21 @@
+# Keep Vercel CLI uploads small — Git deploy still uses Root Directory apps/web
+node_modules
+.turbo
+.next
+.deploy
+coverage
+playwright-report
+test-results
+uploads
+tmp
+*.log
+.env*
+!.env.example
+docs
+**/*.md
+apps/api
+apps/worker
+packages/*/test
+packages/*/coverage
+**/*.tsbuildinfo
+.github

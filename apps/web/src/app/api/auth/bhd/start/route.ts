@@ -35,11 +35,11 @@ export async function GET(request: Request) {
   const response = NextResponse.redirect(authorization.toString(), 302);
   response.cookies.set({
     name: 'bhd_oauth_state',
-    value: sealOidcState({ state, nonce, verifier, returnTo }),
+    value: sealOidcState({ state, nonce, verifier, returnTo, redirectUri }),
     httpOnly: true,
     secure: secureCookies(),
     sameSite: 'lax',
-    path: '/api/auth/bhd',
+    path: '/',
     maxAge: 300,
   });
   return response;

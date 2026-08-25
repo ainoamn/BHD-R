@@ -57,8 +57,8 @@
 
 ### 3.4 بعد نجاح المسار الحي
 
-- [ ] تحقق: `GET {origin}/api/auth/bhd/start` يعيد 302 إلى `id.bhd-om.com`
-- [ ] أبلغ ONE-BHD لقلب عنصر المنتج في `app/lib/bhd/apps.ts` من `browse` إلى `sso`
+- [x] تحقق: `GET {origin}/api/auth/bhd/start` يعيد 302 إلى `id.bhd-om.com`
+- [x] قلب عنصر `bhd-r` في ONE-BHD `app/lib/bhd/apps.ts` من `browse` إلى `sso` + `startUrl` → `/api/auth/bhd/start`
 - [ ] اختبار: دخول الهوية → منتج ثانٍ بلا كلمة مرور؛ `/admin` إن كان الدور محلياً admin
 
 ---

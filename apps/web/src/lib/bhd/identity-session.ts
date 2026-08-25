@@ -14,11 +14,11 @@ import {
   permissionsForRoles,
   roleKeySchema,
   sessionClaimsSchema,
-  verifyIdentityToken,
   type Permission,
   type SessionClaims,
 } from '@bhd-r/authz';
 import { createCsrfToken } from '@bhd-r/security';
+import { verifyBhdIdToken } from '@/lib/bhd/verify-id-token';
 
 export type IssuedSession = {
   token: string;
@@ -37,7 +37,12 @@ function sessionSecret(): Uint8Array {
 }
 
 async function withSystem<T>(work: (tx: Tx) => Promise<T>): Promise<T> {
-  const url = process.env.DATABASE_URL;
+  const url = process.env.DATABASE_URL?.replace(/^\uFEFF/, '')
+    .replace(/\\r\\n$/gi, '')
+    .replace(/\\n$/gi, '')
+    .replace(/\r\n$/g, '')
+    .replace(/\n$/g, '')
+    .trim();
   if (!url) throw new Error('DATABASE_URL is required');
   const { client, db } = createDatabase(url, { max: 1 });
   try {
@@ -159,15 +164,17 @@ export async function issueIdentitySession(input: {
   const cleanEnv = (value: string | undefined) =>
     value
       ?.replace(/^\uFEFF/, '')
-      .replace(/\\r\\n$/i, '')
-      .replace(/\\n$/i, '')
+      .replace(/\\r\\n$/gi, '')
+      .replace(/\\n$/gi, '')
+      .replace(/\r\n$/g, '')
+      .replace(/\n$/g, '')
       .trim() || undefined;
   const identityTokenSecret =
     cleanEnv(process.env.BHD_IDENTITY_TOKEN_SECRET) ||
     cleanEnv(process.env.IDENTITY_TOKEN_SECRET) ||
     cleanEnv(process.env.AUTH_SECRET) ||
     undefined;
-  const identity = await verifyIdentityToken({
+  const identity = await verifyBhdIdToken({
     token: input.idToken,
     issuer:
       cleanEnv(process.env.BHD_IDENTITY_ISSUER)?.replace(/\/$/, '') ?? 'https://id.bhd-om.com',
@@ -180,7 +187,12 @@ export async function issueIdentitySession(input: {
     ...(input.accessToken ? { accessToken: input.accessToken } : {}),
   });
   const verifiedClaims = decodeJwt(input.idToken);
-  if (verifiedClaims.nonce !== input.nonce) throw new Error('Identity nonce mismatch');
+  if (
+    typeof verifiedClaims.nonce !== 'string' ||
+    verifiedClaims.nonce !== input.nonce
+  ) {
+    throw new Error('Identity nonce mismatch');
+  }
   const clientId =
     cleanEnv(process.env.BHD_OAUTH_CLIENT_ID) ||
     cleanEnv(process.env.BHD_IDENTITY_CLIENT_ID) ||
@@ -246,5 +258,10 @@ export async function issueIdentitySession(input: {
 }
 
 export function hasDatabaseUrl(): boolean {
-  return Boolean(process.env.DATABASE_URL?.trim());
+  return Boolean(
+    process.env.DATABASE_URL?.replace(/^\uFEFF/, '')
+      .replace(/\\r\\n$/gi, '')
+      .replace(/\\n$/gi, '')
+      .trim(),
+  );
 }

@@ -5,43 +5,45 @@ export type OidcState = {
   nonce: string;
   verifier: string;
   returnTo: string;
+  /** Captured at /start so callback uses the same redirect_uri (Nasab/WAZEN pattern). */
+  redirectUri?: string;
 };
 
-export function identitySettings(origin: string) {
-  const clean = (value: string | undefined) =>
+function cleanEnv(value: string | undefined): string {
+  return (
     value
       ?.replace(/^\uFEFF/, '')
-      .replace(/\\r\\n$/i, '')
-      .replace(/\\n$/i, '')
-      .trim() || '';
-  const issuer = (clean(process.env.BHD_IDENTITY_ISSUER) || 'https://id.bhd-om.com').replace(
+      .replace(/\\r\\n$/gi, '')
+      .replace(/\\n$/gi, '')
+      .replace(/\r\n$/g, '')
+      .replace(/\n$/g, '')
+      .trim() || ''
+  );
+}
+
+export function identitySettings(origin: string) {
+  const issuer = (cleanEnv(process.env.BHD_IDENTITY_ISSUER) || 'https://id.bhd-om.com').replace(
     /\/$/,
     '',
   );
   const clientId =
-    clean(process.env.BHD_OAUTH_CLIENT_ID) || clean(process.env.BHD_IDENTITY_CLIENT_ID) || 'bhd-r';
+    cleanEnv(process.env.BHD_OAUTH_CLIENT_ID) ||
+    cleanEnv(process.env.BHD_IDENTITY_CLIENT_ID) ||
+    'bhd-r';
   const clientSecret =
-    clean(process.env.BHD_OAUTH_CLIENT_SECRET) ||
-    clean(process.env.BHD_IDENTITY_CLIENT_SECRET) ||
+    cleanEnv(process.env.BHD_OAUTH_CLIENT_SECRET) ||
+    cleanEnv(process.env.BHD_IDENTITY_CLIENT_SECRET) ||
     '';
-  const configured =
-    clean(process.env.BHD_OAUTH_REDIRECT_URI) || clean(process.env.BHD_IDENTITY_REDIRECT_URI) || '';
-  const canonical = `${origin.replace(/\/$/, '')}/api/auth/bhd/callback`;
-  // Prefer request origin so Host-only cookies and authorize stay aligned; sanitize legacy env paths
-  let redirectUri = canonical;
-  if (configured) {
-    const normalized = configured.includes('/v1/auth/oidc/callback')
-      ? configured.replace('/v1/auth/oidc/callback', '/api/auth/bhd/callback')
-      : configured;
-    if (/^https?:\/\/[^\s]+\/api\/auth\/bhd\/callback$/i.test(normalized)) {
-      redirectUri = normalized;
-    }
-  }
+  // Always bind redirect_uri to the request host so Host-only OAuth cookies stay aligned.
+  const redirectUri = `${origin.replace(/\/$/, '')}/api/auth/bhd/callback`;
   return { issuer, clientId, clientSecret, redirectUri };
 }
 
 function cookieSecret(): string {
-  return process.env.BHD_R_SESSION_SECRET ?? 'development-session-secret-at-least-32-characters';
+  return (
+    cleanEnv(process.env.BHD_R_SESSION_SECRET) ||
+    'development-session-secret-at-least-32-characters'
+  );
 }
 
 export function sealOidcState(value: OidcState): string {
