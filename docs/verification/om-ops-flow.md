@@ -20,6 +20,7 @@
 | 10 | Party-scoped portal metrics | `PortalsService` owner/tenant scope by `partyId` | Wired |
 | 11 | Nest API public host | `render.yaml` + `NEST-API-HOSTING.md` scaffold; go-live needs secrets | Scaffolded |
 | 12 | Lease lifecycle ops UI | Activate / End / Terminate buttons on leasing console | Wired |
+| 13 | Vacancy → maintenance + legal | Auto `vacancy_handover` ticket + `vacancy_deposit_review` legal case | Wired |
 
 ## Step 10 acceptance
 
@@ -40,6 +41,12 @@
 2. Active lease row shows **Renew**, **End**, and **Terminate**.
 3. End/Terminate calls `PATCH /v1/leasing/leases/:id` with `action` and seeds vacancy task (step 9).
 
+## Step 13 acceptance
+
+1. End/terminate creates (if missing) an open maintenance ticket `category=vacancy_handover` for the unit.
+2. End/terminate creates (if missing) a legal case `caseType=vacancy_deposit_review` linked to the lease.
+3. Together with step 9 task, covers tasks / maintenance / legal for vacant-again flow.
+
 ## Production blockers
 
 - Nest API not yet live on a public host (scaffold only until secrets/DNS applied).
@@ -56,3 +63,4 @@ After each OM step: commit → `git push origin main` → Vercel Production depl
 | 10 Party-scoped portals | `8edaf35` | Ready |
 | 11 Nest hosting scaffold | `6b4dc32` | Ready |
 | 12 Lease lifecycle UI | `ad27d7d` | Ready |
+| 13 Vacancy maint+legal | (this release) | after push |

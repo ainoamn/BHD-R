@@ -18,6 +18,7 @@
 10. Portal metrics and lists are party-scoped (owner portfolio / tenant leases) unless the actor has org-wide staff roles.
 11. Nest API is hosted publicly; Vercel `API_INTERNAL_ORIGIN` points at it.
 12. Ops leasing UI exposes activate / end / terminate (end/terminate seeds vacancy task).
+13. Lease end/terminate also auto-opens maintenance (`vacancy_handover`) and legal assessment (`vacancy_deposit_review`).
 
 ## Status mapping
 
@@ -48,6 +49,7 @@
 | 10 Party-scoped portal metrics | **Wired** — owner/tenant overview + lists |
 | 11 Nest API public host | **Scaffolded** — see `docs/implementation/NEST-API-HOSTING.md` |
 | 12 Lease lifecycle ops actions | **Wired** — activate / end / terminate in leasing console |
+| 13 Vacancy → maintenance + legal | **Wired** — auto ticket `vacancy_handover` + legal `vacancy_deposit_review` |
 
 ## Deploy note
 

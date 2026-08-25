@@ -16,7 +16,9 @@ import {
   cheques,
   holds,
   leases,
+  legalCases,
   mediaAssets,
+  maintenanceTickets,
   outboxEvents,
   parties,
   partyAddresses,
@@ -1689,6 +1691,62 @@ export class LeasingService {
               { label: 'حسابات — Final settlement', done: false },
             ],
           });
+
+          // OM step 13: also seed maintenance + legal assessment (idempotent).
+          const openVacancyTicket = await transaction.query.maintenanceTickets.findFirst({
+            where: and(
+              eq(maintenanceTickets.organizationId, claims.organizationId!),
+              eq(maintenanceTickets.unitId, current.unitId),
+              eq(maintenanceTickets.category, 'vacancy_handover'),
+              inArray(maintenanceTickets.status, ['open', 'assigned', 'in_progress']),
+            ),
+          });
+          if (!openVacancyTicket) {
+            await transaction.insert(maintenanceTickets).values({
+              organizationId: claims.organizationId!,
+              unitId: current.unitId,
+              openedByPartyId: claims.partyId ?? null,
+              title:
+                input.action === 'terminate'
+                  ? 'معاينة صيانة بعد فسخ العقد'
+                  : 'معاينة صيانة بعد انتهاء العقد',
+              description: `Auto-opened for vacant unit after lease ${input.action}. Lease id: ${id}`,
+              category: 'vacancy_handover',
+              priority: 'high',
+              blocksAvailability: false,
+            });
+          }
+
+          const existingLegal = await transaction.query.legalCases.findFirst({
+            where: and(
+              eq(legalCases.organizationId, claims.organizationId!),
+              eq(legalCases.leaseId, id),
+              eq(legalCases.caseType, 'vacancy_deposit_review'),
+            ),
+          });
+          if (!existingLegal) {
+            const openedOn = new Date().toISOString().slice(0, 10);
+            const currency = (current.currency ?? 'OMR') as CurrencyCode;
+            await transaction.insert(legalCases).values({
+              organizationId: claims.organizationId!,
+              reference: `LEG-VAC-${id.replace(/-/g, '').slice(0, 10).toUpperCase()}`,
+              caseType: 'vacancy_deposit_review',
+              title:
+                input.action === 'terminate'
+                  ? 'مراجعة تأمين/مخالصة بعد فسخ'
+                  : 'مراجعة تأمين/مخالصة بعد انتهاء العقد',
+              description: `Auto legal assessment for deposit/settlement. Lease ${id}.`,
+              propertyId: unit?.propertyId,
+              unitId: current.unitId,
+              leaseId: id,
+              counterpartyId: current.tenantPartyId,
+              status: 'assessment',
+              claimAmountMinor: current.depositMinor ?? 0n,
+              currency,
+              minorUnit: currencyMinorUnits[currency],
+              openedOn,
+            });
+          }
         }
       }
       const row = rows[0]!;

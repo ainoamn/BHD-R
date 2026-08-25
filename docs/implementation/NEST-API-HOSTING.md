@@ -40,6 +40,8 @@ Also ensure `NEXT_PUBLIC_API_ORIGIN=https://r.bhd-om.com` (same-origin browser) 
 
 Redeploy web after env change.
 
+**Arabic click-by-click for Vercel:** [`VERCEL-MANUAL-AR.md`](./VERCEL-MANUAL-AR.md).
+
 ## Smoke checklist
 
 1. `GET https://API_HOST/health/ready` → 200  
