@@ -16,6 +16,8 @@ export default function robots(): MetadataRoute.Robots {
         '/en/developer/',
         '/ar/tenant/',
         '/en/tenant/',
+        '/ar/portal',
+        '/en/portal',
         '/ar/login',
         '/en/login',
         '/ar/activate',

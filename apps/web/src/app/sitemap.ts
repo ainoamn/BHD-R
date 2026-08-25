@@ -15,12 +15,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   );
   const listingRows: ListingCollection['data'] = [];
   let cursor: string | null = null;
-  for (let page = 0; page < 20; page += 1) {
+  for (let page = 0; page < 40; page += 1) {
     const query = new URLSearchParams({ locale: 'en', limit: '50' });
     if (cursor) query.set('cursor', cursor);
     const listings = await publicApiFetch<ListingCollection>(
       `/v1/public/listings?${query.toString()}`,
       300,
+      ['public-listings', 'sitemap'],
     ).catch(() => ({ data: [], pagination: { nextCursor: null, hasMore: false } }));
     listingRows.push(...listings.data);
     cursor = listings.pagination.nextCursor;

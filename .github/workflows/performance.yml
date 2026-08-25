@@ -2,6 +2,23 @@ name: Public performance budget
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/web/**'
+      - 'packages/i18n/**'
+      - 'packages/ui/**'
+      - '.github/lighthouserc.cjs'
+      - '.github/lighthouse-budget.json'
+      - '.github/workflows/performance.yml'
+  pull_request:
+    paths:
+      - 'apps/web/**'
+      - 'packages/i18n/**'
+      - 'packages/ui/**'
+      - '.github/lighthouserc.cjs'
+      - '.github/lighthouse-budget.json'
+      - '.github/workflows/performance.yml'
 
 permissions:
   contents: read
@@ -9,7 +26,7 @@ permissions:
 jobs:
   lighthouse:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     env:
       NEXT_PUBLIC_API_ORIGIN: http://127.0.0.1:4000
       NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
@@ -25,7 +42,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @bhd-r/web... build
-      - name: Run a local server and Lighthouse three times per locale
+      - name: Run mobile Lighthouse on public routes
         run: pnpm dlx start-server-and-test@2.0.12 "pnpm --filter @bhd-r/web start" http://127.0.0.1:3000/ar "pnpm dlx @lhci/cli@0.15.1 autorun --config=.github/lighthouserc.cjs"
       - uses: actions/upload-artifact@v4
         if: always()

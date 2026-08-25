@@ -61,7 +61,7 @@ Statuses: `complete` | `partial` | `missing` | `unsafe` | `not-applicable` | `de
 | 0     | Baseline / GAP / manifests            | complete        | `docs/verification/phase-0.md`                                                       |
 | 1     | Identity / authz / security           | complete        | TOTP recovery, `can()`, encryption backfill                                          |
 | 2     | Parties / reps / entitlements         | complete        | Plan limits + hashed invites + revoke authority — `docs/verification/phase-2.md`     |
-| 3     | Portfolio / media / public SEO        | mostly complete | Lighthouse budgets in CI; listing JSON-LD completeness audit                         |
+| 3     | Portfolio / media / public SEO        | complete        | JSON-LD + LHCI mobile + portal noindex — `docs/verification/phase-3.md`              |
 | 4     | CRM / viewing / reservation / cheques | partial         | Dedicated cheque entities; 50-parallel booking stress; Lead/RentalApplication models |
 | 5     | Contracts / signature / renewals      | mostly complete | Machine-readable FSM diagrams; expand sequential signature policy tests              |
 | 6     | Finance / accounting / subscriptions  | partial         | FiscalPeriod; subscription product entitlements depth; print XSS matrix              |

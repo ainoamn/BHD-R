@@ -1,17 +1,22 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { headers } from 'next/headers';
 import { Card, CardContent, StatusBadge } from '@bhd-r/ui';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { ApiError, publicApiFetch } from '@/lib/server-api';
 import { formatMoney, localizedName } from '@/lib/format';
+import { bilingualAlternates, unitListingJsonLd } from '@/lib/seo';
 import { PublicViewingForm } from '@/components/public-viewing-form';
 import type { PublicUnitDetail } from '@bhd-r/contracts';
 
 async function getUnit(id: string): Promise<PublicUnitDetail | null> {
   try {
-    return await publicApiFetch<PublicUnitDetail>(`/v1/public/units/${encodeURIComponent(id)}`, 30);
+    return await publicApiFetch<PublicUnitDetail>(
+      `/v1/public/units/${encodeURIComponent(id)}`,
+      30,
+      [`public-listings`, `unit:${id}`],
+    );
   } catch (error) {
     if (error instanceof ApiError && (error.status === 404 || error.status === 410)) return null;
     throw error;
@@ -40,13 +45,7 @@ export async function generateMetadata({
   return {
     title,
     description,
-    alternates: {
-      canonical: `/${locale}/units/${unit.unitId}`,
-      languages: {
-        ar: `/ar/units/${unit.unitId}`,
-        en: `/en/units/${unit.unitId}`,
-      },
-    },
+    alternates: bilingualAlternates(locale, `/units/${unit.unitId}`),
     openGraph: {
       title,
       description,
@@ -71,41 +70,7 @@ export default async function UnitPage({
   const title = `${localizedName(locale, unit.propertyNameAr, unit.propertyNameEn)} — ${localizedName(locale, unit.unitNameAr, unit.unitNameEn)}`;
   const description = localizedName(locale, unit.descriptionAr ?? '', unit.descriptionEn ?? '');
   const nonce = (await headers()).get('x-nonce') ?? undefined;
-  const publicOrigin = (
-    process.env.PUBLIC_WEB_ORIGIN ??
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    'https://r.bhd-om.com'
-  ).replace(/\/$/, '');
-  const fractionDigits: Record<string, number> = { OMR: 3, BHD: 3, KWD: 3 };
-  const digits = fractionDigits[unit.rent.currency] ?? 2;
-  const rawAmount = unit.rent.amountMinor.padStart(digits + 1, '0');
-  const price = `${rawAmount.slice(0, -digits)}.${rawAmount.slice(-digits)}`;
-  const structuredData = {
-    '@context': 'https://schema.org',
-    '@type': 'Apartment',
-    name: title,
-    description: description || undefined,
-    url: `${publicOrigin}/${locale}/units/${unit.unitId}`,
-    image: unit.images.map((item) => item.url),
-    address: {
-      '@type': 'PostalAddress',
-      addressCountry: 'OM',
-      addressRegion: unit.governorate,
-      addressLocality: `${unit.wilayat}, ${unit.city}`,
-    },
-    numberOfBedrooms: unit.bedrooms,
-    numberOfBathroomsTotal: unit.bathrooms,
-    floorSize: unit.areaSquareMeters
-      ? { '@type': 'QuantitativeValue', value: unit.areaSquareMeters, unitCode: 'MTK' }
-      : undefined,
-    offers: {
-      '@type': 'Offer',
-      price,
-      priceCurrency: unit.rent.currency,
-      availability: 'https://schema.org/InStock',
-      url: `${publicOrigin}/${locale}/units/${unit.unitId}`,
-    },
-  };
+  const structuredData = unitListingJsonLd({ locale, unit, title, description });
   return (
     <>
       <header className="page-hero">

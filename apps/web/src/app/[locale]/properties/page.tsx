@@ -4,6 +4,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { ListingCard } from '@/components/listing-card';
 import { PropertySearch } from '@/components/property-search';
 import { publicApiFetch } from '@/lib/server-api';
+import { bilingualAlternates } from '@/lib/seo';
 import type { ListingCollection } from '@/lib/types';
 
 export async function generateMetadata({
@@ -18,10 +19,7 @@ export async function generateMetadata({
       locale === 'ar'
         ? 'وحدات منشورة ومتاحة فعلياً للإيجار والبيع عبر BHD R.'
         : 'Live, publicly available properties for rent and sale through BHD R.',
-    alternates: {
-      canonical: `/${locale}/properties`,
-      languages: { ar: '/ar/properties', en: '/en/properties' },
-    },
+    alternates: bilingualAlternates(locale, '/properties'),
   };
 }
 

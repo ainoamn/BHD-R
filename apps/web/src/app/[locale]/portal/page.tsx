@@ -1,5 +1,12 @@
+import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getViewer } from '@/lib/viewer';
+import { privatePortalRobots } from '@/lib/seo';
+
+export const metadata: Metadata = {
+  robots: privatePortalRobots,
+};
+
 export default async function PortalRouter({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   const viewer = await getViewer();

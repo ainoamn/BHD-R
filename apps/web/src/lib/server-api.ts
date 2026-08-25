@@ -36,11 +36,15 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   return response.json() as Promise<T>;
 }
 
-export async function publicApiFetch<T>(path: string, revalidate = 60): Promise<T> {
+export async function publicApiFetch<T>(
+  path: string,
+  revalidate = 60,
+  tags: string[] = ['public-listings'],
+): Promise<T> {
   if (!path.startsWith('/')) throw new Error('API path must be absolute');
   const response = await fetch(`${apiOrigin}${path}`, {
     headers: { accept: 'application/json' },
-    next: { revalidate },
+    next: { revalidate, tags },
   });
   if (!response.ok)
     throw new ApiError(response.status, 'public_api_error', 'Public data is unavailable');

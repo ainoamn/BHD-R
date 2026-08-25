@@ -14,15 +14,15 @@
 
 ## Commands
 
-| Command | Result |
-| --- | --- |
-| `pnpm format:check` | pass |
-| `pnpm verify:source` | pass |
-| `pnpm lint` | pass |
-| `pnpm typecheck` | pass |
-| `pnpm test` | pass (domain entitlements 6 tests; api 13) |
-| `pnpm build` | pass |
-| `pnpm test:e2e` | pass — web Playwright 22; api e2e 3 |
+| Command              | Result                                     |
+| -------------------- | ------------------------------------------ |
+| `pnpm format:check`  | pass                                       |
+| `pnpm verify:source` | pass                                       |
+| `pnpm lint`          | pass                                       |
+| `pnpm typecheck`     | pass                                       |
+| `pnpm test`          | pass (domain entitlements 6 tests; api 13) |
+| `pnpm build`         | pass                                       |
+| `pnpm test:e2e`      | pass — web Playwright 22; api e2e 3        |
 
 ## Ops note
 

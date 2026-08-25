@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { EmptyState } from '@bhd-r/ui';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { ListingCard } from '@/components/listing-card';
 import { ApiError, publicApiFetch } from '@/lib/server-api';
 import { localizedName } from '@/lib/format';
+import { bilingualAlternates, propertyListingJsonLd } from '@/lib/seo';
 import type { PublicPropertyDetail } from '@bhd-r/contracts';
 
 async function getProperty(id: string): Promise<PublicPropertyDetail | null> {
@@ -12,6 +14,7 @@ async function getProperty(id: string): Promise<PublicPropertyDetail | null> {
     return await publicApiFetch<PublicPropertyDetail>(
       `/v1/public/properties/${encodeURIComponent(id)}`,
       30,
+      [`public-listings`, `property:${id}`],
     );
   } catch (error) {
     if (error instanceof ApiError && (error.status === 404 || error.status === 410)) return null;
@@ -41,13 +44,7 @@ export async function generateMetadata({
   return {
     title,
     description,
-    alternates: {
-      canonical: `/${locale}/properties/${property.id}`,
-      languages: {
-        ar: `/ar/properties/${property.id}`,
-        en: `/en/properties/${property.id}`,
-      },
-    },
+    alternates: bilingualAlternates(locale, `/properties/${property.id}`),
     openGraph: {
       title,
       description,
@@ -69,11 +66,19 @@ export default async function PropertyPage({
   const t = await getTranslations();
   const property = await getProperty(propertyId);
   if (!property) notFound();
+  const title = localizedName(locale, property.nameAr, property.nameEn);
+  const description = localizedName(
+    locale,
+    property.descriptionAr ?? '',
+    property.descriptionEn ?? '',
+  );
+  const nonce = (await headers()).get('x-nonce') ?? undefined;
+  const structuredData = propertyListingJsonLd({ locale, property, title, description });
   return (
     <>
       <header className="page-hero">
         <div className="container">
-          <h1>{localizedName(locale, property.nameAr, property.nameEn)}</h1>
+          <h1>{title}</h1>
           <p>
             {property.governorate} · {property.wilayat}
           </p>
@@ -92,6 +97,9 @@ export default async function PropertyPage({
           )}
         </div>
       </section>
+      <script type="application/ld+json" nonce={nonce}>
+        {JSON.stringify(structuredData).replaceAll('<', '\\u003c')}
+      </script>
     </>
   );
 }

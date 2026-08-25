@@ -1,4 +1,11 @@
+import type { Metadata } from 'next';
 import { PortalShell } from '@/components/portal-shell';
+import { privatePortalRobots } from '@/lib/seo';
+
+export const metadata: Metadata = {
+  robots: privatePortalRobots,
+};
+
 export default async function Layout({
   children,
   params,
