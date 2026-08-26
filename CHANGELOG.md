@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.39 — 2026-08-26
+
+- Render health: answer `/healthz` and `/health/live` via raw Node `serverFactory` before Nest (Nest Fastify inject/requests were hanging after listen). Set Render Health Check Path to `/healthz`. Keep `PORT=10000`.
+
 ## 0.2.38 — 2026-08-26
 
 - Stop forcing port 10000 in code while Render `PORT=4000` (caused explicit scan-for-4000 failure). Listen on `process.env.PORT`; require dashboard `PORT=10000`. Soft inject probe + `@SkipThrottle` on health.

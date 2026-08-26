@@ -99,6 +99,14 @@ Redeploy **web (Vercel)** after this change. Redeploy **Nest (Render)** when pul
 
 تحقق فوري في Events: هل آخر نشر **Live** أم **Failed**؟ وفي Logs (بحث فارغ): هل تظهر `Nest application successfully started`؟
 
+### inject_timeout على `/health/live` رغم listening
+
+السجل `inject_timeout_3s` يعني مسار Nest/Fastify لا يكمل الطلب حتى داخل العملية. من 0.2.39:
+
+- `/healthz` و`/health/live` يُجابان من Node مباشرة (قبل Nest)
+- في Render → **Settings → Health Check Path** ضع **`/healthz`**
+- ابقَ `PORT=10000`
+
 ## Smoke checklist
 
 Web app pings Nest every 5 minutes via `GET /api/cron/warmup-nest` (`apps/web/vercel.json`).

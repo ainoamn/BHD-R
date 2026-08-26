@@ -1,25 +1,78 @@
 import 'reflect-metadata';
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import cookie from '@fastify/cookie';
 import helmet from '@fastify/helmet';
+import Fastify from 'fastify';
 import { loadEnvironment } from '@bhd-r/config';
 import { AppModule } from './app.module.js';
 import { createInternalRequestId } from './common/request-id.js';
 import { resolveCorsOrigin } from './common/web-origins.js';
 
+function isPlatformHealthPath(url: string | undefined): boolean {
+  if (!url) return false;
+  const path = url.split('?')[0] ?? '';
+  return path === '/healthz' || path === '/health/live';
+}
+
+function writeHealthOk(res: ServerResponse): void {
+  const body = JSON.stringify({
+    status: 'ok',
+    service: 'bhd-r-api',
+    timestamp: new Date().toISOString(),
+  });
+  res.writeHead(200, {
+    'content-type': 'application/json; charset=utf-8',
+    'content-length': Buffer.byteLength(body),
+  });
+  res.end(body);
+}
+
 async function bootstrap(): Promise<void> {
   const environment = loadEnvironment();
   const trustedProxyHops = Number(process.env.TRUST_PROXY_HOPS ?? 0);
-  const adapter = new FastifyAdapter({
+  const onRender =
+    process.env.RENDER === 'true' ||
+    Boolean(process.env.RENDER_SERVICE_ID) ||
+    Boolean(process.env.RENDER_EXTERNAL_URL);
+  const port = Number(process.env.PORT || (onRender ? 10_000 : environment.PORT || 4000));
+  if (!Number.isFinite(port) || port <= 0) {
+    throw new Error(`Invalid PORT: ${String(process.env.PORT)}`);
+  }
+  if (onRender && process.env.PORT === '4000') {
+    console.error(
+      'BHD-R API FATAL CONFIG: Render PORT=4000. Set Environment PORT=10000 → Save → Manual Deploy.',
+    );
+  }
+
+  /**
+   * Render Free Docker scans for an open HTTP port and hits the health path.
+   * Nest Fastify request handling was hanging (inject /health/live timed out) even
+   * after listen() — so platform health is answered by raw Node HTTP first.
+   */
+  let nodeServer: Server | undefined;
+  const fastify = Fastify({
+    serverFactory(handler) {
+      nodeServer = createServer((req: IncomingMessage, res: ServerResponse) => {
+        if (isPlatformHealthPath(req.url)) {
+          writeHealthOk(res);
+          return;
+        }
+        handler(req, res);
+      });
+      return nodeServer;
+    },
     trustProxy:
-      Number.isInteger(trustedProxyHops) && trustedProxyHops > 0 ? trustedProxyHops : false,
-    // Property images/docs upload through Nest ingress (up to 25MB).
+      Number.isInteger(trustedProxyHops) && trustedProxyHops > 0
+        ? (trustedProxyHops as unknown as boolean)
+        : false,
     bodyLimit: 26 * 1024 * 1024,
     genReqId: createInternalRequestId,
   });
-  await adapter.register(cookie as never);
-  await adapter.register(helmet as never, {
+
+  await fastify.register(cookie as never);
+  await fastify.register(helmet as never, {
     global: true,
     contentSecurityPolicy: {
       directives: {
@@ -29,7 +82,6 @@ async function bootstrap(): Promise<void> {
         formAction: ["'self'"],
       },
     },
-    // Allow browser CORS reads from the web origin (media ingress PUT).
     crossOriginResourcePolicy: { policy: 'cross-origin' },
     referrerPolicy: { policy: 'no-referrer' },
     strictTransportSecurity:
@@ -37,11 +89,12 @@ async function bootstrap(): Promise<void> {
         ? { maxAge: 63_072_000, includeSubDomains: true, preload: true }
         : false,
   });
+
+  const adapter = new FastifyAdapter(fastify as never);
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter, {
     bufferLogs: true,
     rawBody: true,
   });
-  const fastify = app.getHttpAdapter().getInstance();
   const asBuffer = (_request: unknown, body: Buffer, done: (err: null, body: Buffer) => void) => {
     done(null, body);
   };
@@ -67,40 +120,27 @@ async function bootstrap(): Promise<void> {
   });
   app.enableShutdownHooks();
 
-  // Render scans ONLY process.env.PORT. Listening on a different port →
-  // "failed to detect open port N from PORT environment variable".
-  // On Render set Environment PORT=10000 (Render default). Do not leave PORT=4000.
-  const onRender =
-    process.env.RENDER === 'true' ||
-    Boolean(process.env.RENDER_SERVICE_ID) ||
-    Boolean(process.env.RENDER_EXTERNAL_URL);
-  const port = Number(process.env.PORT || (onRender ? 10_000 : environment.PORT || 4000));
-  if (!Number.isFinite(port) || port <= 0) {
-    throw new Error(`Invalid PORT: ${String(process.env.PORT)}`);
-  }
-  if (onRender && process.env.PORT === '4000') {
-    console.error(
-      'BHD-R API FATAL CONFIG: Render PORT=4000. Open Render → Environment → set PORT=10000 → Save → Manual Deploy.',
-    );
-  }
-
   console.log(
     `BHD-R API binding host=0.0.0.0 port=${port} (env.PORT=${process.env.PORT ?? '<unset>'} onRender=${onRender})`,
   );
 
-  await app.listen(port, '0.0.0.0');
-  console.log(`BHD-R API listening`, app.getHttpServer()?.address?.());
+  await app.init();
+  await fastify.listen({ port, host: '0.0.0.0' });
+  console.log(`BHD-R API listening`, nodeServer?.address?.() ?? fastify.server.address());
 
   try {
-    const probe = await Promise.race([
-      fastify.inject({ method: 'GET', url: '/health/live' }),
+    const self = await Promise.race([
+      fetch(`http://127.0.0.1:${port}/healthz`).then(async (response) => ({
+        status: response.status,
+        body: await response.text(),
+      })),
       new Promise<never>((_resolve, reject) => {
-        setTimeout(() => reject(new Error('inject_timeout_3s')), 3_000);
+        setTimeout(() => reject(new Error('tcp_healthz_timeout_3s')), 3_000);
       }),
     ]);
-    console.log(`BHD-R API inject /health/live → ${probe.statusCode} ${probe.body}`);
+    console.log(`BHD-R API TCP /healthz → ${self.status} ${self.body}`);
   } catch (error) {
-    console.error('BHD-R API inject /health/live failed', error);
+    console.error('BHD-R API TCP /healthz failed', error);
   }
 }
 
