@@ -2475,6 +2475,15 @@ h3 {
   outline: 2px solid var(--bhd-teal);
   border-radius: 0.95rem;
 }
+.media-thumb__actions {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.35rem 0.15rem 0;
+}
+.media-thumb__actions .button {
+  min-height: 2.1rem;
+  font-size: 0.78rem;
+}
 .wizard-review {
   display: grid;
   gap: 1.5rem;

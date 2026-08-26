@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 25;
+export const maxDuration = 10;
 
 /**
  * Lightweight Nest wake-up for portal sessions (Render cold start).
@@ -20,7 +20,7 @@ export async function GET() {
     const response = await fetch(`${origin}/health/ready`, {
       headers: { accept: 'application/json' },
       cache: 'no-store',
-      signal: AbortSignal.timeout(20_000),
+      signal: AbortSignal.timeout(8_000),
     });
     return NextResponse.json({
       ok: response.ok,

@@ -19,6 +19,7 @@ import {
   parseGoogleMapsUrl,
 } from '@/lib/parse-google-maps-url';
 import { MapLocationPicker } from '@/components/map-location-picker';
+import { NestReconnectButton } from '@/components/nest-reconnect-button';
 
 interface UnitDraft {
   localId: string;
@@ -356,19 +357,59 @@ export function PropertyWizard({
   }
 
   function selectImages(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? []).slice(0, 12);
-    const next = files.map((file) => ({
-      id: crypto.randomUUID(),
-      file,
-      url: URL.createObjectURL(file),
-    }));
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    if (!files.length) return;
+
+    const allowed = new Set(['image/jpeg', 'image/png', 'image/webp']);
+    const accepted: MediaItem[] = [];
+    let rejected = false;
+    for (const file of files) {
+      if (!allowed.has(file.type) || file.size > 10 * 1024 * 1024) {
+        rejected = true;
+        continue;
+      }
+      accepted.push({
+        id: crypto.randomUUID(),
+        file,
+        url: URL.createObjectURL(file),
+      });
+    }
+    if (!accepted.length) {
+      setError(t('PropertyForm.imageHelp'));
+      return;
+    }
+
     setImages((current) => {
-      current.forEach((item) => URL.revokeObjectURL(item.url));
+      const room = Math.max(0, 12 - current.length);
+      if (room === 0) {
+        accepted.forEach((item) => URL.revokeObjectURL(item.url));
+        return current;
+      }
+      const toAdd = accepted.slice(0, room);
+      accepted.slice(room).forEach((item) => URL.revokeObjectURL(item.url));
+      return [...current, ...toAdd];
+    });
+    setCoverId((current) => current ?? accepted[0]?.id ?? null);
+    setError(
+      rejected
+        ? t('PropertyForm.imageHelp')
+        : null,
+    );
+  }
+
+  function removeImage(id: string) {
+    setImages((current) => {
+      const target = current.find((item) => item.id === id);
+      if (target) URL.revokeObjectURL(target.url);
+      const next = current.filter((item) => item.id !== id);
+      setCoverId((cover) => {
+        if (cover && next.some((item) => item.id === cover)) return cover;
+        return next[0]?.id ?? null;
+      });
       return next;
     });
-    setCoverId(next[0]?.id ?? null);
-    setError(null);
-    event.target.value = '';
+    setPreviewId((current) => (current === id ? null : current));
   }
 
   function selectDocuments(documentType: PrivateDocType, event: ChangeEvent<HTMLInputElement>) {
@@ -497,8 +538,21 @@ export function PropertyWizard({
     setError(null);
     setSuccess(ar ? 'جاري التحقق من اتصال Nest…' : 'Checking Nest connection…');
     try {
-      const warm = await fetch('/api/warm', { cache: 'no-store', signal: AbortSignal.timeout(25_000) });
-      const warmPayload = (await warm.json().catch(() => null)) as { ok?: boolean; status?: number } | null;
+      // Fail fast — do not wait for Render cold-start (can exceed 1–3 minutes).
+      const warmPayload = await Promise.race([
+        fetch('/api/warm', { cache: 'no-store' })
+          .then(async (warm) => {
+            const body = (await warm.json().catch(() => null)) as {
+              ok?: boolean;
+              status?: number;
+            } | null;
+            return body;
+          })
+          .catch(() => null),
+        new Promise<null>((resolve) => {
+          setTimeout(() => resolve(null), 8_000);
+        }),
+      ]);
       if (!warmPayload?.ok) {
         throw new Error(
           ar
@@ -665,6 +719,7 @@ export function PropertyWizard({
           : t('PropertyForm.success'),
       );
     } catch (caught) {
+      setSuccess(null);
       setError(caught instanceof Error ? caught.message : 'request_failed');
     } finally {
       setBusy(false);
@@ -1439,8 +1494,13 @@ export function PropertyWizard({
                 <label htmlFor="property-images" className="upload-zone__label">
                   <strong>{t('PropertyForm.images')}</strong>
                   <p>{t('PropertyForm.imagesMinTwo')}</p>
+                  <p className="field__hint">{t('PropertyForm.imagesAppendHint')}</p>
                   <p className="field__hint">{t('PropertyForm.imageHelp')}</p>
-                  <span className="button button--quiet">{t('PropertyForm.chooseImages')}</span>
+                  <span className="button button--quiet">
+                    {images.length
+                      ? t('PropertyForm.addMoreImages')
+                      : t('PropertyForm.chooseImages')}
+                  </span>
                 </label>
                 <input
                   id="property-images"
@@ -1460,18 +1520,30 @@ export function PropertyWizard({
                       >
                         <img src={item.url} alt="" />
                       </button>
-                      <label className="checkbox-row">
-                        <input
-                          type="radio"
-                          name="cover"
-                          checked={coverId === item.id}
-                          onChange={() => setCoverId(item.id)}
-                        />
-                        {t('PropertyForm.coverImage')}
-                      </label>
+                      <div className="media-thumb__actions">
+                        <label className="checkbox-row">
+                          <input
+                            type="radio"
+                            name="cover"
+                            checked={coverId === item.id}
+                            onChange={() => setCoverId(item.id)}
+                          />
+                          {t('PropertyForm.coverImage')}
+                        </label>
+                        <Button
+                          type="button"
+                          variant="quiet"
+                          onClick={() => removeImage(item.id)}
+                        >
+                          {t('PropertyForm.removeImage')}
+                        </Button>
+                      </div>
                     </li>
                   ))}
                 </ul>
+                {images.length >= 12 ? (
+                  <p className="field__hint">{t('PropertyForm.imagesMaxReached')}</p>
+                ) : null}
                 {showErrors && images.length < 2 ? (
                   <p className="field__error" role="alert">
                     {t('PropertyForm.imagesMinTwo')}
@@ -1675,7 +1747,12 @@ export function PropertyWizard({
 
             {error ? (
               <div className="notice notice--error" role="alert">
-                {error}
+                <p>{error}</p>
+                {/Nest|Render|health\/ready/i.test(error) ? (
+                  <div style={{ marginTop: '0.75rem' }}>
+                    <NestReconnectButton locale={locale === 'en' ? 'en' : 'ar'} />
+                  </div>
+                ) : null}
               </div>
             ) : null}
             {success ? (

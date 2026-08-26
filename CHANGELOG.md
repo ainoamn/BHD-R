@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.29 — 2026-08-26
+
+- Property wizard media: appending photos keeps existing ones (no replace); add-more label, remove per image, max 12.
+- Save warm check fails within ~8s (no 25–180s hang); clear success banner on error; Nest reconnect actions on save failure.
+
 ## 0.2.28 — 2026-08-26
 
 - Portal flicker: shell auth via JWT (`requirePortalShell`, ≤900ms DB race) so nav/chrome stay mounted; slim route pending bar.
