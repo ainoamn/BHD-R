@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.32 — 2026-08-26
+
+- Portal SPA nav (WAZEN-like): sidebar `prefetch` + idle `PortalRoutePrefetch` for all sections; client `staleTimes` 180s/600s; no loading flash; `scroll={false}`.
+
 ## 0.2.31 — 2026-08-26
 
 - Portal speed (WAZEN lessons): dashboard overview reads Neon directly on Vercel when `DATABASE_URL` is set — no Nest wait for `/owner` metrics.

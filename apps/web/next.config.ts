@@ -52,9 +52,10 @@ const config: NextConfig = {
   experimental: {
     optimizePackageImports: ['@bhd-r/ui'],
     // Soft nav feels SPA-like: keep recently visited portal segments warm on the client.
+    // Soft nav keeps visited portal sections in the client router cache (WAZEN-like).
     staleTimes: {
-      dynamic: 60,
-      static: 300,
+      dynamic: 180,
+      static: 600,
     },
   },
   images: {
