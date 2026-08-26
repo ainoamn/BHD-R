@@ -109,9 +109,9 @@ Redeploy **web (Vercel)** after this change. Redeploy **Nest (Render)** when pul
 
 ### `/healthz` ok و`/raw-ping` أبيض (حفظ العقار يفشل)
 
-من **0.2.45**: Nest على Render يعمل بـ **Express** (وليس Fastify). الحافة العامة ترد على `/healthz`، وExpress يعالج `/raw-ping` و`/v1/*`.
+من **0.2.45**: السبب الجذري كان **CORS على Express**: الحزمة تنتظر `callback` بينما المُحلّل كان متزامناً فقط → كل مسارات Nest تعلّق، بينما `/raw-ping` (Express خام) يعمل. الحل: Express + edge proxy + `origin(origin, cb)`.
 
-بعد النشر في Logs: `Nest Express ready` و`dispatch: express` في `/healthz`. في المتصفح: `/raw-ping` → `{"ok":true,"via":"express"}`.
+بعد النشر: `/healthz` فيه `dispatch: express-proxy` و`nestReady: true`، و`/raw-ping` و`/health/live` يردّان JSON بسرعة.
 
 ## Smoke checklist
 
