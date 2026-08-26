@@ -1,31 +1,34 @@
 # Implementation status
 
-**Updated:** 2026-08-25  
-**Product version:** 0.2.20  
-**Active phase:** Property wizard build fixed + bilingual i18n; apply Neon migrations `0011` + `0012`  
+**Updated:** 2026-08-26  
+**Product version:** 0.2.45  
+**Active focus:** Nest API على Render مستقر بعد إصلاح CORS/Express — متابعة حفظ العقار والوسائط من الجهاز التالي  
+**Handoff (هذه الجلسة):** [`HANDOFF-NEST-RENDER-2026-08-26-AR.md`](./HANDOFF-NEST-RENDER-2026-08-26-AR.md)  
 **Cycle reference:** [`TRANSACTION-FLOW-MAP.md`](./TRANSACTION-FLOW-MAP.md) **v1.3** · [`CYCLE-APPROVAL.md`](./CYCLE-APPROVAL.md)  
 **Portal UI:** [`PORTAL-CHROME-AR.md`](./PORTAL-CHROME-AR.md)  
-**Property wizard:** [`PROPERTY-WIZARD-AR.md`](./PROPERTY-WIZARD-AR.md)
+**Property wizard:** [`PROPERTY-WIZARD-AR.md`](./PROPERTY-WIZARD-AR.md)  
+**Nest hosting:** [`NEST-API-HOSTING.md`](./NEST-API-HOSTING.md)
 
 | Phase | Status | Notes |
 | ----- | ------ | ----- |
 | 0–4 | complete | Verified |
-| OM ops 1–19 | coded | Nest `API_INTERNAL_ORIGIN` still manual |
+| OM ops 1–19 | coded | Nest على `https://bhd-r.onrender.com` |
 | Cycle R1–R5 | **approved + coded** | Queues, finance_manager gates, ownership history UI |
 | Portal chrome | **shipped** | Header user + AR/EN + responsive drawer for all portals |
 | Property wizard | **shipped** | Gated steps, Oman cascade, cover, AI copy, serials |
+| Nest Render reachability | **fixed 0.2.45** | Express + edge `/healthz` + CORS callback; كان يعلق `/v1` رغم Live |
 
-## Next (human / infra — cannot automate without secrets)
+## Next (human / infra)
 
-1. `pnpm db:migrate` with production `DATABASE_URL` (migrations `0011` + `0012_property_serials`).  
-2. Confirm Vercel Production/Preview deploy for latest `main`.  
-3. Nest HTTPS + Vercel `API_INTERNAL_ORIGIN` / `API_ORIGIN` — [`VERCEL-MANUAL-AR.md`](./VERCEL-MANUAL-AR.md).  
-4. Smoke `/ar/owner/properties/new` on phone + desktop after redeploy.
+1. Smoke حفظ عقار من https://bhd-r-api-phi.vercel.app/ar/owner/properties/new بعد التأكد من `/health/live`.  
+2. تحقق رفع الوسائط (قد يحتاج raw body محدود بعد تعطيل `rawBody` على Nest).  
+3. `pnpm db:migrate` إن لم تُطبَّق هجرات `0011` / `0012` على Neon الإنتاج.  
+4. (موصى) Render غير Free لتقليل النوم 50s+.  
+5. تدوير أسرار ظهرت في محادثات سابقة قبل الإنتاج النهائي.
 
 ## Verification
 
+- `docs/implementation/HANDOFF-NEST-RENDER-2026-08-26-AR.md` — سجل الأعطال والمسارات البديلة
 - `docs/verification/om-ops-flow.md`
-- `docs/implementation/TRANSACTION-FLOW-MAP.html`
-- `docs/implementation/PORTAL-CHROME-AR.md`
-- `docs/implementation/PROPERTY-WIZARD-AR.md`
-- `pnpm --filter @bhd-r/api test` (cycle clearance permission tests)
+- `docs/implementation/NEST-API-HOSTING.md`
+- `curl` إلى `/healthz` + `/raw-ping` + `/health/live` (انظر Handoff §1)

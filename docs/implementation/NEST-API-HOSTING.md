@@ -1,20 +1,28 @@
 # Nest API hosting (BHD-R)
 
 **Goal:** Public HTTPS Nest (`apps/api`) so Vercel web can call `/v1/*` via `API_INTERNAL_ORIGIN`.  
-**Image:** `Dockerfile.api` (port **4000**, health `/health/ready`).  
-**Blueprint:** root `render.yaml` (Render Blueprint).
+**Image:** `Dockerfile.api` (runtime **`PORT=10000`**, platform health **`/healthz`**).  
+**Blueprint:** root `render.yaml` (Render Blueprint).  
+**Handoff 2026-08-26 (مشاكل + حلول + بدائل):** [`HANDOFF-NEST-RENDER-2026-08-26-AR.md`](./HANDOFF-NEST-RENDER-2026-08-26-AR.md)
 
 ## Why not the Vercel web project?
 
 Project `bhd-r-api` Root Directory is `apps/web` (Next.js). Nest is a long-lived Node process with Redis/S3/DB pooling — host it as a **separate** Docker service (Render / Fly / VM). Vercel Nest-as-Function is possible later but not the default path for this monorepo.
+
+## Current runtime shape (0.2.45+)
+
+- Adapter: **`@nestjs/platform-express`** (not Fastify).
+- Public process: raw Node edge on `PORT` serves **`GET /healthz`**, proxies everything else to Nest Express on `127.0.0.1:(PORT+1)`.
+- CORS: Express `cors` **must** use `origin(origin, callback)` — sync-only resolvers hang all Nest routes.
+- File: `apps/api/src/main.ts`.
 
 ## Render (recommended starter)
 
 1. Connect GitHub repo `ainoamn/BHD-R` in [Render](https://render.com).
 2. Apply Blueprint from `render.yaml` **or** create a Web Service manually:
    - Dockerfile: `Dockerfile.api`
-   - Health check: `/health/ready`
-   - Port: `4000`
+   - Health check: **`/healthz`**
+   - Port: **`10000`** (set `PORT=10000` in Environment)
 3. Set env vars (Production) — mirror API secrets from `.env.example`:
    - `DATABASE_URL` (Neon, same DB as web if web uses direct DB; else API Neon role)
    - `REDIS_URL`
@@ -25,7 +33,7 @@ Project `bhd-r-api` Root Directory is `apps/web` (Next.js). Nest is a long-lived
    - Optional `WEB_ORIGINS` = comma list of extra browser origins (staging, etc.)
    - Preview Vercel hosts `bhd-r-api-*.vercel.app` are allowed by default for CSRF/CORS (disable with `WEB_ORIGIN_ALLOW_VERCEL_PREVIEWS=0`)
    - `CORS` / cookie domain settings as documented in identity setup
-4. After deploy, note the service URL, e.g. `https://bhd-r-api.onrender.com`.
+4. After deploy, note the service URL: **`https://bhd-r.onrender.com`**.
 5. Optional DNS: `api.r.bhd-om.com` → Render.
 
 ## Wire Vercel web
@@ -64,8 +72,12 @@ Redeploy **web (Vercel)** after this change. Redeploy **Nest (Render)** when pul
 1. [dashboard.render.com](https://dashboard.render.com) → خدمة Nest (`bhd-r` / `bhd-r-api`).
 2. **Logs** — ابحث عن `Invalid environment` / crash / missing `REDIS_URL` / `DATABASE_URL`.
 3. **Manual Deploy** من `main` الأحدث → انتظر **Live**.
-4. افتح [`https://bhd-r.onrender.com/health/ready`](https://bhd-r.onrender.com/health/ready) → يجب 200 خلال ثوانٍ.
-5. ارجع للبوابة → «إعادة الاتصال بـ Nest».
+4. افتح بالترتيب:
+   - [`/healthz`](https://bhd-r.onrender.com/healthz) → ok + `nestReady:true` + `dispatch:express-proxy`
+   - [`/raw-ping`](https://bhd-r.onrender.com/raw-ping) → `{"ok":true,"via":"express"}`
+   - [`/health/live`](https://bhd-r.onrender.com/health/live) → ok JSON  
+   إن نجح الثلاثة فقط: ارجع للبوابة → «إعادة الاتصال بـ Nest».
+5. التفاصيل الكاملة للأعطال والمسارات البديلة: [`HANDOFF-NEST-RENDER-2026-08-26-AR.md`](./HANDOFF-NEST-RENDER-2026-08-26-AR.md).
 
 من 0.2.33: **قائمة العقارات والأطراف** تُعرض من Neon حتى لو Nest down (قراءة فقط). الحفظ ما زال يحتاج Nest Live.
 
@@ -149,11 +161,12 @@ After Docker build, Nest boots with `loadEnvironment`. Missing keys abort the pr
 |------|--------|
 | `Dockerfile.api` | Ready |
 | `render.yaml` | Ready (scaffold) |
-| Public Nest URL | `https://bhd-r.onrender.com` (`/health/ready` → ready) |
+| Public Nest URL | `https://bhd-r.onrender.com` (`/healthz` + `/health/live` → ok) |
 | Browser mutations | Via Vercel BFF `/api/backend/v1/*` (sets trusted `Origin`) |
 | Vercel `API_INTERNAL_ORIGIN` | Must be Nest HTTPS on Production **and** Preview |
 | CSRF / preview | Nest allowlist + BFF; redeploy **both** Vercel and Render after API CSRF changes |
-| CORS typing (0.2.25) | Use `resolveCorsOrigin` (Nest sync). Express-style `corsOriginDelegate(origin, cb)` breaks `nest build` / Render Docker |
+| HTTP adapter (0.2.45) | **Express** + public edge proxy; CORS via `origin(origin, callback)` |
+| Fastify on Render | **Avoid** until proven; caused multi-hour hang loops in Aug 2026 |
 
 ### Render build failure (2026-08-25)
 

@@ -6,6 +6,7 @@ All notable changes are documented here. The project follows Semantic Versioning
 
 - **Root cause:** Nest on Render hung on every controller route because Express `cors` expects `origin(origin, callback)` while `resolveCorsOrigin` was sync-only (callback never called). Fastify previously masked/compounded other listen issues; API now uses **Express** behind a public edge proxy, with callback-style CORS.
 - `/raw-ping` (plain Express) worked; `/health/live` and `/v1/*` timed out until CORS was fixed.
+- Docs: Arabic handoff [`docs/implementation/HANDOFF-NEST-RENDER-2026-08-26-AR.md`](./docs/implementation/HANDOFF-NEST-RENDER-2026-08-26-AR.md) (problems, attempted fixes, fallbacks); STATUS + NEST-API-HOSTING updated.
 
 ## 0.2.44 — 2026-08-26
 

@@ -4,6 +4,9 @@
 
 | الوثيقة                                                                                                                          | الغرض                                                             |
 | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| [implementation/HANDOFF-NEST-RENDER-2026-08-26-AR.md](./implementation/HANDOFF-NEST-RENDER-2026-08-26-AR.md) | **تسليم جلسة 2026-08-26:** أعطال Nest/Render، المحاولات، الحل، ومسارات بديلة |
+| [implementation/NEST-API-HOSTING.md](./implementation/NEST-API-HOSTING.md)                               | استضافة Nest على Render وربطه بـ Vercel |
+| [implementation/STATUS.md](./implementation/STATUS.md)                                                   | حالة التنفيذ الحالية (0.2.45) |
 | [V1-COMPLETION-REPORT-AR.md](./V1-COMPLETION-REPORT-AR.md)                                                                       | **تقرير اكتمال V1 وأدلة التحقق والهجرات وحدود التسليم**           |
 | [CODEX_WORKSPACE_2026-08-11_AR.md](./CODEX_WORKSPACE_2026-08-11_AR.md)                                                           | جرد مساحة Codex 2026-08-11 واستبدال الحزم القديمة                 |
 | [implementation/TRANSACTION-FLOW-MAP.md](./implementation/TRANSACTION-FLOW-MAP.md)                                               | **مرجع دورة المعاملة المعتمدة v1.3** (إيجار/بيع/إلغاء/تجديد) + [HTML](./implementation/TRANSACTION-FLOW-MAP.html) + [اعتماد](./implementation/CYCLE-APPROVAL.md) |
