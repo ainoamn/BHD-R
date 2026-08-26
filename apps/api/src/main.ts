@@ -13,7 +13,7 @@ import { resolveCorsOrigin } from './common/web-origins.js';
 function isPlatformHealthPath(url: string | undefined): boolean {
   if (!url) return false;
   const path = url.split('?')[0] ?? '';
-  return path === '/healthz' || path === '/health/live';
+  return path === '/healthz' || path === '/health/live' || path === '/health/ready';
 }
 
 function writeHealthOk(res: ServerResponse): void {
@@ -47,9 +47,8 @@ async function bootstrap(): Promise<void> {
   }
 
   /**
-   * Render Free Docker scans for an open HTTP port and hits the health path.
-   * Nest Fastify request handling was hanging (inject /health/live timed out) even
-   * after listen() — so platform health is answered by raw Node HTTP first.
+   * Render Free Docker health + Vercel /api/warm must not depend on Nest/DB.
+   * Nest Fastify handlers were hanging on Render; answer health at the Node layer.
    */
   let nodeServer: Server | undefined;
   const fastify = Fastify({
@@ -90,6 +89,9 @@ async function bootstrap(): Promise<void> {
         : false,
   });
 
+  // Native Fastify probe (does not use Nest). Helps diagnose Nest-vs-Fastify hangs.
+  fastify.get('/raw-ping', async () => ({ ok: true, via: 'fastify-native' }));
+
   const adapter = new FastifyAdapter(fastify as never);
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter, {
     bufferLogs: true,
@@ -124,9 +126,8 @@ async function bootstrap(): Promise<void> {
     `BHD-R API binding host=0.0.0.0 port=${port} (env.PORT=${process.env.PORT ?? '<unset>'} onRender=${onRender})`,
   );
 
-  await app.init();
-  await fastify.listen({ port, host: '0.0.0.0' });
-  console.log(`BHD-R API listening`, nodeServer?.address?.() ?? fastify.server.address());
+  await app.listen(port, '0.0.0.0');
+  console.log(`BHD-R API listening`, nodeServer?.address?.() ?? app.getHttpServer()?.address?.());
 
   try {
     const self = await Promise.race([

@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
 /**
- * Vercel Cron: ping Nest /health/ready so Render does not stay cold between visits.
+ * Vercel Cron: ping Nest /healthz so Render does not stay cold between visits.
  * Secure with CRON_SECRET (Vercel sends Authorization: Bearer <CRON_SECRET>).
  */
 export async function GET(request: Request) {
@@ -24,7 +24,7 @@ export async function GET(request: Request) {
 
   const started = Date.now();
   try {
-    const response = await fetch(`${origin}/health/ready`, {
+    const response = await fetch(`${origin}/healthz`, {
       headers: { accept: 'application/json' },
       cache: 'no-store',
       signal: AbortSignal.timeout(25_000),

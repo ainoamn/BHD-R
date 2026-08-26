@@ -1,6 +1,10 @@
 import { getLocale } from 'next-intl/server';
 import { ApiError } from '@/lib/api';
-import { apiFetch, isNestApiConfiguredForRuntime } from '@/lib/server-api';
+import {
+  apiFetch,
+  configuredApiOrigin,
+  isNestApiConfiguredForRuntime,
+} from '@/lib/server-api';
 import { loadOpsRecordsFromDb } from '@/lib/portal-ops-data';
 import type { PortalRole } from '@/lib/types';
 import { OperationsConsole, type OperationsContext } from './operations-console';
@@ -144,6 +148,21 @@ async function loadSection(portal: PortalRole, section: OperationsSection) {
   }
 }
 
+async function probeNestHealthz(): Promise<boolean> {
+  const origin = configuredApiOrigin();
+  if (!origin) return false;
+  try {
+    const response = await fetch(`${origin}/healthz`, {
+      headers: { accept: 'application/json' },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(3_000),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function OperationsWorkspace({
   portal,
   section,
@@ -153,9 +172,9 @@ export async function OperationsWorkspace({
 }) {
   const locale = (await getLocale()) === 'en' ? 'en' : 'ar';
   const nestConfigured = isNestApiConfiguredForRuntime();
-  // Avoid a separate /health/ready round-trip on every section click (cold Nest × 2).
-  // Online = Nest answered context (ok or 401). Offline = network/unreachable.
-  const [loaded, contextResult] = await Promise.all([
+  // Platform health (/healthz) is raw Node and reliable on Render.
+  // Nest /v1 may still hang; don't treat that alone as "Nest down" for the banner.
+  const [loaded, contextResult, healthzOk] = await Promise.all([
     loadSection(portal, section),
     portal === 'tenant'
       ? Promise.resolve({
@@ -198,8 +217,9 @@ export async function OperationsWorkspace({
             );
           }),
         ]),
+    probeNestHealthz(),
   ]);
-  const apiOnline = portal === 'tenant' ? true : !contextResult.unreachable;
+  const apiOnline = portal === 'tenant' ? true : healthzOk || !contextResult.unreachable;
   const context = contextResult.context;
   const recordsEmpty = !loaded.records.length;
   const dataFromDb = 'source' in loaded && loaded.source === 'db';

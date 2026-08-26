@@ -68,12 +68,12 @@ export async function resolveApiOrigin(): Promise<string> {
   return DEFAULT_DEV_API;
 }
 
-/** Unauthenticated probe — Nest is up if /health/ready returns 200. */
+/** Unauthenticated probe — Nest process is up if /healthz returns 200 (Render platform health). */
 export async function probeNestReady(): Promise<boolean> {
   if (!isNestApiConfiguredForRuntime()) return false;
   try {
     const origin = await resolveApiOrigin();
-    const response = await fetch(`${origin}/health/ready`, {
+    const response = await fetch(`${origin}/healthz`, {
       headers: { accept: 'application/json' },
       cache: 'no-store',
       signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS),

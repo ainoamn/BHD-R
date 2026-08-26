@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.40 — 2026-08-26
+
+- Portal Nest “online” uses `/healthz` (works on Live Render). `/api/warm` + cron + reconnect link switched off hanging `/health/ready`. Ops banner treats healthz OK as online even when Nest `/v1` context times out.
+
 ## 0.2.39 — 2026-08-26
 
 - Render health: answer `/healthz` and `/health/live` via raw Node `serverFactory` before Nest (Nest Fastify inject/requests were hanging after listen). Set Render Health Check Path to `/healthz`. Keep `PORT=10000`.

@@ -18,7 +18,7 @@ export async function GET() {
   }
   const started = Date.now();
   try {
-    const response = await fetch(`${origin}/health/ready`, {
+    const response = await fetch(`${origin}/healthz`, {
       headers: { accept: 'application/json' },
       cache: 'no-store',
       signal: AbortSignal.timeout(55_000),
