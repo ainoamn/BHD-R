@@ -77,9 +77,13 @@ Redeploy **web (Vercel)** after this change. Redeploy **Nest (Render)** when pul
 
 بعد التصحيح في Render → Environment → Save → **Manual Deploy**.
 
-### Logs فارغة؟
+### الصفحة البيضاء على `/health/ready`
 
-لا تكتب كلمة `Clear query` في خانة البحث. **احذف كل النص** من شريط البحث حتى يصبح فارغاً، أو اضغط زر **Clear query** بجانب الرسالة.
+إذا بقي التبويب «جار التحميل» بلا JSON: Render قبل الطلب لكن **الحاوية لا ترد** (خدمة نائمة/فاشلة، أو فحص الصحة القديم `/health/ready` علّق على Neon Free فصار المثيل Unhealthy ولا يمرّر ترافيك).
+
+من 0.2.34: فحص Render الصحي = `/health/live` (بدون قاعدة). و`/health/ready` يفشل خلال 5 ثوانٍ إن تعذّرت قاعدة البيانات بدل التعليق.
+
+تحقق فوري في Events: هل آخر نشر **Live** أم **Failed**؟ وفي Logs (بحث فارغ): هل تظهر `Nest application successfully started`؟
 
 ## Smoke checklist
 

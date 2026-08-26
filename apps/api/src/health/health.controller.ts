@@ -12,7 +12,12 @@ export class HealthController {
   }
   @Get('ready') async ready() {
     try {
-      await this.database.asSystem((transaction) => transaction.execute(sql`select 1`));
+      await Promise.race([
+        this.database.asSystem((transaction) => transaction.execute(sql`select 1`)),
+        new Promise<never>((_resolve, reject) => {
+          setTimeout(() => reject(new Error('database_ready_timeout')), 5_000);
+        }),
+      ]);
       return { status: 'ready', database: 'ok' };
     } catch {
       throw new ServiceUnavailableException('Database is unavailable');

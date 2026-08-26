@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.34 — 2026-08-26
+
+- Render health check uses `/health/live` (avoids Nest marked unhealthy when Neon Free is cold).
+- `/health/ready` times out DB probe at 5s instead of hanging forever.
+
 ## 0.2.33 — 2026-08-26
 
 - When Nest (Render) is down: owner properties + contacts lists load from Neon on Vercel (read path); ops Nest calls time out in ~3.5s; banner clarifies DB read vs Nest for writes.
