@@ -253,7 +253,7 @@ export function PortalNav({ portal, viewer }: { portal: PortalRole; viewer: View
                   <Link
                     key={item.path || 'root'}
                     href={href}
-                    prefetch
+                    prefetch={false}
                     aria-current={active ? 'page' : undefined}
                     onClick={() => setOpen(false)}
                   >

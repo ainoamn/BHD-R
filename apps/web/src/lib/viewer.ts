@@ -114,9 +114,67 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
   }
 });
 
+/**
+ * Fast chrome auth for portal layouts: verify JWT locally and only wait briefly for DB.
+ * Avoids full-page flicker when Nest/Neon is cold — shell stays mounted while the page loads.
+ */
+export const getShellViewer = cache(async (): Promise<Viewer | null> => {
+  const cookieStore = await cookies();
+  const token = cookieStore.get('bhd_r_session')?.value;
+  if (!token) return null;
+
+  let claims: Awaited<ReturnType<typeof verifySessionToken>>;
+  try {
+    claims = await verifySessionToken(token, sessionSecret());
+  } catch {
+    return null;
+  }
+
+  const stub: Viewer = {
+    id: claims.sub,
+    displayName: claims.locale === 'ar' ? 'مستخدم BHD' : 'BHD user',
+    partyId: claims.partyId,
+    locale: claims.locale === 'en' ? 'en' : 'ar',
+    organizationId: claims.organizationId,
+    roles: claims.roles,
+    permissions: claims.permissions,
+    portals: portalsForRoles(claims.roles),
+  };
+
+  if (!hasDatabaseUrl()) return stub;
+
+  try {
+    const raced = await Promise.race([
+      getViewerFromDatabase().then((viewer) => ({ done: true as const, viewer })),
+      new Promise<{ done: false }>((resolve) => {
+        setTimeout(() => resolve({ done: false }), 900);
+      }),
+    ]);
+    if (raced.done) return raced.viewer;
+  } catch {
+    /* fall through to JWT stub */
+  }
+  return stub;
+});
+
 export async function requirePortal(locale: string, portal: PortalRole): Promise<Viewer> {
   const { redirect } = await import('next/navigation');
   const viewer = await getViewer();
+  if (viewer === null) {
+    redirect(`/${locale}/login`);
+    throw new Error('unreachable');
+  }
+  if (!viewer.portals.includes(portal)) {
+    redirect(`/${locale}/portal?denied=${portal}`);
+    throw new Error('unreachable');
+  }
+  return viewer;
+}
+
+/** Layout-only gate: prefer shell viewer so navigations do not blank the chrome. */
+export async function requirePortalShell(locale: string, portal: PortalRole): Promise<Viewer> {
+  const { redirect } = await import('next/navigation');
+  const viewer = await getShellViewer();
   if (viewer === null) {
     redirect(`/${locale}/login`);
     throw new Error('unreachable');

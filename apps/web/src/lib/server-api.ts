@@ -5,9 +5,12 @@ import { ApiError } from './api';
 export { ApiError };
 
 const DEFAULT_DEV_API = 'http://localhost:4000';
-/** Render free tier cold-start can exceed 8s; keep headroom for Vercel→Nest. */
-const FETCH_TIMEOUT_MS = 20_000;
-const HEALTH_TIMEOUT_MS = 15_000;
+/**
+ * Keep portal pages responsive when Nest is asleep/unreachable.
+ * Prefer empty/offline UI within ~8s over hanging 60–80s on Render cold starts.
+ */
+const FETCH_TIMEOUT_MS = 8_000;
+const HEALTH_TIMEOUT_MS = 3_000;
 
 export function configuredApiOrigin(): string | null {
   const value = process.env.API_INTERNAL_ORIGIN ?? process.env.API_ORIGIN;

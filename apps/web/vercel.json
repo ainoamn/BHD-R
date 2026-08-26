@@ -2,5 +2,11 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
-  "buildCommand": "cd ../.. && pnpm --filter @bhd-r/web run build"
+  "buildCommand": "cd ../.. && pnpm --filter @bhd-r/web run build",
+  "crons": [
+    {
+      "path": "/api/cron/warmup-nest",
+      "schedule": "*/5 * * * *"
+    }
+  ]
 }

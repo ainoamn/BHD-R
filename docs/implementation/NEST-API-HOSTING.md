@@ -71,11 +71,20 @@ https://bhd-r.onrender.com/health/ready
 
 لا تغيّر `API_INTERNAL_ORIGIN` إلى localhost. القيمة الصحيحة عادة: `https://bhd-r.onrender.com`.
 
-1. `GET https://API_HOST/health/ready` → 200  
+1. `GET https://API_HOST/health/ready` → 200 (if this hangs >30s, Nest is down or sleeping — fix Render first; portal pages will feel like 60–80s)
 2. SSO login on `https://r.bhd-om.com`  
 3. Owner overview loads metrics (not empty fail-soft)  
 4. Confirm reservation deposit → journal appears in accounting  
 5. End lease → vacancy task in Tasks  
+
+## Keep Nest warm (Vercel Cron)
+
+Web app pings Nest every 5 minutes via `GET /api/cron/warmup-nest` (`apps/web/vercel.json`).
+
+1. Add Vercel env `CRON_SECRET` (random ≥24 chars) on Production + Preview.
+2. Redeploy web after changing `vercel.json` crons.
+3. In Vercel → Settings → Cron Jobs, confirm `*/5 * * * *` → `/api/cron/warmup-nest`.
+4. If Nest still never answers `/health/ready`, open Render dashboard and **Manual Deploy** / check logs — cron cannot revive a crashed service.
 
 ## Required env checklist (Render will fail without these)
 

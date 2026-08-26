@@ -1,6 +1,6 @@
 import { PortalNav } from './portal-nav';
 import { NestKeepAlive } from './nest-keep-alive';
-import { requirePortal } from '@/lib/viewer';
+import { requirePortalShell } from '@/lib/viewer';
 import type { PortalRole } from '@/lib/types';
 
 export async function PortalShell({
@@ -12,7 +12,7 @@ export async function PortalShell({
   portal: PortalRole;
   children: React.ReactNode;
 }) {
-  const viewer = await requirePortal(locale, portal);
+  const viewer = await requirePortalShell(locale, portal);
   return (
     <div className="portal-layout">
       <NestKeepAlive />

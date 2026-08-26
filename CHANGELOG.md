@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.28 — 2026-08-26
+
+- Portal flicker: shell auth via JWT (`requirePortalShell`, ≤900ms DB race) so nav/chrome stay mounted; slim route pending bar.
+- Nest keep-warm: Vercel cron `/api/cron/warmup-nest` every 5 minutes (`CRON_SECRET`); sidebar `prefetch={false}` to avoid RSC storms when Nest is down.
+- Docs: PORTAL-PERF-AR updated for Nest downtime + shell auth.
+
 ## 0.2.27 — 2026-08-25
 
 - Property save: fail fast when Nest is down (BFF upstream timeout, Arabic CSRF/Nest errors, warm check before save) instead of hanging ~160s on «Could not establish a secure request».

@@ -5191,6 +5191,11 @@ h3 {
   gap: 1rem;
   padding-block: 0.35rem 1.25rem;
 }
+.portal-route-pending--slim {
+  gap: 0;
+  padding-block: 0.15rem 0.35rem;
+  min-height: 0;
+}
 .portal-route-pending__bar {
   height: 3px;
   border-radius: 999px;
