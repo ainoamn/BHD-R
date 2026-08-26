@@ -66,7 +66,15 @@ async function bootstrap(): Promise<void> {
     ],
   });
   app.enableShutdownHooks();
-  await app.listen({ port: environment.PORT, host: '0.0.0.0' });
+  // Render/Docker require 0.0.0.0; Nest's "successfully started" log is from init(),
+  // before the socket is bound — use positional listen + log the real address.
+  const port = Number(process.env.PORT ?? environment.PORT ?? 4000);
+  await app.listen(port, '0.0.0.0');
+  const bound = app.getHttpServer()?.address?.();
+  console.log(
+    `BHD-R API listening on 0.0.0.0:${port}`,
+    typeof bound === 'object' && bound ? bound : bound,
+  );
 }
 
 void bootstrap();

@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.35 — 2026-08-26
+
+- Fix Render “No open HTTP ports detected”: Nest Fastify now binds with `listen(port, '0.0.0.0')` and logs the bound address (previous object-form listen left Render unable to route → 502 / hung deploys).
+
 ## 0.2.34 — 2026-08-26
 
 - Render health check uses `/health/live` (avoids Nest marked unhealthy when Neon Free is cold).

@@ -77,6 +77,14 @@ Redeploy **web (Vercel)** after this change. Redeploy **Nest (Render)** when pul
 
 بعد التصحيح في Render → Environment → Save → **Manual Deploy**.
 
+### «No open HTTP ports detected» بعد Nest started
+
+سجل `Nest application successfully started` يأتي من **init** قبل أن يُفتح المنفذ. إن ظهر بعدها `Port scan timeout… no open HTTP ports` فـ Render لا يرى سوكِت على `0.0.0.0` → 502.
+
+من 0.2.35: `listen(port, '0.0.0.0')` + سجل `BHD-R API listening on…`. في Logs يجب أن ترى هذا السطر، وليس فقط «successfully started».
+
+تأكد أن `PORT` في Render يطابق ما يستمع إليه التطبيق (عادة `4000` أو قيمة Render التلقائية — لا تخلط بينهما).
+
 ### الصفحة البيضاء على `/health/ready`
 
 إذا بقي التبويب «جار التحميل» بلا JSON: Render قبل الطلب لكن **الحاوية لا ترد** (خدمة نائمة/فاشلة، أو فحص الصحة القديم `/health/ready` علّق على Neon Free فصار المثيل Unhealthy ولا يمرّر ترافيك).
