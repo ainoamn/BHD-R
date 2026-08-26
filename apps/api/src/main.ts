@@ -67,23 +67,21 @@ async function bootstrap(): Promise<void> {
   });
   app.enableShutdownHooks();
 
-  // Render's default public port is 10000. A dashboard PORT=4000 makes Node bind 4000 while
-  // Render's scanner/proxy still expects 10000 → "No open HTTP ports" forever.
+  // Render scans ONLY process.env.PORT. Listening on a different port →
+  // "failed to detect open port N from PORT environment variable".
+  // On Render set Environment PORT=10000 (Render default). Do not leave PORT=4000.
   const onRender =
     process.env.RENDER === 'true' ||
     Boolean(process.env.RENDER_SERVICE_ID) ||
     Boolean(process.env.RENDER_EXTERNAL_URL);
-  const port = onRender ? 10_000 : Number(process.env.PORT || environment.PORT || 4000);
+  const port = Number(process.env.PORT || (onRender ? 10_000 : environment.PORT || 4000));
   if (!Number.isFinite(port) || port <= 0) {
     throw new Error(`Invalid PORT: ${String(process.env.PORT)}`);
   }
-  if (onRender && process.env.PORT && process.env.PORT !== '10000') {
-    console.warn(
-      `BHD-R API: ignoring process.env.PORT=${process.env.PORT} on Render; forcing 10000`,
+  if (onRender && process.env.PORT === '4000') {
+    console.error(
+      'BHD-R API FATAL CONFIG: Render PORT=4000. Open Render → Environment → set PORT=10000 → Save → Manual Deploy.',
     );
-  }
-  if (onRender) {
-    process.env.PORT = '10000';
   }
 
   console.log(
@@ -93,10 +91,16 @@ async function bootstrap(): Promise<void> {
   await app.listen(port, '0.0.0.0');
   console.log(`BHD-R API listening`, app.getHttpServer()?.address?.());
 
-  const probe = await fastify.inject({ method: 'GET', url: '/health/live' });
-  console.log(`BHD-R API inject /health/live → ${probe.statusCode} ${probe.body}`);
-  if (probe.statusCode >= 400) {
-    throw new Error(`Health inject failed: ${probe.statusCode}`);
+  try {
+    const probe = await Promise.race([
+      fastify.inject({ method: 'GET', url: '/health/live' }),
+      new Promise<never>((_resolve, reject) => {
+        setTimeout(() => reject(new Error('inject_timeout_3s')), 3_000);
+      }),
+    ]);
+    console.log(`BHD-R API inject /health/live → ${probe.statusCode} ${probe.body}`);
+  } catch (error) {
+    console.error('BHD-R API inject /health/live failed', error);
   }
 }
 

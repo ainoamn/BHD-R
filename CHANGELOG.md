@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.38 — 2026-08-26
+
+- Stop forcing port 10000 in code while Render `PORT=4000` (caused explicit scan-for-4000 failure). Listen on `process.env.PORT`; require dashboard `PORT=10000`. Soft inject probe + `@SkipThrottle` on health.
+
 ## 0.2.37 — 2026-08-26
 
 - On Render, **always bind port 10000** (ignore dashboard `PORT=4000`) and restore Nest `app.listen`; verify with Fastify `inject(/health/live)` instead of loopback `fetch` (which timed out while the socket looked bound).
