@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Post, Req } from '@nestjs/common';
-import type { FastifyRequest } from 'fastify';
+import type { ApiRequest } from '../common/api-http.js';
 import { z } from 'zod';
 import { Idempotent, RequirePermissions } from '../common/decorators.js';
 import { ZodPipe } from '../common/zod.pipe.js';
@@ -27,28 +27,28 @@ const reportSchema = z.object({
 @Controller('v1/reports')
 export class ReportsController {
   constructor(private readonly service: ReportsService) {}
-  @RequirePermissions('report.read') @Get() list(@Req() request: FastifyRequest) {
+  @RequirePermissions('report.read') @Get() list(@Req() request: ApiRequest) {
     return this.service.list(request.auth!);
   }
   @RequirePermissions('report.read') @Get('operational-summary') summary(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
   ) {
     return this.service.operationalSummary(request.auth!);
   }
   @RequirePermissions('report.read') @Get(':id') get(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id') id: string,
   ) {
     return this.service.get(request.auth!, id);
   }
   @RequirePermissions('report.read') @Get(':id/download') download(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id') id: string,
   ) {
     return this.service.download(request.auth!, id);
   }
   @RequirePermissions('report.export') @Idempotent() @Post() create(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(reportSchema)) body: z.infer<typeof reportSchema>,
   ) {
     return this.service.create(request.auth!, body);

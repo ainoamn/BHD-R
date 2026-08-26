@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Post, Req } from '@nestjs/common';
-import type { FastifyRequest } from 'fastify';
+import type { ApiRequest } from '../common/api-http.js';
 import { z } from 'zod';
 import { Public, RequirePermissions } from '../common/decorators.js';
 import { ZodPipe } from '../common/zod.pipe.js';
@@ -34,7 +34,7 @@ export class PlatformController {
   @RequirePermissions('platform.settings.write')
   @Post('encryption/backfill')
   encryptionBackfill(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(encryptionBackfillSchema)) body: z.infer<typeof encryptionBackfillSchema>,
   ) {
     return this.service.enqueueEncryptionBackfill(request.auth!, body);

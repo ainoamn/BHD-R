@@ -7,13 +7,14 @@ import {
   type NestInterceptor,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { FastifyReply, FastifyRequest } from 'fastify';
 import { Observable, catchError, from, mergeMap, of, throwError } from 'rxjs';
 import { createHash } from 'node:crypto';
 import { and, eq, lt } from 'drizzle-orm';
 import { idempotencyKeys } from '@bhd-r/db';
 import { idempotencyKeySchema } from '@bhd-r/contracts';
+import type { ApiRequest, ApiResponse, AuthClaims } from './api-http.js';
 import { IDEMPOTENT_ROUTE } from './decorators.js';
+import { requestRoutePath } from './http-request.js';
 import { DatabaseService } from '../database/database.service.js';
 
 function stable(value: unknown): string {
@@ -41,22 +42,22 @@ export class IdempotencyInterceptor implements NestInterceptor {
       ])
     )
       return next.handle();
-    const request = context.switchToHttp().getRequest<FastifyRequest>();
-    const reply = context.switchToHttp().getResponse<FastifyReply>();
+    const request = context.switchToHttp().getRequest<ApiRequest>();
+    const reply = context.switchToHttp().getResponse<ApiResponse>();
     const keyResult = idempotencyKeySchema.safeParse(request.headers['idempotency-key']);
     if (!keyResult.success)
       throw new UnprocessableEntityException('A valid Idempotency-Key is required');
     if (!request.auth?.organizationId)
       throw new UnprocessableEntityException('Organization context is required');
     const key = keyResult.data;
-    const route = `${request.method}:${request.routeOptions.url}`;
+    const route = `${request.method}:${requestRoutePath(request)}`;
     const requestHash = createHash('sha256').update(stable(request.body)).digest('hex');
 
     return from(this.claim(request.auth, key, route, requestHash)).pipe(
       mergeMap((claimed) => {
         if (claimed.kind === 'replay') {
-          void reply.status(claimed.status);
-          void reply.header('Idempotency-Replayed', 'true');
+          reply.status(claimed.status);
+          reply.setHeader('Idempotency-Replayed', 'true');
           return of(claimed.body);
         }
         return next.handle().pipe(
@@ -76,7 +77,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
   }
 
   private async claim(
-    claims: NonNullable<FastifyRequest['auth']>,
+    claims: AuthClaims,
     key: string,
     route: string,
     requestHash: string,
@@ -128,7 +129,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
   }
 
   private async complete(
-    claims: NonNullable<FastifyRequest['auth']>,
+    claims: AuthClaims,
     key: string,
     route: string,
     status: number,
@@ -149,7 +150,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
   }
 
   private async release(
-    claims: NonNullable<FastifyRequest['auth']>,
+    claims: AuthClaims,
     key: string,
     route: string,
     requestHash: string,

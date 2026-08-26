@@ -4,7 +4,7 @@ import {
   type CanActivate,
   type ExecutionContext,
 } from '@nestjs/common';
-import type { FastifyRequest } from 'fastify';
+import type { ApiRequest } from './api-http.js';
 import { verifyCsrfToken } from '@bhd-r/security';
 import { isAllowedWebOrigin } from './web-origins.js';
 
@@ -13,7 +13,7 @@ const safeMethods = new Set(['GET', 'HEAD', 'OPTIONS']);
 @Injectable()
 export class CsrfGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest<FastifyRequest>();
+    const request = context.switchToHttp().getRequest<ApiRequest>();
     if (safeMethods.has(request.method) || request.auth?.authenticationMethod !== 'session')
       return true;
 

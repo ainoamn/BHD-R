@@ -9,7 +9,7 @@ import {
   Req,
   UnsupportedMediaTypeException,
 } from '@nestjs/common';
-import type { FastifyRequest } from 'fastify';
+import type { ApiRequest } from '../common/api-http.js';
 import { z } from 'zod';
 import { Idempotent, Public, RequirePermissions } from '../common/decorators.js';
 import { ZodPipe } from '../common/zod.pipe.js';
@@ -42,7 +42,7 @@ const reservationCompleteSchema = z.object({
 export class MediaController {
   constructor(private readonly service: MediaService) {}
   @RequirePermissions('media.create') @Post('upload-intents') create(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(intentSchema)) body: z.infer<typeof intentSchema>,
   ) {
     return this.service.createUploadIntent(request.auth!, body);
@@ -51,7 +51,7 @@ export class MediaController {
   /** Browser → Nest binary upload (token). Avoids direct S3 CORS / Failed to fetch. */
   @Public()
   @Put('ingress/:token')
-  ingress(@Param('token') token: string, @Req() request: FastifyRequest) {
+  ingress(@Param('token') token: string, @Req() request: ApiRequest) {
     const body = request.body;
     if (!Buffer.isBuffer(body))
       throw new UnsupportedMediaTypeException('Expected raw upload body');
@@ -63,7 +63,7 @@ export class MediaController {
   }
 
   @RequirePermissions('media.create') @Idempotent() @Post(':id/complete') complete(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id') id: string,
     @Body(new ZodPipe(completeSchema)) body: z.infer<typeof completeSchema>,
   ) {
@@ -73,7 +73,7 @@ export class MediaController {
   @RequirePermissions('reservation.document.submit')
   @Post('reservation-upload-intents')
   reservationIntent(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(reservationIntentSchema)) body: z.infer<typeof reservationIntentSchema>,
   ) {
     return this.service.createUploadIntent(request.auth!, {
@@ -86,7 +86,7 @@ export class MediaController {
   @Idempotent()
   @Post(':id/complete-reservation')
   completeReservation(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id') id: string,
     @Body(new ZodPipe(reservationCompleteSchema))
     body: z.infer<typeof reservationCompleteSchema>,
@@ -96,7 +96,7 @@ export class MediaController {
 
   @RequirePermissions('reservation.read')
   @Get(':id/reservation-document')
-  reservationDocument(@Req() request: FastifyRequest, @Param('id', ParseUUIDPipe) id: string) {
+  reservationDocument(@Req() request: ApiRequest, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.reservationDocumentUrl(request.auth!, id);
   }
 }

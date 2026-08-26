@@ -5,7 +5,7 @@ import {
   type ExecutionContext,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { FastifyRequest } from 'fastify';
+import type { ApiRequest } from './api-http.js';
 import type { Permission } from '@bhd-r/authz';
 import { AUTHENTICATED_ROUTE, PUBLIC_ROUTE, REQUIRED_PERMISSIONS } from './decorators.js';
 
@@ -25,7 +25,7 @@ export class PermissionGuard implements CanActivate {
     if (!required && !authenticated)
       throw new ForbiddenException('Route authorization policy is not declared');
     if (!required || required.length === 0) return true;
-    const request = context.switchToHttp().getRequest<FastifyRequest>();
+    const request = context.switchToHttp().getRequest<ApiRequest>();
     if (
       !request.auth ||
       required.some((permission) => !request.auth!.permissions.includes(permission))

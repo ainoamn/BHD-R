@@ -9,7 +9,7 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
-import type { FastifyRequest } from 'fastify';
+import type { ApiRequest } from '../common/api-http.js';
 import { z } from 'zod';
 import { createHoldSchema, createLeaseSchema } from '@bhd-r/contracts';
 import { Idempotent, Authenticated, RequirePermissions } from '../common/decorators.js';
@@ -110,7 +110,7 @@ export class LeasingController {
   @Idempotent()
   @Post('holds')
   createHold(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(createHoldSchema)) body: z.infer<typeof createHoldSchema>,
   ) {
     return this.service.createHold(request.auth!, body);
@@ -120,7 +120,7 @@ export class LeasingController {
   @Idempotent()
   @Post('reservations')
   createReservation(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(reservationSchema)) body: z.infer<typeof reservationSchema>,
   ) {
     return this.service.createReservation(request.auth!, body);
@@ -130,7 +130,7 @@ export class LeasingController {
   @Idempotent()
   @Post('leases')
   createLease(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(leaseSchema)) body: z.infer<typeof leaseSchema>,
   ) {
     return this.service.createLeaseAndContract(request.auth!, body);
@@ -140,7 +140,7 @@ export class LeasingController {
   @Idempotent()
   @Post('leases/:id/renewals')
   createRenewal(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodPipe(renewalSchema)) body: z.infer<typeof renewalSchema>,
   ) {
@@ -150,14 +150,14 @@ export class LeasingController {
   @RequirePermissions('contract.send')
   @Idempotent()
   @Post('contracts/:id/send')
-  send(@Req() request: FastifyRequest, @Param('id') id: string) {
+  send(@Req() request: ApiRequest, @Param('id') id: string) {
     return this.service.sendContract(request.auth!, id);
   }
 
   @RequirePermissions('contract.create')
   @Idempotent()
   @Post('contracts/:id/request-approval')
-  requestApproval(@Req() request: FastifyRequest, @Param('id', ParseUUIDPipe) id: string) {
+  requestApproval(@Req() request: ApiRequest, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.requestContractApproval(request.auth!, id);
   }
 
@@ -165,7 +165,7 @@ export class LeasingController {
   @Idempotent()
   @Post('contracts/:id/signature-challenges')
   challenge(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id') id: string,
     @Body(new ZodPipe(challengeSchema)) body: z.infer<typeof challengeSchema>,
   ) {
@@ -181,44 +181,44 @@ export class LeasingController {
   @Idempotent()
   @Post('contracts/:id/signatures')
   sign(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id') id: string,
     @Body(new ZodPipe(signingSchema)) body: z.infer<typeof signingSchema>,
   ) {
     return this.service.signContract(request.auth!, id, {
       ...body,
-      ip: request.ip,
+      ip: request.ip ?? '0.0.0.0',
       userAgent: request.headers['user-agent'] ?? '',
     });
   }
 
   @RequirePermissions('lease.read')
   @Get('leases')
-  list(@Req() request: FastifyRequest) {
+  list(@Req() request: ApiRequest) {
     return this.service.listTenantLeases(request.auth!);
   }
 
   @RequirePermissions('reservation.read')
   @Get('holds')
-  holds(@Req() request: FastifyRequest) {
+  holds(@Req() request: ApiRequest) {
     return this.service.listHolds(request.auth!);
   }
 
   @RequirePermissions('reservation.manage')
   @Patch('holds/:id/cancel')
-  cancelHold(@Req() request: FastifyRequest, @Param('id', ParseUUIDPipe) id: string) {
+  cancelHold(@Req() request: ApiRequest, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.cancelHold(request.auth!, id);
   }
 
   @RequirePermissions('reservation.read')
   @Get('reservations')
-  reservations(@Req() request: FastifyRequest) {
+  reservations(@Req() request: ApiRequest) {
     return this.service.listReservations(request.auth!);
   }
 
   @RequirePermissions('reservation.read')
   @Get('reservations/:id/compliance')
-  reservationCompliance(@Req() request: FastifyRequest, @Param('id', ParseUUIDPipe) id: string) {
+  reservationCompliance(@Req() request: ApiRequest, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.reservationCompliance(request.auth!, id);
   }
 
@@ -226,7 +226,7 @@ export class LeasingController {
   @Idempotent()
   @Post('reservations/:id/requirements')
   addReservationRequirement(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodPipe(reservationRequirementSchema))
     body: z.infer<typeof reservationRequirementSchema>,
@@ -238,7 +238,7 @@ export class LeasingController {
   @Idempotent()
   @Post('reservations/:id/documents')
   submitReservationDocument(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodPipe(reservationDocumentSchema))
     body: z.infer<typeof reservationDocumentSchema>,
@@ -249,7 +249,7 @@ export class LeasingController {
   @RequirePermissions('reservation.manage')
   @Patch('reservation-documents/:id/review')
   reviewReservationDocument(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodPipe(reservationDocumentReviewSchema))
     body: z.infer<typeof reservationDocumentReviewSchema>,
@@ -260,7 +260,7 @@ export class LeasingController {
   @RequirePermissions('reservation.manage')
   @Patch('reservations/:id')
   updateReservation(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(
       new ZodPipe(
@@ -279,19 +279,19 @@ export class LeasingController {
 
   @RequirePermissions('contract.read')
   @Get('contracts')
-  contracts(@Req() request: FastifyRequest) {
+  contracts(@Req() request: ApiRequest) {
     return this.service.listContracts(request.auth!);
   }
 
   @RequirePermissions('contract.read')
   @Get('contracts/:id')
-  contract(@Req() request: FastifyRequest, @Param('id', ParseUUIDPipe) id: string) {
+  contract(@Req() request: ApiRequest, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.contractDetail(request.auth!, id);
   }
 
   @RequirePermissions('contract.template.read')
   @Get('contract-templates')
-  templates(@Req() request: FastifyRequest, @Query('includeInactive') includeInactive?: string) {
+  templates(@Req() request: ApiRequest, @Query('includeInactive') includeInactive?: string) {
     return this.service.listContractTemplates(request.auth!, includeInactive === 'true');
   }
 
@@ -299,7 +299,7 @@ export class LeasingController {
   @Idempotent()
   @Post('contract-templates')
   template(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(contractTemplateSchema)) body: z.infer<typeof contractTemplateSchema>,
   ) {
     return this.service.createContractTemplate(request.auth!, body);
@@ -308,7 +308,7 @@ export class LeasingController {
   @Authenticated()
   @Patch('leases/:id')
   updateLease(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(
       new ZodPipe(

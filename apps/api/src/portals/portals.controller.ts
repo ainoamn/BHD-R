@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Req } from '@nestjs/common';
-import type { FastifyRequest } from 'fastify';
+import type { ApiRequest } from '../common/api-http.js';
 import { z } from 'zod';
 import { RequirePermissions } from '../common/decorators.js';
 import { ZodPipe } from '../common/zod.pipe.js';
@@ -17,23 +17,23 @@ export class PlatformPortalController {
 export class OwnerPortalController {
   constructor(private readonly service: PortalsService) {}
   @RequirePermissions('organization.read') @Get('overview') overview(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
   ) {
     return this.service.organizationOverview(request.auth!);
   }
   @RequirePermissions('property.read') @Get('properties') properties(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
   ) {
     return this.service.listProperties(request.auth!);
   }
-  @RequirePermissions('lease.read') @Get('leases') leases(@Req() request: FastifyRequest) {
+  @RequirePermissions('lease.read') @Get('leases') leases(@Req() request: ApiRequest) {
     return this.service.listLeases(request.auth!);
   }
-  @RequirePermissions('invoice.read') @Get('invoices') invoices(@Req() request: FastifyRequest) {
+  @RequirePermissions('invoice.read') @Get('invoices') invoices(@Req() request: ApiRequest) {
     return this.service.listInvoices(request.auth!);
   }
   @RequirePermissions('maintenance.read') @Get('maintenance') maintenance(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
   ) {
     return this.service.listMaintenance(request.auth!);
   }
@@ -43,12 +43,12 @@ export class OwnerPortalController {
 export class DeveloperPortalController {
   constructor(private readonly service: PortalsService) {}
   @RequirePermissions('developer.project.read') @Get('overview') overview(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
   ) {
     return this.service.organizationOverview(request.auth!);
   }
   @RequirePermissions('developer.project.read') @Get('projects') projects(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
   ) {
     return this.service.listProperties(request.auth!);
   }
@@ -58,29 +58,29 @@ export class DeveloperPortalController {
 export class TenantPortalController {
   constructor(private readonly service: PortalsService) {}
   @RequirePermissions('tenant.profile.read') @Get('overview') overview(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
   ) {
     return this.service.tenantOverview(request.auth!);
   }
-  @RequirePermissions('contract.read') @Get('contracts') contracts(@Req() request: FastifyRequest) {
+  @RequirePermissions('contract.read') @Get('contracts') contracts(@Req() request: ApiRequest) {
     return this.service.listTenantContracts(request.auth!);
   }
   @RequirePermissions('contract.read') @Get('contracts/:id') contract(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id') id: string,
   ) {
     return this.service.tenantContract(request.auth!, id);
   }
-  @RequirePermissions('lease.read') @Get('units') units(@Req() request: FastifyRequest) {
+  @RequirePermissions('lease.read') @Get('units') units(@Req() request: ApiRequest) {
     return this.service.listTenantUnits(request.auth!);
   }
-  @RequirePermissions('lease.read') @Get('leases') leases(@Req() request: FastifyRequest) {
+  @RequirePermissions('lease.read') @Get('leases') leases(@Req() request: ApiRequest) {
     return this.service.listLeases(request.auth!);
   }
   @RequirePermissions('lease.cancel.request')
   @Post('leases/:id/cancellation-requests')
   requestCancellation(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(
       new ZodPipe(
@@ -99,11 +99,11 @@ export class TenantPortalController {
   ) {
     return this.service.requestLeaseCancellation(request.auth!, id, body);
   }
-  @RequirePermissions('invoice.read') @Get('invoices') invoices(@Req() request: FastifyRequest) {
+  @RequirePermissions('invoice.read') @Get('invoices') invoices(@Req() request: ApiRequest) {
     return this.service.listInvoices(request.auth!);
   }
   @RequirePermissions('maintenance.read') @Get('maintenance') maintenance(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
   ) {
     return this.service.listMaintenance(request.auth!);
   }

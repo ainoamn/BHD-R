@@ -10,7 +10,7 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
-import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { ApiRequest, ApiResponse } from '../common/api-http.js';
 import { z } from 'zod';
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { permissionSchema } from '@bhd-r/authz';
@@ -18,6 +18,7 @@ import { createCsrfToken } from '@bhd-r/security';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService, type IssuedSession } from './auth.service.js';
 import { Authenticated, Public, RequirePermissions } from '../common/decorators.js';
+import { requestIdOf } from '../common/http-request.js';
 import { ZodPipe } from '../common/zod.pipe.js';
 
 const loginSchema = z.object({
@@ -53,21 +54,23 @@ const apiKeyActionSchema = z
   })
   .strict();
 
-function setSessionCookies(reply: FastifyReply, issued: IssuedSession): void {
+/** Express `maxAge` is milliseconds; values below are seconds for session lifetime. */
+function setSessionCookies(reply: ApiResponse, issued: IssuedSession): void {
   const secure = secureCookies();
-  reply.setCookie('bhd_r_session', issued.token, {
+  const maxAgeMs = 8 * 60 * 60 * 1000;
+  reply.cookie('bhd_r_session', issued.token, {
     httpOnly: true,
     secure,
     sameSite: 'lax',
     path: '/',
-    maxAge: 8 * 60 * 60,
+    maxAge: maxAgeMs,
   });
-  reply.setCookie('bhd_r_csrf', issued.csrf, {
+  reply.cookie('bhd_r_csrf', issued.csrf, {
     httpOnly: false,
     secure,
     sameSite: 'strict',
     path: '/',
-    maxAge: 8 * 60 * 60,
+    maxAge: maxAgeMs,
   });
 }
 
@@ -108,7 +111,7 @@ export class AuthController {
   @Post('password/login')
   async login(
     @Body(new ZodPipe(loginSchema)) body: z.infer<typeof loginSchema>,
-    @Res({ passthrough: true }) reply: FastifyReply,
+    @Res({ passthrough: true }) reply: ApiResponse,
   ) {
     const issued = await this.authService.login(body);
     setSessionCookies(reply, issued);
@@ -120,7 +123,7 @@ export class AuthController {
   @Post('activate')
   async activate(
     @Body(new ZodPipe(credentialSchema)) body: z.infer<typeof credentialSchema>,
-    @Res({ passthrough: true }) reply: FastifyReply,
+    @Res({ passthrough: true }) reply: ApiResponse,
   ) {
     const issued = await this.authService.activate(body.token, body.password);
     setSessionCookies(reply, issued);
@@ -145,7 +148,7 @@ export class AuthController {
 
   @Authenticated()
   @Post('logout')
-  async logout(@Req() request: FastifyRequest, @Res({ passthrough: true }) reply: FastifyReply) {
+  async logout(@Req() request: ApiRequest, @Res({ passthrough: true }) reply: ApiResponse) {
     await this.authService.revokeCurrent(request.auth!);
     reply.clearCookie('bhd_r_session', { path: '/' });
     reply.clearCookie('bhd_r_csrf', { path: '/' });
@@ -182,7 +185,7 @@ export class AuthController {
 
   @Post('sessions/revoke-all')
   @Authenticated()
-  async revoke(@Req() request: FastifyRequest, @Res({ passthrough: true }) reply: FastifyReply) {
+  async revoke(@Req() request: ApiRequest, @Res({ passthrough: true }) reply: ApiResponse) {
     await this.authService.revokeAll(request.auth!);
     reply.clearCookie('bhd_r_session', { path: '/' });
     reply.clearCookie('bhd_r_csrf', { path: '/' });
@@ -191,31 +194,31 @@ export class AuthController {
 
   @Authenticated()
   @Get('csrf')
-  csrf(@Req() request: FastifyRequest, @Res({ passthrough: true }) reply: FastifyReply) {
+  csrf(@Req() request: ApiRequest, @Res({ passthrough: true }) reply: ApiResponse) {
     const token = createCsrfToken(
       request.auth!.sid,
       process.env.CSRF_SECRET ?? 'development-csrf-secret-must-be-at-least-32-chars',
     );
-    reply.setCookie('bhd_r_csrf', token, {
+    reply.cookie('bhd_r_csrf', token, {
       httpOnly: false,
       secure: secureCookies(),
       sameSite: 'strict',
       path: '/',
-      maxAge: 8 * 60 * 60,
+      maxAge: 8 * 60 * 60 * 1000,
     });
     return { token };
   }
 
   @Post('totp/enroll')
   @Authenticated()
-  async enrollTotp(@Req() request: FastifyRequest) {
+  async enrollTotp(@Req() request: ApiRequest) {
     return this.authService.beginTotp(request.auth!);
   }
 
   @Post('totp/confirm')
   @Authenticated()
   async confirmTotp(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(totpSchema)) body: z.infer<typeof totpSchema>,
   ) {
     return this.authService.confirmTotp(request.auth!, body.code);
@@ -225,7 +228,7 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('api-keys')
   async createApiKey(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(apiKeySchema)) body: z.infer<typeof apiKeySchema>,
   ) {
     return this.authService.createApiKey(request.auth!, {
@@ -238,7 +241,7 @@ export class AuthController {
 
   @RequirePermissions('api_key.read')
   @Get('api-keys')
-  apiKeys(@Req() request: FastifyRequest) {
+  apiKeys(@Req() request: ApiRequest) {
     return this.authService.listApiKeys(request.auth!);
   }
 
@@ -246,7 +249,7 @@ export class AuthController {
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Patch('api-keys/:id/revoke')
   async revokeApiKey(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodPipe(apiKeyActionSchema)) body: z.infer<typeof apiKeyActionSchema>,
   ) {
@@ -258,7 +261,7 @@ export class AuthController {
   @Get('oidc/start')
   async oidcStart(
     @Query('returnTo') requestedReturnTo: string | undefined,
-    @Res() reply: FastifyReply,
+    @Res() reply: ApiResponse,
   ) {
     const issuer = (process.env.BHD_IDENTITY_ISSUER ?? 'https://id.bhd-om.com').replace(/\/$/, '');
     const clientId =
@@ -276,12 +279,12 @@ export class AuthController {
         ? requestedReturnTo
         : '/ar/owner';
     const cookie = sealOidcState({ state, nonce, verifier, returnTo });
-    reply.setCookie('bhd_r_oidc', cookie, {
+    reply.cookie('bhd_r_oidc', cookie, {
       httpOnly: true,
       secure: secureCookies(),
       sameSite: 'lax',
       path: '/v1/auth/oidc',
-      maxAge: 600,
+      maxAge: 600_000,
     });
     const authorization = new URL(`${issuer}/oauth/authorize`);
     authorization.search = new URLSearchParams({
@@ -302,16 +305,16 @@ export class AuthController {
   async oidcCallback(
     @Query('code') code: string,
     @Query('state') state: string,
-    @Req() request: FastifyRequest,
-    @Res() reply: FastifyReply,
+    @Req() request: ApiRequest,
+    @Res() reply: ApiResponse,
   ) {
     const rawCookie = request.cookies?.bhd_r_oidc;
     if (!rawCookie)
-      return reply.status(400).send({
+      return reply.status(400).json({
         error: {
           code: 'OIDC_STATE_MISSING',
           message: 'Login state is missing',
-          requestId: request.id,
+          requestId: requestIdOf(request),
         },
       });
     reply.clearCookie('bhd_r_oidc', { path: '/v1/auth/oidc' });
@@ -319,11 +322,11 @@ export class AuthController {
       .object({ state: z.string(), nonce: z.string(), verifier: z.string(), returnTo: z.string() })
       .parse(openOidcState(rawCookie));
     if (saved.state !== state || !code)
-      return reply.status(400).send({
+      return reply.status(400).json({
         error: {
           code: 'OIDC_STATE_INVALID',
           message: 'Login state is invalid',
-          requestId: request.id,
+          requestId: requestIdOf(request),
         },
       });
     const issuer = (process.env.BHD_IDENTITY_ISSUER ?? 'https://id.bhd-om.com').replace(/\/$/, '');
@@ -381,7 +384,7 @@ export class MeController {
   constructor(private readonly authService: AuthService) {}
   @Authenticated()
   @Get()
-  me(@Req() request: FastifyRequest) {
+  me(@Req() request: ApiRequest) {
     return this.authService.me(request.auth!);
   }
 }

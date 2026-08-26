@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Req } from '@nestjs/common';
-import type { FastifyRequest } from 'fastify';
+import type { ApiRequest } from '../common/api-http.js';
 import { z } from 'zod';
 import { currencyCodeSchema } from '@bhd-r/contracts';
 import { Idempotent, RequirePermissions } from '../common/decorators.js';
@@ -175,19 +175,19 @@ export class OperationsController {
 
   @RequirePermissions('organization.read')
   @Get('dashboard')
-  dashboard(@Req() request: FastifyRequest) {
+  dashboard(@Req() request: ApiRequest) {
     return this.service.dashboard(request.auth!);
   }
 
   @RequirePermissions('organization.read')
   @Get('context')
-  context(@Req() request: FastifyRequest) {
+  context(@Req() request: ApiRequest) {
     return this.service.context(request.auth!);
   }
 
   @RequirePermissions('request.read')
   @Get('requests')
-  requests(@Req() request: FastifyRequest) {
+  requests(@Req() request: ApiRequest) {
     return this.service.listRequests(request.auth!);
   }
 
@@ -195,7 +195,7 @@ export class OperationsController {
   @Idempotent()
   @Post('requests')
   createRequest(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(requestSchema)) body: z.infer<typeof requestSchema>,
   ) {
     return this.service.createRequest(request.auth!, body);
@@ -204,7 +204,7 @@ export class OperationsController {
   @RequirePermissions('request.update')
   @Patch('requests/:id')
   updateRequest(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodPipe(statusNote(workflowStatusSchema)))
     body: { status: z.infer<typeof workflowStatusSchema>; note?: string },
@@ -214,7 +214,7 @@ export class OperationsController {
 
   @RequirePermissions('task.read')
   @Get('tasks')
-  tasks(@Req() request: FastifyRequest) {
+  tasks(@Req() request: ApiRequest) {
     return this.service.listTasks(request.auth!);
   }
 
@@ -222,7 +222,7 @@ export class OperationsController {
   @Idempotent()
   @Post('tasks')
   createTask(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(taskSchema)) body: z.infer<typeof taskSchema>,
   ) {
     return this.service.createTask(request.auth!, body);
@@ -231,7 +231,7 @@ export class OperationsController {
   @RequirePermissions('task.update')
   @Patch('tasks/:id')
   updateTask(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodPipe(statusNote(workflowStatusSchema)))
     body: { status: z.infer<typeof workflowStatusSchema>; note?: string },
@@ -241,7 +241,7 @@ export class OperationsController {
 
   @RequirePermissions('viewing.read')
   @Get('viewings')
-  viewings(@Req() request: FastifyRequest) {
+  viewings(@Req() request: ApiRequest) {
     return this.service.listViewings(request.auth!);
   }
 
@@ -249,7 +249,7 @@ export class OperationsController {
   @Idempotent()
   @Post('viewings')
   createViewing(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(viewingSchema)) body: z.infer<typeof viewingSchema>,
   ) {
     return this.service.createViewing(request.auth!, body);
@@ -258,7 +258,7 @@ export class OperationsController {
   @RequirePermissions('viewing.manage')
   @Patch('viewings/:id')
   updateViewing(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodPipe(statusNote(viewingStatusSchema)))
     body: { status: z.infer<typeof viewingStatusSchema>; note?: string },
@@ -268,13 +268,13 @@ export class OperationsController {
 
   @RequirePermissions('sale.read')
   @Get('sales')
-  sales(@Req() request: FastifyRequest) {
+  sales(@Req() request: ApiRequest) {
     return this.service.listSales(request.auth!);
   }
 
   @RequirePermissions('sale.read')
   @Get('sales/totals')
-  salesTotals(@Req() request: FastifyRequest) {
+  salesTotals(@Req() request: ApiRequest) {
     return this.service.ensureSalesTotals(request.auth!);
   }
 
@@ -282,7 +282,7 @@ export class OperationsController {
   @Idempotent()
   @Post('sales')
   createSale(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(saleSchema)) body: z.infer<typeof saleSchema>,
   ) {
     return this.service.createSale(request.auth!, body);
@@ -291,7 +291,7 @@ export class OperationsController {
   @RequirePermissions('sale.manage')
   @Patch('sales/:id')
   updateSale(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(
       new ZodPipe(
@@ -311,7 +311,7 @@ export class OperationsController {
 
   @RequirePermissions('vendor.read')
   @Get('vendors')
-  vendors(@Req() request: FastifyRequest) {
+  vendors(@Req() request: ApiRequest) {
     return this.service.listVendors(request.auth!);
   }
 
@@ -319,7 +319,7 @@ export class OperationsController {
   @Idempotent()
   @Post('vendors')
   createVendor(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(vendorSchema)) body: z.infer<typeof vendorSchema>,
   ) {
     return this.service.createVendor(request.auth!, body);
@@ -327,7 +327,7 @@ export class OperationsController {
 
   @RequirePermissions('work_order.read')
   @Get('work-orders')
-  workOrders(@Req() request: FastifyRequest) {
+  workOrders(@Req() request: ApiRequest) {
     return this.service.listWorkOrders(request.auth!);
   }
 
@@ -335,7 +335,7 @@ export class OperationsController {
   @Idempotent()
   @Post('work-orders')
   createWorkOrder(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(workOrderSchema)) body: z.infer<typeof workOrderSchema>,
   ) {
     return this.service.createWorkOrder(request.auth!, body);
@@ -344,7 +344,7 @@ export class OperationsController {
   @RequirePermissions('work_order.manage')
   @Patch('work-orders/:id')
   updateWorkOrder(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(
       new ZodPipe(
@@ -368,7 +368,7 @@ export class OperationsController {
 
   @RequirePermissions('legal.read')
   @Get('legal-cases')
-  legalCases(@Req() request: FastifyRequest) {
+  legalCases(@Req() request: ApiRequest) {
     return this.service.listLegalCases(request.auth!);
   }
 
@@ -376,7 +376,7 @@ export class OperationsController {
   @Idempotent()
   @Post('legal-cases')
   createLegalCase(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(legalCaseSchema)) body: z.infer<typeof legalCaseSchema>,
   ) {
     return this.service.createLegalCase(request.auth!, body);
@@ -385,7 +385,7 @@ export class OperationsController {
   @RequirePermissions('legal.manage')
   @Patch('legal-cases/:id')
   updateLegalCase(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(
       new ZodPipe(
@@ -405,7 +405,7 @@ export class OperationsController {
 
   @RequirePermissions('legal.read')
   @Get('legal-cases/:id/events')
-  legalEvents(@Req() request: FastifyRequest, @Param('id', ParseUUIDPipe) id: string) {
+  legalEvents(@Req() request: ApiRequest, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.listLegalEvents(request.auth!, id);
   }
 
@@ -413,7 +413,7 @@ export class OperationsController {
   @Idempotent()
   @Post('legal-cases/:id/events')
   addLegalEvent(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodPipe(legalEventSchema)) body: z.infer<typeof legalEventSchema>,
   ) {
@@ -422,14 +422,14 @@ export class OperationsController {
 
   @RequirePermissions('approval.read')
   @Get('approvals')
-  approvals(@Req() request: FastifyRequest) {
+  approvals(@Req() request: ApiRequest) {
     return this.service.listApprovals(request.auth!);
   }
 
   @RequirePermissions('approval.decide')
   @Patch('approvals/:id')
   decideApproval(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(
       new ZodPipe(
@@ -449,7 +449,7 @@ export class OperationsController {
   @RequirePermissions('organization.read')
   @Get('timeline/:resourceType/:resourceId')
   timeline(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('resourceType') resourceType: string,
     @Param('resourceId', ParseUUIDPipe) resourceId: string,
   ) {

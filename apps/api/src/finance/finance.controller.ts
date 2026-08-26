@@ -10,7 +10,7 @@ import {
   Req,
   UnauthorizedException,
 } from '@nestjs/common';
-import type { FastifyRequest } from 'fastify';
+import type { ApiRequest } from '../common/api-http.js';
 import { z } from 'zod';
 import { moneySchema, recordPaymentSchema } from '@bhd-r/contracts';
 import { Idempotent, Public, RequirePermissions } from '../common/decorators.js';
@@ -86,7 +86,7 @@ export class FinanceController {
 
   @RequirePermissions('invoice.read')
   @Get('invoices')
-  list(@Req() request: FastifyRequest) {
+  list(@Req() request: ApiRequest) {
     return this.service.listInvoices(request.auth!);
   }
 
@@ -94,7 +94,7 @@ export class FinanceController {
   @Idempotent()
   @Post('invoices')
   create(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(invoiceSchema)) body: z.infer<typeof invoiceSchema>,
   ) {
     return this.service.createInvoice(request.auth!, body);
@@ -102,7 +102,7 @@ export class FinanceController {
 
   @RequirePermissions('invoice.read')
   @Get('invoices/:id/document')
-  invoiceDocument(@Req() request: FastifyRequest, @Param('id', ParseUUIDPipe) id: string) {
+  invoiceDocument(@Req() request: ApiRequest, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.documentUrl(request.auth!, 'invoice', id);
   }
 
@@ -110,7 +110,7 @@ export class FinanceController {
   @Idempotent()
   @Post('payments')
   payment(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(recordPaymentSchema)) body: z.infer<typeof recordPaymentSchema>,
   ) {
     return this.service.recordPayment(request.auth!, body);
@@ -118,25 +118,25 @@ export class FinanceController {
 
   @RequirePermissions('payment.read')
   @Get('payments')
-  payments(@Req() request: FastifyRequest) {
+  payments(@Req() request: ApiRequest) {
     return this.service.listPayments(request.auth!);
   }
 
   @RequirePermissions('receipt.read')
   @Get('receipts')
-  receipts(@Req() request: FastifyRequest) {
+  receipts(@Req() request: ApiRequest) {
     return this.service.listReceipts(request.auth!);
   }
 
   @RequirePermissions('receipt.read')
   @Get('receipts/:id/document')
-  receiptDocument(@Req() request: FastifyRequest, @Param('id', ParseUUIDPipe) id: string) {
+  receiptDocument(@Req() request: ApiRequest, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.documentUrl(request.auth!, 'receipt', id);
   }
 
   @RequirePermissions('payment.read')
   @Get('refunds')
-  refunds(@Req() request: FastifyRequest) {
+  refunds(@Req() request: ApiRequest) {
     return this.service.listRefunds(request.auth!);
   }
 
@@ -144,7 +144,7 @@ export class FinanceController {
   @Idempotent()
   @Post('payments/:id/refunds')
   refund(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodPipe(refundSchema)) body: z.infer<typeof refundSchema>,
   ) {
@@ -153,7 +153,7 @@ export class FinanceController {
 
   @RequirePermissions('billing.schedule.read')
   @Get('billing-schedules')
-  billingSchedules(@Req() request: FastifyRequest) {
+  billingSchedules(@Req() request: ApiRequest) {
     return this.service.listBillingSchedules(request.auth!);
   }
 
@@ -161,7 +161,7 @@ export class FinanceController {
   @Idempotent()
   @Post('billing/run-due')
   runDueBilling(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(billingRunSchema)) body: z.infer<typeof billingRunSchema>,
   ) {
     return this.service.runDueBilling(request.auth!, body.throughOn);
@@ -170,7 +170,7 @@ export class FinanceController {
   @RequirePermissions('invoice.read')
   @Idempotent()
   @Post('invoices/:id/public-link')
-  publicLink(@Req() request: FastifyRequest, @Param('id') id: string) {
+  publicLink(@Req() request: ApiRequest, @Param('id') id: string) {
     return this.service.createPublicLink(request.auth!, id);
   }
 
@@ -178,7 +178,7 @@ export class FinanceController {
   @Idempotent()
   @Post('payment-gateways')
   gateway(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(gatewaySchema)) body: z.infer<typeof gatewaySchema>,
   ) {
     return this.service.configureGateway(request.auth!, body);
@@ -186,7 +186,7 @@ export class FinanceController {
 
   @RequirePermissions('cheque.read')
   @Get('cheques')
-  listCheques(@Req() request: FastifyRequest) {
+  listCheques(@Req() request: ApiRequest) {
     return this.service.listCheques(request.auth!);
   }
 
@@ -194,7 +194,7 @@ export class FinanceController {
   @Idempotent()
   @Post('cheques')
   createCheque(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(chequeSchema)) body: z.infer<typeof chequeSchema>,
   ) {
     return this.service.createCheque(request.auth!, {
@@ -213,7 +213,7 @@ export class FinanceController {
   @RequirePermissions('cheque.review')
   @Post('cheques/:chequeId/review')
   reviewCheque(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('chequeId', ParseUUIDPipe) chequeId: string,
     @Body(new ZodPipe(chequeReviewSchema)) body: z.infer<typeof chequeReviewSchema>,
   ) {
@@ -300,7 +300,7 @@ export class PaymentWebhookController {
     @Param('provider') provider: string,
     @Headers('x-event-id') eventId: string,
     @Headers('x-bhd-signature') signature: string,
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
   ) {
     if (
       !/^[a-z0-9_-]{2,40}$/.test(provider) ||

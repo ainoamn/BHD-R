@@ -11,7 +11,7 @@ import {
   Req,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import type { FastifyRequest } from 'fastify';
+import type { ApiRequest } from '../common/api-http.js';
 import { z } from 'zod';
 import {
   addressSchema,
@@ -86,7 +86,7 @@ export class PortfolioController {
 
   @RequirePermissions('property.read', 'unit.read')
   @Get('properties')
-  list(@Req() request: FastifyRequest) {
+  list(@Req() request: ApiRequest) {
     return this.service.listProperties(request.auth!);
   }
 
@@ -94,7 +94,7 @@ export class PortfolioController {
   @Idempotent()
   @Post('properties')
   create(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(propertyBundleSchema)) body: z.infer<typeof propertyBundleSchema>,
   ) {
     return this.service.createProperty(request.auth!, body);
@@ -102,14 +102,14 @@ export class PortfolioController {
 
   @RequirePermissions('property.read', 'unit.read')
   @Get('properties/:id')
-  get(@Req() request: FastifyRequest, @Param('id', ParseUUIDPipe) id: string) {
+  get(@Req() request: ApiRequest, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.getProperty(request.auth!, id);
   }
 
   @RequirePermissions('property.update')
   @Patch('properties/:id')
   updateProperty(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodPipe(propertyUpdateSchema)) body: z.infer<typeof propertyUpdateSchema>,
   ) {
@@ -118,13 +118,13 @@ export class PortfolioController {
 
   @RequirePermissions('property.archive')
   @Patch('properties/:id/archive')
-  archiveProperty(@Req() request: FastifyRequest, @Param('id', ParseUUIDPipe) id: string) {
+  archiveProperty(@Req() request: ApiRequest, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.archiveProperty(request.auth!, id);
   }
 
   @RequirePermissions('property.archive')
   @Patch('properties/:id/restore')
-  restoreProperty(@Req() request: FastifyRequest, @Param('id', ParseUUIDPipe) id: string) {
+  restoreProperty(@Req() request: ApiRequest, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.restoreProperty(request.auth!, id);
   }
 
@@ -132,7 +132,7 @@ export class PortfolioController {
   @Idempotent()
   @Post('properties/:id/units')
   addUnit(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodPipe(addUnitSchema)) body: z.infer<typeof addUnitSchema>,
   ) {
@@ -142,7 +142,7 @@ export class PortfolioController {
   @RequirePermissions('unit.update')
   @Patch('units/:id')
   updateUnit(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodPipe(unitUpdateSchema)) body: z.infer<typeof unitUpdateSchema>,
   ) {
@@ -152,7 +152,7 @@ export class PortfolioController {
   @RequirePermissions('unit.publish')
   @Patch('units/:id/listing')
   toggle(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodPipe(listingToggleSchema)) body: z.infer<typeof listingToggleSchema>,
   ) {

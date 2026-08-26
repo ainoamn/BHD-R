@@ -5,7 +5,7 @@ import {
   type ExecutionContext,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { FastifyRequest } from 'fastify';
+import type { ApiRequest } from './api-http.js';
 import { PUBLIC_ROUTE } from './decorators.js';
 import { AuthService } from '../auth/auth.service.js';
 
@@ -24,7 +24,7 @@ export class AuthenticationGuard implements CanActivate {
       ])
     )
       return true;
-    const request = context.switchToHttp().getRequest<FastifyRequest>();
+    const request = context.switchToHttp().getRequest<ApiRequest>();
     const apiKey = request.headers['x-api-key'];
     if (typeof apiKey === 'string') {
       request.auth = await this.authService.authenticateApiKey(apiKey);

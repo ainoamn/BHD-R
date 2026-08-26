@@ -109,9 +109,9 @@ Redeploy **web (Vercel)** after this change. Redeploy **Nest (Render)** when pul
 
 ### `/healthz` ok و`/raw-ping` أبيض (حفظ العقار يفشل)
 
-من 0.2.44: Fastify على Render كان يستمع لكن **لا يرد على TCP** (حتى عبر بروكسي إلى `127.0.0.1`). الحل: الحافة العامة ترد على `/healthz`، وباقي المسارات عبر **`fastify.inject()`** بدون `app.listen`.
+من **0.2.45**: Nest على Render يعمل بـ **Express** (وليس Fastify). الحافة العامة ترد على `/healthz`، وExpress يعالج `/raw-ping` و`/v1/*`.
 
-بعد النشر يجب أن ترى في Logs: `inject /raw-ping → 200` و`Nest ready via inject dispatch`. وفي المتصفح: `/raw-ping` → JSON `{"ok":true,"via":"nest-inject"}` وليس صفحة بيضاء.
+بعد النشر في Logs: `Nest Express ready` و`dispatch: express` في `/healthz`. في المتصفح: `/raw-ping` → `{"ok":true,"via":"express"}`.
 
 ## Smoke checklist
 

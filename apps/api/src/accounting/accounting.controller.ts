@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Req } from '@nestjs/common';
-import type { FastifyRequest } from 'fastify';
+import type { ApiRequest } from '../common/api-http.js';
 import { z } from 'zod';
 import { currencyCodeSchema } from '@bhd-r/contracts';
 import { Idempotent, RequirePermissions } from '../common/decorators.js';
@@ -71,20 +71,20 @@ export class AccountingController {
 
   @RequirePermissions('accounting.read')
   @Get('dashboard')
-  dashboard(@Req() request: FastifyRequest) {
+  dashboard(@Req() request: ApiRequest) {
     return this.service.dashboard(request.auth!);
   }
 
   @RequirePermissions('accounting.read')
   @Get('accounts')
-  accounts(@Req() request: FastifyRequest) {
+  accounts(@Req() request: ApiRequest) {
     return this.service.listAccounts(request.auth!);
   }
 
   @RequirePermissions('accounting.manage')
   @Idempotent()
   @Post('accounts/bootstrap')
-  bootstrap(@Req() request: FastifyRequest) {
+  bootstrap(@Req() request: ApiRequest) {
     return this.service.bootstrapChart(request.auth!);
   }
 
@@ -92,7 +92,7 @@ export class AccountingController {
   @Idempotent()
   @Post('accounts')
   createAccount(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(accountSchema)) body: z.infer<typeof accountSchema>,
   ) {
     return this.service.createAccount(request.auth!, body);
@@ -100,13 +100,13 @@ export class AccountingController {
 
   @RequirePermissions('accounting.read')
   @Get('journals')
-  journals(@Req() request: FastifyRequest) {
+  journals(@Req() request: ApiRequest) {
     return this.service.listJournals(request.auth!);
   }
 
   @RequirePermissions('accounting.read')
   @Get('journals/:id')
-  journal(@Req() request: FastifyRequest, @Param('id', ParseUUIDPipe) id: string) {
+  journal(@Req() request: ApiRequest, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.getJournal(request.auth!, id);
   }
 
@@ -114,7 +114,7 @@ export class AccountingController {
   @Idempotent()
   @Post('journals')
   createJournal(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(journalSchema)) body: z.infer<typeof journalSchema>,
   ) {
     return this.service.createJournal(request.auth!, body);
@@ -123,7 +123,7 @@ export class AccountingController {
   @RequirePermissions('accounting.post')
   @Idempotent()
   @Post('journals/:id/post')
-  postJournal(@Req() request: FastifyRequest, @Param('id', ParseUUIDPipe) id: string) {
+  postJournal(@Req() request: ApiRequest, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.postJournal(request.auth!, id);
   }
 
@@ -131,7 +131,7 @@ export class AccountingController {
   @Idempotent()
   @Post('journals/:id/reverse')
   reverseJournal(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(
       new ZodPipe(
@@ -150,13 +150,13 @@ export class AccountingController {
 
   @RequirePermissions('accounting.read')
   @Get('trial-balance')
-  trialBalance(@Req() request: FastifyRequest) {
+  trialBalance(@Req() request: ApiRequest) {
     return this.service.trialBalance(request.auth!);
   }
 
   @RequirePermissions('accounting.read')
   @Get('expenses')
-  expenses(@Req() request: FastifyRequest) {
+  expenses(@Req() request: ApiRequest) {
     return this.service.listExpenses(request.auth!);
   }
 
@@ -164,7 +164,7 @@ export class AccountingController {
   @Idempotent()
   @Post('expenses')
   createExpense(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(expenseSchema)) body: z.infer<typeof expenseSchema>,
   ) {
     return this.service.createExpense(request.auth!, body);
@@ -173,7 +173,7 @@ export class AccountingController {
   @RequirePermissions('accounting.manage')
   @Patch('expenses/:id')
   updateExpense(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(
       new ZodPipe(

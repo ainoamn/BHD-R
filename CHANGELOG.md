@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.45 — 2026-08-26
+
+- **Break glass:** Nest API on Render switches from Fastify to **Express**. Fastify TCP/`ready`/`inject` stayed hung (`/healthz` ok, blank `/raw-ping`, property save timeout). Public edge still serves `/healthz`; Express handles `/raw-ping` and `/v1/*`.
+
 ## 0.2.44 — 2026-08-26
 
 - Render: public Node edge still owns `PORT`/`/healthz`, but Nest Fastify **never listens**. All other routes (including `/raw-ping` and `/v1/*`) are dispatched with `fastify.inject()`. TCP listen/proxy left Nest “ready” while HTTP hung (blank `/raw-ping`, property save timeout).

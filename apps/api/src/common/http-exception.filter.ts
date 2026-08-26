@@ -5,14 +5,15 @@ import {
   type ArgumentsHost,
   type ExceptionFilter,
 } from '@nestjs/common';
-import type { FastifyReply, FastifyRequest } from 'fastify';
+import type { ApiRequest, ApiResponse } from './api-http.js';
+import { requestIdOf } from './http-request.js';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const http = host.switchToHttp();
-    const request = http.getRequest<FastifyRequest>();
-    const reply = http.getResponse<FastifyReply>();
+    const request = http.getRequest<ApiRequest>();
+    const reply = http.getResponse<ApiResponse>();
     const status =
       exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
     const response = exception instanceof HttpException ? exception.getResponse() : undefined;
@@ -30,11 +31,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
           : status === 500
             ? 'An unexpected error occurred'
             : 'Request failed';
-    void reply.status(status).send({
+    reply.status(status).json({
       error: {
         code,
         message,
-        requestId: request.id,
+        requestId: requestIdOf(request),
         ...(status < 500 && typeof response === 'object' ? { details: response } : {}),
       },
     });

@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Req } from '@nestjs/common';
-import type { FastifyRequest } from 'fastify';
+import type { ApiRequest } from '../common/api-http.js';
 import { z } from 'zod';
 import { roleKeySchema } from '@bhd-r/authz';
 import { Idempotent, Authenticated, RequirePermissions } from '../common/decorators.js';
@@ -39,20 +39,20 @@ export class OrganizationsController {
 
   @RequirePermissions('organization.read')
   @Get('current')
-  getCurrent(@Req() request: FastifyRequest) {
+  getCurrent(@Req() request: ApiRequest) {
     return this.service.getCurrent(request.auth!);
   }
 
   @RequirePermissions('organization.members.read')
   @Get('current/members')
-  listMembers(@Req() request: FastifyRequest) {
+  listMembers(@Req() request: ApiRequest) {
     return this.service.listMembers(request.auth!);
   }
 
   @RequirePermissions('organization.members.write')
   @Post('current/representatives')
   addRepresentative(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(representativeSchema)) body: z.infer<typeof representativeSchema>,
   ) {
     return this.service.addRepresentative(request.auth!, body);
@@ -60,7 +60,7 @@ export class OrganizationsController {
 
   @RequirePermissions('organization.members.read')
   @Get('current/invitations')
-  listInvitations(@Req() request: FastifyRequest) {
+  listInvitations(@Req() request: ApiRequest) {
     return this.service.listInvitations(request.auth!);
   }
 
@@ -68,7 +68,7 @@ export class OrganizationsController {
   @Idempotent()
   @Post('current/invitations')
   createInvitation(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(inviteSchema)) body: z.infer<typeof inviteSchema>,
   ) {
     return this.service.createInvitation(request.auth!, body);
@@ -77,7 +77,7 @@ export class OrganizationsController {
   @RequirePermissions('organization.members.write')
   @Post('current/invitations/:invitationId/revoke')
   revokeInvitation(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('invitationId', ParseUUIDPipe) invitationId: string,
   ) {
     return this.service.revokeInvitation(request.auth!, invitationId);
@@ -86,7 +86,7 @@ export class OrganizationsController {
   @Authenticated()
   @Post('invitations/accept')
   acceptInvitation(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(acceptInviteSchema)) body: z.infer<typeof acceptInviteSchema>,
   ) {
     return this.service.acceptInvitation(request.auth!, body.token);
@@ -96,7 +96,7 @@ export class OrganizationsController {
   @Idempotent()
   @Patch('current/members/:userId')
   updateMember(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('userId', ParseUUIDPipe) userId: string,
     @Body(new ZodPipe(memberStatusSchema)) body: z.infer<typeof memberStatusSchema>,
   ) {

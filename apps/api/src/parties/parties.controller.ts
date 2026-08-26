@@ -10,7 +10,7 @@ import {
   Query,
   Req,
 } from '@nestjs/common';
-import type { FastifyRequest } from 'fastify';
+import type { ApiRequest } from '../common/api-http.js';
 import { z } from 'zod';
 import { Idempotent, RequirePermissions } from '../common/decorators.js';
 import { ZodPipe } from '../common/zod.pipe.js';
@@ -118,7 +118,7 @@ export class PartiesController {
   @RequirePermissions('party.read')
   @Get()
   list(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Query(new ZodPipe(listQuerySchema)) query: z.infer<typeof listQuerySchema>,
   ) {
     return this.service.list(request.auth!, {
@@ -130,7 +130,7 @@ export class PartiesController {
   @RequirePermissions('party.read')
   @Get(':id')
   get(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Query('includeSensitive') includeSensitive?: string,
   ) {
@@ -143,7 +143,7 @@ export class PartiesController {
   @Idempotent()
   @Post()
   create(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Body(new ZodPipe(createPartySchema)) body: z.infer<typeof createPartySchema>,
   ) {
     return this.service.create(request.auth!, body);
@@ -152,7 +152,7 @@ export class PartiesController {
   @RequirePermissions('party.write')
   @Patch(':id')
   update(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodPipe(updatePartySchema)) body: z.infer<typeof updatePartySchema>,
   ) {
@@ -163,7 +163,7 @@ export class PartiesController {
   @Idempotent()
   @Post(':id/addresses')
   address(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodPipe(addressSchema)) body: z.infer<typeof addressSchema>,
   ) {
@@ -174,7 +174,7 @@ export class PartiesController {
   @Idempotent()
   @Post(':id/identity-documents')
   identityDocument(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodPipe(identityDocumentSchema)) body: z.infer<typeof identityDocumentSchema>,
   ) {
@@ -185,7 +185,7 @@ export class PartiesController {
   @Idempotent()
   @Post(':id/representatives')
   representative(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodPipe(representativeSchema)) body: z.infer<typeof representativeSchema>,
   ) {
@@ -195,7 +195,7 @@ export class PartiesController {
   @RequirePermissions('party.representative.manage')
   @Post(':id/representatives/:authorityId/revoke')
   revokeRepresentative(
-    @Req() request: FastifyRequest,
+    @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
     @Param('authorityId', ParseUUIDPipe) authorityId: string,
   ) {
@@ -204,7 +204,7 @@ export class PartiesController {
 
   @RequirePermissions('party.write')
   @Delete(':id')
-  archive(@Req() request: FastifyRequest, @Param('id', ParseUUIDPipe) id: string) {
+  archive(@Req() request: ApiRequest, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.archive(request.auth!, id);
   }
 }
