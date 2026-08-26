@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.41 — 2026-08-26
+
+- Remove Fastify `serverFactory` health short-circuit (it broke all non-health routes including `/raw-ping` and `/v1/*`, so property save hung ~160s). Register `/healthz` on Fastify normally; shorten BFF mutation timeout to 25s; point errors at `/healthz`.
+
 ## 0.2.40 — 2026-08-26
 
 - Portal Nest “online” uses `/healthz` (works on Live Render). `/api/warm` + cron + reconnect link switched off hanging `/health/ready`. Ops banner treats healthz OK as online even when Nest `/v1` context times out.

@@ -556,8 +556,8 @@ export function PropertyWizard({
       if (!warmPayload?.ok) {
         throw new Error(
           ar
-            ? 'خادم Nest على Render غير متاح الآن. من لوحة Render أعد تشغيل/نشر الخدمة حتى تصبح Live، ثم افتح /health/ready وأعد الحفظ.'
-            : 'Nest on Render is unavailable. Redeploy/restart the service until Live, verify /health/ready, then save again.',
+            ? 'خادم Nest على Render غير متاح الآن. من لوحة Render أعد تشغيل/نشر الخدمة حتى تصبح Live، ثم افتح /healthz وأعد الحفظ.'
+            : 'Nest on Render is unavailable. Redeploy/restart the service until Live, verify /healthz, then save again.',
         );
       }
       setSuccess(ar ? 'جاري حفظ العقار…' : 'Saving property…');

@@ -1,5 +1,4 @@
 import 'reflect-metadata';
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import cookie from '@fastify/cookie';
@@ -9,25 +8,6 @@ import { loadEnvironment } from '@bhd-r/config';
 import { AppModule } from './app.module.js';
 import { createInternalRequestId } from './common/request-id.js';
 import { resolveCorsOrigin } from './common/web-origins.js';
-
-function isPlatformHealthPath(url: string | undefined): boolean {
-  if (!url) return false;
-  const path = url.split('?')[0] ?? '';
-  return path === '/healthz' || path === '/health/live' || path === '/health/ready';
-}
-
-function writeHealthOk(res: ServerResponse): void {
-  const body = JSON.stringify({
-    status: 'ok',
-    service: 'bhd-r-api',
-    timestamp: new Date().toISOString(),
-  });
-  res.writeHead(200, {
-    'content-type': 'application/json; charset=utf-8',
-    'content-length': Buffer.byteLength(body),
-  });
-  res.end(body);
-}
 
 async function bootstrap(): Promise<void> {
   const environment = loadEnvironment();
@@ -46,22 +26,9 @@ async function bootstrap(): Promise<void> {
     );
   }
 
-  /**
-   * Render Free Docker health + Vercel /api/warm must not depend on Nest/DB.
-   * Nest Fastify handlers were hanging on Render; answer health at the Node layer.
-   */
-  let nodeServer: Server | undefined;
+  // Do NOT use serverFactory short-circuit: it made Fastify handler hang for all
+  // non-health routes (/raw-ping and /v1/*). Register /healthz on Fastify itself.
   const fastify = Fastify({
-    serverFactory(handler) {
-      nodeServer = createServer((req: IncomingMessage, res: ServerResponse) => {
-        if (isPlatformHealthPath(req.url)) {
-          writeHealthOk(res);
-          return;
-        }
-        handler(req, res);
-      });
-      return nodeServer;
-    },
     trustProxy:
       Number.isInteger(trustedProxyHops) && trustedProxyHops > 0
         ? (trustedProxyHops as unknown as boolean)
@@ -89,7 +56,11 @@ async function bootstrap(): Promise<void> {
         : false,
   });
 
-  // Native Fastify probe (does not use Nest). Helps diagnose Nest-vs-Fastify hangs.
+  fastify.get('/healthz', async () => ({
+    status: 'ok',
+    service: 'bhd-r-api',
+    timestamp: new Date().toISOString(),
+  }));
   fastify.get('/raw-ping', async () => ({ ok: true, via: 'fastify-native' }));
 
   const adapter = new FastifyAdapter(fastify as never);
@@ -127,21 +98,33 @@ async function bootstrap(): Promise<void> {
   );
 
   await app.listen(port, '0.0.0.0');
-  console.log(`BHD-R API listening`, nodeServer?.address?.() ?? app.getHttpServer()?.address?.());
+  console.log(`BHD-R API listening`, app.getHttpServer()?.address?.());
 
   try {
-    const self = await Promise.race([
-      fetch(`http://127.0.0.1:${port}/healthz`).then(async (response) => ({
-        status: response.status,
-        body: await response.text(),
-      })),
-      new Promise<never>((_resolve, reject) => {
-        setTimeout(() => reject(new Error('tcp_healthz_timeout_3s')), 3_000);
-      }),
+    const [healthz, rawPing] = await Promise.all([
+      Promise.race([
+        fetch(`http://127.0.0.1:${port}/healthz`).then(async (response) => ({
+          status: response.status,
+          body: await response.text(),
+        })),
+        new Promise<never>((_resolve, reject) => {
+          setTimeout(() => reject(new Error('tcp_healthz_timeout_3s')), 3_000);
+        }),
+      ]),
+      Promise.race([
+        fetch(`http://127.0.0.1:${port}/raw-ping`).then(async (response) => ({
+          status: response.status,
+          body: await response.text(),
+        })),
+        new Promise<never>((_resolve, reject) => {
+          setTimeout(() => reject(new Error('tcp_raw_ping_timeout_3s')), 3_000);
+        }),
+      ]),
     ]);
-    console.log(`BHD-R API TCP /healthz → ${self.status} ${self.body}`);
+    console.log(`BHD-R API TCP /healthz → ${healthz.status} ${healthz.body}`);
+    console.log(`BHD-R API TCP /raw-ping → ${rawPing.status} ${rawPing.body}`);
   } catch (error) {
-    console.error('BHD-R API TCP /healthz failed', error);
+    console.error('BHD-R API TCP self-check failed', error);
   }
 }
 
