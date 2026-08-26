@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.31 — 2026-08-26
+
+- Portal speed (WAZEN lessons): dashboard overview reads Neon directly on Vercel when `DATABASE_URL` is set — no Nest wait for `/owner` metrics.
+- WAZEN-style `NavigationProgress` top bar; raise client `staleTimes` (60s/300s).
+- Docs: `WAZEN-SPEED-LESSONS-AR.md`.
+
 ## 0.2.30 — 2026-08-26
 
 - Docs: Cloudflare Workers project `bhd-r` is not the deploy path — Git builds fail by design without wrangler; disconnect Git and use Vercel+Render (`CLOUDFLARE-NOT-DEPLOY-PATH-AR.md`).

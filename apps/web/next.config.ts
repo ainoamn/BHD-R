@@ -53,8 +53,8 @@ const config: NextConfig = {
     optimizePackageImports: ['@bhd-r/ui'],
     // Soft nav feels SPA-like: keep recently visited portal segments warm on the client.
     staleTimes: {
-      dynamic: 30,
-      static: 180,
+      dynamic: 60,
+      static: 300,
     },
   },
   images: {

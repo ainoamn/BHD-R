@@ -5205,6 +5205,21 @@ h3 {
   padding-block: 0.15rem 0.35rem;
   min-height: 0;
 }
+.nav-progress {
+  position: fixed;
+  inset-block-start: 0;
+  inset-inline: 0;
+  z-index: 80;
+  height: 3px;
+  pointer-events: none;
+  background: transparent;
+}
+.nav-progress > i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--bhd-teal, #1aa6a0), rgb(181 141 85));
+  transition: width 0.16s ease-out;
+}
 .portal-route-pending__bar {
   height: 3px;
   border-radius: 999px;

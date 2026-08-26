@@ -1,8 +1,8 @@
 import { EmptyState } from '@bhd-r/ui';
 import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
-import { apiFetch } from '@/lib/server-api';
 import { formatMoney } from '@/lib/format';
+import { loadPortalOverview } from '@/lib/portal-overview-data';
 import { requirePortal } from '@/lib/viewer';
 import type { PortalOverview as OverviewData, PortalRole } from '@/lib/types';
 
@@ -48,16 +48,7 @@ function alertHref(portal: PortalRole, code: string): string {
 export async function PortalOverview({ locale, portal }: { locale: string; portal: PortalRole }) {
   const t = await getTranslations();
   const viewer = await requirePortal(locale, portal);
-  const overview: OverviewData = await apiFetch<OverviewData>(`/v1/${portal}/overview`).catch(
-    (): OverviewData => ({
-      occupancyPercent: null,
-      collected: [],
-      openTickets: null,
-      expiringContracts: null,
-      recentActivity: [],
-      alerts: [],
-    }),
-  );
+  const overview: OverviewData = await loadPortalOverview(portal, viewer);
   const collected =
     overview.collected ??
     (overview.collectedMinor !== null && overview.collectedMinor !== undefined
