@@ -2,11 +2,12 @@ import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 10;
+/** Free Render cold starts often exceed 50s; keep under Vercel route budget. */
+export const maxDuration = 60;
 
 /**
- * Lightweight Nest wake-up for portal sessions (Render cold start).
- * Called from NestKeepAlive while the owner/developer/tenant UI is open.
+ * Nest wake-up for portal sessions (Render free-tier cold start).
+ * Called from NestReconnect / NestKeepAlive / property wizard.
  */
 export async function GET() {
   const origin = (process.env.API_INTERNAL_ORIGIN ?? process.env.API_ORIGIN ?? '')
@@ -20,7 +21,7 @@ export async function GET() {
     const response = await fetch(`${origin}/health/ready`, {
       headers: { accept: 'application/json' },
       cache: 'no-store',
-      signal: AbortSignal.timeout(8_000),
+      signal: AbortSignal.timeout(55_000),
     });
     return NextResponse.json({
       ok: response.ok,

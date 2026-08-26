@@ -1,6 +1,7 @@
 import { getLocale } from 'next-intl/server';
 import { ApiError } from '@/lib/api';
 import { apiFetch, isNestApiConfiguredForRuntime } from '@/lib/server-api';
+import { loadOpsRecordsFromDb } from '@/lib/portal-ops-data';
 import type { PortalRole } from '@/lib/types';
 import { OperationsConsole, type OperationsContext } from './operations-console';
 
@@ -28,11 +29,21 @@ export type OperationsSection =
 type DataRow = Record<string, unknown>;
 
 async function safeRows(path: string): Promise<DataRow[]> {
-  const payload = await apiFetch<DataRow[] | { data: DataRow[] }>(path).catch(() => []);
-  return Array.isArray(payload) ? payload : payload.data;
+  const payload = await Promise.race([
+    apiFetch<DataRow[] | { data: DataRow[] }>(path)
+      .then((value) => value)
+      .catch(() => [] as DataRow[] | { data: DataRow[] }),
+    new Promise<DataRow[]>((resolve) => {
+      setTimeout(() => resolve([]), 3_500);
+    }),
+  ]);
+  return Array.isArray(payload) ? payload : (payload.data ?? []);
 }
 
 async function loadSection(portal: PortalRole, section: OperationsSection) {
+  const fromDb = await loadOpsRecordsFromDb(portal, section);
+  if (fromDb !== null) return { records: fromDb as DataRow[], source: 'db' as const };
+
   switch (section) {
     case 'properties':
       return {
@@ -153,25 +164,45 @@ export async function OperationsWorkspace({
           unreachable: false,
           context: {} as OperationsContext,
         })
-      : apiFetch<OperationsContext>('/v1/operations/context')
-          .then((payload) => ({
-            ok: true as const,
-            unauthorized: false,
-            unreachable: false,
-            context: payload,
-          }))
-          .catch((error: unknown) => ({
-            ok: false as const,
-            unauthorized: error instanceof ApiError && error.status === 401,
-            unreachable:
-              error instanceof ApiError &&
-              (error.status === 503 || error.code === 'api_unreachable'),
-            context: {} as OperationsContext,
-          })),
+      : Promise.race([
+          apiFetch<OperationsContext>('/v1/operations/context')
+            .then((payload) => ({
+              ok: true as const,
+              unauthorized: false,
+              unreachable: false,
+              context: payload,
+            }))
+            .catch((error: unknown) => ({
+              ok: false as const,
+              unauthorized: error instanceof ApiError && error.status === 401,
+              unreachable:
+                error instanceof ApiError &&
+                (error.status === 503 || error.code === 'api_unreachable'),
+              context: {} as OperationsContext,
+            })),
+          new Promise<{
+            ok: false;
+            unauthorized: false;
+            unreachable: true;
+            context: OperationsContext;
+          }>((resolve) => {
+            setTimeout(
+              () =>
+                resolve({
+                  ok: false,
+                  unauthorized: false,
+                  unreachable: true,
+                  context: {} as OperationsContext,
+                }),
+              3_500,
+            );
+          }),
+        ]),
   ]);
   const apiOnline = portal === 'tenant' ? true : !contextResult.unreachable;
   const context = contextResult.context;
   const recordsEmpty = !loaded.records.length;
+  const dataFromDb = 'source' in loaded && loaded.source === 'db';
   return (
     <OperationsConsole
       portal={portal}
@@ -185,6 +216,7 @@ export async function OperationsWorkspace({
       nestConfigured={nestConfigured}
       recordsEmpty={recordsEmpty}
       apiUnauthorized={Boolean(contextResult.unauthorized)}
+      dataFromDb={dataFromDb}
     />
   );
 }

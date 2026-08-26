@@ -27,8 +27,8 @@ export function NestReconnectButton({ locale }: { locale: 'ar' | 'en' }) {
       }
       setHint(
         ar
-          ? `Nest ما زال غير جاهز (${payload?.status ?? warm.status}). افتح لوحة Render → Logs وأعد نشر الخدمة، ثم أعد المحاولة.`
-          : `Nest still down (${payload?.status ?? warm.status}). Open Render → Logs, redeploy, then retry.`,
+          ? `Nest ما زال غير جاهز (${payload?.status ?? warm.status}، ~${payload?.ms ?? '?'}ms). امسح فلتر Logs (Clear query) → Manual Deploy → انتظر Live ثم أعد المحاولة. الخطة المجانية قد تستغرق دقيقة+.`
+          : `Nest still down (${payload?.status ?? warm.status}, ~${payload?.ms ?? '?'}ms). Clear Logs query → Manual Deploy → wait Live, then retry. Free tier may need 1+ min.`,
       );
     } catch {
       setHint(

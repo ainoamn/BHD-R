@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.33 — 2026-08-26
+
+- When Nest (Render) is down: owner properties + contacts lists load from Neon on Vercel (read path); ops Nest calls time out in ~3.5s; banner clarifies DB read vs Nest for writes.
+- `/api/warm` waits up to ~55s for Render free-tier cold start (was 8s).
+- `REDIS_URL` must be `redis://` / `rediss://` (reject Upstash console HTTPS pages).
+
 ## 0.2.32 — 2026-08-26
 
 - Portal SPA nav (WAZEN-like): sidebar `prefetch` + idle `PortalRoutePrefetch` for all sections; client `staleTimes` 180s/600s; no loading flash; `scroll={false}`.

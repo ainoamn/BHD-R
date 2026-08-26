@@ -55,29 +55,33 @@ Redeploy **web (Vercel)** after this change. Redeploy **Nest (Render)** when pul
 
 **Arabic click-by-click for Vercel:** [`VERCEL-MANUAL-AR.md`](./VERCEL-MANUAL-AR.md).
 
-## عندما تظهر «تعذّر الوصول إلى Nest API»
+## ماذا تعني «Nest ما زال غير جاهز (502)»
 
-الرسالة تعني: **Vercel مضبوط** (`API_INTERNAL_ORIGIN`) لكن **Nest على Render لا يرد**.
+الزر «إعادة الاتصال» يستدعي `/api/warm` → Render. **502** = الخدمة لا ترد (متوقفة/فشل إقلاع/نومية طويلة). لا يمكن للكود على Vercel إصلاح ذلك وحده.
 
-فحص سريع (من جهازك):
+### خطوات Render (إلزامي للحفظ وإضافة عقار)
 
-```text
-https://bhd-r.onrender.com/health/ready
-```
+1. [dashboard.render.com](https://dashboard.render.com) → خدمة Nest (`bhd-r` / `bhd-r-api`).
+2. **Logs** — ابحث عن `Invalid environment` / crash / missing `REDIS_URL` / `DATABASE_URL`.
+3. **Manual Deploy** من `main` الأحدث → انتظر **Live**.
+4. افتح [`https://bhd-r.onrender.com/health/ready`](https://bhd-r.onrender.com/health/ready) → يجب 200 خلال ثوانٍ.
+5. ارجع للبوابة → «إعادة الاتصال بـ Nest».
 
-- إن فشل أو بقي يحمّل طويلاً → المشكلة في **Render** وليس في الواجهة.
-- من لوحة Render: الخدمة `bhd-r` / `bhd-r-api` → **Logs** (ابحث عن crash / Invalid environment) → **Manual Deploy** لـ `main` (≥ `6e5b607`) → انتظر **Live**.
-- بعد Live أعد تحميل `/ar/owner/properties` أو اضغط «إعادة الاتصال بـ Nest».
+من 0.2.33: **قائمة العقارات والأطراف** تُعرض من Neon حتى لو Nest down (قراءة فقط). الحفظ ما زال يحتاج Nest Live.
 
-لا تغيّر `API_INTERNAL_ORIGIN` إلى localhost. القيمة الصحيحة عادة: `https://bhd-r.onrender.com`.
+### خطأ شائع: `REDIS_URL` = رابط لوحة Upstash
 
-1. `GET https://API_HOST/health/ready` → 200 (if this hangs >30s, Nest is down or sleeping — fix Render first; portal pages will feel like 60–80s)
-2. SSO login on `https://r.bhd-om.com`  
-3. Owner overview loads metrics (not empty fail-soft)  
-4. Confirm reservation deposit → journal appears in accounting  
-5. End lease → vacancy task in Tasks  
+القيمة الصحيحة من Upstash → Redis → **REST API / Connect** → **Redis URL** (تبدأ بـ `rediss://` أو `redis://`).
 
-## Keep Nest warm (Vercel Cron)
+**خطأ:** `https://console.upstash.com/redis/.../details` (صفحة المتصفح — ليست اتصال Redis).
+
+بعد التصحيح في Render → Environment → Save → **Manual Deploy**.
+
+### Logs فارغة؟
+
+لا تكتب كلمة `Clear query` في خانة البحث. **احذف كل النص** من شريط البحث حتى يصبح فارغاً، أو اضغط زر **Clear query** بجانب الرسالة.
+
+## Smoke checklist
 
 Web app pings Nest every 5 minutes via `GET /api/cron/warmup-nest` (`apps/web/vercel.json`).
 

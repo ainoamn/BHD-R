@@ -8,7 +8,14 @@ export const environmentSchema = z.object({
   API_ORIGIN: z.url().default('http://localhost:4000'),
   PORT: z.coerce.number().int().min(1).max(65535).default(4000),
   DATABASE_URL: z.url(),
-  REDIS_URL: z.url(),
+  /** Must be redis:// or rediss:// — not an Upstash console HTTPS page. */
+  REDIS_URL: z
+    .string()
+    .min(1)
+    .refine(
+      (value) => /^rediss?:\/\//i.test(value),
+      'REDIS_URL must start with redis:// or rediss:// (Upstash REST/console URLs are invalid)',
+    ),
   S3_ENDPOINT: z.url(),
   S3_REGION: z.string().min(1).default('us-east-1'),
   S3_BUCKET_PRIVATE: z.string().min(3),

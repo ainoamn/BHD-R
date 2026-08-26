@@ -1968,6 +1968,7 @@ export function OperationsConsole({
   nestConfigured = true,
   recordsEmpty = false,
   apiUnauthorized = false,
+  dataFromDb = false,
 }: {
   portal: PortalRole;
   section: OperationsSection;
@@ -1980,6 +1981,7 @@ export function OperationsConsole({
   nestConfigured?: boolean;
   recordsEmpty?: boolean;
   apiUnauthorized?: boolean;
+  dataFromDb?: boolean;
 }) {
   const router = useRouter();
   const definition = definitions[section];
@@ -2434,6 +2436,12 @@ export function OperationsConsole({
               {ar
                 ? 'لا سجلات معروضة حالياً لهذا القسم — بسبب غياب استجابة الـ API.'
                 : 'No records shown for this section — because the API did not respond.'}
+            </p>
+          ) : dataFromDb ? (
+            <p className="ops-api-banner__note">
+              {ar
+                ? 'تُعرض السجلات من قاعدة البيانات مباشرة (قراءة). الحفظ والإجراءات تحتاج Nest على Render Live.'
+                : 'Records are shown from the database (read-only path). Saves and actions need Nest Live on Render.'}
             </p>
           ) : null}
         </div>

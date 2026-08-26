@@ -14,7 +14,13 @@ const schema = z.object({
   WORKER_PORT: z.coerce.number().int().min(1).max(65535).default(4001),
   DATABASE_URL: z.string().min(1),
   WORKER_DATABASE_URL: z.string().min(1).optional(),
-  REDIS_URL: z.string().url(),
+  REDIS_URL: z
+    .string()
+    .min(1)
+    .refine(
+      (value) => /^rediss?:\/\//i.test(value),
+      'REDIS_URL must start with redis:// or rediss://',
+    ),
   WEB_ORIGIN: z.string().url().default('http://localhost:3000'),
   S3_ENDPOINT: optionalUrl,
   S3_REGION: z.string().default('us-east-1'),
