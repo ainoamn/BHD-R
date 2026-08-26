@@ -30,28 +30,29 @@ function writeJson(res: ServerResponse, status: number, body: unknown): void {
   res.end(payload);
 }
 
-const DROP_HEADERS = new Set([
-  'connection',
-  'keep-alive',
-  'proxy-authenticate',
-  'proxy-authorization',
-  'te',
-  'trailers',
-  'transfer-encoding',
-  'upgrade',
-  'host',
-  'expect',
-]);
-
 function proxyToNest(req: IncomingMessage, res: ServerResponse, nestPort: number): void {
-  const headers: Record<string, string | string[] | undefined> = {};
-  for (const [key, value] of Object.entries(req.headers)) {
-    const lower = key.toLowerCase();
-    if (DROP_HEADERS.has(lower)) continue;
-    if ((req.method === 'GET' || req.method === 'HEAD') && lower === 'content-length') continue;
-    headers[key] = value;
+  // Whitelist only — forwarding browser/proxy headers caused Nest route handlers to hang
+  // on Render while plain Express /raw-ping still answered.
+  const headers: Record<string, string | string[] | undefined> = {
+    host: `127.0.0.1:${nestPort}`,
+    accept: req.headers.accept ?? 'application/json',
+    'user-agent': req.headers['user-agent'] ?? 'bhd-r-edge',
+  };
+  if (req.headers['content-type']) headers['content-type'] = req.headers['content-type'];
+  if (req.headers['content-length'] && req.method !== 'GET' && req.method !== 'HEAD') {
+    headers['content-length'] = req.headers['content-length'];
   }
-  headers.host = `127.0.0.1:${nestPort}`;
+  if (req.headers.cookie) headers.cookie = req.headers.cookie;
+  if (req.headers.authorization) headers.authorization = req.headers.authorization;
+  if (req.headers['x-api-key']) headers['x-api-key'] = req.headers['x-api-key'];
+  if (req.headers['x-csrf-token']) headers['x-csrf-token'] = req.headers['x-csrf-token'];
+  if (req.headers['x-organization-id']) headers['x-organization-id'] = req.headers['x-organization-id'];
+  if (req.headers['idempotency-key']) headers['idempotency-key'] = req.headers['idempotency-key'];
+  if (req.headers['x-request-id']) headers['x-request-id'] = req.headers['x-request-id'];
+  if (req.headers.origin) headers.origin = req.headers.origin;
+  if (req.headers['x-forwarded-for']) headers['x-forwarded-for'] = req.headers['x-forwarded-for'];
+  if (req.headers['x-forwarded-proto']) headers['x-forwarded-proto'] = req.headers['x-forwarded-proto'];
+  if (req.headers['x-forwarded-host']) headers['x-forwarded-host'] = req.headers['x-forwarded-host'];
 
   const upstream = httpRequest(
     {
