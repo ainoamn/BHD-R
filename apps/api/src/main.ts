@@ -66,15 +66,25 @@ async function bootstrap(): Promise<void> {
     ],
   });
   app.enableShutdownHooks();
-  // Render/Docker require 0.0.0.0; Nest's "successfully started" log is from init(),
-  // before the socket is bound — use positional listen + log the real address.
-  const port = Number(process.env.PORT ?? environment.PORT ?? 4000);
-  await app.listen(port, '0.0.0.0');
-  const bound = app.getHttpServer()?.address?.();
+  // Render default PORT is 10000. Dashboard PORT must match the listen port or
+  // deploy fails with "No open HTTP ports detected" even when Node reports bound.
+  const port = Number(process.env.PORT || 10_000);
+  if (!Number.isFinite(port) || port <= 0) {
+    throw new Error(`Invalid PORT: ${process.env.PORT}`);
+  }
   console.log(
-    `BHD-R API listening on 0.0.0.0:${port}`,
-    typeof bound === 'object' && bound ? bound : bound,
+    `BHD-R API binding host=0.0.0.0 port=${port} (process.env.PORT=${process.env.PORT ?? '<unset>'})`,
   );
+  // Bypass NestApplication.listen wrapper — bind Fastify's server directly.
+  await app.init();
+  const address = await fastify.listen({ port, host: '0.0.0.0' });
+  console.log(`BHD-R API listening at ${address}`, fastify.server.address());
+  try {
+    const self = await fetch(`http://127.0.0.1:${port}/health/live`);
+    console.log(`BHD-R API self-check /health/live → ${self.status}`);
+  } catch (error) {
+    console.error('BHD-R API self-check failed', error);
+  }
 }
 
 void bootstrap();

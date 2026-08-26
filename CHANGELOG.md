@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.36 — 2026-08-26
+
+- Align Nest listen port with Render default **10000** (Dockerfile `EXPOSE`/`PORT`, config default). Bind via Fastify `listen` directly + self-check `/health/live`. Fixes deploys where Node logged `0.0.0.0:4000` but Render still reported no open HTTP ports.
+
 ## 0.2.35 — 2026-08-26
 
 - Fix Render “No open HTTP ports detected”: Nest Fastify now binds with `listen(port, '0.0.0.0')` and logs the bound address (previous object-form listen left Render unable to route → 502 / hung deploys).

@@ -19,5 +19,6 @@ RUN npm install --global pnpm@10.14.0 \
     && usermod --uid 10001 --gid 10001 node
 COPY --from=build --chown=node:node /prod/api /app
 USER node
-EXPOSE 4000
+EXPOSE 10000
+ENV PORT=10000
 CMD ["node", "dist/main.js"]

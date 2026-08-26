@@ -77,6 +77,14 @@ Redeploy **web (Vercel)** after this change. Redeploy **Nest (Render)** when pul
 
 بعد التصحيح في Render → Environment → Save → **Manual Deploy**.
 
+### «No open HTTP ports» رغم `listening on 0.0.0.0:4000`
+
+Render الافتراضي هو المنفذ **10000**. إذا `PORT=4000` في Environment بينما المنصة تتوقع 10000 (أو العكس)، يظهر: التطبيق مربوط وRender يقول لا يوجد منفذ.
+
+**على Render → Environment:** عيّن `PORT=10000` (احذف 4000).  
+**Settings → Health Check Path:** `/health/live`.  
+ثم Manual Deploy لـ `main` الأحدث. في Logs يجب: `self-check /health/live → 200`.
+
 ### «No open HTTP ports detected» بعد Nest started
 
 سجل `Nest application successfully started` يأتي من **init** قبل أن يُفتح المنفذ. إن ظهر بعدها `Port scan timeout… no open HTTP ports` فـ Render لا يرى سوكِت على `0.0.0.0` → 502.
