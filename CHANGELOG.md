@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.30 — 2026-08-26
+
+- Docs: Cloudflare Workers project `bhd-r` is not the deploy path — Git builds fail by design without wrangler; disconnect Git and use Vercel+Render (`CLOUDFLARE-NOT-DEPLOY-PATH-AR.md`).
+
 ## 0.2.29 — 2026-08-26
 
 - Property wizard media: appending photos keeps existing ones (no replace); add-more label, remove per image, max 12.

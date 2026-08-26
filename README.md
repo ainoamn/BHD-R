@@ -24,6 +24,8 @@
 
 **استضافة Nest API:** [`docs/implementation/NEST-API-HOSTING.md`](./docs/implementation/NEST-API-HOSTING.md)
 
+**Cloudflare Workers `bhd-r` (ليس مسار النشر):** [`docs/implementation/CLOUDFLARE-NOT-DEPLOY-PATH-AR.md`](./docs/implementation/CLOUDFLARE-NOT-DEPLOY-PATH-AR.md) — فشل البناء هناك متوقع؛ النشر = Vercel + Render.
+
 **هوية BHD:** [`docs/BHD-R-IDENTITY-SETUP.md`](./docs/BHD-R-IDENTITY-SETUP.md)
 
 **مزامنة الحزمة 0.1.6:** [`docs/RELEASE_SYNC_0.1.6.md`](./docs/RELEASE_SYNC_0.1.6.md)
