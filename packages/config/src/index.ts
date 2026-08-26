@@ -6,7 +6,7 @@ export const environmentSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   WEB_ORIGIN: z.url().default('http://localhost:3000'),
   API_ORIGIN: z.url().default('http://localhost:4000'),
-  PORT: z.coerce.number().int().min(1).max(65535).default(10000),
+  PORT: z.coerce.number().int().min(1).max(65535).default(4000),
   DATABASE_URL: z.url(),
   /** Must be redis:// or rediss:// — not an Upstash console HTTPS page. */
   REDIS_URL: z

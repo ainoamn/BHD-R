@@ -68,7 +68,9 @@ async function bootstrap(): Promise<void> {
   app.enableShutdownHooks();
   // Render default PORT is 10000. Dashboard PORT must match the listen port or
   // deploy fails with "No open HTTP ports detected" even when Node reports bound.
-  const port = Number(process.env.PORT || 10_000);
+  const port = Number(
+    process.env.PORT || (process.env.RENDER === 'true' ? 10_000 : environment.PORT || 4000),
+  );
   if (!Number.isFinite(port) || port <= 0) {
     throw new Error(`Invalid PORT: ${process.env.PORT}`);
   }
