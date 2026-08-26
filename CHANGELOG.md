@@ -2,6 +2,14 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.43 — 2026-08-26
+
+- Split public edge vs Nest: Node listens on `PORT` for `/healthz` and proxies other paths to Nest Fastify on `127.0.0.1:(PORT+1)`. Fixes Live `/healthz` while `/raw-ping` and property save hung.
+
+## 0.2.42 — 2026-08-26
+
+- Early-bind raw Node HTTP on `PORT` before Nest (Render port scan + `/healthz`). Attach Fastify via `serverFactory` to the same server without a second `listen`. Avoid Nest `listen` + self-fetch deadlock that left HTTP hung after “listening”.
+
 ## 0.2.41 — 2026-08-26
 
 - Remove Fastify `serverFactory` health short-circuit (it broke all non-health routes including `/raw-ping` and `/v1/*`, so property save hung ~160s). Register `/healthz` on Fastify normally; shorten BFF mutation timeout to 25s; point errors at `/healthz`.

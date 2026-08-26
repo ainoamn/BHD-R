@@ -1,10 +1,14 @@
 import 'reflect-metadata';
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import {
+  createServer,
+  request as httpRequest,
+  type IncomingMessage,
+  type ServerResponse,
+} from 'node:http';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import cookie from '@fastify/cookie';
 import helmet from '@fastify/helmet';
-import Fastify from 'fastify';
 import { loadEnvironment } from '@bhd-r/config';
 import { AppModule } from './app.module.js';
 import { createInternalRequestId } from './common/request-id.js';
@@ -16,76 +20,97 @@ function isPlatformHealthPath(url: string | undefined): boolean {
   return path === '/healthz' || path === '/health/live' || path === '/health/ready';
 }
 
-function writeHealthOk(res: ServerResponse): void {
-  const body = JSON.stringify({
-    status: 'ok',
-    service: 'bhd-r-api',
-    timestamp: new Date().toISOString(),
-  });
-  res.writeHead(200, {
+function writeJson(res: ServerResponse, status: number, body: unknown): void {
+  const payload = JSON.stringify(body);
+  res.writeHead(status, {
     'content-type': 'application/json; charset=utf-8',
-    'content-length': Buffer.byteLength(body),
+    'content-length': Buffer.byteLength(payload),
   });
-  res.end(body);
+  res.end(payload);
+}
+
+function proxyToNest(
+  req: IncomingMessage,
+  res: ServerResponse,
+  nestPort: number,
+): void {
+  const headers = { ...req.headers, host: `127.0.0.1:${nestPort}` };
+  const upstream = httpRequest(
+    {
+      hostname: '127.0.0.1',
+      port: nestPort,
+      path: req.url,
+      method: req.method,
+      headers,
+      timeout: 120_000,
+    },
+    (up) => {
+      res.writeHead(up.statusCode ?? 502, up.headers);
+      up.pipe(res);
+    },
+  );
+  upstream.on('timeout', () => {
+    upstream.destroy();
+    if (!res.headersSent) writeJson(res, 504, { error: 'nest_upstream_timeout' });
+  });
+  upstream.on('error', (error) => {
+    console.error('BHD-R API proxy error', error);
+    if (!res.headersSent) writeJson(res, 502, { error: 'nest_upstream_unreachable' });
+  });
+  req.pipe(upstream);
 }
 
 async function bootstrap(): Promise<void> {
   const environment = loadEnvironment();
-  const trustedProxyHops = Number(process.env.TRUST_PROXY_HOPS ?? 0);
+  const trustedProxyHops = Number(process.env.TRUST_PROXY_HOPS ?? 1);
   const onRender =
     process.env.RENDER === 'true' ||
     Boolean(process.env.RENDER_SERVICE_ID) ||
     Boolean(process.env.RENDER_EXTERNAL_URL);
-  const port = Number(process.env.PORT || (onRender ? 10_000 : environment.PORT || 4000));
-  if (!Number.isFinite(port) || port <= 0) {
+  const publicPort = Number(process.env.PORT || (onRender ? 10_000 : environment.PORT || 4000));
+  // Nest listens privately; public edge proxies to it (avoids Fastify+serverFactory hangs).
+  const nestPort = Number(process.env.NEST_INTERNAL_PORT || publicPort + 1);
+  if (!Number.isFinite(publicPort) || publicPort <= 0) {
     throw new Error(`Invalid PORT: ${String(process.env.PORT)}`);
   }
 
-  /**
-   * Open the HTTP port immediately (before Nest). Render Free aborts deploys when it
-   * cannot detect an open port; Nest+Fastify listen often reports bound while requests hang.
-   * Health is always answered here. After Fastify is ready, other routes go to Fastify.
-   */
-  let fastifyHandler:
-    | ((req: IncomingMessage, res: ServerResponse) => void)
-    | undefined;
+  let nestReady = false;
 
-  const nodeServer: Server = createServer((req, res) => {
+  const edge = createServer((req, res) => {
     if (isPlatformHealthPath(req.url)) {
-      writeHealthOk(res);
+      writeJson(res, 200, {
+        status: 'ok',
+        service: 'bhd-r-api',
+        nestReady,
+        timestamp: new Date().toISOString(),
+      });
       return;
     }
-    if (!fastifyHandler) {
-      res.writeHead(503, { 'content-type': 'application/json; charset=utf-8' });
-      res.end(JSON.stringify({ status: 'starting', service: 'bhd-r-api' }));
+    if (!nestReady) {
+      writeJson(res, 503, { status: 'starting', service: 'bhd-r-api' });
       return;
     }
-    fastifyHandler(req, res);
+    proxyToNest(req, res, nestPort);
   });
 
   await new Promise<void>((resolve, reject) => {
-    nodeServer.once('error', reject);
-    nodeServer.listen(port, '0.0.0.0', () => {
-      console.log(`BHD-R API early bind`, nodeServer.address());
+    edge.once('error', reject);
+    edge.listen(publicPort, '0.0.0.0', () => {
+      console.log(`BHD-R API public edge listening`, edge.address());
       resolve();
     });
   });
 
-  const fastify = Fastify({
-    serverFactory(handler) {
-      fastifyHandler = handler;
-      return nodeServer;
-    },
+  const adapter = new FastifyAdapter({
     trustProxy:
       Number.isInteger(trustedProxyHops) && trustedProxyHops > 0
-        ? (trustedProxyHops as unknown as boolean)
+        ? (trustedProxyHops as never)
         : false,
     bodyLimit: 26 * 1024 * 1024,
     genReqId: createInternalRequestId,
   });
-
-  await fastify.register(cookie as never);
-  await fastify.register(helmet as never, {
+  await adapter.register(cookie as never);
+  await adapter.register(helmet as never, {
     global: true,
     contentSecurityPolicy: {
       directives: {
@@ -103,16 +128,11 @@ async function bootstrap(): Promise<void> {
         : false,
   });
 
-  fastify.get('/raw-ping', async () => ({ ok: true, via: 'fastify-native' }));
-  fastify.addHook('onRequest', async (request) => {
-    console.log(`BHD-R API onRequest ${request.method} ${request.url}`);
-  });
-
-  const adapter = new FastifyAdapter(fastify as never);
   const app = await NestFactory.create<NestFastifyApplication>(AppModule, adapter, {
     bufferLogs: false,
     rawBody: true,
   });
+  const fastify = app.getHttpAdapter().getInstance();
   const asBuffer = (_request: unknown, body: Buffer, done: (err: null, body: Buffer) => void) => {
     done(null, body);
   };
@@ -121,6 +141,7 @@ async function bootstrap(): Promise<void> {
   fastify.addContentTypeParser('image/jpeg', { parseAs: 'buffer' }, asBuffer);
   fastify.addContentTypeParser('image/png', { parseAs: 'buffer' }, asBuffer);
   fastify.addContentTypeParser('image/webp', { parseAs: 'buffer' }, asBuffer);
+  fastify.get('/raw-ping', async () => ({ ok: true, via: 'nest-fastify' }));
   app.enableCors({
     origin: resolveCorsOrigin,
     credentials: true,
@@ -138,10 +159,18 @@ async function bootstrap(): Promise<void> {
   });
   app.enableShutdownHooks();
 
-  await app.init();
-  await fastify.ready();
-  // Server already listening — do not call app.listen()/fastify.listen() again.
-  console.log(`BHD-R API Nest ready on early-bound port ${port}`);
+  await app.listen(nestPort, '127.0.0.1');
+  nestReady = true;
+  console.log(`BHD-R API Nest listening on 127.0.0.1:${nestPort} (public ${publicPort})`);
+
+  try {
+    const ping = await fetch(`http://127.0.0.1:${nestPort}/raw-ping`, {
+      signal: AbortSignal.timeout(5_000),
+    });
+    console.log(`BHD-R API internal /raw-ping → ${ping.status} ${await ping.text()}`);
+  } catch (error) {
+    console.error('BHD-R API internal /raw-ping failed', error);
+  }
 }
 
 void bootstrap().catch((error) => {
