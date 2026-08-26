@@ -43,14 +43,12 @@ import { HttpExceptionFilter } from './common/http-exception.filter.js';
     HealthModule,
   ],
   providers: [
-    // Diagnostic 2026-08-26: Nest controller routes hung on Render while plain Express
-    // /raw-ping worked. Re-enable after /health/live answers through the edge proxy.
-    // { provide: APP_GUARD, useClass: ThrottlerGuard },
-    // { provide: APP_GUARD, useClass: AuthenticationGuard },
-    // { provide: APP_GUARD, useClass: CsrfGuard },
-    // { provide: APP_GUARD, useClass: PermissionGuard },
-    // { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
-    // { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: AuthenticationGuard },
+    { provide: APP_GUARD, useClass: CsrfGuard },
+    { provide: APP_GUARD, useClass: PermissionGuard },
+    { provide: APP_INTERCEPTOR, useClass: IdempotencyInterceptor },
+    { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
   ],
 })

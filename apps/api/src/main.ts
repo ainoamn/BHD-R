@@ -168,7 +168,14 @@ async function bootstrap(): Promise<void> {
   });
 
   app.enableCors({
-    origin: resolveCorsOrigin,
+    // Express `cors` requires (origin, cb) — a sync-only resolver never invokes cb → hang.
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean | string) => void) => {
+      try {
+        callback(null, resolveCorsOrigin(origin));
+      } catch (error) {
+        callback(error instanceof Error ? error : new Error('cors_origin_failed'));
+      }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [

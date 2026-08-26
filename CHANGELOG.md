@@ -4,7 +4,8 @@ All notable changes are documented here. The project follows Semantic Versioning
 
 ## 0.2.45 — 2026-08-26
 
-- **Break glass:** Nest API on Render switches from Fastify to **Express**. Fastify TCP/`ready`/`inject` stayed hung (`/healthz` ok, blank `/raw-ping`, property save timeout). Public edge serves `/healthz` and proxies to Express on `127.0.0.1:(PORT+1)` after `app.listen` (Express-as-handler without listen left Nest routes hung).
+- **Root cause:** Nest on Render hung on every controller route because Express `cors` expects `origin(origin, callback)` while `resolveCorsOrigin` was sync-only (callback never called). Fastify previously masked/compounded other listen issues; API now uses **Express** behind a public edge proxy, with callback-style CORS.
+- `/raw-ping` (plain Express) worked; `/health/live` and `/v1/*` timed out until CORS was fixed.
 
 ## 0.2.44 — 2026-08-26
 
