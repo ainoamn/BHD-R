@@ -30,7 +30,7 @@ function writeJson(res: ServerResponse, status: number, body: unknown): void {
   res.end(payload);
 }
 
-const HOP_BY_HOP = new Set([
+const DROP_HEADERS = new Set([
   'connection',
   'keep-alive',
   'proxy-authenticate',
@@ -40,12 +40,15 @@ const HOP_BY_HOP = new Set([
   'transfer-encoding',
   'upgrade',
   'host',
+  'expect',
 ]);
 
 function proxyToNest(req: IncomingMessage, res: ServerResponse, nestPort: number): void {
   const headers: Record<string, string | string[] | undefined> = {};
   for (const [key, value] of Object.entries(req.headers)) {
-    if (HOP_BY_HOP.has(key.toLowerCase())) continue;
+    const lower = key.toLowerCase();
+    if (DROP_HEADERS.has(lower)) continue;
+    if ((req.method === 'GET' || req.method === 'HEAD') && lower === 'content-length') continue;
     headers[key] = value;
   }
   headers.host = `127.0.0.1:${nestPort}`;
@@ -57,7 +60,7 @@ function proxyToNest(req: IncomingMessage, res: ServerResponse, nestPort: number
       path: req.url,
       method: req.method,
       headers,
-      timeout: 120_000,
+      timeout: 60_000,
     },
     (up) => {
       const out: Record<string, string | number | string[] | undefined> = { ...up.headers };
@@ -132,18 +135,8 @@ async function bootstrap(): Promise<void> {
     req.id = createInternalRequestId();
     next();
   });
-  server.get('/raw-ping', (_req, res) => {
-    res.status(200).json({ ok: true, via: 'express' });
-  });
-
-  const adapter = new ExpressAdapter(server);
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, adapter, {
-    bufferLogs: false,
-    rawBody: true,
-  });
-
-  app.use(cookieParser());
-  app.use(
+  server.use(cookieParser());
+  server.use(
     helmet({
       contentSecurityPolicy: {
         directives: {
@@ -161,6 +154,17 @@ async function bootstrap(): Promise<void> {
           : false,
     }),
   );
+  server.get('/raw-ping', (_req, res) => {
+    res.status(200).json({ ok: true, via: 'express' });
+  });
+
+  // rawBody disabled: Nest Express raw-body middleware hung Nest routes on Render.
+  // Webhook signature verification can re-enable a path-scoped raw parser later.
+  const adapter = new ExpressAdapter(server);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, adapter, {
+    bufferLogs: false,
+    rawBody: false,
+  });
 
   app.enableCors({
     origin: resolveCorsOrigin,
@@ -184,12 +188,13 @@ async function bootstrap(): Promise<void> {
   console.log(`BHD-R API Nest Express listening on 127.0.0.1:${nestPort} (public ${publicPort})`);
 
   try {
-    const ping = await fetch(`http://127.0.0.1:${nestPort}/raw-ping`, {
+    const live = await fetch(`http://127.0.0.1:${nestPort}/health/live`, {
       signal: AbortSignal.timeout(5_000),
     });
-    console.log(`BHD-R API internal /raw-ping → ${ping.status} ${await ping.text()}`);
+    console.log(`BHD-R API internal /health/live → ${live.status} ${await live.text()}`);
+    if (!live.ok) throw new Error(`health/live ${live.status}`);
   } catch (error) {
-    console.error('BHD-R API internal /raw-ping failed', error);
+    console.error('BHD-R API internal /health/live failed', error);
     throw error;
   }
 }
