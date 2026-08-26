@@ -1,7 +1,6 @@
 import 'reflect-metadata';
 import {
   createServer,
-  request as httpRequest,
   type IncomingMessage,
   type ServerResponse,
 } from 'node:http';
@@ -14,10 +13,30 @@ import { AppModule } from './app.module.js';
 import { createInternalRequestId } from './common/request-id.js';
 import { resolveCorsOrigin } from './common/web-origins.js';
 
-function isPlatformHealthPath(url: string | undefined): boolean {
+const BODY_LIMIT = 26 * 1024 * 1024;
+
+type EdgeDispatch = (req: IncomingMessage, res: ServerResponse) => void;
+
+/** Minimal inject surface — avoids FastifyInstance type clashes across pnpm copies + cookie plugin. */
+type InjectDispatcher = {
+  inject: (opts: {
+    method: string;
+    url: string;
+    headers?: Record<string, string | string[] | undefined>;
+    remoteAddress?: string;
+    payload?: Buffer;
+  }) => Promise<{
+    statusCode: number;
+    headers: Record<string, string | string[] | number | undefined>;
+    body: string;
+    rawPayload?: Buffer;
+  }>;
+};
+
+function isEdgeHealthPath(url: string | undefined): boolean {
   if (!url) return false;
   const path = url.split('?')[0] ?? '';
-  return path === '/healthz' || path === '/health/live' || path === '/health/ready';
+  return path === '/healthz';
 }
 
 function writeJson(res: ServerResponse, status: number, body: unknown): void {
@@ -29,35 +48,80 @@ function writeJson(res: ServerResponse, status: number, body: unknown): void {
   res.end(payload);
 }
 
-function proxyToNest(
+async function readRequestBody(req: IncomingMessage): Promise<Buffer | undefined> {
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of req) {
+    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    size += buf.length;
+    if (size > BODY_LIMIT) {
+      const error = new Error('payload_too_large') as Error & { statusCode: number };
+      error.statusCode = 413;
+      throw error;
+    }
+    chunks.push(buf);
+  }
+  return chunks.length ? Buffer.concat(chunks) : undefined;
+}
+
+async function dispatchViaInject(
   req: IncomingMessage,
   res: ServerResponse,
-  nestPort: number,
-): void {
-  const headers = { ...req.headers, host: `127.0.0.1:${nestPort}` };
-  const upstream = httpRequest(
-    {
-      hostname: '127.0.0.1',
-      port: nestPort,
-      path: req.url,
-      method: req.method,
-      headers,
-      timeout: 120_000,
-    },
-    (up) => {
-      res.writeHead(up.statusCode ?? 502, up.headers);
-      up.pipe(res);
-    },
-  );
-  upstream.on('timeout', () => {
-    upstream.destroy();
-    if (!res.headersSent) writeJson(res, 504, { error: 'nest_upstream_timeout' });
-  });
-  upstream.on('error', (error) => {
-    console.error('BHD-R API proxy error', error);
-    if (!res.headersSent) writeJson(res, 502, { error: 'nest_upstream_unreachable' });
-  });
-  req.pipe(upstream);
+  fastify: InjectDispatcher,
+): Promise<void> {
+  try {
+    const payload = await readRequestBody(req);
+    const injectOpts: {
+      method: string;
+      url: string;
+      headers: Record<string, string | string[] | undefined>;
+      remoteAddress?: string;
+      payload?: Buffer;
+    } = {
+      method: req.method ?? 'GET',
+      url: req.url ?? '/',
+      headers: req.headers as Record<string, string | string[] | undefined>,
+    };
+    if (req.socket.remoteAddress) injectOpts.remoteAddress = req.socket.remoteAddress;
+    if (payload) injectOpts.payload = payload;
+
+    const response = await fastify.inject(injectOpts);
+    const outHeaders: Record<string, string | number | string[]> = {};
+    for (const [key, value] of Object.entries(response.headers)) {
+      if (value === undefined) continue;
+      const lower = key.toLowerCase();
+      // Let Node derive length from the body we write.
+      if (
+        lower === 'transfer-encoding' ||
+        lower === 'connection' ||
+        lower === 'content-length' ||
+        lower === 'keep-alive'
+      ) {
+        continue;
+      }
+      outHeaders[key] = value as string | number | string[];
+    }
+    const body = Buffer.isBuffer(response.rawPayload)
+      ? response.rawPayload
+      : Buffer.from(String(response.body ?? ''));
+    outHeaders['content-length'] = body.length;
+    res.writeHead(response.statusCode, outHeaders);
+    res.end(body);
+  } catch (error) {
+    const status =
+      typeof error === 'object' &&
+      error &&
+      'statusCode' in error &&
+      typeof (error as { statusCode: unknown }).statusCode === 'number'
+        ? (error as { statusCode: number }).statusCode
+        : 502;
+    console.error('BHD-R API inject dispatch failed', error);
+    if (!res.headersSent) {
+      writeJson(res, status, {
+        error: status === 413 ? 'payload_too_large' : 'nest_inject_failed',
+      });
+    }
+  }
 }
 
 async function bootstrap(): Promise<void> {
@@ -68,29 +132,28 @@ async function bootstrap(): Promise<void> {
     Boolean(process.env.RENDER_SERVICE_ID) ||
     Boolean(process.env.RENDER_EXTERNAL_URL);
   const publicPort = Number(process.env.PORT || (onRender ? 10_000 : environment.PORT || 4000));
-  // Nest listens privately; public edge proxies to it (avoids Fastify+serverFactory hangs).
-  const nestPort = Number(process.env.NEST_INTERNAL_PORT || publicPort + 1);
   if (!Number.isFinite(publicPort) || publicPort <= 0) {
     throw new Error(`Invalid PORT: ${String(process.env.PORT)}`);
   }
 
-  let nestReady = false;
+  let edgeDispatch: EdgeDispatch | null = null;
 
   const edge = createServer((req, res) => {
-    if (isPlatformHealthPath(req.url)) {
+    if (isEdgeHealthPath(req.url)) {
       writeJson(res, 200, {
         status: 'ok',
         service: 'bhd-r-api',
-        nestReady,
+        nestReady: Boolean(edgeDispatch),
+        dispatch: 'inject',
         timestamp: new Date().toISOString(),
       });
       return;
     }
-    if (!nestReady) {
+    if (!edgeDispatch) {
       writeJson(res, 503, { status: 'starting', service: 'bhd-r-api' });
       return;
     }
-    proxyToNest(req, res, nestPort);
+    edgeDispatch(req, res);
   });
 
   await new Promise<void>((resolve, reject) => {
@@ -106,7 +169,7 @@ async function bootstrap(): Promise<void> {
       Number.isInteger(trustedProxyHops) && trustedProxyHops > 0
         ? (trustedProxyHops as never)
         : false,
-    bodyLimit: 26 * 1024 * 1024,
+    bodyLimit: BODY_LIMIT,
     genReqId: createInternalRequestId,
   });
   await adapter.register(cookie as never);
@@ -141,7 +204,7 @@ async function bootstrap(): Promise<void> {
   fastify.addContentTypeParser('image/jpeg', { parseAs: 'buffer' }, asBuffer);
   fastify.addContentTypeParser('image/png', { parseAs: 'buffer' }, asBuffer);
   fastify.addContentTypeParser('image/webp', { parseAs: 'buffer' }, asBuffer);
-  fastify.get('/raw-ping', async () => ({ ok: true, via: 'nest-fastify' }));
+  fastify.get('/raw-ping', async () => ({ ok: true, via: 'nest-inject' }));
   app.enableCors({
     origin: resolveCorsOrigin,
     credentials: true,
@@ -159,18 +222,25 @@ async function bootstrap(): Promise<void> {
   });
   app.enableShutdownHooks();
 
-  await app.listen(nestPort, '127.0.0.1');
-  nestReady = true;
-  console.log(`BHD-R API Nest listening on 127.0.0.1:${nestPort} (public ${publicPort})`);
+  // Do NOT call app.listen(): on Render, Fastify TCP accept works but HTTP handling hangs
+  // (loopback fetch / proxy to :PORT+1 time out). inject() still works after ready().
+  await fastify.ready();
 
   try {
-    const ping = await fetch(`http://127.0.0.1:${nestPort}/raw-ping`, {
-      signal: AbortSignal.timeout(5_000),
-    });
-    console.log(`BHD-R API internal /raw-ping → ${ping.status} ${await ping.text()}`);
+    const ping = await fastify.inject({ method: 'GET', url: '/raw-ping' });
+    console.log(`BHD-R API inject /raw-ping → ${ping.statusCode} ${ping.body}`);
+    if (ping.statusCode !== 200) {
+      throw new Error(`inject /raw-ping returned ${ping.statusCode}`);
+    }
   } catch (error) {
-    console.error('BHD-R API internal /raw-ping failed', error);
+    console.error('BHD-R API inject /raw-ping failed', error);
+    throw error;
   }
+
+  edgeDispatch = (req, res) => {
+    void dispatchViaInject(req, res, fastify);
+  };
+  console.log(`BHD-R API Nest ready via inject dispatch (public ${publicPort})`);
 }
 
 void bootstrap().catch((error) => {

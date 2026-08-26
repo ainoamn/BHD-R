@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.44 — 2026-08-26
+
+- Render: public Node edge still owns `PORT`/`/healthz`, but Nest Fastify **never listens**. All other routes (including `/raw-ping` and `/v1/*`) are dispatched with `fastify.inject()`. TCP listen/proxy left Nest “ready” while HTTP hung (blank `/raw-ping`, property save timeout).
+
 ## 0.2.43 — 2026-08-26
 
 - Split public edge vs Nest: Node listens on `PORT` for `/healthz` and proxies other paths to Nest Fastify on `127.0.0.1:(PORT+1)`. Fixes Live `/healthz` while `/raw-ping` and property save hung.

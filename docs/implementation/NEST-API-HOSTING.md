@@ -107,6 +107,12 @@ Redeploy **web (Vercel)** after this change. Redeploy **Nest (Render)** when pul
 - في Render → **Settings → Health Check Path** ضع **`/healthz`**
 - ابقَ `PORT=10000`
 
+### `/healthz` ok و`/raw-ping` أبيض (حفظ العقار يفشل)
+
+من 0.2.44: Fastify على Render كان يستمع لكن **لا يرد على TCP** (حتى عبر بروكسي إلى `127.0.0.1`). الحل: الحافة العامة ترد على `/healthz`، وباقي المسارات عبر **`fastify.inject()`** بدون `app.listen`.
+
+بعد النشر يجب أن ترى في Logs: `inject /raw-ping → 200` و`Nest ready via inject dispatch`. وفي المتصفح: `/raw-ping` → JSON `{"ok":true,"via":"nest-inject"}` وليس صفحة بيضاء.
+
 ## Smoke checklist
 
 Web app pings Nest every 5 minutes via `GET /api/cron/warmup-nest` (`apps/web/vercel.json`).
