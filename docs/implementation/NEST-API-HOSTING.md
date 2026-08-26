@@ -79,11 +79,9 @@ Redeploy **web (Vercel)** after this change. Redeploy **Nest (Render)** when pul
 
 ### «No open HTTP ports» رغم `listening on 0.0.0.0:4000`
 
-Render الافتراضي هو المنفذ **10000**. إذا `PORT=4000` في Environment بينما المنصة تتوقع 10000 (أو العكس)، يظهر: التطبيق مربوط وRender يقول لا يوجد منفذ.
+من السجلات: `process.env.PORT=4000` بينما Render يتوقع **10000**. أيضاً `fetch` المحلي فشل بـ Headers Timeout بعد `fastify.listen` المباشر.
 
-**على Render → Environment:** عيّن `PORT=10000` (احذف 4000).  
-**Settings → Health Check Path:** `/health/live`.  
-ثم Manual Deploy لـ `main` الأحدث. في Logs يجب: `self-check /health/live → 200`.
+من 0.2.37: على Render يُفرض المنفذ **10000** تلقائياً (حتى لو بقي `PORT=4000` في Environment)، مع `app.listen` + فحص `inject`. الأفضل أيضاً تعيين `PORT=10000` في لوحة Render لتتوافق المنصة مع العملية.
 
 ### «No open HTTP ports detected» بعد Nest started
 

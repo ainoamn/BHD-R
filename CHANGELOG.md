@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.37 — 2026-08-26
+
+- On Render, **always bind port 10000** (ignore dashboard `PORT=4000`) and restore Nest `app.listen`; verify with Fastify `inject(/health/live)` instead of loopback `fetch` (which timed out while the socket looked bound).
+
 ## 0.2.36 — 2026-08-26
 
 - Align Nest listen port with Render default **10000** (Dockerfile `EXPOSE`/`PORT`, config default). Bind via Fastify `listen` directly + self-check `/health/live`. Fixes deploys where Node logged `0.0.0.0:4000` but Render still reported no open HTTP ports.

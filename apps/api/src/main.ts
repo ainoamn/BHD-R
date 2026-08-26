@@ -66,26 +66,37 @@ async function bootstrap(): Promise<void> {
     ],
   });
   app.enableShutdownHooks();
-  // Render default PORT is 10000. Dashboard PORT must match the listen port or
-  // deploy fails with "No open HTTP ports detected" even when Node reports bound.
-  const port = Number(
-    process.env.PORT || (process.env.RENDER === 'true' ? 10_000 : environment.PORT || 4000),
-  );
+
+  // Render's default public port is 10000. A dashboard PORT=4000 makes Node bind 4000 while
+  // Render's scanner/proxy still expects 10000 → "No open HTTP ports" forever.
+  const onRender =
+    process.env.RENDER === 'true' ||
+    Boolean(process.env.RENDER_SERVICE_ID) ||
+    Boolean(process.env.RENDER_EXTERNAL_URL);
+  const port = onRender ? 10_000 : Number(process.env.PORT || environment.PORT || 4000);
   if (!Number.isFinite(port) || port <= 0) {
-    throw new Error(`Invalid PORT: ${process.env.PORT}`);
+    throw new Error(`Invalid PORT: ${String(process.env.PORT)}`);
   }
+  if (onRender && process.env.PORT && process.env.PORT !== '10000') {
+    console.warn(
+      `BHD-R API: ignoring process.env.PORT=${process.env.PORT} on Render; forcing 10000`,
+    );
+  }
+  if (onRender) {
+    process.env.PORT = '10000';
+  }
+
   console.log(
-    `BHD-R API binding host=0.0.0.0 port=${port} (process.env.PORT=${process.env.PORT ?? '<unset>'})`,
+    `BHD-R API binding host=0.0.0.0 port=${port} (env.PORT=${process.env.PORT ?? '<unset>'} onRender=${onRender})`,
   );
-  // Bypass NestApplication.listen wrapper — bind Fastify's server directly.
-  await app.init();
-  const address = await fastify.listen({ port, host: '0.0.0.0' });
-  console.log(`BHD-R API listening at ${address}`, fastify.server.address());
-  try {
-    const self = await fetch(`http://127.0.0.1:${port}/health/live`);
-    console.log(`BHD-R API self-check /health/live → ${self.status}`);
-  } catch (error) {
-    console.error('BHD-R API self-check failed', error);
+
+  await app.listen(port, '0.0.0.0');
+  console.log(`BHD-R API listening`, app.getHttpServer()?.address?.());
+
+  const probe = await fastify.inject({ method: 'GET', url: '/health/live' });
+  console.log(`BHD-R API inject /health/live → ${probe.statusCode} ${probe.body}`);
+  if (probe.statusCode >= 400) {
+    throw new Error(`Health inject failed: ${probe.statusCode}`);
   }
 }
 
