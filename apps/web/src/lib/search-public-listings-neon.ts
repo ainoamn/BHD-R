@@ -154,6 +154,16 @@ export async function searchPublicListingsFromNeon(
     const bedrooms = input.bedrooms ?? null;
     const currency = input.currency ?? null;
 
+    const countryClause = country
+      ? sql`and (upper(a.country_code) = ${country} or upper(a.country_code) = ${countryAlt})`
+      : sql``;
+    const governorateClause = governorate
+      ? sql`and (a.governorate = ${governorate} or a.governorate ilike ${`%${governorate}%`})`
+      : sql``;
+    const categoryClause = category ? sql`and p.category::text = ${category}` : sql``;
+    const bedroomsClause = bedrooms !== null ? sql`and u.bedrooms = ${bedrooms}` : sql``;
+    const currencyClause = currency ? sql`and u.currency = ${currency}` : sql``;
+
     const result = await transaction.execute(sql`
       select
         l.id::text as listing_id,
@@ -215,28 +225,11 @@ export async function searchPublicListingsFromNeon(
       where u.publish_when_available = true
         and p.status <> 'archived'
         and u.status in ('active', 'draft', 'inactive')
-        and (
-          ${country}::text is null
-          or upper(a.country_code) = ${country}
-          or upper(a.country_code) = ${countryAlt}
-        )
-        and (
-          ${governorate}::text is null
-          or a.governorate = ${governorate}
-          or a.governorate ilike ('%' || ${governorate} || '%')
-        )
-        and (
-          ${category}::text is null
-          or p.category::text = ${category}
-        )
-        and (
-          ${bedrooms}::int is null
-          or u.bedrooms = ${bedrooms}
-        )
-        and (
-          ${currency}::text is null
-          or u.currency = ${currency}
-        )
+        ${countryClause}
+        ${governorateClause}
+        ${categoryClause}
+        ${bedroomsClause}
+        ${currencyClause}
       order by l.published_at desc nulls last, u.updated_at desc, u.id desc
       limit ${limit}
     `);
