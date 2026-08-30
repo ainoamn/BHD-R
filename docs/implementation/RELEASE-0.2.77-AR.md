@@ -20,6 +20,7 @@
    - إدراج listing ناقص إن لزم
    - انتهاء holds المنتهية
    - اختيار من `units` (وليس فقط listings.enabled)
+   - مقارنة حالات الإيجار/البيع عبر `status::text` لتفادي فشل enum القديم الإنتاج الأقدم
 2. مسار تشخيص: `GET /api/public/catalogue?debug=1` → `{ count, data, error?, detail? }`
 3. بطاقة القائمة تفتح `/properties/:propertyId` عند توفره
 
