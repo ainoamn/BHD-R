@@ -1,4 +1,5 @@
 import {
+  createRemoteJWKSet,
   decodeJwt,
   decodeProtectedHeader,
   jwtVerify,
@@ -32,8 +33,7 @@ function assertNonceAndSub(
 
 /**
  * Product-local identity verify (Nasab/WAZEN / bhd-identity.v1).
- * After a successful authorization_code + PKCE exchange, prefer binding via
- * access_token (local HS256 or /oauth/userinfo) rather than id_token alone.
+ * RS256/ES256 use discovery JWKS; HS256 uses shared secret or access_token/userinfo.
  */
 export async function verifyBhdIdToken(input: {
   token: string;
@@ -42,6 +42,7 @@ export async function verifyBhdIdToken(input: {
   expectedNonce: string;
   sharedSecret?: string;
   accessToken?: string;
+  jwksUri?: string;
 }): Promise<{ subject: string; email?: string; emailVerified: boolean; name?: string }> {
   const issuer = input.issuer.replace(/\/$/, '');
   const header = decodeProtectedHeader(input.token);
@@ -53,6 +54,23 @@ export async function verifyBhdIdToken(input: {
   const sharedSecret = cleanSecret(input.sharedSecret);
   const key = sharedSecret ? new TextEncoder().encode(sharedSecret) : undefined;
   const errors: string[] = [];
+  const verifyOptions = { issuer, audience: input.clientId, clockTolerance: 60 } as const;
+
+  // 0) Asymmetric id_token via JWKS (P1-03).
+  if (alg === 'RS256' || alg === 'ES256') {
+    try {
+      const jwks = createRemoteJWKSet(new URL(input.jwksUri ?? `${issuer}/oauth/jwks.json`));
+      const { payload } = await jwtVerify(input.token, jwks, {
+        ...verifyOptions,
+        algorithms: ['RS256', 'ES256'],
+      });
+      assertNonceAndSub(payload, input.expectedNonce);
+      return toIdentity(payload);
+    } catch (error) {
+      errors.push(`jwks:${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`identity_verify_failed:${errors.join('|')}`);
+    }
+  }
 
   // 1) Prove possession via access_token signature (same IDENTITY_TOKEN_SECRET as Identity).
   if (input.accessToken && key) {
@@ -89,10 +107,8 @@ export async function verifyBhdIdToken(input: {
   if (key && (alg === 'HS256' || !alg)) {
     try {
       const { payload } = await jwtVerify(input.token, key, {
-        issuer,
-        audience: input.clientId,
+        ...verifyOptions,
         algorithms: ['HS256'],
-        clockTolerance: 60,
       });
       assertNonceAndSub(payload, input.expectedNonce);
       return toIdentity(payload);
@@ -134,8 +150,7 @@ async function claimsFromUserinfo(
     cache: 'no-store',
   });
   if (!response.ok) {
-    const body = await response.text().catch(() => '');
-    throw new Error(`userinfo_failed:${response.status}:${body.slice(0, 80)}`);
+    throw new Error(`userinfo_failed:${response.status}`);
   }
   const info = z
     .object({

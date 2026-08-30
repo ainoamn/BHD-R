@@ -6,25 +6,24 @@ import { hasDatabaseUrl, issueIdentitySession } from '@/lib/bhd/identity-session
 
 export const runtime = 'nodejs';
 
-function classifySessionError(error: unknown): { code: string; detail: string } {
+function classifySessionError(error: unknown): { code: string } {
   const message = error instanceof Error ? error.message : String(error);
-  console.error('[bhd callback] session detail', message);
-  const detail = message.replace(/\s+/g, ' ').slice(0, 160);
-  if (/identity_verify_failed|userinfo|access:|id_token:|missing_access_token|missing_hs256/i.test(message)) {
-    return { code: 'verify', detail };
+  console.error('[bhd callback] session detail', message.slice(0, 200));
+  if (/identity_verify_failed|userinfo|access:|id_token:|jwks:|missing_access_token|missing_hs256/i.test(message)) {
+    return { code: 'verify' };
   }
-  if (/nonce/i.test(message)) return { code: 'verify_nonce', detail };
+  if (/nonce/i.test(message)) return { code: 'verify_nonce' };
   if (/missing_sub|access_id_sub|authorized party/i.test(message)) {
-    return { code: 'verify_claims', detail };
+    return { code: 'verify_claims' };
   }
   if (/identity_provision|membership|organization|insert|unique|constraint/i.test(message)) {
-    return { code: 'upsert', detail };
+    return { code: 'upsert' };
   }
   if (/identity_session_issue|session_secret/i.test(message)) {
-    return { code: 'session', detail };
+    return { code: 'session' };
   }
-  if (/DATABASE|connect|ECONN|timeout|ssl|Neon/i.test(message)) return { code: 'db', detail };
-  return { code: 'session', detail };
+  if (/DATABASE|connect|ECONN|timeout|ssl|Neon/i.test(message)) return { code: 'db' };
+  return { code: 'session' };
 }
 
 function clearOauthCookie(response: NextResponse) {
@@ -80,7 +79,10 @@ export async function GET(request: Request) {
   });
   if (!discoveryResponse.ok) return clearAndRedirect('/ar/login?bhd=discovery');
   const discovery = z
-    .object({ token_endpoint: z.string().url() })
+    .object({
+      token_endpoint: z.string().url(),
+      jwks_uri: z.string().url().optional(),
+    })
     .parse(await discoveryResponse.json());
   const tokenEndpoint = new URL(discovery.token_endpoint);
   if (tokenEndpoint.origin !== new URL(issuer).origin || tokenEndpoint.protocol !== 'https:') {
@@ -104,7 +106,8 @@ export async function GET(request: Request) {
     body: tokenBody,
   });
   if (!tokenResponse.ok) {
-    console.error('[bhd callback] token', tokenResponse.status, await tokenResponse.text());
+    // Never log raw token-endpoint bodies (P1-03).
+    console.error('[bhd callback] token exchange failed', tokenResponse.status);
     return clearAndRedirect('/ar/login?bhd=token');
   }
   const tokens = z
@@ -115,7 +118,7 @@ export async function GET(request: Request) {
     .parse(await tokenResponse.json());
 
   if (!tokens.access_token) {
-    return clearAndRedirect('/ar/login?bhd=verify&x=missing_access_token');
+    return clearAndRedirect('/ar/login?bhd=verify');
   }
 
   let issued: { token: string; csrf: string };
@@ -127,14 +130,13 @@ export async function GET(request: Request) {
       idToken: tokens.id_token,
       nonce: saved.nonce,
       accessToken: tokens.access_token,
+      ...(discovery.jwks_uri ? { jwksUri: discovery.jwks_uri } : {}),
     });
   } catch (error) {
     const classified = classifySessionError(error);
-    console.error('[bhd callback] session', classified);
-    const target = new URL(`/ar/login`, url.origin);
-    target.searchParams.set('bhd', classified.code);
-    target.searchParams.set('x', classified.detail);
-    return clearOauthCookie(NextResponse.redirect(target, 302));
+    console.error('[bhd callback] session', classified.code);
+    // Correlation code only — no exception detail in the URL (P1-03).
+    return clearAndRedirect(`/ar/login?bhd=${classified.code}`);
   }
 
   const response = clearAndRedirect(saved.returnTo);

@@ -269,6 +269,7 @@ export async function issueIdentitySession(input: {
   idToken: string;
   nonce: string;
   accessToken?: string;
+  jwksUri?: string;
 }): Promise<IssuedSession> {
   const cleanEnv = (value: string | undefined) =>
     value
@@ -294,6 +295,7 @@ export async function issueIdentitySession(input: {
     expectedNonce: input.nonce,
     ...(identityTokenSecret ? { sharedSecret: identityTokenSecret } : {}),
     ...(input.accessToken ? { accessToken: input.accessToken } : {}),
+    ...(input.jwksUri ? { jwksUri: input.jwksUri } : {}),
   });
 
   // Skip redundant decodeJwt nonce check — verifyBhdIdToken already enforced nonce.

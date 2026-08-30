@@ -11,7 +11,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "vitest run --config vitest.e2e.config.ts --passWithNoTests",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "clean": "rimraf dist coverage"
   },
   "dependencies": {

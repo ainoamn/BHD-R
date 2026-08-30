@@ -31,7 +31,44 @@ function getDatabase(): DbHandle {
 
 type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
-async function expireTimedOutLocks(transaction: Tx) {
+/** Scope writes to the listing org — never leave platform_admin=true for the whole txn (P1-04). */
+async function applyOrgScope(
+  transaction: Tx,
+  input: { organizationId: string; userId: string },
+) {
+  await transaction.execute(sql`select set_config('app.platform_admin', 'false', true)`);
+  await transaction.execute(sql`select set_config('app.public', 'true', true)`);
+  await transaction.execute(
+    sql`select set_config('app.organization_id', ${input.organizationId}, true)`,
+  );
+  await transaction.execute(sql`select set_config('app.user_id', ${input.userId}, true)`);
+  await transaction.execute(sql`select set_config('app.is_tenant', 'false', true)`);
+}
+
+async function withElevatedRead<T>(transaction: Tx, work: () => Promise<T>): Promise<T> {
+  await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
+  await transaction.execute(sql`select set_config('app.public', 'true', true)`);
+  try {
+    return await work();
+  } finally {
+    await transaction.execute(sql`select set_config('app.platform_admin', 'false', true)`);
+  }
+}
+
+async function expireTimedOutLocks(transaction: Tx, unitId?: string) {
+  if (unitId) {
+    await transaction.execute(sql`
+      update holds
+      set status = 'expired', updated_at = now()
+      where status = 'active' and expires_at <= now() and unit_id = ${unitId}::uuid
+    `);
+    await transaction.execute(sql`
+      update reservations
+      set status = 'expired', updated_at = now()
+      where status in ('pending', 'confirmed') and expires_at <= now() and unit_id = ${unitId}::uuid
+    `);
+    return;
+  }
   await transaction.execute(sql`
     update holds
     set status = 'expired', updated_at = now()
@@ -45,7 +82,7 @@ async function expireTimedOutLocks(transaction: Tx) {
 }
 
 async function assertUnitBookable(transaction: Tx, unitId: string) {
-  await expireTimedOutLocks(transaction);
+  await expireTimedOutLocks(transaction, unitId);
   const now = new Date();
   const rows = await transaction
     .select({
@@ -143,7 +180,20 @@ export async function createAuthenticatedViewingRequest(
 ) {
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
-    await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
+    const preview = await withElevatedRead(transaction, async () => {
+      const rows = await transaction
+        .select({ organizationId: listings.organizationId })
+        .from(listings)
+        .innerJoin(units, eq(units.id, listings.unitId))
+        .where(and(eq(units.id, unitId), eq(listings.enabled, true)))
+        .limit(1);
+      return rows[0];
+    });
+    if (!preview) throw new Error('unit_unavailable');
+    await applyOrgScope(transaction, {
+      organizationId: preview.organizationId,
+      userId: claims.sub,
+    });
     const unit = await assertUnitBookable(transaction, unitId);
     const party = await ensureProspectParty(transaction, unit.organizationId, claims);
     const reference = `AUTH-${claims.sub.slice(0, 8)}-${unitId.slice(0, 8)}-${Date.now().toString(36)}`;
@@ -170,7 +220,20 @@ export async function createAuthenticatedViewingRequest(
 export async function createPublicBookingCheckout(claims: SessionClaims, unitId: string) {
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
-    await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
+    const preview = await withElevatedRead(transaction, async () => {
+      const rows = await transaction
+        .select({ organizationId: listings.organizationId })
+        .from(listings)
+        .innerJoin(units, eq(units.id, listings.unitId))
+        .where(and(eq(units.id, unitId), eq(listings.enabled, true)))
+        .limit(1);
+      return rows[0];
+    });
+    if (!preview) throw new Error('unit_unavailable');
+    await applyOrgScope(transaction, {
+      organizationId: preview.organizationId,
+      userId: claims.sub,
+    });
     const unit = await assertUnitBookable(transaction, unitId);
     if (!unit.depositMinor || unit.depositMinor <= 0n) throw new Error('deposit_not_set');
     const party = await ensureProspectParty(transaction, unit.organizationId, claims);
@@ -223,25 +286,33 @@ export async function completePublicBookingPayment(
 ) {
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
-    await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
-    const rows = await transaction
-      .select({
-        id: reservations.id,
-        organizationId: reservations.organizationId,
-        unitId: reservations.unitId,
-        tenantPartyId: reservations.tenantPartyId,
-        status: reservations.status,
-        termsSnapshot: reservations.termsSnapshot,
-      })
-      .from(reservations)
-      .where(eq(reservations.status, 'pending'))
-      .limit(80);
+    const match = await withElevatedRead(transaction, async () => {
+      const rows = await transaction
+        .select({
+          id: reservations.id,
+          organizationId: reservations.organizationId,
+          unitId: reservations.unitId,
+          tenantPartyId: reservations.tenantPartyId,
+          status: reservations.status,
+          termsSnapshot: reservations.termsSnapshot,
+        })
+        .from(reservations)
+        .where(eq(reservations.status, 'pending'))
+        .limit(80);
 
-    const match = rows.find((row) => {
-      const snap = (row.termsSnapshot ?? {}) as Record<string, unknown>;
-      return snap.checkoutSessionReference === sessionReference;
+      return (
+        rows.find((row) => {
+          const snap = (row.termsSnapshot ?? {}) as Record<string, unknown>;
+          return snap.checkoutSessionReference === sessionReference;
+        }) ?? null
+      );
     });
     if (!match) throw new Error('not_found');
+
+    await applyOrgScope(transaction, {
+      organizationId: match.organizationId,
+      userId: claims.sub,
+    });
 
     const party = await ensureProspectParty(transaction, match.organizationId, claims);
     if (party.id !== match.tenantPartyId) throw new Error('forbidden');
@@ -250,18 +321,27 @@ export async function completePublicBookingPayment(
       .update(reservations)
       .set({
         status: 'confirmed',
+        updatedAt: new Date(),
         termsSnapshot: {
           ...((match.termsSnapshot ?? {}) as Record<string, unknown>),
           publicDepositPaidAt: new Date().toISOString(),
           awaitingPublicDepositPayment: false,
         },
-        updatedAt: new Date(),
       })
       .where(eq(reservations.id, match.id));
 
+    await transaction
+      .update(holds)
+      .set({ status: 'converted', updatedAt: new Date() })
+      .where(
+        and(eq(holds.unitId, match.unitId), eq(holds.status, 'active'), eq(holds.prospectPartyId, party.id)),
+      );
+
     return {
-      completed: true as const,
       reservationId: match.id,
+      status: 'confirmed' as const,
+      sessionReference,
+      completed: true as const,
       unitId: match.unitId,
     };
   });

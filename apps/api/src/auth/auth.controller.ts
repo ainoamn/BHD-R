@@ -36,6 +36,13 @@ const credentialSchema = z.object({
 });
 const resetRequestSchema = z.object({ email: z.email().max(320) });
 const totpSchema = z.object({ code: z.string().regex(/^\d{6}$/) });
+const totpEnrollSchema = z.object({
+  /** Required when MFA is already confirmed — current TOTP or recovery code (P1-01). */
+  currentCode: z
+    .string()
+    .regex(/^(\d{6}|[A-Za-z0-9]{4}-[A-Za-z0-9]{4})$/)
+    .optional(),
+});
 const apiKeySchema = z.object({
   name: z.string().trim().min(2).max(120),
   scopes: z.array(permissionSchema).min(1).max(25),
@@ -165,6 +172,7 @@ export class AuthController {
         z.object({
           idToken: z.string().min(20),
           nonce: z.string().min(8),
+          accessToken: z.string().min(8).optional(),
           organizationId: z.uuid().optional(),
         }),
       ),
@@ -172,6 +180,7 @@ export class AuthController {
     body: {
       idToken: string;
       nonce: string;
+      accessToken?: string;
       organizationId?: string;
     },
   ) {
@@ -179,6 +188,7 @@ export class AuthController {
       body.idToken,
       body.organizationId,
       body.nonce,
+      body.accessToken,
     );
     return { token: issued.token, csrf: issued.csrf, user: issued.claims };
   }
@@ -209,12 +219,17 @@ export class AuthController {
     return { token };
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('totp/enroll')
   @Authenticated()
-  async enrollTotp(@Req() request: ApiRequest) {
-    return this.authService.beginTotp(request.auth!);
+  async enrollTotp(
+    @Req() request: ApiRequest,
+    @Body(new ZodPipe(totpEnrollSchema)) body: z.infer<typeof totpEnrollSchema>,
+  ) {
+    return this.authService.beginTotp(request.auth!, body.currentCode);
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('totp/confirm')
   @Authenticated()
   async confirmTotp(
@@ -366,11 +381,17 @@ export class AuthController {
       }),
     });
     if (!tokenResponse.ok) throw new Error('Identity token exchange failed');
-    const tokens = z.object({ id_token: z.string() }).parse(await tokenResponse.json());
+    const tokens = z
+      .object({
+        id_token: z.string().min(20),
+        access_token: z.string().min(8).optional(),
+      })
+      .parse(await tokenResponse.json());
     const issued = await this.authService.loginWithIdentity(
       tokens.id_token,
       undefined,
       saved.nonce,
+      tokens.access_token,
     );
     setSessionCookies(reply, issued);
     return reply.redirect(

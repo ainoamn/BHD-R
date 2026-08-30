@@ -28,7 +28,12 @@ export async function GET(request: Request) {
     code_challenge_method: 'S256',
   }).toString();
 
-  if (!authorization.hostname.endsWith('bhd-om.com') && authorization.hostname !== 'localhost') {
+  if (
+    authorization.hostname !== 'localhost' &&
+    authorization.hostname !== '127.0.0.1' &&
+    authorization.hostname !== 'bhd-om.com' &&
+    !authorization.hostname.endsWith('.bhd-om.com')
+  ) {
     return NextResponse.json({ error: 'Unsafe identity host' }, { status: 500 });
   }
 

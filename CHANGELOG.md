@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.81 — 2026-08-30
+
+- Security follow-through: TOTP re-enroll step-up (P1-01); OIDC JWKS + host/leak fixes (P1-03); media upload stays `queued`/`pending` with `media.uploaded` outbox (P0-03); deposit GUCs + org-scoped public booking writes (P1-04); Express API e2e + honest chromium fixture CI label (P1-05).
+- Docs: `RELEASE-0.2.81-AR.md`.
+
 ## 0.2.80 — 2026-08-30
 
 - Next write routes: live session + CSRF (`requireLiveSession`); media magic-bytes + private-only storage (no prod Base64); expire timed-out holds/reservations before booking; S3 object delete on gallery remove.

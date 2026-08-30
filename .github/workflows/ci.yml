@@ -89,7 +89,7 @@ jobs:
         run: pnpm db:migrate
 
   e2e:
-    name: Browser E2E (deterministic API fixture)
+    name: Browser E2E (mock API fixture · chromium)
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     services:
@@ -155,7 +155,11 @@ jobs:
           psql "$MIGRATION_DATABASE_URL" --set=api_password=ci-only-api-password
           --set=system_password=ci-only-system-password --set=worker_password=ci-only-worker-password
           --file=.github/scripts/create-ci-logins.sql
-      - run: pnpm test:e2e
+      - name: API Express boundary e2e
+        run: pnpm --filter @bhd-r/api test:e2e
+      - name: Browser smoke (mock API · chromium only)
+        run: pnpm --filter @bhd-r/web test:e2e
+        # Honest gate: fixture-backed Playwright, not live Nest+DB journeys.
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

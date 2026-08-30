@@ -3,7 +3,15 @@ import { createHash, randomUUID } from 'node:crypto';
 import { DeleteObjectCommand, PutObjectCommand, S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { and, eq, sql } from 'drizzle-orm';
 import type { SessionClaims } from '@bhd-r/authz';
-import { createDatabase, mediaAssets, propertyDocuments, unitMedia, units, type Database } from '@bhd-r/db';
+import {
+  createDatabase,
+  mediaAssets,
+  outboxEvents,
+  propertyDocuments,
+  unitMedia,
+  units,
+  type Database,
+} from '@bhd-r/db';
 import { isProductionRuntime } from '@/lib/runtime-env';
 
 type DbHandle = { db: Database };
@@ -157,9 +165,9 @@ async function persistAssetRow(
         mimeType: input.mimeType,
         byteSize: BigInt(input.bytes.byteLength),
         sha256,
-        // Magic-byte validated only — worker ClamAV/re-encode still outstanding (P0-03 residual).
-        processingStatus: 'ready',
-        scanStatus: 'clean',
+        // Magic-byte validated only — worker must promote to ready/clean (P0-03).
+        processingStatus: 'queued',
+        scanStatus: 'pending',
         metadata: input.metadata,
       })
       .returning();
@@ -169,6 +177,17 @@ async function persistAssetRow(
       unitId: input.unitId,
       mediaAssetId: asset.id,
       position: input.position,
+    });
+    await transaction.insert(outboxEvents).values({
+      organizationId: claims.organizationId!,
+      topic: 'media.uploaded',
+      aggregateType: 'media_asset',
+      aggregateId: asset.id,
+      payload: {
+        privateObjectKey: input.objectKey,
+        expectedSha256: sha256,
+        via: 'vercel-neon-direct',
+      },
     });
     return asset.id;
   });

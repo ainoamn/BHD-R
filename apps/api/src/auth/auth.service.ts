@@ -265,6 +265,7 @@ export class AuthService {
     idToken: string,
     organizationId: string | undefined,
     expectedNonce: string,
+    accessToken?: string,
   ): Promise<IssuedSession> {
     const identityTokenSecret =
       process.env.BHD_IDENTITY_TOKEN_SECRET?.trim() ||
@@ -277,6 +278,7 @@ export class AuthService {
       clientId: process.env.BHD_OAUTH_CLIENT_ID ?? process.env.BHD_IDENTITY_CLIENT_ID ?? 'bhd-r',
       expectedNonce,
       ...(identityTokenSecret ? { sharedSecret: identityTokenSecret } : {}),
+      ...(accessToken ? { accessToken } : {}),
     });
     const verifiedClaims = decodeJwt(idToken);
     if (verifiedClaims.nonce !== expectedNonce)
@@ -563,11 +565,55 @@ export class AuthService {
     });
   }
 
-  async beginTotp(claims: SessionClaims): Promise<{ secret: string; uri: string }> {
+  async beginTotp(
+    claims: SessionClaims,
+    currentCode?: string,
+  ): Promise<{ secret: string; uri: string }> {
     const secret = generateTotpSecret();
     await this.database.asSystem(async (transaction) => {
       const user = await transaction.query.users.findFirst({ where: eq(users.id, claims.sub) });
       if (!user) throw new UnauthorizedException();
+      // P1-01: re-enroll requires step-up with the existing MFA factor.
+      if (user.totpConfirmedAt && user.totpSecretEncrypted) {
+        if (!currentCode) {
+          throw new UnauthorizedException('Current TOTP or recovery code is required to re-enroll');
+        }
+        const keyring = encryptionKeyring('totp');
+        const existingSecret = decryptField(
+          user.totpSecretEncrypted,
+          keyring,
+          `totp:${user.id}`,
+        );
+        const verification = verifyTotp({
+          code: currentCode,
+          secret: existingSecret,
+          lastAcceptedCounter: user.totpLastAcceptedCounter,
+          window: 1,
+        });
+        let steppedUp = Boolean(verification.valid && verification.counter !== null);
+        if (steppedUp && verification.counter !== null) {
+          await transaction
+            .update(users)
+            .set({ totpLastAcceptedCounter: verification.counter })
+            .where(
+              and(
+                eq(users.id, user.id),
+                or(
+                  isNull(users.totpLastAcceptedCounter),
+                  lt(users.totpLastAcceptedCounter, verification.counter),
+                ),
+              ),
+            );
+        } else {
+          steppedUp = await this.consumeRecoveryCode(
+            transaction,
+            user.id,
+            user.totpRecoveryDigests ?? [],
+            currentCode,
+          );
+        }
+        if (!steppedUp) throw new UnauthorizedException('Invalid step-up code');
+      }
       await transaction
         .update(users)
         .set({
@@ -604,6 +650,23 @@ export class AuthService {
           totpRecoveryDigests: digests,
         })
         .where(eq(users.id, user.id));
+      // Invalidate other live sessions after MFA change (keep current sid).
+      await transaction
+        .update(sessions)
+        .set({ revokedAt: new Date() })
+        .where(
+          and(
+            eq(sessions.userId, user.id),
+            isNull(sessions.revokedAt),
+            sql`${sessions.id} <> ${claims.sid}`,
+          ),
+        );
+      await transaction.insert(outboxEvents).values({
+        topic: 'security.totp_confirmed',
+        aggregateType: 'user',
+        aggregateId: user.id,
+        payload: { sid: claims.sid, at: new Date().toISOString() },
+      });
       return { confirmed: true as const, recoveryCodes };
     });
   }
