@@ -5,6 +5,7 @@ import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { clientSafeErrorCode, statusForSafeCode } from '@/lib/client-safe-error';
 import { updatePropertyDepositNestOrNeon } from '@/lib/nest-or-neon-write';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
+import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,6 +33,18 @@ export async function PATCH(
   }
   if (!claims.organizationId || !claims.permissions.includes('unit.update')) {
     return NextResponse.json({ error: { code: 'forbidden' } }, { status: 403 });
+  }
+
+  const limited = assertRouteRateLimit({
+    key: hashRateKey(['owner-deposit', claims.sub, clientIp(request)]),
+    limit: 20,
+    windowMs: 60_000,
+  });
+  if (!limited.ok) {
+    return NextResponse.json(
+      { error: { code: 'rate_limited' } },
+      { status: 429, headers: { 'retry-after': String(limited.retryAfterSec) } },
+    );
   }
 
   const { propertyId } = await context.params;

@@ -59,12 +59,20 @@ export async function loadPublicPropertyShowcaseFromNeon(
 
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
-    await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
-    await transaction.execute(sql`select set_config('app.public', 'false', true)`);
+    // Prefer public RLS; elevate only for capability-URL drafts (QR share) — P1-04.
+    await transaction.execute(sql`select set_config('app.platform_admin', 'false', true)`);
+    await transaction.execute(sql`select set_config('app.public', 'true', true)`);
 
-    const property = await transaction.query.properties.findFirst({
+    let property = await transaction.query.properties.findFirst({
       where: and(eq(properties.id, propertyId), ne(properties.status, 'archived')),
     });
+    if (!property) {
+      await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
+      await transaction.execute(sql`select set_config('app.public', 'false', true)`);
+      property = await transaction.query.properties.findFirst({
+        where: and(eq(properties.id, propertyId), ne(properties.status, 'archived')),
+      });
+    }
     if (!property) return null;
 
     const [address, profile, amenities, unitRows, coords] = await Promise.all([

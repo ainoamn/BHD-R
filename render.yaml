@@ -2,12 +2,15 @@
 # Docs: docs/implementation/NEST-API-HOSTING.md · ENV-MANIFEST.md
 # Apply in Render Dashboard → New → Blueprint → this repo
 # Liveness: /healthz (edge). Readiness (DB): /health/ready via Nest proxy.
+# Deploy: Auto-Deploy from `main` when connected; force via `node scripts/trigger-render-deploy.mjs`.
 
 services:
   - type: web
     name: bhd-r-api
     runtime: docker
     plan: starter
+    branch: main
+    autoDeploy: true
     dockerfilePath: ./Dockerfile.api
     dockerContext: .
     # Edge liveness — process up + Nest proxy. Use /health/ready for DB readiness probes.

@@ -3,6 +3,7 @@ import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { clientSafeErrorCode, statusForSafeCode } from '@/lib/client-safe-error';
 import { deleteMediaAssetNestOrNeon } from '@/lib/nest-or-neon-write';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
+import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 import { loadUnitMediaBytes } from '@/lib/upload-property-media-neon';
 
 export const runtime = 'nodejs';
@@ -64,6 +65,18 @@ export async function DELETE(
   } catch (error) {
     const mapped = guardErrorResponse(error);
     return NextResponse.json(mapped.body, { status: mapped.status });
+  }
+
+  const limited = assertRouteRateLimit({
+    key: hashRateKey(['owner-media-delete', claims.sub, clientIp(request)]),
+    limit: 30,
+    windowMs: 60_000,
+  });
+  if (!limited.ok) {
+    return NextResponse.json(
+      { error: { code: 'rate_limited' } },
+      { status: 429, headers: { 'retry-after': String(limited.retryAfterSec) } },
+    );
   }
 
   const { assetId } = await context.params;

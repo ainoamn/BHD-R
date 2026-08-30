@@ -73,8 +73,11 @@ Redeploy **web (Vercel)** after this change. Redeploy **Nest (Render)** when pul
 
 1. [dashboard.render.com](https://dashboard.render.com) → خدمة Nest (`bhd-r` / `bhd-r-api`).
 2. **Logs** — ابحث عن `Invalid environment` / crash / missing `REDIS_URL` / `DATABASE_URL`.
-3. **Manual Deploy** من `main` الأحدث → انتظر **Live**.
-4. افتح بالترتيب:
+3. **Deploy من `main`:**
+   - Auto-Deploy مفعّل في `render.yaml` (`branch: main`, `autoDeploy: true`) — أو
+   - **Manual Deploy** من `main` الأحدث — أو
+   - `RENDER_DEPLOY_HOOK_URL=… node scripts/trigger-render-deploy.mjs` ثم `node scripts/verify-nest-health.mjs`
+4. انتظر **Live** ثم افتح بالترتيب:
    - [`/healthz`](https://bhd-r.onrender.com/healthz) → ok + `nestReady:true` + `dispatch:express-proxy`
    - [`/raw-ping`](https://bhd-r.onrender.com/raw-ping) → `{"ok":true,"via":"express"}`
    - [`/health/live`](https://bhd-r.onrender.com/health/live) → ok JSON  

@@ -53,3 +53,9 @@ Blueprint: root `render.yaml` (keys as `sync: false` unless noted).
 | `ALLOW_BOOKING_SANDBOX` | must stay unset/false in production |
 | `DATABASE_URL` | Neon (owner writes / catalogue) |
 | `API_INTERNAL_ORIGIN` | Nest HTTPS URL for BFF (required on Vercel; no Host fallback) |
+
+## Ops (local / CI — never commit secrets)
+
+| Key | Notes |
+| --- | --- |
+| `RENDER_DEPLOY_HOOK_URL` | Render Dashboard → service → Deploy Hook. Run `node scripts/trigger-render-deploy.mjs` then `node scripts/verify-nest-health.mjs` |

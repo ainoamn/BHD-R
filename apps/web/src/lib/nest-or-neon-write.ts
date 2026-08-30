@@ -17,11 +17,21 @@ import {
 async function loadViewerContact(userId: string): Promise<{ email: string; displayName: string }> {
   const { db } = createDatabase(process.env.DATABASE_URL!, { max: 1 });
   return db.transaction(async (transaction) => {
-    await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
-    const user = await transaction.query.users.findFirst({
+    // Prefer least-privilege: own user row via app.user_id (P1-04).
+    await transaction.execute(sql`select set_config('app.platform_admin', 'false', true)`);
+    await transaction.execute(sql`select set_config('app.public', 'false', true)`);
+    await transaction.execute(sql`select set_config('app.user_id', ${userId}, true)`);
+    let user = await transaction.query.users.findFirst({
       where: eq(users.id, userId),
       columns: { email: true, displayName: true },
     });
+    if (!user?.email) {
+      await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
+      user = await transaction.query.users.findFirst({
+        where: eq(users.id, userId),
+        columns: { email: true, displayName: true },
+      });
+    }
     if (!user?.email) throw new Error('unauthorized');
     return {
       email: user.email.trim().toLowerCase(),
