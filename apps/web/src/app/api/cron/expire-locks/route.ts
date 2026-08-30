@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { sql } from 'drizzle-orm';
 import { createDatabase } from '@bhd-r/db';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { assertCronAuthorized } from '@/lib/route-rate-limit';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -11,13 +12,9 @@ export const maxDuration = 30;
  * Requires CRON_SECRET (fail-closed) — Vercel sends Authorization: Bearer <CRON_SECRET>.
  */
 export async function GET(request: Request) {
-  const secret = process.env.CRON_SECRET?.trim();
-  if (!secret || secret.length < 16) {
-    return NextResponse.json({ ok: false, error: 'cron_unconfigured' }, { status: 503 });
-  }
-  const auth = request.headers.get('authorization');
-  if (auth !== `Bearer ${secret}`) {
-    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+  const auth = assertCronAuthorized(request);
+  if (!auth.ok) {
+    return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
   }
   if (!hasDatabaseUrl()) {
     return NextResponse.json({ ok: false, error: 'db_unconfigured' }, { status: 503 });

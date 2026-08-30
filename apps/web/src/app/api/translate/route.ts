@@ -1,5 +1,10 @@
 import { NextResponse } from 'next/server';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
+import {
+  assertRouteRateLimit,
+  clientIp,
+  hashRateKey,
+} from '@/lib/route-rate-limit';
 
 export const runtime = 'nodejs';
 
@@ -33,11 +38,24 @@ async function translateChunk(chunk: string, target: 'ar' | 'en'): Promise<strin
 }
 
 export async function POST(request: Request) {
+  let claims;
   try {
-    await requireLiveSession(request, { requireCsrf: true });
+    claims = await requireLiveSession(request, { requireCsrf: true });
   } catch (error) {
     const mapped = guardErrorResponse(error);
     return NextResponse.json(mapped.body, { status: mapped.status });
+  }
+
+  const limited = assertRouteRateLimit({
+    key: hashRateKey(['translate', claims.sub, clientIp(request)]),
+    limit: 20,
+    windowMs: 60_000,
+  });
+  if (!limited.ok) {
+    return NextResponse.json(
+      { error: 'rate_limited' },
+      { status: 429, headers: { 'retry-after': String(limited.retryAfterSec) } },
+    );
   }
 
   let body: Body;

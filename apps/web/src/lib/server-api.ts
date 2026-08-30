@@ -48,23 +48,24 @@ export function isNestApiConfiguredForRuntime(): boolean {
   return true;
 }
 
-/** Prefer a reachable API. On Vercel, never block on localhost (hangs 20–70s). */
+/** Prefer a reachable API. On Vercel, never fall back to Host spoof / loopback (P2-06). */
 export async function resolveApiOrigin(): Promise<string> {
   const configured = configuredApiOrigin();
-  if (configured) {
-    if (process.env.VERCEL && isLoopbackOrPrivate(configured)) {
-      // Fall through to same-origin so missing Nest fails fast (404) instead of TCP hang.
-    } else {
-      return configured;
+  if (process.env.VERCEL) {
+    if (!configured || isLoopbackOrPrivate(configured)) {
+      throw new Error('api_origin_unconfigured');
     }
-  } else if (!process.env.VERCEL) {
-    return DEFAULT_DEV_API;
+    try {
+      if (new URL(configured).protocol !== 'https:') {
+        throw new Error('api_origin_insecure');
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith('api_origin_')) throw error;
+      throw new Error('api_origin_invalid');
+    }
+    return configured;
   }
-
-  const requestHeaders = await headers();
-  const host = requestHeaders.get('x-forwarded-host') ?? requestHeaders.get('host');
-  const proto = requestHeaders.get('x-forwarded-proto') ?? (process.env.VERCEL ? 'https' : 'http');
-  if (host) return `${proto}://${host.split(',')[0]!.trim()}`;
+  if (configured) return configured;
   return DEFAULT_DEV_API;
 }
 

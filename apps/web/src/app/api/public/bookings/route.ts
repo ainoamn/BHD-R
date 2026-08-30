@@ -3,6 +3,11 @@ import { z } from 'zod';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
 import { createPublicBookingCheckout } from '@/lib/public-booking-neon';
+import {
+  assertRouteRateLimit,
+  clientIp,
+  hashRateKey,
+} from '@/lib/route-rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,6 +28,18 @@ export async function POST(request: Request) {
   } catch (error) {
     const mapped = guardErrorResponse(error);
     return NextResponse.json(mapped.body, { status: mapped.status });
+  }
+
+  const limited = assertRouteRateLimit({
+    key: hashRateKey(['booking', claims.sub, clientIp(request)]),
+    limit: 8,
+    windowMs: 60_000,
+  });
+  if (!limited.ok) {
+    return NextResponse.json(
+      { error: { code: 'rate_limited' } },
+      { status: 429, headers: { 'retry-after': String(limited.retryAfterSec) } },
+    );
   }
 
   let body: z.infer<typeof bodySchema>;

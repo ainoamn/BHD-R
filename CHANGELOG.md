@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.83 — 2026-08-30
+
+- Next write-route policy test; Nest-first viewing with Neon fallback; rate limits on viewing/booking/translate/media; public media via `app.public`; Vercel API origin fail-closed (no Host spoof); cron timing-safe auth + ensure script; worker Sharp tests for disabled/best-effort scan modes.
+- Docs: `RELEASE-0.2.83-AR.md`.
+
 ## 0.2.82 — 2026-08-30
 
 - Soft-promote magic-bytes media for public gallery when worker offline (`MEDIA_PUBLIC_PROMOTE_MODE`); encryption backfill fail-closed (P1-06); Render/env manifest gaps (P1-07); expire-locks cron + catalogue reservation expiry; translate + sandbox complete live-session/CSRF.

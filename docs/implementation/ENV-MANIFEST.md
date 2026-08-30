@@ -47,8 +47,9 @@ Blueprint: root `render.yaml` (keys as `sync: false` unless noted).
 
 | Key | Notes |
 | --- | --- |
-| `CRON_SECRET` | ≥16; required for `/api/cron/*` (fail-closed) |
+| `CRON_SECRET` | ≥16; required for `/api/cron/warmup-nest` and `/api/cron/expire-locks` (fail-closed). Helper: `node scripts/ensure-vercel-cron-secret.mjs` |
 | `MEDIA_PUBLIC_PROMOTE_MODE` | `magic_bytes_best_effort` (default) \| `await_worker` |
+| `MEDIA_SCAN_MODE` (worker) | `required` \| `best-effort` \| `disabled` — use `best-effort` until ClamAV is live |
 | `ALLOW_BOOKING_SANDBOX` | must stay unset/false in production |
 | `DATABASE_URL` | Neon (owner writes / catalogue) |
-| `API_INTERNAL_ORIGIN` | Nest URL for BFF |
+| `API_INTERNAL_ORIGIN` | Nest HTTPS URL for BFF (required on Vercel; no Host fallback) |

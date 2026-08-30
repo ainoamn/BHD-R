@@ -232,7 +232,8 @@ export async function loadPublicPropertyMediaBytes(
   if (!/^[0-9a-f-]{36}$/i.test(assetId)) return null;
   const { db } = getDatabase();
   const asset = await db.transaction(async (transaction) => {
-    await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
+    await transaction.execute(sql`select set_config('app.platform_admin', 'false', true)`);
+    await transaction.execute(sql`select set_config('app.public', 'true', true)`);
     const row = await transaction.query.mediaAssets.findFirst({
       where: and(
         eq(mediaAssets.id, assetId),
@@ -241,6 +242,7 @@ export async function loadPublicPropertyMediaBytes(
       ),
     });
     if (!row || !row.mimeType.startsWith('image/')) return null;
+    if (row.byteSize > BigInt(12 * 1024 * 1024)) return null;
     const linked = await transaction.query.unitMedia.findFirst({
       where: eq(unitMedia.mediaAssetId, assetId),
     });

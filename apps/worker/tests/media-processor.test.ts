@@ -67,4 +67,60 @@ describe('media processor', () => {
     expect(formats.filter((format) => format === 'webp')).toHaveLength(3);
     expect(formats.filter((format) => format === 'heif')).toHaveLength(3);
   });
+
+  it('still Sharp-encodes when MEDIA_SCAN_MODE is disabled', async () => {
+    const disabled: MalwareScanner = {
+      scan: async () => ({ status: 'unavailable', reason: 'Scanning disabled by configuration' }),
+    };
+    const storage = new MemoryStorage();
+    const input = await sharp({
+      create: { width: 800, height: 600, channels: 3, background: '#c9b896' },
+    })
+      .jpeg()
+      .toBuffer();
+    storage.privateObjects.set('incoming/disabled.jpg', input);
+    const process = createMediaProcessor(
+      { ...config, MEDIA_SCAN_MODE: 'disabled' },
+      storage,
+      disabled,
+    );
+    const result = await process({
+      correlationId: '3c14996b-2184-44b9-9cbb-a92cb40bc255',
+      organizationId: 'e8a76f19-0661-4b77-aa1f-42c83fd8f779',
+      propertyId: '3fc75b5d-2d87-4dd8-94bd-9dd672702a4e',
+      sourceKey: 'incoming/disabled.jpg',
+      expectedContentType: 'image/jpeg',
+      expectedSize: input.byteLength,
+    });
+    expect(result.variants.length).toBeGreaterThan(0);
+    expect(storage.publicObjects.size).toBeGreaterThan(0);
+  });
+
+  it('still Sharp-encodes when MEDIA_SCAN_MODE is best-effort and scanner is unavailable', async () => {
+    const flaky: MalwareScanner = {
+      scan: async () => ({ status: 'unavailable', reason: 'ClamAV offline' }),
+    };
+    const storage = new MemoryStorage();
+    const input = await sharp({
+      create: { width: 640, height: 480, channels: 3, background: '#88aaaa' },
+    })
+      .png()
+      .toBuffer();
+    storage.privateObjects.set('incoming/best.jpg', input);
+    const process = createMediaProcessor(
+      { ...config, MEDIA_SCAN_MODE: 'best-effort' },
+      storage,
+      flaky,
+    );
+    const result = await process({
+      correlationId: '3c14996b-2184-44b9-9cbb-a92cb40bc256',
+      organizationId: 'e8a76f19-0661-4b77-aa1f-42c83fd8f779',
+      propertyId: '3fc75b5d-2d87-4dd8-94bd-9dd672702a4e',
+      sourceKey: 'incoming/best.jpg',
+      expectedContentType: 'image/png',
+      expectedSize: input.byteLength,
+    });
+    expect(result.originalKey).toMatch(/^originals\//);
+    expect(result.variants.length).toBeGreaterThan(0);
+  });
 });

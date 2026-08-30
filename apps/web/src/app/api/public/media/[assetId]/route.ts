@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { loadPublicPropertyMediaBytes } from '@/lib/load-public-property-neon';
+import {
+  assertRouteRateLimit,
+  clientIp,
+  hashRateKey,
+} from '@/lib/route-rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -8,11 +13,23 @@ export const maxDuration = 30;
 
 /** GET /api/public/media/:assetId — stream gallery images for public property pages. */
 export async function GET(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ assetId: string }> },
 ) {
   if (!hasDatabaseUrl()) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
+  }
+
+  const limited = assertRouteRateLimit({
+    key: hashRateKey(['public-media', clientIp(request)]),
+    limit: 120,
+    windowMs: 60_000,
+  });
+  if (!limited.ok) {
+    return NextResponse.json(
+      { error: { code: 'rate_limited' } },
+      { status: 429, headers: { 'retry-after': String(limited.retryAfterSec) } },
+    );
   }
 
   const { assetId } = await context.params;
@@ -21,10 +38,18 @@ export async function GET(
     if (!media) {
       return NextResponse.json({ error: { code: 'not_found' } }, { status: 404 });
     }
+    if (!media.mimeType.startsWith('image/')) {
+      return NextResponse.json({ error: { code: 'not_found' } }, { status: 404 });
+    }
+    if (media.bytes.byteLength > 12 * 1024 * 1024) {
+      return NextResponse.json({ error: { code: 'too_large' } }, { status: 413 });
+    }
     return new NextResponse(new Uint8Array(media.bytes), {
       status: 200,
       headers: {
         'content-type': media.mimeType,
+        'content-disposition': 'inline',
+        'x-content-type-options': 'nosniff',
         'cache-control': 'public, max-age=86400, stale-while-revalidate=604800',
       },
     });

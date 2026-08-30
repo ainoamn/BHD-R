@@ -1,0 +1,79 @@
+import 'server-only';
+import { randomUUID } from 'node:crypto';
+import { eq, sql } from 'drizzle-orm';
+import type { SessionClaims } from '@bhd-r/authz';
+import { createDatabase, users } from '@bhd-r/db';
+import { configuredApiOrigin, isNestApiConfiguredForRuntime, probeNestReady } from '@/lib/server-api';
+import { createAuthenticatedViewingRequest } from '@/lib/public-booking-neon';
+
+async function loadViewerContact(userId: string): Promise<{ email: string; displayName: string }> {
+  const { db } = createDatabase(process.env.DATABASE_URL!, { max: 1 });
+  return db.transaction(async (transaction) => {
+    await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
+    const user = await transaction.query.users.findFirst({
+      where: eq(users.id, userId),
+      columns: { email: true, displayName: true },
+    });
+    if (!user?.email) throw new Error('unauthorized');
+    return {
+      email: user.email.trim().toLowerCase(),
+      displayName: (user.displayName || user.email).trim().slice(0, 160),
+    };
+  });
+}
+
+/**
+ * Prefer Nest public viewing (throttled + audit) when reachable; fall back to Neon.
+ */
+export async function createViewingRequestNestOrNeon(
+  claims: SessionClaims,
+  unitId: string,
+  locale: 'ar' | 'en',
+): Promise<{ accepted: true; reference: string; status: string; via: 'nest' | 'neon' }> {
+  const contact = await loadViewerContact(claims.sub);
+  const submissionId = randomUUID();
+
+  if (isNestApiConfiguredForRuntime() && (await probeNestReady())) {
+    const origin = configuredApiOrigin();
+    if (origin) {
+      try {
+        const response = await fetch(`${origin}/v1/public/units/${unitId}/viewing-requests`, {
+          method: 'POST',
+          headers: {
+            accept: 'application/json',
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            submissionId,
+            unitId,
+            displayName: contact.displayName,
+            email: contact.email,
+            locale,
+            consent: true,
+            notes: locale === 'ar' ? 'طلب معاينة من مستخدم مسجّل' : 'Viewing request from signed-in user',
+          }),
+          cache: 'no-store',
+          signal: AbortSignal.timeout(8_000),
+        });
+        if (response.ok) {
+          const payload = (await response.json()) as {
+            accepted?: boolean;
+            reference?: string;
+            status?: string;
+          };
+          return {
+            accepted: true,
+            reference: payload.reference ?? `WEB-${submissionId}`,
+            status: payload.status ?? 'requested',
+            via: 'nest',
+          };
+        }
+      } catch {
+        /* fall through to Neon */
+      }
+    }
+  }
+
+  const neon = await createAuthenticatedViewingRequest(claims, unitId, locale);
+  return { ...neon, via: 'neon' };
+}
