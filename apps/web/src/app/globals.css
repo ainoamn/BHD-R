@@ -455,10 +455,106 @@ h3 {
 .listing-card__placeholder .logo__product img {
   width: 5.5rem;
 }
-.listing-card__placeholder .logo__product i {
-  min-width: 1.05rem;
-  min-height: 1.05rem;
+.listing-card__status-mark {
+  position: absolute;
+  inset-inline-start: 0.7rem;
+  inset-block-end: 0.7rem;
+  z-index: 2;
+  max-width: calc(100% - 5.5rem);
+  padding: 0.28rem 0.55rem;
+  color: #fff;
+  background: rgb(9 45 36 / 0.62);
+  border: 1px solid rgb(255 255 255 / 0.28);
+  border-radius: 0.45rem;
   font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.2;
+  backdrop-filter: blur(4px);
+}
+
+.property-manage-hub {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.property-manage-hub__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.property-manage-hub__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 0.75rem;
+}
+
+.property-manage-hub__stats article {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.85rem 1rem;
+  background: #f7faf8;
+  border: 1px solid #deebe5;
+  border-radius: 0.85rem;
+}
+
+.property-manage-hub__stats span {
+  color: #6a7771;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.property-manage-hub__stats strong {
+  font-size: 1.15rem;
+}
+
+.property-manage-hub__alerts ul {
+  margin: 0;
+  padding-inline-start: 1.1rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.property-manage-hub__deposit-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.75rem;
+}
+
+.property-manage-hub__deposit-form label {
+  display: grid;
+  gap: 0.35rem;
+  min-width: min(100%, 12rem);
+}
+
+.property-manage-hub__action-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.public-listing-actions {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.public-listing-actions__deposit {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.booking-checkout {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.booking-checkout__amount {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 800;
 }
 .listing-card__status {
   position: absolute;

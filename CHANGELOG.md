@@ -2,6 +2,13 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.69 — 2026-08-30
+
+- Owner property page is an **ops hub** (stats, alerts, deposit, action buttons) — no public listing layout.
+- Ops sections accept `?propertyId=` to show only that property’s contracts / leasing / sales / bookings / maintenance / invoices.
+- Catalogue cards show market-status watermark (available / for rent / for sale / reserved / leased / sold).
+- Public listing CTAs: **طلب معاينة** (login required) and **احجز الآن** → deposit checkout (`/book/:unitId`); owner sets deposit on manage hub.
+
 ## 0.2.68 — 2026-08-30
 
 - Public `/units/:id` uses the same Property 360 showcase as owner/admin preview (`PropertyDetailManager` public), with focused unit pricing, gallery preference, and inline viewing request form.

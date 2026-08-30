@@ -9,6 +9,7 @@ import {
   type Database,
 } from '@bhd-r/db';
 import type { ListingCollection, PublicListing } from '@bhd-r/contracts';
+import { marketStatusFromPurpose, type CatalogueListing } from '@/lib/listing-market-status';
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdRPublicListingsDb?: DbHandle };
@@ -55,7 +56,7 @@ export function asPublicListingCategory(
 /** Public catalogue from Neon (same rules as Nest /v1/public/listings). */
 export async function searchPublicListingsFromNeon(
   input: PublicListingSearchInput = {},
-): Promise<ListingCollection> {
+): Promise<ListingCollection & { data: CatalogueListing[] }> {
   const limit = Math.min(Math.max(input.limit ?? 24, 1), 48);
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
@@ -107,6 +108,29 @@ export async function searchPublicListingsFromNeon(
           order by um.position asc
           limit 1
         )`,
+        occupancy: sql<string>`(
+          case
+            when exists (
+              select 1 from sales_deals sd
+              where sd.unit_id = ${units.id} and sd.status = 'closed_won'
+            ) then 'sold'
+            when exists (
+              select 1 from leases l
+              where l.unit_id = ${units.id}
+                and l.status in ('draft', 'active', 'cancel_requested', 'clearance_pending')
+            ) then 'leased'
+            when exists (
+              select 1 from holds h
+              where h.unit_id = ${units.id} and h.status = 'active' and h.expires_at > now()
+            ) or exists (
+              select 1 from reservations r
+              where r.unit_id = ${units.id}
+                and r.status in ('pending', 'confirmed')
+                and r.expires_at > now()
+            ) then 'reserved'
+            else 'available'
+          end
+        )`,
       })
       .from(listings)
       .innerJoin(units, eq(units.id, listings.unitId))
@@ -116,40 +140,48 @@ export async function searchPublicListingsFromNeon(
       .orderBy(desc(listings.publishedAt), desc(units.id))
       .limit(limit);
 
-    const data: PublicListing[] = rows.map((row) => ({
-      id: row.id,
-      slug: row.slug,
-      propertyId: row.propertyId,
-      unitId: row.unitId,
-      category: row.category as PublicListing['category'],
-      propertyNameAr: row.propertyNameAr,
-      propertyNameEn: row.propertyNameEn,
-      unitNameAr: row.unitNameAr,
-      unitNameEn: row.unitNameEn,
-      governorate: row.governorate,
-      wilayat: row.wilayat,
-      bedrooms: row.bedrooms,
-      bathrooms: row.bathrooms,
-      areaSquareMeters:
-        row.areaSquareMeters === null || row.areaSquareMeters === undefined
-          ? null
-          : String(row.areaSquareMeters),
-      listingPurpose: row.listingPurpose as PublicListing['listingPurpose'],
-      rent: {
-        amountMinor: row.rentMinor.toString(),
-        currency: row.currency as PublicListing['rent']['currency'],
-      },
-      salePrice: row.salePriceMinor
-        ? {
-            amountMinor: row.salePriceMinor.toString(),
-            currency: row.currency as PublicListing['rent']['currency'],
-          }
-        : null,
-      // Relative path so Next/Image optimizer accepts it (absolute same-origin URLs are rejected).
-      coverImageUrl: row.coverAssetId ? `/api/public/media/${row.coverAssetId}` : null,
-      available: true as const,
-      publishedAt: (row.publishedAt ?? new Date()).toISOString(),
-    }));
+    const data: CatalogueListing[] = rows.map((row) => {
+      const purpose = row.listingPurpose as PublicListing['listingPurpose'];
+      const occupancy = row.occupancy;
+      const marketStatus =
+        occupancy === 'sold' || occupancy === 'leased' || occupancy === 'reserved'
+          ? occupancy
+          : marketStatusFromPurpose(purpose);
+      return {
+        id: row.id,
+        slug: row.slug,
+        propertyId: row.propertyId,
+        unitId: row.unitId,
+        category: row.category as PublicListing['category'],
+        propertyNameAr: row.propertyNameAr,
+        propertyNameEn: row.propertyNameEn,
+        unitNameAr: row.unitNameAr,
+        unitNameEn: row.unitNameEn,
+        governorate: row.governorate,
+        wilayat: row.wilayat,
+        bedrooms: row.bedrooms,
+        bathrooms: row.bathrooms,
+        areaSquareMeters:
+          row.areaSquareMeters === null || row.areaSquareMeters === undefined
+            ? null
+            : String(row.areaSquareMeters),
+        listingPurpose: purpose,
+        rent: {
+          amountMinor: row.rentMinor.toString(),
+          currency: row.currency as PublicListing['rent']['currency'],
+        },
+        salePrice: row.salePriceMinor
+          ? {
+              amountMinor: row.salePriceMinor.toString(),
+              currency: row.currency as PublicListing['rent']['currency'],
+            }
+          : null,
+        coverImageUrl: row.coverAssetId ? `/api/public/media/${row.coverAssetId}` : null,
+        available: true as const,
+        publishedAt: (row.publishedAt ?? new Date()).toISOString(),
+        marketStatus,
+      };
+    });
 
     return { data, pagination: { nextCursor: null, hasMore: false } };
   });

@@ -1999,6 +1999,7 @@ export function OperationsConsole({
   const [prefillUnitId, setPrefillUnitId] = useState('');
   const [prefillReservationId, setPrefillReservationId] = useState('');
   const [prefillTenantId, setPrefillTenantId] = useState('');
+  const [propertyFilter, setPropertyFilter] = useState('');
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [hideApiBanner, setHideApiBanner] = useState(false);
   const [statsOpen, setStatsOpen] = useState(true);
@@ -2020,9 +2021,11 @@ export function OperationsConsole({
     const unitId = params.get('unitId') ?? '';
     const reservationId = params.get('reservationId') ?? '';
     const tenantId = params.get('tenantId') ?? '';
+    const propertyId = params.get('propertyId') ?? '';
     setPrefillUnitId(unitId);
     setPrefillReservationId(reservationId);
     setPrefillTenantId(tenantId);
+    setPropertyFilter(propertyId);
     if (reservationId && !tenantId) {
       const match = (context.confirmedReservations ?? context.reservations ?? []).find(
         (row) => row.id === reservationId,
@@ -2047,12 +2050,28 @@ export function OperationsConsole({
     : 0;
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
+    const unitIdsForProperty = propertyFilter
+      ? new Set(
+          [...(context.units ?? []), ...(context.vacantUnits ?? [])]
+            .filter((unit) => unit.propertyId === propertyFilter)
+            .map((unit) => unit.id),
+        )
+      : null;
     return records.filter((row) => {
       if (statusFilter && safeString(row.status) !== statusFilter) return false;
+      if (propertyFilter) {
+        const rowPropertyId = safeString(row.propertyId);
+        const rowUnitId = safeString(row.unitId);
+        const matchesProperty =
+          rowPropertyId === propertyFilter ||
+          (rowUnitId && unitIdsForProperty?.has(rowUnitId)) ||
+          JSON.stringify(row).includes(propertyFilter);
+        if (!matchesProperty) return false;
+      }
       if (!normalized) return true;
       return JSON.stringify(row).toLocaleLowerCase().includes(normalized);
     });
-  }, [query, records, statusFilter]);
+  }, [query, records, statusFilter, propertyFilter, context.units, context.vacantUnits]);
   const openCount = records.filter(
     (row) =>
       ![
@@ -2390,6 +2409,14 @@ export function OperationsConsole({
           <span className="ops-kicker">BHD R · {portal.toUpperCase()}</span>
           <h1>{ar ? definition.titleAr : definition.titleEn}</h1>
           <p>{ar ? definition.introAr : definition.introEn}</p>
+          {propertyFilter ? (
+            <p className="notice">
+              {ar
+                ? 'معروض فقط ما يخص هذا العقار.'
+                : 'Showing records for this property only.'}{' '}
+              <a href={`/${portal}/${section}`}>{ar ? 'إظهار الكل' : 'Show all'}</a>
+            </p>
+          ) : null}
         </div>
         <div className="ops-header__actions">
           {section === 'properties' ? (

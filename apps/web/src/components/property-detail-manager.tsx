@@ -7,7 +7,8 @@ import { BrandMark } from '@bhd-r/ui';
 import { browserMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { PropertyQrCard } from '@/components/property-qr-card';
-import { PublicViewingForm } from '@/components/public-viewing-form';
+import { PublicListingActions } from '@/components/public-listing-actions';
+import { PropertyManageHub } from '@/components/property-manage-hub';
 import { googleMapsEmbedSrc } from '@/lib/parse-google-maps-url';
 
 interface ManagedUnit {
@@ -136,6 +137,7 @@ export function PropertyDetailManager({
   portal,
   variant = 'manage',
   focusUnitId,
+  signedIn = false,
 }: {
   property: ManagedProperty;
   locale: 'ar' | 'en';
@@ -144,6 +146,8 @@ export function PropertyDetailManager({
   variant?: 'manage' | 'public';
   /** When opening from a catalogue unit URL, prefer that unit for price and viewing. */
   focusUnitId?: string;
+  /** Whether the visitor has a BHD R session (public CTAs). */
+  signedIn?: boolean;
 }) {
   const router = useRouter();
   const ar = locale === 'ar';
@@ -217,6 +221,10 @@ export function PropertyDetailManager({
       : ar
         ? 'شهرياً'
         : '/ month';
+
+  if (!isPublic) {
+    return <PropertyManageHub property={property} locale={locale} portal={portal} />;
+  }
 
   async function archiveOrRestore() {
     const restoring = property.status === 'archived';
@@ -679,7 +687,18 @@ export function PropertyDetailManager({
               </>
             ) : primaryUnit ? (
               <div className="property-360__viewing">
-                <PublicViewingForm unitId={primaryUnit.id} locale={locale} />
+                <PublicListingActions
+                  unitId={primaryUnit.id}
+                  locale={locale}
+                  signedIn={signedIn}
+                  depositMinor={primaryUnit.depositMinor}
+                  currency={primaryUnit.currency}
+                  canBook={Boolean(
+                    primaryUnit.depositMinor &&
+                      primaryUnit.depositMinor !== '0' &&
+                      primaryUnit.listingEnabled !== false,
+                  )}
+                />
               </div>
             ) : null}
           </div>

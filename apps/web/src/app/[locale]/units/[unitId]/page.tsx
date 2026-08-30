@@ -10,6 +10,7 @@ import { loadPublicUnitFromNeon } from '@/lib/load-public-unit-neon';
 import { toPublicMediaSrc } from '@/lib/public-media-url';
 import { ApiError, publicApiFetch } from '@/lib/server-api';
 import { bilingualAlternates, unitListingJsonLd } from '@/lib/seo';
+import { getViewer } from '@/lib/viewer';
 import type { PublicUnitDetail } from '@bhd-r/contracts';
 
 async function getUnit(id: string): Promise<PublicUnitDetail | null> {
@@ -89,7 +90,10 @@ export default async function UnitPage({
   if (!unit) notFound();
 
   if (!hasDatabaseUrl()) notFound();
-  const property = await loadPublicPropertyShowcaseFromNeon(unit.propertyId).catch(() => null);
+  const [property, viewer] = await Promise.all([
+    loadPublicPropertyShowcaseFromNeon(unit.propertyId).catch(() => null),
+    getViewer().catch(() => null),
+  ]);
   if (!property) notFound();
 
   const title = `${localizedName(locale, unit.propertyNameAr, unit.propertyNameEn)} — ${localizedName(locale, unit.unitNameAr, unit.unitNameEn)}`;
@@ -107,6 +111,7 @@ export default async function UnitPage({
             portal="owner"
             variant="public"
             focusUnitId={unit.unitId}
+            signedIn={Boolean(viewer)}
           />
         </div>
       </main>

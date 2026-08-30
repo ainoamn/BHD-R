@@ -6,6 +6,7 @@ import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { loadPublicPropertyShowcaseFromNeon } from '@/lib/load-public-property-neon';
 import { bilingualAlternates } from '@/lib/seo';
 import { localizedName } from '@/lib/format';
+import { getViewer } from '@/lib/viewer';
 
 export async function generateMetadata({
   params,
@@ -57,7 +58,10 @@ export default async function PropertyPage({
   setRequestLocale(locale);
 
   if (!hasDatabaseUrl()) notFound();
-  const property = await loadPublicPropertyShowcaseFromNeon(propertyId).catch(() => null);
+  const [property, viewer] = await Promise.all([
+    loadPublicPropertyShowcaseFromNeon(propertyId).catch(() => null),
+    getViewer().catch(() => null),
+  ]);
   if (!property) notFound();
 
   return (
@@ -68,6 +72,7 @@ export default async function PropertyPage({
           locale={locale}
           portal="owner"
           variant="public"
+          signedIn={Boolean(viewer)}
         />
       </div>
     </main>

@@ -29,14 +29,16 @@ Scanning the QR or «عرض العقار» opens the **public** property page (`
 
 Columns: property no., name, owner, location, kind, units, status (Neon path preferred when `DATABASE_URL` is set).
 
-**Next action (0.2.67):** two buttons per row —
+**Next action (0.2.67+):** two buttons per row —
 
 | Button | Opens |
 | ------ | ----- |
 | عرض العقار | Public marketing page `/{locale}/properties/:id` (new tab) |
-| إدارة العقار | Owner Property 360 `/{locale}/owner/properties/:id` — gallery, ownership, documents, ops shortcuts (contracts / leasing / sales / bookings / maintenance / invoices) + **تعديل العقار** |
+| إدارة العقار | **Ops hub** `/{locale}/owner/properties/:id` — stats/alerts/deposit + scoped actions (not the public listing layout) |
 
-Same pattern as legacy bhd-om unit row actions (details vs public view), adapted to BHD R routes.
+Manage hub actions use `?propertyId=` on contracts / leasing / sales / bookings / maintenance / invoices.
+
+Public catalogue cards (0.2.69) show a status watermark: available / for rent / for sale / reserved / leased / sold. Public CTAs require login: viewing request + book→deposit checkout.
 
 ## Deploy notes
 
