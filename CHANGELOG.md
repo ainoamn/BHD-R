@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.55 — 2026-08-30
+
+- Hide Nest 401 banner on owner portal when records load from Neon; fix ghost/white logo on mobile header; denser phone layout for chrome, metrics, and ops pages.
+
 ## 0.2.54 — 2026-08-30
 
 - Property photos: client-side compression + Vercel→R2→Neon upload (with Nest fallback); gallery served via `/api/owner/media/:id`.

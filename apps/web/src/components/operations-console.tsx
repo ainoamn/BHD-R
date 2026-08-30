@@ -2414,7 +2414,7 @@ export function OperationsConsole({
         </div>
       </header>
 
-      {!hideApiBanner && (!nestConfigured || !apiOnline) ? (
+      {!hideApiBanner && (!nestConfigured || !apiOnline) && !(dataFromDb && !recordsEmpty) ? (
         <div className="ops-api-banner" role="status">
           <button
             type="button"
@@ -2469,7 +2469,7 @@ export function OperationsConsole({
             </p>
           ) : null}
         </div>
-      ) : !hideApiBanner && apiUnauthorized ? (
+      ) : !hideApiBanner && apiUnauthorized && !dataFromDb ? (
         <div className="ops-api-banner ops-api-banner--soft" role="status">
           <button
             type="button"
@@ -2480,22 +2480,12 @@ export function OperationsConsole({
             ×
           </button>
           <strong>
-            {showOpsDiagnostics
-              ? ar
-                ? 'الجلسة غير مقبولة من Nest API'
-                : 'Session not accepted by Nest API'
-              : ar
-                ? 'أعد تسجيل الدخول لإكمال الإجراءات'
-                : 'Sign in again to finish actions'}
+            {ar ? 'أعد تسجيل الدخول لإكمال بعض الإجراءات' : 'Sign in again to finish some actions'}
           </strong>
           <p>
-            {showOpsDiagnostics
-              ? ar
-                ? 'Nest يعمل، لكن طلبات العمليات ترجع 401. تأكد أن BHD_R_SESSION_SECRET متطابق بين Vercel و Render، وأن WEB_ORIGIN على Render يشمل نطاق الواجهة، ثم سجّل خروجاً وادخل مجدداً.'
-                : 'Nest is up, but operations requests return 401. Match BHD_R_SESSION_SECRET on Vercel and Render, set WEB_ORIGIN on Render to the web origin, then sign out and back in.'
-              : ar
-                ? 'التصفح متاح. للحفظ أو إضافة عقار: اخرج ثم ادخل من جديد (خصوصاً على الجوال).'
-                : 'Browsing works. To save or add a property: sign out and back in (especially on mobile).'}
+            {ar
+              ? 'التصفح متاح من قاعدة البيانات. إن احتجت إجراءً لا يعمل: اخرج ثم ادخل من جديد.'
+              : 'Browsing works from the database. If an action fails: sign out and sign in again.'}
           </p>
           {recordsEmpty ? (
             <p className="ops-api-banner__note">

@@ -3596,12 +3596,26 @@ h3 {
     width: 2.15rem;
     height: 2.15rem;
     font-size: 1rem;
+    flex: 0 0 auto;
   }
   .portal-chrome__titles {
     display: none;
   }
+  .portal-chrome__logo {
+    display: inline-flex;
+    align-items: center;
+    max-width: 5.5rem;
+    overflow: hidden;
+  }
   .portal-chrome__logo .logo__product img {
-    width: 2.65rem;
+    width: 2.55rem;
+    max-width: 100%;
+  }
+  .portal-chrome__logo .logo__product i {
+    min-width: 0.72rem;
+    min-height: 0.72rem;
+    font-size: 0.5rem;
+    margin-inline-start: 0.1rem;
   }
   .portal-chrome__user {
     display: none;
@@ -3610,37 +3624,82 @@ h3 {
     display: none;
   }
   .portal-chrome__lang {
-    min-height: 2.15rem;
-    min-width: 2.15rem;
-    padding: 0.25rem;
+    min-height: 2rem;
+    min-width: 2rem;
+    padding: 0.2rem;
   }
   .portal-chrome__lang-code {
-    min-width: 1.55rem;
-    height: 1.25rem;
-    font-size: 0.62rem;
+    min-width: 1.45rem;
+    height: 1.15rem;
+    font-size: 0.58rem;
   }
   .bhd-switcher-grid,
   .bhd-switcher-avatar {
-    width: 2.15rem;
-    height: 2.15rem;
+    width: 2rem;
+    height: 2rem;
   }
   .bhd-switcher-avatar > span {
-    width: 1.85rem;
-    height: 1.85rem;
-    font-size: 0.78rem;
+    width: 1.7rem;
+    height: 1.7rem;
+    font-size: 0.72rem;
   }
   .portal-chrome__row {
-    min-height: 3.25rem;
-    gap: 0.45rem;
-    padding-inline: 0.65rem;
-    padding-block: 0.35rem;
-    padding-block-start: calc(0.35rem + var(--safe-top));
+    min-height: 2.85rem;
+    gap: 0.35rem;
+    padding-inline: 0.55rem;
+    padding-block: 0.3rem;
+    padding-block-start: calc(0.3rem + var(--safe-top));
   }
   .portal-chrome__actions {
-    gap: 0.3rem;
+    gap: 0.25rem;
+    flex-wrap: nowrap;
   }
   .portal-chrome__brand {
+    gap: 0.35rem;
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+  .portal-main {
+    padding: 0.75rem 0.65rem 1.25rem;
+  }
+  .ops-workspace .ops-header {
+    gap: 0.65rem;
+    padding: 0.8rem 0.85rem;
+    border-radius: 0.9rem;
+  }
+  .ops-workspace .ops-header h1 {
+    font-size: 1.15rem;
+    margin: 0.1rem 0 0.3rem;
+  }
+  .ops-workspace .ops-header p {
+    font-size: 0.8rem;
+    line-height: 1.4;
+  }
+  .ops-workspace .ops-kicker {
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+  }
+  .ops-workspace .ops-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.45rem;
+    margin-block: 0.55rem;
+  }
+  .ops-workspace .ops-metrics > div,
+  .ops-workspace .ops-metrics > article {
+    padding: 0.55rem 0.65rem;
+    border-radius: 0.7rem;
+  }
+  .ops-workspace .ops-metrics strong {
+    font-size: 1.15rem;
+  }
+  .ops-workspace .ops-metrics span,
+  .ops-workspace .ops-metrics small {
+    font-size: 0.72rem;
+  }
+  .ops-api-banner {
+    font-size: 0.82rem;
+    padding: 0.65rem 0.75rem;
+    padding-inline-end: 2rem;
   }
   .portal-nav-backdrop {
     position: fixed;

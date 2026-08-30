@@ -223,6 +223,9 @@ export async function OperationsWorkspace({
   const context = contextResult.context;
   const recordsEmpty = !loaded.records.length;
   const dataFromDb = 'source' in loaded && loaded.source === 'db';
+  // When Neon already serves the list, Nest 401 must not alarm owners on mobile.
+  const apiUnauthorized =
+    Boolean(contextResult.unauthorized) && !(dataFromDb && !recordsEmpty);
   return (
     <OperationsConsole
       portal={portal}
@@ -235,7 +238,7 @@ export async function OperationsWorkspace({
       apiOnline={apiOnline}
       nestConfigured={nestConfigured}
       recordsEmpty={recordsEmpty}
-      apiUnauthorized={Boolean(contextResult.unauthorized)}
+      apiUnauthorized={apiUnauthorized}
       dataFromDb={dataFromDb}
     />
   );
