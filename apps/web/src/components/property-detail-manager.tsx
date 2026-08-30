@@ -518,6 +518,15 @@ export function PropertyDetailManager({
 
         <aside className="property-360__summary" aria-label={ar ? 'ملخص السعر' : 'Price summary'}>
           <div className="property-360__summary-card">
+            <div className="property-360__qr">
+              <PropertyQrCard
+                path={propertyPath}
+                locale={locale}
+                size={112}
+                labelAr="امسح الرمز لفتح صفحة هذا العقار"
+                labelEn="Scan to open this property page"
+              />
+            </div>
             <p className="property-360__price">
               <strong dir="ltr">{priceLabel}</strong>
               <span>{priceSuffix}</span>
@@ -553,14 +562,6 @@ export function PropertyDetailManager({
                 {ar ? 'تعديل العقار' : 'Edit property'}
               </a>
             ) : null}
-            <div className="property-360__qr">
-              <PropertyQrCard
-                path={propertyPath}
-                locale={locale}
-                labelAr="امسح الرمز لفتح صفحة هذا العقار"
-                labelEn="Scan to open this property page"
-              />
-            </div>
           </div>
         </aside>
       </div>

@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.61 — 2026-08-30
+
+- Portfolio metrics/stages: denser cards + collapsible panel (folded by default on phone).
+- Property 360: QR moved to top of summary and scaled down; fluid type for facts/price across viewports.
+
 ## 0.2.60 — 2026-08-30
 
 - Property photos: store via Neon inline when R2 buckets are empty/misconfigured; gallery always streams through `/api/owner/media/:id` (stop using R2 API host as image URL); surface upload failures in the wizard.

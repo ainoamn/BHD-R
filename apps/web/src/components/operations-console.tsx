@@ -2000,7 +2000,19 @@ export function OperationsConsole({
   const [prefillTenantId, setPrefillTenantId] = useState('');
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [hideApiBanner, setHideApiBanner] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(true);
   const showOpsDiagnostics = portal === 'platform';
+
+  useEffect(() => {
+    try {
+      const stored = window.sessionStorage.getItem(`ops-stats-open:${section}`);
+      if (stored === '0') setStatsOpen(false);
+      else if (stored === '1') setStatsOpen(true);
+      else if (window.matchMedia('(max-width: 960px)').matches) setStatsOpen(false);
+    } catch {
+      /* ignore */
+    }
+  }, [section]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -2657,78 +2669,112 @@ export function OperationsConsole({
         </section>
       ) : null}
 
-      <section className="ops-metrics" aria-label={ar ? 'المؤشرات' : 'Metrics'}>
-        <article>
-          <span>{ar ? 'إجمالي السجلات' : 'Total records'}</span>
-          <strong>{records.length}</strong>
-          <small>{ar ? 'ضمن المؤسسة الحالية' : 'Current organization'}</small>
-        </article>
-        <article>
-          <span>{ar ? 'قيد المتابعة' : 'In progress'}</span>
-          <strong>{openCount}</strong>
-          <small>{ar ? 'تحتاج إجراء أو متابعة' : 'Needs action or follow-up'}</small>
-        </article>
-        <article>
-          <span>{ar ? 'مكتمل/مغلق' : 'Completed/closed'}</span>
-          <strong>{completedCount}</strong>
-          <small>{ar ? 'محفوظة في سجل العمل' : 'Retained in workflow history'}</small>
-        </article>
-        <article className="ops-metric--accent">
-          <span>
-            {definition.moneyKey
-              ? ar
-                ? 'القيمة المسجلة'
-                : 'Recorded value'
-              : ar
-                ? 'مؤشر إضافي'
-                : 'Additional indicator'}
-          </span>
-          <strong>
-            {definition.moneyKey
-              ? amountTotals.size === 1
-                ? [...amountTotals].map(([currency, amount]) =>
-                    formatMoney(amount.toString(), currency, locale),
-                  )[0]
-                : amountTotals.size > 1
-                  ? `${amountTotals.size} ${ar ? 'عملات' : 'currencies'}`
-                  : '—'
-              : safeString(summary.pendingApprovals ?? summary.draftJournals ?? secondary.length)}
-          </strong>
-          <small>{ar ? 'محدث من البيانات التشغيلية' : 'Updated from operational data'}</small>
-        </article>
-      </section>
-
-      {definition.moneyKey && amountTotals.size > 1 ? (
-        <section
-          className="ops-currency-totals"
-          aria-label={ar ? 'الإجماليات حسب العملة' : 'Totals by currency'}
+      <section className="ops-stats" aria-label={ar ? 'المؤشرات ومراحل العمل' : 'Metrics and stages'}>
+        <button
+          type="button"
+          className="ops-stats__toggle"
+          aria-expanded={statsOpen}
+          onClick={() => {
+            setStatsOpen((open) => {
+              const next = !open;
+              try {
+                window.sessionStorage.setItem(`ops-stats-open:${section}`, next ? '1' : '0');
+              } catch {
+                /* ignore */
+              }
+              return next;
+            });
+          }}
         >
-          {[...amountTotals]
-            .sort(([left], [right]) => left.localeCompare(right))
-            .map(([currency, amount]) => (
-              <article key={currency}>
-                <span>{currency}</span>
-                <strong>{formatMoney(amount.toString(), currency, locale)}</strong>
-              </article>
-            ))}
-        </section>
-      ) : null}
+          <span>
+            {ar ? 'المؤشرات ومراحل العمل' : 'Metrics & stages'}
+            <small>
+              {records.length} {ar ? 'سجل' : 'records'} · {openCount}{' '}
+              {ar ? 'متابعة' : 'open'}
+            </small>
+          </span>
+          <em aria-hidden="true">{statsOpen ? (ar ? 'طي' : 'Hide') : ar ? 'عرض' : 'Show'}</em>
+        </button>
 
-      <section className="ops-flow" aria-label={ar ? 'مراحل العمل' : 'Workflow stages'}>
-        {definition.flow.map((stage, index) => {
-          const count = records.filter((row) => safeString(row.status) === stage.value).length;
-          return (
-            <article key={stage.value}>
-              <span>{String(index + 1).padStart(2, '0')}</span>
-              <div>
-                <strong>{ar ? stage.ar : stage.en}</strong>
-                <small>
-                  {count} {ar ? 'سجل' : 'records'}
-                </small>
-              </div>
-            </article>
-          );
-        })}
+        {statsOpen ? (
+          <>
+            <section className="ops-metrics" aria-label={ar ? 'المؤشرات' : 'Metrics'}>
+              <article>
+                <span>{ar ? 'إجمالي السجلات' : 'Total records'}</span>
+                <strong>{records.length}</strong>
+                <small>{ar ? 'ضمن المؤسسة الحالية' : 'Current organization'}</small>
+              </article>
+              <article>
+                <span>{ar ? 'قيد المتابعة' : 'In progress'}</span>
+                <strong>{openCount}</strong>
+                <small>{ar ? 'تحتاج إجراء أو متابعة' : 'Needs action or follow-up'}</small>
+              </article>
+              <article>
+                <span>{ar ? 'مكتمل/مغلق' : 'Completed/closed'}</span>
+                <strong>{completedCount}</strong>
+                <small>{ar ? 'محفوظة في سجل العمل' : 'Retained in workflow history'}</small>
+              </article>
+              <article className="ops-metric--accent">
+                <span>
+                  {definition.moneyKey
+                    ? ar
+                      ? 'القيمة المسجلة'
+                      : 'Recorded value'
+                    : ar
+                      ? 'مؤشر إضافي'
+                      : 'Additional indicator'}
+                </span>
+                <strong>
+                  {definition.moneyKey
+                    ? amountTotals.size === 1
+                      ? [...amountTotals].map(([currency, amount]) =>
+                          formatMoney(amount.toString(), currency, locale),
+                        )[0]
+                      : amountTotals.size > 1
+                        ? `${amountTotals.size} ${ar ? 'عملات' : 'currencies'}`
+                        : '—'
+                    : safeString(
+                        summary.pendingApprovals ?? summary.draftJournals ?? secondary.length,
+                      )}
+                </strong>
+                <small>{ar ? 'محدث من البيانات التشغيلية' : 'Updated from operational data'}</small>
+              </article>
+            </section>
+
+            {definition.moneyKey && amountTotals.size > 1 ? (
+              <section
+                className="ops-currency-totals"
+                aria-label={ar ? 'الإجماليات حسب العملة' : 'Totals by currency'}
+              >
+                {[...amountTotals]
+                  .sort(([left], [right]) => left.localeCompare(right))
+                  .map(([currency, amount]) => (
+                    <article key={currency}>
+                      <span>{currency}</span>
+                      <strong>{formatMoney(amount.toString(), currency, locale)}</strong>
+                    </article>
+                  ))}
+              </section>
+            ) : null}
+
+            <section className="ops-flow" aria-label={ar ? 'مراحل العمل' : 'Workflow stages'}>
+              {definition.flow.map((stage, index) => {
+                const count = records.filter((row) => safeString(row.status) === stage.value).length;
+                return (
+                  <article key={stage.value}>
+                    <span>{String(index + 1).padStart(2, '0')}</span>
+                    <div>
+                      <strong>{ar ? stage.ar : stage.en}</strong>
+                      <small>
+                        {count} {ar ? 'سجل' : 'records'}
+                      </small>
+                    </div>
+                  </article>
+                );
+              })}
+            </section>
+          </>
+        ) : null}
       </section>
 
       {vacancyFollowUpTotal > 0 &&

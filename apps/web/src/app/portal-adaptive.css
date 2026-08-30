@@ -94,14 +94,28 @@
 }
 
 .ops-metrics strong {
-  font-size: clamp(1.05rem, 0.95rem + 0.8vw, 1.55rem);
+  font-size: clamp(1rem, 0.9rem + 0.55vw, 1.35rem);
 }
 
 .ops-metrics span,
 .ops-metrics small {
-  font-size: 0.78em;
-  line-height: 1.3;
+  font-size: clamp(0.62rem, 0.58rem + 0.2vw, 0.72rem);
+  line-height: 1.25;
 }
+
+.property-360__titlebar h1,
+.ops-header h1,
+.wizard-hero h1 {
+  font-size: var(--portal-title);
+}
+
+.property-360__facts,
+.property-360__description,
+.property-360__location,
+.property-360__serial {
+  font-size: clamp(0.78rem, 0.74rem + 0.22vw, 0.92rem);
+}
+
 
 .wizard-shell .input,
 .wizard-shell .select,
@@ -401,14 +415,20 @@
   }
 
   .property-360__qr .property-qr__frame canvas,
+  .property-360__qr .property-qr__frame img,
   .property-360__qr .property-qr__placeholder {
-    width: 110px !important;
-    height: 110px !important;
+    width: 88px !important;
+    height: 88px !important;
   }
 
   .property-qr p,
   .property-qr .muted {
-    font-size: 0.72rem;
+    font-size: 0.68rem;
+  }
+
+  .ops-stats__toggle {
+    min-height: 2rem;
+    padding: 0.35rem 0.55rem;
   }
 }
 
