@@ -67,7 +67,8 @@ try {
         cwd: root,
         encoding: 'utf8',
         shell: true,
-        input: `${secret}\n`,
+        // Do not append \n — Vercel stores stdin as-is and cron headers reject whitespace.
+        input: secret,
       },
     );
     if (add.stdout) process.stdout.write(add.stdout);
