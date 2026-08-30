@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.70 — 2026-08-30
+
+- Owner/developer portal soft navigation: ops sections load via client memory cache + background warm (`/api/portal/ops/...`), so sidebar clicks paint like already-open views (WAZEN-style).
+- Idle prefetch warms JSON payloads (not only RSC); `staleTimes` raised; removed portal-main enter animation that felt like a full reload.
+
 ## 0.2.69 — 2026-08-30
 
 - Owner property page is an **ops hub** (stats, alerts, deposit, action buttons) — no public listing layout.

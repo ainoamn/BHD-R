@@ -54,8 +54,8 @@ const config: NextConfig = {
     // Soft nav feels SPA-like: keep recently visited portal segments warm on the client.
     // Soft nav keeps visited portal sections in the client router cache (WAZEN-like).
     staleTimes: {
-      dynamic: 180,
-      static: 600,
+      dynamic: 600,
+      static: 900,
     },
   },
   images: {

@@ -1,8 +1,8 @@
 # Implementation status
 
 **Updated:** 2026-08-30  
-**Product version:** 0.2.69  
-**Active focus:** Property ops hub + public viewing/booking CTAs  
+**Product version:** 0.2.70  
+**Active focus:** SPA-like portal navigation (ops client cache)  
 **Handoff:** [`HANDOFF-NEST-RENDER-2026-08-26-AR.md`](./HANDOFF-NEST-RENDER-2026-08-26-AR.md)  
 **Property identity/QR:** [`PROPERTY-IDENTITY-QR-AR.md`](./PROPERTY-IDENTITY-QR-AR.md)  
 **Adaptive properties UI:** [`PORTAL-ADAPTIVE-PROPERTIES-AR.md`](./PORTAL-ADAPTIVE-PROPERTIES-AR.md)  
@@ -27,6 +27,7 @@
 | Portfolio view + manage | **shipped 0.2.67** | عرض العقار / إدارة العقار + ops shortcuts on Property 360 |
 | Unit public = Property 360 | **shipped 0.2.68** | `/units/:id` same showcase as owner preview |
 | Property ops hub + booking CTAs | **shipped 0.2.69** | Manage hub, propertyId filters, status marks, auth viewing/book |
+| Portal soft-nav ops cache | **shipped 0.2.70** | Client memory cache + idle warm `/api/portal/ops` |
 | Nest Render reachability | **fixed 0.2.45** | Express + edge `/healthz` + CORS callback |
 
 ## Next (human / infra)

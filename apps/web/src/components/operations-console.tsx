@@ -7,6 +7,7 @@ import { BrandMark } from '@bhd-r/ui';
 import { Link } from '@/i18n/navigation';
 import { browserMutation } from '@/lib/api';
 import { formatMoney, toMinorUnits } from '@/lib/format';
+import { invalidateOpsCache } from '@/lib/portal-ops-client-cache';
 import type { PortalRole } from '@/lib/types';
 import type { OperationsSection } from './operations-workspace';
 import { NestReconnectButton } from './nest-reconnect-button';
@@ -1989,6 +1990,15 @@ export function OperationsConsole({
   const router = useRouter();
   const definition = definitions[section];
   const ar = locale === 'ar';
+  const refreshWorkspace = () => {
+    invalidateOpsCache(portal, section);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('bhd-r-ops-refresh', { detail: { portal, section } }),
+      );
+    }
+    router.refresh();
+  };
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [showCreate, setShowCreate] = useState(false);
@@ -2121,11 +2131,11 @@ export function OperationsConsole({
       });
       if (section === 'api-keys' && result.key) {
         setApiKeySecret(result.key);
-        router.refresh();
+        refreshWorkspace();
         return;
       }
       setShowCreate(false);
-      router.refresh();
+      refreshWorkspace();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'request_failed');
     } finally {
@@ -2155,7 +2165,7 @@ export function OperationsConsole({
             : 'Deposit confirmed and ledger journal posted (when deposit amount exists). You can convert the reservation to an in-progress lease.',
         );
       }
-      router.refresh();
+      refreshWorkspace();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'request_failed');
     } finally {
@@ -2233,7 +2243,7 @@ export function OperationsConsole({
         method: 'PATCH',
         body: JSON.stringify(body),
       });
-      router.refresh();
+      refreshWorkspace();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'request_failed');
     } finally {
@@ -2279,7 +2289,7 @@ export function OperationsConsole({
         }),
       });
       setRenewingLease(null);
-      router.refresh();
+      refreshWorkspace();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'request_failed');
     } finally {
@@ -2297,7 +2307,7 @@ export function OperationsConsole({
         method: 'PATCH',
         body: JSON.stringify({ decision }),
       });
-      router.refresh();
+      refreshWorkspace();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'request_failed');
     } finally {
@@ -2322,7 +2332,7 @@ export function OperationsConsole({
         method: 'PATCH',
         body: JSON.stringify({ ...(totpCode ? { totpCode } : {}) }),
       });
-      router.refresh();
+      refreshWorkspace();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'request_failed');
     } finally {
@@ -2350,7 +2360,7 @@ export function OperationsConsole({
         method: 'PATCH',
         body: JSON.stringify({ roleKey, status }),
       });
-      router.refresh();
+      refreshWorkspace();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'request_failed');
     } finally {
@@ -2433,7 +2443,7 @@ export function OperationsConsole({
                 void browserMutation('/v1/accounting/accounts/bootstrap', {
                   method: 'POST',
                   body: '{}',
-                }).then(() => router.refresh())
+                }).then(() => refreshWorkspace())
               }
             >
               {ar ? 'تهيئة دليل الحسابات' : 'Initialize chart of accounts'}

@@ -1208,7 +1208,19 @@ h3 {
   grid-area: main;
   min-width: 0;
   padding: clamp(1rem, 3vw, 2rem);
-  animation: portal-main-in 0.5s ease 0.05s both;
+}
+.portal-ops-boot {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 0.75rem;
+  min-height: 12rem;
+  color: var(--maroon-800);
+  opacity: 0.85;
+}
+.portal-ops-boot p {
+  margin: 0;
+  font-size: 0.95rem;
 }
 .portal-topbar {
   display: flex;
