@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.57 — 2026-08-30
+
+- Mobile wizard: compact step bar (current page + small numbers) instead of large 7-circle grid; clearer property cards and smaller status chips.
+
 ## 0.2.56 — 2026-08-30
 
 - Fix mobile property list vanishing (CSS hid cards after table); denser phone metrics/header and show records as cards.

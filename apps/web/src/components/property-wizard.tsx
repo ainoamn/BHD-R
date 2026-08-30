@@ -1056,7 +1056,7 @@ export function PropertyWizard({
       <header className="wizard-hero">
         <p className="wizard-hero__kicker">{ar ? 'بوابة المالك' : 'Owner portal'}</p>
         <h1>{mode === 'edit' ? (ar ? 'تعديل العقار' : 'Edit property') : t('PropertyForm.title')}</h1>
-        <p>{t('PropertyForm.intro')}</p>
+        <p className="wizard-hero__intro">{t('PropertyForm.intro')}</p>
         <div className="wizard-hero__meta" aria-hidden="true">
           <span>
             {ar ? 'المرحلة' : 'Step'} {step + 1} / {steps.length}
@@ -1067,7 +1067,54 @@ export function PropertyWizard({
         </div>
       </header>
 
-      <nav className="wizard-progress" aria-label={t('PropertyForm.wizardStepsAria')}>
+      <nav className="wizard-progress-compact" aria-label={t('PropertyForm.wizardStepsAria')}>
+        <div className="wizard-progress-compact__now">
+          <strong>
+            {step + 1}
+            <span>/{steps.length}</span>
+          </strong>
+          <em>{steps[step]}</em>
+        </div>
+        <ol className="wizard-progress-compact__dots">
+          {steps.map((label, index) => {
+            const done = index < step;
+            const current = index === step;
+            return (
+              <li key={`m-${label}`}>
+                <button
+                  type="button"
+                  className={
+                    current
+                      ? 'is-current'
+                      : done
+                        ? 'is-done'
+                        : index <= maxReached
+                          ? 'is-reached'
+                          : undefined
+                  }
+                  disabled={index > maxReached && index !== step}
+                  aria-label={label}
+                  aria-current={current ? 'step' : undefined}
+                  onClick={() => {
+                    if (index <= step) goToStep(index);
+                    else if (index === step + 1 && validateStep(step).length === 0) goToStep(index);
+                    else if (index > step) {
+                      const issues = validateStep(step);
+                      setShowErrors(true);
+                      setMissingHints(issues);
+                      setError(t('PropertyForm.completeBeforeNext'));
+                    }
+                  }}
+                >
+                  {done ? '✓' : index + 1}
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
+
+      <nav className="wizard-progress wizard-progress--desktop" aria-label={t('PropertyForm.wizardStepsAria')}>
         <ol className="wizard-progress__list">
           {steps.map((label, index) => {
             const done = index < step;

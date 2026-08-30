@@ -3136,29 +3136,56 @@ export function OperationsConsole({
         </div>
         <div className="ops-mobile-cards" aria-label={ar ? 'قائمة السجلات' : 'Records list'}>
           {filtered.map((row, index) => {
-            const titleColumn =
-              definition.columns.find((column) =>
-                ['nameAr', 'displayName', 'title', 'reference'].includes(column.key),
-              ) ?? definition.columns[0];
-            const title = titleColumn
-              ? displayCell(row, titleColumn, locale, context)
-              : safeString(row.id);
+            const serial = safeString(row.serialNumber);
+            const name =
+              safeString(row.nameAr) ||
+              safeString(row.nameEn) ||
+              safeString(row.displayName) ||
+              safeString(row.name) ||
+              '—';
+            const owner = safeString(row.ownerName) || '—';
+            const location =
+              safeString(row.location) ||
+              [safeString(row.governorate), safeString(row.city)].filter(Boolean).join(' · ') ||
+              '—';
+            const status = safeString(row.status) || '—';
             return (
               <article
                 className="ops-mobile-card"
                 key={safeString(row.id ?? row.reference) || `m-${index}`}
               >
-                <h3 className="ops-mobile-card__title">{title}</h3>
+                <div className="ops-mobile-card__head">
+                  <h3 className="ops-mobile-card__title">{name}</h3>
+                  {serial ? (
+                    <p className="ops-mobile-card__serial" dir="ltr">
+                      {serial}
+                    </p>
+                  ) : null}
+                </div>
                 <dl className="ops-mobile-card__meta">
-                  {definition.columns
-                    .filter((column) => column.key !== titleColumn?.key)
-                    .slice(0, 5)
-                    .map((column) => (
+                  {section === 'properties' ? (
+                    <>
+                      <div>
+                        <dt>{ar ? 'المالك' : 'Owner'}</dt>
+                        <dd>{owner}</dd>
+                      </div>
+                      <div>
+                        <dt>{ar ? 'الموقع' : 'Location'}</dt>
+                        <dd>{location}</dd>
+                      </div>
+                      <div>
+                        <dt>{ar ? 'الحالة' : 'Status'}</dt>
+                        <dd>{status}</dd>
+                      </div>
+                    </>
+                  ) : (
+                    definition.columns.slice(0, 4).map((column) => (
                       <div key={column.key}>
                         <dt>{ar ? column.ar : column.en}</dt>
                         <dd>{displayCell(row, column, locale, context)}</dd>
                       </div>
-                    ))}
+                    ))
+                  )}
                 </dl>
                 {section === 'properties' ? (
                   <Link
