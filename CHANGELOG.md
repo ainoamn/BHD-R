@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.52 — 2026-08-30
+
+- Property wizard (create/edit) uses full content width like Property 360.
+
 ## 0.2.51 — 2026-08-30
 
 - Property 360 is full-width / mobile-friendly and **read-only**; editing only via «تعديل العقار» (wizard).

@@ -1610,13 +1610,13 @@ h3 {
 .form-shell {
   max-width: 64rem;
 }
-.form-shell.property-manager {
+.form-shell.property-manager,
+.form-shell.wizard-shell {
   max-width: none;
   width: min(100%, 100rem);
   margin-inline: auto;
 }
 .wizard-shell {
-  max-width: min(74rem, 100%);
   position: relative;
   padding-block-end: 1.5rem;
 }
