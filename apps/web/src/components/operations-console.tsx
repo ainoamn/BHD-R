@@ -1999,6 +1999,8 @@ export function OperationsConsole({
   const [prefillReservationId, setPrefillReservationId] = useState('');
   const [prefillTenantId, setPrefillTenantId] = useState('');
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
+  const [hideApiBanner, setHideApiBanner] = useState(false);
+  const showOpsDiagnostics = portal === 'platform';
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -2412,34 +2414,54 @@ export function OperationsConsole({
         </div>
       </header>
 
-      {!nestConfigured || !apiOnline ? (
+      {!hideApiBanner && (!nestConfigured || !apiOnline) ? (
         <div className="ops-api-banner" role="status">
+          <button
+            type="button"
+            className="ops-api-banner__dismiss"
+            aria-label={ar ? 'إخفاء' : 'Dismiss'}
+            onClick={() => setHideApiBanner(true)}
+          >
+            ×
+          </button>
           <strong>
-            {!nestConfigured
-              ? ar
-                ? 'Nest API غير مضبوط على Vercel'
-                : 'Nest API is not configured on Vercel'
+            {showOpsDiagnostics
+              ? !nestConfigured
+                ? ar
+                  ? 'Nest API غير مضبوط على Vercel'
+                  : 'Nest API is not configured on Vercel'
+                : ar
+                  ? 'تعذّر الوصول إلى Nest API'
+                  : 'Nest API is unreachable'
               : ar
-                ? 'تعذّر الوصول إلى Nest API'
-                : 'Nest API is unreachable'}
+                ? 'بعض الإجراءات غير متاحة مؤقتاً'
+                : 'Some actions are temporarily unavailable'}
           </strong>
           <p>
-            {!nestConfigured
-              ? ar
-                ? 'Nest غير منشور بعد. انشر apps/api على Render (render.yaml) ثم أضف على Vercel: API_INTERNAL_ORIGIN و API_ORIGIN = رابط Nest HTTPS (ليس localhost). الدليل: docs/implementation/NEST-API-HOSTING.md و VERCEL-MANUAL-AR.md'
-                : 'Nest is not hosted yet. Deploy apps/api on Render (render.yaml), then set Vercel API_INTERNAL_ORIGIN and API_ORIGIN to that HTTPS URL (never localhost). See docs/implementation/NEST-API-HOSTING.md'
-              : ar
-                ? 'الرابط مضبوط على Vercel لكن خادم Nest على Render لا يستجيب الآن (غالباً الخدمة نائمة أو فشل النشر). من لوحة Render افتح الخدمة → Logs، ثم Manual Deploy لآخر commit ناجح، وانتظر حتى تصبح Live.'
-                : 'Vercel has API_INTERNAL_ORIGIN set, but Nest on Render is not responding (sleeping or failed deploy). In Render open the service → Logs, Manual Deploy the latest good commit, wait until Live.'}
+            {showOpsDiagnostics
+              ? !nestConfigured
+                ? ar
+                  ? 'Nest غير منشور بعد. انشر apps/api على Render (render.yaml) ثم أضف على Vercel: API_INTERNAL_ORIGIN و API_ORIGIN = رابط Nest HTTPS (ليس localhost). الدليل: docs/implementation/NEST-API-HOSTING.md و VERCEL-MANUAL-AR.md'
+                  : 'Nest is not hosted yet. Deploy apps/api on Render (render.yaml), then set Vercel API_INTERNAL_ORIGIN and API_ORIGIN to that HTTPS URL (never localhost). See docs/implementation/NEST-API-HOSTING.md'
+                : ar
+                  ? 'الرابط مضبوط على Vercel لكن خادم Nest على Render لا يستجيب الآن (غالباً الخدمة نائمة أو فشل النشر). من لوحة Render افتح الخدمة → Logs، ثم Manual Deploy لآخر commit ناجح، وانتظر حتى تصبح Live.'
+                  : 'Vercel has API_INTERNAL_ORIGIN set, but Nest on Render is not responding (sleeping or failed deploy). In Render open the service → Logs, Manual Deploy the latest good commit, wait until Live.'
+              : dataFromDb
+                ? ar
+                  ? 'يمكنك تصفح السجلات. للحفظ أو إضافة عقار جديد سجّل خروجاً ثم ادخلاً مجدداً من الهاتف أو الكمبيوتر.'
+                  : 'You can browse records. To save or add a property, sign out and sign in again on phone or desktop.'
+                : ar
+                  ? 'أعد تسجيل الدخول من بوابة الهوية ثم حاول مرة أخرى.'
+                  : 'Sign in again via the identity portal, then try again.'}
           </p>
-          {!nestConfigured ? null : <NestReconnectButton locale={locale} />}
+          {showOpsDiagnostics && nestConfigured ? <NestReconnectButton locale={locale} /> : null}
           {recordsEmpty ? (
             <p className="ops-api-banner__note">
               {ar
-                ? 'لا سجلات معروضة حالياً لهذا القسم — بسبب غياب استجابة الـ API.'
-                : 'No records shown for this section — because the API did not respond.'}
+                ? 'لا سجلات معروضة حالياً لهذا القسم.'
+                : 'No records shown for this section right now.'}
             </p>
-          ) : dataFromDb ? (
+          ) : dataFromDb && showOpsDiagnostics ? (
             <p className="ops-api-banner__note">
               {ar
                 ? 'تُعرض السجلات من قاعدة البيانات مباشرة (قراءة). الحفظ والإجراءات تحتاج Nest على Render Live.'
@@ -2447,21 +2469,39 @@ export function OperationsConsole({
             </p>
           ) : null}
         </div>
-      ) : apiUnauthorized ? (
-        <div className="ops-api-banner" role="status">
+      ) : !hideApiBanner && apiUnauthorized ? (
+        <div className="ops-api-banner ops-api-banner--soft" role="status">
+          <button
+            type="button"
+            className="ops-api-banner__dismiss"
+            aria-label={ar ? 'إخفاء' : 'Dismiss'}
+            onClick={() => setHideApiBanner(true)}
+          >
+            ×
+          </button>
           <strong>
-            {ar ? 'الجلسة غير مقبولة من Nest API' : 'Session not accepted by Nest API'}
+            {showOpsDiagnostics
+              ? ar
+                ? 'الجلسة غير مقبولة من Nest API'
+                : 'Session not accepted by Nest API'
+              : ar
+                ? 'أعد تسجيل الدخول لإكمال الإجراءات'
+                : 'Sign in again to finish actions'}
           </strong>
           <p>
-            {ar
-              ? 'Nest يعمل، لكن طلبات العمليات ترجع 401. تأكد أن BHD_R_SESSION_SECRET متطابق بين Vercel و Render، وأن WEB_ORIGIN على Render يشمل نطاق الواجهة، ثم سجّل خروجاً وادخل مجدداً.'
-              : 'Nest is up, but operations requests return 401. Match BHD_R_SESSION_SECRET on Vercel and Render, set WEB_ORIGIN on Render to the web origin, then sign out and back in.'}
+            {showOpsDiagnostics
+              ? ar
+                ? 'Nest يعمل، لكن طلبات العمليات ترجع 401. تأكد أن BHD_R_SESSION_SECRET متطابق بين Vercel و Render، وأن WEB_ORIGIN على Render يشمل نطاق الواجهة، ثم سجّل خروجاً وادخل مجدداً.'
+                : 'Nest is up, but operations requests return 401. Match BHD_R_SESSION_SECRET on Vercel and Render, set WEB_ORIGIN on Render to the web origin, then sign out and back in.'
+              : ar
+                ? 'التصفح متاح. للحفظ أو إضافة عقار: اخرج ثم ادخل من جديد (خصوصاً على الجوال).'
+                : 'Browsing works. To save or add a property: sign out and back in (especially on mobile).'}
           </p>
           {recordsEmpty ? (
             <p className="ops-api-banner__note">
               {ar
-                ? 'لا سجلات معروضة حالياً لهذا القسم — غالباً بسبب رفض الجلسة.'
-                : 'No records shown for this section — usually because the session was rejected.'}
+                ? 'لا سجلات معروضة حالياً لهذا القسم — غالباً بسبب انتهاء الجلسة.'
+                : 'No records shown for this section — usually because the session expired.'}
             </p>
           ) : null}
         </div>
