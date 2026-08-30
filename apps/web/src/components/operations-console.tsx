@@ -104,10 +104,12 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
     createAr: 'إضافة عقار متكامل',
     createEn: 'Add complete property',
     columns: [
+      { key: 'serialNumber', ar: 'رقم العقار', en: 'Property no.' },
       { key: 'nameAr', fallbackKeys: ['nameEn', 'name'], ar: 'العقار', en: 'Property' },
+      { key: 'ownerName', ar: 'المالك', en: 'Owner' },
+      { key: 'location', fallbackKeys: ['governorate', 'city'], ar: 'الموقع', en: 'Location' },
       { key: 'kind', ar: 'النوع', en: 'Kind', format: 'kind' },
       { key: 'units', ar: 'الوحدات', en: 'Units', format: 'count' },
-      { key: 'defaultCurrency', ar: 'العملة', en: 'Currency' },
       { key: 'status', ar: 'الحالة', en: 'Status', format: 'status' },
     ],
     flow: [

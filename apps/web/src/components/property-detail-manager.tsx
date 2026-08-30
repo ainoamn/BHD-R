@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { currencyMinorUnits, type CurrencyCode } from '@bhd-r/contracts';
 import { browserMutation } from '@/lib/api';
 import { formatMoney, toMinorUnits } from '@/lib/format';
+import { PropertyQrCard } from '@/components/property-qr-card';
 
 interface ManagedUnit {
   id: string;
@@ -36,6 +37,7 @@ export interface ManagedProperty {
   descriptionEn: string | null;
   defaultCurrency: CurrencyCode;
   status: string;
+  serialNumber?: string | null;
   address: {
     countryCode: string;
     governorate: string;
@@ -189,6 +191,27 @@ export function PropertyDetailManager({
     event.currentTarget.reset();
   }
 
+  const currentOwner =
+    [...property.ownership]
+      .sort((a, b) => {
+        if (!a.endsOn && b.endsOn) return -1;
+        if (a.endsOn && !b.endsOn) return 1;
+        return 0;
+      })
+      .find((row) => !row.endsOn) ?? property.ownership[0];
+  const addressLine = property.address
+    ? [
+        property.address.street,
+        property.address.area,
+        property.address.city,
+        property.address.wilayat,
+        property.address.governorate,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : '—';
+  const propertyPath = `/${locale}/${portal}/properties/${property.id}`;
+
   return (
     <div className="form-shell property-manager">
       <header className="portal-topbar">
@@ -201,9 +224,17 @@ export function PropertyDetailManager({
               : 'Manage asset data, units, availability and listings from one record.'}
           </p>
         </div>
-        <a className="button button--quiet" href={`/${locale}/${portal}/properties`}>
-          {ar ? 'العودة للمحفظة' : 'Back to portfolio'}
-        </a>
+        <div className="portal-topbar__actions" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <a
+            className="button button--primary"
+            href={`/${locale}/${portal}/properties/${property.id}/edit`}
+          >
+            {ar ? 'تعديل العقار' : 'Edit property'}
+          </a>
+          <a className="button button--quiet" href={`/${locale}/${portal}/properties`}>
+            {ar ? 'العودة للمحفظة' : 'Back to portfolio'}
+          </a>
+        </div>
       </header>
 
       {error ? (
@@ -211,6 +242,35 @@ export function PropertyDetailManager({
           {error}
         </div>
       ) : null}
+
+      <section className="property-identity" aria-label={ar ? 'هوية العقار' : 'Property identity'}>
+        <div className="property-identity__meta">
+          <dl className="property-identity__grid">
+            <div>
+              <dt>{ar ? 'الرقم المتسلسل / رقم العقار' : 'Serial / property no.'}</dt>
+              <dd dir="ltr">{property.serialNumber ?? '—'}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'اسم المالك' : 'Owner name'}</dt>
+              <dd>{currentOwner?.partyName ?? '—'}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'عنوان العقار وموقعه' : 'Address & location'}</dt>
+              <dd>{addressLine}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'الحالة' : 'Status'}</dt>
+              <dd>{property.status}</dd>
+            </div>
+          </dl>
+        </div>
+        <PropertyQrCard
+          path={propertyPath}
+          locale={locale}
+          labelAr="امسح الرمز لفتح صفحة هذا العقار"
+          labelEn="Scan to open this property page"
+        />
+      </section>
 
       <section className="ops-metrics" aria-label={ar ? 'ملخص العقار' : 'Property summary'}>
         <article>

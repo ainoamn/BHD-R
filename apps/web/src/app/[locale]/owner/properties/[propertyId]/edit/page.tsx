@@ -1,15 +1,35 @@
+import { notFound, redirect } from 'next/navigation';
 import { EmptyState } from '@bhd-r/ui';
 import { getTranslations } from 'next-intl/server';
 import { PropertyWizard } from '@/components/property-wizard';
+import type { ManagedProperty } from '@/components/property-detail-manager';
 import { ensureOwnerPartyId } from '@/lib/bhd/identity-session';
 import { listOwnerPartyOptions } from '@/lib/owner-parties';
+import { ApiError, apiFetch } from '@/lib/server-api';
 import { requirePortal } from '@/lib/viewer';
 
-export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
-  const { locale } = await params;
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ locale: string; propertyId: string }>;
+}) {
+  const { locale: rawLocale, propertyId } = await params;
+  const locale = rawLocale === 'en' ? 'en' : 'ar';
+  if (propertyId === 'new') redirect(`/${locale}/owner/properties/new`);
   const viewer = await requirePortal(locale, 'owner');
   const t = await getTranslations();
   if (!viewer.organizationId) return <EmptyState title={t('Portal.noData')} />;
+
+  let property: ManagedProperty;
+  try {
+    property = await apiFetch<ManagedProperty>(
+      `/v1/portfolio/properties/${encodeURIComponent(propertyId)}`,
+    );
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) notFound();
+    throw error;
+  }
+
   const partyId = await ensureOwnerPartyId({
     userId: viewer.id,
     organizationId: viewer.organizationId,
@@ -20,11 +40,20 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const ownerPartyOptions = await listOwnerPartyOptions(viewer.organizationId).catch(() => [
     { id: partyId, displayName: viewer.displayName, type: 'person' },
   ]);
+
+  const currentOwner =
+    property.ownership.find((row) => !row.endsOn)?.partyId ??
+    property.ownership[0]?.partyId ??
+    partyId;
+
   return (
     <PropertyWizard
-      ownerPartyId={partyId}
+      ownerPartyId={currentOwner}
       ownerPartyOptions={ownerPartyOptions}
       portal="owner"
+      mode="edit"
+      propertyId={property.id}
+      initialProperty={property}
     />
   );
 }

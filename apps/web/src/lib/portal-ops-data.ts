@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { and, count, eq, sql } from 'drizzle-orm';
 import { verifySessionToken, type SessionClaims } from '@bhd-r/authz';
 import {
+  addresses,
   createDatabase,
   parties,
   properties,
@@ -95,9 +96,17 @@ async function listProperties(claims: SessionClaims): Promise<Record<string, unk
         category: properties.category,
         status: properties.status,
         defaultCurrency: properties.defaultCurrency,
+        serialNumber: properties.serialNumber,
         createdAt: properties.createdAt,
+        ownerName: parties.displayName,
+        governorate: addresses.governorate,
+        wilayat: addresses.wilayat,
+        city: addresses.city,
+        street: addresses.street,
       })
       .from(properties)
+      .innerJoin(parties, eq(parties.id, properties.ownerPartyId))
+      .innerJoin(addresses, eq(addresses.id, properties.addressId))
       .where(
         and(
           eq(properties.organizationId, orgId),
@@ -117,6 +126,7 @@ async function listProperties(claims: SessionClaims): Promise<Record<string, unk
 
     return rows.map((row) => ({
       ...row,
+      location: [row.street, row.city, row.wilayat, row.governorate].filter(Boolean).join(' · '),
       createdAt:
         row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
       units: byProperty.get(row.id) ?? 0,

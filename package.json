@@ -6,7 +6,8 @@
   "packageManager": "pnpm@10.14.0",
   "pnpm": {
     "overrides": {
-      "@esbuild-kit/core-utils>esbuild": "^0.25.0"
+      "@esbuild-kit/core-utils>esbuild": "^0.25.0",
+      "typescript": "~5.9.3"
     },
     "onlyBuiltDependencies": [
       "@nestjs/core",
@@ -46,7 +47,7 @@
     "prettier": "^3.7.4",
     "rimraf": "^6.1.2",
     "turbo": "^2.7.3",
-    "typescript": "^5.9.3",
+    "typescript": "~5.9.3",
     "typescript-eslint": "^8.67.0",
     "vitest": "^4.0.15"
   }

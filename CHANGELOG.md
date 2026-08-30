@@ -2,6 +2,13 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.49 — 2026-08-30
+
+- Property create: redirect to Property 360 after save; Neon idempotency + block duplicate name+address; choose ownership party in wizard; Edit route reuses wizard.
+- Property 360: show serial/property no., owner name, address/location, and QR code that opens the property page.
+- Portfolio list columns: property no., owner, location.
+- Pin TypeScript to `~5.9.3` (block Dependabot TS 6 breaking `@types/node` builds); add `@types/node` to authz/security.
+
 ## 0.2.48 — 2026-08-30
 
 - **Break Nest dependency for property save:** wizard POSTs to `/api/owner/properties` (Vercel → Neon) instead of Render Nest. Photos remain optional; media upload failures no longer wipe a successful save. Nest address `location` uses `ST_GeogFromText`.

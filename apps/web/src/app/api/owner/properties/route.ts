@@ -62,7 +62,8 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const created = await createPropertyBundleOnNeon(claims, body);
+    const idempotencyKey = request.headers.get('idempotency-key');
+    const created = await createPropertyBundleOnNeon(claims, body, { idempotencyKey });
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
     if (error instanceof ZodError) {
@@ -101,6 +102,16 @@ export async function POST(request: Request) {
         ar: 'عقار متعدد الوحدات يحتاج وحدة واحدة على الأقل',
         en: 'Multi-unit property needs units',
       },
+      duplicate_property: {
+        status: 409,
+        ar: 'عقار بنفس الاسم والعنوان موجود مسبقاً — لا يُسمح بالتكرار',
+        en: 'A property with the same name and address already exists',
+      },
+      idempotency_payload_mismatch: {
+        status: 409,
+        ar: 'طلب مكرر بمفتاح مختلف — حدّث الصفحة وأعد المحاولة',
+        en: 'Idempotency key reused with a different payload',
+      },
     };
     const known = map[code];
     if (known) {
@@ -110,12 +121,25 @@ export async function POST(request: Request) {
       );
     }
     console.error('POST /api/owner/properties failed', error);
+    const detail =
+      error && typeof error === 'object' && 'code' in error
+        ? String((error as { code?: string }).code ?? '')
+        : '';
+    const hint =
+      detail === '42703'
+        ? ' — عمود ناقص في قاعدة البيانات (طبّق هجرة serial_number)'
+        : detail === '42P01'
+          ? ' — جدول ناقص في قاعدة البيانات'
+          : detail === '42501'
+            ? ' — رفض صلاحيات/RLS'
+            : '';
     return NextResponse.json(
       {
         error: {
           code: 'create_failed',
           message: error instanceof Error ? error.message : 'Create failed',
-          messageAr: 'تعذر حفظ العقار في قاعدة البيانات',
+          messageAr: `تعذر حفظ العقار في قاعدة البيانات${hint}`,
+          ...(detail ? { pgCode: detail } : {}),
         },
       },
       { status: 500 },

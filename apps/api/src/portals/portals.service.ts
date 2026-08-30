@@ -1,11 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { and, count, desc, eq, gte, inArray, lte, or, sql } from 'drizzle-orm';
 import {
+  addresses,
   contracts,
   invoices,
   leases,
   maintenanceTickets,
   organizations,
+  parties,
   payments,
   properties,
   units,
@@ -288,9 +290,9 @@ export class PortalsService {
   }
 
   listProperties(claims: SessionClaims) {
-    return this.database.withinTenant(claims, (transaction) => {
+    return this.database.withinTenant(claims, async (transaction) => {
       const ownerPartyId = ownerPartyScope(claims);
-      return transaction
+      const rows = await transaction
         .select({
           id: properties.id,
           nameAr: properties.nameAr,
@@ -298,15 +300,28 @@ export class PortalsService {
           kind: properties.kind,
           category: properties.category,
           status: properties.status,
+          defaultCurrency: properties.defaultCurrency,
+          serialNumber: properties.serialNumber,
           createdAt: properties.createdAt,
+          ownerName: parties.displayName,
+          governorate: addresses.governorate,
+          wilayat: addresses.wilayat,
+          city: addresses.city,
+          street: addresses.street,
         })
         .from(properties)
+        .innerJoin(parties, eq(parties.id, properties.ownerPartyId))
+        .innerJoin(addresses, eq(addresses.id, properties.addressId))
         .where(
           and(
             eq(properties.organizationId, claims.organizationId!),
             ...(ownerPartyId ? [eq(properties.ownerPartyId, ownerPartyId)] : []),
           ),
         );
+      return rows.map((row) => ({
+        ...row,
+        location: [row.street, row.city, row.wilayat, row.governorate].filter(Boolean).join(' · '),
+      }));
     });
   }
 

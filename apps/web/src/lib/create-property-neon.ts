@@ -1,5 +1,6 @@
 import 'server-only';
-import { and, eq, sql } from 'drizzle-orm';
+import { createHash } from 'node:crypto';
+import { and, eq, ne, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { currencyMinorUnits } from '@bhd-r/contracts';
 import {
@@ -10,6 +11,7 @@ import type { SessionClaims } from '@bhd-r/authz';
 import {
   addresses,
   createDatabase,
+  idempotencyKeys,
   listings,
   outboxEvents,
   parties,
@@ -22,6 +24,8 @@ import {
   utilityMeters,
   type Database,
 } from '@bhd-r/db';
+
+const IDEMPOTENCY_ROUTE = 'POST:/api/owner/properties';
 
 const propertyBundleSchema = z.object({
   property: createPropertySchema.omit({ organizationId: true }),
@@ -78,10 +82,15 @@ async function withinTenant<T>(
   });
 }
 
+function requestHash(raw: unknown): string {
+  return createHash('sha256').update(JSON.stringify(raw)).digest('hex');
+}
+
 /** Break-glass property create on Vercel → Neon (bypasses Nest/Render for writes). */
 export async function createPropertyBundleOnNeon(
   claims: SessionClaims,
   raw: unknown,
+  options: { idempotencyKey?: string | null } = {},
 ): Promise<Record<string, unknown>> {
   if (!claims.organizationId) throw new Error('organization_required');
   if (
@@ -98,7 +107,27 @@ export async function createPropertyBundleOnNeon(
     throw new Error('multi_unit_requires_units');
   }
 
+  const idemKey =
+    typeof options.idempotencyKey === 'string' && options.idempotencyKey.trim().length >= 8
+      ? options.idempotencyKey.trim().slice(0, 200)
+      : null;
+  const hash = requestHash(raw);
+
   return withinTenant(claims, async (transaction) => {
+    if (idemKey) {
+      const existing = await transaction.query.idempotencyKeys.findFirst({
+        where: and(
+          eq(idempotencyKeys.organizationId, claims.organizationId!),
+          eq(idempotencyKeys.key, idemKey),
+          eq(idempotencyKeys.route, IDEMPOTENCY_ROUTE),
+        ),
+      });
+      if (existing?.responseBody && existing.responseStatus) {
+        if (existing.requestHash !== hash) throw new Error('idempotency_payload_mismatch');
+        return existing.responseBody as Record<string, unknown>;
+      }
+    }
+
     const owner = await transaction.query.parties.findFirst({
       where: and(
         eq(parties.id, input.property.ownerPartyId),
@@ -106,6 +135,24 @@ export async function createPropertyBundleOnNeon(
       ),
     });
     if (!owner) throw new Error('owner_not_found');
+
+    const addr = input.property.address;
+    const duplicate = await transaction
+      .select({ id: properties.id })
+      .from(properties)
+      .innerJoin(addresses, eq(addresses.id, properties.addressId))
+      .where(
+        and(
+          eq(properties.organizationId, claims.organizationId!),
+          ne(properties.status, 'archived'),
+          eq(properties.nameAr, input.property.nameAr),
+          eq(addresses.governorate, addr.governorate),
+          eq(addresses.wilayat, addr.wilayat),
+          eq(addresses.city, addr.city),
+        ),
+      )
+      .limit(1);
+    if (duplicate[0]) throw new Error('duplicate_property');
 
     const year = new Date().getUTCFullYear();
     const purpose = input.units[0]?.listingPurpose ?? 'rent';
@@ -259,7 +306,7 @@ export async function createPropertyBundleOnNeon(
       payload: { kind: property.kind, unitCount: unitRows.length, via: 'vercel-neon' },
     });
 
-    return {
+    const result = {
       ...property,
       units: unitRows.map((unit) => ({
         ...unit,
@@ -268,6 +315,35 @@ export async function createPropertyBundleOnNeon(
         depositMinor: unit.depositMinor?.toString() ?? null,
       })),
     };
+
+    if (idemKey) {
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      await transaction
+        .insert(idempotencyKeys)
+        .values({
+          organizationId: claims.organizationId!,
+          key: idemKey,
+          route: IDEMPOTENCY_ROUTE,
+          requestHash: hash,
+          responseStatus: 201,
+          responseBody: result,
+          lockedUntil: now,
+          expiresAt,
+        })
+        .onConflictDoUpdate({
+          target: [idempotencyKeys.organizationId, idempotencyKeys.key, idempotencyKeys.route],
+          set: {
+            requestHash: hash,
+            responseStatus: 201,
+            responseBody: result,
+            lockedUntil: now,
+            expiresAt,
+          },
+        });
+    }
+
+    return result;
   });
 }
 

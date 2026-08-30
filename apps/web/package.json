@@ -29,6 +29,7 @@
     "next": "^16.3.0",
     "next-intl": "^4.8.3",
     "postgres": "^3.4.7",
+    "qrcode": "1.5.4",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "zod": "^4.1.13"
@@ -39,6 +40,7 @@
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.1",
     "@types/leaflet": "1.9.22",
+    "@types/qrcode": "1.5.6",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "jsdom": "^27.3.0",

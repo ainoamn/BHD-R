@@ -2,8 +2,9 @@
 
 import type { ChangeEvent, FormEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button, Card, CardContent, Field, SelectField, TextAreaField } from '@bhd-r/ui';
-import { supportedCurrencyCodes, type CurrencyCode } from '@bhd-r/contracts';
+import { supportedCurrencyCodes, currencyMinorUnits, type CurrencyCode } from '@bhd-r/contracts';
 import { countryPacks, type CountryPackCode } from '@bhd-r/country-packs';
 import { useLocale, useTranslations } from 'next-intl';
 import { browserMediaPut, browserMutation, mapWithConcurrency } from '@/lib/api';
@@ -20,6 +21,18 @@ import {
 } from '@/lib/parse-google-maps-url';
 import { MapLocationPicker } from '@/components/map-location-picker';
 import { NestReconnectButton } from '@/components/nest-reconnect-button';
+import type { ManagedProperty } from '@/components/property-detail-manager';
+import type { OwnerPartyOption } from '@/lib/owner-parties';
+
+function majorFromMinor(minor: string | null | undefined, currency: CurrencyCode): string {
+  if (!minor) return '';
+  const places = currencyMinorUnits[currency];
+  const digits = minor.padStart(places + 1, '0');
+  if (places === 0) return digits;
+  const whole = digits.slice(0, -places);
+  const frac = digits.slice(-places).replace(/0+$/, '');
+  return frac ? `${whole}.${frac}` : whole;
+}
 
 interface UnitDraft {
   localId: string;
@@ -111,38 +124,71 @@ function tone(value: string, required: boolean, _showErrors: boolean): 'ok' | 'm
 
 export function PropertyWizard({
   ownerPartyId,
+  ownerPartyOptions = [],
   portal,
+  mode = 'create',
+  propertyId,
+  initialProperty,
 }: {
   ownerPartyId: string;
+  ownerPartyOptions?: OwnerPartyOption[];
   portal: 'owner' | 'developer';
+  mode?: 'create' | 'edit';
+  propertyId?: string;
+  initialProperty?: ManagedProperty;
 }) {
   const t = useTranslations();
   const locale = useLocale() as 'ar' | 'en';
   const ar = locale === 'ar';
+  const router = useRouter();
+  const [selectedOwnerPartyId, setSelectedOwnerPartyId] = useState(ownerPartyId);
   const [step, setStep] = useState(0);
   const [slideDir, setSlideDir] = useState<'forward' | 'back'>('forward');
   const [maxReached, setMaxReached] = useState(0);
   const [showErrors, setShowErrors] = useState(false);
   const [missingHints, setMissingHints] = useState<string[]>([]);
-  const [kind, setKind] = useState<'single_unit' | 'multi_unit'>('single_unit');
-  const [currency, setCurrency] = useState<CurrencyCode>('OMR');
+  const [kind, setKind] = useState<'single_unit' | 'multi_unit'>(
+    initialProperty?.kind ?? 'single_unit',
+  );
+  const [currency, setCurrency] = useState<CurrencyCode>(
+    initialProperty?.defaultCurrency ?? 'OMR',
+  );
   const [property, setProperty] = useState({
-    countryCode: 'OM' as CountryPackCode,
-    category: 'apartment',
-    nameAr: '',
-    nameEn: '',
-    descriptionAr: '',
-    descriptionEn: '',
-    governorate: '',
-    wilayat: '',
-    city: '',
-    area: '',
-    street: '',
+    countryCode: (initialProperty?.address?.countryCode as CountryPackCode) || 'OM',
+    category: initialProperty?.category ?? 'apartment',
+    nameAr: initialProperty?.nameAr ?? '',
+    nameEn: initialProperty?.nameEn ?? '',
+    descriptionAr: initialProperty?.descriptionAr ?? '',
+    descriptionEn: initialProperty?.descriptionEn ?? '',
+    governorate: initialProperty?.address?.governorate ?? '',
+    wilayat: initialProperty?.address?.wilayat ?? '',
+    city: initialProperty?.address?.city ?? '',
+    area: initialProperty?.address?.area ?? '',
+    street: initialProperty?.address?.street ?? '',
     mapsUrl: '',
     latitude: '',
     longitude: '',
   });
-  const [units, setUnits] = useState<UnitDraft[]>([blankUnit(1)]);
+  const [units, setUnits] = useState<UnitDraft[]>(() => {
+    if (initialProperty?.units?.length) {
+      return initialProperty.units.map((unit, index) => ({
+        localId: unit.id,
+        code: unit.code || `U-${String(index + 1).padStart(2, '0')}`,
+        nameAr: unit.nameAr,
+        nameEn: unit.nameEn,
+        floor: unit.floor ?? '',
+        bedrooms: String(unit.bedrooms),
+        bathrooms: String(unit.bathrooms),
+        area: unit.areaSquareMeters ?? '',
+        listingPurpose: unit.listingPurpose,
+        rent: majorFromMinor(unit.rentMinor, unit.currency),
+        salePrice: majorFromMinor(unit.salePriceMinor, unit.currency),
+        deposit: majorFromMinor(unit.depositMinor, unit.currency),
+        publishWhenAvailable: unit.publishWhenAvailable,
+      }));
+    }
+    return [blankUnit(1)];
+  });
   const [profile, setProfile] = useState({
     deedNumber: '',
     plotNumber: '',
@@ -160,7 +206,9 @@ export function PropertyWizard({
     insuranceExpiresOn: '',
     notes: '',
   });
-  const [amenities, setAmenities] = useState<string[]>([]);
+  const [amenities, setAmenities] = useState<string[]>(
+    () => initialProperty?.amenities.map((item) => item.code) ?? [],
+  );
   const [customAmenities, setCustomAmenities] = useState<
     Array<{ code: string; labelAr: string; labelEn: string }>
   >([]);
@@ -575,7 +623,7 @@ export function PropertyWizard({
       });
       const payload = {
             property: {
-              ownerPartyId,
+              ownerPartyId: selectedOwnerPartyId,
               kind,
               category: property.category,
               nameAr: property.nameAr,
@@ -680,6 +728,25 @@ export function PropertyWizard({
       };
 
       // Prefer Vercel→Neon write path (no Nest/Render). Avoids weeks of Render Free hang loops.
+      if (mode === 'edit' && propertyId) {
+        await browserMutation(`/v1/portfolio/properties/${propertyId}`, {
+          method: 'PATCH',
+          headers: { 'idempotency-key': bundleIdempotencyKey.current },
+          body: JSON.stringify({
+            category: payload.property.category,
+            nameAr: payload.property.nameAr,
+            nameEn: payload.property.nameEn,
+            descriptionAr: payload.property.descriptionAr ?? null,
+            descriptionEn: payload.property.descriptionEn ?? null,
+            address: payload.property.address,
+          }),
+        });
+        setSuccess(ar ? 'تم تحديث بيانات العقار' : 'Property updated');
+        router.push(`/${locale}/${portal}/properties/${propertyId}`);
+        router.refresh();
+        return;
+      }
+
       let createdProperty: CreatedPropertyBundle;
       const neonResponse = await fetch('/api/owner/properties', {
         method: 'POST',
@@ -756,7 +823,6 @@ export function PropertyWizard({
             : 'Property saved, but some file uploads failed — you can add them later.';
         }
       }
-      bundleIdempotencyKey.current = `property-bundle:${crypto.randomUUID()}`;
       const serial = createdProperty.serialNumber;
       setSuccess(
         mediaWarning ??
@@ -767,6 +833,9 @@ export function PropertyWizard({
             : t('PropertyForm.success')),
       );
       if (mediaWarning) setError(null);
+      // Stay on success briefly then open property 360 (not contracts — leases create contracts later).
+      router.push(`/${locale}/${portal}/properties/${createdProperty.id}`);
+      router.refresh();
     } catch (caught) {
       setSuccess(null);
       const raw = caught instanceof Error ? caught.message : 'request_failed';
@@ -800,7 +869,7 @@ export function PropertyWizard({
     <div className="form-shell wizard-shell" data-slide={slideDir}>
       <header className="wizard-hero">
         <p className="wizard-hero__kicker">{ar ? 'بوابة المالك' : 'Owner portal'}</p>
-        <h1>{t('PropertyForm.title')}</h1>
+        <h1>{mode === 'edit' ? (ar ? 'تعديل العقار' : 'Edit property') : t('PropertyForm.title')}</h1>
         <p>{t('PropertyForm.intro')}</p>
         <div className="wizard-hero__meta" aria-hidden="true">
           <span>
@@ -1439,6 +1508,32 @@ export function PropertyWizard({
 
             {step === 3 ? (
               <div className="form-grid">
+                <SelectField
+                  id="owner-party"
+                  label={ar ? 'الملكية باسم' : 'Ownership under'}
+                  value={selectedOwnerPartyId}
+                  onChange={(event) => setSelectedOwnerPartyId(event.target.value)}
+                  required
+                >
+                  {(ownerPartyOptions.length
+                    ? ownerPartyOptions
+                    : [{ id: ownerPartyId, displayName: ar ? 'حسابي' : 'My account', type: 'person' }]
+                  ).map((party) => (
+                    <option key={party.id} value={party.id}>
+                      {party.displayName}
+                      {party.id === ownerPartyId
+                        ? ar
+                          ? ' (حسابي)'
+                          : ' (me)'
+                        : ''}
+                    </option>
+                  ))}
+                </SelectField>
+                <p className="muted span-2">
+                  {ar
+                    ? 'اختر الطرف الذي سيُسجَّل كمالك للعقار في سجل الملكية. يمكنك إضافة أطراف من قائمة الأطراف والجهات.'
+                    : 'Choose the party recorded as owner. Add more parties from the Parties section.'}
+                </p>
                 <Field
                   id="deed-number"
                   label={ar ? 'رقم سند الملكية' : 'Title deed number'}
