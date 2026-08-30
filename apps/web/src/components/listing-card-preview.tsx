@@ -42,6 +42,11 @@ export function ListingCardPreview({
             <BrandMark tone="onDark" />
           </div>
         )}
+        {coverUrl ? (
+          <span className="media-watermark" aria-hidden="true">
+            <BrandMark tone="onDark" />
+          </span>
+        ) : null}
         <span className="listing-card__status">
           <span className="ops-status ops-status--ok">{availableLabel}</span>
         </span>

@@ -850,7 +850,7 @@ export class PortfolioService {
           wilayat: row.wilayat,
           bedrooms: row.bedrooms,
           bathrooms: row.bathrooms,
-          areaSquareMeters: row.areaSquareMeters,
+          areaSquareMeters: row.areaSquareMeters == null ? null : String(row.areaSquareMeters),
           listingPurpose: row.listingPurpose,
           rent: { amountMinor: row.rentMinor.toString(), currency: row.currency },
           salePrice:
@@ -1008,7 +1008,7 @@ export class PortfolioService {
         city: row.city,
         bedrooms: row.bedrooms,
         bathrooms: row.bathrooms,
-        areaSquareMeters: row.areaSquareMeters,
+        areaSquareMeters: row.areaSquareMeters == null ? null : String(row.areaSquareMeters),
         listingPurpose: row.listingPurpose,
         rent: { amountMinor: row.rentMinor.toString(), currency: row.currency },
         salePrice:
@@ -1020,22 +1020,31 @@ export class PortfolioService {
             ? null
             : { amountMinor: row.depositMinor.toString(), currency: row.currency },
         available: true,
-        images: images.flatMap((image) =>
-          image.key
-            ? [
-                {
-                  id: image.id,
-                  url: publicAssetUrl(image.key),
-                  ...((image.metadata as Record<string, unknown> | null)?.altAr
-                    ? { altAr: String((image.metadata as Record<string, unknown>).altAr) }
-                    : {}),
-                  ...((image.metadata as Record<string, unknown> | null)?.altEn
-                    ? { altEn: String((image.metadata as Record<string, unknown>).altEn) }
-                    : {}),
-                },
-              ]
-            : [],
-        ),
+        images: images.flatMap((image) => {
+          const meta = (image.metadata ?? {}) as Record<string, unknown>;
+          const inline =
+            meta.storage === 'inline' ||
+            (typeof image.key === 'string' && image.key.startsWith('inline/'));
+          const webOrigin = (
+            process.env.PUBLIC_WEB_ORIGIN ??
+            process.env.WEB_ORIGIN ??
+            ''
+          ).replace(/\/$/, '');
+          const url = inline
+            ? webOrigin
+              ? `${webOrigin}/api/public/media/${image.id}`
+              : null
+            : publicAssetUrl(image.key);
+          if (!url) return [];
+          return [
+            {
+              id: image.id,
+              url,
+              ...(typeof meta.altAr === 'string' ? { altAr: meta.altAr } : {}),
+              ...(typeof meta.altEn === 'string' ? { altEn: meta.altEn } : {}),
+            },
+          ];
+        }),
       });
     });
   }

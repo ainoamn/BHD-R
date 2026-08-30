@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.66 — 2026-08-30
+
+- Public catalogue photos: use relative `/api/public/media/:id` so Next/Image accepts them (absolute same-origin URLs caused broken covers).
+- Unit detail `/units/:id`: load from Neon when Nest fails; show gallery + BHD logo watermark on listing/gallery photos.
+- Nest public unit: stringify `areaSquareMeters`; map inline Neon media to the public media BFF URL.
+
 ## 0.2.65 — 2026-08-30
 
 - Replace the circular serif “R” placeholder with the official BHD wordmark + R badge (`BrandMark`) in empty states, loading, listing/gallery placeholders, and ops empty tables. See [`docs/ASSETS.md`](./docs/ASSETS.md).

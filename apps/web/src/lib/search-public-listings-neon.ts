@@ -23,14 +23,6 @@ function getDatabase(): DbHandle {
   return globalForDb.__bhdRPublicListingsDb;
 }
 
-function siteOrigin(): string {
-  return (
-    process.env.PUBLIC_WEB_ORIGIN?.replace(/\/$/, '') ||
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ||
-    'https://r.bhd-om.com'
-  );
-}
-
 export type PublicListingSearchInput = {
   countryCode?: string;
   governorate?: string;
@@ -124,7 +116,6 @@ export async function searchPublicListingsFromNeon(
       .orderBy(desc(listings.publishedAt), desc(units.id))
       .limit(limit);
 
-    const origin = siteOrigin();
     const data: PublicListing[] = rows.map((row) => ({
       id: row.id,
       slug: row.slug,
@@ -139,7 +130,10 @@ export async function searchPublicListingsFromNeon(
       wilayat: row.wilayat,
       bedrooms: row.bedrooms,
       bathrooms: row.bathrooms,
-      areaSquareMeters: row.areaSquareMeters,
+      areaSquareMeters:
+        row.areaSquareMeters === null || row.areaSquareMeters === undefined
+          ? null
+          : String(row.areaSquareMeters),
       listingPurpose: row.listingPurpose as PublicListing['listingPurpose'],
       rent: {
         amountMinor: row.rentMinor.toString(),
@@ -151,9 +145,8 @@ export async function searchPublicListingsFromNeon(
             currency: row.currency as PublicListing['rent']['currency'],
           }
         : null,
-      coverImageUrl: row.coverAssetId
-        ? `${origin}/api/public/media/${row.coverAssetId}`
-        : null,
+      // Relative path so Next/Image optimizer accepts it (absolute same-origin URLs are rejected).
+      coverImageUrl: row.coverAssetId ? `/api/public/media/${row.coverAssetId}` : null,
       available: true as const,
       publishedAt: (row.publishedAt ?? new Date()).toISOString(),
     }));

@@ -1,8 +1,8 @@
 # Implementation status
 
 **Updated:** 2026-08-30  
-**Product version:** 0.2.65  
-**Active focus:** Public catalogue + brand mark consistency (empty/placeholder states)  
+**Product version:** 0.2.66  
+**Active focus:** Public listing photos + unit detail Neon fallback + brand watermark on media  
 **Handoff:** [`HANDOFF-NEST-RENDER-2026-08-26-AR.md`](./HANDOFF-NEST-RENDER-2026-08-26-AR.md)  
 **Property identity/QR:** [`PROPERTY-IDENTITY-QR-AR.md`](./PROPERTY-IDENTITY-QR-AR.md)  
 **Adaptive properties UI:** [`PORTAL-ADAPTIVE-PROPERTIES-AR.md`](./PORTAL-ADAPTIVE-PROPERTIES-AR.md)  
@@ -22,14 +22,15 @@
 | Adaptive property surfaces | **shipped 0.2.59** | `portal-adaptive.css` — phone/tablet/desktop scale |
 | Public catalogue publish | **shipped 0.2.64** | Neon sync `listings` + heal on Property 360 |
 | BrandMark placeholders | **shipped 0.2.65** | Official BHD logo replaces circular “R” |
+| Public photos + unit page | **shipped 0.2.66** | Relative media URLs, Neon unit fallback, logo watermark |
 | Nest Render reachability | **fixed 0.2.45** | Express + edge `/healthz` + CORS callback |
 
 ## Next (human / infra)
 
 1. Confirm Vercel **Production Branch = `main`**.  
-2. Smoke: https://r.bhd-om.com/ar/properties empty state shows BHD logo; open Property 360 once to heal publish flags.  
-3. S3/R2 على Vercel/Render لرفع الصور (`S3_*` env).  
-4. (موصى) Render غير Free لتقليل النوم.  
+2. Smoke: https://r.bhd-om.com/ar/properties shows cover photo + watermark; open a unit page without server error.  
+3. (Optional) Redeploy Nest on Render so inline media URLs work when Nest is the source.  
+4. S3/R2 على Vercel/Render لرفع الصور (`S3_*` env).  
 5. تدوير أسرار ظهرت في محادثات سابقة.
 
 ## Verification

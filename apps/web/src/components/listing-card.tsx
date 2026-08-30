@@ -3,18 +3,20 @@ import { BrandMark, StatusBadge } from '@bhd-r/ui';
 import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { formatMoney, localizedName } from '@/lib/format';
+import { toPublicMediaSrc } from '@/lib/public-media-url';
 import type { PublicListing } from '@/lib/types';
 
 export async function ListingCard({ listing, locale }: { listing: PublicListing; locale: string }) {
   const t = await getTranslations();
   const title = `${localizedName(locale, listing.propertyNameAr, listing.propertyNameEn)} — ${localizedName(locale, listing.unitNameAr, listing.unitNameEn)}`;
+  const coverSrc = toPublicMediaSrc(listing.coverImageUrl);
   return (
     <article className="listing-card">
       <Link href={`/units/${listing.unitId}`} aria-label={title}>
         <div className="listing-card__image">
-          {listing.coverImageUrl ? (
+          {coverSrc ? (
             <Image
-              src={listing.coverImageUrl}
+              src={coverSrc}
               alt={title}
               fill
               sizes="(max-width: 760px) 100vw, (max-width: 960px) 50vw, 33vw"
@@ -24,6 +26,11 @@ export async function ListingCard({ listing, locale }: { listing: PublicListing;
               <BrandMark tone="onDark" />
             </div>
           )}
+          {coverSrc ? (
+            <span className="media-watermark" aria-hidden="true">
+              <BrandMark tone="onDark" />
+            </span>
+          ) : null}
           <span className="listing-card__status">
             <StatusBadge status="positive" label={t('Property.available')} />
           </span>

@@ -4,22 +4,41 @@ import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { BrandMark, Card, CardContent, StatusBadge } from '@bhd-r/ui';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import { ApiError, publicApiFetch } from '@/lib/server-api';
-import { formatMoney, localizedName } from '@/lib/format';
-import { bilingualAlternates, unitListingJsonLd } from '@/lib/seo';
 import { PublicViewingForm } from '@/components/public-viewing-form';
+import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { formatMoney, localizedName } from '@/lib/format';
+import { loadPublicUnitFromNeon } from '@/lib/load-public-unit-neon';
+import { toPublicMediaSrc } from '@/lib/public-media-url';
+import { ApiError, publicApiFetch } from '@/lib/server-api';
+import { bilingualAlternates, unitListingJsonLd } from '@/lib/seo';
 import type { PublicUnitDetail } from '@bhd-r/contracts';
 
 async function getUnit(id: string): Promise<PublicUnitDetail | null> {
+  if (hasDatabaseUrl()) {
+    try {
+      const neon = await loadPublicUnitFromNeon(id);
+      if (neon) return neon;
+    } catch (error) {
+      console.error('Neon public unit load failed', error);
+    }
+  }
   try {
-    return await publicApiFetch<PublicUnitDetail>(
+    const nest = await publicApiFetch<PublicUnitDetail>(
       `/v1/public/units/${encodeURIComponent(id)}`,
       30,
       [`public-listings`, `unit:${id}`],
     );
+    return {
+      ...nest,
+      images: nest.images.map((image) => ({
+        ...image,
+        url: toPublicMediaSrc(image.url) ?? image.url,
+      })),
+    };
   } catch (error) {
     if (error instanceof ApiError && (error.status === 404 || error.status === 410)) return null;
-    throw error;
+    console.error('Nest public unit load failed', error);
+    return null;
   }
 }
 
@@ -41,7 +60,7 @@ export async function generateMetadata({
   const description =
     localizedName(locale, unit.descriptionAr ?? '', unit.descriptionEn ?? '') ||
     `${unit.governorate}, ${unit.wilayat}`;
-  const image = unit.images[0]?.url;
+  const image = toPublicMediaSrc(unit.images[0]?.url) ?? unit.images[0]?.url;
   return {
     title,
     description,
@@ -71,6 +90,8 @@ export default async function UnitPage({
   const description = localizedName(locale, unit.descriptionAr ?? '', unit.descriptionEn ?? '');
   const nonce = (await headers()).get('x-nonce') ?? undefined;
   const structuredData = unitListingJsonLd({ locale, unit, title, description });
+  const primarySrc = toPublicMediaSrc(unit.images[0]?.url);
+  const secondarySrc = toPublicMediaSrc(unit.images[1]?.url);
   return (
     <>
       <header className="page-hero">
@@ -86,26 +107,36 @@ export default async function UnitPage({
         <div className="container detail-grid">
           <div>
             <div className="gallery">
-              {unit.images[0] ? (
-                <Image
-                  src={unit.images[0].url}
-                  alt={(locale === 'ar' ? unit.images[0].altAr : unit.images[0].altEn) ?? title}
-                  width={1200}
-                  height={750}
-                  priority
-                />
+              {primarySrc ? (
+                <div className="gallery__shot">
+                  <Image
+                    src={primarySrc}
+                    alt={(locale === 'ar' ? unit.images[0]?.altAr : unit.images[0]?.altEn) ?? title}
+                    width={1200}
+                    height={750}
+                    priority
+                  />
+                  <span className="media-watermark" aria-hidden="true">
+                    <BrandMark tone="onDark" />
+                  </span>
+                </div>
               ) : (
                 <div className="gallery__placeholder" aria-hidden="true">
                   <BrandMark tone="onDark" />
                 </div>
               )}
-              {unit.images[1] ? (
-                <Image
-                  src={unit.images[1].url}
-                  alt={(locale === 'ar' ? unit.images[1].altAr : unit.images[1].altEn) ?? title}
-                  width={600}
-                  height={750}
-                />
+              {secondarySrc ? (
+                <div className="gallery__shot">
+                  <Image
+                    src={secondarySrc}
+                    alt={(locale === 'ar' ? unit.images[1]?.altAr : unit.images[1]?.altEn) ?? title}
+                    width={600}
+                    height={750}
+                  />
+                  <span className="media-watermark" aria-hidden="true">
+                    <BrandMark tone="onDark" />
+                  </span>
+                </div>
               ) : null}
             </div>
             <Card>

@@ -153,7 +153,7 @@ export const publicListingSchema = z.object({
   listingPurpose: z.enum(['rent', 'sale', 'both']),
   rent: moneySchema,
   salePrice: moneySchema.nullable(),
-  coverImageUrl: z.url().nullable(),
+  coverImageUrl: z.union([z.url(), z.string().regex(/^\/api\/(public|owner)\/media\//)]).nullable(),
   available: z.literal(true),
   publishedAt: z.iso.datetime(),
 });
@@ -175,7 +175,7 @@ export const publicUnitDetailSchema = publicListingSchema
       .array(
         z.object({
           id: uuidSchema,
-          url: z.url(),
+          url: z.union([z.url(), z.string().regex(/^\/api\/(public|owner)\/media\//)]),
           altAr: z.string().max(200).optional(),
           altEn: z.string().max(200).optional(),
         }),

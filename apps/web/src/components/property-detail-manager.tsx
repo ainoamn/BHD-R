@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { CurrencyCode } from '@bhd-r/contracts';
+import { BrandMark } from '@bhd-r/ui';
 import { browserMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { PropertyQrCard } from '@/components/property-qr-card';
@@ -248,6 +249,9 @@ export function PropertyDetailManager({
                     src={gallery[Math.min(activeImage, gallery.length - 1)]!.url!}
                     alt=""
                   />
+                  <span className="media-watermark" aria-hidden="true">
+                    <BrandMark tone="onDark" />
+                  </span>
                 </div>
                 {gallery.length > 1 ? (
                   <ul className="property-360__thumbs">
