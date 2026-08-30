@@ -162,6 +162,138 @@ export async function deleteMediaAssetNestOrNeon(
   return { ok: true, assetId, via: 'neon' };
 }
 
+/** Prefer Nest property create when reachable; fall back to Neon. */
+export async function createPropertyBundleNestOrNeon(
+  claims: SessionClaims,
+  body: unknown,
+  csrfToken: string | null,
+  options: { idempotencyKey?: string | null } = {},
+): Promise<Record<string, unknown> & { via: 'nest' | 'neon' }> {
+  const idempotencyKey =
+    options.idempotencyKey && options.idempotencyKey.trim().length >= 16
+      ? options.idempotencyKey.trim().slice(0, 200)
+      : `property-create:${asSubmissionId(null)}`;
+
+  if (isNestApiConfiguredForRuntime() && (await probeNestReady())) {
+    try {
+      const result = await apiFetch<Record<string, unknown>>('/v1/portfolio/properties', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'idempotency-key': idempotencyKey,
+          ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}),
+        },
+        body: JSON.stringify(body),
+      });
+      return { ...result, via: 'nest' };
+    } catch {
+      /* fall through */
+    }
+  }
+  const { createPropertyBundleOnNeon } = await import('@/lib/create-property-neon');
+  const neon = await createPropertyBundleOnNeon(claims, body, { idempotencyKey });
+  return { ...neon, via: 'neon' };
+}
+
+/**
+ * Prefer Nest media pipeline (intent → ingress → complete); fall back to Neon+S3.
+ * Sniffs magic-bytes before calling Nest so MIME is not client-trusted.
+ */
+export async function uploadUnitMediaNestOrNeon(
+  claims: SessionClaims,
+  input: {
+    unitId: string;
+    purpose: 'property_image' | 'attachment';
+    position: number;
+    mimeType: string;
+    bytes: Buffer;
+    fileName?: string;
+  },
+  csrfToken: string | null,
+  options: { idempotencyKey?: string | null } = {},
+): Promise<{ assetId: string; url: string; via: 'nest' | 'neon' }> {
+  const { detectAllowedMime, uploadUnitMediaOnNeon } = await import(
+    '@/lib/upload-property-media-neon'
+  );
+  const detected = detectAllowedMime(input.bytes, input.purpose);
+  if (!detected) throw new Error('invalid_file');
+  if (input.bytes.byteLength < 1 || input.bytes.byteLength > 12 * 1024 * 1024) {
+    throw new Error('invalid_file');
+  }
+
+  const sha256 = createHash('sha256').update(input.bytes).digest('hex');
+  const idempotencyKey =
+    options.idempotencyKey && options.idempotencyKey.trim().length >= 16
+      ? options.idempotencyKey.trim().slice(0, 200)
+      : `media-complete:${asSubmissionId(null)}`;
+
+  if (isNestApiConfiguredForRuntime() && (await probeNestReady())) {
+    const origin = configuredApiOrigin();
+    if (origin) {
+      try {
+        const intent = await apiFetch<{
+          assetId: string;
+          uploadUrl: string;
+          requiredHeaders?: { 'content-type'?: string };
+        }>('/v1/media/upload-intents', {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}),
+          },
+          body: JSON.stringify({
+            purpose: input.purpose,
+            unitId: input.unitId,
+            mimeType: detected,
+            byteSize: input.bytes.byteLength,
+          }),
+        });
+
+        const put = await fetch(intent.uploadUrl, {
+          method: 'PUT',
+          headers: {
+            'content-type': intent.requiredHeaders?.['content-type'] ?? detected,
+          },
+          body: new Uint8Array(input.bytes),
+          cache: 'no-store',
+          signal: AbortSignal.timeout(55_000),
+        });
+        if (!put.ok) throw new Error('upload_failed');
+
+        const completed = await apiFetch<{ assetId: string; status?: string }>(
+          `/v1/media/${intent.assetId}/complete`,
+          {
+            method: 'POST',
+            headers: {
+              'content-type': 'application/json',
+              'idempotency-key': idempotencyKey,
+              ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}),
+            },
+            body: JSON.stringify({
+              sha256,
+              unitId: input.unitId,
+              position: input.position,
+            }),
+          },
+        );
+        return {
+          assetId: completed.assetId ?? intent.assetId,
+          url: `/api/owner/media/${completed.assetId ?? intent.assetId}`,
+          via: 'nest',
+        };
+      } catch {
+        /* fall through */
+      }
+    }
+  }
+
+  const neon = await uploadUnitMediaOnNeon(claims, {
+    ...input,
+    mimeType: detected,
+  });
+  return { ...neon, via: 'neon' };
+}
+
 export function hashIdempotencyPayload(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }

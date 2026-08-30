@@ -4,12 +4,13 @@ import { updatePropertyBundleOnNeon } from '@/lib/create-property-neon';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { clientSafeErrorCode, statusForSafeCode } from '@/lib/client-safe-error';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
+import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-/** PATCH /api/owner/properties/:id — update via Neon (no Nest/Render). */
+/** PATCH /api/owner/properties/:id — update via Neon (full wizard bundle; Nest PATCH is thin). */
 export async function PATCH(
   request: Request,
   context: { params: Promise<{ propertyId: string }> },
@@ -35,6 +36,18 @@ export async function PATCH(
     return NextResponse.json(mapped.body, { status: mapped.status });
   }
 
+  const limited = assertRouteRateLimit({
+    key: hashRateKey(['owner-property-update', claims.sub, clientIp(request)]),
+    limit: 20,
+    windowMs: 60_000,
+  });
+  if (!limited.ok) {
+    return NextResponse.json(
+      { error: { code: 'rate_limited' } },
+      { status: 429, headers: { 'retry-after': String(limited.retryAfterSec) } },
+    );
+  }
+
   const { propertyId } = await context.params;
   if (!propertyId || propertyId.length < 32) {
     return NextResponse.json(
@@ -51,7 +64,10 @@ export async function PATCH(
 
   try {
     const body = await request.json();
-    const updated = await updatePropertyBundleOnNeon(claims, propertyId, body);
+    const idempotencyKey = request.headers.get('idempotency-key');
+    const updated = await updatePropertyBundleOnNeon(claims, propertyId, body, {
+      idempotencyKey,
+    });
     return NextResponse.json(updated, { status: 200 });
   } catch (error) {
     if (error instanceof ZodError) {
@@ -77,6 +93,10 @@ export async function PATCH(
       duplicate_property: {
         ar: 'عقار بنفس الاسم والعنوان موجود مسبقاً — لا يُسمح بالتكرار',
         en: 'A property with the same name and address already exists',
+      },
+      idempotency_payload_mismatch: {
+        ar: 'طلب مكرر بمفتاح مختلف — حدّث الصفحة وأعد المحاولة',
+        en: 'Idempotency key reused with a different payload',
       },
       update_failed: { ar: 'تعذر تحديث العقار في قاعدة البيانات', en: 'Update failed' },
     };

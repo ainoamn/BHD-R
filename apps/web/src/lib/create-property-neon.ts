@@ -359,11 +359,12 @@ const updatePropertyBundleSchema = z.object({
     .max(500),
 });
 
-/** Update property + address + units via Neon (edit wizard; no Nest). */
+/** Update property + address + units via Neon (edit wizard; no Nest full bundle yet). */
 export async function updatePropertyBundleOnNeon(
   claims: SessionClaims,
   propertyId: string,
   raw: unknown,
+  options: { idempotencyKey?: string | null } = {},
 ): Promise<Record<string, unknown>> {
   if (!claims.organizationId) throw new Error('organization_required');
   if (
@@ -373,8 +374,28 @@ export async function updatePropertyBundleOnNeon(
     throw new Error('forbidden');
   }
   const input = updatePropertyBundleSchema.parse(raw);
+  const idemRoute = `PATCH:/api/owner/properties/${propertyId}`;
+  const idemKey =
+    typeof options.idempotencyKey === 'string' && options.idempotencyKey.trim().length >= 8
+      ? options.idempotencyKey.trim().slice(0, 200)
+      : null;
+  const hash = requestHash(raw);
 
   return withinTenant(claims, async (transaction) => {
+    if (idemKey) {
+      const existing = await transaction.query.idempotencyKeys.findFirst({
+        where: and(
+          eq(idempotencyKeys.organizationId, claims.organizationId!),
+          eq(idempotencyKeys.key, idemKey),
+          eq(idempotencyKeys.route, idemRoute),
+        ),
+      });
+      if (existing?.responseBody && existing.responseStatus) {
+        if (existing.requestHash !== hash) throw new Error('idempotency_payload_mismatch');
+        return existing.responseBody as Record<string, unknown>;
+      }
+    }
+
     const property = await transaction.query.properties.findFirst({
       where: and(
         eq(properties.id, propertyId),
@@ -706,7 +727,7 @@ export async function updatePropertyBundleOnNeon(
       payload: { via: 'vercel-neon-edit' },
     });
 
-    return {
+    const result = {
       ...updated,
       units: unitRows.map((unit) => ({
         ...unit,
@@ -715,6 +736,35 @@ export async function updatePropertyBundleOnNeon(
         depositMinor: unit.depositMinor?.toString() ?? null,
       })),
     };
+
+    if (idemKey) {
+      const now = new Date();
+      const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      await transaction
+        .insert(idempotencyKeys)
+        .values({
+          organizationId: claims.organizationId!,
+          key: idemKey,
+          route: idemRoute,
+          requestHash: hash,
+          responseStatus: 200,
+          responseBody: result,
+          lockedUntil: now,
+          expiresAt,
+        })
+        .onConflictDoUpdate({
+          target: [idempotencyKeys.organizationId, idempotencyKeys.key, idempotencyKeys.route],
+          set: {
+            requestHash: hash,
+            responseStatus: 200,
+            responseBody: result,
+            lockedUntil: now,
+            expiresAt,
+          },
+        });
+    }
+
+    return result;
   });
 }
 

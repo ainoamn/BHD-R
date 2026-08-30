@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.86 — 2026-08-30
+
+- Nest-first property create + media upload BFF (intent→ingress→complete) with Neon fallback; owner write rate limits; PATCH property Neon idempotency; ensure `CRON_SECRET` on Vercel when missing.
+- Docs: `RELEASE-0.2.86-AR.md`.
+
 ## 0.2.85 — 2026-08-30
 
 - Nest `DELETE /v1/media/:id` + Next Nest-first media delete; deposit idempotency (`@Idempotent` + Neon keys); owner write routes use `clientSafeErrorCode` with CI policy gate; catalogue rate-limit; catalogue SELECT under `app.public` (heal still privileged).

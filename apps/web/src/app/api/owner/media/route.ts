@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { clientSafeErrorCode, statusForSafeCode } from '@/lib/client-safe-error';
+import { uploadUnitMediaNestOrNeon } from '@/lib/nest-or-neon-write';
 import { guardErrorResponse, requireLiveSession, RouteGuardError } from '@/lib/next-route-guard';
-import { uploadUnitMediaOnNeon } from '@/lib/upload-property-media-neon';
+import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-/** POST /api/owner/media — property image/doc upload via Vercel→R2→Neon. */
+/** POST /api/owner/media — Nest-first upload (intent→ingress→complete) with Neon fallback. */
 export async function POST(request: Request) {
   if (!hasDatabaseUrl()) {
     return NextResponse.json(
@@ -29,6 +30,18 @@ export async function POST(request: Request) {
   } catch (error) {
     const mapped = guardErrorResponse(error);
     return NextResponse.json(mapped.body, { status: mapped.status });
+  }
+
+  const limited = assertRouteRateLimit({
+    key: hashRateKey(['owner-media-upload', claims.sub, clientIp(request)]),
+    limit: 20,
+    windowMs: 60_000,
+  });
+  if (!limited.ok) {
+    return NextResponse.json(
+      { error: { code: 'rate_limited', message: 'Too many uploads', messageAr: 'طلبات رفع كثيرة' } },
+      { status: 429, headers: { 'retry-after': String(limited.retryAfterSec) } },
+    );
   }
 
   try {
@@ -52,14 +65,20 @@ export async function POST(request: Request) {
       );
     }
     const bytes = Buffer.from(await file.arrayBuffer());
-    const result = await uploadUnitMediaOnNeon(claims, {
-      unitId,
-      purpose,
-      position: Number.isFinite(position) ? position : 0,
-      mimeType: file.type || 'application/octet-stream',
-      bytes,
-      fileName: file.name,
-    });
+    const idempotencyKey = request.headers.get('idempotency-key');
+    const result = await uploadUnitMediaNestOrNeon(
+      claims,
+      {
+        unitId,
+        purpose,
+        position: Number.isFinite(position) ? position : 0,
+        mimeType: file.type || 'application/octet-stream',
+        bytes,
+        fileName: file.name,
+      },
+      request.headers.get('x-csrf-token'),
+      { idempotencyKey },
+    );
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
     if (error instanceof RouteGuardError) {
@@ -85,6 +104,7 @@ export async function POST(request: Request) {
         en: 'File too large for temporary storage',
       },
       upload_failed: { ar: 'فشل رفع الملف', en: 'Upload failed' },
+      rate_limited: { ar: 'طلبات رفع كثيرة', en: 'Too many uploads' },
     };
     const hit = map[code];
     return NextResponse.json(

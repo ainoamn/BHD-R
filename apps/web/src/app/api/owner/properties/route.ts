@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
-import { createPropertyBundleOnNeon } from '@/lib/create-property-neon';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { clientSafeErrorCode, statusForSafeCode } from '@/lib/client-safe-error';
+import { createPropertyBundleNestOrNeon } from '@/lib/nest-or-neon-write';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
+import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-/** POST /api/owner/properties — create via Neon on Vercel (does not depend on Nest/Render). */
+/** POST /api/owner/properties — Nest-first create with Neon fallback. */
 export async function POST(request: Request) {
   if (!hasDatabaseUrl()) {
     return NextResponse.json(
@@ -32,10 +33,27 @@ export async function POST(request: Request) {
     return NextResponse.json(mapped.body, { status: mapped.status });
   }
 
+  const limited = assertRouteRateLimit({
+    key: hashRateKey(['owner-property-create', claims.sub, clientIp(request)]),
+    limit: 10,
+    windowMs: 60_000,
+  });
+  if (!limited.ok) {
+    return NextResponse.json(
+      { error: { code: 'rate_limited' } },
+      { status: 429, headers: { 'retry-after': String(limited.retryAfterSec) } },
+    );
+  }
+
   try {
     const body = await request.json();
     const idempotencyKey = request.headers.get('idempotency-key');
-    const created = await createPropertyBundleOnNeon(claims, body, { idempotencyKey });
+    const created = await createPropertyBundleNestOrNeon(
+      claims,
+      body,
+      request.headers.get('x-csrf-token'),
+      { idempotencyKey },
+    );
     return NextResponse.json(created, { status: 201 });
   } catch (error) {
     if (error instanceof ZodError) {
