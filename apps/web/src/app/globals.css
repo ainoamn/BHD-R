@@ -3902,39 +3902,41 @@ h3 {
     padding-bottom: 0.25rem;
   }
   .wizard-hero {
-    margin-bottom: 0.75rem;
-    gap: 0.3rem;
+    margin-bottom: 0.45rem;
+    gap: 0.15rem;
   }
   .wizard-hero h1 {
-    font-size: 1.2rem;
+    font-size: 1.05rem;
   }
-  .wizard-hero__intro {
-    display: none;
+  .wizard-hero__kicker {
+    font-size: 0.65rem;
   }
-  .wizard-hero__meta {
-    margin-top: 0.15rem;
+  .wizard-hero__intro,
+  .wizard-hero__meta,
+  .wizard-hero__meta--desktop {
+    display: none !important;
   }
   .wizard-progress--desktop {
     display: none !important;
   }
   .wizard-progress-compact {
     display: grid;
-    gap: 0.45rem;
-    margin: 0 0 0.85rem;
-    padding: 0.55rem 0.65rem;
-    background: rgb(255 255 255 / 0.88);
+    gap: 0.35rem;
+    margin: 0 0 0.55rem;
+    padding: 0.4rem 0.55rem;
+    background: rgb(255 255 255 / 0.92);
     border: 1px solid rgb(9 45 36 / 0.08);
-    border-radius: 0.85rem;
+    border-radius: 0.7rem;
   }
   .wizard-progress-compact__now {
     display: flex;
     align-items: baseline;
-    gap: 0.45rem;
+    gap: 0.4rem;
     min-width: 0;
   }
   .wizard-progress-compact__now strong {
     flex: 0 0 auto;
-    font-size: 0.95rem;
+    font-size: 0.82rem;
     font-weight: 850;
     color: var(--oman-deep);
     font-variant-numeric: tabular-nums;
@@ -3942,7 +3944,7 @@ h3 {
   .wizard-progress-compact__now strong span {
     color: var(--muted);
     font-weight: 650;
-    font-size: 0.8rem;
+    font-size: 0.72rem;
   }
   .wizard-progress-compact__now em {
     min-width: 0;
@@ -3950,49 +3952,90 @@ h3 {
     text-overflow: ellipsis;
     white-space: nowrap;
     font-style: normal;
-    font-size: 0.84rem;
+    font-size: 0.78rem;
     font-weight: 700;
     color: var(--ink-700, #334155);
   }
-  .wizard-progress-compact__dots {
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 0.3rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+  .wizard-progress-compact__track {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.2rem;
   }
-  .wizard-progress-compact__dots button {
-    width: 1.55rem;
-    height: 1.55rem;
+  .wizard-progress-compact__track button {
+    height: 0.35rem;
     padding: 0;
-    border-radius: 50%;
-    border: 1px solid #b71c1c;
-    background: #c62828;
-    color: #fff;
-    font-size: 0.65rem;
-    font-weight: 800;
+    border: 0;
+    border-radius: 999px;
+    background: rgb(198 40 40 / 0.28);
     cursor: pointer;
   }
-  .wizard-progress-compact__dots button.is-done {
-    background: #2e7d32;
-    border-color: #1b5e20;
+  .wizard-progress-compact__track button.is-done,
+  .wizard-progress-compact__track button.is-current {
+    background: linear-gradient(90deg, #0b3a2f, #174b70);
   }
-  .wizard-progress-compact__dots button.is-current {
-    background: linear-gradient(145deg, #0b3a2f, #174b70);
-    border-color: #0b3a2f;
-    box-shadow: 0 0 0 2px rgb(46 125 50 / 0.25);
-    transform: scale(1.08);
+  .wizard-progress-compact__track button.is-reached:not(.is-done):not(.is-current) {
+    background: rgb(198 40 40 / 0.5);
   }
-  .wizard-progress-compact__dots button:disabled {
+  .wizard-progress-compact__track button:disabled {
+    cursor: default;
     opacity: 0.55;
-    cursor: not-allowed;
+  }
+  .wizard-shell .card__header {
+    padding: 0.65rem 0.75rem;
+  }
+  .wizard-shell .card__content {
+    padding: 0.65rem 0.7rem 0.85rem;
+  }
+  .wizard-shell .form-grid {
+    gap: 0.55rem 0.65rem;
+  }
+  .wizard-shell .field {
+    gap: 0.2rem;
+  }
+  .wizard-shell .field label {
+    font-size: 0.72rem;
+  }
+  .wizard-shell .input,
+  .wizard-shell .select,
+  .wizard-shell .textarea {
+    min-height: 2.15rem;
+    padding: 0.35rem 0.55rem;
+    border-radius: 0.55rem;
+    font-size: 0.88rem;
+  }
+  .wizard-shell .textarea {
+    min-height: 4.5rem;
+  }
+  .wizard-shell .field__hint,
+  .wizard-shell .field__error {
+    font-size: 0.68rem;
+  }
+  .wizard-seg {
+    gap: 0.35rem;
+  }
+  .wizard-seg__item {
+    min-height: 2.15rem;
+    padding: 0.35rem 0.55rem;
+    font-size: 0.78rem;
+    border-radius: 0.55rem;
+  }
+  .wizard-shell .hero-actions {
+    gap: 0.35rem;
+  }
+  .wizard-shell .hero-actions .button {
+    min-height: 1.85rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.72rem;
+  }
+  .wizard-footer {
+    padding: 0.65rem 0.7rem calc(0.65rem + var(--safe-bottom, 0px));
+  }
+  .wizard-footer .button {
+    min-height: 2.25rem;
+    font-size: 0.88rem;
   }
   .wizard-progress__list {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.75rem 0.35rem;
+    display: none;
   }
   .wizard-progress__item:not(:last-child)::after {
     display: none;

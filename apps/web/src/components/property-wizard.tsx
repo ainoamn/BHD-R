@@ -378,6 +378,37 @@ export function PropertyWizard({
     setProperty((current) => ({ ...current, [field]: value }));
   }
 
+  function focusNextField(from?: HTMLElement | null) {
+    if (typeof window === 'undefined') return;
+    const root = document.querySelector('.wizard-shell .card__content');
+    if (!root) return;
+    const focusables = Array.from(
+      root.querySelectorAll<HTMLElement>(
+        'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled])',
+      ),
+    ).filter((el) => el.offsetParent !== null);
+    const active = from ?? (document.activeElement as HTMLElement | null);
+    const index = active ? focusables.indexOf(active) : -1;
+    const next = focusables[index + 1];
+    if (next) {
+      window.setTimeout(() => next.focus(), 40);
+      return;
+    }
+    // Last field of this step filled — advance when valid.
+    window.setTimeout(() => {
+      if (step >= steps.length - 1) return;
+      if (validateStep(step).length === 0) goToStep(step + 1);
+    }, 120);
+  }
+
+  function onSelectAdvance(
+    event: ChangeEvent<HTMLSelectElement>,
+    apply: (value: string) => void,
+  ) {
+    apply(event.target.value);
+    focusNextField(event.currentTarget);
+  }
+
   function applyMapsUrl(value: string) {
     const coords = parseGoogleMapsUrl(value);
     setProperty((current) => ({
@@ -1057,7 +1088,7 @@ export function PropertyWizard({
         <p className="wizard-hero__kicker">{ar ? 'بوابة المالك' : 'Owner portal'}</p>
         <h1>{mode === 'edit' ? (ar ? 'تعديل العقار' : 'Edit property') : t('PropertyForm.title')}</h1>
         <p className="wizard-hero__intro">{t('PropertyForm.intro')}</p>
-        <div className="wizard-hero__meta" aria-hidden="true">
+        <div className="wizard-hero__meta wizard-hero__meta--desktop" aria-hidden="true">
           <span>
             {ar ? 'المرحلة' : 'Step'} {step + 1} / {steps.length}
           </span>
@@ -1075,43 +1106,23 @@ export function PropertyWizard({
           </strong>
           <em>{steps[step]}</em>
         </div>
-        <ol className="wizard-progress-compact__dots">
-          {steps.map((label, index) => {
-            const done = index < step;
-            const current = index === step;
-            return (
-              <li key={`m-${label}`}>
-                <button
-                  type="button"
-                  className={
-                    current
-                      ? 'is-current'
-                      : done
-                        ? 'is-done'
-                        : index <= maxReached
-                          ? 'is-reached'
-                          : undefined
-                  }
-                  disabled={index > maxReached && index !== step}
-                  aria-label={label}
-                  aria-current={current ? 'step' : undefined}
-                  onClick={() => {
-                    if (index <= step) goToStep(index);
-                    else if (index === step + 1 && validateStep(step).length === 0) goToStep(index);
-                    else if (index > step) {
-                      const issues = validateStep(step);
-                      setShowErrors(true);
-                      setMissingHints(issues);
-                      setError(t('PropertyForm.completeBeforeNext'));
-                    }
-                  }}
-                >
-                  {done ? '✓' : index + 1}
-                </button>
-              </li>
-            );
-          })}
-        </ol>
+        <div className="wizard-progress-compact__track" aria-hidden="true">
+          {steps.map((label, index) => (
+            <button
+              key={`seg-${label}`}
+              type="button"
+              className={
+                index === step ? 'is-current' : index < step ? 'is-done' : index <= maxReached ? 'is-reached' : undefined
+              }
+              disabled={index > maxReached && index !== step}
+              aria-label={label}
+              onClick={() => {
+                if (index <= step) goToStep(index);
+                else if (index === step + 1 && validateStep(step).length === 0) goToStep(index);
+              }}
+            />
+          ))}
+        </div>
       </nav>
 
       <nav className="wizard-progress wizard-progress--desktop" aria-label={t('PropertyForm.wizardStepsAria')}>
@@ -1194,6 +1205,7 @@ export function PropertyWizard({
                         onChange={() => {
                           setKind('single_unit');
                           setUnits((current) => [current[0] ?? blankUnit(1)]);
+                          focusNextField();
                         }}
                       />
                       {t('PropertyForm.single')}
@@ -1203,7 +1215,10 @@ export function PropertyWizard({
                         type="radio"
                         name="kind"
                         checked={kind === 'multi_unit'}
-                        onChange={() => setKind('multi_unit')}
+                        onChange={() => {
+                          setKind('multi_unit');
+                          focusNextField();
+                        }}
                       />
                       {t('PropertyForm.multi')}
                     </label>
@@ -1221,6 +1236,7 @@ export function PropertyWizard({
                     updateProperty('governorate', '');
                     updateProperty('wilayat', '');
                     updateProperty('city', '');
+                    focusNextField(event.currentTarget);
                   }}
                   required
                 >
@@ -1235,7 +1251,9 @@ export function PropertyWizard({
                   label={t('PropertyForm.category')}
                   value={property.category}
                   tone={tone(property.category, true, showErrors)}
-                  onChange={(event) => updateProperty('category', event.target.value)}
+                  onChange={(event) =>
+                    onSelectAdvance(event, (value) => updateProperty('category', value))
+                  }
                   required
                 >
                   {(
@@ -1261,7 +1279,10 @@ export function PropertyWizard({
                   label={t('Common.currency')}
                   value={currency}
                   tone="ok"
-                  onChange={(event) => setCurrency(event.target.value as CurrencyCode)}
+                  onChange={(event) => {
+                    setCurrency(event.target.value as CurrencyCode);
+                    focusNextField(event.currentTarget);
+                  }}
                   required
                 >
                   {supportedCurrencyCodes.map((value) => (
@@ -1335,6 +1356,7 @@ export function PropertyWizard({
                         updateProperty('governorate', event.target.value);
                         updateProperty('wilayat', '');
                         updateProperty('city', '');
+                        focusNextField(event.currentTarget);
                       }}
                       required
                     >
@@ -1354,6 +1376,7 @@ export function PropertyWizard({
                         onChange={(event) => {
                           updateProperty('wilayat', event.target.value);
                           updateProperty('city', '');
+                          focusNextField(event.currentTarget);
                         }}
                         required
                       >
@@ -1371,7 +1394,9 @@ export function PropertyWizard({
                         label={t('PropertyForm.village')}
                         value={property.city}
                         tone={tone(property.city, true, showErrors)}
-                        onChange={(event) => updateProperty('city', event.target.value)}
+                        onChange={(event) =>
+                          onSelectAdvance(event, (value) => updateProperty('city', value))
+                        }
                         required
                       >
                         <option value="">{t('PropertyForm.selectVillage')}</option>

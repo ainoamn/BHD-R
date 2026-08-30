@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.58 — 2026-08-30
+
+- Mobile property wizard: thin step track (no large circles), denser fields, auto-focus next field after selects.
+
 ## 0.2.57 — 2026-08-30
 
 - Mobile wizard: compact step bar (current page + small numbers) instead of large 7-circle grid; clearer property cards and smaller status chips.
