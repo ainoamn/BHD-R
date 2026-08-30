@@ -132,13 +132,17 @@ export function PropertyDetailManager({
   property,
   locale,
   portal,
+  variant = 'manage',
 }: {
   property: ManagedProperty;
   locale: 'ar' | 'en';
   portal: 'owner' | 'developer';
+  /** manage = owner console; public = marketing read-only (QR / عرض العقار) */
+  variant?: 'manage' | 'public';
 }) {
   const router = useRouter();
   const ar = locale === 'ar';
+  const isPublic = variant === 'public';
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeImage, setActiveImage] = useState(0);
@@ -165,7 +169,9 @@ export function PropertyDetailManager({
         .join(' · ')
     : '—';
 
-  const propertyPath = `/${locale}/${portal}/properties/${property.id}`;
+  const publicPath = `/${locale}/properties/${property.id}`;
+  /** QR and «عرض العقار» always open the public listing URL. */
+  const propertyPath = publicPath;
   const gallery = useMemo(
     () => (property.gallery ?? []).filter((item) => item.url).sort((a, b) => a.position - b.position),
     [property.gallery],
@@ -271,7 +277,7 @@ export function PropertyDetailManager({
                     ? 'أضف صوراً من تعديل العقار لعرضها هنا كمعرض حجز.'
                     : 'Add photos from Edit property to show a booking-style gallery here.'}
                 </p>
-                {property.status !== 'archived' ? (
+                {property.status !== 'archived' && !isPublic ? (
                   <a className="button button--primary" href={editHref}>
                     {ar ? 'إضافة صور' : 'Add photos'}
                   </a>
@@ -282,22 +288,37 @@ export function PropertyDetailManager({
 
           <header className="property-360__titlebar">
             <div>
-              <span className="ops-kicker">BHD R · PROPERTY 360</span>
+              <span className="ops-kicker">
+                {isPublic ? 'BHD R · LISTING' : 'BHD R · PROPERTY 360'}
+              </span>
               <h1>{ar ? property.nameAr : property.nameEn}</h1>
               <p className="property-360__location">{addressLine}</p>
-              <p className="property-360__serial" dir="ltr">
-                {property.serialNumber ?? '—'}
-              </p>
+              {!isPublic ? (
+                <p className="property-360__serial" dir="ltr">
+                  {property.serialNumber ?? '—'}
+                </p>
+              ) : null}
             </div>
             <div className="property-360__titlebar-actions">
-              {property.status !== 'archived' ? (
-                <a className="button button--primary" href={editHref}>
-                  {ar ? 'تعديل العقار' : 'Edit property'}
+              {!isPublic ? (
+                <>
+                  <a className="button button--quiet" href={publicPath} target="_blank" rel="noreferrer">
+                    {ar ? 'عرض العقار' : 'View listing'}
+                  </a>
+                  {property.status !== 'archived' ? (
+                    <a className="button button--primary" href={editHref}>
+                      {ar ? 'تعديل العقار' : 'Edit property'}
+                    </a>
+                  ) : null}
+                  <a className="button button--quiet" href={`/${locale}/${portal}/properties`}>
+                    {ar ? 'العودة للمحفظة' : 'Back to portfolio'}
+                  </a>
+                </>
+              ) : (
+                <a className="button button--quiet" href={`/${locale}/properties`}>
+                  {ar ? 'كل العقارات' : 'All listings'}
                 </a>
-              ) : null}
-              <a className="button button--quiet" href={`/${locale}/${portal}/properties`}>
-                {ar ? 'العودة للمحفظة' : 'Back to portfolio'}
-              </a>
+              )}
             </div>
           </header>
 
@@ -423,7 +444,7 @@ export function PropertyDetailManager({
             </div>
           </section>
 
-          {property.documents.length > 0 || property.meters.length > 0 ? (
+          {!isPublic && (property.documents.length > 0 || property.meters.length > 0) ? (
             <section className="property-360__section">
               <h2>{ar ? 'المستندات والعدادات' : 'Documents & meters'}</h2>
               {property.documents.length ? (
@@ -450,6 +471,7 @@ export function PropertyDetailManager({
             </section>
           ) : null}
 
+          {!isPublic ? (
           <section className="property-360__section">
             <h2>{ar ? 'سجل الملكية' : 'Ownership history'}</h2>
             {property.ownership.length ? (
@@ -489,7 +511,9 @@ export function PropertyDetailManager({
               <p className="muted">{ar ? 'لا سجلات ملكية بعد.' : 'No ownership records yet.'}</p>
             )}
           </section>
+          ) : null}
 
+          {!isPublic ? (
           <section className="ops-panel property-danger-zone">
             <div>
               <h2>
@@ -526,10 +550,12 @@ export function PropertyDetailManager({
                   : 'Archive'}
             </button>
           </section>
+          ) : null}
         </div>
 
         <aside className="property-360__summary" aria-label={ar ? 'ملخص السعر' : 'Price summary'}>
           <div className="property-360__summary-card">
+            {!isPublic ? (
             <div className="property-360__qr">
               <PropertyQrCard
                 path={propertyPath}
@@ -539,15 +565,18 @@ export function PropertyDetailManager({
                 labelEn="Scan to open this property page"
               />
             </div>
+            ) : null}
             <p className="property-360__price">
               <strong dir="ltr">{priceLabel}</strong>
               <span>{priceSuffix}</span>
             </p>
             <dl className="property-360__facts">
+              {!isPublic ? (
               <div>
                 <dt>{ar ? 'الحالة' : 'Status'}</dt>
                 <dd>{property.status}</dd>
               </div>
+              ) : null}
               <div>
                 <dt>{ar ? 'الغرف' : 'Bedrooms'}</dt>
                 <dd>{primaryUnit?.bedrooms ?? '—'}</dd>
@@ -560,18 +589,34 @@ export function PropertyDetailManager({
                 <dt>{ar ? 'الوحدات' : 'Units'}</dt>
                 <dd>{property.units.length}</dd>
               </div>
+              {!isPublic ? (
               <div>
                 <dt>{ar ? 'المالك' : 'Owner'}</dt>
                 <dd>{currentOwner?.partyName ?? '—'}</dd>
               </div>
+              ) : null}
               <div>
                 <dt>{ar ? 'الفئة' : 'Category'}</dt>
                 <dd>{property.category}</dd>
               </div>
             </dl>
-            {property.status !== 'archived' ? (
-              <a className="button button--primary property-360__summary-cta" href={editHref}>
-                {ar ? 'تعديل العقار' : 'Edit property'}
+            {!isPublic ? (
+              <>
+                <a className="button button--quiet property-360__summary-cta" href={publicPath} target="_blank" rel="noreferrer">
+                  {ar ? 'عرض العقار' : 'View listing'}
+                </a>
+                {property.status !== 'archived' ? (
+                  <a className="button button--primary property-360__summary-cta" href={editHref}>
+                    {ar ? 'تعديل العقار' : 'Edit property'}
+                  </a>
+                ) : null}
+              </>
+            ) : primaryUnit ? (
+              <a
+                className="button button--primary property-360__summary-cta"
+                href={`/${locale}/units/${primaryUnit.id}`}
+              >
+                {ar ? 'طلب معاينة' : 'Request viewing'}
               </a>
             ) : null}
           </div>

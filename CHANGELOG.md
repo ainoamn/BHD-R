@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.63 — 2026-08-30
+
+- Owner Property 360: «عرض العقار» opens the public listing; QR encodes `/[locale]/properties/:id` (read-only marketing view, no edit/ownership). Public gallery via `/api/public/media/:id`.
+
 ## 0.2.62 — 2026-08-30
 
 - Property 360: amenities in a fixed 3-column grid; unit facts show bed/bath/area/price icons; QR centers the BHD brand mark (high ECC).

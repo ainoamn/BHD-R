@@ -14,7 +14,7 @@ Booking-style read-only layout (gallery · title · price summary · map · amen
 | Amenities / profile | `property_amenities`, `property_profiles`, `utility_meters`, `property_documents` |
 | QR code | Client-generated (`qrcode`) → absolute URL of `/{locale}/{portal}/properties/{id}` |
 
-Scanning the QR opens the same Property 360 page on the current host (Vercel preview or custom domain).
+Scanning the QR opens the **public** property page (`/[locale]/properties/:id`) — marketing view only (no edit). Owner console stays at `/[locale]/owner/properties/:id` with a «عرض العقار» button.
 
 ## Create / edit flow
 
