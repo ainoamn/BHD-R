@@ -2,22 +2,19 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { clientSafeErrorCode, statusForSafeCode } from '@/lib/client-safe-error';
+import { createPublicBookingNestOrNeon } from '@/lib/nest-or-neon-write';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
-import { createPublicBookingCheckout } from '@/lib/public-booking-neon';
-import {
-  assertRouteRateLimit,
-  clientIp,
-  hashRateKey,
-} from '@/lib/route-rate-limit';
+import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const bodySchema = z.object({
   unitId: z.string().uuid(),
+  locale: z.enum(['ar', 'en']).default('ar'),
 });
 
-/** POST /api/public/bookings — start booking checkout for the unit deposit. */
+/** POST /api/public/bookings — Nest-first booking checkout with Neon fallback. */
 export async function POST(request: Request) {
   if (!hasDatabaseUrl()) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
@@ -53,7 +50,9 @@ export async function POST(request: Request) {
   const idempotencyKey = request.headers.get('idempotency-key')?.trim() || null;
 
   try {
-    const result = await createPublicBookingCheckout(claims, body.unitId, { idempotencyKey });
+    const result = await createPublicBookingNestOrNeon(claims, body.unitId, body.locale, {
+      idempotencyKey,
+    });
     return NextResponse.json(result);
   } catch (error) {
     const code = clientSafeErrorCode(error, 'booking_failed');

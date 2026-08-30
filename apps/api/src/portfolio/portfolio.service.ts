@@ -1,4 +1,5 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { createHash } from 'node:crypto';
 import {
   and,
   asc,
@@ -1510,6 +1511,234 @@ export class PortfolioService {
         });
       }
       return { accepted: true, reference: viewing.reference, status: viewing.status };
+    });
+  }
+
+  async createPublicBookingCheckout(input: {
+    submissionId: string;
+    unitId: string;
+    displayName: string;
+    email: string;
+    locale: 'ar' | 'en';
+    consent: true;
+    website?: string | undefined;
+  }) {
+    if (input.website) {
+      return {
+        reservationId: input.submissionId,
+        sessionReference: `bk_honeypot_${input.submissionId.replaceAll('-', '').slice(0, 20)}`,
+        amountMinor: '0',
+        currency: 'OMR',
+        expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+      };
+    }
+    return this.database.asSystem(async (transaction) => {
+      await transaction.execute(sql`
+        update holds
+        set status = 'expired', updated_at = now()
+        where status = 'active' and expires_at <= now() and unit_id = ${input.unitId}::uuid
+      `);
+      await transaction.execute(sql`
+        update reservations
+        set status = 'expired', updated_at = now()
+        where status in ('pending', 'confirmed') and expires_at <= now() and unit_id = ${input.unitId}::uuid
+      `);
+
+      const listingRows = await transaction
+        .select({
+          organizationId: listings.organizationId,
+          unitId: units.id,
+          depositMinor: units.depositMinor,
+          rentMinor: units.rentMinor,
+          currency: units.currency,
+          listingPurpose: units.listingPurpose,
+        })
+        .from(listings)
+        .innerJoin(units, eq(units.id, listings.unitId))
+        .innerJoin(properties, eq(properties.id, units.propertyId))
+        .where(
+          and(
+            eq(units.id, input.unitId),
+            eq(listings.enabled, true),
+            isNotNull(listings.publishedAt),
+            eq(units.publishWhenAvailable, true),
+            eq(units.status, 'active'),
+            eq(properties.status, 'active'),
+          ),
+        )
+        .limit(1);
+      const unit = listingRows[0];
+      if (!unit) throw new ConflictException('Unit is no longer available');
+      if (!unit.depositMinor || unit.depositMinor <= 0n)
+        throw new ConflictException('Booking deposit is not set for this unit');
+
+      const normalizedEmail = input.email.trim().toLowerCase();
+      const sessionReference = `bk_${createHash('sha256')
+        .update(`${normalizedEmail}:${input.unitId}:${input.submissionId}`)
+        .digest('hex')
+        .slice(0, 28)}`;
+
+      const existingRows = await transaction
+        .select({
+          id: reservations.id,
+          termsSnapshot: reservations.termsSnapshot,
+          expiresAt: reservations.expiresAt,
+        })
+        .from(reservations)
+        .where(
+          and(
+            eq(reservations.organizationId, unit.organizationId),
+            eq(reservations.unitId, input.unitId),
+            eq(reservations.status, 'pending'),
+          ),
+        )
+        .limit(40);
+      const existing = existingRows.find((row) => {
+        const snap = (row.termsSnapshot ?? {}) as Record<string, unknown>;
+        return snap.checkoutSessionReference === sessionReference;
+      });
+      if (existing) {
+        return {
+          reservationId: existing.id,
+          sessionReference,
+          amountMinor: unit.depositMinor.toString(),
+          currency: unit.currency,
+          expiresAt: existing.expiresAt.toISOString(),
+        };
+      }
+
+      const now = new Date();
+      const activeHold = await transaction
+        .select({ id: holds.id })
+        .from(holds)
+        .where(
+          and(
+            eq(holds.unitId, input.unitId),
+            eq(holds.status, 'active'),
+            gt(holds.expiresAt, now),
+          ),
+        )
+        .limit(1);
+      const activeReservation = await transaction
+        .select({ id: reservations.id })
+        .from(reservations)
+        .where(
+          and(
+            eq(reservations.unitId, input.unitId),
+            inArray(reservations.status, ['pending', 'confirmed']),
+            gt(reservations.expiresAt, now),
+          ),
+        )
+        .limit(1);
+      const activeLease = await transaction
+        .select({ id: leases.id })
+        .from(leases)
+        .where(
+          and(
+            eq(leases.unitId, input.unitId),
+            inArray(leases.status, ['draft', 'active', 'cancel_requested', 'clearance_pending']),
+          ),
+        )
+        .limit(1);
+      if (activeHold[0] || activeReservation[0] || activeLease[0])
+        throw new ConflictException('Unit is no longer available');
+
+      const existingParty = await transaction.query.parties.findFirst({
+        where: and(
+          eq(parties.organizationId, unit.organizationId),
+          eq(parties.email, normalizedEmail),
+        ),
+      });
+      const party =
+        existingParty ??
+        (
+          await transaction
+            .insert(parties)
+            .values({
+              organizationId: unit.organizationId,
+              type: 'person',
+              displayName: input.displayName.trim(),
+              email: normalizedEmail,
+              metadata: {
+                source: 'public_booking_checkout',
+                preferredLocale: input.locale,
+              },
+            })
+            .onConflictDoNothing()
+            .returning()
+        )[0] ??
+        (await transaction.query.parties.findFirst({
+          where: and(
+            eq(parties.organizationId, unit.organizationId),
+            eq(parties.email, normalizedEmail),
+          ),
+        }));
+      if (!party) throw new ConflictException('Could not register the booking prospect');
+
+      await transaction
+        .insert(partyRoles)
+        .values({
+          organizationId: unit.organizationId,
+          partyId: party.id,
+          roleKey: 'prospect',
+        })
+        .onConflictDoUpdate({
+          target: [partyRoles.organizationId, partyRoles.partyId, partyRoles.roleKey],
+          set: { status: 'active', updatedAt: now },
+        });
+
+      const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+      await transaction.insert(holds).values({
+        organizationId: unit.organizationId,
+        unitId: input.unitId,
+        prospectPartyId: party.id,
+        status: 'active',
+        expiresAt,
+        note: 'Public booking checkout hold',
+      });
+
+      const reservationRows = await transaction
+        .insert(reservations)
+        .values({
+          organizationId: unit.organizationId,
+          unitId: input.unitId,
+          tenantPartyId: party.id,
+          status: 'pending',
+          expiresAt,
+          rentMinor: unit.rentMinor,
+          currency: unit.currency,
+          termsSnapshot: {
+            listingPurpose: unit.listingPurpose,
+            depositMinor: unit.depositMinor.toString(),
+            currency: unit.currency,
+            checkoutSessionReference: sessionReference,
+            awaitingPublicDepositPayment: true,
+            capturedAt: new Date().toISOString(),
+            idempotencyKey: input.submissionId,
+            via: 'nest-public',
+          },
+        })
+        .returning({ id: reservations.id });
+
+      await transaction.insert(outboxEvents).values({
+        organizationId: unit.organizationId,
+        topic: 'reservation.created',
+        aggregateType: 'reservation',
+        aggregateId: reservationRows[0]!.id,
+        payload: {
+          unitId: input.unitId,
+          source: 'public_booking_checkout',
+          sessionReference,
+        },
+      });
+
+      return {
+        reservationId: reservationRows[0]!.id,
+        sessionReference,
+        amountMinor: unit.depositMinor.toString(),
+        currency: unit.currency,
+        expiresAt: expiresAt.toISOString(),
+      };
     });
   }
 

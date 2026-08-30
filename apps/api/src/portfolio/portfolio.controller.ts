@@ -78,6 +78,17 @@ const publicViewingSchema = z
         message: 'Preferred time must be between one hour and 180 days from now',
       });
   });
+const publicBookingSchema = z
+  .object({
+    submissionId: z.uuid(),
+    unitId: z.uuid(),
+    displayName: z.string().trim().min(2).max(160),
+    email: z.email().max(320),
+    locale: z.enum(['ar', 'en']).default('ar'),
+    consent: z.literal(true),
+    website: z.string().max(200).optional(),
+  })
+  .strict();
 
 @Controller('v1/portfolio')
 export class PortfolioController {
@@ -212,6 +223,16 @@ export class PublicUnitsController {
   ) {
     if (id !== body.unitId) throw new ConflictException('Unit identifier mismatch');
     return this.service.createPublicViewingRequest(body);
+  }
+
+  @Throttle({ default: { limit: 8, ttl: 60_000 } })
+  @Post(':id/booking-checkouts')
+  bookingCheckout(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(publicBookingSchema)) body: z.infer<typeof publicBookingSchema>,
+  ) {
+    if (id !== body.unitId) throw new ConflictException('Unit identifier mismatch');
+    return this.service.createPublicBookingCheckout(body);
   }
 }
 

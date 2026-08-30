@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.88 — 2026-08-30
+
+- Nest public booking checkout `POST /v1/public/units/:id/booking-checkouts` (throttled, honeypot, idempotent session replay) + Next Nest-first BFF — closes the last P0-02 public write gap; Neon remains fallback until Render catches up.
+- Docs: `RELEASE-0.2.88-AR.md`.
+
 ## 0.2.87 — 2026-08-30
 
 - Nest full property UPDATE bundle (`PATCH /v1/portfolio/properties/:id` matches wizard `{property,units}`) with `@Idempotent`; Next Nest-first BFF with Neon fallback — closes remaining owner property write gap for P0-02.

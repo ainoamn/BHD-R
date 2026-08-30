@@ -95,6 +95,76 @@ export async function createViewingRequestNestOrNeon(
   return { ...neon, via: 'neon' };
 }
 
+/** Prefer Nest public booking checkout; fall back to Neon. */
+export async function createPublicBookingNestOrNeon(
+  claims: SessionClaims,
+  unitId: string,
+  locale: 'ar' | 'en' = 'ar',
+  options: { idempotencyKey?: string | null } = {},
+): Promise<{
+  reservationId: string;
+  sessionReference: string;
+  amountMinor: string;
+  currency: string;
+  expiresAt: string;
+  via: 'nest' | 'neon';
+}> {
+  const contact = await loadViewerContact(claims.sub);
+  const submissionId = asSubmissionId(options.idempotencyKey);
+
+  if (isNestApiConfiguredForRuntime() && (await probeNestReady())) {
+    const origin = configuredApiOrigin();
+    if (origin) {
+      try {
+        const response = await fetch(`${origin}/v1/public/units/${unitId}/booking-checkouts`, {
+          method: 'POST',
+          headers: {
+            accept: 'application/json',
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            submissionId,
+            unitId,
+            displayName: contact.displayName,
+            email: contact.email,
+            locale,
+            consent: true,
+          }),
+          cache: 'no-store',
+          signal: AbortSignal.timeout(8_000),
+        });
+        if (response.ok) {
+          const payload = (await response.json()) as {
+            reservationId: string;
+            sessionReference: string;
+            amountMinor: string;
+            currency: string;
+            expiresAt: string;
+          };
+          return { ...payload, via: 'nest' };
+        }
+        if (response.status === 409) {
+          const payload = (await response.json().catch(() => null)) as {
+            message?: string;
+            error?: { message?: string };
+          } | null;
+          const message = `${payload?.message ?? ''} ${payload?.error?.message ?? ''}`.toLowerCase();
+          if (message.includes('deposit')) throw new Error('deposit_not_set');
+          if (message.includes('available')) throw new Error('unit_unavailable');
+        }
+      } catch {
+        /* fall through */
+      }
+    }
+  }
+
+  const { createPublicBookingCheckout } = await import('@/lib/public-booking-neon');
+  const neon = await createPublicBookingCheckout(claims, unitId, {
+    idempotencyKey: options.idempotencyKey ?? submissionId,
+  });
+  return { ...neon, via: 'neon' };
+}
+
 /** Prefer Nest property deposit patch when reachable; fall back to Neon GUCs path. */
 export async function updatePropertyDepositNestOrNeon(
   claims: SessionClaims,
