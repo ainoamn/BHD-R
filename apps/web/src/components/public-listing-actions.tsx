@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { fetchBrowserCsrfToken } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { PublicListingShare } from '@/components/public-listing-share';
 
@@ -47,7 +48,11 @@ export function PublicListingActions({
       const response = await fetch('/api/public/viewing-requests', {
         method: 'POST',
         credentials: 'same-origin',
-        headers: { 'content-type': 'application/json', accept: 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          accept: 'application/json',
+          'x-csrf-token': await fetchBrowserCsrfToken(),
+        },
         body: JSON.stringify({ unitId, locale }),
       });
       const payload = (await response.json().catch(() => null)) as {

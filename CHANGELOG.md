@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.80 — 2026-08-30
+
+- Next write routes: live session + CSRF (`requireLiveSession`); media magic-bytes + private-only storage (no prod Base64); expire timed-out holds/reservations before booking; S3 object delete on gallery remove.
+- Docs: `RELEASE-0.2.80-AR.md`.
+
 ## 0.2.79 — 2026-08-30
 
 - Security (review P0-01 / P0-04 / P2-01): disable booking sandbox complete in production; fail-closed session secrets; cron warmup requires `CRON_SECRET` and no longer returns origin/body.

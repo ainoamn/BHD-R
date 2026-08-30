@@ -31,7 +31,21 @@ function getDatabase(): DbHandle {
 
 type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
+async function expireTimedOutLocks(transaction: Tx) {
+  await transaction.execute(sql`
+    update holds
+    set status = 'expired', updated_at = now()
+    where status = 'active' and expires_at <= now()
+  `);
+  await transaction.execute(sql`
+    update reservations
+    set status = 'expired', updated_at = now()
+    where status in ('pending', 'confirmed') and expires_at <= now()
+  `);
+}
+
 async function assertUnitBookable(transaction: Tx, unitId: string) {
+  await expireTimedOutLocks(transaction);
   const now = new Date();
   const rows = await transaction
     .select({
@@ -80,12 +94,7 @@ async function assertUnitBookable(transaction: Tx, unitId: string) {
             .where(
               and(
                 eq(leases.unitId, units.id),
-                inArray(leases.status, [
-                  'draft',
-                  'active',
-                  'cancel_requested',
-                  'clearance_pending',
-                ]),
+                sql`${leases.status}::text in ('draft', 'active', 'cancel_requested', 'clearance_pending')`,
               ),
             ),
         ),

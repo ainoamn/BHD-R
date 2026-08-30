@@ -6,7 +6,7 @@ import { Button, Card, CardContent, Field, SelectField, TextAreaField } from '@b
 import { supportedCurrencyCodes, currencyMinorUnits, type CurrencyCode } from '@bhd-r/contracts';
 import { countryPacks, type CountryPackCode } from '@bhd-r/country-packs';
 import { useLocale, useTranslations } from 'next-intl';
-import { browserMediaPut, browserMutation, mapWithConcurrency } from '@/lib/api';
+import { browserMediaPut, browserMutation, fetchBrowserCsrfToken, mapWithConcurrency } from '@/lib/api';
 import { compressImageFile } from '@/lib/compress-image';
 import { toMinorUnits } from '@/lib/format';
 import { omanLocations } from '@/lib/oman-locations';
@@ -621,7 +621,10 @@ export function PropertyWizard({
         const response = await fetch(`/api/owner/media/${encodeURIComponent(id)}`, {
           method: 'DELETE',
           credentials: 'same-origin',
-          headers: { accept: 'application/json' },
+          headers: {
+            accept: 'application/json',
+            'x-csrf-token': await fetchBrowserCsrfToken(),
+          },
         });
         if (!response.ok && response.status !== 404) {
           const body = (await response.json().catch(() => null)) as {
@@ -748,9 +751,11 @@ export function PropertyWizard({
     form.append('unitId', unitId);
     form.append('purpose', purpose);
     form.append('position', String(position ?? 0));
+    const csrf = await fetchBrowserCsrfToken();
     const vercelUpload = await fetch('/api/owner/media', {
       method: 'POST',
       credentials: 'same-origin',
+      headers: { 'x-csrf-token': csrf },
       body: form,
       signal: AbortSignal.timeout(55_000),
     });
@@ -944,6 +949,7 @@ export function PropertyWizard({
             accept: 'application/json',
             'content-type': 'application/json',
             'idempotency-key': bundleIdempotencyKey.current,
+            'x-csrf-token': await fetchBrowserCsrfToken(),
           },
           body: JSON.stringify(payload),
           signal: AbortSignal.timeout(55_000),
@@ -1016,6 +1022,7 @@ export function PropertyWizard({
           accept: 'application/json',
           'content-type': 'application/json',
           'idempotency-key': bundleIdempotencyKey.current,
+          'x-csrf-token': await fetchBrowserCsrfToken(),
         },
         body: JSON.stringify(payload),
         signal: AbortSignal.timeout(55_000),

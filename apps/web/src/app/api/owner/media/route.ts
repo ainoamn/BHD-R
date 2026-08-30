@@ -1,19 +1,13 @@
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { verifySessionToken } from '@bhd-r/authz';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
-import { requireSessionSecret } from '@/lib/runtime-env';
+import { guardErrorResponse, requireLiveSession, RouteGuardError } from '@/lib/next-route-guard';
 import { uploadUnitMediaOnNeon } from '@/lib/upload-property-media-neon';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-function sessionSecret(): Uint8Array {
-  return requireSessionSecret();
-}
-
-/** POST /api/owner/media — compress-friendly property image/doc upload via Vercel→R2→Neon. */
+/** POST /api/owner/media — property image/doc upload via Vercel→R2→Neon. */
 export async function POST(request: Request) {
   if (!hasDatabaseUrl()) {
     return NextResponse.json(
@@ -28,34 +22,12 @@ export async function POST(request: Request) {
     );
   }
 
-  const token = (await cookies()).get('bhd_r_session')?.value;
-  if (!token) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'unauthorized',
-          message: 'Authentication is required',
-          messageAr: 'يلزم تسجيل الدخول',
-        },
-      },
-      { status: 401 },
-    );
-  }
-
-  let claims: Awaited<ReturnType<typeof verifySessionToken>>;
+  let claims;
   try {
-    claims = await verifySessionToken(token, sessionSecret());
-  } catch {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'unauthorized',
-          message: 'Invalid or expired session',
-          messageAr: 'انتهت الجلسة',
-        },
-      },
-      { status: 401 },
-    );
+    claims = await requireLiveSession(request, { requireCsrf: true });
+  } catch (error) {
+    const mapped = guardErrorResponse(error);
+    return NextResponse.json(mapped.body, { status: mapped.status });
   }
 
   try {
@@ -89,40 +61,42 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
+    if (error instanceof RouteGuardError) {
+      const mapped = guardErrorResponse(error);
+      return NextResponse.json(mapped.body, { status: mapped.status });
+    }
     const code = error instanceof Error ? error.message : 'upload_failed';
     const map: Record<string, { status: number; ar: string; en: string }> = {
       forbidden: { status: 403, ar: 'ليست لديك صلاحية رفع الملفات', en: 'Forbidden' },
       organization_required: { status: 400, ar: 'اختر مؤسسة أولاً', en: 'Organization required' },
       unit_not_found: { status: 404, ar: 'الوحدة غير موجودة', en: 'Unit not found' },
       invalid_file: { status: 400, ar: 'نوع أو حجم الملف غير مسموح', en: 'Invalid file' },
+      storage_unavailable: {
+        status: 503,
+        ar: 'تخزين الصور غير متاح — اضبط S3_BUCKET_PRIVATE',
+        en: 'Object storage unavailable — configure S3_BUCKET_PRIVATE',
+      },
       s3_unconfigured: {
         status: 503,
         ar: 'تخزين الصور غير مضبوط',
-        en: 'Object storage unconfigured',
+        en: 'Media storage is not configured',
       },
       inline_too_large: {
         status: 413,
-        ar: 'الصورة كبيرة جداً للرفع الحالي — اختر صورة أصغر أو اضبط S3_BUCKET_PRIVATE',
-        en: 'File too large for inline storage — use a smaller image or set S3_BUCKET_PRIVATE',
+        ar: 'الملف كبير للتخزين المؤقت',
+        en: 'File too large for temporary storage',
       },
     };
-    const known = map[code];
-    if (known) {
-      return NextResponse.json(
-        { error: { code, message: known.en, messageAr: known.ar } },
-        { status: known.status },
-      );
-    }
-    console.error('POST /api/owner/media failed', error);
+    const hit = map[code];
     return NextResponse.json(
       {
         error: {
-          code: 'upload_failed',
-          message: error instanceof Error ? error.message : 'Upload failed',
-          messageAr: 'تعذر رفع الملف',
+          code,
+          message: hit?.en ?? 'Upload failed',
+          messageAr: hit?.ar ?? 'فشل رفع الملف',
         },
       },
-      { status: 500 },
+      { status: hit?.status ?? 500 },
     );
   }
 }

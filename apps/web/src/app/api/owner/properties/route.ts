@@ -1,18 +1,12 @@
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
-import { verifySessionToken } from '@bhd-r/authz';
 import { createPropertyBundleOnNeon } from '@/lib/create-property-neon';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
-import { requireSessionSecret } from '@/lib/runtime-env';
+import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
-
-function sessionSecret(): Uint8Array {
-  return requireSessionSecret();
-}
 
 /** POST /api/owner/properties — create via Neon on Vercel (does not depend on Nest/Render). */
 export async function POST(request: Request) {
@@ -29,34 +23,12 @@ export async function POST(request: Request) {
     );
   }
 
-  const token = (await cookies()).get('bhd_r_session')?.value;
-  if (!token) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'unauthorized',
-          message: 'Authentication is required',
-          messageAr: 'يلزم تسجيل الدخول',
-        },
-      },
-      { status: 401 },
-    );
-  }
-
-  let claims: Awaited<ReturnType<typeof verifySessionToken>>;
+  let claims;
   try {
-    claims = await verifySessionToken(token, sessionSecret());
-  } catch {
-    return NextResponse.json(
-      {
-        error: {
-          code: 'unauthorized',
-          message: 'Invalid or expired session',
-          messageAr: 'انتهت الجلسة — سجّل الدخول مجدداً',
-        },
-      },
-      { status: 401 },
-    );
+    claims = await requireLiveSession(request, { requireCsrf: true });
+  } catch (error) {
+    const mapped = guardErrorResponse(error);
+    return NextResponse.json(mapped.body, { status: mapped.status });
   }
 
   try {

@@ -1,11 +1,9 @@
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { and, eq, inArray } from 'drizzle-orm';
 import { z } from 'zod';
-import { verifySessionToken } from '@bhd-r/authz';
 import { createDatabase, properties, units } from '@bhd-r/db';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
-import { requireSessionSecret } from '@/lib/runtime-env';
+import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -15,10 +13,6 @@ const bodySchema = z.object({
   currency: z.string().min(3).max(3).optional(),
 });
 
-function sessionSecret(): Uint8Array {
-  return requireSessionSecret();
-}
-
 /** PATCH booking deposit for all units on a property. */
 export async function PATCH(
   request: Request,
@@ -27,14 +21,13 @@ export async function PATCH(
   if (!hasDatabaseUrl()) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
   }
-  const token = (await cookies()).get('bhd_r_session')?.value;
-  if (!token) return NextResponse.json({ error: { code: 'unauthorized' } }, { status: 401 });
 
-  let claims: Awaited<ReturnType<typeof verifySessionToken>>;
+  let claims;
   try {
-    claims = await verifySessionToken(token, sessionSecret());
-  } catch {
-    return NextResponse.json({ error: { code: 'unauthorized' } }, { status: 401 });
+    claims = await requireLiveSession(request, { requireCsrf: true });
+  } catch (error) {
+    const mapped = guardErrorResponse(error);
+    return NextResponse.json(mapped.body, { status: mapped.status });
   }
   if (!claims.organizationId || !claims.permissions.includes('unit.update')) {
     return NextResponse.json({ error: { code: 'forbidden' } }, { status: 403 });

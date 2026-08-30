@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Link } from '@/i18n/navigation';
+import { fetchBrowserCsrfToken } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 
 export function BookingCheckoutForm({
@@ -28,10 +29,15 @@ export function BookingCheckoutForm({
     setBusy(true);
     setError(null);
     try {
+      const csrf = await fetchBrowserCsrfToken();
       const start = await fetch('/api/public/bookings', {
         method: 'POST',
         credentials: 'same-origin',
-        headers: { 'content-type': 'application/json', accept: 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          accept: 'application/json',
+          'x-csrf-token': csrf,
+        },
         body: JSON.stringify({ unitId }),
       });
       const startPayload = (await start.json().catch(() => null)) as {

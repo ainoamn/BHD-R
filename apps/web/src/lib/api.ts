@@ -35,6 +35,11 @@ export function clearBrowserCsrfCache(): void {
   csrfInflight = null;
 }
 
+/** Expose CSRF for same-origin Next Route Handlers (owner media/properties). */
+export async function fetchBrowserCsrfToken(force = false): Promise<string> {
+  return getCsrfToken(force);
+}
+
 async function getCsrfToken(force = false): Promise<string> {
   if (!force && cachedCsrfToken) return cachedCsrfToken;
   if (!force && csrfInflight) return csrfInflight;
