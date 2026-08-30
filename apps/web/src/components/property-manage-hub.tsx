@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Link } from '@/i18n/navigation';
 import { browserMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import type { ManagedProperty } from '@/components/property-detail-manager';
@@ -20,7 +21,7 @@ export function PropertyManageHub({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const base = `/${locale}/${portal}`;
+  const base = `/${portal}`;
   const propertyId = encodeURIComponent(property.id);
   const publicPath = `/${locale}/properties/${property.id}`;
   const editHref = `${base}/properties/${property.id}/edit`;
@@ -125,13 +126,15 @@ export function PropertyManageHub({
               {ar ? 'عربون الحجز:' : 'Booking deposit:'}{' '}
               <strong dir="ltr">{depositLabel}</strong>
               {' · '}
-              <a href={editHref}>{ar ? 'تعديل من الضبط' : 'Edit in settings'}</a>
+              <Link href={editHref} prefetch>
+                {ar ? 'تعديل من الضبط' : 'Edit in settings'}
+              </Link>
             </p>
           ) : null}
         </div>
-        <a className="button button--quiet" href={`${base}/properties`}>
+        <Link className="button button--quiet" href={`${base}/properties`} prefetch scroll={false}>
           {ar ? 'العودة للمحفظة' : 'Back to portfolio'}
-        </a>
+        </Link>
       </header>
 
       {error ? (
@@ -165,7 +168,13 @@ export function PropertyManageHub({
           <ul>
             {alerts.map((item) => (
               <li key={item.text}>
-                {item.href ? <a href={item.href}>{item.text}</a> : item.text}
+                {item.href ? (
+                  <Link href={item.href} prefetch>
+                    {item.text}
+                  </Link>
+                ) : (
+                  item.text
+                )}
               </li>
             ))}
           </ul>
@@ -189,13 +198,15 @@ export function PropertyManageHub({
                 {action.label}
               </a>
             ) : (
-              <a
+              <Link
                 key={action.href}
                 className={`button ${'primary' in action && action.primary ? 'button--primary' : 'button--quiet'}`}
                 href={action.href}
+                prefetch
+                scroll={false}
               >
                 {action.label}
-              </a>
+              </Link>
             ),
           )}
         </div>

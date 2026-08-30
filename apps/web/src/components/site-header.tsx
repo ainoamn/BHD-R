@@ -82,13 +82,13 @@ export function SiteHeader() {
           className={open ? 'main-nav main-nav--open' : 'main-nav'}
           aria-label={t('Common.home')}
         >
-          <Link href="/properties" onClick={() => setOpen(false)}>
+          <Link href="/properties" prefetch onClick={() => setOpen(false)}>
             {t('Nav.available')}
           </Link>
           <Link href="/#how-it-works" onClick={() => setOpen(false)}>
             {t('Nav.howItWorks')}
           </Link>
-          <Link href="/trust" onClick={() => setOpen(false)}>
+          <Link href="/trust" prefetch onClick={() => setOpen(false)}>
             {t('Nav.trust')}
           </Link>
           <Link

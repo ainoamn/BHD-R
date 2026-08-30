@@ -25,7 +25,7 @@ export async function GET(
       status: 200,
       headers: {
         'content-type': media.mimeType,
-        'cache-control': 'public, max-age=3600',
+        'cache-control': 'public, max-age=86400, stale-while-revalidate=604800',
       },
     });
   } catch (error) {

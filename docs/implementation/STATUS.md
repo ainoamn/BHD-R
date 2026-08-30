@@ -1,8 +1,10 @@
 # Implementation status
 
 **Updated:** 2026-08-30  
-**Product version:** 0.2.78  
-**Active focus:** Persist property gallery image deletion  
+**Product version:** 0.2.79  
+**Active focus:** Soft nav + P0 sandbox/secrets hardening from security review  
+**Security review (0.2.78 baseline):** [`../security/BHD-R-platform-security-and-architecture-review-ar-2026-08-30.md`](../security/BHD-R-platform-security-and-architecture-review-ar-2026-08-30.md)  
+**Release 0.2.79:** [`RELEASE-0.2.79-AR.md`](./RELEASE-0.2.79-AR.md)  
 **Handoff:** [`HANDOFF-NEST-RENDER-2026-08-26-AR.md`](./HANDOFF-NEST-RENDER-2026-08-26-AR.md)  
 **Property identity/QR:** [`PROPERTY-IDENTITY-QR-AR.md`](./PROPERTY-IDENTITY-QR-AR.md)  
 **Adaptive properties UI:** [`PORTAL-ADAPTIVE-PROPERTIES-AR.md`](./PORTAL-ADAPTIVE-PROPERTIES-AR.md)  
@@ -20,41 +22,29 @@
 | ----- | ------ | ----- |
 | 0–4 | complete | Verified |
 | OM ops 1–19 | coded | Nest على `https://bhd-r.onrender.com` |
-| Cycle R1–R5 | **approved + coded** | Queues, finance_manager gates, ownership history UI |
-| Portal chrome | **shipped** | Header user + AR/EN + responsive drawer for all portals |
-| Property wizard | **shipped 0.2.49+** | Neon create/edit, ownership choice, redirect, QR |
-| Adaptive property surfaces | **shipped 0.2.59** | `portal-adaptive.css` — phone/tablet/desktop scale |
-| Public catalogue publish | **shipped 0.2.64** | Neon sync `listings` + heal on Property 360 |
-| BrandMark placeholders | **shipped 0.2.65** | Official BHD logo replaces circular “R” |
-| Public photos + unit page | **shipped 0.2.66** | Relative media URLs, Neon unit fallback, logo watermark |
-| Portfolio view + manage | **shipped 0.2.67** | عرض العقار / إدارة العقار + ops shortcuts on Property 360 |
-| Unit public = Property 360 | **shipped 0.2.68** | `/units/:id` same showcase as owner preview |
-| Property ops hub + booking CTAs | **shipped 0.2.69** | Manage hub, propertyId filters, status marks, auth viewing/book |
-| Portal soft-nav ops cache | **shipped 0.2.70** | Client memory cache + idle warm `/api/portal/ops` |
-| Portal chrome dedupe | **shipped 0.2.71** | Text identity chip + single BHD switcher avatar |
-| Booking deposit in edit | **shipped 0.2.72** | PropertyForm deposit = العربون/الحجز; hub no longer edits it |
-| Public QR + share + catalogue heal | **shipped 0.2.73** | Share buttons on listing; reserved units visible on /properties |
-| Mobile summary order + share polish | **shipped 0.2.74–0.2.76** | QR/share UX; catalogue by publishWhenAvailable |
+| Security review 2026-08-30 | **documented** | Production financial launch **blocked** until remaining P0/P1 closed |
+| P0-01 booking sandbox | **mitigated 0.2.79** | Complete endpoint + sandbox page fail-closed in production |
+| P0-04 secret fallbacks | **mitigated 0.2.79** | `requireSessionSecret` / OIDC state secret |
+| P0-02 Next direct writes | **open** | Prefer Nest-only writes (large track) |
+| P0-03 direct media upload | **open** | Needs quarantine/worker path |
+| Soft nav portal | **improved 0.2.70 + 0.2.79** | Ops cache + Link prefetch on manage hub / public |
 | Catalogue empty `/properties` | **shipped 0.2.77** | Raw-SQL heal+list + `/api/public/catalogue` |
 | Gallery image delete persist | **shipped 0.2.78** | DELETE `/api/owner/media/:id` from wizard |
 | Nest Render reachability | **fixed 0.2.45** | Express + edge `/healthz` + CORS callback |
 
 ## Next (human / infra)
 
-1. Confirm Vercel **Production Branch = `main`** and Deployment for **0.2.78** (`886a1e6`) is Ready.  
-2. Smoke: [`RELEASE-0.2.78-AR.md`](./RELEASE-0.2.78-AR.md) (حذف صورة) ثم [`RELEASE-0.2.77-AR.md`](./RELEASE-0.2.77-AR.md) (`/ar/properties`).  
-3. (Optional) Redeploy Nest on Render so Nest public unit/media stay aligned.  
-4. S3/R2 على Vercel/Render لرفع الصور (`S3_*` env).  
+1. Confirm Vercel Ready for **0.2.79**; set `CRON_SECRET` if missing.  
+2. Smoke: soft nav owner sidebar + property hub; `POST /api/public/bookings/complete` → 403.  
+3. Continue review plan: Nest-only writes, media quarantine, live session revoke, CI/E2E gate.  
+4. (Optional) Always-on Nest on Render for cold-start.  
 5. تدوير أسرار ظهرت في محادثات سابقة.
 
 ## Verification
 
+- `docs/security/BHD-R-platform-security-and-architecture-review-ar-2026-08-30.md`
+- `docs/implementation/RELEASE-0.2.79-AR.md`
 - `docs/implementation/RELEASE-0.2.78-AR.md`
 - `docs/implementation/RELEASE-0.2.77-AR.md`
-- `docs/implementation/RELEASE-0.2.69-AR.md`
-- `docs/ASSETS.md`
-- `docs/implementation/PORTAL-ADAPTIVE-PROPERTIES-AR.md`
-- `docs/verification/RESPONSIVE-0.2.59.md`
-- `docs/implementation/PROPERTY-IDENTITY-QR-AR.md`
-- `docs/implementation/HANDOFF-NEST-RENDER-2026-08-26-AR.md`
+- `docs/implementation/PORTAL-PERF-AR.md`
 - `docs/implementation/NEST-API-HOSTING.md`

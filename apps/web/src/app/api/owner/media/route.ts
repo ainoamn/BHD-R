@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { verifySessionToken } from '@bhd-r/authz';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { requireSessionSecret } from '@/lib/runtime-env';
 import { uploadUnitMediaOnNeon } from '@/lib/upload-property-media-neon';
 
 export const runtime = 'nodejs';
@@ -9,9 +10,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 function sessionSecret(): Uint8Array {
-  return new TextEncoder().encode(
-    process.env.BHD_R_SESSION_SECRET ?? 'development-session-secret-at-least-32-characters',
-  );
+  return requireSessionSecret();
 }
 
 /** POST /api/owner/media — compress-friendly property image/doc upload via Vercel→R2→Neon. */

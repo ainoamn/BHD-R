@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { verifySessionToken } from '@bhd-r/authz';
 import { createDatabase, properties, units } from '@bhd-r/db';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { requireSessionSecret } from '@/lib/runtime-env';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -15,9 +16,7 @@ const bodySchema = z.object({
 });
 
 function sessionSecret(): Uint8Array {
-  return new TextEncoder().encode(
-    process.env.BHD_R_SESSION_SECRET ?? 'development-session-secret-at-least-32-characters',
-  );
+  return requireSessionSecret();
 }
 
 /** PATCH booking deposit for all units on a property. */

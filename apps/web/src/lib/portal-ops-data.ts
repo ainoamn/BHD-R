@@ -11,6 +11,7 @@ import {
   type Database,
 } from '@bhd-r/db';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { requireSessionSecret } from '@/lib/runtime-env';
 import type { PortalRole } from '@/lib/types';
 
 type DbHandle = { db: Database };
@@ -28,9 +29,7 @@ const ORG_WIDE_ROLES = new Set([
 ]);
 
 function sessionSecret(): Uint8Array {
-  return new TextEncoder().encode(
-    process.env.BHD_R_SESSION_SECRET ?? 'development-session-secret-at-least-32-characters',
-  );
+  return requireSessionSecret();
 }
 
 function getSharedDatabase(): DbHandle {

@@ -1,4 +1,5 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { requireOidcStateSecret } from '@/lib/runtime-env';
 
 export type OidcState = {
   state: string;
@@ -40,10 +41,7 @@ export function identitySettings(origin: string) {
 }
 
 function cookieSecret(): string {
-  return (
-    cleanEnv(process.env.BHD_R_SESSION_SECRET) ||
-    'development-session-secret-at-least-32-characters'
-  );
+  return requireOidcStateSecret();
 }
 
 export function sealOidcState(value: OidcState): string {

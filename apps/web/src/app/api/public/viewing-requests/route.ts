@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { verifySessionToken } from '@bhd-r/authz';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { requireSessionSecret } from '@/lib/runtime-env';
 import { createAuthenticatedViewingRequest } from '@/lib/public-booking-neon';
 
 export const runtime = 'nodejs';
@@ -14,9 +15,7 @@ const bodySchema = z.object({
 });
 
 function sessionSecret(): Uint8Array {
-  return new TextEncoder().encode(
-    process.env.BHD_R_SESSION_SECRET ?? 'development-session-secret-at-least-32-characters',
-  );
+  return requireSessionSecret();
 }
 
 /** POST /api/public/viewing-requests — signed-in visitor requests a viewing. */

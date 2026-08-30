@@ -6,12 +6,15 @@ export const maxDuration = 30;
 
 /**
  * Vercel Cron: ping Nest /healthz so Render does not stay cold between visits.
- * Secure with CRON_SECRET (Vercel sends Authorization: Bearer <CRON_SECRET>).
+ * Requires CRON_SECRET (fail-closed) — Vercel sends Authorization: Bearer <CRON_SECRET>.
  */
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET?.trim();
+  if (!secret || secret.length < 16) {
+    return NextResponse.json({ ok: false, error: 'cron_unconfigured' }, { status: 503 });
+  }
   const auth = request.headers.get('authorization');
-  if (secret && auth !== `Bearer ${secret}`) {
+  if (auth !== `Bearer ${secret}`) {
     return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   }
   if (!isNestApiConfiguredForRuntime()) {
@@ -29,21 +32,17 @@ export async function GET(request: Request) {
       cache: 'no-store',
       signal: AbortSignal.timeout(25_000),
     });
-    const body = await response.text().catch(() => '');
     return NextResponse.json({
       ok: response.ok,
       status: response.status,
       ms: Date.now() - started,
-      origin,
-      body: body.slice(0, 200),
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       {
         ok: false,
-        error: error instanceof Error ? error.message : 'warmup_failed',
+        error: 'warmup_failed',
         ms: Date.now() - started,
-        origin,
       },
       { status: 503 },
     );

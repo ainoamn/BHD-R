@@ -2424,7 +2424,9 @@ export function OperationsConsole({
               {ar
                 ? 'معروض فقط ما يخص هذا العقار.'
                 : 'Showing records for this property only.'}{' '}
-              <a href={`/${portal}/${section}`}>{ar ? 'إظهار الكل' : 'Show all'}</a>
+              <Link href={`/${portal}/${section}`} prefetch scroll={false}>
+                {ar ? 'إظهار الكل' : 'Show all'}
+              </Link>
             </p>
           ) : null}
         </div>

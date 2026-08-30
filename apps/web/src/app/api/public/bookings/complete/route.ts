@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { verifySessionToken } from '@bhd-r/authz';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { completePublicBookingPayment } from '@/lib/public-booking-neon';
+import { isBookingSandboxAllowed, requireSessionSecret } from '@/lib/runtime-env';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -12,14 +13,23 @@ const bodySchema = z.object({
   sessionReference: z.string().min(16).max(80),
 });
 
-function sessionSecret(): Uint8Array {
-  return new TextEncoder().encode(
-    process.env.BHD_R_SESSION_SECRET ?? 'development-session-secret-at-least-32-characters',
-  );
-}
-
-/** POST /api/public/bookings/complete — sandbox confirm booking deposit. */
+/**
+ * POST /api/public/bookings/complete — sandbox-only deposit confirmation.
+ * Disabled in production (P0-01). Real confirmations must come from signed payment webhooks.
+ */
 export async function POST(request: Request) {
+  if (!isBookingSandboxAllowed()) {
+    return NextResponse.json(
+      {
+        error: {
+          code: 'sandbox_disabled',
+          message: 'Booking sandbox completion is disabled outside ALLOW_BOOKING_SANDBOX.',
+        },
+      },
+      { status: 403 },
+    );
+  }
+
   if (!hasDatabaseUrl()) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
   }
@@ -27,7 +37,7 @@ export async function POST(request: Request) {
   if (!token) return NextResponse.json({ error: { code: 'unauthorized' } }, { status: 401 });
   let claims: Awaited<ReturnType<typeof verifySessionToken>>;
   try {
-    claims = await verifySessionToken(token, sessionSecret());
+    claims = await verifySessionToken(token, requireSessionSecret());
   } catch {
     return NextResponse.json({ error: { code: 'unauthorized' } }, { status: 401 });
   }

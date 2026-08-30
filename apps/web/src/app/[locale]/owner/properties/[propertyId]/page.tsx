@@ -3,15 +3,14 @@ import { notFound, redirect } from 'next/navigation';
 import { verifySessionToken } from '@bhd-r/authz';
 import { PropertyDetailManager, type ManagedProperty } from '@/components/property-detail-manager';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { requireSessionSecret } from '@/lib/runtime-env';
 import { ensurePublishedListingsMatchFlags } from '@/lib/create-property-neon';
 import { loadManagedPropertyFromNeon } from '@/lib/load-property-neon';
 import { ApiError, apiFetch } from '@/lib/server-api';
 import { requirePortal } from '@/lib/viewer';
 
 function sessionSecret(): Uint8Array {
-  return new TextEncoder().encode(
-    process.env.BHD_R_SESSION_SECRET ?? 'development-session-secret-at-least-32-characters',
-  );
+  return requireSessionSecret();
 }
 
 export default async function Page({

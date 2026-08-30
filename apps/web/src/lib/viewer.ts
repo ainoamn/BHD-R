@@ -5,15 +5,14 @@ import { createDatabase, memberships, users, type Database } from '@bhd-r/db';
 import { verifySessionToken } from '@bhd-r/authz';
 import type { PortalRole, Viewer } from './types';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { requireSessionSecret } from '@/lib/runtime-env';
 
 type DbHandle = { db: Database };
 
 const globalForDb = globalThis as unknown as { __bhdRWebDb?: DbHandle };
 
 function sessionSecret(): Uint8Array {
-  return new TextEncoder().encode(
-    process.env.BHD_R_SESSION_SECRET ?? 'development-session-secret-at-least-32-characters',
-  );
+  return requireSessionSecret();
 }
 
 function portalsForRoles(roles: readonly string[]): PortalRole[] {

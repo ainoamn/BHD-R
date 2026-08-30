@@ -18,6 +18,7 @@ import {
   type Permission,
   type SessionClaims,
 } from '@bhd-r/authz';
+import { requireCsrfSecret } from '@/lib/runtime-env';
 import { createCsrfToken } from '@bhd-r/security';
 import { verifyBhdIdToken } from '@/lib/bhd/verify-id-token';
 
@@ -179,13 +180,7 @@ async function issueForUser(tx: Tx, userId: string): Promise<IssuedSession> {
   });
   return {
     token,
-    csrf: createCsrfToken(
-      sid,
-      process.env.CSRF_SECRET?.replace(/^\uFEFF/, '')
-        .replace(/\\r\\n$/gi, '')
-        .replace(/\\n$/gi, '')
-        .trim() || 'development-csrf-secret-must-be-at-least-32-chars',
-    ),
+    csrf: createCsrfToken(sid, requireCsrfSecret()),
     claims,
   };
 }

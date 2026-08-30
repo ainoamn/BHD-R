@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Card, CardContent } from '@bhd-r/ui';
 import { SandboxPaymentForm } from '@/components/sandbox-payment-form';
+import { isBookingSandboxAllowed } from '@/lib/runtime-env';
 
 export const metadata: Metadata = {
   title: 'Sandbox payment | دفع تجريبي',
@@ -14,6 +15,7 @@ export default async function SandboxPaymentPage({
 }: {
   params: Promise<{ locale: string; sessionReference: string }>;
 }) {
+  if (!isBookingSandboxAllowed()) notFound();
   const { locale, sessionReference } = await params;
   if (!/^[A-Za-z0-9_-]{24,80}$/.test(sessionReference)) notFound();
   const ar = locale === 'ar';

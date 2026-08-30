@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { verifySessionToken } from '@bhd-r/authz';
+import { requireSessionSecret } from '@/lib/runtime-env';
 import { isOperationsSection } from '@/lib/portal-ops-types';
 import { loadOperationsWorkspacePayload } from '@/lib/portal-ops-workspace';
 import type { PortalRole } from '@/lib/types';
@@ -12,9 +13,7 @@ export const maxDuration = 60;
 const PORTALS = new Set<PortalRole>(['owner', 'developer', 'tenant', 'platform']);
 
 function sessionSecret(): Uint8Array {
-  return new TextEncoder().encode(
-    process.env.BHD_R_SESSION_SECRET ?? 'development-session-secret-at-least-32-characters',
-  );
+  return requireSessionSecret();
 }
 
 function portalsForRoles(roles: readonly string[]): PortalRole[] {

@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { verifySessionToken } from '@bhd-r/authz';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { requireSessionSecret } from '@/lib/runtime-env';
 import { deleteUnitMediaAsset, loadUnitMediaBytes } from '@/lib/upload-property-media-neon';
 
 export const runtime = 'nodejs';
@@ -9,9 +10,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
 function sessionSecret(): Uint8Array {
-  return new TextEncoder().encode(
-    process.env.BHD_R_SESSION_SECRET ?? 'development-session-secret-at-least-32-characters',
-  );
+  return requireSessionSecret();
 }
 
 /** GET /api/owner/media/:assetId — stream stored property media for the signed-in org. */
@@ -49,7 +48,7 @@ export async function GET(
       status: 200,
       headers: {
         'content-type': media.mimeType,
-        'cache-control': 'private, max-age=3600',
+        'cache-control': 'private, max-age=86400, stale-while-revalidate=604800',
       },
     });
   } catch (error) {

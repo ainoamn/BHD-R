@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Link } from '@/i18n/navigation';
 import { formatMoney } from '@/lib/format';
 
 export function BookingCheckoutForm({
@@ -21,7 +22,7 @@ export function BookingCheckoutForm({
   const ar = locale === 'ar';
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState<'confirmed' | 'hold_only' | null>(null);
 
   async function pay() {
     setBusy(true);
@@ -52,12 +53,18 @@ export function BookingCheckoutForm({
       const completePayload = (await complete.json().catch(() => null)) as {
         error?: { code?: string; message?: string };
       } | null;
+      if (complete.status === 403 && completePayload?.error?.code === 'sandbox_disabled') {
+        // Production: hold/session created; real payment webhook path not enabled yet.
+        setDone('hold_only');
+        router.refresh();
+        return;
+      }
       if (!complete.ok) {
         throw new Error(
           completePayload?.error?.message ?? completePayload?.error?.code ?? 'payment_failed',
         );
       }
-      setDone(true);
+      setDone('confirmed');
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'payment_failed');
@@ -66,18 +73,36 @@ export function BookingCheckoutForm({
     }
   }
 
-  if (done) {
+  if (done === 'confirmed') {
     return (
       <div className="notice" role="status">
-        <strong>{ar ? 'تم تأكيد الحجز والدفع التجريبي' : 'Booking and sandbox payment confirmed'}</strong>
+        <strong>
+          {ar ? 'تم تأكيد الحجز والدفع التجريبي' : 'Booking and sandbox payment confirmed'}
+        </strong>
         <p>
           {ar
             ? 'سيظهر الحجز لدى إدارة العقار ضمن الحجوزات. يمكنك متابعة التفاصيل من بوابة المستأجر عند تفعيلها.'
             : 'The property team will see this booking under Bookings. Continue in the tenant portal when available.'}
         </p>
-        <a className="button button--primary" href={`/${locale}/units/${unitId}`}>
+        <Link className="button button--primary" href={`/units/${unitId}`} prefetch>
           {ar ? 'العودة للعقار' : 'Back to listing'}
-        </a>
+        </Link>
+      </div>
+    );
+  }
+
+  if (done === 'hold_only') {
+    return (
+      <div className="notice" role="status">
+        <strong>{ar ? 'تم تسجيل طلب الحجز' : 'Booking hold registered'}</strong>
+        <p>
+          {ar
+            ? 'تم حجز الوحدة مؤقتاً. تأكيد العربون يتم عبر بوابة الدفع الرسمية (Webhook) — الدفع التجريبي معطّل على الإنتاج.'
+            : 'The unit is held temporarily. Deposit confirmation requires the signed payment gateway webhook — sandbox completion is disabled in production.'}
+        </p>
+        <Link className="button button--primary" href={`/units/${unitId}`} prefetch>
+          {ar ? 'العودة للعقار' : 'Back to listing'}
+        </Link>
       </div>
     );
   }
@@ -91,17 +116,22 @@ export function BookingCheckoutForm({
       </p>
       <p className="muted">
         {ar
-          ? 'هذه شاشة دفع تجريبية (sandbox) — لا يُخصم مبلغ حقيقي. المبلغ يحدده المالك من إدارة العقار.'
-          : 'Sandbox payment screen — no real charge. The owner sets this amount on the property manage page.'}
+          ? 'في الإنتاج يُنشأ حجز مؤقت فقط؛ تأكيد العربون عبر بوابة دفع موقّعة. الدفع التجريبي متاح محلياً فقط.'
+          : 'In production this creates a temporary hold only; deposit confirmation uses a signed payment gateway. Sandbox confirm is local-only.'}
       </p>
-      <button className="button button--primary" type="button" disabled={busy} onClick={() => void pay()}>
+      <button
+        className="button button--primary"
+        type="button"
+        disabled={busy}
+        onClick={() => void pay()}
+      >
         {busy
           ? ar
-            ? 'جارٍ الدفع…'
-            : 'Paying…'
+            ? 'جارٍ التسجيل…'
+            : 'Submitting…'
           : ar
-            ? 'ادفع العربون الآن'
-            : 'Pay deposit now'}
+            ? 'متابعة الحجز'
+            : 'Continue booking'}
       </button>
       {error ? (
         <p className="notice notice--error" role="alert">

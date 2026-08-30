@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.79 — 2026-08-30
+
+- Security (review P0-01 / P0-04 / P2-01): disable booking sandbox complete in production; fail-closed session secrets; cron warmup requires `CRON_SECRET` and no longer returns origin/body.
+- Soft navigation: property manage hub + listing cards + site header use `Link` prefetch; longer public/owner media cache headers.
+- Docs: full architecture/security review archived under `docs/security/`; release notes `RELEASE-0.2.79-AR.md`.
+
 ## 0.2.78 — 2026-08-30
 
 - Property wizard: «إزالة الصورة» now DELETE `/api/owner/media/:id` so existing gallery photos are removed from Neon (not only local React state).

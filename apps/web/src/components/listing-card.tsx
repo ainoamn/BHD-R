@@ -34,7 +34,7 @@ export async function ListingCard({
   const tone = marketStatusTone(marketStatus);
   return (
     <article className="listing-card">
-      <Link href={href} aria-label={title}>
+      <Link href={href} aria-label={title} prefetch>
         <div className="listing-card__image">
           {coverSrc ? (
             <Image
