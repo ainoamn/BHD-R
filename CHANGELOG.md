@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.90 — 2026-08-30
+
+- Payment webhook supports `kind: reservation_deposit` (signed Nest ingest confirms public booking, posts deposit journal, converts hold) without changing invoice webhook semantics; simulator script + e2e shape check.
+- Docs: `RELEASE-0.2.90-AR.md`.
+
 ## 0.2.89 — 2026-08-30
 
 - Render Nest deploy tooling (`trigger-render-deploy.mjs`, `verify-nest-health.mjs`, `render.yaml` autoDeploy on `main`); public showcase prefers `app.public` before elevated draft read; `loadViewerContact` least-privilege; rate limits on deposit PATCH and media DELETE.

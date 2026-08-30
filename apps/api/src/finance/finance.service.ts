@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -17,6 +18,7 @@ import {
   ledgerAccounts,
   billingSchedules,
   cheques,
+  holds,
   leases,
   organizations,
   outboxEvents,
@@ -26,7 +28,9 @@ import {
   payments,
   receipts,
   refunds,
+  reservations,
   webhookEvents,
+  workflowEvents,
 } from '@bhd-r/db';
 import type { SessionClaims } from '@bhd-r/authz';
 import {
@@ -673,7 +677,12 @@ export class FinanceService {
   ): Promise<{ duplicate: boolean }> {
     this.verifyWebhookSignature(signature, rawBody);
     const payloadHash = createHash('sha256').update(rawBody).digest('hex');
-    const payload = JSON.parse(rawBody.toString('utf8')) as unknown;
+    let payload: unknown;
+    try {
+      payload = JSON.parse(rawBody.toString('utf8')) as unknown;
+    } catch {
+      throw new BadRequestException('Webhook body must be JSON');
+    }
     const parsed = this.parseWebhookPayload(payload);
     return this.database.asWebhookConsumer(async (transaction) => {
       const events = await transaction
@@ -699,14 +708,27 @@ export class FinanceService {
         return { duplicate: true };
       }
       try {
-        await this.recordPaymentInTransaction(transaction, parsed.organizationId, {
-          invoiceId: parsed.invoiceId,
-          amount: { amountMinor: parsed.amountMinor, currency: parsed.currency },
-          provider,
-          providerReference: parsed.providerReference,
-          receivedAt: parsed.receivedAt,
-          method: parsed.method,
-        });
+        if (parsed.kind === 'reservation_deposit') {
+          await this.confirmPublicReservationDepositFromWebhook(transaction, {
+            organizationId: parsed.organizationId,
+            checkoutSessionReference: parsed.checkoutSessionReference,
+            amountMinor: parsed.amountMinor,
+            currency: parsed.currency,
+            provider,
+            providerReference: parsed.providerReference,
+            receivedAt: parsed.receivedAt,
+            method: parsed.method,
+          });
+        } else {
+          await this.recordPaymentInTransaction(transaction, parsed.organizationId, {
+            invoiceId: parsed.invoiceId,
+            amount: { amountMinor: parsed.amountMinor, currency: parsed.currency },
+            provider,
+            providerReference: parsed.providerReference,
+            receivedAt: parsed.receivedAt,
+            method: parsed.method,
+          });
+        }
         await transaction
           .update(webhookEvents)
           .set({ status: 'processed', processedAt: new Date(), updatedAt: new Date() })
@@ -1230,26 +1252,194 @@ export class FinanceService {
       throw new UnauthorizedException('Invalid webhook signature');
   }
 
-  private parseWebhookPayload(value: unknown): {
-    organizationId: string;
-    invoiceId: string;
-    amountMinor: string;
-    currency: 'OMR' | 'AED' | 'SAR' | 'BHD' | 'KWD' | 'QAR' | 'USD';
-    providerReference: string;
-    receivedAt: string;
-    method: 'bank_transfer' | 'card' | 'cash' | 'cheque' | 'other';
-  } {
-    return z
+  private parseWebhookPayload(value: unknown):
+    | {
+        kind: 'invoice';
+        organizationId: string;
+        invoiceId: string;
+        amountMinor: string;
+        currency: 'OMR' | 'AED' | 'SAR' | 'BHD' | 'KWD' | 'QAR' | 'USD';
+        providerReference: string;
+        receivedAt: string;
+        method: 'bank_transfer' | 'card' | 'cash' | 'cheque' | 'other';
+      }
+    | {
+        kind: 'reservation_deposit';
+        organizationId: string;
+        checkoutSessionReference: string;
+        amountMinor: string;
+        currency: 'OMR' | 'AED' | 'SAR' | 'BHD' | 'KWD' | 'QAR' | 'USD';
+        providerReference: string;
+        receivedAt: string;
+        method: 'bank_transfer' | 'card' | 'cash' | 'cheque' | 'other';
+      } {
+    const moneyFields = {
+      organizationId: z.uuid(),
+      amountMinor: z.string().regex(/^\d+$/),
+      currency: z.enum(['OMR', 'AED', 'SAR', 'BHD', 'KWD', 'QAR', 'USD']),
+      providerReference: z.string().min(1).max(200),
+      receivedAt: z.iso.datetime(),
+      method: z.enum(['bank_transfer', 'card', 'cash', 'cheque', 'other']),
+    };
+    const reservationSchema = z
       .object({
-        organizationId: z.uuid(),
-        invoiceId: z.uuid(),
-        amountMinor: z.string().regex(/^\d+$/),
-        currency: z.enum(['OMR', 'AED', 'SAR', 'BHD', 'KWD', 'QAR', 'USD']),
-        providerReference: z.string().min(1).max(200),
-        receivedAt: z.iso.datetime(),
-        method: z.enum(['bank_transfer', 'card', 'cash', 'cheque', 'other']),
+        kind: z.literal('reservation_deposit'),
+        checkoutSessionReference: z.string().trim().min(8).max(200),
+        ...moneyFields,
       })
-      .parse(value);
+      .strict();
+    const invoiceSchema = z
+      .object({
+        kind: z.literal('invoice').optional(),
+        invoiceId: z.uuid(),
+        ...moneyFields,
+      })
+      .strict();
+
+    try {
+      if (
+        value &&
+        typeof value === 'object' &&
+        (value as { kind?: unknown }).kind === 'reservation_deposit'
+      ) {
+        const parsed = reservationSchema.parse(value);
+        return { ...parsed, kind: 'reservation_deposit' };
+      }
+      const parsed = invoiceSchema.parse(value);
+      return { ...parsed, kind: 'invoice' };
+    } catch {
+      throw new BadRequestException('Invalid webhook payload');
+    }
+  }
+
+  private async confirmPublicReservationDepositFromWebhook(
+    transaction: DatabaseTransaction,
+    input: {
+      organizationId: string;
+      checkoutSessionReference: string;
+      amountMinor: string;
+      currency: CurrencyCode;
+      provider: string;
+      providerReference: string;
+      receivedAt: string;
+      method: string;
+    },
+  ) {
+    const found = await transaction.execute(sql`
+      select
+        id,
+        unit_id,
+        tenant_party_id,
+        status,
+        currency,
+        terms_snapshot
+      from reservations
+      where organization_id = ${input.organizationId}::uuid
+        and status in ('pending', 'confirmed')
+        and terms_snapshot->>'checkoutSessionReference' = ${input.checkoutSessionReference}
+      order by case when status = 'pending' then 0 else 1 end
+      limit 1
+    `);
+    const rows = Array.isArray(found) ? found : ((found as { rows?: unknown[] }).rows ?? []);
+    const row = rows[0] as
+      | {
+          id: string;
+          unit_id: string;
+          tenant_party_id: string;
+          status: string;
+          currency: string;
+          terms_snapshot: Record<string, unknown> | null;
+        }
+      | undefined;
+    if (!row) throw new NotFoundException('Booking checkout session not found');
+
+    const snapshot = (row.terms_snapshot ?? {}) as Record<string, unknown>;
+    const expectedDeposit =
+      typeof snapshot.depositMinor === 'string' && /^\d+$/.test(snapshot.depositMinor)
+        ? snapshot.depositMinor
+        : null;
+    if (!expectedDeposit || expectedDeposit !== input.amountMinor)
+      throw new ConflictException('Webhook amount does not match booking deposit');
+    const expectedCurrency =
+      (typeof snapshot.currency === 'string' ? snapshot.currency : row.currency) ?? input.currency;
+    if (expectedCurrency !== input.currency)
+      throw new ConflictException('Webhook currency does not match booking deposit');
+
+    if (row.status === 'confirmed') {
+      // Idempotent replay after successful prior webhook / accountant confirm.
+      return;
+    }
+
+    const depositMinor = BigInt(input.amountMinor);
+    const journal = await this.postReservationDepositJournal(transaction, input.organizationId, {
+      reservationId: row.id,
+      partyId: row.tenant_party_id,
+      unitId: row.unit_id,
+      currency: input.currency,
+      depositMinor,
+      occurredOn: input.receivedAt.slice(0, 10),
+    });
+
+    const termsSnapshot = {
+      ...snapshot,
+      awaitingPublicDepositPayment: false,
+      awaitingAccountantDeposit: false,
+      publicDepositPaidAt: input.receivedAt,
+      depositConfirmedAt: input.receivedAt,
+      depositConfirmedVia: 'payment_webhook',
+      depositProvider: input.provider,
+      depositProviderReference: input.providerReference,
+      depositPaymentMethod: input.method,
+      depositJournalEntryId: journal?.id ?? null,
+    };
+
+    await transaction
+      .update(reservations)
+      .set({
+        status: 'confirmed',
+        termsSnapshot,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(eq(reservations.id, row.id), eq(reservations.organizationId, input.organizationId)),
+      );
+
+    await transaction
+      .update(holds)
+      .set({ status: 'converted', updatedAt: new Date() })
+      .where(
+        and(
+          eq(holds.organizationId, input.organizationId),
+          eq(holds.unitId, row.unit_id),
+          eq(holds.prospectPartyId, row.tenant_party_id),
+          eq(holds.status, 'active'),
+        ),
+      );
+
+    await transaction.insert(workflowEvents).values({
+      organizationId: input.organizationId,
+      actorUserId: null,
+      resourceType: 'reservation',
+      resourceId: row.id,
+      eventType: 'reservation.deposit_confirmed',
+      fromStatus: 'pending',
+      toStatus: 'confirmed',
+      note: `Webhook ${input.provider}:${input.providerReference}`,
+    });
+
+    await transaction.insert(outboxEvents).values({
+      organizationId: input.organizationId,
+      topic: 'reservation.deposit_confirmed',
+      aggregateType: 'reservation',
+      aggregateId: row.id,
+      payload: {
+        checkoutSessionReference: input.checkoutSessionReference,
+        provider: input.provider,
+        providerReference: input.providerReference,
+        amountMinor: input.amountMinor,
+        currency: input.currency,
+      },
+    });
   }
 
   listCheques(claims: SessionClaims) {

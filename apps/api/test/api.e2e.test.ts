@@ -75,4 +75,26 @@ describe('API runtime boundaries (Express)', () => {
       error: { message: 'Invalid webhook signature' },
     });
   });
+
+  it('rejects a signed reservation_deposit webhook with an invalid payload shape', async () => {
+    const { createHmac } = await import('node:crypto');
+    const secret = process.env.PAYMENT_WEBHOOK_SECRET?.trim() || 'development-webhook-secret';
+    const body = JSON.stringify({
+      kind: 'reservation_deposit',
+      organizationId: '00000000-0000-4000-8000-000000000001',
+      // missing checkoutSessionReference / money fields
+    });
+    const timestamp = Math.floor(Date.now() / 1000);
+    const signature = createHmac('sha256', secret).update(`${timestamp}.${body}`).digest('hex');
+    const response = await fetch(`${baseUrl}/v1/webhooks/payments/test-provider`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-event-id': `runtime-reservation-shape-${timestamp}`,
+        'x-bhd-signature': `t=${timestamp},v1=${signature}`,
+      },
+      body,
+    });
+    expect(response.status).toBe(400);
+  });
 });
