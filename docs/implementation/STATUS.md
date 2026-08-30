@@ -11,6 +11,7 @@
 **Portal UI:** [`PORTAL-CHROME-AR.md`](./PORTAL-CHROME-AR.md)  
 **Property wizard:** [`PROPERTY-WIZARD-AR.md`](./PROPERTY-WIZARD-AR.md)  
 **Property ops hub / booking:** [`RELEASE-0.2.69-AR.md`](./RELEASE-0.2.69-AR.md)  
+**Portal soft-nav + chrome:** [`RELEASE-0.2.70-71-AR.md`](./RELEASE-0.2.70-71-AR.md)  
 **Nest hosting:** [`NEST-API-HOSTING.md`](./NEST-API-HOSTING.md)
 
 | Phase | Status | Notes |
@@ -33,8 +34,8 @@
 
 ## Next (human / infra)
 
-1. Confirm Vercel **Production Branch = `main`** and Deployment `2e54d98` / 0.2.69 is Ready.  
-2. Smoke: [`RELEASE-0.2.69-AR.md`](./RELEASE-0.2.69-AR.md) checklist (catalogue status · manage hub · deposit · viewing/book).  
+1. Confirm Vercel **Production Branch = `main`** and Deployment `445f4f0` / 0.2.71 is Ready.  
+2. Smoke: [`RELEASE-0.2.70-71-AR.md`](./RELEASE-0.2.70-71-AR.md) (header row · soft nav) ثم [`RELEASE-0.2.69-AR.md`](./RELEASE-0.2.69-AR.md) إن لزم.  
 3. (Optional) Redeploy Nest on Render so Nest public unit/media stay aligned.  
 4. S3/R2 على Vercel/Render لرفع الصور (`S3_*` env).  
 5. تدوير أسرار ظهرت في محادثات سابقة.
