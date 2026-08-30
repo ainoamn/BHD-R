@@ -7,6 +7,7 @@ import { supportedCurrencyCodes, currencyMinorUnits, type CurrencyCode } from '@
 import { countryPacks, type CountryPackCode } from '@bhd-r/country-packs';
 import { useLocale, useTranslations } from 'next-intl';
 import { browserMediaPut, browserMutation, mapWithConcurrency } from '@/lib/api';
+import { compressImageFile } from '@/lib/compress-image';
 import { toMinorUnits } from '@/lib/format';
 import { omanLocations } from '@/lib/oman-locations';
 import {
@@ -539,11 +540,11 @@ export function PropertyWizard({
     setImages((current) => {
       const room = Math.max(0, 12 - current.length);
       if (room === 0) {
-        accepted.forEach((item) => URL.revokeObjectURL(item.url));
+        accepted.forEach((item) => revokeIfBlob(item.url));
         return current;
       }
       const toAdd = accepted.slice(0, room);
-      accepted.slice(room).forEach((item) => URL.revokeObjectURL(item.url));
+      accepted.slice(room).forEach((item) => revokeIfBlob(item.url));
       return [...current, ...toAdd];
     });
     setCoverId((current) => current ?? accepted[0]?.id ?? null);
@@ -556,6 +557,23 @@ export function PropertyWizard({
           ? t('PropertyForm.imageHelp')
           : null,
     );
+
+    // Compress in the background so later upload is smaller/faster.
+    void (async () => {
+      for (const item of accepted.slice(0, Math.max(0, 12))) {
+        if (!item.file) continue;
+        const compressed = await compressImageFile(item.file);
+        if (compressed === item.file) continue;
+        const nextUrl = URL.createObjectURL(compressed);
+        setImages((current) =>
+          current.map((row) => {
+            if (row.id !== item.id) return row;
+            revokeIfBlob(row.url);
+            return { ...row, file: compressed, url: nextUrl };
+          }),
+        );
+      }
+    })();
   }
 
   function removeImage(id: string) {
@@ -647,26 +665,55 @@ export function PropertyWizard({
     purpose: 'property_image' | 'attachment',
     position?: number,
   ) {
+    const prepared =
+      purpose === 'property_image' && file.type.startsWith('image/')
+        ? await compressImageFile(file)
+        : file;
+
+    // Prefer Vercel→R2→Neon (same as property save) so Render cold starts don't drop photos.
+    const form = new FormData();
+    form.append('file', prepared);
+    form.append('unitId', unitId);
+    form.append('purpose', purpose);
+    form.append('position', String(position ?? 0));
+    const vercelUpload = await fetch('/api/owner/media', {
+      method: 'POST',
+      credentials: 'same-origin',
+      body: form,
+      signal: AbortSignal.timeout(55_000),
+    });
+    if (vercelUpload.ok) return;
+    const vercelError = (await vercelUpload.json().catch(() => null)) as {
+      error?: { code?: string; message?: string; messageAr?: string };
+    } | null;
+    if (vercelUpload.status !== 503) {
+      throw new Error(
+        vercelError?.error?.messageAr ??
+          vercelError?.error?.message ??
+          `upload_failed:${vercelUpload.status}`,
+      );
+    }
+
     const intent = await browserMutation<UploadIntent>('/v1/media/upload-intents', {
       method: 'POST',
       body: JSON.stringify({
         purpose,
         unitId,
-        mimeType: file.type,
-        byteSize: file.size,
+        mimeType: prepared.type,
+        byteSize: prepared.size,
       }),
     });
     try {
-      await browserMediaPut(intent, file);
+      await browserMediaPut(intent, prepared);
     } catch (error) {
       const hint = ar
-        ? `تعذر رفع الملف (${file.name}). تأكد من اتصال الخادم ثم أعد المحاولة.`
-        : `Could not upload ${file.name}. Check API connectivity and retry.`;
+        ? `تعذر رفع الملف (${prepared.name}). تأكد من اتصال الخادم ثم أعد المحاولة.`
+        : `Could not upload ${prepared.name}. Check API connectivity and retry.`;
       throw error instanceof Error && error.message
         ? new Error(`${hint} (${error.message})`)
         : new Error(hint);
     }
-    const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+    const digest = await crypto.subtle.digest('SHA-256', await prepared.arrayBuffer());
     const sha256 = Array.from(new Uint8Array(digest), (byte) =>
       byte.toString(16).padStart(2, '0'),
     ).join('');

@@ -46,7 +46,7 @@ export function PortalHeader({
             </button>
           ) : null}
           <Link href={`/${portal}`} className="portal-chrome__logo" aria-label="BHD R">
-            <Logo descriptor="" />
+            <Logo descriptor="" compact />
           </Link>
           <div className="portal-chrome__titles">
             <strong>BHD R</strong>

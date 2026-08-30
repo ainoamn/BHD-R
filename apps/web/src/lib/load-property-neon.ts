@@ -176,7 +176,10 @@ export async function loadManagedPropertyFromNeon(
         .filter((row) => row.mimeType.startsWith('image/'))
         .map((row) => ({
           id: row.id,
-          url: publicMediaUrl(row.publicObjectKey) ?? publicMediaUrl(row.privateObjectKey),
+          url:
+            publicMediaUrl(row.publicObjectKey) ??
+            publicMediaUrl(row.privateObjectKey) ??
+            `/api/owner/media/${row.id}`,
           position: row.position,
           unitId: row.unitId,
         }));

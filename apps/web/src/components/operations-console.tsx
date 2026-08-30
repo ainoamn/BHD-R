@@ -2822,7 +2822,7 @@ export function OperationsConsole({
             {error}
           </div>
         ) : null}
-        <div className="data-table-wrap">
+        <div className="data-table-wrap ops-desktop-table">
           <table className="data-table ops-table">
             <thead>
               <tr>
@@ -3103,6 +3103,51 @@ export function OperationsConsole({
               ) : null}
             </tbody>
           </table>
+        </div>
+        <div className="ops-mobile-cards" aria-label={ar ? 'قائمة السجلات' : 'Records list'}>
+          {filtered.map((row, index) => {
+            const titleColumn =
+              definition.columns.find((column) =>
+                ['nameAr', 'displayName', 'title', 'reference'].includes(column.key),
+              ) ?? definition.columns[0];
+            const title = titleColumn
+              ? displayCell(row, titleColumn, locale, context)
+              : safeString(row.id);
+            return (
+              <article
+                className="ops-mobile-card"
+                key={safeString(row.id ?? row.reference) || `m-${index}`}
+              >
+                <h3 className="ops-mobile-card__title">{title}</h3>
+                <dl className="ops-mobile-card__meta">
+                  {definition.columns
+                    .filter((column) => column.key !== titleColumn?.key)
+                    .slice(0, 5)
+                    .map((column) => (
+                      <div key={column.key}>
+                        <dt>{ar ? column.ar : column.en}</dt>
+                        <dd>{displayCell(row, column, locale, context)}</dd>
+                      </div>
+                    ))}
+                </dl>
+                {section === 'properties' ? (
+                  <Link
+                    className="ops-action button button--quiet"
+                    href={`/${portal}/properties/${encodeURIComponent(safeString(row.id))}`}
+                    prefetch
+                  >
+                    {ar ? 'إدارة العقار' : 'Manage property'}
+                  </Link>
+                ) : null}
+              </article>
+            );
+          })}
+          {!filtered.length ? (
+            <div className="ops-empty">
+              <span>R</span>
+              <strong>{ar ? 'لا توجد سجلات مطابقة' : 'No matching records'}</strong>
+            </div>
+          ) : null}
         </div>
       </section>
 

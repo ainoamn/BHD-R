@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.54 — 2026-08-30
+
+- Property photos: client-side compression + Vercel→R2→Neon upload (with Nest fallback); gallery served via `/api/owner/media/:id`.
+- Mobile portal chrome: single logo, one account avatar; portfolio cards instead of sideways table swipe; Property 360 gallery scaled for phones.
+
 ## 0.2.53 — 2026-08-30
 
 - Edit wizard prefills maps/profile/amenities/meters and keeps existing gallery/docs; Neon `PATCH` updates profile, amenities, documents metadata, and meters.
