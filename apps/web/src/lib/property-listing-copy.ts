@@ -213,9 +213,13 @@ export async function translateText(text: string, target: 'ar' | 'en'): Promise<
   if (!source) return '';
 
   try {
+    const { fetchBrowserCsrfToken } = await import('@/lib/api');
     const response = await fetch('/api/translate', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-csrf-token': await fetchBrowserCsrfToken(),
+      },
       body: JSON.stringify({ text: source, target }),
       signal: AbortSignal.timeout(20_000),
     });

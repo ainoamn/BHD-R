@@ -140,11 +140,16 @@ export async function searchPublicListingsFromNeon(
         and not exists (select 1 from listings l where l.unit_id = u.id)
       on conflict (unit_id) do nothing
     `);
-    // Expire holds that already timed out so Nest/public paths stay aligned.
+    // Expire holds/reservations that already timed out so catalogue matches booking.
     await transaction.execute(sql`
       update holds
       set status = 'expired', updated_at = now()
       where status = 'active' and expires_at <= now()
+    `);
+    await transaction.execute(sql`
+      update reservations
+      set status = 'expired', updated_at = now()
+      where status in ('pending', 'confirmed') and expires_at <= now()
     `);
 
     const country = input.countryCode?.trim().toUpperCase() || null;

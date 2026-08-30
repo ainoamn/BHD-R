@@ -282,6 +282,15 @@ const workers = [
         if (event.topic === 'encryption.backfill') {
           const payload = encryptionBackfillPayloadSchema.parse(event.payload);
           const result = await processEncryptionBackfill(payload);
+          if (result.failures.length > 0) {
+            // Fail-closed: do not chain further batches past undecryptable rows (P1-06).
+            throw new Error(
+              `encryption_backfill_failures:${result.failures.length}:${result.failures
+                .map((item) => item.rowId)
+                .slice(0, 5)
+                .join(',')}`,
+            );
+          }
           if (!result.done && payload.continue && result.nextAfterId) {
             await domainQueue.add(
               'domain-event',

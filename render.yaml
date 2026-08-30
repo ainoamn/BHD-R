@@ -1,6 +1,7 @@
 # BHD-R Render Blueprint — Nest API
-# Docs: docs/implementation/NEST-API-HOSTING.md
+# Docs: docs/implementation/NEST-API-HOSTING.md · ENV-MANIFEST.md
 # Apply in Render Dashboard → New → Blueprint → this repo
+# Liveness: /healthz (edge). Readiness (DB): /health/ready via Nest proxy.
 
 services:
   - type: web
@@ -9,6 +10,7 @@ services:
     plan: starter
     dockerfilePath: ./Dockerfile.api
     dockerContext: .
+    # Edge liveness — process up + Nest proxy. Use /health/ready for DB readiness probes.
     healthCheckPath: /healthz
     envVars:
       - key: NODE_ENV
@@ -19,12 +21,20 @@ services:
         sync: false
       - key: PUBLIC_WEB_ORIGIN
         sync: false
+      - key: PUBLIC_PROPERTY_BASE_URL
+        sync: false
       - key: DATABASE_URL
         sync: false
       - key: REDIS_URL
         sync: false
       - key: BHD_IDENTITY_ISSUER
         value: https://id.bhd-om.com
+      - key: BHD_IDENTITY_CLIENT_ID
+        value: bhd-r
+      - key: BHD_IDENTITY_CLIENT_SECRET
+        sync: false
+      - key: BHD_IDENTITY_REDIRECT_URI
+        value: https://r.bhd-om.com/api/auth/bhd/callback
       - key: BHD_OAUTH_CLIENT_ID
         value: bhd-r
       - key: BHD_OAUTH_CLIENT_SECRET
@@ -37,10 +47,26 @@ services:
         sync: false
       - key: BHD_R_SESSION_SECRET
         sync: false
+      - key: CSRF_SECRET
+        sync: false
+      - key: PAYMENT_WEBHOOK_SECRET
+        sync: false
       - key: FIELD_ENCRYPTION_KEY_V1
         sync: false
       - key: FIELD_ENCRYPTION_ACTIVE_VERSION
         value: v1
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_REGION
+        value: auto
+      - key: S3_BUCKET_PRIVATE
+        sync: false
+      - key: S3_BUCKET_PUBLIC
+        sync: false
+      - key: S3_ACCESS_KEY
+        sync: false
+      - key: S3_SECRET_KEY
+        sync: false
       - key: COOKIE_SECURE
         value: 'true'
       - key: PUBLIC_NEST_ORIGIN

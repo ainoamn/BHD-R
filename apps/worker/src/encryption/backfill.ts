@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { Pool } from 'pg';
 import {
   emptyBackfillMetrics,
@@ -76,11 +77,20 @@ const TARGETS: Record<EncryptionBackfillPayload['target'], TargetConfig> = {
   },
 };
 
+export type EncryptionBackfillFailure = {
+  target: EncryptionBackfillPayload['target'];
+  rowId: string;
+  reason: string;
+  ciphertextHash: string;
+};
+
 export interface EncryptionBackfillResult {
   target: EncryptionBackfillPayload['target'];
   metrics: EncryptionBackfillMetrics;
   nextAfterId: string | null;
+  /** True only when the table is exhausted AND no decrypt/rotate failures occurred (P1-06). */
   done: boolean;
+  failures: EncryptionBackfillFailure[];
 }
 
 export function createEncryptionBackfillProcessor(
@@ -94,6 +104,7 @@ export function createEncryptionBackfillProcessor(
     const target = TARGETS[input.target];
     const keyring = keyringFor(target.purpose);
     const metrics = emptyBackfillMetrics();
+    const failures: EncryptionBackfillFailure[] = [];
     const client = await pool.connect();
     let nextAfterId: string | null = input.afterId;
     try {
@@ -116,7 +127,14 @@ export function createEncryptionBackfillProcessor(
           target.context(row),
           metrics,
         );
-        if (rotated.changed) {
+        if (rotated.failed) {
+          failures.push({
+            target: input.target,
+            rowId: row.id,
+            reason: rotated.reason ?? 'rotate_failed',
+            ciphertextHash: createHash('sha256').update(row.ciphertext).digest('hex'),
+          });
+        } else if (rotated.changed) {
           await client.query(
             `UPDATE ${target.table}
              SET ${target.column} = $2, updated_at = now()
@@ -127,18 +145,38 @@ export function createEncryptionBackfillProcessor(
         nextAfterId = row.id;
       }
       await client.query('COMMIT');
-      const done = rows.rows.length < input.batchSize;
-      logger.info(
-        {
-          target: input.target,
-          activeVersion: keyring.activeVersion,
-          metrics,
-          nextAfterId,
-          done,
-        },
-        'Encryption backfill batch completed',
-      );
-      return { target: input.target, metrics, nextAfterId: done ? null : nextAfterId, done };
+      const batchExhausted = rows.rows.length < input.batchSize;
+      // P1-06: never declare done when any row failed to decrypt/rotate.
+      const done = batchExhausted && failures.length === 0;
+      if (failures.length > 0) {
+        logger.error(
+          {
+            target: input.target,
+            metrics,
+            failures,
+          },
+          'Encryption backfill batch incomplete — fail-closed',
+        );
+      } else {
+        logger.info(
+          {
+            target: input.target,
+            activeVersion: keyring.activeVersion,
+            metrics,
+            nextAfterId,
+            done,
+          },
+          'Encryption backfill batch completed',
+        );
+      }
+      return {
+        target: input.target,
+        metrics,
+        // Stop auto-continue when failures exist so cursor does not skip quarantine rows.
+        nextAfterId: failures.length > 0 || done ? null : nextAfterId,
+        done,
+        failures,
+      };
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;

@@ -109,6 +109,7 @@ describe('security primitives', () => {
       metrics,
     );
     expect(same.changed).toBe(false);
+    expect(same.failed).toBe(false);
     expect(metrics.skippedCurrent).toBe(1);
     const rotated = tryRotateEncryptedField(
       encrypted,
@@ -117,10 +118,26 @@ describe('security primitives', () => {
       metrics,
     );
     expect(rotated.changed).toBe(true);
+    expect(rotated.failed).toBe(false);
     expect(needsKeyRotation(rotated.value, 'v2')).toBe(false);
     expect(decryptField(rotated.value, { activeVersion: 'v2', keys: { v1, v2 } }, 'ctx:test')).toBe(
       'secret-value',
     );
+  });
+
+  it('counts decrypt failures without marking rotation success', () => {
+    const v2 = new Uint8Array(32).fill(9);
+    const metrics = emptyBackfillMetrics();
+    const result = tryRotateEncryptedField(
+      'not-a-valid-envelope',
+      { activeVersion: 'v2', keys: { v2 } },
+      'ctx:broken',
+      metrics,
+    );
+    expect(result.changed).toBe(false);
+    expect(result.failed).toBe(true);
+    expect(metrics.failed).toBe(1);
+    expect(metrics.rotated).toBe(0);
   });
 
   it('hashes TOTP recovery codes and consumes one digest only', async () => {

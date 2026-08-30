@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/warmup-nest",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/expire-locks",
+      "schedule": "*/10 * * * *"
     }
   ]
 }

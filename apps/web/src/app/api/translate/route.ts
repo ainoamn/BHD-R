@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
 
 export const runtime = 'nodejs';
 
@@ -32,6 +33,13 @@ async function translateChunk(chunk: string, target: 'ar' | 'en'): Promise<strin
 }
 
 export async function POST(request: Request) {
+  try {
+    await requireLiveSession(request, { requireCsrf: true });
+  } catch (error) {
+    const mapped = guardErrorResponse(error);
+    return NextResponse.json(mapped.body, { status: mapped.status });
+  }
+
   let body: Body;
   try {
     body = (await request.json()) as Body;
@@ -44,7 +52,7 @@ export async function POST(request: Request) {
   if (!text || (target !== 'ar' && target !== 'en')) {
     return NextResponse.json({ error: 'text and target (ar|en) required' }, { status: 400 });
   }
-  if (text.length > 5000) {
+  if (text.length > 2000) {
     return NextResponse.json({ error: 'text too long' }, { status: 400 });
   }
 

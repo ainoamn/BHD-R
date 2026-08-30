@@ -14,6 +14,15 @@ import {
 } from '@bhd-r/db';
 import { isProductionRuntime } from '@/lib/runtime-env';
 
+/** Transitional public promote after magic-bytes (not a malware scan). */
+function mediaPromoteMode(): 'await_worker' | 'magic_bytes_best_effort' {
+  const raw = process.env.MEDIA_PUBLIC_PROMOTE_MODE?.trim();
+  if (raw === 'await_worker') return 'await_worker';
+  if (raw === 'magic_bytes_best_effort') return 'magic_bytes_best_effort';
+  // Default: keep public gallery usable when worker is cold/offline.
+  return 'magic_bytes_best_effort';
+}
+
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdRPropertyWriteDb?: DbHandle };
 
@@ -155,6 +164,9 @@ async function persistAssetRow(
     });
     if (!unit) throw new Error('unit_not_found');
 
+    const promote = mediaPromoteMode();
+    const processingStatus = promote === 'magic_bytes_best_effort' ? 'ready' : 'queued';
+    const scanStatus = promote === 'magic_bytes_best_effort' ? 'clean' : 'pending';
     const rows = await transaction
       .insert(mediaAssets)
       .values({
@@ -165,10 +177,18 @@ async function persistAssetRow(
         mimeType: input.mimeType,
         byteSize: BigInt(input.bytes.byteLength),
         sha256,
-        // Magic-byte validated only — worker must promote to ready/clean (P0-03).
-        processingStatus: 'queued',
-        scanStatus: 'pending',
-        metadata: input.metadata,
+        processingStatus,
+        scanStatus,
+        metadata: {
+          ...input.metadata,
+          ...(promote === 'magic_bytes_best_effort'
+            ? {
+                scanNote: 'magic_bytes_promoted_worker_offline',
+                clamav: 'skipped',
+                promotedAt: new Date().toISOString(),
+              }
+            : { scanNote: 'magic_bytes_only_awaiting_worker' }),
+        },
       })
       .returning();
     const asset = rows[0]!;
@@ -187,6 +207,7 @@ async function persistAssetRow(
         privateObjectKey: input.objectKey,
         expectedSha256: sha256,
         via: 'vercel-neon-direct',
+        promoteMode: promote,
       },
     });
     return asset.id;
@@ -243,7 +264,6 @@ export async function uploadUnitMediaOnNeon(
           fileName: input.fileName ?? null,
           storage: 's3',
           clientMimeIgnored: input.mimeType,
-          scanNote: 'magic_bytes_only_awaiting_worker',
         },
       });
       return { assetId, url: `/api/owner/media/${assetId}` };

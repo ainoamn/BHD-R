@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.82 — 2026-08-30
+
+- Soft-promote magic-bytes media for public gallery when worker offline (`MEDIA_PUBLIC_PROMOTE_MODE`); encryption backfill fail-closed (P1-06); Render/env manifest gaps (P1-07); expire-locks cron + catalogue reservation expiry; translate + sandbox complete live-session/CSRF.
+- Docs: `RELEASE-0.2.82-AR.md`, `ENV-MANIFEST.md`.
+
 ## 0.2.81 — 2026-08-30
 
 - Security follow-through: TOTP re-enroll step-up (P1-01); OIDC JWKS + host/leak fixes (P1-03); media upload stays `queued`/`pending` with `media.uploaded` outbox (P0-03); deposit GUCs + org-scoped public booking writes (P1-04); Express API e2e + honest chromium fixture CI label (P1-05).

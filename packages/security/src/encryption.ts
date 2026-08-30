@@ -94,18 +94,23 @@ export function tryRotateEncryptedField(
   keyring: Keyring,
   context: string,
   metrics: EncryptionBackfillMetrics,
-): { value: string; changed: boolean } {
+): { value: string; changed: boolean; failed: boolean; reason?: string } {
   metrics.scanned += 1;
   try {
     if (!needsKeyRotation(encrypted, keyring.activeVersion)) {
       metrics.skippedCurrent += 1;
-      return { value: encrypted, changed: false };
+      return { value: encrypted, changed: false, failed: false };
     }
     const rotated = rotateEncryptedField(encrypted, keyring, context);
     metrics.rotated += 1;
-    return { value: rotated, changed: true };
-  } catch {
+    return { value: rotated, changed: true, failed: false };
+  } catch (error) {
     metrics.failed += 1;
-    return { value: encrypted, changed: false };
+    return {
+      value: encrypted,
+      changed: false,
+      failed: true,
+      reason: error instanceof Error ? error.message.slice(0, 120) : 'rotate_failed',
+    };
   }
 }

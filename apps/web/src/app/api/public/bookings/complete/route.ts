@@ -1,10 +1,9 @@
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { verifySessionToken } from '@bhd-r/authz';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
 import { completePublicBookingPayment } from '@/lib/public-booking-neon';
-import { isBookingSandboxAllowed, requireSessionSecret } from '@/lib/runtime-env';
+import { isBookingSandboxAllowed } from '@/lib/runtime-env';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -33,13 +32,13 @@ export async function POST(request: Request) {
   if (!hasDatabaseUrl()) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
   }
-  const token = (await cookies()).get('bhd_r_session')?.value;
-  if (!token) return NextResponse.json({ error: { code: 'unauthorized' } }, { status: 401 });
-  let claims: Awaited<ReturnType<typeof verifySessionToken>>;
+
+  let claims;
   try {
-    claims = await verifySessionToken(token, requireSessionSecret());
-  } catch {
-    return NextResponse.json({ error: { code: 'unauthorized' } }, { status: 401 });
+    claims = await requireLiveSession(request, { requireCsrf: true });
+  } catch (error) {
+    const mapped = guardErrorResponse(error);
+    return NextResponse.json(mapped.body, { status: mapped.status });
   }
 
   let body: z.infer<typeof bodySchema>;
