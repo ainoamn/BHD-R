@@ -7,6 +7,7 @@
 | [implementation/HANDOFF-NEST-RENDER-2026-08-26-AR.md](./implementation/HANDOFF-NEST-RENDER-2026-08-26-AR.md) | **تسليم جلسة 2026-08-26:** أعطال Nest/Render، المحاولات، الحل، ومسارات بديلة |
 | [implementation/NEST-API-HOSTING.md](./implementation/NEST-API-HOSTING.md)                               | استضافة Nest على Render وربطه بـ Vercel |
 | [implementation/STATUS.md](./implementation/STATUS.md)                                                   | حالة التنفيذ الحالية (0.2.69) |
+| [implementation/RELEASE-0.2.69-AR.md](./implementation/RELEASE-0.2.69-AR.md)                             | إصدار مركز إدارة العقار + المعاينة/الحجز |
 | [ASSETS.md](./ASSETS.md)                                                                                 | أصول الهوية وشعار BrandMark في حالات الفراغ |
 | [implementation/PORTAL-ADAPTIVE-PROPERTIES-AR.md](./implementation/PORTAL-ADAPTIVE-PROPERTIES-AR.md)     | عرض عقارات المالك المتجاوب (قائمة/جديد/360/تعديل) |
 | [verification/RESPONSIVE-0.2.59.md](./verification/RESPONSIVE-0.2.59.md)                                 | تحقق تجاوب صفحات العقارات 0.2.59 |

@@ -10,6 +10,7 @@
 **Cycle reference:** [`TRANSACTION-FLOW-MAP.md`](./TRANSACTION-FLOW-MAP.md) **v1.3** · [`CYCLE-APPROVAL.md`](./CYCLE-APPROVAL.md)  
 **Portal UI:** [`PORTAL-CHROME-AR.md`](./PORTAL-CHROME-AR.md)  
 **Property wizard:** [`PROPERTY-WIZARD-AR.md`](./PROPERTY-WIZARD-AR.md)  
+**Property ops hub / booking:** [`RELEASE-0.2.69-AR.md`](./RELEASE-0.2.69-AR.md)  
 **Nest hosting:** [`NEST-API-HOSTING.md`](./NEST-API-HOSTING.md)
 
 | Phase | Status | Notes |
@@ -30,14 +31,15 @@
 
 ## Next (human / infra)
 
-1. Confirm Vercel **Production Branch = `main`**.  
-2. Smoke: https://r.bhd-om.com/ar/properties shows cover photo + watermark; open a unit page without server error.  
-3. (Optional) Redeploy Nest on Render so inline media URLs work when Nest is the source.  
+1. Confirm Vercel **Production Branch = `main`** and Deployment `2e54d98` / 0.2.69 is Ready.  
+2. Smoke: [`RELEASE-0.2.69-AR.md`](./RELEASE-0.2.69-AR.md) checklist (catalogue status · manage hub · deposit · viewing/book).  
+3. (Optional) Redeploy Nest on Render so Nest public unit/media stay aligned.  
 4. S3/R2 على Vercel/Render لرفع الصور (`S3_*` env).  
 5. تدوير أسرار ظهرت في محادثات سابقة.
 
 ## Verification
 
+- `docs/implementation/RELEASE-0.2.69-AR.md`
 - `docs/ASSETS.md`
 - `docs/implementation/PORTAL-ADAPTIVE-PROPERTIES-AR.md`
 - `docs/verification/RESPONSIVE-0.2.59.md`
