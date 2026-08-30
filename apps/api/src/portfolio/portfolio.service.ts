@@ -160,7 +160,7 @@ export class PortfolioService {
       const location =
         input.property.address.latitude !== undefined &&
         input.property.address.longitude !== undefined
-          ? `SRID=4326;POINT(${input.property.address.longitude} ${input.property.address.latitude})`
+          ? sql`ST_GeogFromText(${`SRID=4326;POINT(${input.property.address.longitude} ${input.property.address.latitude})`})`
           : null;
       const year = new Date().getUTCFullYear();
       const purpose = input.units[0]?.listingPurpose ?? 'rent';
@@ -174,12 +174,13 @@ export class PortfolioService {
       `);
       const seq = BigInt(String(sequence[0]!.allocated));
       const serialNumber = `BHD-${year}-${typeCode}-${seq.toString().padStart(4, '0')}`;
+      const { latitude: _lat, longitude: _lon, ...addressFields } = input.property.address;
       const addressRows = await transaction
         .insert(addresses)
         .values({
           organizationId: claims.organizationId!,
-          ...input.property.address,
-          location,
+          ...addressFields,
+          ...(location ? { location } : {}),
         })
         .returning();
       const address = addressRows[0]!;

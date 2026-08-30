@@ -567,41 +567,13 @@ export function PropertyWizard({
     }
     setBusy(true);
     setError(null);
-    setSuccess(ar ? 'جاري التحقق من اتصال Nest…' : 'Checking Nest connection…');
+    setSuccess(ar ? 'جاري حفظ العقار…' : 'Saving property…');
     try {
-      // Fail fast — do not wait for Render cold-start (can exceed 1–3 minutes).
-      const warmPayload = await Promise.race([
-        fetch('/api/warm', { cache: 'no-store' })
-          .then(async (warm) => {
-            const body = (await warm.json().catch(() => null)) as {
-              ok?: boolean;
-              status?: number;
-            } | null;
-            return body;
-          })
-          .catch(() => null),
-        new Promise<null>((resolve) => {
-          setTimeout(() => resolve(null), 8_000);
-        }),
-      ]);
-      if (!warmPayload?.ok) {
-        throw new Error(
-          ar
-            ? 'خادم Nest على Render غير متاح الآن. من لوحة Render أعد تشغيل/نشر الخدمة حتى تصبح Live، ثم افتح /healthz وأعد الحفظ.'
-            : 'Nest on Render is unavailable. Redeploy/restart the service until Live, verify /healthz, then save again.',
-        );
-      }
-      setSuccess(ar ? 'جاري حفظ العقار…' : 'Saving property…');
       const amenityPayload = amenities.map((code) => {
         const option = amenityOptions.find(([value]) => value === code)!;
         return { code, labelAr: option[1], labelEn: option[2] };
       });
-      const createdProperty = await browserMutation<CreatedPropertyBundle>(
-        '/v1/portfolio/properties',
-        {
-          method: 'POST',
-          headers: { 'idempotency-key': bundleIdempotencyKey.current },
-          body: JSON.stringify({
+      const payload = {
             property: {
               ownerPartyId,
               kind,
@@ -705,58 +677,104 @@ export function PropertyWizard({
                 publishWhenAvailable: unit.publishWhenAvailable,
               };
             }),
-          }),
+      };
+
+      // Prefer Vercel→Neon write path (no Nest/Render). Avoids weeks of Render Free hang loops.
+      let createdProperty: CreatedPropertyBundle;
+      const neonResponse = await fetch('/api/owner/properties', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          accept: 'application/json',
+          'content-type': 'application/json',
+          'idempotency-key': bundleIdempotencyKey.current,
         },
-      );
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(55_000),
+      });
+      if (neonResponse.ok) {
+        createdProperty = (await neonResponse.json()) as CreatedPropertyBundle;
+      } else {
+        const nestPayload = (await neonResponse.json().catch(() => null)) as {
+          error?: { code?: string; message?: string; messageAr?: string };
+        } | null;
+        // Fallback to Nest BFF only if Neon path is unconfigured.
+        if (neonResponse.status === 503 && nestPayload?.error?.code === 'db_unconfigured') {
+          setSuccess(ar ? 'جاري الحفظ عبر Nest…' : 'Saving via Nest…');
+          createdProperty = await browserMutation<CreatedPropertyBundle>(
+            '/v1/portfolio/properties',
+            {
+              method: 'POST',
+              headers: { 'idempotency-key': bundleIdempotencyKey.current },
+              body: JSON.stringify(payload),
+            },
+          );
+        } else {
+          throw new Error(
+            nestPayload?.error?.messageAr ??
+              nestPayload?.error?.message ??
+              `save_failed:${neonResponse.status}`,
+          );
+        }
+      }
       const mediaUnitId = createdProperty.units[0]?.id;
-      if ((images.length > 0 || documents.length > 0) && !mediaUnitId)
-        throw new Error('missing_media_unit');
-      if (mediaUnitId) {
-        const ordered = [
-          ...images.filter((item) => item.id === coverId),
-          ...images.filter((item) => item.id !== coverId),
-        ];
-        const imageJobs = ordered.map((item, position) => ({
-          file: item.file,
-          purpose: 'property_image' as const,
-          position,
-        }));
-        const docJobs = documents
-          .filter((doc) =>
-            ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'].includes(doc.file.type),
-          )
-          .map((doc, index) => ({
-            file: doc.file,
-            purpose: 'attachment' as const,
-            position: imageJobs.length + index,
+      let mediaWarning: string | null = null;
+      if ((images.length > 0 || documents.length > 0) && mediaUnitId) {
+        try {
+          const ordered = [
+            ...images.filter((item) => item.id === coverId),
+            ...images.filter((item) => item.id !== coverId),
+          ];
+          const imageJobs = ordered.map((item, position) => ({
+            file: item.file,
+            purpose: 'property_image' as const,
+            position,
           }));
-        const jobs = [...imageJobs, ...docJobs];
-        setSuccess(
-          ar
-            ? `جاري رفع الملفات (${jobs.length})…`
-            : `Uploading media (${jobs.length})…`,
-        );
-        await mapWithConcurrency(jobs, 3, async (job) => {
-          await uploadFile(job.file, mediaUnitId, job.purpose, job.position);
-        });
+          const docJobs = documents
+            .filter((doc) =>
+              ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'].includes(doc.file.type),
+            )
+            .map((doc, index) => ({
+              file: doc.file,
+              purpose: 'attachment' as const,
+              position: imageJobs.length + index,
+            }));
+          const jobs = [...imageJobs, ...docJobs];
+          if (jobs.length) {
+            setSuccess(
+              ar
+                ? `جاري رفع الملفات (${jobs.length})…`
+                : `Uploading media (${jobs.length})…`,
+            );
+            await mapWithConcurrency(jobs, 3, async (job) => {
+              await uploadFile(job.file, mediaUnitId, job.purpose, job.position);
+            });
+          }
+        } catch {
+          mediaWarning = ar
+            ? 'تم حفظ العقار، لكن رفع بعض الملفات فشل — يمكنك إضافتها لاحقاً.'
+            : 'Property saved, but some file uploads failed — you can add them later.';
+        }
       }
       bundleIdempotencyKey.current = `property-bundle:${crypto.randomUUID()}`;
       const serial = createdProperty.serialNumber;
       setSuccess(
-        serial
-          ? ar
-            ? `تم الحفظ. الرقم المتسلسل للعقار: ${serial}`
-            : `Saved. Property serial: ${serial}`
-          : t('PropertyForm.success'),
+        mediaWarning ??
+          (serial
+            ? ar
+              ? `تم الحفظ. الرقم المتسلسل للعقار: ${serial}`
+              : `Saved. Property serial: ${serial}`
+            : t('PropertyForm.success')),
       );
+      if (mediaWarning) setError(null);
     } catch (caught) {
       setSuccess(null);
       const raw = caught instanceof Error ? caught.message : 'request_failed';
       if (/failed to fetch|network_error|upload_network|api_unreachable/i.test(raw)) {
         setError(
           ar
-            ? 'تعذر الاتصال بالخادم أثناء الحفظ أو رفع الملفات. تحقق أن Nest Live على Render، أعد الاتصال، ثم حاول بدون صور كبيرة أولاً.'
-            : 'Could not reach the server while saving or uploading. Confirm Nest is Live on Render, reconnect, then retry without large images first.',
+            ? 'تعذر حفظ العقار. حدّث الصفحة وأعد المحاولة. إن استمر الخطأ تأكد أن DATABASE_URL مضبوط على Vercel.'
+            : 'Could not save the property. Refresh and retry. If it persists, confirm DATABASE_URL is set on Vercel.',
         );
       } else {
         setError(raw);
@@ -1783,7 +1801,7 @@ export function PropertyWizard({
             {error ? (
               <div className="notice notice--error" role="alert">
                 <p>{error}</p>
-                {/Nest|Render|health\/ready/i.test(error) ? (
+                {/Nest|Render|health\/ready|DATABASE_URL|Vercel/i.test(error) ? (
                   <div style={{ marginTop: '0.75rem' }}>
                     <NestReconnectButton locale={locale === 'en' ? 'en' : 'ar'} />
                   </div>

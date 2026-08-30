@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.48 — 2026-08-30
+
+- **Break Nest dependency for property save:** wizard POSTs to `/api/owner/properties` (Vercel → Neon) instead of Render Nest. Photos remain optional; media upload failures no longer wipe a successful save. Nest address `location` uses `ST_GeogFromText`.
+
 ## 0.2.47 — 2026-08-30
 
 - Property wizard: images step is **optional** (no longer blocks continue/save). Clearer HEIC/iPhone rejection copy so empty gallery after “choose photos” is explained.
