@@ -6,7 +6,9 @@
 | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | [implementation/HANDOFF-NEST-RENDER-2026-08-26-AR.md](./implementation/HANDOFF-NEST-RENDER-2026-08-26-AR.md) | **تسليم جلسة 2026-08-26:** أعطال Nest/Render، المحاولات، الحل، ومسارات بديلة |
 | [implementation/NEST-API-HOSTING.md](./implementation/NEST-API-HOSTING.md)                               | استضافة Nest على Render وربطه بـ Vercel |
-| [implementation/STATUS.md](./implementation/STATUS.md)                                                   | حالة التنفيذ الحالية (0.2.49) |
+| [implementation/STATUS.md](./implementation/STATUS.md)                                                   | حالة التنفيذ الحالية (0.2.59) |
+| [implementation/PORTAL-ADAPTIVE-PROPERTIES-AR.md](./implementation/PORTAL-ADAPTIVE-PROPERTIES-AR.md)     | عرض عقارات المالك المتجاوب (قائمة/جديد/360/تعديل) |
+| [verification/RESPONSIVE-0.2.59.md](./verification/RESPONSIVE-0.2.59.md)                                 | تحقق تجاوب صفحات العقارات 0.2.59 |
 | [implementation/PROPERTY-IDENTITY-QR-AR.md](./implementation/PROPERTY-IDENTITY-QR-AR.md)                 | هوية العقار + QR على صفحة 360 |
 | [V1-COMPLETION-REPORT-AR.md](./V1-COMPLETION-REPORT-AR.md)                                                                       | **تقرير اكتمال V1 وأدلة التحقق والهجرات وحدود التسليم**           |
 | [CODEX_WORKSPACE_2026-08-11_AR.md](./CODEX_WORKSPACE_2026-08-11_AR.md)                                                           | جرد مساحة Codex 2026-08-11 واستبدال الحزم القديمة                 |

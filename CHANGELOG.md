@@ -5,6 +5,7 @@ All notable changes are documented here. The project follows Semantic Versioning
 ## 0.2.59 — 2026-08-30
 
 - Unified adaptive layout for all owner property surfaces (list, new, 360, edit): fluid type/icons/controls by viewport; phone cards + compact wizard; desktop table + full step rail.
+- Docs: [`PORTAL-ADAPTIVE-PROPERTIES-AR.md`](./docs/implementation/PORTAL-ADAPTIVE-PROPERTIES-AR.md) + [`RESPONSIVE-0.2.59.md`](./docs/verification/RESPONSIVE-0.2.59.md); STATUS/README/portal chrome/wizard updated.
 
 ## 0.2.58 — 2026-08-30
 

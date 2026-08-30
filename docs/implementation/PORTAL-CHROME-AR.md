@@ -20,6 +20,7 @@
 | `apps/web/src/components/portal-header.tsx` | الهيدر: علامة، لغة، مستخدم، App Switcher |
 | `apps/web/src/components/portal-nav.tsx` | قائمة مجمّعة + درج الجوال |
 | `apps/web/src/app/globals.css` | أنماط `.portal-layout` / `.portal-chrome` / `.portal-sidebar` |
+| `apps/web/src/app/portal-adaptive.css` | طبقة قياس موحّدة (أيقونات/نص/حقول) حسب العرض — **0.2.59** |
 | `packages/i18n/src/index.ts` | مفاتيح `Portal.group*` + عناوين البوابات |
 
 كل مسارات `owner|developer|tenant|platform` تستخدم `PortalShell` فقط — لا يوجد قالب منفصل لكل دور.
@@ -42,8 +43,8 @@
 |------|--------|
 | >1100px | عمود قائمة 17rem + نص المستخدم كامل |
 | 961–1100px | قائمة أضيق (15.25rem) + تقليص عرض بطاقة المستخدم |
-| ≤960px | تخطيط عمود واحد للمحتوى؛ قائمة درج مخفية خارج الشاشة؛ زر ☰؛ جداول ops بتمرير أفقي؛ أهداف لمس ≥2.55rem |
-| ≤520px | عنوان بوابة مختصر؛ شعار أصغر |
+| ≤960px | تخطيط عمود واحد للمحتوى؛ قائمة درج مخفية خارج الشاشة؛ زر ☰؛ إخفاء عناوين الهيدر/بطاقة المستخدم/شبكة التطبيقات؛ محفظة العقارات كبطاقات (انظر [`PORTAL-ADAPTIVE-PROPERTIES-AR.md`](./PORTAL-ADAPTIVE-PROPERTIES-AR.md)) |
+| ≤520px | عنوان بوابة مختصر؛ شعار وأيقونات أصغر عبر `--portal-*` |
 
 ### إصلاح الدرج (0.2.23)
 
