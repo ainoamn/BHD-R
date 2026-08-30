@@ -325,7 +325,7 @@ export function PropertyDetailManager({
                 {property.amenities.map((item) => (
                   <li key={item.id}>
                     <span aria-hidden="true">{AMENITY_ICONS[item.code] ?? '✦'}</span>
-                    {(ar ? item.labelAr : item.labelEn) || item.code}
+                    <em>{(ar ? item.labelAr : item.labelEn) || item.code}</em>
                   </li>
                 ))}
               </ul>
@@ -386,19 +386,31 @@ export function PropertyDetailManager({
                   </header>
                   <dl>
                     <div>
-                      <dt>{ar ? 'غرف' : 'Beds'}</dt>
+                      <dt>
+                        <span aria-hidden="true">🛏</span>
+                        {ar ? 'غرف' : 'Beds'}
+                      </dt>
                       <dd>{unit.bedrooms}</dd>
                     </div>
                     <div>
-                      <dt>{ar ? 'حمامات' : 'Baths'}</dt>
+                      <dt>
+                        <span aria-hidden="true">🛁</span>
+                        {ar ? 'حمامات' : 'Baths'}
+                      </dt>
                       <dd>{unit.bathrooms}</dd>
                     </div>
                     <div>
-                      <dt>{ar ? 'المساحة' : 'Area'}</dt>
+                      <dt>
+                        <span aria-hidden="true">📐</span>
+                        {ar ? 'المساحة' : 'Area'}
+                      </dt>
                       <dd>{unit.areaSquareMeters ? `${unit.areaSquareMeters} m²` : '—'}</dd>
                     </div>
                     <div>
-                      <dt>{ar ? 'السعر' : 'Price'}</dt>
+                      <dt>
+                        <span aria-hidden="true">💰</span>
+                        {ar ? 'السعر' : 'Price'}
+                      </dt>
                       <dd dir="ltr">
                         {unit.listingPurpose === 'sale' && unit.salePriceMinor
                           ? formatMoney(unit.salePriceMinor, unit.currency, locale)

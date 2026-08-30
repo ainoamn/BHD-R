@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.62 — 2026-08-30
+
+- Property 360: amenities in a fixed 3-column grid; unit facts show bed/bath/area/price icons; QR centers the BHD brand mark (high ECC).
+
 ## 0.2.61 — 2026-08-30
 
 - Portfolio metrics/stages: denser cards + collapsible panel (folded by default on phone).

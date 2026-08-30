@@ -394,14 +394,14 @@
   }
 
   .property-360__amenities {
-    gap: 0.3rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.35rem;
   }
 
   .property-360__amenities li,
-  .property-360__amenities a,
-  .property-360__amenities span {
-    font-size: 0.78em;
-    padding: 0.25rem 0.45rem;
+  .property-360__amenities a {
+    font-size: 0.72rem;
+    padding: 0.35rem 0.4rem;
   }
 
   .property-360__unit {
@@ -415,7 +415,7 @@
   }
 
   .property-360__qr .property-qr__frame canvas,
-  .property-360__qr .property-qr__frame img,
+  .property-360__qr .property-qr__frame img.property-qr__code,
   .property-360__qr .property-qr__placeholder {
     width: 88px !important;
     height: 88px !important;

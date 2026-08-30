@@ -28,7 +28,8 @@ export function PropertyQrCard({
     void import('qrcode')
       .then((mod) =>
         mod.toDataURL(absolute, {
-          errorCorrectionLevel: 'M',
+          // Higher ECC so a center logo overlay still scans reliably.
+          errorCorrectionLevel: 'H',
           margin: 1,
           width: px,
           color: { dark: '#0f172a', light: '#ffffff' },
@@ -50,7 +51,13 @@ export function PropertyQrCard({
       <div className="property-qr__frame">
         {src ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={src} width={px} height={px} alt={ar ? 'رمز QR للعقار' : 'Property QR code'} />
+          <img
+            className="property-qr__code"
+            src={src}
+            width={px}
+            height={px}
+            alt={ar ? 'رمز QR للعقار' : 'Property QR code'}
+          />
         ) : (
           <div
             className="property-qr__placeholder"
@@ -58,6 +65,10 @@ export function PropertyQrCard({
             aria-hidden="true"
           />
         )}
+        <span className="property-qr__badge" aria-hidden="true">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/bhd-official-symbol.svg" alt="" />
+        </span>
       </div>
       <p>
         <strong>{ar ? labelAr : labelEn}</strong>
