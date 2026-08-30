@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.51 — 2026-08-30
+
+- Property 360 is full-width / mobile-friendly and **read-only**; editing only via «تعديل العقار» (wizard).
+
 ## 0.2.50 — 2026-08-30
 
 - Property **edit** save uses Vercel→Neon `PATCH /api/owner/properties/:id` (no Nest/Render), including address, owner, and units.

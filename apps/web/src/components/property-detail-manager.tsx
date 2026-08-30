@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { currencyMinorUnits, type CurrencyCode } from '@bhd-r/contracts';
+import type { CurrencyCode } from '@bhd-r/contracts';
 import { browserMutation } from '@/lib/api';
-import { formatMoney, toMinorUnits } from '@/lib/format';
+import { formatMoney } from '@/lib/format';
 import { PropertyQrCard } from '@/components/property-qr-card';
 
 interface ManagedUnit {
@@ -67,17 +67,13 @@ export interface ManagedProperty {
   }>;
 }
 
-function majorAmount(minor: string | null, currency: CurrencyCode): string {
-  if (minor === null) return '';
-  const places = currencyMinorUnits[currency];
-  const digits = minor.padStart(places + 1, '0');
-  if (places === 0) return digits;
-  return `${digits.slice(0, -places)}.${digits.slice(-places)}`;
-}
-
-function value(form: FormData, name: string): string {
-  const entry = form.get(name);
-  return typeof entry === 'string' ? entry.trim() : '';
+function ReadField({ label, value, dir }: { label: string; value: string; dir?: 'ltr' | 'rtl' }) {
+  return (
+    <div className="property-readonly__item">
+      <dt>{label}</dt>
+      <dd dir={dir}>{value || '—'}</dd>
+    </div>
+  );
 }
 
 export function PropertyDetailManager({
@@ -93,103 +89,7 @@ export function PropertyDetailManager({
   const ar = locale === 'ar';
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  async function mutate(path: string, method: 'POST' | 'PATCH', body: unknown = {}) {
-    setBusy(true);
-    setError(null);
-    try {
-      await browserMutation(path, { method, body: JSON.stringify(body) });
-      router.refresh();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'request_failed');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function saveProperty(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    await mutate(`/v1/portfolio/properties/${property.id}`, 'PATCH', {
-      category: value(form, 'category'),
-      nameAr: value(form, 'nameAr'),
-      nameEn: value(form, 'nameEn'),
-      descriptionAr: value(form, 'descriptionAr') || null,
-      descriptionEn: value(form, 'descriptionEn') || null,
-      address: {
-        governorate: value(form, 'governorate'),
-        wilayat: value(form, 'wilayat'),
-        city: value(form, 'city'),
-        area: value(form, 'area') || undefined,
-        street: value(form, 'street') || undefined,
-      },
-    });
-  }
-
-  async function saveUnit(event: FormEvent<HTMLFormElement>, unit: ManagedUnit) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    await mutate(`/v1/portfolio/units/${unit.id}`, 'PATCH', {
-      code: value(form, 'code'),
-      nameAr: value(form, 'nameAr'),
-      nameEn: value(form, 'nameEn'),
-      floor: value(form, 'floor') || undefined,
-      bedrooms: Number(value(form, 'bedrooms')),
-      bathrooms: Number(value(form, 'bathrooms')),
-      areaSquareMeters: value(form, 'areaSquareMeters') || undefined,
-      listingPurpose: value(form, 'listingPurpose'),
-      rent: {
-        amountMinor: toMinorUnits(value(form, 'rent'), unit.currency),
-        currency: unit.currency,
-      },
-      salePrice: value(form, 'salePrice')
-        ? {
-            amountMinor: toMinorUnits(value(form, 'salePrice'), unit.currency),
-            currency: unit.currency,
-          }
-        : null,
-      deposit: value(form, 'deposit')
-        ? {
-            amountMinor: toMinorUnits(value(form, 'deposit'), unit.currency),
-            currency: unit.currency,
-          }
-        : null,
-      status: value(form, 'status'),
-    });
-  }
-
-  async function addUnit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    await mutate(`/v1/portfolio/properties/${property.id}/units`, 'POST', {
-      code: value(form, 'code'),
-      nameAr: value(form, 'nameAr'),
-      nameEn: value(form, 'nameEn'),
-      floor: value(form, 'floor') || undefined,
-      bedrooms: Number(value(form, 'bedrooms')),
-      bathrooms: Number(value(form, 'bathrooms')),
-      areaSquareMeters: value(form, 'areaSquareMeters') || undefined,
-      listingPurpose: value(form, 'listingPurpose'),
-      rent: {
-        amountMinor: toMinorUnits(value(form, 'rent'), property.defaultCurrency),
-        currency: property.defaultCurrency,
-      },
-      salePrice: value(form, 'salePrice')
-        ? {
-            amountMinor: toMinorUnits(value(form, 'salePrice'), property.defaultCurrency),
-            currency: property.defaultCurrency,
-          }
-        : undefined,
-      deposit: value(form, 'deposit')
-        ? {
-            amountMinor: toMinorUnits(value(form, 'deposit'), property.defaultCurrency),
-            currency: property.defaultCurrency,
-          }
-        : undefined,
-      publishWhenAvailable: form.get('publishWhenAvailable') === 'on',
-    });
-    event.currentTarget.reset();
-  }
+  const editHref = `/${locale}/${portal}/properties/${property.id}/edit`;
 
   const currentOwner =
     [...property.ownership]
@@ -212,25 +112,51 @@ export function PropertyDetailManager({
     : '—';
   const propertyPath = `/${locale}/${portal}/properties/${property.id}`;
 
+  async function archiveOrRestore() {
+    const restoring = property.status === 'archived';
+    if (
+      !restoring &&
+      !window.confirm(
+        ar
+          ? 'هل تريد أرشفة العقار وإيقاف كل إعلاناته؟'
+          : 'Archive the property and unpublish every listing?',
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await browserMutation(
+        `/v1/portfolio/properties/${property.id}/${restoring ? 'restore' : 'archive'}`,
+        { method: 'PATCH', body: '{}' },
+      );
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'request_failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <div className="form-shell property-manager">
+    <div className="form-shell property-manager property-manager--readonly">
       <header className="portal-topbar">
         <div>
           <span className="ops-kicker">BHD R · PROPERTY 360</span>
           <h1>{ar ? property.nameAr : property.nameEn}</h1>
           <p>
             {ar
-              ? 'إدارة بيانات الأصل والوحدات والتوفر والإعلانات من سجل واحد.'
-              : 'Manage asset data, units, availability and listings from one record.'}
+              ? 'عرض بيانات الأصل فقط — للتعديل اضغط «تعديل العقار».'
+              : 'Read-only asset view — use Edit property to make changes.'}
           </p>
         </div>
-        <div className="portal-topbar__actions" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <a
-            className="button button--primary"
-            href={`/${locale}/${portal}/properties/${property.id}/edit`}
-          >
-            {ar ? 'تعديل العقار' : 'Edit property'}
-          </a>
+        <div className="portal-topbar__actions">
+          {property.status !== 'archived' ? (
+            <a className="button button--primary" href={editHref}>
+              {ar ? 'تعديل العقار' : 'Edit property'}
+            </a>
+          ) : null}
           <a className="button button--quiet" href={`/${locale}/${portal}/properties`}>
             {ar ? 'العودة للمحفظة' : 'Back to portfolio'}
           </a>
@@ -302,11 +228,6 @@ export function PropertyDetailManager({
           <div>
             <span className="eyebrow">OWN</span>
             <h2>{ar ? 'سجل الملكية' : 'Ownership history'}</h2>
-            <p className="muted">
-              {ar
-                ? 'المالك الحالي والملاك السابقون بعد نقل الملكية داخل النظام.'
-                : 'Current owner and prior owners after in-system ownership transfer.'}
-            </p>
           </div>
         </header>
         {property.ownership.length ? (
@@ -346,99 +267,65 @@ export function PropertyDetailManager({
       </section>
 
       <section className="ops-panel">
-        <header className="section-heading">
+        <header className="section-heading property-section-heading">
           <div>
             <span className="eyebrow">01</span>
             <h2>{ar ? 'بيانات العقار والعنوان' : 'Property & address'}</h2>
+            <p className="muted">
+              {ar
+                ? 'للقراءة فقط — استخدم زر تعديل العقار لتغيير البيانات.'
+                : 'Read-only — use Edit property to change these values.'}
+            </p>
           </div>
+          {property.status !== 'archived' ? (
+            <a className="button button--quiet" href={editHref}>
+              {ar ? 'تعديل' : 'Edit'}
+            </a>
+          ) : null}
         </header>
-        <form className="form-grid" onSubmit={(event) => void saveProperty(event)}>
-          <label className="field">
-            <span>{ar ? 'الاسم العربي' : 'Arabic name'}</span>
-            <input className="input" name="nameAr" defaultValue={property.nameAr} required />
-          </label>
-          <label className="field">
-            <span>{ar ? 'الاسم الإنجليزي' : 'English name'}</span>
-            <input
-              className="input"
-              name="nameEn"
-              defaultValue={property.nameEn}
-              dir="ltr"
-              required
-            />
-          </label>
-          <label className="field">
-            <span>{ar ? 'الفئة' : 'Category'}</span>
-            <select className="select" name="category" defaultValue={property.category}>
-              {[
-                'apartment',
-                'villa',
-                'building',
-                'office',
-                'shop',
-                'warehouse',
-                'land',
-                'other',
-              ].map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </select>
-          </label>
-          {['governorate', 'wilayat', 'city', 'area', 'street'].map((field) => (
-            <label className="field" key={field}>
-              <span>{field.replaceAll('_', ' ')}</span>
-              <input
-                className="input"
-                name={field}
-                defaultValue={property.address?.[field as keyof typeof property.address] ?? ''}
-                required={['governorate', 'wilayat', 'city'].includes(field)}
-              />
-            </label>
-          ))}
-          <label className="field span-2">
-            <span>{ar ? 'الوصف العربي' : 'Arabic description'}</span>
-            <textarea
-              className="textarea"
-              name="descriptionAr"
-              defaultValue={property.descriptionAr ?? ''}
-            />
-          </label>
-          <label className="field span-2">
-            <span>{ar ? 'الوصف الإنجليزي' : 'English description'}</span>
-            <textarea
-              className="textarea"
-              name="descriptionEn"
-              defaultValue={property.descriptionEn ?? ''}
-              dir="ltr"
-            />
-          </label>
-          <div className="form-actions span-2">
-            <span />
-            <button
-              className="button button--primary"
-              type="submit"
-              disabled={busy || property.status === 'archived'}
-            >
-              {busy ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : ar ? 'حفظ التعديلات' : 'Save changes'}
-            </button>
-          </div>
-        </form>
+        <dl className="property-readonly">
+          <ReadField label={ar ? 'الاسم العربي' : 'Arabic name'} value={property.nameAr} />
+          <ReadField
+            label={ar ? 'الاسم الإنجليزي' : 'English name'}
+            value={property.nameEn}
+            dir="ltr"
+          />
+          <ReadField label={ar ? 'الفئة' : 'Category'} value={property.category} dir="ltr" />
+          <ReadField
+            label={ar ? 'المحافظة' : 'Governorate'}
+            value={property.address?.governorate ?? ''}
+          />
+          <ReadField label={ar ? 'الولاية' : 'Wilayat'} value={property.address?.wilayat ?? ''} />
+          <ReadField label={ar ? 'المدينة' : 'City'} value={property.address?.city ?? ''} />
+          <ReadField label={ar ? 'المنطقة' : 'Area'} value={property.address?.area ?? ''} />
+          <ReadField label={ar ? 'الشارع' : 'Street'} value={property.address?.street ?? ''} />
+          <ReadField
+            label={ar ? 'الوصف العربي' : 'Arabic description'}
+            value={property.descriptionAr ?? ''}
+          />
+          <ReadField
+            label={ar ? 'الوصف الإنجليزي' : 'English description'}
+            value={property.descriptionEn ?? ''}
+            dir="ltr"
+          />
+        </dl>
       </section>
 
       <section className="ops-panel">
-        <header className="section-heading">
+        <header className="section-heading property-section-heading">
           <div>
             <span className="eyebrow">02</span>
             <h2>{ar ? 'الوحدات والأسعار والإعلانات' : 'Units, pricing & listings'}</h2>
           </div>
+          {property.status !== 'archived' ? (
+            <a className="button button--quiet" href={editHref}>
+              {ar ? 'تعديل' : 'Edit'}
+            </a>
+          ) : null}
         </header>
         <div className="managed-unit-list">
           {property.units.map((unit) => (
-            <form
-              className="managed-unit"
-              key={unit.id}
-              onSubmit={(event) => void saveUnit(event, unit)}
-            >
+            <article className="managed-unit managed-unit--readonly" key={unit.id}>
               <header>
                 <div>
                   <strong>{ar ? unit.nameAr : unit.nameEn}</strong>
@@ -458,218 +345,89 @@ export function PropertyDetailManager({
                       : 'Unpublished'}
                 </span>
               </header>
-              <div className="form-grid">
-                <label className="field">
-                  <span>{ar ? 'الرمز' : 'Code'}</span>
-                  <input className="input" name="code" defaultValue={unit.code} required />
-                </label>
-                <label className="field">
-                  <span>{ar ? 'الاسم العربي' : 'Arabic name'}</span>
-                  <input className="input" name="nameAr" defaultValue={unit.nameAr} required />
-                </label>
-                <label className="field">
-                  <span>{ar ? 'الاسم الإنجليزي' : 'English name'}</span>
-                  <input className="input" name="nameEn" defaultValue={unit.nameEn} required />
-                </label>
-                <label className="field">
-                  <span>{ar ? 'الطابق' : 'Floor'}</span>
-                  <input className="input" name="floor" defaultValue={unit.floor ?? ''} />
-                </label>
-                <label className="field">
-                  <span>{ar ? 'غرف النوم' : 'Bedrooms'}</span>
-                  <input
-                    className="input"
-                    name="bedrooms"
-                    type="number"
-                    min="0"
-                    defaultValue={unit.bedrooms}
-                    required
-                  />
-                </label>
-                <label className="field">
-                  <span>{ar ? 'دورات المياه' : 'Bathrooms'}</span>
-                  <input
-                    className="input"
-                    name="bathrooms"
-                    type="number"
-                    min="0"
-                    defaultValue={unit.bathrooms}
-                    required
-                  />
-                </label>
-                <label className="field">
-                  <span>{ar ? 'المساحة م²' : 'Area m²'}</span>
-                  <input
-                    className="input"
-                    name="areaSquareMeters"
-                    inputMode="decimal"
-                    defaultValue={unit.areaSquareMeters ?? ''}
-                  />
-                </label>
-                <label className="field">
-                  <span>{ar ? 'غرض العرض' : 'Listing purpose'}</span>
-                  <select
-                    className="select"
-                    name="listingPurpose"
-                    defaultValue={unit.listingPurpose}
-                  >
-                    <option value="rent">rent</option>
-                    <option value="sale">sale</option>
-                    <option value="both">both</option>
-                  </select>
-                </label>
-                <label className="field">
-                  <span>{ar ? 'الإيجار' : 'Rent'}</span>
-                  <input
-                    className="input"
-                    name="rent"
-                    inputMode="decimal"
-                    defaultValue={majorAmount(unit.rentMinor, unit.currency)}
-                    required
-                  />
-                </label>
-                <label className="field">
-                  <span>{ar ? 'سعر البيع' : 'Sale price'}</span>
-                  <input
-                    className="input"
-                    name="salePrice"
-                    inputMode="decimal"
-                    defaultValue={majorAmount(unit.salePriceMinor, unit.currency)}
-                  />
-                </label>
-                <label className="field">
-                  <span>{ar ? 'التأمين' : 'Deposit'}</span>
-                  <input
-                    className="input"
-                    name="deposit"
-                    inputMode="decimal"
-                    defaultValue={majorAmount(unit.depositMinor, unit.currency)}
-                  />
-                </label>
-                <label className="field">
-                  <span>{ar ? 'الحالة' : 'Status'}</span>
-                  <select className="select" name="status" defaultValue={unit.status}>
-                    <option value="active">active</option>
-                    <option value="inactive">inactive</option>
-                  </select>
-                </label>
-              </div>
-              <div className="form-actions">
-                <button
-                  className="button button--quiet"
-                  type="button"
-                  disabled={busy || unit.status !== 'active' || property.status === 'archived'}
-                  onClick={() =>
-                    void mutate(`/v1/portfolio/units/${unit.id}/listing`, 'PATCH', {
-                      enabled: !unit.listingEnabled,
-                    })
+              <dl className="property-readonly">
+                <ReadField label={ar ? 'الرمز' : 'Code'} value={unit.code} dir="ltr" />
+                <ReadField label={ar ? 'الطابق' : 'Floor'} value={unit.floor ?? ''} />
+                <ReadField label={ar ? 'غرف النوم' : 'Bedrooms'} value={String(unit.bedrooms)} />
+                <ReadField label={ar ? 'دورات المياه' : 'Bathrooms'} value={String(unit.bathrooms)} />
+                <ReadField
+                  label={ar ? 'المساحة م²' : 'Area m²'}
+                  value={unit.areaSquareMeters ?? ''}
+                  dir="ltr"
+                />
+                <ReadField
+                  label={ar ? 'غرض العرض' : 'Listing purpose'}
+                  value={unit.listingPurpose}
+                  dir="ltr"
+                />
+                <ReadField
+                  label={ar ? 'الإيجار' : 'Rent'}
+                  value={formatMoney(unit.rentMinor, unit.currency, locale)}
+                  dir="ltr"
+                />
+                <ReadField
+                  label={ar ? 'سعر البيع' : 'Sale price'}
+                  value={
+                    unit.salePriceMinor
+                      ? formatMoney(unit.salePriceMinor, unit.currency, locale)
+                      : '—'
                   }
-                >
-                  {unit.listingEnabled
-                    ? ar
-                      ? 'إيقاف العرض'
-                      : 'Unpublish'
-                    : ar
-                      ? 'عرض عند التوفر'
-                      : 'Publish when available'}
-                </button>
-                <button
-                  className="button button--primary"
-                  type="submit"
-                  disabled={busy || property.status === 'archived'}
-                >
-                  {ar ? 'حفظ الوحدة' : 'Save unit'}
-                </button>
-              </div>
-            </form>
+                  dir="ltr"
+                />
+                <ReadField
+                  label={ar ? 'التأمين' : 'Deposit'}
+                  value={
+                    unit.depositMinor
+                      ? formatMoney(unit.depositMinor, unit.currency, locale)
+                      : '—'
+                  }
+                  dir="ltr"
+                />
+                <ReadField label={ar ? 'الحالة' : 'Status'} value={unit.status} dir="ltr" />
+              </dl>
+            </article>
           ))}
         </div>
       </section>
 
-      {property.kind === 'multi_unit' && property.status !== 'archived' ? (
+      {(property.amenities.length > 0 ||
+        property.documents.length > 0 ||
+        property.meters.length > 0) && (
         <section className="ops-panel">
           <header className="section-heading">
             <div>
               <span className="eyebrow">03</span>
-              <h2>{ar ? 'إضافة وحدة جديدة' : 'Add a new unit'}</h2>
+              <h2>{ar ? 'المرافق والوثائق والعدادات' : 'Amenities, documents & meters'}</h2>
             </div>
           </header>
-          <form className="form-grid" onSubmit={(event) => void addUnit(event)}>
-            <label className="field">
-              <span>{ar ? 'الرمز' : 'Code'}</span>
-              <input className="input" name="code" required />
-            </label>
-            <label className="field">
-              <span>{ar ? 'الاسم العربي' : 'Arabic name'}</span>
-              <input className="input" name="nameAr" required />
-            </label>
-            <label className="field">
-              <span>{ar ? 'الاسم الإنجليزي' : 'English name'}</span>
-              <input className="input" name="nameEn" required />
-            </label>
-            <label className="field">
-              <span>{ar ? 'الطابق' : 'Floor'}</span>
-              <input className="input" name="floor" />
-            </label>
-            <label className="field">
-              <span>{ar ? 'غرف النوم' : 'Bedrooms'}</span>
-              <input
-                className="input"
-                name="bedrooms"
-                type="number"
-                min="0"
-                defaultValue="0"
-                required
+          <dl className="property-readonly">
+            {property.amenities.length ? (
+              <ReadField
+                label={ar ? 'المرافق' : 'Amenities'}
+                value={property.amenities
+                  .map((item) => (ar ? item.labelAr : item.labelEn) || item.code)
+                  .join(' · ')}
               />
-            </label>
-            <label className="field">
-              <span>{ar ? 'دورات المياه' : 'Bathrooms'}</span>
-              <input
-                className="input"
-                name="bathrooms"
-                type="number"
-                min="0"
-                defaultValue="1"
-                required
+            ) : null}
+            {property.documents.length ? (
+              <ReadField
+                label={ar ? 'الوثائق' : 'Documents'}
+                value={property.documents
+                  .map((doc) => `${doc.documentType}${doc.documentNumber ? `: ${doc.documentNumber}` : ''}`)
+                  .join(' · ')}
               />
-            </label>
-            <label className="field">
-              <span>{ar ? 'المساحة م²' : 'Area m²'}</span>
-              <input className="input" name="areaSquareMeters" inputMode="decimal" />
-            </label>
-            <label className="field">
-              <span>{ar ? 'غرض العرض' : 'Listing purpose'}</span>
-              <select className="select" name="listingPurpose" defaultValue="rent">
-                <option value="rent">rent</option>
-                <option value="sale">sale</option>
-                <option value="both">both</option>
-              </select>
-            </label>
-            <label className="field">
-              <span>{ar ? 'الإيجار' : 'Rent'}</span>
-              <input className="input" name="rent" inputMode="decimal" defaultValue="0" required />
-            </label>
-            <label className="field">
-              <span>{ar ? 'سعر البيع' : 'Sale price'}</span>
-              <input className="input" name="salePrice" inputMode="decimal" />
-            </label>
-            <label className="field">
-              <span>{ar ? 'التأمين' : 'Deposit'}</span>
-              <input className="input" name="deposit" inputMode="decimal" />
-            </label>
-            <label className="checkbox-row">
-              <input type="checkbox" name="publishWhenAvailable" />
-              {ar ? 'عرض الوحدة عند توفرها' : 'Publish whenever available'}
-            </label>
-            <div className="form-actions span-2">
-              <span />
-              <button className="button button--primary" type="submit" disabled={busy}>
-                {ar ? 'إضافة الوحدة' : 'Add unit'}
-              </button>
-            </div>
-          </form>
+            ) : null}
+            {property.meters.length ? (
+              <ReadField
+                label={ar ? 'العدادات' : 'Meters'}
+                value={property.meters
+                  .map((meter) => `${meter.utilityType}: ${meter.meterNumber}`)
+                  .join(' · ')}
+              />
+            ) : null}
+          </dl>
         </section>
-      ) : null}
+      )}
 
       <section className="ops-panel property-danger-zone">
         <div>
@@ -696,22 +454,7 @@ export function PropertyDetailManager({
           className={`button ${property.status === 'archived' ? 'button--primary' : 'button--danger'}`}
           type="button"
           disabled={busy}
-          onClick={() => {
-            const restoring = property.status === 'archived';
-            if (
-              !restoring &&
-              !window.confirm(
-                ar
-                  ? 'هل تريد أرشفة العقار وإيقاف كل إعلاناته؟'
-                  : 'Archive the property and unpublish every listing?',
-              )
-            )
-              return;
-            void mutate(
-              `/v1/portfolio/properties/${property.id}/${restoring ? 'restore' : 'archive'}`,
-              'PATCH',
-            );
-          }}
+          onClick={() => void archiveOrRestore()}
         >
           {property.status === 'archived' ? (ar ? 'استعادة' : 'Restore') : ar ? 'أرشفة' : 'Archive'}
         </button>

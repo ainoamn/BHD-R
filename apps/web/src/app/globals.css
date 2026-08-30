@@ -1610,6 +1610,11 @@ h3 {
 .form-shell {
   max-width: 64rem;
 }
+.form-shell.property-manager {
+  max-width: none;
+  width: min(100%, 100rem);
+  margin-inline: auto;
+}
 .wizard-shell {
   max-width: min(74rem, 100%);
   position: relative;
@@ -2650,6 +2655,58 @@ h3 {
   gap: 1.25rem;
 }
 
+.property-manager--readonly .portal-topbar__actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.property-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.property-readonly {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: 0.9rem 1.15rem;
+  margin: 0;
+}
+
+.property-readonly__item {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--surface) 94%, var(--oman-teal) 6%);
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+}
+
+.property-readonly__item dt {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.property-readonly__item dd {
+  margin: 0;
+  font-weight: 650;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.managed-unit--readonly {
+  display: grid;
+  gap: 0.85rem;
+}
+
 .property-identity {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -2721,6 +2778,26 @@ h3 {
 
   .property-qr {
     max-width: none;
+    justify-self: center;
+  }
+
+  .property-manager--readonly .portal-topbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .property-manager--readonly .portal-topbar__actions {
+    width: 100%;
+  }
+
+  .property-manager--readonly .portal-topbar__actions .button {
+    flex: 1 1 auto;
+    text-align: center;
+    justify-content: center;
+  }
+
+  .property-readonly {
+    grid-template-columns: 1fr;
   }
 }
 
