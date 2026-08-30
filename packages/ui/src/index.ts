@@ -1,3 +1,4 @@
+export { BrandMark } from './brand-mark.js';
 export { Button, buttonClassName } from './button.js';
 export { Card, CardContent, CardHeader } from './card.js';
 export { EmptyState } from './empty-state.js';

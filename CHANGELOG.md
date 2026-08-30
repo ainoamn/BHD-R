@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.65 — 2026-08-30
+
+- Replace the circular serif “R” placeholder with the official BHD wordmark + R badge (`BrandMark`) in empty states, loading, listing/gallery placeholders, and ops empty tables. See [`docs/ASSETS.md`](./docs/ASSETS.md).
+
 ## 0.2.64 — 2026-08-30
 
 - Fix public catalogue: sync `listings.enabled`/`publishedAt` when «عرض الوحدة عند توفرها» is saved; heal on Property 360 open; `/properties` and home load listings from Neon when Nest is empty.

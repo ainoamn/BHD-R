@@ -1,5 +1,5 @@
 import Image from 'next/image';
-import { StatusBadge } from '@bhd-r/ui';
+import { BrandMark, StatusBadge } from '@bhd-r/ui';
 import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { formatMoney, localizedName } from '@/lib/format';
@@ -21,7 +21,7 @@ export async function ListingCard({ listing, locale }: { listing: PublicListing;
             />
           ) : (
             <div className="listing-card__placeholder" aria-hidden="true">
-              R
+              <BrandMark tone="onDark" />
             </div>
           )}
           <span className="listing-card__status">

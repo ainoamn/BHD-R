@@ -1,5 +1,7 @@
 'use client';
 
+import { BrandMark } from '@bhd-r/ui';
+
 export function ListingCardPreview({
   locale,
   title,
@@ -37,7 +39,7 @@ export function ListingCardPreview({
           <img src={coverUrl} alt="" className="listing-card__preview-img" />
         ) : (
           <div className="listing-card__placeholder" aria-hidden="true">
-            R
+            <BrandMark tone="onDark" />
           </div>
         )}
         <span className="listing-card__status">

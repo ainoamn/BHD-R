@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import type { CurrencyCode } from '@bhd-r/contracts';
+import { BrandMark } from '@bhd-r/ui';
 import { Link } from '@/i18n/navigation';
 import { browserMutation } from '@/lib/api';
 import { formatMoney, toMinorUnits } from '@/lib/format';
@@ -3166,7 +3167,9 @@ export function OperationsConsole({
                 <tr>
                   <td colSpan={definition.columns.length + 1}>
                     <div className="ops-empty">
-                      <span>R</span>
+                      <span className="ops-empty__mark" aria-hidden="true">
+                        <BrandMark />
+                      </span>
                       <strong>{ar ? 'لا توجد سجلات مطابقة' : 'No matching records'}</strong>
                       <p>
                         {ar
@@ -3247,7 +3250,9 @@ export function OperationsConsole({
           })}
           {!filtered.length ? (
             <div className="ops-empty">
-              <span>R</span>
+              <span className="ops-empty__mark" aria-hidden="true">
+                <BrandMark />
+              </span>
               <strong>{ar ? 'لا توجد سجلات مطابقة' : 'No matching records'}</strong>
             </div>
           ) : null}

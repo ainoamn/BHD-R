@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { Card, CardContent, StatusBadge } from '@bhd-r/ui';
+import { BrandMark, Card, CardContent, StatusBadge } from '@bhd-r/ui';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { ApiError, publicApiFetch } from '@/lib/server-api';
 import { formatMoney, localizedName } from '@/lib/format';
@@ -96,7 +96,7 @@ export default async function UnitPage({
                 />
               ) : (
                 <div className="gallery__placeholder" aria-hidden="true">
-                  R
+                  <BrandMark tone="onDark" />
                 </div>
               )}
               {unit.images[1] ? (

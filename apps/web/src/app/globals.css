@@ -428,10 +428,14 @@ h3 {
   height: 100%;
   display: grid;
   place-content: center;
-  color: rgb(255 255 255 / 0.7);
-  font:
-    700 6rem Georgia,
-    serif;
+}
+.listing-card__placeholder .logo__product img {
+  width: 5.5rem;
+}
+.listing-card__placeholder .logo__product i {
+  min-width: 1.05rem;
+  min-height: 1.05rem;
+  font-size: 0.72rem;
 }
 .listing-card__status {
   position: absolute;
@@ -600,16 +604,15 @@ h3 {
 }
 .empty-state__mark {
   display: grid;
-  width: 3.5rem;
-  height: 3.5rem;
   place-content: center;
   margin-bottom: 1rem;
-  color: var(--gold-600);
+  padding: 0.7rem 1rem;
+  background: var(--ivory-50, #f7f4ee);
   border: 1px solid var(--gold-300);
-  border-radius: 50%;
-  font:
-    700 1.8rem Georgia,
-    serif;
+  border-radius: 999px;
+}
+.empty-state__mark .logo__product img {
+  width: 3.75rem;
 }
 .empty-state h2 {
   margin-bottom: 0.35rem;
@@ -692,17 +695,19 @@ h3 {
   width: 100%;
   height: 100%;
   min-height: 15rem;
+  display: grid;
+  place-content: center;
   object-fit: cover;
   background: var(--maroon-900);
   border-radius: var(--radius);
 }
-.gallery__placeholder {
-  display: grid;
-  place-content: center;
-  color: var(--gold-300);
-  font:
-    700 8rem Georgia,
-    serif;
+.gallery__placeholder .logo__product img {
+  width: 6.5rem;
+}
+.gallery__placeholder .logo__product i {
+  min-width: 1.15rem;
+  min-height: 1.15rem;
+  font-size: 0.78rem;
 }
 .detail-facts {
   display: grid;
@@ -4265,6 +4270,13 @@ h3 {
   letter-spacing: 0;
   box-shadow: 0 3px 8px rgb(181 141 85 / 0.2);
 }
+.logo__product--on-dark img {
+  filter: brightness(0) invert(1);
+}
+.logo__product--on-dark i {
+  color: var(--oman-deep, #092d24);
+  background: var(--gold-300);
+}
 .logo__descriptor {
   color: #53665e;
   border-color: rgb(181 141 85 / 0.45);
@@ -5828,9 +5840,23 @@ h3 {
   display: grid;
   min-height: 18rem;
   place-content: center;
+  justify-items: center;
+  gap: 0.55rem;
   padding: 2rem;
   color: #6a7771;
   text-align: center;
+}
+.ops-empty__mark {
+  display: grid;
+  place-content: center;
+  margin-bottom: 0.35rem;
+  padding: 0.65rem 0.9rem;
+  background: #f7faf8;
+  border: 1px solid #deebe5;
+  border-radius: 999px;
+}
+.ops-empty__mark .logo__product img {
+  width: 3.6rem;
 }
 .ops-modal {
   position: fixed;
