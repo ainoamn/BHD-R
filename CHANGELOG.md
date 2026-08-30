@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.56 — 2026-08-30
+
+- Fix mobile property list vanishing (CSS hid cards after table); denser phone metrics/header and show records as cards.
+
 ## 0.2.55 — 2026-08-30
 
 - Hide Nest 401 banner on owner portal when records load from Neon; fix ghost/white logo on mobile header; denser phone layout for chrome, metrics, and ops pages.
