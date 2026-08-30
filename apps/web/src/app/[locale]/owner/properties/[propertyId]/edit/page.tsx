@@ -3,7 +3,8 @@ import { EmptyState } from '@bhd-r/ui';
 import { getTranslations } from 'next-intl/server';
 import { PropertyWizard } from '@/components/property-wizard';
 import type { ManagedProperty } from '@/components/property-detail-manager';
-import { ensureOwnerPartyId } from '@/lib/bhd/identity-session';
+import { ensureOwnerPartyId, hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { loadManagedPropertyFromNeon } from '@/lib/load-property-neon';
 import { listOwnerPartyOptions } from '@/lib/owner-parties';
 import { ApiError, apiFetch } from '@/lib/server-api';
 import { requirePortal } from '@/lib/viewer';
@@ -20,15 +21,23 @@ export default async function Page({
   const t = await getTranslations();
   if (!viewer.organizationId) return <EmptyState title={t('Portal.noData')} />;
 
-  let property: ManagedProperty;
+  let property: ManagedProperty | null = null;
   try {
     property = await apiFetch<ManagedProperty>(
       `/v1/portfolio/properties/${encodeURIComponent(propertyId)}`,
     );
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) notFound();
-    throw error;
   }
+
+  if (!property && hasDatabaseUrl()) {
+    property = await loadManagedPropertyFromNeon(viewer.organizationId, propertyId, {
+      userId: viewer.id,
+      partyId: viewer.partyId,
+    }).catch(() => null);
+  }
+
+  if (!property) notFound();
 
   const partyId = await ensureOwnerPartyId({
     userId: viewer.id,
