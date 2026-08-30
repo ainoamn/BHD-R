@@ -315,13 +315,13 @@ export function PropertyWizard({
       });
     }
     if (index === 4) {
-      if (images.length < 2) issues.push(t('PropertyForm.imagesMinTwo'));
+      // Images are optional so save can proceed when media upload is degraded.
       const bad = images.some(
         (item) =>
           !['image/jpeg', 'image/png', 'image/webp'].includes(item.file.type) ||
           item.file.size > 10 * 1024 * 1024,
       );
-      if (bad) issues.push(t('PropertyForm.imageHelp'));
+      if (images.length > 0 && bad) issues.push(t('PropertyForm.imageHelp'));
     }
     return issues;
   }
@@ -361,22 +361,49 @@ export function PropertyWizard({
     event.target.value = '';
     if (!files.length) return;
 
-    const allowed = new Set(['image/jpeg', 'image/png', 'image/webp']);
+    const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/jpg']);
     const accepted: MediaItem[] = [];
-    let rejected = false;
+    let rejectedHeic = false;
+    let rejectedOther = false;
     for (const file of files) {
-      if (!allowed.has(file.type) || file.size > 10 * 1024 * 1024) {
-        rejected = true;
+      const type = (file.type || '').toLowerCase();
+      const name = file.name.toLowerCase();
+      if (
+        type === 'image/heic' ||
+        type === 'image/heif' ||
+        name.endsWith('.heic') ||
+        name.endsWith('.heif')
+      ) {
+        rejectedHeic = true;
         continue;
       }
+      const normalized =
+        type === 'image/jpg' ? 'image/jpeg' : type || (name.endsWith('.png') ? 'image/png' : '');
+      if (!allowed.has(normalized) && !allowed.has(type)) {
+        rejectedOther = true;
+        continue;
+      }
+      if (file.size > 10 * 1024 * 1024) {
+        rejectedOther = true;
+        continue;
+      }
+      const blobType = normalized === 'image/jpg' ? 'image/jpeg' : normalized || file.type;
+      const normalizedFile =
+        blobType && blobType !== file.type
+          ? new File([file], file.name, { type: blobType, lastModified: file.lastModified })
+          : file;
       accepted.push({
         id: crypto.randomUUID(),
-        file,
-        url: URL.createObjectURL(file),
+        file: normalizedFile,
+        url: URL.createObjectURL(normalizedFile),
       });
     }
     if (!accepted.length) {
-      setError(t('PropertyForm.imageHelp'));
+      setError(
+        rejectedHeic
+          ? t('PropertyForm.imageHeicHelp')
+          : t('PropertyForm.imageHelp'),
+      );
       return;
     }
 
@@ -391,10 +418,14 @@ export function PropertyWizard({
       return [...current, ...toAdd];
     });
     setCoverId((current) => current ?? accepted[0]?.id ?? null);
+    setShowErrors(false);
+    setMissingHints([]);
     setError(
-      rejected
-        ? t('PropertyForm.imageHelp')
-        : null,
+      rejectedHeic
+        ? t('PropertyForm.imageHeicHelp')
+        : rejectedOther
+          ? t('PropertyForm.imageHelp')
+          : null,
     );
   }
 
@@ -1502,7 +1533,7 @@ export function PropertyWizard({
               <div className="upload-zone">
                 <label htmlFor="property-images" className="upload-zone__label">
                   <strong>{t('PropertyForm.images')}</strong>
-                  <p>{t('PropertyForm.imagesMinTwo')}</p>
+                  <p>{t('PropertyForm.imagesOptional')}</p>
                   <p className="field__hint">{t('PropertyForm.imagesAppendHint')}</p>
                   <p className="field__hint">{t('PropertyForm.imageHelp')}</p>
                   <span className="button button--quiet">
@@ -1552,11 +1583,6 @@ export function PropertyWizard({
                 </ul>
                 {images.length >= 12 ? (
                   <p className="field__hint">{t('PropertyForm.imagesMaxReached')}</p>
-                ) : null}
-                {showErrors && images.length < 2 ? (
-                  <p className="field__error" role="alert">
-                    {t('PropertyForm.imagesMinTwo')}
-                  </p>
                 ) : null}
               </div>
             ) : null}

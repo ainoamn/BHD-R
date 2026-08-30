@@ -211,6 +211,7 @@ export const messages = {
       removeImage: 'إزالة الصورة',
       removeFile: 'إزالة الملف',
       imagesMinTwo: 'أضف صورتين على الأقل للعقار.',
+      imagesOptional: 'الصور اختيارية الآن — يمكنك المتابعة بدون صور ثم إضافتها لاحقاً.',
       imagesAppendHint:
         'يمكنك اختيار عدة صور دفعة واحدة، أو إضافة صورة ثم أخرى — الصور السابقة تبقى ولا تُستبدل.',
       imagesMaxReached: 'وصلت إلى الحد الأقصى (12 صورة).',
@@ -227,7 +228,9 @@ export const messages = {
       publish: 'عرض الوحدة عند توفرها',
       images: 'صور العقار',
       imageHelp:
-        'JPEG أو PNG أو WebP، بحد أقصى 10 ميجابايت للصورة. تُنشأ النسخة العامة بعلامة مائية تلقائياً.',
+        'JPEG أو PNG أو WebP فقط، بحد أقصى 10 ميجابايت. صور iPhone بصيغة HEIC غير مدعومة — صدّرها كـ JPG من الصور.',
+      imageHeicHelp:
+        'صور HEIC من iPhone غير مدعومة. من تطبيق الصور: شارك/صدّر كـ JPEG ثم أعد الاختيار، أو تابع بدون صور.',
       submit: 'حفظ العقار والوحدات',
       success: 'تم إنشاء العقار ووحداته بنجاح.',
       operationsAmenities: 'التشغيل والمرافق',
@@ -501,6 +504,7 @@ export const messages = {
       removeImage: 'Remove image',
       removeFile: 'Remove file',
       imagesMinTwo: 'Add at least two property photos.',
+      imagesOptional: 'Photos are optional for now — you can continue without them and add later.',
       imagesAppendHint:
         'Select several photos at once, or add one then another — existing photos are kept, not replaced.',
       imagesMaxReached: 'You reached the maximum of 12 photos.',
@@ -517,7 +521,9 @@ export const messages = {
       publish: 'Publish this unit whenever available',
       images: 'Property images',
       imageHelp:
-        'JPEG, PNG or WebP, up to 10 MB each. Public copies receive the watermark automatically.',
+        'JPEG, PNG or WebP only, up to 10 MB each. iPhone HEIC is not supported — export as JPG from Photos.',
+      imageHeicHelp:
+        'HEIC photos from iPhone are not supported. In Photos, share/export as JPEG and re-select, or continue without photos.',
       submit: 'Save property and units',
       success: 'The property and its units were created successfully.',
       operationsAmenities: 'Operations & amenities',

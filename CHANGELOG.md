@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.47 — 2026-08-30
+
+- Property wizard: images step is **optional** (no longer blocks continue/save). Clearer HEIC/iPhone rejection copy so empty gallery after “choose photos” is explained.
+
 ## 0.2.46 — 2026-08-30
 
 - Fix property wizard `Failed to fetch` on media: Express `raw` parser for `/v1/media/ingress` (global `rawBody` stayed off), upload via BFF `/api/backend/v1/media/ingress/...`, clearer Arabic error when the browser reports network failure.
