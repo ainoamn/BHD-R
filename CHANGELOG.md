@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.50 — 2026-08-30
+
+- Property **edit** save uses Vercel→Neon `PATCH /api/owner/properties/:id` (no Nest/Render), including address, owner, and units.
+
 ## 0.2.49 — 2026-08-30
 
 - Property create: redirect to Property 360 after save; Neon idempotency + block duplicate name+address; choose ownership party in wizard; Edit route reuses wizard.

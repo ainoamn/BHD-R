@@ -1,6 +1,6 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
-import { and, eq, ne, sql } from 'drizzle-orm';
+import { and, eq, ne, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { currencyMinorUnits } from '@bhd-r/contracts';
 import {
@@ -344,6 +344,196 @@ export async function createPropertyBundleOnNeon(
     }
 
     return result;
+  });
+}
+
+const updatePropertyBundleSchema = z.object({
+  property: createPropertySchema.omit({ organizationId: true }),
+  units: z
+    .array(
+      createUnitSchema.omit({ propertyId: true }).extend({
+        id: z.string().uuid().optional(),
+      }),
+    )
+    .min(1)
+    .max(500),
+});
+
+/** Update property + address + units via Neon (edit wizard; no Nest). */
+export async function updatePropertyBundleOnNeon(
+  claims: SessionClaims,
+  propertyId: string,
+  raw: unknown,
+): Promise<Record<string, unknown>> {
+  if (!claims.organizationId) throw new Error('organization_required');
+  if (
+    !claims.permissions.includes('property.update') ||
+    !claims.permissions.includes('unit.update')
+  ) {
+    throw new Error('forbidden');
+  }
+  const input = updatePropertyBundleSchema.parse(raw);
+
+  return withinTenant(claims, async (transaction) => {
+    const property = await transaction.query.properties.findFirst({
+      where: and(
+        eq(properties.id, propertyId),
+        eq(properties.organizationId, claims.organizationId!),
+      ),
+    });
+    if (!property) throw new Error('property_not_found');
+    if (property.status === 'archived') throw new Error('property_archived');
+
+    const owner = await transaction.query.parties.findFirst({
+      where: and(
+        eq(parties.id, input.property.ownerPartyId),
+        eq(parties.organizationId, claims.organizationId!),
+      ),
+    });
+    if (!owner) throw new Error('owner_not_found');
+
+    const addr = input.property.address;
+    const duplicate = await transaction
+      .select({ id: properties.id })
+      .from(properties)
+      .innerJoin(addresses, eq(addresses.id, properties.addressId))
+      .where(
+        and(
+          eq(properties.organizationId, claims.organizationId!),
+          ne(properties.status, 'archived'),
+          ne(properties.id, propertyId),
+          eq(properties.nameAr, input.property.nameAr),
+          eq(addresses.governorate, addr.governorate),
+          eq(addresses.wilayat, addr.wilayat),
+          eq(addresses.city, addr.city),
+        ),
+      )
+      .limit(1);
+    if (duplicate[0]) throw new Error('duplicate_property');
+
+    const lat = addr.latitude;
+    const lon = addr.longitude;
+    const { latitude: _lat, longitude: _lon, ...addressFields } = addr;
+    await transaction
+      .update(addresses)
+      .set({
+        ...addressFields,
+        ...(typeof lat === 'number' && typeof lon === 'number'
+          ? {
+              location: sql`ST_GeogFromText(${`SRID=4326;POINT(${lon} ${lat})`})`,
+            }
+          : {}),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(addresses.id, property.addressId),
+          eq(addresses.organizationId, claims.organizationId!),
+        ),
+      );
+
+    const propertyRows = await transaction
+      .update(properties)
+      .set({
+        ownerPartyId: input.property.ownerPartyId,
+        category: input.property.category,
+        nameAr: input.property.nameAr,
+        nameEn: input.property.nameEn,
+        descriptionAr: input.property.descriptionAr ?? null,
+        descriptionEn: input.property.descriptionEn ?? null,
+        defaultCurrency: input.property.defaultCurrency,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(eq(properties.id, propertyId), eq(properties.organizationId, claims.organizationId!)),
+      )
+      .returning();
+    const updated = propertyRows[0]!;
+
+    if (input.property.ownerPartyId !== property.ownerPartyId) {
+      await transaction
+        .update(propertyOwnershipInterests)
+        .set({
+          partyId: input.property.ownerPartyId,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(propertyOwnershipInterests.propertyId, propertyId),
+            eq(propertyOwnershipInterests.organizationId, claims.organizationId!),
+            isNull(propertyOwnershipInterests.endsOn),
+          ),
+        );
+    }
+
+    const unitRows = [];
+    for (const [index, unit] of input.units.entries()) {
+      const patch = {
+        code: unit.code,
+        nameAr: unit.nameAr,
+        nameEn: unit.nameEn,
+        floor: unit.floor ?? null,
+        bedrooms: unit.bedrooms,
+        bathrooms: unit.bathrooms,
+        areaSquareMeters: unit.areaSquareMeters ?? null,
+        rentMinor: BigInt(unit.rent.amountMinor),
+        salePriceMinor: unit.salePrice ? BigInt(unit.salePrice.amountMinor) : null,
+        depositMinor: unit.deposit ? BigInt(unit.deposit.amountMinor) : null,
+        currency: unit.rent.currency,
+        minorUnit: currencyMinorUnits[unit.rent.currency],
+        listingPurpose: unit.listingPurpose,
+        publishWhenAvailable: unit.publishWhenAvailable,
+        updatedAt: new Date(),
+      };
+      if (unit.id) {
+        const rows = await transaction
+          .update(units)
+          .set(patch)
+          .where(
+            and(
+              eq(units.id, unit.id),
+              eq(units.propertyId, propertyId),
+              eq(units.organizationId, claims.organizationId!),
+            ),
+          )
+          .returning();
+        if (rows[0]) unitRows.push(rows[0]);
+      } else if (index === 0) {
+        const existing = await transaction.query.units.findMany({
+          where: and(
+            eq(units.propertyId, propertyId),
+            eq(units.organizationId, claims.organizationId!),
+          ),
+        });
+        const first = existing[0];
+        if (first) {
+          const rows = await transaction
+            .update(units)
+            .set(patch)
+            .where(eq(units.id, first.id))
+            .returning();
+          if (rows[0]) unitRows.push(rows[0]);
+        }
+      }
+    }
+
+    await transaction.insert(outboxEvents).values({
+      organizationId: claims.organizationId!,
+      topic: 'property.updated',
+      aggregateType: 'property',
+      aggregateId: propertyId,
+      payload: { via: 'vercel-neon-edit' },
+    });
+
+    return {
+      ...updated,
+      units: unitRows.map((unit) => ({
+        ...unit,
+        rentMinor: unit.rentMinor.toString(),
+        salePriceMinor: unit.salePriceMinor?.toString() ?? null,
+        depositMinor: unit.depositMinor?.toString() ?? null,
+      })),
+    };
   });
 }
 

@@ -703,7 +703,15 @@ export function PropertyWizard({
             units: units.map((unit, index) => {
               const names = unitDisplayNames(unit);
               const autoCode = `U-${String(index + 1).padStart(2, '0')}`;
+              const unitId =
+                mode === 'edit' &&
+                /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+                  unit.localId,
+                )
+                  ? unit.localId
+                  : undefined;
               return {
+                ...(unitId ? { id: unitId } : {}),
                 code: autoCode,
                 nameAr: names.nameAr,
                 nameEn: names.nameEn,
@@ -729,18 +737,27 @@ export function PropertyWizard({
 
       // Prefer Vercel→Neon write path (no Nest/Render). Avoids weeks of Render Free hang loops.
       if (mode === 'edit' && propertyId) {
-        await browserMutation(`/v1/portfolio/properties/${propertyId}`, {
+        const editResponse = await fetch(`/api/owner/properties/${encodeURIComponent(propertyId)}`, {
           method: 'PATCH',
-          headers: { 'idempotency-key': bundleIdempotencyKey.current },
-          body: JSON.stringify({
-            category: payload.property.category,
-            nameAr: payload.property.nameAr,
-            nameEn: payload.property.nameEn,
-            descriptionAr: payload.property.descriptionAr ?? null,
-            descriptionEn: payload.property.descriptionEn ?? null,
-            address: payload.property.address,
-          }),
+          credentials: 'same-origin',
+          headers: {
+            accept: 'application/json',
+            'content-type': 'application/json',
+            'idempotency-key': bundleIdempotencyKey.current,
+          },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(55_000),
         });
+        if (!editResponse.ok) {
+          const errBody = (await editResponse.json().catch(() => null)) as {
+            error?: { message?: string; messageAr?: string };
+          } | null;
+          throw new Error(
+            errBody?.error?.messageAr ??
+              errBody?.error?.message ??
+              `update_failed:${editResponse.status}`,
+          );
+        }
         setSuccess(ar ? 'تم تحديث بيانات العقار' : 'Property updated');
         router.push(`/${locale}/${portal}/properties/${propertyId}`);
         router.refresh();
