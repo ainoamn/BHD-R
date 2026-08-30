@@ -13,6 +13,7 @@
 **Property ops hub / booking:** [`RELEASE-0.2.69-AR.md`](./RELEASE-0.2.69-AR.md)  
 **Portal soft-nav + chrome:** [`RELEASE-0.2.70-71-AR.md`](./RELEASE-0.2.70-71-AR.md)  
 **Catalogue empty fix:** [`RELEASE-0.2.77-AR.md`](./RELEASE-0.2.77-AR.md)  
+**Gallery delete persist:** [`RELEASE-0.2.78-AR.md`](./RELEASE-0.2.78-AR.md)  
 **Nest hosting:** [`NEST-API-HOSTING.md`](./NEST-API-HOSTING.md)
 
 | Phase | Status | Notes |
@@ -40,14 +41,15 @@
 
 ## Next (human / infra)
 
-1. Confirm Vercel **Production Branch = `main`** and Deployment for 0.2.77 is Ready.  
-2. Smoke: [`RELEASE-0.2.77-AR.md`](./RELEASE-0.2.77-AR.md) (`/api/public/catalogue?debug=1` ثم `/ar/properties`).  
+1. Confirm Vercel **Production Branch = `main`** and Deployment for **0.2.78** (`886a1e6`) is Ready.  
+2. Smoke: [`RELEASE-0.2.78-AR.md`](./RELEASE-0.2.78-AR.md) (حذف صورة) ثم [`RELEASE-0.2.77-AR.md`](./RELEASE-0.2.77-AR.md) (`/ar/properties`).  
 3. (Optional) Redeploy Nest on Render so Nest public unit/media stay aligned.  
 4. S3/R2 على Vercel/Render لرفع الصور (`S3_*` env).  
 5. تدوير أسرار ظهرت في محادثات سابقة.
 
 ## Verification
 
+- `docs/implementation/RELEASE-0.2.78-AR.md`
 - `docs/implementation/RELEASE-0.2.77-AR.md`
 - `docs/implementation/RELEASE-0.2.69-AR.md`
 - `docs/ASSETS.md`
