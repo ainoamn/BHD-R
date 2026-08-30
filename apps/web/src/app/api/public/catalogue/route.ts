@@ -3,6 +3,7 @@ import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import {
   asPublicListingCategory,
   searchPublicListingsFromNeon,
+  type PublicListingSearchInput,
 } from '@/lib/search-public-listings-neon';
 
 export const runtime = 'nodejs';
@@ -29,26 +30,20 @@ export async function GET(request: Request) {
       bedroomsRaw && bedroomsRaw !== '' && Number.isFinite(Number(bedroomsRaw))
         ? Number(bedroomsRaw)
         : undefined;
-    const search = {
+    const search: PublicListingSearchInput = {
       limit: Number(url.searchParams.get('limit') ?? 24) || 24,
-      ...(url.searchParams.get('countryCode')
-        ? { countryCode: url.searchParams.get('countryCode')! }
-        : {}),
-      ...(url.searchParams.get('governorate')
-        ? { governorate: url.searchParams.get('governorate')! }
-        : {}),
-      ...(asPublicListingCategory(url.searchParams.get('category'))
-        ? { category: asPublicListingCategory(url.searchParams.get('category'))! }
-        : {}),
-      ...(bedrooms !== undefined ? { bedrooms } : {}),
-      ...(url.searchParams.get('currency')
-        ? {
-            currency: url.searchParams.get(
-              'currency',
-            ) as NonNullable<Parameters<typeof searchPublicListingsFromNeon>[0]>['currency'],
-          }
-        : {}),
     };
+    const countryCode = url.searchParams.get('countryCode');
+    const governorate = url.searchParams.get('governorate');
+    const category = asPublicListingCategory(url.searchParams.get('category'));
+    const currency = url.searchParams.get('currency');
+    if (countryCode) search.countryCode = countryCode;
+    if (governorate) search.governorate = governorate;
+    if (category) search.category = category;
+    if (bedrooms !== undefined) search.bedrooms = bedrooms;
+    if (currency) {
+      search.currency = currency as NonNullable<PublicListingSearchInput['currency']>;
+    }
     const payload = await searchPublicListingsFromNeon(search);
     return NextResponse.json({
       ...payload,
