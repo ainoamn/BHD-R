@@ -14,6 +14,7 @@ export function PublicListingActions({
   canBook,
   sharePath,
   shareTitle,
+  shareDescription,
 }: {
   unitId: string;
   locale: 'ar' | 'en';
@@ -23,6 +24,7 @@ export function PublicListingActions({
   canBook: boolean;
   sharePath: string;
   shareTitle: string;
+  shareDescription?: string | null;
 }) {
   const router = useRouter();
   const ar = locale === 'ar';
@@ -123,7 +125,14 @@ export function PublicListingActions({
         </p>
       ) : null}
 
-      <PublicListingShare path={sharePath} title={shareTitle} locale={locale} />
+      <PublicListingShare
+        path={sharePath}
+        title={shareTitle}
+        {...(shareDescription != null && shareDescription !== ''
+          ? { description: shareDescription }
+          : {})}
+        locale={locale}
+      />
     </div>
   );
 }

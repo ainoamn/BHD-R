@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.76 — 2026-08-30
+
+- Catalogue: list by `publishWhenAvailable` (not only `listings.enabled`); relax unit status; country filter optional + OM/OMN alias.
+- Share copy: polished listing blurb + description + “visit the link” (AR/EN) instead of a dry title+URL.
+
 ## 0.2.75 — 2026-08-30
 
 - Mobile property page: summary card (QR / price / book / share) moves to the **bottom** so gallery and details come first.

@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, desc, eq, isNotNull, sql } from 'drizzle-orm';
+import { and, desc, eq, ne, or, sql } from 'drizzle-orm';
 import {
   addresses,
   createDatabase,
@@ -54,38 +54,50 @@ export function asPublicListingCategory(
     : undefined;
 }
 
-/** Public catalogue from Neon (same publish rules as Nest; soft occupancy labels). */
+/**
+ * Public catalogue from Neon.
+ * Driven by units.publishWhenAvailable (not only listings.enabled).
+ */
 export async function searchPublicListingsFromNeon(
   input: PublicListingSearchInput = {},
 ): Promise<ListingCollection & { data: CatalogueListing[] }> {
   const limit = Math.min(Math.max(input.limit ?? 24, 1), 48);
-  // Heal publish flags first — edit/deposit paths can leave listings.enabled=false.
   await healPublicCatalogueListings().catch(() => undefined);
 
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
-    // Privileged read: RLS public_unit_available hides reserved/held units entirely,
-    // but the catalogue should still show them with a market-status watermark.
     await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
     await transaction.execute(sql`select set_config('app.public', 'false', true)`);
 
     const conditions = [
-      eq(listings.enabled, true),
-      isNotNull(listings.publishedAt),
       eq(units.publishWhenAvailable, true),
-      eq(units.status, 'active'),
-      eq(properties.status, 'active'),
+      ne(properties.status, 'archived'),
+      or(eq(units.status, 'active'), eq(units.status, 'draft'), eq(units.status, 'inactive')),
     ];
-    if (input.countryCode) conditions.push(eq(addresses.countryCode, input.countryCode));
-    if (input.governorate) conditions.push(eq(addresses.governorate, input.governorate));
+    if (input.countryCode) {
+      const code = input.countryCode.toUpperCase();
+      const alt = code === 'OM' ? 'OMN' : code === 'OMN' ? 'OM' : code;
+      conditions.push(
+        sql`(upper(${addresses.countryCode}) = ${code} or upper(${addresses.countryCode}) = ${alt})`,
+      );
+    }
+    if (input.governorate) {
+      conditions.push(
+        sql`(
+          ${addresses.governorate} = ${input.governorate}
+          or ${addresses.governorate} ilike ${`%${input.governorate}%`}
+        )`,
+      );
+    }
     if (input.category) conditions.push(eq(properties.category, input.category));
     if (input.bedrooms !== undefined) conditions.push(eq(units.bedrooms, input.bedrooms));
     if (input.currency) conditions.push(eq(units.currency, input.currency));
 
     const rows = await transaction
       .select({
-        id: listings.id,
+        listingId: listings.id,
         slug: listings.slug,
+        publishedAt: listings.publishedAt,
         propertyId: properties.id,
         unitId: units.id,
         category: properties.category,
@@ -102,7 +114,7 @@ export async function searchPublicListingsFromNeon(
         currency: units.currency,
         governorate: addresses.governorate,
         wilayat: addresses.wilayat,
-        publishedAt: listings.publishedAt,
+        unitUpdatedAt: units.updatedAt,
         coverAssetId: sql<string | null>`(
           select ma.id::text
           from unit_media um
@@ -138,12 +150,12 @@ export async function searchPublicListingsFromNeon(
           end
         )`,
       })
-      .from(listings)
-      .innerJoin(units, eq(units.id, listings.unitId))
+      .from(units)
       .innerJoin(properties, eq(properties.id, units.propertyId))
       .innerJoin(addresses, eq(addresses.id, properties.addressId))
+      .leftJoin(listings, eq(listings.unitId, units.id))
       .where(and(...conditions))
-      .orderBy(desc(listings.publishedAt), desc(units.id))
+      .orderBy(desc(listings.publishedAt), desc(units.updatedAt), desc(units.id))
       .limit(limit);
 
     const data: CatalogueListing[] = rows.map((row) => {
@@ -154,8 +166,8 @@ export async function searchPublicListingsFromNeon(
           ? occupancy
           : marketStatusFromPurpose(purpose);
       return {
-        id: row.id,
-        slug: row.slug,
+        id: row.listingId ?? row.unitId,
+        slug: row.slug ?? row.unitId,
         propertyId: row.propertyId,
         unitId: row.unitId,
         category: row.category as PublicListing['category'],
@@ -184,7 +196,7 @@ export async function searchPublicListingsFromNeon(
           : null,
         coverImageUrl: row.coverAssetId ? `/api/public/media/${row.coverAssetId}` : null,
         available: true as const,
-        publishedAt: (row.publishedAt ?? new Date()).toISOString(),
+        publishedAt: (row.publishedAt ?? row.unitUpdatedAt ?? new Date()).toISOString(),
         marketStatus,
       };
     });

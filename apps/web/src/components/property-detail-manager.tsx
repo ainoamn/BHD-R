@@ -699,6 +699,11 @@ export function PropertyDetailManager({
                   )}
                   sharePath={propertyPath}
                   shareTitle={ar ? property.nameAr : property.nameEn || property.nameAr}
+                  shareDescription={
+                    ar
+                      ? property.descriptionAr || property.descriptionEn
+                      : property.descriptionEn || property.descriptionAr
+                  }
                 />
               </div>
             ) : null}

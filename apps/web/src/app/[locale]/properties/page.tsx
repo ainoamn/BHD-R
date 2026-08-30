@@ -55,10 +55,10 @@ async function loadListings(query: URLSearchParams): Promise<ListingCollection> 
       if (currency) {
         search.currency = currency as NonNullable<PublicListingSearchInput['currency']>;
       }
-      const neon = await searchPublicListingsFromNeon(search);
-      if (neon.data.length) return neon;
+      // Always prefer Neon result (even empty) — Nest public catalogue can lag/hide holds.
+      return await searchPublicListingsFromNeon(search);
     } catch {
-      /* fall through to Nest */
+      /* fall through to Nest only when Neon throws */
     }
   }
   return publicApiFetch<ListingCollection>(`/v1/public/listings?${query.toString()}`, 30).catch(

@@ -88,14 +88,45 @@ function IconCopy() {
   );
 }
 
+/** Build a polished listing share message (description + link). */
+export function buildListingShareText(input: {
+  locale: 'ar' | 'en';
+  title: string;
+  description?: string | null | undefined;
+  url: string;
+}): string {
+  const description = (input.description ?? '').trim();
+  const body = description || input.title;
+  if (input.locale === 'ar') {
+    return [
+      'شاهد هذا الإعلان من منصة BHD R:',
+      '',
+      body,
+      '',
+      'للاطلاع على تفاصيل الإعلان زُر الرابط التالي:',
+      input.url,
+    ].join('\n');
+  }
+  return [
+    'Check out this listing on BHD R:',
+    '',
+    body,
+    '',
+    'View full details here:',
+    input.url,
+  ].join('\n');
+}
+
 /** Icon-only share row for public listings (place below booking CTAs). */
 export function PublicListingShare({
   path,
   title,
+  description,
   locale,
 }: {
   path: string;
   title: string;
+  description?: string | null | undefined;
   locale: 'ar' | 'en';
 }) {
   const ar = locale === 'ar';
@@ -111,8 +142,14 @@ export function PublicListingShare({
   }, [path]);
 
   const shareText = useMemo(
-    () => (ar ? `${title}\nشاهده على BHD R:\n${absoluteUrl}` : `${title}\nSee it on BHD R:\n${absoluteUrl}`),
-    [ar, absoluteUrl, title],
+    () =>
+      buildListingShareText({
+        locale,
+        title,
+        url: absoluteUrl,
+        ...(description != null && description !== '' ? { description } : {}),
+      }),
+    [absoluteUrl, description, locale, title],
   );
 
   const channels: ShareChannel[] = useMemo(
@@ -128,21 +165,21 @@ export function PublicListingShare({
         id: 'facebook',
         labelAr: 'فيسبوك',
         labelEn: 'Facebook',
-        href: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(absoluteUrl)}`,
+        href: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(absoluteUrl)}&quote=${encodeURIComponent(shareText)}`,
         icon: <IconFacebook />,
       },
       {
         id: 'x',
         labelAr: 'X',
         labelEn: 'X',
-        href: `https://twitter.com/intent/tweet?url=${encodeURIComponent(absoluteUrl)}&text=${encodeURIComponent(title)}`,
+        href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`,
         icon: <IconX />,
       },
       {
         id: 'telegram',
         labelAr: 'تيليجرام',
         labelEn: 'Telegram',
-        href: `https://t.me/share/url?url=${encodeURIComponent(absoluteUrl)}&text=${encodeURIComponent(title)}`,
+        href: `https://t.me/share/url?url=${encodeURIComponent(absoluteUrl)}&text=${encodeURIComponent(shareText)}`,
         icon: <IconTelegram />,
       },
       {
@@ -161,13 +198,13 @@ export function PublicListingShare({
       },
       {
         id: 'copy',
-        labelAr: 'نسخ الرابط',
-        labelEn: 'Copy link',
+        labelAr: 'نسخ الإعلان',
+        labelEn: 'Copy listing',
         action: 'copy',
         icon: <IconCopy />,
       },
     ],
-    [absoluteUrl, shareText, title],
+    [absoluteUrl, shareText],
   );
 
   const flash = useCallback((message: string) => {
@@ -183,8 +220,8 @@ export function PublicListingShare({
       }
       if (channel.action === 'copy') {
         try {
-          await navigator.clipboard.writeText(absoluteUrl);
-          flash(ar ? 'تم نسخ رابط العقار.' : 'Listing link copied.');
+          await navigator.clipboard.writeText(shareText);
+          flash(ar ? 'تم نسخ نص الإعلان مع الرابط.' : 'Listing text and link copied.');
         } catch {
           flash(ar ? 'تعذّر النسخ.' : 'Could not copy.');
         }
@@ -200,8 +237,8 @@ export function PublicListingShare({
           }
         }
         try {
-          await navigator.clipboard.writeText(absoluteUrl);
-          flash(ar ? 'تم نسخ الرابط للمشاركة.' : 'Link copied to share.');
+          await navigator.clipboard.writeText(shareText);
+          flash(ar ? 'تم نسخ الإعلان للمشاركة.' : 'Listing copied to share.');
         } catch {
           flash(ar ? 'تعذّرت المشاركة.' : 'Share unavailable.');
         }

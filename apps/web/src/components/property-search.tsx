@@ -44,8 +44,9 @@ export async function PropertySearch({
             className="select"
             id={compact ? 'filter-country' : 'home-country'}
             name="countryCode"
-            defaultValue={defaults.countryCode ?? 'OM'}
+            defaultValue={defaults.countryCode ?? ''}
           >
+            <option value="">{locale === 'ar' ? 'كل الدول' : 'All countries'}</option>
             {Object.values(countryPacks).map((pack) => (
               <option key={pack.countryCode} value={pack.countryCode}>
                 {locale === 'ar' ? pack.name.ar : pack.name.en}
