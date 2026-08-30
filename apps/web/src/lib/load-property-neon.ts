@@ -171,12 +171,12 @@ export async function loadManagedPropertyFromNeon(
         salePriceMinor: unit.salePriceMinor?.toString() ?? null,
         depositMinor: unit.depositMinor?.toString() ?? null,
         currency: unit.currency as CurrencyCode,
-        listingPurpose: unit.listingPurpose,
+        listingPurpose: unit.listingPurpose as 'rent' | 'sale' | 'both',
         publishWhenAvailable: unit.publishWhenAvailable,
         listingEnabled: unit.listingEnabled,
         listingSlug: unit.listingSlug,
         status: unit.status,
       })),
-    };
+    } as ManagedProperty;
   });
 }
