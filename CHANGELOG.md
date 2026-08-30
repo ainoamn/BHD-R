@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.59 — 2026-08-30
+
+- Unified adaptive layout for all owner property surfaces (list, new, 360, edit): fluid type/icons/controls by viewport; phone cards + compact wizard; desktop table + full step rail.
+
 ## 0.2.58 — 2026-08-30
 
 - Mobile property wizard: thin step track (no large circles), denser fields, auto-focus next field after selects.
