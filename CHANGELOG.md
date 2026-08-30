@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.64 — 2026-08-30
+
+- Fix public catalogue: sync `listings.enabled`/`publishedAt` when «عرض الوحدة عند توفرها» is saved; heal on Property 360 open; `/properties` and home load listings from Neon when Nest is empty.
+
 ## 0.2.63 — 2026-08-30
 
 - Owner Property 360: «عرض العقار» opens the public listing; QR encodes `/[locale]/properties/:id` (read-only marketing view, no edit/ownership). Public gallery via `/api/public/media/:id`.

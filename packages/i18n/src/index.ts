@@ -252,7 +252,7 @@ export const messages = {
       serialHint:
         'يُعيَّن رقم متسلسل تلقائياً عند الحفظ بصيغة BHD-YYYY-PRP-… كما في نظام bhd-om.',
       publishHint:
-        'عند التفعيل: تظهر الوحدة في الصفحة الرئيسية (/) وصفحة العقارات المتاحة (/properties) للزوّار بعد أن تصبح الحالة «متاحة» ويمرّ النشر العام. لا تظهر داخل بوابة المالك فقط.',
+        'عند التفعيل والحفظ: تُنشر الوحدة فوراً في الصفحة الرئيسية (/) وصفحة /properties للزوّار (ما دامت غير مؤجرة/محجوزة).',
       customAmenityAr: 'مرفق غير مدرج (عربي)',
       customAmenityEn: 'مرفق غير مدرج (إنجليزي)',
       addCustomAmenity: '＋ إضافة للقائمة',
@@ -545,7 +545,7 @@ export const messages = {
       serialHint:
         'A sequential serial (BHD-YYYY-PRP-…) is assigned on save, matching the bhd-om pattern.',
       publishHint:
-        'When enabled: the unit appears on the public home page (/) and /properties once it is available and publicly listed — not only inside the owner portal.',
+        'When enabled and saved: the unit is published immediately on the home page (/) and /properties for visitors (unless leased or reserved).',
       customAmenityAr: 'Custom amenity (AR)',
       customAmenityEn: 'Custom amenity (EN)',
       addCustomAmenity: '＋ Add to list',

@@ -3,6 +3,8 @@ import { EmptyState } from '@bhd-r/ui';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { ListingCard } from '@/components/listing-card';
 import { PropertySearch } from '@/components/property-search';
+import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { searchPublicListingsFromNeon } from '@/lib/search-public-listings-neon';
 import { publicApiFetch } from '@/lib/server-api';
 import { bilingualAlternates } from '@/lib/seo';
 import type { ListingCollection } from '@/lib/types';
@@ -21,6 +23,36 @@ export async function generateMetadata({
         : 'Live, publicly available properties for rent and sale through BHD R.',
     alternates: bilingualAlternates(locale, '/properties'),
   };
+}
+
+async function loadListings(query: URLSearchParams): Promise<ListingCollection> {
+  const empty: ListingCollection = {
+    data: [],
+    pagination: { nextCursor: null, hasMore: false },
+  };
+  if (hasDatabaseUrl()) {
+    try {
+      const bedroomsRaw = query.get('bedrooms');
+      const bedrooms =
+        bedroomsRaw && bedroomsRaw !== '' && Number.isFinite(Number(bedroomsRaw))
+          ? Number(bedroomsRaw)
+          : undefined;
+      const neon = await searchPublicListingsFromNeon({
+        countryCode: query.get('countryCode') ?? undefined,
+        governorate: query.get('governorate') ?? undefined,
+        category: query.get('category') ?? undefined,
+        bedrooms,
+        currency: query.get('currency') ?? undefined,
+        limit: Number(query.get('limit') ?? 24) || 24,
+      });
+      if (neon.data.length) return neon;
+    } catch {
+      /* fall through to Nest */
+    }
+  }
+  return publicApiFetch<ListingCollection>(`/v1/public/listings?${query.toString()}`, 30).catch(
+    () => empty,
+  );
 }
 
 export default async function PropertiesPage({
@@ -47,10 +79,7 @@ export default async function PropertiesPage({
     if (value) query.set(key, value);
   });
   const t = await getTranslations();
-  const listings = await publicApiFetch<ListingCollection>(
-    `/v1/public/listings?${query.toString()}`,
-    30,
-  ).catch(() => ({ data: [], pagination: { nextCursor: null, hasMore: false } }));
+  const listings = await loadListings(query);
   return (
     <>
       <header className="page-hero">

@@ -4,6 +4,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { ListingCard } from '@/components/listing-card';
 import { PropertySearch } from '@/components/property-search';
+import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { publicApiFetch } from '@/lib/server-api';
 import type { ListingCollection } from '@/lib/types';
 
@@ -94,9 +95,22 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   setRequestLocale(locale);
   const t = await getTranslations();
   const copy = homeCopy[locale === 'en' ? 'en' : 'ar'];
-  const listings = await publicApiFetch<ListingCollection>(
-    `/v1/public/listings?locale=${locale}&limit=6`,
-  ).catch(() => ({ data: [], pagination: { nextCursor: null, hasMore: false } }));
+  const emptyListings = { data: [], pagination: { nextCursor: null, hasMore: false } };
+  let listings = emptyListings as ListingCollection;
+  if (hasDatabaseUrl()) {
+    try {
+      const { searchPublicListingsFromNeon } = await import('@/lib/search-public-listings-neon');
+      listings = await searchPublicListingsFromNeon({ limit: 6 });
+    } catch {
+      listings = emptyListings;
+    }
+  }
+  if (!listings.data.length) {
+    listings = await publicApiFetch<ListingCollection>(
+      `/v1/public/listings?locale=${locale}&limit=6`,
+      30,
+    ).catch(() => emptyListings);
+  }
 
   return (
     <>

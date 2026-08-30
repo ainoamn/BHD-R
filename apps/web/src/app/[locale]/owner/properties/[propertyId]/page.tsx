@@ -1,9 +1,18 @@
+import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
+import { verifySessionToken } from '@bhd-r/authz';
 import { PropertyDetailManager, type ManagedProperty } from '@/components/property-detail-manager';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { ensurePublishedListingsMatchFlags } from '@/lib/create-property-neon';
 import { loadManagedPropertyFromNeon } from '@/lib/load-property-neon';
 import { ApiError, apiFetch } from '@/lib/server-api';
 import { requirePortal } from '@/lib/viewer';
+
+function sessionSecret(): Uint8Array {
+  return new TextEncoder().encode(
+    process.env.BHD_R_SESSION_SECRET ?? 'development-session-secret-at-least-32-characters',
+  );
+}
 
 export default async function Page({
   params,
@@ -19,6 +28,15 @@ export default async function Page({
 
   // Prefer Neon for complete profile/maps/gallery when configured.
   if (hasDatabaseUrl() && viewer.organizationId) {
+    const token = (await cookies()).get('bhd_r_session')?.value;
+    if (token) {
+      try {
+        const claims = await verifySessionToken(token, sessionSecret());
+        await ensurePublishedListingsMatchFlags(claims, propertyId);
+      } catch {
+        /* ignore heal failures */
+      }
+    }
     property = await loadManagedPropertyFromNeon(viewer.organizationId, propertyId, {
       userId: viewer.id,
       partyId: viewer.partyId,

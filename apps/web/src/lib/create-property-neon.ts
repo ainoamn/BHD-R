@@ -599,7 +599,35 @@ export async function updatePropertyBundleOnNeon(
             ),
           )
           .returning();
-        if (rows[0]) unitRows.push(rows[0]);
+        if (rows[0]) {
+          unitRows.push(rows[0]);
+          const existingListing = await transaction.query.listings.findFirst({
+            where: and(
+              eq(listings.unitId, rows[0].id),
+              eq(listings.organizationId, claims.organizationId!),
+            ),
+          });
+          if (existingListing) {
+            await transaction
+              .update(listings)
+              .set({
+                enabled: unit.publishWhenAvailable,
+                publishedAt: unit.publishWhenAvailable
+                  ? (existingListing.publishedAt ?? new Date())
+                  : null,
+                updatedAt: new Date(),
+              })
+              .where(eq(listings.id, existingListing.id));
+          } else {
+            await transaction.insert(listings).values({
+              organizationId: claims.organizationId!,
+              unitId: rows[0].id,
+              slug: `${slugify(input.property.nameEn)}-${slugify(unit.code)}-${rows[0].id.slice(0, 8)}`,
+              enabled: unit.publishWhenAvailable,
+              publishedAt: unit.publishWhenAvailable ? new Date() : null,
+            });
+          }
+        }
       } else if (index === 0) {
         const existing = await transaction.query.units.findMany({
           where: and(
@@ -614,9 +642,60 @@ export async function updatePropertyBundleOnNeon(
             .set(patch)
             .where(eq(units.id, first.id))
             .returning();
-          if (rows[0]) unitRows.push(rows[0]);
+          if (rows[0]) {
+            unitRows.push(rows[0]);
+            const existingListing = await transaction.query.listings.findFirst({
+              where: and(
+                eq(listings.unitId, rows[0].id),
+                eq(listings.organizationId, claims.organizationId!),
+              ),
+            });
+            if (existingListing) {
+              await transaction
+                .update(listings)
+                .set({
+                  enabled: unit.publishWhenAvailable,
+                  publishedAt: unit.publishWhenAvailable
+                    ? (existingListing.publishedAt ?? new Date())
+                    : null,
+                  updatedAt: new Date(),
+                })
+                .where(eq(listings.id, existingListing.id));
+            } else {
+              await transaction.insert(listings).values({
+                organizationId: claims.organizationId!,
+                unitId: rows[0].id,
+                slug: `${slugify(input.property.nameEn)}-${slugify(unit.code)}-${rows[0].id.slice(0, 8)}`,
+                enabled: unit.publishWhenAvailable,
+                publishedAt: unit.publishWhenAvailable ? new Date() : null,
+              });
+            }
+          }
         }
       }
+    }
+
+    // Publishing requires an active property (draft/inactive stays hidden on /properties).
+    if (input.units.some((unit) => unit.publishWhenAvailable)) {
+      await transaction
+        .update(properties)
+        .set({ status: 'active', updatedAt: new Date() })
+        .where(
+          and(
+            eq(properties.id, propertyId),
+            eq(properties.organizationId, claims.organizationId!),
+          ),
+        );
+      await transaction
+        .update(units)
+        .set({ status: 'active', updatedAt: new Date() })
+        .where(
+          and(
+            eq(units.propertyId, propertyId),
+            eq(units.organizationId, claims.organizationId!),
+            eq(units.publishWhenAvailable, true),
+          ),
+        );
     }
 
     await transaction.insert(outboxEvents).values({
@@ -636,6 +715,84 @@ export async function updatePropertyBundleOnNeon(
         depositMinor: unit.depositMinor?.toString() ?? null,
       })),
     };
+  });
+}
+
+/**
+ * Heal publish flags → listings (edit used to update units only).
+ * Call from owner Property 360 load so «عرض عند التوفر» actually appears on /properties.
+ */
+export async function ensurePublishedListingsMatchFlags(
+  claims: SessionClaims,
+  propertyId: string,
+): Promise<void> {
+  if (!claims.organizationId) return;
+  await withinTenant(claims, async (transaction) => {
+    const property = await transaction.query.properties.findFirst({
+      where: and(
+        eq(properties.id, propertyId),
+        eq(properties.organizationId, claims.organizationId!),
+      ),
+    });
+    if (!property || property.status === 'archived') return;
+
+    const unitRows = await transaction.query.units.findMany({
+      where: and(
+        eq(units.propertyId, propertyId),
+        eq(units.organizationId, claims.organizationId!),
+      ),
+    });
+
+    let publishedAny = false;
+    for (const unit of unitRows) {
+      const existingListing = await transaction.query.listings.findFirst({
+        where: and(
+          eq(listings.unitId, unit.id),
+          eq(listings.organizationId, claims.organizationId!),
+        ),
+      });
+      if (unit.publishWhenAvailable) {
+        publishedAny = true;
+        if (existingListing) {
+          if (!existingListing.enabled || !existingListing.publishedAt) {
+            await transaction
+              .update(listings)
+              .set({
+                enabled: true,
+                publishedAt: existingListing.publishedAt ?? new Date(),
+                updatedAt: new Date(),
+              })
+              .where(eq(listings.id, existingListing.id));
+          }
+        } else {
+          await transaction.insert(listings).values({
+            organizationId: claims.organizationId!,
+            unitId: unit.id,
+            slug: `${slugify(property.nameEn)}-${slugify(unit.code)}-${unit.id.slice(0, 8)}`,
+            enabled: true,
+            publishedAt: new Date(),
+          });
+        }
+        if (unit.status !== 'active') {
+          await transaction
+            .update(units)
+            .set({ status: 'active', updatedAt: new Date() })
+            .where(eq(units.id, unit.id));
+        }
+      } else if (existingListing?.enabled) {
+        await transaction
+          .update(listings)
+          .set({ enabled: false, publishedAt: null, updatedAt: new Date() })
+          .where(eq(listings.id, existingListing.id));
+      }
+    }
+
+    if (publishedAny && property.status !== 'active') {
+      await transaction
+        .update(properties)
+        .set({ status: 'active', updatedAt: new Date() })
+        .where(eq(properties.id, propertyId));
+    }
   });
 }
 
