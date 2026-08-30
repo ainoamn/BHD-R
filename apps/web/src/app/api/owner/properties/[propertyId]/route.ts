@@ -107,7 +107,7 @@ export async function PATCH(
       {
         error: {
           code: 'update_failed',
-          message: error instanceof Error ? error.message : 'Update failed',
+          message: 'Update failed',
           messageAr: 'تعذر تحديث العقار في قاعدة البيانات',
         },
       },

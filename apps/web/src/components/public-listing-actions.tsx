@@ -52,6 +52,7 @@ export function PublicListingActions({
           'content-type': 'application/json',
           accept: 'application/json',
           'x-csrf-token': await fetchBrowserCsrfToken(),
+          'idempotency-key': crypto.randomUUID(),
         },
         body: JSON.stringify({ unitId, locale }),
       });

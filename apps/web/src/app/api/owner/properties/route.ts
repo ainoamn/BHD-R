@@ -92,25 +92,12 @@ export async function POST(request: Request) {
       );
     }
     console.error('POST /api/owner/properties failed', error);
-    const detail =
-      error && typeof error === 'object' && 'code' in error
-        ? String((error as { code?: string }).code ?? '')
-        : '';
-    const hint =
-      detail === '42703'
-        ? ' — عمود ناقص في قاعدة البيانات (طبّق هجرة serial_number)'
-        : detail === '42P01'
-          ? ' — جدول ناقص في قاعدة البيانات'
-          : detail === '42501'
-            ? ' — رفض صلاحيات/RLS'
-            : '';
     return NextResponse.json(
       {
         error: {
           code: 'create_failed',
-          message: error instanceof Error ? error.message : 'Create failed',
-          messageAr: `تعذر حفظ العقار في قاعدة البيانات${hint}`,
-          ...(detail ? { pgCode: detail } : {}),
+          message: 'Create failed',
+          messageAr: 'تعذر حفظ العقار في قاعدة البيانات',
         },
       },
       { status: 500 },

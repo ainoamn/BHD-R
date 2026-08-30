@@ -52,8 +52,8 @@ export async function POST(request: Request) {
     const result = await completePublicBookingPayment(claims, body.sessionReference);
     return NextResponse.json(result);
   } catch (error) {
-    const code = error instanceof Error ? error.message : 'complete_failed';
-    const status = code === 'not_found' ? 404 : code === 'forbidden' ? 403 : 500;
-    return NextResponse.json({ error: { code } }, { status });
+    const { clientSafeErrorCode, statusForSafeCode } = await import('@/lib/client-safe-error');
+    const code = clientSafeErrorCode(error, 'complete_failed');
+    return NextResponse.json({ error: { code } }, { status: statusForSafeCode(code) });
   }
 }

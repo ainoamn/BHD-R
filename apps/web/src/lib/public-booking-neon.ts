@@ -1,4 +1,5 @@
 import 'server-only';
+import { createHash } from 'node:crypto';
 import { and, eq, gt, inArray, isNotNull, notExists, sql } from 'drizzle-orm';
 import type { SessionClaims } from '@bhd-r/authz';
 import {
@@ -177,6 +178,7 @@ export async function createAuthenticatedViewingRequest(
   claims: SessionClaims,
   unitId: string,
   locale: 'ar' | 'en',
+  options: { idempotencyKey?: string | null } = {},
 ) {
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
@@ -194,6 +196,49 @@ export async function createAuthenticatedViewingRequest(
       organizationId: preview.organizationId,
       userId: claims.sub,
     });
+
+    const idemKey =
+      typeof options.idempotencyKey === 'string' && options.idempotencyKey.trim().length >= 8
+        ? options.idempotencyKey.trim().slice(0, 200)
+        : null;
+    if (idemKey) {
+      const reference = `IDEM-${idemKey.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 48)}`;
+      const existing = await transaction.query.viewingRequests.findFirst({
+        where: and(
+          eq(viewingRequests.organizationId, preview.organizationId),
+          eq(viewingRequests.reference, reference),
+        ),
+        columns: { reference: true, status: true },
+      });
+      if (existing) {
+        return {
+          accepted: true as const,
+          reference: existing.reference,
+          status: existing.status,
+        };
+      }
+      const unit = await assertUnitBookable(transaction, unitId);
+      const party = await ensureProspectParty(transaction, unit.organizationId, claims);
+      const inserted = await transaction
+        .insert(viewingRequests)
+        .values({
+          organizationId: unit.organizationId,
+          reference,
+          unitId,
+          prospectPartyId: party.id,
+          channel: 'website',
+          status: 'requested',
+          notes:
+            locale === 'ar' ? 'طلب معاينة من مستخدم مسجّل' : 'Viewing request from signed-in user',
+        })
+        .returning({ reference: viewingRequests.reference, status: viewingRequests.status });
+      return {
+        accepted: true as const,
+        reference: inserted[0]!.reference,
+        status: inserted[0]!.status,
+      };
+    }
+
     const unit = await assertUnitBookable(transaction, unitId);
     const party = await ensureProspectParty(transaction, unit.organizationId, claims);
     const reference = `AUTH-${claims.sub.slice(0, 8)}-${unitId.slice(0, 8)}-${Date.now().toString(36)}`;
@@ -217,7 +262,11 @@ export async function createAuthenticatedViewingRequest(
   });
 }
 
-export async function createPublicBookingCheckout(claims: SessionClaims, unitId: string) {
+export async function createPublicBookingCheckout(
+  claims: SessionClaims,
+  unitId: string,
+  options: { idempotencyKey?: string | null } = {},
+) {
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
     const preview = await withElevatedRead(transaction, async () => {
@@ -238,7 +287,47 @@ export async function createPublicBookingCheckout(claims: SessionClaims, unitId:
     if (!unit.depositMinor || unit.depositMinor <= 0n) throw new Error('deposit_not_set');
     const party = await ensureProspectParty(transaction, unit.organizationId, claims);
     const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
-    const sessionReference = `bk_${crypto.randomUUID().replaceAll('-', '').slice(0, 28)}`;
+
+    const idemKey =
+      typeof options.idempotencyKey === 'string' && options.idempotencyKey.trim().length >= 8
+        ? options.idempotencyKey.trim().slice(0, 200)
+        : null;
+    const sessionReference = idemKey
+      ? `bk_${createHash('sha256').update(`${claims.sub}:${unitId}:${idemKey}`).digest('hex').slice(0, 28)}`
+      : `bk_${crypto.randomUUID().replaceAll('-', '').slice(0, 28)}`;
+
+    if (idemKey) {
+      const existingRows = await transaction
+        .select({
+          id: reservations.id,
+          termsSnapshot: reservations.termsSnapshot,
+          rentMinor: reservations.rentMinor,
+          currency: reservations.currency,
+          expiresAt: reservations.expiresAt,
+        })
+        .from(reservations)
+        .where(
+          and(
+            eq(reservations.organizationId, unit.organizationId),
+            eq(reservations.unitId, unitId),
+            eq(reservations.status, 'pending'),
+          ),
+        )
+        .limit(40);
+      const existing = existingRows.find((row) => {
+        const snap = (row.termsSnapshot ?? {}) as Record<string, unknown>;
+        return snap.checkoutSessionReference === sessionReference;
+      });
+      if (existing) {
+        return {
+          reservationId: existing.id,
+          sessionReference,
+          amountMinor: unit.depositMinor.toString(),
+          currency: unit.currency,
+          expiresAt: existing.expiresAt.toISOString(),
+        };
+      }
+    }
 
     await transaction.insert(holds).values({
       organizationId: unit.organizationId,
@@ -266,6 +355,7 @@ export async function createPublicBookingCheckout(claims: SessionClaims, unitId:
           checkoutSessionReference: sessionReference,
           awaitingPublicDepositPayment: true,
           capturedAt: new Date().toISOString(),
+          ...(idemKey ? { idempotencyKey: idemKey } : {}),
         },
       })
       .returning({ id: reservations.id });
@@ -277,6 +367,63 @@ export async function createPublicBookingCheckout(claims: SessionClaims, unitId:
       currency: unit.currency,
       expiresAt: expiresAt.toISOString(),
     };
+  });
+}
+
+export async function updatePropertyDepositOnNeon(
+  claims: SessionClaims,
+  propertyId: string,
+  body: { amountMinor: string; currency?: string },
+): Promise<{ ok: true; unitCount: number }> {
+  if (!claims.organizationId) throw new Error('organization_required');
+  const { db } = getDatabase();
+  return db.transaction(async (transaction) => {
+    await applyOrgScope(transaction, {
+      organizationId: claims.organizationId!,
+      userId: claims.sub,
+    });
+    await transaction.execute(
+      sql`select set_config('app.platform_admin', ${String(claims.roles.includes('platform_admin'))}, true)`,
+    );
+    await transaction.execute(
+      sql`select set_config('app.is_tenant', ${String(claims.roles.includes('tenant'))}, true)`,
+    );
+    await transaction.execute(sql`select set_config('app.public', 'false', true)`);
+    await transaction.execute(
+      sql`select set_config('app.party_id', ${claims.partyId ?? ''}, true)`,
+    );
+
+    const property = await transaction.query.properties.findFirst({
+      where: and(eq(properties.id, propertyId), eq(properties.organizationId, claims.organizationId!)),
+    });
+    if (!property) throw new Error('not_found');
+    if (property.status === 'archived') throw new Error('property_archived');
+
+    const unitRows = await transaction
+      .select({ id: units.id })
+      .from(units)
+      .where(
+        and(eq(units.propertyId, propertyId), eq(units.organizationId, claims.organizationId!)),
+      );
+    if (!unitRows.length) throw new Error('no_units');
+
+    await transaction
+      .update(units)
+      .set({
+        depositMinor: BigInt(body.amountMinor),
+        ...(body.currency
+          ? { currency: body.currency as typeof units.$inferSelect.currency }
+          : {}),
+        updatedAt: new Date(),
+      })
+      .where(
+        inArray(
+          units.id,
+          unitRows.map((row) => row.id),
+        ),
+      );
+
+    return { ok: true as const, unitCount: unitRows.length };
   });
 }
 

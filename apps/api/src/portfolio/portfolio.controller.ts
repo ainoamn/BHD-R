@@ -116,6 +116,24 @@ export class PortfolioController {
     return this.service.updateProperty(request.auth!, id, body);
   }
 
+  @RequirePermissions('unit.update')
+  @Patch('properties/:id/deposit')
+  updatePropertyDeposit(
+    @Req() request: ApiRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(
+      new ZodPipe(
+        z.object({
+          amountMinor: z.string().regex(/^\d+$/),
+          currency: z.string().min(3).max(3).optional(),
+        }),
+      ),
+    )
+    body: { amountMinor: string; currency?: string },
+  ) {
+    return this.service.updatePropertyDeposit(request.auth!, id, body);
+  }
+
   @RequirePermissions('property.archive')
   @Patch('properties/:id/archive')
   archiveProperty(@Req() request: ApiRequest, @Param('id', ParseUUIDPipe) id: string) {

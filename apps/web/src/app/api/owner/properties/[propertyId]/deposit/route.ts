@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { and, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { SessionClaims } from '@bhd-r/authz';
-import { createDatabase, properties, units, type Database } from '@bhd-r/db';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { clientSafeErrorCode, statusForSafeCode } from '@/lib/client-safe-error';
+import { updatePropertyDepositNestOrNeon } from '@/lib/nest-or-neon-write';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
 
 export const runtime = 'nodejs';
@@ -14,33 +14,7 @@ const bodySchema = z.object({
   currency: z.string().min(3).max(3).optional(),
 });
 
-type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
-
-async function withinTenant<T>(
-  claims: SessionClaims,
-  work: (tx: Tx) => Promise<T>,
-): Promise<T> {
-  const { db } = createDatabase(process.env.DATABASE_URL!, { max: 1 });
-  return db.transaction(async (transaction) => {
-    await transaction.execute(
-      sql`select set_config('app.organization_id', ${claims.organizationId ?? ''}, true)`,
-    );
-    await transaction.execute(sql`select set_config('app.user_id', ${claims.sub}, true)`);
-    await transaction.execute(
-      sql`select set_config('app.party_id', ${claims.partyId ?? ''}, true)`,
-    );
-    await transaction.execute(
-      sql`select set_config('app.platform_admin', ${String(claims.roles.includes('platform_admin'))}, true)`,
-    );
-    await transaction.execute(
-      sql`select set_config('app.is_tenant', ${String(claims.roles.includes('tenant'))}, true)`,
-    );
-    await transaction.execute(sql`select set_config('app.public', 'false', true)`);
-    return work(transaction);
-  });
-}
-
-/** PATCH booking deposit for all units on a property. */
+/** PATCH booking deposit for all units on a property — Nest-first with Neon fallback. */
 export async function PATCH(
   request: Request,
   context: { params: Promise<{ propertyId: string }> },
@@ -60,7 +34,6 @@ export async function PATCH(
     return NextResponse.json({ error: { code: 'forbidden' } }, { status: 403 });
   }
 
-  const organizationId = claims.organizationId;
   const { propertyId } = await context.params;
   let body: z.infer<typeof bodySchema>;
   try {
@@ -70,45 +43,18 @@ export async function PATCH(
   }
 
   try {
-    const result = await withinTenant(claims, async (transaction) => {
-      const property = await transaction.query.properties.findFirst({
-        where: and(eq(properties.id, propertyId), eq(properties.organizationId, organizationId)),
-      });
-      if (!property) return { error: 'not_found' as const };
-      if (property.status === 'archived') return { error: 'property_archived' as const };
-
-      const unitRows = await transaction
-        .select({ id: units.id })
-        .from(units)
-        .where(and(eq(units.propertyId, propertyId), eq(units.organizationId, organizationId)));
-      if (!unitRows.length) return { error: 'no_units' as const };
-
-      await transaction
-        .update(units)
-        .set({
-          depositMinor: BigInt(body.amountMinor),
-          ...(body.currency
-            ? { currency: body.currency as typeof units.$inferSelect.currency }
-            : {}),
-          updatedAt: new Date(),
-        })
-        .where(
-          inArray(
-            units.id,
-            unitRows.map((row) => row.id),
-          ),
-        );
-
-      return { ok: true as const, unitCount: unitRows.length };
-    });
-
-    if ('error' in result) {
-      const status = result.error === 'property_archived' ? 409 : 404;
-      return NextResponse.json({ error: { code: result.error } }, { status });
-    }
+    const result = await updatePropertyDepositNestOrNeon(
+      claims,
+      propertyId,
+      {
+        amountMinor: body.amountMinor,
+        ...(body.currency ? { currency: body.currency } : {}),
+      },
+      request.headers.get('x-csrf-token'),
+    );
     return NextResponse.json(result);
   } catch (error) {
-    console.error('[deposit] update failed', error);
-    return NextResponse.json({ error: { code: 'update_failed' } }, { status: 500 });
+    const code = clientSafeErrorCode(error, 'update_failed');
+    return NextResponse.json({ error: { code } }, { status: statusForSafeCode(code) });
   }
 }

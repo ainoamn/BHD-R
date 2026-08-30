@@ -40,12 +40,17 @@ function assertBrowserOrigin(request: Request): void {
     throw new RouteGuardError(403, 'csrf_rejected');
   }
   const origin = request.headers.get('origin');
-  if (!origin) return;
+  // CSRF writes must prove same-origin browser context (P2 CSRF leftover).
+  if (!origin) {
+    if (fetchSite === 'same-origin' || fetchSite === 'same-site' || fetchSite === 'none') {
+      return;
+    }
+    throw new RouteGuardError(403, 'csrf_rejected');
+  }
   try {
     const requestHost = new URL(request.url).host;
     const originHost = new URL(origin).host;
     if (requestHost !== originHost) {
-      // Allow preview ↔ production only when Sec-Fetch-Site is same-site/same-origin.
       if (fetchSite !== 'same-origin' && fetchSite !== 'same-site') {
         throw new RouteGuardError(403, 'csrf_rejected');
       }

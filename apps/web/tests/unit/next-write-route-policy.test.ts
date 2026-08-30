@@ -50,8 +50,11 @@ describe('Next write-route live-session policy', () => {
       if (!source.includes('requireLiveSession')) {
         offenders.push(relative.replaceAll('\\', '/') || '(api root)');
       }
+      if (!source.includes('requireCsrf: true') && !source.includes('requireCsrf:true')) {
+        offenders.push(`${relative.replaceAll('\\', '/')}:missing_csrf`);
+      }
     }
-    expect(offenders, `missing requireLiveSession:\n${offenders.join('\n')}`).toEqual([]);
+    expect(offenders, `policy offenders:\n${offenders.join('\n')}`).toEqual([]);
   });
 });
 

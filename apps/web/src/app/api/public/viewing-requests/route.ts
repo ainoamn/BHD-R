@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { clientSafeErrorCode, statusForSafeCode } from '@/lib/client-safe-error';
 import { createViewingRequestNestOrNeon } from '@/lib/nest-or-neon-write';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
 import {
@@ -50,19 +51,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: { code: 'invalid_body' } }, { status: 400 });
   }
 
+  const idempotencyKey = request.headers.get('idempotency-key')?.trim() || null;
+
   try {
-    const result = await createViewingRequestNestOrNeon(claims, body.unitId, body.locale);
+    const result = await createViewingRequestNestOrNeon(claims, body.unitId, body.locale, {
+      idempotencyKey,
+    });
     return NextResponse.json(result);
   } catch (error) {
-    const code = error instanceof Error ? error.message : 'request_failed';
-    const status =
-      code === 'unit_unavailable' || code === 'not_found'
-        ? 404
-        : code === 'forbidden' || code === 'unauthorized'
-          ? code === 'unauthorized'
-            ? 401
-            : 403
-          : 500;
-    return NextResponse.json({ error: { code } }, { status });
+    const code = clientSafeErrorCode(error, 'request_failed');
+    return NextResponse.json({ error: { code } }, { status: statusForSafeCode(code) });
   }
 }

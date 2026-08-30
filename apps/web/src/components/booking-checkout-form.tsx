@@ -30,6 +30,7 @@ export function BookingCheckoutForm({
     setError(null);
     try {
       const csrf = await fetchBrowserCsrfToken();
+      const idempotencyKey = crypto.randomUUID();
       const start = await fetch('/api/public/bookings', {
         method: 'POST',
         credentials: 'same-origin',
@@ -37,6 +38,7 @@ export function BookingCheckoutForm({
           'content-type': 'application/json',
           accept: 'application/json',
           'x-csrf-token': csrf,
+          'idempotency-key': idempotencyKey,
         },
         body: JSON.stringify({ unitId }),
       });
@@ -53,7 +55,11 @@ export function BookingCheckoutForm({
       const complete = await fetch('/api/public/bookings/complete', {
         method: 'POST',
         credentials: 'same-origin',
-        headers: { 'content-type': 'application/json', accept: 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          accept: 'application/json',
+          'x-csrf-token': csrf,
+        },
         body: JSON.stringify({ sessionReference: startPayload.sessionReference }),
       });
       const completePayload = (await complete.json().catch(() => null)) as {

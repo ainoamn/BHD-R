@@ -1,10 +1,18 @@
 import 'server-only';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { eq, sql } from 'drizzle-orm';
 import type { SessionClaims } from '@bhd-r/authz';
 import { createDatabase, users } from '@bhd-r/db';
-import { configuredApiOrigin, isNestApiConfiguredForRuntime, probeNestReady } from '@/lib/server-api';
-import { createAuthenticatedViewingRequest } from '@/lib/public-booking-neon';
+import {
+  apiFetch,
+  configuredApiOrigin,
+  isNestApiConfiguredForRuntime,
+  probeNestReady,
+} from '@/lib/server-api';
+import {
+  createAuthenticatedViewingRequest,
+  updatePropertyDepositOnNeon,
+} from '@/lib/public-booking-neon';
 
 async function loadViewerContact(userId: string): Promise<{ email: string; displayName: string }> {
   const { db } = createDatabase(process.env.DATABASE_URL!, { max: 1 });
@@ -22,6 +30,11 @@ async function loadViewerContact(userId: string): Promise<{ email: string; displ
   });
 }
 
+function asSubmissionId(idempotencyKey: string | null | undefined): string {
+  if (idempotencyKey && /^[0-9a-f-]{36}$/i.test(idempotencyKey)) return idempotencyKey;
+  return randomUUID();
+}
+
 /**
  * Prefer Nest public viewing (throttled + audit) when reachable; fall back to Neon.
  */
@@ -29,9 +42,10 @@ export async function createViewingRequestNestOrNeon(
   claims: SessionClaims,
   unitId: string,
   locale: 'ar' | 'en',
+  options: { idempotencyKey?: string | null } = {},
 ): Promise<{ accepted: true; reference: string; status: string; via: 'nest' | 'neon' }> {
   const contact = await loadViewerContact(claims.sub);
-  const submissionId = randomUUID();
+  const submissionId = asSubmissionId(options.idempotencyKey);
 
   if (isNestApiConfiguredForRuntime() && (await probeNestReady())) {
     const origin = configuredApiOrigin();
@@ -50,7 +64,8 @@ export async function createViewingRequestNestOrNeon(
             email: contact.email,
             locale,
             consent: true,
-            notes: locale === 'ar' ? 'طلب معاينة من مستخدم مسجّل' : 'Viewing request from signed-in user',
+            notes:
+              locale === 'ar' ? 'طلب معاينة من مستخدم مسجّل' : 'Viewing request from signed-in user',
           }),
           cache: 'no-store',
           signal: AbortSignal.timeout(8_000),
@@ -74,6 +89,44 @@ export async function createViewingRequestNestOrNeon(
     }
   }
 
-  const neon = await createAuthenticatedViewingRequest(claims, unitId, locale);
+  const neon = await createAuthenticatedViewingRequest(claims, unitId, locale, {
+    idempotencyKey: options.idempotencyKey ?? submissionId,
+  });
   return { ...neon, via: 'neon' };
+}
+
+/** Prefer Nest property deposit patch when reachable; fall back to Neon GUCs path. */
+export async function updatePropertyDepositNestOrNeon(
+  claims: SessionClaims,
+  propertyId: string,
+  body: { amountMinor: string; currency?: string },
+  csrfToken: string | null,
+): Promise<{ ok: true; unitCount: number; via: 'nest' | 'neon' }> {
+  if (isNestApiConfiguredForRuntime() && (await probeNestReady())) {
+    try {
+      const result = await apiFetch<{ ok: true; unitCount: number }>(
+        `/v1/portfolio/properties/${propertyId}/deposit`,
+        {
+          method: 'PATCH',
+          headers: {
+            'content-type': 'application/json',
+            ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}),
+          },
+          body: JSON.stringify({
+            amountMinor: body.amountMinor,
+            ...(body.currency ? { currency: body.currency } : {}),
+          }),
+        },
+      );
+      return { ok: true, unitCount: result.unitCount, via: 'nest' };
+    } catch {
+      /* fall through */
+    }
+  }
+  const neon = await updatePropertyDepositOnNeon(claims, propertyId, body);
+  return { ...neon, via: 'neon' };
+}
+
+export function hashIdempotencyPayload(value: unknown): string {
+  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }

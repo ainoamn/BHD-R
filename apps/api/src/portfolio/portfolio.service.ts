@@ -513,6 +513,45 @@ export class PortfolioService {
     });
   }
 
+  updatePropertyDeposit(
+    claims: SessionClaims,
+    propertyId: string,
+    input: { amountMinor: string; currency?: string },
+  ) {
+    return this.database.withinTenant(claims, async (transaction) => {
+      const property = await transaction.query.properties.findFirst({
+        where: and(
+          eq(properties.id, propertyId),
+          eq(properties.organizationId, claims.organizationId!),
+        ),
+      });
+      if (!property) throw new NotFoundException('Property not found');
+      if (property.status === 'archived')
+        throw new ConflictException('Archived properties cannot be edited');
+      const unitRows = await transaction
+        .select({ id: units.id, currency: units.currency })
+        .from(units)
+        .where(
+          and(eq(units.propertyId, propertyId), eq(units.organizationId, claims.organizationId!)),
+        );
+      if (!unitRows.length) throw new NotFoundException('No units on property');
+      if (input.currency && unitRows.some((row) => row.currency !== input.currency)) {
+        throw new ConflictException('Deposit currency must match unit currency');
+      }
+      await transaction
+        .update(units)
+        .set({
+          depositMinor: BigInt(input.amountMinor),
+          ...(input.currency ? { currency: input.currency } : {}),
+          updatedAt: new Date(),
+        })
+        .where(
+          and(eq(units.propertyId, propertyId), eq(units.organizationId, claims.organizationId!)),
+        );
+      return { ok: true as const, unitCount: unitRows.length };
+    });
+  }
+
   addUnit(claims: SessionClaims, propertyId: string, input: Omit<CreateUnitInput, 'propertyId'>) {
     return this.database.withinTenant(claims, async (transaction) => {
       await assertOrganizationEntitlement(transaction, claims.organizationId!, 'units', 1);

@@ -57,7 +57,7 @@ export async function GET(request: Request) {
         pagination: { nextCursor: null, hasMore: false },
         count: 0,
         error: 'catalogue_failed',
-        ...(debug ? { detail: message } : {}),
+        ...(debug && process.env.NODE_ENV !== 'production' ? { detail: message } : {}),
       },
       { status: 500 },
     );

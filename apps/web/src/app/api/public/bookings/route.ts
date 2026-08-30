@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { clientSafeErrorCode, statusForSafeCode } from '@/lib/client-safe-error';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
 import { createPublicBookingCheckout } from '@/lib/public-booking-neon';
 import {
@@ -49,19 +50,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: { code: 'invalid_body' } }, { status: 400 });
   }
 
+  const idempotencyKey = request.headers.get('idempotency-key')?.trim() || null;
+
   try {
-    const result = await createPublicBookingCheckout(claims, body.unitId);
+    const result = await createPublicBookingCheckout(claims, body.unitId, { idempotencyKey });
     return NextResponse.json(result);
   } catch (error) {
-    const code = error instanceof Error ? error.message : 'booking_failed';
-    const status =
-      code === 'unit_unavailable' || code === 'not_found'
-        ? 404
-        : code === 'deposit_not_set'
-          ? 409
-          : code === 'unauthorized'
-            ? 401
-            : 500;
-    return NextResponse.json({ error: { code } }, { status });
+    const code = clientSafeErrorCode(error, 'booking_failed');
+    return NextResponse.json({ error: { code } }, { status: statusForSafeCode(code) });
   }
 }

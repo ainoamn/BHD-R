@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.84 — 2026-08-30
+
+- Client-safe error redaction (P2-04); CSRF origin harden + complete checkout CSRF; viewing/booking idempotency keys; Nest-first property deposit endpoint with Neon fallback; policy test requires CSRF.
+- Docs: `RELEASE-0.2.84-AR.md`.
+
 ## 0.2.83 — 2026-08-30
 
 - Next write-route policy test; Nest-first viewing with Neon fallback; rate limits on viewing/booking/translate/media; public media via `app.public`; Vercel API origin fail-closed (no Host spoof); cron timing-safe auth + ensure script; worker Sharp tests for disabled/best-effort scan modes.
