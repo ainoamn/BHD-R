@@ -466,6 +466,108 @@ export async function updatePropertyBundleOnNeon(
         );
     }
 
+    if (input.property.profile) {
+      const { managementFee, ...profileFields } = input.property.profile;
+      const existingProfile = await transaction.query.propertyProfiles.findFirst({
+        where: eq(propertyProfiles.propertyId, propertyId),
+      });
+      const profileValues = {
+        ...profileFields,
+        managementFeeMinor: managementFee ? BigInt(managementFee.amountMinor) : null,
+        updatedAt: new Date(),
+      };
+      if (existingProfile) {
+        await transaction
+          .update(propertyProfiles)
+          .set(profileValues)
+          .where(eq(propertyProfiles.id, existingProfile.id));
+      } else {
+        await transaction.insert(propertyProfiles).values({
+          organizationId: claims.organizationId!,
+          propertyId,
+          ...profileFields,
+          managementFeeMinor: managementFee ? BigInt(managementFee.amountMinor) : null,
+        });
+      }
+    }
+
+    await transaction
+      .delete(propertyAmenities)
+      .where(
+        and(
+          eq(propertyAmenities.propertyId, propertyId),
+          eq(propertyAmenities.organizationId, claims.organizationId!),
+        ),
+      );
+    if (input.property.amenities.length) {
+      await transaction.insert(propertyAmenities).values(
+        input.property.amenities.map((amenity) => ({
+          organizationId: claims.organizationId!,
+          propertyId,
+          ...amenity,
+        })),
+      );
+    }
+
+    const previousDocuments = await transaction
+      .select()
+      .from(propertyDocuments)
+      .where(
+        and(
+          eq(propertyDocuments.propertyId, propertyId),
+          eq(propertyDocuments.organizationId, claims.organizationId!),
+        ),
+      );
+    const mediaByType = new Map(
+      previousDocuments
+        .filter((row) => row.mediaAssetId)
+        .map((row) => [row.documentType, row.mediaAssetId] as const),
+    );
+    await transaction
+      .delete(propertyDocuments)
+      .where(
+        and(
+          eq(propertyDocuments.propertyId, propertyId),
+          eq(propertyDocuments.organizationId, claims.organizationId!),
+        ),
+      );
+    if (input.property.documents.length) {
+      await transaction.insert(propertyDocuments).values(
+        input.property.documents.map((document) => ({
+          organizationId: claims.organizationId!,
+          propertyId,
+          mediaAssetId: mediaByType.get(document.documentType) ?? null,
+          ...document,
+        })),
+      );
+    }
+
+    await transaction
+      .delete(utilityMeters)
+      .where(
+        and(
+          eq(utilityMeters.propertyId, propertyId),
+          eq(utilityMeters.organizationId, claims.organizationId!),
+        ),
+      );
+    if (input.property.meters.length) {
+      const existingUnits = await transaction.query.units.findMany({
+        where: and(
+          eq(units.propertyId, propertyId),
+          eq(units.organizationId, claims.organizationId!),
+        ),
+      });
+      const unitsByCode = new Map(existingUnits.map((unit) => [unit.code, unit.id]));
+      await transaction.insert(utilityMeters).values(
+        input.property.meters.map(({ unitCode, ...meter }) => ({
+          organizationId: claims.organizationId!,
+          propertyId,
+          unitId: unitCode ? (unitsByCode.get(unitCode) ?? null) : null,
+          ...meter,
+        })),
+      );
+    }
+
     const unitRows = [];
     for (const [index, unit] of input.units.entries()) {
       const patch = {

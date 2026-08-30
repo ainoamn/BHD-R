@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.53 — 2026-08-30
+
+- Edit wizard prefills maps/profile/amenities/meters and keeps existing gallery/docs; Neon `PATCH` updates profile, amenities, documents metadata, and meters.
+- Property 360 redesigned booking-style (gallery, price summary, map, amenity chips); Neon loader returns profile, coordinates, maps URL, and gallery.
+
 ## 0.2.52 — 2026-08-30
 
 - Property wizard (create/edit) uses full content width like Property 360.

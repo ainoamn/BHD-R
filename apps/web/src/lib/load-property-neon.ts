@@ -1,21 +1,24 @@
 import 'server-only';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import {
   addresses,
   createDatabase,
   listings,
+  mediaAssets,
   parties,
   properties,
   propertyAmenities,
   propertyDocuments,
   propertyOwnershipInterests,
   propertyProfiles,
+  unitMedia,
   units,
   utilityMeters,
   type Database,
 } from '@bhd-r/db';
 import type { CurrencyCode } from '@bhd-r/contracts';
 import type { ManagedProperty } from '@/components/property-detail-manager';
+import { googleMapsLinkFromCoords } from '@/lib/parse-google-maps-url';
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdRPropertyWriteDb?: DbHandle };
@@ -28,6 +31,22 @@ function getDatabase(): DbHandle {
     globalForDb.__bhdRPropertyWriteDb = { db };
   }
   return globalForDb.__bhdRPropertyWriteDb;
+}
+
+function extractMapsUrl(notes: string | null | undefined): string | null {
+  if (!notes) return null;
+  const match = notes.match(/Google Maps:\s*(https?:\/\/\S+)/i);
+  return match?.[1]?.replace(/[.,;]+$/, '') ?? null;
+}
+
+function publicMediaUrl(objectKey: string | null | undefined): string | null {
+  if (!objectKey) return null;
+  const base =
+    process.env.PUBLIC_MEDIA_BASE_URL?.replace(/\/$/, '') ||
+    process.env.S3_ENDPOINT?.replace(/\/$/, '');
+  if (!base || base.includes('example.com')) return null;
+  const bucket = process.env.S3_BUCKET_PUBLIC?.trim();
+  return bucket ? `${base}/${bucket}/${objectKey}` : `${base}/${objectKey}`;
 }
 
 /** Load property 360 payload from Neon (when Nest/Render is down). */
@@ -54,7 +73,7 @@ export async function loadManagedPropertyFromNeon(
     });
     if (!property) return null;
 
-    const [address, profile, amenities, meters, documents, ownership, unitRows] =
+    const [address, profile, amenities, meters, documents, ownership, unitRows, coords] =
       await Promise.all([
         transaction.query.addresses.findFirst({ where: eq(addresses.id, property.addressId) }),
         transaction.query.propertyProfiles.findFirst({
@@ -106,9 +125,62 @@ export async function loadManagedPropertyFromNeon(
           .leftJoin(listings, eq(listings.unitId, units.id))
           .where(eq(units.propertyId, property.id))
           .orderBy(asc(units.code)),
+        transaction.execute(sql`
+          select
+            ST_Y(location::geometry) as lat,
+            ST_X(location::geometry) as lon
+          from addresses
+          where id = ${property.addressId}
+        `),
       ]);
 
-    void profile;
+    const coordRow = (Array.isArray(coords) ? coords[0] : null) as
+      | { lat?: number | string | null; lon?: number | string | null }
+      | null;
+    const latitude =
+      coordRow?.lat !== null && coordRow?.lat !== undefined && Number.isFinite(Number(coordRow.lat))
+        ? Number(coordRow.lat)
+        : null;
+    const longitude =
+      coordRow?.lon !== null && coordRow?.lon !== undefined && Number.isFinite(Number(coordRow.lon))
+        ? Number(coordRow.lon)
+        : null;
+    let mapsUrl = extractMapsUrl(profile?.notes ?? null);
+    if (
+      !mapsUrl &&
+      typeof latitude === 'number' &&
+      Number.isFinite(latitude) &&
+      typeof longitude === 'number' &&
+      Number.isFinite(longitude)
+    ) {
+      mapsUrl = googleMapsLinkFromCoords(latitude, longitude);
+    }
+
+    const unitIds = unitRows.map((unit) => unit.id);
+    let gallery: ManagedProperty['gallery'] = [];
+    if (unitIds.length) {
+      const mediaRows = await transaction
+        .select({
+          id: mediaAssets.id,
+          publicObjectKey: mediaAssets.publicObjectKey,
+          privateObjectKey: mediaAssets.privateObjectKey,
+          mimeType: mediaAssets.mimeType,
+          position: unitMedia.position,
+          unitId: unitMedia.unitId,
+        })
+        .from(unitMedia)
+        .innerJoin(mediaAssets, eq(mediaAssets.id, unitMedia.mediaAssetId))
+        .where(and(eq(unitMedia.organizationId, organizationId), inArray(unitMedia.unitId, unitIds)))
+        .orderBy(asc(unitMedia.position));
+      gallery = mediaRows
+        .filter((row) => row.mimeType.startsWith('image/'))
+        .map((row) => ({
+          id: row.id,
+          url: publicMediaUrl(row.publicObjectKey) ?? publicMediaUrl(row.privateObjectKey),
+          position: row.position,
+          unitId: row.unitId,
+        }));
+    }
 
     return {
       id: property.id,
@@ -121,6 +193,27 @@ export async function loadManagedPropertyFromNeon(
       defaultCurrency: property.defaultCurrency as CurrencyCode,
       status: property.status,
       serialNumber: property.serialNumber,
+      mapsUrl,
+      latitude,
+      longitude,
+      profile: profile
+        ? {
+            deedNumber: profile.deedNumber,
+            plotNumber: profile.plotNumber,
+            municipalityNumber: profile.municipalityNumber,
+            landAreaSquareMeters: profile.landAreaSquareMeters,
+            builtUpAreaSquareMeters: profile.builtUpAreaSquareMeters,
+            yearBuilt: profile.yearBuilt,
+            parkingSpaces: profile.parkingSpaces,
+            furnishing: profile.furnishing as
+              | 'unfurnished'
+              | 'semi_furnished'
+              | 'furnished',
+            managementStartedOn: profile.managementStartedOn,
+            managementFeeMinor: profile.managementFeeMinor?.toString() ?? null,
+            notes: profile.notes,
+          }
+        : null,
       address: address
         ? {
             countryCode: address.countryCode,
@@ -131,6 +224,7 @@ export async function loadManagedPropertyFromNeon(
             street: address.street,
           }
         : null,
+      gallery,
       amenities: amenities.map((row) => ({
         id: row.id,
         code: row.code,
@@ -143,11 +237,14 @@ export async function loadManagedPropertyFromNeon(
         documentNumber: row.documentNumber,
         verificationStatus: row.verificationStatus,
         expiresOn: row.expiresOn,
+        mediaAssetId: row.mediaAssetId,
+        notes: row.notes,
       })),
       meters: meters.map((row) => ({
         id: row.id,
         utilityType: row.utilityType,
         meterNumber: row.meterNumber,
+        unitId: row.unitId,
       })),
       ownership: ownership.map((row) => ({
         id: row.id,

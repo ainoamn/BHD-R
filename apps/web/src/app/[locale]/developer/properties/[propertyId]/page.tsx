@@ -16,19 +16,22 @@ export default async function Page({
   const viewer = await requirePortal(locale, 'developer');
 
   let property: ManagedProperty | null = null;
-  try {
-    property = await apiFetch<ManagedProperty>(
-      `/v1/portfolio/properties/${encodeURIComponent(propertyId)}`,
-    );
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 404) notFound();
-  }
 
-  if (!property && hasDatabaseUrl() && viewer.organizationId) {
+  if (hasDatabaseUrl() && viewer.organizationId) {
     property = await loadManagedPropertyFromNeon(viewer.organizationId, propertyId, {
       userId: viewer.id,
       partyId: viewer.partyId,
     }).catch(() => null);
+  }
+
+  if (!property) {
+    try {
+      property = await apiFetch<ManagedProperty>(
+        `/v1/portfolio/properties/${encodeURIComponent(propertyId)}`,
+      );
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) notFound();
+    }
   }
 
   if (!property) notFound();

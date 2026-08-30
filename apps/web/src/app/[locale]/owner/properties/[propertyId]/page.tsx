@@ -16,20 +16,23 @@ export default async function Page({
   const viewer = await requirePortal(locale, 'owner');
 
   let property: ManagedProperty | null = null;
-  try {
-    property = await apiFetch<ManagedProperty>(
-      `/v1/portfolio/properties/${encodeURIComponent(propertyId)}`,
-    );
-  } catch (error) {
-    if (error instanceof ApiError && error.status === 404) notFound();
-    // Nest asleep/unreachable — fall through to Neon.
-  }
 
-  if (!property && hasDatabaseUrl() && viewer.organizationId) {
+  // Prefer Neon for complete profile/maps/gallery when configured.
+  if (hasDatabaseUrl() && viewer.organizationId) {
     property = await loadManagedPropertyFromNeon(viewer.organizationId, propertyId, {
       userId: viewer.id,
       partyId: viewer.partyId,
     }).catch(() => null);
+  }
+
+  if (!property) {
+    try {
+      property = await apiFetch<ManagedProperty>(
+        `/v1/portfolio/properties/${encodeURIComponent(propertyId)}`,
+      );
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) notFound();
+    }
   }
 
   if (!property) notFound();

@@ -66,15 +66,36 @@ interface UploadIntent {
   requiredHeaders?: Record<string, string>;
 }
 
-type MediaItem = { id: string; file: File; url: string };
+type MediaItem = { id: string; file?: File; url: string; existing?: boolean };
 type PrivateDocType = 'title_deed' | 'floor_plan' | 'other';
 type DocItem = {
   id: string;
-  file: File;
+  file?: File;
   url: string;
   kind: 'pdf' | 'image';
   documentType: PrivateDocType;
+  existing?: boolean;
+  label?: string;
 };
+
+function extractMapsUrl(notes?: string | null, fallback?: string | null): string {
+  if (fallback?.trim()) return fallback.trim();
+  if (!notes) return '';
+  const match = notes.match(/Google Maps:\s*(https?:\/\/\S+)/i);
+  return match?.[1]?.replace(/[.,;]+$/, '') ?? '';
+}
+
+function stripMapsFromNotes(notes?: string | null): string {
+  if (!notes) return '';
+  return notes
+    .replace(/Google Maps:\s*https?:\/\/\S+/gi, '')
+    .replace(/\n{2,}/g, '\n')
+    .trim();
+}
+
+function revokeIfBlob(url: string) {
+  if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+}
 
 const blankUnit = (index: number): UnitDraft => ({
   localId: crypto.randomUUID(),
@@ -156,21 +177,29 @@ export function PropertyWizard({
   const [currency, setCurrency] = useState<CurrencyCode>(
     initialProperty?.defaultCurrency ?? 'OMR',
   );
-  const [property, setProperty] = useState({
-    countryCode: (initialProperty?.address?.countryCode as CountryPackCode) || 'OM',
-    category: initialProperty?.category ?? 'apartment',
-    nameAr: initialProperty?.nameAr ?? '',
-    nameEn: initialProperty?.nameEn ?? '',
-    descriptionAr: initialProperty?.descriptionAr ?? '',
-    descriptionEn: initialProperty?.descriptionEn ?? '',
-    governorate: initialProperty?.address?.governorate ?? '',
-    wilayat: initialProperty?.address?.wilayat ?? '',
-    city: initialProperty?.address?.city ?? '',
-    area: initialProperty?.address?.area ?? '',
-    street: initialProperty?.address?.street ?? '',
-    mapsUrl: '',
-    latitude: '',
-    longitude: '',
+  const [property, setProperty] = useState(() => {
+    const mapsUrl = extractMapsUrl(initialProperty?.profile?.notes, initialProperty?.mapsUrl);
+    const coords =
+      typeof initialProperty?.latitude === 'number' &&
+      typeof initialProperty?.longitude === 'number'
+        ? { latitude: initialProperty.latitude, longitude: initialProperty.longitude }
+        : parseGoogleMapsUrl(mapsUrl);
+    return {
+      countryCode: (initialProperty?.address?.countryCode as CountryPackCode) || 'OM',
+      category: initialProperty?.category ?? 'apartment',
+      nameAr: initialProperty?.nameAr ?? '',
+      nameEn: initialProperty?.nameEn ?? '',
+      descriptionAr: initialProperty?.descriptionAr ?? '',
+      descriptionEn: initialProperty?.descriptionEn ?? '',
+      governorate: initialProperty?.address?.governorate ?? '',
+      wilayat: initialProperty?.address?.wilayat ?? '',
+      city: initialProperty?.address?.city ?? '',
+      area: initialProperty?.address?.area ?? '',
+      street: initialProperty?.address?.street ?? '',
+      mapsUrl,
+      latitude: coords ? String(coords.latitude) : '',
+      longitude: coords ? String(coords.longitude) : '',
+    };
   });
   const [units, setUnits] = useState<UnitDraft[]>(() => {
     if (initialProperty?.units?.length) {
@@ -192,33 +221,80 @@ export function PropertyWizard({
     }
     return [blankUnit(1)];
   });
-  const [profile, setProfile] = useState({
-    deedNumber: '',
-    plotNumber: '',
-    municipalityNumber: '',
-    landArea: '',
-    builtUpArea: '',
-    yearBuilt: '',
-    parkingSpaces: '',
-    furnishing: 'unfurnished' as 'unfurnished' | 'semi_furnished' | 'furnished',
-    managementStartedOn: '',
-    managementFee: '',
-    electricityMeter: '',
-    waterMeter: '',
-    insuranceNumber: '',
-    insuranceExpiresOn: '',
-    notes: '',
+  const [profile, setProfile] = useState(() => {
+    const p = initialProperty?.profile;
+    const electricity =
+      initialProperty?.meters.find((m) => m.utilityType === 'electricity')?.meterNumber ?? '';
+    const water =
+      initialProperty?.meters.find((m) => m.utilityType === 'water')?.meterNumber ?? '';
+    const insurance = initialProperty?.documents.find((d) => d.documentType === 'insurance');
+    return {
+      deedNumber: p?.deedNumber ?? '',
+      plotNumber: p?.plotNumber ?? '',
+      municipalityNumber: p?.municipalityNumber ?? '',
+      landArea: p?.landAreaSquareMeters ?? '',
+      builtUpArea: p?.builtUpAreaSquareMeters ?? '',
+      yearBuilt: p?.yearBuilt != null ? String(p.yearBuilt) : '',
+      parkingSpaces: p?.parkingSpaces != null ? String(p.parkingSpaces) : '',
+      furnishing: (p?.furnishing ?? 'unfurnished') as
+        | 'unfurnished'
+        | 'semi_furnished'
+        | 'furnished',
+      managementStartedOn: p?.managementStartedOn ?? '',
+      managementFee: majorFromMinor(
+        p?.managementFeeMinor,
+        initialProperty?.defaultCurrency ?? 'OMR',
+      ),
+      electricityMeter: electricity,
+      waterMeter: water,
+      insuranceNumber: insurance?.documentNumber ?? '',
+      insuranceExpiresOn: insurance?.expiresOn ?? '',
+      notes: stripMapsFromNotes(p?.notes),
+    };
   });
   const [amenities, setAmenities] = useState<string[]>(
     () => initialProperty?.amenities.map((item) => item.code) ?? [],
   );
   const [customAmenities, setCustomAmenities] = useState<
     Array<{ code: string; labelAr: string; labelEn: string }>
-  >([]);
+  >(() => {
+    const base = new Set(BASE_AMENITIES.map(([code]) => code as string));
+    return (initialProperty?.amenities ?? [])
+      .filter((item) => !base.has(item.code))
+      .map((item) => ({
+        code: item.code,
+        labelAr: item.labelAr || item.code,
+        labelEn: item.labelEn || item.code,
+      }));
+  });
   const [customDraft, setCustomDraft] = useState({ ar: '', en: '' });
-  const [images, setImages] = useState<MediaItem[]>([]);
-  const [coverId, setCoverId] = useState<string | null>(null);
-  const [documents, setDocuments] = useState<DocItem[]>([]);
+  const [images, setImages] = useState<MediaItem[]>(() => {
+    const gallery = (initialProperty?.gallery ?? [])
+      .filter((item) => item.url)
+      .sort((a, b) => a.position - b.position)
+      .map((item) => ({
+        id: item.id,
+        url: item.url!,
+        existing: true,
+      }));
+    return gallery;
+  });
+  const [coverId, setCoverId] = useState<string | null>(
+    () => (initialProperty?.gallery ?? []).find((item) => item.url)?.id ?? null,
+  );
+  const [documents, setDocuments] = useState<DocItem[]>(() => {
+    const privateTypes = new Set<PrivateDocType>(['title_deed', 'floor_plan', 'other']);
+    return (initialProperty?.documents ?? [])
+      .filter((doc) => privateTypes.has(doc.documentType as PrivateDocType))
+      .map((doc) => ({
+        id: doc.id,
+        url: '',
+        kind: 'pdf' as const,
+        documentType: doc.documentType as PrivateDocType,
+        existing: true,
+        label: doc.documentNumber || doc.documentType,
+      }));
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -286,8 +362,8 @@ export function PropertyWizard({
 
   useEffect(() => {
     return () => {
-      images.forEach((item) => URL.revokeObjectURL(item.url));
-      documents.forEach((item) => URL.revokeObjectURL(item.url));
+      images.forEach((item) => revokeIfBlob(item.url));
+      documents.forEach((item) => revokeIfBlob(item.url));
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- revoke on unmount only
   }, []);
@@ -367,12 +443,14 @@ export function PropertyWizard({
     }
     if (index === 4) {
       // Images are optional so save can proceed when media upload is degraded.
-      const bad = images.some(
-        (item) =>
+      const bad = images.some((item) => {
+        if (item.existing || !item.file) return false;
+        return (
           !['image/jpeg', 'image/png', 'image/webp'].includes(item.file.type) ||
-          item.file.size > 10 * 1024 * 1024,
-      );
-      if (images.length > 0 && bad) issues.push(t('PropertyForm.imageHelp'));
+          item.file.size > 10 * 1024 * 1024
+        );
+      });
+      if (images.some((item) => item.file) && bad) issues.push(t('PropertyForm.imageHelp'));
     }
     return issues;
   }
@@ -483,7 +561,7 @@ export function PropertyWizard({
   function removeImage(id: string) {
     setImages((current) => {
       const target = current.find((item) => item.id === id);
-      if (target) URL.revokeObjectURL(target.url);
+      if (target) revokeIfBlob(target.url);
       const next = current.filter((item) => item.id !== id);
       setCoverId((cover) => {
         if (cover && next.some((item) => item.id === cover)) return cover;
@@ -512,7 +590,7 @@ export function PropertyWizard({
     };
     setDocuments((current) => {
       const previous = current.find((item) => item.documentType === documentType);
-      if (previous) URL.revokeObjectURL(previous.url);
+      if (previous) revokeIfBlob(previous.url);
       return [...current.filter((item) => item.documentType !== documentType), next];
     });
   }
@@ -520,7 +598,7 @@ export function PropertyWizard({
   function removeDocument(documentType: PrivateDocType) {
     setDocuments((current) => {
       const previous = current.find((item) => item.documentType === documentType);
-      if (previous) URL.revokeObjectURL(previous.url);
+      if (previous) revokeIfBlob(previous.url);
       return current.filter((item) => item.documentType !== documentType);
     });
   }
@@ -761,7 +839,47 @@ export function PropertyWizard({
               `update_failed:${editResponse.status}`,
           );
         }
-        setSuccess(ar ? 'تم تحديث بيانات العقار' : 'Property updated');
+        const updated = (await editResponse.json()) as CreatedPropertyBundle;
+        const mediaUnitId = updated.units?.[0]?.id ?? initialProperty?.units[0]?.id;
+        let mediaWarning: string | null = null;
+        const newImages = images.filter((item) => item.file);
+        const newDocs = documents.filter((doc) => doc.file);
+        if ((newImages.length > 0 || newDocs.length > 0) && mediaUnitId) {
+          try {
+            const ordered = [
+              ...newImages.filter((item) => item.id === coverId),
+              ...newImages.filter((item) => item.id !== coverId),
+            ];
+            const imageJobs = ordered.map((item, position) => ({
+              file: item.file!,
+              purpose: 'property_image' as const,
+              position,
+            }));
+            const docJobs = newDocs.map((doc, index) => ({
+              file: doc.file!,
+              purpose: 'attachment' as const,
+              position: imageJobs.length + index,
+            }));
+            const jobs = [...imageJobs, ...docJobs];
+            if (jobs.length) {
+              setSuccess(
+                ar
+                  ? `جاري رفع الملفات الجديدة (${jobs.length})…`
+                  : `Uploading new media (${jobs.length})…`,
+              );
+              await mapWithConcurrency(jobs, 3, async (job) => {
+                await uploadFile(job.file, mediaUnitId, job.purpose, job.position);
+              });
+            }
+          } catch {
+            mediaWarning = ar
+              ? 'تم تحديث العقار، لكن رفع بعض الملفات فشل — يمكنك إضافتها لاحقاً.'
+              : 'Property updated, but some file uploads failed — you can add them later.';
+          }
+        }
+        setSuccess(
+          mediaWarning ?? (ar ? 'تم تحديث بيانات العقار' : 'Property updated'),
+        );
         goToPropertyPage(locale, portal, propertyId);
         return;
       }
@@ -808,20 +926,24 @@ export function PropertyWizard({
       if ((images.length > 0 || documents.length > 0) && mediaUnitId) {
         try {
           const ordered = [
-            ...images.filter((item) => item.id === coverId),
-            ...images.filter((item) => item.id !== coverId),
+            ...images.filter((item) => item.file && item.id === coverId),
+            ...images.filter((item) => item.file && item.id !== coverId),
           ];
           const imageJobs = ordered.map((item, position) => ({
-            file: item.file,
+            file: item.file!,
             purpose: 'property_image' as const,
             position,
           }));
           const docJobs = documents
-            .filter((doc) =>
-              ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'].includes(doc.file.type),
+            .filter(
+              (doc) =>
+                doc.file &&
+                ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'].includes(
+                  doc.file.type,
+                ),
             )
             .map((doc, index) => ({
-              file: doc.file,
+              file: doc.file!,
               purpose: 'attachment' as const,
               position: imageJobs.length + index,
             }));
@@ -1640,7 +1762,15 @@ export function PropertyWizard({
                                 }}
                               >
                                 <span aria-hidden="true">{current.kind === 'pdf' ? 'PDF' : 'IMG'}</span>
-                                <small>{current.file.name}</small>
+                                <small>
+                                  {current.file?.name ||
+                                    current.label ||
+                                    (current.existing
+                                      ? ar
+                                        ? 'مستند محفوظ'
+                                        : 'Saved document'
+                                      : t('PropertyForm.chooseFile'))}
+                                </small>
                               </button>
                             </span>
                           ) : (
@@ -1989,14 +2119,28 @@ export function PropertyWizard({
               if (img)
                 return (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={img.url} alt={img.file.name} />
+                  <img src={img.url} alt={img.file?.name || (ar ? 'صورة' : 'Image')} />
                 );
-              if (doc?.kind === 'pdf')
-                return <iframe title={doc.file.name} src={doc.url} className="wizard-lightbox__pdf" />;
-              if (doc)
+              if (doc?.kind === 'pdf' && doc.url)
+                return (
+                  <iframe
+                    title={doc.file?.name || doc.label || 'PDF'}
+                    src={doc.url}
+                    className="wizard-lightbox__pdf"
+                  />
+                );
+              if (doc?.url)
                 return (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={doc.url} alt={doc.file.name} />
+                  <img src={doc.url} alt={doc.file?.name || doc.label || ''} />
+                );
+              if (doc?.existing)
+                return (
+                  <p className="muted">
+                    {ar
+                      ? 'مستند محفوظ مسبقاً — اختر ملفاً جديداً للاستبدال.'
+                      : 'Previously saved document — choose a new file to replace it.'}
+                  </p>
                 );
               return null;
             })()}
