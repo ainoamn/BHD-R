@@ -14,7 +14,7 @@ Booking-style read-only layout (gallery · title · price summary · map · amen
 | Amenities / profile | `property_amenities`, `property_profiles`, `utility_meters`, `property_documents` |
 | QR code | Client-generated (`qrcode`) → absolute URL of `/{locale}/{portal}/properties/{id}` |
 
-Scanning the QR opens the **public** property page (`/[locale]/properties/:id`) — marketing view only (no edit). Owner console stays at `/[locale]/owner/properties/:id` with a «عرض العقار» button.
+Scanning the QR or «عرض العقار» opens the **public** property page (`/[locale]/properties/:id`) — same Property 360 marketing layout (gallery, map, amenities, units, viewing form). Catalogue cards link to `/[locale]/units/:id`, which renders that same layout focused on the listed unit.
 
 ## Create / edit flow
 

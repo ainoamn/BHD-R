@@ -7,6 +7,7 @@ import { BrandMark } from '@bhd-r/ui';
 import { browserMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { PropertyQrCard } from '@/components/property-qr-card';
+import { PublicViewingForm } from '@/components/public-viewing-form';
 import { googleMapsEmbedSrc } from '@/lib/parse-google-maps-url';
 
 interface ManagedUnit {
@@ -134,12 +135,15 @@ export function PropertyDetailManager({
   locale,
   portal,
   variant = 'manage',
+  focusUnitId,
 }: {
   property: ManagedProperty;
   locale: 'ar' | 'en';
   portal: 'owner' | 'developer';
   /** manage = owner console; public = marketing read-only (QR / عرض العقار) */
   variant?: 'manage' | 'public';
+  /** When opening from a catalogue unit URL, prefer that unit for price and viewing. */
+  focusUnitId?: string;
 }) {
   const router = useRouter();
   const ar = locale === 'ar';
@@ -173,11 +177,18 @@ export function PropertyDetailManager({
   const publicPath = `/${locale}/properties/${property.id}`;
   /** QR and «عرض العقار» always open the public listing URL. */
   const propertyPath = publicPath;
-  const gallery = useMemo(
-    () => (property.gallery ?? []).filter((item) => item.url).sort((a, b) => a.position - b.position),
-    [property.gallery],
-  );
-  const primaryUnit = property.units[0];
+  const gallery = useMemo(() => {
+    const items = (property.gallery ?? [])
+      .filter((item) => item.url)
+      .sort((a, b) => a.position - b.position);
+    if (!focusUnitId) return items;
+    const focused = items.filter((item) => item.unitId === focusUnitId);
+    const rest = items.filter((item) => item.unitId !== focusUnitId);
+    return focused.length ? [...focused, ...rest] : items;
+  }, [property.gallery, focusUnitId]);
+  const primaryUnit =
+    (focusUnitId ? property.units.find((unit) => unit.id === focusUnitId) : undefined) ??
+    property.units[0];
   const mapsUrl =
     property.mapsUrl || mapsUrlFromNotes(property.profile?.notes) || null;
   const latitude =
@@ -391,7 +402,14 @@ export function PropertyDetailManager({
             <h2>{ar ? 'الوحدات' : 'Units'}</h2>
             <div className="property-360__units">
               {property.units.map((unit) => (
-                <article className="property-360__unit" key={unit.id}>
+                <article
+                  className={
+                    focusUnitId && unit.id === focusUnitId
+                      ? 'property-360__unit property-360__unit--focus'
+                      : 'property-360__unit'
+                  }
+                  key={unit.id}
+                >
                   <header>
                     <div>
                       <strong>{ar ? unit.nameAr : unit.nameEn}</strong>
@@ -660,12 +678,9 @@ export function PropertyDetailManager({
                 ) : null}
               </>
             ) : primaryUnit ? (
-              <a
-                className="button button--primary property-360__summary-cta"
-                href={`/${locale}/units/${primaryUnit.id}`}
-              >
-                {ar ? 'طلب معاينة' : 'Request viewing'}
-              </a>
+              <div className="property-360__viewing">
+                <PublicViewingForm unitId={primaryUnit.id} locale={locale} />
+              </div>
             ) : null}
           </div>
         </aside>

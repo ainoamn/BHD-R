@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.68 — 2026-08-30
+
+- Public `/units/:id` uses the same Property 360 showcase as owner/admin preview (`PropertyDetailManager` public), with focused unit pricing, gallery preference, and inline viewing request form.
+
 ## 0.2.67 — 2026-08-30
 
 - Owner portfolio: each property row shows **عرض العقار** (public listing) and **إدارة العقار** (Property 360). Manage page adds an Operations strip with Edit + links to contracts, leasing, sales, bookings, maintenance, and invoices.

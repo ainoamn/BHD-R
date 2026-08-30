@@ -1,12 +1,11 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
-import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { BrandMark, Card, CardContent, StatusBadge } from '@bhd-r/ui';
-import { getTranslations, setRequestLocale } from 'next-intl/server';
-import { PublicViewingForm } from '@/components/public-viewing-form';
+import { setRequestLocale } from 'next-intl/server';
+import { PropertyDetailManager } from '@/components/property-detail-manager';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
-import { formatMoney, localizedName } from '@/lib/format';
+import { localizedName } from '@/lib/format';
+import { loadPublicPropertyShowcaseFromNeon } from '@/lib/load-public-property-neon';
 import { loadPublicUnitFromNeon } from '@/lib/load-public-unit-neon';
 import { toPublicMediaSrc } from '@/lib/public-media-url';
 import { ApiError, publicApiFetch } from '@/lib/server-api';
@@ -76,111 +75,41 @@ export async function generateMetadata({
   };
 }
 
+/** Public unit URL — same Property 360 marketing layout as owner/admin preview. */
 export default async function UnitPage({
   params,
 }: {
   params: Promise<{ locale: string; unitId: string }>;
 }) {
-  const { locale, unitId } = await params;
+  const { locale: rawLocale, unitId } = await params;
+  const locale = rawLocale === 'en' ? 'en' : 'ar';
   setRequestLocale(locale);
-  const t = await getTranslations();
+
   const unit = await getUnit(unitId);
   if (!unit) notFound();
+
+  if (!hasDatabaseUrl()) notFound();
+  const property = await loadPublicPropertyShowcaseFromNeon(unit.propertyId).catch(() => null);
+  if (!property) notFound();
+
   const title = `${localizedName(locale, unit.propertyNameAr, unit.propertyNameEn)} — ${localizedName(locale, unit.unitNameAr, unit.unitNameEn)}`;
   const description = localizedName(locale, unit.descriptionAr ?? '', unit.descriptionEn ?? '');
   const nonce = (await headers()).get('x-nonce') ?? undefined;
   const structuredData = unitListingJsonLd({ locale, unit, title, description });
-  const primarySrc = toPublicMediaSrc(unit.images[0]?.url);
-  const secondarySrc = toPublicMediaSrc(unit.images[1]?.url);
+
   return (
     <>
-      <header className="page-hero">
+      <main className="section">
         <div className="container">
-          <StatusBadge status="positive" label={t('Property.available')} />
-          <h1>{title}</h1>
-          <p>
-            {unit.governorate} · {unit.wilayat} · {unit.city}
-          </p>
+          <PropertyDetailManager
+            property={property}
+            locale={locale}
+            portal="owner"
+            variant="public"
+            focusUnitId={unit.unitId}
+          />
         </div>
-      </header>
-      <section className="section">
-        <div className="container detail-grid">
-          <div>
-            <div className="gallery">
-              {primarySrc ? (
-                <div className="gallery__shot">
-                  <Image
-                    src={primarySrc}
-                    alt={(locale === 'ar' ? unit.images[0]?.altAr : unit.images[0]?.altEn) ?? title}
-                    width={1200}
-                    height={750}
-                    priority
-                  />
-                  <span className="media-watermark" aria-hidden="true">
-                    <BrandMark tone="onDark" />
-                  </span>
-                </div>
-              ) : (
-                <div className="gallery__placeholder" aria-hidden="true">
-                  <BrandMark tone="onDark" />
-                </div>
-              )}
-              {secondarySrc ? (
-                <div className="gallery__shot">
-                  <Image
-                    src={secondarySrc}
-                    alt={(locale === 'ar' ? unit.images[1]?.altAr : unit.images[1]?.altEn) ?? title}
-                    width={600}
-                    height={750}
-                  />
-                  <span className="media-watermark" aria-hidden="true">
-                    <BrandMark tone="onDark" />
-                  </span>
-                </div>
-              ) : null}
-            </div>
-            <Card>
-              <CardContent>
-                <h2>{t('Property.details')}</h2>
-                <dl className="detail-facts">
-                  <div>
-                    <dt>{t('Property.unitCode')}</dt>
-                    <dd>{unit.code}</dd>
-                  </div>
-                  <div>
-                    <dt>{t('Property.beds')}</dt>
-                    <dd>{unit.bedrooms}</dd>
-                  </div>
-                  <div>
-                    <dt>{t('Property.baths')}</dt>
-                    <dd>{unit.bathrooms}</dd>
-                  </div>
-                  {unit.areaSquareMeters ? (
-                    <div>
-                      <dt>{t('Property.area')}</dt>
-                      <dd>{unit.areaSquareMeters} m²</dd>
-                    </div>
-                  ) : null}
-                </dl>
-                {description ? <p>{description}</p> : null}
-                <p className="muted">{t('Property.watermark')}</p>
-              </CardContent>
-            </Card>
-          </div>
-          <aside>
-            <Card className="price-panel">
-              <CardContent>
-                <p>{t('Property.available')}</p>
-                <h2>
-                  {formatMoney(unit.rent.amountMinor, unit.rent.currency, locale)}{' '}
-                  <small>{t('Common.monthly')}</small>
-                </h2>
-                <PublicViewingForm unitId={unit.unitId} locale={locale} />
-              </CardContent>
-            </Card>
-          </aside>
-        </div>
-      </section>
+      </main>
       <script type="application/ld+json" nonce={nonce}>
         {JSON.stringify(structuredData).replaceAll('<', '\\u003c')}
       </script>

@@ -2916,6 +2916,12 @@ h3 {
   background: color-mix(in srgb, var(--surface) 94%, #fff 6%);
 }
 
+.property-360__unit--focus {
+  border-color: color-mix(in srgb, var(--bhd-teal, #08a39f) 55%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--bhd-teal, #08a39f) 35%, transparent);
+  background: color-mix(in srgb, var(--bhd-teal, #08a39f) 8%, #fff);
+}
+
 .property-360__unit > header {
   display: flex;
   align-items: center;
@@ -3056,8 +3062,18 @@ h3 {
   gap: 0.55rem;
 }
 
-.property-360__ops-actions .button {
-  min-height: 2.5rem;
+.property-360__viewing {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.35rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid color-mix(in srgb, var(--border, #deebe5) 70%, transparent);
+}
+.property-360__viewing .login-card__eyebrow,
+.property-360__viewing h2,
+.property-360__viewing h3 {
+  margin: 0 0 0.45rem;
+  font-size: 0.95rem;
 }
 
 .property-360__qr {
