@@ -34,11 +34,31 @@ function siteOrigin(): string {
 export type PublicListingSearchInput = {
   countryCode?: string;
   governorate?: string;
-  category?: string;
+  category?: PublicListing['category'];
   bedrooms?: number;
-  currency?: string;
+  currency?: PublicListing['rent']['currency'];
   limit?: number;
 };
+
+const PROPERTY_CATEGORIES = new Set<PublicListing['category']>([
+  'apartment',
+  'villa',
+  'building',
+  'office',
+  'shop',
+  'warehouse',
+  'land',
+  'other',
+]);
+
+export function asPublicListingCategory(
+  value: string | undefined | null,
+): PublicListing['category'] | undefined {
+  if (!value) return undefined;
+  return PROPERTY_CATEGORIES.has(value as PublicListing['category'])
+    ? (value as PublicListing['category'])
+    : undefined;
+}
 
 /** Public catalogue from Neon (same rules as Nest /v1/public/listings). */
 export async function searchPublicListingsFromNeon(

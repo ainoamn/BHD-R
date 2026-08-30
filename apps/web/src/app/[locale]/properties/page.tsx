@@ -4,7 +4,11 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { ListingCard } from '@/components/listing-card';
 import { PropertySearch } from '@/components/property-search';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
-import { searchPublicListingsFromNeon } from '@/lib/search-public-listings-neon';
+import {
+  searchPublicListingsFromNeon,
+  asPublicListingCategory,
+  type PublicListingSearchInput,
+} from '@/lib/search-public-listings-neon';
 import { publicApiFetch } from '@/lib/server-api';
 import { bilingualAlternates } from '@/lib/seo';
 import type { ListingCollection } from '@/lib/types';
@@ -37,14 +41,21 @@ async function loadListings(query: URLSearchParams): Promise<ListingCollection> 
         bedroomsRaw && bedroomsRaw !== '' && Number.isFinite(Number(bedroomsRaw))
           ? Number(bedroomsRaw)
           : undefined;
-      const neon = await searchPublicListingsFromNeon({
-        countryCode: query.get('countryCode') ?? undefined,
-        governorate: query.get('governorate') ?? undefined,
-        category: query.get('category') ?? undefined,
-        bedrooms,
-        currency: query.get('currency') ?? undefined,
+      const search: PublicListingSearchInput = {
         limit: Number(query.get('limit') ?? 24) || 24,
-      });
+      };
+      const countryCode = query.get('countryCode');
+      const governorate = query.get('governorate');
+      const category = asPublicListingCategory(query.get('category'));
+      const currency = query.get('currency');
+      if (countryCode) search.countryCode = countryCode;
+      if (governorate) search.governorate = governorate;
+      if (category) search.category = category;
+      if (bedrooms !== undefined) search.bedrooms = bedrooms;
+      if (currency) {
+        search.currency = currency as NonNullable<PublicListingSearchInput['currency']>;
+      }
+      const neon = await searchPublicListingsFromNeon(search);
       if (neon.data.length) return neon;
     } catch {
       /* fall through to Nest */
