@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.67 — 2026-08-30
+
+- Owner portfolio: each property row shows **عرض العقار** (public listing) and **إدارة العقار** (Property 360). Manage page adds an Operations strip with Edit + links to contracts, leasing, sales, bookings, maintenance, and invoices.
+
 ## 0.2.66 — 2026-08-30
 
 - Public catalogue photos: use relative `/api/public/media/:id` so Next/Image accepts them (absolute same-origin URLs caused broken covers).

@@ -1,8 +1,8 @@
 # Implementation status
 
 **Updated:** 2026-08-30  
-**Product version:** 0.2.66  
-**Active focus:** Public listing photos + unit detail Neon fallback + brand watermark on media  
+**Product version:** 0.2.67  
+**Active focus:** Portfolio view/manage actions + public photos  
 **Handoff:** [`HANDOFF-NEST-RENDER-2026-08-26-AR.md`](./HANDOFF-NEST-RENDER-2026-08-26-AR.md)  
 **Property identity/QR:** [`PROPERTY-IDENTITY-QR-AR.md`](./PROPERTY-IDENTITY-QR-AR.md)  
 **Adaptive properties UI:** [`PORTAL-ADAPTIVE-PROPERTIES-AR.md`](./PORTAL-ADAPTIVE-PROPERTIES-AR.md)  
@@ -23,6 +23,7 @@
 | Public catalogue publish | **shipped 0.2.64** | Neon sync `listings` + heal on Property 360 |
 | BrandMark placeholders | **shipped 0.2.65** | Official BHD logo replaces circular “R” |
 | Public photos + unit page | **shipped 0.2.66** | Relative media URLs, Neon unit fallback, logo watermark |
+| Portfolio view + manage | **shipped 0.2.67** | عرض العقار / إدارة العقار + ops shortcuts on Property 360 |
 | Nest Render reachability | **fixed 0.2.45** | Express + edge `/healthz` + CORS callback |
 
 ## Next (human / infra)

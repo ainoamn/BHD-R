@@ -3045,6 +3045,21 @@ h3 {
   text-align: center;
 }
 
+.property-360__ops {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.property-360__ops-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.property-360__ops-actions .button {
+  min-height: 2.5rem;
+}
+
 .property-360__qr {
   display: grid;
   justify-items: center;
@@ -5844,9 +5859,25 @@ h3 {
   font-size: 0.7rem;
   font-weight: 900;
 }
+.ops-action-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  justify-content: flex-start;
+}
+.ops-action--primary {
+  color: white;
+  background: var(--maroon-800, #174b70);
+  border-color: transparent;
+}
 .ops-action:hover {
   color: white;
   background: var(--bhd-teal);
+}
+.ops-action--primary:hover {
+  color: white;
+  background: var(--maroon-700, #1f5f8c);
 }
 .contract-detail {
   display: grid;

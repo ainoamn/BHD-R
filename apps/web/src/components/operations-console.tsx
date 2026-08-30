@@ -3110,13 +3110,24 @@ export function OperationsConsole({
                           ) : null}
                         </span>
                       ) : section === 'properties' ? (
-                        <Link
-                          className="ops-action"
-                          href={`/${portal}/properties/${encodeURIComponent(safeString(row.id))}`}
-                          prefetch
-                        >
-                          {ar ? 'إدارة العقار' : 'Manage property'}
-                        </Link>
+                        <span className="ops-action-group">
+                          <Link
+                            className="ops-action"
+                            href={`/properties/${encodeURIComponent(safeString(row.id))}`}
+                            prefetch
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {ar ? 'عرض العقار' : 'View listing'}
+                          </Link>
+                          <Link
+                            className="ops-action ops-action--primary"
+                            href={`/${portal}/properties/${encodeURIComponent(safeString(row.id))}`}
+                            prefetch
+                          >
+                            {ar ? 'إدارة العقار' : 'Manage property'}
+                          </Link>
+                        </span>
                       ) : section === 'contracts' ? (
                         <Link
                           className="ops-action"
@@ -3237,13 +3248,24 @@ export function OperationsConsole({
                   )}
                 </dl>
                 {section === 'properties' ? (
-                  <Link
-                    className="ops-action button button--quiet"
-                    href={`/${portal}/properties/${encodeURIComponent(safeString(row.id))}`}
-                    prefetch
-                  >
-                    {ar ? 'إدارة العقار' : 'Manage property'}
-                  </Link>
+                  <div className="ops-action-group">
+                    <Link
+                      className="ops-action button button--quiet"
+                      href={`/properties/${encodeURIComponent(safeString(row.id))}`}
+                      prefetch
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {ar ? 'عرض العقار' : 'View listing'}
+                    </Link>
+                    <Link
+                      className="ops-action button button--quiet ops-action--primary"
+                      href={`/${portal}/properties/${encodeURIComponent(safeString(row.id))}`}
+                      prefetch
+                    >
+                      {ar ? 'إدارة العقار' : 'Manage property'}
+                    </Link>
+                  </div>
                 ) : null}
               </article>
             );

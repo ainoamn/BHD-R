@@ -29,6 +29,15 @@ Scanning the QR opens the **public** property page (`/[locale]/properties/:id`) 
 
 Columns: property no., name, owner, location, kind, units, status (Neon path preferred when `DATABASE_URL` is set).
 
+**Next action (0.2.67):** two buttons per row —
+
+| Button | Opens |
+| ------ | ----- |
+| عرض العقار | Public marketing page `/{locale}/properties/:id` (new tab) |
+| إدارة العقار | Owner Property 360 `/{locale}/owner/properties/:id` — gallery, ownership, documents, ops shortcuts (contracts / leasing / sales / bookings / maintenance / invoices) + **تعديل العقار** |
+
+Same pattern as legacy bhd-om unit row actions (details vs public view), adapted to BHD R routes.
+
 ## Deploy notes
 
 - Production branch must be **`main`** (not Dependabot `typescript-6.0.3`).

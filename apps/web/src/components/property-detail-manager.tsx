@@ -448,6 +448,50 @@ export function PropertyDetailManager({
             </div>
           </section>
 
+          {!isPublic ? (
+            <section className="property-360__section property-360__ops">
+              <h2>{ar ? 'إدارة التشغيل' : 'Operations'}</h2>
+              <p className="muted">
+                {ar
+                  ? 'انتقل سريعاً إلى العقود والبيع والتأجير والحجوزات والصيانة المرتبطة بهذا الأصل، أو عدّل بيانات العقار.'
+                  : 'Jump to contracts, sales, leasing, bookings and maintenance for this asset, or edit property data.'}
+              </p>
+              <div className="property-360__ops-actions">
+                {property.status !== 'archived' ? (
+                  <a className="button button--primary" href={editHref}>
+                    {ar ? 'تعديل العقار' : 'Edit property'}
+                  </a>
+                ) : null}
+                <a className="button button--quiet" href={`/${locale}/${portal}/contracts`}>
+                  {ar ? 'العقود' : 'Contracts'}
+                </a>
+                <a className="button button--quiet" href={`/${locale}/${portal}/leasing`}>
+                  {ar ? 'التأجير' : 'Leasing'}
+                </a>
+                <a className="button button--quiet" href={`/${locale}/${portal}/sales`}>
+                  {ar ? 'البيع' : 'Sales'}
+                </a>
+                <a className="button button--quiet" href={`/${locale}/${portal}/bookings`}>
+                  {ar ? 'الحجوزات' : 'Bookings'}
+                </a>
+                <a className="button button--quiet" href={`/${locale}/${portal}/maintenance`}>
+                  {ar ? 'الصيانة' : 'Maintenance'}
+                </a>
+                <a className="button button--quiet" href={`/${locale}/${portal}/invoices`}>
+                  {ar ? 'الفواتير' : 'Invoices'}
+                </a>
+                <a
+                  className="button button--quiet"
+                  href={publicPath}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {ar ? 'عرض العقار كما يظهر للجمهور' : 'Public listing preview'}
+                </a>
+              </div>
+            </section>
+          ) : null}
+
           {!isPublic && (property.documents.length > 0 || property.meters.length > 0) ? (
             <section className="property-360__section">
               <h2>{ar ? 'المستندات والعدادات' : 'Documents & meters'}</h2>
