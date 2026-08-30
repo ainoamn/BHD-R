@@ -3425,9 +3425,13 @@ h3 {
     grid-template-columns: 1fr;
   }
 
+  .property-360__main {
+    order: 1;
+  }
+
   .property-360__summary {
     position: static;
-    order: -1;
+    order: 2;
   }
 
   .property-360__amenities {

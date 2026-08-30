@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.75 — 2026-08-30
+
+- Mobile property page: summary card (QR / price / book / share) moves to the **bottom** so gallery and details come first.
+
 ## 0.2.74 — 2026-08-30
 
 - Public listing: hide URL under QR (keep center brand mark); move share to icon row below booking CTAs.

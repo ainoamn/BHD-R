@@ -355,11 +355,12 @@
 
   .property-360__main {
     gap: var(--portal-gap);
+    order: 1;
   }
 
   .property-360__summary {
     position: static !important;
-    order: -1;
+    order: 2;
   }
 
   .property-360__summary-card {
