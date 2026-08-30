@@ -21,6 +21,10 @@ export async function ListingCard({
 }) {
   const t = await getTranslations();
   const title = `${localizedName(locale, listing.propertyNameAr, listing.propertyNameEn)} — ${localizedName(locale, listing.unitNameAr, listing.unitNameEn)}`;
+  const href =
+    'propertyId' in listing && listing.propertyId
+      ? `/properties/${listing.propertyId}`
+      : `/units/${listing.unitId}`;
   const coverSrc = toPublicMediaSrc(listing.coverImageUrl);
   const marketStatus =
     'marketStatus' in listing && listing.marketStatus
@@ -30,7 +34,7 @@ export async function ListingCard({
   const tone = marketStatusTone(marketStatus);
   return (
     <article className="listing-card">
-      <Link href={`/units/${listing.unitId}`} aria-label={title}>
+      <Link href={href} aria-label={title}>
         <div className="listing-card__image">
           {coverSrc ? (
             <Image

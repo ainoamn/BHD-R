@@ -1,8 +1,8 @@
 # Implementation status
 
 **Updated:** 2026-08-30  
-**Product version:** 0.2.73  
-**Active focus:** Public QR/share + catalogue visibility heal  
+**Product version:** 0.2.77  
+**Active focus:** Public catalogue empty list fix + QR/share polish  
 **Handoff:** [`HANDOFF-NEST-RENDER-2026-08-26-AR.md`](./HANDOFF-NEST-RENDER-2026-08-26-AR.md)  
 **Property identity/QR:** [`PROPERTY-IDENTITY-QR-AR.md`](./PROPERTY-IDENTITY-QR-AR.md)  
 **Adaptive properties UI:** [`PORTAL-ADAPTIVE-PROPERTIES-AR.md`](./PORTAL-ADAPTIVE-PROPERTIES-AR.md)  
@@ -12,6 +12,7 @@
 **Property wizard:** [`PROPERTY-WIZARD-AR.md`](./PROPERTY-WIZARD-AR.md)  
 **Property ops hub / booking:** [`RELEASE-0.2.69-AR.md`](./RELEASE-0.2.69-AR.md)  
 **Portal soft-nav + chrome:** [`RELEASE-0.2.70-71-AR.md`](./RELEASE-0.2.70-71-AR.md)  
+**Catalogue empty fix:** [`RELEASE-0.2.77-AR.md`](./RELEASE-0.2.77-AR.md)  
 **Nest hosting:** [`NEST-API-HOSTING.md`](./NEST-API-HOSTING.md)
 
 | Phase | Status | Notes |
@@ -32,18 +33,21 @@
 | Portal chrome dedupe | **shipped 0.2.71** | Text identity chip + single BHD switcher avatar |
 | Booking deposit in edit | **shipped 0.2.72** | PropertyForm deposit = العربون/الحجز; hub no longer edits it |
 | Public QR + share + catalogue heal | **shipped 0.2.73** | Share buttons on listing; reserved units visible on /properties |
+| Mobile summary order + share polish | **shipped 0.2.74–0.2.76** | QR/share UX; catalogue by publishWhenAvailable |
+| Catalogue empty `/properties` | **shipped 0.2.77** | Raw-SQL heal+list + `/api/public/catalogue` |
 | Nest Render reachability | **fixed 0.2.45** | Express + edge `/healthz` + CORS callback |
 
 ## Next (human / infra)
 
-1. Confirm Vercel **Production Branch = `main`** and Deployment `445f4f0` / 0.2.71 is Ready.  
-2. Smoke: [`RELEASE-0.2.70-71-AR.md`](./RELEASE-0.2.70-71-AR.md) (header row · soft nav) ثم [`RELEASE-0.2.69-AR.md`](./RELEASE-0.2.69-AR.md) إن لزم.  
+1. Confirm Vercel **Production Branch = `main`** and Deployment for 0.2.77 is Ready.  
+2. Smoke: [`RELEASE-0.2.77-AR.md`](./RELEASE-0.2.77-AR.md) (`/api/public/catalogue?debug=1` ثم `/ar/properties`).  
 3. (Optional) Redeploy Nest on Render so Nest public unit/media stay aligned.  
 4. S3/R2 على Vercel/Render لرفع الصور (`S3_*` env).  
 5. تدوير أسرار ظهرت في محادثات سابقة.
 
 ## Verification
 
+- `docs/implementation/RELEASE-0.2.77-AR.md`
 - `docs/implementation/RELEASE-0.2.69-AR.md`
 - `docs/ASSETS.md`
 - `docs/implementation/PORTAL-ADAPTIVE-PROPERTIES-AR.md`

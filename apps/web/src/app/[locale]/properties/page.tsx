@@ -57,7 +57,8 @@ async function loadListings(query: URLSearchParams): Promise<ListingCollection> 
       }
       // Always prefer Neon result (even empty) — Nest public catalogue can lag/hide holds.
       return await searchPublicListingsFromNeon(search);
-    } catch {
+    } catch (error) {
+      console.error('[properties] Neon catalogue failed', error);
       /* fall through to Nest only when Neon throws */
     }
   }

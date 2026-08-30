@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.77 — 2026-08-30
+
+- Catalogue fix: raw-SQL Neon search (heal + list from `publish_when_available` in one privileged txn); `GET /api/public/catalogue` diagnostics; cards link to `/properties/:id` when `propertyId` is present.
+
 ## 0.2.76 — 2026-08-30
 
 - Catalogue: list by `publishWhenAvailable` (not only `listings.enabled`); relax unit status; country filter optional + OM/OMN alias.
