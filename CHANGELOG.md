@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.87 — 2026-08-30
+
+- Nest full property UPDATE bundle (`PATCH /v1/portfolio/properties/:id` matches wizard `{property,units}`) with `@Idempotent`; Next Nest-first BFF with Neon fallback — closes remaining owner property write gap for P0-02.
+- Docs: `RELEASE-0.2.87-AR.md`.
+
 ## 0.2.86 — 2026-08-30
 
 - Nest-first property create + media upload BFF (intent→ingress→complete) with Neon fallback; owner write rate limits; PATCH property Neon idempotency; ensure `CRON_SECRET` on Vercel when missing.

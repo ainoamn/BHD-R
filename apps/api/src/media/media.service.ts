@@ -8,7 +8,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { GetObjectCommand, PutObjectCommand, DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { mediaAssets, outboxEvents, propertyDocuments, unitMedia, units } from '@bhd-r/db';
+import { mediaAssets, outboxEvents, propertyDocuments, reservations, unitMedia, units } from '@bhd-r/db';
 import type { SessionClaims } from '@bhd-r/authz';
 import { DatabaseService } from '../database/database.service.js';
 

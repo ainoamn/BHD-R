@@ -14,7 +14,6 @@ import { Throttle } from '@nestjs/throttler';
 import type { ApiRequest } from '../common/api-http.js';
 import { z } from 'zod';
 import {
-  addressSchema,
   createPropertySchema,
   createUnitSchema,
   listingSearchSchema,
@@ -31,19 +30,19 @@ const propertyBundleSchema = z.object({
     .min(1)
     .max(500),
 });
+const propertyUpdateBundleSchema = z.object({
+  property: createPropertySchema.omit({ organizationId: true }),
+  units: z
+    .array(
+      createUnitSchema.omit({ propertyId: true }).extend({
+        id: z.uuid().optional(),
+      }),
+    )
+    .min(1)
+    .max(500),
+});
 const listingToggleSchema = z.object({ enabled: z.boolean() });
 const addUnitSchema = createUnitSchema.omit({ propertyId: true });
-const propertyUpdateSchema = z
-  .object({
-    category: createPropertySchema.shape.category.optional(),
-    nameAr: z.string().trim().min(2).max(160).optional(),
-    nameEn: z.string().trim().min(2).max(160).optional(),
-    descriptionAr: z.string().trim().max(5000).nullable().optional(),
-    descriptionEn: z.string().trim().max(5000).nullable().optional(),
-    address: addressSchema.partial().optional(),
-  })
-  .strict()
-  .refine((value) => Object.keys(value).length > 0, 'At least one field is required');
 const unitUpdateSchema = createUnitSchema
   .omit({ propertyId: true, publishWhenAvailable: true, salePrice: true, deposit: true })
   .partial()
@@ -106,12 +105,13 @@ export class PortfolioController {
     return this.service.getProperty(request.auth!, id);
   }
 
-  @RequirePermissions('property.update')
+  @RequirePermissions('property.update', 'unit.update')
+  @Idempotent()
   @Patch('properties/:id')
   updateProperty(
     @Req() request: ApiRequest,
     @Param('id', ParseUUIDPipe) id: string,
-    @Body(new ZodPipe(propertyUpdateSchema)) body: z.infer<typeof propertyUpdateSchema>,
+    @Body(new ZodPipe(propertyUpdateBundleSchema)) body: z.infer<typeof propertyUpdateBundleSchema>,
   ) {
     return this.service.updateProperty(request.auth!, id, body);
   }

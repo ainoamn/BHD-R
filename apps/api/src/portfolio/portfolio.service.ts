@@ -7,6 +7,7 @@ import {
   gt,
   inArray,
   isNotNull,
+  isNull,
   lt,
   lte,
   ne,
@@ -53,26 +54,9 @@ interface PropertyBundleInput {
   units: Array<Omit<CreateUnitInput, 'propertyId'>>;
 }
 
-interface UpdatePropertyInput {
-  category?: CreatePropertyInput['category'] | undefined;
-  nameAr?: string | undefined;
-  nameEn?: string | undefined;
-  descriptionAr?: string | null | undefined;
-  descriptionEn?: string | null | undefined;
-  address?:
-    | {
-        countryCode?: string | undefined;
-        governorate?: string | undefined;
-        wilayat?: string | undefined;
-        city?: string | undefined;
-        area?: string | undefined;
-        street?: string | undefined;
-        buildingNumber?: string | undefined;
-        postalCode?: string | undefined;
-        latitude?: number | undefined;
-        longitude?: number | undefined;
-      }
-    | undefined;
+interface PropertyUpdateBundleInput {
+  property: Omit<CreatePropertyInput, 'organizationId'>;
+  units: Array<Omit<CreateUnitInput, 'propertyId'> & { id?: string | undefined }>;
 }
 
 interface UpdateUnitInput {
@@ -467,7 +451,11 @@ export class PortfolioService {
     });
   }
 
-  updateProperty(claims: SessionClaims, propertyId: string, input: UpdatePropertyInput) {
+  updateProperty(claims: SessionClaims, propertyId: string, input: PropertyUpdateBundleInput) {
+    if (input.property.kind === 'single_unit' && input.units.length !== 1)
+      throw new ConflictException('A single-unit property must contain exactly one unit');
+    if (input.property.kind === 'multi_unit' && input.units.length < 1)
+      throw new ConflictException('A multi-unit property requires units');
     return this.database.withinTenant(claims, async (transaction) => {
       const property = await transaction.query.properties.findFirst({
         where: and(
@@ -478,38 +466,321 @@ export class PortfolioService {
       if (!property) throw new NotFoundException('Property not found');
       if (property.status === 'archived')
         throw new ConflictException('Archived properties cannot be edited');
-      if (input.address) {
-        const location =
-          input.address.latitude !== undefined && input.address.longitude !== undefined
-            ? `SRID=4326;POINT(${input.address.longitude} ${input.address.latitude})`
-            : undefined;
-        await transaction
-          .update(addresses)
-          .set({ ...input.address, ...(location ? { location } : {}), updatedAt: new Date() })
-          .where(
-            and(
-              eq(addresses.id, property.addressId),
-              eq(addresses.organizationId, claims.organizationId!),
-            ),
-          );
-      }
-      const { address: _address, ...propertyPatch } = input;
-      void _address;
-      const rows = await transaction
+
+      const owner = await transaction.query.parties.findFirst({
+        where: and(
+          eq(parties.id, input.property.ownerPartyId),
+          eq(parties.organizationId, claims.organizationId!),
+        ),
+      });
+      if (!owner) throw new NotFoundException('Property owner not found in this organization');
+
+      const addr = input.property.address;
+      const duplicate = await transaction
+        .select({ id: properties.id })
+        .from(properties)
+        .innerJoin(addresses, eq(addresses.id, properties.addressId))
+        .where(
+          and(
+            eq(properties.organizationId, claims.organizationId!),
+            ne(properties.status, 'archived'),
+            ne(properties.id, propertyId),
+            eq(properties.nameAr, input.property.nameAr),
+            eq(addresses.governorate, addr.governorate),
+            eq(addresses.wilayat, addr.wilayat),
+            eq(addresses.city, addr.city),
+          ),
+        )
+        .limit(1);
+      if (duplicate[0])
+        throw new ConflictException('A property with the same name and address already exists');
+
+      const lat = addr.latitude;
+      const lon = addr.longitude;
+      const { latitude: _lat, longitude: _lon, ...addressFields } = addr;
+      await transaction
+        .update(addresses)
+        .set({
+          ...addressFields,
+          ...(typeof lat === 'number' && typeof lon === 'number'
+            ? {
+                location: sql`ST_GeogFromText(${`SRID=4326;POINT(${lon} ${lat})`})`,
+              }
+            : {}),
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(addresses.id, property.addressId),
+            eq(addresses.organizationId, claims.organizationId!),
+          ),
+        );
+
+      const propertyRows = await transaction
         .update(properties)
-        .set({ ...propertyPatch, updatedAt: new Date() })
+        .set({
+          ownerPartyId: input.property.ownerPartyId,
+          category: input.property.category,
+          nameAr: input.property.nameAr,
+          nameEn: input.property.nameEn,
+          descriptionAr: input.property.descriptionAr ?? null,
+          descriptionEn: input.property.descriptionEn ?? null,
+          defaultCurrency: input.property.defaultCurrency,
+          updatedAt: new Date(),
+        })
         .where(
           and(eq(properties.id, propertyId), eq(properties.organizationId, claims.organizationId!)),
         )
         .returning();
+      const updated = propertyRows[0]!;
+
+      if (input.property.ownerPartyId !== property.ownerPartyId) {
+        await transaction
+          .update(propertyOwnershipInterests)
+          .set({ partyId: input.property.ownerPartyId, updatedAt: new Date() })
+          .where(
+            and(
+              eq(propertyOwnershipInterests.propertyId, propertyId),
+              eq(propertyOwnershipInterests.organizationId, claims.organizationId!),
+              isNull(propertyOwnershipInterests.endsOn),
+            ),
+          );
+      }
+
+      if (input.property.profile) {
+        const { managementFee, ...profileFields } = input.property.profile;
+        if (managementFee && managementFee.currency !== input.property.defaultCurrency)
+          throw new ConflictException('Management fee currency must match property currency');
+        const existingProfile = await transaction.query.propertyProfiles.findFirst({
+          where: eq(propertyProfiles.propertyId, propertyId),
+        });
+        const profileValues = {
+          ...profileFields,
+          managementFeeMinor: managementFee ? BigInt(managementFee.amountMinor) : null,
+          updatedAt: new Date(),
+        };
+        if (existingProfile) {
+          await transaction
+            .update(propertyProfiles)
+            .set(profileValues)
+            .where(eq(propertyProfiles.id, existingProfile.id));
+        } else {
+          await transaction.insert(propertyProfiles).values({
+            organizationId: claims.organizationId!,
+            propertyId,
+            ...profileFields,
+            managementFeeMinor: managementFee ? BigInt(managementFee.amountMinor) : null,
+          });
+        }
+      }
+
+      await transaction
+        .delete(propertyAmenities)
+        .where(
+          and(
+            eq(propertyAmenities.propertyId, propertyId),
+            eq(propertyAmenities.organizationId, claims.organizationId!),
+          ),
+        );
+      if (input.property.amenities.length) {
+        await transaction.insert(propertyAmenities).values(
+          input.property.amenities.map((amenity) => ({
+            organizationId: claims.organizationId!,
+            propertyId,
+            ...amenity,
+          })),
+        );
+      }
+
+      const previousDocuments = await transaction
+        .select()
+        .from(propertyDocuments)
+        .where(
+          and(
+            eq(propertyDocuments.propertyId, propertyId),
+            eq(propertyDocuments.organizationId, claims.organizationId!),
+          ),
+        );
+      const mediaByType = new Map(
+        previousDocuments
+          .filter((row) => row.mediaAssetId)
+          .map((row) => [row.documentType, row.mediaAssetId] as const),
+      );
+      await transaction
+        .delete(propertyDocuments)
+        .where(
+          and(
+            eq(propertyDocuments.propertyId, propertyId),
+            eq(propertyDocuments.organizationId, claims.organizationId!),
+          ),
+        );
+      if (input.property.documents.length) {
+        await transaction.insert(propertyDocuments).values(
+          input.property.documents.map((document) => ({
+            organizationId: claims.organizationId!,
+            propertyId,
+            mediaAssetId: mediaByType.get(document.documentType) ?? null,
+            ...document,
+          })),
+        );
+      }
+
+      await transaction
+        .delete(utilityMeters)
+        .where(
+          and(
+            eq(utilityMeters.propertyId, propertyId),
+            eq(utilityMeters.organizationId, claims.organizationId!),
+          ),
+        );
+      if (input.property.meters.length) {
+        const existingUnits = await transaction.query.units.findMany({
+          where: and(
+            eq(units.propertyId, propertyId),
+            eq(units.organizationId, claims.organizationId!),
+          ),
+        });
+        const unitsByCode = new Map(existingUnits.map((unit) => [unit.code, unit.id]));
+        await transaction.insert(utilityMeters).values(
+          input.property.meters.map(({ unitCode, ...meter }) => ({
+            organizationId: claims.organizationId!,
+            propertyId,
+            unitId: unitCode ? (unitsByCode.get(unitCode) ?? null) : null,
+            ...meter,
+          })),
+        );
+      }
+
+      const unitRows = [];
+      for (const [index, unit] of input.units.entries()) {
+        if (
+          unit.rent.currency !== input.property.defaultCurrency ||
+          (unit.deposit && unit.deposit.currency !== unit.rent.currency) ||
+          (unit.salePrice && unit.salePrice.currency !== unit.rent.currency)
+        )
+          throw new ConflictException('Unit currencies must match property currency');
+        const patch = {
+          code: unit.code,
+          nameAr: unit.nameAr,
+          nameEn: unit.nameEn,
+          floor: unit.floor ?? null,
+          bedrooms: unit.bedrooms,
+          bathrooms: unit.bathrooms,
+          areaSquareMeters: unit.areaSquareMeters ?? null,
+          rentMinor: BigInt(unit.rent.amountMinor),
+          salePriceMinor: unit.salePrice ? BigInt(unit.salePrice.amountMinor) : null,
+          depositMinor: unit.deposit ? BigInt(unit.deposit.amountMinor) : null,
+          currency: unit.rent.currency,
+          minorUnit: currencyMinorUnits[unit.rent.currency],
+          listingPurpose: unit.listingPurpose,
+          publishWhenAvailable: unit.publishWhenAvailable,
+          updatedAt: new Date(),
+        };
+        const syncListing = async (unitRow: (typeof units.$inferSelect)) => {
+          const existingListing = await transaction.query.listings.findFirst({
+            where: and(
+              eq(listings.unitId, unitRow.id),
+              eq(listings.organizationId, claims.organizationId!),
+            ),
+          });
+          if (existingListing) {
+            await transaction
+              .update(listings)
+              .set({
+                enabled: unit.publishWhenAvailable,
+                publishedAt: unit.publishWhenAvailable
+                  ? (existingListing.publishedAt ?? new Date())
+                  : null,
+                updatedAt: new Date(),
+              })
+              .where(eq(listings.id, existingListing.id));
+          } else {
+            await transaction.insert(listings).values({
+              organizationId: claims.organizationId!,
+              unitId: unitRow.id,
+              slug: `${slugify(input.property.nameEn)}-${slugify(unit.code)}-${unitRow.id.slice(0, 8)}`,
+              enabled: unit.publishWhenAvailable,
+              publishedAt: unit.publishWhenAvailable ? new Date() : null,
+            });
+          }
+        };
+        if (unit.id) {
+          const rows = await transaction
+            .update(units)
+            .set(patch)
+            .where(
+              and(
+                eq(units.id, unit.id),
+                eq(units.propertyId, propertyId),
+                eq(units.organizationId, claims.organizationId!),
+              ),
+            )
+            .returning();
+          if (rows[0]) {
+            unitRows.push(rows[0]);
+            await syncListing(rows[0]);
+          }
+        } else if (index === 0) {
+          const existing = await transaction.query.units.findMany({
+            where: and(
+              eq(units.propertyId, propertyId),
+              eq(units.organizationId, claims.organizationId!),
+            ),
+          });
+          const first = existing[0];
+          if (first) {
+            const rows = await transaction
+              .update(units)
+              .set(patch)
+              .where(eq(units.id, first.id))
+              .returning();
+            if (rows[0]) {
+              unitRows.push(rows[0]);
+              await syncListing(rows[0]);
+            }
+          }
+        }
+      }
+
+      if (input.units.some((unit) => unit.publishWhenAvailable)) {
+        await transaction
+          .update(properties)
+          .set({ status: 'active', updatedAt: new Date() })
+          .where(
+            and(
+              eq(properties.id, propertyId),
+              eq(properties.organizationId, claims.organizationId!),
+            ),
+          );
+        await transaction
+          .update(units)
+          .set({ status: 'active', updatedAt: new Date() })
+          .where(
+            and(
+              eq(units.propertyId, propertyId),
+              eq(units.organizationId, claims.organizationId!),
+              eq(units.publishWhenAvailable, true),
+            ),
+          );
+      }
+
       await transaction.insert(outboxEvents).values({
         organizationId: claims.organizationId!,
         topic: 'property.updated',
         aggregateType: 'property',
         aggregateId: propertyId,
-        payload: { changedFields: Object.keys(input) },
+        payload: { via: 'nest-portfolio', unitCount: unitRows.length },
       });
-      return rows[0]!;
+
+      return {
+        ...updated,
+        units: unitRows.map((unit) => ({
+          ...unit,
+          rentMinor: unit.rentMinor.toString(),
+          salePriceMinor: unit.salePriceMinor?.toString() ?? null,
+          depositMinor: unit.depositMinor?.toString() ?? null,
+        })),
+      };
     });
   }
 

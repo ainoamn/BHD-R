@@ -1,28 +1,26 @@
 # Implementation status
 
 **Updated:** 2026-08-30  
-**Product version:** 0.2.86  
-**Active focus:** Nest-first property create + media upload + owner write limits  
+**Product version:** 0.2.87  
+**Active focus:** Nest-first full property UPDATE (wizard bundle)  
+**Release 0.2.87:** [`RELEASE-0.2.87-AR.md`](./RELEASE-0.2.87-AR.md)  
 **Release 0.2.86:** [`RELEASE-0.2.86-AR.md`](./RELEASE-0.2.86-AR.md)  
-**Release 0.2.85:** [`RELEASE-0.2.85-AR.md`](./RELEASE-0.2.85-AR.md)  
 **Env manifest:** [`ENV-MANIFEST.md`](./ENV-MANIFEST.md)  
 **Nest hosting:** [`NEST-API-HOSTING.md`](./NEST-API-HOSTING.md)
 
 | Phase | Status | Notes |
 | ----- | ------ | ----- |
 | Security review 2026-08-30 | **documented** | Financial launch still blocked until remaining P0/P1 closed |
-| P0-02 Next direct writes | **partial 0.2.86** | Viewing + deposit + media delete/upload + property create Nest-first; property **update** + public booking still Neon |
+| P0-02 Next direct writes | **partial 0.2.87** | Owner property create/update/deposit + media upload/delete Nest-first; **public booking** still Neon |
 | Owner write abuse limits | **mitigated 0.2.86** | Rate limits on create/update/media |
-| PATCH property idempotency | **mitigated 0.2.86** | Neon keys honor wizard `idempotency-key` |
-| P1-07 / cron | **ops** | `ensure-vercel-cron-secret.mjs` + redeploy |
+| P1-07 / cron | **mitigated 0.2.86** | `CRON_SECRET` set; cron returns 401 without bearer |
 
 ## Next (human / infra)
 
-1. Confirm cron endpoints after redeploy (no `cron_unconfigured`).  
-2. Redeploy Nest (Render) if behind media DELETE / deposit Idempotent.  
-3. Continue: Nest full property update bundle، public booking Nest، ClamAV، Nest+DB E2E، Neon non-BYPASS.  
-4. تدوير أسرار ظهرت في محادثات سابقة.
+1. **Redeploy Nest (Render)** — required for full property PATCH + prior media DELETE / deposit Idempotent.  
+2. Continue: Nest public booking checkout، ClamAV، Nest+DB E2E، Neon non-BYPASS.  
+3. تدوير أسرار ظهرت في محادثات سابقة.
 
 ## Verification
 
-- `docs/implementation/RELEASE-0.2.86-AR.md`
+- `docs/implementation/RELEASE-0.2.87-AR.md`

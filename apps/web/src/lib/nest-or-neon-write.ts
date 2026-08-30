@@ -195,6 +195,43 @@ export async function createPropertyBundleNestOrNeon(
   return { ...neon, via: 'neon' };
 }
 
+/** Prefer Nest full property update bundle when reachable; fall back to Neon. */
+export async function updatePropertyBundleNestOrNeon(
+  claims: SessionClaims,
+  propertyId: string,
+  body: unknown,
+  csrfToken: string | null,
+  options: { idempotencyKey?: string | null } = {},
+): Promise<Record<string, unknown> & { via: 'nest' | 'neon' }> {
+  const idempotencyKey =
+    options.idempotencyKey && options.idempotencyKey.trim().length >= 16
+      ? options.idempotencyKey.trim().slice(0, 200)
+      : `property-update:${propertyId}:${asSubmissionId(null)}`;
+
+  if (isNestApiConfiguredForRuntime() && (await probeNestReady())) {
+    try {
+      const result = await apiFetch<Record<string, unknown>>(
+        `/v1/portfolio/properties/${propertyId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'content-type': 'application/json',
+            'idempotency-key': idempotencyKey,
+            ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}),
+          },
+          body: JSON.stringify(body),
+        },
+      );
+      return { ...result, via: 'nest' };
+    } catch {
+      /* fall through */
+    }
+  }
+  const { updatePropertyBundleOnNeon } = await import('@/lib/create-property-neon');
+  const neon = await updatePropertyBundleOnNeon(claims, propertyId, body, { idempotencyKey });
+  return { ...neon, via: 'neon' };
+}
+
 /**
  * Prefer Nest media pipeline (intent → ingress → complete); fall back to Neon+S3.
  * Sniffs magic-bytes before calling Nest so MIME is not client-trusted.

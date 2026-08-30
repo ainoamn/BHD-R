@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
-import { updatePropertyBundleOnNeon } from '@/lib/create-property-neon';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { clientSafeErrorCode, statusForSafeCode } from '@/lib/client-safe-error';
+import { updatePropertyBundleNestOrNeon } from '@/lib/nest-or-neon-write';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 
@@ -10,7 +10,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-/** PATCH /api/owner/properties/:id — update via Neon (full wizard bundle; Nest PATCH is thin). */
+/** PATCH /api/owner/properties/:id — Nest-first full wizard bundle with Neon fallback. */
 export async function PATCH(
   request: Request,
   context: { params: Promise<{ propertyId: string }> },
@@ -65,9 +65,13 @@ export async function PATCH(
   try {
     const body = await request.json();
     const idempotencyKey = request.headers.get('idempotency-key');
-    const updated = await updatePropertyBundleOnNeon(claims, propertyId, body, {
-      idempotencyKey,
-    });
+    const updated = await updatePropertyBundleNestOrNeon(
+      claims,
+      propertyId,
+      body,
+      request.headers.get('x-csrf-token'),
+      { idempotencyKey },
+    );
     return NextResponse.json(updated, { status: 200 });
   } catch (error) {
     if (error instanceof ZodError) {
