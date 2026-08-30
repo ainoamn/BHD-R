@@ -207,6 +207,7 @@
   .portal-chrome__actions {
     flex-wrap: nowrap;
     gap: 0.3rem;
+    flex: 0 0 auto;
   }
 
   .portal-chrome__brand {

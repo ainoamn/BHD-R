@@ -24,7 +24,6 @@ export function PortalHeader({
   const pathname = usePathname();
   const ar = locale === 'ar';
   const nextLocale = locale === 'ar' ? 'en' : 'ar';
-  const initial = viewer.displayName.trim().slice(0, 1).toUpperCase() || 'B';
   const subtitle = viewer.email ?? viewer.username ?? (ar ? 'حساب BHD' : 'BHD account');
   const roleLabel = viewer.roles[0]?.replace(/_/g, ' ') ?? t(`Portal.${portal}`);
 
@@ -66,24 +65,20 @@ export function PortalHeader({
             <span>{ar ? 'English' : 'العربية'}</span>
           </Link>
 
+          {/* Text only — avatar lives in BhdAppSwitcher to avoid stacked identity controls. */}
           <div
-            className="portal-chrome__user"
+            className="portal-chrome__user portal-chrome__user--text"
             title={`${viewer.displayName} · ${subtitle}`}
             aria-label={`${viewer.displayName}, ${roleLabel}, ${subtitle}`}
           >
-            <span className="portal-chrome__avatar" aria-hidden="true">
-              {initial}
-            </span>
-            <div className="portal-chrome__user-text">
-              <strong>{viewer.displayName}</strong>
-              <small>
-                <span className="portal-chrome__role">{roleLabel}</span>
-                <span className="portal-chrome__dot" aria-hidden="true">
-                  ·
-                </span>
-                <span>{subtitle}</span>
-              </small>
-            </div>
+            <strong>{viewer.displayName}</strong>
+            <small>
+              <span className="portal-chrome__role">{roleLabel}</span>
+              <span className="portal-chrome__dot" aria-hidden="true">
+                ·
+              </span>
+              <span>{subtitle}</span>
+            </small>
           </div>
 
           <BhdAppSwitcher viewer={viewer} locale={locale} />

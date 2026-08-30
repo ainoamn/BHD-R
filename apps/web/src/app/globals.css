@@ -1003,13 +1003,16 @@ h3 {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.65rem;
-  flex-wrap: wrap;
+  gap: 0.55rem;
+  flex-wrap: nowrap;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 .portal-chrome__lang {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
+  flex: 0 0 auto;
   min-height: 2.45rem;
   padding: 0.35rem 0.75rem;
   color: var(--bhd-navy);
@@ -1046,12 +1049,37 @@ h3 {
   align-items: center;
   gap: 0.7rem;
   min-width: 0;
-  max-width: 18rem;
+  max-width: 16rem;
   padding: 0.28rem 0.7rem 0.28rem 0.28rem;
   background: linear-gradient(135deg, rgb(9 45 36 / 0.05), rgb(8 163 159 / 0.06));
   border: 1px solid rgb(9 45 36 / 0.1);
   border-radius: 999px;
-  animation: portal-user-in 0.55s ease 0.08s both;
+}
+.portal-chrome__user--text {
+  display: grid;
+  gap: 0.05rem;
+  padding: 0.35rem 0.85rem;
+  max-width: min(16rem, 28vw);
+}
+.portal-chrome__user--text strong,
+.portal-chrome__user--text small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.portal-chrome__user--text strong {
+  color: var(--oman-deep);
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.portal-chrome__user--text small {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #66756f;
+  font-size: 0.72rem;
+  font-weight: 600;
 }
 .portal-chrome__avatar {
   flex: 0 0 auto;
@@ -1098,6 +1126,9 @@ h3 {
 }
 .portal-chrome__dot {
   opacity: 0.55;
+}
+.bhd-switcher-slot {
+  flex: 0 0 auto;
 }
 .portal-mobile-bar,
 .portal-nav-backdrop,
@@ -6098,11 +6129,13 @@ h3 {
   .ops-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .portal-chrome__user {
-    max-width: 14rem;
-  }
-  .portal-chrome__user-text small {
+  .portal-chrome__user,
+  .portal-chrome__user--text {
     max-width: 11rem;
+  }
+  .portal-chrome__user-text small,
+  .portal-chrome__user--text small {
+    max-width: 9rem;
   }
 }
 
@@ -6376,7 +6409,7 @@ h3 {
   position: fixed;
   inset-block-start: 0;
   inset-inline: 0;
-  z-index: 80;
+  z-index: 120;
   height: 3px;
   pointer-events: none;
   background: transparent;

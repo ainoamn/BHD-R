@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.71 — 2026-08-30
+
+- Fix overlapping portal header: remove duplicate user avatar next to BHD app switcher; text-only identity chip + single account avatar; no wrap on chrome actions.
+
 ## 0.2.70 — 2026-08-30
 
 - Owner/developer portal soft navigation: ops sections load via client memory cache + background warm (`/api/portal/ops/...`), so sidebar clicks paint like already-open views (WAZEN-style).
