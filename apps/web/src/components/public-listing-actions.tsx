@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { formatMoney } from '@/lib/format';
+import { PublicListingShare } from '@/components/public-listing-share';
 
 export function PublicListingActions({
   unitId,
@@ -11,6 +12,8 @@ export function PublicListingActions({
   depositMinor,
   currency,
   canBook,
+  sharePath,
+  shareTitle,
 }: {
   unitId: string;
   locale: 'ar' | 'en';
@@ -18,6 +21,8 @@ export function PublicListingActions({
   depositMinor: string | null;
   currency: string;
   canBook: boolean;
+  sharePath: string;
+  shareTitle: string;
 }) {
   const router = useRouter();
   const ar = locale === 'ar';
@@ -64,9 +69,7 @@ export function PublicListingActions({
 
   function startBooking() {
     if (!signedIn) {
-      router.push(
-        `/${locale}/login?next=${encodeURIComponent(bookHref)}`,
-      );
+      router.push(`/${locale}/login?next=${encodeURIComponent(bookHref)}`);
       return;
     }
     router.push(bookHref);
@@ -119,6 +122,8 @@ export function PublicListingActions({
           {error}
         </p>
       ) : null}
+
+      <PublicListingShare path={sharePath} title={shareTitle} locale={locale} />
     </div>
   );
 }

@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.74 — 2026-08-30
+
+- Public listing: hide URL under QR (keep center brand mark); move share to icon row below booking CTAs.
+
 ## 0.2.73 — 2026-08-30
 
 - Public property page: QR + direct share (WhatsApp, Facebook, X, Telegram, LinkedIn, Instagram/native, copy link).

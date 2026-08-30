@@ -9,21 +9,22 @@ export function PropertyQrCard({
   labelEn,
   locale,
   size = 120,
+  showUrl = false,
 }: {
   path: string;
   labelAr: string;
   labelEn: string;
   locale: 'ar' | 'en';
   size?: number;
+  /** Hide raw URL under the code (public listing preference). */
+  showUrl?: boolean;
 }) {
   const [src, setSrc] = useState<string | null>(null);
-  const [url, setUrl] = useState(path);
   const ar = locale === 'ar';
   const px = Math.max(88, Math.min(180, size));
 
   useEffect(() => {
     const absolute = new URL(path, window.location.origin).toString();
-    setUrl(absolute);
     let cancelled = false;
     void import('qrcode')
       .then((mod) =>
@@ -73,9 +74,13 @@ export function PropertyQrCard({
       <p>
         <strong>{ar ? labelAr : labelEn}</strong>
       </p>
-      <p className="muted" dir="ltr">
-        {url}
-      </p>
+      {showUrl ? (
+        <p className="muted property-qr__url" dir="ltr">
+          {typeof window !== 'undefined'
+            ? new URL(path, window.location.origin).toString()
+            : path}
+        </p>
+      ) : null}
     </aside>
   );
 }

@@ -8,7 +8,6 @@ import { browserMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { PropertyQrCard } from '@/components/property-qr-card';
 import { PublicListingActions } from '@/components/public-listing-actions';
-import { PublicListingShare } from '@/components/public-listing-share';
 import { PropertyManageHub } from '@/components/property-manage-hub';
 import { googleMapsEmbedSrc } from '@/lib/parse-google-maps-url';
 
@@ -630,25 +629,16 @@ export function PropertyDetailManager({
 
         <aside className="property-360__summary" aria-label={ar ? 'ملخص السعر' : 'Price summary'}>
           <div className="property-360__summary-card">
-            {isPublic ? (
-              <div className="property-360__share">
-                <PublicListingShare
-                  path={propertyPath}
-                  title={ar ? property.nameAr : property.nameEn || property.nameAr}
-                  locale={locale}
-                />
-              </div>
-            ) : (
-              <div className="property-360__qr">
-                <PropertyQrCard
-                  path={propertyPath}
-                  locale={locale}
-                  size={112}
-                  labelAr="امسح الرمز لفتح صفحة هذا العقار"
-                  labelEn="Scan to open this property page"
-                />
-              </div>
-            )}
+            <div className="property-360__qr">
+              <PropertyQrCard
+                path={propertyPath}
+                locale={locale}
+                size={isPublic ? 132 : 112}
+                showUrl={false}
+                labelAr="امسح الرمز لفتح صفحة هذا العقار"
+                labelEn="Scan to open this property page"
+              />
+            </div>
             <p className="property-360__price">
               <strong dir="ltr">{priceLabel}</strong>
               <span>{priceSuffix}</span>
@@ -707,6 +697,8 @@ export function PropertyDetailManager({
                       primaryUnit.depositMinor !== '0' &&
                       primaryUnit.listingEnabled !== false,
                   )}
+                  sharePath={propertyPath}
+                  shareTitle={ar ? property.nameAr : property.nameEn || property.nameAr}
                 />
               </div>
             ) : null}
