@@ -2,7 +2,6 @@
 
 import type { ChangeEvent, FormEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Button, Card, CardContent, Field, SelectField, TextAreaField } from '@bhd-r/ui';
 import { supportedCurrencyCodes, currencyMinorUnits, type CurrencyCode } from '@bhd-r/contracts';
 import { countryPacks, type CountryPackCode } from '@bhd-r/country-packs';
@@ -32,6 +31,11 @@ function majorFromMinor(minor: string | null | undefined, currency: CurrencyCode
   const whole = digits.slice(0, -places);
   const frac = digits.slice(-places).replace(/0+$/, '');
   return frac ? `${whole}.${frac}` : whole;
+}
+
+function goToPropertyPage(locale: string, portal: string, id: string) {
+  // Hard navigation — next/navigation soft push can leave the wizard on /edit after save.
+  window.location.assign(`/${locale}/${portal}/properties/${encodeURIComponent(id)}`);
 }
 
 interface UnitDraft {
@@ -140,7 +144,6 @@ export function PropertyWizard({
   const t = useTranslations();
   const locale = useLocale() as 'ar' | 'en';
   const ar = locale === 'ar';
-  const router = useRouter();
   const [selectedOwnerPartyId, setSelectedOwnerPartyId] = useState(ownerPartyId);
   const [step, setStep] = useState(0);
   const [slideDir, setSlideDir] = useState<'forward' | 'back'>('forward');
@@ -759,8 +762,7 @@ export function PropertyWizard({
           );
         }
         setSuccess(ar ? 'تم تحديث بيانات العقار' : 'Property updated');
-        router.push(`/${locale}/${portal}/properties/${propertyId}`);
-        router.refresh();
+        goToPropertyPage(locale, portal, propertyId);
         return;
       }
 
@@ -850,9 +852,7 @@ export function PropertyWizard({
             : t('PropertyForm.success')),
       );
       if (mediaWarning) setError(null);
-      // Stay on success briefly then open property 360 (not contracts — leases create contracts later).
-      router.push(`/${locale}/${portal}/properties/${createdProperty.id}`);
-      router.refresh();
+      goToPropertyPage(locale, portal, createdProperty.id);
     } catch (caught) {
       setSuccess(null);
       const raw = caught instanceof Error ? caught.message : 'request_failed';
