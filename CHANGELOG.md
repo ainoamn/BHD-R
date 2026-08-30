@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.78 — 2026-08-30
+
+- Property wizard: «إزالة الصورة» now DELETE `/api/owner/media/:id` so existing gallery photos are removed from Neon (not only local React state).
+
 ## 0.2.77 — 2026-08-30
 
 - Catalogue fix: raw-SQL Neon search (heal + list from `publish_when_available` in one privileged txn); `GET /api/public/catalogue` diagnostics; cards link to `/properties/:id` when `propertyId` is present.

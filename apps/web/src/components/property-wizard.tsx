@@ -297,6 +297,7 @@ export function PropertyWizard({
       }));
   });
   const [busy, setBusy] = useState(false);
+  const [removingIds, setRemovingIds] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
@@ -607,10 +608,50 @@ export function PropertyWizard({
     })();
   }
 
-  function removeImage(id: string) {
+  async function removeImage(id: string) {
+    const target = images.find((item) => item.id === id);
+    if (!target || removingIds.has(id)) return;
+
+    // Existing gallery assets must be deleted on the server — local-only remove
+    // was why images kept coming back after refresh / re-open edit.
+    if (target.existing) {
+      setRemovingIds((current) => new Set(current).add(id));
+      setError(null);
+      try {
+        const response = await fetch(`/api/owner/media/${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+          credentials: 'same-origin',
+          headers: { accept: 'application/json' },
+        });
+        if (!response.ok && response.status !== 404) {
+          const body = (await response.json().catch(() => null)) as {
+            error?: { code?: string; message?: string };
+          } | null;
+          throw new Error(body?.error?.message ?? body?.error?.code ?? `delete_failed:${response.status}`);
+        }
+      } catch (deleteError) {
+        setError(
+          ar
+            ? `تعذّر حذف الصورة: ${deleteError instanceof Error ? deleteError.message : 'خطأ غير معروف'}`
+            : `Could not remove image: ${deleteError instanceof Error ? deleteError.message : 'unknown error'}`,
+        );
+        setRemovingIds((current) => {
+          const next = new Set(current);
+          next.delete(id);
+          return next;
+        });
+        return;
+      }
+      setRemovingIds((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+    }
+
     setImages((current) => {
-      const target = current.find((item) => item.id === id);
-      if (target) revokeIfBlob(target.url);
+      const row = current.find((item) => item.id === id);
+      if (row) revokeIfBlob(row.url);
       const next = current.filter((item) => item.id !== id);
       setCoverId((cover) => {
         if (cover && next.some((item) => item.id === cover)) return cover;
@@ -1965,9 +2006,14 @@ export function PropertyWizard({
                         <Button
                           type="button"
                           variant="quiet"
-                          onClick={() => removeImage(item.id)}
+                          disabled={removingIds.has(item.id) || busy}
+                          onClick={() => void removeImage(item.id)}
                         >
-                          {t('PropertyForm.removeImage')}
+                          {removingIds.has(item.id)
+                            ? ar
+                              ? 'جارٍ الحذف…'
+                              : 'Removing…'
+                            : t('PropertyForm.removeImage')}
                         </Button>
                       </div>
                     </li>

@@ -1,8 +1,8 @@
 # Implementation status
 
 **Updated:** 2026-08-30  
-**Product version:** 0.2.77  
-**Active focus:** Public catalogue empty list fix + QR/share polish  
+**Product version:** 0.2.78  
+**Active focus:** Persist property gallery image deletion  
 **Handoff:** [`HANDOFF-NEST-RENDER-2026-08-26-AR.md`](./HANDOFF-NEST-RENDER-2026-08-26-AR.md)  
 **Property identity/QR:** [`PROPERTY-IDENTITY-QR-AR.md`](./PROPERTY-IDENTITY-QR-AR.md)  
 **Adaptive properties UI:** [`PORTAL-ADAPTIVE-PROPERTIES-AR.md`](./PORTAL-ADAPTIVE-PROPERTIES-AR.md)  
@@ -35,6 +35,7 @@
 | Public QR + share + catalogue heal | **shipped 0.2.73** | Share buttons on listing; reserved units visible on /properties |
 | Mobile summary order + share polish | **shipped 0.2.74–0.2.76** | QR/share UX; catalogue by publishWhenAvailable |
 | Catalogue empty `/properties` | **shipped 0.2.77** | Raw-SQL heal+list + `/api/public/catalogue` |
+| Gallery image delete persist | **shipped 0.2.78** | DELETE `/api/owner/media/:id` from wizard |
 | Nest Render reachability | **fixed 0.2.45** | Express + edge `/healthz` + CORS callback |
 
 ## Next (human / infra)

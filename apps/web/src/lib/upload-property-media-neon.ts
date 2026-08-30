@@ -3,7 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { PutObjectCommand, S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { and, eq, sql } from 'drizzle-orm';
 import type { SessionClaims } from '@bhd-r/authz';
-import { createDatabase, mediaAssets, unitMedia, units, type Database } from '@bhd-r/db';
+import { createDatabase, mediaAssets, propertyDocuments, unitMedia, units, type Database } from '@bhd-r/db';
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdRPropertyWriteDb?: DbHandle };
@@ -263,6 +263,74 @@ export async function loadUnitMediaBytes(
   if (!body) return null;
   const bytes = Buffer.from(await body.transformToByteArray());
   return { bytes, mimeType: asset.mimeType };
+}
+
+/**
+ * Remove a gallery/attachment media asset from the owner's org (unit_media + asset row).
+ */
+export async function deleteUnitMediaAsset(
+  claims: SessionClaims,
+  assetId: string,
+): Promise<boolean> {
+  if (!claims.organizationId) throw new Error('organization_required');
+  const canDelete =
+    claims.permissions.includes('media.delete') ||
+    (claims.permissions.includes('media.create') &&
+      claims.permissions.includes('property.update'));
+  if (!canDelete) throw new Error('forbidden');
+  if (!/^[0-9a-f-]{36}$/i.test(assetId)) throw new Error('invalid_asset');
+
+  return withinTenant(claims, async (transaction) => {
+    const asset = await transaction.query.mediaAssets.findFirst({
+      where: and(
+        eq(mediaAssets.id, assetId),
+        eq(mediaAssets.organizationId, claims.organizationId!),
+      ),
+    });
+    if (!asset) return false;
+
+    await transaction
+      .delete(unitMedia)
+      .where(
+        and(
+          eq(unitMedia.mediaAssetId, assetId),
+          eq(unitMedia.organizationId, claims.organizationId!),
+        ),
+      );
+
+    await transaction
+      .update(propertyDocuments)
+      .set({ mediaAssetId: null })
+      .where(
+        and(
+          eq(propertyDocuments.mediaAssetId, assetId),
+          eq(propertyDocuments.organizationId, claims.organizationId!),
+        ),
+      );
+
+    const reserved = await transaction.execute(sql`
+      select 1 as ok
+      from reservation_documents
+      where media_asset_id = ${assetId}::uuid
+        and organization_id = ${claims.organizationId!}::uuid
+      limit 1
+    `);
+    const reservedRows = Array.isArray(reserved)
+      ? reserved
+      : ((reserved as { rows?: unknown[] }).rows ?? []);
+    if (reservedRows.length === 0) {
+      await transaction
+        .delete(mediaAssets)
+        .where(
+          and(
+            eq(mediaAssets.id, assetId),
+            eq(mediaAssets.organizationId, claims.organizationId!),
+          ),
+        );
+    }
+
+    return true;
+  });
 }
 
 export { s3Configured, s3BucketsReady };
