@@ -67,8 +67,10 @@ async function proxy(request: NextRequest, pathSegments: string[]): Promise<Next
   }
 
   // Fail fast when Nest is asleep/crashed — avoid 60–160s browser hangs on CSRF/save.
+  // Media ingress PUTs need more headroom (binary + S3).
   const isRead = request.method === 'GET' || request.method === 'HEAD';
-  const timeoutMs = isRead ? 12_000 : 25_000;
+  const isMediaIngress = pathSegments[0] === 'v1' && pathSegments[1] === 'media' && pathSegments[2] === 'ingress';
+  const timeoutMs = isMediaIngress ? 55_000 : isRead ? 12_000 : 25_000;
   init.signal = AbortSignal.timeout(timeoutMs);
 
   let upstream: Response;

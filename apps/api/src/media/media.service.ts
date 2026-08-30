@@ -159,10 +159,10 @@ export class MediaService {
       byteSize: input.byteSize,
       exp: Math.floor(Date.now() / 1000) + expiresInSeconds,
     });
-    // Prefer same-origin `/v1/...` (Next rewrite → Nest) so CSP connect-src 'self' allows the PUT.
-    // Absolute Nest URL remains as fallback when rewrite is unavailable.
-    const uploadPath = `/v1/media/ingress/${ingressToken}`;
-    const uploadUrl = `${mediaUploadBaseUrl()}${uploadPath}`;
+    // Prefer same-origin BFF `/api/backend/v1/...` (avoids Next rewrite body limits + CORS).
+    // Absolute Nest URL remains as fallback.
+    const uploadPath = `/api/backend/v1/media/ingress/${ingressToken}`;
+    const uploadUrl = `${mediaUploadBaseUrl()}/v1/media/ingress/${ingressToken}`;
     return {
       assetId: asset.id,
       uploadUrl,

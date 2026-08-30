@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.46 — 2026-08-30
+
+- Fix property wizard `Failed to fetch` on media: Express `raw` parser for `/v1/media/ingress` (global `rawBody` stayed off), upload via BFF `/api/backend/v1/media/ingress/...`, clearer Arabic error when the browser reports network failure.
+
 ## 0.2.45 — 2026-08-26
 
 - **Root cause:** Nest on Render hung on every controller route because Express `cors` expects `origin(origin, callback)` while `resolveCorsOrigin` was sync-only (callback never called). Fastify previously masked/compounded other listen issues; API now uses **Express** behind a public edge proxy, with callback-style CORS.

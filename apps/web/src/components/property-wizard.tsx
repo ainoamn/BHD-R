@@ -720,7 +720,16 @@ export function PropertyWizard({
       );
     } catch (caught) {
       setSuccess(null);
-      setError(caught instanceof Error ? caught.message : 'request_failed');
+      const raw = caught instanceof Error ? caught.message : 'request_failed';
+      if (/failed to fetch|network_error|upload_network|api_unreachable/i.test(raw)) {
+        setError(
+          ar
+            ? 'تعذر الاتصال بالخادم أثناء الحفظ أو رفع الملفات. تحقق أن Nest Live على Render، أعد الاتصال، ثم حاول بدون صور كبيرة أولاً.'
+            : 'Could not reach the server while saving or uploading. Confirm Nest is Live on Render, reconnect, then retry without large images first.',
+        );
+      } else {
+        setError(raw);
+      }
     } finally {
       setBusy(false);
     }

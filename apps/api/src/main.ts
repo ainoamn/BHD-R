@@ -159,8 +159,24 @@ async function bootstrap(): Promise<void> {
     res.status(200).json({ ok: true, via: 'express' });
   });
 
-  // rawBody disabled: Nest Express raw-body middleware hung Nest routes on Render.
-  // Webhook signature verification can re-enable a path-scoped raw parser later.
+  // Path-scoped raw body for media ingress only (global Nest rawBody hung on Render).
+  server.use(
+    '/v1/media/ingress',
+    express.raw({
+      type: (req) => {
+        const contentType = req.headers['content-type'] ?? '';
+        return (
+          contentType.startsWith('image/') ||
+          contentType.startsWith('application/pdf') ||
+          contentType.startsWith('application/octet-stream') ||
+          contentType.length === 0
+        );
+      },
+      limit: '26mb',
+    }),
+  );
+
+  // Avoid global Nest rawBody — it hung controller routes on Render with Express cors.
   const adapter = new ExpressAdapter(server);
   const app = await NestFactory.create<NestExpressApplication>(AppModule, adapter, {
     bufferLogs: false,
