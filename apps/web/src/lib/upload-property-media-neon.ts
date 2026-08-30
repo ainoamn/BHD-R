@@ -8,6 +8,17 @@ import { createDatabase, mediaAssets, unitMedia, units, type Database } from '@b
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdRPropertyWriteDb?: DbHandle };
 
+const INLINE_MAX_BYTES = 2_500_000;
+
+type InlineMeta = {
+  purpose?: string;
+  unitId?: string;
+  via?: string;
+  fileName?: string | null;
+  storage?: string;
+  dataBase64?: string;
+};
+
 function getDatabase(): DbHandle {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL is required');
@@ -20,18 +31,23 @@ function getDatabase(): DbHandle {
 
 function s3Configured(): boolean {
   return Boolean(
-    process.env.S3_ENDPOINT &&
-      process.env.S3_ACCESS_KEY &&
-      process.env.S3_SECRET_KEY &&
+    process.env.S3_ENDPOINT?.trim() &&
+      process.env.S3_ACCESS_KEY?.trim() &&
+      process.env.S3_SECRET_KEY?.trim() &&
       !String(process.env.S3_ENDPOINT).includes('example.com'),
   );
+}
+
+/** Object storage is usable only when a real private bucket name is set (empty env breaks R2 puts). */
+function s3BucketsReady(): boolean {
+  return s3Configured() && Boolean(process.env.S3_BUCKET_PRIVATE?.trim());
 }
 
 function getS3(): S3Client {
   const endpoint = process.env.S3_ENDPOINT;
   if (!endpoint) throw new Error('s3_unconfigured');
   return new S3Client({
-    region: process.env.S3_REGION ?? 'auto',
+    region: process.env.S3_REGION?.trim() || 'auto',
     forcePathStyle: true,
     endpoint,
     credentials: {
@@ -65,7 +81,14 @@ async function withinTenant<T>(
   });
 }
 
-export async function uploadUnitMediaOnNeon(
+function extensionFor(mimeType: string): string {
+  if (mimeType === 'image/png') return 'png';
+  if (mimeType === 'image/webp') return 'webp';
+  if (mimeType === 'application/pdf') return 'pdf';
+  return 'jpg';
+}
+
+async function persistAssetRow(
   claims: SessionClaims,
   input: {
     unitId: string;
@@ -74,46 +97,13 @@ export async function uploadUnitMediaOnNeon(
     mimeType: string;
     bytes: Buffer;
     fileName?: string;
+    objectKey: string;
+    publicObjectKey: string | null;
+    metadata: Record<string, unknown>;
   },
-): Promise<{ assetId: string; url: string }> {
-  if (!claims.organizationId) throw new Error('organization_required');
-  if (!claims.permissions.includes('media.create')) throw new Error('forbidden');
-  if (!s3Configured()) throw new Error('s3_unconfigured');
-
-  const allowed =
-    input.purpose === 'property_image'
-      ? new Set(['image/jpeg', 'image/png', 'image/webp'])
-      : new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
-  if (!allowed.has(input.mimeType) || input.bytes.byteLength < 1 || input.bytes.byteLength > 12 * 1024 * 1024) {
-    throw new Error('invalid_file');
-  }
-
-  const extension =
-    input.mimeType === 'image/png'
-      ? 'png'
-      : input.mimeType === 'image/webp'
-        ? 'webp'
-        : input.mimeType === 'application/pdf'
-          ? 'pdf'
-          : 'jpg';
-  const objectKey = `org/${claims.organizationId}/units/${input.unitId}/${randomUUID()}.${extension}`;
-  const publicBucket = process.env.S3_BUCKET_PUBLIC?.trim();
-  const privateBucket = process.env.S3_BUCKET_PRIVATE?.trim() || 'bhd-r-private';
-  const usePublic = Boolean(publicBucket) && input.purpose === 'property_image';
-  const bucket = usePublic ? publicBucket! : privateBucket;
+): Promise<string> {
   const sha256 = createHash('sha256').update(input.bytes).digest('hex');
-
-  await getS3().send(
-    new PutObjectCommand({
-      Bucket: bucket,
-      Key: objectKey,
-      Body: input.bytes,
-      ContentType: input.mimeType,
-      ContentLength: input.bytes.byteLength,
-    }),
-  );
-
-  const assetId = await withinTenant(claims, async (transaction) => {
+  return withinTenant(claims, async (transaction) => {
     const unit = await transaction.query.units.findFirst({
       where: and(
         eq(units.id, input.unitId),
@@ -127,19 +117,14 @@ export async function uploadUnitMediaOnNeon(
       .values({
         organizationId: claims.organizationId!,
         uploadedByUserId: claims.sub,
-        privateObjectKey: objectKey,
-        publicObjectKey: usePublic ? objectKey : null,
+        privateObjectKey: input.objectKey,
+        publicObjectKey: input.publicObjectKey,
         mimeType: input.mimeType,
         byteSize: BigInt(input.bytes.byteLength),
         sha256,
         processingStatus: 'ready',
         scanStatus: 'clean',
-        metadata: {
-          purpose: input.purpose,
-          unitId: input.unitId,
-          via: 'vercel-neon',
-          fileName: input.fileName ?? null,
-        },
+        metadata: input.metadata,
       })
       .returning();
     const asset = rows[0]!;
@@ -151,7 +136,89 @@ export async function uploadUnitMediaOnNeon(
     });
     return asset.id;
   });
+}
 
+export async function uploadUnitMediaOnNeon(
+  claims: SessionClaims,
+  input: {
+    unitId: string;
+    purpose: 'property_image' | 'attachment';
+    position: number;
+    mimeType: string;
+    bytes: Buffer;
+    fileName?: string;
+  },
+): Promise<{ assetId: string; url: string }> {
+  if (!claims.organizationId) throw new Error('organization_required');
+  if (!claims.permissions.includes('media.create')) throw new Error('forbidden');
+
+  const allowed =
+    input.purpose === 'property_image'
+      ? new Set(['image/jpeg', 'image/png', 'image/webp'])
+      : new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
+  if (
+    !allowed.has(input.mimeType) ||
+    input.bytes.byteLength < 1 ||
+    input.bytes.byteLength > 12 * 1024 * 1024
+  ) {
+    throw new Error('invalid_file');
+  }
+
+  const extension = extensionFor(input.mimeType);
+  const objectKey = `org/${claims.organizationId}/units/${input.unitId}/${randomUUID()}.${extension}`;
+
+  // Prefer R2/S3 when a real private bucket is configured.
+  if (s3BucketsReady()) {
+    try {
+      const publicBucket = process.env.S3_BUCKET_PUBLIC?.trim();
+      const privateBucket = process.env.S3_BUCKET_PRIVATE!.trim();
+      const usePublic = Boolean(publicBucket) && input.purpose === 'property_image';
+      const bucket = usePublic ? publicBucket! : privateBucket;
+      await getS3().send(
+        new PutObjectCommand({
+          Bucket: bucket,
+          Key: objectKey,
+          Body: input.bytes,
+          ContentType: input.mimeType,
+          ContentLength: input.bytes.byteLength,
+        }),
+      );
+      const assetId = await persistAssetRow(claims, {
+        ...input,
+        objectKey,
+        publicObjectKey: usePublic ? objectKey : null,
+        metadata: {
+          purpose: input.purpose,
+          unitId: input.unitId,
+          via: 'vercel-neon-s3',
+          fileName: input.fileName ?? null,
+          storage: 's3',
+        },
+      });
+      return { assetId, url: `/api/owner/media/${assetId}` };
+    } catch (error) {
+      console.error('S3 property media upload failed; trying Neon inline', error);
+      // Fall through to inline Neon when R2 bucket is missing/misnamed.
+    }
+  }
+
+  if (input.bytes.byteLength > INLINE_MAX_BYTES) {
+    throw new Error('inline_too_large');
+  }
+
+  const assetId = await persistAssetRow(claims, {
+    ...input,
+    objectKey: `inline/${objectKey}`,
+    publicObjectKey: null,
+    metadata: {
+      purpose: input.purpose,
+      unitId: input.unitId,
+      via: 'vercel-neon-inline',
+      fileName: input.fileName ?? null,
+      storage: 'inline',
+      dataBase64: input.bytes.toString('base64'),
+    },
+  });
   return { assetId, url: `/api/owner/media/${assetId}` };
 }
 
@@ -160,7 +227,6 @@ export async function loadUnitMediaBytes(
   assetId: string,
 ): Promise<{ bytes: Buffer; mimeType: string } | null> {
   if (!claims.organizationId) return null;
-  if (!s3Configured()) return null;
 
   const asset = await withinTenant(claims, async (transaction) => {
     return transaction.query.mediaAssets.findFirst({
@@ -172,10 +238,20 @@ export async function loadUnitMediaBytes(
   });
   if (!asset) return null;
 
+  const meta = (asset.metadata ?? {}) as InlineMeta;
+  if (meta.storage === 'inline' && typeof meta.dataBase64 === 'string' && meta.dataBase64) {
+    return { bytes: Buffer.from(meta.dataBase64, 'base64'), mimeType: asset.mimeType };
+  }
+
+  if (!s3BucketsReady() && !s3Configured()) return null;
+  if (!s3Configured()) return null;
+
   const publicBucket = process.env.S3_BUCKET_PUBLIC?.trim();
-  const privateBucket = process.env.S3_BUCKET_PRIVATE?.trim() || 'bhd-r-private';
+  const privateBucket =
+    process.env.S3_BUCKET_PRIVATE?.trim() || process.env.S3_BUCKET_PUBLIC?.trim() || 'bhd-r-private';
   const bucket = asset.publicObjectKey && publicBucket ? publicBucket : privateBucket;
   const key = asset.publicObjectKey || asset.privateObjectKey;
+  if (!key || key.startsWith('inline/')) return null;
 
   const result = await getS3().send(
     new GetObjectCommand({
@@ -189,4 +265,4 @@ export async function loadUnitMediaBytes(
   return { bytes, mimeType: asset.mimeType };
 }
 
-export { s3Configured };
+export { s3Configured, s3BucketsReady };

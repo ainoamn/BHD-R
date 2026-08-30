@@ -10,7 +10,7 @@ Booking-style read-only layout (gallery · title · price summary · map · amen
 | Owner name | Current row in `property_ownership_interests` → `parties.displayName` |
 | Address & location | `addresses` (street · area · city · wilayat · governorate) |
 | Maps / coords | `addresses.location` (PostGIS) + `Google Maps:` line in `property_profiles.notes` |
-| Gallery | `unit_media` + `media_assets` (public URL when R2/`PUBLIC_MEDIA_BASE_URL` is configured) |
+| Gallery | `unit_media` + `media_assets`; portal streams `/api/owner/media/:id` (Neon inline or R2) |
 | Amenities / profile | `property_amenities`, `property_profiles`, `utility_meters`, `property_documents` |
 | QR code | Client-generated (`qrcode`) → absolute URL of `/{locale}/{portal}/properties/{id}` |
 
@@ -34,4 +34,4 @@ Columns: property no., name, owner, location, kind, units, status (Neon path pre
 - Production branch must be **`main`** (not Dependabot `typescript-6.0.3`).
 - TypeScript pinned to `~5.9.3` via root `package.json` + pnpm overrides.
 - Migration `0012_property_serials` required on Neon for serials/sequences.
-- Gallery URLs need real object storage (`PUBLIC_MEDIA_BASE_URL` / R2); empty gallery shows CTA to edit.
+- Gallery URLs for the owner portal use `/api/owner/media/:id` (works with Neon inline bytes when R2 buckets are missing). Set real `S3_BUCKET_PRIVATE` / `S3_BUCKET_PUBLIC` on Vercel for object storage; optional `PUBLIC_MEDIA_BASE_URL` only for a real CDN.

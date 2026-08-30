@@ -949,15 +949,20 @@ export function PropertyWizard({
                 await uploadFile(job.file, mediaUnitId, job.purpose, job.position);
               });
             }
-          } catch {
+          } catch (mediaError) {
             mediaWarning = ar
-              ? 'تم تحديث العقار، لكن رفع بعض الملفات فشل — يمكنك إضافتها لاحقاً.'
-              : 'Property updated, but some file uploads failed — you can add them later.';
+              ? `تم تحديث العقار، لكن رفع الصور فشل: ${mediaError instanceof Error ? mediaError.message : 'خطأ غير معروف'}. أعد رفع الصور من التعديل.`
+              : `Property updated, but photo upload failed: ${mediaError instanceof Error ? mediaError.message : 'unknown error'}. Re-upload from edit.`;
           }
         }
         setSuccess(
           mediaWarning ?? (ar ? 'تم تحديث بيانات العقار' : 'Property updated'),
         );
+        if (mediaWarning) {
+          setError(mediaWarning);
+          setBusy(false);
+          return;
+        }
         goToPropertyPage(locale, portal, propertyId);
         return;
       }
@@ -1036,10 +1041,10 @@ export function PropertyWizard({
               await uploadFile(job.file, mediaUnitId, job.purpose, job.position);
             });
           }
-        } catch {
+        } catch (mediaError) {
           mediaWarning = ar
-            ? 'تم حفظ العقار، لكن رفع بعض الملفات فشل — يمكنك إضافتها لاحقاً.'
-            : 'Property saved, but some file uploads failed — you can add them later.';
+            ? `تم حفظ العقار، لكن رفع الصور فشل: ${mediaError instanceof Error ? mediaError.message : 'خطأ غير معروف'}. افتح التعديل وأعد رفع الصور.`
+            : `Property saved, but photo upload failed: ${mediaError instanceof Error ? mediaError.message : 'unknown error'}. Open edit and re-upload photos.`;
         }
       }
       const serial = createdProperty.serialNumber;
@@ -1051,7 +1056,14 @@ export function PropertyWizard({
               : `Saved. Property serial: ${serial}`
             : t('PropertyForm.success')),
       );
-      if (mediaWarning) setError(null);
+      if (mediaWarning) {
+        setError(mediaWarning);
+        setBusy(false);
+        window.location.assign(
+          `/${locale}/${portal}/properties/${encodeURIComponent(createdProperty.id)}/edit`,
+        );
+        return;
+      }
       goToPropertyPage(locale, portal, createdProperty.id);
     } catch (caught) {
       setSuccess(null);

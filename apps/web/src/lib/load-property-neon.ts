@@ -39,12 +39,16 @@ function extractMapsUrl(notes: string | null | undefined): string | null {
   return match?.[1]?.replace(/[.,;]+$/, '') ?? null;
 }
 
+/**
+ * Public CDN URL only when PUBLIC_MEDIA_BASE_URL is a real browser-reachable base.
+ * Never use S3_ENDPOINT (R2 API host) — browsers cannot load private object API URLs.
+ */
 function publicMediaUrl(objectKey: string | null | undefined): string | null {
-  if (!objectKey) return null;
-  const base =
-    process.env.PUBLIC_MEDIA_BASE_URL?.replace(/\/$/, '') ||
-    process.env.S3_ENDPOINT?.replace(/\/$/, '');
-  if (!base || base.includes('example.com')) return null;
+  if (!objectKey || objectKey.startsWith('inline/')) return null;
+  const base = process.env.PUBLIC_MEDIA_BASE_URL?.replace(/\/$/, '');
+  if (!base || base.includes('example.com') || base.includes('r2.cloudflarestorage.com')) {
+    return null;
+  }
   const bucket = process.env.S3_BUCKET_PUBLIC?.trim();
   return bucket ? `${base}/${bucket}/${objectKey}` : `${base}/${objectKey}`;
 }
@@ -176,10 +180,8 @@ export async function loadManagedPropertyFromNeon(
         .filter((row) => row.mimeType.startsWith('image/'))
         .map((row) => ({
           id: row.id,
-          url:
-            publicMediaUrl(row.publicObjectKey) ??
-            publicMediaUrl(row.privateObjectKey) ??
-            `/api/owner/media/${row.id}`,
+          // Owner portal always streams via authenticated BFF (works for R2 + Neon inline).
+          url: publicMediaUrl(row.publicObjectKey) ?? `/api/owner/media/${row.id}`,
           position: row.position,
           unitId: row.unitId,
         }));

@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.60 — 2026-08-30
+
+- Property photos: store via Neon inline when R2 buckets are empty/misconfigured; gallery always streams through `/api/owner/media/:id` (stop using R2 API host as image URL); surface upload failures in the wizard.
+
 ## 0.2.59 — 2026-08-30
 
 - Unified adaptive layout for all owner property surfaces (list, new, 360, edit): fluid type/icons/controls by viewport; phone cards + compact wizard; desktop table + full step rail.

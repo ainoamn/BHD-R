@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { verifySessionToken } from '@bhd-r/authz';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
-import { s3Configured, uploadUnitMediaOnNeon } from '@/lib/upload-property-media-neon';
+import { uploadUnitMediaOnNeon } from '@/lib/upload-property-media-neon';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -23,18 +23,6 @@ export async function POST(request: Request) {
           code: 'db_unconfigured',
           message: 'DATABASE_URL is not set',
           messageAr: 'قاعدة البيانات غير مضبوطة',
-        },
-      },
-      { status: 503 },
-    );
-  }
-  if (!s3Configured()) {
-    return NextResponse.json(
-      {
-        error: {
-          code: 's3_unconfigured',
-          message: 'Object storage is not configured on Vercel',
-          messageAr: 'تخزين الصور غير مضبوط على Vercel (S3/R2)',
         },
       },
       { status: 503 },
@@ -112,6 +100,11 @@ export async function POST(request: Request) {
         status: 503,
         ar: 'تخزين الصور غير مضبوط',
         en: 'Object storage unconfigured',
+      },
+      inline_too_large: {
+        status: 413,
+        ar: 'الصورة كبيرة جداً للرفع الحالي — اختر صورة أصغر أو اضبط S3_BUCKET_PRIVATE',
+        en: 'File too large for inline storage — use a smaller image or set S3_BUCKET_PRIVATE',
       },
     };
     const known = map[code];
