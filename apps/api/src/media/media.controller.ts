@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -98,5 +99,11 @@ export class MediaController {
   @Get(':id/reservation-document')
   reservationDocument(@Req() request: ApiRequest, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.reservationDocumentUrl(request.auth!, id);
+  }
+
+  @RequirePermissions('media.delete')
+  @Delete(':id')
+  remove(@Req() request: ApiRequest, @Param('id', ParseUUIDPipe) id: string) {
+    return this.service.deleteAsset(request.auth!, id);
   }
 }

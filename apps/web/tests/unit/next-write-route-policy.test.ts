@@ -68,3 +68,20 @@ describe('cron bearer compare helper contract', () => {
     expect(createHash('sha256').update('x').digest('hex')).toHaveLength(64);
   });
 });
+
+describe('Next write-route client-safe error redaction', () => {
+  it('requires clientSafeErrorCode on owner write routes that catch errors', () => {
+    const ownerRoot = path.join(apiRoot, 'owner');
+    const files = listRouteFiles(ownerRoot);
+    const offenders: string[] = [];
+    for (const file of files) {
+      const source = readFileSync(file, 'utf8');
+      if (!WRITE_EXPORT.test(source)) continue;
+      if (!source.includes('catch')) continue;
+      if (!source.includes('clientSafeErrorCode')) {
+        offenders.push(path.relative(apiRoot, file).replaceAll('\\', '/'));
+      }
+    }
+    expect(offenders, `missing clientSafeErrorCode:\n${offenders.join('\n')}`).toEqual([]);
+  });
+});

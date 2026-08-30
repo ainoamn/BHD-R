@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { clientSafeErrorCode, statusForSafeCode } from '@/lib/client-safe-error';
+import { deleteMediaAssetNestOrNeon } from '@/lib/nest-or-neon-write';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
-import { deleteUnitMediaAsset, loadUnitMediaBytes } from '@/lib/upload-property-media-neon';
+import { loadUnitMediaBytes } from '@/lib/upload-property-media-neon';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -47,7 +49,7 @@ export async function GET(
   }
 }
 
-/** DELETE /api/owner/media/:assetId — permanently remove a gallery/attachment asset. */
+/** DELETE /api/owner/media/:assetId — Nest-first with Neon+S3 fallback. */
 export async function DELETE(
   request: Request,
   context: { params: Promise<{ assetId: string }> },
@@ -70,17 +72,14 @@ export async function DELETE(
   }
 
   try {
-    const removed = await deleteUnitMediaAsset(claims, assetId);
-    if (!removed) {
-      return NextResponse.json({ error: { code: 'not_found' } }, { status: 404 });
-    }
-    return NextResponse.json({ ok: true, assetId });
+    const result = await deleteMediaAssetNestOrNeon(
+      claims,
+      assetId,
+      request.headers.get('x-csrf-token'),
+    );
+    return NextResponse.json({ ok: true, assetId: result.assetId, via: result.via });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'delete_failed';
-    if (message === 'forbidden') {
-      return NextResponse.json({ error: { code: 'forbidden' } }, { status: 403 });
-    }
-    console.error('DELETE /api/owner/media failed', error);
-    return NextResponse.json({ error: { code: 'delete_failed' } }, { status: 500 });
+    const code = clientSafeErrorCode(error, 'delete_failed');
+    return NextResponse.json({ error: { code } }, { status: statusForSafeCode(code) });
   }
 }

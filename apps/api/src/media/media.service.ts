@@ -4,11 +4,11 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { GetObjectCommand, PutObjectCommand, DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { mediaAssets, outboxEvents, reservations, unitMedia, units } from '@bhd-r/db';
+import { mediaAssets, outboxEvents, propertyDocuments, unitMedia, units } from '@bhd-r/db';
 import type { SessionClaims } from '@bhd-r/authz';
 import { DatabaseService } from '../database/database.service.js';
 
@@ -296,5 +296,84 @@ export class MediaService {
       { expiresIn: 180 },
     );
     return { url, expiresInSeconds: 180 };
+  }
+
+  async deleteAsset(claims: SessionClaims, assetId: string): Promise<{ ok: true; assetId: string }> {
+    const keys = await this.database.withinTenant(claims, async (transaction) => {
+      const asset = await transaction.query.mediaAssets.findFirst({
+        where: and(
+          eq(mediaAssets.id, assetId),
+          eq(mediaAssets.organizationId, claims.organizationId!),
+        ),
+      });
+      if (!asset) throw new NotFoundException('Media asset not found');
+
+      await transaction
+        .delete(unitMedia)
+        .where(
+          and(
+            eq(unitMedia.mediaAssetId, assetId),
+            eq(unitMedia.organizationId, claims.organizationId!),
+          ),
+        );
+
+      await transaction
+        .update(propertyDocuments)
+        .set({ mediaAssetId: null })
+        .where(
+          and(
+            eq(propertyDocuments.mediaAssetId, assetId),
+            eq(propertyDocuments.organizationId, claims.organizationId!),
+          ),
+        );
+
+      const reserved = await transaction.execute(sql`
+        select 1 as ok
+        from reservation_documents
+        where media_asset_id = ${assetId}::uuid
+          and organization_id = ${claims.organizationId!}::uuid
+        limit 1
+      `);
+      const reservedRows = Array.isArray(reserved)
+        ? reserved
+        : ((reserved as { rows?: unknown[] }).rows ?? []);
+      if (reservedRows.length === 0) {
+        await transaction
+          .delete(mediaAssets)
+          .where(
+            and(
+              eq(mediaAssets.id, assetId),
+              eq(mediaAssets.organizationId, claims.organizationId!),
+            ),
+          );
+      }
+
+      return {
+        privateObjectKey: asset.privateObjectKey,
+        publicObjectKey: asset.publicObjectKey,
+        dropObject: reservedRows.length === 0,
+      };
+    });
+
+    if (keys.dropObject) {
+      const publicBucket = process.env.S3_BUCKET_PUBLIC?.trim();
+      const privateBucket = process.env.S3_BUCKET_PRIVATE?.trim();
+      const targets: Array<{ Bucket: string; Key: string }> = [];
+      if (keys.publicObjectKey && publicBucket && !keys.publicObjectKey.startsWith('inline/')) {
+        targets.push({ Bucket: publicBucket, Key: keys.publicObjectKey });
+      }
+      if (keys.privateObjectKey && privateBucket && !keys.privateObjectKey.startsWith('inline/')) {
+        targets.push({ Bucket: privateBucket, Key: keys.privateObjectKey });
+      }
+      for (const target of targets) {
+        try {
+          await this.#s3.send(new DeleteObjectCommand(target));
+        } catch {
+          /* best-effort S3 cleanup */
+        }
+      }
+    }
+
+    return { ok: true, assetId };
   }
 }

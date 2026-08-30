@@ -29,6 +29,11 @@ const KNOWN_CODES = new Set([
   'request_failed',
   'complete_failed',
   'update_failed',
+  'create_failed',
+  'delete_failed',
+  'upload_failed',
+  's3_unconfigured',
+  'validation_failed',
 ]);
 
 export function clientSafeErrorCode(error: unknown, fallback = 'request_failed'): string {
@@ -66,8 +71,13 @@ export function statusForSafeCode(code: string): number {
       return 400;
     case 'rate_limited':
       return 429;
+    case 'inline_too_large':
+      return 413;
+    case 'validation_failed':
+      return 400;
     case 'db_unconfigured':
     case 'storage_unavailable':
+    case 's3_unconfigured':
       return 503;
     default:
       return 500;

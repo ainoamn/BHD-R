@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 import {
   asPublicListingCategory,
   searchPublicListingsFromNeon,
@@ -16,6 +17,18 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const debug = url.searchParams.get('debug') === '1';
+
+  const rate = assertRouteRateLimit({
+    key: hashRateKey(['catalogue', clientIp(request)]),
+    limit: 60,
+    windowMs: 60_000,
+  });
+  if (!rate.ok) {
+    return NextResponse.json(
+      { data: [], pagination: { nextCursor: null, hasMore: false }, error: 'rate_limited' },
+      { status: 429, headers: { 'retry-after': String(rate.retryAfterSec) } },
+    );
+  }
 
   if (!hasDatabaseUrl()) {
     return NextResponse.json(

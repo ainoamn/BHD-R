@@ -152,6 +152,10 @@ export async function searchPublicListingsFromNeon(
       where status in ('pending', 'confirmed') and expires_at <= now()
     `);
 
+    // Catalogue SELECT under public RLS — not platform_admin (heal/expire above used admin).
+    await transaction.execute(sql`select set_config('app.platform_admin', 'false', true)`);
+    await transaction.execute(sql`select set_config('app.public', 'true', true)`);
+
     const country = input.countryCode?.trim().toUpperCase() || null;
     const countryAlt = country === 'OM' ? 'OMN' : country === 'OMN' ? 'OM' : country;
     const governorate = input.governorate?.trim() || null;

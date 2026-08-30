@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import { createPropertyBundleOnNeon } from '@/lib/create-property-neon';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { clientSafeErrorCode, statusForSafeCode } from '@/lib/client-safe-error';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
 
 export const runtime = 'nodejs';
@@ -50,57 +51,40 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    const code = error instanceof Error ? error.message : 'create_failed';
-    const map: Record<string, { status: number; ar: string; en: string }> = {
-      forbidden: { status: 403, ar: 'ليست لديك صلاحية إنشاء عقار', en: 'Forbidden' },
-      organization_required: {
-        status: 400,
-        ar: 'اختر مؤسسة أولاً',
-        en: 'Organization required',
-      },
-      owner_not_found: {
-        status: 404,
-        ar: 'المالك غير موجود في هذه المؤسسة',
-        en: 'Owner not found',
-      },
+    const code = clientSafeErrorCode(error, 'create_failed');
+    const map: Record<string, { ar: string; en: string }> = {
+      forbidden: { ar: 'ليست لديك صلاحية إنشاء عقار', en: 'Forbidden' },
+      organization_required: { ar: 'اختر مؤسسة أولاً', en: 'Organization required' },
+      owner_not_found: { ar: 'المالك غير موجود في هذه المؤسسة', en: 'Owner not found' },
       single_unit_requires_one_unit: {
-        status: 409,
         ar: 'عقار بوحدة واحدة يحتاج وحدة واحدة فقط',
         en: 'Single-unit property needs exactly one unit',
       },
       multi_unit_requires_units: {
-        status: 409,
         ar: 'عقار متعدد الوحدات يحتاج وحدة واحدة على الأقل',
         en: 'Multi-unit property needs units',
       },
       duplicate_property: {
-        status: 409,
         ar: 'عقار بنفس الاسم والعنوان موجود مسبقاً — لا يُسمح بالتكرار',
         en: 'A property with the same name and address already exists',
       },
       idempotency_payload_mismatch: {
-        status: 409,
         ar: 'طلب مكرر بمفتاح مختلف — حدّث الصفحة وأعد المحاولة',
         en: 'Idempotency key reused with a different payload',
       },
+      create_failed: { ar: 'تعذر حفظ العقار في قاعدة البيانات', en: 'Create failed' },
     };
     const known = map[code];
-    if (known) {
-      return NextResponse.json(
-        { error: { code, message: known.en, messageAr: known.ar } },
-        { status: known.status },
-      );
-    }
-    console.error('POST /api/owner/properties failed', error);
+    if (!known) console.error('POST /api/owner/properties failed', error);
     return NextResponse.json(
       {
         error: {
-          code: 'create_failed',
-          message: 'Create failed',
-          messageAr: 'تعذر حفظ العقار في قاعدة البيانات',
+          code,
+          message: known?.en ?? 'Create failed',
+          messageAr: known?.ar ?? 'تعذر حفظ العقار في قاعدة البيانات',
         },
       },
-      { status: 500 },
+      { status: statusForSafeCode(code) },
     );
   }
 }

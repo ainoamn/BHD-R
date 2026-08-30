@@ -117,6 +117,7 @@ export class PortfolioController {
   }
 
   @RequirePermissions('unit.update')
+  @Idempotent()
   @Patch('properties/:id/deposit')
   updatePropertyDeposit(
     @Req() request: ApiRequest,

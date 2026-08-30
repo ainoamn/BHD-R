@@ -5,6 +5,7 @@ import type { SessionClaims } from '@bhd-r/authz';
 import {
   createDatabase,
   holds,
+  idempotencyKeys,
   leases,
   listings,
   parties,
@@ -374,8 +375,18 @@ export async function updatePropertyDepositOnNeon(
   claims: SessionClaims,
   propertyId: string,
   body: { amountMinor: string; currency?: string },
+  options: { idempotencyKey?: string | null } = {},
 ): Promise<{ ok: true; unitCount: number }> {
   if (!claims.organizationId) throw new Error('organization_required');
+  const route = `PATCH:/api/owner/properties/${propertyId}/deposit`;
+  const idemKey =
+    typeof options.idempotencyKey === 'string' && options.idempotencyKey.trim().length >= 16
+      ? options.idempotencyKey.trim().slice(0, 200)
+      : null;
+  const hash = createHash('sha256')
+    .update(JSON.stringify({ propertyId, amountMinor: body.amountMinor, currency: body.currency ?? null }))
+    .digest('hex');
+
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
     await applyOrgScope(transaction, {
@@ -392,6 +403,20 @@ export async function updatePropertyDepositOnNeon(
     await transaction.execute(
       sql`select set_config('app.party_id', ${claims.partyId ?? ''}, true)`,
     );
+
+    if (idemKey) {
+      const existing = await transaction.query.idempotencyKeys.findFirst({
+        where: and(
+          eq(idempotencyKeys.organizationId, claims.organizationId!),
+          eq(idempotencyKeys.key, idemKey),
+          eq(idempotencyKeys.route, route),
+        ),
+      });
+      if (existing?.responseBody && existing.responseStatus) {
+        if (existing.requestHash !== hash) throw new Error('idempotency_payload_mismatch');
+        return existing.responseBody as { ok: true; unitCount: number };
+      }
+    }
 
     const property = await transaction.query.properties.findFirst({
       where: and(eq(properties.id, propertyId), eq(properties.organizationId, claims.organizationId!)),
@@ -423,7 +448,30 @@ export async function updatePropertyDepositOnNeon(
         ),
       );
 
-    return { ok: true as const, unitCount: unitRows.length };
+    const result = { ok: true as const, unitCount: unitRows.length };
+    if (idemKey) {
+      await transaction
+        .insert(idempotencyKeys)
+        .values({
+          organizationId: claims.organizationId!,
+          key: idemKey,
+          route,
+          requestHash: hash,
+          responseStatus: 200,
+          responseBody: result,
+          lockedUntil: new Date(Date.now() + 30_000),
+          expiresAt: new Date(Date.now() + 86_400_000),
+        })
+        .onConflictDoUpdate({
+          target: [idempotencyKeys.organizationId, idempotencyKeys.key, idempotencyKeys.route],
+          set: {
+            responseStatus: 200,
+            responseBody: result,
+            requestHash: hash,
+          },
+        });
+    }
+    return result;
   });
 }
 

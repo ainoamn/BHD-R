@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { clientSafeErrorCode, statusForSafeCode } from '@/lib/client-safe-error';
 import { guardErrorResponse, requireLiveSession, RouteGuardError } from '@/lib/next-route-guard';
 import { uploadUnitMediaOnNeon } from '@/lib/upload-property-media-neon';
 
@@ -65,27 +66,25 @@ export async function POST(request: Request) {
       const mapped = guardErrorResponse(error);
       return NextResponse.json(mapped.body, { status: mapped.status });
     }
-    const code = error instanceof Error ? error.message : 'upload_failed';
-    const map: Record<string, { status: number; ar: string; en: string }> = {
-      forbidden: { status: 403, ar: 'ليست لديك صلاحية رفع الملفات', en: 'Forbidden' },
-      organization_required: { status: 400, ar: 'اختر مؤسسة أولاً', en: 'Organization required' },
-      unit_not_found: { status: 404, ar: 'الوحدة غير موجودة', en: 'Unit not found' },
-      invalid_file: { status: 400, ar: 'نوع أو حجم الملف غير مسموح', en: 'Invalid file' },
+    const code = clientSafeErrorCode(error, 'upload_failed');
+    const map: Record<string, { ar: string; en: string }> = {
+      forbidden: { ar: 'ليست لديك صلاحية رفع الملفات', en: 'Forbidden' },
+      organization_required: { ar: 'اختر مؤسسة أولاً', en: 'Organization required' },
+      unit_not_found: { ar: 'الوحدة غير موجودة', en: 'Unit not found' },
+      invalid_file: { ar: 'نوع أو حجم الملف غير مسموح', en: 'Invalid file' },
       storage_unavailable: {
-        status: 503,
         ar: 'تخزين الصور غير متاح — اضبط S3_BUCKET_PRIVATE',
         en: 'Object storage unavailable — configure S3_BUCKET_PRIVATE',
       },
       s3_unconfigured: {
-        status: 503,
         ar: 'تخزين الصور غير مضبوط',
         en: 'Media storage is not configured',
       },
       inline_too_large: {
-        status: 413,
         ar: 'الملف كبير للتخزين المؤقت',
         en: 'File too large for temporary storage',
       },
+      upload_failed: { ar: 'فشل رفع الملف', en: 'Upload failed' },
     };
     const hit = map[code];
     return NextResponse.json(
@@ -96,7 +95,7 @@ export async function POST(request: Request) {
           messageAr: hit?.ar ?? 'فشل رفع الملف',
         },
       },
-      { status: hit?.status ?? 500 },
+      { status: statusForSafeCode(code) },
     );
   }
 }

@@ -42,6 +42,8 @@ export async function PATCH(
     return NextResponse.json({ error: { code: 'invalid_body' } }, { status: 400 });
   }
 
+  const idempotencyKey = request.headers.get('idempotency-key')?.trim() || null;
+
   try {
     const result = await updatePropertyDepositNestOrNeon(
       claims,
@@ -51,6 +53,7 @@ export async function PATCH(
         ...(body.currency ? { currency: body.currency } : {}),
       },
       request.headers.get('x-csrf-token'),
+      { idempotencyKey },
     );
     return NextResponse.json(result);
   } catch (error) {

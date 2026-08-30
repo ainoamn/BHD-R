@@ -101,7 +101,13 @@ export async function updatePropertyDepositNestOrNeon(
   propertyId: string,
   body: { amountMinor: string; currency?: string },
   csrfToken: string | null,
+  options: { idempotencyKey?: string | null } = {},
 ): Promise<{ ok: true; unitCount: number; via: 'nest' | 'neon' }> {
+  const idempotencyKey =
+    options.idempotencyKey && options.idempotencyKey.trim().length >= 16
+      ? options.idempotencyKey.trim().slice(0, 200)
+      : `deposit:${propertyId}:${asSubmissionId(null)}`;
+
   if (isNestApiConfiguredForRuntime() && (await probeNestReady())) {
     try {
       const result = await apiFetch<{ ok: true; unitCount: number }>(
@@ -110,6 +116,7 @@ export async function updatePropertyDepositNestOrNeon(
           method: 'PATCH',
           headers: {
             'content-type': 'application/json',
+            'idempotency-key': idempotencyKey,
             ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}),
           },
           body: JSON.stringify({
@@ -123,8 +130,36 @@ export async function updatePropertyDepositNestOrNeon(
       /* fall through */
     }
   }
-  const neon = await updatePropertyDepositOnNeon(claims, propertyId, body);
+  const neon = await updatePropertyDepositOnNeon(claims, propertyId, body, {
+    idempotencyKey,
+  });
   return { ...neon, via: 'neon' };
+}
+
+/** Prefer Nest media delete when reachable; fall back to Neon+S3. */
+export async function deleteMediaAssetNestOrNeon(
+  claims: SessionClaims,
+  assetId: string,
+  csrfToken: string | null,
+): Promise<{ ok: true; assetId: string; via: 'nest' | 'neon' }> {
+  if (isNestApiConfiguredForRuntime() && (await probeNestReady())) {
+    try {
+      const result = await apiFetch<{ ok: true; assetId: string }>(`/v1/media/${assetId}`, {
+        method: 'DELETE',
+        headers: {
+          accept: 'application/json',
+          ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}),
+        },
+      });
+      return { ok: true, assetId: result.assetId ?? assetId, via: 'nest' };
+    } catch {
+      /* fall through */
+    }
+  }
+  const { deleteUnitMediaAsset } = await import('@/lib/upload-property-media-neon');
+  const removed = await deleteUnitMediaAsset(claims, assetId);
+  if (!removed) throw new Error('not_found');
+  return { ok: true, assetId, via: 'neon' };
 }
 
 export function hashIdempotencyPayload(value: unknown): string {
