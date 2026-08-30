@@ -38,7 +38,7 @@ Columns: property no., name, owner, location, kind, units, status (Neon path pre
 
 Manage hub actions use `?propertyId=` on contracts / leasing / sales / bookings / maintenance / invoices.
 
-Public catalogue cards (0.2.69) show a status watermark: available / for rent / for sale / reserved / leased / sold. Public CTAs require login: viewing request + book→deposit checkout. Booking deposit is set in **Edit property → Units** (`PropertyForm.deposit`, 0.2.72).
+Public catalogue cards (0.2.69) show a status watermark: available / for rent / for sale / reserved / leased / sold. Public CTAs require login: viewing request + book→deposit checkout. Booking deposit is set in **Edit property → Units** (`PropertyForm.deposit`, 0.2.72). Public listing page (0.2.73) shows **QR + share** (WhatsApp / Facebook / X / Telegram / LinkedIn / Instagram-native / copy). Catalogue heals publish flags and keeps reserved units visible with watermark.
 
 ## Deploy notes
 

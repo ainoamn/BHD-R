@@ -54,6 +54,9 @@ export async function loadPublicPropertyShowcaseFromNeon(
   propertyId: string,
 ): Promise<ManagedProperty | null> {
   if (!/^[0-9a-f-]{36}$/i.test(propertyId)) return null;
+  const { healPublicCatalogueListings } = await import('@/lib/heal-public-listings');
+  await healPublicCatalogueListings({ propertyId }).catch(() => undefined);
+
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
     await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);

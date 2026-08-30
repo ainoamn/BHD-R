@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.73 — 2026-08-30
+
+- Public property page: QR + direct share (WhatsApp, Facebook, X, Telegram, LinkedIn, Instagram/native, copy link).
+- Catalogue `/properties`: heal publish flags + privileged read so reserved/held units still appear (with status watermark) instead of vanishing via RLS.
+
 ## 0.2.72 — 2026-08-30
 
 - Rename unit **التأمين** → **مبلغ العربون / الحجز** in property edit (units step), with checkout hint; remove deposit editor from manage hub (set it in Edit property settings).

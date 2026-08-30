@@ -10,6 +10,7 @@ import {
 } from '@bhd-r/db';
 import type { ListingCollection, PublicListing } from '@bhd-r/contracts';
 import { marketStatusFromPurpose, type CatalogueListing } from '@/lib/listing-market-status';
+import { healPublicCatalogueListings } from '@/lib/heal-public-listings';
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdRPublicListingsDb?: DbHandle };
@@ -53,15 +54,20 @@ export function asPublicListingCategory(
     : undefined;
 }
 
-/** Public catalogue from Neon (same rules as Nest /v1/public/listings). */
+/** Public catalogue from Neon (same publish rules as Nest; soft occupancy labels). */
 export async function searchPublicListingsFromNeon(
   input: PublicListingSearchInput = {},
 ): Promise<ListingCollection & { data: CatalogueListing[] }> {
   const limit = Math.min(Math.max(input.limit ?? 24, 1), 48);
+  // Heal publish flags first — edit/deposit paths can leave listings.enabled=false.
+  await healPublicCatalogueListings().catch(() => undefined);
+
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
-    await transaction.execute(sql`select set_config('app.public', 'true', true)`);
-    await transaction.execute(sql`select set_config('app.platform_admin', 'false', true)`);
+    // Privileged read: RLS public_unit_available hides reserved/held units entirely,
+    // but the catalogue should still show them with a market-status watermark.
+    await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
+    await transaction.execute(sql`select set_config('app.public', 'false', true)`);
 
     const conditions = [
       eq(listings.enabled, true),
