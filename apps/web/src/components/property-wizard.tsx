@@ -1639,6 +1639,7 @@ export function PropertyWizard({
                         onChange={(event) =>
                           updateUnit(unit.localId, 'deposit', event.target.value)
                         }
+                        hint={t('PropertyForm.depositHint')}
                       />
                       <div className="span-2 publish-hint">
                         <label className="checkbox-row">

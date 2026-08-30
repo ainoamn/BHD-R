@@ -1,8 +1,7 @@
 'use client';
 
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { currencyMinorUnits, type CurrencyCode } from '@bhd-r/contracts';
 import { browserMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import type { ManagedProperty } from '@/components/property-detail-manager';
@@ -20,13 +19,6 @@ export function PropertyManageHub({
   const ar = locale === 'ar';
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [depositDraft, setDepositDraft] = useState(() => {
-    const unit = property.units[0];
-    if (!unit?.depositMinor) return '';
-    const digits = currencyMinorUnits[unit.currency as CurrencyCode] ?? 3;
-    const minor = Number(unit.depositMinor);
-    return Number.isFinite(minor) ? (minor / 10 ** digits).toFixed(digits) : '';
-  });
 
   const base = `/${locale}/${portal}`;
   const propertyId = encodeURIComponent(property.id);
@@ -36,72 +28,46 @@ export function PropertyManageHub({
 
   const publishedUnits = property.units.filter((unit) => unit.listingEnabled).length;
   const unpublishedUnits = property.units.length - publishedUnits;
+  const primaryUnit = property.units[0];
+  const currency = primaryUnit?.currency ?? property.defaultCurrency;
+  const depositLabel =
+    primaryUnit?.depositMinor && primaryUnit.depositMinor !== '0'
+      ? formatMoney(primaryUnit.depositMinor, currency, locale)
+      : null;
+
   const alerts = useMemo(() => {
-    const items: string[] = [];
+    const items: Array<{ text: string; href?: string }> = [];
     if (property.status === 'archived') {
-      items.push(ar ? 'العقار مؤرشف — الإعلانات متوقفة.' : 'Property is archived — listings are off.');
+      items.push({
+        text: ar ? 'العقار مؤرشف — الإعلانات متوقفة.' : 'Property is archived — listings are off.',
+      });
     }
     if (!property.gallery?.length) {
-      items.push(ar ? 'لا صور في المعرض بعد.' : 'Gallery has no photos yet.');
+      items.push({ text: ar ? 'لا صور في المعرض بعد.' : 'Gallery has no photos yet.' });
     }
     if (unpublishedUnits > 0) {
-      items.push(
-        ar
+      items.push({
+        text: ar
           ? `${unpublishedUnits} وحدة غير منشورة للجمهور.`
           : `${unpublishedUnits} unit(s) not published publicly.`,
-      );
+      });
     }
     const missingDeposit = property.units.filter(
       (unit) => !unit.depositMinor || unit.depositMinor === '0',
     ).length;
     if (missingDeposit > 0) {
-      items.push(
-        ar
-          ? 'حدد مبلغ العربون/الحجز للوحدات حتى يعمل زر الحجز للجمهور.'
-          : 'Set a booking deposit on units so the public Book button can charge it.',
-      );
+      items.push({
+        text: ar
+          ? 'حدّد مبلغ العربون/الحجز من تعديل العقار → الوحدات حتى يعمل زر «احجز الآن».'
+          : 'Set the booking deposit under Edit property → Units so Book now works.',
+        href: editHref,
+      });
     }
     if (!property.address) {
-      items.push(ar ? 'عنوان العقار غير مكتمل.' : 'Property address is incomplete.');
+      items.push({ text: ar ? 'عنوان العقار غير مكتمل.' : 'Property address is incomplete.' });
     }
     return items;
-  }, [ar, property, unpublishedUnits]);
-
-  const primaryUnit = property.units[0];
-  const currency = primaryUnit?.currency ?? property.defaultCurrency;
-
-  async function saveDeposit(event: FormEvent) {
-    event.preventDefault();
-    if (!primaryUnit || property.status === 'archived') return;
-    const amount = Number(depositDraft);
-    if (!Number.isFinite(amount) || amount < 0) {
-      setError(ar ? 'أدخل مبلغ عربون صالحاً.' : 'Enter a valid deposit amount.');
-      return;
-    }
-    const digits = currencyMinorUnits[currency as CurrencyCode] ?? 3;
-    const amountMinor = Math.round(amount * 10 ** digits).toString();
-    setBusy(true);
-    setError(null);
-    try {
-      const response = await fetch(`/api/owner/properties/${property.id}/deposit`, {
-        method: 'PATCH',
-        credentials: 'same-origin',
-        headers: { 'content-type': 'application/json', accept: 'application/json' },
-        body: JSON.stringify({ amountMinor, currency }),
-      });
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as {
-          error?: { message?: string; code?: string };
-        } | null;
-        throw new Error(payload?.error?.message ?? payload?.error?.code ?? 'save_failed');
-      }
-      router.refresh();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'save_failed');
-    } finally {
-      setBusy(false);
-    }
-  }
+  }, [ar, editHref, property, unpublishedUnits]);
 
   async function archiveOrRestore() {
     const restoring = property.status === 'archived';
@@ -131,7 +97,7 @@ export function PropertyManageHub({
   }
 
   const actions = [
-    { href: editHref, label: ar ? 'تعديل العقار' : 'Edit property', primary: true },
+    { href: editHref, label: ar ? 'تعديل العقار (الضبط)' : 'Edit property (settings)', primary: true },
     { href: scoped('contracts'), label: ar ? 'العقود' : 'Contracts' },
     { href: scoped('leasing'), label: ar ? 'التأجير' : 'Leasing' },
     { href: scoped('sales'), label: ar ? 'البيع' : 'Sales' },
@@ -154,6 +120,14 @@ export function PropertyManageHub({
           <p className="muted" dir="ltr">
             {property.serialNumber ?? property.id}
           </p>
+          {depositLabel ? (
+            <p className="muted">
+              {ar ? 'عربون الحجز:' : 'Booking deposit:'}{' '}
+              <strong dir="ltr">{depositLabel}</strong>
+              {' · '}
+              <a href={editHref}>{ar ? 'تعديل من الضبط' : 'Edit in settings'}</a>
+            </p>
+          ) : null}
         </div>
         <a className="button button--quiet" href={`${base}/properties`}>
           {ar ? 'العودة للمحفظة' : 'Back to portfolio'}
@@ -190,44 +164,15 @@ export function PropertyManageHub({
         {alerts.length ? (
           <ul>
             {alerts.map((item) => (
-              <li key={item}>{item}</li>
+              <li key={item.text}>
+                {item.href ? <a href={item.href}>{item.text}</a> : item.text}
+              </li>
             ))}
           </ul>
         ) : (
           <p className="muted">{ar ? 'لا تنبيهات حالياً.' : 'No alerts right now.'}</p>
         )}
       </section>
-
-      {primaryUnit && property.status !== 'archived' ? (
-        <section className="property-manage-hub__deposit">
-          <h2>{ar ? 'مبلغ العربون / الحجز' : 'Booking deposit'}</h2>
-          <p className="muted">
-            {ar
-              ? 'يُستخدم هذا المبلغ عندما يضغط الزائر «احجز الآن» ويدفع عبر شاشة الدفع.'
-              : 'Used when a visitor taps Book now and pays on the checkout screen.'}
-          </p>
-          <form onSubmit={(event) => void saveDeposit(event)} className="property-manage-hub__deposit-form">
-            <label>
-              <span>{ar ? `المبلغ (${currency})` : `Amount (${currency})`}</span>
-              <input
-                className="input"
-                inputMode="decimal"
-                value={depositDraft}
-                onChange={(event) => setDepositDraft(event.target.value)}
-                placeholder="0.000"
-              />
-            </label>
-            <button className="button button--primary" type="submit" disabled={busy}>
-              {ar ? 'حفظ العربون' : 'Save deposit'}
-            </button>
-            {primaryUnit.depositMinor ? (
-              <p className="muted" dir="ltr">
-                {formatMoney(primaryUnit.depositMinor, currency, locale)}
-              </p>
-            ) : null}
-          </form>
-        </section>
-      ) : null}
 
       <section className="property-manage-hub__actions" aria-label={ar ? 'إجراءات' : 'Actions'}>
         <h2>{ar ? 'إجراءات هذا العقار' : 'Actions for this property'}</h2>

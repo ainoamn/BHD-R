@@ -34,11 +34,11 @@ Columns: property no., name, owner, location, kind, units, status (Neon path pre
 | Button | Opens |
 | ------ | ----- |
 | عرض العقار | Public marketing page `/{locale}/properties/:id` (new tab) |
-| إدارة العقار | **Ops hub** `/{locale}/owner/properties/:id` — stats/alerts/deposit + scoped actions (not the public listing layout) |
+| إدارة العقار | **Ops hub** `/{locale}/owner/properties/:id` — stats/alerts + scoped actions (booking deposit is set in **Edit property → Units**) |
 
 Manage hub actions use `?propertyId=` on contracts / leasing / sales / bookings / maintenance / invoices.
 
-Public catalogue cards (0.2.69) show a status watermark: available / for rent / for sale / reserved / leased / sold. Public CTAs require login: viewing request + book→deposit checkout.
+Public catalogue cards (0.2.69) show a status watermark: available / for rent / for sale / reserved / leased / sold. Public CTAs require login: viewing request + book→deposit checkout. Booking deposit is set in **Edit property → Units** (`PropertyForm.deposit`, 0.2.72).
 
 ## Deploy notes
 

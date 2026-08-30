@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.72 — 2026-08-30
+
+- Rename unit **التأمين** → **مبلغ العربون / الحجز** in property edit (units step), with checkout hint; remove deposit editor from manage hub (set it in Edit property settings).
+
 ## 0.2.71 — 2026-08-30
 
 - Fix overlapping portal header: remove duplicate user avatar next to BHD app switcher; text-only identity chip + single account avatar; no wrap on chrome actions.

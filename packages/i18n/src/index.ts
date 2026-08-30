@@ -229,7 +229,9 @@ export const messages = {
       bathrooms: 'الحمامات',
       area: 'المساحة بالمتر المربع',
       rent: 'الإيجار',
-      deposit: 'التأمين',
+      deposit: 'مبلغ العربون / الحجز',
+      depositHint:
+        'يُستخدم هذا المبلغ عندما يضغط الزائر «احجز الآن» ويدفع عبر شاشة الدفع. المبلغ بعملة العقار (عادةً ر.ع).',
       publish: 'عرض الوحدة عند توفرها',
       images: 'صور العقار',
       imageHelp:
@@ -527,7 +529,9 @@ export const messages = {
       bathrooms: 'Bathrooms',
       area: 'Area in square metres',
       rent: 'Rent',
-      deposit: 'Deposit',
+      deposit: 'Booking deposit / hold',
+      depositHint:
+        'Charged when a visitor taps Book now and pays on the checkout screen. Amount is in the property currency (usually OMR).',
       publish: 'Publish this unit whenever available',
       images: 'Property images',
       imageHelp:

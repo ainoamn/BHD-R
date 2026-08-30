@@ -1,8 +1,8 @@
 # Implementation status
 
 **Updated:** 2026-08-30  
-**Product version:** 0.2.71  
-**Active focus:** Portal chrome overlap fix + SPA-like ops nav  
+**Product version:** 0.2.72  
+**Active focus:** Booking deposit in property edit settings  
 **Handoff:** [`HANDOFF-NEST-RENDER-2026-08-26-AR.md`](./HANDOFF-NEST-RENDER-2026-08-26-AR.md)  
 **Property identity/QR:** [`PROPERTY-IDENTITY-QR-AR.md`](./PROPERTY-IDENTITY-QR-AR.md)  
 **Adaptive properties UI:** [`PORTAL-ADAPTIVE-PROPERTIES-AR.md`](./PORTAL-ADAPTIVE-PROPERTIES-AR.md)  
@@ -30,6 +30,7 @@
 | Property ops hub + booking CTAs | **shipped 0.2.69** | Manage hub, propertyId filters, status marks, auth viewing/book |
 | Portal soft-nav ops cache | **shipped 0.2.70** | Client memory cache + idle warm `/api/portal/ops` |
 | Portal chrome dedupe | **shipped 0.2.71** | Text identity chip + single BHD switcher avatar |
+| Booking deposit in edit | **shipped 0.2.72** | PropertyForm deposit = العربون/الحجز; hub no longer edits it |
 | Nest Render reachability | **fixed 0.2.45** | Express + edge `/healthz` + CORS callback |
 
 ## Next (human / infra)
