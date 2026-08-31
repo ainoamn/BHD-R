@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.3.7 — 2026-08-31
+
+- Public properties browse: Booking-style sticky search + filter sidebar/drawer, instant client facets, smart natural-language filters, horizontal result rows; Neon catalogue enriched with pool/parking/amenities/city.
+- Docs: `RELEASE-0.3.7-AR.md`.
+
 ## 0.3.6 — 2026-08-31
 
 - Bookings create form: load vacant units from Neon (no Nest dependency); exclude units with active lease/reservation/hold; show empty hint when none.

@@ -1,9 +1,12 @@
 import type { Metadata } from 'next';
-import { EmptyState } from '@bhd-r/ui';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import { ListingCard } from '@/components/listing-card';
-import { PropertyFilters, type PropertyFilterDefaults } from '@/components/property-filters';
+import { PropertiesBrowse } from '@/components/properties-browse';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import {
+  filtersFromSearchRecord,
+  type BrowseFilterState,
+} from '@/lib/properties-browse-filters';
+import type { CatalogueListing } from '@/lib/listing-market-status';
 import {
   searchPublicListingsFromNeon,
   asPublicListingCategory,
@@ -39,9 +42,13 @@ function parseMajorPrice(value: string | undefined): number | undefined {
   return Number.isFinite(n) && n >= 0 ? n : undefined;
 }
 
-async function loadListings(query: URLSearchParams): Promise<ListingCollection> {
-  const empty: ListingCollection = {
-    data: [],
+function one(value: string | string[] | undefined): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+async function loadListings(query: URLSearchParams): Promise<ListingCollection & { data: CatalogueListing[] }> {
+  const empty = {
+    data: [] as CatalogueListing[],
     pagination: { nextCursor: null, hasMore: false },
   };
   if (hasDatabaseUrl()) {
@@ -51,38 +58,79 @@ async function loadListings(query: URLSearchParams): Promise<ListingCollection> 
         bedroomsRaw && bedroomsRaw !== '' && Number.isFinite(Number(bedroomsRaw))
           ? Number(bedroomsRaw)
           : undefined;
+      const bedroomsMinRaw = query.get('bedroomsMin');
+      const bedroomsMin =
+        bedroomsMinRaw && Number.isFinite(Number(bedroomsMinRaw))
+          ? Number(bedroomsMinRaw)
+          : undefined;
+      const bathroomsMinRaw = query.get('bathroomsMin');
+      const bathroomsMin =
+        bathroomsMinRaw && Number.isFinite(Number(bathroomsMinRaw))
+          ? Number(bathroomsMinRaw)
+          : undefined;
       const search: PublicListingSearchInput = {
-        limit: Number(query.get('limit') ?? 24) || 24,
+        limit: Number(query.get('limit') ?? 100) || 100,
       };
       const countryCode = query.get('countryCode');
       const governorate = query.get('governorate');
       const wilayat = query.get('wilayat');
       const village = query.get('village');
       const category = asPublicListingCategory(query.get('category'));
+      const categories = (query.get('categories') ?? '')
+        .split(',')
+        .map((item) => asPublicListingCategory(item.trim()))
+        .filter((item): item is NonNullable<typeof item> => Boolean(item));
       const currency = query.get('currency');
       const purpose = parsePurpose(query.get('purpose') ?? undefined);
       const priceMin = parseMajorPrice(query.get('priceMin') ?? undefined);
       const priceMax = parseMajorPrice(query.get('priceMax') ?? undefined);
+      const amenities = (query.get('amenities') ?? '')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+      const q = query.get('q')?.trim();
+      const hasPool = query.get('hasPool') === '1' || query.get('hasPool') === 'true';
+      const hasParking =
+        query.get('hasParking') === '1' || query.get('hasParking') === 'true';
+
       if (countryCode) search.countryCode = countryCode;
       if (governorate) search.governorate = governorate;
       if (wilayat) search.wilayat = wilayat;
       if (village) search.village = village;
-      if (category) search.category = category;
+      if (categories.length) search.categories = categories;
+      else if (category) search.category = category;
       if (bedrooms !== undefined) search.bedrooms = bedrooms;
+      if (bedroomsMin !== undefined) search.bedroomsMin = bedroomsMin;
+      if (bathroomsMin !== undefined) search.bathroomsMin = bathroomsMin;
       if (currency) {
         search.currency = currency as NonNullable<PublicListingSearchInput['currency']>;
       }
       if (purpose) search.purpose = purpose;
       if (priceMin !== undefined) search.priceMin = priceMin;
       if (priceMax !== undefined) search.priceMax = priceMax;
+      if (hasPool) search.hasPool = true;
+      if (hasParking) search.hasParking = true;
+      if (amenities.length) search.amenities = amenities;
+      if (q) search.q = q;
       return await searchPublicListingsFromNeon(search);
     } catch (error) {
       console.error('[properties] Neon catalogue failed', error);
     }
   }
-  return publicApiFetch<ListingCollection>(`/v1/public/listings?${query.toString()}`, 30).catch(
-    () => empty,
-  );
+  return publicApiFetch<ListingCollection>(`/v1/public/listings?${query.toString()}`, 30)
+    .then((payload) => ({
+      ...payload,
+      data: payload.data.map((item) => ({
+        ...item,
+        marketStatus:
+          item.listingPurpose === 'sale'
+            ? ('available_sale' as const)
+            : item.listingPurpose === 'rent'
+              ? ('available_rent' as const)
+              : ('available' as const),
+      })),
+    }))
+    .catch(() => empty);
 }
 
 export default async function PropertiesPage({
@@ -95,36 +143,37 @@ export default async function PropertiesPage({
   const { locale } = await params;
   setRequestLocale(locale);
   const raw = await searchParams;
-  const one = (value: string | string[] | undefined) =>
-    typeof value === 'string' ? value : undefined;
-  const defaults: PropertyFilterDefaults = {};
-  const purposeValue = one(raw.purpose);
-  const countryCode = one(raw.countryCode);
-  const governorate = one(raw.governorate);
-  const wilayat = one(raw.wilayat);
-  const village = one(raw.village);
-  const category = one(raw.category);
-  const bedrooms = one(raw.bedrooms);
-  const currency = one(raw.currency);
-  const priceMin = one(raw.priceMin);
-  const priceMax = one(raw.priceMax);
-  if (purposeValue) defaults.purpose = purposeValue;
-  if (countryCode) defaults.countryCode = countryCode;
-  if (governorate) defaults.governorate = governorate;
-  if (wilayat) defaults.wilayat = wilayat;
-  if (village) defaults.village = village;
-  if (category) defaults.category = category;
-  if (bedrooms) defaults.bedrooms = bedrooms;
-  if (currency) defaults.currency = currency;
-  if (priceMin) defaults.priceMin = priceMin;
-  if (priceMax) defaults.priceMax = priceMax;
-  const query = new URLSearchParams({ locale, limit: '24' });
-  Object.entries(defaults).forEach(([key, value]) => {
-    if (value) query.set(key, value);
-  });
+  const flat: Record<string, string | undefined> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    flat[key] = one(value);
+  }
+  const initialFilters: BrowseFilterState = filtersFromSearchRecord(flat);
+
+  const query = new URLSearchParams({ locale, limit: '100' });
+  const serialized = filtersFromSearchRecord(flat);
+  // Seed SSR with lightly filtered catalogue (country + purpose) so client facets have data.
+  if (serialized.purpose) query.set('purpose', serialized.purpose);
+  if (serialized.countryCode) query.set('countryCode', serialized.countryCode);
+  if (serialized.governorate) query.set('governorate', serialized.governorate);
+  if (serialized.wilayat) query.set('wilayat', serialized.wilayat);
+  if (serialized.village) query.set('village', serialized.village);
+  if (serialized.categories.length === 1) query.set('category', serialized.categories[0]!);
+  if (serialized.categories.length > 1) {
+    query.set('categories', serialized.categories.join(','));
+  }
+  if (serialized.bedroomsMin > 0) query.set('bedroomsMin', String(serialized.bedroomsMin));
+  if (serialized.bathroomsMin > 0) query.set('bathroomsMin', String(serialized.bathroomsMin));
+  if (serialized.currency) query.set('currency', serialized.currency);
+  if (serialized.priceMin) query.set('priceMin', serialized.priceMin);
+  if (serialized.priceMax) query.set('priceMax', serialized.priceMax);
+  if (serialized.hasPool) query.set('hasPool', '1');
+  if (serialized.hasParking) query.set('hasParking', '1');
+  if (serialized.amenities.length) query.set('amenities', serialized.amenities.join(','));
+  if (serialized.q) query.set('q', serialized.q);
+
   const t = await getTranslations();
   const listings = await loadListings(query);
-  const purpose = parsePurpose(defaults.purpose);
+  const purpose = parsePurpose(initialFilters.purpose || undefined);
   const heading =
     purpose === 'rent'
       ? locale === 'ar'
@@ -137,27 +186,12 @@ export default async function PropertiesPage({
         : t('Nav.available');
 
   return (
-    <>
-      <header className="page-hero">
-        <div className="container">
-          <h1>{heading}</h1>
-          <p>{t('Home.featuredHint')}</p>
-        </div>
-      </header>
-      <section className="section">
-        <div className="container">
-          <PropertyFilters locale={locale} compact defaults={defaults} />
-          {listings.data.length ? (
-            <div className="listing-grid">
-              {listings.data.map((listing) => (
-                <ListingCard key={listing.id} listing={listing} locale={locale} />
-              ))}
-            </div>
-          ) : (
-            <EmptyState title={t('Common.noResults')} />
-          )}
-        </div>
-      </section>
-    </>
+    <PropertiesBrowse
+      locale={locale}
+      heading={heading}
+      hint={t('Home.featuredHint')}
+      initialFilters={initialFilters}
+      initialListings={listings.data}
+    />
   );
 }

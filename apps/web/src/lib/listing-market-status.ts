@@ -10,6 +10,11 @@ export type ListingMarketStatus =
 
 export type CatalogueListing = PublicListing & {
   marketStatus: ListingMarketStatus;
+  /** Enriched for public browse facets / filters */
+  hasPool?: boolean;
+  parkingSpaces?: number;
+  amenities?: string[];
+  city?: string;
 };
 
 export function marketStatusFromPurpose(

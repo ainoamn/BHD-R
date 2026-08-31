@@ -38,13 +38,24 @@ export type PublicListingSearchInput = {
   wilayat?: string;
   village?: string;
   category?: PublicListing['category'];
+  /** OR match when multiple categories selected */
+  categories?: PublicListing['category'][];
+  /** Exact bedroom count (legacy). Prefer bedroomsMin for “at least”. */
   bedrooms?: number;
+  bedroomsMin?: number;
+  bathroomsMin?: number;
   currency?: PublicListing['rent']['currency'];
   /** rent | sale — includes `both` units in either case */
   purpose?: 'rent' | 'sale';
   /** Major currency units (e.g. OMR), converted to minor (* 1000) for SQL */
   priceMin?: number;
   priceMax?: number;
+  hasPool?: boolean;
+  hasParking?: boolean;
+  /** Amenity codes that must ALL be present on the property */
+  amenities?: string[];
+  /** Free-text search across property/unit names */
+  q?: string;
   limit?: number;
 };
 
@@ -88,9 +99,13 @@ type CatalogueRow = {
   currency: string;
   governorate: string | null;
   wilayat: string | null;
+  city: string | null;
   unit_updated_at: Date | string | null;
   cover_asset_id: string | null;
   occupancy: string;
+  has_pool: boolean | null;
+  parking_spaces: number | null;
+  amenity_codes: string[] | null;
 };
 
 /**
@@ -183,10 +198,21 @@ export async function searchPublicListingsFromNeon(
     const governorate = input.governorate?.trim() || null;
     const wilayat = input.wilayat?.trim() || null;
     const village = input.village?.trim() || null;
-    const category = input.category ?? null;
-    const bedrooms = input.bedrooms ?? null;
+    const categories =
+      input.categories && input.categories.length > 0
+        ? input.categories
+        : input.category
+          ? [input.category]
+          : [];
+    const bedroomsExact = input.bedrooms ?? null;
+    const bedroomsMin = input.bedroomsMin ?? null;
+    const bathroomsMin = input.bathroomsMin ?? null;
     const currency = input.currency ?? null;
     const purpose = input.purpose ?? null;
+    const hasPool = input.hasPool === true;
+    const hasParking = input.hasParking === true;
+    const amenities = (input.amenities ?? []).map((code) => code.trim()).filter(Boolean);
+    const q = input.q?.trim() || null;
     const priceMinMajor =
       input.priceMin !== undefined && Number.isFinite(input.priceMin) ? input.priceMin : null;
     const priceMaxMajor =
@@ -218,8 +244,27 @@ export async function searchPublicListingsFromNeon(
     const villageClause = village
       ? sql`and (a.city = ${village} or a.city ilike ${`%${village}%`} or a.street ilike ${`%${village}%`})`
       : sql``;
-    const categoryClause = category ? sql`and p.category::text = ${category}` : sql``;
-    const bedroomsClause = bedrooms !== null ? sql`and u.bedrooms = ${bedrooms}` : sql``;
+    const categoryClause =
+      categories.length === 1
+        ? sql`and p.category::text = ${categories[0]}`
+        : categories.length > 1
+          ? sql`and p.category::text in (${sql.join(
+              categories.map((c) => sql`${c}`),
+              sql`, `,
+            )})`
+          : sql``;
+    const bedroomsClause =
+      bedroomsExact !== null
+        ? bedroomsExact >= 5
+          ? sql`and u.bedrooms >= 5`
+          : sql`and u.bedrooms = ${bedroomsExact}`
+        : bedroomsMin !== null && bedroomsMin > 0
+          ? sql`and u.bedrooms >= ${bedroomsMin}`
+          : sql``;
+    const bathroomsClause =
+      bathroomsMin !== null && bathroomsMin > 0
+        ? sql`and u.bathrooms >= ${bathroomsMin}`
+        : sql``;
     const currencyClause = currency ? sql`and u.currency = ${currency}` : sql``;
     const purposeClause =
       purpose === 'rent'
@@ -237,6 +282,35 @@ export async function searchPublicListingsFromNeon(
       priceMinMinor !== null ? sql`and ${priceExpr} >= ${priceMinMinor}` : sql``;
     const priceMaxClause =
       priceMaxMinor !== null ? sql`and ${priceExpr} <= ${priceMaxMinor}` : sql``;
+    const poolClause = hasPool
+      ? sql`and (u.has_pool = true or exists (select 1 from property_amenities pa_pool where pa_pool.property_id = p.id and pa_pool.code = 'pool'))`
+      : sql``;
+    const parkingClause = hasParking
+      ? sql`and (coalesce(pp.parking_spaces, 0) > 0 or exists (select 1 from property_amenities pa_park where pa_park.property_id = p.id and pa_park.code = 'parking'))`
+      : sql``;
+    const amenitiesClause =
+      amenities.length > 0
+        ? sql`and (
+          select count(distinct pa_req.code)
+          from property_amenities pa_req
+          where pa_req.property_id = p.id
+            and pa_req.code in (${sql.join(
+              amenities.map((code) => sql`${code}`),
+              sql`, `,
+            )})
+        ) = ${amenities.length}`
+        : sql``;
+    const qClause = q
+      ? sql`and (
+          p.name_ar ilike ${`%${q}%`}
+          or p.name_en ilike ${`%${q}%`}
+          or u.name_ar ilike ${`%${q}%`}
+          or u.name_en ilike ${`%${q}%`}
+          or coalesce(a.governorate, '') ilike ${`%${q}%`}
+          or coalesce(a.wilayat, '') ilike ${`%${q}%`}
+          or coalesce(a.city, '') ilike ${`%${q}%`}
+        )`
+      : sql``;
 
     const result = await transaction.execute(sql`
       select
@@ -259,6 +333,7 @@ export async function searchPublicListingsFromNeon(
         u.currency as currency,
         a.governorate as governorate,
         a.wilayat as wilayat,
+        a.city as city,
         u.updated_at as unit_updated_at,
         (
           select ma.id::text
@@ -291,10 +366,18 @@ export async function searchPublicListingsFromNeon(
               and r.expires_at > now()
           ) then 'reserved'
           else 'available'
-        end as occupancy
+        end as occupancy,
+        u.has_pool as has_pool,
+        coalesce(pp.parking_spaces, 0) as parking_spaces,
+        (
+          select coalesce(array_agg(pa.code order by pa.code), '{}'::text[])
+          from property_amenities pa
+          where pa.property_id = p.id
+        ) as amenity_codes
       from units u
       join properties p on p.id = u.property_id
       join addresses a on a.id = p.address_id
+      left join property_profiles pp on pp.property_id = p.id
       left join listings l on l.unit_id = u.id
       where u.publish_when_available = true
         and p.status <> 'archived'
@@ -305,10 +388,15 @@ export async function searchPublicListingsFromNeon(
         ${villageClause}
         ${categoryClause}
         ${bedroomsClause}
+        ${bathroomsClause}
         ${currencyClause}
         ${purposeClause}
         ${priceMinClause}
         ${priceMaxClause}
+        ${poolClause}
+        ${parkingClause}
+        ${amenitiesClause}
+        ${qClause}
       order by l.published_at desc nulls last, u.updated_at desc, u.id desc
       limit ${limit}
     `);
@@ -365,6 +453,10 @@ export async function searchPublicListingsFromNeon(
         available: true as const,
         publishedAt: publishedAt.toISOString(),
         marketStatus,
+        hasPool: Boolean(row.has_pool),
+        parkingSpaces: Number(row.parking_spaces) || 0,
+        amenities: Array.isArray(row.amenity_codes) ? row.amenity_codes.filter(Boolean) : [],
+        city: row.city ?? '',
       };
     });
 
