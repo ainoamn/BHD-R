@@ -38,6 +38,16 @@ import {
   notificationJobSchema,
   pdfJobSchema,
 } from './validation.js';
+import { ensureStayTurnoverTask } from './stays/housekeeping.js';
+import {
+  isStayOutboxTopic,
+  parseStayPlatformEnabled,
+  STAY_JOB_NAMES,
+} from './stays/jobs.js';
+import {
+  rebuildStayInventoryDaysForUnit,
+  releaseExpiredStayHolds,
+} from './stays/inventory-projector.js';
 
 const config = loadConfig();
 const redis = new Redis(config.REDIS_URL, {
@@ -307,6 +317,71 @@ const workers = [
           }
           return result;
         }
+
+        if (isStayOutboxTopic(event.topic)) {
+          if (!parseStayPlatformEnabled()) {
+            return { skipped: true, reason: 'stays_platform_disabled' };
+          }
+          const payload =
+            event.payload && typeof event.payload === 'object'
+              ? (event.payload as Record<string, unknown>)
+              : {};
+          if (
+            event.topic === 'stay.inventory.lock_created' ||
+            event.topic === 'stay.inventory.changed' ||
+            event.topic === 'stay_booking.payment_confirmed'
+          ) {
+            const organizationId = event.organizationId;
+            if (!organizationId) return { skipped: true, reason: 'missing_organization' };
+
+            let resolvedUnitId =
+              typeof payload.unitId === 'string' ? payload.unitId : undefined;
+            if (!resolvedUnitId && event.aggregateType === 'stay_inventory_lock') {
+              const lock = await workerQuery<{ unit_id: string }>(
+                `SELECT unit_id FROM stay_inventory_locks WHERE id = $1::uuid LIMIT 1`,
+                [event.aggregateId],
+              );
+              resolvedUnitId = lock.rows[0]?.unit_id;
+            }
+            if (!resolvedUnitId && event.aggregateType === 'stay_booking') {
+              const booking = await workerQuery<{ unit_id: string }>(
+                `SELECT unit_id FROM stay_bookings WHERE id = $1::uuid LIMIT 1`,
+                [event.aggregateId],
+              );
+              resolvedUnitId = booking.rows[0]?.unit_id;
+            }
+            if (!resolvedUnitId) return { skipped: true, reason: 'missing_unit' };
+
+            return rebuildStayInventoryDaysForUnit(pool, {
+              organizationId,
+              unitId: resolvedUnitId,
+            });
+          }
+
+          if (event.topic === 'stay.checked_out') {
+            const organizationId = event.organizationId;
+            if (!organizationId) return { skipped: true, reason: 'missing_organization' };
+            const booking = await workerQuery<{ unit_id: string; check_out_on: string }>(
+              `SELECT unit_id, check_out_on::text AS check_out_on
+               FROM stay_bookings WHERE id = $1::uuid LIMIT 1`,
+              [event.aggregateId],
+            );
+            const row = booking.rows[0];
+            if (!row) return { skipped: true, reason: 'booking_missing' };
+            const task = await ensureStayTurnoverTask(pool, {
+              organizationId,
+              bookingId: event.aggregateId,
+              unitId: row.unit_id,
+              dueOn: row.check_out_on,
+            });
+            await rebuildStayInventoryDaysForUnit(pool, {
+              organizationId,
+              unitId: row.unit_id,
+            });
+            return task;
+          }
+        }
+
         return processReport(event);
       }),
     { connection: connection(), concurrency: 2, limiter: { max: 5, duration: 1_000 } },
@@ -370,11 +445,31 @@ const outbox = new OutboxDispatcher(pool, {
 outbox.start();
 const healthServer = startHealthServer(config.WORKER_PORT, redis, pool);
 
+const staysEnabled = parseStayPlatformEnabled();
+let stayHoldExpirerTimer: NodeJS.Timeout | undefined;
+if (staysEnabled) {
+  const runHoldExpirer = () =>
+    void releaseExpiredStayHolds(pool)
+      .then((result) => {
+        if (result.released > 0) {
+          logger.info({ released: result.released, job: STAY_JOB_NAMES[0] }, 'Stay holds expired');
+        }
+      })
+      .catch((error) => logger.error({ err: error }, 'Stay hold expirer failed'));
+  runHoldExpirer();
+  stayHoldExpirerTimer = setInterval(runHoldExpirer, 60_000);
+  stayHoldExpirerTimer.unref();
+  logger.info({ staysEnabled: true }, 'Stay hold expirer scheduled');
+} else {
+  logger.info({ staysEnabled: false }, 'Stay worker jobs idle (STAYS_PLATFORM_ENABLED off)');
+}
+
 let shuttingDown = false;
 async function shutdown(signal: string): Promise<void> {
   if (shuttingDown) return;
   shuttingDown = true;
   logger.info({ signal }, 'Graceful shutdown started');
+  if (stayHoldExpirerTimer) clearInterval(stayHoldExpirerTimer);
   outbox.stop();
   healthServer.close();
   await Promise.all(workers.map((worker) => worker.close()));

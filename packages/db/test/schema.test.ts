@@ -18,6 +18,7 @@ import {
   reservationRequirements,
   salesDeals,
   stayBookings,
+  stayHousekeepingTasks,
   stayInventoryLocks,
   stayProfiles,
   units,
@@ -43,6 +44,7 @@ describe('schema invariants', () => {
       stayProfiles,
       stayInventoryLocks,
       stayBookings,
+      stayHousekeepingTasks,
     ]) {
       expect(getTableColumns(table)).toHaveProperty('organizationId');
     }

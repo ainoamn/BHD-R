@@ -12,6 +12,7 @@ import { readStaysFlagsFromEnv, resolveStaysEnabledFromEnv } from '@bhd-r/config
 import type { ApiRequest } from '../common/api-http.js';
 import { RequirePermissions } from '../common/decorators.js';
 import { StaysInventoryService } from './stays-inventory.service.js';
+import { StaysBookingService } from './stays-booking.service.js';
 
 /** Fail-closed: platform kill-switch off → 404 (hide surface). */
 function assertStaysPlatformEnabled(): void {
@@ -40,7 +41,10 @@ function assertStaysOperationsEnabled(organizationId: string | null | undefined)
 
 @Controller('v1/stays')
 export class StaysOperationsController {
-  constructor(private readonly inventory: StaysInventoryService) {}
+  constructor(
+    private readonly inventory: StaysInventoryService,
+    private readonly bookings: StaysBookingService,
+  ) {}
 
   @RequirePermissions('stay.booking.read')
   @Get('bookings')
@@ -68,6 +72,13 @@ export class StaysOperationsController {
   releaseExpired(@Req() request: ApiRequest) {
     assertStaysOperationsEnabled(request.auth?.organizationId);
     return this.inventory.releaseExpiredHolds(request.auth!.organizationId!);
+  }
+
+  @RequirePermissions('stay.booking.manage')
+  @Post('bookings/:id/checkout')
+  checkOut(@Req() request: ApiRequest, @Param('id', ParseUUIDPipe) id: string) {
+    assertStaysOperationsEnabled(request.auth?.organizationId);
+    return this.bookings.checkOut(request.auth!, id);
   }
 
   /**

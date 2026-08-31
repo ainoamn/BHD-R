@@ -166,7 +166,8 @@ After Docker build, Nest boots with `loadEnvironment`. Missing keys abort the pr
 |------|--------|
 | `Dockerfile.api` | Ready |
 | `render.yaml` | Ready (scaffold) |
-| Public Nest URL | `https://bhd-r.onrender.com` (`/healthz` + `/health/live` → ok) |
+| Public Nest URL | `https://bhd-r.onrender.com` (`/healthz` + `/health/live` → ok; StaysModule routes auth-gated as of 0.4.x) |
+| Stays on Nest | `/v1/stays/*` → 401 when unauthenticated; 404 when `STAYS_PLATFORM_ENABLED` off for public surface |
 | Browser mutations | Via Vercel BFF `/api/backend/v1/*` (sets trusted `Origin`) |
 | Vercel `API_INTERNAL_ORIGIN` | Must be Nest HTTPS on Production **and** Preview |
 | CSRF / preview | Nest allowlist + BFF; redeploy **both** Vercel and Render after API CSRF changes |

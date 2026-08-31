@@ -1489,6 +1489,7 @@ export class FinanceService {
         providerReference: input.providerReference,
         amountMinor: input.amountMinor,
         currency: input.currency,
+        unitId: booking.unitId,
       },
     });
   }

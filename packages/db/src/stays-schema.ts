@@ -650,3 +650,38 @@ export const stayReviews = pgTable(
     ),
   ],
 );
+
+export const stayHousekeepingTasks = pgTable(
+  'stay_housekeeping_tasks',
+  {
+    ...identityColumns,
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    bookingId: uuid('booking_id')
+      .notNull()
+      .references(() => stayBookings.id),
+    unitId: uuid('unit_id')
+      .notNull()
+      .references(() => units.id),
+    taskKind: varchar('task_kind', { length: 32 }).notNull().default('turnover'),
+    status: varchar('status', { length: 24 }).notNull().default('open'),
+    dueOn: date('due_on').notNull(),
+    note: text('note'),
+    assignedToUserId: uuid('assigned_to_user_id').references(() => users.id),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex('stay_housekeeping_tasks_booking_kind_unique').on(table.bookingId, table.taskKind),
+    index('stay_housekeeping_tasks_org_status_idx').on(table.organizationId, table.status),
+    index('stay_housekeeping_tasks_unit_due_idx').on(table.unitId, table.dueOn),
+    check(
+      'stay_housekeeping_tasks_kind_check',
+      sql`${table.taskKind} IN ('turnover', 'inspection', 'deep_clean', 'other')`,
+    ),
+    check(
+      'stay_housekeeping_tasks_status_check',
+      sql`${table.status} IN ('open', 'in_progress', 'done', 'cancelled')`,
+    ),
+  ],
+);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   assertStayBookingTransition,
+  availabilityFromLockKinds,
   formatDaterangeLiteral,
   nightsBetween,
   quoteStay,
@@ -102,5 +103,15 @@ describe('concurrent lock winner (domain simulation)', () => {
     ]);
     expect(result.winnerIndex).toBe(0);
     expect(result.rejectedIndexes).toEqual([]);
+  });
+});
+
+describe('inventory day projection priority', () => {
+  it('prefers booking over hold and blocks over available', () => {
+    expect(availabilityFromLockKinds(['hold', 'booking'])).toBe('booked');
+    expect(availabilityFromLockKinds(['hold'])).toBe('hold');
+    expect(availabilityFromLockKinds(['maintenance'])).toBe('maintenance');
+    expect(availabilityFromLockKinds(['owner_block'])).toBe('blocked');
+    expect(availabilityFromLockKinds([])).toBe('available');
   });
 });

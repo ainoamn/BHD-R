@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.2 — 2026-08-31
+
+- Stay inventory-day projector rebuilds `stay_inventory_days` from active GiST locks + profile rates; hold expirer runs when `STAYS_PLATFORM_ENABLED` is on.
+- Checkout ops route emits `stay.checked_out`; worker creates idempotent turnover `stay_housekeeping_tasks` (migration `0016`).
+- Docs: `RELEASE-0.4.2-AR.md`. Nest StaysModule already live on Render (auth-gated).
+
 ## 0.4.1 — 2026-08-31
 
 - Payment webhook Expand–Contract: `kind: stay_booking` + `paymentIntentId` confirms `stay_bookings` (amount/currency match, unique event id, hold→booking lock, `stay_payment` journal) without changing invoice / reservation_deposit handlers.
