@@ -1243,6 +1243,9 @@ h3 {
 .portal-ops-pane {
   animation: portal-chrome-in 0.16s ease both;
 }
+.portal-persisted-panel[hidden] {
+  display: none !important;
+}
 .portal-ops-boot {
   display: grid;
   justify-items: center;

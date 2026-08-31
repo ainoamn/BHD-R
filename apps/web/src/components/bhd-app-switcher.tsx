@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
+import Link from 'next/link';
 import { BHD_APPS, type BhdApp } from '@/lib/bhd/apps';
 import type { Viewer } from '@/lib/types';
 
@@ -125,7 +126,9 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
               <small>{viewer.email ?? viewer.username ?? (ar ? 'حساب BHD' : 'BHD account')}</small>
             </div>
           </div>
-          <a href={`/${locale}/portal`}>{ar ? 'مساحتي في BHD R' : 'My BHD R workspace'}</a>
+          <Link href={`/${locale}/portal`} onClick={() => setPanel(null)}>
+            {ar ? 'مساحتي في BHD R' : 'My BHD R workspace'}
+          </Link>
           <a href="https://id.bhd-om.com/account">{ar ? 'إدارة حساب BHD' : 'Manage BHD account'}</a>
           <button type="button" onClick={signOut}>
             {ar ? 'تسجيل الخروج' : 'Sign out'}

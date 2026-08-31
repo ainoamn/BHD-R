@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.3.5 — 2026-08-31
+
+- Portal SPA keep-alive: last 8 ops panels stay mounted (filters/forms preserved); intent-only shell prefetch; warm concurrency 2; fix `/api/warm` 204 body; E2E soft-nav regression; client Links for property/contract/workspace.
+- Docs: `RELEASE-0.3.5-AR.md`.
+
 ## 0.3.4 — 2026-08-31
 
 - Smaller homepage hero; properties catalogue: rent/sale tabs + governorate/wilayat/village + price range filters.

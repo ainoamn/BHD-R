@@ -1,4 +1,35 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+import { issueSessionToken, permissionsForRoles, type RoleKey } from '@bhd-r/authz';
+
+const E2E_SESSION_SECRET = 'e2e-session-secret-is-local-and-at-least-32-characters';
+
+async function authenticatePortal(page: Page): Promise<void> {
+  const roles: RoleKey[] = ['platform_admin', 'organization_owner', 'developer_admin', 'tenant'];
+  const token = await issueSessionToken(
+    {
+      sub: '00000000-0000-4000-8000-000000000002',
+      sid: '00000000-0000-4000-8000-000000000099',
+      organizationId: '00000000-0000-4000-8000-000000000001',
+      partyId: '00000000-0000-4000-8000-000000000003',
+      roles,
+      permissions: permissionsForRoles(roles),
+      locale: 'ar',
+      sessionVersion: 0,
+    },
+    new TextEncoder().encode(E2E_SESSION_SECRET),
+    3_600,
+  );
+  await page.context().addCookies([
+    {
+      name: 'bhd_r_session',
+      value: token,
+      domain: '127.0.0.1',
+      path: '/',
+      httpOnly: true,
+      sameSite: 'Lax',
+    },
+  ]);
+}
 
 for (const locale of ['ar', 'en'] as const) {
   test(`${locale} public experience has correct direction and accessibility basics`, async ({
@@ -56,6 +87,7 @@ for (const locale of ['ar', 'en'] as const) {
 
 for (const portal of ['platform', 'owner', 'developer', 'tenant'] as const) {
   test(`${portal} portal smoke in both languages`, async ({ page }, testInfo) => {
+    await authenticatePortal(page);
     for (const locale of ['ar', 'en'] as const) {
       await page.goto(`/${locale}/${portal}`);
       await expect(page.locator('html')).toHaveAttribute('dir', locale === 'ar' ? 'rtl' : 'ltr');
@@ -87,6 +119,7 @@ test('public pages stay within the viewport on mobile', async ({ page }, testInf
 });
 
 test('owner portal exposes specialized operational modules with real records', async ({ page }) => {
+  await authenticatePortal(page);
   const sections = [
     ['requests', 'مركز الطلبات وخدمة العملاء', 'REQ-2026-0142'],
     ['bookings', 'الحجوزات والمعاينات', 'VIEW-0041'],
@@ -108,10 +141,46 @@ test('owner portal exposes specialized operational modules with real records', a
 test('complete property intake has operations, documents, media and review stages', async ({
   page,
 }) => {
+  await authenticatePortal(page);
   await page.goto('/ar/owner/properties/new');
   await expect(page.locator('.steps li')).toHaveCount(6);
   await expect(page.locator('.steps li').filter({ hasText: 'التشغيل والمرافق' })).toBeVisible();
   await expect(page.locator('.steps li').filter({ hasText: 'الملكية والوثائق' })).toBeVisible();
+});
+
+test('owner sidebar uses same-document navigation and reopens cached sections', async ({
+  page,
+}) => {
+  await authenticatePortal(page);
+  await page.goto('/ar/owner/properties');
+  await expect(page.getByRole('heading', { level: 1, name: 'المحفظة العقارية' })).toBeVisible();
+  const propertySearch = page
+    .locator('.portal-persisted-panel:not([hidden])')
+    .getByPlaceholder('ابحث بالاسم أو المرجع أو الحالة…');
+  await propertySearch.fill('دار');
+
+  await page.evaluate(() => {
+    Object.defineProperty(window, '__bhdRSoftNavigationProbe', {
+      value: 'alive',
+      configurable: true,
+    });
+  });
+
+  await page.getByRole('link', { name: 'الطلبات', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'مركز الطلبات وخدمة العملاء' }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => (window as Window & { __bhdRSoftNavigationProbe?: string }).__bhdRSoftNavigationProbe,
+    ),
+  ).toBe('alive');
+
+  await page.getByRole('link', { name: 'العقارات', exact: true }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'المحفظة العقارية' })).toBeVisible({
+    timeout: 1_500,
+  });
+  await expect(propertySearch).toHaveValue('دار');
 });
 
 test('public visitor can submit a real viewing request without creating an account', async ({

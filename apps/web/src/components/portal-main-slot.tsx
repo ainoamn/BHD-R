@@ -3,8 +3,14 @@
 import { usePathname } from '@/i18n/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 import { OperationsWorkspaceClient } from '@/components/operations-workspace-client';
-import { isOperationsSection, type OperationsSection } from '@/lib/portal-ops-types';
+import {
+  isOperationsSection,
+  opsSectionsForPortal,
+  type OperationsSection,
+} from '@/lib/portal-ops-types';
 import type { PortalRole } from '@/lib/types';
+
+const MAX_KEPT_PANELS = 8;
 
 /**
  * Resolve a top-level ops section from the portal pathname.
@@ -21,7 +27,8 @@ export function opsSectionFromPathname(
   const parts = rest.split('/').filter(Boolean);
   if (parts.length !== 1) return null;
   const candidate = parts[0]!;
-  return isOperationsSection(candidate) ? candidate : null;
+  if (!isOperationsSection(candidate)) return null;
+  return opsSectionsForPortal(portal).includes(candidate) ? candidate : null;
 }
 
 export const OPS_NAVIGATE_EVENT = 'bhd-r-ops-navigate';
@@ -42,6 +49,9 @@ export function PortalMainSlot({
   const pathname = usePathname();
   const pathSection = opsSectionFromPathname(pathname, portal);
   const [optimisticSection, setOptimisticSection] = useState<OperationsSection | null>(null);
+  const [visited, setVisited] = useState<OperationsSection[]>(() =>
+    pathSection ? [pathSection] : [],
+  );
 
   useEffect(() => {
     const onNavigate = (event: Event) => {
@@ -66,9 +76,38 @@ export function PortalMainSlot({
 
   const section = optimisticSection ?? pathSection;
 
-  if (section) {
-    return <OperationsWorkspaceClient portal={portal} section={section} locale={locale} />;
-  }
+  useEffect(() => {
+    if (!section) return;
+    setVisited((current) => {
+      if (current.at(-1) === section) return current;
+      return [...current.filter((item) => item !== section), section].slice(-MAX_KEPT_PANELS);
+    });
+  }, [section]);
 
-  return children;
+  // Render the optimistic target immediately, then keep the eight most recent
+  // consoles mounted (but hidden/inert) so their filters and open forms survive.
+  const renderedPanels =
+    section && !visited.includes(section) ? [...visited, section].slice(-MAX_KEPT_PANELS) : visited;
+
+  return (
+    <>
+      <div hidden={section !== null} {...(section ? { inert: true } : {})}>
+        {children}
+      </div>
+      {renderedPanels.map((panel) => {
+        const active = panel === section;
+        return (
+          <div
+            key={panel}
+            className="portal-persisted-panel"
+            hidden={!active}
+            aria-hidden={!active || undefined}
+            {...(!active ? { inert: true } : {})}
+          >
+            <OperationsWorkspaceClient portal={portal} section={panel} locale={locale} />
+          </div>
+        );
+      })}
+    </>
+  );
 }

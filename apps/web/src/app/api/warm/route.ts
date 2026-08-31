@@ -14,7 +14,8 @@ export async function GET() {
     .trim()
     .replace(/\/$/, '');
   if (!origin || /localhost|127\.0\.0\.1|\.local$|\.internal$/i.test(origin)) {
-    return NextResponse.json({ ok: false, reason: 'api_unconfigured' }, { status: 204 });
+    // A 204 response cannot have a JSON body (undici/Next throws at runtime).
+    return new NextResponse(null, { status: 204 });
   }
   const started = Date.now();
   try {

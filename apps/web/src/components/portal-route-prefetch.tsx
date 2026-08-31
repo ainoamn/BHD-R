@@ -14,8 +14,8 @@ function delay(ms: number): Promise<void> {
 }
 
 /**
- * On first portal open: immediately warm every ops payload + prefetch shells
- * so sidebar navigation feels like in-page tabs (Qootk / WAZEN).
+ * Warm ops data through one background batch. Ops UI lives in the persistent
+ * shell, so prefetch only non-ops routes and avoid another RSC request storm.
  */
 export function PortalRoutePrefetch({ portal }: { portal: PortalRole }) {
   const router = useRouter();
@@ -26,17 +26,22 @@ export function PortalRoutePrefetch({ portal }: { portal: PortalRole }) {
     started.current = true;
     const hrefs = portalNavHrefs(portal);
     const sections = opsSectionsForPortal(portal);
+    const sectionSet = new Set<string>(sections);
     let cancelled = false;
 
-    const prefetchAllShells = async () => {
-      for (const href of hrefs) {
+    const prefetchRouteShells = async () => {
+      const routeBudget = hrefs.filter((href) => {
+        const candidate = href.split('/').filter(Boolean).at(-1) ?? '';
+        return !sectionSet.has(candidate);
+      });
+      for (const href of routeBudget) {
         if (cancelled) return;
         try {
           router.prefetch(href);
         } catch {
           /* ignore */
         }
-        await delay(60);
+        await delay(120);
       }
     };
 
@@ -52,7 +57,7 @@ export function PortalRoutePrefetch({ portal }: { portal: PortalRole }) {
 
     // Start immediately — do not wait for idle (user may click within 1–2s).
     void warmAllData();
-    void prefetchAllShells();
+    void prefetchRouteShells();
 
     return () => {
       cancelled = true;

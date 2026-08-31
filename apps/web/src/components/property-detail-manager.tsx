@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import type { CurrencyCode } from '@bhd-r/contracts';
 import { BrandMark } from '@bhd-r/ui';
 import { browserMutation } from '@/lib/api';
@@ -197,8 +198,7 @@ export function PropertyDetailManager({
   const primaryUnit =
     (focusUnitId ? property.units.find((unit) => unit.id === focusUnitId) : undefined) ??
     property.units[0];
-  const mapsUrl =
-    property.mapsUrl || mapsUrlFromNotes(property.profile?.notes) || null;
+  const mapsUrl = property.mapsUrl || mapsUrlFromNotes(property.profile?.notes) || null;
   const latitude =
     typeof property.latitude === 'number' && Number.isFinite(property.latitude)
       ? property.latitude
@@ -208,9 +208,7 @@ export function PropertyDetailManager({
       ? property.longitude
       : null;
   const mapEmbed =
-    latitude !== null && longitude !== null
-      ? googleMapsEmbedSrc(latitude, longitude)
-      : null;
+    latitude !== null && longitude !== null ? googleMapsEmbedSrc(latitude, longitude) : null;
 
   const priceLabel = primaryUnit
     ? primaryUnit.listingPurpose === 'sale' && primaryUnit.salePriceMinor
@@ -268,10 +266,7 @@ export function PropertyDetailManager({
             {gallery.length ? (
               <>
                 <div className="property-360__hero-shot">
-                  <img
-                    src={gallery[Math.min(activeImage, gallery.length - 1)]!.url!}
-                    alt=""
-                  />
+                  <img src={gallery[Math.min(activeImage, gallery.length - 1)]!.url!} alt="" />
                   <span className="media-watermark" aria-hidden="true">
                     <BrandMark tone="onDark" />
                   </span>
@@ -329,22 +324,27 @@ export function PropertyDetailManager({
             <div className="property-360__titlebar-actions">
               {!isPublic ? (
                 <>
-                  <a className="button button--quiet" href={publicPath} target="_blank" rel="noreferrer">
+                  <a
+                    className="button button--quiet"
+                    href={publicPath}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     {ar ? 'عرض العقار' : 'View listing'}
                   </a>
                   {property.status !== 'archived' ? (
-                    <a className="button button--primary" href={editHref}>
+                    <Link className="button button--primary" href={editHref}>
                       {ar ? 'تعديل العقار' : 'Edit property'}
-                    </a>
+                    </Link>
                   ) : null}
-                  <a className="button button--quiet" href={`/${locale}/${portal}/properties`}>
+                  <Link className="button button--quiet" href={`/${locale}/${portal}/properties`}>
                     {ar ? 'العودة للمحفظة' : 'Back to portfolio'}
-                  </a>
+                  </Link>
                 </>
               ) : (
-                <a className="button button--quiet" href={`/${locale}/properties`}>
+                <Link className="button button--quiet" href={`/${locale}/properties`}>
                   {ar ? 'كل العقارات' : 'All listings'}
-                </a>
+                </Link>
               )}
             </div>
           </header>
@@ -516,28 +516,28 @@ export function PropertyDetailManager({
               </p>
               <div className="property-360__ops-actions">
                 {property.status !== 'archived' ? (
-                  <a className="button button--primary" href={editHref}>
+                  <Link className="button button--primary" href={editHref}>
                     {ar ? 'تعديل العقار' : 'Edit property'}
-                  </a>
+                  </Link>
                 ) : null}
-                <a className="button button--quiet" href={`/${locale}/${portal}/contracts`}>
+                <Link className="button button--quiet" href={`/${locale}/${portal}/contracts`}>
                   {ar ? 'العقود' : 'Contracts'}
-                </a>
-                <a className="button button--quiet" href={`/${locale}/${portal}/leasing`}>
+                </Link>
+                <Link className="button button--quiet" href={`/${locale}/${portal}/leasing`}>
                   {ar ? 'التأجير' : 'Leasing'}
-                </a>
-                <a className="button button--quiet" href={`/${locale}/${portal}/sales`}>
+                </Link>
+                <Link className="button button--quiet" href={`/${locale}/${portal}/sales`}>
                   {ar ? 'البيع' : 'Sales'}
-                </a>
-                <a className="button button--quiet" href={`/${locale}/${portal}/bookings`}>
+                </Link>
+                <Link className="button button--quiet" href={`/${locale}/${portal}/bookings`}>
                   {ar ? 'الحجوزات' : 'Bookings'}
-                </a>
-                <a className="button button--quiet" href={`/${locale}/${portal}/maintenance`}>
+                </Link>
+                <Link className="button button--quiet" href={`/${locale}/${portal}/maintenance`}>
                   {ar ? 'الصيانة' : 'Maintenance'}
-                </a>
-                <a className="button button--quiet" href={`/${locale}/${portal}/invoices`}>
+                </Link>
+                <Link className="button button--quiet" href={`/${locale}/${portal}/invoices`}>
                   {ar ? 'الفواتير' : 'Invoices'}
-                </a>
+                </Link>
                 <a
                   className="button button--quiet"
                   href={publicPath}
@@ -578,84 +578,84 @@ export function PropertyDetailManager({
           ) : null}
 
           {!isPublic ? (
-          <section className="property-360__section">
-            <h2>{ar ? 'سجل الملكية' : 'Ownership history'}</h2>
-            {property.ownership.length ? (
-              <div className="data-table-wrap">
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>{ar ? 'الطرف' : 'Party'}</th>
-                      <th>{ar ? 'الدور' : 'Role'}</th>
-                      <th>{ar ? 'من' : 'From'}</th>
-                      <th>{ar ? 'إلى' : 'To'}</th>
-                      <th>{ar ? 'الحالة' : 'State'}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[...property.ownership]
-                      .sort((a, b) => {
-                        if (!a.endsOn && b.endsOn) return -1;
-                        if (a.endsOn && !b.endsOn) return 1;
-                        return (b.startsOn ?? '').localeCompare(a.startsOn ?? '');
-                      })
-                      .map((row) => (
-                        <tr key={row.id}>
-                          <td>{row.partyName ?? row.partyId.slice(0, 8)}</td>
-                          <td>{row.role}</td>
-                          <td>{row.startsOn ?? '—'}</td>
-                          <td>{row.endsOn ?? '—'}</td>
-                          <td>
-                            {row.endsOn ? (ar ? 'سابق' : 'Prior') : ar ? 'حالي' : 'Current'}
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="muted">{ar ? 'لا سجلات ملكية بعد.' : 'No ownership records yet.'}</p>
-            )}
-          </section>
+            <section className="property-360__section">
+              <h2>{ar ? 'سجل الملكية' : 'Ownership history'}</h2>
+              {property.ownership.length ? (
+                <div className="data-table-wrap">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>{ar ? 'الطرف' : 'Party'}</th>
+                        <th>{ar ? 'الدور' : 'Role'}</th>
+                        <th>{ar ? 'من' : 'From'}</th>
+                        <th>{ar ? 'إلى' : 'To'}</th>
+                        <th>{ar ? 'الحالة' : 'State'}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[...property.ownership]
+                        .sort((a, b) => {
+                          if (!a.endsOn && b.endsOn) return -1;
+                          if (a.endsOn && !b.endsOn) return 1;
+                          return (b.startsOn ?? '').localeCompare(a.startsOn ?? '');
+                        })
+                        .map((row) => (
+                          <tr key={row.id}>
+                            <td>{row.partyName ?? row.partyId.slice(0, 8)}</td>
+                            <td>{row.role}</td>
+                            <td>{row.startsOn ?? '—'}</td>
+                            <td>{row.endsOn ?? '—'}</td>
+                            <td>
+                              {row.endsOn ? (ar ? 'سابق' : 'Prior') : ar ? 'حالي' : 'Current'}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="muted">{ar ? 'لا سجلات ملكية بعد.' : 'No ownership records yet.'}</p>
+              )}
+            </section>
           ) : null}
 
           {!isPublic ? (
-          <section className="ops-panel property-danger-zone">
-            <div>
-              <h2>
+            <section className="ops-panel property-danger-zone">
+              <div>
+                <h2>
+                  {property.status === 'archived'
+                    ? ar
+                      ? 'استعادة العقار'
+                      : 'Restore property'
+                    : ar
+                      ? 'أرشفة العقار'
+                      : 'Archive property'}
+                </h2>
+                <p>
+                  {property.status === 'archived'
+                    ? ar
+                      ? 'تعيد الأصل دون إعادة نشر أي وحدة تلقائياً.'
+                      : 'Restores the asset without automatically republishing units.'
+                    : ar
+                      ? 'يتوقف نشر جميع الوحدات، ولا تُحذف السجلات أو الوثائق.'
+                      : 'All listings are unpublished; records and documents remain retained.'}
+                </p>
+              </div>
+              <button
+                className={`button ${property.status === 'archived' ? 'button--primary' : 'button--danger'}`}
+                type="button"
+                disabled={busy}
+                onClick={() => void archiveOrRestore()}
+              >
                 {property.status === 'archived'
                   ? ar
-                    ? 'استعادة العقار'
-                    : 'Restore property'
+                    ? 'استعادة'
+                    : 'Restore'
                   : ar
-                    ? 'أرشفة العقار'
-                    : 'Archive property'}
-              </h2>
-              <p>
-                {property.status === 'archived'
-                  ? ar
-                    ? 'تعيد الأصل دون إعادة نشر أي وحدة تلقائياً.'
-                    : 'Restores the asset without automatically republishing units.'
-                  : ar
-                    ? 'يتوقف نشر جميع الوحدات، ولا تُحذف السجلات أو الوثائق.'
-                    : 'All listings are unpublished; records and documents remain retained.'}
-              </p>
-            </div>
-            <button
-              className={`button ${property.status === 'archived' ? 'button--primary' : 'button--danger'}`}
-              type="button"
-              disabled={busy}
-              onClick={() => void archiveOrRestore()}
-            >
-              {property.status === 'archived'
-                ? ar
-                  ? 'استعادة'
-                  : 'Restore'
-                : ar
-                  ? 'أرشفة'
-                  : 'Archive'}
-            </button>
-          </section>
+                    ? 'أرشفة'
+                    : 'Archive'}
+              </button>
+            </section>
           ) : null}
         </div>
 
@@ -677,10 +677,10 @@ export function PropertyDetailManager({
             </p>
             <dl className="property-360__facts">
               {!isPublic ? (
-              <div>
-                <dt>{ar ? 'الحالة' : 'Status'}</dt>
-                <dd>{property.status}</dd>
-              </div>
+                <div>
+                  <dt>{ar ? 'الحالة' : 'Status'}</dt>
+                  <dd>{property.status}</dd>
+                </div>
               ) : null}
               <div>
                 <dt>{ar ? 'الغرف' : 'Bedrooms'}</dt>
@@ -721,10 +721,10 @@ export function PropertyDetailManager({
                 <dd>{property.units.length}</dd>
               </div>
               {!isPublic ? (
-              <div>
-                <dt>{ar ? 'المالك' : 'Owner'}</dt>
-                <dd>{currentOwner?.partyName ?? '—'}</dd>
-              </div>
+                <div>
+                  <dt>{ar ? 'المالك' : 'Owner'}</dt>
+                  <dd>{currentOwner?.partyName ?? '—'}</dd>
+                </div>
               ) : null}
               <div>
                 <dt>{ar ? 'الفئة' : 'Category'}</dt>
@@ -733,7 +733,12 @@ export function PropertyDetailManager({
             </dl>
             {!isPublic ? (
               <>
-                <a className="button button--quiet property-360__summary-cta" href={publicPath} target="_blank" rel="noreferrer">
+                <a
+                  className="button button--quiet property-360__summary-cta"
+                  href={publicPath}
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   {ar ? 'عرض العقار' : 'View listing'}
                 </a>
                 {property.status !== 'archived' ? (
@@ -752,8 +757,8 @@ export function PropertyDetailManager({
                   currency={primaryUnit.currency}
                   canBook={Boolean(
                     primaryUnit.depositMinor &&
-                      primaryUnit.depositMinor !== '0' &&
-                      primaryUnit.listingEnabled !== false,
+                    primaryUnit.depositMinor !== '0' &&
+                    primaryUnit.listingEnabled !== false,
                   )}
                   sharePath={propertyPath}
                   shareTitle={ar ? property.nameAr : property.nameEn || property.nameAr}

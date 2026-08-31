@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const externalBaseUrl = process.env.PLAYWRIGHT_BASE_URL;
+const e2eSessionSecret = 'e2e-session-secret-is-local-and-at-least-32-characters';
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -24,6 +25,13 @@ export default defineConfig({
             url: 'http://127.0.0.1:3000/ar',
             reuseExistingServer: !process.env.CI,
             timeout: 120_000,
+            env: {
+              ...process.env,
+              BHD_R_SESSION_SECRET: e2eSessionSecret,
+              BHD_R_OIDC_STATE_SECRET: e2eSessionSecret,
+              CSRF_SECRET: e2eSessionSecret,
+              API_ORIGIN: 'http://127.0.0.1:4000',
+            },
           },
         ],
       }),

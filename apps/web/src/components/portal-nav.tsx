@@ -1,11 +1,22 @@
 'use client';
 
 import { useLocale, useTranslations } from 'next-intl';
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+} from 'react';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import { PortalHeader } from '@/components/portal-header';
 import { warmOpsSection } from '@/lib/portal-ops-client-cache';
-import { isOperationsSection, type OperationsSection } from '@/lib/portal-ops-types';
+import {
+  isOperationsSection,
+  opsSectionsForPortal,
+  type OperationsSection,
+} from '@/lib/portal-ops-types';
 import { OPS_NAVIGATE_EVENT } from '@/components/portal-main-slot';
 import type { PortalRole, Viewer } from '@/lib/types';
 
@@ -211,8 +222,15 @@ function PortalIntentLink({
       onMouseEnter={warmDestination}
       onFocus={warmDestination}
       onTouchStart={warmDestination}
-      onClick={() => {
-        if (section) {
+      onClick={(event: ReactMouseEvent<HTMLAnchorElement>) => {
+        const sameTabClick =
+          event.button === 0 &&
+          !event.metaKey &&
+          !event.ctrlKey &&
+          !event.shiftKey &&
+          !event.altKey &&
+          event.currentTarget.target !== '_blank';
+        if (section && sameTabClick) {
           window.dispatchEvent(
             new CustomEvent(OPS_NAVIGATE_EVENT, {
               detail: { portal, section },
@@ -316,7 +334,11 @@ export function PortalNav({ portal, viewer }: { portal: PortalRole; viewer: View
                 const active =
                   pathname === href || (item.path !== '' && pathname.startsWith(`${href}/`));
                 const sectionName = item.path.replace(/^\//, '');
-                const section = isOperationsSection(sectionName) ? sectionName : null;
+                const section =
+                  isOperationsSection(sectionName) &&
+                  opsSectionsForPortal(portal).includes(sectionName)
+                    ? sectionName
+                    : null;
                 return (
                   <PortalIntentLink
                     key={item.path || 'root'}

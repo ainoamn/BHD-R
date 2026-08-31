@@ -1,4 +1,5 @@
 import { Card, CardContent, StatusBadge } from '@bhd-r/ui';
+import Link from 'next/link';
 import { apiFetch } from '@/lib/server-api';
 import { requirePortal } from '@/lib/viewer';
 import type { PortalRole } from '@/lib/types';
@@ -112,9 +113,11 @@ export async function ContractDetailView({
                 <div>
                   <dt>{ar ? 'العقد الأصلي' : 'Original contract'}</dt>
                   <dd>
-                    <a href={`/${currentLocale}/${portal}/contracts/${contract.parentContractId}`}>
+                    <Link
+                      href={`/${currentLocale}/${portal}/contracts/${contract.parentContractId}`}
+                    >
                       {ar ? 'عرض العقد المرتبط' : 'View linked contract'}
-                    </a>
+                    </Link>
                   </dd>
                 </div>
               ) : null}
