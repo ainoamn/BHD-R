@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.95 — 2026-08-31
+
+- Fix owner property edit save: mint CSRF on Next (`/api/auth/csrf`) so Neon writes no longer depend on Nest-issued tokens; retry once on 403; clearer save errors.
+- Docs: `RELEASE-0.2.95-AR.md`.
+
 ## 0.2.94 — 2026-08-31
 
 - Listing cards: single rent-status badge; public media responses bake BHD logo into image bytes; portal header no longer overlaps language with user chip / duplicate portal title.

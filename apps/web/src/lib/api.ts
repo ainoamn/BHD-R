@@ -42,17 +42,28 @@ export async function fetchBrowserCsrfToken(force = false): Promise<string> {
 
 async function getCsrfToken(force = false): Promise<string> {
   if (!force && cachedCsrfToken) return cachedCsrfToken;
-  // Cookie is readable (not HttpOnly) — prefer it so Neon owner writes work without Nest.
-  if (!force && typeof document !== 'undefined') {
-    const match = document.cookie.match(/(?:^|; )bhd_r_csrf=([^;]*)/);
-    const fromCookie = match?.[1] ? decodeURIComponent(match[1]) : '';
-    if (fromCookie.length >= 16) {
-      cachedCsrfToken = fromCookie;
-      return fromCookie;
-    }
-  }
   if (!force && csrfInflight) return csrfInflight;
   csrfInflight = (async () => {
+    // Always mint on Next/Vercel first. Nest-issued cookies can fail verification
+    // when CSRF_SECRET differs between Render and Vercel.
+    try {
+      const local = await fetch('/api/auth/csrf', {
+        credentials: 'same-origin',
+        headers: { accept: 'application/json' },
+        signal: AbortSignal.timeout(12_000),
+        cache: 'no-store',
+      });
+      if (local.ok) {
+        const payload = (await local.json()) as { token?: string };
+        if (payload.token && payload.token.length >= 16) {
+          cachedCsrfToken = payload.token;
+          return payload.token;
+        }
+      }
+    } catch {
+      /* fall through to Nest */
+    }
+
     let csrfResponse: Response;
     try {
       csrfResponse = await fetch(browserApiPath('/v1/auth/csrf'), {
@@ -60,11 +71,11 @@ async function getCsrfToken(force = false): Promise<string> {
         headers: { accept: 'application/json' },
         signal: AbortSignal.timeout(22_000),
       });
-    } catch (error) {
+    } catch {
       throw new ApiError(
         0,
         'network_error',
-        'تعذر الاتصال بـ Nest API. من Render تأكد أن الخدمة Live ثم أعد المحاولة.',
+        'تعذر إنشاء رمز الحماية. حدّث الصفحة أو سجّل الدخول مجدداً.',
       );
     }
     if (!csrfResponse.ok) {

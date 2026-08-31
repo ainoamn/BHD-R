@@ -472,8 +472,14 @@ export async function updatePropertyBundleOnNeon(
       .where(
         and(eq(properties.id, propertyId), eq(properties.organizationId, claims.organizationId!)),
       )
-      .returning();
-    const updated = propertyRows[0]!;
+      .returning({
+        id: properties.id,
+        serialNumber: properties.serialNumber,
+        kind: properties.kind,
+        status: properties.status,
+      });
+    const updated = propertyRows[0];
+    if (!updated) throw new Error('update_failed');
 
     if (input.property.ownerPartyId !== property.ownerPartyId) {
       await transaction
@@ -736,9 +742,13 @@ export async function updatePropertyBundleOnNeon(
     });
 
     const result = {
-      ...updated,
+      id: updated.id,
+      serialNumber: updated.serialNumber,
+      kind: updated.kind,
+      status: updated.status,
       units: unitRows.map((unit) => ({
-        ...unit,
+        id: unit.id,
+        code: unit.code,
         rentMinor: unit.rentMinor.toString(),
         salePriceMinor: unit.salePriceMinor?.toString() ?? null,
         depositMinor: unit.depositMinor?.toString() ?? null,

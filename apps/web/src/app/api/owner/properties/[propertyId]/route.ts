@@ -102,6 +102,10 @@ export async function PATCH(
         ar: 'طلب مكرر بمفتاح مختلف — حدّث الصفحة وأعد المحاولة',
         en: 'Idempotency key reused with a different payload',
       },
+      csrf_rejected: {
+        ar: 'رمز الحماية مرفوض — حدّث الصفحة وأعد المحاولة',
+        en: 'Security token rejected — refresh and retry',
+      },
       update_failed: { ar: 'تعذر تحديث العقار في قاعدة البيانات', en: 'Update failed' },
     };
     const known = map[code];

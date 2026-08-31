@@ -117,9 +117,29 @@ export async function requireLiveSession(
   return claims;
 }
 
-export function guardErrorResponse(error: unknown): { status: number; body: { error: { code: string } } } {
+export function guardErrorResponse(error: unknown): {
+  status: number;
+  body: { error: { code: string; message?: string; messageAr?: string } };
+} {
   if (error instanceof RouteGuardError) {
-    return { status: error.status, body: { error: { code: error.code } } };
+    const messages: Record<string, { en: string; ar: string }> = {
+      unauthorized: { en: 'Sign in required', ar: 'يلزم تسجيل الدخول' },
+      csrf_rejected: {
+        en: 'Security token rejected — refresh the page and retry',
+        ar: 'رمز الحماية مرفوض — حدّث الصفحة وأعد المحاولة',
+      },
+      misconfigured: { en: 'Server misconfigured', ar: 'إعداد الخادم غير مكتمل' },
+    };
+    const known = messages[error.code];
+    return {
+      status: error.status,
+      body: {
+        error: {
+          code: error.code,
+          ...(known ? { message: known.en, messageAr: known.ar } : {}),
+        },
+      },
+    };
   }
   if (error instanceof Error && error.message === 'BHD_R_SESSION_SECRET_required') {
     return { status: 503, body: { error: { code: 'misconfigured' } } };

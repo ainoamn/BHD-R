@@ -6,7 +6,7 @@ import { Button, Card, CardContent, Field, SelectField, TextAreaField } from '@b
 import { supportedCurrencyCodes, currencyMinorUnits, type CurrencyCode } from '@bhd-r/contracts';
 import { countryPacks, type CountryPackCode } from '@bhd-r/country-packs';
 import { useLocale, useTranslations } from 'next-intl';
-import { browserMediaPut, browserMutation, fetchBrowserCsrfToken, mapWithConcurrency } from '@/lib/api';
+import { browserMediaPut, browserMutation, clearBrowserCsrfCache, fetchBrowserCsrfToken, mapWithConcurrency } from '@/lib/api';
 import { compressImageFile } from '@/lib/compress-image';
 import { toMinorUnits } from '@/lib/format';
 import { omanLocations } from '@/lib/oman-locations';
@@ -968,26 +968,35 @@ export function PropertyWizard({
 
       // Prefer Vercel→Neon write path (no Nest/Render). Avoids weeks of Render Free hang loops.
       if (mode === 'edit' && propertyId) {
-        const editResponse = await fetch(`/api/owner/properties/${encodeURIComponent(propertyId)}`, {
-          method: 'PATCH',
-          credentials: 'same-origin',
-          headers: {
-            accept: 'application/json',
-            'content-type': 'application/json',
-            'idempotency-key': bundleIdempotencyKey.current,
-            'x-csrf-token': await fetchBrowserCsrfToken(),
-          },
-          body: JSON.stringify(payload),
-          signal: AbortSignal.timeout(55_000),
-        });
+        const patchOnce = async (csrfToken: string) =>
+          fetch(`/api/owner/properties/${encodeURIComponent(propertyId)}`, {
+            method: 'PATCH',
+            credentials: 'same-origin',
+            headers: {
+              accept: 'application/json',
+              'content-type': 'application/json',
+              'idempotency-key': bundleIdempotencyKey.current,
+              'x-csrf-token': csrfToken,
+            },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(55_000),
+          });
+
+        let csrfToken = await fetchBrowserCsrfToken();
+        let editResponse = await patchOnce(csrfToken);
+        if (editResponse.status === 403) {
+          clearBrowserCsrfCache();
+          csrfToken = await fetchBrowserCsrfToken(true);
+          editResponse = await patchOnce(csrfToken);
+        }
         if (!editResponse.ok) {
           const errBody = (await editResponse.json().catch(() => null)) as {
-            error?: { message?: string; messageAr?: string };
+            error?: { code?: string; message?: string; messageAr?: string };
           } | null;
           throw new Error(
             errBody?.error?.messageAr ??
               errBody?.error?.message ??
-              `update_failed:${editResponse.status}`,
+              `${errBody?.error?.code ?? 'update_failed'}:${editResponse.status}`,
           );
         }
         const updated = (await editResponse.json()) as CreatedPropertyBundle;
@@ -1154,8 +1163,8 @@ export function PropertyWizard({
       ) {
         setError(
           ar
-            ? 'تعذر حفظ العقار (انقطاع أو مهلة). حدّث الصفحة وأعد المحاولة. إن استمر الخطأ: تأكد أن Nest Live على Render وأن جلستك ما زالت صالحة.'
-            : 'Could not save (network or timeout). Refresh and retry. If it persists, confirm Nest is Live on Render and your session is still valid.',
+            ? 'تعذر حفظ العقار (انقطاع أو مهلة). حدّث الصفحة بقوة (Ctrl+Shift+R) ثم أعد المحاولة. إن استمر: سجّل الخروج وادخل من جديد.'
+            : 'Could not save (network or timeout). Hard-refresh (Ctrl+Shift+R) and retry. If it persists, sign out and sign in again.',
         );
       } else {
         setError(raw);
