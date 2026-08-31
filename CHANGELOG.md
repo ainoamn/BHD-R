@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.18 — 2026-08-31
+
+- Media upload: Nest fallback uses Bearer session (skips CSRF); Neon inline last-resort so property save is not blocked when Vercel S3 is incomplete.
+
 ## 0.4.17 — 2026-08-31
 
 - Property media upload: JSON base64 path (avoids multipart `Failed to fetch`); Neon/R2 first then Nest **server-side** ingress fallback; never surface raw browser `Failed to fetch`.

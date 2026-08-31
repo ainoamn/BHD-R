@@ -2357,7 +2357,7 @@ export function PropertyWizard({
             {error ? (
               <div className="notice notice--error" role="alert">
                 <p>{error}</p>
-                {/Nest|Render|health\/ready|DATABASE_URL|Vercel/i.test(error) ? (
+                {/Render|health\/ready|DATABASE_URL|api_unreachable|تعذر الوصول إلى/i.test(error) ? (
                   <div style={{ marginTop: '0.75rem' }}>
                     <NestReconnectButton locale={locale === 'en' ? 'en' : 'ar'} />
                   </div>

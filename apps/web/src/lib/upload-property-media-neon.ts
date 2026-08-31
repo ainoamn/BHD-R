@@ -224,6 +224,7 @@ export async function uploadUnitMediaOnNeon(
     bytes: Buffer;
     fileName?: string;
   },
+  options: { allowInlineFallback?: boolean } = {},
 ): Promise<{ assetId: string; url: string }> {
   if (!claims.organizationId) throw new Error('organization_required');
   if (!claims.permissions.includes('media.create')) throw new Error('forbidden');
@@ -269,12 +270,16 @@ export async function uploadUnitMediaOnNeon(
       return { assetId, url: `/api/owner/media/${assetId}` };
     } catch (error) {
       console.error('S3 property media upload failed', error);
-      if (isProductionRuntime()) throw new Error('storage_unavailable');
+      if (isProductionRuntime() && !options.allowInlineFallback) {
+        throw new Error('storage_unavailable');
+      }
     }
   }
 
-  // Inline Base64 is local/dev only — blocked in production (P0-03).
-  if (isProductionRuntime()) throw new Error('storage_unavailable');
+  // Inline Base64: local/dev, or production last-resort when caller opts in.
+  if (isProductionRuntime() && !options.allowInlineFallback) {
+    throw new Error('storage_unavailable');
+  }
   if (input.bytes.byteLength > INLINE_MAX_BYTES) throw new Error('inline_too_large');
 
   const assetId = await persistAssetRow(claims, {
@@ -285,11 +290,11 @@ export async function uploadUnitMediaOnNeon(
     metadata: {
       purpose: input.purpose,
       unitId: input.unitId,
-      via: 'vercel-neon-inline-dev',
+      via: options.allowInlineFallback ? 'vercel-neon-inline-fallback' : 'vercel-neon-inline-dev',
       fileName: input.fileName ?? null,
       storage: 'inline',
       dataBase64: input.bytes.toString('base64'),
-      scanNote: 'magic_bytes_only_dev_inline',
+      scanNote: 'magic_bytes_only_inline',
     },
   });
   return { assetId, url: `/api/owner/media/${assetId}` };

@@ -142,12 +142,12 @@ export async function POST(request: Request) {
         en: 'file and unitId are required',
       },
       storage_unavailable: {
-        ar: 'تخزين الصور غير متاح — اضبط S3 على Vercel أو تأكد أن Nest Live',
-        en: 'Object storage unavailable — configure S3 on Vercel or keep Nest Live',
+        ar: 'تخزين الصور غير متاح حالياً. صغّر الصورة أو أعد المحاولة لاحقاً.',
+        en: 'Photo storage is temporarily unavailable. Use a smaller image or try again later.',
       },
       s3_unconfigured: {
-        ar: 'تخزين الصور غير مضبوط',
-        en: 'Media storage is not configured',
+        ar: 'تخزين الصور غير مضبوط على الخادم',
+        en: 'Media storage is not configured on the server',
       },
       inline_too_large: {
         ar: 'الملف كبير للتخزين المؤقت',

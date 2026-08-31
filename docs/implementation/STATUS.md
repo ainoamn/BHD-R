@@ -1,8 +1,8 @@
 # Implementation status
 
 **Updated:** 2026-08-31  
-**Product version:** 0.4.17  
-**Active focus:** Property photo upload Failed to fetch  
+**Product version:** 0.4.18  
+**Active focus:** Property photo storage (Nest Bearer + Neon inline fallback)  
 **Release 0.4.17:** [`RELEASE-0.4.17-AR.md`](./RELEASE-0.4.17-AR.md)  
 **Release 0.4.16:** [`RELEASE-0.4.16-AR.md`](./RELEASE-0.4.16-AR.md)  
 **Release 0.4.15:** [`RELEASE-0.4.15-AR.md`](./RELEASE-0.4.15-AR.md)  

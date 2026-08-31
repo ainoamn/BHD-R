@@ -324,7 +324,7 @@ export async function updatePropertyBundleNestOrNeon(
 
 /**
  * Prefer Neon+S3 on Vercel; if storage is missing/unavailable, upload via Nest
- * server-to-server (intent → PUT ingress → complete) so the browser never hits Nest CORS.
+ * server-to-server with Bearer session (skips CSRF); last resort Neon inline bytes.
  */
 export async function uploadUnitMediaNestOrNeon(
   claims: SessionClaims,
@@ -361,109 +361,109 @@ export async function uploadUnitMediaNestOrNeon(
     }
   }
 
-  if (!isNestApiConfiguredForRuntime() || !(await probeNestReady())) {
-    throw new Error('storage_unavailable');
+  if (isNestApiConfiguredForRuntime() && (await probeNestReady())) {
+    const origin = configuredApiOrigin();
+    if (origin) {
+      try {
+        const cookieStore = await cookies();
+        const sessionToken = cookieStore.get('bhd_r_session')?.value?.trim();
+        if (!sessionToken) throw new Error('unauthorized');
+
+        const sha256 = createHash('sha256').update(input.bytes).digest('hex');
+        const idempotencyKey =
+          options.idempotencyKey && options.idempotencyKey.trim().length >= 16
+            ? options.idempotencyKey.trim().slice(0, 200)
+            : `media-complete:${asSubmissionId(null)}`;
+
+        const nestHeaders: Record<string, string> = {
+          accept: 'application/json',
+          'content-type': 'application/json',
+          authorization: `Bearer ${sessionToken}`,
+        };
+        if (claims.organizationId) {
+          nestHeaders['x-organization-id'] = claims.organizationId;
+        }
+
+        const intentResponse = await fetch(`${origin}/v1/media/upload-intents`, {
+          method: 'POST',
+          headers: nestHeaders,
+          body: JSON.stringify({
+            purpose: input.purpose,
+            unitId: input.unitId,
+            mimeType: detected,
+            byteSize: input.bytes.byteLength,
+          }),
+          cache: 'no-store',
+          signal: AbortSignal.timeout(20_000),
+        });
+        if (!intentResponse.ok) {
+          const detail = await intentResponse.text().catch(() => '');
+          console.error('Nest media intent failed', intentResponse.status, detail.slice(0, 300));
+          throw new Error('upload_failed');
+        }
+        const intent = (await intentResponse.json()) as {
+          assetId: string;
+          uploadUrl: string;
+          requiredHeaders?: { 'content-type'?: string };
+        };
+
+        const put = await fetch(intent.uploadUrl, {
+          method: 'PUT',
+          headers: {
+            'content-type': intent.requiredHeaders?.['content-type'] ?? detected,
+          },
+          body: new Uint8Array(input.bytes),
+          cache: 'no-store',
+          signal: AbortSignal.timeout(45_000),
+        });
+        if (!put.ok) {
+          console.error('Nest media ingress PUT failed', put.status);
+          throw new Error('upload_failed');
+        }
+
+        const completeResponse = await fetch(`${origin}/v1/media/${intent.assetId}/complete`, {
+          method: 'POST',
+          headers: {
+            ...nestHeaders,
+            'idempotency-key': idempotencyKey,
+          },
+          body: JSON.stringify({
+            sha256,
+            unitId: input.unitId,
+            position: input.position,
+          }),
+          cache: 'no-store',
+          signal: AbortSignal.timeout(20_000),
+        });
+        if (!completeResponse.ok) {
+          const detail = await completeResponse.text().catch(() => '');
+          console.error('Nest media complete failed', completeResponse.status, detail.slice(0, 300));
+          throw new Error('upload_failed');
+        }
+        const completed = (await completeResponse.json()) as { assetId?: string };
+
+        return {
+          assetId: completed.assetId ?? intent.assetId,
+          url: `/api/owner/media/${completed.assetId ?? intent.assetId}`,
+          via: 'nest',
+        };
+      } catch (nestError) {
+        console.error('Nest media server upload failed', nestError);
+      }
+    }
   }
 
-  const origin = configuredApiOrigin();
-  if (!origin) throw new Error('storage_unavailable');
-
-  const sha256 = createHash('sha256').update(input.bytes).digest('hex');
-  const idempotencyKey =
-    options.idempotencyKey && options.idempotencyKey.trim().length >= 16
-      ? options.idempotencyKey.trim().slice(0, 200)
-      : `media-complete:${asSubmissionId(null)}`;
-
+  // Last resort: store compressed bytes inline in Neon so saves are not blocked.
   try {
-    const cookieStore = await cookies();
-    const cookieHeader = cookieStore.toString();
-
-    const csrfResponse = await fetch(`${origin}/v1/auth/csrf`, {
-      method: 'GET',
-      headers: { accept: 'application/json', cookie: cookieHeader },
-      cache: 'no-store',
-      signal: AbortSignal.timeout(12_000),
-    });
-    if (!csrfResponse.ok) throw new Error('upload_failed');
-    const csrfPayload = (await csrfResponse.json()) as { token?: string };
-    const nestCsrf = csrfPayload.token?.trim();
-    if (!nestCsrf) throw new Error('upload_failed');
-
-    // Capture Nest CSRF cookie if Set-Cookie was returned.
-    const setCookie =
-      typeof csrfResponse.headers.getSetCookie === 'function'
-        ? csrfResponse.headers.getSetCookie()
-        : csrfResponse.headers.get('set-cookie')
-          ? [csrfResponse.headers.get('set-cookie')!]
-          : [];
-    const nestCookieExtra = setCookie
-      .map((entry) => entry.split(';')[0])
-      .filter(Boolean)
-      .join('; ');
-    const cookieForNest = [cookieHeader, nestCookieExtra].filter(Boolean).join('; ');
-
-    const intentResponse = await fetch(`${origin}/v1/media/upload-intents`, {
-      method: 'POST',
-      headers: {
-        accept: 'application/json',
-        'content-type': 'application/json',
-        cookie: cookieForNest,
-        'x-csrf-token': nestCsrf,
-      },
-      body: JSON.stringify({
-        purpose: input.purpose,
-        unitId: input.unitId,
-        mimeType: detected,
-        byteSize: input.bytes.byteLength,
-      }),
-      cache: 'no-store',
-      signal: AbortSignal.timeout(12_000),
-    });
-    if (!intentResponse.ok) throw new Error('upload_failed');
-    const intent = (await intentResponse.json()) as {
-      assetId: string;
-      uploadUrl: string;
-      requiredHeaders?: { 'content-type'?: string };
-    };
-
-    const put = await fetch(intent.uploadUrl, {
-      method: 'PUT',
-      headers: {
-        'content-type': intent.requiredHeaders?.['content-type'] ?? detected,
-      },
-      body: new Uint8Array(input.bytes),
-      cache: 'no-store',
-      signal: AbortSignal.timeout(40_000),
-    });
-    if (!put.ok) throw new Error('upload_failed');
-
-    const completeResponse = await fetch(`${origin}/v1/media/${intent.assetId}/complete`, {
-      method: 'POST',
-      headers: {
-        accept: 'application/json',
-        'content-type': 'application/json',
-        cookie: cookieForNest,
-        'x-csrf-token': nestCsrf,
-        'idempotency-key': idempotencyKey,
-      },
-      body: JSON.stringify({
-        sha256,
-        unitId: input.unitId,
-        position: input.position,
-      }),
-      cache: 'no-store',
-      signal: AbortSignal.timeout(12_000),
-    });
-    if (!completeResponse.ok) throw new Error('upload_failed');
-    const completed = (await completeResponse.json()) as { assetId?: string };
-
-    return {
-      assetId: completed.assetId ?? intent.assetId,
-      url: `/api/owner/media/${completed.assetId ?? intent.assetId}`,
-      via: 'nest',
-    };
-  } catch {
-    throw new Error('storage_unavailable');
+    const inline = await uploadUnitMediaOnNeon(
+      claims,
+      { ...input, mimeType: detected },
+      { allowInlineFallback: true },
+    );
+    return { ...inline, via: 'neon' };
+  } catch (inlineError) {
+    const code = inlineError instanceof Error ? inlineError.message : 'storage_unavailable';
+    throw new Error(code === 'inline_too_large' ? 'inline_too_large' : 'storage_unavailable');
   }
 }
 
