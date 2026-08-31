@@ -20,6 +20,10 @@
 | نطاقات متلامسة عند checkout | مسموح |
 | `/ar/stays` والعلم off | 404 |
 
+## ملاحظة نشر (Vercel / Render)
+
+فشل نشر Production لـ `92b0b1c` في لوحة مشروع **`bhd-r-api`** (Next) لا يعني أن الكود غير قابل للبناء على tip الحالي — أُعيد التحقق في 0.4.14 (`turbo` api+web ناجح؛ Nest `/healthz` Live). تجاهل Preview على فروع `feat/*` و dependabot؛ انشر دائماً من `main` الأخير. التفاصيل: [`NEST-API-HOSTING.md`](./NEST-API-HOSTING.md).
+
 ## تفعيل طيار (بشري)
 
 1. إعادة نشر Nest (Render) لاستلام Finance/Stays.

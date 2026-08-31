@@ -175,6 +175,29 @@ After Docker build, Nest boots with `loadEnvironment`. Missing keys abort the pr
 | Fastify on Render | **Avoid** until proven; caused multi-hour hang loops in Aug 2026 |
 | Vercel production project | Always **`bhd-r-api`** → `https://r.bhd-om.com` from branch **`main`**. Ignore project **`web`** (wrong Root / stale branches). |
 
+### Vercel deploy Errors around Stays 0.4.0–0.4.1 (2026-08-31)
+
+Dashboard project name **`bhd-r-api`** is the **Next.js** app (`apps/web` → `r.bhd-om.com`), not the Nest Docker service.
+
+| Deploy shown | Branch / commit | Likely cause | Action |
+| --- | --- | --- | --- |
+| Error Preview `feat/stays-phase-0` @ `9cfa48f` (~10s) | stale lockfile | `ERR_PNPM_OUTDATED_LOCKFILE` | Do not redeploy; use `main` |
+| Error Preview dependabot | lockfile / engines | Ignore or close PR | Keep Production on `main` |
+| Error / Ready mix on `6e8feb6` (0.4.0) | flake / retry | Manual Redeploy succeeded | Tip of `main` is source of truth |
+| Error Production `92b0b1c` (0.4.1) | superseded | Later `main` commits rebuilt | Redeploy **latest** `main` (0.4.14+) |
+
+**Verified 2026-08-31 (local):**
+
+- `pnpm exec turbo run build --filter=@bhd-r/api...` → success
+- `pnpm exec turbo run build --filter=@bhd-r/web...` → success
+- Nest `https://bhd-r.onrender.com/healthz` → `nestReady: true`
+- Nest `/health/ready` → `database: ok`
+- Site `https://r.bhd-om.com` → HTTP 200
+
+**Nest Docker (Render)** is a separate service (`Dockerfile.api`). If its Events show Error while `/healthz` is ok, the **previous Live** image is still serving — click **Manual Deploy** of latest `main` after a green build.
+
+Arabic: [`RELEASE-0.4.14-AR.md`](./RELEASE-0.4.14-AR.md) (web fixes); stays webhook remains behind flags ([`RELEASE-0.4.1-AR.md`](./RELEASE-0.4.1-AR.md)).
+
 ### Vercel `ERR_PNPM_OUTDATED_LOCKFILE` (feat/stays-phase-0 @ `9cfa48f`)
 
 A Git deploy cloned **`feat/stays-phase-0`** at `9cfa48f`, where `packages/config` gained `@types/node` + `vitest` **without** a lockfile bump → `pnpm install --frozen-lockfile` failed.
