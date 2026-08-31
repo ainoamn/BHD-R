@@ -2,15 +2,16 @@
 
 **Updated:** 2026-08-31  
 **Product version:** 0.3.8  
-**Active focus:** Browse map + discovery rails + reviews  
+**Active focus:** none (0.3.8 closed)  
 **Release 0.3.8:** [`RELEASE-0.3.8-AR.md`](./RELEASE-0.3.8-AR.md)  
 **Release 0.3.7:** [`RELEASE-0.3.7-AR.md`](./RELEASE-0.3.7-AR.md)  
 **Env manifest:** [`ENV-MANIFEST.md`](./ENV-MANIFEST.md)  
-**Nest hosting:** [`NEST-API-HOSTING.md`](./NEST-API-HOSTING.md)
+**Nest hosting:** [`NEST-API-HOSTING.md`](./NEST-API-HOSTING.md)  
+**Next product pack (not started):** [`../product/daily-stays/README.md`](../product/daily-stays/README.md)
 
 | Phase | Status | Notes |
 | ----- | ------ | ----- |
-| Map + discovery + reviews | **shipped 0.3.8** | Live on `r.bhd-om.com` (`070b306`+); pins + reviews + party profiles |
+| Map + discovery + reviews | **shipped 0.3.8** | Live `r.bhd-om.com` (`d098705`); pins + reviews + party profiles |
 | Properties browse filters | **shipped 0.3.7** | Sticky search + sidebar/drawer + client facets |
 | Vacant units in bookings | **shipped 0.3.6** | Neon context for create booking dropdown |
 
@@ -20,7 +21,8 @@
 2. ربط بوابة الدفع لتوقيع وإرسال حمولة العربون بعد الدفع.  
 3. ClamAV؛ Nest+DB E2E؛ Neon non-BYPASS.  
 4. تدوير أسرار ظهرت في محادثات سابقة.  
-5. اختياري: أرشفة مشروع Vercel `web` الخاطئ لتجنب التباس Error في اللوحة.
+5. اختياري: أرشفة مشروع Vercel `web` الخاطئ لتجنب التباس Error في اللوحة.  
+6. اختياري لاحقاً: تنفيذ حزمة الإقامات اليومية وفق `docs/product/daily-stays/` (Feature Flag مغلق).
 
 ## Verification
 
