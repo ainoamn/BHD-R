@@ -2,6 +2,13 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.11 — 2026-08-31
+
+- Read-only stay iCal export: `GET /v1/stays/units/:unitId/calendar.ics` from active inventory locks (busy labels, no guest PII).
+- `GET /v1/stays/calendar-units` + owner/developer calendar download UI.
+- Channel/OTA import remains blocked pending SSRF gates.
+- Docs: `RELEASE-0.4.11-AR.md`.
+
 ## 0.4.10 — 2026-08-31
 
 - Ops stay booking cancel and no-show: `POST /v1/stays/bookings/:id/cancel` and `…/no-show` release inventory locks and cancel pending stay payment intents.

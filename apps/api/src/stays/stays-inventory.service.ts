@@ -1,7 +1,12 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { and, eq, isNotNull, lte, sql } from 'drizzle-orm';
-import { outboxEvents, stayHolds, stayInventoryLocks } from '@bhd-r/db';
-import { formatDaterangeLiteral } from '@bhd-r/domain';
+import { outboxEvents, stayHolds, stayInventoryLocks, stayProfiles, units } from '@bhd-r/db';
+import {
+  buildStayUnitIcs,
+  formatDaterangeLiteral,
+  stayLockKindToIcsSummary,
+} from '@bhd-r/domain';
+import type { SessionClaims } from '@bhd-r/authz';
 import { DatabaseService, type DatabaseTransaction } from '../database/database.service.js';
 
 export type CreateStayLockInput = {
@@ -236,5 +241,100 @@ export class StaysInventoryService {
     }
 
     return lock ?? null;
+  }
+
+  /**
+   * Read-only ICS export from active inventory locks (no outbound URL fetch).
+   * Import / channel sync remains blocked until SSRF-gated Phase 8 work.
+   */
+  async exportUnitCalendarIcs(claims: SessionClaims, unitId: string): Promise<string> {
+    const organizationId = claims.organizationId;
+    if (!organizationId) throw new ConflictException('Organization context required');
+
+    return this.database.withinTenant(claims, async (transaction) => {
+      const [profile] = await transaction
+        .select({ id: stayProfiles.id })
+        .from(stayProfiles)
+        .where(
+          and(
+            eq(stayProfiles.organizationId, organizationId),
+            eq(stayProfiles.unitId, unitId),
+          ),
+        )
+        .limit(1);
+      if (!profile) throw new NotFoundException('Stay unit not found');
+
+      const result = await transaction.execute(sql`
+        SELECT
+          id::text AS id,
+          kind::text AS kind,
+          lower(stay_range)::text AS check_in_on,
+          upper(stay_range)::text AS check_out_on
+        FROM stay_inventory_locks
+        WHERE organization_id = ${organizationId}::uuid
+          AND unit_id = ${unitId}::uuid
+          AND status = 'active'
+        ORDER BY lower(stay_range) ASC, created_at ASC
+      `);
+      const lockRows = Array.isArray(result)
+        ? result
+        : ((result as { rows?: unknown[] }).rows ?? []);
+
+      const events = (
+        lockRows as Array<{
+          id: string;
+          kind: string;
+          check_in_on: string;
+          check_out_on: string;
+        }>
+      ).map((row) => ({
+        uid: row.id,
+        checkInOn: row.check_in_on,
+        checkOutOn: row.check_out_on,
+        summary: stayLockKindToIcsSummary(row.kind),
+      }));
+
+      const dtStampUtc = new Date()
+        .toISOString()
+        .replace(/[-:]/g, '')
+        .replace(/\.\d{3}Z$/, 'Z');
+
+      return buildStayUnitIcs({
+        calendarName: `BHD R stays · ${unitId.slice(0, 8)}`,
+        dtStampUtc,
+        events,
+      });
+    });
+  }
+
+  async listCalendarUnits(claims: SessionClaims) {
+    const organizationId = claims.organizationId;
+    if (!organizationId) throw new ConflictException('Organization context required');
+
+    return this.database.withinTenant(claims, async (transaction) => {
+      const rows = await transaction
+        .select({
+          unitId: stayProfiles.unitId,
+          propertyId: units.propertyId,
+          stayProfileId: stayProfiles.id,
+          timezone: stayProfiles.timezone,
+          unitCode: units.code,
+        })
+        .from(stayProfiles)
+        .innerJoin(units, eq(units.id, stayProfiles.unitId))
+        .where(eq(stayProfiles.organizationId, organizationId))
+        .orderBy(stayProfiles.createdAt);
+
+      return {
+        items: rows.map((row) => ({
+          unitId: row.unitId,
+          propertyId: row.propertyId,
+          stayProfileId: row.stayProfileId,
+          timezone: row.timezone,
+          unitCode: row.unitCode,
+          calendarPath: `/v1/stays/units/${row.unitId}/calendar.ics`,
+        })),
+      };
+    });
   }
 }

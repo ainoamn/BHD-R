@@ -8,6 +8,7 @@ import {
   Post,
   Query,
   Req,
+  Res,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { readStaysFlagsFromEnv, resolveStaysEnabledFromEnv } from '@bhd-r/config';
@@ -17,7 +18,7 @@ import {
   type StayOpsBookingsQuery,
   type StayPerformanceQuery,
 } from '@bhd-r/contracts';
-import type { ApiRequest } from '../common/api-http.js';
+import type { ApiRequest, ApiResponse } from '../common/api-http.js';
 import { RequirePermissions } from '../common/decorators.js';
 import { ZodPipe } from '../common/zod.pipe.js';
 import { StaysInventoryService } from './stays-inventory.service.js';
@@ -122,6 +123,34 @@ export class StaysOperationsController {
   markNoShow(@Req() request: ApiRequest, @Param('id', ParseUUIDPipe) id: string) {
     assertStaysOperationsEnabled(request.auth?.organizationId);
     return this.bookings.markNoShow(request.auth!, id);
+  }
+
+  @RequirePermissions('stay.booking.read')
+  @Get('calendar-units')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  listCalendarUnits(@Req() request: ApiRequest) {
+    assertStaysOperationsEnabled(request.auth?.organizationId);
+    return this.inventory.listCalendarUnits(request.auth!);
+  }
+
+  @RequirePermissions('stay.booking.read')
+  @Get('units/:unitId/calendar.ics')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  async exportUnitCalendar(
+    @Req() request: ApiRequest,
+    @Param('unitId', ParseUUIDPipe) unitId: string,
+    @Res({ passthrough: false }) reply: ApiResponse,
+  ) {
+    assertStaysOperationsEnabled(request.auth?.organizationId);
+    const ics = await this.inventory.exportUnitCalendarIcs(request.auth!, unitId);
+    reply
+      .status(200)
+      .setHeader('Content-Type', 'text/calendar; charset=utf-8')
+      .setHeader(
+        'Content-Disposition',
+        `attachment; filename="bhd-r-stay-${unitId.slice(0, 8)}.ics"`,
+      )
+      .send(ics);
   }
 
   /**

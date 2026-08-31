@@ -2,11 +2,14 @@ import { describe, expect, it } from 'vitest';
 import {
   assertStayBookingTransition,
   availabilityFromLockKinds,
+  buildStayUnitIcs,
   computeStayPerformanceMetrics,
+  escapeIcsText,
   formatDaterangeLiteral,
   nightsBetween,
   quoteStay,
   simulateConcurrentLockWinner,
+  stayLockKindToIcsSummary,
   stayRangeFullyAvailable,
   stayRangesOverlap,
 } from '../src/stays/index.js';
@@ -170,5 +173,34 @@ describe('stay performance Occupancy / ADR / RevPAR', () => {
     expect(empty.occupancyPercent).toBeNull();
     expect(empty.adrMinor).toBeNull();
     expect(empty.revparMinor).toBeNull();
+  });
+});
+
+describe('stay iCal export', () => {
+  it('builds a busy VCALENDAR without guest PII', () => {
+    const ics = buildStayUnitIcs({
+      calendarName: 'Unit A',
+      dtStampUtc: '20260831T120000Z',
+      events: [
+        {
+          uid: 'lock-1',
+          checkInOn: '2026-10-01',
+          checkOutOn: '2026-10-04',
+          summary: stayLockKindToIcsSummary('booking'),
+        },
+      ],
+    });
+    expect(ics).toContain('BEGIN:VCALENDAR');
+    expect(ics).toContain('BEGIN:VEVENT');
+    expect(ics).toContain('DTSTART;VALUE=DATE:20261001');
+    expect(ics).toContain('DTEND;VALUE=DATE:20261004');
+    expect(ics).toContain('SUMMARY:Busy (Booking)');
+    expect(ics).toContain('UID:lock-1@bhd-r.stays');
+    expect(ics).not.toMatch(/guest|email|phone/i);
+    expect(ics.endsWith('\r\n')).toBe(true);
+  });
+
+  it('escapes SUMMARY text', () => {
+    expect(escapeIcsText('A;B,C\\D\nE')).toBe('A\\;B\\,C\\\\D\\nE');
   });
 });

@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-08-31  
-**Product version:** 0.4.10  
-**Active focus:** BHD R Stays — ops cancel/no-show; flag still off  
+**Product version:** 0.4.11  
+**Active focus:** BHD R Stays — read-only iCal export; flag still off  
+**Release 0.4.11:** [`RELEASE-0.4.11-AR.md`](./RELEASE-0.4.11-AR.md)  
 **Release 0.4.10:** [`RELEASE-0.4.10-AR.md`](./RELEASE-0.4.10-AR.md)  
 **Release 0.4.9:** [`RELEASE-0.4.9-AR.md`](./RELEASE-0.4.9-AR.md)  
 **Release 0.4.8:** [`RELEASE-0.4.8-AR.md`](./RELEASE-0.4.8-AR.md)  
@@ -20,6 +21,7 @@
 
 | Phase | Status | Notes |
 | ----- | ------ | ----- |
+| Stay iCal export (read-only) | **shipped 0.4.11** | No outbound fetch; import still blocked |
 | Ops cancel / no-show | **shipped 0.4.10** | Release lock + UI actions |
 | Ops stay bookings list | **shipped 0.4.9** | Real org-scoped list/detail |
 | Stay payment provider redirect | **shipped 0.4.8** | Sandbox session + confirm |
@@ -35,14 +37,14 @@
 
 ## Next (human / infra)
 
-1. Redeploy Nest **and Worker** on Render from `main` (through 0.4.10).  
-2. Pilot: flag + allowlist + sandbox pay; verify cancel frees inventory.  
+1. Redeploy Nest **and Worker** on Render from `main` (through 0.4.11).  
+2. Pilot: flag + allowlist; verify `.ics` download from calendar page.  
 3. ClamAV فعلي؛ Nest+DB E2E كامل؛ Neon non-BYPASS؛ تدوير أسرار.  
 4. اختياري: أرشفة مشروع Vercel `web` الخاطئ.
 
 ## Product gaps (Expand–Contract)
 
-- iCal/OTA after SSRF controls.
+- iCal/OTA **import** after SSRF controls (export shipped 0.4.11).
 - Non-sandbox live PSP adapter for stay intents.
 
 ## Verification

@@ -25,7 +25,8 @@ export function isStayOutboxTopic(topic: string): topic is StayOutboxTopic {
   return (STAY_OUTBOX_TOPICS as readonly string[]).includes(topic);
 }
 
-/** Phase 8 stub — iCal/OTA sync must block SSRF (no private IPs, re-check redirects). */
+/** Phase 8 — outbound iCal/OTA import must stay blocked until SSRF gates (no private IPs, re-check redirects).
+ * Read-only export is available via GET /v1/stays/units/:unitId/calendar.ics (0.4.11+). */
 export function staysChannelSyncBlockedReason(): string {
   return 'channel_sync_not_enabled_until_phase_8_security_gates';
 }

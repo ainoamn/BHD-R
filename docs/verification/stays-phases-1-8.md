@@ -15,7 +15,7 @@
 | 4 | `/[locale]/stays` + slug + homepage tab | `notFound` / no tab when flag off |
 | 5 | Booking service + guest `/guest/stays` shell | gated |
 | 6–7 | Folio tables in 0015; worker job stubs | no auto jobs until wired |
-| 8 | Channel sync blocked stub (SSRF gate) | not enabled |
+| 8 | Channel sync blocked stub (SSRF gate); **export ICS 0.4.11** | import not enabled |
 
 ## Commands (scoped)
 
@@ -37,7 +37,7 @@
 
 ## Honest gaps (continue Expand–Contract)
 
-- iCal/OTA after SSRF controls.
+- iCal/OTA **import** after SSRF controls (read-only export shipped 0.4.11).
 - Non-sandbox live PSP adapter for stay intents.
 - Ops booking detail actions beyond checkout (cancel/no-show UI).
 - Full-repo `pnpm check` still has unrelated ESLint debt in api/web.
