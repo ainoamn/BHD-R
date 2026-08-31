@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.3.10 — 2026-08-31
+
+- Marketing auth: SiteHeader + homepage use Next `/api/auth/me` (Host `bhd_r_session`) instead of Nest `/v1/me`, so signed-in owners are not asked to log in again on `/ar` while `/ar/owner` works.
+- Docs: `RELEASE-0.3.10-AR.md`.
+
 ## 0.3.9 — 2026-08-31
 
 - Properties browse: view toggle — list / grid / table (persisted in localStorage).

@@ -24,14 +24,17 @@ export function SiteHeader() {
   useEffect(() => {
     if (hidden) return;
     let cancelled = false;
-    fetch('/v1/me', {
+    fetch('/api/auth/me', {
       credentials: 'same-origin',
       headers: { accept: 'application/json' },
       signal: AbortSignal.timeout(2_500),
+      cache: 'no-store',
     })
       .then(async (response) => {
         if (!response.ok) return null;
-        return (await response.json()) as Viewer;
+        const payload = (await response.json()) as Viewer & { authenticated?: boolean };
+        if (payload.authenticated === false || !payload.id) return null;
+        return payload as Viewer;
       })
       .then((viewer) => {
         if (!cancelled) setAuth(viewer ? { status: 'signed-in', viewer } : { status: 'anonymous' });
@@ -58,7 +61,7 @@ export function SiteHeader() {
   }, [open]);
 
   if (hidden) return null;
-  const signInHref = `/v1/auth/oidc/start?returnTo=${encodeURIComponent(`/${locale}/portal`)}`;
+  const signInHref = `/api/auth/bhd/start?returnTo=${encodeURIComponent(`/${locale}/portal`)}`;
 
   return (
     <header className="site-header">

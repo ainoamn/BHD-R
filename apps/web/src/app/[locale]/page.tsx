@@ -6,6 +6,7 @@ import { ListingCard } from '@/components/listing-card';
 import { PropertySearch } from '@/components/property-search';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { publicApiFetch } from '@/lib/server-api';
+import { getShellViewer } from '@/lib/viewer';
 import type { ListingCollection } from '@/lib/types';
 
 const homeCopy = {
@@ -95,6 +96,10 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   setRequestLocale(locale);
   const t = await getTranslations();
   const copy = homeCopy[locale === 'en' ? 'en' : 'ar'];
+  const viewer = await getShellViewer().catch(() => null);
+  const signedIn = Boolean(viewer);
+  const workspaceHref = `/${locale}/portal`;
+  const signInHref = `/api/auth/bhd/start?returnTo=${encodeURIComponent(workspaceHref)}`;
   const emptyListings = { data: [], pagination: { nextCursor: null, hasMore: false } };
   let listings = emptyListings as ListingCollection;
   let neonOk = false;
@@ -141,12 +146,15 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
                 {t('Home.cta')}
                 <span aria-hidden="true">←</span>
               </Link>
-              <a
-                href={`/v1/auth/oidc/start?returnTo=${encodeURIComponent(`/${locale}/portal`)}`}
-                className="button button--glass"
-              >
-                {t('Nav.login')}
-              </a>
+              {signedIn ? (
+                <Link href="/portal" className="button button--glass">
+                  {locale === 'ar' ? 'مساحتي' : 'Workspace'}
+                </Link>
+              ) : (
+                <a href={signInHref} className="button button--glass">
+                  {t('Nav.login')}
+                </a>
+              )}
             </div>
           </div>
 
@@ -279,13 +287,17 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             <h2>{copy.ctaTitle}</h2>
             <p>{copy.ctaText}</p>
           </div>
-          <a
-            href={`/v1/auth/oidc/start?returnTo=${encodeURIComponent(`/${locale}/portal`)}`}
-            className="button button--gold"
-          >
-            {copy.portal}
-            <span aria-hidden="true">←</span>
-          </a>
+          {signedIn ? (
+            <Link href="/portal" className="button button--gold">
+              {copy.portal}
+              <span aria-hidden="true">←</span>
+            </Link>
+          ) : (
+            <a href={signInHref} className="button button--gold">
+              {copy.portal}
+              <span aria-hidden="true">←</span>
+            </a>
+          )}
         </div>
       </section>
     </>
