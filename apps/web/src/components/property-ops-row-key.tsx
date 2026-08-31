@@ -13,9 +13,9 @@ export function PropertyOpsRowKey({
   name,
 }: {
   propertyId: string;
-  coverImageUrl?: string | null;
+  coverImageUrl?: string | null | undefined;
   locale: 'ar' | 'en';
-  name?: string;
+  name?: string | undefined;
 }) {
   const ar = locale === 'ar';
   const [qrSrc, setQrSrc] = useState<string | null>(null);
