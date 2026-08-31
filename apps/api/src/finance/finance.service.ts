@@ -35,6 +35,7 @@ import {
   webhookEvents,
   workflowEvents,
 } from '@bhd-r/db';
+import { resolveStaysEnabledFromEnv } from '@bhd-r/config';
 import type { SessionClaims } from '@bhd-r/authz';
 import {
   currencyMinorUnits,
@@ -91,6 +92,17 @@ function secretKeyring(purpose: string): Keyring {
 }
 
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
+
+function sanitizeRelativeReturnPath(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (
+    !/^\/(ar|en)(\/[A-Za-z0-9._~-]{1,64}){1,6}(\?[A-Za-z0-9._~=&%-]{0,200})?$/.test(trimmed)
+  ) {
+    return null;
+  }
+  return trimmed;
+}
 
 function isoDate(value: Date): string {
   return value.toISOString().slice(0, 10);
@@ -539,10 +551,115 @@ export class FinanceService {
     });
   }
 
-  completeSandboxPayment(sessionReference: string) {
+  /**
+   * Provider-hosted (sandbox) redirect for stay payment intents.
+   * Session reference is stored on stay_payment_intents.provider_intent_id (Expand–Contract;
+   * does not alter invoice payment_sessions).
+   */
+  async createStayPaymentSession(
+    paymentIntentId: string,
+    idempotencyKey: string,
+    locale: 'ar' | 'en',
+    returnPath: string,
+  ) {
+    return this.database.asPublic(async (transaction) => {
+      const intent = await transaction.query.stayPaymentIntents.findFirst({
+        where: eq(stayPaymentIntents.id, paymentIntentId),
+      });
+      if (!intent) throw new NotFoundException('Stay payment intent not found');
+
+      const staysGate = resolveStaysEnabledFromEnv({
+        organizationId: intent.organizationId,
+        propertyEnabled: true,
+        unitEnabled: true,
+      });
+      if (!staysGate.enabled) throw new NotFoundException();
+
+      const booking = await transaction.query.stayBookings.findFirst({
+        where: and(
+          eq(stayBookings.id, intent.bookingId),
+          eq(stayBookings.organizationId, intent.organizationId),
+        ),
+      });
+      if (!booking) throw new NotFoundException('Stay booking not found');
+      if (booking.status !== 'payment_pending') {
+        throw new ConflictException(
+          `Stay booking cannot start payment in status ${booking.status}`,
+        );
+      }
+      if (intent.status === 'succeeded') {
+        throw new ConflictException('Stay payment intent is already paid');
+      }
+      if (intent.status !== 'pending') {
+        throw new ConflictException(`Stay payment intent status ${intent.status} is not payable`);
+      }
+
+      const configured = await transaction.query.paymentGatewaySettings.findFirst({
+        where: and(
+          eq(paymentGatewaySettings.organizationId, intent.organizationId),
+          eq(paymentGatewaySettings.active, true),
+        ),
+      });
+      const sandboxEnabled =
+        process.env.PAYMENT_SANDBOX_ENABLED === 'true' && process.env.NODE_ENV !== 'production';
+      const provider = configured?.provider ?? (sandboxEnabled ? 'sandbox' : null);
+      if (provider !== 'sandbox') {
+        throw new ConflictException('No supported online payment adapter is active');
+      }
+
+      const origin = (process.env.WEB_ORIGIN ?? 'http://localhost:3000').replace(/\/$/, '');
+      let sessionReference = intent.providerIntentId;
+      if (
+        intent.provider === 'sandbox' &&
+        sessionReference &&
+        /^[A-Za-z0-9_-]{24,80}$/.test(sessionReference)
+      ) {
+        const redirectUrl = `${origin}/${locale}/payments/sandbox/${sessionReference}?kind=stay&return=${encodeURIComponent(returnPath)}`;
+        return {
+          sessionReference,
+          redirectUrl,
+          paymentIntentId: intent.id,
+          amountMinor: intent.amountMinor.toString(),
+          currency: intent.currency,
+          duplicate: true as const,
+          idempotencyKey,
+        };
+      }
+
+      sessionReference = randomBytes(24).toString('base64url');
+      await transaction
+        .update(stayPaymentIntents)
+        .set({
+          provider: 'sandbox',
+          providerIntentId: sessionReference,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(stayPaymentIntents.id, intent.id),
+            eq(stayPaymentIntents.organizationId, intent.organizationId),
+            eq(stayPaymentIntents.status, 'pending'),
+          ),
+        );
+
+      const redirectUrl = `${origin}/${locale}/payments/sandbox/${sessionReference}?kind=stay&return=${encodeURIComponent(returnPath)}`;
+      return {
+        sessionReference,
+        redirectUrl,
+        paymentIntentId: intent.id,
+        amountMinor: intent.amountMinor.toString(),
+        currency: intent.currency,
+        duplicate: false as const,
+        idempotencyKey,
+      };
+    });
+  }
+
+  completeSandboxPayment(sessionReference: string, returnPath?: string | null) {
     if (process.env.PAYMENT_SANDBOX_ENABLED !== 'true' || process.env.NODE_ENV === 'production') {
       throw new NotFoundException('Sandbox payments are disabled');
     }
+    const safeReturn = sanitizeRelativeReturnPath(returnPath);
     return this.database.asSystem(async (transaction) => {
       await transaction.execute(
         sql`select pg_advisory_xact_lock(hashtextextended(${sessionReference}, 23))`,
@@ -553,54 +670,101 @@ export class FinanceService {
           eq(paymentSessions.provider, 'sandbox'),
         ),
       });
-      if (!session) throw new NotFoundException('Payment session not found');
-      if (session.status === 'completed') {
+      if (session) {
+        if (session.status === 'completed') {
+          return {
+            completed: true,
+            duplicate: true,
+            kind: 'invoice' as const,
+            invoiceId: session.invoiceId,
+            returnPath:
+              safeReturn ??
+              (typeof session.metadata === 'object' &&
+              session.metadata !== null &&
+              'returnPath' in session.metadata
+                ? String((session.metadata as Record<string, unknown>).returnPath)
+                : null),
+          };
+        }
+        if (session.expiresAt <= new Date()) {
+          await transaction
+            .update(paymentSessions)
+            .set({ status: 'expired', updatedAt: new Date() })
+            .where(eq(paymentSessions.id, session.id));
+          throw new ConflictException('Payment session expired');
+        }
+        if (!(session.currency in currencyMinorUnits)) {
+          throw new ConflictException('Payment session currency is unsupported');
+        }
+        const currency = session.currency as CurrencyCode;
+        const payment = await this.recordPaymentInTransaction(transaction, session.organizationId, {
+          invoiceId: session.invoiceId,
+          amount: { amountMinor: session.amountMinor.toString(), currency },
+          provider: 'sandbox',
+          providerReference: `sandbox:${session.sessionReference}`,
+          receivedAt: new Date().toISOString(),
+          method: 'card',
+        });
+        await transaction
+          .update(paymentSessions)
+          .set({ status: 'completed', updatedAt: new Date() })
+          .where(eq(paymentSessions.id, session.id));
         return {
           completed: true,
-          duplicate: true,
+          duplicate: false,
+          kind: 'invoice' as const,
           invoiceId: session.invoiceId,
           returnPath:
-            typeof session.metadata === 'object' &&
+            safeReturn ??
+            (typeof session.metadata === 'object' &&
             session.metadata !== null &&
             'returnPath' in session.metadata
               ? String((session.metadata as Record<string, unknown>).returnPath)
-              : null,
+              : null),
+          payment,
         };
       }
-      if (session.expiresAt <= new Date()) {
-        await transaction
-          .update(paymentSessions)
-          .set({ status: 'expired', updatedAt: new Date() })
-          .where(eq(paymentSessions.id, session.id));
-        throw new ConflictException('Payment session expired');
+
+      const intent = await transaction.query.stayPaymentIntents.findFirst({
+        where: and(
+          eq(stayPaymentIntents.providerIntentId, sessionReference),
+          eq(stayPaymentIntents.provider, 'sandbox'),
+        ),
+      });
+      if (!intent) throw new NotFoundException('Payment session not found');
+
+      if (intent.status === 'succeeded') {
+        return {
+          completed: true,
+          duplicate: true,
+          kind: 'stay_booking' as const,
+          paymentIntentId: intent.id,
+          returnPath: safeReturn,
+        };
       }
-      if (!(session.currency in currencyMinorUnits)) {
-        throw new ConflictException('Payment session currency is unsupported');
+
+      if (!(intent.currency in currencyMinorUnits)) {
+        throw new ConflictException('Stay payment currency is unsupported');
       }
-      const currency = session.currency as CurrencyCode;
-      const payment = await this.recordPaymentInTransaction(transaction, session.organizationId, {
-        invoiceId: session.invoiceId,
-        amount: { amountMinor: session.amountMinor.toString(), currency },
+
+      await this.confirmStayBookingFromWebhook(transaction, {
+        organizationId: intent.organizationId,
+        paymentIntentId: intent.id,
+        amountMinor: intent.amountMinor.toString(),
+        currency: intent.currency as CurrencyCode,
         provider: 'sandbox',
-        providerReference: `sandbox:${session.sessionReference}`,
+        providerReference: `sandbox:${sessionReference}`,
         receivedAt: new Date().toISOString(),
         method: 'card',
+        providerEventId: `sandbox-stay:${sessionReference}`,
       });
-      await transaction
-        .update(paymentSessions)
-        .set({ status: 'completed', updatedAt: new Date() })
-        .where(eq(paymentSessions.id, session.id));
+
       return {
         completed: true,
         duplicate: false,
-        invoiceId: session.invoiceId,
-        returnPath:
-          typeof session.metadata === 'object' &&
-          session.metadata !== null &&
-          'returnPath' in session.metadata
-            ? String((session.metadata as Record<string, unknown>).returnPath)
-            : null,
-        payment,
+        kind: 'stay_booking' as const,
+        paymentIntentId: intent.id,
+        returnPath: safeReturn,
       };
     });
   }

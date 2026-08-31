@@ -79,6 +79,7 @@ export function StayCheckout({
   const [booking, setBooking] = useState<BookingResult | null>(null);
   const [stepHint, setStepHint] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [payBusy, setPayBusy] = useState(false);
   const [pending, startTransition] = useTransition();
 
   function runCheckout() {
@@ -158,6 +159,45 @@ export function StayCheckout({
         setError(caught instanceof Error ? caught.message : 'checkout_failed');
       }
     });
+  }
+
+  function payNow() {
+    if (!booking) return;
+    setPayBusy(true);
+    setError(null);
+    void (async () => {
+      try {
+        const returnPath = `/${locale}/guest/stays?ref=${encodeURIComponent(booking.referenceCode)}`;
+        const session = await browserPublicMutation<{ redirectUrl: string }>(
+          '/v1/public/stays/payment-sessions',
+          {
+            paymentIntentId: booking.paymentIntentId,
+            locale: locale === 'en' ? 'en' : 'ar',
+            returnPath,
+          },
+          { idempotencyKey: `stay-pay-${booking.paymentIntentId}` },
+        );
+        const target = new URL(session.redirectUrl);
+        if (
+          target.protocol !== 'https:' &&
+          !(target.protocol === 'http:' && target.hostname === 'localhost')
+        ) {
+          throw new Error('invalid_payment_redirect');
+        }
+        window.location.assign(target.href);
+      } catch (caught) {
+        setError(
+          caught instanceof ApiError && caught.status === 409
+            ? ar
+              ? 'بوابة الدفع غير مفعّلة لهذه البيئة (sandbox / مزوّد).'
+              : 'Payment gateway is not active in this environment (sandbox / provider).'
+            : caught instanceof Error
+              ? caught.message
+              : 'payment_failed',
+        );
+        setPayBusy(false);
+      }
+    })();
   }
 
   return (
@@ -302,17 +342,31 @@ export function StayCheckout({
           </p>
           <p className="muted">
             {ar
-              ? 'أكمل الدفع عبر مزوّد الدفع؛ التأكيد يصل بـ webhook (kind: stay_booking).'
-              : 'Complete payment with the provider; confirmation arrives via webhook (kind: stay_booking).'}
+              ? 'ادفع عبر بوابة المزوّد (sandbox محلياً). التأكيد يمرّ بمسار stay_booking.'
+              : 'Pay via the provider redirect (sandbox locally). Confirmation uses the stay_booking path.'}
           </p>
-          <p>
+          <div className="stays-checkout__pay-actions">
+            <button
+              type="button"
+              className="button button--primary"
+              disabled={payBusy}
+              onClick={() => payNow()}
+            >
+              {payBusy
+                ? ar
+                  ? 'جارٍ التحويل…'
+                  : 'Redirecting…'
+                : ar
+                  ? 'ادفع الآن'
+                  : 'Pay now'}
+            </button>
             <a
               className="text-link"
               href={`/${locale}/guest/stays?ref=${encodeURIComponent(booking.referenceCode)}`}
             >
-              {ar ? 'متابعة الرحلة في بوابة الضيف' : 'Track this trip in the guest portal'}
+              {ar ? 'متابعة الرحلة لاحقاً' : 'Track trip later'}
             </a>
-          </p>
+          </div>
         </div>
       ) : null}
     </section>

@@ -5,7 +5,13 @@ import { Button } from '@bhd-r/ui';
 import { useLocale } from 'next-intl';
 import { browserPublicMutation } from '@/lib/api';
 
-export function SandboxPaymentForm({ sessionReference }: { sessionReference: string }) {
+export function SandboxPaymentForm({
+  sessionReference,
+  returnPath,
+}: {
+  sessionReference: string;
+  returnPath?: string;
+}) {
   const locale = useLocale();
   const ar = locale === 'ar';
   const [busy, setBusy] = useState(false);
@@ -18,15 +24,29 @@ export function SandboxPaymentForm({ sessionReference }: { sessionReference: str
       const result = await browserPublicMutation<{
         completed: boolean;
         returnPath: string | null;
-      }>(
-        `/v1/public/payment-sessions/${encodeURIComponent(sessionReference)}/sandbox-complete`,
-        {},
-      );
-      if (result.returnPath?.startsWith(`/${locale}/invoice/`)) {
-        window.location.assign(result.returnPath);
+        kind?: string;
+      }>(`/v1/public/payment-sessions/${encodeURIComponent(sessionReference)}/sandbox-complete`, {
+        ...(returnPath ? { returnPath } : {}),
+      });
+      const target = result.returnPath ?? returnPath ?? null;
+      if (
+        target &&
+        (target.startsWith(`/${locale}/invoice/`) ||
+          target.startsWith(`/${locale}/guest/stays`) ||
+          target.startsWith(`/${locale}/stays/`))
+      ) {
+        window.location.assign(target);
         return;
       }
-      setMessage(ar ? 'اكتمل الدفع التجريبي بنجاح.' : 'Sandbox payment completed successfully.');
+      setMessage(
+        result.kind === 'stay_booking'
+          ? ar
+            ? 'اكتمل دفع الإقامة التجريبي بنجاح.'
+            : 'Sandbox stay payment completed successfully.'
+          : ar
+            ? 'اكتمل الدفع التجريبي بنجاح.'
+            : 'Sandbox payment completed successfully.',
+      );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'payment_failed');
     } finally {

@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   Headers,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
   Post,
@@ -12,7 +13,12 @@ import {
 } from '@nestjs/common';
 import type { ApiRequest } from '../common/api-http.js';
 import { z } from 'zod';
-import { moneySchema, recordPaymentSchema } from '@bhd-r/contracts';
+import {
+  createStayPaymentSessionSchema,
+  moneySchema,
+  recordPaymentSchema,
+} from '@bhd-r/contracts';
+import { readStaysFlagsFromEnv } from '@bhd-r/config';
 import { Idempotent, Public, RequirePermissions } from '../common/decorators.js';
 import { ZodPipe } from '../common/zod.pipe.js';
 import { FinanceService } from './finance.service.js';
@@ -59,6 +65,14 @@ const publicPaymentSessionSchema = z
   .object({
     locale: z.enum(['ar', 'en']).default('ar'),
     returnPath: z.string().regex(/^\/(ar|en)\/invoice\/[A-Za-z0-9_-]{20,200}$/),
+  })
+  .strict();
+const sandboxCompleteSchema = z
+  .object({
+    returnPath: z
+      .string()
+      .regex(/^\/(ar|en)(\/[A-Za-z0-9._~-]{1,64}){1,6}(\?[A-Za-z0-9._~=&%-]{0,200})?$/)
+      .optional(),
   })
   .strict();
 const chequeSchema = z
@@ -263,11 +277,44 @@ export class PublicPaymentSessionController {
 
   @Post(':reference/sandbox-complete')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  completeSandbox(@Param('reference') reference: string) {
+  completeSandbox(
+    @Param('reference') reference: string,
+    @Body(new ZodPipe(sandboxCompleteSchema)) body: z.infer<typeof sandboxCompleteSchema>,
+  ) {
     if (!/^[A-Za-z0-9_-]{24,80}$/.test(reference)) {
       throw new BadRequestException('Invalid payment session reference');
     }
-    return this.service.completeSandboxPayment(reference);
+    return this.service.completeSandboxPayment(reference, body.returnPath);
+  }
+}
+
+@Public()
+@Controller('v1/public/stays')
+export class PublicStayPaymentController {
+  constructor(private readonly service: FinanceService) {}
+
+  @Post('payment-sessions')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  createStaySession(
+    @Headers('idempotency-key') idempotencyKey: string,
+    @Body(new ZodPipe(createStayPaymentSessionSchema))
+    body: z.infer<typeof createStayPaymentSessionSchema>,
+  ) {
+    if (
+      typeof idempotencyKey !== 'string' ||
+      idempotencyKey.length < 8 ||
+      idempotencyKey.length > 200
+    ) {
+      throw new BadRequestException('A valid idempotency-key header is required');
+    }
+    const { platformEnabled } = readStaysFlagsFromEnv();
+    if (!platformEnabled) throw new NotFoundException();
+    return this.service.createStayPaymentSession(
+      body.paymentIntentId,
+      idempotencyKey,
+      body.locale === 'en' ? 'en' : 'ar',
+      body.returnPath,
+    );
   }
 }
 

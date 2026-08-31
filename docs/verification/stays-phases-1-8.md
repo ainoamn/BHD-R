@@ -37,10 +37,15 @@
 
 ## Honest gaps (continue Expand–Contract)
 
-- Provider-hosted payment redirect for stay intents.
 - iCal/OTA after SSRF controls.
 - Ops bookings list still a stub.
+- Non-sandbox live PSP adapter for stay intents.
 - Full-repo `pnpm check` still has unrelated ESLint debt in api/web.
+
+## 0.4.8 stay payment redirect
+
+- Flag off → `POST /v1/public/stays/payment-sessions` **404**.
+- Flag on + sandbox → redirect to `/payments/sandbox/:ref`; complete confirms stay booking.
 
 ## 0.4.7 Occupancy / ADR / RevPAR
 

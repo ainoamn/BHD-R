@@ -183,4 +183,20 @@ describe('API runtime boundaries (Express)', () => {
     );
     expect([401, 404]).toContain(response.status);
   });
+
+  it('hides stay payment-session create while the platform flag is off', async () => {
+    const response = await fetch(`${baseUrl}/v1/public/stays/payment-sessions`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'idempotency-key': 'e2e-stay-pay-session-01',
+      },
+      body: JSON.stringify({
+        paymentIntentId: '00000000-0000-4000-8000-000000000097',
+        locale: 'ar',
+        returnPath: '/ar/guest/stays',
+      }),
+    });
+    expect(response.status).toBe(404);
+  });
 });

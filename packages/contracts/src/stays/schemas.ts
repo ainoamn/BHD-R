@@ -238,3 +238,15 @@ export type StayGuestBookingLookup = z.infer<typeof stayGuestBookingLookupSchema
 export type StayGuestBookingClaim = z.infer<typeof stayGuestBookingClaimSchema>;
 export type StayPerformanceQuery = z.infer<typeof stayPerformanceQuerySchema>;
 export type StayPerformanceMetricsDto = z.infer<typeof stayPerformanceMetricsSchema>;
+
+export const createStayPaymentSessionSchema = z
+  .object({
+    paymentIntentId: uuidSchema,
+    locale: localeSchema.default('ar'),
+    returnPath: z
+      .string()
+      .regex(/^\/(ar|en)(\/[A-Za-z0-9._~-]{1,64}){1,6}(\?[A-Za-z0-9._~=&%-]{0,200})?$/),
+  })
+  .strict();
+
+export type CreateStayPaymentSessionInput = z.infer<typeof createStayPaymentSessionSchema>;

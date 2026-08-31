@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.8 — 2026-08-31
+
+- Stay payment provider redirect: `POST /v1/public/stays/payment-sessions` (sandbox) + sandbox-complete for stay intents.
+- Checkout “Pay now” redirects to sandbox simulator; confirm reuses stay_booking confirmation path.
+- Docs: `RELEASE-0.4.8-AR.md`.
+
 ## 0.4.7 — 2026-08-31
 
 - Stays performance KPIs: domain Occupancy / ADR / RevPAR; `GET /v1/stays/reports/performance`.

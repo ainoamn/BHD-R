@@ -4,6 +4,7 @@ import {
   InternalBillingController,
   PublicInvoiceController,
   PublicPaymentSessionController,
+  PublicStayPaymentController,
   PaymentWebhookController,
 } from './finance.controller.js';
 import { FinanceService } from './finance.service.js';
@@ -15,6 +16,7 @@ import { StaysModule } from '../stays/stays.module.js';
     FinanceController,
     PublicInvoiceController,
     PublicPaymentSessionController,
+    PublicStayPaymentController,
     InternalBillingController,
     PaymentWebhookController,
   ],
