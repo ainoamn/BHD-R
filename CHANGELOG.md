@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.97 — 2026-08-31
+
+- Navigation speed: disable sidebar prefetch storm; serialize idle warm; short timeouts on `/v1/me`, ops fetch, `/api/warm`, and Nest API; skip Nest listing fallback when Neon already answered; race viewer DB load.
+- Docs: `RELEASE-0.2.97-AR.md`.
+
 ## 0.2.96 — 2026-08-31
 
 - Portal header: remove overlapping user chip; keep compact EN language control + app switcher only.

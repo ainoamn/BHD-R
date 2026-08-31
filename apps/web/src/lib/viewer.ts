@@ -101,7 +101,20 @@ async function getViewerFromDatabase(): Promise<Viewer | null> {
 
 /** One viewer resolution per RSC request (layout + page share the result). */
 export const getViewer = cache(async (): Promise<Viewer | null> => {
-  if (hasDatabaseUrl()) return getViewerFromDatabase();
+  if (hasDatabaseUrl()) {
+    try {
+      const raced = await Promise.race([
+        getViewerFromDatabase().then((viewer) => ({ done: true as const, viewer })),
+        new Promise<{ done: false }>((resolve) =>
+          setTimeout(() => resolve({ done: false }), 1_800),
+        ),
+      ]);
+      if (raced.done) return raced.viewer;
+    } catch {
+      /* fall through to shell JWT stub */
+    }
+    return getShellViewer();
+  }
 
   const { ApiError, apiFetch } = await import('./server-api');
   try {

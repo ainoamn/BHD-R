@@ -97,15 +97,18 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   const copy = homeCopy[locale === 'en' ? 'en' : 'ar'];
   const emptyListings = { data: [], pagination: { nextCursor: null, hasMore: false } };
   let listings = emptyListings as ListingCollection;
+  let neonOk = false;
   if (hasDatabaseUrl()) {
     try {
       const { searchPublicListingsFromNeon } = await import('@/lib/search-public-listings-neon');
       listings = await searchPublicListingsFromNeon({ limit: 6 });
+      neonOk = true;
     } catch {
       listings = emptyListings;
     }
   }
-  if (!listings.data.length) {
+  // Only hit Nest when Neon is unavailable/errored — empty Neon catalogue is a valid result.
+  if (!neonOk && !listings.data.length) {
     listings = await publicApiFetch<ListingCollection>(
       `/v1/public/listings?locale=${locale}&limit=6`,
       30,

@@ -14,7 +14,11 @@ export function NestKeepAlive() {
 
     const ping = () => {
       if (cancelled || document.visibilityState === 'hidden') return;
-      void fetch('/api/warm', { method: 'GET', cache: 'no-store' }).catch(() => undefined);
+      void fetch('/api/warm', {
+        method: 'GET',
+        cache: 'no-store',
+        signal: AbortSignal.timeout(8_000),
+      }).catch(() => undefined);
     };
 
     ping();

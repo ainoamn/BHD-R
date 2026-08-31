@@ -9,8 +9,8 @@ const DEFAULT_DEV_API = 'http://localhost:4000';
  * Keep portal pages responsive when Nest is asleep/unreachable.
  * Prefer empty/offline UI within ~8s over hanging 60–80s on Render cold starts.
  */
-const FETCH_TIMEOUT_MS = 8_000;
-const HEALTH_TIMEOUT_MS = 3_000;
+const FETCH_TIMEOUT_MS = 4_000;
+const HEALTH_TIMEOUT_MS = 2_000;
 
 export function configuredApiOrigin(): string | null {
   const value = process.env.API_INTERNAL_ORIGIN ?? process.env.API_ORIGIN;

@@ -8,9 +8,8 @@ import { opsSectionsForPortal } from '@/lib/portal-ops-types';
 import { warmOpsSection } from '@/lib/portal-ops-client-cache';
 
 /**
- * WAZEN-style idle prefetch:
- * 1) warm portal section RSC shells in the client router cache
- * 2) warm ops JSON payloads into in-memory cache so clicks paint instantly
+ * Idle prefetch — serialized and delayed so Nest cold-start is not flooded
+ * (parallel prefetch of ~20 RSC + ops sections caused 20–160s hangs).
  */
 export function PortalRoutePrefetch({ portal }: { portal: PortalRole }) {
   const router = useRouter();
@@ -22,39 +21,59 @@ export function PortalRoutePrefetch({ portal }: { portal: PortalRole }) {
     const hrefs = portalNavHrefs(portal);
     const sections = opsSectionsForPortal(portal);
     let cancelled = false;
-    const timers: number[] = [];
     let idleHandle: number | null = null;
     let usedIdleCallback = false;
+    let chainTimer: number | null = null;
 
-    const run = () => {
-      hrefs.forEach((href, index) => {
-        timers.push(
-          window.setTimeout(() => {
-            if (cancelled) return;
+    const runSerialized = async () => {
+      // Prefer a short Nest warm; never block if it fails.
+      try {
+        await fetch('/api/warm', {
+          credentials: 'same-origin',
+          cache: 'no-store',
+          signal: AbortSignal.timeout(4_000),
+        });
+      } catch {
+        /* ignore — continue with light prefetch */
+      }
+      if (cancelled) return;
+
+      // Prefetch only the first few shells (dashboard + common pages), one at a time.
+      const shellBudget = hrefs.slice(0, 4);
+      for (const [index, href] of shellBudget.entries()) {
+        if (cancelled) return;
+        await new Promise<void>((resolve) => {
+          chainTimer = window.setTimeout(() => {
             try {
               router.prefetch(href);
             } catch {
               /* ignore */
             }
-          }, 120 + index * 80),
-        );
-      });
+            resolve();
+          }, index === 0 ? 400 : 700);
+        });
+      }
 
-      sections.forEach((section, index) => {
-        timers.push(
-          window.setTimeout(() => {
-            if (cancelled) return;
-            warmOpsSection(portal, section);
-          }, 200 + index * 220),
-        );
-      });
+      // Warm at most 2 ops JSON payloads (Neon-friendly sections first).
+      const opsBudget = sections.filter((s) => s === 'properties' || s === 'contacts').slice(0, 2);
+      for (const section of opsBudget) {
+        if (cancelled) return;
+        await warmOpsSection(portal, section);
+        await new Promise((resolve) => {
+          chainTimer = window.setTimeout(resolve, 500);
+        });
+      }
+    };
+
+    const start = () => {
+      void runSerialized();
     };
 
     if (typeof window.requestIdleCallback === 'function') {
       usedIdleCallback = true;
-      idleHandle = window.requestIdleCallback(() => run(), { timeout: 1_800 });
+      idleHandle = window.requestIdleCallback(start, { timeout: 3_500 });
     } else {
-      idleHandle = window.setTimeout(run, 400);
+      idleHandle = window.setTimeout(start, 900);
     }
 
     return () => {
@@ -66,7 +85,7 @@ export function PortalRoutePrefetch({ portal }: { portal: PortalRole }) {
           window.clearTimeout(idleHandle);
         }
       }
-      timers.forEach((id) => window.clearTimeout(id));
+      if (chainTimer !== null) window.clearTimeout(chainTimer);
     };
   }, [portal, router]);
 

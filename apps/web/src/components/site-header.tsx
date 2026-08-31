@@ -24,7 +24,11 @@ export function SiteHeader() {
   useEffect(() => {
     if (hidden) return;
     let cancelled = false;
-    fetch('/v1/me', { credentials: 'same-origin', headers: { accept: 'application/json' } })
+    fetch('/v1/me', {
+      credentials: 'same-origin',
+      headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(2_500),
+    })
       .then(async (response) => {
         if (!response.ok) return null;
         return (await response.json()) as Viewer;
