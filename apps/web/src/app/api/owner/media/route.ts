@@ -16,6 +16,7 @@ type JsonUploadBody = {
   fileName?: string;
   mimeType?: string;
   dataBase64?: string;
+  galleryScope?: string;
 };
 
 type UploadPayload = {
@@ -24,6 +25,7 @@ type UploadPayload = {
   position: number;
   mimeType: string;
   fileName?: string;
+  galleryScope?: 'building' | 'unit';
   bytes: Buffer;
 };
 
@@ -41,6 +43,10 @@ async function readUploadPayload(request: Request): Promise<UploadPayload> {
       throw new Error('invalid_file');
     }
     const fileName = typeof body.fileName === 'string' && body.fileName ? body.fileName : undefined;
+    const galleryScope =
+      body.galleryScope === 'building' || body.galleryScope === 'unit'
+        ? body.galleryScope
+        : undefined;
     return {
       unitId,
       purpose,
@@ -48,6 +54,7 @@ async function readUploadPayload(request: Request): Promise<UploadPayload> {
       mimeType: body.mimeType || 'application/octet-stream',
       bytes,
       ...(fileName ? { fileName } : {}),
+      ...(galleryScope ? { galleryScope } : {}),
     };
   }
 
@@ -58,6 +65,9 @@ async function readUploadPayload(request: Request): Promise<UploadPayload> {
   const purpose =
     purposeRaw === 'attachment' ? ('attachment' as const) : ('property_image' as const);
   const position = Number(form.get('position') ?? 0);
+  const scopeRaw = String(form.get('galleryScope') ?? '');
+  const galleryScope =
+    scopeRaw === 'building' || scopeRaw === 'unit' ? (scopeRaw as 'building' | 'unit') : undefined;
   if (!(file instanceof Blob) || !unitId) throw new Error('validation_failed');
   const bytes = Buffer.from(await file.arrayBuffer());
   if (bytes.byteLength < 1 || bytes.byteLength > 12 * 1024 * 1024) {
@@ -71,6 +81,7 @@ async function readUploadPayload(request: Request): Promise<UploadPayload> {
     mimeType: file.type || 'application/octet-stream',
     bytes,
     ...(fileName ? { fileName } : {}),
+    ...(galleryScope ? { galleryScope } : {}),
   };
 }
 
@@ -121,6 +132,7 @@ export async function POST(request: Request) {
         mimeType: payload.mimeType,
         bytes: payload.bytes,
         ...(payload.fileName ? { fileName: payload.fileName } : {}),
+        ...(payload.galleryScope ? { galleryScope: payload.galleryScope } : {}),
       },
       request.headers.get('x-csrf-token'),
       { idempotencyKey },

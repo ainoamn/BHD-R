@@ -175,6 +175,7 @@ export async function loadManagedPropertyFromNeon(
           mimeType: mediaAssets.mimeType,
           position: unitMedia.position,
           unitId: unitMedia.unitId,
+          metadata: mediaAssets.metadata,
         })
         .from(unitMedia)
         .innerJoin(mediaAssets, eq(mediaAssets.id, unitMedia.mediaAssetId))
@@ -182,13 +183,21 @@ export async function loadManagedPropertyFromNeon(
         .orderBy(asc(unitMedia.position));
       gallery = mediaRows
         .filter((row) => row.mimeType.startsWith('image/'))
-        .map((row) => ({
-          id: row.id,
-          // Owner portal always streams via authenticated BFF (works for R2 + Neon inline).
-          url: publicMediaUrl(row.publicObjectKey) ?? `/api/owner/media/${row.id}`,
-          position: row.position,
-          unitId: row.unitId,
-        }));
+        .map((row) => {
+          const meta = (row.metadata ?? {}) as { galleryScope?: string };
+          const galleryScope =
+            meta.galleryScope === 'building' || meta.galleryScope === 'unit'
+              ? meta.galleryScope
+              : null;
+          return {
+            id: row.id,
+            // Owner portal always streams via authenticated BFF (works for R2 + Neon inline).
+            url: publicMediaUrl(row.publicObjectKey) ?? `/api/owner/media/${row.id}`,
+            position: row.position,
+            unitId: row.unitId,
+            ...(galleryScope ? { galleryScope } : {}),
+          };
+        });
     }
 
     return {

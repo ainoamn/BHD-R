@@ -1001,6 +1001,7 @@ export function PropertyWizard({
     unitId: string,
     purpose: 'property_image' | 'attachment',
     position?: number,
+    galleryScope?: 'building' | 'unit',
   ) {
     const prepared =
       purpose === 'property_image' && file.type.startsWith('image/')
@@ -1032,6 +1033,7 @@ export function PropertyWizard({
           fileName: prepared.name,
           mimeType: prepared.type || 'application/octet-stream',
           dataBase64,
+          ...(galleryScope ? { galleryScope } : {}),
         }),
         signal: AbortSignal.timeout(55_000),
       });
@@ -1081,6 +1083,7 @@ export function PropertyWizard({
       unitId: string;
       purpose: 'property_image' | 'attachment';
       position: number;
+      galleryScope?: 'building' | 'unit';
     };
     const jobs: MediaJob[] = [];
 
@@ -1096,25 +1099,39 @@ export function PropertyWizard({
               unitId,
               purpose: 'property_image',
               position,
+              galleryScope: 'unit',
             });
           });
+      });
+    } else if (kind === 'multi_unit' && multiMediaMode === 'building') {
+      // Building gallery attaches once (anchor unit) — never copied onto sibling units.
+      const ordered = [
+        ...images.filter((item) => item.file && item.id === coverId),
+        ...images.filter((item) => item.file && item.id !== coverId),
+      ];
+      const anchorId = unitIds[0]!;
+      ordered.forEach((item, position) => {
+        jobs.push({
+          file: item.file!,
+          unitId: anchorId,
+          purpose: 'property_image',
+          position,
+          galleryScope: 'building',
+        });
       });
     } else {
       const ordered = [
         ...images.filter((item) => item.file && item.id === coverId),
         ...images.filter((item) => item.file && item.id !== coverId),
       ];
-      const targets =
-        kind === 'multi_unit' && multiMediaMode === 'building' ? unitIds : [unitIds[0]!];
       ordered.forEach((item, position) => {
-        for (const unitId of targets) {
-          jobs.push({
-            file: item.file!,
-            unitId,
-            purpose: 'property_image',
-            position,
-          });
-        }
+        jobs.push({
+          file: item.file!,
+          unitId: unitIds[0]!,
+          purpose: 'property_image',
+          position,
+          galleryScope: 'unit',
+        });
       });
     }
 
@@ -1139,7 +1156,7 @@ export function PropertyWizard({
       ar ? `جاري رفع الملفات (${jobs.length})…` : `Uploading media (${jobs.length})…`,
     );
     await mapWithConcurrency(jobs, 1, async (job) => {
-      await uploadFile(job.file, job.unitId, job.purpose, job.position);
+      await uploadFile(job.file, job.unitId, job.purpose, job.position, job.galleryScope);
     });
   }
 

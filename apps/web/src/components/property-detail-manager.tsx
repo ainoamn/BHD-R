@@ -11,14 +11,16 @@ import { PropertyQrCard } from '@/components/property-qr-card';
 import { PublicListingActions } from '@/components/public-listing-actions';
 import { PropertyManageHub } from '@/components/property-manage-hub';
 import { googleMapsEmbedSrc } from '@/lib/parse-google-maps-url';
+import { listingPurposeCaption, occupancyLabel } from '@/lib/listing-purpose-display';
+import type { UnitOccupancy } from '@/lib/listing-purpose-display';
+import { resolvePublicGallery } from '@/lib/gallery-scope';
+import { generateUnitListingDescriptions } from '@/lib/property-listing-copy';
 import {
   assignUnitSerials,
   inferUnitKind,
   summarizeUnitKinds,
   unitKindLabel,
 } from '@/lib/unit-identity';
-import { listingPurposeCaption, occupancyLabel } from '@/lib/listing-purpose-display';
-import type { UnitOccupancy } from '@/lib/listing-purpose-display';
 
 interface ManagedUnit {
   id: string;
@@ -89,6 +91,7 @@ export interface ManagedProperty {
     url: string | null;
     position: number;
     unitId?: string;
+    galleryScope?: 'building' | 'unit' | null;
   }>;
   units: ManagedUnit[];
   amenities: Array<{ id: string; code: string; labelAr: string | null; labelEn: string | null }>;
@@ -205,14 +208,15 @@ export function PropertyDetailManager({
     ? `/${locale}/units/${focusUnitId}`
     : publicPath;
   const gallery = useMemo(() => {
-    const items = (property.gallery ?? [])
-      .filter((item) => item.url)
-      .sort((a, b) => a.position - b.position);
-    if (!focusUnitId) return items;
-    const focused = items.filter((item) => item.unitId === focusUnitId);
-    const rest = items.filter((item) => item.unitId !== focusUnitId);
-    return focused.length ? [...focused, ...rest] : items;
-  }, [property.gallery, focusUnitId]);
+    const unitIdsOrdered = [...property.units]
+      .sort((a, b) => a.code.localeCompare(b.code))
+      .map((unit) => unit.id);
+    return resolvePublicGallery(property.gallery ?? [], {
+      ...(focusUnitId ? { focusUnitId } : {}),
+      propertyKind: property.kind,
+      unitIdsOrdered,
+    });
+  }, [property.gallery, property.kind, property.units, focusUnitId]);
   const primaryUnit =
     (focusUnitId ? property.units.find((unit) => unit.id === focusUnitId) : undefined) ??
     (property.kind === 'multi_unit' && !focusUnitId ? undefined : property.units[0]);
@@ -228,6 +232,41 @@ export function PropertyDetailManager({
   const focusedSerial = primaryUnit ? unitSerials.get(primaryUnit.id) ?? null : null;
   const displaySerial =
     focusUnitId && focusedSerial ? focusedSerial : property.serialNumber ?? null;
+  const composedUnitDescription = useMemo(() => {
+    if (!focusUnitId || !primaryUnit || property.kind !== 'multi_unit') return null;
+    return generateUnitListingDescriptions({
+      unitNameAr: primaryUnit.nameAr,
+      unitNameEn: primaryUnit.nameEn,
+      unitCode: primaryUnit.code,
+      unitKind: inferUnitKind(primaryUnit),
+      floor: primaryUnit.floor ?? undefined,
+      bedrooms: primaryUnit.bedrooms,
+      bathrooms: primaryUnit.bathrooms,
+      majlis: primaryUnit.majlis,
+      halls: primaryUnit.halls,
+      kitchens: primaryUnit.kitchens,
+      hasPool: primaryUnit.hasPool,
+      area: primaryUnit.areaSquareMeters ?? undefined,
+      listingPurpose: primaryUnit.listingPurpose,
+      rentLabel:
+        primaryUnit.listingPurpose !== 'sale'
+          ? formatMoney(primaryUnit.rentMinor, primaryUnit.currency, locale)
+          : undefined,
+      saleLabel: primaryUnit.salePriceMinor
+        ? formatMoney(primaryUnit.salePriceMinor, primaryUnit.currency, locale)
+        : undefined,
+      buildingNameAr: property.nameAr,
+      buildingNameEn: property.nameEn,
+      buildingSerial: property.serialNumber,
+      buildingDescriptionAr: property.descriptionAr,
+      buildingDescriptionEn: property.descriptionEn,
+      buildingYearBuilt: property.profile?.yearBuilt ?? undefined,
+      buildingTotalArea: property.profile?.builtUpAreaSquareMeters ?? undefined,
+      governorate: property.address?.governorate,
+      wilayat: property.address?.wilayat,
+      village: property.address?.city ?? property.address?.area ?? undefined,
+    });
+  }, [focusUnitId, primaryUnit, property, locale]);
   const buildingAgeYears =
     property.profile?.yearBuilt && Number.isFinite(property.profile.yearBuilt)
       ? Math.max(0, new Date().getFullYear() - property.profile.yearBuilt)
@@ -436,24 +475,39 @@ export function PropertyDetailManager({
             </div>
           ) : null}
 
-          {(property.descriptionAr || property.descriptionEn) && (
+          {(composedUnitDescription || property.descriptionAr || property.descriptionEn) && (
             <section className="property-360__section">
               <h2>{ar ? 'الوصف' : 'Description'}</h2>
-              {property.kind === 'multi_unit' && focusUnitId && primaryUnit ? (
-                <p className="property-360__unit-link-note">
-                  {ar
-                    ? `هذه الوحدة («${primaryUnit.nameAr}») مرتبطة بالمبنى «${property.nameAr}».`
-                    : `This unit (“${primaryUnit.nameEn}”) is linked to the building “${property.nameEn}”.`}{' '}
-                  <Link href={publicPath}>
-                    {ar ? 'عرض المبنى وكل وحداته' : 'View the building and all units'}
-                  </Link>
-                </p>
-              ) : null}
-              <p className="property-360__description">
-                {ar
-                  ? property.descriptionAr || property.descriptionEn
-                  : property.descriptionEn || property.descriptionAr}
-              </p>
+              {composedUnitDescription ? (
+                <div className="property-360__description property-360__description--composed">
+                  {(ar
+                    ? composedUnitDescription.descriptionAr
+                    : composedUnitDescription.descriptionEn
+                  )
+                    .split(/\n\n+/)
+                    .map((block, index) => (
+                      <p key={index}>{block}</p>
+                    ))}
+                </div>
+              ) : (
+                <>
+                  {property.kind === 'multi_unit' && focusUnitId && primaryUnit ? (
+                    <p className="property-360__unit-link-note">
+                      {ar
+                        ? `هذه الوحدة («${primaryUnit.nameAr}») مرتبطة بالمبنى «${property.nameAr}».`
+                        : `This unit (“${primaryUnit.nameEn}”) is linked to the building “${property.nameEn}”.`}{' '}
+                      <Link href={publicPath}>
+                        {ar ? 'عرض المبنى وكل وحداته' : 'View the building and all units'}
+                      </Link>
+                    </p>
+                  ) : null}
+                  <p className="property-360__description">
+                    {ar
+                      ? property.descriptionAr || property.descriptionEn
+                      : property.descriptionEn || property.descriptionAr}
+                  </p>
+                </>
+              )}
             </section>
           )}
 
@@ -570,6 +624,13 @@ export function PropertyDetailManager({
                   ? 'الوحدات'
                   : 'Units'}
             </h2>
+            {property.kind === 'multi_unit' ? (
+              <p className="muted property-360__units-intro">
+                {ar
+                  ? 'كل وحدة لها سجل تشغيلي منفصل (تأجير، بيع، حجوزات، محاسبة)، وهي مربوطة بالمبنى الرئيسي في محفظة المدير.'
+                  : 'Each unit has its own operational record (leasing, sales, bookings, accounting), linked under the main building for the property manager.'}
+              </p>
+            ) : null}
             <div className="property-360__units">
               {property.units.map((unit) => {
                 const kind = inferUnitKind(unit);

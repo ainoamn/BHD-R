@@ -349,6 +349,7 @@ export async function uploadUnitMediaNestOrNeon(
     mimeType: string;
     bytes: Buffer;
     fileName?: string;
+    galleryScope?: 'building' | 'unit';
   },
   _csrfToken: string | null,
   options: { idempotencyKey?: string | null } = {},

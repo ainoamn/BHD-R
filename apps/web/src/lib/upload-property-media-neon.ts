@@ -223,6 +223,7 @@ export async function uploadUnitMediaOnNeon(
     mimeType: string;
     bytes: Buffer;
     fileName?: string;
+    galleryScope?: 'building' | 'unit';
   },
   options: { allowInlineFallback?: boolean } = {},
 ): Promise<{ assetId: string; url: string }> {
@@ -265,6 +266,7 @@ export async function uploadUnitMediaOnNeon(
           fileName: input.fileName ?? null,
           storage: 's3',
           clientMimeIgnored: input.mimeType,
+          ...(input.galleryScope ? { galleryScope: input.galleryScope } : {}),
         },
       });
       return { assetId, url: `/api/owner/media/${assetId}` };
@@ -295,6 +297,7 @@ export async function uploadUnitMediaOnNeon(
       storage: 'inline',
       dataBase64: input.bytes.toString('base64'),
       scanNote: 'magic_bytes_only_inline',
+      ...(input.galleryScope ? { galleryScope: input.galleryScope } : {}),
     },
   });
   return { assetId, url: `/api/owner/media/${assetId}` };

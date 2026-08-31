@@ -300,6 +300,158 @@ export function generateListingDescriptions(input: DescriptionInput): {
   return { descriptionAr, descriptionEn };
 }
 
+export type UnitDescriptionInput = {
+  unitNameAr: string;
+  unitNameEn: string;
+  unitCode: string;
+  unitKind: 'apartment' | 'shop' | 'showroom';
+  floor?: string | undefined;
+  bedrooms: number;
+  bathrooms: number;
+  majlis?: number | undefined;
+  halls?: number | undefined;
+  kitchens?: number | undefined;
+  hasPool?: boolean | undefined;
+  area?: string | undefined;
+  listingPurpose: 'rent' | 'sale' | 'both';
+  rentLabel?: string | undefined;
+  saleLabel?: string | undefined;
+  buildingNameAr: string;
+  buildingNameEn: string;
+  buildingSerial?: string | null | undefined;
+  buildingDescriptionAr?: string | null | undefined;
+  buildingDescriptionEn?: string | null | undefined;
+  buildingYearBuilt?: number | string | undefined;
+  buildingTotalArea?: string | undefined;
+  governorate?: string | undefined;
+  wilayat?: string | undefined;
+  village?: string | undefined;
+};
+
+/** Unit-first copy, then a building affiliation footer (serial + building details). */
+export function generateUnitListingDescriptions(input: UnitDescriptionInput): {
+  descriptionAr: string;
+  descriptionEn: string;
+} {
+  const kindAr =
+    input.unitKind === 'shop' ? 'محل' : input.unitKind === 'showroom' ? 'معرض' : 'شقة';
+  const kindEn =
+    input.unitKind === 'shop' ? 'shop' : input.unitKind === 'showroom' ? 'showroom' : 'apartment';
+  const purposeAr =
+    input.listingPurpose === 'sale'
+      ? 'للبيع'
+      : input.listingPurpose === 'both'
+        ? 'للإيجار أو البيع'
+        : 'للإيجار';
+  const purposeEn =
+    input.listingPurpose === 'sale'
+      ? 'for sale'
+      : input.listingPurpose === 'both'
+        ? 'for rent or sale'
+        : 'for rent';
+  const placeAr = [input.village, input.wilayat, input.governorate].filter(Boolean).join('، ');
+  const placeParts = [input.village, input.wilayat, input.governorate].filter(
+    (part): part is string => Boolean(part),
+  );
+  const placeEn = placeParts.map((part) => lexiconTranslate(part, 'en')).join(', ');
+
+  const roomAr = roomDetailsAr({
+    nameAr: input.unitNameAr,
+    nameEn: input.unitNameEn,
+    category: input.unitKind === 'shop' ? 'shop' : input.unitKind === 'showroom' ? 'office' : 'apartment',
+    governorate: input.governorate ?? '',
+    wilayat: input.wilayat ?? '',
+    village: input.village ?? '',
+    bedrooms: input.bedrooms,
+    bathrooms: input.bathrooms,
+    majlis: input.majlis,
+    halls: input.halls,
+    kitchens: input.kitchens,
+    hasPool: input.hasPool,
+    area: input.area,
+    listingPurpose: input.listingPurpose,
+    furnishing: 'unfurnished',
+    amenities: [],
+  });
+  const roomEn = roomDetailsEn({
+    nameAr: input.unitNameAr,
+    nameEn: input.unitNameEn,
+    category: input.unitKind === 'shop' ? 'shop' : input.unitKind === 'showroom' ? 'office' : 'apartment',
+    governorate: input.governorate ?? '',
+    wilayat: input.wilayat ?? '',
+    village: input.village ?? '',
+    bedrooms: input.bedrooms,
+    bathrooms: input.bathrooms,
+    majlis: input.majlis,
+    halls: input.halls,
+    kitchens: input.kitchens,
+    hasPool: input.hasPool,
+    area: input.area,
+    listingPurpose: input.listingPurpose,
+    furnishing: 'unfurnished',
+    amenities: [],
+  });
+
+  const unitBodyAr = [
+    `نقدم لكم ${kindAr} «${input.unitNameAr || input.unitCode}» (${input.unitCode}) ${purposeAr}${placeAr ? ` في ${placeAr}` : ''}.`,
+    input.floor ? `تقع في الطابق ${input.floor}.` : null,
+    roomAr,
+    input.rentLabel && input.listingPurpose !== 'sale'
+      ? `الإيجار الشهري: ${input.rentLabel}.`
+      : null,
+    input.saleLabel && input.listingPurpose !== 'rent' ? `سعر البيع: ${input.saleLabel}.` : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const unitBodyEn = [
+    `A ${kindEn} titled “${input.unitNameEn || input.unitCode}” (${input.unitCode}) ${purposeEn}${placeEn ? ` in ${placeEn}` : ''}.`,
+    input.floor ? `Located on floor ${input.floor}.` : null,
+    roomEn,
+    input.rentLabel && input.listingPurpose !== 'sale'
+      ? `Monthly rent: ${input.rentLabel}.`
+      : null,
+    input.saleLabel && input.listingPurpose !== 'rent' ? `Sale price: ${input.saleLabel}.` : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const ageAr = buildingAgePhrase(input.buildingYearBuilt, 'ar');
+  const ageEn = buildingAgePhrase(input.buildingYearBuilt, 'en');
+  const buildingFooterAr = [
+    `هذه الوحدة مرتبطة بالمبنى الرئيسي «${input.buildingNameAr}».`,
+    input.buildingSerial ? `الرقم المتسلسل للمبنى: ${input.buildingSerial}.` : null,
+    ageAr ? `${ageAr}.` : null,
+    input.buildingTotalArea
+      ? `المساحة الإجمالية للمبنى تقارب ${input.buildingTotalArea} م².`
+      : null,
+    input.buildingDescriptionAr?.trim()
+      ? `عن المبنى: ${input.buildingDescriptionAr.trim()}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const buildingFooterEn = [
+    `This unit is linked to the main building “${input.buildingNameEn || input.buildingNameAr}”.`,
+    input.buildingSerial ? `Building serial: ${input.buildingSerial}.` : null,
+    ageEn ? `${ageEn}.` : null,
+    input.buildingTotalArea
+      ? `Total building area is approximately ${input.buildingTotalArea} m².`
+      : null,
+    input.buildingDescriptionEn?.trim() || input.buildingDescriptionAr?.trim()
+      ? `About the building: ${(input.buildingDescriptionEn || input.buildingDescriptionAr || '').trim()}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  return {
+    descriptionAr: `${unitBodyAr}\n\n${buildingFooterAr}`.trim(),
+    descriptionEn: `${unitBodyEn}\n\n${buildingFooterEn}`.trim(),
+  };
+}
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

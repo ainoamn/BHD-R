@@ -208,6 +208,7 @@ export async function loadPublicPropertyShowcaseFromNeon(
           mimeType: mediaAssets.mimeType,
           position: unitMedia.position,
           unitId: unitMedia.unitId,
+          metadata: mediaAssets.metadata,
         })
         .from(unitMedia)
         .innerJoin(mediaAssets, eq(mediaAssets.id, unitMedia.mediaAssetId))
@@ -222,12 +223,20 @@ export async function loadPublicPropertyShowcaseFromNeon(
         .orderBy(asc(unitMedia.position));
       gallery = mediaRows
         .filter((row) => row.mimeType.startsWith('image/'))
-        .map((row) => ({
-          id: row.id,
-          url: `/api/public/media/${row.id}`,
-          position: row.position,
-          unitId: row.unitId,
-        }));
+        .map((row) => {
+          const meta = (row.metadata ?? {}) as { galleryScope?: string };
+          const galleryScope =
+            meta.galleryScope === 'building' || meta.galleryScope === 'unit'
+              ? meta.galleryScope
+              : null;
+          return {
+            id: row.id,
+            url: `/api/public/media/${row.id}`,
+            position: row.position,
+            unitId: row.unitId,
+            ...(galleryScope ? { galleryScope } : {}),
+          };
+        });
     }
 
     return {

@@ -118,6 +118,8 @@ type CatalogueRow = {
   city: string | null;
   unit_updated_at: Date | string | null;
   cover_asset_id: string | null;
+  unit_cover_asset_id: string | null;
+  building_cover_asset_id: string | null;
   occupancy: string;
   has_pool: boolean | null;
   parking_spaces: number | null;
@@ -403,6 +405,31 @@ export async function searchPublicListingsFromNeon(
             and ma.processing_status = 'ready'
             and ma.scan_status = 'clean'
             and ma.mime_type like 'image/%'
+            and coalesce(ma.metadata->>'galleryScope', 'unit') <> 'building'
+          order by um.position asc
+          limit 1
+        ) as unit_cover_asset_id,
+        (
+          select ma.id::text
+          from unit_media um
+          join media_assets ma on ma.id = um.media_asset_id
+          join units bu on bu.id = um.unit_id
+          where bu.property_id = p.id
+            and ma.processing_status = 'ready'
+            and ma.scan_status = 'clean'
+            and ma.mime_type like 'image/%'
+            and ma.metadata->>'galleryScope' = 'building'
+          order by um.position asc
+          limit 1
+        ) as building_cover_asset_id,
+        (
+          select ma.id::text
+          from unit_media um
+          join media_assets ma on ma.id = um.media_asset_id
+          where um.unit_id = u.id
+            and ma.processing_status = 'ready'
+            and ma.scan_status = 'clean'
+            and ma.mime_type like 'image/%'
           order by um.position asc
           limit 1
         ) as cover_asset_id,
@@ -596,7 +623,11 @@ export async function searchPublicListingsFromNeon(
               currency: row.currency as PublicListing['rent']['currency'],
             }
           : null,
-        coverImageUrl: row.cover_asset_id ? `/api/public/media/${row.cover_asset_id}` : null,
+        coverImageUrl: (() => {
+          const assetId =
+            row.unit_cover_asset_id || row.building_cover_asset_id || row.cover_asset_id;
+          return assetId ? `/api/public/media/${assetId}` : null;
+        })(),
         available: true as const,
         publishedAt: publishedAt.toISOString(),
         marketStatus,
