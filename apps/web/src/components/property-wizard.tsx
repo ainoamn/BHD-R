@@ -41,6 +41,7 @@ function goToPropertyPage(locale: string, portal: string, id: string) {
 
 interface UnitDraft {
   localId: string;
+  unitKind: 'apartment' | 'shop' | 'showroom';
   code: string;
   nameAr: string;
   nameEn: string;
@@ -57,6 +58,59 @@ interface UnitDraft {
   salePrice: string;
   deposit: string;
   publishWhenAvailable: boolean;
+}
+
+type MultiUnitKind = UnitDraft['unitKind'];
+
+function inferUnitKind(unit: {
+  code?: string | null;
+  nameAr?: string | null;
+  nameEn?: string | null;
+}): MultiUnitKind {
+  const blob = `${unit.code ?? ''} ${unit.nameAr ?? ''} ${unit.nameEn ?? ''}`.toLowerCase();
+  if (/shop|محل|محلات/.test(blob)) return 'shop';
+  if (/showroom|معرض|معارض/.test(blob)) return 'showroom';
+  return 'apartment';
+}
+
+const blankUnit = (index: number, unitKind: MultiUnitKind = 'apartment'): UnitDraft => ({
+  localId: crypto.randomUUID(),
+  unitKind,
+  code: unitKind === 'apartment' ? `A-${String(index).padStart(2, '0')}` : unitKind === 'shop' ? `S-${String(index).padStart(2, '0')}` : `R-${String(index).padStart(2, '0')}`,
+  nameAr: '',
+  nameEn: '',
+  floor: unitKind === 'apartment' ? '' : '0',
+  bedrooms: unitKind === 'apartment' ? '' : '0',
+  bathrooms: unitKind === 'apartment' ? '' : '0',
+  majlis: unitKind === 'apartment' ? '' : '0',
+  halls: unitKind === 'apartment' ? '' : '0',
+  kitchens: unitKind === 'apartment' ? '' : '0',
+  hasPool: unitKind === 'apartment' ? '' : 'false',
+  area: '',
+  listingPurpose: 'rent',
+  rent: '',
+  salePrice: '',
+  deposit: '',
+  publishWhenAvailable: false,
+});
+
+function syncMultiUnitsFromCounts(
+  counts: { shop: number; showroom: number; apartment: number },
+  previous: UnitDraft[],
+): UnitDraft[] {
+  const take = (kind: MultiUnitKind, n: number) => {
+    const existing = previous.filter((unit) => unit.unitKind === kind);
+    const next: UnitDraft[] = [];
+    for (let i = 0; i < n; i += 1) {
+      next.push(existing[i] ?? blankUnit(i + 1, kind));
+    }
+    return next;
+  };
+  return [
+    ...take('shop', Math.max(0, counts.shop)),
+    ...take('showroom', Math.max(0, counts.showroom)),
+    ...take('apartment', Math.max(0, counts.apartment)),
+  ];
 }
 
 interface CreatedPropertyBundle {
@@ -95,26 +149,6 @@ function stripMapsFromNotes(notes?: string | null): string {
 function revokeIfBlob(url: string) {
   if (url.startsWith('blob:')) URL.revokeObjectURL(url);
 }
-
-const blankUnit = (index: number): UnitDraft => ({
-  localId: crypto.randomUUID(),
-  code: `U-${String(index).padStart(2, '0')}`,
-  nameAr: '',
-  nameEn: '',
-  floor: '',
-  bedrooms: '',
-  bathrooms: '',
-  majlis: '',
-  halls: '',
-  kitchens: '',
-  hasPool: '',
-  area: '',
-  listingPurpose: 'rent',
-  rent: '',
-  salePrice: '',
-  deposit: '',
-  publishWhenAvailable: false,
-});
 
 const BEDROOM_OPTIONS = Array.from({ length: 16 }, (_, i) => String(i)); // 0–15
 const BATHROOM_OPTIONS = Array.from({ length: 11 }, (_, i) => String(i)); // 0–10
@@ -207,28 +241,57 @@ export function PropertyWizard({
   });
   const [units, setUnits] = useState<UnitDraft[]>(() => {
     if (initialProperty?.units?.length) {
-      return initialProperty.units.map((unit, index) => ({
-        localId: unit.id,
-        code: unit.code || `U-${String(index + 1).padStart(2, '0')}`,
-        nameAr: unit.nameAr,
-        nameEn: unit.nameEn,
-        floor: unit.floor ?? '',
-        bedrooms: String(unit.bedrooms),
-        bathrooms: String(unit.bathrooms),
-        majlis: String(unit.majlis ?? 0),
-        halls: String(unit.halls ?? 0),
-        kitchens: String(unit.kitchens ?? 0),
-        hasPool: unit.hasPool ? 'true' : 'false',
-        area: unit.areaSquareMeters ?? '',
-        listingPurpose: unit.listingPurpose,
-        rent: majorFromMinor(unit.rentMinor, unit.currency),
-        salePrice: majorFromMinor(unit.salePriceMinor, unit.currency),
-        deposit: majorFromMinor(unit.depositMinor, unit.currency),
-        publishWhenAvailable: unit.publishWhenAvailable,
-      }));
+      return initialProperty.units.map((unit, index) => {
+        const unitKind =
+          initialProperty.kind === 'multi_unit' ? inferUnitKind(unit) : ('apartment' as const);
+        return {
+          localId: unit.id,
+          unitKind,
+          code: unit.code || `U-${String(index + 1).padStart(2, '0')}`,
+          nameAr: unit.nameAr,
+          nameEn: unit.nameEn,
+          floor: unit.floor ?? (unitKind === 'apartment' ? '' : '0'),
+          bedrooms: String(unit.bedrooms),
+          bathrooms: String(unit.bathrooms),
+          majlis: String(unit.majlis ?? 0),
+          halls: String(unit.halls ?? 0),
+          kitchens: String(unit.kitchens ?? 0),
+          hasPool: unit.hasPool ? 'true' : 'false',
+          area: unit.areaSquareMeters ?? '',
+          listingPurpose: unit.listingPurpose,
+          rent: majorFromMinor(unit.rentMinor, unit.currency),
+          salePrice: majorFromMinor(unit.salePriceMinor, unit.currency),
+          deposit: majorFromMinor(unit.depositMinor, unit.currency),
+          publishWhenAvailable: unit.publishWhenAvailable,
+        };
+      });
     }
     return [blankUnit(1)];
   });
+  const [unitCountShop, setUnitCountShop] = useState(() =>
+    initialProperty?.kind === 'multi_unit'
+      ? String(
+          (initialProperty.units ?? []).filter((unit) => inferUnitKind(unit) === 'shop').length ||
+            '',
+        )
+      : '',
+  );
+  const [unitCountShowroom, setUnitCountShowroom] = useState(() =>
+    initialProperty?.kind === 'multi_unit'
+      ? String(
+          (initialProperty.units ?? []).filter((unit) => inferUnitKind(unit) === 'showroom')
+            .length || '',
+        )
+      : '',
+  );
+  const [unitCountApartment, setUnitCountApartment] = useState(() =>
+    initialProperty?.kind === 'multi_unit'
+      ? String(
+          (initialProperty.units ?? []).filter((unit) => inferUnitKind(unit) === 'apartment')
+            .length || '',
+        )
+      : '',
+  );
   const [profile, setProfile] = useState(() => {
     const p = initialProperty?.profile;
     const electricity =
@@ -442,10 +505,37 @@ export function PropertyWizard({
       return { nameAr: property.nameAr.trim(), nameEn: property.nameEn.trim() };
     }
     const code = unit.code.trim() || 'U';
+    const typeAr =
+      unit.unitKind === 'shop' ? 'محل' : unit.unitKind === 'showroom' ? 'معرض' : 'شقة';
+    const typeEn =
+      unit.unitKind === 'shop' ? 'Shop' : unit.unitKind === 'showroom' ? 'Showroom' : 'Apartment';
     return {
-      nameAr: `${property.nameAr.trim()} (${code})`,
-      nameEn: `${property.nameEn.trim()} (${code})`,
+      nameAr: `${property.nameAr.trim()} — ${typeAr} ${code}`,
+      nameEn: `${property.nameEn.trim()} — ${typeEn} ${code}`,
     };
+  }
+
+  function applyMultiUnitCounts(next: {
+    shop?: string;
+    showroom?: string;
+    apartment?: string;
+  }) {
+    const shop = next.shop !== undefined ? next.shop : unitCountShop;
+    const showroom = next.showroom !== undefined ? next.showroom : unitCountShowroom;
+    const apartment = next.apartment !== undefined ? next.apartment : unitCountApartment;
+    if (next.shop !== undefined) setUnitCountShop(shop);
+    if (next.showroom !== undefined) setUnitCountShowroom(showroom);
+    if (next.apartment !== undefined) setUnitCountApartment(apartment);
+    setUnits((current) =>
+      syncMultiUnitsFromCounts(
+        {
+          shop: Math.max(0, Number(shop) || 0),
+          showroom: Math.max(0, Number(showroom) || 0),
+          apartment: Math.max(0, Number(apartment) || 0),
+        },
+        current,
+      ),
+    );
   }
 
   function updateProfile(field: keyof typeof profile, value: string) {
@@ -469,22 +559,57 @@ export function PropertyWizard({
       }
       if (!property.mapsUrl.trim()) issues.push(t('PropertyForm.mapsUrl'));
       else if (!parseGoogleMapsUrl(property.mapsUrl)) issues.push(t('PropertyForm.mapsUrlInvalid'));
+      if (kind === 'multi_unit') {
+        const total =
+          (Number(unitCountShop) || 0) +
+          (Number(unitCountShowroom) || 0) +
+          (Number(unitCountApartment) || 0);
+        if (total < 1) issues.push(t('PropertyForm.unitCountsRequired'));
+      }
     }
     if (index === 1) {
-      units.forEach((unit, i) => {
-        const label = `${t('PropertyForm.unit')} ${i + 1}`;
-        if (!unit.floor.trim()) issues.push(`${label}: ${t('PropertyForm.floor')}`);
-        if (unit.bedrooms === '') issues.push(`${label}: ${t('PropertyForm.bedrooms')}`);
-        if (unit.bathrooms === '') issues.push(`${label}: ${t('PropertyForm.bathrooms')}`);
-        if (unit.majlis === '') issues.push(`${label}: ${t('PropertyForm.majlis')}`);
-        if (unit.halls === '') issues.push(`${label}: ${t('PropertyForm.halls')}`);
-        if (unit.kitchens === '') issues.push(`${label}: ${t('PropertyForm.kitchens')}`);
-        if (unit.hasPool === '') issues.push(`${label}: ${t('PropertyForm.hasPool')}`);
-        if (unit.listingPurpose !== 'sale' && !unit.rent.trim())
-          issues.push(`${label}: ${t('PropertyForm.rent')}`);
-        if (unit.listingPurpose !== 'rent' && !unit.salePrice.trim())
-          issues.push(`${label}: ${t('PropertyForm.salePrice')}`);
-      });
+      if (kind === 'multi_unit') {
+        if (!profile.builtUpArea.trim() || !(Number(profile.builtUpArea) > 0)) {
+          issues.push(t('PropertyForm.multiUnitTotalArea'));
+        }
+        units.forEach((unit, i) => {
+          const typeLabel =
+            unit.unitKind === 'shop'
+              ? t('PropertyForm.unitKindShop')
+              : unit.unitKind === 'showroom'
+                ? t('PropertyForm.unitKindShowroom')
+                : t('PropertyForm.unitKindApartment');
+          const label = `${typeLabel} ${i + 1}`;
+          if (!unit.code.trim()) issues.push(`${label}: ${t('PropertyForm.unitNumber')}`);
+          if (!unit.area.trim() || !(Number(unit.area) > 0))
+            issues.push(`${label}: ${t('PropertyForm.area')}`);
+          if (unit.listingPurpose !== 'sale' && !unit.rent.trim())
+            issues.push(`${label}: ${t('PropertyForm.rent')}`);
+          if (unit.listingPurpose !== 'rent' && !unit.salePrice.trim())
+            issues.push(`${label}: ${t('PropertyForm.salePrice')}`);
+          if (unit.unitKind === 'apartment') {
+            if (unit.bedrooms === '') issues.push(`${label}: ${t('PropertyForm.bedrooms')}`);
+            if (unit.bathrooms === '') issues.push(`${label}: ${t('PropertyForm.bathrooms')}`);
+            if (unit.majlis === '') issues.push(`${label}: ${t('PropertyForm.majlis')}`);
+            if (unit.halls === '') issues.push(`${label}: ${t('PropertyForm.halls')}`);
+          }
+        });
+      } else {
+        units.forEach((unit, i) => {
+          const label = `${t('PropertyForm.unit')} ${i + 1}`;
+          if (!unit.floor.trim()) issues.push(`${label}: ${t('PropertyForm.floor')}`);
+          if (unit.bedrooms === '') issues.push(`${label}: ${t('PropertyForm.bedrooms')}`);
+          if (unit.bathrooms === '') issues.push(`${label}: ${t('PropertyForm.bathrooms')}`);
+          if (unit.majlis === '') issues.push(`${label}: ${t('PropertyForm.majlis')}`);
+          if (unit.halls === '') issues.push(`${label}: ${t('PropertyForm.halls')}`);
+          if (unit.kitchens === '') issues.push(`${label}: ${t('PropertyForm.kitchens')}`);
+          if (unit.hasPool === '') issues.push(`${label}: ${t('PropertyForm.hasPool')}`);
+          if (unit.listingPurpose !== 'sale' && !unit.rent.trim())
+            issues.push(`${label}: ${t('PropertyForm.rent')}`);
+          if (unit.listingPurpose !== 'rent' && !unit.salePrice.trim())
+            issues.push(`${label}: ${t('PropertyForm.salePrice')}`);
+        });
+      }
     }
     if (index === 4) {
       // Images are optional so save can proceed when media upload is degraded.
@@ -843,7 +968,7 @@ export function PropertyWizard({
             property: {
               ownerPartyId: selectedOwnerPartyId,
               kind,
-              category: property.category,
+              category: kind === 'multi_unit' ? 'building' : property.category,
               nameAr: property.nameAr,
               nameEn: property.nameEn,
               descriptionAr: property.descriptionAr || undefined,
@@ -920,7 +1045,10 @@ export function PropertyWizard({
             },
             units: units.map((unit, index) => {
               const names = unitDisplayNames(unit);
-              const autoCode = `U-${String(index + 1).padStart(2, '0')}`;
+              const autoCode =
+                kind === 'multi_unit' && unit.code.trim()
+                  ? unit.code.trim().slice(0, 32)
+                  : `U-${String(index + 1).padStart(2, '0')}`;
               const unitId =
                 mode === 'edit' &&
                 /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
@@ -928,18 +1056,19 @@ export function PropertyWizard({
                 )
                   ? unit.localId
                   : undefined;
+              const isCommercial = unit.unitKind === 'shop' || unit.unitKind === 'showroom';
               return {
                 ...(unitId ? { id: unitId } : {}),
                 code: autoCode,
                 nameAr: names.nameAr,
                 nameEn: names.nameEn,
                 floor: unit.floor || undefined,
-                bedrooms: Number(unit.bedrooms),
-                bathrooms: Number(unit.bathrooms),
-                majlis: Number(unit.majlis),
-                halls: Number(unit.halls),
-                kitchens: Number(unit.kitchens),
-                hasPool: unit.hasPool === 'true',
+                bedrooms: isCommercial ? 0 : Number(unit.bedrooms || 0),
+                bathrooms: isCommercial ? 0 : Number(unit.bathrooms || 0),
+                majlis: isCommercial ? 0 : Number(unit.majlis || 0),
+                halls: isCommercial ? 0 : Number(unit.halls || 0),
+                kitchens: isCommercial ? 0 : Number(unit.kitchens || 0),
+                hasPool: isCommercial ? false : unit.hasPool === 'true',
                 areaSquareMeters: unit.area || undefined,
                 listingPurpose: unit.listingPurpose,
                 rent: {
@@ -1308,7 +1437,10 @@ export function PropertyWizard({
                         checked={kind === 'single_unit'}
                         onChange={() => {
                           setKind('single_unit');
-                          setUnits((current) => [current[0] ?? blankUnit(1)]);
+                          setUnitCountShop('');
+                          setUnitCountShowroom('');
+                          setUnitCountApartment('');
+                          setUnits([blankUnit(1)]);
                           focusNextField();
                         }}
                       />
@@ -1321,13 +1453,75 @@ export function PropertyWizard({
                         checked={kind === 'multi_unit'}
                         onChange={() => {
                           setKind('multi_unit');
+                          updateProperty('category', 'building');
+                          const shop = unitCountShop || '0';
+                          const showroom = unitCountShowroom || '0';
+                          const apartment = unitCountApartment || '1';
+                          setUnitCountShop(shop === '0' && showroom === '0' ? '0' : shop);
+                          setUnitCountShowroom(showroom);
+                          setUnitCountApartment(apartment === '0' ? '1' : apartment);
+                          setUnits((current) =>
+                            syncMultiUnitsFromCounts(
+                              {
+                                shop: Math.max(0, Number(shop) || 0),
+                                showroom: Math.max(0, Number(showroom) || 0),
+                                apartment: Math.max(1, Number(apartment) || 1),
+                              },
+                              current,
+                            ),
+                          );
                           focusNextField();
                         }}
                       />
                       {t('PropertyForm.multi')}
                     </label>
                   </div>
+                  {kind === 'multi_unit' ? (
+                    <p className="field__hint">{t('PropertyForm.multiHint')}</p>
+                  ) : null}
                 </div>
+                {kind === 'multi_unit' ? (
+                  <div className="field span-2 multi-unit-counts">
+                    <label>{t('PropertyForm.unitCounts')}</label>
+                    <p className="field__hint">{t('PropertyForm.unitCountsHint')}</p>
+                    <div className="form-grid">
+                      <Field
+                        id="unit-count-shop"
+                        type="number"
+                        min={0}
+                        label={t('PropertyForm.unitCountShop')}
+                        value={unitCountShop}
+                        tone={
+                          (Number(unitCountShop) || 0) +
+                            (Number(unitCountShowroom) || 0) +
+                            (Number(unitCountApartment) || 0) >
+                          0
+                            ? 'ok'
+                            : tone('', true, showErrors)
+                        }
+                        onChange={(event) => applyMultiUnitCounts({ shop: event.target.value })}
+                      />
+                      <Field
+                        id="unit-count-showroom"
+                        type="number"
+                        min={0}
+                        label={t('PropertyForm.unitCountShowroom')}
+                        value={unitCountShowroom}
+                        onChange={(event) => applyMultiUnitCounts({ showroom: event.target.value })}
+                      />
+                      <Field
+                        id="unit-count-apartment"
+                        type="number"
+                        min={0}
+                        label={t('PropertyForm.unitCountApartment')}
+                        value={unitCountApartment}
+                        onChange={(event) =>
+                          applyMultiUnitCounts({ apartment: event.target.value })
+                        }
+                      />
+                    </div>
+                  </div>
+                ) : null}
                 <SelectField
                   id="country"
                   label={t('PropertyForm.country')}
@@ -1353,12 +1547,13 @@ export function PropertyWizard({
                 <SelectField
                   id="category"
                   label={t('PropertyForm.category')}
-                  value={property.category}
+                  value={kind === 'multi_unit' ? 'building' : property.category}
                   tone={tone(property.category, true, showErrors)}
                   onChange={(event) =>
                     onSelectAdvance(event, (value) => updateProperty('category', value))
                   }
                   required
+                  disabled={kind === 'multi_unit'}
                 >
                   {(
                     [
@@ -1377,6 +1572,9 @@ export function PropertyWizard({
                     </option>
                   ))}
                 </SelectField>
+                {kind === 'multi_unit' ? (
+                  <p className="field__hint span-2">{t('PropertyForm.multiCategoryHint')}</p>
+                ) : null}
                 <SelectField
                   id="currency"
                   name="currency"
@@ -1593,236 +1791,455 @@ export function PropertyWizard({
 
             {step === 1 ? (
               <div>
-                {units.map((unit, index) => (
-                  <fieldset className="unit-editor" key={unit.localId}>
-                    <legend className="sr-only">
-                      {t('PropertyForm.unit')} {index + 1}
-                    </legend>
-                    <div className="unit-editor__head">
-                      <h3>
-                        {t('PropertyForm.unit')} {index + 1}
-                      </h3>
-                      {kind === 'multi_unit' && units.length > 1 ? (
-                        <Button
-                          type="button"
-                          variant="danger"
-                          onClick={() =>
-                            setUnits((current) =>
-                              current.filter((item) => item.localId !== unit.localId),
-                            )
-                          }
-                        >
-                          {t('PropertyForm.removeUnit')}
-                        </Button>
-                      ) : null}
+                {kind === 'multi_unit' ? (
+                  <>
+                    <div className="form-grid" style={{ marginBottom: '1rem' }}>
+                      <Field
+                        id="multi-total-area"
+                        inputMode="decimal"
+                        label={t('PropertyForm.multiUnitTotalArea')}
+                        value={profile.builtUpArea}
+                        tone={tone(profile.builtUpArea, true, showErrors)}
+                        onChange={(event) => updateProfile('builtUpArea', event.target.value)}
+                        required
+                        hint={t('PropertyForm.multiUnitTotalAreaHint')}
+                      />
+                      <p className="span-2 field__hint">{t('PropertyForm.multiUnitsEditorHint')}</p>
                     </div>
-                    <div className="form-grid">
-                      <p className="span-2 field__hint">{t('PropertyForm.nameSharedHint')}</p>
-                      <div className="field">
-                        <label>{t('PropertyForm.code')}</label>
-                        <div className="wizard-readonly" dir="ltr">
-                          {`U-${String(index + 1).padStart(2, '0')}`}
+                    {units.length === 0 ? (
+                      <p className="notice notice--error" role="alert">
+                        {t('PropertyForm.unitCountsRequired')}
+                      </p>
+                    ) : null}
+                    {units.map((unit, index) => {
+                      const typeLabel =
+                        unit.unitKind === 'shop'
+                          ? t('PropertyForm.unitKindShop')
+                          : unit.unitKind === 'showroom'
+                            ? t('PropertyForm.unitKindShowroom')
+                            : t('PropertyForm.unitKindApartment');
+                      const isApartment = unit.unitKind === 'apartment';
+                      return (
+                        <fieldset className="unit-editor" key={unit.localId}>
+                          <legend className="sr-only">
+                            {typeLabel} {index + 1}
+                          </legend>
+                          <div className="unit-editor__head">
+                            <h3>
+                              {typeLabel} · {unit.code || index + 1}
+                            </h3>
+                          </div>
+                          <div className="form-grid">
+                            <Field
+                              id={`unit-number-${unit.localId}`}
+                              label={t('PropertyForm.unitNumber')}
+                              value={unit.code}
+                              tone={tone(unit.code, true, showErrors)}
+                              onChange={(event) =>
+                                updateUnit(unit.localId, 'code', event.target.value)
+                              }
+                              required
+                            />
+                            <Field
+                              id={`unit-area-${unit.localId}`}
+                              inputMode="decimal"
+                              label={t('PropertyForm.area')}
+                              value={unit.area}
+                              tone={tone(unit.area, true, showErrors)}
+                              onChange={(event) =>
+                                updateUnit(unit.localId, 'area', event.target.value)
+                              }
+                              required
+                            />
+                            <SelectField
+                              id={`unit-purpose-${unit.localId}`}
+                              label={t('PropertyForm.listingPurpose')}
+                              value={unit.listingPurpose}
+                              tone="ok"
+                              onChange={(event) =>
+                                updateUnit(unit.localId, 'listingPurpose', event.target.value)
+                              }
+                              required
+                            >
+                              <option value="rent">{t('PropertyForm.forRent')}</option>
+                              <option value="sale">{t('PropertyForm.forSale')}</option>
+                              <option value="both">{t('PropertyForm.forBoth')}</option>
+                            </SelectField>
+                            <Field
+                              id={`unit-rent-${unit.localId}`}
+                              inputMode="decimal"
+                              label={`${t('PropertyForm.rent')} (${currency})`}
+                              value={unit.rent}
+                              tone={
+                                unit.listingPurpose === 'sale'
+                                  ? 'neutral'
+                                  : tone(unit.rent, true, showErrors)
+                              }
+                              onChange={(event) =>
+                                updateUnit(unit.localId, 'rent', event.target.value)
+                              }
+                              required={unit.listingPurpose !== 'sale'}
+                            />
+                            <Field
+                              id={`unit-sale-price-${unit.localId}`}
+                              inputMode="decimal"
+                              label={`${t('PropertyForm.salePrice')} (${currency})`}
+                              value={unit.salePrice}
+                              tone={
+                                unit.listingPurpose === 'rent'
+                                  ? 'neutral'
+                                  : tone(unit.salePrice, true, showErrors)
+                              }
+                              onChange={(event) =>
+                                updateUnit(unit.localId, 'salePrice', event.target.value)
+                              }
+                              required={unit.listingPurpose !== 'rent'}
+                            />
+                            <Field
+                              id={`unit-deposit-${unit.localId}`}
+                              inputMode="decimal"
+                              label={`${t('PropertyForm.deposit')} (${currency})`}
+                              value={unit.deposit}
+                              onChange={(event) =>
+                                updateUnit(unit.localId, 'deposit', event.target.value)
+                              }
+                              hint={t('PropertyForm.depositHint')}
+                            />
+                            {isApartment ? (
+                              <>
+                                <SelectField
+                                  id={`unit-floor-${unit.localId}`}
+                                  label={t('PropertyForm.floor')}
+                                  value={unit.floor}
+                                  onChange={(event) =>
+                                    updateUnit(unit.localId, 'floor', event.target.value)
+                                  }
+                                >
+                                  <option value="">{t('PropertyForm.selectFloor')}</option>
+                                  {FLOOR_OPTIONS.map((value) => (
+                                    <option key={value} value={value}>
+                                      {value === '0' ? t('PropertyForm.floorGround') : value}
+                                    </option>
+                                  ))}
+                                </SelectField>
+                                <SelectField
+                                  id={`unit-beds-${unit.localId}`}
+                                  label={t('PropertyForm.bedrooms')}
+                                  value={unit.bedrooms}
+                                  tone={tone(unit.bedrooms, true, showErrors)}
+                                  onChange={(event) =>
+                                    updateUnit(unit.localId, 'bedrooms', event.target.value)
+                                  }
+                                  required
+                                >
+                                  <option value="">{t('PropertyForm.selectBedrooms')}</option>
+                                  {BEDROOM_OPTIONS.map((value) => (
+                                    <option key={value} value={value}>
+                                      {value}
+                                    </option>
+                                  ))}
+                                </SelectField>
+                                <SelectField
+                                  id={`unit-baths-${unit.localId}`}
+                                  label={t('PropertyForm.bathrooms')}
+                                  value={unit.bathrooms}
+                                  tone={tone(unit.bathrooms, true, showErrors)}
+                                  onChange={(event) =>
+                                    updateUnit(unit.localId, 'bathrooms', event.target.value)
+                                  }
+                                  required
+                                >
+                                  <option value="">{t('PropertyForm.selectBathrooms')}</option>
+                                  {BATHROOM_OPTIONS.map((value) => (
+                                    <option key={value} value={value}>
+                                      {value}
+                                    </option>
+                                  ))}
+                                </SelectField>
+                                <SelectField
+                                  id={`unit-majlis-${unit.localId}`}
+                                  label={t('PropertyForm.majlis')}
+                                  value={unit.majlis}
+                                  tone={tone(unit.majlis, true, showErrors)}
+                                  onChange={(event) =>
+                                    updateUnit(unit.localId, 'majlis', event.target.value)
+                                  }
+                                  required
+                                >
+                                  <option value="">{t('PropertyForm.selectMajlis')}</option>
+                                  {ROOM_COUNT_OPTIONS.map((value) => (
+                                    <option key={value} value={value}>
+                                      {value}
+                                    </option>
+                                  ))}
+                                </SelectField>
+                                <SelectField
+                                  id={`unit-halls-${unit.localId}`}
+                                  label={t('PropertyForm.halls')}
+                                  value={unit.halls}
+                                  tone={tone(unit.halls, true, showErrors)}
+                                  onChange={(event) =>
+                                    updateUnit(unit.localId, 'halls', event.target.value)
+                                  }
+                                  required
+                                >
+                                  <option value="">{t('PropertyForm.selectHalls')}</option>
+                                  {ROOM_COUNT_OPTIONS.map((value) => (
+                                    <option key={value} value={value}>
+                                      {value}
+                                    </option>
+                                  ))}
+                                </SelectField>
+                              </>
+                            ) : (
+                              <p className="span-2 field__hint">
+                                {t('PropertyForm.commercialUnitHint')}
+                              </p>
+                            )}
+                            <div className="span-2 publish-hint">
+                              <label className="checkbox-row">
+                                <input
+                                  type="checkbox"
+                                  checked={unit.publishWhenAvailable}
+                                  onChange={(event) =>
+                                    updateUnit(
+                                      unit.localId,
+                                      'publishWhenAvailable',
+                                      event.target.checked,
+                                    )
+                                  }
+                                />
+                                {t('PropertyForm.publish')}
+                              </label>
+                              <p className="field__hint">{t('PropertyForm.publishHint')}</p>
+                            </div>
+                          </div>
+                        </fieldset>
+                      );
+                    })}
+                  </>
+                ) : (
+                  <>
+                    {units.map((unit, index) => (
+                      <fieldset className="unit-editor" key={unit.localId}>
+                        <legend className="sr-only">
+                          {t('PropertyForm.unit')} {index + 1}
+                        </legend>
+                        <div className="unit-editor__head">
+                          <h3>
+                            {t('PropertyForm.unit')} {index + 1}
+                          </h3>
                         </div>
-                        <p className="field__hint">{t('PropertyForm.codeAutoHint')}</p>
-                      </div>
-                      <SelectField
-                        id={`unit-floor-${unit.localId}`}
-                        label={t('PropertyForm.floor')}
-                        value={unit.floor}
-                        tone={tone(unit.floor, true, showErrors)}
-                        onChange={(event) => updateUnit(unit.localId, 'floor', event.target.value)}
-                        required
-                      >
-                        <option value="">{t('PropertyForm.selectFloor')}</option>
-                        {FLOOR_OPTIONS.map((value) => (
-                          <option key={value} value={value}>
-                            {value === '0' ? t('PropertyForm.floorGround') : value}
-                          </option>
-                        ))}
-                      </SelectField>
-                      <SelectField
-                        id={`unit-beds-${unit.localId}`}
-                        label={t('PropertyForm.bedrooms')}
-                        value={unit.bedrooms}
-                        tone={tone(unit.bedrooms, true, showErrors)}
-                        onChange={(event) =>
-                          updateUnit(unit.localId, 'bedrooms', event.target.value)
-                        }
-                        required
-                      >
-                        <option value="">{t('PropertyForm.selectBedrooms')}</option>
-                        {BEDROOM_OPTIONS.map((value) => (
-                          <option key={value} value={value}>
-                            {value}
-                          </option>
-                        ))}
-                      </SelectField>
-                      <SelectField
-                        id={`unit-baths-${unit.localId}`}
-                        label={t('PropertyForm.bathrooms')}
-                        value={unit.bathrooms}
-                        tone={tone(unit.bathrooms, true, showErrors)}
-                        onChange={(event) =>
-                          updateUnit(unit.localId, 'bathrooms', event.target.value)
-                        }
-                        required
-                      >
-                        <option value="">{t('PropertyForm.selectBathrooms')}</option>
-                        {BATHROOM_OPTIONS.map((value) => (
-                          <option key={value} value={value}>
-                            {value}
-                          </option>
-                        ))}
-                      </SelectField>
-                      <SelectField
-                        id={`unit-majlis-${unit.localId}`}
-                        label={t('PropertyForm.majlis')}
-                        value={unit.majlis}
-                        tone={tone(unit.majlis, true, showErrors)}
-                        onChange={(event) =>
-                          updateUnit(unit.localId, 'majlis', event.target.value)
-                        }
-                        required
-                      >
-                        <option value="">{t('PropertyForm.selectMajlis')}</option>
-                        {ROOM_COUNT_OPTIONS.map((value) => (
-                          <option key={value} value={value}>
-                            {value}
-                          </option>
-                        ))}
-                      </SelectField>
-                      <SelectField
-                        id={`unit-halls-${unit.localId}`}
-                        label={t('PropertyForm.halls')}
-                        value={unit.halls}
-                        tone={tone(unit.halls, true, showErrors)}
-                        onChange={(event) => updateUnit(unit.localId, 'halls', event.target.value)}
-                        required
-                      >
-                        <option value="">{t('PropertyForm.selectHalls')}</option>
-                        {ROOM_COUNT_OPTIONS.map((value) => (
-                          <option key={value} value={value}>
-                            {value}
-                          </option>
-                        ))}
-                      </SelectField>
-                      <SelectField
-                        id={`unit-kitchens-${unit.localId}`}
-                        label={t('PropertyForm.kitchens')}
-                        value={unit.kitchens}
-                        tone={tone(unit.kitchens, true, showErrors)}
-                        onChange={(event) =>
-                          updateUnit(unit.localId, 'kitchens', event.target.value)
-                        }
-                        required
-                      >
-                        <option value="">{t('PropertyForm.selectKitchens')}</option>
-                        {ROOM_COUNT_OPTIONS.map((value) => (
-                          <option key={value} value={value}>
-                            {value}
-                          </option>
-                        ))}
-                      </SelectField>
-                      <SelectField
-                        id={`unit-pool-${unit.localId}`}
-                        label={t('PropertyForm.hasPool')}
-                        value={unit.hasPool}
-                        tone={tone(unit.hasPool, true, showErrors)}
-                        onChange={(event) =>
-                          updateUnit(unit.localId, 'hasPool', event.target.value)
-                        }
-                        required
-                      >
-                        <option value="">{t('PropertyForm.selectPool')}</option>
-                        <option value="true">{t('PropertyForm.poolAvailable')}</option>
-                        <option value="false">{t('PropertyForm.poolUnavailable')}</option>
-                      </SelectField>
-                      <Field
-                        id={`unit-area-${unit.localId}`}
-                        inputMode="decimal"
-                        label={t('PropertyForm.area')}
-                        value={unit.area}
-                        onChange={(event) => updateUnit(unit.localId, 'area', event.target.value)}
-                      />
-                      <SelectField
-                        id={`unit-purpose-${unit.localId}`}
-                        label={t('PropertyForm.listingPurpose')}
-                        value={unit.listingPurpose}
-                        tone="ok"
-                        onChange={(event) =>
-                          updateUnit(unit.localId, 'listingPurpose', event.target.value)
-                        }
-                        required
-                      >
-                        <option value="rent">{t('PropertyForm.forRent')}</option>
-                        <option value="sale">{t('PropertyForm.forSale')}</option>
-                        <option value="both">{t('PropertyForm.forBoth')}</option>
-                      </SelectField>
-                      <Field
-                        id={`unit-rent-${unit.localId}`}
-                        inputMode="decimal"
-                        label={`${t('PropertyForm.rent')} (${currency})`}
-                        value={unit.rent}
-                        tone={
-                          unit.listingPurpose === 'sale'
-                            ? 'neutral'
-                            : tone(unit.rent, true, showErrors)
-                        }
-                        onChange={(event) => updateUnit(unit.localId, 'rent', event.target.value)}
-                        required={unit.listingPurpose !== 'sale'}
-                      />
-                      <Field
-                        id={`unit-sale-price-${unit.localId}`}
-                        inputMode="decimal"
-                        label={`${t('PropertyForm.salePrice')} (${currency})`}
-                        value={unit.salePrice}
-                        tone={
-                          unit.listingPurpose === 'rent'
-                            ? 'neutral'
-                            : tone(unit.salePrice, true, showErrors)
-                        }
-                        onChange={(event) =>
-                          updateUnit(unit.localId, 'salePrice', event.target.value)
-                        }
-                        required={unit.listingPurpose !== 'rent'}
-                      />
-                      <Field
-                        id={`unit-deposit-${unit.localId}`}
-                        inputMode="decimal"
-                        label={`${t('PropertyForm.deposit')} (${currency})`}
-                        value={unit.deposit}
-                        onChange={(event) =>
-                          updateUnit(unit.localId, 'deposit', event.target.value)
-                        }
-                        hint={t('PropertyForm.depositHint')}
-                      />
-                      <div className="span-2 publish-hint">
-                        <label className="checkbox-row">
-                          <input
-                            type="checkbox"
-                            checked={unit.publishWhenAvailable}
+                        <div className="form-grid">
+                          <p className="span-2 field__hint">{t('PropertyForm.nameSharedHint')}</p>
+                          <div className="field">
+                            <label>{t('PropertyForm.code')}</label>
+                            <div className="wizard-readonly" dir="ltr">
+                              {`U-${String(index + 1).padStart(2, '0')}`}
+                            </div>
+                            <p className="field__hint">{t('PropertyForm.codeAutoHint')}</p>
+                          </div>
+                          <SelectField
+                            id={`unit-floor-${unit.localId}`}
+                            label={t('PropertyForm.floor')}
+                            value={unit.floor}
+                            tone={tone(unit.floor, true, showErrors)}
                             onChange={(event) =>
-                              updateUnit(unit.localId, 'publishWhenAvailable', event.target.checked)
+                              updateUnit(unit.localId, 'floor', event.target.value)
+                            }
+                            required
+                          >
+                            <option value="">{t('PropertyForm.selectFloor')}</option>
+                            {FLOOR_OPTIONS.map((value) => (
+                              <option key={value} value={value}>
+                                {value === '0' ? t('PropertyForm.floorGround') : value}
+                              </option>
+                            ))}
+                          </SelectField>
+                          <SelectField
+                            id={`unit-beds-${unit.localId}`}
+                            label={t('PropertyForm.bedrooms')}
+                            value={unit.bedrooms}
+                            tone={tone(unit.bedrooms, true, showErrors)}
+                            onChange={(event) =>
+                              updateUnit(unit.localId, 'bedrooms', event.target.value)
+                            }
+                            required
+                          >
+                            <option value="">{t('PropertyForm.selectBedrooms')}</option>
+                            {BEDROOM_OPTIONS.map((value) => (
+                              <option key={value} value={value}>
+                                {value}
+                              </option>
+                            ))}
+                          </SelectField>
+                          <SelectField
+                            id={`unit-baths-${unit.localId}`}
+                            label={t('PropertyForm.bathrooms')}
+                            value={unit.bathrooms}
+                            tone={tone(unit.bathrooms, true, showErrors)}
+                            onChange={(event) =>
+                              updateUnit(unit.localId, 'bathrooms', event.target.value)
+                            }
+                            required
+                          >
+                            <option value="">{t('PropertyForm.selectBathrooms')}</option>
+                            {BATHROOM_OPTIONS.map((value) => (
+                              <option key={value} value={value}>
+                                {value}
+                              </option>
+                            ))}
+                          </SelectField>
+                          <SelectField
+                            id={`unit-majlis-${unit.localId}`}
+                            label={t('PropertyForm.majlis')}
+                            value={unit.majlis}
+                            tone={tone(unit.majlis, true, showErrors)}
+                            onChange={(event) =>
+                              updateUnit(unit.localId, 'majlis', event.target.value)
+                            }
+                            required
+                          >
+                            <option value="">{t('PropertyForm.selectMajlis')}</option>
+                            {ROOM_COUNT_OPTIONS.map((value) => (
+                              <option key={value} value={value}>
+                                {value}
+                              </option>
+                            ))}
+                          </SelectField>
+                          <SelectField
+                            id={`unit-halls-${unit.localId}`}
+                            label={t('PropertyForm.halls')}
+                            value={unit.halls}
+                            tone={tone(unit.halls, true, showErrors)}
+                            onChange={(event) =>
+                              updateUnit(unit.localId, 'halls', event.target.value)
+                            }
+                            required
+                          >
+                            <option value="">{t('PropertyForm.selectHalls')}</option>
+                            {ROOM_COUNT_OPTIONS.map((value) => (
+                              <option key={value} value={value}>
+                                {value}
+                              </option>
+                            ))}
+                          </SelectField>
+                          <SelectField
+                            id={`unit-kitchens-${unit.localId}`}
+                            label={t('PropertyForm.kitchens')}
+                            value={unit.kitchens}
+                            tone={tone(unit.kitchens, true, showErrors)}
+                            onChange={(event) =>
+                              updateUnit(unit.localId, 'kitchens', event.target.value)
+                            }
+                            required
+                          >
+                            <option value="">{t('PropertyForm.selectKitchens')}</option>
+                            {ROOM_COUNT_OPTIONS.map((value) => (
+                              <option key={value} value={value}>
+                                {value}
+                              </option>
+                            ))}
+                          </SelectField>
+                          <SelectField
+                            id={`unit-pool-${unit.localId}`}
+                            label={t('PropertyForm.hasPool')}
+                            value={unit.hasPool}
+                            tone={tone(unit.hasPool, true, showErrors)}
+                            onChange={(event) =>
+                              updateUnit(unit.localId, 'hasPool', event.target.value)
+                            }
+                            required
+                          >
+                            <option value="">{t('PropertyForm.selectPool')}</option>
+                            <option value="true">{t('PropertyForm.poolAvailable')}</option>
+                            <option value="false">{t('PropertyForm.poolUnavailable')}</option>
+                          </SelectField>
+                          <Field
+                            id={`unit-area-${unit.localId}`}
+                            inputMode="decimal"
+                            label={t('PropertyForm.area')}
+                            value={unit.area}
+                            onChange={(event) =>
+                              updateUnit(unit.localId, 'area', event.target.value)
                             }
                           />
-                          {t('PropertyForm.publish')}
-                        </label>
-                        <p className="field__hint">{t('PropertyForm.publishHint')}</p>
-                      </div>
-                    </div>
-                  </fieldset>
-                ))}
-                {kind === 'multi_unit' ? (
-                  <Button
-                    type="button"
-                    variant="quiet"
-                    onClick={() =>
-                      setUnits((current) => [...current, blankUnit(current.length + 1)])
-                    }
-                  >
-                    ＋ {t('PropertyForm.addUnit')}
-                  </Button>
-                ) : null}
+                          <SelectField
+                            id={`unit-purpose-${unit.localId}`}
+                            label={t('PropertyForm.listingPurpose')}
+                            value={unit.listingPurpose}
+                            tone="ok"
+                            onChange={(event) =>
+                              updateUnit(unit.localId, 'listingPurpose', event.target.value)
+                            }
+                            required
+                          >
+                            <option value="rent">{t('PropertyForm.forRent')}</option>
+                            <option value="sale">{t('PropertyForm.forSale')}</option>
+                            <option value="both">{t('PropertyForm.forBoth')}</option>
+                          </SelectField>
+                          <Field
+                            id={`unit-rent-${unit.localId}`}
+                            inputMode="decimal"
+                            label={`${t('PropertyForm.rent')} (${currency})`}
+                            value={unit.rent}
+                            tone={
+                              unit.listingPurpose === 'sale'
+                                ? 'neutral'
+                                : tone(unit.rent, true, showErrors)
+                            }
+                            onChange={(event) =>
+                              updateUnit(unit.localId, 'rent', event.target.value)
+                            }
+                            required={unit.listingPurpose !== 'sale'}
+                          />
+                          <Field
+                            id={`unit-sale-price-${unit.localId}`}
+                            inputMode="decimal"
+                            label={`${t('PropertyForm.salePrice')} (${currency})`}
+                            value={unit.salePrice}
+                            tone={
+                              unit.listingPurpose === 'rent'
+                                ? 'neutral'
+                                : tone(unit.salePrice, true, showErrors)
+                            }
+                            onChange={(event) =>
+                              updateUnit(unit.localId, 'salePrice', event.target.value)
+                            }
+                            required={unit.listingPurpose !== 'rent'}
+                          />
+                          <Field
+                            id={`unit-deposit-${unit.localId}`}
+                            inputMode="decimal"
+                            label={`${t('PropertyForm.deposit')} (${currency})`}
+                            value={unit.deposit}
+                            onChange={(event) =>
+                              updateUnit(unit.localId, 'deposit', event.target.value)
+                            }
+                            hint={t('PropertyForm.depositHint')}
+                          />
+                          <div className="span-2 publish-hint">
+                            <label className="checkbox-row">
+                              <input
+                                type="checkbox"
+                                checked={unit.publishWhenAvailable}
+                                onChange={(event) =>
+                                  updateUnit(
+                                    unit.localId,
+                                    'publishWhenAvailable',
+                                    event.target.checked,
+                                  )
+                                }
+                              />
+                              {t('PropertyForm.publish')}
+                            </label>
+                            <p className="field__hint">{t('PropertyForm.publishHint')}</p>
+                          </div>
+                        </div>
+                      </fieldset>
+                    ))}
+                  </>
+                )}
               </div>
             ) : null}
 
@@ -1839,7 +2256,13 @@ export function PropertyWizard({
                   <Field
                     id="built-area"
                     inputMode="decimal"
-                    label={ar ? 'المساحة المبنية (م²)' : 'Built-up area (m²)'}
+                    label={
+                      kind === 'multi_unit'
+                        ? t('PropertyForm.multiUnitTotalArea')
+                        : ar
+                          ? 'المساحة المبنية (م²)'
+                          : 'Built-up area (m²)'
+                    }
                     value={profile.builtUpArea}
                     onChange={(event) => updateProfile('builtUpArea', event.target.value)}
                   />
