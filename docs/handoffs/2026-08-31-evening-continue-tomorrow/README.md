@@ -1,7 +1,7 @@
 # تسليم مسائي — استكمال العمل غداً من جهاز آخر
 
 **تاريخ التوثيق:** 2026-08-31  
-**وقت التوثيق (مسقط / Asia/Muscat / UTC+4):** 22:43  
+**وقت التوثيق (مسقط / Asia/Muscat / UTC+4):** 22:46  
 **المستودع:** https://github.com/ainoamn/BHD-R  
 **الإنتاج:** https://r.bhd-om.com  
 **الفرع:** `main` (مدموج مباشرة — لا PR معلّق)  
@@ -35,8 +35,8 @@
 
 | الملف | الوصف |
 | --- | --- |
-| [`conversation-transcript-FULL.jsonl`](./conversation-transcript-FULL.jsonl) | JSONL خام كامل (508 أسطر) — SHA256 `d2f32b02780d83f49a4869c6db40ccdd203040a514420496d9b24cd8f6e4c53c` |
-| [`conversation-readable-FULL.md`](./conversation-readable-FULL.md) | نسخة مقروءة (502 رسالة مستخرجة) |
+| [`conversation-transcript-FULL.jsonl`](./conversation-transcript-FULL.jsonl) | JSONL خام كامل (515 أسطر) — SHA256 `380be8c8345a8cdb92f6457e067de84367bbc0f5063bcc9145e3128f44baf5df` |
+| [`conversation-readable-FULL.md`](./conversation-readable-FULL.md) | نسخة مقروءة (508 رسالة مستخرجة) |
 | [`MANIFEST.md`](./MANIFEST.md) | أحجام وهاش |
 | [`TOMORROW-PLAN-AR.md`](./TOMORROW-PLAN-AR.md) | **خطة عمل مقترحة ليوم غد بالأولويات** |
 

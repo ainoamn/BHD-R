@@ -2,10 +2,10 @@
 
 - **المصدر:** conversation-transcript-FULL.jsonl (نسخة حرفية)
 - **تاريخ التوثيق:** 2026-08-31
-- **وقت التوثيق (مسقط / UTC+4):** 22:43
+- **وقت التوثيق (مسقط / UTC+4):** 22:46
 - **معرّف المحادثة:** 307d3b18-d433-4130-9cd4-fbf9f887f158
-- **عدد أسطر JSONL:** 508
-- **SHA256:** `d2f32b02780d83f49a4869c6db40ccdd203040a514420496d9b24cd8f6e4c53c`
+- **عدد أسطر JSONL:** 515
+- **SHA256:** `380be8c8345a8cdb92f6457e067de84367bbc0f5063bcc9145e3128f44baf5df`
 
 > استخراج نصوص المستخدم/المساعد دون حذف محتوى نصي داخل الرسائل.
 
@@ -7984,4 +7984,76 @@ These files can be read with tools, copied to other locations, or attached to su
 <user_query>
 الان وثق كل هذه المحادثه مره اخرى وارفع كل ما دار في هذه المادحدثه لكي استكمل العمل من كبيوتري الاخر غدا 
 اريد منك كذلك عمل خطه مقترحه للعمل ليوم غد للتطوير و البناء بحسب الاولويات 
+</user_query>
+
+---
+
+## 503. المساعد
+
+سأوثّق المحادثة كاملة مجدداً مع خطة عمل لأولويات الغد، ثم أرفع كل شيء إلى `main`.
+
+[tool_use: Shell]
+
+[tool_use: Read]
+
+---
+
+## 504. المساعد
+
+[tool_use: Write]
+
+---
+
+## 505. المساعد
+
+[tool_use: Shell]
+
+---
+
+## 506. المساعد
+
+[tool_use: Write]
+
+[tool_use: Write]
+
+[tool_use: Write]
+
+[tool_use: Delete]
+
+[tool_use: Shell]
+
+---
+
+## 507. المساعد
+
+تم التوثيق والرفع إلى `main` (`4b61e8a`) بتاريخ **2026-08-31 · 22:43 مسقط**.
+
+### من الجهاز الثاني غداً
+```bash
+git pull origin main
+```
+ثم افتح:
+- [README التسليم](https://github.com/ainoamn/BHD-R/blob/main/docs/handoffs/2026-08-31-evening-continue-tomorrow/README.md)
+- [خطة الغد بالأولويات](https://github.com/ainoamn/BHD-R/blob/main/docs/handoffs/2026-08-31-evening-continue-tomorrow/TOMORROW-PLAN-AR.md)
+- المحادثة الحرفية: `conversation-transcript-FULL.jsonl`
+- النسخة المقروءة: `conversation-readable-FULL.md`
+
+### خطة الغد (مختصر)
+| أولوية | ماذا |
+| --- | --- |
+| **P0** | تحقق الإنتاج: حفظ العقار + صفحة الوحدة + هجرة Neon `0017` |
+| **P1** | صقل العرض العام (زر المبنى في كل العروض، عنوان الصفحة/SEO، الموقع) |
+| **P2** | إكمال تجربة «إظهار اسم المالك» بعد الهجرة |
+| **P3** | اختبار انحدار الوحدات المتعددة (صور، both، سيريالات) |
+| **P4** | مسار منتج واحد فقط إن بقي وقت (تشغيل مالك / اكتشاف / stays) |
+
+قاعدة القرار: أي كسر في الحفظ أو العرض → ابقَ على **P0** ولا تنتقل لميزات جديدة.
+
+---
+
+## 508. المستخدم
+
+<timestamp>Monday, Aug 31, 2026, 10:46 PM (UTC+4)</timestamp>
+<user_query>
+وثق  ارفع 
 </user_query>
