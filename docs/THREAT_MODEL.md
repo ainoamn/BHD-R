@@ -56,3 +56,7 @@
 - insiders ذوو الصلاحيات العالية يحتاجون مراجعة دورية، فصل واجبات وتنبيه سلوكي.
 
 يُراجع النموذج كل ستة أشهر وقبل تغيير الهوية، الدفع، public sharing أو تخزين نوع جديد من البيانات.
+
+## إضافات المجالات
+
+- الإقامات اليومية (BHD R Stays): [`docs/product/daily-stays/THREAT-MODEL-STAYS-AR.md`](./product/daily-stays/THREAT-MODEL-STAYS-AR.md) · ADR-010.

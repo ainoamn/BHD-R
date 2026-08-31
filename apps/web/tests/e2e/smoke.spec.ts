@@ -196,3 +196,20 @@ test('public visitor can submit a real viewing request without creating an accou
   await expect(page.getByText('تم استلام طلبك')).toBeVisible();
   await expect(page.getByText('WEB-E2E-0001')).toBeVisible();
 });
+
+test('stays phase-0: homepage has no daily-stay search tab while flags are off', async ({
+  page,
+}) => {
+  await page.goto('/ar');
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await expect(page.getByRole('tab', { name: /إقامة يومية|Daily stay/i })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: /إقامات|Stays/i })).toHaveCount(0);
+});
+
+test('stays phase-0: /ar/stays is not a public product surface yet', async ({ page }) => {
+  const response = await page.goto('/ar/stays');
+  expect(response).not.toBeNull();
+  const status = response!.status();
+  // 404 preferred; any non-200 marketing page is acceptable until Phase 4 ships behind flags.
+  expect(status === 404 || status >= 400).toBe(true);
+});

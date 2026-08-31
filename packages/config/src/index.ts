@@ -37,6 +37,16 @@ export const environmentSchema = z.object({
   PUBLIC_PROPERTY_BASE_URL: z.url(),
   OTEL_EXPORTER_OTLP_ENDPOINT: optionalUrl,
   SENTRY_DSN: optionalUrl,
+  /**
+   * BHD R Stays — platform kill-switch. Default off.
+   * Org/property/unit layers: see feature-flags.ts / STAYS_ORG_ALLOWLIST.
+   */
+  STAYS_PLATFORM_ENABLED: z
+    .enum(['0', '1', 'true', 'false', 'yes', 'no', 'on', 'off'])
+    .optional()
+    .default('false'),
+  /** Comma-separated organization UUIDs (or `*`) when platform flag is on. */
+  STAYS_ORG_ALLOWLIST: z.string().optional().default(''),
 });
 
 export type Environment = z.infer<typeof environmentSchema>;
@@ -68,3 +78,12 @@ export function loadEnvironment(source: NodeJS.ProcessEnv = process.env): Enviro
   }
   return result.data;
 }
+
+export {
+  readStaysFlagsFromEnv,
+  resolveStaysEnabled,
+  resolveStaysEnabledFromEnv,
+  staysPublicSurfaceEnabled,
+  type StaysFlagResolution,
+  type StaysFlagScope,
+} from './feature-flags.js';

@@ -625,6 +625,16 @@ export async function verifySessionToken(
   return sessionClaimsSchema.parse(result.payload);
 }
 
+function toError(value: unknown): Error {
+  if (value instanceof Error) return value;
+  if (typeof value === 'string') return new Error(value);
+  try {
+    return new Error(JSON.stringify(value));
+  } catch {
+    return new Error('unknown_error');
+  }
+}
+
 export async function verifyIdentityToken(input: {
   token: string;
   issuer: string;
@@ -684,11 +694,11 @@ export async function verifyIdentityToken(input: {
       try {
         payload = await claimsFromUserinfo(issuer, input.accessToken, input.token);
       } catch (userinfoError) {
-        if (hs256Error) throw hs256Error;
-        throw userinfoError;
+        if (hs256Error) throw toError(hs256Error);
+        throw toError(userinfoError);
       }
     } else if (hs256Error) {
-      throw hs256Error;
+      throw toError(hs256Error);
     } else {
       throw new Error('missing_hs256_secret');
     }

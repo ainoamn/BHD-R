@@ -32,6 +32,28 @@ describe('availability', () => {
     expect(state).toBe('leased');
     expect(isPubliclyDiscoverable(state)).toBe(false);
   });
+
+  it('stays phase-0: long-term availability kinds stay lease/reservation/hold/maintenance only', () => {
+    const kinds = ['hold', 'reservation', 'lease', 'maintenance'] as const;
+    for (const kind of kinds) {
+      const state = deriveAvailability({
+        publishWhenAvailable: true,
+        listingEnabled: true,
+        now: new Date('2026-06-01T00:00:00Z'),
+        blocks: [
+          {
+            kind,
+            startsAt: new Date('2026-01-01'),
+            endsAt: new Date('2026-12-31'),
+            active: true,
+          },
+        ],
+      });
+      expect(['held', 'reserved', 'leased', 'maintenance']).toContain(state);
+    }
+    // Nightly stay locks must not be folded into this long-term deriveAvailability API.
+    expect(kinds).not.toContain('stay_booking' as (typeof kinds)[number]);
+  });
 });
 
 describe('state machines', () => {

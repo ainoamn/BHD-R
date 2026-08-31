@@ -6,6 +6,7 @@ All notable changes are documented here. The project follows Semantic Versioning
 
 - Marketing auth: SiteHeader + homepage use Next `/api/auth/me` (Host `bhd_r_session`) instead of Nest `/v1/me`, so signed-in owners are not asked to log in again on `/ar` while `/ar/owner` works.
 - Docs: `RELEASE-0.3.10-AR.md`.
+- Stays Phase 0 (branch): ADR-010, threat model, closed feature flags, regression baseline — **no public stays UI** (`RELEASE-STAYS-PHASE-0-AR.md`).
 
 ## 0.3.9 — 2026-08-31
 

@@ -2,21 +2,19 @@
 
 **Updated:** 2026-08-31  
 **Product version:** 0.3.10  
-**Active focus:** Marketing session parity with portal  
+**Active focus:** BHD R Stays Phase 0 (flags/docs only; no public surface)  
+**Stays Phase 0:** [`RELEASE-STAYS-PHASE-0-AR.md`](./RELEASE-STAYS-PHASE-0-AR.md) · [`../verification/stays-phase-0.md`](../verification/stays-phase-0.md)  
+**Stays pack:** [`../product/daily-stays/README.md`](../product/daily-stays/README.md)  
 **Release 0.3.10:** [`RELEASE-0.3.10-AR.md`](./RELEASE-0.3.10-AR.md)  
-**Release 0.3.9:** [`RELEASE-0.3.9-AR.md`](./RELEASE-0.3.9-AR.md)  
-**Release 0.3.8:** [`RELEASE-0.3.8-AR.md`](./RELEASE-0.3.8-AR.md)  
 **Env manifest:** [`ENV-MANIFEST.md`](./ENV-MANIFEST.md)  
-**Nest hosting:** [`NEST-API-HOSTING.md`](./NEST-API-HOSTING.md)  
-**Next product pack (not started):** [`../product/daily-stays/README.md`](../product/daily-stays/README.md)
+**Nest hosting:** [`NEST-API-HOSTING.md`](./NEST-API-HOSTING.md)
 
 | Phase | Status | Notes |
 | ----- | ------ | ----- |
-| Marketing session via Next cookie | **shipped 0.3.10** | `/api/auth/me` — no Nest cold-start false anonymous |
-| Browse list/grid/table toggle | **shipped 0.3.9** | Toolbar view switcher + localStorage |
-| Map + discovery + reviews | **shipped 0.3.8** | Live `r.bhd-om.com`; pins + reviews + party profiles |
-| Properties browse filters | **shipped 0.3.7** | Sticky search + sidebar/drawer + client facets |
-| Vacant units in bookings | **shipped 0.3.6** | Neon context for create booking dropdown |
+| Stays Phase 0 — ADR/flags/baseline | **in progress** | Branch `feat/stays-phase-0`; flags off; no `/stays` |
+| Marketing session via Next cookie | **shipped 0.3.10** | `/api/auth/me` |
+| Browse list/grid/table toggle | **shipped 0.3.9** | Toolbar view switcher |
+| Map + discovery + reviews | **shipped 0.3.8** | Pins + reviews + party profiles |
 
 ## Next (human / infra)
 
