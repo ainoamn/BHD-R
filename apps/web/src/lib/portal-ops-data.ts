@@ -311,7 +311,7 @@ export async function loadOpsRecordsFromDb(
 }
 
 export function clearOpsContextDbCache(): void {
-  globalForOpsContext.__bhdROpsContextCache = undefined;
+  delete globalForOpsContext.__bhdROpsContextCache;
 }
 
 /**
