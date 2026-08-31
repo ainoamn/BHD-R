@@ -173,8 +173,15 @@ After Docker build, Nest boots with `loadEnvironment`. Missing keys abort the pr
 | CSRF / preview | Nest allowlist + BFF; redeploy **both** Vercel and Render after API CSRF changes |
 | HTTP adapter (0.2.45) | **Express** + public edge proxy; CORS via `origin(origin, callback)` |
 | Fastify on Render | **Avoid** until proven; caused multi-hour hang loops in Aug 2026 |
+| Vercel production project | Always **`bhd-r-api`** → `https://r.bhd-om.com` from branch **`main`**. Ignore project **`web`** (wrong Root / stale branches). |
 
-### Render build failure (2026-08-25)
+### Vercel `ERR_PNPM_OUTDATED_LOCKFILE` (feat/stays-phase-0 @ `9cfa48f`)
+
+A Git deploy cloned **`feat/stays-phase-0`** at `9cfa48f`, where `packages/config` gained `@types/node` + `vitest` **without** a lockfile bump → `pnpm install --frozen-lockfile` failed.
+
+**Already fixed** on tip `17870e1` (`chore: update lockfile for config package test deps.`) and on **`main`**. Do **not** redeploy `9cfa48f`.
+
+**Action:** Production Environment Branch Tracking = `main` on project `bhd-r-api`. Redeploy from `main` (CLI `npx vercel --prod` from monorepo root, or push to `main`). Archive or retarget project `web` away from stale stays branches.
 
 Deploys after `2deea1b` failed with exit 1 during Docker build because:
 
