@@ -10,6 +10,7 @@ All notable changes are documented here. The project follows Semantic Versioning
 ## 0.3.6 — 2026-08-31
 
 - Bookings create form: load vacant units from Neon (no Nest dependency); exclude units with active lease/reservation/hold; show empty hint when none.
+- Vercel Production build for `aaf8e84` failed on cache-clear typing; fixed in follow-up `0978ce8` (`delete` instead of assigning `undefined`).
 - Docs: `RELEASE-0.3.6-AR.md`.
 
 ## 0.3.5 — 2026-08-31
