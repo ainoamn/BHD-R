@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.16 — 2026-08-31
+
+- Fix Render Docker build for Nest: `apps/web` engines was pinned to `22.x` which aborted `pnpm install` on Node 24 image; use `>=22` and disable engine-strict / minimum-release-age inside `Dockerfile.api`.
+- Docs: `RELEASE-0.4.16-AR.md`.
+
 ## 0.4.15 — 2026-08-31
 
 - Vercel install: allow Node 22 (`engines >=22`) + `engine-strict=false` so Production deploys stop failing on Node engine mismatch (stale Production kept old translate/upload bugs).

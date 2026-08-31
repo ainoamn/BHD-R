@@ -198,6 +198,8 @@ Dashboard project name **`bhd-r-api`** is the **Next.js** app (`apps/web` → `r
 
 **Nest Docker (Render)** is a separate service (`Dockerfile.api`). If its Events show Error while `/healthz` is ok, the **previous Live** image is still serving — click **Manual Deploy** of latest `main` after a green build.
 
+**Render build fail on `fb0a74d` (0.4.15):** `apps/web` engines pinned to `22.x` while `Dockerfile.api` uses Node 24 + repo `engine-strict=true` → install exit 1. Fixed in **0.4.16** (`>=22` + Docker install ignores engine-strict / minimum-release-age).
+
 Arabic: [`RELEASE-0.4.14-AR.md`](./RELEASE-0.4.14-AR.md) (web fixes); stays webhook remains behind flags ([`RELEASE-0.4.1-AR.md`](./RELEASE-0.4.1-AR.md)).
 
 ### Vercel `ERR_PNPM_OUTDATED_LOCKFILE` (feat/stays-phase-0 @ `9cfa48f`)

@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-08-31  
-**Product version:** 0.4.15  
-**Active focus:** Vercel Node engines + translate/media on property edit  
+**Product version:** 0.4.16  
+**Active focus:** Render Nest Docker build (engines pin)  
+**Release 0.4.16:** [`RELEASE-0.4.16-AR.md`](./RELEASE-0.4.16-AR.md)  
 **Release 0.4.15:** [`RELEASE-0.4.15-AR.md`](./RELEASE-0.4.15-AR.md)  
 **Release 0.4.14:** [`RELEASE-0.4.14-AR.md`](./RELEASE-0.4.14-AR.md)  
 **Release 0.4.13:** [`RELEASE-0.4.13-AR.md`](./RELEASE-0.4.13-AR.md)  
