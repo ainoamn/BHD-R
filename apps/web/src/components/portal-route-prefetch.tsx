@@ -52,16 +52,17 @@ export function PortalRoutePrefetch({
     };
 
     const warmAllData = async () => {
-      // Prioritize the section the user is looking at before background-warming the rest.
-      if (sections.includes('properties')) {
-        await warmOpsSection(portal, 'properties');
-      }
+      // Let the visible section finish its own fetch first — warm-all was
+      // contending on the same Neon pool and stretching properties to 20–40s.
+      await delay(2_500);
+      if (cancelled) return;
       const applied = await warmAllOpsSections(portal);
       if (cancelled || applied > 0) return;
       for (const section of sections) {
         if (cancelled) return;
+        if (section === 'properties') continue;
         await warmOpsSection(portal, section);
-        await delay(80);
+        await delay(120);
       }
     };
 

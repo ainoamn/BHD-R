@@ -53,7 +53,7 @@ function getSharedDatabase(): DbHandle {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL is required');
   if (!globalForDb.__bhdRWebDb) {
-    const { db } = createDatabase(url, { max: 1 });
+    const { db } = createDatabase(url, { max: 3 });
     globalForDb.__bhdRWebDb = { db };
   }
   return globalForDb.__bhdRWebDb;
@@ -131,29 +131,42 @@ async function listProperties(claims: SessionClaims): Promise<Record<string, unk
         ),
       );
 
+    if (rows.length === 0) return [];
+
+    const propertyIds = rows.map((row) => row.id);
+
+    // Keep these sequential inside one transaction (single connection).
     const unitCounts = await transaction
       .select({
         propertyId: units.propertyId,
         value: count(),
       })
       .from(units)
-      .where(eq(units.organizationId, orgId))
+      .where(and(eq(units.organizationId, orgId), inArray(units.propertyId, propertyIds)))
       .groupBy(units.propertyId);
-    const byProperty = new Map(unitCounts.map((row) => [row.propertyId, Number(row.value)]));
 
-    const coverRows = await transaction
-      .select({
-        propertyId: units.propertyId,
-        mediaAssetId: unitMedia.mediaAssetId,
-        position: unitMedia.position,
-      })
-      .from(unitMedia)
-      .innerJoin(units, eq(units.id, unitMedia.unitId))
-      .where(eq(unitMedia.organizationId, orgId))
-      .orderBy(asc(unitMedia.position));
+    // One cover asset per property (lowest position) — avoid full unit_media scan.
+    const coverRaw = await transaction.execute(sql`
+      select distinct on (u.property_id)
+        u.property_id as "propertyId",
+        um.media_asset_id as "mediaAssetId"
+      from unit_media um
+      inner join units u on u.id = um.unit_id
+      where um.organization_id = ${orgId}
+        and u.property_id in (${sql.join(
+          propertyIds.map((id) => sql`${id}`),
+          sql`, `,
+        )})
+      order by u.property_id, um.position asc
+    `);
+
+    const byProperty = new Map(unitCounts.map((row) => [row.propertyId, Number(row.value)]));
     const coverByProperty = new Map<string, string>();
-    for (const row of coverRows) {
-      if (!coverByProperty.has(row.propertyId)) {
+    const coverList = (
+      Array.isArray(coverRaw) ? coverRaw : ((coverRaw as { rows?: unknown[] }).rows ?? [])
+    ) as Array<{ propertyId?: string; mediaAssetId?: string }>;
+    for (const row of coverList) {
+      if (row?.propertyId && row?.mediaAssetId) {
         coverByProperty.set(row.propertyId, `/api/owner/media/${row.mediaAssetId}`);
       }
     }

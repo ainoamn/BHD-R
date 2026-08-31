@@ -229,10 +229,17 @@ export async function loadOperationsWorkspacePayload(
   const nestConfigured = isNestApiConfiguredForRuntime();
   if (section === 'bookings' || section === 'leasing') clearOpsContextDbCache();
 
-  // List first — never wait on the heavy vacant-units context query.
+  // List first. Skip heavy ops context on the properties grid — it blocks TTFB
+  // and is only needed for create/filter forms on other sections.
   const loaded = await loadSection(portal, section);
   let neonContext: Record<string, unknown> | null = null;
-  if (portal !== 'tenant') {
+  const needsOpsContext =
+    portal !== 'tenant' &&
+    section !== 'properties' &&
+    section !== 'approvals' &&
+    section !== 'team' &&
+    section !== 'api-keys';
+  if (needsOpsContext) {
     neonContext = await Promise.race([
       loadOpsContextFromDb(portal),
       new Promise<null>((resolve) => {
