@@ -2,13 +2,9 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { clientSafeErrorCode, statusForSafeCode } from '@/lib/client-safe-error';
-import { createViewingRequestNestOrNeon } from '@/lib/nest-or-neon-write';
+import { createAuthenticatedSaleInterest } from '@/lib/public-booking-neon';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
-import {
-  assertRouteRateLimit,
-  clientIp,
-  hashRateKey,
-} from '@/lib/route-rate-limit';
+import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,10 +12,9 @@ export const dynamic = 'force-dynamic';
 const bodySchema = z.object({
   unitId: z.string().uuid(),
   locale: z.enum(['ar', 'en']).default('ar'),
-  interest: z.enum(['rent', 'sale']).optional(),
 });
 
-/** POST /api/public/viewing-requests — Nest-first with Neon fallback. */
+/** POST /api/public/sale-interest — create a sales pipeline lead for the unit. */
 export async function POST(request: Request) {
   if (!hasDatabaseUrl()) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
@@ -34,7 +29,7 @@ export async function POST(request: Request) {
   }
 
   const limited = assertRouteRateLimit({
-    key: hashRateKey(['viewing', claims.sub, clientIp(request)]),
+    key: hashRateKey(['sale-interest', claims.sub, clientIp(request)]),
     limit: 5,
     windowMs: 60_000,
   });
@@ -55,9 +50,8 @@ export async function POST(request: Request) {
   const idempotencyKey = request.headers.get('idempotency-key')?.trim() || null;
 
   try {
-    const result = await createViewingRequestNestOrNeon(claims, body.unitId, body.locale, {
+    const result = await createAuthenticatedSaleInterest(claims, body.unitId, body.locale, {
       idempotencyKey,
-      ...(body.interest ? { interest: body.interest } : {}),
     });
     return NextResponse.json(result);
   } catch (error) {

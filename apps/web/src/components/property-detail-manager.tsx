@@ -17,6 +17,8 @@ import {
   summarizeUnitKinds,
   unitKindLabel,
 } from '@/lib/unit-identity';
+import { listingPurposeCaption, occupancyLabel } from '@/lib/listing-purpose-display';
+import type { UnitOccupancy } from '@/lib/listing-purpose-display';
 
 interface ManagedUnit {
   id: string;
@@ -40,6 +42,8 @@ interface ManagedUnit {
   listingEnabled: boolean | null;
   listingSlug: string | null;
   status: string;
+  /** Public occupancy for multi-unit building boards */
+  occupancy?: 'available' | 'reserved' | 'leased' | 'sold';
 }
 
 export interface ManagedProperty {
@@ -435,6 +439,16 @@ export function PropertyDetailManager({
           {(property.descriptionAr || property.descriptionEn) && (
             <section className="property-360__section">
               <h2>{ar ? 'الوصف' : 'Description'}</h2>
+              {property.kind === 'multi_unit' && focusUnitId && primaryUnit ? (
+                <p className="property-360__unit-link-note">
+                  {ar
+                    ? `هذه الوحدة («${primaryUnit.nameAr}») مرتبطة بالمبنى «${property.nameAr}».`
+                    : `This unit (“${primaryUnit.nameEn}”) is linked to the building “${property.nameEn}”.`}{' '}
+                  <Link href={publicPath}>
+                    {ar ? 'عرض المبنى وكل وحداته' : 'View the building and all units'}
+                  </Link>
+                </p>
+              ) : null}
               <p className="property-360__description">
                 {ar
                   ? property.descriptionAr || property.descriptionEn
@@ -560,6 +574,7 @@ export function PropertyDetailManager({
               {property.units.map((unit) => {
                 const kind = inferUnitKind(unit);
                 const serial = unitSerials.get(unit.id);
+                const occupancy = (unit.occupancy ?? 'available') as UnitOccupancy;
                 return (
                 <article
                   className={
@@ -584,17 +599,24 @@ export function PropertyDetailManager({
                         </small>
                       ) : null}
                     </div>
-                    <span
-                      className={`status-pill status-pill--${unit.listingEnabled ? 'ready' : 'muted'}`}
-                    >
-                      {unit.listingEnabled
-                        ? ar
-                          ? 'منشور'
-                          : 'Published'
-                        : ar
-                          ? 'غير منشور'
-                          : 'Unpublished'}
-                    </span>
+                    <div className="property-360__unit-badges">
+                      <span
+                        className={`status-pill status-pill--${
+                          occupancy === 'available'
+                            ? 'ready'
+                            : occupancy === 'reserved'
+                              ? 'warn'
+                              : 'muted'
+                        }`}
+                      >
+                        {occupancyLabel(occupancy, locale)}
+                      </span>
+                      <span
+                        className={`status-pill status-pill--${unit.listingEnabled ? 'ready' : 'muted'}`}
+                      >
+                        {listingPurposeCaption(unit.listingPurpose, locale)}
+                      </span>
+                    </div>
                   </header>
                   <dl>
                     <div>
@@ -652,7 +674,19 @@ export function PropertyDetailManager({
                         {ar ? 'السعر' : 'Price'}
                       </dt>
                       <dd dir="ltr">
-                        {unit.listingPurpose === 'sale' && unit.salePriceMinor
+                        {unit.listingPurpose === 'both' ? (
+                          <>
+                            {formatMoney(unit.rentMinor, unit.currency, locale)}
+                            <small> {ar ? 'شهري' : 'mo'}</small>
+                            {unit.salePriceMinor ? (
+                              <>
+                                {' · '}
+                                {formatMoney(unit.salePriceMinor, unit.currency, locale)}
+                                <small> {ar ? 'بيع' : 'sale'}</small>
+                              </>
+                            ) : null}
+                          </>
+                        ) : unit.listingPurpose === 'sale' && unit.salePriceMinor
                           ? formatMoney(unit.salePriceMinor, unit.currency, locale)
                           : formatMoney(unit.rentMinor, unit.currency, locale)}
                       </dd>
@@ -846,14 +880,37 @@ export function PropertyDetailManager({
               ) : null}
             </div>
             <p className="property-360__price">
-              <strong dir="ltr">{priceLabel}</strong>
-              <span>
-                {property.kind === 'multi_unit' && !focusUnitId
-                  ? ar
-                    ? 'من أسعار الوحدات'
-                    : 'from unit prices'
-                  : priceSuffix}
-              </span>
+              {primaryUnit?.listingPurpose === 'both' ? (
+                <>
+                  {primaryUnit.rentMinor && primaryUnit.rentMinor !== '0' ? (
+                    <span className="property-360__price-dual">
+                      <strong dir="ltr">
+                        {formatMoney(primaryUnit.rentMinor, primaryUnit.currency, locale)}
+                      </strong>
+                      <span>{ar ? 'شهرياً' : '/ month'}</span>
+                    </span>
+                  ) : null}
+                  {primaryUnit.salePriceMinor ? (
+                    <span className="property-360__price-dual">
+                      <strong dir="ltr">
+                        {formatMoney(primaryUnit.salePriceMinor, primaryUnit.currency, locale)}
+                      </strong>
+                      <span>{ar ? 'للبيع' : 'For sale'}</span>
+                    </span>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <strong dir="ltr">{priceLabel}</strong>
+                  <span>
+                    {property.kind === 'multi_unit' && !focusUnitId
+                      ? ar
+                        ? 'من أسعار الوحدات'
+                        : 'from unit prices'
+                      : priceSuffix}
+                  </span>
+                </>
+              )}
             </p>
             <dl className="property-360__facts">
               {!isPublic ? (
@@ -993,13 +1050,17 @@ export function PropertyDetailManager({
                   signedIn={signedIn}
                   depositMinor={primaryUnit.depositMinor}
                   currency={primaryUnit.currency}
+                  listingPurpose={primaryUnit.listingPurpose}
+                  rentMinor={primaryUnit.rentMinor}
+                  salePriceMinor={primaryUnit.salePriceMinor}
                   canBook={Boolean(
                     primaryUnit.depositMinor &&
                     primaryUnit.depositMinor !== '0' &&
-                    primaryUnit.listingEnabled !== false,
+                    primaryUnit.listingEnabled !== false &&
+                    primaryUnit.listingPurpose !== 'sale',
                   )}
                   sharePath={propertyPath}
-                  shareTitle={ar ? property.nameAr : property.nameEn || property.nameAr}
+                  shareTitle={headline}
                   shareDescription={
                     ar
                       ? property.descriptionAr || property.descriptionEn

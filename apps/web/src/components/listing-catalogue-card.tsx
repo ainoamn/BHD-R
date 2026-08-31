@@ -9,6 +9,7 @@ import {
   marketStatusLabel,
   type CatalogueListing,
 } from '@/lib/listing-market-status';
+import { listingPurposeCaption } from '@/lib/listing-purpose-display';
 import { toPublicMediaSrc } from '@/lib/public-media-url';
 
 function statusCopy(listing: CatalogueListing, locale: string): string {
@@ -17,15 +18,20 @@ function statusCopy(listing: CatalogueListing, locale: string): string {
   const map: Record<string, [string, string]> = {
     'Property.availableForRent': ['متاح للإيجار', 'Available for rent'],
     'Property.availableForSale': ['متاح للبيع', 'Available for sale'],
+    'Property.availableForRentOrSale': ['متاح للإيجار أو البيع', 'Available for rent or sale'],
     'Property.reserved': ['محجوز', 'Reserved'],
     'Property.leased': ['مؤجّر', 'Leased'],
     'Property.sold': ['مباع', 'Sold'],
     'Property.available': ['متاح', 'Available'],
   };
-  return marketStatusLabel(status, (key) => {
-    const hit = map[key];
-    return hit ? (ar ? hit[0] : hit[1]) : key;
-  });
+  return marketStatusLabel(
+    status,
+    (key) => {
+      const hit = map[key];
+      return hit ? (ar ? hit[0] : hit[1]) : key;
+    },
+    listing.listingPurpose,
+  );
 }
 
 export function ListingCatalogueCard({
@@ -50,12 +56,14 @@ export function ListingCatalogueCard({
     : listing.propertyId
       ? `/properties/${listing.propertyId}`
       : `/units/${listing.unitId}`;
+  const buildingHref = listing.propertyId ? `/properties/${listing.propertyId}` : null;
   const coverSrc = toPublicMediaSrc(listing.coverImageUrl);
-  const isSale = listing.listingPurpose === 'sale' && listing.salePrice;
-  const price = isSale
-    ? formatMoney(listing.salePrice!.amountMinor, listing.salePrice!.currency, locale)
-    : formatMoney(listing.rent.amountMinor, listing.rent.currency, locale);
-  const period = isSale ? (ar ? 'للبيع' : 'For sale') : ar ? 'شهرياً' : 'Monthly';
+  const purpose = listing.listingPurpose;
+  const rentLabel = formatMoney(listing.rent.amountMinor, listing.rent.currency, locale);
+  const saleLabel =
+    listing.salePrice != null
+      ? formatMoney(listing.salePrice.amountMinor, listing.salePrice.currency, locale)
+      : null;
 
   return (
     <article className="listing-card">
@@ -91,6 +99,7 @@ export function ListingCatalogueCard({
             {listing.governorate}
             {listing.wilayat ? ` · ${listing.wilayat}` : ''}
           </p>
+          <p className="listing-card__purpose">{listingPurposeCaption(purpose, ar ? 'ar' : 'en')}</p>
           <div className="listing-card__facts">
             <span>
               {listing.bedrooms} {ar ? 'غرف' : 'beds'}
@@ -104,12 +113,37 @@ export function ListingCatalogueCard({
               </span>
             ) : null}
           </div>
-          <div className="listing-card__price">
-            <span>{price}</span>
-            <small>{period}</small>
-          </div>
+          {purpose === 'both' ? (
+            <div className="listing-card__price listing-card__price--dual">
+              <span>
+                {rentLabel}
+                <small>{ar ? 'شهرياً' : 'Monthly'}</small>
+              </span>
+              {saleLabel ? (
+                <span>
+                  {saleLabel}
+                  <small>{ar ? 'للبيع' : 'For sale'}</small>
+                </span>
+              ) : null}
+            </div>
+          ) : (
+            <div className="listing-card__price">
+              <span>{purpose === 'sale' && saleLabel ? saleLabel : rentLabel}</span>
+              <small>
+                {purpose === 'sale' ? (ar ? 'للبيع' : 'For sale') : ar ? 'شهرياً' : 'Monthly'}
+              </small>
+            </div>
+          )}
         </div>
       </Link>
+      {isMulti && buildingHref ? (
+        <p className="listing-card__building">
+          <span>{ar ? 'وحدة مرتبطة بالمبنى' : 'Unit linked to the building'}</span>
+          <Link href={buildingHref} prefetch>
+            {ar ? `عرض «${propertyTitle}» وكل وحداته` : `View “${propertyTitle}” and all units`}
+          </Link>
+        </p>
+      ) : null}
     </article>
   );
 }

@@ -9,6 +9,7 @@ import {
   marketStatusTone,
   type CatalogueListing,
 } from '@/lib/listing-market-status';
+import { listingPurposeCaption } from '@/lib/listing-purpose-display';
 import { toPublicMediaSrc } from '@/lib/public-media-url';
 import type { PublicListing } from '@/lib/types';
 
@@ -20,6 +21,7 @@ export async function ListingCard({
   locale: string;
 }) {
   const t = await getTranslations();
+  const ar = locale === 'ar';
   const propertyTitle = localizedName(locale, listing.propertyNameAr, listing.propertyNameEn);
   const unitTitle = localizedName(locale, listing.unitNameAr, listing.unitNameEn);
   const isMulti = 'propertyKind' in listing && listing.propertyKind === 'multi_unit';
@@ -29,18 +31,21 @@ export async function ListingCard({
       : !unitTitle || unitTitle === propertyTitle || propertyTitle.includes(unitTitle)
         ? propertyTitle
         : `${propertyTitle} — ${unitTitle}`;
-  const href =
-    listing.unitId
-      ? `/units/${listing.unitId}`
-      : 'propertyId' in listing && listing.propertyId
-        ? `/properties/${listing.propertyId}`
-        : `/units/${listing.unitId}`;
+  const href = listing.unitId
+    ? `/units/${listing.unitId}`
+    : 'propertyId' in listing && listing.propertyId
+      ? `/properties/${listing.propertyId}`
+      : `/units/${listing.unitId}`;
+  const buildingHref =
+    isMulti && 'propertyId' in listing && listing.propertyId
+      ? `/properties/${listing.propertyId}`
+      : null;
   const coverSrc = toPublicMediaSrc(listing.coverImageUrl);
   const marketStatus =
     'marketStatus' in listing && listing.marketStatus
       ? listing.marketStatus
       : marketStatusFromPurpose(listing.listingPurpose);
-  const statusLabel = marketStatusLabel(marketStatus, t);
+  const statusLabel = marketStatusLabel(marketStatus, t, listing.listingPurpose);
   const tone = marketStatusTone(marketStatus);
   const serial =
     'unitSerial' in listing && listing.unitSerial
@@ -48,6 +53,13 @@ export async function ListingCard({
       : 'propertySerial' in listing
         ? listing.propertySerial
         : null;
+  const purpose = listing.listingPurpose;
+  const rentLabel = formatMoney(listing.rent.amountMinor, listing.rent.currency, locale);
+  const saleLabel =
+    listing.salePrice != null
+      ? formatMoney(listing.salePrice.amountMinor, listing.salePrice.currency, locale)
+      : null;
+
   return (
     <article className="listing-card">
       <Link href={href} aria-label={title} prefetch>
@@ -70,7 +82,10 @@ export async function ListingCard({
             </span>
           ) : null}
           <span className={`listing-card__status listing-card__status--${marketStatus}`}>
-            <StatusBadge status={tone === 'warning' ? 'warning' : tone === 'neutral' ? 'neutral' : 'positive'} label={statusLabel} />
+            <StatusBadge
+              status={tone === 'warning' ? 'warning' : tone === 'neutral' ? 'neutral' : 'positive'}
+              label={statusLabel}
+            />
           </span>
         </div>
         <div className="listing-card__body">
@@ -82,6 +97,9 @@ export async function ListingCard({
           ) : null}
           <p className="listing-card__location">
             {listing.governorate} · {listing.wilayat}
+          </p>
+          <p className="listing-card__purpose">
+            {listingPurposeCaption(purpose, ar ? 'ar' : 'en')}
           </p>
           <div className="listing-card__facts">
             <span>
@@ -96,18 +114,37 @@ export async function ListingCard({
               </span>
             ) : null}
           </div>
-          <div className="listing-card__price">
-            <span>
-              {listing.listingPurpose === 'sale' && listing.salePrice
-                ? formatMoney(listing.salePrice.amountMinor, listing.salePrice.currency, locale)
-                : formatMoney(listing.rent.amountMinor, listing.rent.currency, locale)}
-            </span>
-            <small>
-              {listing.listingPurpose === 'sale' ? t('Property.forSale') : t('Common.monthly')}
-            </small>
-          </div>
+          {purpose === 'both' ? (
+            <div className="listing-card__price listing-card__price--dual">
+              <span>
+                {rentLabel}
+                <small>{t('Common.monthly')}</small>
+              </span>
+              {saleLabel ? (
+                <span>
+                  {saleLabel}
+                  <small>{t('Property.forSale')}</small>
+                </span>
+              ) : null}
+            </div>
+          ) : (
+            <div className="listing-card__price">
+              <span>{purpose === 'sale' && saleLabel ? saleLabel : rentLabel}</span>
+              <small>
+                {purpose === 'sale' ? t('Property.forSale') : t('Common.monthly')}
+              </small>
+            </div>
+          )}
         </div>
       </Link>
+      {buildingHref ? (
+        <p className="listing-card__building">
+          <span>{t('Property.linkedToBuilding')}</span>
+          <Link href={buildingHref} prefetch>
+            {t('Property.viewBuilding')}
+          </Link>
+        </p>
+      ) : null}
     </article>
   );
 }

@@ -12,6 +12,7 @@ import {
   partyRoles,
   properties,
   reservations,
+  salesDeals,
   units,
   users,
   viewingRequests,
@@ -179,8 +180,26 @@ export async function createAuthenticatedViewingRequest(
   claims: SessionClaims,
   unitId: string,
   locale: 'ar' | 'en',
-  options: { idempotencyKey?: string | null } = {},
+  options: {
+    idempotencyKey?: string | null;
+    interest?: 'rent' | 'sale' | null;
+  } = {},
 ) {
+  const interest = options.interest === 'sale' || options.interest === 'rent' ? options.interest : null;
+  const interestNote =
+    interest === 'sale'
+      ? locale === 'ar'
+        ? 'اهتمام: شراء'
+        : 'Interest: purchase'
+      : interest === 'rent'
+        ? locale === 'ar'
+          ? 'اهتمام: تأجير'
+          : 'Interest: rent'
+        : null;
+  const baseNote =
+    locale === 'ar' ? 'طلب معاينة من مستخدم مسجّل' : 'Viewing request from signed-in user';
+  const notes = interestNote ? `${baseNote} · ${interestNote}` : baseNote;
+
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
     const preview = await withElevatedRead(transaction, async () => {
@@ -229,8 +248,7 @@ export async function createAuthenticatedViewingRequest(
           prospectPartyId: party.id,
           channel: 'website',
           status: 'requested',
-          notes:
-            locale === 'ar' ? 'طلب معاينة من مستخدم مسجّل' : 'Viewing request from signed-in user',
+          notes,
         })
         .returning({ reference: viewingRequests.reference, status: viewingRequests.status });
       return {
@@ -252,13 +270,114 @@ export async function createAuthenticatedViewingRequest(
         prospectPartyId: party.id,
         channel: 'website',
         status: 'requested',
-        notes: locale === 'ar' ? 'طلب معاينة من مستخدم مسجّل' : 'Viewing request from signed-in user',
+        notes,
       })
       .returning({ reference: viewingRequests.reference, status: viewingRequests.status });
     return {
       accepted: true as const,
       reference: inserted[0]!.reference,
       status: inserted[0]!.status,
+    };
+  });
+}
+
+/** Public purchase interest → sales pipeline lead for the owner/manager. */
+export async function createAuthenticatedSaleInterest(
+  claims: SessionClaims,
+  unitId: string,
+  locale: 'ar' | 'en',
+  options: { idempotencyKey?: string | null } = {},
+) {
+  const { currencyMinorUnits } = await import('@bhd-r/contracts');
+  const { db } = getDatabase();
+  return db.transaction(async (transaction) => {
+    const preview = await withElevatedRead(transaction, async () => {
+      const rows = await transaction
+        .select({
+          organizationId: units.organizationId,
+          propertyId: units.propertyId,
+          salePriceMinor: units.salePriceMinor,
+          rentMinor: units.rentMinor,
+          currency: units.currency,
+          listingPurpose: units.listingPurpose,
+          ownerPartyId: properties.ownerPartyId,
+          listingEnabled: listings.enabled,
+        })
+        .from(units)
+        .innerJoin(properties, eq(properties.id, units.propertyId))
+        .leftJoin(listings, eq(listings.unitId, units.id))
+        .where(and(eq(units.id, unitId), eq(properties.status, 'active')))
+        .limit(1);
+      return rows[0];
+    });
+    if (!preview || preview.listingEnabled === false) throw new Error('unit_unavailable');
+    if (preview.listingPurpose !== 'sale' && preview.listingPurpose !== 'both') {
+      throw new Error('not_for_sale');
+    }
+    const asking = preview.salePriceMinor ?? preview.rentMinor;
+    if (asking == null || asking <= 0n) throw new Error('price_not_set');
+
+    await applyOrgScope(transaction, {
+      organizationId: preview.organizationId,
+      userId: claims.sub,
+    });
+
+    const party = await ensureProspectParty(transaction, preview.organizationId, claims);
+    const currency = preview.currency as keyof typeof currencyMinorUnits;
+    const idemKey =
+      typeof options.idempotencyKey === 'string' && options.idempotencyKey.trim().length >= 8
+        ? options.idempotencyKey.trim().slice(0, 200)
+        : null;
+    const reference = idemKey
+      ? `SAL-IDEM-${idemKey.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40)}`
+      : `SAL-WEB-${claims.sub.slice(0, 8)}-${unitId.slice(0, 8)}-${Date.now().toString(36)}`;
+
+    if (idemKey) {
+      const existing = await transaction.query.salesDeals.findFirst({
+        where: and(
+          eq(salesDeals.organizationId, preview.organizationId),
+          eq(salesDeals.reference, reference),
+        ),
+        columns: { reference: true, status: true, id: true },
+      });
+      if (existing) {
+        return {
+          accepted: true as const,
+          reference: existing.reference,
+          status: existing.status,
+          dealId: existing.id,
+        };
+      }
+    }
+
+    const inserted = await transaction
+      .insert(salesDeals)
+      .values({
+        organizationId: preview.organizationId,
+        reference,
+        propertyId: preview.propertyId,
+        unitId,
+        sellerPartyId: preview.ownerPartyId,
+        buyerPartyId: party.id,
+        status: 'lead',
+        askingPriceMinor: asking,
+        currency,
+        minorUnit: currencyMinorUnits[currency] ?? 3,
+        notes:
+          locale === 'ar'
+            ? 'اهتمام شراء من الموقع العام'
+            : 'Purchase interest from public website',
+      })
+      .returning({
+        reference: salesDeals.reference,
+        status: salesDeals.status,
+        id: salesDeals.id,
+      });
+    return {
+      accepted: true as const,
+      reference: inserted[0]!.reference,
+      status: inserted[0]!.status,
+      dealId: inserted[0]!.id,
     };
   });
 }

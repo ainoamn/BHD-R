@@ -40,7 +40,14 @@ export function marketStatusFromPurpose(
 export function marketStatusLabel(
   status: ListingMarketStatus,
   t: (key: string) => string,
+  purpose?: PublicListing['listingPurpose'],
 ): string {
+  if (
+    (status === 'available' || status === 'available_rent' || status === 'available_sale') &&
+    purpose === 'both'
+  ) {
+    return t('Property.availableForRentOrSale');
+  }
   switch (status) {
     case 'available_rent':
       return t('Property.availableForRent');

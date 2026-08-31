@@ -53,10 +53,24 @@ export async function createViewingRequestNestOrNeon(
   claims: SessionClaims,
   unitId: string,
   locale: 'ar' | 'en',
-  options: { idempotencyKey?: string | null } = {},
+  options: { idempotencyKey?: string | null; interest?: 'rent' | 'sale' | null } = {},
 ): Promise<{ accepted: true; reference: string; status: string; via: 'nest' | 'neon' }> {
   const contact = await loadViewerContact(claims.sub);
   const submissionId = asSubmissionId(options.idempotencyKey);
+  const interest = options.interest === 'sale' || options.interest === 'rent' ? options.interest : null;
+  const interestNote =
+    interest === 'sale'
+      ? locale === 'ar'
+        ? 'اهتمام: شراء'
+        : 'Interest: purchase'
+      : interest === 'rent'
+        ? locale === 'ar'
+          ? 'اهتمام: تأجير'
+          : 'Interest: rent'
+        : null;
+  const baseNote =
+    locale === 'ar' ? 'طلب معاينة من مستخدم مسجّل' : 'Viewing request from signed-in user';
+  const notes = interestNote ? `${baseNote} · ${interestNote}` : baseNote;
 
   if (isNestApiConfiguredForRuntime() && (await probeNestReady())) {
     const origin = configuredApiOrigin();
@@ -75,8 +89,7 @@ export async function createViewingRequestNestOrNeon(
             email: contact.email,
             locale,
             consent: true,
-            notes:
-              locale === 'ar' ? 'طلب معاينة من مستخدم مسجّل' : 'Viewing request from signed-in user',
+            notes,
           }),
           cache: 'no-store',
           signal: AbortSignal.timeout(8_000),
@@ -102,6 +115,7 @@ export async function createViewingRequestNestOrNeon(
 
   const neon = await createAuthenticatedViewingRequest(claims, unitId, locale, {
     idempotencyKey: options.idempotencyKey ?? submissionId,
+    ...(options.interest ? { interest: options.interest } : {}),
   });
   return { ...neon, via: 'neon' };
 }

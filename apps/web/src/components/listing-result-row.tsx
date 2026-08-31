@@ -11,6 +11,7 @@ import {
 } from '@/lib/listing-market-status';
 import { toPublicMediaSrc } from '@/lib/public-media-url';
 import { categoryLabel } from '@/lib/properties-browse-filters';
+import { listingPurposeCaption } from '@/lib/listing-purpose-display';
 
 function statusCopy(listing: CatalogueListing, locale: string): string {
   const status =
@@ -20,6 +21,7 @@ function statusCopy(listing: CatalogueListing, locale: string): string {
     const map: Record<string, [string, string]> = {
       'Property.availableForRent': ['متاح للإيجار', 'Available for rent'],
       'Property.availableForSale': ['متاح للبيع', 'Available for sale'],
+      'Property.availableForRentOrSale': ['متاح للإيجار أو البيع', 'Available for rent or sale'],
       'Property.reserved': ['محجوز', 'Reserved'],
       'Property.leased': ['مؤجّر', 'Leased'],
       'Property.sold': ['مباع', 'Sold'],
@@ -28,7 +30,7 @@ function statusCopy(listing: CatalogueListing, locale: string): string {
     const hit = map[key];
     return hit ? (ar ? hit[0] : hit[1]) : key;
   };
-  return marketStatusLabel(status, t);
+  return marketStatusLabel(status, t, listing.listingPurpose);
 }
 
 export function ListingResultRow({
@@ -54,11 +56,14 @@ export function ListingResultRow({
       ? `/properties/${listing.propertyId}`
       : `/units/${listing.unitId}`;
   const coverSrc = toPublicMediaSrc(listing.coverImageUrl);
-  const isSale = listing.listingPurpose === 'sale' && listing.salePrice;
-  const price = isSale
-    ? formatMoney(listing.salePrice!.amountMinor, listing.salePrice!.currency, locale)
-    : formatMoney(listing.rent.amountMinor, listing.rent.currency, locale);
-  const period = isSale ? (ar ? 'للبيع' : 'For sale') : ar ? 'شهرياً' : 'Monthly';
+  const purpose = listing.listingPurpose;
+  const rentLabel = formatMoney(listing.rent.amountMinor, listing.rent.currency, locale);
+  const saleLabel =
+    listing.salePrice != null
+      ? formatMoney(listing.salePrice.amountMinor, listing.salePrice.currency, locale)
+      : null;
+  const buildingHref =
+    isMulti && listing.propertyId ? `/properties/${listing.propertyId}` : null;
   const highlights: string[] = [];
   if (listing.hasPool || listing.amenities?.includes('pool')) {
     highlights.push(ar ? 'مسبح' : 'Pool');
@@ -111,6 +116,18 @@ export function ListingResultRow({
             {listing.governorate}
             {listing.wilayat ? ` · ${listing.wilayat}` : ''}
           </p>
+          <p className="listing-row__purpose">
+            {listingPurposeCaption(purpose, ar ? 'ar' : 'en')}
+          </p>
+          {buildingHref ? (
+            <p className="listing-row__building">
+              <span>{ar ? 'وحدة مرتبطة بالمبنى' : 'Unit linked to the building'}</span>
+              {' · '}
+              <Link href={buildingHref} prefetch>
+                {ar ? 'عرض المبنى وكل وحداته' : 'View building and all units'}
+              </Link>
+            </p>
+          ) : null}
           <div className="listing-row__facts">
             <span>
               {listing.bedrooms} {ar ? 'غرف' : 'beds'}
@@ -143,10 +160,27 @@ export function ListingResultRow({
             </span>
           ) : null}
           <span className="listing-row__status">{statusCopy(listing, locale)}</span>
-          <div className="listing-row__price">
-            <strong>{price}</strong>
-            <small>{period}</small>
-          </div>
+          {purpose === 'both' ? (
+            <div className="listing-row__price listing-row__price--dual">
+              <div>
+                <strong>{rentLabel}</strong>
+                <small>{ar ? 'شهرياً' : 'Monthly'}</small>
+              </div>
+              {saleLabel ? (
+                <div>
+                  <strong>{saleLabel}</strong>
+                  <small>{ar ? 'للبيع' : 'For sale'}</small>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <div className="listing-row__price">
+              <strong>{purpose === 'sale' && saleLabel ? saleLabel : rentLabel}</strong>
+              <small>
+                {purpose === 'sale' ? (ar ? 'للبيع' : 'For sale') : ar ? 'شهرياً' : 'Monthly'}
+              </small>
+            </div>
+          )}
           <Link href={href} className="button button--primary listing-row__cta" prefetch>
             {ar ? 'عرض التوافر' : 'See availability'}
           </Link>

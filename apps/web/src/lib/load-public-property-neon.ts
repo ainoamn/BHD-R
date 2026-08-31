@@ -151,6 +151,55 @@ export async function loadPublicPropertyShowcaseFromNeon(
     }
 
     const unitIds = unitRows.map((unit) => unit.id);
+    const occupancyByUnit = new Map<string, 'available' | 'reserved' | 'leased' | 'sold'>();
+    if (unitIds.length) {
+      const occRows = (await transaction.execute(sql`
+        select
+          u.id::text as unit_id,
+          case
+            when exists (
+              select 1 from sales_deals sd
+              where sd.unit_id = u.id and sd.status::text = 'closed_won'
+            ) then 'sold'
+            when exists (
+              select 1 from leases le
+              where le.unit_id = u.id
+                and le.status::text in ('draft', 'active', 'cancel_requested', 'clearance_pending')
+            ) then 'leased'
+            when exists (
+              select 1 from holds h
+              where h.unit_id = u.id and h.status::text = 'active' and h.expires_at > now()
+            ) or exists (
+              select 1 from reservations r
+              where r.unit_id = u.id
+                and r.status::text in ('pending', 'confirmed')
+                and r.expires_at > now()
+            ) then 'reserved'
+            else 'available'
+          end as occupancy
+        from units u
+        where u.id in (${sql.join(
+          unitIds.map((id) => sql`${id}::uuid`),
+          sql`, `,
+        )})
+      `)) as unknown;
+      const list: Array<{ unit_id: string; occupancy: string }> = Array.isArray(occRows)
+        ? (occRows as Array<{ unit_id: string; occupancy: string }>)
+        : Array.isArray((occRows as { rows?: Array<{ unit_id: string; occupancy: string }> }).rows)
+          ? ((occRows as { rows: Array<{ unit_id: string; occupancy: string }> }).rows)
+          : [];
+      for (const row of list) {
+        if (
+          row.occupancy === 'sold' ||
+          row.occupancy === 'leased' ||
+          row.occupancy === 'reserved' ||
+          row.occupancy === 'available'
+        ) {
+          occupancyByUnit.set(row.unit_id, row.occupancy);
+        }
+      }
+    }
+
     let gallery: ManagedProperty['gallery'] = [];
     if (unitIds.length) {
       const mediaRows = await transaction
@@ -255,6 +304,7 @@ export async function loadPublicPropertyShowcaseFromNeon(
         listingEnabled: unit.listingEnabled,
         listingSlug: unit.listingSlug,
         status: unit.status,
+        occupancy: occupancyByUnit.get(unit.id) ?? 'available',
       })),
     };
   });

@@ -568,6 +568,59 @@ h3 {
   letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
 }
+.listing-card__purpose,
+.listing-row__purpose {
+  margin: 0.25rem 0 0;
+  color: var(--maroon-800, #6b1d2a);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.listing-card__building,
+.listing-row__building {
+  margin: 0.55rem 0 0;
+  padding: 0 1rem 0.85rem;
+  font-size: 0.8rem;
+  color: var(--ink-600);
+  display: grid;
+  gap: 0.2rem;
+}
+.listing-card__building a,
+.listing-row__building a {
+  color: var(--maroon-800, #6b1d2a);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+.listing-card__price--dual,
+.listing-row__price--dual {
+  display: grid;
+  gap: 0.35rem;
+}
+.listing-card__price--dual span,
+.listing-row__price--dual div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem;
+}
+.public-listing-actions__interest {
+  margin-bottom: 0.75rem;
+}
+.public-listing-actions__interest-row {
+  display: grid;
+  gap: 0.5rem;
+}
+.property-360__price-dual {
+  display: grid;
+  gap: 0.25rem;
+  margin-bottom: 0.35rem;
+}
+.property-360__unit-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: flex-end;
+}
 .listing-card__facts {
   display: flex;
   flex-wrap: wrap;
