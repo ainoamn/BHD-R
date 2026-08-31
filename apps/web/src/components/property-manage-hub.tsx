@@ -11,10 +11,12 @@ export function PropertyManageHub({
   property,
   locale,
   portal,
+  staysEnabled = false,
 }: {
   property: ManagedProperty;
   locale: 'ar' | 'en';
   portal: 'owner' | 'developer';
+  staysEnabled?: boolean;
 }) {
   const router = useRouter();
   const ar = locale === 'ar';
@@ -25,6 +27,7 @@ export function PropertyManageHub({
   const propertyId = encodeURIComponent(property.id);
   const publicPath = `/${locale}/properties/${property.id}`;
   const editHref = `${base}/properties/${property.id}/edit`;
+  const staysSetupHref = `${base}/stays/setup?propertyId=${propertyId}`;
   const scoped = (section: string) => `${base}/${section}?propertyId=${propertyId}`;
 
   const publishedUnits = property.units.filter((unit) => unit.listingEnabled).length;
@@ -210,6 +213,13 @@ export function PropertyManageHub({
             ),
           )}
         </div>
+        {staysEnabled ? (
+          <p className="property-manage-hub__stays-link">
+            <Link className="text-link" href={staysSetupHref} prefetch scroll={false}>
+              {ar ? 'إعداد الإقامة اليومية' : 'Set up daily stay'}
+            </Link>
+          </p>
+        ) : null}
       </section>
 
       <section className="ops-panel property-danger-zone">

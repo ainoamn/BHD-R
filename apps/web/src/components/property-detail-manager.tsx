@@ -146,6 +146,7 @@ export function PropertyDetailManager({
   variant = 'manage',
   focusUnitId,
   signedIn = false,
+  staysEnabled = false,
 }: {
   property: ManagedProperty;
   locale: 'ar' | 'en';
@@ -156,6 +157,8 @@ export function PropertyDetailManager({
   focusUnitId?: string;
   /** Whether the visitor has a BHD R session (public CTAs). */
   signedIn?: boolean;
+  /** Platform stays flag — quiet setup link only. */
+  staysEnabled?: boolean;
 }) {
   const router = useRouter();
   const ar = locale === 'ar';
@@ -228,7 +231,7 @@ export function PropertyDetailManager({
         : '/ month';
 
   if (!isPublic) {
-    return <PropertyManageHub property={property} locale={locale} portal={portal} />;
+    return <PropertyManageHub property={property} locale={locale} portal={portal} staysEnabled={staysEnabled} />;
   }
 
   async function archiveOrRestore() {

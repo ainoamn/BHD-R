@@ -23,6 +23,17 @@ import type { PortalRole, Viewer } from '@/lib/types';
 type NavItem = { path: string; label: string; mark: string };
 type NavGroup = { id: string; label: string; items: NavItem[] };
 
+const staysNavGroup: NavGroup = {
+  id: 'stays',
+  label: 'Portal.groupStays',
+  items: [
+    { path: '/stays', label: 'Stays.dashboard', mark: '◫' },
+    { path: '/stays/calendar', label: 'Stays.calendar', mark: '▦' },
+    { path: '/stays/bookings', label: 'Stays.bookings', mark: '⌁' },
+    { path: '/stays/rates', label: 'Stays.rates', mark: '◇' },
+  ],
+};
+
 const navGroups: Record<PortalRole, NavGroup[]> = {
   platform: [
     {
@@ -178,6 +189,14 @@ const navGroups: Record<PortalRole, NavGroup[]> = {
   ],
 };
 
+function insertStaysGroup(groups: NavGroup[]): NavGroup[] {
+  const pipelineIndex = groups.findIndex((group) => group.id === 'pipeline');
+  if (pipelineIndex < 0) return [...groups, staysNavGroup];
+  const next = [...groups];
+  next.splice(pipelineIndex + 1, 0, staysNavGroup);
+  return next;
+}
+
 function PortalIntentLink({
   portal,
   href,
@@ -248,7 +267,16 @@ function PortalIntentLink({
   );
 }
 
-export function PortalNav({ portal, viewer }: { portal: PortalRole; viewer: Viewer }) {
+export function PortalNav({
+  portal,
+  viewer,
+  staysEnabled = false,
+}: {
+  portal: PortalRole;
+  viewer: Viewer;
+  /** Server-resolved STAYS_PLATFORM_ENABLED — owner/developer only. */
+  staysEnabled?: boolean;
+}) {
   const t = useTranslations();
   const pathname = usePathname();
   const locale = useLocale() as 'ar' | 'en';
@@ -256,6 +284,10 @@ export function PortalNav({ portal, viewer }: { portal: PortalRole; viewer: View
   const [isDrawerViewport, setIsDrawerViewport] = useState(false);
   const panelId = useId();
   const root = `/${portal}`;
+  const groups =
+    staysEnabled && (portal === 'owner' || portal === 'developer')
+      ? insertStaysGroup(navGroups[portal])
+      : navGroups[portal];
 
   useEffect(() => {
     setOpen(false);
@@ -326,13 +358,16 @@ export function PortalNav({ portal, viewer }: { portal: PortalRole; viewer: View
           </button>
         </div>
         <nav className="portal-nav" aria-label={t(`Portal.${portal}`)}>
-          {navGroups[portal].map((group) => (
+          {groups.map((group) => (
             <div key={group.id} className="portal-nav__group">
               <p className="portal-nav__group-label">{t(group.label)}</p>
               {group.items.map((item) => {
                 const href = `${root}${item.path}`;
                 const active =
-                  pathname === href || (item.path !== '' && pathname.startsWith(`${href}/`));
+                  pathname === href ||
+                  (item.path !== '' &&
+                    item.path !== '/stays' &&
+                    pathname.startsWith(`${href}/`));
                 const sectionName = item.path.replace(/^\//, '');
                 const section =
                   isOperationsSection(sectionName) &&

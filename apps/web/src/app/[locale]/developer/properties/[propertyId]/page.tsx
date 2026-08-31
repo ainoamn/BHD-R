@@ -3,6 +3,7 @@ import { PropertyDetailManager, type ManagedProperty } from '@/components/proper
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { loadManagedPropertyFromNeon } from '@/lib/load-property-neon';
 import { ApiError, apiFetch } from '@/lib/server-api';
+import { isStaysPlatformEnabled } from '@/lib/stays-flags';
 import { requirePortal } from '@/lib/viewer';
 
 export default async function Page({
@@ -35,5 +36,12 @@ export default async function Page({
   }
 
   if (!property) notFound();
-  return <PropertyDetailManager property={property} locale={locale} portal="developer" />;
+  return (
+    <PropertyDetailManager
+      property={property}
+      locale={locale}
+      portal="developer"
+      staysEnabled={isStaysPlatformEnabled()}
+    />
+  );
 }

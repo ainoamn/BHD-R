@@ -19,6 +19,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1116.0",
     "@bhd-r/authz": "workspace:*",
+    "@bhd-r/config": "workspace:*",
     "@bhd-r/contracts": "workspace:*",
     "@bhd-r/country-packs": "workspace:*",
     "@bhd-r/db": "workspace:*",

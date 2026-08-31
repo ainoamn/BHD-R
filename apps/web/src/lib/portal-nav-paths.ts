@@ -59,6 +59,10 @@ const PORTAL_PATHS: Record<PortalRole, string[]> = {
   ],
 };
 
-export function portalNavHrefs(portal: PortalRole): string[] {
-  return PORTAL_PATHS[portal].map((path) => `/${portal}${path}`);
+const STAYS_PATHS = ['/stays', '/stays/calendar', '/stays/bookings', '/stays/rates', '/stays/setup'];
+
+export function portalNavHrefs(portal: PortalRole, staysEnabled = false): string[] {
+  const base = PORTAL_PATHS[portal].map((path) => `/${portal}${path}`);
+  if (!staysEnabled || (portal !== 'owner' && portal !== 'developer')) return base;
+  return [...base, ...STAYS_PATHS.map((path) => `/${portal}${path}`)];
 }

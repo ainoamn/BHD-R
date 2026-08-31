@@ -2165,3 +2165,5 @@ export const reviews = pgTable(
     check('reviews_rating_check', sql`${table.rating} >= 1 AND ${table.rating} <= 5`),
   ],
 );
+
+export * from './stays-schema.js';

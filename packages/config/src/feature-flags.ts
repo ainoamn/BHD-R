@@ -140,7 +140,13 @@ export function resolveStaysEnabledFromEnv(
   });
 }
 
-/** Public surface helpers — Phase 0 always false unless fully resolved. */
+/**
+ * Public marketing surface (`/[locale]/stays`, homepage stay tab).
+ * - With a resolution: requires full layered enablement.
+ * - Env-only (no resolution): platform kill-switch (`STAYS_PLATFORM_ENABLED`).
+ * Defaults off; org/property/unit still gate bookings and ops APIs separately.
+ */
 export function staysPublicSurfaceEnabled(resolution?: StaysFlagResolution): boolean {
-  return (resolution ?? resolveStaysEnabledFromEnv()).enabled;
+  if (resolution) return resolution.enabled;
+  return readStaysFlagsFromEnv().platformEnabled;
 }

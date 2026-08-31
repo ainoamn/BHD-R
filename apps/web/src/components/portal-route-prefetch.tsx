@@ -17,14 +17,20 @@ function delay(ms: number): Promise<void> {
  * Warm ops data through one background batch. Ops UI lives in the persistent
  * shell, so prefetch only non-ops routes and avoid another RSC request storm.
  */
-export function PortalRoutePrefetch({ portal }: { portal: PortalRole }) {
+export function PortalRoutePrefetch({
+  portal,
+  staysEnabled = false,
+}: {
+  portal: PortalRole;
+  staysEnabled?: boolean;
+}) {
   const router = useRouter();
   const started = useRef(false);
 
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    const hrefs = portalNavHrefs(portal);
+    const hrefs = portalNavHrefs(portal, staysEnabled);
     const sections = opsSectionsForPortal(portal);
     const sectionSet = new Set<string>(sections);
     let cancelled = false;
@@ -62,7 +68,7 @@ export function PortalRoutePrefetch({ portal }: { portal: PortalRole }) {
     return () => {
       cancelled = true;
     };
-  }, [portal, router]);
+  }, [portal, router, staysEnabled]);
 
   return null;
 }

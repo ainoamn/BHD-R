@@ -4,7 +4,10 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { ListingCard } from '@/components/listing-card';
 import { PropertySearch } from '@/components/property-search';
+import { HomeSearchTabs } from '@/components/stays/home-search-tabs';
+import { StaySearch } from '@/components/stays/stay-search';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
 import { publicApiFetch } from '@/lib/server-api';
 import { getShellViewer } from '@/lib/viewer';
 import type { ListingCollection } from '@/lib/types';
@@ -179,7 +182,16 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
           </aside>
         </div>
         <div className="container hero-search">
-          <PropertySearch locale={locale} />
+          {isStaysPublicSurfaceEnabled() ? (
+            <HomeSearchTabs
+              locale={locale}
+              rentSearch={<PropertySearch locale={locale} defaults={{ purpose: 'rent' }} />}
+              saleSearch={<PropertySearch locale={locale} defaults={{ purpose: 'sale' }} />}
+              staySearch={<StaySearch locale={locale} />}
+            />
+          ) : (
+            <PropertySearch locale={locale} />
+          )}
         </div>
       </section>
 

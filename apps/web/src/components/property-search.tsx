@@ -34,6 +34,9 @@ export async function PropertySearch({
       className={compact ? 'filters-bar' : 'search-card'}
       role="search"
     >
+      {defaults.purpose === 'rent' || defaults.purpose === 'sale' ? (
+        <input type="hidden" name="purpose" value={defaults.purpose} />
+      ) : null}
       {compact ? null : <h2>{t('Home.searchTitle')}</h2>}
       <div className={compact ? 'filters-bar__grid' : 'search-grid'}>
         <div className="field">

@@ -109,6 +109,12 @@ export const permissions = [
   'webhook.write',
   'country_pack.read',
   'country_pack.write',
+  'stay.inventory.manage',
+  'stay.rate.manage',
+  'stay.booking.read',
+  'stay.booking.manage',
+  'stay.refund.approve',
+  'stay.review.moderate',
 ] as const;
 
 export const permissionSchema = z.enum(permissions);
@@ -245,6 +251,12 @@ export const rolePermissions: Readonly<Record<RoleKey, readonly Permission[]>> =
     'api_key.write',
     'webhook.read',
     'webhook.write',
+    'stay.inventory.manage',
+    'stay.rate.manage',
+    'stay.booking.read',
+    'stay.booking.manage',
+    'stay.refund.approve',
+    'stay.review.moderate',
   ],
   organization_admin: [
     'organization.read',
@@ -325,6 +337,11 @@ export const rolePermissions: Readonly<Record<RoleKey, readonly Permission[]>> =
     'report.export',
     'api_key.read',
     'webhook.read',
+    'stay.inventory.manage',
+    'stay.rate.manage',
+    'stay.booking.read',
+    'stay.booking.manage',
+    'stay.review.moderate',
   ],
   property_manager: [
     'organization.read',
@@ -386,6 +403,11 @@ export const rolePermissions: Readonly<Record<RoleKey, readonly Permission[]>> =
     'accounting.read',
     'approval.read',
     'report.read',
+    'stay.inventory.manage',
+    'stay.rate.manage',
+    'stay.booking.read',
+    'stay.booking.manage',
+    'stay.review.moderate',
   ],
   finance_manager: [
     'organization.read',
@@ -423,6 +445,8 @@ export const rolePermissions: Readonly<Record<RoleKey, readonly Permission[]>> =
     'approval.decide',
     'report.read',
     'report.export',
+    'stay.booking.read',
+    'stay.refund.approve',
   ],
   maintenance_agent: [
     'property.read',
@@ -549,6 +573,7 @@ export const rolePermissions: Readonly<Record<RoleKey, readonly Permission[]>> =
     'approval.read',
     'report.read',
     'report.export',
+    'stay.booking.read',
   ],
 };
 

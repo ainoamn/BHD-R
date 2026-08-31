@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.0 — 2026-08-31
+
+- BHD R Stays (daily stays) phases 0–8 foundations behind closed Feature Flags: `stay_*` schema + GiST locks, domain pricing/booking machine, Nest StaysModule fail-closed, owner/developer portal shells, public `/stays` + homepage tab gated, guest trips shell, worker job stubs.
+- Does **not** change long-term rent/sale behaviour while `STAYS_PLATFORM_ENABLED` is off.
+- Docs: `RELEASE-0.4.0-AR.md`, `docs/verification/stays-phases-1-8.md`.
+
 ## 0.3.10 — 2026-08-31
 
 - Marketing auth: SiteHeader + homepage use Next `/api/auth/me` (Host `bhd_r_session`) instead of Nest `/v1/me`, so signed-in owners are not asked to log in again on `/ar` while `/ar/owner` works.

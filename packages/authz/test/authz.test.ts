@@ -41,6 +41,22 @@ describe('central role permissions regression', () => {
     expect(rolePermissions.property_manager).toContain('lease.cancel.approve');
     expect(rolePermissions.property_manager).toContain('lease.renew.waive');
   });
+
+  it('wires stay permissions to owner and property manager', () => {
+    for (const permission of [
+      'stay.inventory.manage',
+      'stay.rate.manage',
+      'stay.booking.read',
+      'stay.booking.manage',
+      'stay.refund.approve',
+      'stay.review.moderate',
+    ] as const) {
+      expect(rolePermissions.organization_owner).toContain(permission);
+    }
+    expect(rolePermissions.property_manager).toContain('stay.inventory.manage');
+    expect(rolePermissions.property_manager).toContain('stay.booking.manage');
+    expect(rolePermissions.tenant).not.toContain('stay.inventory.manage');
+  });
 });
 
 describe('OIDC identity claims regression', () => {

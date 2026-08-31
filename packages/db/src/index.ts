@@ -3,6 +3,7 @@ import postgres from 'postgres';
 import * as schema from './schema.js';
 
 export * from './schema.js';
+export * from './stays-schema.js';
 
 export function createDatabase(url: string, options: { max?: number } = {}) {
   const client = postgres(url, {

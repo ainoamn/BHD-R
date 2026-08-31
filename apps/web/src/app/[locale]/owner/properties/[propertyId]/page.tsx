@@ -7,6 +7,7 @@ import { requireSessionSecret } from '@/lib/runtime-env';
 import { ensurePublishedListingsMatchFlags } from '@/lib/create-property-neon';
 import { loadManagedPropertyFromNeon } from '@/lib/load-property-neon';
 import { ApiError, apiFetch } from '@/lib/server-api';
+import { isStaysPlatformEnabled } from '@/lib/stays-flags';
 import { requirePortal } from '@/lib/viewer';
 
 function sessionSecret(): Uint8Array {
@@ -53,5 +54,12 @@ export default async function Page({
   }
 
   if (!property) notFound();
-  return <PropertyDetailManager property={property} locale={locale} portal="owner" />;
+  return (
+    <PropertyDetailManager
+      property={property}
+      locale={locale}
+      portal="owner"
+      staysEnabled={isStaysPlatformEnabled()}
+    />
+  );
 }

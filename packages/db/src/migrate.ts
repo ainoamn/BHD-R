@@ -17,6 +17,7 @@ try {
   );
   await migrate(db, { migrationsFolder: resolve(migrationsRoot, 'generated') });
   await client.unsafe(await readFile(resolve(migrationsRoot, 'custom/0001_rls.sql'), 'utf8'));
+  await client.unsafe(await readFile(resolve(migrationsRoot, 'custom/0015_stays_rls.sql'), 'utf8'));
   if (process.env.APPLY_PRIVILEGED_ROLES === 'true') {
     await client.unsafe(
       await readFile(resolve(migrationsRoot, 'privileged/runtime_roles.sql'), 'utf8'),

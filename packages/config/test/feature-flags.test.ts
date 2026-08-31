@@ -57,4 +57,19 @@ describe('stays feature flags (phase 0)', () => {
       false,
     );
   });
+
+  it('env-only public surface follows the platform kill-switch', () => {
+    const prev = process.env.STAYS_PLATFORM_ENABLED;
+    try {
+      delete process.env.STAYS_PLATFORM_ENABLED;
+      expect(staysPublicSurfaceEnabled()).toBe(false);
+      process.env.STAYS_PLATFORM_ENABLED = 'true';
+      expect(staysPublicSurfaceEnabled()).toBe(true);
+      process.env.STAYS_PLATFORM_ENABLED = 'false';
+      expect(staysPublicSurfaceEnabled()).toBe(false);
+    } finally {
+      if (prev === undefined) delete process.env.STAYS_PLATFORM_ENABLED;
+      else process.env.STAYS_PLATFORM_ENABLED = prev;
+    }
+  });
 });

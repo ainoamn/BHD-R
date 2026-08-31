@@ -17,6 +17,9 @@ import {
   reservationDocuments,
   reservationRequirements,
   salesDeals,
+  stayBookings,
+  stayInventoryLocks,
+  stayProfiles,
   units,
 } from '../src/schema.js';
 
@@ -37,6 +40,9 @@ describe('schema invariants', () => {
       propertyDocuments,
       reservationRequirements,
       reservationDocuments,
+      stayProfiles,
+      stayInventoryLocks,
+      stayBookings,
     ]) {
       expect(getTableColumns(table)).toHaveProperty('organizationId');
     }

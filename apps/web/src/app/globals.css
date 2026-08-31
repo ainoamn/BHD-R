@@ -7699,3 +7699,60 @@ h3 {
     border-top: 1px solid #d7e1db;
   }
 }
+
+/* —— BHD R Stays (Phases 3–4 shells) —— */
+.home-search-tabs__list {
+  margin-bottom: 0.85rem;
+}
+.stays-search__grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+}
+.stays-portal__header {
+  margin-bottom: 1rem;
+}
+.stays-portal__tabs {
+  margin-bottom: 1.25rem;
+}
+.stays-portal__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.stays-portal__stats li {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.85rem 1rem;
+  background: color-mix(in srgb, var(--oman-sand, #f3efe6) 70%, white);
+  border: 1px solid #d7e1db;
+  border-radius: var(--radius);
+}
+.stays-portal__stats span {
+  color: var(--muted, #5c6b64);
+  font-size: 0.85rem;
+}
+.property-manage-hub__stays-link {
+  margin-top: 0.85rem;
+}
+.stays-setup-wizard__fields {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.stays-public {
+  padding-block: 2rem 3rem;
+}
+.stays-public__grid {
+  margin-top: 1.5rem;
+}
+.stays-public__book-shell {
+  margin-top: 1.75rem;
+}
+@media (max-width: 760px) {
+  .stays-search__grid,
+  .stays-portal__stats {
+    grid-template-columns: 1fr;
+  }
+}

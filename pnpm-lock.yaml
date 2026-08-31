@@ -139,6 +139,9 @@ importers:
       '@bhd-r/authz':
         specifier: workspace:*
         version: link:../../packages/authz
+      '@bhd-r/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@bhd-r/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
