@@ -39,6 +39,8 @@ function goToPropertyPage(locale: string, portal: string, id: string) {
   window.location.assign(`/${locale}/${portal}/properties/${encodeURIComponent(id)}`);
 }
 
+type MediaItem = { id: string; file?: File; url: string; existing?: boolean };
+
 interface UnitDraft {
   localId: string;
   unitKind: 'apartment' | 'shop' | 'showroom';
@@ -58,6 +60,7 @@ interface UnitDraft {
   salePrice: string;
   deposit: string;
   publishWhenAvailable: boolean;
+  images: MediaItem[];
 }
 
 type MultiUnitKind = UnitDraft['unitKind'];
@@ -92,6 +95,7 @@ const blankUnit = (index: number, unitKind: MultiUnitKind = 'apartment'): UnitDr
   salePrice: '',
   deposit: '',
   publishWhenAvailable: false,
+  images: [],
 });
 
 function syncMultiUnitsFromCounts(
@@ -119,7 +123,6 @@ interface CreatedPropertyBundle {
   units: Array<{ id: string }>;
 }
 
-type MediaItem = { id: string; file?: File; url: string; existing?: boolean };
 type PrivateDocType = 'title_deed' | 'floor_plan' | 'other';
 type DocItem = {
   id: string;
@@ -241,9 +244,18 @@ export function PropertyWizard({
   });
   const [units, setUnits] = useState<UnitDraft[]>(() => {
     if (initialProperty?.units?.length) {
+      const gallery = initialProperty.gallery ?? [];
       return initialProperty.units.map((unit, index) => {
         const unitKind =
           initialProperty.kind === 'multi_unit' ? inferUnitKind(unit) : ('apartment' as const);
+        const unitImages = gallery
+          .filter((item) => item.unitId === unit.id && item.url)
+          .sort((a, b) => a.position - b.position)
+          .map((item) => ({
+            id: item.id,
+            url: item.url!,
+            existing: true,
+          }));
         return {
           localId: unit.id,
           unitKind,
@@ -263,10 +275,24 @@ export function PropertyWizard({
           salePrice: majorFromMinor(unit.salePriceMinor, unit.currency),
           deposit: majorFromMinor(unit.depositMinor, unit.currency),
           publishWhenAvailable: unit.publishWhenAvailable,
+          images: unitImages,
         };
       });
     }
     return [blankUnit(1)];
+  });
+  const [multiMediaMode, setMultiMediaMode] = useState<'building' | 'per_unit'>(() => {
+    if (initialProperty?.kind !== 'multi_unit') return 'building';
+    const gallery = initialProperty.gallery ?? [];
+    const unitIds = new Set((initialProperty.units ?? []).map((unit) => unit.id));
+    const perUnit = gallery.some((item) => item.unitId && unitIds.has(item.unitId));
+    // If images exist on more than one unit with different asset sets, prefer per_unit.
+    const byUnit = new Map<string, number>();
+    for (const item of gallery) {
+      if (!item.unitId) continue;
+      byUnit.set(item.unitId, (byUnit.get(item.unitId) ?? 0) + 1);
+    }
+    return byUnit.size > 1 ? 'per_unit' : perUnit && byUnit.size === 1 ? 'building' : 'building';
   });
   const [unitCountShop, setUnitCountShop] = useState(() =>
     initialProperty?.kind === 'multi_unit'
@@ -474,6 +500,7 @@ export function PropertyWizard({
           salePrice: source.salePrice,
           deposit: source.deposit,
           publishWhenAvailable: source.publishWhenAvailable,
+          // Keep each unit's own photos — cloning prices/specs does not copy images.
         };
       });
     });
@@ -688,11 +715,12 @@ export function PropertyWizard({
     }
   }
 
-  function selectImages(event: ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(event.target.files ?? []);
-    event.target.value = '';
-    if (!files.length) return;
-
+  function appendImageFiles(
+    files: File[],
+    apply: (items: MediaItem[]) => void,
+    maxTotal: number,
+    currentCount: number,
+  ) {
     const allowed = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/jpg']);
     const accepted: MediaItem[] = [];
     let rejectedHeic = false;
@@ -731,25 +759,18 @@ export function PropertyWizard({
       });
     }
     if (!accepted.length) {
-      setError(
-        rejectedHeic
-          ? t('PropertyForm.imageHeicHelp')
-          : t('PropertyForm.imageHelp'),
-      );
+      setError(rejectedHeic ? t('PropertyForm.imageHeicHelp') : t('PropertyForm.imageHelp'));
       return;
     }
-
-    setImages((current) => {
-      const room = Math.max(0, 12 - current.length);
-      if (room === 0) {
-        accepted.forEach((item) => revokeIfBlob(item.url));
-        return current;
-      }
-      const toAdd = accepted.slice(0, room);
-      accepted.slice(room).forEach((item) => revokeIfBlob(item.url));
-      return [...current, ...toAdd];
-    });
-    setCoverId((current) => current ?? accepted[0]?.id ?? null);
+    const room = Math.max(0, maxTotal - currentCount);
+    if (room === 0) {
+      accepted.forEach((item) => revokeIfBlob(item.url));
+      setError(t('PropertyForm.imagesMaxReached'));
+      return;
+    }
+    const toAdd = accepted.slice(0, room);
+    accepted.slice(room).forEach((item) => revokeIfBlob(item.url));
+    apply(toAdd);
     setShowErrors(false);
     setMissingHints([]);
     setError(
@@ -759,10 +780,8 @@ export function PropertyWizard({
           ? t('PropertyForm.imageHelp')
           : null,
     );
-
-    // Compress in the background so later upload is smaller/faster.
     void (async () => {
-      for (const item of accepted.slice(0, Math.max(0, 12))) {
+      for (const item of toAdd) {
         if (!item.file) continue;
         const compressed = await compressImageFile(item.file);
         if (compressed === item.file) continue;
@@ -774,12 +793,60 @@ export function PropertyWizard({
             return { ...row, file: compressed, url: nextUrl };
           }),
         );
+        setUnits((current) =>
+          current.map((unit) => ({
+            ...unit,
+            images: unit.images.map((row) => {
+              if (row.id !== item.id) return row;
+              revokeIfBlob(row.url);
+              return { ...row, file: compressed, url: nextUrl };
+            }),
+          })),
+        );
       }
     })();
   }
 
+  function selectImages(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    if (!files.length) return;
+    appendImageFiles(
+      files,
+      (toAdd) => {
+        setImages((current) => [...current, ...toAdd]);
+        setCoverId((current) => current ?? toAdd[0]?.id ?? null);
+      },
+      12,
+      images.length,
+    );
+  }
+
+  function selectUnitImages(unitLocalId: string, event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    if (!files.length) return;
+    const unit = units.find((item) => item.localId === unitLocalId);
+    appendImageFiles(
+      files,
+      (toAdd) => {
+        setUnits((current) =>
+          current.map((item) =>
+            item.localId === unitLocalId
+              ? { ...item, images: [...item.images, ...toAdd] }
+              : item,
+          ),
+        );
+      },
+      8,
+      unit?.images.length ?? 0,
+    );
+  }
+
   async function removeImage(id: string) {
-    const target = images.find((item) => item.id === id);
+    const target =
+      images.find((item) => item.id === id) ??
+      units.flatMap((unit) => unit.images).find((item) => item.id === id);
     if (!target || removingIds.has(id)) return;
 
     // Existing gallery assets must be deleted on the server — local-only remove
@@ -832,6 +899,13 @@ export function PropertyWizard({
       });
       return next;
     });
+    setUnits((current) =>
+      current.map((unit) => {
+        const row = unit.images.find((item) => item.id === id);
+        if (row) revokeIfBlob(row.url);
+        return { ...unit, images: unit.images.filter((item) => item.id !== id) };
+      }),
+    );
     setPreviewId((current) => (current === id ? null : current));
   }
 
@@ -974,6 +1048,86 @@ export function PropertyWizard({
         payload?.error?.message ??
         (ar ? `فشل رفع الملف (${response.status})` : `upload_failed:${response.status}`),
     );
+  }
+
+  function resolveSavedUnitIds(bundleUnits: Array<{ id: string }>): string[] {
+    const uuidRe =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return units
+      .map((unit, index) => {
+        if (uuidRe.test(unit.localId)) return unit.localId;
+        return bundleUnits[index]?.id ?? '';
+      })
+      .filter(Boolean);
+  }
+
+  async function uploadPropertyMedia(unitIds: string[]) {
+    if (!unitIds.length) return;
+    type MediaJob = {
+      file: File;
+      unitId: string;
+      purpose: 'property_image' | 'attachment';
+      position: number;
+    };
+    const jobs: MediaJob[] = [];
+
+    if (kind === 'multi_unit' && multiMediaMode === 'per_unit') {
+      units.forEach((unit, index) => {
+        const unitId = unitIds[index] ?? (unitIds.includes(unit.localId) ? unit.localId : '');
+        if (!unitId) return;
+        unit.images
+          .filter((item) => item.file)
+          .forEach((item, position) => {
+            jobs.push({
+              file: item.file!,
+              unitId,
+              purpose: 'property_image',
+              position,
+            });
+          });
+      });
+    } else {
+      const ordered = [
+        ...images.filter((item) => item.file && item.id === coverId),
+        ...images.filter((item) => item.file && item.id !== coverId),
+      ];
+      const targets =
+        kind === 'multi_unit' && multiMediaMode === 'building' ? unitIds : [unitIds[0]!];
+      ordered.forEach((item, position) => {
+        for (const unitId of targets) {
+          jobs.push({
+            file: item.file!,
+            unitId,
+            purpose: 'property_image',
+            position,
+          });
+        }
+      });
+    }
+
+    const docTarget = unitIds[0]!;
+    documents
+      .filter(
+        (doc) =>
+          doc.file &&
+          ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'].includes(doc.file.type),
+      )
+      .forEach((doc, index) => {
+        jobs.push({
+          file: doc.file!,
+          unitId: docTarget,
+          purpose: 'attachment',
+          position: 1000 + index,
+        });
+      });
+
+    if (!jobs.length) return;
+    setSuccess(
+      ar ? `جاري رفع الملفات (${jobs.length})…` : `Uploading media (${jobs.length})…`,
+    );
+    await mapWithConcurrency(jobs, 1, async (job) => {
+      await uploadFile(job.file, job.unitId, job.purpose, job.position);
+    });
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -1154,37 +1308,17 @@ export function PropertyWizard({
           );
         }
         const updated = (await editResponse.json()) as CreatedPropertyBundle;
-        const mediaUnitId = updated.units?.[0]?.id ?? initialProperty?.units[0]?.id;
+        const unitIds = resolveSavedUnitIds(
+          updated.units?.length ? updated.units : (initialProperty?.units ?? []).map((u) => ({ id: u.id })),
+        );
         let mediaWarning: string | null = null;
-        const newImages = images.filter((item) => item.file);
-        const newDocs = documents.filter((doc) => doc.file);
-        if ((newImages.length > 0 || newDocs.length > 0) && mediaUnitId) {
+        const hasNewMedia =
+          images.some((item) => item.file) ||
+          units.some((unit) => unit.images.some((item) => item.file)) ||
+          documents.some((doc) => doc.file);
+        if (hasNewMedia && unitIds.length) {
           try {
-            const ordered = [
-              ...newImages.filter((item) => item.id === coverId),
-              ...newImages.filter((item) => item.id !== coverId),
-            ];
-            const imageJobs = ordered.map((item, position) => ({
-              file: item.file!,
-              purpose: 'property_image' as const,
-              position,
-            }));
-            const docJobs = newDocs.map((doc, index) => ({
-              file: doc.file!,
-              purpose: 'attachment' as const,
-              position: imageJobs.length + index,
-            }));
-            const jobs = [...imageJobs, ...docJobs];
-            if (jobs.length) {
-              setSuccess(
-                ar
-                  ? `جاري رفع الملفات الجديدة (${jobs.length})…`
-                  : `Uploading new media (${jobs.length})…`,
-              );
-              await mapWithConcurrency(jobs, 1, async (job) => {
-                await uploadFile(job.file, mediaUnitId, job.purpose, job.position);
-              });
-            }
+            await uploadPropertyMedia(unitIds);
           } catch (mediaError) {
             mediaWarning = ar
               ? `تم تحديث العقار، لكن رفع الصور فشل: ${mediaError instanceof Error ? mediaError.message : 'خطأ غير معروف'}. أعد رفع الصور من التعديل.`
@@ -1250,43 +1384,15 @@ export function PropertyWizard({
           );
         }
       }
-      const mediaUnitId = createdProperty.units[0]?.id;
+      const unitIds = resolveSavedUnitIds(createdProperty.units ?? []);
       let mediaWarning: string | null = null;
-      if ((images.length > 0 || documents.length > 0) && mediaUnitId) {
+      const hasNewMedia =
+        images.some((item) => item.file) ||
+        units.some((unit) => unit.images.some((item) => item.file)) ||
+        documents.some((doc) => doc.file);
+      if (hasNewMedia && unitIds.length) {
         try {
-          const ordered = [
-            ...images.filter((item) => item.file && item.id === coverId),
-            ...images.filter((item) => item.file && item.id !== coverId),
-          ];
-          const imageJobs = ordered.map((item, position) => ({
-            file: item.file!,
-            purpose: 'property_image' as const,
-            position,
-          }));
-          const docJobs = documents
-            .filter(
-              (doc) =>
-                doc.file &&
-                ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'].includes(
-                  doc.file.type,
-                ),
-            )
-            .map((doc, index) => ({
-              file: doc.file!,
-              purpose: 'attachment' as const,
-              position: imageJobs.length + index,
-            }));
-          const jobs = [...imageJobs, ...docJobs];
-          if (jobs.length) {
-            setSuccess(
-              ar
-                ? `جاري رفع الملفات (${jobs.length})…`
-                : `Uploading media (${jobs.length})…`,
-            );
-            await mapWithConcurrency(jobs, 1, async (job) => {
-              await uploadFile(job.file, mediaUnitId, job.purpose, job.position);
-            });
-          }
+          await uploadPropertyMedia(unitIds);
         } catch (mediaError) {
           mediaWarning = ar
             ? `تم حفظ العقار، لكن رفع الصور فشل: ${mediaError instanceof Error ? mediaError.message : 'خطأ غير معروف'}. افتح التعديل وأعد رفع الصور.`
@@ -2554,64 +2660,179 @@ export function PropertyWizard({
 
             {step === 4 ? (
               <div className="upload-zone">
-                <label htmlFor="property-images" className="upload-zone__label">
-                  <strong>{t('PropertyForm.images')}</strong>
-                  <p>{t('PropertyForm.imagesOptional')}</p>
-                  <p className="field__hint">{t('PropertyForm.imagesAppendHint')}</p>
-                  <p className="field__hint">{t('PropertyForm.imageHelp')}</p>
-                  <span className="button button--quiet">
-                    {images.length
-                      ? t('PropertyForm.addMoreImages')
-                      : t('PropertyForm.chooseImages')}
-                  </span>
-                </label>
-                <input
-                  id="property-images"
-                  className="sr-only"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  multiple
-                  onChange={selectImages}
-                />
-                <ul className="media-icon-grid">
-                  {images.map((item) => (
-                    <li key={item.id} className={coverId === item.id ? 'is-cover' : undefined}>
-                      <button
-                        type="button"
-                        className="media-thumb"
-                        onClick={() => setPreviewId(item.id)}
+                {kind === 'multi_unit' ? (
+                  <div className="field span-2" style={{ marginBottom: '1rem' }}>
+                    <label>{t('PropertyForm.multiMediaMode')}</label>
+                    <div className="wizard-seg" role="radiogroup">
+                      <label
+                        className={
+                          multiMediaMode === 'building'
+                            ? 'wizard-seg__item is-active'
+                            : 'wizard-seg__item'
+                        }
                       >
-                        <img src={item.url} alt="" />
-                      </button>
-                      <div className="media-thumb__actions">
-                        <label className="checkbox-row">
-                          <input
-                            type="radio"
-                            name="cover"
-                            checked={coverId === item.id}
-                            onChange={() => setCoverId(item.id)}
-                          />
-                          {t('PropertyForm.coverImage')}
-                        </label>
-                        <Button
-                          type="button"
-                          variant="quiet"
-                          disabled={removingIds.has(item.id) || busy}
-                          onClick={() => void removeImage(item.id)}
-                        >
-                          {removingIds.has(item.id)
-                            ? ar
-                              ? 'جارٍ الحذف…'
-                              : 'Removing…'
-                            : t('PropertyForm.removeImage')}
-                        </Button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-                {images.length >= 12 ? (
-                  <p className="field__hint">{t('PropertyForm.imagesMaxReached')}</p>
+                        <input
+                          type="radio"
+                          name="multi-media-mode"
+                          checked={multiMediaMode === 'building'}
+                          onChange={() => setMultiMediaMode('building')}
+                        />
+                        {t('PropertyForm.multiMediaBuilding')}
+                      </label>
+                      <label
+                        className={
+                          multiMediaMode === 'per_unit'
+                            ? 'wizard-seg__item is-active'
+                            : 'wizard-seg__item'
+                        }
+                      >
+                        <input
+                          type="radio"
+                          name="multi-media-mode"
+                          checked={multiMediaMode === 'per_unit'}
+                          onChange={() => setMultiMediaMode('per_unit')}
+                        />
+                        {t('PropertyForm.multiMediaPerUnit')}
+                      </label>
+                    </div>
+                    <p className="field__hint">{t('PropertyForm.multiMediaModeHint')}</p>
+                  </div>
                 ) : null}
+
+                {kind !== 'multi_unit' || multiMediaMode === 'building' ? (
+                  <>
+                    <label htmlFor="property-images" className="upload-zone__label">
+                      <strong>
+                        {kind === 'multi_unit'
+                          ? t('PropertyForm.buildingImages')
+                          : t('PropertyForm.images')}
+                      </strong>
+                      <p>{t('PropertyForm.imagesOptional')}</p>
+                      {kind === 'multi_unit' ? (
+                        <p className="field__hint">{t('PropertyForm.buildingImagesHint')}</p>
+                      ) : null}
+                      <p className="field__hint">{t('PropertyForm.imagesAppendHint')}</p>
+                      <p className="field__hint">{t('PropertyForm.imageHelp')}</p>
+                      <span className="button button--quiet">
+                        {images.length
+                          ? t('PropertyForm.addMoreImages')
+                          : t('PropertyForm.chooseImages')}
+                      </span>
+                    </label>
+                    <input
+                      id="property-images"
+                      className="sr-only"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      multiple
+                      onChange={selectImages}
+                    />
+                    <ul className="media-icon-grid">
+                      {images.map((item) => (
+                        <li key={item.id} className={coverId === item.id ? 'is-cover' : undefined}>
+                          <button
+                            type="button"
+                            className="media-thumb"
+                            onClick={() => setPreviewId(item.id)}
+                          >
+                            <img src={item.url} alt="" />
+                          </button>
+                          <div className="media-thumb__actions">
+                            <label className="checkbox-row">
+                              <input
+                                type="radio"
+                                name="cover"
+                                checked={coverId === item.id}
+                                onChange={() => setCoverId(item.id)}
+                              />
+                              {t('PropertyForm.coverImage')}
+                            </label>
+                            <Button
+                              type="button"
+                              variant="quiet"
+                              disabled={removingIds.has(item.id) || busy}
+                              onClick={() => void removeImage(item.id)}
+                            >
+                              {removingIds.has(item.id)
+                                ? ar
+                                  ? 'جارٍ الحذف…'
+                                  : 'Removing…'
+                                : t('PropertyForm.removeImage')}
+                            </Button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                    {images.length >= 12 ? (
+                      <p className="field__hint">{t('PropertyForm.imagesMaxReached')}</p>
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="form-grid">
+                    <p className="span-2 field__hint">{t('PropertyForm.perUnitImagesHint')}</p>
+                    {units.map((unit) => {
+                      const typeLabel =
+                        unit.unitKind === 'shop'
+                          ? t('PropertyForm.unitKindShop')
+                          : unit.unitKind === 'showroom'
+                            ? t('PropertyForm.unitKindShowroom')
+                            : t('PropertyForm.unitKindApartment');
+                      const inputId = `unit-images-${unit.localId}`;
+                      return (
+                        <div className="span-2 unit-editor" key={unit.localId}>
+                          <div className="unit-editor__head">
+                            <h3>
+                              {typeLabel} · {unit.code}
+                            </h3>
+                          </div>
+                          <label htmlFor={inputId} className="upload-zone__label">
+                            <strong>{t('PropertyForm.unitImages')}</strong>
+                            <span className="button button--quiet">
+                              {unit.images.length
+                                ? t('PropertyForm.addMoreImages')
+                                : t('PropertyForm.chooseImages')}
+                            </span>
+                          </label>
+                          <input
+                            id={inputId}
+                            className="sr-only"
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            multiple
+                            onChange={(event) => selectUnitImages(unit.localId, event)}
+                          />
+                          <ul className="media-icon-grid">
+                            {unit.images.map((item) => (
+                              <li key={item.id}>
+                                <button
+                                  type="button"
+                                  className="media-thumb"
+                                  onClick={() => setPreviewId(item.id)}
+                                >
+                                  <img src={item.url} alt="" />
+                                </button>
+                                <div className="media-thumb__actions">
+                                  <Button
+                                    type="button"
+                                    variant="quiet"
+                                    disabled={removingIds.has(item.id) || busy}
+                                    onClick={() => void removeImage(item.id)}
+                                  >
+                                    {removingIds.has(item.id)
+                                      ? ar
+                                        ? 'جارٍ الحذف…'
+                                        : 'Removing…'
+                                      : t('PropertyForm.removeImage')}
+                                  </Button>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             ) : null}
 
@@ -2904,7 +3125,9 @@ export function PropertyWizard({
           />
           <div className="wizard-lightbox__panel">
             {(() => {
-              const img = images.find((i) => i.id === previewId);
+              const img =
+                images.find((i) => i.id === previewId) ??
+                units.flatMap((unit) => unit.images).find((i) => i.id === previewId);
               const doc = documents.find((d) => d.id === previewId);
               if (img)
                 return (

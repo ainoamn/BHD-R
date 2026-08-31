@@ -240,6 +240,17 @@ export const messages = {
       cloneUnitDetails: 'استنساخ البيانات لباقي نفس النوع',
       cloneUnitDetailsHint:
         'بعد تعبئة هذه الوحدة، انسخ المساحة والسعر وباقي الحقول إلى بقية المحلات/المعارض/الشقق من نفس النوع. أرقام الوحدات تبقى كما هي.',
+      multiMediaMode: 'صور المبنى المتعدد',
+      multiMediaBuilding: 'صورة واحدة للمبنى (لكل الوحدات)',
+      multiMediaPerUnit: 'صورة لكل وحدة',
+      multiMediaModeHint:
+        'اختر صورة مشتركة تُرفع لكل الوحدات، أو صوراً خاصة بكل وحدة. يمكنك لاحقاً من التعديل تغيير صور أي وحدة على حدة.',
+      buildingImages: 'صور المبنى المشتركة',
+      buildingImagesHint:
+        'ستُطبَّق هذه الصور على كل الوحدات عند الحفظ. لتخصيص وحدة لاحقاً: عدّل العقار واختر «صورة لكل وحدة».',
+      perUnitImagesHint:
+        'ارفع صوراً لكل وحدة. يمكنك لاحقاً تعديل أي وحدة وإضافة صور خاصة بها.',
+      unitImages: 'صور الوحدة',
       category: 'التصنيف',
       nameAr: 'الاسم بالعربية',
       nameEn: 'الاسم بالإنجليزية',
@@ -615,6 +626,17 @@ export const messages = {
       cloneUnitDetails: 'Clone details to remaining of this type',
       cloneUnitDetailsHint:
         'After filling this unit, copy area, price and other fields to the rest of the shops/showrooms/apartments of the same type. Unit numbers stay unchanged.',
+      multiMediaMode: 'Multi-unit photos',
+      multiMediaBuilding: 'One building photo set (all units)',
+      multiMediaPerUnit: 'Photos per unit',
+      multiMediaModeHint:
+        'Use one shared gallery applied to every unit, or upload photos per unit. You can later edit any unit and change its photos individually.',
+      buildingImages: 'Shared building photos',
+      buildingImagesHint:
+        'These photos are applied to every unit on save. To customize later: edit the property and choose “Photos per unit”.',
+      perUnitImagesHint:
+        'Upload photos for each unit. You can edit any unit later and add unit-specific photos.',
+      unitImages: 'Unit photos',
       category: 'Category',
       nameAr: 'Arabic name',
       nameEn: 'English name',
