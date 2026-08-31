@@ -3,6 +3,21 @@ import { sql } from 'drizzle-orm';
 import { createDatabase, type Database } from '@bhd-r/db';
 import type { ListingCollection, PublicListing } from '@bhd-r/contracts';
 import { marketStatusFromPurpose, type CatalogueListing } from '@/lib/listing-market-status';
+import { omanLocations } from '@/lib/oman-locations';
+
+function locationNameAlts(kind: 'governorate' | 'wilayat', value: string): string[] {
+  const needle = value.trim();
+  if (!needle) return [];
+  if (kind === 'governorate') {
+    const hit = omanLocations.find((item) => item.en === needle || item.ar === needle);
+    return hit ? [hit.en, hit.ar] : [needle];
+  }
+  for (const gov of omanLocations) {
+    const state = gov.states.find((item) => item.en === needle || item.ar === needle);
+    if (state) return [state.en, state.ar];
+  }
+  return [needle];
+}
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdRPublicListingsDb?: DbHandle };
@@ -20,9 +35,16 @@ function getDatabase(): DbHandle {
 export type PublicListingSearchInput = {
   countryCode?: string;
   governorate?: string;
+  wilayat?: string;
+  village?: string;
   category?: PublicListing['category'];
   bedrooms?: number;
   currency?: PublicListing['rent']['currency'];
+  /** rent | sale — includes `both` units in either case */
+  purpose?: 'rent' | 'sale';
+  /** Major currency units (e.g. OMR), converted to minor (* 1000) for SQL */
+  priceMin?: number;
+  priceMax?: number;
   limit?: number;
 };
 
@@ -159,19 +181,62 @@ export async function searchPublicListingsFromNeon(
     const country = input.countryCode?.trim().toUpperCase() || null;
     const countryAlt = country === 'OM' ? 'OMN' : country === 'OMN' ? 'OM' : country;
     const governorate = input.governorate?.trim() || null;
+    const wilayat = input.wilayat?.trim() || null;
+    const village = input.village?.trim() || null;
     const category = input.category ?? null;
     const bedrooms = input.bedrooms ?? null;
     const currency = input.currency ?? null;
+    const purpose = input.purpose ?? null;
+    const priceMinMajor =
+      input.priceMin !== undefined && Number.isFinite(input.priceMin) ? input.priceMin : null;
+    const priceMaxMajor =
+      input.priceMax !== undefined && Number.isFinite(input.priceMax) ? input.priceMax : null;
+    const priceMinMinor =
+      priceMinMajor !== null ? Math.round(Math.max(0, priceMinMajor) * 1000) : null;
+    const priceMaxMinor =
+      priceMaxMajor !== null ? Math.round(Math.max(0, priceMaxMajor) * 1000) : null;
 
     const countryClause = country
       ? sql`and (upper(a.country_code) = ${country} or upper(a.country_code) = ${countryAlt})`
       : sql``;
-    const governorateClause = governorate
-      ? sql`and (a.governorate = ${governorate} or a.governorate ilike ${`%${governorate}%`})`
+    const governorateClause = (() => {
+      if (!governorate) return sql``;
+      const alts = locationNameAlts('governorate', governorate);
+      if (alts.length >= 2) {
+        return sql`and (a.governorate = ${alts[0]} or a.governorate = ${alts[1]} or a.governorate ilike ${`%${alts[0]}%`} or a.governorate ilike ${`%${alts[1]}%`})`;
+      }
+      return sql`and (a.governorate = ${governorate} or a.governorate ilike ${`%${governorate}%`})`;
+    })();
+    const wilayatClause = (() => {
+      if (!wilayat) return sql``;
+      const alts = locationNameAlts('wilayat', wilayat);
+      if (alts.length >= 2) {
+        return sql`and (a.wilayat = ${alts[0]} or a.wilayat = ${alts[1]} or a.wilayat ilike ${`%${alts[0]}%`} or a.wilayat ilike ${`%${alts[1]}%`})`;
+      }
+      return sql`and (a.wilayat = ${wilayat} or a.wilayat ilike ${`%${wilayat}%`})`;
+    })();
+    const villageClause = village
+      ? sql`and (a.city = ${village} or a.city ilike ${`%${village}%`} or a.street ilike ${`%${village}%`})`
       : sql``;
     const categoryClause = category ? sql`and p.category::text = ${category}` : sql``;
     const bedroomsClause = bedrooms !== null ? sql`and u.bedrooms = ${bedrooms}` : sql``;
     const currencyClause = currency ? sql`and u.currency = ${currency}` : sql``;
+    const purposeClause =
+      purpose === 'rent'
+        ? sql`and u.listing_purpose in ('rent', 'both')`
+        : purpose === 'sale'
+          ? sql`and u.listing_purpose in ('sale', 'both')`
+          : sql``;
+    const priceExpr =
+      purpose === 'sale'
+        ? sql`coalesce(u.sale_price_minor, 0)`
+        : purpose === 'rent'
+          ? sql`coalesce(u.rent_minor, 0)`
+          : sql`case when u.listing_purpose = 'sale' then coalesce(u.sale_price_minor, 0) else coalesce(u.rent_minor, 0) end`;
+    const priceMinClause =
+      priceMinMinor !== null ? sql`and ${priceExpr} >= ${priceMinMinor}` : sql``;
+    const priceMaxClause =
+      priceMaxMinor !== null ? sql`and ${priceExpr} <= ${priceMaxMinor}` : sql``;
 
     const result = await transaction.execute(sql`
       select
@@ -236,9 +301,14 @@ export async function searchPublicListingsFromNeon(
         and u.status in ('active', 'draft', 'inactive')
         ${countryClause}
         ${governorateClause}
+        ${wilayatClause}
+        ${villageClause}
         ${categoryClause}
         ${bedroomsClause}
         ${currencyClause}
+        ${purposeClause}
+        ${priceMinClause}
+        ${priceMaxClause}
       order by l.published_at desc nulls last, u.updated_at desc, u.id desc
       limit ${limit}
     `);

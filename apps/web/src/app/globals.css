@@ -329,7 +329,7 @@ h3 {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
-  margin-top: 2rem;
+  margin-top: 1.2rem;
 }
 .hero-panel {
   position: relative;
@@ -779,11 +779,57 @@ h3 {
   border: 1px solid var(--sand-200);
   border-radius: var(--radius);
 }
+.property-filters {
+  display: grid;
+  gap: 0.85rem;
+  margin-bottom: 1.5rem;
+}
+.purpose-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.purpose-tabs__item {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.4rem;
+  padding: 0.35rem 0.95rem;
+  color: var(--maroon-900);
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-decoration: none;
+  background: #f4f7f5;
+  border: 1px solid #d7e1db;
+  border-radius: 999px;
+}
+.purpose-tabs__item.is-active {
+  color: white;
+  background: var(--oman-deep, #092d24);
+  border-color: var(--oman-deep, #092d24);
+}
 .filters-bar__grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
   gap: 0.8rem;
   align-items: end;
+}
+.filters-bar__grid--rich,
+.search-grid--rich {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.filters-bar__grid--rich .button,
+.search-grid--rich .button {
+  grid-column: span 1;
+  min-height: 2.75rem;
+}
+.filters-bar .input,
+.search-card .input {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--sand-200, #d8e1dc);
+  border-radius: 0.7rem;
+  background: #fbfcfb;
 }
 .detail-grid {
   display: grid;
@@ -3911,6 +3957,10 @@ h3 {
   .filters-bar__grid .button {
     grid-column: 1 / -1;
   }
+  .filters-bar__grid--rich,
+  .search-grid--rich {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .hero-grid,
   .hero--oman .hero-grid,
   .detail-grid {
@@ -4842,10 +4892,10 @@ h3 {
 }
 
 .hero--oman {
-  min-height: 49rem;
+  min-height: min(34rem, 68svh);
   display: grid;
   align-content: center;
-  padding: clamp(5rem, 9vw, 8rem) 0 0;
+  padding: clamp(3.2rem, 5.5vw, 4.8rem) 0 0;
   color: white;
   background: var(--oman-deep);
   isolation: isolate;
@@ -4884,28 +4934,28 @@ h3 {
 }
 .hero--oman .hero-grid {
   grid-template-columns: minmax(0, 1.15fr) minmax(min(19rem, 100%), 0.65fr);
-  gap: clamp(2rem, 7vw, 6.5rem);
-  padding-block-end: 11rem;
+  gap: clamp(1.4rem, 4vw, 3.5rem);
+  padding-block-end: 7.5rem;
 }
 .hero-content {
-  max-width: 48rem;
+  max-width: 42rem;
 }
 .eyebrow--light {
   color: #f0d79d;
 }
 .hero--oman h1 {
-  max-width: 12ch;
-  margin-bottom: 1.4rem;
+  max-width: 14ch;
+  margin-bottom: 0.85rem;
   color: white;
-  font-size: clamp(3rem, 6.2vw, 5.8rem);
-  line-height: 1.12;
+  font-size: clamp(2.15rem, 4.2vw, 3.55rem);
+  line-height: 1.14;
   text-wrap: balance;
   text-shadow: 0 6px 35px rgb(0 0 0 / 0.22);
 }
 .hero--oman .hero-copy {
-  max-width: 41rem;
+  max-width: 38rem;
   color: rgb(255 255 255 / 0.82);
-  font-size: clamp(1.02rem, 1.7vw, 1.28rem);
+  font-size: clamp(0.95rem, 1.35vw, 1.12rem);
 }
 .hero-proof {
   align-self: center;
@@ -5573,15 +5623,15 @@ h3 {
   }
   .hero--oman {
     min-height: auto;
-    padding-block: 5rem 0;
+    padding-block: 3.4rem 0;
   }
   .hero--oman .hero-grid {
     grid-template-columns: 1fr;
-    padding-block-end: 2.5rem;
+    padding-block-end: 2rem;
   }
   .hero--oman h1 {
     max-width: none;
-    font-size: clamp(2.35rem, 10vw, 4rem);
+    font-size: clamp(1.95rem, 8vw, 2.85rem);
   }
   .hero-proof {
     max-width: none;

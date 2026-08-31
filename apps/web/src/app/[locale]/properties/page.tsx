@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { EmptyState } from '@bhd-r/ui';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { ListingCard } from '@/components/listing-card';
-import { PropertySearch } from '@/components/property-search';
+import { PropertyFilters, type PropertyFilterDefaults } from '@/components/property-filters';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import {
   searchPublicListingsFromNeon,
@@ -29,6 +29,16 @@ export async function generateMetadata({
   };
 }
 
+function parsePurpose(value: string | undefined): 'rent' | 'sale' | undefined {
+  return value === 'rent' || value === 'sale' ? value : undefined;
+}
+
+function parseMajorPrice(value: string | undefined): number | undefined {
+  if (!value || value.trim() === '') return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : undefined;
+}
+
 async function loadListings(query: URLSearchParams): Promise<ListingCollection> {
   const empty: ListingCollection = {
     data: [],
@@ -46,20 +56,28 @@ async function loadListings(query: URLSearchParams): Promise<ListingCollection> 
       };
       const countryCode = query.get('countryCode');
       const governorate = query.get('governorate');
+      const wilayat = query.get('wilayat');
+      const village = query.get('village');
       const category = asPublicListingCategory(query.get('category'));
       const currency = query.get('currency');
+      const purpose = parsePurpose(query.get('purpose') ?? undefined);
+      const priceMin = parseMajorPrice(query.get('priceMin') ?? undefined);
+      const priceMax = parseMajorPrice(query.get('priceMax') ?? undefined);
       if (countryCode) search.countryCode = countryCode;
       if (governorate) search.governorate = governorate;
+      if (wilayat) search.wilayat = wilayat;
+      if (village) search.village = village;
       if (category) search.category = category;
       if (bedrooms !== undefined) search.bedrooms = bedrooms;
       if (currency) {
         search.currency = currency as NonNullable<PublicListingSearchInput['currency']>;
       }
-      // Always prefer Neon result (even empty) — Nest public catalogue can lag/hide holds.
+      if (purpose) search.purpose = purpose;
+      if (priceMin !== undefined) search.priceMin = priceMin;
+      if (priceMax !== undefined) search.priceMax = priceMax;
       return await searchPublicListingsFromNeon(search);
     } catch (error) {
       console.error('[properties] Neon catalogue failed', error);
-      /* fall through to Nest only when Neon throws */
     }
   }
   return publicApiFetch<ListingCollection>(`/v1/public/listings?${query.toString()}`, 30).catch(
@@ -79,30 +97,56 @@ export default async function PropertiesPage({
   const raw = await searchParams;
   const one = (value: string | string[] | undefined) =>
     typeof value === 'string' ? value : undefined;
-  const defaults = {
-    countryCode: one(raw.countryCode),
-    governorate: one(raw.governorate),
-    category: one(raw.category),
-    bedrooms: one(raw.bedrooms),
-    currency: one(raw.currency),
-  };
+  const defaults: PropertyFilterDefaults = {};
+  const purposeValue = one(raw.purpose);
+  const countryCode = one(raw.countryCode);
+  const governorate = one(raw.governorate);
+  const wilayat = one(raw.wilayat);
+  const village = one(raw.village);
+  const category = one(raw.category);
+  const bedrooms = one(raw.bedrooms);
+  const currency = one(raw.currency);
+  const priceMin = one(raw.priceMin);
+  const priceMax = one(raw.priceMax);
+  if (purposeValue) defaults.purpose = purposeValue;
+  if (countryCode) defaults.countryCode = countryCode;
+  if (governorate) defaults.governorate = governorate;
+  if (wilayat) defaults.wilayat = wilayat;
+  if (village) defaults.village = village;
+  if (category) defaults.category = category;
+  if (bedrooms) defaults.bedrooms = bedrooms;
+  if (currency) defaults.currency = currency;
+  if (priceMin) defaults.priceMin = priceMin;
+  if (priceMax) defaults.priceMax = priceMax;
   const query = new URLSearchParams({ locale, limit: '24' });
   Object.entries(defaults).forEach(([key, value]) => {
     if (value) query.set(key, value);
   });
   const t = await getTranslations();
   const listings = await loadListings(query);
+  const purpose = parsePurpose(defaults.purpose);
+  const heading =
+    purpose === 'rent'
+      ? locale === 'ar'
+        ? 'عقارات للإيجار'
+        : 'Properties for rent'
+      : purpose === 'sale'
+        ? locale === 'ar'
+          ? 'عقارات للبيع'
+          : 'Properties for sale'
+        : t('Nav.available');
+
   return (
     <>
       <header className="page-hero">
         <div className="container">
-          <h1>{t('Nav.available')}</h1>
+          <h1>{heading}</h1>
           <p>{t('Home.featuredHint')}</p>
         </div>
       </header>
       <section className="section">
         <div className="container">
-          <PropertySearch locale={locale} compact defaults={defaults} />
+          <PropertyFilters locale={locale} compact defaults={defaults} />
           {listings.data.length ? (
             <div className="listing-grid">
               {listings.data.map((listing) => (

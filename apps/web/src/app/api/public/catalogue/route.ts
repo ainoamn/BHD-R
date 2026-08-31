@@ -48,15 +48,31 @@ export async function GET(request: Request) {
     };
     const countryCode = url.searchParams.get('countryCode');
     const governorate = url.searchParams.get('governorate');
+    const wilayat = url.searchParams.get('wilayat');
+    const village = url.searchParams.get('village');
     const category = asPublicListingCategory(url.searchParams.get('category'));
     const currency = url.searchParams.get('currency');
+    const purposeRaw = url.searchParams.get('purpose');
+    const purpose =
+      purposeRaw === 'rent' || purposeRaw === 'sale' ? purposeRaw : undefined;
+    const priceMinRaw = url.searchParams.get('priceMin');
+    const priceMaxRaw = url.searchParams.get('priceMax');
+    const priceMin =
+      priceMinRaw && Number.isFinite(Number(priceMinRaw)) ? Number(priceMinRaw) : undefined;
+    const priceMax =
+      priceMaxRaw && Number.isFinite(Number(priceMaxRaw)) ? Number(priceMaxRaw) : undefined;
     if (countryCode) search.countryCode = countryCode;
     if (governorate) search.governorate = governorate;
+    if (wilayat) search.wilayat = wilayat;
+    if (village) search.village = village;
     if (category) search.category = category;
     if (bedrooms !== undefined) search.bedrooms = bedrooms;
     if (currency) {
       search.currency = currency as NonNullable<PublicListingSearchInput['currency']>;
     }
+    if (purpose) search.purpose = purpose;
+    if (priceMin !== undefined) search.priceMin = priceMin;
+    if (priceMax !== undefined) search.priceMax = priceMax;
     const payload = await searchPublicListingsFromNeon(search);
     return NextResponse.json({
       ...payload,

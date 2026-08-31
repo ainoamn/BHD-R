@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.3.4 — 2026-08-31
+
+- Smaller homepage hero; properties catalogue: rent/sale tabs + governorate/wilayat/village + price range filters.
+- Docs: `RELEASE-0.3.4-AR.md`.
+
 ## 0.3.3 — 2026-08-31
 
 - Public site soft nav: background prefetch of marketing shells + light catalogue detail URLs on first open; remove `/properties` loading flash.
