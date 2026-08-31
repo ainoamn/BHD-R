@@ -990,18 +990,19 @@ h3 {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.55rem;
-  flex-wrap: wrap;
+  gap: 0.45rem;
+  flex-wrap: nowrap;
+  flex: 0 0 auto;
   min-width: 0;
-  flex: 1 1 auto;
 }
 .portal-chrome__lang {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
+  display: inline-grid;
+  place-content: center;
   flex: 0 0 auto;
+  width: 2.45rem;
+  height: 2.45rem;
   min-height: 2.45rem;
-  padding: 0.35rem 0.75rem;
+  padding: 0;
   color: var(--bhd-navy);
   background: rgb(23 75 112 / 0.06);
   border: 1px solid rgb(23 75 112 / 0.14);
@@ -1031,42 +1032,9 @@ h3 {
   font-weight: 800;
   letter-spacing: 0.04em;
 }
-.portal-chrome__user {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  min-width: 0;
-  max-width: 16rem;
-  padding: 0.28rem 0.7rem 0.28rem 0.28rem;
-  background: linear-gradient(135deg, rgb(9 45 36 / 0.05), rgb(8 163 159 / 0.06));
-  border: 1px solid rgb(9 45 36 / 0.1);
-  border-radius: 999px;
-}
+.portal-chrome__user,
 .portal-chrome__user--text {
-  display: grid;
-  gap: 0.05rem;
-  padding: 0.35rem 0.85rem;
-  max-width: min(16rem, 28vw);
-}
-.portal-chrome__user--text strong,
-.portal-chrome__user--text small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.portal-chrome__user--text strong {
-  color: var(--oman-deep);
-  font-size: 0.88rem;
-  font-weight: 800;
-  line-height: 1.2;
-}
-.portal-chrome__user--text small {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  color: #66756f;
-  font-size: 0.72rem;
-  font-weight: 600;
+  display: none !important;
 }
 .portal-chrome__avatar {
   flex: 0 0 auto;
@@ -6184,25 +6152,10 @@ h3 {
   .ops-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .portal-chrome__user,
-  .portal-chrome__user--text {
-    display: none;
-  }
-  .portal-chrome__lang-label {
-    display: none;
-  }
   .portal-chrome__lang {
+    width: 2.2rem;
+    height: 2.2rem;
     min-height: 2.2rem;
-    padding: 0.28rem 0.4rem;
-  }
-}
-
-@media (max-width: 1280px) and (min-width: 1101px) {
-  .portal-chrome__user--text {
-    max-width: 9.5rem;
-  }
-  .portal-chrome__user--text small {
-    display: none;
   }
 }
 

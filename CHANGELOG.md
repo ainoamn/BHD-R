@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.96 — 2026-08-31
+
+- Portal header: remove overlapping user chip; keep compact EN language control + app switcher only.
+
 ## 0.2.95 — 2026-08-31
 
 - Fix owner property edit save: mint CSRF on Next (`/api/auth/csrf`) so Neon writes no longer depend on Nest-issued tokens; retry once on 403; clearer save errors.

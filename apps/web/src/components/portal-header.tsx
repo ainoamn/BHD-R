@@ -24,8 +24,6 @@ export function PortalHeader({
   const pathname = usePathname();
   const ar = locale === 'ar';
   const nextLocale = locale === 'ar' ? 'en' : 'ar';
-  const subtitle = viewer.email ?? viewer.username ?? (ar ? 'حساب BHD' : 'BHD account');
-  const roleLabel = viewer.roles[0]?.replace(/_/g, ' ') ?? t(`Portal.${portal}`);
 
   return (
     <header className="portal-chrome">
@@ -57,25 +55,10 @@ export function PortalHeader({
             hrefLang={nextLocale}
             lang={nextLocale}
             title={ar ? 'English' : 'العربية'}
+            aria-label={ar ? 'Switch to English' : 'التبديل إلى العربية'}
           >
             <span className="portal-chrome__lang-code">{nextLocale.toUpperCase()}</span>
-            <span className="portal-chrome__lang-label">{ar ? 'English' : 'العربية'}</span>
           </Link>
-
-          <div
-            className="portal-chrome__user portal-chrome__user--text"
-            title={`${viewer.displayName} · ${subtitle}`}
-            aria-label={`${viewer.displayName}, ${roleLabel}, ${subtitle}`}
-          >
-            <strong>{viewer.displayName}</strong>
-            <small>
-              <span className="portal-chrome__role">{roleLabel}</span>
-              <span className="portal-chrome__dot" aria-hidden="true">
-                ·
-              </span>
-              <span>{subtitle}</span>
-            </small>
-          </div>
 
           <BhdAppSwitcher viewer={viewer} locale={locale} />
         </div>
