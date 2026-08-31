@@ -3068,12 +3068,13 @@ export function OperationsConsole({
                               typeof row.coverImageUrl === 'string' ? row.coverImageUrl : null
                             }
                             locale={locale}
-                            name={
-                              safeString(row.nameAr) ||
-                              safeString(row.nameEn) ||
-                              safeString(row.name) ||
-                              undefined
-                            }
+                            {...(() => {
+                              const n =
+                                safeString(row.nameAr) ||
+                                safeString(row.nameEn) ||
+                                safeString(row.name);
+                              return n ? { name: n } : {};
+                            })()}
                           />
                         ) : (
                           displayCell(row, column, locale, context)
@@ -3374,7 +3375,7 @@ export function OperationsConsole({
                       propertyId={safeString(row.id)}
                       coverImageUrl={cover}
                       locale={locale}
-                      name={name === '—' ? undefined : name}
+                      {...(name && name !== '—' ? { name } : {})}
                     />
                   ) : null}
                   <div className="ops-mobile-card__head-copy">

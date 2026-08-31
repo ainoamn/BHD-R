@@ -18,14 +18,16 @@ type JsonUploadBody = {
   dataBase64?: string;
 };
 
-async function readUploadPayload(request: Request): Promise<{
+type UploadPayload = {
   unitId: string;
   purpose: 'property_image' | 'attachment';
   position: number;
   mimeType: string;
   fileName?: string;
   bytes: Buffer;
-}> {
+};
+
+async function readUploadPayload(request: Request): Promise<UploadPayload> {
   const contentType = request.headers.get('content-type') ?? '';
   if (contentType.includes('application/json')) {
     const body = (await request.json()) as JsonUploadBody;
@@ -38,13 +40,14 @@ async function readUploadPayload(request: Request): Promise<{
     if (bytes.byteLength < 1 || bytes.byteLength > 8 * 1024 * 1024) {
       throw new Error('invalid_file');
     }
+    const fileName = typeof body.fileName === 'string' && body.fileName ? body.fileName : undefined;
     return {
       unitId,
       purpose,
       position: Number.isFinite(Number(body.position)) ? Number(body.position) : 0,
       mimeType: body.mimeType || 'application/octet-stream',
-      fileName: body.fileName,
       bytes,
+      ...(fileName ? { fileName } : {}),
     };
   }
 
@@ -60,13 +63,14 @@ async function readUploadPayload(request: Request): Promise<{
   if (bytes.byteLength < 1 || bytes.byteLength > 12 * 1024 * 1024) {
     throw new Error('invalid_file');
   }
+  const fileName = file instanceof File && file.name ? file.name : undefined;
   return {
     unitId,
     purpose,
     position: Number.isFinite(position) ? position : 0,
     mimeType: file.type || 'application/octet-stream',
-    fileName: file instanceof File ? file.name : undefined,
     bytes,
+    ...(fileName ? { fileName } : {}),
   };
 }
 
@@ -116,7 +120,7 @@ export async function POST(request: Request) {
         position: payload.position,
         mimeType: payload.mimeType,
         bytes: payload.bytes,
-        fileName: payload.fileName,
+        ...(payload.fileName ? { fileName: payload.fileName } : {}),
       },
       request.headers.get('x-csrf-token'),
       { idempotencyKey },
