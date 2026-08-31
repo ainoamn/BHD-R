@@ -1141,12 +1141,21 @@ export function PropertyWizard({
       goToPropertyPage(locale, portal, createdProperty.id);
     } catch (caught) {
       setSuccess(null);
+      const api =
+        caught && typeof caught === 'object' && 'code' in caught
+          ? (caught as { code?: string; message?: string })
+          : null;
       const raw = caught instanceof Error ? caught.message : 'request_failed';
-      if (/failed to fetch|network_error|upload_network|api_unreachable/i.test(raw)) {
+      const code = api?.code ?? '';
+      if (
+        /failed to fetch|network_error|upload_network|api_unreachable|timed? ?out|aborted/i.test(
+          `${raw} ${code}`,
+        )
+      ) {
         setError(
           ar
-            ? 'تعذر حفظ العقار. حدّث الصفحة وأعد المحاولة. إن استمر الخطأ تأكد أن DATABASE_URL مضبوط على Vercel.'
-            : 'Could not save the property. Refresh and retry. If it persists, confirm DATABASE_URL is set on Vercel.',
+            ? 'تعذر حفظ العقار (انقطاع أو مهلة). حدّث الصفحة وأعد المحاولة. إن استمر الخطأ: تأكد أن Nest Live على Render وأن جلستك ما زالت صالحة.'
+            : 'Could not save (network or timeout). Refresh and retry. If it persists, confirm Nest is Live on Render and your session is still valid.',
         );
       } else {
         setError(raw);

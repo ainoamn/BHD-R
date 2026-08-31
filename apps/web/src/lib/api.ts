@@ -42,6 +42,15 @@ export async function fetchBrowserCsrfToken(force = false): Promise<string> {
 
 async function getCsrfToken(force = false): Promise<string> {
   if (!force && cachedCsrfToken) return cachedCsrfToken;
+  // Cookie is readable (not HttpOnly) — prefer it so Neon owner writes work without Nest.
+  if (!force && typeof document !== 'undefined') {
+    const match = document.cookie.match(/(?:^|; )bhd_r_csrf=([^;]*)/);
+    const fromCookie = match?.[1] ? decodeURIComponent(match[1]) : '';
+    if (fromCookie.length >= 16) {
+      cachedCsrfToken = fromCookie;
+      return fromCookie;
+    }
+  }
   if (!force && csrfInflight) return csrfInflight;
   csrfInflight = (async () => {
     let csrfResponse: Response;

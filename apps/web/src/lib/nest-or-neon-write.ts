@@ -243,6 +243,7 @@ export async function deleteMediaAssetNestOrNeon(
 }
 
 /** Prefer Nest property create when reachable; fall back to Neon. */
+/** Prefer Neon for full wizard create (stable on Vercel); Nest when Neon path fails. */
 export async function createPropertyBundleNestOrNeon(
   claims: SessionClaims,
   body: unknown,
@@ -254,28 +255,32 @@ export async function createPropertyBundleNestOrNeon(
       ? options.idempotencyKey.trim().slice(0, 200)
       : `property-create:${asSubmissionId(null)}`;
 
-  if (isNestApiConfiguredForRuntime() && (await probeNestReady())) {
-    try {
-      const result = await apiFetch<Record<string, unknown>>('/v1/portfolio/properties', {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'idempotency-key': idempotencyKey,
-          ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}),
-        },
-        body: JSON.stringify(body),
-      });
-      return { ...result, via: 'nest' };
-    } catch {
-      /* fall through */
-    }
-  }
   const { createPropertyBundleOnNeon } = await import('@/lib/create-property-neon');
-  const neon = await createPropertyBundleOnNeon(claims, body, { idempotencyKey });
-  return { ...neon, via: 'neon' };
+  try {
+    const neon = await createPropertyBundleOnNeon(claims, body, { idempotencyKey });
+    return { ...neon, via: 'neon' };
+  } catch (neonError) {
+    if (isNestApiConfiguredForRuntime() && (await probeNestReady())) {
+      try {
+        const result = await apiFetch<Record<string, unknown>>('/v1/portfolio/properties', {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'idempotency-key': idempotencyKey,
+            ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}),
+          },
+          body: JSON.stringify(body),
+        });
+        return { ...result, via: 'nest' };
+      } catch {
+        /* rethrow Neon error — primary path */
+      }
+    }
+    throw neonError;
+  }
 }
 
-/** Prefer Nest full property update bundle when reachable; fall back to Neon. */
+/** Prefer Neon for full wizard update; Nest only if Neon throws. */
 export async function updatePropertyBundleNestOrNeon(
   claims: SessionClaims,
   propertyId: string,
@@ -288,28 +293,32 @@ export async function updatePropertyBundleNestOrNeon(
       ? options.idempotencyKey.trim().slice(0, 200)
       : `property-update:${propertyId}:${asSubmissionId(null)}`;
 
-  if (isNestApiConfiguredForRuntime() && (await probeNestReady())) {
-    try {
-      const result = await apiFetch<Record<string, unknown>>(
-        `/v1/portfolio/properties/${propertyId}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'content-type': 'application/json',
-            'idempotency-key': idempotencyKey,
-            ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}),
-          },
-          body: JSON.stringify(body),
-        },
-      );
-      return { ...result, via: 'nest' };
-    } catch {
-      /* fall through */
-    }
-  }
   const { updatePropertyBundleOnNeon } = await import('@/lib/create-property-neon');
-  const neon = await updatePropertyBundleOnNeon(claims, propertyId, body, { idempotencyKey });
-  return { ...neon, via: 'neon' };
+  try {
+    const neon = await updatePropertyBundleOnNeon(claims, propertyId, body, { idempotencyKey });
+    return { ...neon, via: 'neon' };
+  } catch (neonError) {
+    if (isNestApiConfiguredForRuntime() && (await probeNestReady())) {
+      try {
+        const result = await apiFetch<Record<string, unknown>>(
+          `/v1/portfolio/properties/${propertyId}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'content-type': 'application/json',
+              'idempotency-key': idempotencyKey,
+              ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}),
+            },
+            body: JSON.stringify(body),
+          },
+        );
+        return { ...result, via: 'nest' };
+      } catch {
+        /* rethrow Neon error — primary path */
+      }
+    }
+    throw neonError;
+  }
 }
 
 /**

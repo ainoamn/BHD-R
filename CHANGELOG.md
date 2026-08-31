@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.93 — 2026-08-31
+
+- Owner property create/update prefers Neon (Nest fallback); CSRF from `bhd_r_csrf` cookie when present so save does not depend on Nest reachability; clearer timeout/network save errors.
+- Docs: `RELEASE-0.2.93-AR.md`.
+
 ## 0.2.92 — 2026-08-31
 
 - AI listing description generator includes majlis, halls, kitchens, and pool availability.
