@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-08-31  
-**Product version:** 0.2.91  
-**Active focus:** Owner unit room fields (majlis / halls / kitchens / pool)  
+**Product version:** 0.2.92  
+**Active focus:** AI listing copy includes unit room fields  
+**Release 0.2.92:** [`RELEASE-0.2.92-AR.md`](./RELEASE-0.2.92-AR.md)  
 **Release 0.2.91:** [`RELEASE-0.2.91-AR.md`](./RELEASE-0.2.91-AR.md)  
 **Release 0.2.90:** [`RELEASE-0.2.90-AR.md`](./RELEASE-0.2.90-AR.md)  
 **Env manifest:** [`ENV-MANIFEST.md`](./ENV-MANIFEST.md)  
@@ -10,6 +11,7 @@
 
 | Phase | Status | Notes |
 | ----- | ------ | ----- |
+| AI description room fields | **shipped 0.2.92** | majlis/halls/kitchens/pool in generated copy |
 | Unit room fields | **shipped 0.2.91** | Wizard + DB `majlis`/`halls`/`kitchens`/`has_pool` |
 | Security review 2026-08-30 | **documented** | Financial launch needs live gateway adapter + Nest redeploy |
 | P0-02 Next direct writes | **mitigated 0.2.88** | Nest-first owner + public booking/viewing |
