@@ -185,7 +185,22 @@ export type StaySearchQuery = z.infer<typeof staySearchQuerySchema>;
 export type StaySearchListing = z.infer<typeof staySearchListingSchema>;
 export type StaySearchResponse = z.infer<typeof staySearchResponseSchema>;
 export type StayPublicDetail = z.infer<typeof stayPublicDetailSchema>;
+export const stayGuestBookingLookupSchema = z
+  .object({
+    referenceCode: z
+      .string()
+      .trim()
+      .min(4)
+      .max(32)
+      .regex(/^[A-Za-z0-9_-]+$/),
+  })
+  .strict();
+
+export const stayGuestBookingClaimSchema = stayGuestBookingLookupSchema;
+
 export type CreateStayQuoteInput = z.infer<typeof createStayQuoteSchema>;
 export type CreateStayHoldInput = z.infer<typeof createStayHoldSchema>;
 export type CreateStayBookingInput = z.infer<typeof createStayBookingSchema>;
 export type StayAvailabilityQuery = z.infer<typeof stayAvailabilityQuerySchema>;
+export type StayGuestBookingLookup = z.infer<typeof stayGuestBookingLookupSchema>;
+export type StayGuestBookingClaim = z.infer<typeof stayGuestBookingClaimSchema>;

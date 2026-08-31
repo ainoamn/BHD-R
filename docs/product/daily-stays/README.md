@@ -24,6 +24,7 @@
 | بحث عام من inventory days | **0.4.3** — [`RELEASE-0.4.3-AR.md`](../../implementation/RELEASE-0.4.3-AR.md) |
 | عرض سعر → حجز مؤقت → نية دفع | **0.4.4** — [`RELEASE-0.4.4-AR.md`](../../implementation/RELEASE-0.4.4-AR.md) |
 | واجهة حجز الضيف التفاعلية | **0.4.5** — [`RELEASE-0.4.5-AR.md`](../../implementation/RELEASE-0.4.5-AR.md) |
+| رحلات الضيف + claim بالمرجع | **0.4.6** — [`RELEASE-0.4.6-AR.md`](../../implementation/RELEASE-0.4.6-AR.md) |
 | تفعيل إنتاجي تجريبي | بشري: Flag + allowlist + دفع حقيقي |
 
 ## قواعد لا يجوز تجاوزها

@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-08-31  
-**Product version:** 0.4.5  
-**Active focus:** BHD R Stays — guest interactive checkout UI; flag still off  
+**Product version:** 0.4.6  
+**Active focus:** BHD R Stays — guest trips list + reference lookup/claim; flag still off  
+**Release 0.4.6:** [`RELEASE-0.4.6-AR.md`](./RELEASE-0.4.6-AR.md)  
 **Release 0.4.5:** [`RELEASE-0.4.5-AR.md`](./RELEASE-0.4.5-AR.md)  
 **Release 0.4.4:** [`RELEASE-0.4.4-AR.md`](./RELEASE-0.4.4-AR.md)  
 **Release 0.4.3:** [`RELEASE-0.4.3-AR.md`](./RELEASE-0.4.3-AR.md)  
@@ -15,7 +16,8 @@
 
 | Phase | Status | Notes |
 | ----- | ------ | ----- |
-| Guest interactive checkout UI | **shipped 0.4.5** | Detail page; API 404 while flag off |
+| Guest trips list + reference claim | **shipped 0.4.6** | Flag off → 404/401 |
+| Guest interactive checkout UI | **shipped 0.4.5** | Detail page |
 | Public quote → hold → pay intent | **shipped 0.4.4** | Nest APIs |
 | Public search from inventory days + Redis TTL | **shipped 0.4.3** | 404 while flag off |
 | Inventory projector + checkout housekeeping | **shipped 0.4.2** | Worker gated by stays flag |
@@ -25,17 +27,16 @@
 
 ## Next (human / infra)
 
-1. Redeploy Nest **and Worker** on Render from `main` (0.4.4+ APIs).  
-2. Pilot: `STAYS_PLATFORM_ENABLED=true` + `STAYS_ORG_ALLOWLIST`; publish one listing; run UI checkout + sandbox webhook.  
+1. Redeploy Nest **and Worker** on Render from `main` (0.4.4–0.4.6 APIs).  
+2. Pilot: `STAYS_PLATFORM_ENABLED=true` + allowlist; checkout → lookup → claim → webhook.  
 3. ClamAV فعلي؛ Nest+DB E2E كامل؛ Neon non-BYPASS؛ تدوير أسرار.  
 4. اختياري: أرشفة مشروع Vercel `web` الخاطئ.
 
 ## Product gaps (Expand–Contract)
 
 - Reports Occupancy/ADR/RevPAR for stays.
-- Guest trips list wired to Nest bookings (shell exists).
-- iCal/OTA after SSRF controls.
 - Provider-hosted payment redirect for stay intents (webhook confirm already live).
+- iCal/OTA after SSRF controls.
 
 ## Verification
 

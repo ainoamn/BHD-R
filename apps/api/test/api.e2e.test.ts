@@ -166,4 +166,14 @@ describe('API runtime boundaries (Express)', () => {
     });
     expect(booking.status).toBe(404);
   });
+
+  it('hides guest stay trips and public booking lookup while the platform flag is off', async () => {
+    const lookup = await fetch(
+      `${baseUrl}/v1/public/stays/bookings/lookup?referenceCode=ST-DEADBEEF`,
+    );
+    expect(lookup.status).toBe(404);
+
+    const guestList = await fetch(`${baseUrl}/v1/guest/stays/bookings`);
+    expect([401, 404]).toContain(guestList.status);
+  });
 });

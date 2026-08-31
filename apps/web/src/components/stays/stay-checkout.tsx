@@ -302,8 +302,16 @@ export function StayCheckout({
           </p>
           <p className="muted">
             {ar
-              ? 'أكمل الدفع عبر مزوّد الدفع؛ التأكيد يصل بـ webhook (kind: stay_booking). يمكنك متابعة الرحلات من بوابة الضيف عند التفعيل.'
-              : 'Complete payment with the provider; confirmation arrives via webhook (kind: stay_booking). Track trips in the guest portal once enabled.'}
+              ? 'أكمل الدفع عبر مزوّد الدفع؛ التأكيد يصل بـ webhook (kind: stay_booking).'
+              : 'Complete payment with the provider; confirmation arrives via webhook (kind: stay_booking).'}
+          </p>
+          <p>
+            <a
+              className="text-link"
+              href={`/${locale}/guest/stays?ref=${encodeURIComponent(booking.referenceCode)}`}
+            >
+              {ar ? 'متابعة الرحلة في بوابة الضيف' : 'Track this trip in the guest portal'}
+            </a>
           </p>
         </div>
       ) : null}

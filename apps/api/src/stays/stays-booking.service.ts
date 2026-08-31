@@ -5,7 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import {
   outboxEvents,
   stayBookingGuests,
@@ -495,6 +495,93 @@ export class StaysBookingService {
     });
   }
 
+  async getPublicByReference(referenceCode: string) {
+    const normalized = referenceCode.trim().toUpperCase();
+    const booking = await this.database.asPublic(async (transaction) =>
+      transaction.query.stayBookings.findFirst({
+        where: eq(stayBookings.referenceCode, normalized),
+      }),
+    );
+    if (!booking) throw new NotFoundException();
+    this.assertOrgEnabled(booking.organizationId);
+    return this.toGuestProjection(booking);
+  }
+
+  async listForUser(userId: string) {
+    const rows = await this.database.asPublic(async (transaction) =>
+      transaction
+        .select()
+        .from(stayBookings)
+        .where(eq(stayBookings.userId, userId))
+        .orderBy(desc(stayBookings.checkInOn), desc(stayBookings.createdAt))
+        .limit(50),
+    );
+    return {
+      items: rows
+        .filter((row) => {
+          try {
+            this.assertOrgEnabled(row.organizationId);
+            return true;
+          } catch {
+            return false;
+          }
+        })
+        .map((row) => this.toGuestProjection(row)),
+    };
+  }
+
+  async getForUser(userId: string, bookingId: string) {
+    const booking = await this.database.asPublic(async (transaction) =>
+      transaction.query.stayBookings.findFirst({
+        where: and(eq(stayBookings.id, bookingId), eq(stayBookings.userId, userId)),
+      }),
+    );
+    if (!booking) throw new NotFoundException();
+    this.assertOrgEnabled(booking.organizationId);
+    return this.toGuestProjection(booking);
+  }
+
+  async claimForUser(userId: string, referenceCode: string) {
+    const normalized = referenceCode.trim().toUpperCase();
+    return this.database.asPublic(async (transaction) => {
+      const booking = await transaction.query.stayBookings.findFirst({
+        where: eq(stayBookings.referenceCode, normalized),
+      });
+      if (!booking) throw new NotFoundException();
+      this.assertOrgEnabled(booking.organizationId);
+
+      if (booking.userId === userId) {
+        return { ...this.toGuestProjection(booking), duplicate: true as const };
+      }
+      if (booking.userId) {
+        throw new ConflictException('Stay booking is already linked to another account');
+      }
+
+      const [updated] = await transaction
+        .update(stayBookings)
+        .set({ userId, updatedAt: new Date() })
+        .where(
+          and(
+            eq(stayBookings.id, booking.id),
+            eq(stayBookings.organizationId, booking.organizationId),
+            sql`${stayBookings.userId} IS NULL`,
+          ),
+        )
+        .returning();
+      if (!updated) throw new ConflictException('Stay booking could not be claimed');
+
+      await transaction.insert(outboxEvents).values({
+        organizationId: booking.organizationId,
+        topic: 'stay.booking.claimed',
+        aggregateType: 'stay_booking',
+        aggregateId: booking.id,
+        payload: { userId, referenceCode: booking.referenceCode },
+      });
+
+      return { ...this.toGuestProjection(updated), duplicate: false as const };
+    });
+  }
+
   async checkOut(claims: SessionClaims, bookingId: string) {
     const organizationId = claims.organizationId;
     if (!organizationId) throw new ConflictException('Organization context required');
@@ -568,6 +655,42 @@ export class StaysBookingService {
     if (!resolution.enabled) {
       throw new NotFoundException();
     }
+  }
+
+  private toGuestProjection(booking: {
+    id: string;
+    referenceCode: string;
+    organizationId: string;
+    propertyId: string;
+    unitTypeId: string;
+    unitId: string;
+    checkInOn: string;
+    checkOutOn: string;
+    timezone: string;
+    status: string;
+    bookingMode: string;
+    currency: string;
+    totalMinor: bigint;
+  }) {
+    return {
+      id: booking.id,
+      referenceCode: booking.referenceCode,
+      organizationId: booking.organizationId,
+      propertyId: booking.propertyId,
+      unitTypeId: booking.unitTypeId,
+      unitId: booking.unitId,
+      checkInOn: booking.checkInOn,
+      checkOutOn: booking.checkOutOn,
+      timezone: booking.timezone,
+      status: booking.status,
+      bookingMode: booking.bookingMode,
+      currency: booking.currency,
+      totalMinor: booking.totalMinor.toString(),
+      nights: nightsBetween({
+        checkInOn: booking.checkInOn,
+        checkOutOn: booking.checkOutOn,
+      }),
+    };
   }
 
   private async resolveListingContext(slug: string): Promise<ListingContext> {

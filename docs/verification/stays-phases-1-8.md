@@ -37,10 +37,15 @@
 
 ## Honest gaps (continue Expand–Contract)
 
-- Guest trips list wired to Nest bookings (checkout UI shipped in **0.4.5**).
 - Reports Occupancy/ADR/RevPAR UI for stays.
+- Provider-hosted payment redirect for stay intents.
 - iCal/OTA after SSRF controls.
 - Full-repo `pnpm check` still has unrelated ESLint debt in api/web.
+
+## 0.4.6 guest trips
+
+- Flag off → public lookup **404**; guest list without session **401** (or 404 if gated first).
+- Flag on → lookup by `referenceCode`; claim links `user_id`; list/detail scoped to claimant.
 
 ## 0.4.5 guest checkout UI
 

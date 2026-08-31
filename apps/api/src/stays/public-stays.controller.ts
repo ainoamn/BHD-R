@@ -16,11 +16,13 @@ import {
   createStayHoldSchema,
   createStayQuoteSchema,
   stayAvailabilityQuerySchema,
+  stayGuestBookingLookupSchema,
   staySearchQuerySchema,
   type CreateStayBookingInput,
   type CreateStayHoldInput,
   type CreateStayQuoteInput,
   type StayAvailabilityQuery,
+  type StayGuestBookingLookup,
   type StaySearchQuery,
 } from '@bhd-r/contracts';
 import { Public } from '../common/decorators.js';
@@ -55,6 +57,13 @@ export class PublicStaysController {
   search(@Query(new ZodPipe(staySearchQuerySchema)) query: StaySearchQuery) {
     assertStaysPlatformEnabled();
     return this.searchService.search(query);
+  }
+
+  @Get('bookings/lookup')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  lookupBooking(@Query(new ZodPipe(stayGuestBookingLookupSchema)) query: StayGuestBookingLookup) {
+    assertStaysPlatformEnabled();
+    return this.bookingService.getPublicByReference(query.referenceCode);
   }
 
   @Post('holds')

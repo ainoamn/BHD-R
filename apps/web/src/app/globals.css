@@ -7774,10 +7774,27 @@ h3 {
   padding-top: 1.25rem;
   border-top: 1px solid color-mix(in srgb, var(--border, #d6d3d1) 80%, transparent);
 }
+.guest-stays-lookup {
+  margin: 1.5rem 0 2rem;
+}
+.guest-stays-lookup__form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.85rem 1rem;
+  align-items: end;
+  margin-top: 0.75rem;
+}
+.guest-stays-lookup__result {
+  margin-top: 1rem;
+}
+.guest-stays__list {
+  margin-top: 2rem;
+}
 @media (max-width: 760px) {
   .stays-search__grid,
   .stays-portal__stats,
-  .stays-checkout__grid {
+  .stays-checkout__grid,
+  .guest-stays-lookup__form {
     grid-template-columns: 1fr;
   }
 }
