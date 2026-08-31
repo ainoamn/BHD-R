@@ -1,4 +1,4 @@
-FROM node:24-bookworm-slim AS build
+FROM node:26-bookworm-slim AS build
 ENV NEXT_TELEMETRY_DISABLED=1 \
     TURBO_TELEMETRY_DISABLED=1
 WORKDIR /app
@@ -17,7 +17,7 @@ ENV API_INTERNAL_ORIGIN=$API_INTERNAL_ORIGIN
 ENV MEDIA_PUBLIC_BASE_URL=$MEDIA_PUBLIC_BASE_URL
 RUN pnpm exec turbo run build --filter=@bhd-r/web...
 
-FROM node:24-bookworm-slim AS runtime
+FROM node:26-bookworm-slim AS runtime
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app
