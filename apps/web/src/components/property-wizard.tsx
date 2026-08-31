@@ -446,6 +446,39 @@ export function PropertyWizard({
       current.map((unit) => (unit.localId === id ? { ...unit, [field]: value } : unit)),
     );
   }
+
+  /** Copy filled fields from this unit onto later siblings of the same kind (keep each unit number). */
+  function cloneUnitDetailsToSameKind(sourceId: string) {
+    setUnits((current) => {
+      const source = current.find((unit) => unit.localId === sourceId);
+      if (!source) return current;
+      let seenSource = false;
+      return current.map((unit) => {
+        if (unit.localId === sourceId) {
+          seenSource = true;
+          return unit;
+        }
+        if (!seenSource || unit.unitKind !== source.unitKind) return unit;
+        return {
+          ...unit,
+          floor: source.floor,
+          bedrooms: source.bedrooms,
+          bathrooms: source.bathrooms,
+          majlis: source.majlis,
+          halls: source.halls,
+          kitchens: source.kitchens,
+          hasPool: source.hasPool,
+          area: source.area,
+          listingPurpose: source.listingPurpose,
+          rent: source.rent,
+          salePrice: source.salePrice,
+          deposit: source.deposit,
+          publishWhenAvailable: source.publishWhenAvailable,
+        };
+      });
+    });
+  }
+
   function updateProperty(field: keyof typeof property, value: string) {
     setProperty((current) => ({ ...current, [field]: value }));
   }
@@ -1819,6 +1852,12 @@ export function PropertyWizard({
                             ? t('PropertyForm.unitKindShowroom')
                             : t('PropertyForm.unitKindApartment');
                       const isApartment = unit.unitKind === 'apartment';
+                      const sameKind = units.filter((item) => item.unitKind === unit.unitKind);
+                      const sameKindIndex = sameKind.findIndex(
+                        (item) => item.localId === unit.localId,
+                      );
+                      const canCloneToRest =
+                        sameKindIndex === 0 && sameKind.length > 1;
                       return (
                         <fieldset className="unit-editor" key={unit.localId}>
                           <legend className="sr-only">
@@ -1828,7 +1867,21 @@ export function PropertyWizard({
                             <h3>
                               {typeLabel} · {unit.code || index + 1}
                             </h3>
+                            {canCloneToRest ? (
+                              <Button
+                                type="button"
+                                variant="quiet"
+                                onClick={() => cloneUnitDetailsToSameKind(unit.localId)}
+                              >
+                                {t('PropertyForm.cloneUnitDetails')}
+                              </Button>
+                            ) : null}
                           </div>
+                          {canCloneToRest ? (
+                            <p className="field__hint" style={{ marginTop: 0 }}>
+                              {t('PropertyForm.cloneUnitDetailsHint')}
+                            </p>
+                          ) : null}
                           <div className="form-grid">
                             <Field
                               id={`unit-number-${unit.localId}`}

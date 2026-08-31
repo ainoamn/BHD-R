@@ -237,6 +237,9 @@ export const messages = {
       unitKindShowroom: 'معرض',
       unitKindApartment: 'شقة',
       commercialUnitHint: 'الوحدة التجارية لا تحتاج غرفاً أو حمامات — السعر والمساحة فقط.',
+      cloneUnitDetails: 'استنساخ البيانات لباقي نفس النوع',
+      cloneUnitDetailsHint:
+        'بعد تعبئة هذه الوحدة، انسخ المساحة والسعر وباقي الحقول إلى بقية المحلات/المعارض/الشقق من نفس النوع. أرقام الوحدات تبقى كما هي.',
       category: 'التصنيف',
       nameAr: 'الاسم بالعربية',
       nameEn: 'الاسم بالإنجليزية',
@@ -609,6 +612,9 @@ export const messages = {
       unitKindShowroom: 'Showroom',
       unitKindApartment: 'Apartment',
       commercialUnitHint: 'Commercial units only need price and area — no bedrooms or bathrooms.',
+      cloneUnitDetails: 'Clone details to remaining of this type',
+      cloneUnitDetailsHint:
+        'After filling this unit, copy area, price and other fields to the rest of the shops/showrooms/apartments of the same type. Unit numbers stay unchanged.',
       category: 'Category',
       nameAr: 'Arabic name',
       nameEn: 'English name',
