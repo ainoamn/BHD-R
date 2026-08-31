@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.1 — 2026-08-31
+
+- Payment webhook Expand–Contract: `kind: stay_booking` + `paymentIntentId` confirms `stay_bookings` (amount/currency match, unique event id, hold→booking lock, `stay_payment` journal) without changing invoice / reservation_deposit handlers.
+- Live `StaysInventoryService`: per-unit advisory lock, expire holds, GiST insert, outbox; Postgres integration test for overlapping locks.
+- Docs: `RELEASE-0.4.1-AR.md`; simulator `scripts/simulate-stay-booking-webhook.mjs`.
+
 ## 0.4.0 — 2026-08-31
 
 - BHD R Stays (daily stays) phases 0–8 foundations behind closed Feature Flags: `stay_*` schema + GiST locks, domain pricing/booking machine, Nest StaysModule fail-closed, owner/developer portal shells, public `/stays` + homepage tab gated, guest trips shell, worker job stubs.

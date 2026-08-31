@@ -71,16 +71,17 @@ export class StaysOperationsController {
   }
 
   /**
-   * Payment webhook for stay_booking intents is intentionally not implemented here.
-   * Phase 5+: extend finance webhook with signed stay_booking events, amount/currency match,
-   * and single-transaction confirm — stub comment only.
+   * Stay booking payments are confirmed via finance webhook kind `stay_booking`
+   * (signed POST /v1/webhooks/payments/:provider) — not this ops route.
    */
   @RequirePermissions('stay.booking.manage')
   @Get('payments/webhook-status')
   webhookStatus(@Req() request: ApiRequest) {
     assertStaysOperationsEnabled(request.auth?.organizationId);
     return {
-      note: 'stay_booking payment webhooks: not implemented in Phase 2 (stub)',
+      kind: 'stay_booking',
+      endpoint: 'POST /v1/webhooks/payments/:provider',
+      note: 'Requires paymentIntentId, amount/currency match, and unique x-event-id',
     };
   }
 }

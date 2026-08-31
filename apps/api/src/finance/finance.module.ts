@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import {
   FinanceController,
   InternalBillingController,
@@ -7,8 +7,10 @@ import {
   PaymentWebhookController,
 } from './finance.controller.js';
 import { FinanceService } from './finance.service.js';
+import { StaysModule } from '../stays/stays.module.js';
 
 @Module({
+  imports: [forwardRef(() => StaysModule)],
   controllers: [
     FinanceController,
     PublicInvoiceController,

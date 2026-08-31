@@ -26,7 +26,7 @@ Blueprint: root `render.yaml` (keys as `sync: false` unless noted).
 | `BHD_IDENTITY_TOKEN_SECRET` | recommended | HS256 / identity verify |
 | `BHD_R_SESSION_SECRET` | yes | ≥32 chars |
 | `CSRF_SECRET` | yes | ≥32 chars |
-| `PAYMENT_WEBHOOK_SECRET` | yes | HMAC for `POST /v1/webhooks/payments/:provider`. Payload kinds: invoice (default) or `reservation_deposit` + `checkoutSessionReference`. Simulator: `scripts/simulate-reservation-deposit-webhook.mjs` |
+| `PAYMENT_WEBHOOK_SECRET` | yes | HMAC for `POST /v1/webhooks/payments/:provider`. Payload kinds: invoice (default), `reservation_deposit` + `checkoutSessionReference`, or `stay_booking` + `paymentIntentId`. Simulators: `scripts/simulate-reservation-deposit-webhook.mjs`, `scripts/simulate-stay-booking-webhook.mjs` |
 | `FIELD_ENCRYPTION_KEY_V1` | yes | |
 | `FIELD_ENCRYPTION_ACTIVE_VERSION` | yes | `v1` |
 | `PUBLIC_NEST_ORIGIN` | recommended | media ingress / CSP |

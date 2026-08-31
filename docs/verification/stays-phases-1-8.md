@@ -32,13 +32,19 @@
 1. Run Neon migrate (`0015_stays_core` + `0015_stays_rls`).
 2. Redeploy Nest (Render) to pick up `StaysModule`.
 3. Keep `STAYS_PLATFORM_ENABLED=false` until a pilot org is allow-listed.
-4. Payment kind `stay_booking` still needs provider wiring before real money.
+4. Payment kind `stay_booking` is wired in Nest Finance webhook (0.4.1); provider pilot still human/infra.
 
 ## Honest gaps (continue Expand–Contract)
 
-- Full quote/hold/pay E2E and concurrent DB lock test against real Postgres.
+- Full quote/hold/pay guest E2E against a pilot org with flags on.
 - Inventory-day projector cron registration in worker main.
 - Housekeeping task auto-create on checkout.
 - Reports Occupancy/ADR/RevPAR UI.
 - iCal/OTA after SSRF controls.
 - Full-repo `pnpm check` still has unrelated ESLint debt in api/web.
+
+## 0.4.1 lock verify
+
+```bash
+STAYS_LOCK_DATABASE_URL="$DATABASE_URL" pnpm --filter @bhd-r/db exec vitest run test/stay-inventory-locks.integration.test.ts
+```

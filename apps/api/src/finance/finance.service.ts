@@ -29,6 +29,9 @@ import {
   receipts,
   refunds,
   reservations,
+  stayBookingStatusHistory,
+  stayBookings,
+  stayPaymentIntents,
   webhookEvents,
   workflowEvents,
 } from '@bhd-r/db';
@@ -39,9 +42,15 @@ import {
   type CurrencyCode,
   type RecordPaymentInput,
 } from '@bhd-r/contracts';
-import { assertTransition, calculateInvoice, chequeMachine } from '@bhd-r/domain';
+import {
+  assertStayBookingTransition,
+  assertTransition,
+  calculateInvoice,
+  chequeMachine,
+} from '@bhd-r/domain';
 import { assertSafeOutboundUrl, encryptField, type Keyring } from '@bhd-r/security';
 import { DatabaseService, type DatabaseTransaction } from '../database/database.service.js';
+import { StaysInventoryService } from '../stays/stays-inventory.service.js';
 import { z } from 'zod';
 
 interface CreateInvoiceInput {
@@ -114,7 +123,10 @@ export class FinanceService {
       : {}),
   });
 
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly staysInventory: StaysInventoryService,
+  ) {}
 
   createInvoice(claims: SessionClaims, input: CreateInvoiceInput) {
     return this.database.withinTenant(claims, (transaction) =>
@@ -719,6 +731,18 @@ export class FinanceService {
             receivedAt: parsed.receivedAt,
             method: parsed.method,
           });
+        } else if (parsed.kind === 'stay_booking') {
+          await this.confirmStayBookingFromWebhook(transaction, {
+            organizationId: parsed.organizationId,
+            paymentIntentId: parsed.paymentIntentId,
+            amountMinor: parsed.amountMinor,
+            currency: parsed.currency,
+            provider,
+            providerReference: parsed.providerReference,
+            receivedAt: parsed.receivedAt,
+            method: parsed.method,
+            providerEventId: eventId,
+          });
         } else {
           await this.recordPaymentInTransaction(transaction, parsed.organizationId, {
             invoiceId: parsed.invoiceId,
@@ -1115,11 +1139,16 @@ export class FinanceService {
     transaction: DatabaseTransaction,
     organizationId: string,
     input: {
-      sourceType: 'invoice_issue' | 'payment_receipt' | 'payment_refund' | 'reservation_deposit';
+      sourceType:
+        | 'invoice_issue'
+        | 'payment_receipt'
+        | 'payment_refund'
+        | 'reservation_deposit'
+        | 'stay_payment';
       sourceId: string;
       occurredOn: string;
       description: string;
-      partyId: string;
+      partyId?: string | null;
       unitId?: string | undefined;
       currency: CurrencyCode;
       lines: Array<{
@@ -1211,7 +1240,7 @@ export class FinanceService {
         organizationId,
         journalEntryId: entry.id,
         accountId: accounts.get(line.accountCode)!,
-        partyId: input.partyId,
+        partyId: input.partyId ?? null,
         unitId: input.unitId,
         debitMinor: line.debitMinor,
         creditMinor: line.creditMinor,
@@ -1272,6 +1301,16 @@ export class FinanceService {
         providerReference: string;
         receivedAt: string;
         method: 'bank_transfer' | 'card' | 'cash' | 'cheque' | 'other';
+      }
+    | {
+        kind: 'stay_booking';
+        organizationId: string;
+        paymentIntentId: string;
+        amountMinor: string;
+        currency: 'OMR' | 'AED' | 'SAR' | 'BHD' | 'KWD' | 'QAR' | 'USD';
+        providerReference: string;
+        receivedAt: string;
+        method: 'bank_transfer' | 'card' | 'cash' | 'cheque' | 'other';
       } {
     const moneyFields = {
       organizationId: z.uuid(),
@@ -1288,6 +1327,13 @@ export class FinanceService {
         ...moneyFields,
       })
       .strict();
+    const stayBookingSchema = z
+      .object({
+        kind: z.literal('stay_booking'),
+        paymentIntentId: z.uuid(),
+        ...moneyFields,
+      })
+      .strict();
     const invoiceSchema = z
       .object({
         kind: z.literal('invoice').optional(),
@@ -1297,19 +1343,154 @@ export class FinanceService {
       .strict();
 
     try {
-      if (
-        value &&
-        typeof value === 'object' &&
-        (value as { kind?: unknown }).kind === 'reservation_deposit'
-      ) {
-        const parsed = reservationSchema.parse(value);
-        return { ...parsed, kind: 'reservation_deposit' };
+      if (value && typeof value === 'object') {
+        const kind = (value as { kind?: unknown }).kind;
+        if (kind === 'reservation_deposit') {
+          const parsed = reservationSchema.parse(value);
+          return { ...parsed, kind: 'reservation_deposit' };
+        }
+        if (kind === 'stay_booking') {
+          const parsed = stayBookingSchema.parse(value);
+          return { ...parsed, kind: 'stay_booking' };
+        }
       }
       const parsed = invoiceSchema.parse(value);
       return { ...parsed, kind: 'invoice' };
     } catch {
       throw new BadRequestException('Invalid webhook payload');
     }
+  }
+
+  private async confirmStayBookingFromWebhook(
+    transaction: DatabaseTransaction,
+    input: {
+      organizationId: string;
+      paymentIntentId: string;
+      amountMinor: string;
+      currency: CurrencyCode;
+      provider: string;
+      providerReference: string;
+      receivedAt: string;
+      method: string;
+      providerEventId: string;
+    },
+  ) {
+    const intent = await transaction.query.stayPaymentIntents.findFirst({
+      where: and(
+        eq(stayPaymentIntents.id, input.paymentIntentId),
+        eq(stayPaymentIntents.organizationId, input.organizationId),
+      ),
+    });
+    if (!intent) throw new NotFoundException('Stay payment intent not found');
+
+    if (intent.amountMinor.toString() !== input.amountMinor) {
+      throw new ConflictException('Webhook amount does not match stay payment intent');
+    }
+    if (intent.currency !== input.currency) {
+      throw new ConflictException('Webhook currency does not match stay payment intent');
+    }
+
+    const booking = await transaction.query.stayBookings.findFirst({
+      where: and(
+        eq(stayBookings.id, intent.bookingId),
+        eq(stayBookings.organizationId, input.organizationId),
+      ),
+    });
+    if (!booking) throw new NotFoundException('Stay booking not found');
+
+    if (intent.status === 'succeeded' && booking.status === 'confirmed') {
+      return;
+    }
+
+    if (booking.status !== 'payment_pending') {
+      throw new ConflictException(`Stay booking cannot accept payment in status ${booking.status}`);
+    }
+    const transition = assertStayBookingTransition(booking.status, 'confirmed');
+    if (!transition.ok) {
+      throw new ConflictException(transition.reason ?? 'Illegal stay booking transition');
+    }
+
+    const amountMinor = BigInt(input.amountMinor);
+    const journal = await this.postFinanceJournal(transaction, input.organizationId, {
+      sourceType: 'stay_payment',
+      sourceId: intent.id,
+      occurredOn: input.receivedAt.slice(0, 10),
+      description: `Stay booking payment confirmed for ${booking.referenceCode}`,
+      partyId: booking.guestPartyId,
+      unitId: booking.unitId,
+      currency: input.currency,
+      lines: [
+        { accountCode: '1000', debitMinor: amountMinor, creditMinor: 0n },
+        { accountCode: '4000', debitMinor: 0n, creditMinor: amountMinor },
+      ],
+    });
+
+    await transaction
+      .update(stayPaymentIntents)
+      .set({
+        status: 'succeeded',
+        provider: input.provider,
+        providerIntentId: input.providerReference,
+        providerEventId: input.providerEventId,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(stayPaymentIntents.id, intent.id),
+          eq(stayPaymentIntents.organizationId, input.organizationId),
+        ),
+      );
+
+    await this.staysInventory.convertHoldLockToBookingInTransaction(transaction, {
+      organizationId: input.organizationId,
+      lockId: booking.inventoryLockId,
+      bookingId: booking.id,
+      holdId: booking.holdId,
+    });
+
+    await transaction
+      .update(stayBookings)
+      .set({ status: 'confirmed', updatedAt: new Date() })
+      .where(
+        and(eq(stayBookings.id, booking.id), eq(stayBookings.organizationId, input.organizationId)),
+      );
+
+    await transaction.insert(stayBookingStatusHistory).values({
+      organizationId: input.organizationId,
+      bookingId: booking.id,
+      fromStatus: 'payment_pending',
+      toStatus: 'confirmed',
+      reason: `Webhook ${input.provider}:${input.providerReference}`,
+      metadataJson: {
+        paymentIntentId: intent.id,
+        journalEntryId: journal?.id ?? null,
+      },
+    });
+
+    await transaction.insert(workflowEvents).values({
+      organizationId: input.organizationId,
+      actorUserId: null,
+      resourceType: 'stay_booking',
+      resourceId: booking.id,
+      eventType: 'stay_booking.payment_confirmed',
+      fromStatus: 'payment_pending',
+      toStatus: 'confirmed',
+      note: `Webhook ${input.provider}:${input.providerReference}`,
+    });
+
+    await transaction.insert(outboxEvents).values({
+      organizationId: input.organizationId,
+      topic: 'stay_booking.payment_confirmed',
+      aggregateType: 'stay_booking',
+      aggregateId: booking.id,
+      payload: {
+        paymentIntentId: intent.id,
+        provider: input.provider,
+        providerReference: input.providerReference,
+        amountMinor: input.amountMinor,
+        currency: input.currency,
+      },
+    });
   }
 
   private async confirmPublicReservationDepositFromWebhook(

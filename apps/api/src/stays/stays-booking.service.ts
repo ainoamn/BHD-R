@@ -5,9 +5,9 @@ import {
 } from '@bhd-r/domain';
 
 /**
- * Phase 5 foundation — quote → hold → pay → confirm.
- * Payment webhook kind `stay_booking` must be wired in finance webhooks without
- * breaking invoice / reservation_deposit handlers (Expand–Contract).
+ * Phase 5 — quote → hold → pay → confirm.
+ * Payment webhook kind `stay_booking` is handled in FinanceService.ingestWebhook
+ * (Expand–Contract alongside invoice / reservation_deposit).
  */
 @Injectable()
 export class StaysBookingService {
@@ -20,11 +20,10 @@ export class StaysBookingService {
     }
   }
 
-  /** Placeholder until payment provider + webhook kind are live. */
   describePaymentHook(): { kind: 'stay_booking'; note: string } {
     return {
       kind: 'stay_booking',
-      note: 'Confirm stay_bookings only after signed webhook, amount/currency match, and unique event id.',
+      note: 'POST /v1/webhooks/payments/:provider with kind stay_booking + paymentIntentId; amount/currency match; unique x-event-id.',
     };
   }
 }
