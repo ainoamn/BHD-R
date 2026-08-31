@@ -14,9 +14,8 @@ function delay(ms: number): Promise<void> {
 }
 
 /**
- * On first portal open: prefetch every sidebar route shell + warm every ops
- * payload into memory so later clicks feel already loaded (WAZEN-style).
- * Work is backgrounded and serialized enough to avoid Nest request storms.
+ * On first portal open: immediately warm every ops payload + prefetch shells
+ * so sidebar navigation feels like in-page tabs (Qootk / WAZEN).
  */
 export function PortalRoutePrefetch({ portal }: { portal: PortalRole }) {
   const router = useRouter();
@@ -37,46 +36,26 @@ export function PortalRoutePrefetch({ portal }: { portal: PortalRole }) {
         } catch {
           /* ignore */
         }
-        await delay(80);
+        await delay(60);
       }
     };
 
     const warmAllData = async () => {
-      // One batch endpoint fills the in-memory ops cache for the whole portal.
       const applied = await warmAllOpsSections(portal);
       if (cancelled || applied > 0) return;
-
-      // Fallback: section-by-section if batch fails (e.g. older deploy edge).
       for (const section of sections) {
         if (cancelled) return;
         await warmOpsSection(portal, section);
-        await delay(120);
+        await delay(80);
       }
     };
 
-    const start = () => {
-      void prefetchAllShells();
-      void warmAllData();
-    };
-
-    let idleHandle: number | null = null;
-    let usedIdleCallback = false;
-    if (typeof window.requestIdleCallback === 'function') {
-      usedIdleCallback = true;
-      idleHandle = window.requestIdleCallback(start, { timeout: 800 });
-    } else {
-      idleHandle = window.setTimeout(start, 200);
-    }
+    // Start immediately — do not wait for idle (user may click within 1–2s).
+    void warmAllData();
+    void prefetchAllShells();
 
     return () => {
       cancelled = true;
-      if (idleHandle !== null) {
-        if (usedIdleCallback && typeof window.cancelIdleCallback === 'function') {
-          window.cancelIdleCallback(idleHandle);
-        } else {
-          window.clearTimeout(idleHandle);
-        }
-      }
     };
   }, [portal, router]);
 

@@ -6,6 +6,7 @@ import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import { PortalHeader } from '@/components/portal-header';
 import { warmOpsSection } from '@/lib/portal-ops-client-cache';
 import { isOperationsSection, type OperationsSection } from '@/lib/portal-ops-types';
+import { OPS_NAVIGATE_EVENT } from '@/components/portal-main-slot';
 import type { PortalRole, Viewer } from '@/lib/types';
 
 type NavItem = { path: string; label: string; mark: string };
@@ -210,7 +211,16 @@ function PortalIntentLink({
       onMouseEnter={warmDestination}
       onFocus={warmDestination}
       onTouchStart={warmDestination}
-      onClick={onNavigate}
+      onClick={() => {
+        if (section) {
+          window.dispatchEvent(
+            new CustomEvent(OPS_NAVIGATE_EVENT, {
+              detail: { portal, section },
+            }),
+          );
+        }
+        onNavigate();
+      }}
     >
       <span className="portal-nav__mark" aria-hidden="true">
         {mark}

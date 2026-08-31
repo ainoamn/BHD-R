@@ -1194,6 +1194,9 @@ h3 {
   min-width: 0;
   padding: clamp(1rem, 3vw, 2rem);
 }
+.portal-ops-pane {
+  animation: portal-chrome-in 0.16s ease both;
+}
 .portal-ops-boot {
   display: grid;
   justify-items: center;

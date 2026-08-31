@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.3.1 — 2026-08-31
+
+- Qootk-style soft nav: ops UI lives in persistent `PortalMainSlot` (optimistic click swap); no owner/developer `loading.tsx` white flash; always paint from memory; warm-all starts immediately.
+- Docs: `RELEASE-0.3.1-AR.md`.
+
 ## 0.3.0 — 2026-08-31
 
 - Soft-nav: owner/developer section pages are client-only (paint from warm cache, no RSC wait per click); skeleton loading; intent hover warm; skip refetch when cache fresh.

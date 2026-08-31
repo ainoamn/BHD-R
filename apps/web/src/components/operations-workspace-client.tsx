@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { BrandMark } from '@bhd-r/ui';
 import type { PortalRole } from '@/lib/types';
 import type { OperationsSection, OperationsWorkspacePayload } from '@/lib/portal-ops-types';
 import {
@@ -12,10 +11,17 @@ import {
 } from '@/lib/portal-ops-client-cache';
 import { OperationsConsole } from './operations-console';
 
+function resolvePayload(
+  portal: PortalRole,
+  section: OperationsSection,
+  locale: 'ar' | 'en',
+): OperationsWorkspacePayload {
+  return getOpsCache(portal, section) ?? emptyOpsPayload(locale);
+}
+
 /**
- * Client ops workspace: paint from in-memory cache when available so sidebar
- * navigation feels like returning to an already-open view (WAZEN-style).
- * Never leave the user on an infinite boot spinner if Nest/API times out.
+ * Soft-nav ops pane: always paints immediately from memory (or empty shell).
+ * Never unmounts to a white boot screen when the section prop changes.
  */
 export function OperationsWorkspaceClient({
   portal,
@@ -26,32 +32,29 @@ export function OperationsWorkspaceClient({
   section: OperationsSection;
   locale: 'ar' | 'en';
 }) {
-  const [payload, setPayload] = useState<OperationsWorkspacePayload | null>(() =>
-    getOpsCache(portal, section),
+  const [payload, setPayload] = useState<OperationsWorkspacePayload>(() =>
+    resolvePayload(portal, section, locale),
   );
+  const [shownSection, setShownSection] = useState(section);
+
+  // Apply cache synchronously when the section changes (before paint).
+  if (section !== shownSection) {
+    setShownSection(section);
+    setPayload(resolvePayload(portal, section, locale));
+  }
 
   useEffect(() => {
     let cancelled = false;
-    let paintTimer: number | null = null;
 
     const hit = getOpsCache(portal, section);
     if (hit) {
       setPayload(hit);
-      // Fresh sections are true background tabs: repaint immediately without
-      // issuing another API request. Stale data stays visible during refresh.
       if (!isOpsCacheFresh(portal, section)) {
         void fetchOpsPayload(portal, section).then((fresh) => {
           if (!cancelled && fresh) setPayload(fresh);
         });
       }
     } else {
-      setPayload(null);
-      // Soft deadline: show empty console instead of forever "Loading section…"
-      paintTimer = window.setTimeout(() => {
-        if (!cancelled) {
-          setPayload((current) => current ?? emptyOpsPayload(locale));
-        }
-      }, 1_200);
       void fetchOpsPayload(portal, section).then((fresh) => {
         if (cancelled) return;
         setPayload(fresh ?? emptyOpsPayload(locale));
@@ -70,34 +73,26 @@ export function OperationsWorkspaceClient({
 
     return () => {
       cancelled = true;
-      if (paintTimer !== null) window.clearTimeout(paintTimer);
       window.removeEventListener('bhd-r-ops-refresh', onRefresh);
     };
   }, [portal, section, locale]);
 
-  if (!payload) {
-    return (
-      <div className="portal-ops-boot" aria-busy="true" aria-live="polite">
-        <BrandMark />
-        <p>{locale === 'ar' ? 'جاري تحميل القسم…' : 'Loading section…'}</p>
-      </div>
-    );
-  }
-
   return (
-    <OperationsConsole
-      portal={portal}
-      section={section}
-      locale={payload.locale || locale}
-      records={payload.records}
-      summary={payload.summary}
-      secondary={payload.secondary}
-      context={payload.context}
-      apiOnline={payload.apiOnline}
-      nestConfigured={payload.nestConfigured}
-      recordsEmpty={payload.recordsEmpty}
-      apiUnauthorized={payload.apiUnauthorized}
-      dataFromDb={payload.dataFromDb}
-    />
+    <div className="portal-ops-pane" data-section={section}>
+      <OperationsConsole
+        portal={portal}
+        section={section}
+        locale={payload.locale || locale}
+        records={payload.records}
+        summary={payload.summary}
+        secondary={payload.secondary}
+        context={payload.context}
+        apiOnline={payload.apiOnline}
+        nestConfigured={payload.nestConfigured}
+        recordsEmpty={payload.recordsEmpty}
+        apiUnauthorized={payload.apiUnauthorized}
+        dataFromDb={payload.dataFromDb}
+      />
+    </div>
   );
 }
