@@ -1,6 +1,6 @@
 {
   "name": "@bhd-r/root",
-  "version": "0.4.14",
+  "version": "0.4.15",
   "private": true,
   "description": "BHD R — Oman-first bilingual property management platform",
   "packageManager": "pnpm@10.14.0",
@@ -19,7 +19,7 @@
     ]
   },
   "engines": {
-    "node": ">=24.0.0",
+    "node": ">=22.0.0",
     "pnpm": ">=10.0.0"
   },
   "scripts": {

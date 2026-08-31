@@ -2,6 +2,13 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.15 — 2026-08-31
+
+- Vercel install: allow Node 22 (`engines >=22`) + `engine-strict=false` so Production deploys stop failing on Node engine mismatch (stale Production kept old translate/upload bugs).
+- Translate: Google gtx primary + MyMemory fallback + quality gate; session auth without CSRF race; clear 502 when providers fail.
+- Media upload: rebuild FormData per attempt (body single-use), sequential uploads, stronger compression.
+- Docs: `RELEASE-0.4.15-AR.md`.
+
 ## 0.4.14 — 2026-08-31
 
 - Reviews: submit via Next `/api/public/reviews` + Vercel CSRF (`browserNextMutation`) — was wrongly calling Nest `browserMutation` and always failing as “sign in again”.

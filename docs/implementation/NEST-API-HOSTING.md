@@ -179,12 +179,14 @@ After Docker build, Nest boots with `loadEnvironment`. Missing keys abort the pr
 
 Dashboard project name **`bhd-r-api`** is the **Next.js** app (`apps/web` → `r.bhd-om.com`), not the Nest Docker service.
 
+**Root cause for sticky Production Errors (fixed 0.4.15):** root `engines.node: >=24` + `.npmrc` `engine-strict=true` while Vercel often runs **Node 22** → `pnpm install` aborts in ~25–35s. Tip of `main` never went Live, so older translate/upload bugs remained on `r.bhd-om.com`.
+
 | Deploy shown | Branch / commit | Likely cause | Action |
 | --- | --- | --- | --- |
 | Error Preview `feat/stays-phase-0` @ `9cfa48f` (~10s) | stale lockfile | `ERR_PNPM_OUTDATED_LOCKFILE` | Do not redeploy; use `main` |
 | Error Preview dependabot | lockfile / engines | Ignore or close PR | Keep Production on `main` |
 | Error / Ready mix on `6e8feb6` (0.4.0) | flake / retry | Manual Redeploy succeeded | Tip of `main` is source of truth |
-| Error Production `92b0b1c` (0.4.1) | superseded | Later `main` commits rebuilt | Redeploy **latest** `main` (0.4.14+) |
+| Error Production `92b0b1c` (0.4.1) | engine-strict / superseded | Fixed in **0.4.15** | Redeploy latest `main` |
 
 **Verified 2026-08-31 (local):**
 

@@ -5,7 +5,7 @@
   "type": "module",
   "description": "BHD R durable background jobs for media, PDFs, notifications and the transactional outbox",
   "engines": {
-    "node": ">=24.0.0"
+    "node": ">=22.0.0"
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",

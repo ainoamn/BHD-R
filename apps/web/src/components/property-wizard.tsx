@@ -350,19 +350,14 @@ export function PropertyWizard({
     setTranslating(key);
     setError(null);
     try {
-      clearBrowserCsrfCache();
       const translated = await translateText(source, target);
-      if (!translated.trim() || translated.trim() === source.trim()) {
-        setError(
-          ar
-            ? 'تعذّرت الترجمة التلقائية حالياً. عدّل النص يدوياً أو أعد المحاولة بعد لحظات.'
-            : 'Automatic translation is unavailable right now. Edit manually or retry shortly.',
-        );
-        return;
-      }
       apply(translated);
     } catch {
-      setError(ar ? 'تعذّرت الترجمة حالياً. حاول مرة أخرى.' : 'Translation failed. Please try again.');
+      setError(
+        ar
+          ? 'تعذّرت الترجمة التلقائية حالياً. عدّل النص يدوياً أو أعد المحاولة بعد لحظات.'
+          : 'Automatic translation is unavailable right now. Edit manually or retry shortly.',
+      );
     } finally {
       setTranslating(null);
     }
@@ -767,22 +762,33 @@ export function PropertyWizard({
         ? await compressImageFile(file)
         : file;
 
-    // Vercel→R2→Neon only. Nest browser ingress races CSRF and often times out as "Failed to fetch".
-    const form = new FormData();
-    form.append('file', prepared);
-    form.append('unitId', unitId);
-    form.append('purpose', purpose);
-    form.append('position', String(position ?? 0));
-    const csrf = await fetchBrowserCsrfToken(true);
-    let vercelUpload: Response;
-    try {
-      vercelUpload = await fetch('/api/owner/media', {
+    const buildForm = () => {
+      const form = new FormData();
+      form.append('file', prepared);
+      form.append('unitId', unitId);
+      form.append('purpose', purpose);
+      form.append('position', String(position ?? 0));
+      return form;
+    };
+
+    // Vercel→R2→Neon only. Rebuild FormData on each attempt (body is single-use).
+    const postOnce = async (csrf: string) =>
+      fetch('/api/owner/media', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'x-csrf-token': csrf },
-        body: form,
+        body: buildForm(),
         signal: AbortSignal.timeout(55_000),
       });
+
+    let vercelUpload: Response;
+    try {
+      const csrf = await fetchBrowserCsrfToken(true);
+      vercelUpload = await postOnce(csrf);
+      if (vercelUpload.status === 403) {
+        clearBrowserCsrfCache();
+        vercelUpload = await postOnce(await fetchBrowserCsrfToken(true));
+      }
     } catch (error) {
       const timedOut =
         error instanceof Error && /aborted|timeout|timed out|failed to fetch/i.test(error.message);
@@ -797,20 +803,6 @@ export function PropertyWizard({
       );
     }
     if (vercelUpload.ok) return;
-
-    if (vercelUpload.status === 403) {
-      clearBrowserCsrfCache();
-      const fresh = await fetchBrowserCsrfToken(true);
-      const retry = await fetch('/api/owner/media', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'x-csrf-token': fresh },
-        body: form,
-        signal: AbortSignal.timeout(55_000),
-      });
-      if (retry.ok) return;
-      vercelUpload = retry;
-    }
 
     const vercelError = (await vercelUpload.json().catch(() => null)) as {
       error?: { code?: string; message?: string; messageAr?: string };
@@ -1023,7 +1015,7 @@ export function PropertyWizard({
                   ? `جاري رفع الملفات الجديدة (${jobs.length})…`
                   : `Uploading new media (${jobs.length})…`,
               );
-              await mapWithConcurrency(jobs, 2, async (job) => {
+              await mapWithConcurrency(jobs, 1, async (job) => {
                 await uploadFile(job.file, mediaUnitId, job.purpose, job.position);
               });
             }
@@ -1125,7 +1117,7 @@ export function PropertyWizard({
                 ? `جاري رفع الملفات (${jobs.length})…`
                 : `Uploading media (${jobs.length})…`,
             );
-            await mapWithConcurrency(jobs, 2, async (job) => {
+            await mapWithConcurrency(jobs, 1, async (job) => {
               await uploadFile(job.file, mediaUnitId, job.purpose, job.position);
             });
           }

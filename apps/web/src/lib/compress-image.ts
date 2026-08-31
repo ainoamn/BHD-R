@@ -1,8 +1,8 @@
 /** Browser-side image compression before property media upload. */
 
-const MAX_EDGE = 1600;
-const JPEG_QUALITY = 0.72;
-const TARGET_BYTES = 1_200_000;
+const MAX_EDGE = 1280;
+const JPEG_QUALITY = 0.68;
+const TARGET_BYTES = 800_000;
 
 function loadImage(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {

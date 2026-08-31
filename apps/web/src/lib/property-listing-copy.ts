@@ -245,47 +245,41 @@ export async function translateText(text: string, target: 'ar' | 'en'): Promise<
   if (!source) return '';
 
   try {
-    const { clearBrowserCsrfCache, fetchBrowserCsrfToken } = await import('@/lib/api');
-    clearBrowserCsrfCache();
     const response = await fetch('/api/translate', {
       method: 'POST',
+      credentials: 'same-origin',
       headers: {
         'Content-Type': 'application/json',
-        'x-csrf-token': await fetchBrowserCsrfToken(true),
       },
       body: JSON.stringify({ text: source, target }),
-      signal: AbortSignal.timeout(20_000),
+      signal: AbortSignal.timeout(25_000),
     });
-    if (response.status === 403) {
-      clearBrowserCsrfCache();
-      const retry = await fetch('/api/translate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-csrf-token': await fetchBrowserCsrfToken(true),
-        },
-        body: JSON.stringify({ text: source, target }),
-        signal: AbortSignal.timeout(20_000),
-      });
-      if (retry.ok) {
-        const payload = (await retry.json()) as { translated?: string };
-        const translated = payload.translated?.trim();
-        if (translated && translated.toLowerCase() !== source.toLowerCase()) {
-          return translated;
-        }
-      }
-    } else if (response.ok) {
+    if (response.ok) {
       const payload = (await response.json()) as { translated?: string };
       const translated = payload.translated?.trim();
       if (translated && translated.toLowerCase() !== source.toLowerCase()) {
         return translated;
       }
+    } else {
+      const payload = (await response.json().catch(() => null)) as {
+        messageAr?: string;
+        message?: string;
+        error?: string;
+      } | null;
+      throw new Error(payload?.messageAr ?? payload?.message ?? payload?.error ?? 'translate_failed');
     }
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message && error.message !== 'translate_failed') {
+      throw error;
+    }
     /* fall through to lexicon */
   }
 
-  return lexiconTranslate(source, target) || source;
+  const lexicon = lexiconTranslate(source, target);
+  if (lexicon && lexicon.toLowerCase() !== source.toLowerCase()) {
+    return lexicon;
+  }
+  throw new Error('translate_failed');
 }
 
 /** @deprecated use translateText — kept for call-site compatibility during migrate */
