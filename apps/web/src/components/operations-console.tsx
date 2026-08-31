@@ -934,11 +934,18 @@ function CreateFields({
           <SelectOptions
             name="unitId"
             label={ar ? 'الوحدة الشاغرة' : 'Vacant unit'}
-            options={context.vacantUnits?.length ? context.vacantUnits : (context.units ?? [])}
+            options={context.vacantUnits ?? []}
             locale={locale}
             required
             defaultValue={prefillUnitId}
           />
+          {!(context.vacantUnits?.length) ? (
+            <p className="ops-hint span-2">
+              {ar
+                ? 'لا توجد وحدات شاغرة حالياً (كل الوحدات مؤجرة أو عليها حجز/حجز مؤقت ساري).'
+                : 'No vacant units right now (all units are leased or have an active reservation/hold).'}
+            </p>
+          ) : null}
           <SelectOptions
             name="prospectPartyId"
             label={ar ? 'المستأجر (من سجل العناوين)' : 'Tenant (address book)'}

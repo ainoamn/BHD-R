@@ -1,16 +1,20 @@
 import 'server-only';
 import { cookies } from 'next/headers';
-import { and, count, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
 import { verifySessionToken, type SessionClaims } from '@bhd-r/authz';
 import {
   addresses,
   approvalRequests,
   createDatabase,
   expenses,
+  holds,
   invoices,
+  leases,
   maintenanceTickets,
   parties,
+  partyRoles,
   properties,
+  reservations,
   units,
   type Database,
 } from '@bhd-r/db';
@@ -20,6 +24,14 @@ import type { PortalRole } from '@/lib/types';
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdRWebDb?: DbHandle };
+const globalForOpsContext = globalThis as unknown as {
+  __bhdROpsContextCache?: {
+    key: string;
+    at: number;
+    value: Record<string, unknown>;
+  };
+};
+const OPS_CONTEXT_TTL_MS = 5_000;
 
 const ORG_WIDE_ROLES = new Set([
   'organization_admin',
@@ -293,6 +305,176 @@ export async function loadOpsRecordsFromDb(
       default:
         return null;
     }
+  } catch {
+    return null;
+  }
+}
+
+export function clearOpsContextDbCache(): void {
+  globalForOpsContext.__bhdROpsContextCache = undefined;
+}
+
+/**
+ * Form options for ops create dialogs (esp. bookings): vacant units, properties,
+ * parties — loaded from Neon so Nest cold-start does not empty the unit dropdown.
+ * Vacant = no active lease, and no active/pending reservation or hold.
+ */
+export async function loadOpsContextFromDb(
+  portal: PortalRole,
+): Promise<Record<string, unknown> | null> {
+  if (!hasDatabaseUrl()) return null;
+  if (portal !== 'owner' && portal !== 'developer') return null;
+
+  const claims = await readClaims();
+  if (!claims?.organizationId) return null;
+
+  const cacheKey = `${portal}:${claims.organizationId}`;
+  const cached = globalForOpsContext.__bhdROpsContextCache;
+  if (cached && cached.key === cacheKey && Date.now() - cached.at < OPS_CONTEXT_TTL_MS) {
+    return cached.value;
+  }
+
+  try {
+    const value = await withinViewerTenant(claims, async (transaction) => {
+      const orgId = claims.organizationId!;
+      const ownerPartyId = ownerPartyScope(claims);
+
+      const [
+        propertyRows,
+        unitRows,
+        partyRows,
+        roleRows,
+        activeHolds,
+        activeReservations,
+        activeLeases,
+      ] = await Promise.all([
+        transaction
+          .select({
+            id: properties.id,
+            nameAr: properties.nameAr,
+            nameEn: properties.nameEn,
+          })
+          .from(properties)
+          .where(
+            and(
+              eq(properties.organizationId, orgId),
+              ...(ownerPartyId ? [eq(properties.ownerPartyId, ownerPartyId)] : []),
+            ),
+          )
+          .orderBy(asc(properties.nameAr)),
+        transaction
+          .select({
+            id: units.id,
+            propertyId: units.propertyId,
+            code: units.code,
+            nameAr: units.nameAr,
+            nameEn: units.nameEn,
+            currency: units.currency,
+          })
+          .from(units)
+          .innerJoin(properties, eq(properties.id, units.propertyId))
+          .where(
+            and(
+              eq(units.organizationId, orgId),
+              ...(ownerPartyId ? [eq(properties.ownerPartyId, ownerPartyId)] : []),
+            ),
+          )
+          .orderBy(asc(units.code)),
+        transaction
+          .select({ id: parties.id, name: parties.displayName, type: parties.type })
+          .from(parties)
+          .where(eq(parties.organizationId, orgId))
+          .orderBy(asc(parties.displayName)),
+        transaction
+          .select({ partyId: partyRoles.partyId, roleKey: partyRoles.roleKey })
+          .from(partyRoles)
+          .where(
+            and(
+              eq(partyRoles.organizationId, orgId),
+              eq(partyRoles.status, 'active'),
+              inArray(partyRoles.roleKey, ['owner', 'tenant']),
+            ),
+          ),
+        transaction
+          .select({ unitId: holds.unitId })
+          .from(holds)
+          .where(
+            and(
+              eq(holds.organizationId, orgId),
+              eq(holds.status, 'active'),
+              sql`${holds.expiresAt} > now()`,
+            ),
+          ),
+        transaction
+          .select({ unitId: reservations.unitId })
+          .from(reservations)
+          .where(
+            and(
+              eq(reservations.organizationId, orgId),
+              inArray(reservations.status, ['pending', 'confirmed']),
+              sql`${reservations.expiresAt} > now()`,
+            ),
+          ),
+        transaction
+          .select({ unitId: leases.unitId })
+          .from(leases)
+          .where(
+            and(
+              eq(leases.organizationId, orgId),
+              inArray(leases.status, [
+                'draft',
+                'active',
+                'cancel_requested',
+                'clearance_pending',
+              ]),
+            ),
+          ),
+      ]);
+
+      const blockedUnitIds = new Set<string>([
+        ...activeHolds.map((row) => row.unitId),
+        ...activeReservations.map((row) => row.unitId),
+        ...activeLeases.map((row) => row.unitId),
+      ]);
+
+      const unitsMapped = unitRows.map((row) => ({
+        id: row.id,
+        propertyId: row.propertyId,
+        code: row.code,
+        nameAr: row.nameAr,
+        nameEn: row.nameEn,
+        currency: row.currency,
+        name: `${row.code} · ${row.nameAr}`,
+      }));
+
+      const vacantUnits = unitsMapped.filter((row) => !blockedUnitIds.has(row.id));
+      const ownerIds = new Set(
+        roleRows.filter((row) => row.roleKey === 'owner').map((row) => row.partyId),
+      );
+      const tenantIds = new Set(
+        roleRows.filter((row) => row.roleKey === 'tenant').map((row) => row.partyId),
+      );
+
+      return {
+        properties: propertyRows.map((row) => ({
+          id: row.id,
+          nameAr: row.nameAr,
+          nameEn: row.nameEn,
+          name: row.nameAr || row.nameEn,
+        })),
+        units: unitsMapped,
+        vacantUnits,
+        parties: partyRows,
+        owners: partyRows.filter((row) => ownerIds.has(row.id)),
+        tenants: partyRows.filter((row) => tenantIds.has(row.id)),
+      };
+    });
+    globalForOpsContext.__bhdROpsContextCache = {
+      key: cacheKey,
+      at: Date.now(),
+      value,
+    };
+    return value;
   } catch {
     return null;
   }

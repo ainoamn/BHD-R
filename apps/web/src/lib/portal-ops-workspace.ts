@@ -3,7 +3,7 @@ import { getLocale } from 'next-intl/server';
 import { ApiError } from '@/lib/api';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { apiFetch, configuredApiOrigin, isNestApiConfiguredForRuntime } from '@/lib/server-api';
-import { loadOpsRecordsFromDb } from '@/lib/portal-ops-data';
+import { clearOpsContextDbCache, loadOpsContextFromDb, loadOpsRecordsFromDb } from '@/lib/portal-ops-data';
 import type { PortalRole } from '@/lib/types';
 import type { OperationsContext } from '@/components/operations-console';
 import type { OperationsSection, OperationsWorkspacePayload } from '@/lib/portal-ops-types';
@@ -225,7 +225,11 @@ export async function loadOperationsWorkspacePayload(
 ): Promise<OperationsWorkspacePayload> {
   const locale = localeHint ?? ((await getLocale()) === 'en' ? 'en' : 'ar');
   const nestConfigured = isNestApiConfiguredForRuntime();
-  const loaded = await loadSection(portal, section);
+  if (section === 'bookings' || section === 'leasing') clearOpsContextDbCache();
+  const [loaded, neonContext] = await Promise.all([
+    loadSection(portal, section),
+    portal === 'tenant' ? Promise.resolve(null) : loadOpsContextFromDb(portal),
+  ]);
   const dataFromDb = loaded.source === 'db';
   const offline = loaded.source === 'offline';
 
@@ -247,7 +251,37 @@ export async function loadOperationsWorkspacePayload(
         offline
         ? true
         : dataFromDb || loaded.source === 'nest' || !contextResult.unreachable;
-  const context = contextResult.context;
+  const nestContext = contextResult.context as Record<string, unknown>;
+  // Neon context fills vacantUnits/properties/parties when Nest is asleep or skipped.
+  // Nest wins on overlapping keys when both are present.
+  const context = {
+    ...(neonContext ?? {}),
+    ...nestContext,
+    vacantUnits:
+      (Array.isArray(nestContext.vacantUnits) && nestContext.vacantUnits.length
+        ? nestContext.vacantUnits
+        : neonContext?.vacantUnits) ?? [],
+    units:
+      (Array.isArray(nestContext.units) && nestContext.units.length
+        ? nestContext.units
+        : neonContext?.units) ?? [],
+    properties:
+      (Array.isArray(nestContext.properties) && nestContext.properties.length
+        ? nestContext.properties
+        : neonContext?.properties) ?? [],
+    parties:
+      (Array.isArray(nestContext.parties) && nestContext.parties.length
+        ? nestContext.parties
+        : neonContext?.parties) ?? [],
+    tenants:
+      (Array.isArray(nestContext.tenants) && nestContext.tenants.length
+        ? nestContext.tenants
+        : neonContext?.tenants) ?? [],
+    owners:
+      (Array.isArray(nestContext.owners) && nestContext.owners.length
+        ? nestContext.owners
+        : neonContext?.owners) ?? [],
+  };
   const recordsEmpty = !loaded.records.length;
   const apiUnauthorized = Boolean(contextResult.unauthorized) && !(dataFromDb && !recordsEmpty);
 
@@ -255,7 +289,7 @@ export async function loadOperationsWorkspacePayload(
     records: loaded.records,
     summary: loaded.summary ?? {},
     secondary: loaded.secondary ?? [],
-    context: { ...context },
+    context,
     apiOnline,
     nestConfigured,
     recordsEmpty,
