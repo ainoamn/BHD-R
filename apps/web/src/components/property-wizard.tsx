@@ -739,6 +739,11 @@ export function PropertyWizard({
       street: property.street,
       bedrooms: Number(primary.bedrooms) || 0,
       bathrooms: Number(primary.bathrooms) || 0,
+      majlis: Number(primary.majlis) || 0,
+      halls: Number(primary.halls) || 0,
+      kitchens: Number(primary.kitchens) || 0,
+      hasPool:
+        primary.hasPool === 'true' ? true : primary.hasPool === 'false' ? false : undefined,
       area: primary.area || profile.builtUpArea,
       listingPurpose: primary.listingPurpose,
       furnishing: profile.furnishing,

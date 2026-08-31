@@ -60,6 +60,10 @@ const LEXICON: Array<[string, string]> = [
   ['مؤثثة بالكامل', 'fully furnished'],
   ['غرف النوم', 'bedrooms'],
   ['الحمامات', 'bathrooms'],
+  ['المجالس', 'majlis'],
+  ['الصالات', 'halls'],
+  ['المطابخ', 'kitchens'],
+  ['حوض سباحة', 'swimming pool'],
   ['مبنى', 'building'],
   ['شقة', 'apartment'],
   ['فيلا', 'villa'],
@@ -104,11 +108,43 @@ export type DescriptionInput = {
   street?: string;
   bedrooms: number;
   bathrooms: number;
-  area?: string;
+  majlis?: number | undefined;
+  halls?: number | undefined;
+  kitchens?: number | undefined;
+  hasPool?: boolean | undefined;
+  area?: string | undefined;
   listingPurpose: 'rent' | 'sale' | 'both';
   furnishing: string;
   amenities: Array<{ code: string; labelAr: string; labelEn: string }>;
 };
+
+function roomDetailsAr(input: DescriptionInput): string | null {
+  const parts: string[] = [];
+  if (input.bedrooms > 0) parts.push(`${input.bedrooms} غرفة نوم`);
+  if (input.bathrooms > 0) parts.push(`${input.bathrooms} حمّام`);
+  if ((input.majlis ?? 0) > 0) parts.push(`${input.majlis} مجلس`);
+  if ((input.halls ?? 0) > 0) parts.push(`${input.halls} صالة`);
+  if ((input.kitchens ?? 0) > 0) parts.push(`${input.kitchens} مطبخ`);
+  if (input.hasPool === true) parts.push('حوض سباحة متوفر');
+  else if (input.hasPool === false) parts.push('بدون حوض سباحة');
+  if (!parts.length && !input.area) return null;
+  const rooms = parts.length ? `تضم ${parts.join(' و')}` : 'تفاصيل الوحدة';
+  return `${rooms}${input.area ? `، بمساحة تقارب ${input.area} م²` : ''}.`;
+}
+
+function roomDetailsEn(input: DescriptionInput): string | null {
+  const parts: string[] = [];
+  if (input.bedrooms > 0) parts.push(`${input.bedrooms} bedroom(s)`);
+  if (input.bathrooms > 0) parts.push(`${input.bathrooms} bathroom(s)`);
+  if ((input.majlis ?? 0) > 0) parts.push(`${input.majlis} majlis`);
+  if ((input.halls ?? 0) > 0) parts.push(`${input.halls} hall(s)/living room(s)`);
+  if ((input.kitchens ?? 0) > 0) parts.push(`${input.kitchens} kitchen(s)`);
+  if (input.hasPool === true) parts.push('a swimming pool');
+  else if (input.hasPool === false) parts.push('no swimming pool');
+  if (!parts.length && !input.area) return null;
+  const rooms = parts.length ? `It features ${parts.join(', ')}` : 'Unit details';
+  return `${rooms}${input.area ? `, approximately ${input.area} m²` : ''}.`;
+}
 
 export function generateListingDescriptions(input: DescriptionInput): {
   descriptionAr: string;
@@ -158,9 +194,7 @@ export function generateListingDescriptions(input: DescriptionInput): {
 
   const descriptionAr = [
     `نقدم لكم ${cat.ar} مميزة بعنوان «${input.nameAr || cat.ar}» ${purposeAr} في ${placeAr || 'سلطنة عُمان'}.`,
-    input.bedrooms || input.bathrooms
-      ? `تضم ${input.bedrooms} غرفة نوم و${input.bathrooms} حمّام${input.area ? `، بمساحة تقارب ${input.area} م²` : ''}.`
-      : null,
+    roomDetailsAr(input),
     `العقار ${furnishAr}${input.street ? `، ويقع على ${input.street}` : ''}.`,
     amenAr.length ? `من أبرز المرافق: ${amenAr.join('، ')}.` : null,
     'موقع مناسب للمعيشة والعمل، مع إدارة موثوقة عبر منصة BHD R.',
@@ -170,9 +204,7 @@ export function generateListingDescriptions(input: DescriptionInput): {
 
   const descriptionEn = [
     `A distinguished ${cat.en} titled “${titleEn}” ${purposeEn} in ${placeEn || 'the Sultanate of Oman'}.`,
-    input.bedrooms || input.bathrooms
-      ? `It features ${input.bedrooms} bedroom(s) and ${input.bathrooms} bathroom(s)${input.area ? `, approximately ${input.area} m²` : ''}.`
-      : null,
+    roomDetailsEn(input),
     `The property is ${furnishEn}${input.street ? `, located on ${input.street}` : ''}.`,
     amenEn.length ? `Key amenities include: ${amenEn.join(', ')}.` : null,
     'A practical location for living and work, professionally managed through BHD R.',

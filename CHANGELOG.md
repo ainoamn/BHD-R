@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.92 — 2026-08-31
+
+- AI listing description generator includes majlis, halls, kitchens, and pool availability.
+
 ## 0.2.91 — 2026-08-31
 
 - Owner property wizard units step: majlis, halls, kitchens counts + swimming pool available/unavailable; persisted on `units` (`0013_unit_room_counts`).
@@ -447,3 +451,4 @@ All notable changes are documented here. The project follows Semantic Versioning
 - Restricted media CSP, HSTS, item-specific social metadata, and an original bilingual Open Graph card.
 - Updated dependency and runtime verification gates with a clean package-security audit.
 - Pruned production-only Docker images and split database migrations into a least-privilege image.
+
