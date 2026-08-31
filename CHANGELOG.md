@@ -2,6 +2,13 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.12 — 2026-08-31
+
+- Fix property CSRF: Nest mutations use Nest-minted tokens; owner Neon writes remint Next CSRF with 403 retry.
+- Property restore/archive/purge via `POST /api/owner/properties/:id/lifecycle` (Neon); Nest `DELETE /v1/portfolio/properties/:id` for archived purge.
+- Portfolio list hides archived by default; Archive toggle loads `?view=archive`.
+- Docs: `KNOWN-ISSUES-PROPERTY-PORTFOLIO-AR.md`.
+
 ## 0.4.11 — 2026-08-31
 
 - Read-only stay iCal export: `GET /v1/stays/units/:unitId/calendar.ics` from active inventory locks (busy labels, no guest PII).

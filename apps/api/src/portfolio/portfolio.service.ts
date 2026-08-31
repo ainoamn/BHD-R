@@ -1030,6 +1030,122 @@ export class PortfolioService {
     });
   }
 
+  purgeProperty(claims: SessionClaims, propertyId: string) {
+    return this.database.withinTenant(claims, async (transaction) => {
+      const property = await transaction.query.properties.findFirst({
+        where: and(
+          eq(properties.id, propertyId),
+          eq(properties.organizationId, claims.organizationId!),
+        ),
+      });
+      if (!property) throw new NotFoundException('Property not found');
+      if (property.status !== 'archived') {
+        throw new ConflictException('Only archived properties can be permanently deleted');
+      }
+
+      const unitRows = await transaction
+        .select({ id: units.id })
+        .from(units)
+        .where(
+          and(eq(units.propertyId, propertyId), eq(units.organizationId, claims.organizationId!)),
+        );
+      const unitIds = unitRows.map((row) => row.id);
+
+      if (unitIds.length) {
+        const leaseRow = await transaction
+          .select({ id: leases.id })
+          .from(leases)
+          .where(
+            and(
+              eq(leases.organizationId, claims.organizationId!),
+              inArray(leases.unitId, unitIds),
+            ),
+          )
+          .limit(1);
+        if (leaseRow[0]) {
+          throw new ConflictException('Cannot purge property with lease history');
+        }
+
+        await transaction
+          .delete(listings)
+          .where(
+            and(
+              eq(listings.organizationId, claims.organizationId!),
+              inArray(listings.unitId, unitIds),
+            ),
+          );
+      }
+
+      await transaction
+        .delete(propertyAmenities)
+        .where(
+          and(
+            eq(propertyAmenities.propertyId, propertyId),
+            eq(propertyAmenities.organizationId, claims.organizationId!),
+          ),
+        );
+      await transaction
+        .delete(propertyDocuments)
+        .where(
+          and(
+            eq(propertyDocuments.propertyId, propertyId),
+            eq(propertyDocuments.organizationId, claims.organizationId!),
+          ),
+        );
+      await transaction
+        .delete(propertyOwnershipInterests)
+        .where(
+          and(
+            eq(propertyOwnershipInterests.propertyId, propertyId),
+            eq(propertyOwnershipInterests.organizationId, claims.organizationId!),
+          ),
+        );
+      await transaction
+        .delete(propertyProfiles)
+        .where(
+          and(
+            eq(propertyProfiles.propertyId, propertyId),
+            eq(propertyProfiles.organizationId, claims.organizationId!),
+          ),
+        );
+      await transaction
+        .delete(utilityMeters)
+        .where(
+          and(
+            eq(utilityMeters.propertyId, propertyId),
+            eq(utilityMeters.organizationId, claims.organizationId!),
+          ),
+        );
+
+      if (unitIds.length) {
+        await transaction
+          .delete(units)
+          .where(
+            and(eq(units.organizationId, claims.organizationId!), inArray(units.id, unitIds)),
+          );
+      }
+
+      await transaction
+        .delete(properties)
+        .where(
+          and(
+            eq(properties.id, propertyId),
+            eq(properties.organizationId, claims.organizationId!),
+          ),
+        );
+
+      await transaction.insert(outboxEvents).values({
+        organizationId: claims.organizationId!,
+        topic: 'property.purged',
+        aggregateType: 'property',
+        aggregateId: propertyId,
+        payload: {},
+      });
+
+      return { id: propertyId, purged: true as const };
+    });
+  }
+
   async setListing(claims: SessionClaims, unitId: string, enabled: boolean) {
     return this.database.withinTenant(claims, async (transaction) => {
       const unit = await transaction.query.units.findFirst({

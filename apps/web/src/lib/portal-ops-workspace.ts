@@ -75,7 +75,9 @@ async function loadFromNest(portal: PortalRole, section: OperationsSection): Pro
       return {
         source: 'nest',
         records: await safeRows(
-          portal === 'developer' ? '/v1/developer/projects' : '/v1/owner/properties',
+          portal === 'developer'
+            ? '/v1/developer/projects'
+            : '/v1/owner/properties',
         ),
       };
     case 'contacts':

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Req } from '@nestjs/common';
 import type { ApiRequest } from '../common/api-http.js';
 import { z } from 'zod';
 import { RequirePermissions } from '../common/decorators.js';
@@ -23,8 +23,11 @@ export class OwnerPortalController {
   }
   @RequirePermissions('property.read') @Get('properties') properties(
     @Req() request: ApiRequest,
+    @Query('view') view?: string,
   ) {
-    return this.service.listProperties(request.auth!);
+    return this.service.listProperties(request.auth!, {
+      archivedOnly: view === 'archive' || view === 'archived',
+    });
   }
   @RequirePermissions('lease.read') @Get('leases') leases(@Req() request: ApiRequest) {
     return this.service.listLeases(request.auth!);
@@ -49,8 +52,11 @@ export class DeveloperPortalController {
   }
   @RequirePermissions('developer.project.read') @Get('projects') projects(
     @Req() request: ApiRequest,
+    @Query('view') view?: string,
   ) {
-    return this.service.listProperties(request.auth!);
+    return this.service.listProperties(request.auth!, {
+      archivedOnly: view === 'archive' || view === 'archived',
+    });
   }
 }
 

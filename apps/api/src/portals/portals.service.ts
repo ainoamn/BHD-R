@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { and, count, desc, eq, gte, inArray, lte, or, sql } from 'drizzle-orm';
+import { and, count, desc, eq, gte, inArray, lte, ne, or, sql } from 'drizzle-orm';
 import {
   addresses,
   contracts,
@@ -289,7 +289,7 @@ export class PortalsService {
     });
   }
 
-  listProperties(claims: SessionClaims) {
+  listProperties(claims: SessionClaims, options: { archivedOnly?: boolean } = {}) {
     return this.database.withinTenant(claims, async (transaction) => {
       const ownerPartyId = ownerPartyScope(claims);
       const rows = await transaction
@@ -316,6 +316,9 @@ export class PortalsService {
           and(
             eq(properties.organizationId, claims.organizationId!),
             ...(ownerPartyId ? [eq(properties.ownerPartyId, ownerPartyId)] : []),
+            options.archivedOnly
+              ? eq(properties.status, 'archived')
+              : ne(properties.status, 'archived'),
           ),
         );
       return rows.map((row) => ({

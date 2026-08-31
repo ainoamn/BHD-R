@@ -1,6 +1,6 @@
 import 'server-only';
 import { cookies } from 'next/headers';
-import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { verifySessionToken, type SessionClaims } from '@bhd-r/authz';
 import {
   addresses,
@@ -126,6 +126,7 @@ async function listProperties(claims: SessionClaims): Promise<Record<string, unk
         and(
           eq(properties.organizationId, orgId),
           ...(ownerPartyId ? [eq(properties.ownerPartyId, ownerPartyId)] : []),
+          ne(properties.status, 'archived'),
         ),
       );
 
@@ -359,6 +360,7 @@ export async function loadOpsContextFromDb(
             and(
               eq(properties.organizationId, orgId),
               ...(ownerPartyId ? [eq(properties.ownerPartyId, ownerPartyId)] : []),
+              ne(properties.status, 'archived'),
             ),
           )
           .orderBy(asc(properties.nameAr)),

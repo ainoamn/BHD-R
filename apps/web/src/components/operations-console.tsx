@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { CurrencyCode } from '@bhd-r/contracts';
 import { BrandMark } from '@bhd-r/ui';
 import { Link } from '@/i18n/navigation';
-import { browserMutation } from '@/lib/api';
+import { browserMutation, browserApiPath } from '@/lib/api';
 import { formatMoney, toMinorUnits } from '@/lib/format';
 import { invalidateOpsCache } from '@/lib/portal-ops-client-cache';
 import type { PortalRole } from '@/lib/types';
@@ -2008,6 +2008,9 @@ export function OperationsConsole({
   };
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [archiveMode, setArchiveMode] = useState(false);
+  const [archiveRecords, setArchiveRecords] = useState<DataRow[] | null>(null);
+  const [archiveBusy, setArchiveBusy] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -2065,6 +2068,7 @@ export function OperationsConsole({
       vacancyFollowUps.legal +
       vacancyFollowUps.expenses
     : 0;
+  const sourceRecords = section === 'properties' && archiveMode ? (archiveRecords ?? []) : records;
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
     const unitIdsForProperty = propertyFilter
@@ -2074,8 +2078,20 @@ export function OperationsConsole({
             .map((unit) => unit.id),
         )
       : null;
-    return records.filter((row) => {
-      if (statusFilter && safeString(row.status) !== statusFilter) return false;
+    return sourceRecords.filter((row) => {
+      const status = safeString(row.status);
+      if (section === 'properties') {
+        if (archiveMode) {
+          if (status !== 'archived') return false;
+        } else if (statusFilter) {
+          if (status !== statusFilter) return false;
+          if (status === 'archived') return false;
+        } else if (status === 'archived') {
+          return false;
+        }
+      } else if (statusFilter && status !== statusFilter) {
+        return false;
+      }
       if (propertyFilter) {
         const rowPropertyId = safeString(row.propertyId);
         const rowUnitId = safeString(row.unitId);
@@ -2088,7 +2104,16 @@ export function OperationsConsole({
       if (!normalized) return true;
       return JSON.stringify(row).toLocaleLowerCase().includes(normalized);
     });
-  }, [query, records, statusFilter, propertyFilter, context.units, context.vacantUnits]);
+  }, [
+    query,
+    sourceRecords,
+    statusFilter,
+    propertyFilter,
+    context.units,
+    context.vacantUnits,
+    section,
+    archiveMode,
+  ]);
   const openCount = records.filter(
     (row) =>
       ![
@@ -2439,9 +2464,66 @@ export function OperationsConsole({
         </div>
         <div className="ops-header__actions">
           {section === 'properties' ? (
-            <Link className="button button--primary" href={`/${portal}/properties/new`} prefetch>
-              ＋ {ar ? definition.createAr : definition.createEn}
-            </Link>
+            <>
+              <button
+                type="button"
+                className={`button ${archiveMode ? 'button--primary' : 'button--quiet'}`}
+                disabled={archiveBusy}
+                onClick={() => {
+                  if (archiveMode) {
+                    setArchiveMode(false);
+                    setStatusFilter('');
+                    return;
+                  }
+                  setArchiveBusy(true);
+                  void (async () => {
+                    try {
+                      const path =
+                        portal === 'developer'
+                          ? '/v1/developer/projects?view=archive'
+                          : '/v1/owner/properties?view=archive';
+                      const response = await fetch(browserApiPath(path), {
+                        credentials: 'same-origin',
+                        headers: { accept: 'application/json' },
+                        cache: 'no-store',
+                        signal: AbortSignal.timeout(20_000),
+                      });
+                      if (!response.ok) throw new Error('archive_load_failed');
+                      const payload = (await response.json()) as DataRow[] | { items?: DataRow[] };
+                      const rows = Array.isArray(payload)
+                        ? payload
+                        : Array.isArray(payload.items)
+                          ? payload.items
+                          : [];
+                      setArchiveRecords(rows);
+                      setArchiveMode(true);
+                      setStatusFilter('archived');
+                    } catch {
+                      setError(
+                        ar
+                          ? 'تعذر تحميل الأرشيف — تحقق من Nest ثم أعد المحاولة.'
+                          : 'Could not load archive — check Nest and retry.',
+                      );
+                    } finally {
+                      setArchiveBusy(false);
+                    }
+                  })();
+                }}
+              >
+                {archiveMode
+                  ? ar
+                    ? 'العقارات النشطة'
+                    : 'Active properties'
+                  : ar
+                    ? 'الأرشيف'
+                    : 'Archive'}
+              </button>
+              {!archiveMode ? (
+                <Link className="button button--primary" href={`/${portal}/properties/new`} prefetch>
+                  ＋ {ar ? definition.createAr : definition.createEn}
+                </Link>
+              ) : null}
+            </>
           ) : null}
           {section === 'accounting' && !context.ledgerAccounts?.length ? (
             <button

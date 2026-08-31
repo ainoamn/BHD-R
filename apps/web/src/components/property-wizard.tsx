@@ -982,7 +982,8 @@ export function PropertyWizard({
             signal: AbortSignal.timeout(55_000),
           });
 
-        let csrfToken = await fetchBrowserCsrfToken();
+        clearBrowserCsrfCache();
+        let csrfToken = await fetchBrowserCsrfToken(true);
         let editResponse = await patchOnce(csrfToken);
         if (editResponse.status === 403) {
           clearBrowserCsrfCache();
@@ -1050,18 +1051,28 @@ export function PropertyWizard({
       }
 
       let createdProperty: CreatedPropertyBundle;
-      const neonResponse = await fetch('/api/owner/properties', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: {
-          accept: 'application/json',
-          'content-type': 'application/json',
-          'idempotency-key': bundleIdempotencyKey.current,
-          'x-csrf-token': await fetchBrowserCsrfToken(),
-        },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(55_000),
-      });
+      const postOnce = async (csrfToken: string) =>
+        fetch('/api/owner/properties', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            accept: 'application/json',
+            'content-type': 'application/json',
+            'idempotency-key': bundleIdempotencyKey.current,
+            'x-csrf-token': csrfToken,
+          },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(55_000),
+        });
+
+      clearBrowserCsrfCache();
+      let csrfToken = await fetchBrowserCsrfToken(true);
+      let neonResponse = await postOnce(csrfToken);
+      if (neonResponse.status === 403) {
+        clearBrowserCsrfCache();
+        csrfToken = await fetchBrowserCsrfToken(true);
+        neonResponse = await postOnce(csrfToken);
+      }
       if (neonResponse.ok) {
         createdProperty = (await neonResponse.json()) as CreatedPropertyBundle;
       } else {

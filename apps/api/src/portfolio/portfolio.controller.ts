@@ -2,6 +2,7 @@ import {
   Body,
   ConflictException,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -156,6 +157,12 @@ export class PortfolioController {
   @Patch('properties/:id/restore')
   restoreProperty(@Req() request: ApiRequest, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.restoreProperty(request.auth!, id);
+  }
+
+  @RequirePermissions('property.archive')
+  @Delete('properties/:id')
+  purgeProperty(@Req() request: ApiRequest, @Param('id', ParseUUIDPipe) id: string) {
+    return this.service.purgeProperty(request.auth!, id);
   }
 
   @RequirePermissions('property.update', 'unit.create')

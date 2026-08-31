@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Link } from '@/i18n/navigation';
-import { browserMutation } from '@/lib/api';
+import { clearBrowserCsrfCache, fetchBrowserCsrfToken } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import type { ManagedProperty } from '@/components/property-detail-manager';
 
@@ -73,6 +73,38 @@ export function PropertyManageHub({
     return items;
   }, [ar, editHref, property, unpublishedUnits]);
 
+  async function runLifecycle(action: 'archive' | 'restore' | 'purge') {
+    const once = async (csrfToken: string) =>
+      fetch(`/api/owner/properties/${encodeURIComponent(property.id)}/lifecycle`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          accept: 'application/json',
+          'content-type': 'application/json',
+          'x-csrf-token': csrfToken,
+        },
+        body: JSON.stringify({ action }),
+        signal: AbortSignal.timeout(45_000),
+      });
+
+    clearBrowserCsrfCache();
+    let csrfToken = await fetchBrowserCsrfToken(true);
+    let response = await once(csrfToken);
+    if (response.status === 403) {
+      clearBrowserCsrfCache();
+      csrfToken = await fetchBrowserCsrfToken(true);
+      response = await once(csrfToken);
+    }
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as {
+        error?: { message?: string; messageAr?: string };
+      } | null;
+      throw new Error(
+        payload?.error?.messageAr ?? payload?.error?.message ?? 'تعذر تنفيذ الإجراء',
+      );
+    }
+  }
+
   async function archiveOrRestore() {
     const restoring = property.status === 'archived';
     if (
@@ -88,10 +120,31 @@ export function PropertyManageHub({
     setBusy(true);
     setError(null);
     try {
-      await browserMutation(
-        `/v1/portfolio/properties/${property.id}/${restoring ? 'restore' : 'archive'}`,
-        { method: 'PATCH', body: '{}' },
-      );
+      await runLifecycle(restoring ? 'restore' : 'archive');
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'request_failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function purgePermanently() {
+    if (property.status !== 'archived') return;
+    if (
+      !window.confirm(
+        ar
+          ? 'حذف نهائي لا يمكن التراجع عنه. يُسمح فقط للعقارات المؤرشفة بلا عقود. هل تريد المتابعة؟'
+          : 'Permanent delete cannot be undone. Only archived properties without leases are allowed. Continue?',
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await runLifecycle('purge');
+      router.push(`${base}/properties`);
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'request_failed');
@@ -252,6 +305,27 @@ export function PropertyManageHub({
           {property.status === 'archived' ? (ar ? 'استعادة' : 'Restore') : ar ? 'أرشفة' : 'Archive'}
         </button>
       </section>
+
+      {property.status === 'archived' ? (
+        <section className="ops-panel property-danger-zone">
+          <div>
+            <h2>{ar ? 'حذف نهائي' : 'Permanent delete'}</h2>
+            <p>
+              {ar
+                ? 'يزيل العقار ووحداته من النظام. غير متاح إن وُجدت عقود أو ملف إقامة يومية.'
+                : 'Removes the property and its units. Blocked when lease history or a stay profile exists.'}
+            </p>
+          </div>
+          <button
+            className="button button--danger"
+            type="button"
+            disabled={busy}
+            onClick={() => void purgePermanently()}
+          >
+            {ar ? 'حذف نهائي' : 'Delete permanently'}
+          </button>
+        </section>
+      ) : null}
     </div>
   );
 }

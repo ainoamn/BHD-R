@@ -27,49 +27,83 @@ function networkFailureMessage(error: unknown): string {
   return 'request_failed';
 }
 
-let cachedCsrfToken: string | null = null;
-let csrfInflight: Promise<string> | null = null;
+let cachedNextCsrfToken: string | null = null;
+let nextCsrfInflight: Promise<string> | null = null;
+let cachedNestCsrfToken: string | null = null;
+let nestCsrfInflight: Promise<string> | null = null;
 
 export function clearBrowserCsrfCache(): void {
-  cachedCsrfToken = null;
-  csrfInflight = null;
+  cachedNextCsrfToken = null;
+  nextCsrfInflight = null;
+  cachedNestCsrfToken = null;
+  nestCsrfInflight = null;
 }
 
-/** Expose CSRF for same-origin Next Route Handlers (owner media/properties). */
+/**
+ * CSRF for Next Route Handlers (`/api/owner/*`) — minted on Vercel with web CSRF_SECRET.
+ * Do not reuse Nest-minted tokens here when secrets diverge.
+ */
 export async function fetchBrowserCsrfToken(force = false): Promise<string> {
-  return getCsrfToken(force);
+  return getNextCsrfToken(force);
 }
 
-async function getCsrfToken(force = false): Promise<string> {
-  if (!force && cachedCsrfToken) return cachedCsrfToken;
-  if (!force && csrfInflight) return csrfInflight;
-  csrfInflight = (async () => {
-    // Always mint on Next/Vercel first. Nest-issued cookies can fail verification
-    // when CSRF_SECRET differs between Render and Vercel.
+async function getNextCsrfToken(force = false): Promise<string> {
+  if (!force && cachedNextCsrfToken) return cachedNextCsrfToken;
+  if (!force && nextCsrfInflight) return nextCsrfInflight;
+  nextCsrfInflight = (async () => {
+    let response: Response;
     try {
-      const local = await fetch('/api/auth/csrf', {
+      response = await fetch('/api/auth/csrf', {
         credentials: 'same-origin',
         headers: { accept: 'application/json' },
         signal: AbortSignal.timeout(12_000),
         cache: 'no-store',
       });
-      if (local.ok) {
-        const payload = (await local.json()) as { token?: string };
-        if (payload.token && payload.token.length >= 16) {
-          cachedCsrfToken = payload.token;
-          return payload.token;
-        }
-      }
     } catch {
-      /* fall through to Nest */
+      throw new ApiError(
+        0,
+        'network_error',
+        'تعذر إنشاء رمز الحماية. حدّث الصفحة أو سجّل الدخول مجدداً.',
+      );
     }
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as {
+        error?: { code?: string; message?: string; messageAr?: string };
+      } | null;
+      throw new ApiError(
+        response.status,
+        payload?.error?.code ?? 'csrf_unavailable',
+        payload?.error?.messageAr ??
+          payload?.error?.message ??
+          'تعذر إنشاء طلب آمن. سجّل الخروج وادخل مجدداً ثم أعد المحاولة.',
+      );
+    }
+    const payload = (await response.json()) as { token?: string };
+    if (!payload.token || payload.token.length < 16) {
+      throw new ApiError(500, 'csrf_unavailable', 'تعذر إنشاء رمز الحماية.');
+    }
+    cachedNextCsrfToken = payload.token;
+    return payload.token;
+  })();
+  try {
+    return await nextCsrfInflight;
+  } finally {
+    nextCsrfInflight = null;
+  }
+}
 
+/** CSRF for Nest mutations via BFF — minted by Nest `/v1/auth/csrf` (Render CSRF_SECRET). */
+async function getNestCsrfToken(force = false): Promise<string> {
+  if (!force && cachedNestCsrfToken) return cachedNestCsrfToken;
+  if (!force && nestCsrfInflight) return nestCsrfInflight;
+  nestCsrfInflight = (async () => {
     let csrfResponse: Response;
     try {
       csrfResponse = await fetch(browserApiPath('/v1/auth/csrf'), {
         credentials: 'same-origin',
         headers: { accept: 'application/json' },
         signal: AbortSignal.timeout(22_000),
+        cache: 'no-store',
       });
     } catch {
       throw new ApiError(
@@ -94,13 +128,15 @@ async function getCsrfToken(force = false): Promise<string> {
       );
     }
     const csrf = (await csrfResponse.json()) as { token: string };
-    cachedCsrfToken = csrf.token;
+    cachedNestCsrfToken = csrf.token;
+    // Nest Set-Cookie overwrites bhd_r_csrf — drop Next cache so owner writes remint next.
+    cachedNextCsrfToken = null;
     return csrf.token;
   })();
   try {
-    return await csrfInflight;
+    return await nestCsrfInflight;
   } finally {
-    csrfInflight = null;
+    nestCsrfInflight = null;
   }
 }
 
@@ -132,12 +168,22 @@ async function browserMutationOnce<T>(
   }
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as {
-      error?: { code?: string; message?: string; messageAr?: string; requestId?: string };
+      error?: { code?: string; message?: string | string[]; messageAr?: string; requestId?: string };
     } | null;
+    const rawMessage = payload?.error?.message;
+    const messageEn = Array.isArray(rawMessage) ? rawMessage.join(', ') : rawMessage;
+    const csrfish =
+      /csrf/i.test(`${payload?.error?.code ?? ''} ${messageEn ?? ''}`) ||
+      payload?.error?.code === 'csrf_rejected';
     throw new ApiError(
       response.status,
-      payload?.error?.code ?? 'api_error',
-      payload?.error?.messageAr ?? payload?.error?.message ?? 'Request failed',
+      payload?.error?.code ?? (csrfish ? 'csrf_rejected' : 'api_error'),
+      payload?.error?.messageAr ??
+        (csrfish
+          ? 'رمز الحماية مرفوض — حدّث الصفحة وأعد المحاولة'
+          : messageEn && messageEn !== 'Request failed'
+            ? messageEn
+            : 'تعذر إكمال الطلب. أعد المحاولة أو تحقق من Nest.'),
       payload?.error?.requestId,
     );
   }
@@ -146,7 +192,7 @@ async function browserMutationOnce<T>(
 }
 
 export async function browserMutation<T>(path: string, init: RequestInit): Promise<T> {
-  const token = await getCsrfToken();
+  const token = await getNestCsrfToken();
   try {
     return await browserMutationOnce<T>(path, init, token);
   } catch (error) {
@@ -156,7 +202,7 @@ export async function browserMutation<T>(path: string, init: RequestInit): Promi
       /csrf/i.test(`${error.code} ${error.message}`)
     ) {
       clearBrowserCsrfCache();
-      const fresh = await getCsrfToken(true);
+      const fresh = await getNestCsrfToken(true);
       return browserMutationOnce<T>(path, init, fresh);
     }
     throw error;
