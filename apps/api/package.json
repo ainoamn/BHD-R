@@ -15,8 +15,8 @@
     "clean": "rimraf dist coverage"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.943.0",
-    "@aws-sdk/s3-request-presigner": "^3.943.0",
+    "@aws-sdk/client-s3": "^3.1120.0",
+    "@aws-sdk/s3-request-presigner": "^3.1120.0",
     "@bhd-r/authz": "workspace:*",
     "@bhd-r/config": "workspace:*",
     "@bhd-r/contracts": "workspace:*",

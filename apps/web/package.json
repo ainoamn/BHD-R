@@ -17,7 +17,7 @@
     "clean": "rimraf .next coverage playwright-report test-results"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1116.0",
+    "@aws-sdk/client-s3": "^3.1120.0",
     "@bhd-r/authz": "workspace:*",
     "@bhd-r/config": "workspace:*",
     "@bhd-r/contracts": "workspace:*",
@@ -29,24 +29,24 @@
     "drizzle-orm": "^0.45.1",
     "jose": "^6.1.3",
     "leaflet": "1.9.4",
-    "next": "^16.3.0",
-    "next-intl": "^4.8.3",
+    "next": "^16.3.3",
+    "next-intl": "^4.14.1",
     "postgres": "^3.4.7",
     "qrcode": "1.5.4",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "sharp": "^0.35.3",
+    "sharp": "^0.35.4",
     "zod": "^4.1.13"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4.1.18",
     "@testing-library/jest-dom": "^7.0.1",
-    "@testing-library/react": "^16.3.1",
+    "@testing-library/react": "^16.3.3",
     "@types/leaflet": "1.9.22",
     "@types/qrcode": "1.5.6",
     "@types/react": "^19.2.7",
-    "@types/react-dom": "^19.2.3",
+    "@types/react-dom": "^19.2.5",
     "jsdom": "^27.3.0",
     "tailwindcss": "^4.1.18"
   }
