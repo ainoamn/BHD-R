@@ -6,6 +6,8 @@ import { getMessages, setRequestLocale } from 'next-intl/server';
 import { isAppLocale, localeConfig, locales } from '@bhd-r/i18n';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
+import { MarketingRoutePrefetch } from '@/components/marketing-route-prefetch';
+import { NavigationProgress } from '@/components/navigation-progress';
 import { IBM_Plex_Sans, IBM_Plex_Sans_Arabic } from 'next/font/google';
 import '../globals.css';
 import '../portal-adaptive.css';
@@ -106,6 +108,8 @@ export default async function LocaleLayout({
           {locale === 'ar' ? 'انتقل إلى المحتوى' : 'Skip to content'}
         </a>
         <NextIntlClientProvider messages={messages}>
+          <NavigationProgress />
+          <MarketingRoutePrefetch />
           <SiteHeader />
           <main id="main-content">{children}</main>
           <SiteFooter />

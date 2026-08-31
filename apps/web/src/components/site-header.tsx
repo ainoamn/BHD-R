@@ -67,6 +67,7 @@ export function SiteHeader() {
         <Link
           href="/"
           className="brand-link"
+          scroll={false}
           aria-label={`${t('Brand.name')} — ${t('Common.home')}`}
         >
           <Logo descriptor={t('Brand.descriptor')} />
@@ -86,13 +87,13 @@ export function SiteHeader() {
           className={open ? 'main-nav main-nav--open' : 'main-nav'}
           aria-label={t('Common.home')}
         >
-          <Link href="/properties" prefetch onClick={() => setOpen(false)}>
+          <Link href="/properties" prefetch scroll={false} onClick={() => setOpen(false)}>
             {t('Nav.available')}
           </Link>
           <Link href="/#how-it-works" onClick={() => setOpen(false)}>
             {t('Nav.howItWorks')}
           </Link>
-          <Link href="/trust" prefetch onClick={() => setOpen(false)}>
+          <Link href="/trust" prefetch scroll={false} onClick={() => setOpen(false)}>
             {t('Nav.trust')}
           </Link>
           <Link

@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.3.3 — 2026-08-31
+
+- Public site soft nav: background prefetch of marketing shells + light catalogue detail URLs on first open; remove `/properties` loading flash.
+- Docs: `RELEASE-0.3.3-AR.md`.
+
 ## 0.3.2 — 2026-08-31
 
 - Stop 3s flash of false «أعد تسجيل الدخول» banner: optimistic empty payload, suppress status until hydrated, Nest-asleep offline no longer marks apiOnline false.
