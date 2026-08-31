@@ -107,6 +107,44 @@ export const staySearchQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
+export const createStayQuoteSchema = z
+  .object({
+    checkInOn: z.iso.date(),
+    checkOutOn: z.iso.date(),
+    adults: z.coerce.number().int().min(1).max(50).default(1),
+    children: z.coerce.number().int().min(0).max(50).default(0),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.checkOutOn <= value.checkInOn) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'checkOutOn must be after checkInOn',
+        path: ['checkOutOn'],
+      });
+    }
+  });
+
+export const createStayHoldSchema = z
+  .object({
+    quoteId: uuidSchema,
+  })
+  .strict();
+
+export const createStayBookingSchema = z
+  .object({
+    holdId: uuidSchema,
+    guestDisplayName: z.string().trim().min(2).max(160).optional(),
+  })
+  .strict();
+
+export const stayAvailabilityQuerySchema = z.object({
+  checkInOn: z.iso.date(),
+  checkOutOn: z.iso.date(),
+  adults: z.coerce.number().int().min(1).max(50).default(1),
+  children: z.coerce.number().int().min(0).max(50).default(0),
+});
+
 /** Public search card — safe for marketing surfaces. */
 export const staySearchListingSchema = z.object({
   slug: z.string().min(1).max(180),
@@ -147,3 +185,7 @@ export type StaySearchQuery = z.infer<typeof staySearchQuerySchema>;
 export type StaySearchListing = z.infer<typeof staySearchListingSchema>;
 export type StaySearchResponse = z.infer<typeof staySearchResponseSchema>;
 export type StayPublicDetail = z.infer<typeof stayPublicDetailSchema>;
+export type CreateStayQuoteInput = z.infer<typeof createStayQuoteSchema>;
+export type CreateStayHoldInput = z.infer<typeof createStayHoldSchema>;
+export type CreateStayBookingInput = z.infer<typeof createStayBookingSchema>;
+export type StayAvailabilityQuery = z.infer<typeof stayAvailabilityQuerySchema>;

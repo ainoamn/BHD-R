@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.4 — 2026-08-31
+
+- Public stays guest path: availability, quote, hold (Idempotency-Key + GiST lock), booking + folio + payment intent.
+- Contracts for create quote/hold/booking and availability query; hold converts on booking create.
+- Docs: `RELEASE-0.4.4-AR.md`.
+
 ## 0.4.3 — 2026-08-31
 
 - Public stays search/detail read `stay_inventory_days` projection (date-range availability) with optional Redis TTL cache (45s).

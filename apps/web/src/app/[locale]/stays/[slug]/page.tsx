@@ -72,6 +72,11 @@ export default async function Page({
 
       <div className="stays-public__book-shell">
         <h2>{t('searchTitle')}</h2>
+        <p className="muted">
+          {ar
+            ? 'التسعير والحجز المؤقت والدفع عبر واجهة Nest (عرض سعر → حجز مؤقت → نية دفع). الواجهة التفاعلية تُفعَّل مع الطيار.'
+            : 'Quote → hold → payment intent is live on Nest. Interactive checkout unlocks with the pilot flag.'}
+        </p>
         <StaySearch locale={locale} compact />
       </div>
     </div>

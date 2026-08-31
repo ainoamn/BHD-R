@@ -130,4 +130,40 @@ describe('API runtime boundaries (Express)', () => {
     const response = await fetch(`${baseUrl}/v1/public/stays/search?locale=ar&adults=1`);
     expect(response.status).toBe(404);
   });
+
+  it('hides public stay quote/hold/booking while the platform flag is off', async () => {
+    const headers = {
+      'content-type': 'application/json',
+      'idempotency-key': 'e2e-stays-quote-hold-pay-01',
+    };
+    const quote = await fetch(`${baseUrl}/v1/public/stays/demo-listing/quotes`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        checkInOn: '2030-01-10',
+        checkOutOn: '2030-01-12',
+        adults: 1,
+      }),
+    });
+    expect(quote.status).toBe(404);
+
+    const availability = await fetch(
+      `${baseUrl}/v1/public/stays/demo-listing/availability?checkInOn=2030-01-10&checkOutOn=2030-01-12&adults=1`,
+    );
+    expect(availability.status).toBe(404);
+
+    const hold = await fetch(`${baseUrl}/v1/public/stays/holds`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ quoteId: '00000000-0000-4000-8000-000000000099' }),
+    });
+    expect(hold.status).toBe(404);
+
+    const booking = await fetch(`${baseUrl}/v1/public/stays/bookings`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ holdId: '00000000-0000-4000-8000-000000000098' }),
+    });
+    expect(booking.status).toBe(404);
+  });
 });

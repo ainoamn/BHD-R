@@ -1,17 +1,62 @@
+import { createHash, randomBytes } from 'node:crypto';
 import {
   ConflictException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { and, eq } from 'drizzle-orm';
-import { outboxEvents, stayBookingStatusHistory, stayBookings, workflowEvents } from '@bhd-r/db';
+import { and, eq, sql } from 'drizzle-orm';
+import {
+  outboxEvents,
+  stayBookingGuests,
+  stayBookingStatusHistory,
+  stayBookings,
+  stayFolios,
+  stayHolds,
+  stayPaymentIntents,
+  stayQuotes,
+  workflowEvents,
+} from '@bhd-r/db';
+import { resolveStaysEnabledFromEnv } from '@bhd-r/config';
+import type {
+  CreateStayBookingInput,
+  CreateStayHoldInput,
+  CreateStayQuoteInput,
+  StayAvailabilityQuery,
+} from '@bhd-r/contracts';
 import {
   assertStayBookingTransition,
+  nightsBetween,
+  quoteStay,
+  stayRangeFullyAvailable,
   type StayBookingStatus,
+  type SupportedCurrency,
 } from '@bhd-r/domain';
 import type { SessionClaims } from '@bhd-r/authz';
-import { DatabaseService } from '../database/database.service.js';
+import { DatabaseService, type DatabaseTransaction } from '../database/database.service.js';
+import { StaysInventoryService } from './stays-inventory.service.js';
+
+const QUOTE_TTL_MS = 30 * 60_000;
+const HOLD_TTL_MS = 15 * 60_000;
+
+type ListingContext = {
+  organizationId: string;
+  propertyId: string;
+  unitTypeId: string;
+  unitId: string;
+  stayProfileId: string;
+  slug: string;
+  instantBook: boolean;
+  currency: SupportedCurrency;
+  minorUnit: number;
+  maxGuests: number;
+  minNights: number;
+  maxNights: number;
+  timezone: string;
+  baseNightlyMinor: string;
+  weekendNightlyMinor: string | null;
+  cleaningFeeMinor: string | null;
+};
 
 /**
  * Phase 5+ — quote → hold → pay → confirm → stay → checkout.
@@ -21,7 +66,10 @@ import { DatabaseService } from '../database/database.service.js';
 export class StaysBookingService {
   private readonly logger = new Logger(StaysBookingService.name);
 
-  constructor(private readonly database: DatabaseService) {}
+  constructor(
+    private readonly database: DatabaseService,
+    private readonly inventory: StaysInventoryService,
+  ) {}
 
   assertTransition(from: StayBookingStatus, to: StayBookingStatus): void {
     const result = assertStayBookingTransition(from, to);
@@ -37,9 +85,416 @@ export class StaysBookingService {
     };
   }
 
-  /**
-   * Ops checkout: checked_in → checked_out, emits stay.checked_out for housekeeping projector.
-   */
+  async getAvailability(slug: string, query: StayAvailabilityQuery) {
+    const ctx = await this.resolveListingContext(slug);
+    this.assertOrgEnabled(ctx.organizationId);
+    const guests = query.adults + query.children;
+    if (guests > ctx.maxGuests) {
+      return { available: false, reason: 'guests_exceed_max' as const };
+    }
+    const nights = nightsBetween({
+      checkInOn: query.checkInOn,
+      checkOutOn: query.checkOutOn,
+    });
+    if (nights < ctx.minNights || nights > ctx.maxNights) {
+      return { available: false, reason: 'nights_out_of_range' as const, nights };
+    }
+    const available = await this.isRangeAvailable(
+      ctx.organizationId,
+      ctx.unitId,
+      query.checkInOn,
+      query.checkOutOn,
+    );
+    return { available, nights, unitId: ctx.unitId, currency: ctx.currency };
+  }
+
+  async createQuote(slug: string, input: CreateStayQuoteInput) {
+    const ctx = await this.resolveListingContext(slug);
+    this.assertOrgEnabled(ctx.organizationId);
+    const guests = input.adults + input.children;
+    if (guests > ctx.maxGuests) {
+      throw new ConflictException('Guest count exceeds unit maximum');
+    }
+    const nights = nightsBetween({
+      checkInOn: input.checkInOn,
+      checkOutOn: input.checkOutOn,
+    });
+    if (nights < ctx.minNights || nights > ctx.maxNights) {
+      throw new ConflictException('Stay length is outside profile min/max nights');
+    }
+    const available = await this.isRangeAvailable(
+      ctx.organizationId,
+      ctx.unitId,
+      input.checkInOn,
+      input.checkOutOn,
+    );
+    if (!available) throw new ConflictException('Selected dates are not available');
+
+    const priced = quoteStay({
+      currency: ctx.currency,
+      checkInOn: input.checkInOn,
+      checkOutOn: input.checkOutOn,
+      baseNightlyMinor: ctx.baseNightlyMinor,
+      weekendNightlyMinor: ctx.weekendNightlyMinor,
+      cleaningFeeMinor: ctx.cleaningFeeMinor,
+    });
+
+    const payloadHash = createHash('sha256')
+      .update(
+        JSON.stringify({
+          unitId: ctx.unitId,
+          checkInOn: input.checkInOn,
+          checkOutOn: input.checkOutOn,
+          adults: input.adults,
+          children: input.children,
+          totalMinor: priced.totalMinor,
+        }),
+      )
+      .digest('hex');
+
+    const expiresAt = new Date(Date.now() + QUOTE_TTL_MS);
+
+    return this.database.asPublic(async (transaction) => {
+      const [quote] = await transaction
+        .insert(stayQuotes)
+        .values({
+          organizationId: ctx.organizationId,
+          stayProfileId: ctx.stayProfileId,
+          unitId: ctx.unitId,
+          checkInOn: input.checkInOn,
+          checkOutOn: input.checkOutOn,
+          nights: priced.nights,
+          adults: input.adults,
+          children: input.children,
+          currency: priced.currency,
+          minorUnit: priced.minorUnit,
+          subtotalMinor: BigInt(priced.subtotalMinor),
+          feesMinor: BigInt(priced.cleaningFeeMinor),
+          taxMinor: 0n,
+          totalMinor: BigInt(priced.totalMinor),
+          lineItemsJson: priced.nightLines,
+          feesSnapshotJson: [
+            {
+              code: 'cleaning',
+              amountMinor: priced.cleaningFeeMinor,
+            },
+          ],
+          payloadHash,
+          expiresAt,
+        })
+        .returning();
+
+      await transaction.insert(outboxEvents).values({
+        organizationId: ctx.organizationId,
+        topic: 'stay.quote.created',
+        aggregateType: 'stay_quote',
+        aggregateId: quote!.id,
+        payload: {
+          slug,
+          unitId: ctx.unitId,
+          checkInOn: input.checkInOn,
+          checkOutOn: input.checkOutOn,
+          totalMinor: priced.totalMinor,
+          currency: priced.currency,
+        },
+      });
+
+      return {
+        id: quote!.id,
+        organizationId: ctx.organizationId,
+        stayProfileId: ctx.stayProfileId,
+        unitId: ctx.unitId,
+        checkInOn: input.checkInOn,
+        checkOutOn: input.checkOutOn,
+        nights: priced.nights,
+        adults: input.adults,
+        children: input.children,
+        currency: priced.currency,
+        minorUnit: priced.minorUnit,
+        subtotalMinor: priced.subtotalMinor,
+        feesMinor: priced.cleaningFeeMinor,
+        taxMinor: '0',
+        totalMinor: priced.totalMinor,
+        expiresAt: expiresAt.toISOString(),
+        payloadHash,
+      };
+    });
+  }
+
+  async createHold(input: CreateStayHoldInput, idempotencyKey: string) {
+    return this.database.asPublic(async (transaction) => {
+      const existing = await transaction.query.stayHolds.findFirst({
+        where: and(
+          eq(stayHolds.idempotencyKey, idempotencyKey),
+          eq(stayHolds.quoteId, input.quoteId),
+        ),
+      });
+      if (existing) {
+        return {
+          id: existing.id,
+          quoteId: existing.quoteId,
+          inventoryLockId: existing.inventoryLockId,
+          status: existing.status,
+          expiresAt: existing.expiresAt.toISOString(),
+          duplicate: true as const,
+        };
+      }
+
+      const quote = await transaction.query.stayQuotes.findFirst({
+        where: eq(stayQuotes.id, input.quoteId),
+      });
+      if (!quote) throw new NotFoundException('Stay quote not found');
+      this.assertOrgEnabled(quote.organizationId);
+      if (quote.expiresAt.getTime() <= Date.now()) {
+        throw new ConflictException('Stay quote has expired');
+      }
+
+      const available = await this.isRangeAvailableInTransaction(
+        transaction,
+        quote.organizationId,
+        quote.unitId,
+        quote.checkInOn,
+        quote.checkOutOn,
+      );
+      if (!available) throw new ConflictException('Selected dates are no longer available');
+
+      const expiresAt = new Date(Date.now() + HOLD_TTL_MS);
+      const lock = await this.inventory.createLockInTransaction(transaction, {
+        organizationId: quote.organizationId,
+        unitId: quote.unitId,
+        checkInOn: quote.checkInOn,
+        checkOutOn: quote.checkOutOn,
+        kind: 'hold',
+        expiresAt,
+        sourceType: 'stay_quote',
+        sourceId: quote.id,
+        note: 'Public stay hold',
+      });
+
+      const [hold] = await transaction
+        .insert(stayHolds)
+        .values({
+          organizationId: quote.organizationId,
+          quoteId: quote.id,
+          inventoryLockId: lock.id,
+          status: 'active',
+          expiresAt,
+          idempotencyKey,
+        })
+        .returning();
+
+      await transaction.insert(outboxEvents).values({
+        organizationId: quote.organizationId,
+        topic: 'stay.hold.created',
+        aggregateType: 'stay_hold',
+        aggregateId: hold!.id,
+        payload: {
+          quoteId: quote.id,
+          unitId: quote.unitId,
+          inventoryLockId: lock.id,
+          expiresAt: expiresAt.toISOString(),
+        },
+      });
+
+      return {
+        id: hold!.id,
+        quoteId: quote.id,
+        inventoryLockId: lock.id,
+        status: 'active' as const,
+        expiresAt: expiresAt.toISOString(),
+        duplicate: false as const,
+      };
+    });
+  }
+
+  async createBookingFromHold(input: CreateStayBookingInput, idempotencyKey: string) {
+    return this.database.asPublic(async (transaction) => {
+      const hold = await transaction.query.stayHolds.findFirst({
+        where: eq(stayHolds.id, input.holdId),
+      });
+      if (!hold) throw new NotFoundException('Stay hold not found');
+      this.assertOrgEnabled(hold.organizationId);
+      if (hold.status !== 'active' || hold.expiresAt.getTime() <= Date.now()) {
+        throw new ConflictException('Stay hold is not active');
+      }
+
+      const existingIntent = await transaction.query.stayPaymentIntents.findFirst({
+        where: and(
+          eq(stayPaymentIntents.organizationId, hold.organizationId),
+          eq(stayPaymentIntents.idempotencyKey, idempotencyKey),
+        ),
+      });
+      if (existingIntent) {
+        const booking = await transaction.query.stayBookings.findFirst({
+          where: eq(stayBookings.id, existingIntent.bookingId),
+        });
+        if (!booking) throw new ConflictException('Booking missing for payment intent');
+        return {
+          bookingId: booking.id,
+          referenceCode: booking.referenceCode,
+          status: booking.status,
+          paymentIntentId: existingIntent.id,
+          amountMinor: existingIntent.amountMinor.toString(),
+          currency: existingIntent.currency,
+          duplicate: true as const,
+        };
+      }
+
+      const quote = await transaction.query.stayQuotes.findFirst({
+        where: eq(stayQuotes.id, hold.quoteId),
+      });
+      if (!quote) throw new NotFoundException('Stay quote not found');
+
+      const profile = await transaction.execute(sql`
+        SELECT
+          sut.property_id,
+          sp.unit_type_id,
+          sp.instant_book,
+          sp.timezone
+        FROM stay_profiles sp
+        INNER JOIN stay_unit_types sut ON sut.id = sp.unit_type_id
+        WHERE sp.id = ${quote.stayProfileId}::uuid
+        LIMIT 1
+      `);
+      const profileRows = Array.isArray(profile)
+        ? profile
+        : ((profile as { rows?: unknown[] }).rows ?? []);
+      const profileRow = profileRows[0] as
+        | {
+            property_id: string;
+            unit_type_id: string;
+            instant_book: boolean;
+            timezone: string;
+          }
+        | undefined;
+      if (!profileRow) throw new NotFoundException('Stay profile not found');
+
+      const bookingMode = profileRow.instant_book ? 'instant' : 'request';
+      const status: StayBookingStatus =
+        bookingMode === 'instant' ? 'payment_pending' : 'request_pending';
+      const referenceCode = `ST-${randomBytes(4).toString('hex').toUpperCase()}`;
+
+      const [booking] = await transaction
+        .insert(stayBookings)
+        .values({
+          organizationId: hold.organizationId,
+          propertyId: profileRow.property_id,
+          unitTypeId: profileRow.unit_type_id,
+          unitId: quote.unitId,
+          stayProfileId: quote.stayProfileId,
+          referenceCode,
+          checkInOn: quote.checkInOn,
+          checkOutOn: quote.checkOutOn,
+          timezone: profileRow.timezone,
+          status,
+          bookingMode,
+          source: 'direct',
+          quoteId: quote.id,
+          holdId: hold.id,
+          inventoryLockId: hold.inventoryLockId,
+          currency: quote.currency,
+          minorUnit: quote.minorUnit,
+          subtotalMinor: quote.subtotalMinor,
+          feesMinor: quote.feesMinor,
+          taxMinor: quote.taxMinor,
+          totalMinor: quote.totalMinor,
+          pricingSnapshotJson: {
+            lineItems: quote.lineItemsJson,
+            fees: quote.feesSnapshotJson,
+          },
+        })
+        .returning();
+
+      if (input.guestDisplayName) {
+        await transaction.insert(stayBookingGuests).values({
+          organizationId: hold.organizationId,
+          bookingId: booking!.id,
+          isPrimary: true,
+          displayName: input.guestDisplayName,
+          guestType: 'adult',
+        });
+      }
+
+      await transaction.insert(stayBookingStatusHistory).values({
+        organizationId: hold.organizationId,
+        bookingId: booking!.id,
+        fromStatus: null,
+        toStatus: status,
+        reason: 'public_booking_created',
+      });
+
+      const [folio] = await transaction
+        .insert(stayFolios)
+        .values({
+          organizationId: hold.organizationId,
+          bookingId: booking!.id,
+          status: 'open',
+          currency: quote.currency,
+          balanceMinor: quote.totalMinor,
+        })
+        .returning();
+
+      const [intent] = await transaction
+        .insert(stayPaymentIntents)
+        .values({
+          organizationId: hold.organizationId,
+          bookingId: booking!.id,
+          folioId: folio!.id,
+          status: 'pending',
+          amountMinor: quote.totalMinor,
+          currency: quote.currency,
+          idempotencyKey,
+        })
+        .returning();
+
+      await transaction
+        .update(stayHolds)
+        .set({ status: 'converted', updatedAt: new Date() })
+        .where(
+          and(
+            eq(stayHolds.id, hold.id),
+            eq(stayHolds.organizationId, hold.organizationId),
+            eq(stayHolds.status, 'active'),
+          ),
+        );
+
+      await transaction.insert(workflowEvents).values({
+        organizationId: hold.organizationId,
+        actorUserId: null,
+        resourceType: 'stay_booking',
+        resourceId: booking!.id,
+        eventType: 'stay.booking.requested',
+        fromStatus: null,
+        toStatus: status,
+      });
+
+      await transaction.insert(outboxEvents).values({
+        organizationId: hold.organizationId,
+        topic: 'stay.booking.requested',
+        aggregateType: 'stay_booking',
+        aggregateId: booking!.id,
+        payload: {
+          holdId: hold.id,
+          paymentIntentId: intent!.id,
+          unitId: quote.unitId,
+          totalMinor: quote.totalMinor.toString(),
+          currency: quote.currency,
+          status,
+        },
+      });
+
+      return {
+        bookingId: booking!.id,
+        referenceCode: booking!.referenceCode,
+        status: booking!.status,
+        paymentIntentId: intent!.id,
+        amountMinor: intent!.amountMinor.toString(),
+        currency: intent!.currency,
+        duplicate: false as const,
+      };
+    });
+  }
+
   async checkOut(claims: SessionClaims, bookingId: string) {
     const organizationId = claims.organizationId;
     if (!organizationId) throw new ConflictException('Organization context required');
@@ -102,5 +557,169 @@ export class StaysBookingService {
       this.logger.log(`Stay booking ${booking.id} checked out`);
       return { id: booking.id, status: 'checked_out' as const, duplicate: false };
     });
+  }
+
+  private assertOrgEnabled(organizationId: string): void {
+    const resolution = resolveStaysEnabledFromEnv({
+      organizationId,
+      propertyEnabled: true,
+      unitEnabled: true,
+    });
+    if (!resolution.enabled) {
+      throw new NotFoundException();
+    }
+  }
+
+  private async resolveListingContext(slug: string): Promise<ListingContext> {
+    const rows = await this.database.asPublic(async (transaction) => {
+      const result = await transaction.execute(sql`
+        SELECT
+          spl.organization_id,
+          spl.property_id,
+          spl.unit_type_id,
+          spl.slug,
+          sp.id AS stay_profile_id,
+          sp.unit_id,
+          sp.instant_book,
+          sp.currency,
+          sp.minor_unit,
+          sp.max_guests,
+          sp.min_nights,
+          sp.max_nights,
+          sp.timezone,
+          (
+            SELECT srp.base_nightly_minor::text
+            FROM stay_rate_plans srp
+            WHERE srp.stay_profile_id = sp.id
+              AND srp.enabled = true
+            ORDER BY srp.priority ASC, srp.created_at ASC
+            LIMIT 1
+          ) AS base_nightly_minor,
+          (
+            SELECT srp.weekend_nightly_minor::text
+            FROM stay_rate_plans srp
+            WHERE srp.stay_profile_id = sp.id
+              AND srp.enabled = true
+            ORDER BY srp.priority ASC, srp.created_at ASC
+            LIMIT 1
+          ) AS weekend_nightly_minor,
+          (
+            SELECT sf.amount_minor::text
+            FROM stay_fees sf
+            WHERE sf.stay_profile_id = sp.id
+              AND sf.enabled = true
+              AND sf.fee_kind = 'cleaning'
+            ORDER BY sf.created_at ASC
+            LIMIT 1
+          ) AS cleaning_fee_minor
+        FROM stay_public_listings spl
+        INNER JOIN stay_profiles sp
+          ON sp.unit_type_id = spl.unit_type_id
+         AND sp.organization_id = spl.organization_id
+         AND sp.enabled = true
+         AND sp.publish_status = 'published'
+        WHERE spl.slug = ${slug}
+          AND spl.enabled = true
+          AND spl.published_at IS NOT NULL
+        ORDER BY sp.updated_at DESC
+        LIMIT 1
+      `);
+      return Array.isArray(result) ? result : ((result as { rows?: unknown[] }).rows ?? []);
+    });
+
+    const row = rows[0] as
+      | {
+          organization_id: string;
+          property_id: string;
+          unit_type_id: string;
+          slug: string;
+          stay_profile_id: string;
+          unit_id: string;
+          instant_book: boolean;
+          currency: string;
+          minor_unit: number;
+          max_guests: number;
+          min_nights: number;
+          max_nights: number;
+          timezone: string;
+          base_nightly_minor: string | null;
+          weekend_nightly_minor: string | null;
+          cleaning_fee_minor: string | null;
+        }
+      | undefined;
+    if (!row?.base_nightly_minor) throw new NotFoundException('Stay listing not found');
+
+    return {
+      organizationId: row.organization_id,
+      propertyId: row.property_id,
+      unitTypeId: row.unit_type_id,
+      unitId: row.unit_id,
+      stayProfileId: row.stay_profile_id,
+      slug: row.slug,
+      instantBook: row.instant_book,
+      currency: row.currency as SupportedCurrency,
+      minorUnit: row.minor_unit,
+      maxGuests: row.max_guests,
+      minNights: row.min_nights,
+      maxNights: row.max_nights,
+      timezone: row.timezone,
+      baseNightlyMinor: row.base_nightly_minor,
+      weekendNightlyMinor: row.weekend_nightly_minor,
+      cleaningFeeMinor: row.cleaning_fee_minor,
+    };
+  }
+
+  private async isRangeAvailable(
+    organizationId: string,
+    unitId: string,
+    checkInOn: string,
+    checkOutOn: string,
+  ): Promise<boolean> {
+    return this.database.asPublic((transaction) =>
+      this.isRangeAvailableInTransaction(transaction, organizationId, unitId, checkInOn, checkOutOn),
+    );
+  }
+
+  private async isRangeAvailableInTransaction(
+    transaction: DatabaseTransaction,
+    organizationId: string,
+    unitId: string,
+    checkInOn: string,
+    checkOutOn: string,
+  ): Promise<boolean> {
+    const days = await transaction.execute(sql<{
+      stay_date: string;
+      availability_status: string;
+    }>`
+      SELECT stay_date::text AS stay_date, availability_status
+      FROM stay_inventory_days
+      WHERE organization_id = ${organizationId}::uuid
+        AND unit_id = ${unitId}::uuid
+        AND stay_date >= ${checkInOn}::date
+        AND stay_date < ${checkOutOn}::date
+      ORDER BY stay_date
+    `);
+    const rows = Array.isArray(days) ? days : ((days as { rows?: unknown[] }).rows ?? []);
+    const mapped = rows.map((row) => {
+      const item = row as { stay_date: string; availability_status: string };
+      return { stayDate: item.stay_date, availabilityStatus: item.availability_status };
+    });
+    if (mapped.length > 0) {
+      return stayRangeFullyAvailable(mapped, { checkInOn, checkOutOn });
+    }
+
+    // No projection yet: fall back to active locks overlap check.
+    const conflicts = await transaction.execute(sql<{ count: string }>`
+      SELECT count(*)::text AS count
+      FROM stay_inventory_locks
+      WHERE organization_id = ${organizationId}::uuid
+        AND unit_id = ${unitId}::uuid
+        AND status = 'active'
+        AND stay_range && daterange(${checkInOn}::date, ${checkOutOn}::date, '[)')
+    `);
+    const conflictRows = Array.isArray(conflicts)
+      ? conflicts
+      : ((conflicts as { rows?: Array<{ count: string }> }).rows ?? []);
+    return (conflictRows[0]?.count ?? '0') === '0';
   }
 }

@@ -37,10 +37,15 @@
 
 ## Honest gaps (continue Expand–Contract)
 
-- Full quote/hold/pay guest E2E against a pilot org with flags on.
+- Guest interactive checkout UI (Nest quote/hold/pay intent shipped in **0.4.4**; flag-off 404).
 - Reports Occupancy/ADR/RevPAR UI for stays.
 - iCal/OTA after SSRF controls.
 - Full-repo `pnpm check` still has unrelated ESLint debt in api/web.
+
+## 0.4.4 quote → hold → pay
+
+- Flag off → `POST .../quotes`, `POST .../holds`, `POST .../bookings`, `GET .../availability` return **404**.
+- Flag on → quote prices via `quoteStay`; hold takes GiST lock; booking creates folio + `stay_payment_intents`; confirm via webhook `stay_booking`.
 
 ## 0.4.3 public search
 
