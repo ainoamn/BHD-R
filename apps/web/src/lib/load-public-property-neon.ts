@@ -5,6 +5,7 @@ import {
   createDatabase,
   listings,
   mediaAssets,
+  parties,
   properties,
   propertyAmenities,
   propertyProfiles,
@@ -75,7 +76,7 @@ export async function loadPublicPropertyShowcaseFromNeon(
     }
     if (!property) return null;
 
-    const [address, profile, amenities, unitRows, coords] = await Promise.all([
+    const [address, profile, amenities, unitRows, coords, ownerParty] = await Promise.all([
       transaction.query.addresses.findFirst({ where: eq(addresses.id, property.addressId) }),
       transaction.query.propertyProfiles.findFirst({
         where: eq(propertyProfiles.propertyId, property.id),
@@ -122,6 +123,9 @@ export async function loadPublicPropertyShowcaseFromNeon(
           from addresses
           where id = ${property.addressId}
         `),
+      property.ownerPartyId
+        ? transaction.query.parties.findFirst({ where: eq(parties.id, property.ownerPartyId) })
+        : Promise.resolve(null),
     ]);
 
     const coordRow = (Array.isArray(coords) ? coords[0] : null) as
@@ -188,10 +192,25 @@ export async function loadPublicPropertyShowcaseFromNeon(
       defaultCurrency: property.defaultCurrency as CurrencyCode,
       status: property.status,
       serialNumber: property.serialNumber,
+      organizationId: property.organizationId,
+      ownerPartyId: property.ownerPartyId,
+      ownerPartyName: ownerParty?.displayName ?? null,
       mapsUrl,
       latitude,
       longitude,
-      profile: null,
+      profile: profile
+        ? {
+            furnishing:
+              profile.furnishing === 'furnished' ||
+              profile.furnishing === 'semi_furnished' ||
+              profile.furnishing === 'unfurnished'
+                ? profile.furnishing
+                : 'unfurnished',
+            parkingSpaces: profile.parkingSpaces,
+            yearBuilt: profile.yearBuilt,
+            notes: null,
+          }
+        : null,
       address: address
         ? {
             countryCode: address.countryCode,

@@ -2126,3 +2126,42 @@ export const cheques = pgTable(
     index('cheques_due_idx').on(table.organizationId, table.dueOn),
   ],
 );
+
+export const reviewTargetType = pgEnum('review_target_type', [
+  'property',
+  'party',
+  'organization',
+]);
+
+export const reviewStatus = pgEnum('review_status', ['published', 'hidden']);
+
+export const reviews = pgTable(
+  'reviews',
+  {
+    ...identityColumns,
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    authorUserId: uuid('author_user_id')
+      .notNull()
+      .references(() => users.id),
+    authorPartyId: uuid('author_party_id').references(() => parties.id),
+    targetType: reviewTargetType('target_type').notNull(),
+    targetId: uuid('target_id').notNull(),
+    rating: integer('rating').notNull(),
+    body: text('body'),
+    verifiedStay: boolean('verified_stay').notNull().default(false),
+    verifiedRole: varchar('verified_role', { length: 32 }),
+    status: reviewStatus('status').notNull().default('published'),
+  },
+  (table) => [
+    uniqueIndex('reviews_author_target_unique').on(
+      table.authorUserId,
+      table.targetType,
+      table.targetId,
+    ),
+    index('reviews_target_idx').on(table.targetType, table.targetId, table.status),
+    index('reviews_org_idx').on(table.organizationId),
+    check('reviews_rating_check', sql`${table.rating} >= 1 AND ${table.rating} <= 5`),
+  ],
+);

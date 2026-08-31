@@ -495,6 +495,20 @@ BEGIN
   END LOOP;
 END $property_operations_rls$;
 
+ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reviews FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS reviews_isolation ON reviews;
+CREATE POLICY reviews_isolation ON reviews
+USING (
+  app_private.is_platform_admin()
+  OR (app_private.is_public() AND status = 'published')
+  OR organization_id = app_private.current_organization_id()
+  OR author_user_id::text = coalesce(current_setting('app.user_id', true), '')
+)
+WITH CHECK (
+  app_private.is_platform_admin()
+  OR author_user_id::text = coalesce(current_setting('app.user_id', true), '')
+);
 
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC;

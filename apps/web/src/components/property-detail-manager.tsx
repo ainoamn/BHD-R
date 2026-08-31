@@ -47,6 +47,9 @@ export interface ManagedProperty {
   defaultCurrency: CurrencyCode;
   status: string;
   serialNumber?: string | null;
+  organizationId?: string;
+  ownerPartyId?: string | null;
+  ownerPartyName?: string | null;
   mapsUrl?: string | null;
   latitude?: number | null;
   longitude?: number | null;

@@ -2,11 +2,15 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import { PropertyDetailManager } from '@/components/property-detail-manager';
+import { PropertyDiscoveryRails } from '@/components/property-discovery-rails';
+import { ReviewsPanel } from '@/components/reviews-panel';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { loadPublicPropertyShowcaseFromNeon } from '@/lib/load-public-property-neon';
+import { buildAiTags, loadPropertyDiscoveryRails } from '@/lib/property-discovery';
 import { bilingualAlternates } from '@/lib/seo';
 import { localizedName } from '@/lib/format';
 import { getViewer } from '@/lib/viewer';
+import type { ReviewTargetType } from '@/lib/reviews-types';
 
 export async function generateMetadata({
   params,
@@ -64,6 +68,38 @@ export default async function PropertyPage({
   ]);
   if (!property) notFound();
 
+  const discovery = await loadPropertyDiscoveryRails(property).catch(() => ({
+    similar: [],
+    recommended: [],
+    topRated: [],
+  }));
+  const aiTags = buildAiTags(property);
+
+  const reviewTargets: Array<{
+    type: ReviewTargetType;
+    id: string;
+    titleAr: string;
+    titleEn: string;
+  }> = [
+    { type: 'property', id: property.id, titleAr: 'العقار', titleEn: 'Property' },
+  ];
+  if (property.ownerPartyId) {
+    reviewTargets.push({
+      type: 'party',
+      id: property.ownerPartyId,
+      titleAr: property.ownerPartyName ? `المالك · ${property.ownerPartyName}` : 'المالك',
+      titleEn: property.ownerPartyName ? `Owner · ${property.ownerPartyName}` : 'Owner',
+    });
+  }
+  if (property.organizationId) {
+    reviewTargets.push({
+      type: 'organization',
+      id: property.organizationId,
+      titleAr: 'المؤسسة',
+      titleEn: 'Organization',
+    });
+  }
+
   return (
     <main className="section">
       <div className="container">
@@ -73,6 +109,14 @@ export default async function PropertyPage({
           portal="owner"
           variant="public"
           signedIn={Boolean(viewer)}
+        />
+        <ReviewsPanel locale={locale} signedIn={Boolean(viewer)} targets={reviewTargets} />
+        <PropertyDiscoveryRails
+          locale={locale}
+          aiTags={aiTags}
+          similar={discovery.similar}
+          recommended={discovery.recommended}
+          topRated={discovery.topRated}
         />
       </div>
     </main>

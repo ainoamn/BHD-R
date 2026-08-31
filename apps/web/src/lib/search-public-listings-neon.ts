@@ -4,7 +4,13 @@ import { createDatabase, type Database } from '@bhd-r/db';
 import type { ListingCollection, PublicListing } from '@bhd-r/contracts';
 import { marketStatusFromPurpose, type CatalogueListing } from '@/lib/listing-market-status';
 import { omanLocations } from '@/lib/oman-locations';
+import { googleMapsLinkFromCoords, parseGoogleMapsUrl } from '@/lib/parse-google-maps-url';
 
+function mapsUrlFromNotes(notes?: string | null): string | null {
+  if (!notes) return null;
+  const match = notes.match(/https?:\/\/(?:www\.)?(?:google\.[^/\s]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps)[^\s)]*/i);
+  return match?.[0] ?? null;
+}
 function locationNameAlts(kind: 'governorate' | 'wilayat', value: string): string[] {
   const needle = value.trim();
   if (!needle) return [];
@@ -56,6 +62,8 @@ export type PublicListingSearchInput = {
   amenities?: string[];
   /** Free-text search across property/unit names */
   q?: string;
+  /** Exclude a property (similar rails) */
+  excludePropertyId?: string;
   limit?: number;
 };
 
@@ -106,6 +114,13 @@ type CatalogueRow = {
   has_pool: boolean | null;
   parking_spaces: number | null;
   amenity_codes: string[] | null;
+  latitude: number | string | null;
+  longitude: number | string | null;
+  maps_note: string | null;
+  organization_id: string;
+  owner_party_id: string | null;
+  avg_rating: number | string | null;
+  review_count: number | string | null;
 };
 
 /**
@@ -115,7 +130,7 @@ type CatalogueRow = {
 export async function searchPublicListingsFromNeon(
   input: PublicListingSearchInput = {},
 ): Promise<ListingCollection & { data: CatalogueListing[] }> {
-  const limit = Math.min(Math.max(input.limit ?? 24, 1), 48);
+  const limit = Math.min(Math.max(input.limit ?? 24, 1), 100);
   const { db } = getDatabase();
 
   return db.transaction(async (transaction) => {
@@ -213,6 +228,7 @@ export async function searchPublicListingsFromNeon(
     const hasParking = input.hasParking === true;
     const amenities = (input.amenities ?? []).map((code) => code.trim()).filter(Boolean);
     const q = input.q?.trim() || null;
+    const excludePropertyId = input.excludePropertyId?.trim() || null;
     const priceMinMajor =
       input.priceMin !== undefined && Number.isFinite(input.priceMin) ? input.priceMin : null;
     const priceMaxMajor =
@@ -311,6 +327,9 @@ export async function searchPublicListingsFromNeon(
           or coalesce(a.city, '') ilike ${`%${q}%`}
         )`
       : sql``;
+    const excludeClause = excludePropertyId
+      ? sql`and p.id <> ${excludePropertyId}::uuid`
+      : sql``;
 
     const result = await transaction.execute(sql`
       select
@@ -373,7 +392,26 @@ export async function searchPublicListingsFromNeon(
           select coalesce(array_agg(pa.code order by pa.code), '{}'::text[])
           from property_amenities pa
           where pa.property_id = p.id
-        ) as amenity_codes
+        ) as amenity_codes,
+        case when a.location is not null then ST_Y(a.location::geometry) else null end as latitude,
+        case when a.location is not null then ST_X(a.location::geometry) else null end as longitude,
+        pp.notes as maps_note,
+        p.organization_id::text as organization_id,
+        p.owner_party_id::text as owner_party_id,
+        (
+          select avg(r.rating)::float
+          from reviews r
+          where r.target_type = 'property'
+            and r.target_id = p.id
+            and r.status = 'published'
+        ) as avg_rating,
+        (
+          select count(*)::int
+          from reviews r
+          where r.target_type = 'property'
+            and r.target_id = p.id
+            and r.status = 'published'
+        ) as review_count
       from units u
       join properties p on p.id = u.property_id
       join addresses a on a.id = p.address_id
@@ -397,6 +435,7 @@ export async function searchPublicListingsFromNeon(
         ${parkingClause}
         ${amenitiesClause}
         ${qClause}
+        ${excludeClause}
       order by l.published_at desc nulls last, u.updated_at desc, u.id desc
       limit ${limit}
     `);
@@ -423,6 +462,31 @@ export async function searchPublicListingsFromNeon(
             : row.unit_updated_at
               ? new Date(row.unit_updated_at)
               : new Date();
+      let latitude =
+        row.latitude !== null && row.latitude !== undefined && Number.isFinite(Number(row.latitude))
+          ? Number(row.latitude)
+          : null;
+      let longitude =
+        row.longitude !== null &&
+        row.longitude !== undefined &&
+        Number.isFinite(Number(row.longitude))
+          ? Number(row.longitude)
+          : null;
+      let mapsUrl = mapsUrlFromNotes(row.maps_note);
+      if ((latitude === null || longitude === null) && mapsUrl) {
+        const parsed = parseGoogleMapsUrl(mapsUrl);
+        if (parsed) {
+          latitude = parsed.latitude;
+          longitude = parsed.longitude;
+        }
+      }
+      if (!mapsUrl && latitude !== null && longitude !== null) {
+        mapsUrl = googleMapsLinkFromCoords(latitude, longitude);
+      }
+      const avgRating =
+        row.avg_rating !== null && row.avg_rating !== undefined && Number.isFinite(Number(row.avg_rating))
+          ? Math.round(Number(row.avg_rating) * 10) / 10
+          : null;
       return {
         id: row.listing_id ?? row.unit_id,
         slug: row.slug ?? row.unit_id,
@@ -457,6 +521,13 @@ export async function searchPublicListingsFromNeon(
         parkingSpaces: Number(row.parking_spaces) || 0,
         amenities: Array.isArray(row.amenity_codes) ? row.amenity_codes.filter(Boolean) : [],
         city: row.city ?? '',
+        latitude,
+        longitude,
+        mapsUrl,
+        organizationId: row.organization_id,
+        ownerPartyId: row.owner_party_id,
+        avgRating,
+        reviewCount: Number(row.review_count) || 0,
       };
     });
 

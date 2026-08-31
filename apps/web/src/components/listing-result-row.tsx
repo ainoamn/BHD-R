@@ -66,6 +66,8 @@ export function ListingResultRow({
   if (listing.amenities?.includes('central_ac')) {
     highlights.push(ar ? 'مكيف هواء' : 'Air conditioning');
   }
+  const rating =
+    typeof listing.avgRating === 'number' && listing.avgRating > 0 ? listing.avgRating : null;
 
   return (
     <article className="listing-row">
@@ -122,14 +124,27 @@ export function ListingResultRow({
         </div>
 
         <div className="listing-row__aside">
+          {rating ? (
+            <span className="listing-row__rating" title={`${listing.reviewCount ?? 0}`}>
+              <strong>{rating.toFixed(1)}</strong>
+              <small>
+                {listing.reviewCount ?? 0} {ar ? 'تقييم' : 'reviews'}
+              </small>
+            </span>
+          ) : null}
           <span className="listing-row__status">{statusCopy(listing, locale)}</span>
           <div className="listing-row__price">
             <strong>{price}</strong>
             <small>{period}</small>
           </div>
           <Link href={href} className="button button--primary listing-row__cta" prefetch>
-            {ar ? 'عرض التفاصيل' : 'View details'}
+            {ar ? 'عرض التوافر' : 'See availability'}
           </Link>
+          {listing.latitude == null || listing.longitude == null ? (
+            <small className="listing-row__no-pin">
+              {ar ? 'بدون موقع على الخريطة' : 'No map pin'}
+            </small>
+          ) : null}
         </div>
       </div>
     </article>

@@ -19,13 +19,13 @@ import {
   facetUniverse,
   filtersToSearchParams,
   loadRecentFilters,
-  mapSearchUrl,
   parseSmartFilterQuery,
   priceHistogram,
   pushRecentFilter,
   type RecentFilterChip,
 } from '@/lib/properties-browse-filters';
 import { ListingResultRow } from '@/components/listing-result-row';
+import { PropertiesMapPanel } from '@/components/properties-map-panel';
 
 function Stepper({
   label,
@@ -105,6 +105,8 @@ export function PropertiesBrowse({
   const [filters, setFilters] = useState<BrowseFilterState>(initialFilters);
   const [universe, setUniverse] = useState<CatalogueListing[]>(initialListings);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false);
+  const [selectedListingId, setSelectedListingId] = useState<string | null>(null);
   const [amenitiesExpanded, setAmenitiesExpanded] = useState(false);
   const [smartDraft, setSmartDraft] = useState('');
   const [recent, setRecent] = useState<RecentFilterChip[]>([]);
@@ -115,6 +117,12 @@ export function PropertiesBrowse({
 
   useEffect(() => {
     setRecent(loadRecentFilters());
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('map') === '1' || window.location.hash === '#map_opened') {
+        setMapOpen(true);
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -282,14 +290,13 @@ export function PropertiesBrowse({
 
   const sidebar = (
     <aside className="props-sidebar" aria-label={ar ? 'التصفية حسب' : 'Filter by'}>
-      <a
+      <button
+        type="button"
         className="props-map-btn"
-        href={mapSearchUrl(filters, locale)}
-        target="_blank"
-        rel="noopener noreferrer"
+        onClick={() => setMapOpen(true)}
       >
         {ar ? 'اعرض على الخريطة' : 'Show on map'}
-      </a>
+      </button>
 
       <div className="props-sidebar__block">
         <h2>{ar ? 'التصفية حسب:' : 'Filter by:'}</h2>
@@ -716,7 +723,18 @@ export function PropertiesBrowse({
             {results.length ? (
               <div className="props-results__list">
                 {results.map((listing) => (
-                  <ListingResultRow key={listing.id} listing={listing} locale={locale} />
+                  <div
+                    key={listing.id}
+                    id={`listing-${listing.id}`}
+                    className={
+                      selectedListingId === listing.id
+                        ? 'props-results__item is-selected'
+                        : 'props-results__item'
+                    }
+                    onMouseEnter={() => setSelectedListingId(listing.id)}
+                  >
+                    <ListingResultRow listing={listing} locale={locale} />
+                  </div>
                 ))}
               </div>
             ) : (
@@ -725,6 +743,21 @@ export function PropertiesBrowse({
           </div>
         </div>
       </section>
+
+      <PropertiesMapPanel
+        open={mapOpen}
+        locale={locale}
+        listings={results}
+        selectedId={selectedListingId}
+        onSelect={(listing) => {
+          setSelectedListingId(listing.id);
+          document.getElementById(`listing-${listing.id}`)?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+          });
+        }}
+        onClose={() => setMapOpen(false)}
+      />
 
       {drawerOpen ? (
         <div className="props-drawer" role="dialog" aria-modal="true" aria-label={ar ? 'التصفية' : 'Filters'}>
@@ -750,14 +783,9 @@ export function PropertiesBrowse({
         <button type="button" className="button button--secondary" onClick={() => setDrawerOpen(true)}>
           {ar ? `تصفية (${activeFilterCount})` : `Filters (${activeFilterCount})`}
         </button>
-        <a
-          className="button button--primary"
-          href={mapSearchUrl(filters, locale)}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
+        <button type="button" className="button button--primary" onClick={() => setMapOpen(true)}>
           {ar ? 'الخريطة' : 'Map'}
-        </a>
+        </button>
       </div>
     </div>
   );

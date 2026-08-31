@@ -15,6 +15,13 @@ export type CatalogueListing = PublicListing & {
   parkingSpaces?: number;
   amenities?: string[];
   city?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  mapsUrl?: string | null;
+  organizationId?: string;
+  ownerPartyId?: string | null;
+  avgRating?: number | null;
+  reviewCount?: number;
 };
 
 export function marketStatusFromPurpose(

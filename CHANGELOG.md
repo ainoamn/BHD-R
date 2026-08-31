@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.3.8 — 2026-08-31
+
+- Properties browse: Booking-style list + in-page OSM map with stored pins; catalogue geo enrichment.
+- Property detail: smart tags, similar/recommended/top-rated rails; full reviews (property/party/org) for signed-in users with verifiedStay badges; public party profile page.
+- Docs: `RELEASE-0.3.8-AR.md`.
+
 ## 0.3.7 — 2026-08-31
 
 - Public properties browse: Booking-style sticky search + filter sidebar/drawer, instant client facets, smart natural-language filters, horizontal result rows; Neon catalogue enriched with pool/parking/amenities/city.

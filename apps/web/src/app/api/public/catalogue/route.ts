@@ -107,6 +107,8 @@ export async function GET(request: Request) {
     if (hasParking) search.hasParking = true;
     if (amenities.length) search.amenities = amenities;
     if (q) search.q = q;
+    const excludePropertyId = url.searchParams.get('excludePropertyId');
+    if (excludePropertyId) search.excludePropertyId = excludePropertyId;
 
     const payload = await searchPublicListingsFromNeon(search);
     return NextResponse.json({
