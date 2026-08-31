@@ -107,8 +107,43 @@ export const staySearchQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
+/** Public search card — safe for marketing surfaces. */
+export const staySearchListingSchema = z.object({
+  slug: z.string().min(1).max(180),
+  titleAr: z.string().min(1).max(200),
+  titleEn: z.string().min(1).max(200),
+  destination: z.string().max(200).nullable().optional(),
+  nightlyMinor: z.string().regex(/^\d+$/).nullable().optional(),
+  currency: currencyCodeSchema.nullable().optional(),
+  coverImageUrl: z.string().url().nullable().optional(),
+  maxGuests: z.number().int().min(1).max(100).nullable().optional(),
+  unitId: uuidSchema.optional(),
+});
+
+export const staySearchResponseSchema = z.object({
+  items: z.array(staySearchListingSchema),
+  nextCursor: z.string().nullable(),
+  cached: z.boolean().optional(),
+});
+
+export const stayPublicDetailSchema = z.object({
+  slug: z.string().min(1).max(180),
+  titleAr: z.string().min(1).max(200),
+  titleEn: z.string().min(1).max(200),
+  descriptionAr: z.string().nullable().optional(),
+  descriptionEn: z.string().nullable().optional(),
+  destination: z.string().max(200).nullable().optional(),
+  nightlyMinor: z.string().regex(/^\d+$/).nullable().optional(),
+  currency: currencyCodeSchema.nullable().optional(),
+  maxGuests: z.number().int().min(1).max(100).nullable().optional(),
+  unitId: uuidSchema.optional(),
+});
+
 export type StayProfile = z.infer<typeof stayProfileSchema>;
 export type StayQuote = z.infer<typeof stayQuoteSchema>;
 export type StayHold = z.infer<typeof stayHoldSchema>;
 export type StayBookingPublic = z.infer<typeof stayBookingPublicSchema>;
 export type StaySearchQuery = z.infer<typeof staySearchQuerySchema>;
+export type StaySearchListing = z.infer<typeof staySearchListingSchema>;
+export type StaySearchResponse = z.infer<typeof staySearchResponseSchema>;
+export type StayPublicDetail = z.infer<typeof stayPublicDetailSchema>;

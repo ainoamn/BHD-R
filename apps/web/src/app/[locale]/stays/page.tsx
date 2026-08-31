@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { EmptyState } from '@bhd-r/ui';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
@@ -10,6 +11,18 @@ type SearchResult = {
   items?: StayCardListing[];
   nextCursor?: string | null;
 };
+
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}): Promise<Metadata> {
+  const query = await searchParams;
+  const dated = typeof query.checkInOn === 'string' || typeof query.checkOutOn === 'string';
+  return {
+    robots: dated ? { index: false, follow: true } : { index: true, follow: true },
+  };
+}
 
 export default async function Page({
   params,

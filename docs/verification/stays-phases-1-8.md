@@ -38,10 +38,14 @@
 ## Honest gaps (continue Expand–Contract)
 
 - Full quote/hold/pay guest E2E against a pilot org with flags on.
-- Public search consuming `stay_inventory_days` + short Redis TTL.
 - Reports Occupancy/ADR/RevPAR UI for stays.
 - iCal/OTA after SSRF controls.
 - Full-repo `pnpm check` still has unrelated ESLint debt in api/web.
+
+## 0.4.3 public search
+
+- Flag off → `GET /v1/public/stays/search` returns **404**.
+- Flag on → results from published listings whose units are fully `available` on `stay_inventory_days` for the requested half-open range; Redis cache TTL 45s when `REDIS_URL` is set.
 
 ## 0.4.1 lock verify
 

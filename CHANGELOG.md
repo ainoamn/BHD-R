@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.3 — 2026-08-31
+
+- Public stays search/detail read `stay_inventory_days` projection (date-range availability) with optional Redis TTL cache (45s).
+- Contracts for search listing/detail; SEO `noindex,follow` on dated `/stays` queries.
+- Docs: `RELEASE-0.4.3-AR.md`.
+
 ## 0.4.2 — 2026-08-31
 
 - Stay inventory-day projector rebuilds `stay_inventory_days` from active GiST locks + profile rates; hold expirer runs when `STAYS_PLATFORM_ENABLED` is on.

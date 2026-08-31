@@ -1,8 +1,9 @@
 import { Controller, Get, NotFoundException, Param, Query } from '@nestjs/common';
 import { readStaysFlagsFromEnv } from '@bhd-r/config';
-import { staySearchQuerySchema } from '@bhd-r/contracts';
+import { staySearchQuerySchema, type StaySearchQuery } from '@bhd-r/contracts';
 import { Public } from '../common/decorators.js';
 import { ZodPipe } from '../common/zod.pipe.js';
+import { StaysSearchService } from './stays-search.service.js';
 
 /** Fail-closed: platform kill-switch off → 404 (hide surface). */
 export function assertStaysPlatformEnabled(): void {
@@ -15,16 +16,19 @@ export function assertStaysPlatformEnabled(): void {
 @Public()
 @Controller('v1/public/stays')
 export class PublicStaysController {
+  constructor(private readonly searchService: StaysSearchService) {}
+
   @Get('search')
-  search(@Query(new ZodPipe(staySearchQuerySchema)) _query: unknown) {
+  search(@Query(new ZodPipe(staySearchQuerySchema)) query: StaySearchQuery) {
     assertStaysPlatformEnabled();
-    // Phase 2 skeleton — search projection lands with inventory projector.
-    return { items: [], nextCursor: null };
+    return this.searchService.search(query);
   }
 
   @Get(':slug')
-  detail(@Param('slug') _slug: string) {
+  async detail(@Param('slug') slug: string) {
     assertStaysPlatformEnabled();
-    throw new NotFoundException();
+    const detail = await this.searchService.getBySlug(slug);
+    if (!detail) throw new NotFoundException();
+    return detail;
   }
 }

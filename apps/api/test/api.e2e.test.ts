@@ -23,6 +23,12 @@ describe('API runtime boundaries (Express)', () => {
         withinTenant: async () => {
           throw new Error('database_not_used_in_boundary_tests');
         },
+        asPublic: async () => {
+          throw new Error('database_not_used_in_boundary_tests');
+        },
+        asWebhookConsumer: async () => {
+          throw new Error('database_not_used_in_boundary_tests');
+        },
       })
       .compile();
     app = module.createNestApplication<NestExpressApplication>(
@@ -118,5 +124,10 @@ describe('API runtime boundaries (Express)', () => {
       body,
     });
     expect(response.status).toBe(400);
+  });
+
+  it('hides public stays search while the platform flag is off', async () => {
+    const response = await fetch(`${baseUrl}/v1/public/stays/search?locale=ar&adults=1`);
+    expect(response.status).toBe(404);
   });
 });

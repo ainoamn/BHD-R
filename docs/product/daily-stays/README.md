@@ -21,6 +21,7 @@
 | 1–8 — أساسات (علم مغلق) | **0.4.0** — انظر [`RELEASE-0.4.0-AR.md`](../../implementation/RELEASE-0.4.0-AR.md) |
 | Webhook + أقفال حية | **0.4.1** — [`RELEASE-0.4.1-AR.md`](../../implementation/RELEASE-0.4.1-AR.md) |
 | Projector + housekeeping | **0.4.2** — [`RELEASE-0.4.2-AR.md`](../../implementation/RELEASE-0.4.2-AR.md) |
+| بحث عام من inventory days | **0.4.3** — [`RELEASE-0.4.3-AR.md`](../../implementation/RELEASE-0.4.3-AR.md) |
 | تفعيل إنتاجي تجريبي | بشري: Flag + allowlist + دفع حقيقي |
 
 ## قواعد لا يجوز تجاوزها

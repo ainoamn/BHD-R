@@ -6,6 +6,7 @@ import {
   nightsBetween,
   quoteStay,
   simulateConcurrentLockWinner,
+  stayRangeFullyAvailable,
   stayRangesOverlap,
 } from '../src/stays/index.js';
 
@@ -113,5 +114,34 @@ describe('inventory day projection priority', () => {
     expect(availabilityFromLockKinds(['maintenance'])).toBe('maintenance');
     expect(availabilityFromLockKinds(['owner_block'])).toBe('blocked');
     expect(availabilityFromLockKinds([])).toBe('available');
+  });
+});
+
+describe('stay range fully available', () => {
+  it('requires every night in [checkIn, checkOut) to be available', () => {
+    expect(
+      stayRangeFullyAvailable(
+        [
+          { stayDate: '2026-11-01', availabilityStatus: 'available' },
+          { stayDate: '2026-11-02', availabilityStatus: 'available' },
+        ],
+        { checkInOn: '2026-11-01', checkOutOn: '2026-11-03' },
+      ),
+    ).toBe(true);
+    expect(
+      stayRangeFullyAvailable(
+        [
+          { stayDate: '2026-11-01', availabilityStatus: 'available' },
+          { stayDate: '2026-11-02', availabilityStatus: 'booked' },
+        ],
+        { checkInOn: '2026-11-01', checkOutOn: '2026-11-03' },
+      ),
+    ).toBe(false);
+    expect(
+      stayRangeFullyAvailable([{ stayDate: '2026-11-01', availabilityStatus: 'available' }], {
+        checkInOn: '2026-11-01',
+        checkOutOn: '2026-11-03',
+      }),
+    ).toBe(false);
   });
 });
