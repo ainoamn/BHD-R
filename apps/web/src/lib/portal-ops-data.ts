@@ -15,6 +15,7 @@ import {
   partyRoles,
   properties,
   reservations,
+  unitMedia,
   units,
   type Database,
 } from '@bhd-r/db';
@@ -140,12 +141,30 @@ async function listProperties(claims: SessionClaims): Promise<Record<string, unk
       .groupBy(units.propertyId);
     const byProperty = new Map(unitCounts.map((row) => [row.propertyId, Number(row.value)]));
 
+    const coverRows = await transaction
+      .select({
+        propertyId: units.propertyId,
+        mediaAssetId: unitMedia.mediaAssetId,
+        position: unitMedia.position,
+      })
+      .from(unitMedia)
+      .innerJoin(units, eq(units.id, unitMedia.unitId))
+      .where(eq(unitMedia.organizationId, orgId))
+      .orderBy(asc(unitMedia.position));
+    const coverByProperty = new Map<string, string>();
+    for (const row of coverRows) {
+      if (!coverByProperty.has(row.propertyId)) {
+        coverByProperty.set(row.propertyId, `/api/owner/media/${row.mediaAssetId}`);
+      }
+    }
+
     return rows.map((row) => ({
       ...row,
       location: [row.street, row.city, row.wilayat, row.governorate].filter(Boolean).join(' · '),
       createdAt:
         row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
       units: byProperty.get(row.id) ?? 0,
+      coverImageUrl: coverByProperty.get(row.id) ?? null,
     }));
   });
 }

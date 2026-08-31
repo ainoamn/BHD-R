@@ -11,6 +11,7 @@ import { invalidateOpsCache } from '@/lib/portal-ops-client-cache';
 import type { PortalRole } from '@/lib/types';
 import type { OperationsSection } from './operations-workspace';
 import { NestReconnectButton } from './nest-reconnect-button';
+import { PropertyOpsRowKey } from './property-ops-row-key';
 
 type DataRow = Record<string, unknown>;
 
@@ -81,7 +82,7 @@ interface Column {
   key: string;
   ar: string;
   en: string;
-  format?: 'status' | 'money' | 'date' | 'count' | 'kind';
+  format?: 'status' | 'money' | 'date' | 'count' | 'kind' | 'thumb';
   fallbackKeys?: string[];
 }
 
@@ -106,9 +107,9 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
     createAr: 'إضافة عقار متكامل',
     createEn: 'Add complete property',
     columns: [
+      { key: 'coverImageUrl', ar: 'الصورة', en: 'Photo', format: 'thumb' },
       { key: 'serialNumber', ar: 'رقم العقار', en: 'Property no.' },
       { key: 'nameAr', fallbackKeys: ['nameEn', 'name'], ar: 'العقار', en: 'Property' },
-      { key: 'ownerName', ar: 'المالك', en: 'Owner' },
       { key: 'location', fallbackKeys: ['governorate', 'city'], ar: 'الموقع', en: 'Location' },
       { key: 'kind', ar: 'النوع', en: 'Kind', format: 'kind' },
       { key: 'units', ar: 'الوحدات', en: 'Units', format: 'count' },
@@ -668,6 +669,9 @@ function displayCell(
         {status.replaceAll('_', ' ')}
       </span>
     );
+  }
+  if (column.format === 'thumb') {
+    return null;
   }
   if (typeof value === 'boolean')
     return value ? (locale === 'ar' ? 'نعم' : 'Yes') : locale === 'ar' ? 'لا' : 'No';
@@ -3053,7 +3057,28 @@ export function OperationsConsole({
                 return (
                   <tr key={safeString(row.id ?? row.reference) || String(index)}>
                     {definition.columns.map((column) => (
-                      <td key={column.key}>{displayCell(row, column, locale, context)}</td>
+                      <td
+                        key={column.key}
+                        className={column.format === 'thumb' ? 'ops-table__thumb-cell' : undefined}
+                      >
+                        {section === 'properties' && column.format === 'thumb' ? (
+                          <PropertyOpsRowKey
+                            propertyId={safeString(row.id)}
+                            coverImageUrl={
+                              typeof row.coverImageUrl === 'string' ? row.coverImageUrl : null
+                            }
+                            locale={locale}
+                            name={
+                              safeString(row.nameAr) ||
+                              safeString(row.nameEn) ||
+                              safeString(row.name) ||
+                              undefined
+                            }
+                          />
+                        ) : (
+                          displayCell(row, column, locale, context)
+                        )}
+                      </td>
                     ))}
                     <td>
                       {section === 'leasing' ? (
@@ -3331,32 +3356,39 @@ export function OperationsConsole({
               safeString(row.displayName) ||
               safeString(row.name) ||
               '—';
-            const owner = safeString(row.ownerName) || '—';
             const location =
               safeString(row.location) ||
               [safeString(row.governorate), safeString(row.city)].filter(Boolean).join(' · ') ||
               '—';
             const status = safeString(row.status) || '—';
+            const cover =
+              typeof row.coverImageUrl === 'string' ? row.coverImageUrl : null;
             return (
               <article
                 className="ops-mobile-card"
                 key={safeString(row.id ?? row.reference) || `m-${index}`}
               >
                 <div className="ops-mobile-card__head">
-                  <h3 className="ops-mobile-card__title">{name}</h3>
-                  {serial ? (
-                    <p className="ops-mobile-card__serial" dir="ltr">
-                      {serial}
-                    </p>
+                  {section === 'properties' ? (
+                    <PropertyOpsRowKey
+                      propertyId={safeString(row.id)}
+                      coverImageUrl={cover}
+                      locale={locale}
+                      name={name === '—' ? undefined : name}
+                    />
                   ) : null}
+                  <div className="ops-mobile-card__head-copy">
+                    <h3 className="ops-mobile-card__title">{name}</h3>
+                    {serial ? (
+                      <p className="ops-mobile-card__serial" dir="ltr">
+                        {serial}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
                 <dl className="ops-mobile-card__meta">
                   {section === 'properties' ? (
                     <>
-                      <div>
-                        <dt>{ar ? 'المالك' : 'Owner'}</dt>
-                        <dd>{owner}</dd>
-                      </div>
                       <div>
                         <dt>{ar ? 'الموقع' : 'Location'}</dt>
                         <dd>{location}</dd>
