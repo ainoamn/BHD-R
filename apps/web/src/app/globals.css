@@ -919,8 +919,7 @@ h3 {
     'side main';
   background:
     radial-gradient(circle at 88% -10%, rgb(8 163 159 / 0.08), transparent 28rem),
-    radial-gradient(circle at 0% 100%, rgb(181 141 85 / 0.07), transparent 24rem),
-    #f3f6f4;
+    radial-gradient(circle at 0% 100%, rgb(181 141 85 / 0.07), transparent 24rem), #f3f6f4;
 }
 .portal-chrome {
   grid-area: chrome;
@@ -1208,6 +1207,83 @@ h3 {
   margin: 0;
   font-size: 0.95rem;
 }
+.portal-section-skeleton {
+  display: grid;
+  gap: 1rem;
+  width: min(100%, 100rem);
+  margin-inline: auto;
+  animation: portal-chrome-in 0.18s ease both;
+}
+.portal-section-skeleton__hero,
+.portal-section-skeleton__table,
+.portal-section-skeleton__metrics > i {
+  overflow: hidden;
+  background:
+    linear-gradient(100deg, transparent 30%, rgb(255 255 255 / 0.72) 48%, transparent 66%) -160% 0 /
+      220% 100% no-repeat,
+    rgb(255 255 255 / 0.82);
+  border: 1px solid rgb(9 45 36 / 0.07);
+  box-shadow: 0 12px 32px rgb(9 45 36 / 0.045);
+  animation: portal-skeleton-shimmer 1.15s ease-in-out infinite;
+}
+.portal-section-skeleton__hero {
+  display: grid;
+  gap: 0.7rem;
+  min-height: 10rem;
+  padding: 1.5rem;
+  border-radius: 1.35rem;
+}
+.portal-section-skeleton__hero > i,
+.portal-section-skeleton__hero > b,
+.portal-section-skeleton__hero > span {
+  display: block;
+  width: min(35rem, 75%);
+  height: 0.8rem;
+  background: rgb(9 45 36 / 0.08);
+  border-radius: 999px;
+}
+.portal-section-skeleton__hero > i {
+  width: 8rem;
+}
+.portal-section-skeleton__hero > b {
+  height: 1.65rem;
+}
+.portal-section-skeleton__hero > span {
+  width: min(48rem, 92%);
+}
+.portal-section-skeleton__metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+.portal-section-skeleton__metrics > i {
+  min-height: 6.5rem;
+  border-radius: 1rem;
+}
+.portal-section-skeleton__table {
+  min-height: 18rem;
+  border-radius: 1.2rem;
+}
+@keyframes portal-skeleton-shimmer {
+  to {
+    background-position:
+      160% 0,
+      0 0;
+  }
+}
+@media (max-width: 720px) {
+  .portal-section-skeleton__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .portal-section-skeleton,
+  .portal-section-skeleton__hero,
+  .portal-section-skeleton__table,
+  .portal-section-skeleton__metrics > i {
+    animation: none;
+  }
+}
 .portal-topbar {
   display: flex;
   justify-content: space-between;
@@ -1427,9 +1503,7 @@ h3 {
   display: grid;
   gap: 0.45rem;
   padding: 1.15rem 1.25rem;
-  background:
-    linear-gradient(135deg, rgb(8 163 159 / 0.08), transparent 50%),
-    white;
+  background: linear-gradient(135deg, rgb(8 163 159 / 0.08), transparent 50%), white;
   border: 1px solid rgb(9 45 36 / 0.08);
   border-radius: 1.15rem;
   box-shadow: 0 12px 32px rgb(9 45 36 / 0.05);
@@ -1988,8 +2062,7 @@ h3 {
   box-shadow:
     0 1px 0 rgb(255 255 255 / 0.8) inset,
     0 24px 60px rgb(9 45 36 / 0.07);
-  background:
-    linear-gradient(165deg, rgb(255 255 255 / 0.98), rgb(252 251 248 / 0.96));
+  background: linear-gradient(165deg, rgb(255 255 255 / 0.98), rgb(252 251 248 / 0.96));
 }
 .wizard-card .card__content {
   padding: 0;
@@ -2165,8 +2238,7 @@ h3 {
   padding: 1rem;
   background:
     linear-gradient(135deg, rgb(8 163 159 / 0.05), transparent 42%),
-    linear-gradient(225deg, rgb(181 141 85 / 0.07), transparent 48%),
-    white;
+    linear-gradient(225deg, rgb(181 141 85 / 0.07), transparent 48%), white;
   border: 1px solid rgb(9 45 36 / 0.08);
   border-radius: 1.1rem;
   box-shadow: 0 10px 28px rgb(9 45 36 / 0.03);
@@ -3091,8 +3163,11 @@ h3 {
   padding: clamp(0.7rem, 0.55rem + 0.5vw, 1.05rem);
   border-radius: var(--portal-radius, 0.85rem);
   border: 1px solid var(--border);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface) 92%, var(--oman-teal) 8%), var(--surface));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--surface) 92%, var(--oman-teal) 8%),
+    var(--surface)
+  );
   box-shadow: 0 10px 30px rgb(15 23 42 / 0.06);
 }
 
@@ -5648,7 +5723,14 @@ h3 {
   inset-inline-end: 0;
   width: 0.32rem;
   content: '';
-  background: linear-gradient(#e53935 0 16%, #fb8c00 16% 32%, #f9a825 32% 48%, #43a047 48% 64%, #1e88e5 64% 80%, #5e35b1 80% 100%);
+  background: linear-gradient(
+    #e53935 0 16%,
+    #fb8c00 16% 32%,
+    #f9a825 32% 48%,
+    #43a047 48% 64%,
+    #1e88e5 64% 80%,
+    #5e35b1 80% 100%
+  );
 }
 .ops-header h1 {
   margin: 0.15rem 0 0.45rem;
@@ -5928,8 +6010,7 @@ h3 {
   align-items: center;
   gap: 0.7rem;
   padding: 0.95rem 1.05rem;
-  background:
-    linear-gradient(180deg, rgb(255 255 255 / 0.98), rgb(251 250 247 / 0.94));
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.98), rgb(251 250 247 / 0.94));
   border-bottom: 1px solid rgb(9 45 36 / 0.07);
 }
 .ops-search {

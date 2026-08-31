@@ -4,8 +4,13 @@ import { useEffect, useState } from 'react';
 import { BrandMark } from '@bhd-r/ui';
 import type { PortalRole } from '@/lib/types';
 import type { OperationsSection, OperationsWorkspacePayload } from '@/lib/portal-ops-types';
-import { emptyOpsPayload, fetchOpsPayload, getOpsCache } from '@/lib/portal-ops-client-cache';
-import { OperationsConsole, type OperationsContext } from './operations-console';
+import {
+  emptyOpsPayload,
+  fetchOpsPayload,
+  getOpsCache,
+  isOpsCacheFresh,
+} from '@/lib/portal-ops-client-cache';
+import { OperationsConsole } from './operations-console';
 
 /**
  * Client ops workspace: paint from in-memory cache when available so sidebar
@@ -32,9 +37,13 @@ export function OperationsWorkspaceClient({
     const hit = getOpsCache(portal, section);
     if (hit) {
       setPayload(hit);
-      void fetchOpsPayload(portal, section).then((fresh) => {
-        if (!cancelled && fresh) setPayload(fresh);
-      });
+      // Fresh sections are true background tabs: repaint immediately without
+      // issuing another API request. Stale data stays visible during refresh.
+      if (!isOpsCacheFresh(portal, section)) {
+        void fetchOpsPayload(portal, section).then((fresh) => {
+          if (!cancelled && fresh) setPayload(fresh);
+        });
+      }
     } else {
       setPayload(null);
       // Soft deadline: show empty console instead of forever "Loading section…"
@@ -83,7 +92,7 @@ export function OperationsWorkspaceClient({
       records={payload.records}
       summary={payload.summary}
       secondary={payload.secondary}
-      context={payload.context as OperationsContext}
+      context={payload.context}
       apiOnline={payload.apiOnline}
       nestConfigured={payload.nestConfigured}
       recordsEmpty={payload.recordsEmpty}

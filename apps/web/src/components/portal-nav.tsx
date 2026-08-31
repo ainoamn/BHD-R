@@ -1,9 +1,11 @@
 'use client';
 
 import { useLocale, useTranslations } from 'next-intl';
-import { useEffect, useId, useState } from 'react';
-import { Link, usePathname } from '@/i18n/navigation';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import { PortalHeader } from '@/components/portal-header';
+import { warmOpsSection } from '@/lib/portal-ops-client-cache';
+import { isOperationsSection, type OperationsSection } from '@/lib/portal-ops-types';
 import type { PortalRole, Viewer } from '@/lib/types';
 
 type NavItem = { path: string; label: string; mark: string };
@@ -164,6 +166,60 @@ const navGroups: Record<PortalRole, NavGroup[]> = {
   ],
 };
 
+function PortalIntentLink({
+  portal,
+  href,
+  section,
+  active,
+  mark,
+  onNavigate,
+  children,
+}: {
+  portal: PortalRole;
+  href: string;
+  section: OperationsSection | null;
+  active: boolean;
+  mark: string;
+  onNavigate: () => void;
+  children: ReactNode;
+}) {
+  const router = useRouter();
+  const [armed, setArmed] = useState(false);
+  const warmed = useRef(false);
+
+  const warmDestination = () => {
+    if (warmed.current || active) return;
+    warmed.current = true;
+    setArmed(true);
+    // Intent-based prefetch keeps the sidebar light while making the route the
+    // user is actually approaching available before the click.
+    try {
+      router.prefetch(href);
+    } catch {
+      /* route prefetch is best-effort */
+    }
+    if (section) void warmOpsSection(portal, section);
+  };
+
+  return (
+    <Link
+      href={href}
+      prefetch={armed ? null : false}
+      scroll={false}
+      aria-current={active ? 'page' : undefined}
+      onMouseEnter={warmDestination}
+      onFocus={warmDestination}
+      onTouchStart={warmDestination}
+      onClick={onNavigate}
+    >
+      <span className="portal-nav__mark" aria-hidden="true">
+        {mark}
+      </span>
+      {children}
+    </Link>
+  );
+}
+
 export function PortalNav({ portal, viewer }: { portal: PortalRole; viewer: Viewer }) {
   const t = useTranslations();
   const pathname = usePathname();
@@ -249,20 +305,20 @@ export function PortalNav({ portal, viewer }: { portal: PortalRole; viewer: View
                 const href = `${root}${item.path}`;
                 const active =
                   pathname === href || (item.path !== '' && pathname.startsWith(`${href}/`));
+                const sectionName = item.path.replace(/^\//, '');
+                const section = isOperationsSection(sectionName) ? sectionName : null;
                 return (
-                  <Link
+                  <PortalIntentLink
                     key={item.path || 'root'}
+                    portal={portal}
                     href={href}
-                    prefetch={false}
-                    scroll={false}
-                    aria-current={active ? 'page' : undefined}
-                    onClick={() => setOpen(false)}
+                    section={section}
+                    active={active}
+                    mark={item.mark}
+                    onNavigate={() => setOpen(false)}
                   >
-                    <span className="portal-nav__mark" aria-hidden="true">
-                      {item.mark}
-                    </span>
                     {t(item.label)}
-                  </Link>
+                  </PortalIntentLink>
                 );
               })}
             </div>

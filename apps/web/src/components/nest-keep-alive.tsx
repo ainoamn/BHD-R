@@ -11,14 +11,29 @@ const WARM_INTERVAL_MS = 3 * 60 * 1000;
 export function NestKeepAlive() {
   useEffect(() => {
     let cancelled = false;
+    let pending = false;
+    let lastPingAt = 0;
 
     const ping = () => {
-      if (cancelled || document.visibilityState === 'hidden') return;
+      const now = Date.now();
+      if (
+        cancelled ||
+        pending ||
+        document.visibilityState === 'hidden' ||
+        now - lastPingAt < 60_000
+      )
+        return;
+      pending = true;
+      lastPingAt = now;
       void fetch('/api/warm', {
         method: 'GET',
         cache: 'no-store',
-        signal: AbortSignal.timeout(8_000),
-      }).catch(() => undefined);
+        signal: AbortSignal.timeout(6_000),
+      })
+        .catch(() => undefined)
+        .finally(() => {
+          pending = false;
+        });
     };
 
     ping();

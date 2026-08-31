@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.3.0 — 2026-08-31
+
+- Soft-nav: owner/developer section pages are client-only (paint from warm cache, no RSC wait per click); skeleton loading; intent hover warm; skip refetch when cache fresh.
+- Docs: `RELEASE-0.3.0-AR.md`.
+
 ## 0.2.99 — 2026-08-31
 
 - Portal background warm: on first open prefetch every sidebar route + batch-warm all ops sections into memory (`/api/portal/ops/:portal/warm`); Nest health probe cached.
