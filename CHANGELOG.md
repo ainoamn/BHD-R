@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.3.2 — 2026-08-31
+
+- Stop 3s flash of false «أعد تسجيل الدخول» banner: optimistic empty payload, suppress status until hydrated, Nest-asleep offline no longer marks apiOnline false.
+- Docs: `RELEASE-0.3.2-AR.md`.
+
 ## 0.3.1 — 2026-08-31
 
 - Qootk-style soft nav: ops UI lives in persistent `PortalMainSlot` (optimistic click swap); no owner/developer `loading.tsx` white flash; always paint from memory; warm-all starts immediately.

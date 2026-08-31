@@ -19,6 +19,12 @@ type SectionLoad = {
   summary?: Record<string, unknown>;
   secondary?: DataRow[];
 };
+type OperationsContextResult = {
+  ok: boolean;
+  unauthorized: boolean;
+  unreachable: boolean;
+  context: OperationsContext;
+};
 
 const NEST_PROBE_MS = 1_500;
 const NEST_ROW_RACE_MS = 2_500;
@@ -180,10 +186,42 @@ async function loadSection(portal: PortalRole, section: OperationsSection): Prom
   return loadFromNest(portal, section);
 }
 
+async function loadOperationsContext(): Promise<OperationsContextResult> {
+  return Promise.race([
+    apiFetch<OperationsContext>('/v1/operations/context')
+      .then((payload) => ({
+        ok: true as const,
+        unauthorized: false,
+        unreachable: false,
+        context: payload,
+      }))
+      .catch((error: unknown) => ({
+        ok: false as const,
+        unauthorized: error instanceof ApiError && error.status === 401,
+        unreachable:
+          error instanceof ApiError && (error.status === 503 || error.code === 'api_unreachable'),
+        context: {},
+      })),
+    new Promise<OperationsContextResult>((resolve) => {
+      setTimeout(
+        () =>
+          resolve({
+            ok: false,
+            unauthorized: false,
+            unreachable: true,
+            context: {},
+          }),
+        NEST_CONTEXT_RACE_MS,
+      );
+    }),
+  ]);
+}
+
 export async function loadOperationsWorkspacePayload(
   portal: PortalRole,
   section: OperationsSection,
   localeHint?: 'ar' | 'en',
+  contextHint?: OperationsContextResult,
 ): Promise<OperationsWorkspacePayload> {
   const locale = localeHint ?? ((await getLocale()) === 'en' ? 'en' : 'ar');
   const nestConfigured = isNestApiConfiguredForRuntime();
@@ -191,12 +229,7 @@ export async function loadOperationsWorkspacePayload(
   const dataFromDb = loaded.source === 'db';
   const offline = loaded.source === 'offline';
 
-  let contextResult: {
-    ok: boolean;
-    unauthorized: boolean;
-    unreachable: boolean;
-    context: OperationsContext;
-  } = {
+  let contextResult: OperationsContextResult = {
     ok: portal === 'tenant',
     unauthorized: false,
     unreachable: portal !== 'tenant',
@@ -204,46 +237,16 @@ export async function loadOperationsWorkspacePayload(
   };
   // Skip Nest side-channels when Neon already answered — this was adding ~3.5s per click.
   if (!dataFromDb && !offline && nestConfigured && portal !== 'tenant') {
-    const ctx = await Promise.race([
-      apiFetch<OperationsContext>('/v1/operations/context')
-        .then((payload) => ({
-          ok: true as const,
-          unauthorized: false,
-          unreachable: false,
-          context: payload,
-        }))
-        .catch((error: unknown) => ({
-          ok: false as const,
-          unauthorized: error instanceof ApiError && error.status === 401,
-          unreachable:
-            error instanceof ApiError && (error.status === 503 || error.code === 'api_unreachable'),
-          context: {},
-        })),
-      new Promise<{
-        ok: false;
-        unauthorized: false;
-        unreachable: true;
-        context: OperationsContext;
-      }>((resolve) => {
-        setTimeout(
-          () =>
-            resolve({
-              ok: false,
-              unauthorized: false,
-              unreachable: true,
-              context: {},
-            }),
-          NEST_CONTEXT_RACE_MS,
-        );
-      }),
-    ]);
-    contextResult = ctx;
+    contextResult = contextHint ?? (await loadOperationsContext());
   }
 
   const apiOnline =
     portal === 'tenant'
       ? true
-      : dataFromDb || loaded.source === 'nest' || !contextResult.unreachable;
+      : // Nest-asleep empty shell: do not mark the whole portal "offline" (triggers re-login banner).
+        offline
+        ? true
+        : dataFromDb || loaded.source === 'nest' || !contextResult.unreachable;
   const context = contextResult.context;
   const recordsEmpty = !loaded.records.length;
   const apiUnauthorized = Boolean(contextResult.unauthorized) && !(dataFromDb && !recordsEmpty);
@@ -252,7 +255,7 @@ export async function loadOperationsWorkspacePayload(
     records: loaded.records,
     summary: loaded.summary ?? {},
     secondary: loaded.secondary ?? [],
-    context: context as unknown as Record<string, unknown>,
+    context: { ...context },
     apiOnline,
     nestConfigured,
     recordsEmpty,
@@ -271,12 +274,20 @@ export async function loadAllOperationsWorkspacePayloads(
   if (!sections.length) return {};
 
   // Warm Nest health cache once so offline/Neon sections do not re-probe.
+  let nestReady = true;
   if (hasDatabaseUrl() && isNestApiConfiguredForRuntime()) {
-    await probeNestHealthz();
+    nestReady = await probeNestHealthz();
   }
 
+  // Context is identical for all section forms; fetching it once avoids up to
+  // nineteen duplicate Render requests during background warm-up.
+  const sharedContext =
+    portal !== 'tenant' && isNestApiConfiguredForRuntime() && nestReady
+      ? await loadOperationsContext()
+      : undefined;
+
   const out: Partial<Record<OperationsSection, OperationsWorkspacePayload>> = {};
-  const concurrency = 4;
+  const concurrency = 2;
   let cursor = 0;
 
   async function worker() {
@@ -284,7 +295,12 @@ export async function loadAllOperationsWorkspacePayloads(
       const index = cursor;
       cursor += 1;
       const section = sections[index]!;
-      out[section] = await loadOperationsWorkspacePayload(portal, section, localeHint);
+      out[section] = await loadOperationsWorkspacePayload(
+        portal,
+        section,
+        localeHint,
+        sharedContext,
+      );
     }
   }
 

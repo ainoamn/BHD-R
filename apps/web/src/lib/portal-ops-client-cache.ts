@@ -23,7 +23,8 @@ export function emptyOpsPayload(locale: 'ar' | 'en' = 'ar'): OperationsWorkspace
     summary: {},
     secondary: [],
     context: {},
-    apiOnline: false,
+    // Optimistic: never flash a scary offline/re-login banner while hydrating.
+    apiOnline: true,
     nestConfigured: true,
     recordsEmpty: true,
     apiUnauthorized: false,

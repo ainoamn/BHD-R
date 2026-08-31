@@ -32,15 +32,19 @@ export function OperationsWorkspaceClient({
   section: OperationsSection;
   locale: 'ar' | 'en';
 }) {
+  const cached = getOpsCache(portal, section);
   const [payload, setPayload] = useState<OperationsWorkspacePayload>(() =>
     resolvePayload(portal, section, locale),
   );
   const [shownSection, setShownSection] = useState(section);
+  // Suppress Nest/auth banners until the first real response for this section.
+  const [statusReady, setStatusReady] = useState(() => Boolean(cached));
 
-  // Apply cache synchronously when the section changes (before paint).
   if (section !== shownSection) {
+    const next = resolvePayload(portal, section, locale);
     setShownSection(section);
-    setPayload(resolvePayload(portal, section, locale));
+    setPayload(next);
+    setStatusReady(Boolean(getOpsCache(portal, section)));
   }
 
   useEffect(() => {
@@ -49,6 +53,7 @@ export function OperationsWorkspaceClient({
     const hit = getOpsCache(portal, section);
     if (hit) {
       setPayload(hit);
+      setStatusReady(true);
       if (!isOpsCacheFresh(portal, section)) {
         void fetchOpsPayload(portal, section).then((fresh) => {
           if (!cancelled && fresh) setPayload(fresh);
@@ -58,6 +63,7 @@ export function OperationsWorkspaceClient({
       void fetchOpsPayload(portal, section).then((fresh) => {
         if (cancelled) return;
         setPayload(fresh ?? emptyOpsPayload(locale));
+        setStatusReady(true);
       });
     }
 
@@ -87,10 +93,10 @@ export function OperationsWorkspaceClient({
         summary={payload.summary}
         secondary={payload.secondary}
         context={payload.context}
-        apiOnline={payload.apiOnline}
+        apiOnline={statusReady ? payload.apiOnline : true}
         nestConfigured={payload.nestConfigured}
         recordsEmpty={payload.recordsEmpty}
-        apiUnauthorized={payload.apiUnauthorized}
+        apiUnauthorized={statusReady ? payload.apiUnauthorized : false}
         dataFromDb={payload.dataFromDb}
       />
     </div>

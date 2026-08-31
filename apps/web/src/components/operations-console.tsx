@@ -2503,8 +2503,8 @@ export function OperationsConsole({
                   ? 'يمكنك تصفح السجلات. للحفظ أو إضافة عقار جديد سجّل خروجاً ثم ادخلاً مجدداً من الهاتف أو الكمبيوتر.'
                   : 'You can browse records. To save or add a property, sign out and sign in again on phone or desktop.'
                 : ar
-                  ? 'أعد تسجيل الدخول من بوابة الهوية ثم حاول مرة أخرى.'
-                  : 'Sign in again via the identity portal, then try again.'}
+                  ? 'الخدمة الخلفية غير جاهزة مؤقتاً. إن استمرت الحالة جرّب بعد لحظات دون إعادة تسجيل الدخول.'
+                  : 'The backend is temporarily unavailable. If this persists, wait a moment — you usually do not need to sign in again.'}
           </p>
           {showOpsDiagnostics && nestConfigured ? <NestReconnectButton locale={locale} /> : null}
           {recordsEmpty ? (
