@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.17 — 2026-08-31
+
+- Property media upload: JSON base64 path (avoids multipart `Failed to fetch`); Neon/R2 first then Nest **server-side** ingress fallback; never surface raw browser `Failed to fetch`.
+- Docs: `RELEASE-0.4.17-AR.md` — requires Vercel Redeploy without cache + S3 or Nest Live.
+
 ## 0.4.16 — 2026-08-31
 
 - Fix Render Docker build for Nest: `apps/web` engines was pinned to `22.x` which aborted `pnpm install` on Node 24 image; use `>=22` and disable engine-strict / minimum-release-age inside `Dockerfile.api`.

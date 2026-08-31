@@ -9,7 +9,68 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-/** POST /api/owner/media — Nest-first upload (intent→ingress→complete) with Neon fallback. */
+type JsonUploadBody = {
+  unitId?: string;
+  purpose?: string;
+  position?: number;
+  fileName?: string;
+  mimeType?: string;
+  dataBase64?: string;
+};
+
+async function readUploadPayload(request: Request): Promise<{
+  unitId: string;
+  purpose: 'property_image' | 'attachment';
+  position: number;
+  mimeType: string;
+  fileName?: string;
+  bytes: Buffer;
+}> {
+  const contentType = request.headers.get('content-type') ?? '';
+  if (contentType.includes('application/json')) {
+    const body = (await request.json()) as JsonUploadBody;
+    const unitId = String(body.unitId ?? '');
+    const purpose =
+      body.purpose === 'attachment' ? ('attachment' as const) : ('property_image' as const);
+    const raw = String(body.dataBase64 ?? '').replace(/^data:[^;]+;base64,/, '');
+    if (!unitId || !raw) throw new Error('validation_failed');
+    const bytes = Buffer.from(raw, 'base64');
+    if (bytes.byteLength < 1 || bytes.byteLength > 8 * 1024 * 1024) {
+      throw new Error('invalid_file');
+    }
+    return {
+      unitId,
+      purpose,
+      position: Number.isFinite(Number(body.position)) ? Number(body.position) : 0,
+      mimeType: body.mimeType || 'application/octet-stream',
+      fileName: body.fileName,
+      bytes,
+    };
+  }
+
+  const form = await request.formData();
+  const file = form.get('file');
+  const unitId = String(form.get('unitId') ?? '');
+  const purposeRaw = String(form.get('purpose') ?? 'property_image');
+  const purpose =
+    purposeRaw === 'attachment' ? ('attachment' as const) : ('property_image' as const);
+  const position = Number(form.get('position') ?? 0);
+  if (!(file instanceof Blob) || !unitId) throw new Error('validation_failed');
+  const bytes = Buffer.from(await file.arrayBuffer());
+  if (bytes.byteLength < 1 || bytes.byteLength > 12 * 1024 * 1024) {
+    throw new Error('invalid_file');
+  }
+  return {
+    unitId,
+    purpose,
+    position: Number.isFinite(position) ? position : 0,
+    mimeType: file.type || 'application/octet-stream',
+    fileName: file instanceof File ? file.name : undefined,
+    bytes,
+  };
+}
+
+/** POST /api/owner/media — Neon/R2 first, Nest server-side fallback. Accepts multipart or JSON base64. */
 export async function POST(request: Request) {
   if (!hasDatabaseUrl()) {
     return NextResponse.json(
@@ -45,36 +106,17 @@ export async function POST(request: Request) {
   }
 
   try {
-    const form = await request.formData();
-    const file = form.get('file');
-    const unitId = String(form.get('unitId') ?? '');
-    const purposeRaw = String(form.get('purpose') ?? 'property_image');
-    const purpose =
-      purposeRaw === 'attachment' ? ('attachment' as const) : ('property_image' as const);
-    const position = Number(form.get('position') ?? 0);
-    if (!(file instanceof File) || !unitId) {
-      return NextResponse.json(
-        {
-          error: {
-            code: 'validation_failed',
-            message: 'file and unitId are required',
-            messageAr: 'الملف ومعرّف الوحدة مطلوبان',
-          },
-        },
-        { status: 400 },
-      );
-    }
-    const bytes = Buffer.from(await file.arrayBuffer());
+    const payload = await readUploadPayload(request);
     const idempotencyKey = request.headers.get('idempotency-key');
     const result = await uploadUnitMediaNestOrNeon(
       claims,
       {
-        unitId,
-        purpose,
-        position: Number.isFinite(position) ? position : 0,
-        mimeType: file.type || 'application/octet-stream',
-        bytes,
-        fileName: file.name,
+        unitId: payload.unitId,
+        purpose: payload.purpose,
+        position: payload.position,
+        mimeType: payload.mimeType,
+        bytes: payload.bytes,
+        fileName: payload.fileName,
       },
       request.headers.get('x-csrf-token'),
       { idempotencyKey },
@@ -91,9 +133,13 @@ export async function POST(request: Request) {
       organization_required: { ar: 'اختر مؤسسة أولاً', en: 'Organization required' },
       unit_not_found: { ar: 'الوحدة غير موجودة', en: 'Unit not found' },
       invalid_file: { ar: 'نوع أو حجم الملف غير مسموح', en: 'Invalid file' },
+      validation_failed: {
+        ar: 'الملف ومعرّف الوحدة مطلوبان',
+        en: 'file and unitId are required',
+      },
       storage_unavailable: {
-        ar: 'تخزين الصور غير متاح — اضبط S3_BUCKET_PRIVATE',
-        en: 'Object storage unavailable — configure S3_BUCKET_PRIVATE',
+        ar: 'تخزين الصور غير متاح — اضبط S3 على Vercel أو تأكد أن Nest Live',
+        en: 'Object storage unavailable — configure S3 on Vercel or keep Nest Live',
       },
       s3_unconfigured: {
         ar: 'تخزين الصور غير مضبوط',

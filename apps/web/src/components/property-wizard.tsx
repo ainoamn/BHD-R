@@ -762,55 +762,59 @@ export function PropertyWizard({
         ? await compressImageFile(file)
         : file;
 
-    const buildForm = () => {
-      const form = new FormData();
-      form.append('file', prepared);
-      form.append('unitId', unitId);
-      form.append('purpose', purpose);
-      form.append('position', String(position ?? 0));
-      return form;
-    };
+    const buffer = await prepared.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+    }
+    const dataBase64 = btoa(binary);
 
-    // Vercel→R2→Neon only. Rebuild FormData on each attempt (body is single-use).
-    const postOnce = async (csrf: string) =>
+    const postJson = async (csrf: string) =>
       fetch('/api/owner/media', {
         method: 'POST',
         credentials: 'same-origin',
-        headers: { 'x-csrf-token': csrf },
-        body: buildForm(),
+        headers: {
+          accept: 'application/json',
+          'content-type': 'application/json',
+          'x-csrf-token': csrf,
+        },
+        body: JSON.stringify({
+          unitId,
+          purpose,
+          position: position ?? 0,
+          fileName: prepared.name,
+          mimeType: prepared.type || 'application/octet-stream',
+          dataBase64,
+        }),
         signal: AbortSignal.timeout(55_000),
       });
 
-    let vercelUpload: Response;
+    let response: Response;
     try {
       const csrf = await fetchBrowserCsrfToken(true);
-      vercelUpload = await postOnce(csrf);
-      if (vercelUpload.status === 403) {
+      response = await postJson(csrf);
+      if (response.status === 403) {
         clearBrowserCsrfCache();
-        vercelUpload = await postOnce(await fetchBrowserCsrfToken(true));
+        response = await postJson(await fetchBrowserCsrfToken(true));
       }
-    } catch (error) {
-      const timedOut =
-        error instanceof Error && /aborted|timeout|timed out|failed to fetch/i.test(error.message);
+    } catch {
       throw new Error(
         ar
-          ? timedOut
-            ? 'انتهت مهلة رفع الصورة. صغّر الملف أو ارفع صورة واحدة ثم أعد المحاولة.'
-            : 'تعذر رفع الصورة (شبكة). أعد المحاولة.'
-          : timedOut
-            ? 'Photo upload timed out. Use a smaller file or upload one photo at a time.'
-            : 'Could not upload photo (network). Please retry.',
+          ? 'تعذر رفع الصورة (انقطاع أو مهلة). صغّر الملف وأعد المحاولة.'
+          : 'Could not upload photo (network/timeout). Use a smaller file and retry.',
       );
     }
-    if (vercelUpload.ok) return;
+    if (response.ok) return;
 
-    const vercelError = (await vercelUpload.json().catch(() => null)) as {
+    const payload = (await response.json().catch(() => null)) as {
       error?: { code?: string; message?: string; messageAr?: string };
     } | null;
     throw new Error(
-      vercelError?.error?.messageAr ??
-        vercelError?.error?.message ??
-        (ar ? `فشل رفع الملف (${vercelUpload.status})` : `upload_failed:${vercelUpload.status}`),
+      payload?.error?.messageAr ??
+        payload?.error?.message ??
+        (ar ? `فشل رفع الملف (${response.status})` : `upload_failed:${response.status}`),
     );
   }
 
