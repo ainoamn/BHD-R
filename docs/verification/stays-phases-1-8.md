@@ -37,10 +37,15 @@
 
 ## Honest gaps (continue Expand–Contract)
 
-- Reports Occupancy/ADR/RevPAR UI for stays.
 - Provider-hosted payment redirect for stay intents.
 - iCal/OTA after SSRF controls.
+- Ops bookings list still a stub.
 - Full-repo `pnpm check` still has unrelated ESLint debt in api/web.
+
+## 0.4.7 Occupancy / ADR / RevPAR
+
+- Domain `computeStayPerformanceMetrics`; ops `GET /v1/stays/reports/performance`.
+- Flag off → 401/404; flag on → KPIs from sellable inventory days + confirmed bookings.
 
 ## 0.4.6 guest trips
 

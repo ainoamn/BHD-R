@@ -6,13 +6,21 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   Req,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { readStaysFlagsFromEnv, resolveStaysEnabledFromEnv } from '@bhd-r/config';
+import {
+  stayPerformanceQuerySchema,
+  type StayPerformanceQuery,
+} from '@bhd-r/contracts';
 import type { ApiRequest } from '../common/api-http.js';
 import { RequirePermissions } from '../common/decorators.js';
+import { ZodPipe } from '../common/zod.pipe.js';
 import { StaysInventoryService } from './stays-inventory.service.js';
 import { StaysBookingService } from './stays-booking.service.js';
+import { StaysReportsService } from './stays-reports.service.js';
 
 /** Fail-closed: platform kill-switch off → 404 (hide surface). */
 function assertStaysPlatformEnabled(): void {
@@ -44,7 +52,19 @@ export class StaysOperationsController {
   constructor(
     private readonly inventory: StaysInventoryService,
     private readonly bookings: StaysBookingService,
+    private readonly reports: StaysReportsService,
   ) {}
+
+  @RequirePermissions('stay.booking.read')
+  @Get('reports/performance')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  performance(
+    @Req() request: ApiRequest,
+    @Query(new ZodPipe(stayPerformanceQuerySchema)) query: StayPerformanceQuery,
+  ) {
+    assertStaysOperationsEnabled(request.auth?.organizationId);
+    return this.reports.performance(request.auth!, query);
+  }
 
   @RequirePermissions('stay.booking.read')
   @Get('bookings')

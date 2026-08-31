@@ -176,4 +176,11 @@ describe('API runtime boundaries (Express)', () => {
     const guestList = await fetch(`${baseUrl}/v1/guest/stays/bookings`);
     expect([401, 404]).toContain(guestList.status);
   });
+
+  it('hides stays performance reports while the platform flag is off', async () => {
+    const response = await fetch(
+      `${baseUrl}/v1/stays/reports/performance?fromOn=2026-08-01&toOn=2026-08-31`,
+    );
+    expect([401, 404]).toContain(response.status);
+  });
 });

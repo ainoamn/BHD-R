@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.7 — 2026-08-31
+
+- Stays performance KPIs: domain Occupancy / ADR / RevPAR; `GET /v1/stays/reports/performance`.
+- Owner and developer stays dashboards show last-30-day metrics from inventory days.
+- Docs: `RELEASE-0.4.7-AR.md`.
+
 ## 0.4.6 — 2026-08-31
 
 - Guest trips: public booking lookup by reference, authenticated list/detail, and claim-to-account.

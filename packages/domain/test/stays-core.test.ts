@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   assertStayBookingTransition,
   availabilityFromLockKinds,
+  computeStayPerformanceMetrics,
   formatDaterangeLiteral,
   nightsBetween,
   quoteStay,
@@ -143,5 +144,30 @@ describe('stay range fully available', () => {
         checkOutOn: '2026-11-03',
       }),
     ).toBe(false);
+  });
+});
+
+describe('stay performance Occupancy / ADR / RevPAR', () => {
+  it('computes KPIs with integer minor money', () => {
+    const metrics = computeStayPerformanceMetrics({
+      availableRoomNights: 10,
+      occupiedRoomNights: 5,
+      roomRevenueMinor: '100000',
+    });
+    expect(metrics.occupancyPercent).toBe('50.00');
+    expect(metrics.occupancyRatio).toBe('0.500000');
+    expect(metrics.adrMinor).toBe('20000');
+    expect(metrics.revparMinor).toBe('10000');
+  });
+
+  it('returns null ADR/RevPAR when denominators are zero', () => {
+    const empty = computeStayPerformanceMetrics({
+      availableRoomNights: 0,
+      occupiedRoomNights: 0,
+      roomRevenueMinor: '0',
+    });
+    expect(empty.occupancyPercent).toBeNull();
+    expect(empty.adrMinor).toBeNull();
+    expect(empty.revparMinor).toBeNull();
   });
 });

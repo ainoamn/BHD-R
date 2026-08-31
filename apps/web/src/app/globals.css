@@ -7790,6 +7790,16 @@ h3 {
 .guest-stays__list {
   margin-top: 2rem;
 }
+.stays-performance {
+  margin-top: 1rem;
+}
+.stays-performance__title {
+  margin: 1.25rem 0 0.5rem;
+  font-size: 1.05rem;
+}
+.stays-performance__stats {
+  margin-top: 0.75rem;
+}
 @media (max-width: 760px) {
   .stays-search__grid,
   .stays-portal__stats,

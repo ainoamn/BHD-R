@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-08-31  
-**Product version:** 0.4.6  
-**Active focus:** BHD R Stays — guest trips list + reference lookup/claim; flag still off  
+**Product version:** 0.4.7  
+**Active focus:** BHD R Stays — Occupancy / ADR / RevPAR reports; flag still off  
+**Release 0.4.7:** [`RELEASE-0.4.7-AR.md`](./RELEASE-0.4.7-AR.md)  
 **Release 0.4.6:** [`RELEASE-0.4.6-AR.md`](./RELEASE-0.4.6-AR.md)  
 **Release 0.4.5:** [`RELEASE-0.4.5-AR.md`](./RELEASE-0.4.5-AR.md)  
 **Release 0.4.4:** [`RELEASE-0.4.4-AR.md`](./RELEASE-0.4.4-AR.md)  
@@ -16,6 +17,7 @@
 
 | Phase | Status | Notes |
 | ----- | ------ | ----- |
+| Occupancy / ADR / RevPAR reports | **shipped 0.4.7** | Ops + owner/dev dashboard |
 | Guest trips list + reference claim | **shipped 0.4.6** | Flag off → 404/401 |
 | Guest interactive checkout UI | **shipped 0.4.5** | Detail page |
 | Public quote → hold → pay intent | **shipped 0.4.4** | Nest APIs |
@@ -27,16 +29,16 @@
 
 ## Next (human / infra)
 
-1. Redeploy Nest **and Worker** on Render from `main` (0.4.4–0.4.6 APIs).  
-2. Pilot: `STAYS_PLATFORM_ENABLED=true` + allowlist; checkout → lookup → claim → webhook.  
+1. Redeploy Nest **and Worker** on Render from `main` (0.4.4–0.4.7).  
+2. Pilot: flag + allowlist; confirm projector fills days so KPIs are non-zero.  
 3. ClamAV فعلي؛ Nest+DB E2E كامل؛ Neon non-BYPASS؛ تدوير أسرار.  
 4. اختياري: أرشفة مشروع Vercel `web` الخاطئ.
 
 ## Product gaps (Expand–Contract)
 
-- Reports Occupancy/ADR/RevPAR for stays.
 - Provider-hosted payment redirect for stay intents (webhook confirm already live).
 - iCal/OTA after SSRF controls.
+- Ops bookings list still a stub (performance reports live).
 
 ## Verification
 

@@ -198,9 +198,43 @@ export const stayGuestBookingLookupSchema = z
 
 export const stayGuestBookingClaimSchema = stayGuestBookingLookupSchema;
 
+export const stayPerformanceQuerySchema = z
+  .object({
+    fromOn: z.iso.date(),
+    toOn: z.iso.date(),
+    propertyId: uuidSchema.optional(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.toOn <= value.fromOn) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'toOn must be after fromOn',
+        path: ['toOn'],
+      });
+    }
+  });
+
+export const stayPerformanceMetricsSchema = z.object({
+  fromOn: z.iso.date(),
+  toOn: z.iso.date(),
+  propertyId: uuidSchema.nullable().optional(),
+  currency: currencyCodeSchema.nullable(),
+  availableRoomNights: z.number().int().min(0),
+  occupiedRoomNights: z.number().int().min(0),
+  roomRevenueMinor: z.string().regex(/^\d+$/),
+  occupancyRatio: z.string().nullable(),
+  occupancyPercent: z.string().nullable(),
+  adrMinor: z.string().regex(/^\d+$/).nullable(),
+  revparMinor: z.string().regex(/^\d+$/).nullable(),
+  bookingCount: z.number().int().min(0),
+});
+
 export type CreateStayQuoteInput = z.infer<typeof createStayQuoteSchema>;
 export type CreateStayHoldInput = z.infer<typeof createStayHoldSchema>;
 export type CreateStayBookingInput = z.infer<typeof createStayBookingSchema>;
 export type StayAvailabilityQuery = z.infer<typeof stayAvailabilityQuerySchema>;
 export type StayGuestBookingLookup = z.infer<typeof stayGuestBookingLookupSchema>;
 export type StayGuestBookingClaim = z.infer<typeof stayGuestBookingClaimSchema>;
+export type StayPerformanceQuery = z.infer<typeof stayPerformanceQuerySchema>;
+export type StayPerformanceMetricsDto = z.infer<typeof stayPerformanceMetricsSchema>;
