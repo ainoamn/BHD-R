@@ -991,7 +991,7 @@ h3 {
   align-items: center;
   justify-content: flex-end;
   gap: 0.55rem;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   min-width: 0;
   flex: 1 1 auto;
 }
@@ -6186,11 +6186,23 @@ h3 {
   }
   .portal-chrome__user,
   .portal-chrome__user--text {
-    max-width: 11rem;
+    display: none;
   }
-  .portal-chrome__user-text small,
+  .portal-chrome__lang-label {
+    display: none;
+  }
+  .portal-chrome__lang {
+    min-height: 2.2rem;
+    padding: 0.28rem 0.4rem;
+  }
+}
+
+@media (max-width: 1280px) and (min-width: 1101px) {
+  .portal-chrome__user--text {
+    max-width: 9.5rem;
+  }
   .portal-chrome__user--text small {
-    max-width: 9rem;
+    display: none;
   }
 }
 

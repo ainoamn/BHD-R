@@ -1,4 +1,7 @@
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 import type { WorkerConfig } from '../config.js';
 import { PermanentJobError } from '../errors.js';
@@ -10,34 +13,62 @@ import type { MalwareScanner } from './scanner.js';
 const VARIANT_WIDTHS = [480, 960, 1600] as const;
 const MAX_PIXELS = 40_000_000;
 
-function escapeXml(value: string): string {
-  return value.replace(/[<>&"']/g, (character) => {
-    const replacements: Record<string, string> = {
-      '<': '&lt;',
-      '>': '&gt;',
-      '&': '&amp;',
-      '"': '&quot;',
-      "'": '&apos;',
-    };
-    return replacements[character] ?? '';
-  });
+const WORKER_DIR = dirname(fileURLToPath(import.meta.url));
+const LOGO_CANDIDATES = [
+  join(WORKER_DIR, '../../../../web/public/brand/bhd-official-symbol.svg'),
+  join(process.cwd(), 'apps/web/public/brand/bhd-official-symbol.svg'),
+  join(process.cwd(), 'public/brand/bhd-official-symbol.svg'),
+];
+
+function loadLogoSvg(): Buffer | null {
+  for (const path of LOGO_CANDIDATES) {
+    try {
+      return readFileSync(path);
+    } catch {
+      /* try next */
+    }
+  }
+  return null;
 }
 
-function watermarkSvg(text: string, width: number, height: number): Buffer {
-  const safeText = escapeXml(text.slice(0, 48));
-  const markWidth = Math.max(180, Math.min(420, Math.round(width * 0.48)));
-  const markHeight = Math.max(52, Math.round(markWidth * 0.22));
-  const fontSize = Math.max(16, Math.round(markHeight * 0.42));
-  const x = Math.max(12, width - markWidth - 18);
-  const y = Math.max(12, height - markHeight - 18);
-  return Buffer.from(
+async function brandWatermarkOverlay(width: number, height: number): Promise<Buffer> {
+  const markW = Math.max(88, Math.min(220, Math.round(width * 0.16)));
+  const markH = Math.max(28, Math.round(markW * (171 / 548)));
+  const padX = Math.max(10, Math.round(markW * 0.12));
+  const padY = Math.max(8, Math.round(markH * 0.22));
+  const badgeW = markW + padX * 2;
+  const badgeH = markH + padY * 2;
+  const left = Math.max(10, width - badgeW - Math.round(width * 0.02));
+  const top = Math.max(10, height - badgeH - Math.round(height * 0.02));
+
+  const logoSvg = loadLogoSvg();
+  if (!logoSvg) {
+    const safeText = 'BHD R';
+    return Buffer.from(
+      `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+        <g opacity="0.55">
+          <rect x="${left}" y="${top}" width="${badgeW}" height="${badgeH}" rx="10" fill="#092D24"/>
+          <text x="${left + badgeW / 2}" y="${top + badgeH * 0.66}" text-anchor="middle" font-family="Arial, sans-serif" font-size="${Math.max(14, Math.round(badgeH * 0.42))}" font-weight="700" fill="#f4ead6">${safeText}</text>
+        </g>
+      </svg>`,
+    );
+  }
+
+  const logoPng = await sharp(logoSvg).resize({ width: markW }).png().toBuffer();
+  const badge = Buffer.from(
     `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-      <g opacity="0.23">
-        <rect x="${x}" y="${y}" width="${markWidth}" height="${markHeight}" rx="16" fill="#092D24"/>
-        <text x="${x + markWidth / 2}" y="${y + markHeight * 0.64}" text-anchor="middle" font-family="Arial, sans-serif" font-size="${fontSize}" font-weight="700" fill="#f4ead6">${safeText}</text>
-      </g>
+      <rect x="${left}" y="${top}" width="${badgeW}" height="${badgeH}" rx="10" fill="#092D24" fill-opacity="0.55"/>
     </svg>`,
   );
+  return sharp({
+    create: { width, height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+  })
+    .composite([
+      { input: badge, top: 0, left: 0 },
+      { input: logoPng, top: top + padY, left: left + padX },
+    ])
+    .png()
+    .toBuffer();
 }
 
 export interface MediaResult {
@@ -115,11 +146,7 @@ export function createMediaProcessor(
         .rotate()
         .resize({ width, withoutEnlargement: true, fit: 'inside' })
         .toBuffer({ resolveWithObject: true });
-      const mark = watermarkSvg(
-        job.watermarkText ?? 'BHD R — A BHD Product',
-        resized.info.width,
-        resized.info.height,
-      );
+      const mark = await brandWatermarkOverlay(resized.info.width, resized.info.height);
       const composited = await sharp(resized.data)
         .composite([{ input: mark }])
         .toBuffer();

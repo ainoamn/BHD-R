@@ -1,17 +1,18 @@
 # Implementation status
 
 **Updated:** 2026-08-31  
-**Product version:** 0.2.93  
-**Active focus:** Reliable Neon-first property save  
+**Product version:** 0.2.94  
+**Active focus:** Listing watermark + portal header polish  
+**Release 0.2.94:** [`RELEASE-0.2.94-AR.md`](./RELEASE-0.2.94-AR.md)  
 **Release 0.2.93:** [`RELEASE-0.2.93-AR.md`](./RELEASE-0.2.93-AR.md)  
 **Release 0.2.92:** [`RELEASE-0.2.92-AR.md`](./RELEASE-0.2.92-AR.md)  
 **Release 0.2.91:** [`RELEASE-0.2.91-AR.md`](./RELEASE-0.2.91-AR.md)  
-**Release 0.2.90:** [`RELEASE-0.2.90-AR.md`](./RELEASE-0.2.90-AR.md)  
 **Env manifest:** [`ENV-MANIFEST.md`](./ENV-MANIFEST.md)  
 **Nest hosting:** [`NEST-API-HOSTING.md`](./NEST-API-HOSTING.md)
 
 | Phase | Status | Notes |
 | ----- | ------ | ----- |
+| Listing UI polish | **shipped 0.2.94** | One rent badge; baked logo; portal header |
 | Property save reliability | **shipped 0.2.93** | Neon-first create/update + cookie CSRF |
 | AI description room fields | **shipped 0.2.92** | majlis/halls/kitchens/pool in generated copy |
 | Unit room fields | **shipped 0.2.91** | Wizard + DB `majlis`/`halls`/`kitchens`/`has_pool` |

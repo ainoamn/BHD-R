@@ -45,12 +45,8 @@ export function PortalHeader({
             </button>
           ) : null}
           <Link href={`/${portal}`} className="portal-chrome__logo" aria-label="BHD R">
-            <Logo descriptor="" />
+            <Logo descriptor={t(`Portal.${portal}`)} />
           </Link>
-          <div className="portal-chrome__titles">
-            <strong>BHD R</strong>
-            <span>{t(`Portal.${portal}`)}</span>
-          </div>
         </div>
 
         <div className="portal-chrome__actions">
@@ -60,12 +56,12 @@ export function PortalHeader({
             className="portal-chrome__lang"
             hrefLang={nextLocale}
             lang={nextLocale}
+            title={ar ? 'English' : 'العربية'}
           >
             <span className="portal-chrome__lang-code">{nextLocale.toUpperCase()}</span>
-            <span>{ar ? 'English' : 'العربية'}</span>
+            <span className="portal-chrome__lang-label">{ar ? 'English' : 'العربية'}</span>
           </Link>
 
-          {/* Text only — avatar lives in BhdAppSwitcher to avoid stacked identity controls. */}
           <div
             className="portal-chrome__user portal-chrome__user--text"
             title={`${viewer.displayName} · ${subtitle}`}

@@ -20,7 +20,12 @@ export async function ListingCard({
   locale: string;
 }) {
   const t = await getTranslations();
-  const title = `${localizedName(locale, listing.propertyNameAr, listing.propertyNameEn)} — ${localizedName(locale, listing.unitNameAr, listing.unitNameEn)}`;
+  const propertyTitle = localizedName(locale, listing.propertyNameAr, listing.propertyNameEn);
+  const unitTitle = localizedName(locale, listing.unitNameAr, listing.unitNameEn);
+  const title =
+    !unitTitle || unitTitle === propertyTitle || propertyTitle.includes(unitTitle)
+      ? propertyTitle
+      : `${propertyTitle} — ${unitTitle}`;
   const href =
     'propertyId' in listing && listing.propertyId
       ? `/properties/${listing.propertyId}`
@@ -55,9 +60,6 @@ export async function ListingCard({
           ) : null}
           <span className={`listing-card__status listing-card__status--${marketStatus}`}>
             <StatusBadge status={tone === 'warning' ? 'warning' : tone === 'neutral' ? 'neutral' : 'positive'} label={statusLabel} />
-          </span>
-          <span className="listing-card__status-mark" aria-hidden="true">
-            {statusLabel}
           </span>
         </div>
         <div className="listing-card__body">

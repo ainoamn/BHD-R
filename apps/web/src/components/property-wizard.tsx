@@ -1180,7 +1180,6 @@ export function PropertyWizard({
   return (
     <div className="form-shell wizard-shell" data-slide={slideDir}>
       <header className="wizard-hero">
-        <p className="wizard-hero__kicker">{ar ? 'بوابة المالك' : 'Owner portal'}</p>
         <h1>{mode === 'edit' ? (ar ? 'تعديل العقار' : 'Edit property') : t('PropertyForm.title')}</h1>
         <p className="wizard-hero__intro">{t('PropertyForm.intro')}</p>
         <div className="wizard-hero__meta wizard-hero__meta--desktop" aria-hidden="true">
