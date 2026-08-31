@@ -144,19 +144,23 @@ async function listProperties(claims: SessionClaims): Promise<Record<string, unk
       .where(and(eq(units.organizationId, orgId), inArray(units.propertyId, propertyIds)))
       .groupBy(units.propertyId);
 
-    // One cover asset per property (lowest position) — avoid full unit_media scan.
+    // Prefer building-scoped cover; otherwise lowest-position media on any unit.
     const coverRaw = await transaction.execute(sql`
       select distinct on (u.property_id)
         u.property_id as "propertyId",
         um.media_asset_id as "mediaAssetId"
       from unit_media um
       inner join units u on u.id = um.unit_id
+      inner join media_assets ma on ma.id = um.media_asset_id
       where um.organization_id = ${orgId}
         and u.property_id in (${sql.join(
           propertyIds.map((id) => sql`${id}`),
           sql`, `,
         )})
-      order by u.property_id, um.position asc
+      order by
+        u.property_id,
+        case when ma.metadata->>'galleryScope' = 'building' then 0 else 1 end,
+        um.position asc
     `);
 
     const byProperty = new Map(unitCounts.map((row) => [row.propertyId, Number(row.value)]));
