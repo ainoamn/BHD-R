@@ -723,7 +723,16 @@ export function PropertyDetailManager({
                 <dt>{ar ? 'الوحدات' : 'Units'}</dt>
                 <dd>{property.units.length}</dd>
               </div>
-              {!isPublic ? (
+              {isPublic && property.ownerPartyId ? (
+                <div>
+                  <dt>{ar ? 'المالك' : 'Owner'}</dt>
+                  <dd>
+                    <a href={`/${locale}/parties/${property.ownerPartyId}`}>
+                      {property.ownerPartyName ?? property.ownerPartyId.slice(0, 8)}
+                    </a>
+                  </dd>
+                </div>
+              ) : !isPublic ? (
                 <div>
                   <dt>{ar ? 'المالك' : 'Owner'}</dt>
                   <dd>{currentOwner?.partyName ?? '—'}</dd>

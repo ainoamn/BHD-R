@@ -10,7 +10,7 @@
 
 | Phase | Status | Notes |
 | ----- | ------ | ----- |
-| Map + discovery + reviews | **shipped 0.3.8** | Pins from stored coords; polymorphic reviews |
+| Map + discovery + reviews | **shipped 0.3.8** | Live on `r.bhd-om.com` (`070b306`+); pins + reviews + party profiles |
 | Properties browse filters | **shipped 0.3.7** | Sticky search + sidebar/drawer + client facets |
 | Vacant units in bookings | **shipped 0.3.6** | Neon context for create booking dropdown |
 

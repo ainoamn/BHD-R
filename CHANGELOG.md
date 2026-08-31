@@ -5,8 +5,8 @@ All notable changes are documented here. The project follows Semantic Versioning
 ## 0.3.8 — 2026-08-31
 
 - Properties browse: Booking-style list + in-page OSM map with stored pins; catalogue geo enrichment.
-- Property detail: smart tags, similar/recommended/top-rated rails; full reviews (property/party/org) for signed-in users with verifiedStay badges; public party profile page.
-- Docs: `RELEASE-0.3.8-AR.md`.
+- Property detail: smart tags, similar/recommended/top-rated rails; full reviews (property/party/org) for signed-in users with verifiedStay badges; public party profile page; public owner name links to `/parties/{id}`.
+- Docs: `RELEASE-0.3.8-AR.md` (production verification checklist).
 
 ## 0.3.7 — 2026-08-31
 
