@@ -38,13 +38,18 @@ export function ListingCatalogueCard({
   const ar = locale === 'ar';
   const propertyTitle = localizedName(locale, listing.propertyNameAr, listing.propertyNameEn);
   const unitTitle = localizedName(locale, listing.unitNameAr, listing.unitNameEn);
+  const isMulti = listing.propertyKind === 'multi_unit';
   const title =
-    !unitTitle || unitTitle === propertyTitle || propertyTitle.includes(unitTitle)
-      ? propertyTitle
-      : `${propertyTitle} — ${unitTitle}`;
-  const href = listing.propertyId
-    ? `/properties/${listing.propertyId}`
-    : `/units/${listing.unitId}`;
+    isMulti && unitTitle
+      ? `${propertyTitle} — ${unitTitle}`
+      : !unitTitle || unitTitle === propertyTitle || propertyTitle.includes(unitTitle)
+        ? propertyTitle
+        : `${propertyTitle} — ${unitTitle}`;
+  const href = listing.unitId
+    ? `/units/${listing.unitId}`
+    : listing.propertyId
+      ? `/properties/${listing.propertyId}`
+      : `/units/${listing.unitId}`;
   const coverSrc = toPublicMediaSrc(listing.coverImageUrl);
   const isSale = listing.listingPurpose === 'sale' && listing.salePrice;
   const price = isSale
@@ -77,6 +82,11 @@ export function ListingCatalogueCard({
         </div>
         <div className="listing-card__body">
           <h3>{title}</h3>
+          {listing.unitSerial ? (
+            <p className="listing-card__serial" dir="ltr">
+              {listing.unitSerial}
+            </p>
+          ) : null}
           <p className="listing-card__location">
             {listing.governorate}
             {listing.wilayat ? ` · ${listing.wilayat}` : ''}

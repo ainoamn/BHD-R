@@ -22,14 +22,19 @@ export async function ListingCard({
   const t = await getTranslations();
   const propertyTitle = localizedName(locale, listing.propertyNameAr, listing.propertyNameEn);
   const unitTitle = localizedName(locale, listing.unitNameAr, listing.unitNameEn);
+  const isMulti = 'propertyKind' in listing && listing.propertyKind === 'multi_unit';
   const title =
-    !unitTitle || unitTitle === propertyTitle || propertyTitle.includes(unitTitle)
-      ? propertyTitle
-      : `${propertyTitle} — ${unitTitle}`;
+    isMulti && unitTitle
+      ? `${propertyTitle} — ${unitTitle}`
+      : !unitTitle || unitTitle === propertyTitle || propertyTitle.includes(unitTitle)
+        ? propertyTitle
+        : `${propertyTitle} — ${unitTitle}`;
   const href =
-    'propertyId' in listing && listing.propertyId
-      ? `/properties/${listing.propertyId}`
-      : `/units/${listing.unitId}`;
+    listing.unitId
+      ? `/units/${listing.unitId}`
+      : 'propertyId' in listing && listing.propertyId
+        ? `/properties/${listing.propertyId}`
+        : `/units/${listing.unitId}`;
   const coverSrc = toPublicMediaSrc(listing.coverImageUrl);
   const marketStatus =
     'marketStatus' in listing && listing.marketStatus
@@ -37,6 +42,12 @@ export async function ListingCard({
       : marketStatusFromPurpose(listing.listingPurpose);
   const statusLabel = marketStatusLabel(marketStatus, t);
   const tone = marketStatusTone(marketStatus);
+  const serial =
+    'unitSerial' in listing && listing.unitSerial
+      ? listing.unitSerial
+      : 'propertySerial' in listing
+        ? listing.propertySerial
+        : null;
   return (
     <article className="listing-card">
       <Link href={href} aria-label={title} prefetch>
@@ -64,6 +75,11 @@ export async function ListingCard({
         </div>
         <div className="listing-card__body">
           <h3>{title}</h3>
+          {serial ? (
+            <p className="listing-card__serial" dir="ltr">
+              {serial}
+            </p>
+          ) : null}
           <p className="listing-card__location">
             {listing.governorate} · {listing.wilayat}
           </p>

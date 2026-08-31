@@ -54,10 +54,13 @@ export async function generateMetadata({
 /** Public marketing page for a property (QR + «عرض العقار»). Read-only. */
 export default async function PropertyPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string; propertyId: string }>;
+  searchParams?: Promise<{ unit?: string }>;
 }) {
   const { locale: rawLocale, propertyId } = await params;
+  const query = searchParams ? await searchParams : {};
   const locale = rawLocale === 'en' ? 'en' : 'ar';
   setRequestLocale(locale);
 
@@ -67,6 +70,12 @@ export default async function PropertyPage({
     getViewer().catch(() => null),
   ]);
   if (!property) notFound();
+
+  const focusUnitId =
+    typeof query.unit === 'string' &&
+    property.units.some((unit) => unit.id === query.unit || unit.code === query.unit)
+      ? property.units.find((unit) => unit.id === query.unit || unit.code === query.unit)?.id
+      : undefined;
 
   const discovery = await loadPropertyDiscoveryRails(property).catch(() => ({
     similar: [],
@@ -109,6 +118,7 @@ export default async function PropertyPage({
           portal="owner"
           variant="public"
           signedIn={Boolean(viewer)}
+          {...(focusUnitId ? { focusUnitId } : {})}
         />
         <ReviewsPanel locale={locale} signedIn={Boolean(viewer)} targets={reviewTargets} />
         <PropertyDiscoveryRails

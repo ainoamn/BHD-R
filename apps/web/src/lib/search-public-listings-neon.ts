@@ -5,6 +5,11 @@ import type { ListingCollection, PublicListing } from '@bhd-r/contracts';
 import { marketStatusFromPurpose, type CatalogueListing } from '@/lib/listing-market-status';
 import { omanLocations } from '@/lib/oman-locations';
 import { googleMapsLinkFromCoords, parseGoogleMapsUrl } from '@/lib/parse-google-maps-url';
+import {
+  assignUnitSerials,
+  inferUnitKind,
+  unitKindToCategory,
+} from '@/lib/unit-identity';
 
 function mapsUrlFromNotes(notes?: string | null): string | null {
   if (!notes) return null;
@@ -93,6 +98,9 @@ type CatalogueRow = {
   published_at: Date | string | null;
   property_id: string;
   unit_id: string;
+  unit_code: string | null;
+  property_kind: string | null;
+  property_serial: string | null;
   category: string;
   unit_name_ar: string;
   unit_name_en: string;
@@ -265,14 +273,39 @@ export async function searchPublicListingsFromNeon(
     const villageClause = village
       ? sql`and (a.city = ${village} or a.city ilike ${`%${village}%`} or a.street ilike ${`%${village}%`})`
       : sql``;
+    const unitCategoryMatch = (cat: PublicListing['category']) => {
+      if (cat === 'shop') {
+        return sql`(u.code ilike 'S-%' or u.name_ar ilike '%محل%' or u.name_en ilike '%shop%')`;
+      }
+      if (cat === 'apartment') {
+        return sql`(u.code ilike 'A-%' or u.name_ar ilike '%شقة%' or u.name_en ilike '%apartment%')`;
+      }
+      if (cat === 'office') {
+        return sql`(u.code ilike 'R-%' or u.name_ar ilike '%معرض%' or u.name_en ilike '%showroom%')`;
+      }
+      return sql`false`;
+    };
     const categoryClause =
       categories.length === 1
-        ? sql`and p.category::text = ${categories[0]}`
+        ? sql`and (
+            p.category::text = ${categories[0]}
+            or (p.kind = 'multi_unit' and ${unitCategoryMatch(categories[0]!)})
+          )`
         : categories.length > 1
-          ? sql`and p.category::text in (${sql.join(
-              categories.map((c) => sql`${c}`),
-              sql`, `,
-            )})`
+          ? sql`and (
+              p.category::text in (${sql.join(
+                categories.map((c) => sql`${c}`),
+                sql`, `,
+              )})
+              or (
+                p.kind = 'multi_unit' and (
+                  ${sql.join(
+                    categories.map((c) => unitCategoryMatch(c)),
+                    sql` or `,
+                  )}
+                )
+              )
+            )`
           : sql``;
     const bedroomsClause =
       bedroomsExact !== null
@@ -343,6 +376,9 @@ export async function searchPublicListingsFromNeon(
         l.published_at as published_at,
         p.id::text as property_id,
         u.id::text as unit_id,
+        u.code as unit_code,
+        p.kind::text as property_kind,
+        p.serial_number as property_serial,
         p.category::text as category,
         u.name_ar as unit_name_ar,
         u.name_en as unit_name_en,
@@ -452,6 +488,26 @@ export async function searchPublicListingsFromNeon(
         ? ((rawUnknown as { rows: CatalogueRow[] }).rows)
         : [];
 
+    const serialsByProperty = new Map<string, Map<string, string>>();
+    for (const row of rows) {
+      if (serialsByProperty.has(row.property_id)) continue;
+      const siblings = rows
+        .filter((item) => item.property_id === row.property_id)
+        .sort((a, b) => String(a.unit_code ?? '').localeCompare(String(b.unit_code ?? '')));
+      serialsByProperty.set(
+        row.property_id,
+        assignUnitSerials(
+          row.property_serial,
+          siblings.map((item) => ({
+            id: item.unit_id,
+            code: item.unit_code,
+            nameAr: item.unit_name_ar,
+            nameEn: item.unit_name_en,
+          })),
+        ),
+      );
+    }
+
     const data: CatalogueListing[] = rows.map((row) => {
       const purpose = row.listing_purpose as PublicListing['listingPurpose'];
       const occupancy = row.occupancy;
@@ -492,12 +548,34 @@ export async function searchPublicListingsFromNeon(
         row.avg_rating !== null && row.avg_rating !== undefined && Number.isFinite(Number(row.avg_rating))
           ? Math.round(Number(row.avg_rating) * 10) / 10
           : null;
+      const isMulti = row.property_kind === 'multi_unit';
+      const unitKind = inferUnitKind({
+        code: row.unit_code,
+        nameAr: row.unit_name_ar,
+        nameEn: row.unit_name_en,
+      });
+      const category = (
+        isMulti ? unitKindToCategory(unitKind) : row.category
+      ) as PublicListing['category'];
+      const propertyKind =
+        row.property_kind === 'multi_unit' || row.property_kind === 'single_unit'
+          ? row.property_kind
+          : null;
+      const unitSerial =
+        serialsByProperty.get(row.property_id)?.get(row.unit_id) ??
+        (row.property_serial
+          ? `${row.property_serial}-${(row.unit_code ?? 'U').replace(/\s+/g, '')}`
+          : null);
       return {
         id: row.listing_id ?? row.unit_id,
         slug: row.slug ?? row.unit_id,
         propertyId: row.property_id,
         unitId: row.unit_id,
-        category: row.category as PublicListing['category'],
+        ...(row.unit_code ? { unitCode: row.unit_code } : {}),
+        ...(propertyKind ? { propertyKind } : {}),
+        ...(row.property_serial ? { propertySerial: row.property_serial } : {}),
+        ...(unitSerial ? { unitSerial } : {}),
+        category,
         propertyNameAr: row.property_name_ar,
         propertyNameEn: row.property_name_en,
         unitNameAr: row.unit_name_ar,

@@ -116,6 +116,16 @@ export type DescriptionInput = {
   listingPurpose: 'rent' | 'sale' | 'both';
   furnishing: string;
   amenities: Array<{ code: string; labelAr: string; labelEn: string }>;
+  /** When set, generates a multi-unit building description instead of a single-unit one. */
+  multiUnit?:
+    | {
+        shopCount: number;
+        showroomCount: number;
+        apartmentCount: number;
+        totalArea?: string | undefined;
+        yearBuilt?: number | string | undefined;
+      }
+    | undefined;
 };
 
 function roomDetailsAr(input: DescriptionInput): string | null {
@@ -146,6 +156,48 @@ function roomDetailsEn(input: DescriptionInput): string | null {
   return `${rooms}${input.area ? `, approximately ${input.area} m²` : ''}.`;
 }
 
+function buildingAgePhrase(
+  yearBuilt: number | string | undefined,
+  locale: 'ar' | 'en',
+): string | null {
+  const year = typeof yearBuilt === 'string' ? Number(yearBuilt) : yearBuilt;
+  if (!year || !Number.isFinite(year) || year < 1800 || year > 2200) return null;
+  const age = Math.max(0, new Date().getFullYear() - year);
+  if (locale === 'ar') {
+    if (age <= 0) return `عمر البناء: جديد (بني عام ${year})`;
+    if (age === 1) return `عمر البناء: سنة واحدة (بني عام ${year})`;
+    if (age === 2) return `عمر البناء: سنتان (بني عام ${year})`;
+    if (age >= 3 && age <= 10) return `عمر البناء: ${age} سنوات (بني عام ${year})`;
+    return `عمر البناء: ${age} سنة (بني عام ${year})`;
+  }
+  return age <= 0
+    ? `Building age: new (built ${year})`
+    : `Building age: ${age} year${age === 1 ? '' : 's'} (built ${year})`;
+}
+
+function multiUnitCompositionAr(input: NonNullable<DescriptionInput['multiUnit']>): string {
+  const parts: string[] = [];
+  if (input.shopCount > 0) parts.push(`${input.shopCount} محل`);
+  if (input.showroomCount > 0) parts.push(`${input.showroomCount} معرض`);
+  if (input.apartmentCount > 0) parts.push(`${input.apartmentCount} شقة`);
+  const total = input.shopCount + input.showroomCount + input.apartmentCount;
+  if (!parts.length) return total ? `يضم ${total} وحدة.` : '';
+  return `يتكون المبنى من ${parts.join(' و')} (إجمالي ${total} وحدة).`;
+}
+
+function multiUnitCompositionEn(input: NonNullable<DescriptionInput['multiUnit']>): string {
+  const parts: string[] = [];
+  if (input.shopCount > 0)
+    parts.push(`${input.shopCount} shop${input.shopCount === 1 ? '' : 's'}`);
+  if (input.showroomCount > 0)
+    parts.push(`${input.showroomCount} showroom${input.showroomCount === 1 ? '' : 's'}`);
+  if (input.apartmentCount > 0)
+    parts.push(`${input.apartmentCount} apartment${input.apartmentCount === 1 ? '' : 's'}`);
+  const total = input.shopCount + input.showroomCount + input.apartmentCount;
+  if (!parts.length) return total ? `It contains ${total} unit(s).` : '';
+  return `The building comprises ${parts.join(', ')} (${total} units in total).`;
+}
+
 export function generateListingDescriptions(input: DescriptionInput): {
   descriptionAr: string;
   descriptionEn: string;
@@ -168,6 +220,50 @@ export function generateListingDescriptions(input: DescriptionInput): {
       : input.listingPurpose === 'both'
         ? 'for rent or sale'
         : 'for rent';
+  const amenAr = input.amenities
+    .slice(0, 8)
+    .map((a) => amenityPhrase[a.code]?.ar ?? a.labelAr)
+    .filter(Boolean);
+  const amenEn = input.amenities
+    .slice(0, 8)
+    .map((a) => amenityPhrase[a.code]?.en ?? a.labelEn)
+    .filter(Boolean);
+
+  const titleEn =
+    input.nameEn.trim() || lexiconTranslate(input.nameAr, 'en') || cat.en;
+
+  if (input.multiUnit) {
+    const totalArea =
+      input.multiUnit.totalArea?.trim() || input.area?.trim() || undefined;
+    const ageAr = buildingAgePhrase(input.multiUnit.yearBuilt, 'ar');
+    const ageEn = buildingAgePhrase(input.multiUnit.yearBuilt, 'en');
+    const descriptionAr = [
+      `مبنى متعدد الوحدات بعنوان «${input.nameAr || 'مبنى'}» ${purposeAr} في ${placeAr || 'سلطنة عُمان'}.`,
+      ageAr ? `${ageAr}.` : null,
+      totalArea ? `المساحة الإجمالية للمبنى تقارب ${totalArea} م².` : null,
+      multiUnitCompositionAr(input.multiUnit),
+      amenAr.length ? `من أبرز مميزات المبنى: ${amenAr.join('، ')}.` : null,
+      input.street ? `يقع على ${input.street}.` : null,
+      'فرصة استثمارية مناسبة، مع إدارة موثوقة عبر منصة BHD R.',
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+    const descriptionEn = [
+      `A multi-unit building titled “${titleEn}” ${purposeEn} in ${placeEn || 'the Sultanate of Oman'}.`,
+      ageEn ? `${ageEn}.` : null,
+      totalArea ? `Total building area is approximately ${totalArea} m².` : null,
+      multiUnitCompositionEn(input.multiUnit),
+      amenEn.length ? `Key building features: ${amenEn.join(', ')}.` : null,
+      input.street ? `Located on ${input.street}.` : null,
+      'A strong investment opportunity, professionally managed through BHD R.',
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+    return { descriptionAr, descriptionEn };
+  }
+
   const furnishAr =
     input.furnishing === 'furnished'
       ? 'مؤثثة بالكامل'
@@ -180,17 +276,6 @@ export function generateListingDescriptions(input: DescriptionInput): {
       : input.furnishing === 'semi_furnished'
         ? 'semi-furnished'
         : 'unfurnished';
-  const amenAr = input.amenities
-    .slice(0, 8)
-    .map((a) => amenityPhrase[a.code]?.ar ?? a.labelAr)
-    .filter(Boolean);
-  const amenEn = input.amenities
-    .slice(0, 8)
-    .map((a) => amenityPhrase[a.code]?.en ?? a.labelEn)
-    .filter(Boolean);
-
-  const titleEn =
-    input.nameEn.trim() || lexiconTranslate(input.nameAr, 'en') || cat.en;
 
   const descriptionAr = [
     `نقدم لكم ${cat.ar} مميزة بعنوان «${input.nameAr || cat.ar}» ${purposeAr} في ${placeAr || 'سلطنة عُمان'}.`,

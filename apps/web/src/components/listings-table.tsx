@@ -47,7 +47,7 @@ function priceBits(listing: CatalogueListing, locale: string, ar: boolean) {
   return {
     price,
     period,
-    href: listing.propertyId ? `/properties/${listing.propertyId}` : `/units/${listing.unitId}`,
+    href: listing.unitId ? `/units/${listing.unitId}` : `/properties/${listing.propertyId}`,
   };
 }
 

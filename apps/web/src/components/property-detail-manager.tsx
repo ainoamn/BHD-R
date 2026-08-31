@@ -11,6 +11,12 @@ import { PropertyQrCard } from '@/components/property-qr-card';
 import { PublicListingActions } from '@/components/public-listing-actions';
 import { PropertyManageHub } from '@/components/property-manage-hub';
 import { googleMapsEmbedSrc } from '@/lib/parse-google-maps-url';
+import {
+  assignUnitSerials,
+  inferUnitKind,
+  summarizeUnitKinds,
+  unitKindLabel,
+} from '@/lib/unit-identity';
 
 interface ManagedUnit {
   id: string;
@@ -191,7 +197,9 @@ export function PropertyDetailManager({
 
   const publicPath = `/${locale}/properties/${property.id}`;
   /** QR and «عرض العقار» always open the public listing URL. */
-  const propertyPath = publicPath;
+  const propertyPath = focusUnitId
+    ? `/${locale}/units/${focusUnitId}`
+    : publicPath;
   const gallery = useMemo(() => {
     const items = (property.gallery ?? [])
       .filter((item) => item.url)
@@ -203,7 +211,30 @@ export function PropertyDetailManager({
   }, [property.gallery, focusUnitId]);
   const primaryUnit =
     (focusUnitId ? property.units.find((unit) => unit.id === focusUnitId) : undefined) ??
-    property.units[0];
+    (property.kind === 'multi_unit' && !focusUnitId ? undefined : property.units[0]);
+  const unitSerials = useMemo(
+    () =>
+      assignUnitSerials(
+        property.serialNumber,
+        [...property.units].sort((a, b) => a.code.localeCompare(b.code)),
+      ),
+    [property.serialNumber, property.units],
+  );
+  const unitKindCounts = useMemo(() => summarizeUnitKinds(property.units), [property.units]);
+  const focusedSerial = primaryUnit ? unitSerials.get(primaryUnit.id) ?? null : null;
+  const displaySerial =
+    focusUnitId && focusedSerial ? focusedSerial : property.serialNumber ?? null;
+  const buildingAgeYears =
+    property.profile?.yearBuilt && Number.isFinite(property.profile.yearBuilt)
+      ? Math.max(0, new Date().getFullYear() - property.profile.yearBuilt)
+      : null;
+  const totalArea = property.profile?.builtUpAreaSquareMeters ?? null;
+  const headline =
+    focusUnitId && primaryUnit
+      ? `${ar ? property.nameAr : property.nameEn} — ${ar ? primaryUnit.nameAr : primaryUnit.nameEn}`
+      : ar
+        ? property.nameAr
+        : property.nameEn;
   const mapsUrl = property.mapsUrl || mapsUrlFromNotes(property.profile?.notes) || null;
   const latitude =
     typeof property.latitude === 'number' && Number.isFinite(property.latitude)
@@ -216,13 +247,34 @@ export function PropertyDetailManager({
   const mapEmbed =
     latitude !== null && longitude !== null ? googleMapsEmbedSrc(latitude, longitude) : null;
 
-  const priceLabel = primaryUnit
-    ? primaryUnit.listingPurpose === 'sale' && primaryUnit.salePriceMinor
-      ? formatMoney(primaryUnit.salePriceMinor, primaryUnit.currency, locale)
-      : formatMoney(primaryUnit.rentMinor, primaryUnit.currency, locale)
-    : '—';
+  const priceLabel = (() => {
+    if (primaryUnit) {
+      return primaryUnit.listingPurpose === 'sale' && primaryUnit.salePriceMinor
+        ? formatMoney(primaryUnit.salePriceMinor, primaryUnit.currency, locale)
+        : formatMoney(primaryUnit.rentMinor, primaryUnit.currency, locale);
+    }
+    if (property.kind === 'multi_unit' && property.units.length) {
+      const priced = property.units
+        .map((unit) => {
+          const minor =
+            unit.listingPurpose === 'sale' && unit.salePriceMinor
+              ? BigInt(unit.salePriceMinor)
+              : BigInt(unit.rentMinor);
+          return { unit, minor };
+        })
+        .sort((a, b) => (a.minor < b.minor ? -1 : a.minor > b.minor ? 1 : 0));
+      const cheapest = priced[0];
+      if (!cheapest) return '—';
+      return cheapest.unit.listingPurpose === 'sale' && cheapest.unit.salePriceMinor
+        ? formatMoney(cheapest.unit.salePriceMinor, cheapest.unit.currency, locale)
+        : formatMoney(cheapest.unit.rentMinor, cheapest.unit.currency, locale);
+    }
+    return '—';
+  })();
   const priceSuffix =
-    primaryUnit?.listingPurpose === 'sale'
+    primaryUnit?.listingPurpose === 'sale' ||
+    (!primaryUnit &&
+      property.units.some((unit) => unit.listingPurpose === 'sale' && unit.salePriceMinor))
       ? ar
         ? 'سعر البيع'
         : 'Sale price'
@@ -277,10 +329,10 @@ export function PropertyDetailManager({
                     <BrandMark tone="onDark" />
                   </span>
                 </div>
-                {property.serialNumber ? (
+                {displaySerial ? (
                   <p className="property-360__serial property-360__serial--gallery" dir="ltr">
                     <span>{ar ? 'الرقم المتسلسل' : 'Serial'}</span>
-                    <strong>{property.serialNumber}</strong>
+                    <strong>{displaySerial}</strong>
                   </p>
                 ) : null}
                 {gallery.length > 1 ? (
@@ -311,10 +363,10 @@ export function PropertyDetailManager({
                     ? 'أضف صوراً من تعديل العقار لعرضها هنا كمعرض حجز.'
                     : 'Add photos from Edit property to show a booking-style gallery here.'}
                 </p>
-                {property.serialNumber ? (
+                {displaySerial ? (
                   <p className="property-360__serial property-360__serial--gallery" dir="ltr">
                     <span>{ar ? 'الرقم المتسلسل' : 'Serial'}</span>
-                    <strong>{property.serialNumber}</strong>
+                    <strong>{displaySerial}</strong>
                   </p>
                 ) : null}
                 {property.status !== 'archived' && !isPublic ? (
@@ -331,11 +383,18 @@ export function PropertyDetailManager({
               <span className="ops-kicker">
                 {isPublic ? 'BHD R · LISTING' : 'BHD R · PROPERTY 360'}
               </span>
-              <h1>{ar ? property.nameAr : property.nameEn}</h1>
+              <h1>{headline}</h1>
               <p className="property-360__location">{addressLine}</p>
-              {property.serialNumber ? (
+              {displaySerial ? (
                 <p className="property-360__serial" dir="ltr">
-                  {property.serialNumber}
+                  {displaySerial}
+                </p>
+              ) : null}
+              {property.kind === 'multi_unit' && focusUnitId ? (
+                <p className="property-360__building-link">
+                  <Link href={publicPath}>
+                    {ar ? 'عرض المبنى كاملاً وكل وحداته' : 'View full building and all units'}
+                  </Link>
                 </p>
               ) : null}
             </div>
@@ -384,6 +443,65 @@ export function PropertyDetailManager({
             </section>
           )}
 
+          {property.kind === 'multi_unit' ? (
+            <section className="property-360__section">
+              <h2>{ar ? 'تفاصيل المبنى' : 'Building details'}</h2>
+              <dl className="property-360__building-facts">
+                <div>
+                  <dt>{ar ? 'اسم المبنى' : 'Building name'}</dt>
+                  <dd>{ar ? property.nameAr : property.nameEn}</dd>
+                </div>
+                {property.serialNumber ? (
+                  <div>
+                    <dt>{ar ? 'سيريال المبنى' : 'Building serial'}</dt>
+                    <dd dir="ltr">{property.serialNumber}</dd>
+                  </div>
+                ) : null}
+                {property.profile?.yearBuilt ? (
+                  <div>
+                    <dt>{ar ? 'سنة البناء / العمر' : 'Year built / age'}</dt>
+                    <dd>
+                      {property.profile.yearBuilt}
+                      {buildingAgeYears !== null
+                        ? ar
+                          ? ` · ${buildingAgeYears} سنة`
+                          : ` · ${buildingAgeYears} yr`
+                        : ''}
+                    </dd>
+                  </div>
+                ) : null}
+                {totalArea ? (
+                  <div>
+                    <dt>{ar ? 'المساحة الإجمالية' : 'Total area'}</dt>
+                    <dd>{totalArea} m²</dd>
+                  </div>
+                ) : null}
+                <div>
+                  <dt>{ar ? 'إجمالي الوحدات' : 'Total units'}</dt>
+                  <dd>{property.units.length}</dd>
+                </div>
+                {unitKindCounts.shop > 0 ? (
+                  <div>
+                    <dt>{ar ? 'محلات' : 'Shops'}</dt>
+                    <dd>{unitKindCounts.shop}</dd>
+                  </div>
+                ) : null}
+                {unitKindCounts.showroom > 0 ? (
+                  <div>
+                    <dt>{ar ? 'معارض' : 'Showrooms'}</dt>
+                    <dd>{unitKindCounts.showroom}</dd>
+                  </div>
+                ) : null}
+                {unitKindCounts.apartment > 0 ? (
+                  <div>
+                    <dt>{ar ? 'شقق' : 'Apartments'}</dt>
+                    <dd>{unitKindCounts.apartment}</dd>
+                  </div>
+                ) : null}
+              </dl>
+            </section>
+          ) : null}
+
           {property.amenities.length > 0 ? (
             <section className="property-360__section">
               <h2>{ar ? 'المرافق' : 'Amenities'}</h2>
@@ -429,9 +547,20 @@ export function PropertyDetailManager({
           ) : null}
 
           <section className="property-360__section">
-            <h2>{ar ? 'الوحدات' : 'Units'}</h2>
+            <h2>
+              {property.kind === 'multi_unit'
+                ? ar
+                  ? 'الوحدات داخل المبنى'
+                  : 'Units in this building'
+                : ar
+                  ? 'الوحدات'
+                  : 'Units'}
+            </h2>
             <div className="property-360__units">
-              {property.units.map((unit) => (
+              {property.units.map((unit) => {
+                const kind = inferUnitKind(unit);
+                const serial = unitSerials.get(unit.id);
+                return (
                 <article
                   className={
                     focusUnitId && unit.id === focusUnitId
@@ -443,7 +572,17 @@ export function PropertyDetailManager({
                   <header>
                     <div>
                       <strong>{ar ? unit.nameAr : unit.nameEn}</strong>
-                      <small dir="ltr">{unit.code}</small>
+                      <small dir="ltr">
+                        {unit.code}
+                        {property.kind === 'multi_unit'
+                          ? ` · ${unitKindLabel(kind, locale)}`
+                          : ''}
+                      </small>
+                      {serial ? (
+                        <small className="property-360__unit-serial" dir="ltr">
+                          {serial}
+                        </small>
+                      ) : null}
                     </div>
                     <span
                       className={`status-pill status-pill--${unit.listingEnabled ? 'ready' : 'muted'}`}
@@ -519,8 +658,19 @@ export function PropertyDetailManager({
                       </dd>
                     </div>
                   </dl>
+                  {isPublic ? (
+                    <p className="property-360__unit-actions">
+                      <Link
+                        className="button button--quiet"
+                        href={`/${locale}/units/${unit.id}`}
+                      >
+                        {ar ? 'عرض هذه الوحدة' : 'View this unit'}
+                      </Link>
+                    </p>
+                  ) : null}
                 </article>
-              ))}
+              );
+              })}
             </div>
           </section>
 
@@ -688,16 +838,22 @@ export function PropertyDetailManager({
                 labelAr="امسح الرمز لفتح صفحة هذا العقار"
                 labelEn="Scan to open this property page"
               />
-              {property.serialNumber ? (
+              {displaySerial ? (
                 <p className="property-360__serial property-360__serial--qr" dir="ltr">
                   <span>{ar ? 'الرقم المتسلسل' : 'Serial'}</span>
-                  <strong>{property.serialNumber}</strong>
+                  <strong>{displaySerial}</strong>
                 </p>
               ) : null}
             </div>
             <p className="property-360__price">
               <strong dir="ltr">{priceLabel}</strong>
-              <span>{priceSuffix}</span>
+              <span>
+                {property.kind === 'multi_unit' && !focusUnitId
+                  ? ar
+                    ? 'من أسعار الوحدات'
+                    : 'from unit prices'
+                  : priceSuffix}
+              </span>
             </p>
             <dl className="property-360__facts">
               {!isPublic ? (
@@ -706,44 +862,85 @@ export function PropertyDetailManager({
                   <dd>{property.status}</dd>
                 </div>
               ) : null}
-              <div>
-                <dt>{ar ? 'الغرف' : 'Bedrooms'}</dt>
-                <dd>{primaryUnit?.bedrooms ?? '—'}</dd>
-              </div>
-              <div>
-                <dt>{ar ? 'الحمامات' : 'Bathrooms'}</dt>
-                <dd>{primaryUnit?.bathrooms ?? '—'}</dd>
-              </div>
-              <div>
-                <dt>{ar ? 'المجالس' : 'Majlis'}</dt>
-                <dd>{primaryUnit?.majlis ?? '—'}</dd>
-              </div>
-              <div>
-                <dt>{ar ? 'الصالات' : 'Halls'}</dt>
-                <dd>{primaryUnit?.halls ?? '—'}</dd>
-              </div>
-              <div>
-                <dt>{ar ? 'المطابخ' : 'Kitchens'}</dt>
-                <dd>{primaryUnit?.kitchens ?? '—'}</dd>
-              </div>
-              <div>
-                <dt>{ar ? 'المسبح' : 'Pool'}</dt>
-                <dd>
-                  {primaryUnit
-                    ? primaryUnit.hasPool
-                      ? ar
-                        ? 'متوفر'
-                        : 'Yes'
-                      : ar
-                        ? 'غير متوفر'
-                        : 'No'
-                    : '—'}
-                </dd>
-              </div>
-              <div>
-                <dt>{ar ? 'الوحدات' : 'Units'}</dt>
-                <dd>{property.units.length}</dd>
-              </div>
+              {property.kind === 'multi_unit' && !focusUnitId ? (
+                <>
+                  {property.profile?.yearBuilt ? (
+                    <div>
+                      <dt>{ar ? 'سنة البناء' : 'Year built'}</dt>
+                      <dd>{property.profile.yearBuilt}</dd>
+                    </div>
+                  ) : null}
+                  {totalArea ? (
+                    <div>
+                      <dt>{ar ? 'المساحة الإجمالية' : 'Total area'}</dt>
+                      <dd>{totalArea} m²</dd>
+                    </div>
+                  ) : null}
+                  {unitKindCounts.shop > 0 ? (
+                    <div>
+                      <dt>{ar ? 'محلات' : 'Shops'}</dt>
+                      <dd>{unitKindCounts.shop}</dd>
+                    </div>
+                  ) : null}
+                  {unitKindCounts.showroom > 0 ? (
+                    <div>
+                      <dt>{ar ? 'معارض' : 'Showrooms'}</dt>
+                      <dd>{unitKindCounts.showroom}</dd>
+                    </div>
+                  ) : null}
+                  {unitKindCounts.apartment > 0 ? (
+                    <div>
+                      <dt>{ar ? 'شقق' : 'Apartments'}</dt>
+                      <dd>{unitKindCounts.apartment}</dd>
+                    </div>
+                  ) : null}
+                  <div>
+                    <dt>{ar ? 'الوحدات' : 'Units'}</dt>
+                    <dd>{property.units.length}</dd>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <dt>{ar ? 'الغرف' : 'Bedrooms'}</dt>
+                    <dd>{primaryUnit?.bedrooms ?? '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>{ar ? 'الحمامات' : 'Bathrooms'}</dt>
+                    <dd>{primaryUnit?.bathrooms ?? '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>{ar ? 'المجالس' : 'Majlis'}</dt>
+                    <dd>{primaryUnit?.majlis ?? '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>{ar ? 'الصالات' : 'Halls'}</dt>
+                    <dd>{primaryUnit?.halls ?? '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>{ar ? 'المطابخ' : 'Kitchens'}</dt>
+                    <dd>{primaryUnit?.kitchens ?? '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>{ar ? 'المسبح' : 'Pool'}</dt>
+                    <dd>
+                      {primaryUnit
+                        ? primaryUnit.hasPool
+                          ? ar
+                            ? 'متوفر'
+                            : 'Yes'
+                          : ar
+                            ? 'غير متوفر'
+                            : 'No'
+                        : '—'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{ar ? 'الوحدات' : 'Units'}</dt>
+                    <dd>{property.units.length}</dd>
+                  </div>
+                </>
+              )}
               {isPublic && property.ownerPartyId ? (
                 <div>
                   <dt>{ar ? 'المالك' : 'Owner'}</dt>
@@ -761,7 +958,15 @@ export function PropertyDetailManager({
               ) : null}
               <div>
                 <dt>{ar ? 'الفئة' : 'Category'}</dt>
-                <dd>{property.category}</dd>
+                <dd>
+                  {property.kind === 'multi_unit' && focusUnitId && primaryUnit
+                    ? unitKindLabel(inferUnitKind(primaryUnit), locale)
+                    : property.kind === 'multi_unit'
+                      ? ar
+                        ? 'مبنى متعدد الوحدات'
+                        : 'Multi-unit building'
+                      : property.category}
+                </dd>
               </div>
             </dl>
             {!isPublic ? (

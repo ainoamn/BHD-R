@@ -208,6 +208,8 @@ export async function loadPublicPropertyShowcaseFromNeon(
                 : 'unfurnished',
             parkingSpaces: profile.parkingSpaces,
             yearBuilt: profile.yearBuilt,
+            builtUpAreaSquareMeters: profile.builtUpAreaSquareMeters,
+            landAreaSquareMeters: profile.landAreaSquareMeters,
             notes: null,
           }
         : null,

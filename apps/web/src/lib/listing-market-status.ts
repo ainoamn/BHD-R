@@ -22,6 +22,11 @@ export type CatalogueListing = PublicListing & {
   ownerPartyId?: string | null;
   avgRating?: number | null;
   reviewCount?: number;
+  propertyKind?: 'single_unit' | 'multi_unit';
+  unitCode?: string | null;
+  propertySerial?: string | null;
+  /** Derived unit serial (building serial + type index) for multi-unit catalogue cards */
+  unitSerial?: string | null;
 };
 
 export function marketStatusFromPurpose(

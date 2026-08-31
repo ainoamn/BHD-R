@@ -959,7 +959,7 @@ export function PropertyWizard({
     const generated = generateListingDescriptions({
       nameAr: property.nameAr,
       nameEn: property.nameEn,
-      category: property.category,
+      category: kind === 'multi_unit' ? 'building' : property.category,
       governorate: property.governorate,
       wilayat: property.wilayat,
       village: property.city,
@@ -971,10 +971,23 @@ export function PropertyWizard({
       kitchens: Number(primary.kitchens) || 0,
       hasPool:
         primary.hasPool === 'true' ? true : primary.hasPool === 'false' ? false : undefined,
-      area: primary.area || profile.builtUpArea,
+      area: kind === 'multi_unit' ? profile.builtUpArea || primary.area : primary.area || profile.builtUpArea,
       listingPurpose: primary.listingPurpose,
       furnishing: profile.furnishing,
       amenities: amenityPayload,
+      multiUnit:
+        kind === 'multi_unit'
+          ? {
+              shopCount: Number(unitCountShop) || units.filter((u) => u.unitKind === 'shop').length,
+              showroomCount:
+                Number(unitCountShowroom) || units.filter((u) => u.unitKind === 'showroom').length,
+              apartmentCount:
+                Number(unitCountApartment) ||
+                units.filter((u) => u.unitKind === 'apartment').length,
+              totalArea: profile.builtUpArea || undefined,
+              yearBuilt: profile.yearBuilt || undefined,
+            }
+          : undefined,
     });
     setProperty((current) => ({
       ...current,

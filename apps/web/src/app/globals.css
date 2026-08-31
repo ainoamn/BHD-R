@@ -560,6 +560,14 @@ h3 {
   color: var(--ink-700);
   font-size: 0.9rem;
 }
+.listing-card__serial,
+.listing-row__serial {
+  margin: 0.15rem 0 0;
+  color: var(--ink-500);
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
 .listing-card__facts {
   display: flex;
   flex-wrap: wrap;
@@ -3159,6 +3167,44 @@ h3 {
 .property-360__units {
   display: grid;
   gap: 0.85rem;
+}
+
+.property-360__building-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.75rem 1rem;
+  margin: 0;
+}
+
+.property-360__building-facts > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.property-360__building-facts dt {
+  margin: 0;
+  color: var(--ink-500);
+  font-size: 0.82rem;
+}
+
+.property-360__building-facts dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.property-360__unit-serial {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--ink-500);
+  font-size: 0.78rem;
+}
+
+.property-360__unit-actions {
+  margin: 0;
+}
+
+.property-360__building-link {
+  margin: 0.35rem 0 0;
 }
 
 .property-360__unit {
