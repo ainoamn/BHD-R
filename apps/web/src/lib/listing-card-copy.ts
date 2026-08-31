@@ -9,8 +9,9 @@ export function formatListingLocation(
     street?: string | null;
   },
 ): string {
+  const normalize = (part: string) => part.trim().replace(/\s+/g, ' ');
   const parts = [listing.street, listing.area, listing.city, listing.wilayat, listing.governorate]
-    .map((part) => (typeof part === 'string' ? part.trim() : ''))
+    .map((part) => (typeof part === 'string' ? normalize(part) : ''))
     .filter(Boolean);
   const unique: string[] = [];
   for (const part of parts) {
@@ -39,14 +40,7 @@ export function formatBuildingCardLine(
   listing: CatalogueListing,
   locale: 'ar' | 'en',
 ): string {
-  const ar = localizedName('ar', listing.propertyNameAr, listing.propertyNameEn);
-  const en = localizedName('en', listing.propertyNameAr, listing.propertyNameEn);
-  if (locale === 'ar') {
-    if (ar && en && ar !== en) return `${ar} — ${en}`;
-    return ar || en;
-  }
-  if (en && ar && en !== ar) return `${en} — ${ar}`;
-  return en || ar;
+  return localizedName(locale, listing.propertyNameAr, listing.propertyNameEn);
 }
 
 export function formatListingCardTitle(

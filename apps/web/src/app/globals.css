@@ -549,38 +549,51 @@ h3 {
   inset-inline-start: 0.8rem;
 }
 .listing-card__body {
-  padding: 1.15rem;
+  padding: 0.85rem 0.9rem 0.55rem;
+  display: grid;
+  gap: 0.12rem;
+}
+.listing-card__body > * {
+  margin: 0;
 }
 .listing-card__body h3 {
-  margin-bottom: 0.3rem;
-  color: var(--maroon-900);
-  font-size: 1.15rem;
+  margin: 0 0 0.1rem;
+  color: var(--maroon-950, #2a0a12);
+  font-size: 1.28rem;
+  font-weight: 900;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
 }
 .listing-card__building-name,
 .listing-row__building-name {
   margin: 0;
-  color: var(--ink-700);
-  font-size: 0.9rem;
+  color: var(--ink-600, #44554d);
+  font-size: 0.82rem;
   font-weight: 600;
+  line-height: 1.3;
 }
 .listing-card__location {
-  color: var(--ink-700);
-  font-size: 0.9rem;
+  margin: 0;
+  color: var(--ink-600, #44554d);
+  font-size: 0.78rem;
+  line-height: 1.35;
 }
 .listing-card__serial,
 .listing-row__serial {
-  margin: 0.15rem 0 0;
-  color: var(--ink-500);
-  font-size: 0.78rem;
+  margin: 0;
+  color: var(--ink-500, #6a7771);
+  font-size: 0.72rem;
   letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
+  line-height: 1.3;
 }
 .listing-card__purpose,
 .listing-row__purpose {
-  margin: 0.25rem 0 0;
+  margin: 0.1rem 0 0;
   color: var(--maroon-800, #6b1d2a);
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 600;
+  line-height: 1.3;
 }
 .listing-card__building,
 .listing-row__building {
@@ -600,47 +613,58 @@ h3 {
 }
 .listing-card__building-cta,
 .listing-row__building-cta {
-  margin: 0.75rem 0.85rem 0.95rem;
-  padding: 0.7rem 0.8rem;
+  margin: 0.55rem 0.75rem 0.75rem;
+  padding: 0.5rem 0.6rem;
   display: grid;
-  gap: 0.45rem;
-  border: 1px solid color-mix(in srgb, var(--maroon-800, #6b1d2a) 22%, var(--ivory-100, #efe8dc));
-  border-radius: 0.85rem;
+  gap: 0.3rem;
+  border: 1px solid color-mix(in srgb, var(--maroon-800, #6b1d2a) 18%, var(--ivory-100, #efe8dc));
+  border-radius: 0.7rem;
   background:
     linear-gradient(
       160deg,
-      color-mix(in srgb, var(--maroon-800, #6b1d2a) 8%, #fff) 0%,
-      color-mix(in srgb, var(--ivory-50, #f7f3ea) 92%, #fff) 100%
+      color-mix(in srgb, var(--maroon-800, #6b1d2a) 7%, #fff) 0%,
+      color-mix(in srgb, var(--ivory-50, #f7f3ea) 94%, #fff) 100%
     );
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
 }
 .listing-card__building-cta-label {
   margin: 0;
   color: var(--ink-600, #44554d);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 600;
+  line-height: 1.25;
 }
 .listing-card__building-cta-btn {
   justify-self: stretch;
+  min-height: 2.15rem;
+  padding: 0.4rem 0.7rem;
   text-align: center;
-  font-size: 0.82rem;
-  font-weight: 700;
+  font-size: 0.78rem;
+  font-weight: 800;
   text-decoration: none;
+  color: var(--maroon-900, #3d1020);
+  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--maroon-800, #6b1d2a) 28%, #fff);
+  box-shadow: none;
+}
+.listing-card__building-cta-btn:hover {
+  background: color-mix(in srgb, var(--maroon-800, #6b1d2a) 8%, #fff);
+  color: var(--maroon-950, #2a0a12);
 }
 .listing-row__building-cta {
-  margin: 0.65rem 0 0.35rem;
+  margin: 0.45rem 0 0.2rem;
 }
 .listing-card__price--dual,
 .listing-row__price--dual {
   display: grid;
-  gap: 0.35rem;
+  gap: 0.15rem;
 }
 .listing-card__price--dual span,
 .listing-row__price--dual div {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.35rem;
+  gap: 0.3rem;
 }
 .public-listing-actions__interest {
   margin-bottom: 0.75rem;
@@ -663,39 +687,46 @@ h3 {
 .listing-card__facts {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.55rem 1rem;
-  padding-block: 0.85rem;
-  color: var(--ink-700);
-  font-size: 0.86rem;
+  gap: 0.2rem 0.85rem;
+  margin-top: 0.35rem;
+  padding-block: 0.4rem;
+  color: var(--ink-600, #44554d);
+  font-size: 0.8rem;
+  line-height: 1.3;
   border-bottom: 1px solid var(--ivory-100);
 }
 .listing-card__facts--stack,
 .listing-row__facts--stack {
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.25rem;
+  gap: 0.08rem;
 }
 .listing-card__price {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 0.5rem;
-  margin-top: 0.85rem;
-  color: var(--maroon-900);
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+  color: var(--maroon-950, #2a0a12);
   font-weight: 900;
+  font-size: 1.12rem;
+  line-height: 1.25;
 }
 .listing-card__price--stack {
   flex-direction: column;
   align-items: flex-start;
   justify-content: flex-start;
-  gap: 0.15rem;
+  gap: 0.08rem;
 }
 .listing-card__price--stack small {
   display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 .listing-card__price small {
-  color: var(--ink-700);
-  font-weight: 400;
+  color: var(--ink-600, #44554d);
+  font-weight: 600;
+  font-size: 0.78rem;
 }
 .value-grid {
   display: grid;
@@ -7564,10 +7595,11 @@ button.ops-row-key {
 }
 .listing-row__title {
   display: inline-block;
-  margin: 0 0 0.25rem;
-  color: var(--maroon-800);
-  font-size: 1.1rem;
+  margin: 0 0 0.08rem;
+  color: var(--maroon-950, #2a0a12);
+  font-size: 1.22rem;
   font-weight: 900;
+  line-height: 1.25;
   text-decoration: none;
 }
 .listing-row__title:hover {
@@ -7575,15 +7607,17 @@ button.ops-row-key {
   text-decoration: underline;
 }
 .listing-row__building-name {
-  margin: 0 0 0.2rem;
-  color: var(--ink-700);
-  font-size: 0.9rem;
+  margin: 0;
+  color: var(--ink-600, #44554d);
+  font-size: 0.84rem;
   font-weight: 600;
+  line-height: 1.3;
 }
 .listing-row__location {
-  margin: 0 0 0.55rem;
-  color: var(--ink-700);
-  font-size: 0.88rem;
+  margin: 0;
+  color: var(--ink-600, #44554d);
+  font-size: 0.8rem;
+  line-height: 1.35;
 }
 .listing-row__facts {
   display: flex;
@@ -7624,14 +7658,16 @@ button.ops-row-key {
 }
 .listing-row__price {
   display: grid;
-  gap: 0.1rem;
+  gap: 0.08rem;
 }
 .listing-row__price strong {
-  color: var(--oman-deep);
-  font-size: 1.2rem;
+  color: var(--maroon-950, #2a0a12);
+  font-size: 1.22rem;
+  font-weight: 900;
 }
 .listing-row__price small {
-  color: #6b7c74;
+  color: var(--ink-600, #44554d);
+  font-weight: 600;
 }
 .listing-row__cta {
   white-space: nowrap;
@@ -7755,18 +7791,33 @@ button.ops-row-key {
     gap: 0.7rem;
   }
   .props-results__grid .listing-card__body {
-    padding: 0.65rem 0.7rem 0.8rem;
+    padding: 0.55rem 0.6rem 0.35rem;
+    gap: 0.08rem;
   }
   .props-results__grid .listing-card__body h3 {
-    font-size: 0.9rem;
-    line-height: 1.35;
+    font-size: 1.02rem;
+    line-height: 1.25;
   }
   .props-results__grid .listing-card__facts {
-    font-size: 0.75rem;
-    gap: 0.35rem;
+    font-size: 0.72rem;
+    gap: 0.05rem;
+    padding-block: 0.3rem;
+    margin-top: 0.25rem;
+  }
+  .props-results__grid .listing-card__price {
+    font-size: 0.98rem;
+    margin-top: 0.28rem;
   }
   .props-results__grid .listing-card__price span {
-    font-size: 0.92rem;
+    font-size: inherit;
+  }
+  .props-results__grid .listing-card__building-cta {
+    margin: 0.4rem 0.5rem 0.55rem;
+    padding: 0.4rem 0.45rem;
+  }
+  .props-results__grid .listing-card__building-cta-btn {
+    min-height: 1.95rem;
+    font-size: 0.7rem;
   }
   .props-results__grid .listing-card__status-mark {
     font-size: 0.65rem;
