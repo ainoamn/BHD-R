@@ -10,7 +10,6 @@ import {
   propertyAmenities,
   propertyDocuments,
   propertyOwnershipInterests,
-  propertyProfiles,
   unitMedia,
   units,
   utilityMeters,
@@ -19,6 +18,7 @@ import {
 import type { CurrencyCode } from '@bhd-r/contracts';
 import type { ManagedProperty } from '@/components/property-detail-manager';
 import { googleMapsLinkFromCoords } from '@/lib/parse-google-maps-url';
+import { loadPropertyProfileRow } from '@/lib/load-property-profile';
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdRPropertyWriteDb?: DbHandle };
@@ -80,9 +80,7 @@ export async function loadManagedPropertyFromNeon(
     const [address, profile, amenities, meters, documents, ownership, unitRows, coords] =
       await Promise.all([
         transaction.query.addresses.findFirst({ where: eq(addresses.id, property.addressId) }),
-        transaction.query.propertyProfiles.findFirst({
-          where: eq(propertyProfiles.propertyId, property.id),
-        }),
+        loadPropertyProfileRow(transaction, property.id),
         transaction
           .select()
           .from(propertyAmenities)

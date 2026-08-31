@@ -201,15 +201,35 @@ export class PortfolioService {
         shareBasisPoints: 10_000,
       });
       if (input.property.profile) {
-        const { managementFee, ...profile } = input.property.profile;
+        const { managementFee, showOwnerNameOnListing, ...profile } = input.property.profile;
         if (managementFee && managementFee.currency !== input.property.defaultCurrency)
           throw new ConflictException('Management fee currency must match property currency');
+        try {
+          await transaction.execute(sql`
+            ALTER TABLE "property_profiles"
+            ADD COLUMN IF NOT EXISTS "show_owner_name_on_listing" boolean NOT NULL DEFAULT false
+          `);
+        } catch {
+          // Role may lack DDL; continue without the flag column.
+        }
         await transaction.insert(propertyProfiles).values({
           organizationId: claims.organizationId!,
           propertyId: property.id,
           ...profile,
           managementFeeMinor: managementFee ? BigInt(managementFee.amountMinor) : null,
         });
+        if (typeof showOwnerNameOnListing === 'boolean') {
+          try {
+            await transaction.execute(sql`
+              update property_profiles
+              set show_owner_name_on_listing = ${showOwnerNameOnListing},
+                  updated_at = now()
+              where property_id = ${property.id}
+            `);
+          } catch {
+            // Column still missing.
+          }
+        }
       }
       if (input.property.amenities.length) {
         await transaction.insert(propertyAmenities).values(
@@ -565,22 +585,32 @@ export class PortfolioService {
       }
 
       if (input.property.profile) {
-        const { managementFee, ...profileFields } = input.property.profile;
+        const { managementFee, showOwnerNameOnListing, ...profileFields } = input.property.profile;
         if (managementFee && managementFee.currency !== input.property.defaultCurrency)
           throw new ConflictException('Management fee currency must match property currency');
-        const existingProfile = await transaction.query.propertyProfiles.findFirst({
-          where: eq(propertyProfiles.propertyId, propertyId),
-        });
+        try {
+          await transaction.execute(sql`
+            ALTER TABLE "property_profiles"
+            ADD COLUMN IF NOT EXISTS "show_owner_name_on_listing" boolean NOT NULL DEFAULT false
+          `);
+        } catch {
+          // Role may lack DDL; continue without the flag column.
+        }
+        const existingProfile = await transaction
+          .select({ id: propertyProfiles.id })
+          .from(propertyProfiles)
+          .where(eq(propertyProfiles.propertyId, propertyId))
+          .limit(1);
         const profileValues = {
           ...profileFields,
           managementFeeMinor: managementFee ? BigInt(managementFee.amountMinor) : null,
           updatedAt: new Date(),
         };
-        if (existingProfile) {
+        if (existingProfile[0]) {
           await transaction
             .update(propertyProfiles)
             .set(profileValues)
-            .where(eq(propertyProfiles.id, existingProfile.id));
+            .where(eq(propertyProfiles.id, existingProfile[0].id));
         } else {
           await transaction.insert(propertyProfiles).values({
             organizationId: claims.organizationId!,
@@ -588,6 +618,18 @@ export class PortfolioService {
             ...profileFields,
             managementFeeMinor: managementFee ? BigInt(managementFee.amountMinor) : null,
           });
+        }
+        if (typeof showOwnerNameOnListing === 'boolean') {
+          try {
+            await transaction.execute(sql`
+              update property_profiles
+              set show_owner_name_on_listing = ${showOwnerNameOnListing},
+                  updated_at = now()
+              where property_id = ${propertyId}
+            `);
+          } catch {
+            // Column still missing.
+          }
         }
       }
 

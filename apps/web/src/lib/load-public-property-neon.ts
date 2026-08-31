@@ -8,7 +8,6 @@ import {
   parties,
   properties,
   propertyAmenities,
-  propertyProfiles,
   unitMedia,
   units,
   type Database,
@@ -16,6 +15,7 @@ import {
 import type { CurrencyCode } from '@bhd-r/contracts';
 import type { ManagedProperty } from '@/components/property-detail-manager';
 import { googleMapsLinkFromCoords } from '@/lib/parse-google-maps-url';
+import { loadPropertyProfileRow } from '@/lib/load-property-profile';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 
 type DbHandle = { db: Database };
@@ -78,9 +78,7 @@ export async function loadPublicPropertyShowcaseFromNeon(
 
     const [address, profile, amenities, unitRows, coords, ownerParty] = await Promise.all([
       transaction.query.addresses.findFirst({ where: eq(addresses.id, property.addressId) }),
-      transaction.query.propertyProfiles.findFirst({
-        where: eq(propertyProfiles.propertyId, property.id),
-      }),
+      loadPropertyProfileRow(transaction, property.id),
       transaction
         .select()
         .from(propertyAmenities)

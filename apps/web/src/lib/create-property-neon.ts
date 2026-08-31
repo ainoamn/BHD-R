@@ -19,11 +19,11 @@ import {
   propertyAmenities,
   propertyDocuments,
   propertyOwnershipInterests,
-  propertyProfiles,
   units,
   utilityMeters,
   type Database,
 } from '@bhd-r/db';
+import { loadPropertyProfileRow, writePropertyProfileRow } from '@/lib/load-property-profile';
 
 const IDEMPOTENCY_ROUTE = 'POST:/api/owner/properties';
 
@@ -219,12 +219,10 @@ export async function createPropertyBundleOnNeon(
     });
 
     if (input.property.profile) {
-      const { managementFee, ...profile } = input.property.profile;
-      await transaction.insert(propertyProfiles).values({
+      await writePropertyProfileRow(transaction, {
         organizationId: claims.organizationId!,
         propertyId: property.id,
-        ...profile,
-        managementFeeMinor: managementFee ? BigInt(managementFee.amountMinor) : null,
+        profile: input.property.profile,
       });
     }
     if (input.property.amenities.length) {
@@ -501,28 +499,13 @@ export async function updatePropertyBundleOnNeon(
     }
 
     if (input.property.profile) {
-      const { managementFee, ...profileFields } = input.property.profile;
-      const existingProfile = await transaction.query.propertyProfiles.findFirst({
-        where: eq(propertyProfiles.propertyId, propertyId),
+      const existingProfile = await loadPropertyProfileRow(transaction, propertyId);
+      await writePropertyProfileRow(transaction, {
+        organizationId: claims.organizationId!,
+        propertyId,
+        existingId: existingProfile?.id ?? null,
+        profile: input.property.profile,
       });
-      const profileValues = {
-        ...profileFields,
-        managementFeeMinor: managementFee ? BigInt(managementFee.amountMinor) : null,
-        updatedAt: new Date(),
-      };
-      if (existingProfile) {
-        await transaction
-          .update(propertyProfiles)
-          .set(profileValues)
-          .where(eq(propertyProfiles.id, existingProfile.id));
-      } else {
-        await transaction.insert(propertyProfiles).values({
-          organizationId: claims.organizationId!,
-          propertyId,
-          ...profileFields,
-          managementFeeMinor: managementFee ? BigInt(managementFee.amountMinor) : null,
-        });
-      }
     }
 
     await transaction
