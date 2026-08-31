@@ -1,4 +1,9 @@
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { useState, useTransition } from 'react';
 import { EmptyState } from '@bhd-r/ui';
+import { ApiError, browserMutation } from '@/lib/api';
 
 export type OpsStayBooking = {
   id: string;
@@ -15,6 +20,17 @@ export type OpsStayBooking = {
   nights?: number;
 };
 
+const CANCELABLE = new Set([
+  'request_pending',
+  'payment_pending',
+  'confirmed',
+  'pre_arrival',
+]);
+
+const NO_SHOWABLE = new Set(['confirmed', 'pre_arrival']);
+
+const CHECKOUTABLE = new Set(['checked_in']);
+
 export function StayOpsBookingsTable({
   locale,
   items,
@@ -23,8 +39,41 @@ export function StayOpsBookingsTable({
   items: OpsStayBooking[];
 }) {
   const ar = locale === 'ar';
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [rows, setRows] = useState(items);
 
-  if (!items.length) {
+  async function runAction(
+    bookingId: string,
+    action: 'cancel' | 'no-show' | 'checkout',
+  ) {
+    setError(null);
+    setBusyId(bookingId);
+    try {
+      const result = await browserMutation<{ id: string; status: string }>(
+        `/v1/stays/bookings/${encodeURIComponent(bookingId)}/${action}`,
+        { method: 'POST', body: '{}' },
+      );
+      setRows((prev) =>
+        prev.map((row) => (row.id === bookingId ? { ...row, status: result.status } : row)),
+      );
+      startTransition(() => router.refresh());
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError
+          ? caught.message
+          : ar
+            ? 'فشل تحديث الحجز'
+            : 'Failed to update booking',
+      );
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  if (!rows.length) {
     return (
       <EmptyState
         title={ar ? 'لا حجوزات بعد' : 'No bookings yet'}
@@ -39,6 +88,11 @@ export function StayOpsBookingsTable({
 
   return (
     <div className="ops-panel data-table-wrap stays-ops-bookings">
+      {error ? (
+        <p className="notice notice--danger" role="alert">
+          {error}
+        </p>
+      ) : null}
       <table className="data-table">
         <thead>
           <tr>
@@ -49,26 +103,70 @@ export function StayOpsBookingsTable({
             <th>{ar ? 'النمط' : 'Mode'}</th>
             <th>{ar ? 'المبلغ' : 'Total'}</th>
             <th>{ar ? 'الوحدة' : 'Unit'}</th>
+            <th>{ar ? 'إجراءات' : 'Actions'}</th>
           </tr>
         </thead>
         <tbody>
-          {items.map((booking) => (
-            <tr key={booking.id}>
-              <td dir="ltr">{booking.referenceCode}</td>
-              <td dir="ltr">
-                {booking.checkInOn} → {booking.checkOutOn}
-              </td>
-              <td dir="ltr">{booking.nights ?? '—'}</td>
-              <td dir="ltr">{booking.status}</td>
-              <td dir="ltr">{booking.bookingMode}</td>
-              <td dir="ltr">
-                {booking.currency} {booking.totalMinor}
-              </td>
-              <td dir="ltr" className="muted">
-                {booking.unitId.slice(0, 8)}…
-              </td>
-            </tr>
-          ))}
+          {rows.map((booking) => {
+            const disabled = pending || busyId === booking.id;
+            const canCancel = CANCELABLE.has(booking.status);
+            const canNoShow = NO_SHOWABLE.has(booking.status);
+            const canCheckout = CHECKOUTABLE.has(booking.status);
+            return (
+              <tr key={booking.id}>
+                <td dir="ltr">{booking.referenceCode}</td>
+                <td dir="ltr">
+                  {booking.checkInOn} → {booking.checkOutOn}
+                </td>
+                <td dir="ltr">{booking.nights ?? '—'}</td>
+                <td dir="ltr">{booking.status}</td>
+                <td dir="ltr">{booking.bookingMode}</td>
+                <td dir="ltr">
+                  {booking.currency} {booking.totalMinor}
+                </td>
+                <td dir="ltr" className="muted">
+                  {booking.unitId.slice(0, 8)}…
+                </td>
+                <td>
+                  <div className="stays-ops-bookings__actions">
+                    {canCancel ? (
+                      <button
+                        type="button"
+                        className="button button--quiet"
+                        disabled={disabled}
+                        onClick={() => void runAction(booking.id, 'cancel')}
+                      >
+                        {ar ? 'إلغاء' : 'Cancel'}
+                      </button>
+                    ) : null}
+                    {canNoShow ? (
+                      <button
+                        type="button"
+                        className="button button--quiet"
+                        disabled={disabled}
+                        onClick={() => void runAction(booking.id, 'no-show')}
+                      >
+                        {ar ? 'عدم حضور' : 'No-show'}
+                      </button>
+                    ) : null}
+                    {canCheckout ? (
+                      <button
+                        type="button"
+                        className="button button--primary"
+                        disabled={disabled}
+                        onClick={() => void runAction(booking.id, 'checkout')}
+                      >
+                        {ar ? 'مغادرة' : 'Check-out'}
+                      </button>
+                    ) : null}
+                    {!canCancel && !canNoShow && !canCheckout ? (
+                      <span className="muted">—</span>
+                    ) : null}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

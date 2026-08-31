@@ -2,6 +2,13 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.10 — 2026-08-31
+
+- Ops stay booking cancel and no-show: `POST /v1/stays/bookings/:id/cancel` and `…/no-show` release inventory locks and cancel pending stay payment intents.
+- Owner/developer bookings table actions (cancel / no-show / check-out) gated by status.
+- Domain: allow `confirmed → no_show`.
+- Docs: `RELEASE-0.4.10-AR.md`.
+
 ## 0.4.9 — 2026-08-31
 
 - Ops stay bookings: real `GET /v1/stays/bookings` list/detail (status/property filters) replacing empty stub.

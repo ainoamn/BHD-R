@@ -79,6 +79,7 @@ describe('stay booking machine', () => {
     expect(assertStayBookingTransition('request_pending', 'checked_in').ok).toBe(false);
     expect(assertStayBookingTransition('payment_pending', 'confirmed').ok).toBe(true);
     expect(assertStayBookingTransition('confirmed', 'pre_arrival').ok).toBe(true);
+    expect(assertStayBookingTransition('confirmed', 'no_show').ok).toBe(true);
     expect(assertStayBookingTransition('checked_out', 'cancelled').ok).toBe(false);
   });
 });

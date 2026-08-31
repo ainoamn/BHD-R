@@ -691,6 +691,134 @@ export class StaysBookingService {
     });
   }
 
+  async cancel(claims: SessionClaims, bookingId: string) {
+    return this.applyOpsTerminalStatus(claims, bookingId, {
+      toStatus: 'cancelled',
+      reason: 'ops_cancel',
+      eventType: 'stay.cancelled',
+      topic: 'stay.cancelled',
+    });
+  }
+
+  async markNoShow(claims: SessionClaims, bookingId: string) {
+    return this.applyOpsTerminalStatus(claims, bookingId, {
+      toStatus: 'no_show',
+      reason: 'ops_no_show',
+      eventType: 'stay.no_show',
+      topic: 'stay.no_show',
+    });
+  }
+
+  private async applyOpsTerminalStatus(
+    claims: SessionClaims,
+    bookingId: string,
+    input: {
+      toStatus: 'cancelled' | 'no_show';
+      reason: string;
+      eventType: string;
+      topic: string;
+    },
+  ) {
+    const organizationId = claims.organizationId;
+    if (!organizationId) throw new ConflictException('Organization context required');
+
+    return this.database.withinTenant(claims, async (transaction) => {
+      const booking = await transaction.query.stayBookings.findFirst({
+        where: and(
+          eq(stayBookings.id, bookingId),
+          eq(stayBookings.organizationId, organizationId),
+        ),
+      });
+      if (!booking) throw new NotFoundException('Stay booking not found');
+
+      if (booking.status === input.toStatus) {
+        return { id: booking.id, status: booking.status, duplicate: true as const };
+      }
+
+      const transition = assertStayBookingTransition(
+        booking.status as StayBookingStatus,
+        input.toStatus,
+      );
+      if (!transition.ok) {
+        throw new ConflictException(transition.reason ?? `Illegal stay ${input.toStatus} transition`);
+      }
+
+      const now = new Date();
+
+      await transaction
+        .update(stayBookings)
+        .set({ status: input.toStatus, updatedAt: now })
+        .where(
+          and(eq(stayBookings.id, booking.id), eq(stayBookings.organizationId, organizationId)),
+        );
+
+      await this.inventory.releaseLockInTransaction(transaction, {
+        organizationId,
+        lockId: booking.inventoryLockId,
+        reason: input.reason,
+      });
+
+      await transaction
+        .update(stayPaymentIntents)
+        .set({ status: 'cancelled', updatedAt: now })
+        .where(
+          and(
+            eq(stayPaymentIntents.bookingId, booking.id),
+            eq(stayPaymentIntents.organizationId, organizationId),
+            eq(stayPaymentIntents.status, 'pending'),
+          ),
+        );
+
+      if (booking.holdId) {
+        await transaction
+          .update(stayHolds)
+          .set({ status: 'cancelled', updatedAt: now })
+          .where(
+            and(
+              eq(stayHolds.id, booking.holdId),
+              eq(stayHolds.organizationId, organizationId),
+              eq(stayHolds.status, 'active'),
+            ),
+          );
+      }
+
+      await transaction.insert(stayBookingStatusHistory).values({
+        organizationId,
+        bookingId: booking.id,
+        fromStatus: booking.status,
+        toStatus: input.toStatus,
+        actorUserId: claims.sub,
+        reason: input.reason,
+      });
+
+      await transaction.insert(workflowEvents).values({
+        organizationId,
+        actorUserId: claims.sub,
+        resourceType: 'stay_booking',
+        resourceId: booking.id,
+        eventType: input.eventType,
+        fromStatus: booking.status,
+        toStatus: input.toStatus,
+      });
+
+      await transaction.insert(outboxEvents).values({
+        organizationId,
+        topic: input.topic,
+        aggregateType: 'stay_booking',
+        aggregateId: booking.id,
+        payload: {
+          unitId: booking.unitId,
+          checkInOn: booking.checkInOn,
+          checkOutOn: booking.checkOutOn,
+          fromStatus: booking.status,
+        },
+      });
+
+      this.logger.log(`Stay booking ${booking.id} → ${input.toStatus}`);
+      return { id: booking.id, status: input.toStatus, duplicate: false as const };
+    });
+  }
+
   private assertOrgEnabled(organizationId: string): void {
     const resolution = resolveStaysEnabledFromEnv({
       organizationId,

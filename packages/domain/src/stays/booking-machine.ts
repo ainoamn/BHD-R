@@ -27,7 +27,7 @@ export const stayBookingMachine: StateMachine = {
   transitions: {
     request_pending: ['payment_pending', 'cancelled'],
     payment_pending: ['confirmed', 'expired', 'payment_failed', 'cancelled'],
-    confirmed: ['pre_arrival', 'cancelled'],
+    confirmed: ['pre_arrival', 'cancelled', 'no_show'],
     pre_arrival: ['checked_in', 'no_show', 'cancelled'],
     checked_in: ['checked_out'],
     checked_out: ['closed'],

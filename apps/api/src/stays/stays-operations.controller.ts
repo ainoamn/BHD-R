@@ -108,6 +108,22 @@ export class StaysOperationsController {
     return this.bookings.checkOut(request.auth!, id);
   }
 
+  @RequirePermissions('stay.booking.manage')
+  @Post('bookings/:id/cancel')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  cancel(@Req() request: ApiRequest, @Param('id', ParseUUIDPipe) id: string) {
+    assertStaysOperationsEnabled(request.auth?.organizationId);
+    return this.bookings.cancel(request.auth!, id);
+  }
+
+  @RequirePermissions('stay.booking.manage')
+  @Post('bookings/:id/no-show')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  markNoShow(@Req() request: ApiRequest, @Param('id', ParseUUIDPipe) id: string) {
+    assertStaysOperationsEnabled(request.auth?.organizationId);
+    return this.bookings.markNoShow(request.auth!, id);
+  }
+
   /**
    * Stay booking payments are confirmed via finance webhook kind `stay_booking`
    * (signed POST /v1/webhooks/payments/:provider) — not this ops route.

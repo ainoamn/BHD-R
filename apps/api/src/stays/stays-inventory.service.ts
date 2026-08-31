@@ -200,4 +200,41 @@ export class StaysInventoryService {
 
     return lock;
   }
+
+  async releaseLockInTransaction(
+    transaction: DatabaseTransaction,
+    input: {
+      organizationId: string;
+      lockId: string;
+      reason?: string;
+    },
+  ) {
+    const now = new Date();
+    const [lock] = await transaction
+      .update(stayInventoryLocks)
+      .set({ status: 'released', updatedAt: now, note: input.reason ?? null })
+      .where(
+        and(
+          eq(stayInventoryLocks.id, input.lockId),
+          eq(stayInventoryLocks.organizationId, input.organizationId),
+          eq(stayInventoryLocks.status, 'active'),
+        ),
+      )
+      .returning();
+
+    if (lock) {
+      await transaction.insert(outboxEvents).values({
+        organizationId: input.organizationId,
+        topic: 'stay.inventory.lock_released',
+        aggregateType: 'stay_inventory_lock',
+        aggregateId: lock.id,
+        payload: {
+          unitId: lock.unitId,
+          reason: input.reason ?? null,
+        },
+      });
+    }
+
+    return lock ?? null;
+  }
 }

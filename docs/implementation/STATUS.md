@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-08-31  
-**Product version:** 0.4.9  
-**Active focus:** BHD R Stays — ops bookings list; flag still off  
+**Product version:** 0.4.10  
+**Active focus:** BHD R Stays — ops cancel/no-show; flag still off  
+**Release 0.4.10:** [`RELEASE-0.4.10-AR.md`](./RELEASE-0.4.10-AR.md)  
 **Release 0.4.9:** [`RELEASE-0.4.9-AR.md`](./RELEASE-0.4.9-AR.md)  
 **Release 0.4.8:** [`RELEASE-0.4.8-AR.md`](./RELEASE-0.4.8-AR.md)  
 **Release 0.4.7:** [`RELEASE-0.4.7-AR.md`](./RELEASE-0.4.7-AR.md)  
@@ -19,6 +20,7 @@
 
 | Phase | Status | Notes |
 | ----- | ------ | ----- |
+| Ops cancel / no-show | **shipped 0.4.10** | Release lock + UI actions |
 | Ops stay bookings list | **shipped 0.4.9** | Real org-scoped list/detail |
 | Stay payment provider redirect | **shipped 0.4.8** | Sandbox session + confirm |
 | Occupancy / ADR / RevPAR reports | **shipped 0.4.7** | Ops + owner/dev dashboard |
@@ -33,8 +35,8 @@
 
 ## Next (human / infra)
 
-1. Redeploy Nest **and Worker** on Render from `main` (through 0.4.9).  
-2. Pilot: flag + allowlist + sandbox pay; verify ops bookings table fills.  
+1. Redeploy Nest **and Worker** on Render from `main` (through 0.4.10).  
+2. Pilot: flag + allowlist + sandbox pay; verify cancel frees inventory.  
 3. ClamAV فعلي؛ Nest+DB E2E كامل؛ Neon non-BYPASS؛ تدوير أسرار.  
 4. اختياري: أرشفة مشروع Vercel `web` الخاطئ.
 
@@ -42,7 +44,6 @@
 
 - iCal/OTA after SSRF controls.
 - Non-sandbox live PSP adapter for stay intents.
-- Ops booking detail actions beyond checkout (cancel/no-show UI).
 
 ## Verification
 
