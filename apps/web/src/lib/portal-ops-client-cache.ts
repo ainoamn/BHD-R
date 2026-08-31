@@ -6,7 +6,10 @@ type CacheEntry = {
   savedAt: number;
 };
 
-const TTL_MS = 5 * 60 * 1000;
+// Retain opened sections in memory so back/forward paints instantly. Keep the
+// freshness window short and never persist private portal payloads to storage.
+const FRESH_TTL_MS = 60 * 1000;
+const RETAIN_TTL_MS = 15 * 60 * 1000;
 const store = new Map<string, CacheEntry>();
 const inflight = new Map<string, Promise<OperationsWorkspacePayload | null>>();
 
@@ -35,11 +38,16 @@ export function getOpsCache(
 ): OperationsWorkspacePayload | null {
   const hit = store.get(key(portal, section));
   if (!hit) return null;
-  if (Date.now() - hit.savedAt > TTL_MS) {
+  if (Date.now() - hit.savedAt > RETAIN_TTL_MS) {
     store.delete(key(portal, section));
     return null;
   }
   return hit.payload;
+}
+
+export function isOpsCacheFresh(portal: PortalRole, section: OperationsSection): boolean {
+  const hit = store.get(key(portal, section));
+  return Boolean(hit && Date.now() - hit.savedAt <= FRESH_TTL_MS);
 }
 
 export function setOpsCache(
@@ -48,6 +56,40 @@ export function setOpsCache(
   payload: OperationsWorkspacePayload,
 ): void {
   store.set(key(portal, section), { payload, savedAt: Date.now() });
+}
+
+/** Apply a warm-all batch into the in-memory nav cache. */
+export function applyOpsCacheBatch(
+  portal: PortalRole,
+  sections: Partial<Record<string, OperationsWorkspacePayload>>,
+): number {
+  let applied = 0;
+  for (const [section, payload] of Object.entries(sections)) {
+    if (!payload || typeof payload !== 'object') continue;
+    setOpsCache(portal, section as OperationsSection, payload);
+    applied += 1;
+  }
+  return applied;
+}
+
+export async function warmAllOpsSections(portal: PortalRole): Promise<number> {
+  try {
+    const response = await fetch(`/api/portal/ops/${portal}/warm`, {
+      method: 'GET',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(45_000),
+    });
+    if (!response.ok) return 0;
+    const body = (await response.json()) as {
+      sections?: Partial<Record<string, OperationsWorkspacePayload>>;
+    };
+    if (!body.sections) return 0;
+    return applyOpsCacheBatch(portal, body.sections);
+  } catch {
+    return 0;
+  }
 }
 
 export function invalidateOpsCache(portal?: PortalRole, section?: OperationsSection): void {
@@ -79,7 +121,7 @@ export async function fetchOpsPayload(
         credentials: 'same-origin',
         cache: 'no-store',
         headers: { accept: 'application/json' },
-        signal: AbortSignal.timeout(8_000),
+        signal: AbortSignal.timeout(6_000),
       });
       if (!response.ok) return null;
       const payload = (await response.json()) as OperationsWorkspacePayload;
@@ -96,8 +138,12 @@ export async function fetchOpsPayload(
   return task;
 }
 
-/** Warm a section into memory without throwing. */
-export function warmOpsSection(portal: PortalRole, section: OperationsSection): void {
-  if (getOpsCache(portal, section)) return;
-  void fetchOpsPayload(portal, section);
+/** Warm a section without throwing; returning the task lets callers serialize it. */
+export function warmOpsSection(
+  portal: PortalRole,
+  section: OperationsSection,
+): Promise<OperationsWorkspacePayload | null> {
+  const hit = getOpsCache(portal, section);
+  if (hit && isOpsCacheFresh(portal, section)) return Promise.resolve(hit);
+  return fetchOpsPayload(portal, section);
 }

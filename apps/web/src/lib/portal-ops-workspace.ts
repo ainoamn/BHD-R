@@ -2,26 +2,30 @@ import 'server-only';
 import { getLocale } from 'next-intl/server';
 import { ApiError } from '@/lib/api';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
-import {
-  apiFetch,
-  configuredApiOrigin,
-  isNestApiConfiguredForRuntime,
-} from '@/lib/server-api';
+import { apiFetch, configuredApiOrigin, isNestApiConfiguredForRuntime } from '@/lib/server-api';
 import { loadOpsRecordsFromDb } from '@/lib/portal-ops-data';
 import type { PortalRole } from '@/lib/types';
 import type { OperationsContext } from '@/components/operations-console';
 import type { OperationsSection, OperationsWorkspacePayload } from '@/lib/portal-ops-types';
+import { opsSectionsForPortal } from '@/lib/portal-ops-types';
 
 export type { OperationsSection, OperationsWorkspacePayload } from '@/lib/portal-ops-types';
 export { isOperationsSection, OPERATIONS_SECTIONS } from '@/lib/portal-ops-types';
 
 type DataRow = Record<string, unknown>;
-type SectionLoad =
-  | { records: DataRow[]; source: 'db' | 'offline' | 'nest'; summary?: Record<string, unknown>; secondary?: DataRow[] };
+type SectionLoad = {
+  records: DataRow[];
+  source: 'db' | 'offline' | 'nest';
+  summary?: Record<string, unknown>;
+  secondary?: DataRow[];
+};
 
 const NEST_PROBE_MS = 1_500;
 const NEST_ROW_RACE_MS = 2_500;
 const NEST_CONTEXT_RACE_MS = 2_000;
+const NEST_HEALTH_TTL_MS = 10_000;
+
+let nestHealthCache: { at: number; ok: boolean } | null = null;
 
 async function safeRows(path: string): Promise<DataRow[]> {
   const payload = await Promise.race([
@@ -36,16 +40,25 @@ async function safeRows(path: string): Promise<DataRow[]> {
 }
 
 async function probeNestHealthz(): Promise<boolean> {
+  if (nestHealthCache && Date.now() - nestHealthCache.at < NEST_HEALTH_TTL_MS) {
+    return nestHealthCache.ok;
+  }
   const origin = configuredApiOrigin();
-  if (!origin) return false;
+  if (!origin) {
+    nestHealthCache = { at: Date.now(), ok: false };
+    return false;
+  }
   try {
     const response = await fetch(`${origin}/healthz`, {
       headers: { accept: 'application/json' },
       cache: 'no-store',
       signal: AbortSignal.timeout(NEST_PROBE_MS),
     });
-    return response.ok;
+    const ok = response.ok;
+    nestHealthCache = { at: Date.now(), ok };
+    return ok;
   } catch {
+    nestHealthCache = { at: Date.now(), ok: false };
     return false;
   }
 }
@@ -105,10 +118,9 @@ async function loadFromNest(portal: PortalRole, section: OperationsSection): Pro
       };
     }
     case 'accounting': {
-      const [records, dashboard, trialBalance, chequeRows, invoiceRows] = await Promise.all([
+      const [records, dashboard, chequeRows, invoiceRows] = await Promise.all([
         safeRows('/v1/accounting/journals'),
         apiFetch<Record<string, unknown>>('/v1/accounting/dashboard').catch(() => ({})),
-        safeRows('/v1/accounting/trial-balance'),
         safeRows('/v1/finance/cheques'),
         safeRows('/v1/finance/invoices'),
       ]);
@@ -157,7 +169,7 @@ async function loadFromNest(portal: PortalRole, section: OperationsSection): Pro
 
 async function loadSection(portal: PortalRole, section: OperationsSection): Promise<SectionLoad> {
   const fromDb = await loadOpsRecordsFromDb(portal, section);
-  if (fromDb !== null) return { records: fromDb as DataRow[], source: 'db' };
+  if (fromDb !== null) return { records: fromDb, source: 'db' };
 
   // On Vercel+Neon, never hang nav on Render Free cold starts for sections without a DB mapper.
   if (hasDatabaseUrl()) {
@@ -188,64 +200,58 @@ export async function loadOperationsWorkspacePayload(
     ok: portal === 'tenant',
     unauthorized: false,
     unreachable: portal !== 'tenant',
-    context: {} as OperationsContext,
+    context: {},
   };
-  let healthzOk = false;
-
   // Skip Nest side-channels when Neon already answered — this was adding ~3.5s per click.
   if (!dataFromDb && !offline && nestConfigured && portal !== 'tenant') {
-    const [ctx, health] = await Promise.all([
-      Promise.race([
-        apiFetch<OperationsContext>('/v1/operations/context')
-          .then((payload) => ({
-            ok: true as const,
-            unauthorized: false,
-            unreachable: false,
-            context: payload,
-          }))
-          .catch((error: unknown) => ({
-            ok: false as const,
-            unauthorized: error instanceof ApiError && error.status === 401,
-            unreachable:
-              error instanceof ApiError &&
-              (error.status === 503 || error.code === 'api_unreachable'),
-            context: {} as OperationsContext,
-          })),
-        new Promise<{
-          ok: false;
-          unauthorized: false;
-          unreachable: true;
-          context: OperationsContext;
-        }>((resolve) => {
-          setTimeout(
-            () =>
-              resolve({
-                ok: false,
-                unauthorized: false,
-                unreachable: true,
-                context: {} as OperationsContext,
-              }),
-            NEST_CONTEXT_RACE_MS,
-          );
-        }),
-      ]),
-      probeNestHealthz(),
+    const ctx = await Promise.race([
+      apiFetch<OperationsContext>('/v1/operations/context')
+        .then((payload) => ({
+          ok: true as const,
+          unauthorized: false,
+          unreachable: false,
+          context: payload,
+        }))
+        .catch((error: unknown) => ({
+          ok: false as const,
+          unauthorized: error instanceof ApiError && error.status === 401,
+          unreachable:
+            error instanceof ApiError && (error.status === 503 || error.code === 'api_unreachable'),
+          context: {},
+        })),
+      new Promise<{
+        ok: false;
+        unauthorized: false;
+        unreachable: true;
+        context: OperationsContext;
+      }>((resolve) => {
+        setTimeout(
+          () =>
+            resolve({
+              ok: false,
+              unauthorized: false,
+              unreachable: true,
+              context: {},
+            }),
+          NEST_CONTEXT_RACE_MS,
+        );
+      }),
     ]);
     contextResult = ctx;
-    healthzOk = health;
   }
 
   const apiOnline =
-    portal === 'tenant' ? true : dataFromDb ? true : healthzOk || !contextResult.unreachable;
+    portal === 'tenant'
+      ? true
+      : dataFromDb || loaded.source === 'nest' || !contextResult.unreachable;
   const context = contextResult.context;
   const recordsEmpty = !loaded.records.length;
-  const apiUnauthorized =
-    Boolean(contextResult.unauthorized) && !(dataFromDb && !recordsEmpty);
+  const apiUnauthorized = Boolean(contextResult.unauthorized) && !(dataFromDb && !recordsEmpty);
 
   return {
     records: loaded.records,
-    summary: (loaded.summary ?? {}) as Record<string, unknown>,
-    secondary: (loaded.secondary ?? []) as Record<string, unknown>[],
+    summary: loaded.summary ?? {},
+    secondary: loaded.secondary ?? [],
     context: context as unknown as Record<string, unknown>,
     apiOnline,
     nestConfigured,
@@ -254,4 +260,34 @@ export async function loadOperationsWorkspacePayload(
     dataFromDb,
     locale,
   };
+}
+
+/** Prefetch every ops section for a portal (one Nest health probe, pooled). */
+export async function loadAllOperationsWorkspacePayloads(
+  portal: PortalRole,
+  localeHint?: 'ar' | 'en',
+): Promise<Partial<Record<OperationsSection, OperationsWorkspacePayload>>> {
+  const sections = opsSectionsForPortal(portal);
+  if (!sections.length) return {};
+
+  // Warm Nest health cache once so offline/Neon sections do not re-probe.
+  if (hasDatabaseUrl() && isNestApiConfiguredForRuntime()) {
+    await probeNestHealthz();
+  }
+
+  const out: Partial<Record<OperationsSection, OperationsWorkspacePayload>> = {};
+  const concurrency = 4;
+  let cursor = 0;
+
+  async function worker() {
+    while (cursor < sections.length) {
+      const index = cursor;
+      cursor += 1;
+      const section = sections[index]!;
+      out[section] = await loadOperationsWorkspacePayload(portal, section, localeHint);
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, sections.length) }, () => worker()));
+  return out;
 }
