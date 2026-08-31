@@ -27,6 +27,7 @@
 | رحلات الضيف + claim بالمرجع | **0.4.6** — [`RELEASE-0.4.6-AR.md`](../../implementation/RELEASE-0.4.6-AR.md) |
 | Occupancy / ADR / RevPAR | **0.4.7** — [`RELEASE-0.4.7-AR.md`](../../implementation/RELEASE-0.4.7-AR.md) |
 | توجيه دفع الإقامة (sandbox) | **0.4.8** — [`RELEASE-0.4.8-AR.md`](../../implementation/RELEASE-0.4.8-AR.md) |
+| قائمة حجوزات التشغيل | **0.4.9** — [`RELEASE-0.4.9-AR.md`](../../implementation/RELEASE-0.4.9-AR.md) |
 | تفعيل إنتاجي تجريبي | بشري: Flag + allowlist + دفع حقيقي |
 
 ## قواعد لا يجوز تجاوزها

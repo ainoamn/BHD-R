@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.9 — 2026-08-31
+
+- Ops stay bookings: real `GET /v1/stays/bookings` list/detail (status/property filters) replacing empty stub.
+- Owner and developer stays bookings pages render a data table.
+- Docs: `RELEASE-0.4.9-AR.md`.
+
 ## 0.4.8 — 2026-08-31
 
 - Stay payment provider redirect: `POST /v1/public/stays/payment-sessions` (sandbox) + sandbox-complete for stay intents.

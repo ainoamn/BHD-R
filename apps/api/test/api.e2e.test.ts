@@ -199,4 +199,9 @@ describe('API runtime boundaries (Express)', () => {
     });
     expect(response.status).toBe(404);
   });
+
+  it('requires auth for ops stay bookings list while the platform flag is off', async () => {
+    const response = await fetch(`${baseUrl}/v1/stays/bookings`);
+    expect([401, 404]).toContain(response.status);
+  });
 });

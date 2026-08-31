@@ -230,6 +230,12 @@ export const stayPerformanceMetricsSchema = z.object({
   bookingCount: z.number().int().min(0),
 });
 
+export const stayOpsBookingsQuerySchema = z.object({
+  status: stayBookingStatusSchema.optional(),
+  propertyId: uuidSchema.optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+});
+
 export type CreateStayQuoteInput = z.infer<typeof createStayQuoteSchema>;
 export type CreateStayHoldInput = z.infer<typeof createStayHoldSchema>;
 export type CreateStayBookingInput = z.infer<typeof createStayBookingSchema>;
@@ -238,6 +244,7 @@ export type StayGuestBookingLookup = z.infer<typeof stayGuestBookingLookupSchema
 export type StayGuestBookingClaim = z.infer<typeof stayGuestBookingClaimSchema>;
 export type StayPerformanceQuery = z.infer<typeof stayPerformanceQuerySchema>;
 export type StayPerformanceMetricsDto = z.infer<typeof stayPerformanceMetricsSchema>;
+export type StayOpsBookingsQuery = z.infer<typeof stayOpsBookingsQuerySchema>;
 
 export const createStayPaymentSessionSchema = z
   .object({

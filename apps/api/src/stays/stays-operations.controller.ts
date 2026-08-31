@@ -12,7 +12,9 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { readStaysFlagsFromEnv, resolveStaysEnabledFromEnv } from '@bhd-r/config';
 import {
+  stayOpsBookingsQuerySchema,
   stayPerformanceQuerySchema,
+  type StayOpsBookingsQuery,
   type StayPerformanceQuery,
 } from '@bhd-r/contracts';
 import type { ApiRequest } from '../common/api-http.js';
@@ -68,16 +70,21 @@ export class StaysOperationsController {
 
   @RequirePermissions('stay.booking.read')
   @Get('bookings')
-  listBookings(@Req() request: ApiRequest) {
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  listBookings(
+    @Req() request: ApiRequest,
+    @Query(new ZodPipe(stayOpsBookingsQuerySchema)) query: StayOpsBookingsQuery,
+  ) {
     assertStaysOperationsEnabled(request.auth?.organizationId);
-    return { items: [] };
+    return this.bookings.listForOrganization(request.auth!, query);
   }
 
   @RequirePermissions('stay.booking.read')
   @Get('bookings/:id')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   getBooking(@Req() request: ApiRequest, @Param('id', ParseUUIDPipe) id: string) {
     assertStaysOperationsEnabled(request.auth?.organizationId);
-    return { id, status: null };
+    return this.bookings.getForOrganization(request.auth!, id);
   }
 
   @RequirePermissions('stay.inventory.manage')

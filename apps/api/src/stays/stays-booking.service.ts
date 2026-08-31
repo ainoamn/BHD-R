@@ -582,6 +582,51 @@ export class StaysBookingService {
     });
   }
 
+  async listForOrganization(
+    claims: SessionClaims,
+    query: { status?: string | undefined; propertyId?: string | undefined; limit: number },
+  ) {
+    const organizationId = claims.organizationId;
+    if (!organizationId) throw new ConflictException('Organization context required');
+
+    return this.database.withinTenant(claims, async (transaction) => {
+      const filters = [eq(stayBookings.organizationId, organizationId)];
+      if (query.status) {
+        filters.push(eq(stayBookings.status, query.status));
+      }
+      if (query.propertyId) {
+        filters.push(eq(stayBookings.propertyId, query.propertyId));
+      }
+
+      const rows = await transaction
+        .select()
+        .from(stayBookings)
+        .where(and(...filters))
+        .orderBy(desc(stayBookings.checkInOn), desc(stayBookings.createdAt))
+        .limit(query.limit);
+
+      return {
+        items: rows.map((row) => this.toOpsProjection(row)),
+      };
+    });
+  }
+
+  async getForOrganization(claims: SessionClaims, bookingId: string) {
+    const organizationId = claims.organizationId;
+    if (!organizationId) throw new ConflictException('Organization context required');
+
+    return this.database.withinTenant(claims, async (transaction) => {
+      const booking = await transaction.query.stayBookings.findFirst({
+        where: and(
+          eq(stayBookings.id, bookingId),
+          eq(stayBookings.organizationId, organizationId),
+        ),
+      });
+      if (!booking) throw new NotFoundException('Stay booking not found');
+      return this.toOpsProjection(booking);
+    });
+  }
+
   async checkOut(claims: SessionClaims, bookingId: string) {
     const organizationId = claims.organizationId;
     if (!organizationId) throw new ConflictException('Organization context required');
@@ -690,6 +735,38 @@ export class StaysBookingService {
         checkInOn: booking.checkInOn,
         checkOutOn: booking.checkOutOn,
       }),
+    };
+  }
+
+  private toOpsProjection(booking: {
+    id: string;
+    referenceCode: string;
+    organizationId: string;
+    propertyId: string;
+    unitTypeId: string;
+    unitId: string;
+    checkInOn: string;
+    checkOutOn: string;
+    timezone: string;
+    status: string;
+    bookingMode: string;
+    source: string;
+    currency: string;
+    subtotalMinor: bigint;
+    feesMinor: bigint;
+    taxMinor: bigint;
+    totalMinor: bigint;
+    createdAt: Date;
+    updatedAt: Date;
+  }) {
+    return {
+      ...this.toGuestProjection(booking),
+      source: booking.source,
+      subtotalMinor: booking.subtotalMinor.toString(),
+      feesMinor: booking.feesMinor.toString(),
+      taxMinor: booking.taxMinor.toString(),
+      createdAt: booking.createdAt.toISOString(),
+      updatedAt: booking.updatedAt.toISOString(),
     };
   }
 

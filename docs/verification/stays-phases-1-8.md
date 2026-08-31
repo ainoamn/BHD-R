@@ -38,9 +38,14 @@
 ## Honest gaps (continue Expand–Contract)
 
 - iCal/OTA after SSRF controls.
-- Ops bookings list still a stub.
 - Non-sandbox live PSP adapter for stay intents.
+- Ops booking detail actions beyond checkout (cancel/no-show UI).
 - Full-repo `pnpm check` still has unrelated ESLint debt in api/web.
+
+## 0.4.9 ops bookings list
+
+- `GET /v1/stays/bookings` returns org-scoped rows (not an empty stub).
+- Unauthenticated → 401/404 while flag off.
 
 ## 0.4.8 stay payment redirect
 

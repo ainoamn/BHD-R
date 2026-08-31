@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-08-31  
-**Product version:** 0.4.8  
-**Active focus:** BHD R Stays — provider payment redirect for stay intents; flag still off  
+**Product version:** 0.4.9  
+**Active focus:** BHD R Stays — ops bookings list; flag still off  
+**Release 0.4.9:** [`RELEASE-0.4.9-AR.md`](./RELEASE-0.4.9-AR.md)  
 **Release 0.4.8:** [`RELEASE-0.4.8-AR.md`](./RELEASE-0.4.8-AR.md)  
 **Release 0.4.7:** [`RELEASE-0.4.7-AR.md`](./RELEASE-0.4.7-AR.md)  
 **Release 0.4.6:** [`RELEASE-0.4.6-AR.md`](./RELEASE-0.4.6-AR.md)  
@@ -18,6 +19,7 @@
 
 | Phase | Status | Notes |
 | ----- | ------ | ----- |
+| Ops stay bookings list | **shipped 0.4.9** | Real org-scoped list/detail |
 | Stay payment provider redirect | **shipped 0.4.8** | Sandbox session + confirm |
 | Occupancy / ADR / RevPAR reports | **shipped 0.4.7** | Ops + owner/dev dashboard |
 | Guest trips list + reference claim | **shipped 0.4.6** | Flag off → 404/401 |
@@ -31,16 +33,16 @@
 
 ## Next (human / infra)
 
-1. Redeploy Nest **and Worker** on Render from `main` (through 0.4.8).  
-2. Pilot: flag + allowlist + sandbox payment env; full quote→pay→confirm.  
+1. Redeploy Nest **and Worker** on Render from `main` (through 0.4.9).  
+2. Pilot: flag + allowlist + sandbox pay; verify ops bookings table fills.  
 3. ClamAV فعلي؛ Nest+DB E2E كامل؛ Neon non-BYPASS؛ تدوير أسرار.  
 4. اختياري: أرشفة مشروع Vercel `web` الخاطئ.
 
 ## Product gaps (Expand–Contract)
 
 - iCal/OTA after SSRF controls.
-- Ops bookings list still a stub.
-- Non-sandbox live PSP adapter for stay intents (sandbox path live).
+- Non-sandbox live PSP adapter for stay intents.
+- Ops booking detail actions beyond checkout (cancel/no-show UI).
 
 ## Verification
 
