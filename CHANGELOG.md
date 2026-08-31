@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.98 — 2026-08-31
+
+- Owner portal nav: Neon-first ops (approvals, invoices, expenses, maintenance + existing lists); skip Nest context/health when DB answers; empty offline shell if Nest asleep; never infinite «جاري تحميل القسم».
+- Docs: `RELEASE-0.2.98-AR.md`.
+
 ## 0.2.97 — 2026-08-31
 
 - Navigation speed: disable sidebar prefetch storm; serialize idle warm; short timeouts on `/v1/me`, ops fetch, `/api/warm`, and Nest API; skip Nest listing fallback when Neon already answered; race viewer DB load.

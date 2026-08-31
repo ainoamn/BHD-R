@@ -4,12 +4,13 @@ import { useEffect, useState } from 'react';
 import { BrandMark } from '@bhd-r/ui';
 import type { PortalRole } from '@/lib/types';
 import type { OperationsSection, OperationsWorkspacePayload } from '@/lib/portal-ops-types';
-import { fetchOpsPayload, getOpsCache } from '@/lib/portal-ops-client-cache';
+import { emptyOpsPayload, fetchOpsPayload, getOpsCache } from '@/lib/portal-ops-client-cache';
 import { OperationsConsole, type OperationsContext } from './operations-console';
 
 /**
  * Client ops workspace: paint from in-memory cache when available so sidebar
  * navigation feels like returning to an already-open view (WAZEN-style).
+ * Never leave the user on an infinite boot spinner if Nest/API times out.
  */
 export function OperationsWorkspaceClient({
   portal,
@@ -26,6 +27,7 @@ export function OperationsWorkspaceClient({
 
   useEffect(() => {
     let cancelled = false;
+    let paintTimer: number | null = null;
 
     const hit = getOpsCache(portal, section);
     if (hit) {
@@ -35,8 +37,15 @@ export function OperationsWorkspaceClient({
       });
     } else {
       setPayload(null);
+      // Soft deadline: show empty console instead of forever "Loading section…"
+      paintTimer = window.setTimeout(() => {
+        if (!cancelled) {
+          setPayload((current) => current ?? emptyOpsPayload(locale));
+        }
+      }, 1_200);
       void fetchOpsPayload(portal, section).then((fresh) => {
-        if (!cancelled && fresh) setPayload(fresh);
+        if (cancelled) return;
+        setPayload(fresh ?? emptyOpsPayload(locale));
       });
     }
 
@@ -52,9 +61,10 @@ export function OperationsWorkspaceClient({
 
     return () => {
       cancelled = true;
+      if (paintTimer !== null) window.clearTimeout(paintTimer);
       window.removeEventListener('bhd-r-ops-refresh', onRefresh);
     };
-  }, [portal, section]);
+  }, [portal, section, locale]);
 
   if (!payload) {
     return (

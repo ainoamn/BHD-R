@@ -8,8 +8,8 @@ import { opsSectionsForPortal } from '@/lib/portal-ops-types';
 import { warmOpsSection } from '@/lib/portal-ops-client-cache';
 
 /**
- * Idle prefetch — serialized and delayed so Nest cold-start is not flooded
- * (parallel prefetch of ~20 RSC + ops sections caused 20–160s hangs).
+ * Idle prefetch — warm a very small route budget, one request at a time.
+ * Nest is kept awake separately; route-shell prefetch must never wait for it.
  */
 export function PortalRoutePrefetch({ portal }: { portal: PortalRole }) {
   const router = useRouter();
@@ -26,18 +26,6 @@ export function PortalRoutePrefetch({ portal }: { portal: PortalRole }) {
     let chainTimer: number | null = null;
 
     const runSerialized = async () => {
-      // Prefer a short Nest warm; never block if it fails.
-      try {
-        await fetch('/api/warm', {
-          credentials: 'same-origin',
-          cache: 'no-store',
-          signal: AbortSignal.timeout(4_000),
-        });
-      } catch {
-        /* ignore — continue with light prefetch */
-      }
-      if (cancelled) return;
-
       // Prefetch only the first few shells (dashboard + common pages), one at a time.
       const shellBudget = hrefs.slice(0, 4);
       for (const [index, href] of shellBudget.entries()) {
@@ -50,17 +38,25 @@ export function PortalRoutePrefetch({ portal }: { portal: PortalRole }) {
               /* ignore */
             }
             resolve();
-          }, index === 0 ? 400 : 700);
+          }, index === 0 ? 0 : 450);
         });
       }
 
-      // Warm at most 2 ops JSON payloads (Neon-friendly sections first).
-      const opsBudget = sections.filter((s) => s === 'properties' || s === 'contacts').slice(0, 2);
+      // Warm Neon-first sections so soft nav paints from memory.
+      const neonFirst = new Set([
+        'properties',
+        'contacts',
+        'approvals',
+        'invoices',
+        'expenses',
+        'maintenance',
+      ]);
+      const opsBudget = sections.filter((s) => neonFirst.has(s)).slice(0, 6);
       for (const section of opsBudget) {
         if (cancelled) return;
         await warmOpsSection(portal, section);
         await new Promise((resolve) => {
-          chainTimer = window.setTimeout(resolve, 500);
+          chainTimer = window.setTimeout(resolve, 350);
         });
       }
     };
@@ -71,9 +67,9 @@ export function PortalRoutePrefetch({ portal }: { portal: PortalRole }) {
 
     if (typeof window.requestIdleCallback === 'function') {
       usedIdleCallback = true;
-      idleHandle = window.requestIdleCallback(start, { timeout: 3_500 });
+      idleHandle = window.requestIdleCallback(start, { timeout: 1_500 });
     } else {
-      idleHandle = window.setTimeout(start, 900);
+      idleHandle = window.setTimeout(start, 500);
     }
 
     return () => {

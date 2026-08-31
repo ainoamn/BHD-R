@@ -14,6 +14,21 @@ function key(portal: PortalRole, section: OperationsSection): string {
   return `${portal}:${section}`;
 }
 
+export function emptyOpsPayload(locale: 'ar' | 'en' = 'ar'): OperationsWorkspacePayload {
+  return {
+    records: [],
+    summary: {},
+    secondary: [],
+    context: {},
+    apiOnline: false,
+    nestConfigured: true,
+    recordsEmpty: true,
+    apiUnauthorized: false,
+    dataFromDb: false,
+    locale,
+  };
+}
+
 export function getOpsCache(
   portal: PortalRole,
   section: OperationsSection,
@@ -64,7 +79,7 @@ export async function fetchOpsPayload(
         credentials: 'same-origin',
         cache: 'no-store',
         headers: { accept: 'application/json' },
-        signal: AbortSignal.timeout(6_000),
+        signal: AbortSignal.timeout(8_000),
       });
       if (!response.ok) return null;
       const payload = (await response.json()) as OperationsWorkspacePayload;

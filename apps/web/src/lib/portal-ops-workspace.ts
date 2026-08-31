@@ -1,6 +1,7 @@
 import 'server-only';
 import { getLocale } from 'next-intl/server';
 import { ApiError } from '@/lib/api';
+import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import {
   apiFetch,
   configuredApiOrigin,
@@ -15,6 +16,12 @@ export type { OperationsSection, OperationsWorkspacePayload } from '@/lib/portal
 export { isOperationsSection, OPERATIONS_SECTIONS } from '@/lib/portal-ops-types';
 
 type DataRow = Record<string, unknown>;
+type SectionLoad =
+  | { records: DataRow[]; source: 'db' | 'offline' | 'nest'; summary?: Record<string, unknown>; secondary?: DataRow[] };
+
+const NEST_PROBE_MS = 1_500;
+const NEST_ROW_RACE_MS = 2_500;
+const NEST_CONTEXT_RACE_MS = 2_000;
 
 async function safeRows(path: string): Promise<DataRow[]> {
   const payload = await Promise.race([
@@ -22,27 +29,40 @@ async function safeRows(path: string): Promise<DataRow[]> {
       .then((value) => value)
       .catch(() => [] as DataRow[] | { data: DataRow[] }),
     new Promise<DataRow[]>((resolve) => {
-      setTimeout(() => resolve([]), 3_500);
+      setTimeout(() => resolve([]), NEST_ROW_RACE_MS);
     }),
   ]);
   return Array.isArray(payload) ? payload : (payload.data ?? []);
 }
 
-async function loadSection(portal: PortalRole, section: OperationsSection) {
-  const fromDb = await loadOpsRecordsFromDb(portal, section);
-  if (fromDb !== null) return { records: fromDb as DataRow[], source: 'db' as const };
+async function probeNestHealthz(): Promise<boolean> {
+  const origin = configuredApiOrigin();
+  if (!origin) return false;
+  try {
+    const response = await fetch(`${origin}/healthz`, {
+      headers: { accept: 'application/json' },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(NEST_PROBE_MS),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
 
+async function loadFromNest(portal: PortalRole, section: OperationsSection): Promise<SectionLoad> {
   switch (section) {
     case 'properties':
       return {
+        source: 'nest',
         records: await safeRows(
           portal === 'developer' ? '/v1/developer/projects' : '/v1/owner/properties',
         ),
       };
     case 'contacts':
-      return { records: await safeRows('/v1/parties') };
+      return { source: 'nest', records: await safeRows('/v1/parties') };
     case 'requests':
-      return { records: await safeRows('/v1/operations/requests') };
+      return { source: 'nest', records: await safeRows('/v1/operations/requests') };
     case 'bookings': {
       const [reservations, viewings, holds] = await Promise.all([
         safeRows('/v1/leasing/reservations'),
@@ -50,6 +70,7 @@ async function loadSection(portal: PortalRole, section: OperationsSection) {
         safeRows('/v1/leasing/holds'),
       ]);
       return {
+        source: 'nest',
         records: [
           ...reservations.map((row) => ({ ...row, recordKind: 'reservation' })),
           ...viewings.map((row) => ({ ...row, recordKind: 'viewing' })),
@@ -58,24 +79,25 @@ async function loadSection(portal: PortalRole, section: OperationsSection) {
       };
     }
     case 'leasing':
-      return { records: await safeRows('/v1/leasing/leases') };
+      return { source: 'nest', records: await safeRows('/v1/leasing/leases') };
     case 'sales': {
       const [records, totals] = await Promise.all([
         safeRows('/v1/operations/sales'),
         apiFetch<Record<string, unknown>>('/v1/operations/sales/totals').catch(() => ({})),
       ]);
-      return { records, summary: totals };
+      return { source: 'nest', records, summary: totals };
     }
     case 'contracts':
-      return { records: await safeRows('/v1/leasing/contracts') };
+      return { source: 'nest', records: await safeRows('/v1/leasing/contracts') };
     case 'invoices':
-      return { records: await safeRows('/v1/finance/invoices') };
+      return { source: 'nest', records: await safeRows('/v1/finance/invoices') };
     case 'payments': {
       const [payments, receipts] = await Promise.all([
         safeRows('/v1/finance/payments'),
         safeRows('/v1/finance/receipts'),
       ]);
       return {
+        source: 'nest',
         records: [
           ...payments.map((row) => ({ ...row, recordKind: 'payment' })),
           ...receipts.map((row) => ({ ...row, recordKind: 'receipt', status: 'issued' })),
@@ -91,6 +113,7 @@ async function loadSection(portal: PortalRole, section: OperationsSection) {
         safeRows('/v1/finance/invoices'),
       ]);
       return {
+        source: 'nest',
         records,
         summary: {
           ...dashboard,
@@ -107,44 +130,42 @@ async function loadSection(portal: PortalRole, section: OperationsSection) {
       };
     }
     case 'expenses':
-      return { records: await safeRows('/v1/accounting/expenses') };
+      return { source: 'nest', records: await safeRows('/v1/accounting/expenses') };
     case 'maintenance':
-      return { records: await safeRows('/v1/maintenance') };
+      return { source: 'nest', records: await safeRows('/v1/maintenance') };
     case 'work-orders':
-      return { records: await safeRows('/v1/operations/work-orders') };
+      return { source: 'nest', records: await safeRows('/v1/operations/work-orders') };
     case 'tasks':
-      return { records: await safeRows('/v1/operations/tasks') };
+      return { source: 'nest', records: await safeRows('/v1/operations/tasks') };
     case 'legal':
-      return { records: await safeRows('/v1/operations/legal-cases') };
+      return { source: 'nest', records: await safeRows('/v1/operations/legal-cases') };
     case 'approvals':
-      return { records: await safeRows('/v1/operations/approvals') };
+      return { source: 'nest', records: await safeRows('/v1/operations/approvals') };
     case 'reports': {
       const [records, summary] = await Promise.all([
         safeRows('/v1/reports'),
         apiFetch<Record<string, unknown>>('/v1/reports/operational-summary').catch(() => ({})),
       ]);
-      return { records, summary };
+      return { source: 'nest', records, summary };
     }
     case 'team':
-      return { records: await safeRows('/v1/organizations/current/members') };
+      return { source: 'nest', records: await safeRows('/v1/organizations/current/members') };
     case 'api-keys':
-      return { records: await safeRows('/v1/auth/api-keys') };
+      return { source: 'nest', records: await safeRows('/v1/auth/api-keys') };
   }
 }
 
-async function probeNestHealthz(): Promise<boolean> {
-  const origin = configuredApiOrigin();
-  if (!origin) return false;
-  try {
-    const response = await fetch(`${origin}/healthz`, {
-      headers: { accept: 'application/json' },
-      cache: 'no-store',
-      signal: AbortSignal.timeout(3_000),
-    });
-    return response.ok;
-  } catch {
-    return false;
+async function loadSection(portal: PortalRole, section: OperationsSection): Promise<SectionLoad> {
+  const fromDb = await loadOpsRecordsFromDb(portal, section);
+  if (fromDb !== null) return { records: fromDb as DataRow[], source: 'db' };
+
+  // On Vercel+Neon, never hang nav on Render Free cold starts for sections without a DB mapper.
+  if (hasDatabaseUrl()) {
+    const ready = await probeNestHealthz();
+    if (!ready) return { records: [], source: 'offline' };
   }
+
+  return loadFromNest(portal, section);
 }
 
 export async function loadOperationsWorkspacePayload(
@@ -154,55 +175,70 @@ export async function loadOperationsWorkspacePayload(
 ): Promise<OperationsWorkspacePayload> {
   const locale = localeHint ?? ((await getLocale()) === 'en' ? 'en' : 'ar');
   const nestConfigured = isNestApiConfiguredForRuntime();
-  const [loaded, contextResult, healthzOk] = await Promise.all([
-    loadSection(portal, section),
-    portal === 'tenant'
-      ? Promise.resolve({
-          ok: true as const,
-          unauthorized: false,
-          unreachable: false,
-          context: {} as OperationsContext,
-        })
-      : Promise.race([
-          apiFetch<OperationsContext>('/v1/operations/context')
-            .then((payload) => ({
-              ok: true as const,
-              unauthorized: false,
-              unreachable: false,
-              context: payload,
-            }))
-            .catch((error: unknown) => ({
-              ok: false as const,
-              unauthorized: error instanceof ApiError && error.status === 401,
-              unreachable:
-                error instanceof ApiError &&
-                (error.status === 503 || error.code === 'api_unreachable'),
-              context: {} as OperationsContext,
-            })),
-          new Promise<{
-            ok: false;
-            unauthorized: false;
-            unreachable: true;
-            context: OperationsContext;
-          }>((resolve) => {
-            setTimeout(
-              () =>
-                resolve({
-                  ok: false,
-                  unauthorized: false,
-                  unreachable: true,
-                  context: {} as OperationsContext,
-                }),
-              3_500,
-            );
-          }),
-        ]),
-    probeNestHealthz(),
-  ]);
-  const apiOnline = portal === 'tenant' ? true : healthzOk || !contextResult.unreachable;
+  const loaded = await loadSection(portal, section);
+  const dataFromDb = loaded.source === 'db';
+  const offline = loaded.source === 'offline';
+
+  let contextResult: {
+    ok: boolean;
+    unauthorized: boolean;
+    unreachable: boolean;
+    context: OperationsContext;
+  } = {
+    ok: portal === 'tenant',
+    unauthorized: false,
+    unreachable: portal !== 'tenant',
+    context: {} as OperationsContext,
+  };
+  let healthzOk = false;
+
+  // Skip Nest side-channels when Neon already answered — this was adding ~3.5s per click.
+  if (!dataFromDb && !offline && nestConfigured && portal !== 'tenant') {
+    const [ctx, health] = await Promise.all([
+      Promise.race([
+        apiFetch<OperationsContext>('/v1/operations/context')
+          .then((payload) => ({
+            ok: true as const,
+            unauthorized: false,
+            unreachable: false,
+            context: payload,
+          }))
+          .catch((error: unknown) => ({
+            ok: false as const,
+            unauthorized: error instanceof ApiError && error.status === 401,
+            unreachable:
+              error instanceof ApiError &&
+              (error.status === 503 || error.code === 'api_unreachable'),
+            context: {} as OperationsContext,
+          })),
+        new Promise<{
+          ok: false;
+          unauthorized: false;
+          unreachable: true;
+          context: OperationsContext;
+        }>((resolve) => {
+          setTimeout(
+            () =>
+              resolve({
+                ok: false,
+                unauthorized: false,
+                unreachable: true,
+                context: {} as OperationsContext,
+              }),
+            NEST_CONTEXT_RACE_MS,
+          );
+        }),
+      ]),
+      probeNestHealthz(),
+    ]);
+    contextResult = ctx;
+    healthzOk = health;
+  }
+
+  const apiOnline =
+    portal === 'tenant' ? true : dataFromDb ? true : healthzOk || !contextResult.unreachable;
   const context = contextResult.context;
   const recordsEmpty = !loaded.records.length;
-  const dataFromDb = 'source' in loaded && loaded.source === 'db';
   const apiUnauthorized =
     Boolean(contextResult.unauthorized) && !(dataFromDb && !recordsEmpty);
 

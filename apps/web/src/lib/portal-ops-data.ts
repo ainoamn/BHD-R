@@ -1,10 +1,14 @@
 import 'server-only';
 import { cookies } from 'next/headers';
-import { and, count, eq, sql } from 'drizzle-orm';
+import { and, count, desc, eq, sql } from 'drizzle-orm';
 import { verifySessionToken, type SessionClaims } from '@bhd-r/authz';
 import {
   addresses,
+  approvalRequests,
   createDatabase,
+  expenses,
+  invoices,
+  maintenanceTickets,
   parties,
   properties,
   units,
@@ -151,9 +155,115 @@ async function listContacts(claims: SessionClaims): Promise<Record<string, unkno
   });
 }
 
+function asIso(value: unknown): string | null {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString();
+  return String(value);
+}
+
+async function listApprovals(claims: SessionClaims): Promise<Record<string, unknown>[]> {
+  return withinViewerTenant(claims, async (transaction) => {
+    const orgId = claims.organizationId!;
+    const rows = await transaction
+      .select({
+        id: approvalRequests.id,
+        reference: approvalRequests.reference,
+        type: approvalRequests.type,
+        subject: approvalRequests.subject,
+        status: approvalRequests.status,
+        createdAt: approvalRequests.createdAt,
+        decidedAt: approvalRequests.decidedAt,
+      })
+      .from(approvalRequests)
+      .where(eq(approvalRequests.organizationId, orgId))
+      .orderBy(desc(approvalRequests.createdAt));
+    return rows.map((row) => ({
+      ...row,
+      createdAt: asIso(row.createdAt),
+      decidedAt: asIso(row.decidedAt),
+    }));
+  });
+}
+
+async function listInvoices(claims: SessionClaims): Promise<Record<string, unknown>[]> {
+  return withinViewerTenant(claims, async (transaction) => {
+    const orgId = claims.organizationId!;
+    const rows = await transaction
+      .select({
+        id: invoices.id,
+        invoiceNumber: invoices.invoiceNumber,
+        status: invoices.status,
+        currency: invoices.currency,
+        totalMinor: invoices.totalMinor,
+        issuedOn: invoices.issuedOn,
+        dueOn: invoices.dueOn,
+        createdAt: invoices.createdAt,
+      })
+      .from(invoices)
+      .where(eq(invoices.organizationId, orgId))
+      .orderBy(desc(invoices.createdAt))
+      .limit(200);
+    return rows.map((row) => ({
+      ...row,
+      reference: row.invoiceNumber,
+      createdAt: asIso(row.createdAt),
+    }));
+  });
+}
+
+async function listExpenses(claims: SessionClaims): Promise<Record<string, unknown>[]> {
+  return withinViewerTenant(claims, async (transaction) => {
+    const orgId = claims.organizationId!;
+    const rows = await transaction
+      .select({
+        id: expenses.id,
+        reference: expenses.reference,
+        category: expenses.category,
+        description: expenses.description,
+        amountMinor: expenses.amountMinor,
+        currency: expenses.currency,
+        status: expenses.status,
+        issuedOn: expenses.issuedOn,
+        createdAt: expenses.createdAt,
+      })
+      .from(expenses)
+      .where(eq(expenses.organizationId, orgId))
+      .orderBy(desc(expenses.createdAt))
+      .limit(200);
+    return rows.map((row) => ({
+      ...row,
+      createdAt: asIso(row.createdAt),
+    }));
+  });
+}
+
+async function listMaintenance(claims: SessionClaims): Promise<Record<string, unknown>[]> {
+  return withinViewerTenant(claims, async (transaction) => {
+    const orgId = claims.organizationId!;
+    const rows = await transaction
+      .select({
+        id: maintenanceTickets.id,
+        title: maintenanceTickets.title,
+        status: maintenanceTickets.status,
+        priority: maintenanceTickets.priority,
+        category: maintenanceTickets.category,
+        createdAt: maintenanceTickets.createdAt,
+      })
+      .from(maintenanceTickets)
+      .where(eq(maintenanceTickets.organizationId, orgId))
+      .orderBy(desc(maintenanceTickets.createdAt))
+      .limit(200);
+    return rows.map((row) => ({
+      ...row,
+      reference: row.title,
+      createdAt: asIso(row.createdAt),
+    }));
+  });
+}
+
 /**
- * WAZEN-style: read common ops lists from Neon on Vercel when Nest (Render) is down.
- * Returns null when this section cannot be served from DB (caller uses Nest).
+ * WAZEN-style: read common ops lists from Neon on Vercel (avoid Nest cold-start).
+ * Returns null when this section cannot be served from DB (caller may use Nest or empty).
  */
 export async function loadOpsRecordsFromDb(
   portal: PortalRole,
@@ -172,6 +282,14 @@ export async function loadOpsRecordsFromDb(
         return await listProperties(claims);
       case 'contacts':
         return await listContacts(claims);
+      case 'approvals':
+        return await listApprovals(claims);
+      case 'invoices':
+        return await listInvoices(claims);
+      case 'expenses':
+        return await listExpenses(claims);
+      case 'maintenance':
+        return await listMaintenance(claims);
       default:
         return null;
     }
