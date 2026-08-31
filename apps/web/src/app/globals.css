@@ -3042,6 +3042,42 @@ h3 {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
+.property-360__serial--gallery {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0.55rem 0 0;
+  padding: 0.45rem 0.65rem;
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--surface) 92%, var(--oman-teal) 8%);
+  border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  color: var(--ink-800);
+}
+
+.property-360__serial--gallery span,
+.property-360__serial--qr span {
+  font-family: inherit;
+  font-size: 0.78rem;
+  color: var(--ink-700);
+}
+
+.property-360__serial--gallery strong,
+.property-360__serial--qr strong {
+  font-size: 1rem;
+  letter-spacing: 0.04em;
+  color: var(--ink-900);
+}
+
+.property-360__serial--qr {
+  display: grid;
+  justify-items: center;
+  gap: 0.15rem;
+  margin: 0.55rem 0 0;
+  width: 100%;
+  text-align: center;
+}
+
 .property-360__titlebar-actions {
   display: flex;
   flex-wrap: wrap;

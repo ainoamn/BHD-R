@@ -277,6 +277,12 @@ export function PropertyDetailManager({
                     <BrandMark tone="onDark" />
                   </span>
                 </div>
+                {property.serialNumber ? (
+                  <p className="property-360__serial property-360__serial--gallery" dir="ltr">
+                    <span>{ar ? 'الرقم المتسلسل' : 'Serial'}</span>
+                    <strong>{property.serialNumber}</strong>
+                  </p>
+                ) : null}
                 {gallery.length > 1 ? (
                   <ul className="property-360__thumbs">
                     {gallery.slice(0, 8).map((item, index) => (
@@ -305,6 +311,12 @@ export function PropertyDetailManager({
                     ? 'أضف صوراً من تعديل العقار لعرضها هنا كمعرض حجز.'
                     : 'Add photos from Edit property to show a booking-style gallery here.'}
                 </p>
+                {property.serialNumber ? (
+                  <p className="property-360__serial property-360__serial--gallery" dir="ltr">
+                    <span>{ar ? 'الرقم المتسلسل' : 'Serial'}</span>
+                    <strong>{property.serialNumber}</strong>
+                  </p>
+                ) : null}
                 {property.status !== 'archived' && !isPublic ? (
                   <a className="button button--primary" href={editHref}>
                     {ar ? 'إضافة صور' : 'Add photos'}
@@ -321,9 +333,9 @@ export function PropertyDetailManager({
               </span>
               <h1>{ar ? property.nameAr : property.nameEn}</h1>
               <p className="property-360__location">{addressLine}</p>
-              {!isPublic ? (
+              {property.serialNumber ? (
                 <p className="property-360__serial" dir="ltr">
-                  {property.serialNumber ?? '—'}
+                  {property.serialNumber}
                 </p>
               ) : null}
             </div>
@@ -676,6 +688,12 @@ export function PropertyDetailManager({
                 labelAr="امسح الرمز لفتح صفحة هذا العقار"
                 labelEn="Scan to open this property page"
               />
+              {property.serialNumber ? (
+                <p className="property-360__serial property-360__serial--qr" dir="ltr">
+                  <span>{ar ? 'الرقم المتسلسل' : 'Serial'}</span>
+                  <strong>{property.serialNumber}</strong>
+                </p>
+              ) : null}
             </div>
             <p className="property-360__price">
               <strong dir="ltr">{priceLabel}</strong>
