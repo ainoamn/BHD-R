@@ -7107,9 +7107,73 @@ h3 {
 }
 .props-table-wrap {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid #d5e0da;
   border-radius: 0.9rem;
   background: white;
+}
+.props-table-mobile {
+  display: none;
+}
+.props-table-mobile__card {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: white;
+  border: 1px solid #d5e0da;
+  border-radius: 0.9rem;
+  box-shadow: 0 8px 22px rgb(9 45 36 / 0.05);
+}
+.props-table-mobile__card.is-selected {
+  outline: 2px solid var(--maroon-700);
+  outline-offset: 1px;
+}
+.props-table-mobile__thumb {
+  display: block;
+}
+.props-table-mobile__thumb .props-table__thumb-frame {
+  width: 100%;
+  height: 5rem;
+}
+.props-table-mobile__body {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.props-table-mobile__type {
+  margin: 0;
+  color: #6b7c74;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.props-table-mobile__meta,
+.props-table-mobile__facts {
+  margin: 0;
+  color: #44554d;
+  font-size: 0.8rem;
+}
+.props-table-mobile__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.props-table-mobile__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  margin-top: 0.2rem;
+}
+.props-table-mobile__status {
+  display: inline-flex;
+  padding: 0.15rem 0.45rem;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 800;
+  background: var(--oman-deep);
+  border-radius: 0.35rem;
 }
 .props-table {
   width: 100%;
@@ -7367,25 +7431,98 @@ h3 {
   .props-mobile-bar {
     display: grid;
   }
+  .props-browse__section {
+    padding-bottom: 5.75rem;
+  }
   .props-searchbar__fields {
     grid-template-columns: 1fr;
   }
+
+  /* List = compact horizontal rows (distinct from grid cards). */
   .listing-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: 7.25rem minmax(0, 1fr);
+    align-items: stretch;
   }
   .listing-row__media {
-    min-height: 12rem;
-    aspect-ratio: 16 / 10;
+    min-height: 100%;
+    aspect-ratio: auto;
+    overflow: hidden;
+  }
+  .listing-row__placeholder {
+    min-height: 100%;
   }
   .listing-row__body {
     grid-template-columns: 1fr;
+    gap: 0.45rem;
+    padding: 0.7rem 0.75rem;
   }
   .listing-row__aside {
     justify-items: start;
     text-align: start;
-    grid-auto-flow: column;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: end;
+    gap: 0.45rem 0.65rem;
+  }
+  .listing-row__title {
+    font-size: 0.98rem;
+  }
+  .listing-row__perks {
+    display: none;
+  }
+  .listing-row__cta {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    min-height: 2.4rem;
+    padding-inline: 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  /* Grid = 2 columns of compact cards (never collapse to 1 like list). */
+  .props-results__grid.listing-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.7rem;
+  }
+  .props-results__grid .listing-card__body {
+    padding: 0.65rem 0.7rem 0.8rem;
+  }
+  .props-results__grid .listing-card__body h3 {
+    font-size: 0.9rem;
+    line-height: 1.35;
+  }
+  .props-results__grid .listing-card__facts {
+    font-size: 0.75rem;
+    gap: 0.35rem;
+  }
+  .props-results__grid .listing-card__price span {
+    font-size: 0.92rem;
+  }
+  .props-results__grid .listing-card__status-mark {
+    font-size: 0.65rem;
+    padding: 0.2rem 0.4rem;
+  }
+
+  /* Table = stacked mobile cards; hide wide desktop table. */
+  .props-table-desktop {
+    display: none;
+  }
+  .props-table-mobile {
+    display: grid;
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .props-results__grid.listing-grid {
+    gap: 0.55rem;
+  }
+  .props-results__grid .listing-card__location {
+    font-size: 0.75rem;
+  }
+  .listing-row {
+    grid-template-columns: 6.25rem minmax(0, 1fr);
   }
 }
 

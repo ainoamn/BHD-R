@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-08-31  
-**Product version:** 0.4.12  
-**Active focus:** Property portfolio CSRF/archive fixes; Stays flag still off  
+**Product version:** 0.4.13  
+**Active focus:** Mobile catalogue view modes; Stays flag still off  
+**Release 0.4.13:** [`RELEASE-0.4.13-AR.md`](./RELEASE-0.4.13-AR.md)  
 **Known issues (portfolio):** [`KNOWN-ISSUES-PROPERTY-PORTFOLIO-AR.md`](./KNOWN-ISSUES-PROPERTY-PORTFOLIO-AR.md)  
 **Release 0.4.12:** portfolio CSRF + archive list + permanent delete  
 **Release 0.4.11:** [`RELEASE-0.4.11-AR.md`](./RELEASE-0.4.11-AR.md)  

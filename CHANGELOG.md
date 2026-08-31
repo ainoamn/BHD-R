@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.13 — 2026-08-31
+
+- Mobile catalogue views: list stays compact horizontal; grid keeps 2 columns; table uses stacked cards (no page overflow).
+- Docs: `RELEASE-0.4.13-AR.md`.
+
 ## 0.4.12 — 2026-08-31
 
 - Fix property CSRF: Nest mutations use Nest-minted tokens; owner Neon writes remint Next CSRF with 403 retry.
