@@ -67,6 +67,10 @@ interface UpdateUnitInput {
   floor?: string | null | undefined;
   bedrooms?: number | undefined;
   bathrooms?: number | undefined;
+  majlis?: number | undefined;
+  halls?: number | undefined;
+  kitchens?: number | undefined;
+  hasPool?: boolean | undefined;
   areaSquareMeters?: string | null | undefined;
   listingPurpose?: 'rent' | 'sale' | 'both' | undefined;
   rent?: CreateUnitInput['rent'] | undefined;
@@ -242,6 +246,10 @@ export class PortfolioService {
               floor: unit.floor,
               bedrooms: unit.bedrooms,
               bathrooms: unit.bathrooms,
+              majlis: unit.majlis,
+              halls: unit.halls,
+              kitchens: unit.kitchens,
+              hasPool: unit.hasPool,
               areaSquareMeters: unit.areaSquareMeters,
               rentMinor: BigInt(unit.rent.amountMinor),
               salePriceMinor: unit.salePrice ? BigInt(unit.salePrice.amountMinor) : null,
@@ -411,6 +419,10 @@ export class PortfolioService {
               floor: units.floor,
               bedrooms: units.bedrooms,
               bathrooms: units.bathrooms,
+              majlis: units.majlis,
+              halls: units.halls,
+              kitchens: units.kitchens,
+              hasPool: units.hasPool,
               areaSquareMeters: units.areaSquareMeters,
               rentMinor: units.rentMinor,
               salePriceMinor: units.salePriceMinor,
@@ -667,6 +679,10 @@ export class PortfolioService {
           floor: unit.floor ?? null,
           bedrooms: unit.bedrooms,
           bathrooms: unit.bathrooms,
+          majlis: unit.majlis,
+          halls: unit.halls,
+          kitchens: unit.kitchens,
+          hasPool: unit.hasPool,
           areaSquareMeters: unit.areaSquareMeters ?? null,
           rentMinor: BigInt(unit.rent.amountMinor),
           salePriceMinor: unit.salePrice ? BigInt(unit.salePrice.amountMinor) : null,
@@ -849,6 +865,10 @@ export class PortfolioService {
           floor: input.floor,
           bedrooms: input.bedrooms,
           bathrooms: input.bathrooms,
+          majlis: input.majlis,
+          halls: input.halls,
+          kitchens: input.kitchens,
+          hasPool: input.hasPool,
           areaSquareMeters: input.areaSquareMeters,
           rentMinor: BigInt(input.rent.amountMinor),
           salePriceMinor: input.salePrice ? BigInt(input.salePrice.amountMinor) : null,

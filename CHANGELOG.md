@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.2.91 — 2026-08-31
+
+- Owner property wizard units step: majlis, halls, kitchens counts + swimming pool available/unavailable; persisted on `units` (`0013_unit_room_counts`).
+- Docs: `RELEASE-0.2.91-AR.md`.
+
 ## 0.2.90 — 2026-08-30
 
 - Payment webhook supports `kind: reservation_deposit` (signed Nest ingest confirms public booking, posts deposit journal, converts hold) without changing invoice webhook semantics; simulator script + e2e shape check.

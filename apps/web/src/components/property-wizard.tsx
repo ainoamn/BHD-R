@@ -47,6 +47,10 @@ interface UnitDraft {
   floor: string;
   bedrooms: string;
   bathrooms: string;
+  majlis: string;
+  halls: string;
+  kitchens: string;
+  hasPool: string;
   area: string;
   listingPurpose: 'rent' | 'sale' | 'both';
   rent: string;
@@ -106,6 +110,10 @@ const blankUnit = (index: number): UnitDraft => ({
   floor: '',
   bedrooms: '',
   bathrooms: '',
+  majlis: '',
+  halls: '',
+  kitchens: '',
+  hasPool: '',
   area: '',
   listingPurpose: 'rent',
   rent: '',
@@ -116,6 +124,7 @@ const blankUnit = (index: number): UnitDraft => ({
 
 const BEDROOM_OPTIONS = Array.from({ length: 16 }, (_, i) => String(i)); // 0–15
 const BATHROOM_OPTIONS = Array.from({ length: 11 }, (_, i) => String(i)); // 0–10
+const ROOM_COUNT_OPTIONS = Array.from({ length: 11 }, (_, i) => String(i)); // 0–10
 const FLOOR_OPTIONS = Array.from({ length: 51 }, (_, i) => String(i)); // 0–50
 
 const BASE_AMENITIES = [
@@ -212,6 +221,10 @@ export function PropertyWizard({
         floor: unit.floor ?? '',
         bedrooms: String(unit.bedrooms),
         bathrooms: String(unit.bathrooms),
+        majlis: String(unit.majlis ?? 0),
+        halls: String(unit.halls ?? 0),
+        kitchens: String(unit.kitchens ?? 0),
+        hasPool: unit.hasPool ? 'true' : 'false',
         area: unit.areaSquareMeters ?? '',
         listingPurpose: unit.listingPurpose,
         rent: majorFromMinor(unit.rentMinor, unit.currency),
@@ -468,6 +481,10 @@ export function PropertyWizard({
         if (!unit.floor.trim()) issues.push(`${label}: ${t('PropertyForm.floor')}`);
         if (unit.bedrooms === '') issues.push(`${label}: ${t('PropertyForm.bedrooms')}`);
         if (unit.bathrooms === '') issues.push(`${label}: ${t('PropertyForm.bathrooms')}`);
+        if (unit.majlis === '') issues.push(`${label}: ${t('PropertyForm.majlis')}`);
+        if (unit.halls === '') issues.push(`${label}: ${t('PropertyForm.halls')}`);
+        if (unit.kitchens === '') issues.push(`${label}: ${t('PropertyForm.kitchens')}`);
+        if (unit.hasPool === '') issues.push(`${label}: ${t('PropertyForm.hasPool')}`);
         if (unit.listingPurpose !== 'sale' && !unit.rent.trim())
           issues.push(`${label}: ${t('PropertyForm.rent')}`);
         if (unit.listingPurpose !== 'rent' && !unit.salePrice.trim())
@@ -923,6 +940,10 @@ export function PropertyWizard({
                 floor: unit.floor || undefined,
                 bedrooms: Number(unit.bedrooms),
                 bathrooms: Number(unit.bathrooms),
+                majlis: Number(unit.majlis),
+                halls: Number(unit.halls),
+                kitchens: Number(unit.kitchens),
+                hasPool: unit.hasPool === 'true',
                 areaSquareMeters: unit.area || undefined,
                 listingPurpose: unit.listingPurpose,
                 rent: {
@@ -1630,6 +1651,69 @@ export function PropertyWizard({
                           </option>
                         ))}
                       </SelectField>
+                      <SelectField
+                        id={`unit-majlis-${unit.localId}`}
+                        label={t('PropertyForm.majlis')}
+                        value={unit.majlis}
+                        tone={tone(unit.majlis, true, showErrors)}
+                        onChange={(event) =>
+                          updateUnit(unit.localId, 'majlis', event.target.value)
+                        }
+                        required
+                      >
+                        <option value="">{t('PropertyForm.selectMajlis')}</option>
+                        {ROOM_COUNT_OPTIONS.map((value) => (
+                          <option key={value} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </SelectField>
+                      <SelectField
+                        id={`unit-halls-${unit.localId}`}
+                        label={t('PropertyForm.halls')}
+                        value={unit.halls}
+                        tone={tone(unit.halls, true, showErrors)}
+                        onChange={(event) => updateUnit(unit.localId, 'halls', event.target.value)}
+                        required
+                      >
+                        <option value="">{t('PropertyForm.selectHalls')}</option>
+                        {ROOM_COUNT_OPTIONS.map((value) => (
+                          <option key={value} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </SelectField>
+                      <SelectField
+                        id={`unit-kitchens-${unit.localId}`}
+                        label={t('PropertyForm.kitchens')}
+                        value={unit.kitchens}
+                        tone={tone(unit.kitchens, true, showErrors)}
+                        onChange={(event) =>
+                          updateUnit(unit.localId, 'kitchens', event.target.value)
+                        }
+                        required
+                      >
+                        <option value="">{t('PropertyForm.selectKitchens')}</option>
+                        {ROOM_COUNT_OPTIONS.map((value) => (
+                          <option key={value} value={value}>
+                            {value}
+                          </option>
+                        ))}
+                      </SelectField>
+                      <SelectField
+                        id={`unit-pool-${unit.localId}`}
+                        label={t('PropertyForm.hasPool')}
+                        value={unit.hasPool}
+                        tone={tone(unit.hasPool, true, showErrors)}
+                        onChange={(event) =>
+                          updateUnit(unit.localId, 'hasPool', event.target.value)
+                        }
+                        required
+                      >
+                        <option value="">{t('PropertyForm.selectPool')}</option>
+                        <option value="true">{t('PropertyForm.poolAvailable')}</option>
+                        <option value="false">{t('PropertyForm.poolUnavailable')}</option>
+                      </SelectField>
                       <Field
                         id={`unit-area-${unit.localId}`}
                         inputMode="decimal"
@@ -2148,6 +2232,28 @@ export function PropertyWizard({
                       <div>
                         <dt>{t('Property.baths')}</dt>
                         <dd>{primary.bathrooms || '—'}</dd>
+                      </div>
+                      <div>
+                        <dt>{t('PropertyForm.majlis')}</dt>
+                        <dd>{primary.majlis || '—'}</dd>
+                      </div>
+                      <div>
+                        <dt>{t('PropertyForm.halls')}</dt>
+                        <dd>{primary.halls || '—'}</dd>
+                      </div>
+                      <div>
+                        <dt>{t('PropertyForm.kitchens')}</dt>
+                        <dd>{primary.kitchens || '—'}</dd>
+                      </div>
+                      <div>
+                        <dt>{t('PropertyForm.hasPool')}</dt>
+                        <dd>
+                          {primary.hasPool === 'true'
+                            ? t('PropertyForm.poolAvailable')
+                            : primary.hasPool === 'false'
+                              ? t('PropertyForm.poolUnavailable')
+                              : '—'}
+                        </dd>
                       </div>
                       {primary.area ? (
                         <div>

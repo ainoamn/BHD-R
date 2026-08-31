@@ -19,6 +19,10 @@ interface ManagedUnit {
   floor: string | null;
   bedrooms: number;
   bathrooms: number;
+  majlis: number;
+  halls: number;
+  kitchens: number;
+  hasPool: boolean;
   areaSquareMeters: string | null;
   rentMinor: string;
   salePriceMinor: string | null;
@@ -452,6 +456,34 @@ export function PropertyDetailManager({
                     </div>
                     <div>
                       <dt>
+                        <span aria-hidden="true">🪑</span>
+                        {ar ? 'مجالس' : 'Majlis'}
+                      </dt>
+                      <dd>{unit.majlis}</dd>
+                    </div>
+                    <div>
+                      <dt>
+                        <span aria-hidden="true">🛋</span>
+                        {ar ? 'صالات' : 'Halls'}
+                      </dt>
+                      <dd>{unit.halls}</dd>
+                    </div>
+                    <div>
+                      <dt>
+                        <span aria-hidden="true">🍳</span>
+                        {ar ? 'مطابخ' : 'Kitchens'}
+                      </dt>
+                      <dd>{unit.kitchens}</dd>
+                    </div>
+                    <div>
+                      <dt>
+                        <span aria-hidden="true">🏊</span>
+                        {ar ? 'مسبح' : 'Pool'}
+                      </dt>
+                      <dd>{unit.hasPool ? (ar ? 'متوفر' : 'Yes') : ar ? 'غير متوفر' : 'No'}</dd>
+                    </div>
+                    <div>
+                      <dt>
                         <span aria-hidden="true">📐</span>
                         {ar ? 'المساحة' : 'Area'}
                       </dt>
@@ -657,6 +689,32 @@ export function PropertyDetailManager({
               <div>
                 <dt>{ar ? 'الحمامات' : 'Bathrooms'}</dt>
                 <dd>{primaryUnit?.bathrooms ?? '—'}</dd>
+              </div>
+              <div>
+                <dt>{ar ? 'المجالس' : 'Majlis'}</dt>
+                <dd>{primaryUnit?.majlis ?? '—'}</dd>
+              </div>
+              <div>
+                <dt>{ar ? 'الصالات' : 'Halls'}</dt>
+                <dd>{primaryUnit?.halls ?? '—'}</dd>
+              </div>
+              <div>
+                <dt>{ar ? 'المطابخ' : 'Kitchens'}</dt>
+                <dd>{primaryUnit?.kitchens ?? '—'}</dd>
+              </div>
+              <div>
+                <dt>{ar ? 'المسبح' : 'Pool'}</dt>
+                <dd>
+                  {primaryUnit
+                    ? primaryUnit.hasPool
+                      ? ar
+                        ? 'متوفر'
+                        : 'Yes'
+                      : ar
+                        ? 'غير متوفر'
+                        : 'No'
+                    : '—'}
+                </dd>
               </div>
               <div>
                 <dt>{ar ? 'الوحدات' : 'Units'}</dt>

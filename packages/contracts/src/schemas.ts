@@ -110,6 +110,10 @@ export const createUnitSchema = z.object({
   floor: z.string().trim().max(30).optional(),
   bedrooms: z.number().int().min(0).max(50).default(0),
   bathrooms: z.number().int().min(0).max(50).default(0),
+  majlis: z.number().int().min(0).max(50).default(0),
+  halls: z.number().int().min(0).max(50).default(0),
+  kitchens: z.number().int().min(0).max(50).default(0),
+  hasPool: z.boolean().default(false),
   areaSquareMeters: z
     .string()
     .regex(/^\d+(\.\d{1,3})?$/)

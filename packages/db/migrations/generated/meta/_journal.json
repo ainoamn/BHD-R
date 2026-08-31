@@ -92,6 +92,13 @@
       "when": 1787820000000,
       "tag": "0012_property_serials",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1787900000000,
+      "tag": "0013_unit_room_counts",
+      "breakpoints": true
     }
   ]
 }
