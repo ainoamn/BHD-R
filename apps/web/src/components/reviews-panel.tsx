@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Link } from '@/i18n/navigation';
-import { browserMutation } from '@/lib/api';
+import { ApiError, browserNextMutation } from '@/lib/api';
 import type { PublicReview, ReviewSummary, ReviewTargetType } from '@/lib/reviews-types';
 
 type ReviewPayload = {
@@ -104,7 +104,7 @@ export function ReviewsPanel({
     setBusy(true);
     setError(null);
     try {
-      const res = await browserMutation<{ review: PublicReview; summary: ReviewSummary }>(
+      const res = await browserNextMutation<{ review: PublicReview; summary: ReviewSummary }>(
         '/api/public/reviews',
         {
           method: 'POST',
@@ -125,8 +125,23 @@ export function ReviewsPanel({
         };
       });
       setBody('');
-    } catch {
-      setError(ar ? 'تعذّر حفظ التقييم. سجّل الدخول وحاول مجدداً.' : 'Could not save review. Sign in and retry.');
+    } catch (caught) {
+      const authish =
+        caught instanceof ApiError &&
+        (caught.status === 401 ||
+          caught.status === 403 ||
+          /csrf|unauthorized|session/i.test(`${caught.code} ${caught.message}`));
+      setError(
+        authish
+          ? ar
+            ? 'تعذّر حفظ التقييم. سجّل الدخول وحاول مجدداً.'
+            : 'Could not save review. Sign in and retry.'
+          : caught instanceof ApiError
+            ? caught.message
+            : ar
+              ? 'تعذّر حفظ التقييم. أعد المحاولة.'
+              : 'Could not save review. Please retry.',
+      );
     } finally {
       setBusy(false);
     }

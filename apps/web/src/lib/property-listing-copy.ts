@@ -245,17 +245,36 @@ export async function translateText(text: string, target: 'ar' | 'en'): Promise<
   if (!source) return '';
 
   try {
-    const { fetchBrowserCsrfToken } = await import('@/lib/api');
+    const { clearBrowserCsrfCache, fetchBrowserCsrfToken } = await import('@/lib/api');
+    clearBrowserCsrfCache();
     const response = await fetch('/api/translate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-csrf-token': await fetchBrowserCsrfToken(),
+        'x-csrf-token': await fetchBrowserCsrfToken(true),
       },
       body: JSON.stringify({ text: source, target }),
       signal: AbortSignal.timeout(20_000),
     });
-    if (response.ok) {
+    if (response.status === 403) {
+      clearBrowserCsrfCache();
+      const retry = await fetch('/api/translate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-csrf-token': await fetchBrowserCsrfToken(true),
+        },
+        body: JSON.stringify({ text: source, target }),
+        signal: AbortSignal.timeout(20_000),
+      });
+      if (retry.ok) {
+        const payload = (await retry.json()) as { translated?: string };
+        const translated = payload.translated?.trim();
+        if (translated && translated.toLowerCase() !== source.toLowerCase()) {
+          return translated;
+        }
+      }
+    } else if (response.ok) {
       const payload = (await response.json()) as { translated?: string };
       const translated = payload.translated?.trim();
       if (translated && translated.toLowerCase() !== source.toLowerCase()) {

@@ -335,8 +335,8 @@ export async function uploadUnitMediaNestOrNeon(
     bytes: Buffer;
     fileName?: string;
   },
-  csrfToken: string | null,
-  options: { idempotencyKey?: string | null } = {},
+  _csrfToken: string | null,
+  _options: { idempotencyKey?: string | null } = {},
 ): Promise<{ assetId: string; url: string; via: 'nest' | 'neon' }> {
   const { detectAllowedMime, uploadUnitMediaOnNeon } = await import(
     '@/lib/upload-property-media-neon'
@@ -347,72 +347,8 @@ export async function uploadUnitMediaNestOrNeon(
     throw new Error('invalid_file');
   }
 
-  const sha256 = createHash('sha256').update(input.bytes).digest('hex');
-  const idempotencyKey =
-    options.idempotencyKey && options.idempotencyKey.trim().length >= 16
-      ? options.idempotencyKey.trim().slice(0, 200)
-      : `media-complete:${asSubmissionId(null)}`;
-
-  if (isNestApiConfiguredForRuntime() && (await probeNestReady())) {
-    const origin = configuredApiOrigin();
-    if (origin) {
-      try {
-        const intent = await apiFetch<{
-          assetId: string;
-          uploadUrl: string;
-          requiredHeaders?: { 'content-type'?: string };
-        }>('/v1/media/upload-intents', {
-          method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-            ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}),
-          },
-          body: JSON.stringify({
-            purpose: input.purpose,
-            unitId: input.unitId,
-            mimeType: detected,
-            byteSize: input.bytes.byteLength,
-          }),
-        });
-
-        const put = await fetch(intent.uploadUrl, {
-          method: 'PUT',
-          headers: {
-            'content-type': intent.requiredHeaders?.['content-type'] ?? detected,
-          },
-          body: new Uint8Array(input.bytes),
-          cache: 'no-store',
-          signal: AbortSignal.timeout(55_000),
-        });
-        if (!put.ok) throw new Error('upload_failed');
-
-        const completed = await apiFetch<{ assetId: string; status?: string }>(
-          `/v1/media/${intent.assetId}/complete`,
-          {
-            method: 'POST',
-            headers: {
-              'content-type': 'application/json',
-              'idempotency-key': idempotencyKey,
-              ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}),
-            },
-            body: JSON.stringify({
-              sha256,
-              unitId: input.unitId,
-              position: input.position,
-            }),
-          },
-        );
-        return {
-          assetId: completed.assetId ?? intent.assetId,
-          url: `/api/owner/media/${completed.assetId ?? intent.assetId}`,
-          via: 'nest',
-        };
-      } catch {
-        /* fall through */
-      }
-    }
-  }
-
+  // Always Vercel→R2/Neon for owner media. Nest ingress needs a Nest-minted CSRF and
+  // cold Render often exhausts the Vercel route budget → browser "Failed to fetch".
   const neon = await uploadUnitMediaOnNeon(claims, {
     ...input,
     mimeType: detected,

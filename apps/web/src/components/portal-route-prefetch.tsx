@@ -52,6 +52,10 @@ export function PortalRoutePrefetch({
     };
 
     const warmAllData = async () => {
+      // Prioritize the section the user is looking at before background-warming the rest.
+      if (sections.includes('properties')) {
+        await warmOpsSection(portal, 'properties');
+      }
       const applied = await warmAllOpsSections(portal);
       if (cancelled || applied > 0) return;
       for (const section of sections) {

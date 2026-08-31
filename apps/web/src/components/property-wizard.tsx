@@ -6,7 +6,7 @@ import { Button, Card, CardContent, Field, SelectField, TextAreaField } from '@b
 import { supportedCurrencyCodes, currencyMinorUnits, type CurrencyCode } from '@bhd-r/contracts';
 import { countryPacks, type CountryPackCode } from '@bhd-r/country-packs';
 import { useLocale, useTranslations } from 'next-intl';
-import { browserMediaPut, browserMutation, clearBrowserCsrfCache, fetchBrowserCsrfToken, mapWithConcurrency } from '@/lib/api';
+import { browserMutation, clearBrowserCsrfCache, fetchBrowserCsrfToken, mapWithConcurrency } from '@/lib/api';
 import { compressImageFile } from '@/lib/compress-image';
 import { toMinorUnits } from '@/lib/format';
 import { omanLocations } from '@/lib/oman-locations';
@@ -63,12 +63,6 @@ interface CreatedPropertyBundle {
   id: string;
   serialNumber?: string;
   units: Array<{ id: string }>;
-}
-interface UploadIntent {
-  assetId: string;
-  uploadUrl: string;
-  uploadPath?: string;
-  requiredHeaders?: Record<string, string>;
 }
 
 type MediaItem = { id: string; file?: File; url: string; existing?: boolean };
@@ -341,12 +335,9 @@ export function PropertyWizard({
   );
 
   useEffect(() => {
-    // Warm Nest (Render cold start) before the user hits save.
+    // Warm Nest process only — do NOT mint Nest CSRF here (overwrites bhd_r_csrf
+    // and races with Next CSRF used by translate / owner media / reviews).
     void fetch('/api/warm', { cache: 'no-store' }).catch(() => undefined);
-    void fetch('/api/backend/v1/auth/csrf', {
-      credentials: 'same-origin',
-      headers: { accept: 'application/json' },
-    }).catch(() => undefined);
   }, []);
 
   async function translateField(
@@ -359,7 +350,16 @@ export function PropertyWizard({
     setTranslating(key);
     setError(null);
     try {
+      clearBrowserCsrfCache();
       const translated = await translateText(source, target);
+      if (!translated.trim() || translated.trim() === source.trim()) {
+        setError(
+          ar
+            ? 'تعذّرت الترجمة التلقائية حالياً. عدّل النص يدوياً أو أعد المحاولة بعد لحظات.'
+            : 'Automatic translation is unavailable right now. Edit manually or retry shortly.',
+        );
+        return;
+      }
       apply(translated);
     } catch {
       setError(ar ? 'تعذّرت الترجمة حالياً. حاول مرة أخرى.' : 'Translation failed. Please try again.');
@@ -767,64 +767,59 @@ export function PropertyWizard({
         ? await compressImageFile(file)
         : file;
 
-    // Prefer Vercel→R2→Neon (same as property save) so Render cold starts don't drop photos.
+    // Vercel→R2→Neon only. Nest browser ingress races CSRF and often times out as "Failed to fetch".
     const form = new FormData();
     form.append('file', prepared);
     form.append('unitId', unitId);
     form.append('purpose', purpose);
     form.append('position', String(position ?? 0));
-    const csrf = await fetchBrowserCsrfToken();
-    const vercelUpload = await fetch('/api/owner/media', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'x-csrf-token': csrf },
-      body: form,
-      signal: AbortSignal.timeout(55_000),
-    });
+    const csrf = await fetchBrowserCsrfToken(true);
+    let vercelUpload: Response;
+    try {
+      vercelUpload = await fetch('/api/owner/media', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'x-csrf-token': csrf },
+        body: form,
+        signal: AbortSignal.timeout(55_000),
+      });
+    } catch (error) {
+      const timedOut =
+        error instanceof Error && /aborted|timeout|timed out|failed to fetch/i.test(error.message);
+      throw new Error(
+        ar
+          ? timedOut
+            ? 'انتهت مهلة رفع الصورة. صغّر الملف أو ارفع صورة واحدة ثم أعد المحاولة.'
+            : 'تعذر رفع الصورة (شبكة). أعد المحاولة.'
+          : timedOut
+            ? 'Photo upload timed out. Use a smaller file or upload one photo at a time.'
+            : 'Could not upload photo (network). Please retry.',
+      );
+    }
     if (vercelUpload.ok) return;
+
+    if (vercelUpload.status === 403) {
+      clearBrowserCsrfCache();
+      const fresh = await fetchBrowserCsrfToken(true);
+      const retry = await fetch('/api/owner/media', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'x-csrf-token': fresh },
+        body: form,
+        signal: AbortSignal.timeout(55_000),
+      });
+      if (retry.ok) return;
+      vercelUpload = retry;
+    }
+
     const vercelError = (await vercelUpload.json().catch(() => null)) as {
       error?: { code?: string; message?: string; messageAr?: string };
     } | null;
-    if (vercelUpload.status !== 503) {
-      throw new Error(
-        vercelError?.error?.messageAr ??
-          vercelError?.error?.message ??
-          `upload_failed:${vercelUpload.status}`,
-      );
-    }
-
-    const intent = await browserMutation<UploadIntent>('/v1/media/upload-intents', {
-      method: 'POST',
-      body: JSON.stringify({
-        purpose,
-        unitId,
-        mimeType: prepared.type,
-        byteSize: prepared.size,
-      }),
-    });
-    try {
-      await browserMediaPut(intent, prepared);
-    } catch (error) {
-      const hint = ar
-        ? `تعذر رفع الملف (${prepared.name}). تأكد من اتصال الخادم ثم أعد المحاولة.`
-        : `Could not upload ${prepared.name}. Check API connectivity and retry.`;
-      throw error instanceof Error && error.message
-        ? new Error(`${hint} (${error.message})`)
-        : new Error(hint);
-    }
-    const digest = await crypto.subtle.digest('SHA-256', await prepared.arrayBuffer());
-    const sha256 = Array.from(new Uint8Array(digest), (byte) =>
-      byte.toString(16).padStart(2, '0'),
-    ).join('');
-    await browserMutation(`/v1/media/${intent.assetId}/complete`, {
-      method: 'POST',
-      headers: { 'idempotency-key': `media-complete:${intent.assetId}` },
-      body: JSON.stringify({
-        sha256,
-        unitId,
-        ...(position === undefined ? {} : { position }),
-      }),
-    });
+    throw new Error(
+      vercelError?.error?.messageAr ??
+        vercelError?.error?.message ??
+        (ar ? `فشل رفع الملف (${vercelUpload.status})` : `upload_failed:${vercelUpload.status}`),
+    );
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -1028,7 +1023,7 @@ export function PropertyWizard({
                   ? `جاري رفع الملفات الجديدة (${jobs.length})…`
                   : `Uploading new media (${jobs.length})…`,
               );
-              await mapWithConcurrency(jobs, 3, async (job) => {
+              await mapWithConcurrency(jobs, 2, async (job) => {
                 await uploadFile(job.file, mediaUnitId, job.purpose, job.position);
               });
             }
@@ -1038,14 +1033,13 @@ export function PropertyWizard({
               : `Property updated, but photo upload failed: ${mediaError instanceof Error ? mediaError.message : 'unknown error'}. Re-upload from edit.`;
           }
         }
-        setSuccess(
-          mediaWarning ?? (ar ? 'تم تحديث بيانات العقار' : 'Property updated'),
-        );
         if (mediaWarning) {
+          setSuccess(null);
           setError(mediaWarning);
           setBusy(false);
           return;
         }
+        setSuccess(ar ? 'تم تحديث بيانات العقار' : 'Property updated');
         goToPropertyPage(locale, portal, propertyId);
         return;
       }
@@ -1131,7 +1125,7 @@ export function PropertyWizard({
                 ? `جاري رفع الملفات (${jobs.length})…`
                 : `Uploading media (${jobs.length})…`,
             );
-            await mapWithConcurrency(jobs, 3, async (job) => {
+            await mapWithConcurrency(jobs, 2, async (job) => {
               await uploadFile(job.file, mediaUnitId, job.purpose, job.position);
             });
           }
@@ -1142,15 +1136,8 @@ export function PropertyWizard({
         }
       }
       const serial = createdProperty.serialNumber;
-      setSuccess(
-        mediaWarning ??
-          (serial
-            ? ar
-              ? `تم الحفظ. الرقم المتسلسل للعقار: ${serial}`
-              : `Saved. Property serial: ${serial}`
-            : t('PropertyForm.success')),
-      );
       if (mediaWarning) {
+        setSuccess(null);
         setError(mediaWarning);
         setBusy(false);
         window.location.assign(
@@ -1158,6 +1145,13 @@ export function PropertyWizard({
         );
         return;
       }
+      setSuccess(
+        serial
+          ? ar
+            ? `تم الحفظ. الرقم المتسلسل للعقار: ${serial}`
+            : `Saved. Property serial: ${serial}`
+          : t('PropertyForm.success'),
+      );
       goToPropertyPage(locale, portal, createdProperty.id);
     } catch (caught) {
       setSuccess(null);

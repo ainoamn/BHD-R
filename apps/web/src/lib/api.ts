@@ -209,6 +209,73 @@ export async function browserMutation<T>(path: string, init: RequestInit): Promi
   }
 }
 
+/**
+ * Mutations against Next Route Handlers (`/api/owner/*`, `/api/public/*`, `/api/translate`).
+ * Uses Vercel-minted CSRF — never Nest tokens (secrets diverge on Render).
+ */
+export async function browserNextMutation<T>(path: string, init: RequestInit): Promise<T> {
+  if (!path.startsWith('/api/')) {
+    throw new Error('Next mutation path must begin with /api/');
+  }
+  const run = async (csrfToken: string): Promise<T> => {
+    let response: Response;
+    try {
+      response = await fetch(path, {
+        ...init,
+        credentials: 'same-origin',
+        headers: {
+          accept: 'application/json',
+          'content-type': 'application/json',
+          'x-csrf-token': csrfToken,
+          'idempotency-key': crypto.randomUUID(),
+          ...init.headers,
+        },
+        signal: init.signal ?? AbortSignal.timeout(45_000),
+      });
+    } catch {
+      throw new ApiError(
+        0,
+        'network_error',
+        'تعذر إكمال الطلب. تحقق من الشبكة ثم أعد المحاولة.',
+      );
+    }
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as {
+        error?: { code?: string; message?: string; messageAr?: string; requestId?: string };
+      } | null;
+      const csrfish =
+        /csrf/i.test(`${payload?.error?.code ?? ''} ${payload?.error?.message ?? ''}`) ||
+        payload?.error?.code === 'csrf_rejected';
+      throw new ApiError(
+        response.status,
+        payload?.error?.code ?? (csrfish ? 'csrf_rejected' : 'api_error'),
+        payload?.error?.messageAr ??
+          (csrfish
+            ? 'رمز الحماية مرفوض — حدّث الصفحة وأعد المحاولة'
+            : payload?.error?.message ?? 'تعذر إكمال الطلب.'),
+        payload?.error?.requestId,
+      );
+    }
+    if (response.status === 204) return undefined as T;
+    return response.json() as Promise<T>;
+  };
+
+  const token = await getNextCsrfToken(true);
+  try {
+    return await run(token);
+  } catch (error) {
+    if (
+      error instanceof ApiError &&
+      error.status === 403 &&
+      /csrf/i.test(`${error.code} ${error.message}`)
+    ) {
+      clearBrowserCsrfCache();
+      return run(await getNextCsrfToken(true));
+    }
+    throw error;
+  }
+}
+
 /** PUT file to Nest media ingress (same-origin rewrite first, absolute Nest URL fallback). */
 export async function browserMediaPut(
   intent: { uploadUrl: string; uploadPath?: string; requiredHeaders?: Record<string, string> },

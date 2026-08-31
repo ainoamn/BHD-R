@@ -122,7 +122,7 @@ export async function fetchOpsPayload(
         credentials: 'same-origin',
         cache: 'no-store',
         headers: { accept: 'application/json' },
-        signal: AbortSignal.timeout(6_000),
+        signal: AbortSignal.timeout(12_000),
       });
       if (!response.ok) return null;
       const payload = (await response.json()) as OperationsWorkspacePayload;

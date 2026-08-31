@@ -228,10 +228,19 @@ export async function loadOperationsWorkspacePayload(
   const locale = localeHint ?? ((await getLocale()) === 'en' ? 'en' : 'ar');
   const nestConfigured = isNestApiConfiguredForRuntime();
   if (section === 'bookings' || section === 'leasing') clearOpsContextDbCache();
-  const [loaded, neonContext] = await Promise.all([
-    loadSection(portal, section),
-    portal === 'tenant' ? Promise.resolve(null) : loadOpsContextFromDb(portal),
-  ]);
+
+  // List first — never wait on the heavy vacant-units context query.
+  const loaded = await loadSection(portal, section);
+  let neonContext: Record<string, unknown> | null = null;
+  if (portal !== 'tenant') {
+    neonContext = await Promise.race([
+      loadOpsContextFromDb(portal),
+      new Promise<null>((resolve) => {
+        setTimeout(() => resolve(null), 1_800);
+      }),
+    ]);
+  }
+
   const dataFromDb = loaded.source === 'db';
   const offline = loaded.source === 'offline';
 

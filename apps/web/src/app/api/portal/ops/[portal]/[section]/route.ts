@@ -8,7 +8,7 @@ import type { PortalRole } from '@/lib/types';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 15;
+export const maxDuration = 20;
 
 const PORTALS = new Set<PortalRole>(['owner', 'developer', 'tenant', 'platform']);
 

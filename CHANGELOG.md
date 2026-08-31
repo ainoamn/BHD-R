@@ -2,6 +2,15 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.14 — 2026-08-31
+
+- Reviews: submit via Next `/api/public/reviews` + Vercel CSRF (`browserNextMutation`) — was wrongly calling Nest `browserMutation` and always failing as “sign in again”.
+- Property media: Neon/R2-only owner upload path; remove Nest browser ingress fallback that produced `Failed to fetch`; CSRF remint + 403 retry; no dual success/error banners for the same media warning.
+- Stop minting Nest CSRF on wizard mount (was overwriting `bhd_r_csrf` and racing translate / owner writes).
+- Translate: force remint Next CSRF + 403 retry; surface when auto-translate returns unchanged text.
+- Ops properties list: load records before heavy context; 1.8s context race; prefer warm `properties` first; client fetch timeout 12s.
+- Docs: `RELEASE-0.4.14-AR.md`.
+
 ## 0.4.13 — 2026-08-31
 
 - Mobile catalogue views: list stays compact horizontal; grid keeps 2 columns; table uses stacked cards (no page overflow).
