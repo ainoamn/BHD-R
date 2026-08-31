@@ -3770,11 +3770,12 @@ h3 {
   border: 1px solid var(--sand-200);
   border-radius: 0.8rem;
 }
-.unit-editor__head {
+.wizard-footer__primary {
   display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1rem;
+  justify-content: flex-end;
 }
 .unit-editor__head h3 {
   margin: 0;

@@ -51,11 +51,13 @@ import { assertOrganizationEntitlement } from '../common/entitlements.js';
 import { DatabaseService } from '../database/database.service.js';
 
 interface PropertyBundleInput {
+  asDraft?: boolean;
   property: Omit<CreatePropertyInput, 'organizationId'>;
   units: Array<Omit<CreateUnitInput, 'propertyId'>>;
 }
 
 interface PropertyUpdateBundleInput {
+  asDraft?: boolean;
   property: Omit<CreatePropertyInput, 'organizationId'>;
   units: Array<Omit<CreateUnitInput, 'propertyId'> & { id?: string | undefined }>;
 }
@@ -187,7 +189,7 @@ export class PortfolioService {
           descriptionEn: input.property.descriptionEn,
           defaultCurrency: input.property.defaultCurrency,
           serialNumber,
-          status: 'active',
+          status: input.asDraft ? 'draft' : 'active',
         })
         .returning();
       const property = propertyRows[0]!;
@@ -237,6 +239,7 @@ export class PortfolioService {
               (unit.salePrice && unit.salePrice.currency !== unit.rent.currency)
             )
               throw new ConflictException('Unit currencies must match property currency');
+            const publish = input.asDraft ? false : unit.publishWhenAvailable;
             return {
               organizationId: claims.organizationId!,
               propertyId: property.id,
@@ -257,8 +260,8 @@ export class PortfolioService {
               currency: unit.rent.currency,
               minorUnit: currencyMinorUnits[unit.rent.currency],
               listingPurpose: unit.listingPurpose,
-              publishWhenAvailable: unit.publishWhenAvailable,
-              status: 'active' as const,
+              publishWhenAvailable: publish,
+              status: (input.asDraft ? 'draft' : 'active') as 'draft' | 'active',
             };
           }),
         )
@@ -284,8 +287,8 @@ export class PortfolioService {
           organizationId: claims.organizationId!,
           unitId: unit.id,
           slug: `${slugify(input.property.nameEn)}-${slugify(unit.code)}-${unit.id.slice(0, 8)}`,
-          enabled: unit.publishWhenAvailable,
-          publishedAt: unit.publishWhenAvailable ? new Date() : null,
+          enabled: input.asDraft ? false : unit.publishWhenAvailable,
+          publishedAt: !input.asDraft && unit.publishWhenAvailable ? new Date() : null,
         });
         await transaction.insert(outboxEvents).values({
           organizationId: claims.organizationId!,
@@ -539,6 +542,7 @@ export class PortfolioService {
           descriptionAr: input.property.descriptionAr ?? null,
           descriptionEn: input.property.descriptionEn ?? null,
           defaultCurrency: input.property.defaultCurrency,
+          status: input.asDraft ? 'draft' : 'active',
           updatedAt: new Date(),
         })
         .where(
@@ -672,6 +676,7 @@ export class PortfolioService {
           (unit.salePrice && unit.salePrice.currency !== unit.rent.currency)
         )
           throw new ConflictException('Unit currencies must match property currency');
+        const publish = input.asDraft ? false : unit.publishWhenAvailable;
         const patch = {
           code: unit.code,
           nameAr: unit.nameAr,
@@ -690,7 +695,8 @@ export class PortfolioService {
           currency: unit.rent.currency,
           minorUnit: currencyMinorUnits[unit.rent.currency],
           listingPurpose: unit.listingPurpose,
-          publishWhenAvailable: unit.publishWhenAvailable,
+          publishWhenAvailable: publish,
+          status: (input.asDraft ? 'draft' : 'active') as 'draft' | 'active',
           updatedAt: new Date(),
         };
         const syncListing = async (unitRow: (typeof units.$inferSelect)) => {
@@ -704,10 +710,8 @@ export class PortfolioService {
             await transaction
               .update(listings)
               .set({
-                enabled: unit.publishWhenAvailable,
-                publishedAt: unit.publishWhenAvailable
-                  ? (existingListing.publishedAt ?? new Date())
-                  : null,
+                enabled: publish,
+                publishedAt: publish ? (existingListing.publishedAt ?? new Date()) : null,
                 updatedAt: new Date(),
               })
               .where(eq(listings.id, existingListing.id));
@@ -716,8 +720,8 @@ export class PortfolioService {
               organizationId: claims.organizationId!,
               unitId: unitRow.id,
               slug: `${slugify(input.property.nameEn)}-${slugify(unit.code)}-${unitRow.id.slice(0, 8)}`,
-              enabled: unit.publishWhenAvailable,
-              publishedAt: unit.publishWhenAvailable ? new Date() : null,
+              enabled: publish,
+              publishedAt: publish ? new Date() : null,
             });
           }
         };
@@ -759,7 +763,7 @@ export class PortfolioService {
         }
       }
 
-      if (input.units.some((unit) => unit.publishWhenAvailable)) {
+      if (!input.asDraft && input.units.some((unit) => unit.publishWhenAvailable)) {
         await transaction
           .update(properties)
           .set({ status: 'active', updatedAt: new Date() })

@@ -28,6 +28,7 @@ import {
 const IDEMPOTENCY_ROUTE = 'POST:/api/owner/properties';
 
 const propertyBundleSchema = z.object({
+  asDraft: z.boolean().optional().default(false),
   property: createPropertySchema.omit({ organizationId: true }),
   units: z
     .array(createUnitSchema.omit({ propertyId: true }))
@@ -204,7 +205,7 @@ export async function createPropertyBundleOnNeon(
         descriptionEn: input.property.descriptionEn,
         defaultCurrency: input.property.defaultCurrency,
         serialNumber,
-        status: 'active',
+        status: input.asDraft ? 'draft' : 'active',
       })
       .returning();
     const property = propertyRows[0]!;
@@ -268,8 +269,8 @@ export async function createPropertyBundleOnNeon(
           currency: unit.rent.currency,
           minorUnit: currencyMinorUnits[unit.rent.currency],
           listingPurpose: unit.listingPurpose,
-          publishWhenAvailable: unit.publishWhenAvailable,
-          status: 'active' as const,
+          publishWhenAvailable: input.asDraft ? false : unit.publishWhenAvailable,
+          status: (input.asDraft ? 'draft' : 'active') as 'draft' | 'active',
         })),
       )
       .returning();
@@ -291,8 +292,8 @@ export async function createPropertyBundleOnNeon(
         organizationId: claims.organizationId!,
         unitId: unit.id,
         slug: `${slugify(input.property.nameEn)}-${slugify(unit.code)}-${unit.id.slice(0, 8)}`,
-        enabled: unit.publishWhenAvailable,
-        publishedAt: unit.publishWhenAvailable ? new Date() : null,
+        enabled: input.asDraft ? false : unit.publishWhenAvailable,
+        publishedAt: !input.asDraft && unit.publishWhenAvailable ? new Date() : null,
       });
       await transaction.insert(outboxEvents).values({
         organizationId: claims.organizationId!,
@@ -352,6 +353,7 @@ export async function createPropertyBundleOnNeon(
 }
 
 const updatePropertyBundleSchema = z.object({
+  asDraft: z.boolean().optional().default(false),
   property: createPropertySchema.omit({ organizationId: true }),
   units: z
     .array(
@@ -467,6 +469,7 @@ export async function updatePropertyBundleOnNeon(
         descriptionAr: input.property.descriptionAr ?? null,
         descriptionEn: input.property.descriptionEn ?? null,
         defaultCurrency: input.property.defaultCurrency,
+        status: input.asDraft ? 'draft' : 'active',
         updatedAt: new Date(),
       })
       .where(
@@ -601,6 +604,7 @@ export async function updatePropertyBundleOnNeon(
 
     const unitRows = [];
     for (const [index, unit] of input.units.entries()) {
+      const publish = input.asDraft ? false : unit.publishWhenAvailable;
       const patch = {
         code: unit.code,
         nameAr: unit.nameAr,
@@ -619,7 +623,8 @@ export async function updatePropertyBundleOnNeon(
         currency: unit.rent.currency,
         minorUnit: currencyMinorUnits[unit.rent.currency],
         listingPurpose: unit.listingPurpose,
-        publishWhenAvailable: unit.publishWhenAvailable,
+        publishWhenAvailable: publish,
+        status: (input.asDraft ? 'draft' : 'active') as 'draft' | 'active',
         updatedAt: new Date(),
       };
       if (unit.id) {
@@ -646,10 +651,8 @@ export async function updatePropertyBundleOnNeon(
             await transaction
               .update(listings)
               .set({
-                enabled: unit.publishWhenAvailable,
-                publishedAt: unit.publishWhenAvailable
-                  ? (existingListing.publishedAt ?? new Date())
-                  : null,
+                enabled: publish,
+                publishedAt: publish ? (existingListing.publishedAt ?? new Date()) : null,
                 updatedAt: new Date(),
               })
               .where(eq(listings.id, existingListing.id));
@@ -658,8 +661,8 @@ export async function updatePropertyBundleOnNeon(
               organizationId: claims.organizationId!,
               unitId: rows[0].id,
               slug: `${slugify(input.property.nameEn)}-${slugify(unit.code)}-${rows[0].id.slice(0, 8)}`,
-              enabled: unit.publishWhenAvailable,
-              publishedAt: unit.publishWhenAvailable ? new Date() : null,
+              enabled: publish,
+              publishedAt: publish ? new Date() : null,
             });
           }
         }
@@ -689,10 +692,8 @@ export async function updatePropertyBundleOnNeon(
               await transaction
                 .update(listings)
                 .set({
-                  enabled: unit.publishWhenAvailable,
-                  publishedAt: unit.publishWhenAvailable
-                    ? (existingListing.publishedAt ?? new Date())
-                    : null,
+                  enabled: publish,
+                  publishedAt: publish ? (existingListing.publishedAt ?? new Date()) : null,
                   updatedAt: new Date(),
                 })
                 .where(eq(listings.id, existingListing.id));
@@ -701,8 +702,8 @@ export async function updatePropertyBundleOnNeon(
                 organizationId: claims.organizationId!,
                 unitId: rows[0].id,
                 slug: `${slugify(input.property.nameEn)}-${slugify(unit.code)}-${rows[0].id.slice(0, 8)}`,
-                enabled: unit.publishWhenAvailable,
-                publishedAt: unit.publishWhenAvailable ? new Date() : null,
+                enabled: publish,
+                publishedAt: publish ? new Date() : null,
               });
             }
           }
@@ -710,8 +711,8 @@ export async function updatePropertyBundleOnNeon(
       }
     }
 
-    // Publishing requires an active property (draft/inactive stays hidden on /properties).
-    if (input.units.some((unit) => unit.publishWhenAvailable)) {
+    // Publishing requires an active property (draft stays hidden publicly).
+    if (!input.asDraft && input.units.some((unit) => unit.publishWhenAvailable)) {
       await transaction
         .update(properties)
         .set({ status: 'active', updatedAt: new Date() })

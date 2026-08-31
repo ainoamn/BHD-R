@@ -25,6 +25,7 @@ import { ZodPipe } from '../common/zod.pipe.js';
 import { PortfolioService } from './portfolio.service.js';
 
 const propertyBundleSchema = z.object({
+  asDraft: z.boolean().optional().default(false),
   property: createPropertySchema.omit({ organizationId: true }),
   units: z
     .array(createUnitSchema.omit({ propertyId: true }))
@@ -32,6 +33,7 @@ const propertyBundleSchema = z.object({
     .max(500),
 });
 const propertyUpdateBundleSchema = z.object({
+  asDraft: z.boolean().optional().default(false),
   property: createPropertySchema.omit({ organizationId: true }),
   units: z
     .array(

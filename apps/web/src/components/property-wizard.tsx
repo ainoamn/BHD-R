@@ -1130,28 +1130,42 @@ export function PropertyWizard({
     });
   }
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>, asDraft = false) {
     event.preventDefault();
-    if (step < steps.length - 1) {
+    if (!asDraft && step < steps.length - 1) {
       goToStep(step + 1);
       return;
     }
-    const issues = [...validateStep(0), ...validateStep(1), ...validateStep(4)];
+    const issues = asDraft
+      ? validateStep(0)
+      : [...validateStep(0), ...validateStep(1), ...validateStep(4)];
+    if (kind === 'multi_unit' && units.length < 1) {
+      issues.push(t('PropertyForm.unitCountsRequired'));
+    }
     if (issues.length) {
       setShowErrors(true);
       setMissingHints(issues);
-      setError(t('PropertyForm.fixBeforeSave'));
+      setError(asDraft ? t('PropertyForm.draftNeedsBasics') : t('PropertyForm.formBeforeSave'));
       return;
     }
     setBusy(true);
     setError(null);
-    setSuccess(ar ? 'جاري حفظ العقار…' : 'Saving property…');
+    setSuccess(
+      asDraft
+        ? ar
+          ? 'جاري حفظ المسودة…'
+          : 'Saving draft…'
+        : ar
+          ? 'جاري حفظ العقار…'
+          : 'Saving property…',
+    );
     try {
       const amenityPayload = amenities.map((code) => {
         const option = amenityOptions.find(([value]) => value === code)!;
         return { code, labelAr: option[1], labelEn: option[2] };
       });
       const payload = {
+            asDraft,
             property: {
               ownerPartyId: selectedOwnerPartyId,
               kind,
@@ -1230,7 +1244,7 @@ export function PropertyWizard({
                 })),
               ],
             },
-            units: units.map((unit, index) => {
+            units: (units.length ? units : [blankUnit(1)]).map((unit, index) => {
               const names = unitDisplayNames(unit);
               const autoCode =
                 kind === 'multi_unit' && unit.code.trim()
@@ -1247,8 +1261,8 @@ export function PropertyWizard({
               return {
                 ...(unitId ? { id: unitId } : {}),
                 code: autoCode,
-                nameAr: names.nameAr,
-                nameEn: names.nameEn,
+                nameAr: names.nameAr || property.nameAr.trim() || autoCode,
+                nameEn: names.nameEn || property.nameEn.trim() || autoCode,
                 floor: unit.floor || undefined,
                 bedrooms: isCommercial ? 0 : Number(unit.bedrooms || 0),
                 bathrooms: isCommercial ? 0 : Number(unit.bathrooms || 0),
@@ -1268,7 +1282,7 @@ export function PropertyWizard({
                 deposit: unit.deposit
                   ? { amountMinor: toMinorUnits(unit.deposit, currency), currency }
                   : undefined,
-                publishWhenAvailable: unit.publishWhenAvailable,
+                publishWhenAvailable: asDraft ? false : unit.publishWhenAvailable,
               };
             }),
       };
@@ -1331,7 +1345,15 @@ export function PropertyWizard({
           setBusy(false);
           return;
         }
-        setSuccess(ar ? 'تم تحديث بيانات العقار' : 'Property updated');
+        setSuccess(
+          asDraft
+            ? ar
+              ? 'تم حفظ المسودة'
+              : 'Draft saved'
+            : ar
+              ? 'تم تحديث بيانات العقار'
+              : 'Property updated',
+        );
         goToPropertyPage(locale, portal, propertyId);
         return;
       }
@@ -1410,11 +1432,19 @@ export function PropertyWizard({
         return;
       }
       setSuccess(
-        serial
+        asDraft
           ? ar
-            ? `تم الحفظ. الرقم المتسلسل للعقار: ${serial}`
-            : `Saved. Property serial: ${serial}`
-          : t('PropertyForm.success'),
+            ? serial
+              ? `تم حفظ المسودة. الرقم المتسلسل: ${serial}`
+              : 'تم حفظ المسودة'
+            : serial
+              ? `Draft saved. Serial: ${serial}`
+              : 'Draft saved'
+          : serial
+            ? ar
+              ? `تم الحفظ. الرقم المتسلسل للعقار: ${serial}`
+              : `Saved. Property serial: ${serial}`
+            : t('PropertyForm.success'),
       );
       goToPropertyPage(locale, portal, createdProperty.id);
     } catch (caught) {
@@ -1460,6 +1490,11 @@ export function PropertyWizard({
       <header className="wizard-hero">
         <h1>{mode === 'edit' ? (ar ? 'تعديل العقار' : 'Edit property') : t('PropertyForm.title')}</h1>
         <p className="wizard-hero__intro">{t('PropertyForm.intro')}</p>
+        {mode === 'edit' && initialProperty?.status === 'draft' ? (
+          <p className="notice notice--warning" role="status" style={{ marginTop: '0.75rem' }}>
+            {ar ? 'حالة العقار حالياً: مسودة' : 'Current property status: Draft'}
+          </p>
+        ) : null}
         <div className="wizard-hero__meta wizard-hero__meta--desktop" aria-hidden="true">
           <span>
             {ar ? 'المرحلة' : 'Step'} {step + 1} / {steps.length}
@@ -3080,13 +3115,23 @@ export function PropertyWizard({
               ) : (
                 <span />
               )}
-              {step < steps.length - 1 ? (
-                <Button type="submit">{t('Common.continue')}</Button>
-              ) : (
-                <Button type="submit" disabled={busy}>
-                  {busy ? t('Common.saving') : t('PropertyForm.submit')}
+              <div className="wizard-footer__primary">
+                <Button
+                  type="button"
+                  variant="quiet"
+                  disabled={busy}
+                  onClick={(event) => void submit(event as unknown as FormEvent<HTMLFormElement>, true)}
+                >
+                  {busy ? t('Common.saving') : t('PropertyForm.saveDraft')}
                 </Button>
-              )}
+                {step < steps.length - 1 ? (
+                  <Button type="submit">{t('Common.continue')}</Button>
+                ) : (
+                  <Button type="submit" disabled={busy}>
+                    {busy ? t('Common.saving') : t('PropertyForm.submit')}
+                  </Button>
+                )}
+              </div>
             </div>
             <input type="hidden" name="portal" value={portal} />
           </form>

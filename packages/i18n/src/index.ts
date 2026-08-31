@@ -251,6 +251,9 @@ export const messages = {
       perUnitImagesHint:
         'ارفع صوراً لكل وحدة. يمكنك لاحقاً تعديل أي وحدة وإضافة صور خاصة بها.',
       unitImages: 'صور الوحدة',
+      saveDraft: 'حفظ كمسودة',
+      draftNeedsBasics:
+        'لحفظ المسودة أكمل بيانات العقار الأساسية (الاسم والموقع والخريطة) أولاً.',
       category: 'التصنيف',
       nameAr: 'الاسم بالعربية',
       nameEn: 'الاسم بالإنجليزية',
@@ -637,6 +640,9 @@ export const messages = {
       perUnitImagesHint:
         'Upload photos for each unit. You can edit any unit later and add unit-specific photos.',
       unitImages: 'Unit photos',
+      saveDraft: 'Save as draft',
+      draftNeedsBasics:
+        'To save a draft, complete the basic property details first (name, location, map).',
       category: 'Category',
       nameAr: 'Arabic name',
       nameEn: 'English name',

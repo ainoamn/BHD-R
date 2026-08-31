@@ -649,6 +649,7 @@ function displayCell(
   column: Column,
   locale: 'ar' | 'en',
   context: OperationsContext,
+  flow?: Array<{ value: string; ar: string; en: string }>,
 ): ReactNode {
   const value = scalar(row, column);
   if (value === null) return '—';
@@ -664,9 +665,10 @@ function displayCell(
   }
   if (column.format === 'status') {
     const status = safeString(value);
+    const labeled = flow?.find((item) => item.value === status);
     return (
       <span className={`ops-status ops-status--${statusTone(status)}`}>
-        {status.replaceAll('_', ' ')}
+        {labeled ? (locale === 'ar' ? labeled.ar : labeled.en) : status.replaceAll('_', ' ')}
       </span>
     );
   }
@@ -3077,7 +3079,7 @@ export function OperationsConsole({
                             })()}
                           />
                         ) : (
-                          displayCell(row, column, locale, context)
+                          displayCell(row, column, locale, context, definition.flow)
                         )}
                       </td>
                     ))}
@@ -3361,7 +3363,14 @@ export function OperationsConsole({
               safeString(row.location) ||
               [safeString(row.governorate), safeString(row.city)].filter(Boolean).join(' · ') ||
               '—';
-            const status = safeString(row.status) || '—';
+            const statusRaw = safeString(row.status) || '—';
+            const statusLabeled =
+              definition.flow.find((item) => item.value === statusRaw) ?? null;
+            const status = statusLabeled
+              ? ar
+                ? statusLabeled.ar
+                : statusLabeled.en
+              : statusRaw;
             const cover =
               typeof row.coverImageUrl === 'string' ? row.coverImageUrl : null;
             return (
@@ -3403,7 +3412,7 @@ export function OperationsConsole({
                     definition.columns.slice(0, 4).map((column) => (
                       <div key={column.key}>
                         <dt>{ar ? column.ar : column.en}</dt>
-                        <dd>{displayCell(row, column, locale, context)}</dd>
+                        <dd>{displayCell(row, column, locale, context, definition.flow)}</dd>
                       </div>
                     ))
                   )}

@@ -144,13 +144,16 @@ export async function searchPublicListingsFromNeon(
       from units u
       where u.property_id = p.id
         and u.publish_when_available = true
-        and p.status in ('draft', 'inactive')
+        and p.status = 'inactive'
     `);
     await transaction.execute(sql`
-      update units
+      update units u
       set status = 'active', updated_at = now()
-      where publish_when_available = true
-        and status in ('draft', 'inactive')
+      from properties p
+      where u.property_id = p.id
+        and p.status = 'active'
+        and u.publish_when_available = true
+        and u.status in ('draft', 'inactive')
     `);
     await transaction.execute(sql`
       update listings l
@@ -159,7 +162,9 @@ export async function searchPublicListingsFromNeon(
         published_at = coalesce(l.published_at, now()),
         updated_at = now()
       from units u
+      join properties p on p.id = u.property_id
       where l.unit_id = u.id
+        and p.status = 'active'
         and u.publish_when_available = true
         and (l.enabled = false or l.published_at is null)
     `);
@@ -188,7 +193,7 @@ export async function searchPublicListingsFromNeon(
       from units u
       join properties p on p.id = u.property_id
       where u.publish_when_available = true
-        and p.status <> 'archived'
+        and p.status = 'active'
         and not exists (select 1 from listings l where l.unit_id = u.id)
       on conflict (unit_id) do nothing
     `);
@@ -418,7 +423,7 @@ export async function searchPublicListingsFromNeon(
       left join property_profiles pp on pp.property_id = p.id
       left join listings l on l.unit_id = u.id
       where u.publish_when_available = true
-        and p.status <> 'archived'
+        and p.status = 'active'
         and u.status in ('active', 'draft', 'inactive')
         ${countryClause}
         ${governorateClause}
