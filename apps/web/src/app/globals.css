@@ -7071,6 +7071,112 @@ h3 {
   font-weight: 800;
   color: var(--oman-deep);
 }
+.props-results__tools {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+.props-view-toggle {
+  display: inline-flex;
+  padding: 0.15rem;
+  border: 1px solid #c9d6cf;
+  border-radius: 0.7rem;
+  background: #f4f7f5;
+}
+.props-view-toggle button {
+  min-width: 3.4rem;
+  padding: 0.4rem 0.7rem;
+  border: 0;
+  border-radius: 0.55rem;
+  background: transparent;
+  color: #42564d;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.props-view-toggle button.is-active {
+  background: white;
+  color: var(--oman-deep);
+  box-shadow: 0 1px 4px rgb(9 45 36 / 0.12);
+}
+.props-results__grid .props-results__item.is-selected .listing-card {
+  outline: 2px solid var(--maroon-700);
+  outline-offset: 2px;
+}
+.props-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #d5e0da;
+  border-radius: 0.9rem;
+  background: white;
+}
+.props-table {
+  width: 100%;
+  min-width: 56rem;
+  border-collapse: collapse;
+}
+.props-table th,
+.props-table td {
+  padding: 0.7rem 0.75rem;
+  border-bottom: 1px solid #e6eee9;
+  text-align: start;
+  vertical-align: middle;
+  font-size: 0.9rem;
+}
+.props-table th {
+  background: #f4f7f5;
+  color: #42564d;
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.props-table tbody tr:hover,
+.props-table tbody tr.is-selected {
+  background: #f7faf8;
+}
+.props-table__thumb-frame {
+  position: relative;
+  display: block;
+  width: 4.5rem;
+  height: 3.2rem;
+  overflow: hidden;
+  border-radius: 0.45rem;
+  background: linear-gradient(135deg, var(--maroon-900), var(--maroon-700));
+}
+.props-table__thumb-frame img {
+  object-fit: cover;
+}
+.props-table__thumb-empty {
+  display: grid;
+  place-content: center;
+  width: 100%;
+  height: 100%;
+}
+.props-table__thumb-empty .logo__product img {
+  width: 2.4rem;
+}
+.props-table__title {
+  color: var(--oman-deep);
+  font-weight: 800;
+  text-decoration: none;
+}
+.props-table__title:hover {
+  color: var(--maroon-700);
+}
+.props-table__price {
+  white-space: nowrap;
+}
+.props-table__price strong {
+  display: block;
+  color: var(--oman-deep);
+}
+.props-table__price small {
+  color: #6b7c74;
+}
+.props-table__cta {
+  white-space: nowrap;
+}
 .props-results__sync {
   color: #6b7c74;
   font-weight: 600;

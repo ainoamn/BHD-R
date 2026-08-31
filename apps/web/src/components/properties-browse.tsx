@@ -24,8 +24,18 @@ import {
   pushRecentFilter,
   type RecentFilterChip,
 } from '@/lib/properties-browse-filters';
+import { ListingCatalogueCard } from '@/components/listing-catalogue-card';
 import { ListingResultRow } from '@/components/listing-result-row';
+import { ListingsTable } from '@/components/listings-table';
 import { PropertiesMapPanel } from '@/components/properties-map-panel';
+
+type BrowseViewMode = 'list' | 'grid' | 'table';
+const VIEW_STORAGE_KEY = 'bhd-r-props-view';
+
+function parseViewMode(raw: string | null): BrowseViewMode {
+  if (raw === 'grid' || raw === 'table' || raw === 'list') return raw;
+  return 'list';
+}
 
 function Stepper({
   label,
@@ -106,6 +116,7 @@ export function PropertiesBrowse({
   const [universe, setUniverse] = useState<CatalogueListing[]>(initialListings);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<BrowseViewMode>('list');
   const [selectedListingId, setSelectedListingId] = useState<string | null>(null);
   const [amenitiesExpanded, setAmenitiesExpanded] = useState(false);
   const [smartDraft, setSmartDraft] = useState('');
@@ -117,6 +128,11 @@ export function PropertiesBrowse({
 
   useEffect(() => {
     setRecent(loadRecentFilters());
+    try {
+      setViewMode(parseViewMode(window.localStorage.getItem(VIEW_STORAGE_KEY)));
+    } catch {
+      /* ignore */
+    }
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       if (params.get('map') === '1' || window.location.hash === '#map_opened') {
@@ -124,6 +140,15 @@ export function PropertiesBrowse({
       }
     }
   }, []);
+
+  function changeViewMode(next: BrowseViewMode) {
+    setViewMode(next);
+    try {
+      window.localStorage.setItem(VIEW_STORAGE_KEY, next);
+    } catch {
+      /* ignore */
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -705,38 +730,96 @@ export function PropertiesBrowse({
                   </span>
                 ) : null}
               </p>
-              <label className="props-sort">
-                <span>{ar ? 'ترتيب' : 'Sort'}</span>
-                <select
-                  className="select"
-                  value={filters.sort}
-                  onChange={(event) => patch({ sort: event.target.value as BrowseSort })}
+              <div className="props-results__tools">
+                <div
+                  className="props-view-toggle"
+                  role="group"
+                  aria-label={ar ? 'طريقة العرض' : 'View mode'}
                 >
-                  <option value="newest">{ar ? 'الأحدث' : 'Newest'}</option>
-                  <option value="price_asc">{ar ? 'السعر: من الأقل' : 'Price: low to high'}</option>
-                  <option value="price_desc">{ar ? 'السعر: من الأعلى' : 'Price: high to low'}</option>
-                  <option value="beds_desc">{ar ? 'غرف النوم' : 'Most bedrooms'}</option>
-                </select>
-              </label>
+                  <button
+                    type="button"
+                    className={viewMode === 'list' ? 'is-active' : undefined}
+                    aria-pressed={viewMode === 'list'}
+                    onClick={() => changeViewMode('list')}
+                  >
+                    {ar ? 'قائمة' : 'List'}
+                  </button>
+                  <button
+                    type="button"
+                    className={viewMode === 'grid' ? 'is-active' : undefined}
+                    aria-pressed={viewMode === 'grid'}
+                    onClick={() => changeViewMode('grid')}
+                  >
+                    {ar ? 'شبكة' : 'Grid'}
+                  </button>
+                  <button
+                    type="button"
+                    className={viewMode === 'table' ? 'is-active' : undefined}
+                    aria-pressed={viewMode === 'table'}
+                    onClick={() => changeViewMode('table')}
+                  >
+                    {ar ? 'جدول' : 'Table'}
+                  </button>
+                </div>
+                <label className="props-sort">
+                  <span>{ar ? 'ترتيب' : 'Sort'}</span>
+                  <select
+                    className="select"
+                    value={filters.sort}
+                    onChange={(event) => patch({ sort: event.target.value as BrowseSort })}
+                  >
+                    <option value="newest">{ar ? 'الأحدث' : 'Newest'}</option>
+                    <option value="price_asc">{ar ? 'السعر: من الأقل' : 'Price: low to high'}</option>
+                    <option value="price_desc">{ar ? 'السعر: من الأعلى' : 'Price: high to low'}</option>
+                    <option value="beds_desc">{ar ? 'غرف النوم' : 'Most bedrooms'}</option>
+                  </select>
+                </label>
+              </div>
             </div>
 
             {results.length ? (
-              <div className="props-results__list">
-                {results.map((listing) => (
-                  <div
-                    key={listing.id}
-                    id={`listing-${listing.id}`}
-                    className={
-                      selectedListingId === listing.id
-                        ? 'props-results__item is-selected'
-                        : 'props-results__item'
-                    }
-                    onMouseEnter={() => setSelectedListingId(listing.id)}
-                  >
-                    <ListingResultRow listing={listing} locale={locale} />
-                  </div>
-                ))}
-              </div>
+              viewMode === 'table' ? (
+                <ListingsTable
+                  listings={results}
+                  locale={locale}
+                  selectedId={selectedListingId}
+                  onHover={setSelectedListingId}
+                />
+              ) : viewMode === 'grid' ? (
+                <div className="listing-grid props-results__grid">
+                  {results.map((listing) => (
+                    <div
+                      key={listing.id}
+                      id={`listing-${listing.id}`}
+                      className={
+                        selectedListingId === listing.id
+                          ? 'props-results__item is-selected'
+                          : 'props-results__item'
+                      }
+                      onMouseEnter={() => setSelectedListingId(listing.id)}
+                    >
+                      <ListingCatalogueCard listing={listing} locale={locale} />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="props-results__list">
+                  {results.map((listing) => (
+                    <div
+                      key={listing.id}
+                      id={`listing-${listing.id}`}
+                      className={
+                        selectedListingId === listing.id
+                          ? 'props-results__item is-selected'
+                          : 'props-results__item'
+                      }
+                      onMouseEnter={() => setSelectedListingId(listing.id)}
+                    >
+                      <ListingResultRow listing={listing} locale={locale} />
+                    </div>
+                  ))}
+                </div>
+              )
             ) : (
               <EmptyState title={ar ? 'لا توجد نتائج' : 'No results'} />
             )}

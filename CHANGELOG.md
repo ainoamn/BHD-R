@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.3.9 — 2026-08-31
+
+- Properties browse: view toggle — list / grid / table (persisted in localStorage).
+- Docs: `RELEASE-0.3.9-AR.md`.
+
 ## 0.3.8 — 2026-08-31
 
 - Properties browse: Booking-style list + in-page OSM map with stored pins; catalogue geo enrichment.

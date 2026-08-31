@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-08-31  
-**Product version:** 0.3.8  
-**Active focus:** none (0.3.8 closed)  
+**Product version:** 0.3.9  
+**Active focus:** Properties browse view modes  
+**Release 0.3.9:** [`RELEASE-0.3.9-AR.md`](./RELEASE-0.3.9-AR.md)  
 **Release 0.3.8:** [`RELEASE-0.3.8-AR.md`](./RELEASE-0.3.8-AR.md)  
 **Release 0.3.7:** [`RELEASE-0.3.7-AR.md`](./RELEASE-0.3.7-AR.md)  
 **Env manifest:** [`ENV-MANIFEST.md`](./ENV-MANIFEST.md)  
@@ -11,7 +12,8 @@
 
 | Phase | Status | Notes |
 | ----- | ------ | ----- |
-| Map + discovery + reviews | **shipped 0.3.8** | Live `r.bhd-om.com` (`d098705`); pins + reviews + party profiles |
+| Browse list/grid/table toggle | **shipped 0.3.9** | Toolbar view switcher + localStorage |
+| Map + discovery + reviews | **shipped 0.3.8** | Live `r.bhd-om.com`; pins + reviews + party profiles |
 | Properties browse filters | **shipped 0.3.7** | Sticky search + sidebar/drawer + client facets |
 | Vacant units in bookings | **shipped 0.3.6** | Neon context for create booking dropdown |
 
