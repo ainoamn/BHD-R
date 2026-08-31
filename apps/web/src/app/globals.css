@@ -556,6 +556,13 @@ h3 {
   color: var(--maroon-900);
   font-size: 1.15rem;
 }
+.listing-card__building-name,
+.listing-row__building-name {
+  margin: 0;
+  color: var(--ink-700);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
 .listing-card__location {
   color: var(--ink-700);
   font-size: 0.9rem;
@@ -590,6 +597,38 @@ h3 {
   font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 0.15em;
+}
+.listing-card__building-cta,
+.listing-row__building-cta {
+  margin: 0.75rem 0.85rem 0.95rem;
+  padding: 0.7rem 0.8rem;
+  display: grid;
+  gap: 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--maroon-800, #6b1d2a) 22%, var(--ivory-100, #efe8dc));
+  border-radius: 0.85rem;
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--maroon-800, #6b1d2a) 8%, #fff) 0%,
+      color-mix(in srgb, var(--ivory-50, #f7f3ea) 92%, #fff) 100%
+    );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+.listing-card__building-cta-label {
+  margin: 0;
+  color: var(--ink-600, #44554d);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.listing-card__building-cta-btn {
+  justify-self: stretch;
+  text-align: center;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.listing-row__building-cta {
+  margin: 0.65rem 0 0.35rem;
 }
 .listing-card__price--dual,
 .listing-row__price--dual {
@@ -630,6 +669,12 @@ h3 {
   font-size: 0.86rem;
   border-bottom: 1px solid var(--ivory-100);
 }
+.listing-card__facts--stack,
+.listing-row__facts--stack {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
 .listing-card__price {
   display: flex;
   align-items: baseline;
@@ -638,6 +683,15 @@ h3 {
   margin-top: 0.85rem;
   color: var(--maroon-900);
   font-weight: 900;
+}
+.listing-card__price--stack {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 0.15rem;
+}
+.listing-card__price--stack small {
+  display: block;
 }
 .listing-card__price small {
   color: var(--ink-700);
@@ -3089,6 +3143,13 @@ h3 {
   margin: 0.15rem 0 0.35rem;
   font-size: clamp(1.45rem, 2.4vw, 2rem);
   line-height: 1.2;
+}
+
+.property-360__building-name {
+  margin: 0 0 0.35rem;
+  color: var(--ink-700);
+  font-size: 1.05rem;
+  font-weight: 700;
 }
 
 .property-360__location {
@@ -7512,6 +7573,12 @@ button.ops-row-key {
 .listing-row__title:hover {
   color: var(--oman-deep);
   text-decoration: underline;
+}
+.listing-row__building-name {
+  margin: 0 0 0.2rem;
+  color: var(--ink-700);
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 .listing-row__location {
   margin: 0 0 0.55rem;

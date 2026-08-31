@@ -7,6 +7,7 @@ import type { CurrencyCode } from '@bhd-r/contracts';
 import { BrandMark } from '@bhd-r/ui';
 import { browserMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
+import { formatListingLocation } from '@/lib/listing-card-copy';
 import { PropertyQrCard } from '@/components/property-qr-card';
 import { PublicListingActions } from '@/components/public-listing-actions';
 import { PropertyManageHub } from '@/components/property-manage-hub';
@@ -62,6 +63,8 @@ export interface ManagedProperty {
   organizationId?: string;
   ownerPartyId?: string | null;
   ownerPartyName?: string | null;
+  /** Public listing may show owner name only when the owner opts in. */
+  showOwnerNameOnListing?: boolean;
   mapsUrl?: string | null;
   latitude?: number | null;
   longitude?: number | null;
@@ -76,6 +79,7 @@ export interface ManagedProperty {
     furnishing?: 'unfurnished' | 'semi_furnished' | 'furnished';
     managementStartedOn?: string | null;
     managementFeeMinor?: string | null;
+    showOwnerNameOnListing?: boolean;
     notes?: string | null;
   } | null;
   address: {
@@ -191,15 +195,13 @@ export function PropertyDetailManager({
       .find((row) => !row.endsOn) ?? property.ownership[0];
 
   const addressLine = property.address
-    ? [
-        property.address.street,
-        property.address.area,
-        property.address.city,
-        property.address.wilayat,
-        property.address.governorate,
-      ]
-        .filter(Boolean)
-        .join(' · ')
+    ? formatListingLocation({
+        governorate: property.address.governorate,
+        wilayat: property.address.wilayat,
+        city: property.address.city,
+        area: property.address.area,
+        street: property.address.street,
+      }) || '—'
     : '—';
 
   const publicPath = `/${locale}/properties/${property.id}`;
@@ -232,6 +234,15 @@ export function PropertyDetailManager({
   const focusedSerial = primaryUnit ? unitSerials.get(primaryUnit.id) ?? null : null;
   const displaySerial =
     focusUnitId && focusedSerial ? focusedSerial : property.serialNumber ?? null;
+  const focusedUnitKind = primaryUnit ? inferUnitKind(primaryUnit) : null;
+  const focusedUnitHeadline =
+    focusUnitId && primaryUnit && focusedUnitKind
+      ? `${unitKindLabel(focusedUnitKind, locale)} ${primaryUnit.code}`.trim()
+      : null;
+  const buildingNameLine = ar ? property.nameAr : property.nameEn;
+  const showPublicOwnerName =
+    Boolean(property.showOwnerNameOnListing ?? property.profile?.showOwnerNameOnListing) &&
+    Boolean(property.ownerPartyName);
   const composedUnitDescription = useMemo(() => {
     if (!focusUnitId || !primaryUnit || property.kind !== 'multi_unit') return null;
     return generateUnitListingDescriptions({
@@ -272,12 +283,11 @@ export function PropertyDetailManager({
       ? Math.max(0, new Date().getFullYear() - property.profile.yearBuilt)
       : null;
   const totalArea = property.profile?.builtUpAreaSquareMeters ?? null;
-  const headline =
-    focusUnitId && primaryUnit
-      ? `${ar ? property.nameAr : property.nameEn} — ${ar ? primaryUnit.nameAr : primaryUnit.nameEn}`
-      : ar
-        ? property.nameAr
-        : property.nameEn;
+  const headline = focusedUnitHeadline
+    ? focusedUnitHeadline
+    : ar
+      ? property.nameAr
+      : property.nameEn;
   const mapsUrl = property.mapsUrl || mapsUrlFromNotes(property.profile?.notes) || null;
   const latitude =
     typeof property.latitude === 'number' && Number.isFinite(property.latitude)
@@ -427,6 +437,9 @@ export function PropertyDetailManager({
                 {isPublic ? 'BHD R · LISTING' : 'BHD R · PROPERTY 360'}
               </span>
               <h1>{headline}</h1>
+              {focusedUnitHeadline ? (
+                <p className="property-360__building-name">{buildingNameLine}</p>
+              ) : null}
               <p className="property-360__location">{addressLine}</p>
               {displaySerial ? (
                 <p className="property-360__serial" dir="ltr">
@@ -494,8 +507,8 @@ export function PropertyDetailManager({
                   {property.kind === 'multi_unit' && focusUnitId && primaryUnit ? (
                     <p className="property-360__unit-link-note">
                       {ar
-                        ? `هذه الوحدة («${primaryUnit.nameAr}») مرتبطة بالمبنى «${property.nameAr}».`
-                        : `This unit (“${primaryUnit.nameEn}”) is linked to the building “${property.nameEn}”.`}{' '}
+                        ? `هذه الوحدة («${focusedUnitHeadline ?? primaryUnit.code}») مرتبطة بالمبنى «${property.nameAr}».`
+                        : `This unit (“${focusedUnitHeadline ?? primaryUnit.code}”) is linked to the building “${property.nameEn}”.`}{' '}
                       <Link href={publicPath}>
                         {ar ? 'عرض المبنى وكل وحداته' : 'View the building and all units'}
                       </Link>
@@ -647,13 +660,18 @@ export function PropertyDetailManager({
                 >
                   <header>
                     <div>
-                      <strong>{ar ? unit.nameAr : unit.nameEn}</strong>
-                      <small dir="ltr">
-                        {unit.code}
+                      <strong>
                         {property.kind === 'multi_unit'
-                          ? ` · ${unitKindLabel(kind, locale)}`
-                          : ''}
-                      </small>
+                          ? `${unitKindLabel(kind, locale)} ${unit.code}`.trim()
+                          : ar
+                            ? unit.nameAr
+                            : unit.nameEn}
+                      </strong>
+                      {property.kind === 'multi_unit' ? (
+                        <small>{buildingNameLine}</small>
+                      ) : (
+                        <small dir="ltr">{unit.code}</small>
+                      )}
                       {serial ? (
                         <small className="property-360__unit-serial" dir="ltr">
                           {serial}
@@ -1059,12 +1077,12 @@ export function PropertyDetailManager({
                   </div>
                 </>
               )}
-              {isPublic && property.ownerPartyId ? (
+              {isPublic && showPublicOwnerName && property.ownerPartyId ? (
                 <div>
                   <dt>{ar ? 'المالك' : 'Owner'}</dt>
                   <dd>
                     <a href={`/${locale}/parties/${property.ownerPartyId}`}>
-                      {property.ownerPartyName ?? property.ownerPartyId.slice(0, 8)}
+                      {property.ownerPartyName}
                     </a>
                   </dd>
                 </div>

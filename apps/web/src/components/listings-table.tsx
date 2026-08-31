@@ -3,7 +3,8 @@
 import Image from 'next/image';
 import { BrandMark } from '@bhd-r/ui';
 import { Link } from '@/i18n/navigation';
-import { formatMoney, localizedName } from '@/lib/format';
+import { formatMoney } from '@/lib/format';
+import { formatListingCardTitle, formatListingLocation } from '@/lib/listing-card-copy';
 import {
   marketStatusFromPurpose,
   marketStatusLabel,
@@ -30,12 +31,7 @@ function statusCopy(listing: CatalogueListing, locale: string): string {
 }
 
 function listingTitle(listing: CatalogueListing, locale: string): string {
-  const propertyTitle = localizedName(locale, listing.propertyNameAr, listing.propertyNameEn);
-  const unitTitle = localizedName(locale, listing.unitNameAr, listing.unitNameEn);
-  if (!unitTitle || unitTitle === propertyTitle || propertyTitle.includes(unitTitle)) {
-    return propertyTitle;
-  }
-  return `${propertyTitle} — ${unitTitle}`;
+  return formatListingCardTitle(listing, locale === 'ar' ? 'ar' : 'en').headline;
 }
 
 function priceBits(listing: CatalogueListing, locale: string, ar: boolean) {
@@ -68,7 +64,13 @@ export function ListingsTable({
     <div className="props-table-shell">
       <ul className="props-table-mobile" aria-label={ar ? 'نتائج جدولية' : 'Table results'}>
         {listings.map((listing) => {
-          const title = listingTitle(listing, locale);
+          const { headline, buildingLine } = formatListingCardTitle(
+            listing,
+            ar ? 'ar' : 'en',
+          );
+          const locationLine =
+            formatListingLocation(listing) ||
+            `${listing.governorate}${listing.wilayat ? ` · ${listing.wilayat}` : ''}`;
           const { price, period, href } = priceBits(listing, locale, ar);
           const coverSrc = toPublicMediaSrc(listing.coverImageUrl);
           return (
@@ -82,7 +84,7 @@ export function ListingsTable({
               }
               onMouseEnter={() => onHover?.(listing.id)}
             >
-              <Link href={href} className="props-table-mobile__thumb" aria-label={title} prefetch>
+              <Link href={href} className="props-table-mobile__thumb" aria-label={headline} prefetch>
                 <span className="props-table__thumb-frame">
                   {coverSrc ? (
                     <Image src={coverSrc} alt="" fill sizes="88px" />
@@ -96,12 +98,17 @@ export function ListingsTable({
               <div className="props-table-mobile__body">
                 <p className="props-table-mobile__type">{categoryLabel(listing.category, ar)}</p>
                 <Link href={href} className="props-table__title" prefetch>
-                  {title}
+                  {headline}
                 </Link>
-                <p className="props-table-mobile__meta">
-                  {listing.governorate}
-                  {listing.wilayat ? ` · ${listing.wilayat}` : ''}
-                </p>
+                {buildingLine ? (
+                  <p className="props-table-mobile__building">{buildingLine}</p>
+                ) : null}
+                <p className="props-table-mobile__meta">{locationLine}</p>
+                {listing.unitSerial ? (
+                  <p className="props-table-mobile__serial" dir="ltr">
+                    {listing.unitSerial}
+                  </p>
+                ) : null}
                 <p className="props-table-mobile__facts">
                   <span>
                     {listing.bedrooms} {ar ? 'غرف' : 'beds'}
@@ -182,8 +189,8 @@ export function ListingsTable({
                   </td>
                   <td>{categoryLabel(listing.category, ar)}</td>
                   <td>
-                    {listing.governorate}
-                    {listing.wilayat ? ` · ${listing.wilayat}` : ''}
+                    {formatListingLocation(listing) ||
+                      `${listing.governorate}${listing.wilayat ? ` · ${listing.wilayat}` : ''}`}
                   </td>
                   <td>{listing.bedrooms}</td>
                   <td>{listing.bathrooms}</td>

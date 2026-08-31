@@ -651,6 +651,8 @@ export const propertyProfiles = pgTable(
     furnishing: varchar('furnishing', { length: 24 }).notNull().default('unfurnished'),
     managementStartedOn: date('management_started_on'),
     managementFeeMinor: bigint('management_fee_minor', { mode: 'bigint' }),
+    /** When true, public listing pages may show the owner party display name. */
+    showOwnerNameOnListing: boolean('show_owner_name_on_listing').notNull().default(false),
     notes: text('notes'),
   },
   (table) => [

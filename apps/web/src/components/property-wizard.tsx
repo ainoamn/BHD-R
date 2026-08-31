@@ -347,6 +347,7 @@ export function PropertyWizard({
       insuranceNumber: insurance?.documentNumber ?? '',
       insuranceExpiresOn: insurance?.expiresOn ?? '',
       notes: stripMapsFromNotes(p?.notes),
+      showOwnerNameOnListing: Boolean(p?.showOwnerNameOnListing),
     };
   });
   const [amenities, setAmenities] = useState<string[]>(
@@ -598,7 +599,10 @@ export function PropertyWizard({
     );
   }
 
-  function updateProfile(field: keyof typeof profile, value: string) {
+  function updateProfile(
+    field: Exclude<keyof typeof profile, 'showOwnerNameOnListing'>,
+    value: string,
+  ) {
     setProfile((current) => ({ ...current, [field]: value }));
   }
 
@@ -1228,6 +1232,7 @@ export function PropertyWizard({
                 managementFee: profile.managementFee
                   ? { amountMinor: toMinorUnits(profile.managementFee, currency), currency }
                   : undefined,
+                showOwnerNameOnListing: profile.showOwnerNameOnListing,
                 notes: [
                   profile.notes.trim(),
                   property.mapsUrl.trim() ? `Google Maps: ${property.mapsUrl.trim()}` : '',
@@ -2602,6 +2607,29 @@ export function PropertyWizard({
                     </option>
                   ))}
                 </SelectField>
+                <label className="checkbox-row" htmlFor="show-owner-name">
+                  <input
+                    id="show-owner-name"
+                    type="checkbox"
+                    checked={profile.showOwnerNameOnListing}
+                    onChange={(event) =>
+                      setProfile((current) => ({
+                        ...current,
+                        showOwnerNameOnListing: event.target.checked,
+                      }))
+                    }
+                  />
+                  <span>
+                    {ar
+                      ? 'السماح بإظهار اسم المالك في الإعلان العام'
+                      : 'Allow showing the owner name on the public listing'}
+                  </span>
+                </label>
+                <p className="field__hint span-2">
+                  {ar
+                    ? 'مقفول افتراضياً. عند التفعيل يظهر الاسم في صفحة العقار العامة فقط.'
+                    : 'Off by default. When enabled, the name appears on the public property page only.'}
+                </p>
                 <p className="muted span-2">
                   {ar
                     ? 'اختر الطرف الذي سيُسجَّل كمالك للعقار في سجل الملكية. يمكنك إضافة أطراف من قائمة الأطراف والجهات.'

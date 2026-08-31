@@ -15,6 +15,8 @@ export type CatalogueListing = PublicListing & {
   parkingSpaces?: number;
   amenities?: string[];
   city?: string;
+  area?: string | null;
+  street?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   mapsUrl?: string | null;

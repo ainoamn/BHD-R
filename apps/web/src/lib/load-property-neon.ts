@@ -229,6 +229,7 @@ export async function loadManagedPropertyFromNeon(
               | 'furnished',
             managementStartedOn: profile.managementStartedOn,
             managementFeeMinor: profile.managementFeeMinor?.toString() ?? null,
+            showOwnerNameOnListing: Boolean(profile.showOwnerNameOnListing),
             notes: profile.notes,
           }
         : null,

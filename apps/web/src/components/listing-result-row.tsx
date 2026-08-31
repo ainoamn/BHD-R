@@ -3,7 +3,11 @@
 import Image from 'next/image';
 import { BrandMark } from '@bhd-r/ui';
 import { Link } from '@/i18n/navigation';
-import { formatMoney, localizedName } from '@/lib/format';
+import { formatMoney } from '@/lib/format';
+import {
+  formatListingCardTitle,
+  formatListingLocation,
+} from '@/lib/listing-card-copy';
 import {
   marketStatusFromPurpose,
   marketStatusLabel,
@@ -41,15 +45,9 @@ export function ListingResultRow({
   locale: string;
 }) {
   const ar = locale === 'ar';
-  const propertyTitle = localizedName(locale, listing.propertyNameAr, listing.propertyNameEn);
-  const unitTitle = localizedName(locale, listing.unitNameAr, listing.unitNameEn);
-  const isMulti = listing.propertyKind === 'multi_unit';
-  const title =
-    isMulti && unitTitle
-      ? `${propertyTitle} — ${unitTitle}`
-      : !unitTitle || unitTitle === propertyTitle || propertyTitle.includes(unitTitle)
-        ? propertyTitle
-        : `${propertyTitle} — ${unitTitle}`;
+  const loc = ar ? 'ar' : 'en';
+  const { headline, buildingLine, isMulti } = formatListingCardTitle(listing, loc);
+  const locationLine = formatListingLocation(listing);
   const href = listing.unitId
     ? `/units/${listing.unitId}`
     : listing.propertyId
@@ -81,11 +79,11 @@ export function ListingResultRow({
 
   return (
     <article className="listing-row">
-      <Link href={href} className="listing-row__media" aria-label={title} prefetch>
+      <Link href={href} className="listing-row__media" aria-label={headline} prefetch>
         {coverSrc ? (
           <Image
             src={coverSrc}
-            alt={title}
+            alt={headline}
             fill
             sizes="(max-width: 760px) 100vw, 280px"
           />
@@ -103,32 +101,39 @@ export function ListingResultRow({
 
       <div className="listing-row__body">
         <div className="listing-row__meta">
-          <p className="listing-row__type">{categoryLabel(listing.category, ar)}</p>
+          {!isMulti ? (
+            <p className="listing-row__type">{categoryLabel(listing.category, ar)}</p>
+          ) : null}
           <Link href={href} className="listing-row__title" prefetch>
-            {title}
+            {headline}
           </Link>
+          {buildingLine ? <p className="listing-row__building-name">{buildingLine}</p> : null}
+          {locationLine ? <p className="listing-row__location">{locationLine}</p> : null}
           {listing.unitSerial ? (
             <p className="listing-row__serial" dir="ltr">
               {listing.unitSerial}
             </p>
           ) : null}
-          <p className="listing-row__location">
-            {listing.governorate}
-            {listing.wilayat ? ` · ${listing.wilayat}` : ''}
-          </p>
-          <p className="listing-row__purpose">
-            {listingPurposeCaption(purpose, ar ? 'ar' : 'en')}
-          </p>
-          {buildingHref ? (
-            <p className="listing-row__building">
-              <span>{ar ? 'وحدة مرتبطة بالمبنى' : 'Unit linked to the building'}</span>
-              {' · '}
-              <Link href={buildingHref} prefetch>
-                {ar ? 'عرض المبنى وكل وحداته' : 'View building and all units'}
-              </Link>
+          {!isMulti ? (
+            <p className="listing-row__purpose">
+              {listingPurposeCaption(purpose, loc)}
             </p>
           ) : null}
-          <div className="listing-row__facts">
+          {buildingHref ? (
+            <div className="listing-card__building-cta listing-row__building-cta">
+              <p className="listing-card__building-cta-label">
+                {ar ? 'وحدة مرتبطة بالمبنى' : 'Unit linked to the building'}
+              </p>
+              <Link
+                href={buildingHref}
+                className="button button--quiet listing-card__building-cta-btn"
+                prefetch
+              >
+                {ar ? 'عرض المبنى وكل وحداته' : 'View building and all units'}
+              </Link>
+            </div>
+          ) : null}
+          <div className={`listing-row__facts${isMulti ? ' listing-row__facts--stack' : ''}`}>
             <span>
               {listing.bedrooms} {ar ? 'غرف' : 'beds'}
             </span>

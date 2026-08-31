@@ -116,6 +116,8 @@ type CatalogueRow = {
   governorate: string | null;
   wilayat: string | null;
   city: string | null;
+  area: string | null;
+  street: string | null;
   unit_updated_at: Date | string | null;
   cover_asset_id: string | null;
   unit_cover_asset_id: string | null;
@@ -396,6 +398,8 @@ export async function searchPublicListingsFromNeon(
         a.governorate as governorate,
         a.wilayat as wilayat,
         a.city as city,
+        a.area as area,
+        a.street as street,
         u.updated_at as unit_updated_at,
         (
           select ma.id::text
@@ -635,6 +639,8 @@ export async function searchPublicListingsFromNeon(
         parkingSpaces: Number(row.parking_spaces) || 0,
         amenities: Array.isArray(row.amenity_codes) ? row.amenity_codes.filter(Boolean) : [],
         city: row.city ?? '',
+        ...(row.area ? { area: row.area } : {}),
+        ...(row.street ? { street: row.street } : {}),
         latitude,
         longitude,
         mapsUrl,

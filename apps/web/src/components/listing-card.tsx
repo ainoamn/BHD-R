@@ -2,7 +2,11 @@ import Image from 'next/image';
 import { BrandMark, StatusBadge } from '@bhd-r/ui';
 import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
-import { formatMoney, localizedName } from '@/lib/format';
+import { formatMoney } from '@/lib/format';
+import {
+  formatListingCardTitle,
+  formatListingLocation,
+} from '@/lib/listing-card-copy';
 import {
   marketStatusFromPurpose,
   marketStatusLabel,
@@ -22,15 +26,10 @@ export async function ListingCard({
 }) {
   const t = await getTranslations();
   const ar = locale === 'ar';
-  const propertyTitle = localizedName(locale, listing.propertyNameAr, listing.propertyNameEn);
-  const unitTitle = localizedName(locale, listing.unitNameAr, listing.unitNameEn);
-  const isMulti = 'propertyKind' in listing && listing.propertyKind === 'multi_unit';
-  const title =
-    isMulti && unitTitle
-      ? `${propertyTitle} — ${unitTitle}`
-      : !unitTitle || unitTitle === propertyTitle || propertyTitle.includes(unitTitle)
-        ? propertyTitle
-        : `${propertyTitle} — ${unitTitle}`;
+  const loc = ar ? 'ar' : 'en';
+  const catalogue = listing as CatalogueListing;
+  const { headline, buildingLine, isMulti } = formatListingCardTitle(catalogue, loc);
+  const locationLine = formatListingLocation(catalogue);
   const href = listing.unitId
     ? `/units/${listing.unitId}`
     : 'propertyId' in listing && listing.propertyId
@@ -62,12 +61,12 @@ export async function ListingCard({
 
   return (
     <article className="listing-card">
-      <Link href={href} aria-label={title} prefetch>
+      <Link href={href} aria-label={headline} prefetch>
         <div className="listing-card__image">
           {coverSrc ? (
             <Image
               src={coverSrc}
-              alt={title}
+              alt={headline}
               fill
               sizes="(max-width: 760px) 100vw, (max-width: 960px) 50vw, 33vw"
             />
@@ -89,19 +88,20 @@ export async function ListingCard({
           </span>
         </div>
         <div className="listing-card__body">
-          <h3>{title}</h3>
+          <h3>{headline}</h3>
+          {buildingLine ? <p className="listing-card__building-name">{buildingLine}</p> : null}
+          {locationLine ? <p className="listing-card__location">{locationLine}</p> : null}
           {serial ? (
             <p className="listing-card__serial" dir="ltr">
               {serial}
             </p>
           ) : null}
-          <p className="listing-card__location">
-            {listing.governorate} · {listing.wilayat}
-          </p>
-          <p className="listing-card__purpose">
-            {listingPurposeCaption(purpose, ar ? 'ar' : 'en')}
-          </p>
-          <div className="listing-card__facts">
+          {!isMulti ? (
+            <p className="listing-card__purpose">
+              {listingPurposeCaption(purpose, loc)}
+            </p>
+          ) : null}
+          <div className={`listing-card__facts${isMulti ? ' listing-card__facts--stack' : ''}`}>
             <span>
               {listing.bedrooms} {t('Property.beds')}
             </span>
@@ -115,7 +115,7 @@ export async function ListingCard({
             ) : null}
           </div>
           {purpose === 'both' ? (
-            <div className="listing-card__price listing-card__price--dual">
+            <div className="listing-card__price listing-card__price--dual listing-card__price--stack">
               <span>
                 {rentLabel}
                 <small>{t('Common.monthly')}</small>
@@ -128,7 +128,7 @@ export async function ListingCard({
               ) : null}
             </div>
           ) : (
-            <div className="listing-card__price">
+            <div className="listing-card__price listing-card__price--stack">
               <span>{purpose === 'sale' && saleLabel ? saleLabel : rentLabel}</span>
               <small>
                 {purpose === 'sale' ? t('Property.forSale') : t('Common.monthly')}
@@ -138,12 +138,18 @@ export async function ListingCard({
         </div>
       </Link>
       {buildingHref ? (
-        <p className="listing-card__building">
-          <span>{t('Property.linkedToBuilding')}</span>
-          <Link href={buildingHref} prefetch>
+        <div className="listing-card__building-cta">
+          <p className="listing-card__building-cta-label">
+            {t('Property.linkedToBuilding')}
+          </p>
+          <Link
+            href={buildingHref}
+            className="button button--quiet listing-card__building-cta-btn"
+            prefetch
+          >
             {t('Property.viewBuilding')}
           </Link>
-        </p>
+        </div>
       ) : null}
     </article>
   );

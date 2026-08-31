@@ -5,6 +5,10 @@ import { BrandMark } from '@bhd-r/ui';
 import { Link } from '@/i18n/navigation';
 import { formatMoney, localizedName } from '@/lib/format';
 import {
+  formatListingCardTitle,
+  formatListingLocation,
+} from '@/lib/listing-card-copy';
+import {
   marketStatusFromPurpose,
   marketStatusLabel,
   type CatalogueListing,
@@ -42,15 +46,10 @@ export function ListingCatalogueCard({
   locale: string;
 }) {
   const ar = locale === 'ar';
+  const loc = ar ? 'ar' : 'en';
+  const { headline, buildingLine, isMulti } = formatListingCardTitle(listing, loc);
+  const locationLine = formatListingLocation(listing);
   const propertyTitle = localizedName(locale, listing.propertyNameAr, listing.propertyNameEn);
-  const unitTitle = localizedName(locale, listing.unitNameAr, listing.unitNameEn);
-  const isMulti = listing.propertyKind === 'multi_unit';
-  const title =
-    isMulti && unitTitle
-      ? `${propertyTitle} — ${unitTitle}`
-      : !unitTitle || unitTitle === propertyTitle || propertyTitle.includes(unitTitle)
-        ? propertyTitle
-        : `${propertyTitle} — ${unitTitle}`;
   const href = listing.unitId
     ? `/units/${listing.unitId}`
     : listing.propertyId
@@ -67,12 +66,12 @@ export function ListingCatalogueCard({
 
   return (
     <article className="listing-card">
-      <Link href={href} aria-label={title} prefetch>
+      <Link href={href} aria-label={headline} prefetch>
         <div className="listing-card__image">
           {coverSrc ? (
             <Image
               src={coverSrc}
-              alt={title}
+              alt={headline}
               fill
               sizes="(max-width: 760px) 100vw, (max-width: 960px) 50vw, 33vw"
             />
@@ -89,18 +88,18 @@ export function ListingCatalogueCard({
           <span className="listing-card__status-mark">{statusCopy(listing, locale)}</span>
         </div>
         <div className="listing-card__body">
-          <h3>{title}</h3>
+          <h3>{headline}</h3>
+          {buildingLine ? <p className="listing-card__building-name">{buildingLine}</p> : null}
+          {locationLine ? <p className="listing-card__location">{locationLine}</p> : null}
           {listing.unitSerial ? (
             <p className="listing-card__serial" dir="ltr">
               {listing.unitSerial}
             </p>
           ) : null}
-          <p className="listing-card__location">
-            {listing.governorate}
-            {listing.wilayat ? ` · ${listing.wilayat}` : ''}
-          </p>
-          <p className="listing-card__purpose">{listingPurposeCaption(purpose, ar ? 'ar' : 'en')}</p>
-          <div className="listing-card__facts">
+          {!isMulti ? (
+            <p className="listing-card__purpose">{listingPurposeCaption(purpose, loc)}</p>
+          ) : null}
+          <div className={`listing-card__facts${isMulti ? ' listing-card__facts--stack' : ''}`}>
             <span>
               {listing.bedrooms} {ar ? 'غرف' : 'beds'}
             </span>
@@ -114,7 +113,7 @@ export function ListingCatalogueCard({
             ) : null}
           </div>
           {purpose === 'both' ? (
-            <div className="listing-card__price listing-card__price--dual">
+            <div className="listing-card__price listing-card__price--dual listing-card__price--stack">
               <span>
                 {rentLabel}
                 <small>{ar ? 'شهرياً' : 'Monthly'}</small>
@@ -127,7 +126,7 @@ export function ListingCatalogueCard({
               ) : null}
             </div>
           ) : (
-            <div className="listing-card__price">
+            <div className="listing-card__price listing-card__price--stack">
               <span>{purpose === 'sale' && saleLabel ? saleLabel : rentLabel}</span>
               <small>
                 {purpose === 'sale' ? (ar ? 'للبيع' : 'For sale') : ar ? 'شهرياً' : 'Monthly'}
@@ -137,12 +136,14 @@ export function ListingCatalogueCard({
         </div>
       </Link>
       {isMulti && buildingHref ? (
-        <p className="listing-card__building">
-          <span>{ar ? 'وحدة مرتبطة بالمبنى' : 'Unit linked to the building'}</span>
-          <Link href={buildingHref} prefetch>
+        <div className="listing-card__building-cta">
+          <p className="listing-card__building-cta-label">
+            {ar ? 'وحدة مرتبطة بالمبنى' : 'Unit linked to the building'}
+          </p>
+          <Link href={buildingHref} className="button button--quiet listing-card__building-cta-btn" prefetch>
             {ar ? `عرض «${propertyTitle}» وكل وحداته` : `View “${propertyTitle}” and all units`}
           </Link>
-        </p>
+        </div>
       ) : null}
     </article>
   );

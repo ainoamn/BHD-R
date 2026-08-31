@@ -38,6 +38,7 @@ export const propertyProfileSchema = z.object({
   furnishing: z.enum(['unfurnished', 'semi_furnished', 'furnished']).default('unfurnished'),
   managementStartedOn: z.iso.date().optional(),
   managementFee: moneySchema.optional(),
+  showOwnerNameOnListing: z.boolean().default(false).optional(),
   notes: z.string().trim().max(5_000).optional(),
 });
 

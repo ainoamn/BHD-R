@@ -61,6 +61,7 @@ describe('schema invariants', () => {
 
   it('keeps operational property detail normalized instead of one unvalidated JSON blob', () => {
     expect(getTableColumns(propertyProfiles)).toHaveProperty('deedNumber');
+    expect(getTableColumns(propertyProfiles)).toHaveProperty('showOwnerNameOnListing');
     expect(getTableColumns(propertyDocuments)).toHaveProperty('verificationStatus');
     expect(getTableColumns(units)).toHaveProperty('listingPurpose');
   });

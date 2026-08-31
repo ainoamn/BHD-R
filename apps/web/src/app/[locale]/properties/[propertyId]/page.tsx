@@ -92,12 +92,12 @@ export default async function PropertyPage({
   }> = [
     { type: 'property', id: property.id, titleAr: 'العقار', titleEn: 'Property' },
   ];
-  if (property.ownerPartyId) {
+  if (property.ownerPartyId && property.ownerPartyName) {
     reviewTargets.push({
       type: 'party',
       id: property.ownerPartyId,
-      titleAr: property.ownerPartyName ? `المالك · ${property.ownerPartyName}` : 'المالك',
-      titleEn: property.ownerPartyName ? `Owner · ${property.ownerPartyName}` : 'Owner',
+      titleAr: `المالك · ${property.ownerPartyName}`,
+      titleEn: `Owner · ${property.ownerPartyName}`,
     });
   }
   if (property.organizationId) {

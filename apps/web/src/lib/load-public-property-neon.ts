@@ -252,7 +252,9 @@ export async function loadPublicPropertyShowcaseFromNeon(
       serialNumber: property.serialNumber,
       organizationId: property.organizationId,
       ownerPartyId: property.ownerPartyId,
-      ownerPartyName: ownerParty?.displayName ?? null,
+      ownerPartyName:
+        profile?.showOwnerNameOnListing === true ? (ownerParty?.displayName ?? null) : null,
+      showOwnerNameOnListing: Boolean(profile?.showOwnerNameOnListing),
       mapsUrl,
       latitude,
       longitude,
@@ -268,6 +270,7 @@ export async function loadPublicPropertyShowcaseFromNeon(
             yearBuilt: profile.yearBuilt,
             builtUpAreaSquareMeters: profile.builtUpAreaSquareMeters,
             landAreaSquareMeters: profile.landAreaSquareMeters,
+            showOwnerNameOnListing: Boolean(profile.showOwnerNameOnListing),
             notes: null,
           }
         : null,
