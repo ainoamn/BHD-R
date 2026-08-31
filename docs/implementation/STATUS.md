@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-08-31  
-**Product version:** 0.4.4  
-**Active focus:** BHD R Stays — public quote → hold → payment intent; flag still off  
+**Product version:** 0.4.5  
+**Active focus:** BHD R Stays — guest interactive checkout UI; flag still off  
+**Release 0.4.5:** [`RELEASE-0.4.5-AR.md`](./RELEASE-0.4.5-AR.md)  
 **Release 0.4.4:** [`RELEASE-0.4.4-AR.md`](./RELEASE-0.4.4-AR.md)  
 **Release 0.4.3:** [`RELEASE-0.4.3-AR.md`](./RELEASE-0.4.3-AR.md)  
 **Release 0.4.2:** [`RELEASE-0.4.2-AR.md`](./RELEASE-0.4.2-AR.md)  
@@ -14,7 +15,8 @@
 
 | Phase | Status | Notes |
 | ----- | ------ | ----- |
-| Public quote → hold → pay intent | **shipped 0.4.4** | 404 while flag off; webhook confirms |
+| Guest interactive checkout UI | **shipped 0.4.5** | Detail page; API 404 while flag off |
+| Public quote → hold → pay intent | **shipped 0.4.4** | Nest APIs |
 | Public search from inventory days + Redis TTL | **shipped 0.4.3** | 404 while flag off |
 | Inventory projector + checkout housekeeping | **shipped 0.4.2** | Worker gated by stays flag |
 | stay_booking webhook + live GiST locks | **shipped 0.4.1** | Flags still default off |
@@ -23,16 +25,17 @@
 
 ## Next (human / infra)
 
-1. Redeploy Nest **and Worker** on Render from `main` (0.4.4 booking APIs + prior projector/search).  
-2. Pilot: `STAYS_PLATFORM_ENABLED=true` + `STAYS_ORG_ALLOWLIST` for one org; publish one stay listing; run quote→hold→pay with sandbox webhook.  
+1. Redeploy Nest **and Worker** on Render from `main` (0.4.4+ APIs).  
+2. Pilot: `STAYS_PLATFORM_ENABLED=true` + `STAYS_ORG_ALLOWLIST`; publish one listing; run UI checkout + sandbox webhook.  
 3. ClamAV فعلي؛ Nest+DB E2E كامل؛ Neon non-BYPASS؛ تدوير أسرار.  
 4. اختياري: أرشفة مشروع Vercel `web` الخاطئ.
 
 ## Product gaps (Expand–Contract)
 
-- Guest interactive checkout UI (API path live in 0.4.4).
 - Reports Occupancy/ADR/RevPAR for stays.
+- Guest trips list wired to Nest bookings (shell exists).
 - iCal/OTA after SSRF controls.
+- Provider-hosted payment redirect for stay intents (webhook confirm already live).
 
 ## Verification
 

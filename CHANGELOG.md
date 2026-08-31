@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.5 — 2026-08-31
+
+- Guest interactive stay checkout on `/stays/[slug]`: availability → quote → hold → booking/payment intent via BFF.
+- Search dates carry into detail checkout; `browserPublicGet` + optional mutation idempotency key.
+- Docs: `RELEASE-0.4.5-AR.md`.
+
 ## 0.4.4 — 2026-08-31
 
 - Public stays guest path: availability, quote, hold (Idempotency-Key + GiST lock), booking + folio + payment intent.

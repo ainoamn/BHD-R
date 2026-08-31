@@ -16,14 +16,27 @@ export type StayCardListing = {
 export async function StayCard({
   listing,
   locale,
+  query,
 }: {
   listing: StayCardListing;
   locale: string;
+  query?: {
+    checkInOn?: string;
+    checkOutOn?: string;
+    adults?: string;
+    children?: string;
+  };
 }) {
   const t = await getTranslations('Stays');
   const ar = locale === 'ar';
   const title = ar ? listing.titleAr : listing.titleEn;
-  const href = `/stays/${encodeURIComponent(listing.slug)}`;
+  const qs = new URLSearchParams();
+  if (query?.checkInOn) qs.set('checkInOn', query.checkInOn);
+  if (query?.checkOutOn) qs.set('checkOutOn', query.checkOutOn);
+  if (query?.adults) qs.set('adults', query.adults);
+  if (query?.children) qs.set('children', query.children);
+  const suffix = qs.toString();
+  const href = `/stays/${encodeURIComponent(listing.slug)}${suffix ? `?${suffix}` : ''}`;
 
   return (
     <article className="listing-card stay-card">

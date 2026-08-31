@@ -33,8 +33,8 @@ export default async function GuestStaysPage({
         <h1>{ar ? 'رحلاتي / إقاماتي' : 'My trips / stays'}</h1>
         <p className="muted">
           {ar
-            ? 'بوابة الضيف اليومي منفصلة عن بوابة المستأجر طويل المدة. تفعيل الحجوزات والدفع في المراحل التالية خلف Feature Flag.'
-            : 'Daily-guest portal is separate from long-term tenant. Booking and payment activate in later phases behind the feature flag.'}
+            ? 'بوابة الضيف اليومي منفصلة عن بوابة المستأجر طويل المدة. أنشئ الحجز من صفحة الإعلان العامة؛ التأكيد يصل بعد دفع webhook.'
+            : 'Daily-guest portal is separate from long-term tenant. Create a booking on the public listing page; confirmation follows the payment webhook.'}
         </p>
       </div>
     </main>

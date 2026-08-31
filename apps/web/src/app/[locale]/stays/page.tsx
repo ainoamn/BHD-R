@@ -87,7 +87,17 @@ export default async function Page({
       {items.length ? (
         <div className="listing-grid stays-public__grid">
           {items.map((listing) => (
-            <StayCard key={listing.slug} listing={listing} locale={locale} />
+            <StayCard
+              key={listing.slug}
+              listing={listing}
+              locale={locale}
+              query={{
+                ...(checkInOn ? { checkInOn } : {}),
+                ...(checkOutOn ? { checkOutOn } : {}),
+                ...(adults ? { adults } : {}),
+                ...(children ? { children } : {}),
+              }}
+            />
           ))}
         </div>
       ) : (

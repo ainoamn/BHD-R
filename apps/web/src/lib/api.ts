@@ -196,14 +196,18 @@ export async function browserMediaPut(
   throw new ApiError(0, 'upload_network_error', networkFailureMessage(lastError));
 }
 
-export async function browserPublicMutation<T>(path: string, body: unknown): Promise<T> {
+export async function browserPublicMutation<T>(
+  path: string,
+  body: unknown,
+  options?: { idempotencyKey?: string },
+): Promise<T> {
   const response = await fetch(browserApiPath(path), {
     method: 'POST',
     credentials: 'same-origin',
     headers: {
       accept: 'application/json',
       'content-type': 'application/json',
-      'idempotency-key': crypto.randomUUID(),
+      'idempotency-key': options?.idempotencyKey ?? crypto.randomUUID(),
       'x-requested-with': 'BHD-R',
     },
     body: JSON.stringify(body),
@@ -220,6 +224,30 @@ export async function browserPublicMutation<T>(path: string, body: unknown): Pro
     );
   }
   if (response.status === 204) return undefined as T;
+  return response.json() as Promise<T>;
+}
+
+export async function browserPublicGet<T>(path: string): Promise<T> {
+  const response = await fetch(browserApiPath(path), {
+    method: 'GET',
+    credentials: 'same-origin',
+    headers: {
+      accept: 'application/json',
+      'x-requested-with': 'BHD-R',
+    },
+    cache: 'no-store',
+  });
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as {
+      error?: { code?: string; message?: string; requestId?: string };
+    } | null;
+    throw new ApiError(
+      response.status,
+      payload?.error?.code ?? 'api_error',
+      payload?.error?.message ?? 'Request failed',
+      payload?.error?.requestId,
+    );
+  }
   return response.json() as Promise<T>;
 }
 

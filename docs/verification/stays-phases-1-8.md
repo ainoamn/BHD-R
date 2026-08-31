@@ -37,10 +37,15 @@
 
 ## Honest gaps (continue Expand–Contract)
 
-- Guest interactive checkout UI (Nest quote/hold/pay intent shipped in **0.4.4**; flag-off 404).
+- Guest trips list wired to Nest bookings (checkout UI shipped in **0.4.5**).
 - Reports Occupancy/ADR/RevPAR UI for stays.
 - iCal/OTA after SSRF controls.
 - Full-repo `pnpm check` still has unrelated ESLint debt in api/web.
+
+## 0.4.5 guest checkout UI
+
+- Detail page runs availability → quote → hold → booking through `/api/backend`.
+- Flag/surface off → public `/stays` stays dark; Nest POSTs still 404.
 
 ## 0.4.4 quote → hold → pay
 

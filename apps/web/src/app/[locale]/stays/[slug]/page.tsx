@@ -1,6 +1,7 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { Link } from '@/i18n/navigation';
+import { StayCheckout } from '@/components/stays/stay-checkout';
 import { StaySearch } from '@/components/stays/stay-search';
 import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
 import { publicApiFetch } from '@/lib/server-api';
@@ -18,14 +19,32 @@ type StayDetail = {
 
 export default async function Page({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string; slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   if (!isStaysPublicSurfaceEnabled()) notFound();
   const { locale, slug } = await params;
+  const query = await searchParams;
   setRequestLocale(locale);
   const t = await getTranslations('Stays');
   const ar = locale === 'ar';
+
+  const one = (value: string | string[] | undefined) =>
+    typeof value === 'string' ? value : Array.isArray(value) ? value[0] : undefined;
+
+  const checkInOn = one(query.checkInOn);
+  const checkOutOn = one(query.checkOutOn);
+  const adults = one(query.adults);
+  const children = one(query.children);
+
+  const dateDefaults = {
+    ...(checkInOn ? { checkInOn } : {}),
+    ...(checkOutOn ? { checkOutOn } : {}),
+    ...(adults ? { adults } : {}),
+    ...(children ? { children } : {}),
+  };
 
   const detail = await publicApiFetch<StayDetail>(
     `/v1/public/stays/${encodeURIComponent(slug)}`,
@@ -71,13 +90,11 @@ export default async function Page({
       )}
 
       <div className="stays-public__book-shell">
-        <h2>{t('searchTitle')}</h2>
-        <p className="muted">
-          {ar
-            ? 'التسعير والحجز المؤقت والدفع عبر واجهة Nest (عرض سعر → حجز مؤقت → نية دفع). الواجهة التفاعلية تُفعَّل مع الطيار.'
-            : 'Quote → hold → payment intent is live on Nest. Interactive checkout unlocks with the pilot flag.'}
-        </p>
-        <StaySearch locale={locale} compact />
+        <StayCheckout locale={locale} slug={slug} defaults={dateDefaults} />
+        <div className="stays-public__search-again">
+          <h2>{t('searchTitle')}</h2>
+          <StaySearch locale={locale} compact defaults={dateDefaults} />
+        </div>
       </div>
     </div>
   );
