@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { PropertiesBrowse } from '@/components/properties-browse';
+import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import {
   filtersFromSearchRecord,
@@ -192,6 +193,7 @@ export default async function PropertiesPage({
       hint={t('Home.featuredHint')}
       initialFilters={initialFilters}
       initialListings={listings.data}
+      staysEnabled={isStaysPublicSurfaceEnabled()}
     />
   );
 }

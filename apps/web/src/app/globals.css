@@ -8196,6 +8196,12 @@ button.ops-row-key {
 .property-manage-hub__stays-link {
   margin-top: 0.85rem;
 }
+.purpose-tabs__item--link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
 .stays-setup-wizard__fields {
   border: 0;
   margin: 0;

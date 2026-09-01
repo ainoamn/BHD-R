@@ -78,3 +78,7 @@ services:
         sync: false
       - key: TRUST_PROXY_HOPS
         value: '1'
+      - key: STAYS_PLATFORM_ENABLED
+        value: 'true'
+      - key: STAYS_ORG_ALLOWLIST
+        value: '*'

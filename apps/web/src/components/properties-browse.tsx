@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { supportedCurrencyCodes } from '@bhd-r/contracts';
 import { countryPacks } from '@bhd-r/country-packs';
 import { EmptyState } from '@bhd-r/ui';
-import { usePathname, useRouter } from '@/i18n/navigation';
+import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import type { CatalogueListing } from '@/lib/listing-market-status';
 import { omanLocations } from '@/lib/oman-locations';
 import {
@@ -102,12 +102,14 @@ export function PropertiesBrowse({
   hint,
   initialFilters,
   initialListings,
+  staysEnabled = false,
 }: {
   locale: string;
   heading: string;
   hint: string;
   initialFilters: BrowseFilterState;
   initialListings: CatalogueListing[];
+  staysEnabled?: boolean;
 }) {
   const ar = locale === 'ar';
   const router = useRouter();
@@ -667,6 +669,15 @@ export function PropertiesBrowse({
                       : 'For sale'}
               </button>
             ))}
+            {staysEnabled ? (
+              <Link
+                className="purpose-tabs__item purpose-tabs__item--link"
+                href="/stays"
+                prefetch
+              >
+                {ar ? 'إقامة يومية' : 'Daily stay'}
+              </Link>
+            ) : null}
           </div>
           <div className="props-searchbar__fields">
             <label className="props-searchbar__q">
