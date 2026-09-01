@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.23 — 2026-09-01
+
+- Fix stays setup pricing step: serialize bigint rate fields in setup API JSON (was 500 «تعذر تنفيذ إجراء الإعداد»).
+- Wizard resolves stay profile IDs from saved context when jumping steps.
+- Property portfolio list uses left join so properties with missing party/address links are not hidden.
+
 ## 0.4.22 — 2026-09-01
 
 - Stays setup: Neon read/write on Vercel (`/api/owner/stays/setup`) — save & publish no longer depend on Nest/Render timeouts.

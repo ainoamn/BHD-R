@@ -179,6 +179,14 @@ export function StaySetupWizard({
   const current = STEPS[step]!;
   const canWrite = Boolean(propertyId) && (writeAvailable || apiAvailable);
 
+  function resolveProfileIds(): string[] {
+    if (profileIds.length) return profileIds;
+    if (!context) return [];
+    return context.units
+      .filter((unit) => selectedUnitIds.includes(unit.id) && unit.profileId)
+      .map((unit) => unit.profileId as string);
+  }
+
   const applyContext = useCallback((data: StaySetupContext) => {
     setContext(data);
     setUnitTypeNameAr(data.propertyNameAr);
@@ -328,7 +336,7 @@ export function StaySetupWizard({
   }
 
   async function saveCapacityStep() {
-    const ids = profileIds.length ? profileIds : [];
+    const ids = resolveProfileIds();
     if (!ids.length) throw new Error(t.saveError);
     const payload = {
       maxGuests: Number.parseInt(maxGuests, 10) || 4,
@@ -358,7 +366,7 @@ export function StaySetupWizard({
   async function savePricingStep() {
     const minor = minorFromMajor(nightlyRate, minorUnit);
     if (!minor) throw new Error(locale === 'ar' ? 'أدخل سعراً صالحاً' : 'Enter a valid rate');
-    const ids = profileIds.length ? profileIds : [];
+    const ids = resolveProfileIds();
     if (!ids.length) throw new Error(t.saveError);
     const payload = {
       baseNightlyMinor: minor,
@@ -409,7 +417,7 @@ export function StaySetupWizard({
   }
 
   async function publishAll() {
-    const ids = profileIds.length ? profileIds : [];
+    const ids = resolveProfileIds();
     if (!ids.length) throw new Error(t.publishError);
     for (const id of ids) {
       if (writeAvailable) {

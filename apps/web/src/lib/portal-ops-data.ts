@@ -120,8 +120,8 @@ async function listProperties(claims: SessionClaims): Promise<Record<string, unk
         street: addresses.street,
       })
       .from(properties)
-      .innerJoin(parties, eq(parties.id, properties.ownerPartyId))
-      .innerJoin(addresses, eq(addresses.id, properties.addressId))
+      .leftJoin(parties, eq(parties.id, properties.ownerPartyId))
+      .leftJoin(addresses, eq(addresses.id, properties.addressId))
       .where(
         and(
           eq(properties.organizationId, orgId),

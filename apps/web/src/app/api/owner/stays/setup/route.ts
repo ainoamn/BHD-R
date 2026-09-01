@@ -24,6 +24,17 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
+/** Drizzle returns bigint for money columns — JSON.stringify throws without this. */
+function setupJson(data: unknown, init?: ResponseInit) {
+  return new NextResponse(
+    JSON.stringify(data, (_key, value) => (typeof value === 'bigint' ? value.toString() : value)),
+    {
+      status: init?.status ?? 200,
+      headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
+    },
+  );
+}
+
 const bodySchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('create_unit_type'), payload: createStayUnitTypeSchema }),
   z.object({ action: z.literal('create_profiles'), payload: createStayProfilesSchema }),
@@ -153,21 +164,17 @@ export async function POST(request: Request) {
   try {
     switch (body.action) {
       case 'create_unit_type':
-        return NextResponse.json(await createStayUnitTypeOnNeon(claims, body.payload));
+        return setupJson(await createStayUnitTypeOnNeon(claims, body.payload));
       case 'create_profiles':
-        return NextResponse.json(await createStayProfilesOnNeon(claims, body.payload));
+        return setupJson(await createStayProfilesOnNeon(claims, body.payload));
       case 'update_profile':
-        return NextResponse.json(
-          await updateStayProfileOnNeon(claims, body.profileId, body.payload),
-        );
+        return setupJson(await updateStayProfileOnNeon(claims, body.profileId, body.payload));
       case 'upsert_rate_plan':
-        return NextResponse.json(
-          await upsertStayRatePlanOnNeon(claims, body.profileId, body.payload),
-        );
+        return setupJson(await upsertStayRatePlanOnNeon(claims, body.profileId, body.payload));
       case 'upsert_listing':
-        return NextResponse.json(await upsertStayListingOnNeon(claims, body.payload));
+        return setupJson(await upsertStayListingOnNeon(claims, body.payload));
       case 'publish_profile':
-        return NextResponse.json(await publishStayProfileOnNeon(claims, body.profileId));
+        return setupJson(await publishStayProfileOnNeon(claims, body.profileId));
       default:
         return NextResponse.json(
           { error: { code: 'unknown_action', message: 'Unknown action' } },
