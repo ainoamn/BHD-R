@@ -4,8 +4,9 @@
 **خطة الاستكمال:** [docs/handoffs/2026-09-01-stays-setup-neon-write/CONTINUE-PLAN-AR.md](../handoffs/2026-09-01-stays-setup-neon-write/CONTINUE-PLAN-AR.md)
 
 ## آخر حالة كود
-- `main` @ `38b4f26` (0.4.22 — حفظ إعداد الإقامة عبر Vercel/Neon)
-- المحادثة الكاملة (3635 سطر JSONL) مؤرشفة في مجلد التسليم
+- `main` @ `3692d60` (أرشفة المحادثة + handoff)
+- **آخر commit وظيفي:** `38b4f26` (0.4.22 — حفظ إعداد الإقامة عبر Vercel/Neon)
+- المحادثة الكاملة (**3635** سطر JSONL، **1269** رسالة مقروءة) في مجلد التسليم
 
 ## ابدأ من الجهاز الثاني بـ
 1. `git pull origin main`
