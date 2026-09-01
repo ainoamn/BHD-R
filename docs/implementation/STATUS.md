@@ -3,6 +3,7 @@
 **Updated:** 2026-09-01  
 **Product version:** 0.4.22  
 **Active focus:** Stays setup Neon write path on Vercel (no Render dependency for save)  
+**Handoff (2026-09-01):** [`HANDOFF-2026-09-01-STAYS-SETUP-AR.md`](./HANDOFF-2026-09-01-STAYS-SETUP-AR.md) · [full chat archive](../handoffs/2026-09-01-stays-setup-neon-write/)  
 **Release 0.4.22:** [`RELEASE-0.4.22-AR.md`](./RELEASE-0.4.22-AR.md)  
 **Release 0.4.21:** setup wizard property data load fix  
 **Release 0.4.20:** [`RELEASE-0.4.20-AR.md`](./RELEASE-0.4.20-AR.md)  
