@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import {
   outboxEvents,
   properties,
@@ -70,24 +70,27 @@ export class StaysSetupService {
         })
         .from(units)
         .where(and(eq(units.propertyId, propertyId), eq(units.organizationId, organizationId)))
-        .orderBy(units.code);
+        .orderBy(asc(units.code));
 
-      const profileRows = await transaction
-        .select({
-          unitId: stayProfiles.unitId,
-          id: stayProfiles.id,
-          publishStatus: stayProfiles.publishStatus,
-        })
-        .from(stayProfiles)
-        .where(
-          and(
-            eq(stayProfiles.organizationId, organizationId),
-            inArray(
-              stayProfiles.unitId,
-              unitRows.length ? unitRows.map((row) => row.id) : ['00000000-0000-4000-8000-000000000000'],
-            ),
-          ),
-        );
+      const profileRows =
+        unitRows.length === 0
+          ? []
+          : await transaction
+              .select({
+                unitId: stayProfiles.unitId,
+                id: stayProfiles.id,
+                publishStatus: stayProfiles.publishStatus,
+              })
+              .from(stayProfiles)
+              .where(
+                and(
+                  eq(stayProfiles.organizationId, organizationId),
+                  inArray(
+                    stayProfiles.unitId,
+                    unitRows.map((row) => row.id),
+                  ),
+                ),
+              );
 
       const profileByUnit = new Map(profileRows.map((row) => [row.unitId, row]));
 
@@ -106,7 +109,7 @@ export class StaysSetupService {
             eq(stayUnitTypes.organizationId, organizationId),
           ),
         )
-        .orderBy(stayUnitTypes.code);
+        .orderBy(asc(stayUnitTypes.code));
 
       const listingRows = await transaction
         .select({

@@ -114,19 +114,23 @@ export function StaySetupWizard({
   propertyId,
   apiAvailable = false,
   apiHint = null,
+  initialContext = null,
 }: {
   locale: 'ar' | 'en';
   portal: 'owner' | 'developer';
   propertyId?: string | null;
   apiAvailable?: boolean;
   apiHint?: string | null;
+  initialContext?: StaySetupContext | null;
 }) {
   const t = copy[locale];
   const [step, setStep] = useState(0);
-  const [context, setContext] = useState<StaySetupContext | null>(null);
+  const [context, setContext] = useState<StaySetupContext | null>(initialContext);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    !initialContext && apiHint ? apiHint : null,
+  );
   const [notice, setNotice] = useState<string | null>(null);
 
   const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([]);
@@ -149,6 +153,33 @@ export function StaySetupWizard({
   const current = STEPS[step]!;
   const canWrite = apiAvailable && Boolean(propertyId);
 
+  const applyContext = useCallback((data: StaySetupContext) => {
+    setContext(data);
+    setUnitTypeNameAr(data.propertyNameAr);
+    setUnitTypeNameEn(data.propertyNameEn);
+    setTitleAr(data.propertyNameAr);
+    setTitleEn(data.propertyNameEn);
+    if (data.unitTypes[0]) {
+      setUnitTypeId(data.unitTypes[0].id);
+      setUnitTypeNameAr(data.unitTypes[0].nameAr);
+      setUnitTypeNameEn(data.unitTypes[0].nameEn);
+    }
+    if (data.listings[0]) {
+      setSlug(data.listings[0].slug);
+      setTitleAr(data.listings[0].titleAr);
+      setTitleEn(data.listings[0].titleEn);
+    } else if (data.units[0]) {
+      setSlug(slugify(`${data.propertyNameEn}-${data.units[0].code}`));
+    }
+    const withProfiles = data.units.filter((unit) => unit.profileId);
+    if (withProfiles.length) {
+      setSelectedUnitIds(withProfiles.map((unit) => unit.id));
+      setProfileIds(withProfiles.map((unit) => unit.profileId!).filter(Boolean));
+    } else if (data.units.length === 1) {
+      setSelectedUnitIds([data.units[0]!.id]);
+    }
+  }, []);
+
   const loadContext = useCallback(async () => {
     if (!propertyId || !apiAvailable) return;
     setLoading(true);
@@ -157,40 +188,29 @@ export function StaySetupWizard({
       const data = await browserGet<StaySetupContext>(
         `/v1/stays/setup/context?propertyId=${encodeURIComponent(propertyId)}`,
       );
-      setContext(data);
-      setUnitTypeNameAr(data.propertyNameAr);
-      setUnitTypeNameEn(data.propertyNameEn);
-      setTitleAr(data.propertyNameAr);
-      setTitleEn(data.propertyNameEn);
-      if (data.unitTypes[0]) {
-        setUnitTypeId(data.unitTypes[0].id);
-        setUnitTypeNameAr(data.unitTypes[0].nameAr);
-        setUnitTypeNameEn(data.unitTypes[0].nameEn);
-      }
-      if (data.listings[0]) {
-        setSlug(data.listings[0].slug);
-        setTitleAr(data.listings[0].titleAr);
-        setTitleEn(data.listings[0].titleEn);
-      } else if (data.units[0]) {
-        setSlug(slugify(`${data.propertyNameEn}-${data.units[0].code}`));
-      }
-      const withProfiles = data.units.filter((unit) => unit.profileId);
-      if (withProfiles.length) {
-        setSelectedUnitIds(withProfiles.map((unit) => unit.id));
-        setProfileIds(withProfiles.map((unit) => unit.profileId!).filter(Boolean));
-      } else if (data.units.length === 1) {
-        setSelectedUnitIds([data.units[0]!.id]);
-      }
+      applyContext(data);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t.loadError);
+      const detail =
+        err instanceof ApiError
+          ? `${err.status}: ${err.message}`
+          : err instanceof Error
+            ? err.message
+            : t.loadError;
+      setError(detail);
     } finally {
       setLoading(false);
     }
-  }, [apiAvailable, propertyId, t.loadError]);
+  }, [apiAvailable, applyContext, propertyId, t.loadError]);
 
   useEffect(() => {
+    if (initialContext) {
+      applyContext(initialContext);
+      return;
+    }
     void loadContext();
-  }, [loadContext]);
+    // Hydrate once from SSR context or client Nest fetch — do not re-run on form edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propertyId, apiAvailable]);
 
   const currency = context?.defaultCurrency ?? 'OMR';
   const minorUnit = currency === 'OMR' || currency === 'BHD' || currency === 'KWD' ? 3 : 2;
@@ -372,6 +392,10 @@ export function StaySetupWizard({
         {!canWrite ? (
           <p className="notice notice--warning" role="status">
             {apiHint ?? t.comingOnline}
+          </p>
+        ) : apiHint && context ? (
+          <p className="notice notice--info" role="status">
+            {apiHint}
           </p>
         ) : null}
         {loading ? <p className="muted">{locale === 'ar' ? 'جاري التحميل…' : 'Loading…'}</p> : null}

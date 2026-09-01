@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.21 — 2026-09-01
+
+- Stays setup: load property/units on the server (Nest first, Neon read fallback) so the wizard no longer fails with a blank client fetch.
+- Clearer Nest/Neon error detail when context cannot load.
+- Nest setup context: safer `orderBy(asc(...))` and skip profile query when property has no units.
+
 ## 0.4.20 — 2026-09-01
 
 - Stays org allowlist: empty + platform on = all orgs (open pilot); explicit UUID list still locks down.
