@@ -2,7 +2,8 @@
 
 **تاريخ:** 2026-09-01  
 **المستودع:** https://github.com/ainoamn/BHD-R  
-**الفرع:** `main`  
+**الفرع:** `main` (مدمج على GitHub)  
+**آخر commit:** `80aa5dd` — *Ship stays public UX, wizard improvements, and portfolio list fix as 0.4.24.*  
 **معرّف محادثة Cursor:** [d0d5551b-99f7-449e-92d1-5d812bcf527d](d0d5551b-99f7-449e-92d1-5d812bcf527d)
 
 ---
@@ -53,7 +54,9 @@ git pull origin main
 | المصدر | الموقع |
 | --- | --- |
 | **تسليم سابق (JSONL كامل حتى 0.4.22)** | [`../2026-09-01-stays-setup-neon-write/`](../2026-09-01-stays-setup-neon-write/) |
-| **استمرار هذه الجلسة** | Transcript Cursor: `d0d5551b-99f7-449e-92d1-5d812bcf527d` |
+| [`CONTINUE-PLAN-AR.md`](./CONTINUE-PLAN-AR.md) | خطوات التحقق والاستكمال من جهاز آخر |
+| [`MANIFEST.md`](./MANIFEST.md) | commit hash وروابط |
+| **استمرار جلسة Cursor (0.4.23–0.4.24)** | Transcript `d0d5551b-99f7-449e-92d1-5d812bcf527d` |
 
 ---
 
