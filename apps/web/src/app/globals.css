@@ -8320,6 +8320,112 @@ button.ops-row-key {
   padding-top: 1.25rem;
   border-top: 1px solid color-mix(in srgb, var(--border, #d6d3d1) 80%, transparent);
 }
+.stay-showcase {
+  margin-bottom: 2rem;
+}
+.stay-showcase__crumb {
+  margin-bottom: 1rem;
+  font-size: 0.92rem;
+}
+.stay-showcase__hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.9fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+.stay-showcase__gallery-main {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border-radius: 1rem;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface-muted, #eceae7) 70%, transparent);
+}
+.stay-showcase__gallery-placeholder {
+  display: grid;
+  place-items: center;
+  min-height: 18rem;
+  border-radius: 1rem;
+  background: var(--brand-green, #1f4d3a);
+}
+.stay-showcase__gallery-thumbs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 0.65rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.stay-showcase__gallery-thumbs li {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border-radius: 0.65rem;
+  overflow: hidden;
+}
+.stay-showcase__facts {
+  padding: 1.25rem;
+}
+.stay-showcase__title {
+  margin: 0 0 0.35rem;
+  font-size: clamp(1.35rem, 2vw, 1.85rem);
+}
+.stay-showcase__location {
+  margin: 0 0 0.85rem;
+  color: var(--text-muted, #57534e);
+}
+.stay-showcase__price {
+  margin: 0 0 1rem;
+  font-size: 1.05rem;
+}
+.stay-showcase__stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem 1rem;
+  margin: 0;
+}
+.stay-showcase__stats dt {
+  font-size: 0.78rem;
+  color: var(--text-muted, #57534e);
+}
+.stay-showcase__stats dd {
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+}
+.stay-showcase__description {
+  margin-top: 1.25rem;
+  padding: 1.25rem;
+}
+.stay-showcase__description h2 {
+  margin: 0 0 0.65rem;
+  font-size: 1.15rem;
+}
+.stays-setup-wizard__field-actions,
+.stays-setup-wizard__summary-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.35rem;
+}
+.stays-setup-preview {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid color-mix(in srgb, var(--border, #d6d3d1) 80%, transparent);
+}
+.stays-setup-preview__card {
+  max-width: 22rem;
+  margin-top: 0.85rem;
+}
+.stays-setup-preview__slug {
+  margin: 0.65rem 0 0;
+  font-size: 0.88rem;
+  color: var(--text-muted, #57534e);
+}
+@media (max-width: 900px) {
+  .stay-showcase__hero {
+    grid-template-columns: 1fr;
+  }
+}
 .guest-stays-lookup {
   margin: 1.5rem 0 2rem;
 }

@@ -77,6 +77,19 @@ export class StaysSearchService implements OnModuleDestroy {
               LIMIT 1
             ) AS nightly_minor,
             (
+              SELECT srp.base_nightly_minor::text
+              FROM stay_profiles sp2
+              INNER JOIN stay_rate_plans srp
+                ON srp.stay_profile_id = sp2.id
+               AND srp.enabled = true
+              WHERE sp2.unit_id = u.id
+                AND sp2.organization_id = spl.organization_id
+                AND sp2.enabled = true
+                AND sp2.publish_status = 'published'
+              ORDER BY srp.priority ASC, srp.created_at ASC
+              LIMIT 1
+            ) AS rate_plan_minor,
+            (
               SELECT sid.currency
               FROM stay_inventory_days sid
               WHERE sid.unit_id = u.id
@@ -87,7 +100,21 @@ export class StaysSearchService implements OnModuleDestroy {
                 )
               ORDER BY sid.stay_date
               LIMIT 1
-            ) AS night_currency
+            ) AS night_currency,
+            (
+              SELECT '/api/public/media/' || ma.id::text
+              FROM unit_media um
+              INNER JOIN media_assets ma ON ma.id = um.media_asset_id
+              INNER JOIN units bu ON bu.id = um.unit_id
+              WHERE bu.property_id = p.id
+                AND ma.processing_status = 'ready'
+                AND ma.scan_status = 'clean'
+                AND ma.mime_type LIKE 'image/%'
+              ORDER BY
+                CASE WHEN ma.metadata->>'galleryScope' = 'building' THEN 0 ELSE 1 END,
+                um.position ASC
+              LIMIT 1
+            ) AS cover_image_url
           FROM stay_public_listings spl
           INNER JOIN properties p
             ON p.id = spl.property_id
@@ -135,10 +162,11 @@ export class StaysSearchService implements OnModuleDestroy {
           title_ar,
           title_en,
           destination,
-          nightly_minor,
+          COALESCE(nightly_minor, rate_plan_minor) AS nightly_minor,
           COALESCE(night_currency, profile_currency) AS currency,
           max_guests,
-          unit_id
+          unit_id,
+          cover_image_url
         FROM candidates
         WHERE (
           ${query.minNightlyMinor ?? null}::text IS NULL
@@ -171,6 +199,7 @@ export class StaysSearchService implements OnModuleDestroy {
       currency: string | null;
       max_guests: number | null;
       unit_id: string;
+      cover_image_url: string | null;
     }>;
     const next = rows.length > limit ? sliced[sliced.length - 1]?.slug ?? null : null;
 
@@ -182,7 +211,7 @@ export class StaysSearchService implements OnModuleDestroy {
         destination: row.destination,
         nightlyMinor: row.nightly_minor,
         currency: (row.currency as StaySearchResponse['items'][number]['currency']) ?? null,
-        coverImageUrl: null,
+        coverImageUrl: row.cover_image_url,
         maxGuests: row.max_guests,
         unitId: row.unit_id,
       })),
@@ -208,9 +237,19 @@ export class StaysSearchService implements OnModuleDestroy {
           spl.summary_ar AS description_ar,
           spl.summary_en AS description_en,
           a.governorate AS destination,
+          a.wilayat,
+          a.city,
           sp.max_guests,
           sp.currency AS profile_currency,
+          sp.check_in_from,
+          sp.check_out_until,
           u.id AS unit_id,
+          u.bedrooms,
+          u.bathrooms,
+          u.area_square_meters,
+          p.id AS property_id,
+          p.name_ar AS property_name_ar,
+          p.name_en AS property_name_en,
           (
             SELECT sid.effective_rate_minor::text
             FROM stay_inventory_days sid
@@ -221,6 +260,14 @@ export class StaysSearchService implements OnModuleDestroy {
             LIMIT 1
           ) AS nightly_minor,
           (
+            SELECT srp.base_nightly_minor::text
+            FROM stay_rate_plans srp
+            WHERE srp.stay_profile_id = sp.id
+              AND srp.enabled = true
+            ORDER BY srp.priority ASC, srp.created_at ASC
+            LIMIT 1
+          ) AS rate_plan_minor,
+          (
             SELECT sid.currency
             FROM stay_inventory_days sid
             WHERE sid.unit_id = u.id
@@ -228,7 +275,21 @@ export class StaysSearchService implements OnModuleDestroy {
               AND sid.stay_date >= CURRENT_DATE
             ORDER BY sid.stay_date
             LIMIT 1
-          ) AS night_currency
+          ) AS night_currency,
+          (
+            SELECT '/api/public/media/' || ma.id::text
+            FROM unit_media um
+            INNER JOIN media_assets ma ON ma.id = um.media_asset_id
+            INNER JOIN units bu ON bu.id = um.unit_id
+            WHERE bu.property_id = p.id
+              AND ma.processing_status = 'ready'
+              AND ma.scan_status = 'clean'
+              AND ma.mime_type LIKE 'image/%'
+            ORDER BY
+              CASE WHEN ma.metadata->>'galleryScope' = 'building' THEN 0 ELSE 1 END,
+              um.position ASC
+            LIMIT 1
+          ) AS cover_image_url
         FROM stay_public_listings spl
         INNER JOIN properties p
           ON p.id = spl.property_id
@@ -262,14 +323,44 @@ export class StaysSearchService implements OnModuleDestroy {
           description_ar: string | null;
           description_en: string | null;
           destination: string | null;
+          wilayat: string | null;
+          city: string | null;
           max_guests: number | null;
           profile_currency: string | null;
+          check_in_from: string | null;
+          check_out_until: string | null;
           unit_id: string;
+          bedrooms: number | null;
+          bathrooms: number | null;
+          area_square_meters: number | null;
+          property_id: string;
+          property_name_ar: string;
+          property_name_en: string;
           nightly_minor: string | null;
+          rate_plan_minor: string | null;
           night_currency: string | null;
+          cover_image_url: string | null;
         }
       | undefined;
     if (!row) return null;
+
+    const imageRows = await this.database.asPublic(async (transaction) => {
+      const result = await transaction.execute(sql`
+        SELECT '/api/public/media/' || ma.id::text AS url
+        FROM unit_media um
+        INNER JOIN media_assets ma ON ma.id = um.media_asset_id
+        INNER JOIN units bu ON bu.id = um.unit_id
+        WHERE bu.property_id = ${row.property_id}::uuid
+          AND ma.processing_status = 'ready'
+          AND ma.scan_status = 'clean'
+          AND ma.mime_type LIKE 'image/%'
+        ORDER BY
+          CASE WHEN ma.metadata->>'galleryScope' = 'building' THEN 0 ELSE 1 END,
+          um.position ASC
+        LIMIT 12
+      `);
+      return Array.isArray(result) ? result : ((result as { rows?: unknown[] }).rows ?? []);
+    });
 
     const detail: StayPublicDetail = {
       slug: row.slug,
@@ -278,11 +369,23 @@ export class StaysSearchService implements OnModuleDestroy {
       descriptionAr: row.description_ar,
       descriptionEn: row.description_en,
       destination: row.destination,
-      nightlyMinor: row.nightly_minor,
+      wilayat: row.wilayat,
+      city: row.city,
+      nightlyMinor: row.nightly_minor ?? row.rate_plan_minor,
       currency:
         ((row.night_currency ?? row.profile_currency) as StayPublicDetail['currency']) ?? null,
       maxGuests: row.max_guests,
       unitId: row.unit_id,
+      propertyId: row.property_id,
+      propertyNameAr: row.property_name_ar,
+      propertyNameEn: row.property_name_en,
+      bedrooms: row.bedrooms,
+      bathrooms: row.bathrooms,
+      areaSquareMeters: row.area_square_meters,
+      checkInFrom: row.check_in_from,
+      checkOutUntil: row.check_out_until,
+      coverImageUrl: row.cover_image_url,
+      imageUrls: (imageRows as Array<{ url: string }>).map((item) => item.url),
     };
     await this.writeCache(cacheKey, detail);
     return detail;

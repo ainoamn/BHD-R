@@ -15,6 +15,7 @@ import {
   createStayProfilesOnNeon,
   createStayUnitTypeOnNeon,
   publishStayProfileOnNeon,
+  publishStayProfilesOnNeon,
   updateStayProfileOnNeon,
   upsertStayListingOnNeon,
   upsertStayRatePlanOnNeon,
@@ -54,6 +55,12 @@ const bodySchema = z.discriminatedUnion('action', [
     .strict(),
   z.object({ action: z.literal('upsert_listing'), payload: upsertStayPublicListingSchema }),
   z.object({ action: z.literal('publish_profile'), profileId: uuidSchema }).strict(),
+  z
+    .object({
+      action: z.literal('publish_profiles'),
+      profileIds: z.array(uuidSchema).min(1).max(50),
+    })
+    .strict(),
 ]);
 
 const errorMap: Record<string, { ar: string; en: string; status: number }> = {
@@ -175,6 +182,8 @@ export async function POST(request: Request) {
         return setupJson(await upsertStayListingOnNeon(claims, body.payload));
       case 'publish_profile':
         return setupJson(await publishStayProfileOnNeon(claims, body.profileId));
+      case 'publish_profiles':
+        return setupJson(await publishStayProfilesOnNeon(claims, body.profileIds));
       default:
         return NextResponse.json(
           { error: { code: 'unknown_action', message: 'Unknown action' } },

@@ -1,8 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from '@/i18n/navigation';
+import Image from 'next/image';
+import { Button, BrandMark } from '@bhd-r/ui';
+import { Link, useRouter } from '@/i18n/navigation';
 import { ApiError, browserGet, browserMutation, browserNextMutation } from '@/lib/api';
+import { formatMoney } from '@/lib/format';
+import { generateListingDescriptions, translateText } from '@/lib/property-listing-copy';
+import { toPublicMediaSrc } from '@/lib/public-media-url';
 import type { StaySetupContext } from '@bhd-r/contracts';
 import type { StaySetupPropertySummary } from '@/lib/stay-setup-neon';
 import { PropertyOpsRowKey } from '@/components/property-ops-row-key';
@@ -66,6 +71,13 @@ const copy = {
     titleEn: 'العنوان (إنجليزي)',
     slug: 'الرابط (slug)',
     summaryAr: 'ملخص (عربي)',
+    summaryEn: 'ملخص (إنجليزي)',
+    generateSummary: 'توليد الملخص بالذكاء الاصطناعي',
+    translateToEn: 'ترجمة إلى الإنجليزية',
+    translateToAr: 'ترجمة إلى العربية',
+    previewTitle: 'معاينة كما ستظهر للجمهور',
+    previewHint: 'هذه معاينة تقريبية — بعد النشر ستُفتح صفحة الإقامة مباشرة.',
+    viewListing: 'عرض صفحة الإقامة',
     review: 'راجع الإعداد قبل النشر',
     backToStays: 'العودة للوحة الإقامات',
     noUnits: 'لا توجد وحدات في هذا العقار.',
@@ -114,6 +126,13 @@ const copy = {
     titleEn: 'Title (English)',
     slug: 'URL slug',
     summaryAr: 'Summary (Arabic)',
+    summaryEn: 'Summary (English)',
+    generateSummary: 'Generate summary with AI',
+    translateToEn: 'Translate to English',
+    translateToAr: 'Translate to Arabic',
+    previewTitle: 'Preview as guests will see it',
+    previewHint: 'Approximate preview — after publish you will land on the live stay page.',
+    viewListing: 'View stay page',
     review: 'Review before publishing',
     backToStays: 'Back to stays dashboard',
     noUnits: 'No units on this property.',
@@ -150,6 +169,7 @@ export function StaySetupWizard({
   propertySummary?: StaySetupPropertySummary | null;
 }) {
   const t = copy[locale];
+  const router = useRouter();
   const [step, setStep] = useState(0);
   const [context, setContext] = useState<StaySetupContext | null>(initialContext);
   const [loading, setLoading] = useState(false);
@@ -174,7 +194,11 @@ export function StaySetupWizard({
   const [titleEn, setTitleEn] = useState('');
   const [slug, setSlug] = useState('');
   const [summaryAr, setSummaryAr] = useState('');
+  const [summaryEn, setSummaryEn] = useState('');
   const [profileIds, setProfileIds] = useState<string[]>([]);
+  const [translating, setTranslating] = useState<
+    'title-en' | 'title-ar' | 'summary-en' | 'summary-ar' | null
+  >(null);
 
   const current = STEPS[step]!;
   const canWrite = Boolean(propertyId) && (writeAvailable || apiAvailable);
@@ -202,6 +226,8 @@ export function StaySetupWizard({
       setSlug(data.listings[0].slug);
       setTitleAr(data.listings[0].titleAr);
       setTitleEn(data.listings[0].titleEn);
+      setSummaryAr(data.listings[0].summaryAr ?? '');
+      setSummaryEn(data.listings[0].summaryEn ?? '');
     } else if (data.units[0]) {
       setSlug(slugify(`${data.propertyNameEn}-${data.units[0].code}`));
     }
@@ -279,6 +305,75 @@ export function StaySetupWizard({
       `${t.slug}: ${slug || '—'}`,
     ];
   }, [context, currency, locale, maxGuests, nightlyRate, selectedUnitIds, slug, t.maxGuests, t.nightlyRate, t.slug]);
+
+  const previewPriceLabel = useMemo(() => {
+    const minor = minorFromMajor(nightlyRate, minorUnit);
+    if (!minor) return null;
+    return formatMoney(minor, currency, locale);
+  }, [currency, locale, minorUnit, nightlyRate]);
+
+  const previewCover = toPublicMediaSrc(propertySummary?.coverImageUrl ?? null);
+
+  async function translateField(
+    source: string,
+    target: 'ar' | 'en',
+    apply: (value: string) => void,
+    key: 'title-en' | 'title-ar' | 'summary-en' | 'summary-ar',
+  ) {
+    if (!source.trim()) return;
+    setTranslating(key);
+    setError(null);
+    try {
+      const translated = await translateText(source, target);
+      apply(translated);
+    } catch {
+      setError(
+        locale === 'ar'
+          ? 'تعذّرت الترجمة التلقائية. عدّل النص يدوياً أو أعد المحاولة.'
+          : 'Automatic translation failed. Edit manually or retry.',
+      );
+    } finally {
+      setTranslating(null);
+    }
+  }
+
+  function runAiSummary() {
+    if (!context) return;
+    const primary =
+      context.units.find((unit) => selectedUnitIds.includes(unit.id)) ?? context.units[0];
+    if (!primary) return;
+    const locationParts = propertySummary?.location?.split(' · ') ?? [];
+    const generated = generateListingDescriptions({
+      nameAr: titleAr.trim() || context.propertyNameAr,
+      nameEn: titleEn.trim() || context.propertyNameEn,
+      category: propertySummary?.kind === 'multi_unit' ? 'building' : 'apartment',
+      governorate: locationParts.at(-1) ?? '',
+      wilayat: locationParts.at(-2) ?? '',
+      village: locationParts.at(-3) ?? '',
+      street: locationParts[0] ?? '',
+      bedrooms: primary.bedrooms,
+      bathrooms: primary.bathrooms,
+      majlis: 0,
+      halls: 0,
+      kitchens: 0,
+      area: undefined,
+      listingPurpose: 'rent',
+      furnishing: '',
+      amenities: [],
+      multiUnit:
+        propertySummary?.kind === 'multi_unit'
+          ? {
+              shopCount: 0,
+              showroomCount: 0,
+              apartmentCount: propertySummary.unitCount,
+              totalArea: undefined,
+              yearBuilt: undefined,
+            }
+          : undefined,
+    });
+    setSummaryAr(generated.descriptionAr);
+    setSummaryEn(generated.descriptionEn);
+  }
 
   async function ensureUnitType(): Promise<string> {
     if (unitTypeId) return unitTypeId;
@@ -401,6 +496,7 @@ export function StaySetupWizard({
       titleAr: titleAr.trim(),
       titleEn: titleEn.trim(),
       summaryAr: summaryAr.trim() || undefined,
+      summaryEn: summaryEn.trim() || undefined,
     };
     if (writeAvailable) {
       await browserNextMutation('/api/owner/stays/setup', {
@@ -419,16 +515,18 @@ export function StaySetupWizard({
   async function publishAll() {
     const ids = resolveProfileIds();
     if (!ids.length) throw new Error(t.publishError);
-    for (const id of ids) {
-      if (writeAvailable) {
-        await browserNextMutation('/api/owner/stays/setup', {
-          method: 'POST',
-          body: JSON.stringify({ action: 'publish_profile', profileId: id }),
-        });
-      } else {
-        await browserMutation(`/v1/stays/setup/profiles/${id}/publish`, { method: 'POST' });
-      }
+    if (writeAvailable) {
+      await browserNextMutation('/api/owner/stays/setup', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'publish_profiles', profileIds: ids }),
+      });
+      return;
     }
+    await Promise.all(
+      ids.map((id) =>
+        browserMutation(`/v1/stays/setup/profiles/${id}/publish`, { method: 'POST' }),
+      ),
+    );
   }
 
   async function handleNext() {
@@ -454,13 +552,16 @@ export function StaySetupWizard({
     setBusy(true);
     setError(null);
     setNotice(null);
+    const publishedSlug = slug.trim();
     try {
       if (current !== 'publish') {
         await saveContentStep();
       }
       await publishAll();
       setNotice(t.published);
-      await loadContext();
+      if (publishedSlug) {
+        router.push(`/stays/${encodeURIComponent(publishedSlug)}`);
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : t.publishError);
     } finally {
@@ -737,6 +838,18 @@ export function StaySetupWizard({
                   value={titleAr}
                   onChange={(event) => setTitleAr(event.target.value)}
                 />
+                <div className="hero-actions stays-setup-wizard__field-actions">
+                  <Button
+                    type="button"
+                    variant="quiet"
+                    disabled={translating !== null || !titleAr.trim()}
+                    onClick={() =>
+                      void translateField(titleAr, 'en', setTitleEn, 'title-en')
+                    }
+                  >
+                    {translating === 'title-en' ? '…' : t.translateToEn}
+                  </Button>
+                </div>
               </div>
               <div className="field">
                 <label htmlFor="title-en">{t.titleEn}</label>
@@ -747,6 +860,18 @@ export function StaySetupWizard({
                   onChange={(event) => setTitleEn(event.target.value)}
                   dir="ltr"
                 />
+                <div className="hero-actions stays-setup-wizard__field-actions">
+                  <Button
+                    type="button"
+                    variant="quiet"
+                    disabled={translating !== null || !titleEn.trim()}
+                    onClick={() =>
+                      void translateField(titleEn, 'ar', setTitleAr, 'title-ar')
+                    }
+                  >
+                    {translating === 'title-ar' ? '…' : t.translateToAr}
+                  </Button>
+                </div>
               </div>
               <div className="field">
                 <label htmlFor="slug">{t.slug}</label>
@@ -759,14 +884,54 @@ export function StaySetupWizard({
                 />
               </div>
               <div className="field">
-                <label htmlFor="summary-ar">{t.summaryAr}</label>
+                <div className="stays-setup-wizard__summary-head">
+                  <label htmlFor="summary-ar">{t.summaryAr}</label>
+                  <div className="hero-actions">
+                    <Button type="button" variant="quiet" onClick={runAiSummary}>
+                      {t.generateSummary}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="quiet"
+                      disabled={translating !== null || !summaryAr.trim()}
+                      onClick={() =>
+                        void translateField(summaryAr, 'en', setSummaryEn, 'summary-en')
+                      }
+                    >
+                      {translating === 'summary-en' ? '…' : t.translateToEn}
+                    </Button>
+                  </div>
+                </div>
                 <textarea
                   id="summary-ar"
                   className="input"
-                  rows={3}
+                  rows={4}
                   value={summaryAr}
                   onChange={(event) => setSummaryAr(event.target.value)}
                 />
+              </div>
+              <div className="field">
+                <label htmlFor="summary-en">{t.summaryEn}</label>
+                <textarea
+                  id="summary-en"
+                  className="input"
+                  rows={4}
+                  value={summaryEn}
+                  onChange={(event) => setSummaryEn(event.target.value)}
+                  dir="ltr"
+                />
+                <div className="hero-actions stays-setup-wizard__field-actions">
+                  <Button
+                    type="button"
+                    variant="quiet"
+                    disabled={translating !== null || !summaryEn.trim()}
+                    onClick={() =>
+                      void translateField(summaryEn, 'ar', setSummaryAr, 'summary-ar')
+                    }
+                  >
+                    {translating === 'summary-ar' ? '…' : t.translateToAr}
+                  </Button>
+                </div>
               </div>
             </fieldset>
           ) : null}
@@ -779,6 +944,50 @@ export function StaySetupWizard({
                   <li key={line}>{line}</li>
                 ))}
               </ul>
+
+              <section className="stays-setup-preview" aria-label={t.previewTitle}>
+                <h3>{t.previewTitle}</h3>
+                <p className="muted">{t.previewHint}</p>
+                <article className="listing-card stay-card stays-setup-preview__card">
+                  <div className="listing-card__image">
+                    {previewCover ? (
+                      <Image
+                        src={previewCover}
+                        alt={locale === 'ar' ? titleAr : titleEn}
+                        fill
+                        sizes="320px"
+                      />
+                    ) : (
+                      <div className="listing-card__placeholder" aria-hidden="true">
+                        <BrandMark tone="onDark" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="listing-card__body">
+                    <h4>{locale === 'ar' ? titleAr || context?.propertyNameAr : titleEn || context?.propertyNameEn}</h4>
+                    {propertySummary?.location ? (
+                      <p className="listing-card__location">{propertySummary.location.split(' · ').pop()}</p>
+                    ) : null}
+                    <div className="listing-card__facts">
+                      <span>
+                        {maxGuests} {locale === 'ar' ? 'ضيوف' : 'guests'}
+                      </span>
+                      {previewPriceLabel ? (
+                        <span>
+                          {locale === 'ar' ? 'ابتداءً من' : 'From'}{' '}
+                          <strong dir="ltr">{previewPriceLabel}</strong>{' '}
+                          {locale === 'ar' ? 'لليلة' : 'per night'}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                </article>
+                {slug.trim() ? (
+                  <p className="stays-setup-preview__slug" dir="ltr">
+                    /stays/{slug.trim()}
+                  </p>
+                ) : null}
+              </section>
             </div>
           ) : null}
         </div>

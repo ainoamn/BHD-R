@@ -1,0 +1,155 @@
+import Image from 'next/image';
+import { BrandMark } from '@bhd-r/ui';
+import { Link } from '@/i18n/navigation';
+import { formatMoney, localizedName } from '@/lib/format';
+import { toPublicMediaSrc } from '@/lib/public-media-url';
+import type { StayPublicDetail } from '@bhd-r/contracts';
+
+export function StayPublicShowcase({
+  detail,
+  locale,
+}: {
+  detail: StayPublicDetail;
+  locale: string;
+}) {
+  const ar = locale === 'ar';
+  const title = localizedName(locale, detail.titleAr, detail.titleEn);
+  const propertyName = localizedName(
+    locale,
+    detail.propertyNameAr ?? '',
+    detail.propertyNameEn ?? '',
+  );
+  const description = localizedName(
+    locale,
+    detail.descriptionAr ?? '',
+    detail.descriptionEn ?? '',
+  );
+  const locationParts = [detail.city, detail.wilayat, detail.destination].filter(Boolean);
+  const locationLine = locationParts.join(ar ? ' · ' : ', ');
+  const images = (detail.imageUrls ?? [])
+    .map((url) => toPublicMediaSrc(url))
+    .filter(Boolean) as string[];
+  const cover = toPublicMediaSrc(detail.coverImageUrl) ?? images[0] ?? null;
+  const gallery = cover
+    ? [cover, ...images.filter((url) => url !== cover)].slice(0, 6)
+    : images.slice(0, 6);
+  const priceLabel =
+    detail.nightlyMinor && detail.currency
+      ? formatMoney(detail.nightlyMinor, detail.currency, locale)
+      : null;
+
+  return (
+    <div className="stay-showcase">
+      <nav className="stay-showcase__crumb muted" aria-label={ar ? 'مسار التنقل' : 'Breadcrumb'}>
+        <Link href="/stays">{ar ? 'الإقامات اليومية' : 'Daily stays'}</Link>
+        {propertyName ? (
+          <>
+            <span aria-hidden="true"> › </span>
+            {detail.propertyId ? (
+              <Link href={`/properties/${detail.propertyId}`}>{propertyName}</Link>
+            ) : (
+              <span>{propertyName}</span>
+            )}
+          </>
+        ) : null}
+        {locationLine ? (
+          <>
+            <span aria-hidden="true"> › </span>
+            <span>{locationLine}</span>
+          </>
+        ) : null}
+      </nav>
+
+      <div className="stay-showcase__hero">
+        <div className="stay-showcase__gallery" aria-label={ar ? 'معرض الصور' : 'Photo gallery'}>
+          {gallery.length ? (
+            <>
+              <div className="stay-showcase__gallery-main">
+                <Image src={gallery[0]!} alt={title} fill sizes="(max-width: 960px) 100vw, 60vw" priority />
+              </div>
+              {gallery.length > 1 ? (
+                <ul className="stay-showcase__gallery-thumbs">
+                  {gallery.slice(1).map((src) => (
+                    <li key={src}>
+                      <Image src={src} alt="" fill sizes="120px" />
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </>
+          ) : (
+            <div className="stay-showcase__gallery-placeholder">
+              <BrandMark tone="onDark" />
+            </div>
+          )}
+        </div>
+
+        <aside className="stay-showcase__facts card">
+          <h1 className="stay-showcase__title">{title}</h1>
+          {locationLine ? <p className="stay-showcase__location">{locationLine}</p> : null}
+          {priceLabel ? (
+            <p className="stay-showcase__price">
+              {ar ? 'ابتداءً من' : 'From'}{' '}
+              <strong dir="ltr">{priceLabel}</strong>{' '}
+              {ar ? 'لليلة' : 'per night'}
+            </p>
+          ) : null}
+          <dl className="stay-showcase__stats">
+            {detail.maxGuests != null ? (
+              <div>
+                <dt>{ar ? 'الضيوف' : 'Guests'}</dt>
+                <dd>{detail.maxGuests}</dd>
+              </div>
+            ) : null}
+            {detail.bedrooms != null ? (
+              <div>
+                <dt>{ar ? 'غرف النوم' : 'Bedrooms'}</dt>
+                <dd>{detail.bedrooms}</dd>
+              </div>
+            ) : null}
+            {detail.bathrooms != null ? (
+              <div>
+                <dt>{ar ? 'الحمّامات' : 'Bathrooms'}</dt>
+                <dd>{detail.bathrooms}</dd>
+              </div>
+            ) : null}
+            {detail.areaSquareMeters != null ? (
+              <div>
+                <dt>{ar ? 'المساحة' : 'Area'}</dt>
+                <dd dir="ltr">
+                  {detail.areaSquareMeters} m²
+                </dd>
+              </div>
+            ) : null}
+            {detail.checkInFrom ? (
+              <div>
+                <dt>{ar ? 'تسجيل الدخول' : 'Check-in'}</dt>
+                <dd dir="ltr">{detail.checkInFrom}</dd>
+              </div>
+            ) : null}
+            {detail.checkOutUntil ? (
+              <div>
+                <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
+                <dd dir="ltr">{detail.checkOutUntil}</dd>
+              </div>
+            ) : null}
+          </dl>
+          {detail.unitId ? (
+            <p className="stay-showcase__unit-link">
+              <Link className="text-link" href={`/units/${detail.unitId}`}>
+                {ar ? 'عرض تفاصيل الوحدة الكاملة' : 'View full unit listing'}
+              </Link>
+            </p>
+          ) : null}
+        </aside>
+      </div>
+
+      {description ? (
+        <section className="stay-showcase__description card">
+          <h2>{ar ? 'عن هذه الإقامة' : 'About this stay'}</h2>
+          <p>{description}</p>
+        </section>
+      ) : null}
+    </div>
+  );
+}

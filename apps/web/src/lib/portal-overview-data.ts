@@ -23,6 +23,7 @@ type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdRWebDb?: DbHandle };
 
 const ORG_WIDE_ROLES = new Set([
+  'organization_owner',
   'organization_admin',
   'property_manager',
   'finance_manager',

@@ -18,6 +18,7 @@ import { DatabaseService } from '../database/database.service.js';
 import { LeasingService } from '../leasing/leasing.service.js';
 
 const ORG_WIDE_ROLES = new Set([
+  'organization_owner',
   'organization_admin',
   'property_manager',
   'finance_manager',
@@ -310,8 +311,8 @@ export class PortalsService {
           street: addresses.street,
         })
         .from(properties)
-        .innerJoin(parties, eq(parties.id, properties.ownerPartyId))
-        .innerJoin(addresses, eq(addresses.id, properties.addressId))
+        .leftJoin(parties, eq(parties.id, properties.ownerPartyId))
+        .leftJoin(addresses, eq(addresses.id, properties.addressId))
         .where(
           and(
             eq(properties.organizationId, claims.organizationId!),

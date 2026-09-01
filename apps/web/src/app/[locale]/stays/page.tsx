@@ -4,8 +4,11 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { StayCard, type StayCardListing } from '@/components/stays/stay-card';
 import { StaySearch } from '@/components/stays/stay-search';
+import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { searchPublicStaysOnNeon } from '@/lib/load-public-stays-neon';
 import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
 import { publicApiFetch } from '@/lib/server-api';
+import type { StaySearchQuery } from '@bhd-r/contracts';
 
 type SearchResult = {
   items?: StayCardListing[];
@@ -56,12 +59,33 @@ export default async function Page({
   if (adults) qs.set('adults', adults);
   if (children) qs.set('children', children);
 
-  const result = await publicApiFetch<SearchResult>(
-    `/v1/public/stays/search?${qs.toString()}`,
-    8,
-  ).catch(() => ({ items: [] as StayCardListing[] }));
+  const searchQuery: StaySearchQuery = {
+    countryCode: 'OM',
+    locale: locale === 'en' ? 'en' : 'ar',
+    limit: 24,
+    adults: Number.parseInt(adults ?? '2', 10) || 2,
+    children: Number.parseInt(children ?? '0', 10) || 0,
+    ...(destination ? { governorate: destination } : {}),
+    ...(checkInOn ? { checkInOn } : {}),
+    ...(checkOutOn ? { checkOutOn } : {}),
+  };
 
-  const items = result.items ?? [];
+  let items: StayCardListing[] = [];
+  if (hasDatabaseUrl()) {
+    try {
+      const neon = await searchPublicStaysOnNeon(searchQuery);
+      items = neon.items as StayCardListing[];
+    } catch (error) {
+      console.error('Neon public stays search failed', error);
+    }
+  }
+  if (!items.length) {
+    const result = await publicApiFetch<SearchResult>(
+      `/v1/public/stays/search?${qs.toString()}`,
+      8,
+    ).catch(() => ({ items: [] as StayCardListing[] }));
+    items = result.items ?? [];
+  }
 
   return (
     <div className="container section stays-public">

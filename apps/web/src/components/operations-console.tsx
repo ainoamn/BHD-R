@@ -2051,7 +2051,8 @@ export function OperationsConsole({
     setPrefillUnitId(unitId);
     setPrefillReservationId(reservationId);
     setPrefillTenantId(tenantId);
-    setPropertyFilter(propertyId);
+    // Portfolio lists every property — ?propertyId= is for bookings/leasing filters only.
+    setPropertyFilter(section === 'properties' ? '' : propertyId);
     if (reservationId && !tenantId) {
       const match = (context.confirmedReservations ?? context.reservations ?? []).find(
         (row) => row.id === reservationId,
@@ -2098,7 +2099,7 @@ export function OperationsConsole({
       } else if (statusFilter && status !== statusFilter) {
         return false;
       }
-      if (propertyFilter) {
+      if (propertyFilter && section !== 'properties') {
         const rowPropertyId = safeString(row.propertyId);
         const rowUnitId = safeString(row.unitId);
         const matchesProperty =

@@ -1,6 +1,9 @@
+import Image from 'next/image';
 import { BrandMark } from '@bhd-r/ui';
 import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
+import { formatMoney } from '@/lib/format';
+import { toPublicMediaSrc } from '@/lib/public-media-url';
 
 export type StayCardListing = {
   slug: string;
@@ -30,6 +33,11 @@ export async function StayCard({
   const t = await getTranslations('Stays');
   const ar = locale === 'ar';
   const title = ar ? listing.titleAr : listing.titleEn;
+  const coverSrc = toPublicMediaSrc(listing.coverImageUrl);
+  const priceLabel =
+    listing.nightlyMinor && listing.currency
+      ? formatMoney(listing.nightlyMinor, listing.currency, locale)
+      : null;
   const qs = new URLSearchParams();
   if (query?.checkInOn) qs.set('checkInOn', query.checkInOn);
   if (query?.checkOutOn) qs.set('checkOutOn', query.checkOutOn);
@@ -42,9 +50,18 @@ export async function StayCard({
     <article className="listing-card stay-card">
       <Link href={href} aria-label={title} prefetch>
         <div className="listing-card__image">
-          <div className="listing-card__placeholder" aria-hidden="true">
-            <BrandMark tone="onDark" />
-          </div>
+          {coverSrc ? (
+            <Image
+              src={coverSrc}
+              alt={title}
+              fill
+              sizes="(max-width: 760px) 100vw, (max-width: 960px) 50vw, 33vw"
+            />
+          ) : (
+            <div className="listing-card__placeholder" aria-hidden="true">
+              <BrandMark tone="onDark" />
+            </div>
+          )}
         </div>
         <div className="listing-card__body">
           <h3>{title}</h3>
@@ -57,13 +74,9 @@ export async function StayCard({
                 {listing.maxGuests} {t('guests')}
               </span>
             ) : null}
-            {listing.nightlyMinor && listing.currency ? (
+            {priceLabel ? (
               <span>
-                {t('nightlyFrom')}{' '}
-                <strong dir="ltr">
-                  {listing.currency} {listing.nightlyMinor}
-                </strong>{' '}
-                {t('perNight')}
+                {t('nightlyFrom')} <strong dir="ltr">{priceLabel}</strong> {t('perNight')}
               </span>
             ) : null}
           </div>

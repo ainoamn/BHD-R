@@ -34,6 +34,7 @@ const globalForOpsContext = globalThis as unknown as {
 const OPS_CONTEXT_TTL_MS = 5_000;
 
 const ORG_WIDE_ROLES = new Set([
+  'organization_owner',
   'organization_admin',
   'property_manager',
   'finance_manager',

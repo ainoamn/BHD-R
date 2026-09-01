@@ -34,6 +34,8 @@ export const staySetupListingRowSchema = z.object({
   slug: z.string(),
   titleAr: z.string(),
   titleEn: z.string(),
+  summaryAr: z.string().nullable().optional(),
+  summaryEn: z.string().nullable().optional(),
   enabled: z.boolean(),
   publishedAt: z.string().datetime().nullable(),
 });

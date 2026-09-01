@@ -153,7 +153,7 @@ export const staySearchListingSchema = z.object({
   destination: z.string().max(200).nullable().optional(),
   nightlyMinor: z.string().regex(/^\d+$/).nullable().optional(),
   currency: currencyCodeSchema.nullable().optional(),
-  coverImageUrl: z.string().url().nullable().optional(),
+  coverImageUrl: z.string().nullable().optional(),
   maxGuests: z.number().int().min(1).max(100).nullable().optional(),
   unitId: uuidSchema.optional(),
 });
@@ -171,10 +171,22 @@ export const stayPublicDetailSchema = z.object({
   descriptionAr: z.string().nullable().optional(),
   descriptionEn: z.string().nullable().optional(),
   destination: z.string().max(200).nullable().optional(),
+  wilayat: z.string().max(200).nullable().optional(),
+  city: z.string().max(200).nullable().optional(),
   nightlyMinor: z.string().regex(/^\d+$/).nullable().optional(),
   currency: currencyCodeSchema.nullable().optional(),
   maxGuests: z.number().int().min(1).max(100).nullable().optional(),
   unitId: uuidSchema.optional(),
+  propertyId: uuidSchema.optional(),
+  propertyNameAr: z.string().optional(),
+  propertyNameEn: z.string().optional(),
+  bedrooms: z.number().int().nullable().optional(),
+  bathrooms: z.number().int().nullable().optional(),
+  areaSquareMeters: z.number().nullable().optional(),
+  checkInFrom: z.string().nullable().optional(),
+  checkOutUntil: z.string().nullable().optional(),
+  coverImageUrl: z.string().nullable().optional(),
+  imageUrls: z.array(z.string()).optional(),
 });
 
 export type StayProfile = z.infer<typeof stayProfileSchema>;
