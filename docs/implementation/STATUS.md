@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-09-01  
-**Product version:** 0.4.19  
-**Active focus:** Stays setup wizard + publish (pilot enablement)  
+**Product version:** 0.4.20  
+**Active focus:** Stays setup allowlist fix (empty = open pilot)  
+**Release 0.4.20:** [`RELEASE-0.4.20-AR.md`](./RELEASE-0.4.20-AR.md)  
 **Release 0.4.19:** [`RELEASE-0.4.19-AR.md`](./RELEASE-0.4.19-AR.md)  
 **Release 0.4.18:** property photo Nest Bearer + Neon fallback  
 **Release 0.4.16:** [`RELEASE-0.4.16-AR.md`](./RELEASE-0.4.16-AR.md)  

@@ -52,6 +52,35 @@ describe('stays feature flags (phase 0)', () => {
     expect(staysPublicSurfaceEnabled(partial)).toBe(false);
   });
 
+  it('empty allowlist with platform on enables any organization (open pilot)', () => {
+    const resolution = resolveStaysEnabledFromEnv(
+      {
+        organizationId: '00000000-0000-4000-8000-000000000099',
+        propertyEnabled: true,
+        unitEnabled: true,
+      },
+      { STAYS_PLATFORM_ENABLED: 'true', STAYS_ORG_ALLOWLIST: '' },
+    );
+    expect(resolution.enabled).toBe(true);
+    expect(resolution.organization).toBe(true);
+  });
+
+  it('explicit allowlist still excludes other orgs', () => {
+    const resolution = resolveStaysEnabledFromEnv(
+      {
+        organizationId: '00000000-0000-4000-8000-000000000099',
+        propertyEnabled: true,
+        unitEnabled: true,
+      },
+      {
+        STAYS_PLATFORM_ENABLED: 'true',
+        STAYS_ORG_ALLOWLIST: '00000000-0000-4000-8000-000000000001',
+      },
+    );
+    expect(resolution.enabled).toBe(false);
+    expect(resolution.reason).toBe('organization_off');
+  });
+
   it('treats unknown boolean strings as default false', () => {
     expect(readStaysFlagsFromEnv({ STAYS_PLATFORM_ENABLED: 'maybe' }).platformEnabled).toBe(
       false,

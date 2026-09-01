@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.20 — 2026-09-01
+
+- Stays org allowlist: empty + platform on = all orgs (open pilot); explicit UUID list still locks down.
+- Setup wizard shows real Nest probe errors (403/401/404) instead of a generic flag message.
+- Docs: ENV-MANIFEST allowlist behavior; redeploy Nest on Render required.
+
 ## 0.4.19 — 2026-09-01
 
 - Stays setup API: unit types, profiles, rate plans, public listings, publish with inline inventory rebuild.

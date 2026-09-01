@@ -113,11 +113,13 @@ export function StaySetupWizard({
   portal,
   propertyId,
   apiAvailable = false,
+  apiHint = null,
 }: {
   locale: 'ar' | 'en';
   portal: 'owner' | 'developer';
   propertyId?: string | null;
   apiAvailable?: boolean;
+  apiHint?: string | null;
 }) {
   const t = copy[locale];
   const [step, setStep] = useState(0);
@@ -368,8 +370,8 @@ export function StaySetupWizard({
           </p>
         ) : null}
         {!canWrite ? (
-          <p className="notice notice--info" role="status">
-            {t.comingOnline}
+          <p className="notice notice--warning" role="status">
+            {apiHint ?? t.comingOnline}
           </p>
         ) : null}
         {loading ? <p className="muted">{locale === 'ar' ? 'جاري التحميل…' : 'Loading…'}</p> : null}

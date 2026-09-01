@@ -33,7 +33,7 @@ Blueprint: root `render.yaml` (keys as `sync: false` unless noted).
 | `MEDIA_UPLOAD_BASE_URL` | optional | |
 | `TRUST_PROXY_HOPS` | recommended | `1` on Render |
 | `STAYS_PLATFORM_ENABLED` | optional | Default **off** (`false`). Platform kill-switch for BHD R Stays. |
-| `STAYS_ORG_ALLOWLIST` | optional | Comma-separated org UUIDs (or `*`) when platform flag is on. Property/unit still require explicit enablement in later phases. |
+| `STAYS_ORG_ALLOWLIST` | optional | Comma-separated org UUIDs or `*`. **Empty + platform on = all orgs (open pilot as of 0.4.20).** Explicit list locks down. |
 
 \* `API_ORIGIN` is in the Zod schema with a localhost default — set it in production to the public Nest URL.
 

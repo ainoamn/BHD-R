@@ -116,7 +116,14 @@ export function resolveStaysEnabled(scope: StaysFlagScope = {}): StaysFlagResolu
   };
 }
 
-/** Convenience: env platform + allowlist org, property/unit still require explicit true. */
+/**
+ * Convenience: env platform + allowlist org, property/unit still require explicit true.
+ *
+ * Allowlist rules when platform is on:
+ * - empty → all orgs (open pilot; set explicit UUIDs to lock down)
+ * - `*` → all orgs
+ * - comma UUIDs → only listed orgs
+ */
 export function resolveStaysEnabledFromEnv(
   input: {
     organizationId?: string | null;
@@ -127,9 +134,10 @@ export function resolveStaysEnabledFromEnv(
 ): StaysFlagResolution {
   const fromEnv = readStaysFlagsFromEnv(source);
   const orgId = input.organizationId?.trim().toLowerCase() ?? '';
+  const allowlist = fromEnv.organizationAllowlist;
   const organizationEnabled =
     Boolean(orgId) &&
-    (fromEnv.organizationAllowlist.has('*') || fromEnv.organizationAllowlist.has(orgId));
+    (allowlist.size === 0 || allowlist.has('*') || allowlist.has(orgId));
 
   return resolveStaysEnabled({
     platformEnabled: fromEnv.platformEnabled,
