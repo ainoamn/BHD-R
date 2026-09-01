@@ -191,6 +191,33 @@ async function browserMutationOnce<T>(
   return response.json() as Promise<T>;
 }
 
+/** Authenticated GET via same-origin BFF → Nest. */
+export async function browserGet<T>(path: string): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(browserApiPath(path), {
+      credentials: 'same-origin',
+      headers: { accept: 'application/json' },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(45_000),
+    });
+  } catch {
+    throw new ApiError(0, 'network_error', 'تعذر تحميل البيانات — تحقق من الاتصال.');
+  }
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as {
+      message?: string;
+      error?: { message?: string; messageAr?: string; code?: string };
+    } | null;
+    throw new ApiError(
+      response.status,
+      payload?.error?.code ?? 'request_failed',
+      payload?.error?.messageAr ?? payload?.error?.message ?? payload?.message ?? 'Request failed',
+    );
+  }
+  return response.json() as Promise<T>;
+}
+
 export async function browserMutation<T>(path: string, init: RequestInit): Promise<T> {
   const token = await getNestCsrfToken();
   try {

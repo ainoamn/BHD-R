@@ -1,9 +1,10 @@
 # Implementation status
 
-**Updated:** 2026-08-31  
-**Product version:** 0.4.18  
-**Active focus:** Property photo storage (Nest Bearer + Neon inline fallback)  
-**Release 0.4.17:** [`RELEASE-0.4.17-AR.md`](./RELEASE-0.4.17-AR.md)  
+**Updated:** 2026-09-01  
+**Product version:** 0.4.19  
+**Active focus:** Stays setup wizard + publish (pilot enablement)  
+**Release 0.4.19:** [`RELEASE-0.4.19-AR.md`](./RELEASE-0.4.19-AR.md)  
+**Release 0.4.18:** property photo Nest Bearer + Neon fallback  
 **Release 0.4.16:** [`RELEASE-0.4.16-AR.md`](./RELEASE-0.4.16-AR.md)  
 **Release 0.4.15:** [`RELEASE-0.4.15-AR.md`](./RELEASE-0.4.15-AR.md)  
 **Release 0.4.14:** [`RELEASE-0.4.14-AR.md`](./RELEASE-0.4.14-AR.md)  
@@ -28,6 +29,7 @@
 
 | Phase | Status | Notes |
 | ----- | ------ | ----- |
+| Stay setup + publish (ops API + wizard) | **shipped 0.4.19** | Pilot needs flag + allowlist |
 | Stay iCal export (read-only) | **shipped 0.4.11** | No outbound fetch; import still blocked |
 | Ops cancel / no-show | **shipped 0.4.10** | Release lock + UI actions |
 | Ops stay bookings list | **shipped 0.4.9** | Real org-scoped list/detail |
@@ -44,8 +46,8 @@
 
 ## Next (human / infra)
 
-1. Redeploy Nest **and Worker** on Render from `main` (through 0.4.11).  
-2. Pilot: flag + allowlist; verify `.ics` download from calendar page.  
+1. **Pilot:** set `STAYS_PLATFORM_ENABLED=true` + `STAYS_ORG_ALLOWLIST` on Render and Vercel; redeploy Nest + Worker + Web.  
+2. Run setup wizard on one property; verify `/ar/stays` and homepage daily tab.  
 3. ClamAV فعلي؛ Nest+DB E2E كامل؛ Neon non-BYPASS؛ تدوير أسرار.  
 4. اختياري: أرشفة مشروع Vercel `web` الخاطئ.
 

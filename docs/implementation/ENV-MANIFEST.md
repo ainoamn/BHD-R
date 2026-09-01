@@ -55,6 +55,7 @@ Blueprint: root `render.yaml` (keys as `sync: false` unless noted).
 | `ALLOW_BOOKING_SANDBOX` | must stay unset/false in production |
 | `DATABASE_URL` | Neon (owner writes / catalogue) |
 | `API_INTERNAL_ORIGIN` | Nest HTTPS URL for BFF (required on Vercel; no Host fallback) |
+| `STAYS_PLATFORM_ENABLED` | Default **off**. Set `true` on Vercel **and** Render for pilot; org allow-list on Render only. |
 
 ## Ops (local / CI — never commit secrets)
 

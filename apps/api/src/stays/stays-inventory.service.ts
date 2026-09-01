@@ -337,4 +337,101 @@ export class StaysInventoryService {
       };
     });
   }
+
+  /** Inline inventory-day rebuild after publish (worker also handles outbox). */
+  async rebuildInventoryDays(organizationId: string, unitId: string, horizonDays = 365) {
+    const horizon = Math.min(Math.max(horizonDays, 1), 730);
+    return this.database.asSystem(async (transaction) => {
+      const profile = await transaction.execute(sql`
+        SELECT sp.currency,
+               sp.min_nights,
+               sp.advance_booking_days,
+               (
+                 SELECT srp.base_nightly_minor::text
+                 FROM stay_rate_plans srp
+                 WHERE srp.stay_profile_id = sp.id
+                   AND srp.enabled = true
+                 ORDER BY srp.priority ASC, srp.created_at ASC
+                 LIMIT 1
+               ) AS base_nightly_minor
+        FROM stay_profiles sp
+        WHERE sp.organization_id = ${organizationId}::uuid
+          AND sp.unit_id = ${unitId}::uuid
+        LIMIT 1
+      `);
+      const rows = Array.isArray(profile)
+        ? profile
+        : ((profile as { rows?: unknown[] }).rows ?? []);
+      const row = rows[0] as
+        | {
+            currency: string;
+            min_nights: number;
+            advance_booking_days: number;
+            base_nightly_minor: string | null;
+          }
+        | undefined;
+      const advance = row
+        ? Math.min(Math.max(row.advance_booking_days || horizon, 1), horizon)
+        : horizon;
+      const currency = row?.currency ?? null;
+      const minNights = row?.min_nights ?? null;
+      const rateMinor = row?.base_nightly_minor ?? null;
+
+      await transaction.execute(sql`
+        DELETE FROM stay_inventory_days
+        WHERE organization_id = ${organizationId}::uuid
+          AND unit_id = ${unitId}::uuid
+          AND stay_date >= CURRENT_DATE
+          AND stay_date < CURRENT_DATE + (${advance}::int)
+      `);
+
+      const inserted = await transaction.execute(sql`
+        WITH days AS (
+          SELECT generate_series(
+            CURRENT_DATE,
+            CURRENT_DATE + (${advance}::int - 1),
+            '1 day'::interval
+          )::date AS stay_date
+        ),
+        day_status AS (
+          SELECT
+            d.stay_date,
+            CASE
+              WHEN bool_or(l.kind = 'booking') THEN 'booked'
+              WHEN bool_or(l.kind = 'hold') THEN 'hold'
+              WHEN bool_or(l.kind = 'maintenance') THEN 'maintenance'
+              WHEN bool_or(l.kind = 'lease') THEN 'lease'
+              WHEN bool_or(l.kind IN ('owner_block', 'channel')) THEN 'blocked'
+              ELSE 'available'
+            END AS availability_status
+          FROM days d
+          LEFT JOIN stay_inventory_locks l
+            ON l.unit_id = ${unitId}::uuid
+           AND l.organization_id = ${organizationId}::uuid
+           AND l.status = 'active'
+           AND d.stay_date >= lower(l.stay_range)
+           AND d.stay_date < upper(l.stay_range)
+          GROUP BY d.stay_date
+        )
+        INSERT INTO stay_inventory_days (
+          organization_id, unit_id, stay_date, availability_status,
+          effective_rate_minor, currency, min_nights
+        )
+        SELECT
+          ${organizationId}::uuid,
+          ${unitId}::uuid,
+          ds.stay_date,
+          ds.availability_status,
+          CASE WHEN ${rateMinor}::text IS NULL THEN NULL ELSE ${rateMinor}::bigint END,
+          ${currency},
+          ${minNights}
+        FROM day_status ds
+        RETURNING 1
+      `);
+      const count = Array.isArray(inserted)
+        ? inserted.length
+        : ((inserted as { rowCount?: number }).rowCount ?? 0);
+      return { unitId, days: count };
+    });
+  }
 }

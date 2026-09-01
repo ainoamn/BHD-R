@@ -1,10 +1,12 @@
 import {
+  Body,
   Controller,
   ForbiddenException,
   Get,
   NotFoundException,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   Req,
@@ -15,8 +17,20 @@ import { readStaysFlagsFromEnv, resolveStaysEnabledFromEnv } from '@bhd-r/config
 import {
   stayOpsBookingsQuerySchema,
   stayPerformanceQuerySchema,
+  staySetupContextQuerySchema,
+  createStayUnitTypeSchema,
+  createStayProfilesSchema,
+  updateStayProfileSchema,
+  upsertStayRatePlanSchema,
+  upsertStayPublicListingSchema,
   type StayOpsBookingsQuery,
   type StayPerformanceQuery,
+  type StaySetupContextQuery,
+  type CreateStayUnitTypeInput,
+  type CreateStayProfilesInput,
+  type UpdateStayProfileInput,
+  type UpsertStayRatePlanInput,
+  type UpsertStayPublicListingInput,
 } from '@bhd-r/contracts';
 import type { ApiRequest, ApiResponse } from '../common/api-http.js';
 import { RequirePermissions } from '../common/decorators.js';
@@ -24,6 +38,7 @@ import { ZodPipe } from '../common/zod.pipe.js';
 import { StaysInventoryService } from './stays-inventory.service.js';
 import { StaysBookingService } from './stays-booking.service.js';
 import { StaysReportsService } from './stays-reports.service.js';
+import { StaysSetupService } from './stays-setup.service.js';
 
 /** Fail-closed: platform kill-switch off → 404 (hide surface). */
 function assertStaysPlatformEnabled(): void {
@@ -56,6 +71,7 @@ export class StaysOperationsController {
     private readonly inventory: StaysInventoryService,
     private readonly bookings: StaysBookingService,
     private readonly reports: StaysReportsService,
+    private readonly setup: StaysSetupService,
   ) {}
 
   @RequirePermissions('stay.booking.read')
@@ -93,6 +109,82 @@ export class StaysOperationsController {
   inventoryHealth(@Req() request: ApiRequest) {
     assertStaysOperationsEnabled(request.auth?.organizationId);
     return this.inventory.health();
+  }
+
+  @RequirePermissions('stay.inventory.manage')
+  @Get('setup/context')
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  setupContext(
+    @Req() request: ApiRequest,
+    @Query(new ZodPipe(staySetupContextQuerySchema)) query: StaySetupContextQuery,
+  ) {
+    assertStaysOperationsEnabled(request.auth?.organizationId);
+    return this.setup.getContext(request.auth!, query.propertyId);
+  }
+
+  @RequirePermissions('stay.inventory.manage')
+  @Post('setup/unit-types')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  createUnitType(
+    @Req() request: ApiRequest,
+    @Body(new ZodPipe(createStayUnitTypeSchema)) body: CreateStayUnitTypeInput,
+  ) {
+    assertStaysOperationsEnabled(request.auth?.organizationId);
+    return this.setup.createUnitType(request.auth!, body);
+  }
+
+  @RequirePermissions('stay.inventory.manage')
+  @Post('setup/profiles')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  createProfiles(
+    @Req() request: ApiRequest,
+    @Body(new ZodPipe(createStayProfilesSchema)) body: CreateStayProfilesInput,
+  ) {
+    assertStaysOperationsEnabled(request.auth?.organizationId);
+    return this.setup.createProfiles(request.auth!, body);
+  }
+
+  @RequirePermissions('stay.inventory.manage')
+  @Patch('setup/profiles/:id')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  updateProfile(
+    @Req() request: ApiRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(updateStayProfileSchema)) body: UpdateStayProfileInput,
+  ) {
+    assertStaysOperationsEnabled(request.auth?.organizationId);
+    return this.setup.updateProfile(request.auth!, id, body);
+  }
+
+  @RequirePermissions('stay.rate.manage')
+  @Post('setup/profiles/:id/rate-plan')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  upsertRatePlan(
+    @Req() request: ApiRequest,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ZodPipe(upsertStayRatePlanSchema)) body: UpsertStayRatePlanInput,
+  ) {
+    assertStaysOperationsEnabled(request.auth?.organizationId);
+    return this.setup.upsertRatePlan(request.auth!, id, body);
+  }
+
+  @RequirePermissions('stay.inventory.manage')
+  @Post('setup/listings')
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  upsertListing(
+    @Req() request: ApiRequest,
+    @Body(new ZodPipe(upsertStayPublicListingSchema)) body: UpsertStayPublicListingInput,
+  ) {
+    assertStaysOperationsEnabled(request.auth?.organizationId);
+    return this.setup.upsertListing(request.auth!, body);
+  }
+
+  @RequirePermissions('stay.inventory.manage')
+  @Post('setup/profiles/:id/publish')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  publishProfile(@Req() request: ApiRequest, @Param('id', ParseUUIDPipe) id: string) {
+    assertStaysOperationsEnabled(request.auth?.organizationId);
+    return this.setup.publishProfile(request.auth!, id);
   }
 
   @RequirePermissions('stay.inventory.manage')

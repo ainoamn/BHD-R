@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.19 — 2026-09-01
+
+- Stays setup API: unit types, profiles, rate plans, public listings, publish with inline inventory rebuild.
+- Functional 5-step setup wizard (units → capacity → pricing → content → publish).
+- Docs: `RELEASE-0.4.19-AR.md` — pilot enablement on Vercel + Render.
+
 ## 0.4.18 — 2026-08-31
 
 - Media upload: Nest fallback uses Bearer session (skips CSRF); Neon inline last-resort so property save is not blocked when Vercel S3 is incomplete.

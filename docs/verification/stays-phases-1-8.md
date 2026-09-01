@@ -4,6 +4,13 @@
 **Date:** 2026-08-31  
 **Flags:** `STAYS_PLATFORM_ENABLED` default **off** — public and portal stays surfaces stay dark until explicitly enabled.
 
+## 0.4.19 setup + publish
+
+- `GET /v1/stays/setup/context?propertyId=` — property units + existing profiles/listings.
+- `POST /v1/stays/setup/profiles` + rate-plan + listing + `POST .../publish` — full onboarding path.
+- Wizard at `/owner|developer/stays/setup?propertyId=` writes via Nest (no Neon fallback).
+- Publish triggers inline `stay_inventory_days` rebuild + outbox `stay.inventory.changed`.
+
 ## What shipped in this train
 
 | Phase | Delivered | Live with flag off? |
