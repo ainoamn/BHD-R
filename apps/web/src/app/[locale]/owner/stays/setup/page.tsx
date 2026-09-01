@@ -21,9 +21,11 @@ export default async function Page({
       locale={locale}
       portal="owner"
       propertyId={propertyId ?? null}
+      writeAvailable={loaded.writeAvailable}
       apiAvailable={loaded.apiAvailable}
       apiHint={loaded.apiHint}
       initialContext={loaded.context}
+      propertySummary={loaded.propertySummary}
     />
   );
 }

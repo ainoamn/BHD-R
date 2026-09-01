@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.22 — 2026-09-01
+
+- Stays setup: Neon read/write on Vercel (`/api/owner/stays/setup`) — save & publish no longer depend on Nest/Render timeouts.
+- Setup wizard: property summary card + units table (aligned with portfolio layout); no misleading Nest 503 banner when Vercel DB is available.
+- Property manage hub: «إعداد الإقامة اليومية» as a prominent action button.
+
 ## 0.4.21 — 2026-09-01
 
 - Stays setup: load property/units on the server (Nest first, Neon read fallback) so the wizard no longer fails with a blank client fetch.

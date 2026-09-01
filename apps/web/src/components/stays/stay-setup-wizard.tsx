@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from '@/i18n/navigation';
-import { ApiError, browserGet, browserMutation } from '@/lib/api';
+import { ApiError, browserGet, browserMutation, browserNextMutation } from '@/lib/api';
 import type { StaySetupContext } from '@bhd-r/contracts';
+import type { StaySetupPropertySummary } from '@/lib/stay-setup-neon';
+import { PropertyOpsRowKey } from '@/components/property-ops-row-key';
 
 type StepId = 'units' | 'capacity' | 'pricing' | 'content' | 'publish';
 
@@ -67,6 +69,16 @@ const copy = {
     review: 'راجع الإعداد قبل النشر',
     backToStays: 'العودة للوحة الإقامات',
     noUnits: 'لا توجد وحدات في هذا العقار.',
+    propertyNo: 'رقم العقار',
+    location: 'الموقع',
+    kind: 'النوع',
+    unitsCount: 'الوحدات',
+    status: 'الحالة',
+    unitCode: 'رمز الوحدة',
+    unitName: 'الوحدة',
+    bedrooms: 'غرف',
+    bathrooms: 'حمّامات',
+    stayStatus: 'حالة الإقامة',
   },
   en: {
     wizardTitle: 'Daily stay setup',
@@ -105,6 +117,16 @@ const copy = {
     review: 'Review before publishing',
     backToStays: 'Back to stays dashboard',
     noUnits: 'No units on this property.',
+    propertyNo: 'Property no.',
+    location: 'Location',
+    kind: 'Kind',
+    unitsCount: 'Units',
+    status: 'Status',
+    unitCode: 'Unit code',
+    unitName: 'Unit',
+    bedrooms: 'Bedrooms',
+    bathrooms: 'Bathrooms',
+    stayStatus: 'Stay status',
   },
 } as const;
 
@@ -112,16 +134,20 @@ export function StaySetupWizard({
   locale,
   portal,
   propertyId,
+  writeAvailable = false,
   apiAvailable = false,
   apiHint = null,
   initialContext = null,
+  propertySummary = null,
 }: {
   locale: 'ar' | 'en';
   portal: 'owner' | 'developer';
   propertyId?: string | null;
+  writeAvailable?: boolean;
   apiAvailable?: boolean;
   apiHint?: string | null;
   initialContext?: StaySetupContext | null;
+  propertySummary?: StaySetupPropertySummary | null;
 }) {
   const t = copy[locale];
   const [step, setStep] = useState(0);
@@ -151,7 +177,7 @@ export function StaySetupWizard({
   const [profileIds, setProfileIds] = useState<string[]>([]);
 
   const current = STEPS[step]!;
-  const canWrite = apiAvailable && Boolean(propertyId);
+  const canWrite = Boolean(propertyId) && (writeAvailable || apiAvailable);
 
   const applyContext = useCallback((data: StaySetupContext) => {
     setContext(data);
@@ -181,10 +207,29 @@ export function StaySetupWizard({
   }, []);
 
   const loadContext = useCallback(async () => {
-    if (!propertyId || !apiAvailable) return;
+    if (!propertyId) return;
     setLoading(true);
     setError(null);
     try {
+      if (writeAvailable) {
+        const response = await fetch(
+          `/api/owner/stays/setup/context?propertyId=${encodeURIComponent(propertyId)}`,
+          { credentials: 'same-origin', headers: { accept: 'application/json' } },
+        );
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as {
+            error?: { messageAr?: string; message?: string };
+          } | null;
+          throw new Error(payload?.error?.messageAr ?? payload?.error?.message ?? t.loadError);
+        }
+        const data = (await response.json()) as {
+          context: StaySetupContext;
+          summary?: StaySetupPropertySummary;
+        };
+        applyContext(data.context);
+        return;
+      }
+      if (!apiAvailable) return;
       const data = await browserGet<StaySetupContext>(
         `/v1/stays/setup/context?propertyId=${encodeURIComponent(propertyId)}`,
       );
@@ -200,7 +245,7 @@ export function StaySetupWizard({
     } finally {
       setLoading(false);
     }
-  }, [apiAvailable, applyContext, propertyId, t.loadError]);
+  }, [apiAvailable, applyContext, propertyId, t.loadError, writeAvailable]);
 
   useEffect(() => {
     if (initialContext) {
@@ -230,17 +275,23 @@ export function StaySetupWizard({
   async function ensureUnitType(): Promise<string> {
     if (unitTypeId) return unitTypeId;
     if (!propertyId) throw new Error('property_required');
-    const created = await browserMutation<{ id: string }>('/v1/stays/setup/unit-types', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        propertyId,
-        code: 'default',
-        nameAr: unitTypeNameAr || context?.propertyNameAr || 'إقامة',
-        nameEn: unitTypeNameEn || context?.propertyNameEn || 'Stay',
-        maxGuests: Number.parseInt(maxGuests, 10) || 4,
-      }),
-    });
+    const payload = {
+      propertyId,
+      code: 'default',
+      nameAr: unitTypeNameAr || context?.propertyNameAr || 'إقامة',
+      nameEn: unitTypeNameEn || context?.propertyNameEn || 'Stay',
+      maxGuests: Number.parseInt(maxGuests, 10) || 4,
+    };
+    const created = writeAvailable
+      ? await browserNextMutation<{ id: string }>('/api/owner/stays/setup', {
+          method: 'POST',
+          body: JSON.stringify({ action: 'create_unit_type', payload }),
+        })
+      : await browserMutation<{ id: string }>('/v1/stays/setup/unit-types', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
     setUnitTypeId(created.id);
     return created.id;
   }
@@ -250,19 +301,28 @@ export function StaySetupWizard({
       throw new Error(locale === 'ar' ? 'اختر وحدة واحدة على الأقل' : 'Select at least one unit');
     }
     const typeId = await ensureUnitType();
-    const result = await browserMutation<{ profiles: Array<{ id: string; unitId: string }> }>(
-      '/v1/stays/setup/profiles',
-      {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          propertyId,
-          unitTypeId: typeId,
-          unitIds: selectedUnitIds,
-          currency,
-        }),
-      },
-    );
+    const payload = {
+      propertyId,
+      unitTypeId: typeId,
+      unitIds: selectedUnitIds,
+      currency,
+    };
+    const result = writeAvailable
+      ? await browserNextMutation<{ profiles: Array<{ id: string; unitId: string }> }>(
+          '/api/owner/stays/setup',
+          {
+            method: 'POST',
+            body: JSON.stringify({ action: 'create_profiles', payload }),
+          },
+        )
+      : await browserMutation<{ profiles: Array<{ id: string; unitId: string }> }>(
+          '/v1/stays/setup/profiles',
+          {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(payload),
+          },
+        );
     setProfileIds(result.profiles.map((row) => row.id));
     setUnitTypeId(typeId);
   }
@@ -270,21 +330,27 @@ export function StaySetupWizard({
   async function saveCapacityStep() {
     const ids = profileIds.length ? profileIds : [];
     if (!ids.length) throw new Error(t.saveError);
+    const payload = {
+      maxGuests: Number.parseInt(maxGuests, 10) || 4,
+      maxAdults: Number.parseInt(maxGuests, 10) || 4,
+      minNights: Number.parseInt(minNights, 10) || 1,
+      maxNights: Number.parseInt(maxNights, 10) || 30,
+      instantBook,
+      checkInFrom,
+      checkOutUntil,
+    };
     await Promise.all(
       ids.map((id) =>
-        browserMutation(`/v1/stays/setup/profiles/${id}`, {
-          method: 'PATCH',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            maxGuests: Number.parseInt(maxGuests, 10) || 4,
-            maxAdults: Number.parseInt(maxGuests, 10) || 4,
-            minNights: Number.parseInt(minNights, 10) || 1,
-            maxNights: Number.parseInt(maxNights, 10) || 30,
-            instantBook,
-            checkInFrom,
-            checkOutUntil,
-          }),
-        }),
+        writeAvailable
+          ? browserNextMutation('/api/owner/stays/setup', {
+              method: 'POST',
+              body: JSON.stringify({ action: 'update_profile', profileId: id, payload }),
+            })
+          : browserMutation(`/v1/stays/setup/profiles/${id}`, {
+              method: 'PATCH',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify(payload),
+            }),
       ),
     );
   }
@@ -294,19 +360,25 @@ export function StaySetupWizard({
     if (!minor) throw new Error(locale === 'ar' ? 'أدخل سعراً صالحاً' : 'Enter a valid rate');
     const ids = profileIds.length ? profileIds : [];
     if (!ids.length) throw new Error(t.saveError);
+    const payload = {
+      baseNightlyMinor: minor,
+      currency,
+      nameAr: 'السعر الأساسي',
+      nameEn: 'Base rate',
+      refundable: true,
+    };
     await Promise.all(
       ids.map((id) =>
-        browserMutation(`/v1/stays/setup/profiles/${id}/rate-plan`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            baseNightlyMinor: minor,
-            currency,
-            nameAr: 'السعر الأساسي',
-            nameEn: 'Base rate',
-            refundable: true,
-          }),
-        }),
+        writeAvailable
+          ? browserNextMutation(`/api/owner/stays/setup`, {
+              method: 'POST',
+              body: JSON.stringify({ action: 'upsert_rate_plan', profileId: id, payload }),
+            })
+          : browserMutation(`/v1/stays/setup/profiles/${id}/rate-plan`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify(payload),
+            }),
       ),
     );
   }
@@ -314,25 +386,40 @@ export function StaySetupWizard({
   async function saveContentStep() {
     if (!propertyId || !unitTypeId) throw new Error(t.saveError);
     if (!slug.trim()) throw new Error(locale === 'ar' ? 'الرابط مطلوب' : 'Slug is required');
-    await browserMutation('/v1/stays/setup/listings', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        propertyId,
-        unitTypeId,
-        slug: slug.trim(),
-        titleAr: titleAr.trim(),
-        titleEn: titleEn.trim(),
-        summaryAr: summaryAr.trim() || undefined,
-      }),
-    });
+    const payload = {
+      propertyId,
+      unitTypeId,
+      slug: slug.trim(),
+      titleAr: titleAr.trim(),
+      titleEn: titleEn.trim(),
+      summaryAr: summaryAr.trim() || undefined,
+    };
+    if (writeAvailable) {
+      await browserNextMutation('/api/owner/stays/setup', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'upsert_listing', payload }),
+      });
+    } else {
+      await browserMutation('/v1/stays/setup/listings', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    }
   }
 
   async function publishAll() {
     const ids = profileIds.length ? profileIds : [];
     if (!ids.length) throw new Error(t.publishError);
     for (const id of ids) {
-      await browserMutation(`/v1/stays/setup/profiles/${id}/publish`, { method: 'POST' });
+      if (writeAvailable) {
+        await browserNextMutation('/api/owner/stays/setup', {
+          method: 'POST',
+          body: JSON.stringify({ action: 'publish_profile', profileId: id }),
+        });
+      } else {
+        await browserMutation(`/v1/stays/setup/profiles/${id}/publish`, { method: 'POST' });
+      }
     }
   }
 
@@ -393,10 +480,6 @@ export function StaySetupWizard({
           <p className="notice notice--warning" role="status">
             {apiHint ?? t.comingOnline}
           </p>
-        ) : apiHint && context ? (
-          <p className="notice notice--info" role="status">
-            {apiHint}
-          </p>
         ) : null}
         {loading ? <p className="muted">{locale === 'ar' ? 'جاري التحميل…' : 'Loading…'}</p> : null}
         {error ? (
@@ -410,6 +493,47 @@ export function StaySetupWizard({
           </p>
         ) : null}
       </header>
+
+      {propertySummary && propertyId ? (
+        <section className="stays-setup-property-card card" aria-label={locale === 'ar' ? 'ملخص العقار' : 'Property summary'}>
+          <div className="stays-setup-property-card__head">
+            <PropertyOpsRowKey
+              propertyId={propertyId}
+              coverImageUrl={propertySummary.coverImageUrl}
+              locale={locale}
+              name={locale === 'ar' ? propertySummary.nameAr : propertySummary.nameEn}
+            />
+            <div>
+              <h2 className="stays-setup-property-card__title">
+                {locale === 'ar' ? propertySummary.nameAr : propertySummary.nameEn}
+              </h2>
+              {propertySummary.serialNumber ? (
+                <p className="stays-setup-property-card__serial" dir="ltr">
+                  {propertySummary.serialNumber}
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <dl className="stays-setup-property-card__meta">
+            <div>
+              <dt>{t.location}</dt>
+              <dd>{propertySummary.location || '—'}</dd>
+            </div>
+            <div>
+              <dt>{t.kind}</dt>
+              <dd>{propertySummary.kind}</dd>
+            </div>
+            <div>
+              <dt>{t.unitsCount}</dt>
+              <dd>{propertySummary.unitCount}</dd>
+            </div>
+            <div>
+              <dt>{t.status}</dt>
+              <dd>{propertySummary.status}</dd>
+            </div>
+          </dl>
+        </section>
+      ) : null}
 
       <nav className="wizard-progress wizard-progress--desktop" aria-label={t.wizardTitle}>
         <ol className="wizard-progress__list">
@@ -454,23 +578,43 @@ export function StaySetupWizard({
             <fieldset disabled={!canWrite || busy} className="stays-setup-wizard__fields">
               <p className="muted">{t.selectUnits}</p>
               {!context?.units.length ? <p>{t.noUnits}</p> : null}
-              <ul className="stays-setup-units">
-                {context?.units.map((unit) => (
-                  <li key={unit.id}>
-                    <label className="checkbox-row">
-                      <input
-                        type="checkbox"
-                        checked={selectedUnitIds.includes(unit.id)}
-                        onChange={() => toggleUnit(unit.id)}
-                      />
-                      <span>
-                        {locale === 'ar' ? unit.nameAr : unit.nameEn} ({unit.code})
-                        {unit.publishStatus ? ` · ${unit.publishStatus}` : ''}
-                      </span>
-                    </label>
-                  </li>
-                ))}
-              </ul>
+              <div className="ops-table-wrap stays-setup-units-table">
+                <table className="ops-table">
+                  <thead>
+                    <tr>
+                      <th scope="col" aria-label={locale === 'ar' ? 'اختيار' : 'Select'} />
+                      <th scope="col">{t.unitCode}</th>
+                      <th scope="col">{t.unitName}</th>
+                      <th scope="col">{t.bedrooms}</th>
+                      <th scope="col">{t.bathrooms}</th>
+                      <th scope="col">{t.stayStatus}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {context?.units.map((unit) => (
+                      <tr key={unit.id}>
+                        <td>
+                          <label className="checkbox-row stays-setup-units-table__check">
+                            <input
+                              type="checkbox"
+                              checked={selectedUnitIds.includes(unit.id)}
+                              onChange={() => toggleUnit(unit.id)}
+                            />
+                            <span className="sr-only">
+                              {locale === 'ar' ? unit.nameAr : unit.nameEn}
+                            </span>
+                          </label>
+                        </td>
+                        <td dir="ltr">{unit.code}</td>
+                        <td>{locale === 'ar' ? unit.nameAr : unit.nameEn}</td>
+                        <td>{unit.bedrooms}</td>
+                        <td>{unit.bathrooms}</td>
+                        <td>{unit.publishStatus ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
               <div className="field">
                 <label htmlFor="unit-type-ar">{t.unitTypeName} (AR)</label>
                 <input

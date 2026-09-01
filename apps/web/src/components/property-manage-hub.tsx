@@ -155,6 +155,9 @@ export function PropertyManageHub({
 
   const actions = [
     { href: editHref, label: ar ? 'تعديل العقار (الضبط)' : 'Edit property (settings)', primary: true },
+    ...(staysEnabled
+      ? [{ href: staysSetupHref, label: ar ? 'إعداد الإقامة اليومية' : 'Set up daily stay' }]
+      : []),
     { href: scoped('contracts'), label: ar ? 'العقود' : 'Contracts' },
     { href: scoped('leasing'), label: ar ? 'التأجير' : 'Leasing' },
     { href: scoped('sales'), label: ar ? 'البيع' : 'Sales' },
@@ -266,13 +269,6 @@ export function PropertyManageHub({
             ),
           )}
         </div>
-        {staysEnabled ? (
-          <p className="property-manage-hub__stays-link">
-            <Link className="text-link" href={staysSetupHref} prefetch scroll={false}>
-              {ar ? 'إعداد الإقامة اليومية' : 'Set up daily stay'}
-            </Link>
-          </p>
-        ) : null}
       </section>
 
       <section className="ops-panel property-danger-zone">

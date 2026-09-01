@@ -8207,6 +8207,46 @@ button.ops-row-key {
   margin: 0;
   padding: 0;
 }
+.stays-setup-property-card {
+  margin-bottom: 1.25rem;
+}
+.stays-setup-property-card__head {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.stays-setup-property-card__title {
+  margin: 0;
+  font-size: 1.15rem;
+}
+.stays-setup-property-card__serial {
+  margin: 0.25rem 0 0;
+  color: var(--muted, #5c6b64);
+  font-size: 0.9rem;
+}
+.stays-setup-property-card__meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.75rem 1rem;
+  margin: 0;
+}
+.stays-setup-property-card__meta dt {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted, #5c6b64);
+}
+.stays-setup-property-card__meta dd {
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+}
+.stays-setup-units-table {
+  margin: 0.75rem 0 1rem;
+}
+.stays-setup-units-table__check {
+  justify-content: center;
+  margin: 0;
+}
 .stays-setup-units {
   list-style: none;
   margin: 0 0 1rem;

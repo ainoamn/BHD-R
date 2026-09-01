@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-09-01  
-**Product version:** 0.4.21  
-**Active focus:** Stays setup context load (SSR Nest + Neon fallback)  
+**Product version:** 0.4.22  
+**Active focus:** Stays setup Neon write path on Vercel (no Render dependency for save)  
+**Release 0.4.22:** [`RELEASE-0.4.22-AR.md`](./RELEASE-0.4.22-AR.md)  
 **Release 0.4.21:** setup wizard property data load fix  
 **Release 0.4.20:** [`RELEASE-0.4.20-AR.md`](./RELEASE-0.4.20-AR.md)  
 **Release 0.4.19:** [`RELEASE-0.4.19-AR.md`](./RELEASE-0.4.19-AR.md)  
