@@ -1211,14 +1211,14 @@ body:has(.pay-gateway-shell) #main-content {
 .pay-gateway-shell__summary {
   position: relative;
   display: grid;
-  width: min(100%, 18.5rem);
-  margin: 0.35rem auto 0;
+  width: min(100%, 26rem);
+  margin: 0.5rem auto 0;
   aspect-ratio: 1 / 1;
-  border-radius: 1rem;
+  border-radius: 1.1rem;
   overflow: hidden;
   color: #f5fbf8;
   border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.24);
   isolation: isolate;
 }
 .pay-gateway-shell__summary-bg {
@@ -1235,7 +1235,7 @@ body:has(.pay-gateway-shell) #main-content {
   inset: 0;
   z-index: 1;
   background:
-    linear-gradient(180deg, rgba(6, 28, 24, 0.35) 0%, rgba(6, 28, 24, 0.55) 42%, rgba(5, 20, 18, 0.88) 100%);
+    linear-gradient(180deg, rgba(6, 28, 24, 0.28) 0%, rgba(6, 28, 24, 0.48) 40%, rgba(5, 20, 18, 0.9) 100%);
   pointer-events: none;
 }
 .pay-gateway-shell__summary-body {
@@ -1243,19 +1243,19 @@ body:has(.pay-gateway-shell) #main-content {
   z-index: 2;
   display: grid;
   grid-template-rows: auto 1fr auto;
-  gap: 0.75rem;
+  gap: 0.9rem;
   align-content: space-between;
   height: 100%;
-  padding: 1rem;
+  padding: 1.2rem 1.15rem 1rem;
 }
 .pay-gateway-shell__summary .muted {
   margin: 0;
   color: rgba(245, 251, 248, 0.86);
-  font-size: 0.78rem;
+  font-size: 0.84rem;
 }
 .pay-gateway-shell__amount {
-  margin: 0.2rem 0 0;
-  font-size: clamp(1.55rem, 5vw, 2rem);
+  margin: 0.25rem 0 0;
+  font-size: clamp(1.85rem, 5.5vw, 2.35rem);
   font-weight: 800;
   letter-spacing: -0.02em;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
@@ -1263,25 +1263,25 @@ body:has(.pay-gateway-shell) #main-content {
 .pay-gateway-shell__summary dl {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 0.55rem;
+  gap: 0.65rem;
   margin: 0;
   align-content: end;
 }
 .pay-gateway-shell__summary dt {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   opacity: 0.8;
 }
 .pay-gateway-shell__summary dd {
-  margin: 0.1rem 0 0;
-  font-size: 0.86rem;
+  margin: 0.12rem 0 0;
+  font-size: 0.95rem;
   font-weight: 700;
   overflow-wrap: anywhere;
 }
 .pay-gateway-shell__summary-place {
   margin: 0;
-  font-size: 0.68rem;
+  font-size: 0.74rem;
   font-weight: 700;
-  opacity: 0.88;
+  opacity: 0.9;
   letter-spacing: 0.02em;
 }
 .pay-gateway-shell__hint {
@@ -1293,16 +1293,15 @@ body:has(.pay-gateway-shell) #main-content {
   width: 100%;
 }
 .pay-gateway__card-visual {
-  --pay-card-radius: 0.85rem;
+  --pay-card-radius: 0.9rem;
   position: relative;
-  display: grid;
-  grid-template-columns: 1.2fr 0.95fr;
+  display: block;
   direction: ltr;
-  width: min(100%, 23.5rem);
+  width: min(100%, 24rem);
   margin: 0 auto 1.15rem;
   aspect-ratio: 85.6 / 53.98;
   border-radius: var(--pay-card-radius);
-  background: linear-gradient(145deg, #0a2f28 0%, #145a4c 58%, #0d3d34 100%);
+  background: #0a2f28;
   color: #f4faf7;
   overflow: hidden;
   isolation: isolate;
@@ -1310,36 +1309,40 @@ body:has(.pay-gateway-shell) #main-content {
     0 1px 0 rgba(255, 255, 255, 0.12) inset,
     0 16px 34px rgba(9, 45, 36, 0.28);
 }
-.pay-gateway__card-face {
-  position: relative;
-  z-index: 2;
-  display: grid;
-  grid-template-rows: auto auto 1fr auto;
-  gap: 0.35rem;
-  padding: 0.72rem 0.75rem 0.65rem 0.85rem;
-  min-width: 0;
-}
-.pay-gateway__card-art {
-  position: relative;
-  z-index: 1;
-  min-width: 0;
-  overflow: hidden;
-  border-radius: 0 var(--pay-card-radius) var(--pay-card-radius) 0;
-}
 .pay-gateway__card-landmark {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center 35%;
+  object-position: center 42%;
+  z-index: 0;
+  transform: scale(1.03);
 }
-.pay-gateway__card-art::after {
-  content: '';
+.pay-gateway__card-scrim {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, rgba(10, 47, 40, 0.55), rgba(10, 47, 40, 0.12) 42%, rgba(5, 20, 16, 0.28));
+  z-index: 1;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(6, 28, 24, 0.72) 0%,
+      rgba(8, 40, 34, 0.42) 46%,
+      rgba(5, 22, 18, 0.78) 100%
+    ),
+    linear-gradient(to top, rgba(4, 18, 15, 0.7), transparent 52%);
   pointer-events: none;
+}
+.pay-gateway__card-face {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto auto;
+  gap: 0.35rem;
+  height: 100%;
+  padding: 0.8rem 0.95rem 0.7rem;
+  min-width: 0;
+  box-sizing: border-box;
 }
 .pay-gateway__card-top {
   position: relative;
@@ -1356,7 +1359,7 @@ body:has(.pay-gateway-shell) #main-content {
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
 }
 .pay-gateway__card-logo img {
-  width: 3.4rem;
+  width: 3.5rem;
   height: auto;
   display: block;
 }
@@ -1371,8 +1374,8 @@ body:has(.pay-gateway-shell) #main-content {
 .pay-gateway__card-chip {
   position: relative;
   z-index: 2;
-  width: 1.85rem;
-  height: 1.3rem;
+  width: 1.9rem;
+  height: 1.35rem;
   margin: 0.1rem 0 0;
   border-radius: 0.22rem;
   background: linear-gradient(135deg, #d6b25e, #f0d78a 45%, #b9963f);
@@ -1381,7 +1384,7 @@ body:has(.pay-gateway-shell) #main-content {
 .pay-gateway__card-brand {
   position: static;
   margin: 0;
-  font-size: 0.68rem;
+  font-size: 0.7rem;
   font-weight: 800;
   letter-spacing: 0.04em;
   opacity: 0.95;
@@ -1392,12 +1395,12 @@ body:has(.pay-gateway-shell) #main-content {
   z-index: 2;
   align-self: end;
   margin: 0;
-  font-size: clamp(0.82rem, 3.1vw, 0.98rem);
+  font-size: clamp(0.88rem, 3.2vw, 1.05rem);
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.12em;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 .pay-gateway__card-meta {
   position: relative;
@@ -1421,29 +1424,25 @@ body:has(.pay-gateway-shell) #main-content {
 .pay-gateway__card-holder small,
 .pay-gateway__card-exp small {
   font-size: 0.52rem;
-  opacity: 0.8;
+  opacity: 0.85;
   font-weight: 600;
 }
 .pay-gateway__card-holder strong,
 .pay-gateway__card-exp strong {
-  font-size: 0.66rem;
+  font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.05em;
   overflow-wrap: anywhere;
 }
 .pay-gateway__card-place {
-  position: absolute;
+  position: relative;
   z-index: 2;
-  left: 0.45rem;
-  right: 0.45rem;
-  bottom: 0.4rem;
-  margin: 0;
-  font-size: 0.52rem;
+  margin: 0.15rem 0 0;
+  font-size: 0.58rem;
   font-weight: 700;
   letter-spacing: 0.02em;
-  text-align: center;
-  color: #fff;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65);
+  opacity: 0.88;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
 }
 .pay-gateway__form {
   display: grid;
@@ -1484,6 +1483,9 @@ body:has(.pay-gateway-shell) #main-content {
   }
 }
 @media (min-width: 900px) {
+  .pay-gateway-shell__summary {
+    width: min(100%, 28rem);
+  }
   .pay-gateway-shell {
     grid-template-columns: minmax(18rem, 0.95fr) minmax(24rem, 1.05fr);
     grid-template-rows: 1fr;

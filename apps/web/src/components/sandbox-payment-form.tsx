@@ -202,6 +202,13 @@ export function SandboxPaymentForm({
   return (
     <div className="pay-gateway">
       <div className="pay-gateway__card-visual" aria-hidden="true">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          className="pay-gateway__card-landmark"
+          src="/brand/oman-landmark-mosque.jpg"
+          alt=""
+        />
+        <div className="pay-gateway__card-scrim" />
         <div className="pay-gateway__card-face">
           <div className="pay-gateway__card-top">
             <span className="pay-gateway__card-logo logo__product logo__product--on-dark">
@@ -233,17 +240,9 @@ export function SandboxPaymentForm({
               <strong dir="ltr">{expiry || DEMO_EXPIRY}</strong>
             </span>
           </div>
-        </div>
-        <div className="pay-gateway__card-art">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            className="pay-gateway__card-landmark"
-            src="/brand/oman-landmark-mosque.jpg"
-            alt=""
-          />
-          <span className="pay-gateway__card-place">
-            {ar ? 'جامع السلطان قابوس' : 'Sultan Qaboos Mosque'}
-          </span>
+          <p className="pay-gateway__card-place">
+            {ar ? 'جامع السلطان قابوس · مسقط' : 'Sultan Qaboos Grand Mosque · Muscat'}
+          </p>
         </div>
       </div>
 
