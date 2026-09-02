@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.42 — 2026-09-02
+
+- Property portfolio shows rent / sale / stay channel badges (from unit `listingPurpose` + stay profiles).
+- Scope mobile `property-360` heading shrink under `.portal-layout` so public stay/unit titles keep 0.4.40 sizing.
+
 ## 0.4.35 — 2026-09-02
 
 - Public stay page shows policies, period times, three stay rates, deposit, and smart score.

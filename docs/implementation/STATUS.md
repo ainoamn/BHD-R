@@ -1,8 +1,10 @@
 # Implementation status
 
 **Updated:** 2026-09-02  
-**Product version:** 0.4.41  
-**Active focus:** Stay sandbox payments + admin `/admin` alias → platform portal  
+**Product version:** 0.4.42  
+**Active focus:** Portfolio channel badges + public stay title size fix (portal-adaptive scope)  
+**Release 0.4.42:** [`RELEASE-0.4.42-AR.md`](./RELEASE-0.4.42-AR.md)  
+**Handoff (2026-09-02 continue 0.4.42):** [`../handoffs/2026-09-02-continue-0.4.42/`](../handoffs/2026-09-02-continue-0.4.42/)  
 **Release 0.4.41:** [`RELEASE-0.4.41-AR.md`](./RELEASE-0.4.41-AR.md)  
 **Release 0.4.40:** [`RELEASE-0.4.40-AR.md`](./RELEASE-0.4.40-AR.md)  
 **Release 0.4.39:** [`RELEASE-0.4.39-AR.md`](./RELEASE-0.4.39-AR.md)  

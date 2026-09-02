@@ -1,68 +1,50 @@
-# خطة الاستكمال — من المنزل (0.4.40)
+# خطة الاستكمال — من المنزل (0.4.40) — مُغلقة جزئياً
 
-**تاريخ:** 2026-09-02 · **مسقط UTC+4**  
-**آخر commit:** `0079e42` · **الإصدار:** `0.4.40`  
-**الفرع:** `main`
+**تاريخ الأصل:** 2026-09-02  
+**حدّثت:** 2026-09-02 بعد شحن **0.4.42**  
+**الخطة الحيّة التالية:** [`../2026-09-02-continue-0.4.42/CONTINUE-PLAN-AR.md`](../2026-09-02-continue-0.4.42/CONTINUE-PLAN-AR.md)
 
 ---
 
-## P0 — سحب المستودع (دقيقة)
+## حالة البنود
+
+| بند | الحالة |
+| --- | --- |
+| P0 سحب المستودع | ✅ |
+| P1 تحقق الإنتاج (3 إقامات) | ✅ |
+| P2 نشر R-02/R-03/S-01/S-02 | ⏳ يدوي — معالج المالك |
+| P3 شارات قنوات + إصلاح h2 عام | ✅ في **0.4.42** |
+| P4 لا ترفع أسرار | ✅ |
+
+---
+
+## المحتوى الأصلي (مرجع)
+
+**آخر commit عند الكتابة الأولى:** `0079e42` · **الإصدار:** `0.4.40`
+
+### P0 — سحب المستودع
 
 ```bash
-git clone https://github.com/ainoamn/BHD-R.git
-cd BHD-R
 git pull origin main
-git log -3 --oneline
 ```
 
-تأكد أن HEAD ≥ `0079e42`.
+### P1 — تحقق الإنتاج
 
----
+1. [/ar/stays](https://r.bhd-om.com/ar/stays?countryCode=OM&currency=OMR) — 3 بطاقات
+2. R-01 + تقويم
+3. وحدة A-02
+4. فلاتر الإقامات
 
-## P1 — تحقق الإنتاج (5 دقائق)
+### P2 — نشر بقية الوحدات
 
-1. [الإقامات](https://r.bhd-om.com/ar/stays?countryCode=OM&currency=OMR) — 3 بطاقات (ليس 0)
-2. [R-01 + ?unit=](https://r.bhd-om.com/ar/stays/al-noor-building-a-01?unit=fd6e559d-3f92-4b5d-be64-4ba0245ec662) — تقويم + أقسام فاتح/غامق
-3. [شقة A-02](https://r.bhd-om.com/ar/units/90cd9d0b-3526-4419-8066-4c24f6534b90) — نفس تنسيق الأقسام
-4. فلاتر الإقامات: خريطة، ميزانية، نوع، غرف/حمامات، موقع
+`/ar/owner/stays/setup?propertyId=d0840631-207d-477a-853a-043572d49240`
 
----
+### P3 — كان مقترحاً (أُنجز جزء منه في 0.4.42)
 
-## P2 — نشر بقية الوحدات (اختياري)
+- تحسين portal-adaptive على الهاتف ✅
+- شارات قنوات في المحفظة ✅
+- اختبار حجز ضيف — ما زال معلّقاً
 
-من [معالج الإعداد](https://r.bhd-om.com/ar/owner/stays/setup?propertyId=d0840631-207d-477a-853a-043572d49240):
+### P4 — لا تكسر
 
-- R-02, R-03, S-01, S-02 → `publish_status = published`
-- بعد النشر تظهر في `/ar/stays` تلقائياً
-
----
-
-## P3 — مهام مقترحة لاحقاً
-
-- تحسين portal-adaptive.css على الهاتف (h2 صغير 0.95rem في ops — قد يؤثر على العام)
-- اختبار حجز ضيف كامل (quote → hold → pay)
-- شارات قنوات (بيع / إيجار / إقامة) في المحفظة
-
----
-
-## P4 — لا تكسر
-
-- `DATABASE_URL` + `STAYS_PLATFORM_ENABLED=true` على Vercel
-- لا ترفع: `scripts/set-database-url.mjs`, `packages/db/tmp-migrate-*.mjs`
-- CSRF: حفظ الإقامة عبر `/api/owner/stays/setup` على Vercel
-
----
-
-## عند فتح Cursor على جهاز آخر
-
-```
-اقرأ:
-- docs/handoffs/2026-09-02-evening-home-handoff/README.md
-- docs/handoffs/2026-09-02-evening-home-handoff/CONTINUE-PLAN-AR.md
-- docs/implementation/RELEASE-0.4.40-AR.md
-
-git pull origin main. تحقق P1 ثم استكمل P2/P3 حسب الحاجة.
-```
-
-**محادثة Cursor:** `d0d5551b-99f7-449e-92d1-5d812bcf527d`  
-**أرشيف كامل:** `docs/handoffs/2026-09-02-evening-home-handoff/conversation-readable-FULL.md`
+- لا ترفع سكربتات مؤقتة / أسرار

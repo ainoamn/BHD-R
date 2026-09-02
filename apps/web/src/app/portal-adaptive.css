@@ -377,20 +377,21 @@
     gap: 0.4rem;
   }
 
-  .property-360__section {
+  .portal-layout .property-360__section {
     padding: var(--portal-pad);
     gap: 0.45rem;
   }
 
-  .property-360__section h2,
-  .property-360__section h3 {
+  /* Keep shrink scoped to portal ops — do not override public stay/unit titles (0.4.40). */
+  .portal-layout .property-360__section h2,
+  .portal-layout .property-360__section h3 {
     font-size: 0.95rem;
     margin: 0;
   }
 
-  .property-360__location,
-  .property-360__serial,
-  .property-360__description {
+  .portal-layout .property-360__location,
+  .portal-layout .property-360__serial,
+  .portal-layout .property-360__description {
     font-size: 0.84em;
     line-height: 1.4;
   }

@@ -6550,6 +6550,19 @@ button.ops-row-key {
   font-size: 0.68rem;
   font-weight: 900;
 }
+.ops-channel-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+}
+.ops-channel-badges--mobile {
+  margin-top: 0.35rem;
+}
+.ops-channel-badges .status-pill {
+  font-size: 0.68rem;
+  padding: 0.15rem 0.45rem;
+}
 .ops-status::before {
   width: 0.4rem;
   height: 0.4rem;

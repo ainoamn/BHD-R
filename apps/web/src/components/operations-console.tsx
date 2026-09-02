@@ -82,7 +82,7 @@ interface Column {
   key: string;
   ar: string;
   en: string;
-  format?: 'status' | 'money' | 'date' | 'count' | 'kind' | 'thumb';
+  format?: 'status' | 'money' | 'date' | 'count' | 'kind' | 'thumb' | 'channels';
   fallbackKeys?: string[];
 }
 
@@ -112,6 +112,7 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
       { key: 'nameAr', fallbackKeys: ['nameEn', 'name'], ar: 'العقار', en: 'Property' },
       { key: 'location', fallbackKeys: ['governorate', 'city'], ar: 'الموقع', en: 'Location' },
       { key: 'kind', ar: 'النوع', en: 'Kind', format: 'kind' },
+      { key: 'channels', ar: 'القنوات', en: 'Channels', format: 'channels' },
       { key: 'units', ar: 'الوحدات', en: 'Units', format: 'count' },
       { key: 'status', ar: 'الحالة', en: 'Status', format: 'status' },
     ],
@@ -669,6 +670,32 @@ function displayCell(
     return (
       <span className={`ops-status ops-status--${statusTone(status)}`}>
         {labeled ? (locale === 'ar' ? labeled.ar : labeled.en) : status.replaceAll('_', ' ')}
+      </span>
+    );
+  }
+  if (column.format === 'channels') {
+    const channels = Array.isArray(row.channels)
+      ? row.channels.map((item) => String(item))
+      : [];
+    if (!channels.length) return '—';
+    const label = (code: string) => {
+      if (code === 'rent') return locale === 'ar' ? 'إيجار' : 'Rent';
+      if (code === 'sale') return locale === 'ar' ? 'بيع' : 'Sale';
+      if (code === 'stay') return locale === 'ar' ? 'إقامة' : 'Stay';
+      return code;
+    };
+    return (
+      <span className="ops-channel-badges">
+        {channels.map((code) => (
+          <span
+            key={code}
+            className={`status-pill status-pill--${
+              code === 'stay' ? 'ready' : code === 'sale' ? 'warn' : 'muted'
+            }`}
+          >
+            {label(code)}
+          </span>
+        ))}
       </span>
     );
   }
@@ -3480,6 +3507,37 @@ export function OperationsConsole({
                       <p className="ops-mobile-card__serial" dir="ltr">
                         {serial}
                       </p>
+                    ) : null}
+                    {section === 'properties' && Array.isArray(row.channels) && row.channels.length ? (
+                      <div className="ops-channel-badges ops-channel-badges--mobile">
+                        {(row.channels as unknown[]).map((code) => {
+                          const key = String(code);
+                          const label =
+                            key === 'rent'
+                              ? ar
+                                ? 'إيجار'
+                                : 'Rent'
+                              : key === 'sale'
+                                ? ar
+                                  ? 'بيع'
+                                  : 'Sale'
+                                : key === 'stay'
+                                  ? ar
+                                    ? 'إقامة'
+                                    : 'Stay'
+                                  : key;
+                          return (
+                            <span
+                              key={key}
+                              className={`status-pill status-pill--${
+                                key === 'stay' ? 'ready' : key === 'sale' ? 'warn' : 'muted'
+                              }`}
+                            >
+                              {label}
+                            </span>
+                          );
+                        })}
+                      </div>
                     ) : null}
                   </div>
                 </div>

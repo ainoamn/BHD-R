@@ -15,6 +15,7 @@ import {
   partyRoles,
   properties,
   reservations,
+  stayProfiles,
   units,
   type Database,
 } from '@bhd-r/db';
@@ -175,6 +176,50 @@ async function listProperties(claims: SessionClaims): Promise<Record<string, unk
       }
     }
 
+    const purposeRows = await transaction
+      .select({
+        propertyId: units.propertyId,
+        listingPurpose: units.listingPurpose,
+      })
+      .from(units)
+      .where(and(eq(units.organizationId, orgId), inArray(units.propertyId, propertyIds)));
+
+    const stayChannelRows = await transaction
+      .select({
+        propertyId: units.propertyId,
+        publishStatus: stayProfiles.publishStatus,
+        enabled: stayProfiles.enabled,
+      })
+      .from(stayProfiles)
+      .innerJoin(units, eq(units.id, stayProfiles.unitId))
+      .where(
+        and(eq(stayProfiles.organizationId, orgId), inArray(units.propertyId, propertyIds)),
+      );
+
+    const channelsByProperty = new Map<string, Array<'rent' | 'sale' | 'stay'>>();
+    for (const id of propertyIds) channelsByProperty.set(id, []);
+    for (const row of purposeRows) {
+      const list = channelsByProperty.get(row.propertyId) ?? [];
+      if (
+        (row.listingPurpose === 'rent' || row.listingPurpose === 'both') &&
+        !list.includes('rent')
+      ) {
+        list.push('rent');
+      }
+      if (
+        (row.listingPurpose === 'sale' || row.listingPurpose === 'both') &&
+        !list.includes('sale')
+      ) {
+        list.push('sale');
+      }
+      channelsByProperty.set(row.propertyId, list);
+    }
+    for (const row of stayChannelRows) {
+      const list = channelsByProperty.get(row.propertyId) ?? [];
+      if (!list.includes('stay')) list.push('stay');
+      channelsByProperty.set(row.propertyId, list);
+    }
+
     const multiUnitPropertyIds = rows
       .filter((row) => row.kind === 'multi_unit')
       .map((row) => row.id);
@@ -268,6 +313,7 @@ async function listProperties(claims: SessionClaims): Promise<Record<string, unk
         row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
       units: byProperty.get(row.id) ?? 0,
       coverImageUrl: coverByProperty.get(row.id) ?? null,
+      channels: channelsByProperty.get(row.id) ?? [],
       childUnits:
         row.kind === 'multi_unit' ? (childUnitsByProperty.get(row.id) ?? []) : [],
     }));

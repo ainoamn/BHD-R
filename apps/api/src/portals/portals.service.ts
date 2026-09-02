@@ -10,6 +10,7 @@ import {
   parties,
   payments,
   properties,
+  stayProfiles,
   units,
   workflowEvents,
 } from '@bhd-r/db';
@@ -293,6 +294,7 @@ export class PortalsService {
   listProperties(claims: SessionClaims, options: { archivedOnly?: boolean } = {}) {
     return this.database.withinTenant(claims, async (transaction) => {
       const ownerPartyId = ownerPartyScope(claims);
+      const orgId = claims.organizationId!;
       const rows = await transaction
         .select({
           id: properties.id,
@@ -315,16 +317,56 @@ export class PortalsService {
         .leftJoin(addresses, eq(addresses.id, properties.addressId))
         .where(
           and(
-            eq(properties.organizationId, claims.organizationId!),
+            eq(properties.organizationId, orgId),
             ...(ownerPartyId ? [eq(properties.ownerPartyId, ownerPartyId)] : []),
             options.archivedOnly
               ? eq(properties.status, 'archived')
               : ne(properties.status, 'archived'),
           ),
         );
+      if (rows.length === 0) return [];
+      const propertyIds = rows.map((row) => row.id);
+      const purposeRows = await transaction
+        .select({
+          propertyId: units.propertyId,
+          listingPurpose: units.listingPurpose,
+        })
+        .from(units)
+        .where(and(eq(units.organizationId, orgId), inArray(units.propertyId, propertyIds)));
+      const stayRows = await transaction
+        .select({ propertyId: units.propertyId })
+        .from(stayProfiles)
+        .innerJoin(units, eq(units.id, stayProfiles.unitId))
+        .where(
+          and(eq(stayProfiles.organizationId, orgId), inArray(units.propertyId, propertyIds)),
+        );
+      const channelsByProperty = new Map<string, Array<'rent' | 'sale' | 'stay'>>();
+      for (const id of propertyIds) channelsByProperty.set(id, []);
+      for (const row of purposeRows) {
+        const list = channelsByProperty.get(row.propertyId) ?? [];
+        if (
+          (row.listingPurpose === 'rent' || row.listingPurpose === 'both') &&
+          !list.includes('rent')
+        ) {
+          list.push('rent');
+        }
+        if (
+          (row.listingPurpose === 'sale' || row.listingPurpose === 'both') &&
+          !list.includes('sale')
+        ) {
+          list.push('sale');
+        }
+        channelsByProperty.set(row.propertyId, list);
+      }
+      for (const row of stayRows) {
+        const list = channelsByProperty.get(row.propertyId) ?? [];
+        if (!list.includes('stay')) list.push('stay');
+        channelsByProperty.set(row.propertyId, list);
+      }
       return rows.map((row) => ({
         ...row,
         location: [row.street, row.city, row.wilayat, row.governorate].filter(Boolean).join(' · '),
+        channels: channelsByProperty.get(row.id) ?? [],
       }));
     });
   }
