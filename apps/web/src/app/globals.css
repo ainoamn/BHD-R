@@ -1069,22 +1069,100 @@ h3 {
 }
 
 .pay-gateway-shell {
-  min-height: 78vh;
+  --pay-pad: clamp(1rem, 3vw, 2rem);
+  min-height: 100dvh;
+  width: 100%;
   display: grid;
-  place-content: center;
-  padding: 2.5rem 1rem 3rem;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto 1fr;
   background:
     radial-gradient(ellipse 80% 50% at 10% 0%, rgba(15, 118, 110, 0.14), transparent 55%),
     radial-gradient(ellipse 70% 45% at 90% 10%, rgba(9, 45, 36, 0.1), transparent 50%),
     linear-gradient(165deg, #f4f7f5 0%, #e8efeb 48%, #f7f4ee 100%);
 }
+body:has(.pay-gateway-shell) .site-header,
+body:has(.pay-gateway-shell) .site-footer {
+  display: none !important;
+}
+body:has(.pay-gateway-shell) #main-content {
+  min-height: 100dvh;
+  padding: 0;
+  margin: 0;
+}
+.pay-gateway-shell__aside {
+  display: block;
+  padding: max(var(--pay-pad), env(safe-area-inset-top)) var(--pay-pad) 1.25rem;
+  color: #f5fbf8;
+  background:
+    linear-gradient(160deg, rgba(10, 47, 40, 0.94), rgba(15, 118, 110, 0.9)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cpath fill='rgba(255,255,255,0.04)' d='M0 80h160v2H0zM80 0v160h2V0z'/%3E%3C/svg%3E");
+  background-size: cover, 160px 160px;
+}
+.pay-gateway-shell__aside-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  max-width: 34rem;
+  margin-inline: auto;
+}
+.pay-gateway-shell__aside .pay-gateway-shell__lede,
+.pay-gateway-shell__aside .pay-gateway-shell__trust {
+  display: none;
+}
+.pay-gateway-shell__brand-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.pay-gateway-shell__aside h1 {
+  margin: 0;
+  font-size: clamp(1.35rem, 4vw, 1.7rem);
+  line-height: 1.2;
+  color: #fff;
+}
+.pay-gateway-shell__lede {
+  margin: 0;
+  color: rgba(245, 251, 248, 0.82);
+  font-size: 1rem;
+  line-height: 1.55;
+  max-width: 32ch;
+}
+.pay-gateway-shell__trust {
+  margin-top: auto;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.45rem;
+  color: rgba(245, 251, 248, 0.78);
+  font-size: 0.86rem;
+}
+.pay-gateway-shell__trust li {
+  padding-inline-start: 1.1rem;
+  position: relative;
+}
+.pay-gateway-shell__trust li::before {
+  content: '';
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0.45rem;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: #65d7a9;
+}
 .pay-gateway-shell__panel {
-  width: min(100%, 26.5rem);
-  padding: 1.35rem 1.35rem 1.5rem;
-  border: 1px solid color-mix(in srgb, var(--oman-deep) 12%, #d7e1db);
-  border-radius: 1rem;
-  background: #fff;
-  box-shadow: 0 18px 40px rgba(9, 45, 36, 0.08);
+  width: 100%;
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: 1.25rem
+    max(var(--pay-pad), env(safe-area-inset-right))
+    max(var(--pay-pad), env(safe-area-inset-bottom))
+    max(var(--pay-pad), env(safe-area-inset-left));
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
 }
 .pay-gateway-shell__header {
   display: flex;
@@ -1092,6 +1170,19 @@ h3 {
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 1.1rem;
+}
+.pay-gateway-shell__header h1,
+.pay-gateway-shell__header h2 {
+  margin: 0.2rem 0 0;
+  font-size: clamp(1.2rem, 3.5vw, 1.45rem);
+  color: var(--oman-deep, #092d24);
+}
+.pay-gateway-shell__header--desktop {
+  display: none;
+}
+.pay-gateway-shell__header--mobile .pay-gateway-shell__brand,
+.pay-gateway-shell__header--mobile .pay-gateway-shell__badge {
+  display: none;
 }
 .pay-gateway-shell__brand {
   margin: 0;
@@ -1101,10 +1192,8 @@ h3 {
   text-transform: uppercase;
   color: var(--oman-deep, #092d24);
 }
-.pay-gateway-shell__header h1 {
-  margin: 0.2rem 0 0;
-  font-size: 1.35rem;
-  color: var(--oman-deep, #092d24);
+.pay-gateway-shell__aside .pay-gateway-shell__brand {
+  color: #fff;
 }
 .pay-gateway-shell__badge {
   flex-shrink: 0;
@@ -1115,14 +1204,20 @@ h3 {
   font-size: 0.72rem;
   font-weight: 700;
 }
+.pay-gateway-shell__aside .pay-gateway-shell__badge {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
 .pay-gateway-shell__summary {
   display: grid;
   gap: 0.85rem;
-  margin-bottom: 1.15rem;
-  padding: 0.9rem 1rem;
-  border-radius: 0.75rem;
-  background: linear-gradient(135deg, #0b3a2f 0%, #0f766e 100%);
+  margin: 0.15rem 0 0;
+  padding: 0.95rem 1rem;
+  border-radius: 0.85rem;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   color: #f5fbf8;
+  backdrop-filter: blur(8px);
 }
 .pay-gateway-shell__summary .muted {
   margin: 0;
@@ -1131,7 +1226,7 @@ h3 {
 }
 .pay-gateway-shell__amount {
   margin: 0.15rem 0 0;
-  font-size: 1.65rem;
+  font-size: clamp(1.55rem, 5vw, 2.1rem);
   font-weight: 800;
   letter-spacing: -0.02em;
 }
@@ -1149,21 +1244,26 @@ h3 {
   margin: 0.1rem 0 0;
   font-size: 0.8rem;
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 .pay-gateway-shell__hint {
-  margin: 0 0 1rem;
-  font-size: 0.88rem;
+  margin: 0.35rem 0 0;
+  font-size: 0.92rem;
+  color: rgba(245, 251, 248, 0.82);
+}
+.pay-gateway {
+  width: 100%;
 }
 .pay-gateway__card-visual {
   position: relative;
   margin-bottom: 1.1rem;
-  padding: 1.1rem 1.15rem 1rem;
-  border-radius: 0.9rem;
-  background:
-    linear-gradient(145deg, #0a2f28 0%, #145a4c 55%, #1a6b5c 100%);
+  padding: 1.15rem 1.2rem 1.05rem;
+  border-radius: 1rem;
+  background: linear-gradient(145deg, #0a2f28 0%, #145a4c 55%, #1a6b5c 100%);
   color: #f4faf7;
-  min-height: 8.5rem;
+  min-height: clamp(8rem, 22vw, 10rem);
   overflow: hidden;
+  box-shadow: 0 14px 30px rgba(9, 45, 36, 0.18);
 }
 .pay-gateway__card-visual::after {
   content: '';
@@ -1193,7 +1293,7 @@ h3 {
 .pay-gateway__card-number {
   position: relative;
   margin: 0 0 0.85rem;
-  font-size: 1.15rem;
+  font-size: clamp(1.05rem, 3.4vw, 1.25rem);
   font-weight: 700;
   letter-spacing: 0.12em;
   font-variant-numeric: tabular-nums;
@@ -1212,6 +1312,11 @@ h3 {
   display: grid;
   gap: 0.85rem;
   text-align: start;
+  padding: 1.15rem;
+  border-radius: 1rem;
+  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--oman-deep) 10%, #d7e1db);
+  box-shadow: 0 16px 36px rgba(9, 45, 36, 0.07);
 }
 .pay-gateway__row {
   display: grid;
@@ -1221,7 +1326,7 @@ h3 {
 .pay-gateway__pay {
   width: 100%;
   margin-top: 0.25rem;
-  min-height: 2.85rem;
+  min-height: 2.95rem;
   font-weight: 800;
 }
 .pay-gateway__secure,
@@ -1230,9 +1335,66 @@ h3 {
   text-align: center;
   font-size: 0.75rem;
 }
-@media (max-width: 480px) {
+@media (max-width: 640px) {
   .pay-gateway-shell__summary dl {
     grid-template-columns: 1fr;
+  }
+  .pay-gateway__row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .pay-gateway__form {
+    padding: 1rem;
+  }
+}
+@media (min-width: 900px) {
+  .pay-gateway-shell {
+    grid-template-columns: minmax(18rem, 0.95fr) minmax(24rem, 1.05fr);
+    grid-template-rows: 1fr;
+    align-items: stretch;
+  }
+  .pay-gateway-shell__aside {
+    padding: var(--pay-pad);
+  }
+  .pay-gateway-shell__aside-inner {
+    max-width: 28rem;
+    min-height: calc(100dvh - (var(--pay-pad) * 2));
+  }
+  .pay-gateway-shell__aside h1 {
+    font-size: clamp(1.6rem, 2.4vw, 2.2rem);
+  }
+  .pay-gateway-shell__aside .pay-gateway-shell__lede,
+  .pay-gateway-shell__aside .pay-gateway-shell__trust {
+    display: grid;
+  }
+  .pay-gateway-shell__aside .pay-gateway-shell__lede {
+    display: block;
+  }
+  .pay-gateway-shell__header--mobile {
+    display: none;
+  }
+  .pay-gateway-shell__header--desktop {
+    display: block;
+    margin-bottom: 1.25rem;
+  }
+  .pay-gateway-shell__panel {
+    max-width: none;
+    display: grid;
+    align-content: center;
+    padding: var(--pay-pad) clamp(1.5rem, 5vw, 4rem);
+    background: rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(10px);
+  }
+  .pay-gateway {
+    width: min(100%, 28rem);
+    justify-self: center;
+  }
+}
+@media (min-width: 1200px) {
+  .pay-gateway-shell {
+    grid-template-columns: minmax(22rem, 1fr) minmax(28rem, 1.1fr);
+  }
+  .pay-gateway {
+    width: min(100%, 32rem);
   }
 }
 .auth-card {

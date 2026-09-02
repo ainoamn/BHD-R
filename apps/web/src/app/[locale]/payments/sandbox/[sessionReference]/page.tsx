@@ -39,48 +39,70 @@ export default async function SandboxPaymentPage({
       : null;
 
   return (
-    <section className="pay-gateway-shell">
+    <section className="pay-gateway-shell" data-pay-immersive="true">
+      <aside className="pay-gateway-shell__aside">
+        <div className="pay-gateway-shell__aside-inner">
+          <div className="pay-gateway-shell__brand-row">
+            <p className="pay-gateway-shell__brand">BHD Pay</p>
+            <span className="pay-gateway-shell__badge">{ar ? 'تجريبي' : 'Pilot'}</span>
+          </div>
+          <h1>{ar ? 'إتمام الدفع' : 'Complete payment'}</h1>
+          <p className="pay-gateway-shell__lede">
+            {ar
+              ? 'أدخل بيانات البطاقة لإكمال الحجز بأمان.'
+              : 'Enter your card details to complete the booking securely.'}
+          </p>
+
+          {session ? (
+            <div className="pay-gateway-shell__summary">
+              <div>
+                <p className="muted">{ar ? 'المبلغ المستحق' : 'Amount due'}</p>
+                <p className="pay-gateway-shell__amount" dir="ltr">
+                  {formatMoney(session.amountMinor, session.currency, locale)}
+                </p>
+              </div>
+              <dl>
+                <div>
+                  <dt>{ar ? 'المرجع' : 'Reference'}</dt>
+                  <dd dir="ltr">{session.referenceCode}</dd>
+                </div>
+                <div>
+                  <dt>{ar ? 'الوصول' : 'Check-in'}</dt>
+                  <dd dir="ltr">{session.checkInOn}</dd>
+                </div>
+                <div>
+                  <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
+                  <dd dir="ltr">{session.checkOutOn}</dd>
+                </div>
+              </dl>
+            </div>
+          ) : (
+            <p className="pay-gateway-shell__hint">
+              {ar
+                ? 'لن يُخصم مبلغ حقيقي في هذا الوضع التجريبي.'
+                : 'No real charge is made in this pilot mode.'}
+            </p>
+          )}
+
+          <ul className="pay-gateway-shell__trust">
+            <li>{ar ? 'تشفير اتصال آمن' : 'Encrypted secure connection'}</li>
+            <li>{ar ? 'بيانات البطاقة لا تُخزَّن' : 'Card details are not stored'}</li>
+            <li>{ar ? 'مدعوم من BHD R' : 'Powered by BHD R'}</li>
+          </ul>
+        </div>
+      </aside>
+
       <div className="pay-gateway-shell__panel">
-        <header className="pay-gateway-shell__header">
+        <header className="pay-gateway-shell__header pay-gateway-shell__header--mobile">
           <div>
             <p className="pay-gateway-shell__brand">BHD Pay</p>
-            <h1>{ar ? 'إتمام الدفع' : 'Complete payment'}</h1>
+            <h2>{ar ? 'بيانات البطاقة' : 'Card details'}</h2>
           </div>
-          <span className="pay-gateway-shell__badge">
-            {ar ? 'تجريبي' : 'Pilot'}
-          </span>
+          <span className="pay-gateway-shell__badge">{ar ? 'تجريبي' : 'Pilot'}</span>
         </header>
-
-        {session ? (
-          <div className="pay-gateway-shell__summary">
-            <div>
-              <p className="muted">{ar ? 'المبلغ المستحق' : 'Amount due'}</p>
-              <p className="pay-gateway-shell__amount" dir="ltr">
-                {formatMoney(session.amountMinor, session.currency, locale)}
-              </p>
-            </div>
-            <dl>
-              <div>
-                <dt>{ar ? 'المرجع' : 'Reference'}</dt>
-                <dd dir="ltr">{session.referenceCode}</dd>
-              </div>
-              <div>
-                <dt>{ar ? 'الوصول' : 'Check-in'}</dt>
-                <dd dir="ltr">{session.checkInOn}</dd>
-              </div>
-              <div>
-                <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
-                <dd dir="ltr">{session.checkOutOn}</dd>
-              </div>
-            </dl>
-          </div>
-        ) : (
-          <p className="muted pay-gateway-shell__hint">
-            {ar
-              ? 'أدخل بيانات بطاقتك للمتابعة. لن يُخصم مبلغ حقيقي في هذا الوضع.'
-              : 'Enter your card details to continue. No real charge is made in this mode.'}
-          </p>
-        )}
+        <header className="pay-gateway-shell__header pay-gateway-shell__header--desktop">
+          <h2>{ar ? 'بيانات البطاقة' : 'Card details'}</h2>
+        </header>
 
         <SandboxPaymentForm
           sessionReference={sessionReference}
