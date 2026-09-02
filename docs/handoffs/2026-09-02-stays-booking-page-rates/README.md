@@ -2,6 +2,7 @@
 
 **Date:** 2026-09-02  
 **Release:** 0.4.31  
+**Commit:** `b101547`  
 **Production:** https://r.bhd-om.com  
 **Repo:** https://github.com/ainoamn/BHD-R  
 
