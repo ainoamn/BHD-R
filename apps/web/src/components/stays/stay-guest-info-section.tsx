@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { Fragment } from 'react';
 import { formatMoney, localizedName } from '@/lib/format';
 import type { StayPublicDetail } from '@bhd-r/contracts';
 import { StayPolicySections } from '@/components/stays/stay-policy-sections';
@@ -108,23 +109,26 @@ export function StayGuestInfoSection({
   }
 
   return (
-    <section className="stay-guest-info property-360__section" aria-labelledby="stay-guest-info-title">
+    <Fragment>
       {timeRows.length ? (
-        <div className="stay-guest-info__panel">
+        <section
+          className="stay-guest-info property-360__section"
+          aria-labelledby="stay-guest-info-title"
+        >
           <h2 id="stay-guest-info-title">{ar ? 'أوقات الدخول والخروج' : 'Check-in & check-out'}</h2>
           <InfoRows rows={timeRows} />
-        </div>
+        </section>
       ) : null}
 
       {guestRows.length ? (
-        <div className="stay-guest-info__panel">
+        <section className="stay-guest-info property-360__section">
           <h2>{ar ? 'سعة الضيوف' : 'Guest capacity'}</h2>
           <InfoRows rows={guestRows} />
-        </div>
+        </section>
       ) : null}
 
       {detail.depositMinor ? (
-        <div className="stay-guest-info__panel">
+        <section className="stay-guest-info property-360__section">
           <h2>{ar ? 'مبلغ التأمين' : 'Security deposit'}</h2>
           <InfoRows
             rows={[
@@ -142,11 +146,11 @@ export function StayGuestInfoSection({
                 : 'The deposit is paid on arrival and refunded after checkout and property inspection.'}
             </li>
           </ul>
-        </div>
+        </section>
       ) : null}
 
       {rates.length ? (
-        <div className="stay-guest-info__panel">
+        <section className="stay-guest-info property-360__section">
           <h2>{ar ? 'مبالغ الإقامة' : 'Stay amounts'}</h2>
           <InfoRows
             rows={rates.map((rate) => ({
@@ -155,33 +159,33 @@ export function StayGuestInfoSection({
               dir: 'ltr' as const,
             }))}
           />
-        </div>
+        </section>
       ) : null}
 
       {hasPolicies ? (
-        <div className="stay-guest-info__panel stay-guest-info__policies">
+        <section className="stay-guest-info stay-guest-info__policies property-360__section">
           <StayPolicySections detail={detail} locale={locale} />
-        </div>
+        </section>
       ) : null}
 
       {instructions ? (
-        <div className="stay-guest-info__panel">
+        <section className="stay-guest-info property-360__section">
           <h2>{ar ? 'التعليمات' : 'Instructions'}</h2>
           <p>{instructions}</p>
-        </div>
+        </section>
       ) : (
-        <div className="stay-guest-info__panel">
+        <section className="stay-guest-info property-360__section">
           <h2>{ar ? 'التعليمات' : 'Instructions'}</h2>
           <p className="muted">
             {ar
               ? 'تعليمات الوصول والاستخدام تُحدَّث من تقييمات الضيوف بعد انتهاء الإقامة، مع الالتزام بأوقات الدخول والخروج أعلاه.'
               : 'Access and house instructions are refined from guest reviews after checkout, alongside the check-in/out times above.'}
           </p>
-        </div>
+        </section>
       )}
 
       {detail.smartScoreTen != null || detail.guestScoreTen != null ? (
-        <div className="stay-guest-info__panel stay-guest-info__smart">
+        <section className="stay-guest-info stay-guest-info__smart property-360__section">
           <h2>{ar ? 'التقييم الذكي' : 'Smart rating'}</h2>
           <p>
             {detail.smartScoreTen != null ? (
@@ -211,8 +215,8 @@ export function StayGuestInfoSection({
               </span>
             ) : null}
           </p>
-        </div>
+        </section>
       ) : null}
-    </section>
+    </Fragment>
   );
 }
