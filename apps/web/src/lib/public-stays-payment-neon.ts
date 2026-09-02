@@ -316,6 +316,109 @@ export async function completeStaySandboxPaymentOnNeon(
       },
     });
 
+    // Mark booked nights immediately so public/owner calendars update without waiting on the worker.
+    await transaction.execute(sql`
+      WITH days AS (
+        SELECT generate_series(
+          ${booking.checkInOn}::date,
+          (${booking.checkOutOn}::date - 1),
+          '1 day'::interval
+        )::date AS stay_date
+      )
+      INSERT INTO stay_inventory_days (
+        organization_id, unit_id, stay_date, availability_status,
+        effective_rate_minor, currency, min_nights, public_note, manual_rate
+      )
+      SELECT
+        ${intent.organizationId}::uuid,
+        ${booking.unitId}::uuid,
+        d.stay_date,
+        'booked',
+        NULL,
+        ${booking.currency},
+        NULL,
+        NULL,
+        false
+      FROM days d
+      ON CONFLICT (unit_id, stay_date) DO UPDATE SET
+        availability_status = 'booked',
+        updated_at = now()
+    `);
+
+    await transaction.execute(sql`
+      WITH profile AS (
+        SELECT sp.currency,
+               sp.min_nights,
+               LEAST(GREATEST(COALESCE(sp.advance_booking_days, 365), 1), 730) AS advance,
+               (
+                 SELECT srp.base_nightly_minor::text
+                 FROM stay_rate_plans srp
+                 WHERE srp.stay_profile_id = sp.id
+                   AND srp.enabled = true
+                 ORDER BY srp.priority ASC, srp.created_at ASC
+                 LIMIT 1
+               ) AS base_nightly_minor
+        FROM stay_profiles sp
+        WHERE sp.organization_id = ${intent.organizationId}::uuid
+          AND sp.unit_id = ${booking.unitId}::uuid
+        LIMIT 1
+      ),
+      days AS (
+        SELECT generate_series(
+          CURRENT_DATE,
+          CURRENT_DATE + ((SELECT advance FROM profile) - 1),
+          '1 day'::interval
+        )::date AS stay_date
+      ),
+      day_status AS (
+        SELECT
+          d.stay_date,
+          CASE
+            WHEN bool_or(l.kind = 'booking') THEN 'booked'
+            WHEN bool_or(l.kind = 'hold') THEN 'hold'
+            WHEN bool_or(l.kind = 'maintenance') THEN 'maintenance'
+            WHEN bool_or(l.kind = 'lease') THEN 'lease'
+            WHEN bool_or(l.kind IN ('owner_block', 'channel')) THEN 'blocked'
+            ELSE 'available'
+          END AS availability_status
+        FROM days d
+        LEFT JOIN stay_inventory_locks l
+          ON l.unit_id = ${booking.unitId}::uuid
+         AND l.organization_id = ${intent.organizationId}::uuid
+         AND l.status = 'active'
+         AND d.stay_date >= lower(l.stay_range)
+         AND d.stay_date < upper(l.stay_range)
+        GROUP BY d.stay_date
+      )
+      INSERT INTO stay_inventory_days (
+        organization_id, unit_id, stay_date, availability_status,
+        effective_rate_minor, currency, min_nights, public_note, manual_rate
+      )
+      SELECT
+        ${intent.organizationId}::uuid,
+        ${booking.unitId}::uuid,
+        ds.stay_date,
+        ds.availability_status,
+        CASE
+          WHEN (SELECT base_nightly_minor FROM profile) IS NULL THEN NULL
+          ELSE ((SELECT base_nightly_minor FROM profile)::bigint)
+        END,
+        (SELECT currency FROM profile),
+        (SELECT min_nights FROM profile),
+        NULL,
+        false
+      FROM day_status ds
+      ON CONFLICT (unit_id, stay_date) DO UPDATE SET
+        availability_status = EXCLUDED.availability_status,
+        effective_rate_minor = CASE
+          WHEN stay_inventory_days.manual_rate THEN stay_inventory_days.effective_rate_minor
+          ELSE EXCLUDED.effective_rate_minor
+        END,
+        currency = COALESCE(stay_inventory_days.currency, EXCLUDED.currency),
+        min_nights = EXCLUDED.min_nights,
+        updated_at = now()
+    `);
+
     const snapshot =
       booking.pricingSnapshotJson && typeof booking.pricingSnapshotJson === 'object'
         ? (booking.pricingSnapshotJson as Record<string, unknown>)
@@ -331,7 +434,7 @@ export async function completeStaySandboxPaymentOnNeon(
     const guestName =
       typeof guestContact.displayName === 'string' && guestContact.displayName.trim()
         ? guestContact.displayName.trim()
-        : (
+        : ((
             await transaction.query.stayBookingGuests.findFirst({
               where: and(
                 eq(stayBookingGuests.bookingId, booking.id),
@@ -339,7 +442,7 @@ export async function completeStaySandboxPaymentOnNeon(
               ),
               columns: { displayName: true },
             })
-          )?.displayName ?? null;
+          )?.displayName ?? null);
 
     if (guestEmail) {
       const origin = publicWebOrigin();

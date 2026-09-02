@@ -81,22 +81,35 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         </div>
         {recent.length ? (
           <ul className="stays-portal__recent-list">
-            {recent.map((booking) => (
-              <li key={booking.id}>
-                <div>
-                  <strong dir="ltr">{booking.referenceCode}</strong>
-                  <span className="muted">
-                    {booking.checkInOn} → {booking.checkOutOn}
-                  </span>
-                </div>
-                <div>
-                  <span>{stayStatusLabel(booking.status, locale)}</span>
-                  <strong dir="ltr">
-                    {formatMoney(booking.totalMinor, booking.currency, locale)}
-                  </strong>
-                </div>
-              </li>
-            ))}
+            {recent.map((booking) => {
+              const propertyName = ar
+                ? booking.propertyNameAr || booking.propertyNameEn
+                : booking.propertyNameEn || booking.propertyNameAr;
+              const unitLabel =
+                (ar
+                  ? booking.unitNameAr || booking.unitNameEn
+                  : booking.unitNameEn || booking.unitNameAr) || booking.unitCode;
+              return (
+                <li key={booking.id}>
+                  <div>
+                    <strong dir="ltr">{booking.referenceCode}</strong>
+                    <span className="muted">
+                      {booking.checkInOn} → {booking.checkOutOn}
+                    </span>
+                    <Link href={`/owner/properties/${booking.propertyId}`}>
+                      {propertyName || (ar ? 'العقار' : 'Property')}
+                      {unitLabel ? ` · ${unitLabel}` : ''}
+                    </Link>
+                  </div>
+                  <div>
+                    <span>{stayStatusLabel(booking.status, locale)}</span>
+                    <strong dir="ltr">
+                      {formatMoney(booking.totalMinor, booking.currency, locale)}
+                    </strong>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <p className="muted">

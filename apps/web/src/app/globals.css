@@ -9050,6 +9050,17 @@ button.ops-row-key {
   display: grid;
   gap: 0.15rem;
 }
+.stays-portal__recent-list a {
+  font-weight: 700;
+  color: var(--oman-deep, #092d24);
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+}
+.stays-ops-bookings__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
 .property-manage-hub__stays-link {
   margin-top: 0.85rem;
 }

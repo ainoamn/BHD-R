@@ -124,19 +124,17 @@ function rangeFullyAvailable(
   );
 }
 
-function lockForDay(
-  locks: StayInventoryCalendarResponse['locks'] | undefined,
-  stayDate: string,
-) {
+function lockForDay(locks: StayInventoryCalendarResponse['locks'] | undefined, stayDate: string) {
   if (!locks?.length) return null;
-  return (
-    locks.find((lock) => stayDate >= lock.checkInOn && stayDate < lock.checkOutOn) ?? null
-  );
+  return locks.find((lock) => stayDate >= lock.checkInOn && stayDate < lock.checkOutOn) ?? null;
 }
 
 function compactMoney(amountMinor: string, currency: string, locale: string): string {
   const formatted = formatMoney(amountMinor, currency, locale);
-  return formatted.replace(/\s*ر\.?\s*ع\.?/gi, '').replace(/\s*OMR/gi, '').trim();
+  return formatted
+    .replace(/\s*ر\.?\s*ع\.?/gi, '')
+    .replace(/\s*OMR/gi, '')
+    .trim();
 }
 
 export function StayAvailabilityCalendar({
@@ -249,7 +247,8 @@ export function StayAvailabilityCalendar({
   }, [data]);
 
   const months = useMemo(
-    () => Array.from({ length: monthCount }, (_, index) => addCalendarMonths(viewMonthStart, index)),
+    () =>
+      Array.from({ length: monthCount }, (_, index) => addCalendarMonths(viewMonthStart, index)),
     [monthCount, viewMonthStart],
   );
 
@@ -365,7 +364,11 @@ export function StayAvailabilityCalendar({
           }
 
           return (
-            <section key={monthStart} className="stays-calendar__month" aria-label={monthLabel(monthStart, locale)}>
+            <section
+              key={monthStart}
+              className="stays-calendar__month"
+              aria-label={monthLabel(monthStart, locale)}
+            >
               <h4 className="stays-calendar__month-title">{monthLabel(monthStart, locale)}</h4>
               <div className="stays-calendar__weekdays" aria-hidden="true">
                 {weekdays.map((label) => (
@@ -375,7 +378,12 @@ export function StayAvailabilityCalendar({
               <div className="stays-calendar__grid" role="grid">
                 {cells.map((cell) => {
                   if (!cell.stayDate) {
-                    return <span key={cell.key} className="stays-calendar__day stays-calendar__day--pad" />;
+                    return (
+                      <span
+                        key={cell.key}
+                        className="stays-calendar__day stays-calendar__day--pad"
+                      />
+                    );
                   }
                   const day = daysByDate.get(cell.stayDate) ?? {
                     stayDate: cell.stayDate,
@@ -383,13 +391,24 @@ export function StayAvailabilityCalendar({
                     effectiveRateMinor: null,
                     currency: data?.currency ?? null,
                   };
-                  const status = day.availabilityStatus;
+                  const lock = lockForDay(data?.locks, cell.stayDate);
+                  const status =
+                    lock?.kind === 'booking'
+                      ? ('booked' as const)
+                      : lock?.kind === 'hold'
+                        ? ('hold' as const)
+                        : lock?.kind === 'maintenance'
+                          ? ('maintenance' as const)
+                          : lock?.kind === 'lease'
+                            ? ('lease' as const)
+                            : lock?.kind === 'owner_block' || lock?.kind === 'channel'
+                              ? ('blocked' as const)
+                              : day.availabilityStatus;
                   const selectable =
                     (mode === 'public' &&
                       Boolean(onRangeChange) &&
                       isStayDateSelectable(status, cell.stayDate)) ||
                     (mode === 'ops' && Boolean(onDaySelect) && cell.stayDate >= todayIso());
-                  const lock = lockForDay(data?.locks, cell.stayDate);
                   const currency = day.currency ?? data?.currency ?? null;
                   const titleParts = [statusLabel(status, ar)];
                   if (day.publicNote) titleParts.push(day.publicNote);
@@ -470,7 +489,10 @@ export function StayAvailabilityCalendar({
         })}
       </div>
 
-      <ul className="stays-calendar__legend" aria-label={ar ? 'دليل حالات الأيام' : 'Day status legend'}>
+      <ul
+        className="stays-calendar__legend"
+        aria-label={ar ? 'دليل حالات الأيام' : 'Day status legend'}
+      >
         <li className="stays-calendar__legend-item is-selected-range">
           <span className="stays-calendar__swatch is-selected-range" aria-hidden="true" />
           <span>{ar ? 'التواريخ المختارة' : 'Selected dates'}</span>
@@ -493,9 +515,7 @@ export function StayAvailabilityCalendar({
                   {lock.checkInOn} → {lock.checkOutOn}
                 </strong>
                 <span>{lock.kind}</span>
-                {lock.bookingReference ? (
-                  <span dir="ltr">{lock.bookingReference}</span>
-                ) : null}
+                {lock.bookingReference ? <span dir="ltr">{lock.bookingReference}</span> : null}
                 {lock.note ? <span className="muted">{lock.note}</span> : null}
               </li>
             ))}

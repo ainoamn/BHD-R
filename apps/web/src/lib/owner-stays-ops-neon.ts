@@ -2,7 +2,14 @@ import 'server-only';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import type { SessionClaims } from '@bhd-r/authz';
 import type { StayInventoryCalendarResponse } from '@bhd-r/contracts';
-import { createDatabase, stayBookings, stayProfiles, units, type Database } from '@bhd-r/db';
+import {
+  createDatabase,
+  properties,
+  stayBookings,
+  stayProfiles,
+  units,
+  type Database,
+} from '@bhd-r/db';
 import type { OpsStayBooking } from '@/components/stays/stay-ops-bookings-table';
 import type { StayCalendarUnit } from '@/components/stays/stay-ops-calendar-panel';
 
@@ -67,6 +74,11 @@ function toOpsBooking(row: {
   source: string;
   currency: string;
   totalMinor: bigint | string | number;
+  propertyNameAr?: string | null;
+  propertyNameEn?: string | null;
+  unitCode?: string | null;
+  unitNameAr?: string | null;
+  unitNameEn?: string | null;
 }): OpsStayBooking {
   return {
     id: row.id,
@@ -81,6 +93,11 @@ function toOpsBooking(row: {
     currency: row.currency,
     totalMinor: String(row.totalMinor),
     nights: nightsBetween(row.checkInOn, row.checkOutOn),
+    ...(row.propertyNameAr ? { propertyNameAr: row.propertyNameAr } : {}),
+    ...(row.propertyNameEn ? { propertyNameEn: row.propertyNameEn } : {}),
+    ...(row.unitCode ? { unitCode: row.unitCode } : {}),
+    ...(row.unitNameAr ? { unitNameAr: row.unitNameAr } : {}),
+    ...(row.unitNameEn ? { unitNameEn: row.unitNameEn } : {}),
   };
 }
 
@@ -105,8 +122,15 @@ export async function listOwnerStayBookingsOnNeon(
         source: stayBookings.source,
         currency: stayBookings.currency,
         totalMinor: stayBookings.totalMinor,
+        propertyNameAr: properties.nameAr,
+        propertyNameEn: properties.nameEn,
+        unitCode: units.code,
+        unitNameAr: units.nameAr,
+        unitNameEn: units.nameEn,
       })
       .from(stayBookings)
+      .innerJoin(properties, eq(properties.id, stayBookings.propertyId))
+      .innerJoin(units, eq(units.id, stayBookings.unitId))
       .where(eq(stayBookings.organizationId, organizationId))
       .orderBy(desc(stayBookings.checkInOn), desc(stayBookings.createdAt))
       .limit(limit);
@@ -205,6 +229,45 @@ export async function getOwnerStayInventoryDaysOnNeon(
       .limit(1);
     if (!profile) throw new Error('stay_unit_not_found');
 
+    // Keep calendar projection aligned with active booking locks (covers older paid stays).
+    await transaction.execute(sql`
+      WITH lock_days AS (
+        SELECT DISTINCT gs::date AS stay_date
+        FROM stay_inventory_locks l
+        CROSS JOIN LATERAL generate_series(
+          lower(l.stay_range),
+          upper(l.stay_range) - 1,
+          '1 day'::interval
+        ) AS gs
+        WHERE l.organization_id = ${organizationId}::uuid
+          AND l.unit_id = ${unitId}::uuid
+          AND l.status = 'active'
+          AND l.kind = 'booking'
+          AND lower(l.stay_range) < ${toOn}::date
+          AND upper(l.stay_range) > ${fromOn}::date
+      )
+      INSERT INTO stay_inventory_days (
+        organization_id, unit_id, stay_date, availability_status,
+        effective_rate_minor, currency, min_nights, public_note, manual_rate
+      )
+      SELECT
+        ${organizationId}::uuid,
+        ${unitId}::uuid,
+        ld.stay_date,
+        'booked',
+        NULL,
+        ${profile.currency},
+        NULL,
+        NULL,
+        false
+      FROM lock_days ld
+      WHERE ld.stay_date >= ${fromOn}::date
+        AND ld.stay_date < ${toOn}::date
+      ON CONFLICT (unit_id, stay_date) DO UPDATE SET
+        availability_status = 'booked',
+        updated_at = now()
+    `);
+
     const dayResult = await transaction.execute(sql`
       SELECT
         stay_date::text AS stay_date,
@@ -266,27 +329,54 @@ export async function getOwnerStayInventoryDaysOnNeon(
       ? lockResult
       : ((lockResult as { rows?: unknown[] }).rows ?? []);
 
+    const locks = (
+      lockRows as Array<{
+        kind: string;
+        check_in_on: string;
+        check_out_on: string;
+        note: string | null;
+        booking_reference: string | null;
+      }>
+    ).map((row) => ({
+      kind: row.kind,
+      checkInOn: row.check_in_on,
+      checkOutOn: row.check_out_on,
+      ...(row.booking_reference ? { bookingReference: row.booking_reference } : {}),
+      ...(row.note ? { note: row.note } : {}),
+    }));
+
+    const daysWithLocks = days.map((day) => {
+      const lock = locks.find(
+        (item) => day.stayDate >= item.checkInOn && day.stayDate < item.checkOutOn,
+      );
+      if (!lock) return day;
+      const fromLock =
+        lock.kind === 'booking'
+          ? 'booked'
+          : lock.kind === 'hold'
+            ? 'hold'
+            : lock.kind === 'maintenance'
+              ? 'maintenance'
+              : lock.kind === 'lease'
+                ? 'lease'
+                : lock.kind === 'owner_block' || lock.kind === 'channel'
+                  ? 'blocked'
+                  : null;
+      if (!fromLock) return day;
+      return {
+        ...day,
+        availabilityStatus:
+          fromLock as StayInventoryCalendarResponse['days'][number]['availabilityStatus'],
+      };
+    });
+
     return {
       unitId,
       fromOn,
       toOn,
       currency: profile.currency as StayInventoryCalendarResponse['currency'],
-      days,
-      locks: (
-        lockRows as Array<{
-          kind: string;
-          check_in_on: string;
-          check_out_on: string;
-          note: string | null;
-          booking_reference: string | null;
-        }>
-      ).map((row) => ({
-        kind: row.kind,
-        checkInOn: row.check_in_on,
-        checkOutOn: row.check_out_on,
-        ...(row.booking_reference ? { bookingReference: row.booking_reference } : {}),
-        ...(row.note ? { note: row.note } : {}),
-      })),
+      days: daysWithLocks,
+      locks,
     };
   });
 }

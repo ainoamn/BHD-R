@@ -39,9 +39,15 @@ export async function StaysPortalPage({
     <div className="form-shell stays-portal">
       <header className="stays-portal__header">
         <div>
-          <span className="ops-kicker">BHD R · {locale === 'ar' ? 'الإقامات' : 'STAYS'}</span>
+          <span className="ops-kicker">
+            BHD R · {locale === 'ar' ? 'الإقامات اليومية' : 'Daily stays'}
+          </span>
           <h1>{title}</h1>
-          <p className="muted">{t('shellHint')}</p>
+          <p className="muted">
+            {locale === 'ar'
+              ? 'إدارة حجوزات الإقامة اليومية والتقويم والأسعار من مكان واحد.'
+              : 'Manage daily stay bookings, calendar, and rates in one place.'}
+          </p>
         </div>
       </header>
 

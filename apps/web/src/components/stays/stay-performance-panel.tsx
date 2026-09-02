@@ -1,4 +1,5 @@
 import { EmptyState } from '@bhd-r/ui';
+import { formatMoney } from '@/lib/format';
 
 export type StayPerformanceMetrics = {
   fromOn: string;
@@ -28,17 +29,15 @@ export function StayPerformancePanel({
         title={ar ? 'لا بيانات أداء بعد' : 'No performance data yet'}
         description={
           ar
-            ? 'يظهر Occupancy / ADR / RevPAR بعد تفعيل المخزون والحجوزات المؤكدة.'
-            : 'Occupancy / ADR / RevPAR appear once inventory projection and confirmed stays exist.'
+            ? 'يظهر الإشغال ومتوسط سعر الليلة وإيراد الغرفة بعد تفعيل المخزون والحجوزات المؤكدة.'
+            : 'Occupancy, average daily rate, and revenue per room appear once inventory and confirmed stays exist.'
         }
       />
     );
   }
 
   const money = (minor: string | null) =>
-    minor == null
-      ? '—'
-      : `${metrics.currency ?? ''} ${minor}`.trim();
+    minor == null || !metrics.currency ? '—' : formatMoney(minor, metrics.currency, locale);
 
   return (
     <div className="stays-performance">
@@ -53,11 +52,11 @@ export function StayPerformancePanel({
           </strong>
         </li>
         <li>
-          <span>ADR</span>
+          <span>{ar ? 'متوسط سعر الليلة' : 'Avg nightly rate'}</span>
           <strong dir="ltr">{money(metrics.adrMinor)}</strong>
         </li>
         <li>
-          <span>RevPAR</span>
+          <span>{ar ? 'إيراد الغرفة / ليلة' : 'Rev. per room night'}</span>
           <strong dir="ltr">{money(metrics.revparMinor)}</strong>
         </li>
         <li>

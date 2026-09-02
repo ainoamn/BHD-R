@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { EmptyState } from '@bhd-r/ui';
+import { Link } from '@/i18n/navigation';
 import { ApiError, browserMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { stayBookingModeLabel, stayStatusLabel } from '@/lib/ui-labels';
@@ -20,6 +21,11 @@ export type OpsStayBooking = {
   currency: string;
   totalMinor: string;
   nights?: number;
+  propertyNameAr?: string;
+  propertyNameEn?: string;
+  unitCode?: string;
+  unitNameAr?: string;
+  unitNameEn?: string;
 };
 
 const CANCELABLE = new Set(['request_pending', 'payment_pending', 'confirmed', 'pre_arrival']);
@@ -30,9 +36,11 @@ const CHECKOUTABLE = new Set(['checked_in']);
 
 export function StayOpsBookingsTable({
   locale,
+  portal = 'owner',
   items,
 }: {
   locale: string;
+  portal?: 'owner' | 'developer';
   items: OpsStayBooking[];
 }) {
   const ar = locale === 'ar';
@@ -91,12 +99,13 @@ export function StayOpsBookingsTable({
         <thead>
           <tr>
             <th>{ar ? 'المرجع' : 'Reference'}</th>
+            <th>{ar ? 'العقار' : 'Property'}</th>
+            <th>{ar ? 'الوحدة' : 'Unit'}</th>
             <th>{ar ? 'التواريخ' : 'Dates'}</th>
             <th>{ar ? 'الليالي' : 'Nights'}</th>
             <th>{ar ? 'الحالة' : 'Status'}</th>
             <th>{ar ? 'النمط' : 'Mode'}</th>
             <th>{ar ? 'المبلغ' : 'Total'}</th>
-            <th>{ar ? 'الوحدة' : 'Unit'}</th>
             <th>{ar ? 'إجراءات' : 'Actions'}</th>
           </tr>
         </thead>
@@ -106,9 +115,30 @@ export function StayOpsBookingsTable({
             const canCancel = CANCELABLE.has(booking.status);
             const canNoShow = NO_SHOWABLE.has(booking.status);
             const canCheckout = CHECKOUTABLE.has(booking.status);
+            const propertyName = ar
+              ? booking.propertyNameAr || booking.propertyNameEn
+              : booking.propertyNameEn || booking.propertyNameAr;
+            const unitLabel =
+              (ar
+                ? booking.unitNameAr || booking.unitNameEn
+                : booking.unitNameEn || booking.unitNameAr) ||
+              booking.unitCode ||
+              `${booking.unitId.slice(0, 8)}…`;
             return (
               <tr key={booking.id}>
-                <td dir="ltr">{booking.referenceCode}</td>
+                <td dir="ltr">
+                  <strong>{booking.referenceCode}</strong>
+                </td>
+                <td>
+                  <Link href={`/${portal}/properties/${booking.propertyId}`}>
+                    {propertyName || (ar ? 'فتح العقار' : 'Open property')}
+                  </Link>
+                </td>
+                <td>
+                  <Link href={`/${portal}/properties/${booking.propertyId}?unit=${booking.unitId}`}>
+                    {unitLabel}
+                  </Link>
+                </td>
                 <td dir="ltr">
                   {booking.checkInOn} → {booking.checkOutOn}
                 </td>
@@ -116,11 +146,14 @@ export function StayOpsBookingsTable({
                 <td>{stayStatusLabel(booking.status, locale)}</td>
                 <td>{stayBookingModeLabel(booking.bookingMode, locale)}</td>
                 <td dir="ltr">{formatMoney(booking.totalMinor, booking.currency, locale)}</td>
-                <td dir="ltr" className="muted">
-                  {booking.unitId.slice(0, 8)}…
-                </td>
                 <td>
                   <div className="stays-ops-bookings__actions">
+                    <Link
+                      className="button button--quiet"
+                      href={`/${portal}/properties/${booking.propertyId}`}
+                    >
+                      {ar ? 'العقار' : 'Property'}
+                    </Link>
                     {canCancel ? (
                       <button
                         type="button"
@@ -150,9 +183,6 @@ export function StayOpsBookingsTable({
                       >
                         {ar ? 'مغادرة' : 'Check-out'}
                       </button>
-                    ) : null}
-                    {!canCancel && !canNoShow && !canCheckout ? (
-                      <span className="muted">—</span>
                     ) : null}
                   </div>
                 </td>

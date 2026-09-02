@@ -41,7 +41,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <p className="muted">
         {locale === 'ar' ? 'حجوزات يومية' : 'Daily bookings'}: <strong>{items.length}</strong>
       </p>
-      <StayOpsBookingsTable locale={locale} items={items} />
+      <StayOpsBookingsTable locale={locale} portal="developer" items={items} />
     </StaysPortalPage>
   );
 }
