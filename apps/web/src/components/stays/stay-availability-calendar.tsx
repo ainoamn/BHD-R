@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ApiError, browserGet, browserPublicGet } from '@/lib/api';
+import { ApiError, browserGet, browserStayBookingGet, humanizeBrowserError } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import {
   addCalendarMonths,
@@ -152,33 +152,44 @@ export function StayAvailabilityCalendar({
   const loadCalendar = useCallback(async () => {
     setLoading(true);
     setError(null);
-    try {
+    const fetchOnce = async () => {
       const qs = new URLSearchParams({ fromOn, toOn });
-      const payload =
-        mode === 'public' && slug
-          ? await browserPublicGet<StayInventoryCalendarResponse>(
-              `/v1/public/stays/${encodeURIComponent(slug)}/calendar?${qs.toString()}`,
-            )
-          : mode === 'ops' && unitId
-            ? await browserGet<StayInventoryCalendarResponse>(
-                `/v1/stays/units/${encodeURIComponent(unitId)}/inventory-days?${qs.toString()}`,
-              )
-            : null;
-      if (!payload) throw new Error('calendar_unconfigured');
+      if (mode === 'public' && slug) {
+        return browserStayBookingGet<StayInventoryCalendarResponse>(
+          `/${encodeURIComponent(slug)}/calendar?${qs.toString()}`,
+        );
+      }
+      if (mode === 'ops' && unitId) {
+        return browserGet<StayInventoryCalendarResponse>(
+          `/v1/stays/units/${encodeURIComponent(unitId)}/inventory-days?${qs.toString()}`,
+        );
+      }
+      throw new Error('calendar_unconfigured');
+    };
+
+    try {
+      let payload: StayInventoryCalendarResponse;
+      try {
+        payload = await fetchOnce();
+      } catch (first) {
+        const retryable =
+          first instanceof ApiError &&
+          (first.code === 'network_error' ||
+            first.code === 'api_unreachable' ||
+            first.status === 502 ||
+            first.status === 503);
+        if (!retryable) throw first;
+        await new Promise((resolve) => setTimeout(resolve, 2500));
+        payload = await fetchOnce();
+      }
       setData(payload);
     } catch (caught) {
-      setError(
-        caught instanceof ApiError
-          ? caught.message
-          : caught instanceof Error
-            ? caught.message
-            : 'calendar_failed',
-      );
+      setError(humanizeBrowserError(caught, ar));
       setData(null);
     } finally {
       setLoading(false);
     }
-  }, [fromOn, toOn, mode, slug, unitId]);
+  }, [ar, fromOn, toOn, mode, slug, unitId]);
 
   useEffect(() => {
     void loadCalendar();

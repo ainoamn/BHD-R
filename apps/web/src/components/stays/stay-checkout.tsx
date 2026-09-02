@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { Link } from '@/i18n/navigation';
-import { ApiError, browserPublicGet, browserPublicMutation } from '@/lib/api';
+import { ApiError, browserPublicMutation, browserStayBookingGet, browserStayBookingMutation, humanizeBrowserError } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 
 type QuoteResult = {
@@ -101,6 +101,10 @@ export function StayCheckout({
     setCheckOutOn(bookingDates.checkOutOn);
   }, [bookingDates?.checkInOn, bookingDates?.checkOutOn]);
 
+  useEffect(() => {
+    setError(null);
+  }, [step]);
+
   const steps: { id: Step; label: string }[] = [
     { id: 'stay', label: ar ? 'الإقامة' : 'Your stay' },
     { id: 'guest', label: ar ? 'بياناتك' : 'Your details' },
@@ -114,8 +118,8 @@ export function StayCheckout({
 
   async function loadQuote(): Promise<QuoteResult> {
     const qs = new URLSearchParams({ checkInOn, checkOutOn, adults, children });
-    const availability = await browserPublicGet<AvailabilityResult>(
-      `/v1/public/stays/${encodeURIComponent(slug)}/availability?${qs.toString()}`,
+    const availability = await browserStayBookingGet<AvailabilityResult>(
+      `/${encodeURIComponent(slug)}/availability?${qs.toString()}`,
     );
     if (!availability.available) {
       throw new Error(
@@ -132,15 +136,12 @@ export function StayCheckout({
               : 'Dates not available — try different dates',
       );
     }
-    return browserPublicMutation<QuoteResult>(
-      `/v1/public/stays/${encodeURIComponent(slug)}/quotes`,
-      {
-        checkInOn,
-        checkOutOn,
-        adults: Number(adults),
-        children: Number(children),
-      },
-    );
+    return browserStayBookingMutation<QuoteResult>(`/${encodeURIComponent(slug)}/quotes`, {
+      checkInOn,
+      checkOutOn,
+      adults: Number(adults),
+      children: Number(children),
+    });
   }
 
   function continueFromStay() {
@@ -168,7 +169,7 @@ export function StayCheckout({
         setStepHint(null);
       } catch (caught) {
         setStepHint(null);
-        setError(caught instanceof Error ? caught.message : 'quote_failed');
+        setError(humanizeBrowserError(caught, ar));
       }
     });
   }
@@ -182,14 +183,14 @@ export function StayCheckout({
       const bookKey = `stay-book-${slug}-${crypto.randomUUID()}`;
       setStepHint(ar ? 'حجز مؤقت…' : 'Holding inventory…');
       try {
-        const hold = await browserPublicMutation<HoldResult>(
-          '/v1/public/stays/holds',
+        const hold = await browserStayBookingMutation<HoldResult>(
+          '/holds',
           { quoteId: quote.id },
           { idempotencyKey: holdKey },
         );
         setStepHint(ar ? 'إنشاء الحجز…' : 'Creating booking…');
-        const nextBooking = await browserPublicMutation<BookingResult>(
-          '/v1/public/stays/bookings',
+        const nextBooking = await browserStayBookingMutation<BookingResult>(
+          '/bookings',
           {
             holdId: hold.id,
             guestDisplayName: guestName.trim(),
@@ -209,7 +210,7 @@ export function StayCheckout({
           );
           return;
         }
-        setError(caught instanceof Error ? caught.message : 'booking_failed');
+        setError(humanizeBrowserError(caught, ar));
       }
     });
   }
@@ -244,9 +245,7 @@ export function StayCheckout({
             ? ar
               ? 'بوابة الدفع غير مفعّلة في هذه البيئة.'
               : 'Payment gateway is not active in this environment.'
-            : caught instanceof Error
-              ? caught.message
-              : 'payment_failed',
+            : humanizeBrowserError(caught, ar),
         );
         setPayBusy(false);
       }

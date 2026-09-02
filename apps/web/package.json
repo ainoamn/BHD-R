@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "next dev --turbopack -p 3000",
-    "build:packages": "cd ../.. && pnpm exec turbo run build --filter=@bhd-r/config --filter=@bhd-r/contracts --filter=@bhd-r/country-packs --filter=@bhd-r/i18n --filter=@bhd-r/ui --filter=@bhd-r/db --filter=@bhd-r/authz --filter=@bhd-r/security --force",
+    "build:packages": "cd ../.. && pnpm exec turbo run build --filter=@bhd-r/config --filter=@bhd-r/contracts --filter=@bhd-r/country-packs --filter=@bhd-r/i18n --filter=@bhd-r/ui --filter=@bhd-r/db --filter=@bhd-r/domain --filter=@bhd-r/authz --filter=@bhd-r/security --force",
     "build": "pnpm run build:packages && next build",
     "start": "next start -p 3000",
     "lint": "eslint \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\"",
@@ -26,6 +26,7 @@
     "@bhd-r/contracts": "workspace:*",
     "@bhd-r/country-packs": "workspace:*",
     "@bhd-r/db": "workspace:*",
+    "@bhd-r/domain": "workspace:*",
     "@bhd-r/i18n": "workspace:*",
     "@bhd-r/security": "workspace:*",
     "@bhd-r/ui": "workspace:*",

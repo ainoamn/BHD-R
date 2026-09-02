@@ -27,6 +27,45 @@ function networkFailureMessage(error: unknown): string {
   return 'request_failed';
 }
 
+type PublicApiErrorPayload = {
+  error?: {
+    code?: string;
+    message?: string;
+    messageAr?: string;
+    requestId?: string;
+  };
+};
+
+function publicApiErrorMessage(payload: PublicApiErrorPayload | null, fallback: string): string {
+  return payload?.error?.messageAr ?? payload?.error?.message ?? fallback;
+}
+
+/** Map browser/API errors to user-facing copy (never raw «Failed to fetch»). */
+export function humanizeBrowserError(error: unknown, ar: boolean): string {
+  if (error instanceof ApiError) {
+    if (error.code === 'api_unreachable' || error.status === 502 || error.status === 503) {
+      return ar
+        ? 'خادم الحجز غير متاح حالياً. انتظر 10–20 ثانية ثم حدّث الصفحة وأعد المحاولة.'
+        : 'Booking server is unavailable. Wait 10–20 seconds, refresh, and retry.';
+    }
+    if (/failed to fetch|network_error|api_unreachable|timed? ?out|aborted/i.test(error.message)) {
+      return ar
+        ? 'تعذر الاتصال بخادم الحجز. تحقق من الشبكة ثم أعد المحاولة.'
+        : 'Could not reach the booking server. Check your connection and retry.';
+    }
+    return error.message;
+  }
+  if (error instanceof Error) {
+    if (/failed to fetch|network_error|load failed|aborted/i.test(error.message)) {
+      return ar
+        ? 'تعذر الاتصال بخادم الحجز. تحقق من الشبكة ثم أعد المحاولة.'
+        : 'Could not reach the booking server. Check your connection and retry.';
+    }
+    return error.message;
+  }
+  return ar ? 'تعذر إكمال الطلب. أعد المحاولة.' : 'Request failed. Please retry.';
+}
+
 let cachedNextCsrfToken: string | null = null;
 let nextCsrfInflight: Promise<string> | null = null;
 let cachedNestCsrfToken: string | null = null;
@@ -341,51 +380,145 @@ export async function browserPublicMutation<T>(
   body: unknown,
   options?: { idempotencyKey?: string },
 ): Promise<T> {
-  const response = await fetch(browserApiPath(path), {
-    method: 'POST',
-    credentials: 'same-origin',
-    headers: {
-      accept: 'application/json',
-      'content-type': 'application/json',
-      'idempotency-key': options?.idempotencyKey ?? crypto.randomUUID(),
-      'x-requested-with': 'BHD-R',
-    },
-    body: JSON.stringify(body),
-  });
+  let response: Response;
+  try {
+    response = await fetch(browserApiPath(path), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+        'idempotency-key': options?.idempotencyKey ?? crypto.randomUUID(),
+        'x-requested-with': 'BHD-R',
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(45_000),
+    });
+  } catch {
+    throw new ApiError(
+      0,
+      'network_error',
+      'تعذر إكمال الحجز — خادم Nest لا يستجيب. انتظر قليلاً ثم أعد المحاولة.',
+    );
+  }
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as {
-      error?: { code?: string; message?: string; requestId?: string };
-    } | null;
+    const payload = (await response.json().catch(() => null)) as PublicApiErrorPayload | null;
     throw new ApiError(
       response.status,
       payload?.error?.code ?? 'api_error',
-      payload?.error?.message ?? 'Request failed',
+      publicApiErrorMessage(payload, 'تعذر إكمال الحجز. أعد المحاولة.'),
       payload?.error?.requestId,
     );
   }
   if (response.status === 204) return undefined as T;
-  return response.json() as Promise<T>;
+  try {
+    return (await response.json()) as T;
+  } catch {
+    throw new ApiError(502, 'invalid_json', 'رد غير صالح من خادم الحجز. أعد تحميل الصفحة.');
+  }
 }
 
 export async function browserPublicGet<T>(path: string): Promise<T> {
-  const response = await fetch(browserApiPath(path), {
-    method: 'GET',
-    credentials: 'same-origin',
-    headers: {
-      accept: 'application/json',
-      'x-requested-with': 'BHD-R',
-    },
-    cache: 'no-store',
-  });
+  let response: Response;
+  try {
+    response = await fetch(browserApiPath(path), {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: {
+        accept: 'application/json',
+        'x-requested-with': 'BHD-R',
+      },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(45_000),
+    });
+  } catch {
+    throw new ApiError(
+      0,
+      'network_error',
+      'تعذر تحميل بيانات الإقامة — تحقق من الاتصال ثم حدّث الصفحة.',
+    );
+  }
   if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as {
-      error?: { code?: string; message?: string; requestId?: string };
-    } | null;
+    const payload = (await response.json().catch(() => null)) as PublicApiErrorPayload | null;
     throw new ApiError(
       response.status,
       payload?.error?.code ?? 'api_error',
-      payload?.error?.message ?? 'Request failed',
+      publicApiErrorMessage(payload, 'تعذر تحميل بيانات الإقامة.'),
       payload?.error?.requestId,
+    );
+  }
+  try {
+    return (await response.json()) as T;
+  } catch {
+    throw new ApiError(502, 'invalid_json', 'رد غير صالح من خادم الحجز. أعد تحميل الصفحة.');
+  }
+}
+
+type StayBookingErrorPayload = {
+  error?: { code?: string; message?: string; messageAr?: string; requestId?: string };
+};
+
+/** Public stay booking reads/writes on Vercel + Neon (no Render Nest). */
+export async function browserStayBookingGet<T>(path: string): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(`/api/public/stays${path}`, {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { accept: 'application/json' },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(45_000),
+    });
+  } catch {
+    throw new ApiError(
+      0,
+      'network_error',
+      'تعذر تحميل بيانات الإقامة — تحقق من الاتصال ثم حدّث الصفحة.',
+    );
+  }
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as StayBookingErrorPayload | null;
+    throw new ApiError(
+      response.status,
+      payload?.error?.code ?? 'api_error',
+      payload?.error?.messageAr ?? payload?.error?.message ?? 'تعذر تحميل بيانات الإقامة.',
+    );
+  }
+  return response.json() as Promise<T>;
+}
+
+export async function browserStayBookingMutation<T>(
+  path: string,
+  body: unknown,
+  options?: { idempotencyKey?: string },
+): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(`/api/public/stays${path}`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+        'idempotency-key': options?.idempotencyKey ?? crypto.randomUUID(),
+        'x-requested-with': 'BHD-R',
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(45_000),
+    });
+  } catch {
+    throw new ApiError(
+      0,
+      'network_error',
+      'تعذر إكمال الحجز — تحقق من الاتصال ثم أعد المحاولة.',
+    );
+  }
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as StayBookingErrorPayload | null;
+    throw new ApiError(
+      response.status,
+      payload?.error?.code ?? 'api_error',
+      payload?.error?.messageAr ?? payload?.error?.message ?? 'تعذر إكمال الحجز.',
     );
   }
   return response.json() as Promise<T>;
