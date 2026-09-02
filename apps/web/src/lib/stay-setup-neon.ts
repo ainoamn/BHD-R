@@ -234,9 +234,7 @@ export async function loadStaySetupContextOnNeon(
             draftSource.depositMinor == null ? null : String(draftSource.depositMinor),
           policiesAr: draftSource.policiesAr,
           policiesEn: draftSource.policiesEn,
-          policiesJson: Array.isArray(draftSource.policiesJson)
-            ? draftSource.policiesJson
-            : [],
+          policiesJson: draftSource.policiesJson ?? [],
           instructionsAr: draftSource.instructionsAr,
           instructionsEn: draftSource.instructionsEn,
         }
@@ -529,7 +527,11 @@ export async function updateStayProfileOnNeon(
         ...(depositMinor !== undefined
           ? { depositMinor: depositMinor == null ? null : BigInt(depositMinor) }
           : {}),
-        ...(policiesJson !== undefined ? { policiesJson } : {}),
+        ...(policiesJson !== undefined
+          ? {
+              policiesJson: policiesJson as typeof stayProfiles.$inferInsert.policiesJson,
+            }
+          : {}),
         updatedAt: new Date(),
       })
       .where(eq(stayProfiles.id, profileId))

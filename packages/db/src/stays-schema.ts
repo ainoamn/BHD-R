@@ -135,7 +135,18 @@ export const stayProfiles = pgTable(
     depositMinor: bigint('deposit_minor', { mode: 'bigint' }),
     policiesAr: text('policies_ar'),
     policiesEn: text('policies_en'),
-    policiesJson: jsonb('policies_json').$type<string[]>().notNull().default([]),
+    policiesJson: jsonb('policies_json')
+      .$type<
+        | string[]
+        | Partial<
+            Record<
+              'general' | 'cancellation' | 'events' | 'payment',
+              { ar?: string | null | undefined; en?: string | null | undefined } | undefined
+            >
+          >
+      >()
+      .notNull()
+      .default([]),
     instructionsAr: text('instructions_ar'),
     instructionsEn: text('instructions_en'),
     cancellationPolicyId: uuid('cancellation_policy_id').references(() => stayPolicies.id),

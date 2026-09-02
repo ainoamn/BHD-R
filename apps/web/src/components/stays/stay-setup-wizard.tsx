@@ -5,8 +5,13 @@ import { Button } from '@bhd-r/ui';
 import { Link, useRouter } from '@/i18n/navigation';
 import { ApiError, browserGet, browserMutation, browserNextMutation } from '@/lib/api';
 import { translateText } from '@/lib/property-listing-copy';
-import { toPublicMediaSrc } from '@/lib/public-media-url';
 import type { StayPublicDetail, StaySetupContext } from '@bhd-r/contracts';
+import {
+  buildStayPoliciesJson,
+  linesToPolicyLines,
+  parseStayPoliciesJson,
+  type StayPolicySectionKey,
+} from '@bhd-r/contracts';
 import type { StaySetupPropertySummary } from '@/lib/stay-setup-neon';
 import { PropertyOpsRowKey } from '@/components/property-ops-row-key';
 import { StayPublicShowcase } from '@/components/stays/stay-public-showcase';
@@ -43,7 +48,61 @@ const DEFAULT_POLICIES_EN = [
   'Loudspeakers are prohibited.',
 ];
 
-type TranslateKey = 'unit-en' | 'unit-ar' | 'policies-en' | 'policies-ar';
+const DEFAULT_CANCELLATION_AR = [
+  'لا يُسمح بالإلغاء بعد تأكيد الحجز.',
+  'يُسمح بتغيير التاريخ قبل 12 يوماً على الأقل من موعد الوصول.',
+  'يُسمح بتغيير نوع الحجز (مع/بدون مبيت) حسب توفر الوحدة والفرق في السعر.',
+];
+
+const DEFAULT_CANCELLATION_EN = [
+  'Cancellation is not allowed after booking confirmation.',
+  'Date changes are allowed at least 12 days before arrival.',
+  'Booking type changes (with/without overnight) are allowed subject to availability and price difference.',
+];
+
+const DEFAULT_EVENTS_AR = [
+  'التجمعات العائلية الصغيرة.',
+  'حفلات الزفاف (حسب التنسيق المسبق).',
+  'حفلات أعياد الميلاد.',
+  'لا تُسمح الحفلات الصاخبة أو الفعاليات التجارية دون موافقة مسبقة.',
+];
+
+const DEFAULT_EVENTS_EN = [
+  'Small family gatherings.',
+  'Weddings (by prior arrangement).',
+  'Birthday parties.',
+  'Loud parties or commercial events are not allowed without prior approval.',
+];
+
+const DEFAULT_PAYMENT_AR = [
+  'يُدفع مبلغ التأمين عند الوصول.',
+  'يُسترد التأمين بعد المغادرة وفحص العقار.',
+  'يُدفع باقي المبلغ حسب طريقة الدفع المتفق عليها عند الحجز.',
+  'قد تُطبّق رسوم إضافية على الأعداد الزائدة أو التأخير في المغادرة.',
+];
+
+const DEFAULT_PAYMENT_EN = [
+  'Security deposit is paid on arrival.',
+  'Deposit is refunded after checkout and property inspection.',
+  'Remaining balance is paid via the agreed payment method at booking.',
+  'Extra fees may apply for additional guests or late checkout.',
+];
+
+type TranslateKey =
+  | 'unit-en'
+  | 'unit-ar'
+  | `policies-${StayPolicySectionKey}-en`
+  | `policies-${StayPolicySectionKey}-ar`;
+
+const POLICY_DEFAULTS: Record<
+  StayPolicySectionKey,
+  { ar: string[]; en: string[] }
+> = {
+  general: { ar: DEFAULT_POLICIES_AR, en: DEFAULT_POLICIES_EN },
+  cancellation: { ar: DEFAULT_CANCELLATION_AR, en: DEFAULT_CANCELLATION_EN },
+  events: { ar: DEFAULT_EVENTS_AR, en: DEFAULT_EVENTS_EN },
+  payment: { ar: DEFAULT_PAYMENT_AR, en: DEFAULT_PAYMENT_EN },
+};
 
 function slugify(value: string): string {
   return value
@@ -67,18 +126,21 @@ function majorFromMinor(minor: string, minorUnit = 3): string {
   return String(Number(major.toFixed(minorUnit)));
 }
 
-function policiesToLines(policies: string[] | undefined, fallback: string | null | undefined) {
-  if (policies?.length) return policies.join('\n');
-  if (fallback?.trim()) return fallback.trim();
-  return '';
+function linesToPolicies(text: string): string[] {
+  return linesToPolicyLines(text);
 }
 
-function linesToPolicies(text: string): string[] {
-  return text
-    .split(/\r?\n/)
-    .map((line) => line.replace(/^[\s•\-–—*]+/, '').trim())
-    .filter(Boolean)
-    .slice(0, 80);
+function policySectionText(
+  sections: ReturnType<typeof parseStayPoliciesJson>,
+  key: StayPolicySectionKey,
+  locale: 'ar' | 'en',
+): string {
+  const section = sections[key];
+  const text = locale === 'ar' ? section?.ar?.trim() : section?.en?.trim();
+  if (text) return text;
+  const fallback = locale === 'ar' ? section?.en?.trim() : section?.ar?.trim();
+  if (fallback) return fallback;
+  return POLICY_DEFAULTS[key][locale].join('\n');
 }
 
 function normalizeTime(value: string | null | undefined, fallback: string): string {
@@ -129,6 +191,10 @@ const copy = {
     sectionGuests: 'سعة الضيوف',
     sectionNights: 'مدة الإقامة',
     sectionPolicies: 'السياسات',
+    sectionGeneralPolicies: 'السياسات العامة لمكان الإقامة',
+    sectionCancellationPolicies: 'سياسات الإلغاء والتغيير',
+    sectionEventsPolicies: 'المناسبات والحفلات المسموح بها',
+    sectionPaymentPolicies: 'خيارات الدفع',
     checkInFrom: 'وقت الدخول',
     dayUseCheckOut: 'وقت الخروج (بدون مبيت)',
     overnightCheckOut: 'وقت الخروج (عند المبيت)',
@@ -193,6 +259,10 @@ const copy = {
     sectionGuests: 'Guest capacity',
     sectionNights: 'Stay length',
     sectionPolicies: 'Policies',
+    sectionGeneralPolicies: 'General stay policies',
+    sectionCancellationPolicies: 'Cancellation & change policies',
+    sectionEventsPolicies: 'Allowed events & parties',
+    sectionPaymentPolicies: 'Payment options',
     checkInFrom: 'Check-in time',
     dayUseCheckOut: 'Check-out (day use / no overnight)',
     overnightCheckOut: 'Check-out (overnight stay)',
@@ -278,6 +348,16 @@ export function StaySetupWizard({
   const [instantBook, setInstantBook] = useState(true);
   const [policiesAr, setPoliciesAr] = useState(DEFAULT_POLICIES_AR.join('\n'));
   const [policiesEn, setPoliciesEn] = useState(DEFAULT_POLICIES_EN.join('\n'));
+  const [cancellationPoliciesAr, setCancellationPoliciesAr] = useState(
+    DEFAULT_CANCELLATION_AR.join('\n'),
+  );
+  const [cancellationPoliciesEn, setCancellationPoliciesEn] = useState(
+    DEFAULT_CANCELLATION_EN.join('\n'),
+  );
+  const [eventsPoliciesAr, setEventsPoliciesAr] = useState(DEFAULT_EVENTS_AR.join('\n'));
+  const [eventsPoliciesEn, setEventsPoliciesEn] = useState(DEFAULT_EVENTS_EN.join('\n'));
+  const [paymentPoliciesAr, setPaymentPoliciesAr] = useState(DEFAULT_PAYMENT_AR.join('\n'));
+  const [paymentPoliciesEn, setPaymentPoliciesEn] = useState(DEFAULT_PAYMENT_EN.join('\n'));
   const [nightlyRate, setNightlyRate] = useState('');
   const [dayUseRate, setDayUseRate] = useState('');
   const [overnightOnlyRate, setOvernightOnlyRate] = useState('');
@@ -334,9 +414,18 @@ export function StaySetupWizard({
         setDayUseCheckOutUntil(normalizeTime(draft.dayUseCheckOutUntil, '23:00'));
       if (draft.overnightCheckOutUntil)
         setOvernightCheckOutUntil(normalizeTime(draft.overnightCheckOutUntil, '11:00'));
-      const arPolicies = policiesToLines(draft.policiesJson, draft.policiesAr);
-      setPoliciesAr(arPolicies || DEFAULT_POLICIES_AR.join('\n'));
-      setPoliciesEn(draft.policiesEn?.trim() || DEFAULT_POLICIES_EN.join('\n'));
+      const structured = parseStayPoliciesJson(draft.policiesJson, {
+        policiesAr: draft.policiesAr ?? null,
+        policiesEn: draft.policiesEn ?? null,
+      });
+      setPoliciesAr(policySectionText(structured, 'general', 'ar'));
+      setPoliciesEn(policySectionText(structured, 'general', 'en'));
+      setCancellationPoliciesAr(policySectionText(structured, 'cancellation', 'ar'));
+      setCancellationPoliciesEn(policySectionText(structured, 'cancellation', 'en'));
+      setEventsPoliciesAr(policySectionText(structured, 'events', 'ar'));
+      setEventsPoliciesEn(policySectionText(structured, 'events', 'en'));
+      setPaymentPoliciesAr(policySectionText(structured, 'payment', 'ar'));
+      setPaymentPoliciesEn(policySectionText(structured, 'payment', 'en'));
       if (draft.depositMinor) {
         const minorUnit =
           data.defaultCurrency === 'OMR' ||
@@ -491,9 +580,14 @@ export function StaySetupWizard({
       depositMinor,
       policiesAr: policiesAr.trim() || null,
       policiesEn: policiesEn.trim() || null,
-      policiesJson: linesToPolicies(policiesAr),
-      coverImageUrl: cover ? toPublicMediaSrc(cover) ?? cover : null,
-      imageUrls: cover ? [toPublicMediaSrc(cover) ?? cover] : [],
+      policiesJson: buildStayPoliciesJson({
+        general: { ar: policiesAr, en: policiesEn },
+        cancellation: { ar: cancellationPoliciesAr, en: cancellationPoliciesEn },
+        events: { ar: eventsPoliciesAr, en: eventsPoliciesEn },
+        payment: { ar: paymentPoliciesAr, en: paymentPoliciesEn },
+      }),
+      coverImageUrl: cover ?? null,
+      imageUrls: cover ? [cover] : [],
     };
   }, [
     checkInFrom,
@@ -510,10 +604,68 @@ export function StaySetupWizard({
     overnightMaxGuests,
     policiesAr,
     policiesEn,
+    cancellationPoliciesAr,
+    cancellationPoliciesEn,
+    eventsPoliciesAr,
+    eventsPoliciesEn,
+    paymentPoliciesAr,
+    paymentPoliciesEn,
     propertySummary,
     selectedUnitIds,
     slug,
   ]);
+
+  const policySectionFields = useMemo(
+    () =>
+      [
+        {
+          key: 'general' as StayPolicySectionKey,
+          title: t.sectionGeneralPolicies,
+          ar: policiesAr,
+          en: policiesEn,
+          setAr: setPoliciesAr,
+          setEn: setPoliciesEn,
+        },
+        {
+          key: 'cancellation' as StayPolicySectionKey,
+          title: t.sectionCancellationPolicies,
+          ar: cancellationPoliciesAr,
+          en: cancellationPoliciesEn,
+          setAr: setCancellationPoliciesAr,
+          setEn: setCancellationPoliciesEn,
+        },
+        {
+          key: 'events' as StayPolicySectionKey,
+          title: t.sectionEventsPolicies,
+          ar: eventsPoliciesAr,
+          en: eventsPoliciesEn,
+          setAr: setEventsPoliciesAr,
+          setEn: setEventsPoliciesEn,
+        },
+        {
+          key: 'payment' as StayPolicySectionKey,
+          title: t.sectionPaymentPolicies,
+          ar: paymentPoliciesAr,
+          en: paymentPoliciesEn,
+          setAr: setPaymentPoliciesAr,
+          setEn: setPaymentPoliciesEn,
+        },
+      ] as const,
+    [
+      t.sectionCancellationPolicies,
+      t.sectionEventsPolicies,
+      t.sectionGeneralPolicies,
+      t.sectionPaymentPolicies,
+      cancellationPoliciesAr,
+      cancellationPoliciesEn,
+      eventsPoliciesAr,
+      eventsPoliciesEn,
+      paymentPoliciesAr,
+      paymentPoliciesEn,
+      policiesAr,
+      policiesEn,
+    ],
+  );
 
   async function runTranslate(
     source: string,
@@ -600,6 +752,12 @@ export function StaySetupWizard({
     const overnightGuests = Number.parseInt(overnightMaxGuests, 10) || 4;
     const dayGuests = Number.parseInt(dayUseMaxGuests, 10) || overnightGuests;
     const policies = linesToPolicies(policiesAr);
+    const policiesJson = buildStayPoliciesJson({
+      general: { ar: policiesAr, en: policiesEn },
+      cancellation: { ar: cancellationPoliciesAr, en: cancellationPoliciesEn },
+      events: { ar: eventsPoliciesAr, en: eventsPoliciesEn },
+      payment: { ar: paymentPoliciesAr, en: paymentPoliciesEn },
+    });
     const payload = {
       maxGuests: overnightGuests,
       maxAdults: overnightGuests,
@@ -612,7 +770,7 @@ export function StaySetupWizard({
       dayUseCheckOutUntil,
       overnightCheckOutUntil,
       checkOutUntil: overnightCheckOutUntil,
-      policiesJson: policies,
+      policiesJson,
       policiesAr: policies.join('\n') || null,
       policiesEn: policiesEn.trim() || null,
       instructionsAr: null,
@@ -1129,57 +1287,82 @@ export function StaySetupWizard({
                     onClick={() => {
                       setPoliciesAr(DEFAULT_POLICIES_AR.join('\n'));
                       setPoliciesEn(DEFAULT_POLICIES_EN.join('\n'));
+                      setCancellationPoliciesAr(DEFAULT_CANCELLATION_AR.join('\n'));
+                      setCancellationPoliciesEn(DEFAULT_CANCELLATION_EN.join('\n'));
+                      setEventsPoliciesAr(DEFAULT_EVENTS_AR.join('\n'));
+                      setEventsPoliciesEn(DEFAULT_EVENTS_EN.join('\n'));
+                      setPaymentPoliciesAr(DEFAULT_PAYMENT_AR.join('\n'));
+                      setPaymentPoliciesEn(DEFAULT_PAYMENT_EN.join('\n'));
                     }}
                   >
                     {t.useDefaultPolicies}
                   </button>
                 </div>
                 <p className="muted">{t.policiesHint}</p>
-                <div className="field">
-                  <div className="stays-setup-wizard__summary-head">
-                    <label htmlFor="policies-ar">{t.policiesAr}</label>
-                    <Button
-                      type="button"
-                      variant="quiet"
-                      disabled={translating !== null || !policiesAr.trim()}
-                      onClick={() =>
-                        void runTranslate(policiesAr, 'en', setPoliciesEn, 'policies-en')
-                      }
-                    >
-                      {translating === 'policies-en' ? t.translating : t.translateToEn}
-                    </Button>
+                {policySectionFields.map((section) => (
+                  <div key={section.key} className="stays-setup-policies-section">
+                    <h4>{section.title}</h4>
+                    <div className="field">
+                      <div className="stays-setup-wizard__summary-head">
+                        <label htmlFor={`policies-${section.key}-ar`}>{t.policiesAr}</label>
+                        <Button
+                          type="button"
+                          variant="quiet"
+                          disabled={translating !== null || !section.ar.trim()}
+                          onClick={() =>
+                            void runTranslate(
+                              section.ar,
+                              'en',
+                              section.setEn,
+                              `policies-${section.key}-en`,
+                            )
+                          }
+                        >
+                          {translating === `policies-${section.key}-en`
+                            ? t.translating
+                            : t.translateToEn}
+                        </Button>
+                      </div>
+                      <textarea
+                        id={`policies-${section.key}-ar`}
+                        className="input stays-setup-policies"
+                        rows={section.key === 'general' ? 8 : 5}
+                        value={section.ar}
+                        onChange={(event) => section.setAr(event.target.value)}
+                      />
+                    </div>
+                    <div className="field">
+                      <div className="stays-setup-wizard__summary-head">
+                        <label htmlFor={`policies-${section.key}-en`}>{t.policiesEn}</label>
+                        <Button
+                          type="button"
+                          variant="quiet"
+                          disabled={translating !== null || !section.en.trim()}
+                          onClick={() =>
+                            void runTranslate(
+                              section.en,
+                              'ar',
+                              section.setAr,
+                              `policies-${section.key}-ar`,
+                            )
+                          }
+                        >
+                          {translating === `policies-${section.key}-ar`
+                            ? t.translating
+                            : t.translateToAr}
+                        </Button>
+                      </div>
+                      <textarea
+                        id={`policies-${section.key}-en`}
+                        className="input stays-setup-policies"
+                        rows={section.key === 'general' ? 8 : 5}
+                        value={section.en}
+                        onChange={(event) => section.setEn(event.target.value)}
+                        dir="ltr"
+                      />
+                    </div>
                   </div>
-                  <textarea
-                    id="policies-ar"
-                    className="input stays-setup-policies"
-                    rows={8}
-                    value={policiesAr}
-                    onChange={(event) => setPoliciesAr(event.target.value)}
-                  />
-                </div>
-                <div className="field">
-                  <div className="stays-setup-wizard__summary-head">
-                    <label htmlFor="policies-en">{t.policiesEn}</label>
-                    <Button
-                      type="button"
-                      variant="quiet"
-                      disabled={translating !== null || !policiesEn.trim()}
-                      onClick={() =>
-                        void runTranslate(policiesEn, 'ar', setPoliciesAr, 'policies-ar')
-                      }
-                    >
-                      {translating === 'policies-ar' ? t.translating : t.translateToAr}
-                    </Button>
-                  </div>
-                  <textarea
-                    id="policies-en"
-                    className="input stays-setup-policies"
-                    rows={8}
-                    value={policiesEn}
-                    onChange={(event) => setPoliciesEn(event.target.value)}
-                    dir="ltr"
-                  />
-                </div>
+                ))}
               </section>
             </fieldset>
           ) : null}

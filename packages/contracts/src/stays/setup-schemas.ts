@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { currencyCodeSchema } from '../money.js';
 import { uuidSchema } from '../schemas.js';
+import { stayPoliciesJsonSchema } from './policies-schema.js';
 import { stayPublishStatusSchema } from './schemas.js';
 
 export const staySetupContextQuerySchema = z
@@ -55,7 +56,7 @@ export const staySetupProfileDraftSchema = z
     depositMinor: z.string().nullable().optional(),
     policiesAr: z.string().nullable().optional(),
     policiesEn: z.string().nullable().optional(),
-    policiesJson: z.array(z.string()).optional(),
+    policiesJson: stayPoliciesJsonSchema.optional(),
     instructionsAr: z.string().nullable().optional(),
     instructionsEn: z.string().nullable().optional(),
   })
@@ -134,7 +135,7 @@ export const updateStayProfileSchema = z
     depositMinor: z.string().regex(/^\d+$/).nullable().optional(),
     policiesAr: z.string().max(8000).nullable().optional(),
     policiesEn: z.string().max(8000).nullable().optional(),
-    policiesJson: z.array(z.string().max(500)).max(80).optional(),
+    policiesJson: stayPoliciesJsonSchema.optional(),
     instructionsAr: z.string().max(8000).nullable().optional(),
     instructionsEn: z.string().max(8000).nullable().optional(),
   })

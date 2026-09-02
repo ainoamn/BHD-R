@@ -4,6 +4,50 @@ import { Link } from '@/i18n/navigation';
 import { formatMoney, localizedName } from '@/lib/format';
 import { toPublicMediaSrc } from '@/lib/public-media-url';
 import type { StayPublicDetail } from '@bhd-r/contracts';
+import { resolveStayPoliciesFromDetail } from '@bhd-r/contracts';
+import { StayPolicySections } from '@/components/stays/stay-policy-sections';
+
+function ShowcaseGalleryImage({
+  src,
+  alt,
+  fill,
+  sizes,
+  priority,
+  preview,
+}: {
+  src: string;
+  alt: string;
+  fill?: boolean;
+  sizes?: string;
+  priority?: boolean;
+  preview?: boolean;
+}) {
+  const ownerMedia = src.startsWith('/api/owner/media/');
+  if (preview || ownerMedia) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- owner media needs session cookies
+      <img
+        src={src}
+        alt={alt}
+        className={fill ? 'stay-showcase__gallery-img stay-showcase__gallery-img--fill' : 'stay-showcase__gallery-img'}
+        sizes={sizes}
+        loading={priority ? 'eager' : 'lazy'}
+      />
+    );
+  }
+  if (fill) {
+    return priority ? (
+      <Image src={src} alt={alt} fill sizes={sizes} priority />
+    ) : (
+      <Image src={src} alt={alt} fill sizes={sizes} />
+    );
+  }
+  return priority ? (
+    <Image src={src} alt={alt} sizes={sizes} priority />
+  ) : (
+    <Image src={src} alt={alt} sizes={sizes} />
+  );
+}
 
 export function StayPublicShowcase({
   detail,
@@ -41,21 +85,7 @@ export function StayPublicShowcase({
       ? formatMoney(detail.nightlyMinor, detail.currency, locale)
       : null;
 
-  const policies = (() => {
-    const splitLines = (text: string | null | undefined) =>
-      text
-        ?.split(/\r?\n/)
-        .map((line) => line.replace(/^[\s•\-–—*]+/, '').trim())
-        .filter(Boolean) ?? [];
-    if (ar) {
-      if (detail.policiesJson?.length) return detail.policiesJson;
-      return splitLines(detail.policiesAr);
-    }
-    const enLines = splitLines(detail.policiesEn);
-    if (enLines.length) return enLines;
-    if (detail.policiesJson?.length) return detail.policiesJson;
-    return splitLines(detail.policiesAr);
-  })();
+  const policySections = resolveStayPoliciesFromDetail(detail, locale);
 
   return (
     <div className={`stay-showcase${preview ? ' stay-showcase--preview' : ''}`}>
@@ -90,13 +120,20 @@ export function StayPublicShowcase({
           {gallery.length ? (
             <>
               <div className="stay-showcase__gallery-main">
-                <Image src={gallery[0]!} alt={title} fill sizes="(max-width: 960px) 100vw, 60vw" priority />
+                <ShowcaseGalleryImage
+                  src={gallery[0]!}
+                  alt={title}
+                  fill
+                  sizes="(max-width: 960px) 100vw, 60vw"
+                  priority
+                  preview={preview}
+                />
               </div>
               {gallery.length > 1 ? (
                 <ul className="stay-showcase__gallery-thumbs">
                   {gallery.slice(1).map((src) => (
                     <li key={src}>
-                      <Image src={src} alt="" fill sizes="120px" />
+                      <ShowcaseGalleryImage src={src} alt="" fill sizes="120px" preview={preview} />
                     </li>
                   ))}
                 </ul>
@@ -202,15 +239,11 @@ export function StayPublicShowcase({
         </section>
       ) : null}
 
-      {policies.length ? (
-          <section className="stay-showcase__policies card">
-            <h2>{ar ? 'السياسات' : 'Policies'}</h2>
-            <ul>
-              {policies.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </section>
+      {policySections.length ? (
+        <section className="stay-showcase__policies card">
+          <h2>{ar ? 'السياسات' : 'Policies'}</h2>
+          <StayPolicySections detail={detail} locale={locale} />
+        </section>
       ) : null}
 
       {!preview

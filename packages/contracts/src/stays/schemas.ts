@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { currencyCodeSchema, moneySchema } from '../money.js';
 import { localeSchema, uuidSchema } from '../schemas.js';
+import { stayPoliciesJsonSchema } from './policies-schema.js';
 
 export const stayPublishStatusSchema = z.enum(['draft', 'ready', 'published', 'unpublished']);
 export const stayBookingStatusSchema = z.enum([
@@ -274,7 +275,7 @@ export const stayPublicDetailSchema = z.object({
   depositMinor: z.string().regex(/^\d+$/).nullable().optional(),
   policiesAr: z.string().nullable().optional(),
   policiesEn: z.string().nullable().optional(),
-  policiesJson: z.array(z.string()).optional(),
+  policiesJson: stayPoliciesJsonSchema.optional(),
   instructionsAr: z.string().nullable().optional(),
   instructionsEn: z.string().nullable().optional(),
   coverImageUrl: z.string().nullable().optional(),

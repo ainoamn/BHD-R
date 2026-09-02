@@ -8585,6 +8585,16 @@ button.ops-row-key {
   overflow: hidden;
   background: color-mix(in srgb, var(--surface-muted, #eceae7) 70%, transparent);
 }
+.stay-showcase__gallery-img--fill {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.stay-showcase__gallery-thumbs .stay-showcase__gallery-img--fill {
+  position: absolute;
+}
 .stay-showcase__gallery-placeholder {
   display: grid;
   place-items: center;
@@ -8695,10 +8705,26 @@ button.ops-row-key {
   font-weight: 700;
 }
 .stay-guest-info__rates ul,
-.stay-guest-info__policies ul {
+.stay-guest-info__policies ul,
+.stay-policy-sections ul {
   margin: 0.5rem 0 1rem;
   padding-inline-start: 1.15rem;
   line-height: 1.55;
+}
+.stay-policy-sections__block + .stay-policy-sections__block {
+  margin-top: 1rem;
+}
+.stay-policy-sections__block h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+}
+.stay-showcase__policies .stay-policy-sections__block h3 {
+  font-size: 0.95rem;
+}
+.stays-setup-policies-section + .stays-setup-policies-section {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid color-mix(in srgb, var(--border, #d6d3d1) 70%, transparent);
 }
 .stay-guest-info__rates li {
   display: flex;

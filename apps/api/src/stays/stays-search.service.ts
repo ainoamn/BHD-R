@@ -349,7 +349,7 @@ export class StaysSearchService implements OnModuleDestroy {
           deposit_minor: string | null;
           policies_ar: string | null;
           policies_en: string | null;
-          policies_json: string[] | null;
+          policies_json: unknown;
           instructions_ar: string | null;
           instructions_en: string | null;
           unit_id: string;
@@ -414,7 +414,7 @@ export class StaysSearchService implements OnModuleDestroy {
       depositMinor: row.deposit_minor,
       policiesAr: row.policies_ar,
       policiesEn: row.policies_en,
-      policiesJson: Array.isArray(row.policies_json) ? row.policies_json : [],
+      policiesJson: row.policies_json ?? [],
       instructionsAr: row.instructions_ar,
       instructionsEn: row.instructions_en,
       coverImageUrl: row.cover_image_url,

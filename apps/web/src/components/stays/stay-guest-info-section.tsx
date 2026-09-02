@@ -1,7 +1,9 @@
 'use client';
 
 import { formatMoney, localizedName } from '@/lib/format';
+import { resolveStayPoliciesFromDetail } from '@bhd-r/contracts';
 import type { StayPublicDetail } from '@bhd-r/contracts';
+import { StayPolicySections } from '@/components/stays/stay-policy-sections';
 
 /** Policies, period times, and stay rate amounts on the public stay page. */
 export function StayGuestInfoSection({
@@ -13,21 +15,7 @@ export function StayGuestInfoSection({
 }) {
   const ar = locale === 'ar';
   const currency = detail.currency ?? 'OMR';
-  const policies = (() => {
-    const split = (text: string | null | undefined) =>
-      text
-        ?.split(/\r?\n/)
-        .map((line) => line.replace(/^[\s•\-–—*]+/, '').trim())
-        .filter(Boolean) ?? [];
-    if (ar) {
-      if (detail.policiesJson?.length) return detail.policiesJson;
-      return split(detail.policiesAr);
-    }
-    const en = split(detail.policiesEn);
-    if (en.length) return en;
-    if (detail.policiesJson?.length) return detail.policiesJson;
-    return split(detail.policiesAr);
-  })();
+  const policySections = resolveStayPoliciesFromDetail(detail, locale);
   const instructions = localizedName(
     locale,
     detail.instructionsAr ?? '',
@@ -57,7 +45,14 @@ export function StayGuestInfoSection({
     detail.overnightCheckOutUntil ||
     detail.checkOutUntil;
   const hasGuests = detail.dayUseMaxGuests != null || detail.overnightMaxGuests != null;
-  if (!policies.length && !instructions && !rates.length && !hasTimes && !detail.depositMinor && !hasGuests) {
+  if (
+    !policySections.length &&
+    !instructions &&
+    !rates.length &&
+    !hasTimes &&
+    !detail.depositMinor &&
+    !hasGuests
+  ) {
     return null;
   }
 
@@ -120,14 +115,10 @@ export function StayGuestInfoSection({
         </div>
       ) : null}
 
-      {policies.length ? (
+      {policySections.length ? (
         <div className="stay-guest-info__policies">
           <h3>{ar ? 'السياسات والشروط' : 'Policies & terms'}</h3>
-          <ul>
-            {policies.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
+          <StayPolicySections detail={detail} locale={locale} />
         </div>
       ) : null}
 
