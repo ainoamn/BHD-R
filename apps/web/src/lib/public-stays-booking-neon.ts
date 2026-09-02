@@ -773,6 +773,16 @@ export async function createPublicStayBookingOnNeon(
       bookingMode === 'instant' ? 'payment_pending' : 'request_pending';
     const referenceCode = `ST-${randomBytes(4).toString('hex').toUpperCase()}`;
 
+    const stayTypeFromFees = (() => {
+      if (!Array.isArray(quote.feesSnapshotJson)) return null;
+      for (const item of quote.feesSnapshotJson) {
+        if (!item || typeof item !== 'object') continue;
+        const row = item as { code?: string; stayType?: string };
+        if (row.code === 'stay_type' && typeof row.stayType === 'string') return row.stayType;
+      }
+      return null;
+    })();
+
     const [booking] = await transaction
       .insert(stayBookings)
       .values({
@@ -800,6 +810,16 @@ export async function createPublicStayBookingOnNeon(
         pricingSnapshotJson: {
           lineItems: quote.lineItemsJson,
           fees: quote.feesSnapshotJson,
+          adults: quote.adults,
+          children: quote.children,
+          ...(stayTypeFromFees ? { stayType: stayTypeFromFees } : {}),
+          guestContact: {
+            ...(input.guestDisplayName?.trim()
+              ? { displayName: input.guestDisplayName.trim() }
+              : {}),
+            ...(input.guestEmail?.trim() ? { email: input.guestEmail.trim().toLowerCase() } : {}),
+            ...(input.guestPhone?.trim() ? { phone: input.guestPhone.trim() } : {}),
+          },
         },
       })
       .returning();

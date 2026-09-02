@@ -79,6 +79,9 @@ export function StayCheckout({
     adults?: string;
     children?: string;
     stayType?: StayType;
+    guestName?: string;
+    guestEmail?: string;
+    guestPhone?: string;
   };
   /** Sidebar on Property 360 — calendar lives in the main column. */
   embedded?: boolean;
@@ -99,9 +102,9 @@ export function StayCheckout({
   const [adults, setAdults] = useState(defaults?.adults ?? '2');
   const [children, setChildren] = useState(defaults?.children ?? '0');
   const [stayType, setStayType] = useState<StayType>(defaults?.stayType ?? 'overnight_stay');
-  const [guestName, setGuestName] = useState('');
-  const [guestPhone, setGuestPhone] = useState('');
-  const [guestEmail, setGuestEmail] = useState('');
+  const [guestName, setGuestName] = useState(defaults?.guestName ?? '');
+  const [guestPhone, setGuestPhone] = useState(defaults?.guestPhone ?? '');
+  const [guestEmail, setGuestEmail] = useState(defaults?.guestEmail ?? '');
   const [quote, setQuote] = useState<QuoteResult | null>(null);
   const [booking, setBooking] = useState<BookingResult | null>(null);
   const [stepHint, setStepHint] = useState<string | null>(null);
@@ -118,6 +121,30 @@ export function StayCheckout({
   useEffect(() => {
     setError(null);
   }, [step]);
+
+  useEffect(() => {
+    if (defaults?.guestName || defaults?.guestEmail) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch('/api/auth/me', { credentials: 'same-origin' });
+        if (!response.ok || cancelled) return;
+        const me = (await response.json()) as {
+          authenticated?: boolean;
+          displayName?: string;
+          email?: string;
+        };
+        if (!me.authenticated || cancelled) return;
+        if (me.displayName?.trim()) setGuestName((prev) => prev || me.displayName!.trim());
+        if (me.email?.trim()) setGuestEmail((prev) => prev || me.email!.trim());
+      } catch {
+        /* anonymous guest — leave blank */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [defaults?.guestName, defaults?.guestEmail]);
 
   const steps: { id: Step; label: string }[] = [
     { id: 'stay', label: ar ? 'الإقامة' : 'Your stay' },
@@ -194,6 +221,29 @@ export function StayCheckout({
     });
   }
 
+  async function redirectToPayment(nextBooking: BookingResult) {
+    setPayBusy(true);
+    setStepHint(ar ? 'التحويل إلى بوابة الدفع…' : 'Redirecting to payment gateway…');
+    const returnPath = `/${locale}/stays/booking/confirmed?ref=${encodeURIComponent(nextBooking.referenceCode)}`;
+    const session = await browserStayBookingMutation<{ redirectUrl: string }>(
+      '/payment-sessions',
+      {
+        paymentIntentId: nextBooking.paymentIntentId,
+        locale: locale === 'en' ? 'en' : 'ar',
+        returnPath,
+      },
+      { idempotencyKey: `stay-pay-${nextBooking.paymentIntentId}` },
+    );
+    const target = new URL(session.redirectUrl);
+    if (
+      target.protocol !== 'https:' &&
+      !(target.protocol === 'http:' && target.hostname === 'localhost')
+    ) {
+      throw new Error('invalid_payment_redirect');
+    }
+    window.location.assign(target.href);
+  }
+
   function confirmBooking() {
     if (!quote) return;
     startTransition(async () => {
@@ -214,6 +264,8 @@ export function StayCheckout({
           {
             holdId: hold.id,
             guestDisplayName: guestName.trim(),
+            ...(guestEmail.trim() ? { guestEmail: guestEmail.trim() } : {}),
+            ...(guestPhone.trim() ? { guestPhone: guestPhone.trim() } : {}),
           },
           { idempotencyKey: bookKey },
         );
@@ -228,7 +280,19 @@ export function StayCheckout({
           totalMinor: nextBooking.amountMinor,
         });
         setStep('payment');
-        setStepHint(null);
+        try {
+          await redirectToPayment(nextBooking);
+        } catch (payError) {
+          setStepHint(null);
+          setPayBusy(false);
+          setError(
+            payError instanceof ApiError && payError.status === 409
+              ? ar
+                ? 'بوابة الدفع غير مفعّلة في هذه البيئة. يمكنك المحاولة من زر ادفع الآن.'
+                : 'Payment gateway is not active. Use Pay now to retry.'
+              : humanizeBrowserError(payError, ar),
+          );
+        }
       } catch (caught) {
         setStepHint(null);
         if (caught instanceof ApiError && caught.status === 404) {
@@ -246,28 +310,10 @@ export function StayCheckout({
 
   function payNow() {
     if (!booking) return;
-    setPayBusy(true);
     setError(null);
     void (async () => {
       try {
-        const returnPath = `/${locale}/stays/booking/confirmed?ref=${encodeURIComponent(booking.referenceCode)}`;
-        const session = await browserStayBookingMutation<{ redirectUrl: string }>(
-          '/payment-sessions',
-          {
-            paymentIntentId: booking.paymentIntentId,
-            locale: locale === 'en' ? 'en' : 'ar',
-            returnPath,
-          },
-          { idempotencyKey: `stay-pay-${booking.paymentIntentId}` },
-        );
-        const target = new URL(session.redirectUrl);
-        if (
-          target.protocol !== 'https:' &&
-          !(target.protocol === 'http:' && target.hostname === 'localhost')
-        ) {
-          throw new Error('invalid_payment_redirect');
-        }
-        window.location.assign(target.href);
+        await redirectToPayment(booking);
       } catch (caught) {
         setError(
           caught instanceof ApiError && caught.status === 409
@@ -277,6 +323,7 @@ export function StayCheckout({
             : humanizeBrowserError(caught, ar),
         );
         setPayBusy(false);
+        setStepHint(null);
       }
     })();
   }
@@ -323,16 +370,20 @@ export function StayCheckout({
             <dl className="stays-checkout__summary stays-checkout__summary--inline">
               <div>
                 <dt>{ar ? 'الوصول' : 'Check-in'}</dt>
-                <dd dir="ltr">{checkInOn}</dd>
+                <dd className="stays-checkout__chip stays-checkout__chip--check-in" dir="ltr">
+                  {checkInOn}
+                </dd>
               </div>
               <div>
                 <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
-                <dd dir="ltr">{checkOutOn}</dd>
+                <dd className="stays-checkout__chip stays-checkout__chip--check-out" dir="ltr">
+                  {checkOutOn}
+                </dd>
               </div>
             </dl>
           ) : (
             <div className="stays-checkout__grid stays-checkout__grid--compact">
-              <div className="field">
+              <div className="field stays-checkout__tone stays-checkout__tone--check-in">
                 <label htmlFor="stay-book-in">{ar ? 'الوصول' : 'Check-in'}</label>
                 <input
                   className="input"
@@ -343,7 +394,7 @@ export function StayCheckout({
                   onChange={(event) => setCheckInOn(event.target.value)}
                 />
               </div>
-              <div className="field">
+              <div className="field stays-checkout__tone stays-checkout__tone--check-out">
                 <label htmlFor="stay-book-out">{ar ? 'المغادرة' : 'Check-out'}</label>
                 <input
                   className="input"
@@ -356,7 +407,7 @@ export function StayCheckout({
               </div>
             </div>
           )}
-          <div className="field">
+          <div className={`field stays-checkout__tone stays-checkout__tone--stay-${stayType}`}>
             <label htmlFor="stay-book-type">{ar ? 'نوع الحجز' : 'Stay type'}</label>
             <select
               className="select"
@@ -370,7 +421,7 @@ export function StayCheckout({
             </select>
           </div>
           <div className="stays-checkout__grid stays-checkout__grid--compact">
-            <div className="field">
+            <div className="field stays-checkout__tone stays-checkout__tone--adults">
               <label htmlFor="stay-book-adults">{ar ? 'بالغون' : 'Adults'}</label>
               <select
                 className="select"
@@ -385,7 +436,7 @@ export function StayCheckout({
                 ))}
               </select>
             </div>
-            <div className="field">
+            <div className="field stays-checkout__tone stays-checkout__tone--children">
               <label htmlFor="stay-book-children">{ar ? 'أطفال' : 'Children'}</label>
               <select
                 className="select"
@@ -410,6 +461,11 @@ export function StayCheckout({
       {step === 'guest' ? (
         <div className="stays-checkout__panel">
           <h3>{ar ? 'بيانات الضيف' : 'Guest details'}</h3>
+          <p className="muted stays-checkout__hint">
+            {ar
+              ? 'تم تعبئة بياناتك من حسابك إن وُجدت — يمكنك تعديلها قبل المتابعة.'
+              : 'We prefilled your account details when available — you can edit before continuing.'}
+          </p>
           <div className="stays-checkout__grid">
             <div className="field stays-checkout__name">
               <label htmlFor="stay-book-name">{ar ? 'الاسم الكامل' : 'Full name'}</label>
@@ -438,7 +494,9 @@ export function StayCheckout({
               />
             </div>
             <div className="field stays-checkout__name">
-              <label htmlFor="stay-book-email">{ar ? 'البريد (اختياري)' : 'Email (optional)'}</label>
+              <label htmlFor="stay-book-email">
+                {ar ? 'البريد (لإيصال التأكيد)' : 'Email (for confirmation receipt)'}
+              </label>
               <input
                 className="input"
                 id="stay-book-email"
@@ -476,22 +534,29 @@ export function StayCheckout({
             </div>
             <div>
               <dt>{ar ? 'الوصول' : 'Check-in'}</dt>
-              <dd dir="ltr">{checkInOn}</dd>
+              <dd className="stays-checkout__chip stays-checkout__chip--check-in" dir="ltr">
+                {checkInOn}
+              </dd>
             </div>
             <div>
               <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
-              <dd dir="ltr">{checkOutOn}</dd>
+              <dd className="stays-checkout__chip stays-checkout__chip--check-out" dir="ltr">
+                {checkOutOn}
+              </dd>
             </div>
             <div>
               <dt>{ar ? 'نوع الحجز' : 'Stay type'}</dt>
-              <dd>{stayTypeLabel(stayType, ar)}</dd>
+              <dd className={`stays-checkout__chip stays-checkout__chip--stay-${stayType}`}>
+                {stayTypeLabel(stayType, ar)}
+              </dd>
             </div>
             <div>
-              <dt>{ar ? 'الضيوف' : 'Guests'}</dt>
-              <dd>
-                {adults} {ar ? 'بالغ' : 'adults'}
-                {Number(children) > 0 ? ` · ${children} ${ar ? 'أطفال' : 'children'}` : ''}
-              </dd>
+              <dt>{ar ? 'بالغون' : 'Adults'}</dt>
+              <dd className="stays-checkout__chip stays-checkout__chip--adults">{adults}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'أطفال' : 'Children'}</dt>
+              <dd className="stays-checkout__chip stays-checkout__chip--children">{children}</dd>
             </div>
           </dl>
           {quote ? (
@@ -511,7 +576,9 @@ export function StayCheckout({
             </dl>
           ) : null}
           <p className="muted stays-checkout__hint">
-            {ar ? 'شامل الرسوم والضريبة حسب العرض' : 'Includes fees and tax per quote'}
+            {ar
+              ? 'شامل الرسوم والضريبة حسب العرض. بعد التأكيد ستنتقل مباشرة لبوابة الدفع.'
+              : 'Includes fees and tax per quote. After confirm you go straight to the payment gateway.'}
           </p>
           <div className="stays-checkout__nav">
             <button type="button" className="button button--quiet" onClick={() => setStep('guest')}>
@@ -520,13 +587,13 @@ export function StayCheckout({
             <button
               type="button"
               className="button button--primary"
-              disabled={pending || !quote}
+              disabled={pending || !quote || payBusy}
               onClick={confirmBooking}
             >
-              {pending
+              {pending || payBusy
                 ? ar
-                  ? 'جارٍ الحجز…'
-                  : 'Booking…'
+                  ? 'جارٍ الحجز والدفع…'
+                  : 'Booking & paying…'
                 : ar
                   ? 'تأكيد الحجز'
                   : 'Confirm booking'}
@@ -551,11 +618,29 @@ export function StayCheckout({
             </div>
             <div>
               <dt>{ar ? 'الوصول' : 'Check-in'}</dt>
-              <dd dir="ltr">{checkInOn}</dd>
+              <dd className="stays-checkout__chip stays-checkout__chip--check-in" dir="ltr">
+                {checkInOn}
+              </dd>
             </div>
             <div>
               <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
-              <dd dir="ltr">{checkOutOn}</dd>
+              <dd className="stays-checkout__chip stays-checkout__chip--check-out" dir="ltr">
+                {checkOutOn}
+              </dd>
+            </div>
+            <div>
+              <dt>{ar ? 'نوع الحجز' : 'Stay type'}</dt>
+              <dd className={`stays-checkout__chip stays-checkout__chip--stay-${stayType}`}>
+                {stayTypeLabel(stayType, ar)}
+              </dd>
+            </div>
+            <div>
+              <dt>{ar ? 'بالغون' : 'Adults'}</dt>
+              <dd className="stays-checkout__chip stays-checkout__chip--adults">{adults}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'أطفال' : 'Children'}</dt>
+              <dd className="stays-checkout__chip stays-checkout__chip--children">{children}</dd>
             </div>
             <div>
               <dt>{ar ? 'المبلغ' : 'Amount'}</dt>
@@ -576,8 +661,8 @@ export function StayCheckout({
           </dl>
           <p className="muted stays-checkout__hint">
             {ar
-              ? 'أكمل الدفع لتأكيد الحجز. ستصلك صفحة التأكيد بعد الدفع.'
-              : 'Complete payment to confirm. You will land on a confirmation page after payment.'}
+              ? 'أكمل الدفع لتأكيد الحجز. بعد الدفع سيظهر إيصال PDF ويُرسل إلى بريدك.'
+              : 'Complete payment to confirm. After payment a PDF receipt appears and is emailed to you.'}
           </p>
           <div className="stays-checkout__nav">
             <Link

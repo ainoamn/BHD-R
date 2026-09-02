@@ -1,5 +1,5 @@
 import 'server-only';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 import {
@@ -11,6 +11,7 @@ import type { CreateStayPaymentSessionInput } from '@bhd-r/contracts';
 import {
   createDatabase,
   outboxEvents,
+  stayBookingGuests,
   stayBookingStatusHistory,
   stayBookings,
   stayHolds,
@@ -314,12 +315,90 @@ export async function completeStaySandboxPaymentOnNeon(
       },
     });
 
+    const snapshot =
+      booking.pricingSnapshotJson && typeof booking.pricingSnapshotJson === 'object'
+        ? (booking.pricingSnapshotJson as Record<string, unknown>)
+        : {};
+    const guestContact =
+      snapshot.guestContact && typeof snapshot.guestContact === 'object'
+        ? (snapshot.guestContact as Record<string, unknown>)
+        : {};
+    const guestEmail =
+      typeof guestContact.email === 'string' && guestContact.email.includes('@')
+        ? guestContact.email.trim().toLowerCase()
+        : null;
+    const guestName =
+      typeof guestContact.displayName === 'string' && guestContact.displayName.trim()
+        ? guestContact.displayName.trim()
+        : (
+            await transaction.query.stayBookingGuests.findFirst({
+              where: and(
+                eq(stayBookingGuests.bookingId, booking.id),
+                eq(stayBookingGuests.isPrimary, true),
+              ),
+              columns: { displayName: true },
+            })
+          )?.displayName ?? null;
+
+    if (guestEmail) {
+      const origin = publicWebOrigin();
+      const receiptPath = `/ar/stays/booking/receipt?ref=${encodeURIComponent(booking.referenceCode)}`;
+      const receiptUrl = `${origin}${receiptPath}`;
+      const confirmedPath = `/ar/stays/booking/confirmed?ref=${encodeURIComponent(booking.referenceCode)}`;
+      const amountLabel = `${booking.totalMinor.toString()} ${booking.currency}`;
+      const subject = `تأكيد حجز BHD — ${booking.referenceCode}`;
+      const text = [
+        guestName ? `مرحباً ${guestName},` : 'مرحباً،',
+        '',
+        `تم تأكيد حجزك ${booking.referenceCode}.`,
+        `الوصول: ${booking.checkInOn}`,
+        `المغادرة: ${booking.checkOutOn}`,
+        `المبلغ: ${amountLabel}`,
+        '',
+        `إيصال الدفع (PDF / طباعة): ${receiptUrl}`,
+        `صفحة التأكيد: ${origin}${confirmedPath}`,
+        '',
+        'BHD R — A BHD Product',
+      ].join('\n');
+      const html = `
+        <p>${guestName ? `مرحباً <strong>${guestName}</strong>,` : 'مرحباً،'}</p>
+        <p>تم تأكيد حجزك <strong dir="ltr">${booking.referenceCode}</strong>.</p>
+        <ul>
+          <li>الوصول: <span dir="ltr">${booking.checkInOn}</span></li>
+          <li>المغادرة: <span dir="ltr">${booking.checkOutOn}</span></li>
+          <li>المبلغ: <span dir="ltr">${amountLabel}</span></li>
+        </ul>
+        <p><a href="${receiptUrl}">فتح إيصال الدفع (حفظ كـ PDF)</a></p>
+        <p><a href="${origin}${confirmedPath}">صفحة تأكيد الحجز</a></p>
+        <p>BHD R — A BHD Product</p>
+      `;
+      await transaction.insert(outboxEvents).values({
+        organizationId: intent.organizationId,
+        topic: 'notification.delivery.requested',
+        aggregateType: 'stay_booking',
+        aggregateId: booking.id,
+        payload: {
+          correlationId: randomUUID(),
+          organizationId: intent.organizationId,
+          notificationId: randomUUID(),
+          channel: 'email',
+          recipient: guestEmail,
+          subject,
+          text,
+          html,
+        },
+      });
+    }
+
     return {
       completed: true,
       duplicate: false,
       kind: 'stay_booking' as const,
       paymentIntentId: intent.id,
       returnPath: returnPath ?? null,
+      referenceCode: booking.referenceCode,
+      receiptPath: `/stays/booking/receipt?ref=${encodeURIComponent(booking.referenceCode)}`,
+      emailQueued: Boolean(guestEmail),
     };
   });
 }

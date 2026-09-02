@@ -9,6 +9,7 @@ import { loadPublicStayBySlugOnNeon } from '@/lib/load-public-stays-neon';
 import { toPublicMediaSrc } from '@/lib/public-media-url';
 import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
 import { publicApiFetch } from '@/lib/server-api';
+import { getViewer } from '@/lib/viewer';
 import type { StayPublicDetail } from '@bhd-r/contracts';
 
 type StayType = 'overnight_stay' | 'day_use' | 'overnight_only';
@@ -81,7 +82,7 @@ export default async function StayBookPage({
   const ar = locale === 'ar';
   const unitId = pickQuery(query, 'unit') ?? pickQuery(query, 'unitId');
 
-  const detail = await loadStayDetail(slug, unitId);
+  const [detail, viewer] = await Promise.all([loadStayDetail(slug, unitId), getViewer()]);
   if (!detail) notFound();
 
   const title = localizedName(locale, detail.titleAr, detail.titleEn);
@@ -127,6 +128,8 @@ export default async function StayBookPage({
                 ? { children: pickQuery(query, 'children')! }
                 : {}),
               ...(stayType ? { stayType } : {}),
+              ...(viewer?.displayName?.trim() ? { guestName: viewer.displayName.trim() } : {}),
+              ...(viewer?.email?.trim() ? { guestEmail: viewer.email.trim() } : {}),
             }}
           />
         </div>

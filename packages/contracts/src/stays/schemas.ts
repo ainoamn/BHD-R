@@ -142,6 +142,8 @@ export const createStayBookingSchema = z
   .object({
     holdId: uuidSchema,
     guestDisplayName: z.string().trim().min(2).max(160).optional(),
+    guestEmail: z.string().trim().email().max(320).optional(),
+    guestPhone: z.string().trim().min(5).max(40).optional(),
   })
   .strict();
 

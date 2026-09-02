@@ -1,7 +1,7 @@
 import 'server-only';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { resolveStaysEnabledFromEnv, readStaysFlagsFromEnv } from '@bhd-r/config';
-import { createDatabase, stayBookings, type Database } from '@bhd-r/db';
+import { createDatabase, stayBookingGuests, stayBookings, type Database } from '@bhd-r/db';
 import { nightsBetween } from '@bhd-r/domain';
 import { PublicStayBookingError } from '@/lib/public-stays-booking-neon';
 
@@ -61,7 +61,51 @@ export type GuestStayBookingProjection = {
   currency: string;
   totalMinor: string;
   nights: number;
+  guestDisplayName?: string | null;
+  guestEmail?: string | null;
+  guestPhone?: string | null;
+  adults?: number | null;
+  children?: number | null;
+  stayType?: string | null;
 };
+
+function readGuestContact(snapshot: unknown): {
+  displayName?: string;
+  email?: string;
+  phone?: string;
+} {
+  if (!snapshot || typeof snapshot !== 'object') return {};
+  const root = snapshot as Record<string, unknown>;
+  const contact =
+    root.guestContact && typeof root.guestContact === 'object'
+      ? (root.guestContact as Record<string, unknown>)
+      : {};
+  return {
+    ...(typeof contact.displayName === 'string' ? { displayName: contact.displayName } : {}),
+    ...(typeof contact.email === 'string' ? { email: contact.email } : {}),
+    ...(typeof contact.phone === 'string' ? { phone: contact.phone } : {}),
+  };
+}
+
+function readStayTypeFromSnapshot(snapshot: unknown): string | null {
+  if (!snapshot || typeof snapshot !== 'object') return null;
+  const root = snapshot as Record<string, unknown>;
+  if (typeof root.stayType === 'string') return root.stayType;
+  const fees = Array.isArray(root.fees) ? root.fees : [];
+  for (const item of fees) {
+    if (!item || typeof item !== 'object') continue;
+    const row = item as Record<string, unknown>;
+    if (row.code === 'stay_type' && typeof row.stayType === 'string') return row.stayType;
+  }
+  const items = Array.isArray(root.lineItems) ? root.lineItems : [];
+  for (const item of items) {
+    if (!item || typeof item !== 'object') continue;
+    const row = item as Record<string, unknown>;
+    if (row.code === 'stay_type' && typeof row.stayType === 'string') return row.stayType;
+    if (typeof row.stayType === 'string') return row.stayType;
+  }
+  return null;
+}
 
 function toProjection(booking: {
   id: string;
@@ -77,7 +121,22 @@ function toProjection(booking: {
   bookingMode: string;
   currency: string;
   totalMinor: bigint;
+  pricingSnapshotJson?: unknown;
+  guestDisplayName?: string | null;
 }): GuestStayBookingProjection {
+  const contact = readGuestContact(booking.pricingSnapshotJson);
+  const adults =
+    booking.pricingSnapshotJson &&
+    typeof booking.pricingSnapshotJson === 'object' &&
+    typeof (booking.pricingSnapshotJson as { adults?: unknown }).adults === 'number'
+      ? (booking.pricingSnapshotJson as { adults: number }).adults
+      : null;
+  const children =
+    booking.pricingSnapshotJson &&
+    typeof booking.pricingSnapshotJson === 'object' &&
+    typeof (booking.pricingSnapshotJson as { children?: unknown }).children === 'number'
+      ? (booking.pricingSnapshotJson as { children: number }).children
+      : null;
   return {
     id: booking.id,
     referenceCode: booking.referenceCode,
@@ -96,6 +155,12 @@ function toProjection(booking: {
       checkInOn: booking.checkInOn,
       checkOutOn: booking.checkOutOn,
     }),
+    guestDisplayName: booking.guestDisplayName ?? contact.displayName ?? null,
+    guestEmail: contact.email ?? null,
+    guestPhone: contact.phone ?? null,
+    adults,
+    children,
+    stayType: readStayTypeFromSnapshot(booking.pricingSnapshotJson),
   };
 }
 
@@ -115,7 +180,21 @@ export async function lookupPublicStayBookingOnNeon(referenceCode: string) {
     throw new PublicStayBookingError('not_found', 'Stay booking not found', 404);
   }
   assertOrgEnabled(booking.organizationId);
-  return toProjection(booking);
+
+  const primaryGuest = await asPublic(async (transaction) =>
+    transaction.query.stayBookingGuests.findFirst({
+      where: and(
+        eq(stayBookingGuests.bookingId, booking.id),
+        eq(stayBookingGuests.isPrimary, true),
+      ),
+      columns: { displayName: true },
+    }),
+  );
+
+  return toProjection({
+    ...booking,
+    guestDisplayName: primaryGuest?.displayName ?? null,
+  });
 }
 
 export async function listGuestStayBookingsOnNeon(userId: string) {

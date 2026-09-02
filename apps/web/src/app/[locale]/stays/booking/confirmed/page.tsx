@@ -18,7 +18,18 @@ type PublicBooking = {
   totalMinor?: string;
   nights?: number;
   guestDisplayName?: string | null;
+  guestEmail?: string | null;
+  adults?: number | null;
+  children?: number | null;
+  stayType?: string | null;
 };
+
+function stayTypeLabel(type: string | null | undefined, ar: boolean): string {
+  if (type === 'day_use') return ar ? 'إقامة بدون مبيت' : 'Day use';
+  if (type === 'overnight_only') return ar ? 'مبيت فقط' : 'Overnight only';
+  if (type === 'overnight_stay') return ar ? 'إقامة مع مبيت' : 'Stay with overnight';
+  return type ?? '—';
+}
 
 async function loadBooking(ref: string): Promise<PublicBooking | null> {
   if (hasDatabaseUrl()) {
@@ -55,6 +66,12 @@ export default async function StayBookingConfirmedPage({
   const booking = await loadBooking(ref);
   if (!booking) notFound();
 
+  const paid = booking.status === 'confirmed' || booking.status === 'paid';
+  const stayTone =
+    booking.stayType === 'day_use' || booking.stayType === 'overnight_only'
+      ? booking.stayType
+      : 'overnight_stay';
+
   return (
     <div className="container section stays-booking-confirmed">
       <RememberStayTripAlert
@@ -71,10 +88,10 @@ export default async function StayBookingConfirmedPage({
           {ar ? 'تم استلام حجزك' : 'Your booking is received'}
         </h1>
         <p className="muted stays-checkout__hint">
-          {booking.status === 'confirmed' || booking.status === 'paid'
+          {paid
             ? ar
-              ? 'تم تأكيد الحجز والدفع.'
-              : 'Booking and payment are confirmed.'
+              ? 'تم تأكيد الحجز والدفع. يمكنك فتح إيصال الدفع وحفظه كملف PDF.'
+              : 'Booking and payment are confirmed. Open the receipt and save it as PDF.'
             : ar
               ? 'الحجز مسجّل. أكمل الدفع لتأكيد الإقامة.'
               : 'Booking is registered. Complete payment to confirm your stay.'}
@@ -97,13 +114,39 @@ export default async function StayBookingConfirmedPage({
             {booking.checkInOn ? (
               <div>
                 <dt>{ar ? 'الوصول' : 'Check-in'}</dt>
-                <dd dir="ltr">{booking.checkInOn}</dd>
+                <dd className="stays-checkout__chip stays-checkout__chip--check-in" dir="ltr">
+                  {booking.checkInOn}
+                </dd>
               </div>
             ) : null}
             {booking.checkOutOn ? (
               <div>
                 <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
-                <dd dir="ltr">{booking.checkOutOn}</dd>
+                <dd className="stays-checkout__chip stays-checkout__chip--check-out" dir="ltr">
+                  {booking.checkOutOn}
+                </dd>
+              </div>
+            ) : null}
+            {booking.stayType ? (
+              <div>
+                <dt>{ar ? 'نوع الحجز' : 'Stay type'}</dt>
+                <dd className={`stays-checkout__chip stays-checkout__chip--stay-${stayTone}`}>
+                  {stayTypeLabel(booking.stayType, ar)}
+                </dd>
+              </div>
+            ) : null}
+            {typeof booking.adults === 'number' ? (
+              <div>
+                <dt>{ar ? 'بالغون' : 'Adults'}</dt>
+                <dd className="stays-checkout__chip stays-checkout__chip--adults">{booking.adults}</dd>
+              </div>
+            ) : null}
+            {typeof booking.children === 'number' ? (
+              <div>
+                <dt>{ar ? 'أطفال' : 'Children'}</dt>
+                <dd className="stays-checkout__chip stays-checkout__chip--children">
+                  {booking.children}
+                </dd>
               </div>
             ) : null}
             {booking.totalMinor && booking.currency ? (
@@ -121,7 +164,7 @@ export default async function StayBookingConfirmedPage({
                   ? ar
                     ? 'بانتظار الدفع'
                     : 'Awaiting payment'
-                  : booking.status === 'confirmed' || booking.status === 'paid'
+                  : paid
                     ? ar
                       ? 'مؤكّد'
                       : 'Confirmed'
@@ -131,13 +174,23 @@ export default async function StayBookingConfirmedPage({
           </dl>
 
           <div className="stays-checkout__nav">
+            <Link
+              className="button button--primary"
+              href={`/stays/booking/receipt?ref=${encodeURIComponent(ref)}`}
+            >
+              {ar ? 'إيصال الدفع (PDF)' : 'Payment receipt (PDF)'}
+            </Link>
             <Link className="button button--quiet" href={`/guest/stays?ref=${encodeURIComponent(ref)}`}>
               {ar ? 'متابعة رحلتي' : 'Track my trip'}
             </Link>
-            <Link className="button button--primary" href="/stays">
-              {ar ? 'ابحث عن إقامة أخرى' : 'Search another stay'}
-            </Link>
           </div>
+          {paid && booking.guestEmail ? (
+            <p className="muted stays-checkout__hint">
+              {ar
+                ? `أُرسلت رسالة تأكيد مع رابط الإيصال إلى ${booking.guestEmail}.`
+                : `A confirmation email with the receipt link was sent to ${booking.guestEmail}.`}
+            </p>
+          ) : null}
           <p className="muted stays-booking-confirmed__review-hint">
             {ar
               ? 'بعد انتهاء الإقامة سيظهر لك طلب تقييم بأسلوب Booking.com من صفحة رحلاتي وصفحة الإقامة.'

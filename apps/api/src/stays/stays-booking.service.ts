@@ -448,6 +448,27 @@ export class StaysBookingService {
           pricingSnapshotJson: {
             lineItems: quote.lineItemsJson,
             fees: quote.feesSnapshotJson,
+            adults: quote.adults,
+            children: quote.children,
+            ...(Array.isArray(quote.feesSnapshotJson)
+              ? (() => {
+                  for (const item of quote.feesSnapshotJson) {
+                    if (!item || typeof item !== 'object') continue;
+                    const row = item as { code?: string; stayType?: string };
+                    if (row.code === 'stay_type' && typeof row.stayType === 'string') {
+                      return { stayType: row.stayType };
+                    }
+                  }
+                  return {};
+                })()
+              : {}),
+            guestContact: {
+              ...(input.guestDisplayName?.trim()
+                ? { displayName: input.guestDisplayName.trim() }
+                : {}),
+              ...(input.guestEmail?.trim() ? { email: input.guestEmail.trim().toLowerCase() } : {}),
+              ...(input.guestPhone?.trim() ? { phone: input.guestPhone.trim() } : {}),
+            },
           },
         })
         .returning();

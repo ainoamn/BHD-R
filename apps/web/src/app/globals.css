@@ -9177,6 +9177,104 @@ button.ops-row-key {
   margin: 0.15rem 0 0;
   font-weight: 600;
 }
+
+/* Color tones — stay step inputs + review chips (same palette) */
+.stays-checkout__tone--check-in .input,
+.stays-checkout__tone--check-in .select,
+.stays-checkout__chip--check-in {
+  --stay-tone: #0b6e4f;
+  --stay-tone-soft: #e6f5ef;
+}
+.stays-checkout__tone--check-out .input,
+.stays-checkout__tone--check-out .select,
+.stays-checkout__chip--check-out {
+  --stay-tone: #b45309;
+  --stay-tone-soft: #fff4e8;
+}
+.stays-checkout__tone--stay-overnight_stay .input,
+.stays-checkout__tone--stay-overnight_stay .select,
+.stays-checkout__chip--stay-overnight_stay {
+  --stay-tone: #1e4d8c;
+  --stay-tone-soft: #e8f0fa;
+}
+.stays-checkout__tone--stay-day_use .input,
+.stays-checkout__tone--stay-day_use .select,
+.stays-checkout__chip--stay-day_use {
+  --stay-tone: #0f766e;
+  --stay-tone-soft: #e6f7f5;
+}
+.stays-checkout__tone--stay-overnight_only .input,
+.stays-checkout__tone--stay-overnight_only .select,
+.stays-checkout__chip--stay-overnight_only {
+  --stay-tone: #334155;
+  --stay-tone-soft: #eef2f6;
+}
+.stays-checkout__tone--adults .input,
+.stays-checkout__tone--adults .select,
+.stays-checkout__chip--adults {
+  --stay-tone: #1d4ed8;
+  --stay-tone-soft: #eaf0ff;
+}
+.stays-checkout__tone--children .input,
+.stays-checkout__tone--children .select,
+.stays-checkout__chip--children {
+  --stay-tone: #c2410c;
+  --stay-tone-soft: #fff0e8;
+}
+.stays-checkout__tone label {
+  color: var(--stay-tone, inherit);
+  font-weight: 700;
+}
+.stays-checkout__tone .input,
+.stays-checkout__tone .select {
+  border-color: color-mix(in srgb, var(--stay-tone) 45%, #d7e1db);
+  background: var(--stay-tone-soft, #fff);
+  box-shadow: inset 3px 0 0 var(--stay-tone);
+}
+.stays-checkout__chip {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.2rem 0.55rem;
+  border-radius: 0.4rem;
+  background: var(--stay-tone-soft, #f3f6f4);
+  color: var(--stay-tone, inherit);
+  border: 1px solid color-mix(in srgb, var(--stay-tone, #5c6b64) 35%, transparent);
+  font-weight: 700;
+}
+.stays-booking-receipt {
+  max-width: 40rem;
+  margin: 0 auto;
+}
+.stays-booking-receipt__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 1rem 0 1.25rem;
+}
+.stays-booking-receipt__sheet {
+  padding: 1.5rem;
+  border: 1px solid #d7e1db;
+  border-radius: var(--radius);
+  background: #fff;
+}
+.stays-booking-receipt__sheet h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+}
+@media print {
+  .site-header,
+  .site-footer,
+  .stays-booking-receipt__actions,
+  .stays-booking-confirmed__review-hint {
+    display: none !important;
+  }
+  .stays-booking-receipt__sheet {
+    border: none;
+    padding: 0;
+  }
+}
 .stays-public__book-shell--split {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
