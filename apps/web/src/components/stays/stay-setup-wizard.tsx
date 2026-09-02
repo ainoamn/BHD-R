@@ -181,6 +181,14 @@ function hydrateUnitPricingFromContext(
       applyDraft(unit.id, fallback);
     }
   }
+  const donor = Object.values(next).find((row) => row.nightlyRate.trim());
+  if (donor) {
+    for (const unit of data.units) {
+      const row = next[unit.id];
+      if (row?.nightlyRate.trim()) continue;
+      next[unit.id] = { ...donor };
+    }
+  }
   return next;
 }
 
@@ -240,6 +248,8 @@ const copy = {
       publish: 'المراجعة والنشر',
     } satisfies Record<StepId, string>,
     selectUnits: 'اختر الوحدات المتاحة للإقامة اليومية',
+    selectUnpublished: 'اختر غير المنشور فقط',
+    selectAllUnits: 'اختر الكل',
     unitTypeName: 'اسم نوع الوحدة (للعرض)',
     sectionTimes: 'أوقات الدخول والخروج',
     sectionGuests: 'سعة الضيوف',
@@ -310,6 +320,8 @@ const copy = {
       publish: 'Review & publish',
     } satisfies Record<StepId, string>,
     selectUnits: 'Choose units available for daily stays',
+    selectUnpublished: 'Select unpublished only',
+    selectAllUnits: 'Select all',
     unitTypeName: 'Unit type label (display)',
     sectionTimes: 'Check-in / check-out times',
     sectionGuests: 'Guest capacity',
@@ -446,10 +458,14 @@ export function StaySetupWizard({
       } else if (data.units[0]) {
         setSlug(slugify(`${data.propertyNameEn}-${data.units[0].code}`));
       }
+      const unpublished = data.units.filter((unit) => unit.publishStatus !== 'published');
       const withProfiles = data.units.filter((unit) => unit.profileId);
-      if (withProfiles.length) {
-        setSelectedUnitIds(withProfiles.map((unit) => unit.id));
-        setProfileIds(withProfiles.map((unit) => unit.profileId!).filter(Boolean));
+      const preferred = unpublished.length ? unpublished : withProfiles;
+      if (preferred.length) {
+        setSelectedUnitIds(preferred.map((unit) => unit.id));
+        setProfileIds(
+          preferred.map((unit) => unit.profileId).filter((id): id is string => Boolean(id)),
+        );
       } else if (data.units.length === 1) {
         setSelectedUnitIds([data.units[0]!.id]);
       }
@@ -1171,6 +1187,45 @@ export function StaySetupWizard({
           {current === 'units' ? (
             <fieldset disabled={!canWrite || busy} className="stays-setup-wizard__fields">
               <p className="muted">{t.selectUnits}</p>
+              {context?.units.length ? (
+                <div className="stays-setup-wizard__unit-actions">
+                  <Button
+                    type="button"
+                    variant="quiet"
+                    disabled={!canWrite || busy}
+                    onClick={() => {
+                      const unpublished = (context?.units ?? []).filter(
+                        (unit) => unit.publishStatus !== 'published',
+                      );
+                      const target = unpublished.length ? unpublished : (context?.units ?? []);
+                      setSelectedUnitIds(target.map((unit) => unit.id));
+                      setProfileIds(
+                        target
+                          .map((unit) => unit.profileId)
+                          .filter((id): id is string => Boolean(id)),
+                      );
+                    }}
+                  >
+                    {t.selectUnpublished}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="quiet"
+                    disabled={!canWrite || busy}
+                    onClick={() => {
+                      const all = (context?.units ?? []).map((unit) => unit.id);
+                      setSelectedUnitIds(all);
+                      setProfileIds(
+                        (context?.units ?? [])
+                          .filter((unit) => unit.profileId)
+                          .map((unit) => unit.profileId as string),
+                      );
+                    }}
+                  >
+                    {t.selectAllUnits}
+                  </Button>
+                </div>
+              ) : null}
               {!context?.units.length ? <p>{t.noUnits}</p> : null}
               <div className="data-table-wrap ops-desktop-table stays-setup-units-table">
                 <table className="data-table ops-table">

@@ -68,6 +68,7 @@ export function StayCheckout({
   defaults,
   embedded = false,
   bookingDates,
+  unitId,
 }: {
   locale: string;
   slug: string;
@@ -85,6 +86,8 @@ export function StayCheckout({
     checkInOn: string;
     checkOutOn: string;
   };
+  /** Pin booking to a published unit when several share one listing slug. */
+  unitId?: string;
 }) {
   const ar = locale === 'ar';
   const initialIn = defaults?.checkInOn || defaultCheckIn();
@@ -129,6 +132,7 @@ export function StayCheckout({
 
   async function loadQuote(): Promise<QuoteResult> {
     const qs = new URLSearchParams({ checkInOn, checkOutOn, adults, children });
+    if (unitId) qs.set('unitId', unitId);
     const availability = await browserStayBookingGet<AvailabilityResult>(
       `/${encodeURIComponent(slug)}/availability?${qs.toString()}`,
     );
@@ -153,6 +157,7 @@ export function StayCheckout({
       adults: Number(adults),
       children: Number(children),
       stayType,
+      ...(unitId ? { unitId } : {}),
     });
   }
 

@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.43 — 2026-09-02
+
+- Pin public stay calendar/availability/quote/checkout to `unitId` when multiple units share a listing slug.
+- Align stay sandbox-complete with payment sandbox pilot flag so production stays pilot can finish payment.
+- Stay setup wizard prefers unpublished units and can copy rates from a priced sibling.
+
 ## 0.4.42 — 2026-09-02
 
 - Property portfolio shows rent / sale / stay channel badges (from unit `listingPurpose` + stay profiles).

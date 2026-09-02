@@ -110,7 +110,10 @@ type ListingContext = {
   cleaningFeeMinor: string | null;
 };
 
-async function resolveListingContext(slug: string): Promise<ListingContext> {
+async function resolveListingContext(
+  slug: string,
+  unitId?: string | null,
+): Promise<ListingContext> {
   const rows = await asPublic(async (transaction) => {
     const result = await transaction.execute(sql`
       SELECT
@@ -174,6 +177,7 @@ async function resolveListingContext(slug: string): Promise<ListingContext> {
       WHERE spl.slug = ${slug}
         AND spl.enabled = true
         AND spl.published_at IS NOT NULL
+        ${unitId ? sql`AND u.id = ${unitId}::uuid` : sql``}
       ORDER BY
         CASE WHEN COALESCE(u.bedrooms, 0) > 0 THEN 0 ELSE 1 END,
         u.bedrooms DESC NULLS LAST,
@@ -381,7 +385,7 @@ export async function getPublicStayCalendarOnNeon(
   query: StayInventoryCalendarQuery,
 ) {
   assertPlatformEnabled();
-  const ctx = await resolveListingContext(slug);
+  const ctx = await resolveListingContext(slug, query.unitId);
   assertOrgEnabled(ctx.organizationId);
 
   return asPublic(async (transaction) => {
@@ -435,7 +439,7 @@ export async function getPublicStayAvailabilityOnNeon(
   query: StayAvailabilityQuery,
 ) {
   assertPlatformEnabled();
-  const ctx = await resolveListingContext(slug);
+  const ctx = await resolveListingContext(slug, query.unitId);
   assertOrgEnabled(ctx.organizationId);
 
   const guests = query.adults + query.children;
@@ -460,7 +464,7 @@ export async function getPublicStayAvailabilityOnNeon(
 
 export async function createPublicStayQuoteOnNeon(slug: string, input: CreateStayQuoteInput) {
   assertPlatformEnabled();
-  const ctx = await resolveListingContext(slug);
+  const ctx = await resolveListingContext(slug, input.unitId);
   assertOrgEnabled(ctx.organizationId);
 
   const guests = input.adults + input.children;

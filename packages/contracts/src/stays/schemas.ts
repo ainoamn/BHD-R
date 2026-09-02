@@ -118,6 +118,8 @@ export const createStayQuoteSchema = z
     children: z.coerce.number().int().min(0).max(50).default(0),
     /** overnight_stay = إقامة مع مبيت, day_use = بدون مبيت, overnight_only = مبيت فقط */
     stayType: stayBookingTypeSchema.default('overnight_stay'),
+    /** Required when multiple published units share one listing slug. */
+    unitId: uuidSchema.optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
@@ -148,6 +150,7 @@ export const stayAvailabilityQuerySchema = z.object({
   checkOutOn: z.iso.date(),
   adults: z.coerce.number().int().min(1).max(50).default(1),
   children: z.coerce.number().int().min(0).max(50).default(0),
+  unitId: uuidSchema.optional(),
 });
 
 export const stayDayAvailabilityStatusSchema = z.enum([
@@ -164,6 +167,7 @@ export const stayInventoryCalendarQuerySchema = z
   .object({
     fromOn: z.iso.date(),
     toOn: z.iso.date(),
+    unitId: uuidSchema.optional(),
   })
   .strict()
   .superRefine((value, ctx) => {

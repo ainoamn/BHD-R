@@ -181,6 +181,7 @@ export function StayAvailabilityCalendar({
     const fetchOnce = async () => {
       const qs = new URLSearchParams({ fromOn, toOn });
       if (mode === 'public' && slug) {
+        if (unitId) qs.set('unitId', unitId);
         return browserStayBookingGet<StayInventoryCalendarResponse>(
           `/${encodeURIComponent(slug)}/calendar?${qs.toString()}`,
         );

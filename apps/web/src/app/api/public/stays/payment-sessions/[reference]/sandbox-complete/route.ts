@@ -1,3 +1,4 @@
+import { isPaymentSandboxPilotEnabled } from '@bhd-r/config';
 import { z } from 'zod';
 import { completeStaySandboxPaymentOnNeon } from '@/lib/public-stays-payment-neon';
 import {
@@ -5,7 +6,6 @@ import {
   stayBookingErrorResponse,
   stayBookingJson,
 } from '@/lib/public-stays-booking-route';
-import { isBookingSandboxAllowed } from '@/lib/runtime-env';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 
 export const runtime = 'nodejs';
@@ -24,7 +24,7 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ reference: string }> },
 ) {
-  if (!isBookingSandboxAllowed()) {
+  if (!isPaymentSandboxPilotEnabled()) {
     return stayBookingJson(
       {
         error: {

@@ -152,6 +152,7 @@ export default async function StayDetailPage({
           stayBooking={{
             slug,
             title,
+            ...(detail.unitId ? { unitId: detail.unitId } : {}),
             ...(detail.nightlyMinor != null ? { nightlyMinor: detail.nightlyMinor } : {}),
             ...(detail.currency != null ? { currency: detail.currency } : {}),
             ...(detail.maxGuests != null ? { maxGuests: detail.maxGuests } : {}),

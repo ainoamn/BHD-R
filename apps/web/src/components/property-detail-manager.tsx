@@ -201,6 +201,7 @@ export function PropertyDetailManager({
   stayBooking?: {
     slug: string;
     title?: string;
+    unitId?: string;
     nightlyMinor?: string | null;
     currency?: CurrencyCode | string | null;
     maxGuests?: number | null;
@@ -629,6 +630,7 @@ export function PropertyDetailManager({
                 locale={locale}
                 mode="public"
                 slug={stayBooking.slug}
+                unitId={stayBooking.unitId}
                 size="large"
                 monthCount={2}
                 selectedCheckIn={stayCheckInOn}
@@ -1348,6 +1350,7 @@ export function PropertyDetailManager({
                       {
                         checkInOn: stayCheckInOn,
                         checkOutOn: stayCheckOutOn,
+                        ...(stayBooking.unitId ? { unit: stayBooking.unitId } : {}),
                         ...(stayBooking.adults ? { adults: stayBooking.adults } : {}),
                         ...(stayBooking.children ? { children: stayBooking.children } : {}),
                       },

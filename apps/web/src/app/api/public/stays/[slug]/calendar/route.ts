@@ -20,6 +20,7 @@ export async function GET(request: Request, context: RouteContext) {
   const parsed = stayInventoryCalendarQuerySchema.safeParse({
     fromOn: url.searchParams.get('fromOn'),
     toOn: url.searchParams.get('toOn'),
+    unitId: url.searchParams.get('unitId') ?? url.searchParams.get('unit') ?? undefined,
   });
   if (!parsed.success) {
     return stayBookingJson({ error: { code: 'invalid_query' } }, { status: 400 });

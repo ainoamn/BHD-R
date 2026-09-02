@@ -22,6 +22,7 @@ export async function GET(request: Request, context: RouteContext) {
     checkOutOn: url.searchParams.get('checkOutOn'),
     adults: url.searchParams.get('adults') ?? '2',
     children: url.searchParams.get('children') ?? '0',
+    unitId: url.searchParams.get('unitId') ?? url.searchParams.get('unit') ?? undefined,
   });
   if (!parsed.success) {
     return stayBookingJson({ error: { code: 'invalid_query' } }, { status: 400 });

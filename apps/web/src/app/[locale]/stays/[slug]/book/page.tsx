@@ -28,17 +28,21 @@ function parseStayType(value: string | undefined): StayType | undefined {
   return undefined;
 }
 
-async function loadStayDetail(slug: string): Promise<StayPublicDetail | null> {
+async function loadStayDetail(
+  slug: string,
+  unitId?: string,
+): Promise<StayPublicDetail | null> {
   if (hasDatabaseUrl()) {
     try {
-      const neon = await loadPublicStayBySlugOnNeon(slug);
+      const neon = await loadPublicStayBySlugOnNeon(slug, unitId ?? null);
       if (neon) return neon;
     } catch (error) {
       console.error('Neon public stay load failed', error);
     }
   }
+  const qs = unitId ? `?unitId=${encodeURIComponent(unitId)}` : '';
   return publicApiFetch<StayPublicDetail>(
-    `/v1/public/stays/${encodeURIComponent(slug)}`,
+    `/v1/public/stays/${encodeURIComponent(slug)}${qs}`,
     8,
   ).catch(() => null);
 }
@@ -75,8 +79,9 @@ export default async function StayBookPage({
   const query = await searchParams;
   setRequestLocale(locale);
   const ar = locale === 'ar';
+  const unitId = pickQuery(query, 'unit') ?? pickQuery(query, 'unitId');
 
-  const detail = await loadStayDetail(slug);
+  const detail = await loadStayDetail(slug, unitId);
   if (!detail) notFound();
 
   const title = localizedName(locale, detail.titleAr, detail.titleEn);
@@ -87,7 +92,10 @@ export default async function StayBookPage({
     <div className="container section stays-book-page">
       <div className="stays-book-page__layout">
         <aside className="stays-book-page__aside">
-          <Link className="stays-book-page__back" href={`/stays/${encodeURIComponent(slug)}`}>
+          <Link
+            className="stays-book-page__back"
+            href={`/stays/${encodeURIComponent(slug)}${unitId ? `?unit=${encodeURIComponent(unitId)}` : ''}`}
+          >
             {ar ? '← العودة للإقامة' : '← Back to stay'}
           </Link>
           {cover ? (
@@ -106,6 +114,7 @@ export default async function StayBookPage({
             locale={locale}
             slug={slug}
             title={title}
+            unitId={detail.unitId ?? unitId}
             defaults={{
               ...(pickQuery(query, 'checkInOn')
                 ? { checkInOn: pickQuery(query, 'checkInOn')! }

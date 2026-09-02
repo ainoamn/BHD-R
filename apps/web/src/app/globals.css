@@ -8680,13 +8680,18 @@ button.ops-row-key {
   font-size: 1.15rem;
 }
 .stays-setup-wizard__field-actions,
-.stays-setup-wizard__summary-head {
+.stays-setup-wizard__summary-head,
+.stays-setup-wizard__unit-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem 0.75rem;
   align-items: center;
   justify-content: space-between;
   margin-top: 0.35rem;
+}
+.stays-setup-wizard__unit-actions {
+  justify-content: flex-start;
+  margin-bottom: 0.65rem;
 }
 .stays-setup-preview {
   margin-top: 1.5rem;
