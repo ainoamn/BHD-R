@@ -143,6 +143,24 @@ export class StaysBookingService {
     );
     if (!available) throw new ConflictException('Selected dates are not available');
 
+    const nightRates = await this.database.asPublic(async (transaction) => {
+      const result = await transaction.execute(sql`
+        SELECT stay_date::text AS stay_date, effective_rate_minor::text AS effective_rate_minor
+        FROM stay_inventory_days
+        WHERE organization_id = ${ctx.organizationId}::uuid
+          AND unit_id = ${ctx.unitId}::uuid
+          AND stay_date >= ${input.checkInOn}::date
+          AND stay_date < ${input.checkOutOn}::date
+          AND effective_rate_minor IS NOT NULL
+      `);
+      const rows = Array.isArray(result) ? result : ((result as { rows?: unknown[] }).rows ?? []);
+      const map: Record<string, string> = {};
+      for (const row of rows as Array<{ stay_date: string; effective_rate_minor: string }>) {
+        map[row.stay_date] = row.effective_rate_minor;
+      }
+      return map;
+    });
+
     const priced = quoteStay({
       currency: ctx.currency,
       checkInOn: input.checkInOn,
@@ -150,6 +168,7 @@ export class StaysBookingService {
       baseNightlyMinor: ctx.baseNightlyMinor,
       weekendNightlyMinor: ctx.weekendNightlyMinor,
       cleaningFeeMinor: ctx.cleaningFeeMinor,
+      ...(Object.keys(nightRates).length ? { nightRateOverrides: nightRates } : {}),
     });
 
     const payloadHash = createHash('sha256')

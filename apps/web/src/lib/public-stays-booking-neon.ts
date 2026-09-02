@@ -370,7 +370,8 @@ export async function getPublicStayCalendarOnNeon(
         stay_date::text AS stay_date,
         availability_status,
         effective_rate_minor::text AS effective_rate_minor,
-        currency
+        currency,
+        public_note
       FROM stay_inventory_days
       WHERE organization_id = ${ctx.organizationId}::uuid
         AND unit_id = ${ctx.unitId}::uuid
@@ -385,12 +386,14 @@ export async function getPublicStayCalendarOnNeon(
         availability_status: string;
         effective_rate_minor: string | null;
         currency: string | null;
+        public_note: string | null;
       }>
     ).map((row) => ({
       stayDate: row.stay_date,
       availabilityStatus: row.availability_status,
       effectiveRateMinor: row.effective_rate_minor,
       currency: row.currency,
+      publicNote: row.public_note,
     }));
 
     return {
@@ -398,7 +401,11 @@ export async function getPublicStayCalendarOnNeon(
       fromOn: query.fromOn,
       toOn: query.toOn,
       currency: ctx.currency,
-      days: fillInventoryCalendarDays(mapped, query.fromOn, query.toOn),
+      days: fillInventoryCalendarDays(mapped, query.fromOn, query.toOn, {
+        defaultAvailability: 'available',
+        defaultRateMinor: ctx.baseNightlyMinor,
+        defaultCurrency: ctx.currency,
+      }),
     };
   });
 }
@@ -461,6 +468,24 @@ export async function createPublicStayQuoteOnNeon(slug: string, input: CreateSta
     throw new PublicStayBookingError('dates_unavailable', 'Selected dates are not available', 409);
   }
 
+  const nightRates = await asPublic(async (transaction) => {
+    const result = await transaction.execute(sql`
+      SELECT stay_date::text AS stay_date, effective_rate_minor::text AS effective_rate_minor
+      FROM stay_inventory_days
+      WHERE organization_id = ${ctx.organizationId}::uuid
+        AND unit_id = ${ctx.unitId}::uuid
+        AND stay_date >= ${input.checkInOn}::date
+        AND stay_date < ${input.checkOutOn}::date
+        AND effective_rate_minor IS NOT NULL
+    `);
+    const rows = Array.isArray(result) ? result : ((result as { rows?: unknown[] }).rows ?? []);
+    const map: Record<string, string> = {};
+    for (const row of rows as Array<{ stay_date: string; effective_rate_minor: string }>) {
+      map[row.stay_date] = row.effective_rate_minor;
+    }
+    return map;
+  });
+
   const priced = quoteStay({
     currency: ctx.currency,
     checkInOn: input.checkInOn,
@@ -468,6 +493,7 @@ export async function createPublicStayQuoteOnNeon(slug: string, input: CreateSta
     baseNightlyMinor: ctx.baseNightlyMinor,
     weekendNightlyMinor: ctx.weekendNightlyMinor,
     cleaningFeeMinor: ctx.cleaningFeeMinor,
+    ...(Object.keys(nightRates).length ? { nightRateOverrides: nightRates } : {}),
   });
 
   const payloadHash = createHash('sha256')

@@ -1,6 +1,13 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { and, eq, isNotNull, lte, sql } from 'drizzle-orm';
-import { outboxEvents, stayHolds, stayInventoryLocks, stayProfiles, units } from '@bhd-r/db';
+import {
+  outboxEvents,
+  stayHolds,
+  stayInventoryDays,
+  stayInventoryLocks,
+  stayProfiles,
+  units,
+} from '@bhd-r/db';
 import {
   buildStayUnitIcs,
   fillInventoryCalendarDays,
@@ -10,6 +17,14 @@ import {
 import type { StayInventoryCalendarResponse } from '@bhd-r/contracts';
 import type { SessionClaims } from '@bhd-r/authz';
 import { DatabaseService, type DatabaseTransaction } from '../database/database.service.js';
+
+function majorToMinor(rateMajor: string, minorUnit: number): bigint {
+  if (!/^\d+(\.\d+)?$/.test(rateMajor.trim())) throw new ConflictException('Invalid rate amount');
+  const [whole = '0', decimals = ''] = rateMajor.trim().split('.');
+  const padded = `${decimals}${'0'.repeat(minorUnit)}`.slice(0, minorUnit);
+  if (decimals.length > minorUnit) throw new ConflictException('Invalid rate amount');
+  return BigInt(whole) * 10n ** BigInt(minorUnit) + BigInt(padded || '0');
+}
 
 export type CreateStayLockInput = {
   organizationId: string;
@@ -379,14 +394,6 @@ export class StaysInventoryService {
       const minNights = row?.min_nights ?? null;
       const rateMinor = row?.base_nightly_minor ?? null;
 
-      await transaction.execute(sql`
-        DELETE FROM stay_inventory_days
-        WHERE organization_id = ${organizationId}::uuid
-          AND unit_id = ${unitId}::uuid
-          AND stay_date >= CURRENT_DATE
-          AND stay_date < CURRENT_DATE + (${advance}::int)
-      `);
-
       const inserted = await transaction.execute(sql`
         WITH days AS (
           SELECT generate_series(
@@ -417,7 +424,7 @@ export class StaysInventoryService {
         )
         INSERT INTO stay_inventory_days (
           organization_id, unit_id, stay_date, availability_status,
-          effective_rate_minor, currency, min_nights
+          effective_rate_minor, currency, min_nights, public_note, manual_rate
         )
         SELECT
           ${organizationId}::uuid,
@@ -426,8 +433,19 @@ export class StaysInventoryService {
           ds.availability_status,
           CASE WHEN ${rateMinor}::text IS NULL THEN NULL ELSE ${rateMinor}::bigint END,
           ${currency},
-          ${minNights}
+          ${minNights},
+          NULL,
+          false
         FROM day_status ds
+        ON CONFLICT (unit_id, stay_date) DO UPDATE SET
+          availability_status = EXCLUDED.availability_status,
+          effective_rate_minor = CASE
+            WHEN stay_inventory_days.manual_rate THEN stay_inventory_days.effective_rate_minor
+            ELSE EXCLUDED.effective_rate_minor
+          END,
+          currency = COALESCE(stay_inventory_days.currency, EXCLUDED.currency),
+          min_nights = EXCLUDED.min_nights,
+          updated_at = now()
         RETURNING 1
       `);
       const count = Array.isArray(inserted)
@@ -490,12 +508,39 @@ export class StaysInventoryService {
     toOn: string,
     options: { currency?: string | null; includeLocks: boolean },
   ): Promise<StayInventoryCalendarResponse> {
+    const rateResult = await transaction.execute(sql`
+      SELECT
+        sp.currency,
+        (
+          SELECT srp.base_nightly_minor::text
+          FROM stay_rate_plans srp
+          WHERE srp.stay_profile_id = sp.id AND srp.enabled = true
+          ORDER BY srp.priority ASC, srp.created_at ASC
+          LIMIT 1
+        ) AS base_nightly_minor
+      FROM stay_profiles sp
+      WHERE sp.organization_id = ${organizationId}::uuid
+        AND sp.unit_id = ${unitId}::uuid
+        AND sp.enabled = true
+      ORDER BY sp.updated_at DESC
+      LIMIT 1
+    `);
+    const rateRows = Array.isArray(rateResult)
+      ? rateResult
+      : ((rateResult as { rows?: unknown[] }).rows ?? []);
+    const rateRow = rateRows[0] as
+      | { currency: string | null; base_nightly_minor: string | null }
+      | undefined;
+    const defaultCurrency = options.currency ?? rateRow?.currency ?? null;
+    const defaultRateMinor = rateRow?.base_nightly_minor ?? null;
+
     const result = await transaction.execute(sql`
       SELECT
         stay_date::text AS stay_date,
         availability_status,
         effective_rate_minor::text AS effective_rate_minor,
-        currency
+        currency,
+        public_note
       FROM stay_inventory_days
       WHERE organization_id = ${organizationId}::uuid
         AND unit_id = ${unitId}::uuid
@@ -510,21 +555,29 @@ export class StaysInventoryService {
         availability_status: string;
         effective_rate_minor: string | null;
         currency: string | null;
+        public_note: string | null;
       }>
     ).map((row) => ({
       stayDate: row.stay_date,
       availabilityStatus: row.availability_status,
       effectiveRateMinor: row.effective_rate_minor,
       currency: row.currency,
+      publicNote: row.public_note,
     }));
 
-    const days = fillInventoryCalendarDays(mapped, fromOn, toOn) as StayInventoryCalendarResponse['days'];
+    const days = fillInventoryCalendarDays(mapped, fromOn, toOn, {
+      defaultAvailability: 'available',
+      defaultRateMinor,
+      defaultCurrency,
+    }) as StayInventoryCalendarResponse['days'];
     const response: StayInventoryCalendarResponse = {
       unitId,
       fromOn,
       toOn,
       days,
-      ...(options.currency ? { currency: options.currency as StayInventoryCalendarResponse['currency'] } : {}),
+      ...(defaultCurrency
+        ? { currency: defaultCurrency as StayInventoryCalendarResponse['currency'] }
+        : {}),
     };
 
     if (!options.includeLocks) return response;
@@ -569,5 +622,113 @@ export class StaysInventoryService {
         ...(row.note ? { note: row.note } : {}),
       })),
     };
+  }
+
+  async upsertInventoryDay(
+    claims: SessionClaims,
+    unitId: string,
+    input: {
+      stayDate: string;
+      rateMajor?: string | null;
+      clearManualRate?: boolean;
+      publicNote?: string | null;
+      availabilityStatus?: 'available' | 'blocked';
+    },
+  ) {
+    const organizationId = claims.organizationId;
+    if (!organizationId) throw new ConflictException('Organization context required');
+
+    return this.database.withinTenant(claims, async (transaction) => {
+      const profile = await transaction.execute(sql`
+        SELECT
+          sp.currency,
+          sp.minor_unit,
+          (
+            SELECT srp.base_nightly_minor::text
+            FROM stay_rate_plans srp
+            WHERE srp.stay_profile_id = sp.id AND srp.enabled = true
+            ORDER BY srp.priority ASC, srp.created_at ASC
+            LIMIT 1
+          ) AS base_nightly_minor
+        FROM stay_profiles sp
+        WHERE sp.organization_id = ${organizationId}::uuid
+          AND sp.unit_id = ${unitId}::uuid
+        LIMIT 1
+      `);
+      const profileRows = Array.isArray(profile)
+        ? profile
+        : ((profile as { rows?: unknown[] }).rows ?? []);
+      const profileRow = profileRows[0] as
+        | {
+            currency: string;
+            minor_unit: number;
+            base_nightly_minor: string | null;
+          }
+        | undefined;
+      if (!profileRow) throw new NotFoundException('Stay unit not found');
+
+      const existing = await transaction.query.stayInventoryDays.findFirst({
+        where: and(
+          eq(stayInventoryDays.organizationId, organizationId),
+          eq(stayInventoryDays.unitId, unitId),
+          eq(stayInventoryDays.stayDate, input.stayDate),
+        ),
+      });
+
+      let effectiveRateMinor = existing?.effectiveRateMinor ?? null;
+      let manualRate = existing?.manualRate ?? false;
+      if (input.clearManualRate) {
+        effectiveRateMinor =
+          profileRow.base_nightly_minor != null ? BigInt(profileRow.base_nightly_minor) : null;
+        manualRate = false;
+      } else if (input.rateMajor != null && input.rateMajor.trim() !== '') {
+        effectiveRateMinor = majorToMinor(input.rateMajor.trim(), profileRow.minor_unit);
+        manualRate = true;
+      }
+
+      const publicNote =
+        input.publicNote === undefined
+          ? (existing?.publicNote ?? null)
+          : input.publicNote == null || input.publicNote.trim() === ''
+            ? null
+            : input.publicNote.trim().slice(0, 280);
+
+      const availabilityStatus =
+        input.availabilityStatus ?? existing?.availabilityStatus ?? 'available';
+
+      if (existing) {
+        await transaction
+          .update(stayInventoryDays)
+          .set({
+            availabilityStatus,
+            effectiveRateMinor,
+            manualRate,
+            publicNote,
+            currency: existing.currency ?? profileRow.currency,
+            updatedAt: new Date(),
+          })
+          .where(eq(stayInventoryDays.id, existing.id));
+      } else {
+        await transaction.insert(stayInventoryDays).values({
+          organizationId,
+          unitId,
+          stayDate: input.stayDate,
+          availabilityStatus,
+          effectiveRateMinor,
+          manualRate,
+          publicNote,
+          currency: profileRow.currency,
+        });
+      }
+
+      return {
+        stayDate: input.stayDate,
+        availabilityStatus,
+        effectiveRateMinor: effectiveRateMinor?.toString() ?? null,
+        currency: profileRow.currency,
+        publicNote,
+        manualRate,
+      };
+    });
   }
 }

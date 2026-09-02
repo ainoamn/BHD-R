@@ -305,6 +305,8 @@ export const stayInventoryDays = pgTable(
     effectiveRateMinor: bigint('effective_rate_minor', { mode: 'bigint' }),
     currency: varchar('currency', { length: 3 }),
     minNights: integer('min_nights'),
+    publicNote: text('public_note'),
+    manualRate: boolean('manual_rate').notNull().default(false),
   },
   (table) => [
     uniqueIndex('stay_inventory_days_unit_date_unique').on(table.unitId, table.stayDate),

@@ -187,7 +187,22 @@ export const stayInventoryDaySchema = z.object({
   availabilityStatus: stayDayAvailabilityStatusSchema,
   effectiveRateMinor: z.string().regex(/^\d+$/).nullable().optional(),
   currency: currencyCodeSchema.nullable().optional(),
+  publicNote: z.string().trim().max(280).nullable().optional(),
 });
+
+export const upsertStayInventoryDaySchema = z
+  .object({
+    stayDate: z.iso.date(),
+    /** Major units string e.g. "20" or "25.500" — converted by API with profile currency. */
+    rateMajor: z.string().trim().max(24).optional().nullable(),
+    /** Clear custom rate and revert to base plan rate. */
+    clearManualRate: z.boolean().optional(),
+    publicNote: z.string().trim().max(280).optional().nullable(),
+    availabilityStatus: z.enum(['available', 'blocked']).optional(),
+  })
+  .strict();
+
+export type UpsertStayInventoryDayInput = z.infer<typeof upsertStayInventoryDaySchema>;
 
 export const stayInventoryLockSpanSchema = z.object({
   kind: z.string().min(1).max(24),

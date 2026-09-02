@@ -24,6 +24,7 @@ import {
   updateStayProfileSchema,
   upsertStayRatePlanSchema,
   upsertStayPublicListingSchema,
+  upsertStayInventoryDaySchema,
   type StayOpsBookingsQuery,
   type StayInventoryCalendarQuery,
   type StayPerformanceQuery,
@@ -33,6 +34,7 @@ import {
   type UpdateStayProfileInput,
   type UpsertStayRatePlanInput,
   type UpsertStayPublicListingInput,
+  type UpsertStayInventoryDayInput,
 } from '@bhd-r/contracts';
 import type { ApiRequest, ApiResponse } from '../common/api-http.js';
 import { RequirePermissions } from '../common/decorators.js';
@@ -217,6 +219,26 @@ export class StaysOperationsController {
   markNoShow(@Req() request: ApiRequest, @Param('id', ParseUUIDPipe) id: string) {
     assertStaysOperationsEnabled(request.auth?.organizationId);
     return this.bookings.markNoShow(request.auth!, id);
+  }
+
+  @RequirePermissions('stay.booking.manage')
+  @Post('units/:unitId/inventory-days')
+  @Throttle({ default: { limit: 40, ttl: 60_000 } })
+  upsertUnitInventoryDay(
+    @Req() request: ApiRequest,
+    @Param('unitId', ParseUUIDPipe) unitId: string,
+    @Body(new ZodPipe(upsertStayInventoryDaySchema)) body: UpsertStayInventoryDayInput,
+  ) {
+    assertStaysOperationsEnabled(request.auth?.organizationId);
+    return this.inventory.upsertInventoryDay(request.auth!, unitId, {
+      stayDate: body.stayDate,
+      ...(body.rateMajor !== undefined ? { rateMajor: body.rateMajor } : {}),
+      ...(body.clearManualRate !== undefined ? { clearManualRate: body.clearManualRate } : {}),
+      ...(body.publicNote !== undefined ? { publicNote: body.publicNote } : {}),
+      ...(body.availabilityStatus !== undefined
+        ? { availabilityStatus: body.availabilityStatus }
+        : {}),
+    });
   }
 
   @RequirePermissions('stay.booking.read')

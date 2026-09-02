@@ -17,6 +17,7 @@ type StayInventoryDay = {
   availabilityStatus: StayDayStatus;
   effectiveRateMinor?: string | null;
   currency?: string | null;
+  publicNote?: string | null;
 };
 
 type StayInventoryLockSpan = {
@@ -133,6 +134,11 @@ function lockForDay(
   );
 }
 
+function compactMoney(amountMinor: string, currency: string, locale: string): string {
+  const formatted = formatMoney(amountMinor, currency, locale);
+  return formatted.replace(/\s*ر\.?\s*ع\.?/gi, '').replace(/\s*OMR/gi, '').trim();
+}
+
 export function StayAvailabilityCalendar({
   locale,
   mode,
@@ -143,6 +149,7 @@ export function StayAvailabilityCalendar({
   selectedCheckIn,
   selectedCheckOut,
   onRangeChange,
+  onDaySelect,
 }: {
   locale: string;
   mode: CalendarMode;
@@ -153,6 +160,7 @@ export function StayAvailabilityCalendar({
   selectedCheckIn?: string;
   selectedCheckOut?: string;
   onRangeChange?: (checkIn: string, checkOut: string) => void;
+  onDaySelect?: (day: StayInventoryDay) => void;
 }) {
   const ar = locale === 'ar';
   const [viewMonthStart, setViewMonthStart] = useState(() =>
@@ -225,9 +233,20 @@ export function StayAvailabilityCalendar({
   );
 
   function handleDayClick(stayDate: string) {
+    const day = daysByDate.get(stayDate) ?? {
+      stayDate,
+      availabilityStatus: 'available' as const,
+      effectiveRateMinor: data?.currency ? null : null,
+      currency: data?.currency ?? null,
+    };
+
+    if (mode === 'ops' && onDaySelect) {
+      onDaySelect(day);
+      return;
+    }
+
     if (mode !== 'public' || !onRangeChange) return;
-    const day = daysByDate.get(stayDate);
-    if (!day || !isStayDateSelectable(day.availabilityStatus, stayDate)) return;
+    if (!isStayDateSelectable(day.availabilityStatus, stayDate)) return;
 
     if (!pickStart) {
       setPickStart(stayDate);
@@ -334,17 +353,25 @@ export function StayAvailabilityCalendar({
                   if (!cell.stayDate) {
                     return <span key={cell.key} className="stays-calendar__day stays-calendar__day--pad" />;
                   }
-                  const day = daysByDate.get(cell.stayDate);
-                  const status = day?.availabilityStatus ?? 'unavailable';
+                  const day = daysByDate.get(cell.stayDate) ?? {
+                    stayDate: cell.stayDate,
+                    availabilityStatus: 'available' as const,
+                    effectiveRateMinor: null,
+                    currency: data?.currency ?? null,
+                  };
+                  const status = day.availabilityStatus;
                   const selectable =
-                    mode === 'public' &&
-                    Boolean(onRangeChange) &&
-                    isStayDateSelectable(status, cell.stayDate);
+                    (mode === 'public' &&
+                      Boolean(onRangeChange) &&
+                      isStayDateSelectable(status, cell.stayDate)) ||
+                    (mode === 'ops' && Boolean(onDaySelect) && cell.stayDate >= todayIso());
                   const lock = lockForDay(data?.locks, cell.stayDate);
+                  const currency = day.currency ?? data?.currency ?? null;
                   const titleParts = [statusLabel(status, ar)];
+                  if (day.publicNote) titleParts.push(day.publicNote);
                   if (lock?.bookingReference) titleParts.push(lock.bookingReference);
-                  if (day?.effectiveRateMinor && data?.currency) {
-                    titleParts.push(formatMoney(day.effectiveRateMinor, data.currency, locale));
+                  if (day.effectiveRateMinor && currency) {
+                    titleParts.push(formatMoney(day.effectiveRateMinor, currency, locale));
                   }
 
                   const mark = statusMark(status, ar);
@@ -361,6 +388,7 @@ export function StayAvailabilityCalendar({
                         isRangeStart(cell.stayDate) ? 'is-range-start' : '',
                         isRangeEnd(cell.stayDate) ? 'is-range-end' : '',
                         cell.stayDate < todayIso() ? 'is-past' : '',
+                        day.publicNote ? 'has-note' : '',
                       ]
                         .filter(Boolean)
                         .join(' ')}
@@ -372,8 +400,17 @@ export function StayAvailabilityCalendar({
                       <span className="stays-calendar__day-num">
                         {Number(cell.stayDate.slice(8, 10))}
                       </span>
-                      {mark && !selected ? (
+                      {day.effectiveRateMinor && currency && !selected ? (
+                        <span className="stays-calendar__day-price" dir="ltr">
+                          {compactMoney(day.effectiveRateMinor, currency, locale)}
+                        </span>
+                      ) : mark && !selected ? (
                         <span className="stays-calendar__day-status">{mark}</span>
+                      ) : null}
+                      {day.publicNote && !selected ? (
+                        <span className="stays-calendar__day-note" aria-hidden="true">
+                          ✎
+                        </span>
                       ) : null}
                       {mode === 'ops' && lock?.bookingReference ? (
                         <span className="stays-calendar__day-ref" dir="ltr">

@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.30 — 2026-09-02
+
+- Stay calendar: missing inventory nights render as available (green) with base nightly rate instead of grey unavailable.
+- Per-day pricing + public notes (airline-style): owner can raise/discount a day and add a greeting/reason; amount and note show on the public calendar; quotes use per-day rates.
+- Migration `0018_stay_day_public_note` adds `public_note` + `manual_rate` on `stay_inventory_days`.
+
 ## 0.4.29 — 2026-09-02
 
 - Stay calendar: day cells show شاغر / محجوز / مؤقت / مغلق with clearer colors and a colored legend.

@@ -15,6 +15,8 @@ export type StayPricingInput = {
   cleaningFeeMinor?: string | null;
   /** Weekend day numbers: 5=Friday, 6=Saturday (UTC date parts). Default Fri+Sat. */
   weekendDays?: readonly number[];
+  /** Per-night rate overrides (stayDate → minor units). */
+  nightRateOverrides?: Readonly<Record<string, string>>;
 };
 
 export type StayNightLine = {
@@ -74,6 +76,14 @@ export function quoteStay(input: StayPricingInput): StayPricingResult {
   const range = { checkInOn: input.checkInOn, checkOutOn: input.checkOutOn };
   const nightDates = eachNightDate(range);
   const nightLines: StayNightLine[] = nightDates.map((stayDate) => {
+    const override = input.nightRateOverrides?.[stayDate];
+    if (override != null && override !== '') {
+      return {
+        stayDate,
+        amountMinor: minorToString(parseMinor(override, `nightRateOverrides[${stayDate}]`)),
+        isWeekend: false,
+      };
+    }
     const day = new Date(`${stayDate}T00:00:00.000Z`).getUTCDay();
     const isWeekend = weekendDays.has(day);
     const amount = isWeekend ? weekend : base;

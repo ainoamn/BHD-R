@@ -31,29 +31,58 @@ export type InventoryDayRow = {
   availabilityStatus: string;
   effectiveRateMinor?: string | null;
   currency?: string | null;
+  publicNote?: string | null;
+};
+
+export type FillInventoryCalendarOptions = {
+  /** When no inventory row exists, treat the night as this status (default: available). */
+  defaultAvailability?: StayDayAvailability | 'unavailable';
+  defaultRateMinor?: string | null;
+  defaultCurrency?: string | null;
 };
 
 export function fillInventoryCalendarDays(
   rows: readonly InventoryDayRow[],
   fromOn: string,
   toOn: string,
+  options: FillInventoryCalendarOptions = {},
 ): Array<{
   stayDate: string;
   availabilityStatus: StayDayAvailability | 'unavailable';
   effectiveRateMinor?: string | null;
   currency?: string | null;
+  publicNote?: string | null;
 }> {
+  const defaultAvailability = options.defaultAvailability ?? 'available';
   const byDate = new Map(rows.map((row) => [row.stayDate, row]));
   return enumerateStayDates(fromOn, toOn).map((stayDate) => {
     const row = byDate.get(stayDate);
     if (!row) {
-      return { stayDate, availabilityStatus: 'unavailable' as const };
+      return {
+        stayDate,
+        availabilityStatus: defaultAvailability,
+        ...(options.defaultRateMinor != null
+          ? { effectiveRateMinor: options.defaultRateMinor }
+          : {}),
+        ...(options.defaultCurrency != null ? { currency: options.defaultCurrency } : {}),
+      };
     }
     return {
       stayDate,
       availabilityStatus: row.availabilityStatus as StayDayAvailability | 'unavailable',
-      ...(row.effectiveRateMinor != null ? { effectiveRateMinor: row.effectiveRateMinor } : {}),
-      ...(row.currency != null ? { currency: row.currency } : {}),
+      ...(row.effectiveRateMinor != null
+        ? { effectiveRateMinor: row.effectiveRateMinor }
+        : options.defaultRateMinor != null
+          ? { effectiveRateMinor: options.defaultRateMinor }
+          : {}),
+      ...(row.currency != null
+        ? { currency: row.currency }
+        : options.defaultCurrency != null
+          ? { currency: options.defaultCurrency }
+          : {}),
+      ...(row.publicNote != null && row.publicNote !== ''
+        ? { publicNote: row.publicNote }
+        : {}),
     };
   });
 }

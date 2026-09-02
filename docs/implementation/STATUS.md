@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-09-02  
-**Product version:** 0.4.29  
-**Active focus:** Stays calendar status labels + unified post-booking checkout UX  
+**Product version:** 0.4.30  
+**Active focus:** Stay calendar green availability + per-day rates/notes  
+**Release 0.4.30:** [`RELEASE-0.4.30-AR.md`](./RELEASE-0.4.30-AR.md)  
 **Release 0.4.29:** [`RELEASE-0.4.29-AR.md`](./RELEASE-0.4.29-AR.md)  
 **Release 0.4.28:** public stay booking via Vercel Neon (no Nest cold-start `Failed to fetch`)  
 **Release 0.4.27:** [`RELEASE-0.4.27-AR.md`](./RELEASE-0.4.27-AR.md)  
