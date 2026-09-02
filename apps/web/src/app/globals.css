@@ -1256,57 +1256,112 @@ body:has(.pay-gateway-shell) #main-content {
 }
 .pay-gateway__card-visual {
   position: relative;
+  display: grid;
+  gap: 0.65rem;
   margin-bottom: 1.1rem;
-  padding: 1.15rem 1.2rem 1.05rem;
+  padding: 1rem 1.15rem 0.9rem;
   border-radius: 1rem;
-  background: linear-gradient(145deg, #0a2f28 0%, #145a4c 55%, #1a6b5c 100%);
+  background: #0a2f28;
   color: #f4faf7;
-  min-height: clamp(8rem, 22vw, 10rem);
+  min-height: clamp(10.5rem, 28vw, 12.5rem);
   overflow: hidden;
+  isolation: isolate;
   box-shadow: 0 14px 30px rgba(9, 45, 36, 0.18);
 }
-.pay-gateway__card-visual::after {
-  content: '';
+.pay-gateway__card-landmark {
   position: absolute;
-  inset: auto -20% -40% 40%;
-  height: 9rem;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.07);
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 40%;
+  z-index: 0;
+  transform: scale(1.02);
+}
+.pay-gateway__card-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(145deg, rgba(8, 36, 30, 0.78) 0%, rgba(10, 55, 48, 0.55) 48%, rgba(8, 30, 26, 0.82) 100%),
+    linear-gradient(to top, rgba(5, 22, 18, 0.72), transparent 55%);
+  pointer-events: none;
+}
+.pay-gateway__card-top {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.pay-gateway__card-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+}
+.pay-gateway__card-logo img {
+  width: 4.4rem;
+  height: auto;
+  display: block;
+}
+.pay-gateway__card-logo i {
+  color: #f0d78a;
+  font-style: normal;
+  font-weight: 800;
+  font-size: 1.15rem;
+  line-height: 1;
+  font-family: Georgia, 'Times New Roman', serif;
 }
 .pay-gateway__card-chip {
+  position: relative;
+  z-index: 2;
   width: 2.2rem;
   height: 1.55rem;
-  margin-bottom: 1.1rem;
+  margin: 0.15rem 0 0.2rem;
   border-radius: 0.3rem;
   background: linear-gradient(135deg, #d6b25e, #f0d78a 45%, #b9963f);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 .pay-gateway__card-brand {
-  position: absolute;
-  top: 1rem;
-  inset-inline-end: 1.1rem;
+  position: static;
   margin: 0;
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.04em;
-  opacity: 0.9;
+  opacity: 0.95;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 .pay-gateway__card-number {
   position: relative;
-  margin: 0 0 0.85rem;
+  z-index: 2;
+  margin: 0;
   font-size: clamp(1.05rem, 3.4vw, 1.25rem);
   font-weight: 700;
   letter-spacing: 0.12em;
   font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
 }
 .pay-gateway__card-meta {
   position: relative;
+  z-index: 2;
   display: flex;
   justify-content: space-between;
   gap: 1rem;
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  opacity: 0.92;
+  opacity: 0.95;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+.pay-gateway__card-place {
+  position: relative;
+  z-index: 2;
+  margin: 0;
+  font-size: 0.68rem;
+  opacity: 0.82;
+  letter-spacing: 0.02em;
 }
 .pay-gateway__form {
   display: grid;

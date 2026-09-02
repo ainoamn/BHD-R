@@ -190,16 +190,30 @@ export function SandboxPaymentForm({
   return (
     <div className="pay-gateway">
       <div className="pay-gateway__card-visual" aria-hidden="true">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          className="pay-gateway__card-landmark"
+          src="/brand/oman-landmark-mosque.jpg"
+          alt=""
+        />
+        <div className="pay-gateway__card-scrim" />
+        <div className="pay-gateway__card-top">
+          <span className="pay-gateway__card-logo logo__product logo__product--on-dark">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/bhd-official-symbol.svg" alt="" width="72" height="23" />
+            <i>R</i>
+          </span>
+          <p className="pay-gateway__card-brand">
+            {brand === 'visa'
+              ? 'VISA'
+              : brand === 'mastercard'
+                ? 'Mastercard'
+                : brand === 'amex'
+                  ? 'AMEX'
+                  : 'CARD'}
+          </p>
+        </div>
         <div className="pay-gateway__card-chip" />
-        <p className="pay-gateway__card-brand">
-          {brand === 'visa'
-            ? 'VISA'
-            : brand === 'mastercard'
-              ? 'Mastercard'
-              : brand === 'amex'
-                ? 'AMEX'
-                : 'CARD'}
-        </p>
         <p className="pay-gateway__card-number" dir="ltr">
           {maskedPreview}
         </p>
@@ -207,6 +221,9 @@ export function SandboxPaymentForm({
           <span>{cardName.trim() || (ar ? 'اسم حامل البطاقة' : 'CARDHOLDER')}</span>
           <span dir="ltr">{expiry || 'MM/YY'}</span>
         </div>
+        <p className="pay-gateway__card-place">
+          {ar ? 'جامع السلطان قابوس · مسقط' : 'Sultan Qaboos Grand Mosque · Muscat'}
+        </p>
       </div>
 
       <form
