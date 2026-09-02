@@ -1,51 +1,75 @@
-# تسليم — استكمال خطة المنزل → 0.4.42
+# تسليم حيّ — محادثة 307d3b18 (أرشيف محدَّث ليلاً)
 
-**تاريخ التوثيق:** 2026-09-02  
-**وقت التوثيق (مسقط / UTC+4):** مساءً بعد سحب 0.4.41  
+**تاريخ التحديث:** 2026-09-02  
+**وقت التوثيق (مسقط / UTC+4):** 23:39  
 **المستودع:** https://github.com/ainoamn/BHD-R  
 **الإنتاج:** https://r.bhd-om.com  
 **الفرع:** `main`  
-**آخر commit عند التوثيق:** `c56e3b8` — *feat(ops): portfolio channel badges and scope mobile title shrink (0.4.42)*  
-**الإصدار:** `0.4.42`  
+**آخر commit عند الأرشفة:** `f059bc6` — *fix(stays): show property on bookings and mark calendar booked*  
 **محادثة Cursor:** [307d3b18-d433-4130-9cd4-fbf9f887f158](307d3b18-d433-4130-9cd4-fbf9f887f158)
 
+> هذا المجلد هو أرشيف المحادثة الكامل لهذه الجلسة الطويلة. حُدّث الليلة بعد مسار التأكيد / الإيصال / بوابة المالك / الترجمة.
+
 ---
 
-## أين توقّفنا
+## أين توقّفنا الآن (للجهاز الآخر)
 
-### من خطة الاستكمال السابقة
+```bash
+git pull origin main
+git log -1 --oneline   # يفترض f059bc6 أو أحدث
+```
 
-| بند | الحالة |
+### ما شُحن في هذه الجولة (بعد 0.4.46)
+
+| Commit | الملخص |
 | --- | --- |
-| **P0** سحب المستودع | تم — HEAD كان `62fed32` (0.4.41) |
-| **P1** تحقق الإنتاج | تم — كتالوج الإقامات = **3** (A-01, A-02, R-01) |
-| **P2** نشر R-02/R-03/S-01/S-02 | معلّق — يحتاج جلسة مالك في المعالج |
-| **P3** شارات القنوات + إصلاح h2 على الهاتف | **شُحن في 0.4.42** |
-| **P4** لا ترفع أسرار/سكربتات مؤقتة | ملتزم |
+| `a966d82` → `0acde99` | ترحيب شخصي + تخطيط صفحة التأكيد + مستندات PDF بأسلوب وازن |
+| `560afb2` | شعار واحد فقط على الإيصال؛ إخفاء كروم الموقع في صفحات الإيصال |
+| `a0d3536` | حجوزات الضيف العامة تظهر في بوابة المالك (Neon) + تعريب النشاط |
+| `276a36e` | توحيد تسميات الحالة/النشاط عربي/إنجليزي في `ui-labels.ts` |
+| `f059bc6` | اسم العقار + رابط في الحجوزات؛ أيام التقويم «محجوز» بعد الدفع |
 
-### ما شُحن في 0.4.42
+### تحقق سريع على الإنتاج
 
-1. شارات قنوات (إيجار / بيع / إقامة) في محفظة العقارات (Web Neon + Nest).
-2. حصر تصغير عناوين الأقسام على بوابة العمليات فقط — الصفحات العامة تحتفظ بحجم 0.4.40.
+- [ ] `/ar/stays/booking/confirmed?...` — ترحيب + شعار + اسم/مرجع + روابط PDF
+- [ ] `/ar/owner/stays` — لوحات مترجمة + حجوزات حديثة بعقار
+- [ ] `/ar/owner/stays/bookings` — أعمدة العقار/الوحدة
+- [ ] `/ar/owner/stays/calendar` — أيام محجوزة بعد الدفع (افتح التقويم مرة لمزامنة الحجوزات القديمة)
+- [ ] مرجع تجريبي مثل `ST-0A58F0FE` يظهر مع اسم العقار
 
 ---
 
-## المحادثة
+## المحادثة كاملة
 
 | الملف | الوصف |
 | --- | --- |
-| [`conversation-transcript.jsonl`](./conversation-transcript.jsonl) | JSONL منقّح |
-| [`conversation-readable.md`](./conversation-readable.md) | ملخص مقروء |
+| [`conversation-transcript.jsonl`](./conversation-transcript.jsonl) | JSONL خام كامل (**974** سطر) — SHA256 في [`MANIFEST.md`](./MANIFEST.md) |
+| [`conversation-readable.md`](./conversation-readable.md) | نسخة مقروءة (**291** رسالة) |
 | [`MANIFEST.md`](./MANIFEST.md) | أحجام وهاش |
-| [`CONTINUE-PLAN-AR.md`](./CONTINUE-PLAN-AR.md) | خطة الاستكمال التالية |
+| [`CONTINUE-PLAN-AR.md`](./CONTINUE-PLAN-AR.md) | **خطة الاستكمال بالأولويات** |
 
-> **تنبيه أمني:** أُزيلت قيم حساسة محتملة (`DATABASE_URL`، مفاتيح، إلخ) بـ `[REDACTED-…]` قبل الرفع.
+> **تنبيه أمني:** أُزيلت قيم حساسة محتملة (`DATABASE_URL`، مفاتيح، JWT، إلخ) بـ `[REDACTED-…]` قبل الرفع.
 
 ---
 
-## روابط تحقق
+## ملاحظات معمارية لا تكسرها
 
-- https://r.bhd-om.com/ar/stays?countryCode=OM&currency=OMR
-- https://r.bhd-om.com/ar/owner/properties
-- إعداد الإقامة: `/ar/owner/stays/setup?propertyId=d0840631-207d-477a-853a-043572d49240`
-- إصدار: [`../../implementation/RELEASE-0.4.42-AR.md`](../../implementation/RELEASE-0.4.42-AR.md)
+```
+حجز ضيف عام ──Neon──► stay_bookings
+                         ├── Neon ► صفحات المالك (ثُبّت)
+                         └── Nest /v1/stays/* غالباً فارغ/صامت (fallback فقط)
+
+تأكيد الدفع ──► قفل kind=booking + inventory_days booked + outbox للعامل
+فواتير الإيجار / المحاسبة ≠ إيصالات الإقامة (فجوة متعمّدة حالياً)
+```
+
+**ملفات محورية:**  
+`owner-stays-ops-neon.ts` · `public-stays-payment-neon.ts` · `ui-labels.ts` · `stay-booking-document.tsx` · `stay-ops-bookings-table.tsx`
+
+---
+
+## روابط ذات صلة
+
+- [`../2026-09-02-stay-checkout-0.4.46/`](../2026-09-02-stay-checkout-0.4.46/) — نقطة 0.4.46  
+- [`../2026-09-02-continue-0.4.43/`](../2026-09-02-continue-0.4.43/)  
+- [`../2026-09-02-evening-home-handoff/`](../2026-09-02-evening-home-handoff/) — محادثة أخرى (لا تخلط الأرشيف)
