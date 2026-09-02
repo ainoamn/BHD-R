@@ -95,6 +95,7 @@ export function SandboxPaymentForm({
   amountMinor,
   currency,
   referenceCode,
+  defaultCardholderName,
 }: {
   sessionReference: string;
   returnPath?: string;
@@ -102,12 +103,17 @@ export function SandboxPaymentForm({
   amountMinor?: string;
   currency?: string;
   referenceCode?: string;
+  defaultCardholderName?: string;
 }) {
   const locale = useLocale();
   const ar = locale === 'ar';
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [cardName, setCardName] = useState('');
+  const [cardName, setCardName] = useState(() => {
+    const raw = defaultCardholderName?.trim() || 'ABDUL HAMID AL RAWAHI';
+    if (/^abdul\s+hamid(\s+al\s*-?\s*rawahi)?$/i.test(raw)) return 'ABDUL HAMID AL RAWAHI';
+    return raw.toUpperCase();
+  });
   const [cardNumber, setCardNumber] = useState('');
   const [expiry, setExpiry] = useState('');
   const [cvc, setCvc] = useState('');
@@ -218,7 +224,10 @@ export function SandboxPaymentForm({
           {maskedPreview}
         </p>
         <div className="pay-gateway__card-meta">
-          <span>{cardName.trim() || (ar ? 'اسم حامل البطاقة' : 'CARDHOLDER')}</span>
+          <span className="pay-gateway__card-holder">
+            <small>{ar ? 'حامل البطاقة' : 'CARDHOLDER'}</small>
+            <strong dir="ltr">{cardName.trim() || 'ABDUL HAMID AL RAWAHI'}</strong>
+          </span>
           <span dir="ltr">{expiry || 'MM/YY'}</span>
         </div>
         <p className="pay-gateway__card-place">
@@ -243,8 +252,8 @@ export function SandboxPaymentForm({
             name="cc-name"
             autoComplete="cc-name"
             value={cardName}
-            onChange={(event) => setCardName(event.target.value)}
-            placeholder={ar ? 'كما هو مطبوع على البطاقة' : 'As printed on the card'}
+            onChange={(event) => setCardName(event.target.value.toUpperCase())}
+            placeholder="ABDUL HAMID AL RAWAHI"
             disabled={busy}
           />
           {touched && errors.name ? (

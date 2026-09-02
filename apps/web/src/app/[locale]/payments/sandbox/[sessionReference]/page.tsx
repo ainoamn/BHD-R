@@ -5,6 +5,7 @@ import { formatMoney } from '@/lib/format';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { lookupStaySandboxSessionOnNeon } from '@/lib/public-stays-payment-neon';
 import { SandboxPaymentForm } from '@/components/sandbox-payment-form';
+import { getViewer } from '@/lib/viewer';
 
 export const metadata: Metadata = {
   title: 'Secure payment | دفع آمن',
@@ -33,10 +34,17 @@ export default async function SandboxPaymentPage({
   const ar = locale === 'ar';
   const stayKind = query.kind === 'stay';
 
-  const session =
+  const [session, viewer] = await Promise.all([
     stayKind && hasDatabaseUrl()
-      ? await lookupStaySandboxSessionOnNeon(sessionReference).catch(() => null)
-      : null;
+      ? lookupStaySandboxSessionOnNeon(sessionReference).catch(() => null)
+      : Promise.resolve(null),
+    getViewer().catch(() => null),
+  ]);
+
+  const defaultCardholderName =
+    session?.guestDisplayName?.trim() ||
+    viewer?.displayName?.trim() ||
+    'ABDUL HAMID AL RAWAHI';
 
   return (
     <section className="pay-gateway-shell" data-pay-immersive="true">
@@ -107,6 +115,7 @@ export default async function SandboxPaymentPage({
         <SandboxPaymentForm
           sessionReference={sessionReference}
           stayKind={stayKind}
+          defaultCardholderName={defaultCardholderName}
           {...(returnPath ? { returnPath } : {})}
           {...(session
             ? {

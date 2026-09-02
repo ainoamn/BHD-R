@@ -412,6 +412,7 @@ export type StaySandboxSessionSummary = {
   referenceCode: string;
   checkInOn: string;
   checkOutOn: string;
+  guestDisplayName: string | null;
 };
 
 /** Public-safe summary for the sandbox checkout UI (no PAN/secrets). */
@@ -439,9 +440,30 @@ export async function lookupStaySandboxSessionOnNeon(
         referenceCode: true,
         checkInOn: true,
         checkOutOn: true,
+        pricingSnapshotJson: true,
       },
     });
     if (!booking) return null;
+
+    const primaryGuest = await transaction.query.stayBookingGuests.findFirst({
+      where: and(
+        eq(stayBookingGuests.bookingId, intent.bookingId),
+        eq(stayBookingGuests.isPrimary, true),
+      ),
+      columns: { displayName: true },
+    });
+    const snapshot =
+      booking.pricingSnapshotJson && typeof booking.pricingSnapshotJson === 'object'
+        ? (booking.pricingSnapshotJson as Record<string, unknown>)
+        : {};
+    const contact =
+      snapshot.guestContact && typeof snapshot.guestContact === 'object'
+        ? (snapshot.guestContact as Record<string, unknown>)
+        : {};
+    const guestDisplayName =
+      primaryGuest?.displayName?.trim() ||
+      (typeof contact.displayName === 'string' ? contact.displayName.trim() : '') ||
+      null;
 
     return {
       sessionReference,
@@ -452,6 +474,7 @@ export async function lookupStaySandboxSessionOnNeon(
       referenceCode: booking.referenceCode,
       checkInOn: booking.checkInOn,
       checkOutOn: booking.checkOutOn,
+      guestDisplayName,
     };
   });
 }
