@@ -1,9 +1,26 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { formatMoney, localizedName } from '@/lib/format';
-import { resolveStayPoliciesFromDetail } from '@bhd-r/contracts';
 import type { StayPublicDetail } from '@bhd-r/contracts';
 import { StayPolicySections } from '@/components/stays/stay-policy-sections';
+
+function InfoRows({
+  rows,
+}: {
+  rows: Array<{ label: string; value: ReactNode; dir?: 'ltr' | 'rtl' }>;
+}) {
+  return (
+    <dl className="stay-info-rows">
+      {rows.map((row) => (
+        <div key={row.label} className="stay-info-rows__row">
+          <dt>{row.label}</dt>
+          <dd dir={row.dir}>{row.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
 
 /** Policies, period times, and stay rate amounts on the public stay page. */
 export function StayGuestInfoSection({
@@ -15,7 +32,6 @@ export function StayGuestInfoSection({
 }) {
   const ar = locale === 'ar';
   const currency = detail.currency ?? 'OMR';
-  const policySections = resolveStayPoliciesFromDetail(detail, locale);
   const instructions = localizedName(
     locale,
     detail.instructionsAr ?? '',
@@ -39,97 +55,123 @@ export function StayGuestInfoSection({
     },
   ].filter((row) => row.minor);
 
-  const hasTimes =
-    detail.checkInFrom ||
-    detail.dayUseCheckOutUntil ||
-    detail.overnightCheckOutUntil ||
-    detail.checkOutUntil;
-  const hasGuests = detail.dayUseMaxGuests != null || detail.overnightMaxGuests != null;
+  const guestRows = [
+    detail.dayUseMaxGuests != null
+      ? {
+          label: ar ? 'عدد الضيوف المسموح (بدون مبيت)' : 'Guests allowed (day use)',
+          value: detail.dayUseMaxGuests,
+        }
+      : null,
+    detail.overnightMaxGuests != null
+      ? {
+          label: ar ? 'عدد الضيوف المسموح (مع المبيت)' : 'Guests allowed (overnight)',
+          value: detail.overnightMaxGuests,
+        }
+      : null,
+  ].filter(Boolean) as Array<{ label: string; value: ReactNode }>;
+
+  const timeRows = [
+    detail.checkInFrom
+      ? { label: ar ? 'وقت الدخول' : 'Check-in', value: detail.checkInFrom, dir: 'ltr' as const }
+      : null,
+    detail.dayUseCheckOutUntil
+      ? {
+          label: ar ? 'وقت الخروج (بدون مبيت)' : 'Check-out (day use)',
+          value: detail.dayUseCheckOutUntil,
+          dir: 'ltr' as const,
+        }
+      : null,
+    (detail.overnightCheckOutUntil ?? detail.checkOutUntil)
+      ? {
+          label: ar ? 'وقت الخروج (عند المبيت)' : 'Check-out (overnight)',
+          value: detail.overnightCheckOutUntil ?? detail.checkOutUntil,
+          dir: 'ltr' as const,
+        }
+      : null,
+  ].filter(Boolean) as Array<{ label: string; value: ReactNode; dir?: 'ltr' | 'rtl' }>;
+
+  const hasPolicies = Boolean(
+    detail.policiesJson ||
+      detail.policiesAr?.trim() ||
+      detail.policiesEn?.trim(),
+  );
+
   if (
-    !policySections.length &&
+    !hasPolicies &&
     !instructions &&
     !rates.length &&
-    !hasTimes &&
+    !timeRows.length &&
     !detail.depositMinor &&
-    !hasGuests
+    !guestRows.length
   ) {
     return null;
   }
 
   return (
     <section className="stay-guest-info property-360__section" aria-labelledby="stay-guest-info-title">
-      <h2 id="stay-guest-info-title">{ar ? 'شروط الإقامة والأسعار' : 'Stay terms & rates'}</h2>
-
-      {hasTimes || hasGuests || detail.depositMinor ? (
-        <dl className="stay-guest-info__grid">
-          {detail.checkInFrom ? (
-            <div>
-              <dt>{ar ? 'وقت الدخول' : 'Check-in'}</dt>
-              <dd dir="ltr">{detail.checkInFrom}</dd>
-            </div>
-          ) : null}
-          {detail.dayUseCheckOutUntil ? (
-            <div>
-              <dt>{ar ? 'الخروج (بدون مبيت)' : 'Check-out (day use)'}</dt>
-              <dd dir="ltr">{detail.dayUseCheckOutUntil}</dd>
-            </div>
-          ) : null}
-          {(detail.overnightCheckOutUntil ?? detail.checkOutUntil) ? (
-            <div>
-              <dt>{ar ? 'الخروج (عند المبيت)' : 'Check-out (overnight)'}</dt>
-              <dd dir="ltr">{detail.overnightCheckOutUntil ?? detail.checkOutUntil}</dd>
-            </div>
-          ) : null}
-          {detail.dayUseMaxGuests != null ? (
-            <div>
-              <dt>{ar ? 'ضيوف بدون مبيت' : 'Guests (day use)'}</dt>
-              <dd>{detail.dayUseMaxGuests}</dd>
-            </div>
-          ) : null}
-          {detail.overnightMaxGuests != null ? (
-            <div>
-              <dt>{ar ? 'ضيوف مع المبيت' : 'Guests (overnight)'}</dt>
-              <dd>{detail.overnightMaxGuests}</dd>
-            </div>
-          ) : null}
-          {detail.depositMinor ? (
-            <div>
-              <dt>{ar ? 'مبلغ التأمين' : 'Security deposit'}</dt>
-              <dd dir="ltr">{formatMoney(detail.depositMinor, currency, locale)}</dd>
-            </div>
-          ) : null}
-        </dl>
+      {timeRows.length ? (
+        <div className="stay-guest-info__panel">
+          <h2 id="stay-guest-info-title">{ar ? 'أوقات الدخول والخروج' : 'Check-in & check-out'}</h2>
+          <InfoRows rows={timeRows} />
+        </div>
       ) : null}
 
-      {rates.length ? (
-        <div className="stay-guest-info__rates">
-          <h3>{ar ? 'مبالغ الإقامة' : 'Stay amounts'}</h3>
-          <ul>
-            {rates.map((rate) => (
-              <li key={rate.key}>
-                <span>{rate.label}</span>
-                <strong dir="ltr">{formatMoney(rate.minor!, currency, locale)}</strong>
-              </li>
-            ))}
+      {guestRows.length ? (
+        <div className="stay-guest-info__panel">
+          <h2>{ar ? 'سعة الضيوف' : 'Guest capacity'}</h2>
+          <InfoRows rows={guestRows} />
+        </div>
+      ) : null}
+
+      {detail.depositMinor ? (
+        <div className="stay-guest-info__panel">
+          <h2>{ar ? 'مبلغ التأمين' : 'Security deposit'}</h2>
+          <InfoRows
+            rows={[
+              {
+                label: ar ? 'قيمة التأمين' : 'Deposit amount',
+                value: formatMoney(detail.depositMinor, currency, locale),
+                dir: 'ltr',
+              },
+            ]}
+          />
+          <ul className="stay-policy-sections__list stay-guest-info__deposit-note">
+            <li>
+              {ar
+                ? 'يُدفع مبلغ التأمين عند الوصول ويُسترد بعد المغادرة وفحص العقار.'
+                : 'The deposit is paid on arrival and refunded after checkout and property inspection.'}
+            </li>
           </ul>
         </div>
       ) : null}
 
-      {policySections.length ? (
-        <div className="stay-guest-info__policies">
-          <h3>{ar ? 'السياسات والشروط' : 'Policies & terms'}</h3>
+      {rates.length ? (
+        <div className="stay-guest-info__panel">
+          <h2>{ar ? 'مبالغ الإقامة' : 'Stay amounts'}</h2>
+          <InfoRows
+            rows={rates.map((rate) => ({
+              label: rate.label,
+              value: formatMoney(rate.minor!, currency, locale),
+              dir: 'ltr' as const,
+            }))}
+          />
+        </div>
+      ) : null}
+
+      {hasPolicies ? (
+        <div className="stay-guest-info__panel stay-guest-info__policies">
           <StayPolicySections detail={detail} locale={locale} />
         </div>
       ) : null}
 
       {instructions ? (
-        <div className="stay-guest-info__instructions">
-          <h3>{ar ? 'التعليمات' : 'Instructions'}</h3>
+        <div className="stay-guest-info__panel">
+          <h2>{ar ? 'التعليمات' : 'Instructions'}</h2>
           <p>{instructions}</p>
         </div>
       ) : (
-        <div className="stay-guest-info__instructions">
-          <h3>{ar ? 'التعليمات' : 'Instructions'}</h3>
+        <div className="stay-guest-info__panel">
+          <h2>{ar ? 'التعليمات' : 'Instructions'}</h2>
           <p className="muted">
             {ar
               ? 'تعليمات الوصول والاستخدام تُحدَّث من تقييمات الضيوف بعد انتهاء الإقامة، مع الالتزام بأوقات الدخول والخروج أعلاه.'
@@ -139,8 +181,8 @@ export function StayGuestInfoSection({
       )}
 
       {detail.smartScoreTen != null || detail.guestScoreTen != null ? (
-        <div className="stay-guest-info__smart">
-          <h3>{ar ? 'التقييم الذكي' : 'Smart rating'}</h3>
+        <div className="stay-guest-info__panel stay-guest-info__smart">
+          <h2>{ar ? 'التقييم الذكي' : 'Smart rating'}</h2>
           <p>
             {detail.smartScoreTen != null ? (
               <>

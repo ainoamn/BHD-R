@@ -16,10 +16,13 @@ function sessionSecret(): Uint8Array {
 
 export default async function Page({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string; propertyId: string }>;
+  searchParams: Promise<{ unit?: string | string[] }>;
 }) {
   const { locale: rawLocale, propertyId } = await params;
+  const query = await searchParams;
   const locale = rawLocale === 'en' ? 'en' : 'ar';
   if (propertyId === 'new') redirect(`/${locale}/owner/properties/new`);
   const viewer = await requirePortal(locale, 'owner');
@@ -54,12 +57,20 @@ export default async function Page({
   }
 
   if (!property) notFound();
+
+  const unitQuery = typeof query.unit === 'string' ? query.unit : query.unit?.[0];
+  const focusUnitId =
+    unitQuery && property.units.some((unit) => unit.id === unitQuery || unit.code === unitQuery)
+      ? property.units.find((unit) => unit.id === unitQuery || unit.code === unitQuery)?.id
+      : undefined;
+
   return (
     <PropertyDetailManager
       property={property}
       locale={locale}
       portal="owner"
       staysEnabled={isStaysPlatformEnabled()}
+      {...(focusUnitId ? { focusUnitId } : {})}
     />
   );
 }

@@ -218,6 +218,57 @@ export async function loadStaySetupContextOnNeon(
 
     const profileByUnit = new Map(profileRows.map((row) => [row.unitId, row]));
     const draftSource = profileRows[0];
+
+    const profileIds = profileRows.map((row) => row.id);
+    const ratePlanRows =
+      profileIds.length === 0
+        ? []
+        : await transaction
+            .select({
+              stayProfileId: stayRatePlans.stayProfileId,
+              baseNightlyMinor: stayRatePlans.baseNightlyMinor,
+              dayUseMinor: stayRatePlans.dayUseMinor,
+              overnightOnlyMinor: stayRatePlans.overnightOnlyMinor,
+            })
+            .from(stayRatePlans)
+            .where(
+              and(
+                eq(stayRatePlans.organizationId, organizationId),
+                inArray(stayRatePlans.stayProfileId, profileIds),
+                eq(stayRatePlans.code, 'base'),
+              ),
+            );
+    const rateByProfile = new Map(
+      ratePlanRows
+        .filter((row) => row.stayProfileId)
+        .map((row) => [row.stayProfileId as string, row]),
+    );
+
+    const unitPricingDrafts = unitRows
+      .map((unit) => {
+        const profile = profileByUnit.get(unit.id);
+        if (!profile) return null;
+        const rate = rateByProfile.get(profile.id);
+        return {
+          unitId: unit.id,
+          profileId: profile.id,
+          baseNightlyMinor: rate?.baseNightlyMinor == null ? null : String(rate.baseNightlyMinor),
+          dayUseMinor: rate?.dayUseMinor == null ? null : String(rate.dayUseMinor),
+          overnightOnlyMinor:
+            rate?.overnightOnlyMinor == null ? null : String(rate.overnightOnlyMinor),
+          depositMinor: profile.depositMinor == null ? null : String(profile.depositMinor),
+        };
+      })
+      .filter(Boolean) as Array<{
+      unitId: string;
+      profileId: string;
+      baseNightlyMinor: string | null;
+      dayUseMinor: string | null;
+      overnightOnlyMinor: string | null;
+      depositMinor: string | null;
+    }>;
+
+    const primaryRate = draftSource ? rateByProfile.get(draftSource.id) : undefined;
     const profileDraft = draftSource
       ? {
           maxGuests: draftSource.maxGuests,
@@ -232,6 +283,13 @@ export async function loadStaySetupContextOnNeon(
           overnightMaxGuests: draftSource.overnightMaxGuests,
           depositMinor:
             draftSource.depositMinor == null ? null : String(draftSource.depositMinor),
+          baseNightlyMinor:
+            primaryRate?.baseNightlyMinor == null ? null : String(primaryRate.baseNightlyMinor),
+          dayUseMinor: primaryRate?.dayUseMinor == null ? null : String(primaryRate.dayUseMinor),
+          overnightOnlyMinor:
+            primaryRate?.overnightOnlyMinor == null
+              ? null
+              : String(primaryRate.overnightOnlyMinor),
           policiesAr: draftSource.policiesAr,
           policiesEn: draftSource.policiesEn,
           policiesJson: draftSource.policiesJson ?? [],
@@ -321,6 +379,7 @@ export async function loadStaySetupContextOnNeon(
           publishedAt: listing.publishedAt?.toISOString() ?? null,
         })),
         ...(profileDraft ? { profileDraft } : {}),
+        ...(unitPricingDrafts.length ? { unitPricingDrafts } : {}),
       },
       summary: {
         serialNumber: property.serialNumber,

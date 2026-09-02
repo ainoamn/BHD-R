@@ -8704,12 +8704,112 @@ button.ops-row-key {
   margin: 0.15rem 0 0;
   font-weight: 700;
 }
-.stay-guest-info__rates ul,
-.stay-guest-info__policies ul,
-.stay-policy-sections ul {
-  margin: 0.5rem 0 1rem;
-  padding-inline-start: 1.15rem;
-  line-height: 1.55;
+.stay-guest-info__panel {
+  padding: 1rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border, #d6d3d1) 75%, transparent);
+}
+.stay-guest-info__panel:last-child {
+  border-bottom: 0;
+}
+.stay-guest-info__panel > h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+}
+.stay-info-rows {
+  margin: 0;
+}
+.stay-info-rows__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border, #d6d3d1) 55%, transparent);
+}
+.stay-info-rows__row:last-child {
+  border-bottom: 0;
+}
+.stay-info-rows__row dt {
+  margin: 0;
+  color: var(--text-muted, #57534e);
+  font-weight: 500;
+}
+.stay-info-rows__row dd {
+  margin: 0;
+  font-weight: 700;
+}
+.stay-policy-sections__list {
+  margin: 0.35rem 0 0;
+  padding-inline-start: 1.2rem;
+  line-height: 1.65;
+  list-style: square;
+}
+.stay-policy-sections__list li + li {
+  margin-top: 0.35rem;
+}
+.stay-policy-sections__events {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.65rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.stay-policy-sections__events li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--surface-muted, #eceae7) 80%, transparent);
+  line-height: 1.45;
+}
+.stay-policy-sections__events li::before {
+  content: '';
+  flex: 0 0 0.45rem;
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-top: 0.45rem;
+  border-radius: 0.15rem;
+  background: var(--brand-green, #1f4d3a);
+}
+.stay-policy-sections__toggle {
+  margin-top: 0.5rem;
+}
+.stay-guest-info__deposit-note {
+  margin-top: 0.75rem;
+}
+.ops-table__child-row td {
+  background: color-mix(in srgb, var(--surface-muted, #eceae7) 45%, transparent);
+}
+.ops-table__child-row td:nth-child(2),
+.ops-table__child-row td:nth-child(3) {
+  padding-inline-start: 1.75rem;
+}
+.ops-table__thumb-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.ops-expand {
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0.35rem;
+  background: color-mix(in srgb, var(--surface-muted, #eceae7) 80%, transparent);
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+.ops-expand--spacer {
+  visibility: hidden;
+}
+.stays-setup-pricing-table .input {
+  min-width: 5.5rem;
 }
 .stay-policy-sections__block + .stay-policy-sections__block {
   margin-top: 1rem;

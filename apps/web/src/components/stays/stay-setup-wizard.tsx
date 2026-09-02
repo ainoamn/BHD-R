@@ -130,6 +130,60 @@ function linesToPolicies(text: string): string[] {
   return linesToPolicyLines(text);
 }
 
+type UnitPricingRow = {
+  nightlyRate: string;
+  dayUseRate: string;
+  overnightOnlyRate: string;
+  depositAmount: string;
+};
+
+function emptyUnitPricing(): UnitPricingRow {
+  return {
+    nightlyRate: '',
+    dayUseRate: '',
+    overnightOnlyRate: '',
+    depositAmount: '',
+  };
+}
+
+function hydrateUnitPricingFromContext(
+  data: StaySetupContext,
+  minorUnit: number,
+): Record<string, UnitPricingRow> {
+  const next: Record<string, UnitPricingRow> = {};
+  const applyDraft = (
+    unitId: string,
+    draft: {
+      baseNightlyMinor?: string | null | undefined;
+      dayUseMinor?: string | null | undefined;
+      overnightOnlyMinor?: string | null | undefined;
+      depositMinor?: string | null | undefined;
+    },
+  ) => {
+    next[unitId] = {
+      nightlyRate: draft.baseNightlyMinor
+        ? majorFromMinor(draft.baseNightlyMinor, minorUnit)
+        : '',
+      dayUseRate: draft.dayUseMinor ? majorFromMinor(draft.dayUseMinor, minorUnit) : '',
+      overnightOnlyRate: draft.overnightOnlyMinor
+        ? majorFromMinor(draft.overnightOnlyMinor, minorUnit)
+        : '',
+      depositAmount: draft.depositMinor ? majorFromMinor(draft.depositMinor, minorUnit) : '',
+    };
+  };
+  for (const draft of data.unitPricingDrafts ?? []) {
+    applyDraft(draft.unitId, draft);
+  }
+  const fallback = data.profileDraft;
+  if (fallback) {
+    for (const unit of data.units) {
+      if (next[unit.id]) continue;
+      applyDraft(unit.id, fallback);
+    }
+  }
+  return next;
+}
+
 function policySectionText(
   sections: ReturnType<typeof parseStayPoliciesJson>,
   key: StayPolicySectionKey,
@@ -215,7 +269,9 @@ const copy = {
     overnightOnlyRate: 'مبيت فقط',
     deposit: 'مبلغ التأمين',
     depositHint: 'يُدفع عند الوصول ويُسترد بعد المغادرة وفحص العقار.',
-    pricingHint: 'حدد أسعار أنواع الإقامة الثلاثة. إن تُرك حقل فارغاً يُستخدم سعر الإقامة مع مبيت.',
+    pricingHint:
+      'حدّد أسعار كل وحدة على حدة. إن تُرك حقل فارغاً يُستخدم سعر الإقامة مع مبيت للحقول الاختيارية.',
+    pricingPerUnitHint: 'كل صف يمثل وحدة — يمكنك تسعير الشقق والمعارض بأسعار مختلفة.',
     usesPropertyDescription: 'يُستخدم وصف العقار الحالي تلقائياً — لا حاجة لإعادة كتابته.',
     previewTitle: 'معاينة كما ستظهر للجمهور',
     previewHint: 'راجع الصفحة العامة أدناه قبل النشر. عد للخطوات السابقة إن احتجت تعديلاً.',
@@ -283,7 +339,8 @@ const copy = {
     overnightOnlyRate: 'Overnight only',
     deposit: 'Security deposit',
     depositHint: 'Paid on arrival and refunded after checkout inspection.',
-    pricingHint: 'Set prices for all three stay types. Empty fields fall back to stay-with-overnight.',
+    pricingHint: 'Set prices per unit. Empty optional fields fall back to stay-with-overnight.',
+    pricingPerUnitHint: 'Each row is one unit — apartments and showrooms can have different prices.',
     usesPropertyDescription: 'The existing property description is reused automatically.',
     previewTitle: 'Preview as guests will see it',
     previewHint: 'Review the public page below before publishing. Go back to edit anything.',
@@ -358,10 +415,7 @@ export function StaySetupWizard({
   const [eventsPoliciesEn, setEventsPoliciesEn] = useState(DEFAULT_EVENTS_EN.join('\n'));
   const [paymentPoliciesAr, setPaymentPoliciesAr] = useState(DEFAULT_PAYMENT_AR.join('\n'));
   const [paymentPoliciesEn, setPaymentPoliciesEn] = useState(DEFAULT_PAYMENT_EN.join('\n'));
-  const [nightlyRate, setNightlyRate] = useState('');
-  const [dayUseRate, setDayUseRate] = useState('');
-  const [overnightOnlyRate, setOvernightOnlyRate] = useState('');
-  const [depositAmount, setDepositAmount] = useState('');
+  const [unitPricing, setUnitPricing] = useState<Record<string, UnitPricingRow>>({});
   const [slug, setSlug] = useState('');
   const [profileIds, setProfileIds] = useState<string[]>([]);
   const [translating, setTranslating] = useState<TranslateKey | null>(null);
@@ -426,15 +480,13 @@ export function StaySetupWizard({
       setEventsPoliciesEn(policySectionText(structured, 'events', 'en'));
       setPaymentPoliciesAr(policySectionText(structured, 'payment', 'ar'));
       setPaymentPoliciesEn(policySectionText(structured, 'payment', 'en'));
-      if (draft.depositMinor) {
-        const minorUnit =
-          data.defaultCurrency === 'OMR' ||
-          data.defaultCurrency === 'BHD' ||
-          data.defaultCurrency === 'KWD'
-            ? 3
-            : 2;
-        setDepositAmount(majorFromMinor(draft.depositMinor, minorUnit));
-      }
+      const pricingMinorUnit =
+        data.defaultCurrency === 'OMR' ||
+        data.defaultCurrency === 'BHD' ||
+        data.defaultCurrency === 'KWD'
+          ? 3
+          : 2;
+      setUnitPricing(hydrateUnitPricingFromContext(data, pricingMinorUnit));
     },
     [],
   );
@@ -495,21 +547,41 @@ export function StaySetupWizard({
   const listingTitleAr = unitTypeNameAr || context?.propertyNameAr || '';
   const listingTitleEn = unitTypeNameEn || context?.propertyNameEn || '';
 
+  const selectedUnits = useMemo(
+    () => context?.units.filter((unit) => selectedUnitIds.includes(unit.id)) ?? [],
+    [context, selectedUnitIds],
+  );
+
+  const primaryUnit =
+    selectedUnits[0] ?? context?.units.find((unit) => selectedUnitIds.includes(unit.id)) ?? context?.units[0];
+  const primaryPricing = primaryUnit
+    ? (unitPricing[primaryUnit.id] ?? emptyUnitPricing())
+    : emptyUnitPricing();
+
+  function patchUnitPricing(unitId: string, patch: Partial<UnitPricingRow>) {
+    setUnitPricing((current) => ({
+      ...current,
+      [unitId]: { ...(current[unitId] ?? emptyUnitPricing()), ...patch },
+    }));
+  }
+
   const reviewLines = useMemo(() => {
     if (!context) return [];
-    const units = context.units.filter((unit) => selectedUnitIds.includes(unit.id));
+    const pricingSummary = selectedUnits
+      .map((unit) => {
+        const row = unitPricing[unit.id] ?? emptyUnitPricing();
+        return `${unit.code}: ${row.nightlyRate || '—'} ${currency}`;
+      })
+      .join(' · ');
     return [
       `${locale === 'ar' ? 'العقار' : 'Property'}: ${locale === 'ar' ? context.propertyNameAr : context.propertyNameEn}`,
-      `${locale === 'ar' ? 'الوحدات' : 'Units'}: ${units.map((unit) => unit.code).join(', ') || '—'}`,
+      `${locale === 'ar' ? 'الوحدات' : 'Units'}: ${selectedUnits.map((unit) => unit.code).join(', ') || '—'}`,
       `${t.checkInFrom}: ${checkInFrom}`,
       `${t.dayUseCheckOut}: ${dayUseCheckOutUntil}`,
       `${t.overnightCheckOut}: ${overnightCheckOutUntil}`,
       `${t.dayUseMaxGuests}: ${dayUseMaxGuests}`,
       `${t.overnightMaxGuests}: ${overnightMaxGuests}`,
-      `${t.nightlyRate}: ${nightlyRate || '—'} ${currency}`,
-      `${t.dayUseRate}: ${dayUseRate || '—'} ${currency}`,
-      `${t.overnightOnlyRate}: ${overnightOnlyRate || '—'} ${currency}`,
-      `${t.deposit}: ${depositAmount || '—'} ${currency}`,
+      `${t.nightlyRate}: ${pricingSummary || '—'}`,
       `slug: ${slug || '—'}`,
     ];
   }, [
@@ -518,35 +590,34 @@ export function StaySetupWizard({
     currency,
     dayUseCheckOutUntil,
     dayUseMaxGuests,
-    dayUseRate,
-    depositAmount,
     locale,
-    nightlyRate,
     overnightCheckOutUntil,
     overnightMaxGuests,
-    overnightOnlyRate,
-    selectedUnitIds,
+    selectedUnits,
     slug,
     t.checkInFrom,
     t.dayUseCheckOut,
     t.dayUseMaxGuests,
-    t.dayUseRate,
-    t.deposit,
     t.nightlyRate,
     t.overnightCheckOut,
     t.overnightMaxGuests,
-    t.overnightOnlyRate,
+    unitPricing,
   ]);
 
   const previewDetail = useMemo((): StayPublicDetail | null => {
     if (!context) return null;
     const locationParts = propertySummary?.location?.split(' · ') ?? [];
-    const nightlyMinor = minorFromMajor(nightlyRate, minorUnit) || null;
-    const depositMinor = depositAmount.trim()
-      ? minorFromMajor(depositAmount, minorUnit) || null
+    const nightlyMinor = minorFromMajor(primaryPricing.nightlyRate, minorUnit) || null;
+    const dayUseMinor = primaryPricing.dayUseRate.trim()
+      ? minorFromMajor(primaryPricing.dayUseRate, minorUnit) || null
       : null;
-    const primary =
-      context.units.find((unit) => selectedUnitIds.includes(unit.id)) ?? context.units[0];
+    const overnightOnlyMinor = primaryPricing.overnightOnlyRate.trim()
+      ? minorFromMajor(primaryPricing.overnightOnlyRate, minorUnit) || null
+      : null;
+    const depositMinor = primaryPricing.depositAmount.trim()
+      ? minorFromMajor(primaryPricing.depositAmount, minorUnit) || null
+      : null;
+    const primary = primaryUnit;
     const cover =
       primary?.coverImageUrl ??
       propertySummary?.coverImageUrl ??
@@ -563,6 +634,8 @@ export function StaySetupWizard({
       wilayat: locationParts.at(-2) ?? null,
       city: locationParts.at(-3) ?? locationParts[0] ?? null,
       nightlyMinor,
+      dayUseMinor,
+      overnightOnlyMinor,
       currency: currency as StayPublicDetail['currency'],
       maxGuests: Number.parseInt(overnightMaxGuests, 10) || null,
       dayUseMaxGuests: Number.parseInt(dayUseMaxGuests, 10) || null,
@@ -595,11 +668,9 @@ export function StaySetupWizard({
     currency,
     dayUseCheckOutUntil,
     dayUseMaxGuests,
-    depositAmount,
     listingTitleAr,
     listingTitleEn,
     minorUnit,
-    nightlyRate,
     overnightCheckOutUntil,
     overnightMaxGuests,
     policiesAr,
@@ -610,6 +681,8 @@ export function StaySetupWizard({
     eventsPoliciesEn,
     paymentPoliciesAr,
     paymentPoliciesEn,
+    primaryPricing,
+    primaryUnit,
     propertySummary,
     selectedUnitIds,
     slug,
@@ -793,66 +866,94 @@ export function StaySetupWizard({
   }
 
   async function savePricingStep() {
-    const minor = minorFromMajor(nightlyRate, minorUnit);
-    if (!minor) throw new Error(locale === 'ar' ? 'أدخل سعراً صالحاً' : 'Enter a valid rate');
-    const dayUseMinor = dayUseRate.trim() ? minorFromMajor(dayUseRate, minorUnit) : null;
-    const overnightOnlyMinor = overnightOnlyRate.trim()
-      ? minorFromMajor(overnightOnlyRate, minorUnit)
-      : null;
-    if (dayUseRate.trim() && !dayUseMinor) {
-      throw new Error(locale === 'ar' ? 'سعر بدون مبيت غير صالح' : 'Invalid day-use rate');
+    const unitsToPrice = selectedUnits.filter((unit) => selectedUnitIds.includes(unit.id));
+    if (!unitsToPrice.length) {
+      throw new Error(locale === 'ar' ? 'اختر وحدة واحدة على الأقل' : 'Select at least one unit');
     }
-    if (overnightOnlyRate.trim() && !overnightOnlyMinor) {
-      throw new Error(locale === 'ar' ? 'سعر المبيت فقط غير صالح' : 'Invalid overnight-only rate');
-    }
-    const depositMinor = depositAmount.trim()
-      ? minorFromMajor(depositAmount, minorUnit)
-      : null;
-    if (depositAmount.trim() && !depositMinor) {
-      throw new Error(locale === 'ar' ? 'مبلغ التأمين غير صالح' : 'Invalid deposit amount');
-    }
-    const ids = resolveProfileIds();
-    if (!ids.length) throw new Error(t.saveError);
-    const ratePayload = {
-      baseNightlyMinor: minor,
-      ...(dayUseMinor ? { dayUseMinor } : {}),
-      ...(overnightOnlyMinor ? { overnightOnlyMinor } : {}),
-      currency,
-      nameAr: 'السعر الأساسي',
-      nameEn: 'Base rate',
-      refundable: true,
-    };
-    const depositPayload = {
-      depositMinor: depositMinor ?? null,
-    };
-    await Promise.all(
-      ids.flatMap((id) => [
+
+    const saves: Promise<unknown>[] = [];
+    for (const unit of unitsToPrice) {
+      const resolvedProfileId = unit.profileId;
+      if (!resolvedProfileId) {
+        throw new Error(
+          locale === 'ar'
+            ? `احفظ خطوة الوحدات أولاً (${unit.code})`
+            : `Save the units step first (${unit.code})`,
+        );
+      }
+
+      const row = unitPricing[unit.id] ?? emptyUnitPricing();
+      const minor = minorFromMajor(row.nightlyRate, minorUnit);
+      if (!minor) {
+        throw new Error(
+          locale === 'ar'
+            ? `أدخل سعراً صالحاً للوحدة ${unit.code}`
+            : `Enter a valid rate for unit ${unit.code}`,
+        );
+      }
+      const dayUseMinor = row.dayUseRate.trim() ? minorFromMajor(row.dayUseRate, minorUnit) : null;
+      const overnightOnlyMinor = row.overnightOnlyRate.trim()
+        ? minorFromMajor(row.overnightOnlyRate, minorUnit)
+        : null;
+      if (row.dayUseRate.trim() && !dayUseMinor) {
+        throw new Error(locale === 'ar' ? 'سعر بدون مبيت غير صالح' : 'Invalid day-use rate');
+      }
+      if (row.overnightOnlyRate.trim() && !overnightOnlyMinor) {
+        throw new Error(locale === 'ar' ? 'سعر المبيت فقط غير صالح' : 'Invalid overnight-only rate');
+      }
+      const depositMinor = row.depositAmount.trim()
+        ? minorFromMajor(row.depositAmount, minorUnit)
+        : null;
+      if (row.depositAmount.trim() && !depositMinor) {
+        throw new Error(locale === 'ar' ? 'مبلغ التأمين غير صالح' : 'Invalid deposit amount');
+      }
+
+      const ratePayload = {
+        baseNightlyMinor: minor,
+        ...(dayUseMinor ? { dayUseMinor } : {}),
+        ...(overnightOnlyMinor ? { overnightOnlyMinor } : {}),
+        currency,
+        nameAr: 'السعر الأساسي',
+        nameEn: 'Base rate',
+        refundable: true,
+      };
+      const depositPayload = { depositMinor: depositMinor ?? null };
+
+      saves.push(
         writeAvailable
           ? browserNextMutation(`/api/owner/stays/setup`, {
               method: 'POST',
-              body: JSON.stringify({ action: 'upsert_rate_plan', profileId: id, payload: ratePayload }),
+              body: JSON.stringify({
+                action: 'upsert_rate_plan',
+                profileId: resolvedProfileId,
+                payload: ratePayload,
+              }),
             })
-          : browserMutation(`/v1/stays/setup/profiles/${id}/rate-plan`, {
+          : browserMutation(`/v1/stays/setup/profiles/${resolvedProfileId}/rate-plan`, {
               method: 'POST',
               headers: { 'content-type': 'application/json' },
               body: JSON.stringify(ratePayload),
             }),
+      );
+      saves.push(
         writeAvailable
           ? browserNextMutation('/api/owner/stays/setup', {
               method: 'POST',
               body: JSON.stringify({
                 action: 'update_profile',
-                profileId: id,
+                profileId: resolvedProfileId,
                 payload: depositPayload,
               }),
             })
-          : browserMutation(`/v1/stays/setup/profiles/${id}`, {
+          : browserMutation(`/v1/stays/setup/profiles/${resolvedProfileId}`, {
               method: 'PATCH',
               headers: { 'content-type': 'application/json' },
               body: JSON.stringify(depositPayload),
             }),
-      ]),
-    );
+      );
+    }
+
+    await Promise.all(saves);
   }
 
   async function ensureListingFromProperty() {
@@ -1370,69 +1471,102 @@ export function StaySetupWizard({
           {current === 'pricing' ? (
             <fieldset disabled={!canWrite || busy} className="stays-setup-wizard__fields">
               <p className="muted">{t.pricingHint}</p>
-              <div className="stays-setup-rates">
-                <div className="field">
-                  <label htmlFor="nightly-rate">
-                    {t.nightlyRate} ({currency})
-                  </label>
-                  <input
-                    id="nightly-rate"
-                    className="input"
-                    inputMode="decimal"
-                    value={nightlyRate}
-                    onChange={(event) => setNightlyRate(event.target.value)}
-                    placeholder={majorFromMinor('25000', minorUnit)}
-                    dir="ltr"
-                    required
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor="day-use-rate">
-                    {t.dayUseRate} ({currency})
-                  </label>
-                  <input
-                    id="day-use-rate"
-                    className="input"
-                    inputMode="decimal"
-                    value={dayUseRate}
-                    onChange={(event) => setDayUseRate(event.target.value)}
-                    placeholder={majorFromMinor('15000', minorUnit)}
-                    dir="ltr"
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor="overnight-only-rate">
-                    {t.overnightOnlyRate} ({currency})
-                  </label>
-                  <input
-                    id="overnight-only-rate"
-                    className="input"
-                    inputMode="decimal"
-                    value={overnightOnlyRate}
-                    onChange={(event) => setOvernightOnlyRate(event.target.value)}
-                    placeholder={majorFromMinor('20000', minorUnit)}
-                    dir="ltr"
-                  />
-                </div>
+              {selectedUnits.length > 1 ? (
+                <p className="muted stays-setup-hint">{t.pricingPerUnitHint}</p>
+              ) : null}
+              <div className="data-table-wrap">
+                <table className="data-table ops-table stays-setup-pricing-table">
+                  <thead>
+                    <tr>
+                      <th>{t.unitCode}</th>
+                      <th>{t.unitName}</th>
+                      <th>
+                        {t.nightlyRate} ({currency})
+                      </th>
+                      <th>
+                        {t.dayUseRate} ({currency})
+                      </th>
+                      <th>
+                        {t.overnightOnlyRate} ({currency})
+                      </th>
+                      <th>
+                        {t.deposit} ({currency})
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedUnits.map((unit) => {
+                      const row = unitPricing[unit.id] ?? emptyUnitPricing();
+                      const unitLabel =
+                        locale === 'ar'
+                          ? unit.nameAr || unit.code
+                          : unit.nameEn || unit.code;
+                      return (
+                        <tr key={unit.id}>
+                          <td dir="ltr">{unit.code}</td>
+                          <td>{unitLabel}</td>
+                          <td>
+                            <input
+                              className="input"
+                              inputMode="decimal"
+                              value={row.nightlyRate}
+                              onChange={(event) =>
+                                patchUnitPricing(unit.id, { nightlyRate: event.target.value })
+                              }
+                              placeholder={majorFromMinor('25000', minorUnit)}
+                              dir="ltr"
+                              required
+                              aria-label={`${t.nightlyRate} ${unit.code}`}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              className="input"
+                              inputMode="decimal"
+                              value={row.dayUseRate}
+                              onChange={(event) =>
+                                patchUnitPricing(unit.id, { dayUseRate: event.target.value })
+                              }
+                              placeholder={majorFromMinor('15000', minorUnit)}
+                              dir="ltr"
+                              aria-label={`${t.dayUseRate} ${unit.code}`}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              className="input"
+                              inputMode="decimal"
+                              value={row.overnightOnlyRate}
+                              onChange={(event) =>
+                                patchUnitPricing(unit.id, {
+                                  overnightOnlyRate: event.target.value,
+                                })
+                              }
+                              placeholder={majorFromMinor('20000', minorUnit)}
+                              dir="ltr"
+                              aria-label={`${t.overnightOnlyRate} ${unit.code}`}
+                            />
+                          </td>
+                          <td>
+                            <input
+                              className="input"
+                              inputMode="decimal"
+                              value={row.depositAmount}
+                              onChange={(event) =>
+                                patchUnitPricing(unit.id, { depositAmount: event.target.value })
+                              }
+                              placeholder={majorFromMinor('80000', minorUnit)}
+                              dir="ltr"
+                              aria-label={`${t.deposit} ${unit.code}`}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-              <section className="stays-setup-section">
-                <h3>{t.deposit}</h3>
-                <p className="muted">{t.depositHint}</p>
-                <div className="field">
-                  <label htmlFor="deposit">
-                    {t.deposit} ({currency})
-                  </label>
-                  <input
-                    id="deposit"
-                    className="input"
-                    inputMode="decimal"
-                    value={depositAmount}
-                    onChange={(event) => setDepositAmount(event.target.value)}
-                    placeholder={majorFromMinor('30000', minorUnit)}
-                    dir="ltr"
-                  />
-                </div>
-              </section>
+              <p className="muted">{t.depositHint}</p>
             </fieldset>
           ) : null}
 

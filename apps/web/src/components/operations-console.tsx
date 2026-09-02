@@ -675,6 +675,12 @@ function displayCell(
   if (column.format === 'thumb') {
     return null;
   }
+  if (column.key === 'kind') {
+    const kind = safeString(value);
+    if (kind === 'unit') return locale === 'ar' ? 'وحدة' : 'Unit';
+    if (kind === 'multi_unit') return locale === 'ar' ? 'مبنى متعدد' : 'Multi-unit';
+    if (kind === 'single_unit') return locale === 'ar' ? 'عقار واحد' : 'Single unit';
+  }
   if (typeof value === 'boolean')
     return value ? (locale === 'ar' ? 'نعم' : 'Yes') : locale === 'ar' ? 'لا' : 'No';
   if (column.key.endsWith('Id')) {
@@ -2029,6 +2035,7 @@ export function OperationsConsole({
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [hideApiBanner, setHideApiBanner] = useState(false);
   const [statsOpen, setStatsOpen] = useState(true);
+  const [expandedProperties, setExpandedProperties] = useState<Set<string>>(() => new Set());
   const showOpsDiagnostics = portal === 'platform';
 
   useEffect(() => {
@@ -2121,6 +2128,22 @@ export function OperationsConsole({
     section,
     archiveMode,
   ]);
+  const tableRows = useMemo(() => {
+    if (section !== 'properties') return filtered;
+    const rows: DataRow[] = [];
+    for (const row of filtered) {
+      rows.push(row);
+      const childUnits = Array.isArray(row.childUnits) ? (row.childUnits as DataRow[]) : [];
+      if (
+        safeString(row.kind) === 'multi_unit' &&
+        childUnits.length &&
+        expandedProperties.has(safeString(row.id))
+      ) {
+        rows.push(...childUnits);
+      }
+    }
+    return rows;
+  }, [expandedProperties, filtered, section]);
   const openCount = records.filter(
     (row) =>
       ![
@@ -3045,7 +3068,16 @@ export function OperationsConsole({
               </tr>
             </thead>
             <tbody>
-              {filtered.map((row, index) => {
+              {tableRows.map((row, index) => {
+                const isChildUnit = safeString(row.rowKind) === 'unit';
+                const childUnits = Array.isArray(row.childUnits) ? (row.childUnits as DataRow[]) : [];
+                const canExpand =
+                  section === 'properties' &&
+                  !isChildUnit &&
+                  safeString(row.kind) === 'multi_unit' &&
+                  childUnits.length > 0;
+                const propertyId = safeString(row.id);
+                const isExpanded = expandedProperties.has(propertyId);
                 const action = nextAction(section, row);
                 const reportId = section === 'reports' ? safeString(row.id) : '';
                 const reportReady = Boolean(reportId && safeString(row.status) === 'completed');
@@ -3058,27 +3090,58 @@ export function OperationsConsole({
                       ? 'receipt'
                       : null;
                 return (
-                  <tr key={safeString(row.id ?? row.reference) || String(index)}>
+                  <tr
+                    key={safeString(row.id ?? row.reference) || String(index)}
+                    className={isChildUnit ? 'ops-table__child-row' : undefined}
+                  >
                     {definition.columns.map((column) => (
                       <td
                         key={column.key}
                         className={column.format === 'thumb' ? 'ops-table__thumb-cell' : undefined}
                       >
                         {section === 'properties' && column.format === 'thumb' ? (
-                          <PropertyOpsRowKey
-                            propertyId={safeString(row.id)}
-                            coverImageUrl={
-                              typeof row.coverImageUrl === 'string' ? row.coverImageUrl : null
-                            }
-                            locale={locale}
-                            {...(() => {
-                              const n =
-                                safeString(row.nameAr) ||
-                                safeString(row.nameEn) ||
-                                safeString(row.name);
-                              return n ? { name: n } : {};
-                            })()}
-                          />
+                          <span className="ops-table__thumb-wrap">
+                            {canExpand ? (
+                              <button
+                                type="button"
+                                className={`ops-expand${isExpanded ? ' ops-expand--open' : ''}`}
+                                aria-expanded={isExpanded}
+                                aria-label={
+                                  ar ? 'عرض وحدات المبنى' : 'Show building units'
+                                }
+                                onClick={() =>
+                                  setExpandedProperties((current) => {
+                                    const next = new Set(current);
+                                    if (next.has(propertyId)) next.delete(propertyId);
+                                    else next.add(propertyId);
+                                    return next;
+                                  })
+                                }
+                              >
+                                {isExpanded ? '▾' : '▸'}
+                              </button>
+                            ) : isChildUnit ? (
+                              <span className="ops-expand ops-expand--spacer" aria-hidden="true" />
+                            ) : null}
+                            <PropertyOpsRowKey
+                              propertyId={
+                                isChildUnit
+                                  ? safeString(row.parentPropertyId)
+                                  : safeString(row.id)
+                              }
+                              coverImageUrl={
+                                typeof row.coverImageUrl === 'string' ? row.coverImageUrl : null
+                              }
+                              locale={locale}
+                              {...(() => {
+                                const n =
+                                  safeString(row.nameAr) ||
+                                  safeString(row.nameEn) ||
+                                  safeString(row.name);
+                                return n ? { name: n } : {};
+                              })()}
+                            />
+                          </span>
                         ) : (
                           displayCell(row, column, locale, context, definition.flow)
                         )}
@@ -3268,22 +3331,45 @@ export function OperationsConsole({
                         </span>
                       ) : section === 'properties' ? (
                         <span className="ops-action-group">
-                          <Link
-                            className="ops-action"
-                            href={`/properties/${encodeURIComponent(safeString(row.id))}`}
-                            prefetch
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            {ar ? 'عرض العقار' : 'View listing'}
-                          </Link>
-                          <Link
-                            className="ops-action ops-action--primary"
-                            href={`/${portal}/properties/${encodeURIComponent(safeString(row.id))}`}
-                            prefetch
-                          >
-                            {ar ? 'إدارة العقار' : 'Manage property'}
-                          </Link>
+                          {isChildUnit ? (
+                            <>
+                              <Link
+                                className="ops-action"
+                                href={`/properties/${encodeURIComponent(safeString(row.parentPropertyId))}?unit=${encodeURIComponent(safeString(row.id))}`}
+                                prefetch
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                {ar ? 'عرض الوحدة' : 'View unit'}
+                              </Link>
+                              <Link
+                                className="ops-action ops-action--primary"
+                                href={`/${portal}/properties/${encodeURIComponent(safeString(row.parentPropertyId))}?unit=${encodeURIComponent(safeString(row.id))}`}
+                                prefetch
+                              >
+                                {ar ? 'إدارة الوحدة' : 'Manage unit'}
+                              </Link>
+                            </>
+                          ) : (
+                            <>
+                              <Link
+                                className="ops-action"
+                                href={`/properties/${encodeURIComponent(safeString(row.id))}`}
+                                prefetch
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                {ar ? 'عرض العقار' : 'View listing'}
+                              </Link>
+                              <Link
+                                className="ops-action ops-action--primary"
+                                href={`/${portal}/properties/${encodeURIComponent(safeString(row.id))}`}
+                                prefetch
+                              >
+                                {ar ? 'إدارة العقار' : 'Manage property'}
+                              </Link>
+                            </>
+                          )}
                         </span>
                       ) : section === 'contracts' ? (
                         <Link

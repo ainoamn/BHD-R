@@ -42,6 +42,15 @@ export const staySetupListingRowSchema = z.object({
   publishedAt: z.string().datetime().nullable(),
 });
 
+export const staySetupUnitPricingDraftSchema = z.object({
+  unitId: uuidSchema,
+  profileId: uuidSchema.nullable().optional(),
+  baseNightlyMinor: z.string().nullable().optional(),
+  dayUseMinor: z.string().nullable().optional(),
+  overnightOnlyMinor: z.string().nullable().optional(),
+  depositMinor: z.string().nullable().optional(),
+});
+
 export const staySetupProfileDraftSchema = z
   .object({
     maxGuests: z.number().int().optional(),
@@ -54,6 +63,9 @@ export const staySetupProfileDraftSchema = z
     dayUseMaxGuests: z.number().int().nullable().optional(),
     overnightMaxGuests: z.number().int().nullable().optional(),
     depositMinor: z.string().nullable().optional(),
+    baseNightlyMinor: z.string().nullable().optional(),
+    dayUseMinor: z.string().nullable().optional(),
+    overnightOnlyMinor: z.string().nullable().optional(),
     policiesAr: z.string().nullable().optional(),
     policiesEn: z.string().nullable().optional(),
     policiesJson: stayPoliciesJsonSchema.optional(),
@@ -73,6 +85,7 @@ export const staySetupContextSchema = z.object({
   unitTypes: z.array(staySetupUnitTypeRowSchema),
   listings: z.array(staySetupListingRowSchema),
   profileDraft: staySetupProfileDraftSchema,
+  unitPricingDrafts: z.array(staySetupUnitPricingDraftSchema).optional(),
 });
 
 export const createStayUnitTypeSchema = z

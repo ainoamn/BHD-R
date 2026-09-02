@@ -175,6 +175,92 @@ async function listProperties(claims: SessionClaims): Promise<Record<string, unk
       }
     }
 
+    const multiUnitPropertyIds = rows
+      .filter((row) => row.kind === 'multi_unit')
+      .map((row) => row.id);
+    const childUnitRows =
+      multiUnitPropertyIds.length === 0
+        ? []
+        : await transaction
+            .select({
+              id: units.id,
+              propertyId: units.propertyId,
+              code: units.code,
+              nameAr: units.nameAr,
+              nameEn: units.nameEn,
+              status: units.status,
+              bedrooms: units.bedrooms,
+              bathrooms: units.bathrooms,
+            })
+            .from(units)
+            .where(
+              and(
+                eq(units.organizationId, orgId),
+                inArray(units.propertyId, multiUnitPropertyIds),
+              ),
+            )
+            .orderBy(asc(units.code));
+
+    const childUnitIds = childUnitRows.map((row) => row.id);
+    const unitCoverById = new Map<string, string>();
+    if (childUnitIds.length) {
+      const unitCoverRaw = await transaction.execute(sql`
+        select distinct on (um.unit_id)
+          um.unit_id as "unitId",
+          um.media_asset_id as "mediaAssetId"
+        from unit_media um
+        inner join media_assets ma on ma.id = um.media_asset_id
+        where um.organization_id = ${orgId}
+          and um.unit_id in (${sql.join(
+            childUnitIds.map((id) => sql`${id}::uuid`),
+            sql`, `,
+          )})
+          and ma.processing_status = 'ready'
+          and ma.scan_status = 'clean'
+          and ma.mime_type like 'image/%'
+        order by um.unit_id, um.position asc
+      `);
+      const unitCoverList = (
+        Array.isArray(unitCoverRaw)
+          ? unitCoverRaw
+          : ((unitCoverRaw as { rows?: unknown[] }).rows ?? [])
+      ) as Array<{ unitId?: string; mediaAssetId?: string }>;
+      for (const row of unitCoverList) {
+        if (row.unitId && row.mediaAssetId) {
+          unitCoverById.set(row.unitId, `/api/owner/media/${row.mediaAssetId}`);
+        }
+      }
+    }
+
+    const childUnitsByProperty = new Map<string, Array<Record<string, unknown>>>();
+    for (const unit of childUnitRows) {
+      const parent = rows.find((item) => item.id === unit.propertyId);
+      const location = parent
+        ? [parent.street, parent.city, parent.wilayat, parent.governorate]
+            .filter(Boolean)
+            .join(' · ')
+        : '';
+      const list = childUnitsByProperty.get(unit.propertyId) ?? [];
+      list.push({
+        id: unit.id,
+        propertyId: unit.propertyId,
+        code: unit.code,
+        nameAr: unit.nameAr,
+        nameEn: unit.nameEn,
+        status: unit.status,
+        bedrooms: unit.bedrooms,
+        bathrooms: unit.bathrooms,
+        rowKind: 'unit',
+        parentPropertyId: unit.propertyId,
+        serialNumber: unit.code,
+        location,
+        kind: 'unit',
+        units: 0,
+        coverImageUrl: unitCoverById.get(unit.id) ?? coverByProperty.get(unit.propertyId) ?? null,
+      });
+      childUnitsByProperty.set(unit.propertyId, list);
+    }
+
     return rows.map((row) => ({
       ...row,
       location: [row.street, row.city, row.wilayat, row.governorate].filter(Boolean).join(' · '),
@@ -182,6 +268,8 @@ async function listProperties(claims: SessionClaims): Promise<Record<string, unk
         row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
       units: byProperty.get(row.id) ?? 0,
       coverImageUrl: coverByProperty.get(row.id) ?? null,
+      childUnits:
+        row.kind === 'multi_unit' ? (childUnitsByProperty.get(row.id) ?? []) : [],
     }));
   });
 }
