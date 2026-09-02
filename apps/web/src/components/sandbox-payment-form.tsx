@@ -77,6 +77,15 @@ function luhnOk(digits: string): boolean {
   return sum % 10 === 0;
 }
 
+/** Pilot demo PAN shown on the bank-card face (not a live network number). */
+const DEMO_CARD_DIGITS = '1234123412341234';
+const DEMO_CARD_NUMBER = '1234 1234 1234 1234';
+const DEMO_EXPIRY = '10/89';
+
+function isAcceptedPan(digits: string): boolean {
+  return digits === DEMO_CARD_DIGITS || luhnOk(digits);
+}
+
 function expiryOk(mmYy: string): boolean {
   const match = /^(\d{2})\/(\d{2})$/.exec(mmYy);
   if (!match) return false;
@@ -114,8 +123,8 @@ export function SandboxPaymentForm({
     if (/^abdul\s+hamid(\s+al\s*-?\s*rawahi)?$/i.test(raw)) return 'ABDUL HAMID AL RAWAHI';
     return raw.toUpperCase();
   });
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiry, setExpiry] = useState('');
+  const [cardNumber, setCardNumber] = useState(DEMO_CARD_NUMBER);
+  const [expiry, setExpiry] = useState(DEMO_EXPIRY);
   const [cvc, setCvc] = useState('');
   const [touched, setTouched] = useState(false);
 
@@ -129,7 +138,7 @@ export function SandboxPaymentForm({
     if (!cardName.trim() || cardName.trim().length < 2) {
       next.name = ar ? 'أدخل الاسم كما على البطاقة' : 'Enter the name on the card';
     }
-    if (!luhnOk(cardDigits)) {
+    if (!isAcceptedPan(cardDigits)) {
       next.number = ar ? 'رقم البطاقة غير صالح' : 'Card number is invalid';
     }
     if (!expiryOk(expiry)) {
@@ -142,10 +151,7 @@ export function SandboxPaymentForm({
     return next;
   }, [ar, brand, cardDigits, cardName, cvc, expiry]);
 
-  const maskedPreview =
-    cardDigits.length === 0
-      ? '•••• •••• •••• ••••'
-      : formatCardNumber(cardDigits.padEnd(Math.max(16, cardDigits.length), '•'));
+  const numberPreview = formatCardNumber(cardDigits || DEMO_CARD_DIGITS);
 
   async function complete() {
     setTouched(true);
@@ -196,43 +202,49 @@ export function SandboxPaymentForm({
   return (
     <div className="pay-gateway">
       <div className="pay-gateway__card-visual" aria-hidden="true">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          className="pay-gateway__card-landmark"
-          src="/brand/oman-landmark-mosque.jpg"
-          alt=""
-        />
-        <div className="pay-gateway__card-scrim" />
-        <div className="pay-gateway__card-top">
-          <span className="pay-gateway__card-logo logo__product logo__product--on-dark">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/brand/bhd-official-symbol.svg" alt="" width="72" height="23" />
-            <i>R</i>
-          </span>
-          <p className="pay-gateway__card-brand">
-            {brand === 'visa'
-              ? 'VISA'
-              : brand === 'mastercard'
-                ? 'Mastercard'
-                : brand === 'amex'
-                  ? 'AMEX'
-                  : 'CARD'}
+        <div className="pay-gateway__card-face">
+          <div className="pay-gateway__card-top">
+            <span className="pay-gateway__card-logo logo__product logo__product--on-dark">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/brand/bhd-official-symbol.svg" alt="" width="72" height="23" />
+              <i>R</i>
+            </span>
+            <p className="pay-gateway__card-brand">
+              {brand === 'visa'
+                ? 'VISA'
+                : brand === 'mastercard'
+                  ? 'Mastercard'
+                  : brand === 'amex'
+                    ? 'AMEX'
+                    : 'CARD'}
+            </p>
+          </div>
+          <div className="pay-gateway__card-chip" />
+          <p className="pay-gateway__card-number" dir="ltr">
+            {numberPreview}
           </p>
+          <div className="pay-gateway__card-meta">
+            <span className="pay-gateway__card-holder">
+              <small>{ar ? 'حامل البطاقة' : 'CARDHOLDER'}</small>
+              <strong dir="ltr">{cardName.trim() || 'ABDUL HAMID AL RAWAHI'}</strong>
+            </span>
+            <span className="pay-gateway__card-exp">
+              <small>{ar ? 'الانتهاء' : 'VALID THRU'}</small>
+              <strong dir="ltr">{expiry || DEMO_EXPIRY}</strong>
+            </span>
+          </div>
         </div>
-        <div className="pay-gateway__card-chip" />
-        <p className="pay-gateway__card-number" dir="ltr">
-          {maskedPreview}
-        </p>
-        <div className="pay-gateway__card-meta">
-          <span className="pay-gateway__card-holder">
-            <small>{ar ? 'حامل البطاقة' : 'CARDHOLDER'}</small>
-            <strong dir="ltr">{cardName.trim() || 'ABDUL HAMID AL RAWAHI'}</strong>
+        <div className="pay-gateway__card-art">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            className="pay-gateway__card-landmark"
+            src="/brand/oman-landmark-mosque.jpg"
+            alt=""
+          />
+          <span className="pay-gateway__card-place">
+            {ar ? 'جامع السلطان قابوس' : 'Sultan Qaboos Mosque'}
           </span>
-          <span dir="ltr">{expiry || 'MM/YY'}</span>
         </div>
-        <p className="pay-gateway__card-place">
-          {ar ? 'جامع السلطان قابوس · مسقط' : 'Sultan Qaboos Grand Mosque · Muscat'}
-        </p>
       </div>
 
       <form
@@ -274,7 +286,7 @@ export function SandboxPaymentForm({
             dir="ltr"
             value={cardNumber}
             onChange={(event) => setCardNumber(formatCardNumber(event.target.value))}
-            placeholder="4242 4242 4242 4242"
+            placeholder={DEMO_CARD_NUMBER}
             disabled={busy}
             maxLength={23}
           />
