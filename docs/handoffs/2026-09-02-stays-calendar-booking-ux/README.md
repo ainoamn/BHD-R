@@ -4,6 +4,7 @@
 **المستودع:** https://github.com/ainoamn/BHD-R  
 **الإنتاج:** https://r.bhd-om.com  
 **الفرع:** `main`  
+**آخر commit:** `af87459` — *Polish stay calendar status labels and unify post-booking UX as 0.4.29.*  
 **الإصدار:** 0.4.29  
 **معرّف محادثة Cursor:** [d0d5551b-99f7-449e-92d1-5d812bcf527d](d0d5551b-99f7-449e-92d1-5d812bcf527d)
 
