@@ -62,7 +62,7 @@ function detectBrand(digits: string): 'visa' | 'mastercard' | 'amex' | 'other' {
 }
 
 /** Pilot demo PAN shown as a faint hint (not a live network number). */
-const DEMO_CARD_NUMBER = '1234 1234 1234 1234';
+const DEMO_CARD_NUMBER = '1001 1989 1001 1989';
 const DEMO_EXPIRY = '10/89';
 
 /** Sandbox accepts any complete 16-digit PAN (no live PSP Luhn gate). */
