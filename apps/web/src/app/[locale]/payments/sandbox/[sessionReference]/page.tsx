@@ -143,7 +143,6 @@ export default async function SandboxPaymentPage({
         <SandboxPaymentForm
           sessionReference={sessionReference}
           stayKind={stayKind}
-          defaultCardholderName={defaultCardholderName}
           {...(returnPath ? { returnPath } : {})}
           {...(session
             ? {
