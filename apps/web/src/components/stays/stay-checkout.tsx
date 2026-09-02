@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { Link } from '@/i18n/navigation';
-import { StayAvailabilityCalendar } from '@/components/stays/stay-availability-calendar';
 import { ApiError, browserPublicGet, browserPublicMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 
@@ -58,6 +57,8 @@ export function StayCheckout({
   slug,
   title,
   defaults,
+  embedded = false,
+  bookingDates,
 }: {
   locale: string;
   slug: string;
@@ -67,6 +68,12 @@ export function StayCheckout({
     checkOutOn?: string;
     adults?: string;
     children?: string;
+  };
+  /** Sidebar on Property 360 — calendar lives in the main column. */
+  embedded?: boolean;
+  bookingDates?: {
+    checkInOn: string;
+    checkOutOn: string;
   };
 }) {
   const ar = locale === 'ar';
@@ -87,6 +94,12 @@ export function StayCheckout({
   const [error, setError] = useState<string | null>(null);
   const [payBusy, setPayBusy] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (!bookingDates) return;
+    setCheckInOn(bookingDates.checkInOn);
+    setCheckOutOn(bookingDates.checkOutOn);
+  }, [bookingDates?.checkInOn, bookingDates?.checkOutOn]);
 
   const steps: { id: Step; label: string }[] = [
     { id: 'stay', label: ar ? 'الإقامة' : 'Your stay' },
@@ -271,41 +284,44 @@ export function StayCheckout({
       {step === 'stay' ? (
         <div className="stays-checkout__panel">
           <h3>{ar ? 'تواريخ الإقامة' : 'Stay dates'}</h3>
-          <StayAvailabilityCalendar
-            locale={locale}
-            mode="public"
-            slug={slug}
-            monthCount={2}
-            selectedCheckIn={checkInOn}
-            selectedCheckOut={checkOutOn}
-            onRangeChange={(nextIn, nextOut) => {
-              setCheckInOn(nextIn);
-              setCheckOutOn(nextOut);
-            }}
-          />
+          {embedded ? (
+            <dl className="stays-checkout__summary stays-checkout__summary--inline">
+              <div>
+                <dt>{ar ? 'الوصول' : 'Check-in'}</dt>
+                <dd dir="ltr">{checkInOn}</dd>
+              </div>
+              <div>
+                <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
+                <dd dir="ltr">{checkOutOn}</dd>
+              </div>
+            </dl>
+          ) : (
+            <div className="stays-checkout__grid stays-checkout__grid--compact">
+              <div className="field">
+                <label htmlFor="stay-book-in">{ar ? 'الوصول' : 'Check-in'}</label>
+                <input
+                  className="input"
+                  id="stay-book-in"
+                  type="date"
+                  required
+                  value={checkInOn}
+                  onChange={(event) => setCheckInOn(event.target.value)}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="stay-book-out">{ar ? 'المغادرة' : 'Check-out'}</label>
+                <input
+                  className="input"
+                  id="stay-book-out"
+                  type="date"
+                  required
+                  value={checkOutOn}
+                  onChange={(event) => setCheckOutOn(event.target.value)}
+                />
+              </div>
+            </div>
+          )}
           <div className="stays-checkout__grid stays-checkout__grid--compact">
-            <div className="field">
-              <label htmlFor="stay-book-in">{ar ? 'الوصول' : 'Check-in'}</label>
-              <input
-                className="input"
-                id="stay-book-in"
-                type="date"
-                required
-                value={checkInOn}
-                onChange={(event) => setCheckInOn(event.target.value)}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="stay-book-out">{ar ? 'المغادرة' : 'Check-out'}</label>
-              <input
-                className="input"
-                id="stay-book-out"
-                type="date"
-                required
-                value={checkOutOn}
-                onChange={(event) => setCheckOutOn(event.target.value)}
-              />
-            </div>
             <div className="field">
               <label htmlFor="stay-book-adults">{ar ? 'بالغون' : 'Adults'}</label>
               <select

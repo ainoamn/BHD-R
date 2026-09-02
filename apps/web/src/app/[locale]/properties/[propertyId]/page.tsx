@@ -3,14 +3,12 @@ import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import { PropertyDetailManager } from '@/components/property-detail-manager';
 import { PropertyDiscoveryRails } from '@/components/property-discovery-rails';
-import { ReviewsPanel } from '@/components/reviews-panel';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { loadPublicPropertyShowcaseFromNeon } from '@/lib/load-public-property-neon';
 import { buildAiTags, loadPropertyDiscoveryRails } from '@/lib/property-discovery';
 import { bilingualAlternates } from '@/lib/seo';
 import { localizedName } from '@/lib/format';
 import { getViewer } from '@/lib/viewer';
-import type { ReviewTargetType } from '@/lib/reviews-types';
 
 export async function generateMetadata({
   params,
@@ -84,31 +82,6 @@ export default async function PropertyPage({
   }));
   const aiTags = buildAiTags(property);
 
-  const reviewTargets: Array<{
-    type: ReviewTargetType;
-    id: string;
-    titleAr: string;
-    titleEn: string;
-  }> = [
-    { type: 'property', id: property.id, titleAr: 'العقار', titleEn: 'Property' },
-  ];
-  if (property.ownerPartyId && property.ownerPartyName) {
-    reviewTargets.push({
-      type: 'party',
-      id: property.ownerPartyId,
-      titleAr: `المالك · ${property.ownerPartyName}`,
-      titleEn: `Owner · ${property.ownerPartyName}`,
-    });
-  }
-  if (property.organizationId) {
-    reviewTargets.push({
-      type: 'organization',
-      id: property.organizationId,
-      titleAr: 'المؤسسة',
-      titleEn: 'Organization',
-    });
-  }
-
   return (
     <main className="section">
       <div className="container">
@@ -120,7 +93,6 @@ export default async function PropertyPage({
           signedIn={Boolean(viewer)}
           {...(focusUnitId ? { focusUnitId } : {})}
         />
-        <ReviewsPanel locale={locale} signedIn={Boolean(viewer)} targets={reviewTargets} />
         <PropertyDiscoveryRails
           locale={locale}
           aiTags={aiTags}

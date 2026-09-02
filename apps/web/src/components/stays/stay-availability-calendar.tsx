@@ -121,6 +121,7 @@ export function StayAvailabilityCalendar({
   slug,
   unitId,
   monthCount = 2,
+  size = 'default',
   selectedCheckIn,
   selectedCheckOut,
   onRangeChange,
@@ -130,6 +131,7 @@ export function StayAvailabilityCalendar({
   slug?: string;
   unitId?: string;
   monthCount?: 1 | 2;
+  size?: 'default' | 'large';
   selectedCheckIn?: string;
   selectedCheckOut?: string;
   onRangeChange?: (checkIn: string, checkOut: string) => void;
@@ -242,7 +244,7 @@ export function StayAvailabilityCalendar({
   }
 
   return (
-    <div className={`stays-calendar stays-calendar--${mode}`}>
+    <div className={`stays-calendar stays-calendar--${mode} stays-calendar--${size}`}>
       <div className="stays-calendar__toolbar">
         <button
           type="button"

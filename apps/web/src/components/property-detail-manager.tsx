@@ -11,6 +11,9 @@ import { formatListingLocation } from '@/lib/listing-card-copy';
 import { PropertyQrCard } from '@/components/property-qr-card';
 import { PublicListingActions } from '@/components/public-listing-actions';
 import { PropertyManageHub } from '@/components/property-manage-hub';
+import { PropertyReviewScore } from '@/components/property-review-score';
+import { ReviewsPanel } from '@/components/reviews-panel';
+import { StayAvailabilityCalendar } from '@/components/stays/stay-availability-calendar';
 import { StayCheckout } from '@/components/stays/stay-checkout';
 import { googleMapsEmbedSrc } from '@/lib/parse-google-maps-url';
 import { listingPurposeCaption, occupancyLabel } from '@/lib/listing-purpose-display';
@@ -23,6 +26,19 @@ import {
   summarizeUnitKinds,
   unitKindLabel,
 } from '@/lib/unit-identity';
+import type { ReviewTargetType } from '@/lib/reviews-types';
+
+function defaultStayCheckIn(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+function defaultStayCheckOut(checkIn: string): string {
+  const d = new Date(`${checkIn}T12:00:00`);
+  d.setDate(d.getDate() + 2);
+  return d.toISOString().slice(0, 10);
+}
 
 interface ManagedUnit {
   id: string;
@@ -197,6 +213,11 @@ export function PropertyDetailManager({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeImage, setActiveImage] = useState(0);
+  const initialStayIn = stayBooking?.checkInOn ?? defaultStayCheckIn();
+  const [stayCheckInOn, setStayCheckInOn] = useState(initialStayIn);
+  const [stayCheckOutOn, setStayCheckOutOn] = useState(
+    stayBooking?.checkOutOn ?? defaultStayCheckOut(initialStayIn),
+  );
   const editHref = `/${locale}/${portal}/properties/${property.id}/edit`;
 
   const currentOwner =
@@ -305,6 +326,32 @@ export function PropertyDetailManager({
         ? property.nameAr
         : property.nameEn;
   const mapsUrl = property.mapsUrl || mapsUrlFromNotes(property.profile?.notes) || null;
+  const reviewTargets = useMemo(() => {
+    if (!isPublic) return [];
+    const targets: Array<{
+      type: ReviewTargetType;
+      id: string;
+      titleAr: string;
+      titleEn: string;
+    }> = [{ type: 'property', id: property.id, titleAr: 'العقار', titleEn: 'Property' }];
+    if (property.ownerPartyId && property.ownerPartyName) {
+      targets.push({
+        type: 'party',
+        id: property.ownerPartyId,
+        titleAr: `المالك · ${property.ownerPartyName}`,
+        titleEn: `Owner · ${property.ownerPartyName}`,
+      });
+    }
+    if (property.organizationId) {
+      targets.push({
+        type: 'organization',
+        id: property.organizationId,
+        titleAr: 'المؤسسة',
+        titleEn: 'Organization',
+      });
+    }
+    return targets;
+  }, [isPublic, property]);
   const latitude =
     typeof property.latitude === 'number' && Number.isFinite(property.latitude)
       ? property.latitude
@@ -458,7 +505,12 @@ export function PropertyDetailManager({
                     ? 'BHD R · LISTING'
                     : 'BHD R · PROPERTY 360'}
               </span>
-              <h1>{headline}</h1>
+              <div className="property-360__title-row">
+                <h1>{headline}</h1>
+                {isPublic ? (
+                  <PropertyReviewScore propertyId={property.id} locale={locale} variant="chip" />
+                ) : null}
+              </div>
               {focusedUnitHeadline ? (
                 <p className="property-360__building-name">{buildingNameLine}</p>
               ) : null}
@@ -560,6 +612,30 @@ export function PropertyDetailManager({
               )}
             </section>
           )}
+
+          {stayBooking ? (
+            <section className="property-360__section property-360__stay-calendar">
+              <h2>{ar ? 'التوفر — اختر تواريخ إقامتك' : 'Availability — choose your dates'}</h2>
+              <p className="muted property-360__stay-calendar-hint">
+                {ar
+                  ? 'الأيام الخضراء متاحة للحجز. اختر تاريخ الوصول ثم المغادرة.'
+                  : 'Green days are available. Pick check-in, then check-out.'}
+              </p>
+              <StayAvailabilityCalendar
+                locale={locale}
+                mode="public"
+                slug={stayBooking.slug}
+                size="large"
+                monthCount={2}
+                selectedCheckIn={stayCheckInOn}
+                selectedCheckOut={stayCheckOutOn}
+                onRangeChange={(nextIn, nextOut) => {
+                  setStayCheckInOn(nextIn);
+                  setStayCheckOutOn(nextOut);
+                }}
+              />
+            </section>
+          ) : null}
 
           {property.kind === 'multi_unit' ? (
             <section className="property-360__section">
@@ -664,6 +740,7 @@ export function PropertyDetailManager({
             </section>
           ) : null}
 
+          {!stayBooking ? (
           <section className="property-360__section">
             <h2>
               {property.kind === 'multi_unit'
@@ -677,152 +754,192 @@ export function PropertyDetailManager({
             {property.kind === 'multi_unit' ? (
               <p className="muted property-360__units-intro">
                 {ar
-                  ? 'كل وحدة لها سجل تشغيلي منفصل (تأجير، بيع، حجوزات، محاسبة)، وهي مربوطة بالمبنى الرئيسي في محفظة المدير.'
-                  : 'Each unit has its own operational record (leasing, sales, bookings, accounting), linked under the main building for the property manager.'}
+                  ? 'اضغط على أي وحدة لعرض التفاصيل — القائمة مطوية افتراضياً لتبقى الصفحة منظمة.'
+                  : 'Tap a unit to expand details — collapsed by default for a cleaner page.'}
               </p>
             ) : null}
-            <div className="property-360__units">
+            <div
+              className={
+                property.kind === 'multi_unit' && isPublic
+                  ? 'property-360__units property-360__units--accordion'
+                  : 'property-360__units'
+              }
+            >
               {property.units.map((unit) => {
                 const kind = inferUnitKind(unit);
                 const serial = unitSerials.get(unit.id);
                 const occupancy = (unit.occupancy ?? 'available') as UnitOccupancy;
+                const unitTitle =
+                  property.kind === 'multi_unit'
+                    ? `${unitKindLabel(kind, locale)} ${unit.code}`.trim()
+                    : ar
+                      ? unit.nameAr
+                      : unit.nameEn;
+
+                const unitBody = (
+                  <>
+                    <header>
+                      <div>
+                        <strong>{unitTitle}</strong>
+                        {property.kind === 'multi_unit' ? (
+                          <small>{buildingNameLine}</small>
+                        ) : (
+                          <small dir="ltr">{unit.code}</small>
+                        )}
+                        {serial ? (
+                          <small className="property-360__unit-serial" dir="ltr">
+                            {serial}
+                          </small>
+                        ) : null}
+                      </div>
+                      <div className="property-360__unit-badges">
+                        <span
+                          className={`status-pill status-pill--${
+                            occupancy === 'available'
+                              ? 'ready'
+                              : occupancy === 'reserved'
+                                ? 'warn'
+                                : 'muted'
+                          }`}
+                        >
+                          {occupancyLabel(occupancy, locale)}
+                        </span>
+                        <span
+                          className={`status-pill status-pill--${unit.listingEnabled ? 'ready' : 'muted'}`}
+                        >
+                          {listingPurposeCaption(unit.listingPurpose, locale)}
+                        </span>
+                      </div>
+                    </header>
+                    <dl>
+                      <div>
+                        <dt>
+                          <span aria-hidden="true">🛏</span>
+                          {ar ? 'غرف' : 'Beds'}
+                        </dt>
+                        <dd>{unit.bedrooms}</dd>
+                      </div>
+                      <div>
+                        <dt>
+                          <span aria-hidden="true">🛁</span>
+                          {ar ? 'حمامات' : 'Baths'}
+                        </dt>
+                        <dd>{unit.bathrooms}</dd>
+                      </div>
+                      <div>
+                        <dt>
+                          <span aria-hidden="true">🪑</span>
+                          {ar ? 'مجالس' : 'Majlis'}
+                        </dt>
+                        <dd>{unit.majlis}</dd>
+                      </div>
+                      <div>
+                        <dt>
+                          <span aria-hidden="true">🛋</span>
+                          {ar ? 'صالات' : 'Halls'}
+                        </dt>
+                        <dd>{unit.halls}</dd>
+                      </div>
+                      <div>
+                        <dt>
+                          <span aria-hidden="true">🍳</span>
+                          {ar ? 'مطابخ' : 'Kitchens'}
+                        </dt>
+                        <dd>{unit.kitchens}</dd>
+                      </div>
+                      <div>
+                        <dt>
+                          <span aria-hidden="true">🏊</span>
+                          {ar ? 'مسبح' : 'Pool'}
+                        </dt>
+                        <dd>{unit.hasPool ? (ar ? 'متوفر' : 'Yes') : ar ? 'غير متوفر' : 'No'}</dd>
+                      </div>
+                      <div>
+                        <dt>
+                          <span aria-hidden="true">📐</span>
+                          {ar ? 'المساحة' : 'Area'}
+                        </dt>
+                        <dd>{unit.areaSquareMeters ? `${unit.areaSquareMeters} m²` : '—'}</dd>
+                      </div>
+                      <div>
+                        <dt>
+                          <span aria-hidden="true">💰</span>
+                          {ar ? 'السعر' : 'Price'}
+                        </dt>
+                        <dd dir="ltr">
+                          {unit.listingPurpose === 'both' ? (
+                            <>
+                              {formatMoney(unit.rentMinor, unit.currency, locale)}
+                              <small> {ar ? 'شهري' : 'mo'}</small>
+                              {unit.salePriceMinor ? (
+                                <>
+                                  {' · '}
+                                  {formatMoney(unit.salePriceMinor, unit.currency, locale)}
+                                  <small> {ar ? 'بيع' : 'sale'}</small>
+                                </>
+                              ) : null}
+                            </>
+                          ) : unit.listingPurpose === 'sale' && unit.salePriceMinor
+                            ? formatMoney(unit.salePriceMinor, unit.currency, locale)
+                            : formatMoney(unit.rentMinor, unit.currency, locale)}
+                        </dd>
+                      </div>
+                    </dl>
+                    {isPublic ? (
+                      <p className="property-360__unit-actions">
+                        <Link
+                          className="button button--quiet"
+                          href={`/${locale}/units/${unit.id}`}
+                        >
+                          {ar ? 'عرض هذه الوحدة' : 'View this unit'}
+                        </Link>
+                      </p>
+                    ) : null}
+                  </>
+                );
+
+                if (property.kind === 'multi_unit' && isPublic) {
+                  return (
+                    <details
+                      key={unit.id}
+                      className={
+                        focusUnitId && unit.id === focusUnitId
+                          ? 'property-360__unit-details property-360__unit-details--focus'
+                          : 'property-360__unit-details'
+                      }
+                    >
+                      <summary className="property-360__unit-summary">
+                        <span className="property-360__unit-summary-title">{unitTitle}</span>
+                        <span className="property-360__unit-summary-meta">
+                          {occupancyLabel(occupancy, locale)} ·{' '}
+                          {listingPurposeCaption(unit.listingPurpose, locale)}
+                        </span>
+                      </summary>
+                      <article className="property-360__unit">{unitBody}</article>
+                    </details>
+                  );
+                }
+
                 return (
-                <article
-                  className={
-                    focusUnitId && unit.id === focusUnitId
-                      ? 'property-360__unit property-360__unit--focus'
-                      : 'property-360__unit'
-                  }
-                  key={unit.id}
-                >
-                  <header>
-                    <div>
-                      <strong>
-                        {property.kind === 'multi_unit'
-                          ? `${unitKindLabel(kind, locale)} ${unit.code}`.trim()
-                          : ar
-                            ? unit.nameAr
-                            : unit.nameEn}
-                      </strong>
-                      {property.kind === 'multi_unit' ? (
-                        <small>{buildingNameLine}</small>
-                      ) : (
-                        <small dir="ltr">{unit.code}</small>
-                      )}
-                      {serial ? (
-                        <small className="property-360__unit-serial" dir="ltr">
-                          {serial}
-                        </small>
-                      ) : null}
-                    </div>
-                    <div className="property-360__unit-badges">
-                      <span
-                        className={`status-pill status-pill--${
-                          occupancy === 'available'
-                            ? 'ready'
-                            : occupancy === 'reserved'
-                              ? 'warn'
-                              : 'muted'
-                        }`}
-                      >
-                        {occupancyLabel(occupancy, locale)}
-                      </span>
-                      <span
-                        className={`status-pill status-pill--${unit.listingEnabled ? 'ready' : 'muted'}`}
-                      >
-                        {listingPurposeCaption(unit.listingPurpose, locale)}
-                      </span>
-                    </div>
-                  </header>
-                  <dl>
-                    <div>
-                      <dt>
-                        <span aria-hidden="true">🛏</span>
-                        {ar ? 'غرف' : 'Beds'}
-                      </dt>
-                      <dd>{unit.bedrooms}</dd>
-                    </div>
-                    <div>
-                      <dt>
-                        <span aria-hidden="true">🛁</span>
-                        {ar ? 'حمامات' : 'Baths'}
-                      </dt>
-                      <dd>{unit.bathrooms}</dd>
-                    </div>
-                    <div>
-                      <dt>
-                        <span aria-hidden="true">🪑</span>
-                        {ar ? 'مجالس' : 'Majlis'}
-                      </dt>
-                      <dd>{unit.majlis}</dd>
-                    </div>
-                    <div>
-                      <dt>
-                        <span aria-hidden="true">🛋</span>
-                        {ar ? 'صالات' : 'Halls'}
-                      </dt>
-                      <dd>{unit.halls}</dd>
-                    </div>
-                    <div>
-                      <dt>
-                        <span aria-hidden="true">🍳</span>
-                        {ar ? 'مطابخ' : 'Kitchens'}
-                      </dt>
-                      <dd>{unit.kitchens}</dd>
-                    </div>
-                    <div>
-                      <dt>
-                        <span aria-hidden="true">🏊</span>
-                        {ar ? 'مسبح' : 'Pool'}
-                      </dt>
-                      <dd>{unit.hasPool ? (ar ? 'متوفر' : 'Yes') : ar ? 'غير متوفر' : 'No'}</dd>
-                    </div>
-                    <div>
-                      <dt>
-                        <span aria-hidden="true">📐</span>
-                        {ar ? 'المساحة' : 'Area'}
-                      </dt>
-                      <dd>{unit.areaSquareMeters ? `${unit.areaSquareMeters} m²` : '—'}</dd>
-                    </div>
-                    <div>
-                      <dt>
-                        <span aria-hidden="true">💰</span>
-                        {ar ? 'السعر' : 'Price'}
-                      </dt>
-                      <dd dir="ltr">
-                        {unit.listingPurpose === 'both' ? (
-                          <>
-                            {formatMoney(unit.rentMinor, unit.currency, locale)}
-                            <small> {ar ? 'شهري' : 'mo'}</small>
-                            {unit.salePriceMinor ? (
-                              <>
-                                {' · '}
-                                {formatMoney(unit.salePriceMinor, unit.currency, locale)}
-                                <small> {ar ? 'بيع' : 'sale'}</small>
-                              </>
-                            ) : null}
-                          </>
-                        ) : unit.listingPurpose === 'sale' && unit.salePriceMinor
-                          ? formatMoney(unit.salePriceMinor, unit.currency, locale)
-                          : formatMoney(unit.rentMinor, unit.currency, locale)}
-                      </dd>
-                    </div>
-                  </dl>
-                  {isPublic ? (
-                    <p className="property-360__unit-actions">
-                      <Link
-                        className="button button--quiet"
-                        href={`/${locale}/units/${unit.id}`}
-                      >
-                        {ar ? 'عرض هذه الوحدة' : 'View this unit'}
-                      </Link>
-                    </p>
-                  ) : null}
-                </article>
-              );
+                  <article
+                    className={
+                      focusUnitId && unit.id === focusUnitId
+                        ? 'property-360__unit property-360__unit--focus'
+                        : 'property-360__unit'
+                    }
+                    key={unit.id}
+                  >
+                    {unitBody}
+                  </article>
+                );
               })}
             </div>
           </section>
+          ) : null}
+
+          {isPublic && reviewTargets.length ? (
+            <ReviewsPanel locale={locale} signedIn={signedIn} targets={reviewTargets} />
+          ) : null}
 
           {!isPublic ? (
             <section className="property-360__section property-360__ops">
@@ -1198,10 +1315,13 @@ export function PropertyDetailManager({
                 <StayCheckout
                   slug={stayBooking.slug}
                   locale={locale}
+                  embedded
+                  bookingDates={{
+                    checkInOn: stayCheckInOn,
+                    checkOutOn: stayCheckOutOn,
+                  }}
                   {...(stayBooking.title ? { title: stayBooking.title } : {})}
                   defaults={{
-                    ...(stayBooking.checkInOn ? { checkInOn: stayBooking.checkInOn } : {}),
-                    ...(stayBooking.checkOutOn ? { checkOutOn: stayBooking.checkOutOn } : {}),
                     ...(stayBooking.adults ? { adults: stayBooking.adults } : {}),
                     ...(stayBooking.children ? { children: stayBooking.children } : {}),
                   }}
