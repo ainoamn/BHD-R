@@ -3,6 +3,7 @@
 **تاريخ:** 2026-09-02  
 **المستودع:** https://github.com/ainoamn/BHD-R  
 **الفرع:** `main`  
+**آخر commit:** `9643021` — *Polish stays UX with full-width calendar, slim search bar, and Booking-style reviews as 0.4.27.*  
 **الإصدار:** 0.4.27  
 **سابق:** [0.4.26 Property 360 + تقويم](../2026-09-02-stays-property360-calendar/README.md)
 
