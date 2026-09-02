@@ -12,9 +12,11 @@
 
 ## تحقق بعد النشر
 
-- [ ] Quote لـ R-01 مع `unitId` يعيد نفس الوحدة (ليس A-02)
+- [ ] Quote لـ R-01 مع `unitId` (في الـ body أو `?unitId=`) يعيد نفس الوحدة (ليس A-02)
 - [ ] quote → hold → booking → payment session → sandbox-complete → `confirmed`
 - [ ] معالج الإعداد يحدّد غير المنشور افتراضياً
+
+> **ملاحظة نشر (2026-09-02 مساءً):** قبل اكتمال Deploy على Vercel كان `unitId` في body يعطي `invalid_body` و`sandbox-complete` يعطي `sandbox_disabled` — علامة أن الإنتاج ما زال على بناء أقدم من `10ca569`.
 
 ## ما تبقّى يدوياً (P2)
 

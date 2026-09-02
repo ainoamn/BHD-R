@@ -151,14 +151,17 @@ export function StayCheckout({
               : 'Dates not available — try different dates',
       );
     }
-    return browserStayBookingMutation<QuoteResult>(`/${encodeURIComponent(slug)}/quotes`, {
-      checkInOn,
-      checkOutOn,
-      adults: Number(adults),
-      children: Number(children),
-      stayType,
-      ...(unitId ? { unitId } : {}),
-    });
+    return browserStayBookingMutation<QuoteResult>(
+      `/${encodeURIComponent(slug)}/quotes${unitId ? `?unitId=${encodeURIComponent(unitId)}` : ''}`,
+      {
+        checkInOn,
+        checkOutOn,
+        adults: Number(adults),
+        children: Number(children),
+        stayType,
+        ...(unitId ? { unitId } : {}),
+      },
+    );
   }
 
   function continueFromStay() {
