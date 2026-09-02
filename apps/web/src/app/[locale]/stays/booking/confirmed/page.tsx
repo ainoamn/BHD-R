@@ -1,0 +1,114 @@
+import { setRequestLocale } from 'next-intl/server';
+import { notFound } from 'next/navigation';
+import { Link } from '@/i18n/navigation';
+import { formatMoney } from '@/lib/format';
+import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
+import { publicApiFetch } from '@/lib/server-api';
+
+type PublicBooking = {
+  referenceCode: string;
+  status: string;
+  checkInOn?: string;
+  checkOutOn?: string;
+  currency?: string;
+  totalMinor?: string;
+  nights?: number;
+  guestDisplayName?: string | null;
+};
+
+async function loadBooking(ref: string): Promise<PublicBooking | null> {
+  return publicApiFetch<PublicBooking>(
+    `/v1/public/stays/bookings/lookup?referenceCode=${encodeURIComponent(ref)}`,
+    8,
+  ).catch(() => null);
+}
+
+export default async function StayBookingConfirmedPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  if (!isStaysPublicSurfaceEnabled()) notFound();
+  const { locale } = await params;
+  const query = await searchParams;
+  setRequestLocale(locale);
+  const ar = locale === 'ar';
+
+  const refRaw = query.ref;
+  const ref =
+    typeof refRaw === 'string' ? refRaw : Array.isArray(refRaw) ? refRaw[0] : undefined;
+  if (!ref) notFound();
+
+  const booking = await loadBooking(ref);
+  if (!booking) notFound();
+
+  return (
+    <div className="container section stays-booking-confirmed">
+      <div className="stays-booking-confirmed__card card">
+        <span className="stays-booking-confirmed__icon" aria-hidden="true">
+          ✓
+        </span>
+        <h1>{ar ? 'تم استلام حجزك' : 'Your booking is received'}</h1>
+        <p className="muted">
+          {booking.status === 'confirmed' || booking.status === 'paid'
+            ? ar
+              ? 'تم تأكيد الحجز والدفع.'
+              : 'Booking and payment are confirmed.'
+            : ar
+              ? 'الحجز مسجّل. أكمل الدفع لتأكيد الإقامة.'
+              : 'Booking is registered. Complete payment to confirm your stay.'}
+        </p>
+
+        <dl className="stays-booking-confirmed__meta">
+          <div>
+            <dt>{ar ? 'مرجع الحجز' : 'Booking reference'}</dt>
+            <dd dir="ltr">
+              <strong>{booking.referenceCode}</strong>
+            </dd>
+          </div>
+          {booking.guestDisplayName ? (
+            <div>
+              <dt>{ar ? 'الضيف' : 'Guest'}</dt>
+              <dd>{booking.guestDisplayName}</dd>
+            </div>
+          ) : null}
+          {booking.checkInOn ? (
+            <div>
+              <dt>{ar ? 'الوصول' : 'Check-in'}</dt>
+              <dd dir="ltr">{booking.checkInOn}</dd>
+            </div>
+          ) : null}
+          {booking.checkOutOn ? (
+            <div>
+              <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
+              <dd dir="ltr">{booking.checkOutOn}</dd>
+            </div>
+          ) : null}
+          {booking.totalMinor && booking.currency ? (
+            <div>
+              <dt>{ar ? 'المجموع' : 'Total'}</dt>
+              <dd dir="ltr">
+                <strong>{formatMoney(booking.totalMinor, booking.currency, locale)}</strong>
+              </dd>
+            </div>
+          ) : null}
+          <div>
+            <dt>{ar ? 'الحالة' : 'Status'}</dt>
+            <dd dir="ltr">{booking.status}</dd>
+          </div>
+        </dl>
+
+        <div className="stays-booking-confirmed__actions">
+          <Link className="button button--primary" href="/stays">
+            {ar ? 'ابحث عن إقامة أخرى' : 'Search another stay'}
+          </Link>
+          <Link className="button button--quiet" href={`/guest/stays?ref=${encodeURIComponent(ref)}`}>
+            {ar ? 'متابعة رحلتي' : 'Track my trip'}
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}

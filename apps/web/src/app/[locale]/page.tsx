@@ -183,12 +183,14 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         </div>
         <div className="container hero-search">
           {isStaysPublicSurfaceEnabled() ? (
-            <HomeSearchTabs
-              locale={locale}
-              rentSearch={<PropertySearch locale={locale} defaults={{ purpose: 'rent' }} />}
-              saleSearch={<PropertySearch locale={locale} defaults={{ purpose: 'sale' }} />}
-              staySearch={<StaySearch locale={locale} />}
-            />
+            <div className="hero-search__booking-wrap">
+              <HomeSearchTabs
+                locale={locale}
+                rentSearch={<PropertySearch locale={locale} defaults={{ purpose: 'rent' }} />}
+                saleSearch={<PropertySearch locale={locale} defaults={{ purpose: 'sale' }} />}
+                staySearch={<StaySearch locale={locale} variant="hero" />}
+              />
+            </div>
           ) : (
             <PropertySearch locale={locale} />
           )}

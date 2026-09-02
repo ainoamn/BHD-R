@@ -8,6 +8,7 @@ import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { loadPublicStayBySlugOnNeon } from '@/lib/load-public-stays-neon';
 import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
 import { publicApiFetch } from '@/lib/server-api';
+import { localizedName } from '@/lib/format';
 import type { StayPublicDetail } from '@bhd-r/contracts';
 
 async function loadStayDetail(slug: string): Promise<StayPublicDetail | null> {
@@ -81,8 +82,15 @@ export default async function Page({
         <StayPublicShowcase detail={detail} locale={locale} />
       )}
 
-      <div className="stays-public__book-shell">
-        <StayCheckout locale={locale} slug={slug} defaults={dateDefaults} />
+      <div className="stays-public__book-shell stays-public__book-shell--split">
+        <StayCheckout
+          locale={locale}
+          slug={slug}
+          {...(detail
+            ? { title: localizedName(locale, detail.titleAr, detail.titleEn) }
+            : {})}
+          defaults={dateDefaults}
+        />
         <div className="stays-public__search-again">
           <h2>{t('searchTitle')}</h2>
           <StaySearch locale={locale} compact defaults={dateDefaults} />

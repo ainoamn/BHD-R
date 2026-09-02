@@ -16,13 +16,15 @@ export function HomeSearchTabs({
   staySearch: ReactNode;
 }) {
   const ar = locale === 'ar';
-  const [tab, setTab] = useState<TabId>('rent');
+  const [tab, setTab] = useState<TabId>('daily');
 
   const labels: Record<TabId, string> = {
+    daily: ar ? 'إقامة يومية' : 'Daily stay',
     rent: ar ? 'إيجار' : 'Rent',
     sale: ar ? 'بيع' : 'Sale',
-    daily: ar ? 'إقامة يومية' : 'Daily stay',
   };
+
+  const tabOrder: TabId[] = ['daily', 'rent', 'sale'];
 
   return (
     <div className="home-search-tabs">
@@ -31,7 +33,7 @@ export function HomeSearchTabs({
         role="tablist"
         aria-label={ar ? 'نوع البحث' : 'Search type'}
       >
-        {(['rent', 'sale', 'daily'] as const).map((id) => (
+        {tabOrder.map((id) => (
           <button
             key={id}
             type="button"

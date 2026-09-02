@@ -38,6 +38,7 @@ export default async function Page({
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations('Stays');
+  const ar = locale === 'ar';
   const query = await searchParams;
 
   const pick = (key: string) => {
@@ -93,20 +94,31 @@ export default async function Page({
         <div>
           <span className="section-kicker">BHD R</span>
           <h1>{t('searchTitle')}</h1>
-          <p className="muted">{t('shellHint')}</p>
+          {checkInOn && checkOutOn ? (
+            <p className="muted">
+              {ar
+                ? `${items.length} إقامة متاحة · ${checkInOn} → ${checkOutOn}`
+                : `${items.length} stays available · ${checkInOn} → ${checkOutOn}`}
+            </p>
+          ) : (
+            <p className="muted">{t('shellHint')}</p>
+          )}
         </div>
       </header>
 
-      <StaySearch
-        locale={locale}
-        defaults={{
-          ...(destination ? { destination } : {}),
-          ...(checkInOn ? { checkInOn } : {}),
-          ...(checkOutOn ? { checkOutOn } : {}),
-          ...(adults ? { adults } : {}),
-          ...(children ? { children } : {}),
-        }}
-      />
+      <div className="stays-public__search-hero">
+        <StaySearch
+          locale={locale}
+          variant="inline"
+          defaults={{
+            ...(destination ? { destination } : {}),
+            ...(checkInOn ? { checkInOn } : {}),
+            ...(checkOutOn ? { checkOutOn } : {}),
+            ...(adults ? { adults } : {}),
+            ...(children ? { children } : {}),
+          }}
+        />
+      </div>
 
       {items.length ? (
         <div className="listing-grid stays-public__grid">
