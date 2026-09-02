@@ -1,15 +1,15 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Image from 'next/image';
-import { BrandMark } from '@bhd-r/ui';
+import { Button } from '@bhd-r/ui';
 import { Link, useRouter } from '@/i18n/navigation';
 import { ApiError, browserGet, browserMutation, browserNextMutation } from '@/lib/api';
-import { formatMoney } from '@/lib/format';
+import { translateText } from '@/lib/property-listing-copy';
 import { toPublicMediaSrc } from '@/lib/public-media-url';
-import type { StaySetupContext } from '@bhd-r/contracts';
+import type { StayPublicDetail, StaySetupContext } from '@bhd-r/contracts';
 import type { StaySetupPropertySummary } from '@/lib/stay-setup-neon';
 import { PropertyOpsRowKey } from '@/components/property-ops-row-key';
+import { StayPublicShowcase } from '@/components/stays/stay-public-showcase';
 
 type StepId = 'units' | 'rules' | 'pricing' | 'publish';
 
@@ -28,6 +28,22 @@ const DEFAULT_POLICIES_AR = [
   'الالتزام بعدد الأشخاص المذكورين في الحجز؛ الأعداد الإضافية برسوم إضافية.',
   'يُمنع استخدام مكبرات الصوت.',
 ];
+
+const DEFAULT_POLICIES_EN = [
+  'Management is not responsible for lost personal belongings.',
+  'Use the pool carefully and supervise children at all times.',
+  'Take care of property contents and dispose of trash in designated areas before leaving.',
+  'The security deposit will be deducted for damage caused by the guest.',
+  'The security deposit may be deducted if the place is left unclean.',
+  'No food, drink, soap, or shampoo in the swimming pool.',
+  'Smoking inside the units is prohibited.',
+  'Respect check-out time; delays may result in a deposit deduction.',
+  'Respect check-in time.',
+  'Stick to the booked guest count; extra guests incur additional fees.',
+  'Loudspeakers are prohibited.',
+];
+
+type TranslateKey = 'unit-en' | 'unit-ar' | 'policies-en' | 'policies-ar';
 
 function slugify(value: string): string {
   return value
@@ -51,10 +67,10 @@ function majorFromMinor(minor: string, minorUnit = 3): string {
   return String(Number(major.toFixed(minorUnit)));
 }
 
-function policiesToLines(policies: string[] | undefined, fallbackAr: string | null | undefined) {
+function policiesToLines(policies: string[] | undefined, fallback: string | null | undefined) {
   if (policies?.length) return policies.join('\n');
-  if (fallbackAr?.trim()) return fallbackAr.trim();
-  return DEFAULT_POLICIES_AR.join('\n');
+  if (fallback?.trim()) return fallback.trim();
+  return '';
 }
 
 function linesToPolicies(text: string): string[] {
@@ -68,6 +84,23 @@ function linesToPolicies(text: string): string[] {
 function normalizeTime(value: string | null | undefined, fallback: string): string {
   if (!value?.trim()) return fallback;
   return value.trim().slice(0, 5);
+}
+
+function stayStatusLabel(
+  status: string | null | undefined,
+  locale: 'ar' | 'en',
+): { label: string; tone: 'positive' | 'warning' | 'info' | 'danger' } | null {
+  if (!status) return null;
+  const map: Record<string, { ar: string; en: string; tone: 'positive' | 'warning' | 'info' | 'danger' }> =
+    {
+      published: { ar: 'منشور', en: 'Published', tone: 'positive' },
+      ready: { ar: 'جاهز', en: 'Ready', tone: 'info' },
+      draft: { ar: 'مسودة', en: 'Draft', tone: 'warning' },
+      unpublished: { ar: 'غير منشور', en: 'Unpublished', tone: 'danger' },
+    };
+  const entry = map[status];
+  if (!entry) return { label: status, tone: 'info' };
+  return { label: locale === 'ar' ? entry.ar : entry.en, tone: entry.tone };
 }
 
 const copy = {
@@ -96,7 +129,6 @@ const copy = {
     sectionGuests: 'سعة الضيوف',
     sectionNights: 'مدة الإقامة',
     sectionPolicies: 'السياسات',
-    sectionInstructions: 'التعليمات',
     checkInFrom: 'وقت الدخول',
     dayUseCheckOut: 'وقت الخروج (بدون مبيت)',
     overnightCheckOut: 'وقت الخروج (عند المبيت)',
@@ -105,9 +137,13 @@ const copy = {
     minNights: 'الحد الأدنى لليالي',
     maxNights: 'الحد الأقصى لليالي',
     instantBook: 'حجز فوري',
-    policiesHint: 'سطر واحد لكل سياسة — تظهر للضيف كما في صفحة العقار.',
-    instructionsHint: 'تعليمات الوصول أو الاستخدام (اختياري).',
+    policiesHint: 'سطر واحد لكل سياسة. اكتب بالعربية أو الإنجليزية ثم استخدم الترجمة التلقائية.',
+    policiesAr: 'السياسات (عربي)',
+    policiesEn: 'السياسات (إنجليزي)',
     useDefaultPolicies: 'استعادة السياسات الافتراضية',
+    translateToEn: 'ترجمة إلى الإنجليزية',
+    translateToAr: 'ترجمة إلى العربية',
+    translating: 'جاري الترجمة…',
     nightlyRate: 'إقامة مع مبيت',
     dayUseRate: 'إقامة بدون مبيت',
     overnightOnlyRate: 'مبيت فقط',
@@ -116,7 +152,7 @@ const copy = {
     pricingHint: 'حدد أسعار أنواع الإقامة الثلاثة. إن تُرك حقل فارغاً يُستخدم سعر الإقامة مع مبيت.',
     usesPropertyDescription: 'يُستخدم وصف العقار الحالي تلقائياً — لا حاجة لإعادة كتابته.',
     previewTitle: 'معاينة كما ستظهر للجمهور',
-    previewHint: 'معاينة تقريبية — بعد النشر ستُفتح صفحة الإقامة مباشرة.',
+    previewHint: 'راجع الصفحة العامة أدناه قبل النشر. عد للخطوات السابقة إن احتجت تعديلاً.',
     review: 'راجع الإعداد قبل النشر',
     backToStays: 'العودة للوحة الإقامات',
     noUnits: 'لا توجد وحدات في هذا العقار.',
@@ -124,11 +160,13 @@ const copy = {
     kind: 'النوع',
     unitsCount: 'الوحدات',
     status: 'الحالة',
+    photo: 'الصورة',
     unitCode: 'رمز الوحدة',
     unitName: 'الوحدة',
     bedrooms: 'غرف',
     bathrooms: 'حمّامات',
     stayStatus: 'حالة الإقامة',
+    selectAction: 'الاختيار',
   },
   en: {
     wizardTitle: 'Daily stay setup',
@@ -155,7 +193,6 @@ const copy = {
     sectionGuests: 'Guest capacity',
     sectionNights: 'Stay length',
     sectionPolicies: 'Policies',
-    sectionInstructions: 'Instructions',
     checkInFrom: 'Check-in time',
     dayUseCheckOut: 'Check-out (day use / no overnight)',
     overnightCheckOut: 'Check-out (overnight stay)',
@@ -164,9 +201,13 @@ const copy = {
     minNights: 'Minimum nights',
     maxNights: 'Maximum nights',
     instantBook: 'Instant book',
-    policiesHint: 'One policy per line — shown to guests on the stay page.',
-    instructionsHint: 'Access or house instructions (optional).',
+    policiesHint: 'One policy per line. Write in Arabic or English, then use automatic translation.',
+    policiesAr: 'Policies (Arabic)',
+    policiesEn: 'Policies (English)',
     useDefaultPolicies: 'Restore default policies',
+    translateToEn: 'Translate to English',
+    translateToAr: 'Translate to Arabic',
+    translating: 'Translating…',
     nightlyRate: 'Stay with overnight',
     dayUseRate: 'Day use (no overnight)',
     overnightOnlyRate: 'Overnight only',
@@ -175,7 +216,7 @@ const copy = {
     pricingHint: 'Set prices for all three stay types. Empty fields fall back to stay-with-overnight.',
     usesPropertyDescription: 'The existing property description is reused automatically.',
     previewTitle: 'Preview as guests will see it',
-    previewHint: 'Approximate preview — after publish you will land on the live stay page.',
+    previewHint: 'Review the public page below before publishing. Go back to edit anything.',
     review: 'Review before publishing',
     backToStays: 'Back to stays dashboard',
     noUnits: 'No units on this property.',
@@ -183,11 +224,13 @@ const copy = {
     kind: 'Kind',
     unitsCount: 'Units',
     status: 'Status',
+    photo: 'Photo',
     unitCode: 'Unit code',
     unitName: 'Unit',
     bedrooms: 'Bedrooms',
     bathrooms: 'Bathrooms',
     stayStatus: 'Stay status',
+    selectAction: 'Select',
   },
 } as const;
 
@@ -233,15 +276,15 @@ export function StaySetupWizard({
   const [dayUseCheckOutUntil, setDayUseCheckOutUntil] = useState('23:00');
   const [overnightCheckOutUntil, setOvernightCheckOutUntil] = useState('11:00');
   const [instantBook, setInstantBook] = useState(true);
-  const [policiesText, setPoliciesText] = useState(DEFAULT_POLICIES_AR.join('\n'));
-  const [instructionsAr, setInstructionsAr] = useState('');
-  const [instructionsEn, setInstructionsEn] = useState('');
+  const [policiesAr, setPoliciesAr] = useState(DEFAULT_POLICIES_AR.join('\n'));
+  const [policiesEn, setPoliciesEn] = useState(DEFAULT_POLICIES_EN.join('\n'));
   const [nightlyRate, setNightlyRate] = useState('');
   const [dayUseRate, setDayUseRate] = useState('');
   const [overnightOnlyRate, setOvernightOnlyRate] = useState('');
   const [depositAmount, setDepositAmount] = useState('');
   const [slug, setSlug] = useState('');
   const [profileIds, setProfileIds] = useState<string[]>([]);
+  const [translating, setTranslating] = useState<TranslateKey | null>(null);
 
   const current = STEPS[step]!;
   const canWrite = Boolean(propertyId) && (writeAvailable || apiAvailable);
@@ -291,9 +334,9 @@ export function StaySetupWizard({
         setDayUseCheckOutUntil(normalizeTime(draft.dayUseCheckOutUntil, '23:00'));
       if (draft.overnightCheckOutUntil)
         setOvernightCheckOutUntil(normalizeTime(draft.overnightCheckOutUntil, '11:00'));
-      setPoliciesText(policiesToLines(draft.policiesJson, draft.policiesAr));
-      setInstructionsAr(draft.instructionsAr ?? '');
-      setInstructionsEn(draft.instructionsEn ?? '');
+      const arPolicies = policiesToLines(draft.policiesJson, draft.policiesAr);
+      setPoliciesAr(arPolicies || DEFAULT_POLICIES_AR.join('\n'));
+      setPoliciesEn(draft.policiesEn?.trim() || DEFAULT_POLICIES_EN.join('\n'));
       if (draft.depositMinor) {
         const minorUnit =
           data.defaultCurrency === 'OMR' ||
@@ -406,14 +449,94 @@ export function StaySetupWizard({
     t.overnightOnlyRate,
   ]);
 
-  const previewPriceLabel = useMemo(() => {
-    const minor = minorFromMajor(nightlyRate, minorUnit);
-    if (!minor) return null;
-    return formatMoney(minor, currency, locale);
-  }, [currency, locale, minorUnit, nightlyRate]);
+  const previewDetail = useMemo((): StayPublicDetail | null => {
+    if (!context) return null;
+    const locationParts = propertySummary?.location?.split(' · ') ?? [];
+    const nightlyMinor = minorFromMajor(nightlyRate, minorUnit) || null;
+    const depositMinor = depositAmount.trim()
+      ? minorFromMajor(depositAmount, minorUnit) || null
+      : null;
+    const primary =
+      context.units.find((unit) => selectedUnitIds.includes(unit.id)) ?? context.units[0];
+    const cover =
+      primary?.coverImageUrl ??
+      propertySummary?.coverImageUrl ??
+      null;
+    return {
+      slug: slug.trim() || 'preview',
+      titleAr: listingTitleAr || context.propertyNameAr,
+      titleEn: listingTitleEn || context.propertyNameEn,
+      descriptionAr:
+        context.propertyDescriptionAr ?? propertySummary?.descriptionAr ?? null,
+      descriptionEn:
+        context.propertyDescriptionEn ?? propertySummary?.descriptionEn ?? null,
+      destination: locationParts.at(-1) ?? null,
+      wilayat: locationParts.at(-2) ?? null,
+      city: locationParts.at(-3) ?? locationParts[0] ?? null,
+      nightlyMinor,
+      currency: currency as StayPublicDetail['currency'],
+      maxGuests: Number.parseInt(overnightMaxGuests, 10) || null,
+      dayUseMaxGuests: Number.parseInt(dayUseMaxGuests, 10) || null,
+      overnightMaxGuests: Number.parseInt(overnightMaxGuests, 10) || null,
+      unitId: primary?.id,
+      propertyId: context.propertyId,
+      propertyNameAr: context.propertyNameAr,
+      propertyNameEn: context.propertyNameEn,
+      bedrooms: primary?.bedrooms ?? null,
+      bathrooms: primary?.bathrooms ?? null,
+      checkInFrom,
+      checkOutUntil: overnightCheckOutUntil,
+      dayUseCheckOutUntil,
+      overnightCheckOutUntil,
+      depositMinor,
+      policiesAr: policiesAr.trim() || null,
+      policiesEn: policiesEn.trim() || null,
+      policiesJson: linesToPolicies(policiesAr),
+      coverImageUrl: cover ? toPublicMediaSrc(cover) ?? cover : null,
+      imageUrls: cover ? [toPublicMediaSrc(cover) ?? cover] : [],
+    };
+  }, [
+    checkInFrom,
+    context,
+    currency,
+    dayUseCheckOutUntil,
+    dayUseMaxGuests,
+    depositAmount,
+    listingTitleAr,
+    listingTitleEn,
+    minorUnit,
+    nightlyRate,
+    overnightCheckOutUntil,
+    overnightMaxGuests,
+    policiesAr,
+    policiesEn,
+    propertySummary,
+    selectedUnitIds,
+    slug,
+  ]);
 
-  const previewCover = toPublicMediaSrc(propertySummary?.coverImageUrl ?? null);
-  const policyPreview = linesToPolicies(policiesText).slice(0, 4);
+  async function runTranslate(
+    source: string,
+    target: 'ar' | 'en',
+    apply: (value: string) => void,
+    key: TranslateKey,
+  ) {
+    if (!source.trim()) return;
+    setTranslating(key);
+    setError(null);
+    try {
+      const translated = await translateText(source, target);
+      apply(translated);
+    } catch {
+      setError(
+        locale === 'ar'
+          ? 'تعذّرت الترجمة التلقائية. عدّل النص يدوياً أو أعد المحاولة.'
+          : 'Automatic translation failed. Edit manually or retry.',
+      );
+    } finally {
+      setTranslating(null);
+    }
+  }
 
   async function ensureUnitType(): Promise<string> {
     if (unitTypeId) return unitTypeId;
@@ -476,7 +599,7 @@ export function StaySetupWizard({
     if (!ids.length) throw new Error(t.saveError);
     const overnightGuests = Number.parseInt(overnightMaxGuests, 10) || 4;
     const dayGuests = Number.parseInt(dayUseMaxGuests, 10) || overnightGuests;
-    const policies = linesToPolicies(policiesText);
+    const policies = linesToPolicies(policiesAr);
     const payload = {
       maxGuests: overnightGuests,
       maxAdults: overnightGuests,
@@ -491,9 +614,9 @@ export function StaySetupWizard({
       checkOutUntil: overnightCheckOutUntil,
       policiesJson: policies,
       policiesAr: policies.join('\n') || null,
-      policiesEn: null,
-      instructionsAr: instructionsAr.trim() || null,
-      instructionsEn: instructionsEn.trim() || null,
+      policiesEn: policiesEn.trim() || null,
+      instructionsAr: null,
+      instructionsEn: null,
     };
     await Promise.all(
       ids.map((id) =>
@@ -790,45 +913,79 @@ export function StaySetupWizard({
             <fieldset disabled={!canWrite || busy} className="stays-setup-wizard__fields">
               <p className="muted">{t.selectUnits}</p>
               {!context?.units.length ? <p>{t.noUnits}</p> : null}
-              <div className="ops-table-wrap stays-setup-units-table">
-                <table className="ops-table">
+              <div className="data-table-wrap ops-desktop-table stays-setup-units-table">
+                <table className="data-table ops-table">
                   <thead>
                     <tr>
-                      <th scope="col" aria-label={locale === 'ar' ? 'اختيار' : 'Select'} />
+                      <th scope="col">{t.photo}</th>
                       <th scope="col">{t.unitCode}</th>
                       <th scope="col">{t.unitName}</th>
                       <th scope="col">{t.bedrooms}</th>
                       <th scope="col">{t.bathrooms}</th>
                       <th scope="col">{t.stayStatus}</th>
+                      <th scope="col">{t.selectAction}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {context?.units.map((unit) => (
-                      <tr key={unit.id}>
-                        <td>
-                          <label className="checkbox-row stays-setup-units-table__check">
-                            <input
-                              type="checkbox"
-                              checked={selectedUnitIds.includes(unit.id)}
-                              onChange={() => toggleUnit(unit.id)}
+                    {context?.units.map((unit) => {
+                      const status = stayStatusLabel(unit.publishStatus, locale);
+                      return (
+                        <tr key={unit.id}>
+                          <td className="ops-table__thumb-cell">
+                            <PropertyOpsRowKey
+                              propertyId={propertyId || unit.id}
+                              coverImageUrl={
+                                unit.coverImageUrl ?? propertySummary?.coverImageUrl ?? null
+                              }
+                              locale={locale}
+                              name={locale === 'ar' ? unit.nameAr : unit.nameEn}
                             />
-                            <span className="sr-only">
-                              {locale === 'ar' ? unit.nameAr : unit.nameEn}
-                            </span>
-                          </label>
-                        </td>
-                        <td dir="ltr">{unit.code}</td>
-                        <td>{locale === 'ar' ? unit.nameAr : unit.nameEn}</td>
-                        <td>{unit.bedrooms}</td>
-                        <td>{unit.bathrooms}</td>
-                        <td>{unit.publishStatus ?? '—'}</td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td dir="ltr">{unit.code}</td>
+                          <td>{locale === 'ar' ? unit.nameAr : unit.nameEn}</td>
+                          <td>{unit.bedrooms}</td>
+                          <td>{unit.bathrooms}</td>
+                          <td>
+                            {status ? (
+                              <span className={`ops-status ops-status--${status.tone}`}>
+                                {status.label}
+                              </span>
+                            ) : (
+                              '—'
+                            )}
+                          </td>
+                          <td>
+                            <label className="checkbox-row stays-setup-units-table__check">
+                              <input
+                                type="checkbox"
+                                checked={selectedUnitIds.includes(unit.id)}
+                                onChange={() => toggleUnit(unit.id)}
+                              />
+                              <span className="sr-only">
+                                {locale === 'ar' ? unit.nameAr : unit.nameEn}
+                              </span>
+                            </label>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
               <div className="field">
-                <label htmlFor="unit-type-ar">{t.unitTypeName} (AR)</label>
+                <div className="stays-setup-wizard__summary-head">
+                  <label htmlFor="unit-type-ar">{t.unitTypeName} (AR)</label>
+                  <Button
+                    type="button"
+                    variant="quiet"
+                    disabled={translating !== null || !unitTypeNameAr.trim()}
+                    onClick={() =>
+                      void runTranslate(unitTypeNameAr, 'en', setUnitTypeNameEn, 'unit-en')
+                    }
+                  >
+                    {translating === 'unit-en' ? t.translating : t.translateToEn}
+                  </Button>
+                </div>
                 <input
                   id="unit-type-ar"
                   className="input"
@@ -837,7 +994,19 @@ export function StaySetupWizard({
                 />
               </div>
               <div className="field">
-                <label htmlFor="unit-type-en">{t.unitTypeName} (EN)</label>
+                <div className="stays-setup-wizard__summary-head">
+                  <label htmlFor="unit-type-en">{t.unitTypeName} (EN)</label>
+                  <Button
+                    type="button"
+                    variant="quiet"
+                    disabled={translating !== null || !unitTypeNameEn.trim()}
+                    onClick={() =>
+                      void runTranslate(unitTypeNameEn, 'ar', setUnitTypeNameAr, 'unit-ar')
+                    }
+                  >
+                    {translating === 'unit-ar' ? t.translating : t.translateToAr}
+                  </Button>
+                </div>
                 <input
                   id="unit-type-en"
                   className="input"
@@ -957,46 +1126,57 @@ export function StaySetupWizard({
                   <button
                     type="button"
                     className="button button--quiet"
-                    onClick={() => setPoliciesText(DEFAULT_POLICIES_AR.join('\n'))}
+                    onClick={() => {
+                      setPoliciesAr(DEFAULT_POLICIES_AR.join('\n'));
+                      setPoliciesEn(DEFAULT_POLICIES_EN.join('\n'));
+                    }}
                   >
                     {t.useDefaultPolicies}
                   </button>
                 </div>
                 <p className="muted">{t.policiesHint}</p>
-                <textarea
-                  id="policies"
-                  className="input stays-setup-policies"
-                  rows={10}
-                  value={policiesText}
-                  onChange={(event) => setPoliciesText(event.target.value)}
-                />
-              </section>
-
-              <section className="stays-setup-section">
-                <h3>{t.sectionInstructions}</h3>
-                <p className="muted">{t.instructionsHint}</p>
                 <div className="field">
-                  <label htmlFor="instructions-ar">
-                    {t.sectionInstructions} (AR)
-                  </label>
+                  <div className="stays-setup-wizard__summary-head">
+                    <label htmlFor="policies-ar">{t.policiesAr}</label>
+                    <Button
+                      type="button"
+                      variant="quiet"
+                      disabled={translating !== null || !policiesAr.trim()}
+                      onClick={() =>
+                        void runTranslate(policiesAr, 'en', setPoliciesEn, 'policies-en')
+                      }
+                    >
+                      {translating === 'policies-en' ? t.translating : t.translateToEn}
+                    </Button>
+                  </div>
                   <textarea
-                    id="instructions-ar"
-                    className="input"
-                    rows={3}
-                    value={instructionsAr}
-                    onChange={(event) => setInstructionsAr(event.target.value)}
+                    id="policies-ar"
+                    className="input stays-setup-policies"
+                    rows={8}
+                    value={policiesAr}
+                    onChange={(event) => setPoliciesAr(event.target.value)}
                   />
                 </div>
                 <div className="field">
-                  <label htmlFor="instructions-en">
-                    {t.sectionInstructions} (EN)
-                  </label>
+                  <div className="stays-setup-wizard__summary-head">
+                    <label htmlFor="policies-en">{t.policiesEn}</label>
+                    <Button
+                      type="button"
+                      variant="quiet"
+                      disabled={translating !== null || !policiesEn.trim()}
+                      onClick={() =>
+                        void runTranslate(policiesEn, 'ar', setPoliciesAr, 'policies-ar')
+                      }
+                    >
+                      {translating === 'policies-ar' ? t.translating : t.translateToAr}
+                    </Button>
+                  </div>
                   <textarea
-                    id="instructions-en"
-                    className="input"
-                    rows={3}
-                    value={instructionsEn}
-                    onChange={(event) => setInstructionsEn(event.target.value)}
+                    id="policies-en"
+                    className="input stays-setup-policies"
+                    rows={8}
+                    value={policiesEn}
+                    onChange={(event) => setPoliciesEn(event.target.value)}
                     dir="ltr"
                   />
                 </div>
@@ -1076,67 +1256,23 @@ export function StaySetupWizard({
           {current === 'publish' ? (
             <div className="stays-setup-review">
               <p className="muted">{t.review}</p>
-              <p className="muted stays-setup-hint">{t.usesPropertyDescription}</p>
-              <ul>
-                {reviewLines.map((line) => (
-                  <li key={line}>{line}</li>
-                ))}
-              </ul>
-
-              {policyPreview.length ? (
-                <section className="stays-setup-section">
-                  <h3>{t.sectionPolicies}</h3>
-                  <ul className="stays-setup-policy-preview">
-                    {policyPreview.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                </section>
-              ) : null}
+              <p className="muted stays-setup-hint">{t.previewHint}</p>
+              <details className="stays-setup-review__summary">
+                <summary>{locale === 'ar' ? 'ملخص سريع' : 'Quick summary'}</summary>
+                <ul>
+                  {reviewLines.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ul>
+              </details>
 
               <section className="stays-setup-preview" aria-label={t.previewTitle}>
                 <h3>{t.previewTitle}</h3>
-                <p className="muted">{t.previewHint}</p>
-                <article className="listing-card stay-card stays-setup-preview__card">
-                  <div className="listing-card__image">
-                    {previewCover ? (
-                      <Image
-                        src={previewCover}
-                        alt={locale === 'ar' ? listingTitleAr : listingTitleEn}
-                        fill
-                        sizes="320px"
-                      />
-                    ) : (
-                      <div className="listing-card__placeholder" aria-hidden="true">
-                        <BrandMark tone="onDark" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="listing-card__body">
-                    <h4>
-                      {locale === 'ar'
-                        ? listingTitleAr || context?.propertyNameAr
-                        : listingTitleEn || context?.propertyNameEn}
-                    </h4>
-                    {propertySummary?.location ? (
-                      <p className="listing-card__location">
-                        {propertySummary.location.split(' · ').pop()}
-                      </p>
-                    ) : null}
-                    <div className="listing-card__facts">
-                      <span>
-                        {overnightMaxGuests} {locale === 'ar' ? 'ضيوف' : 'guests'}
-                      </span>
-                      {previewPriceLabel ? (
-                        <span>
-                          {locale === 'ar' ? 'ابتداءً من' : 'From'}{' '}
-                          <strong dir="ltr">{previewPriceLabel}</strong>{' '}
-                          {locale === 'ar' ? 'لليلة' : 'per night'}
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-                </article>
+                {previewDetail ? (
+                  <StayPublicShowcase detail={previewDetail} locale={locale} preview />
+                ) : (
+                  <p className="muted">{t.loadError}</p>
+                )}
                 {slug.trim() ? (
                   <p className="stays-setup-preview__slug" dir="ltr">
                     /stays/{slug.trim()}

@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-09-02  
-**Product version:** 0.4.33  
-**Active focus:** Stay setup — period times, policies, no duplicate description  
+**Product version:** 0.4.34  
+**Active focus:** Stay setup — portfolio-style units, bilingual policies, public preview  
+**Release 0.4.34:** [`RELEASE-0.4.34-AR.md`](./RELEASE-0.4.34-AR.md)  
 **Release 0.4.33:** [`RELEASE-0.4.33-AR.md`](./RELEASE-0.4.33-AR.md)  
 **Release 0.4.32:** [`RELEASE-0.4.32-AR.md`](./RELEASE-0.4.32-AR.md)  
 **Release 0.4.31:** [`RELEASE-0.4.31-AR.md`](./RELEASE-0.4.31-AR.md)  
@@ -11,6 +12,7 @@
 **Release 0.4.28:** public stay booking via Vercel Neon (no Nest cold-start `Failed to fetch`)  
 **Release 0.4.27:** [`RELEASE-0.4.27-AR.md`](./RELEASE-0.4.27-AR.md)  
 **Release 0.4.26:** Property 360 stay pages + occupancy calendar  
+**Handoff (2026-09-02 preview):** [`../handoffs/2026-09-02-stay-setup-preview/`](../handoffs/2026-09-02-stay-setup-preview/)  
 **Handoff (2026-09-02 setup):** [`../handoffs/2026-09-02-stay-setup-policies/`](../handoffs/2026-09-02-stay-setup-policies/)  
 **Handoff (2026-09-02):** [`../handoffs/2026-09-02-stays-calendar-booking-ux/`](../handoffs/2026-09-02-stays-calendar-booking-ux/)  
 **Handoff (2026-09-01):** [`HANDOFF-2026-09-01-STAYS-SETUP-AR.md`](./HANDOFF-2026-09-01-STAYS-SETUP-AR.md) · [full chat archive](../handoffs/2026-09-01-stays-setup-neon-write/)  

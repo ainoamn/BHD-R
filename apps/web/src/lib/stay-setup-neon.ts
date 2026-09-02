@@ -104,6 +104,40 @@ async function loadPropertyCover(
   return mediaAssetId ? `/api/owner/media/${mediaAssetId}` : null;
 }
 
+async function loadUnitCovers(
+  transaction: Parameters<Parameters<Database['transaction']>[0]>[0],
+  organizationId: string,
+  unitIds: string[],
+): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (!unitIds.length) return map;
+  const coverRaw = await transaction.execute(sql`
+    select distinct on (um.unit_id)
+      um.unit_id as "unitId",
+      um.media_asset_id as "mediaAssetId"
+    from unit_media um
+    inner join media_assets ma on ma.id = um.media_asset_id
+    where um.organization_id = ${organizationId}
+      and um.unit_id in (${sql.join(
+        unitIds.map((id) => sql`${id}::uuid`),
+        sql`, `,
+      )})
+      and ma.processing_status = 'ready'
+      and ma.scan_status = 'clean'
+      and ma.mime_type like 'image/%'
+    order by um.unit_id, um.position asc
+  `);
+  const rows = (
+    Array.isArray(coverRaw) ? coverRaw : ((coverRaw as { rows?: unknown[] }).rows ?? [])
+  ) as Array<{ unitId?: string; mediaAssetId?: string }>;
+  for (const row of rows) {
+    if (row.unitId && row.mediaAssetId) {
+      map.set(row.unitId, `/api/owner/media/${row.mediaAssetId}`);
+    }
+  }
+  return map;
+}
+
 export async function loadStaySetupContextOnNeon(
   claims: SessionClaims,
   propertyId: string,
@@ -246,6 +280,11 @@ export async function loadStaySetupContextOnNeon(
       );
 
     const coverImageUrl = await loadPropertyCover(transaction, organizationId, propertyId);
+    const unitCoverById = await loadUnitCovers(
+      transaction,
+      organizationId,
+      unitRows.map((unit) => unit.id),
+    );
 
     return {
       context: {
@@ -264,6 +303,7 @@ export async function loadStaySetupContextOnNeon(
             nameEn: unit.nameEn,
             bedrooms: unit.bedrooms,
             bathrooms: unit.bathrooms,
+            coverImageUrl: unitCoverById.get(unit.id) ?? coverImageUrl,
             profileId: profile?.id ?? null,
             publishStatus:
               (profile?.publishStatus as StaySetupContext['units'][number]['publishStatus']) ??

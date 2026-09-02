@@ -8,9 +8,12 @@ import type { StayPublicDetail } from '@bhd-r/contracts';
 export function StayPublicShowcase({
   detail,
   locale,
+  preview = false,
 }: {
   detail: StayPublicDetail;
   locale: string;
+  /** Owner setup review — hide live navigation chrome. */
+  preview?: boolean;
 }) {
   const ar = locale === 'ar';
   const title = localizedName(locale, detail.titleAr, detail.titleEn);
@@ -38,27 +41,49 @@ export function StayPublicShowcase({
       ? formatMoney(detail.nightlyMinor, detail.currency, locale)
       : null;
 
+  const policies = (() => {
+    const splitLines = (text: string | null | undefined) =>
+      text
+        ?.split(/\r?\n/)
+        .map((line) => line.replace(/^[\s•\-–—*]+/, '').trim())
+        .filter(Boolean) ?? [];
+    if (ar) {
+      if (detail.policiesJson?.length) return detail.policiesJson;
+      return splitLines(detail.policiesAr);
+    }
+    const enLines = splitLines(detail.policiesEn);
+    if (enLines.length) return enLines;
+    if (detail.policiesJson?.length) return detail.policiesJson;
+    return splitLines(detail.policiesAr);
+  })();
+
   return (
-    <div className="stay-showcase">
-      <nav className="stay-showcase__crumb muted" aria-label={ar ? 'مسار التنقل' : 'Breadcrumb'}>
-        <Link href="/stays">{ar ? 'الإقامات اليومية' : 'Daily stays'}</Link>
-        {propertyName ? (
-          <>
-            <span aria-hidden="true"> › </span>
-            {detail.propertyId ? (
-              <Link href={`/properties/${detail.propertyId}`}>{propertyName}</Link>
-            ) : (
-              <span>{propertyName}</span>
-            )}
-          </>
-        ) : null}
-        {locationLine ? (
-          <>
-            <span aria-hidden="true"> › </span>
-            <span>{locationLine}</span>
-          </>
-        ) : null}
-      </nav>
+    <div className={`stay-showcase${preview ? ' stay-showcase--preview' : ''}`}>
+      {preview ? (
+        <p className="stay-showcase__preview-badge muted">
+          {ar ? 'معاينة كما يراها الجمهور' : 'Guest-facing preview'}
+        </p>
+      ) : (
+        <nav className="stay-showcase__crumb muted" aria-label={ar ? 'مسار التنقل' : 'Breadcrumb'}>
+          <Link href="/stays">{ar ? 'الإقامات اليومية' : 'Daily stays'}</Link>
+          {propertyName ? (
+            <>
+              <span aria-hidden="true"> › </span>
+              {detail.propertyId ? (
+                <Link href={`/properties/${detail.propertyId}`}>{propertyName}</Link>
+              ) : (
+                <span>{propertyName}</span>
+              )}
+            </>
+          ) : null}
+          {locationLine ? (
+            <>
+              <span aria-hidden="true"> › </span>
+              <span>{locationLine}</span>
+            </>
+          ) : null}
+        </nav>
+      )}
 
       <div className="stay-showcase__hero">
         <div className="stay-showcase__gallery" aria-label={ar ? 'معرض الصور' : 'Photo gallery'}>
@@ -160,7 +185,7 @@ export function StayPublicShowcase({
               </div>
             ) : null}
           </dl>
-          {detail.unitId ? (
+          {detail.unitId && !preview ? (
             <p className="stay-showcase__unit-link">
               <Link className="text-link" href={`/units/${detail.unitId}`}>
                 {ar ? 'عرض تفاصيل الوحدة الكاملة' : 'View full unit listing'}
@@ -177,16 +202,7 @@ export function StayPublicShowcase({
         </section>
       ) : null}
 
-      {(() => {
-        const policies =
-          detail.policiesJson?.length
-            ? detail.policiesJson
-            : (ar ? detail.policiesAr : detail.policiesEn)
-                ?.split(/\r?\n/)
-                .map((line) => line.trim())
-                .filter(Boolean) ?? [];
-        if (!policies.length) return null;
-        return (
+      {policies.length ? (
           <section className="stay-showcase__policies card">
             <h2>{ar ? 'السياسات' : 'Policies'}</h2>
             <ul>
@@ -195,23 +211,24 @@ export function StayPublicShowcase({
               ))}
             </ul>
           </section>
-        );
-      })()}
+      ) : null}
 
-      {(() => {
-        const instructions = localizedName(
-          locale,
-          detail.instructionsAr ?? '',
-          detail.instructionsEn ?? '',
-        );
-        if (!instructions) return null;
-        return (
-          <section className="stay-showcase__instructions card">
-            <h2>{ar ? 'التعليمات' : 'Instructions'}</h2>
-            <p>{instructions}</p>
-          </section>
-        );
-      })()}
+      {!preview
+        ? (() => {
+            const instructions = localizedName(
+              locale,
+              detail.instructionsAr ?? '',
+              detail.instructionsEn ?? '',
+            );
+            if (!instructions) return null;
+            return (
+              <section className="stay-showcase__instructions card">
+                <h2>{ar ? 'التعليمات' : 'Instructions'}</h2>
+                <p>{instructions}</p>
+              </section>
+            );
+          })()
+        : null}
     </div>
   );
 }

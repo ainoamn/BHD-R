@@ -8657,14 +8657,31 @@ button.ops-row-key {
   padding-top: 1.25rem;
   border-top: 1px solid color-mix(in srgb, var(--border, #d6d3d1) 80%, transparent);
 }
-.stays-setup-preview__card {
-  max-width: 22rem;
+.stays-setup-preview .stay-showcase {
   margin-top: 0.85rem;
+}
+.stays-setup-review__summary {
+  margin: 0.75rem 0 1.25rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-subtle, #e5e7eb);
+  border-radius: var(--radius-md, 0.75rem);
+  background: color-mix(in srgb, var(--surface-muted, #f7f8f7) 90%, white);
+}
+.stays-setup-review__summary summary {
+  cursor: pointer;
+  font-weight: 700;
 }
 .stays-setup-preview__slug {
   margin: 0.65rem 0 0;
   font-size: 0.88rem;
   color: var(--text-muted, #57534e);
+}
+.stay-showcase__preview-badge {
+  margin: 0 0 0.75rem;
+  font-weight: 700;
+}
+.stays-setup-units-table .ops-table__thumb-cell {
+  width: 4.5rem;
 }
 @media (max-width: 900px) {
   .stay-showcase__hero {

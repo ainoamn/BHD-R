@@ -16,6 +16,7 @@ export const staySetupUnitRowSchema = z.object({
   nameEn: z.string(),
   bedrooms: z.number().int(),
   bathrooms: z.number().int(),
+  coverImageUrl: z.string().nullable().optional(),
   profileId: uuidSchema.nullable(),
   publishStatus: stayPublishStatusSchema.nullable(),
 });

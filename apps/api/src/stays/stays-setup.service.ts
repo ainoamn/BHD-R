@@ -149,6 +149,7 @@ export class StaysSetupService {
             nameEn: unit.nameEn,
             bedrooms: unit.bedrooms,
             bathrooms: unit.bathrooms,
+            coverImageUrl: null,
             profileId: profile?.id ?? null,
             publishStatus:
               (profile?.publishStatus as StaySetupContext['units'][number]['publishStatus']) ??

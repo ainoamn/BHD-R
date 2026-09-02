@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.34 — 2026-09-02
+
+- Stay setup units table matches property portfolio layout (photo, status pill, select).
+- Unit type name and policies: dual AR/EN fields with real `/api/translate` buttons.
+- Remove instructions from setup (guest reviews later); review step uses full public showcase preview.
+
 ## 0.4.33 — 2026-09-02
 
 - Stay setup wizard: drop description/content step; reuse property description on publish.
