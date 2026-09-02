@@ -63,26 +63,38 @@ export default async function SandboxPaymentPage({
 
           {session ? (
             <div className="pay-gateway-shell__summary">
-              <div>
-                <p className="muted">{ar ? 'المبلغ المستحق' : 'Amount due'}</p>
-                <p className="pay-gateway-shell__amount" dir="ltr">
-                  {formatMoney(session.amountMinor, session.currency, locale)}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                className="pay-gateway-shell__summary-bg"
+                src="/brand/oman-landmark-salalah.jpg"
+                alt=""
+              />
+              <div className="pay-gateway-shell__summary-scrim" />
+              <div className="pay-gateway-shell__summary-body">
+                <div>
+                  <p className="muted">{ar ? 'المبلغ المستحق' : 'Amount due'}</p>
+                  <p className="pay-gateway-shell__amount" dir="ltr">
+                    {formatMoney(session.amountMinor, session.currency, locale)}
+                  </p>
+                </div>
+                <dl>
+                  <div>
+                    <dt>{ar ? 'المرجع' : 'Reference'}</dt>
+                    <dd dir="ltr">{session.referenceCode}</dd>
+                  </div>
+                  <div>
+                    <dt>{ar ? 'الوصول' : 'Check-in'}</dt>
+                    <dd dir="ltr">{session.checkInOn}</dd>
+                  </div>
+                  <div>
+                    <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
+                    <dd dir="ltr">{session.checkOutOn}</dd>
+                  </div>
+                </dl>
+                <p className="pay-gateway-shell__summary-place">
+                  {ar ? 'جبال صلالة · ظفار' : 'Salalah mountains · Dhofar'}
                 </p>
               </div>
-              <dl>
-                <div>
-                  <dt>{ar ? 'المرجع' : 'Reference'}</dt>
-                  <dd dir="ltr">{session.referenceCode}</dd>
-                </div>
-                <div>
-                  <dt>{ar ? 'الوصول' : 'Check-in'}</dt>
-                  <dd dir="ltr">{session.checkInOn}</dd>
-                </div>
-                <div>
-                  <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
-                  <dd dir="ltr">{session.checkOutOn}</dd>
-                </div>
-              </dl>
             </div>
           ) : (
             <p className="pay-gateway-shell__hint">

@@ -1209,42 +1209,80 @@ body:has(.pay-gateway-shell) #main-content {
   color: #fff;
 }
 .pay-gateway-shell__summary {
+  position: relative;
   display: grid;
-  gap: 0.85rem;
-  margin: 0.15rem 0 0;
-  padding: 0.95rem 1rem;
-  border-radius: 0.85rem;
-  background: rgba(0, 0, 0, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  width: min(100%, 18.5rem);
+  margin: 0.35rem auto 0;
+  aspect-ratio: 1 / 1;
+  border-radius: 1rem;
+  overflow: hidden;
   color: #f5fbf8;
-  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.22);
+  isolation: isolate;
+}
+.pay-gateway-shell__summary-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  z-index: 0;
+}
+.pay-gateway-shell__summary-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(180deg, rgba(6, 28, 24, 0.35) 0%, rgba(6, 28, 24, 0.55) 42%, rgba(5, 20, 18, 0.88) 100%);
+  pointer-events: none;
+}
+.pay-gateway-shell__summary-body {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 0.75rem;
+  align-content: space-between;
+  height: 100%;
+  padding: 1rem;
 }
 .pay-gateway-shell__summary .muted {
   margin: 0;
-  color: rgba(245, 251, 248, 0.78);
+  color: rgba(245, 251, 248, 0.86);
   font-size: 0.78rem;
 }
 .pay-gateway-shell__amount {
-  margin: 0.15rem 0 0;
-  font-size: clamp(1.55rem, 5vw, 2.1rem);
+  margin: 0.2rem 0 0;
+  font-size: clamp(1.55rem, 5vw, 2rem);
   font-weight: 800;
   letter-spacing: -0.02em;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 .pay-gateway-shell__summary dl {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.5rem;
+  grid-template-columns: 1fr;
+  gap: 0.55rem;
   margin: 0;
+  align-content: end;
 }
 .pay-gateway-shell__summary dt {
   font-size: 0.68rem;
-  opacity: 0.75;
+  opacity: 0.8;
 }
 .pay-gateway-shell__summary dd {
   margin: 0.1rem 0 0;
-  font-size: 0.8rem;
+  font-size: 0.86rem;
   font-weight: 700;
   overflow-wrap: anywhere;
+}
+.pay-gateway-shell__summary-place {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  opacity: 0.88;
+  letter-spacing: 0.02em;
 }
 .pay-gateway-shell__hint {
   margin: 0.35rem 0 0;
