@@ -630,7 +630,7 @@ export function PropertyDetailManager({
                 locale={locale}
                 mode="public"
                 slug={stayBooking.slug}
-                unitId={stayBooking.unitId}
+                {...(stayBooking.unitId ? { unitId: stayBooking.unitId } : {})}
                 size="large"
                 monthCount={2}
                 selectedCheckIn={stayCheckInOn}

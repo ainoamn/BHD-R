@@ -87,7 +87,7 @@ export class StaysBookingService {
   }
 
   async getAvailability(slug: string, query: StayAvailabilityQuery) {
-    const ctx = await this.resolveListingContext(slug);
+    const ctx = await this.resolveListingContext(slug, query.unitId);
     this.assertOrgEnabled(ctx.organizationId);
     const guests = query.adults + query.children;
     if (guests > ctx.maxGuests) {
@@ -110,7 +110,7 @@ export class StaysBookingService {
   }
 
   async getInventoryCalendar(slug: string, query: StayInventoryCalendarQuery) {
-    const ctx = await this.resolveListingContext(slug);
+    const ctx = await this.resolveListingContext(slug, query.unitId);
     this.assertOrgEnabled(ctx.organizationId);
     return this.inventory.getPublicInventoryCalendar(
       ctx.organizationId,
@@ -122,7 +122,7 @@ export class StaysBookingService {
   }
 
   async createQuote(slug: string, input: CreateStayQuoteInput) {
-    const ctx = await this.resolveListingContext(slug);
+    const ctx = await this.resolveListingContext(slug, input.unitId);
     this.assertOrgEnabled(ctx.organizationId);
     const guests = input.adults + input.children;
     if (guests > ctx.maxGuests) {
@@ -930,7 +930,10 @@ export class StaysBookingService {
     };
   }
 
-  private async resolveListingContext(slug: string): Promise<ListingContext> {
+  private async resolveListingContext(
+    slug: string,
+    unitId?: string | null,
+  ): Promise<ListingContext> {
     const rows = await this.database.asPublic(async (transaction) => {
       const result = await transaction.execute(sql`
         SELECT
@@ -978,10 +981,15 @@ export class StaysBookingService {
          AND sp.organization_id = spl.organization_id
          AND sp.enabled = true
          AND sp.publish_status = 'published'
+        INNER JOIN units u ON u.id = sp.unit_id AND u.organization_id = spl.organization_id
         WHERE spl.slug = ${slug}
           AND spl.enabled = true
           AND spl.published_at IS NOT NULL
-        ORDER BY sp.updated_at DESC
+          ${unitId ? sql`AND u.id = ${unitId}::uuid` : sql``}
+        ORDER BY
+          CASE WHEN COALESCE(u.bedrooms, 0) > 0 THEN 0 ELSE 1 END,
+          u.bedrooms DESC NULLS LAST,
+          sp.updated_at DESC
         LIMIT 1
       `);
       return Array.isArray(result) ? result : ((result as { rows?: unknown[] }).rows ?? []);

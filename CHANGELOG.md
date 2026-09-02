@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.44 — 2026-09-02
+
+- Fix Vercel deploy blockers (`exactOptionalPropertyTypes` on stay unitId props).
+- Nest public stay quote/availability/calendar also honor `unitId`.
+- Quote API accepts `unitId` from query string as well as body.
+
 ## 0.4.43 — 2026-09-02
 
 - Pin public stay calendar/availability/quote/checkout to `unitId` when multiple units share a listing slug.

@@ -114,7 +114,7 @@ export default async function StayBookPage({
             locale={locale}
             slug={slug}
             title={title}
-            unitId={detail.unitId ?? unitId}
+            {...((detail.unitId ?? unitId) ? { unitId: (detail.unitId ?? unitId)! } : {})}
             defaults={{
               ...(pickQuery(query, 'checkInOn')
                 ? { checkInOn: pickQuery(query, 'checkInOn')! }

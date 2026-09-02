@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-09-02  
-**Product version:** 0.4.43  
-**Active focus:** Multi-unit stay booking unitId pin + sandbox-complete + setup unpublished helpers  
+**Product version:** 0.4.44  
+**Active focus:** Unblock Vercel deploy for unitId booking + Nest parity  
+**Release 0.4.44:** [`RELEASE-0.4.44-AR.md`](./RELEASE-0.4.44-AR.md)  
 **Release 0.4.43:** [`RELEASE-0.4.43-AR.md`](./RELEASE-0.4.43-AR.md)  
 **Handoff (2026-09-02 continue 0.4.43):** [`../handoffs/2026-09-02-continue-0.4.43/`](../handoffs/2026-09-02-continue-0.4.43/)  
 **Release 0.4.42:** [`RELEASE-0.4.42-AR.md`](./RELEASE-0.4.42-AR.md)  
