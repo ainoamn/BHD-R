@@ -1,8 +1,13 @@
 # Implementation status
 
-**Updated:** 2026-09-01  
-**Product version:** 0.4.22  
-**Active focus:** Stays setup Neon write path on Vercel (no Render dependency for save)  
+**Updated:** 2026-09-02  
+**Product version:** 0.4.29  
+**Active focus:** Stays calendar status labels + unified post-booking checkout UX  
+**Release 0.4.29:** [`RELEASE-0.4.29-AR.md`](./RELEASE-0.4.29-AR.md)  
+**Release 0.4.28:** public stay booking via Vercel Neon (no Nest cold-start `Failed to fetch`)  
+**Release 0.4.27:** [`RELEASE-0.4.27-AR.md`](./RELEASE-0.4.27-AR.md)  
+**Release 0.4.26:** Property 360 stay pages + occupancy calendar  
+**Handoff (2026-09-02):** [`../handoffs/2026-09-02-stays-calendar-booking-ux/`](../handoffs/2026-09-02-stays-calendar-booking-ux/)  
 **Handoff (2026-09-01):** [`HANDOFF-2026-09-01-STAYS-SETUP-AR.md`](./HANDOFF-2026-09-01-STAYS-SETUP-AR.md) · [full chat archive](../handoffs/2026-09-01-stays-setup-neon-write/)  
 **Release 0.4.22:** [`RELEASE-0.4.22-AR.md`](./RELEASE-0.4.22-AR.md)  
 **Release 0.4.21:** setup wizard property data load fix  

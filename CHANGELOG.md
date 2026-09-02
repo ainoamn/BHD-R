@@ -2,6 +2,15 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.29 — 2026-09-02
+
+- Stay calendar: day cells show شاغر / محجوز / مؤقت / مغلق with clearer colors and a colored legend.
+- Stay checkout payment step and confirmation page match the same summary-panel style as the review step.
+
+## 0.4.28 — 2026-09-02
+
+- Fix public stay `Failed to fetch`: calendar, availability, quotes, holds, and bookings route through Vercel Neon (`/api/public/stays/*`) instead of Render Nest cold starts; Arabic network errors instead of raw browser text.
+
 ## 0.4.23 — 2026-09-01
 
 - Fix stays setup pricing step: serialize bigint rate fields in setup API JSON (was 500 «تعذر تنفيذ إجراء الإعداد»).

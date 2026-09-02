@@ -46,12 +46,11 @@ export default async function StayBookingConfirmedPage({
 
   return (
     <div className="container section stays-booking-confirmed">
-      <div className="stays-booking-confirmed__card card">
-        <span className="stays-booking-confirmed__icon" aria-hidden="true">
-          ✓
-        </span>
-        <h1>{ar ? 'تم استلام حجزك' : 'Your booking is received'}</h1>
-        <p className="muted">
+      <section className="stays-checkout stays-checkout--wizard stays-booking-confirmed__shell">
+        <h1 id="stays-booking-confirmed-title">
+          {ar ? 'تم استلام حجزك' : 'Your booking is received'}
+        </h1>
+        <p className="muted stays-checkout__hint">
           {booking.status === 'confirmed' || booking.status === 'paid'
             ? ar
               ? 'تم تأكيد الحجز والدفع.'
@@ -61,54 +60,66 @@ export default async function StayBookingConfirmedPage({
               : 'Booking is registered. Complete payment to confirm your stay.'}
         </p>
 
-        <dl className="stays-booking-confirmed__meta">
-          <div>
-            <dt>{ar ? 'مرجع الحجز' : 'Booking reference'}</dt>
-            <dd dir="ltr">
-              <strong>{booking.referenceCode}</strong>
-            </dd>
-          </div>
-          {booking.guestDisplayName ? (
+        <div className="stays-checkout__panel">
+          <dl className="stays-checkout__summary">
             <div>
-              <dt>{ar ? 'الضيف' : 'Guest'}</dt>
-              <dd>{booking.guestDisplayName}</dd>
-            </div>
-          ) : null}
-          {booking.checkInOn ? (
-            <div>
-              <dt>{ar ? 'الوصول' : 'Check-in'}</dt>
-              <dd dir="ltr">{booking.checkInOn}</dd>
-            </div>
-          ) : null}
-          {booking.checkOutOn ? (
-            <div>
-              <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
-              <dd dir="ltr">{booking.checkOutOn}</dd>
-            </div>
-          ) : null}
-          {booking.totalMinor && booking.currency ? (
-            <div>
-              <dt>{ar ? 'المجموع' : 'Total'}</dt>
+              <dt>{ar ? 'مرجع الحجز' : 'Booking reference'}</dt>
               <dd dir="ltr">
-                <strong>{formatMoney(booking.totalMinor, booking.currency, locale)}</strong>
+                <strong>{booking.referenceCode}</strong>
               </dd>
             </div>
-          ) : null}
-          <div>
-            <dt>{ar ? 'الحالة' : 'Status'}</dt>
-            <dd dir="ltr">{booking.status}</dd>
-          </div>
-        </dl>
+            {booking.guestDisplayName ? (
+              <div>
+                <dt>{ar ? 'الضيف' : 'Guest'}</dt>
+                <dd>{booking.guestDisplayName}</dd>
+              </div>
+            ) : null}
+            {booking.checkInOn ? (
+              <div>
+                <dt>{ar ? 'الوصول' : 'Check-in'}</dt>
+                <dd dir="ltr">{booking.checkInOn}</dd>
+              </div>
+            ) : null}
+            {booking.checkOutOn ? (
+              <div>
+                <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
+                <dd dir="ltr">{booking.checkOutOn}</dd>
+              </div>
+            ) : null}
+            {booking.totalMinor && booking.currency ? (
+              <div>
+                <dt>{ar ? 'المجموع' : 'Total'}</dt>
+                <dd dir="ltr">
+                  <strong>{formatMoney(booking.totalMinor, booking.currency, locale)}</strong>
+                </dd>
+              </div>
+            ) : null}
+            <div>
+              <dt>{ar ? 'الحالة' : 'Status'}</dt>
+              <dd>
+                {booking.status === 'payment_pending' || booking.status === 'request_pending'
+                  ? ar
+                    ? 'بانتظار الدفع'
+                    : 'Awaiting payment'
+                  : booking.status === 'confirmed' || booking.status === 'paid'
+                    ? ar
+                      ? 'مؤكّد'
+                      : 'Confirmed'
+                    : booking.status}
+              </dd>
+            </div>
+          </dl>
 
-        <div className="stays-booking-confirmed__actions">
-          <Link className="button button--primary" href="/stays">
-            {ar ? 'ابحث عن إقامة أخرى' : 'Search another stay'}
-          </Link>
-          <Link className="button button--quiet" href={`/guest/stays?ref=${encodeURIComponent(ref)}`}>
-            {ar ? 'متابعة رحلتي' : 'Track my trip'}
-          </Link>
+          <div className="stays-checkout__nav">
+            <Link className="button button--quiet" href={`/guest/stays?ref=${encodeURIComponent(ref)}`}>
+              {ar ? 'متابعة رحلتي' : 'Track my trip'}
+            </Link>
+            <Link className="button button--primary" href="/stays">
+              {ar ? 'ابحث عن إقامة أخرى' : 'Search another stay'}
+            </Link>
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

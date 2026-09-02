@@ -442,21 +442,24 @@ export function StayCheckout({
             </div>
           </dl>
           {quote ? (
-            <div className="stays-checkout__quote card">
-              <p>
-                {quote.nights} {ar ? 'ليلة' : 'nights'}
-              </p>
-              <p>
-                {ar ? 'المجموع' : 'Total'}:{' '}
-                <strong dir="ltr">
-                  {formatMoney(quote.totalMinor, quote.currency, locale)}
-                </strong>
-              </p>
-              <p className="muted">
-                {ar ? 'شامل الرسوم والضريبة حسب العرض' : 'Includes fees and tax per quote'}
-              </p>
-            </div>
+            <dl className="stays-checkout__summary">
+              <div>
+                <dt>{ar ? 'الليالي' : 'Nights'}</dt>
+                <dd>
+                  {quote.nights} {ar ? 'ليلة' : 'nights'}
+                </dd>
+              </div>
+              <div>
+                <dt>{ar ? 'المجموع' : 'Total'}</dt>
+                <dd dir="ltr">
+                  <strong>{formatMoney(quote.totalMinor, quote.currency, locale)}</strong>
+                </dd>
+              </div>
+            </dl>
           ) : null}
+          <p className="muted stays-checkout__hint">
+            {ar ? 'شامل الرسوم والضريبة حسب العرض' : 'Includes fees and tax per quote'}
+          </p>
           <div className="stays-checkout__nav">
             <button type="button" className="button button--quiet" onClick={() => setStep('guest')}>
               {ar ? 'رجوع' : 'Back'}
@@ -480,41 +483,65 @@ export function StayCheckout({
       ) : null}
 
       {step === 'payment' && booking ? (
-        <div className="stays-checkout__panel stays-checkout__panel--payment">
-          <h3>{ar ? 'الدفع' : 'Payment'}</h3>
-          <div className="notice notice--success" role="status">
-            <p>
-              {ar ? 'تم إنشاء الحجز' : 'Booking created'}:{' '}
-              <strong dir="ltr">{booking.referenceCode}</strong>
-            </p>
-            <p>
-              {ar ? 'المبلغ' : 'Amount'}:{' '}
-              <strong dir="ltr">
-                {formatMoney(booking.amountMinor, booking.currency, locale)}
-              </strong>
-            </p>
-          </div>
-          <p className="muted">
+        <div className="stays-checkout__panel">
+          <h3>{ar ? 'تم إنشاء الحجز — أكمل الدفع' : 'Booking created — complete payment'}</h3>
+          <dl className="stays-checkout__summary">
+            <div>
+              <dt>{ar ? 'مرجع الحجز' : 'Reference'}</dt>
+              <dd dir="ltr">
+                <strong>{booking.referenceCode}</strong>
+              </dd>
+            </div>
+            <div>
+              <dt>{ar ? 'الضيف' : 'Guest'}</dt>
+              <dd>{guestName}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'الوصول' : 'Check-in'}</dt>
+              <dd dir="ltr">{checkInOn}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
+              <dd dir="ltr">{checkOutOn}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'المبلغ' : 'Amount'}</dt>
+              <dd dir="ltr">
+                <strong>{formatMoney(booking.amountMinor, booking.currency, locale)}</strong>
+              </dd>
+            </div>
+            <div>
+              <dt>{ar ? 'الحالة' : 'Status'}</dt>
+              <dd>
+                {booking.status === 'payment_pending' || booking.status === 'request_pending'
+                  ? ar
+                    ? 'بانتظار الدفع'
+                    : 'Awaiting payment'
+                  : booking.status}
+              </dd>
+            </div>
+          </dl>
+          <p className="muted stays-checkout__hint">
             {ar
               ? 'أكمل الدفع لتأكيد الحجز. ستصلك صفحة التأكيد بعد الدفع.'
               : 'Complete payment to confirm. You will land on a confirmation page after payment.'}
           </p>
-          <button
-            type="button"
-            className="button button--primary"
-            disabled={payBusy}
-            onClick={() => payNow()}
-          >
-            {payBusy ? (ar ? 'جارٍ التحويل…' : 'Redirecting…') : ar ? 'ادفع الآن' : 'Pay now'}
-          </button>
-          <p>
+          <div className="stays-checkout__nav">
             <Link
-              className="text-link"
+              className="button button--quiet"
               href={`/stays/booking/confirmed?ref=${encodeURIComponent(booking.referenceCode)}`}
             >
-              {ar ? 'تخطّي الدفع الآن (عرض التأكيد)' : 'Skip payment for now (view confirmation)'}
+              {ar ? 'عرض التأكيد' : 'View confirmation'}
             </Link>
-          </p>
+            <button
+              type="button"
+              className="button button--primary"
+              disabled={payBusy}
+              onClick={() => payNow()}
+            >
+              {payBusy ? (ar ? 'جارٍ التحويل…' : 'Redirecting…') : ar ? 'ادفع الآن' : 'Pay now'}
+            </button>
+          </div>
         </div>
       ) : null}
 

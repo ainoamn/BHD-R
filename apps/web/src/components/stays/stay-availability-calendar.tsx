@@ -86,12 +86,30 @@ function statusLabel(status: StayInventoryDay['availabilityStatus'], ar: boolean
     booked: ['محجوز', 'Booked'],
     hold: ['محجوز مؤقتاً', 'On hold'],
     blocked: ['مغلق', 'Blocked'],
-    maintenance: ['صيانة', 'Maintenance'],
-    lease: ['إيجار طويل', 'Long-term lease'],
+    maintenance: ['مغلق', 'Blocked'],
+    lease: ['مغلق', 'Blocked'],
     unavailable: ['غير متاح', 'Unavailable'],
   };
   const pair = labels[status];
   return ar ? pair[0] : pair[1];
+}
+
+/** Compact mark shown inside each day cell. */
+function statusMark(status: StayInventoryDay['availabilityStatus'], ar: boolean): string | null {
+  switch (status) {
+    case 'available':
+      return ar ? 'شاغر' : 'Free';
+    case 'booked':
+      return ar ? 'محجوز' : 'Booked';
+    case 'hold':
+      return ar ? 'مؤقت' : 'Hold';
+    case 'blocked':
+    case 'maintenance':
+    case 'lease':
+      return ar ? 'مغلق' : 'Closed';
+    default:
+      return null;
+  }
 }
 
 function rangeFullyAvailable(
@@ -329,6 +347,9 @@ export function StayAvailabilityCalendar({
                     titleParts.push(formatMoney(day.effectiveRateMinor, data.currency, locale));
                   }
 
+                  const mark = statusMark(status, ar);
+                  const selected = isInSelectedRange(cell.stayDate);
+
                   return (
                     <button
                       key={cell.key}
@@ -336,7 +357,7 @@ export function StayAvailabilityCalendar({
                       className={[
                         'stays-calendar__day',
                         statusClass(status),
-                        isInSelectedRange(cell.stayDate) ? 'is-in-range' : '',
+                        selected ? 'is-in-range' : '',
                         isRangeStart(cell.stayDate) ? 'is-range-start' : '',
                         isRangeEnd(cell.stayDate) ? 'is-range-end' : '',
                         cell.stayDate < todayIso() ? 'is-past' : '',
@@ -351,6 +372,9 @@ export function StayAvailabilityCalendar({
                       <span className="stays-calendar__day-num">
                         {Number(cell.stayDate.slice(8, 10))}
                       </span>
+                      {mark && !selected ? (
+                        <span className="stays-calendar__day-status">{mark}</span>
+                      ) : null}
                       {mode === 'ops' && lock?.bookingReference ? (
                         <span className="stays-calendar__day-ref" dir="ltr">
                           {lock.bookingReference}
@@ -365,11 +389,11 @@ export function StayAvailabilityCalendar({
         })}
       </div>
 
-      <ul className="stays-calendar__legend" aria-label={ar ? 'دليل الألوان' : 'Legend'}>
+      <ul className="stays-calendar__legend" aria-label={ar ? 'دليل حالات الأيام' : 'Day status legend'}>
         {(['available', 'booked', 'hold', 'blocked'] as const).map((status) => (
-          <li key={status}>
+          <li key={status} className={`stays-calendar__legend-item ${statusClass(status)}`}>
             <span className={`stays-calendar__swatch ${statusClass(status)}`} aria-hidden="true" />
-            {statusLabel(status, ar)}
+            <span>{statusLabel(status, ar)}</span>
           </li>
         ))}
       </ul>
