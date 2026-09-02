@@ -1,3 +1,4 @@
+import { NextResponse } from 'next/server';
 import { listGuestStayBookingsOnNeon } from '@/lib/public-stays-guest-neon';
 import {
   stayBookingDbGuard,
@@ -18,7 +19,8 @@ export async function GET(request: Request) {
   try {
     claims = await requireLiveSession(request, { requireCsrf: false });
   } catch (error) {
-    return guardErrorResponse(error);
+    const mapped = guardErrorResponse(error);
+    return NextResponse.json(mapped.body, { status: mapped.status });
   }
 
   try {

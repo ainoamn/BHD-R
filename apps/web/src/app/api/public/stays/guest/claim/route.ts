@@ -1,3 +1,4 @@
+import { NextResponse } from 'next/server';
 import { stayGuestBookingClaimSchema } from '@bhd-r/contracts';
 import { claimGuestStayBookingOnNeon } from '@/lib/public-stays-guest-neon';
 import {
@@ -20,7 +21,8 @@ export async function POST(request: Request) {
   try {
     claims = await requireLiveSession(request, { requireCsrf: true });
   } catch (error) {
-    return guardErrorResponse(error);
+    const mapped = guardErrorResponse(error);
+    return NextResponse.json(mapped.body, { status: mapped.status });
   }
 
   const limited = assertRouteRateLimit({
