@@ -10,7 +10,7 @@ Browser lookup used Nest BFF `/api/backend/v1/public/stays/bookings/lookup` whic
 
 ## Fix
 
-- Neon routes: lookup / claim / mine under `/api/public/stays/bookings/*`
+- Neon routes: lookup / claim / mine under `/api/public/stays/guest/*`
 - Header bell (`HeaderStayAlerts`) + localStorage memory of recent trips
 - Auto-lookup on `/guest/stays?ref=`
 
@@ -18,3 +18,4 @@ Browser lookup used Nest BFF `/api/backend/v1/public/stays/bookings/lookup` whic
 
 1. https://r.bhd-om.com/ar/guest/stays?ref=ST-BAD02106
 2. Header bell shows booking + payment_pending
+3. `GET /api/public/stays/guest/lookup?referenceCode=ST-BAD02106` returns JSON
