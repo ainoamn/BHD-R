@@ -71,9 +71,22 @@ export default async function StayBookingConfirmedPage({
     booking.stayType === 'day_use' || booking.stayType === 'overnight_only'
       ? booking.stayType
       : 'overnight_stay';
+  const nights =
+    typeof booking.nights === 'number'
+      ? booking.nights
+      : booking.checkInOn && booking.checkOutOn
+        ? Math.max(
+            0,
+            Math.round(
+              (Date.parse(`${booking.checkOutOn}T00:00:00.000Z`) -
+                Date.parse(`${booking.checkInOn}T00:00:00.000Z`)) /
+                86_400_000,
+            ),
+          )
+        : null;
 
   return (
-    <div className="container section stays-booking-confirmed">
+    <section className="stay-confirm-shell" data-stay-immersive="true">
       <RememberStayTripAlert
         id={booking.id ?? booking.referenceCode}
         referenceCode={booking.referenceCode}
@@ -83,121 +96,177 @@ export default async function StayBookingConfirmedPage({
         {...(booking.currency ? { currency: booking.currency } : {})}
         {...(booking.totalMinor ? { totalMinor: booking.totalMinor } : {})}
       />
-      <section className="stays-checkout stays-checkout--wizard stays-booking-confirmed__shell">
-        <h1 id="stays-booking-confirmed-title">
-          {ar ? 'تم استلام حجزك' : 'Your booking is received'}
-        </h1>
-        <p className="muted stays-checkout__hint">
-          {paid
-            ? ar
-              ? 'تم تأكيد الحجز والدفع. يمكنك فتح إيصال الدفع وحفظه كملف PDF.'
-              : 'Booking and payment are confirmed. Open the receipt and save it as PDF.'
-            : ar
-              ? 'الحجز مسجّل. أكمل الدفع لتأكيد الإقامة.'
-              : 'Booking is registered. Complete payment to confirm your stay.'}
-        </p>
 
-        <div className="stays-checkout__panel">
-          <dl className="stays-checkout__summary">
-            <div>
-              <dt>{ar ? 'مرجع الحجز' : 'Booking reference'}</dt>
-              <dd dir="ltr">
-                <strong>{booking.referenceCode}</strong>
-              </dd>
-            </div>
-            {booking.guestDisplayName ? (
-              <div>
-                <dt>{ar ? 'الضيف' : 'Guest'}</dt>
-                <dd>{booking.guestDisplayName}</dd>
-              </div>
-            ) : null}
-            {booking.checkInOn ? (
-              <div>
-                <dt>{ar ? 'الوصول' : 'Check-in'}</dt>
-                <dd className="stays-checkout__chip stays-checkout__chip--check-in" dir="ltr">
-                  {booking.checkInOn}
-                </dd>
-              </div>
-            ) : null}
-            {booking.checkOutOn ? (
-              <div>
-                <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
-                <dd className="stays-checkout__chip stays-checkout__chip--check-out" dir="ltr">
-                  {booking.checkOutOn}
-                </dd>
-              </div>
-            ) : null}
-            {booking.stayType ? (
-              <div>
-                <dt>{ar ? 'نوع الحجز' : 'Stay type'}</dt>
-                <dd className={`stays-checkout__chip stays-checkout__chip--stay-${stayTone}`}>
-                  {stayTypeLabel(booking.stayType, ar)}
-                </dd>
-              </div>
-            ) : null}
-            {typeof booking.adults === 'number' ? (
-              <div>
-                <dt>{ar ? 'بالغون' : 'Adults'}</dt>
-                <dd className="stays-checkout__chip stays-checkout__chip--adults">{booking.adults}</dd>
-              </div>
-            ) : null}
-            {typeof booking.children === 'number' ? (
-              <div>
-                <dt>{ar ? 'أطفال' : 'Children'}</dt>
-                <dd className="stays-checkout__chip stays-checkout__chip--children">
-                  {booking.children}
-                </dd>
-              </div>
-            ) : null}
-            {booking.totalMinor && booking.currency ? (
-              <div>
-                <dt>{ar ? 'المجموع' : 'Total'}</dt>
-                <dd dir="ltr">
-                  <strong>{formatMoney(booking.totalMinor, booking.currency, locale)}</strong>
-                </dd>
-              </div>
-            ) : null}
-            <div>
-              <dt>{ar ? 'الحالة' : 'Status'}</dt>
-              <dd>
-                {booking.status === 'payment_pending' || booking.status === 'request_pending'
-                  ? ar
-                    ? 'بانتظار الدفع'
-                    : 'Awaiting payment'
-                  : paid
-                    ? ar
-                      ? 'مؤكّد'
-                      : 'Confirmed'
-                    : booking.status}
-              </dd>
-            </div>
-          </dl>
-
-          <div className="stays-checkout__nav">
-            <Link
-              className="button button--primary"
-              href={`/stays/booking/receipt?ref=${encodeURIComponent(ref)}`}
-            >
-              {ar ? 'إيصال الدفع (PDF)' : 'Payment receipt (PDF)'}
-            </Link>
-            <Link className="button button--quiet" href={`/guest/stays?ref=${encodeURIComponent(ref)}`}>
-              {ar ? 'متابعة رحلتي' : 'Track my trip'}
-            </Link>
-          </div>
-          {paid && booking.guestEmail ? (
-            <p className="muted stays-checkout__hint">
-              {ar
-                ? `أُرسلت رسالة تأكيد مع رابط الإيصال إلى ${booking.guestEmail}.`
-                : `A confirmation email with the receipt link was sent to ${booking.guestEmail}.`}
+      <aside className="stay-confirm-shell__aside">
+        <div className="stay-confirm-shell__aside-inner">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            className="stay-confirm-shell__aside-bg"
+            src="/brand/oman-landmark-salalah.jpg"
+            alt=""
+          />
+          <div className="stay-confirm-shell__aside-scrim" />
+          <div className="stay-confirm-shell__aside-content">
+            <p className="stay-confirm-shell__brand">BHD R</p>
+            <p className="stay-confirm-shell__badge">
+              {paid ? (ar ? 'مؤكّد' : 'Confirmed') : ar ? 'مسجّل' : 'Registered'}
             </p>
-          ) : null}
-          <p className="muted stays-booking-confirmed__review-hint">
-            {ar
-              ? 'بعد انتهاء الإقامة سيظهر لك طلب تقييم بأسلوب Booking.com من صفحة رحلاتي وصفحة الإقامة.'
-              : 'After checkout ends, a Booking.com-style review invite appears on My trips and the stay page.'}
-          </p>
+            <h1 id="stays-booking-confirmed-title">
+              {ar ? 'تم استلام حجزك' : 'Your booking is received'}
+            </h1>
+            <p className="stay-confirm-shell__lede">
+              {paid
+                ? ar
+                  ? 'تم تأكيد الحجز والدفع بنجاح.'
+                  : 'Booking and payment are confirmed.'
+                : ar
+                  ? 'الحجز مسجّل. أكمل الدفع لتأكيد الإقامة.'
+                  : 'Booking is registered. Complete payment to confirm your stay.'}
+            </p>
+            {booking.totalMinor && booking.currency ? (
+              <p className="stay-confirm-shell__amount" dir="ltr">
+                {formatMoney(booking.totalMinor, booking.currency, locale)}
+              </p>
+            ) : null}
+            <p className="stay-confirm-shell__ref" dir="ltr">
+              {booking.referenceCode}
+            </p>
+          </div>
         </div>
-      </section>
-    </div>
+      </aside>
+
+      <div className="stay-confirm-shell__panel">
+        <header className="stay-confirm-shell__header">
+          <h2>{ar ? 'تفاصيل الحجز' : 'Booking details'}</h2>
+          <p className="muted">
+            {paid
+              ? ar
+                ? 'يمكنك فتح الإيصال وحفظه كملف PDF.'
+                : 'You can open the receipt and save it as PDF.'
+              : ar
+                ? 'راجع التفاصيل أدناه ثم أكمل الدفع عند الحاجة.'
+                : 'Review the details below, then complete payment if needed.'}
+          </p>
+        </header>
+
+        <dl className="stay-confirm-shell__grid">
+          <div>
+            <dt>{ar ? 'مرجع الحجز' : 'Booking reference'}</dt>
+            <dd dir="ltr">
+              <strong>{booking.referenceCode}</strong>
+            </dd>
+          </div>
+          {booking.guestDisplayName ? (
+            <div>
+              <dt>{ar ? 'الضيف' : 'Guest'}</dt>
+              <dd>{booking.guestDisplayName}</dd>
+            </div>
+          ) : null}
+          {booking.checkInOn ? (
+            <div>
+              <dt>{ar ? 'الوصول' : 'Check-in'}</dt>
+              <dd className="stays-checkout__chip stays-checkout__chip--check-in" dir="ltr">
+                {booking.checkInOn}
+              </dd>
+            </div>
+          ) : null}
+          {booking.checkOutOn ? (
+            <div>
+              <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
+              <dd className="stays-checkout__chip stays-checkout__chip--check-out" dir="ltr">
+                {booking.checkOutOn}
+              </dd>
+            </div>
+          ) : null}
+          {typeof nights === 'number' ? (
+            <div>
+              <dt>{ar ? 'عدد الأيام' : 'Nights'}</dt>
+              <dd>
+                {nights}{' '}
+                {ar
+                  ? nights === 1
+                    ? 'ليلة'
+                    : 'ليالٍ'
+                  : nights === 1
+                    ? 'night'
+                    : 'nights'}
+              </dd>
+            </div>
+          ) : null}
+          {booking.stayType ? (
+            <div>
+              <dt>{ar ? 'نوع الحجز' : 'Stay type'}</dt>
+              <dd className={`stays-checkout__chip stays-checkout__chip--stay-${stayTone}`}>
+                {stayTypeLabel(booking.stayType, ar)}
+              </dd>
+            </div>
+          ) : null}
+          {typeof booking.adults === 'number' ? (
+            <div>
+              <dt>{ar ? 'بالغون' : 'Adults'}</dt>
+              <dd className="stays-checkout__chip stays-checkout__chip--adults">{booking.adults}</dd>
+            </div>
+          ) : null}
+          {typeof booking.children === 'number' ? (
+            <div>
+              <dt>{ar ? 'أطفال' : 'Children'}</dt>
+              <dd className="stays-checkout__chip stays-checkout__chip--children">
+                {booking.children}
+              </dd>
+            </div>
+          ) : null}
+          {booking.totalMinor && booking.currency ? (
+            <div>
+              <dt>{ar ? 'المجموع' : 'Total'}</dt>
+              <dd dir="ltr">
+                <strong>{formatMoney(booking.totalMinor, booking.currency, locale)}</strong>
+              </dd>
+            </div>
+          ) : null}
+          <div>
+            <dt>{ar ? 'الحالة' : 'Status'}</dt>
+            <dd>
+              {booking.status === 'payment_pending' || booking.status === 'request_pending'
+                ? ar
+                  ? 'بانتظار الدفع'
+                  : 'Awaiting payment'
+                : paid
+                  ? ar
+                    ? 'مؤكّد'
+                    : 'Confirmed'
+                  : booking.status}
+            </dd>
+          </div>
+        </dl>
+
+        <div className="stay-confirm-shell__actions">
+          <Link
+            className="button button--primary"
+            href={`/stays/booking/receipt?ref=${encodeURIComponent(ref)}`}
+          >
+            {ar ? 'إيصال الدفع (PDF)' : 'Payment receipt (PDF)'}
+          </Link>
+          <Link className="button button--quiet" href={`/guest/stays?ref=${encodeURIComponent(ref)}`}>
+            {ar ? 'متابعة رحلتي' : 'Track my trip'}
+          </Link>
+          <Link className="button button--quiet" href="/stays">
+            {ar ? 'ابحث عن إقامة أخرى' : 'Search another stay'}
+          </Link>
+        </div>
+
+        {paid && booking.guestEmail ? (
+          <p className="muted stay-confirm-shell__hint">
+            {ar
+              ? `أُرسلت رسالة تأكيد مع رابط الإيصال إلى ${booking.guestEmail}.`
+              : `A confirmation email with the receipt link was sent to ${booking.guestEmail}.`}
+          </p>
+        ) : null}
+        <p className="muted stay-confirm-shell__hint stays-booking-confirmed__review-hint">
+          {ar
+            ? 'بعد انتهاء الإقامة سيظهر لك طلب تقييم بأسلوب Booking.com من صفحة رحلاتي وصفحة الإقامة.'
+            : 'After checkout ends, a Booking.com-style review invite appears on My trips and the stay page.'}
+        </p>
+      </div>
+    </section>
   );
 }
