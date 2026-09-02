@@ -1,8 +1,11 @@
 import { setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { Link } from '@/i18n/navigation';
+import {
+  StayBookingDocument,
+  type StayBookingDocumentKind,
+} from '@/components/stays/stay-booking-document';
 import { StayReceiptPrintButton } from '@/components/stays/stay-receipt-print-button';
-import { formatMoney } from '@/lib/format';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { lookupPublicStayBookingOnNeon } from '@/lib/public-stays-guest-neon';
 import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
@@ -24,13 +27,6 @@ type PublicBooking = {
   stayType?: string | null;
 };
 
-function stayTypeLabel(type: string | null | undefined, ar: boolean): string {
-  if (type === 'day_use') return ar ? 'إقامة بدون مبيت' : 'Day use';
-  if (type === 'overnight_only') return ar ? 'مبيت فقط' : 'Overnight only';
-  if (type === 'overnight_stay') return ar ? 'إقامة مع مبيت' : 'Stay with overnight';
-  return type ?? '—';
-}
-
 async function loadBooking(ref: string): Promise<PublicBooking | null> {
   if (hasDatabaseUrl()) {
     try {
@@ -43,6 +39,11 @@ async function loadBooking(ref: string): Promise<PublicBooking | null> {
     `/v1/public/stays/bookings/lookup?referenceCode=${encodeURIComponent(ref)}`,
     8,
   ).catch(() => null);
+}
+
+function resolveDocKind(raw: string | string[] | undefined): StayBookingDocumentKind {
+  const value = typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : undefined;
+  return value === 'confirmation' ? 'confirmation' : 'payment';
 }
 
 export default async function StayBookingReceiptPage({
@@ -59,22 +60,44 @@ export default async function StayBookingReceiptPage({
   const ar = locale === 'ar';
 
   const refRaw = query.ref;
-  const ref =
-    typeof refRaw === 'string' ? refRaw : Array.isArray(refRaw) ? refRaw[0] : undefined;
+  const ref = typeof refRaw === 'string' ? refRaw : Array.isArray(refRaw) ? refRaw[0] : undefined;
   if (!ref) notFound();
 
   const booking = await loadBooking(ref);
   if (!booking) notFound();
 
-  const stayTone =
-    booking.stayType === 'day_use' || booking.stayType === 'overnight_only'
-      ? booking.stayType
-      : 'overnight_stay';
+  const kind = resolveDocKind(query.doc);
+  const otherKind: StayBookingDocumentKind = kind === 'payment' ? 'confirmation' : 'payment';
+  const title =
+    kind === 'payment'
+      ? ar
+        ? 'إيصال الدفع'
+        : 'Payment receipt'
+      : ar
+        ? 'تأكيد الحجز'
+        : 'Booking confirmation';
+  const otherLabel =
+    otherKind === 'payment'
+      ? ar
+        ? 'إيصال الدفع'
+        : 'Payment receipt'
+      : ar
+        ? 'تأكيد الحجز'
+        : 'Booking confirmation';
 
   return (
     <div className="container section stays-booking-receipt">
       <div className="stays-booking-receipt__actions">
-        <StayReceiptPrintButton locale={locale} />
+        <StayReceiptPrintButton
+          locale={locale}
+          label={ar ? 'تنزيل / طباعة PDF' : 'Download / print PDF'}
+        />
+        <Link
+          className="button button--quiet"
+          href={`/stays/booking/receipt?ref=${encodeURIComponent(ref)}&doc=${otherKind}`}
+        >
+          {otherLabel}
+        </Link>
         <Link
           className="button button--quiet"
           href={`/stays/booking/confirmed?ref=${encodeURIComponent(ref)}`}
@@ -83,96 +106,16 @@ export default async function StayBookingReceiptPage({
         </Link>
       </div>
 
-      <article className="stays-booking-receipt__sheet stays-checkout__panel" id="stay-receipt">
-        <p className="muted" style={{ margin: 0 }}>
-          BHD R — A BHD Product
+      <header className="stays-booking-receipt__page-head">
+        <h1 className="stays-booking-receipt__page-title">{title}</h1>
+        <p className="muted">
+          {ar
+            ? 'مستند جاهز للطباعة أو الحفظ كملف PDF بنفس أسلوب الإيصالات الرسمية.'
+            : 'Print-ready document — save as PDF in the same style as official receipts.'}
         </p>
-        <h1>{ar ? 'إيصال دفع حجز إقامة' : 'Stay booking payment receipt'}</h1>
-        <p className="muted stays-checkout__hint">
-          {booking.status === 'confirmed' || booking.status === 'paid'
-            ? ar
-              ? 'تم استلام الدفع وتأكيد الحجز.'
-              : 'Payment received and booking confirmed.'
-            : ar
-              ? 'الحجز مسجّل — بانتظار اكتمال الدفع.'
-              : 'Booking registered — awaiting payment completion.'}
-        </p>
+      </header>
 
-        <dl className="stays-checkout__summary">
-          <div>
-            <dt>{ar ? 'مرجع الحجز' : 'Reference'}</dt>
-            <dd dir="ltr">
-              <strong>{booking.referenceCode}</strong>
-            </dd>
-          </div>
-          {booking.guestDisplayName ? (
-            <div>
-              <dt>{ar ? 'الضيف' : 'Guest'}</dt>
-              <dd>{booking.guestDisplayName}</dd>
-            </div>
-          ) : null}
-          {booking.guestEmail ? (
-            <div>
-              <dt>{ar ? 'البريد' : 'Email'}</dt>
-              <dd dir="ltr">{booking.guestEmail}</dd>
-            </div>
-          ) : null}
-          {booking.checkInOn ? (
-            <div>
-              <dt>{ar ? 'الوصول' : 'Check-in'}</dt>
-              <dd className="stays-checkout__chip stays-checkout__chip--check-in" dir="ltr">
-                {booking.checkInOn}
-              </dd>
-            </div>
-          ) : null}
-          {booking.checkOutOn ? (
-            <div>
-              <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
-              <dd className="stays-checkout__chip stays-checkout__chip--check-out" dir="ltr">
-                {booking.checkOutOn}
-              </dd>
-            </div>
-          ) : null}
-          {booking.stayType ? (
-            <div>
-              <dt>{ar ? 'نوع الحجز' : 'Stay type'}</dt>
-              <dd className={`stays-checkout__chip stays-checkout__chip--stay-${stayTone}`}>
-                {stayTypeLabel(booking.stayType, ar)}
-              </dd>
-            </div>
-          ) : null}
-          {typeof booking.adults === 'number' ? (
-            <div>
-              <dt>{ar ? 'بالغون' : 'Adults'}</dt>
-              <dd className="stays-checkout__chip stays-checkout__chip--adults">{booking.adults}</dd>
-            </div>
-          ) : null}
-          {typeof booking.children === 'number' ? (
-            <div>
-              <dt>{ar ? 'أطفال' : 'Children'}</dt>
-              <dd className="stays-checkout__chip stays-checkout__chip--children">
-                {booking.children}
-              </dd>
-            </div>
-          ) : null}
-          {typeof booking.nights === 'number' ? (
-            <div>
-              <dt>{ar ? 'الليالي' : 'Nights'}</dt>
-              <dd>
-                {booking.nights} {ar ? 'ليلة' : 'nights'}
-              </dd>
-            </div>
-          ) : null}
-          {booking.totalMinor && booking.currency ? (
-            <div>
-              <dt>{ar ? 'المبلغ المدفوع' : 'Amount paid'}</dt>
-              <dd dir="ltr">
-                <strong>{formatMoney(booking.totalMinor, booking.currency, locale)}</strong>
-              </dd>
-            </div>
-          ) : null}
-        </dl>
-      </article>
+      <StayBookingDocument kind={kind} booking={booking} locale={locale} />
     </div>
   );
 }

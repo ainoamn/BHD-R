@@ -154,15 +154,15 @@ export default async function StayBookingConfirmedPage({
             alt=""
           />
           <div className="stay-confirm-shell__aside-scrim" />
+          <span
+            className="stay-confirm-shell__logo logo__product logo__product--on-dark"
+            aria-label="BHD R"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/bhd-official-symbol.svg" alt="" width="96" height="30" />
+            <i>R</i>
+          </span>
           <div className="stay-confirm-shell__aside-content">
-            <span
-              className="stay-confirm-shell__logo logo__product logo__product--on-dark"
-              aria-label="BHD R"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/brand/bhd-official-symbol.svg" alt="" width="96" height="30" />
-              <i>R</i>
-            </span>
             <p className="stay-confirm-shell__greeting">
               {welcome.greeting}
               {ar ? '، أهلاً بك' : ', welcome'}
@@ -187,8 +187,8 @@ export default async function StayBookingConfirmedPage({
           <p className="muted">
             {paid
               ? ar
-                ? 'يمكنك فتح الإيصال وحفظه كملف PDF.'
-                : 'You can open the receipt and save it as PDF.'
+                ? 'يمكنك تنزيل إيصال الدفع وتأكيد الحجز كملف PDF من هذه الصفحة.'
+                : 'You can download the payment receipt and booking confirmation as PDF from this page.'
               : ar
                 ? 'راجع التفاصيل أدناه ثم أكمل الدفع عند الحاجة.'
                 : 'Review the details below, then complete payment if needed.'}
@@ -284,9 +284,15 @@ export default async function StayBookingConfirmedPage({
         <div className="stay-confirm-shell__actions">
           <Link
             className="button button--primary"
-            href={`/stays/booking/receipt?ref=${encodeURIComponent(ref)}`}
+            href={`/stays/booking/receipt?ref=${encodeURIComponent(ref)}&doc=payment`}
           >
             {ar ? 'إيصال الدفع (PDF)' : 'Payment receipt (PDF)'}
+          </Link>
+          <Link
+            className="button button--primary"
+            href={`/stays/booking/receipt?ref=${encodeURIComponent(ref)}&doc=confirmation`}
+          >
+            {ar ? 'تأكيد الحجز (PDF)' : 'Booking confirmation (PDF)'}
           </Link>
           <Link
             className="button button--quiet"
@@ -306,11 +312,6 @@ export default async function StayBookingConfirmedPage({
               : `A confirmation email with the receipt link was sent to ${booking.guestEmail}.`}
           </p>
         ) : null}
-        <p className="muted stay-confirm-shell__hint stays-booking-confirmed__review-hint">
-          {ar
-            ? 'بعد انتهاء الإقامة سيظهر لك طلب تقييم بأسلوب Booking.com من صفحة رحلاتي وصفحة الإقامة.'
-            : 'After checkout ends, a Booking.com-style review invite appears on My trips and the stay page.'}
-        </p>
       </div>
     </section>
   );
