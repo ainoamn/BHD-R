@@ -12,6 +12,6 @@
 
 ## تحقق بعد النشر
 
-- [ ] `POST .../quotes` مع `"unitId":"fd6e559d-…"` → 200 (ليس `invalid_body`)
-- [ ] الحجز الناتج على R-01 وليس A-02
-- [ ] `sandbox-complete` → ليس `sandbox_disabled` → حالة `confirmed`
+- [x] `POST .../quotes` مع `"unitId":"fd6e559d-…"` → 200 (ليس `invalid_body`)
+- [x] الحجز الناتج على R-01 وليس A-02 (`ST-F47F63F7`)
+- [x] `sandbox-complete` → `confirmed`
