@@ -1,30 +1,112 @@
 import type { Metadata } from 'next';
-import { EmptyState } from '@bhd-r/ui';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
-import { StayCard, type StayCardListing } from '@/components/stays/stay-card';
 import { StaySearch } from '@/components/stays/stay-search';
+import { StaysBrowse } from '@/components/stays/stays-browse';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
-import { searchPublicStaysOnNeon } from '@/lib/load-public-stays-neon';
+import { bilingualAlternates } from '@/lib/seo';
+import {
+  asPublicListingCategory,
+  searchStaysCatalogueFromNeon,
+  type StayCatalogueSearchInput,
+} from '@/lib/search-stays-catalogue-neon';
 import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
-import { publicApiFetch } from '@/lib/server-api';
-import type { StaySearchQuery } from '@bhd-r/contracts';
-
-type SearchResult = {
-  items?: StayCardListing[];
-  nextCursor?: string | null;
-};
+import {
+  stayFiltersFromSearchRecord,
+  type StayBrowseFilterState,
+} from '@/lib/stays-browse-filters';
+import type { StayCatalogueListing } from '@/lib/stays-catalogue-listing';
 
 export async function generateMetadata({
+  params,
   searchParams,
 }: {
+  params: Promise<{ locale: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<Metadata> {
+  const { locale } = await params;
   const query = await searchParams;
   const dated = typeof query.checkInOn === 'string' || typeof query.checkOutOn === 'string';
   return {
+    title: locale === 'ar' ? 'إقامة يومية' : 'Daily stays',
+    description:
+      locale === 'ar'
+        ? 'ابحث عن إقامات يومية فاخرة في سلطنة عُمان — كل وحدة على حدة مع تصفية متقدمة.'
+        : 'Search luxury daily stays in Oman — each unit listed separately with advanced filters.',
+    alternates: bilingualAlternates(locale, '/stays'),
     robots: dated ? { index: false, follow: true } : { index: true, follow: true },
   };
+}
+
+function one(value: string | string[] | undefined): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function parseMajorPrice(value: string | undefined): number | undefined {
+  if (!value || value.trim() === '') return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : undefined;
+}
+
+async function loadStaysCatalogue(
+  query: URLSearchParams,
+): Promise<StayCatalogueListing[]> {
+  if (!hasDatabaseUrl()) return [];
+  try {
+    const bedroomsMinRaw = query.get('bedroomsMin');
+    const bedroomsMin =
+      bedroomsMinRaw && Number.isFinite(Number(bedroomsMinRaw))
+        ? Number(bedroomsMinRaw)
+        : undefined;
+    const bathroomsMinRaw = query.get('bathroomsMin');
+    const bathroomsMin =
+      bathroomsMinRaw && Number.isFinite(Number(bathroomsMinRaw))
+        ? Number(bathroomsMinRaw)
+        : undefined;
+    const search: StayCatalogueSearchInput = { limit: 100 };
+    const countryCode = query.get('countryCode');
+    const governorate = query.get('governorate');
+    const wilayat = query.get('wilayat');
+    const village = query.get('village');
+    const category = asPublicListingCategory(query.get('category'));
+    const categories = (query.get('categories') ?? '')
+      .split(',')
+      .map((item) => asPublicListingCategory(item.trim()))
+      .filter((item): item is NonNullable<typeof item> => Boolean(item));
+    const currency = query.get('currency');
+    const priceMin = parseMajorPrice(query.get('priceMin') ?? undefined);
+    const priceMax = parseMajorPrice(query.get('priceMax') ?? undefined);
+    const amenities = (query.get('amenities') ?? '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+    const q = query.get('q')?.trim();
+    const hasPool = query.get('hasPool') === '1' || query.get('hasPool') === 'true';
+    const hasParking =
+      query.get('hasParking') === '1' || query.get('hasParking') === 'true';
+
+    if (countryCode) search.countryCode = countryCode;
+    if (governorate) search.governorate = governorate;
+    if (wilayat) search.wilayat = wilayat;
+    if (village) search.village = village;
+    if (categories.length) search.categories = categories;
+    else if (category) search.category = category;
+    if (bedroomsMin !== undefined) search.bedroomsMin = bedroomsMin;
+    if (bathroomsMin !== undefined) search.bathroomsMin = bathroomsMin;
+    if (currency) search.currency = currency;
+    if (priceMin !== undefined) search.priceMin = priceMin;
+    if (priceMax !== undefined) search.priceMax = priceMax;
+    if (hasPool) search.hasPool = true;
+    if (hasParking) search.hasParking = true;
+    if (amenities.length) search.amenities = amenities;
+    if (q) search.q = q;
+
+    const payload = await searchStaysCatalogueFromNeon(search);
+    return payload.data;
+  } catch (error) {
+    console.error('[stays] Neon catalogue failed', error);
+    return [];
+  }
 }
 
 export default async function StaysSearchPage({
@@ -39,115 +121,74 @@ export default async function StaysSearchPage({
   const locale = rawLocale === 'en' ? 'en' : 'ar';
   setRequestLocale(locale);
   const t = await getTranslations('Stays');
-  const ar = locale === 'ar';
-  const query = await searchParams;
+  const raw = await searchParams;
 
-  const pick = (key: string) => {
-    const value = query[key];
-    return typeof value === 'string' ? value : undefined;
-  };
+  const flat: Record<string, string | undefined> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    flat[key] = one(value);
+  }
+  const initialFilters: StayBrowseFilterState = stayFiltersFromSearchRecord(flat);
 
-  const destination = pick('destination');
-  const checkInOn = pick('checkInOn');
-  const checkOutOn = pick('checkOutOn');
-  const adults = pick('adults');
-  const children = pick('children');
+  const destination = flat.destination;
+  const checkInOn = flat.checkInOn;
+  const checkOutOn = flat.checkOutOn;
+  const adults = flat.adults;
+  const children = flat.children;
 
-  const qs = new URLSearchParams();
-  qs.set('locale', locale === 'en' ? 'en' : 'ar');
-  if (destination) qs.set('governorate', destination);
-  if (checkInOn) qs.set('checkInOn', checkInOn);
-  if (checkOutOn) qs.set('checkOutOn', checkOutOn);
-  if (adults) qs.set('adults', adults);
-  if (children) qs.set('children', children);
-
-  const searchQuery: StaySearchQuery = {
-    countryCode: 'OM',
-    locale: locale === 'en' ? 'en' : 'ar',
-    limit: 24,
-    adults: Number.parseInt(adults ?? '2', 10) || 2,
-    children: Number.parseInt(children ?? '0', 10) || 0,
-    ...(destination ? { governorate: destination } : {}),
+  const stayDates = {
+    ...(destination ? { destination } : {}),
     ...(checkInOn ? { checkInOn } : {}),
     ...(checkOutOn ? { checkOutOn } : {}),
+    ...(adults ? { adults } : {}),
+    ...(children ? { children } : {}),
   };
 
-  let items: StayCardListing[] = [];
-  if (hasDatabaseUrl()) {
-    try {
-      const neon = await searchPublicStaysOnNeon(searchQuery);
-      items = neon.items as StayCardListing[];
-    } catch (error) {
-      console.error('Neon public stays search failed', error);
-    }
+  const query = new URLSearchParams({ limit: '100' });
+  if (initialFilters.countryCode) query.set('countryCode', initialFilters.countryCode);
+  if (initialFilters.governorate) query.set('governorate', initialFilters.governorate);
+  if (initialFilters.wilayat) query.set('wilayat', initialFilters.wilayat);
+  if (initialFilters.village) query.set('village', initialFilters.village);
+  if (initialFilters.categories.length === 1) {
+    query.set('category', initialFilters.categories[0]!);
   }
-  if (!items.length) {
-    const result = await publicApiFetch<SearchResult>(
-      `/v1/public/stays/search?${qs.toString()}`,
-      8,
-    ).catch(() => ({ items: [] as StayCardListing[] }));
-    items = result.items ?? [];
+  if (initialFilters.categories.length > 1) {
+    query.set('categories', initialFilters.categories.join(','));
   }
+  if (initialFilters.bedroomsMin > 0) query.set('bedroomsMin', String(initialFilters.bedroomsMin));
+  if (initialFilters.bathroomsMin > 0) {
+    query.set('bathroomsMin', String(initialFilters.bathroomsMin));
+  }
+  if (initialFilters.currency) query.set('currency', initialFilters.currency);
+  if (initialFilters.priceMin) query.set('priceMin', initialFilters.priceMin);
+  if (initialFilters.priceMax) query.set('priceMax', initialFilters.priceMax);
+  if (initialFilters.hasPool) query.set('hasPool', '1');
+  if (initialFilters.hasParking) query.set('hasParking', '1');
+  if (initialFilters.amenities.length) query.set('amenities', initialFilters.amenities.join(','));
+  if (initialFilters.q) query.set('q', initialFilters.q);
 
-  const resultsLine =
-    checkInOn && checkOutOn
-      ? ar
-        ? `${items.length} إقامة متاحة للتواريخ المحددة`
-        : `${items.length} stays available for your dates`
-      : ar
-        ? `${items.length} إقامة يومية`
-        : `${items.length} daily stays`;
+  const listings = await loadStaysCatalogue(query);
 
   return (
-    <div className="stays-public stays-public--search">
-      <section className="stays-hero" aria-labelledby="stays-search-heading">
-        <div className="container stays-hero__inner">
-          <header className="stays-hero__copy">
-            <span className="section-kicker">BHD R</span>
-            <h1 id="stays-search-heading">{t('searchTitle')}</h1>
-            <p className="stays-hero__lede">{t('shellHint')}</p>
-          </header>
-          <div className="stays-hero__search">
-            <StaySearch
-              locale={locale}
-              variant="inline"
-              defaults={{
-                ...(destination ? { destination } : {}),
-                ...(checkInOn ? { checkInOn } : {}),
-                ...(checkOutOn ? { checkOutOn } : {}),
-                ...(adults ? { adults } : {}),
-                ...(children ? { children } : {}),
-              }}
-            />
-          </div>
-        </div>
-      </section>
-
-      <div className="container stays-public__results">
-        <p className="stays-public__results-meta" role="status">
-          {resultsLine}
-        </p>
-
-        {items.length ? (
-          <div className="stays-public__grid">
-            {items.map((listing) => (
-              <StayCard
-                key={listing.slug}
-                listing={listing}
-                locale={locale}
-                query={{
-                  ...(checkInOn ? { checkInOn } : {}),
-                  ...(checkOutOn ? { checkOutOn } : {}),
-                  ...(adults ? { adults } : {}),
-                  ...(children ? { children } : {}),
-                }}
-              />
-            ))}
-          </div>
-        ) : (
-          <EmptyState title={t('noResults')} description={t('comingOnline')} />
-        )}
-      </div>
-    </div>
+    <StaysBrowse
+      locale={locale}
+      heading={t('searchTitle')}
+      hint={t('shellHint')}
+      initialFilters={initialFilters}
+      initialListings={listings}
+      stayDates={stayDates}
+      searchBar={
+        <StaySearch
+          locale={locale}
+          variant="inline"
+          defaults={{
+            ...(destination ? { destination } : {}),
+            ...(checkInOn ? { checkInOn } : {}),
+            ...(checkOutOn ? { checkOutOn } : {}),
+            ...(adults ? { adults } : {}),
+            ...(children ? { children } : {}),
+          }}
+        />
+      }
+    />
   );
 }

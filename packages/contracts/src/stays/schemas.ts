@@ -226,7 +226,7 @@ export const stayInventoryCalendarResponseSchema = z.object({
   locks: z.array(stayInventoryLockSpanSchema).optional(),
 });
 
-/** Public search card — safe for marketing surfaces. */
+/** Public search card — safe for marketing surfaces. One row per published unit. */
 export const staySearchListingSchema = z.object({
   slug: z.string().min(1).max(180),
   titleAr: z.string().min(1).max(200),
@@ -237,6 +237,13 @@ export const staySearchListingSchema = z.object({
   coverImageUrl: z.string().nullable().optional(),
   maxGuests: z.number().int().min(1).max(100).nullable().optional(),
   unitId: uuidSchema.optional(),
+  unitNameAr: z.string().max(200).optional(),
+  unitNameEn: z.string().max(200).optional(),
+  unitCode: z.string().max(64).nullable().optional(),
+  propertyNameAr: z.string().max(200).optional(),
+  propertyNameEn: z.string().max(200).optional(),
+  bedrooms: z.number().int().nullable().optional(),
+  bathrooms: z.number().int().nullable().optional(),
 });
 
 export const staySearchResponseSchema = z.object({

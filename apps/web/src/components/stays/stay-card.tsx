@@ -2,7 +2,7 @@ import Image from 'next/image';
 import { BrandMark } from '@bhd-r/ui';
 import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
-import { formatMoney } from '@/lib/format';
+import { formatMoney, localizedName } from '@/lib/format';
 import { toPublicMediaSrc } from '@/lib/public-media-url';
 
 export type StayCardListing = {
@@ -14,6 +14,9 @@ export type StayCardListing = {
   currency?: string | null;
   coverImageUrl?: string | null;
   maxGuests?: number | null;
+  unitId?: string;
+  propertyNameAr?: string;
+  propertyNameEn?: string;
 };
 
 export async function StayCard({
@@ -39,12 +42,17 @@ export async function StayCard({
       ? formatMoney(listing.nightlyMinor, listing.currency, locale)
       : null;
   const qs = new URLSearchParams();
+  if (listing.unitId) qs.set('unit', listing.unitId);
   if (query?.checkInOn) qs.set('checkInOn', query.checkInOn);
   if (query?.checkOutOn) qs.set('checkOutOn', query.checkOutOn);
   if (query?.adults) qs.set('adults', query.adults);
   if (query?.children) qs.set('children', query.children);
   const suffix = qs.toString();
   const href = `/stays/${encodeURIComponent(listing.slug)}${suffix ? `?${suffix}` : ''}`;
+  const buildingLine =
+    listing.propertyNameAr || listing.propertyNameEn
+      ? localizedName(locale, listing.propertyNameAr ?? '', listing.propertyNameEn ?? '')
+      : null;
 
   return (
     <article className="listing-card stay-card">
@@ -65,6 +73,9 @@ export async function StayCard({
         </div>
         <div className="listing-card__body">
           <h3>{title}</h3>
+          {buildingLine && buildingLine !== title ? (
+            <p className="listing-card__building-name">{buildingLine}</p>
+          ) : null}
           {listing.destination ? (
             <p className="listing-card__location">{listing.destination}</p>
           ) : null}

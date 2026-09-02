@@ -45,6 +45,13 @@ export async function searchPublicStaysOnNeon(
           spl.slug,
           spl.title_ar,
           spl.title_en,
+          u.name_ar AS unit_name_ar,
+          u.name_en AS unit_name_en,
+          u.code AS unit_code,
+          p.name_ar AS property_name_ar,
+          p.name_en AS property_name_en,
+          u.bedrooms,
+          u.bathrooms,
           a.governorate AS destination,
           sp.max_guests,
           sp.currency AS profile_currency,
@@ -86,19 +93,33 @@ export async function searchPublicStaysOnNeon(
             ORDER BY sid.stay_date
             LIMIT 1
           ) AS night_currency,
-          (
-            SELECT '/api/public/media/' || ma.id::text
-            FROM unit_media um
-            INNER JOIN media_assets ma ON ma.id = um.media_asset_id
-            INNER JOIN units bu ON bu.id = um.unit_id
-            WHERE bu.property_id = p.id
-              AND ma.processing_status = 'ready'
-              AND ma.scan_status = 'clean'
-              AND ma.mime_type LIKE 'image/%'
-            ORDER BY
-              CASE WHEN ma.metadata->>'galleryScope' = 'building' THEN 0 ELSE 1 END,
-              um.position ASC
-            LIMIT 1
+          COALESCE(
+            (
+              SELECT '/api/public/media/' || ma.id::text
+              FROM unit_media um
+              INNER JOIN media_assets ma ON ma.id = um.media_asset_id
+              WHERE um.unit_id = u.id
+                AND ma.processing_status = 'ready'
+                AND ma.scan_status = 'clean'
+                AND ma.mime_type LIKE 'image/%'
+                AND COALESCE(ma.metadata->>'galleryScope', 'unit') <> 'building'
+              ORDER BY um.position ASC
+              LIMIT 1
+            ),
+            (
+              SELECT '/api/public/media/' || ma.id::text
+              FROM unit_media um
+              INNER JOIN media_assets ma ON ma.id = um.media_asset_id
+              INNER JOIN units bu ON bu.id = um.unit_id
+              WHERE bu.property_id = p.id
+                AND ma.processing_status = 'ready'
+                AND ma.scan_status = 'clean'
+                AND ma.mime_type LIKE 'image/%'
+              ORDER BY
+                CASE WHEN ma.metadata->>'galleryScope' = 'building' THEN 0 ELSE 1 END,
+                um.position ASC
+              LIMIT 1
+            )
           ) AS cover_image_url
         FROM stay_public_listings spl
         INNER JOIN properties p
@@ -123,10 +144,17 @@ export async function searchPublicStaysOnNeon(
           AND (${query.wilayat ?? null}::text IS NULL OR a.wilayat = ${query.wilayat ?? null})
           AND sp.max_guests >= ${guests}
       )
-      SELECT DISTINCT ON (slug)
+      SELECT DISTINCT ON (unit_id)
         slug,
         title_ar,
         title_en,
+        unit_name_ar,
+        unit_name_en,
+        unit_code,
+        property_name_ar,
+        property_name_en,
+        bedrooms,
+        bathrooms,
         destination,
         COALESCE(nightly_minor, rate_plan_minor) AS nightly_minor,
         COALESCE(night_currency, profile_currency) AS currency,
@@ -150,9 +178,9 @@ export async function searchPublicStaysOnNeon(
       )
       AND (
         ${query.cursor ?? null}::text IS NULL
-        OR slug > ${query.cursor ?? null}
+        OR unit_id::text > ${query.cursor ?? null}
       )
-      ORDER BY slug
+      ORDER BY unit_id
       LIMIT ${limit + 1}
     `);
     return Array.isArray(result) ? result : ((result as { rows?: unknown[] }).rows ?? []);
@@ -162,6 +190,13 @@ export async function searchPublicStaysOnNeon(
     slug: string;
     title_ar: string;
     title_en: string;
+    unit_name_ar: string;
+    unit_name_en: string;
+    unit_code: string | null;
+    property_name_ar: string;
+    property_name_en: string;
+    bedrooms: number | null;
+    bathrooms: number | null;
     destination: string | null;
     nightly_minor: string | null;
     currency: string | null;
@@ -169,27 +204,37 @@ export async function searchPublicStaysOnNeon(
     unit_id: string;
     cover_image_url: string | null;
   }>;
-  const next = rows.length > limit ? sliced[sliced.length - 1]?.slug ?? null : null;
+  const next = rows.length > limit ? sliced[sliced.length - 1]?.unit_id ?? null : null;
 
   return {
     items: sliced.map((row) => ({
       slug: row.slug,
-      titleAr: row.title_ar,
-      titleEn: row.title_en,
+      titleAr: row.unit_name_ar || row.title_ar,
+      titleEn: row.unit_name_en || row.title_en,
       destination: row.destination,
       nightlyMinor: row.nightly_minor,
       currency: (row.currency as StaySearchResponse['items'][number]['currency']) ?? null,
       coverImageUrl: row.cover_image_url,
       maxGuests: row.max_guests,
       unitId: row.unit_id,
+      unitNameAr: row.unit_name_ar,
+      unitNameEn: row.unit_name_en,
+      unitCode: row.unit_code,
+      propertyNameAr: row.property_name_ar,
+      propertyNameEn: row.property_name_en,
+      bedrooms: row.bedrooms,
+      bathrooms: row.bathrooms,
     })),
     nextCursor: next,
     cached: false,
   };
 }
 
-/** Public stay detail from Neon. */
-export async function loadPublicStayBySlugOnNeon(slug: string): Promise<StayPublicDetail | null> {
+/** Public stay detail from Neon. Optional unitId selects a specific published unit. */
+export async function loadPublicStayBySlugOnNeon(
+  slug: string,
+  unitId?: string | null,
+): Promise<StayPublicDetail | null> {
   if (!slug.trim()) return null;
 
   return asPublic(async (transaction) => {
@@ -299,7 +344,9 @@ export async function loadPublicStayBySlugOnNeon(slug: string): Promise<StayPubl
       WHERE spl.slug = ${slug}
         AND spl.enabled = true
         AND spl.published_at IS NOT NULL
+        AND (${unitId ?? null}::uuid IS NULL OR u.id = ${unitId ?? null}::uuid)
       ORDER BY
+        CASE WHEN ${unitId ?? null}::uuid IS NOT NULL AND u.id = ${unitId ?? null}::uuid THEN 0 ELSE 1 END,
         CASE WHEN COALESCE(u.bedrooms, 0) > 0 THEN 0 ELSE 1 END,
         u.bedrooms DESC NULLS LAST,
         sp.updated_at DESC

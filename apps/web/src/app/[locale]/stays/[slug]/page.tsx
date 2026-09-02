@@ -13,17 +13,18 @@ import { publicApiFetch } from '@/lib/server-api';
 import { getViewer } from '@/lib/viewer';
 import type { StayPublicDetail } from '@bhd-r/contracts';
 
-async function loadStayDetail(slug: string): Promise<StayPublicDetail | null> {
+async function loadStayDetail(slug: string, unitId?: string): Promise<StayPublicDetail | null> {
   if (hasDatabaseUrl()) {
     try {
-      const neon = await loadPublicStayBySlugOnNeon(slug);
+      const neon = await loadPublicStayBySlugOnNeon(slug, unitId ?? null);
       if (neon) return neon;
     } catch (error) {
       console.error('Neon public stay load failed', error);
     }
   }
+  const qs = unitId ? `?unitId=${encodeURIComponent(unitId)}` : '';
   return publicApiFetch<StayPublicDetail>(
-    `/v1/public/stays/${encodeURIComponent(slug)}`,
+    `/v1/public/stays/${encodeURIComponent(slug)}${qs}`,
     8,
   ).catch(() => null);
 }
@@ -86,6 +87,7 @@ export default async function StayDetailPage({
   const checkOutOn = one(query.checkOutOn);
   const adults = one(query.adults);
   const children = one(query.children);
+  const unitQuery = one(query.unit);
 
   const dateDefaults = {
     ...(checkInOn ? { checkInOn } : {}),
@@ -94,7 +96,7 @@ export default async function StayDetailPage({
     ...(children ? { children } : {}),
   };
 
-  const detail = await loadStayDetail(slug);
+  const detail = await loadStayDetail(slug, unitQuery);
   if (!detail?.propertyId || !hasDatabaseUrl()) {
     if (!detail) {
       return (
@@ -118,9 +120,12 @@ export default async function StayDetailPage({
 
   const title = localizedName(locale, detail.titleAr, detail.titleEn);
   const focusUnitId = (() => {
+    if (unitQuery && property.units.some((unit) => unit.id === unitQuery)) {
+      return unitQuery;
+    }
     if (detail.unitId) {
       const linked = property.units.find((unit) => unit.id === detail.unitId);
-      if (linked && (linked.bedrooms ?? 0) > 0) return detail.unitId;
+      if (linked) return detail.unitId;
     }
     const residential = [...property.units]
       .filter((unit) => (unit.bedrooms ?? 0) > 0)

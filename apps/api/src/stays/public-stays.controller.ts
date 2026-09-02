@@ -122,9 +122,9 @@ export class PublicStaysController {
   }
 
   @Get(':slug')
-  async detail(@Param('slug') slug: string) {
+  async detail(@Param('slug') slug: string, @Query('unitId') unitId?: string) {
     assertStaysPlatformEnabled();
-    const detail = await this.searchService.getBySlug(slug);
+    const detail = await this.searchService.getBySlug(slug, unitId?.trim() || null);
     if (!detail) throw new NotFoundException();
     return detail;
   }
