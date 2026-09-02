@@ -107,12 +107,16 @@ export const staySearchQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
+export const stayBookingTypeSchema = z.enum(['overnight_stay', 'day_use', 'overnight_only']);
+
 export const createStayQuoteSchema = z
   .object({
     checkInOn: z.iso.date(),
     checkOutOn: z.iso.date(),
     adults: z.coerce.number().int().min(1).max(50).default(1),
     children: z.coerce.number().int().min(0).max(50).default(0),
+    /** overnight_stay = إقامة مع مبيت, day_use = بدون مبيت, overnight_only = مبيت فقط */
+    stayType: stayBookingTypeSchema.default('overnight_stay'),
   })
   .strict()
   .superRefine((value, ctx) => {

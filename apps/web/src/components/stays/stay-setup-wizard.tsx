@@ -66,7 +66,10 @@ const copy = {
     checkInFrom: 'الدخول من',
     checkOutUntil: 'المغادرة قبل',
     instantBook: 'حجز فوري',
-    nightlyRate: 'السعر لليلة',
+    nightlyRate: 'إقامة مع مبيت',
+    dayUseRate: 'إقامة بدون مبيت',
+    overnightOnlyRate: 'مبيت فقط',
+    pricingHint: 'حدد أسعار أنواع الإقامة الثلاثة. إن تُرك حقل فارغاً يُستخدم سعر الإقامة مع مبيت.',
     titleAr: 'العنوان (عربي)',
     titleEn: 'العنوان (إنجليزي)',
     slug: 'الرابط (slug)',
@@ -121,7 +124,10 @@ const copy = {
     checkInFrom: 'Check-in from',
     checkOutUntil: 'Check-out before',
     instantBook: 'Instant book',
-    nightlyRate: 'Nightly rate',
+    nightlyRate: 'Stay with overnight',
+    dayUseRate: 'Day use (no overnight)',
+    overnightOnlyRate: 'Overnight only',
+    pricingHint: 'Set prices for all three stay types. Empty fields fall back to stay-with-overnight.',
     titleAr: 'Title (Arabic)',
     titleEn: 'Title (English)',
     slug: 'URL slug',
@@ -190,6 +196,8 @@ export function StaySetupWizard({
   const [checkOutUntil, setCheckOutUntil] = useState('11:00');
   const [instantBook, setInstantBook] = useState(true);
   const [nightlyRate, setNightlyRate] = useState('');
+  const [dayUseRate, setDayUseRate] = useState('');
+  const [overnightOnlyRate, setOvernightOnlyRate] = useState('');
   const [titleAr, setTitleAr] = useState('');
   const [titleEn, setTitleEn] = useState('');
   const [slug, setSlug] = useState('');
@@ -302,9 +310,26 @@ export function StaySetupWizard({
       `${locale === 'ar' ? 'الوحدات' : 'Units'}: ${units.map((unit) => unit.code).join(', ') || '—'}`,
       `${t.maxGuests}: ${maxGuests}`,
       `${t.nightlyRate}: ${nightlyRate || '—'} ${currency}`,
+      `${t.dayUseRate}: ${dayUseRate || '—'} ${currency}`,
+      `${t.overnightOnlyRate}: ${overnightOnlyRate || '—'} ${currency}`,
       `${t.slug}: ${slug || '—'}`,
     ];
-  }, [context, currency, locale, maxGuests, nightlyRate, selectedUnitIds, slug, t.maxGuests, t.nightlyRate, t.slug]);
+  }, [
+    context,
+    currency,
+    dayUseRate,
+    locale,
+    maxGuests,
+    nightlyRate,
+    overnightOnlyRate,
+    selectedUnitIds,
+    slug,
+    t.dayUseRate,
+    t.maxGuests,
+    t.nightlyRate,
+    t.overnightOnlyRate,
+    t.slug,
+  ]);
 
   const previewPriceLabel = useMemo(() => {
     const minor = minorFromMajor(nightlyRate, minorUnit);
@@ -461,10 +486,22 @@ export function StaySetupWizard({
   async function savePricingStep() {
     const minor = minorFromMajor(nightlyRate, minorUnit);
     if (!minor) throw new Error(locale === 'ar' ? 'أدخل سعراً صالحاً' : 'Enter a valid rate');
+    const dayUseMinor = dayUseRate.trim() ? minorFromMajor(dayUseRate, minorUnit) : null;
+    const overnightOnlyMinor = overnightOnlyRate.trim()
+      ? minorFromMajor(overnightOnlyRate, minorUnit)
+      : null;
+    if (dayUseRate.trim() && !dayUseMinor) {
+      throw new Error(locale === 'ar' ? 'سعر بدون مبيت غير صالح' : 'Invalid day-use rate');
+    }
+    if (overnightOnlyRate.trim() && !overnightOnlyMinor) {
+      throw new Error(locale === 'ar' ? 'سعر المبيت فقط غير صالح' : 'Invalid overnight-only rate');
+    }
     const ids = resolveProfileIds();
     if (!ids.length) throw new Error(t.saveError);
     const payload = {
       baseNightlyMinor: minor,
+      ...(dayUseMinor ? { dayUseMinor } : {}),
+      ...(overnightOnlyMinor ? { overnightOnlyMinor } : {}),
       currency,
       nameAr: 'السعر الأساسي',
       nameEn: 'Base rate',
@@ -813,6 +850,7 @@ export function StaySetupWizard({
 
           {current === 'pricing' ? (
             <fieldset disabled={!canWrite || busy} className="stays-setup-wizard__fields">
+              <p className="muted">{t.pricingHint}</p>
               <div className="field">
                 <label htmlFor="nightly-rate">{t.nightlyRate} ({currency})</label>
                 <input
@@ -822,6 +860,31 @@ export function StaySetupWizard({
                   value={nightlyRate}
                   onChange={(event) => setNightlyRate(event.target.value)}
                   placeholder={majorFromMinor('25000', minorUnit)}
+                  dir="ltr"
+                  required
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="day-use-rate">{t.dayUseRate} ({currency})</label>
+                <input
+                  id="day-use-rate"
+                  className="input"
+                  inputMode="decimal"
+                  value={dayUseRate}
+                  onChange={(event) => setDayUseRate(event.target.value)}
+                  placeholder={majorFromMinor('15000', minorUnit)}
+                  dir="ltr"
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="overnight-only-rate">{t.overnightOnlyRate} ({currency})</label>
+                <input
+                  id="overnight-only-rate"
+                  className="input"
+                  inputMode="decimal"
+                  value={overnightOnlyRate}
+                  onChange={(event) => setOvernightOnlyRate(event.target.value)}
+                  placeholder={majorFromMinor('20000', minorUnit)}
                   dir="ltr"
                 />
               </div>

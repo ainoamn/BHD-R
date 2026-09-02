@@ -125,7 +125,7 @@ export class StaysInventoryService {
           'active',
           ${input.sourceType ?? null},
           ${input.sourceId ?? null},
-          ${input.expiresAt ?? null},
+          ${input.expiresAt ? input.expiresAt.toISOString() : null},
           ${input.note ?? null},
           ${input.createdByUserId ?? null}
         )

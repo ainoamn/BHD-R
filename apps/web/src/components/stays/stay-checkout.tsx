@@ -38,6 +38,8 @@ type AvailabilityResult = {
   nights?: number;
 };
 
+type StayType = 'overnight_stay' | 'day_use' | 'overnight_only';
+
 type Step = 'stay' | 'guest' | 'review' | 'payment';
 
 function defaultCheckIn(): string {
@@ -50,6 +52,12 @@ function defaultCheckOut(checkIn: string): string {
   const d = new Date(`${checkIn}T00:00:00.000Z`);
   d.setUTCDate(d.getUTCDate() + 2);
   return d.toISOString().slice(0, 10);
+}
+
+function stayTypeLabel(type: StayType, ar: boolean): string {
+  if (type === 'day_use') return ar ? 'إقامة بدون مبيت' : 'Day use (no overnight)';
+  if (type === 'overnight_only') return ar ? 'مبيت فقط' : 'Overnight only';
+  return ar ? 'إقامة مع مبيت' : 'Stay with overnight';
 }
 
 export function StayCheckout({
@@ -68,6 +76,7 @@ export function StayCheckout({
     checkOutOn?: string;
     adults?: string;
     children?: string;
+    stayType?: StayType;
   };
   /** Sidebar on Property 360 — calendar lives in the main column. */
   embedded?: boolean;
@@ -85,6 +94,7 @@ export function StayCheckout({
   );
   const [adults, setAdults] = useState(defaults?.adults ?? '2');
   const [children, setChildren] = useState(defaults?.children ?? '0');
+  const [stayType, setStayType] = useState<StayType>(defaults?.stayType ?? 'overnight_stay');
   const [guestName, setGuestName] = useState('');
   const [guestPhone, setGuestPhone] = useState('');
   const [guestEmail, setGuestEmail] = useState('');
@@ -141,6 +151,7 @@ export function StayCheckout({
       checkOutOn,
       adults: Number(adults),
       children: Number(children),
+      stayType,
     });
   }
 
@@ -253,8 +264,15 @@ export function StayCheckout({
   }
 
   return (
-    <section className="stays-checkout stays-checkout--wizard" aria-labelledby="stays-checkout-title">
-      <h2 id="stays-checkout-title">{ar ? 'احجز هذه الإقامة' : 'Book this stay'}</h2>
+    <section
+      className={
+        embedded
+          ? 'stays-checkout stays-checkout--wizard'
+          : 'stays-checkout stays-checkout--wizard stays-checkout--page'
+      }
+      aria-labelledby="stays-checkout-title"
+    >
+      <h2 id="stays-checkout-title">{ar ? 'إكمال الحجز' : 'Complete your booking'}</h2>
       {title ? <p className="stays-checkout__property muted">{title}</p> : null}
 
       <ol className="stays-checkout__steps" aria-label={ar ? 'خطوات الحجز' : 'Booking steps'}>
@@ -320,6 +338,19 @@ export function StayCheckout({
               </div>
             </div>
           )}
+          <div className="field">
+            <label htmlFor="stay-book-type">{ar ? 'نوع الحجز' : 'Stay type'}</label>
+            <select
+              className="select"
+              id="stay-book-type"
+              value={stayType}
+              onChange={(event) => setStayType(event.target.value as StayType)}
+            >
+              <option value="overnight_stay">{stayTypeLabel('overnight_stay', ar)}</option>
+              <option value="day_use">{stayTypeLabel('day_use', ar)}</option>
+              <option value="overnight_only">{stayTypeLabel('overnight_only', ar)}</option>
+            </select>
+          </div>
           <div className="stays-checkout__grid stays-checkout__grid--compact">
             <div className="field">
               <label htmlFor="stay-book-adults">{ar ? 'بالغون' : 'Adults'}</label>
@@ -432,6 +463,10 @@ export function StayCheckout({
             <div>
               <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
               <dd dir="ltr">{checkOutOn}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'نوع الحجز' : 'Stay type'}</dt>
+              <dd>{stayTypeLabel(stayType, ar)}</dd>
             </div>
             <div>
               <dt>{ar ? 'الضيوف' : 'Guests'}</dt>

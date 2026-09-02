@@ -14,7 +14,6 @@ import { PropertyManageHub } from '@/components/property-manage-hub';
 import { PropertyReviewScore } from '@/components/property-review-score';
 import { ReviewsPanel } from '@/components/reviews-panel';
 import { StayAvailabilityCalendar } from '@/components/stays/stay-availability-calendar';
-import { StayCheckout } from '@/components/stays/stay-checkout';
 import { googleMapsEmbedSrc } from '@/lib/parse-google-maps-url';
 import { listingPurposeCaption, occupancyLabel } from '@/lib/listing-purpose-display';
 import type { UnitOccupancy } from '@/lib/listing-purpose-display';
@@ -1312,20 +1311,37 @@ export function PropertyDetailManager({
               </>
             ) : stayBooking ? (
               <div className="property-360__viewing property-360__viewing--stay">
-                <StayCheckout
-                  slug={stayBooking.slug}
-                  locale={locale}
-                  embedded
-                  bookingDates={{
-                    checkInOn: stayCheckInOn,
-                    checkOutOn: stayCheckOutOn,
-                  }}
-                  {...(stayBooking.title ? { title: stayBooking.title } : {})}
-                  defaults={{
-                    ...(stayBooking.adults ? { adults: stayBooking.adults } : {}),
-                    ...(stayBooking.children ? { children: stayBooking.children } : {}),
-                  }}
-                />
+                <section className="stays-book-cta" aria-labelledby="stays-book-cta-title">
+                  <h2 id="stays-book-cta-title">{ar ? 'احجز هذه الإقامة' : 'Book this stay'}</h2>
+                  <dl className="stays-checkout__summary stays-checkout__summary--inline">
+                    <div>
+                      <dt>{ar ? 'الوصول' : 'Check-in'}</dt>
+                      <dd dir="ltr">{stayCheckInOn}</dd>
+                    </div>
+                    <div>
+                      <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
+                      <dd dir="ltr">{stayCheckOutOn}</dd>
+                    </div>
+                  </dl>
+                  <p className="muted stays-checkout__hint">
+                    {ar
+                      ? 'اختر التواريخ من التقويم ثم افتح صفحة الحجز لإكمال التأكيد والدفع.'
+                      : 'Pick dates on the calendar, then open the booking page to confirm and pay.'}
+                  </p>
+                  <Link
+                    className="button button--primary property-360__summary-cta"
+                    href={`/${locale}/stays/${encodeURIComponent(stayBooking.slug)}/book?${new URLSearchParams(
+                      {
+                        checkInOn: stayCheckInOn,
+                        checkOutOn: stayCheckOutOn,
+                        ...(stayBooking.adults ? { adults: stayBooking.adults } : {}),
+                        ...(stayBooking.children ? { children: stayBooking.children } : {}),
+                      },
+                    ).toString()}`}
+                  >
+                    {ar ? 'متابعة الحجز' : 'Continue to book'}
+                  </Link>
+                </section>
               </div>
             ) : primaryUnit ? (
               <div className="property-360__viewing">

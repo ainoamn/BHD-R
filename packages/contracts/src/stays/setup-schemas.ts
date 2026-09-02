@@ -110,6 +110,8 @@ export const upsertStayRatePlanSchema = z
   .object({
     baseNightlyMinor: z.string().regex(/^\d+$/),
     weekendNightlyMinor: z.string().regex(/^\d+$/).optional(),
+    dayUseMinor: z.string().regex(/^\d+$/).optional(),
+    overnightOnlyMinor: z.string().regex(/^\d+$/).optional(),
     currency: currencyCodeSchema,
     nameAr: z.string().trim().min(1).max(160).default('السعر الأساسي'),
     nameEn: z.string().trim().min(1).max(160).default('Base rate'),

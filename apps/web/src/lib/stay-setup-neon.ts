@@ -459,6 +459,8 @@ export async function upsertStayRatePlanOnNeon(
       currency: input.currency,
       baseNightlyMinor: BigInt(input.baseNightlyMinor),
       weekendNightlyMinor: input.weekendNightlyMinor ? BigInt(input.weekendNightlyMinor) : null,
+      dayUseMinor: input.dayUseMinor ? BigInt(input.dayUseMinor) : null,
+      overnightOnlyMinor: input.overnightOnlyMinor ? BigInt(input.overnightOnlyMinor) : null,
       refundable: input.refundable,
       enabled: true,
       priority: 100,

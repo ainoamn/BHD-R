@@ -105,6 +105,8 @@ type ListingContext = {
   timezone: string;
   baseNightlyMinor: string;
   weekendNightlyMinor: string | null;
+  dayUseMinor: string | null;
+  overnightOnlyMinor: string | null;
   cleaningFeeMinor: string | null;
 };
 
@@ -139,6 +141,20 @@ async function resolveListingContext(slug: string): Promise<ListingContext> {
           ORDER BY srp.priority ASC, srp.created_at ASC
           LIMIT 1
         ) AS weekend_nightly_minor,
+        (
+          SELECT srp.day_use_minor::text
+          FROM stay_rate_plans srp
+          WHERE srp.stay_profile_id = sp.id AND srp.enabled = true
+          ORDER BY srp.priority ASC, srp.created_at ASC
+          LIMIT 1
+        ) AS day_use_minor,
+        (
+          SELECT srp.overnight_only_minor::text
+          FROM stay_rate_plans srp
+          WHERE srp.stay_profile_id = sp.id AND srp.enabled = true
+          ORDER BY srp.priority ASC, srp.created_at ASC
+          LIMIT 1
+        ) AS overnight_only_minor,
         (
           SELECT sf.amount_minor::text
           FROM stay_fees sf
@@ -184,6 +200,8 @@ async function resolveListingContext(slug: string): Promise<ListingContext> {
         timezone: string;
         base_nightly_minor: string | null;
         weekend_nightly_minor: string | null;
+        day_use_minor: string | null;
+        overnight_only_minor: string | null;
         cleaning_fee_minor: string | null;
       }
     | undefined;
@@ -207,6 +225,8 @@ async function resolveListingContext(slug: string): Promise<ListingContext> {
     timezone: row.timezone,
     baseNightlyMinor: row.base_nightly_minor,
     weekendNightlyMinor: row.weekend_nightly_minor,
+    dayUseMinor: row.day_use_minor,
+    overnightOnlyMinor: row.overnight_only_minor,
     cleaningFeeMinor: row.cleaning_fee_minor,
   };
 }
@@ -316,7 +336,7 @@ async function createLockInTransaction(
         'active',
         ${input.sourceType ?? null},
         ${input.sourceId ?? null},
-        ${input.expiresAt ?? null},
+        ${input.expiresAt ? input.expiresAt.toISOString() : null},
         ${input.note ?? null}
       )
       RETURNING id
@@ -486,14 +506,26 @@ export async function createPublicStayQuoteOnNeon(slug: string, input: CreateSta
     return map;
   });
 
+  const stayType = input.stayType ?? 'overnight_stay';
+  const selectedBase =
+    stayType === 'day_use'
+      ? (ctx.dayUseMinor ?? ctx.baseNightlyMinor)
+      : stayType === 'overnight_only'
+        ? (ctx.overnightOnlyMinor ?? ctx.baseNightlyMinor)
+        : ctx.baseNightlyMinor;
+  // Day-use / overnight-only ignore weekend premium and per-day inventory overrides.
+  const useInventoryOverrides = stayType === 'overnight_stay';
   const priced = quoteStay({
     currency: ctx.currency,
     checkInOn: input.checkInOn,
     checkOutOn: input.checkOutOn,
-    baseNightlyMinor: ctx.baseNightlyMinor,
-    weekendNightlyMinor: ctx.weekendNightlyMinor,
+    baseNightlyMinor: selectedBase,
+    weekendNightlyMinor:
+      stayType === 'overnight_stay' ? ctx.weekendNightlyMinor : selectedBase,
     cleaningFeeMinor: ctx.cleaningFeeMinor,
-    ...(Object.keys(nightRates).length ? { nightRateOverrides: nightRates } : {}),
+    ...(useInventoryOverrides && Object.keys(nightRates).length
+      ? { nightRateOverrides: nightRates }
+      : {}),
   });
 
   const payloadHash = createHash('sha256')
@@ -504,6 +536,7 @@ export async function createPublicStayQuoteOnNeon(slug: string, input: CreateSta
         checkOutOn: input.checkOutOn,
         adults: input.adults,
         children: input.children,
+        stayType,
         totalMinor: priced.totalMinor,
       }),
     )
@@ -530,7 +563,10 @@ export async function createPublicStayQuoteOnNeon(slug: string, input: CreateSta
         taxMinor: 0n,
         totalMinor: BigInt(priced.totalMinor),
         lineItemsJson: priced.nightLines,
-        feesSnapshotJson: [{ code: 'cleaning', amountMinor: priced.cleaningFeeMinor }],
+        feesSnapshotJson: [
+          { code: 'cleaning', amountMinor: priced.cleaningFeeMinor },
+          { code: 'stay_type', stayType },
+        ],
         payloadHash,
         expiresAt,
       })

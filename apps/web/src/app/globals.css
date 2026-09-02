@@ -8796,7 +8796,64 @@ button.ops-row-key {
   gap: 0.75rem;
   justify-content: center;
 }
+.stays-book-page__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.2fr);
+  gap: 1.75rem;
+  align-items: start;
+}
+.stays-book-page__aside {
+  position: sticky;
+  top: 1rem;
+  padding: 1.25rem;
+  border: 1px solid color-mix(in srgb, var(--border, #d7ddd8) 88%, transparent);
+  border-radius: 1rem;
+  background:
+    linear-gradient(165deg, color-mix(in srgb, #0f2922 6%, white), white 42%),
+    #fff;
+}
+.stays-book-page__back {
+  display: inline-block;
+  margin-bottom: 0.85rem;
+  font-size: 0.92rem;
+  text-decoration: none;
+}
+.stays-book-page__cover {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: 0.85rem;
+  margin-bottom: 1rem;
+}
+.stays-book-page__title {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.35rem, 2.4vw, 1.85rem);
+  line-height: 1.25;
+}
+.stays-book-page__main .stays-checkout--page {
+  max-width: none;
+  padding: 1.35rem 1.45rem 1.55rem;
+  border: 1px solid color-mix(in srgb, var(--border, #d7ddd8) 90%, transparent);
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 12px 34px color-mix(in srgb, #0f2922 8%, transparent);
+}
+.stays-book-cta {
+  display: grid;
+  gap: 0.85rem;
+}
+.stays-book-cta h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
 @media (max-width: 900px) {
+  .stays-book-page__layout {
+    grid-template-columns: 1fr;
+  }
+  .stays-book-page__aside {
+    position: static;
+  }
   .booking-bar {
     grid-template-columns: 1fr;
   }

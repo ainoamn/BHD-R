@@ -188,6 +188,10 @@ export const stayRatePlans = pgTable(
     currency: varchar('currency', { length: 3 }).notNull(),
     baseNightlyMinor: bigint('base_nightly_minor', { mode: 'bigint' }).notNull(),
     weekendNightlyMinor: bigint('weekend_nightly_minor', { mode: 'bigint' }),
+    /** Day-use / no overnight stay price (إقامة بدون مبيت). */
+    dayUseMinor: bigint('day_use_minor', { mode: 'bigint' }),
+    /** Overnight-only price (مبيت فقط). */
+    overnightOnlyMinor: bigint('overnight_only_minor', { mode: 'bigint' }),
     refundable: boolean('refundable').notNull().default(true),
     enabled: boolean('enabled').notNull().default(true),
     priority: integer('priority').notNull().default(100),
