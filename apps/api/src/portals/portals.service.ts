@@ -334,7 +334,11 @@ export class PortalsService {
         .from(units)
         .where(and(eq(units.organizationId, orgId), inArray(units.propertyId, propertyIds)));
       const stayRows = await transaction
-        .select({ propertyId: units.propertyId })
+        .select({
+          propertyId: units.propertyId,
+          publishStatus: stayProfiles.publishStatus,
+          enabled: stayProfiles.enabled,
+        })
         .from(stayProfiles)
         .innerJoin(units, eq(units.id, stayProfiles.unitId))
         .where(
@@ -359,6 +363,7 @@ export class PortalsService {
         channelsByProperty.set(row.propertyId, list);
       }
       for (const row of stayRows) {
+        if (row.publishStatus !== 'published' || !row.enabled) continue;
         const list = channelsByProperty.get(row.propertyId) ?? [];
         if (!list.includes('stay')) list.push('stay');
         channelsByProperty.set(row.propertyId, list);

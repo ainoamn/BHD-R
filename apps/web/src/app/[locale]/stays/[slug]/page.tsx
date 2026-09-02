@@ -31,11 +31,17 @@ async function loadStayDetail(slug: string, unitId?: string): Promise<StayPublic
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string; slug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }): Promise<Metadata> {
   const { locale, slug } = await params;
-  const detail = await loadStayDetail(slug).catch(() => null);
+  const query = await searchParams;
+  const one = (value: string | string[] | undefined) =>
+    typeof value === 'string' ? value : Array.isArray(value) ? value[0] : undefined;
+  const unitId = one(query.unit) ?? one(query.unitId);
+  const detail = await loadStayDetail(slug, unitId).catch(() => null);
   if (!detail) {
     return {
       title: locale === 'ar' ? 'إقامة يومية' : 'Daily stay',
@@ -50,14 +56,15 @@ export async function generateMetadata({
     detail.destination ||
     title;
   const image = toPublicMediaSrc(detail.coverImageUrl) ?? detail.coverImageUrl ?? undefined;
+  const unitQs = unitId ? `?unit=${encodeURIComponent(unitId)}` : '';
   return {
     title,
     description,
-    alternates: bilingualAlternates(locale, `/stays/${slug}`),
+    alternates: bilingualAlternates(locale, `/stays/${slug}${unitQs}`),
     openGraph: {
       title,
       description,
-      url: `/${locale}/stays/${slug}`,
+      url: `/${locale}/stays/${slug}${unitQs}`,
       type: 'website',
       images: image ? [{ url: image }] : [],
     },
@@ -87,7 +94,7 @@ export default async function StayDetailPage({
   const checkOutOn = one(query.checkOutOn);
   const adults = one(query.adults);
   const children = one(query.children);
-  const unitQuery = one(query.unit);
+  const unitQuery = one(query.unit) ?? one(query.unitId);
 
   const dateDefaults = {
     ...(checkInOn ? { checkInOn } : {}),

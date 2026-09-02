@@ -215,6 +215,7 @@ async function listProperties(claims: SessionClaims): Promise<Record<string, unk
       channelsByProperty.set(row.propertyId, list);
     }
     for (const row of stayChannelRows) {
+      if (row.publishStatus !== 'published' || !row.enabled) continue;
       const list = channelsByProperty.get(row.propertyId) ?? [];
       if (!list.includes('stay')) list.push('stay');
       channelsByProperty.set(row.propertyId, list);

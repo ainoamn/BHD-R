@@ -1058,7 +1058,11 @@ export function StaySetupWizard({
       await publishAll();
       setNotice(t.published);
       if (publishedSlug) {
-        router.push(`/stays/${encodeURIComponent(publishedSlug)}`);
+        const focusUnit =
+          selectedUnits.find((unit) => selectedUnitIds.includes(unit.id))?.id ??
+          selectedUnitIds[0];
+        const qs = focusUnit ? `?unit=${encodeURIComponent(focusUnit)}` : '';
+        router.push(`/stays/${encodeURIComponent(publishedSlug)}${qs}`);
       }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : t.publishError);

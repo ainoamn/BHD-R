@@ -116,15 +116,27 @@ export class PublicStaysController {
   createQuote(
     @Param('slug') slug: string,
     @Body(new ZodPipe(createStayQuoteSchema)) body: CreateStayQuoteInput,
+    @Query('unitId') unitIdQuery?: string,
+    @Query('unit') unitAlias?: string,
   ) {
     assertStaysPlatformEnabled();
-    return this.bookingService.createQuote(slug, body);
+    const unitFromQuery = unitIdQuery?.trim() || unitAlias?.trim() || undefined;
+    const unitId = body.unitId ?? unitFromQuery;
+    return this.bookingService.createQuote(slug, {
+      ...body,
+      ...(unitId ? { unitId } : {}),
+    });
   }
 
   @Get(':slug')
-  async detail(@Param('slug') slug: string, @Query('unitId') unitId?: string) {
+  async detail(
+    @Param('slug') slug: string,
+    @Query('unitId') unitId?: string,
+    @Query('unit') unitAlias?: string,
+  ) {
     assertStaysPlatformEnabled();
-    const detail = await this.searchService.getBySlug(slug, unitId?.trim() || null);
+    const resolved = unitId?.trim() || unitAlias?.trim() || null;
+    const detail = await this.searchService.getBySlug(slug, resolved);
     if (!detail) throw new NotFoundException();
     return detail;
   }

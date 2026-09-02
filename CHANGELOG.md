@@ -2,6 +2,13 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.45 — 2026-09-02
+
+- Stay detail accepts `unit` or `unitId` query (and metadata) so multi-unit calendars stay pinned.
+- Portfolio stay channel badge only when a published+enabled stay profile exists.
+- Setup wizard redirects to `/stays/{slug}?unit=` after publish.
+- Nest public quotes honor stayType rates and `unit`/`unitId` query aliases.
+
 ## 0.4.44 — 2026-09-02
 
 - Fix Vercel deploy blockers (`exactOptionalPropertyTypes` on stay unitId props).
