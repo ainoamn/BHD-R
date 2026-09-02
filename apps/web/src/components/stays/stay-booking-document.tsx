@@ -64,11 +64,11 @@ export function StayBookingDocument({
   const subtitle =
     kind === 'payment'
       ? ar
-        ? 'مستند رسمي لاستلام مبلغ حجز إقامة عبر BHD R'
-        : 'Official record of stay booking payment via BHD R'
+        ? 'مستند رسمي لاستلام مبلغ حجز إقامة يومية.'
+        : 'Official record of stay booking payment.'
       : ar
-        ? 'مستند رسمي لتأكيد تفاصيل حجز الإقامة'
-        : 'Official confirmation of stay booking details';
+        ? 'مستند رسمي لتأكيد تفاصيل حجز الإقامة.'
+        : 'Official confirmation of stay booking details.';
   const amountLabel =
     booking.totalMinor && booking.currency
       ? formatMoney(booking.totalMinor, booking.currency, locale)
@@ -82,15 +82,12 @@ export function StayBookingDocument({
     <article className="stay-doc" id="stay-receipt" data-doc-kind={kind}>
       <header className="stay-doc__header">
         <div className="stay-doc__brand">
-          <span className="stay-doc__logo logo__product" aria-hidden="true">
+          <span className="stay-doc__logo logo__product" aria-label="BHD R">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/brand/bhd-official-symbol.svg" alt="" width="88" height="28" />
             <i>R</i>
           </span>
-          <div>
-            <p className="stay-doc__product">BHD R</p>
-            <p className="stay-doc__tagline">A BHD Product · عمان</p>
-          </div>
+          <p className="stay-doc__tagline">{ar ? 'منتج من منظومة BHD' : 'A BHD Product · Oman'}</p>
         </div>
         <div className="stay-doc__meta">
           <p className="stay-doc__kind">{title}</p>

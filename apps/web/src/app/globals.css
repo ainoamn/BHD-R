@@ -1083,7 +1083,9 @@ h3 {
 body:has(.pay-gateway-shell) .site-header,
 body:has(.pay-gateway-shell) .site-footer,
 body:has(.stay-confirm-shell) .site-header,
-body:has(.stay-confirm-shell) .site-footer {
+body:has(.stay-confirm-shell) .site-footer,
+body:has(.stays-booking-receipt) .site-header,
+body:has(.stays-booking-receipt) .site-footer {
   display: none !important;
 }
 body:has(.pay-gateway-shell) #main-content,
@@ -1091,6 +1093,9 @@ body:has(.stay-confirm-shell) #main-content {
   min-height: 100dvh;
   padding: 0;
   margin: 0;
+}
+body:has(.stays-booking-receipt) #main-content {
+  padding-block-start: 1.25rem;
 }
 
 .stay-confirm-shell {
@@ -9971,22 +9976,16 @@ button.ops-row-key {
   border-bottom: 2px solid color-mix(in srgb, var(--oman-deep, #092d24) 55%, #c4a574);
 }
 .stay-doc__brand {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  display: grid;
+  gap: 0.35rem;
+  align-content: start;
 }
 .stay-doc__logo img {
   width: 4.8rem;
   height: auto;
 }
-.stay-doc__product {
-  margin: 0;
-  font-size: 1.05rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-}
 .stay-doc__tagline {
-  margin: 0.1rem 0 0;
+  margin: 0;
   font-size: 0.78rem;
   color: #5c6b64;
 }
