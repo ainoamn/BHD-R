@@ -5,6 +5,7 @@
 **المستودع:** https://github.com/ainoamn/BHD-R  
 **الإنتاج:** https://r.bhd-om.com  
 **الفرع:** `main`  
+**آخر commit عند التوثيق:** `c56e3b8` — *feat(ops): portfolio channel badges and scope mobile title shrink (0.4.42)*  
 **الإصدار:** `0.4.42`  
 **محادثة Cursor:** [307d3b18-d433-4130-9cd4-fbf9f887f158](307d3b18-d433-4130-9cd4-fbf9f887f158)
 
