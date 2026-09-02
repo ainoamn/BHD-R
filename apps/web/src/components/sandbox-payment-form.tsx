@@ -44,7 +44,7 @@ function digitsOnly(value: string): string {
 }
 
 function formatCardNumber(value: string): string {
-  const digits = digitsOnly(value).slice(0, 19);
+  const digits = digitsOnly(value).slice(0, 16);
   return digits.replace(/(\d{4})(?=\d)/g, '$1 ').trim();
 }
 
@@ -61,29 +61,13 @@ function detectBrand(digits: string): 'visa' | 'mastercard' | 'amex' | 'other' {
   return 'other';
 }
 
-function luhnOk(digits: string): boolean {
-  if (digits.length < 13 || digits.length > 19) return false;
-  let sum = 0;
-  let alt = false;
-  for (let i = digits.length - 1; i >= 0; i -= 1) {
-    let n = Number(digits[i]);
-    if (alt) {
-      n *= 2;
-      if (n > 9) n -= 9;
-    }
-    sum += n;
-    alt = !alt;
-  }
-  return sum % 10 === 0;
-}
-
-/** Pilot demo PAN shown on the bank-card face (not a live network number). */
-const DEMO_CARD_DIGITS = '1234123412341234';
+/** Pilot demo PAN shown as a faint hint (not a live network number). */
 const DEMO_CARD_NUMBER = '1234 1234 1234 1234';
 const DEMO_EXPIRY = '10/89';
 
+/** Sandbox accepts any complete 16-digit PAN (no live PSP Luhn gate). */
 function isAcceptedPan(digits: string): boolean {
-  return digits === DEMO_CARD_DIGITS || luhnOk(digits);
+  return /^\d{16}$/.test(digits);
 }
 
 function expiryOk(mmYy: string): boolean {
@@ -135,7 +119,14 @@ export function SandboxPaymentForm({
       next.name = ar ? 'أدخل الاسم كما على البطاقة' : 'Enter the name on the card';
     }
     if (!isAcceptedPan(cardDigits)) {
-      next.number = ar ? 'رقم البطاقة غير صالح' : 'Card number is invalid';
+      next.number =
+        cardDigits.length === 0
+          ? ar
+            ? 'أدخل رقم البطاقة'
+            : 'Enter the card number'
+          : ar
+            ? 'رقم البطاقة يجب أن يكون 16 رقماً'
+            : 'Card number must be exactly 16 digits';
     }
     if (!expiryOk(expiry)) {
       next.expiry = ar ? 'تاريخ الانتهاء غير صالح' : 'Expiry is invalid';
@@ -298,7 +289,7 @@ export function SandboxPaymentForm({
             onChange={(event) => setCardNumber(formatCardNumber(event.target.value))}
             placeholder={numberHint}
             disabled={busy}
-            maxLength={23}
+            maxLength={19}
           />
           {touched && errors.number ? (
             <p className="field__error" role="alert">
