@@ -31,43 +31,41 @@ function stayTypeLabel(type: string | null | undefined, ar: boolean): string {
   return type ?? '—';
 }
 
-function guestHonorific(name: string | null | undefined, ar: boolean): string {
-  const trimmed = name?.trim();
-  if (!trimmed) return ar ? 'عزيزنا الضيف' : 'Dear guest';
-  return ar ? `عزيزي ${trimmed}` : `Dear ${trimmed}`;
-}
-
 function confirmationWelcome(input: {
   ar: boolean;
   paid: boolean;
   guestName?: string | null;
   amountLabel?: string | null;
-  referenceCode: string;
-}): { title: string; body: string } {
-  const dear = guestHonorific(input.guestName, input.ar);
+}): { greeting: string; guestName: string; body: string } {
+  const guestName = input.guestName?.trim() || (input.ar ? 'الضيف الكريم' : 'valued guest');
+  const greeting = input.ar ? 'عزيزي' : 'Dear';
   if (input.paid) {
     if (input.ar) {
       const amountPart = input.amountLabel ? ` بمبلغ إجمالي ${input.amountLabel}` : '';
       return {
-        title: `${dear}، أهلاً بك`,
-        body: `نودّ أن نؤكّد لك استلام حجزك، وأن الحجز والدفع قد تمّا بنجاح${amountPart} لرقم الحجز ${input.referenceCode}. نتطلّع لاستضافتك، ونتمنى لك إقامةً هانئة.`,
+        greeting,
+        guestName,
+        body: `نودّ أن نؤكّد لك استلام حجزك، وأن الحجز والدفع قد تمّا بنجاح${amountPart}. نتطلّع لاستضافتك، ونتمنى لك إقامةً هانئة.`,
       };
     }
     const amountPart = input.amountLabel ? ` for a total of ${input.amountLabel}` : '';
     return {
-      title: `${dear}, welcome`,
-      body: `We are pleased to confirm that your booking has been received, and that both the reservation and payment were completed successfully${amountPart} under booking reference ${input.referenceCode}. We look forward to hosting you.`,
+      greeting,
+      guestName,
+      body: `We are pleased to confirm that your booking has been received, and that both the reservation and payment were completed successfully${amountPart}. We look forward to hosting you.`,
     };
   }
   if (input.ar) {
     return {
-      title: `${dear}، أهلاً بك`,
-      body: `نودّ أن نؤكّد لك استلام طلب حجزك برقم ${input.referenceCode}. يرجى إكمال الدفع لتأكيد الإقامة.`,
+      greeting,
+      guestName,
+      body: 'نودّ أن نؤكّد لك استلام طلب حجزك. يرجى إكمال الدفع لتأكيد الإقامة.',
     };
   }
   return {
-    title: `${dear}, welcome`,
-    body: `We confirm receipt of your booking request under reference ${input.referenceCode}. Please complete payment to confirm your stay.`,
+    greeting,
+    guestName,
+    body: 'We confirm receipt of your booking request. Please complete payment to confirm your stay.',
   };
 }
 
@@ -133,7 +131,6 @@ export default async function StayBookingConfirmedPage({
     paid,
     guestName: booking.guestDisplayName ?? null,
     amountLabel,
-    referenceCode: booking.referenceCode,
   });
 
   return (
@@ -158,9 +155,28 @@ export default async function StayBookingConfirmedPage({
           />
           <div className="stay-confirm-shell__aside-scrim" />
           <div className="stay-confirm-shell__aside-content">
-            <p className="stay-confirm-shell__brand">BHD R</p>
-            <h1 id="stays-booking-confirmed-title">{welcome.title}</h1>
+            <span
+              className="stay-confirm-shell__logo logo__product logo__product--on-dark"
+              aria-label="BHD R"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/brand/bhd-official-symbol.svg" alt="" width="96" height="30" />
+              <i>R</i>
+            </span>
+            <p className="stay-confirm-shell__greeting">
+              {welcome.greeting}
+              {ar ? '، أهلاً بك' : ', welcome'}
+            </p>
+            <h1 id="stays-booking-confirmed-title" className="stay-confirm-shell__guest">
+              {welcome.guestName}
+            </h1>
             <p className="stay-confirm-shell__lede">{welcome.body}</p>
+            <p className="stay-confirm-shell__ref-label">
+              {ar ? 'رقم التأكيد' : 'Confirmation number'}
+            </p>
+            <p className="stay-confirm-shell__ref" dir="ltr">
+              {booking.referenceCode}
+            </p>
           </div>
         </div>
       </aside>
