@@ -47,9 +47,7 @@ function confirmationWelcome(input: {
   const dear = guestHonorific(input.guestName, input.ar);
   if (input.paid) {
     if (input.ar) {
-      const amountPart = input.amountLabel
-        ? ` بمبلغ إجمالي ${input.amountLabel}`
-        : '';
+      const amountPart = input.amountLabel ? ` بمبلغ إجمالي ${input.amountLabel}` : '';
       return {
         title: `${dear}، أهلاً بك`,
         body: `نودّ أن نؤكّد لك استلام حجزك، وأن الحجز والدفع قد تمّا بنجاح${amountPart} لرقم الحجز ${input.referenceCode}. نتطلّع لاستضافتك، ونتمنى لك إقامةً هانئة.`,
@@ -101,8 +99,7 @@ export default async function StayBookingConfirmedPage({
   const ar = locale === 'ar';
 
   const refRaw = query.ref;
-  const ref =
-    typeof refRaw === 'string' ? refRaw : Array.isArray(refRaw) ? refRaw[0] : undefined;
+  const ref = typeof refRaw === 'string' ? refRaw : Array.isArray(refRaw) ? refRaw[0] : undefined;
   if (!ref) notFound();
 
   const booking = await loadBooking(ref);
@@ -134,7 +131,7 @@ export default async function StayBookingConfirmedPage({
   const welcome = confirmationWelcome({
     ar,
     paid,
-    guestName: booking.guestDisplayName,
+    guestName: booking.guestDisplayName ?? null,
     amountLabel,
     referenceCode: booking.referenceCode,
   });
@@ -216,13 +213,7 @@ export default async function StayBookingConfirmedPage({
               <dt>{ar ? 'عدد الأيام' : 'Nights'}</dt>
               <dd>
                 {nights}{' '}
-                {ar
-                  ? nights === 1
-                    ? 'ليلة'
-                    : 'ليالٍ'
-                  : nights === 1
-                    ? 'night'
-                    : 'nights'}
+                {ar ? (nights === 1 ? 'ليلة' : 'ليالٍ') : nights === 1 ? 'night' : 'nights'}
               </dd>
             </div>
           ) : null}
@@ -237,7 +228,9 @@ export default async function StayBookingConfirmedPage({
           {typeof booking.adults === 'number' ? (
             <div>
               <dt>{ar ? 'بالغون' : 'Adults'}</dt>
-              <dd className="stays-checkout__chip stays-checkout__chip--adults">{booking.adults}</dd>
+              <dd className="stays-checkout__chip stays-checkout__chip--adults">
+                {booking.adults}
+              </dd>
             </div>
           ) : null}
           {typeof booking.children === 'number' ? (
@@ -279,7 +272,10 @@ export default async function StayBookingConfirmedPage({
           >
             {ar ? 'إيصال الدفع (PDF)' : 'Payment receipt (PDF)'}
           </Link>
-          <Link className="button button--quiet" href={`/guest/stays?ref=${encodeURIComponent(ref)}`}>
+          <Link
+            className="button button--quiet"
+            href={`/guest/stays?ref=${encodeURIComponent(ref)}`}
+          >
             {ar ? 'متابعة رحلتي' : 'Track my trip'}
           </Link>
           <Link className="button button--quiet" href="/stays">
