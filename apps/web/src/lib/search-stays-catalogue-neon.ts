@@ -280,21 +280,25 @@ export async function searchStaysCatalogueFromNeon(
         u.area_square_meters as area_square_meters,
         sp.max_guests as max_guests,
         (
-          select coalesce(sid.effective_rate_minor, srp.base_nightly_minor)::text
-          from stay_rate_plans srp
-          left join lateral (
-            select sid.effective_rate_minor
-            from stay_inventory_days sid
-            where sid.unit_id = u.id
-              and sid.availability_status = 'available'
-              and sid.stay_date >= current_date
-            order by sid.stay_date
-            limit 1
-          ) inv on true
-          where srp.stay_profile_id = sp.id
-            and srp.enabled = true
-          order by srp.priority asc, srp.created_at asc
-          limit 1
+          select coalesce(
+            (
+              select sid.effective_rate_minor::text
+              from stay_inventory_days sid
+              where sid.unit_id = u.id
+                and sid.availability_status = 'available'
+                and sid.stay_date >= current_date
+              order by sid.stay_date
+              limit 1
+            ),
+            (
+              select srp.base_nightly_minor::text
+              from stay_rate_plans srp
+              where srp.stay_profile_id = sp.id
+                and srp.enabled = true
+              order by srp.priority asc, srp.created_at asc
+              limit 1
+            )
+          )
         ) as nightly_minor,
         sp.currency as currency,
         coalesce(a.governorate, '') as governorate,
@@ -349,22 +353,25 @@ export async function searchStaysCatalogueFromNeon(
         case when a.location is not null then ST_Y(a.location::geometry) else null end as latitude,
         case when a.location is not null then ST_X(a.location::geometry) else null end as longitude,
         pp.notes as maps_note
-      from stay_profiles sp
-      inner join units u on u.id = sp.unit_id
-      inner join properties p on p.id = u.property_id
+      from stay_public_listings spl
+      inner join properties p
+        on p.id = spl.property_id
+       and p.organization_id = spl.organization_id
       inner join addresses a on a.id = p.address_id
       left join property_profiles pp on pp.property_id = p.id
-      inner join stay_public_listings spl
-        on spl.property_id = p.id
-       and spl.organization_id = sp.organization_id
-       and spl.enabled = true
-       and spl.published_at is not null
       inner join stay_unit_types sut
-        on sut.id = sp.unit_type_id
-       and sut.id = spl.unit_type_id
+        on sut.id = spl.unit_type_id
        and sut.organization_id = spl.organization_id
-      where sp.enabled = true
-        and sp.publish_status = 'published'
+      inner join stay_profiles sp
+        on sp.unit_type_id = sut.id
+       and sp.organization_id = spl.organization_id
+       and sp.enabled = true
+       and sp.publish_status = 'published'
+      inner join units u
+        on u.id = sp.unit_id
+       and u.organization_id = spl.organization_id
+      where spl.enabled = true
+        and spl.published_at is not null
         ${countryClause}
         ${governorateClause}
         ${wilayatClause}

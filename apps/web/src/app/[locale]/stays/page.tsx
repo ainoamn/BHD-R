@@ -16,6 +16,60 @@ import {
   type StayBrowseFilterState,
 } from '@/lib/stays-browse-filters';
 import type { StayCatalogueListing } from '@/lib/stays-catalogue-listing';
+import { searchPublicStaysOnNeon } from '@/lib/load-public-stays-neon';
+import { publicApiFetch } from '@/lib/server-api';
+import type { StaySearchListing, StaySearchResponse } from '@bhd-r/contracts';
+
+function mapSearchItemsToCatalogue(items: StaySearchListing[]): StayCatalogueListing[] {
+  return items
+    .filter((item) => Boolean(item.unitId))
+    .map((item) => ({
+      id: item.unitId!,
+      slug: item.slug,
+      unitId: item.unitId!,
+      unitCode: item.unitCode ?? null,
+      unitNameAr: item.unitNameAr ?? item.titleAr,
+      unitNameEn: item.unitNameEn ?? item.titleEn,
+      propertyId: '',
+      propertyNameAr: item.propertyNameAr ?? '',
+      propertyNameEn: item.propertyNameEn ?? '',
+      propertyKind: null,
+      category: 'apartment' as const,
+      governorate: item.destination ?? '',
+      wilayat: '',
+      bedrooms: item.bedrooms ?? 0,
+      bathrooms: item.bathrooms ?? 0,
+      areaSquareMeters: null,
+      maxGuests: item.maxGuests ?? 0,
+      nightlyMinor: item.nightlyMinor ?? null,
+      currency: item.currency ?? 'OMR',
+      coverImageUrl: item.coverImageUrl ?? null,
+      publishedAt: new Date().toISOString(),
+    }));
+}
+
+async function loadSearchFallback(countryCode: string): Promise<StayCatalogueListing[]> {
+  const searchQuery = {
+    countryCode,
+    locale: 'ar' as const,
+    limit: 100,
+    adults: 2,
+    children: 0,
+  };
+  if (hasDatabaseUrl()) {
+    try {
+      const neon = await searchPublicStaysOnNeon(searchQuery);
+      if (neon.items.length) return mapSearchItemsToCatalogue(neon.items);
+    } catch (error) {
+      console.error('[stays] Neon search fallback failed', error);
+    }
+  }
+  const api = await publicApiFetch<StaySearchResponse>(
+    `/v1/public/stays/search?countryCode=${countryCode}&locale=ar&limit=100&adults=2&children=0`,
+    8,
+  ).catch(() => null);
+  return api?.items?.length ? mapSearchItemsToCatalogue(api.items) : [];
+}
 
 export async function generateMetadata({
   params,
@@ -51,7 +105,10 @@ function parseMajorPrice(value: string | undefined): number | undefined {
 async function loadStaysCatalogue(
   query: URLSearchParams,
 ): Promise<StayCatalogueListing[]> {
-  if (!hasDatabaseUrl()) return [];
+  const countryCode = query.get('countryCode') ?? 'OM';
+  if (!hasDatabaseUrl()) {
+    return loadSearchFallback(countryCode);
+  }
   try {
     const bedroomsMinRaw = query.get('bedroomsMin');
     const bedroomsMin =
@@ -64,7 +121,6 @@ async function loadStaysCatalogue(
         ? Number(bathroomsMinRaw)
         : undefined;
     const search: StayCatalogueSearchInput = { limit: 100 };
-    const countryCode = query.get('countryCode');
     const governorate = query.get('governorate');
     const wilayat = query.get('wilayat');
     const village = query.get('village');
@@ -102,10 +158,11 @@ async function loadStaysCatalogue(
     if (q) search.q = q;
 
     const payload = await searchStaysCatalogueFromNeon(search);
-    return payload.data;
+    if (payload.data.length) return payload.data;
+    return loadSearchFallback(countryCode ?? 'OM');
   } catch (error) {
     console.error('[stays] Neon catalogue failed', error);
-    return [];
+    return loadSearchFallback(query.get('countryCode') ?? 'OM');
   }
 }
 
