@@ -13,6 +13,9 @@ import { PublicListingActions } from '@/components/public-listing-actions';
 import { PropertyManageHub } from '@/components/property-manage-hub';
 import { PropertyReviewScore } from '@/components/property-review-score';
 import { ReviewsPanel } from '@/components/reviews-panel';
+import { StayGuestInfoSection } from '@/components/stays/stay-guest-info-section';
+import { StayReviewsHub } from '@/components/stays/stay-reviews-hub';
+import type { StayPublicDetail } from '@bhd-r/contracts';
 import { StayAvailabilityCalendar } from '@/components/stays/stay-availability-calendar';
 import { googleMapsEmbedSrc } from '@/lib/parse-google-maps-url';
 import { listingPurposeCaption, occupancyLabel } from '@/lib/listing-purpose-display';
@@ -181,6 +184,7 @@ export function PropertyDetailManager({
   signedIn = false,
   staysEnabled = false,
   stayBooking,
+  stayDetail = null,
 }: {
   property: ManagedProperty;
   locale: 'ar' | 'en';
@@ -205,6 +209,7 @@ export function PropertyDetailManager({
     adults?: string;
     children?: string;
   };
+  stayDetail?: StayPublicDetail | null;
 }) {
   const router = useRouter();
   const ar = locale === 'ar';
@@ -936,7 +941,16 @@ export function PropertyDetailManager({
           </section>
           ) : null}
 
-          {isPublic && reviewTargets.length ? (
+          {isPublic && stayDetail ? <StayGuestInfoSection detail={stayDetail} locale={locale} /> : null}
+
+          {isPublic && stayBooking ? (
+            <StayReviewsHub
+              locale={locale}
+              signedIn={signedIn}
+              propertyId={property.id}
+              propertyName={stayBooking.title || (ar ? property.nameAr : property.nameEn)}
+            />
+          ) : isPublic && reviewTargets.length ? (
             <ReviewsPanel locale={locale} signedIn={signedIn} targets={reviewTargets} />
           ) : null}
 

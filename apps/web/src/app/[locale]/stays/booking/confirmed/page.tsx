@@ -138,6 +138,11 @@ export default async function StayBookingConfirmedPage({
               {ar ? 'ابحث عن إقامة أخرى' : 'Search another stay'}
             </Link>
           </div>
+          <p className="muted stays-booking-confirmed__review-hint">
+            {ar
+              ? 'بعد انتهاء الإقامة سيظهر لك طلب تقييم بأسلوب Booking.com من صفحة رحلاتي وصفحة الإقامة.'
+              : 'After checkout ends, a Booking.com-style review invite appears on My trips and the stay page.'}
+          </p>
         </div>
       </section>
     </div>

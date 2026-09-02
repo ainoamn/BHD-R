@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-09-02  
-**Product version:** 0.4.34  
-**Active focus:** Stay setup — portfolio-style units, bilingual policies, public preview  
+**Product version:** 0.4.35  
+**Active focus:** Smart stay reviews + policies/rates on public stay page  
+**Release 0.4.35:** [`RELEASE-0.4.35-AR.md`](./RELEASE-0.4.35-AR.md)  
 **Release 0.4.34:** [`RELEASE-0.4.34-AR.md`](./RELEASE-0.4.34-AR.md)  
 **Release 0.4.33:** [`RELEASE-0.4.33-AR.md`](./RELEASE-0.4.33-AR.md)  
 **Release 0.4.32:** [`RELEASE-0.4.32-AR.md`](./RELEASE-0.4.32-AR.md)  
@@ -12,6 +13,7 @@
 **Release 0.4.28:** public stay booking via Vercel Neon (no Nest cold-start `Failed to fetch`)  
 **Release 0.4.27:** [`RELEASE-0.4.27-AR.md`](./RELEASE-0.4.27-AR.md)  
 **Release 0.4.26:** Property 360 stay pages + occupancy calendar  
+**Handoff (2026-09-02 reviews):** [`../handoffs/2026-09-02-stay-smart-reviews/`](../handoffs/2026-09-02-stay-smart-reviews/)  
 **Handoff (2026-09-02 preview):** [`../handoffs/2026-09-02-stay-setup-preview/`](../handoffs/2026-09-02-stay-setup-preview/)  
 **Handoff (2026-09-02 setup):** [`../handoffs/2026-09-02-stay-setup-policies/`](../handoffs/2026-09-02-stay-setup-policies/)  
 **Handoff (2026-09-02):** [`../handoffs/2026-09-02-stays-calendar-booking-ux/`](../handoffs/2026-09-02-stays-calendar-booking-ux/)  

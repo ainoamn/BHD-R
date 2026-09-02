@@ -2,6 +2,13 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.35 — 2026-09-02
+
+- Public stay page shows policies, period times, three stay rates, deposit, and smart score.
+- Booking.com-style verified stay reviews (pros/cons, category scores, post-checkout invites).
+- Smart rating blends guest reviews with 90-day occupancy; AI draft assist from scores/keywords.
+- Migration `0022_stay_reviews_rich`.
+
 ## 0.4.34 — 2026-09-02
 
 - Stay setup units table matches property portfolio layout (photo, status pill, select).

@@ -3,6 +3,7 @@ import { EmptyState } from '@bhd-r/ui';
 import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import { GuestStayLookup } from '@/components/stays/guest-stay-lookup';
+import { GuestPendingStayReviews } from '@/components/stays/guest-pending-stay-reviews';
 import { Link } from '@/i18n/navigation';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { listGuestStayBookingsOnNeon } from '@/lib/public-stays-guest-neon';
@@ -96,6 +97,10 @@ export default async function GuestStaysPage({
           {...(initialReference ? { initialReference } : {})}
           canClaim={Boolean(viewer)}
         />
+
+        {viewer ? (
+          <GuestPendingStayReviews locale={locale} />
+        ) : null}
 
         <section className="guest-stays__list" aria-labelledby="guest-trips-title">
           <h2 id="guest-trips-title">{ar ? 'حجوزاتي' : 'My bookings'}</h2>

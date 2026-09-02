@@ -242,6 +242,22 @@ export async function loadPublicStayBySlugOnNeon(slug: string): Promise<StayPubl
           LIMIT 1
         ) AS rate_plan_minor,
         (
+          SELECT srp.day_use_minor::text
+          FROM stay_rate_plans srp
+          WHERE srp.stay_profile_id = sp.id
+            AND srp.enabled = true
+          ORDER BY srp.priority ASC, srp.created_at ASC
+          LIMIT 1
+        ) AS day_use_minor,
+        (
+          SELECT srp.overnight_only_minor::text
+          FROM stay_rate_plans srp
+          WHERE srp.stay_profile_id = sp.id
+            AND srp.enabled = true
+          ORDER BY srp.priority ASC, srp.created_at ASC
+          LIMIT 1
+        ) AS overnight_only_minor,
+        (
           SELECT sid.currency
           FROM stay_inventory_days sid
           WHERE sid.unit_id = u.id
@@ -323,6 +339,8 @@ export async function loadPublicStayBySlugOnNeon(slug: string): Promise<StayPubl
           property_name_en: string;
           nightly_minor: string | null;
           rate_plan_minor: string | null;
+          day_use_minor: string | null;
+          overnight_only_minor: string | null;
           night_currency: string | null;
           cover_image_url: string | null;
         }
@@ -347,6 +365,8 @@ export async function loadPublicStayBySlugOnNeon(slug: string): Promise<StayPubl
       Array.isArray(imageResult) ? imageResult : ((imageResult as { rows?: unknown[] }).rows ?? [])
     ) as Array<{ url: string }>;
 
+    const smart = await loadStaySmartScoreOnNeon(transaction, row.property_id, row.unit_id);
+
     return {
       slug: row.slug,
       titleAr: row.title_ar,
@@ -357,6 +377,8 @@ export async function loadPublicStayBySlugOnNeon(slug: string): Promise<StayPubl
       wilayat: row.wilayat,
       city: row.city,
       nightlyMinor: row.nightly_minor ?? row.rate_plan_minor,
+      dayUseMinor: row.day_use_minor,
+      overnightOnlyMinor: row.overnight_only_minor,
       currency:
         ((row.night_currency ?? row.profile_currency) as StayPublicDetail['currency']) ?? null,
       maxGuests: row.max_guests,
@@ -381,6 +403,74 @@ export async function loadPublicStayBySlugOnNeon(slug: string): Promise<StayPubl
       instructionsEn: row.instructions_en,
       coverImageUrl: row.cover_image_url,
       imageUrls: imageRows.map((item) => item.url),
+      guestScoreTen: smart.guestScoreTen,
+      occupancyPercent: smart.occupancyPercent,
+      smartScoreTen: smart.smartScoreTen,
+      stayReviewCount: smart.stayReviewCount,
     };
   });
+}
+
+async function loadStaySmartScoreOnNeon(
+  transaction: Parameters<Parameters<Database['transaction']>[0]>[0],
+  propertyId: string,
+  unitId: string,
+): Promise<{
+  guestScoreTen: number | null;
+  occupancyPercent: number | null;
+  smartScoreTen: number | null;
+  stayReviewCount: number;
+}> {
+  const reviewResult = await transaction.execute(sql`
+    SELECT
+      avg(sr.rating)::float AS avg_rating,
+      count(*)::int AS review_count
+    FROM stay_reviews sr
+    INNER JOIN stay_bookings sb ON sb.id = sr.booking_id
+    WHERE sb.property_id = ${propertyId}::uuid
+      AND sr.status = 'published'
+  `);
+  const reviewRows = (
+    Array.isArray(reviewResult) ? reviewResult : ((reviewResult as { rows?: unknown[] }).rows ?? [])
+  ) as Array<{ avg_rating: number | null; review_count: number | null }>;
+  const reviewCount = Number(reviewRows[0]?.review_count ?? 0);
+  const avgFive = reviewCount > 0 ? Number(reviewRows[0]?.avg_rating ?? 0) : null;
+  const guestScoreTen =
+    avgFive != null && Number.isFinite(avgFive)
+      ? Math.round(avgFive * 2 * 10) / 10
+      : null;
+
+  const occResult = await transaction.execute(sql`
+    WITH days AS (
+      SELECT
+        count(*) FILTER (WHERE sid.availability_status IN ('booked', 'blocked', 'hold'))::float AS busy,
+        count(*)::float AS total
+      FROM stay_inventory_days sid
+      WHERE sid.unit_id = ${unitId}::uuid
+        AND sid.stay_date >= (CURRENT_DATE - INTERVAL '90 days')
+        AND sid.stay_date < CURRENT_DATE
+    )
+    SELECT
+      CASE WHEN total > 0 THEN round((busy / total) * 100)::float ELSE NULL END AS occupancy_percent
+    FROM days
+  `);
+  const occRows = (
+    Array.isArray(occResult) ? occResult : ((occResult as { rows?: unknown[] }).rows ?? [])
+  ) as Array<{ occupancy_percent: number | null }>;
+  const occupancyPercent =
+    occRows[0]?.occupancy_percent != null && Number.isFinite(Number(occRows[0].occupancy_percent))
+      ? Number(occRows[0].occupancy_percent)
+      : null;
+
+  let smartScoreTen: number | null = null;
+  if (guestScoreTen != null && occupancyPercent != null) {
+    const occScore = Math.min(10, Math.max(0, occupancyPercent / 10));
+    smartScoreTen = Math.round((guestScoreTen * 0.8 + occScore * 0.2) * 10) / 10;
+  } else if (guestScoreTen != null) {
+    smartScoreTen = guestScoreTen;
+  } else if (occupancyPercent != null) {
+    smartScoreTen = Math.round(Math.min(10, Math.max(0, occupancyPercent / 10)) * 10) / 10;
+  }
+
+  return { guestScoreTen, occupancyPercent, smartScoreTen, stayReviewCount: reviewCount };
 }

@@ -152,6 +152,7 @@ export default async function StayDetailPage({
             ...(detail.maxGuests != null ? { maxGuests: detail.maxGuests } : {}),
             ...dateDefaults,
           }}
+          stayDetail={detail}
         />
       </div>
     </main>
