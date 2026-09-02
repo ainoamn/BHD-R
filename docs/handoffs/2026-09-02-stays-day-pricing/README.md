@@ -4,6 +4,7 @@
 **المستودع:** https://github.com/ainoamn/BHD-R  
 **الإنتاج:** https://r.bhd-om.com  
 **الفرع:** `main`  
+**آخر commit:** `b26678f` — *Ship stay calendar green availability and per-day rates/notes as 0.4.30.*  
 **الإصدار:** 0.4.30  
 **معرّف محادثة Cursor:** [d0d5551b-99f7-449e-92d1-5d812bcf527d](d0d5551b-99f7-449e-92d1-5d812bcf527d)
 
