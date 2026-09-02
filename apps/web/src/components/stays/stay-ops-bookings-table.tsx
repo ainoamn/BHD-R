@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { EmptyState } from '@bhd-r/ui';
 import { ApiError, browserMutation } from '@/lib/api';
+import { formatMoney } from '@/lib/format';
 
 export type OpsStayBooking = {
   id: string;
@@ -20,16 +21,27 @@ export type OpsStayBooking = {
   nights?: number;
 };
 
-const CANCELABLE = new Set([
-  'request_pending',
-  'payment_pending',
-  'confirmed',
-  'pre_arrival',
-]);
+const CANCELABLE = new Set(['request_pending', 'payment_pending', 'confirmed', 'pre_arrival']);
 
 const NO_SHOWABLE = new Set(['confirmed', 'pre_arrival']);
 
 const CHECKOUTABLE = new Set(['checked_in']);
+
+function statusLabel(status: string, ar: boolean): string {
+  const labels: Record<string, { ar: string; en: string }> = {
+    payment_pending: { ar: 'بانتظار الدفع', en: 'Awaiting payment' },
+    request_pending: { ar: 'بانتظار الاعتماد', en: 'Awaiting approval' },
+    confirmed: { ar: 'مؤكّد', en: 'Confirmed' },
+    paid: { ar: 'مدفوع', en: 'Paid' },
+    pre_arrival: { ar: 'قبل الوصول', en: 'Pre-arrival' },
+    checked_in: { ar: 'تم الوصول', en: 'Checked in' },
+    checked_out: { ar: 'تم المغادرة', en: 'Checked out' },
+    cancelled: { ar: 'ملغى', en: 'Cancelled' },
+    no_show: { ar: 'لم يحضر', en: 'No-show' },
+  };
+  const hit = labels[status];
+  return hit ? (ar ? hit.ar : hit.en) : status;
+}
 
 export function StayOpsBookingsTable({
   locale,
@@ -45,10 +57,7 @@ export function StayOpsBookingsTable({
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState(items);
 
-  async function runAction(
-    bookingId: string,
-    action: 'cancel' | 'no-show' | 'checkout',
-  ) {
+  async function runAction(bookingId: string, action: 'cancel' | 'no-show' | 'checkout') {
     setError(null);
     setBusyId(bookingId);
     try {
@@ -119,11 +128,9 @@ export function StayOpsBookingsTable({
                   {booking.checkInOn} → {booking.checkOutOn}
                 </td>
                 <td dir="ltr">{booking.nights ?? '—'}</td>
-                <td dir="ltr">{booking.status}</td>
+                <td>{statusLabel(booking.status, ar)}</td>
                 <td dir="ltr">{booking.bookingMode}</td>
-                <td dir="ltr">
-                  {booking.currency} {booking.totalMinor}
-                </td>
+                <td dir="ltr">{formatMoney(booking.totalMinor, booking.currency, locale)}</td>
                 <td dir="ltr" className="muted">
                   {booking.unitId.slice(0, 8)}…
                 </td>

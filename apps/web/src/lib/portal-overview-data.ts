@@ -10,6 +10,7 @@ import {
   maintenanceTickets,
   payments,
   properties,
+  stayBookings,
   units,
   workflowEvents,
   type Database,
@@ -178,7 +179,7 @@ async function organizationOverviewFromDb(claims: SessionClaims): Promise<Portal
         transaction.select({ value: count() }).from(leases).where(expiringFilter),
       ]);
 
-    const [collected, activity, openInvoicesRows] = await Promise.all([
+    const [collected, activity, openInvoicesRows, stayBookingRows] = await Promise.all([
       transaction
         .select({
           currency: payments.currency,
@@ -227,6 +228,10 @@ async function organizationOverviewFromDb(claims: SessionClaims): Promise<Portal
                 inArray(invoices.status, ['issued', 'partially_paid', 'overdue']),
               ),
             ),
+      transaction
+        .select({ value: count() })
+        .from(stayBookings)
+        .where(eq(stayBookings.organizationId, orgId)),
     ]);
 
     const activeUnits = Number(unitCount[0]?.value ?? 0);
@@ -236,6 +241,7 @@ async function organizationOverviewFromDb(claims: SessionClaims): Promise<Portal
     const propertiesTotal = Number(propertyCount[0]?.value ?? 0);
     const vacantUnits = Math.max(0, activeUnits - occupied);
     const openInvoices = Number(openInvoicesRows[0]?.value ?? 0);
+    const stayBookingCount = Number(stayBookingRows[0]?.value ?? 0);
 
     const alerts: NonNullable<PortalOverview['alerts']> = [];
     if (openTickets > 0) alerts.push({ severity: 'danger', code: 'open_tickets', count: openTickets });
@@ -243,6 +249,8 @@ async function organizationOverviewFromDb(claims: SessionClaims): Promise<Portal
     if (openInvoices > 0)
       alerts.push({ severity: 'warning', code: 'open_invoices', count: openInvoices });
     if (vacantUnits > 0) alerts.push({ severity: 'info', code: 'vacant_units', count: vacantUnits });
+    if (stayBookingCount > 0)
+      alerts.push({ severity: 'info', code: 'stay_bookings', count: stayBookingCount });
 
     return {
       properties: propertiesTotal,

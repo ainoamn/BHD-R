@@ -16,6 +16,7 @@ export const STAY_OUTBOX_TOPICS = [
   'stay.inventory.lock_created',
   'stay.inventory.changed',
   'stay_booking.payment_confirmed',
+  'stay.booking.confirmed',
   'stay.checked_out',
 ] as const;
 

@@ -305,12 +305,13 @@ export async function completeStaySandboxPaymentOnNeon(
 
     await transaction.insert(outboxEvents).values({
       organizationId: intent.organizationId,
-      topic: 'stay.booking.confirmed',
+      topic: 'stay_booking.payment_confirmed',
       aggregateType: 'stay_booking',
       aggregateId: booking.id,
       payload: {
         paymentIntentId: intent.id,
         referenceCode: booking.referenceCode,
+        unitId: booking.unitId,
         provider: 'sandbox',
       },
     });

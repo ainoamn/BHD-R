@@ -25,6 +25,8 @@ function alertCopy(
       return t('Portal.alertInvoices', { count });
     case 'vacant_units':
       return t('Portal.alertVacant', { count });
+    case 'stay_bookings':
+      return t('Portal.alertStayBookings', { count });
     default:
       return `${code}: ${count}`;
   }
@@ -40,9 +42,26 @@ function alertHref(portal: PortalRole, code: string): string {
       return `/${portal}/invoices`;
     case 'vacant_units':
       return `/${portal}/bookings`;
+    case 'stay_bookings':
+      return `/${portal}/stays/bookings`;
     default:
       return `/${portal}`;
   }
+}
+
+function localizeWorkflowLabel(
+  key: string | undefined,
+  kind: 'event' | 'status',
+  t: Awaited<ReturnType<typeof getTranslations>>,
+): string {
+  if (!key) return '';
+  const normalized = key.replace(/\./g, '_');
+  const path =
+    kind === 'event'
+      ? (`Portal.workflowEvent_${normalized}` as Parameters<typeof t>[0])
+      : (`Portal.workflowStatus_${normalized}` as Parameters<typeof t>[0]);
+  const translated = t(path);
+  return translated === path ? key : translated;
 }
 
 export async function PortalOverview({ locale, portal }: { locale: string; portal: PortalRole }) {
@@ -207,8 +226,12 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
               {overview.recentActivity.map((item) => (
                 <li key={item.id}>
                   <div>
-                    <strong>{item.title}</strong>
-                    {item.status ? <span className="dash-activity__status">{item.status}</span> : null}
+                    <strong>{localizeWorkflowLabel(item.title, 'event', t)}</strong>
+                    {item.status ? (
+                      <span className="dash-activity__status">
+                        {localizeWorkflowLabel(item.status, 'status', t)}
+                      </span>
+                    ) : null}
                   </div>
                   <time dateTime={item.occurredAt}>
                     {new Intl.DateTimeFormat(locale === 'ar' ? 'ar-OM' : 'en-OM', {
@@ -230,8 +253,15 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
           <div className="dash-actions">
             {portal === 'owner' || portal === 'developer' ? (
               <>
-                <Link className="button button--primary" href={`/${portal}/properties/new`} prefetch>
+                <Link
+                  className="button button--primary"
+                  href={`/${portal}/properties/new`}
+                  prefetch
+                >
                   {t('Portal.addProperty')}
+                </Link>
+                <Link className="button button--quiet" href={`/${portal}/stays/bookings`}>
+                  {t('Portal.viewStayBookings')}
                 </Link>
                 <Link className="button button--quiet" href={`/${portal}/properties`}>
                   {t('Common.properties')}

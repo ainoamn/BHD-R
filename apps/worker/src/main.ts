@@ -329,7 +329,8 @@ const workers = [
           if (
             event.topic === 'stay.inventory.lock_created' ||
             event.topic === 'stay.inventory.changed' ||
-            event.topic === 'stay_booking.payment_confirmed'
+            event.topic === 'stay_booking.payment_confirmed' ||
+            event.topic === 'stay.booking.confirmed'
           ) {
             const organizationId = event.organizationId;
             if (!organizationId) return { skipped: true, reason: 'missing_organization' };

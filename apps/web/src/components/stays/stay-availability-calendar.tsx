@@ -191,6 +191,22 @@ export function StayAvailabilityCalendar({
         );
       }
       if (mode === 'ops' && unitId) {
+        try {
+          const response = await fetch(
+            `/api/owner/stays/inventory-days?unitId=${encodeURIComponent(unitId)}&${qs.toString()}`,
+            {
+              credentials: 'same-origin',
+              headers: { accept: 'application/json' },
+              cache: 'no-store',
+              signal: AbortSignal.timeout(45_000),
+            },
+          );
+          if (response.ok) {
+            return (await response.json()) as StayInventoryCalendarResponse;
+          }
+        } catch {
+          /* fall through to Nest */
+        }
         return browserGet<StayInventoryCalendarResponse>(
           `/v1/stays/units/${encodeURIComponent(unitId)}/inventory-days?${qs.toString()}`,
         );
