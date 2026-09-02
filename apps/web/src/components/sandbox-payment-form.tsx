@@ -309,7 +309,7 @@ export function SandboxPaymentForm({
               dir="ltr"
               value={expiry}
               onChange={(event) => setExpiry(formatExpiry(event.target.value))}
-              placeholder="MM/YY"
+              placeholder="10/89"
               disabled={busy}
               maxLength={5}
             />
