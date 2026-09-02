@@ -45,7 +45,7 @@ export function GuestStayLookup({
     }
     try {
       const response = await fetch(
-        `/api/public/stays/bookings/lookup?referenceCode=${encodeURIComponent(code)}`,
+        `/api/public/stays/guest/lookup?referenceCode=${encodeURIComponent(code)}`,
         {
           method: 'GET',
           credentials: 'same-origin',
@@ -112,7 +112,7 @@ export function GuestStayLookup({
       setError(null);
       setHint(null);
       try {
-        await browserNextMutation('/api/public/stays/bookings/claim', {
+        await browserNextMutation('/api/public/stays/guest/claim', {
           method: 'POST',
           body: JSON.stringify({ referenceCode: result.referenceCode }),
         });

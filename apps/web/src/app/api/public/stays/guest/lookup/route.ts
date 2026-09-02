@@ -10,7 +10,7 @@ import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-li
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-/** GET /api/public/stays/bookings/lookup?referenceCode=ST-… — Neon, no Nest BFF. */
+/** GET /api/public/stays/guest/lookup?referenceCode=ST-… — Neon, no Nest BFF. */
 export async function GET(request: Request) {
   const blocked = stayBookingDbGuard();
   if (blocked) return blocked;

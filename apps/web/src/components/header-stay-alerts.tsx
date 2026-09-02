@@ -73,7 +73,7 @@ export function HeaderStayAlerts({
     if (!signedIn) return;
     startTransition(async () => {
       try {
-        const response = await fetch('/api/public/stays/bookings/mine', {
+        const response = await fetch('/api/public/stays/guest/mine', {
           credentials: 'same-origin',
           headers: { accept: 'application/json' },
           cache: 'no-store',

@@ -11,7 +11,7 @@ import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-li
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-/** POST /api/public/stays/bookings/claim — link booking to signed-in user via Neon. */
+/** POST /api/public/stays/guest/claim — link booking to signed-in user via Neon. */
 export async function POST(request: Request) {
   const blocked = stayBookingDbGuard();
   if (blocked) return blocked;
