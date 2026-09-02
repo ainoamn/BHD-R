@@ -402,3 +402,56 @@ export async function completeStaySandboxPaymentOnNeon(
     };
   });
 }
+
+export type StaySandboxSessionSummary = {
+  sessionReference: string;
+  paymentIntentId: string;
+  amountMinor: string;
+  currency: string;
+  status: string;
+  referenceCode: string;
+  checkInOn: string;
+  checkOutOn: string;
+};
+
+/** Public-safe summary for the sandbox checkout UI (no PAN/secrets). */
+export async function lookupStaySandboxSessionOnNeon(
+  sessionReference: string,
+): Promise<StaySandboxSessionSummary | null> {
+  if (!isPaymentSandboxPilotEnabled()) return null;
+  if (!/^[A-Za-z0-9_-]{24,80}$/.test(sessionReference)) return null;
+
+  return asSystem(async (transaction) => {
+    const intent = await transaction.query.stayPaymentIntents.findFirst({
+      where: and(
+        eq(stayPaymentIntents.providerIntentId, sessionReference),
+        eq(stayPaymentIntents.provider, 'sandbox'),
+      ),
+    });
+    if (!intent) return null;
+
+    const booking = await transaction.query.stayBookings.findFirst({
+      where: and(
+        eq(stayBookings.id, intent.bookingId),
+        eq(stayBookings.organizationId, intent.organizationId),
+      ),
+      columns: {
+        referenceCode: true,
+        checkInOn: true,
+        checkOutOn: true,
+      },
+    });
+    if (!booking) return null;
+
+    return {
+      sessionReference,
+      paymentIntentId: intent.id,
+      amountMinor: intent.amountMinor.toString(),
+      currency: intent.currency,
+      status: intent.status,
+      referenceCode: booking.referenceCode,
+      checkInOn: booking.checkInOn,
+      checkOutOn: booking.checkOutOn,
+    };
+  });
+}
