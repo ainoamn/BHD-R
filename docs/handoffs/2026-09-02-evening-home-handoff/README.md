@@ -5,7 +5,7 @@
 **المستودع:** https://github.com/ainoamn/BHD-R  
 **الإنتاج:** https://r.bhd-om.com  
 **الفرع:** `main`  
-**آخر commit عند التوثيق:** `0079e42` — *Fix release 0.4.40 doc commit hash.*  
+**آخر commit عند التوثيق:** `b728a35` — *Archive full Cursor conversation and home handoff for 0.4.40.*  
 **الإصدار:** `0.4.40`  
 **معرّف محادثة Cursor:** [d0d5551b-99f7-449e-92d1-5d812bcf527d](d0d5551b-99f7-449e-92d1-5d812bcf527d)
 

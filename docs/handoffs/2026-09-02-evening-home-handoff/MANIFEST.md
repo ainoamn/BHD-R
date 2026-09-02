@@ -2,7 +2,7 @@
 
 | Item | Value |
 | --- | --- |
-| Commit | `0079e4291b911f3e438c07e94a19d7f71e22b8bc` |
+| Commit | `b728a353dac4dae066bdd7e36306d6a96f71fc7c` |
 | Version | `0.4.40` |
 | Branch | `main` |
 | Remote | https://github.com/ainoamn/BHD-R |
