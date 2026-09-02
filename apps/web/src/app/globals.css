@@ -9448,17 +9448,45 @@ button.ops-row-key {
 .stays-calendar__day.is-past {
   opacity: 0.45;
 }
-.stays-calendar__day.is-in-range {
-  background: color-mix(in srgb, var(--oman-teal, #0d5c4d) 18%, #e8f5ef);
-  border-color: color-mix(in srgb, var(--oman-teal, #0d5c4d) 35%, #d7e1db);
+/* Selected range must beat `.is-available:not(:disabled)` specificity. */
+.stays-calendar__day.is-in-range,
+.stays-calendar__day.is-available.is-in-range:not(:disabled) {
+  background: color-mix(in srgb, var(--oman-teal, #0d5c4d) 42%, #fff);
+  border-color: var(--oman-teal, #0d5c4d);
   color: var(--oman-deep, #0f2922);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--oman-teal, #0d5c4d) 55%, transparent);
+  background-image: none;
+  opacity: 1;
+}
+.stays-calendar__day.is-in-range .stays-calendar__day-status,
+.stays-calendar__day.is-available.is-in-range:not(:disabled) .stays-calendar__day-status {
+  font-weight: 800;
+  opacity: 1;
 }
 .stays-calendar__day.is-range-start,
-.stays-calendar__day.is-range-end {
+.stays-calendar__day.is-range-end,
+.stays-calendar__day.is-available.is-range-start:not(:disabled),
+.stays-calendar__day.is-available.is-range-end:not(:disabled) {
   background: var(--oman-teal, #0d5c4d);
   color: #fff;
-  border-color: var(--oman-teal, #0d5c4d);
+  border-color: var(--oman-deep, #0f2922);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--oman-teal, #0d5c4d) 35%, transparent);
   background-image: none;
+  opacity: 1;
+}
+.stays-calendar__day.is-range-start .stays-calendar__day-num,
+.stays-calendar__day.is-range-end .stays-calendar__day-num,
+.stays-calendar__day.is-range-start .stays-calendar__day-status,
+.stays-calendar__day.is-range-end .stays-calendar__day-status,
+.stays-calendar__day.is-available.is-range-start:not(:disabled) .stays-calendar__day-num,
+.stays-calendar__day.is-available.is-range-end:not(:disabled) .stays-calendar__day-num,
+.stays-calendar__day.is-available.is-range-start:not(:disabled) .stays-calendar__day-status,
+.stays-calendar__day.is-available.is-range-end:not(:disabled) .stays-calendar__day-status {
+  color: #fff;
+}
+.stays-calendar__day.is-available.is-in-range:not(:disabled):hover {
+  border-color: var(--oman-deep, #0f2922);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--oman-teal, #0d5c4d) 28%, transparent);
 }
 .stays-calendar__legend {
   display: flex;
@@ -9485,6 +9513,11 @@ button.ops-row-key {
   border-color: color-mix(in srgb, var(--oman-teal, #0d5c4d) 28%, #d7e1db);
   color: #0d5c4d;
 }
+.stays-calendar__legend-item.is-selected-range {
+  background: color-mix(in srgb, var(--oman-teal, #0d5c4d) 18%, #fff);
+  border-color: var(--oman-teal, #0d5c4d);
+  color: var(--oman-deep, #0f2922);
+}
 .stays-calendar__legend-item.is-booked {
   background: color-mix(in srgb, #fde8e8 80%, #fff);
   border-color: #f0b4b4;
@@ -9510,6 +9543,10 @@ button.ops-row-key {
 .stays-calendar__swatch.is-available {
   background: #dff3ea;
   border-color: #0d5c4d;
+}
+.stays-calendar__swatch.is-selected-range {
+  background: var(--oman-teal, #0d5c4d);
+  border-color: var(--oman-deep, #0f2922);
 }
 .stays-calendar__swatch.is-booked {
   background: #fde8e8;

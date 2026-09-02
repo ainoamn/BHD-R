@@ -171,6 +171,10 @@ export function StayAvailabilityCalendar({
   const [error, setError] = useState<string | null>(null);
   const [pickStart, setPickStart] = useState<string | null>(selectedCheckIn ?? null);
 
+  useEffect(() => {
+    if (selectedCheckIn) setPickStart(selectedCheckIn);
+  }, [selectedCheckIn]);
+
   const fromOn = viewMonthStart;
   const toOn = addCalendarMonths(viewMonthStart, monthCount);
   const weekdays = useMemo(() => weekdayLabels(locale), [locale]);
@@ -274,22 +278,25 @@ export function StayAvailabilityCalendar({
   function isInSelectedRange(stayDate: string): boolean {
     const checkIn = selectedCheckIn;
     const checkOut = selectedCheckOut;
-    if (!checkIn || !checkOut || checkOut <= checkIn) {
-      return stayDate === checkIn;
+    if (!checkIn) return stayDate === pickStart;
+    if (!checkOut || checkOut <= checkIn) {
+      return stayDate === checkIn || stayDate === pickStart;
     }
-    return stayDate >= checkIn && stayDate < checkOut;
+    // Inclusive of departure day so the form range is visible on the grid.
+    return stayDate >= checkIn && stayDate <= checkOut;
   }
 
   function isRangeStart(stayDate: string): boolean {
-    return Boolean(selectedCheckIn && stayDate === selectedCheckIn);
+    if (selectedCheckIn && stayDate === selectedCheckIn) return true;
+    if (!selectedCheckIn && pickStart && stayDate === pickStart) return true;
+    return false;
   }
 
   function isRangeEnd(stayDate: string): boolean {
     const checkIn = selectedCheckIn;
     const checkOut = selectedCheckOut;
     if (!checkIn || !checkOut || checkOut <= checkIn) return false;
-    const lastNight = enumerateStayDates(checkIn, checkOut).at(-1);
-    return stayDate === lastNight;
+    return stayDate === checkOut;
   }
 
   return (
@@ -377,6 +384,21 @@ export function StayAvailabilityCalendar({
 
                   const mark = statusMark(status, ar);
                   const selected = isInSelectedRange(cell.stayDate);
+                  const rangeStart = isRangeStart(cell.stayDate);
+                  const rangeEnd = isRangeEnd(cell.stayDate);
+                  const selectedLabel = rangeStart
+                    ? ar
+                      ? 'وصول'
+                      : 'In'
+                    : rangeEnd
+                      ? ar
+                        ? 'مغادرة'
+                        : 'Out'
+                      : selected
+                        ? ar
+                          ? 'مختار'
+                          : 'Pick'
+                        : null;
 
                   return (
                     <button
@@ -386,8 +408,8 @@ export function StayAvailabilityCalendar({
                         'stays-calendar__day',
                         statusClass(status),
                         selected ? 'is-in-range' : '',
-                        isRangeStart(cell.stayDate) ? 'is-range-start' : '',
-                        isRangeEnd(cell.stayDate) ? 'is-range-end' : '',
+                        rangeStart ? 'is-range-start' : '',
+                        rangeEnd ? 'is-range-end' : '',
                         cell.stayDate < todayIso() ? 'is-past' : '',
                         day.publicNote ? 'has-note' : '',
                       ]
@@ -396,16 +418,21 @@ export function StayAvailabilityCalendar({
                       disabled={!selectable}
                       onClick={() => handleDayClick(cell.stayDate!)}
                       title={titleParts.join(' · ')}
-                      aria-label={`${cell.stayDate} — ${statusLabel(status, ar)}`}
+                      aria-label={`${cell.stayDate} — ${statusLabel(status, ar)}${
+                        selectedLabel ? ` — ${selectedLabel}` : ''
+                      }`}
+                      aria-pressed={selected}
                     >
                       <span className="stays-calendar__day-num">
                         {Number(cell.stayDate.slice(8, 10))}
                       </span>
-                      {day.effectiveRateMinor && currency && !selected ? (
+                      {selectedLabel ? (
+                        <span className="stays-calendar__day-status">{selectedLabel}</span>
+                      ) : day.effectiveRateMinor && currency ? (
                         <span className="stays-calendar__day-price" dir="ltr">
                           {compactMoney(day.effectiveRateMinor, currency, locale)}
                         </span>
-                      ) : mark && !selected ? (
+                      ) : mark ? (
                         <span className="stays-calendar__day-status">{mark}</span>
                       ) : null}
                       {day.publicNote && !selected ? (
@@ -428,6 +455,10 @@ export function StayAvailabilityCalendar({
       </div>
 
       <ul className="stays-calendar__legend" aria-label={ar ? 'دليل حالات الأيام' : 'Day status legend'}>
+        <li className="stays-calendar__legend-item is-selected-range">
+          <span className="stays-calendar__swatch is-selected-range" aria-hidden="true" />
+          <span>{ar ? 'التواريخ المختارة' : 'Selected dates'}</span>
+        </li>
         {(['available', 'booked', 'hold', 'blocked'] as const).map((status) => (
           <li key={status} className={`stays-calendar__legend-item ${statusClass(status)}`}>
             <span className={`stays-calendar__swatch ${statusClass(status)}`} aria-hidden="true" />
