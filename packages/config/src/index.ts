@@ -87,3 +87,4 @@ export {
   type StaysFlagResolution,
   type StaysFlagScope,
 } from './feature-flags.js';
+export { isPaymentSandboxPilotEnabled } from './payment-sandbox.js';

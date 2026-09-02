@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-09-02  
-**Product version:** 0.4.40  
-**Active focus:** Stays browse per-unit + public detail section styling  
+**Product version:** 0.4.41  
+**Active focus:** Stay sandbox payments + admin `/admin` alias → platform portal  
+**Release 0.4.41:** [`RELEASE-0.4.41-AR.md`](./RELEASE-0.4.41-AR.md)  
 **Release 0.4.40:** [`RELEASE-0.4.40-AR.md`](./RELEASE-0.4.40-AR.md)  
 **Release 0.4.39:** [`RELEASE-0.4.39-AR.md`](./RELEASE-0.4.39-AR.md)  
 **Release 0.4.38:** [`RELEASE-0.4.38-AR.md`](./RELEASE-0.4.38-AR.md)  

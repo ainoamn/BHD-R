@@ -395,6 +395,11 @@ export function PortalNav({
           <a href="https://id.bhd-om.com/account" className="portal-sidebar__account">
             {locale === 'ar' ? 'إدارة حساب BHD' : 'Manage BHD account'}
           </a>
+          {portal === 'platform' ? (
+            <a href={`/${locale}/stays`} className="portal-sidebar__account">
+              {locale === 'ar' ? 'كتالوج الإقامات (الموقع العام)' : 'Public stays catalogue'}
+            </a>
+          ) : null}
           <a href="https://www.bhd-om.com" className="portal-sidebar__account">
             {locale === 'ar' ? 'بوابة BHD الرئيسية' : 'BHD main portal'}
           </a>

@@ -52,10 +52,11 @@ Blueprint: root `render.yaml` (keys as `sync: false` unless noted).
 | `CRON_SECRET` | ≥16; required for `/api/cron/warmup-nest` and `/api/cron/expire-locks` (fail-closed). Helper: `node scripts/ensure-vercel-cron-secret.mjs` |
 | `MEDIA_PUBLIC_PROMOTE_MODE` | `magic_bytes_best_effort` (default) \| `await_worker` |
 | `MEDIA_SCAN_MODE` (worker) | `required` \| `best-effort` \| `disabled` — use `best-effort` until ClamAV is live |
-| `ALLOW_BOOKING_SANDBOX` | must stay unset/false in production |
+| `ALLOW_BOOKING_SANDBOX` | Optional `1` to force sandbox UI on Vercel even without `STAYS_PLATFORM_ENABLED` |
+| `PAYMENT_SANDBOX_ENABLED` | Optional `true` — explicit sandbox payments (Render Nest fallback) |
 | `DATABASE_URL` | Neon (owner writes / catalogue) |
 | `API_INTERNAL_ORIGIN` | Nest HTTPS URL for BFF (required on Vercel; no Host fallback) |
-| `STAYS_PLATFORM_ENABLED` | Default **off**. Set `true` on Vercel **and** Render for pilot; org allow-list on Render only. |
+| `STAYS_PLATFORM_ENABLED` | Default **off**. Set `true` on Vercel **and** Render for pilot; when on, **stay sandbox payments auto-enable** until a live PSP ships. Org allow-list on Render only. |
 
 ## Ops (local / CI — never commit secrets)
 

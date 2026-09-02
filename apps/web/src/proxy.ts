@@ -1,6 +1,5 @@
 import createMiddleware from 'next-intl/middleware';
-import { NextRequest } from 'next/server';
-import type { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { routing } from './i18n/routing';
 
 const intlMiddleware = createMiddleware(routing);
@@ -49,6 +48,16 @@ function csp(nonce: string): string {
 }
 
 export default function proxy(request: NextRequest): NextResponse {
+  const pathname = request.nextUrl.pathname;
+  const adminMatch = pathname.match(/^\/(ar|en)\/(admin|ADMIN)(\/.*)?$/i);
+  if (adminMatch) {
+    const locale = adminMatch[1]!;
+    const rest = adminMatch[3] ?? '';
+    const url = request.nextUrl.clone();
+    url.pathname = `/${locale}/platform${rest}`;
+    return NextResponse.redirect(url);
+  }
+
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-nonce', nonce);

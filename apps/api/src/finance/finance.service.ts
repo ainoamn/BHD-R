@@ -35,7 +35,7 @@ import {
   webhookEvents,
   workflowEvents,
 } from '@bhd-r/db';
-import { resolveStaysEnabledFromEnv } from '@bhd-r/config';
+import { isPaymentSandboxPilotEnabled, resolveStaysEnabledFromEnv } from '@bhd-r/config';
 import type { SessionClaims } from '@bhd-r/authz';
 import {
   currencyMinorUnits,
@@ -462,8 +462,7 @@ export class FinanceService {
     const invoice = publicView.invoice;
     if (!invoice?.expiresAt || invoice.expiresAt <= new Date())
       throw new NotFoundException('Invoice link is invalid or expired');
-    const sandboxEnabled =
-      process.env.PAYMENT_SANDBOX_ENABLED === 'true' && process.env.NODE_ENV !== 'production';
+    const sandboxEnabled = isPaymentSandboxPilotEnabled();
     return publicInvoiceSchema.parse({
       publicReference: invoice.invoiceNumber,
       status: invoice.status,
@@ -520,8 +519,7 @@ export class FinanceService {
           eq(paymentGatewaySettings.active, true),
         ),
       });
-      const sandboxEnabled =
-        process.env.PAYMENT_SANDBOX_ENABLED === 'true' && process.env.NODE_ENV !== 'production';
+      const sandboxEnabled = isPaymentSandboxPilotEnabled();
       const provider = configured?.provider ?? (sandboxEnabled ? 'sandbox' : null);
       if (provider !== 'sandbox') {
         throw new ConflictException('No supported online payment adapter is active');
@@ -600,8 +598,7 @@ export class FinanceService {
           eq(paymentGatewaySettings.active, true),
         ),
       });
-      const sandboxEnabled =
-        process.env.PAYMENT_SANDBOX_ENABLED === 'true' && process.env.NODE_ENV !== 'production';
+      const sandboxEnabled = isPaymentSandboxPilotEnabled();
       const provider = configured?.provider ?? (sandboxEnabled ? 'sandbox' : null);
       if (provider !== 'sandbox') {
         throw new ConflictException('No supported online payment adapter is active');
@@ -656,7 +653,7 @@ export class FinanceService {
   }
 
   completeSandboxPayment(sessionReference: string, returnPath?: string | null) {
-    if (process.env.PAYMENT_SANDBOX_ENABLED !== 'true' || process.env.NODE_ENV === 'production') {
+    if (!isPaymentSandboxPilotEnabled()) {
       throw new NotFoundException('Sandbox payments are disabled');
     }
     const safeReturn = sanitizeRelativeReturnPath(returnPath);
@@ -783,10 +780,7 @@ export class FinanceService {
       .map((host) => host.trim())
       .filter(Boolean);
     const sandbox = input.provider === 'sandbox';
-    if (
-      sandbox &&
-      (process.env.NODE_ENV === 'production' || process.env.PAYMENT_SANDBOX_ENABLED !== 'true')
-    ) {
+    if (sandbox && !isPaymentSandboxPilotEnabled()) {
       throw new ConflictException('Sandbox gateway is disabled');
     }
     const safeTarget = sandbox

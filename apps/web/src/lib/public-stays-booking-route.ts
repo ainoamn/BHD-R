@@ -42,6 +42,10 @@ export function stayBookingErrorResponse(error: unknown) {
       lock_failed: 'تعذّر حجز التواريخ مؤقتاً.',
       already_claimed: 'هذا الحجز مرتبط بحساب آخر.',
       claim_failed: 'تعذّر ربط الحجز بالحساب.',
+      payment_gateway_inactive: 'بوابة الدفع غير مفعّلة في هذه البيئة.',
+      intent_not_found: 'نية الدفع غير موجودة.',
+      session_not_found: 'جلسة الدفع غير موجودة.',
+      already_paid: 'تم دفع هذا الحجز مسبقاً.',
     };
     return stayBookingJson(
       {

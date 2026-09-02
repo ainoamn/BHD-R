@@ -14,6 +14,7 @@ export function isProductionRuntime(): boolean {
 /** Explicit opt-in for local/sandbox booking payment simulation only. */
 export function isBookingSandboxAllowed(): boolean {
   if (process.env.ALLOW_BOOKING_SANDBOX === '1') return true;
+  if (process.env.PAYMENT_SANDBOX_ENABLED === 'true') return true;
   if (isProductionRuntime()) return false;
   return process.env.ALLOW_BOOKING_SANDBOX !== '0';
 }

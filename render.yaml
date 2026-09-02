@@ -80,5 +80,7 @@ services:
         value: '1'
       - key: STAYS_PLATFORM_ENABLED
         value: 'true'
+      - key: PAYMENT_SANDBOX_ENABLED
+        value: 'true'
       - key: STAYS_ORG_ALLOWLIST
         value: '*'

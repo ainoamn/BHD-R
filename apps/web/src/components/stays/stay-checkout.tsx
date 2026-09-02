@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { Link } from '@/i18n/navigation';
-import { ApiError, browserPublicMutation, browserStayBookingGet, browserStayBookingMutation, humanizeBrowserError } from '@/lib/api';
+import { ApiError, browserStayBookingGet, browserStayBookingMutation, humanizeBrowserError } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { rememberStayTripAlert } from '@/lib/stay-trip-alerts';
 
@@ -243,8 +243,8 @@ export function StayCheckout({
     void (async () => {
       try {
         const returnPath = `/${locale}/stays/booking/confirmed?ref=${encodeURIComponent(booking.referenceCode)}`;
-        const session = await browserPublicMutation<{ redirectUrl: string }>(
-          '/v1/public/stays/payment-sessions',
+        const session = await browserStayBookingMutation<{ redirectUrl: string }>(
+          '/payment-sessions',
           {
             paymentIntentId: booking.paymentIntentId,
             locale: locale === 'en' ? 'en' : 'ar',

@@ -44,11 +44,12 @@ export default async function SandboxPaymentPage({
           </h1>
           <p>
             {ar
-              ? 'هذه الصفحة للاختبار المحلي وبيئة الاختبار فقط، ولا تخصم أي مبلغ حقيقي.'
-              : 'This page is available only in local and sandbox environments. It never charges real money.'}
+              ? 'هذه الصفحة للاختبار والتجربة فقط — لا تُخصم أي مبالغ حقيقية.'
+              : 'This page is for testing and pilot flows only. It never charges real money.'}
           </p>
           <SandboxPaymentForm
             sessionReference={sessionReference}
+            stayKind={stayKind}
             {...(returnPath ? { returnPath } : {})}
           />
         </CardContent>
