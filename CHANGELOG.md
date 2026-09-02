@@ -2,6 +2,13 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.33 — 2026-09-02
+
+- Stay setup wizard: drop description/content step; reuse property description on publish.
+- Add period check-in/out times, day-use vs overnight guest caps, policies, instructions, and deposit.
+- Public stay page shows policies, instructions, period times, and deposit.
+- Migration `0021_stay_profile_policies` on `stay_profiles`.
+
 ## 0.4.30 — 2026-09-02
 
 - Stay calendar: missing inventory nights render as available (green) with base nightly rate instead of grey unavailable.

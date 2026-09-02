@@ -1,13 +1,17 @@
 # Implementation status
 
 **Updated:** 2026-09-02  
-**Product version:** 0.4.30  
-**Active focus:** Stay calendar green availability + per-day rates/notes  
+**Product version:** 0.4.33  
+**Active focus:** Stay setup — period times, policies, no duplicate description  
+**Release 0.4.33:** [`RELEASE-0.4.33-AR.md`](./RELEASE-0.4.33-AR.md)  
+**Release 0.4.32:** [`RELEASE-0.4.32-AR.md`](./RELEASE-0.4.32-AR.md)  
+**Release 0.4.31:** [`RELEASE-0.4.31-AR.md`](./RELEASE-0.4.31-AR.md)  
 **Release 0.4.30:** [`RELEASE-0.4.30-AR.md`](./RELEASE-0.4.30-AR.md)  
 **Release 0.4.29:** [`RELEASE-0.4.29-AR.md`](./RELEASE-0.4.29-AR.md)  
 **Release 0.4.28:** public stay booking via Vercel Neon (no Nest cold-start `Failed to fetch`)  
 **Release 0.4.27:** [`RELEASE-0.4.27-AR.md`](./RELEASE-0.4.27-AR.md)  
 **Release 0.4.26:** Property 360 stay pages + occupancy calendar  
+**Handoff (2026-09-02 setup):** [`../handoffs/2026-09-02-stay-setup-policies/`](../handoffs/2026-09-02-stay-setup-policies/)  
 **Handoff (2026-09-02):** [`../handoffs/2026-09-02-stays-calendar-booking-ux/`](../handoffs/2026-09-02-stays-calendar-booking-ux/)  
 **Handoff (2026-09-01):** [`HANDOFF-2026-09-01-STAYS-SETUP-AR.md`](./HANDOFF-2026-09-01-STAYS-SETUP-AR.md) · [full chat archive](../handoffs/2026-09-01-stays-setup-neon-write/)  
 **Release 0.4.22:** [`RELEASE-0.4.22-AR.md`](./RELEASE-0.4.22-AR.md)  

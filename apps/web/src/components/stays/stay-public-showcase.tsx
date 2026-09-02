@@ -101,6 +101,18 @@ export function StayPublicShowcase({
                 <dd>{detail.maxGuests}</dd>
               </div>
             ) : null}
+            {detail.dayUseMaxGuests != null ? (
+              <div>
+                <dt>{ar ? 'بدون مبيت' : 'Day use'}</dt>
+                <dd>{detail.dayUseMaxGuests}</dd>
+              </div>
+            ) : null}
+            {detail.overnightMaxGuests != null ? (
+              <div>
+                <dt>{ar ? 'مع المبيت' : 'Overnight'}</dt>
+                <dd>{detail.overnightMaxGuests}</dd>
+              </div>
+            ) : null}
             {detail.bedrooms != null ? (
               <div>
                 <dt>{ar ? 'غرف النوم' : 'Bedrooms'}</dt>
@@ -121,16 +133,30 @@ export function StayPublicShowcase({
                 </dd>
               </div>
             ) : null}
+            {detail.depositMinor && detail.currency ? (
+              <div>
+                <dt>{ar ? 'التأمين' : 'Deposit'}</dt>
+                <dd dir="ltr">{formatMoney(detail.depositMinor, detail.currency, locale)}</dd>
+              </div>
+            ) : null}
+          </dl>
+          <dl className="stay-showcase__times">
             {detail.checkInFrom ? (
               <div>
-                <dt>{ar ? 'تسجيل الدخول' : 'Check-in'}</dt>
+                <dt>{ar ? 'وقت الدخول' : 'Check-in'}</dt>
                 <dd dir="ltr">{detail.checkInFrom}</dd>
               </div>
             ) : null}
-            {detail.checkOutUntil ? (
+            {detail.dayUseCheckOutUntil ? (
               <div>
-                <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
-                <dd dir="ltr">{detail.checkOutUntil}</dd>
+                <dt>{ar ? 'الخروج (بدون مبيت)' : 'Check-out (day use)'}</dt>
+                <dd dir="ltr">{detail.dayUseCheckOutUntil}</dd>
+              </div>
+            ) : null}
+            {(detail.overnightCheckOutUntil ?? detail.checkOutUntil) ? (
+              <div>
+                <dt>{ar ? 'الخروج (عند المبيت)' : 'Check-out (overnight)'}</dt>
+                <dd dir="ltr">{detail.overnightCheckOutUntil ?? detail.checkOutUntil}</dd>
               </div>
             ) : null}
           </dl>
@@ -150,6 +176,42 @@ export function StayPublicShowcase({
           <p>{description}</p>
         </section>
       ) : null}
+
+      {(() => {
+        const policies =
+          detail.policiesJson?.length
+            ? detail.policiesJson
+            : (ar ? detail.policiesAr : detail.policiesEn)
+                ?.split(/\r?\n/)
+                .map((line) => line.trim())
+                .filter(Boolean) ?? [];
+        if (!policies.length) return null;
+        return (
+          <section className="stay-showcase__policies card">
+            <h2>{ar ? 'السياسات' : 'Policies'}</h2>
+            <ul>
+              {policies.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </section>
+        );
+      })()}
+
+      {(() => {
+        const instructions = localizedName(
+          locale,
+          detail.instructionsAr ?? '',
+          detail.instructionsEn ?? '',
+        );
+        if (!instructions) return null;
+        return (
+          <section className="stay-showcase__instructions card">
+            <h2>{ar ? 'التعليمات' : 'Instructions'}</h2>
+            <p>{instructions}</p>
+          </section>
+        );
+      })()}
     </div>
   );
 }

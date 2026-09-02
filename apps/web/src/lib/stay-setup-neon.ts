@@ -68,6 +68,8 @@ export type StaySetupPropertySummary = {
   serialNumber: string | null;
   nameAr: string;
   nameEn: string;
+  descriptionAr: string | null;
+  descriptionEn: string | null;
   location: string;
   kind: string;
   status: string;
@@ -113,6 +115,8 @@ export async function loadStaySetupContextOnNeon(
         id: properties.id,
         nameAr: properties.nameAr,
         nameEn: properties.nameEn,
+        descriptionAr: properties.descriptionAr,
+        descriptionEn: properties.descriptionEn,
         defaultCurrency: properties.defaultCurrency,
         serialNumber: properties.serialNumber,
         kind: properties.kind,
@@ -150,6 +154,22 @@ export async function loadStaySetupContextOnNeon(
               unitId: stayProfiles.unitId,
               id: stayProfiles.id,
               publishStatus: stayProfiles.publishStatus,
+              maxGuests: stayProfiles.maxGuests,
+              minNights: stayProfiles.minNights,
+              maxNights: stayProfiles.maxNights,
+              instantBook: stayProfiles.instantBook,
+              checkInFrom: stayProfiles.checkInFrom,
+              dayUseCheckOutUntil: stayProfiles.dayUseCheckOutUntil,
+              overnightCheckOutUntil: stayProfiles.overnightCheckOutUntil,
+              checkOutUntil: stayProfiles.checkOutUntil,
+              dayUseMaxGuests: stayProfiles.dayUseMaxGuests,
+              overnightMaxGuests: stayProfiles.overnightMaxGuests,
+              depositMinor: stayProfiles.depositMinor,
+              policiesAr: stayProfiles.policiesAr,
+              policiesEn: stayProfiles.policiesEn,
+              policiesJson: stayProfiles.policiesJson,
+              instructionsAr: stayProfiles.instructionsAr,
+              instructionsEn: stayProfiles.instructionsEn,
             })
             .from(stayProfiles)
             .where(
@@ -163,6 +183,30 @@ export async function loadStaySetupContextOnNeon(
             );
 
     const profileByUnit = new Map(profileRows.map((row) => [row.unitId, row]));
+    const draftSource = profileRows[0];
+    const profileDraft = draftSource
+      ? {
+          maxGuests: draftSource.maxGuests,
+          minNights: draftSource.minNights,
+          maxNights: draftSource.maxNights,
+          instantBook: draftSource.instantBook,
+          checkInFrom: draftSource.checkInFrom,
+          dayUseCheckOutUntil: draftSource.dayUseCheckOutUntil,
+          overnightCheckOutUntil:
+            draftSource.overnightCheckOutUntil ?? draftSource.checkOutUntil,
+          dayUseMaxGuests: draftSource.dayUseMaxGuests,
+          overnightMaxGuests: draftSource.overnightMaxGuests,
+          depositMinor:
+            draftSource.depositMinor == null ? null : String(draftSource.depositMinor),
+          policiesAr: draftSource.policiesAr,
+          policiesEn: draftSource.policiesEn,
+          policiesJson: Array.isArray(draftSource.policiesJson)
+            ? draftSource.policiesJson
+            : [],
+          instructionsAr: draftSource.instructionsAr,
+          instructionsEn: draftSource.instructionsEn,
+        }
+      : undefined;
 
     const unitTypeRows = await transaction
       .select({
@@ -208,6 +252,8 @@ export async function loadStaySetupContextOnNeon(
         propertyId: property.id,
         propertyNameAr: property.nameAr,
         propertyNameEn: property.nameEn,
+        propertyDescriptionAr: property.descriptionAr,
+        propertyDescriptionEn: property.descriptionEn,
         defaultCurrency: property.defaultCurrency,
         units: unitRows.map((unit) => {
           const profile = profileByUnit.get(unit.id);
@@ -236,11 +282,14 @@ export async function loadStaySetupContextOnNeon(
           enabled: listing.enabled,
           publishedAt: listing.publishedAt?.toISOString() ?? null,
         })),
+        ...(profileDraft ? { profileDraft } : {}),
       },
       summary: {
         serialNumber: property.serialNumber,
         nameAr: property.nameAr,
         nameEn: property.nameEn,
+        descriptionAr: property.descriptionAr,
+        descriptionEn: property.descriptionEn,
         location: [property.street, property.city, property.wilayat, property.governorate]
           .filter(Boolean)
           .join(' · '),
@@ -412,9 +461,37 @@ export async function updateStayProfileOnNeon(
       .limit(1);
     if (!profile) throw new Error('stay_profile_not_found');
 
+    const {
+      depositMinor,
+      policiesJson,
+      overnightCheckOutUntil,
+      overnightMaxGuests,
+      ...rest
+    } = input;
+
     const [updated] = await transaction
       .update(stayProfiles)
-      .set({ ...input, updatedAt: new Date() })
+      .set({
+        ...rest,
+        ...(overnightCheckOutUntil !== undefined
+          ? {
+              overnightCheckOutUntil,
+              checkOutUntil: overnightCheckOutUntil,
+            }
+          : {}),
+        ...(overnightMaxGuests !== undefined
+          ? {
+              overnightMaxGuests,
+              maxGuests: overnightMaxGuests,
+              maxAdults: overnightMaxGuests,
+            }
+          : {}),
+        ...(depositMinor !== undefined
+          ? { depositMinor: depositMinor == null ? null : BigInt(depositMinor) }
+          : {}),
+        ...(policiesJson !== undefined ? { policiesJson } : {}),
+        updatedAt: new Date(),
+      })
       .where(eq(stayProfiles.id, profileId))
       .returning();
     return updated;

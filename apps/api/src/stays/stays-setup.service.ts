@@ -50,6 +50,8 @@ export class StaysSetupService {
           id: properties.id,
           nameAr: properties.nameAr,
           nameEn: properties.nameEn,
+          descriptionAr: properties.descriptionAr,
+          descriptionEn: properties.descriptionEn,
           defaultCurrency: properties.defaultCurrency,
         })
         .from(properties)
@@ -118,6 +120,8 @@ export class StaysSetupService {
           slug: stayPublicListings.slug,
           titleAr: stayPublicListings.titleAr,
           titleEn: stayPublicListings.titleEn,
+          summaryAr: stayPublicListings.summaryAr,
+          summaryEn: stayPublicListings.summaryEn,
           enabled: stayPublicListings.enabled,
           publishedAt: stayPublicListings.publishedAt,
         })
@@ -133,6 +137,8 @@ export class StaysSetupService {
         propertyId: property.id,
         propertyNameAr: property.nameAr,
         propertyNameEn: property.nameEn,
+        propertyDescriptionAr: property.descriptionAr,
+        propertyDescriptionEn: property.descriptionEn,
         defaultCurrency: property.defaultCurrency,
         units: unitRows.map((unit) => {
           const profile = profileByUnit.get(unit.id);
@@ -156,6 +162,8 @@ export class StaysSetupService {
           slug: listing.slug,
           titleAr: listing.titleAr,
           titleEn: listing.titleEn,
+          summaryAr: listing.summaryAr,
+          summaryEn: listing.summaryEn,
           enabled: listing.enabled,
           publishedAt: listing.publishedAt?.toISOString() ?? null,
         })),
@@ -293,7 +301,7 @@ export class StaysSetupService {
     });
   }
 
-  async updateProfile(claims: SessionClaims, profileId: string, input: UpdateStayProfileInput) {
+      async updateProfile(claims: SessionClaims, profileId: string, input: UpdateStayProfileInput) {
     const organizationId = claims.organizationId;
     if (!organizationId) throw new ConflictException('Organization context required');
 
@@ -307,9 +315,37 @@ export class StaysSetupService {
         .limit(1);
       if (!profile) throw new NotFoundException('Stay profile not found');
 
+      const {
+        depositMinor,
+        policiesJson,
+        overnightCheckOutUntil,
+        overnightMaxGuests,
+        ...rest
+      } = input;
+
       const [updated] = await transaction
         .update(stayProfiles)
-        .set({ ...input, updatedAt: new Date() })
+        .set({
+          ...rest,
+          ...(overnightCheckOutUntil !== undefined
+            ? {
+                overnightCheckOutUntil,
+                checkOutUntil: overnightCheckOutUntil,
+              }
+            : {}),
+          ...(overnightMaxGuests !== undefined
+            ? {
+                overnightMaxGuests,
+                maxGuests: overnightMaxGuests,
+                maxAdults: overnightMaxGuests,
+              }
+            : {}),
+          ...(depositMinor !== undefined
+            ? { depositMinor: depositMinor == null ? null : BigInt(depositMinor) }
+            : {}),
+          ...(policiesJson !== undefined ? { policiesJson } : {}),
+          updatedAt: new Date(),
+        })
         .where(eq(stayProfiles.id, profileId))
         .returning();
 

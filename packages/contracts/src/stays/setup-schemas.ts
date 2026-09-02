@@ -40,14 +40,37 @@ export const staySetupListingRowSchema = z.object({
   publishedAt: z.string().datetime().nullable(),
 });
 
+export const staySetupProfileDraftSchema = z
+  .object({
+    maxGuests: z.number().int().optional(),
+    minNights: z.number().int().optional(),
+    maxNights: z.number().int().optional(),
+    instantBook: z.boolean().optional(),
+    checkInFrom: z.string().nullable().optional(),
+    dayUseCheckOutUntil: z.string().nullable().optional(),
+    overnightCheckOutUntil: z.string().nullable().optional(),
+    dayUseMaxGuests: z.number().int().nullable().optional(),
+    overnightMaxGuests: z.number().int().nullable().optional(),
+    depositMinor: z.string().nullable().optional(),
+    policiesAr: z.string().nullable().optional(),
+    policiesEn: z.string().nullable().optional(),
+    policiesJson: z.array(z.string()).optional(),
+    instructionsAr: z.string().nullable().optional(),
+    instructionsEn: z.string().nullable().optional(),
+  })
+  .optional();
+
 export const staySetupContextSchema = z.object({
   propertyId: uuidSchema,
   propertyNameAr: z.string(),
   propertyNameEn: z.string(),
+  propertyDescriptionAr: z.string().nullable().optional(),
+  propertyDescriptionEn: z.string().nullable().optional(),
   defaultCurrency: z.string(),
   units: z.array(staySetupUnitRowSchema),
   unitTypes: z.array(staySetupUnitTypeRowSchema),
   listings: z.array(staySetupListingRowSchema),
+  profileDraft: staySetupProfileDraftSchema,
 });
 
 export const createStayUnitTypeSchema = z
@@ -103,6 +126,16 @@ export const updateStayProfileSchema = z
     checkInFrom: z.string().max(8).nullable().optional(),
     checkInUntil: z.string().max(8).nullable().optional(),
     checkOutUntil: z.string().max(8).nullable().optional(),
+    dayUseCheckOutUntil: z.string().max(8).nullable().optional(),
+    overnightCheckOutUntil: z.string().max(8).nullable().optional(),
+    dayUseMaxGuests: z.coerce.number().int().min(1).max(200).optional(),
+    overnightMaxGuests: z.coerce.number().int().min(1).max(200).optional(),
+    depositMinor: z.string().regex(/^\d+$/).nullable().optional(),
+    policiesAr: z.string().max(8000).nullable().optional(),
+    policiesEn: z.string().max(8000).nullable().optional(),
+    policiesJson: z.array(z.string().max(500)).max(80).optional(),
+    instructionsAr: z.string().max(8000).nullable().optional(),
+    instructionsEn: z.string().max(8000).nullable().optional(),
   })
   .strict();
 

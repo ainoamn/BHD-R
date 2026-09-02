@@ -243,6 +243,16 @@ export class StaysSearchService implements OnModuleDestroy {
           sp.currency AS profile_currency,
           sp.check_in_from,
           sp.check_out_until,
+          sp.day_use_check_out_until,
+          sp.overnight_check_out_until,
+          sp.day_use_max_guests,
+          sp.overnight_max_guests,
+          sp.deposit_minor::text AS deposit_minor,
+          sp.policies_ar,
+          sp.policies_en,
+          sp.policies_json,
+          sp.instructions_ar,
+          sp.instructions_en,
           u.id AS unit_id,
           u.bedrooms,
           u.bathrooms,
@@ -332,6 +342,16 @@ export class StaysSearchService implements OnModuleDestroy {
           profile_currency: string | null;
           check_in_from: string | null;
           check_out_until: string | null;
+          day_use_check_out_until: string | null;
+          overnight_check_out_until: string | null;
+          day_use_max_guests: number | null;
+          overnight_max_guests: number | null;
+          deposit_minor: string | null;
+          policies_ar: string | null;
+          policies_en: string | null;
+          policies_json: string[] | null;
+          instructions_ar: string | null;
+          instructions_en: string | null;
           unit_id: string;
           bedrooms: number | null;
           bathrooms: number | null;
@@ -387,6 +407,16 @@ export class StaysSearchService implements OnModuleDestroy {
       areaSquareMeters: row.area_square_meters,
       checkInFrom: row.check_in_from,
       checkOutUntil: row.check_out_until,
+      dayUseCheckOutUntil: row.day_use_check_out_until,
+      overnightCheckOutUntil: row.overnight_check_out_until ?? row.check_out_until,
+      dayUseMaxGuests: row.day_use_max_guests,
+      overnightMaxGuests: row.overnight_max_guests,
+      depositMinor: row.deposit_minor,
+      policiesAr: row.policies_ar,
+      policiesEn: row.policies_en,
+      policiesJson: Array.isArray(row.policies_json) ? row.policies_json : [],
+      instructionsAr: row.instructions_ar,
+      instructionsEn: row.instructions_en,
       coverImageUrl: row.cover_image_url,
       imageUrls: (imageRows as Array<{ url: string }>).map((item) => item.url),
     };
