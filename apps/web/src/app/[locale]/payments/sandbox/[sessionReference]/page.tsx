@@ -5,7 +5,6 @@ import { formatMoney } from '@/lib/format';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { lookupStaySandboxSessionOnNeon } from '@/lib/public-stays-payment-neon';
 import { SandboxPaymentForm } from '@/components/sandbox-payment-form';
-import { getViewer } from '@/lib/viewer';
 
 export const metadata: Metadata = {
   title: 'Secure payment | دفع آمن',
@@ -34,17 +33,21 @@ export default async function SandboxPaymentPage({
   const ar = locale === 'ar';
   const stayKind = query.kind === 'stay';
 
-  const [session, viewer] = await Promise.all([
+  const session =
     stayKind && hasDatabaseUrl()
-      ? lookupStaySandboxSessionOnNeon(sessionReference).catch(() => null)
-      : Promise.resolve(null),
-    getViewer().catch(() => null),
-  ]);
+      ? await lookupStaySandboxSessionOnNeon(sessionReference).catch(() => null)
+      : null;
 
-  const defaultCardholderName =
-    session?.guestDisplayName?.trim() ||
-    viewer?.displayName?.trim() ||
-    'ABDUL HAMID AL RAWAHI';
+  const nights = session
+    ? Math.max(
+        0,
+        Math.round(
+          (Date.parse(`${session.checkOutOn}T00:00:00.000Z`) -
+            Date.parse(`${session.checkInOn}T00:00:00.000Z`)) /
+            86_400_000,
+        ),
+      )
+    : 0;
 
   return (
     <section className="pay-gateway-shell" data-pay-immersive="true">
@@ -89,6 +92,19 @@ export default async function SandboxPaymentPage({
                   <div>
                     <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
                     <dd dir="ltr">{session.checkOutOn}</dd>
+                  </div>
+                  <div>
+                    <dt>{ar ? 'عدد الأيام' : 'Nights'}</dt>
+                    <dd>
+                      {nights}{' '}
+                      {ar
+                        ? nights === 1
+                          ? 'ليلة'
+                          : 'ليالٍ'
+                        : nights === 1
+                          ? 'night'
+                          : 'nights'}
+                    </dd>
                   </div>
                 </dl>
                 <p className="pay-gateway-shell__summary-place">

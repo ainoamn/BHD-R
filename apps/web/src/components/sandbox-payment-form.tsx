@@ -104,7 +104,6 @@ export function SandboxPaymentForm({
   amountMinor,
   currency,
   referenceCode,
-  defaultCardholderName,
 }: {
   sessionReference: string;
   returnPath?: string;
@@ -112,18 +111,13 @@ export function SandboxPaymentForm({
   amountMinor?: string;
   currency?: string;
   referenceCode?: string;
-  defaultCardholderName?: string;
 }) {
   const locale = useLocale();
   const ar = locale === 'ar';
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [cardName, setCardName] = useState(() => {
-    const raw = defaultCardholderName?.trim() || 'ABDUL HAMID AL RAWAHI';
-    if (/^abdul\s+hamid(\s+al\s*-?\s*rawahi)?$/i.test(raw)) return 'ABDUL HAMID AL RAWAHI';
-    return raw.toUpperCase();
-  });
-  const [cardNumber, setCardNumber] = useState(DEMO_CARD_NUMBER);
+  const [cardName, setCardName] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
   const [expiry, setExpiry] = useState(DEMO_EXPIRY);
   const [cvc, setCvc] = useState('');
   const [touched, setTouched] = useState(false);
@@ -132,6 +126,8 @@ export function SandboxPaymentForm({
   const brand = detectBrand(cardDigits);
   const amountLabel =
     amountMinor && currency ? formatMoney(amountMinor, currency, locale) : null;
+  const nameHint = 'ABDUL HAMID AL RAWAHI';
+  const numberHint = DEMO_CARD_NUMBER;
 
   const errors = useMemo(() => {
     const next: Record<string, string> = {};
@@ -151,7 +147,10 @@ export function SandboxPaymentForm({
     return next;
   }, [ar, brand, cardDigits, cardName, cvc, expiry]);
 
-  const numberPreview = formatCardNumber(cardDigits || DEMO_CARD_DIGITS);
+  const numberPreview = cardDigits
+    ? formatCardNumber(cardDigits)
+    : numberHint;
+  const namePreview = cardName.trim() || nameHint;
 
   async function complete() {
     setTouched(true);
@@ -227,13 +226,25 @@ export function SandboxPaymentForm({
             </p>
           </div>
           <div className="pay-gateway__card-chip" />
-          <p className="pay-gateway__card-number" dir="ltr">
+          <p
+            className={
+              cardDigits
+                ? 'pay-gateway__card-number'
+                : 'pay-gateway__card-number is-placeholder'
+            }
+            dir="ltr"
+          >
             {numberPreview}
           </p>
           <div className="pay-gateway__card-meta">
             <span className="pay-gateway__card-holder">
               <small>{ar ? 'حامل البطاقة' : 'CARDHOLDER'}</small>
-              <strong dir="ltr">{cardName.trim() || 'ABDUL HAMID AL RAWAHI'}</strong>
+              <strong
+                className={cardName.trim() ? undefined : 'is-placeholder'}
+                dir="ltr"
+              >
+                {namePreview}
+              </strong>
             </span>
             <span className="pay-gateway__card-exp">
               <small>{ar ? 'الانتهاء' : 'VALID THRU'}</small>
@@ -264,7 +275,7 @@ export function SandboxPaymentForm({
             autoComplete="cc-name"
             value={cardName}
             onChange={(event) => setCardName(event.target.value.toUpperCase())}
-            placeholder="ABDUL HAMID AL RAWAHI"
+            placeholder={nameHint}
             disabled={busy}
           />
           {touched && errors.name ? (
@@ -285,7 +296,7 @@ export function SandboxPaymentForm({
             dir="ltr"
             value={cardNumber}
             onChange={(event) => setCardNumber(formatCardNumber(event.target.value))}
-            placeholder={DEMO_CARD_NUMBER}
+            placeholder={numberHint}
             disabled={busy}
             maxLength={23}
           />

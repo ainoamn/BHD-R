@@ -1402,6 +1402,15 @@ body:has(.pay-gateway-shell) #main-content {
   white-space: nowrap;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
+.pay-gateway__card-number.is-placeholder,
+.pay-gateway__card-holder strong.is-placeholder {
+  opacity: 0.45;
+  font-weight: 600;
+}
+.pay-gateway__form .input::placeholder {
+  color: color-mix(in srgb, var(--ink-700, #5c6b64) 72%, transparent);
+  opacity: 1;
+}
 .pay-gateway__card-meta {
   position: relative;
   z-index: 2;
