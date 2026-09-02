@@ -7,6 +7,7 @@ import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { lookupPublicStayBookingOnNeon } from '@/lib/public-stays-guest-neon';
 import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
 import { publicApiFetch } from '@/lib/server-api';
+import { stayStatusLabel, stayTypeLabel } from '@/lib/ui-labels';
 
 type PublicBooking = {
   id?: string;
@@ -23,13 +24,6 @@ type PublicBooking = {
   children?: number | null;
   stayType?: string | null;
 };
-
-function stayTypeLabel(type: string | null | undefined, ar: boolean): string {
-  if (type === 'day_use') return ar ? 'إقامة بدون مبيت' : 'Day use';
-  if (type === 'overnight_only') return ar ? 'مبيت فقط' : 'Overnight only';
-  if (type === 'overnight_stay') return ar ? 'إقامة مع مبيت' : 'Stay with overnight';
-  return type ?? '—';
-}
 
 function confirmationWelcome(input: {
   ar: boolean;
@@ -237,7 +231,7 @@ export default async function StayBookingConfirmedPage({
             <div>
               <dt>{ar ? 'نوع الحجز' : 'Stay type'}</dt>
               <dd className={`stays-checkout__chip stays-checkout__chip--stay-${stayTone}`}>
-                {stayTypeLabel(booking.stayType, ar)}
+                {stayTypeLabel(booking.stayType, locale)}
               </dd>
             </div>
           ) : null}
@@ -267,17 +261,7 @@ export default async function StayBookingConfirmedPage({
           ) : null}
           <div>
             <dt>{ar ? 'الحالة' : 'Status'}</dt>
-            <dd>
-              {booking.status === 'payment_pending' || booking.status === 'request_pending'
-                ? ar
-                  ? 'بانتظار الدفع'
-                  : 'Awaiting payment'
-                : paid
-                  ? ar
-                    ? 'مؤكّد'
-                    : 'Confirmed'
-                  : booking.status}
-            </dd>
+            <dd>{stayStatusLabel(booking.status, locale)}</dd>
           </div>
         </dl>
 

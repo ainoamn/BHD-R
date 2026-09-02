@@ -3,6 +3,7 @@ import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { formatMoney } from '@/lib/format';
 import { loadPortalOverview } from '@/lib/portal-overview-data';
+import { workflowEventLabel, workflowStatusLabel } from '@/lib/ui-labels';
 import { requirePortal } from '@/lib/viewer';
 import type { PortalOverview as OverviewData, PortalRole } from '@/lib/types';
 
@@ -52,16 +53,10 @@ function alertHref(portal: PortalRole, code: string): string {
 function localizeWorkflowLabel(
   key: string | undefined,
   kind: 'event' | 'status',
-  t: Awaited<ReturnType<typeof getTranslations>>,
+  locale: string,
 ): string {
   if (!key) return '';
-  const normalized = key.replace(/\./g, '_');
-  const path =
-    kind === 'event'
-      ? (`Portal.workflowEvent_${normalized}` as Parameters<typeof t>[0])
-      : (`Portal.workflowStatus_${normalized}` as Parameters<typeof t>[0]);
-  const translated = t(path);
-  return translated === path ? key : translated;
+  return kind === 'event' ? workflowEventLabel(key, locale) : workflowStatusLabel(key, locale);
 }
 
 export async function PortalOverview({ locale, portal }: { locale: string; portal: PortalRole }) {
@@ -226,10 +221,10 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
               {overview.recentActivity.map((item) => (
                 <li key={item.id}>
                   <div>
-                    <strong>{localizeWorkflowLabel(item.title, 'event', t)}</strong>
+                    <strong>{localizeWorkflowLabel(item.title, 'event', locale)}</strong>
                     {item.status ? (
                       <span className="dash-activity__status">
-                        {localizeWorkflowLabel(item.status, 'status', t)}
+                        {localizeWorkflowLabel(item.status, 'status', locale)}
                       </span>
                     ) : null}
                   </div>

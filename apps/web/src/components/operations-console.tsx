@@ -8,6 +8,7 @@ import { Link } from '@/i18n/navigation';
 import { browserMutation, browserApiPath } from '@/lib/api';
 import { formatMoney, toMinorUnits } from '@/lib/format';
 import { invalidateOpsCache } from '@/lib/portal-ops-client-cache';
+import { domainStatusLabel } from '@/lib/ui-labels';
 import type { PortalRole } from '@/lib/types';
 import type { OperationsSection } from './operations-workspace';
 import { NestReconnectButton } from './nest-reconnect-button';
@@ -669,14 +670,12 @@ function displayCell(
     const labeled = flow?.find((item) => item.value === status);
     return (
       <span className={`ops-status ops-status--${statusTone(status)}`}>
-        {labeled ? (locale === 'ar' ? labeled.ar : labeled.en) : status.replaceAll('_', ' ')}
+        {labeled ? (locale === 'ar' ? labeled.ar : labeled.en) : domainStatusLabel(status, locale)}
       </span>
     );
   }
   if (column.format === 'channels') {
-    const channels = Array.isArray(row.channels)
-      ? row.channels.map((item) => String(item))
-      : [];
+    const channels = Array.isArray(row.channels) ? row.channels.map((item) => String(item)) : [];
     if (!channels.length) return '—';
     const label = (code: string) => {
       if (code === 'rent') return locale === 'ar' ? 'إيجار' : 'Rent';
@@ -978,7 +977,7 @@ function CreateFields({
             required
             defaultValue={prefillUnitId}
           />
-          {!(context.vacantUnits?.length) ? (
+          {!context.vacantUnits?.length ? (
             <p className="ops-hint span-2">
               {ar
                 ? 'لا توجد وحدات شاغرة حالياً (كل الوحدات مؤجرة أو عليها حجز/حجز مؤقت ساري).'
@@ -1129,7 +1128,11 @@ function CreateFields({
             type="number"
             min="0"
           />
-          <Input name="cheque1DueOn" label={ar ? 'شيك 1 — الاستحقاق' : 'Cheque 1 — due'} type="date" />
+          <Input
+            name="cheque1DueOn"
+            label={ar ? 'شيك 1 — الاستحقاق' : 'Cheque 1 — due'}
+            type="date"
+          />
           <Input name="cheque2Bank" label={ar ? 'شيك 2 — البنك' : 'Cheque 2 — bank'} />
           <Input name="cheque2Number" label={ar ? 'شيك 2 — الرقم' : 'Cheque 2 — number'} />
           <Input
@@ -1138,7 +1141,11 @@ function CreateFields({
             type="number"
             min="0"
           />
-          <Input name="cheque2DueOn" label={ar ? 'شيك 2 — الاستحقاق' : 'Cheque 2 — due'} type="date" />
+          <Input
+            name="cheque2DueOn"
+            label={ar ? 'شيك 2 — الاستحقاق' : 'Cheque 2 — due'}
+            type="date"
+          />
           <CurrencySelect locale={locale} />
           <p className="ops-hint">
             {ar
@@ -2039,9 +2046,7 @@ export function OperationsConsole({
   const refreshWorkspace = () => {
     invalidateOpsCache(portal, section);
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(
-        new CustomEvent('bhd-r-ops-refresh', { detail: { portal, section } }),
-      );
+      window.dispatchEvent(new CustomEvent('bhd-r-ops-refresh', { detail: { portal, section } }));
     }
     router.refresh();
   };
@@ -2301,10 +2306,13 @@ export function OperationsConsole({
       }
       body = { action, effectiveOn: effective };
     }
-    if (action === 'clear_cancellation' || action === 'confirm_renewal' || action === 'waive_renewal_gate') {
+    if (
+      action === 'clear_cancellation' ||
+      action === 'confirm_renewal' ||
+      action === 'waive_renewal_gate'
+    ) {
       const noteRequired =
-        action === 'clear_cancellation' &&
-        Number(safeString(row.depositMinor) || '0') > 0;
+        action === 'clear_cancellation' && Number(safeString(row.depositMinor) || '0') > 0;
       const note =
         window.prompt(
           noteRequired
@@ -2510,9 +2518,7 @@ export function OperationsConsole({
           <p>{ar ? definition.introAr : definition.introEn}</p>
           {propertyFilter ? (
             <p className="notice">
-              {ar
-                ? 'معروض فقط ما يخص هذا العقار.'
-                : 'Showing records for this property only.'}{' '}
+              {ar ? 'معروض فقط ما يخص هذا العقار.' : 'Showing records for this property only.'}{' '}
               <Link href={`/${portal}/${section}`} prefetch scroll={false}>
                 {ar ? 'إظهار الكل' : 'Show all'}
               </Link>
@@ -2576,7 +2582,11 @@ export function OperationsConsole({
                     : 'Archive'}
               </button>
               {!archiveMode ? (
-                <Link className="button button--primary" href={`/${portal}/properties/new`} prefetch>
+                <Link
+                  className="button button--primary"
+                  href={`/${portal}/properties/new`}
+                  prefetch
+                >
                   ＋ {ar ? definition.createAr : definition.createEn}
                 </Link>
               ) : null}
@@ -2707,7 +2717,9 @@ export function OperationsConsole({
           aria-label={ar ? 'طابور تأكيد العربون' : 'Deposit confirmation queue'}
         >
           <header>
-            <h2>{ar ? 'بانتظار تأكيد المحاسب للعربون' : 'Awaiting accountant deposit confirmation'}</h2>
+            <h2>
+              {ar ? 'بانتظار تأكيد المحاسب للعربون' : 'Awaiting accountant deposit confirmation'}
+            </h2>
             <p>
               {ar
                 ? 'أكد الاستلام لترحيل القيد ثم حوّل الحجز لعقد قيد الإجراء.'
@@ -2770,7 +2782,9 @@ export function OperationsConsole({
                     className="ops-action"
                     type="button"
                     disabled={busy}
-                    onClick={() => void leaseLifecycle({ ...row } as DataRow, 'approve_cancellation')}
+                    onClick={() =>
+                      void leaseLifecycle({ ...row } as DataRow, 'approve_cancellation')
+                    }
                   >
                     {ar ? 'اعتماد + تاريخ' : 'Approve + date'}
                   </button>
@@ -2855,7 +2869,10 @@ export function OperationsConsole({
         </section>
       ) : null}
 
-      <section className="ops-stats" aria-label={ar ? 'المؤشرات ومراحل العمل' : 'Metrics and stages'}>
+      <section
+        className="ops-stats"
+        aria-label={ar ? 'المؤشرات ومراحل العمل' : 'Metrics and stages'}
+      >
         <button
           type="button"
           className="ops-stats__toggle"
@@ -2875,8 +2892,7 @@ export function OperationsConsole({
           <span>
             {ar ? 'المؤشرات ومراحل العمل' : 'Metrics & stages'}
             <small>
-              {records.length} {ar ? 'سجل' : 'records'} · {openCount}{' '}
-              {ar ? 'متابعة' : 'open'}
+              {records.length} {ar ? 'سجل' : 'records'} · {openCount} {ar ? 'متابعة' : 'open'}
             </small>
           </span>
           <em aria-hidden="true">{statsOpen ? (ar ? 'طي' : 'Hide') : ar ? 'عرض' : 'Show'}</em>
@@ -2945,7 +2961,9 @@ export function OperationsConsole({
 
             <section className="ops-flow" aria-label={ar ? 'مراحل العمل' : 'Workflow stages'}>
               {definition.flow.map((stage, index) => {
-                const count = records.filter((row) => safeString(row.status) === stage.value).length;
+                const count = records.filter(
+                  (row) => safeString(row.status) === stage.value,
+                ).length;
                 return (
                   <article key={stage.value}>
                     <span>{String(index + 1).padStart(2, '0')}</span>
@@ -3097,7 +3115,9 @@ export function OperationsConsole({
             <tbody>
               {tableRows.map((row, index) => {
                 const isChildUnit = safeString(row.rowKind) === 'unit';
-                const childUnits = Array.isArray(row.childUnits) ? (row.childUnits as DataRow[]) : [];
+                const childUnits = Array.isArray(row.childUnits)
+                  ? (row.childUnits as DataRow[])
+                  : [];
                 const canExpand =
                   section === 'properties' &&
                   !isChildUnit &&
@@ -3133,9 +3153,7 @@ export function OperationsConsole({
                                 type="button"
                                 className={`ops-expand${isExpanded ? ' ops-expand--open' : ''}`}
                                 aria-expanded={isExpanded}
-                                aria-label={
-                                  ar ? 'عرض وحدات المبنى' : 'Show building units'
-                                }
+                                aria-label={ar ? 'عرض وحدات المبنى' : 'Show building units'}
                                 onClick={() =>
                                   setExpandedProperties((current) => {
                                     const next = new Set(current);
@@ -3152,9 +3170,7 @@ export function OperationsConsole({
                             ) : null}
                             <PropertyOpsRowKey
                               propertyId={
-                                isChildUnit
-                                  ? safeString(row.parentPropertyId)
-                                  : safeString(row.id)
+                                isChildUnit ? safeString(row.parentPropertyId) : safeString(row.id)
                               }
                               coverImageUrl={
                                 typeof row.coverImageUrl === 'string' ? row.coverImageUrl : null
@@ -3478,15 +3494,9 @@ export function OperationsConsole({
               [safeString(row.governorate), safeString(row.city)].filter(Boolean).join(' · ') ||
               '—';
             const statusRaw = safeString(row.status) || '—';
-            const statusLabeled =
-              definition.flow.find((item) => item.value === statusRaw) ?? null;
-            const status = statusLabeled
-              ? ar
-                ? statusLabeled.ar
-                : statusLabeled.en
-              : statusRaw;
-            const cover =
-              typeof row.coverImageUrl === 'string' ? row.coverImageUrl : null;
+            const statusLabeled = definition.flow.find((item) => item.value === statusRaw) ?? null;
+            const status = statusLabeled ? (ar ? statusLabeled.ar : statusLabeled.en) : statusRaw;
+            const cover = typeof row.coverImageUrl === 'string' ? row.coverImageUrl : null;
             return (
               <article
                 className="ops-mobile-card"
@@ -3508,7 +3518,9 @@ export function OperationsConsole({
                         {serial}
                       </p>
                     ) : null}
-                    {section === 'properties' && Array.isArray(row.channels) && row.channels.length ? (
+                    {section === 'properties' &&
+                    Array.isArray(row.channels) &&
+                    row.channels.length ? (
                       <div className="ops-channel-badges ops-channel-badges--mobile">
                         {(row.channels as unknown[]).map((code) => {
                           const key = String(code);

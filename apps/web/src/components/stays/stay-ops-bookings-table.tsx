@@ -5,6 +5,7 @@ import { useState, useTransition } from 'react';
 import { EmptyState } from '@bhd-r/ui';
 import { ApiError, browserMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
+import { stayBookingModeLabel, stayStatusLabel } from '@/lib/ui-labels';
 
 export type OpsStayBooking = {
   id: string;
@@ -26,22 +27,6 @@ const CANCELABLE = new Set(['request_pending', 'payment_pending', 'confirmed', '
 const NO_SHOWABLE = new Set(['confirmed', 'pre_arrival']);
 
 const CHECKOUTABLE = new Set(['checked_in']);
-
-function statusLabel(status: string, ar: boolean): string {
-  const labels: Record<string, { ar: string; en: string }> = {
-    payment_pending: { ar: 'بانتظار الدفع', en: 'Awaiting payment' },
-    request_pending: { ar: 'بانتظار الاعتماد', en: 'Awaiting approval' },
-    confirmed: { ar: 'مؤكّد', en: 'Confirmed' },
-    paid: { ar: 'مدفوع', en: 'Paid' },
-    pre_arrival: { ar: 'قبل الوصول', en: 'Pre-arrival' },
-    checked_in: { ar: 'تم الوصول', en: 'Checked in' },
-    checked_out: { ar: 'تم المغادرة', en: 'Checked out' },
-    cancelled: { ar: 'ملغى', en: 'Cancelled' },
-    no_show: { ar: 'لم يحضر', en: 'No-show' },
-  };
-  const hit = labels[status];
-  return hit ? (ar ? hit.ar : hit.en) : status;
-}
 
 export function StayOpsBookingsTable({
   locale,
@@ -128,8 +113,8 @@ export function StayOpsBookingsTable({
                   {booking.checkInOn} → {booking.checkOutOn}
                 </td>
                 <td dir="ltr">{booking.nights ?? '—'}</td>
-                <td>{statusLabel(booking.status, ar)}</td>
-                <td dir="ltr">{booking.bookingMode}</td>
+                <td>{stayStatusLabel(booking.status, locale)}</td>
+                <td>{stayBookingModeLabel(booking.bookingMode, locale)}</td>
                 <td dir="ltr">{formatMoney(booking.totalMinor, booking.currency, locale)}</td>
                 <td dir="ltr" className="muted">
                   {booking.unitId.slice(0, 8)}…

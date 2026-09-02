@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, EmptyState, StatusBadge } from '@bhd-r/u
 import { getLocale, getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { apiFetch } from '@/lib/server-api';
+import { domainStatusLabel } from '@/lib/ui-labels';
 import type { PortalRole } from '@/lib/types';
 import { OperationsWorkspace, type OperationsSection } from './operations-workspace';
 import { TenantCancelLeaseButton } from './tenant-cancel-lease-button';
@@ -179,9 +180,7 @@ export async function PortalSection({
                     <tr key={row.id}>
                       <td>
                         {row.title ?? row.name ?? row.reference ?? row.id}
-                        {portal === 'tenant' &&
-                        section === 'leases' &&
-                        row.status === 'active' ? (
+                        {portal === 'tenant' && section === 'leases' && row.status === 'active' ? (
                           <div style={{ marginTop: '0.35rem' }}>
                             <TenantCancelLeaseButton
                               leaseId={row.id}
@@ -201,7 +200,7 @@ export async function PortalSection({
                                   ? 'negative'
                                   : 'neutral'
                             }
-                            label={row.status}
+                            label={domainStatusLabel(row.status, locale)}
                           />
                         ) : (
                           '—'

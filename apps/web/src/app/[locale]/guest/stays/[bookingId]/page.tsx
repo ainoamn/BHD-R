@@ -4,7 +4,9 @@ import { setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { isStaysPlatformEnabled } from '@/lib/stays-flags';
 import { ApiError, apiFetch, publicApiFetch } from '@/lib/server-api';
+import { stayBookingModeLabel, stayStatusLabel } from '@/lib/ui-labels';
 import { getViewer } from '@/lib/viewer';
+import { formatMoney } from '@/lib/format';
 
 type GuestBooking = {
   id: string;
@@ -84,7 +86,7 @@ export default async function GuestStayDetailPage({
             <h1 dir="ltr">{booking.referenceCode}</h1>
             <p className="muted">
               {ar ? 'حالة الحجز' : 'Booking status'}:{' '}
-              <strong dir="ltr">{booking.status}</strong>
+              <strong>{stayStatusLabel(booking.status, locale)}</strong>
             </p>
           </div>
         </header>
@@ -102,13 +104,12 @@ export default async function GuestStayDetailPage({
           ) : null}
           <p>
             {ar ? 'المبلغ' : 'Total'}:{' '}
-            <strong dir="ltr">
-              {booking.currency} {booking.totalMinor}
-            </strong>
+            <strong dir="ltr">{formatMoney(booking.totalMinor, booking.currency, locale)}</strong>
           </p>
           {booking.bookingMode ? (
             <p>
-              {ar ? 'نمط الحجز' : 'Mode'}: <strong dir="ltr">{booking.bookingMode}</strong>
+              {ar ? 'نمط الحجز' : 'Mode'}:{' '}
+              <strong>{stayBookingModeLabel(booking.bookingMode, locale)}</strong>
             </p>
           ) : null}
           {booking.timezone ? (

@@ -2,9 +2,15 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { Link } from '@/i18n/navigation';
-import { ApiError, browserStayBookingGet, browserStayBookingMutation, humanizeBrowserError } from '@/lib/api';
+import {
+  ApiError,
+  browserStayBookingGet,
+  browserStayBookingMutation,
+  humanizeBrowserError,
+} from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { rememberStayTripAlert } from '@/lib/stay-trip-alerts';
+import { stayStatusLabel } from '@/lib/ui-labels';
 
 type QuoteResult = {
   id: string;
@@ -96,9 +102,7 @@ export function StayCheckout({
   const initialIn = defaults?.checkInOn || defaultCheckIn();
   const [step, setStep] = useState<Step>('stay');
   const [checkInOn, setCheckInOn] = useState(initialIn);
-  const [checkOutOn, setCheckOutOn] = useState(
-    defaults?.checkOutOn || defaultCheckOut(initialIn),
-  );
+  const [checkOutOn, setCheckOutOn] = useState(defaults?.checkOutOn || defaultCheckOut(initialIn));
   const [adults, setAdults] = useState(defaults?.adults ?? '2');
   const [children, setChildren] = useState(defaults?.children ?? '0');
   const [stayType, setStayType] = useState<StayType>(defaults?.stayType ?? 'overnight_stay');
@@ -203,7 +207,9 @@ export function StayCheckout({
   function continueFromGuest() {
     setError(null);
     if (!guestName.trim() || guestName.trim().length < 2) {
-      setError(ar ? 'أدخل اسم الضيف (حرفان على الأقل)' : 'Enter guest name (at least 2 characters)');
+      setError(
+        ar ? 'أدخل اسم الضيف (حرفان على الأقل)' : 'Enter guest name (at least 2 characters)',
+      );
       return;
     }
     setStep('review');
@@ -296,11 +302,7 @@ export function StayCheckout({
       } catch (caught) {
         setStepHint(null);
         if (caught instanceof ApiError && caught.status === 404) {
-          setError(
-            ar
-              ? 'مسار الإقامات غير مفعّل حالياً.'
-              : 'Stays booking is not enabled yet.',
-          );
+          setError(ar ? 'مسار الإقامات غير مفعّل حالياً.' : 'Stays booking is not enabled yet.');
           return;
         }
         setError(humanizeBrowserError(caught, ar));
@@ -482,7 +484,9 @@ export function StayCheckout({
               />
             </div>
             <div className="field">
-              <label htmlFor="stay-book-phone">{ar ? 'الهاتف (اختياري)' : 'Phone (optional)'}</label>
+              <label htmlFor="stay-book-phone">
+                {ar ? 'الهاتف (اختياري)' : 'Phone (optional)'}
+              </label>
               <input
                 className="input"
                 id="stay-book-phone"
@@ -650,13 +654,7 @@ export function StayCheckout({
             </div>
             <div>
               <dt>{ar ? 'الحالة' : 'Status'}</dt>
-              <dd>
-                {booking.status === 'payment_pending' || booking.status === 'request_pending'
-                  ? ar
-                    ? 'بانتظار الدفع'
-                    : 'Awaiting payment'
-                  : booking.status}
-              </dd>
+              <dd>{stayStatusLabel(booking.status, locale)}</dd>
             </div>
           </dl>
           <p className="muted stays-checkout__hint">

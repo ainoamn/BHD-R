@@ -33,7 +33,9 @@ export function readStayTripAlerts(): StayTripAlert[] {
   }
 }
 
-export function rememberStayTripAlert(alert: Omit<StayTripAlert, 'updatedAt'> & { updatedAt?: string }) {
+export function rememberStayTripAlert(
+  alert: Omit<StayTripAlert, 'updatedAt'> & { updatedAt?: string },
+) {
   if (typeof window === 'undefined') return;
   const next: StayTripAlert = {
     ...alert,
@@ -53,32 +55,8 @@ export function rememberStayTripAlert(alert: Omit<StayTripAlert, 'updatedAt'> & 
 
 export function stayAlertNeedsAction(status: string): boolean {
   return (
-    status === 'payment_pending' ||
-    status === 'request_pending' ||
-    status === 'payment_failed'
+    status === 'payment_pending' || status === 'request_pending' || status === 'payment_failed'
   );
 }
 
-export function stayStatusLabel(status: string, ar: boolean): string {
-  switch (status) {
-    case 'payment_pending':
-    case 'request_pending':
-      return ar ? 'بانتظار الدفع' : 'Awaiting payment';
-    case 'confirmed':
-    case 'paid':
-    case 'pre_arrival':
-      return ar ? 'مؤكّد' : 'Confirmed';
-    case 'checked_in':
-      return ar ? 'تم تسجيل الوصول' : 'Checked in';
-    case 'checked_out':
-    case 'closed':
-      return ar ? 'مكتمل' : 'Completed';
-    case 'cancelled':
-    case 'expired':
-      return ar ? 'ملغى / منتهٍ' : 'Cancelled / expired';
-    case 'payment_failed':
-      return ar ? 'فشل الدفع' : 'Payment failed';
-    default:
-      return status;
-  }
-}
+export { stayStatusLabel } from '@/lib/ui-labels';

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { formatMoney } from '@/lib/format';
+import { stayStatusLabel, stayTypeLabel } from '@/lib/ui-labels';
 
 export type StayBookingDocumentData = {
   referenceCode: string;
@@ -18,19 +19,11 @@ export type StayBookingDocumentData = {
 
 export type StayBookingDocumentKind = 'payment' | 'confirmation';
 
-function stayTypeLabel(type: string | null | undefined, ar: boolean): string {
-  if (type === 'day_use') return ar ? 'إقامة بدون مبيت' : 'Day use';
-  if (type === 'overnight_only') return ar ? 'مبيت فقط' : 'Overnight only';
-  if (type === 'overnight_stay') return ar ? 'إقامة مع مبيت' : 'Stay with overnight';
-  return type ?? '—';
-}
-
 function statusLabel(status: string, paid: boolean, ar: boolean): string {
-  if (status === 'payment_pending' || status === 'request_pending') {
-    return ar ? 'بانتظار الدفع' : 'Awaiting payment';
+  if (paid && (status === 'confirmed' || status === 'paid')) {
+    return ar ? 'مؤكّد / مدفوع' : 'Confirmed / paid';
   }
-  if (paid) return ar ? 'مؤكّد / مدفوع' : 'Confirmed / paid';
-  return status;
+  return stayStatusLabel(status, ar);
 }
 
 function Row({ label, value, ltr }: { label: string; value: ReactNode; ltr?: boolean }) {

@@ -16,6 +16,7 @@ import { requireSessionSecret } from '@/lib/runtime-env';
 import { isStaysPlatformEnabled } from '@/lib/stays-flags';
 import { apiFetch } from '@/lib/server-api';
 import { formatMoney } from '@/lib/format';
+import { apiReachabilityLabel, stayStatusLabel } from '@/lib/ui-labels';
 
 function defaultRange(): { fromOn: string; toOn: string } {
   const to = new Date();
@@ -69,7 +70,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         </li>
         <li>
           <span>{ar ? 'حالة الواجهة' : 'API status'}</span>
-          <strong dir="ltr">{health ? 'reachable' : 'offline / gated'}</strong>
+          <strong>{apiReachabilityLabel(Boolean(health), locale)}</strong>
         </li>
       </ul>
 
@@ -89,7 +90,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
                   </span>
                 </div>
                 <div>
-                  <span>{booking.status}</span>
+                  <span>{stayStatusLabel(booking.status, locale)}</span>
                   <strong dir="ltr">
                     {formatMoney(booking.totalMinor, booking.currency, locale)}
                   </strong>
