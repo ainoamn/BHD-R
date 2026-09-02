@@ -9102,9 +9102,6 @@ button.ops-row-key {
     grid-template-columns: 1fr;
   }
 }
-  gap: 0.5rem;
-  margin: 1rem 0 1.25rem;
-}
 .stays-ops-calendar__unit-tab {
   min-height: 2.25rem;
 }
