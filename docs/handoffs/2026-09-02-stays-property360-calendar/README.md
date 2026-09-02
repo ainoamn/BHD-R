@@ -3,6 +3,7 @@
 **تاريخ:** 2026-09-02  
 **المستودع:** https://github.com/ainoamn/BHD-R  
 **الفرع:** `main`  
+**آخر commit:** `05b8f73` — *Ship Property 360 stay pages, occupancy calendar, and refined stays search UX as 0.4.26.*  
 **الإصدار:** 0.4.26  
 **معرّف محادثة Cursor:** [d0d5551b-99f7-449e-92d1-5d812bcf527d](d0d5551b-99f7-449e-92d1-5d812bcf527d)
 
