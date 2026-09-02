@@ -16,6 +16,7 @@ import { Throttle } from '@nestjs/throttler';
 import { readStaysFlagsFromEnv, resolveStaysEnabledFromEnv } from '@bhd-r/config';
 import {
   stayOpsBookingsQuerySchema,
+  stayInventoryCalendarQuerySchema,
   stayPerformanceQuerySchema,
   staySetupContextQuerySchema,
   createStayUnitTypeSchema,
@@ -24,6 +25,7 @@ import {
   upsertStayRatePlanSchema,
   upsertStayPublicListingSchema,
   type StayOpsBookingsQuery,
+  type StayInventoryCalendarQuery,
   type StayPerformanceQuery,
   type StaySetupContextQuery,
   type CreateStayUnitTypeInput,
@@ -215,6 +217,18 @@ export class StaysOperationsController {
   markNoShow(@Req() request: ApiRequest, @Param('id', ParseUUIDPipe) id: string) {
     assertStaysOperationsEnabled(request.auth?.organizationId);
     return this.bookings.markNoShow(request.auth!, id);
+  }
+
+  @RequirePermissions('stay.booking.read')
+  @Get('units/:unitId/inventory-days')
+  @Throttle({ default: { limit: 40, ttl: 60_000 } })
+  unitInventoryDays(
+    @Req() request: ApiRequest,
+    @Param('unitId', ParseUUIDPipe) unitId: string,
+    @Query(new ZodPipe(stayInventoryCalendarQuerySchema)) query: StayInventoryCalendarQuery,
+  ) {
+    assertStaysOperationsEnabled(request.auth?.organizationId);
+    return this.inventory.getOpsInventoryCalendar(request.auth!, unitId, query.fromOn, query.toOn);
   }
 
   @RequirePermissions('stay.booking.read')

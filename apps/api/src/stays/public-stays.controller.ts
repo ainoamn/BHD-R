@@ -16,12 +16,14 @@ import {
   createStayHoldSchema,
   createStayQuoteSchema,
   stayAvailabilityQuerySchema,
+  stayInventoryCalendarQuerySchema,
   stayGuestBookingLookupSchema,
   staySearchQuerySchema,
   type CreateStayBookingInput,
   type CreateStayHoldInput,
   type CreateStayQuoteInput,
   type StayAvailabilityQuery,
+  type StayInventoryCalendarQuery,
   type StayGuestBookingLookup,
   type StaySearchQuery,
 } from '@bhd-r/contracts';
@@ -87,6 +89,16 @@ export class PublicStaysController {
       body,
       requireIdempotencyKey(idempotencyKey),
     );
+  }
+
+  @Get(':slug/calendar')
+  @Throttle({ default: { limit: 40, ttl: 60_000 } })
+  calendar(
+    @Param('slug') slug: string,
+    @Query(new ZodPipe(stayInventoryCalendarQuerySchema)) query: StayInventoryCalendarQuery,
+  ) {
+    assertStaysPlatformEnabled();
+    return this.bookingService.getInventoryCalendar(slug, query);
   }
 
   @Get(':slug/availability')

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { Link } from '@/i18n/navigation';
+import { StayAvailabilityCalendar } from '@/components/stays/stay-availability-calendar';
 import { ApiError, browserPublicGet, browserPublicMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 
@@ -270,7 +271,19 @@ export function StayCheckout({
       {step === 'stay' ? (
         <div className="stays-checkout__panel">
           <h3>{ar ? 'تواريخ الإقامة' : 'Stay dates'}</h3>
-          <div className="stays-checkout__grid">
+          <StayAvailabilityCalendar
+            locale={locale}
+            mode="public"
+            slug={slug}
+            monthCount={2}
+            selectedCheckIn={checkInOn}
+            selectedCheckOut={checkOutOn}
+            onRangeChange={(nextIn, nextOut) => {
+              setCheckInOn(nextIn);
+              setCheckOutOn(nextOut);
+            }}
+          />
+          <div className="stays-checkout__grid stays-checkout__grid--compact">
             <div className="field">
               <label htmlFor="stay-book-in">{ar ? 'الوصول' : 'Check-in'}</label>
               <input

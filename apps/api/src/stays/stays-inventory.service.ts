@@ -3,9 +3,11 @@ import { and, eq, isNotNull, lte, sql } from 'drizzle-orm';
 import { outboxEvents, stayHolds, stayInventoryLocks, stayProfiles, units } from '@bhd-r/db';
 import {
   buildStayUnitIcs,
+  fillInventoryCalendarDays,
   formatDaterangeLiteral,
   stayLockKindToIcsSummary,
 } from '@bhd-r/domain';
+import type { StayInventoryCalendarResponse } from '@bhd-r/contracts';
 import type { SessionClaims } from '@bhd-r/authz';
 import { DatabaseService, type DatabaseTransaction } from '../database/database.service.js';
 
@@ -433,5 +435,139 @@ export class StaysInventoryService {
         : ((inserted as { rowCount?: number }).rowCount ?? 0);
       return { unitId, days: count };
     });
+  }
+
+  async getPublicInventoryCalendar(
+    organizationId: string,
+    unitId: string,
+    fromOn: string,
+    toOn: string,
+    currency?: string | null,
+  ): Promise<StayInventoryCalendarResponse> {
+    return this.database.asPublic(async (transaction) =>
+      this.buildInventoryCalendarInTransaction(transaction, organizationId, unitId, fromOn, toOn, {
+        ...(currency != null ? { currency } : {}),
+        includeLocks: false,
+      }),
+    );
+  }
+
+  async getOpsInventoryCalendar(
+    claims: SessionClaims,
+    unitId: string,
+    fromOn: string,
+    toOn: string,
+  ): Promise<StayInventoryCalendarResponse> {
+    const organizationId = claims.organizationId;
+    if (!organizationId) throw new ConflictException('Organization context required');
+
+    return this.database.withinTenant(claims, async (transaction) => {
+      const [profile] = await transaction
+        .select({ currency: stayProfiles.currency })
+        .from(stayProfiles)
+        .where(
+          and(eq(stayProfiles.organizationId, organizationId), eq(stayProfiles.unitId, unitId)),
+        )
+        .limit(1);
+      if (!profile) throw new NotFoundException('Stay unit not found');
+
+      return this.buildInventoryCalendarInTransaction(
+        transaction,
+        organizationId,
+        unitId,
+        fromOn,
+        toOn,
+        { currency: profile.currency, includeLocks: true },
+      );
+    });
+  }
+
+  private async buildInventoryCalendarInTransaction(
+    transaction: DatabaseTransaction,
+    organizationId: string,
+    unitId: string,
+    fromOn: string,
+    toOn: string,
+    options: { currency?: string | null; includeLocks: boolean },
+  ): Promise<StayInventoryCalendarResponse> {
+    const result = await transaction.execute(sql`
+      SELECT
+        stay_date::text AS stay_date,
+        availability_status,
+        effective_rate_minor::text AS effective_rate_minor,
+        currency
+      FROM stay_inventory_days
+      WHERE organization_id = ${organizationId}::uuid
+        AND unit_id = ${unitId}::uuid
+        AND stay_date >= ${fromOn}::date
+        AND stay_date < ${toOn}::date
+      ORDER BY stay_date
+    `);
+    const rows = Array.isArray(result) ? result : ((result as { rows?: unknown[] }).rows ?? []);
+    const mapped = (
+      rows as Array<{
+        stay_date: string;
+        availability_status: string;
+        effective_rate_minor: string | null;
+        currency: string | null;
+      }>
+    ).map((row) => ({
+      stayDate: row.stay_date,
+      availabilityStatus: row.availability_status,
+      effectiveRateMinor: row.effective_rate_minor,
+      currency: row.currency,
+    }));
+
+    const days = fillInventoryCalendarDays(mapped, fromOn, toOn) as StayInventoryCalendarResponse['days'];
+    const response: StayInventoryCalendarResponse = {
+      unitId,
+      fromOn,
+      toOn,
+      days,
+      ...(options.currency ? { currency: options.currency as StayInventoryCalendarResponse['currency'] } : {}),
+    };
+
+    if (!options.includeLocks) return response;
+
+    const lockResult = await transaction.execute(sql`
+      SELECT
+        l.kind::text AS kind,
+        lower(l.stay_range)::text AS check_in_on,
+        upper(l.stay_range)::text AS check_out_on,
+        l.note,
+        sb.reference_code AS booking_reference
+      FROM stay_inventory_locks l
+      LEFT JOIN stay_bookings sb
+        ON sb.inventory_lock_id = l.id
+       AND sb.organization_id = l.organization_id
+      WHERE l.organization_id = ${organizationId}::uuid
+        AND l.unit_id = ${unitId}::uuid
+        AND l.status = 'active'
+        AND lower(l.stay_range) < ${toOn}::date
+        AND upper(l.stay_range) > ${fromOn}::date
+      ORDER BY lower(l.stay_range) ASC, l.created_at ASC
+    `);
+    const lockRows = Array.isArray(lockResult)
+      ? lockResult
+      : ((lockResult as { rows?: unknown[] }).rows ?? []);
+
+    return {
+      ...response,
+      locks: (
+        lockRows as Array<{
+          kind: string;
+          check_in_on: string;
+          check_out_on: string;
+          note: string | null;
+          booking_reference: string | null;
+        }>
+      ).map((row) => ({
+        kind: row.kind,
+        checkInOn: row.check_in_on,
+        checkOutOn: row.check_out_on,
+        ...(row.booking_reference ? { bookingReference: row.booking_reference } : {}),
+        ...(row.note ? { note: row.note } : {}),
+      })),
+    };
   }
 }

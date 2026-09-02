@@ -27,7 +27,7 @@ export async function generateMetadata({
   };
 }
 
-export default async function Page({
+export default async function StaysSearchPage({
   params,
   searchParams,
 }: {
@@ -35,7 +35,8 @@ export default async function Page({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   if (!isStaysPublicSurfaceEnabled()) notFound();
-  const { locale } = await params;
+  const { locale: rawLocale } = await params;
+  const locale = rawLocale === 'en' ? 'en' : 'ar';
   setRequestLocale(locale);
   const t = await getTranslations('Stays');
   const ar = locale === 'ar';
@@ -88,57 +89,65 @@ export default async function Page({
     items = result.items ?? [];
   }
 
+  const resultsLine =
+    checkInOn && checkOutOn
+      ? ar
+        ? `${items.length} إقامة متاحة للتواريخ المحددة`
+        : `${items.length} stays available for your dates`
+      : ar
+        ? `${items.length} إقامة يومية`
+        : `${items.length} daily stays`;
+
   return (
-    <div className="container section stays-public">
-      <header className="section-heading">
-        <div>
-          <span className="section-kicker">BHD R</span>
-          <h1>{t('searchTitle')}</h1>
-          {checkInOn && checkOutOn ? (
-            <p className="muted">
-              {ar
-                ? `${items.length} إقامة متاحة · ${checkInOn} → ${checkOutOn}`
-                : `${items.length} stays available · ${checkInOn} → ${checkOutOn}`}
-            </p>
-          ) : (
-            <p className="muted">{t('shellHint')}</p>
-          )}
-        </div>
-      </header>
-
-      <div className="stays-public__search-hero">
-        <StaySearch
-          locale={locale}
-          variant="inline"
-          defaults={{
-            ...(destination ? { destination } : {}),
-            ...(checkInOn ? { checkInOn } : {}),
-            ...(checkOutOn ? { checkOutOn } : {}),
-            ...(adults ? { adults } : {}),
-            ...(children ? { children } : {}),
-          }}
-        />
-      </div>
-
-      {items.length ? (
-        <div className="listing-grid stays-public__grid">
-          {items.map((listing) => (
-            <StayCard
-              key={listing.slug}
-              listing={listing}
+    <div className="stays-public stays-public--search">
+      <section className="stays-hero" aria-labelledby="stays-search-heading">
+        <div className="container stays-hero__inner">
+          <header className="stays-hero__copy">
+            <span className="section-kicker">BHD R</span>
+            <h1 id="stays-search-heading">{t('searchTitle')}</h1>
+            <p className="stays-hero__lede">{t('shellHint')}</p>
+          </header>
+          <div className="stays-hero__search">
+            <StaySearch
               locale={locale}
-              query={{
+              variant="inline"
+              defaults={{
+                ...(destination ? { destination } : {}),
                 ...(checkInOn ? { checkInOn } : {}),
                 ...(checkOutOn ? { checkOutOn } : {}),
                 ...(adults ? { adults } : {}),
                 ...(children ? { children } : {}),
               }}
             />
-          ))}
+          </div>
         </div>
-      ) : (
-        <EmptyState title={t('noResults')} description={t('comingOnline')} />
-      )}
+      </section>
+
+      <div className="container stays-public__results">
+        <p className="stays-public__results-meta" role="status">
+          {resultsLine}
+        </p>
+
+        {items.length ? (
+          <div className="stays-public__grid">
+            {items.map((listing) => (
+              <StayCard
+                key={listing.slug}
+                listing={listing}
+                locale={locale}
+                query={{
+                  ...(checkInOn ? { checkInOn } : {}),
+                  ...(checkOutOn ? { checkOutOn } : {}),
+                  ...(adults ? { adults } : {}),
+                  ...(children ? { children } : {}),
+                }}
+              />
+            ))}
+          </div>
+        ) : (
+          <EmptyState title={t('noResults')} description={t('comingOnline')} />
+        )}
+      </div>
     </div>
   );
 }

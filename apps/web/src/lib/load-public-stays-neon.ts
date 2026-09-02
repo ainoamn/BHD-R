@@ -273,7 +273,10 @@ export async function loadPublicStayBySlugOnNeon(slug: string): Promise<StayPubl
       WHERE spl.slug = ${slug}
         AND spl.enabled = true
         AND spl.published_at IS NOT NULL
-      ORDER BY sp.updated_at DESC
+      ORDER BY
+        CASE WHEN COALESCE(u.bedrooms, 0) > 0 THEN 0 ELSE 1 END,
+        u.bedrooms DESC NULLS LAST,
+        sp.updated_at DESC
       LIMIT 1
     `);
     const rows = Array.isArray(result) ? result : ((result as { rows?: unknown[] }).rows ?? []);

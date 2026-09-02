@@ -23,6 +23,7 @@ import type {
   CreateStayHoldInput,
   CreateStayQuoteInput,
   StayAvailabilityQuery,
+  StayInventoryCalendarQuery,
 } from '@bhd-r/contracts';
 import {
   assertStayBookingTransition,
@@ -106,6 +107,18 @@ export class StaysBookingService {
       query.checkOutOn,
     );
     return { available, nights, unitId: ctx.unitId, currency: ctx.currency };
+  }
+
+  async getInventoryCalendar(slug: string, query: StayInventoryCalendarQuery) {
+    const ctx = await this.resolveListingContext(slug);
+    this.assertOrgEnabled(ctx.organizationId);
+    return this.inventory.getPublicInventoryCalendar(
+      ctx.organizationId,
+      ctx.unitId,
+      query.fromOn,
+      query.toOn,
+      ctx.currency,
+    );
   }
 
   async createQuote(slug: string, input: CreateStayQuoteInput) {

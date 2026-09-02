@@ -48,7 +48,7 @@ export async function StayCard({
 
   return (
     <article className="listing-card stay-card">
-      <Link href={href} aria-label={title} prefetch>
+      <Link href={href} className="stay-card__link" aria-label={title} prefetch>
         <div className="listing-card__image">
           {coverSrc ? (
             <Image
@@ -69,14 +69,14 @@ export async function StayCard({
             <p className="listing-card__location">{listing.destination}</p>
           ) : null}
           <div className="listing-card__facts">
+            {priceLabel ? (
+              <span className="stay-card__price">
+                {t('nightlyFrom')} <strong dir="ltr">{priceLabel}</strong> {t('perNight')}
+              </span>
+            ) : null}
             {listing.maxGuests != null ? (
               <span>
                 {listing.maxGuests} {t('guests')}
-              </span>
-            ) : null}
-            {priceLabel ? (
-              <span>
-                {t('nightlyFrom')} <strong dir="ltr">{priceLabel}</strong> {t('perNight')}
               </span>
             ) : null}
           </div>

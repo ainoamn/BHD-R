@@ -145,6 +145,67 @@ export const stayAvailabilityQuerySchema = z.object({
   children: z.coerce.number().int().min(0).max(50).default(0),
 });
 
+export const stayDayAvailabilityStatusSchema = z.enum([
+  'available',
+  'blocked',
+  'booked',
+  'hold',
+  'maintenance',
+  'lease',
+  'unavailable',
+]);
+
+export const stayInventoryCalendarQuerySchema = z
+  .object({
+    fromOn: z.iso.date(),
+    toOn: z.iso.date(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.toOn <= value.fromOn) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'toOn must be after fromOn',
+        path: ['toOn'],
+      });
+      return;
+    }
+    const start = new Date(`${value.fromOn}T00:00:00.000Z`);
+    const end = new Date(`${value.toOn}T00:00:00.000Z`);
+    const spanDays = Math.round((end.getTime() - start.getTime()) / 86_400_000);
+    if (spanDays > 93) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Date range must not exceed 93 days',
+        path: ['toOn'],
+      });
+    }
+  });
+
+export const stayInventoryDaySchema = z.object({
+  stayDate: z.iso.date(),
+  availabilityStatus: stayDayAvailabilityStatusSchema,
+  effectiveRateMinor: z.string().regex(/^\d+$/).nullable().optional(),
+  currency: currencyCodeSchema.nullable().optional(),
+});
+
+export const stayInventoryLockSpanSchema = z.object({
+  kind: z.string().min(1).max(24),
+  checkInOn: z.iso.date(),
+  checkOutOn: z.iso.date(),
+  bookingReference: z.string().max(32).nullable().optional(),
+  note: z.string().max(500).nullable().optional(),
+});
+
+export const stayInventoryCalendarResponseSchema = z.object({
+  unitId: uuidSchema,
+  fromOn: z.iso.date(),
+  toOn: z.iso.date(),
+  currency: currencyCodeSchema.nullable().optional(),
+  days: z.array(stayInventoryDaySchema),
+  locks: z.array(stayInventoryLockSpanSchema).optional(),
+});
+
 /** Public search card — safe for marketing surfaces. */
 export const staySearchListingSchema = z.object({
   slug: z.string().min(1).max(180),
@@ -197,6 +258,11 @@ export type StaySearchQuery = z.infer<typeof staySearchQuerySchema>;
 export type StaySearchListing = z.infer<typeof staySearchListingSchema>;
 export type StaySearchResponse = z.infer<typeof staySearchResponseSchema>;
 export type StayPublicDetail = z.infer<typeof stayPublicDetailSchema>;
+export type StayDayAvailabilityStatus = z.infer<typeof stayDayAvailabilityStatusSchema>;
+export type StayInventoryCalendarQuery = z.infer<typeof stayInventoryCalendarQuerySchema>;
+export type StayInventoryDay = z.infer<typeof stayInventoryDaySchema>;
+export type StayInventoryLockSpan = z.infer<typeof stayInventoryLockSpanSchema>;
+export type StayInventoryCalendarResponse = z.infer<typeof stayInventoryCalendarResponseSchema>;
 export const stayGuestBookingLookupSchema = z
   .object({
     referenceCode: z

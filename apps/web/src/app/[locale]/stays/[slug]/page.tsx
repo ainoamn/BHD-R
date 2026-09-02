@@ -1,14 +1,16 @@
-import { getTranslations, setRequestLocale } from 'next-intl/server';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { Link } from '@/i18n/navigation';
-import { StayCheckout } from '@/components/stays/stay-checkout';
-import { StayPublicShowcase } from '@/components/stays/stay-public-showcase';
-import { StaySearch } from '@/components/stays/stay-search';
+import { getTranslations, setRequestLocale } from 'next-intl/server';
+import { PropertyDetailManager } from '@/components/property-detail-manager';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
-import { loadPublicStayBySlugOnNeon } from '@/lib/load-public-stays-neon';
-import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
-import { publicApiFetch } from '@/lib/server-api';
 import { localizedName } from '@/lib/format';
+import { loadPublicPropertyShowcaseFromNeon } from '@/lib/load-public-property-neon';
+import { loadPublicStayBySlugOnNeon } from '@/lib/load-public-stays-neon';
+import { toPublicMediaSrc } from '@/lib/public-media-url';
+import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
+import { bilingualAlternates } from '@/lib/seo';
+import { publicApiFetch } from '@/lib/server-api';
+import { getViewer } from '@/lib/viewer';
 import type { StayPublicDetail } from '@bhd-r/contracts';
 
 async function loadStayDetail(slug: string): Promise<StayPublicDetail | null> {
@@ -26,7 +28,44 @@ async function loadStayDetail(slug: string): Promise<StayPublicDetail | null> {
   ).catch(() => null);
 }
 
-export default async function Page({
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string; slug: string }>;
+}): Promise<Metadata> {
+  const { locale, slug } = await params;
+  const detail = await loadStayDetail(slug).catch(() => null);
+  if (!detail) {
+    return {
+      title: locale === 'ar' ? 'إقامة يومية' : 'Daily stay',
+      robots: { index: false, follow: false },
+      openGraph: { images: [] },
+      twitter: { images: [] },
+    };
+  }
+  const title = localizedName(locale, detail.titleAr, detail.titleEn);
+  const description =
+    localizedName(locale, detail.descriptionAr ?? '', detail.descriptionEn ?? '') ||
+    detail.destination ||
+    title;
+  const image = toPublicMediaSrc(detail.coverImageUrl) ?? detail.coverImageUrl ?? undefined;
+  return {
+    title,
+    description,
+    alternates: bilingualAlternates(locale, `/stays/${slug}`),
+    openGraph: {
+      title,
+      description,
+      url: `/${locale}/stays/${slug}`,
+      type: 'website',
+      images: image ? [{ url: image }] : [],
+    },
+    twitter: { title, description, images: image ? [image] : [] },
+  };
+}
+
+/** Public stay — same Property 360 layout as unit listings, with daily-stay booking sidebar. */
+export default async function StayDetailPage({
   params,
   searchParams,
 }: {
@@ -34,11 +73,11 @@ export default async function Page({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   if (!isStaysPublicSurfaceEnabled()) notFound();
-  const { locale, slug } = await params;
+  const { locale: rawLocale, slug } = await params;
+  const locale = rawLocale === 'en' ? 'en' : 'ar';
   const query = await searchParams;
   setRequestLocale(locale);
   const t = await getTranslations('Stays');
-  const ar = locale === 'ar';
 
   const one = (value: string | string[] | undefined) =>
     typeof value === 'string' ? value : Array.isArray(value) ? value[0] : undefined;
@@ -56,46 +95,65 @@ export default async function Page({
   };
 
   const detail = await loadStayDetail(slug);
+  if (!detail?.propertyId || !hasDatabaseUrl()) {
+    if (!detail) {
+      return (
+        <main className="section">
+          <div className="container">
+            <p className="notice notice--info" role="status">
+              {t('comingOnline')}
+            </p>
+          </div>
+        </main>
+      );
+    }
+    notFound();
+  }
+
+  const [property, viewer] = await Promise.all([
+    loadPublicPropertyShowcaseFromNeon(detail.propertyId).catch(() => null),
+    getViewer().catch(() => null),
+  ]);
+  if (!property) notFound();
+
+  const title = localizedName(locale, detail.titleAr, detail.titleEn);
+  const focusUnitId = (() => {
+    if (detail.unitId) {
+      const linked = property.units.find((unit) => unit.id === detail.unitId);
+      if (linked && (linked.bedrooms ?? 0) > 0) return detail.unitId;
+    }
+    const residential = [...property.units]
+      .filter((unit) => (unit.bedrooms ?? 0) > 0)
+      .sort((a, b) => a.code.localeCompare(b.code))[0];
+    return residential?.id ?? detail.unitId;
+  })();
+
+  const propertyForDisplay = {
+    ...property,
+    descriptionAr: detail.descriptionAr || property.descriptionAr,
+    descriptionEn: detail.descriptionEn || property.descriptionEn,
+  };
 
   return (
-    <div className="container section stays-public stays-public--detail">
-      <p>
-        <Link className="text-link" href="/stays">
-          {ar ? '← كل الإقامات' : '← All stays'}
-        </Link>
-      </p>
-
-      {!detail ? (
-        <>
-          <header className="section-heading">
-            <div>
-              <span className="section-kicker">BHD R</span>
-              <h1>{ar ? 'إقامة يومية' : 'Daily stay'}</h1>
-              <p className="muted">{t('shellHint')}</p>
-            </div>
-          </header>
-          <p className="notice notice--info" role="status">
-            {t('comingOnline')}
-          </p>
-        </>
-      ) : (
-        <StayPublicShowcase detail={detail} locale={locale} />
-      )}
-
-      <div className="stays-public__book-shell stays-public__book-shell--split">
-        <StayCheckout
+    <main className="section">
+      <div className="container">
+        <PropertyDetailManager
+          property={propertyForDisplay}
           locale={locale}
-          slug={slug}
-          {...(detail
-            ? { title: localizedName(locale, detail.titleAr, detail.titleEn) }
-            : {})}
-          defaults={dateDefaults}
+          portal="owner"
+          variant="public"
+          {...(focusUnitId ? { focusUnitId } : {})}
+          signedIn={Boolean(viewer)}
+          stayBooking={{
+            slug,
+            title,
+            ...(detail.nightlyMinor != null ? { nightlyMinor: detail.nightlyMinor } : {}),
+            ...(detail.currency != null ? { currency: detail.currency } : {}),
+            ...(detail.maxGuests != null ? { maxGuests: detail.maxGuests } : {}),
+            ...dateDefaults,
+          }}
         />
-        <div className="stays-public__search-again">
-          <h2>{t('searchTitle')}</h2>
-          <StaySearch locale={locale} compact defaults={dateDefaults} />
-        </div>
       </div>
-    </div>
+    </main>
   );
 }

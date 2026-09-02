@@ -11,6 +11,7 @@ import { formatListingLocation } from '@/lib/listing-card-copy';
 import { PropertyQrCard } from '@/components/property-qr-card';
 import { PublicListingActions } from '@/components/public-listing-actions';
 import { PropertyManageHub } from '@/components/property-manage-hub';
+import { StayCheckout } from '@/components/stays/stay-checkout';
 import { googleMapsEmbedSrc } from '@/lib/parse-google-maps-url';
 import { listingPurposeCaption, occupancyLabel } from '@/lib/listing-purpose-display';
 import type { UnitOccupancy } from '@/lib/listing-purpose-display';
@@ -164,6 +165,7 @@ export function PropertyDetailManager({
   focusUnitId,
   signedIn = false,
   staysEnabled = false,
+  stayBooking,
 }: {
   property: ManagedProperty;
   locale: 'ar' | 'en';
@@ -176,6 +178,18 @@ export function PropertyDetailManager({
   signedIn?: boolean;
   /** Platform stays flag — quiet setup link only. */
   staysEnabled?: boolean;
+  /** Daily-stay booking replaces rent/sale CTAs in the public sidebar. */
+  stayBooking?: {
+    slug: string;
+    title?: string;
+    nightlyMinor?: string | null;
+    currency?: CurrencyCode | string | null;
+    maxGuests?: number | null;
+    checkInOn?: string;
+    checkOutOn?: string;
+    adults?: string;
+    children?: string;
+  };
 }) {
   const router = useRouter();
   const ar = locale === 'ar';
@@ -283,11 +297,13 @@ export function PropertyDetailManager({
       ? Math.max(0, new Date().getFullYear() - property.profile.yearBuilt)
       : null;
   const totalArea = property.profile?.builtUpAreaSquareMeters ?? null;
-  const headline = focusedUnitHeadline
-    ? focusedUnitHeadline
-    : ar
-      ? property.nameAr
-      : property.nameEn;
+  const headline = stayBooking?.title
+    ? stayBooking.title
+    : focusedUnitHeadline
+      ? focusedUnitHeadline
+      : ar
+        ? property.nameAr
+        : property.nameEn;
   const mapsUrl = property.mapsUrl || mapsUrlFromNotes(property.profile?.notes) || null;
   const latitude =
     typeof property.latitude === 'number' && Number.isFinite(property.latitude)
@@ -434,7 +450,13 @@ export function PropertyDetailManager({
           <header className="property-360__titlebar">
             <div>
               <span className="ops-kicker">
-                {isPublic ? 'BHD R · LISTING' : 'BHD R · PROPERTY 360'}
+                {stayBooking
+                  ? ar
+                    ? 'BHD R · إقامة يومية'
+                    : 'BHD R · DAILY STAY'
+                  : isPublic
+                    ? 'BHD R · LISTING'
+                    : 'BHD R · PROPERTY 360'}
               </span>
               <h1>{headline}</h1>
               {focusedUnitHeadline ? (
@@ -474,6 +496,21 @@ export function PropertyDetailManager({
                     {ar ? 'العودة للمحفظة' : 'Back to portfolio'}
                   </Link>
                 </>
+              ) : stayBooking ? (
+                <Link
+                  className="button button--quiet"
+                  href={`/${locale}/stays${(() => {
+                    const qs = new URLSearchParams();
+                    if (stayBooking.checkInOn) qs.set('checkInOn', stayBooking.checkInOn);
+                    if (stayBooking.checkOutOn) qs.set('checkOutOn', stayBooking.checkOutOn);
+                    if (stayBooking.adults) qs.set('adults', stayBooking.adults);
+                    if (stayBooking.children) qs.set('children', stayBooking.children);
+                    const s = qs.toString();
+                    return s ? `?${s}` : '';
+                  })()}`}
+                >
+                  {ar ? 'كل الإقامات' : 'All stays'}
+                </Link>
               ) : (
                 <Link className="button button--quiet" href={`/${locale}/properties`}>
                   {ar ? 'كل العقارات' : 'All listings'}
@@ -959,7 +996,14 @@ export function PropertyDetailManager({
               ) : null}
             </div>
             <p className="property-360__price">
-              {primaryUnit?.listingPurpose === 'both' ? (
+              {stayBooking?.nightlyMinor && stayBooking.currency ? (
+                <>
+                  <strong dir="ltr">
+                    {formatMoney(stayBooking.nightlyMinor, stayBooking.currency, locale)}
+                  </strong>
+                  <span>{ar ? 'لليلة' : 'per night'}</span>
+                </>
+              ) : primaryUnit?.listingPurpose === 'both' ? (
                 <>
                   {primaryUnit.rentMinor && primaryUnit.rentMinor !== '0' ? (
                     <span className="property-360__price-dual">
@@ -998,7 +1042,35 @@ export function PropertyDetailManager({
                   <dd>{property.status}</dd>
                 </div>
               ) : null}
-              {property.kind === 'multi_unit' && !focusUnitId ? (
+              {stayBooking ? (
+                <>
+                  {stayBooking.maxGuests != null ? (
+                    <div>
+                      <dt>{ar ? 'الضيوف' : 'Guests'}</dt>
+                      <dd>{stayBooking.maxGuests}</dd>
+                    </div>
+                  ) : null}
+                  <div>
+                    <dt>{ar ? 'الغرف' : 'Bedrooms'}</dt>
+                    <dd>{primaryUnit?.bedrooms ?? '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>{ar ? 'الحمامات' : 'Bathrooms'}</dt>
+                    <dd>{primaryUnit?.bathrooms ?? '—'}</dd>
+                  </div>
+                  {primaryUnit?.areaSquareMeters ? (
+                    <div>
+                      <dt>{ar ? 'المساحة' : 'Area'}</dt>
+                      <dd>{primaryUnit.areaSquareMeters} m²</dd>
+                    </div>
+                  ) : totalArea ? (
+                    <div>
+                      <dt>{ar ? 'المساحة' : 'Area'}</dt>
+                      <dd>{totalArea} m²</dd>
+                    </div>
+                  ) : null}
+                </>
+              ) : property.kind === 'multi_unit' && !focusUnitId ? (
                 <>
                   {property.profile?.yearBuilt ? (
                     <div>
@@ -1121,6 +1193,20 @@ export function PropertyDetailManager({
                   </a>
                 ) : null}
               </>
+            ) : stayBooking ? (
+              <div className="property-360__viewing property-360__viewing--stay">
+                <StayCheckout
+                  slug={stayBooking.slug}
+                  locale={locale}
+                  {...(stayBooking.title ? { title: stayBooking.title } : {})}
+                  defaults={{
+                    ...(stayBooking.checkInOn ? { checkInOn: stayBooking.checkInOn } : {}),
+                    ...(stayBooking.checkOutOn ? { checkOutOn: stayBooking.checkOutOn } : {}),
+                    ...(stayBooking.adults ? { adults: stayBooking.adults } : {}),
+                    ...(stayBooking.children ? { children: stayBooking.children } : {}),
+                  }}
+                />
+              </div>
             ) : primaryUnit ? (
               <div className="property-360__viewing">
                 <PublicListingActions
