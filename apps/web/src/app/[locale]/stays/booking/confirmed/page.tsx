@@ -31,6 +31,48 @@ function stayTypeLabel(type: string | null | undefined, ar: boolean): string {
   return type ?? '—';
 }
 
+function guestHonorific(name: string | null | undefined, ar: boolean): string {
+  const trimmed = name?.trim();
+  if (!trimmed) return ar ? 'عزيزنا الضيف' : 'Dear guest';
+  return ar ? `عزيزي ${trimmed}` : `Dear ${trimmed}`;
+}
+
+function confirmationWelcome(input: {
+  ar: boolean;
+  paid: boolean;
+  guestName?: string | null;
+  amountLabel?: string | null;
+  referenceCode: string;
+}): { title: string; body: string } {
+  const dear = guestHonorific(input.guestName, input.ar);
+  if (input.paid) {
+    if (input.ar) {
+      const amountPart = input.amountLabel
+        ? ` بمبلغ إجمالي ${input.amountLabel}`
+        : '';
+      return {
+        title: `${dear}، أهلاً بك`,
+        body: `نودّ أن نؤكّد لك استلام حجزك، وأن الحجز والدفع قد تمّا بنجاح${amountPart} لرقم الحجز ${input.referenceCode}. نتطلّع لاستضافتك، ونتمنى لك إقامةً هانئة.`,
+      };
+    }
+    const amountPart = input.amountLabel ? ` for a total of ${input.amountLabel}` : '';
+    return {
+      title: `${dear}, welcome`,
+      body: `We are pleased to confirm that your booking has been received, and that both the reservation and payment were completed successfully${amountPart} under booking reference ${input.referenceCode}. We look forward to hosting you.`,
+    };
+  }
+  if (input.ar) {
+    return {
+      title: `${dear}، أهلاً بك`,
+      body: `نودّ أن نؤكّد لك استلام طلب حجزك برقم ${input.referenceCode}. يرجى إكمال الدفع لتأكيد الإقامة.`,
+    };
+  }
+  return {
+    title: `${dear}, welcome`,
+    body: `We confirm receipt of your booking request under reference ${input.referenceCode}. Please complete payment to confirm your stay.`,
+  };
+}
+
 async function loadBooking(ref: string): Promise<PublicBooking | null> {
   if (hasDatabaseUrl()) {
     try {
@@ -85,6 +127,18 @@ export default async function StayBookingConfirmedPage({
           )
         : null;
 
+  const amountLabel =
+    booking.totalMinor && booking.currency
+      ? formatMoney(booking.totalMinor, booking.currency, locale)
+      : null;
+  const welcome = confirmationWelcome({
+    ar,
+    paid,
+    guestName: booking.guestDisplayName,
+    amountLabel,
+    referenceCode: booking.referenceCode,
+  });
+
   return (
     <section className="stay-confirm-shell" data-stay-immersive="true">
       <RememberStayTripAlert
@@ -108,29 +162,8 @@ export default async function StayBookingConfirmedPage({
           <div className="stay-confirm-shell__aside-scrim" />
           <div className="stay-confirm-shell__aside-content">
             <p className="stay-confirm-shell__brand">BHD R</p>
-            <p className="stay-confirm-shell__badge">
-              {paid ? (ar ? 'مؤكّد' : 'Confirmed') : ar ? 'مسجّل' : 'Registered'}
-            </p>
-            <h1 id="stays-booking-confirmed-title">
-              {ar ? 'تم استلام حجزك' : 'Your booking is received'}
-            </h1>
-            <p className="stay-confirm-shell__lede">
-              {paid
-                ? ar
-                  ? 'تم تأكيد الحجز والدفع بنجاح.'
-                  : 'Booking and payment are confirmed.'
-                : ar
-                  ? 'الحجز مسجّل. أكمل الدفع لتأكيد الإقامة.'
-                  : 'Booking is registered. Complete payment to confirm your stay.'}
-            </p>
-            {booking.totalMinor && booking.currency ? (
-              <p className="stay-confirm-shell__amount" dir="ltr">
-                {formatMoney(booking.totalMinor, booking.currency, locale)}
-              </p>
-            ) : null}
-            <p className="stay-confirm-shell__ref" dir="ltr">
-              {booking.referenceCode}
-            </p>
+            <h1 id="stays-booking-confirmed-title">{welcome.title}</h1>
+            <p className="stay-confirm-shell__lede">{welcome.body}</p>
           </div>
         </div>
       </aside>
