@@ -4,9 +4,13 @@ import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import { GuestStayLookup } from '@/components/stays/guest-stay-lookup';
 import { Link } from '@/i18n/navigation';
+import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { listGuestStayBookingsOnNeon } from '@/lib/public-stays-guest-neon';
 import { isStaysPlatformEnabled } from '@/lib/stays-flags';
 import { ApiError, apiFetch } from '@/lib/server-api';
 import { getViewer } from '@/lib/viewer';
+import { formatMoney } from '@/lib/format';
+import { stayStatusLabel } from '@/lib/stay-trip-alerts';
 
 type GuestBooking = {
   id: string;
@@ -52,15 +56,24 @@ export default async function GuestStaysPage({
   const viewer = await getViewer();
   let items: GuestBooking[] = [];
   if (viewer) {
-    const listed = await apiFetch<{ items: GuestBooking[] }>('/v1/guest/stays/bookings').catch(
-      (error: unknown) => {
-        if (error instanceof ApiError && (error.status === 401 || error.status === 404)) {
+    if (hasDatabaseUrl()) {
+      try {
+        const listed = await listGuestStayBookingsOnNeon(viewer.id);
+        items = listed.items ?? [];
+      } catch {
+        items = [];
+      }
+    } else {
+      const listed = await apiFetch<{ items: GuestBooking[] }>('/v1/guest/stays/bookings').catch(
+        (error: unknown) => {
+          if (error instanceof ApiError && (error.status === 401 || error.status === 404)) {
+            return { items: [] as GuestBooking[] };
+          }
           return { items: [] as GuestBooking[] };
-        }
-        return { items: [] as GuestBooking[] };
-      },
-    );
-    items = listed.items ?? [];
+        },
+      );
+      items = listed.items ?? [];
+    }
   }
 
   return (
@@ -109,10 +122,8 @@ export default async function GuestStaysPage({
                       <td dir="ltr">
                         {booking.checkInOn} → {booking.checkOutOn}
                       </td>
-                      <td dir="ltr">{booking.status}</td>
-                      <td dir="ltr">
-                        {booking.currency} {booking.totalMinor}
-                      </td>
+                      <td>{stayStatusLabel(booking.status, ar)}</td>
+                      <td dir="ltr">{formatMoney(booking.totalMinor, booking.currency, locale)}</td>
                       <td>
                         <Link
                           className="ops-action"

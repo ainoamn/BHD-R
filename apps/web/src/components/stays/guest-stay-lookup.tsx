@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import { ApiError, browserMutation, browserPublicGet } from '@/lib/api';
+import { useEffect, useState, useTransition } from 'react';
+import { ApiError, browserNextMutation, humanizeBrowserError } from '@/lib/api';
 import { Link } from '@/i18n/navigation';
+import { rememberStayTripAlert, stayStatusLabel } from '@/lib/stay-trip-alerts';
+import { formatMoney } from '@/lib/format';
 
 type GuestBooking = {
   id: string;
@@ -30,35 +32,79 @@ export function GuestStayLookup({
   const [error, setError] = useState<string | null>(null);
   const [hint, setHint] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [autoTried, setAutoTried] = useState(false);
+
+  async function runLookup(codeRaw: string) {
+    setError(null);
+    setHint(null);
+    setResult(null);
+    const code = codeRaw.trim().toUpperCase();
+    if (code.length < 4) {
+      setError(ar ? 'أدخل مرجع حجز صالحاً' : 'Enter a valid booking reference');
+      return;
+    }
+    try {
+      const response = await fetch(
+        `/api/public/stays/bookings/lookup?referenceCode=${encodeURIComponent(code)}`,
+        {
+          method: 'GET',
+          credentials: 'same-origin',
+          headers: { accept: 'application/json' },
+          cache: 'no-store',
+          signal: AbortSignal.timeout(20_000),
+        },
+      );
+      const payload = (await response.json().catch(() => null)) as
+        | GuestBooking
+        | { error?: { code?: string; messageAr?: string; message?: string } }
+        | null;
+      if (!response.ok) {
+        const err = payload && 'error' in payload ? payload.error : null;
+        throw new ApiError(
+          response.status,
+          err?.code ?? 'api_error',
+          err?.messageAr ?? err?.message ?? (ar ? 'تعذر البحث عن الحجز.' : 'Could not look up booking.'),
+        );
+      }
+      const booking = payload as GuestBooking;
+      setResult(booking);
+      rememberStayTripAlert({
+        id: booking.id,
+        referenceCode: booking.referenceCode,
+        status: booking.status,
+        checkInOn: booking.checkInOn,
+        checkOutOn: booking.checkOutOn,
+        currency: booking.currency,
+        totalMinor: booking.totalMinor,
+      });
+    } catch (caught) {
+      if (caught instanceof ApiError && caught.status === 404) {
+        setError(
+          ar
+            ? 'لم يُعثر على الحجز أو المسار غير مفعّل.'
+            : 'Booking not found or stays surface is disabled.',
+        );
+        return;
+      }
+      setError(humanizeBrowserError(caught, ar));
+    }
+  }
 
   function lookup() {
     startTransition(async () => {
-      setError(null);
-      setHint(null);
-      setResult(null);
-      const code = referenceCode.trim().toUpperCase();
-      if (code.length < 4) {
-        setError(ar ? 'أدخل مرجع حجز صالحاً' : 'Enter a valid booking reference');
-        return;
-      }
-      try {
-        const booking = await browserPublicGet<GuestBooking>(
-          `/v1/public/stays/bookings/lookup?referenceCode=${encodeURIComponent(code)}`,
-        );
-        setResult(booking);
-      } catch (caught) {
-        if (caught instanceof ApiError && caught.status === 404) {
-          setError(
-            ar
-              ? 'لم يُعثر على الحجز أو المسار غير مفعّل.'
-              : 'Booking not found or stays surface is disabled.',
-          );
-          return;
-        }
-        setError(caught instanceof Error ? caught.message : 'lookup_failed');
-      }
+      await runLookup(referenceCode);
     });
   }
+
+  useEffect(() => {
+    if (!initialReference || autoTried) return;
+    setAutoTried(true);
+    startTransition(async () => {
+      await runLookup(initialReference);
+    });
+    // Auto-run once when arriving from confirmation with ?ref=
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialReference, autoTried]);
 
   function claim() {
     if (!result) return;
@@ -66,7 +112,7 @@ export function GuestStayLookup({
       setError(null);
       setHint(null);
       try {
-        await browserMutation('/v1/guest/stays/bookings/claim', {
+        await browserNextMutation('/api/public/stays/bookings/claim', {
           method: 'POST',
           body: JSON.stringify({ referenceCode: result.referenceCode }),
         });
@@ -76,7 +122,7 @@ export function GuestStayLookup({
           setError(ar ? 'سجّل الدخول لربط الحجز بحسابك.' : 'Sign in to claim this booking.');
           return;
         }
-        setError(caught instanceof Error ? caught.message : 'claim_failed');
+        setError(humanizeBrowserError(caught, ar));
       }
     });
   }
@@ -126,14 +172,14 @@ export function GuestStayLookup({
             {ar ? 'المرجع' : 'Reference'}: <strong dir="ltr">{result.referenceCode}</strong>
           </p>
           <p>
-            {ar ? 'الحالة' : 'Status'}: <strong dir="ltr">{result.status}</strong>
+            {ar ? 'الحالة' : 'Status'}: <strong>{stayStatusLabel(result.status, ar)}</strong>
           </p>
           <p>
             {result.checkInOn} → {result.checkOutOn}
             {result.nights != null ? ` · ${result.nights} ${ar ? 'ليلة' : 'nights'}` : ''}
           </p>
           <p dir="ltr">
-            {result.currency} {result.totalMinor}
+            {formatMoney(result.totalMinor, result.currency, locale)}
           </p>
           <p>
             <Link

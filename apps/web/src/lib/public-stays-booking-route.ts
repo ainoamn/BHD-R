@@ -40,6 +40,8 @@ export function stayBookingErrorResponse(error: unknown) {
       hold_not_found: 'الحجز المؤقت غير موجود.',
       hold_inactive: 'انتهت صلاحية الحجز المؤقت.',
       lock_failed: 'تعذّر حجز التواريخ مؤقتاً.',
+      already_claimed: 'هذا الحجز مرتبط بحساب آخر.',
+      claim_failed: 'تعذّر ربط الحجز بالحساب.',
     };
     return stayBookingJson(
       {

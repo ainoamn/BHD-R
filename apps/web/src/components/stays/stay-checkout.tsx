@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { Link } from '@/i18n/navigation';
 import { ApiError, browserPublicMutation, browserStayBookingGet, browserStayBookingMutation, humanizeBrowserError } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
+import { rememberStayTripAlert } from '@/lib/stay-trip-alerts';
 
 type QuoteResult = {
   id: string;
@@ -209,6 +210,15 @@ export function StayCheckout({
           { idempotencyKey: bookKey },
         );
         setBooking(nextBooking);
+        rememberStayTripAlert({
+          id: nextBooking.bookingId,
+          referenceCode: nextBooking.referenceCode,
+          status: nextBooking.status,
+          checkInOn,
+          checkOutOn,
+          currency: nextBooking.currency,
+          totalMinor: nextBooking.amountMinor,
+        });
         setStep('payment');
         setStepHint(null);
       } catch (caught) {

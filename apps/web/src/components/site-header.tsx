@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 import { Link, usePathname } from '@/i18n/navigation';
 import { BhdAppSwitcher } from '@/components/bhd-app-switcher';
+import { HeaderStayAlerts } from '@/components/header-stay-alerts';
 import type { Viewer } from '@/lib/types';
 
 type AuthState =
@@ -108,6 +109,10 @@ export function SiteHeader() {
             {t('Nav.language')}
           </Link>
           <span className="header-auth-slot">
+            <HeaderStayAlerts
+              locale={locale}
+              signedIn={auth.status === 'signed-in'}
+            />
             {auth.status === 'loading' ? (
               <span className="header-auth-loading" aria-hidden="true" />
             ) : auth.status === 'signed-in' ? (

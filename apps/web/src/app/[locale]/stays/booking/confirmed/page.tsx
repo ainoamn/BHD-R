@@ -1,11 +1,15 @@
 import { setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { Link } from '@/i18n/navigation';
+import { RememberStayTripAlert } from '@/components/stays/remember-stay-trip-alert';
 import { formatMoney } from '@/lib/format';
+import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { lookupPublicStayBookingOnNeon } from '@/lib/public-stays-guest-neon';
 import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
 import { publicApiFetch } from '@/lib/server-api';
 
 type PublicBooking = {
+  id?: string;
   referenceCode: string;
   status: string;
   checkInOn?: string;
@@ -17,6 +21,13 @@ type PublicBooking = {
 };
 
 async function loadBooking(ref: string): Promise<PublicBooking | null> {
+  if (hasDatabaseUrl()) {
+    try {
+      return await lookupPublicStayBookingOnNeon(ref);
+    } catch {
+      // fall through to Nest rewrite
+    }
+  }
   return publicApiFetch<PublicBooking>(
     `/v1/public/stays/bookings/lookup?referenceCode=${encodeURIComponent(ref)}`,
     8,
@@ -46,6 +57,15 @@ export default async function StayBookingConfirmedPage({
 
   return (
     <div className="container section stays-booking-confirmed">
+      <RememberStayTripAlert
+        id={booking.id ?? booking.referenceCode}
+        referenceCode={booking.referenceCode}
+        status={booking.status}
+        {...(booking.checkInOn ? { checkInOn: booking.checkInOn } : {})}
+        {...(booking.checkOutOn ? { checkOutOn: booking.checkOutOn } : {})}
+        {...(booking.currency ? { currency: booking.currency } : {})}
+        {...(booking.totalMinor ? { totalMinor: booking.totalMinor } : {})}
+      />
       <section className="stays-checkout stays-checkout--wizard stays-booking-confirmed__shell">
         <h1 id="stays-booking-confirmed-title">
           {ar ? 'تم استلام حجزك' : 'Your booking is received'}
