@@ -2,7 +2,7 @@
 
 **التاريخ:** 2026-09-02  
 **الإنتاج:** https://r.bhd-om.com  
-**Commit:** _(after push)_
+**Commit:** `e2bac5c`
 
 ## الملخص
 
