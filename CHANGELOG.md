@@ -5,6 +5,7 @@ All notable changes are documented here. The project follows Semantic Versioning
 ## 0.4.57 — 2026-09-03
 
 - Payment sandbox: when day is taken, show CTA back to same stay book page for new dates.
+
 ## 0.4.56 — 2026-09-03
 
 - Stay book aside: centered motivational copy under larger BHD logo.

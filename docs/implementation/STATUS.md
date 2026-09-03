@@ -3,6 +3,7 @@
 **Updated:** 2026-09-03  
 **Product version:** 0.4.57  
 **Active focus:** Payment dates-taken rebook CTA  
+**Release 0.4.57:** payment dates-taken rebook button  
 **Release 0.4.56:** centered motivational book aside  
 **Release 0.4.55:** book aside logo above title + clearer lede  
 **Release 0.4.54:** [`RELEASE-0.4.54-AR.md`](./RELEASE-0.4.54-AR.md)  
