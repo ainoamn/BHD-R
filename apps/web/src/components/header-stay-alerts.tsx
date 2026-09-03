@@ -160,7 +160,7 @@ export function HeaderStayAlerts({
               {items.slice(0, 8).map((item) => (
                 <li key={item.referenceCode}>
                   <Link
-                    href={`/guest/stays?ref=${encodeURIComponent(item.referenceCode)}`}
+                    href={`/guest/stays/${encodeURIComponent(item.id)}?ref=${encodeURIComponent(item.referenceCode)}`}
                     className="header-stay-alerts__item"
                     onClick={() => setOpen(false)}
                   >

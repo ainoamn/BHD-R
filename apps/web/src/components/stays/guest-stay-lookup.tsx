@@ -3,17 +3,11 @@
 import { useEffect, useState, useTransition } from 'react';
 import { ApiError, browserNextMutation, humanizeBrowserError } from '@/lib/api';
 import { Link } from '@/i18n/navigation';
+import { GuestStayActions, type GuestStayActionBooking } from '@/components/stays/guest-stay-actions';
 import { rememberStayTripAlert, stayStatusLabel } from '@/lib/stay-trip-alerts';
 import { formatMoney } from '@/lib/format';
 
-type GuestBooking = {
-  id: string;
-  referenceCode: string;
-  checkInOn: string;
-  checkOutOn: string;
-  status: string;
-  currency: string;
-  totalMinor: string;
+type GuestBooking = GuestStayActionBooking & {
   nights?: number;
 };
 
@@ -63,7 +57,9 @@ export function GuestStayLookup({
         throw new ApiError(
           response.status,
           err?.code ?? 'api_error',
-          err?.messageAr ?? err?.message ?? (ar ? 'تعذر البحث عن الحجز.' : 'Could not look up booking.'),
+          err?.messageAr ??
+            err?.message ??
+            (ar ? 'تعذر البحث عن الحجز.' : 'Could not look up booking.'),
         );
       }
       const booking = payload as GuestBooking;
@@ -74,8 +70,8 @@ export function GuestStayLookup({
         status: booking.status,
         checkInOn: booking.checkInOn,
         checkOutOn: booking.checkOutOn,
-        currency: booking.currency,
-        totalMinor: booking.totalMinor,
+        ...(booking.currency ? { currency: booking.currency } : {}),
+        ...(booking.totalMinor ? { totalMinor: booking.totalMinor } : {}),
       });
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 404) {
@@ -178,28 +174,32 @@ export function GuestStayLookup({
             {result.checkInOn} → {result.checkOutOn}
             {result.nights != null ? ` · ${result.nights} ${ar ? 'ليلة' : 'nights'}` : ''}
           </p>
-          <p dir="ltr">
-            {formatMoney(result.totalMinor, result.currency, locale)}
-          </p>
-          <p>
+          {result.totalMinor && result.currency ? (
+            <p dir="ltr">{formatMoney(result.totalMinor, result.currency, locale)}</p>
+          ) : null}
+          <div className="guest-stays-lookup__links">
             <Link
               className="text-link"
               href={`/guest/stays/${result.id}?ref=${encodeURIComponent(result.referenceCode)}`}
             >
               {ar ? 'تفاصيل الحجز' : 'Booking details'}
             </Link>
-          </p>
-          {canClaim ? (
-            <button type="button" className="button" disabled={pending} onClick={() => claim()}>
-              {ar ? 'اربط بحسابي' : 'Claim to my account'}
-            </button>
-          ) : (
-            <p className="muted">
-              {ar
-                ? 'سجّل الدخول لربط الحجز بقائمة رحلاتك.'
-                : 'Sign in to link this booking to your trips list.'}
-            </p>
-          )}
+            {canClaim ? (
+              <button type="button" className="button" disabled={pending} onClick={() => claim()}>
+                {ar ? 'اربط بحسابي' : 'Claim to my account'}
+              </button>
+            ) : (
+              <p className="muted">
+                {ar
+                  ? 'سجّل الدخول لربط الحجز بقائمة رحلاتك.'
+                  : 'Sign in to link this booking to your trips list.'}
+              </p>
+            )}
+          </div>
+          <GuestStayActions
+            booking={result}
+            onUpdated={(next) => setResult((prev) => (prev ? { ...prev, ...next } : next))}
+          />
         </article>
       ) : null}
     </section>

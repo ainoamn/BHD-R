@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.61 — 2026-09-03
+
+- Guest trips: pay / change dates / cancel / rebook actions on lookup + detail; alerts open booking detail.
+
 ## 0.4.60 — 2026-09-03
 
 - Fix false dates_taken on pay: exclude the payer's own hold lock from the concurrent-slot check.

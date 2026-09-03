@@ -2,6 +2,9 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
+import { GuestStayActions } from '@/components/stays/guest-stay-actions';
+import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { lookupPublicStayBookingOnNeon } from '@/lib/public-stays-guest-neon';
 import { isStaysPlatformEnabled } from '@/lib/stays-flags';
 import { ApiError, apiFetch, publicApiFetch } from '@/lib/server-api';
 import { stayBookingModeLabel, stayStatusLabel } from '@/lib/ui-labels';
@@ -19,6 +22,13 @@ type GuestBooking = {
   nights?: number;
   bookingMode?: string;
   timezone?: string;
+  paymentIntentId?: string | null;
+  listingSlug?: string | null;
+  unitId?: string | null;
+  stayType?: string | null;
+  canPay?: boolean;
+  canCancel?: boolean;
+  canRebook?: boolean;
 };
 
 export async function generateMetadata({
@@ -60,6 +70,11 @@ export default async function GuestStayDetailPage({
       if (error instanceof ApiError && (error.status === 404 || error.status === 401)) return null;
       return null;
     });
+  }
+
+  if (!booking && referenceCode && hasDatabaseUrl()) {
+    booking = await lookupPublicStayBookingOnNeon(referenceCode).catch(() => null);
+    if (booking && booking.id !== bookingId) booking = null;
   }
 
   if (!booking && referenceCode) {
@@ -117,6 +132,7 @@ export default async function GuestStayDetailPage({
               {booking.timezone}
             </p>
           ) : null}
+          <GuestStayActions booking={booking} />
         </article>
       </div>
     </main>

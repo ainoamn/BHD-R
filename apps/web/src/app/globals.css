@@ -9736,6 +9736,25 @@ button.ops-row-key {
 .guest-stays-lookup__result {
   margin-top: 1rem;
 }
+.guest-stays-lookup__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: center;
+  margin: 0.75rem 0 0.35rem;
+}
+.guest-stay-actions {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 1rem;
+}
+.guest-stay-actions .button {
+  width: 100%;
+  justify-content: center;
+}
+.guest-stay-actions--compact {
+  margin-top: 0.75rem;
+}
 .guest-stays__list {
   margin-top: 2rem;
 }
