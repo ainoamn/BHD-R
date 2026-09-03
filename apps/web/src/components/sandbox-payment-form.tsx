@@ -7,7 +7,12 @@ import { formatMoney } from '@/lib/format';
 
 async function completeStaySandboxPayment(
   sessionReference: string,
-  returnPath?: string,
+  options?: {
+    returnPath?: string;
+    cardLast4?: string;
+    cardBrand?: string;
+    cardholderName?: string;
+  },
 ): Promise<{ completed: boolean; returnPath: string | null; kind?: string }> {
   const response = await fetch(
     `/api/public/stays/payment-sessions/${encodeURIComponent(sessionReference)}/sandbox-complete`,
@@ -19,7 +24,12 @@ async function completeStaySandboxPayment(
         'content-type': 'application/json',
         'x-requested-with': 'BHD-R',
       },
-      body: JSON.stringify(returnPath ? { returnPath } : {}),
+      body: JSON.stringify({
+        ...(options?.returnPath ? { returnPath: options.returnPath } : {}),
+        ...(options?.cardLast4 ? { cardLast4: options.cardLast4 } : {}),
+        ...(options?.cardBrand ? { cardBrand: options.cardBrand } : {}),
+        ...(options?.cardholderName ? { cardholderName: options.cardholderName } : {}),
+      }),
       signal: AbortSignal.timeout(45_000),
     },
   );
@@ -152,10 +162,15 @@ export function SandboxPaymentForm({
     }
     setBusy(true);
     try {
-      // Realistic processing pause — card fields never leave the browser.
+      // Full PAN/CVC stay in the browser only. Server receives last4 + name + brand.
       await new Promise((resolve) => setTimeout(resolve, 900));
       const result = stayKind
-        ? await completeStaySandboxPayment(sessionReference, returnPath)
+        ? await completeStaySandboxPayment(sessionReference, {
+            ...(returnPath ? { returnPath } : {}),
+            cardLast4: cardDigits.slice(-4),
+            cardBrand: brand,
+            cardholderName: cardName.trim(),
+          })
         : await browserPublicMutation<{
             completed: boolean;
             returnPath: string | null;

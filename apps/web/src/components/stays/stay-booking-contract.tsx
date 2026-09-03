@@ -38,6 +38,10 @@ export type StayBookingContractData = {
   paidAt?: string | null;
   paidAmountMinor?: string | null;
   paidCurrency?: string | null;
+  /** Safe PCI display fields only — never full PAN. */
+  cardLast4?: string | null;
+  cardBrand?: string | null;
+  cardholderName?: string | null;
 };
 
 function Row({ label, value, ltr }: { label: string; value: ReactNode; ltr?: boolean }) {
@@ -47,6 +51,21 @@ function Row({ label, value, ltr }: { label: string; value: ReactNode; ltr?: boo
       <dd dir={ltr ? 'ltr' : undefined}>{value}</dd>
     </div>
   );
+}
+
+function cardBrandCopy(brand: string | null | undefined, ar: boolean): string {
+  switch (brand) {
+    case 'visa':
+      return 'Visa';
+    case 'mastercard':
+      return 'Mastercard';
+    case 'amex':
+      return 'American Express';
+    case 'other':
+      return ar ? 'بطاقة' : 'Card';
+    default:
+      return ar ? 'بطاقة' : 'Card';
+  }
 }
 
 function paymentMethodCopy(method: string, ar: boolean): string {
@@ -253,6 +272,16 @@ export function StayBookingContract({
             label={ar ? 'طريقة الدفع' : 'Payment method'}
             value={paymentMethodCopy(booking.paymentMethod, ar)}
           />
+          {booking.cardholderName ? (
+            <Row label={ar ? 'اسم حامل البطاقة' : 'Cardholder'} value={booking.cardholderName} ltr />
+          ) : null}
+          {booking.cardLast4 ? (
+            <Row
+              label={ar ? 'البطاقة' : 'Card'}
+              value={`${cardBrandCopy(booking.cardBrand, ar)} •••• ${booking.cardLast4}`}
+              ltr
+            />
+          ) : null}
           {paidOn ? <Row label={ar ? 'تاريخ الدفع' : 'Paid at'} value={paidOn} /> : null}
           {booking.paymentProviderRef ? (
             <Row label={ar ? 'مرجع المزود' : 'Provider ref'} value={booking.paymentProviderRef} ltr />

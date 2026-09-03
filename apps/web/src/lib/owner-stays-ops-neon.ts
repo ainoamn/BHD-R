@@ -7,6 +7,7 @@ import {
   properties,
   stayBookings,
   stayBookingGuests,
+  stayBookingStatusHistory,
   stayPaymentIntents,
   stayProfiles,
   units,
@@ -174,7 +175,7 @@ export async function getOwnerStayBookingContractOnNeon(
 
     if (!row) return null;
 
-    const [guest, intent] = await Promise.all([
+    const [guest, intent, paymentHistory] = await Promise.all([
       transaction
         .select({
           displayName: stayBookingGuests.displayName,
@@ -208,6 +209,20 @@ export async function getOwnerStayBookingContractOnNeon(
         .orderBy(desc(stayPaymentIntents.updatedAt))
         .limit(1)
         .then((rows) => rows[0] ?? null),
+      transaction
+        .select({
+          metadataJson: stayBookingStatusHistory.metadataJson,
+        })
+        .from(stayBookingStatusHistory)
+        .where(
+          and(
+            eq(stayBookingStatusHistory.organizationId, organizationId),
+            eq(stayBookingStatusHistory.bookingId, bookingId),
+            eq(stayBookingStatusHistory.toStatus, 'confirmed'),
+          ),
+        )
+        .orderBy(desc(stayBookingStatusHistory.createdAt))
+        .limit(5),
     ]);
 
     const contact = readGuestContact(row.pricingSnapshotJson);
@@ -215,6 +230,35 @@ export async function getOwnerStayBookingContractOnNeon(
       row.status === 'confirmed' ||
       row.status === 'paid' ||
       intent?.status === 'succeeded';
+
+    let cardLast4: string | null = null;
+    let cardBrand: string | null = null;
+    let cardholderName: string | null = null;
+    for (const entry of paymentHistory) {
+      const meta =
+        entry.metadataJson && typeof entry.metadataJson === 'object'
+          ? (entry.metadataJson as Record<string, unknown>)
+          : null;
+      if (!meta) continue;
+      if (!cardLast4 && typeof meta.cardLast4 === 'string' && /^\d{4}$/.test(meta.cardLast4)) {
+        cardLast4 = meta.cardLast4;
+      }
+      if (
+        !cardBrand &&
+        typeof meta.cardBrand === 'string' &&
+        ['visa', 'mastercard', 'amex', 'other'].includes(meta.cardBrand)
+      ) {
+        cardBrand = meta.cardBrand;
+      }
+      if (
+        !cardholderName &&
+        typeof meta.cardholderName === 'string' &&
+        meta.cardholderName.trim().length >= 2
+      ) {
+        cardholderName = meta.cardholderName.trim();
+      }
+      if (cardLast4 && cardBrand && cardholderName) break;
+    }
 
     return {
       id: row.id,
@@ -253,6 +297,9 @@ export async function getOwnerStayBookingContractOnNeon(
           : null,
       paidAmountMinor: intent?.amountMinor != null ? String(intent.amountMinor) : null,
       paidCurrency: intent?.currency ?? null,
+      cardLast4,
+      cardBrand,
+      cardholderName,
     };
   });
 }

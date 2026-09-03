@@ -17,6 +17,10 @@ const bodySchema = z
       .string()
       .regex(/^\/(ar|en)(\/[A-Za-z0-9._~-]{1,64}){0,6}(\?[A-Za-z0-9._~=&%-]{0,200})?$/)
       .optional(),
+    /** Safe display fields only — never accept full PAN / CVC. */
+    cardLast4: z.string().regex(/^\d{4}$/).optional(),
+    cardBrand: z.enum(['visa', 'mastercard', 'amex', 'other']).optional(),
+    cardholderName: z.string().trim().min(2).max(80).optional(),
   })
   .strict();
 
@@ -45,7 +49,7 @@ export async function POST(
     limit: 15,
     windowMs: 60_000,
   });
-  if (!limited.ok) {
+  if (limited.ok === false) {
     return stayBookingJson(
       { error: { code: 'rate_limited', messageAr: 'محاولات كثيرة — انتظر قليلاً.' } },
       { status: 429, headers: { 'retry-after': String(limited.retryAfterSec) } },
@@ -59,13 +63,36 @@ export async function POST(
   } catch {
     body = {};
   }
+
+  // Reject any attempt to send full card data (PAN / CVC / expiry).
+  if (body && typeof body === 'object') {
+    const keys = Object.keys(body as Record<string, unknown>).map((k) => k.toLowerCase());
+    const forbidden = ['cardnumber', 'pan', 'number', 'cvc', 'cvv', 'expiry', 'exp', 'fullpan'];
+    if (keys.some((k) => forbidden.includes(k))) {
+      return stayBookingJson(
+        {
+          error: {
+            code: 'card_data_forbidden',
+            message: 'Full card data must never be submitted to the server',
+            messageAr: 'يُمنع إرسال رقم البطاقة الكامل أو رمز الأمان إلى الخادم.',
+          },
+        },
+        { status: 400 },
+      );
+    }
+  }
+
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) {
     return stayBookingJson({ error: { code: 'invalid_body' } }, { status: 400 });
   }
 
   try {
-    const payload = await completeStaySandboxPaymentOnNeon(reference, parsed.data.returnPath ?? null);
+    const payload = await completeStaySandboxPaymentOnNeon(reference, parsed.data.returnPath ?? null, {
+      ...(parsed.data.cardLast4 ? { cardLast4: parsed.data.cardLast4 } : {}),
+      ...(parsed.data.cardBrand ? { cardBrand: parsed.data.cardBrand } : {}),
+      ...(parsed.data.cardholderName ? { cardholderName: parsed.data.cardholderName } : {}),
+    });
     return stayBookingJson(payload);
   } catch (error) {
     return stayBookingErrorResponse(error);

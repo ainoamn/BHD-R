@@ -169,11 +169,31 @@ export async function createStayPaymentSessionOnNeon(
 export async function completeStaySandboxPaymentOnNeon(
   sessionReference: string,
   returnPath?: string | null,
+  paymentMask?: {
+    cardLast4?: string;
+    cardBrand?: string;
+    cardholderName?: string;
+  },
 ) {
   assertSandboxEnabled();
   if (!/^[A-Za-z0-9_-]{24,80}$/.test(sessionReference)) {
     throw new PublicStayBookingError('invalid_reference', 'Invalid payment session reference', 400);
   }
+
+  const safeMask = {
+    ...(paymentMask?.cardLast4 && /^\d{4}$/.test(paymentMask.cardLast4)
+      ? { cardLast4: paymentMask.cardLast4 }
+      : {}),
+    ...(paymentMask?.cardBrand &&
+    ['visa', 'mastercard', 'amex', 'other'].includes(paymentMask.cardBrand)
+      ? { cardBrand: paymentMask.cardBrand }
+      : {}),
+    ...(paymentMask?.cardholderName &&
+    paymentMask.cardholderName.trim().length >= 2 &&
+    paymentMask.cardholderName.trim().length <= 80
+      ? { cardholderName: paymentMask.cardholderName.trim().slice(0, 80) }
+      : {}),
+  };
 
   return asSystem(async (transaction) => {
     await transaction.execute(
@@ -290,7 +310,11 @@ export async function completeStaySandboxPaymentOnNeon(
       fromStatus: 'payment_pending',
       toStatus: 'confirmed',
       reason: `Sandbox payment ${providerReference}`,
-      metadataJson: { paymentIntentId: intent.id },
+      metadataJson: {
+        paymentIntentId: intent.id,
+        provider: 'sandbox',
+        ...safeMask,
+      },
     });
 
     await transaction.insert(workflowEvents).values({
@@ -301,6 +325,11 @@ export async function completeStaySandboxPaymentOnNeon(
       eventType: 'stay_booking.payment_confirmed',
       fromStatus: 'payment_pending',
       toStatus: 'confirmed',
+      metadata: {
+        paymentIntentId: intent.id,
+        provider: 'sandbox',
+        ...safeMask,
+      },
     });
 
     await transaction.insert(outboxEvents).values({
@@ -313,6 +342,7 @@ export async function completeStaySandboxPaymentOnNeon(
         referenceCode: booking.referenceCode,
         unitId: booking.unitId,
         provider: 'sandbox',
+        ...safeMask,
       },
     });
 

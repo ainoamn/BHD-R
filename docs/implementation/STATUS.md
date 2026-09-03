@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-09-03  
-**Product version:** 0.4.51  
-**Active focus:** Owner activity → stay booking contract detail  
+**Product version:** 0.4.52  
+**Active focus:** Safe card mask (last4 + cardholder) on owner booking contract  
+**Release 0.4.52:** [`RELEASE-0.4.52-AR.md`](./RELEASE-0.4.52-AR.md) · [`PAYMENT-CARD-DATA-POLICY-AR.md`](./PAYMENT-CARD-DATA-POLICY-AR.md)  
 **Release 0.4.51:** [`RELEASE-0.4.51-AR.md`](./RELEASE-0.4.51-AR.md)  
 **Release 0.4.46:** [`RELEASE-0.4.46-AR.md`](./RELEASE-0.4.46-AR.md) · [`../handoffs/2026-09-02-stay-checkout-0.4.46/`](../handoffs/2026-09-02-stay-checkout-0.4.46/)  
 **Live handoff (full chat archive):** [`../handoffs/2026-09-02-continue-0.4.42/`](../handoffs/2026-09-02-continue-0.4.42/)  
