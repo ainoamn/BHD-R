@@ -1267,6 +1267,12 @@ body:has(.stays-booking-receipt) #main-content {
   justify-content: center;
   text-align: center;
 }
+.stay-confirm-shell__esign-cta {
+  flex: 1 1 100%;
+  order: -1;
+  background: #1f6b45;
+  border-color: #1f6b45;
+}
 .stay-confirm-shell__hint {
   margin: 0.45rem 0 0;
   font-size: 0.86rem;

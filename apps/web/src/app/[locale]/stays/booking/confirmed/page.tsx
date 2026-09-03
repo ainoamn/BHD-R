@@ -1,11 +1,11 @@
 import { setRequestLocale } from 'next-intl/server';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
 import { Link } from '@/i18n/navigation';
 import { RememberStayTripAlert } from '@/components/stays/remember-stay-trip-alert';
 import { formatMoney } from '@/lib/format';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { lookupPublicStayBookingOnNeon } from '@/lib/public-stays-guest-neon';
-import { isStayEsignRequiredServer, stayEsignReturnPath } from '@/lib/stay-esign-flags';
+import { isStayEsignRequiredServer } from '@/lib/stay-esign-flags';
 import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
 import { publicApiFetch } from '@/lib/server-api';
 import { stayStatusLabel, stayTypeLabel } from '@/lib/ui-labels';
@@ -100,9 +100,9 @@ export default async function StayBookingConfirmedPage({
   if (!booking) notFound();
 
   const paid = booking.status === 'confirmed' || booking.status === 'paid';
-  if (isStayEsignRequiredServer() && paid && !booking.esignCompleted) {
-    redirect(stayEsignReturnPath(locale, booking.referenceCode));
-  }
+  const esignRequired = isStayEsignRequiredServer();
+  const needsEsign = esignRequired && paid && !booking.esignCompleted;
+  const esignDone = esignRequired && paid && Boolean(booking.esignCompleted);
   const stayTone =
     booking.stayType === 'day_use' || booking.stayType === 'overnight_only'
       ? booking.stayType
@@ -184,13 +184,17 @@ export default async function StayBookingConfirmedPage({
         <header className="stay-confirm-shell__header">
           <h2>{ar ? 'تفاصيل الحجز' : 'Booking details'}</h2>
           <p className="muted">
-            {paid
+            {needsEsign
               ? ar
-                ? 'يمكنك تنزيل إيصال الدفع وتأكيد الحجز كملف PDF من هذه الصفحة.'
-                : 'You can download the payment receipt and booking confirmation as PDF from this page.'
-              : ar
-                ? 'راجع التفاصيل أدناه ثم أكمل الدفع عند الحاجة.'
-                : 'Review the details below, then complete payment if needed.'}
+                ? 'الحجز مؤكّد والدفع مكتمل. يرجى توقيع عقد الإقامة إلكترونياً لإتمام الاعتماد.'
+                : 'Booking is confirmed and paid. Please e-sign the stay contract to complete approval.'
+              : paid
+                ? ar
+                  ? 'يمكنك تنزيل إيصال الدفع وتأكيد الحجز كملف PDF من هذه الصفحة.'
+                  : 'You can download the payment receipt and booking confirmation as PDF from this page.'
+                : ar
+                  ? 'راجع التفاصيل أدناه ثم أكمل الدفع عند الحاجة.'
+                  : 'Review the details below, then complete payment if needed.'}
           </p>
         </header>
 
@@ -268,9 +272,31 @@ export default async function StayBookingConfirmedPage({
             <dt>{ar ? 'الحالة' : 'Status'}</dt>
             <dd>{stayStatusLabel(booking.status, locale)}</dd>
           </div>
+          {esignRequired && paid ? (
+            <div>
+              <dt>{ar ? 'العقد الإلكتروني' : 'E-contract'}</dt>
+              <dd>
+                {esignDone
+                  ? ar
+                    ? 'معتمد إلكترونياً من بن حمود'
+                    : 'Electronically approved by Bin Hamood'
+                  : ar
+                    ? 'بانتظار التوقيع'
+                    : 'Awaiting signature'}
+              </dd>
+            </div>
+          ) : null}
         </dl>
 
         <div className="stay-confirm-shell__actions">
+          {needsEsign ? (
+            <Link
+              className="button button--primary stay-confirm-shell__esign-cta"
+              href={`/stays/booking/sign?ref=${encodeURIComponent(ref)}`}
+            >
+              {ar ? 'توقيع عقد الإقامة' : 'Sign stay contract'}
+            </Link>
+          ) : null}
           <Link
             className="button button--primary"
             href={`/stays/booking/receipt?ref=${encodeURIComponent(ref)}&doc=payment`}

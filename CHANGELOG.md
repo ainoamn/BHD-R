@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.63 — 2026-09-03
+
+- Confirmation page: show «توقيع عقد الإقامة» when paid but unsigned; hide it once e-sign is completed; stop forcing redirect away from confirmed.
+
 ## 0.4.62 — 2026-09-03
 
 - Re-enable post-pay e-sign (pay → sign → electronically approved contract → confirmation); gate confirmed until signed.
