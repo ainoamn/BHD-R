@@ -21,7 +21,10 @@ import {
   type Database,
 } from '@bhd-r/db';
 import { assertStayBookingTransition } from '@bhd-r/domain';
-import { PublicStayBookingError } from '@/lib/public-stays-booking-neon';
+import {
+  isRangeAvailableInTransaction,
+  PublicStayBookingError,
+} from '@/lib/public-stays-booking-neon';
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdRPublicStaysPaymentDb?: DbHandle };
@@ -237,6 +240,35 @@ export async function completeStaySandboxPaymentOnNeon(
       );
     }
 
+    const stayType =
+      booking.pricingSnapshotJson &&
+      typeof booking.pricingSnapshotJson === 'object' &&
+      typeof (booking.pricingSnapshotJson as { stayType?: unknown }).stayType === 'string' &&
+      ['day_use', 'overnight_only', 'overnight_stay'].includes(
+        (booking.pricingSnapshotJson as { stayType: string }).stayType,
+      )
+        ? ((booking.pricingSnapshotJson as { stayType: 'day_use' | 'overnight_only' | 'overnight_stay' })
+            .stayType)
+        : ('overnight_stay' as const);
+
+    // Concurrent pay race: if another guest already confirmed a conflicting slot, abort.
+    const stillOpen = await isRangeAvailableInTransaction(
+      transaction,
+      intent.organizationId,
+      booking.unitId,
+      booking.checkInOn,
+      booking.checkOutOn,
+      stayType,
+      booking.id,
+    );
+    if (!stillOpen) {
+      throw new PublicStayBookingError(
+        'dates_taken',
+        `Stay dates were taken by another booking (${booking.checkInOn})`,
+        409,
+      );
+    }
+
     const transition = assertStayBookingTransition(booking.status, 'confirmed');
     if (!transition.ok) {
       throw new PublicStayBookingError(
@@ -346,8 +378,10 @@ export async function completeStaySandboxPaymentOnNeon(
       },
     });
 
-    // Mark booked nights immediately so public/owner calendars update without waiting on the worker.
-    await transaction.execute(sql`
+    // Mark booked nights for full overnight stays only.
+    // Half-day (morning/evening) coexistence relies on lock_slot + booking checks.
+    if (stayType === 'overnight_stay') {
+      await transaction.execute(sql`
       WITH days AS (
         SELECT generate_series(
           ${booking.checkInOn}::date,
@@ -374,6 +408,38 @@ export async function completeStaySandboxPaymentOnNeon(
         availability_status = 'booked',
         updated_at = now()
     `);
+    } else {
+      await transaction.execute(sql`
+      WITH days AS (
+        SELECT generate_series(
+          ${booking.checkInOn}::date,
+          (${booking.checkOutOn}::date - 1),
+          '1 day'::interval
+        )::date AS stay_date
+      )
+      INSERT INTO stay_inventory_days (
+        organization_id, unit_id, stay_date, availability_status,
+        effective_rate_minor, currency, min_nights, public_note, manual_rate
+      )
+      SELECT
+        ${intent.organizationId}::uuid,
+        ${booking.unitId}::uuid,
+        d.stay_date,
+        'available',
+        NULL,
+        ${booking.currency},
+        NULL,
+        ${stayType === 'day_use' ? 'slot:morning' : 'slot:evening'},
+        false
+      FROM days d
+      ON CONFLICT (unit_id, stay_date) DO UPDATE SET
+        public_note = CASE
+          WHEN stay_inventory_days.availability_status = 'booked' THEN stay_inventory_days.public_note
+          ELSE EXCLUDED.public_note
+        END,
+        updated_at = now()
+    `);
+    }
 
     await transaction.execute(sql`
       WITH profile AS (

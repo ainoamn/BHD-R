@@ -23,6 +23,7 @@ export async function GET(request: Request, context: RouteContext) {
     adults: url.searchParams.get('adults') ?? '2',
     children: url.searchParams.get('children') ?? '0',
     unitId: url.searchParams.get('unitId') ?? url.searchParams.get('unit') ?? undefined,
+    stayType: url.searchParams.get('stayType') ?? undefined,
   });
   if (!parsed.success) {
     return stayBookingJson({ error: { code: 'invalid_query' } }, { status: 400 });

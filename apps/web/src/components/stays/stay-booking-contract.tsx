@@ -42,6 +42,11 @@ export type StayBookingContractData = {
   cardLast4?: string | null;
   cardBrand?: string | null;
   cardholderName?: string | null;
+  esignSignedAt?: string | null;
+  esignSignaturePng?: string | null;
+  esignIdFrontPng?: string | null;
+  esignIdBackPng?: string | null;
+  esignSelfiePng?: string | null;
 };
 
 function Row({ label, value, ltr }: { label: string; value: ReactNode; ltr?: boolean }) {
@@ -313,6 +318,49 @@ export function StayBookingContract({
           />
         </dl>
       </section>
+
+      {booking.esignSignaturePng ? (
+        <section className="stay-doc__section">
+          <h2>{ar ? 'التوقيع الإلكتروني والمستندات' : 'E-signature & documents'}</h2>
+          {booking.esignSignedAt ? (
+            <p className="muted">
+              {ar ? 'وقت التوقيع' : 'Signed at'}:{' '}
+              {new Intl.DateTimeFormat(ar ? 'ar-OM' : 'en-GB', {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+              }).format(new Date(booking.esignSignedAt))}
+            </p>
+          ) : null}
+          <div className="stay-doc__esign-grid">
+            <figure>
+              <figcaption>{ar ? 'التوقيع' : 'Signature'}</figcaption>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={booking.esignSignaturePng} alt="" />
+            </figure>
+            {booking.esignIdFrontPng ? (
+              <figure>
+                <figcaption>{ar ? 'البطاقة أمام' : 'ID front'}</figcaption>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={booking.esignIdFrontPng} alt="" />
+              </figure>
+            ) : null}
+            {booking.esignIdBackPng ? (
+              <figure>
+                <figcaption>{ar ? 'البطاقة خلف' : 'ID back'}</figcaption>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={booking.esignIdBackPng} alt="" />
+              </figure>
+            ) : null}
+            {booking.esignSelfiePng ? (
+              <figure>
+                <figcaption>{ar ? 'سيلفي' : 'Selfie'}</figcaption>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={booking.esignSelfiePng} alt="" />
+              </figure>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       <div className="stay-doc__total">
         <span>{paid ? (ar ? 'المبلغ المستلم' : 'Amount received') : ar ? 'المبلغ المستحق' : 'Amount due'}</span>

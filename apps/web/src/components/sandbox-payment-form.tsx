@@ -214,6 +214,11 @@ export function SandboxPaymentForm({
           alt=""
         />
         <div className="pay-gateway__card-scrim" />
+        <span className="pay-gateway__card-brand-mark logo__product logo__product--on-dark">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/bhd-official-symbol.svg" alt="" width="56" height="18" />
+          <i>R</i>
+        </span>
         <div className="pay-gateway__card-face">
           <div className="pay-gateway__card-top">
             <span className="pay-gateway__card-logo logo__product logo__product--on-dark">

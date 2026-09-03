@@ -235,45 +235,109 @@ async function resolveListingContext(
   };
 }
 
-async function isRangeAvailableInTransaction(
+/** Exported for payment race checks inside the same Neon transaction. */
+export async function isRangeAvailableInTransaction(
   transaction: Tx,
   organizationId: string,
   unitId: string,
   checkInOn: string,
   checkOutOn: string,
+  stayType: 'overnight_stay' | 'day_use' | 'overnight_only' = 'overnight_stay',
+  excludeBookingId?: string,
 ): Promise<boolean> {
-  const days = await transaction.execute(sql`
-    SELECT stay_date::text AS stay_date, availability_status
-    FROM stay_inventory_days
-    WHERE organization_id = ${organizationId}::uuid
-      AND unit_id = ${unitId}::uuid
-      AND stay_date >= ${checkInOn}::date
-      AND stay_date < ${checkOutOn}::date
-    ORDER BY stay_date
-  `);
-  const rows = Array.isArray(days) ? days : ((days as { rows?: unknown[] }).rows ?? []);
-  const mapped = (
-    rows as Array<{ stay_date: string; availability_status: string }>
-  ).map((item) => ({
-    stayDate: item.stay_date,
-    availabilityStatus: item.availability_status,
-  }));
-  if (mapped.length > 0) {
-    return stayRangeFullyAvailable(mapped, { checkInOn, checkOutOn });
+  const lockSlot =
+    stayType === 'day_use' ? 'morning' : stayType === 'overnight_only' ? 'evening' : 'full';
+
+  // Slot-aware lock conflict (after 0023 migration). Falls back to any overlap if column missing.
+  try {
+    const conflicts = await transaction.execute(sql`
+      SELECT count(*)::text AS count
+      FROM stay_inventory_locks
+      WHERE organization_id = ${organizationId}::uuid
+        AND unit_id = ${unitId}::uuid
+        AND status = 'active'
+        AND stay_range && daterange(${checkInOn}::date, ${checkOutOn}::date, '[)')
+        AND (
+          lock_slot = 'full'
+          OR ${lockSlot} = 'full'
+          OR lock_slot = ${lockSlot}
+        )
+    `);
+    const conflictRows = Array.isArray(conflicts)
+      ? conflicts
+      : ((conflicts as { rows?: Array<{ count: string }> }).rows ?? []);
+    if ((conflictRows[0]?.count ?? '0') !== '0') return false;
+  } catch {
+    const conflicts = await transaction.execute(sql`
+      SELECT count(*)::text AS count
+      FROM stay_inventory_locks
+      WHERE organization_id = ${organizationId}::uuid
+        AND unit_id = ${unitId}::uuid
+        AND status = 'active'
+        AND stay_range && daterange(${checkInOn}::date, ${checkOutOn}::date, '[)')
+    `);
+    const conflictRows = Array.isArray(conflicts)
+      ? conflicts
+      : ((conflicts as { rows?: Array<{ count: string }> }).rows ?? []);
+    if ((conflictRows[0]?.count ?? '0') !== '0') return false;
   }
 
-  const conflicts = await transaction.execute(sql`
-    SELECT count(*)::text AS count
-    FROM stay_inventory_locks
+  // Also conflict with confirmed / pending bookings of incompatible stay types.
+  const bookingRows = await transaction.execute(sql`
+    SELECT id::text AS id, pricing_snapshot_json
+    FROM stay_bookings
     WHERE organization_id = ${organizationId}::uuid
       AND unit_id = ${unitId}::uuid
-      AND status = 'active'
-      AND stay_range && daterange(${checkInOn}::date, ${checkOutOn}::date, '[)')
+      AND status IN (
+        'payment_pending', 'confirmed', 'pre_arrival', 'checked_in'
+      )
+      AND daterange(check_in_on, check_out_on, '[)')
+        && daterange(${checkInOn}::date, ${checkOutOn}::date, '[)')
   `);
-  const conflictRows = Array.isArray(conflicts)
-    ? conflicts
-    : ((conflicts as { rows?: Array<{ count: string }> }).rows ?? []);
-  return (conflictRows[0]?.count ?? '0') === '0';
+  const bookings = Array.isArray(bookingRows)
+    ? bookingRows
+    : ((bookingRows as { rows?: unknown[] }).rows ?? []);
+  for (const raw of bookings as Array<{ id: string; pricing_snapshot_json: unknown }>) {
+    if (excludeBookingId && raw.id === excludeBookingId) continue;
+    const otherType =
+      raw.pricing_snapshot_json &&
+      typeof raw.pricing_snapshot_json === 'object' &&
+      typeof (raw.pricing_snapshot_json as { stayType?: unknown }).stayType === 'string'
+        ? ((raw.pricing_snapshot_json as { stayType: string }).stayType as
+            | 'overnight_stay'
+            | 'day_use'
+            | 'overnight_only')
+        : 'overnight_stay';
+    const otherSlot =
+      otherType === 'day_use' ? 'morning' : otherType === 'overnight_only' ? 'evening' : 'full';
+    if (lockSlot === 'full' || otherSlot === 'full' || lockSlot === otherSlot) {
+      return false;
+    }
+  }
+
+  if (stayType === 'overnight_stay') {
+    const days = await transaction.execute(sql`
+      SELECT stay_date::text AS stay_date, availability_status
+      FROM stay_inventory_days
+      WHERE organization_id = ${organizationId}::uuid
+        AND unit_id = ${unitId}::uuid
+        AND stay_date >= ${checkInOn}::date
+        AND stay_date < ${checkOutOn}::date
+      ORDER BY stay_date
+    `);
+    const rows = Array.isArray(days) ? days : ((days as { rows?: unknown[] }).rows ?? []);
+    const mapped = (
+      rows as Array<{ stay_date: string; availability_status: string }>
+    ).map((item) => ({
+      stayDate: item.stay_date,
+      availabilityStatus: item.availability_status,
+    }));
+    if (mapped.length > 0) {
+      return stayRangeFullyAvailable(mapped, { checkInOn, checkOutOn });
+    }
+  }
+
+  return true;
 }
 
 async function releaseExpiredHoldsInTransaction(transaction: Tx, organizationId: string) {
@@ -314,6 +378,7 @@ async function createLockInTransaction(
     checkInOn: string;
     checkOutOn: string;
     kind: string;
+    lockSlot?: 'morning' | 'evening' | 'full';
     expiresAt?: Date;
     sourceType?: string;
     sourceId?: string;
@@ -324,13 +389,14 @@ async function createLockInTransaction(
     checkInOn: input.checkInOn,
     checkOutOn: input.checkOutOn,
   });
+  const lockSlot = input.lockSlot ?? 'full';
   await transaction.execute(sql`select pg_advisory_xact_lock(hashtext(${input.unitId}::text))`);
   await releaseExpiredHoldsInTransaction(transaction, input.organizationId);
 
   try {
     const inserted = await transaction.execute(sql`
       INSERT INTO stay_inventory_locks (
-        organization_id, unit_id, stay_range, kind, status,
+        organization_id, unit_id, stay_range, kind, status, lock_slot,
         source_type, source_id, expires_at, note
       ) VALUES (
         ${input.organizationId}::uuid,
@@ -338,6 +404,7 @@ async function createLockInTransaction(
         ${stayRange}::daterange,
         ${input.kind},
         'active',
+        ${lockSlot},
         ${input.sourceType ?? null},
         ${input.sourceId ?? null},
         ${input.expiresAt ? input.expiresAt.toISOString() : null},
@@ -358,7 +425,7 @@ async function createLockInTransaction(
       topic: 'stay.inventory.lock_created',
       aggregateType: 'stay_inventory_lock',
       aggregateId: row.id,
-      payload: { unitId: input.unitId, kind: input.kind, stayRange },
+      payload: { unitId: input.unitId, kind: input.kind, stayRange, lockSlot },
     });
 
     return { id: row.id };
@@ -367,8 +434,10 @@ async function createLockInTransaction(
     const message = error instanceof Error ? error.message : String(error);
     if (
       message.includes('stay_inventory_locks_no_overlap_active') ||
+      message.includes('stay_inventory_locks_slot_conflict') ||
       message.includes('exclusion_violation') ||
-      message.includes('conflicting key')
+      message.includes('conflicting key') ||
+      message.includes('23P01')
     ) {
       throw new PublicStayBookingError(
         'dates_unavailable',
@@ -447,7 +516,14 @@ export async function getPublicStayAvailabilityOnNeon(
     return { available: false as const, reason: 'guests_exceed_max' as const };
   }
   const nights = nightsBetween({ checkInOn: query.checkInOn, checkOutOn: query.checkOutOn });
-  if (nights < ctx.minNights || nights > ctx.maxNights) {
+  const stayType = query.stayType ?? 'overnight_stay';
+  if (
+    stayType === 'overnight_stay' &&
+    (nights < ctx.minNights || nights > ctx.maxNights)
+  ) {
+    return { available: false as const, reason: 'nights_out_of_range' as const, nights };
+  }
+  if (stayType !== 'overnight_stay' && nights < 1) {
     return { available: false as const, reason: 'nights_out_of_range' as const, nights };
   }
   const available = await asPublic((transaction) =>
@@ -457,9 +533,16 @@ export async function getPublicStayAvailabilityOnNeon(
       ctx.unitId,
       query.checkInOn,
       query.checkOutOn,
+      stayType,
     ),
   );
-  return { available, nights, unitId: ctx.unitId, currency: ctx.currency };
+  return {
+    available,
+    nights,
+    unitId: ctx.unitId,
+    currency: ctx.currency,
+    ...(available ? {} : { reason: 'slot_taken' as const }),
+  };
 }
 
 export async function createPublicStayQuoteOnNeon(slug: string, input: CreateStayQuoteInput) {
@@ -472,7 +555,11 @@ export async function createPublicStayQuoteOnNeon(slug: string, input: CreateSta
     throw new PublicStayBookingError('guests_exceed_max', 'Guest count exceeds unit maximum', 409);
   }
   const nights = nightsBetween({ checkInOn: input.checkInOn, checkOutOn: input.checkOutOn });
-  if (nights < ctx.minNights || nights > ctx.maxNights) {
+  const stayTypeEarly = input.stayType ?? 'overnight_stay';
+  if (
+    stayTypeEarly === 'overnight_stay' &&
+    (nights < ctx.minNights || nights > ctx.maxNights)
+  ) {
     throw new PublicStayBookingError(
       'nights_out_of_range',
       'Stay length is outside profile min/max nights',
@@ -486,6 +573,7 @@ export async function createPublicStayQuoteOnNeon(slug: string, input: CreateSta
       ctx.unitId,
       input.checkInOn,
       input.checkOutOn,
+      stayTypeEarly,
     ),
   );
   if (!available) {
@@ -636,12 +724,37 @@ export async function createPublicStayHoldOnNeon(
       throw new PublicStayBookingError('quote_expired', 'Stay quote has expired', 409);
     }
 
+    const stayTypeFromQuote = (() => {
+      const fees = Array.isArray(quote.feesSnapshotJson) ? quote.feesSnapshotJson : [];
+      for (const item of fees) {
+        if (!item || typeof item !== 'object') continue;
+        const row = item as { code?: string; stayType?: string };
+        if (row.code === 'stay_type' && typeof row.stayType === 'string') {
+          if (
+            row.stayType === 'day_use' ||
+            row.stayType === 'overnight_only' ||
+            row.stayType === 'overnight_stay'
+          ) {
+            return row.stayType;
+          }
+        }
+      }
+      return 'overnight_stay' as const;
+    })();
+    const lockSlot =
+      stayTypeFromQuote === 'day_use'
+        ? ('morning' as const)
+        : stayTypeFromQuote === 'overnight_only'
+          ? ('evening' as const)
+          : ('full' as const);
+
     const available = await isRangeAvailableInTransaction(
       transaction,
       quote.organizationId,
       quote.unitId,
       quote.checkInOn,
       quote.checkOutOn,
+      stayTypeFromQuote,
     );
     if (!available) {
       throw new PublicStayBookingError(
@@ -658,10 +771,11 @@ export async function createPublicStayHoldOnNeon(
       checkInOn: quote.checkInOn,
       checkOutOn: quote.checkOutOn,
       kind: 'hold',
+      lockSlot,
       expiresAt,
       sourceType: 'stay_quote',
       sourceId: quote.id,
-      note: 'Public stay hold',
+      note: `Public stay hold · ${lockSlot}`,
     });
 
     const [hold] = await transaction

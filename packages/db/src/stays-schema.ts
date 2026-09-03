@@ -298,6 +298,8 @@ export const stayInventoryLocks = pgTable(
     stayRange: daterange('stay_range').notNull(),
     kind: varchar('kind', { length: 24 }).notNull(),
     status: varchar('status', { length: 24 }).notNull().default('active'),
+    /** morning | evening | full — half-day coexistence for day_use / overnight_only. */
+    lockSlot: varchar('lock_slot', { length: 16 }).notNull().default('full'),
     sourceType: varchar('source_type', { length: 64 }),
     sourceId: uuid('source_id'),
     expiresAt: timestamp('expires_at', { withTimezone: true }),
@@ -312,6 +314,10 @@ export const stayInventoryLocks = pgTable(
       sql`${table.kind} IN ('hold', 'booking', 'owner_block', 'maintenance', 'lease', 'channel')`,
     ),
     check('stay_inventory_locks_status_check', sql`${table.status} IN ('active', 'released')`),
+    check(
+      'stay_inventory_locks_slot_check',
+      sql`${table.lockSlot} IN ('morning', 'evening', 'full')`,
+    ),
   ],
 );
 

@@ -10,6 +10,13 @@ import {
 } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { rememberStayTripAlert } from '@/lib/stay-trip-alerts';
+import {
+  exclusiveCheckOutOn,
+  isSameCalendarDayStay,
+  isValidGuestPhone,
+  stayDatesValid,
+  type StayBookingType,
+} from '@/lib/stay-booking-dates';
 import { stayStatusLabel } from '@/lib/ui-labels';
 
 type QuoteResult = {
@@ -45,7 +52,7 @@ type AvailabilityResult = {
   nights?: number;
 };
 
-type StayType = 'overnight_stay' | 'day_use' | 'overnight_only';
+type StayType = StayBookingType;
 
 type Step = 'stay' | 'guest' | 'review' | 'payment';
 
@@ -62,9 +69,9 @@ function defaultCheckOut(checkIn: string): string {
 }
 
 function stayTypeLabel(type: StayType, ar: boolean): string {
-  if (type === 'day_use') return ar ? 'إقامة بدون مبيت' : 'Day use (no overnight)';
-  if (type === 'overnight_only') return ar ? 'مبيت فقط' : 'Overnight only';
-  return ar ? 'إقامة مع مبيت' : 'Stay with overnight';
+  if (type === 'day_use') return ar ? 'إقامة بدون مبيت (صباحي ~11–16)' : 'Day use (morning ~11–16)';
+  if (type === 'overnight_only') return ar ? 'مبيت فقط (مسائي)' : 'Overnight only (evening)';
+  return ar ? 'إقامة مع مبيت (يوم كامل)' : 'Stay with overnight (full day)';
 }
 
 export function StayCheckout({
@@ -115,12 +122,20 @@ export function StayCheckout({
   const [error, setError] = useState<string | null>(null);
   const [payBusy, setPayBusy] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (!bookingDates) return;
     setCheckInOn(bookingDates.checkInOn);
     setCheckOutOn(bookingDates.checkOutOn);
   }, [bookingDates?.checkInOn, bookingDates?.checkOutOn]);
+
+  useEffect(() => {
+    if (!isSameCalendarDayStay(stayType)) return;
+    if (checkOutOn !== checkInOn) setCheckOutOn(checkInOn);
+  }, [stayType, checkInOn, checkOutOn]);
+
+  const apiCheckOutOn = exclusiveCheckOutOn(stayType, checkInOn, checkOutOn);
 
   useEffect(() => {
     setError(null);
@@ -162,7 +177,13 @@ export function StayCheckout({
   }
 
   async function loadQuote(): Promise<QuoteResult> {
-    const qs = new URLSearchParams({ checkInOn, checkOutOn, adults, children });
+    const qs = new URLSearchParams({
+      checkInOn,
+      checkOutOn: apiCheckOutOn,
+      adults,
+      children,
+      stayType,
+    });
     if (unitId) qs.set('unitId', unitId);
     const availability = await browserStayBookingGet<AvailabilityResult>(
       `/${encodeURIComponent(slug)}/availability?${qs.toString()}`,
@@ -177,16 +198,20 @@ export function StayCheckout({
             ? ar
               ? 'مدة الإقامة خارج النطاق المسموح'
               : 'Stay length is outside the allowed range'
-            : ar
-              ? 'التواريخ غير متاحة — جرّب تواريخاً أخرى'
-              : 'Dates not available — try different dates',
+            : availability.reason === 'slot_taken' || availability.reason === 'dates_unavailable'
+              ? ar
+                ? `نفد الحجز لهذا اليوم (${checkInOn}). حاول اختيار يوم أو فترة أخرى.`
+                : `This day is taken (${checkInOn}). Try another day or slot.`
+              : ar
+                ? 'التواريخ غير متاحة — جرّب تواريخاً أخرى'
+                : 'Dates not available — try different dates',
       );
     }
     return browserStayBookingMutation<QuoteResult>(
       `/${encodeURIComponent(slug)}/quotes${unitId ? `?unitId=${encodeURIComponent(unitId)}` : ''}`,
       {
         checkInOn,
-        checkOutOn,
+        checkOutOn: apiCheckOutOn,
         adults: Number(adults),
         children: Number(children),
         stayType,
@@ -197,8 +222,16 @@ export function StayCheckout({
 
   function continueFromStay() {
     setError(null);
-    if (!checkInOn || !checkOutOn || checkOutOn <= checkInOn) {
-      setError(ar ? 'تحقق من التواريخ' : 'Check your dates');
+    if (!stayDatesValid(stayType, checkInOn, checkOutOn)) {
+      setError(
+        isSameCalendarDayStay(stayType)
+          ? ar
+            ? 'اختر تاريخ الإقامة (نفس اليوم مسموح بدون مبيت / مبيت فقط)'
+            : 'Pick a stay date (same day is allowed for day use / overnight only)'
+          : ar
+            ? 'تحقق من التواريخ — المغادرة يجب أن تكون بعد الوصول'
+            : 'Check your dates — check-out must be after check-in',
+      );
       return;
     }
     setStep('guest');
@@ -209,6 +242,14 @@ export function StayCheckout({
     if (!guestName.trim() || guestName.trim().length < 2) {
       setError(
         ar ? 'أدخل اسم الضيف (حرفان على الأقل)' : 'Enter guest name (at least 2 characters)',
+      );
+      return;
+    }
+    if (!isValidGuestPhone(guestPhone)) {
+      setError(
+        ar
+          ? 'رقم الهاتف إلزامي (٨–١٥ رقماً) — سيُستخدم لاحقاً لتأكيد واتساب'
+          : 'Phone is required (8–15 digits) — used later for WhatsApp confirmation',
       );
       return;
     }
@@ -230,7 +271,10 @@ export function StayCheckout({
   async function redirectToPayment(nextBooking: BookingResult) {
     setPayBusy(true);
     setStepHint(ar ? 'التحويل إلى بوابة الدفع…' : 'Redirecting to payment gateway…');
-    const returnPath = `/${locale}/stays/booking/confirmed?ref=${encodeURIComponent(nextBooking.referenceCode)}`;
+    const esignOn = process.env.NEXT_PUBLIC_STAY_ESIGN_REQUIRED !== '0';
+    const returnPath = esignOn
+      ? `/${locale}/stays/booking/sign?ref=${encodeURIComponent(nextBooking.referenceCode)}`
+      : `/${locale}/stays/booking/confirmed?ref=${encodeURIComponent(nextBooking.referenceCode)}`;
     const session = await browserStayBookingMutation<{ redirectUrl: string }>(
       '/payment-sessions',
       {
@@ -250,8 +294,15 @@ export function StayCheckout({
     window.location.assign(target.href);
   }
 
+  function openConfirmModal() {
+    if (!quote) return;
+    setError(null);
+    setConfirmOpen(true);
+  }
+
   function confirmBooking() {
     if (!quote) return;
+    setConfirmOpen(false);
     startTransition(async () => {
       setError(null);
       setBooking(null);
@@ -270,8 +321,8 @@ export function StayCheckout({
           {
             holdId: hold.id,
             guestDisplayName: guestName.trim(),
+            guestPhone: guestPhone.trim(),
             ...(guestEmail.trim() ? { guestEmail: guestEmail.trim() } : {}),
-            ...(guestPhone.trim() ? { guestPhone: guestPhone.trim() } : {}),
           },
           { idempotencyKey: bookKey },
         );
@@ -281,7 +332,7 @@ export function StayCheckout({
           referenceCode: nextBooking.referenceCode,
           status: nextBooking.status,
           checkInOn,
-          checkOutOn,
+          checkOutOn: apiCheckOutOn,
           currency: nextBooking.currency,
           totalMinor: nextBooking.amountMinor,
         });
@@ -303,6 +354,14 @@ export function StayCheckout({
         setStepHint(null);
         if (caught instanceof ApiError && caught.status === 404) {
           setError(ar ? 'مسار الإقامات غير مفعّل حالياً.' : 'Stays booking is not enabled yet.');
+          return;
+        }
+        if (caught instanceof ApiError && caught.status === 409) {
+          setError(
+            ar
+              ? `نفد الحجز لهذا اليوم (${checkInOn}). يرجى اختيار يوم آخر.`
+              : `This day is taken (${checkInOn}). Please choose another day.`,
+          );
           return;
         }
         setError(humanizeBrowserError(caught, ar));
@@ -386,27 +445,54 @@ export function StayCheckout({
           ) : (
             <div className="stays-checkout__grid stays-checkout__grid--compact">
               <div className="field stays-checkout__tone stays-checkout__tone--check-in">
-                <label htmlFor="stay-book-in">{ar ? 'الوصول' : 'Check-in'}</label>
+                <label htmlFor="stay-book-in">
+                  {isSameCalendarDayStay(stayType)
+                    ? ar
+                      ? 'تاريخ الإقامة'
+                      : 'Stay date'
+                    : ar
+                      ? 'الوصول'
+                      : 'Check-in'}
+                </label>
                 <input
                   className="input"
                   id="stay-book-in"
                   type="date"
                   required
                   value={checkInOn}
-                  onChange={(event) => setCheckInOn(event.target.value)}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setCheckInOn(next);
+                    if (isSameCalendarDayStay(stayType)) setCheckOutOn(next);
+                  }}
                 />
               </div>
-              <div className="field stays-checkout__tone stays-checkout__tone--check-out">
-                <label htmlFor="stay-book-out">{ar ? 'المغادرة' : 'Check-out'}</label>
-                <input
-                  className="input"
-                  id="stay-book-out"
-                  type="date"
-                  required
-                  value={checkOutOn}
-                  onChange={(event) => setCheckOutOn(event.target.value)}
-                />
-              </div>
+              {!isSameCalendarDayStay(stayType) ? (
+                <div className="field stays-checkout__tone stays-checkout__tone--check-out">
+                  <label htmlFor="stay-book-out">{ar ? 'المغادرة' : 'Check-out'}</label>
+                  <input
+                    className="input"
+                    id="stay-book-out"
+                    type="date"
+                    required
+                    value={checkOutOn}
+                    onChange={(event) => setCheckOutOn(event.target.value)}
+                  />
+                </div>
+              ) : (
+                <div className="field stays-checkout__tone stays-checkout__tone--check-out">
+                  <label>{ar ? 'الفترة' : 'Period'}</label>
+                  <p className="stays-checkout__period-note" dir="ltr">
+                    {stayType === 'day_use'
+                      ? ar
+                        ? 'صباحي تقريباً 11:00–16:00 · نفس اليوم'
+                        : 'Morning ≈ 11:00–16:00 · same day'
+                      : ar
+                        ? 'مسائي / مبيت · نفس اليوم'
+                        : 'Evening / overnight · same day'}
+                  </p>
+                </div>
+              )}
             </div>
           )}
           <div className={`field stays-checkout__tone stays-checkout__tone--stay-${stayType}`}>
@@ -485,17 +571,24 @@ export function StayCheckout({
             </div>
             <div className="field">
               <label htmlFor="stay-book-phone">
-                {ar ? 'الهاتف (اختياري)' : 'Phone (optional)'}
+                {ar ? 'الهاتف (إلزامي)' : 'Phone (required)'}
               </label>
               <input
                 className="input"
                 id="stay-book-phone"
                 type="tel"
+                required
                 value={guestPhone}
                 onChange={(event) => setGuestPhone(event.target.value)}
                 autoComplete="tel"
                 dir="ltr"
+                placeholder={ar ? 'مثال: 9689xxxxxxx' : 'e.g. 9689xxxxxxx'}
               />
+              <p className="muted stays-checkout__hint">
+                {ar
+                  ? 'سيُستخدم لاحقاً لتأكيد واتساب / OTP.'
+                  : 'Used later for WhatsApp / OTP confirmation.'}
+              </p>
             </div>
             <div className="field stays-checkout__name">
               <label htmlFor="stay-book-email">
@@ -581,8 +674,8 @@ export function StayCheckout({
           ) : null}
           <p className="muted stays-checkout__hint">
             {ar
-              ? 'شامل الرسوم والضريبة حسب العرض. بعد التأكيد ستنتقل مباشرة لبوابة الدفع.'
-              : 'Includes fees and tax per quote. After confirm you go straight to the payment gateway.'}
+              ? 'شامل الرسوم والضريبة حسب العرض. يجب دفع الحجز فوراً ليُعتبر مؤكّداً.'
+              : 'Includes fees and tax per quote. Payment is required immediately for confirmation.'}
           </p>
           <div className="stays-checkout__nav">
             <button type="button" className="button button--quiet" onClick={() => setStep('guest')}>
@@ -592,7 +685,7 @@ export function StayCheckout({
               type="button"
               className="button button--primary"
               disabled={pending || !quote || payBusy}
-              onClick={confirmBooking}
+              onClick={openConfirmModal}
             >
               {pending || payBusy
                 ? ar
@@ -690,6 +783,43 @@ export function StayCheckout({
         <p className="field__error" role="alert">
           {error}
         </p>
+      ) : null}
+
+      {confirmOpen ? (
+        <div
+          className="stays-checkout__modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="stay-pay-confirm-title"
+        >
+          <div className="stays-checkout__modal-card">
+            <h3 id="stay-pay-confirm-title">
+              {ar ? 'تأكيد الدفع مطلوب' : 'Payment required to confirm'}
+            </h3>
+            <p>
+              {ar
+                ? 'للحفاظ على التواريخ، يجب دفع الحجز مباشرة. يُعتبر الحجز مؤكّداً فقط بعد إتمام الدفع بنجاح. بالموافقة ستُفتح بوابة الدفع الآمنة.'
+                : 'To keep these dates, you must pay now. The booking is confirmed only after successful payment. Agreeing opens the secure payment gateway.'}
+            </p>
+            <div className="stays-checkout__nav">
+              <button
+                type="button"
+                className="button button--quiet"
+                onClick={() => setConfirmOpen(false)}
+              >
+                {ar ? 'رجوع' : 'Back'}
+              </button>
+              <button
+                type="button"
+                className="button button--primary"
+                disabled={pending || payBusy}
+                onClick={confirmBooking}
+              >
+                {ar ? 'موافق — متابعة للدفع' : 'Agree — continue to pay'}
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
     </section>
   );

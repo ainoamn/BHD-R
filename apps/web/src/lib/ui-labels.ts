@@ -80,6 +80,10 @@ const WORKFLOW_EVENTS: Record<string, { ar: string; en: string }> = {
     ar: 'تأكيد دفع حجز إقامة',
     en: 'Stay booking payment confirmed',
   },
+  'stay_booking.esign_completed': {
+    ar: 'توقيع إلكتروني مكتمل لحجز إقامة',
+    en: 'Stay booking e-signature completed',
+  },
   'stay.booking.confirmed': { ar: 'تأكيد حجز إقامة', en: 'Stay booking confirmed' },
   'stay.checked_out': { ar: 'مغادرة ضيف إقامة', en: 'Stay guest checked out' },
   'stay.cancelled': { ar: 'إلغاء حجز إقامة', en: 'Stay booking cancelled' },

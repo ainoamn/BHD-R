@@ -66,7 +66,6 @@ export async function generateMetadata({
   };
 }
 
-/** Dedicated Booking.com-style checkout page (not embedded in the property page). */
 export default async function StayBookPage({
   params,
   searchParams,
@@ -90,49 +89,58 @@ export default async function StayBookPage({
   const stayType = parseStayType(pickQuery(query, 'stayType'));
 
   return (
-    <div className="container section stays-book-page">
-      <div className="stays-book-page__layout">
-        <aside className="stays-book-page__aside">
+    <div className="stays-book-shell">
+      <div className="stays-book-shell__hero">
+        {cover ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img className="stays-book-shell__cover" src={cover} alt="" />
+        ) : (
+          <div className="stays-book-shell__cover stays-book-shell__cover--fallback" />
+        )}
+        <div className="stays-book-shell__scrim" />
+        <div className="stays-book-shell__hero-content">
           <Link
-            className="stays-book-page__back"
+            className="stays-book-shell__back"
             href={`/stays/${encodeURIComponent(slug)}${unitId ? `?unit=${encodeURIComponent(unitId)}` : ''}`}
           >
             {ar ? '← العودة للإقامة' : '← Back to stay'}
           </Link>
-          {cover ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img className="stays-book-page__cover" src={cover} alt="" />
-          ) : null}
-          <h1 className="stays-book-page__title">{title}</h1>
-          <p className="muted">
+          <span className="stays-book-shell__brand logo__product logo__product--on-dark" aria-label="BHD R">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/bhd-official-symbol.svg" alt="" width="92" height="30" />
+            <i>R</i>
+          </span>
+          <p className="stays-book-shell__kicker">{ar ? 'حجز إقامة يومية' : 'Daily stay booking'}</p>
+          <h1>{title}</h1>
+          <p>
             {ar
-              ? 'راجع التواريخ ونوع الإقامة ثم أكمل بياناتك في صفحة مستقلة — كما في مواقع الحجز العالمية.'
-              : 'Review dates and stay type, then complete guest details on a dedicated page — like global booking sites.'}
+              ? 'أكمل التواريخ وبياناتك والمراجعة في شاشة واحدة — ثم ادفع لتأكيد الحجز.'
+              : 'Complete dates, guest details, and review in one flow — then pay to confirm.'}
           </p>
-        </aside>
-        <div className="stays-book-page__main">
-          <StayCheckout
-            locale={locale}
-            slug={slug}
-            title={title}
-            {...((detail.unitId ?? unitId) ? { unitId: (detail.unitId ?? unitId)! } : {})}
-            defaults={{
-              ...(pickQuery(query, 'checkInOn')
-                ? { checkInOn: pickQuery(query, 'checkInOn')! }
-                : {}),
-              ...(pickQuery(query, 'checkOutOn')
-                ? { checkOutOn: pickQuery(query, 'checkOutOn')! }
-                : {}),
-              ...(pickQuery(query, 'adults') ? { adults: pickQuery(query, 'adults')! } : {}),
-              ...(pickQuery(query, 'children')
-                ? { children: pickQuery(query, 'children')! }
-                : {}),
-              ...(stayType ? { stayType } : {}),
-              ...(viewer?.displayName?.trim() ? { guestName: viewer.displayName.trim() } : {}),
-              ...(viewer?.email?.trim() ? { guestEmail: viewer.email.trim() } : {}),
-            }}
-          />
         </div>
+      </div>
+      <div className="stays-book-shell__main">
+        <StayCheckout
+          locale={locale}
+          slug={slug}
+          title={title}
+          {...((detail.unitId ?? unitId) ? { unitId: (detail.unitId ?? unitId)! } : {})}
+          defaults={{
+            ...(pickQuery(query, 'checkInOn')
+              ? { checkInOn: pickQuery(query, 'checkInOn')! }
+              : {}),
+            ...(pickQuery(query, 'checkOutOn')
+              ? { checkOutOn: pickQuery(query, 'checkOutOn')! }
+              : {}),
+            ...(pickQuery(query, 'adults') ? { adults: pickQuery(query, 'adults')! } : {}),
+            ...(pickQuery(query, 'children')
+              ? { children: pickQuery(query, 'children')! }
+              : {}),
+            ...(stayType ? { stayType } : {}),
+            ...(viewer?.displayName?.trim() ? { guestName: viewer.displayName.trim() } : {}),
+            ...(viewer?.email?.trim() ? { guestEmail: viewer.email.trim() } : {}),
+          }}
+        />
       </div>
     </div>
   );

@@ -58,6 +58,8 @@ Blueprint: root `render.yaml` (keys as `sync: false` unless noted).
 | `DATABASE_URL` | Neon (owner writes / catalogue) |
 | `API_INTERNAL_ORIGIN` | Nest HTTPS URL for BFF (required on Vercel; no Host fallback) |
 | `STAYS_PLATFORM_ENABLED` | Default **off**. Set `true` on Vercel **and** Render for pilot; when on, **stay sandbox payments auto-enable** until a live PSP ships. Org allow-list on Render only. |
+| `STAY_ESIGN_REQUIRED` | Default on. Set `0`/`false` to skip post-payment e-sign (signature + ID + selfie). |
+| `NEXT_PUBLIC_STAY_ESIGN_REQUIRED` | Mirror for client redirect after pay (`0` to skip). |
 
 ## Ops (local / CI — never commit secrets)
 

@@ -212,17 +212,17 @@ export async function getOwnerStayBookingContractOnNeon(
       transaction
         .select({
           metadataJson: stayBookingStatusHistory.metadataJson,
+          reason: stayBookingStatusHistory.reason,
         })
         .from(stayBookingStatusHistory)
         .where(
           and(
             eq(stayBookingStatusHistory.organizationId, organizationId),
             eq(stayBookingStatusHistory.bookingId, bookingId),
-            eq(stayBookingStatusHistory.toStatus, 'confirmed'),
           ),
         )
         .orderBy(desc(stayBookingStatusHistory.createdAt))
-        .limit(5),
+        .limit(12),
     ]);
 
     const contact = readGuestContact(row.pricingSnapshotJson);
@@ -234,6 +234,11 @@ export async function getOwnerStayBookingContractOnNeon(
     let cardLast4: string | null = null;
     let cardBrand: string | null = null;
     let cardholderName: string | null = null;
+    let esignSignedAt: string | null = null;
+    let esignSignaturePng: string | null = null;
+    let esignIdFrontPng: string | null = null;
+    let esignIdBackPng: string | null = null;
+    let esignSelfiePng: string | null = null;
     for (const entry of paymentHistory) {
       const meta =
         entry.metadataJson && typeof entry.metadataJson === 'object'
@@ -257,7 +262,17 @@ export async function getOwnerStayBookingContractOnNeon(
       ) {
         cardholderName = meta.cardholderName.trim();
       }
-      if (cardLast4 && cardBrand && cardholderName) break;
+      const esign =
+        meta.esign && typeof meta.esign === 'object'
+          ? (meta.esign as Record<string, unknown>)
+          : null;
+      if (esign && !esignSignaturePng) {
+        if (typeof esign.signedAt === 'string') esignSignedAt = esign.signedAt;
+        if (typeof esign.signaturePng === 'string') esignSignaturePng = esign.signaturePng;
+        if (typeof esign.idFrontPng === 'string') esignIdFrontPng = esign.idFrontPng;
+        if (typeof esign.idBackPng === 'string') esignIdBackPng = esign.idBackPng;
+        if (typeof esign.selfiePng === 'string') esignSelfiePng = esign.selfiePng;
+      }
     }
 
     return {
@@ -300,6 +315,11 @@ export async function getOwnerStayBookingContractOnNeon(
       cardLast4,
       cardBrand,
       cardholderName,
+      esignSignedAt,
+      esignSignaturePng,
+      esignIdFrontPng,
+      esignIdBackPng,
+      esignSelfiePng,
     };
   });
 }
