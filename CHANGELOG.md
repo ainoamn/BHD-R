@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.59 — 2026-09-03
+
+- Sync stay calendar with live locks/bookings; expire stale payment_pending after hold TTL so available days match checkout.
+
 ## 0.4.58 — 2026-09-03
 
 - Fix Vercel build: exactOptionalPropertyTypes on payment error code assignment.

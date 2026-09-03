@@ -283,6 +283,8 @@ export async function isRangeAvailableInTransaction(
   stayType: 'overnight_stay' | 'day_use' | 'overnight_only' = 'overnight_stay',
   excludeBookingId?: string,
 ): Promise<boolean> {
+  await releaseExpiredHoldsInTransaction(transaction, organizationId);
+
   const lockSlot =
     stayType === 'day_use' ? 'morning' : stayType === 'overnight_only' ? 'evening' : 'full';
 
@@ -314,17 +316,23 @@ export async function isRangeAvailableInTransaction(
     : ((conflicts as { rows?: Array<{ count: string }> }).rows ?? []);
   if ((conflictRows[0]?.count ?? '0') !== '0') return false;
 
-  // Also conflict with confirmed / pending bookings of incompatible stay types.
+  // Confirmed stays always block; unpaid drafts only while their hold is still active.
   const bookingRows = await transaction.execute(sql`
-    SELECT id::text AS id, pricing_snapshot_json
-    FROM stay_bookings
-    WHERE organization_id = ${organizationId}::uuid
-      AND unit_id = ${unitId}::uuid
-      AND status IN (
-        'payment_pending', 'confirmed', 'pre_arrival', 'checked_in'
-      )
-      AND daterange(check_in_on, check_out_on, '[)')
+    SELECT b.id::text AS id, b.pricing_snapshot_json
+    FROM stay_bookings b
+    LEFT JOIN stay_holds h ON h.id = b.hold_id
+    WHERE b.organization_id = ${organizationId}::uuid
+      AND b.unit_id = ${unitId}::uuid
+      AND daterange(b.check_in_on, b.check_out_on, '[)')
         && daterange(${checkInOn}::date, ${checkOutOn}::date, '[)')
+      AND (
+        b.status IN ('confirmed', 'pre_arrival', 'checked_in')
+        OR (
+          b.status = 'payment_pending'
+          AND h.status = 'active'
+          AND h.expires_at > now()
+        )
+      )
   `);
   const bookings = Array.isArray(bookingRows)
     ? bookingRows
@@ -374,7 +382,8 @@ export async function isRangeAvailableInTransaction(
 
 async function releaseExpiredHoldsInTransaction(transaction: Tx, organizationId: string) {
   const now = new Date();
-  const releasedLocks = await transaction
+
+  await transaction
     .update(stayInventoryLocks)
     .set({ status: 'released', updatedAt: now })
     .where(
@@ -385,21 +394,36 @@ async function releaseExpiredHoldsInTransaction(transaction: Tx, organizationId:
         isNotNull(stayInventoryLocks.expiresAt),
         lte(stayInventoryLocks.expiresAt, now),
       ),
-    )
-    .returning({ id: stayInventoryLocks.id });
+    );
 
-  if (releasedLocks.length > 0) {
-    await transaction
-      .update(stayHolds)
-      .set({ status: 'expired', updatedAt: now })
-      .where(
-        and(
-          eq(stayHolds.organizationId, organizationId),
-          eq(stayHolds.status, 'active'),
-          lte(stayHolds.expiresAt, now),
-        ),
-      );
-  }
+  await transaction
+    .update(stayHolds)
+    .set({ status: 'expired', updatedAt: now })
+    .where(
+      and(
+        eq(stayHolds.organizationId, organizationId),
+        eq(stayHolds.status, 'active'),
+        lte(stayHolds.expiresAt, now),
+      ),
+    );
+
+  // Unpaid drafts whose hold is no longer active must stop blocking dates/calendar.
+  await transaction.execute(sql`
+    UPDATE stay_bookings b
+    SET status = 'expired', updated_at = ${now.toISOString()}
+    WHERE b.organization_id = ${organizationId}::uuid
+      AND b.status = 'payment_pending'
+      AND (
+        b.hold_id IS NULL
+        OR NOT EXISTS (
+          SELECT 1
+          FROM stay_holds h
+          WHERE h.id = b.hold_id
+            AND h.status = 'active'
+            AND h.expires_at > now()
+        )
+      )
+  `);
 }
 
 async function createLockInTransaction(
@@ -509,6 +533,8 @@ export async function getPublicStayCalendarOnNeon(
   assertOrgEnabled(ctx.organizationId);
 
   return asPublic(async (transaction) => {
+    await releaseExpiredHoldsInTransaction(transaction, ctx.organizationId);
+
     const result = await transaction.execute(sql`
       SELECT
         stay_date::text AS stay_date,
@@ -524,21 +550,114 @@ export async function getPublicStayCalendarOnNeon(
       ORDER BY stay_date
     `);
     const rows = Array.isArray(result) ? result : ((result as { rows?: unknown[] }).rows ?? []);
-    const mapped = (
-      rows as Array<{
-        stay_date: string;
-        availability_status: string;
-        effective_rate_minor: string | null;
+    const byDate = new Map<
+      string,
+      {
+        stayDate: string;
+        availabilityStatus: string;
+        effectiveRateMinor: string | null;
         currency: string | null;
-        public_note: string | null;
-      }>
-    ).map((row) => ({
-      stayDate: row.stay_date,
-      availabilityStatus: row.availability_status,
-      effectiveRateMinor: row.effective_rate_minor,
-      currency: row.currency,
-      publicNote: row.public_note,
-    }));
+        publicNote: string | null;
+      }
+    >();
+    for (const row of rows as Array<{
+      stay_date: string;
+      availability_status: string;
+      effective_rate_minor: string | null;
+      currency: string | null;
+      public_note: string | null;
+    }>) {
+      byDate.set(row.stay_date, {
+        stayDate: row.stay_date,
+        availabilityStatus: row.availability_status,
+        effectiveRateMinor: row.effective_rate_minor,
+        currency: row.currency,
+        publicNote: row.public_note,
+      });
+    }
+
+    // Overlay live locks + confirmed/active unpaid holds so the calendar matches checkout.
+    const overlay = await transaction.execute(sql`
+      WITH days AS (
+        SELECT generate_series(
+          ${query.fromOn}::date,
+          (${query.toOn}::date - 1),
+          '1 day'::interval
+        )::date AS stay_date
+      ),
+      lock_hits AS (
+        SELECT
+          d.stay_date,
+          bool_or(l.kind = 'booking') AS hard_booked,
+          bool_or(l.kind = 'hold') AS on_hold
+        FROM days d
+        INNER JOIN stay_inventory_locks l
+          ON l.organization_id = ${ctx.organizationId}::uuid
+         AND l.unit_id = ${ctx.unitId}::uuid
+         AND l.status = 'active'
+         AND l.stay_range @> d.stay_date
+        GROUP BY d.stay_date
+      ),
+      booking_hits AS (
+        SELECT
+          d.stay_date,
+          bool_or(b.status IN ('confirmed', 'pre_arrival', 'checked_in')) AS hard_booked,
+          bool_or(
+            b.status = 'payment_pending'
+            AND h.status = 'active'
+            AND h.expires_at > now()
+          ) AS on_hold
+        FROM days d
+        INNER JOIN stay_bookings b
+          ON b.organization_id = ${ctx.organizationId}::uuid
+         AND b.unit_id = ${ctx.unitId}::uuid
+         AND daterange(b.check_in_on, b.check_out_on, '[)') @> d.stay_date
+         AND (
+           b.status IN ('confirmed', 'pre_arrival', 'checked_in')
+           OR b.status = 'payment_pending'
+         )
+        LEFT JOIN stay_holds h ON h.id = b.hold_id
+        GROUP BY d.stay_date
+      )
+      SELECT
+        d.stay_date::text AS stay_date,
+        CASE
+          WHEN COALESCE(l.hard_booked, false) OR COALESCE(b.hard_booked, false) THEN 'booked'
+          WHEN COALESCE(l.on_hold, false) OR COALESCE(b.on_hold, false) THEN 'hold'
+          ELSE NULL
+        END AS overlay_status
+      FROM days d
+      LEFT JOIN lock_hits l ON l.stay_date = d.stay_date
+      LEFT JOIN booking_hits b ON b.stay_date = d.stay_date
+      WHERE COALESCE(l.hard_booked, false)
+         OR COALESCE(l.on_hold, false)
+         OR COALESCE(b.hard_booked, false)
+         OR COALESCE(b.on_hold, false)
+    `);
+    const overlayRows = Array.isArray(overlay)
+      ? overlay
+      : ((overlay as { rows?: Array<{ stay_date: string; overlay_status: string }> }).rows ?? []);
+    for (const row of overlayRows as Array<{ stay_date: string; overlay_status: string }>) {
+      if (!row.overlay_status) continue;
+      const existing = byDate.get(row.stay_date);
+      const rank = (status: string) =>
+        status === 'booked' ? 3 : status === 'hold' ? 2 : status === 'blocked' ? 2 : 1;
+      if (!existing) {
+        byDate.set(row.stay_date, {
+          stayDate: row.stay_date,
+          availabilityStatus: row.overlay_status,
+          effectiveRateMinor: ctx.baseNightlyMinor,
+          currency: ctx.currency,
+          publicNote: null,
+        });
+        continue;
+      }
+      if (rank(row.overlay_status) >= rank(existing.availabilityStatus)) {
+        existing.availabilityStatus = row.overlay_status;
+      }
+    }
+
+    const mapped = [...byDate.values()].sort((a, b) => a.stayDate.localeCompare(b.stayDate));
 
     return {
       unitId: ctx.unitId,
