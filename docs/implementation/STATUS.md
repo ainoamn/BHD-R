@@ -1,8 +1,8 @@
 # Implementation status
 
 **Updated:** 2026-09-03  
-**Product version:** 0.4.57  
-**Active focus:** Payment dates-taken rebook CTA  
+**Product version:** 0.4.58  
+**Active focus:** Fix Vercel build for rebook CTA  
 **Release 0.4.57:** payment dates-taken rebook button  
 **Release 0.4.56:** centered motivational book aside  
 **Release 0.4.55:** book aside logo above title + clearer lede  

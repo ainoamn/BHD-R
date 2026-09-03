@@ -43,7 +43,7 @@ async function completeStaySandboxPayment(
     const err = new Error(
       payload?.error?.messageAr ?? payload?.error?.message ?? 'payment_failed',
     ) as Error & { code?: string };
-    err.code = payload?.error?.code;
+    if (payload?.error?.code) err.code = payload.error.code;
     throw err;
   }
   return {

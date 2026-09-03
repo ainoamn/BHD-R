@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.58 — 2026-09-03
+
+- Fix Vercel build: exactOptionalPropertyTypes on payment error code assignment.
+
 ## 0.4.57 — 2026-09-03
 
 - Payment sandbox: when day is taken, show CTA back to same stay book page for new dates.
