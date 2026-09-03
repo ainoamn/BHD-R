@@ -1,10 +1,11 @@
 # Implementation status
 
-**Updated:** 2026-09-02 23:39 مسقط  
-**Product version:** 0.4.46+ (`f059bc6` tip)  
-**Active focus:** Confirm/receipt UX + owner Neon bookings/calendar booked + bilingual ui-labels  
-**Live handoff (full chat archive):** [`../handoffs/2026-09-02-continue-0.4.42/`](../handoffs/2026-09-02-continue-0.4.42/)  
+**Updated:** 2026-09-03  
+**Product version:** 0.4.51  
+**Active focus:** Owner activity → stay booking contract detail  
+**Release 0.4.51:** [`RELEASE-0.4.51-AR.md`](./RELEASE-0.4.51-AR.md)  
 **Release 0.4.46:** [`RELEASE-0.4.46-AR.md`](./RELEASE-0.4.46-AR.md) · [`../handoffs/2026-09-02-stay-checkout-0.4.46/`](../handoffs/2026-09-02-stay-checkout-0.4.46/)  
+**Live handoff (full chat archive):** [`../handoffs/2026-09-02-continue-0.4.42/`](../handoffs/2026-09-02-continue-0.4.42/)  
 **Release 0.4.45:** [`RELEASE-0.4.45-AR.md`](./RELEASE-0.4.45-AR.md)  
 **Release 0.4.44:** [`RELEASE-0.4.44-AR.md`](./RELEASE-0.4.44-AR.md)  
 **Release 0.4.43:** [`RELEASE-0.4.43-AR.md`](./RELEASE-0.4.43-AR.md)  

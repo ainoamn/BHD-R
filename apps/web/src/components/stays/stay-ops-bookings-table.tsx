@@ -127,7 +127,9 @@ export function StayOpsBookingsTable({
             return (
               <tr key={booking.id}>
                 <td dir="ltr">
-                  <strong>{booking.referenceCode}</strong>
+                  <Link href={`/${portal}/stays/bookings/${booking.id}`}>
+                    <strong>{booking.referenceCode}</strong>
+                  </Link>
                 </td>
                 <td>
                   <Link href={`/${portal}/properties/${booking.propertyId}`}>
@@ -148,6 +150,12 @@ export function StayOpsBookingsTable({
                 <td dir="ltr">{formatMoney(booking.totalMinor, booking.currency, locale)}</td>
                 <td>
                   <div className="stays-ops-bookings__actions">
+                    <Link
+                      className="button button--quiet"
+                      href={`/${portal}/stays/bookings/${booking.id}`}
+                    >
+                      {ar ? 'العقد' : 'Contract'}
+                    </Link>
                     <Link
                       className="button button--quiet"
                       href={`/${portal}/properties/${booking.propertyId}`}

@@ -95,6 +95,8 @@ export class PortalsService {
             title: workflowEvents.eventType,
             occurredAt: workflowEvents.occurredAt,
             status: workflowEvents.toStatus,
+            resourceType: workflowEvents.resourceType,
+            resourceId: workflowEvents.resourceId,
           })
           .from(workflowEvents)
           .orderBy(desc(workflowEvents.occurredAt))
@@ -224,6 +226,8 @@ export class PortalsService {
             title: workflowEvents.eventType,
             occurredAt: workflowEvents.occurredAt,
             status: workflowEvents.toStatus,
+            resourceType: workflowEvents.resourceType,
+            resourceId: workflowEvents.resourceId,
           })
           .from(workflowEvents)
           .where(eq(workflowEvents.organizationId, orgId))

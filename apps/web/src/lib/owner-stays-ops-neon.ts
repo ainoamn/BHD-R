@@ -6,12 +6,15 @@ import {
   createDatabase,
   properties,
   stayBookings,
+  stayBookingGuests,
+  stayPaymentIntents,
   stayProfiles,
   units,
   type Database,
 } from '@bhd-r/db';
 import type { OpsStayBooking } from '@/components/stays/stay-ops-bookings-table';
 import type { StayCalendarUnit } from '@/components/stays/stay-ops-calendar-panel';
+import type { StayBookingContractData } from '@/components/stays/stay-booking-contract';
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdROwnerStaysOpsDb?: DbHandle };
@@ -99,6 +102,159 @@ function toOpsBooking(row: {
     ...(row.unitNameAr ? { unitNameAr: row.unitNameAr } : {}),
     ...(row.unitNameEn ? { unitNameEn: row.unitNameEn } : {}),
   };
+}
+
+function readGuestContact(snapshot: unknown): {
+  displayName?: string;
+  email?: string;
+  phone?: string;
+  adults?: number;
+  children?: number;
+  stayType?: string;
+} {
+  if (!snapshot || typeof snapshot !== 'object') return {};
+  const root = snapshot as Record<string, unknown>;
+  const contact =
+    root.guestContact && typeof root.guestContact === 'object'
+      ? (root.guestContact as Record<string, unknown>)
+      : {};
+  return {
+    ...(typeof contact.displayName === 'string' ? { displayName: contact.displayName } : {}),
+    ...(typeof contact.email === 'string' ? { email: contact.email } : {}),
+    ...(typeof contact.phone === 'string' ? { phone: contact.phone } : {}),
+    ...(typeof root.adults === 'number' ? { adults: root.adults } : {}),
+    ...(typeof root.children === 'number' ? { children: root.children } : {}),
+    ...(typeof root.stayType === 'string' ? { stayType: root.stayType } : {}),
+  };
+}
+
+function paymentMethodLabel(provider: string | null | undefined, status: string): string {
+  const paid = status === 'confirmed' || status === 'paid' || status === 'succeeded';
+  if (!provider) return paid ? 'card' : 'pending';
+  if (provider === 'sandbox') return 'sandbox_card';
+  return provider;
+}
+
+export async function getOwnerStayBookingContractOnNeon(
+  claims: SessionClaims,
+  bookingId: string,
+): Promise<StayBookingContractData | null> {
+  const organizationId = assertOrg(claims);
+  if (!/^[0-9a-f-]{36}$/i.test(bookingId)) return null;
+
+  return withinTenant(claims, async (transaction) => {
+    const [row] = await transaction
+      .select({
+        id: stayBookings.id,
+        referenceCode: stayBookings.referenceCode,
+        propertyId: stayBookings.propertyId,
+        unitId: stayBookings.unitId,
+        checkInOn: stayBookings.checkInOn,
+        checkOutOn: stayBookings.checkOutOn,
+        status: stayBookings.status,
+        bookingMode: stayBookings.bookingMode,
+        source: stayBookings.source,
+        currency: stayBookings.currency,
+        totalMinor: stayBookings.totalMinor,
+        createdAt: stayBookings.createdAt,
+        pricingSnapshotJson: stayBookings.pricingSnapshotJson,
+        propertyNameAr: properties.nameAr,
+        propertyNameEn: properties.nameEn,
+        unitCode: units.code,
+        unitNameAr: units.nameAr,
+        unitNameEn: units.nameEn,
+      })
+      .from(stayBookings)
+      .innerJoin(properties, eq(properties.id, stayBookings.propertyId))
+      .innerJoin(units, eq(units.id, stayBookings.unitId))
+      .where(
+        and(eq(stayBookings.organizationId, organizationId), eq(stayBookings.id, bookingId)),
+      )
+      .limit(1);
+
+    if (!row) return null;
+
+    const [guest, intent] = await Promise.all([
+      transaction
+        .select({
+          displayName: stayBookingGuests.displayName,
+        })
+        .from(stayBookingGuests)
+        .where(
+          and(
+            eq(stayBookingGuests.organizationId, organizationId),
+            eq(stayBookingGuests.bookingId, bookingId),
+            eq(stayBookingGuests.isPrimary, true),
+          ),
+        )
+        .limit(1)
+        .then((rows) => rows[0] ?? null),
+      transaction
+        .select({
+          status: stayPaymentIntents.status,
+          provider: stayPaymentIntents.provider,
+          providerIntentId: stayPaymentIntents.providerIntentId,
+          amountMinor: stayPaymentIntents.amountMinor,
+          currency: stayPaymentIntents.currency,
+          updatedAt: stayPaymentIntents.updatedAt,
+        })
+        .from(stayPaymentIntents)
+        .where(
+          and(
+            eq(stayPaymentIntents.organizationId, organizationId),
+            eq(stayPaymentIntents.bookingId, bookingId),
+          ),
+        )
+        .orderBy(desc(stayPaymentIntents.updatedAt))
+        .limit(1)
+        .then((rows) => rows[0] ?? null),
+    ]);
+
+    const contact = readGuestContact(row.pricingSnapshotJson);
+    const paid =
+      row.status === 'confirmed' ||
+      row.status === 'paid' ||
+      intent?.status === 'succeeded';
+
+    return {
+      id: row.id,
+      referenceCode: row.referenceCode,
+      status: row.status,
+      bookingMode: row.bookingMode,
+      source: row.source,
+      checkInOn: row.checkInOn,
+      checkOutOn: row.checkOutOn,
+      nights: nightsBetween(row.checkInOn, row.checkOutOn),
+      currency: row.currency,
+      totalMinor: String(row.totalMinor),
+      createdAt:
+        row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
+      guestDisplayName: contact.displayName ?? guest?.displayName ?? null,
+      guestEmail: contact.email ?? null,
+      guestPhone: contact.phone ?? null,
+      adults: contact.adults ?? null,
+      children: contact.children ?? null,
+      stayType: contact.stayType ?? null,
+      propertyId: row.propertyId,
+      propertyNameAr: row.propertyNameAr,
+      propertyNameEn: row.propertyNameEn,
+      unitId: row.unitId,
+      unitCode: row.unitCode,
+      unitNameAr: row.unitNameAr,
+      unitNameEn: row.unitNameEn,
+      paymentStatus: intent?.status ?? (paid ? 'succeeded' : 'pending'),
+      paymentMethod: paymentMethodLabel(intent?.provider, row.status),
+      paymentProviderRef: intent?.providerIntentId ?? null,
+      paidAt:
+        paid && intent?.updatedAt
+          ? intent.updatedAt instanceof Date
+            ? intent.updatedAt.toISOString()
+            : String(intent.updatedAt)
+          : null,
+      paidAmountMinor: intent?.amountMinor != null ? String(intent.amountMinor) : null,
+      paidCurrency: intent?.currency ?? null,
+    };
+  });
 }
 
 export async function listOwnerStayBookingsOnNeon(

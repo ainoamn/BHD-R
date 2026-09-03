@@ -218,24 +218,43 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
           </div>
           {overview.recentActivity.length ? (
             <ul className="dash-activity">
-              {overview.recentActivity.map((item) => (
-                <li key={item.id}>
-                  <div>
-                    <strong>{localizeWorkflowLabel(item.title, 'event', locale)}</strong>
-                    {item.status ? (
-                      <span className="dash-activity__status">
-                        {localizeWorkflowLabel(item.status, 'status', locale)}
-                      </span>
-                    ) : null}
-                  </div>
-                  <time dateTime={item.occurredAt}>
-                    {new Intl.DateTimeFormat(locale === 'ar' ? 'ar-OM' : 'en-OM', {
-                      dateStyle: 'medium',
-                      timeStyle: 'short',
-                    }).format(new Date(item.occurredAt))}
-                  </time>
-                </li>
-              ))}
+              {overview.recentActivity.map((item) => {
+                const href =
+                  item.resourceType === 'stay_booking' &&
+                  item.resourceId &&
+                  (portal === 'owner' || portal === 'developer')
+                    ? `/${portal}/stays/bookings/${item.resourceId}`
+                    : null;
+                const body = (
+                  <>
+                    <div>
+                      <strong>{localizeWorkflowLabel(item.title, 'event', locale)}</strong>
+                      {item.status ? (
+                        <span className="dash-activity__status">
+                          {localizeWorkflowLabel(item.status, 'status', locale)}
+                        </span>
+                      ) : null}
+                    </div>
+                    <time dateTime={item.occurredAt}>
+                      {new Intl.DateTimeFormat(locale === 'ar' ? 'ar-OM' : 'en-OM', {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                      }).format(new Date(item.occurredAt))}
+                    </time>
+                  </>
+                );
+                return (
+                  <li key={item.id}>
+                    {href ? (
+                      <Link href={href} className="dash-activity__link" prefetch>
+                        {body}
+                      </Link>
+                    ) : (
+                      body
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <EmptyState title={t('Portal.noData')} />

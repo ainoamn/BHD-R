@@ -34,7 +34,14 @@ export interface PortalOverview {
   openInvoices?: number | null;
   alerts?: Array<{ severity: 'danger' | 'warning' | 'info'; code: string; count: number }>;
   generatedAt?: string;
-  recentActivity: Array<{ id: string; title: string; occurredAt: string; status?: string }>;
+  recentActivity: Array<{
+    id: string;
+    title: string;
+    occurredAt: string;
+    status?: string;
+    resourceType?: string;
+    resourceId?: string;
+  }>;
 }
 
 export interface UnitOption {

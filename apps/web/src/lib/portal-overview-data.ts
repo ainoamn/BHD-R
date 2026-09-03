@@ -202,6 +202,8 @@ async function organizationOverviewFromDb(claims: SessionClaims): Promise<Portal
           title: workflowEvents.eventType,
           occurredAt: workflowEvents.occurredAt,
           status: workflowEvents.toStatus,
+          resourceType: workflowEvents.resourceType,
+          resourceId: workflowEvents.resourceId,
         })
         .from(workflowEvents)
         .where(eq(workflowEvents.organizationId, orgId))
@@ -269,6 +271,8 @@ async function organizationOverviewFromDb(claims: SessionClaims): Promise<Portal
         occurredAt:
           row.occurredAt instanceof Date ? row.occurredAt.toISOString() : String(row.occurredAt),
         ...(row.status ? { status: row.status } : {}),
+        ...(row.resourceType ? { resourceType: row.resourceType } : {}),
+        ...(row.resourceId ? { resourceId: row.resourceId } : {}),
       })),
       generatedAt: new Date().toISOString(),
     };

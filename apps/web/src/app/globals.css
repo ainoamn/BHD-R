@@ -2477,6 +2477,32 @@ body:has(.stays-booking-receipt) #main-content {
   padding: 0.75rem 0;
   border-bottom: 1px solid rgb(9 45 36 / 0.06);
 }
+.dash-activity__link {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  color: inherit;
+  text-decoration: none;
+  border-radius: 0.75rem;
+  padding: 0.35rem 0.45rem;
+  margin: -0.35rem -0.45rem;
+  transition:
+    background-color 140ms ease,
+    box-shadow 140ms ease;
+}
+.dash-activity__link:hover,
+.dash-activity__link:focus-visible {
+  background: color-mix(in srgb, var(--bhd-navy, #174b70) 7%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bhd-navy, #174b70) 14%, transparent);
+  outline: none;
+}
+.dash-activity__link strong {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
 .dash-activity li:last-child {
   border-bottom: 0;
   padding-block-end: 0;
@@ -2566,6 +2592,11 @@ body:has(.stays-booking-receipt) #main-content {
     padding: 0.95rem 1rem;
   }
   .dash-activity li {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+  }
+  .dash-activity__link {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.35rem;
@@ -10149,6 +10180,37 @@ button.ops-row-key {
   margin-top: 0.55rem !important;
   font-weight: 800;
   color: var(--oman-deep, #092d24) !important;
+}
+.stay-doc--contract .stay-doc__section {
+  margin-block: 1.15rem;
+}
+.stay-doc--contract .stay-doc__section h2 {
+  margin: 0 0 0.55rem;
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+}
+.stay-contract-nav {
+  margin: 0 0 0.75rem;
+}
+.stay-contract-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-block-end: 0.85rem;
+}
+@media print {
+  .stay-contract-nav,
+  .stay-contract-toolbar,
+  .stays-portal__header,
+  .stays-portal__tabs,
+  .portal-sidebar,
+  .portal-header {
+    display: none !important;
+  }
+  .stay-doc--contract {
+    border: 0;
+    box-shadow: none;
+  }
 }
 @media (max-width: 640px) {
   .stay-doc__grid {
