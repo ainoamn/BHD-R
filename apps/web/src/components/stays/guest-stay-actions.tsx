@@ -9,6 +9,11 @@ import {
   humanizeBrowserError,
 } from '@/lib/api';
 import { rememberStayTripAlert } from '@/lib/stay-trip-alerts';
+import {
+  isStayEsignRequiredClient,
+  stayConfirmedReturnPath,
+  stayEsignReturnPath,
+} from '@/lib/stay-esign-flags';
 
 export type GuestStayActionBooking = {
   id: string;
@@ -73,10 +78,9 @@ export function GuestStayActions({
       setError(null);
       setHint(ar ? 'التحويل إلى بوابة الدفع…' : 'Opening payment…');
       try {
-        const esignOn = process.env.NEXT_PUBLIC_STAY_ESIGN_REQUIRED !== '0';
-        const returnPath = esignOn
-          ? `/${locale}/stays/booking/sign?ref=${encodeURIComponent(booking.referenceCode)}`
-          : `/${locale}/stays/booking/confirmed?ref=${encodeURIComponent(booking.referenceCode)}`;
+        const returnPath = isStayEsignRequiredClient()
+          ? stayEsignReturnPath(locale, booking.referenceCode)
+          : stayConfirmedReturnPath(locale, booking.referenceCode);
         const session = await browserStayBookingMutation<{ redirectUrl: string }>(
           '/payment-sessions',
           {

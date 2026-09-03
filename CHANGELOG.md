@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.62 — 2026-09-03
+
+- Re-enable post-pay e-sign (pay → sign → electronically approved contract → confirmation); gate confirmed until signed.
+
 ## 0.4.61 — 2026-09-03
 
 - Guest trips: pay / change dates / cancel / rebook actions on lookup + detail; alerts open booking detail.

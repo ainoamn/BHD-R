@@ -7,6 +7,7 @@ import {
   stayBookingJson,
 } from '@/lib/public-stays-booking-route';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
+import { isStayEsignRequiredServer } from '@/lib/stay-esign-flags';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,7 +25,7 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ reference: string }> },
 ) {
-  if (process.env.STAY_ESIGN_REQUIRED === '0' || process.env.STAY_ESIGN_REQUIRED === 'false') {
+  if (!isStayEsignRequiredServer()) {
     return stayBookingJson({ error: { code: 'esign_disabled' } }, { status: 404 });
   }
   if (!isPaymentSandboxPilotEnabled() && process.env.STAYS_PLATFORM_ENABLED !== 'true') {

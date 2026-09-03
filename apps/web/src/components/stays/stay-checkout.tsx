@@ -11,6 +11,11 @@ import {
 import { formatMoney } from '@/lib/format';
 import { rememberStayTripAlert } from '@/lib/stay-trip-alerts';
 import {
+  isStayEsignRequiredClient,
+  stayConfirmedReturnPath,
+  stayEsignReturnPath,
+} from '@/lib/stay-esign-flags';
+import {
   exclusiveCheckOutOn,
   isSameCalendarDayStay,
   isValidGuestPhone,
@@ -271,10 +276,9 @@ export function StayCheckout({
   async function redirectToPayment(nextBooking: BookingResult) {
     setPayBusy(true);
     setStepHint(ar ? 'التحويل إلى بوابة الدفع…' : 'Redirecting to payment gateway…');
-    const esignOn = process.env.NEXT_PUBLIC_STAY_ESIGN_REQUIRED !== '0';
-    const returnPath = esignOn
-      ? `/${locale}/stays/booking/sign?ref=${encodeURIComponent(nextBooking.referenceCode)}`
-      : `/${locale}/stays/booking/confirmed?ref=${encodeURIComponent(nextBooking.referenceCode)}`;
+    const returnPath = isStayEsignRequiredClient()
+      ? stayEsignReturnPath(locale, nextBooking.referenceCode)
+      : stayConfirmedReturnPath(locale, nextBooking.referenceCode);
     const session = await browserStayBookingMutation<{ redirectUrl: string }>(
       '/payment-sessions',
       {

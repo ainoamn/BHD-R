@@ -3,12 +3,9 @@ import { setRequestLocale } from 'next-intl/server';
 import { StayEsignWizard } from '@/components/stays/stay-esign-wizard';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { lookupPublicStayBookingOnNeon } from '@/lib/public-stays-guest-neon';
+import { isStayEsignRequiredServer } from '@/lib/stay-esign-flags';
 import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
 import { formatMoney } from '@/lib/format';
-
-function isEsignRequired(): boolean {
-  return process.env.STAY_ESIGN_REQUIRED !== '0' && process.env.STAY_ESIGN_REQUIRED !== 'false';
-}
 
 export default async function StayBookingSignPage({
   params,
@@ -18,7 +15,7 @@ export default async function StayBookingSignPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   if (!isStaysPublicSurfaceEnabled()) notFound();
-  if (!isEsignRequired()) notFound();
+  if (!isStayEsignRequiredServer()) notFound();
   const { locale: raw } = await params;
   const locale = raw === 'en' ? 'en' : 'ar';
   setRequestLocale(locale);
@@ -73,7 +70,12 @@ export default async function StayBookingSignPage({
 
   return (
     <main className="stay-esign-shell">
-      <StayEsignWizard locale={locale} referenceCode={referenceCode} contractHtml={contractHtml} />
+      <StayEsignWizard
+        locale={locale}
+        referenceCode={referenceCode}
+        contractHtml={contractHtml}
+        initiallyComplete={Boolean(booking.esignCompleted)}
+      />
     </main>
   );
 }

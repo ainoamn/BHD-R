@@ -11289,6 +11289,76 @@ body:has(.stay-esign-shell) .site-footer { display: none; }
   gap: 0.65rem;
 }
 .stay-esign__modal-actions .button { flex: 1; }
+.stay-esign__done {
+  display: grid;
+  gap: 1rem;
+}
+.stay-esign__seal {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 0.95rem 1rem;
+  border-radius: 0.9rem;
+  background: linear-gradient(135deg, #e8f4ec, #f7faf8);
+  border: 1px solid #b7d4c2;
+}
+.stay-esign__seal-mark {
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 999px;
+  background: #1f6b45;
+  color: #fff;
+  font-size: 1.25rem;
+  font-weight: 800;
+  flex: none;
+}
+.stay-esign__seal-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #123528;
+}
+.stay-esign__seal-sub {
+  margin: 0.15rem 0 0;
+  font-size: 0.92rem;
+  color: #2f5a44;
+}
+.stay-esign__seal-time {
+  margin: 0.25rem 0 0;
+  font-size: 0.82rem;
+}
+.stay-esign__contract--signed {
+  position: relative;
+}
+.stay-esign__contract--signed::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 88% 18%, rgb(31 107 69 / 0.12), transparent 42%);
+}
+.stay-esign__signed-figure {
+  margin: 0;
+  padding: 0.65rem;
+  border: 1px solid #d7e1db;
+  border-radius: 0.75rem;
+  background: #fafcfa;
+}
+.stay-esign__signed-figure figcaption {
+  margin-bottom: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+.stay-esign__signed-figure img {
+  display: block;
+  width: 100%;
+  max-height: 140px;
+  object-fit: contain;
+  background: #fff;
+}
 .pay-gateway__card-brand-mark {
   position: absolute;
   inset-inline-end: 0.85rem;

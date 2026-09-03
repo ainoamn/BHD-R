@@ -7,6 +7,11 @@ import {
   stayBookingJson,
 } from '@/lib/public-stays-booking-route';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
+import {
+  isStayEsignRequiredServer,
+  localeFromReturnPath,
+  stayEsignReturnPath,
+} from '@/lib/stay-esign-flags';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -93,6 +98,13 @@ export async function POST(
       ...(parsed.data.cardBrand ? { cardBrand: parsed.data.cardBrand } : {}),
       ...(parsed.data.cardholderName ? { cardholderName: parsed.data.cardholderName } : {}),
     });
+    if (isStayEsignRequiredServer() && payload.referenceCode) {
+      const locale = localeFromReturnPath(parsed.data.returnPath ?? payload.returnPath);
+      return stayBookingJson({
+        ...payload,
+        returnPath: stayEsignReturnPath(locale, payload.referenceCode),
+      });
+    }
     return stayBookingJson(payload);
   } catch (error) {
     return stayBookingErrorResponse(error);

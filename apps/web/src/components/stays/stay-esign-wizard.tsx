@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { stayConfirmedReturnPath } from '@/lib/stay-esign-flags';
 
 type Step = 'contract' | 'sign' | 'id_front' | 'id_back' | 'selfie' | 'done';
 
@@ -9,16 +10,18 @@ export function StayEsignWizard({
   locale,
   referenceCode,
   contractHtml,
+  initiallyComplete = false,
 }: {
   locale: string;
   referenceCode: string;
   contractHtml: string;
+  initiallyComplete?: boolean;
 }) {
   const ar = locale === 'ar';
   const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawing = useRef(false);
-  const [step, setStep] = useState<Step>('contract');
+  const [step, setStep] = useState<Step>(initiallyComplete ? 'done' : 'contract');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
@@ -26,6 +29,11 @@ export function StayEsignWizard({
   const [idBack, setIdBack] = useState<string | null>(null);
   const [selfie, setSelfie] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [signedAtLabel, setSignedAtLabel] = useState<string | null>(null);
+
+  const goToConfirmed = useCallback(() => {
+    router.push(stayConfirmedReturnPath(locale, referenceCode));
+  }, [locale, referenceCode, router]);
 
   const clearCanvas = useCallback(() => {
     const canvas = canvasRef.current;
@@ -132,12 +140,19 @@ export function StayEsignWizard({
       const payload = (await response.json().catch(() => null)) as {
         error?: { messageAr?: string; message?: string };
         completed?: boolean;
+        signedAt?: string;
       } | null;
       if (!response.ok) {
         throw new Error(payload?.error?.messageAr ?? payload?.error?.message ?? 'esign_failed');
       }
+      const at = payload?.signedAt ? new Date(payload.signedAt) : new Date();
+      setSignedAtLabel(
+        new Intl.DateTimeFormat(ar ? 'ar-OM' : 'en-GB', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        }).format(at),
+      );
       setStep('done');
-      router.push(`/${locale}/stays/booking/confirmed?ref=${encodeURIComponent(referenceCode)}`);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'esign_failed');
     } finally {
@@ -228,6 +243,45 @@ export function StayEsignWizard({
                   : 'Complete e-signature'}
             </button>
           ) : null}
+        </section>
+      ) : null}
+
+      {step === 'done' ? (
+        <section className="stay-esign__panel stay-esign__done">
+          <div className="stay-esign__seal" role="status">
+            <span className="stay-esign__seal-mark" aria-hidden>
+              ✓
+            </span>
+            <div>
+              <p className="stay-esign__seal-title">
+                {ar ? 'العقد معتمد إلكترونياً' : 'Contract electronically approved'}
+              </p>
+              <p className="stay-esign__seal-sub">
+                {ar
+                  ? 'من موقع بن حمود للتطوير — BHD R'
+                  : 'By Bin Hamood Development — BHD R'}
+              </p>
+              {signedAtLabel ? (
+                <p className="muted stay-esign__seal-time" dir="ltr">
+                  {signedAtLabel}
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <div
+            className="stay-esign__contract stay-esign__contract--signed"
+            dangerouslySetInnerHTML={{ __html: contractHtml }}
+          />
+          {signatureDataUrl ? (
+            <figure className="stay-esign__signed-figure">
+              <figcaption>{ar ? 'توقيعك' : 'Your signature'}</figcaption>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={signatureDataUrl} alt="" />
+            </figure>
+          ) : null}
+          <button type="button" className="button button--primary" onClick={goToConfirmed}>
+            {ar ? 'متابعة إلى تفاصيل الحجز' : 'Continue to booking details'}
+          </button>
         </section>
       ) : null}
 

@@ -77,10 +77,18 @@ export type GuestStayBookingProjection = {
   stayType?: string | null;
   paymentIntentId?: string | null;
   listingSlug?: string | null;
+  esignCompleted?: boolean;
   canPay?: boolean;
   canCancel?: boolean;
   canRebook?: boolean;
 };
+
+function readEsignCompleted(snapshot: unknown): boolean {
+  if (!snapshot || typeof snapshot !== 'object') return false;
+  const esign = (snapshot as { esign?: unknown }).esign;
+  if (!esign || typeof esign !== 'object') return false;
+  return (esign as { completed?: unknown }).completed === true;
+}
 
 function readGuestContact(snapshot: unknown): {
   displayName?: string;
@@ -189,6 +197,7 @@ function toProjection(booking: {
     stayType: readStayTypeFromSnapshot(booking.pricingSnapshotJson),
     paymentIntentId: booking.paymentIntentId ?? null,
     listingSlug: booking.listingSlug ?? null,
+    esignCompleted: readEsignCompleted(booking.pricingSnapshotJson),
     ...flags,
     canPay: flags.canPay && Boolean(booking.paymentIntentId),
   };

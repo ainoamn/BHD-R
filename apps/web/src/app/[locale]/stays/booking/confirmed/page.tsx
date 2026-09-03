@@ -1,10 +1,11 @@
 import { setRequestLocale } from 'next-intl/server';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { Link } from '@/i18n/navigation';
 import { RememberStayTripAlert } from '@/components/stays/remember-stay-trip-alert';
 import { formatMoney } from '@/lib/format';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { lookupPublicStayBookingOnNeon } from '@/lib/public-stays-guest-neon';
+import { isStayEsignRequiredServer, stayEsignReturnPath } from '@/lib/stay-esign-flags';
 import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
 import { publicApiFetch } from '@/lib/server-api';
 import { stayStatusLabel, stayTypeLabel } from '@/lib/ui-labels';
@@ -23,6 +24,7 @@ type PublicBooking = {
   adults?: number | null;
   children?: number | null;
   stayType?: string | null;
+  esignCompleted?: boolean;
 };
 
 function confirmationWelcome(input: {
@@ -98,6 +100,9 @@ export default async function StayBookingConfirmedPage({
   if (!booking) notFound();
 
   const paid = booking.status === 'confirmed' || booking.status === 'paid';
+  if (isStayEsignRequiredServer() && paid && !booking.esignCompleted) {
+    redirect(stayEsignReturnPath(locale, booking.referenceCode));
+  }
   const stayTone =
     booking.stayType === 'day_use' || booking.stayType === 'overnight_only'
       ? booking.stayType
