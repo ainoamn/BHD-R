@@ -1697,6 +1697,19 @@ body:has(.stays-booking-receipt) #main-content {
   text-align: center;
   font-size: 0.75rem;
 }
+.pay-gateway__alert {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.35rem;
+}
+.pay-gateway__alert p {
+  margin: 0;
+}
+.pay-gateway__rebook {
+  width: 100%;
+  text-align: center;
+  text-decoration: none;
+}
 @media (max-width: 640px) {
   .pay-gateway-shell__summary dl {
     grid-template-columns: 1fr;

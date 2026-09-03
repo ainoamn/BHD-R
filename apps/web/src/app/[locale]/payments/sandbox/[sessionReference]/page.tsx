@@ -149,6 +149,17 @@ export default async function SandboxPaymentPage({
                 amountMinor: session.amountMinor,
                 currency: session.currency,
                 referenceCode: session.referenceCode,
+                ...(session.listingSlug
+                  ? {
+                      rebookHref: (() => {
+                        const qs = new URLSearchParams();
+                        if (session.unitId) qs.set('unit', session.unitId);
+                        if (session.stayType) qs.set('stayType', session.stayType);
+                        const q = qs.toString();
+                        return `/${locale}/stays/${encodeURIComponent(session.listingSlug)}/book${q ? `?${q}` : ''}`;
+                      })(),
+                    }
+                  : {}),
               }
             : {})}
         />

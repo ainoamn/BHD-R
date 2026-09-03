@@ -34,13 +34,17 @@ async function completeStaySandboxPayment(
     },
   );
   const payload = (await response.json().catch(() => null)) as {
-    error?: { messageAr?: string; message?: string };
+    error?: { code?: string; messageAr?: string; message?: string };
     completed?: boolean;
     returnPath?: string | null;
     kind?: string;
   } | null;
   if (!response.ok) {
-    throw new Error(payload?.error?.messageAr ?? payload?.error?.message ?? 'payment_failed');
+    const err = new Error(
+      payload?.error?.messageAr ?? payload?.error?.message ?? 'payment_failed',
+    ) as Error & { code?: string };
+    err.code = payload?.error?.code;
+    throw err;
   }
   return {
     completed: Boolean(payload?.completed),
@@ -98,6 +102,7 @@ export function SandboxPaymentForm({
   amountMinor,
   currency,
   referenceCode,
+  rebookHref,
 }: {
   sessionReference: string;
   returnPath?: string;
@@ -105,11 +110,14 @@ export function SandboxPaymentForm({
   amountMinor?: string;
   currency?: string;
   referenceCode?: string;
+  /** When payment fails because the day was taken — link back to the same stay book flow. */
+  rebookHref?: string;
 }) {
   const locale = useLocale();
   const ar = locale === 'ar';
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [cardName, setCardName] = useState('');
   const [cardNumber, setCardNumber] = useState('');
   const [expiry, setExpiry] = useState(DEMO_EXPIRY);
@@ -156,6 +164,7 @@ export function SandboxPaymentForm({
   async function complete() {
     setTouched(true);
     setMessage(null);
+    setErrorCode(null);
     if (Object.keys(errors).length > 0) {
       setMessage(ar ? 'تحقق من بيانات البطاقة' : 'Check your card details');
       return;
@@ -198,11 +207,21 @@ export function SandboxPaymentForm({
             : 'Payment completed successfully.',
       );
     } catch (error) {
+      const code =
+        error && typeof error === 'object' && 'code' in error
+          ? String((error as { code?: unknown }).code ?? '')
+          : '';
+      setErrorCode(code || null);
       setMessage(error instanceof Error ? error.message : 'payment_failed');
     } finally {
       setBusy(false);
     }
   }
+
+  const showRebook =
+    Boolean(rebookHref) &&
+    (errorCode === 'dates_taken' ||
+      Boolean(message && /نفد الحجز|taken by another|dates_taken|اختر يوماً/i.test(message)));
 
   return (
     <div className="pay-gateway">
@@ -388,9 +407,14 @@ export function SandboxPaymentForm({
           </p>
         ) : null}
         {message ? (
-          <p className="notice notice--info" role="status">
-            {message}
-          </p>
+          <div className="pay-gateway__alert notice notice--info" role="alert">
+            <p>{message}</p>
+            {showRebook && rebookHref ? (
+              <a className="button button--primary pay-gateway__rebook" href={rebookHref}>
+                {ar ? 'العودة لاختيار تواريخ جديدة' : 'Choose new dates for this stay'}
+              </a>
+            ) : null}
+          </div>
         ) : null}
       </form>
     </div>

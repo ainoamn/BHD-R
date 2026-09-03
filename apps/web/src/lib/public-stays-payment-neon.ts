@@ -613,6 +613,10 @@ export type StaySandboxSessionSummary = {
   checkInOn: string;
   checkOutOn: string;
   guestDisplayName: string | null;
+  /** Public listing slug for rebook CTA when the day was taken. */
+  listingSlug: string | null;
+  unitId: string | null;
+  stayType: 'overnight_stay' | 'day_use' | 'overnight_only' | null;
 };
 
 /** Public-safe summary for the sandbox checkout UI (no PAN/secrets). */
@@ -637,6 +641,9 @@ export async function lookupStaySandboxSessionOnNeon(
         eq(stayBookings.organizationId, intent.organizationId),
       ),
       columns: {
+        id: true,
+        unitId: true,
+        stayProfileId: true,
         referenceCode: true,
         checkInOn: true,
         checkOutOn: true,
@@ -664,6 +671,32 @@ export async function lookupStaySandboxSessionOnNeon(
       primaryGuest?.displayName?.trim() ||
       (typeof contact.displayName === 'string' ? contact.displayName.trim() : '') ||
       null;
+    const stayTypeRaw = snapshot.stayType;
+    const stayType =
+      stayTypeRaw === 'day_use' ||
+      stayTypeRaw === 'overnight_only' ||
+      stayTypeRaw === 'overnight_stay'
+        ? stayTypeRaw
+        : null;
+
+    const listingRows = await transaction.execute(sql`
+      SELECT spl.slug
+      FROM stay_profiles sp
+      INNER JOIN stay_public_listings spl
+        ON spl.unit_type_id = sp.unit_type_id
+       AND spl.organization_id = sp.organization_id
+      WHERE sp.id = ${booking.stayProfileId}::uuid
+        AND spl.enabled = true
+      ORDER BY spl.published_at DESC NULLS LAST, spl.updated_at DESC NULLS LAST
+      LIMIT 1
+    `);
+    const listings = Array.isArray(listingRows)
+      ? listingRows
+      : ((listingRows as { rows?: Array<{ slug: string }> }).rows ?? []);
+    const listingSlug =
+      typeof listings[0]?.slug === 'string' && listings[0].slug.trim()
+        ? listings[0].slug.trim()
+        : null;
 
     return {
       sessionReference,
@@ -675,6 +708,9 @@ export async function lookupStaySandboxSessionOnNeon(
       checkInOn: booking.checkInOn,
       checkOutOn: booking.checkOutOn,
       guestDisplayName,
+      listingSlug,
+      unitId: booking.unitId,
+      stayType,
     };
   });
 }
