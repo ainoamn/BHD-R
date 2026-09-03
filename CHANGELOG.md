@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.60 — 2026-09-03
+
+- Fix false dates_taken on pay: exclude the payer's own hold lock from the concurrent-slot check.
+
 ## 0.4.59 — 2026-09-03
 
 - Sync stay calendar with live locks/bookings; expire stale payment_pending after hold TTL so available days match checkout.

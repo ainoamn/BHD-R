@@ -288,7 +288,40 @@ export async function isRangeAvailableInTransaction(
   const lockSlot =
     stayType === 'day_use' ? 'morning' : stayType === 'overnight_only' ? 'evening' : 'full';
 
+  // When confirming payment, ignore this booking's own hold lock — otherwise every pay fails.
+  let excludeLockIds: string[] = [];
+  if (excludeBookingId) {
+    const ownLocks = await transaction.execute(sql`
+      SELECT DISTINCT lock_id
+      FROM (
+        SELECT b.inventory_lock_id::text AS lock_id
+        FROM stay_bookings b
+        WHERE b.id = ${excludeBookingId}::uuid
+          AND b.inventory_lock_id IS NOT NULL
+        UNION ALL
+        SELECT h.inventory_lock_id::text AS lock_id
+        FROM stay_bookings b
+        INNER JOIN stay_holds h ON h.id = b.hold_id
+        WHERE b.id = ${excludeBookingId}::uuid
+          AND h.inventory_lock_id IS NOT NULL
+      ) own
+    `);
+    const rows = Array.isArray(ownLocks)
+      ? ownLocks
+      : ((ownLocks as { rows?: Array<{ lock_id: string }> }).rows ?? []);
+    excludeLockIds = (rows as Array<{ lock_id: string }>)
+      .map((row) => row.lock_id)
+      .filter(Boolean);
+  }
+
   const slotReady = await hasLockSlotColumn(transaction);
+  const excludeLockClause =
+    excludeLockIds.length > 0
+      ? sql`AND id NOT IN (${sql.join(
+          excludeLockIds.map((id) => sql`${id}::uuid`),
+          sql`, `,
+        )})`
+      : sql``;
   const conflicts = slotReady
     ? await transaction.execute(sql`
         SELECT count(*)::text AS count
@@ -302,6 +335,7 @@ export async function isRangeAvailableInTransaction(
             OR ${lockSlot} = 'full'
             OR lock_slot = ${lockSlot}
           )
+          ${excludeLockClause}
       `)
     : await transaction.execute(sql`
         SELECT count(*)::text AS count
@@ -310,6 +344,7 @@ export async function isRangeAvailableInTransaction(
           AND unit_id = ${unitId}::uuid
           AND status = 'active'
           AND stay_range && daterange(${checkInOn}::date, ${checkOutOn}::date, '[)')
+          ${excludeLockClause}
       `);
   const conflictRows = Array.isArray(conflicts)
     ? conflicts
@@ -333,6 +368,7 @@ export async function isRangeAvailableInTransaction(
           AND h.expires_at > now()
         )
       )
+      ${excludeBookingId ? sql`AND b.id <> ${excludeBookingId}::uuid` : sql``}
   `);
   const bookings = Array.isArray(bookingRows)
     ? bookingRows

@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-09-03  
-**Product version:** 0.4.59  
-**Active focus:** Calendar vs checkout availability sync  
+**Product version:** 0.4.60  
+**Active focus:** Fix self-lock dates_taken on payment  
+**Release 0.4.60:** exclude own hold lock on pay  
 **Release 0.4.59:** calendar overlays locks + expire stale unpaid bookings  
 **Release 0.4.58:** fix payment form TS build  
 **Release 0.4.57:** payment dates-taken rebook button  
