@@ -11065,8 +11065,9 @@ body:has(.stays-book-shell) #main-content {
   position: relative;
   z-index: 2;
   display: grid;
-  gap: 0.55rem;
-  align-content: end;
+  grid-template-rows: auto 1fr;
+  gap: 1rem;
+  align-content: stretch;
   min-height: inherit;
   width: 100%;
   max-width: min(36rem, 100%);
@@ -11082,30 +11083,48 @@ body:has(.stays-book-shell) #main-content {
   opacity: 0.92;
   width: fit-content;
 }
+.stays-book-shell__intro {
+  display: grid;
+  grid-template-columns: 1fr;
+  justify-items: start;
+  align-content: end;
+  gap: 0.85rem;
+  min-height: 0;
+  padding-block-end: 0.35rem;
+}
 .stays-book-shell__brand {
   display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  margin-top: 0.35rem;
-}
-.stays-book-shell__kicker {
-  margin: 0.35rem 0 0;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  font-size: 0.78rem;
-  opacity: 0.85;
-}
-.stays-book-shell__aside-content h1 {
+  align-items: flex-start;
   margin: 0;
-  font-size: clamp(1.55rem, 4vw, 2.25rem);
-  line-height: 1.15;
+}
+.stays-book-shell__brand.logo__product img {
+  width: clamp(7.25rem, 18vw, 8.75rem);
+  height: auto;
+}
+.stays-book-shell__brand.logo__product i {
+  min-width: 1.15rem;
+  min-height: 1.15rem;
+  font-size: 0.78rem;
+  margin-block-start: -0.06rem;
+}
+.stays-book-shell__title {
+  margin: 0;
+  max-width: 16ch;
+  font-size: clamp(1.85rem, 4.6vw, 2.65rem);
+  line-height: 1.12;
+  font-weight: 800;
+  letter-spacing: -0.01em;
   color: #fff;
+  text-wrap: balance;
 }
 .stays-book-shell__lede {
-  margin: 0.15rem 0 0;
-  max-width: 34ch;
-  opacity: 0.92;
-  line-height: 1.55;
+  margin: 0;
+  max-width: 28ch;
+  color: rgba(245, 251, 248, 0.9);
+  font-size: clamp(0.98rem, 2.2vw, 1.12rem);
+  line-height: 1.6;
+  font-weight: 500;
+  text-wrap: pretty;
 }
 .stays-book-shell__panel {
   width: min(100%, 42rem);
@@ -11226,8 +11245,11 @@ body:has(.stay-esign-shell) .site-footer { display: none; }
   .stays-book-shell__aside-content {
     max-width: 38rem;
     min-height: 100dvh;
-    align-content: center;
     padding-inline: clamp(1.25rem, 3vw, 2.25rem);
+  }
+  .stays-book-shell__intro {
+    align-content: center;
+    padding-block-end: 0;
   }
   .stays-book-shell__panel {
     width: 100%;

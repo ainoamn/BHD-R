@@ -106,21 +106,22 @@ export default async function StayBookPage({
             >
               {ar ? '← العودة للإقامة' : '← Back to stay'}
             </Link>
-            <span
-              className="stays-book-shell__brand logo__product logo__product--on-dark"
-              aria-label="BHD R"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/brand/bhd-official-symbol.svg" alt="" width="92" height="30" />
-              <i>R</i>
-            </span>
-            <p className="stays-book-shell__kicker">{ar ? 'حجز إقامة يومية' : 'Daily stay booking'}</p>
-            <h1>{title}</h1>
-            <p className="stays-book-shell__lede">
-              {ar
-                ? 'أكمل التواريخ وبياناتك والمراجعة — ثم ادفع لتأكيد الحجز.'
-                : 'Complete dates, guest details, and review — then pay to confirm.'}
-            </p>
+            <div className="stays-book-shell__intro">
+              <span
+                className="stays-book-shell__brand logo__product logo__product--on-dark"
+                aria-label="BHD R"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/brand/bhd-official-symbol.svg" alt="" width="140" height="46" />
+                <i>R</i>
+              </span>
+              <h1 className="stays-book-shell__title">{title}</h1>
+              <p className="stays-book-shell__lede">
+                {ar
+                  ? 'اختر يومك وأكمل بياناتك، ثم ادفع لتأكيد الحجز.'
+                  : 'Pick your day, add your details, then pay to confirm.'}
+              </p>
+            </div>
           </div>
         </div>
       </aside>

@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-09-03  
-**Product version:** 0.4.54  
-**Active focus:** Book page split layout + same-day day_use quote hardening  
+**Product version:** 0.4.55  
+**Active focus:** Book aside brand hierarchy polish  
+**Release 0.4.55:** book aside logo above title + clearer lede  
 **Release 0.4.54:** [`RELEASE-0.4.54-AR.md`](./RELEASE-0.4.54-AR.md)  
 **Release 0.4.53:** [`RELEASE-0.4.53-AR.md`](./RELEASE-0.4.53-AR.md)  
 **Release 0.4.52:** [`RELEASE-0.4.52-AR.md`](./RELEASE-0.4.52-AR.md) · [`PAYMENT-CARD-DATA-POLICY-AR.md`](./PAYMENT-CARD-DATA-POLICY-AR.md)  

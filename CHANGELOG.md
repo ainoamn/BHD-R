@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.55 — 2026-09-03
+
+- Stay book aside: larger BHD logo stacked above property title; shorter Arabic/English lede.
+
 ## 0.4.54 — 2026-09-03
 
 - Stay book page: split layout like payment (property image aside + booking panel) instead of centered modal over hero.
