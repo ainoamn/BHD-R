@@ -112,14 +112,27 @@ export default async function StayBookPage({
                 aria-label="BHD R"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/brand/bhd-official-symbol.svg" alt="" width="140" height="46" />
+                <img src="/brand/bhd-official-symbol.svg" alt="" width="156" height="52" />
                 <i>R</i>
               </span>
-              <h1 className="stays-book-shell__title">{title}</h1>
+              <p className="stays-book-shell__headline">
+                {ar ? (
+                  <>
+                    اجعل يومك أفضل
+                    <span>بحجز إقامة من BHD R</span>
+                  </>
+                ) : (
+                  <>
+                    Make your day better
+                    <span>with a stay from BHD R</span>
+                  </>
+                )}
+              </p>
+              <p className="stays-book-shell__place">{title}</p>
               <p className="stays-book-shell__lede">
                 {ar
-                  ? 'اختر يومك وأكمل بياناتك، ثم ادفع لتأكيد الحجز.'
-                  : 'Pick your day, add your details, then pay to confirm.'}
+                  ? 'أكمل بياناتك ثم أكمل الدفع لتحظى بأفضل إقامة معنا.'
+                  : 'Add your details, then pay — and enjoy your best stay with us.'}
               </p>
             </div>
           </div>
