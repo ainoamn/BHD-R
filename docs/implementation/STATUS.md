@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-09-03  
-**Product version:** 0.4.53  
-**Active focus:** Day-use same-day + half-day slots + fullscreen checkout + e-sign  
+**Product version:** 0.4.54  
+**Active focus:** Book page split layout + same-day day_use quote hardening  
+**Release 0.4.54:** [`RELEASE-0.4.54-AR.md`](./RELEASE-0.4.54-AR.md)  
 **Release 0.4.53:** [`RELEASE-0.4.53-AR.md`](./RELEASE-0.4.53-AR.md)  
 **Release 0.4.52:** [`RELEASE-0.4.52-AR.md`](./RELEASE-0.4.52-AR.md) · [`PAYMENT-CARD-DATA-POLICY-AR.md`](./PAYMENT-CARD-DATA-POLICY-AR.md)  
 **Release 0.4.51:** [`RELEASE-0.4.51-AR.md`](./RELEASE-0.4.51-AR.md)  

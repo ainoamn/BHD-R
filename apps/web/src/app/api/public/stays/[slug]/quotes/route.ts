@@ -48,7 +48,16 @@ export async function POST(request: Request, context: RouteContext) {
       : body,
   );
   if (!parsed.success) {
-    return stayBookingJson({ error: { code: 'invalid_body' } }, { status: 400 });
+    return stayBookingJson(
+      {
+        error: {
+          code: 'invalid_body',
+          message: 'Invalid quote request',
+          messageAr: 'بيانات الحجز غير مكتملة — تحقق من التواريخ ونوع الإقامة.',
+        },
+      },
+      { status: 400 },
+    );
   }
 
   try {

@@ -123,6 +123,19 @@ export const createStayQuoteSchema = z
   })
   .strict()
   .superRefine((value, ctx) => {
+    const sameDayOk =
+      value.stayType === 'day_use' || value.stayType === 'overnight_only';
+    if (sameDayOk) {
+      // UI may send checkOut === checkIn; server expands to exclusive +1.
+      if (value.checkOutOn < value.checkInOn) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'checkOutOn must be on or after checkInOn',
+          path: ['checkOutOn'],
+        });
+      }
+      return;
+    }
     if (value.checkOutOn <= value.checkInOn) {
       ctx.addIssue({
         code: 'custom',

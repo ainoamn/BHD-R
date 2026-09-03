@@ -35,17 +35,17 @@ export function stayDatesValid(
 
 /**
  * Exclusive checkout for inventory `[checkIn, checkOut)`.
- * Same-day day_use / overnight_only → checkOut = checkIn + 1.
+ * day_use / overnight_only always occupy one calendar day → checkOut = checkIn + 1.
  */
 export function exclusiveCheckOutOn(
   type: StayBookingType,
   checkInOn: string,
-  checkOutOn: string,
+  _checkOutOn: string,
 ): string {
-  if (isSameCalendarDayStay(type) && checkOutOn <= checkInOn) {
+  if (isSameCalendarDayStay(type)) {
     return addUtcDays(checkInOn, 1);
   }
-  return checkOutOn;
+  return _checkOutOn;
 }
 
 /** Whether two stay types conflict on overlapping calendar nights. */

@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.54 — 2026-09-03
+
+- Stay book page: split layout like payment (property image aside + booking panel) instead of centered modal over hero.
+- Fix review-step quote failure for same-day day_use: server normalizes exclusive checkout; availability no longer 500s on equal dates; lock_slot probed via information_schema (no aborted txn).
+- Clearer Arabic errors for invalid quote body; review step Retry when quote fails.
+
 ## 0.4.45 — 2026-09-02
 
 - Stay detail accepts `unit` or `unitId` query (and metadata) so multi-unit calendars stay pinned.

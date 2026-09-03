@@ -89,37 +89,43 @@ export default async function StayBookPage({
   const stayType = parseStayType(pickQuery(query, 'stayType'));
 
   return (
-    <div className="stays-book-shell">
-      <div className="stays-book-shell__hero">
-        {cover ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img className="stays-book-shell__cover" src={cover} alt="" />
-        ) : (
-          <div className="stays-book-shell__cover stays-book-shell__cover--fallback" />
-        )}
-        <div className="stays-book-shell__scrim" />
-        <div className="stays-book-shell__hero-content">
-          <Link
-            className="stays-book-shell__back"
-            href={`/stays/${encodeURIComponent(slug)}${unitId ? `?unit=${encodeURIComponent(unitId)}` : ''}`}
-          >
-            {ar ? '← العودة للإقامة' : '← Back to stay'}
-          </Link>
-          <span className="stays-book-shell__brand logo__product logo__product--on-dark" aria-label="BHD R">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/brand/bhd-official-symbol.svg" alt="" width="92" height="30" />
-            <i>R</i>
-          </span>
-          <p className="stays-book-shell__kicker">{ar ? 'حجز إقامة يومية' : 'Daily stay booking'}</p>
-          <h1>{title}</h1>
-          <p>
-            {ar
-              ? 'أكمل التواريخ وبياناتك والمراجعة في شاشة واحدة — ثم ادفع لتأكيد الحجز.'
-              : 'Complete dates, guest details, and review in one flow — then pay to confirm.'}
-          </p>
+    <section className="stays-book-shell" data-stay-book-immersive="true">
+      <aside className="stays-book-shell__aside">
+        <div className="stays-book-shell__aside-inner">
+          {cover ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img className="stays-book-shell__aside-bg" src={cover} alt="" />
+          ) : (
+            <div className="stays-book-shell__aside-bg stays-book-shell__aside-bg--fallback" />
+          )}
+          <div className="stays-book-shell__aside-scrim" />
+          <div className="stays-book-shell__aside-content">
+            <Link
+              className="stays-book-shell__back"
+              href={`/stays/${encodeURIComponent(slug)}${unitId ? `?unit=${encodeURIComponent(unitId)}` : ''}`}
+            >
+              {ar ? '← العودة للإقامة' : '← Back to stay'}
+            </Link>
+            <span
+              className="stays-book-shell__brand logo__product logo__product--on-dark"
+              aria-label="BHD R"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/brand/bhd-official-symbol.svg" alt="" width="92" height="30" />
+              <i>R</i>
+            </span>
+            <p className="stays-book-shell__kicker">{ar ? 'حجز إقامة يومية' : 'Daily stay booking'}</p>
+            <h1>{title}</h1>
+            <p className="stays-book-shell__lede">
+              {ar
+                ? 'أكمل التواريخ وبياناتك والمراجعة — ثم ادفع لتأكيد الحجز.'
+                : 'Complete dates, guest details, and review — then pay to confirm.'}
+            </p>
+          </div>
         </div>
-      </div>
-      <div className="stays-book-shell__main">
+      </aside>
+
+      <div className="stays-book-shell__panel">
         <StayCheckout
           locale={locale}
           slug={slug}
@@ -142,6 +148,6 @@ export default async function StayBookPage({
           }}
         />
       </div>
-    </div>
+    </section>
   );
 }

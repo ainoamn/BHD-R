@@ -61,6 +61,44 @@ async function asPublic<T>(work: (transaction: Tx) => Promise<T>): Promise<T> {
   });
 }
 
+type StayTypeArg = 'overnight_stay' | 'day_use' | 'overnight_only';
+
+/** day_use / overnight_only may arrive with checkOut === checkIn from the UI. */
+function exclusiveStayRange(
+  stayType: StayTypeArg,
+  checkInOn: string,
+  checkOutOn: string,
+): { checkInOn: string; checkOutOn: string } {
+  if (
+    (stayType === 'day_use' || stayType === 'overnight_only') &&
+    checkOutOn <= checkInOn
+  ) {
+    const next = new Date(`${checkInOn}T00:00:00.000Z`);
+    next.setUTCDate(next.getUTCDate() + 1);
+    return { checkInOn, checkOutOn: next.toISOString().slice(0, 10) };
+  }
+  return { checkInOn, checkOutOn };
+}
+
+let lockSlotColumnReady: boolean | null = null;
+
+async function hasLockSlotColumn(transaction: Tx): Promise<boolean> {
+  if (lockSlotColumnReady != null) return lockSlotColumnReady;
+  const result = await transaction.execute(sql`
+    SELECT 1 AS ok
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'stay_inventory_locks'
+      AND column_name = 'lock_slot'
+    LIMIT 1
+  `);
+  const rows = Array.isArray(result)
+    ? result
+    : ((result as { rows?: unknown[] }).rows ?? []);
+  lockSlotColumnReady = rows.length > 0;
+  return lockSlotColumnReady;
+}
+
 export class PublicStayBookingError extends Error {
   constructor(
     public readonly code: string,
@@ -248,39 +286,33 @@ export async function isRangeAvailableInTransaction(
   const lockSlot =
     stayType === 'day_use' ? 'morning' : stayType === 'overnight_only' ? 'evening' : 'full';
 
-  // Slot-aware lock conflict (after 0023 migration). Falls back to any overlap if column missing.
-  try {
-    const conflicts = await transaction.execute(sql`
-      SELECT count(*)::text AS count
-      FROM stay_inventory_locks
-      WHERE organization_id = ${organizationId}::uuid
-        AND unit_id = ${unitId}::uuid
-        AND status = 'active'
-        AND stay_range && daterange(${checkInOn}::date, ${checkOutOn}::date, '[)')
-        AND (
-          lock_slot = 'full'
-          OR ${lockSlot} = 'full'
-          OR lock_slot = ${lockSlot}
-        )
-    `);
-    const conflictRows = Array.isArray(conflicts)
-      ? conflicts
-      : ((conflicts as { rows?: Array<{ count: string }> }).rows ?? []);
-    if ((conflictRows[0]?.count ?? '0') !== '0') return false;
-  } catch {
-    const conflicts = await transaction.execute(sql`
-      SELECT count(*)::text AS count
-      FROM stay_inventory_locks
-      WHERE organization_id = ${organizationId}::uuid
-        AND unit_id = ${unitId}::uuid
-        AND status = 'active'
-        AND stay_range && daterange(${checkInOn}::date, ${checkOutOn}::date, '[)')
-    `);
-    const conflictRows = Array.isArray(conflicts)
-      ? conflicts
-      : ((conflicts as { rows?: Array<{ count: string }> }).rows ?? []);
-    if ((conflictRows[0]?.count ?? '0') !== '0') return false;
-  }
+  const slotReady = await hasLockSlotColumn(transaction);
+  const conflicts = slotReady
+    ? await transaction.execute(sql`
+        SELECT count(*)::text AS count
+        FROM stay_inventory_locks
+        WHERE organization_id = ${organizationId}::uuid
+          AND unit_id = ${unitId}::uuid
+          AND status = 'active'
+          AND stay_range && daterange(${checkInOn}::date, ${checkOutOn}::date, '[)')
+          AND (
+            lock_slot = 'full'
+            OR ${lockSlot} = 'full'
+            OR lock_slot = ${lockSlot}
+          )
+      `)
+    : await transaction.execute(sql`
+        SELECT count(*)::text AS count
+        FROM stay_inventory_locks
+        WHERE organization_id = ${organizationId}::uuid
+          AND unit_id = ${unitId}::uuid
+          AND status = 'active'
+          AND stay_range && daterange(${checkInOn}::date, ${checkOutOn}::date, '[)')
+      `);
+  const conflictRows = Array.isArray(conflicts)
+    ? conflicts
+    : ((conflicts as { rows?: Array<{ count: string }> }).rows ?? []);
+  if ((conflictRows[0]?.count ?? '0') !== '0') return false;
 
   // Also conflict with confirmed / pending bookings of incompatible stay types.
   const bookingRows = await transaction.execute(sql`
@@ -392,26 +424,45 @@ async function createLockInTransaction(
   const lockSlot = input.lockSlot ?? 'full';
   await transaction.execute(sql`select pg_advisory_xact_lock(hashtext(${input.unitId}::text))`);
   await releaseExpiredHoldsInTransaction(transaction, input.organizationId);
+  const slotReady = await hasLockSlotColumn(transaction);
 
   try {
-    const inserted = await transaction.execute(sql`
-      INSERT INTO stay_inventory_locks (
-        organization_id, unit_id, stay_range, kind, status, lock_slot,
-        source_type, source_id, expires_at, note
-      ) VALUES (
-        ${input.organizationId}::uuid,
-        ${input.unitId}::uuid,
-        ${stayRange}::daterange,
-        ${input.kind},
-        'active',
-        ${lockSlot},
-        ${input.sourceType ?? null},
-        ${input.sourceId ?? null},
-        ${input.expiresAt ? input.expiresAt.toISOString() : null},
-        ${input.note ?? null}
-      )
-      RETURNING id
-    `);
+    const inserted = slotReady
+      ? await transaction.execute(sql`
+          INSERT INTO stay_inventory_locks (
+            organization_id, unit_id, stay_range, kind, status, lock_slot,
+            source_type, source_id, expires_at, note
+          ) VALUES (
+            ${input.organizationId}::uuid,
+            ${input.unitId}::uuid,
+            ${stayRange}::daterange,
+            ${input.kind},
+            'active',
+            ${lockSlot},
+            ${input.sourceType ?? null},
+            ${input.sourceId ?? null},
+            ${input.expiresAt ? input.expiresAt.toISOString() : null},
+            ${input.note ?? null}
+          )
+          RETURNING id
+        `)
+      : await transaction.execute(sql`
+          INSERT INTO stay_inventory_locks (
+            organization_id, unit_id, stay_range, kind, status,
+            source_type, source_id, expires_at, note
+          ) VALUES (
+            ${input.organizationId}::uuid,
+            ${input.unitId}::uuid,
+            ${stayRange}::daterange,
+            ${input.kind},
+            'active',
+            ${input.sourceType ?? null},
+            ${input.sourceId ?? null},
+            ${input.expiresAt ? input.expiresAt.toISOString() : null},
+            ${input.note ?? null}
+          )
+          RETURNING id
+        `);
     const rows = Array.isArray(inserted)
       ? inserted
       : ((inserted as { rows?: unknown[] }).rows ?? []);
@@ -515,8 +566,14 @@ export async function getPublicStayAvailabilityOnNeon(
   if (guests > ctx.maxGuests) {
     return { available: false as const, reason: 'guests_exceed_max' as const };
   }
-  const nights = nightsBetween({ checkInOn: query.checkInOn, checkOutOn: query.checkOutOn });
   const stayType = query.stayType ?? 'overnight_stay';
+  const range = exclusiveStayRange(stayType, query.checkInOn, query.checkOutOn);
+  let nights: number;
+  try {
+    nights = nightsBetween(range);
+  } catch {
+    return { available: false as const, reason: 'nights_out_of_range' as const, nights: 0 };
+  }
   if (
     stayType === 'overnight_stay' &&
     (nights < ctx.minNights || nights > ctx.maxNights)
@@ -531,8 +588,8 @@ export async function getPublicStayAvailabilityOnNeon(
       transaction,
       ctx.organizationId,
       ctx.unitId,
-      query.checkInOn,
-      query.checkOutOn,
+      range.checkInOn,
+      range.checkOutOn,
       stayType,
     ),
   );
@@ -554,8 +611,18 @@ export async function createPublicStayQuoteOnNeon(slug: string, input: CreateSta
   if (guests > ctx.maxGuests) {
     throw new PublicStayBookingError('guests_exceed_max', 'Guest count exceeds unit maximum', 409);
   }
-  const nights = nightsBetween({ checkInOn: input.checkInOn, checkOutOn: input.checkOutOn });
   const stayTypeEarly = input.stayType ?? 'overnight_stay';
+  const range = exclusiveStayRange(stayTypeEarly, input.checkInOn, input.checkOutOn);
+  let nights: number;
+  try {
+    nights = nightsBetween(range);
+  } catch {
+    throw new PublicStayBookingError(
+      'nights_out_of_range',
+      'Stay length is outside profile min/max nights',
+      409,
+    );
+  }
   if (
     stayTypeEarly === 'overnight_stay' &&
     (nights < ctx.minNights || nights > ctx.maxNights)
@@ -571,8 +638,8 @@ export async function createPublicStayQuoteOnNeon(slug: string, input: CreateSta
       transaction,
       ctx.organizationId,
       ctx.unitId,
-      input.checkInOn,
-      input.checkOutOn,
+      range.checkInOn,
+      range.checkOutOn,
       stayTypeEarly,
     ),
   );
@@ -586,8 +653,8 @@ export async function createPublicStayQuoteOnNeon(slug: string, input: CreateSta
       FROM stay_inventory_days
       WHERE organization_id = ${ctx.organizationId}::uuid
         AND unit_id = ${ctx.unitId}::uuid
-        AND stay_date >= ${input.checkInOn}::date
-        AND stay_date < ${input.checkOutOn}::date
+        AND stay_date >= ${range.checkInOn}::date
+        AND stay_date < ${range.checkOutOn}::date
         AND effective_rate_minor IS NOT NULL
     `);
     const rows = Array.isArray(result) ? result : ((result as { rows?: unknown[] }).rows ?? []);
@@ -598,19 +665,26 @@ export async function createPublicStayQuoteOnNeon(slug: string, input: CreateSta
     return map;
   });
 
-  const stayType = input.stayType ?? 'overnight_stay';
+  const stayType = stayTypeEarly;
   const selectedBase =
     stayType === 'day_use'
       ? (ctx.dayUseMinor ?? ctx.baseNightlyMinor)
       : stayType === 'overnight_only'
         ? (ctx.overnightOnlyMinor ?? ctx.baseNightlyMinor)
         : ctx.baseNightlyMinor;
+  if (!selectedBase || !/^\d+$/.test(selectedBase)) {
+    throw new PublicStayBookingError(
+      'dates_unavailable',
+      'Stay pricing is not configured for this unit',
+      409,
+    );
+  }
   // Day-use / overnight-only ignore weekend premium and per-day inventory overrides.
   const useInventoryOverrides = stayType === 'overnight_stay';
   const priced = quoteStay({
     currency: ctx.currency,
-    checkInOn: input.checkInOn,
-    checkOutOn: input.checkOutOn,
+    checkInOn: range.checkInOn,
+    checkOutOn: range.checkOutOn,
     baseNightlyMinor: selectedBase,
     weekendNightlyMinor:
       stayType === 'overnight_stay' ? ctx.weekendNightlyMinor : selectedBase,
@@ -624,8 +698,8 @@ export async function createPublicStayQuoteOnNeon(slug: string, input: CreateSta
     .update(
       JSON.stringify({
         unitId: ctx.unitId,
-        checkInOn: input.checkInOn,
-        checkOutOn: input.checkOutOn,
+        checkInOn: range.checkInOn,
+        checkOutOn: range.checkOutOn,
         adults: input.adults,
         children: input.children,
         stayType,
@@ -643,8 +717,8 @@ export async function createPublicStayQuoteOnNeon(slug: string, input: CreateSta
         organizationId: ctx.organizationId,
         stayProfileId: ctx.stayProfileId,
         unitId: ctx.unitId,
-        checkInOn: input.checkInOn,
-        checkOutOn: input.checkOutOn,
+        checkInOn: range.checkInOn,
+        checkOutOn: range.checkOutOn,
         nights: priced.nights,
         adults: input.adults,
         children: input.children,
@@ -672,8 +746,8 @@ export async function createPublicStayQuoteOnNeon(slug: string, input: CreateSta
       payload: {
         slug,
         unitId: ctx.unitId,
-        checkInOn: input.checkInOn,
-        checkOutOn: input.checkOutOn,
+        checkInOn: range.checkInOn,
+        checkOutOn: range.checkOutOn,
         totalMinor: priced.totalMinor,
         currency: priced.currency,
       },

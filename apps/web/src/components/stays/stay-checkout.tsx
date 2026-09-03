@@ -681,20 +681,30 @@ export function StayCheckout({
             <button type="button" className="button button--quiet" onClick={() => setStep('guest')}>
               {ar ? 'رجوع' : 'Back'}
             </button>
-            <button
-              type="button"
-              className="button button--primary"
-              disabled={pending || !quote || payBusy}
-              onClick={openConfirmModal}
-            >
-              {pending || payBusy
-                ? ar
-                  ? 'جارٍ الحجز والدفع…'
-                  : 'Booking & paying…'
-                : ar
-                  ? 'تأكيد الحجز'
-                  : 'Confirm booking'}
-            </button>
+            {!quote && !pending ? (
+              <button
+                type="button"
+                className="button button--primary"
+                onClick={continueFromGuest}
+              >
+                {ar ? 'إعادة المحاولة' : 'Retry'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="button button--primary"
+                disabled={pending || !quote || payBusy}
+                onClick={openConfirmModal}
+              >
+                {pending || payBusy
+                  ? ar
+                    ? 'جارٍ الحجز والدفع…'
+                    : 'Booking & paying…'
+                  : ar
+                    ? 'تأكيد الحجز'
+                    : 'Confirm booking'}
+              </button>
+            )}
           </div>
         </div>
       ) : null}
