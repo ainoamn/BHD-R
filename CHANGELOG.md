@@ -2,7 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
-## 0.4.56 — 2026-09-03\n\n- Stay book aside: centered motivational copy under larger BHD logo.\n\n## 0.4.55 — 2026-09-03
+## 0.4.56 — 2026-09-03
+
+- Stay book aside: centered motivational copy under larger BHD logo.
+
+## 0.4.55 — 2026-09-03
 
 - Stay book aside: larger BHD logo stacked above property title; shorter Arabic/English lede.
 

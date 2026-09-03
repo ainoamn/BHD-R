@@ -3,7 +3,8 @@
 **Updated:** 2026-09-03  
 **Product version:** 0.4.56  
 **Active focus:** Motivational centered book aside  
-**Release 0.4.56:** centered motivational book aside  \n**Release 0.4.55:** book aside logo above title + clearer lede  
+**Release 0.4.56:** centered motivational book aside  
+**Release 0.4.55:** book aside logo above title + clearer lede  
 **Release 0.4.54:** [`RELEASE-0.4.54-AR.md`](./RELEASE-0.4.54-AR.md)  
 **Release 0.4.53:** [`RELEASE-0.4.53-AR.md`](./RELEASE-0.4.53-AR.md)  
 **Release 0.4.52:** [`RELEASE-0.4.52-AR.md`](./RELEASE-0.4.52-AR.md) · [`PAYMENT-CARD-DATA-POLICY-AR.md`](./PAYMENT-CARD-DATA-POLICY-AR.md)  
