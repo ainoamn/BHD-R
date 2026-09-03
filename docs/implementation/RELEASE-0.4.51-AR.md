@@ -2,7 +2,7 @@
 
 **التاريخ:** 2026-09-03  
 **الإنتاج:** https://r.bhd-om.com  
-**Commit:** _(after push)_
+**Commit:** `f220c80`
 
 ## الملخص
 
