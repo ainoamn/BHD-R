@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.69 — 2026-09-06
+
+- Full-width portal/content shells; larger ops calendar cells; short day marks without overlapping booking refs; clearer booking/block list labels.
+
 ## 0.4.68 — 2026-09-06
 
 - Ops stay calendar: project live bookings (not only inventory locks), normalize date overlays, show booking refs on booked days, richer unit tabs.
@@ -810,4 +814,3 @@ All notable changes are documented here. The project follows Semantic Versioning
 - Restricted media CSP, HSTS, item-specific social metadata, and an original bilingual Open Graph card.
 - Updated dependency and runtime verification gates with a clean package-security audit.
 - Pruned production-only Docker images and split database migrations into a least-privilege image.
-

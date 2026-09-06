@@ -20,6 +20,20 @@
 .portal-main {
   padding: var(--portal-pad);
   padding-block-end: calc(var(--portal-pad) + var(--safe-bottom));
+  width: 100%;
+  max-width: none;
+}
+
+.portal-layout .form-shell,
+.portal-layout .stays-portal,
+.portal-layout .ops-workspace {
+  max-width: none;
+  width: 100%;
+}
+
+.portal-layout .stays-ops-calendar,
+.portal-layout .stays-calendar {
+  width: 100%;
 }
 
 .portal-chrome__row {
@@ -115,7 +129,6 @@
 .property-360__serial {
   font-size: clamp(0.78rem, 0.74rem + 0.22vw, 0.92rem);
 }
-
 
 .wizard-shell .input,
 .wizard-shell .select,

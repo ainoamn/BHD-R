@@ -95,6 +95,20 @@ function statusLabel(status: StayInventoryDay['availabilityStatus'], ar: boolean
   return ar ? pair[0] : pair[1];
 }
 
+function lockKindLabel(kind: string, ar: boolean): string {
+  const map: Record<string, [string, string]> = {
+    booking: ['حجز مؤكد', 'Confirmed booking'],
+    hold: ['حجز مؤقت', 'Temporary hold'],
+    maintenance: ['صيانة', 'Maintenance'],
+    lease: ['إيجار طويل', 'Lease'],
+    owner_block: ['إغلاق مالك', 'Owner block'],
+    channel: ['قناة خارجية', 'Channel block'],
+  };
+  const pair = map[kind];
+  if (pair) return ar ? pair[0] : pair[1];
+  return kind;
+}
+
 /** Compact mark shown inside each day cell. */
 function statusMark(status: StayInventoryDay['availabilityStatus'], ar: boolean): string | null {
   switch (status) {
@@ -463,27 +477,22 @@ export function StayAvailabilityCalendar({
                       </span>
                       {selectedLabel ? (
                         <span className="stays-calendar__day-status">{selectedLabel}</span>
-                      ) : status === 'booked' || status === 'hold' ? (
-                        <span className="stays-calendar__day-status">
-                          {lock?.bookingReference
-                            ? lock.bookingReference.replace(/^ST-/, '')
-                            : mark}
-                        </span>
+                      ) : status === 'booked' ||
+                        status === 'hold' ||
+                        status === 'blocked' ||
+                        status === 'maintenance' ||
+                        status === 'lease' ? (
+                        <span className="stays-calendar__day-status">{mark}</span>
                       ) : day.effectiveRateMinor && currency ? (
                         <span className="stays-calendar__day-price" dir="ltr">
                           {compactMoney(day.effectiveRateMinor, currency, locale)}
                         </span>
-                      ) : mark ? (
+                      ) : mark && mode === 'ops' ? (
                         <span className="stays-calendar__day-status">{mark}</span>
                       ) : null}
                       {day.publicNote && !selected ? (
                         <span className="stays-calendar__day-note" aria-hidden="true">
                           ✎
-                        </span>
-                      ) : null}
-                      {mode === 'ops' && lock?.bookingReference ? (
-                        <span className="stays-calendar__day-ref" dir="ltr">
-                          {lock.bookingReference}
                         </span>
                       ) : null}
                     </button>
@@ -520,7 +529,7 @@ export function StayAvailabilityCalendar({
                 <strong dir="ltr">
                   {lock.checkInOn} → {lock.checkOutOn}
                 </strong>
-                <span>{lock.kind}</span>
+                <span>{lockKindLabel(lock.kind, ar)}</span>
                 {lock.bookingReference ? <span dir="ltr">{lock.bookingReference}</span> : null}
                 {lock.note ? <span className="muted">{lock.note}</span> : null}
               </li>

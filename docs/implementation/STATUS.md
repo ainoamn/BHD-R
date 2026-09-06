@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-09-06  
-**Product version:** 0.4.68  
-**Active focus:** Ops calendar shows live bookings  
+**Product version:** 0.4.69  
+**Active focus:** Full-width layout + readable ops calendar  
+**Release 0.4.69:** portal full width; larger calendar cells; short marks; booking refs in list/tooltip only  
 **Release 0.4.68:** calendar booking projection + unit labels + booked-day refs  
 **Release 0.4.67:** build fix useMemo + exactOptionalPropertyTypes  
 **Release 0.4.66:** bookings list stats/filters/search/cards  
@@ -75,28 +76,28 @@
 **Env manifest:** [`ENV-MANIFEST.md`](./ENV-MANIFEST.md)  
 **Nest hosting:** [`NEST-API-HOSTING.md`](./NEST-API-HOSTING.md)
 
-| Phase | Status | Notes |
-| ----- | ------ | ----- |
-| Stay setup + publish (ops API + wizard) | **shipped 0.4.19** | Pilot needs flag + allowlist |
-| Stay iCal export (read-only) | **shipped 0.4.11** | No outbound fetch; import still blocked |
-| Ops cancel / no-show | **shipped 0.4.10** | Release lock + UI actions |
-| Ops stay bookings list | **shipped 0.4.9** | Real org-scoped list/detail |
-| Stay payment provider redirect | **shipped 0.4.8** | Sandbox session + confirm |
-| Occupancy / ADR / RevPAR reports | **shipped 0.4.7** | Ops + owner/dev dashboard |
-| Guest trips list + reference claim | **shipped 0.4.6** | Flag off → 404/401 |
-| Guest interactive checkout UI | **shipped 0.4.5** | Detail page |
-| Public quote → hold → pay intent | **shipped 0.4.4** | Nest APIs |
-| Public search from inventory days + Redis TTL | **shipped 0.4.3** | 404 while flag off |
-| Inventory projector + checkout housekeeping | **shipped 0.4.2** | Worker gated by stays flag |
-| stay_booking webhook + live GiST locks | **shipped 0.4.1** | Flags still default off |
-| Stays 0–8 foundations | **shipped 0.4.0 (flag off)** | Schema+API+UI shells |
-| Marketing session via Next cookie | **shipped 0.3.10** | `/api/auth/me` |
+| Phase                                         | Status                       | Notes                                   |
+| --------------------------------------------- | ---------------------------- | --------------------------------------- |
+| Stay setup + publish (ops API + wizard)       | **shipped 0.4.19**           | Pilot needs flag + allowlist            |
+| Stay iCal export (read-only)                  | **shipped 0.4.11**           | No outbound fetch; import still blocked |
+| Ops cancel / no-show                          | **shipped 0.4.10**           | Release lock + UI actions               |
+| Ops stay bookings list                        | **shipped 0.4.9**            | Real org-scoped list/detail             |
+| Stay payment provider redirect                | **shipped 0.4.8**            | Sandbox session + confirm               |
+| Occupancy / ADR / RevPAR reports              | **shipped 0.4.7**            | Ops + owner/dev dashboard               |
+| Guest trips list + reference claim            | **shipped 0.4.6**            | Flag off → 404/401                      |
+| Guest interactive checkout UI                 | **shipped 0.4.5**            | Detail page                             |
+| Public quote → hold → pay intent              | **shipped 0.4.4**            | Nest APIs                               |
+| Public search from inventory days + Redis TTL | **shipped 0.4.3**            | 404 while flag off                      |
+| Inventory projector + checkout housekeeping   | **shipped 0.4.2**            | Worker gated by stays flag              |
+| stay_booking webhook + live GiST locks        | **shipped 0.4.1**            | Flags still default off                 |
+| Stays 0–8 foundations                         | **shipped 0.4.0 (flag off)** | Schema+API+UI shells                    |
+| Marketing session via Next cookie             | **shipped 0.3.10**           | `/api/auth/me`                          |
 
 ## Next (human / infra)
 
-1. **Pilot:** set `STAYS_PLATFORM_ENABLED=true` + `STAYS_ORG_ALLOWLIST` on Render and Vercel; redeploy Nest + Worker + Web.  
-2. Run setup wizard on one property; verify `/ar/stays` and homepage daily tab.  
-3. ClamAV فعلي؛ Nest+DB E2E كامل؛ Neon non-BYPASS؛ تدوير أسرار.  
+1. **Pilot:** set `STAYS_PLATFORM_ENABLED=true` + `STAYS_ORG_ALLOWLIST` on Render and Vercel; redeploy Nest + Worker + Web.
+2. Run setup wizard on one property; verify `/ar/stays` and homepage daily tab.
+3. ClamAV فعلي؛ Nest+DB E2E كامل؛ Neon non-BYPASS؛ تدوير أسرار.
 4. اختياري: أرشفة مشروع Vercel `web` الخاطئ.
 
 ## Product gaps (Expand–Contract)

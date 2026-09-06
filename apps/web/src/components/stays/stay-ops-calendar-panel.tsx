@@ -164,6 +164,7 @@ export function StayOpsCalendarPanel({
           mode="ops"
           unitId={activeUnit.unitId}
           monthCount={2}
+          size="large"
           onDaySelect={openDay}
         />
 
