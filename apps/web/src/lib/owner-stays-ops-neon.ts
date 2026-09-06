@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, lt, ne, sql } from 'drizzle-orm';
 import type { SessionClaims } from '@bhd-r/authz';
 import type { StayInventoryCalendarResponse } from '@bhd-r/contracts';
 import {
@@ -10,12 +10,16 @@ import {
   stayBookingStatusHistory,
   stayPaymentIntents,
   stayProfiles,
+  stayPublicListings,
   units,
   type Database,
 } from '@bhd-r/db';
 import type { OpsStayBooking } from '@/components/stays/stay-ops-bookings-table';
 import type { StayCalendarUnit } from '@/components/stays/stay-ops-calendar-panel';
-import type { StayBookingContractData } from '@/components/stays/stay-booking-contract';
+import type {
+  StayBookingContractData,
+  StayBookingNeighbor,
+} from '@/components/stays/stay-booking-contract';
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdROwnerStaysOpsDb?: DbHandle };
@@ -136,6 +140,33 @@ function paymentMethodLabel(provider: string | null | undefined, status: string)
   return provider;
 }
 
+const LIVE_BOOKING_STATUSES = [
+  'request_pending',
+  'payment_pending',
+  'confirmed',
+  'paid',
+  'pre_arrival',
+  'checked_in',
+] as const;
+
+function toNeighbor(row: {
+  id: string;
+  referenceCode: string;
+  checkInOn: string;
+  checkOutOn: string;
+  status: string;
+  guestDisplayName?: string | null;
+}): StayBookingNeighbor {
+  return {
+    id: row.id,
+    referenceCode: row.referenceCode,
+    checkInOn: row.checkInOn,
+    checkOutOn: row.checkOutOn,
+    status: row.status,
+    guestDisplayName: row.guestDisplayName ?? null,
+  };
+}
+
 export async function getOwnerStayBookingContractOnNeon(
   claims: SessionClaims,
   bookingId: string,
@@ -175,7 +206,8 @@ export async function getOwnerStayBookingContractOnNeon(
 
     if (!row) return null;
 
-    const [guest, intent, paymentHistory] = await Promise.all([
+    const [guest, intent, paymentHistory, coverRaw, listingRow, previousRow, nextRow, overlapRows] =
+      await Promise.all([
       transaction
         .select({
           displayName: stayBookingGuests.displayName,
@@ -223,6 +255,101 @@ export async function getOwnerStayBookingContractOnNeon(
         )
         .orderBy(desc(stayBookingStatusHistory.createdAt))
         .limit(12),
+      transaction.execute(sql`
+        select um.media_asset_id as "mediaAssetId"
+        from unit_media um
+        inner join units u on u.id = um.unit_id
+        inner join media_assets ma on ma.id = um.media_asset_id
+        where um.organization_id = ${organizationId}::uuid
+          and u.property_id = ${row.propertyId}::uuid
+          and ma.processing_status = 'ready'
+          and ma.scan_status = 'clean'
+        order by
+          case when um.unit_id = ${row.unitId}::uuid then 0 else 1 end,
+          case when coalesce(ma.metadata->>'galleryScope', '') = 'building' then 0 else 1 end,
+          um.position asc
+        limit 1
+      `),
+      transaction
+        .select({ slug: stayPublicListings.slug })
+        .from(stayProfiles)
+        .innerJoin(
+          stayPublicListings,
+          and(
+            eq(stayPublicListings.organizationId, stayProfiles.organizationId),
+            eq(stayPublicListings.propertyId, row.propertyId),
+            eq(stayPublicListings.unitTypeId, stayProfiles.unitTypeId),
+          ),
+        )
+        .where(
+          and(
+            eq(stayProfiles.organizationId, organizationId),
+            eq(stayProfiles.unitId, row.unitId),
+          ),
+        )
+        .limit(1)
+        .then((rows) => rows[0] ?? null),
+      transaction
+        .select({
+          id: stayBookings.id,
+          referenceCode: stayBookings.referenceCode,
+          checkInOn: stayBookings.checkInOn,
+          checkOutOn: stayBookings.checkOutOn,
+          status: stayBookings.status,
+        })
+        .from(stayBookings)
+        .where(
+          and(
+            eq(stayBookings.organizationId, organizationId),
+            eq(stayBookings.unitId, row.unitId),
+            lt(stayBookings.checkInOn, row.checkInOn),
+            inArray(stayBookings.status, [...LIVE_BOOKING_STATUSES]),
+          ),
+        )
+        .orderBy(desc(stayBookings.checkInOn))
+        .limit(1)
+        .then((rows) => rows[0] ?? null),
+      transaction
+        .select({
+          id: stayBookings.id,
+          referenceCode: stayBookings.referenceCode,
+          checkInOn: stayBookings.checkInOn,
+          checkOutOn: stayBookings.checkOutOn,
+          status: stayBookings.status,
+        })
+        .from(stayBookings)
+        .where(
+          and(
+            eq(stayBookings.organizationId, organizationId),
+            eq(stayBookings.unitId, row.unitId),
+            gt(stayBookings.checkInOn, row.checkInOn),
+            inArray(stayBookings.status, [...LIVE_BOOKING_STATUSES]),
+          ),
+        )
+        .orderBy(asc(stayBookings.checkInOn))
+        .limit(1)
+        .then((rows) => rows[0] ?? null),
+      transaction
+        .select({
+          id: stayBookings.id,
+          referenceCode: stayBookings.referenceCode,
+          checkInOn: stayBookings.checkInOn,
+          checkOutOn: stayBookings.checkOutOn,
+          status: stayBookings.status,
+        })
+        .from(stayBookings)
+        .where(
+          and(
+            eq(stayBookings.organizationId, organizationId),
+            eq(stayBookings.unitId, row.unitId),
+            ne(stayBookings.id, bookingId),
+            lt(stayBookings.checkInOn, row.checkOutOn),
+            gt(stayBookings.checkOutOn, row.checkInOn),
+            inArray(stayBookings.status, [...LIVE_BOOKING_STATUSES]),
+          ),
+        )
+        .orderBy(asc(stayBookings.checkInOn))
+        .limit(8),
     ]);
 
     const contact = readGuestContact(row.pricingSnapshotJson);
@@ -275,6 +402,37 @@ export async function getOwnerStayBookingContractOnNeon(
       }
     }
 
+    const coverList = (
+      Array.isArray(coverRaw) ? coverRaw : ((coverRaw as { rows?: unknown[] }).rows ?? [])
+    ) as Array<{ mediaAssetId?: string }>;
+    const coverAssetId = coverList[0]?.mediaAssetId;
+    const propertyCoverUrl = coverAssetId ? `/api/owner/media/${coverAssetId}` : null;
+
+    const neighborIds = [
+      previousRow?.id,
+      nextRow?.id,
+      ...overlapRows.map((item) => item.id),
+    ].filter((id): id is string => Boolean(id));
+    const guestNameByBooking = new Map<string, string>();
+    if (neighborIds.length) {
+      const guestRows = await transaction
+        .select({
+          bookingId: stayBookingGuests.bookingId,
+          displayName: stayBookingGuests.displayName,
+        })
+        .from(stayBookingGuests)
+        .where(
+          and(
+            eq(stayBookingGuests.organizationId, organizationId),
+            eq(stayBookingGuests.isPrimary, true),
+            inArray(stayBookingGuests.bookingId, neighborIds),
+          ),
+        );
+      for (const item of guestRows) {
+        if (item.displayName) guestNameByBooking.set(item.bookingId, item.displayName);
+      }
+    }
+
     return {
       id: row.id,
       referenceCode: row.referenceCode,
@@ -297,6 +455,8 @@ export async function getOwnerStayBookingContractOnNeon(
       propertyId: row.propertyId,
       propertyNameAr: row.propertyNameAr,
       propertyNameEn: row.propertyNameEn,
+      propertyCoverUrl,
+      stayListingSlug: listingRow?.slug ?? null,
       unitId: row.unitId,
       unitCode: row.unitCode,
       unitNameAr: row.unitNameAr,
@@ -320,6 +480,24 @@ export async function getOwnerStayBookingContractOnNeon(
       esignIdFrontPng,
       esignIdBackPng,
       esignSelfiePng,
+      previousBooking: previousRow
+        ? toNeighbor({
+            ...previousRow,
+            guestDisplayName: guestNameByBooking.get(previousRow.id) ?? null,
+          })
+        : null,
+      nextBooking: nextRow
+        ? toNeighbor({
+            ...nextRow,
+            guestDisplayName: guestNameByBooking.get(nextRow.id) ?? null,
+          })
+        : null,
+      overlappingBookings: overlapRows.map((item) =>
+        toNeighbor({
+          ...item,
+          guestDisplayName: guestNameByBooking.get(item.id) ?? null,
+        }),
+      ),
     };
   });
 }

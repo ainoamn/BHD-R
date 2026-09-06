@@ -6,6 +6,7 @@ import {
   StayBookingContract,
   type StayBookingContractData,
 } from '@/components/stays/stay-booking-contract';
+import { StayBookingDetailOps } from '@/components/stays/stay-booking-detail-ops';
 import { StayReceiptPrintButton } from '@/components/stays/stay-receipt-print-button';
 import { StaysPortalPage } from '@/components/stays/stays-portal-page';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
@@ -46,6 +47,17 @@ export default async function DeveloperStayBookingDetailPage({
       <div className="stay-contract-toolbar">
         <StayReceiptPrintButton locale={locale} />
       </div>
+      <StayBookingDetailOps
+        locale={locale}
+        portal="developer"
+        bookingId={booking.id}
+        unitId={booking.unitId}
+        propertyId={booking.propertyId}
+        status={booking.status}
+        checkInOn={booking.checkInOn}
+        checkOutOn={booking.checkOutOn}
+        stayListingSlug={booking.stayListingSlug}
+      />
       <StayBookingContract booking={booking} locale={locale} portal="developer" />
     </StaysPortalPage>
   );

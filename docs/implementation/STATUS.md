@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-09-06  
-**Product version:** 0.4.64  
-**Active focus:** Fullscreen stay e-sign (ID guides + selfie frame)  
+**Product version:** 0.4.65  
+**Active focus:** Owner stay booking detail review (photo, calendar, reject)  
+**Release 0.4.65:** booking detail cover + calendar + neighbors + reject/cancel  
 **Release 0.4.64:** fullscreen e-sign + Omani ID front/back overlays + portrait selfie capture  
 **Release 0.4.63:** e-sign CTA on confirmation when unsigned  
 **Release 0.4.62:** post-pay e-sign route  

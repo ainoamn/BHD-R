@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.65 — 2026-09-06
+
+- Owner/developer stay booking detail: property cover on contract, unit calendar, public/portal property links, previous/next/overlapping bookings, reject/cancel action.
+
 ## 0.4.64 — 2026-09-06
 
 - Fullscreen responsive stay e-sign: Omani ID front/back camera guides, portrait selfie frame, full-screen signature pad, review before submit.

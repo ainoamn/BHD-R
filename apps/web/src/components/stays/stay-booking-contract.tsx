@@ -7,6 +7,15 @@ import {
   stayTypeLabel,
 } from '@/lib/ui-labels';
 
+export type StayBookingNeighbor = {
+  id: string;
+  referenceCode: string;
+  checkInOn: string;
+  checkOutOn: string;
+  status: string;
+  guestDisplayName?: string | null;
+};
+
 export type StayBookingContractData = {
   id: string;
   referenceCode: string;
@@ -28,6 +37,10 @@ export type StayBookingContractData = {
   propertyId: string;
   propertyNameAr?: string | null;
   propertyNameEn?: string | null;
+  /** Owner-authenticated media proxy URL. */
+  propertyCoverUrl?: string | null;
+  /** Public /stays/{slug} when published. */
+  stayListingSlug?: string | null;
   unitId: string;
   unitCode?: string | null;
   unitNameAr?: string | null;
@@ -47,6 +60,9 @@ export type StayBookingContractData = {
   esignIdFrontPng?: string | null;
   esignIdBackPng?: string | null;
   esignSelfiePng?: string | null;
+  previousBooking?: StayBookingNeighbor | null;
+  nextBooking?: StayBookingNeighbor | null;
+  overlappingBookings?: StayBookingNeighbor[];
 };
 
 function Row({ label, value, ltr }: { label: string; value: ReactNode; ltr?: boolean }) {
@@ -170,6 +186,17 @@ export function StayBookingContract({
           : 'Request, guest contacts, property, and payment details in one contract-style record.'}
       </p>
 
+      {booking.propertyCoverUrl ? (
+        <figure className="stay-doc__cover">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={booking.propertyCoverUrl}
+            alt={propertyName || (ar ? 'صورة العقار' : 'Property photo')}
+          />
+          <figcaption>{propertyName || (ar ? 'العقار' : 'Property')}</figcaption>
+        </figure>
+      ) : null}
+
       <div className="stay-doc__badge" data-paid={paid ? 'true' : 'false'}>
         {stayStatusLabel(booking.status, ar)}
       </div>
@@ -250,9 +277,20 @@ export function StayBookingContract({
           <Row
             label={ar ? 'العقار' : 'Property'}
             value={
-              <Link href={`/${portal}/properties/${booking.propertyId}`}>
-                {propertyName || (ar ? 'فتح العقار' : 'Open property')}
-              </Link>
+              <span className="stay-doc__link-stack">
+                <Link href={`/${portal}/properties/${booking.propertyId}`}>
+                  {propertyName || (ar ? 'فتح العقار' : 'Open property')}
+                </Link>
+                {booking.stayListingSlug ? (
+                  <Link href={`/stays/${booking.stayListingSlug}`}>
+                    {ar ? 'صفحة الإقامة العامة + التقويم' : 'Public stay page + calendar'}
+                  </Link>
+                ) : (
+                  <Link href={`/properties/${booking.propertyId}`}>
+                    {ar ? 'عرض العقار للعامة' : 'Public property page'}
+                  </Link>
+                )}
+              </span>
             }
           />
           <Row
@@ -263,8 +301,85 @@ export function StayBookingContract({
               </Link>
             }
           />
+          <Row
+            label={ar ? 'تقويم الإقامات' : 'Stays calendar'}
+            value={
+              <Link href={`/${portal}/stays/calendar`}>
+                {ar ? 'فتح التقويم الكامل' : 'Open full calendar'}
+              </Link>
+            }
+          />
         </dl>
       </section>
+
+      {(booking.overlappingBookings && booking.overlappingBookings.length > 0) ||
+      booking.previousBooking ||
+      booking.nextBooking ? (
+        <section className="stay-doc__section">
+          <h2>{ar ? 'حجوزات مجاورة على نفس الوحدة' : 'Neighboring bookings on this unit'}</h2>
+          {booking.overlappingBookings && booking.overlappingBookings.length > 0 ? (
+            <div className="notice notice--danger stay-doc__overlap" role="status">
+              <p>
+                {ar
+                  ? 'تنبيه: توجد حجوزات حية متداخلة مع نفس التواريخ — راجع قبل القبول أو ارفض الطلب إن كان هناك خطأ.'
+                  : 'Warning: live bookings overlap these dates — review before accepting, or reject if this is an error.'}
+              </p>
+              <ul className="stay-doc__neighbor-list">
+                {booking.overlappingBookings.map((item) => (
+                  <li key={item.id}>
+                    <Link href={`/${portal}/stays/bookings/${item.id}`}>
+                      <strong dir="ltr">{item.referenceCode}</strong>
+                      <span dir="ltr">
+                        {item.checkInOn} → {item.checkOutOn}
+                      </span>
+                      <span>{stayStatusLabel(item.status, ar)}</span>
+                      {item.guestDisplayName ? <span>{item.guestDisplayName}</span> : null}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          <dl className="stay-doc__grid">
+            <Row
+              label={ar ? 'الحجز السابق' : 'Previous booking'}
+              value={
+                booking.previousBooking ? (
+                  <Link href={`/${portal}/stays/bookings/${booking.previousBooking.id}`}>
+                    <span dir="ltr">{booking.previousBooking.referenceCode}</span>
+                    {' · '}
+                    <span dir="ltr">
+                      {booking.previousBooking.checkInOn} → {booking.previousBooking.checkOutOn}
+                    </span>
+                    {' · '}
+                    {stayStatusLabel(booking.previousBooking.status, ar)}
+                  </Link>
+                ) : (
+                  ar ? 'لا يوجد' : 'None'
+                )
+              }
+            />
+            <Row
+              label={ar ? 'الحجز اللاحق' : 'Next booking'}
+              value={
+                booking.nextBooking ? (
+                  <Link href={`/${portal}/stays/bookings/${booking.nextBooking.id}`}>
+                    <span dir="ltr">{booking.nextBooking.referenceCode}</span>
+                    {' · '}
+                    <span dir="ltr">
+                      {booking.nextBooking.checkInOn} → {booking.nextBooking.checkOutOn}
+                    </span>
+                    {' · '}
+                    {stayStatusLabel(booking.nextBooking.status, ar)}
+                  </Link>
+                ) : (
+                  ar ? 'لا يوجد' : 'None'
+                )
+              }
+            />
+          </dl>
+        </section>
+      ) : null}
 
       <section className="stay-doc__section">
         <h2>{ar ? 'الإيصال وطريقة الدفع' : 'Receipt & payment'}</h2>
