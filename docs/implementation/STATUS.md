@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-09-06  
-**Product version:** 0.4.69  
-**Active focus:** Full-width layout + readable ops calendar  
+**Product version:** 0.4.70  
+**Active focus:** Compact owner control dashboard  
+**Release 0.4.70:** smaller metrics, priority alerts, clearer intro and layout on /owner  
 **Release 0.4.69:** portal full width; larger calendar cells; short marks; booking refs in list/tooltip only  
 **Release 0.4.68:** calendar booking projection + unit labels + booked-day refs  
 **Release 0.4.67:** build fix useMemo + exactOptionalPropertyTypes  

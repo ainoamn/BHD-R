@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.70 — 2026-09-06
+
+- Owner/developer control dashboard: compact clickable stats, priority-sorted alerts, clearer intro copy, and tighter section layout.
+
 ## 0.4.69 — 2026-09-06
 
 - Full-width portal/content shells; larger ops calendar cells; short day marks without overlapping booking refs; clearer booking/block list labels.
