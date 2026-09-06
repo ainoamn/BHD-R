@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.64 — 2026-09-06
+
+- Fullscreen responsive stay e-sign: Omani ID front/back camera guides, portrait selfie frame, full-screen signature pad, review before submit.
+
 ## 0.4.63 — 2026-09-03
 
 - Confirmation page: show «توقيع عقد الإقامة» when paid but unsigned; hide it once e-sign is completed; stop forcing redirect away from confirmed.

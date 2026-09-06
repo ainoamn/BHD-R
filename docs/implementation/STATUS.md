@@ -1,8 +1,11 @@
 # Implementation status
 
-**Updated:** 2026-09-03  
-**Product version:** 0.4.61  
-**Active focus:** Guest stay pay/cancel/rebook actions  
+**Updated:** 2026-09-06  
+**Product version:** 0.4.64  
+**Active focus:** Fullscreen stay e-sign (ID guides + selfie frame)  
+**Release 0.4.64:** fullscreen e-sign + Omani ID front/back overlays + portrait selfie capture  
+**Release 0.4.63:** e-sign CTA on confirmation when unsigned  
+**Release 0.4.62:** post-pay e-sign route  
 **Release 0.4.61:** guest pay/cancel/rebook actions  
 **Release 0.4.60:** exclude own hold lock on pay  
 **Release 0.4.59:** calendar overlays locks + expire stale unpaid bookings  

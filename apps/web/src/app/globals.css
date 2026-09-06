@@ -11247,57 +11247,142 @@ body:has(.stays-book-shell) #main-content {
 }
 .stay-esign-shell {
   min-height: 100dvh;
-  padding: 1rem;
-  background: #eef3f0;
+  min-height: 100svh;
+  padding: 0;
+  background: #0b1c1a;
 }
 body:has(.stay-esign-shell) .site-header,
 body:has(.stay-esign-shell) .site-footer { display: none; }
-.stay-esign__panel {
-  max-width: 820px;
-  margin: 0 auto;
-  padding: 1.25rem;
-  border-radius: 1rem;
-  background: #fff;
-  box-shadow: 0 16px 40px rgb(8 28 22 / 0.1);
+body:has(.stay-esign-shell) {
+  background: #0b1c1a;
 }
-.stay-esign__contract { margin: 1rem 0 1.25rem; }
-.stay-esign__modal {
-  position: fixed;
-  inset: 0;
-  z-index: 90;
+.stay-esign--fullscreen {
   display: grid;
-  place-items: end center;
-  background: rgb(8 28 22 / 0.45);
+  grid-template-rows: auto 1fr auto;
+  min-height: 100dvh;
+  min-height: 100svh;
+  max-width: 720px;
+  margin: 0 auto;
+  color: #f4f0e8;
+  background:
+    radial-gradient(120% 80% at 50% -10%, rgb(8 163 159 / 0.22), transparent 55%),
+    linear-gradient(180deg, #0f2a27 0%, #0b1c1a 42%, #102820 100%);
 }
-.stay-esign__modal-card {
-  width: min(100%, 520px);
-  border-radius: 1.1rem 1.1rem 0 0;
-  background: #fff;
-  padding: 1rem 1rem 1.25rem;
+.stay-esign__top {
+  display: grid;
+  gap: 0.55rem;
+  padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 1rem 0.65rem;
 }
-.stay-esign__modal-card header {
-  display: flex;
+.stay-esign__brand {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.35rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: #f4f0e8;
+}
+.stay-esign__brand span {
+  display: grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 0.35rem;
+  background: var(--bhd-teal);
+  color: #062421;
+  font-size: 0.85rem;
+}
+.stay-esign__top-text { display: grid; gap: 0.15rem; }
+.stay-esign__ref {
+  margin: 0;
+  font-size: 0.78rem;
+  opacity: 0.72;
+  font-variant-numeric: tabular-nums;
+}
+.stay-esign__title {
+  margin: 0;
+  font-size: clamp(1.15rem, 4.2vw, 1.45rem);
+  font-weight: 800;
+  line-height: 1.25;
+  color: #f7faf8;
+}
+.stay-esign__progress {
+  height: 0.28rem;
+  border-radius: 999px;
+  background: rgb(244 240 232 / 0.16);
+  overflow: hidden;
+}
+.stay-esign__progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--bhd-teal), #5fd0c9);
+  transition: width 0.25s ease;
+}
+.stay-esign__body {
+  min-height: 0;
+  overflow: auto;
+  padding: 0.25rem 1rem 0.75rem;
+  -webkit-overflow-scrolling: touch;
+}
+.stay-esign__panel {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.stay-esign__panel--scroll {
+  padding-bottom: 0.5rem;
+}
+.stay-esign__panel--capture {
+  display: grid;
   gap: 0.75rem;
 }
-.stay-esign__pad {
-  display: block;
-  width: 100%;
-  margin: 0.75rem 0 1rem;
-  border-radius: 0.75rem;
-  border: 1px solid #d8d2c4;
-  background: #f4efe6;
-  touch-action: none;
+.stay-esign__lede {
+  margin: 0 0 0.75rem;
+  color: rgb(244 240 232 / 0.78);
 }
-.stay-esign__modal-actions {
+.stay-esign__guide {
+  margin: 0;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 650;
+  color: #e8f2ef;
+}
+.stay-esign__contract {
+  margin: 0 0 1rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  background: #fff;
+  color: var(--ink-900, #123528);
+  box-shadow: 0 18px 40px rgb(0 0 0 / 0.22);
+}
+.stay-esign__dock {
   display: flex;
   gap: 0.65rem;
+  padding: 0.75rem 1rem calc(0.85rem + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, transparent, rgb(8 28 22 / 0.92) 28%);
+  backdrop-filter: blur(8px);
 }
-.stay-esign__modal-actions .button { flex: 1; }
+.stay-esign__dock .button { flex: 1; min-height: 3rem; }
+.stay-esign__footer-nav {
+  display: flex;
+  justify-content: flex-start;
+}
+.stay-esign__error {
+  position: sticky;
+  bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+  margin: 0 1rem 0.5rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: 0.7rem;
+  background: #3a1515;
+  color: #ffd7d7;
+}
 .stay-esign__done {
   display: grid;
   gap: 1rem;
+  padding-top: calc(0.85rem + env(safe-area-inset-top, 0px));
 }
 .stay-esign__seal {
   display: flex;
@@ -11307,6 +11392,7 @@ body:has(.stay-esign-shell) .site-footer { display: none; }
   border-radius: 0.9rem;
   background: linear-gradient(135deg, #e8f4ec, #f7faf8);
   border: 1px solid #b7d4c2;
+  color: #123528;
 }
 .stay-esign__seal-mark {
   display: grid;
@@ -11352,6 +11438,7 @@ body:has(.stay-esign-shell) .site-footer { display: none; }
   border: 1px solid #d7e1db;
   border-radius: 0.75rem;
   background: #fafcfa;
+  color: #123528;
 }
 .stay-esign__signed-figure figcaption {
   margin-bottom: 0.35rem;
@@ -11364,6 +11451,158 @@ body:has(.stay-esign-shell) .site-footer { display: none; }
   max-height: 140px;
   object-fit: contain;
   background: #fff;
+}
+
+/* Signature pad (fullscreen step) */
+.esign-sign {
+  display: grid;
+  gap: 0.85rem;
+}
+.esign-sign__lede { margin: 0; color: rgb(244 240 232 / 0.78); }
+.esign-sign__pad-wrap {
+  border-radius: 1rem;
+  overflow: hidden;
+  border: 1px solid rgb(244 240 232 / 0.22);
+  background: #f4efe6;
+}
+.esign-sign__pad {
+  display: block;
+  width: 100%;
+  touch-action: none;
+  cursor: crosshair;
+}
+.esign-sign__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+.esign-sign__actions .button { flex: 1; min-width: 6.5rem; min-height: 2.85rem; }
+
+/* Camera + ID / selfie overlays */
+.esign-id-stage,
+.esign-selfie-stage {
+  display: grid;
+  gap: 0.75rem;
+  width: 100%;
+}
+.esign-id-stage .esign-cam__stage {
+  aspect-ratio: 856 / 540;
+  max-height: min(48dvh, 360px);
+}
+.esign-id-stage__svg {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 8px 18px rgb(0 0 0 / 0.35));
+}
+.esign-selfie-stage {
+  justify-items: center;
+}
+.esign-selfie-stage .esign-cam__stage {
+  width: min(100%, 320px);
+  aspect-ratio: 3 / 4;
+  max-height: min(58dvh, 460px);
+  border-radius: 1.15rem;
+}
+.esign-selfie-stage__svg {
+  width: 100%;
+  height: 100%;
+}
+.esign-cam {
+  display: grid;
+  gap: 0.75rem;
+  width: 100%;
+  justify-items: center;
+}
+.esign-cam__stage {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 1rem;
+  background: #041210;
+  border: 1px solid rgb(244 240 232 / 0.18);
+}
+.esign-cam__overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+  padding: 2%;
+}
+.esign-cam__video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #041210;
+}
+.esign-cam__hint {
+  position: absolute;
+  inset: auto 0.75rem 0.75rem;
+  margin: 0;
+  padding: 0.45rem 0.65rem;
+  border-radius: 0.55rem;
+  background: rgb(4 18 16 / 0.72);
+  font-size: 0.85rem;
+  text-align: center;
+}
+.esign-cam__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  width: 100%;
+  max-width: 420px;
+}
+.esign-cam__actions .button { flex: 1; min-height: 2.9rem; }
+.esign-cam__shutter { font-weight: 800; }
+.esign-cam__file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.esign-review-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.esign-review-card {
+  margin: 0;
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.65rem;
+  border-radius: 0.9rem;
+  background: rgb(255 255 255 / 0.08);
+  border: 1px solid rgb(244 240 232 / 0.16);
+}
+.esign-review-card figcaption {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #e8f2ef;
+}
+.esign-review-card img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 856 / 540;
+  object-fit: cover;
+  border-radius: 0.55rem;
+  background: #fff;
+}
+.esign-review-card--portrait img { aspect-ratio: 3 / 4; }
+@media (max-width: 420px) {
+  .esign-review-grid { grid-template-columns: 1fr; }
+}
+@media (min-width: 768px) {
+  .stay-esign--fullscreen {
+    min-height: 100dvh;
+    border-inline: 1px solid rgb(244 240 232 / 0.08);
+  }
+  .esign-id-stage .esign-cam__stage {
+    max-height: 420px;
+  }
 }
 .pay-gateway__card-brand-mark {
   position: absolute;
