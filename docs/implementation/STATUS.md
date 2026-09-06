@@ -3,8 +3,9 @@
 **Updated:** 2026-09-06  
 **Product version:** 0.4.70  
 **Active focus:** Compact owner control dashboard  
-**Release 0.4.70:** smaller metrics, priority alerts, clearer intro and layout on /owner  
-**Release 0.4.69:** portal full width; larger calendar cells; short marks; booking refs in list/tooltip only  
+**Release 0.4.70:** smaller metrics, priority alerts, clearer intro and layout on /owner · [`RELEASE-0.4.70-AR.md`](./RELEASE-0.4.70-AR.md)  
+**Release 0.4.69:** portal full width; larger calendar cells; short marks; booking refs in list/tooltip only · [`RELEASE-0.4.69-AR.md`](./RELEASE-0.4.69-AR.md)  
+**Live handoff:** [`../handoffs/2026-09-06-owner-dashboard-calendar-0.4.70/`](../handoffs/2026-09-06-owner-dashboard-calendar-0.4.70/)  
 **Release 0.4.68:** calendar booking projection + unit labels + booked-day refs  
 **Release 0.4.67:** build fix useMemo + exactOptionalPropertyTypes  
 **Release 0.4.66:** bookings list stats/filters/search/cards  
