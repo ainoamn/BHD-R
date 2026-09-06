@@ -201,63 +201,61 @@ export async function getOwnerStayBookingContractOnNeon(
       .from(stayBookings)
       .innerJoin(properties, eq(properties.id, stayBookings.propertyId))
       .innerJoin(units, eq(units.id, stayBookings.unitId))
-      .where(
-        and(eq(stayBookings.organizationId, organizationId), eq(stayBookings.id, bookingId)),
-      )
+      .where(and(eq(stayBookings.organizationId, organizationId), eq(stayBookings.id, bookingId)))
       .limit(1);
 
     if (!row) return null;
 
     const [guest, intent, paymentHistory, coverRaw, listingRow, previousRow, nextRow, overlapRows] =
       await Promise.all([
-      transaction
-        .select({
-          displayName: stayBookingGuests.displayName,
-        })
-        .from(stayBookingGuests)
-        .where(
-          and(
-            eq(stayBookingGuests.organizationId, organizationId),
-            eq(stayBookingGuests.bookingId, bookingId),
-            eq(stayBookingGuests.isPrimary, true),
-          ),
-        )
-        .limit(1)
-        .then((rows) => rows[0] ?? null),
-      transaction
-        .select({
-          status: stayPaymentIntents.status,
-          provider: stayPaymentIntents.provider,
-          providerIntentId: stayPaymentIntents.providerIntentId,
-          amountMinor: stayPaymentIntents.amountMinor,
-          currency: stayPaymentIntents.currency,
-          updatedAt: stayPaymentIntents.updatedAt,
-        })
-        .from(stayPaymentIntents)
-        .where(
-          and(
-            eq(stayPaymentIntents.organizationId, organizationId),
-            eq(stayPaymentIntents.bookingId, bookingId),
-          ),
-        )
-        .orderBy(desc(stayPaymentIntents.updatedAt))
-        .limit(1)
-        .then((rows) => rows[0] ?? null),
-      transaction
-        .select({
-          metadataJson: stayBookingStatusHistory.metadataJson,
-          reason: stayBookingStatusHistory.reason,
-        })
-        .from(stayBookingStatusHistory)
-        .where(
-          and(
-            eq(stayBookingStatusHistory.organizationId, organizationId),
-            eq(stayBookingStatusHistory.bookingId, bookingId),
-          ),
-        )
-        .orderBy(desc(stayBookingStatusHistory.createdAt))
-        .limit(12),
-      transaction.execute(sql`
+        transaction
+          .select({
+            displayName: stayBookingGuests.displayName,
+          })
+          .from(stayBookingGuests)
+          .where(
+            and(
+              eq(stayBookingGuests.organizationId, organizationId),
+              eq(stayBookingGuests.bookingId, bookingId),
+              eq(stayBookingGuests.isPrimary, true),
+            ),
+          )
+          .limit(1)
+          .then((rows) => rows[0] ?? null),
+        transaction
+          .select({
+            status: stayPaymentIntents.status,
+            provider: stayPaymentIntents.provider,
+            providerIntentId: stayPaymentIntents.providerIntentId,
+            amountMinor: stayPaymentIntents.amountMinor,
+            currency: stayPaymentIntents.currency,
+            updatedAt: stayPaymentIntents.updatedAt,
+          })
+          .from(stayPaymentIntents)
+          .where(
+            and(
+              eq(stayPaymentIntents.organizationId, organizationId),
+              eq(stayPaymentIntents.bookingId, bookingId),
+            ),
+          )
+          .orderBy(desc(stayPaymentIntents.updatedAt))
+          .limit(1)
+          .then((rows) => rows[0] ?? null),
+        transaction
+          .select({
+            metadataJson: stayBookingStatusHistory.metadataJson,
+            reason: stayBookingStatusHistory.reason,
+          })
+          .from(stayBookingStatusHistory)
+          .where(
+            and(
+              eq(stayBookingStatusHistory.organizationId, organizationId),
+              eq(stayBookingStatusHistory.bookingId, bookingId),
+            ),
+          )
+          .orderBy(desc(stayBookingStatusHistory.createdAt))
+          .limit(12),
+        transaction.execute(sql`
         select um.media_asset_id as "mediaAssetId"
         from unit_media um
         inner join units u on u.id = um.unit_id
@@ -272,93 +270,91 @@ export async function getOwnerStayBookingContractOnNeon(
           um.position asc
         limit 1
       `),
-      transaction
-        .select({ slug: stayPublicListings.slug })
-        .from(stayProfiles)
-        .innerJoin(
-          stayPublicListings,
-          and(
-            eq(stayPublicListings.organizationId, stayProfiles.organizationId),
-            eq(stayPublicListings.propertyId, row.propertyId),
-            eq(stayPublicListings.unitTypeId, stayProfiles.unitTypeId),
-          ),
-        )
-        .where(
-          and(
-            eq(stayProfiles.organizationId, organizationId),
-            eq(stayProfiles.unitId, row.unitId),
-          ),
-        )
-        .limit(1)
-        .then((rows) => rows[0] ?? null),
-      transaction
-        .select({
-          id: stayBookings.id,
-          referenceCode: stayBookings.referenceCode,
-          checkInOn: stayBookings.checkInOn,
-          checkOutOn: stayBookings.checkOutOn,
-          status: stayBookings.status,
-        })
-        .from(stayBookings)
-        .where(
-          and(
-            eq(stayBookings.organizationId, organizationId),
-            eq(stayBookings.unitId, row.unitId),
-            lt(stayBookings.checkInOn, row.checkInOn),
-            inArray(stayBookings.status, [...LIVE_BOOKING_STATUSES]),
-          ),
-        )
-        .orderBy(desc(stayBookings.checkInOn))
-        .limit(1)
-        .then((rows) => rows[0] ?? null),
-      transaction
-        .select({
-          id: stayBookings.id,
-          referenceCode: stayBookings.referenceCode,
-          checkInOn: stayBookings.checkInOn,
-          checkOutOn: stayBookings.checkOutOn,
-          status: stayBookings.status,
-        })
-        .from(stayBookings)
-        .where(
-          and(
-            eq(stayBookings.organizationId, organizationId),
-            eq(stayBookings.unitId, row.unitId),
-            gt(stayBookings.checkInOn, row.checkInOn),
-            inArray(stayBookings.status, [...LIVE_BOOKING_STATUSES]),
-          ),
-        )
-        .orderBy(asc(stayBookings.checkInOn))
-        .limit(1)
-        .then((rows) => rows[0] ?? null),
-      transaction
-        .select({
-          id: stayBookings.id,
-          referenceCode: stayBookings.referenceCode,
-          checkInOn: stayBookings.checkInOn,
-          checkOutOn: stayBookings.checkOutOn,
-          status: stayBookings.status,
-        })
-        .from(stayBookings)
-        .where(
-          and(
-            eq(stayBookings.organizationId, organizationId),
-            eq(stayBookings.unitId, row.unitId),
-            ne(stayBookings.id, bookingId),
-            lt(stayBookings.checkInOn, row.checkOutOn),
-            gt(stayBookings.checkOutOn, row.checkInOn),
-            inArray(stayBookings.status, [...LIVE_BOOKING_STATUSES]),
-          ),
-        )
-        .orderBy(asc(stayBookings.checkInOn))
-        .limit(8),
-    ]);
+        transaction
+          .select({ slug: stayPublicListings.slug })
+          .from(stayProfiles)
+          .innerJoin(
+            stayPublicListings,
+            and(
+              eq(stayPublicListings.organizationId, stayProfiles.organizationId),
+              eq(stayPublicListings.propertyId, row.propertyId),
+              eq(stayPublicListings.unitTypeId, stayProfiles.unitTypeId),
+            ),
+          )
+          .where(
+            and(
+              eq(stayProfiles.organizationId, organizationId),
+              eq(stayProfiles.unitId, row.unitId),
+            ),
+          )
+          .limit(1)
+          .then((rows) => rows[0] ?? null),
+        transaction
+          .select({
+            id: stayBookings.id,
+            referenceCode: stayBookings.referenceCode,
+            checkInOn: stayBookings.checkInOn,
+            checkOutOn: stayBookings.checkOutOn,
+            status: stayBookings.status,
+          })
+          .from(stayBookings)
+          .where(
+            and(
+              eq(stayBookings.organizationId, organizationId),
+              eq(stayBookings.unitId, row.unitId),
+              lt(stayBookings.checkInOn, row.checkInOn),
+              inArray(stayBookings.status, [...LIVE_BOOKING_STATUSES]),
+            ),
+          )
+          .orderBy(desc(stayBookings.checkInOn))
+          .limit(1)
+          .then((rows) => rows[0] ?? null),
+        transaction
+          .select({
+            id: stayBookings.id,
+            referenceCode: stayBookings.referenceCode,
+            checkInOn: stayBookings.checkInOn,
+            checkOutOn: stayBookings.checkOutOn,
+            status: stayBookings.status,
+          })
+          .from(stayBookings)
+          .where(
+            and(
+              eq(stayBookings.organizationId, organizationId),
+              eq(stayBookings.unitId, row.unitId),
+              gt(stayBookings.checkInOn, row.checkInOn),
+              inArray(stayBookings.status, [...LIVE_BOOKING_STATUSES]),
+            ),
+          )
+          .orderBy(asc(stayBookings.checkInOn))
+          .limit(1)
+          .then((rows) => rows[0] ?? null),
+        transaction
+          .select({
+            id: stayBookings.id,
+            referenceCode: stayBookings.referenceCode,
+            checkInOn: stayBookings.checkInOn,
+            checkOutOn: stayBookings.checkOutOn,
+            status: stayBookings.status,
+          })
+          .from(stayBookings)
+          .where(
+            and(
+              eq(stayBookings.organizationId, organizationId),
+              eq(stayBookings.unitId, row.unitId),
+              ne(stayBookings.id, bookingId),
+              lt(stayBookings.checkInOn, row.checkOutOn),
+              gt(stayBookings.checkOutOn, row.checkInOn),
+              inArray(stayBookings.status, [...LIVE_BOOKING_STATUSES]),
+            ),
+          )
+          .orderBy(asc(stayBookings.checkInOn))
+          .limit(8),
+      ]);
 
     const contact = readGuestContact(row.pricingSnapshotJson);
     const paid =
-      row.status === 'confirmed' ||
-      row.status === 'paid' ||
-      intent?.status === 'succeeded';
+      row.status === 'confirmed' || row.status === 'paid' || intent?.status === 'succeeded';
 
     let cardLast4: string | null = null;
     let cardBrand: string | null = null;

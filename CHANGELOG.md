@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.67 — 2026-09-06
+
+- Fix Vercel/Next build: import `useMemo` from React; allow `undefined` on stayListingSlug for exactOptionalPropertyTypes.
+
 ## 0.4.66 — 2026-09-06
 
 - Professional owner/developer stays bookings desk: summary stats, status filters, search, and card layout with guest names.

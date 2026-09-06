@@ -1,11 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link } from '@/i18n/navigation';
 import { formatMoney } from '@/lib/format';
-import {
-  stayBookingModeLabel,
-  stayStatusLabel,
-  stayTypeLabel,
-} from '@/lib/ui-labels';
+import { stayBookingModeLabel, stayStatusLabel, stayTypeLabel } from '@/lib/ui-labels';
 
 export type StayBookingNeighbor = {
   id: string;
@@ -135,9 +131,7 @@ export function StayBookingContract({
     ? booking.propertyNameAr || booking.propertyNameEn
     : booking.propertyNameEn || booking.propertyNameAr;
   const unitLabel =
-    (ar
-      ? booking.unitNameAr || booking.unitNameEn
-      : booking.unitNameEn || booking.unitNameAr) ||
+    (ar ? booking.unitNameAr || booking.unitNameEn : booking.unitNameEn || booking.unitNameAr) ||
     booking.unitCode ||
     '—';
   const amountLabel = formatMoney(booking.totalMinor, booking.currency, locale);
@@ -354,8 +348,10 @@ export function StayBookingContract({
                     {' · '}
                     {stayStatusLabel(booking.previousBooking.status, ar)}
                   </Link>
+                ) : ar ? (
+                  'لا يوجد'
                 ) : (
-                  ar ? 'لا يوجد' : 'None'
+                  'None'
                 )
               }
             />
@@ -372,8 +368,10 @@ export function StayBookingContract({
                     {' · '}
                     {stayStatusLabel(booking.nextBooking.status, ar)}
                   </Link>
+                ) : ar ? (
+                  'لا يوجد'
                 ) : (
-                  ar ? 'لا يوجد' : 'None'
+                  'None'
                 )
               }
             />
@@ -393,7 +391,11 @@ export function StayBookingContract({
             value={paymentMethodCopy(booking.paymentMethod, ar)}
           />
           {booking.cardholderName ? (
-            <Row label={ar ? 'اسم حامل البطاقة' : 'Cardholder'} value={booking.cardholderName} ltr />
+            <Row
+              label={ar ? 'اسم حامل البطاقة' : 'Cardholder'}
+              value={booking.cardholderName}
+              ltr
+            />
           ) : null}
           {booking.cardLast4 ? (
             <Row
@@ -404,7 +406,11 @@ export function StayBookingContract({
           ) : null}
           {paidOn ? <Row label={ar ? 'تاريخ الدفع' : 'Paid at'} value={paidOn} /> : null}
           {booking.paymentProviderRef ? (
-            <Row label={ar ? 'مرجع المزود' : 'Provider ref'} value={booking.paymentProviderRef} ltr />
+            <Row
+              label={ar ? 'مرجع المزود' : 'Provider ref'}
+              value={booking.paymentProviderRef}
+              ltr
+            />
           ) : null}
           <Row
             label={ar ? 'المبلغ المستلم' : 'Amount received'}
@@ -478,7 +484,15 @@ export function StayBookingContract({
       ) : null}
 
       <div className="stay-doc__total">
-        <span>{paid ? (ar ? 'المبلغ المستلم' : 'Amount received') : ar ? 'المبلغ المستحق' : 'Amount due'}</span>
+        <span>
+          {paid
+            ? ar
+              ? 'المبلغ المستلم'
+              : 'Amount received'
+            : ar
+              ? 'المبلغ المستحق'
+              : 'Amount due'}
+        </span>
         <strong dir="ltr">{paid ? paidAmountLabel : amountLabel}</strong>
       </div>
 

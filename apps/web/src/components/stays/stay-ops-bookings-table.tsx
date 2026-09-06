@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useRouter } from 'next/navigation';
-import { useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { EmptyState } from '@bhd-r/ui';
 import { Link } from '@/i18n/navigation';
 import { ApiError, browserMutation } from '@/lib/api';
@@ -77,8 +77,7 @@ function matchesFilter(booking: OpsStayBooking, filter: FilterId, today: string)
       return booking.status === 'request_pending' || booking.status === 'payment_pending';
     case 'upcoming':
       return (
-        ['confirmed', 'paid', 'pre_arrival'].includes(booking.status) &&
-        booking.checkInOn >= today
+        ['confirmed', 'paid', 'pre_arrival'].includes(booking.status) && booking.checkInOn >= today
       );
     case 'active':
       return booking.status === 'checked_in';
@@ -210,7 +209,11 @@ export function StayOpsBookingsTable({
       </div>
 
       <div className="stays-bookings-board__toolbar">
-        <div className="stays-bookings-board__filters" role="tablist" aria-label={ar ? 'تصفية' : 'Filter'}>
+        <div
+          className="stays-bookings-board__filters"
+          role="tablist"
+          aria-label={ar ? 'تصفية' : 'Filter'}
+        >
           {filters.map((item) => (
             <button
               key={item.id}
@@ -235,7 +238,9 @@ export function StayOpsBookingsTable({
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder={ar ? 'ابحث بالمرجع أو الضيف أو العقار…' : 'Search reference, guest, property…'}
+            placeholder={
+              ar ? 'ابحث بالمرجع أو الضيف أو العقار…' : 'Search reference, guest, property…'
+            }
           />
         </label>
       </div>
@@ -316,7 +321,9 @@ export function StayOpsBookingsTable({
                       →
                     </span>
                     <div>
-                      <span className="stays-bookings-card__label">{ar ? 'مغادرة' : 'Check-out'}</span>
+                      <span className="stays-bookings-card__label">
+                        {ar ? 'مغادرة' : 'Check-out'}
+                      </span>
                       <strong>{formatStayDate(booking.checkOutOn, locale)}</strong>
                     </div>
                     <em>

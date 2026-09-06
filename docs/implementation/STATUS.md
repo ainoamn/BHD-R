@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-09-06  
-**Product version:** 0.4.66  
-**Active focus:** Owner stays bookings desk redesign  
+**Product version:** 0.4.67  
+**Active focus:** Fix production build for bookings desk  
+**Release 0.4.67:** build fix useMemo + exactOptionalPropertyTypes  
 **Release 0.4.66:** bookings list stats/filters/search/cards  
 **Release 0.4.65:** booking detail cover + calendar + neighbors + reject/cancel  
 **Release 0.4.64:** fullscreen e-sign + Omani ID front/back overlays + portrait selfie capture  

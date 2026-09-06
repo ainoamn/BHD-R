@@ -27,7 +27,7 @@ export function StayBookingDetailOps({
   status: string;
   checkInOn: string;
   checkOutOn: string;
-  stayListingSlug?: string | null;
+  stayListingSlug?: string | null | undefined;
   propertyId: string;
 }) {
   const ar = locale === 'ar';
