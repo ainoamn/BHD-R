@@ -9111,6 +9111,276 @@ button.ops-row-key {
   flex-wrap: wrap;
   gap: 0.35rem;
 }
+.stays-bookings-intro {
+  margin-bottom: 1rem;
+}
+.stays-bookings-intro__title {
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+  color: var(--oman-deep, #092d24);
+}
+.stays-bookings-board {
+  display: grid;
+  gap: 1rem;
+}
+.stays-bookings-board__stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+.stays-bookings-board__stat {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.9rem 1rem;
+  border-radius: 0.95rem;
+  background: linear-gradient(180deg, #ffffff, #f7faf8);
+  border: 1px solid #d7e1db;
+  box-shadow: 0 10px 24px rgb(9 45 36 / 0.04);
+}
+.stays-bookings-board__stat span {
+  font-size: 0.82rem;
+  color: var(--muted, #5c6b64);
+}
+.stays-bookings-board__stat strong {
+  font-size: 1.35rem;
+  color: var(--oman-deep, #092d24);
+  font-variant-numeric: tabular-nums;
+}
+.stays-bookings-board__stat.is-attention {
+  border-color: color-mix(in srgb, #c47a1a 35%, #d7e1db);
+  background: linear-gradient(180deg, #fffaf3, #fff);
+}
+.stays-bookings-board__stat.is-upcoming {
+  border-color: color-mix(in srgb, var(--bhd-teal) 35%, #d7e1db);
+}
+.stays-bookings-board__stat.is-active {
+  border-color: color-mix(in srgb, #1f6b45 35%, #d7e1db);
+  background: linear-gradient(180deg, #f2faf5, #fff);
+}
+.stays-bookings-board__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: center;
+  justify-content: space-between;
+}
+.stays-bookings-board__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.stays-bookings-board__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.35rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid #d0dbd5;
+  background: #fff;
+  color: var(--oman-deep, #092d24);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+.stays-bookings-board__chip em {
+  font-style: normal;
+  font-size: 0.78rem;
+  font-weight: 800;
+  min-width: 1.35rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: #eef3f0;
+  text-align: center;
+}
+.stays-bookings-board__chip.is-active {
+  background: var(--oman-deep, #092d24);
+  border-color: var(--oman-deep, #092d24);
+  color: #f4f0e8;
+}
+.stays-bookings-board__chip.is-active em {
+  background: rgb(244 240 232 / 0.18);
+  color: #f4f0e8;
+}
+.stays-bookings-board__search {
+  flex: 1 1 220px;
+  max-width: 360px;
+}
+.stays-bookings-board__search input {
+  width: 100%;
+  min-height: 2.55rem;
+  padding: 0.55rem 0.9rem;
+  border-radius: 0.85rem;
+  border: 1px solid #d0dbd5;
+  background: #fff;
+  font: inherit;
+}
+.stays-bookings-board__search input:focus {
+  outline: 2px solid color-mix(in srgb, var(--bhd-teal) 45%, transparent);
+  outline-offset: 1px;
+  border-color: var(--bhd-teal);
+}
+.stays-bookings-board__empty {
+  margin: 0;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  border-radius: 0.95rem;
+  border: 1px dashed #d0dbd5;
+  background: #fafcfa;
+}
+.stays-bookings-board__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.85rem;
+}
+.stays-bookings-card {
+  display: grid;
+  gap: 0.95rem;
+  padding: 1rem 1.1rem;
+  border-radius: 1.05rem;
+  background: #fff;
+  border: 1px solid #d7e1db;
+  box-shadow: 0 14px 28px rgb(9 45 36 / 0.05);
+  border-inline-start: 4px solid #9bb0a6;
+}
+.stays-bookings-card.is-attention {
+  border-inline-start-color: #c47a1a;
+}
+.stays-bookings-card.is-confirmed {
+  border-inline-start-color: var(--bhd-teal, #08a39f);
+}
+.stays-bookings-card.is-active {
+  border-inline-start-color: #1f6b45;
+}
+.stays-bookings-card.is-done,
+.stays-bookings-card.is-muted {
+  border-inline-start-color: #9aa8a1;
+  opacity: 0.96;
+}
+.stays-bookings-card__main {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.1fr) minmax(120px, 0.9fr) minmax(140px, 1.1fr) minmax(180px, 1.2fr) minmax(100px, 0.8fr);
+  gap: 0.85rem 1rem;
+  align-items: start;
+}
+.stays-bookings-card__identity,
+.stays-bookings-card__guest,
+.stays-bookings-card__property,
+.stays-bookings-card__dates,
+.stays-bookings-card__amount {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.stays-bookings-card__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #6a7771;
+}
+.stays-bookings-card__ref {
+  color: var(--oman-deep, #092d24);
+  text-decoration: none;
+}
+.stays-bookings-card__ref:hover {
+  color: var(--bhd-teal, #08a39f);
+}
+.stays-bookings-card__badge {
+  display: inline-flex;
+  width: fit-content;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  background: #eef3f0;
+  color: #2f5a44;
+}
+.stays-bookings-card__badge.is-attention {
+  background: #fff1dd;
+  color: #8a4f08;
+}
+.stays-bookings-card__badge.is-confirmed {
+  background: #e4f6f4;
+  color: #0b6b67;
+}
+.stays-bookings-card__badge.is-active {
+  background: #e5f5ec;
+  color: #1f6b45;
+}
+.stays-bookings-card__badge.is-done,
+.stays-bookings-card__badge.is-muted {
+  background: #eef0ef;
+  color: #5c6b64;
+}
+.stays-bookings-card__mode {
+  font-size: 0.8rem;
+  color: var(--muted, #5c6b64);
+}
+.stays-bookings-card__property a {
+  font-weight: 700;
+  color: var(--oman-deep, #092d24);
+  text-decoration: none;
+}
+.stays-bookings-card__property a:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+}
+.stays-bookings-card__dates {
+  grid-template-columns: auto auto auto;
+  align-items: end;
+  column-gap: 0.55rem;
+}
+.stays-bookings-card__dates > div {
+  display: grid;
+  gap: 0.15rem;
+}
+.stays-bookings-card__arrow {
+  padding-bottom: 0.15rem;
+  color: #8a9891;
+  font-weight: 700;
+}
+.stays-bookings-card__dates em {
+  grid-column: 1 / -1;
+  font-style: normal;
+  font-size: 0.8rem;
+  color: var(--muted, #5c6b64);
+}
+.stays-bookings-card__amount strong {
+  font-size: 1.05rem;
+  color: var(--oman-deep, #092d24);
+}
+.stays-bookings-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  padding-top: 0.15rem;
+  border-top: 1px solid #e6eeea;
+}
+.stays-bookings-card__actions .button {
+  min-height: 2.35rem;
+}
+@media (max-width: 1100px) {
+  .stays-bookings-card__main {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 720px) {
+  .stays-bookings-board__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .stays-bookings-card__main {
+    grid-template-columns: 1fr;
+  }
+  .stays-bookings-card__dates {
+    grid-template-columns: auto auto 1fr;
+  }
+  .stays-bookings-board__search {
+    max-width: none;
+  }
+}
 .property-manage-hub__stays-link {
   margin-top: 0.85rem;
 }

@@ -87,6 +87,7 @@ function toOpsBooking(row: {
   unitCode?: string | null;
   unitNameAr?: string | null;
   unitNameEn?: string | null;
+  guestDisplayName?: string | null;
 }): OpsStayBooking {
   return {
     id: row.id,
@@ -106,6 +107,7 @@ function toOpsBooking(row: {
     ...(row.unitCode ? { unitCode: row.unitCode } : {}),
     ...(row.unitNameAr ? { unitNameAr: row.unitNameAr } : {}),
     ...(row.unitNameEn ? { unitNameEn: row.unitNameEn } : {}),
+    ...(row.guestDisplayName ? { guestDisplayName: row.guestDisplayName } : {}),
   };
 }
 
@@ -536,7 +538,35 @@ export async function listOwnerStayBookingsOnNeon(
       .orderBy(desc(stayBookings.checkInOn), desc(stayBookings.createdAt))
       .limit(limit);
 
-    return { items: rows.map(toOpsBooking) };
+    const bookingIds = rows.map((row) => row.id);
+    const guestNameByBooking = new Map<string, string>();
+    if (bookingIds.length) {
+      const guestRows = await transaction
+        .select({
+          bookingId: stayBookingGuests.bookingId,
+          displayName: stayBookingGuests.displayName,
+        })
+        .from(stayBookingGuests)
+        .where(
+          and(
+            eq(stayBookingGuests.organizationId, organizationId),
+            eq(stayBookingGuests.isPrimary, true),
+            inArray(stayBookingGuests.bookingId, bookingIds),
+          ),
+        );
+      for (const guest of guestRows) {
+        if (guest.displayName) guestNameByBooking.set(guest.bookingId, guest.displayName);
+      }
+    }
+
+    return {
+      items: rows.map((row) =>
+        toOpsBooking({
+          ...row,
+          guestDisplayName: guestNameByBooking.get(row.id) ?? null,
+        }),
+      ),
+    };
   });
 }
 

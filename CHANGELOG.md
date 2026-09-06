@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.66 — 2026-09-06
+
+- Professional owner/developer stays bookings desk: summary stats, status filters, search, and card layout with guest names.
+
 ## 0.4.65 — 2026-09-06
 
 - Owner/developer stay booking detail: property cover on contract, unit calendar, public/portal property links, previous/next/overlapping bookings, reject/cancel action.

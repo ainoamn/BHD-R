@@ -35,12 +35,20 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   if (!isStaysPlatformEnabled()) notFound();
   const { locale } = await params;
   const items = await loadBookings();
+  const ar = locale === 'ar';
 
   return (
     <StaysPortalPage locale={locale} portal="developer" section="bookings">
-      <p className="muted">
-        {locale === 'ar' ? 'حجوزات يومية' : 'Daily bookings'}: <strong>{items.length}</strong>
-      </p>
+      <div className="stays-bookings-intro">
+        <div>
+          <h2 className="stays-bookings-intro__title">{ar ? 'لوحة الحجوزات' : 'Bookings desk'}</h2>
+          <p className="muted">
+            {ar
+              ? 'راجع الطلبات، تابع الوصول والمغادرة، وافتح عقد كل حجز من مكان واحد.'
+              : 'Review requests, track arrivals and departures, and open each booking contract from one place.'}
+          </p>
+        </div>
+      </div>
       <StayOpsBookingsTable locale={locale} portal="developer" items={items} />
     </StaysPortalPage>
   );
