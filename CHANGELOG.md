@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.68 — 2026-09-06
+
+- Ops stay calendar: project live bookings (not only inventory locks), normalize date overlays, show booking refs on booked days, richer unit tabs.
+
 ## 0.4.67 — 2026-09-06
 
 - Fix Vercel/Next build: import `useMemo` from React; allow `undefined` on stayListingSlug for exactOptionalPropertyTypes.

@@ -579,11 +579,14 @@ export async function listOwnerStayCalendarUnitsOnNeon(
         stayProfileId: stayProfiles.id,
         timezone: stayProfiles.timezone,
         unitCode: units.code,
+        propertyNameAr: properties.nameAr,
+        propertyNameEn: properties.nameEn,
       })
       .from(stayProfiles)
       .innerJoin(units, eq(units.id, stayProfiles.unitId))
+      .innerJoin(properties, eq(properties.id, units.propertyId))
       .where(eq(stayProfiles.organizationId, organizationId))
-      .orderBy(asc(stayProfiles.createdAt));
+      .orderBy(asc(properties.nameAr), asc(stayProfiles.createdAt));
 
     return {
       items: rows.map((row) => ({
@@ -593,6 +596,8 @@ export async function listOwnerStayCalendarUnitsOnNeon(
         timezone: row.timezone,
         unitCode: row.unitCode,
         calendarPath: `/v1/stays/units/${row.unitId}/calendar.ics`,
+        ...(row.propertyNameAr ? { propertyNameAr: row.propertyNameAr } : {}),
+        ...(row.propertyNameEn ? { propertyNameEn: row.propertyNameEn } : {}),
       })),
     };
   });
@@ -662,16 +667,47 @@ export async function getOwnerStayInventoryDaysOnNeon(
         SELECT DISTINCT gs::date AS stay_date
         FROM stay_inventory_locks l
         CROSS JOIN LATERAL generate_series(
-          lower(l.stay_range),
-          upper(l.stay_range) - 1,
+          lower(l.stay_range)::timestamp,
+          (upper(l.stay_range) - 1)::timestamp,
           '1 day'::interval
         ) AS gs
         WHERE l.organization_id = ${organizationId}::uuid
           AND l.unit_id = ${unitId}::uuid
           AND l.status = 'active'
-          AND l.kind = 'booking'
+          AND l.kind IN ('booking', 'hold')
           AND lower(l.stay_range) < ${toOn}::date
           AND upper(l.stay_range) > ${fromOn}::date
+      ),
+      booking_days AS (
+        SELECT DISTINCT d::date AS stay_date
+        FROM stay_bookings b
+        CROSS JOIN LATERAL generate_series(
+          b.check_in_on::timestamp,
+          GREATEST(
+            b.check_in_on::timestamp,
+            (CASE
+              WHEN b.check_out_on > b.check_in_on THEN (b.check_out_on::date - 1)
+              ELSE b.check_in_on::date
+            END)::timestamp
+          ),
+          '1 day'::interval
+        ) AS d
+        WHERE b.organization_id = ${organizationId}::uuid
+          AND b.unit_id = ${unitId}::uuid
+          AND b.status IN (
+            'request_pending', 'payment_pending', 'confirmed', 'paid',
+            'pre_arrival', 'checked_in'
+          )
+          AND b.check_in_on < ${toOn}::date
+          AND COALESCE(
+            NULLIF(b.check_out_on, b.check_in_on),
+            (b.check_in_on + 1)
+          ) > ${fromOn}::date
+      ),
+      occupied AS (
+        SELECT stay_date FROM lock_days
+        UNION
+        SELECT stay_date FROM booking_days
       )
       INSERT INTO stay_inventory_days (
         organization_id, unit_id, stay_date, availability_status,
@@ -680,18 +716,22 @@ export async function getOwnerStayInventoryDaysOnNeon(
       SELECT
         ${organizationId}::uuid,
         ${unitId}::uuid,
-        ld.stay_date,
+        o.stay_date,
         'booked',
         NULL,
         ${profile.currency},
         NULL,
         NULL,
         false
-      FROM lock_days ld
-      WHERE ld.stay_date >= ${fromOn}::date
-        AND ld.stay_date < ${toOn}::date
+      FROM occupied o
+      WHERE o.stay_date >= ${fromOn}::date
+        AND o.stay_date < ${toOn}::date
       ON CONFLICT (unit_id, stay_date) DO UPDATE SET
-        availability_status = 'booked',
+        availability_status = CASE
+          WHEN stay_inventory_days.availability_status IN ('blocked', 'maintenance', 'lease')
+            THEN stay_inventory_days.availability_status
+          ELSE 'booked'
+        END,
         updated_at = now()
     `);
 
@@ -721,7 +761,7 @@ export async function getOwnerStayInventoryDaysOnNeon(
         public_note: string | null;
       }>
     ).map((row) => ({
-      stayDate: row.stay_date,
+      stayDate: String(row.stay_date).slice(0, 10),
       availabilityStatus: row.availability_status,
       effectiveRateMinor: row.effective_rate_minor,
       currency: row.currency,
@@ -756,7 +796,37 @@ export async function getOwnerStayInventoryDaysOnNeon(
       ? lockResult
       : ((lockResult as { rows?: unknown[] }).rows ?? []);
 
-    const locks = (
+    const bookingSpanResult = await transaction.execute(sql`
+      SELECT
+        'booking'::text AS kind,
+        b.check_in_on::text AS check_in_on,
+        CASE
+          WHEN b.check_out_on > b.check_in_on THEN b.check_out_on::text
+          ELSE (b.check_in_on + 1)::text
+        END AS check_out_on,
+        NULL::text AS note,
+        b.reference_code AS booking_reference
+      FROM stay_bookings b
+      WHERE b.organization_id = ${organizationId}::uuid
+        AND b.unit_id = ${unitId}::uuid
+        AND b.status IN (
+          'request_pending', 'payment_pending', 'confirmed', 'paid',
+          'pre_arrival', 'checked_in'
+        )
+        AND b.check_in_on < ${toOn}::date
+        AND COALESCE(
+          NULLIF(b.check_out_on, b.check_in_on),
+          (b.check_in_on + 1)
+        ) > ${fromOn}::date
+      ORDER BY b.check_in_on ASC
+    `);
+    const bookingSpanRows = Array.isArray(bookingSpanResult)
+      ? bookingSpanResult
+      : ((bookingSpanResult as { rows?: unknown[] }).rows ?? []);
+
+    const normalizeDate = (value: string) => String(value).slice(0, 10);
+
+    const locksFromDb = (
       lockRows as Array<{
         kind: string;
         check_in_on: string;
@@ -766,11 +836,39 @@ export async function getOwnerStayInventoryDaysOnNeon(
       }>
     ).map((row) => ({
       kind: row.kind,
-      checkInOn: row.check_in_on,
-      checkOutOn: row.check_out_on,
+      checkInOn: normalizeDate(row.check_in_on),
+      checkOutOn: normalizeDate(row.check_out_on),
       ...(row.booking_reference ? { bookingReference: row.booking_reference } : {}),
       ...(row.note ? { note: row.note } : {}),
     }));
+
+    const locksFromBookings = (
+      bookingSpanRows as Array<{
+        kind: string;
+        check_in_on: string;
+        check_out_on: string;
+        note: string | null;
+        booking_reference: string | null;
+      }>
+    ).map((row) => ({
+      kind: row.kind,
+      checkInOn: normalizeDate(row.check_in_on),
+      checkOutOn: normalizeDate(row.check_out_on),
+      ...(row.booking_reference ? { bookingReference: row.booking_reference } : {}),
+    }));
+
+    // Prefer lock rows; append booking spans that are missing a lock overlay.
+    const locks = [...locksFromDb];
+    for (const bookingLock of locksFromBookings) {
+      const already = locks.some(
+        (lock) =>
+          lock.bookingReference === bookingLock.bookingReference ||
+          (lock.checkInOn === bookingLock.checkInOn &&
+            lock.checkOutOn === bookingLock.checkOutOn &&
+            lock.kind === 'booking'),
+      );
+      if (!already) locks.push(bookingLock);
+    }
 
     const daysWithLocks = days.map((day) => {
       const lock = locks.find(

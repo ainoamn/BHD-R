@@ -14,6 +14,8 @@ export type StayCalendarUnit = {
   timezone: string;
   unitCode: string;
   calendarPath: string;
+  propertyNameAr?: string;
+  propertyNameEn?: string;
 };
 
 type EditableDay = {
@@ -103,11 +105,7 @@ export function StayOpsCalendarPanel({
       setReloadKey((value) => value + 1);
       setSelectedDay(null);
     } catch (caught) {
-      setError(
-        caught instanceof ApiError
-          ? caught.message
-          : humanizeBrowserError(caught, ar),
-      );
+      setError(caught instanceof ApiError ? caught.message : humanizeBrowserError(caught, ar));
     } finally {
       setBusy(false);
     }
@@ -120,13 +118,17 @@ export function StayOpsCalendarPanel({
           <h2>{ar ? 'تقويم الإشغال والتسعير' : 'Occupancy & pricing calendar'}</h2>
           <p className="muted">
             {ar
-              ? 'اضغط يوماً لتحديد إيجار خاص (رفع أو تخفيض)، أو كتابة ملاحظة/تهنئة تظهر للجمهور، أو إغلاق اليوم.'
-              : 'Click a day to set a custom rate (raise or discount), write a public note/greeting, or close the day.'}
+              ? 'الأيام الحمراء محجوزة. اضغط يوماً شاغراً لتحديد سعر خاص أو إغلاقه. تأكد من اختيار الوحدة الصحيحة أعلاه.'
+              : 'Red days are booked. Click an open day to set a custom rate or close it. Make sure the correct unit is selected above.'}
           </p>
         </div>
       </header>
 
-      <div className="stays-ops-calendar__units" role="tablist" aria-label={ar ? 'الوحدات' : 'Units'}>
+      <div
+        className="stays-ops-calendar__units"
+        role="tablist"
+        aria-label={ar ? 'الوحدات' : 'Units'}
+      >
         {items.map((unit) => (
           <button
             key={unit.unitId}
@@ -143,7 +145,14 @@ export function StayOpsCalendarPanel({
               setSelectedDay(null);
             }}
           >
-            <span dir="ltr">{unit.unitCode}</span>
+            <span className="stays-ops-calendar__unit-name">
+              {ar
+                ? unit.propertyNameAr || unit.propertyNameEn || unit.unitCode
+                : unit.propertyNameEn || unit.propertyNameAr || unit.unitCode}
+            </span>
+            <span dir="ltr" className="stays-ops-calendar__unit-code">
+              {unit.unitCode}
+            </span>
           </button>
         ))}
       </div>
@@ -159,7 +168,10 @@ export function StayOpsCalendarPanel({
         />
 
         {selectedDay ? (
-          <aside className="stays-ops-calendar__editor" aria-label={ar ? 'تعديل اليوم' : 'Edit day'}>
+          <aside
+            className="stays-ops-calendar__editor"
+            aria-label={ar ? 'تعديل اليوم' : 'Edit day'}
+          >
             <h3 dir="ltr">{selectedDay.stayDate}</h3>
             <p className="muted">
               {selectedDay.effectiveRateMinor && selectedDay.currency
@@ -186,7 +198,9 @@ export function StayOpsCalendarPanel({
 
             <div className="field">
               <label htmlFor="stay-day-note">
-                {ar ? 'ملاحظة للجمهور (تهنئة / سبب التخفيض)' : 'Public note (greeting / discount reason)'}
+                {ar
+                  ? 'ملاحظة للجمهور (تهنئة / سبب التخفيض)'
+                  : 'Public note (greeting / discount reason)'}
               </label>
               <textarea
                 id="stay-day-note"

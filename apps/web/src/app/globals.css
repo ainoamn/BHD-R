@@ -11074,7 +11074,26 @@ button.ops-row-key {
   }
 }
 .stays-ops-calendar__unit-tab {
-  min-height: 2.25rem;
+  min-height: 2.55rem;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  padding-block: 0.4rem;
+}
+.stays-ops-calendar__unit-name {
+  font-weight: 750;
+  font-size: 0.88rem;
+  line-height: 1.2;
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stays-ops-calendar__unit-code {
+  font-size: 0.72rem;
+  opacity: 0.75;
+  font-weight: 600;
 }
 .stays-ops-calendar__export {
   margin-top: 1.5rem;

@@ -463,6 +463,12 @@ export function StayAvailabilityCalendar({
                       </span>
                       {selectedLabel ? (
                         <span className="stays-calendar__day-status">{selectedLabel}</span>
+                      ) : status === 'booked' || status === 'hold' ? (
+                        <span className="stays-calendar__day-status">
+                          {lock?.bookingReference
+                            ? lock.bookingReference.replace(/^ST-/, '')
+                            : mark}
+                        </span>
                       ) : day.effectiveRateMinor && currency ? (
                         <span className="stays-calendar__day-price" dir="ltr">
                           {compactMoney(day.effectiveRateMinor, currency, locale)}
