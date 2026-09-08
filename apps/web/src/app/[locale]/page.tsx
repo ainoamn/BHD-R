@@ -94,6 +94,25 @@ const homeCopy = {
   },
 } as const;
 
+/** Homepage uses cookies + live catalogue — never block the Vercel static worker. */
+export const dynamic = 'force-dynamic';
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`timeout after ${ms}ms`)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
@@ -109,7 +128,8 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   if (hasDatabaseUrl()) {
     try {
       const { searchPublicListingsFromNeon } = await import('@/lib/search-public-listings-neon');
-      listings = await searchPublicListingsFromNeon({ limit: 6 });
+      // Neon pool contention during `next build` can hang past the 60s static worker limit.
+      listings = await withTimeout(searchPublicListingsFromNeon({ limit: 6 }), 8_000);
       neonOk = true;
     } catch {
       listings = emptyListings;

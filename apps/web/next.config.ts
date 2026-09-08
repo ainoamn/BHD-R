@@ -39,6 +39,8 @@ const config: NextConfig = {
   outputFileTracingRoot: monorepoRoot,
   poweredByHeader: false,
   reactStrictMode: true,
+  // Home/catalogue can wait on Neon during build; default 60s caused Vercel ERROR on 0.4.73.
+  staticPageGenerationTimeout: 180,
   ...(process.env.NODE_ENV === 'development' ? { allowedDevOrigins: ['127.0.0.1'] } : {}),
   transpilePackages: [
     '@bhd-r/ui',
