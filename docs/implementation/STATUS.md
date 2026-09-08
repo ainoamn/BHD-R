@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-09-08  
-**Product version:** 0.4.75  
-**Active focus:** Portal SPA persistence (pages + forms)  
+**Product version:** 0.4.76  
+**Active focus:** Owner accounting stay rows visibility  
+**Release 0.4.76:** accounting stay rows use table columns + confirmed-booking fallback · [`RELEASE-0.4.76-AR.md`](./RELEASE-0.4.76-AR.md)  
 **Release 0.4.75:** persistent portal pages, paced prefetch, soft ops/history, soft property save · [`RELEASE-0.4.75-AR.md`](./RELEASE-0.4.75-AR.md)  
 **Release 0.4.74:** homepage build timeout — force-dynamic + Neon race · [`RELEASE-0.4.74-AR.md`](./RELEASE-0.4.74-AR.md)  
 **Release 0.4.73:** instant sidebar hops — warm-all now, full route prefetch, persist ops panels + page cache · [`RELEASE-0.4.73-AR.md`](./RELEASE-0.4.73-AR.md)  

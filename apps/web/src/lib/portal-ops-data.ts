@@ -424,23 +424,100 @@ export async function listStayAccountingRows(
       .orderBy(desc(stayPaymentIntents.createdAt))
       .limit(200);
 
-    return rows.map((row) => ({
-      id: row.id,
-      recordKind: 'stay_payment',
-      status: 'posted',
-      reference: row.referenceCode,
-      memo: `Stay ${row.referenceCode} · ${row.propertyNameEn || row.propertyNameAr}`,
-      currency: row.currency,
-      amountMinor: row.amountMinor.toString(),
-      debitMinor: row.amountMinor.toString(),
-      creditMinor: '0',
-      propertyId: row.propertyId,
-      bookingId: row.bookingId,
-      checkInOn: row.checkInOn,
-      checkOutOn: row.checkOutOn,
-      provider: row.provider,
-      createdAt: asIso(row.createdAt),
-    }));
+    return rows.map((row) => {
+      const propertyLabel = row.propertyNameAr || row.propertyNameEn || '—';
+      const description = `إقامة ${row.referenceCode} · ${propertyLabel}`;
+      const occurredOn =
+        row.createdAt instanceof Date
+          ? row.createdAt.toISOString().slice(0, 10)
+          : String(row.createdAt ?? '').slice(0, 10);
+      return {
+        id: row.id,
+        recordKind: 'stay_payment',
+        status: 'posted',
+        reference: row.referenceCode,
+        description,
+        memo: description,
+        occurredOn,
+        currency: row.currency,
+        amountMinor: row.amountMinor.toString(),
+        debitMinor: row.amountMinor.toString(),
+        creditMinor: '0',
+        propertyId: row.propertyId,
+        bookingId: row.bookingId,
+        checkInOn: row.checkInOn,
+        checkOutOn: row.checkOutOn,
+        provider: row.provider,
+        createdAt: asIso(row.createdAt),
+      };
+    });
+  });
+}
+
+/** Confirmed stays without a succeeded intent still need a ledger line (sandbox/status drift). */
+export async function listConfirmedStayBookingAccountingFallback(
+  claims: SessionClaims,
+): Promise<Record<string, unknown>[]> {
+  return withinViewerTenant(claims, async (transaction) => {
+    const orgId = claims.organizationId!;
+    const rows = await transaction
+      .select({
+        id: stayBookings.id,
+        referenceCode: stayBookings.referenceCode,
+        status: stayBookings.status,
+        currency: stayBookings.currency,
+        totalMinor: stayBookings.totalMinor,
+        propertyId: stayBookings.propertyId,
+        checkInOn: stayBookings.checkInOn,
+        checkOutOn: stayBookings.checkOutOn,
+        createdAt: stayBookings.createdAt,
+        propertyNameAr: properties.nameAr,
+        propertyNameEn: properties.nameEn,
+      })
+      .from(stayBookings)
+      .innerJoin(properties, eq(properties.id, stayBookings.propertyId))
+      .where(
+        and(
+          eq(stayBookings.organizationId, orgId),
+          inArray(stayBookings.status, [
+            'confirmed',
+            'pre_arrival',
+            'checked_in',
+            'checked_out',
+            'closed',
+          ]),
+        ),
+      )
+      .orderBy(desc(stayBookings.createdAt))
+      .limit(200);
+
+    return rows.map((row) => {
+      const propertyLabel = row.propertyNameAr || row.propertyNameEn || '—';
+      const description = `إقامة ${row.referenceCode} · ${propertyLabel}`;
+      const occurredOn =
+        row.createdAt instanceof Date
+          ? row.createdAt.toISOString().slice(0, 10)
+          : String(row.createdAt ?? '').slice(0, 10);
+      return {
+        id: `stay-booking-${row.id}`,
+        recordKind: 'stay_payment',
+        status: 'posted',
+        reference: row.referenceCode,
+        description,
+        memo: description,
+        occurredOn,
+        currency: row.currency,
+        amountMinor: row.totalMinor.toString(),
+        debitMinor: row.totalMinor.toString(),
+        creditMinor: '0',
+        propertyId: row.propertyId,
+        bookingId: row.id,
+        checkInOn: row.checkInOn,
+        checkOutOn: row.checkOutOn,
+        provider: 'booking_total',
+        createdAt: asIso(row.createdAt),
+      };
+    });
   });
 }
 
@@ -503,7 +580,10 @@ export async function loadStayAccountingRowsForViewer(): Promise<Record<string, 
   const claims = await readClaims();
   if (!claims?.organizationId) return [];
   try {
-    return await listStayAccountingRows(claims);
+    const payments = await listStayAccountingRows(claims);
+    if (payments.length) return payments;
+    // Same fallback as property ops pulse: confirmed stays when intent status differs.
+    return await listConfirmedStayBookingAccountingFallback(claims);
   } catch {
     return [];
   }
