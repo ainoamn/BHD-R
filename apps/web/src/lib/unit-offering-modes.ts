@@ -1,19 +1,5 @@
-import 'server-only';
-import { sql } from 'drizzle-orm';
-
-type Executable = {
-  execute: (query: ReturnType<typeof sql>) => Promise<unknown>;
-};
-
 export const OFFERING_MODE_VALUES = ['sale', 'monthly', 'yearly', 'daily'] as const;
 export type OfferingMode = (typeof OFFERING_MODE_VALUES)[number];
-
-export async function ensureUnitOfferingModesColumn(transaction: Executable): Promise<void> {
-  await transaction.execute(sql`
-    ALTER TABLE "units"
-    ADD COLUMN IF NOT EXISTS "offering_modes" varchar(64) NOT NULL DEFAULT 'monthly'
-  `);
-}
 
 export function parseOfferingModes(raw: string | null | undefined): OfferingMode[] {
   const parts = String(raw ?? 'monthly')
@@ -42,7 +28,9 @@ export function hasLongTermCatalogueOffer(modes: OfferingMode[]): boolean {
 }
 
 /** Map offering modes onto legacy listingPurpose column. */
-export function listingPurposeFromOfferingModes(modes: OfferingMode[]): 'rent' | 'sale' | 'both' {
+export function listingPurposeFromOfferingModes(
+  modes: OfferingMode[],
+): 'rent' | 'sale' | 'both' {
   const sale = modes.includes('sale');
   const rent = modes.includes('monthly') || modes.includes('yearly') || modes.includes('daily');
   if (sale && rent) return 'both';

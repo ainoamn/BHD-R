@@ -22,13 +22,13 @@ import {
 } from '@bhd-r/db';
 import { loadPropertyProfileRow, writePropertyProfileRow } from '@/lib/load-property-profile';
 import {
-  ensureUnitOfferingModesColumn,
   hasLongTermCatalogueOffer,
   isDailyOnlyOffering,
   listingPurposeFromOfferingModes,
   serializeOfferingModes,
   type OfferingMode,
 } from '@/lib/unit-offering-modes';
+import { ensureUnitOfferingModesColumn } from '@/lib/ensure-unit-offering-modes-column';
 
 function resolveUnitOffering(unit: {
   listingPurpose: 'rent' | 'sale' | 'both';

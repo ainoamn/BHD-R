@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-09-08  
-**Product version:** 0.4.71  
-**Active focus:** Property ops pulse + offering modes  
+**Product version:** 0.4.72  
+**Active focus:** Unblock Vercel after 0.4.71  
+**Release 0.4.72:** build fix — offering modes helpers usable from client wizard · [`RELEASE-0.4.72-AR.md`](./RELEASE-0.4.72-AR.md)  
 **Release 0.4.71:** property hub bookings/contracts/finance; sale/monthly/yearly/daily modes; daily-only off /properties; stay payments in accounting · [`RELEASE-0.4.71-AR.md`](./RELEASE-0.4.71-AR.md)  
 **Release 0.4.70:** smaller metrics, priority alerts, clearer intro and layout on /owner · [`RELEASE-0.4.70-AR.md`](./RELEASE-0.4.70-AR.md)  
 **Release 0.4.69:** portal full width; larger calendar cells; short marks; booking refs in list/tooltip only · [`RELEASE-0.4.69-AR.md`](./RELEASE-0.4.69-AR.md)  
