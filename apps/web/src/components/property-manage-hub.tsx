@@ -104,7 +104,7 @@ export function PropertyManageHub({
         text: ar
           ? `${liveStayCount} حجوزات إقامة يومية نشطة أو بانتظار إجراء.`
           : `${liveStayCount} active or pending daily stay booking(s).`,
-        href: `${base}/stays/bookings`,
+        href: `${base}/stays/bookings?propertyId=${propertyId}`,
       });
     }
     if ((pulse?.contracts.length ?? 0) > 0) {
@@ -116,7 +116,7 @@ export function PropertyManageHub({
       });
     }
     return items;
-  }, [ar, base, editHref, liveStayCount, property, pulse, unpublishedUnits]);
+  }, [ar, base, editHref, liveStayCount, property, propertyId, pulse, unpublishedUnits]);
 
   async function runLifecycle(action: 'archive' | 'restore' | 'purge') {
     const once = async (csrfToken: string) =>
@@ -210,7 +210,7 @@ export function PropertyManageHub({
     { href: scoped('sales'), label: ar ? 'البيع' : 'Sales' },
     { href: scoped('bookings'), label: ar ? 'الحجوزات' : 'Bookings' },
     {
-      href: `${base}/stays/bookings`,
+      href: `${base}/stays/bookings?propertyId=${propertyId}`,
       label: ar ? 'الحجوزات اليومية' : 'Daily stay bookings',
     },
     { href: scoped('maintenance'), label: ar ? 'الصيانة' : 'Maintenance' },
@@ -309,7 +309,7 @@ export function PropertyManageHub({
           <article className="property-manage-hub__ops-card">
             <header>
               <h2>{ar ? 'الحجوزات اليومية' : 'Daily stay bookings'}</h2>
-              <Link href={`${base}/stays/bookings`} prefetch>
+              <Link href={`${base}/stays/bookings?propertyId=${propertyId}`} prefetch>
                 {ar ? 'الكل' : 'All'}
               </Link>
             </header>

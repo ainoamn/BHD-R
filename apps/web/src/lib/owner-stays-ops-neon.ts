@@ -502,10 +502,11 @@ export async function getOwnerStayBookingContractOnNeon(
 
 export async function listOwnerStayBookingsOnNeon(
   claims: SessionClaims,
-  options?: { limit?: number },
+  options?: { limit?: number; propertyId?: string },
 ): Promise<{ items: OpsStayBooking[] }> {
   const organizationId = assertOrg(claims);
   const limit = Math.min(Math.max(options?.limit ?? 50, 1), 100);
+  const propertyId = options?.propertyId?.trim() || null;
 
   return withinTenant(claims, async (transaction) => {
     const rows = await transaction
@@ -530,7 +531,12 @@ export async function listOwnerStayBookingsOnNeon(
       .from(stayBookings)
       .innerJoin(properties, eq(properties.id, stayBookings.propertyId))
       .innerJoin(units, eq(units.id, stayBookings.unitId))
-      .where(eq(stayBookings.organizationId, organizationId))
+      .where(
+        and(
+          eq(stayBookings.organizationId, organizationId),
+          ...(propertyId ? [eq(stayBookings.propertyId, propertyId)] : []),
+        ),
+      )
       .orderBy(desc(stayBookings.checkInOn), desc(stayBookings.createdAt))
       .limit(limit);
 
