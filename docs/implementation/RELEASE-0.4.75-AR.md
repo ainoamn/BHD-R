@@ -1,5 +1,7 @@
 # BHD R 0.4.75 — تنقل بوابة المالك مع حفظ الصفحات والنماذج
 
+**منشور:** 2026-09-08 على https://r.bhd-om.com (`89835d9` · Vercel Production Success)
+
 مصدر التعديل: مراجعة Codex المحلية (`BHD-R-navigation.patch`) طُبّقت على `main` بعد 0.4.74.
 
 ## ماذا يصلح
@@ -9,11 +11,12 @@
 4. أقسام التشغيل عبر History API (بدون إعادة document).
 5. حفظ/تعديل العقار بتنقل عميل بدل `window.location.assign`.
 
-## تحقق محلي عند الدمج
-- vitest: `portal-navigation` + `portal-ops-client-cache` — ناجح (9).
+## تحقق عند الدمج
+- vitest: `portal-navigation` + `portal-ops-client-cache` — ناجح.
 - `tsc --noEmit` — ناجح.
+- Vercel Production — Success.
 
-## تحقق يدوي بعد النشر (مطلوب)
+## تحقق يدوي على الإنتاج
 1. `/ar/owner` → عقارات → فواتير → عقود — تبديل فوري داخل الغلاف.
 2. إضافة عقار: املأ مسودة، زُر أكثر من 12 قسماً، ارجع — تبقى الحقول.
 3. تعديل عقار وحفظه — يبقى داخل soft nav.
