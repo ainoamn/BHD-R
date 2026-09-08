@@ -2,7 +2,8 @@
 
 **Updated:** 2026-09-08  
 **Product version:** 0.4.77  
-**Active focus:** Fast owner accounting (Neon-first)  
+**Active focus:** Fast owner accounting (Neon-first) · handoff ready for other machine  
+**Live handoff (جلسة كاملة 0.4.71→0.4.77):** [`../handoffs/2026-09-08-session-0.4.71-to-0.4.77/`](../handoffs/2026-09-08-session-0.4.71-to-0.4.77/) · HEAD `752e325`  
 **Release 0.4.77:** accounting Neon-first + Nest health race · [`RELEASE-0.4.77-AR.md`](./RELEASE-0.4.77-AR.md)  
 **Release 0.4.76:** accounting stay rows use table columns + confirmed-booking fallback · [`RELEASE-0.4.76-AR.md`](./RELEASE-0.4.76-AR.md)  
 **Release 0.4.75:** persistent portal pages, paced prefetch, soft ops/history, soft property save · [`RELEASE-0.4.75-AR.md`](./RELEASE-0.4.75-AR.md)  
@@ -12,7 +13,8 @@
 **Release 0.4.71:** property hub bookings/contracts/finance; sale/monthly/yearly/daily modes; daily-only off /properties; stay payments in accounting · [`RELEASE-0.4.71-AR.md`](./RELEASE-0.4.71-AR.md)  
 **Release 0.4.70:** smaller metrics, priority alerts, clearer intro and layout on /owner · [`RELEASE-0.4.70-AR.md`](./RELEASE-0.4.70-AR.md)  
 **Release 0.4.69:** portal full width; larger calendar cells; short marks; booking refs in list/tooltip only · [`RELEASE-0.4.69-AR.md`](./RELEASE-0.4.69-AR.md)  
-**Live handoff:** [`../handoffs/2026-09-08-portal-nav-0.4.75/`](../handoffs/2026-09-08-portal-nav-0.4.75/) · Production Success على `89835d9`  
+**Prior handoff:** [`../handoffs/2026-09-08-portal-nav-0.4.75/`](../handoffs/2026-09-08-portal-nav-0.4.75/)  
+
 **Release 0.4.68:** calendar booking projection + unit labels + booked-day refs  
 **Release 0.4.67:** build fix useMemo + exactOptionalPropertyTypes  
 **Release 0.4.66:** bookings list stats/filters/search/cards  
