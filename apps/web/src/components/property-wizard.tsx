@@ -23,6 +23,10 @@ import { MapLocationPicker } from '@/components/map-location-picker';
 import { NestReconnectButton } from '@/components/nest-reconnect-button';
 import type { ManagedProperty } from '@/components/property-detail-manager';
 import type { OwnerPartyOption } from '@/lib/owner-parties';
+import {
+  listingPurposeFromOfferingModes,
+  type OfferingMode,
+} from '@/lib/unit-offering-modes';
 
 function majorFromMinor(minor: string | null | undefined, currency: CurrencyCode): string {
   if (!minor) return '';
@@ -56,6 +60,7 @@ interface UnitDraft {
   hasPool: string;
   area: string;
   listingPurpose: 'rent' | 'sale' | 'both';
+  offeringModes: OfferingMode[];
   rent: string;
   salePrice: string;
   deposit: string;
@@ -91,6 +96,7 @@ const blankUnit = (index: number, unitKind: MultiUnitKind = 'apartment'): UnitDr
   hasPool: unitKind === 'apartment' ? '' : 'false',
   area: '',
   listingPurpose: 'rent',
+  offeringModes: ['monthly'],
   rent: '',
   salePrice: '',
   deposit: '',
@@ -271,6 +277,12 @@ export function PropertyWizard({
           hasPool: unit.hasPool ? 'true' : 'false',
           area: unit.areaSquareMeters ?? '',
           listingPurpose: unit.listingPurpose,
+          offeringModes:
+            unit.listingPurpose === 'sale'
+              ? (['sale'] as OfferingMode[])
+              : unit.listingPurpose === 'both'
+                ? (['monthly', 'sale'] as OfferingMode[])
+                : (['monthly'] as OfferingMode[]),
           rent: majorFromMinor(unit.rentMinor, unit.currency),
           salePrice: majorFromMinor(unit.salePriceMinor, unit.currency),
           deposit: majorFromMinor(unit.depositMinor, unit.currency),
@@ -497,6 +509,7 @@ export function PropertyWizard({
           hasPool: source.hasPool,
           area: source.area,
           listingPurpose: source.listingPurpose,
+          offeringModes: [...source.offeringModes],
           rent: source.rent,
           salePrice: source.salePrice,
           deposit: source.deposit,
@@ -1306,8 +1319,9 @@ export function PropertyWizard({
                 kitchens: isCommercial ? 0 : Number(unit.kitchens || 0),
                 hasPool: isCommercial ? false : unit.hasPool === 'true',
                 areaSquareMeters: unit.area || undefined,
-                listingPurpose: unit.listingPurpose,
-                rent: {
+          listingPurpose: unit.listingPurpose,
+          offeringModes: unit.offeringModes,
+          rent: {
                   amountMinor: toMinorUnits(unit.rent || '0', currency),
                   currency,
                 },
@@ -2080,34 +2094,82 @@ export function PropertyWizard({
                               }
                               required
                             />
-                            <SelectField
-                              id={`unit-purpose-${unit.localId}`}
-                              label={t('PropertyForm.listingPurpose')}
-                              value={unit.listingPurpose}
-                              tone="ok"
-                              onChange={(event) =>
-                                updateUnit(unit.localId, 'listingPurpose', event.target.value)
-                              }
-                              required
-                            >
-                              <option value="rent">{t('PropertyForm.forRent')}</option>
-                              <option value="sale">{t('PropertyForm.forSale')}</option>
-                              <option value="both">{t('PropertyForm.forBoth')}</option>
-                            </SelectField>
+                            <fieldset className="wizard-offering-modes">
+                              <legend>{t('PropertyForm.offeringModes')}</legend>
+                              <p className="muted wizard-offering-modes__hint">
+                                {t('PropertyForm.offeringModesHint')}
+                              </p>
+                              {(
+                                [
+                                  ['monthly', t('PropertyForm.offerMonthly')],
+                                  ['yearly', t('PropertyForm.offerYearly')],
+                                  ['daily', t('PropertyForm.offerDaily')],
+                                  ['sale', t('PropertyForm.offerSale')],
+                                ] as const
+                              ).map(([mode, label]) => (
+                                <label key={mode} className="wizard-offering-modes__item">
+                                  <input
+                                    type="checkbox"
+                                    checked={unit.offeringModes.includes(mode)}
+                                    onChange={(event) => {
+                                      setUnits((current) =>
+                                        current.map((row) => {
+                                          if (row.localId !== unit.localId) return row;
+                                          const nextModes = event.target.checked
+                                            ? [...row.offeringModes, mode]
+                                            : row.offeringModes.filter((item) => item !== mode);
+                                          const modes = (
+                                            nextModes.length ? nextModes : ['monthly']
+                                          ) as OfferingMode[];
+                                          return {
+                                            ...row,
+                                            offeringModes: modes,
+                                            listingPurpose: listingPurposeFromOfferingModes(modes),
+                                            publishWhenAvailable:
+                                              modes.includes('daily') &&
+                                              !modes.some(
+                                                (item) =>
+                                                  item === 'monthly' ||
+                                                  item === 'yearly' ||
+                                                  item === 'sale',
+                                              )
+                                                ? false
+                                                : row.publishWhenAvailable,
+                                          };
+                                        }),
+                                      );
+                                    }}
+                                  />
+                                  <span>{label}</span>
+                                </label>
+                              ))}
+                            </fieldset>
                             <Field
                               id={`unit-rent-${unit.localId}`}
                               inputMode="decimal"
                               label={`${t('PropertyForm.rent')} (${currency})`}
                               value={unit.rent}
                               tone={
-                                unit.listingPurpose === 'sale'
+                                unit.offeringModes.includes('sale') &&
+                                !unit.offeringModes.some(
+                                  (mode) =>
+                                    mode === 'monthly' || mode === 'yearly' || mode === 'daily',
+                                )
                                   ? 'neutral'
                                   : tone(unit.rent, true, showErrors)
                               }
                               onChange={(event) =>
                                 updateUnit(unit.localId, 'rent', event.target.value)
                               }
-                              required={unit.listingPurpose !== 'sale'}
+                              required={
+                                !(
+                                  unit.offeringModes.includes('sale') &&
+                                  !unit.offeringModes.some(
+                                    (mode) =>
+                                      mode === 'monthly' || mode === 'yearly' || mode === 'daily',
+                                  )
+                                )
+                              }
                             />
                             <Field
                               id={`unit-sale-price-${unit.localId}`}
@@ -2115,14 +2177,14 @@ export function PropertyWizard({
                               label={`${t('PropertyForm.salePrice')} (${currency})`}
                               value={unit.salePrice}
                               tone={
-                                unit.listingPurpose === 'rent'
-                                  ? 'neutral'
-                                  : tone(unit.salePrice, true, showErrors)
+                                unit.offeringModes.includes('sale')
+                                  ? tone(unit.salePrice, true, showErrors)
+                                  : 'neutral'
                               }
                               onChange={(event) =>
                                 updateUnit(unit.localId, 'salePrice', event.target.value)
                               }
-                              required={unit.listingPurpose !== 'rent'}
+                              required={unit.offeringModes.includes('sale')}
                             />
                             <Field
                               id={`unit-deposit-${unit.localId}`}
@@ -2393,34 +2455,82 @@ export function PropertyWizard({
                               updateUnit(unit.localId, 'area', event.target.value)
                             }
                           />
-                          <SelectField
-                            id={`unit-purpose-${unit.localId}`}
-                            label={t('PropertyForm.listingPurpose')}
-                            value={unit.listingPurpose}
-                            tone="ok"
-                            onChange={(event) =>
-                              updateUnit(unit.localId, 'listingPurpose', event.target.value)
-                            }
-                            required
-                          >
-                            <option value="rent">{t('PropertyForm.forRent')}</option>
-                            <option value="sale">{t('PropertyForm.forSale')}</option>
-                            <option value="both">{t('PropertyForm.forBoth')}</option>
-                          </SelectField>
+                          <fieldset className="wizard-offering-modes">
+                            <legend>{t('PropertyForm.offeringModes')}</legend>
+                            <p className="muted wizard-offering-modes__hint">
+                              {t('PropertyForm.offeringModesHint')}
+                            </p>
+                            {(
+                              [
+                                ['monthly', t('PropertyForm.offerMonthly')],
+                                ['yearly', t('PropertyForm.offerYearly')],
+                                ['daily', t('PropertyForm.offerDaily')],
+                                ['sale', t('PropertyForm.offerSale')],
+                              ] as const
+                            ).map(([mode, label]) => (
+                              <label key={mode} className="wizard-offering-modes__item">
+                                <input
+                                  type="checkbox"
+                                  checked={unit.offeringModes.includes(mode)}
+                                  onChange={(event) => {
+                                    setUnits((current) =>
+                                      current.map((row) => {
+                                        if (row.localId !== unit.localId) return row;
+                                        const nextModes = event.target.checked
+                                          ? [...row.offeringModes, mode]
+                                          : row.offeringModes.filter((item) => item !== mode);
+                                        const modes = (
+                                          nextModes.length ? nextModes : ['monthly']
+                                        ) as OfferingMode[];
+                                        return {
+                                          ...row,
+                                          offeringModes: modes,
+                                          listingPurpose: listingPurposeFromOfferingModes(modes),
+                                          publishWhenAvailable:
+                                            modes.includes('daily') &&
+                                            !modes.some(
+                                              (item) =>
+                                                item === 'monthly' ||
+                                                item === 'yearly' ||
+                                                item === 'sale',
+                                            )
+                                              ? false
+                                              : row.publishWhenAvailable,
+                                        };
+                                      }),
+                                    );
+                                  }}
+                                />
+                                <span>{label}</span>
+                              </label>
+                            ))}
+                          </fieldset>
                           <Field
                             id={`unit-rent-${unit.localId}`}
                             inputMode="decimal"
                             label={`${t('PropertyForm.rent')} (${currency})`}
                             value={unit.rent}
                             tone={
-                              unit.listingPurpose === 'sale'
+                              unit.offeringModes.includes('sale') &&
+                              !unit.offeringModes.some(
+                                (mode) =>
+                                  mode === 'monthly' || mode === 'yearly' || mode === 'daily',
+                              )
                                 ? 'neutral'
                                 : tone(unit.rent, true, showErrors)
                             }
                             onChange={(event) =>
                               updateUnit(unit.localId, 'rent', event.target.value)
                             }
-                            required={unit.listingPurpose !== 'sale'}
+                            required={
+                              !(
+                                unit.offeringModes.includes('sale') &&
+                                !unit.offeringModes.some(
+                                  (mode) =>
+                                    mode === 'monthly' || mode === 'yearly' || mode === 'daily',
+                                )
+                              )
+                            }
                           />
                           <Field
                             id={`unit-sale-price-${unit.localId}`}
@@ -2428,14 +2538,14 @@ export function PropertyWizard({
                             label={`${t('PropertyForm.salePrice')} (${currency})`}
                             value={unit.salePrice}
                             tone={
-                              unit.listingPurpose === 'rent'
-                                ? 'neutral'
-                                : tone(unit.salePrice, true, showErrors)
+                              unit.offeringModes.includes('sale')
+                                ? tone(unit.salePrice, true, showErrors)
+                                : 'neutral'
                             }
                             onChange={(event) =>
                               updateUnit(unit.localId, 'salePrice', event.target.value)
                             }
-                            required={unit.listingPurpose !== 'rent'}
+                            required={unit.offeringModes.includes('sale')}
                           />
                           <Field
                             id={`unit-deposit-${unit.localId}`}

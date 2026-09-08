@@ -149,6 +149,12 @@ export async function searchPublicListingsFromNeon(
     await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
     await transaction.execute(sql`select set_config('app.public', 'false', true)`);
 
+    await transaction
+      .execute(
+        sql`ALTER TABLE "units" ADD COLUMN IF NOT EXISTS "offering_modes" varchar(64) NOT NULL DEFAULT 'monthly'`,
+      )
+      .catch(() => undefined);
+
     // Heal publish flags in the same privileged transaction.
     await transaction.execute(sql`
       update properties p
@@ -179,6 +185,15 @@ export async function searchPublicListingsFromNeon(
         and p.status = 'active'
         and u.publish_when_available = true
         and (l.enabled = false or l.published_at is null)
+        and not (
+          coalesce(nullif(u.offering_modes, ''), 'monthly') = 'daily'
+          or (
+            position('daily' in coalesce(u.offering_modes, 'monthly')) > 0
+            and position('monthly' in coalesce(u.offering_modes, 'monthly')) = 0
+            and position('yearly' in coalesce(u.offering_modes, 'monthly')) = 0
+            and position('sale' in coalesce(u.offering_modes, 'monthly')) = 0
+          )
+        )
     `);
     await transaction.execute(sql`
       insert into listings (id, organization_id, unit_id, slug, enabled, published_at, created_at, updated_at)
@@ -207,6 +222,15 @@ export async function searchPublicListingsFromNeon(
       where u.publish_when_available = true
         and p.status = 'active'
         and not exists (select 1 from listings l where l.unit_id = u.id)
+        and not (
+          coalesce(nullif(u.offering_modes, ''), 'monthly') = 'daily'
+          or (
+            position('daily' in coalesce(u.offering_modes, 'monthly')) > 0
+            and position('monthly' in coalesce(u.offering_modes, 'monthly')) = 0
+            and position('yearly' in coalesce(u.offering_modes, 'monthly')) = 0
+            and position('sale' in coalesce(u.offering_modes, 'monthly')) = 0
+          )
+        )
       on conflict (unit_id) do nothing
     `);
     // Expire holds/reservations that already timed out so catalogue matches booking.
@@ -373,6 +397,41 @@ export async function searchPublicListingsFromNeon(
       ? sql`and p.id <> ${excludePropertyId}::uuid`
       : sql``;
 
+    // Daily-only units belong on /stays, not the long-term /properties catalogue.
+    await transaction
+      .execute(
+        sql`ALTER TABLE "units" ADD COLUMN IF NOT EXISTS "offering_modes" varchar(64) NOT NULL DEFAULT 'monthly'`,
+      )
+      .catch(() => undefined);
+
+    const dailyOnlyClause = sql`and not (
+      coalesce(nullif(u.offering_modes, ''), 'monthly') = 'daily'
+      or (
+        position('daily' in coalesce(u.offering_modes, 'monthly')) > 0
+        and position('monthly' in coalesce(u.offering_modes, 'monthly')) = 0
+        and position('yearly' in coalesce(u.offering_modes, 'monthly')) = 0
+        and position('sale' in coalesce(u.offering_modes, 'monthly')) = 0
+      )
+    )`;
+
+    // Also unpublish any long-term listings that became daily-only.
+    await transaction.execute(sql`
+      update listings l
+      set enabled = false, published_at = null, updated_at = now()
+      from units u
+      where l.unit_id = u.id
+        and (
+          coalesce(nullif(u.offering_modes, ''), 'monthly') = 'daily'
+          or (
+            position('daily' in coalesce(u.offering_modes, 'monthly')) > 0
+            and position('monthly' in coalesce(u.offering_modes, 'monthly')) = 0
+            and position('yearly' in coalesce(u.offering_modes, 'monthly')) = 0
+            and position('sale' in coalesce(u.offering_modes, 'monthly')) = 0
+          )
+        )
+        and l.enabled = true
+    `);
+
     const result = await transaction.execute(sql`
       select
         l.id::text as listing_id,
@@ -492,6 +551,7 @@ export async function searchPublicListingsFromNeon(
       where u.publish_when_available = true
         and p.status = 'active'
         and u.status in ('active', 'draft', 'inactive')
+        ${dailyOnlyClause}
         ${countryClause}
         ${governorateClause}
         ${wilayatClause}

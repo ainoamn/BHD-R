@@ -15,6 +15,8 @@ import {
   partyRoles,
   properties,
   reservations,
+  stayBookings,
+  stayPaymentIntents,
   stayProfiles,
   units,
   type Database,
@@ -192,9 +194,7 @@ async function listProperties(claims: SessionClaims): Promise<Record<string, unk
       })
       .from(stayProfiles)
       .innerJoin(units, eq(units.id, stayProfiles.unitId))
-      .where(
-        and(eq(stayProfiles.organizationId, orgId), inArray(units.propertyId, propertyIds)),
-      );
+      .where(and(eq(stayProfiles.organizationId, orgId), inArray(units.propertyId, propertyIds)));
 
     const channelsByProperty = new Map<string, Array<'rent' | 'sale' | 'stay'>>();
     for (const id of propertyIds) channelsByProperty.set(id, []);
@@ -240,10 +240,7 @@ async function listProperties(claims: SessionClaims): Promise<Record<string, unk
             })
             .from(units)
             .where(
-              and(
-                eq(units.organizationId, orgId),
-                inArray(units.propertyId, multiUnitPropertyIds),
-              ),
+              and(eq(units.organizationId, orgId), inArray(units.propertyId, multiUnitPropertyIds)),
             )
             .orderBy(asc(units.code));
 
@@ -315,8 +312,7 @@ async function listProperties(claims: SessionClaims): Promise<Record<string, unk
       units: byProperty.get(row.id) ?? 0,
       coverImageUrl: coverByProperty.get(row.id) ?? null,
       channels: channelsByProperty.get(row.id) ?? [],
-      childUnits:
-        row.kind === 'multi_unit' ? (childUnitsByProperty.get(row.id) ?? []) : [],
+      childUnits: row.kind === 'multi_unit' ? (childUnitsByProperty.get(row.id) ?? []) : [],
     }));
   });
 }
@@ -395,6 +391,59 @@ async function listInvoices(claims: SessionClaims): Promise<Record<string, unkno
   });
 }
 
+export async function listStayAccountingRows(
+  claims: SessionClaims,
+): Promise<Record<string, unknown>[]> {
+  return withinViewerTenant(claims, async (transaction) => {
+    const orgId = claims.organizationId!;
+    const rows = await transaction
+      .select({
+        id: stayPaymentIntents.id,
+        status: stayPaymentIntents.status,
+        amountMinor: stayPaymentIntents.amountMinor,
+        currency: stayPaymentIntents.currency,
+        provider: stayPaymentIntents.provider,
+        createdAt: stayPaymentIntents.createdAt,
+        bookingId: stayPaymentIntents.bookingId,
+        referenceCode: stayBookings.referenceCode,
+        propertyId: stayBookings.propertyId,
+        checkInOn: stayBookings.checkInOn,
+        checkOutOn: stayBookings.checkOutOn,
+        propertyNameAr: properties.nameAr,
+        propertyNameEn: properties.nameEn,
+      })
+      .from(stayPaymentIntents)
+      .innerJoin(stayBookings, eq(stayBookings.id, stayPaymentIntents.bookingId))
+      .innerJoin(properties, eq(properties.id, stayBookings.propertyId))
+      .where(
+        and(
+          eq(stayPaymentIntents.organizationId, orgId),
+          eq(stayPaymentIntents.status, 'succeeded'),
+        ),
+      )
+      .orderBy(desc(stayPaymentIntents.createdAt))
+      .limit(200);
+
+    return rows.map((row) => ({
+      id: row.id,
+      recordKind: 'stay_payment',
+      status: 'posted',
+      reference: row.referenceCode,
+      memo: `Stay ${row.referenceCode} · ${row.propertyNameEn || row.propertyNameAr}`,
+      currency: row.currency,
+      amountMinor: row.amountMinor.toString(),
+      debitMinor: row.amountMinor.toString(),
+      creditMinor: '0',
+      propertyId: row.propertyId,
+      bookingId: row.bookingId,
+      checkInOn: row.checkInOn,
+      checkOutOn: row.checkOutOn,
+      provider: row.provider,
+      createdAt: asIso(row.createdAt),
+    }));
+  });
+}
+
 async function listExpenses(claims: SessionClaims): Promise<Record<string, unknown>[]> {
   return withinViewerTenant(claims, async (transaction) => {
     const orgId = claims.organizationId!;
@@ -449,6 +498,17 @@ async function listMaintenance(claims: SessionClaims): Promise<Record<string, un
  * WAZEN-style: read common ops lists from Neon on Vercel (avoid Nest cold-start).
  * Returns null when this section cannot be served from DB (caller may use Nest or empty).
  */
+export async function loadStayAccountingRowsForViewer(): Promise<Record<string, unknown>[]> {
+  if (!hasDatabaseUrl()) return [];
+  const claims = await readClaims();
+  if (!claims?.organizationId) return [];
+  try {
+    return await listStayAccountingRows(claims);
+  } catch {
+    return [];
+  }
+}
+
 export async function loadOpsRecordsFromDb(
   portal: PortalRole,
   section: string,
@@ -594,12 +654,7 @@ export async function loadOpsContextFromDb(
           .where(
             and(
               eq(leases.organizationId, orgId),
-              inArray(leases.status, [
-                'draft',
-                'active',
-                'cancel_requested',
-                'clearance_pending',
-              ]),
+              inArray(leases.status, ['draft', 'active', 'cancel_requested', 'clearance_pending']),
             ),
           ),
       ]);

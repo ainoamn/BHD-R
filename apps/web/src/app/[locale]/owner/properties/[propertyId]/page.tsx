@@ -6,6 +6,11 @@ import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { requireSessionSecret } from '@/lib/runtime-env';
 import { ensurePublishedListingsMatchFlags } from '@/lib/create-property-neon';
 import { loadManagedPropertyFromNeon } from '@/lib/load-property-neon';
+import {
+  emptyPropertyOpsPulse,
+  loadPropertyOpsPulseOnNeon,
+  type PropertyOpsPulse,
+} from '@/lib/property-ops-pulse-neon';
 import { ApiError, apiFetch } from '@/lib/server-api';
 import { isStaysPlatformEnabled } from '@/lib/stays-flags';
 import { requirePortal } from '@/lib/viewer';
@@ -58,6 +63,14 @@ export default async function Page({
 
   if (!property) notFound();
 
+  let opsPulse: PropertyOpsPulse = emptyPropertyOpsPulse();
+  if (hasDatabaseUrl() && viewer.organizationId) {
+    opsPulse = await loadPropertyOpsPulseOnNeon(viewer.organizationId, propertyId, {
+      userId: viewer.id,
+      partyId: viewer.partyId,
+    }).catch(() => emptyPropertyOpsPulse());
+  }
+
   const unitQuery = typeof query.unit === 'string' ? query.unit : query.unit?.[0];
   const focusUnitId =
     unitQuery && property.units.some((unit) => unit.id === unitQuery || unit.code === unitQuery)
@@ -70,6 +83,7 @@ export default async function Page({
       locale={locale}
       portal="owner"
       staysEnabled={isStaysPlatformEnabled()}
+      opsPulse={opsPulse}
       {...(focusUnitId ? { focusUnitId } : {})}
     />
   );

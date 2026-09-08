@@ -3,7 +3,12 @@ import { getLocale } from 'next-intl/server';
 import { ApiError } from '@/lib/api';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { apiFetch, configuredApiOrigin, isNestApiConfiguredForRuntime } from '@/lib/server-api';
-import { clearOpsContextDbCache, loadOpsContextFromDb, loadOpsRecordsFromDb } from '@/lib/portal-ops-data';
+import {
+  clearOpsContextDbCache,
+  loadOpsContextFromDb,
+  loadOpsRecordsFromDb,
+  loadStayAccountingRowsForViewer,
+} from '@/lib/portal-ops-data';
 import type { PortalRole } from '@/lib/types';
 import type { OperationsContext } from '@/components/operations-console';
 import type { OperationsSection, OperationsWorkspacePayload } from '@/lib/portal-ops-types';
@@ -75,9 +80,7 @@ async function loadFromNest(portal: PortalRole, section: OperationsSection): Pro
       return {
         source: 'nest',
         records: await safeRows(
-          portal === 'developer'
-            ? '/v1/developer/projects'
-            : '/v1/owner/properties',
+          portal === 'developer' ? '/v1/developer/projects' : '/v1/owner/properties',
         ),
       };
     case 'contacts':
@@ -126,19 +129,21 @@ async function loadFromNest(portal: PortalRole, section: OperationsSection): Pro
       };
     }
     case 'accounting': {
-      const [records, dashboard, chequeRows, invoiceRows] = await Promise.all([
+      const [records, dashboard, chequeRows, invoiceRows, stayPayments] = await Promise.all([
         safeRows('/v1/accounting/journals'),
         apiFetch<Record<string, unknown>>('/v1/accounting/dashboard').catch(() => ({})),
         safeRows('/v1/finance/cheques'),
         safeRows('/v1/finance/invoices'),
+        loadStayAccountingRowsForViewer(),
       ]);
       return {
         source: 'nest',
-        records,
+        records: [...stayPayments, ...records],
         summary: {
           ...dashboard,
           activeLeaseInvoices: invoiceRows.filter((row) => row.leaseId && row.status !== 'void')
             .length,
+          stayPaymentsCollected: stayPayments.length,
           pendingCheques: chequeRows.filter((row) => row.reviewStatus === 'pending').length,
         },
         secondary: [
@@ -146,6 +151,7 @@ async function loadFromNest(portal: PortalRole, section: OperationsSection): Pro
           ...invoiceRows
             .filter((row) => row.leaseId)
             .map((row) => ({ ...row, recordKind: 'lease_invoice' })),
+          ...stayPayments,
         ],
       };
     }
@@ -181,8 +187,21 @@ async function loadSection(portal: PortalRole, section: OperationsSection): Prom
 
   // On Vercel+Neon, never hang nav on Render Free cold starts for sections without a DB mapper.
   if (hasDatabaseUrl()) {
-    const ready = await probeNestHealthz();
-    if (!ready) return { records: [], source: 'offline' };
+    if (section === 'accounting') {
+      const stayPayments = await loadStayAccountingRowsForViewer();
+      const ready = await probeNestHealthz();
+      if (!ready) {
+        return {
+          records: stayPayments,
+          source: stayPayments.length ? 'db' : 'offline',
+          summary: { stayPaymentsCollected: stayPayments.length },
+          secondary: stayPayments,
+        };
+      }
+    } else {
+      const ready = await probeNestHealthz();
+      if (!ready) return { records: [], source: 'offline' };
+    }
   }
 
   return loadFromNest(portal, section);

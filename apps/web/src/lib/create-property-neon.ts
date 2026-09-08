@@ -3,10 +3,7 @@ import { createHash } from 'node:crypto';
 import { and, eq, ne, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { currencyMinorUnits } from '@bhd-r/contracts';
-import {
-  createPropertySchema,
-  createUnitSchema,
-} from '@bhd-r/contracts';
+import { createPropertySchema, createUnitSchema } from '@bhd-r/contracts';
 import type { SessionClaims } from '@bhd-r/authz';
 import {
   addresses,
@@ -24,6 +21,52 @@ import {
   type Database,
 } from '@bhd-r/db';
 import { loadPropertyProfileRow, writePropertyProfileRow } from '@/lib/load-property-profile';
+import {
+  ensureUnitOfferingModesColumn,
+  hasLongTermCatalogueOffer,
+  isDailyOnlyOffering,
+  listingPurposeFromOfferingModes,
+  serializeOfferingModes,
+  type OfferingMode,
+} from '@/lib/unit-offering-modes';
+
+function resolveUnitOffering(unit: {
+  listingPurpose: 'rent' | 'sale' | 'both';
+  offeringModes?: OfferingMode[] | undefined;
+  publishWhenAvailable: boolean;
+}) {
+  const modes =
+    unit.offeringModes && unit.offeringModes.length
+      ? unit.offeringModes
+      : unit.listingPurpose === 'sale'
+        ? (['sale'] as OfferingMode[])
+        : unit.listingPurpose === 'both'
+          ? (['monthly', 'sale'] as OfferingMode[])
+          : (['monthly'] as OfferingMode[]);
+  const listingPurpose = listingPurposeFromOfferingModes(modes);
+  const dailyOnly = isDailyOnlyOffering(modes);
+  return {
+    modes,
+    modesCsv: serializeOfferingModes(modes),
+    listingPurpose,
+    publishWhenAvailable: dailyOnly ? false : unit.publishWhenAvailable,
+    longTerm: hasLongTermCatalogueOffer(modes),
+  };
+}
+
+async function persistUnitOfferingModes(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  transaction: any,
+  unitId: string,
+  modesCsv: string,
+): Promise<void> {
+  await ensureUnitOfferingModesColumn(transaction).catch(() => undefined);
+  await transaction.execute(sql`
+    update units
+    set offering_modes = ${modesCsv}, updated_at = now()
+    where id = ${unitId}::uuid
+  `);
+}
 
 const IDEMPOTENCY_ROUTE = 'POST:/api/owner/properties';
 
@@ -247,31 +290,41 @@ export async function createPropertyBundleOnNeon(
     const unitRows = await transaction
       .insert(units)
       .values(
-        input.units.map((unit) => ({
-          organizationId: claims.organizationId!,
-          propertyId: property.id,
-          code: unit.code,
-          nameAr: unit.nameAr,
-          nameEn: unit.nameEn,
-          floor: unit.floor,
-          bedrooms: unit.bedrooms,
-          bathrooms: unit.bathrooms,
-          majlis: unit.majlis,
-          halls: unit.halls,
-          kitchens: unit.kitchens,
-          hasPool: unit.hasPool,
-          areaSquareMeters: unit.areaSquareMeters,
-          rentMinor: BigInt(unit.rent.amountMinor),
-          salePriceMinor: unit.salePrice ? BigInt(unit.salePrice.amountMinor) : null,
-          depositMinor: unit.deposit ? BigInt(unit.deposit.amountMinor) : null,
-          currency: unit.rent.currency,
-          minorUnit: currencyMinorUnits[unit.rent.currency],
-          listingPurpose: unit.listingPurpose,
-          publishWhenAvailable: input.asDraft ? false : unit.publishWhenAvailable,
-          status: (input.asDraft ? 'draft' : 'active') as 'draft' | 'active',
-        })),
+        input.units.map((unit) => {
+          const offering = resolveUnitOffering(unit);
+          return {
+            organizationId: claims.organizationId!,
+            propertyId: property.id,
+            code: unit.code,
+            nameAr: unit.nameAr,
+            nameEn: unit.nameEn,
+            floor: unit.floor,
+            bedrooms: unit.bedrooms,
+            bathrooms: unit.bathrooms,
+            majlis: unit.majlis,
+            halls: unit.halls,
+            kitchens: unit.kitchens,
+            hasPool: unit.hasPool,
+            areaSquareMeters: unit.areaSquareMeters,
+            rentMinor: BigInt(unit.rent.amountMinor),
+            salePriceMinor: unit.salePrice ? BigInt(unit.salePrice.amountMinor) : null,
+            depositMinor: unit.deposit ? BigInt(unit.deposit.amountMinor) : null,
+            currency: unit.rent.currency,
+            minorUnit: currencyMinorUnits[unit.rent.currency],
+            listingPurpose: offering.listingPurpose,
+            publishWhenAvailable: input.asDraft ? false : offering.publishWhenAvailable,
+            status: (input.asDraft ? 'draft' : 'active') as 'draft' | 'active',
+          };
+        }),
       )
       .returning();
+
+    for (const [index, unit] of input.units.entries()) {
+      const created = unitRows[index];
+      if (!created) continue;
+      const offering = resolveUnitOffering(unit);
+      await persistUnitOfferingModes(transaction, created.id, offering.modesCsv);
+    }
 
     if (input.property.meters.length) {
       const unitsByCode = new Map(unitRows.map((unit) => [unit.code, unit.id]));
@@ -587,7 +640,8 @@ export async function updatePropertyBundleOnNeon(
 
     const unitRows = [];
     for (const [index, unit] of input.units.entries()) {
-      const publish = input.asDraft ? false : unit.publishWhenAvailable;
+      const offering = resolveUnitOffering(unit);
+      const publish = input.asDraft ? false : offering.publishWhenAvailable;
       const patch = {
         code: unit.code,
         nameAr: unit.nameAr,
@@ -605,7 +659,7 @@ export async function updatePropertyBundleOnNeon(
         depositMinor: unit.deposit ? BigInt(unit.deposit.amountMinor) : null,
         currency: unit.rent.currency,
         minorUnit: currencyMinorUnits[unit.rent.currency],
-        listingPurpose: unit.listingPurpose,
+        listingPurpose: offering.listingPurpose,
         publishWhenAvailable: publish,
         status: (input.asDraft ? 'draft' : 'active') as 'draft' | 'active',
         updatedAt: new Date(),
@@ -624,6 +678,7 @@ export async function updatePropertyBundleOnNeon(
           .returning();
         if (rows[0]) {
           unitRows.push(rows[0]);
+          await persistUnitOfferingModes(transaction, rows[0].id, offering.modesCsv);
           const existingListing = await transaction.query.listings.findFirst({
             where: and(
               eq(listings.unitId, rows[0].id),
@@ -634,8 +689,9 @@ export async function updatePropertyBundleOnNeon(
             await transaction
               .update(listings)
               .set({
-                enabled: publish,
-                publishedAt: publish ? (existingListing.publishedAt ?? new Date()) : null,
+                enabled: publish && offering.longTerm,
+                publishedAt:
+                  publish && offering.longTerm ? (existingListing.publishedAt ?? new Date()) : null,
                 updatedAt: new Date(),
               })
               .where(eq(listings.id, existingListing.id));
@@ -644,8 +700,8 @@ export async function updatePropertyBundleOnNeon(
               organizationId: claims.organizationId!,
               unitId: rows[0].id,
               slug: `${slugify(input.property.nameEn)}-${slugify(unit.code)}-${rows[0].id.slice(0, 8)}`,
-              enabled: publish,
-              publishedAt: publish ? new Date() : null,
+              enabled: publish && offering.longTerm,
+              publishedAt: publish && offering.longTerm ? new Date() : null,
             });
           }
         }
@@ -665,6 +721,7 @@ export async function updatePropertyBundleOnNeon(
             .returning();
           if (rows[0]) {
             unitRows.push(rows[0]);
+            await persistUnitOfferingModes(transaction, rows[0].id, offering.modesCsv);
             const existingListing = await transaction.query.listings.findFirst({
               where: and(
                 eq(listings.unitId, rows[0].id),
@@ -675,8 +732,11 @@ export async function updatePropertyBundleOnNeon(
               await transaction
                 .update(listings)
                 .set({
-                  enabled: publish,
-                  publishedAt: publish ? (existingListing.publishedAt ?? new Date()) : null,
+                  enabled: publish && offering.longTerm,
+                  publishedAt:
+                    publish && offering.longTerm
+                      ? (existingListing.publishedAt ?? new Date())
+                      : null,
                   updatedAt: new Date(),
                 })
                 .where(eq(listings.id, existingListing.id));
@@ -685,8 +745,8 @@ export async function updatePropertyBundleOnNeon(
                 organizationId: claims.organizationId!,
                 unitId: rows[0].id,
                 slug: `${slugify(input.property.nameEn)}-${slugify(unit.code)}-${rows[0].id.slice(0, 8)}`,
-                enabled: publish,
-                publishedAt: publish ? new Date() : null,
+                enabled: publish && offering.longTerm,
+                publishedAt: publish && offering.longTerm ? new Date() : null,
               });
             }
           }
@@ -700,10 +760,7 @@ export async function updatePropertyBundleOnNeon(
         .update(properties)
         .set({ status: 'active', updatedAt: new Date() })
         .where(
-          and(
-            eq(properties.id, propertyId),
-            eq(properties.organizationId, claims.organizationId!),
-          ),
+          and(eq(properties.id, propertyId), eq(properties.organizationId, claims.organizationId!)),
         );
       await transaction
         .update(units)

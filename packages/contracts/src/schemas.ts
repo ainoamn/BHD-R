@@ -120,6 +120,12 @@ export const createUnitSchema = z.object({
     .regex(/^\d+(\.\d{1,3})?$/)
     .optional(),
   listingPurpose: z.enum(['rent', 'sale', 'both']).default('rent'),
+  /** sale | monthly | yearly | daily — CSV persisted on units.offering_modes */
+  offeringModes: z
+    .array(z.enum(['sale', 'monthly', 'yearly', 'daily']))
+    .min(1)
+    .max(4)
+    .optional(),
   rent: moneySchema,
   salePrice: moneySchema.optional(),
   deposit: moneySchema.optional(),

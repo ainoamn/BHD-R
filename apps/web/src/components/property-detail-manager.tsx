@@ -183,6 +183,7 @@ export function PropertyDetailManager({
   focusUnitId,
   signedIn = false,
   staysEnabled = false,
+  opsPulse = null,
   stayBooking,
   stayDetail = null,
 }: {
@@ -197,6 +198,8 @@ export function PropertyDetailManager({
   signedIn?: boolean;
   /** Platform stays flag — quiet setup link only. */
   staysEnabled?: boolean;
+  /** Live bookings/contracts/finance for owner/developer manage hub. */
+  opsPulse?: import('@/lib/property-ops-pulse-neon').PropertyOpsPulse | null;
   /** Daily-stay booking replaces rent/sale CTAs in the public sidebar. */
   stayBooking?: {
     slug: string;
@@ -404,7 +407,15 @@ export function PropertyDetailManager({
         : '/ month';
 
   if (!isPublic) {
-    return <PropertyManageHub property={property} locale={locale} portal={portal} staysEnabled={staysEnabled} />;
+    return (
+      <PropertyManageHub
+        property={property}
+        locale={locale}
+        portal={portal}
+        staysEnabled={staysEnabled}
+        opsPulse={opsPulse}
+      />
+    );
   }
 
   async function archiveOrRestore() {

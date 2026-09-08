@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.71 — 2026-09-08
+
+- Owner property hub shows live stay bookings, lease contracts, and property finance after payment.
+- Offering modes at create/edit: sale / monthly / yearly / daily; daily-only units stay off `/properties`.
+- Accounting workspace surfaces succeeded stay payments alongside Nest journals.
+
 ## 0.4.70 — 2026-09-06
 
 - Owner/developer control dashboard: compact clickable stats, priority-sorted alerts, clearer intro copy, and tighter section layout.

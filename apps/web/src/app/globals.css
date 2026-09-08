@@ -510,6 +510,75 @@ h3 {
   font-size: 1.15rem;
 }
 
+.property-manage-hub__ops-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+@media (max-width: 1100px) {
+  .property-manage-hub__ops-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.property-manage-hub__ops-card {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.9rem 1rem;
+  background: #fff;
+  border: 1px solid #deebe5;
+  border-radius: 0.95rem;
+}
+.property-manage-hub__ops-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.property-manage-hub__ops-card h2 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.property-manage-hub__ops-card ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.45rem;
+}
+.property-manage-hub__ops-card li a,
+.property-manage-hub__ops-card li > span {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.65rem;
+  background: #f7faf8;
+  border: 1px solid #e3ebe7;
+  text-decoration: none;
+  color: inherit;
+  font-size: 0.82rem;
+}
+.property-manage-hub__finance {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+}
+.property-manage-hub__finance div {
+  display: grid;
+  gap: 0.15rem;
+}
+.property-manage-hub__finance dt {
+  color: #6a7771;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.property-manage-hub__finance dd {
+  margin: 0;
+  font-weight: 800;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
 .property-manage-hub__alerts ul {
   margin: 0;
   padding-inline-start: 1.1rem;
@@ -4784,6 +4853,31 @@ body:has(.stays-booking-receipt) #main-content {
   width: 1.15rem;
   height: 1.15rem;
   accent-color: var(--maroon-800);
+}
+.wizard-offering-modes {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid #dfe8e3;
+  border-radius: 0.75rem;
+  display: grid;
+  gap: 0.45rem;
+}
+.wizard-offering-modes legend {
+  padding-inline: 0.25rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+.wizard-offering-modes__hint {
+  margin: 0;
+  font-size: 0.78rem;
+}
+.wizard-offering-modes__item {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.88rem;
+  font-weight: 650;
 }
 .amenity-picker {
   padding: 1.1rem;
