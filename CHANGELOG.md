@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.73 — 2026-09-08
+
+- Portal soft-nav: warm ops data immediately, prefetch every sidebar route, keep all ops panels mounted, cache visited pages (dashboard/stays/details) for instant return.
+
 ## 0.4.72 — 2026-09-08
 
 - Fix Vercel build: split client-safe offering-mode helpers from server-only DB ensure column (property-wizard import).

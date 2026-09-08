@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-09-08  
-**Product version:** 0.4.72  
-**Active focus:** Unblock Vercel after 0.4.71  
+**Product version:** 0.4.73  
+**Active focus:** Portal soft-nav (WAZEN-like)  
+**Release 0.4.73:** instant sidebar hops — warm-all now, full route prefetch, persist ops panels + page cache · [`RELEASE-0.4.73-AR.md`](./RELEASE-0.4.73-AR.md)  
 **Release 0.4.72:** build fix — offering modes helpers usable from client wizard · [`RELEASE-0.4.72-AR.md`](./RELEASE-0.4.72-AR.md)  
 **Release 0.4.71:** property hub bookings/contracts/finance; sale/monthly/yearly/daily modes; daily-only off /properties; stay payments in accounting · [`RELEASE-0.4.71-AR.md`](./RELEASE-0.4.71-AR.md)  
 **Release 0.4.70:** smaller metrics, priority alerts, clearer intro and layout on /owner · [`RELEASE-0.4.70-AR.md`](./RELEASE-0.4.70-AR.md)  

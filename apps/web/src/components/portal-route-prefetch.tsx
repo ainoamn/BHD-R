@@ -5,7 +5,11 @@ import { useEffect, useRef } from 'react';
 import type { PortalRole } from '@/lib/types';
 import { portalNavHrefs } from '@/lib/portal-nav-paths';
 import { opsSectionsForPortal } from '@/lib/portal-ops-types';
-import { warmAllOpsSections, warmOpsSection } from '@/lib/portal-ops-client-cache';
+import {
+  OPS_WARM_DONE_EVENT,
+  warmAllOpsSections,
+  warmOpsSection,
+} from '@/lib/portal-ops-client-cache';
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -14,8 +18,9 @@ function delay(ms: number): Promise<void> {
 }
 
 /**
- * Warm ops data through one background batch. Ops UI lives in the persistent
- * shell, so prefetch only non-ops routes and avoid another RSC request storm.
+ * Background portal warm: serial RSC prefetch for every sidebar href + one
+ * batch ops data warm. Starts almost immediately so early clicks hit cache.
+ * Concurrency is serial (not a parallel storm) — see 0.2.97 hang history.
  */
 export function PortalRoutePrefetch({
   portal,
@@ -32,43 +37,49 @@ export function PortalRoutePrefetch({
     started.current = true;
     const hrefs = portalNavHrefs(portal, staysEnabled);
     const sections = opsSectionsForPortal(portal);
-    const sectionSet = new Set<string>(sections);
     let cancelled = false;
 
-    const prefetchRouteShells = async () => {
-      const routeBudget = hrefs.filter((href) => {
-        const candidate = href.split('/').filter(Boolean).at(-1) ?? '';
-        return !sectionSet.has(candidate);
-      });
-      for (const href of routeBudget) {
+    const prefetchAllShells = async () => {
+      // Brief pause so the first paint / active section fetch can start first.
+      await delay(200);
+      for (const href of hrefs) {
         if (cancelled) return;
         try {
           router.prefetch(href);
         } catch {
           /* ignore */
         }
-        await delay(120);
+        await delay(80);
       }
     };
 
-    const warmAllData = async () => {
-      // Let the visible section finish its own fetch first — warm-all was
-      // contending on the same Neon pool and stretching properties to 20–40s.
-      await delay(2_500);
+    const warmPriorityThenAll = async () => {
+      // Seed the highest-traffic panes first (no multi-second wait).
+      const priority = sections.slice(0, 4);
+      await Promise.all(priority.map((section) => warmOpsSection(portal, section)));
       if (cancelled) return;
+
       const applied = await warmAllOpsSections(portal);
-      if (cancelled || applied > 0) return;
-      for (const section of sections) {
-        if (cancelled) return;
-        if (section === 'properties') continue;
-        await warmOpsSection(portal, section);
-        await delay(120);
+      if (cancelled) return;
+
+      if (applied === 0) {
+        for (const section of sections) {
+          if (cancelled) return;
+          if (priority.includes(section)) continue;
+          await warmOpsSection(portal, section);
+          await delay(80);
+        }
+      }
+
+      if (!cancelled) {
+        window.dispatchEvent(
+          new CustomEvent(OPS_WARM_DONE_EVENT, { detail: { portal } }),
+        );
       }
     };
 
-    // Start immediately — do not wait for idle (user may click within 1–2s).
-    void warmAllData();
-    void prefetchRouteShells();
+    void warmPriorityThenAll();
+    void prefetchAllShells();
 
     return () => {
       cancelled = true;

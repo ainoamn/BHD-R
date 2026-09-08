@@ -1,6 +1,8 @@
 import type { PortalRole } from '@/lib/types';
 import type { OperationsSection, OperationsWorkspacePayload } from '@/lib/portal-ops-types';
 
+export const OPS_WARM_DONE_EVENT = 'bhd-r-ops-warm-done';
+
 type CacheEntry = {
   payload: OperationsWorkspacePayload;
   savedAt: number;
@@ -8,8 +10,8 @@ type CacheEntry = {
 
 // Retain opened sections in memory so back/forward paints instantly. Keep the
 // freshness window short and never persist private portal payloads to storage.
-const FRESH_TTL_MS = 60 * 1000;
-const RETAIN_TTL_MS = 15 * 60 * 1000;
+const FRESH_TTL_MS = 5 * 60 * 1000;
+const RETAIN_TTL_MS = 30 * 60 * 1000;
 const store = new Map<string, CacheEntry>();
 const inflight = new Map<string, Promise<OperationsWorkspacePayload | null>>();
 

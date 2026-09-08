@@ -237,6 +237,9 @@ function PortalIntentLink({
       href={href}
       prefetch={armed ? null : false}
       scroll={false}
+      // Ops soft-switch paints from memory — skip the top progress bar so it
+      // does not feel like a full document reload.
+      {...(section ? { 'data-no-progress': '' } : {})}
       aria-current={active ? 'page' : undefined}
       onMouseEnter={warmDestination}
       onFocus={warmDestination}

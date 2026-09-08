@@ -358,7 +358,7 @@ export async function loadAllOperationsWorkspacePayloads(
       : undefined;
 
   const out: Partial<Record<OperationsSection, OperationsWorkspacePayload>> = {};
-  const concurrency = 2;
+  const concurrency = 4;
   let cursor = 0;
 
   async function worker() {
