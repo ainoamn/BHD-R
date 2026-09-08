@@ -60,12 +60,18 @@ async function probeNestHealthz(): Promise<boolean> {
     return false;
   }
   try {
-    const response = await fetch(`${origin}/healthz`, {
-      headers: { accept: 'application/json' },
-      cache: 'no-store',
-      signal: AbortSignal.timeout(NEST_PROBE_MS),
-    });
-    const ok = response.ok;
+    // Promise.race — AbortSignal alone can hang through Render cold starts.
+    const response = await Promise.race([
+      fetch(`${origin}/healthz`, {
+        headers: { accept: 'application/json' },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(NEST_PROBE_MS),
+      }),
+      new Promise<null>((resolve) => {
+        setTimeout(() => resolve(null), NEST_PROBE_MS);
+      }),
+    ]);
+    const ok = Boolean(response && response.ok);
     nestHealthCache = { at: Date.now(), ok };
     return ok;
   } catch {
@@ -185,23 +191,66 @@ async function loadSection(portal: PortalRole, section: OperationsSection): Prom
   const fromDb = await loadOpsRecordsFromDb(portal, section);
   if (fromDb !== null) return { records: fromDb, source: 'db' };
 
+  // Accounting: always paint Neon stay rows first. Nest journals are optional
+  // enrichment with a hard ceiling so Render cold starts cannot block the page.
+  if (hasDatabaseUrl() && section === 'accounting') {
+    const stayPayments = await loadStayAccountingRowsForViewer();
+    const nestEnrichment = await Promise.race([
+      (async () => {
+        const ready = await probeNestHealthz();
+        if (!ready) return null;
+        const [journals, dashboard, chequeRows, invoiceRows] = await Promise.all([
+          safeRows('/v1/accounting/journals'),
+          apiFetch<Record<string, unknown>>('/v1/accounting/dashboard').catch(() => ({})),
+          safeRows('/v1/finance/cheques'),
+          safeRows('/v1/finance/invoices'),
+        ]);
+        return { journals, dashboard, chequeRows, invoiceRows };
+      })(),
+      new Promise<null>((resolve) => {
+        setTimeout(() => resolve(null), 1_200);
+      }),
+    ]);
+
+    if (nestEnrichment) {
+      return {
+        source: stayPayments.length ? 'db' : 'nest',
+        records: [...stayPayments, ...nestEnrichment.journals],
+        summary: {
+          ...nestEnrichment.dashboard,
+          activeLeaseInvoices: nestEnrichment.invoiceRows.filter(
+            (row) => row.leaseId && row.status !== 'void',
+          ).length,
+          stayPaymentsCollected: stayPayments.length,
+          pendingCheques: nestEnrichment.chequeRows.filter((row) => row.reviewStatus === 'pending')
+            .length,
+        },
+        secondary: [
+          ...nestEnrichment.chequeRows.map((row) => ({
+            ...row,
+            recordKind: 'cheque',
+            status: row.reviewStatus,
+          })),
+          ...nestEnrichment.invoiceRows
+            .filter((row) => row.leaseId)
+            .map((row) => ({ ...row, recordKind: 'lease_invoice' })),
+          ...stayPayments,
+        ],
+      };
+    }
+
+    return {
+      records: stayPayments,
+      source: stayPayments.length ? 'db' : 'offline',
+      summary: { stayPaymentsCollected: stayPayments.length },
+      secondary: stayPayments,
+    };
+  }
+
   // On Vercel+Neon, never hang nav on Render Free cold starts for sections without a DB mapper.
   if (hasDatabaseUrl()) {
-    if (section === 'accounting') {
-      const stayPayments = await loadStayAccountingRowsForViewer();
-      const ready = await probeNestHealthz();
-      if (!ready) {
-        return {
-          records: stayPayments,
-          source: stayPayments.length ? 'db' : 'offline',
-          summary: { stayPaymentsCollected: stayPayments.length },
-          secondary: stayPayments,
-        };
-      }
-    } else {
-      const ready = await probeNestHealthz();
-      if (!ready) return { records: [], source: 'offline' };
-    }
+    const ready = await probeNestHealthz();
+    if (!ready) return { records: [], source: 'offline' };
   }
 
   return loadFromNest(portal, section);

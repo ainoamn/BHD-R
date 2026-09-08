@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-09-08  
-**Product version:** 0.4.76  
-**Active focus:** Owner accounting stay rows visibility  
+**Product version:** 0.4.77  
+**Active focus:** Fast owner accounting (Neon-first)  
+**Release 0.4.77:** accounting Neon-first + Nest health race · [`RELEASE-0.4.77-AR.md`](./RELEASE-0.4.77-AR.md)  
 **Release 0.4.76:** accounting stay rows use table columns + confirmed-booking fallback · [`RELEASE-0.4.76-AR.md`](./RELEASE-0.4.76-AR.md)  
 **Release 0.4.75:** persistent portal pages, paced prefetch, soft ops/history, soft property save · [`RELEASE-0.4.75-AR.md`](./RELEASE-0.4.75-AR.md)  
 **Release 0.4.74:** homepage build timeout — force-dynamic + Neon race · [`RELEASE-0.4.74-AR.md`](./RELEASE-0.4.74-AR.md)  

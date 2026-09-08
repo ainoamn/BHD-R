@@ -332,8 +332,19 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
     createEn: 'Balanced journal',
     columns: [
       { key: 'reference', ar: 'القيد', en: 'Journal' },
-      { key: 'occurredOn', ar: 'التاريخ', en: 'Date', format: 'date' },
-      { key: 'description', ar: 'البيان', en: 'Description' },
+      {
+        key: 'occurredOn',
+        ar: 'التاريخ',
+        en: 'Date',
+        format: 'date',
+        fallbackKeys: ['createdAt', 'postedAt'],
+      },
+      {
+        key: 'description',
+        ar: 'البيان',
+        en: 'Description',
+        fallbackKeys: ['memo', 'narrative'],
+      },
       { key: 'debitMinor', ar: 'مدين', en: 'Debit', format: 'money' },
       { key: 'creditMinor', ar: 'دائن', en: 'Credit', format: 'money' },
       { key: 'status', ar: 'الحالة', en: 'Status', format: 'status' },

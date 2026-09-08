@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.77 — 2026-09-08
+
+- Speed owner accounting: Neon stay rows first with 1.2s Nest enrichment ceiling; hard-race Nest healthz so Render cold starts cannot block the page; accounting columns fall back to memo/createdAt.
+
 ## 0.4.76 — 2026-09-08
 
 - Fix owner accounting: map stay payment rows to description/occurredOn columns; fallback to confirmed stay booking totals when payment intents are missing; warm accounting earlier.
