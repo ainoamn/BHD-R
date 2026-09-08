@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { CurrencyCode } from '@bhd-r/contracts';
 import { BrandMark } from '@bhd-r/ui';
 import { Link } from '@/i18n/navigation';
@@ -2026,6 +2026,7 @@ export function OperationsConsole({
   recordsEmpty = false,
   apiUnauthorized = false,
   dataFromDb = false,
+  active = true,
 }: {
   portal: PortalRole;
   section: OperationsSection;
@@ -2039,8 +2040,10 @@ export function OperationsConsole({
   recordsEmpty?: boolean;
   apiUnauthorized?: boolean;
   dataFromDb?: boolean;
+  active?: boolean;
 }) {
   const router = useRouter();
+  const search = useSearchParams().toString();
   const definition = definitions[section];
   const ar = locale === 'ar';
   const refreshWorkspace = () => {
@@ -2082,7 +2085,8 @@ export function OperationsConsole({
   }, [section]);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    if (!active) return;
+    const params = new URLSearchParams(search);
     const unitId = params.get('unitId') ?? '';
     const reservationId = params.get('reservationId') ?? '';
     const tenantId = params.get('tenantId') ?? '';
@@ -2100,7 +2104,7 @@ export function OperationsConsole({
       if (match?.unitId && !unitId) setPrefillUnitId(match.unitId);
     }
     if (params.get('create') === '1') setShowCreate(true);
-  }, [section, context.confirmedReservations, context.reservations]);
+  }, [active, search, section, context.confirmedReservations, context.reservations]);
 
   const vacantUnits = context.vacantUnits ?? [];
   const pendingDeposits = context.pendingDepositReservations ?? [];
@@ -2783,7 +2787,7 @@ export function OperationsConsole({
                     type="button"
                     disabled={busy}
                     onClick={() =>
-                      void leaseLifecycle({ ...row } as DataRow, 'approve_cancellation')
+                      void leaseLifecycle({ ...row }, 'approve_cancellation')
                     }
                   >
                     {ar ? 'اعتماد + تاريخ' : 'Approve + date'}
@@ -2817,7 +2821,7 @@ export function OperationsConsole({
                     className="ops-action"
                     type="button"
                     disabled={busy}
-                    onClick={() => void leaseLifecycle({ ...row } as DataRow, 'clear_cancellation')}
+                    onClick={() => void leaseLifecycle({ ...row }, 'clear_cancellation')}
                   >
                     {ar ? 'تصفية محاسب' : 'Clear'}
                   </button>
@@ -2850,7 +2854,7 @@ export function OperationsConsole({
                     className="ops-action"
                     type="button"
                     disabled={busy}
-                    onClick={() => void leaseLifecycle({ ...row } as DataRow, 'confirm_renewal')}
+                    onClick={() => void leaseLifecycle({ ...row }, 'confirm_renewal')}
                   >
                     {ar ? 'اعتماد محاسب' : 'Confirm'}
                   </button>
@@ -2858,7 +2862,7 @@ export function OperationsConsole({
                     className="ops-action"
                     type="button"
                     disabled={busy}
-                    onClick={() => void leaseLifecycle({ ...row } as DataRow, 'waive_renewal_gate')}
+                    onClick={() => void leaseLifecycle({ ...row }, 'waive_renewal_gate')}
                   >
                     {ar ? 'استثناء مدير' : 'Waive'}
                   </button>

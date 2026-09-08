@@ -59,10 +59,17 @@ const PORTAL_PATHS: Record<PortalRole, string[]> = {
   ],
 };
 
-const STAYS_PATHS = ['/stays', '/stays/calendar', '/stays/bookings', '/stays/rates', '/stays/setup'];
+const STAYS_PATHS = [
+  '/stays',
+  '/stays/calendar',
+  '/stays/bookings',
+  '/stays/rates',
+  '/stays/setup',
+];
 
 export function portalNavHrefs(portal: PortalRole, staysEnabled = false): string[] {
   const base = PORTAL_PATHS[portal].map((path) => `/${portal}${path}`);
+  if (portal === 'owner' || portal === 'developer') base.push(`/${portal}/properties/new`);
   if (!staysEnabled || (portal !== 'owner' && portal !== 'developer')) return base;
   return [...base, ...STAYS_PATHS.map((path) => `/${portal}${path}`)];
 }

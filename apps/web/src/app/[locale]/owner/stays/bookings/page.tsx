@@ -1,3 +1,4 @@
+import { persistentPortalPage } from '@/lib/persistent-portal-page';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { verifySessionToken } from '@bhd-r/authz';
@@ -38,7 +39,7 @@ async function loadBookings(propertyId?: string): Promise<OpsStayBooking[]> {
   return bookings.items ?? [];
 }
 
-export default async function Page({
+async function Page({
   params,
   searchParams,
 }: {
@@ -72,3 +73,5 @@ export default async function Page({
     </StaysPortalPage>
   );
 }
+
+export default persistentPortalPage('/owner/stays/bookings', Page);

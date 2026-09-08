@@ -1,3 +1,4 @@
+import { persistentPortalPage } from '@/lib/persistent-portal-page';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { verifySessionToken } from '@bhd-r/authz';
@@ -26,7 +27,7 @@ async function loadContract(bookingId: string): Promise<StayBookingContractData 
   }
 }
 
-export default async function DeveloperStayBookingDetailPage({
+async function DeveloperStayBookingDetailPage({
   params,
 }: {
   params: Promise<{ locale: string; bookingId: string }>;
@@ -62,3 +63,5 @@ export default async function DeveloperStayBookingDetailPage({
     </StaysPortalPage>
   );
 }
+
+export default persistentPortalPage('/developer/stays/bookings/[bookingId]', DeveloperStayBookingDetailPage);

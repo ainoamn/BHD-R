@@ -1,3 +1,4 @@
+import { persistentPortalPage } from '@/lib/persistent-portal-page';
 import { notFound, redirect } from 'next/navigation';
 import { EmptyState } from '@bhd-r/ui';
 import { getTranslations } from 'next-intl/server';
@@ -9,7 +10,7 @@ import { listOwnerPartyOptions } from '@/lib/owner-parties';
 import { ApiError, apiFetch } from '@/lib/server-api';
 import { requirePortal } from '@/lib/viewer';
 
-export default async function Page({
+async function Page({
   params,
 }: {
   params: Promise<{ locale: string; propertyId: string }>;
@@ -69,3 +70,5 @@ export default async function Page({
     />
   );
 }
+
+export default persistentPortalPage('/owner/properties/[propertyId]/edit', Page);

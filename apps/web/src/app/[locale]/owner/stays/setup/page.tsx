@@ -1,9 +1,10 @@
+import { persistentPortalPage } from '@/lib/persistent-portal-page';
 import { notFound } from 'next/navigation';
 import { StaySetupWizard } from '@/components/stays/stay-setup-wizard';
 import { isStaysPlatformEnabled } from '@/lib/stays-flags';
 import { loadStaySetupPageData } from '@/lib/stay-setup-context';
 
-export default async function Page({
+async function Page({
   params,
   searchParams,
 }: {
@@ -29,3 +30,5 @@ export default async function Page({
     />
   );
 }
+
+export default persistentPortalPage('/owner/stays/setup', Page);

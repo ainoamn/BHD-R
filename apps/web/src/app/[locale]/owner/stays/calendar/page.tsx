@@ -1,3 +1,4 @@
+import { persistentPortalPage } from '@/lib/persistent-portal-page';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { verifySessionToken } from '@bhd-r/authz';
@@ -31,7 +32,7 @@ async function loadUnits(): Promise<StayCalendarUnit[]> {
   return units.items ?? [];
 }
 
-export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
+async function Page({ params }: { params: Promise<{ locale: string }> }) {
   if (!isStaysPlatformEnabled()) notFound();
   const { locale } = await params;
   const items = await loadUnits();
@@ -42,3 +43,5 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
     </StaysPortalPage>
   );
 }
+
+export default persistentPortalPage('/owner/stays/calendar', Page);

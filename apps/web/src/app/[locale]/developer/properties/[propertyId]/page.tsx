@@ -1,3 +1,4 @@
+import { persistentPortalPage } from '@/lib/persistent-portal-page';
 import { notFound, redirect } from 'next/navigation';
 import { PropertyDetailManager, type ManagedProperty } from '@/components/property-detail-manager';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
@@ -11,7 +12,7 @@ import { ApiError, apiFetch } from '@/lib/server-api';
 import { isStaysPlatformEnabled } from '@/lib/stays-flags';
 import { requirePortal } from '@/lib/viewer';
 
-export default async function Page({
+async function Page({
   params,
 }: {
   params: Promise<{ locale: string; propertyId: string }>;
@@ -60,3 +61,5 @@ export default async function Page({
     />
   );
 }
+
+export default persistentPortalPage('/developer/properties/[propertyId]', Page);

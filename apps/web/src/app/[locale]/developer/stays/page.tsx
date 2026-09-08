@@ -1,3 +1,4 @@
+import { persistentPortalPage } from '@/lib/persistent-portal-page';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { verifySessionToken } from '@bhd-r/authz';
@@ -28,7 +29,7 @@ function defaultRange(): { fromOn: string; toOn: string } {
   };
 }
 
-export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
+async function Page({ params }: { params: Promise<{ locale: string }> }) {
   if (!isStaysPlatformEnabled()) notFound();
   const { locale } = await params;
   const ar = locale === 'ar';
@@ -127,3 +128,5 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
     </StaysPortalPage>
   );
 }
+
+export default persistentPortalPage('/developer/stays', Page);

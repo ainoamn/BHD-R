@@ -1,14 +1,7 @@
 'use client';
 
 import { useLocale, useTranslations } from 'next-intl';
-import {
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type MouseEvent as ReactMouseEvent,
-  type ReactNode,
-} from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import { PortalHeader } from '@/components/portal-header';
 import { warmOpsSection } from '@/lib/portal-ops-client-cache';
@@ -17,7 +10,6 @@ import {
   opsSectionsForPortal,
   type OperationsSection,
 } from '@/lib/portal-ops-types';
-import { OPS_NAVIGATE_EVENT } from '@/components/portal-main-slot';
 import type { PortalRole, Viewer } from '@/lib/types';
 
 type NavItem = { path: string; label: string; mark: string };
@@ -244,20 +236,23 @@ function PortalIntentLink({
       onMouseEnter={warmDestination}
       onFocus={warmDestination}
       onTouchStart={warmDestination}
-      onClick={(event: ReactMouseEvent<HTMLAnchorElement>) => {
-        const sameTabClick =
+      onClick={(event) => {
+        if (
+          section &&
+          !event.defaultPrevented &&
           event.button === 0 &&
           !event.metaKey &&
           !event.ctrlKey &&
           !event.shiftKey &&
           !event.altKey &&
-          event.currentTarget.target !== '_blank';
-        if (section && sameTabClick) {
-          window.dispatchEvent(
-            new CustomEvent(OPS_NAVIGATE_EVENT, {
-              detail: { portal, section },
-            }),
-          );
+          (!event.currentTarget.target || event.currentTarget.target === '_self')
+        ) {
+          event.preventDefault();
+          const url = new URL(event.currentTarget.href);
+          if (url.pathname !== window.location.pathname || url.search !== window.location.search) {
+            // Ops are client panes; native history integrates with Next's pathname hooks.
+            window.history.pushState(null, '', url.pathname + url.search + url.hash);
+          }
         }
         onNavigate();
       }}
@@ -368,9 +363,7 @@ export function PortalNav({
                 const href = `${root}${item.path}`;
                 const active =
                   pathname === href ||
-                  (item.path !== '' &&
-                    item.path !== '/stays' &&
-                    pathname.startsWith(`${href}/`));
+                  (item.path !== '' && item.path !== '/stays' && pathname.startsWith(`${href}/`));
                 const sectionName = item.path.replace(/^\//, '');
                 const section =
                   isOperationsSection(sectionName) &&

@@ -27,10 +27,12 @@ export function OperationsWorkspaceClient({
   portal,
   section,
   locale,
+  active = true,
 }: {
   portal: PortalRole;
   section: OperationsSection;
   locale: 'ar' | 'en';
+  active?: boolean;
 }) {
   const cached = getOpsCache(portal, section);
   const [payload, setPayload] = useState<OperationsWorkspacePayload>(() =>
@@ -48,6 +50,7 @@ export function OperationsWorkspaceClient({
   }
 
   useEffect(() => {
+    if (!active) return;
     let cancelled = false;
 
     const hit = getOpsCache(portal, section);
@@ -81,11 +84,12 @@ export function OperationsWorkspaceClient({
       cancelled = true;
       window.removeEventListener('bhd-r-ops-refresh', onRefresh);
     };
-  }, [portal, section, locale]);
+  }, [portal, section, locale, active]);
 
   return (
     <div className="portal-ops-pane" data-section={section}>
       <OperationsConsole
+        active={active}
         portal={portal}
         section={section}
         locale={payload.locale || locale}

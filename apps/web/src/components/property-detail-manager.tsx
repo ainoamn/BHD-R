@@ -502,9 +502,9 @@ export function PropertyDetailManager({
                   </p>
                 ) : null}
                 {property.status !== 'archived' && !isPublic ? (
-                  <a className="button button--primary" href={editHref}>
+                  <Link className="button button--primary" href={editHref}>
                     {ar ? 'إضافة صور' : 'Add photos'}
-                  </a>
+                  </Link>
                 ) : null}
               </div>
             )}
@@ -1296,9 +1296,9 @@ export function PropertyDetailManager({
                 <div>
                   <dt>{ar ? 'المالك' : 'Owner'}</dt>
                   <dd>
-                    <a href={`/${locale}/parties/${property.ownerPartyId}`}>
+                    <Link href={`/${locale}/parties/${property.ownerPartyId}`}>
                       {property.ownerPartyName}
-                    </a>
+                    </Link>
                   </dd>
                 </div>
               ) : !isPublic ? (
@@ -1331,9 +1331,9 @@ export function PropertyDetailManager({
                   {ar ? 'عرض العقار' : 'View listing'}
                 </a>
                 {property.status !== 'archived' ? (
-                  <a className="button button--primary property-360__summary-cta" href={editHref}>
+                  <Link className="button button--primary property-360__summary-cta" href={editHref}>
                     {ar ? 'تعديل العقار' : 'Edit property'}
-                  </a>
+                  </Link>
                 ) : null}
               </>
             ) : stayBooking ? (

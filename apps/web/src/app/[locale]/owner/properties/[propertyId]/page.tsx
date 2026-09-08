@@ -1,3 +1,4 @@
+import { persistentPortalPage } from '@/lib/persistent-portal-page';
 import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { verifySessionToken } from '@bhd-r/authz';
@@ -19,7 +20,7 @@ function sessionSecret(): Uint8Array {
   return requireSessionSecret();
 }
 
-export default async function Page({
+async function Page({
   params,
   searchParams,
 }: {
@@ -88,3 +89,5 @@ export default async function Page({
     />
   );
 }
+
+export default persistentPortalPage('/owner/properties/[propertyId]', Page);

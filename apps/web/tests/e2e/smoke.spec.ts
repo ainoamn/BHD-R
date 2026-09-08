@@ -213,3 +213,39 @@ test('stays phase-0: /ar/stays is not a public product surface yet', async ({ pa
   // 404 preferred; any non-200 marketing page is acceptable until Phase 4 ships behind flags.
   expect(status === 404 || status >= 400).toBe(true);
 });
+
+test('owner sidebar preserves a property draft without document reloads', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'chromium', 'Desktop navigation regression');
+  await authenticatePortal(page);
+  await page.goto('/en/owner/properties/new');
+  const category = page.locator('.wizard-shell:visible #category');
+  await category.selectOption('warehouse');
+  await category.evaluate((node) => node.setAttribute('data-draft-marker', 'original-node'));
+  let documentRequests = 0;
+  page.on('request', (request) => {
+    if (request.isNavigationRequest() && request.frame() === page.mainFrame()) documentRequests++;
+  });
+  const hrefs = await page
+    .locator('.portal-nav a')
+    .evaluateAll((links) =>
+      links
+        .map((link) => link.getAttribute('href')!)
+        .filter((href) => /^\/en\/owner\/[^/]+$/.test(href) && !href.endsWith('/stays')),
+    );
+  expect(hrefs.length).toBeGreaterThan(12);
+  for (const href of hrefs) {
+    await page.locator(`.portal-nav a[href="${href}"]`).click();
+    await expect(page).toHaveURL(new RegExp(`${href}$`));
+    await expect(page.locator('.portal-persisted-panel:not([hidden])')).toHaveCount(1);
+  }
+  await page.locator('.portal-nav a[href="/en/owner/properties"]').click();
+  await page
+    .locator('.portal-persisted-panel:not([hidden]) a[href="/en/owner/properties/new"]')
+    .first()
+    .click();
+  await expect(category).toHaveValue('warehouse');
+  await expect(category).toHaveAttribute('data-draft-marker', 'original-node');
+  expect(documentRequests).toBe(0);
+});

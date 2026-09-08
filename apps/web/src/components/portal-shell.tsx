@@ -18,8 +18,7 @@ export async function PortalShell({
 }) {
   const viewer = await requirePortalShell(locale, portal);
   const loc = locale === 'en' ? 'en' : 'ar';
-  const staysEnabled =
-    (portal === 'owner' || portal === 'developer') && isStaysPlatformEnabled();
+  const staysEnabled = (portal === 'owner' || portal === 'developer') && isStaysPlatformEnabled();
   return (
     <div className="portal-layout">
       <NavigationProgress />
@@ -27,7 +26,11 @@ export async function PortalShell({
       <NestKeepAlive />
       <PortalNav portal={portal} viewer={viewer} staysEnabled={staysEnabled} />
       <div className="portal-main">
-        <PortalMainSlot portal={portal} locale={loc}>
+        <PortalMainSlot
+          key={`${viewer.id}:${viewer.organizationId}:${portal}:${loc}`}
+          portal={portal}
+          locale={loc}
+        >
           {children}
         </PortalMainSlot>
       </div>

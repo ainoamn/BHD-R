@@ -36,11 +36,11 @@ describe('portal operations memory cache', () => {
     expect(getOpsCache('owner', 'properties')).toBe(payload);
     expect(isOpsCacheFresh('owner', 'properties')).toBe(true);
 
-    vi.advanceTimersByTime(61_000);
+    vi.advanceTimersByTime(5 * 60_000 + 1);
     expect(getOpsCache('owner', 'properties')).toBe(payload);
     expect(isOpsCacheFresh('owner', 'properties')).toBe(false);
 
-    vi.advanceTimersByTime(15 * 60_000);
+    vi.advanceTimersByTime(30 * 60_000);
     expect(getOpsCache('owner', 'properties')).toBeNull();
   });
 

@@ -1,3 +1,4 @@
+import { persistentPortalPage } from '@/lib/persistent-portal-page';
 import { notFound } from 'next/navigation';
 import {
   ReservationComplianceManager,
@@ -6,7 +7,7 @@ import {
 import { ApiError, apiFetch } from '@/lib/server-api';
 import { requirePortal } from '@/lib/viewer';
 
-export default async function Page({
+async function Page({
   params,
 }: {
   params: Promise<{ locale: string; reservationId: string }>;
@@ -24,3 +25,5 @@ export default async function Page({
     throw error;
   }
 }
+
+export default persistentPortalPage('/owner/bookings/[reservationId]', Page);

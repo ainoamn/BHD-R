@@ -1,6 +1,7 @@
 'use client';
 
 import type { ChangeEvent, FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Card, CardContent, Field, SelectField, TextAreaField } from '@bhd-r/ui';
 import { supportedCurrencyCodes, currencyMinorUnits, type CurrencyCode } from '@bhd-r/contracts';
@@ -38,10 +39,6 @@ function majorFromMinor(minor: string | null | undefined, currency: CurrencyCode
   return frac ? `${whole}.${frac}` : whole;
 }
 
-function goToPropertyPage(locale: string, portal: string, id: string) {
-  // Hard navigation — next/navigation soft push can leave the wizard on /edit after save.
-  window.location.assign(`/${locale}/${portal}/properties/${encodeURIComponent(id)}`);
-}
 
 type MediaItem = { id: string; file?: File; url: string; existing?: boolean };
 
@@ -209,6 +206,11 @@ export function PropertyWizard({
   propertyId?: string;
   initialProperty?: ManagedProperty;
 }) {
+  const router = useRouter();
+  const goToPropertyPage = (locale: string, portal: string, id: string) => {
+    router.push(`/${locale}/${portal}/properties/${encodeURIComponent(id)}`);
+    router.refresh();
+  };
   const t = useTranslations();
   const locale = useLocale() as 'ar' | 'en';
   const ar = locale === 'ar';
@@ -1475,7 +1477,7 @@ export function PropertyWizard({
         setSuccess(null);
         setError(mediaWarning);
         setBusy(false);
-        window.location.assign(
+        router.push(
           `/${locale}/${portal}/properties/${encodeURIComponent(createdProperty.id)}/edit`,
         );
         return;

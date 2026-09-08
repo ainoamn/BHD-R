@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.75 — 2026-09-08
+
+- Portal SPA persistence: register real page trees (not LayoutRouter clones), paced background prefetch of sidebar + discovered detail links, soft ops History API hops, soft save/edit navigation for properties; form drafts survive visiting many sections.
+
 ## 0.4.74 — 2026-09-08
 
 - Fix Vercel build timeout: homepage force-dynamic + 8s Neon catalogue timeout; raise staticPageGenerationTimeout to 180s.
