@@ -2631,8 +2631,8 @@ export function OperationsConsole({
       setHisabyLink(result);
       setHisabyLinkNotice(
         ar
-          ? 'تم حفظ ربط Hisaby. المدفوعات والفواتير ستُدفع تلقائياً عند توفر نقطة الاستقبال.'
-          : 'Hisaby link saved. Payments and invoices will push automatically once the inbound endpoint is live.',
+          ? 'تم حفظ ربط Hisaby. الدفع التلقائي إلى https://hisaby.bhd-om.com/api/integrations/bhd-r/events مفعّل.'
+          : 'Hisaby link saved. Automatic push to https://hisaby.bhd-om.com/api/integrations/bhd-r/events is on.',
       );
       event.currentTarget.reset();
     } catch (caught) {
@@ -2764,8 +2764,8 @@ export function OperationsConsole({
               <ol>
                 <li>
                   {ar
-                    ? 'أنشئ رمز استقبال الأحداث داخل Hisaby، ثم الصقه في نموذج الربط أدناه مع رابط نقطة الاستقبال.'
-                    : 'Create the inbound event token inside Hisaby, then paste it below with the events URL.'}
+                    ? 'من Hisaby (/bhd-r) أنشئ رمز التكامل الوارد. الصقه أدناه مع https://hisaby.bhd-om.com/api/integrations/bhd-r/events'
+                    : 'In Hisaby (/bhd-r) create the inbound token. Paste it below with https://hisaby.bhd-om.com/api/integrations/bhd-r/events'}
                 </li>
                 <li>
                   {ar
