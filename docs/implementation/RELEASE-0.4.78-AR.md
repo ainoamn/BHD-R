@@ -1,5 +1,7 @@
 # BHD R 0.4.78 — مفاتيح API وتعريب صفحة التكامل
 
+**منشور:** 2026-09-09 على https://r.bhd-om.com (`692c213` · Vercel Production Success)
+
 ## ماذا تغيّر
 - إعادة بناء [`/ar/owner/api-keys`](https://r.bhd-om.com/ar/owner/api-keys): دليل Hisaby، صلاحيات معرّبة، تعبئة سريعة لـ Hisaby، نسخ السر، نافذة إلغاء بدل `prompt`.
 - توثيق من ينشئ المفتاح: [`HISABY-API-KEYS-AR.md`](./HISABY-API-KEYS-AR.md) يتضمن أمراً جاهزاً لمستودع Hisaby.

@@ -2,10 +2,11 @@
 
 **Updated:** 2026-09-09  
 **Product version:** 0.4.78  
-**Active focus:** API keys UX + Hisaby key ownership docs  
+**Active focus:** API keys UX + Hisaby key ownership (live)  
+**Live handoff:** [`../handoffs/2026-09-09-api-keys-hisaby-0.4.78/`](../handoffs/2026-09-09-api-keys-hisaby-0.4.78/) · Production Success `692c213`  
 **Release 0.4.78:** owner api-keys Arabic rebuild + Hisaby API key commands · [`HISABY-API-KEYS-AR.md`](./HISABY-API-KEYS-AR.md) · [`RELEASE-0.4.78-AR.md`](./RELEASE-0.4.78-AR.md)  
 **Architecture:** [`HISABY-INTEGRATION-AR.md`](./HISABY-INTEGRATION-AR.md)  
-**Live handoff (جلسة 0.4.71→0.4.77):** [`../handoffs/2026-09-08-session-0.4.71-to-0.4.77/`](../handoffs/2026-09-08-session-0.4.71-to-0.4.77/)  
+**Prior session handoff:** [`../handoffs/2026-09-08-session-0.4.71-to-0.4.77/`](../handoffs/2026-09-08-session-0.4.71-to-0.4.77/)  
 **Release 0.4.77:** accounting Neon-first + Nest health race · [`RELEASE-0.4.77-AR.md`](./RELEASE-0.4.77-AR.md)  
 **Release 0.4.76:** accounting stay rows use table columns + confirmed-booking fallback · [`RELEASE-0.4.76-AR.md`](./RELEASE-0.4.76-AR.md)  
 **Release 0.4.75:** persistent portal pages, paced prefetch, soft ops/history, soft property save · [`RELEASE-0.4.75-AR.md`](./RELEASE-0.4.75-AR.md)  
