@@ -45,7 +45,7 @@
 | D-204 | خريطة/Geocoding provider       | المرحلة 2 بعد مقارنة الخصوصية والتكلفة |
 | D-205 | أسماء الباقات وأسعارها وحدودها | قبل بناء Billing UI                    |
 | D-206 | دول الإطلاق التالية            | بعد مؤشرات عُمان وتجهيز Country Pack   |
-| D-207 | تكامل Hisaby المحاسبي          | V1.5 بعد تثبيت Events/API              |
+| D-207 | تكامل Hisaby المحاسبي          | V1.5 — توجيه التنفيذ: [`docs/implementation/HISABY-INTEGRATION-AR.md`](../../implementation/HISABY-INTEGRATION-AR.md) (مبسّط في BHD-R، مفصّل في Hisaby، **لا نسخ مستودع**) |
 
 ## 4. شروط تغيير قرار
 

@@ -1,15 +1,18 @@
-# جلسة 2026-09-08 — حالة النشر للمتابعة من جهاز آخر
-
-**HEAD:** `752e325` · **version:** 0.4.77 · **branch:** `main` (synced with origin)
+# CONTINUE — 2026-09-09
 
 ## اقرأ أولاً
-[`docs/handoffs/2026-09-08-session-0.4.71-to-0.4.77/README.md`](./docs/handoffs/2026-09-08-session-0.4.71-to-0.4.77/README.md)
+1. [`docs/implementation/HISABY-INTEGRATION-AR.md`](./docs/implementation/HISABY-INTEGRATION-AR.md) — قرار: محاسبة مفصّلة في Hisaby، مبسّطة في BHD-R، لا نسخ مستودع.
+2. [`docs/handoffs/2026-09-08-session-0.4.71-to-0.4.77/README.md`](./docs/handoffs/2026-09-08-session-0.4.71-to-0.4.77/README.md) — جلسة التنقل/المحاسبة السابقة.
 
-## أوامر الاستمرار
+## أوامر
 ```sh
 git pull origin main
-# ثم افتح STATUS.md و RELEASE-0.4.77-AR.md
 ```
 
+## HEAD عند كتابة هذا الملف
+تحقق بـ `git log -1 --oneline` بعد السحب.
+
 ## إنتاج
-https://r.bhd-om.com — مشروع Vercel `bhd-r-api`
+- عقارات: https://r.bhd-om.com  
+- حسابات مفصّلة: https://hisaby.bhd-om.com · https://github.com/ainoamn/hisaby  
+- قرار D-207: تكامل Hisaby (ليس دمج الكود داخل BHD-R)

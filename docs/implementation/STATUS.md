@@ -1,9 +1,10 @@
 # Implementation status
 
-**Updated:** 2026-09-08  
+**Updated:** 2026-09-09  
 **Product version:** 0.4.77  
-**Active focus:** Fast owner accounting (Neon-first) · handoff ready for other machine  
-**Live handoff (جلسة كاملة 0.4.71→0.4.77):** [`../handoffs/2026-09-08-session-0.4.71-to-0.4.77/`](../handoffs/2026-09-08-session-0.4.71-to-0.4.77/) · HEAD `752e325`  
+**Active focus:** Hisaby integration architecture (D-207) — simplified finance in BHD-R, detailed GL in Hisaby  
+**Architecture:** [`HISABY-INTEGRATION-AR.md`](./HISABY-INTEGRATION-AR.md) · **لا نسخ** hisaby/bhd-om داخل BHD-R  
+**Live handoff (جلسة 0.4.71→0.4.77):** [`../handoffs/2026-09-08-session-0.4.71-to-0.4.77/`](../handoffs/2026-09-08-session-0.4.71-to-0.4.77/)  
 **Release 0.4.77:** accounting Neon-first + Nest health race · [`RELEASE-0.4.77-AR.md`](./RELEASE-0.4.77-AR.md)  
 **Release 0.4.76:** accounting stay rows use table columns + confirmed-booking fallback · [`RELEASE-0.4.76-AR.md`](./RELEASE-0.4.76-AR.md)  
 **Release 0.4.75:** persistent portal pages, paced prefetch, soft ops/history, soft property save · [`RELEASE-0.4.75-AR.md`](./RELEASE-0.4.75-AR.md)  
