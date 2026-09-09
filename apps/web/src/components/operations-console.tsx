@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode, type ChangeEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { CurrencyCode } from '@bhd-r/contracts';
 import { BrandMark } from '@bhd-r/ui';
@@ -83,7 +83,7 @@ interface Column {
   key: string;
   ar: string;
   en: string;
-  format?: 'status' | 'money' | 'date' | 'count' | 'kind' | 'thumb' | 'channels';
+  format?: 'status' | 'money' | 'date' | 'count' | 'kind' | 'thumb' | 'channels' | 'scopes';
   fallbackKeys?: string[];
 }
 
@@ -97,6 +97,36 @@ interface SectionDefinition {
   columns: Column[];
   flow: Array<{ value: string; ar: string; en: string }>;
   moneyKey?: string;
+}
+
+const API_KEY_SCOPE_OPTIONS: Array<{ value: string; ar: string; en: string }> = [
+  { value: 'property.read', ar: 'قراءة العقارات', en: 'Read properties' },
+  { value: 'unit.read', ar: 'قراءة الوحدات', en: 'Read units' },
+  { value: 'party.read', ar: 'قراءة الأطراف', en: 'Read parties' },
+  { value: 'contract.read', ar: 'قراءة العقود', en: 'Read contracts' },
+  { value: 'lease.read', ar: 'قراءة الإيجارات', en: 'Read leases' },
+  { value: 'invoice.read', ar: 'قراءة الفواتير', en: 'Read invoices' },
+  { value: 'payment.read', ar: 'قراءة المدفوعات', en: 'Read payments' },
+  { value: 'maintenance.read', ar: 'قراءة الصيانة', en: 'Read maintenance' },
+  { value: 'request.create', ar: 'إنشاء طلبات', en: 'Create requests' },
+  { value: 'report.read', ar: 'قراءة التقارير', en: 'Read reports' },
+  { value: 'webhook.read', ar: 'قراءة سجلات الويب هوك', en: 'Read webhook logs' },
+];
+
+const HISABY_READ_SCOPES = [
+  'property.read',
+  'unit.read',
+  'party.read',
+  'contract.read',
+  'lease.read',
+  'invoice.read',
+  'payment.read',
+  'report.read',
+] as const;
+
+function apiKeyScopeLabel(scope: string, locale: 'ar' | 'en'): string {
+  const hit = API_KEY_SCOPE_OPTIONS.find((item) => item.value === scope);
+  return hit ? (locale === 'ar' ? hit.ar : hit.en) : scope;
 }
 
 const definitions: Record<OperationsSection, SectionDefinition> = {
@@ -534,20 +564,21 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
     ],
   },
   'api-keys': {
-    titleAr: 'مفاتيح التكامل API',
-    titleEn: 'Integration API keys',
-    introAr: 'مفاتيح محدودة الصلاحية والمدة للتكاملات الخارجية؛ تظهر القيمة السرية مرة واحدة فقط.',
+    titleAr: 'مفاتيح تكامل العقارات (API)',
+    titleEn: 'Property integration API keys',
+    introAr:
+      'مفاتيح يُصدرها برنامج العقارات للشركاء (مثل Hisaby) لقراءة البيانات فقط. رمز استقبال الأحداث داخل Hisaby يُنشأ من حسابات Hisaby وليس من هذه الصفحة. القيمة السرية تظهر مرة واحدة.',
     introEn:
-      'Time- and scope-limited keys for external integrations; the secret is shown only once.',
+      'Keys issued by the property app for partners (e.g. Hisaby) for read access. Hisaby inbound tokens are created inside Hisaby, not here. The secret is shown only once.',
     createAr: 'إنشاء مفتاح API',
     createEn: 'Create API key',
     columns: [
-      { key: 'name', ar: 'الاسم', en: 'Name' },
+      { key: 'name', ar: 'اسم المفتاح', en: 'Name' },
       { key: 'prefix', ar: 'البادئة', en: 'Prefix' },
-      { key: 'scopes', ar: 'الصلاحيات', en: 'Scopes', format: 'count' },
+      { key: 'scopes', ar: 'الصلاحيات', en: 'Scopes', format: 'scopes' },
       { key: 'status', ar: 'الحالة', en: 'Status', format: 'status' },
       { key: 'lastUsedAt', ar: 'آخر استخدام', en: 'Last used', format: 'date' },
-      { key: 'expiresAt', ar: 'ينتهي', en: 'Expires', format: 'date' },
+      { key: 'expiresAt', ar: 'ينتهي في', en: 'Expires', format: 'date' },
     ],
     flow: [
       { value: 'active', ar: 'نشط', en: 'Active' },
@@ -668,6 +699,19 @@ function displayCell(
   if (value === null) return '—';
   if (column.format === 'count') return Array.isArray(value) ? value.length : safeString(value);
   if (column.format === 'money') return moneyFromRecord(row, column.key, locale);
+  if (column.format === 'scopes') {
+    const scopes = Array.isArray(row.scopes) ? row.scopes.map((item) => String(item)) : [];
+    if (!scopes.length) return '—';
+    return (
+      <span className="ops-scope-chips">
+        {scopes.map((scope) => (
+          <span key={scope} className="ops-scope-chip" title={scope} dir="auto">
+            {apiKeyScopeLabel(scope, locale)}
+          </span>
+        ))}
+      </span>
+    );
+  }
   if (column.format === 'date') {
     const date = new Date(safeString(value));
     return Number.isNaN(date.valueOf())
@@ -773,18 +817,26 @@ function Input({
   type = 'text',
   required = false,
   defaultValue,
+  value,
+  onChange,
   min,
   step,
   placeholder,
+  inputMode,
+  autoComplete,
 }: {
   name: string;
   label: string;
   type?: string;
   required?: boolean;
   defaultValue?: string;
+  value?: string;
+  onChange?: (event: ChangeEvent<HTMLInputElement>) => void;
   min?: string;
   step?: string;
   placeholder?: string;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
+  autoComplete?: string;
 }) {
   return (
     <label className="field">
@@ -795,9 +847,13 @@ function Input({
         type={type}
         required={required}
         defaultValue={defaultValue}
+        value={value}
+        onChange={onChange}
         min={min}
         step={step}
         placeholder={placeholder}
+        inputMode={inputMode}
+        autoComplete={autoComplete}
       />
     </label>
   );
@@ -1542,40 +1598,59 @@ function CreateFields({
     case 'api-keys':
       return (
         <>
-          <Input name="name" label={ar ? 'اسم المفتاح' : 'Key name'} required />
+          <p className="notice notice--info span-2">
+            {ar
+              ? 'هذا المفتاح تصدره منصة العقارات ليقرأه شريك مثل Hisaby. رمز استقبال المدفوعات في Hisaby يُنشأ من داخل Hisaby ثم يُلصق لاحقاً في إعدادات الربط هنا.'
+              : 'This key is issued by the property platform for a partner such as Hisaby to read data. Hisaby inbound tokens are created inside Hisaby and pasted into link settings later.'}
+          </p>
+          <Input
+            name="name"
+            label={ar ? 'اسم المفتاح' : 'Key name'}
+            placeholder={ar ? 'مثال: Hisaby — قراءة مالية' : 'e.g. Hisaby — finance read'}
+            required
+          />
           <Input
             name="expiresAt"
-            label={ar ? 'تاريخ الانتهاء' : 'Expiry'}
+            label={ar ? 'تاريخ ووقت الانتهاء' : 'Expiry date & time'}
             type="datetime-local"
             defaultValue={new Date(Date.now() + 90 * 86_400_000).toISOString().slice(0, 16)}
             required
           />
           <fieldset className="field span-2">
-            <legend>{ar ? 'الصلاحيات المحدودة' : 'Limited scopes'}</legend>
+            <legend>{ar ? 'الصلاحيات المحدودة (قراءة في الغالب)' : 'Limited scopes (mostly read)'}</legend>
+            <div className="form-actions" style={{ marginBottom: '0.75rem' }}>
+              <button
+                type="button"
+                className="button button--quiet button--sm"
+                onClick={(event) => {
+                  const form = (event.currentTarget as HTMLButtonElement).form;
+                  if (!form) return;
+                  const boxes = form.querySelectorAll<HTMLInputElement>('input[name="scopes"]');
+                  for (const box of boxes) {
+                    box.checked = (HISABY_READ_SCOPES as readonly string[]).includes(box.value);
+                  }
+                }}
+              >
+                {ar ? 'تعبئة صلاحيات Hisaby (قراءة)' : 'Fill Hisaby read scopes'}
+              </button>
+            </div>
             <div className="permission-grid">
-              {[
-                'property.read',
-                'unit.read',
-                'party.read',
-                'contract.read',
-                'lease.read',
-                'invoice.read',
-                'payment.read',
-                'maintenance.read',
-                'request.create',
-                'report.read',
-                'webhook.read',
-              ].map((scope) => (
-                <label className="checkbox-row" key={scope}>
-                  <input name="scopes" type="checkbox" value={scope} />
-                  <span>{scope}</span>
+              {API_KEY_SCOPE_OPTIONS.map((scope) => (
+                <label className="checkbox-row" key={scope.value}>
+                  <input name="scopes" type="checkbox" value={scope.value} />
+                  <span>
+                    <strong>{ar ? scope.ar : scope.en}</strong>
+                    <small dir="ltr"> {scope.value}</small>
+                  </span>
                 </label>
               ))}
             </div>
           </fieldset>
           <Input
             name="totpCode"
-            label={ar ? 'رمز TOTP (إذا كان مفعلاً)' : 'TOTP code (when enabled)'}
+            label={ar ? 'رمز التحقق الثنائي TOTP (إن كان مفعّلاً)' : 'TOTP code (when enabled)'}
+            inputMode="numeric"
+            autoComplete="one-time-code"
           />
         </>
       );
@@ -2073,6 +2148,9 @@ export function OperationsConsole({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [apiKeySecret, setApiKeySecret] = useState<string | null>(null);
+  const [apiKeyCopied, setApiKeyCopied] = useState(false);
+  const [revokeKeyRow, setRevokeKeyRow] = useState<DataRow | null>(null);
+  const [revokeTotp, setRevokeTotp] = useState('');
   const [renewingLease, setRenewingLease] = useState<DataRow | null>(null);
   const [prefillUnitId, setPrefillUnitId] = useState('');
   const [prefillReservationId, setPrefillReservationId] = useState('');
@@ -2225,6 +2303,7 @@ export function OperationsConsole({
 
   function closeCreate() {
     setApiKeySecret(null);
+    setApiKeyCopied(false);
     setShowCreate(false);
   }
 
@@ -2427,23 +2506,18 @@ export function OperationsConsole({
     }
   }
 
-  async function revokeApiKey(row: DataRow) {
+  async function revokeApiKey(row: DataRow, totpCode: string) {
     const id = safeString(row.id);
     if (!id) return;
-    const totpCode = window.prompt(
-      ar
-        ? 'أدخل رمز TOTP إذا كان مفعلاً، أو اتركه فارغاً ثم اضغط موافق.'
-        : 'Enter your TOTP code when enabled, or leave it blank and press OK.',
-      '',
-    );
-    if (totpCode === null) return;
     setBusy(true);
     setError(null);
     try {
       await browserMutation(`/v1/auth/api-keys/${encodeURIComponent(id)}/revoke`, {
         method: 'PATCH',
-        body: JSON.stringify({ ...(totpCode ? { totpCode } : {}) }),
+        body: JSON.stringify({ ...(totpCode.trim() ? { totpCode: totpCode.trim() } : {}) }),
       });
+      setRevokeKeyRow(null);
+      setRevokeTotp('');
       refreshWorkspace();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'request_failed');
@@ -2531,6 +2605,42 @@ export function OperationsConsole({
           <span className="ops-kicker">BHD R · {portal.toUpperCase()}</span>
           <h1>{ar ? definition.titleAr : definition.titleEn}</h1>
           <p>{ar ? definition.introAr : definition.introEn}</p>
+          {section === 'api-keys' ? (
+            <div className="notice notice--info api-keys-guide" role="note">
+              <p>
+                <strong>{ar ? 'ربط Hisaby (المحاسبة المفصّلة)' : 'Hisaby (detailed accounting) link'}</strong>
+              </p>
+              <ol>
+                <li>
+                  {ar
+                    ? 'رمز استقبال الأحداث يُنشأ داخل Hisaby (إعدادات الشركة ← تكامل BHD R) وليس من هنا.'
+                    : 'Inbound event tokens are created inside Hisaby (company settings → BHD R integration), not here.'}
+                </li>
+                <li>
+                  {ar
+                    ? 'إن احتجت أن يقرأ Hisaby بيانات العقارات/الفواتير: أنشئ مفتاحاً من هذه الصفحة بصلاحيات القراءة، ثم الصقه في Hisaby.'
+                    : 'If Hisaby must read properties/invoices: create a read key here and paste it into Hisaby.'}
+                </li>
+                <li>
+                  {ar ? (
+                    <>
+                      الدخول اليومي عبر SSO:{' '}
+                      <a href="https://hisaby.bhd-om.com" target="_blank" rel="noreferrer">
+                        hisaby.bhd-om.com
+                      </a>
+                    </>
+                  ) : (
+                    <>
+                      Daily access via SSO:{' '}
+                      <a href="https://hisaby.bhd-om.com" target="_blank" rel="noreferrer">
+                        hisaby.bhd-om.com
+                      </a>
+                    </>
+                  )}
+                </li>
+              </ol>
+            </div>
+          ) : null}
           {propertyFilter ? (
             <p className="notice">
               {ar ? 'معروض فقط ما يخص هذا العقار.' : 'Showing records for this property only.'}{' '}
@@ -2628,6 +2738,7 @@ export function OperationsConsole({
               type="button"
               onClick={() => {
                 setApiKeySecret(null);
+                setApiKeyCopied(false);
                 setShowCreate(true);
               }}
             >
@@ -3330,7 +3441,11 @@ export function OperationsConsole({
                           className="ops-action ops-action--danger"
                           type="button"
                           disabled={busy}
-                          onClick={() => void revokeApiKey(row)}
+                          onClick={() => {
+                            setRevokeKeyRow(row);
+                            setRevokeTotp('');
+                            setError(null);
+                          }}
                         >
                           {ar ? 'إلغاء المفتاح' : 'Revoke key'}
                         </button>
@@ -3744,7 +3859,13 @@ export function OperationsConsole({
           >
             <header>
               <div>
-                <span className="ops-kicker">BHD R WORKFLOW</span>
+                <span className="ops-kicker">
+                  {section === 'api-keys'
+                    ? ar
+                      ? 'تكامل BHD R'
+                      : 'BHD R integration'
+                    : 'BHD R WORKFLOW'}
+                </span>
                 <h2 id="ops-create-title">{ar ? definition.createAr : definition.createEn}</h2>
               </div>
               <button type="button" onClick={closeCreate} aria-label={ar ? 'إغلاق' : 'Close'}>
@@ -3753,22 +3874,43 @@ export function OperationsConsole({
             </header>
             {apiKeySecret ? (
               <div className="api-key-secret" role="status">
-                <strong>{ar ? 'انسخ المفتاح الآن' : 'Copy the key now'}</strong>
+                <strong>{ar ? 'انسخ المفتاح السري الآن' : 'Copy the secret key now'}</strong>
                 <p>
                   {ar
-                    ? 'لن تظهر القيمة السرية مرة أخرى بعد إغلاق هذه النافذة.'
-                    : 'The secret will not be shown again after you close this dialog.'}
+                    ? 'لن تُعرض هذه القيمة مرة أخرى بعد إغلاق النافذة. احفظها في Hisaby أو مدير أسرار فوراً.'
+                    : 'This value will not be shown again after closing. Save it in Hisaby or a secrets manager now.'}
                 </p>
                 <code dir="ltr">{apiKeySecret}</code>
-                <button
-                  className="button button--primary"
-                  type="button"
-                  onClick={() => {
-                    closeCreate();
-                  }}
-                >
-                  {ar ? 'تم النسخ والإغلاق' : 'Copied, close'}
-                </button>
+                <div className="form-actions">
+                  <button
+                    className="button button--primary"
+                    type="button"
+                    onClick={() => {
+                      void navigator.clipboard?.writeText(apiKeySecret).then(
+                        () => setApiKeyCopied(true),
+                        () => setApiKeyCopied(false),
+                      );
+                    }}
+                  >
+                    {apiKeyCopied
+                      ? ar
+                        ? 'تم النسخ'
+                        : 'Copied'
+                      : ar
+                        ? 'نسخ المفتاح'
+                        : 'Copy key'}
+                  </button>
+                  <button
+                    className="button button--quiet"
+                    type="button"
+                    onClick={() => {
+                      setApiKeyCopied(false);
+                      closeCreate();
+                    }}
+                  >
+                    {ar ? 'إغلاق' : 'Close'}
+                  </button>
+                </div>
               </div>
             ) : (
               <form onSubmit={(event) => void submitCreate(event)}>
@@ -3796,13 +3938,94 @@ export function OperationsConsole({
                       ? ar
                         ? 'جارٍ الحفظ…'
                         : 'Saving…'
-                      : ar
-                        ? 'حفظ وبدء سير العمل'
-                        : 'Save & start workflow'}
+                      : section === 'api-keys'
+                        ? ar
+                          ? 'إنشاء المفتاح'
+                          : 'Create key'
+                        : ar
+                          ? 'حفظ وبدء سير العمل'
+                          : 'Save & start workflow'}
                   </button>
                 </div>
               </form>
             )}
+          </section>
+        </div>
+      ) : null}
+
+      {revokeKeyRow ? (
+        <div
+          className="ops-modal"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setRevokeKeyRow(null);
+              setRevokeTotp('');
+            }
+          }}
+        >
+          <section
+            className="ops-modal__card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ops-revoke-key-title"
+          >
+            <header>
+              <div>
+                <span className="ops-kicker">{ar ? 'أمان التكامل' : 'Integration security'}</span>
+                <h2 id="ops-revoke-key-title">{ar ? 'إلغاء مفتاح API' : 'Revoke API key'}</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setRevokeKeyRow(null);
+                  setRevokeTotp('');
+                }}
+                aria-label={ar ? 'إغلاق' : 'Close'}
+              >
+                ×
+              </button>
+            </header>
+            <p>
+              {ar
+                ? `سيتم إيقاف المفتاح «${safeString(revokeKeyRow.name) || safeString(revokeKeyRow.prefix)}» فوراً. أي تكامل يستخدمه (مثل Hisaby) سيفشل حتى تُنشئ مفتاحاً جديداً.`
+                : `Key “${safeString(revokeKeyRow.name) || safeString(revokeKeyRow.prefix)}” will stop immediately. Partners using it (e.g. Hisaby) will fail until you create a new key.`}
+            </p>
+            <div className="form-grid">
+              <Input
+                name="revokeTotp"
+                label={ar ? 'رمز التحقق الثنائي TOTP (إن كان مفعّلاً)' : 'TOTP code (when enabled)'}
+                value={revokeTotp}
+                onChange={(event) => setRevokeTotp(event.target.value)}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+              />
+            </div>
+            {error ? (
+              <div className="notice notice--error" role="alert">
+                {error}
+              </div>
+            ) : null}
+            <div className="form-actions">
+              <button
+                className="button button--quiet"
+                type="button"
+                onClick={() => {
+                  setRevokeKeyRow(null);
+                  setRevokeTotp('');
+                }}
+              >
+                {ar ? 'تراجع' : 'Cancel'}
+              </button>
+              <button
+                className="button button--primary"
+                type="button"
+                disabled={busy}
+                onClick={() => void revokeApiKey(revokeKeyRow, revokeTotp)}
+              >
+                {busy ? (ar ? 'جارٍ الإلغاء…' : 'Revoking…') : ar ? 'تأكيد الإلغاء' : 'Confirm revoke'}
+              </button>
+            </div>
           </section>
         </div>
       ) : null}

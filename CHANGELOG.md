@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.78 — 2026-09-09
+
+- Rebuild owner API keys page: Arabic scope labels, Hisaby guide, copy secret, revoke dialog; document who creates which key (Hisaby inbound vs BHD-R read keys).
+
 ## 0.4.77 — 2026-09-08
 
 - Speed owner accounting: Neon stay rows first with 1.2s Nest enrichment ceiling; hard-race Nest healthz so Render cold starts cannot block the page; accounting columns fall back to memo/createdAt.
