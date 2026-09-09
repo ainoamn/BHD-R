@@ -1,7 +1,7 @@
 # تكامل المحاسبة: BHD-R ↔ Hisaby
 
 **تاريخ:** 2026-09-09  
-**الحالة:** **حيّ على الكود** (BHD-R `a8caf1b`/`a2b200a` · Hisaby `6cab208`) — يتطلب ترحيل قواعد البيانات على الإنتاج قبل أول ربط  
+**الحالة:** **منشور على `main`** (BHD-R `1478983` · Hisaby `6c410e4`) — يتطلب ترحيل قواعد البيانات على الإنتاج قبل أول ربط  
 **قرار:** D-207  
 **دليل Hisaby التشغيلي:** [HISABY-BHD-R-INTEGRATION.md](https://github.com/ainoamn/hisaby/blob/main/docs/HISABY-BHD-R-INTEGRATION.md)
 
@@ -73,7 +73,7 @@ pnpm --filter @bhd-r/db migrate
 
 | دور | مسار |
 | --- | --- |
-| استقبال أحداث (Hisaby) | `POST /api/integrations/bhd-r/events` |
+| استقبال أحداث (Hisaby) | `POST https://hisaby.bhd-om.com/api/integrations/bhd-r/events` |
 | تصدير لقطة (BHD-R) | `GET /v1/integrations/hisaby/export` |
 | ربط الدفع (BHD-R) | `PUT/GET /v1/integrations/hisaby/connection` |
 | إدارة الرمز (Hisaby) | `/api/integrations/bhd-r/*` وواجهة `/bhd-r` |

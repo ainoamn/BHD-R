@@ -1,7 +1,7 @@
 # أمر لـ Hisaby — الربط ومفاتيح API مع BHD R
 
 **تاريخ:** 2026-09-09  
-**حالة التنفيذ:** **منفّذ في Hisaby** (`6cab208`) + **منفّذ في BHD-R** (`a8caf1b` / `a2b200a`)  
+**حالة التنفيذ:** **منشور** — Hisaby [`6c410e4`](https://github.com/ainoamn/hisaby/commit/6c410e4) · BHD-R [`1478983`](https://github.com/ainoamn/BHD-R/commit/1478983)  
 **عقارات:** https://r.bhd-om.com · API https://api.r.bhd-om.com  
 **محاسبة:** https://hisaby.bhd-om.com  
 **دليل Hisaby الكامل:** https://github.com/ainoamn/hisaby/blob/main/docs/HISABY-BHD-R-INTEGRATION.md  

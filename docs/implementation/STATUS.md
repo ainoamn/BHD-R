@@ -2,9 +2,9 @@
 
 **Updated:** 2026-09-09  
 **Product version:** 0.4.79  
-**Active focus:** Hisaby ↔ BHD-R bidirectional sync live — run DB migrations on prod before first link  
-**BHD-R HEAD:** `4be1056` · feature `a8caf1b`  
-**Hisaby:** `6cab208` · guide [`HISABY-BHD-R-INTEGRATION.md`](https://github.com/ainoamn/hisaby/blob/main/docs/HISABY-BHD-R-INTEGRATION.md)  
+**Active focus:** Hisaby ↔ BHD-R bidirectional sync **published** — run DB migrations on prod before first link  
+**BHD-R HEAD:** `1478983` · feature `a8caf1b`  
+**Hisaby:** `6c410e4` (public events URL `8bfe709` + docs) · guide [`HISABY-BHD-R-INTEGRATION.md`](https://github.com/ainoamn/hisaby/blob/main/docs/HISABY-BHD-R-INTEGRATION.md)  
 **Handoff:** [`../handoffs/2026-09-09-hisaby-sync-0.4.79/`](../handoffs/2026-09-09-hisaby-sync-0.4.79/)  
 **Release 0.4.79:** export + connection + worker push + full read scopes · migrate wires `0024_hisaby_links` · [`RELEASE-0.4.79-AR.md`](./RELEASE-0.4.79-AR.md) · [`HISABY-INTEGRATION-AR.md`](./HISABY-INTEGRATION-AR.md) · [`HISABY-API-KEYS-AR.md`](./HISABY-API-KEYS-AR.md)  
 **Prior:** 0.4.78 API keys UX · [`../handoffs/2026-09-09-api-keys-hisaby-0.4.78/`](../handoffs/2026-09-09-api-keys-hisaby-0.4.78/)  

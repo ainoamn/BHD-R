@@ -4,7 +4,7 @@ All notable changes are documented here. The project follows Semantic Versioning
 
 ## 0.4.79 — 2026-09-09
 
-- Hisaby sync foundation: full read scopes for API keys, `GET /v1/integrations/hisaby/export`, org connection on `/owner/api-keys`, worker auto-push of finance/stay events; wire `0024_hisaby_links` into `db migrate`; docs mark bidirectional sync live with Hisaby `6cab208` (15‑min pull + inbound events).
+- Hisaby sync live: full read scopes, export snapshot, `/owner/api-keys` connection, worker auto-push to `https://hisaby.bhd-om.com/api/integrations/bhd-r/events`; Hisaby `6c410e4` documents and proxies that public URL, ingests worker bodies, and pulls export every 15 minutes.
 
 ## 0.4.78 — 2026-09-09
 
