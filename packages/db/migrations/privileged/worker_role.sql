@@ -14,8 +14,9 @@ GRANT SELECT ON
   sales_deals, legal_cases, work_tasks, operational_requests, ledger_accounts, journal_entries,
   journal_sequences, journal_lines, expenses, parties, addresses, party_roles, party_addresses,
   representation_authorities, billing_schedules, payment_sessions, refunds, receipts,
-  receipt_sequences, contract_sequences
+  receipt_sequences, contract_sequences, hisaby_links
 TO bhd_r_worker;
+GRANT UPDATE (last_sync_at, last_sync_status, last_sync_error, updated_at) ON hisaby_links TO bhd_r_worker;
 GRANT UPDATE (published_at, attempts) ON outbox_events TO bhd_r_worker;
 GRANT UPDATE (processing_status, scan_status, private_object_key, public_object_key, metadata, sha256, updated_at) ON media_assets TO bhd_r_worker;
 GRANT UPDATE (rendered_pdf_object_key, rendered_pdf_hash, updated_at) ON contracts TO bhd_r_worker;

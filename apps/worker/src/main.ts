@@ -48,6 +48,7 @@ import {
   rebuildStayInventoryDaysForUnit,
   releaseExpiredStayHolds,
 } from './stays/inventory-projector.js';
+import { HISABY_PUSH_TOPICS, pushHisabyDomainEvent } from './hisaby-push.js';
 
 const config = loadConfig();
 const redis = new Redis(config.REDIS_URL, {
@@ -316,6 +317,28 @@ const workers = [
             );
           }
           return result;
+        }
+
+        if (HISABY_PUSH_TOPICS.has(event.topic)) {
+          try {
+            await pushHisabyDomainEvent(pool, {
+              eventId: event.eventId,
+              organizationId: event.organizationId,
+              topic: event.topic,
+              aggregateType: event.aggregateType,
+              aggregateId: event.aggregateId,
+              payload:
+                event.payload && typeof event.payload === 'object'
+                  ? (event.payload as Record<string, unknown>)
+                  : {},
+            });
+          } catch (error) {
+            // Soft-fail: do not block stay inventory / reports when Hisaby is offline.
+            logger.warn(
+              { err: error, topic: event.topic, eventId: event.eventId },
+              'Hisaby push deferred',
+            );
+          }
         }
 
         if (isStayOutboxTopic(event.topic)) {

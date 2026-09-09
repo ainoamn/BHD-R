@@ -97,10 +97,15 @@ BHD-R (عقارات)                    Hisaby (محاسبة)
 
 كل حدث يحمل: `idempotencyKey`, `source` (`bhd-r`), `organizationId`, `propertyId`, `unitId?`, `amountMinor`, `currency`, `occurredOn`, `counterparty`, `memo`, روابط مستندات.
 
-### 4.3 قراءة عكسية (Hisaby → BHD-R) — اختياري لاحقاً
+### 4.3 قراءة عكسية (Hisaby → BHD-R) — مزامنة تلقائية
 
-- حالة الترحيل / رقم القيد في Hisaby للعرض في بطاقة الدفع داخل BHD-R.  
-- رابط عميق: `https://hisaby.bhd-om.com/...` من صف المحاسبة.
+بعد لصق مفتاح قراءة BHD-R في Hisaby (`/bhd-r`):
+
+- Hisaby يسحب العقارات (مع العناوين)، الوحدات، الأطراف، الإيجارات، الفواتير، المدفوعات الواردة، المصروفات الصادرة، والموردين من `https://api.r.bhd-om.com`.
+- المزامنة تبدأ فوراً بعد الحفظ ثم كل **15 دقيقة** بدون تدخل بشري (`POST /api/integrations/bhd-r/sync` يدوي اختياري).
+- قائمة العقارات `GET /v1/portfolio/properties` تتضمن `address` حتى تُحفظ العناوين في المحاسبة.
+- صلاحيات المفتاح: زر «تعبئة صلاحيات حسابي الكاملة» في `/ar/owner/api-keys`.
+
 
 ### 4.4 أمان
 

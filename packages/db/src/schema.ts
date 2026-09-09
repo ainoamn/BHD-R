@@ -369,6 +369,26 @@ export const apiKeys = pgTable(
   ],
 );
 
+/** Outbound link: BHD-R pushes finance events to Hisaby inbound endpoint. */
+export const hisabyLinks = pgTable(
+  'hisaby_links',
+  {
+    ...identityColumns,
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    hisabyCompanyId: varchar('hisaby_company_id', { length: 80 }),
+    eventsUrl: text('events_url').notNull(),
+    inboundTokenEncrypted: text('inbound_token_encrypted').notNull(),
+    status: varchar('status', { length: 32 }).notNull().default('active'),
+    lastSyncAt: timestamp('last_sync_at', { withTimezone: true }),
+    lastSyncStatus: varchar('last_sync_status', { length: 40 }),
+    lastSyncError: text('last_sync_error'),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
+  },
+  (table) => [uniqueIndex('hisaby_links_org_unique').on(table.organizationId)],
+);
+
 export const addresses = pgTable(
   'addresses',
   {

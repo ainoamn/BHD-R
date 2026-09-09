@@ -100,28 +100,60 @@ interface SectionDefinition {
 }
 
 const API_KEY_SCOPE_OPTIONS: Array<{ value: string; ar: string; en: string }> = [
-  { value: 'property.read', ar: 'قراءة العقارات', en: 'Read properties' },
+  { value: 'property.read', ar: 'قراءة العقارات والعناوين', en: 'Read properties & addresses' },
   { value: 'unit.read', ar: 'قراءة الوحدات', en: 'Read units' },
-  { value: 'party.read', ar: 'قراءة الأطراف', en: 'Read parties' },
+  { value: 'party.read', ar: 'قراءة الأطراف والعناوين', en: 'Read parties & addresses' },
+  { value: 'party.sensitive.read', ar: 'قراءة بيانات الطرف الحساسة', en: 'Read sensitive party data' },
+  { value: 'organization.read', ar: 'قراءة المؤسسة', en: 'Read organization' },
   { value: 'contract.read', ar: 'قراءة العقود', en: 'Read contracts' },
   { value: 'lease.read', ar: 'قراءة الإيجارات', en: 'Read leases' },
+  { value: 'reservation.read', ar: 'قراءة الحجوزات', en: 'Read reservations' },
   { value: 'invoice.read', ar: 'قراءة الفواتير', en: 'Read invoices' },
-  { value: 'payment.read', ar: 'قراءة المدفوعات', en: 'Read payments' },
+  { value: 'payment.read', ar: 'قراءة المدفوعات (وارد)', en: 'Read inbound payments' },
+  { value: 'receipt.read', ar: 'قراءة الإيصالات', en: 'Read receipts' },
+  { value: 'cheque.read', ar: 'قراءة الشيكات', en: 'Read cheques' },
+  { value: 'accounting.read', ar: 'قراءة الحسابات والقيود والمصروفات', en: 'Read accounts, journals & expenses' },
+  { value: 'billing.schedule.read', ar: 'قراءة جداول الفوترة', en: 'Read billing schedules' },
+  { value: 'stay.booking.read', ar: 'قراءة حجوزات الإقامة', en: 'Read stay bookings' },
+  { value: 'sale.read', ar: 'قراءة المبيعات', en: 'Read sales' },
+  { value: 'vendor.read', ar: 'قراءة الموردين', en: 'Read vendors' },
   { value: 'maintenance.read', ar: 'قراءة الصيانة', en: 'Read maintenance' },
-  { value: 'request.create', ar: 'إنشاء طلبات', en: 'Create requests' },
+  { value: 'work_order.read', ar: 'قراءة أوامر العمل', en: 'Read work orders' },
+  { value: 'legal.read', ar: 'قراءة القضايا', en: 'Read legal' },
+  { value: 'request.read', ar: 'قراءة الطلبات', en: 'Read requests' },
   { value: 'report.read', ar: 'قراءة التقارير', en: 'Read reports' },
+  { value: 'report.export', ar: 'تصدير التقارير', en: 'Export reports' },
+  { value: 'media.read', ar: 'قراءة الوسائط', en: 'Read media' },
   { value: 'webhook.read', ar: 'قراءة سجلات الويب هوك', en: 'Read webhook logs' },
+  { value: 'request.create', ar: 'إنشاء طلبات', en: 'Create requests' },
 ];
 
 const HISABY_READ_SCOPES = [
   'property.read',
   'unit.read',
   'party.read',
+  'party.sensitive.read',
+  'organization.read',
   'contract.read',
   'lease.read',
+  'reservation.read',
   'invoice.read',
   'payment.read',
+  'receipt.read',
+  'cheque.read',
+  'accounting.read',
+  'billing.schedule.read',
+  'stay.booking.read',
+  'sale.read',
+  'vendor.read',
+  'maintenance.read',
+  'work_order.read',
+  'legal.read',
+  'request.read',
   'report.read',
+  'report.export',
+  'media.read',
+  'webhook.read',
 ] as const;
 
 function apiKeyScopeLabel(scope: string, locale: 'ar' | 'en'): string {
@@ -1631,7 +1663,9 @@ function CreateFields({
                   }
                 }}
               >
-                {ar ? 'تعبئة صلاحيات Hisaby (قراءة)' : 'Fill Hisaby read scopes'}
+                {ar
+                  ? 'تعبئة صلاحيات حسابي الكاملة (عقارات، عناوين، فواتير، مدفوعات وارد/صادر، حسابات، تواريخ)'
+                  : 'Fill full Hisaby read scopes (properties, addresses, invoices, in/out payments, accounts, dates)'}
               </button>
             </div>
             <div className="permission-grid">
@@ -2151,6 +2185,17 @@ export function OperationsConsole({
   const [apiKeyCopied, setApiKeyCopied] = useState(false);
   const [revokeKeyRow, setRevokeKeyRow] = useState<DataRow | null>(null);
   const [revokeTotp, setRevokeTotp] = useState('');
+  const [hisabyLink, setHisabyLink] = useState<{
+    linked: boolean;
+    status: string;
+    eventsUrl: string | null;
+    hisabyCompanyId: string | null;
+    lastSyncAt: string | null;
+    lastSyncStatus: string | null;
+    lastSyncError: string | null;
+    exportPath: string;
+  } | null>(null);
+  const [hisabyLinkNotice, setHisabyLinkNotice] = useState<string | null>(null);
   const [renewingLease, setRenewingLease] = useState<DataRow | null>(null);
   const [prefillUnitId, setPrefillUnitId] = useState('');
   const [prefillReservationId, setPrefillReservationId] = useState('');
@@ -2161,6 +2206,36 @@ export function OperationsConsole({
   const [statsOpen, setStatsOpen] = useState(true);
   const [expandedProperties, setExpandedProperties] = useState<Set<string>>(() => new Set());
   const showOpsDiagnostics = portal === 'platform';
+
+  useEffect(() => {
+    if (!active || section !== 'api-keys') return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch('/v1/integrations/hisaby/connection', {
+          credentials: 'same-origin',
+          headers: { accept: 'application/json' },
+        });
+        if (!response.ok) return;
+        const payload = (await response.json()) as {
+          linked: boolean;
+          status: string;
+          eventsUrl: string | null;
+          hisabyCompanyId: string | null;
+          lastSyncAt: string | null;
+          lastSyncStatus: string | null;
+          lastSyncError: string | null;
+          exportPath: string;
+        };
+        if (!cancelled) setHisabyLink(payload);
+      } catch {
+        /* Nest cold / offline — keep form usable */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [active, section]);
 
   useEffect(() => {
     try {
@@ -2526,6 +2601,82 @@ export function OperationsConsole({
     }
   }
 
+  async function saveHisabyLink(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setBusy(true);
+    setError(null);
+    setHisabyLinkNotice(null);
+    try {
+      const result = await browserMutation<{
+        linked: boolean;
+        status: string;
+        eventsUrl: string | null;
+        hisabyCompanyId: string | null;
+        lastSyncAt: string | null;
+        lastSyncStatus: string | null;
+        lastSyncError: string | null;
+        exportPath: string;
+      }>('/v1/integrations/hisaby/connection', {
+        method: 'PUT',
+        body: JSON.stringify({
+          eventsUrl: text(form.get('eventsUrl')),
+          inboundToken: text(form.get('inboundToken')),
+          ...(text(form.get('hisabyCompanyId'))
+            ? { hisabyCompanyId: text(form.get('hisabyCompanyId')) }
+            : {}),
+          status: text(form.get('status')) === 'paused' ? 'paused' : 'active',
+        }),
+      });
+      setHisabyLink(result);
+      setHisabyLinkNotice(
+        ar
+          ? 'تم حفظ ربط Hisaby. المدفوعات والفواتير ستُدفع تلقائياً عند توفر نقطة الاستقبال.'
+          : 'Hisaby link saved. Payments and invoices will push automatically once the inbound endpoint is live.',
+      );
+      event.currentTarget.reset();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'request_failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function testHisabyLink() {
+    setBusy(true);
+    setError(null);
+    setHisabyLinkNotice(null);
+    try {
+      await browserMutation('/v1/integrations/hisaby/connection/test', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      setHisabyLinkNotice(ar ? 'اختبار الاتصال نجح.' : 'Connection test succeeded.');
+      const response = await fetch('/v1/integrations/hisaby/connection', {
+        credentials: 'same-origin',
+        headers: { accept: 'application/json' },
+      });
+      if (response.ok) {
+        setHisabyLink(
+          (await response.json()) as {
+            linked: boolean;
+            status: string;
+            eventsUrl: string | null;
+            hisabyCompanyId: string | null;
+            lastSyncAt: string | null;
+            lastSyncStatus: string | null;
+            lastSyncError: string | null;
+            exportPath: string;
+          },
+        );
+      }
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'request_failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function updateMemberAccess(row: DataRow, status: 'active' | 'inactive') {
     const userId = safeString(row.userId);
     const roleKey = safeString(row.roleKey);
@@ -2613,13 +2764,18 @@ export function OperationsConsole({
               <ol>
                 <li>
                   {ar
-                    ? 'رمز استقبال الأحداث يُنشأ داخل Hisaby (إعدادات الشركة ← تكامل BHD R) وليس من هنا.'
-                    : 'Inbound event tokens are created inside Hisaby (company settings → BHD R integration), not here.'}
+                    ? 'أنشئ رمز استقبال الأحداث داخل Hisaby، ثم الصقه في نموذج الربط أدناه مع رابط نقطة الاستقبال.'
+                    : 'Create the inbound event token inside Hisaby, then paste it below with the events URL.'}
                 </li>
                 <li>
                   {ar
-                    ? 'إن احتجت أن يقرأ Hisaby بيانات العقارات/الفواتير: أنشئ مفتاحاً من هذه الصفحة بصلاحيات القراءة، ثم الصقه في Hisaby.'
-                    : 'If Hisaby must read properties/invoices: create a read key here and paste it into Hisaby.'}
+                    ? 'بعد الحفظ، تدفع BHD-R تلقائياً أحداث الفواتير/المدفوعات/الإقامة إلى Hisaby دون تدخل بشري.'
+                    : 'After save, BHD-R automatically pushes invoice/payment/stay events to Hisaby with no manual steps.'}
+                </li>
+                <li>
+                  {ar
+                    ? 'مفتاح القراءة من هذه الصفحة اختياري لسحب لقطة كاملة عبر GET /v1/integrations/hisaby/export.'
+                    : 'A read key from this page is optional for full pull via GET /v1/integrations/hisaby/export.'}
                 </li>
                 <li>
                   {ar ? (
@@ -2639,6 +2795,75 @@ export function OperationsConsole({
                   )}
                 </li>
               </ol>
+              {hisabyLink ? (
+                <p>
+                  {ar ? 'حالة الربط:' : 'Link status:'}{' '}
+                  <strong dir="ltr">
+                    {hisabyLink.linked ? 'active' : hisabyLink.status}
+                    {hisabyLink.lastSyncStatus ? ` · last sync ${hisabyLink.lastSyncStatus}` : ''}
+                  </strong>
+                  {hisabyLink.lastSyncError ? (
+                    <>
+                      <br />
+                      <span className="notice notice--warn">{hisabyLink.lastSyncError}</span>
+                    </>
+                  ) : null}
+                </p>
+              ) : null}
+              {hisabyLinkNotice ? <p className="notice notice--success">{hisabyLinkNotice}</p> : null}
+              <form className="ops-form hisaby-link-form" onSubmit={saveHisabyLink}>
+                <label className="field">
+                  <span>{ar ? 'رابط استقبال الأحداث (HTTPS على hisaby.bhd-om.com)' : 'Events URL (HTTPS on hisaby.bhd-om.com)'}</span>
+                  <input
+                    className="input"
+                    name="eventsUrl"
+                    type="url"
+                    required
+                    placeholder="https://hisaby.bhd-om.com/api/integrations/bhd-r/events"
+                    defaultValue={hisabyLink?.eventsUrl ?? ''}
+                  />
+                </label>
+                <label className="field">
+                  <span>{ar ? 'رمز التكامل الوارد من Hisaby' : 'Hisaby inbound integration token'}</span>
+                  <input
+                    className="input"
+                    name="inboundToken"
+                    type="password"
+                    required
+                    minLength={16}
+                    autoComplete="off"
+                    placeholder={ar ? 'يُلصق مرة واحدة من Hisaby' : 'Paste once from Hisaby'}
+                  />
+                </label>
+                <label className="field">
+                  <span>{ar ? 'معرّف شركة Hisaby (اختياري)' : 'Hisaby company id (optional)'}</span>
+                  <input
+                    className="input"
+                    name="hisabyCompanyId"
+                    defaultValue={hisabyLink?.hisabyCompanyId ?? ''}
+                  />
+                </label>
+                <label className="field">
+                  <span>{ar ? 'حالة المزامنة' : 'Sync status'}</span>
+                  <select className="select" name="status" defaultValue={hisabyLink?.status === 'paused' ? 'paused' : 'active'}>
+                    <option value="active">{ar ? 'نشط — مزامنة تلقائية' : 'Active — auto sync'}</option>
+                    <option value="paused">{ar ? 'متوقف مؤقتاً' : 'Paused'}</option>
+                  </select>
+                </label>
+                <div className="form-actions">
+                  <button type="submit" className="button button--primary" disabled={busy}>
+                    {ar ? 'حفظ الربط التلقائي' : 'Save auto-sync link'}
+                  </button>
+                  <button
+                    type="button"
+                    className="button button--quiet"
+                    disabled={busy || !hisabyLink?.linked}
+                    onClick={() => void testHisabyLink()}
+                  >
+                    {ar ? 'اختبار الاتصال' : 'Test connection'}
+                  </button>
+                </div>
+              </form>
             </div>
           ) : null}
           {propertyFilter ? (

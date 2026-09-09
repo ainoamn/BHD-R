@@ -344,6 +344,11 @@ export class PortfolioService {
         .from(properties)
         .where(eq(properties.organizationId, claims.organizationId!))
         .orderBy(asc(properties.createdAt));
+      const addressIds = [...new Set(rows.map((property) => property.addressId))];
+      const addressRows = addressIds.length
+        ? await transaction.select().from(addresses).where(inArray(addresses.id, addressIds))
+        : [];
+      const addressById = new Map(addressRows.map((row) => [row.id, row]));
       return Promise.all(
         rows.map(async (property) => {
           const unitRows = await transaction
@@ -373,6 +378,7 @@ export class PortfolioService {
           ]);
           return {
             ...property,
+            address: addressById.get(property.addressId) ?? null,
             profile: profile
               ? {
                   ...profile,

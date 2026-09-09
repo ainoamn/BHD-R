@@ -17,6 +17,7 @@ import { OperationsModule } from './operations/operations.module.js';
 import { AccountingModule } from './accounting/accounting.module.js';
 import { PartiesModule } from './parties/parties.module.js';
 import { StaysModule } from './stays/stays.module.js';
+import { IntegrationsModule } from './integrations/integrations.module.js';
 import { AuthenticationGuard } from './common/auth.guard.js';
 import { CsrfGuard } from './common/csrf.guard.js';
 import { PermissionGuard } from './common/permission.guard.js';
@@ -42,6 +43,7 @@ import { HttpExceptionFilter } from './common/http-exception.filter.js';
     OperationsModule,
     AccountingModule,
     StaysModule,
+    IntegrationsModule,
     HealthModule,
   ],
   providers: [

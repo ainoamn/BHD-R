@@ -45,7 +45,7 @@ const totpEnrollSchema = z.object({
 });
 const apiKeySchema = z.object({
   name: z.string().trim().min(2).max(120),
-  scopes: z.array(permissionSchema).min(1).max(25),
+  scopes: z.array(permissionSchema).min(1).max(40),
   expiresAt: z.iso.datetime().optional(),
   totpCode: z
     .string()
