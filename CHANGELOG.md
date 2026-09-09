@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.80 — 2026-09-09
+
+- Owner accounting: entry details (journal lines / stay payment), print slip, print filtered statement, CSV export; Hisaby link for full GL — not a bhd-om port.
+
 ## 0.4.79 — 2026-09-09
 
 - Hisaby sync live: full read scopes, export snapshot, `/owner/api-keys` connection, worker auto-push to `https://hisaby.bhd-om.com/api/integrations/bhd-r/events`; Hisaby `6c410e4` documents and proxies that public URL, ingests worker bodies, and pulls export every 15 minutes.

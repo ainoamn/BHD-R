@@ -23,6 +23,7 @@ type SectionLoad = {
   source: 'db' | 'offline' | 'nest';
   summary?: Record<string, unknown>;
   secondary?: DataRow[];
+  contextPatch?: Record<string, unknown>;
 };
 type OperationsContextResult = {
   ok: boolean;
@@ -135,13 +136,15 @@ async function loadFromNest(portal: PortalRole, section: OperationsSection): Pro
       };
     }
     case 'accounting': {
-      const [records, dashboard, chequeRows, invoiceRows, stayPayments] = await Promise.all([
-        safeRows('/v1/accounting/journals'),
-        apiFetch<Record<string, unknown>>('/v1/accounting/dashboard').catch(() => ({})),
-        safeRows('/v1/finance/cheques'),
-        safeRows('/v1/finance/invoices'),
-        loadStayAccountingRowsForViewer(),
-      ]);
+      const [records, dashboard, chequeRows, invoiceRows, stayPayments, ledgerAccounts] =
+        await Promise.all([
+          safeRows('/v1/accounting/journals'),
+          apiFetch<Record<string, unknown>>('/v1/accounting/dashboard').catch(() => ({})),
+          safeRows('/v1/finance/cheques'),
+          safeRows('/v1/finance/invoices'),
+          loadStayAccountingRowsForViewer(),
+          safeRows('/v1/accounting/accounts'),
+        ]);
       return {
         source: 'nest',
         records: [...stayPayments, ...records],
@@ -159,6 +162,7 @@ async function loadFromNest(portal: PortalRole, section: OperationsSection): Pro
             .map((row) => ({ ...row, recordKind: 'lease_invoice' })),
           ...stayPayments,
         ],
+        contextPatch: { ledgerAccounts },
       };
     }
     case 'expenses':
@@ -199,13 +203,14 @@ async function loadSection(portal: PortalRole, section: OperationsSection): Prom
       (async () => {
         const ready = await probeNestHealthz();
         if (!ready) return null;
-        const [journals, dashboard, chequeRows, invoiceRows] = await Promise.all([
+        const [journals, dashboard, chequeRows, invoiceRows, ledgerAccounts] = await Promise.all([
           safeRows('/v1/accounting/journals'),
           apiFetch<Record<string, unknown>>('/v1/accounting/dashboard').catch(() => ({})),
           safeRows('/v1/finance/cheques'),
           safeRows('/v1/finance/invoices'),
+          safeRows('/v1/accounting/accounts'),
         ]);
-        return { journals, dashboard, chequeRows, invoiceRows };
+        return { journals, dashboard, chequeRows, invoiceRows, ledgerAccounts };
       })(),
       new Promise<null>((resolve) => {
         setTimeout(() => resolve(null), 1_200);
@@ -236,6 +241,7 @@ async function loadSection(portal: PortalRole, section: OperationsSection): Prom
             .map((row) => ({ ...row, recordKind: 'lease_invoice' })),
           ...stayPayments,
         ],
+        contextPatch: { ledgerAccounts: nestEnrichment.ledgerAccounts },
       };
     }
 
@@ -367,6 +373,7 @@ export async function loadOperationsWorkspacePayload(
       (Array.isArray(nestContext.owners) && nestContext.owners.length
         ? nestContext.owners
         : neonContext?.owners) ?? [],
+    ...(loaded.contextPatch ?? {}),
   };
   const recordsEmpty = !loaded.records.length;
   const apiUnauthorized = Boolean(contextResult.unauthorized) && !(dataFromDb && !recordsEmpty);

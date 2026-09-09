@@ -386,14 +386,16 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
     moneyKey: 'amountMinor',
   },
   accounting: {
-    titleAr: 'المحاسبة والأستاذ العام',
-    titleEn: 'Accounting & general ledger',
-    introAr: 'دليل الحسابات والقيود المزدوجة وميزان المراجعة والترحيل والعكس بسجل تدقيق.',
-    introEn: 'Chart of accounts, double-entry journals, posting, reversal and trial balance.',
+    titleAr: 'المحاسبة التشغيلية',
+    titleEn: 'Operational accounting',
+    introAr:
+      'سجل حركات العقار: مدفوعات الإقامة والقيود. افتح التفاصيل للطباعة، أو صدّر كشف الفترة. المحاسبة المفصّلة والكشوفات الكاملة في Hisaby.',
+    introEn:
+      'Property ledger: stay payments and journals. Open details to print, or export a period statement. Full GL and statements live in Hisaby.',
     createAr: 'قيد يومية متوازن',
     createEn: 'Balanced journal',
     columns: [
-      { key: 'reference', ar: 'القيد', en: 'Journal' },
+      { key: 'reference', ar: 'المرجع', en: 'Reference' },
       {
         key: 'occurredOn',
         ar: 'التاريخ',
@@ -407,8 +409,8 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
         en: 'Description',
         fallbackKeys: ['memo', 'narrative'],
       },
-      { key: 'debitMinor', ar: 'مدين', en: 'Debit', format: 'money' },
-      { key: 'creditMinor', ar: 'دائن', en: 'Credit', format: 'money' },
+      { key: 'debitMinor', ar: 'وارد / مدين', en: 'In / Debit', format: 'money' },
+      { key: 'creditMinor', ar: 'صادر / دائن', en: 'Out / Credit', format: 'money' },
       { key: 'status', ar: 'الحالة', en: 'Status', format: 'status' },
     ],
     flow: [
@@ -2205,6 +2207,9 @@ export function OperationsConsole({
   const [hideApiBanner, setHideApiBanner] = useState(false);
   const [statsOpen, setStatsOpen] = useState(true);
   const [expandedProperties, setExpandedProperties] = useState<Set<string>>(() => new Set());
+  const [accountingDetail, setAccountingDetail] = useState<DataRow | null>(null);
+  const [accountingJournalLines, setAccountingJournalLines] = useState<DataRow[]>([]);
+  const [accountingDetailBusy, setAccountingDetailBusy] = useState(false);
   const showOpsDiagnostics = portal === 'platform';
 
   useEffect(() => {
@@ -2675,6 +2680,156 @@ export function OperationsConsole({
     } finally {
       setBusy(false);
     }
+  }
+
+  function ledgerAccountLabel(accountId: string): string {
+    const hit = (context.ledgerAccounts ?? []).find((item) => item.id === accountId);
+    if (!hit) return accountId;
+    return (ar ? hit.nameAr : hit.nameEn) ?? hit.name ?? hit.code ?? accountId;
+  }
+
+  async function openAccountingDetail(row: DataRow) {
+    setError(null);
+    setAccountingDetail(row);
+    setAccountingJournalLines([]);
+    const kind = safeString(row.recordKind);
+    if (kind === 'stay_payment') return;
+    const id = safeString(row.id);
+    if (!id) return;
+    setAccountingDetailBusy(true);
+    try {
+      const response = await fetch(browserApiPath(`/v1/accounting/journals/${encodeURIComponent(id)}`), {
+        credentials: 'same-origin',
+        headers: { accept: 'application/json' },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(20_000),
+      });
+      if (!response.ok) throw new Error(ar ? 'تعذر تحميل تفاصيل القيد' : 'Could not load journal details');
+      const payload = (await response.json()) as DataRow & { lines?: DataRow[] };
+      setAccountingDetail({ ...row, ...payload });
+      setAccountingJournalLines(Array.isArray(payload.lines) ? payload.lines : []);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'request_failed');
+    } finally {
+      setAccountingDetailBusy(false);
+    }
+  }
+
+  function printAccountingDetail() {
+    if (!accountingDetail) return;
+    const row = accountingDetail;
+    const kind = safeString(row.recordKind) === 'stay_payment' ? 'stay' : 'journal';
+    const currency = safeString(row.currency) || 'OMR';
+    const linesHtml =
+      kind === 'journal' && accountingJournalLines.length
+        ? `<table><thead><tr><th>${ar ? 'الحساب' : 'Account'}</th><th>${ar ? 'مدين' : 'Debit'}</th><th>${ar ? 'دائن' : 'Credit'}</th><th>${ar ? 'بيان' : 'Memo'}</th></tr></thead><tbody>${accountingJournalLines
+            .map((line) => {
+              const accountId = safeString(line.accountId);
+              return `<tr><td>${ledgerAccountLabel(accountId)}</td><td dir="ltr">${formatMoney(safeString(line.debitMinor) || '0', safeString(line.currency) || currency, locale)}</td><td dir="ltr">${formatMoney(safeString(line.creditMinor) || '0', safeString(line.currency) || currency, locale)}</td><td>${safeString(line.memo) || '—'}</td></tr>`;
+            })
+            .join('')}</tbody></table>`
+        : '';
+    const html = `<!DOCTYPE html><html lang="${locale}" dir="${ar ? 'rtl' : 'ltr'}"><head><meta charset="utf-8"/><title>${safeString(row.reference) || 'accounting'}</title>
+<style>body{font-family:Tahoma,Arial,sans-serif;padding:24px;color:#1a1a1a}h1{font-size:1.25rem;margin:0 0 .5rem}table{width:100%;border-collapse:collapse;margin-top:1rem}th,td{border:1px solid #ccc;padding:.4rem .55rem;text-align:start;font-size:.9rem}th{background:#f4f4f4}.meta{margin:.25rem 0;font-size:.95rem}.muted{color:#555}</style></head><body>
+<h1>BHD R · ${ar ? 'تفاصيل حركة محاسبية' : 'Accounting entry'}</h1>
+<p class="meta"><strong>${ar ? 'المرجع' : 'Reference'}:</strong> ${safeString(row.reference) || '—'}</p>
+<p class="meta"><strong>${ar ? 'التاريخ' : 'Date'}:</strong> ${safeString(row.occurredOn) || safeString(row.createdAt) || '—'}</p>
+<p class="meta"><strong>${ar ? 'البيان' : 'Description'}:</strong> ${safeString(row.description) || safeString(row.memo) || '—'}</p>
+<p class="meta"><strong>${ar ? 'الحالة' : 'Status'}:</strong> ${safeString(row.status) || '—'}</p>
+<p class="meta"><strong>${ar ? 'النوع' : 'Kind'}:</strong> ${kind === 'stay' ? (ar ? 'تحصيل إقامة (وارد)' : 'Stay payment (inbound)') : ar ? 'قيد يومية' : 'Journal'}</p>
+${
+  kind === 'stay'
+    ? `<p class="meta"><strong>${ar ? 'المبلغ' : 'Amount'}:</strong> <span dir="ltr">${formatMoney(safeString(row.amountMinor) || safeString(row.debitMinor) || '0', currency, locale)}</span></p>
+<p class="meta"><strong>${ar ? 'المزود' : 'Provider'}:</strong> ${safeString(row.provider) || '—'}</p>
+<p class="meta"><strong>${ar ? 'الوصول / المغادرة' : 'Check-in / out'}:</strong> ${safeString(row.checkInOn) || '—'} → ${safeString(row.checkOutOn) || '—'}</p>`
+    : linesHtml
+}
+<p class="muted">${ar ? 'كشف تشغيلي من BHD R — الأستاذ المفصّل في Hisaby.' : 'Operational slip from BHD R — detailed GL in Hisaby.'}</p>
+<script>window.onload=()=>{window.print();}</script></body></html>`;
+    const popup = window.open('', '_blank', 'noopener,noreferrer,width=900,height=700');
+    if (!popup) {
+      setError(ar ? 'اسمح بالنوافذ المنبثقة للطباعة' : 'Allow pop-ups to print');
+      return;
+    }
+    popup.document.write(html);
+    popup.document.close();
+  }
+
+  function exportAccountingCsv() {
+    const header = [
+      ar ? 'المرجع' : 'reference',
+      ar ? 'التاريخ' : 'date',
+      ar ? 'البيان' : 'description',
+      ar ? 'وارد_مدين' : 'debit_in',
+      ar ? 'صادر_دائن' : 'credit_out',
+      ar ? 'العملة' : 'currency',
+      ar ? 'الحالة' : 'status',
+      ar ? 'النوع' : 'kind',
+    ];
+    const escape = (value: string) => `"${value.replaceAll('"', '""')}"`;
+    const rows = filtered.map((row) => {
+      const kind =
+        safeString(row.recordKind) === 'stay_payment'
+          ? ar
+            ? 'إقامة'
+            : 'stay'
+          : ar
+            ? 'قيد'
+            : 'journal';
+      return [
+        safeString(row.reference),
+        safeString(row.occurredOn) || safeString(row.createdAt).slice(0, 10),
+        safeString(row.description) || safeString(row.memo),
+        safeString(row.debitMinor) || safeString(row.amountMinor) || '0',
+        safeString(row.creditMinor) || '0',
+        safeString(row.currency) || 'OMR',
+        safeString(row.status),
+        kind,
+      ].map((cell) => escape(cell));
+    });
+    const csv = `\uFEFF${[header.map(escape).join(','), ...rows.map((line) => line.join(','))].join('\n')}`;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `bhd-r-accounting-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function printAccountingStatement() {
+    const currency = 'OMR';
+    const bodyRows = filtered
+      .map((row) => {
+        const cur = safeString(row.currency) || currency;
+        return `<tr>
+<td>${safeString(row.reference) || '—'}</td>
+<td>${safeString(row.occurredOn) || safeString(row.createdAt).slice(0, 10) || '—'}</td>
+<td>${safeString(row.description) || safeString(row.memo) || '—'}</td>
+<td dir="ltr">${formatMoney(safeString(row.debitMinor) || safeString(row.amountMinor) || '0', cur, locale)}</td>
+<td dir="ltr">${formatMoney(safeString(row.creditMinor) || '0', cur, locale)}</td>
+<td>${safeString(row.status) || '—'}</td>
+<td>${safeString(row.recordKind) === 'stay_payment' ? (ar ? 'إقامة' : 'stay') : ar ? 'قيد' : 'journal'}</td>
+</tr>`;
+      })
+      .join('');
+    const html = `<!DOCTYPE html><html lang="${locale}" dir="${ar ? 'rtl' : 'ltr'}"><head><meta charset="utf-8"/><title>${ar ? 'كشف محاسبي تشغيلي' : 'Operational accounting statement'}</title>
+<style>body{font-family:Tahoma,Arial,sans-serif;padding:20px}h1{font-size:1.2rem}table{width:100%;border-collapse:collapse;margin-top:1rem}th,td{border:1px solid #bbb;padding:.35rem .5rem;font-size:.85rem;text-align:start}th{background:#eee}.note{margin-top:1rem;color:#555;font-size:.85rem}</style></head><body>
+<h1>BHD R · ${ar ? 'كشف حركات محاسبية (تشغيلي)' : 'Operational accounting statement'}</h1>
+<p>${ar ? 'عدد السجلات' : 'Rows'}: ${filtered.length} · ${new Date().toLocaleString(locale === 'ar' ? 'ar-OM' : 'en-GB')}</p>
+<table><thead><tr>
+<th>${ar ? 'المرجع' : 'Ref'}</th><th>${ar ? 'التاريخ' : 'Date'}</th><th>${ar ? 'البيان' : 'Description'}</th>
+<th>${ar ? 'وارد' : 'In'}</th><th>${ar ? 'صادر' : 'Out'}</th><th>${ar ? 'الحالة' : 'Status'}</th><th>${ar ? 'النوع' : 'Kind'}</th>
+</tr></thead><tbody>${bodyRows || `<tr><td colspan="7">${ar ? 'لا بيانات' : 'No data'}</td></tr>`}</tbody></table>
+<p class="note">${ar ? 'هذا كشف تشغيلي من برنامج العقارات. الميزان والأستاذ التفصيلي والضريبة في Hisaby (حسابي).' : 'Operational statement from the property app. Trial balance, full GL and tax live in Hisaby.'}</p>
+<script>window.onload=()=>{window.print();}</script></body></html>`;
+    const popup = window.open('', '_blank', 'noopener,noreferrer,width=1000,height=800');
+    if (!popup) {
+      setError(ar ? 'اسمح بالنوافذ المنبثقة لطباعة الكشف' : 'Allow pop-ups to print the statement');
+      return;
+    }
+    popup.document.write(html);
+    popup.document.close();
   }
 
   async function updateMemberAccess(row: DataRow, status: 'active' | 'inactive') {
@@ -3447,6 +3602,34 @@ export function OperationsConsole({
           <span className="ops-result-count">
             {filtered.length} {ar ? 'نتيجة' : 'results'}
           </span>
+          {section === 'accounting' ? (
+            <span className="ops-inline-actions ops-toolbar__accounting">
+              <button
+                type="button"
+                className="button button--quiet button--sm"
+                disabled={!filtered.length}
+                onClick={() => printAccountingStatement()}
+              >
+                {ar ? 'طباعة الكشف' : 'Print statement'}
+              </button>
+              <button
+                type="button"
+                className="button button--quiet button--sm"
+                disabled={!filtered.length}
+                onClick={() => exportAccountingCsv()}
+              >
+                {ar ? 'تصدير CSV' : 'Export CSV'}
+              </button>
+              <a
+                className="button button--quiet button--sm"
+                href="https://hisaby.bhd-om.com"
+                target="_blank"
+                rel="noreferrer"
+              >
+                {ar ? 'فتح حسابي (كشوفات مفصّلة)' : 'Open Hisaby (full statements)'}
+              </a>
+            </span>
+          ) : null}
         </div>
         {error ? (
           <div className="notice notice--error" role="alert">
@@ -3777,6 +3960,37 @@ export function OperationsConsole({
                         >
                           {ar ? 'عرض العقد' : 'View contract'}
                         </Link>
+                      ) : section === 'accounting' ? (
+                        <span className="ops-inline-actions">
+                          <button
+                            className="ops-action ops-action--primary"
+                            type="button"
+                            disabled={busy || accountingDetailBusy}
+                            onClick={() => void openAccountingDetail(row)}
+                          >
+                            {ar ? 'التفاصيل' : 'Details'}
+                          </button>
+                          {action ? (
+                            <button
+                              className="ops-action"
+                              type="button"
+                              disabled={busy}
+                              onClick={() => void advance(row)}
+                            >
+                              {ar ? 'ترحيل' : 'Post'}
+                            </button>
+                          ) : null}
+                          {safeString(row.recordKind) === 'stay_payment' &&
+                          safeString(row.bookingId) ? (
+                            <Link
+                              className="ops-action"
+                              href={`/${portal}/stays/bookings/${encodeURIComponent(safeString(row.bookingId))}`}
+                              prefetch
+                            >
+                              {ar ? 'الحجز' : 'Booking'}
+                            </Link>
+                          ) : null}
+                        </span>
                       ) : documentKind ? (
                         <button
                           className="ops-action"
@@ -3948,6 +4162,17 @@ export function OperationsConsole({
                       {ar ? 'إدارة العقار' : 'Manage property'}
                     </Link>
                   </div>
+                ) : section === 'accounting' ? (
+                  <div className="ops-action-group">
+                    <button
+                      type="button"
+                      className="ops-action button button--quiet ops-action--primary"
+                      disabled={busy || accountingDetailBusy}
+                      onClick={() => void openAccountingDetail(row)}
+                    >
+                      {ar ? 'التفاصيل والطباعة' : 'Details & print'}
+                    </button>
+                  </div>
                 ) : null}
               </article>
             );
@@ -3962,6 +4187,176 @@ export function OperationsConsole({
           ) : null}
         </div>
       </section>
+
+      {accountingDetail ? (
+        <div
+          className="ops-modal"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setAccountingDetail(null);
+              setAccountingJournalLines([]);
+            }
+          }}
+        >
+          <section
+            className="ops-modal__card ops-modal__card--wide accounting-detail-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ops-accounting-detail-title"
+          >
+            <header>
+              <h2 id="ops-accounting-detail-title">
+                {ar ? 'تفاصيل الحركة المحاسبية' : 'Accounting entry details'}
+              </h2>
+              <button
+                type="button"
+                className="button button--quiet"
+                onClick={() => {
+                  setAccountingDetail(null);
+                  setAccountingJournalLines([]);
+                }}
+              >
+                {ar ? 'إغلاق' : 'Close'}
+              </button>
+            </header>
+            {accountingDetailBusy ? (
+              <p className="notice">{ar ? 'جاري تحميل التفاصيل…' : 'Loading details…'}</p>
+            ) : (
+              <div className="accounting-detail-body">
+                <dl className="ops-mobile-card__meta">
+                  <div>
+                    <dt>{ar ? 'المرجع' : 'Reference'}</dt>
+                    <dd>{safeString(accountingDetail.reference) || '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>{ar ? 'التاريخ' : 'Date'}</dt>
+                    <dd>
+                      {safeString(accountingDetail.occurredOn) ||
+                        safeString(accountingDetail.createdAt).slice(0, 10) ||
+                        '—'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{ar ? 'البيان' : 'Description'}</dt>
+                    <dd>
+                      {safeString(accountingDetail.description) ||
+                        safeString(accountingDetail.memo) ||
+                        '—'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{ar ? 'الحالة' : 'Status'}</dt>
+                    <dd>{safeString(accountingDetail.status) || '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>{ar ? 'النوع' : 'Kind'}</dt>
+                    <dd>
+                      {safeString(accountingDetail.recordKind) === 'stay_payment'
+                        ? ar
+                          ? 'تحصيل إقامة (وارد)'
+                          : 'Stay payment (inbound)'
+                        : ar
+                          ? 'قيد يومية'
+                          : 'Journal'}
+                    </dd>
+                  </div>
+                  {safeString(accountingDetail.recordKind) === 'stay_payment' ? (
+                    <>
+                      <div>
+                        <dt>{ar ? 'المبلغ' : 'Amount'}</dt>
+                        <dd dir="ltr">
+                          {formatMoney(
+                            safeString(accountingDetail.amountMinor) ||
+                              safeString(accountingDetail.debitMinor) ||
+                              '0',
+                            safeString(accountingDetail.currency) || 'OMR',
+                            locale,
+                          )}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>{ar ? 'المزود' : 'Provider'}</dt>
+                        <dd>{safeString(accountingDetail.provider) || '—'}</dd>
+                      </div>
+                      <div>
+                        <dt>{ar ? 'الوصول / المغادرة' : 'Check-in / out'}</dt>
+                        <dd>
+                          {safeString(accountingDetail.checkInOn) || '—'} →{' '}
+                          {safeString(accountingDetail.checkOutOn) || '—'}
+                        </dd>
+                      </div>
+                    </>
+                  ) : null}
+                </dl>
+                {accountingJournalLines.length ? (
+                  <div className="data-table-wrap">
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>{ar ? 'الحساب' : 'Account'}</th>
+                          <th>{ar ? 'مدين' : 'Debit'}</th>
+                          <th>{ar ? 'دائن' : 'Credit'}</th>
+                          <th>{ar ? 'بيان السطر' : 'Line memo'}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {accountingJournalLines.map((line, index) => (
+                          <tr key={safeString(line.id) || String(index)}>
+                            <td>{ledgerAccountLabel(safeString(line.accountId))}</td>
+                            <td dir="ltr">
+                              {formatMoney(
+                                safeString(line.debitMinor) || '0',
+                                safeString(line.currency) ||
+                                  safeString(accountingDetail.currency) ||
+                                  'OMR',
+                                locale,
+                              )}
+                            </td>
+                            <td dir="ltr">
+                              {formatMoney(
+                                safeString(line.creditMinor) || '0',
+                                safeString(line.currency) ||
+                                  safeString(accountingDetail.currency) ||
+                                  'OMR',
+                                locale,
+                              )}
+                            </td>
+                            <td>{safeString(line.memo) || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : null}
+                <p className="notice notice--info">
+                  {ar
+                    ? 'للميزان والأستاذ والكشوفات الضريبية استخدم Hisaby. هذا العرض تشغيلي من برنامج العقارات.'
+                    : 'Use Hisaby for trial balance, full GL and tax statements. This view is operational from the property app.'}{' '}
+                  <a href="https://hisaby.bhd-om.com" target="_blank" rel="noreferrer">
+                    hisaby.bhd-om.com
+                  </a>
+                </p>
+                <div className="form-actions">
+                  <button type="button" className="button button--primary" onClick={printAccountingDetail}>
+                    {ar ? 'طباعة التفاصيل' : 'Print details'}
+                  </button>
+                  {safeString(accountingDetail.recordKind) === 'stay_payment' &&
+                  safeString(accountingDetail.bookingId) ? (
+                    <Link
+                      className="button button--quiet"
+                      href={`/${portal}/stays/bookings/${encodeURIComponent(safeString(accountingDetail.bookingId))}`}
+                      prefetch
+                    >
+                      {ar ? 'فتح الحجز' : 'Open booking'}
+                    </Link>
+                  ) : null}
+                </div>
+              </div>
+            )}
+          </section>
+        </div>
+      ) : null}
 
       {renewingLease ? (
         <div

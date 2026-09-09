@@ -7620,6 +7620,22 @@ button.ops-row-key {
   border-radius: 1.15rem;
   box-shadow: 0 2rem 6rem rgb(0 0 0 / 0.28);
 }
+.ops-modal__card--wide {
+  width: min(100%, 58rem);
+}
+.ops-toolbar__accounting {
+  margin-inline-start: auto;
+  flex-wrap: wrap;
+}
+.accounting-detail-body {
+  display: grid;
+  gap: 1rem;
+}
+.accounting-detail-modal .form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
 .ops-modal__card > header {
   display: flex;
   align-items: center;
