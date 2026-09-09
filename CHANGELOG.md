@@ -4,7 +4,7 @@ All notable changes are documented here. The project follows Semantic Versioning
 
 ## 0.4.79 — 2026-09-09
 
-- Hisaby sync foundation: full read scopes for API keys, `GET /v1/integrations/hisaby/export`, org connection (events URL + inbound token) on `/owner/api-keys`, worker auto-push of finance/stay payment events to Hisaby.
+- Hisaby sync foundation: full read scopes for API keys, `GET /v1/integrations/hisaby/export`, org connection on `/owner/api-keys`, worker auto-push of finance/stay events; wire `0024_hisaby_links` into `db migrate`; docs mark bidirectional sync live with Hisaby `6cab208` (15‑min pull + inbound events).
 
 ## 0.4.78 — 2026-09-09
 

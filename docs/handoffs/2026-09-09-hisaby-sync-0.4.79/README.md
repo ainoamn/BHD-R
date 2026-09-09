@@ -1,25 +1,24 @@
-# Handoff — Hisaby sync foundation 0.4.79
+# Handoff — Hisaby sync 0.4.79 (bidirectional)
 
 **Date:** 2026-09-09  
-**Version:** 0.4.79
+**BHD-R:** `a8caf1b` (feature) · follow-up docs + migrate wire  
+**Hisaby:** `6cab208` · https://github.com/ainoamn/hisaby/blob/main/docs/HISABY-BHD-R-INTEGRATION.md
 
-## Shipped in BHD-R
+## Live behavior (after one-time key paste)
 
-| Piece | Path / endpoint |
+| Direction | Mechanism |
 | --- | --- |
-| Full Hisaby read scopes UI | `operations-console.tsx` (`HISABY_READ_SCOPES`) |
-| Connection form | `/ar/owner/api-keys` |
-| Export snapshot | `GET /v1/integrations/hisaby/export` |
-| Connection CRUD/test | `PUT/GET /v1/integrations/hisaby/connection`, `POST .../test` |
-| Schema + migration | `hisaby_links` · `packages/db/migrations/custom/0024_hisaby_links.sql` |
-| Worker push | `apps/worker/src/hisaby-push.ts` on finance/stay payment topics |
+| R → Hisaby | Worker push to `POST /api/integrations/bhd-r/events` |
+| Hisaby → R | Pull every 15 min (+ immediate on save) via BHD-R API key |
 
-## Not live until Hisaby
+## Prod checklist
 
-Hisaby must expose inbound token + `POST` events endpoint on `hisaby.bhd-om.com` (see `HISABY-API-KEYS-AR.md` agent command).
+1. Hisaby: `prisma migrate deploy`
+2. BHD-R: `pnpm --filter @bhd-r/db migrate` (applies `custom/0024_hisaby_links.sql`)
+3. Owner links inbound token + read key once (`/bhd-r` + `/ar/owner/api-keys`)
+4. Optional: connection test + manual `POST /api/integrations/bhd-r/sync` on Hisaby
 
-## Deploy notes
+## Notes
 
-- Run custom migration `0024_hisaby_links.sql` (or first Nest `ensureHisabyLinksTable` creates table).
-- Grant worker SELECT/UPDATE on `hisaby_links` if not already (privileged script updated).
-- Redeploy Nest API + worker + web.
+- Local Prisma generate on Hisaby may need `--schema=backend/src/prisma/schema.prisma` and project Prisma version — does not block deploy.
+- Nest `ensureHisabyLinksTable` can create the table if migrate lagged; worker GRANT still prefers 0024 / privileged roles.

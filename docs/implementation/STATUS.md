@@ -2,44 +2,12 @@
 
 **Updated:** 2026-09-09  
 **Product version:** 0.4.79  
-**Active focus:** Hisaby sync foundation (export + connection + worker push)  
-**Live handoff:** [`../handoffs/2026-09-09-hisaby-sync-0.4.79/`](../handoffs/2026-09-09-hisaby-sync-0.4.79/)  
-**Release 0.4.79:** Hisaby full read scopes + connection form + export API + auto event push · [`RELEASE-0.4.79-AR.md`](./RELEASE-0.4.79-AR.md) · [`HISABY-INTEGRATION-AR.md`](./HISABY-INTEGRATION-AR.md)  
+**Active focus:** Hisaby ↔ BHD-R bidirectional sync live in code — run DB migrations on prod before first link  
+**Hisaby:** `6cab208` · guide [`HISABY-BHD-R-INTEGRATION.md`](https://github.com/ainoamn/hisaby/blob/main/docs/HISABY-BHD-R-INTEGRATION.md)  
+**BHD-R sync commits:** `a8caf1b` + docs `a2b200a`  
+**Handoff:** [`../handoffs/2026-09-09-hisaby-sync-0.4.79/`](../handoffs/2026-09-09-hisaby-sync-0.4.79/)  
+**Release 0.4.79:** export + connection + worker push + full read scopes · [`RELEASE-0.4.79-AR.md`](./RELEASE-0.4.79-AR.md) · [`HISABY-INTEGRATION-AR.md`](./HISABY-INTEGRATION-AR.md) · [`HISABY-API-KEYS-AR.md`](./HISABY-API-KEYS-AR.md)  
 **Prior:** 0.4.78 API keys UX · [`../handoffs/2026-09-09-api-keys-hisaby-0.4.78/`](../handoffs/2026-09-09-api-keys-hisaby-0.4.78/)  
-**Release 0.4.78:** owner api-keys Arabic rebuild + Hisaby API key commands · [`HISABY-API-KEYS-AR.md`](./HISABY-API-KEYS-AR.md) · [`RELEASE-0.4.78-AR.md`](./RELEASE-0.4.78-AR.md)  
-**Architecture:** [`HISABY-INTEGRATION-AR.md`](./HISABY-INTEGRATION-AR.md)  
-**Prior session handoff:** [`../handoffs/2026-09-08-session-0.4.71-to-0.4.77/`](../handoffs/2026-09-08-session-0.4.71-to-0.4.77/)  
-**Release 0.4.77:** accounting Neon-first + Nest health race · [`RELEASE-0.4.77-AR.md`](./RELEASE-0.4.77-AR.md)  
-**Release 0.4.76:** accounting stay rows use table columns + confirmed-booking fallback · [`RELEASE-0.4.76-AR.md`](./RELEASE-0.4.76-AR.md)  
-**Release 0.4.75:** persistent portal pages, paced prefetch, soft ops/history, soft property save · [`RELEASE-0.4.75-AR.md`](./RELEASE-0.4.75-AR.md)  
-**Release 0.4.74:** homepage build timeout — force-dynamic + Neon race · [`RELEASE-0.4.74-AR.md`](./RELEASE-0.4.74-AR.md)  
-**Release 0.4.73:** instant sidebar hops — warm-all now, full route prefetch, persist ops panels + page cache · [`RELEASE-0.4.73-AR.md`](./RELEASE-0.4.73-AR.md)  
-**Release 0.4.72:** build fix — offering modes helpers usable from client wizard · [`RELEASE-0.4.72-AR.md`](./RELEASE-0.4.72-AR.md)  
-**Release 0.4.71:** property hub bookings/contracts/finance; sale/monthly/yearly/daily modes; daily-only off /properties; stay payments in accounting · [`RELEASE-0.4.71-AR.md`](./RELEASE-0.4.71-AR.md)  
-**Release 0.4.70:** smaller metrics, priority alerts, clearer intro and layout on /owner · [`RELEASE-0.4.70-AR.md`](./RELEASE-0.4.70-AR.md)  
-**Release 0.4.69:** portal full width; larger calendar cells; short marks; booking refs in list/tooltip only · [`RELEASE-0.4.69-AR.md`](./RELEASE-0.4.69-AR.md)  
-**Prior handoff:** [`../handoffs/2026-09-08-portal-nav-0.4.75/`](../handoffs/2026-09-08-portal-nav-0.4.75/)  
-
-**Release 0.4.68:** calendar booking projection + unit labels + booked-day refs  
-**Release 0.4.67:** build fix useMemo + exactOptionalPropertyTypes  
-**Release 0.4.66:** bookings list stats/filters/search/cards  
-**Release 0.4.65:** booking detail cover + calendar + neighbors + reject/cancel  
-**Release 0.4.64:** fullscreen e-sign + Omani ID front/back overlays + portrait selfie capture  
-**Release 0.4.63:** e-sign CTA on confirmation when unsigned  
-**Release 0.4.62:** post-pay e-sign route  
-**Release 0.4.61:** guest pay/cancel/rebook actions  
-**Release 0.4.60:** exclude own hold lock on pay  
-**Release 0.4.59:** calendar overlays locks + expire stale unpaid bookings  
-**Release 0.4.58:** fix payment form TS build  
-**Release 0.4.57:** payment dates-taken rebook button  
-**Release 0.4.56:** centered motivational book aside  
-**Release 0.4.55:** book aside logo above title + clearer lede  
-**Release 0.4.54:** [`RELEASE-0.4.54-AR.md`](./RELEASE-0.4.54-AR.md)  
-**Release 0.4.53:** [`RELEASE-0.4.53-AR.md`](./RELEASE-0.4.53-AR.md)  
-**Release 0.4.52:** [`RELEASE-0.4.52-AR.md`](./RELEASE-0.4.52-AR.md) · [`PAYMENT-CARD-DATA-POLICY-AR.md`](./PAYMENT-CARD-DATA-POLICY-AR.md)  
-**Release 0.4.51:** [`RELEASE-0.4.51-AR.md`](./RELEASE-0.4.51-AR.md)  
-**Release 0.4.46:** [`RELEASE-0.4.46-AR.md`](./RELEASE-0.4.46-AR.md) · [`../handoffs/2026-09-02-stay-checkout-0.4.46/`](../handoffs/2026-09-02-stay-checkout-0.4.46/)  
-**Live handoff (full chat archive):** [`../handoffs/2026-09-02-continue-0.4.42/`](../handoffs/2026-09-02-continue-0.4.42/)  
 **Release 0.4.45:** [`RELEASE-0.4.45-AR.md`](./RELEASE-0.4.45-AR.md)  
 **Release 0.4.44:** [`RELEASE-0.4.44-AR.md`](./RELEASE-0.4.44-AR.md)  
 **Release 0.4.43:** [`RELEASE-0.4.43-AR.md`](./RELEASE-0.4.43-AR.md)  

@@ -30,4 +30,10 @@ WITH CHECK (
   OR organization_id = app_private.current_organization_id()
 );
 
-GRANT SELECT, UPDATE (last_sync_at, last_sync_status, last_sync_error, updated_at) ON hisaby_links TO bhd_r_worker;
+DO $grant$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'bhd_r_worker') THEN
+    GRANT SELECT, UPDATE (last_sync_at, last_sync_status, last_sync_error, updated_at)
+      ON hisaby_links TO bhd_r_worker;
+  END IF;
+END $grant$;

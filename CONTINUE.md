@@ -1,18 +1,14 @@
-# CONTINUE — 2026-09-09 (0.4.79)
+# CONTINUE — 2026-09-09 (مزامنة Hisaby حيّة)
 
-**الإنتاج المتوقع:** https://r.bhd-om.com · إصدار **0.4.79**
+**BHD-R:** `a2b200a` · **0.4.79** · https://r.bhd-om.com  
+**Hisaby:** `6cab208` · https://hisaby.bhd-om.com  
+**دليل Hisaby:** https://github.com/ainoamn/hisaby/blob/main/docs/HISABY-BHD-R-INTEGRATION.md
 
-## اقرأ أولاً
-1. [`docs/implementation/RELEASE-0.4.79-AR.md`](./docs/implementation/RELEASE-0.4.79-AR.md)
-2. [`docs/implementation/HISABY-INTEGRATION-AR.md`](./docs/implementation/HISABY-INTEGRATION-AR.md)
-3. [`docs/implementation/HISABY-API-KEYS-AR.md`](./docs/implementation/HISABY-API-KEYS-AR.md)
-4. [`docs/handoffs/2026-09-09-hisaby-sync-0.4.79/`](./docs/handoffs/2026-09-09-hisaby-sync-0.4.79/)
+## قبل أول ربط على الإنتاج
+1. Hisaby: `prisma migrate deploy`
+2. BHD-R: `pnpm --filter @bhd-r/db migrate` (تطبيق `0024_hisaby_links`)
+3. ربط المفاتيح مرة واحدة حسب [`HISABY-API-KEYS-AR.md`](./docs/implementation/HISABY-API-KEYS-AR.md)
 
-## الوضع الصادق
-- BHD-R جاهز لـ: مفاتيح قراءة كاملة + تصدير + حفظ رابط الدفع + worker push.
-- المزامنة الحيّة ثنائية الاتجاه تكتمل عندما يبني Hisaby نقطة استقبال الأحداث والرمز الوارد (الأمر في HISABY-API-KEYS-AR.md).
-
-## أوامر
-```sh
-git pull origin main
-```
+## اقرأ
+- [`docs/implementation/HISABY-INTEGRATION-AR.md`](./docs/implementation/HISABY-INTEGRATION-AR.md)
+- [`docs/implementation/RELEASE-0.4.79-AR.md`](./docs/implementation/RELEASE-0.4.79-AR.md)
