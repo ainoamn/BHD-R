@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.79 — 2026-09-09
+
+- Hisaby sync foundation: full read scopes for API keys, `GET /v1/integrations/hisaby/export`, org connection (events URL + inbound token) on `/owner/api-keys`, worker auto-push of finance/stay payment events to Hisaby.
+
 ## 0.4.78 — 2026-09-09
 
 - Rebuild owner API keys page: Arabic scope labels, Hisaby guide, copy secret, revoke dialog; document who creates which key (Hisaby inbound vs BHD-R read keys).

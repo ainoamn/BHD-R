@@ -29,7 +29,7 @@ export class HisabyController {
     return this.service.getConnection(request.auth!);
   }
 
-  @RequirePermissions('organization.write')
+  @RequirePermissions('api_key.write')
   @Idempotent()
   @Put('connection')
   upsertConnection(
@@ -39,7 +39,7 @@ export class HisabyController {
     return this.service.upsertConnection(request.auth!, body);
   }
 
-  @RequirePermissions('organization.write')
+  @RequirePermissions('api_key.write')
   @Post('connection/test')
   testConnection(@Req() request: ApiRequest) {
     return this.service.testConnection(request.auth!);

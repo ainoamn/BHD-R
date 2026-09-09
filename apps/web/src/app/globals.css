@@ -4820,6 +4820,16 @@ body:has(.stays-booking-receipt) #main-content {
 .api-keys-guide li {
   margin-bottom: 0.35rem;
 }
+.hisaby-link-form {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.75rem;
+}
+.hisaby-link-form .form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
 .ops-scope-chips {
   display: flex;
   flex-wrap: wrap;

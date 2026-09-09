@@ -1,9 +1,11 @@
 # Implementation status
 
 **Updated:** 2026-09-09  
-**Product version:** 0.4.78  
-**Active focus:** API keys UX + Hisaby key ownership (live)  
-**Live handoff:** [`../handoffs/2026-09-09-api-keys-hisaby-0.4.78/`](../handoffs/2026-09-09-api-keys-hisaby-0.4.78/) · Production Success `692c213`  
+**Product version:** 0.4.79  
+**Active focus:** Hisaby sync foundation (export + connection + worker push)  
+**Live handoff:** [`../handoffs/2026-09-09-hisaby-sync-0.4.79/`](../handoffs/2026-09-09-hisaby-sync-0.4.79/)  
+**Release 0.4.79:** Hisaby full read scopes + connection form + export API + auto event push · [`RELEASE-0.4.79-AR.md`](./RELEASE-0.4.79-AR.md) · [`HISABY-INTEGRATION-AR.md`](./HISABY-INTEGRATION-AR.md)  
+**Prior:** 0.4.78 API keys UX · [`../handoffs/2026-09-09-api-keys-hisaby-0.4.78/`](../handoffs/2026-09-09-api-keys-hisaby-0.4.78/)  
 **Release 0.4.78:** owner api-keys Arabic rebuild + Hisaby API key commands · [`HISABY-API-KEYS-AR.md`](./HISABY-API-KEYS-AR.md) · [`RELEASE-0.4.78-AR.md`](./RELEASE-0.4.78-AR.md)  
 **Architecture:** [`HISABY-INTEGRATION-AR.md`](./HISABY-INTEGRATION-AR.md)  
 **Prior session handoff:** [`../handoffs/2026-09-08-session-0.4.71-to-0.4.77/`](../handoffs/2026-09-08-session-0.4.71-to-0.4.77/)  

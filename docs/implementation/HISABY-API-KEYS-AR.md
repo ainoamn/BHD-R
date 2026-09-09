@@ -47,7 +47,7 @@ https://github.com/ainoamn/BHD-R/blob/main/docs/implementation/HISABY-INTEGRATIO
    Body JSON:
    {
      "idempotencyKey": "string",
-     "type": "stay.payment.succeeded|lease.invoice.issued|lease.payment.received|expense.paid",
+     "type": "stay.payment.succeeded|lease.invoice.issued|lease.payment.received|expense.paid|bhd-r.connection.ping",
      "occurredOn": "ISO-8601",
      "amountMinor": "string",
      "currency": "OMR",
@@ -60,6 +60,12 @@ https://github.com/ainoamn/BHD-R/blob/main/docs/implementation/HISABY-INTEGRATIO
    }
    السلوك: idempotent → إنشاء/تحديث فاتورة أو سند قبض + ترحيل GL حسب دليل حسابات الشركة.
 
+2b) سحب اختياري من BHD-R (مفتاح قراءة يُنشأ في /ar/owner/api-keys):
+   GET https://api.r.bhd-om.com/v1/integrations/hisaby/export
+   Authorization: Bearer <BHD_R_API_KEY>
+   → لقطة JSON (عقارات+عناوين، أطراف، إيجارات، فواتير، مدفوعات، مصروفات، قيود، حجوزات).
+   يُفضّل جدولة السحب كل 15 دقيقة داخل Hisaby بعد لصق المفتاح.
+
 3) توثيق عربي داخل Hisaby: «كيف أربط برنامج العقارات BHD R».
 
 4) لا تنسخ كود BHD-R داخل Hisaby؛ التكامل عبر API + SSO فقط.
@@ -71,21 +77,21 @@ https://github.com/ainoamn/BHD-R/blob/main/docs/implementation/HISABY-INTEGRATIO
 
 ## خطوات المالك (واجهة)
 
-### أ) الربط الأساسي (دفع إلى Hisaby) — بعد جاهزية Hisaby
+### أ) الربط الأساسي (دفع إلى Hisaby)
 
 1. ادخل https://hisaby.bhd-om.com بنفس حساب BHD.  
-2. إعدادات الشركة → تكامل BHD R → **إنشاء رمز تكامل وارد**.  
-3. انسخ الرمز.  
-4. في BHD-R (لاحقاً: إعدادات التكامل) الصق الرمز واحفظ.  
-5. عند دفع إقامة/فاتورة إيجار تُرسل الأحداث تلقائياً إلى Hisaby.
+2. إعدادات الشركة → تكامل BHD R → **إنشاء رمز تكامل وارد** (بعد أن يوفّره Hisaby).  
+3. انسخ الرمز ومسار الأحداث (مثال: `https://hisaby.bhd-om.com/api/integrations/bhd-r/events`).  
+4. في BHD-R افتح https://r.bhd-om.com/ar/owner/api-keys → نموذج **حفظ الربط التلقائي** → الصق الرابط والرمز واحفظ.  
+5. اختياري: «اختبار الاتصال». بعد النجاح، دفع إقامة/فاتورة يُرسل تلقائياً إلى Hisaby دون تدخل بشري.
 
-### ب) مفتاح قراءة من العقارات (اختياري)
+### ب) مفتاح قراءة من العقارات (للسحب من Hisaby)
 
 1. افتح https://r.bhd-om.com/ar/owner/api-keys  
 2. **إنشاء مفتاح API** باسم مثل `Hisaby — قراءة مالية`.  
-3. اختر صلاحيات القراءة الكاملة عبر زر **تعبئة صلاحيات حسابي الكاملة** (عقارات وعناوين، أطراف، فواتير، مدفوعات وارد، مصروفات صادر، حسابات، تواريخ، معاملات).  
+3. اضغط **تعبئة صلاحيات Hisaby (قراءة)** (عقارات وعناوين، أطراف، فواتير، مدفوعات وارد، حسابات/مصروفات، تواريخ، معاملات، إقامة…).  
 4. انسخ المفتاح **مرة واحدة**.  
-5. الصقه في Hisaby تحت «مفتاح قراءة BHD R». تبدأ المزامنة فوراً ثم كل 15 دقيقة تلقائياً.
+5. الصقه في Hisaby تحت «مفتاح قراءة BHD R». Hisaby يستدعي `GET /v1/integrations/hisaby/export` (وجدولة السحب من جهة Hisaby).
 
 ### ج) الدخول اليومي
 

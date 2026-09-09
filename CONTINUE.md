@@ -1,18 +1,18 @@
-# CONTINUE — 2026-09-09
+# CONTINUE — 2026-09-09 (0.4.79)
 
-**HEAD الحي:** `692c213` · **0.4.78** · Vercel Production Success  
-**الإنتاج:** https://r.bhd-om.com
+**الإنتاج المتوقع:** https://r.bhd-om.com · إصدار **0.4.79**
 
 ## اقرأ أولاً
-1. [`docs/handoffs/2026-09-09-api-keys-hisaby-0.4.78/`](./docs/handoffs/2026-09-09-api-keys-hisaby-0.4.78/) — تسليم النشر.
-2. [`docs/implementation/HISABY-API-KEYS-AR.md`](./docs/implementation/HISABY-API-KEYS-AR.md) — من ينشئ المفتاح + أمر Hisaby.
-3. [`docs/implementation/HISABY-INTEGRATION-AR.md`](./docs/implementation/HISABY-INTEGRATION-AR.md) — المعمارية.
+1. [`docs/implementation/RELEASE-0.4.79-AR.md`](./docs/implementation/RELEASE-0.4.79-AR.md)
+2. [`docs/implementation/HISABY-INTEGRATION-AR.md`](./docs/implementation/HISABY-INTEGRATION-AR.md)
+3. [`docs/implementation/HISABY-API-KEYS-AR.md`](./docs/implementation/HISABY-API-KEYS-AR.md)
+4. [`docs/handoffs/2026-09-09-hisaby-sync-0.4.79/`](./docs/handoffs/2026-09-09-hisaby-sync-0.4.79/)
+
+## الوضع الصادق
+- BHD-R جاهز لـ: مفاتيح قراءة كاملة + تصدير + حفظ رابط الدفع + worker push.
+- المزامنة الحيّة ثنائية الاتجاه تكتمل عندما يبني Hisaby نقطة استقبال الأحداث والرمز الوارد (الأمر في HISABY-API-KEYS-AR.md).
 
 ## أوامر
 ```sh
 git pull origin main
 ```
-
-## روابط
-- مفاتيح API: https://r.bhd-om.com/ar/owner/api-keys  
-- Hisaby: https://hisaby.bhd-om.com · https://github.com/ainoamn/hisaby  
