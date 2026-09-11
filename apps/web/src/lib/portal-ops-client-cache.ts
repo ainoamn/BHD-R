@@ -13,7 +13,7 @@ type CacheEntry = {
 const FRESH_TTL_MS = 5 * 60 * 1000;
 const RETAIN_TTL_MS = 30 * 60 * 1000;
 const store = new Map<string, CacheEntry>();
-const inflight = new Map<string, Promise<OperationsWorkspacePayload | null>>();
+const inflight = new Map<string, Promise<OperationsWorkspacePayload>>();
 
 function key(portal: PortalRole, section: OperationsSection): string {
   return `${portal}:${section}`;

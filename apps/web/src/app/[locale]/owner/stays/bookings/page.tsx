@@ -1,8 +1,7 @@
 import { redirect } from 'next/navigation';
-import { persistentPortalPage } from '@/lib/persistent-portal-page';
 
 /** Legacy stays bookings list → unified bookings control screen. */
-async function Page({
+export default async function Page({
   params,
   searchParams,
 }: {
@@ -16,5 +15,3 @@ async function Page({
   if (propertyId) qs.set('propertyId', propertyId);
   redirect(`/${locale}/owner/bookings?${qs.toString()}`);
 }
-
-export default persistentPortalPage('/owner/stays/bookings', Page);

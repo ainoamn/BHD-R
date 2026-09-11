@@ -3752,6 +3752,7 @@ ${
             items={dailyStayItems}
           />
         ) : (
+          <>
         <div className="data-table-wrap ops-desktop-table">
           <table className="data-table ops-table">
             <thead>
@@ -4330,6 +4331,7 @@ ${
             </div>
           ) : null}
         </div>
+          </>
         )}
       </section>
 
