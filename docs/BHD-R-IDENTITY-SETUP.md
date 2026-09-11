@@ -70,9 +70,11 @@ https://console.neon.tech/app/projects/nameless-shadow-43571265?database=neondb
     "http://localhost:3000/api/auth/bhd/callback"
   ],
   "post_logout_redirect_uris": [
-    "https://bhd-r-api-phi.vercel.app/",
-    "https://r.bhd-om.com/",
-    "http://localhost:3000/"
+    "https://bhd-r-api-phi.vercel.app/ar",
+    "https://r.bhd-om.com/ar",
+    "https://r.bhd-om.com/en",
+    "http://localhost:3000/ar",
+    "http://localhost:3000/en"
   ],
   "scopes": ["openid", "profile", "email"],
   "first_party": true,
