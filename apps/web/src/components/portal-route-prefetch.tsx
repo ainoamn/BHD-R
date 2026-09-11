@@ -4,7 +4,7 @@ import { useRouter } from '@/i18n/navigation';
 import { useEffect } from 'react';
 import type { PortalRole } from '@/lib/types';
 import { portalNavHrefs } from '@/lib/portal-nav-paths';
-import { opsSectionsForPortal } from '@/lib/portal-ops-types';
+import { opsSectionsForPortal, OPS_WARM_ORDER } from '@/lib/portal-ops-types';
 import { OPS_WARM_DONE_EVENT, warmOpsSection } from '@/lib/portal-ops-client-cache';
 
 /** Only authenticated, same-portal page links are eligible for background work. */
@@ -100,7 +100,9 @@ export function PortalRoutePrefetch({
       });
     later(drain, 200);
 
-    const sections = opsSectionsForPortal(portal);
+    const sections = OPS_WARM_ORDER.filter((section) =>
+      opsSectionsForPortal(portal).includes(section),
+    );
     let index = 0;
     const warmNext = async () => {
       if (cancelled) return;
@@ -125,9 +127,11 @@ export function PortalRoutePrefetch({
           if (portal === 'owner') enqueue(`${path}/edit`);
         }
       }
+      // Pace after properties so the grid isn't starved by a warm storm.
+      const pauseMs = section === 'properties' ? 1_200 : 700;
       later(() => {
         void warmNext();
-      }, 100);
+      }, pauseMs);
     };
     later(() => {
       void warmNext();

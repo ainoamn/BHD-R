@@ -2149,6 +2149,8 @@ export function OperationsConsole({
   apiUnauthorized = false,
   dataFromDb = false,
   active = true,
+  loading = false,
+  loadError = false,
 }: {
   portal: PortalRole;
   section: OperationsSection;
@@ -2163,6 +2165,8 @@ export function OperationsConsole({
   apiUnauthorized?: boolean;
   dataFromDb?: boolean;
   active?: boolean;
+  loading?: boolean;
+  loadError?: boolean;
 }) {
   const router = useRouter();
   const search = useSearchParams().toString();
@@ -3183,7 +3187,34 @@ ${
             </p>
           ) : null}
         </div>
-      ) : !hideApiBanner && apiUnauthorized && !dataFromDb ? (
+      ) : null}
+
+      {loading ? (
+        <div className="ops-api-banner" role="status">
+          <strong>{ar ? 'جاري تحميل السجلات…' : 'Loading records…'}</strong>
+          <p>
+            {ar
+              ? 'نُحضّر المحفظة من قاعدة البيانات. لن تُعرض رسالة «لا توجد سجلات» قبل انتهاء التحميل.'
+              : 'Fetching the portfolio from the database. The empty state will not appear until loading finishes.'}
+          </p>
+        </div>
+      ) : null}
+
+      {loadError && !loading ? (
+        <div className="ops-api-banner" role="alert">
+          <strong>{ar ? 'تعذّر تحميل السجلات' : 'Could not load records'}</strong>
+          <p>
+            {ar
+              ? 'انتهت مهلة الاتصال أو الخدمة غير جاهزة. اضغط إعادة المحاولة — هذه ليست محفظة فارغة.'
+              : 'The request timed out or the service is unavailable. Tap retry — this is not an empty portfolio.'}
+          </p>
+          <button type="button" className="button button--primary" onClick={refreshWorkspace}>
+            {ar ? 'إعادة المحاولة' : 'Retry'}
+          </button>
+        </div>
+      ) : null}
+
+      {!hideApiBanner && apiUnauthorized && !dataFromDb ? (
         <div className="ops-api-banner ops-api-banner--soft" role="status">
           <button
             type="button"
@@ -4036,11 +4067,31 @@ ${
                       <span className="ops-empty__mark" aria-hidden="true">
                         <BrandMark />
                       </span>
-                      <strong>{ar ? 'لا توجد سجلات مطابقة' : 'No matching records'}</strong>
+                      <strong>
+                        {loading
+                          ? ar
+                            ? 'جاري التحميل…'
+                            : 'Loading…'
+                          : loadError
+                            ? ar
+                              ? 'تعذّر التحميل'
+                              : 'Load failed'
+                            : ar
+                              ? 'لا توجد سجلات مطابقة'
+                              : 'No matching records'}
+                      </strong>
                       <p>
-                        {ar
-                          ? 'أنشئ أول سجل أو غيّر التصفية.'
-                          : 'Create the first record or change the filters.'}
+                        {loading
+                          ? ar
+                            ? 'نحضّر قائمة العقارات الآن.'
+                            : 'Preparing the property list.'
+                          : loadError
+                            ? ar
+                              ? 'استخدم زر إعادة المحاولة أعلاه.'
+                              : 'Use the retry button above.'
+                            : ar
+                              ? 'أنشئ أول سجل أو غيّر التصفية.'
+                              : 'Create the first record or change the filters.'}
                       </p>
                     </div>
                   </td>

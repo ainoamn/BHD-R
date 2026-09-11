@@ -28,9 +28,11 @@ export function emptyOpsPayload(locale: 'ar' | 'en' = 'ar'): OperationsWorkspace
     // Optimistic: never flash a scary offline/re-login banner while hydrating.
     apiOnline: true,
     nestConfigured: true,
-    recordsEmpty: true,
+    // Not a confirmed empty portfolio — client treats this as still loading.
+    recordsEmpty: false,
     apiUnauthorized: false,
     dataFromDb: false,
+    loadError: false,
     locale,
   };
 }
@@ -112,7 +114,7 @@ export function invalidateOpsCache(portal?: PortalRole, section?: OperationsSect
 export async function fetchOpsPayload(
   portal: PortalRole,
   section: OperationsSection,
-): Promise<OperationsWorkspacePayload | null> {
+): Promise<OperationsWorkspacePayload> {
   const cacheKey = key(portal, section);
   const existing = inflight.get(cacheKey);
   if (existing) return existing;
@@ -124,14 +126,24 @@ export async function fetchOpsPayload(
         credentials: 'same-origin',
         cache: 'no-store',
         headers: { accept: 'application/json' },
-        signal: AbortSignal.timeout(12_000),
+        signal: AbortSignal.timeout(15_000),
       });
-      if (!response.ok) return null;
+      if (!response.ok) {
+        return {
+          ...emptyOpsPayload('ar'),
+          loadError: true,
+          recordsEmpty: false,
+        } satisfies OperationsWorkspacePayload;
+      }
       const payload = (await response.json()) as OperationsWorkspacePayload;
       setOpsCache(portal, section, payload);
       return payload;
     } catch {
-      return null;
+      return {
+        ...emptyOpsPayload('ar'),
+        loadError: true,
+        recordsEmpty: false,
+      } satisfies OperationsWorkspacePayload;
     } finally {
       inflight.delete(cacheKey);
     }
@@ -145,7 +157,7 @@ export async function fetchOpsPayload(
 export function warmOpsSection(
   portal: PortalRole,
   section: OperationsSection,
-): Promise<OperationsWorkspacePayload | null> {
+): Promise<OperationsWorkspacePayload> {
   const hit = getOpsCache(portal, section);
   if (hit && isOpsCacheFresh(portal, section)) return Promise.resolve(hit);
   return fetchOpsPayload(portal, section);

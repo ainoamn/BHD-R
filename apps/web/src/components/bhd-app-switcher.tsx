@@ -44,7 +44,7 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
   }, [panel]);
 
   function signOut() {
-    window.location.assign('/api/auth/bhd/logout');
+    window.location.assign(`/api/auth/bhd/logout?locale=${locale}`);
   }
 
   return (

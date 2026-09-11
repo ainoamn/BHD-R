@@ -84,6 +84,8 @@ async function withinViewerTenant<T>(
 ): Promise<T> {
   const { db } = getSharedDatabase();
   return db.transaction(async (transaction) => {
+    // Cap every ops txn — owner properties used to hang minutes under pool contention.
+    await transaction.execute(sql`select set_config('statement_timeout', '6000', true)`);
     await transaction.execute(
       sql`select set_config('app.organization_id', ${claims.organizationId ?? ''}, true)`,
     );
@@ -244,37 +246,7 @@ async function listProperties(claims: SessionClaims): Promise<Record<string, unk
             )
             .orderBy(asc(units.code));
 
-    const childUnitIds = childUnitRows.map((row) => row.id);
-    const unitCoverById = new Map<string, string>();
-    if (childUnitIds.length) {
-      const unitCoverRaw = await transaction.execute(sql`
-        select distinct on (um.unit_id)
-          um.unit_id as "unitId",
-          um.media_asset_id as "mediaAssetId"
-        from unit_media um
-        inner join media_assets ma on ma.id = um.media_asset_id
-        where um.organization_id = ${orgId}
-          and um.unit_id in (${sql.join(
-            childUnitIds.map((id) => sql`${id}::uuid`),
-            sql`, `,
-          )})
-          and ma.processing_status = 'ready'
-          and ma.scan_status = 'clean'
-          and ma.mime_type like 'image/%'
-        order by um.unit_id, um.position asc
-      `);
-      const unitCoverList = (
-        Array.isArray(unitCoverRaw)
-          ? unitCoverRaw
-          : ((unitCoverRaw as { rows?: unknown[] }).rows ?? [])
-      ) as Array<{ unitId?: string; mediaAssetId?: string }>;
-      for (const row of unitCoverList) {
-        if (row.unitId && row.mediaAssetId) {
-          unitCoverById.set(row.unitId, `/api/owner/media/${row.mediaAssetId}`);
-        }
-      }
-    }
-
+    // Skip per-unit cover fan-out on the critical path — property cover is enough for the grid.
     const childUnitsByProperty = new Map<string, Array<Record<string, unknown>>>();
     for (const unit of childUnitRows) {
       const parent = rows.find((item) => item.id === unit.propertyId);
@@ -299,7 +271,7 @@ async function listProperties(claims: SessionClaims): Promise<Record<string, unk
         location,
         kind: 'unit',
         units: 0,
-        coverImageUrl: unitCoverById.get(unit.id) ?? coverByProperty.get(unit.propertyId) ?? null,
+        coverImageUrl: coverByProperty.get(unit.propertyId) ?? null,
       });
       childUnitsByProperty.set(unit.propertyId, list);
     }
@@ -600,23 +572,34 @@ export async function loadOpsRecordsFromDb(
   const claims = await readClaims();
   if (!claims?.organizationId) return null;
 
+  const DB_CAP_MS = section === 'properties' ? 7_000 : 8_000;
+
   try {
-    switch (section) {
-      case 'properties':
-        return await listProperties(claims);
-      case 'contacts':
-        return await listContacts(claims);
-      case 'approvals':
-        return await listApprovals(claims);
-      case 'invoices':
-        return await listInvoices(claims);
-      case 'expenses':
-        return await listExpenses(claims);
-      case 'maintenance':
-        return await listMaintenance(claims);
-      default:
-        return null;
-    }
+    const work = (async (): Promise<Record<string, unknown>[] | null> => {
+      switch (section) {
+        case 'properties':
+          return await listProperties(claims);
+        case 'contacts':
+          return await listContacts(claims);
+        case 'approvals':
+          return await listApprovals(claims);
+        case 'invoices':
+          return await listInvoices(claims);
+        case 'expenses':
+          return await listExpenses(claims);
+        case 'maintenance':
+          return await listMaintenance(claims);
+        default:
+          return null;
+      }
+    })();
+
+    return await Promise.race([
+      work,
+      new Promise<null>((resolve) => {
+        setTimeout(() => resolve(null), DB_CAP_MS);
+      }),
+    ]);
   } catch {
     return null;
   }

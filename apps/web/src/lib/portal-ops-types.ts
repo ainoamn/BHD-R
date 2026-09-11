@@ -76,6 +76,8 @@ export type OperationsWorkspacePayload = {
   recordsEmpty: boolean;
   apiUnauthorized: boolean;
   dataFromDb: boolean;
+  /** True when Neon/Nest both failed or timed out — must not look like a real empty portfolio. */
+  loadError?: boolean;
   locale: 'ar' | 'en';
 };
 

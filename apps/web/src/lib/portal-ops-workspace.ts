@@ -376,6 +376,7 @@ export async function loadOperationsWorkspacePayload(
     ...(loaded.contextPatch ?? {}),
   };
   const recordsEmpty = !loaded.records.length;
+  const loadError = offline && recordsEmpty;
   const apiUnauthorized = Boolean(contextResult.unauthorized) && !(dataFromDb && !recordsEmpty);
 
   return {
@@ -388,6 +389,7 @@ export async function loadOperationsWorkspacePayload(
     recordsEmpty,
     apiUnauthorized,
     dataFromDb,
+    loadError,
     locale,
   };
 }

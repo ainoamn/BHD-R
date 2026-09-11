@@ -7,7 +7,10 @@ export const runtime = 'nodejs';
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const { issuer, clientId } = identitySettings(url.origin);
-  const postLogout = process.env.BHD_OAUTH_POST_LOGOUT_REDIRECT_URI ?? `${url.origin}/`;
+  const locale = url.searchParams.get('locale') === 'en' ? 'en' : 'ar';
+  // Land on locale home directly — `/` only flashes then redirects via next-intl.
+  const postLogout =
+    process.env.BHD_OAUTH_POST_LOGOUT_REDIRECT_URI?.trim() || `${url.origin}/${locale}`;
 
   const endSession = new URL(`${issuer}/oauth/end-session`);
   endSession.search = new URLSearchParams({

@@ -77,7 +77,7 @@ BHD_IDENTITY_ISSUER=https://id.bhd-om.com
 BHD_OAUTH_CLIENT_ID=bhd-r
 BHD_OAUTH_CLIENT_SECRET=<secret>
 BHD_OAUTH_REDIRECT_URI=https://r.bhd-om.com/api/auth/bhd/callback
-BHD_OAUTH_POST_LOGOUT_REDIRECT_URI=https://r.bhd-om.com/
+BHD_OAUTH_POST_LOGOUT_REDIRECT_URI=https://r.bhd-om.com/ar
 BHD_R_SESSION_SECRET=<≥32 chars>
 ```
 

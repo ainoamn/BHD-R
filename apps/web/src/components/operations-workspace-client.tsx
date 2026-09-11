@@ -41,12 +41,15 @@ export function OperationsWorkspaceClient({
   const [shownSection, setShownSection] = useState(section);
   // Suppress Nest/auth banners until the first real response for this section.
   const [statusReady, setStatusReady] = useState(() => Boolean(cached));
+  const [hydrating, setHydrating] = useState(() => !cached);
 
   if (section !== shownSection) {
     const next = resolvePayload(portal, section, locale);
+    const hasCache = Boolean(getOpsCache(portal, section));
     setShownSection(section);
     setPayload(next);
-    setStatusReady(Boolean(getOpsCache(portal, section)));
+    setStatusReady(hasCache);
+    setHydrating(!hasCache);
   }
 
   useEffect(() => {
@@ -57,16 +60,19 @@ export function OperationsWorkspaceClient({
     if (hit) {
       setPayload(hit);
       setStatusReady(true);
+      setHydrating(false);
       if (!isOpsCacheFresh(portal, section)) {
         void fetchOpsPayload(portal, section).then((fresh) => {
           if (!cancelled && fresh) setPayload(fresh);
         });
       }
     } else {
+      setHydrating(true);
       void fetchOpsPayload(portal, section).then((fresh) => {
         if (cancelled) return;
-        setPayload(fresh ?? emptyOpsPayload(locale));
+        setPayload(fresh ?? { ...emptyOpsPayload(locale), loadError: true });
         setStatusReady(true);
+        setHydrating(false);
       });
     }
 
@@ -74,8 +80,11 @@ export function OperationsWorkspaceClient({
       const detail = (event as CustomEvent<{ portal: PortalRole; section: OperationsSection }>)
         .detail;
       if (!detail || detail.portal !== portal || detail.section !== section) return;
+      setHydrating(true);
       void fetchOpsPayload(portal, section).then((fresh) => {
-        if (!cancelled && fresh) setPayload(fresh);
+        if (cancelled) return;
+        if (fresh) setPayload(fresh);
+        setHydrating(false);
       });
     };
     window.addEventListener('bhd-r-ops-refresh', onRefresh);
@@ -99,9 +108,11 @@ export function OperationsWorkspaceClient({
         context={payload.context}
         apiOnline={statusReady ? payload.apiOnline : true}
         nestConfigured={payload.nestConfigured}
-        recordsEmpty={payload.recordsEmpty}
+        recordsEmpty={hydrating ? false : payload.recordsEmpty}
         apiUnauthorized={statusReady ? payload.apiUnauthorized : false}
         dataFromDb={payload.dataFromDb}
+        loading={hydrating}
+        loadError={statusReady ? Boolean(payload.loadError) : false}
       />
     </div>
   );

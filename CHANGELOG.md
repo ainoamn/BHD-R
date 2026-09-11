@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.84 — 2026-09-11
+
+- Fix owner `/properties` multi-minute blank: 6s Neon statement_timeout + 7s race, lighter property list (no per-unit cover fan-out), loading/error UI instead of silent empty, paced ops warm. Logout lands on `/ar` (not `/`→flash).
+
 ## 0.4.83 — 2026-09-11
 
 - Fix ~20s gallery lag on public unit/property pages: `/api/public/media` now 307-redirects to short-lived R2/S3 signed URLs (bytes skip Vercel), singleton S3 + sign cache, longer edge cache for inline blobs, hero preload + lazy thumbs.
