@@ -123,7 +123,7 @@ export function PropertiesBrowse({
   const [amenitiesExpanded, setAmenitiesExpanded] = useState(false);
   const [smartDraft, setSmartDraft] = useState('');
   const [recent, setRecent] = useState<RecentFilterChip[]>([]);
-  const [loadingUniverse, setLoadingUniverse] = useState(false);
+  const [loadingUniverse, setLoadingUniverse] = useState(initialListings.length === 0);
   const [, startTransition] = useTransition();
   const urlTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -155,22 +155,46 @@ export function PropertiesBrowse({
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
-    setLoadingUniverse(true);
-    const params = new URLSearchParams({ limit: '100' });
-    if (filters.countryCode) params.set('countryCode', filters.countryCode);
-    fetch(`/api/public/catalogue?${params.toString()}`, { signal: controller.signal })
-      .then(async (res) => {
-        if (!res.ok) return null;
-        return (await res.json()) as { data?: CatalogueListing[] };
-      })
-      .then((payload) => {
-        if (cancelled || !payload?.data?.length) return;
-        setUniverse(payload.data);
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        if (!cancelled) setLoadingUniverse(false);
-      });
+
+    async function loadCatalogue(attempt: number): Promise<void> {
+      if (!cancelled) setLoadingUniverse(true);
+      const params = new URLSearchParams({ limit: '100' });
+      if (filters.countryCode) params.set('countryCode', filters.countryCode);
+      try {
+        const res = await fetch(`/api/public/catalogue?${params.toString()}`, {
+          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(12_000)]),
+          credentials: 'same-origin',
+          headers: { accept: 'application/json' },
+          cache: 'no-store',
+        });
+        if (!res.ok) throw new Error(`catalogue_${res.status}`);
+        const payload = (await res.json()) as {
+          data?: CatalogueListing[];
+          error?: string;
+        };
+        if (cancelled) return;
+        if (payload.data?.length) {
+          setUniverse(payload.data);
+          setLoadingUniverse(false);
+          return;
+        }
+        if (attempt < 2 && (payload.error || !payload.data?.length)) {
+          await new Promise((resolve) => window.setTimeout(resolve, 600));
+          if (!cancelled) await loadCatalogue(attempt + 1);
+          return;
+        }
+      } catch {
+        if (cancelled) return;
+        if (attempt < 2) {
+          await new Promise((resolve) => window.setTimeout(resolve, 800));
+          if (!cancelled) await loadCatalogue(attempt + 1);
+          return;
+        }
+      }
+      if (!cancelled) setLoadingUniverse(false);
+    }
+
+    void loadCatalogue(1);
     return () => {
       cancelled = true;
       controller.abort();
@@ -183,15 +207,22 @@ export function PropertiesBrowse({
     if (urlTimer.current) clearTimeout(urlTimer.current);
     urlTimer.current = setTimeout(() => {
       const qs = filtersToSearchParams(filters).toString();
-      const href = qs ? `${pathname}?${qs}` : pathname;
+      const current = typeof window !== 'undefined' ? window.location.search.replace(/^\?/, '') : '';
+      if (qs === current) return;
+      const fullPath = `/${locale}${pathname}${qs ? `?${qs}` : ''}`;
       startTransition(() => {
-        router.replace(href, { scroll: false });
+        // Avoid Next soft-nav (re-shows loading.tsx for ~tens of seconds).
+        try {
+          window.history.replaceState(window.history.state, '', fullPath);
+        } catch {
+          router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+        }
       });
     }, 220);
     return () => {
       if (urlTimer.current) clearTimeout(urlTimer.current);
     };
-  }, [filters, pathname, router]);
+  }, [filters, pathname, router, locale]);
 
   const results = useMemo(() => applyBrowseFilters(universe, filters), [universe, filters]);
   const typeUniverse = useMemo(
@@ -831,6 +862,17 @@ export function PropertiesBrowse({
                   ))}
                 </div>
               )
+            ) : loadingUniverse ? (
+              <div className="route-skeleton" aria-busy="true">
+                <div className="route-skeleton__grid">
+                  <div className="route-skeleton__card" />
+                  <div className="route-skeleton__card" />
+                  <div className="route-skeleton__card" />
+                </div>
+                <p className="muted route-skeleton__label">
+                  {ar ? 'جاري تحميل العقارات…' : 'Loading properties…'}
+                </p>
+              </div>
             ) : (
               <EmptyState title={ar ? 'لا توجد نتائج' : 'No results'} />
             )}

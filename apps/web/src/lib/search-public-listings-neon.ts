@@ -317,7 +317,7 @@ export async function searchPublicListingsFromNeon(
     // catalogue SELECT routinely hit statement_timeout and empty /properties.
     await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
     await transaction.execute(sql`select set_config('app.public', 'false', true)`);
-    await transaction.execute(sql`select set_config('statement_timeout', '8000', true)`);
+    await transaction.execute(sql`select set_config('statement_timeout', '12000', true)`);
     await transaction
       .execute(
         sql`ALTER TABLE "units" ADD COLUMN IF NOT EXISTS "offering_modes" varchar(64) NOT NULL DEFAULT 'monthly'`,
@@ -568,8 +568,8 @@ export async function searchPublicListingsFromNeon(
           from property_amenities pa
           where pa.property_id = p.id
         ) as amenity_codes,
-        case when a.location is not null then ST_Y(a.location::geometry) else null end as latitude,
-        case when a.location is not null then ST_X(a.location::geometry) else null end as longitude,
+        null::float8 as latitude,
+        null::float8 as longitude,
         pp.notes as maps_note,
         p.organization_id::text as organization_id,
         p.owner_party_id::text as owner_party_id,
