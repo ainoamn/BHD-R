@@ -17,9 +17,17 @@ import type { ManagedProperty } from '@/components/property-detail-manager';
 import { googleMapsLinkFromCoords } from '@/lib/parse-google-maps-url';
 import { loadPropertyProfileRow } from '@/lib/load-property-profile';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 type DbHandle = { db: Database };
-const globalForDb = globalThis as unknown as { __bhdRPublicPropertyDb?: DbHandle };
+const globalForDb = globalThis as unknown as {
+  __bhdRPublicPropertyDb?: DbHandle;
+  __bhdRPublicMediaS3?: S3Client;
+  __bhdRPublicMediaSignCache?: Map<
+    string,
+    { url: string; mimeType: string; expiresAtMs: number }
+  >;
+};
 
 function getDatabase(): DbHandle {
   const url = process.env.DATABASE_URL;
@@ -330,13 +338,40 @@ export async function loadPublicPropertyShowcaseFromNeon(
 
 type InlineMeta = { storage?: string; dataBase64?: string };
 
-/** Stream a property gallery image for the public marketing page. */
-export async function loadPublicPropertyMediaBytes(
-  assetId: string,
-): Promise<{ bytes: Buffer; mimeType: string } | null> {
-  if (!/^[0-9a-f-]{36}$/i.test(assetId)) return null;
+const SIGNED_URL_TTL_SEC = 3_600;
+/** Reuse signed URLs inside the same isolate so 8 thumbs don't each pay Neon+sign. */
+const SIGNED_URL_CACHE_TTL_MS = 5 * 60_000;
+
+function getPublicMediaS3(): S3Client {
+  if (!globalForDb.__bhdRPublicMediaS3) {
+    globalForDb.__bhdRPublicMediaS3 = new S3Client({
+      region: process.env.S3_REGION?.trim() || 'auto',
+      forcePathStyle: true,
+      endpoint: process.env.S3_ENDPOINT!,
+      credentials: {
+        accessKeyId: process.env.S3_ACCESS_KEY!,
+        secretAccessKey: process.env.S3_SECRET_KEY!,
+      },
+    });
+  }
+  return globalForDb.__bhdRPublicMediaS3;
+}
+
+function signedUrlCache(): Map<string, { url: string; mimeType: string; expiresAtMs: number }> {
+  if (!globalForDb.__bhdRPublicMediaSignCache) {
+    globalForDb.__bhdRPublicMediaSignCache = new Map();
+  }
+  return globalForDb.__bhdRPublicMediaSignCache;
+}
+
+export type PublicMediaDelivery =
+  | { kind: 'bytes'; bytes: Buffer; mimeType: string }
+  | { kind: 'redirect'; url: string; mimeType: string };
+
+async function loadPublicMediaAssetRow(assetId: string) {
   const { db } = getDatabase();
-  const asset = await db.transaction(async (transaction) => {
+  return db.transaction(async (transaction) => {
+    await transaction.execute(sql`select set_config('statement_timeout', '4000', true)`);
     await transaction.execute(sql`select set_config('app.platform_admin', 'false', true)`);
     await transaction.execute(sql`select set_config('app.public', 'true', true)`);
     const row = await transaction.query.mediaAssets.findFirst({
@@ -354,11 +389,29 @@ export async function loadPublicPropertyMediaBytes(
     if (!linked) return null;
     return row;
   });
+}
+
+/**
+ * Resolve public gallery media: prefer a short-lived R2/S3 signed URL so the
+ * browser downloads bytes from object storage (not through Vercel iad1).
+ * Inline Neon blobs still return bytes.
+ */
+export async function resolvePublicPropertyMediaDelivery(
+  assetId: string,
+): Promise<PublicMediaDelivery | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(assetId)) return null;
+
+  const cached = signedUrlCache().get(assetId);
+  if (cached && cached.expiresAtMs > Date.now()) {
+    return { kind: 'redirect', url: cached.url, mimeType: cached.mimeType };
+  }
+
+  const asset = await loadPublicMediaAssetRow(assetId);
   if (!asset) return null;
 
   const meta = (asset.metadata ?? {}) as InlineMeta;
   if (meta.storage === 'inline' && typeof meta.dataBase64 === 'string' && meta.dataBase64) {
-    return { bytes: Buffer.from(meta.dataBase64, 'base64'), mimeType: asset.mimeType };
+    return { kind: 'bytes', bytes: Buffer.from(meta.dataBase64, 'base64'), mimeType: asset.mimeType };
   }
 
   if (!s3Configured()) return null;
@@ -369,25 +422,37 @@ export async function loadPublicPropertyMediaBytes(
   const key = asset.publicObjectKey || asset.privateObjectKey;
   if (!key || key.startsWith('inline/')) return null;
 
-  const client = new S3Client({
-    region: process.env.S3_REGION?.trim() || 'auto',
-    forcePathStyle: true,
-    endpoint: process.env.S3_ENDPOINT!,
-    credentials: {
-      accessKeyId: process.env.S3_ACCESS_KEY!,
-      secretAccessKey: process.env.S3_SECRET_KEY!,
-    },
-  });
-  const result = await client.send(
+  const client = getPublicMediaS3();
+  const url = await getSignedUrl(
+    client,
     new GetObjectCommand({
       Bucket: bucket,
       Key: key,
+      ResponseContentType: asset.mimeType,
+      ResponseContentDisposition: 'inline',
     }),
+    { expiresIn: SIGNED_URL_TTL_SEC },
   );
-  const body = result.Body;
-  if (!body) return null;
-  return {
-    bytes: Buffer.from(await body.transformToByteArray()),
+  signedUrlCache().set(assetId, {
+    url,
     mimeType: asset.mimeType,
+    expiresAtMs: Date.now() + SIGNED_URL_CACHE_TTL_MS,
+  });
+  return { kind: 'redirect', url, mimeType: asset.mimeType };
+}
+
+/** Fallback for callers that still need buffered bytes (inline or proxy). */
+export async function loadPublicPropertyMediaBytes(
+  assetId: string,
+): Promise<{ bytes: Buffer; mimeType: string } | null> {
+  const delivery = await resolvePublicPropertyMediaDelivery(assetId);
+  if (!delivery) return null;
+  if (delivery.kind === 'bytes') return { bytes: delivery.bytes, mimeType: delivery.mimeType };
+
+  const response = await fetch(delivery.url, { signal: AbortSignal.timeout(12_000) });
+  if (!response.ok) return null;
+  return {
+    bytes: Buffer.from(await response.arrayBuffer()),
+    mimeType: delivery.mimeType,
   };
 }

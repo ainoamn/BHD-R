@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
-import { loadPublicPropertyMediaBytes } from '@/lib/load-public-property-neon';
+import { resolvePublicPropertyMediaDelivery } from '@/lib/load-public-property-neon';
 import {
   assertRouteRateLimit,
   clientIp,
@@ -8,12 +8,13 @@ import {
 } from '@/lib/route-rate-limit';
 
 export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
-export const maxDuration = 30;
+export const maxDuration = 20;
 
 /**
- * GET /api/public/media/:assetId — stream gallery images.
- * Brand mark is shown only via CSS `.media-watermark` (avoids double watermark with bake).
+ * GET /api/public/media/:assetId — public gallery images.
+ * Prefer 307 → short-lived R2/S3 signed URL so bytes skip the Vercel origin hop.
+ * Inline Neon blobs still stream through this route.
+ * Brand mark is CSS `.media-watermark` only (avoids double watermark with bake).
  */
 export async function GET(
   request: Request,
@@ -37,13 +38,25 @@ export async function GET(
 
   const { assetId } = await context.params;
   try {
-    const media = await loadPublicPropertyMediaBytes(assetId);
+    const media = await resolvePublicPropertyMediaDelivery(assetId);
     if (!media) {
       return NextResponse.json({ error: { code: 'not_found' } }, { status: 404 });
     }
     if (!media.mimeType.startsWith('image/')) {
       return NextResponse.json({ error: { code: 'not_found' } }, { status: 404 });
     }
+
+    if (media.kind === 'redirect') {
+      // Cache redirect briefly at the edge; signed URL lasts ~1h.
+      return NextResponse.redirect(media.url, {
+        status: 307,
+        headers: {
+          'cache-control': 'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
+          vary: 'Accept',
+        },
+      });
+    }
+
     if (media.bytes.byteLength > 12 * 1024 * 1024) {
       return NextResponse.json({ error: { code: 'too_large' } }, { status: 413 });
     }
@@ -53,8 +66,7 @@ export async function GET(
         'content-type': media.mimeType,
         'content-disposition': 'inline',
         'x-content-type-options': 'nosniff',
-        // Shorter cache so watermark policy changes apply quickly.
-        'cache-control': 'public, max-age=300, stale-while-revalidate=3600',
+        'cache-control': 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800',
       },
     });
   } catch (error) {

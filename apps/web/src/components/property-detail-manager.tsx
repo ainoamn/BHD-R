@@ -456,7 +456,12 @@ export function PropertyDetailManager({
             {gallery.length ? (
               <>
                 <div className="property-360__hero-shot">
-                  <img src={gallery[Math.min(activeImage, gallery.length - 1)]!.url!} alt="" />
+                  <img
+                    src={gallery[Math.min(activeImage, gallery.length - 1)]!.url!}
+                    alt=""
+                    fetchPriority="high"
+                    decoding="async"
+                  />
                   <span className="media-watermark" aria-hidden="true">
                     <BrandMark tone="onDark" />
                   </span>
@@ -480,7 +485,13 @@ export function PropertyDetailManager({
                           }
                           onClick={() => setActiveImage(index)}
                         >
-                          <img src={item.url!} alt="" />
+                          <img
+                            src={item.url!}
+                            alt=""
+                            loading={index === 0 ? 'eager' : 'lazy'}
+                            decoding="async"
+                            fetchPriority={index === 0 ? 'high' : 'low'}
+                          />
                         </button>
                       </li>
                     ))}

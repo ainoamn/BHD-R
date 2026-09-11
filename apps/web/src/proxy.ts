@@ -3,7 +3,35 @@ import { NextRequest, NextResponse } from 'next/server';
 import { routing } from './i18n/routing';
 
 const intlMiddleware = createMiddleware(routing);
-const mediaOrigin = new URL(process.env.MEDIA_PUBLIC_BASE_URL ?? 'http://localhost:9000').origin;
+
+function safeOrigin(value: string | undefined): string | null {
+  if (!value?.trim()) return null;
+  try {
+    const origin = new URL(value.trim()).origin;
+    return origin.startsWith('http') ? origin : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Hosts allowed for <img> after /api/public/media 307 → signed R2/S3. */
+function mediaImgOrigins(): string[] {
+  const origins = new Set<string>();
+  for (const value of [
+    process.env.MEDIA_PUBLIC_BASE_URL,
+    process.env.PUBLIC_MEDIA_BASE_URL,
+    process.env.S3_ENDPOINT,
+  ]) {
+    const origin = safeOrigin(value);
+    if (origin) origins.add(origin);
+  }
+  // Signed R2 URLs often use the account API host even when a CDN base is configured.
+  origins.add('https://*.r2.cloudflarestorage.com');
+  if (origins.size === 0) {
+    origins.add(safeOrigin('http://localhost:9000')!);
+  }
+  return [...origins];
+}
 
 function nestConnectOrigins(): string[] {
   const candidates = [
@@ -16,13 +44,8 @@ function nestConnectOrigins(): string[] {
   ];
   const origins: string[] = [];
   for (const value of candidates) {
-    if (!value?.trim()) continue;
-    try {
-      const origin = new URL(value.trim()).origin;
-      if (origin.startsWith('http')) origins.push(origin);
-    } catch {
-      /* ignore invalid */
-    }
+    const origin = safeOrigin(value);
+    if (origin) origins.push(origin);
   }
   return [...new Set(origins)];
 }
@@ -31,11 +54,19 @@ function csp(nonce: string): string {
   const connect = ["'self'", 'https://nominatim.openstreetmap.org', ...nestConnectOrigins()].join(
     ' ',
   );
+  const img = [
+    "'self'",
+    'data:',
+    'blob:',
+    ...mediaImgOrigins(),
+    'https://*.tile.openstreetmap.org',
+    'https://tile.openstreetmap.org',
+  ].join(' ');
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
     "style-src 'self' 'unsafe-inline'",
-    `img-src 'self' data: blob: ${mediaOrigin} https://*.tile.openstreetmap.org https://tile.openstreetmap.org`,
+    `img-src ${img}`,
     "font-src 'self' data:",
     `connect-src ${connect}`,
     "frame-src 'self' https://www.google.com https://maps.google.com https://www.google.com/maps",

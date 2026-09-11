@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.83 — 2026-09-11
+
+- Fix ~20s gallery lag on public unit/property pages: `/api/public/media` now 307-redirects to short-lived R2/S3 signed URLs (bytes skip Vercel), singleton S3 + sign cache, longer edge cache for inline blobs, hero preload + lazy thumbs.
+
 ## 0.4.82 — 2026-09-11
 
 - Confirm seamless soft-nav: restore paced background prefetch of `/properties`, `/portal`, and listing details after first paint; document SPA warm behavior (`SPA-SOFT-NAV-AR.md`). Keeps 0.4.81 Neon timeouts so background warm never hangs clicks for minutes.

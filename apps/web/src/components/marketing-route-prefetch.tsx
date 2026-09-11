@@ -96,7 +96,10 @@ export function MarketingRoutePrefetch() {
     };
 
     void prefetchShells();
-    void warmListingDetails();
+    // On unit/property detail pages, don't compete with the gallery for bandwidth.
+    if (!/^\/(units|properties)\//.test(pathname)) {
+      void warmListingDetails();
+    }
 
     return () => {
       cancelled = true;

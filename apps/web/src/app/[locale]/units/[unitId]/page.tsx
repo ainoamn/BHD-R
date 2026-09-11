@@ -115,8 +115,18 @@ export default async function UnitPage({
   const nonce = (await headers()).get('x-nonce') ?? undefined;
   const structuredData = unitListingJsonLd({ locale, unit, title, description });
 
+  const heroImage =
+    toPublicMediaSrc(property.gallery?.[0]?.url) ??
+    property.gallery?.[0]?.url ??
+    toPublicMediaSrc(unit.images[0]?.url) ??
+    unit.images[0]?.url ??
+    null;
+
   return (
     <>
+      {heroImage ? (
+        <link rel="preload" as="image" href={heroImage} fetchPriority="high" />
+      ) : null}
       <main className="section">
         <div className="container">
           <PropertyDetailManager
