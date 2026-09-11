@@ -12,6 +12,9 @@ import { localizedName } from '@/lib/format';
 import { getViewer } from '@/lib/viewer';
 import { withTimedResult } from '@/lib/with-timeout';
 
+export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
+
 export async function generateMetadata({
   params,
 }: {
@@ -26,7 +29,7 @@ export async function generateMetadata({
   }
   const result = await withTimedResult(
     loadPublicPropertyShowcaseFromNeon(propertyId),
-    7_000,
+    4_000,
     'property-meta-neon',
   );
   const property = result.status === 'ok' ? result.value : null;
@@ -75,10 +78,10 @@ export default async function PropertyPage({
   const [showcaseResult, viewerResult] = await Promise.all([
     withTimedResult(
       loadPublicPropertyShowcaseFromNeon(propertyId),
-      7_000,
+      4_000,
       'property-showcase-neon',
     ),
-    withTimedResult(getViewer(), 2_000, 'property-viewer'),
+    withTimedResult(getViewer(), 1_500, 'property-viewer'),
   ]);
 
   if (showcaseResult.status === 'ok' && showcaseResult.value === null) notFound();

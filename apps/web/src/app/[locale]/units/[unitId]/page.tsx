@@ -11,13 +11,15 @@ import { loadPublicPropertyShowcaseFromNeon } from '@/lib/load-public-property-n
 import { loadPublicUnitFromNeon } from '@/lib/load-public-unit-neon';
 import { managedPropertyFromPublicUnit } from '@/lib/managed-property-from-unit';
 import { toPublicMediaSrc } from '@/lib/public-media-url';
-import { ApiError, publicApiFetch } from '@/lib/server-api';
+import { ApiError, isNestApiConfiguredForRuntime, publicApiFetch } from '@/lib/server-api';
 import { bilingualAlternates, unitListingJsonLd } from '@/lib/seo';
 import { getViewer } from '@/lib/viewer';
 import { withTimedResult } from '@/lib/with-timeout';
 import type { PublicUnitDetail } from '@bhd-r/contracts';
 
 export const dynamic = 'force-dynamic';
+/** Soft-nav RSC aborts when the function is killed mid-stream — keep headroom. */
+export const maxDuration = 30;
 
 type UnitLookup =
   | { kind: 'found'; unit: PublicUnitDetail }
@@ -28,17 +30,30 @@ const getUnit = cache(async (id: string): Promise<UnitLookup> => {
   let neonConfirmedMissing = false;
 
   if (hasDatabaseUrl()) {
-    const neon = await withTimedResult(loadPublicUnitFromNeon(id), 5_000, 'unit-neon');
+    // Cap hard: stacking Neon+Nest waits is what blanks soft-nav into Next’s
+    // “This page couldn’t load” screen when the RSC stream is cut.
+    const neon = await withTimedResult(loadPublicUnitFromNeon(id), 4_000, 'unit-neon');
     if (neon.status === 'ok' && neon.value) return { kind: 'found', unit: neon.value };
     if (neon.status === 'ok' && neon.value === null) neonConfirmedMissing = true;
+    // Neon timed out or errored — do not wait on Nest (often cold). Retry is better.
+    if (neon.status !== 'ok') return { kind: 'transient' };
   }
 
-  try {
-    const nest = await publicApiFetch<PublicUnitDetail>(
+  if (!isNestApiConfiguredForRuntime()) {
+    return neonConfirmedMissing ? { kind: 'missing' } : { kind: 'transient' };
+  }
+
+  const nestResult = await withTimedResult(
+    publicApiFetch<PublicUnitDetail>(
       `/v1/public/units/${encodeURIComponent(id)}`,
       30,
       [`public-listings`, `unit:${id}`],
-    );
+    ),
+    3_000,
+    'unit-nest',
+  );
+  if (nestResult.status === 'ok') {
+    const nest = nestResult.value;
     return {
       kind: 'found',
       unit: {
@@ -49,15 +64,16 @@ const getUnit = cache(async (id: string): Promise<UnitLookup> => {
         })),
       },
     };
-  } catch (error) {
+  }
+  if (nestResult.status === 'error') {
+    const error = nestResult.error;
     if (error instanceof ApiError && (error.status === 404 || error.status === 410)) {
-      // Only treat Nest 404 as real removal when Neon also confirmed empty (or no DB).
       if (neonConfirmedMissing || !hasDatabaseUrl()) return { kind: 'missing' };
       return { kind: 'transient' };
     }
     console.error('Nest public unit load failed', error);
-    return neonConfirmedMissing ? { kind: 'missing' } : { kind: 'transient' };
   }
+  return neonConfirmedMissing ? { kind: 'missing' } : { kind: 'transient' };
 });
 
 export async function generateMetadata({
@@ -135,14 +151,15 @@ export default async function UnitPage({
   if (lookup.kind === 'transient') return <TransientUnitNotice locale={locale} unitId={unitId} />;
 
   const unit = lookup.unit;
+  // Always have a paintable payload; enrich with showcase only if Neon answers quickly.
+  const liteProperty = managedPropertyFromPublicUnit(unit);
+
   if (!hasDatabaseUrl()) {
-    // Still show Nest-backed unit without showcase when DB URL is absent.
-    const property = managedPropertyFromPublicUnit(unit);
     return (
       <main className="section">
         <div className="container">
           <PropertyDetailManager
-            property={property}
+            property={liteProperty}
             locale={locale}
             portal="owner"
             variant="public"
@@ -157,16 +174,16 @@ export default async function UnitPage({
   const [showcaseResult, viewer] = await Promise.all([
     withTimedResult(
       loadPublicPropertyShowcaseFromNeon(unit.propertyId),
-      7_000,
+      4_000,
       'property-showcase-neon',
     ),
-    withTimedResult(getViewer(), 2_000, 'unit-viewer'),
+    withTimedResult(getViewer(), 1_500, 'unit-viewer'),
   ]);
 
   const property =
     showcaseResult.status === 'ok' && showcaseResult.value
       ? showcaseResult.value
-      : managedPropertyFromPublicUnit(unit);
+      : liteProperty;
   const showcaseDegraded = !(showcaseResult.status === 'ok' && showcaseResult.value);
 
   const title = `${localizedName(locale, unit.propertyNameAr, unit.propertyNameEn)} — ${localizedName(locale, unit.unitNameAr, unit.unitNameEn)}`;
