@@ -21,7 +21,6 @@ const staysNavGroup: NavGroup = {
   items: [
     { path: '/stays', label: 'Stays.dashboard', mark: '◫' },
     { path: '/stays/calendar', label: 'Stays.calendar', mark: '▦' },
-    { path: '/stays/bookings', label: 'Stays.bookings', mark: '⌁' },
     { path: '/stays/rates', label: 'Stays.rates', mark: '◇' },
   ],
 };

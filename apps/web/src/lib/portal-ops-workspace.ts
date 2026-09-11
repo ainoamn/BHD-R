@@ -9,10 +9,12 @@ import {
   loadOpsRecordsFromDb,
   loadStayAccountingRowsForViewer,
 } from '@/lib/portal-ops-data';
+import { loadStayBookingOpsRows, tagLeaseBookingPurpose } from '@/lib/unified-bookings';
 import type { PortalRole } from '@/lib/types';
 import type { OperationsContext } from '@/components/operations-console';
 import type { OperationsSection, OperationsWorkspacePayload } from '@/lib/portal-ops-types';
 import { opsSectionsForPortal } from '@/lib/portal-ops-types';
+import { isStaysPlatformEnabled } from '@/lib/stays-flags';
 
 export type { OperationsSection, OperationsWorkspacePayload } from '@/lib/portal-ops-types';
 export { isOperationsSection, OPERATIONS_SECTIONS } from '@/lib/portal-ops-types';
@@ -95,18 +97,25 @@ async function loadFromNest(portal: PortalRole, section: OperationsSection): Pro
     case 'requests':
       return { source: 'nest', records: await safeRows('/v1/operations/requests') };
     case 'bookings': {
-      const [reservations, viewings, holds] = await Promise.all([
+      const [reservations, viewings, holds, stayRows] = await Promise.all([
         safeRows('/v1/leasing/reservations'),
         safeRows('/v1/operations/viewings'),
         safeRows('/v1/leasing/holds'),
+        isStaysPlatformEnabled()
+          ? loadStayBookingOpsRows({ limit: 80 }).catch(() => [] as Record<string, unknown>[])
+          : Promise.resolve([] as Record<string, unknown>[]),
       ]);
+      const leaseRows = [
+        ...reservations.map((row) =>
+          tagLeaseBookingPurpose({ ...row, recordKind: 'reservation' }),
+        ),
+        ...viewings.map((row) => tagLeaseBookingPurpose({ ...row, recordKind: 'viewing' })),
+        ...holds.map((row) => tagLeaseBookingPurpose({ ...row, recordKind: 'hold' })),
+      ];
+      const fromDb = stayRows.length > 0;
       return {
-        source: 'nest',
-        records: [
-          ...reservations.map((row) => ({ ...row, recordKind: 'reservation' })),
-          ...viewings.map((row) => ({ ...row, recordKind: 'viewing' })),
-          ...holds.map((row) => ({ ...row, recordKind: 'hold' })),
-        ],
+        source: fromDb && !leaseRows.length ? 'db' : leaseRows.length ? 'nest' : fromDb ? 'db' : 'nest',
+        records: [...stayRows, ...leaseRows],
       };
     }
     case 'leasing':
@@ -194,6 +203,23 @@ async function loadFromNest(portal: PortalRole, section: OperationsSection): Pro
 async function loadSection(portal: PortalRole, section: OperationsSection): Promise<SectionLoad> {
   const fromDb = await loadOpsRecordsFromDb(portal, section);
   if (fromDb !== null) return { records: fromDb, source: 'db' };
+
+  // Unified bookings: daily stays from Neon even when Nest is asleep.
+  if (section === 'bookings' && (portal === 'owner' || portal === 'developer')) {
+    if (hasDatabaseUrl()) {
+      const ready = await probeNestHealthz();
+      if (!ready) {
+        const stayRows = isStaysPlatformEnabled()
+          ? await loadStayBookingOpsRows({ limit: 80 }).catch(() => [] as Record<string, unknown>[])
+          : [];
+        return {
+          records: stayRows,
+          source: stayRows.length ? 'db' : 'offline',
+        };
+      }
+    }
+    return loadFromNest(portal, section);
+  }
 
   // Accounting: always paint Neon stay rows first. Nest journals are optional
   // enrichment with a hard ceiling so Render cold starts cannot block the page.

@@ -62,7 +62,6 @@ const PORTAL_PATHS: Record<PortalRole, string[]> = {
 const STAYS_PATHS = [
   '/stays',
   '/stays/calendar',
-  '/stays/bookings',
   '/stays/rates',
   '/stays/setup',
 ];

@@ -78,7 +78,7 @@ async function Page({ params }: { params: Promise<{ locale: string }> }) {
       <section className="stays-portal__recent">
         <div className="dash-section-head">
           <h2>{ar ? 'أحدث الحجوزات' : 'Latest bookings'}</h2>
-          <Link href="/developer/stays/bookings">{ar ? 'عرض الكل' : 'View all'}</Link>
+          <Link href="/developer/bookings?tab=daily">{ar ? 'عرض الكل' : 'View all'}</Link>
         </div>
         {recent.length ? (
           <ul className="stays-portal__recent-list">

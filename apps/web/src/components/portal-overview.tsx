@@ -44,7 +44,7 @@ function alertHref(portal: PortalRole, code: string): string {
     case 'vacant_units':
       return `/${portal}/bookings`;
     case 'stay_bookings':
-      return `/${portal}/stays/bookings`;
+      return `/${portal}/bookings?tab=daily`;
     default:
       return `/${portal}`;
   }
@@ -269,7 +269,7 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
               {portal !== 'tenant' ? (
                 <>
                   <Link href={`/${portal}/stays/calendar`}>{t('Stays.calendar')}</Link>
-                  <Link href={`/${portal}/stays/bookings`}>{t('Portal.viewStayBookings')}</Link>
+                  <Link href={`/${portal}/bookings?tab=daily`}>{t('Portal.viewStayBookings')}</Link>
                   <Link href={`/${portal}/contacts`}>{t('Common.contacts')}</Link>
                 </>
               ) : null}
@@ -342,7 +342,7 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
                 >
                   {t('Portal.addProperty')}
                 </Link>
-                <Link className="button button--quiet" href={`/${portal}/stays/bookings`}>
+                <Link className="button button--quiet" href={`/${portal}/bookings?tab=daily`}>
                   {t('Portal.viewStayBookings')}
                 </Link>
                 <Link className="button button--quiet" href={`/${portal}/properties`}>

@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.85 — 2026-09-11
+
+- Merge owner/developer bookings into one control screen (`/bookings`): tabs for all / daily stays / monthly / yearly / sale; redirect `/stays/bookings` → `/bookings?tab=daily`; remove duplicate stays nav item.
+
 ## 0.4.84 — 2026-09-11
 
 - Fix owner `/properties` multi-minute blank: 6s Neon statement_timeout + 7s race, lighter property list (no per-unit cover fan-out), loading/error UI instead of silent empty, paced ops warm. Logout lands on `/ar` (not `/`→flash).

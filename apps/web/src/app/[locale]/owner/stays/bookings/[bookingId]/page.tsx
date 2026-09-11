@@ -41,7 +41,7 @@ async function OwnerStayBookingDetailPage({
   return (
     <StaysPortalPage locale={locale} portal="owner" section="bookings">
       <p className="stay-contract-nav">
-        <Link className="text-link" href="/owner/stays/bookings">
+        <Link className="text-link" href="/owner/bookings?tab=daily">
           {ar ? '← العودة للحجوزات' : '← Back to bookings'}
         </Link>
       </p>

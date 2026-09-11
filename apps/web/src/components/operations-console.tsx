@@ -13,6 +13,16 @@ import type { PortalRole } from '@/lib/types';
 import type { OperationsSection } from './operations-workspace';
 import { NestReconnectButton } from './nest-reconnect-button';
 import { PropertyOpsRowKey } from './property-ops-row-key';
+import {
+  StayOpsBookingsTable,
+  type OpsStayBooking,
+} from '@/components/stays/stay-ops-bookings-table';
+import {
+  BOOKING_PURPOSE_TABS,
+  matchesBookingPurposeTab,
+  opsRowToStayBooking,
+  type BookingPurposeTab,
+} from '@/lib/unified-bookings-shared';
 
 type DataRow = Record<string, unknown>;
 
@@ -234,19 +244,20 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
     titleAr: 'الحجوزات والمعاينات',
     titleEn: 'Bookings & viewings',
     introAr:
-      'اختر وحدة شاغرة ومستأجراً من سجل العناوين. الحجز يبقى معلّقاً حتى يعتمد المحاسب مبلغ الضمان؛ عند التأكيد يُرحَّل قيد محاسبي تلقائي (نقد/بنك ← تأمينات مستأجرين)، ثم يُحوَّل لعقد إيجار قيد الإجراء. زر «تأكيد العربون» يظهر في صف الحجز المعلّق.',
+      'شاشة واحدة لكل الحجوزات والمعاينات: يومي (إقامة)، شهري، سنوي، وبيع. صفّ عبر التبويبات أعلاه. الحجز الشهري/السنوي يبقى معلّقاً حتى يعتمد المحاسب العربون، ثم يُحوَّل لعقد إيجار.',
     introEn:
-      'Pick a vacant unit and a tenant from the address book. Reservations stay pending until the accountant confirms the deposit; confirmation auto-posts a ledger journal (cash/bank → tenant deposits), then convert to an in-progress lease. Use “Confirm deposit” on the pending row.',
+      'One control screen for all bookings and viewings: daily stays, monthly, yearly, and sale. Use the purpose tabs above. Long-term reservations stay pending until the accountant confirms the deposit, then convert to a lease.',
     createAr: 'حجز جديد',
     createEn: 'New booking',
     columns: [
       { key: 'recordKind', ar: 'السجل', en: 'Record', format: 'kind' },
+      { key: 'bookingPurpose', ar: 'الغرض', en: 'Purpose', format: 'kind' },
       { key: 'reference', fallbackKeys: ['id'], ar: 'المرجع', en: 'Reference' },
       { key: 'unitId', ar: 'الوحدة', en: 'Unit' },
       { key: 'status', ar: 'الحالة', en: 'Status', format: 'status' },
       {
         key: 'scheduledAt',
-        fallbackKeys: ['preferredAt', 'expiresAt'],
+        fallbackKeys: ['preferredAt', 'expiresAt', 'checkInOn'],
         ar: 'الموعد/الانتهاء',
         en: 'Schedule/expiry',
         format: 'date',
@@ -790,11 +801,19 @@ function displayCell(
   if (column.format === 'thumb') {
     return null;
   }
-  if (column.key === 'kind') {
+  if (column.key === 'kind' || column.key === 'recordKind' || column.key === 'bookingPurpose') {
     const kind = safeString(value);
     if (kind === 'unit') return locale === 'ar' ? 'وحدة' : 'Unit';
     if (kind === 'multi_unit') return locale === 'ar' ? 'مبنى متعدد' : 'Multi-unit';
     if (kind === 'single_unit') return locale === 'ar' ? 'عقار واحد' : 'Single unit';
+    if (kind === 'stay_booking') return locale === 'ar' ? 'إقامة يومية' : 'Daily stay';
+    if (kind === 'reservation') return locale === 'ar' ? 'حجز إيجار' : 'Lease reservation';
+    if (kind === 'viewing') return locale === 'ar' ? 'معاينة' : 'Viewing';
+    if (kind === 'hold') return locale === 'ar' ? 'حجز مؤقت' : 'Hold';
+    if (kind === 'daily') return locale === 'ar' ? 'يومي' : 'Daily';
+    if (kind === 'monthly') return locale === 'ar' ? 'شهري' : 'Monthly';
+    if (kind === 'yearly') return locale === 'ar' ? 'سنوي' : 'Yearly';
+    if (kind === 'sale') return locale === 'ar' ? 'بيع' : 'Sale';
   }
   if (typeof value === 'boolean')
     return value ? (locale === 'ar' ? 'نعم' : 'Yes') : locale === 'ar' ? 'لا' : 'No';
@@ -2207,6 +2226,7 @@ export function OperationsConsole({
   const [prefillReservationId, setPrefillReservationId] = useState('');
   const [prefillTenantId, setPrefillTenantId] = useState('');
   const [propertyFilter, setPropertyFilter] = useState('');
+  const [bookingPurposeTab, setBookingPurposeTab] = useState<BookingPurposeTab>('all');
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [hideApiBanner, setHideApiBanner] = useState(false);
   const [statsOpen, setStatsOpen] = useState(true);
@@ -2269,6 +2289,17 @@ export function OperationsConsole({
     setPrefillTenantId(tenantId);
     // Portfolio lists every property — ?propertyId= is for bookings/leasing filters only.
     setPropertyFilter(section === 'properties' ? '' : propertyId);
+    const tabRaw = params.get('tab');
+    if (
+      section === 'bookings' &&
+      (tabRaw === 'all' ||
+        tabRaw === 'daily' ||
+        tabRaw === 'monthly' ||
+        tabRaw === 'yearly' ||
+        tabRaw === 'sale')
+    ) {
+      setBookingPurposeTab(tabRaw);
+    }
     if (reservationId && !tenantId) {
       const match = (context.confirmedReservations ?? context.reservations ?? []).find(
         (row) => row.id === reservationId,
@@ -2302,6 +2333,9 @@ export function OperationsConsole({
         )
       : null;
     return sourceRecords.filter((row) => {
+      if (section === 'bookings' && !matchesBookingPurposeTab(row, bookingPurposeTab)) {
+        return false;
+      }
       const status = safeString(row.status);
       if (section === 'properties') {
         if (archiveMode) {
@@ -2336,7 +2370,24 @@ export function OperationsConsole({
     context.vacantUnits,
     section,
     archiveMode,
+    bookingPurposeTab,
   ]);
+
+  const dailyStayItems = useMemo(() => {
+    if (section !== 'bookings' || bookingPurposeTab !== 'daily') return [] as OpsStayBooking[];
+    return filtered
+      .map((row) => opsRowToStayBooking(row))
+      .filter((item): item is OpsStayBooking => Boolean(item));
+  }, [section, bookingPurposeTab, filtered]);
+
+  function setBookingTab(tab: BookingPurposeTab) {
+    setBookingPurposeTab(tab);
+    const params = new URLSearchParams(search);
+    if (tab === 'all') params.delete('tab');
+    else params.set('tab', tab);
+    const qs = params.toString();
+    router.replace(`/${locale}/${portal}/bookings${qs ? `?${qs}` : ''}`, { scroll: false });
+  }
   const tableRows = useMemo(() => {
     if (section !== 'properties') return filtered;
     const rows: DataRow[] = [];
@@ -3116,7 +3167,7 @@ ${
               {ar ? 'تهيئة دليل الحسابات' : 'Initialize chart of accounts'}
             </button>
           ) : null}
-          {canCreate ? (
+          {canCreate && !(section === 'bookings' && bookingPurposeTab === 'daily') ? (
             <button
               className="button button--primary"
               type="button"
@@ -3607,6 +3658,33 @@ ${
         </section>
       ) : null}
 
+      {section === 'bookings' ? (
+        <nav
+          className="purpose-tabs"
+          aria-label={ar ? 'تصفية نوع الحجز' : 'Booking purpose filter'}
+        >
+          {BOOKING_PURPOSE_TABS.map((tab) => {
+            const count = records.filter((row) => matchesBookingPurposeTab(row, tab.id)).length;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                className={
+                  bookingPurposeTab === tab.id
+                    ? 'purpose-tabs__item is-active'
+                    : 'purpose-tabs__item'
+                }
+                aria-current={bookingPurposeTab === tab.id ? 'page' : undefined}
+                onClick={() => setBookingTab(tab.id)}
+              >
+                {ar ? tab.ar : tab.en}
+                <span className="muted"> {count}</span>
+              </button>
+            );
+          })}
+        </nav>
+      ) : null}
+
       <section className="ops-panel">
         <div className="ops-toolbar">
           <label className="ops-search">
@@ -3667,6 +3745,13 @@ ${
             {error}
           </div>
         ) : null}
+        {section === 'bookings' && bookingPurposeTab === 'daily' ? (
+          <StayOpsBookingsTable
+            locale={locale}
+            portal={portal === 'developer' ? 'developer' : 'owner'}
+            items={dailyStayItems}
+          />
+        ) : (
         <div className="data-table-wrap ops-desktop-table">
           <table className="data-table ops-table">
             <thead>
@@ -3907,6 +3992,14 @@ ${
                             {ar ? 'رفض' : 'Reject'}
                           </button>
                         </span>
+                      ) : section === 'bookings' && safeString(row.recordKind) === 'stay_booking' ? (
+                        <Link
+                          className="ops-action ops-action--primary"
+                          href={`/${portal}/stays/bookings/${encodeURIComponent(safeString(row.id))}`}
+                          prefetch
+                        >
+                          {ar ? 'عقد الإقامة' : 'Stay contract'}
+                        </Link>
                       ) : section === 'bookings' && safeString(row.recordKind) === 'reservation' ? (
                         <span className="ops-inline-actions">
                           {safeString(row.status) === 'pending' ? (
@@ -4237,6 +4330,7 @@ ${
             </div>
           ) : null}
         </div>
+        )}
       </section>
 
       {accountingDetail ? (

@@ -104,7 +104,7 @@ export function PropertyManageHub({
         text: ar
           ? `${liveStayCount} حجوزات إقامة يومية نشطة أو بانتظار إجراء.`
           : `${liveStayCount} active or pending daily stay booking(s).`,
-        href: `${base}/stays/bookings?propertyId=${propertyId}`,
+        href: `${base}/bookings?tab=daily&propertyId=${propertyId}`,
       });
     }
     if ((pulse?.contracts.length ?? 0) > 0) {
@@ -208,10 +208,9 @@ export function PropertyManageHub({
     { href: scoped('contracts'), label: ar ? 'العقود' : 'Contracts' },
     { href: scoped('leasing'), label: ar ? 'التأجير' : 'Leasing' },
     { href: scoped('sales'), label: ar ? 'البيع' : 'Sales' },
-    { href: scoped('bookings'), label: ar ? 'الحجوزات' : 'Bookings' },
     {
-      href: `${base}/stays/bookings?propertyId=${propertyId}`,
-      label: ar ? 'الحجوزات اليومية' : 'Daily stay bookings',
+      href: `${base}/bookings?tab=daily&propertyId=${propertyId}`,
+      label: ar ? 'الحجوزات والمعاينات' : 'Bookings & viewings',
     },
     { href: scoped('maintenance'), label: ar ? 'الصيانة' : 'Maintenance' },
     { href: scoped('invoices'), label: ar ? 'الفواتير' : 'Invoices' },
@@ -309,7 +308,7 @@ export function PropertyManageHub({
           <article className="property-manage-hub__ops-card">
             <header>
               <h2>{ar ? 'الحجوزات اليومية' : 'Daily stay bookings'}</h2>
-              <Link href={`${base}/stays/bookings?propertyId=${propertyId}`} prefetch>
+              <Link href={`${base}/bookings?tab=daily&propertyId=${propertyId}`} prefetch>
                 {ar ? 'الكل' : 'All'}
               </Link>
             </header>

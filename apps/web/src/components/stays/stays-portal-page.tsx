@@ -4,13 +4,6 @@ import type { PortalRole } from '@/lib/types';
 
 export type StaysPortalSection = 'dashboard' | 'calendar' | 'bookings' | 'rates' | 'setup';
 
-const sectionHref: Record<Exclude<StaysPortalSection, 'setup'>, string> = {
-  dashboard: '',
-  calendar: '/calendar',
-  bookings: '/bookings',
-  rates: '/rates',
-};
-
 export async function StaysPortalPage({
   locale,
   portal,
@@ -35,6 +28,17 @@ export async function StaysPortalPage({
             ? t('rates')
             : t('setup');
 
+  const tabs = [
+    { id: 'dashboard' as const, label: t('dashboard'), href: root },
+    { id: 'calendar' as const, label: t('calendar'), href: `${root}/calendar` },
+    {
+      id: 'bookings' as const,
+      label: t('bookings'),
+      href: `/${portal}/bookings?tab=daily`,
+    },
+    { id: 'rates' as const, label: t('rates'), href: `${root}/rates` },
+  ];
+
   return (
     <div className="form-shell stays-portal">
       <header className="stays-portal__header">
@@ -45,33 +49,25 @@ export async function StaysPortalPage({
           <h1>{title}</h1>
           <p className="muted">
             {locale === 'ar'
-              ? 'إدارة حجوزات الإقامة اليومية والتقويم والأسعار من مكان واحد.'
-              : 'Manage daily stay bookings, calendar, and rates in one place.'}
+              ? 'التقويم والأسعار هنا؛ الحجوزات اليومية ضمن شاشة الحجوزات والمعاينات الموحّدة.'
+              : 'Calendar and rates stay here; daily bookings live on the unified bookings & viewings screen.'}
           </p>
         </div>
       </header>
 
       <nav className="purpose-tabs stays-portal__tabs" aria-label={title}>
-        {(
-          [
-            ['dashboard', t('dashboard')],
-            ['calendar', t('calendar')],
-            ['bookings', t('bookings')],
-            ['rates', t('rates')],
-          ] as const
-        ).map(([id, label]) => {
-          const href = `${root}${sectionHref[id]}`;
-          const active = section === id;
+        {tabs.map((tab) => {
+          const active = section === tab.id;
           return (
             <Link
-              key={id}
-              href={href}
+              key={tab.id}
+              href={tab.href}
               prefetch
               scroll={false}
               className={active ? 'purpose-tabs__item is-active' : 'purpose-tabs__item'}
               aria-current={active ? 'page' : undefined}
             >
-              {label}
+              {tab.label}
             </Link>
           );
         })}
