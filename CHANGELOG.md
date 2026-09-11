@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.87 — 2026-09-11
+
+- Fix properties page: raise site-header above sticky search so BHD apps/account menus are not covered.
+
 ## 0.4.86 — 2026-09-11
 
 - Fix blank 20–40s public unit/property shell and false 404s: route skeletons, never map Neon timeout to notFound, degrade to unit-lite showcase, fire-and-forget catalogue heal, clearer 404 copy.
