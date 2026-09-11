@@ -56,11 +56,19 @@ export async function loadPublicPropertyShowcaseFromNeon(
 ): Promise<ManagedProperty | null> {
   if (!/^[0-9a-f-]{36}$/i.test(propertyId)) return null;
   const { healPublicCatalogueListings } = await import('@/lib/heal-public-listings');
-  await healPublicCatalogueListings({ propertyId }).catch(() => undefined);
+  const { withTimeoutFallback } = await import('@/lib/with-timeout');
+  // Never let catalogue heal block the public property page for minutes.
+  await withTimeoutFallback(
+    healPublicCatalogueListings({ propertyId }),
+    1_500,
+    undefined,
+    'property-heal',
+  );
 
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
     // Prefer public RLS; elevate only for capability-URL drafts (QR share) — P1-04.
+    await transaction.execute(sql`select set_config('statement_timeout', '6000', true)`);
     await transaction.execute(sql`select set_config('app.platform_admin', 'false', true)`);
     await transaction.execute(sql`select set_config('app.public', 'true', true)`);
 

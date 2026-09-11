@@ -41,7 +41,7 @@ function getSharedDatabase(): DbHandle {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL is required');
   if (!globalForDb.__bhdRWebDb) {
-    const { db } = createDatabase(url, { max: 1 });
+    const { db } = createDatabase(url, { max: 3 });
     globalForDb.__bhdRWebDb = { db };
   }
   return globalForDb.__bhdRWebDb;

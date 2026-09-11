@@ -16,6 +16,10 @@ import {
 import { publicApiFetch } from '@/lib/server-api';
 import { bilingualAlternates } from '@/lib/seo';
 import type { ListingCollection } from '@/lib/types';
+import { withTimeoutFallback } from '@/lib/with-timeout';
+
+/** Live Neon catalogue — never block soft-nav / static worker indefinitely. */
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({
   params,
@@ -113,7 +117,12 @@ async function loadListings(query: URLSearchParams): Promise<ListingCollection &
       if (hasParking) search.hasParking = true;
       if (amenities.length) search.amenities = amenities;
       if (q) search.q = q;
-      return await searchPublicListingsFromNeon(search);
+      return await withTimeoutFallback(
+        searchPublicListingsFromNeon(search),
+        8_000,
+        empty,
+        'properties-neon-catalogue',
+      );
     } catch (error) {
       console.error('[properties] Neon catalogue failed', error);
     }

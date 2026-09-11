@@ -31,13 +31,18 @@ function locationNameAlts(kind: 'governorate' | 'wilayat', value: string): strin
 }
 
 type DbHandle = { db: Database };
-const globalForDb = globalThis as unknown as { __bhdRPublicListingsDb?: DbHandle };
+const globalForDb = globalThis as unknown as {
+  __bhdRPublicListingsDb?: DbHandle;
+  __bhdRCatalogueHealAt?: number;
+};
+
+const CATALOGUE_HEAL_TTL_MS = 60_000;
 
 function getDatabase(): DbHandle {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL is required');
   if (!globalForDb.__bhdRPublicListingsDb) {
-    const { db } = createDatabase(url, { max: 2 });
+    const { db } = createDatabase(url, { max: 3 });
     globalForDb.__bhdRPublicListingsDb = { db };
   }
   return globalForDb.__bhdRPublicListingsDb;
@@ -148,15 +153,23 @@ export async function searchPublicListingsFromNeon(
   return db.transaction(async (transaction) => {
     await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
     await transaction.execute(sql`select set_config('app.public', 'false', true)`);
+    // Cap request-time catalogue work so soft-nav cannot hang for minutes on Neon.
+    await transaction.execute(sql`select set_config('statement_timeout', '6000', true)`);
 
-    await transaction
-      .execute(
-        sql`ALTER TABLE "units" ADD COLUMN IF NOT EXISTS "offering_modes" varchar(64) NOT NULL DEFAULT 'monthly'`,
-      )
-      .catch(() => undefined);
+    const now = Date.now();
+    const shouldHeal =
+      !globalForDb.__bhdRCatalogueHealAt ||
+      now - globalForDb.__bhdRCatalogueHealAt > CATALOGUE_HEAL_TTL_MS;
 
-    // Heal publish flags in the same privileged transaction.
-    await transaction.execute(sql`
+    if (shouldHeal) {
+      await transaction
+        .execute(
+          sql`ALTER TABLE "units" ADD COLUMN IF NOT EXISTS "offering_modes" varchar(64) NOT NULL DEFAULT 'monthly'`,
+        )
+        .catch(() => undefined);
+
+      // Heal publish flags in the same privileged transaction (throttled ≤1/min).
+      await transaction.execute(sql`
       update properties p
       set status = 'active', updated_at = now()
       from units u
@@ -164,7 +177,7 @@ export async function searchPublicListingsFromNeon(
         and u.publish_when_available = true
         and p.status = 'inactive'
     `);
-    await transaction.execute(sql`
+      await transaction.execute(sql`
       update units u
       set status = 'active', updated_at = now()
       from properties p
@@ -173,7 +186,7 @@ export async function searchPublicListingsFromNeon(
         and u.publish_when_available = true
         and u.status in ('draft', 'inactive')
     `);
-    await transaction.execute(sql`
+      await transaction.execute(sql`
       update listings l
       set
         enabled = true,
@@ -195,7 +208,7 @@ export async function searchPublicListingsFromNeon(
           )
         )
     `);
-    await transaction.execute(sql`
+      await transaction.execute(sql`
       insert into listings (id, organization_id, unit_id, slug, enabled, published_at, created_at, updated_at)
       select
         gen_random_uuid(),
@@ -233,17 +246,19 @@ export async function searchPublicListingsFromNeon(
         )
       on conflict (unit_id) do nothing
     `);
-    // Expire holds/reservations that already timed out so catalogue matches booking.
-    await transaction.execute(sql`
+      // Expire holds/reservations that already timed out so catalogue matches booking.
+      await transaction.execute(sql`
       update holds
       set status = 'expired', updated_at = now()
       where status = 'active' and expires_at <= now()
     `);
-    await transaction.execute(sql`
+      await transaction.execute(sql`
       update reservations
       set status = 'expired', updated_at = now()
       where status in ('pending', 'confirmed') and expires_at <= now()
     `);
+      globalForDb.__bhdRCatalogueHealAt = now;
+    }
 
     // Catalogue SELECT under public RLS — not platform_admin (heal/expire above used admin).
     await transaction.execute(sql`select set_config('app.platform_admin', 'false', true)`);

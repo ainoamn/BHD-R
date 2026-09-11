@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.81 — 2026-09-11
+
+- Fix multi-minute soft-nav from homepage to `/properties`, `/units/[id]`, and `/portal`: 6–8s Neon timeouts, throttled catalogue heal, larger shared DB pool, deferred marketing prefetch of heavy routes.
+
 ## 0.4.80 — 2026-09-09
 
 - Owner accounting: entry details (journal lines / stay payment), print slip, print filtered statement, CSV export; Hisaby link for full GL — not a bhd-om port.

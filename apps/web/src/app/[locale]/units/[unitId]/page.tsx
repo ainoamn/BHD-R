@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { cache } from 'react';
 import { setRequestLocale } from 'next-intl/server';
 import { PropertyDetailManager } from '@/components/property-detail-manager';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
@@ -11,12 +12,20 @@ import { toPublicMediaSrc } from '@/lib/public-media-url';
 import { ApiError, publicApiFetch } from '@/lib/server-api';
 import { bilingualAlternates, unitListingJsonLd } from '@/lib/seo';
 import { getViewer } from '@/lib/viewer';
+import { withTimeoutFallback } from '@/lib/with-timeout';
 import type { PublicUnitDetail } from '@bhd-r/contracts';
 
-async function getUnit(id: string): Promise<PublicUnitDetail | null> {
+export const dynamic = 'force-dynamic';
+
+const getUnit = cache(async (id: string): Promise<PublicUnitDetail | null> => {
   if (hasDatabaseUrl()) {
     try {
-      const neon = await loadPublicUnitFromNeon(id);
+      const neon = await withTimeoutFallback(
+        loadPublicUnitFromNeon(id),
+        6_000,
+        null,
+        'unit-neon',
+      );
       if (neon) return neon;
     } catch (error) {
       console.error('Neon public unit load failed', error);
@@ -40,7 +49,7 @@ async function getUnit(id: string): Promise<PublicUnitDetail | null> {
     console.error('Nest public unit load failed', error);
     return null;
   }
-}
+});
 
 export async function generateMetadata({
   params,
@@ -91,8 +100,13 @@ export default async function UnitPage({
 
   if (!hasDatabaseUrl()) notFound();
   const [property, viewer] = await Promise.all([
-    loadPublicPropertyShowcaseFromNeon(unit.propertyId).catch(() => null),
-    getViewer().catch(() => null),
+    withTimeoutFallback(
+      loadPublicPropertyShowcaseFromNeon(unit.propertyId),
+      8_000,
+      null,
+      'property-showcase-neon',
+    ),
+    withTimeoutFallback(getViewer(), 2_000, null, 'unit-viewer'),
   ]);
   if (!property) notFound();
 

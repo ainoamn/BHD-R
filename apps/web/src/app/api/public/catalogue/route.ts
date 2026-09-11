@@ -6,6 +6,7 @@ import {
   searchPublicListingsFromNeon,
   type PublicListingSearchInput,
 } from '@/lib/search-public-listings-neon';
+import { withTimeout } from '@/lib/with-timeout';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -110,7 +111,11 @@ export async function GET(request: Request) {
     const excludePropertyId = url.searchParams.get('excludePropertyId');
     if (excludePropertyId) search.excludePropertyId = excludePropertyId;
 
-    const payload = await searchPublicListingsFromNeon(search);
+    const payload = await withTimeout(
+      searchPublicListingsFromNeon(search),
+      8_000,
+      'public-catalogue-api',
+    );
     return NextResponse.json({
       ...payload,
       count: payload.data.length,

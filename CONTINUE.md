@@ -1,13 +1,10 @@
-# CONTINUE — 2026-09-09
+# CONTINUE — 2026-09-11
 
-**HEAD متوقع بعد الدفع:** أحدث `main` · **0.4.80**  
-**الإنتاج:** https://r.bhd-om.com/ar/owner/accounting
+**إصدار:** 0.4.81 · إصلاح بطء التنقل من الرئيسية  
+**الإنتاج:** https://r.bhd-om.com
 
-## الجديد
-تفاصيل + طباعة + كشف CSV على محاسبة المالك — [`RELEASE-0.4.80-AR.md`](./docs/implementation/RELEASE-0.4.80-AR.md)
-
-## Hisaby
-مزامنة ثنائية كما في [`HISABY-INTEGRATION-AR.md`](./docs/implementation/HISABY-INTEGRATION-AR.md) — بعد ترحيل DB.
+## اقرأ
+- [`docs/implementation/RELEASE-0.4.81-AR.md`](./docs/implementation/RELEASE-0.4.81-AR.md)
 
 ```sh
 git pull origin main

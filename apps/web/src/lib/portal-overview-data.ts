@@ -19,6 +19,7 @@ import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { requireSessionSecret } from '@/lib/runtime-env';
 import { apiFetch } from '@/lib/server-api';
 import type { PortalOverview, PortalRole, Viewer } from '@/lib/types';
+import { withTimeoutFallback } from '@/lib/with-timeout';
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdRWebDb?: DbHandle };
@@ -43,7 +44,7 @@ function getSharedDatabase(): DbHandle {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL is required');
   if (!globalForDb.__bhdRWebDb) {
-    const { db } = createDatabase(url, { max: 1 });
+    const { db } = createDatabase(url, { max: 3 });
     globalForDb.__bhdRWebDb = { db };
   }
   return globalForDb.__bhdRWebDb;
@@ -427,8 +428,20 @@ export const loadPortalOverview = cache(
       const claims = await readClaims();
       if (claims?.organizationId) {
         try {
-          if (portal === 'tenant') return await tenantOverviewFromDb(claims);
-          return await organizationOverviewFromDb(claims);
+          if (portal === 'tenant') {
+            return await withTimeoutFallback(
+              tenantOverviewFromDb(claims),
+              3_000,
+              emptyOverview(),
+              'tenant-overview-neon',
+            );
+          }
+          return await withTimeoutFallback(
+            organizationOverviewFromDb(claims),
+            3_000,
+            emptyOverview(),
+            'org-overview-neon',
+          );
         } catch {
           /* fall through to Nest / empty */
         }
