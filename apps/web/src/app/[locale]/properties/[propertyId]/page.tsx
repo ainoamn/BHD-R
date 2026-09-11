@@ -94,9 +94,9 @@ export default async function PropertyPage({
               : 'The connection took longer than usual. This is not a 404 — please retry.'}
           </p>
           <div className="ops-inline-actions">
-            <Link className="button button--primary" href={`/properties/${propertyId}`}>
+            <a className="button button--primary" href={`/${locale}/properties/${propertyId}`}>
               {ar ? 'إعادة المحاولة' : 'Retry'}
-            </Link>
+            </a>
             <Link className="button button--quiet" href="/properties">
               {ar ? 'العقارات المتاحة' : 'Available properties'}
             </Link>

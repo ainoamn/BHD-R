@@ -108,9 +108,9 @@ function TransientUnitNotice({ locale, unitId }: { locale: 'ar' | 'en'; unitId: 
             : 'The database took longer than usual. This is not a 404 — please retry in a moment.'}
         </p>
         <div className="ops-inline-actions">
-          <Link className="button button--primary" href={`/units/${unitId}`}>
+          <a className="button button--primary" href={`/${locale}/units/${unitId}`}>
             {ar ? 'إعادة المحاولة' : 'Retry'}
-          </Link>
+          </a>
           <Link className="button button--quiet" href="/properties">
             {ar ? 'العقارات المتاحة' : 'Available properties'}
           </Link>
