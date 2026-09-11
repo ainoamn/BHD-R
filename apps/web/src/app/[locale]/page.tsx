@@ -113,7 +113,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         const { searchPublicListingsFromNeon } = await import('@/lib/search-public-listings-neon');
         listings = await withTimeoutFallback(
           searchPublicListingsFromNeon({ limit: 6 }),
-          5_000,
+          8_000,
           emptyListings,
           'home-neon',
         );

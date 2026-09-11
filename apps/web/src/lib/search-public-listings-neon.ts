@@ -33,7 +33,9 @@ function locationNameAlts(kind: 'governorate' | 'wilayat', value: string): strin
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as {
   __bhdRPublicListingsDb?: DbHandle;
+  __bhdRCatalogueHealDb?: DbHandle;
   __bhdRCatalogueHealAt?: number;
+  __bhdRCatalogueHealInflight?: boolean;
 };
 
 const CATALOGUE_HEAL_TTL_MS = 60_000;
@@ -42,22 +44,31 @@ function getDatabase(): DbHandle {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL is required');
   if (!globalForDb.__bhdRPublicListingsDb) {
-    const { db } = createDatabase(url, { max: 3 });
+    const { db } = createDatabase(url, { max: 4 });
     globalForDb.__bhdRPublicListingsDb = { db };
   }
   return globalForDb.__bhdRPublicListingsDb;
 }
 
+function getHealDatabase(): DbHandle {
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error('DATABASE_URL is required');
+  if (!globalForDb.__bhdRCatalogueHealDb) {
+    // Separate pool so background heal never starves public catalogue reads.
+    const { db } = createDatabase(url, { max: 1 });
+    globalForDb.__bhdRCatalogueHealDb = { db };
+  }
+  return globalForDb.__bhdRCatalogueHealDb;
+}
+
 /**
- * Privileged catalogue maintenance — must NOT run inside the public SELECT
- * transaction under statement_timeout (that emptied /properties with 500s).
+ * Privileged catalogue maintenance — must NOT share the public read pool.
  */
 async function runCatalogueBackgroundHeal(): Promise<void> {
-  const { db } = getDatabase();
+  const { db } = getHealDatabase();
   await db.transaction(async (transaction) => {
     await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
     await transaction.execute(sql`select set_config('app.public', 'false', true)`);
-    // Heal may touch many rows; keep a generous cap separate from the read path.
     await transaction.execute(sql`select set_config('statement_timeout', '20000', true)`);
 
     await transaction
@@ -174,6 +185,7 @@ async function runCatalogueBackgroundHeal(): Promise<void> {
 
 function scheduleCatalogueHeal(): void {
   const now = Date.now();
+  if (globalForDb.__bhdRCatalogueHealInflight) return;
   if (
     globalForDb.__bhdRCatalogueHealAt &&
     now - globalForDb.__bhdRCatalogueHealAt <= CATALOGUE_HEAL_TTL_MS
@@ -181,11 +193,18 @@ function scheduleCatalogueHeal(): void {
     return;
   }
   globalForDb.__bhdRCatalogueHealAt = now;
-  void runCatalogueBackgroundHeal().catch((error) => {
-    console.error('[catalogue] background heal failed', error);
-    // Allow retry sooner if heal failed.
-    globalForDb.__bhdRCatalogueHealAt = 0;
-  });
+  globalForDb.__bhdRCatalogueHealInflight = true;
+  // Defer so the current catalogue SELECT claims a connection first.
+  setTimeout(() => {
+    void runCatalogueBackgroundHeal()
+      .catch((error) => {
+        console.error('[catalogue] background heal failed', error);
+        globalForDb.__bhdRCatalogueHealAt = 0;
+      })
+      .finally(() => {
+        globalForDb.__bhdRCatalogueHealInflight = false;
+      });
+  }, 50);
 }
 
 export type PublicListingSearchInput = {
@@ -290,15 +309,15 @@ export async function searchPublicListingsFromNeon(
   const limit = Math.min(Math.max(input.limit ?? 24, 1), 100);
   const { db } = getDatabase();
 
-  // Heal in the background so statement_timeout cannot abort the public SELECT.
+  // Heal after the read starts claiming a connection (separate pool + deferred).
   scheduleCatalogueHeal();
 
   return db.transaction(async (transaction) => {
-    await transaction.execute(sql`select set_config('app.platform_admin', 'false', true)`);
-    await transaction.execute(sql`select set_config('app.public', 'true', true)`);
-    // Read-path only — keep under the outer withTimeout (8–10s) budget.
-    await transaction.execute(sql`select set_config('statement_timeout', '7000', true)`);
-
+    // Privileged read with explicit publish filters — public RLS made the heavy
+    // catalogue SELECT routinely hit statement_timeout and empty /properties.
+    await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
+    await transaction.execute(sql`select set_config('app.public', 'false', true)`);
+    await transaction.execute(sql`select set_config('statement_timeout', '8000', true)`);
     await transaction
       .execute(
         sql`ALTER TABLE "units" ADD COLUMN IF NOT EXISTS "offering_modes" varchar(64) NOT NULL DEFAULT 'monthly'`,
@@ -492,42 +511,35 @@ export async function searchPublicListingsFromNeon(
         a.area as area,
         a.street as street,
         u.updated_at as unit_updated_at,
-        (
-          select ma.id::text
-          from unit_media um
-          join media_assets ma on ma.id = um.media_asset_id
-          where um.unit_id = u.id
-            and ma.processing_status = 'ready'
-            and ma.scan_status = 'clean'
-            and ma.mime_type like 'image/%'
-            and coalesce(ma.metadata->>'galleryScope', 'unit') <> 'building'
-          order by um.position asc
-          limit 1
-        ) as unit_cover_asset_id,
-        (
-          select ma.id::text
-          from unit_media um
-          join media_assets ma on ma.id = um.media_asset_id
-          join units bu on bu.id = um.unit_id
-          where bu.property_id = p.id
-            and ma.processing_status = 'ready'
-            and ma.scan_status = 'clean'
-            and ma.mime_type like 'image/%'
-            and ma.metadata->>'galleryScope' = 'building'
-          order by um.position asc
-          limit 1
-        ) as building_cover_asset_id,
-        (
-          select ma.id::text
-          from unit_media um
-          join media_assets ma on ma.id = um.media_asset_id
-          where um.unit_id = u.id
-            and ma.processing_status = 'ready'
-            and ma.scan_status = 'clean'
-            and ma.mime_type like 'image/%'
-          order by um.position asc
-          limit 1
+        coalesce(
+          (
+            select ma.id::text
+            from unit_media um
+            join media_assets ma on ma.id = um.media_asset_id
+            where um.unit_id = u.id
+              and ma.processing_status = 'ready'
+              and ma.scan_status = 'clean'
+              and ma.mime_type like 'image/%'
+              and coalesce(ma.metadata->>'galleryScope', 'unit') <> 'building'
+            order by um.position asc
+            limit 1
+          ),
+          (
+            select ma.id::text
+            from unit_media um
+            join media_assets ma on ma.id = um.media_asset_id
+            join units bu on bu.id = um.unit_id
+            where bu.property_id = p.id
+              and ma.processing_status = 'ready'
+              and ma.scan_status = 'clean'
+              and ma.mime_type like 'image/%'
+              and ma.metadata->>'galleryScope' = 'building'
+            order by um.position asc
+            limit 1
+          )
         ) as cover_asset_id,
+        null::text as unit_cover_asset_id,
+        null::text as building_cover_asset_id,
         case
           when exists (
             select 1 from sales_deals sd
@@ -561,20 +573,8 @@ export async function searchPublicListingsFromNeon(
         pp.notes as maps_note,
         p.organization_id::text as organization_id,
         p.owner_party_id::text as owner_party_id,
-        (
-          select avg(r.rating)::float
-          from reviews r
-          where r.target_type = 'property'
-            and r.target_id = p.id
-            and r.status = 'published'
-        ) as avg_rating,
-        (
-          select count(*)::int
-          from reviews r
-          where r.target_type = 'property'
-            and r.target_id = p.id
-            and r.status = 'published'
-        ) as review_count
+        null::float as avg_rating,
+        0::int as review_count
       from units u
       join properties p on p.id = u.property_id
       join addresses a on a.id = p.address_id

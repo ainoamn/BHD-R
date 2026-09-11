@@ -117,7 +117,7 @@ export async function GET(request: Request) {
     };
     const payload = await withTimeoutFallback(
       searchPublicListingsFromNeon(search),
-      10_000,
+      12_000,
       empty,
       'public-catalogue-api',
     );

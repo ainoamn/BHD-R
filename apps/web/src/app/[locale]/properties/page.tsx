@@ -118,7 +118,7 @@ async function loadListings(query: URLSearchParams): Promise<ListingCollection &
       if (q) search.q = q;
       return await withTimeoutFallback(
         searchPublicListingsFromNeon(search),
-        6_000,
+        10_000,
         empty,
         'properties-neon-catalogue',
       );
