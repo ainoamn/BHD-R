@@ -48,6 +48,146 @@ function getDatabase(): DbHandle {
   return globalForDb.__bhdRPublicListingsDb;
 }
 
+/**
+ * Privileged catalogue maintenance — must NOT run inside the public SELECT
+ * transaction under statement_timeout (that emptied /properties with 500s).
+ */
+async function runCatalogueBackgroundHeal(): Promise<void> {
+  const { db } = getDatabase();
+  await db.transaction(async (transaction) => {
+    await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
+    await transaction.execute(sql`select set_config('app.public', 'false', true)`);
+    // Heal may touch many rows; keep a generous cap separate from the read path.
+    await transaction.execute(sql`select set_config('statement_timeout', '20000', true)`);
+
+    await transaction
+      .execute(
+        sql`ALTER TABLE "units" ADD COLUMN IF NOT EXISTS "offering_modes" varchar(64) NOT NULL DEFAULT 'monthly'`,
+      )
+      .catch(() => undefined);
+
+    await transaction.execute(sql`
+      update properties p
+      set status = 'active', updated_at = now()
+      from units u
+      where u.property_id = p.id
+        and u.publish_when_available = true
+        and p.status = 'inactive'
+    `);
+    await transaction.execute(sql`
+      update units u
+      set status = 'active', updated_at = now()
+      from properties p
+      where u.property_id = p.id
+        and p.status = 'active'
+        and u.publish_when_available = true
+        and u.status in ('draft', 'inactive')
+    `);
+    await transaction.execute(sql`
+      update listings l
+      set
+        enabled = true,
+        published_at = coalesce(l.published_at, now()),
+        updated_at = now()
+      from units u
+      join properties p on p.id = u.property_id
+      where l.unit_id = u.id
+        and p.status = 'active'
+        and u.publish_when_available = true
+        and (l.enabled = false or l.published_at is null)
+        and not (
+          coalesce(nullif(u.offering_modes, ''), 'monthly') = 'daily'
+          or (
+            position('daily' in coalesce(u.offering_modes, 'monthly')) > 0
+            and position('monthly' in coalesce(u.offering_modes, 'monthly')) = 0
+            and position('yearly' in coalesce(u.offering_modes, 'monthly')) = 0
+            and position('sale' in coalesce(u.offering_modes, 'monthly')) = 0
+          )
+        )
+    `);
+    await transaction.execute(sql`
+      insert into listings (id, organization_id, unit_id, slug, enabled, published_at, created_at, updated_at)
+      select
+        gen_random_uuid(),
+        u.organization_id,
+        u.id,
+        lower(
+          regexp_replace(
+            coalesce(nullif(p.name_en, ''), 'unit')
+              || '-'
+              || coalesce(nullif(u.code, ''), 'u')
+              || '-'
+              || replace(u.id::text, '-', ''),
+            '[^a-z0-9]+',
+            '-',
+            'g'
+          )
+        ),
+        true,
+        now(),
+        now(),
+        now()
+      from units u
+      join properties p on p.id = u.property_id
+      where u.publish_when_available = true
+        and p.status = 'active'
+        and not exists (select 1 from listings l where l.unit_id = u.id)
+        and not (
+          coalesce(nullif(u.offering_modes, ''), 'monthly') = 'daily'
+          or (
+            position('daily' in coalesce(u.offering_modes, 'monthly')) > 0
+            and position('monthly' in coalesce(u.offering_modes, 'monthly')) = 0
+            and position('yearly' in coalesce(u.offering_modes, 'monthly')) = 0
+            and position('sale' in coalesce(u.offering_modes, 'monthly')) = 0
+          )
+        )
+      on conflict (unit_id) do nothing
+    `);
+    await transaction.execute(sql`
+      update holds
+      set status = 'expired', updated_at = now()
+      where status = 'active' and expires_at <= now()
+    `);
+    await transaction.execute(sql`
+      update reservations
+      set status = 'expired', updated_at = now()
+      where status in ('pending', 'confirmed') and expires_at <= now()
+    `);
+    await transaction.execute(sql`
+      update listings l
+      set enabled = false, published_at = null, updated_at = now()
+      from units u
+      where l.unit_id = u.id
+        and (
+          coalesce(nullif(u.offering_modes, ''), 'monthly') = 'daily'
+          or (
+            position('daily' in coalesce(u.offering_modes, 'monthly')) > 0
+            and position('monthly' in coalesce(u.offering_modes, 'monthly')) = 0
+            and position('yearly' in coalesce(u.offering_modes, 'monthly')) = 0
+            and position('sale' in coalesce(u.offering_modes, 'monthly')) = 0
+          )
+        )
+        and l.enabled = true
+    `);
+  });
+}
+
+function scheduleCatalogueHeal(): void {
+  const now = Date.now();
+  if (
+    globalForDb.__bhdRCatalogueHealAt &&
+    now - globalForDb.__bhdRCatalogueHealAt <= CATALOGUE_HEAL_TTL_MS
+  ) {
+    return;
+  }
+  globalForDb.__bhdRCatalogueHealAt = now;
+  void runCatalogueBackgroundHeal().catch((error) => {
+    console.error('[catalogue] background heal failed', error);
+    // Allow retry sooner if heal failed.
+    globalForDb.__bhdRCatalogueHealAt = 0;
+  });
+}
+
 export type PublicListingSearchInput = {
   countryCode?: string;
   governorate?: string;
@@ -150,119 +290,20 @@ export async function searchPublicListingsFromNeon(
   const limit = Math.min(Math.max(input.limit ?? 24, 1), 100);
   const { db } = getDatabase();
 
+  // Heal in the background so statement_timeout cannot abort the public SELECT.
+  scheduleCatalogueHeal();
+
   return db.transaction(async (transaction) => {
-    await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
-    await transaction.execute(sql`select set_config('app.public', 'false', true)`);
-    // Cap request-time catalogue work so soft-nav cannot hang for minutes on Neon.
-    await transaction.execute(sql`select set_config('statement_timeout', '6000', true)`);
-
-    const now = Date.now();
-    const shouldHeal =
-      !globalForDb.__bhdRCatalogueHealAt ||
-      now - globalForDb.__bhdRCatalogueHealAt > CATALOGUE_HEAL_TTL_MS;
-
-    if (shouldHeal) {
-      await transaction
-        .execute(
-          sql`ALTER TABLE "units" ADD COLUMN IF NOT EXISTS "offering_modes" varchar(64) NOT NULL DEFAULT 'monthly'`,
-        )
-        .catch(() => undefined);
-
-      // Heal publish flags in the same privileged transaction (throttled ≤1/min).
-      await transaction.execute(sql`
-      update properties p
-      set status = 'active', updated_at = now()
-      from units u
-      where u.property_id = p.id
-        and u.publish_when_available = true
-        and p.status = 'inactive'
-    `);
-      await transaction.execute(sql`
-      update units u
-      set status = 'active', updated_at = now()
-      from properties p
-      where u.property_id = p.id
-        and p.status = 'active'
-        and u.publish_when_available = true
-        and u.status in ('draft', 'inactive')
-    `);
-      await transaction.execute(sql`
-      update listings l
-      set
-        enabled = true,
-        published_at = coalesce(l.published_at, now()),
-        updated_at = now()
-      from units u
-      join properties p on p.id = u.property_id
-      where l.unit_id = u.id
-        and p.status = 'active'
-        and u.publish_when_available = true
-        and (l.enabled = false or l.published_at is null)
-        and not (
-          coalesce(nullif(u.offering_modes, ''), 'monthly') = 'daily'
-          or (
-            position('daily' in coalesce(u.offering_modes, 'monthly')) > 0
-            and position('monthly' in coalesce(u.offering_modes, 'monthly')) = 0
-            and position('yearly' in coalesce(u.offering_modes, 'monthly')) = 0
-            and position('sale' in coalesce(u.offering_modes, 'monthly')) = 0
-          )
-        )
-    `);
-      await transaction.execute(sql`
-      insert into listings (id, organization_id, unit_id, slug, enabled, published_at, created_at, updated_at)
-      select
-        gen_random_uuid(),
-        u.organization_id,
-        u.id,
-        lower(
-          regexp_replace(
-            coalesce(nullif(p.name_en, ''), 'unit')
-              || '-'
-              || coalesce(nullif(u.code, ''), 'u')
-              || '-'
-              || replace(u.id::text, '-', ''),
-            '[^a-z0-9]+',
-            '-',
-            'g'
-          )
-        ),
-        true,
-        now(),
-        now(),
-        now()
-      from units u
-      join properties p on p.id = u.property_id
-      where u.publish_when_available = true
-        and p.status = 'active'
-        and not exists (select 1 from listings l where l.unit_id = u.id)
-        and not (
-          coalesce(nullif(u.offering_modes, ''), 'monthly') = 'daily'
-          or (
-            position('daily' in coalesce(u.offering_modes, 'monthly')) > 0
-            and position('monthly' in coalesce(u.offering_modes, 'monthly')) = 0
-            and position('yearly' in coalesce(u.offering_modes, 'monthly')) = 0
-            and position('sale' in coalesce(u.offering_modes, 'monthly')) = 0
-          )
-        )
-      on conflict (unit_id) do nothing
-    `);
-      // Expire holds/reservations that already timed out so catalogue matches booking.
-      await transaction.execute(sql`
-      update holds
-      set status = 'expired', updated_at = now()
-      where status = 'active' and expires_at <= now()
-    `);
-      await transaction.execute(sql`
-      update reservations
-      set status = 'expired', updated_at = now()
-      where status in ('pending', 'confirmed') and expires_at <= now()
-    `);
-      globalForDb.__bhdRCatalogueHealAt = now;
-    }
-
-    // Catalogue SELECT under public RLS — not platform_admin (heal/expire above used admin).
     await transaction.execute(sql`select set_config('app.platform_admin', 'false', true)`);
     await transaction.execute(sql`select set_config('app.public', 'true', true)`);
+    // Read-path only — keep under the outer withTimeout (8–10s) budget.
+    await transaction.execute(sql`select set_config('statement_timeout', '7000', true)`);
+
+    await transaction
+      .execute(
+        sql`ALTER TABLE "units" ADD COLUMN IF NOT EXISTS "offering_modes" varchar(64) NOT NULL DEFAULT 'monthly'`,
+      )
+      .catch(() => undefined);
 
     const country = input.countryCode?.trim().toUpperCase() || null;
     const countryAlt = country === 'OM' ? 'OMN' : country === 'OMN' ? 'OM' : country;
@@ -413,12 +454,6 @@ export async function searchPublicListingsFromNeon(
       : sql``;
 
     // Daily-only units belong on /stays, not the long-term /properties catalogue.
-    await transaction
-      .execute(
-        sql`ALTER TABLE "units" ADD COLUMN IF NOT EXISTS "offering_modes" varchar(64) NOT NULL DEFAULT 'monthly'`,
-      )
-      .catch(() => undefined);
-
     const dailyOnlyClause = sql`and not (
       coalesce(nullif(u.offering_modes, ''), 'monthly') = 'daily'
       or (
@@ -428,24 +463,6 @@ export async function searchPublicListingsFromNeon(
         and position('sale' in coalesce(u.offering_modes, 'monthly')) = 0
       )
     )`;
-
-    // Also unpublish any long-term listings that became daily-only.
-    await transaction.execute(sql`
-      update listings l
-      set enabled = false, published_at = null, updated_at = now()
-      from units u
-      where l.unit_id = u.id
-        and (
-          coalesce(nullif(u.offering_modes, ''), 'monthly') = 'daily'
-          or (
-            position('daily' in coalesce(u.offering_modes, 'monthly')) > 0
-            and position('monthly' in coalesce(u.offering_modes, 'monthly')) = 0
-            and position('yearly' in coalesce(u.offering_modes, 'monthly')) = 0
-            and position('sale' in coalesce(u.offering_modes, 'monthly')) = 0
-          )
-        )
-        and l.enabled = true
-    `);
 
     const result = await transaction.execute(sql`
       select

@@ -6,7 +6,7 @@ import {
   searchPublicListingsFromNeon,
   type PublicListingSearchInput,
 } from '@/lib/search-public-listings-neon';
-import { withTimeout } from '@/lib/with-timeout';
+import { withTimeoutFallback } from '@/lib/with-timeout';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -111,14 +111,21 @@ export async function GET(request: Request) {
     const excludePropertyId = url.searchParams.get('excludePropertyId');
     if (excludePropertyId) search.excludePropertyId = excludePropertyId;
 
-    const payload = await withTimeout(
+    const empty = {
+      data: [] as Awaited<ReturnType<typeof searchPublicListingsFromNeon>>['data'],
+      pagination: { nextCursor: null as string | null, hasMore: false },
+    };
+    const payload = await withTimeoutFallback(
       searchPublicListingsFromNeon(search),
-      8_000,
+      10_000,
+      empty,
       'public-catalogue-api',
     );
+    const timedOut = payload.data.length === 0 && empty === payload;
     return NextResponse.json({
       ...payload,
       count: payload.data.length,
+      ...(timedOut ? { error: 'catalogue_timeout' } : {}),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'catalogue_failed';
@@ -128,9 +135,10 @@ export async function GET(request: Request) {
         pagination: { nextCursor: null, hasMore: false },
         count: 0,
         error: 'catalogue_failed',
-        ...(debug && process.env.NODE_ENV !== 'production' ? { detail: message } : {}),
+        ...(debug ? { detail: message } : {}),
       },
-      { status: 500 },
+      // Soft-fail: browse UI treats non-OK as empty; keep 200 when possible via timeout fallback.
+      { status: 503 },
     );
   }
 }
