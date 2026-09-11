@@ -19,6 +19,6 @@
   },
   "dependencies": {
     "@bhd-r/contracts": "workspace:*",
-    "zod": "^4.1.13"
+    "zod": "^4.5.4"
   }
 }
