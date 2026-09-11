@@ -3,34 +3,36 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import { setRequestLocale } from 'next-intl/server';
+import { Link } from '@/i18n/navigation';
 import { PropertyDetailManager } from '@/components/property-detail-manager';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { localizedName } from '@/lib/format';
 import { loadPublicPropertyShowcaseFromNeon } from '@/lib/load-public-property-neon';
 import { loadPublicUnitFromNeon } from '@/lib/load-public-unit-neon';
+import { managedPropertyFromPublicUnit } from '@/lib/managed-property-from-unit';
 import { toPublicMediaSrc } from '@/lib/public-media-url';
 import { ApiError, publicApiFetch } from '@/lib/server-api';
 import { bilingualAlternates, unitListingJsonLd } from '@/lib/seo';
 import { getViewer } from '@/lib/viewer';
-import { withTimeoutFallback } from '@/lib/with-timeout';
+import { withTimedResult } from '@/lib/with-timeout';
 import type { PublicUnitDetail } from '@bhd-r/contracts';
 
 export const dynamic = 'force-dynamic';
 
-const getUnit = cache(async (id: string): Promise<PublicUnitDetail | null> => {
+type UnitLookup =
+  | { kind: 'found'; unit: PublicUnitDetail }
+  | { kind: 'missing' }
+  | { kind: 'transient' };
+
+const getUnit = cache(async (id: string): Promise<UnitLookup> => {
+  let neonConfirmedMissing = false;
+
   if (hasDatabaseUrl()) {
-    try {
-      const neon = await withTimeoutFallback(
-        loadPublicUnitFromNeon(id),
-        6_000,
-        null,
-        'unit-neon',
-      );
-      if (neon) return neon;
-    } catch (error) {
-      console.error('Neon public unit load failed', error);
-    }
+    const neon = await withTimedResult(loadPublicUnitFromNeon(id), 5_000, 'unit-neon');
+    if (neon.status === 'ok' && neon.value) return { kind: 'found', unit: neon.value };
+    if (neon.status === 'ok' && neon.value === null) neonConfirmedMissing = true;
   }
+
   try {
     const nest = await publicApiFetch<PublicUnitDetail>(
       `/v1/public/units/${encodeURIComponent(id)}`,
@@ -38,16 +40,23 @@ const getUnit = cache(async (id: string): Promise<PublicUnitDetail | null> => {
       [`public-listings`, `unit:${id}`],
     );
     return {
-      ...nest,
-      images: nest.images.map((image) => ({
-        ...image,
-        url: toPublicMediaSrc(image.url) ?? image.url,
-      })),
+      kind: 'found',
+      unit: {
+        ...nest,
+        images: nest.images.map((image) => ({
+          ...image,
+          url: toPublicMediaSrc(image.url) ?? image.url,
+        })),
+      },
     };
   } catch (error) {
-    if (error instanceof ApiError && (error.status === 404 || error.status === 410)) return null;
+    if (error instanceof ApiError && (error.status === 404 || error.status === 410)) {
+      // Only treat Nest 404 as real removal when Neon also confirmed empty (or no DB).
+      if (neonConfirmedMissing || !hasDatabaseUrl()) return { kind: 'missing' };
+      return { kind: 'transient' };
+    }
     console.error('Nest public unit load failed', error);
-    return null;
+    return neonConfirmedMissing ? { kind: 'missing' } : { kind: 'transient' };
   }
 });
 
@@ -57,14 +66,15 @@ export async function generateMetadata({
   params: Promise<{ locale: string; unitId: string }>;
 }): Promise<Metadata> {
   const { locale, unitId } = await params;
-  const unit = await getUnit(unitId).catch(() => null);
-  if (!unit)
+  const lookup = await getUnit(unitId).catch(() => ({ kind: 'transient' as const }));
+  if (lookup.kind !== 'found')
     return {
       title: locale === 'ar' ? 'الوحدة غير متاحة' : 'Unit unavailable',
       robots: { index: false, follow: false },
       openGraph: { images: [] },
       twitter: { images: [] },
     };
+  const unit = lookup.unit;
   const title = `${localizedName(locale, unit.propertyNameAr, unit.propertyNameEn)} — ${localizedName(locale, unit.unitNameAr, unit.unitNameEn)}`;
   const description =
     localizedName(locale, unit.descriptionAr ?? '', unit.descriptionEn ?? '') ||
@@ -85,6 +95,31 @@ export async function generateMetadata({
   };
 }
 
+function TransientUnitNotice({ locale, unitId }: { locale: 'ar' | 'en'; unitId: string }) {
+  const ar = locale === 'ar';
+  return (
+    <main className="section">
+      <div className="container legal-content">
+        <span className="eyebrow">{ar ? 'جاري التحميل' : 'Loading'}</span>
+        <h1>{ar ? 'تعذّر تحميل الوحدة مؤقتاً' : 'Unit temporarily unavailable'}</h1>
+        <p>
+          {ar
+            ? 'الاتصال بقاعدة البيانات استغرق وقتاً أطول من المعتاد. هذه ليست صفحة 404 — أعد المحاولة خلال لحظات.'
+            : 'The database took longer than usual. This is not a 404 — please retry in a moment.'}
+        </p>
+        <div className="ops-inline-actions">
+          <Link className="button button--primary" href={`/units/${unitId}`}>
+            {ar ? 'إعادة المحاولة' : 'Retry'}
+          </Link>
+          <Link className="button button--quiet" href="/properties">
+            {ar ? 'العقارات المتاحة' : 'Available properties'}
+          </Link>
+        </div>
+      </div>
+    </main>
+  );
+}
+
 /** Public unit URL — same Property 360 marketing layout as owner/admin preview. */
 export default async function UnitPage({
   params,
@@ -95,20 +130,44 @@ export default async function UnitPage({
   const locale = rawLocale === 'en' ? 'en' : 'ar';
   setRequestLocale(locale);
 
-  const unit = await getUnit(unitId);
-  if (!unit) notFound();
+  const lookup = await getUnit(unitId);
+  if (lookup.kind === 'missing') notFound();
+  if (lookup.kind === 'transient') return <TransientUnitNotice locale={locale} unitId={unitId} />;
 
-  if (!hasDatabaseUrl()) notFound();
-  const [property, viewer] = await Promise.all([
-    withTimeoutFallback(
+  const unit = lookup.unit;
+  if (!hasDatabaseUrl()) {
+    // Still show Nest-backed unit without showcase when DB URL is absent.
+    const property = managedPropertyFromPublicUnit(unit);
+    return (
+      <main className="section">
+        <div className="container">
+          <PropertyDetailManager
+            property={property}
+            locale={locale}
+            portal="owner"
+            variant="public"
+            focusUnitId={unit.unitId}
+            signedIn={false}
+          />
+        </div>
+      </main>
+    );
+  }
+
+  const [showcaseResult, viewer] = await Promise.all([
+    withTimedResult(
       loadPublicPropertyShowcaseFromNeon(unit.propertyId),
-      8_000,
-      null,
+      7_000,
       'property-showcase-neon',
     ),
-    withTimeoutFallback(getViewer(), 2_000, null, 'unit-viewer'),
+    withTimedResult(getViewer(), 2_000, 'unit-viewer'),
   ]);
-  if (!property) notFound();
+
+  const property =
+    showcaseResult.status === 'ok' && showcaseResult.value
+      ? showcaseResult.value
+      : managedPropertyFromPublicUnit(unit);
+  const showcaseDegraded = !(showcaseResult.status === 'ok' && showcaseResult.value);
 
   const title = `${localizedName(locale, unit.propertyNameAr, unit.propertyNameEn)} — ${localizedName(locale, unit.unitNameAr, unit.unitNameEn)}`;
   const description = localizedName(locale, unit.descriptionAr ?? '', unit.descriptionEn ?? '');
@@ -129,13 +188,20 @@ export default async function UnitPage({
       ) : null}
       <main className="section">
         <div className="container">
+          {showcaseDegraded ? (
+            <p className="notice" role="status">
+              {locale === 'ar'
+                ? 'عُرضت تفاصيل الوحدة بسرعة. بعض بيانات المبنى قد تكتمل عند إعادة التحميل.'
+                : 'Showing unit details quickly. Full building data may complete on refresh.'}
+            </p>
+          ) : null}
           <PropertyDetailManager
             property={property}
             locale={locale}
             portal="owner"
             variant="public"
             focusUnitId={unit.unitId}
-            signedIn={Boolean(viewer)}
+            signedIn={viewer.status === 'ok' ? Boolean(viewer.value) : false}
           />
         </div>
       </main>

@@ -12264,3 +12264,54 @@ body:has(.stay-esign-shell) {
   object-fit: contain;
   background: #fff;
 }
+
+/* Public route skeletons — replace blank white main while RSC loads */
+.route-skeleton {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem 0 2.5rem;
+}
+.route-skeleton__hero {
+  min-height: min(42vh, 22rem);
+  border-radius: 1rem;
+  background: linear-gradient(110deg, #e8efe9 25%, #f4f7f4 40%, #e8efe9 55%);
+  background-size: 200% 100%;
+  animation: route-skeleton-shimmer 1.2s ease-in-out infinite;
+}
+.route-skeleton__line {
+  height: 0.85rem;
+  width: 72%;
+  border-radius: 999px;
+  background: #e4ebe5;
+}
+.route-skeleton__line--lg {
+  height: 1.35rem;
+  width: 55%;
+}
+.route-skeleton__line--sm {
+  width: 40%;
+}
+.route-skeleton__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+.route-skeleton__card {
+  min-height: 5.5rem;
+  border-radius: 0.85rem;
+  background: #e8efe9;
+}
+.route-skeleton__label {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+}
+@keyframes route-skeleton-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+@media (max-width: 720px) {
+  .route-skeleton__grid {
+    grid-template-columns: 1fr;
+  }
+}

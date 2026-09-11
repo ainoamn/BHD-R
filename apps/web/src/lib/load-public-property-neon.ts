@@ -64,14 +64,8 @@ export async function loadPublicPropertyShowcaseFromNeon(
 ): Promise<ManagedProperty | null> {
   if (!/^[0-9a-f-]{36}$/i.test(propertyId)) return null;
   const { healPublicCatalogueListings } = await import('@/lib/heal-public-listings');
-  const { withTimeoutFallback } = await import('@/lib/with-timeout');
-  // Never let catalogue heal block the public property page for minutes.
-  await withTimeoutFallback(
-    healPublicCatalogueListings({ propertyId }),
-    1_500,
-    undefined,
-    'property-heal',
-  );
+  // Fire-and-forget — never block the public property/unit page on catalogue heal.
+  void healPublicCatalogueListings({ propertyId }).catch(() => undefined);
 
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {

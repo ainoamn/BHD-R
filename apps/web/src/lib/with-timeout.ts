@@ -28,3 +28,23 @@ export async function withTimeoutFallback<T>(
     return fallback;
   }
 }
+
+export type TimedResult<T> =
+  | { status: 'ok'; value: T }
+  | { status: 'timeout' }
+  | { status: 'error'; error: unknown };
+
+/** Distinguish timeout vs error vs success — callers must not treat timeout as "missing". */
+export async function withTimedResult<T>(
+  promise: Promise<T>,
+  ms: number,
+  label = 'operation',
+): Promise<TimedResult<T>> {
+  try {
+    return { status: 'ok', value: await withTimeout(promise, ms, label) };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    if (message.includes('timeout after')) return { status: 'timeout' };
+    return { status: 'error', error };
+  }
+}

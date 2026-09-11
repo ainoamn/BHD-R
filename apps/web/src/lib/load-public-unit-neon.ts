@@ -30,6 +30,7 @@ export async function loadPublicUnitFromNeon(unitId: string): Promise<PublicUnit
   if (!/^[0-9a-f-]{36}$/i.test(unitId)) return null;
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
+    await transaction.execute(sql`select set_config('statement_timeout', '5000', true)`);
     await transaction.execute(sql`select set_config('app.public', 'true', true)`);
     await transaction.execute(sql`select set_config('app.platform_admin', 'false', true)`);
 

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
+import { Link } from '@/i18n/navigation';
 import { PropertyDetailManager } from '@/components/property-detail-manager';
 import { PropertyDiscoveryRails } from '@/components/property-discovery-rails';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
@@ -9,6 +10,7 @@ import { buildAiTags, loadPropertyDiscoveryRails } from '@/lib/property-discover
 import { bilingualAlternates } from '@/lib/seo';
 import { localizedName } from '@/lib/format';
 import { getViewer } from '@/lib/viewer';
+import { withTimedResult } from '@/lib/with-timeout';
 
 export async function generateMetadata({
   params,
@@ -22,7 +24,12 @@ export async function generateMetadata({
       robots: { index: false, follow: false },
     };
   }
-  const property = await loadPublicPropertyShowcaseFromNeon(propertyId).catch(() => null);
+  const result = await withTimedResult(
+    loadPublicPropertyShowcaseFromNeon(propertyId),
+    7_000,
+    'property-meta-neon',
+  );
+  const property = result.status === 'ok' ? result.value : null;
   if (!property) {
     return {
       title: locale === 'ar' ? 'العقار غير متاح' : 'Property unavailable',
@@ -61,13 +68,46 @@ export default async function PropertyPage({
   const query = searchParams ? await searchParams : {};
   const locale = rawLocale === 'en' ? 'en' : 'ar';
   setRequestLocale(locale);
+  const ar = locale === 'ar';
 
   if (!hasDatabaseUrl()) notFound();
-  const [property, viewer] = await Promise.all([
-    loadPublicPropertyShowcaseFromNeon(propertyId).catch(() => null),
-    getViewer().catch(() => null),
+
+  const [showcaseResult, viewerResult] = await Promise.all([
+    withTimedResult(
+      loadPublicPropertyShowcaseFromNeon(propertyId),
+      7_000,
+      'property-showcase-neon',
+    ),
+    withTimedResult(getViewer(), 2_000, 'property-viewer'),
   ]);
-  if (!property) notFound();
+
+  if (showcaseResult.status === 'ok' && showcaseResult.value === null) notFound();
+  if (showcaseResult.status !== 'ok' || !showcaseResult.value) {
+    return (
+      <main className="section">
+        <div className="container legal-content">
+          <span className="eyebrow">{ar ? 'جاري التحميل' : 'Loading'}</span>
+          <h1>{ar ? 'تعذّر تحميل العقار مؤقتاً' : 'Property temporarily unavailable'}</h1>
+          <p>
+            {ar
+              ? 'الاتصال استغرق وقتاً أطول من المعتاد. هذه ليست صفحة 404 — أعد المحاولة.'
+              : 'The connection took longer than usual. This is not a 404 — please retry.'}
+          </p>
+          <div className="ops-inline-actions">
+            <Link className="button button--primary" href={`/properties/${propertyId}`}>
+              {ar ? 'إعادة المحاولة' : 'Retry'}
+            </Link>
+            <Link className="button button--quiet" href="/properties">
+              {ar ? 'العقارات المتاحة' : 'Available properties'}
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  const property = showcaseResult.value;
+  const viewer = viewerResult.status === 'ok' ? viewerResult.value : null;
 
   const focusUnitId =
     typeof query.unit === 'string' &&
@@ -75,11 +115,15 @@ export default async function PropertyPage({
       ? property.units.find((unit) => unit.id === query.unit || unit.code === query.unit)?.id
       : undefined;
 
-  const discovery = await loadPropertyDiscoveryRails(property).catch(() => ({
-    similar: [],
-    recommended: [],
-    topRated: [],
-  }));
+  const discovery = await withTimedResult(
+    loadPropertyDiscoveryRails(property),
+    4_000,
+    'property-discovery',
+  );
+  const rails =
+    discovery.status === 'ok'
+      ? discovery.value
+      : { similar: [], recommended: [], topRated: [] };
   const aiTags = buildAiTags(property);
 
   return (
@@ -96,9 +140,9 @@ export default async function PropertyPage({
         <PropertyDiscoveryRails
           locale={locale}
           aiTags={aiTags}
-          similar={discovery.similar}
-          recommended={discovery.recommended}
-          topRated={discovery.topRated}
+          similar={rails.similar}
+          recommended={rails.recommended}
+          topRated={rails.topRated}
         />
       </div>
     </main>
