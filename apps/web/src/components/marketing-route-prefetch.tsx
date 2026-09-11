@@ -3,7 +3,11 @@
 import { usePathname, useRouter } from '@/i18n/navigation';
 import { useEffect, useRef } from 'react';
 
-/** Light public shells — prefetch after idle; heavy catalogue routes deferred. */
+/**
+ * Background warm for a seamless public experience:
+ * paint the current page first, then prefetch the rest so header hops feel in-place.
+ * Heavy catalogue routes start after a short idle — Neon reads are capped (0.4.81+).
+ */
 const MARKETING_SHELLS_FAST = ['/', '/trust', '/privacy', '/terms', '/accessibility'] as const;
 const MARKETING_SHELLS_HEAVY = ['/properties', '/portal'] as const;
 
@@ -20,9 +24,8 @@ function delay(ms: number): Promise<void> {
 }
 
 /**
- * Same idea as the owner portal warm: on first public visit, prefetch marketing
- * route shells (+ a few listing detail URLs from a light catalogue JSON) so
- * header navigation feels already loaded without a data/bandwidth storm.
+ * On first public visit: prefetch marketing shells + a few listing detail URLs
+ * so navigation feels like the same page (no full reload sensation).
  */
 export function MarketingRoutePrefetch() {
   const pathname = usePathname();
@@ -43,11 +46,10 @@ export function MarketingRoutePrefetch() {
         } catch {
           /* ignore */
         }
-        await delay(70);
+        await delay(50);
       }
-      // Defer catalogue/portal RSC until the main thread is idle — avoids starting
-      // uncapped Neon work during the first paint of the homepage.
-      await delay(1_200);
+      // Brief yield so first paint wins, then warm catalogue/portal in background.
+      await delay(300);
       for (const href of MARKETING_SHELLS_HEAVY) {
         if (cancelled) return;
         try {
@@ -55,14 +57,14 @@ export function MarketingRoutePrefetch() {
         } catch {
           /* ignore */
         }
-        await delay(200);
+        await delay(120);
       }
     };
 
     const warmListingDetails = async () => {
-      await delay(2_000);
+      await delay(600);
       try {
-        const response = await fetch('/api/public/catalogue?limit=8', {
+        const response = await fetch('/api/public/catalogue?limit=12', {
           credentials: 'same-origin',
           cache: 'force-cache',
           headers: { accept: 'application/json' },
@@ -73,7 +75,7 @@ export function MarketingRoutePrefetch() {
           data?: Array<{ id?: string; unitId?: string; propertyId?: string }>;
         };
         const rows = Array.isArray(body.data) ? body.data : [];
-        for (const row of rows.slice(0, 4)) {
+        for (const row of rows.slice(0, 8)) {
           if (cancelled) return;
           const href = row.propertyId
             ? `/properties/${row.propertyId}`
@@ -86,7 +88,7 @@ export function MarketingRoutePrefetch() {
           } catch {
             /* ignore */
           }
-          await delay(150);
+          await delay(100);
         }
       } catch {
         /* catalogue warm is best-effort */
