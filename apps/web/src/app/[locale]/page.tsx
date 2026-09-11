@@ -8,9 +8,8 @@ import { HomeSearchTabs } from '@/components/stays/home-search-tabs';
 import { StaySearch } from '@/components/stays/stay-search';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
-import { publicApiFetch } from '@/lib/server-api';
 import { getShellViewer } from '@/lib/viewer';
-import { withTimeout } from '@/lib/with-timeout';
+import { withTimeoutFallback } from '@/lib/with-timeout';
 import type { ListingCollection } from '@/lib/types';
 
 const homeCopy = {
@@ -96,36 +95,37 @@ const homeCopy = {
 } as const;
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 20;
 
 export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations();
   const copy = homeCopy[locale === 'en' ? 'en' : 'ar'];
-  const viewer = await getShellViewer().catch(() => null);
+  const emptyListings = { data: [], pagination: { nextCursor: null, hasMore: false } };
+  let listings = emptyListings as ListingCollection;
+
+  const [viewer] = await Promise.all([
+    getShellViewer().catch(() => null),
+    (async () => {
+      if (!hasDatabaseUrl()) return;
+      try {
+        const { searchPublicListingsFromNeon } = await import('@/lib/search-public-listings-neon');
+        listings = await withTimeoutFallback(
+          searchPublicListingsFromNeon({ limit: 6 }),
+          5_000,
+          emptyListings,
+          'home-neon',
+        );
+      } catch {
+        listings = emptyListings;
+      }
+    })(),
+  ]);
   const signedIn = Boolean(viewer);
   const workspaceHref = `/${locale}/portal`;
   const signInHref = `/api/auth/bhd/start?returnTo=${encodeURIComponent(workspaceHref)}`;
-  const emptyListings = { data: [], pagination: { nextCursor: null, hasMore: false } };
-  let listings = emptyListings as ListingCollection;
-  let neonOk = false;
-  if (hasDatabaseUrl()) {
-    try {
-      const { searchPublicListingsFromNeon } = await import('@/lib/search-public-listings-neon');
-      // Neon pool contention during `next build` can hang past the 60s static worker limit.
-      listings = await withTimeout(searchPublicListingsFromNeon({ limit: 6 }), 8_000, 'home-neon');
-      neonOk = true;
-    } catch {
-      listings = emptyListings;
-    }
-  }
-  // Only hit Nest when Neon is unavailable/errored — empty Neon catalogue is a valid result.
-  if (!neonOk && !listings.data.length) {
-    listings = await publicApiFetch<ListingCollection>(
-      `/v1/public/listings?locale=${locale}&limit=6`,
-      30,
-    ).catch(() => emptyListings);
-  }
+  // Skip Nest fallback on the homepage — cold Nest turns soft-nav into a minute-long hang.
 
   return (
     <>

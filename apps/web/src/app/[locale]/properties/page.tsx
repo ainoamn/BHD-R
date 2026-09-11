@@ -13,13 +13,12 @@ import {
   asPublicListingCategory,
   type PublicListingSearchInput,
 } from '@/lib/search-public-listings-neon';
-import { publicApiFetch } from '@/lib/server-api';
 import { bilingualAlternates } from '@/lib/seo';
 import type { ListingCollection } from '@/lib/types';
 import { withTimeoutFallback } from '@/lib/with-timeout';
 
-/** Live Neon catalogue — never block soft-nav / static worker indefinitely. */
 export const dynamic = 'force-dynamic';
+export const maxDuration = 20;
 
 export async function generateMetadata({
   params,
@@ -119,7 +118,7 @@ async function loadListings(query: URLSearchParams): Promise<ListingCollection &
       if (q) search.q = q;
       return await withTimeoutFallback(
         searchPublicListingsFromNeon(search),
-        10_000,
+        6_000,
         empty,
         'properties-neon-catalogue',
       );
@@ -127,20 +126,8 @@ async function loadListings(query: URLSearchParams): Promise<ListingCollection &
       console.error('[properties] Neon catalogue failed', error);
     }
   }
-  return publicApiFetch<ListingCollection>(`/v1/public/listings?${query.toString()}`, 30)
-    .then((payload) => ({
-      ...payload,
-      data: payload.data.map((item) => ({
-        ...item,
-        marketStatus:
-          item.listingPurpose === 'sale'
-            ? ('available_sale' as const)
-            : item.listingPurpose === 'rent'
-              ? ('available_rent' as const)
-              : ('available' as const),
-      })),
-    }))
-    .catch(() => empty);
+  // Prefer empty shell over waiting on cold Nest — soft-nav must stay under ~6s.
+  return empty;
 }
 
 export default async function PropertiesPage({

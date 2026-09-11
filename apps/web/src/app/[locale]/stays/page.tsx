@@ -17,8 +17,11 @@ import {
 } from '@/lib/stays-browse-filters';
 import type { StayCatalogueListing } from '@/lib/stays-catalogue-listing';
 import { searchPublicStaysOnNeon } from '@/lib/load-public-stays-neon';
-import { publicApiFetch } from '@/lib/server-api';
-import type { StaySearchListing, StaySearchResponse } from '@bhd-r/contracts';
+import { withTimeoutFallback } from '@/lib/with-timeout';
+import type { StaySearchListing } from '@bhd-r/contracts';
+
+export const dynamic = 'force-dynamic';
+export const maxDuration = 20;
 
 function mapSearchItemsToCatalogue(items: StaySearchListing[]): StayCatalogueListing[] {
   return items
@@ -49,26 +52,26 @@ function mapSearchItemsToCatalogue(items: StaySearchListing[]): StayCatalogueLis
 }
 
 async function loadSearchFallback(countryCode: string): Promise<StayCatalogueListing[]> {
-  const searchQuery = {
-    countryCode,
-    locale: 'ar' as const,
-    limit: 100,
-    adults: 2,
-    children: 0,
-  };
-  if (hasDatabaseUrl()) {
-    try {
-      const neon = await searchPublicStaysOnNeon(searchQuery);
-      if (neon.items.length) return mapSearchItemsToCatalogue(neon.items);
-    } catch (error) {
-      console.error('[stays] Neon search fallback failed', error);
-    }
+  if (!hasDatabaseUrl()) return [];
+  try {
+    const neon = await withTimeoutFallback(
+      searchPublicStaysOnNeon({
+        countryCode,
+        locale: 'ar',
+        limit: 100,
+        adults: 2,
+        children: 0,
+      }),
+      4_000,
+      { items: [], nextCursor: null, cached: false },
+      'stays-search-fallback',
+    );
+    if (neon.items.length) return mapSearchItemsToCatalogue(neon.items);
+  } catch (error) {
+    console.error('[stays] Neon search fallback failed', error);
   }
-  const api = await publicApiFetch<StaySearchResponse>(
-    `/v1/public/stays/search?countryCode=${countryCode}&locale=ar&limit=100&adults=2&children=0`,
-    8,
-  ).catch(() => null);
-  return api?.items?.length ? mapSearchItemsToCatalogue(api.items) : [];
+  // Never wait on Nest here — cold starts turn soft-nav into a 60s blank screen.
+  return [];
 }
 
 export async function generateMetadata({
@@ -157,9 +160,17 @@ async function loadStaysCatalogue(
     if (amenities.length) search.amenities = amenities;
     if (q) search.q = q;
 
-    const payload = await searchStaysCatalogueFromNeon(search);
+    const empty = { data: [] as StayCatalogueListing[], pagination: { nextCursor: null, hasMore: false } };
+    const payload = await withTimeoutFallback(
+      searchStaysCatalogueFromNeon(search),
+      6_000,
+      empty,
+      'stays-neon-catalogue',
+    );
     if (payload.data.length) return payload.data;
-    return loadSearchFallback(countryCode ?? 'OM');
+    // Only fall back when catalogue returned empty quickly — not after a timeout.
+    if (payload !== empty) return loadSearchFallback(countryCode);
+    return [];
   } catch (error) {
     console.error('[stays] Neon catalogue failed', error);
     return loadSearchFallback(query.get('countryCode') ?? 'OM');

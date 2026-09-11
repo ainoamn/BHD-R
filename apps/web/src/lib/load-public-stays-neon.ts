@@ -23,6 +23,7 @@ async function asPublic<T>(
   return db.transaction(async (transaction) => {
     await transaction.execute(sql`select set_config('app.public', 'true', true)`);
     await transaction.execute(sql`select set_config('app.platform_admin', 'false', true)`);
+    await transaction.execute(sql`select set_config('statement_timeout', '5000', true)`);
     return work(transaction);
   });
 }

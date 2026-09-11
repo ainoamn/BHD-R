@@ -126,6 +126,7 @@ export async function searchStaysCatalogueFromNeon(
   return db.transaction(async (transaction) => {
     await transaction.execute(sql`select set_config('app.platform_admin', 'false', true)`);
     await transaction.execute(sql`select set_config('app.public', 'true', true)`);
+    await transaction.execute(sql`select set_config('statement_timeout', '6000', true)`);
 
     const country = input.countryCode?.trim().toUpperCase() || null;
     const countryAlt = country === 'OM' ? 'OMN' : country === 'OMN' ? 'OM' : country;

@@ -6,9 +6,11 @@ import {
   searchStaysCatalogueFromNeon,
   type StayCatalogueSearchInput,
 } from '@/lib/search-stays-catalogue-neon';
+import { withTimeoutFallback } from '@/lib/with-timeout';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const maxDuration = 20;
 
 function parseMajor(value: string | null): number | undefined {
   if (!value || value.trim() === '') return undefined;
@@ -93,10 +95,20 @@ export async function GET(request: Request) {
     if (amenities.length) search.amenities = amenities;
     if (q) search.q = q;
 
-    const payload = await searchStaysCatalogueFromNeon(search);
+    const empty = {
+      data: [] as Awaited<ReturnType<typeof searchStaysCatalogueFromNeon>>['data'],
+      pagination: { nextCursor: null as string | null, hasMore: false },
+    };
+    const payload = await withTimeoutFallback(
+      searchStaysCatalogueFromNeon(search),
+      8_000,
+      empty,
+      'stays-catalogue-api',
+    );
     return NextResponse.json({
       ...payload,
       count: payload.data.length,
+      ...(payload === empty ? { error: 'catalogue_timeout' } : {}),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'stays_catalogue_failed';
@@ -106,9 +118,9 @@ export async function GET(request: Request) {
         pagination: { nextCursor: null, hasMore: false },
         count: 0,
         error: 'stays_catalogue_failed',
-        ...(debug && process.env.NODE_ENV !== 'production' ? { detail: message } : {}),
+        ...(debug ? { detail: message } : {}),
       },
-      { status: 500 },
+      { status: 503 },
     );
   }
 }
