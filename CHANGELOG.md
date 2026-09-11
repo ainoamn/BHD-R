@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.82 — 2026-09-11
+
+- Confirm seamless soft-nav: restore paced background prefetch of `/properties`, `/portal`, and listing details after first paint; document SPA warm behavior (`SPA-SOFT-NAV-AR.md`). Keeps 0.4.81 Neon timeouts so background warm never hangs clicks for minutes.
+
 ## 0.4.81 — 2026-09-11
 
 - Fix multi-minute soft-nav from homepage to `/properties`, `/units/[id]`, and `/portal`: 6–8s Neon timeouts, throttled catalogue heal, larger shared DB pool, deferred marketing prefetch of heavy routes.
