@@ -17,6 +17,7 @@ import {
   users,
 } from '@bhd-r/db';
 import {
+  PRODUCT_SESSION_MAX_AGE_SECONDS,
   issueSessionToken,
   permissionsForRoles,
   roleKeySchema,
@@ -333,15 +334,7 @@ export class AuthService {
           .where(eq(users.id, user.id));
       }
 
-      await transaction
-        .update(sessions)
-        .set({ revokedAt: new Date() })
-        .where(and(eq(sessions.userId, user.id), isNull(sessions.revokedAt)));
-      await transaction
-        .update(users)
-        .set({ sessionVersion: sql`${users.sessionVersion} + 1` })
-        .where(eq(users.id, user.id));
-
+      // Signing in on another device must not end existing sessions (BHD-SESSION-POLICY).
       return this.issueForUser(transaction, user.id, organizationId);
     });
   }
@@ -1042,12 +1035,16 @@ export class AuthService {
       locale: user.locale === 'en' ? 'en' : 'ar',
       sessionVersion: user.sessionVersion,
     });
-    const token = await issueSessionToken(claims, sessionSecret(), 8 * 60 * 60);
+    const token = await issueSessionToken(
+      claims,
+      sessionSecret(),
+      PRODUCT_SESSION_MAX_AGE_SECONDS,
+    );
     await transaction.insert(sessions).values({
       id: sid,
       userId: user.id,
       tokenIdHash: tokenHash(token),
-      expiresAt: new Date(Date.now() + 8 * 60 * 60_000),
+      expiresAt: new Date(Date.now() + PRODUCT_SESSION_MAX_AGE_SECONDS * 1000),
     });
     return {
       token,

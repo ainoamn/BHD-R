@@ -6123,7 +6123,8 @@ body:has(.stays-booking-receipt) #main-content {
   font-size: 0.72rem;
 }
 .bhd-switcher-account > a,
-.bhd-switcher-account > button {
+.bhd-switcher-account > button,
+.bhd-switcher-account__logout > button {
   width: 100%;
   min-height: 2.7rem;
   padding: 0.65rem 0.75rem;
@@ -6137,7 +6138,11 @@ body:has(.stays-booking-receipt) #main-content {
   text-align: start;
   cursor: pointer;
 }
-.bhd-switcher-account > button {
+.bhd-switcher-account__logout {
+  margin: 0;
+}
+.bhd-switcher-account > button,
+.bhd-switcher-account__logout > button {
   color: white;
   background: var(--oman-deep);
 }

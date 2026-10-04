@@ -5,29 +5,22 @@ import { useEffect } from 'react';
 const WARM_INTERVAL_MS = 3 * 60 * 1000;
 
 /**
- * Keeps Nest (Render) from sleeping while a portal session is open.
- * Hits a same-origin warm route so cold starts do not hit every navigation/save.
+ * Keeps Nest (Render) from sleeping while a portal page is open.
+ * Hits a same-origin warm route that never reads or writes session cookies.
+ * BHD-SESSION-POLICY: no visibilitychange / focus / pointerdown listeners here.
  */
 export function NestKeepAlive() {
   useEffect(() => {
     let cancelled = false;
     let pending = false;
-    let lastPingAt = 0;
 
     const ping = () => {
-      const now = Date.now();
-      if (
-        cancelled ||
-        pending ||
-        document.visibilityState === 'hidden' ||
-        now - lastPingAt < 60_000
-      )
-        return;
+      if (cancelled || pending || document.visibilityState === 'hidden') return;
       pending = true;
-      lastPingAt = now;
       void fetch('/api/warm', {
         method: 'GET',
         cache: 'no-store',
+        credentials: 'omit',
         signal: AbortSignal.timeout(6_000),
       })
         .catch(() => undefined)
@@ -38,17 +31,10 @@ export function NestKeepAlive() {
 
     ping();
     const id = window.setInterval(ping, WARM_INTERVAL_MS);
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') ping();
-    };
-    document.addEventListener('visibilitychange', onVisible);
-    window.addEventListener('focus', ping);
 
     return () => {
       cancelled = true;
       window.clearInterval(id);
-      document.removeEventListener('visibilitychange', onVisible);
-      window.removeEventListener('focus', ping);
     };
   }, []);
 

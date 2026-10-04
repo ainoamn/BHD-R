@@ -624,6 +624,12 @@ export function can(
   return hasPermission(actor, action);
 }
 
+/**
+ * BHD-SESSION-POLICY: product session lives until explicit logout.
+ * 400 days is the Chromium cookie ceiling, not an idle timeout.
+ */
+export const PRODUCT_SESSION_MAX_AGE_SECONDS = 400 * 24 * 60 * 60;
+
 export async function issueSessionToken(
   claims: SessionClaims,
   secret: Uint8Array,

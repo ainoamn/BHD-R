@@ -3,6 +3,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { routing } from './i18n/routing';
 
 const intlMiddleware = createMiddleware(routing);
+const identityOrigin = (() => {
+  try {
+    return new URL(process.env.BHD_IDENTITY_ISSUER?.trim() || 'https://id.bhd-om.com').origin;
+  } catch {
+    return 'https://id.bhd-om.com';
+  }
+})();
 
 function safeOrigin(value: string | undefined): string | null {
   if (!value?.trim()) return null;
@@ -72,7 +79,8 @@ function csp(nonce: string): string {
     "frame-src 'self' https://www.google.com https://maps.google.com https://www.google.com/maps",
     "frame-ancestors 'none'",
     "base-uri 'self'",
-    "form-action 'self'",
+    // Logout form POST redirects to Identity end-session; Chromium checks form-action on redirects.
+    `form-action 'self' ${identityOrigin}`,
     "object-src 'none'",
     ...(process.env.NODE_ENV === 'production' ? ['upgrade-insecure-requests'] : []),
   ].join('; ');

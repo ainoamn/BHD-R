@@ -11,6 +11,7 @@ import {
   type Database,
 } from '@bhd-r/db';
 import {
+  PRODUCT_SESSION_MAX_AGE_SECONDS,
   issueSessionToken,
   permissionsForRoles,
   roleKeySchema,
@@ -171,12 +172,12 @@ async function issueForUser(tx: Tx, userId: string): Promise<IssuedSession> {
     locale: user.locale === 'en' ? 'en' : 'ar',
     sessionVersion: user.sessionVersion,
   });
-  const token = await issueSessionToken(claims, sessionSecret(), 8 * 60 * 60);
+  const token = await issueSessionToken(claims, sessionSecret(), PRODUCT_SESSION_MAX_AGE_SECONDS);
   await tx.insert(sessions).values({
     id: sid,
     userId: user.id,
     tokenIdHash: tokenHash(token),
-    expiresAt: new Date(Date.now() + 8 * 60 * 60_000),
+    expiresAt: new Date(Date.now() + PRODUCT_SESSION_MAX_AGE_SECONDS * 1000),
   });
   return {
     token,
@@ -332,6 +333,7 @@ export async function issueIdentitySession(input: {
       } catch (error) {
         throw new Error(
           `identity_provision:${error instanceof Error ? error.message : String(error)}`,
+          { cause: error },
         );
       }
     }
@@ -345,20 +347,13 @@ export async function issueIdentitySession(input: {
         .where(eq(users.id, user.id));
     }
 
-    await tx
-      .update(sessions)
-      .set({ revokedAt: new Date() })
-      .where(and(eq(sessions.userId, user.id), isNull(sessions.revokedAt)));
-    await tx
-      .update(users)
-      .set({ sessionVersion: sql`${users.sessionVersion} + 1` })
-      .where(eq(users.id, user.id));
-
+    // Signing in on another device must not end existing sessions (BHD-SESSION-POLICY).
     try {
       return await issueForUser(tx, user.id);
     } catch (error) {
       throw new Error(
         `identity_session_issue:${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
       );
     }
   });

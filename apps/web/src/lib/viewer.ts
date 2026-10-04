@@ -169,11 +169,17 @@ export const getShellViewer = cache(async (): Promise<Viewer | null> => {
   return stub;
 });
 
+/** BHD-SESSION-POLICY: expired product session → one silent hop to Identity, no login screen. */
+function silentIdentityStart(locale: string, portal: PortalRole): string {
+  const safeLocale = locale === 'en' ? 'en' : 'ar';
+  return `/api/auth/bhd/start?returnTo=${encodeURIComponent(`/${safeLocale}/${portal}`)}`;
+}
+
 export async function requirePortal(locale: string, portal: PortalRole): Promise<Viewer> {
   const { redirect } = await import('next/navigation');
   const viewer = await getViewer();
   if (viewer === null) {
-    redirect(`/${locale}/login`);
+    redirect(silentIdentityStart(locale, portal));
     throw new Error('unreachable');
   }
   if (!viewer.portals.includes(portal)) {
@@ -188,7 +194,7 @@ export async function requirePortalShell(locale: string, portal: PortalRole): Pr
   const { redirect } = await import('next/navigation');
   const viewer = await getShellViewer();
   if (viewer === null) {
-    redirect(`/${locale}/login`);
+    redirect(silentIdentityStart(locale, portal));
     throw new Error('unreachable');
   }
   if (!viewer.portals.includes(portal)) {

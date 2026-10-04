@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { PRODUCT_SESSION_MAX_AGE_SECONDS } from '@bhd-r/authz';
 import { identitySettings, openOidcState, secureCookies } from '@/lib/bhd/oauth';
 import { hasDatabaseUrl, issueIdentitySession } from '@/lib/bhd/identity-session';
 
@@ -165,7 +166,7 @@ export async function GET(request: Request) {
     secure: secureCookies(),
     sameSite: 'lax',
     path: '/',
-    maxAge: 8 * 60 * 60,
+    maxAge: PRODUCT_SESSION_MAX_AGE_SECONDS,
   });
   response.cookies.set({
     name: 'bhd_r_csrf',
@@ -174,7 +175,7 @@ export async function GET(request: Request) {
     secure: secureCookies(),
     sameSite: 'strict',
     path: '/',
-    maxAge: 8 * 60 * 60,
+    maxAge: PRODUCT_SESSION_MAX_AGE_SECONDS,
   });
   return response;
 }

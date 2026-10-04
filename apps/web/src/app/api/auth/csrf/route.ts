@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { PRODUCT_SESSION_MAX_AGE_SECONDS } from '@bhd-r/authz';
 import { createCsrfToken } from '@bhd-r/security';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
 import { isProductionRuntime, requireCsrfSecret } from '@/lib/runtime-env';
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
       secure: isProductionRuntime() || process.env.VERCEL === '1',
       sameSite: 'strict',
       path: '/',
-      maxAge: 8 * 60 * 60,
+      maxAge: PRODUCT_SESSION_MAX_AGE_SECONDS,
     });
     return response;
   } catch (error) {

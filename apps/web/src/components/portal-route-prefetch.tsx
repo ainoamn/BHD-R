@@ -141,14 +141,13 @@ export function PortalRoutePrefetch({
       for (const href of portalNavHrefs(portal, staysEnabled)) enqueue(href);
       scan();
     };
+    // BHD-SESSION-POLICY: no network work triggered by visibilitychange / focus on tab return.
     const interval = window.setInterval(refreshQueue, 60_000);
-    document.addEventListener('visibilitychange', refreshQueue);
     return () => {
       cancelled = true;
       observer.disconnect();
       for (const timer of timers) window.clearTimeout(timer);
       window.clearInterval(interval);
-      document.removeEventListener('visibilitychange', refreshQueue);
     };
   }, [portal, router, staysEnabled]);
   return null;

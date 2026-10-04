@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.88 — 2026-10-04
+
+- Apply ONE-BHD `docs/BHD-SESSION-POLICY.md`: product session lasts until explicit logout (400-day JWT/session row/cookie, no idle timeout); signing in elsewhere no longer revokes other devices; no visibilitychange/focus network listeners; expired product session goes straight to silent `/api/auth/bhd/start`; logout is a POST that revokes the session row then calls Identity end-session.
+
 ## 0.4.87 — 2026-09-11
 
 - Fix properties page: raise site-header above sticky search so BHD apps/account menus are not covered.

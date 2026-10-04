@@ -43,10 +43,6 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
     };
   }, [panel]);
 
-  function signOut() {
-    window.location.assign(`/api/auth/bhd/logout?locale=${locale}`);
-  }
-
   return (
     <div className="bhd-switcher-slot" ref={rootRef}>
       <button
@@ -130,9 +126,13 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
             {ar ? 'مساحتي في BHD R' : 'My BHD R workspace'}
           </Link>
           <a href="https://id.bhd-om.com/account">{ar ? 'إدارة حساب BHD' : 'Manage BHD account'}</a>
-          <button type="button" onClick={signOut}>
-            {ar ? 'تسجيل الخروج' : 'Sign out'}
-          </button>
+          <form
+            method="post"
+            action={`/api/auth/bhd/logout?locale=${locale}`}
+            className="bhd-switcher-account__logout"
+          >
+            <button type="submit">{ar ? 'تسجيل الخروج' : 'Sign out'}</button>
+          </form>
         </div>
       ) : null}
     </div>

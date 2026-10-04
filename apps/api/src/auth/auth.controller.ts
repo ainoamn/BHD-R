@@ -13,7 +13,7 @@ import {
 import type { ApiRequest, ApiResponse } from '../common/api-http.js';
 import { z } from 'zod';
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { permissionSchema } from '@bhd-r/authz';
+import { PRODUCT_SESSION_MAX_AGE_SECONDS, permissionSchema } from '@bhd-r/authz';
 import { createCsrfToken } from '@bhd-r/security';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService, type IssuedSession } from './auth.service.js';
@@ -64,7 +64,7 @@ const apiKeyActionSchema = z
 /** Express `maxAge` is milliseconds; values below are seconds for session lifetime. */
 function setSessionCookies(reply: ApiResponse, issued: IssuedSession): void {
   const secure = secureCookies();
-  const maxAgeMs = 8 * 60 * 60 * 1000;
+  const maxAgeMs = PRODUCT_SESSION_MAX_AGE_SECONDS * 1000;
   reply.cookie('bhd_r_session', issued.token, {
     httpOnly: true,
     secure,
@@ -214,7 +214,7 @@ export class AuthController {
       secure: secureCookies(),
       sameSite: 'strict',
       path: '/',
-      maxAge: 8 * 60 * 60 * 1000,
+      maxAge: PRODUCT_SESSION_MAX_AGE_SECONDS * 1000,
     });
     return { token };
   }
