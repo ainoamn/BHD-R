@@ -27,7 +27,7 @@
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GET /api/auth/bhd/start`    | 302 إلى `https://id.bhd-om.com/oauth/authorize` + كوكي `bhd_oauth_state`                                                                       |
 | `GET /api/auth/bhd/callback` | تبديل الكود على الخادم → إنشاء جلسة محلياً عبر `DATABASE_URL` (أو `POST {API}/v1/auth/identity/session`) → كوكي `bhd_r_session` / `bhd_r_csrf` |
-| `GET /api/auth/bhd/logout`   | مسح جلسة المنتج ثم `…/oauth/end-session`                                                                                                       |
+| `POST /api/auth/bhd/logout`  | زر «خروج» فقط: إبطال صف الجلسة + مسح الكوكي ثم `…/oauth/end-session` (‏`GET` باقٍ للتنقل من نفس الموقع فقط؛ أي طلب من موقع آخر لا يُخرج) |
 | `GET /api/auth/admin-entry`  | → `start?returnTo=/platform` (أو `next` الآمن)                                                                                                 |
 
 المسارات القديمة `/v1/auth/oidc/start|callback` تحوّل إلى المسارات أعلاه.
@@ -56,7 +56,15 @@ https://console.neon.tech/app/projects/nameless-shadow-43571265?database=neondb
 1. `users.identity_subject = sub` موجود → حدّث الاسم وافتح الجلسة (الأدوار كما هي).
 2. وإلا بريد موثّق + `identity_subject` فارغ → اربط `sub` واحتفظ بالعضويات/الأدوار.
 3. وإلا أنشئ مستخدماً + مؤسسة فردية `starter` بدور `organization_owner` فقط (ليس `platform_admin`).
-4. امسح جلسات المنتج السابقة وارفع `session_version` قبل إصدار الكوكي.
+4. أصدر جلسة جديدة **دون** إبطال جلسات الأجهزة الأخرى ودون رفع `session_version` (سياسة [`BHD-SESSION-POLICY.md`](./BHD-SESSION-POLICY.md): البقاء حتى الخروج الصريح).
+
+### مدة الجلسة (0.4.88)
+
+| البند | القيمة |
+| --- | --- |
+| JWT `bhd_r_session` + صف `sessions.expires_at` + كوكي `bhd_r_session`/`bhd_r_csrf` | 400 يوم (`PRODUCT_SESSION_MAX_AGE_SECONDS`) |
+| مهلة خمول | لا يوجد |
+| انتهاء جلسة المنتج | تحويل صامت واحد إلى `/api/auth/bhd/start` |
 
 ## 1) سجّل عميل `bhd-r` في الهوية (`one-bhd`)
 
