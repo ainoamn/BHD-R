@@ -28,7 +28,6 @@ import {
   serializeOfferingModes,
   type OfferingMode,
 } from '@/lib/unit-offering-modes';
-import { ensureUnitOfferingModesColumn } from '@/lib/ensure-unit-offering-modes-column';
 
 function resolveUnitOffering(unit: {
   listingPurpose: 'rent' | 'sale' | 'both';
@@ -60,7 +59,6 @@ async function persistUnitOfferingModes(
   unitId: string,
   modesCsv: string,
 ): Promise<void> {
-  await ensureUnitOfferingModesColumn(transaction).catch(() => undefined);
   await transaction.execute(sql`
     update units
     set offering_modes = ${modesCsv}, updated_at = now()

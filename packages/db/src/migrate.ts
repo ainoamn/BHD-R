@@ -24,6 +24,9 @@ try {
   await client.unsafe(
     await readFile(resolve(migrationsRoot, 'custom/0024_hisaby_links.sql'), 'utf8'),
   );
+  await client.unsafe(
+    await readFile(resolve(migrationsRoot, 'custom/0025_unit_offering_modes.sql'), 'utf8'),
+  );
   if (process.env.APPLY_PRIVILEGED_ROLES === 'true') {
     await client.unsafe(
       await readFile(resolve(migrationsRoot, 'privileged/runtime_roles.sql'), 'utf8'),

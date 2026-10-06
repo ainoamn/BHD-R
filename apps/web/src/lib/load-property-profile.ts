@@ -1,7 +1,6 @@
 import 'server-only';
 import { eq, sql } from 'drizzle-orm';
 import { propertyProfiles } from '@bhd-r/db';
-import { ensurePropertyProfileListingColumns } from '@/lib/ensure-property-profile-columns';
 
 /** Columns that existed before migration 0017 (safe to SELECT without the new flag). */
 const profileBaseSelect = {
@@ -51,15 +50,13 @@ export type LoadedPropertyProfile = {
 
 /**
  * Load property profile without crashing when migration 0017 is not applied yet.
- * Best-effort ADD COLUMN, then safe SELECT + optional flag read.
+ * Safe SELECT + optional flag read.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function loadPropertyProfileRow(
   transaction: any,
   propertyId: string,
 ): Promise<LoadedPropertyProfile | null> {
-  await ensurePropertyProfileListingColumns(transaction).catch(() => undefined);
-
   const rows = await transaction
     .select(profileBaseSelect)
     .from(propertyProfiles)
@@ -97,8 +94,6 @@ export async function writePropertyProfileRow(
     };
   },
 ): Promise<void> {
-  await ensurePropertyProfileListingColumns(transaction).catch(() => undefined);
-
   const { managementFee, showOwnerNameOnListing, ...profileFields } = args.profile;
   const baseValues = {
     ...profileFields,

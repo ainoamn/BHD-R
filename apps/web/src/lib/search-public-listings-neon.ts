@@ -70,12 +70,11 @@ async function runCatalogueBackgroundHeal(): Promise<void> {
     await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
     await transaction.execute(sql`select set_config('app.public', 'false', true)`);
     await transaction.execute(sql`select set_config('statement_timeout', '20000', true)`);
-
-    await transaction
-      .execute(
-        sql`ALTER TABLE "units" ADD COLUMN IF NOT EXISTS "offering_modes" varchar(64) NOT NULL DEFAULT 'monthly'`,
-      )
-      .catch(() => undefined);
+    await transaction.execute(sql`select set_config('lock_timeout', '3000', true)`);
+    // Vercel can freeze this fire-and-forget work mid-transaction; let Postgres drop the locks.
+    await transaction.execute(
+      sql`select set_config('idle_in_transaction_session_timeout', '15000', true)`,
+    );
 
     await transaction.execute(sql`
       update properties p
@@ -318,11 +317,9 @@ export async function searchPublicListingsFromNeon(
     await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
     await transaction.execute(sql`select set_config('app.public', 'false', true)`);
     await transaction.execute(sql`select set_config('statement_timeout', '12000', true)`);
-    await transaction
-      .execute(
-        sql`ALTER TABLE "units" ADD COLUMN IF NOT EXISTS "offering_modes" varchar(64) NOT NULL DEFAULT 'monthly'`,
-      )
-      .catch(() => undefined);
+    await transaction.execute(
+      sql`select set_config('idle_in_transaction_session_timeout', '15000', true)`,
+    );
 
     const country = input.countryCode?.trim().toUpperCase() || null;
     const countryAlt = country === 'OM' ? 'OMN' : country === 'OMN' ? 'OM' : country;
