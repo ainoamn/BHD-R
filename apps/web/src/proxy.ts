@@ -86,8 +86,25 @@ function csp(nonce: string): string {
   ].join('; ');
 }
 
+/** Aliases attached to this deployment; the `bhd-r` OIDC client only accepts r.bhd-om.com. */
+const CANONICAL_HOST = 'r.bhd-om.com';
+const ALIAS_HOSTS = new Set(['baitak.bhd-om.com']);
+
+const INTL_SKIP = /^\/(?:api|v1|_next)|\./;
+
 export default function proxy(request: NextRequest): NextResponse {
+  const host = (request.headers.get('host') ?? '').split(':')[0]!.toLowerCase();
+  if (ALIAS_HOSTS.has(host)) {
+    const url = request.nextUrl.clone();
+    url.protocol = 'https:';
+    url.host = CANONICAL_HOST;
+    url.port = '';
+    return NextResponse.redirect(url, 308);
+  }
+
   const pathname = request.nextUrl.pathname;
+  if (INTL_SKIP.test(pathname)) return NextResponse.next();
+
   const adminMatch = pathname.match(/^\/(ar|en)\/(admin|ADMIN)(\/.*)?$/i);
   if (adminMatch) {
     const locale = adminMatch[1]!;
@@ -107,5 +124,5 @@ export default function proxy(request: NextRequest): NextResponse {
 }
 
 export const config = {
-  matcher: ['/((?!api|v1|_next|.*\\..*).*)'],
+  matcher: ['/((?!_next/static|_next/image).*)'],
 };
