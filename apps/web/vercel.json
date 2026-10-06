@@ -6,11 +6,11 @@
   "crons": [
     {
       "path": "/api/cron/warmup-nest",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 3 * * *"
     },
     {
       "path": "/api/cron/expire-locks",
-      "schedule": "*/10 * * * *"
+      "schedule": "15 3 * * *"
     }
   ]
 }
