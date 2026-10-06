@@ -92,9 +92,19 @@ const ALIAS_HOSTS = new Set(['baitak.bhd-om.com']);
 
 const INTL_SKIP = /^\/(?:api|v1|_next)|\./;
 
+function requestHosts(request: NextRequest): string[] {
+  return [
+    request.nextUrl.hostname,
+    request.headers.get('x-forwarded-host'),
+    request.headers.get('host'),
+  ]
+    .flatMap((value) => (value ?? '').split(','))
+    .map((value) => value.trim().split(':')[0]!.toLowerCase())
+    .filter(Boolean);
+}
+
 export default function proxy(request: NextRequest): NextResponse {
-  const host = (request.headers.get('host') ?? '').split(':')[0]!.toLowerCase();
-  if (ALIAS_HOSTS.has(host)) {
+  if (requestHosts(request).some((host) => ALIAS_HOSTS.has(host))) {
     const url = request.nextUrl.clone();
     url.protocol = 'https:';
     url.host = CANONICAL_HOST;

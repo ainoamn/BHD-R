@@ -28,6 +28,13 @@ describe('proxy canonical host', () => {
     expect(response.headers.get('location')).toBe('https://r.bhd-om.com/ar/properties?type=villa');
   });
 
+  it('detects the alias from x-forwarded-host when the platform rewrites host', () => {
+    const request = new NextRequest('https://bhd-r.vercel.app/ar', {
+      headers: { host: 'bhd-r.vercel.app', 'x-forwarded-host': 'baitak.bhd-om.com' },
+    });
+    expect(proxy(request).headers.get('location')).toBe('https://r.bhd-om.com/ar');
+  });
+
   it('passes API routes through untouched on the canonical host', () => {
     const response = proxy(
       requestFor('https://r.bhd-om.com/api/auth/bhd/start', 'r.bhd-om.com'),
