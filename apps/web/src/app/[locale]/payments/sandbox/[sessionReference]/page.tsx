@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { isPaymentSandboxPilotEnabled } from '@bhd-r/config';
-import { formatMoney } from '@/lib/format';
+import { formatMoney, localizedName } from '@/lib/format';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { leaseSignPath } from '@/lib/lease-booking-paths';
+import { lookupLeasePaymentSession } from '@/lib/public-lease-booking-neon';
 import { lookupStaySandboxSessionOnNeon } from '@/lib/public-stays-payment-neon';
 import { SandboxPaymentForm } from '@/components/sandbox-payment-form';
 
@@ -32,11 +34,19 @@ export default async function SandboxPaymentPage({
       : undefined;
   const ar = locale === 'ar';
   const stayKind = query.kind === 'stay';
+  const leaseKind = query.kind === 'lease';
 
   const session =
     stayKind && hasDatabaseUrl()
       ? await lookupStaySandboxSessionOnNeon(sessionReference).catch(() => null)
       : null;
+  const leaseSession =
+    leaseKind && hasDatabaseUrl()
+      ? await lookupLeasePaymentSession(sessionReference).catch(() => null)
+      : null;
+  if (leaseKind && leaseSession?.paid) {
+    redirect(leaseSignPath(locale, leaseSession.referenceCode));
+  }
 
   const nights = session
     ? Math.max(
@@ -112,6 +122,52 @@ export default async function SandboxPaymentPage({
                 </p>
               </div>
             </div>
+          ) : leaseSession ? (
+            <div className="pay-gateway-shell__summary">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                className="pay-gateway-shell__summary-bg"
+                src="/brand/oman-landmark-salalah.jpg"
+                alt=""
+              />
+              <div className="pay-gateway-shell__summary-scrim" />
+              <div className="pay-gateway-shell__summary-body">
+                <div>
+                  <p className="muted">{ar ? 'مبلغ الضمان المستحق' : 'Deposit due'}</p>
+                  <p className="pay-gateway-shell__amount" dir="ltr">
+                    {formatMoney(leaseSession.amountMinor, leaseSession.currency, locale)}
+                  </p>
+                </div>
+                <dl>
+                  <div>
+                    <dt>{ar ? 'المرجع' : 'Reference'}</dt>
+                    <dd dir="ltr">{leaseSession.referenceCode}</dd>
+                  </div>
+                  <div>
+                    <dt>{ar ? 'نوع الحجز' : 'Booking type'}</dt>
+                    <dd>
+                      {leaseSession.mode === 'sale'
+                        ? ar
+                          ? 'حجز للشراء'
+                          : 'Reserve to buy'
+                        : ar
+                          ? 'حجز للإيجار'
+                          : 'Reserve to rent'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{ar ? 'العقار' : 'Property'}</dt>
+                    <dd>
+                      {localizedName(locale, leaseSession.propertyNameAr, leaseSession.propertyNameEn)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>{ar ? 'الوحدة' : 'Unit'}</dt>
+                    <dd>{localizedName(locale, leaseSession.unitNameAr, leaseSession.unitNameEn)}</dd>
+                  </div>
+                </dl>
+              </div>
+            </div>
           ) : (
             <p className="pay-gateway-shell__hint">
               {ar
@@ -143,7 +199,16 @@ export default async function SandboxPaymentPage({
         <SandboxPaymentForm
           sessionReference={sessionReference}
           stayKind={stayKind}
+          leaseKind={leaseKind}
           {...(returnPath ? { returnPath } : {})}
+          {...(leaseSession
+            ? {
+                amountMinor: leaseSession.amountMinor,
+                currency: leaseSession.currency,
+                referenceCode: leaseSession.referenceCode,
+                rebookHref: `/${locale}/book/${leaseSession.unitId}?mode=${leaseSession.mode}`,
+              }
+            : {})}
           {...(session
             ? {
                 amountMinor: session.amountMinor,

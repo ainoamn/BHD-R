@@ -2,8 +2,49 @@
 
 import { useMemo, useState } from 'react';
 import { useLocale } from 'next-intl';
-import { browserPublicMutation } from '@/lib/api';
+import { browserPublicMutation, fetchBrowserCsrfToken } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
+
+async function completeLeaseSandboxPayment(
+  sessionReference: string,
+  card: { cardLast4: string; cardBrand: string; cardholderName: string },
+): Promise<{ completed: boolean; returnPath: string | null; kind?: string }> {
+  const send = async (csrf: string) =>
+    fetch(
+      `/api/public/bookings/payment-sessions/${encodeURIComponent(sessionReference)}/sandbox-complete`,
+      {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          accept: 'application/json',
+          'content-type': 'application/json',
+          'x-csrf-token': csrf,
+        },
+        body: JSON.stringify(card),
+        signal: AbortSignal.timeout(45_000),
+      },
+    );
+  let response = await send(await fetchBrowserCsrfToken());
+  if (response.status === 403) response = await send(await fetchBrowserCsrfToken(true));
+  const payload = (await response.json().catch(() => null)) as {
+    error?: { code?: string; messageAr?: string; message?: string };
+    completed?: boolean;
+    returnPath?: string | null;
+    kind?: string;
+  } | null;
+  if (!response.ok) {
+    const err = new Error(
+      payload?.error?.messageAr ?? payload?.error?.message ?? 'payment_failed',
+    ) as Error & { code?: string };
+    if (payload?.error?.code) err.code = payload.error.code;
+    throw err;
+  }
+  return {
+    completed: Boolean(payload?.completed),
+    returnPath: payload?.returnPath ?? null,
+    ...(payload?.kind !== undefined ? { kind: payload.kind } : {}),
+  };
+}
 
 async function completeStaySandboxPayment(
   sessionReference: string,
@@ -99,6 +140,7 @@ export function SandboxPaymentForm({
   sessionReference,
   returnPath,
   stayKind = false,
+  leaseKind = false,
   amountMinor,
   currency,
   referenceCode,
@@ -107,6 +149,8 @@ export function SandboxPaymentForm({
   sessionReference: string;
   returnPath?: string;
   stayKind?: boolean;
+  /** Rent / purchase deposit for a long-term unit booking. */
+  leaseKind?: boolean;
   amountMinor?: string;
   currency?: string;
   referenceCode?: string;
@@ -173,7 +217,13 @@ export function SandboxPaymentForm({
     try {
       // Full PAN/CVC stay in the browser only. Server receives last4 + name + brand.
       await new Promise((resolve) => setTimeout(resolve, 900));
-      const result = stayKind
+      const result = leaseKind
+        ? await completeLeaseSandboxPayment(sessionReference, {
+            cardLast4: cardDigits.slice(-4),
+            cardBrand: brand,
+            cardholderName: cardName.trim(),
+          })
+        : stayKind
         ? await completeStaySandboxPayment(sessionReference, {
             ...(returnPath ? { returnPath } : {}),
             cardLast4: cardDigits.slice(-4),
@@ -192,13 +242,14 @@ export function SandboxPaymentForm({
         target &&
         (target.startsWith(`/${locale}/invoice/`) ||
           target.startsWith(`/${locale}/guest/stays`) ||
-          target.startsWith(`/${locale}/stays/`))
+          target.startsWith(`/${locale}/stays/`) ||
+          target.startsWith(`/${locale}/book/`))
       ) {
         window.location.assign(target);
         return;
       }
       setMessage(
-        result.kind === 'stay_booking'
+        result.kind === 'stay_booking' || result.kind === 'lease_reservation'
           ? ar
             ? 'تم الدفع بنجاح. جارٍ التحويل…'
             : 'Payment successful. Redirecting…'
@@ -221,6 +272,7 @@ export function SandboxPaymentForm({
   const showRebook =
     Boolean(rebookHref) &&
     (errorCode === 'dates_taken' ||
+      errorCode === 'booking_expired' ||
       Boolean(message && /نفد الحجز|taken by another|dates_taken|اختر يوماً/i.test(message)));
 
   return (
@@ -411,7 +463,13 @@ export function SandboxPaymentForm({
             <p>{message}</p>
             {showRebook && rebookHref ? (
               <a className="button button--primary pay-gateway__rebook" href={rebookHref}>
-                {ar ? 'العودة لاختيار تواريخ جديدة' : 'Choose new dates for this stay'}
+                {leaseKind
+                  ? ar
+                    ? 'ابدأ الحجز من جديد'
+                    : 'Start the booking again'
+                  : ar
+                    ? 'العودة لاختيار تواريخ جديدة'
+                    : 'Choose new dates for this stay'}
               </a>
             ) : null}
           </div>

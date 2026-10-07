@@ -47,11 +47,11 @@ export function PublicListingActions({
   );
 
   const loginHref = `/${locale}/login?next=${encodeURIComponent(`/${locale}/units/${unitId}`)}`;
-  const bookHref = `/${locale}/book/${unitId}`;
+  const hasDeposit = Boolean(canBook && depositMinor && depositMinor !== '0');
 
   const effectiveInterest: Interest | null = needsChoice ? interest : listingPurpose === 'sale' ? 'sale' : 'rent';
-  const showRentActions = effectiveInterest === 'rent';
-  const showSaleActions = effectiveInterest === 'sale';
+  const showRentActions = !needsChoice && effectiveInterest === 'rent';
+  const showSaleActions = !needsChoice && effectiveInterest === 'sale';
 
   const dualPrices = useMemo(() => {
     const rent =
@@ -68,10 +68,6 @@ export function PublicListingActions({
   async function requestViewing() {
     if (!signedIn) {
       router.push(loginHref);
-      return;
-    }
-    if (needsChoice && !interest) {
-      setError(ar ? 'اختر التأجير أو الشراء أولاً.' : 'Choose rent or purchase first.');
       return;
     }
     setBusy(true);
@@ -112,7 +108,9 @@ export function PublicListingActions({
     }
   }
 
-  function startBooking() {
+  function startBooking(mode: Interest) {
+    setInterest(mode);
+    const bookHref = `/${locale}/book/${unitId}?mode=${mode}`;
     if (!signedIn) {
       router.push(`/${locale}/login?next=${encodeURIComponent(bookHref)}`);
       return;
@@ -169,7 +167,7 @@ export function PublicListingActions({
               type="button"
               className={`button ${interest === 'rent' ? 'button--primary' : 'button--quiet'}`}
               disabled={busy}
-              onClick={() => setInterest('rent')}
+              onClick={() => startBooking('rent')}
             >
               {ar ? 'أريد التأجير' : 'I want to rent'}
               {dualPrices.rent ? ` · ${dualPrices.rent}` : ''}
@@ -178,7 +176,7 @@ export function PublicListingActions({
               type="button"
               className={`button ${interest === 'sale' ? 'button--primary' : 'button--quiet'}`}
               disabled={busy}
-              onClick={() => setInterest('sale')}
+              onClick={() => startBooking('sale')}
             >
               {ar ? 'أريد الشراء' : 'I want to buy'}
               {dualPrices.sale ? ` · ${dualPrices.sale}` : ''}
@@ -187,41 +185,51 @@ export function PublicListingActions({
         </div>
       ) : null}
 
+      {showRentActions ? (
+        <button
+          type="button"
+          className="button button--primary property-360__summary-cta"
+          disabled={busy}
+          onClick={() => startBooking('rent')}
+        >
+          {ar ? 'أريد التأجير — احجز الآن' : 'I want to rent — book now'}
+        </button>
+      ) : null}
+
+      {showSaleActions ? (
+        <button
+          type="button"
+          className="button button--primary property-360__summary-cta"
+          disabled={busy}
+          onClick={() => startBooking('sale')}
+        >
+          {ar ? 'أريد الشراء — احجز الآن' : 'I want to buy — book now'}
+        </button>
+      ) : null}
+
+      {hasDeposit ? (
+        <p className="muted public-listing-actions__deposit">
+          {ar ? 'مبلغ الضمان (العربون):' : 'Booking deposit:'}{' '}
+          <strong dir="ltr">{formatMoney(depositMinor!, currency, locale)}</strong>
+        </p>
+      ) : (
+        <p className="muted public-listing-actions__deposit">
+          {ar
+            ? 'الحجز الإلكتروني متاح بعد تحديد مبلغ الضمان من مالك العقار.'
+            : 'Online booking opens once the owner sets a deposit.'}
+        </p>
+      )}
+
       <button
         type="button"
-        className="button button--primary property-360__summary-cta"
-        disabled={busy || (needsChoice && !interest)}
+        className="button button--quiet property-360__summary-cta"
+        disabled={busy}
         onClick={() => void requestViewing()}
       >
         {ar ? 'طلب معاينة' : 'Request viewing'}
       </button>
 
-      {showRentActions ? (
-        <>
-          <button
-            type="button"
-            className="button button--quiet property-360__summary-cta"
-            disabled={busy || !canBook}
-            onClick={() => startBooking()}
-          >
-            {ar ? 'احجز الآن' : 'Book now'}
-          </button>
-          {canBook && depositMinor ? (
-            <p className="muted public-listing-actions__deposit">
-              {ar ? 'عربون الحجز:' : 'Booking deposit:'}{' '}
-              <strong dir="ltr">{formatMoney(depositMinor, currency, locale)}</strong>
-            </p>
-          ) : (
-            <p className="muted public-listing-actions__deposit">
-              {ar
-                ? 'الحجز متاح بعد تحديد العربون من إدارة العقار.'
-                : 'Booking opens once the owner sets a deposit.'}
-            </p>
-          )}
-        </>
-      ) : null}
-
-      {showSaleActions ? (
+      {showSaleActions && !hasDeposit ? (
         <button
           type="button"
           className="button button--quiet property-360__summary-cta"

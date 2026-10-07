@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { fetchBrowserCsrfToken } from '@/lib/api';
 import { stayConfirmedReturnPath } from '@/lib/stay-esign-flags';
 import { EsignCameraCapture } from '@/components/stays/esign/esign-camera-capture';
 import { EsignSignaturePad } from '@/components/stays/esign/esign-signature-pad';
@@ -16,11 +17,21 @@ export function StayEsignWizard({
   referenceCode,
   contractHtml,
   initiallyComplete = false,
+  submitUrl,
+  continuePath,
+  contractTitle,
+  requireCsrf = false,
 }: {
   locale: string;
   referenceCode: string;
   contractHtml: string;
   initiallyComplete?: boolean;
+  /** Defaults to the stays e-sign endpoint. */
+  submitUrl?: string;
+  continuePath?: string;
+  contractTitle?: { ar: string; en: string };
+  /** Signed-in flows (long-term bookings) post with the session CSRF token. */
+  requireCsrf?: boolean;
 }) {
   const ar = locale === 'ar';
   const router = useRouter();
@@ -34,8 +45,8 @@ export function StayEsignWizard({
   const [signedAtLabel, setSignedAtLabel] = useState<string | null>(null);
 
   const goToConfirmed = useCallback(() => {
-    router.push(stayConfirmedReturnPath(locale, referenceCode));
-  }, [locale, referenceCode, router]);
+    router.push(continuePath ?? stayConfirmedReturnPath(locale, referenceCode));
+  }, [continuePath, locale, referenceCode, router]);
 
   const progressIndex = useMemo(() => {
     const idx = STEP_ORDER.indexOf(step);
@@ -48,6 +59,7 @@ export function StayEsignWizard({
   const stepTitle = useMemo(() => {
     switch (step) {
       case 'contract':
+        if (contractTitle) return ar ? contractTitle.ar : contractTitle.en;
         return ar ? 'عقد الإقامة' : 'Stay contract';
       case 'sign':
         return ar ? 'التوقيع الإلكتروني' : 'E-signature';
@@ -64,7 +76,7 @@ export function StayEsignWizard({
       default:
         return '';
     }
-  }, [ar, step]);
+  }, [ar, contractTitle, step]);
 
   async function submitEsign() {
     if (!signatureDataUrl || !idFront || !idBack || !selfie) {
@@ -75,13 +87,15 @@ export function StayEsignWizard({
     setError(null);
     try {
       const response = await fetch(
-        `/api/public/stays/bookings/${encodeURIComponent(referenceCode)}/esign`,
+        submitUrl ?? `/api/public/stays/bookings/${encodeURIComponent(referenceCode)}/esign`,
         {
           method: 'POST',
+          credentials: 'same-origin',
           headers: {
             accept: 'application/json',
             'content-type': 'application/json',
             'x-requested-with': 'BHD-R',
+            ...(requireCsrf ? { 'x-csrf-token': await fetchBrowserCsrfToken() } : {}),
           },
           body: JSON.stringify({
             signaturePng: signatureDataUrl,
@@ -138,9 +152,13 @@ export function StayEsignWizard({
         {step === 'contract' ? (
           <section className="stay-esign__panel stay-esign__panel--scroll">
             <p className="muted stay-esign__lede">
-              {ar
-                ? 'راجع شروط الإقامة وبيانات الحجز، ثم وافق ووقّع إلكترونياً.'
-                : 'Review stay terms and booking details, then agree and sign electronically.'}
+              {contractTitle
+                ? ar
+                  ? 'راجع بنود العقد وبيانات الحجز، ثم وافق ووقّع إلكترونياً وأرفق مستنداتك.'
+                  : 'Review the contract terms and booking details, then agree, sign, and attach your documents.'
+                : ar
+                  ? 'راجع شروط الإقامة وبيانات الحجز، ثم وافق ووقّع إلكترونياً.'
+                  : 'Review stay terms and booking details, then agree and sign electronically.'}
             </p>
             <div
               className="stay-esign__contract"

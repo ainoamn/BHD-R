@@ -1396,8 +1396,7 @@ export function PropertyDetailManager({
                   canBook={Boolean(
                     primaryUnit.depositMinor &&
                     primaryUnit.depositMinor !== '0' &&
-                    primaryUnit.listingEnabled !== false &&
-                    primaryUnit.listingPurpose !== 'sale',
+                    primaryUnit.listingEnabled !== false,
                   )}
                   sharePath={propertyPath}
                   shareTitle={headline}

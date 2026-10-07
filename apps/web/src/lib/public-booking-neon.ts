@@ -22,7 +22,7 @@ import {
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdRPublicBookingDb?: DbHandle };
 
-function getDatabase(): DbHandle {
+export function getDatabase(): DbHandle {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error('DATABASE_URL is required');
   if (!globalForDb.__bhdRPublicBookingDb) {
@@ -32,10 +32,10 @@ function getDatabase(): DbHandle {
   return globalForDb.__bhdRPublicBookingDb;
 }
 
-type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
+export type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 /** Scope writes to the listing org — never leave platform_admin=true for the whole txn (P1-04). */
-async function applyOrgScope(
+export async function applyOrgScope(
   transaction: Tx,
   input: { organizationId: string; userId: string },
 ) {
@@ -48,7 +48,7 @@ async function applyOrgScope(
   await transaction.execute(sql`select set_config('app.is_tenant', 'false', true)`);
 }
 
-async function withElevatedRead<T>(transaction: Tx, work: () => Promise<T>): Promise<T> {
+export async function withElevatedRead<T>(transaction: Tx, work: () => Promise<T>): Promise<T> {
   await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
   await transaction.execute(sql`select set_config('app.public', 'true', true)`);
   try {
@@ -84,7 +84,7 @@ async function expireTimedOutLocks(transaction: Tx, unitId?: string) {
   `);
 }
 
-async function assertUnitBookable(transaction: Tx, unitId: string) {
+export async function assertUnitBookable(transaction: Tx, unitId: string) {
   await expireTimedOutLocks(transaction, unitId);
   const now = new Date();
   const rows = await transaction
@@ -146,7 +146,7 @@ async function assertUnitBookable(transaction: Tx, unitId: string) {
   return row;
 }
 
-async function ensureProspectParty(transaction: Tx, organizationId: string, claims: SessionClaims) {
+export async function ensureProspectParty(transaction: Tx, organizationId: string, claims: SessionClaims) {
   const user = await transaction.query.users.findFirst({
     where: eq(users.id, claims.sub),
     columns: { id: true, email: true, displayName: true },
@@ -658,36 +658,5 @@ export async function completePublicBookingPayment(
       completed: true as const,
       unitId: match.unitId,
     };
-  });
-}
-
-export async function loadPublicUnitDeposit(unitId: string) {
-  const { db } = getDatabase();
-  return db.transaction(async (transaction) => {
-    await transaction.execute(sql`select set_config('app.public', 'true', true)`);
-    const rows = await transaction
-      .select({
-        unitId: units.id,
-        propertyId: units.propertyId,
-        depositMinor: units.depositMinor,
-        currency: units.currency,
-        nameAr: units.nameAr,
-        nameEn: units.nameEn,
-        propertyNameAr: properties.nameAr,
-        propertyNameEn: properties.nameEn,
-      })
-      .from(units)
-      .innerJoin(properties, eq(properties.id, units.propertyId))
-      .innerJoin(listings, eq(listings.unitId, units.id))
-      .where(
-        and(
-          eq(units.id, unitId),
-          eq(listings.enabled, true),
-          isNotNull(listings.publishedAt),
-          eq(units.status, 'active'),
-        ),
-      )
-      .limit(1);
-    return rows[0] ?? null;
   });
 }
