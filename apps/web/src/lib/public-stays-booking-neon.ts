@@ -33,6 +33,7 @@ import {
   type StayBookingStatus,
   type SupportedCurrency,
 } from '@bhd-r/domain';
+import { normalizeTermsRef } from '@/lib/booking-terms';
 import { loadBookingTermsForProperty } from '@/lib/booking-terms-neon';
 
 const QUOTE_TTL_MS = 30 * 60_000;
@@ -1113,20 +1114,23 @@ export async function createPublicStayBookingOnNeon(
     }
 
     let acceptedTerms: Record<string, unknown> | null = null;
-    if (input.termsVersion !== undefined) {
-      const ownerTerms = await loadBookingTermsForProperty(
+    const acceptedRef = normalizeTermsRef(input.termsRef, input.termsVersion);
+    if (acceptedRef !== undefined) {
+      const resolved = await loadBookingTermsForProperty(
         hold.organizationId,
         profileRow.property_id,
         'daily',
       );
-      if ((ownerTerms?.version ?? 0) !== input.termsVersion) {
+      if (resolved.ref !== acceptedRef) {
         throw new PublicStayBookingError('terms_changed', 'Owner terms changed', 409);
       }
       acceptedTerms = {
         mode: 'daily',
-        version: ownerTerms?.version ?? 0,
-        bodyAr: ownerTerms?.bodyAr ?? null,
-        bodyEn: ownerTerms?.bodyEn ?? null,
+        ref: resolved.ref,
+        source: resolved.source,
+        version: resolved.terms?.version ?? 0,
+        bodyAr: resolved.terms?.bodyAr ?? null,
+        bodyEn: resolved.terms?.bodyEn ?? null,
         acceptedAt: new Date().toISOString(),
       };
     }

@@ -2,6 +2,7 @@ import { isPaymentSandboxPilotEnabled } from '@bhd-r/config';
 import { z } from 'zod';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { saveBookingContact } from '@/lib/booking-contacts-neon';
+import { normalizeTermsRef } from '@/lib/booking-terms';
 import { leaseBookingErrorResponse, leaseBookingJson } from '@/lib/lease-booking-route';
 import { requireLiveSession } from '@/lib/next-route-guard';
 import { createLeaseBookingCheckout } from '@/lib/public-lease-booking-neon';
@@ -20,7 +21,8 @@ const bodySchema = z
     phone: z.string().trim().max(32).refine(isValidGuestPhone),
     email: z.union([z.string().trim().email().max(320), z.literal('')]).optional(),
     termsAccepted: z.literal(true),
-    termsVersion: z.number().int().min(0).max(1_000_000).default(0),
+    termsRef: z.string().max(60).optional(),
+    termsVersion: z.number().int().min(0).max(1_000_000).optional(),
     bookingFor: z.enum(['self', 'other']).default('self'),
     saveContact: z.boolean().default(false),
     savedContactId: z.string().uuid().optional(),
@@ -80,7 +82,7 @@ export async function POST(request: Request) {
       fullName: parsed.data.fullName,
       phone: parsed.data.phone,
       email: parsed.data.email || null,
-      termsVersion: parsed.data.termsVersion,
+      termsRef: normalizeTermsRef(parsed.data.termsRef, parsed.data.termsVersion) ?? 'default',
       bookingFor: parsed.data.bookingFor,
     });
     let contactSaved = false;

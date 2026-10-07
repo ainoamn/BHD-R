@@ -118,7 +118,7 @@ export function StayCheckout({
 }) {
   const router = useRouter();
   const ar = locale === 'ar';
-  const termsVersion = terms?.version ?? 0;
+  const termsRef = terms?.ref ?? 'default';
   const termsLines = bookingTermsLines({ mode: 'daily', ar, terms: terms ?? null });
   const [termsAccepted, setTermsAccepted] = useState(false);
   const initialIn = defaults?.checkInOn || defaultCheckIn();
@@ -345,7 +345,7 @@ export function StayCheckout({
             guestDisplayName: guestName.trim(),
             guestPhone: guestPhone.trim(),
             ...(guestEmail.trim() ? { guestEmail: guestEmail.trim() } : {}),
-            termsVersion,
+            termsRef,
           },
           { idempotencyKey: bookKey },
         );
@@ -718,7 +718,7 @@ export function StayCheckout({
             lines={termsLines}
             accepted={termsAccepted}
             onAcceptedChange={setTermsAccepted}
-            resetKey={`daily:${termsVersion}`}
+            resetKey={`daily:${termsRef}`}
             id="stay-booking-terms"
           />
           <div className="stays-checkout__nav">

@@ -37,8 +37,9 @@ export async function BookingTermsPage({
     <BookingTermsEditor
       locale={locale}
       portal={portal}
-      property={data.property}
+      target={{ kind: 'property', property: data.property }}
       initialTerms={data.terms}
+      organizationTerms={data.organizationTerms}
     />
   );
 }

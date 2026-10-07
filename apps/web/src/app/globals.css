@@ -12471,3 +12471,16 @@ body:has(.stay-esign-shell) {
   background: #f1f5f3;
   color: #5b6b63;
 }
+.booking-terms-editor--template {
+  border: 1px solid #cfe0d6;
+  border-radius: 1rem;
+  background: #f8fbf9;
+}
+.booking-terms-editor--template + .booking-terms-overview {
+  margin-top: 1.5rem;
+}
+.booking-terms-editor__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}

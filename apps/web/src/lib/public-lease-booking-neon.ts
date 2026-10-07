@@ -22,7 +22,7 @@ import {
   withElevatedRead,
   type Tx,
 } from '@/lib/public-booking-neon';
-import { readActiveBookingTerms } from '@/lib/booking-terms-neon';
+import { resolveBookingTerms } from '@/lib/booking-terms-neon';
 import { leaseSignPath } from '@/lib/lease-booking-paths';
 
 export const LEASE_BOOKING_FLOW = 'public_deposit_v1';
@@ -53,7 +53,12 @@ type LeaseBookingSnapshot = {
   termsVersion: string;
   termsAcceptedAt: string;
   /** Owner-written terms the customer accepted; null means platform defaults were shown. */
-  ownerTerms?: { version: number; bodyAr: string | null; bodyEn: string | null } | null;
+  ownerTerms?: {
+    version: number;
+    bodyAr: string | null;
+    bodyEn: string | null;
+    source?: 'property' | 'organization';
+  } | null;
   awaitingPublicDepositPayment: boolean;
   capturedAt: string;
   depositPaidAt?: string;
@@ -88,7 +93,11 @@ const ERRORS = {
     'الوحدة محجوزة أو غير متاحة حالياً.',
     'This unit is reserved or unavailable right now.',
   ],
-  mode_unavailable: [409, 'هذا الخيار غير متاح لهذه الوحدة.', 'This option is not offered for this unit.'],
+  mode_unavailable: [
+    409,
+    'هذا الخيار غير متاح لهذه الوحدة.',
+    'This option is not offered for this unit.',
+  ],
   deposit_not_set: [
     409,
     'لم يحدد مالك العقار مبلغ الضمان بعد.',
@@ -138,7 +147,11 @@ export function modeAllowed(listingPurpose: string, mode: LeaseBookingMode): boo
   return listingPurpose === mode;
 }
 
-export function leasePaymentPath(locale: 'ar' | 'en', sessionReference: string, referenceCode: string) {
+export function leasePaymentPath(
+  locale: 'ar' | 'en',
+  sessionReference: string,
+  referenceCode: string,
+) {
   const qs = new URLSearchParams({ kind: 'lease', return: leaseSignPath(locale, referenceCode) });
   return `/${locale}/payments/sandbox/${encodeURIComponent(sessionReference)}?${qs.toString()}`;
 }
@@ -210,8 +223,8 @@ export type LeaseCheckoutInput = {
   phone: string;
   email: string | null;
   locale: 'ar' | 'en';
-  /** Owner terms version shown to the customer (0 = platform defaults). */
-  termsVersion: number;
+  /** Reference of the terms shown to the customer (`property:n`, `organization:n`, or `default`). */
+  termsRef: string;
   bookingFor: 'self' | 'other';
 };
 
@@ -243,17 +256,23 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
     });
     await lockKey(transaction, input.unitId);
     const party = await ensureProspectParty(transaction, preview.organizationId, claims);
-    const activeTerms = await readActiveBookingTerms(
+    const resolvedTerms = await resolveBookingTerms(
       transaction,
       preview.organizationId,
       preview.propertyId,
       input.mode,
     );
-    const ownerTerms = activeTerms
-      ? { version: activeTerms.version, bodyAr: activeTerms.bodyAr, bodyEn: activeTerms.bodyEn }
-      : null;
+    const ownerTerms =
+      resolvedTerms.terms && resolvedTerms.source !== 'default'
+        ? {
+            version: resolvedTerms.terms.version,
+            bodyAr: resolvedTerms.terms.bodyAr,
+            bodyEn: resolvedTerms.terms.bodyEn,
+            source: resolvedTerms.source,
+          }
+        : null;
     const assertTermsCurrent = () => {
-      if ((ownerTerms?.version ?? 0) !== input.termsVersion) fail('terms_changed');
+      if (resolvedTerms.ref !== input.termsRef) fail('terms_changed');
     };
 
     const now = new Date();
@@ -321,7 +340,11 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
         currency: snapshot.currency,
         expiresAt: own.expiresAt.toISOString(),
         alreadyPaid: false as const,
-        nextPath: leasePaymentPath(input.locale, snapshot.checkoutSessionReference, snapshot.referenceCode),
+        nextPath: leasePaymentPath(
+          input.locale,
+          snapshot.checkoutSessionReference,
+          snapshot.referenceCode,
+        ),
       };
     }
 
@@ -409,7 +432,11 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
 export async function lookupLeasePaymentSession(sessionReference: string) {
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
-    const match = await findLeaseReservation(transaction, 'checkoutSessionReference', sessionReference);
+    const match = await findLeaseReservation(
+      transaction,
+      'checkoutSessionReference',
+      sessionReference,
+    );
     if (!match) return null;
     return {
       referenceCode: match.snapshot.referenceCode,
@@ -434,7 +461,11 @@ export async function completeLeaseSandboxPayment(
 ) {
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
-    const match = await findLeaseReservation(transaction, 'checkoutSessionReference', sessionReference);
+    const match = await findLeaseReservation(
+      transaction,
+      'checkoutSessionReference',
+      sessionReference,
+    );
     if (!match) fail('not_found');
     await assertBookingOwner(transaction, claims.sub, match.partyEmail);
     await applyOrgScope(transaction, { organizationId: match.organizationId, userId: claims.sub });
@@ -630,7 +661,11 @@ export async function completeLeaseEsign(
     const snapshot = fresh.termsSnapshot as unknown as LeaseBookingSnapshot;
     if (!snapshot.depositPaidAt) fail('payment_required');
     if (snapshot.esign?.completed) {
-      return { completed: true as const, referenceCode: normalized, signedAt: snapshot.esign.signedAt };
+      return {
+        completed: true as const,
+        referenceCode: normalized,
+        signedAt: snapshot.esign.signedAt,
+      };
     }
     if (fresh.status !== 'confirmed' && fresh.status !== 'converted') fail('booking_expired');
 

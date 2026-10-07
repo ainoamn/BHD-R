@@ -5,10 +5,12 @@ import { properties, stayPolicies, units } from '@bhd-r/db';
 import {
   BOOKING_TERMS_MODES,
   bookingTermsModeLabel,
+  bookingTermsRef,
   checkoutTermsFromOwner,
   parseTermsBody,
   type BookingTermsForCheckout,
   type BookingTermsMode,
+  type BookingTermsSource,
   type OwnerBookingTerms,
 } from '@/lib/booking-terms';
 import {
@@ -20,16 +22,20 @@ import {
 } from '@/lib/public-booking-neon';
 
 const POLICY_KIND = 'other';
+const ORGANIZATION_SCOPE = 'org';
 
-function termsCode(mode: BookingTermsMode, propertyId: string) {
-  return `booking_terms:${mode}:${propertyId}`;
+/** `propertyId` null = the organization-wide template every property inherits. */
+function termsCode(mode: BookingTermsMode, propertyId: string | null) {
+  return `booking_terms:${mode}:${propertyId ?? ORGANIZATION_SCOPE}`;
 }
 
-/** Latest active owner terms — caller must already be scoped to `organizationId`. */
+type TermsMap = Record<BookingTermsMode, OwnerBookingTerms | null>;
+
+/** Latest active terms for one scope — caller must already be scoped to `organizationId`. */
 export async function readActiveBookingTerms(
   transaction: Tx,
   organizationId: string,
-  propertyId: string,
+  propertyId: string | null,
   mode: BookingTermsMode,
 ): Promise<OwnerBookingTerms | null> {
   const row = await transaction.query.stayPolicies.findFirst({
@@ -51,9 +57,44 @@ export async function readActiveBookingTerms(
   };
 }
 
+export type ResolvedBookingTerms = {
+  source: BookingTermsSource;
+  ref: string;
+  terms: OwnerBookingTerms | null;
+};
+
+/** Property override → organization template → platform defaults. */
+export async function resolveBookingTerms(
+  transaction: Tx,
+  organizationId: string,
+  propertyId: string,
+  mode: BookingTermsMode,
+): Promise<ResolvedBookingTerms> {
+  const own = await readActiveBookingTerms(transaction, organizationId, propertyId, mode);
+  if (own) return { source: 'property', ref: bookingTermsRef('property', own.version), terms: own };
+  const shared = await readActiveBookingTerms(transaction, organizationId, null, mode);
+  if (shared) {
+    return {
+      source: 'organization',
+      ref: bookingTermsRef('organization', shared.version),
+      terms: shared,
+    };
+  }
+  return { source: 'default', ref: 'default', terms: null };
+}
+
+async function readTermsMap(transaction: Tx, organizationId: string, propertyId: string | null) {
+  const map = {} as TermsMap;
+  for (const mode of BOOKING_TERMS_MODES) {
+    map[mode] = await readActiveBookingTerms(transaction, organizationId, propertyId, mode);
+  }
+  return map;
+}
+
 export type OwnerBookingTermsPage = {
   property: { id: string; nameAr: string; nameEn: string };
-  terms: Record<BookingTermsMode, OwnerBookingTerms | null>;
+  terms: TermsMap;
+  organizationTerms: TermsMap;
 };
 
 export async function loadOwnerBookingTerms(
@@ -64,15 +105,18 @@ export async function loadOwnerBookingTerms(
   return db.transaction(async (transaction) => {
     await applyOwnerScope(transaction, scope);
     const property = await transaction.query.properties.findFirst({
-      where: and(eq(properties.id, propertyId), eq(properties.organizationId, scope.organizationId)),
+      where: and(
+        eq(properties.id, propertyId),
+        eq(properties.organizationId, scope.organizationId),
+      ),
       columns: { id: true, nameAr: true, nameEn: true },
     });
     if (!property) return null;
-    const terms = {} as Record<BookingTermsMode, OwnerBookingTerms | null>;
-    for (const mode of BOOKING_TERMS_MODES) {
-      terms[mode] = await readActiveBookingTerms(transaction, scope.organizationId, propertyId, mode);
-    }
-    return { property, terms };
+    return {
+      property,
+      terms: await readTermsMap(transaction, scope.organizationId, propertyId),
+      organizationTerms: await readTermsMap(transaction, scope.organizationId, null),
+    };
   });
 }
 
@@ -84,8 +128,13 @@ export type BookingTermsOverviewRow = {
   versions: Partial<Record<BookingTermsMode, { version: number; updatedAt: string }>>;
 };
 
-/** Every property in the organization with the active custom terms per booking type. */
-export async function loadBookingTermsOverview(scope: OwnerScope): Promise<BookingTermsOverviewRow[]> {
+export type BookingTermsOverview = {
+  organizationTerms: TermsMap;
+  properties: BookingTermsOverviewRow[];
+};
+
+/** Organization template plus every property and which booking types it overrides. */
+export async function loadBookingTermsOverview(scope: OwnerScope): Promise<BookingTermsOverview> {
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
     await applyOwnerScope(transaction, scope);
@@ -111,6 +160,8 @@ export async function loadBookingTermsOverview(scope: OwnerScope): Promise<Booki
         code: stayPolicies.code,
         version: stayPolicies.version,
         updatedAt: stayPolicies.updatedAt,
+        bodyAr: stayPolicies.bodyAr,
+        bodyEn: stayPolicies.bodyEn,
       })
       .from(stayPolicies)
       .where(
@@ -124,9 +175,11 @@ export async function loadBookingTermsOverview(scope: OwnerScope): Promise<Booki
 
     const byProperty = new Map<string, BookingTermsOverviewRow['versions']>();
     for (const row of policyRows) {
-      const [, mode, propertyId] = row.code.split(':');
-      if (!propertyId || !BOOKING_TERMS_MODES.includes(mode as BookingTermsMode)) continue;
-      const versions = byProperty.get(propertyId) ?? {};
+      const [, mode, scopeId] = row.code.split(':');
+      if (!scopeId || scopeId === ORGANIZATION_SCOPE) continue;
+      if (!BOOKING_TERMS_MODES.includes(mode as BookingTermsMode)) continue;
+      if (!parseTermsBody(row.bodyAr).length && !parseTermsBody(row.bodyEn).length) continue;
+      const versions = byProperty.get(scopeId) ?? {};
       const current = versions[mode as BookingTermsMode];
       if (!current || current.version < row.version) {
         versions[mode as BookingTermsMode] = {
@@ -134,17 +187,23 @@ export async function loadBookingTermsOverview(scope: OwnerScope): Promise<Booki
           updatedAt: row.updatedAt.toISOString(),
         };
       }
-      byProperty.set(propertyId, versions);
+      byProperty.set(scopeId, versions);
     }
 
-    return propertyRows.map((row) => ({ ...row, versions: byProperty.get(row.id) ?? {} }));
+    return {
+      organizationTerms: await readTermsMap(transaction, scope.organizationId, null),
+      properties: propertyRows.map((row) => ({ ...row, versions: byProperty.get(row.id) ?? {} })),
+    };
   });
 }
 
-/** Saves a new version; empty bodies archive the owner text so platform defaults apply again. */
+/**
+ * Saves a new version for a property (`propertyId`) or the organization template (null).
+ * Empty bodies archive the text: a property falls back to the template, the template to platform defaults.
+ */
 export async function saveOwnerBookingTerms(
   claims: SessionClaims,
-  propertyId: string,
+  propertyId: string | null,
   mode: BookingTermsMode,
   body: { bodyAr: string; bodyEn: string },
 ): Promise<{ ok: true; terms: OwnerBookingTerms | null }> {
@@ -162,14 +221,18 @@ export async function saveOwnerBookingTerms(
       partyId: claims.partyId,
       roles: claims.roles,
     });
-    const property = await transaction.query.properties.findFirst({
-      where: and(eq(properties.id, propertyId), eq(properties.organizationId, organizationId)),
-      columns: { id: true, status: true },
-    });
-    if (!property) throw new Error('property_not_found');
-    if (property.status === 'archived') throw new Error('property_archived');
+    if (propertyId) {
+      const property = await transaction.query.properties.findFirst({
+        where: and(eq(properties.id, propertyId), eq(properties.organizationId, organizationId)),
+        columns: { id: true, status: true },
+      });
+      if (!property) throw new Error('property_not_found');
+      if (property.status === 'archived') throw new Error('property_archived');
+    }
 
-    await transaction.execute(sql`select pg_advisory_xact_lock(hashtext(${`${organizationId}:${code}`}))`);
+    await transaction.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${`${organizationId}:${code}`}))`,
+    );
 
     await transaction
       .update(stayPolicies)
@@ -198,18 +261,31 @@ export async function saveOwnerBookingTerms(
         ),
       );
 
+    const label = bookingTermsModeLabel(mode, true);
+    const labelEn = bookingTermsModeLabel(mode, false);
     const [row] = await transaction
       .insert(stayPolicies)
       .values({
         organizationId,
         kind: POLICY_KIND,
         code,
-        nameAr: `الشروط والأحكام — ${bookingTermsModeLabel(mode, true)}`.slice(0, 160),
-        nameEn: `Terms and conditions — ${bookingTermsModeLabel(mode, false)}`.slice(0, 160),
+        nameAr: (propertyId
+          ? `الشروط والأحكام — ${label}`
+          : `الصيغة الموحدة للشروط — ${label}`
+        ).slice(0, 160),
+        nameEn: (propertyId
+          ? `Terms and conditions — ${labelEn}`
+          : `Standard terms — ${labelEn}`
+        ).slice(0, 160),
         version: (latest?.version ?? 0) + 1,
         bodyAr: bodyAr || null,
         bodyEn: bodyEn || null,
-        rulesJson: { scope: 'booking_terms', propertyId, mode, updatedByUserId: claims.sub },
+        rulesJson: {
+          scope: propertyId ? 'booking_terms' : 'booking_terms_template',
+          propertyId,
+          mode,
+          updatedByUserId: claims.sub,
+        },
         status: 'active',
       })
       .returning();
@@ -228,7 +304,13 @@ export async function saveOwnerBookingTerms(
   });
 }
 
-/** Public read for checkout pages — only the owner's terms text, never other org data. */
+function toCheckout(resolved: ResolvedBookingTerms): BookingTermsForCheckout {
+  return resolved.source === 'default' || !resolved.terms
+    ? checkoutTermsFromOwner(null)
+    : checkoutTermsFromOwner(resolved.terms, resolved.source);
+}
+
+/** Public read for checkout pages — only the effective terms text, never other org data. */
 export async function loadBookingTermsForUnit(
   unitId: string,
   modes: readonly BookingTermsMode[],
@@ -242,10 +324,11 @@ export async function loadBookingTermsForUnit(
       });
       const result: Partial<Record<BookingTermsMode, BookingTermsForCheckout>> = {};
       for (const mode of modes) {
-        const owner = unit
-          ? await readActiveBookingTerms(transaction, unit.organizationId, unit.propertyId, mode)
-          : null;
-        result[mode] = checkoutTermsFromOwner(owner);
+        result[mode] = unit
+          ? toCheckout(
+              await resolveBookingTerms(transaction, unit.organizationId, unit.propertyId, mode),
+            )
+          : checkoutTermsFromOwner(null);
       }
       return result;
     }),
@@ -256,11 +339,11 @@ export async function loadBookingTermsForProperty(
   organizationId: string,
   propertyId: string,
   mode: BookingTermsMode,
-): Promise<OwnerBookingTerms | null> {
+): Promise<ResolvedBookingTerms> {
   const { db } = getDatabase();
   return db.transaction(async (transaction) =>
     withElevatedRead(transaction, () =>
-      readActiveBookingTerms(transaction, organizationId, propertyId, mode),
+      resolveBookingTerms(transaction, organizationId, propertyId, mode),
     ),
   );
 }

@@ -157,8 +157,10 @@ export const createStayBookingSchema = z
     guestDisplayName: z.string().trim().min(2).max(160).optional(),
     guestEmail: z.string().trim().email().max(320).optional(),
     guestPhone: z.string().trim().min(5).max(40).optional(),
-    /** Owner daily-terms version the guest accepted (0 = platform defaults). */
+    /** Owner daily-terms version the guest accepted (0 = platform defaults). Superseded by `termsRef`. */
     termsVersion: z.number().int().min(0).max(1_000_000).optional(),
+    /** Reference of the daily terms the guest accepted (`property:n`, `organization:n`, or `default`). */
+    termsRef: z.string().trim().max(60).optional(),
   })
   .strict();
 

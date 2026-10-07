@@ -119,7 +119,7 @@ export function LeaseDepositCheckout({
   const priceMinor = mode === 'sale' ? salePriceMinor : rentMinor;
   const price = priceMinor && priceMinor !== '0' ? formatMoney(priceMinor, currency, locale) : null;
   const modeTerms = termsByMode[mode] ?? null;
-  const termsVersion = modeTerms?.version ?? 0;
+  const termsRef = modeTerms?.ref ?? 'default';
   const terms = bookingTermsLines({ mode, ar, deposit, terms: modeTerms });
   const modeLabel =
     mode === 'sale' ? (ar ? 'حجز للشراء' : 'Reserve to buy') : ar ? 'حجز للإيجار' : 'Reserve to rent';
@@ -199,7 +199,7 @@ export function LeaseDepositCheckout({
           phone: phone.trim(),
           email: email.trim(),
           termsAccepted: true,
-          termsVersion,
+          termsRef,
           bookingFor,
           saveContact: offerSave && saveContact,
           ...(bookingFor === 'other' && selectedSaved ? { savedContactId: selectedSaved.id } : {}),
@@ -335,7 +335,7 @@ export function LeaseDepositCheckout({
             lines={terms}
             accepted={accepted}
             onAcceptedChange={setAccepted}
-            resetKey={`${mode}:${termsVersion}`}
+            resetKey={`${mode}:${termsRef}`}
             id="lease-booking-terms"
           />
           <button

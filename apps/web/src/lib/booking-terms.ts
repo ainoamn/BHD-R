@@ -5,7 +5,7 @@ export const BOOKING_TERMS_MODES: BookingTermsMode[] = ['sale', 'rent', 'daily']
 export const BOOKING_TERMS_MAX_LINES = 60;
 export const BOOKING_TERMS_MAX_BODY = 12_000;
 
-/** What the owner saved for one property + booking type (latest active version). */
+/** What the owner saved for one booking type — per property or as the organization template (latest active version). */
 export type OwnerBookingTerms = {
   version: number;
   bodyAr: string | null;
@@ -13,12 +13,31 @@ export type OwnerBookingTerms = {
   updatedAt: string;
 };
 
-/** Public payload for checkout: `version` 0 means platform defaults (no owner text). */
+/** Where the effective terms come from: a property override, the organization template, or platform defaults. */
+export type BookingTermsSource = 'property' | 'organization' | 'default';
+
+/** Public payload for checkout; `ref` identifies the exact text the customer accepted. */
 export type BookingTermsForCheckout = {
+  ref: string;
+  source: BookingTermsSource;
   version: number;
   ownerLinesAr: string[];
   ownerLinesEn: string[];
 };
+
+export function bookingTermsRef(source: BookingTermsSource, version: number): string {
+  return source === 'default' ? 'default' : `${source}:${version}`;
+}
+
+/** Accepts the current `termsRef` or the older numeric `termsVersion` (0 = defaults, n = property v n). */
+export function normalizeTermsRef(
+  ref: string | null | undefined,
+  legacyVersion: number | null | undefined,
+): string | undefined {
+  if (ref) return ref;
+  if (legacyVersion === null || legacyVersion === undefined) return undefined;
+  return legacyVersion === 0 ? 'default' : `property:${legacyVersion}`;
+}
 
 export function bookingTermsModeLabel(mode: BookingTermsMode, ar: boolean): string {
   if (mode === 'sale') return ar ? 'البيع' : 'Sale';
@@ -42,9 +61,16 @@ export function parseTermsBody(body: string | null | undefined): string[] {
     .map((line) => line.slice(0, 600));
 }
 
-export function checkoutTermsFromOwner(terms: OwnerBookingTerms | null): BookingTermsForCheckout {
-  if (!terms) return { version: 0, ownerLinesAr: [], ownerLinesEn: [] };
+export function checkoutTermsFromOwner(
+  terms: OwnerBookingTerms | null,
+  source: Exclude<BookingTermsSource, 'default'> = 'property',
+): BookingTermsForCheckout {
+  if (!terms) {
+    return { ref: 'default', source: 'default', version: 0, ownerLinesAr: [], ownerLinesEn: [] };
+  }
   return {
+    ref: bookingTermsRef(source, terms.version),
+    source,
     version: terms.version,
     ownerLinesAr: parseTermsBody(terms.bodyAr),
     ownerLinesEn: parseTermsBody(terms.bodyEn),
