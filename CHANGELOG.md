@@ -2,6 +2,16 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.89 — 2026-10-07
+
+- Fix empty `/properties`: drop runtime `ALTER TABLE units` from catalogue/heal/save paths (it took ACCESS EXCLUSIVE and starved reads); `offering_modes` moves to migration `0025_unit_offering_modes.sql` (run `pnpm db:migrate` on production).
+- Fix BHD SSO `redirect_uri` rejection: `proxy.ts` redirects `baitak.bhd-om.com` to `r.bhd-om.com` (reads `x-forwarded-host` on Vercel).
+- Fix every Vercel deploy failing on Hobby: `vercel.json` crons are daily; `.github/workflows/scheduled-pings.yml` calls `warmup-nest` and `expire-locks` every 10 minutes (needs `CRON_SECRET` repo secret).
+- Rent/purchase deposit booking from the unit page (`/book/[unitId]?mode=rent|sale`): terms → details → review → BHD Pay deposit → e-sign contract with ID front/back and selfie → confirmation, mirroring daily stays. Unpaid holds last 30 minutes; paid reservations hold the unit 30 days; sale bookings open a `reserved` sales deal.
+- Owner-editable contract terms per property for sale, monthly/yearly rent, and daily stays (`/owner|developer/properties/[id]/terms`), versioned in `stay_policies`. Booking pages reveal the accept checkbox only after scrolling to the end, reject stale versions (`terms_changed`), and snapshot the accepted text into the reservation/stay booking and contract.
+- "Is this booking for you?" on the details step: self prefills name/email/phone from the user's own party (phone saved on first use); other picks a saved person or enters a new one and can save it as a tenant contact in the user's own organization. Contracts add "Booked by" when booking for someone else.
+- Details: [`docs/implementation/RELEASE-0.4.89-AR.md`](./docs/implementation/RELEASE-0.4.89-AR.md).
+
 ## 0.4.88 — 2026-10-04
 
 - Apply ONE-BHD `docs/BHD-SESSION-POLICY.md`: product session lasts until explicit logout (400-day JWT/session row/cookie, no idle timeout); signing in elsewhere no longer revokes other devices; no visibilitychange/focus network listeners; expired product session goes straight to silent `/api/auth/bhd/start`; logout is a POST that revokes the session row then calls Identity end-session.

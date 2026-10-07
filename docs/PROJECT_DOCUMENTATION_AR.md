@@ -109,6 +109,14 @@ flowchart TD
 2. يُوقَّع إلكترونياً عبر OTP / إعادة مصادقة + Evidence Envelope وPDF hash.
 3. عند اكتمال التوقيع يُفعَّل الـ Lease وتبدأ الفوترة.
 
+### 4.3.1 الحجز بالعربون وشروط المالك (0.4.89)
+
+- من صفحة الوحدة: «أريد التأجير» / «أريد الشراء» ← الشروط ← بياناتك ← المراجعة ← دفع العربون عبر BHD Pay ← توقيع العقد مع صور الهوية والصورة الشخصية ← التأكيد.
+- المالك يكتب الشروط والأحكام لكل عقار (بيع / إيجار شهري-سنوي / إيجار يومي) من «الشروط والأحكام للعقود» في إدارة العقار، مع إصدارات محفوظة.
+- العميل لا يرى مربع الموافقة إلا بعد التمرير إلى آخر الشروط، والنص الذي وافق عليه يُحفظ في الحجز ويُطبع في العقد.
+- «هل الحجز لك؟»: جلب بيانات المستخدم تلقائياً، أو الحجز لشخص آخر مع حفظه في ملف المستخدم لاختياره لاحقاً.
+- التفاصيل: [implementation/RELEASE-0.4.89-AR.md](./implementation/RELEASE-0.4.89-AR.md).
+
 ### 4.4 تفعيل المستأجر
 
 - النظام يمنح **اسم مستخدم** + **رابط/رمز تفعيل أحادي الاستخدام** داخل BHD Identity.
@@ -371,13 +379,14 @@ BHD R **لا ينسخ** كود [ainoamn/bhd-om](https://github.com/ainoamn/bhd-o
 
 ## 14. مراجع سريعة
 
-| الوثيقة                                                              | المحتوى              |
-| -------------------------------------------------------------------- | -------------------- |
-| [ARCHITECTURE.md](./ARCHITECTURE.md)                                 | المعمارية            |
-| [SECURITY_CONTROLS.md](./SECURITY_CONTROLS.md)                       | الضوابط              |
-| [THREAT_MODEL.md](./THREAT_MODEL.md)                                 | نموذج التهديد        |
-| [DEPLOYMENT.md](./DEPLOYMENT.md)                                     | النشر العام          |
-| [PRODUCT_AND_DECISIONS.md](./PRODUCT_AND_DECISIONS.md)               | قرارات المنتج        |
-| [product/BHD-R-BUILD-PLAN-AR.md](./product/BHD-R-BUILD-PLAN-AR.md)   | خطة البناء           |
-| [SECURITY_CHECKLIST_MATRIX_AR.md](./SECURITY_CHECKLIST_MATRIX_AR.md) | مصفوفة بنودك الأمنية |
-| [VERCEL_DEPLOYMENT_AR.md](./VERCEL_DEPLOYMENT_AR.md)                 | ربط Vercel           |
+| الوثيقة                                                                      | المحتوى                     |
+| ---------------------------------------------------------------------------- | --------------------------- |
+| [ARCHITECTURE.md](./ARCHITECTURE.md)                                         | المعمارية                   |
+| [SECURITY_CONTROLS.md](./SECURITY_CONTROLS.md)                               | الضوابط                     |
+| [THREAT_MODEL.md](./THREAT_MODEL.md)                                         | نموذج التهديد               |
+| [DEPLOYMENT.md](./DEPLOYMENT.md)                                             | النشر العام                 |
+| [PRODUCT_AND_DECISIONS.md](./PRODUCT_AND_DECISIONS.md)                       | قرارات المنتج               |
+| [product/BHD-R-BUILD-PLAN-AR.md](./product/BHD-R-BUILD-PLAN-AR.md)           | خطة البناء                  |
+| [SECURITY_CHECKLIST_MATRIX_AR.md](./SECURITY_CHECKLIST_MATRIX_AR.md)         | مصفوفة بنودك الأمنية        |
+| [VERCEL_DEPLOYMENT_AR.md](./VERCEL_DEPLOYMENT_AR.md)                         | ربط Vercel                  |
+| [implementation/RELEASE-0.4.89-AR.md](./implementation/RELEASE-0.4.89-AR.md) | الحجز بالعربون وشروط المالك |
