@@ -56,7 +56,10 @@ export default async function LeaseBookingConfirmedPage({
   const price = priceMinor && priceMinor !== '0' ? formatMoney(priceMinor, booking.currency, locale) : null;
   const property = `${localizedName(locale, booking.propertyNameAr, booking.propertyNameEn)} — ${localizedName(locale, booking.unitNameAr, booking.unitNameEn)}`;
   const contractTitle = leaseContractTitle(booking.mode);
-  const name = booking.contact.fullName || (ar ? 'العميل الكريم' : 'valued customer');
+  const forOther = booking.bookingFor === 'other';
+  const name =
+    (forOther ? booking.bookedByName : booking.contact.fullName) ||
+    (ar ? 'العميل الكريم' : 'valued customer');
   const signHref = `/book/sign?ref=${encodeURIComponent(booking.referenceCode)}`;
 
   return (
@@ -125,6 +128,12 @@ export default async function LeaseBookingConfirmedPage({
             <dt>{ar ? 'نوع الحجز' : 'Booking type'}</dt>
             <dd>{ar ? contractTitle.ar : contractTitle.en}</dd>
           </div>
+          {forOther ? (
+            <div>
+              <dt>{sale ? (ar ? 'المشتري' : 'Buyer') : ar ? 'المستأجر' : 'Tenant'}</dt>
+              <dd>{booking.contact.fullName}</dd>
+            </div>
+          ) : null}
           <div>
             <dt>{ar ? 'العقار' : 'Property'}</dt>
             <dd>{property}</dd>

@@ -5,6 +5,10 @@ import { isPaymentSandboxPilotEnabled } from '@bhd-r/config';
 import { Link } from '@/i18n/navigation';
 import { LeaseDepositCheckout } from '@/components/lease-deposit-checkout';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import {
+  loadBookingContacts,
+  type BookingContactsForViewer,
+} from '@/lib/booking-contacts-neon';
 import { loadBookingTermsForUnit } from '@/lib/booking-terms-neon';
 import { localizedName } from '@/lib/format';
 import { loadPublicPropertyShowcaseFromNeon } from '@/lib/load-public-property-neon';
@@ -84,6 +88,33 @@ export default async function BookUnitPage({
       ? await withTimedResult(loadBookingTermsForUnit(unitId, allowedModes), 5_000, 'book-terms')
       : null;
   const termsByMode = termsResult?.status === 'ok' ? termsResult.value : {};
+
+  const contactsFallback: BookingContactsForViewer = {
+    self: {
+      fullName: viewer?.displayName?.trim() ?? '',
+      phone: null,
+      email: viewer?.email?.trim() || null,
+    },
+    saved: [],
+    canSave: false,
+  };
+  const contactsResult =
+    unit && hasDeposit && paymentEnabled && viewer
+      ? await withTimedResult(
+          loadBookingContacts({
+            userId: viewer.id,
+            organizationId: viewer.organizationId ?? null,
+            partyId: viewer.partyId ?? null,
+            roles: viewer.roles,
+            permissions: viewer.permissions,
+            email: viewer.email ?? null,
+            displayName: viewer.displayName,
+          }),
+          4_000,
+          'book-contacts',
+        )
+      : null;
+  const contacts = contactsResult?.status === 'ok' ? contactsResult.value : contactsFallback;
 
   return (
     <section className="stays-book-shell" data-stay-book-immersive="true">
@@ -175,10 +206,7 @@ export default async function BookUnitPage({
             rentMinor={unit.rent.amountMinor}
             salePriceMinor={unit.salePrice?.amountMinor ?? null}
             termsByMode={termsByMode}
-            defaults={{
-              ...(viewer?.displayName?.trim() ? { fullName: viewer.displayName.trim() } : {}),
-              ...(viewer?.email?.trim() ? { email: viewer.email.trim() } : {}),
-            }}
+            contacts={contacts}
           />
         )}
       </div>

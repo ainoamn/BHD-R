@@ -4,12 +4,17 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
 import { TermsAcceptance } from '@/components/terms-acceptance';
 import { ApiError, fetchBrowserCsrfToken, humanizeBrowserError } from '@/lib/api';
+import type { BookingContactsForViewer, BookingFor } from '@/lib/booking-contacts-neon';
 import { bookingTermsLines, type BookingTermsForCheckout } from '@/lib/booking-terms';
 import { formatMoney } from '@/lib/format';
 import { isValidGuestPhone } from '@/lib/stay-booking-dates';
 
 type Mode = 'rent' | 'sale';
 type Step = 'terms' | 'details' | 'review' | 'payment';
+type ContactForm = { fullName: string; phone: string; email: string };
+
+const EMPTY_CONTACT: ContactForm = { fullName: '', phone: '', email: '' };
+const NEW_CONTACT = 'new';
 
 type CheckoutResult = {
   referenceCode: string;
@@ -60,7 +65,7 @@ export function LeaseDepositCheckout({
   rentMinor,
   salePriceMinor,
   termsByMode,
-  defaults,
+  contacts,
 }: {
   locale: 'ar' | 'en';
   unitId: string;
@@ -72,16 +77,33 @@ export function LeaseDepositCheckout({
   rentMinor: string | null;
   salePriceMinor: string | null;
   termsByMode: Partial<Record<Mode, BookingTermsForCheckout>>;
-  defaults?: { fullName?: string; email?: string };
+  contacts: BookingContactsForViewer;
 }) {
   const router = useRouter();
   const ar = locale === 'ar';
   const [step, setStep] = useState<Step>('terms');
   const [mode, setMode] = useState<Mode>(initialMode);
   const [accepted, setAccepted] = useState(false);
-  const [fullName, setFullName] = useState(defaults?.fullName ?? '');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState(defaults?.email ?? '');
+  const [bookingFor, setBookingFor] = useState<BookingFor>('self');
+  const [selfForm, setSelfForm] = useState<ContactForm>({
+    fullName: contacts.self.fullName,
+    phone: contacts.self.phone ?? '',
+    email: contacts.self.email ?? '',
+  });
+  const [otherForm, setOtherForm] = useState<ContactForm>(EMPTY_CONTACT);
+  const [savedContactId, setSavedContactId] = useState<string>(NEW_CONTACT);
+  const [saveContact, setSaveContact] = useState(true);
+  const form = bookingFor === 'self' ? selfForm : otherForm;
+  const { fullName, phone, email } = form;
+  const selectedSaved = contacts.saved.find((row) => row.id === savedContactId) ?? null;
+  const formChanged =
+    bookingFor === 'self'
+      ? phone.trim() !== (contacts.self.phone ?? '').trim()
+      : !selectedSaved ||
+        fullName.trim() !== selectedSaved.fullName.trim() ||
+        phone.trim() !== (selectedSaved.phone ?? '').trim() ||
+        email.trim() !== (selectedSaved.email ?? '').trim();
+  const offerSave = contacts.canSave && formChanged;
   const [checkout, setCheckout] = useState<CheckoutResult | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [stepHint, setStepHint] = useState<string | null>(null);
@@ -120,6 +142,28 @@ export function LeaseDepositCheckout({
     setStep('details');
   }
 
+  function updateForm(patch: Partial<ContactForm>) {
+    setError(null);
+    if (bookingFor === 'self') setSelfForm((current) => ({ ...current, ...patch }));
+    else setOtherForm((current) => ({ ...current, ...patch }));
+  }
+
+  function chooseBookingFor(next: BookingFor) {
+    setError(null);
+    setBookingFor(next);
+    setSaveContact(next === 'self');
+  }
+
+  function chooseSavedContact(id: string) {
+    setError(null);
+    setSavedContactId(id);
+    const row = contacts.saved.find((item) => item.id === id);
+    setOtherForm(
+      row ? { fullName: row.fullName, phone: row.phone ?? '', email: row.email ?? '' } : EMPTY_CONTACT,
+    );
+    setSaveContact(false);
+  }
+
   function continueFromDetails() {
     if (fullName.trim().length < 2) {
       setError(ar ? 'أدخل الاسم الكامل (حرفان على الأقل)' : 'Enter your full name (at least 2 characters)');
@@ -156,6 +200,9 @@ export function LeaseDepositCheckout({
           email: email.trim(),
           termsAccepted: true,
           termsVersion,
+          bookingFor,
+          saveContact: offerSave && saveContact,
+          ...(bookingFor === 'other' && selectedSaved ? { savedContactId: selectedSaved.id } : {}),
         });
         setCheckout(result);
         setStep('payment');
@@ -305,14 +352,79 @@ export function LeaseDepositCheckout({
       {step === 'details' ? (
         <div className="stays-checkout__panel">
           <h3>{ar ? 'بياناتك' : 'Your details'}</h3>
-          <p className="muted stays-checkout__hint">
-            {ar
-              ? 'تم تعبئة بياناتك من حسابك إن وُجدت — يمكنك تعديلها قبل المتابعة.'
-              : 'We prefilled your account details when available — you can edit before continuing.'}
+          <p className="lease-checkout__question" id="lease-book-for-label">
+            {ar ? 'هل الحجز لك؟' : 'Is this booking for you?'}
           </p>
+          <div
+            className="lease-checkout__modes"
+            role="radiogroup"
+            aria-labelledby="lease-book-for-label"
+          >
+            <button
+              type="button"
+              role="radio"
+              aria-checked={bookingFor === 'self'}
+              className={`button ${bookingFor === 'self' ? 'button--primary' : 'button--quiet'}`}
+              onClick={() => chooseBookingFor('self')}
+            >
+              {ar ? 'نعم، الحجز لي' : 'Yes, for me'}
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={bookingFor === 'other'}
+              className={`button ${bookingFor === 'other' ? 'button--primary' : 'button--quiet'}`}
+              onClick={() => chooseBookingFor('other')}
+            >
+              {ar ? 'لا، لشخص آخر' : 'No, for someone else'}
+            </button>
+          </div>
+
+          {bookingFor === 'self' ? (
+            <p className="muted stays-checkout__hint">
+              {ar
+                ? 'جلبنا بياناتك من ملفك — راجعها وأكمل ما ينقص قبل المتابعة.'
+                : 'We loaded your details from your profile — review them and fill anything missing.'}
+            </p>
+          ) : contacts.saved.length ? (
+            <div className="field">
+              <label htmlFor="lease-book-saved">
+                {ar ? 'اختر من الأشخاص المحفوظين في ملفك' : 'Choose a saved person'}
+              </label>
+              <select
+                className="select"
+                id="lease-book-saved"
+                value={savedContactId}
+                onChange={(event) => chooseSavedContact(event.target.value)}
+              >
+                <option value={NEW_CONTACT}>{ar ? '+ شخص جديد' : '+ New person'}</option>
+                {contacts.saved.map((row) => (
+                  <option key={row.id} value={row.id}>
+                    {row.fullName}
+                    {row.phone ? ` — ${row.phone}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <p className="muted stays-checkout__hint">
+              {ar
+                ? 'أدخل بيانات الشخص الذي سيتم الحجز باسمه.'
+                : 'Enter the details of the person the booking is for.'}
+            </p>
+          )}
+
           <div className="stays-checkout__grid">
             <div className="field stays-checkout__name">
-              <label htmlFor="lease-book-name">{ar ? 'الاسم الكامل (كما في البطاقة)' : 'Full name (as on ID)'}</label>
+              <label htmlFor="lease-book-name">
+                {bookingFor === 'self'
+                  ? ar
+                    ? 'الاسم الكامل (كما في البطاقة)'
+                    : 'Full name (as on ID)'
+                  : ar
+                    ? 'اسم الشخص الكامل (كما في البطاقة)'
+                    : 'Their full name (as on ID)'}
+              </label>
               <input
                 className="input"
                 id="lease-book-name"
@@ -321,8 +433,8 @@ export function LeaseDepositCheckout({
                 minLength={2}
                 maxLength={160}
                 value={fullName}
-                onChange={(event) => setFullName(event.target.value)}
-                autoComplete="name"
+                onChange={(event) => updateForm({ fullName: event.target.value })}
+                autoComplete={bookingFor === 'self' ? 'name' : 'off'}
               />
             </div>
             <div className="field">
@@ -333,8 +445,8 @@ export function LeaseDepositCheckout({
                 type="tel"
                 required
                 value={phone}
-                onChange={(event) => setPhone(event.target.value)}
-                autoComplete="tel"
+                onChange={(event) => updateForm({ phone: event.target.value })}
+                autoComplete={bookingFor === 'self' ? 'tel' : 'off'}
                 dir="ltr"
                 placeholder={ar ? 'مثال: 9689xxxxxxx' : 'e.g. 9689xxxxxxx'}
               />
@@ -346,12 +458,35 @@ export function LeaseDepositCheckout({
                 id="lease-book-email"
                 type="email"
                 value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                autoComplete="email"
+                onChange={(event) => updateForm({ email: event.target.value })}
+                autoComplete={bookingFor === 'self' ? 'email' : 'off'}
                 dir="ltr"
               />
             </div>
           </div>
+
+          {offerSave ? (
+            <label className="checkbox-row lease-checkout__accept">
+              <input
+                type="checkbox"
+                checked={saveContact}
+                onChange={(event) => setSaveContact(event.target.checked)}
+              />
+              <span>
+                {bookingFor === 'self'
+                  ? ar
+                    ? 'حفظ رقم هاتفي في ملفي لاستخدامه في الحجوزات القادمة'
+                    : 'Save my phone number to my profile for future bookings'
+                  : selectedSaved
+                    ? ar
+                      ? 'تحديث بيانات هذا الشخص المحفوظة في ملفي'
+                      : 'Update this saved person in my profile'
+                    : ar
+                      ? 'حفظ بيانات هذا الشخص في ملفي لحجز آخر'
+                      : 'Save this person to my profile for another booking'}
+              </span>
+            </label>
+          ) : null}
           <div className="stays-checkout__nav">
             <button type="button" className="button button--quiet" onClick={() => setStep('terms')}>
               {ar ? 'رجوع' : 'Back'}
@@ -374,6 +509,18 @@ export function LeaseDepositCheckout({
             <div>
               <dt>{ar ? 'نوع الحجز' : 'Booking type'}</dt>
               <dd>{modeLabel}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'الحجز لـ' : 'Booking for'}</dt>
+              <dd>
+                {bookingFor === 'self'
+                  ? ar
+                    ? 'لي شخصياً'
+                    : 'Myself'
+                  : ar
+                    ? 'شخص آخر'
+                    : 'Someone else'}
+              </dd>
             </div>
             <div>
               <dt>{ar ? 'الاسم' : 'Name'}</dt>

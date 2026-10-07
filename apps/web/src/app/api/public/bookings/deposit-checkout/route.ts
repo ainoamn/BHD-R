@@ -1,6 +1,7 @@
 import { isPaymentSandboxPilotEnabled } from '@bhd-r/config';
 import { z } from 'zod';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { saveBookingContact } from '@/lib/booking-contacts-neon';
 import { leaseBookingErrorResponse, leaseBookingJson } from '@/lib/lease-booking-route';
 import { requireLiveSession } from '@/lib/next-route-guard';
 import { createLeaseBookingCheckout } from '@/lib/public-lease-booking-neon';
@@ -20,6 +21,9 @@ const bodySchema = z
     email: z.union([z.string().trim().email().max(320), z.literal('')]).optional(),
     termsAccepted: z.literal(true),
     termsVersion: z.number().int().min(0).max(1_000_000).default(0),
+    bookingFor: z.enum(['self', 'other']).default('self'),
+    saveContact: z.boolean().default(false),
+    savedContactId: z.string().uuid().optional(),
   })
   .strict();
 
@@ -77,8 +81,23 @@ export async function POST(request: Request) {
       phone: parsed.data.phone,
       email: parsed.data.email || null,
       termsVersion: parsed.data.termsVersion,
+      bookingFor: parsed.data.bookingFor,
     });
-    return leaseBookingJson(result);
+    let contactSaved = false;
+    if (parsed.data.saveContact) {
+      const saved = await saveBookingContact(claims, {
+        bookingFor: parsed.data.bookingFor,
+        contactId: parsed.data.savedContactId ?? null,
+        fullName: parsed.data.fullName,
+        phone: parsed.data.phone,
+        email: parsed.data.email || null,
+      }).catch((error: unknown) => {
+        console.error('booking contact save failed', error);
+        return null;
+      });
+      contactSaved = Boolean(saved?.saved);
+    }
+    return leaseBookingJson({ ...result, contactSaved });
   } catch (error) {
     return leaseBookingErrorResponse(error);
   }

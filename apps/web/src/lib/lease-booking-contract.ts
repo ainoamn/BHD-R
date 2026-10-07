@@ -61,6 +61,7 @@ export function buildLeaseContractHtml(booking: LeaseBookingView, locale: 'ar' |
       <dl class="stay-doc__grid">
         ${row(ar ? (booking.mode === 'sale' ? 'المشتري' : 'المستأجر') : booking.mode === 'sale' ? 'Buyer' : 'Tenant', booking.contact.fullName)}
         ${row(ar ? 'الهاتف' : 'Phone', booking.contact.phone, true)}
+        ${booking.bookingFor === 'other' && booking.bookedByName ? row(ar ? 'تم الحجز بواسطة' : 'Booked by', booking.bookedByName) : ''}
         ${row(ar ? 'العقار' : 'Property', property)}
         ${row(ar ? 'رمز الوحدة' : 'Unit code', booking.unitCode, true)}
         ${row(booking.mode === 'sale' ? (ar ? 'سعر البيع' : 'Sale price') : ar ? 'الإيجار الشهري' : 'Monthly rent', price ?? '—', true)}

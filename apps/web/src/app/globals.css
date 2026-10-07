@@ -12367,6 +12367,10 @@ body:has(.stay-esign-shell) {
 .terms-acceptance {
   margin: 0 0 1rem;
 }
+.lease-checkout__question {
+  margin: 0 0 0.5rem;
+  font-weight: 700;
+}
 .terms-acceptance__hint {
   margin: 0;
   padding: 0.6rem 0.85rem;

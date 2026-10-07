@@ -11,33 +11,18 @@ import {
   type BookingTermsMode,
   type OwnerBookingTerms,
 } from '@/lib/booking-terms';
-import { getDatabase, withElevatedRead, type Tx } from '@/lib/public-booking-neon';
+import {
+  applyMemberScope as applyOwnerScope,
+  getDatabase,
+  withElevatedRead,
+  type MemberScope as OwnerScope,
+  type Tx,
+} from '@/lib/public-booking-neon';
 
 const POLICY_KIND = 'other';
 
 function termsCode(mode: BookingTermsMode, propertyId: string) {
   return `booking_terms:${mode}:${propertyId}`;
-}
-
-type OwnerScope = {
-  organizationId: string;
-  userId: string;
-  partyId?: string | null;
-  roles?: readonly string[];
-};
-
-async function applyOwnerScope(transaction: Tx, scope: OwnerScope) {
-  const roles = scope.roles ?? [];
-  await transaction.execute(sql`select set_config('app.organization_id', ${scope.organizationId}, true)`);
-  await transaction.execute(sql`select set_config('app.user_id', ${scope.userId}, true)`);
-  await transaction.execute(sql`select set_config('app.party_id', ${scope.partyId ?? ''}, true)`);
-  await transaction.execute(
-    sql`select set_config('app.platform_admin', ${String(roles.includes('platform_admin'))}, true)`,
-  );
-  await transaction.execute(
-    sql`select set_config('app.is_tenant', ${String(roles.includes('tenant'))}, true)`,
-  );
-  await transaction.execute(sql`select set_config('app.public', 'false', true)`);
 }
 
 /** Latest active owner terms — caller must already be scoped to `organizationId`. */

@@ -47,6 +47,9 @@ type LeaseBookingSnapshot = {
   rentMinor: string | null;
   salePriceMinor: string | null;
   contact: { fullName: string; phone: string; email: string | null };
+  /** `other` when the account holder books on behalf of the person in `contact`. */
+  bookingFor?: 'self' | 'other';
+  bookedBy?: { userId: string; displayName: string; email: string | null };
   termsVersion: string;
   termsAcceptedAt: string;
   /** Owner-written terms the customer accepted; null means platform defaults were shown. */
@@ -209,6 +212,7 @@ export type LeaseCheckoutInput = {
   locale: 'ar' | 'en';
   /** Owner terms version shown to the customer (0 = platform defaults). */
   termsVersion: number;
+  bookingFor: 'self' | 'other';
 };
 
 export async function createLeaseBookingCheckout(claims: SessionClaims, input: LeaseCheckoutInput) {
@@ -258,6 +262,10 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
       phone: input.phone.trim(),
       email: input.email?.trim() || null,
     };
+    const booker = {
+      bookingFor: input.bookingFor,
+      bookedBy: { userId: claims.sub, displayName: party.displayName, email: party.email },
+    };
 
     const ownRows = await transaction
       .select({
@@ -297,6 +305,7 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
         mode: input.mode,
         locale: input.locale,
         contact,
+        ...booker,
         termsVersion: LEASE_BOOKING_TERMS_VERSION,
         termsAcceptedAt: now.toISOString(),
         ownerTerms,
@@ -347,6 +356,7 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
       rentMinor: unit.rentMinor?.toString() ?? null,
       salePriceMinor: preview.salePriceMinor?.toString() ?? null,
       contact,
+      ...booker,
       termsVersion: LEASE_BOOKING_TERMS_VERSION,
       termsAcceptedAt: now.toISOString(),
       ownerTerms,
@@ -582,6 +592,8 @@ export async function loadLeaseBookingForViewer(userId: string, referenceCode: s
       rentMinor: snapshot.rentMinor,
       salePriceMinor: snapshot.salePriceMinor,
       contact: snapshot.contact,
+      bookingFor: snapshot.bookingFor ?? 'self',
+      bookedByName: snapshot.bookedBy?.displayName ?? null,
       termsAcceptedAt: snapshot.termsAcceptedAt,
       ownerTerms: snapshot.ownerTerms ?? null,
       depositPaidAt: snapshot.depositPaidAt ?? null,

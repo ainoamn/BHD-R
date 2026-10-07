@@ -48,6 +48,28 @@ export async function applyOrgScope(
   await transaction.execute(sql`select set_config('app.is_tenant', 'false', true)`);
 }
 
+export type MemberScope = {
+  organizationId: string;
+  userId: string;
+  partyId?: string | null;
+  roles?: readonly string[];
+};
+
+/** Scope to the signed-in member's own organization, mirroring the session's role flags. */
+export async function applyMemberScope(transaction: Tx, scope: MemberScope) {
+  const roles = scope.roles ?? [];
+  await transaction.execute(sql`select set_config('app.organization_id', ${scope.organizationId}, true)`);
+  await transaction.execute(sql`select set_config('app.user_id', ${scope.userId}, true)`);
+  await transaction.execute(sql`select set_config('app.party_id', ${scope.partyId ?? ''}, true)`);
+  await transaction.execute(
+    sql`select set_config('app.platform_admin', ${String(roles.includes('platform_admin'))}, true)`,
+  );
+  await transaction.execute(
+    sql`select set_config('app.is_tenant', ${String(roles.includes('tenant'))}, true)`,
+  );
+  await transaction.execute(sql`select set_config('app.public', 'false', true)`);
+}
+
 export async function withElevatedRead<T>(transaction: Tx, work: () => Promise<T>): Promise<T> {
   await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
   await transaction.execute(sql`select set_config('app.public', 'true', true)`);
