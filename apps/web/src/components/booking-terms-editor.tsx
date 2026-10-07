@@ -63,6 +63,36 @@ function formatDate(value: string, ar: boolean) {
   }).format(new Date(value));
 }
 
+async function sendJson<T extends object>(
+  url: string,
+  method: 'PUT' | 'POST',
+  body: unknown,
+  fallbackCode: string,
+  timeoutMs = 30_000,
+): Promise<T> {
+  const send = async (csrf: string) =>
+    fetch(url, {
+      method,
+      credentials: 'same-origin',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+        'x-csrf-token': csrf,
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  let response = await send(await fetchBrowserCsrfToken());
+  if (response.status === 403) response = await send(await fetchBrowserCsrfToken(true));
+  const payload = (await response.json().catch(() => null)) as
+    (T & { error?: { code?: string } }) | null;
+  if (!response.ok || !payload) {
+    const code = payload?.error?.code ?? fallbackCode;
+    throw new ApiError(response.status, code, code);
+  }
+  return payload;
+}
+
 async function putBookingTerms(
   target: BookingTermsEditorTarget,
   body: { mode: BookingTermsMode; blocks: TermsBlock[] },
@@ -71,30 +101,46 @@ async function putBookingTerms(
     target.kind === 'organization'
       ? '/api/owner/booking-terms'
       : `/api/owner/properties/${encodeURIComponent(target.property.id)}/booking-terms`;
-  const send = async (csrf: string) =>
-    fetch(url, {
-      method: 'PUT',
-      credentials: 'same-origin',
-      headers: {
-        accept: 'application/json',
-        'content-type': 'application/json',
-        'x-csrf-token': csrf,
-      },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(30_000),
-    });
-  let response = await send(await fetchBrowserCsrfToken());
-  if (response.status === 403) response = await send(await fetchBrowserCsrfToken(true));
-  const payload = (await response.json().catch(() => null)) as {
-    ok?: true;
-    terms?: OwnerBookingTerms | null;
-    error?: { code?: string };
-  } | null;
-  if (!response.ok || !payload?.ok) {
-    const code = payload?.error?.code ?? 'update_failed';
-    throw new ApiError(response.status, code, code);
-  }
+  const payload = await sendJson<{ ok?: true; terms?: OwnerBookingTerms | null }>(
+    url,
+    'PUT',
+    body,
+    'update_failed',
+  );
+  if (!payload.ok) throw new ApiError(500, 'update_failed', 'update_failed');
   return { ok: true, terms: payload.terms ?? null };
+}
+
+type AiAction = 'translate' | 'rephrase' | 'proofread';
+type AiSuggestion = { action: AiAction; text: string; issues: string[]; unchanged: boolean };
+type AiTranslateResult = { translations: string[]; engine: 'ai' | 'machine' };
+
+const TERMS_AI_URL = '/api/owner/booking-terms/ai';
+const AI_TRANSLATE_BATCH = 15;
+
+function postTermsAi<T extends object>(body: Record<string, unknown>): Promise<T> {
+  return sendJson<T>(TERMS_AI_URL, 'POST', body, 'ai_failed', 60_000);
+}
+
+function aiErrorMessage(error: unknown, ar: boolean): string {
+  if (error instanceof ApiError) {
+    if (error.code === 'ai_unconfigured') {
+      return ar
+        ? 'خدمة الذكاء الاصطناعي غير مفعّلة بعد — يلزم إضافة مفتاح AI_GATEWAY_API_KEY أو OPENAI_API_KEY في إعدادات الخادم.'
+        : 'AI is not configured yet — add AI_GATEWAY_API_KEY or OPENAI_API_KEY to the server settings.';
+    }
+    if (error.code === 'ai_failed') {
+      return ar
+        ? 'تعذّر الحصول على رد من خدمة الذكاء الاصطناعي — حاول مرة أخرى.'
+        : 'The AI service did not respond — please try again.';
+    }
+    if (error.code === 'forbidden') {
+      return ar
+        ? 'ليست لديك صلاحية تعديل الشروط والأحكام.'
+        : 'You cannot edit terms and conditions.';
+    }
+  }
+  return humanizeBrowserError(error, ar);
 }
 
 function saveErrorMessage(error: unknown, ar: boolean): string {
@@ -174,6 +220,8 @@ export function BookingTermsEditor({
   });
   const [message, setMessage] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
+  const [aiBusy, setAiBusy] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<Record<string, AiSuggestion>>({});
   const listRef = useRef<HTMLOListElement | null>(null);
 
   const draft = drafts[mode];
@@ -187,15 +235,13 @@ export function BookingTermsEditor({
     : inherited && hasTermsText(inherited.blocks)
       ? 'template'
       : 'default';
-  const previewBlocks = bookingTermsDocument({
-    mode,
-    blocks:
-      previewSource === 'custom'
-        ? payload
-        : previewSource === 'template'
-          ? (inherited?.blocks ?? null)
-          : null,
-  });
+  const ownerBlocks: readonly TermsBlock[] =
+    previewSource === 'custom'
+      ? payload
+      : previewSource === 'template'
+        ? (inherited?.blocks ?? [])
+        : suggestedTermsBlocks(mode);
+  const previewBlocks = bookingTermsDocument({ mode, blocks: ownerBlocks });
 
   function setBlocks(update: (blocks: EditorBlock[]) => EditorBlock[]) {
     setMessage(null);
@@ -251,6 +297,311 @@ export function BookingTermsEditor({
 
   function replaceBlocks(blocks: readonly TermsBlock[]) {
     setBlocks(() => toEditor(blocks));
+  }
+
+  function patchBlocksIn(targetMode: BookingTermsMode, patch: (block: EditorBlock) => EditorBlock) {
+    setDrafts((current) => ({
+      ...current,
+      [targetMode]: { ...current[targetMode], blocks: current[targetMode].blocks.map(patch) },
+    }));
+  }
+
+  function setSuggestion(key: string, suggestion: AiSuggestion | null) {
+    setSuggestions((current) => {
+      const next = { ...current };
+      if (suggestion) next[key] = suggestion;
+      else delete next[key];
+      return next;
+    });
+  }
+
+  function machineNotice(): string {
+    return ar
+      ? 'تمت الترجمة بالترجمة الآلية لأن خدمة الذكاء الاصطناعي غير مفعّلة — راجع النص قبل الحفظ.'
+      : 'Translated with machine translation because AI is not configured — review before saving.';
+  }
+
+  async function runAi(block: EditorBlock, lang: Lang, action: AiAction) {
+    const text = stripTermsNumbering(block[lang]);
+    if (!text || aiBusy) return;
+    const requestMode = mode;
+    const other: Lang = lang === 'ar' ? 'en' : 'ar';
+    setAiBusy(`${block.id}:${lang}:${action}`);
+    setMessage(null);
+    try {
+      if (action === 'translate') {
+        const result = await postTermsAi<AiTranslateResult>({
+          action,
+          from: lang,
+          items: [{ kind: block.kind, text }],
+        });
+        const translated = result.translations[0]?.trim() ?? '';
+        if (!translated) throw new ApiError(502, 'ai_failed', 'ai_failed');
+        if (block[other].trim()) {
+          setSuggestion(`${block.id}:${other}`, {
+            action,
+            text: translated,
+            issues: [],
+            unchanged: translated === block[other].trim(),
+          });
+        } else {
+          patchBlocksIn(requestMode, (item) =>
+            item.id === block.id && !item[other].trim() ? { ...item, [other]: translated } : item,
+          );
+        }
+        if (result.engine === 'machine') setMessage({ kind: 'success', text: machineNotice() });
+        return;
+      }
+      if (action === 'rephrase') {
+        const result = await postTermsAi<{ text: string }>({
+          action,
+          lang,
+          kind: block.kind,
+          text,
+          mode: requestMode,
+        });
+        setSuggestion(`${block.id}:${lang}`, {
+          action,
+          text: result.text,
+          issues: [],
+          unchanged: result.text.trim() === text,
+        });
+        return;
+      }
+      const result = await postTermsAi<{ corrected: string; issues: string[] }>({
+        action,
+        lang,
+        kind: block.kind,
+        text,
+        uiLang: locale,
+      });
+      setSuggestion(`${block.id}:${lang}`, {
+        action,
+        text: result.corrected,
+        issues: result.issues,
+        unchanged: result.corrected.trim() === text && result.issues.length === 0,
+      });
+    } catch (caught) {
+      setMessage({ kind: 'error', text: aiErrorMessage(caught, ar) });
+    } finally {
+      setAiBusy(null);
+    }
+  }
+
+  async function translateMissing() {
+    if (aiBusy) return;
+    const requestMode = mode;
+    const groups: Record<Lang, { id: string; kind: EditorBlock['kind']; text: string }[]> = {
+      ar: [],
+      en: [],
+    };
+    for (const block of draft.blocks) {
+      const arText = stripTermsNumbering(block.ar);
+      const enText = stripTermsNumbering(block.en);
+      if (arText && !enText) groups.ar.push({ id: block.id, kind: block.kind, text: arText });
+      else if (enText && !arText) groups.en.push({ id: block.id, kind: block.kind, text: enText });
+    }
+    const total = groups.ar.length + groups.en.length;
+    if (!total) {
+      setMessage({
+        kind: 'success',
+        text: ar
+          ? 'كل العناوين والبنود مكتوبة باللغتين.'
+          : 'Every item already has both languages.',
+      });
+      return;
+    }
+    setAiBusy('bulk');
+    setMessage(null);
+    let done = 0;
+    let machine = false;
+    try {
+      for (const from of ['ar', 'en'] as const) {
+        const to: Lang = from === 'ar' ? 'en' : 'ar';
+        const items = groups[from];
+        for (let start = 0; start < items.length; start += AI_TRANSLATE_BATCH) {
+          const batch = items.slice(start, start + AI_TRANSLATE_BATCH);
+          const result = await postTermsAi<AiTranslateResult>({
+            action: 'translate',
+            from,
+            items: batch.map(({ kind, text }) => ({ kind, text })),
+          });
+          if (result.engine === 'machine') machine = true;
+          const byId = new Map(
+            batch.map((item, index) => [item.id, result.translations[index]?.trim() ?? '']),
+          );
+          patchBlocksIn(requestMode, (block) => {
+            const translated = byId.get(block.id);
+            return translated && !block[to].trim() ? { ...block, [to]: translated } : block;
+          });
+          done += batch.length;
+        }
+      }
+      setMessage({
+        kind: 'success',
+        text: machine
+          ? machineNotice()
+          : ar
+            ? `تمت ترجمة ${done} عنصراً بالذكاء الاصطناعي — راجعها ثم اضغط حفظ.`
+            : `Translated ${done} items with AI — review, then save.`,
+      });
+    } catch (caught) {
+      const prefix = done
+        ? ar
+          ? `تُرجم ${done} من ${total} عنصراً. `
+          : `Translated ${done} of ${total} items. `
+        : '';
+      setMessage({ kind: 'error', text: prefix + aiErrorMessage(caught, ar) });
+    } finally {
+      setAiBusy(null);
+    }
+  }
+
+  function acceptSuggestion(blockId: string, lang: Lang) {
+    const suggestion = suggestions[`${blockId}:${lang}`];
+    if (!suggestion) return;
+    updateBlockById(blockId, { [lang]: suggestion.text });
+    setSuggestion(`${blockId}:${lang}`, null);
+  }
+
+  function updateBlockById(blockId: string, patch: Partial<EditorBlock>) {
+    setBlocks((blocks) =>
+      blocks.map((block) => (block.id === blockId ? { ...block, ...patch } : block)),
+    );
+  }
+
+  function copyToMode(targetMode: BookingTermsMode) {
+    const source = ownerBlocks;
+    if (!hasTermsText(source)) return;
+    const existing = toPayload(drafts[targetMode].blocks);
+    if (
+      hasTermsText(existing) &&
+      !window.confirm(
+        ar
+          ? `ستُستبدل البنود الحالية في «${bookingTermsModeLabel(targetMode, true)}» بنسخة من «${bookingTermsModeLabel(mode, true)}». متابعة؟`
+          : `Replace the current ${bookingTermsModeLabel(targetMode, false)} items with a copy of ${bookingTermsModeLabel(mode, false)}?`,
+      )
+    ) {
+      return;
+    }
+    setDrafts((current) => ({
+      ...current,
+      [targetMode]: { ...current[targetMode], blocks: toEditor(source) },
+    }));
+    setMode(targetMode);
+    setMessage({
+      kind: 'success',
+      text: ar
+        ? `تم نسخ ${source.length} عنصراً من «${bookingTermsModeLabel(mode, true)}» إلى «${bookingTermsModeLabel(targetMode, true)}» — راجع الصياغة (مثل المستأجر/المشتري/الضيف) ثم اضغط حفظ.`
+        : `Copied ${source.length} items from ${bookingTermsModeLabel(mode, false)} to ${bookingTermsModeLabel(targetMode, false)} — review the wording (tenant/buyer/guest), then save.`,
+    });
+  }
+
+  function renderAiTools(block: EditorBlock, lang: Lang) {
+    const key = `${block.id}:${lang}`;
+    const suggestion = suggestions[key];
+    const hasText = Boolean(block[lang].trim());
+    const busy = (action: AiAction) => aiBusy === `${key}:${action}`;
+    const toLabel =
+      lang === 'ar'
+        ? ar
+          ? 'ترجمة للإنجليزية'
+          : 'Translate to English'
+        : ar
+          ? 'ترجمة للعربية'
+          : 'Translate to Arabic';
+    const titles: Record<AiAction, string> = {
+      translate: ar ? 'ترجمة مقترحة' : 'Suggested translation',
+      rephrase: ar ? 'صياغة مقترحة' : 'Suggested wording',
+      proofread: ar ? 'النص بعد التدقيق اللغوي' : 'Proofread text',
+    };
+    return (
+      <>
+        {hasText ? (
+          <div className="terms-ai__tools">
+            <button
+              type="button"
+              className="terms-ai__button"
+              disabled={Boolean(aiBusy)}
+              onClick={() => void runAi(block, lang, 'translate')}
+            >
+              ✨ {busy('translate') ? (ar ? 'جارٍ الترجمة…' : 'Translating…') : toLabel}
+            </button>
+            <button
+              type="button"
+              className="terms-ai__button"
+              disabled={Boolean(aiBusy)}
+              onClick={() => void runAi(block, lang, 'rephrase')}
+            >
+              ✨{' '}
+              {busy('rephrase') ? (ar ? 'جارٍ الصياغة…' : 'Rewriting…') : ar ? 'صياغة' : 'Rephrase'}
+            </button>
+            <button
+              type="button"
+              className="terms-ai__button"
+              disabled={Boolean(aiBusy)}
+              onClick={() => void runAi(block, lang, 'proofread')}
+            >
+              ✨{' '}
+              {busy('proofread')
+                ? ar
+                  ? 'جارٍ التدقيق…'
+                  : 'Checking…'
+                : ar
+                  ? 'تدقيق لغوي'
+                  : 'Proofread'}
+            </button>
+          </div>
+        ) : null}
+        {suggestion ? (
+          <div className="terms-ai__suggestion" role="status">
+            {suggestion.unchanged ? (
+              <p className="terms-ai__ok">
+                {suggestion.action === 'proofread'
+                  ? ar
+                    ? '✓ النص سليم لغوياً — لا توجد تصحيحات.'
+                    : '✓ No language issues found.'
+                  : ar
+                    ? '✓ الاقتراح مطابق للنص الحالي.'
+                    : '✓ The suggestion matches the current text.'}
+              </p>
+            ) : (
+              <>
+                <span className="terms-ai__title">{titles[suggestion.action]}</span>
+                <p className="terms-ai__text" lang={lang} dir={lang === 'ar' ? 'rtl' : 'ltr'}>
+                  {suggestion.text}
+                </p>
+                {suggestion.issues.length ? (
+                  <ul className="terms-ai__issues">
+                    {suggestion.issues.map((issue, index) => (
+                      <li key={index}>{issue}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </>
+            )}
+            <div className="terms-ai__actions">
+              {suggestion.unchanged ? null : (
+                <button
+                  type="button"
+                  className="button button--primary"
+                  onClick={() => acceptSuggestion(block.id, lang)}
+                >
+                  {ar ? 'اعتماد' : 'Apply'}
+                </button>
+              )}
+              <button
+                type="button"
+                className="button button--quiet"
+                onClick={() => setSuggestion(key, null)}
+              >
+                {suggestion.unchanged ? (ar ? 'إغلاق' : 'Close') : ar ? 'تجاهل' : 'Dismiss'}
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </>
+    );
   }
 
   function savedMessage(terms: OwnerBookingTerms | null): string {
@@ -412,12 +763,31 @@ export function BookingTermsEditor({
         ))}
       </div>
 
+      <div className="booking-terms-editor__copy">
+        <span className="muted">
+          {ar
+            ? `نسخ بنود «${bookingTermsModeLabel(mode, true)}» بضغطة واحدة إلى:`
+            : `Copy the ${bookingTermsModeLabel(mode, false)} items in one click to:`}
+        </span>
+        {BOOKING_TERMS_MODES.filter((option) => option !== mode).map((option) => (
+          <button
+            key={option}
+            type="button"
+            className="button button--quiet"
+            disabled={pending || Boolean(aiBusy) || !hasTermsText(ownerBlocks)}
+            onClick={() => copyToMode(option)}
+          >
+            ⧉ {bookingTermsModeLabel(option, ar)}
+          </button>
+        ))}
+      </div>
+
       <p className="muted booking-terms-editor__status">{status}</p>
 
       <p className="muted booking-terms-editor__hint">
         {ar
-          ? 'أضف «عنواناً» ثم البنود التي تحته. الترقيم تلقائي: العناوين بالحروف (أ، ب، ج) والبنود بالأرقام (1، 2، 3) تحت كل عنوان — لا تكتب الأرقام بنفسك. يمكنك لصق نص كامل من عدة أسطر في أي حقل وسيقسّمه النظام تلقائياً إلى عناوين وبنود.'
-          : 'Add a heading, then the clauses under it. Numbering is automatic: headings get letters (A, B, C) and clauses numbers (1, 2, 3) under each heading — don’t type numbers yourself. Paste multi-line text into any field and it is split into headings and clauses automatically.'}
+          ? 'أضف «عنواناً» ثم البنود التي تحته. الترقيم تلقائي: العناوين بالحروف (أ، ب، ج) والبنود بالأرقام (1، 2، 3) تحت كل عنوان — لا تكتب الأرقام بنفسك. يمكنك لصق نص كامل من عدة أسطر في أي حقل وسيقسّمه النظام تلقائياً إلى عناوين وبنود. أسفل كل حقل أدوات ✨ للترجمة الفورية إلى اللغة الأخرى، وإعادة الصياغة القانونية، والتدقيق اللغوي.'
+          : 'Add a heading, then the clauses under it. Numbering is automatic: headings get letters (A, B, C) and clauses numbers (1, 2, 3) under each heading — don’t type numbers yourself. Paste multi-line text into any field and it is split into headings and clauses automatically. Under each field, ✨ tools translate to the other language, rephrase in legal style, and proofread.'}
       </p>
 
       {draft.blocks.length === 0 ? (
@@ -518,6 +888,7 @@ export function BookingTermsEditor({
                     ) : (
                       <textarea className="textarea" rows={3} {...fieldProps('en')} />
                     )}
+                    {renderAiTools(block, 'en')}
                   </div>
                   <div className="field terms-blocks__field terms-blocks__field--ar">
                     <label htmlFor={`${fieldPrefix}-${block.id}-ar`}>العربية</label>
@@ -526,6 +897,7 @@ export function BookingTermsEditor({
                     ) : (
                       <textarea className="textarea" rows={3} {...fieldProps('ar')} />
                     )}
+                    {renderAiTools(block, 'ar')}
                   </div>
                 </div>
               </li>
@@ -550,6 +922,21 @@ export function BookingTermsEditor({
           disabled={atLimit}
         >
           {ar ? '+ إضافة بند' : '+ Add clause'}
+        </button>
+        <button
+          type="button"
+          className="button button--quiet terms-ai__bulk"
+          onClick={() => void translateMissing()}
+          disabled={Boolean(aiBusy) || pending || draft.blocks.length === 0}
+        >
+          ✨{' '}
+          {aiBusy === 'bulk'
+            ? ar
+              ? 'جارٍ ترجمة البنود…'
+              : 'Translating items…'
+            : ar
+              ? 'ترجمة البنود الناقصة بالذكاء الاصطناعي'
+              : 'AI-translate missing items'}
         </button>
       </div>
 

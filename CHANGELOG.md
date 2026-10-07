@@ -2,6 +2,13 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.92 — 2026-10-07
+
+- New platform default terms (bilingual, Omani-law based) used when no standard or custom terms exist: monthly/yearly rent (non-refundable reservation deposit that converts to a security deposit, lease term, security deposit, use and maintenance, notice and vacating, general), sale (earnest money, price and certified-cheque payment, title transfer at the Ministry of Housing and Urban Planning and fees, seller warranties, inspection and handover, breach, general), and daily stays (booking, check-in/out, house rules, damage and liability, cancellation, general).
+- AI tools in the terms editor under every field: legal translation to the other language (fills an empty side or offers a suggestion), legal rephrasing, and proofreading with a list of corrections; plus "AI-translate missing items". New `POST /api/owner/booking-terms/ai` (live session, CSRF, `property.update`, rate limit). Uses Vercel AI Gateway (`AI_GATEWAY_API_KEY`) or OpenAI (`OPENAI_API_KEY`), optional `AI_MODEL`; without a key, translation falls back to free machine translation and rephrase/proofread return `ai_unconfigured`.
+- One-click copy of the current items between sale, monthly/yearly rent, and daily stays (with confirmation before replacing existing items; nothing is saved automatically).
+- Details: [`docs/implementation/RELEASE-0.4.92-AR.md`](./docs/implementation/RELEASE-0.4.92-AR.md).
+
 ## 0.4.91 — 2026-10-07
 
 - Terms are now structured headings and clauses, each written in Arabic (right) and English (left) and framed on its own. Automatic numbering: headings get letters (أ/A, ب/B…), clauses numbers restarting under each heading; typed numbering is stripped. Pasting multi-line text splits it into headings and clauses.

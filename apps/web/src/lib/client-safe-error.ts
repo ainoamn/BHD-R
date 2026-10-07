@@ -34,6 +34,8 @@ const KNOWN_CODES = new Set([
   'upload_failed',
   's3_unconfigured',
   'validation_failed',
+  'ai_unconfigured',
+  'ai_failed',
 ]);
 
 export function clientSafeErrorCode(error: unknown, fallback = 'request_failed'): string {
@@ -78,7 +80,10 @@ export function statusForSafeCode(code: string): number {
     case 'db_unconfigured':
     case 'storage_unavailable':
     case 's3_unconfigured':
+    case 'ai_unconfigured':
       return 503;
+    case 'ai_failed':
+      return 502;
     default:
       return 500;
   }
