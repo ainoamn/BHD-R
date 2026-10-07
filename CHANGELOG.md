@@ -6,6 +6,7 @@ All notable changes are documented here. The project follows Semantic Versioning
 
 - Standard (organization-wide) contract terms per booking type on `/owner|developer/terms`, saved in `stay_policies` as `booking_terms:{mode}:org`; every property inherits them as-is. Properties can still override per booking type from "Customize terms" and revert to the standard text. Effective terms resolve property → organization → platform defaults.
 - Checkout sends `termsRef` (`property:n` / `organization:n` / `default`) instead of a bare version so a change to either the template or the override triggers `terms_changed`; legacy `termsVersion` is still accepted. The accepted text and its source are snapshotted into the booking.
+- Terms page property list shows two properties at first with "Show more" / "Show all" / "Collapse", plus search (name, serial, owner, location — Arabic-insensitive) and filters by owner, location, contract type and terms status (custom / standard).
 - Details: [`docs/implementation/RELEASE-0.4.90-AR.md`](./docs/implementation/RELEASE-0.4.90-AR.md).
 
 ## 0.4.89 — 2026-10-07

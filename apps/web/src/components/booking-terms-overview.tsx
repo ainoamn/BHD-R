@@ -1,9 +1,8 @@
 import 'server-only';
 import { EmptyState } from '@bhd-r/ui';
 import { BookingTermsEditor } from '@/components/booking-terms-editor';
-import { Link } from '@/i18n/navigation';
+import { BookingTermsPropertyList } from '@/components/booking-terms-property-list';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
-import { BOOKING_TERMS_MODES, bookingTermsModeLabel } from '@/lib/booking-terms';
 import {
   loadBookingTermsOverview,
   type BookingTermsOverview as Overview,
@@ -81,55 +80,16 @@ export async function BookingTermsOverview({
             }
           />
         ) : (
-          <ul className="booking-terms-overview__list">
-            {rows.map((row) => (
-              <li key={row.id} className="booking-terms-overview__item">
-                <div className="booking-terms-overview__info">
-                  <strong>{ar ? row.nameAr : row.nameEn}</strong>
-                  {row.serialNumber ? (
-                    <span className="muted" dir="ltr">
-                      {row.serialNumber}
-                    </span>
-                  ) : null}
-                  <div className="booking-terms-overview__modes">
-                    {BOOKING_TERMS_MODES.map((mode) => {
-                      const custom = row.versions[mode];
-                      const label = custom
-                        ? ar
-                          ? `مخصّصة (إصدار ${custom.version})`
-                          : `custom (v${custom.version})`
-                        : templateSaved[mode]
-                          ? ar
-                            ? 'الصيغة الموحدة'
-                            : 'standard'
-                          : ar
-                            ? 'افتراضية'
-                            : 'default';
-                      return (
-                        <span
-                          key={mode}
-                          className={
-                            custom
-                              ? 'booking-terms-editor__badge'
-                              : 'booking-terms-editor__badge booking-terms-overview__badge--default'
-                          }
-                        >
-                          {bookingTermsModeLabel(mode, ar)}: {label}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-                <Link
-                  className="button button--quiet"
-                  href={`/${portal}/properties/${row.id}/terms`}
-                  prefetch={false}
-                >
-                  {ar ? 'تخصيص الشروط' : 'Customize terms'}
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <BookingTermsPropertyList
+            locale={locale}
+            portal={portal}
+            rows={rows}
+            templateSaved={{
+              sale: Boolean(templateSaved.sale),
+              rent: Boolean(templateSaved.rent),
+              daily: Boolean(templateSaved.daily),
+            }}
+          />
         )}
       </div>
     </>

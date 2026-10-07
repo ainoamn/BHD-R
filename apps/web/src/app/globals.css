@@ -12484,3 +12484,39 @@ body:has(.stay-esign-shell) {
   flex-wrap: wrap;
   gap: 0.5rem;
 }
+.booking-terms-list__filters {
+  display: grid;
+  grid-template-columns: minmax(14rem, 2fr) repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+  margin-top: 1rem;
+}
+.booking-terms-list__filters .field {
+  margin: 0;
+}
+.booking-terms-list__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+.booking-terms-list__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.9rem;
+  font-size: 0.85rem;
+}
+.booking-terms-list__more {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+@media (max-width: 720px) {
+  .booking-terms-list__filters {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,7 +1,7 @@
 import 'server-only';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import type { SessionClaims } from '@bhd-r/authz';
-import { properties, stayPolicies, units } from '@bhd-r/db';
+import { addresses, parties, properties, stayPolicies, units } from '@bhd-r/db';
 import {
   BOOKING_TERMS_MODES,
   bookingTermsModeLabel,
@@ -125,6 +125,10 @@ export type BookingTermsOverviewRow = {
   nameAr: string;
   nameEn: string;
   serialNumber: string | null;
+  ownerName: string | null;
+  governorate: string | null;
+  wilayat: string | null;
+  location: string;
   versions: Partial<Record<BookingTermsMode, { version: number; updatedAt: string }>>;
 };
 
@@ -144,8 +148,15 @@ export async function loadBookingTermsOverview(scope: OwnerScope): Promise<Booki
         nameAr: properties.nameAr,
         nameEn: properties.nameEn,
         serialNumber: properties.serialNumber,
+        ownerName: parties.displayName,
+        governorate: addresses.governorate,
+        wilayat: addresses.wilayat,
+        city: addresses.city,
+        street: addresses.street,
       })
       .from(properties)
+      .leftJoin(parties, eq(parties.id, properties.ownerPartyId))
+      .leftJoin(addresses, eq(addresses.id, properties.addressId))
       .where(
         and(
           eq(properties.organizationId, scope.organizationId),
@@ -192,7 +203,11 @@ export async function loadBookingTermsOverview(scope: OwnerScope): Promise<Booki
 
     return {
       organizationTerms: await readTermsMap(transaction, scope.organizationId, null),
-      properties: propertyRows.map((row) => ({ ...row, versions: byProperty.get(row.id) ?? {} })),
+      properties: propertyRows.map(({ city, street, ...row }) => ({
+        ...row,
+        location: [street, city, row.wilayat, row.governorate].filter(Boolean).join(' · '),
+        versions: byProperty.get(row.id) ?? {},
+      })),
     };
   });
 }
