@@ -1,11 +1,11 @@
 import 'server-only';
 import { formatMoney, localizedName } from '@/lib/format';
-import { leaseBookingTerms } from '@/lib/lease-booking-terms';
+import { bookingTermsLines, checkoutTermsFromOwner } from '@/lib/booking-terms';
 import type { loadLeaseBookingForViewer } from '@/lib/public-lease-booking-neon';
 
 export type LeaseBookingView = NonNullable<Awaited<ReturnType<typeof loadLeaseBookingForViewer>>>;
 
-function escapeHtml(value: string): string {
+export function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
@@ -32,7 +32,14 @@ export function buildLeaseContractHtml(booking: LeaseBookingView, locale: 'ar' |
   const priceMinor = booking.mode === 'sale' ? booking.salePriceMinor : booking.rentMinor;
   const price = priceMinor && priceMinor !== '0' ? formatMoney(priceMinor, booking.currency, locale) : null;
   const property = `${localizedName(locale, booking.propertyNameAr, booking.propertyNameEn)} — ${localizedName(locale, booking.unitNameAr, booking.unitNameEn)}`;
-  const terms = leaseBookingTerms({ mode: booking.mode, ar, deposit, price });
+  const terms = bookingTermsLines({
+    mode: booking.mode,
+    ar,
+    deposit,
+    terms: booking.ownerTerms
+      ? checkoutTermsFromOwner({ ...booking.ownerTerms, updatedAt: booking.termsAcceptedAt })
+      : null,
+  });
   const row = (label: string, value: string, ltr = false) =>
     `<div class="stay-doc__row"><dt>${escapeHtml(label)}</dt><dd${ltr ? ' dir="ltr"' : ''}>${escapeHtml(value)}</dd></div>`;
 

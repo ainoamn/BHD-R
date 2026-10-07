@@ -4,12 +4,14 @@ import { setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { StayCheckout } from '@/components/stays/stay-checkout';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { loadBookingTermsForUnit } from '@/lib/booking-terms-neon';
 import { localizedName } from '@/lib/format';
 import { loadPublicStayBySlugOnNeon } from '@/lib/load-public-stays-neon';
 import { toPublicMediaSrc } from '@/lib/public-media-url';
 import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
 import { publicApiFetch } from '@/lib/server-api';
 import { getViewer } from '@/lib/viewer';
+import { withTimedResult } from '@/lib/with-timeout';
 import type { StayPublicDetail } from '@bhd-r/contracts';
 
 type StayType = 'overnight_stay' | 'day_use' | 'overnight_only';
@@ -87,6 +89,12 @@ export default async function StayBookPage({
   const title = localizedName(locale, detail.titleAr, detail.titleEn);
   const cover = toPublicMediaSrc(detail.coverImageUrl) ?? detail.coverImageUrl ?? null;
   const stayType = parseStayType(pickQuery(query, 'stayType'));
+  const bookingUnitId = detail.unitId ?? unitId;
+  const termsResult =
+    bookingUnitId && hasDatabaseUrl()
+      ? await withTimedResult(loadBookingTermsForUnit(bookingUnitId, ['daily']), 5_000, 'stay-terms')
+      : null;
+  const dailyTerms = termsResult?.status === 'ok' ? (termsResult.value.daily ?? null) : null;
 
   return (
     <section className="stays-book-shell" data-stay-book-immersive="true">
@@ -144,7 +152,8 @@ export default async function StayBookPage({
           locale={locale}
           slug={slug}
           title={title}
-          {...((detail.unitId ?? unitId) ? { unitId: (detail.unitId ?? unitId)! } : {})}
+          {...(bookingUnitId ? { unitId: bookingUnitId } : {})}
+          terms={dailyTerms}
           defaults={{
             ...(pickQuery(query, 'checkInOn')
               ? { checkInOn: pickQuery(query, 'checkInOn')! }

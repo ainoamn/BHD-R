@@ -206,6 +206,10 @@ export function PropertyManageHub({
       ? [{ href: staysSetupHref, label: ar ? 'إعداد الإقامة اليومية' : 'Set up daily stay' }]
       : []),
     { href: scoped('contracts'), label: ar ? 'العقود' : 'Contracts' },
+    {
+      href: `${base}/properties/${property.id}/terms`,
+      label: ar ? 'الشروط والأحكام للعقود' : 'Contract terms & conditions',
+    },
     { href: scoped('leasing'), label: ar ? 'التأجير' : 'Leasing' },
     { href: scoped('sales'), label: ar ? 'البيع' : 'Sales' },
     {

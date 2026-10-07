@@ -1,6 +1,8 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
+import { TermsAcceptance } from '@/components/terms-acceptance';
 import { Link } from '@/i18n/navigation';
 import {
   ApiError,
@@ -8,6 +10,7 @@ import {
   browserStayBookingMutation,
   humanizeBrowserError,
 } from '@/lib/api';
+import { bookingTermsLines, type BookingTermsForCheckout } from '@/lib/booking-terms';
 import { formatMoney } from '@/lib/format';
 import { rememberStayTripAlert } from '@/lib/stay-trip-alerts';
 import {
@@ -87,6 +90,7 @@ export function StayCheckout({
   embedded = false,
   bookingDates,
   unitId,
+  terms,
 }: {
   locale: string;
   slug: string;
@@ -109,8 +113,14 @@ export function StayCheckout({
   };
   /** Pin booking to a published unit when several share one listing slug. */
   unitId?: string;
+  /** Owner daily-rental terms; null shows the platform defaults. */
+  terms?: BookingTermsForCheckout | null;
 }) {
+  const router = useRouter();
   const ar = locale === 'ar';
+  const termsVersion = terms?.version ?? 0;
+  const termsLines = bookingTermsLines({ mode: 'daily', ar, terms: terms ?? null });
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const initialIn = defaults?.checkInOn || defaultCheckIn();
   const [step, setStep] = useState<Step>('stay');
   const [checkInOn, setCheckInOn] = useState(initialIn);
@@ -300,6 +310,14 @@ export function StayCheckout({
 
   function openConfirmModal() {
     if (!quote) return;
+    if (!termsAccepted) {
+      setError(
+        ar
+          ? 'اقرأ الشروط والأحكام حتى النهاية ووافق عليها للمتابعة.'
+          : 'Read the terms to the end and accept them to continue.',
+      );
+      return;
+    }
     setError(null);
     setConfirmOpen(true);
   }
@@ -327,6 +345,7 @@ export function StayCheckout({
             guestDisplayName: guestName.trim(),
             guestPhone: guestPhone.trim(),
             ...(guestEmail.trim() ? { guestEmail: guestEmail.trim() } : {}),
+            termsVersion,
           },
           { idempotencyKey: bookKey },
         );
@@ -356,6 +375,16 @@ export function StayCheckout({
         }
       } catch (caught) {
         setStepHint(null);
+        if (caught instanceof ApiError && caught.code === 'terms_changed') {
+          setTermsAccepted(false);
+          router.refresh();
+          setError(
+            ar
+              ? 'حدّث المالك الشروط والأحكام — راجعها حتى النهاية ووافق عليها مجدداً.'
+              : 'The owner updated the terms — read them to the end and accept again.',
+          );
+          return;
+        }
         if (caught instanceof ApiError && caught.status === 404) {
           setError(ar ? 'مسار الإقامات غير مفعّل حالياً.' : 'Stays booking is not enabled yet.');
           return;
@@ -681,6 +710,17 @@ export function StayCheckout({
               ? 'شامل الرسوم والضريبة حسب العرض. يجب دفع الحجز فوراً ليُعتبر مؤكّداً.'
               : 'Includes fees and tax per quote. Payment is required immediately for confirmation.'}
           </p>
+          <h4 className="stays-checkout__terms-title">
+            {ar ? 'الشروط والأحكام' : 'Terms & conditions'}
+          </h4>
+          <TermsAcceptance
+            ar={ar}
+            lines={termsLines}
+            accepted={termsAccepted}
+            onAcceptedChange={setTermsAccepted}
+            resetKey={`daily:${termsVersion}`}
+            id="stay-booking-terms"
+          />
           <div className="stays-checkout__nav">
             <button type="button" className="button button--quiet" onClick={() => setStep('guest')}>
               {ar ? 'رجوع' : 'Back'}
@@ -697,7 +737,7 @@ export function StayCheckout({
               <button
                 type="button"
                 className="button button--primary"
-                disabled={pending || !quote || payBusy}
+                disabled={pending || !quote || payBusy || !termsAccepted}
                 onClick={openConfirmModal}
               >
                 {pending || payBusy

@@ -49,6 +49,7 @@ export function stayBookingErrorResponse(error: unknown) {
       intent_not_found: 'نية الدفع غير موجودة.',
       session_not_found: 'جلسة الدفع غير موجودة.',
       already_paid: 'تم دفع هذا الحجز مسبقاً.',
+      terms_changed: 'حدّث المالك الشروط والأحكام — راجعها ووافق عليها مجدداً.',
     };
     return stayBookingJson(
       {

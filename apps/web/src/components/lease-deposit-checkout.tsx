@@ -1,9 +1,11 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
+import { TermsAcceptance } from '@/components/terms-acceptance';
 import { ApiError, fetchBrowserCsrfToken, humanizeBrowserError } from '@/lib/api';
+import { bookingTermsLines, type BookingTermsForCheckout } from '@/lib/booking-terms';
 import { formatMoney } from '@/lib/format';
-import { leaseBookingTerms } from '@/lib/lease-booking-terms';
 import { isValidGuestPhone } from '@/lib/stay-booking-dates';
 
 type Mode = 'rent' | 'sale';
@@ -57,6 +59,7 @@ export function LeaseDepositCheckout({
   currency,
   rentMinor,
   salePriceMinor,
+  termsByMode,
   defaults,
 }: {
   locale: 'ar' | 'en';
@@ -68,8 +71,10 @@ export function LeaseDepositCheckout({
   currency: string;
   rentMinor: string | null;
   salePriceMinor: string | null;
+  termsByMode: Partial<Record<Mode, BookingTermsForCheckout>>;
   defaults?: { fullName?: string; email?: string };
 }) {
+  const router = useRouter();
   const ar = locale === 'ar';
   const [step, setStep] = useState<Step>('terms');
   const [mode, setMode] = useState<Mode>(initialMode);
@@ -91,7 +96,9 @@ export function LeaseDepositCheckout({
   const deposit = formatMoney(depositMinor, currency, locale);
   const priceMinor = mode === 'sale' ? salePriceMinor : rentMinor;
   const price = priceMinor && priceMinor !== '0' ? formatMoney(priceMinor, currency, locale) : null;
-  const terms = leaseBookingTerms({ mode, ar, deposit, price });
+  const modeTerms = termsByMode[mode] ?? null;
+  const termsVersion = modeTerms?.version ?? 0;
+  const terms = bookingTermsLines({ mode, ar, deposit, terms: modeTerms });
   const modeLabel =
     mode === 'sale' ? (ar ? 'حجز للشراء' : 'Reserve to buy') : ar ? 'حجز للإيجار' : 'Reserve to rent';
   const priceLabel =
@@ -148,6 +155,7 @@ export function LeaseDepositCheckout({
           phone: phone.trim(),
           email: email.trim(),
           termsAccepted: true,
+          termsVersion,
         });
         setCheckout(result);
         setStep('payment');
@@ -168,6 +176,17 @@ export function LeaseDepositCheckout({
         if (caught instanceof ApiError && caught.status === 401) {
           window.location.assign(
             `/${locale}/login?next=${encodeURIComponent(`/${locale}/book/${unitId}?mode=${mode}`)}`,
+          );
+          return;
+        }
+        if (caught instanceof ApiError && caught.code === 'terms_changed') {
+          setAccepted(false);
+          setStep('terms');
+          router.refresh();
+          setError(
+            ar
+              ? 'حدّث المالك الشروط والأحكام — راجعها حتى النهاية ووافق عليها مجدداً.'
+              : 'The owner updated the terms — read them to the end and accept again.',
           );
           return;
         }
@@ -264,23 +283,14 @@ export function LeaseDepositCheckout({
               </dd>
             </div>
           </dl>
-          <ol className="lease-checkout__terms">
-            {terms.map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-          </ol>
-          <label className="checkbox-row lease-checkout__accept">
-            <input
-              type="checkbox"
-              checked={accepted}
-              onChange={(event) => setAccepted(event.target.checked)}
-            />
-            <span>
-              {ar
-                ? 'أقر بأنني قرأت الشروط والأحكام أعلاه وأوافق عليها.'
-                : 'I confirm I have read and agree to the terms above.'}
-            </span>
-          </label>
+          <TermsAcceptance
+            ar={ar}
+            lines={terms}
+            accepted={accepted}
+            onAcceptedChange={setAccepted}
+            resetKey={`${mode}:${termsVersion}`}
+            id="lease-booking-terms"
+          />
           <button
             type="button"
             className="button button--primary"

@@ -5,6 +5,7 @@ import { isPaymentSandboxPilotEnabled } from '@bhd-r/config';
 import { Link } from '@/i18n/navigation';
 import { LeaseDepositCheckout } from '@/components/lease-deposit-checkout';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { loadBookingTermsForUnit } from '@/lib/booking-terms-neon';
 import { localizedName } from '@/lib/format';
 import { loadPublicPropertyShowcaseFromNeon } from '@/lib/load-public-property-neon';
 import { loadPublicUnitFromNeon } from '@/lib/load-public-unit-neon';
@@ -77,6 +78,12 @@ export default async function BookUnitPage({
   const depositMinor = unit?.deposit?.amountMinor ?? null;
   const hasDeposit = Boolean(depositMinor && depositMinor !== '0');
   const paymentEnabled = isPaymentSandboxPilotEnabled();
+
+  const termsResult =
+    unit && hasDeposit && paymentEnabled
+      ? await withTimedResult(loadBookingTermsForUnit(unitId, allowedModes), 5_000, 'book-terms')
+      : null;
+  const termsByMode = termsResult?.status === 'ok' ? termsResult.value : {};
 
   return (
     <section className="stays-book-shell" data-stay-book-immersive="true">
@@ -167,6 +174,7 @@ export default async function BookUnitPage({
             currency={unit.deposit?.currency ?? unit.rent.currency}
             rentMinor={unit.rent.amountMinor}
             salePriceMinor={unit.salePrice?.amountMinor ?? null}
+            termsByMode={termsByMode}
             defaults={{
               ...(viewer?.displayName?.trim() ? { fullName: viewer.displayName.trim() } : {}),
               ...(viewer?.email?.trim() ? { email: viewer.email.trim() } : {}),

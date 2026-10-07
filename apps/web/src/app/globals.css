@@ -12360,3 +12360,79 @@ body:has(.stay-esign-shell) {
   line-height: 1.65;
   color: #44554d;
 }
+.lease-checkout__terms:focus-visible {
+  outline: 2px solid var(--bhd-teal);
+  outline-offset: 2px;
+}
+.terms-acceptance {
+  margin: 0 0 1rem;
+}
+.terms-acceptance__hint {
+  margin: 0;
+  padding: 0.6rem 0.85rem;
+  border-radius: 0.65rem;
+  background: #fff7e6;
+  color: #7a4b00;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+.stays-checkout__terms-title {
+  margin: 1rem 0 0.5rem;
+  font-size: 1rem;
+}
+
+/* Owner editor for booking terms (sale / monthly rent / daily) */
+.booking-terms-editor__modes .button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.booking-terms-editor__badge {
+  display: inline-block;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  background: #e4f6ed;
+  color: #0b623c;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.booking-terms-editor__status {
+  margin: 0 0 0.75rem;
+}
+.booking-terms-editor__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+.booking-terms-editor__textarea {
+  min-height: 16rem;
+  line-height: 1.7;
+}
+.booking-terms-editor__hint {
+  margin: 0.4rem 0 0.75rem;
+  font-size: 0.85rem;
+}
+.booking-terms-editor__actions {
+  flex-wrap: wrap;
+}
+.booking-terms-editor__preview {
+  margin-top: 1.5rem;
+}
+.booking-terms-editor__preview h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.05rem;
+}
+.booking-terms-editor__platform {
+  margin-inline-start: -0.4rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.4rem;
+  background: #f1f5f3;
+  color: #44554d;
+}
+@media (max-width: 720px) {
+  .booking-terms-editor__grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -22,6 +22,7 @@ import {
   withElevatedRead,
   type Tx,
 } from '@/lib/public-booking-neon';
+import { readActiveBookingTerms } from '@/lib/booking-terms-neon';
 import { leaseSignPath } from '@/lib/lease-booking-paths';
 
 export const LEASE_BOOKING_FLOW = 'public_deposit_v1';
@@ -48,6 +49,8 @@ type LeaseBookingSnapshot = {
   contact: { fullName: string; phone: string; email: string | null };
   termsVersion: string;
   termsAcceptedAt: string;
+  /** Owner-written terms the customer accepted; null means platform defaults were shown. */
+  ownerTerms?: { version: number; bodyAr: string | null; bodyEn: string | null } | null;
   awaitingPublicDepositPayment: boolean;
   capturedAt: string;
   depositPaidAt?: string;
@@ -99,6 +102,11 @@ const ERRORS = {
     409,
     'أكمل دفع مبلغ الضمان قبل توقيع العقد.',
     'Pay the booking deposit before signing the contract.',
+  ],
+  terms_changed: [
+    409,
+    'حدّث المالك الشروط والأحكام — راجعها ووافق عليها مجدداً.',
+    'The owner updated the terms — please review and accept them again.',
   ],
 } as const satisfies Record<string, readonly [number, string, string]>;
 
@@ -199,6 +207,8 @@ export type LeaseCheckoutInput = {
   phone: string;
   email: string | null;
   locale: 'ar' | 'en';
+  /** Owner terms version shown to the customer (0 = platform defaults). */
+  termsVersion: number;
 };
 
 export async function createLeaseBookingCheckout(claims: SessionClaims, input: LeaseCheckoutInput) {
@@ -208,6 +218,7 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
       const rows = await transaction
         .select({
           organizationId: units.organizationId,
+          propertyId: units.propertyId,
           listingPurpose: units.listingPurpose,
           depositMinor: units.depositMinor,
           salePriceMinor: units.salePriceMinor,
@@ -228,6 +239,18 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
     });
     await lockKey(transaction, input.unitId);
     const party = await ensureProspectParty(transaction, preview.organizationId, claims);
+    const activeTerms = await readActiveBookingTerms(
+      transaction,
+      preview.organizationId,
+      preview.propertyId,
+      input.mode,
+    );
+    const ownerTerms = activeTerms
+      ? { version: activeTerms.version, bodyAr: activeTerms.bodyAr, bodyEn: activeTerms.bodyEn }
+      : null;
+    const assertTermsCurrent = () => {
+      if ((ownerTerms?.version ?? 0) !== input.termsVersion) fail('terms_changed');
+    };
 
     const now = new Date();
     const contact = {
@@ -268,6 +291,7 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
           nextPath: leaseSignPath(input.locale, snapshot.referenceCode),
         };
       }
+      assertTermsCurrent();
       const nextSnapshot: LeaseBookingSnapshot = {
         ...snapshot,
         mode: input.mode,
@@ -275,6 +299,7 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
         contact,
         termsVersion: LEASE_BOOKING_TERMS_VERSION,
         termsAcceptedAt: now.toISOString(),
+        ownerTerms,
       };
       await transaction
         .update(reservations)
@@ -291,6 +316,7 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
       };
     }
 
+    assertTermsCurrent();
     const unit = await assertUnitBookable(transaction, input.unitId).catch((error: unknown) => {
       if (error instanceof Error && error.message === 'unit_unavailable') fail('unit_unavailable');
       throw error;
@@ -323,6 +349,7 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
       contact,
       termsVersion: LEASE_BOOKING_TERMS_VERSION,
       termsAcceptedAt: now.toISOString(),
+      ownerTerms,
       awaitingPublicDepositPayment: true,
       capturedAt: now.toISOString(),
     };
@@ -556,6 +583,7 @@ export async function loadLeaseBookingForViewer(userId: string, referenceCode: s
       salePriceMinor: snapshot.salePriceMinor,
       contact: snapshot.contact,
       termsAcceptedAt: snapshot.termsAcceptedAt,
+      ownerTerms: snapshot.ownerTerms ?? null,
       depositPaidAt: snapshot.depositPaidAt ?? null,
       cardLast4: snapshot.payment?.cardLast4 ?? null,
       esignSignedAt: snapshot.esign?.signedAt ?? null,

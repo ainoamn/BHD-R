@@ -19,6 +19,7 @@ const bodySchema = z
     phone: z.string().trim().max(32).refine(isValidGuestPhone),
     email: z.union([z.string().trim().email().max(320), z.literal('')]).optional(),
     termsAccepted: z.literal(true),
+    termsVersion: z.number().int().min(0).max(1_000_000).default(0),
   })
   .strict();
 
@@ -75,6 +76,7 @@ export async function POST(request: Request) {
       fullName: parsed.data.fullName,
       phone: parsed.data.phone,
       email: parsed.data.email || null,
+      termsVersion: parsed.data.termsVersion,
     });
     return leaseBookingJson(result);
   } catch (error) {
