@@ -2,9 +2,10 @@ import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import { StayEsignWizard } from '@/components/stays/stay-esign-wizard';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
-import { bookingTermsLines, checkoutTermsFromOwner } from '@/lib/booking-terms';
+import { bookingTermsDocument } from '@/lib/booking-terms';
 import { escapeHtml } from '@/lib/lease-booking-contract';
 import { lookupPublicStayBookingOnNeon } from '@/lib/public-stays-guest-neon';
+import { termsDocumentHtml } from '@/lib/terms-document-html';
 import { isStayEsignRequiredServer } from '@/lib/stay-esign-flags';
 import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
 import { formatMoney } from '@/lib/format';
@@ -40,13 +41,7 @@ export default async function StayBookingSignPage({
   const accepted = booking.acceptedTerms;
   const termsHtml = accepted
     ? `<p class="stay-doc__subtitle">${ar ? 'الشروط والأحكام المعتمدة' : 'Accepted terms and conditions'}</p>
-      <ol class="stay-doc__terms">${bookingTermsLines({
-        mode: 'daily',
-        ar,
-        terms: checkoutTermsFromOwner({ ...accepted, updatedAt: '' }),
-      })
-        .map((line) => `<li>${escapeHtml(line)}</li>`)
-        .join('')}</ol>`
+      ${termsDocumentHtml(bookingTermsDocument({ mode: 'daily', blocks: accepted.blocks }))}`
     : `<p class="stay-doc__subtitle">${
         ar
           ? 'بالتوقيع أوافق على سياسات الإقامة والإلغاء ومبلغ التأمين وشروط الاستخدام الخاصة بالعقار.'

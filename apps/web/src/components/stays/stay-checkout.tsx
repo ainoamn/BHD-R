@@ -10,7 +10,7 @@ import {
   browserStayBookingMutation,
   humanizeBrowserError,
 } from '@/lib/api';
-import { bookingTermsLines, type BookingTermsForCheckout } from '@/lib/booking-terms';
+import { bookingTermsDocument, type BookingTermsForCheckout } from '@/lib/booking-terms';
 import { formatMoney } from '@/lib/format';
 import { rememberStayTripAlert } from '@/lib/stay-trip-alerts';
 import {
@@ -119,7 +119,7 @@ export function StayCheckout({
   const router = useRouter();
   const ar = locale === 'ar';
   const termsRef = terms?.ref ?? 'default';
-  const termsLines = bookingTermsLines({ mode: 'daily', ar, terms: terms ?? null });
+  const termsBlocks = bookingTermsDocument({ mode: 'daily', blocks: terms?.blocks ?? null });
   const [termsAccepted, setTermsAccepted] = useState(false);
   const initialIn = defaults?.checkInOn || defaultCheckIn();
   const [step, setStep] = useState<Step>('stay');
@@ -603,9 +603,7 @@ export function StayCheckout({
               />
             </div>
             <div className="field">
-              <label htmlFor="stay-book-phone">
-                {ar ? 'الهاتف (إلزامي)' : 'Phone (required)'}
-              </label>
+              <label htmlFor="stay-book-phone">{ar ? 'الهاتف (إلزامي)' : 'Phone (required)'}</label>
               <input
                 className="input"
                 id="stay-book-phone"
@@ -715,7 +713,12 @@ export function StayCheckout({
           </h4>
           <TermsAcceptance
             ar={ar}
-            lines={termsLines}
+            blocks={termsBlocks}
+            letterhead={terms?.letterhead ?? null}
+            printTitle={{
+              ar: 'الشروط والأحكام — الإيجار اليومي',
+              en: 'Terms & conditions — daily rental',
+            }}
             accepted={termsAccepted}
             onAcceptedChange={setTermsAccepted}
             resetKey={`daily:${termsRef}`}
@@ -726,11 +729,7 @@ export function StayCheckout({
               {ar ? 'رجوع' : 'Back'}
             </button>
             {!quote && !pending ? (
-              <button
-                type="button"
-                className="button button--primary"
-                onClick={continueFromGuest}
-              >
+              <button type="button" className="button button--primary" onClick={continueFromGuest}>
                 {ar ? 'إعادة المحاولة' : 'Retry'}
               </button>
             ) : (

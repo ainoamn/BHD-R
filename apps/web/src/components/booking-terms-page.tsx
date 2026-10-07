@@ -40,6 +40,7 @@ export async function BookingTermsPage({
       target={{ kind: 'property', property: data.property }}
       initialTerms={data.terms}
       organizationTerms={data.organizationTerms}
+      letterhead={data.letterhead}
     />
   );
 }

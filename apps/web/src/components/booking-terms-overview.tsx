@@ -2,6 +2,7 @@ import 'server-only';
 import { EmptyState } from '@bhd-r/ui';
 import { BookingTermsEditor } from '@/components/booking-terms-editor';
 import { BookingTermsPropertyList } from '@/components/booking-terms-property-list';
+import { TermsLetterheadEditor } from '@/components/terms-letterhead-editor';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import {
   loadBookingTermsOverview,
@@ -56,7 +57,10 @@ export async function BookingTermsOverview({
         portal={portal}
         target={{ kind: 'organization' }}
         initialTerms={overview.organizationTerms}
+        letterhead={overview.letterhead}
       />
+
+      <TermsLetterheadEditor locale={locale} initial={overview.letterhead} />
 
       <div className="form-shell booking-terms-overview">
         <header className="property-manage-hub__header">

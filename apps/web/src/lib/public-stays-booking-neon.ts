@@ -71,10 +71,7 @@ function exclusiveStayRange(
   checkInOn: string,
   checkOutOn: string,
 ): { checkInOn: string; checkOutOn: string } {
-  if (
-    (stayType === 'day_use' || stayType === 'overnight_only') &&
-    checkOutOn <= checkInOn
-  ) {
+  if ((stayType === 'day_use' || stayType === 'overnight_only') && checkOutOn <= checkInOn) {
     const next = new Date(`${checkInOn}T00:00:00.000Z`);
     next.setUTCDate(next.getUTCDate() + 1);
     return { checkInOn, checkOutOn: next.toISOString().slice(0, 10) };
@@ -94,9 +91,7 @@ async function hasLockSlotColumn(transaction: Tx): Promise<boolean> {
       AND column_name = 'lock_slot'
     LIMIT 1
   `);
-  const rows = Array.isArray(result)
-    ? result
-    : ((result as { rows?: unknown[] }).rows ?? []);
+  const rows = Array.isArray(result) ? result : ((result as { rows?: unknown[] }).rows ?? []);
   lockSlotColumnReady = rows.length > 0;
   return lockSlotColumnReady;
 }
@@ -311,9 +306,7 @@ export async function isRangeAvailableInTransaction(
     const rows = Array.isArray(ownLocks)
       ? ownLocks
       : ((ownLocks as { rows?: Array<{ lock_id: string }> }).rows ?? []);
-    excludeLockIds = (rows as Array<{ lock_id: string }>)
-      .map((row) => row.lock_id)
-      .filter(Boolean);
+    excludeLockIds = (rows as Array<{ lock_id: string }>).map((row) => row.lock_id).filter(Boolean);
   }
 
   const slotReady = await hasLockSlotColumn(transaction);
@@ -382,9 +375,7 @@ export async function isRangeAvailableInTransaction(
       typeof raw.pricing_snapshot_json === 'object' &&
       typeof (raw.pricing_snapshot_json as { stayType?: unknown }).stayType === 'string'
         ? ((raw.pricing_snapshot_json as { stayType: string }).stayType as
-            | 'overnight_stay'
-            | 'day_use'
-            | 'overnight_only')
+            'overnight_stay' | 'day_use' | 'overnight_only')
         : 'overnight_stay';
     const otherSlot =
       otherType === 'day_use' ? 'morning' : otherType === 'overnight_only' ? 'evening' : 'full';
@@ -404,12 +395,12 @@ export async function isRangeAvailableInTransaction(
       ORDER BY stay_date
     `);
     const rows = Array.isArray(days) ? days : ((days as { rows?: unknown[] }).rows ?? []);
-    const mapped = (
-      rows as Array<{ stay_date: string; availability_status: string }>
-    ).map((item) => ({
-      stayDate: item.stay_date,
-      availabilityStatus: item.availability_status,
-    }));
+    const mapped = (rows as Array<{ stay_date: string; availability_status: string }>).map(
+      (item) => ({
+        stayDate: item.stay_date,
+        availabilityStatus: item.availability_status,
+      }),
+    );
     if (mapped.length > 0) {
       return stayRangeFullyAvailable(mapped, { checkInOn, checkOutOn });
     }
@@ -562,10 +553,7 @@ async function createLockInTransaction(
   }
 }
 
-export async function getPublicStayCalendarOnNeon(
-  slug: string,
-  query: StayInventoryCalendarQuery,
-) {
+export async function getPublicStayCalendarOnNeon(slug: string, query: StayInventoryCalendarQuery) {
   assertPlatformEnabled();
   const ctx = await resolveListingContext(slug, query.unitId);
   assertOrgEnabled(ctx.organizationId);
@@ -711,10 +699,7 @@ export async function getPublicStayCalendarOnNeon(
   });
 }
 
-export async function getPublicStayAvailabilityOnNeon(
-  slug: string,
-  query: StayAvailabilityQuery,
-) {
+export async function getPublicStayAvailabilityOnNeon(slug: string, query: StayAvailabilityQuery) {
   assertPlatformEnabled();
   const ctx = await resolveListingContext(slug, query.unitId);
   assertOrgEnabled(ctx.organizationId);
@@ -731,10 +716,7 @@ export async function getPublicStayAvailabilityOnNeon(
   } catch {
     return { available: false as const, reason: 'nights_out_of_range' as const, nights: 0 };
   }
-  if (
-    stayType === 'overnight_stay' &&
-    (nights < ctx.minNights || nights > ctx.maxNights)
-  ) {
+  if (stayType === 'overnight_stay' && (nights < ctx.minNights || nights > ctx.maxNights)) {
     return { available: false as const, reason: 'nights_out_of_range' as const, nights };
   }
   if (stayType !== 'overnight_stay' && nights < 1) {
@@ -780,10 +762,7 @@ export async function createPublicStayQuoteOnNeon(slug: string, input: CreateSta
       409,
     );
   }
-  if (
-    stayTypeEarly === 'overnight_stay' &&
-    (nights < ctx.minNights || nights > ctx.maxNights)
-  ) {
+  if (stayTypeEarly === 'overnight_stay' && (nights < ctx.minNights || nights > ctx.maxNights)) {
     throw new PublicStayBookingError(
       'nights_out_of_range',
       'Stay length is outside profile min/max nights',
@@ -843,8 +822,7 @@ export async function createPublicStayQuoteOnNeon(slug: string, input: CreateSta
     checkInOn: range.checkInOn,
     checkOutOn: range.checkOutOn,
     baseNightlyMinor: selectedBase,
-    weekendNightlyMinor:
-      stayType === 'overnight_stay' ? ctx.weekendNightlyMinor : selectedBase,
+    weekendNightlyMinor: stayType === 'overnight_stay' ? ctx.weekendNightlyMinor : selectedBase,
     cleaningFeeMinor: ctx.cleaningFeeMinor,
     ...(useInventoryOverrides && Object.keys(nightRates).length
       ? { nightRateOverrides: nightRates }
@@ -1071,7 +1049,11 @@ export async function createPublicStayBookingOnNeon(
         where: eq(stayBookings.id, existingIntent.bookingId),
       });
       if (!booking) {
-        throw new PublicStayBookingError('booking_missing', 'Booking missing for payment intent', 409);
+        throw new PublicStayBookingError(
+          'booking_missing',
+          'Booking missing for payment intent',
+          409,
+        );
       }
       return {
         bookingId: booking.id,
@@ -1131,6 +1113,7 @@ export async function createPublicStayBookingOnNeon(
         version: resolved.terms?.version ?? 0,
         bodyAr: resolved.terms?.bodyAr ?? null,
         bodyEn: resolved.terms?.bodyEn ?? null,
+        blocks: resolved.terms?.blocks ?? [],
         acceptedAt: new Date().toISOString(),
       };
     }

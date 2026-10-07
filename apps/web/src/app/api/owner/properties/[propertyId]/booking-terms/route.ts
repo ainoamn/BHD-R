@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import type { SessionClaims } from '@bhd-r/authz';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
-import { BOOKING_TERMS_MAX_BODY } from '@/lib/booking-terms';
+import { TERMS_MAX_BLOCKS, TERMS_MAX_CLAUSE } from '@/lib/booking-terms';
 import { saveOwnerBookingTerms } from '@/lib/booking-terms-neon';
 import { clientSafeErrorCode, statusForSafeCode } from '@/lib/client-safe-error';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
@@ -14,18 +14,24 @@ export const dynamic = 'force-dynamic';
 const bodySchema = z
   .object({
     mode: z.enum(['sale', 'rent', 'daily']),
-    bodyAr: z.string().max(BOOKING_TERMS_MAX_BODY),
-    bodyEn: z.string().max(BOOKING_TERMS_MAX_BODY),
+    blocks: z
+      .array(
+        z
+          .object({
+            kind: z.enum(['heading', 'clause']),
+            ar: z.string().max(TERMS_MAX_CLAUSE),
+            en: z.string().max(TERMS_MAX_CLAUSE),
+          })
+          .strict(),
+      )
+      .max(TERMS_MAX_BLOCKS),
   })
   .strict();
 
 const uuidSchema = z.string().uuid();
 
 /** PUT owner booking terms (sale / monthly rent / daily) for one property. */
-export async function PUT(
-  request: Request,
-  context: { params: Promise<{ propertyId: string }> },
-) {
+export async function PUT(request: Request, context: { params: Promise<{ propertyId: string }> }) {
   if (!hasDatabaseUrl()) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
   }
@@ -67,8 +73,7 @@ export async function PUT(
 
   try {
     const result = await saveOwnerBookingTerms(claims, propertyId, body.mode, {
-      bodyAr: body.bodyAr,
-      bodyEn: body.bodyEn,
+      blocks: body.blocks,
     });
     return NextResponse.json(result);
   } catch (error) {

@@ -2,6 +2,14 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.91 — 2026-10-07
+
+- Terms are now structured headings and clauses, each written in Arabic (right) and English (left) and framed on its own. Automatic numbering: headings get letters (أ/A, ب/B…), clauses numbers restarting under each heading; typed numbering is stripped. Pasting multi-line text splits it into headings and clauses.
+- Customers see the bilingual numbered document on rent/purchase/daily checkout and in the e-sign contract; "Print terms & conditions" prints the company logo and name on top and the company address at the bottom.
+- New "Print letterhead" section on `/owner|developer/terms` (logo, Arabic/English name and address, phone, email, CR) via `PUT /api/owner/booking-terms/letterhead`.
+- Owner terms APIs now take `{mode, blocks}`; blocks live in `stay_policies.rulesJson.blocks` with derived plain-text bodies; legacy line-based terms convert automatically.
+- Details: [`docs/implementation/RELEASE-0.4.91-AR.md`](./docs/implementation/RELEASE-0.4.91-AR.md).
+
 ## 0.4.90 — 2026-10-07
 
 - Standard (organization-wide) contract terms per booking type on `/owner|developer/terms`, saved in `stay_policies` as `booking_terms:{mode}:org`; every property inherits them as-is. Properties can still override per booking type from "Customize terms" and revert to the standard text. Effective terms resolve property → organization → platform defaults.

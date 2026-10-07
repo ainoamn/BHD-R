@@ -1,30 +1,37 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { TermsDocument } from '@/components/terms-document';
+import { TermsPrintButton } from '@/components/terms-print-button';
+import type { NumberedTermsBlock, TermsLetterhead } from '@/lib/booking-terms';
 
 const BOTTOM_TOLERANCE_PX = 8;
 
-/** Terms list that reveals the acceptance checkbox only after the reader scrolls to the end. */
+/** Terms document that reveals the acceptance checkbox only after the reader scrolls to the end. */
 export function TermsAcceptance({
   ar,
-  lines,
+  blocks,
+  letterhead,
+  printTitle,
   accepted,
   onAcceptedChange,
   resetKey,
   id = 'booking-terms',
 }: {
   ar: boolean;
-  lines: string[];
+  blocks: NumberedTermsBlock[];
+  letterhead?: TermsLetterhead | null;
+  printTitle: { ar: string; en: string };
   accepted: boolean;
   onAcceptedChange: (accepted: boolean) => void;
   resetKey: string;
   id?: string;
 }) {
-  const listRef = useRef<HTMLOListElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const [reachedEnd, setReachedEnd] = useState(false);
 
   const checkEnd = useCallback(() => {
-    const node = listRef.current;
+    const node = scrollRef.current;
     if (!node) return;
     if (node.scrollHeight - node.scrollTop - node.clientHeight <= BOTTOM_TOLERANCE_PX) {
       setReachedEnd(true);
@@ -33,14 +40,14 @@ export function TermsAcceptance({
 
   useEffect(() => {
     setReachedEnd(false);
-    const node = listRef.current;
+    const node = scrollRef.current;
     if (node) node.scrollTop = 0;
     const frame = window.requestAnimationFrame(checkEnd);
     return () => window.cancelAnimationFrame(frame);
   }, [resetKey, checkEnd]);
 
   useEffect(() => {
-    const node = listRef.current;
+    const node = scrollRef.current;
     if (!node || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(() => checkEnd());
     observer.observe(node);
@@ -49,18 +56,26 @@ export function TermsAcceptance({
 
   return (
     <div className="terms-acceptance">
-      <ol
-        ref={listRef}
+      <div className="terms-acceptance__toolbar">
+        <TermsPrintButton
+          ar={ar}
+          blocks={blocks}
+          letterhead={letterhead}
+          titleAr={printTitle.ar}
+          titleEn={printTitle.en}
+        />
+      </div>
+      <div
+        ref={scrollRef}
         id={id}
-        className="lease-checkout__terms"
+        className="terms-acceptance__scroll"
         tabIndex={0}
+        role="region"
         aria-label={ar ? 'الشروط والأحكام' : 'Terms and conditions'}
         onScroll={checkEnd}
       >
-        {lines.map((line, index) => (
-          <li key={`${index}-${line.slice(0, 24)}`}>{line}</li>
-        ))}
-      </ol>
+        <TermsDocument blocks={blocks} />
+      </div>
       {reachedEnd ? (
         <label className="checkbox-row lease-checkout__accept">
           <input

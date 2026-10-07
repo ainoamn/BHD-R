@@ -5,7 +5,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { TermsAcceptance } from '@/components/terms-acceptance';
 import { ApiError, fetchBrowserCsrfToken, humanizeBrowserError } from '@/lib/api';
 import type { BookingContactsForViewer, BookingFor } from '@/lib/booking-contacts-neon';
-import { bookingTermsLines, type BookingTermsForCheckout } from '@/lib/booking-terms';
+import { bookingTermsDocument, type BookingTermsForCheckout } from '@/lib/booking-terms';
 import { formatMoney } from '@/lib/format';
 import { isValidGuestPhone } from '@/lib/stay-booking-dates';
 
@@ -42,8 +42,7 @@ async function postDepositCheckout(body: Record<string, unknown>): Promise<Check
   let response = await send(await fetchBrowserCsrfToken());
   if (response.status === 403) response = await send(await fetchBrowserCsrfToken(true));
   const payload = (await response.json().catch(() => null)) as
-    | (CheckoutResult & { error?: { code?: string; message?: string; messageAr?: string } })
-    | null;
+    (CheckoutResult & { error?: { code?: string; message?: string; messageAr?: string } }) | null;
   if (!response.ok || !payload?.nextPath) {
     throw new ApiError(
       response.status,
@@ -120,9 +119,20 @@ export function LeaseDepositCheckout({
   const price = priceMinor && priceMinor !== '0' ? formatMoney(priceMinor, currency, locale) : null;
   const modeTerms = termsByMode[mode] ?? null;
   const termsRef = modeTerms?.ref ?? 'default';
-  const terms = bookingTermsLines({ mode, ar, deposit, terms: modeTerms });
+  const termsBlocks = bookingTermsDocument({
+    mode,
+    depositAr: formatMoney(depositMinor, currency, 'ar'),
+    depositEn: formatMoney(depositMinor, currency, 'en'),
+    blocks: modeTerms?.blocks ?? null,
+  });
   const modeLabel =
-    mode === 'sale' ? (ar ? 'حجز للشراء' : 'Reserve to buy') : ar ? 'حجز للإيجار' : 'Reserve to rent';
+    mode === 'sale'
+      ? ar
+        ? 'حجز للشراء'
+        : 'Reserve to buy'
+      : ar
+        ? 'حجز للإيجار'
+        : 'Reserve to rent';
   const priceLabel =
     mode === 'sale' ? (ar ? 'سعر البيع' : 'Sale price') : ar ? 'الإيجار الشهري' : 'Monthly rent';
 
@@ -159,14 +169,18 @@ export function LeaseDepositCheckout({
     setSavedContactId(id);
     const row = contacts.saved.find((item) => item.id === id);
     setOtherForm(
-      row ? { fullName: row.fullName, phone: row.phone ?? '', email: row.email ?? '' } : EMPTY_CONTACT,
+      row
+        ? { fullName: row.fullName, phone: row.phone ?? '', email: row.email ?? '' }
+        : EMPTY_CONTACT,
     );
     setSaveContact(false);
   }
 
   function continueFromDetails() {
     if (fullName.trim().length < 2) {
-      setError(ar ? 'أدخل الاسم الكامل (حرفان على الأقل)' : 'Enter your full name (at least 2 characters)');
+      setError(
+        ar ? 'أدخل الاسم الكامل (حرفان على الأقل)' : 'Enter your full name (at least 2 characters)',
+      );
       return;
     }
     if (!isValidGuestPhone(phone)) {
@@ -332,7 +346,19 @@ export function LeaseDepositCheckout({
           </dl>
           <TermsAcceptance
             ar={ar}
-            lines={terms}
+            blocks={termsBlocks}
+            letterhead={modeTerms?.letterhead ?? null}
+            printTitle={
+              mode === 'sale'
+                ? {
+                    ar: 'الشروط والأحكام — حجز للشراء',
+                    en: 'Terms & conditions — purchase reservation',
+                  }
+                : {
+                    ar: 'الشروط والأحكام — حجز للإيجار',
+                    en: 'Terms & conditions — rental reservation',
+                  }
+            }
             accepted={accepted}
             onAcceptedChange={setAccepted}
             resetKey={`${mode}:${termsRef}`}
@@ -438,7 +464,9 @@ export function LeaseDepositCheckout({
               />
             </div>
             <div className="field">
-              <label htmlFor="lease-book-phone">{ar ? 'الهاتف (إلزامي)' : 'Phone (required)'}</label>
+              <label htmlFor="lease-book-phone">
+                {ar ? 'الهاتف (إلزامي)' : 'Phone (required)'}
+              </label>
               <input
                 className="input"
                 id="lease-book-phone"
@@ -547,7 +575,11 @@ export function LeaseDepositCheckout({
               : 'The property is reserved for you only after the deposit is paid; you then sign the contract and attach documents.'}
           </p>
           <div className="stays-checkout__nav">
-            <button type="button" className="button button--quiet" onClick={() => setStep('details')}>
+            <button
+              type="button"
+              className="button button--quiet"
+              onClick={() => setStep('details')}
+            >
               {ar ? 'رجوع' : 'Back'}
             </button>
             <button

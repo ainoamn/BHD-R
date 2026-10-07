@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import type { SessionClaims } from '@bhd-r/authz';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
-import { TERMS_MAX_BLOCKS, TERMS_MAX_CLAUSE } from '@/lib/booking-terms';
-import { saveOwnerBookingTerms } from '@/lib/booking-terms-neon';
+import { TERMS_LOGO_MAX_CHARS, TERMS_LOGO_PATTERN } from '@/lib/booking-terms';
+import { saveTermsLetterhead } from '@/lib/booking-terms-neon';
 import { clientSafeErrorCode, statusForSafeCode } from '@/lib/client-safe-error';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
@@ -13,22 +13,18 @@ export const dynamic = 'force-dynamic';
 
 const bodySchema = z
   .object({
-    mode: z.enum(['sale', 'rent', 'daily']),
-    blocks: z
-      .array(
-        z
-          .object({
-            kind: z.enum(['heading', 'clause']),
-            ar: z.string().max(TERMS_MAX_CLAUSE),
-            en: z.string().max(TERMS_MAX_CLAUSE),
-          })
-          .strict(),
-      )
-      .max(TERMS_MAX_BLOCKS),
+    nameAr: z.string().max(160),
+    nameEn: z.string().max(160),
+    logoDataUrl: z.string().max(TERMS_LOGO_MAX_CHARS).regex(TERMS_LOGO_PATTERN).nullable(),
+    addressAr: z.string().max(400),
+    addressEn: z.string().max(400),
+    phone: z.string().max(40),
+    email: z.string().max(160),
+    registrationNumber: z.string().max(60),
   })
   .strict();
 
-/** PUT the organization-wide booking terms template inherited by every property without its own terms. */
+/** PUT the company letterhead (logo, name, address) printed with the terms and conditions. */
 export async function PUT(request: Request) {
   if (!hasDatabaseUrl()) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
@@ -46,8 +42,8 @@ export async function PUT(request: Request) {
   }
 
   const limited = assertRouteRateLimit({
-    key: hashRateKey(['owner-booking-terms', claims.sub, clientIp(request)]),
-    limit: 20,
+    key: hashRateKey(['owner-terms-letterhead', claims.sub, clientIp(request)]),
+    limit: 10,
     windowMs: 60_000,
   });
   if (!limited.ok) {
@@ -65,8 +61,7 @@ export async function PUT(request: Request) {
   }
 
   try {
-    const result = await saveOwnerBookingTerms(claims, null, body.mode, { blocks: body.blocks });
-    return NextResponse.json(result);
+    return NextResponse.json(await saveTermsLetterhead(claims, body));
   } catch (error) {
     const code = clientSafeErrorCode(error, 'update_failed');
     return NextResponse.json({ error: { code } }, { status: statusForSafeCode(code) });

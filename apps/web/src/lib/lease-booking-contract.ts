@@ -1,6 +1,7 @@
 import 'server-only';
 import { formatMoney, localizedName } from '@/lib/format';
-import { bookingTermsLines, checkoutTermsFromOwner } from '@/lib/booking-terms';
+import { bookingTermsDocument, termsBlocksFromStored } from '@/lib/booking-terms';
+import { termsDocumentHtml } from '@/lib/terms-document-html';
 import type { loadLeaseBookingForViewer } from '@/lib/public-lease-booking-neon';
 
 export type LeaseBookingView = NonNullable<Awaited<ReturnType<typeof loadLeaseBookingForViewer>>>;
@@ -16,7 +17,9 @@ export function escapeHtml(value: string): string {
 
 function formatDate(iso: string | null, ar: boolean): string {
   if (!iso) return '—';
-  return new Intl.DateTimeFormat(ar ? 'ar-OM' : 'en-GB', { dateStyle: 'medium' }).format(new Date(iso));
+  return new Intl.DateTimeFormat(ar ? 'ar-OM' : 'en-GB', { dateStyle: 'medium' }).format(
+    new Date(iso),
+  );
 }
 
 export function leaseContractTitle(mode: 'rent' | 'sale') {
@@ -30,15 +33,14 @@ export function buildLeaseContractHtml(booking: LeaseBookingView, locale: 'ar' |
   const title = leaseContractTitle(booking.mode);
   const deposit = formatMoney(booking.depositMinor, booking.currency, locale);
   const priceMinor = booking.mode === 'sale' ? booking.salePriceMinor : booking.rentMinor;
-  const price = priceMinor && priceMinor !== '0' ? formatMoney(priceMinor, booking.currency, locale) : null;
+  const price =
+    priceMinor && priceMinor !== '0' ? formatMoney(priceMinor, booking.currency, locale) : null;
   const property = `${localizedName(locale, booking.propertyNameAr, booking.propertyNameEn)} — ${localizedName(locale, booking.unitNameAr, booking.unitNameEn)}`;
-  const terms = bookingTermsLines({
+  const terms = bookingTermsDocument({
     mode: booking.mode,
-    ar,
-    deposit,
-    terms: booking.ownerTerms
-      ? checkoutTermsFromOwner({ ...booking.ownerTerms, updatedAt: booking.termsAcceptedAt })
-      : null,
+    depositAr: formatMoney(booking.depositMinor, booking.currency, 'ar'),
+    depositEn: formatMoney(booking.depositMinor, booking.currency, 'en'),
+    blocks: booking.ownerTerms ? termsBlocksFromStored(booking.ownerTerms) : null,
   });
   const row = (label: string, value: string, ltr = false) =>
     `<div class="stay-doc__row"><dt>${escapeHtml(label)}</dt><dd${ltr ? ' dir="ltr"' : ''}>${escapeHtml(value)}</dd></div>`;
@@ -69,10 +71,8 @@ export function buildLeaseContractHtml(booking: LeaseBookingView, locale: 'ar' |
         ${row(ar ? 'تاريخ الدفع' : 'Paid on', formatDate(booking.depositPaidAt, ar))}
         ${row(ar ? 'محجوز حتى' : 'Reserved until', formatDate(booking.reservedUntil, ar))}
       </dl>
-      <p class="stay-doc__subtitle">${ar ? 'البنود' : 'Terms'}</p>
-      <ol class="stay-doc__terms">
-        ${terms.map((line) => `<li>${escapeHtml(line)}</li>`).join('')}
-      </ol>
+      <p class="stay-doc__subtitle">${ar ? 'الشروط والأحكام' : 'Terms and conditions'}</p>
+      ${termsDocumentHtml(terms)}
     </article>
   `;
 }

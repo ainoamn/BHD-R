@@ -11,6 +11,7 @@ import {
   type Database,
 } from '@bhd-r/db';
 import { assertStayBookingTransition, nightsBetween } from '@bhd-r/domain';
+import { termsBlocksFromStored, type TermsBlock } from '@/lib/booking-terms';
 import { PublicStayBookingError } from '@/lib/public-stays-booking-neon';
 
 type DbHandle = { db: Database };
@@ -78,24 +79,32 @@ export type GuestStayBookingProjection = {
   paymentIntentId?: string | null;
   listingSlug?: string | null;
   esignCompleted?: boolean;
-  acceptedTerms?: { version: number; bodyAr: string | null; bodyEn: string | null } | null;
+  acceptedTerms?: AcceptedTerms | null;
   canPay?: boolean;
   canCancel?: boolean;
   canRebook?: boolean;
 };
 
-function readAcceptedTerms(
-  snapshot: unknown,
-): { version: number; bodyAr: string | null; bodyEn: string | null } | null {
+type AcceptedTerms = {
+  version: number;
+  bodyAr: string | null;
+  bodyEn: string | null;
+  blocks: TermsBlock[];
+};
+
+function readAcceptedTerms(snapshot: unknown): AcceptedTerms | null {
   if (!snapshot || typeof snapshot !== 'object') return null;
   const terms = (snapshot as { acceptedTerms?: unknown }).acceptedTerms;
   if (!terms || typeof terms !== 'object') return null;
   const row = terms as Record<string, unknown>;
   if (typeof row.version !== 'number') return null;
+  const bodyAr = typeof row.bodyAr === 'string' ? row.bodyAr : null;
+  const bodyEn = typeof row.bodyEn === 'string' ? row.bodyEn : null;
   return {
     version: row.version,
-    bodyAr: typeof row.bodyAr === 'string' ? row.bodyAr : null,
-    bodyEn: typeof row.bodyEn === 'string' ? row.bodyEn : null,
+    bodyAr,
+    bodyEn,
+    blocks: termsBlocksFromStored({ blocks: row.blocks, bodyAr, bodyEn }),
   };
 }
 

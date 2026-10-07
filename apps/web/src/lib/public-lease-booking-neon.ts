@@ -22,6 +22,7 @@ import {
   withElevatedRead,
   type Tx,
 } from '@/lib/public-booking-neon';
+import type { TermsBlock } from '@/lib/booking-terms';
 import { resolveBookingTerms } from '@/lib/booking-terms-neon';
 import { leaseSignPath } from '@/lib/lease-booking-paths';
 
@@ -58,6 +59,7 @@ type LeaseBookingSnapshot = {
     bodyAr: string | null;
     bodyEn: string | null;
     source?: 'property' | 'organization';
+    blocks?: TermsBlock[];
   } | null;
   awaitingPublicDepositPayment: boolean;
   capturedAt: string;
@@ -269,6 +271,7 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
             bodyAr: resolvedTerms.terms.bodyAr,
             bodyEn: resolvedTerms.terms.bodyEn,
             source: resolvedTerms.source,
+            blocks: resolvedTerms.terms.blocks,
           }
         : null;
     const assertTermsCurrent = () => {

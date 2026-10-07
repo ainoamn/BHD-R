@@ -1,31 +1,59 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useMemo, useRef, useState, useTransition, type ClipboardEvent } from 'react';
+import { TermsDocument } from '@/components/terms-document';
+import { TermsPrintButton } from '@/components/terms-print-button';
 import { Link } from '@/i18n/navigation';
 import { ApiError, fetchBrowserCsrfToken, humanizeBrowserError } from '@/lib/api';
 import {
-  BOOKING_TERMS_MAX_BODY,
-  BOOKING_TERMS_MAX_LINES,
   BOOKING_TERMS_MODES,
+  TERMS_MAX_BLOCKS,
+  TERMS_MAX_CLAUSE,
+  TERMS_MAX_HEADING,
+  bookingTermsDocument,
   bookingTermsModeLabel,
-  parseTermsBody,
-  platformTerms,
-  suggestedOwnerTerms,
+  hasTermsText,
+  numberTermsBlocks,
+  parseTermsText,
+  stripTermsNumbering,
+  suggestedTermsBlocks,
   type BookingTermsMode,
   type OwnerBookingTerms,
+  type TermsBlock,
+  type TermsLetterhead,
 } from '@/lib/booking-terms';
 
-type Draft = { bodyAr: string; bodyEn: string; saved: OwnerBookingTerms | null };
+type Lang = 'ar' | 'en';
+type EditorBlock = { id: string; kind: TermsBlock['kind']; ar: string; en: string };
+type Draft = { blocks: EditorBlock[]; saved: OwnerBookingTerms | null };
 type TermsMap = Record<BookingTermsMode, OwnerBookingTerms | null>;
 
 export type BookingTermsEditorTarget =
   | { kind: 'organization' }
   | { kind: 'property'; property: { id: string; nameAr: string; nameEn: string } };
 
-function hasText(terms: { bodyAr: string | null; bodyEn: string | null } | null | undefined) {
-  return Boolean(
-    terms && (parseTermsBody(terms.bodyAr).length || parseTermsBody(terms.bodyEn).length),
-  );
+let blockSeq = 0;
+function newId() {
+  blockSeq += 1;
+  return `b${Date.now().toString(36)}${blockSeq}`;
+}
+
+function toEditor(blocks: readonly TermsBlock[]): EditorBlock[] {
+  return blocks.map((block) => ({ id: newId(), kind: block.kind, ar: block.ar, en: block.en }));
+}
+
+function toPayload(blocks: readonly EditorBlock[]): TermsBlock[] {
+  return blocks
+    .map((block) => ({
+      kind: block.kind,
+      ar: stripTermsNumbering(block.ar),
+      en: stripTermsNumbering(block.en),
+    }))
+    .filter((block) => block.ar || block.en);
+}
+
+function sameBlocks(left: readonly TermsBlock[], right: readonly TermsBlock[]) {
+  return JSON.stringify(left) === JSON.stringify(right);
 }
 
 function formatDate(value: string, ar: boolean) {
@@ -37,7 +65,7 @@ function formatDate(value: string, ar: boolean) {
 
 async function putBookingTerms(
   target: BookingTermsEditorTarget,
-  body: { mode: BookingTermsMode; bodyAr: string; bodyEn: string },
+  body: { mode: BookingTermsMode; blocks: TermsBlock[] },
 ): Promise<{ ok: true; terms: OwnerBookingTerms | null }> {
   const url =
     target.kind === 'organization'
@@ -80,10 +108,41 @@ function saveErrorMessage(error: unknown, ar: boolean): string {
       return ar ? 'العقار مؤرشف — لا يمكن تعديل الشروط.' : 'This property is archived.';
     }
     if (error.code === 'invalid_body') {
-      return ar ? 'النص طويل جداً — اختصر الشروط.' : 'The text is too long — shorten the terms.';
+      return ar
+        ? `النص طويل جداً أو عدد البنود كبير (الحد ${TERMS_MAX_BLOCKS} بنداً).`
+        : `Text too long or too many items (max ${TERMS_MAX_BLOCKS}).`;
     }
   }
   return humanizeBrowserError(error, ar);
+}
+
+/**
+ * Pasted multi-line text becomes several headings/clauses. Lines fill the same language of the
+ * following blocks when their kind matches and that side is still empty; otherwise new blocks are inserted.
+ */
+function applyPaste(blocks: EditorBlock[], index: number, lang: Lang, text: string): EditorBlock[] {
+  const parsed = parseTermsText(text);
+  if (!parsed.length) return blocks;
+  const other: Lang = lang === 'ar' ? 'en' : 'ar';
+  const next = [...blocks];
+  parsed.forEach((line, offset) => {
+    const target = index + offset;
+    const existing = next[target];
+    if (offset === 0 && existing) {
+      next[target] = {
+        ...existing,
+        kind: existing[other].trim() ? existing.kind : line.kind,
+        [lang]: line.text,
+      };
+      return;
+    }
+    if (existing && existing.kind === line.kind && !existing[lang].trim()) {
+      next[target] = { ...existing, [lang]: line.text };
+      return;
+    }
+    next.splice(target, 0, { id: newId(), kind: line.kind, ar: '', en: '', [lang]: line.text });
+  });
+  return next.slice(0, TERMS_MAX_BLOCKS);
 }
 
 export function BookingTermsEditor({
@@ -92,6 +151,7 @@ export function BookingTermsEditor({
   target,
   initialTerms,
   organizationTerms,
+  letterhead,
 }: {
   locale: 'ar' | 'en';
   portal: 'owner' | 'developer';
@@ -99,6 +159,7 @@ export function BookingTermsEditor({
   initialTerms: TermsMap;
   /** Organization template the property inherits when it has no custom terms. */
   organizationTerms?: TermsMap;
+  letterhead: TermsLetterhead;
 }) {
   const ar = locale === 'ar';
   const isTemplate = target.kind === 'organization';
@@ -107,55 +168,89 @@ export function BookingTermsEditor({
   const [drafts, setDrafts] = useState<Record<BookingTermsMode, Draft>>(() => {
     const entries = BOOKING_TERMS_MODES.map((key) => {
       const saved = initialTerms[key];
-      return [key, { bodyAr: saved?.bodyAr ?? '', bodyEn: saved?.bodyEn ?? '', saved }] as const;
+      return [key, { blocks: toEditor(saved?.blocks ?? []), saved }] as const;
     });
     return Object.fromEntries(entries) as Record<BookingTermsMode, Draft>;
   });
   const [message, setMessage] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
+  const listRef = useRef<HTMLOListElement | null>(null);
 
   const draft = drafts[mode];
   const inherited = isTemplate ? null : (organizationTerms?.[mode] ?? null);
-  const dirty =
-    draft.bodyAr.trim() !== (draft.saved?.bodyAr ?? '').trim() ||
-    draft.bodyEn.trim() !== (draft.saved?.bodyEn ?? '').trim();
-  const draftHasText = hasText(draft);
+  const payload = useMemo(() => toPayload(draft.blocks), [draft.blocks]);
+  const dirty = !sameBlocks(payload, draft.saved?.blocks ?? []);
+  const labels = useMemo(() => numberTermsBlocks(draft.blocks), [draft.blocks]);
 
-  const linesIn = (source: { bodyAr: string | null; bodyEn: string | null }) => {
-    const primary = parseTermsBody(ar ? source.bodyAr : source.bodyEn);
-    return primary.length ? primary : parseTermsBody(ar ? source.bodyEn : source.bodyAr);
-  };
-  const previewSource: 'custom' | 'template' | 'default' = draftHasText
+  const previewSource: 'custom' | 'template' | 'default' = hasTermsText(payload)
     ? 'custom'
-    : hasText(inherited)
+    : inherited && hasTermsText(inherited.blocks)
       ? 'template'
       : 'default';
-  const previewOwner =
-    previewSource === 'custom'
-      ? linesIn(draft)
-      : previewSource === 'template' && inherited
-        ? linesIn(inherited)
-        : suggestedOwnerTerms(mode, ar);
-  const previewPlatform = platformTerms({ mode, ar });
+  const previewBlocks = bookingTermsDocument({
+    mode,
+    blocks:
+      previewSource === 'custom'
+        ? payload
+        : previewSource === 'template'
+          ? (inherited?.blocks ?? null)
+          : null,
+  });
 
-  function updateDraft(patch: Partial<Draft>) {
+  function setBlocks(update: (blocks: EditorBlock[]) => EditorBlock[]) {
     setMessage(null);
-    setDrafts((current) => ({ ...current, [mode]: { ...current[mode], ...patch } }));
+    setDrafts((current) => ({
+      ...current,
+      [mode]: { ...current[mode], blocks: update(current[mode].blocks) },
+    }));
   }
 
-  function fillSuggested() {
-    updateDraft({
-      bodyAr: suggestedOwnerTerms(mode, true).join('\n'),
-      bodyEn: suggestedOwnerTerms(mode, false).join('\n'),
+  function focusBlock(index: number, lang: Lang = ar ? 'ar' : 'en') {
+    window.requestAnimationFrame(() => {
+      const field = listRef.current?.querySelectorAll<HTMLElement>(`[data-lang="${lang}"]`)[index];
+      field?.focus();
     });
   }
 
-  function fillFromTemplate() {
-    if (hasText(inherited)) {
-      updateDraft({ bodyAr: inherited?.bodyAr ?? '', bodyEn: inherited?.bodyEn ?? '' });
-    } else {
-      fillSuggested();
-    }
+  function addBlock(kind: EditorBlock['kind'], at?: number) {
+    if (draft.blocks.length >= TERMS_MAX_BLOCKS) return;
+    const index = at ?? draft.blocks.length;
+    setBlocks((blocks) => {
+      const next = [...blocks];
+      next.splice(index, 0, { id: newId(), kind, ar: '', en: '' });
+      return next;
+    });
+    focusBlock(index);
+  }
+
+  function updateBlock(index: number, patch: Partial<EditorBlock>) {
+    setBlocks((blocks) => blocks.map((block, i) => (i === index ? { ...block, ...patch } : block)));
+  }
+
+  function moveBlock(index: number, delta: -1 | 1) {
+    setBlocks((blocks) => {
+      const target = index + delta;
+      if (target < 0 || target >= blocks.length) return blocks;
+      const next = [...blocks];
+      const [moved] = next.splice(index, 1);
+      if (moved) next.splice(target, 0, moved);
+      return next;
+    });
+  }
+
+  function removeBlock(index: number) {
+    setBlocks((blocks) => blocks.filter((_, i) => i !== index));
+  }
+
+  function onPaste(event: ClipboardEvent<HTMLElement>, index: number, lang: Lang) {
+    const text = event.clipboardData.getData('text');
+    if (!/\r?\n/.test(text.trim())) return;
+    event.preventDefault();
+    setBlocks((blocks) => applyPaste(blocks, index, lang, text));
+  }
+
+  function replaceBlocks(blocks: readonly TermsBlock[]) {
+    setBlocks(() => toEditor(blocks));
   }
 
   function savedMessage(terms: OwnerBookingTerms | null): string {
@@ -179,19 +274,15 @@ export function BookingTermsEditor({
       : 'This property now uses the standard terms again.';
   }
 
-  function save(body: { bodyAr: string; bodyEn: string }) {
+  function save(blocks: TermsBlock[]) {
     const targetMode = mode;
     startTransition(async () => {
       setMessage(null);
       try {
-        const result = await putBookingTerms(target, { mode: targetMode, ...body });
+        const result = await putBookingTerms(target, { mode: targetMode, blocks });
         setDrafts((current) => ({
           ...current,
-          [targetMode]: {
-            bodyAr: result.terms?.bodyAr ?? '',
-            bodyEn: result.terms?.bodyEn ?? '',
-            saved: result.terms,
-          },
+          [targetMode]: { blocks: toEditor(result.terms?.blocks ?? []), saved: result.terms },
         }));
         setMessage({ kind: 'success', text: savedMessage(result.terms) });
       } catch (caught) {
@@ -214,10 +305,10 @@ export function BookingTermsEditor({
     status = ar
       ? 'لم تُكتب صيغة موحدة بعد — ترى العقارات حالياً الشروط الافتراضية المقترحة.'
       : 'No standard terms yet — properties currently show the suggested defaults.';
-  } else if (hasText(inherited)) {
+  } else if (inherited && hasTermsText(inherited.blocks)) {
     status = ar
-      ? `هذا العقار يستخدم الصيغة الموحدة (الإصدار ${inherited?.version}). اكتب هنا فقط إذا أردت شروطاً مختلفة لهذا العقار.`
-      : `This property uses the standard terms (version ${inherited?.version}). Write here only to customize them for this property.`;
+      ? `هذا العقار يستخدم الصيغة الموحدة (الإصدار ${inherited.version}). أضف بنوداً هنا فقط إذا أردت شروطاً مختلفة لهذا العقار.`
+      : `This property uses the standard terms (version ${inherited.version}). Add items here only to customize them for this property.`;
   } else {
     status = ar
       ? 'هذا العقار يستخدم الشروط الافتراضية للمنصة — لا توجد صيغة موحدة ولا شروط مخصّصة.'
@@ -225,6 +316,17 @@ export function BookingTermsEditor({
   }
 
   const Heading = isTemplate ? 'h2' : 'h1';
+  const atLimit = draft.blocks.length >= TERMS_MAX_BLOCKS;
+  const printTitle =
+    target.kind === 'property'
+      ? {
+          ar: `الشروط والأحكام — ${target.property.nameAr} — ${bookingTermsModeLabel(mode, true)}`,
+          en: `Terms & conditions — ${target.property.nameEn} — ${bookingTermsModeLabel(mode, false)}`,
+        }
+      : {
+          ar: `الشروط والأحكام — ${bookingTermsModeLabel(mode, true)}`,
+          en: `Terms & conditions — ${bookingTermsModeLabel(mode, false)}`,
+        };
 
   return (
     <div
@@ -312,54 +414,151 @@ export function BookingTermsEditor({
 
       <p className="muted booking-terms-editor__status">{status}</p>
 
-      <div className="booking-terms-editor__grid">
-        <div className="field">
-          <label htmlFor={`${fieldPrefix}-ar`}>
-            {ar ? 'الشروط بالعربية (كل بند في سطر)' : 'Arabic terms (one clause per line)'}
-          </label>
-          <textarea
-            id={`${fieldPrefix}-ar`}
-            className="textarea booking-terms-editor__textarea"
-            dir="rtl"
-            maxLength={BOOKING_TERMS_MAX_BODY}
-            value={draft.bodyAr}
-            onChange={(event) => updateDraft({ bodyAr: event.target.value })}
-            placeholder={(hasText(inherited)
-              ? parseTermsBody(inherited?.bodyAr)
-              : suggestedOwnerTerms(mode, true)
-            ).join('\n')}
-          />
-        </div>
-        <div className="field">
-          <label htmlFor={`${fieldPrefix}-en`}>
-            {ar ? 'الشروط بالإنجليزية (اختياري)' : 'English terms (optional)'}
-          </label>
-          <textarea
-            id={`${fieldPrefix}-en`}
-            className="textarea booking-terms-editor__textarea"
-            dir="ltr"
-            maxLength={BOOKING_TERMS_MAX_BODY}
-            value={draft.bodyEn}
-            onChange={(event) => updateDraft({ bodyEn: event.target.value })}
-            placeholder={(hasText(inherited)
-              ? parseTermsBody(inherited?.bodyEn)
-              : suggestedOwnerTerms(mode, false)
-            ).join('\n')}
-          />
-        </div>
-      </div>
       <p className="muted booking-terms-editor__hint">
         {ar
-          ? `اكتب كل بند في سطر مستقل (حتى ${BOOKING_TERMS_MAX_LINES} بنداً). إذا تركت الإنجليزية فارغة تُعرض العربية للجميع.`
-          : `One clause per line (up to ${BOOKING_TERMS_MAX_LINES}). If English is empty, the Arabic text is shown to everyone.`}
+          ? 'أضف «عنواناً» ثم البنود التي تحته. الترقيم تلقائي: العناوين بالحروف (أ، ب، ج) والبنود بالأرقام (1، 2، 3) تحت كل عنوان — لا تكتب الأرقام بنفسك. يمكنك لصق نص كامل من عدة أسطر في أي حقل وسيقسّمه النظام تلقائياً إلى عناوين وبنود.'
+          : 'Add a heading, then the clauses under it. Numbering is automatic: headings get letters (A, B, C) and clauses numbers (1, 2, 3) under each heading — don’t type numbers yourself. Paste multi-line text into any field and it is split into headings and clauses automatically.'}
       </p>
 
+      {draft.blocks.length === 0 ? (
+        <div className="booking-terms-editor__empty">
+          <p>{ar ? 'لا توجد عناوين أو بنود بعد.' : 'No headings or clauses yet.'}</p>
+        </div>
+      ) : (
+        <ol className="terms-blocks" ref={listRef}>
+          {draft.blocks.map((block, index) => {
+            const label = labels[index];
+            const heading = block.kind === 'heading';
+            const max = heading ? TERMS_MAX_HEADING : TERMS_MAX_CLAUSE;
+            const fieldProps = (lang: Lang) => ({
+              id: `${fieldPrefix}-${block.id}-${lang}`,
+              'data-lang': lang,
+              dir: lang === 'ar' ? ('rtl' as const) : ('ltr' as const),
+              lang,
+              maxLength: max,
+              value: block[lang],
+              placeholder:
+                lang === 'ar'
+                  ? heading
+                    ? 'العنوان بالعربية — مثال: وديعة الحجز غير قابلة للاسترداد'
+                    : 'نص البند بالعربية'
+                  : heading
+                    ? 'Heading in English — e.g. Non-refundable reservation deposit'
+                    : 'Clause text in English (optional)',
+              onChange: (event: { target: { value: string } }) =>
+                updateBlock(index, { [lang]: event.target.value }),
+              onBlur: () => {
+                const cleaned = stripTermsNumbering(block[lang]);
+                if (cleaned !== block[lang].trim()) updateBlock(index, { [lang]: cleaned });
+              },
+              onPaste: (event: ClipboardEvent<HTMLElement>) => onPaste(event, index, lang),
+            });
+            return (
+              <li key={block.id} className={`terms-blocks__item terms-blocks__item--${block.kind}`}>
+                <div className="terms-blocks__head">
+                  <span className="terms-doc__label" aria-hidden="true">
+                    {ar ? label?.labelAr : label?.labelEn}
+                  </span>
+                  <select
+                    className="select terms-blocks__kind"
+                    value={block.kind}
+                    aria-label={ar ? 'النوع' : 'Type'}
+                    onChange={(event) =>
+                      updateBlock(index, { kind: event.target.value as EditorBlock['kind'] })
+                    }
+                  >
+                    <option value="heading">{ar ? 'عنوان' : 'Heading'}</option>
+                    <option value="clause">{ar ? 'بند' : 'Clause'}</option>
+                  </select>
+                  <div className="terms-blocks__tools">
+                    <button
+                      type="button"
+                      className="button button--quiet"
+                      onClick={() => moveBlock(index, -1)}
+                      disabled={index === 0}
+                      aria-label={ar ? 'تحريك للأعلى' : 'Move up'}
+                      title={ar ? 'تحريك للأعلى' : 'Move up'}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className="button button--quiet"
+                      onClick={() => moveBlock(index, 1)}
+                      disabled={index === draft.blocks.length - 1}
+                      aria-label={ar ? 'تحريك للأسفل' : 'Move down'}
+                      title={ar ? 'تحريك للأسفل' : 'Move down'}
+                    >
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      className="button button--quiet"
+                      onClick={() => addBlock('clause', index + 1)}
+                      disabled={atLimit}
+                    >
+                      {ar ? '+ بند أسفله' : '+ Clause below'}
+                    </button>
+                    <button
+                      type="button"
+                      className="button button--quiet terms-blocks__remove"
+                      onClick={() => removeBlock(index)}
+                      aria-label={ar ? 'حذف' : 'Delete'}
+                      title={ar ? 'حذف' : 'Delete'}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+                <div className="terms-blocks__fields">
+                  <div className="field terms-blocks__field terms-blocks__field--en">
+                    <label htmlFor={`${fieldPrefix}-${block.id}-en`}>English</label>
+                    {heading ? (
+                      <input className="input" type="text" {...fieldProps('en')} />
+                    ) : (
+                      <textarea className="textarea" rows={3} {...fieldProps('en')} />
+                    )}
+                  </div>
+                  <div className="field terms-blocks__field terms-blocks__field--ar">
+                    <label htmlFor={`${fieldPrefix}-${block.id}-ar`}>العربية</label>
+                    {heading ? (
+                      <input className="input" type="text" {...fieldProps('ar')} />
+                    ) : (
+                      <textarea className="textarea" rows={3} {...fieldProps('ar')} />
+                    )}
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+
+      <div className="terms-blocks__add">
+        <button
+          type="button"
+          className="button button--quiet"
+          onClick={() => addBlock('heading')}
+          disabled={atLimit}
+        >
+          {ar ? '+ إضافة عنوان' : '+ Add heading'}
+        </button>
+        <button
+          type="button"
+          className="button button--quiet"
+          onClick={() => addBlock('clause')}
+          disabled={atLimit}
+        >
+          {ar ? '+ إضافة بند' : '+ Add clause'}
+        </button>
+      </div>
+
       <div className="stays-checkout__nav booking-terms-editor__actions">
-        {isTemplate ? (
+        {isTemplate || !(inherited && hasTermsText(inherited.blocks)) ? (
           <button
             type="button"
             className="button button--quiet"
-            onClick={fillSuggested}
+            onClick={() => replaceBlocks(suggestedTermsBlocks(mode))}
             disabled={pending}
           >
             {ar ? 'استخدم النموذج المقترح' : 'Use suggested template'}
@@ -368,16 +567,10 @@ export function BookingTermsEditor({
           <button
             type="button"
             className="button button--quiet"
-            onClick={fillFromTemplate}
+            onClick={() => replaceBlocks(inherited.blocks)}
             disabled={pending}
           >
-            {hasText(inherited)
-              ? ar
-                ? 'انسخ الصيغة الموحدة لتعديلها'
-                : 'Copy standard terms to edit'
-              : ar
-                ? 'استخدم النموذج المقترح'
-                : 'Use suggested template'}
+            {ar ? 'انسخ الصيغة الموحدة لتعديلها' : 'Copy standard terms to edit'}
           </button>
         )}
         {draft.saved ? (
@@ -385,7 +578,7 @@ export function BookingTermsEditor({
             type="button"
             className="button button--quiet"
             disabled={pending}
-            onClick={() => save({ bodyAr: '', bodyEn: '' })}
+            onClick={() => save([])}
           >
             {isTemplate
               ? ar
@@ -400,7 +593,7 @@ export function BookingTermsEditor({
           type="button"
           className="button button--primary"
           disabled={pending || !dirty}
-          onClick={() => save({ bodyAr: draft.bodyAr, bodyEn: draft.bodyEn })}
+          onClick={() => save(payload)}
         >
           {pending
             ? ar
@@ -426,40 +619,40 @@ export function BookingTermsEditor({
       ) : null}
 
       <section className="booking-terms-editor__preview" aria-labelledby={`${fieldPrefix}-preview`}>
-        <h2 id={`${fieldPrefix}-preview`}>
-          {ar ? 'معاينة ما يراه العميل' : 'Customer preview'}
-          <span className="booking-terms-editor__badge">
-            {previewSource === 'custom'
-              ? isTemplate
-                ? ar
-                  ? 'الصيغة الموحدة'
-                  : 'Standard'
-                : ar
-                  ? 'مخصّصة'
-                  : 'Custom'
-              : previewSource === 'template'
-                ? ar
-                  ? 'من الصيغة الموحدة'
-                  : 'From standard terms'
-                : ar
-                  ? 'افتراضية'
-                  : 'Default'}
-          </span>
-        </h2>
-        <ol className="lease-checkout__terms">
-          {previewOwner.map((line, index) => (
-            <li key={`o-${index}`}>{line}</li>
-          ))}
-          {previewPlatform.map((line, index) => (
-            <li key={`p-${index}`} className="booking-terms-editor__platform">
-              {line}
-            </li>
-          ))}
-        </ol>
+        <div className="booking-terms-editor__preview-head">
+          <h2 id={`${fieldPrefix}-preview`}>
+            {ar ? 'معاينة ما يراه العميل' : 'Customer preview'}
+            <span className="booking-terms-editor__badge">
+              {previewSource === 'custom'
+                ? isTemplate
+                  ? ar
+                    ? 'الصيغة الموحدة'
+                    : 'Standard'
+                  : ar
+                    ? 'مخصّصة'
+                    : 'Custom'
+                : previewSource === 'template'
+                  ? ar
+                    ? 'من الصيغة الموحدة'
+                    : 'From standard terms'
+                  : ar
+                    ? 'افتراضية'
+                    : 'Default'}
+            </span>
+          </h2>
+          <TermsPrintButton
+            ar={ar}
+            blocks={previewBlocks}
+            letterhead={letterhead}
+            titleAr={printTitle.ar}
+            titleEn={printTitle.en}
+          />
+        </div>
+        <TermsDocument blocks={previewBlocks} />
         <p className="muted booking-terms-editor__hint">
           {ar
-            ? 'البنود المظللة تضيفها المنصة دائماً (مبلغ الضمان والتوقيع الإلكتروني) ولا يمكن حذفها. يجب على العميل التمرير حتى آخر الشروط قبل ظهور زر الموافقة.'
-            : 'Shaded clauses are always added by the platform (deposit and e-signature). Customers must scroll to the end before the accept checkbox appears.'}
+            ? 'القسم المظلل تضيفه المنصة دائماً (مبلغ الضمان والتوقيع الإلكتروني) ولا يمكن حذفه. يجب على العميل التمرير حتى آخر الشروط قبل ظهور زر الموافقة.'
+            : 'The shaded section is always added by the platform (deposit and e-signature). Customers must scroll to the end before the accept checkbox appears.'}
         </p>
       </section>
     </div>
