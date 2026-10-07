@@ -178,7 +178,19 @@ export default async function BookUnitPage({
                 ))}
               </ol>
               <p className="stays-book-shell__cta">
-                {ar ? 'ابدأ إجراءات الحجز الآن:' : 'Start your booking now:'}
+                {ar ? 'ابدأ إجراءات الحجز الآن' : 'Start your booking now'}
+                <span
+                  className="stays-book-shell__cta-arrow stays-book-shell__cta-arrow--down"
+                  aria-hidden="true"
+                >
+                  ↓
+                </span>
+                <span
+                  className="stays-book-shell__cta-arrow stays-book-shell__cta-arrow--side"
+                  aria-hidden="true"
+                >
+                  {ar ? '←' : '→'}
+                </span>
               </p>
             </div>
           </div>

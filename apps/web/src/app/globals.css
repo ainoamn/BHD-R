@@ -12346,9 +12346,61 @@ body:has(.stay-esign-shell) {
 }
 .stays-book-shell__cta {
   margin: 0.25rem 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
   color: rgba(255, 245, 220, 0.98);
   font-weight: 800;
   font-size: clamp(1rem, 2.1vw, 1.12rem);
+}
+.stays-book-shell__cta-arrow {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: rgba(255, 245, 220, 0.95);
+  color: #0b3d30;
+  font-size: 1.15rem;
+  line-height: 1;
+}
+.stays-book-shell__cta-arrow--down {
+  animation: book-cta-nudge-down 1.4s ease-in-out infinite;
+}
+.stays-book-shell__cta-arrow--side {
+  display: none;
+}
+@keyframes book-cta-nudge-down {
+  50% {
+    transform: translateY(4px);
+  }
+}
+@keyframes book-cta-nudge-start {
+  50% {
+    transform: translateX(-5px);
+  }
+}
+@keyframes book-cta-nudge-end {
+  50% {
+    transform: translateX(5px);
+  }
+}
+@media (min-width: 900px) {
+  .stays-book-shell__cta-arrow--down {
+    display: none;
+  }
+  .stays-book-shell__cta-arrow--side {
+    display: inline-grid;
+    animation: book-cta-nudge-end 1.4s ease-in-out infinite;
+  }
+  [dir='rtl'] .stays-book-shell__cta-arrow--side {
+    animation-name: book-cta-nudge-start;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stays-book-shell__cta-arrow {
+    animation: none !important;
+  }
 }
 @media (min-width: 900px) {
   .stays-book-shell--wide-form {
