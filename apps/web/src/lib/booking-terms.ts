@@ -4,7 +4,7 @@ export const BOOKING_TERMS_MODES: BookingTermsMode[] = ['sale', 'rent', 'daily']
 
 export const BOOKING_TERMS_MAX_LINES = 60;
 export const BOOKING_TERMS_MAX_BODY = 12_000;
-export const TERMS_MAX_BLOCKS = 80;
+export const TERMS_MAX_BLOCKS = 150;
 export const TERMS_MAX_CLAUSE = 1_200;
 export const TERMS_MAX_HEADING = 200;
 
@@ -307,104 +307,312 @@ const GENERAL_SECTION: TermsSection = {
 
 const RENT_TERMS: readonly TermsSection[] = [
   {
+    ar: 'طريقة الاتصال الرسمية',
+    en: 'Official Communication Method',
+    clauses: [
+      [
+        'يجب تسليم جميع المراسلات الرسمية الكتابة باليد أو عناوين البريد الإلكتروني المسجلة في هذه الاتفاقية.',
+        'All official communication must be delivered in writing by hand or the registered email addresses in this agreement.',
+      ],
+    ],
+  },
+  {
     ar: 'وديعة الحجز غير قابلة للاسترداد',
-    en: 'Non-refundable reservation deposit',
+    en: 'Non-Refundable Booking Deposit',
     clauses: [
       [
-        'في حالة عدم قيام المستأجر باستئجار الوحدة، سيتم مصادرة وديعة الحجز غير القابلة للاسترداد.',
-        'If the tenant does not proceed to lease the unit, the non-refundable reservation deposit will be forfeited.',
+        'في حالة عدم قيام المستأجر باستئجار الوحدة ، سيتم مصادرة وديعة الحجز غير القابلة للاسترداد.',
+        'In case the Tenant does not proceed with renting the Unit, the non-refundable booking deposit will be forfeited.',
       ],
       [
-        'بمجرد توقيع هذه الاتفاقية ودفع المستأجر إيجار الشهر الأول من اتفاقية الإيجار، سيتم تحويل وديعة الحجز غير القابلة للاسترداد تلقائيًا إلى وديعة تأمين.',
-        'Once this agreement is signed and the tenant pays the first month’s rent under the lease agreement, the non-refundable reservation deposit will automatically be converted into a security deposit.',
-      ],
-      [
-        'تبقى الوحدة محجوزة باسم المستأجر طوال مدة الحجز، ولا يجوز للمؤجر خلالها عرضها أو تأجيرها للغير.',
-        'The unit remains reserved in the tenant’s name throughout the reservation period, during which the landlord may not offer or lease it to others.',
-      ],
-      [
-        'إذا تعذّر إبرام عقد الإيجار لسبب يرجع إلى المؤجر أو لعدم صلاحية الوحدة للتسليم، تُرد وديعة الحجز كاملة إلى المستأجر.',
-        'If the lease cannot be concluded for a reason attributable to the landlord, or because the unit is not fit for handover, the reservation deposit will be refunded to the tenant in full.',
+        'بمجرد توقيع هذه الاتفاقية ودفع المستأجر إيجار الشهر الأول من اتفاقية الإيجار ، سيتم تحويل وديعة الحجز غير القابلة للاسترداد تلقائيًا إلى وديعة تأمين.',
+        'Once this agreement is signed and the Tenant has paid the rent for the first month of the tenancy agreement, the non-refundable booking deposit will automatically be converted to a security deposit.',
       ],
     ],
   },
   {
-    ar: 'عقد الإيجار ومدته',
-    en: 'Lease agreement and term',
+    ar: 'مبلغ التأمين',
+    en: 'Security Deposit',
     clauses: [
       [
-        'يُبرم بين الطرفين عقد إيجار مكتوب يحدد مدة الإيجار (شهرية أو سنوية) وقيمة الإيجار ومواعيد سداده، ويُسجَّل لدى البلدية المختصة وفق الأنظمة المعمول بها.',
-        'The parties will sign a written lease stating the lease term (monthly or yearly), the rent, and its payment dates, and the lease will be registered with the competent municipality in accordance with applicable regulations.',
+        'يتعين على المستأجر إيداع إيجار شهر واحد والاحتفاظ به كوديعة ضمان طوال فترة الإيجار.',
+        'The Tenant is required to deposit and maintain one month’s rent as a security deposit throughout the tenancy period.',
       ],
       [
-        'يُسدَّد الإيجار مقدماً في المواعيد المحددة في العقد، ويُعد التأخر في السداد إخلالاً بالتزامات المستأجر.',
-        'Rent is payable in advance on the dates set in the lease, and late payment constitutes a breach of the tenant’s obligations.',
+        'وديعة الضمان قابلة للاسترداد بشرط استكمال المستأجر لفترة الإيجار الكاملة وفقًا للاتفاقية وتسوية جميع مستحقاته.',
+        'The security deposit is refundable subject to the Tenant completing their full tenancy period as per the agreement and clearing all their dues.',
       ],
       [
-        'لا يجوز تعديل القيمة الإيجارية خلال مدة العقد، ويخضع تجديده أو تعديل قيمته عند التجديد لاتفاق الطرفين وأحكام القانون.',
-        'The rent may not be changed during the lease term; renewal and any change of rent on renewal are subject to the parties’ agreement and the law.',
+        'إذا تم إنهاء عقد الإيجار مبكرًا لأي سبب من الأسباب ، فسيتم مصادرة وديعة التأمين.',
+        'If the tenancy agreement is terminated early for any reason, the security deposit will be forfeited.',
       ],
     ],
   },
   {
-    ar: 'وديعة التأمين',
-    en: 'Security deposit',
+    ar: 'شروط الدفع',
+    en: 'Payment Terms',
     clauses: [
       [
-        'تُحفظ وديعة التأمين لدى المؤجر ضماناً لوفاء المستأجر بالتزاماته، ولا يجوز احتسابها من إيجار أي شهر.',
-        'The security deposit is held by the landlord to secure the tenant’s obligations and may not be applied toward any month’s rent.',
+        'يجب على المستأجر دفع الإيجار المستحق في اليوم الأول من الشهر مقدمًا.',
+        'The Tenant must pay the due rent on the 01st of the month in advance.',
       ],
       [
-        'تُرد وديعة التأمين عند انتهاء العقد وتسليم الوحدة بحالة جيدة وسداد جميع المستحقات، بعد خصم قيمة أي أضرار تتجاوز الاستهلاك العادي وأي مبالغ مستحقة على المستأجر.',
-        'The security deposit is returned at the end of the lease once the unit is handed back in good condition and all dues are settled, less the cost of any damage beyond normal wear and tear and any amounts owed by the tenant.',
+        'يجب على المستأجر تقديم شيكات مؤجلة الدفع لكامل مدة عقد الإيجار.',
+        'The Tenant must provide post-dated cheques for the entire duration of the tenancy agreement.',
+      ],
+      [
+        'يجب على المستأجر تقديم 3 شيكات إضافية مفتوحة الدفع تعادل 3 أشهر من الإيجار. سيتم إيداعها من قبل المالك في حالة وجود أي إيجار مستحق أو مستحقات أخرى.',
+        'The Tenant must provide 3 additional open-dated cheques equivalent to 3 months of rent. These will be deposited by the Landlord in case of any outstanding rent or other dues.',
+      ],
+      [
+        'إذا فضل المستأجر دفع الإيجار عن طريق التحويل المصرفي بدلاً من ذلك ، فيجب تسوية الدفع قبل ثلاثة أيام عمل على الأقل من تاريخ استحقاق الإيجار. علاوة على ذلك ، يجب على المستأجر إبلاغ المالك بمجرد اكتمال التحويل المصرفي بطريقة اتصال رسمية.',
+        'If the Tenant prefers to pay the rent by a bank transfer instead, the payment should be cleared at least three working days prior to the rent due date. Moreover, the Tenant should inform the Landlord once the bank transfer is completed by an official communication method.',
+      ],
+      [
+        'تاريخ إيداع الشيك هو الأول من الشهر. في حالة ارتداد الشيك الخاص بالمستأجر في اليوم الأول ، سيقوم المالك بإيداعه مرة أخرى في اليوم العاشر من الشهر ، إلا إذا قام المستأجر بتخليص الإيجار عن طريق التحويل المصرفي قبل اليوم العاشر.',
+        'The cheque deposit date is the 01st of the month. In case the Tenant’s cheque bounces on the 01st, the Landlord will deposit it again on the 10th of the month, unless the Tenant has cleared the rent by bank transfer prior to the 10th.',
+      ],
+      [
+        'إذا ارتد شيك المستأجر بسبب عدم كفاية الأموال ، سيتم فرض غرامة قدرها 5٪ من مبلغ الشيك من قبل المالك.',
+        'If the Tenant’s cheques bounce due to insufficient funds, a penalty of 5% of the cheque amount will be charged by the Landlord.',
       ],
     ],
   },
   {
-    ar: 'استعمال الوحدة والصيانة',
-    en: 'Use of the unit and maintenance',
+    ar: 'المدفوعات المتأخرة',
+    en: 'Late Payments',
     clauses: [
       [
-        'يلتزم المستأجر باستعمال الوحدة للسكن فقط، ولا يجوز له تأجيرها من الباطن أو التنازل عن العقد للغير دون موافقة كتابية من المؤجر.',
-        'The tenant will use the unit for residential purposes only and may not sublet it or assign the lease to others without the landlord’s written consent.',
+        'إذا لم يتم استلام الإيجار بحلول الخامس عشر من الشهر ، فسيتم فرض غرامة تأخير قدرها 15٪ على قيمة الشيك في الخامس عشر من الشهر.',
+        'If the rent is not received by the 15th of the month, a 15% late fee penalty will be charged on the cheque value on the 15th of the month.',
       ],
       [
-        'لا يجوز للمستأجر إجراء أي تعديلات أو إضافات في الوحدة دون موافقة كتابية مسبقة من المؤجر.',
-        'The tenant may not make any alterations or additions to the unit without the landlord’s prior written consent.',
+        'سيتم فرض غرامة إضافية بنسبة 1٪ على رسوم التأخير عن كل يوم تأخير إضافي في الإيجار بعد اليوم الخامس عشر من الشهر ، على سبيل المثال: غرامة 17٪ رسوم تأخير إذا لم يتم دفع الإيجار حتى 17 من الشهر.',
+        'An additional 1% late fee penalty will be charged for every additional day of delay in rent after the 15th of the month, e.g. a 17% late fee penalty if the rent is not paid until the 17th of the month.',
       ],
       [
-        'يتحمل المستأجر فواتير الكهرباء والمياه والخدمات المستهلكة خلال مدة الإيجار، ما لم يُتفق على خلاف ذلك.',
-        'The tenant bears the electricity, water, and other utility bills consumed during the lease term, unless otherwise agreed.',
-      ],
-      [
-        'يتحمل المستأجر الصيانة البسيطة الناتجة عن الاستعمال اليومي، ويتحمل المؤجر الصيانة الرئيسية والإصلاحات الإنشائية التي لا تنتج عن سوء استعمال المستأجر.',
-        'The tenant bears minor maintenance arising from daily use, while the landlord bears major maintenance and structural repairs not caused by the tenant’s misuse.',
-      ],
-      [
-        'يلتزم المستأجر بإبلاغ المؤجر فوراً بأي عطل أو ضرر في الوحدة، وبتمكينه من دخولها للمعاينة أو الصيانة بعد إخطار مسبق.',
-        'The tenant will promptly notify the landlord of any fault or damage in the unit and allow the landlord access for inspection or maintenance upon prior notice.',
+        'إذا لم يتم دفع غرامة الرسوم المتأخرة بحلول نهاية الشهر ، فسيتم ترحيلها وتتراكم مع رسوم الغرامات المستقبلية.',
+        'If the late fee penalty is not paid by the end of the month, it will carry forward and accumulate with future penalty fees.',
       ],
     ],
   },
   {
-    ar: 'الإخلاء وإنهاء العقد',
-    en: 'Vacating and termination',
+    ar: 'فواتير المياه والكهرباء',
+    en: 'Utility Bills',
     clauses: [
       [
-        'على الطرف الراغب في إنهاء العقد أو عدم تجديده إخطار الطرف الآخر كتابياً قبل ثلاثة أشهر على الأقل من تاريخ انتهائه في العقود السنوية، وقبل شهر على الأقل في العقود الشهرية، ما لم ينص عقد الإيجار على خلاف ذلك.',
-        'A party wishing to terminate or not renew the lease must notify the other party in writing at least three months before its expiry for yearly leases, and at least one month before for monthly leases, unless the lease provides otherwise.',
+        'يتعين على المستأجر دفع جميع فواتير المرافق الخاصة بوحدته بالكامل كل شهر.',
+        'The Tenant is required to pay all utility bills of their Unit in full every month.',
       ],
       [
-        'يلتزم المستأجر عند انتهاء العقد بتسليم الوحدة ومفاتيحها بالحالة التي استلمها بها، مع سداد جميع الفواتير والمستحقات حتى تاريخ التسليم.',
-        'At the end of the lease the tenant will hand back the unit and its keys in the condition received, having paid all bills and dues up to the handover date.',
+        'إذا تراكمت فواتير المستأجر المجمعة للمياه والكهرباء لأكثر من 25٪ من الإيجار الشهري ، يحق للمالك فصل الكهرباء والمياه عن الوحدة واتخاذ الإجراءات القانونية. قد يتم أيضًا خصم مبلغ الفاتورة المعلقة من وديعة التأمين. مع تحمل المستأجر كافة التبعات القانونية والخسائر التي قد يتكبدها نتيجة قطع الخدمة عنه.',
+        'If the Tenant’s combined bills for water and electricity accumulate to over 25% of their monthly rent, the Landlord has the right to disconnect the electricity and water of the Unit and take legal action. The pending bill amount may also be deducted from the security deposit. With the tenant bearing all the legal consequences and losses that he may incur as a result of cutting the service for him.',
       ],
       [
-        'يحق للمؤجر إنهاء العقد وطلب الإخلاء عند تأخر المستأجر في سداد الإيجار أو إخلاله بأي من التزاماته، وفقاً للإجراءات المقررة قانوناً.',
-        'The landlord may terminate the lease and seek eviction if the tenant fails to pay rent on time or breaches any of the tenant’s obligations, in accordance with the procedures prescribed by law.',
+        'في حالة قيام المالك بدفع فواتير الخدمات نيابة عن المستأجر ، سيتم فرض رسوم خدمة بنسبة 5٪ من الإيجار الشهري.',
+        'In case the Landlord pays the utility bills on the Tenant’s behalf, a service charge of 5% of the monthly rent will be charged.',
       ],
     ],
   },
-  GENERAL_SECTION,
+  {
+    ar: 'شروط الاقامة',
+    en: 'Conditions of Stay',
+    clauses: [
+      [
+        'يجب على المستأجر الالتزام بجميع التعليمات الصادرة عن المالك ، والتي قد تتغير خلال عقد الإيجار.',
+        'The Tenant shall abide by all the instructions issued by the Landlord, which may change throughout the tenancy agreement.',
+      ],
+      ['لا يجوز للمستأجر تأجير الوحدة من الباطن.', 'The Tenant is not allowed to sublet the Unit.'],
+      [
+        'سيتم شغل الوحدة من قبل المستأجر وعائلته المباشرة فقط ، وسيتم استخدامها فقط للأغراض السكنية.',
+        'The Unit will be occupied only by the Tenant and their immediate family, and used only for residential purposes.',
+      ],
+      [
+        'لن يقوم المستأجر بإجراء أي تغييرات على الوحدة المؤجرة دون موافقة المالك. في حالة إجراء أي تغييرات دون موافقة المالك ، يحق للمالك إلغاء عقد الإيجار.',
+        'The Tenant will not make any changes to the leased Unit without approval from the Landlord. In case any changes are made without the Landlord’s approval, the Landlord has the right to cancel the tenancy agreement.',
+      ],
+      [
+        'يجب على المستأجر إعادة الوحدة في نهاية عقد الإيجار إلى الحالة الأصلية التي استلمها بها في بداية عقد الإيجار. إن عدم القيام بذلك سوف يتطلب من المالك تحميل جميع التكاليف على المستأجر للقيام بهذا العمل.',
+        'The Tenant must return the Unit at the end of their tenancy agreement in the original condition that they received it in at the start of the tenancy agreement. Failure to do so will require the Landlord to charge all the costs to the Tenant to do such work.',
+      ],
+      [
+        'سيكون المستأجر مسؤولاً عن أي ضرر يحدث لوحدته أو العقار بأكمله والذي يحدث من قبل المستأجر أو ضيوف المستأجر أو المدعوين.',
+        'The Tenant will be liable for any damage occurring to their Unit or the entire Property which is done by the Tenant or the Tenant’s guests or invitees.',
+      ],
+      [
+        'لن يضع المستأجر أي عناصر خارج الوحدة المؤجرة ، بما في ذلك على سبيل المثال لا الحصر المناطق العامة ، مثل الممرات والمصاعد والسلالم والطوابق السفلية وأرضية السقف.',
+        'The Tenant will not place any items outside of their leased Unit, including but not limited to the public areas, such as corridors, elevators, staircase, basements and roof floor.',
+      ],
+      [
+        'يجب على المستأجر صيانة العقار بطريقة تتوافق مع جميع متطلبات الصحة والسلامة. يجب على المستأجر الحفاظ على وحدته خالية من جميع القوارض والحشرات والحشرات التي تجذبها الظروف غير الصحية التي يسببها المستأجر ، ويكون مسؤولاً عن جميع الأضرار التي تسببها هذه الظروف.',
+        'The Tenant shall maintain the property in a manner which conforms to all health and safety requirements. The Tenant shall keep their Unit free from all rodents, insects, and vermin attracted by unsanitary conditions caused by Tenant, and shall be responsible for all damage caused by such conditions.',
+      ],
+      [
+        'لا يجوز للمستأجر إلقاء القمامة أو إلقاء القمامة في أي جزء من العقار بأكمله ، أو إلقاء أي شيء من النوافذ أو الأبواب أو قنوات التهوية.',
+        'The Tenant will not litter or throw garbage in any part of the entire Property, or throw anything out of the windows, doors or ventilating ducts.',
+      ],
+      [
+        'يجب ألا يسمح المستأجر أو يسمح بأي مركبات تخص المستأجر أو يتحكم فيه أو موظفيه أو مورديه أو زبائنه أو مدعويهم أو تفريغها أو ركنها في العقار في مناطق لم يوافق عليها المالك. عدم الالتزام بهذا سوف يصنف على أنه مخالفة وقوف.',
+        'The Tenant shall not permit or allow any vehicles that belong to or are controlled by the Tenant or their employees, suppliers, customers or invitees to be loaded, unloaded or parked in the Property in areas not approved by the Landlord. Not abiding by this will be classified as a Parking Violation.',
+      ],
+      [
+        'لن يتسبب المستأجر في إحداث ضوضاء وإزعاج مفرطة لشاغلي العقار الآخرين ، خاصة خلال ساعات العمل المتأخرة. يقوم المالك بإخطار المستأجر بهذه الشكاوى.',
+        'The Tenant will not cause excessive noise and disturbances to other occupants of the Property, especially during late hours. The Landlord will notify the Tenant of such complaints.',
+      ],
+    ],
+  },
+  {
+    ar: 'مخالفات الشروط',
+    en: 'Violations of Conditions',
+    clauses: [
+      [
+        'في حالة عدم التزام المستأجر بأي شروط للإقامة ، يحق للمالك فرض غرامة قدرها 5٪ من الإيجار الشهري لكل مخالفة في اليوم.',
+        'In case the Tenant does not abide by any conditions of stay, the Landlord has the right to impose a penalty of 5% of the monthly rent per violation, per day.',
+      ],
+      [
+        'إذا لم يقم المستأجر بحل المخالفة على الفور ، سيتم فرض غرامة يومية قدرها 5٪ من الإيجار الشهري عن كل يوم تستمر فيه المخالفة.',
+        'If the Tenant does not resolve the violation immediately, a daily penalty of 5% of the monthly rent will be imposed for each day the violation continues.',
+      ],
+      [
+        'إذا تجاوز الانتهاك المحدد شهرًا واحدًا من تاريخ التحذير ، أو إذا تلقى المستأجر انتهاكات جسيمة خلال فترة الإيجار ، يحق للمالك إنهاء عقد الإيجار ويجب على المستأجر إخلاء الوحدة على الفور. سيؤدي عدم القيام بذلك إلى اتخاذ إجراءات قانونية.',
+        'If a specific violation exceeds 1 month from the date of warning, or if the Tenant receives significant violations during their tenancy period, the Landlord has the right to terminate the lease agreement and the Tenant should vacate the unit immediately. Failure to do so will result in legal action being taken.',
+      ],
+      [
+        'في حالة مخالفة المستأجر لوقوف السيارات ، بالإضافة إلى الغرامة اليومية البالغة 5٪ من الإيجار الشهري ، يحق للمالك ، دون سابق إنذار ، إزالة أو سحب السيارة المعنية وتحميل التكاليف على المستأجر.',
+        'In case of a Parking Violation by the Tenant, along with the daily penalty of 5% of the monthly rent, the Landlord shall have the right, without notice, to remove or tow away the vehicle involved and charge the costs to the Tenant.',
+      ],
+    ],
+  },
+  {
+    ar: 'بطاقات الوصول ووسائل الراحة في المبنى',
+    en: 'Access Cards and Building Amenities',
+    clauses: [
+      [
+        'يحق للمالك فصل بطاقات الوصول إلى المبنى الخاصة بالمستأجر وجميع وسائل الراحة الأخرى في أي وقت في حالة عدم التزام المستأجر بأي من متطلبات الإيجار الخاصة بهم.',
+        'The Landlord has the right to disconnect the Tenant’s building access cards and all other amenities anytime in case the Tenant does not abide by any of their tenancy requirements.',
+      ],
+    ],
+  },
+  {
+    ar: 'إجراءات قانونية',
+    en: 'Legal Action',
+    clauses: [
+      [
+        'سيكون المستأجر مسؤولاً عن جميع النفقات القانونية التي يتحملها المالك في حالة حدوث أي انتهاك لهذا الإيجار.',
+        'The Tenant will be liable for all legal expenses borne by the Landlord in case of any violation of this tenancy.',
+      ],
+    ],
+  },
+  {
+    ar: 'الصيانة والتصليح',
+    en: 'Maintenance and Repairs',
+    clauses: [
+      [
+        'يوافق المستأجر على الحفاظ على نظافة وحدته ويتحمل مسؤولية الأضرار وتنظيف النوافذ وجميع الإصلاحات الطفيفة. تشمل الإصلاحات البسيطة استبدال البطاريات والمصابيح الكهربائية والأنابيب.',
+        'Tenant agrees to keep their Unit clean and takes responsibility for damages, window cleaning and all minor repairs. Minor repairs include replacing batteries, light bulbs and tubes.',
+      ],
+    ],
+  },
+  {
+    ar: 'حق الدخول',
+    en: 'Right of Entry',
+    clauses: [
+      [
+        'في حالة الطوارئ ، سيحاول المالك الاتصال بالمستأجر. في حالة عدم تلقي أي رد ، يحق للمالك دخول الوحدة.',
+        'In case of emergencies, the Landlord will attempt to contact the Tenant. If no response is received, the Landlord has the right to enter the Unit.',
+      ],
+    ],
+  },
+  {
+    ar: 'تجديد الإيجار',
+    en: 'Tenancy Renewal',
+    clauses: [
+      [
+        'للمالك الحق في زيادة الإيجار الشهري إلى أجل غير مسمى خلال تجديد عقد الإيجار.',
+        'The Landlord has the right to increase the monthly rent indefinitely during the tenancy renewal.',
+      ],
+      [
+        'قبل تجديد عقد الإيجار ، سيقدم المستأجر جميع المستندات المطلوبة ووديعة الضمان والشيكات المؤجلة. بدون هذه الشروط ، لن يتمكن المستأجر من تجديد عقد الإيجار الخاص به.',
+        'Before renewing the tenancy agreement, the Tenant will provide all required documentation, security deposit and post-dated cheques. Without these, the Tenant will be unable to renew their tenancy agreement.',
+      ],
+      [
+        'في حالة التأخير في تجديد عقد الإيجار بسبب المستأجر ، سيكون المستأجر مسؤولاً عن رسوم تجديد البلدية وجميع غرامات البلدية.',
+        'In case of a delay in renewal of the tenancy agreement due to the Tenant, the Tenant will be liable for the Municipality renewal fee and all Municipality fines.',
+      ],
+    ],
+  },
+  {
+    ar: 'إخلاء الوحدة',
+    en: 'Vacating the Unit',
+    clauses: [
+      [
+        'يجب على المستأجر إكمال الفترة الكاملة لعقد الإيجار.',
+        'The Tenant must complete the full period of the tenancy agreement.',
+      ],
+      [
+        'إذا رغب المستأجر في إخلاء الوحدة في نهاية عقد الإيجار ، فيجب تقديم إشعار لمدة 90 يومًا إلى المالك من خلال وسيلة اتصال رسمية.',
+        'If the Tenant wishes to vacate the Unit at the end of their tenancy agreement, a 90-day notice must be given to the Landlord by an official communication method.',
+      ],
+      [
+        'إذا قدم المستأجر إشعارًا مدته أقل من 90 يومًا لإخلاء الوحدة في نهاية اتفاقية الإيجار ، فسيكون المستأجر مسؤولاً عن الإيجار لمدة 90 يومًا من تاريخ إخطاره الرسمي.',
+        'If the tenant gives less than a 90-day notice to vacate the Unit at the end of their tenancy agreement, the Tenant will be liable for rent for 90 days from the date of their official notice.',
+      ],
+      [
+        'يحق للمالك رفض تسليم الوحدة بعد نهاية فترة الإيجار إذا لم يقم المستأجر بتصفية جميع مستحقاته بالكامل ، بما في ذلك على سبيل المثال لا الحصر: الإيجار وفواتير الخدمات ورسوم الغرامات.',
+        'The Landlord has the right to refuse the handover of the Unit after the end of the tenancy period if the Tenant has not cleared all their dues in full, including but not limited to: rent, utility bills and penalty fees.',
+      ],
+      [
+        'يلتزم المستأجر بدفع فواتير الإيجار والمرافق حتى اكتمال التسليم من قبل المالك.',
+        'The Tenant will be obligated to pay rent and utility bills until the handover is completed by the Landlord.',
+      ],
+    ],
+  },
+  {
+    ar: 'تسليم الوحدة',
+    en: 'Handover of Unit',
+    clauses: [
+      [
+        'يجب على المستأجر إكمال نموذج التسليم وإعادة جميع المفاتيح وبطاقات الوصول إلى مكتب المالك قبل إنهاء عقد الإيجار. سيصدر المالك استمارة براءة ذمة بمجرد اكتمال ذلك. بدون نموذج التخليص ، سيظل المستأجر مسؤولاً عن جميع المستحقات ، بما في ذلك فواتير الإيجار والمرافق.',
+        'The Tenant must complete the handover form and return all keys and access cards to the Landlord’s office before the tenancy agreement can be ended. The Landlord will issue a clearance form once this is completed. Without the clearance form, the Tenant will continue to be liable for all dues, including rent and utility bills.',
+      ],
+      [
+        'يجب على المستأجر إعادة الوحدة بنفس الحالة التي تم استلامها بها في بداية عقد الإيجار. سيؤدي عدم القيام بذلك إلى فرض رسوم على المستأجر.',
+        'The Tenant must return the Unit in the same condition that it was received at the start of the tenancy. Failure to do so will result in charges to the Tenant.',
+      ],
+      [
+        'يجب على المستأجر تنظيف الوحدة بعمق قبل التسليم. سيؤدي عدم القيام بذلك إلى فرض رسوم تنظيف على المستأجر.',
+        'The Tenant must have the Unit deep cleaned prior to handover. Failure to do so will result in a cleaning fee charged to the Tenant.',
+      ],
+      [
+        'سيكون المستأجر مسؤولاً عن أي أضرار تلحق بوحدة الملكية العامة.',
+        'The Tenant will be responsible for any damages to the Unit or overall Property.',
+      ],
+      [
+        'إذا لم يسلم المستأجر الوحدة بعد انتهاء عقد الإيجار ، فسيكون مسؤولاً عن دفع غرامة قدرها 3٪ من الإيجار الشهري لكل يوم ، بالإضافة إلى قيمة الإيجار الفعلية لتلك الفترة.',
+        'If the Tenant does not handover the Unit after the expiration of the tenancy agreement, they will be liable for a penalty fee of 3% of the monthly rent for every day, as well as the actual rent value for that period.',
+      ],
+    ],
+  },
+  {
+    ar: 'الرسوم والضرائب',
+    en: 'Fees and Taxes',
+    clauses: [
+      [
+        'المستأجر مسؤول عن جميع الرسوم والضرائب التي تفرضها الحكومة ، بما في ذلك على سبيل المثال لا الحصر ضريبة القيمة المضافة.',
+        'The Tenant is liable for all fees and taxes imposed by the government, including but not limited to VAT.',
+      ],
+    ],
+  },
+  {
+    ar: 'شرط الفصل',
+    en: 'Severability Clause',
+    clauses: [
+      [
+        'في حالة عدم صلاحية أي حكم في هذه الاتفاقية ، لن يتم المساس بصلاحية الشروط والأحكام المتبقية بأي شكل من الأشكال.',
+        'In case any provision in this agreement shall be invalid, the validity of the remaining terms and conditions shall not be impaired in any way.',
+      ],
+    ],
+  },
 ];
 
 const SALE_TERMS: readonly TermsSection[] = [

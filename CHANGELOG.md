@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.93 — 2026-10-07
+
+- Default monthly/yearly rent terms are now the owner's tenancy addendum copied verbatim in Arabic and English: 17 headings and 52 clauses (official communication, non-refundable booking deposit, security deposit, payment terms, late payments, utility bills, conditions of stay, violations, access cards, legal action, maintenance, right of entry, renewal, vacating, handover, fees and taxes, severability). Only PDF extraction artifacts and obvious English typos were fixed.
+- `TERMS_MAX_BLOCKS` raised from 80 to 150 headings/clauses per contract type.
+- Details: [`docs/implementation/RELEASE-0.4.93-AR.md`](./docs/implementation/RELEASE-0.4.93-AR.md).
+
 ## 0.4.92 — 2026-10-07
 
 - New platform default terms (bilingual, Omani-law based) used when no standard or custom terms exist: monthly/yearly rent (non-refundable reservation deposit that converts to a security deposit, lease term, security deposit, use and maintenance, notice and vacating, general), sale (earnest money, price and certified-cheque payment, title transfer at the Ministry of Housing and Urban Planning and fees, seller warranties, inspection and handover, breach, general), and daily stays (booking, check-in/out, house rules, damage and liability, cancellation, general).
