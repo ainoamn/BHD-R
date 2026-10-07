@@ -5,10 +5,7 @@ import { isPaymentSandboxPilotEnabled } from '@bhd-r/config';
 import { Link } from '@/i18n/navigation';
 import { LeaseDepositCheckout } from '@/components/lease-deposit-checkout';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
-import {
-  loadBookingContacts,
-  type BookingContactsForViewer,
-} from '@/lib/booking-contacts-neon';
+import { loadBookingContacts, type BookingContactsForViewer } from '@/lib/booking-contacts-neon';
 import { loadBookingTermsForUnit } from '@/lib/booking-terms-neon';
 import { localizedName } from '@/lib/format';
 import { loadPublicPropertyShowcaseFromNeon } from '@/lib/load-public-property-neon';
@@ -117,7 +114,10 @@ export default async function BookUnitPage({
   const contacts = contactsResult?.status === 'ok' ? contactsResult.value : contactsFallback;
 
   return (
-    <section className="stays-book-shell" data-stay-book-immersive="true">
+    <section
+      className="stays-book-shell stays-book-shell--wide-form"
+      data-stay-book-immersive="true"
+    >
       <aside className="stays-book-shell__aside">
         <div className="stays-book-shell__aside-inner">
           {cover ? (
@@ -156,8 +156,8 @@ export default async function BookUnitPage({
               {title ? <p className="stays-book-shell__place">{title}</p> : null}
               <p className="stays-book-shell__lede">
                 {ar
-                  ? 'وافق على الشروط، ادفع مبلغ الضمان، ثم وقّع العقد وأرفق مستنداتك إلكترونياً.'
-                  : 'Accept the terms, pay the deposit, then sign the contract and attach your documents online.'}
+                  ? 'سهّلناها عليك في أربع خطوات فقط: وافق على الشروط، أدخل بياناتك، ادفع مبلغ الضمان، ثم وقّع العقد وأرفق مستنداتك إلكترونياً.'
+                  : 'We made it easy in just four steps: accept the terms, enter your details, pay the deposit, then sign the contract and attach your documents online.'}
               </p>
             </div>
           </div>

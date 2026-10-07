@@ -6,6 +6,7 @@ All notable changes are documented here. The project follows Semantic Versioning
 
 - Default monthly/yearly rent terms are now the owner's tenancy addendum copied verbatim in Arabic and English: 17 headings and 52 clauses (official communication, non-refundable booking deposit, security deposit, payment terms, late payments, utility bills, conditions of stay, violations, access cards, legal action, maintenance, right of entry, renewal, vacating, handover, fees and taxes, severability). Only PDF extraction artifacts and obvious English typos were fixed.
 - `TERMS_MAX_BLOCKS` raised from 80 to 150 headings/clauses per contract type.
+- Rent/purchase booking page (`/book/[unitId]`): narrower side image and wider form panel (`stays-book-shell--wide-form`); intro text now lists the four steps (terms, details, deposit, sign).
 - Details: [`docs/implementation/RELEASE-0.4.93-AR.md`](./docs/implementation/RELEASE-0.4.93-AR.md).
 
 ## 0.4.92 — 2026-10-07

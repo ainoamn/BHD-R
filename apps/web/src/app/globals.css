@@ -9495,10 +9495,9 @@ button.ops-row-key {
 }
 .stays-bookings-card__main {
   display: grid;
-  grid-template-columns: minmax(150px, 1.1fr) minmax(120px, 0.9fr) minmax(140px, 1.1fr) minmax(
-      180px,
-      1.2fr
-    ) minmax(100px, 0.8fr);
+  grid-template-columns:
+    minmax(150px, 1.1fr) minmax(120px, 0.9fr) minmax(140px, 1.1fr) minmax(180px, 1.2fr)
+    minmax(100px, 0.8fr);
   gap: 0.85rem 1rem;
   align-items: start;
 }
@@ -12299,6 +12298,38 @@ body:has(.stay-esign-shell) {
   }
   .stays-book-shell__panel .stays-checkout--page {
     width: min(100%, 36rem);
+  }
+}
+.stays-book-shell--wide-form .stays-book-shell__aside {
+  min-height: clamp(12rem, 34vw, 16rem);
+}
+.stays-book-shell--wide-form .stays-book-shell__headline {
+  font-size: clamp(1.4rem, 3.6vw, 1.9rem);
+}
+.stays-book-shell--wide-form .stays-book-shell__lede {
+  max-width: 30ch;
+  font-size: clamp(0.95rem, 2vw, 1.05rem);
+}
+@media (min-width: 900px) {
+  .stays-book-shell--wide-form {
+    grid-template-columns: minmax(16rem, 0.62fr) minmax(28rem, 1.38fr);
+  }
+  .stays-book-shell--wide-form .stays-book-shell__aside {
+    min-height: 100dvh;
+  }
+  .stays-book-shell--wide-form .stays-book-shell__aside-content {
+    padding-inline: clamp(1rem, 2.2vw, 1.75rem);
+  }
+  .stays-book-shell--wide-form .stays-book-shell__panel .stays-checkout--page {
+    width: min(100%, 44rem);
+  }
+}
+@media (min-width: 1200px) {
+  .stays-book-shell--wide-form {
+    grid-template-columns: minmax(18rem, 0.6fr) minmax(36rem, 1.4fr);
+  }
+  .stays-book-shell--wide-form .stays-book-shell__panel .stays-checkout--page {
+    width: min(100%, 50rem);
   }
 }
 
