@@ -76,6 +76,71 @@ export async function loadOwnerBookingTerms(
   });
 }
 
+export type BookingTermsOverviewRow = {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  serialNumber: string | null;
+  versions: Partial<Record<BookingTermsMode, { version: number; updatedAt: string }>>;
+};
+
+/** Every property in the organization with the active custom terms per booking type. */
+export async function loadBookingTermsOverview(scope: OwnerScope): Promise<BookingTermsOverviewRow[]> {
+  const { db } = getDatabase();
+  return db.transaction(async (transaction) => {
+    await applyOwnerScope(transaction, scope);
+    const propertyRows = await transaction
+      .select({
+        id: properties.id,
+        nameAr: properties.nameAr,
+        nameEn: properties.nameEn,
+        serialNumber: properties.serialNumber,
+      })
+      .from(properties)
+      .where(
+        and(
+          eq(properties.organizationId, scope.organizationId),
+          sql`${properties.status} <> 'archived'`,
+        ),
+      )
+      .orderBy(desc(properties.updatedAt))
+      .limit(500);
+
+    const policyRows = await transaction
+      .select({
+        code: stayPolicies.code,
+        version: stayPolicies.version,
+        updatedAt: stayPolicies.updatedAt,
+      })
+      .from(stayPolicies)
+      .where(
+        and(
+          eq(stayPolicies.organizationId, scope.organizationId),
+          eq(stayPolicies.kind, POLICY_KIND),
+          eq(stayPolicies.status, 'active'),
+          sql`${stayPolicies.code} like 'booking_terms:%'`,
+        ),
+      );
+
+    const byProperty = new Map<string, BookingTermsOverviewRow['versions']>();
+    for (const row of policyRows) {
+      const [, mode, propertyId] = row.code.split(':');
+      if (!propertyId || !BOOKING_TERMS_MODES.includes(mode as BookingTermsMode)) continue;
+      const versions = byProperty.get(propertyId) ?? {};
+      const current = versions[mode as BookingTermsMode];
+      if (!current || current.version < row.version) {
+        versions[mode as BookingTermsMode] = {
+          version: row.version,
+          updatedAt: row.updatedAt.toISOString(),
+        };
+      }
+      byProperty.set(propertyId, versions);
+    }
+
+    return propertyRows.map((row) => ({ ...row, versions: byProperty.get(row.id) ?? {} }));
+  });
+}
+
 /** Saves a new version; empty bodies archive the owner text so platform defaults apply again. */
 export async function saveOwnerBookingTerms(
   claims: SessionClaims,

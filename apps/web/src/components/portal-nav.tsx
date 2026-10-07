@@ -65,6 +65,7 @@ const navGroups: Record<PortalRole, NavGroup[]> = {
         { path: '/leasing', label: 'Common.leasing', mark: '⌂' },
         { path: '/sales', label: 'Common.sales', mark: '◆' },
         { path: '/contracts', label: 'Common.contracts', mark: '✎' },
+        { path: '/terms', label: 'Common.contractTerms', mark: '¶' },
       ],
     },
     {
@@ -117,6 +118,7 @@ const navGroups: Record<PortalRole, NavGroup[]> = {
         { path: '/leasing', label: 'Common.leasing', mark: '⌂' },
         { path: '/sales', label: 'Common.sales', mark: '◆' },
         { path: '/contracts', label: 'Common.contracts', mark: '✎' },
+        { path: '/terms', label: 'Common.contractTerms', mark: '¶' },
       ],
     },
     {
