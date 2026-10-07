@@ -11743,6 +11743,31 @@ body:has(.stays-book-shell) #main-content {
   opacity: 0.92;
   width: fit-content;
 }
+.stays-book-shell__topbar {
+  justify-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.stays-book-shell__lang {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+.stays-book-shell__lang:hover,
+.stays-book-shell__lang:focus-visible {
+  background: rgba(255, 255, 255, 0.24);
+}
 .stays-book-shell__intro {
   display: grid;
   grid-template-columns: 1fr;

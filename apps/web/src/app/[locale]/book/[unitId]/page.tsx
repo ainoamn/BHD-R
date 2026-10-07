@@ -128,9 +128,22 @@ export default async function BookUnitPage({
           )}
           <div className="stays-book-shell__aside-scrim" />
           <div className="stays-book-shell__aside-content">
-            <Link className="stays-book-shell__back" href={`/units/${unitId}`}>
-              {ar ? '← العودة للعقار' : '← Back to property'}
-            </Link>
+            <div className="stays-book-shell__topbar">
+              <Link className="stays-book-shell__back" href={`/units/${unitId}`}>
+                {ar ? '← العودة للعقار' : '← Back to property'}
+              </Link>
+              <Link
+                className="stays-book-shell__lang"
+                href={`/book/${unitId}?mode=${mode}`}
+                locale={ar ? 'en' : 'ar'}
+                hrefLang={ar ? 'en' : 'ar'}
+                lang={ar ? 'en' : 'ar'}
+                aria-label={ar ? 'Switch to English' : 'التبديل إلى العربية'}
+              >
+                <span aria-hidden="true">🌐</span>
+                {ar ? 'English' : 'العربية'}
+              </Link>
+            </div>
             <div className="stays-book-shell__intro">
               <span
                 className="stays-book-shell__brand logo__product logo__product--on-dark"
