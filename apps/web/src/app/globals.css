@@ -12310,6 +12310,46 @@ body:has(.stay-esign-shell) {
   max-width: 30ch;
   font-size: clamp(0.95rem, 2vw, 1.05rem);
 }
+.stays-book-shell__steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: book-step;
+  display: grid;
+  gap: 0.55rem;
+  width: min(100%, 22rem);
+  text-align: start;
+}
+.stays-book-shell__steps li {
+  counter-increment: book-step;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  color: rgba(245, 251, 248, 0.95);
+  font-size: clamp(0.92rem, 1.9vw, 1rem);
+  font-weight: 600;
+  line-height: 1.5;
+}
+.stays-book-shell__steps li::before {
+  content: counter(book-step);
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(6px);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+.stays-book-shell__cta {
+  margin: 0.25rem 0 0;
+  color: rgba(255, 245, 220, 0.98);
+  font-weight: 800;
+  font-size: clamp(1rem, 2.1vw, 1.12rem);
+}
 @media (min-width: 900px) {
   .stays-book-shell--wide-form {
     grid-template-columns: minmax(16rem, 0.62fr) minmax(28rem, 1.38fr);

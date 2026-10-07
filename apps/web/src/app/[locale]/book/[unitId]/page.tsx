@@ -143,21 +143,42 @@ export default async function BookUnitPage({
               <p className="stays-book-shell__headline">
                 {ar ? (
                   <>
-                    {mode === 'sale' ? 'احجز عقارك القادم' : 'احجز بيتك القادم'}
-                    <span>بعربون آمن من BHD R</span>
+                    احجز عقارك القادم
+                    <span>بدفع مبلغ ضمان آمن عبر BHD R</span>
                   </>
                 ) : (
                   <>
-                    {mode === 'sale' ? 'Reserve your next property' : 'Reserve your next home'}
-                    <span>with a secure deposit from BHD R</span>
+                    Reserve your next property
+                    <span>with a secure deposit through BHD R</span>
                   </>
                 )}
               </p>
               {title ? <p className="stays-book-shell__place">{title}</p> : null}
               <p className="stays-book-shell__lede">
                 {ar
-                  ? 'سهّلناها عليك في أربع خطوات فقط: وافق على الشروط، أدخل بياناتك، ادفع مبلغ الضمان، ثم وقّع العقد وأرفق مستنداتك إلكترونياً.'
-                  : 'We made it easy in just four steps: accept the terms, enter your details, pay the deposit, then sign the contract and attach your documents online.'}
+                  ? 'أصبح حجز عقارك أسهل من أي وقت مضى، في أربع خطوات بسيطة:'
+                  : 'Reserving your property has never been easier — four simple steps:'}
+              </p>
+              <ol className="stays-book-shell__steps">
+                {(ar
+                  ? [
+                      'الموافقة على الشروط والأحكام.',
+                      'إدخال بياناتك.',
+                      'دفع مبلغ الضمان بأمان.',
+                      'توقيع العقد وإرفاق المستندات إلكترونيًا.',
+                    ]
+                  : [
+                      'Accept the terms and conditions.',
+                      'Enter your details.',
+                      'Pay the deposit securely.',
+                      'Sign the contract and attach your documents online.',
+                    ]
+                ).map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+              <p className="stays-book-shell__cta">
+                {ar ? 'ابدأ إجراءات الحجز الآن:' : 'Start your booking now:'}
               </p>
             </div>
           </div>
