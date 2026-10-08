@@ -179,41 +179,53 @@ export default async function StayBookPage({
 
   return (
     <section className="stay-book" data-stay-book-immersive="true">
-      <aside className="stay-book__hero" aria-label={ar ? 'ملخص الإقامة' : 'Stay summary'}>
-        {cover ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img className="stay-book__hero-img" src={cover} alt="" />
-        ) : (
-          <div className="stay-book__hero-img stay-book__hero-img--fallback" />
-        )}
-        <div className="stay-book__hero-scrim" />
-        <div className="stay-book__hero-content">
-          <div className="stay-book__topbar">
-            <Link className="stay-book__back" href={stayHref}>
-              <span aria-hidden="true">{ar ? '→' : '←'}</span>
-              {ar ? 'العودة للإقامة' : 'Back to stay'}
-            </Link>
-            <span
-              className="stay-book__brand logo__product logo__product--on-dark"
-              aria-label="BHD R"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/brand/bhd-official-symbol.svg" alt="" width="96" height="32" />
-              <i>R</i>
-            </span>
-            <Link
-              className="stay-book__lang"
-              href={`/stays/${encodeURIComponent(slug)}/book${switchQs ? `?${switchQs}` : ''}`}
-              locale={otherLocale}
-              hrefLang={otherLocale}
-              lang={otherLocale}
-              aria-label={ar ? 'Switch to English' : 'التبديل إلى العربية'}
-            >
-              {ar ? 'English' : 'العربية'}
-            </Link>
+      <header className="stay-book__bar">
+        <div className="stay-book__bar-inner">
+          <Link className="stay-book__back" href={stayHref}>
+            <span aria-hidden="true">{ar ? '→' : '←'}</span>
+            {ar ? 'العودة للإقامة' : 'Back to stay'}
+          </Link>
+          <span className="stay-book__brand logo__product" aria-label="BHD R">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/bhd-official-symbol.svg" alt="" width="96" height="32" />
+            <i>R</i>
+          </span>
+          <Link
+            className="stay-book__lang"
+            href={`/stays/${encodeURIComponent(slug)}/book${switchQs ? `?${switchQs}` : ''}`}
+            locale={otherLocale}
+            hrefLang={otherLocale}
+            lang={otherLocale}
+            aria-label={ar ? 'Switch to English' : 'التبديل إلى العربية'}
+          >
+            {ar ? 'English' : 'العربية'}
+          </Link>
+        </div>
+      </header>
+
+      <div className="stay-book__layout">
+        <aside className="stay-book__summary" aria-label={ar ? 'ملخص الإقامة' : 'Stay summary'}>
+          <div className="stay-book__media">
+            {cover ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={cover} alt="" />
+            ) : (
+              <span className="stay-book__media-fallback logo__product logo__product--on-dark">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/brand/bhd-official-symbol.svg" alt="" width="96" height="32" />
+              </span>
+            )}
+            {score !== null && score > 0 ? (
+              <p className="stay-book__score">
+                <strong>{score.toFixed(1)}</strong>
+                <small>
+                  {ar ? `من 10 · ${reviewCount} تقييم` : `/ 10 · ${reviewCount} reviews`}
+                </small>
+              </p>
+            ) : null}
           </div>
 
-          <div className="stay-book__hero-body">
+          <div className="stay-book__info">
             <p className="stay-book__eyebrow">
               {ar ? 'إقامة يومية' : 'Daily stay'}
               {location ? <span>{location}</span> : null}
@@ -226,32 +238,16 @@ export default async function StayBookPage({
                 ))}
               </ul>
             ) : null}
-            <div className="stay-book__highlights">
-              {detail.nightlyMinor ? (
-                <p className="stay-book__price">
-                  <small>{ar ? 'تبدأ من' : 'From'}</small>
-                  <strong dir="ltr">{formatMoney(detail.nightlyMinor, currency, locale)}</strong>
-                  <small>{ar ? '/ الليلة' : '/ night'}</small>
-                </p>
-              ) : null}
-              {score !== null && score > 0 ? (
-                <p className="stay-book__score">
-                  <strong>{score.toFixed(1)}</strong>
-                  <small>
-                    {reviewCount > 0
-                      ? ar
-                        ? `من 10 · ${reviewCount} تقييم`
-                        : `/ 10 · ${reviewCount} reviews`
-                      : ar
-                        ? 'من 10'
-                        : '/ 10'}
-                  </small>
-                </p>
-              ) : null}
-            </div>
+            {detail.nightlyMinor ? (
+              <p className="stay-book__price">
+                <small>{ar ? 'تبدأ من' : 'From'}</small>
+                <strong dir="ltr">{formatMoney(detail.nightlyMinor, currency, locale)}</strong>
+                <small>{ar ? '/ الليلة' : '/ night'}</small>
+              </p>
+            ) : null}
           </div>
 
-          <div className="stay-book__hero-foot">
+          <div className="stay-book__extra">
             {checkInFrom || checkOutUntil ? (
               <dl className="stay-book__times">
                 {checkInFrom ? (
@@ -274,36 +270,38 @@ export default async function StayBookPage({
               <li>{ar ? 'عقد إلكتروني' : 'Online contract'}</li>
             </ul>
           </div>
-        </div>
-      </aside>
+        </aside>
 
-      <div className="stay-book__panel">
-        <StayCheckout
-          locale={locale}
-          slug={slug}
-          title={title}
-          {...(bookingUnitId ? { unitId: bookingUnitId } : {})}
-          terms={dailyTerms}
-          contacts={contacts}
-          offer={{
-            currency,
-            nightlyMinor: detail.nightlyMinor ?? null,
-            dayUseMinor: detail.dayUseMinor ?? null,
-            overnightOnlyMinor: detail.overnightOnlyMinor ?? null,
-            maxGuests: detail.maxGuests ?? null,
-          }}
-          defaults={{
-            ...(pickQuery(query, 'checkInOn') ? { checkInOn: pickQuery(query, 'checkInOn')! } : {}),
-            ...(pickQuery(query, 'checkOutOn')
-              ? { checkOutOn: pickQuery(query, 'checkOutOn')! }
-              : {}),
-            ...(pickQuery(query, 'adults') ? { adults: pickQuery(query, 'adults')! } : {}),
-            ...(pickQuery(query, 'children') ? { children: pickQuery(query, 'children')! } : {}),
-            ...(stayType ? { stayType } : {}),
-            ...(viewer?.displayName?.trim() ? { guestName: viewer.displayName.trim() } : {}),
-            ...(viewer?.email?.trim() ? { guestEmail: viewer.email.trim() } : {}),
-          }}
-        />
+        <div className="stay-book__panel">
+          <StayCheckout
+            locale={locale}
+            slug={slug}
+            title={title}
+            {...(bookingUnitId ? { unitId: bookingUnitId } : {})}
+            terms={dailyTerms}
+            contacts={contacts}
+            offer={{
+              currency,
+              nightlyMinor: detail.nightlyMinor ?? null,
+              dayUseMinor: detail.dayUseMinor ?? null,
+              overnightOnlyMinor: detail.overnightOnlyMinor ?? null,
+              maxGuests: detail.maxGuests ?? null,
+            }}
+            defaults={{
+              ...(pickQuery(query, 'checkInOn')
+                ? { checkInOn: pickQuery(query, 'checkInOn')! }
+                : {}),
+              ...(pickQuery(query, 'checkOutOn')
+                ? { checkOutOn: pickQuery(query, 'checkOutOn')! }
+                : {}),
+              ...(pickQuery(query, 'adults') ? { adults: pickQuery(query, 'adults')! } : {}),
+              ...(pickQuery(query, 'children') ? { children: pickQuery(query, 'children')! } : {}),
+              ...(stayType ? { stayType } : {}),
+              ...(viewer?.displayName?.trim() ? { guestName: viewer.displayName.trim() } : {}),
+              ...(viewer?.email?.trim() ? { guestEmail: viewer.email.trim() } : {}),
+            }}
+          />
+        </div>
       </div>
     </section>
   );
