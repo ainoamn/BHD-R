@@ -16,6 +16,7 @@ import type { CurrencyCode } from '@bhd-r/contracts';
 import type { ManagedProperty } from '@/components/property-detail-manager';
 import { googleMapsLinkFromCoords } from '@/lib/parse-google-maps-url';
 import { loadPropertyProfileRow } from '@/lib/load-property-profile';
+import { readUnitSaleDeposits } from '@/lib/unit-sale-deposit-neon';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
@@ -23,10 +24,7 @@ type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as {
   __bhdRPublicPropertyDb?: DbHandle;
   __bhdRPublicMediaS3?: S3Client;
-  __bhdRPublicMediaSignCache?: Map<
-    string,
-    { url: string; mimeType: string; expiresAtMs: number }
-  >;
+  __bhdRPublicMediaSignCache?: Map<string, { url: string; mimeType: string; expiresAtMs: number }>;
 };
 
 function getDatabase(): DbHandle {
@@ -48,9 +46,9 @@ function extractMapsUrl(notes: string | null | undefined): string | null {
 function s3Configured(): boolean {
   return Boolean(
     process.env.S3_ENDPOINT?.trim() &&
-      process.env.S3_ACCESS_KEY?.trim() &&
-      process.env.S3_SECRET_KEY?.trim() &&
-      !String(process.env.S3_ENDPOINT).includes('example.com'),
+    process.env.S3_ACCESS_KEY?.trim() &&
+    process.env.S3_SECRET_KEY?.trim() &&
+    !String(process.env.S3_ENDPOINT).includes('example.com'),
   );
 }
 
@@ -124,7 +122,7 @@ export async function loadPublicPropertyShowcaseFromNeon(
         .leftJoin(listings, eq(listings.unitId, units.id))
         .where(eq(units.propertyId, property.id))
         .orderBy(asc(units.code)),
-        transaction.execute(sql`
+      transaction.execute(sql`
           select
             ST_Y(location::geometry) as lat,
             ST_X(location::geometry) as lon
@@ -136,9 +134,10 @@ export async function loadPublicPropertyShowcaseFromNeon(
         : Promise.resolve(null),
     ]);
 
-    const coordRow = (Array.isArray(coords) ? coords[0] : null) as
-      | { lat?: number | string | null; lon?: number | string | null }
-      | null;
+    const coordRow = (Array.isArray(coords) ? coords[0] : null) as {
+      lat?: number | string | null;
+      lon?: number | string | null;
+    } | null;
     const latitude =
       coordRow?.lat !== null && coordRow?.lat !== undefined && Number.isFinite(Number(coordRow.lat))
         ? Number(coordRow.lat)
@@ -194,7 +193,7 @@ export async function loadPublicPropertyShowcaseFromNeon(
       const list: Array<{ unit_id: string; occupancy: string }> = Array.isArray(occRows)
         ? (occRows as Array<{ unit_id: string; occupancy: string }>)
         : Array.isArray((occRows as { rows?: Array<{ unit_id: string; occupancy: string }> }).rows)
-          ? ((occRows as { rows: Array<{ unit_id: string; occupancy: string }> }).rows)
+          ? (occRows as { rows: Array<{ unit_id: string; occupancy: string }> }).rows
           : [];
       for (const row of list) {
         if (
@@ -246,6 +245,10 @@ export async function loadPublicPropertyShowcaseFromNeon(
           };
         });
     }
+
+    // Last read of the transaction: owner pricing rows are not public under RLS.
+    await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
+    const saleDeposits = await readUnitSaleDeposits(transaction, property.organizationId, unitIds);
 
     return {
       id: property.id,
@@ -318,6 +321,7 @@ export async function loadPublicPropertyShowcaseFromNeon(
         rentMinor: unit.rentMinor.toString(),
         salePriceMinor: unit.salePriceMinor?.toString() ?? null,
         depositMinor: unit.depositMinor?.toString() ?? null,
+        saleDepositMinor: saleDeposits.get(unit.id)?.amountMinor ?? null,
         currency: unit.currency as CurrencyCode,
         listingPurpose: unit.listingPurpose as 'rent' | 'sale' | 'both',
         publishWhenAvailable: unit.publishWhenAvailable,
@@ -405,13 +409,16 @@ export async function resolvePublicPropertyMediaDelivery(
 
   const meta = (asset.metadata ?? {}) as InlineMeta;
   if (meta.storage === 'inline' && typeof meta.dataBase64 === 'string' && meta.dataBase64) {
-    return { kind: 'bytes', bytes: Buffer.from(meta.dataBase64, 'base64'), mimeType: asset.mimeType };
+    return {
+      kind: 'bytes',
+      bytes: Buffer.from(meta.dataBase64, 'base64'),
+      mimeType: asset.mimeType,
+    };
   }
 
   if (!s3Configured()) return null;
   const publicBucket = process.env.S3_BUCKET_PUBLIC?.trim();
-  const privateBucket =
-    process.env.S3_BUCKET_PRIVATE?.trim() || publicBucket || 'bhd-r-private';
+  const privateBucket = process.env.S3_BUCKET_PRIVATE?.trim() || publicBucket || 'bhd-r-private';
   const bucket = asset.publicObjectKey && publicBucket ? publicBucket : privateBucket;
   const key = asset.publicObjectKey || asset.privateObjectKey;
   if (!key || key.startsWith('inline/')) return null;

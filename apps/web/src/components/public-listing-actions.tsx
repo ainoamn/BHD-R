@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchBrowserCsrfToken } from '@/lib/api';
+import { depositForMode } from '@/lib/booking-deposit';
 import { formatMoney } from '@/lib/format';
 import { PublicListingShare } from '@/components/public-listing-share';
 
@@ -14,6 +15,7 @@ export function PublicListingActions({
   locale,
   signedIn,
   depositMinor,
+  saleDepositMinor = null,
   currency,
   canBook,
   sharePath,
@@ -27,6 +29,7 @@ export function PublicListingActions({
   locale: 'ar' | 'en';
   signedIn: boolean;
   depositMinor: string | null;
+  saleDepositMinor?: string | null;
   currency: string;
   canBook: boolean;
   sharePath: string;
@@ -47,17 +50,50 @@ export function PublicListingActions({
   );
 
   const loginHref = `/${locale}/login?next=${encodeURIComponent(`/${locale}/units/${unitId}`)}`;
-  const hasDeposit = Boolean(canBook && depositMinor && depositMinor !== '0');
+  const rentDeposit = canBook ? depositForMode('rent', depositMinor, saleDepositMinor) : null;
+  const saleDeposit = canBook ? depositForMode('sale', depositMinor, saleDepositMinor) : null;
 
-  const effectiveInterest: Interest | null = needsChoice ? interest : listingPurpose === 'sale' ? 'sale' : 'rent';
+  const effectiveInterest: Interest | null = needsChoice
+    ? interest
+    : listingPurpose === 'sale'
+      ? 'sale'
+      : 'rent';
   const showRentActions = !needsChoice && effectiveInterest === 'rent';
   const showSaleActions = !needsChoice && effectiveInterest === 'sale';
+  const depositLines = (
+    [
+      listingPurpose !== 'sale' && rentDeposit
+        ? {
+            key: 'rent',
+            label: needsChoice
+              ? ar
+                ? 'عربون حجز التأجير:'
+                : 'Rent booking deposit:'
+              : ar
+                ? 'مبلغ الضمان (العربون):'
+                : 'Booking deposit:',
+            amount: rentDeposit,
+          }
+        : null,
+      listingPurpose !== 'rent' && saleDeposit
+        ? {
+            key: 'sale',
+            label: needsChoice
+              ? ar
+                ? 'عربون حجز الشراء:'
+                : 'Purchase booking deposit:'
+              : ar
+                ? 'مبلغ الضمان (العربون):'
+                : 'Booking deposit:',
+            amount: saleDeposit,
+          }
+        : null,
+    ] as const
+  ).filter((line) => line !== null);
+  const hasDeposit = depositLines.length > 0;
 
   const dualPrices = useMemo(() => {
-    const rent =
-      rentMinor && rentMinor !== '0'
-        ? formatMoney(rentMinor, currency, locale)
-        : null;
+    const rent = rentMinor && rentMinor !== '0' ? formatMoney(rentMinor, currency, locale) : null;
     const sale =
       salePriceMinor && salePriceMinor !== '0'
         ? formatMoney(salePriceMinor, currency, locale)
@@ -160,7 +196,11 @@ export function PublicListingActions({
   return (
     <div className="public-listing-actions">
       {needsChoice ? (
-        <div className="public-listing-actions__interest" role="group" aria-label={ar ? 'اختر التأجير أو الشراء' : 'Choose rent or purchase'}>
+        <div
+          className="public-listing-actions__interest"
+          role="group"
+          aria-label={ar ? 'اختر التأجير أو الشراء' : 'Choose rent or purchase'}
+        >
           <p className="muted">{ar ? 'اختر التأجير أو الشراء' : 'Choose rent or purchase'}</p>
           <div className="public-listing-actions__interest-row">
             <button
@@ -208,10 +248,11 @@ export function PublicListingActions({
       ) : null}
 
       {hasDeposit ? (
-        <p className="muted public-listing-actions__deposit">
-          {ar ? 'مبلغ الضمان (العربون):' : 'Booking deposit:'}{' '}
-          <strong dir="ltr">{formatMoney(depositMinor!, currency, locale)}</strong>
-        </p>
+        depositLines.map((line) => (
+          <p key={line.key} className="muted public-listing-actions__deposit">
+            {line.label} <strong dir="ltr">{formatMoney(line.amount, currency, locale)}</strong>
+          </p>
+        ))
       ) : (
         <p className="muted public-listing-actions__deposit">
           {ar
@@ -229,7 +270,7 @@ export function PublicListingActions({
         {ar ? 'طلب معاينة' : 'Request viewing'}
       </button>
 
-      {showSaleActions && !hasDeposit ? (
+      {showSaleActions && !saleDeposit ? (
         <button
           type="button"
           className="button button--quiet property-360__summary-cta"

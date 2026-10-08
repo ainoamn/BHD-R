@@ -7,14 +7,16 @@ import { Button, Card, CardContent, Field, SelectField, TextAreaField } from '@b
 import { supportedCurrencyCodes, currencyMinorUnits, type CurrencyCode } from '@bhd-r/contracts';
 import { countryPacks, type CountryPackCode } from '@bhd-r/country-packs';
 import { useLocale, useTranslations } from 'next-intl';
-import { browserMutation, clearBrowserCsrfCache, fetchBrowserCsrfToken, mapWithConcurrency } from '@/lib/api';
+import {
+  browserMutation,
+  clearBrowserCsrfCache,
+  fetchBrowserCsrfToken,
+  mapWithConcurrency,
+} from '@/lib/api';
 import { compressImageFile } from '@/lib/compress-image';
 import { toMinorUnits } from '@/lib/format';
 import { omanLocations } from '@/lib/oman-locations';
-import {
-  generateListingDescriptions,
-  translateText,
-} from '@/lib/property-listing-copy';
+import { generateListingDescriptions, translateText } from '@/lib/property-listing-copy';
 import {
   googleMapsEmbedSrc,
   googleMapsLinkFromCoords,
@@ -22,10 +24,13 @@ import {
 } from '@/lib/parse-google-maps-url';
 import { MapLocationPicker } from '@/components/map-location-picker';
 import { NestReconnectButton } from '@/components/nest-reconnect-button';
+import { PropertyStaySettingsPanel } from '@/components/property-stay-settings-panel';
+import type { PropertyStaySettingsUnit } from '@/lib/property-stay-settings';
 import type { ManagedProperty } from '@/components/property-detail-manager';
 import type { OwnerPartyOption } from '@/lib/owner-parties';
 import {
   listingPurposeFromOfferingModes,
+  offeringModesFromListingPurpose,
   type OfferingMode,
 } from '@/lib/unit-offering-modes';
 
@@ -38,7 +43,6 @@ function majorFromMinor(minor: string | null | undefined, currency: CurrencyCode
   const frac = digits.slice(-places).replace(/0+$/, '');
   return frac ? `${whole}.${frac}` : whole;
 }
-
 
 type MediaItem = { id: string; file?: File; url: string; existing?: boolean };
 
@@ -61,6 +65,7 @@ interface UnitDraft {
   rent: string;
   salePrice: string;
   deposit: string;
+  saleDeposit: string;
   publishWhenAvailable: boolean;
   images: MediaItem[];
 }
@@ -81,7 +86,12 @@ function inferUnitKind(unit: {
 const blankUnit = (index: number, unitKind: MultiUnitKind = 'apartment'): UnitDraft => ({
   localId: crypto.randomUUID(),
   unitKind,
-  code: unitKind === 'apartment' ? `A-${String(index).padStart(2, '0')}` : unitKind === 'shop' ? `S-${String(index).padStart(2, '0')}` : `R-${String(index).padStart(2, '0')}`,
+  code:
+    unitKind === 'apartment'
+      ? `A-${String(index).padStart(2, '0')}`
+      : unitKind === 'shop'
+        ? `S-${String(index).padStart(2, '0')}`
+        : `R-${String(index).padStart(2, '0')}`,
   nameAr: '',
   nameEn: '',
   floor: unitKind === 'apartment' ? '' : '0',
@@ -97,6 +107,7 @@ const blankUnit = (index: number, unitKind: MultiUnitKind = 'apartment'): UnitDr
   rent: '',
   salePrice: '',
   deposit: '',
+  saleDeposit: '',
   publishWhenAvailable: false,
   images: [],
 });
@@ -186,7 +197,11 @@ const BASE_AMENITIES = [
   ['smart_home', 'منزل ذكي', 'Smart home', '🏠'],
 ] as const;
 
-function tone(value: string, required: boolean, _showErrors: boolean): 'ok' | 'missing' | 'neutral' {
+function tone(
+  value: string,
+  required: boolean,
+  _showErrors: boolean,
+): 'ok' | 'missing' | 'neutral' {
   if (!required) return value.trim() ? 'ok' : 'neutral';
   return value.trim() ? 'ok' : 'missing';
 }
@@ -198,6 +213,7 @@ export function PropertyWizard({
   mode = 'create',
   propertyId,
   initialProperty,
+  staySettings,
 }: {
   ownerPartyId: string;
   ownerPartyOptions?: OwnerPartyOption[];
@@ -205,6 +221,8 @@ export function PropertyWizard({
   mode?: 'create' | 'edit';
   propertyId?: string;
   initialProperty?: ManagedProperty;
+  /** Daily-rental settings per unit (edit mode); undefined when they could not be loaded. */
+  staySettings?: PropertyStaySettingsUnit[];
 }) {
   const router = useRouter();
   const goToPropertyPage = (locale: string, portal: string, id: string) => {
@@ -223,9 +241,7 @@ export function PropertyWizard({
   const [kind, setKind] = useState<'single_unit' | 'multi_unit'>(
     initialProperty?.kind ?? 'single_unit',
   );
-  const [currency, setCurrency] = useState<CurrencyCode>(
-    initialProperty?.defaultCurrency ?? 'OMR',
-  );
+  const [currency, setCurrency] = useState<CurrencyCode>(initialProperty?.defaultCurrency ?? 'OMR');
   const [property, setProperty] = useState(() => {
     const mapsUrl = extractMapsUrl(initialProperty?.profile?.notes, initialProperty?.mapsUrl);
     const coords =
@@ -279,15 +295,14 @@ export function PropertyWizard({
           hasPool: unit.hasPool ? 'true' : 'false',
           area: unit.areaSquareMeters ?? '',
           listingPurpose: unit.listingPurpose,
-          offeringModes:
-            unit.listingPurpose === 'sale'
-              ? (['sale'] as OfferingMode[])
-              : unit.listingPurpose === 'both'
-                ? (['monthly', 'sale'] as OfferingMode[])
-                : (['monthly'] as OfferingMode[]),
+          offeringModes: unit.offeringModes?.length
+            ? unit.offeringModes
+            : offeringModesFromListingPurpose(unit.listingPurpose),
           rent: majorFromMinor(unit.rentMinor, unit.currency),
           salePrice: majorFromMinor(unit.salePriceMinor, unit.currency),
           deposit: majorFromMinor(unit.depositMinor, unit.currency),
+          // Purchase bookings used the single unit deposit before it was split.
+          saleDeposit: majorFromMinor(unit.saleDepositMinor ?? unit.depositMinor, unit.currency),
           publishWhenAvailable: unit.publishWhenAvailable,
           images: unitImages,
         };
@@ -336,8 +351,7 @@ export function PropertyWizard({
     const p = initialProperty?.profile;
     const electricity =
       initialProperty?.meters.find((m) => m.utilityType === 'electricity')?.meterNumber ?? '';
-    const water =
-      initialProperty?.meters.find((m) => m.utilityType === 'water')?.meterNumber ?? '';
+    const water = initialProperty?.meters.find((m) => m.utilityType === 'water')?.meterNumber ?? '';
     const insurance = initialProperty?.documents.find((d) => d.documentType === 'insurance');
     return {
       deedNumber: p?.deedNumber ?? '',
@@ -348,9 +362,7 @@ export function PropertyWizard({
       yearBuilt: p?.yearBuilt != null ? String(p.yearBuilt) : '',
       parkingSpaces: p?.parkingSpaces != null ? String(p.parkingSpaces) : '',
       furnishing: (p?.furnishing ?? 'unfurnished') as
-        | 'unfurnished'
-        | 'semi_furnished'
-        | 'furnished',
+        'unfurnished' | 'semi_furnished' | 'furnished',
       managementStartedOn: p?.managementStartedOn ?? '',
       managementFee: majorFromMinor(
         p?.managementFeeMinor,
@@ -428,15 +440,13 @@ export function PropertyWizard({
   const amenityOptions = useMemo(
     () => [
       ...BASE_AMENITIES,
-      ...customAmenities.map(
-        (c) => [c.code, c.labelAr, c.labelEn, '✦'] as const,
-      ),
+      ...customAmenities.map((c) => [c.code, c.labelAr, c.labelEn, '✦'] as const),
     ],
     [customAmenities],
   );
-  const [translating, setTranslating] = useState<'name-en' | 'name-ar' | 'desc-en' | 'desc-ar' | null>(
-    null,
-  );
+  const [translating, setTranslating] = useState<
+    'name-en' | 'name-ar' | 'desc-en' | 'desc-ar' | null
+  >(null);
 
   useEffect(() => {
     // Warm Nest process only — do NOT mint Nest CSRF here (overwrites bhd_r_csrf
@@ -488,6 +498,39 @@ export function PropertyWizard({
     );
   }
 
+  function renderDepositFields(unit: UnitDraft) {
+    const rents = unit.offeringModes.some((mode) => mode === 'monthly' || mode === 'yearly');
+    const sells = unit.offeringModes.includes('sale');
+    const daily = unit.offeringModes.includes('daily');
+    return (
+      <>
+        {rents ? (
+          <Field
+            id={`unit-deposit-${unit.localId}`}
+            inputMode="decimal"
+            label={`${t('PropertyForm.depositRent')} (${currency})`}
+            value={unit.deposit}
+            onChange={(event) => updateUnit(unit.localId, 'deposit', event.target.value)}
+            hint={t('PropertyForm.depositRentHint')}
+          />
+        ) : null}
+        {sells ? (
+          <Field
+            id={`unit-sale-deposit-${unit.localId}`}
+            inputMode="decimal"
+            label={`${t('PropertyForm.depositSale')} (${currency})`}
+            value={unit.saleDeposit}
+            onChange={(event) => updateUnit(unit.localId, 'saleDeposit', event.target.value)}
+            hint={t('PropertyForm.depositSaleHint')}
+          />
+        ) : null}
+        {daily && mode === 'edit' ? (
+          <p className="muted span-2">{t('PropertyForm.depositDailyNote')}</p>
+        ) : null}
+      </>
+    );
+  }
+
   /** Copy filled fields from this unit onto later siblings of the same kind (keep each unit number). */
   function cloneUnitDetailsToSameKind(sourceId: string) {
     setUnits((current) => {
@@ -515,6 +558,7 @@ export function PropertyWizard({
           rent: source.rent,
           salePrice: source.salePrice,
           deposit: source.deposit,
+          saleDeposit: source.saleDeposit,
           publishWhenAvailable: source.publishWhenAvailable,
           // Keep each unit's own photos — cloning prices/specs does not copy images.
         };
@@ -549,10 +593,7 @@ export function PropertyWizard({
     }, 120);
   }
 
-  function onSelectAdvance(
-    event: ChangeEvent<HTMLSelectElement>,
-    apply: (value: string) => void,
-  ) {
+  function onSelectAdvance(event: ChangeEvent<HTMLSelectElement>, apply: (value: string) => void) {
     apply(event.target.value);
     focusNextField(event.currentTarget);
   }
@@ -581,8 +622,7 @@ export function PropertyWizard({
       return { nameAr: property.nameAr.trim(), nameEn: property.nameEn.trim() };
     }
     const code = unit.code.trim() || 'U';
-    const typeAr =
-      unit.unitKind === 'shop' ? 'محل' : unit.unitKind === 'showroom' ? 'معرض' : 'شقة';
+    const typeAr = unit.unitKind === 'shop' ? 'محل' : unit.unitKind === 'showroom' ? 'معرض' : 'شقة';
     const typeEn =
       unit.unitKind === 'shop' ? 'Shop' : unit.unitKind === 'showroom' ? 'Showroom' : 'Apartment';
     return {
@@ -591,11 +631,7 @@ export function PropertyWizard({
     };
   }
 
-  function applyMultiUnitCounts(next: {
-    shop?: string;
-    showroom?: string;
-    apartment?: string;
-  }) {
+  function applyMultiUnitCounts(next: { shop?: string; showroom?: string; apartment?: string }) {
     const shop = next.shop !== undefined ? next.shop : unitCountShop;
     const showroom = next.showroom !== undefined ? next.showroom : unitCountShowroom;
     const apartment = next.apartment !== undefined ? next.apartment : unitCountApartment;
@@ -851,9 +887,7 @@ export function PropertyWizard({
       (toAdd) => {
         setUnits((current) =>
           current.map((item) =>
-            item.localId === unitLocalId
-              ? { ...item, images: [...item.images, ...toAdd] }
-              : item,
+            item.localId === unitLocalId ? { ...item, images: [...item.images, ...toAdd] } : item,
           ),
         );
       },
@@ -886,7 +920,9 @@ export function PropertyWizard({
           const body = (await response.json().catch(() => null)) as {
             error?: { code?: string; message?: string };
           } | null;
-          throw new Error(body?.error?.message ?? body?.error?.code ?? `delete_failed:${response.status}`);
+          throw new Error(
+            body?.error?.message ?? body?.error?.code ?? `delete_failed:${response.status}`,
+          );
         }
       } catch (deleteError) {
         setError(
@@ -963,7 +999,10 @@ export function PropertyWizard({
     const labelAr = customDraft.ar.trim();
     const labelEn = customDraft.en.trim() || labelAr;
     if (!labelAr) return;
-    const code = `custom_${labelEn.toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 40)}`;
+    const code = `custom_${labelEn
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .slice(0, 40)}`;
     setCustomAmenities((current) => [...current, { code, labelAr, labelEn }]);
     setAmenities((current) => (current.includes(code) ? current : [...current, code]));
     setCustomDraft({ ar: '', en: '' });
@@ -988,9 +1027,11 @@ export function PropertyWizard({
       majlis: Number(primary.majlis) || 0,
       halls: Number(primary.halls) || 0,
       kitchens: Number(primary.kitchens) || 0,
-      hasPool:
-        primary.hasPool === 'true' ? true : primary.hasPool === 'false' ? false : undefined,
-      area: kind === 'multi_unit' ? profile.builtUpArea || primary.area : primary.area || profile.builtUpArea,
+      hasPool: primary.hasPool === 'true' ? true : primary.hasPool === 'false' ? false : undefined,
+      area:
+        kind === 'multi_unit'
+          ? profile.builtUpArea || primary.area
+          : primary.area || profile.builtUpArea,
       listingPurpose: primary.listingPurpose,
       furnishing: profile.furnishing,
       amenities: amenityPayload,
@@ -1085,8 +1126,7 @@ export function PropertyWizard({
   }
 
   function resolveSavedUnitIds(bundleUnits: Array<{ id: string }>): string[] {
-    const uuidRe =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     return units
       .map((unit, index) => {
         if (uuidRe.test(unit.localId)) return unit.localId;
@@ -1171,9 +1211,7 @@ export function PropertyWizard({
       });
 
     if (!jobs.length) return;
-    setSuccess(
-      ar ? `جاري رفع الملفات (${jobs.length})…` : `Uploading media (${jobs.length})…`,
-    );
+    setSuccess(ar ? `جاري رفع الملفات (${jobs.length})…` : `Uploading media (${jobs.length})…`);
     await mapWithConcurrency(jobs, 1, async (job) => {
       await uploadFile(job.file, job.unitId, job.purpose, job.position, job.galleryScope);
     });
@@ -1214,128 +1252,133 @@ export function PropertyWizard({
         return { code, labelAr: option[1], labelEn: option[2] };
       });
       const payload = {
-            asDraft,
-            property: {
-              ownerPartyId: selectedOwnerPartyId,
-              kind,
-              category: kind === 'multi_unit' ? 'building' : property.category,
-              nameAr: property.nameAr,
-              nameEn: property.nameEn,
-              descriptionAr: property.descriptionAr || undefined,
-              descriptionEn: property.descriptionEn || undefined,
-              address: {
-                countryCode: property.countryCode,
-                governorate: property.governorate,
-                wilayat: property.wilayat,
-                city: property.city,
-                area: property.area || property.city || undefined,
-                street: property.street || undefined,
-                latitude: property.latitude ? Number(property.latitude) : undefined,
-                longitude: property.longitude ? Number(property.longitude) : undefined,
-              },
-              defaultCurrency: currency,
-              profile: {
-                deedNumber: profile.deedNumber || undefined,
-                plotNumber: profile.plotNumber || undefined,
-                municipalityNumber: profile.municipalityNumber || undefined,
-                landAreaSquareMeters: profile.landArea || undefined,
-                builtUpAreaSquareMeters: profile.builtUpArea || undefined,
-                yearBuilt: profile.yearBuilt ? Number(profile.yearBuilt) : undefined,
-                parkingSpaces: profile.parkingSpaces ? Number(profile.parkingSpaces) : undefined,
-                furnishing: profile.furnishing,
-                managementStartedOn: profile.managementStartedOn || undefined,
-                managementFee: profile.managementFee
-                  ? { amountMinor: toMinorUnits(profile.managementFee, currency), currency }
-                  : undefined,
-                showOwnerNameOnListing: profile.showOwnerNameOnListing,
-                notes: [
-                  profile.notes.trim(),
-                  property.mapsUrl.trim() ? `Google Maps: ${property.mapsUrl.trim()}` : '',
+        asDraft,
+        property: {
+          ownerPartyId: selectedOwnerPartyId,
+          kind,
+          category: kind === 'multi_unit' ? 'building' : property.category,
+          nameAr: property.nameAr,
+          nameEn: property.nameEn,
+          descriptionAr: property.descriptionAr || undefined,
+          descriptionEn: property.descriptionEn || undefined,
+          address: {
+            countryCode: property.countryCode,
+            governorate: property.governorate,
+            wilayat: property.wilayat,
+            city: property.city,
+            area: property.area || property.city || undefined,
+            street: property.street || undefined,
+            latitude: property.latitude ? Number(property.latitude) : undefined,
+            longitude: property.longitude ? Number(property.longitude) : undefined,
+          },
+          defaultCurrency: currency,
+          profile: {
+            deedNumber: profile.deedNumber || undefined,
+            plotNumber: profile.plotNumber || undefined,
+            municipalityNumber: profile.municipalityNumber || undefined,
+            landAreaSquareMeters: profile.landArea || undefined,
+            builtUpAreaSquareMeters: profile.builtUpArea || undefined,
+            yearBuilt: profile.yearBuilt ? Number(profile.yearBuilt) : undefined,
+            parkingSpaces: profile.parkingSpaces ? Number(profile.parkingSpaces) : undefined,
+            furnishing: profile.furnishing,
+            managementStartedOn: profile.managementStartedOn || undefined,
+            managementFee: profile.managementFee
+              ? { amountMinor: toMinorUnits(profile.managementFee, currency), currency }
+              : undefined,
+            showOwnerNameOnListing: profile.showOwnerNameOnListing,
+            notes:
+              [
+                profile.notes.trim(),
+                property.mapsUrl.trim() ? `Google Maps: ${property.mapsUrl.trim()}` : '',
+              ]
+                .filter(Boolean)
+                .join('\n') || undefined,
+          },
+          amenities: amenityPayload,
+          meters: [
+            ...(profile.electricityMeter
+              ? [{ utilityType: 'electricity' as const, meterNumber: profile.electricityMeter }]
+              : []),
+            ...(profile.waterMeter
+              ? [{ utilityType: 'water' as const, meterNumber: profile.waterMeter }]
+              : []),
+          ],
+          documents: [
+            ...(profile.deedNumber
+              ? [{ documentType: 'title_deed' as const, documentNumber: profile.deedNumber }]
+              : []),
+            ...(profile.insuranceNumber
+              ? [
+                  {
+                    documentType: 'insurance' as const,
+                    documentNumber: profile.insuranceNumber,
+                    expiresOn: profile.insuranceExpiresOn || undefined,
+                  },
                 ]
-                  .filter(Boolean)
-                  .join('\n') || undefined,
-              },
-              amenities: amenityPayload,
-              meters: [
-                ...(profile.electricityMeter
-                  ? [{ utilityType: 'electricity' as const, meterNumber: profile.electricityMeter }]
-                  : []),
-                ...(profile.waterMeter
-                  ? [{ utilityType: 'water' as const, meterNumber: profile.waterMeter }]
-                  : []),
-              ],
-              documents: [
-                ...(profile.deedNumber
-                  ? [{ documentType: 'title_deed' as const, documentNumber: profile.deedNumber }]
-                  : []),
-                ...(profile.insuranceNumber
-                  ? [
-                      {
-                        documentType: 'insurance' as const,
-                        documentNumber: profile.insuranceNumber,
-                        expiresOn: profile.insuranceExpiresOn || undefined,
-                      },
-                    ]
-                  : []),
-                ...documents.map((doc) => ({
-                  documentType: doc.documentType,
-                  notes:
-                    doc.documentType === 'other'
-                      ? ar
-                        ? 'بطاقة المالك — خاص بالمالك فقط'
-                        : 'Owner ID — owner-private only'
-                      : doc.documentType === 'floor_plan'
-                        ? ar
-                          ? 'رسم مساحي (كروكي) — خاص بالمالك فقط'
-                          : 'Survey sketch — owner-private only'
-                        : ar
-                          ? 'سند ملكية — خاص بالمالك فقط'
-                          : 'Title deed — owner-private only',
-                })),
-              ],
+              : []),
+            ...documents.map((doc) => ({
+              documentType: doc.documentType,
+              notes:
+                doc.documentType === 'other'
+                  ? ar
+                    ? 'بطاقة المالك — خاص بالمالك فقط'
+                    : 'Owner ID — owner-private only'
+                  : doc.documentType === 'floor_plan'
+                    ? ar
+                      ? 'رسم مساحي (كروكي) — خاص بالمالك فقط'
+                      : 'Survey sketch — owner-private only'
+                    : ar
+                      ? 'سند ملكية — خاص بالمالك فقط'
+                      : 'Title deed — owner-private only',
+            })),
+          ],
+        },
+        units: (units.length ? units : [blankUnit(1)]).map((unit, index) => {
+          const names = unitDisplayNames(unit);
+          const autoCode =
+            kind === 'multi_unit' && unit.code.trim()
+              ? unit.code.trim().slice(0, 32)
+              : `U-${String(index + 1).padStart(2, '0')}`;
+          const unitId =
+            mode === 'edit' &&
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+              unit.localId,
+            )
+              ? unit.localId
+              : undefined;
+          const isCommercial = unit.unitKind === 'shop' || unit.unitKind === 'showroom';
+          return {
+            ...(unitId ? { id: unitId } : {}),
+            code: autoCode,
+            nameAr: names.nameAr || property.nameAr.trim() || autoCode,
+            nameEn: names.nameEn || property.nameEn.trim() || autoCode,
+            floor: unit.floor || undefined,
+            bedrooms: isCommercial ? 0 : Number(unit.bedrooms || 0),
+            bathrooms: isCommercial ? 0 : Number(unit.bathrooms || 0),
+            majlis: isCommercial ? 0 : Number(unit.majlis || 0),
+            halls: isCommercial ? 0 : Number(unit.halls || 0),
+            kitchens: isCommercial ? 0 : Number(unit.kitchens || 0),
+            hasPool: isCommercial ? false : unit.hasPool === 'true',
+            areaSquareMeters: unit.area || undefined,
+            listingPurpose: unit.listingPurpose,
+            offeringModes: unit.offeringModes,
+            rent: {
+              amountMinor: toMinorUnits(unit.rent || '0', currency),
+              currency,
             },
-            units: (units.length ? units : [blankUnit(1)]).map((unit, index) => {
-              const names = unitDisplayNames(unit);
-              const autoCode =
-                kind === 'multi_unit' && unit.code.trim()
-                  ? unit.code.trim().slice(0, 32)
-                  : `U-${String(index + 1).padStart(2, '0')}`;
-              const unitId =
-                mode === 'edit' &&
-                /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-                  unit.localId,
-                )
-                  ? unit.localId
-                  : undefined;
-              const isCommercial = unit.unitKind === 'shop' || unit.unitKind === 'showroom';
-              return {
-                ...(unitId ? { id: unitId } : {}),
-                code: autoCode,
-                nameAr: names.nameAr || property.nameAr.trim() || autoCode,
-                nameEn: names.nameEn || property.nameEn.trim() || autoCode,
-                floor: unit.floor || undefined,
-                bedrooms: isCommercial ? 0 : Number(unit.bedrooms || 0),
-                bathrooms: isCommercial ? 0 : Number(unit.bathrooms || 0),
-                majlis: isCommercial ? 0 : Number(unit.majlis || 0),
-                halls: isCommercial ? 0 : Number(unit.halls || 0),
-                kitchens: isCommercial ? 0 : Number(unit.kitchens || 0),
-                hasPool: isCommercial ? false : unit.hasPool === 'true',
-                areaSquareMeters: unit.area || undefined,
-          listingPurpose: unit.listingPurpose,
-          offeringModes: unit.offeringModes,
-          rent: {
-                  amountMinor: toMinorUnits(unit.rent || '0', currency),
-                  currency,
-                },
-                salePrice: unit.salePrice
-                  ? { amountMinor: toMinorUnits(unit.salePrice, currency), currency }
-                  : undefined,
-                deposit: unit.deposit
-                  ? { amountMinor: toMinorUnits(unit.deposit, currency), currency }
-                  : undefined,
-                publishWhenAvailable: asDraft ? false : unit.publishWhenAvailable,
-              };
-            }),
+            salePrice: unit.salePrice
+              ? { amountMinor: toMinorUnits(unit.salePrice, currency), currency }
+              : undefined,
+            deposit: unit.deposit
+              ? { amountMinor: toMinorUnits(unit.deposit, currency), currency }
+              : undefined,
+            saleDeposit:
+              unit.offeringModes.includes('sale') && unit.saleDeposit
+                ? { amountMinor: toMinorUnits(unit.saleDeposit, currency), currency }
+                : null,
+            publishWhenAvailable: asDraft ? false : unit.publishWhenAvailable,
+          };
+        }),
       };
 
       // Prefer Vercel→Neon write path (no Nest/Render). Avoids weeks of Render Free hang loops.
@@ -1374,7 +1417,9 @@ export function PropertyWizard({
         }
         const updated = (await editResponse.json()) as CreatedPropertyBundle;
         const unitIds = resolveSavedUnitIds(
-          updated.units?.length ? updated.units : (initialProperty?.units ?? []).map((u) => ({ id: u.id })),
+          updated.units?.length
+            ? updated.units
+            : (initialProperty?.units ?? []).map((u) => ({ id: u.id })),
         );
         let mediaWarning: string | null = null;
         const hasNewMedia =
@@ -1525,8 +1570,7 @@ export function PropertyWizard({
   }
 
   const primary = units[0]!;
-  const previewTitle =
-    locale === 'ar' ? property.nameAr || '—' : property.nameEn || '—';
+  const previewTitle = locale === 'ar' ? property.nameAr || '—' : property.nameEn || '—';
   const mapCoords = parseGoogleMapsUrl(property.mapsUrl);
   const previewLocation = [property.governorate, property.wilayat, property.city]
     .filter(Boolean)
@@ -1539,7 +1583,9 @@ export function PropertyWizard({
   return (
     <div className="form-shell wizard-shell" data-slide={slideDir}>
       <header className="wizard-hero">
-        <h1>{mode === 'edit' ? (ar ? 'تعديل العقار' : 'Edit property') : t('PropertyForm.title')}</h1>
+        <h1>
+          {mode === 'edit' ? (ar ? 'تعديل العقار' : 'Edit property') : t('PropertyForm.title')}
+        </h1>
         <p className="wizard-hero__intro">{t('PropertyForm.intro')}</p>
         {mode === 'edit' && initialProperty?.status === 'draft' ? (
           <p className="notice notice--warning" role="status" style={{ marginTop: '0.75rem' }}>
@@ -1570,7 +1616,13 @@ export function PropertyWizard({
               key={`seg-${label}`}
               type="button"
               className={
-                index === step ? 'is-current' : index < step ? 'is-done' : index <= maxReached ? 'is-reached' : undefined
+                index === step
+                  ? 'is-current'
+                  : index < step
+                    ? 'is-done'
+                    : index <= maxReached
+                      ? 'is-reached'
+                      : undefined
               }
               disabled={index > maxReached && index !== step}
               aria-label={label}
@@ -1583,7 +1635,10 @@ export function PropertyWizard({
         </div>
       </nav>
 
-      <nav className="wizard-progress wizard-progress--desktop" aria-label={t('PropertyForm.wizardStepsAria')}>
+      <nav
+        className="wizard-progress wizard-progress--desktop"
+        aria-label={t('PropertyForm.wizardStepsAria')}
+      >
         <ol className="wizard-progress__list">
           {steps.map((label, index) => {
             const done = index < step;
@@ -1650,1616 +1705,1644 @@ export function PropertyWizard({
                 className={`wizard-pane wizard-pane--${slideDir}`}
                 data-step={step + 1}
               >
-            {step === 0 ? (
-              <div className="form-grid">
-                <div className="field span-2">
-                  <label>{t('PropertyForm.basics')}</label>
-                  <div className="wizard-seg" role="radiogroup">
-                    <label className={kind === 'single_unit' ? 'wizard-seg__item is-active' : 'wizard-seg__item'}>
-                      <input
-                        type="radio"
-                        name="kind"
-                        checked={kind === 'single_unit'}
-                        onChange={() => {
-                          setKind('single_unit');
-                          setUnitCountShop('');
-                          setUnitCountShowroom('');
-                          setUnitCountApartment('');
-                          setUnits([blankUnit(1)]);
-                          focusNextField();
-                        }}
-                      />
-                      {t('PropertyForm.single')}
-                    </label>
-                    <label className={kind === 'multi_unit' ? 'wizard-seg__item is-active' : 'wizard-seg__item'}>
-                      <input
-                        type="radio"
-                        name="kind"
-                        checked={kind === 'multi_unit'}
-                        onChange={() => {
-                          setKind('multi_unit');
-                          updateProperty('category', 'building');
-                          const shop = unitCountShop || '0';
-                          const showroom = unitCountShowroom || '0';
-                          const apartment = unitCountApartment || '1';
-                          setUnitCountShop(shop === '0' && showroom === '0' ? '0' : shop);
-                          setUnitCountShowroom(showroom);
-                          setUnitCountApartment(apartment === '0' ? '1' : apartment);
-                          setUnits((current) =>
-                            syncMultiUnitsFromCounts(
-                              {
-                                shop: Math.max(0, Number(shop) || 0),
-                                showroom: Math.max(0, Number(showroom) || 0),
-                                apartment: Math.max(1, Number(apartment) || 1),
-                              },
-                              current,
-                            ),
-                          );
-                          focusNextField();
-                        }}
-                      />
-                      {t('PropertyForm.multi')}
-                    </label>
-                  </div>
-                  {kind === 'multi_unit' ? (
-                    <p className="field__hint">{t('PropertyForm.multiHint')}</p>
-                  ) : null}
-                </div>
-                {kind === 'multi_unit' ? (
-                  <div className="field span-2 multi-unit-counts">
-                    <label>{t('PropertyForm.unitCounts')}</label>
-                    <p className="field__hint">{t('PropertyForm.unitCountsHint')}</p>
-                    <div className="form-grid">
-                      <Field
-                        id="unit-count-shop"
-                        type="number"
-                        min={0}
-                        label={t('PropertyForm.unitCountShop')}
-                        value={unitCountShop}
-                        tone={
-                          (Number(unitCountShop) || 0) +
-                            (Number(unitCountShowroom) || 0) +
-                            (Number(unitCountApartment) || 0) >
-                          0
-                            ? 'ok'
-                            : tone('', true, showErrors)
-                        }
-                        onChange={(event) => applyMultiUnitCounts({ shop: event.target.value })}
-                      />
-                      <Field
-                        id="unit-count-showroom"
-                        type="number"
-                        min={0}
-                        label={t('PropertyForm.unitCountShowroom')}
-                        value={unitCountShowroom}
-                        onChange={(event) => applyMultiUnitCounts({ showroom: event.target.value })}
-                      />
-                      <Field
-                        id="unit-count-apartment"
-                        type="number"
-                        min={0}
-                        label={t('PropertyForm.unitCountApartment')}
-                        value={unitCountApartment}
-                        onChange={(event) =>
-                          applyMultiUnitCounts({ apartment: event.target.value })
-                        }
-                      />
+                {step === 0 ? (
+                  <div className="form-grid">
+                    <div className="field span-2">
+                      <label>{t('PropertyForm.basics')}</label>
+                      <div className="wizard-seg" role="radiogroup">
+                        <label
+                          className={
+                            kind === 'single_unit'
+                              ? 'wizard-seg__item is-active'
+                              : 'wizard-seg__item'
+                          }
+                        >
+                          <input
+                            type="radio"
+                            name="kind"
+                            checked={kind === 'single_unit'}
+                            onChange={() => {
+                              setKind('single_unit');
+                              setUnitCountShop('');
+                              setUnitCountShowroom('');
+                              setUnitCountApartment('');
+                              setUnits([blankUnit(1)]);
+                              focusNextField();
+                            }}
+                          />
+                          {t('PropertyForm.single')}
+                        </label>
+                        <label
+                          className={
+                            kind === 'multi_unit'
+                              ? 'wizard-seg__item is-active'
+                              : 'wizard-seg__item'
+                          }
+                        >
+                          <input
+                            type="radio"
+                            name="kind"
+                            checked={kind === 'multi_unit'}
+                            onChange={() => {
+                              setKind('multi_unit');
+                              updateProperty('category', 'building');
+                              const shop = unitCountShop || '0';
+                              const showroom = unitCountShowroom || '0';
+                              const apartment = unitCountApartment || '1';
+                              setUnitCountShop(shop === '0' && showroom === '0' ? '0' : shop);
+                              setUnitCountShowroom(showroom);
+                              setUnitCountApartment(apartment === '0' ? '1' : apartment);
+                              setUnits((current) =>
+                                syncMultiUnitsFromCounts(
+                                  {
+                                    shop: Math.max(0, Number(shop) || 0),
+                                    showroom: Math.max(0, Number(showroom) || 0),
+                                    apartment: Math.max(1, Number(apartment) || 1),
+                                  },
+                                  current,
+                                ),
+                              );
+                              focusNextField();
+                            }}
+                          />
+                          {t('PropertyForm.multi')}
+                        </label>
+                      </div>
+                      {kind === 'multi_unit' ? (
+                        <p className="field__hint">{t('PropertyForm.multiHint')}</p>
+                      ) : null}
                     </div>
-                  </div>
-                ) : null}
-                <SelectField
-                  id="country"
-                  label={t('PropertyForm.country')}
-                  value={property.countryCode}
-                  tone="ok"
-                  onChange={(event) => {
-                    const code = event.target.value as CountryPackCode;
-                    updateProperty('countryCode', code);
-                    setCurrency(countryPacks[code].defaultCurrency);
-                    updateProperty('governorate', '');
-                    updateProperty('wilayat', '');
-                    updateProperty('city', '');
-                    focusNextField(event.currentTarget);
-                  }}
-                  required
-                >
-                  {Object.values(countryPacks).map((pack) => (
-                    <option key={pack.countryCode} value={pack.countryCode}>
-                      {pack.name[locale]}
-                    </option>
-                  ))}
-                </SelectField>
-                <SelectField
-                  id="category"
-                  label={t('PropertyForm.category')}
-                  value={kind === 'multi_unit' ? 'building' : property.category}
-                  tone={tone(property.category, true, showErrors)}
-                  onChange={(event) =>
-                    onSelectAdvance(event, (value) => updateProperty('category', value))
-                  }
-                  required
-                  disabled={kind === 'multi_unit'}
-                >
-                  {(
-                    [
-                      ['apartment', 'categoryApartment'],
-                      ['villa', 'categoryVilla'],
-                      ['building', 'categoryBuilding'],
-                      ['office', 'categoryOffice'],
-                      ['shop', 'categoryShop'],
-                      ['warehouse', 'categoryWarehouse'],
-                      ['land', 'categoryLand'],
-                      ['other', 'categoryOther'],
-                    ] as const
-                  ).map(([value, key]) => (
-                    <option key={value} value={value}>
-                      {t(`PropertyForm.${key}`)}
-                    </option>
-                  ))}
-                </SelectField>
-                {kind === 'multi_unit' ? (
-                  <p className="field__hint span-2">{t('PropertyForm.multiCategoryHint')}</p>
-                ) : null}
-                <SelectField
-                  id="currency"
-                  name="currency"
-                  label={t('Common.currency')}
-                  value={currency}
-                  tone="ok"
-                  onChange={(event) => {
-                    setCurrency(event.target.value as CurrencyCode);
-                    focusNextField(event.currentTarget);
-                  }}
-                  required
-                >
-                  {supportedCurrencyCodes.map((value) => (
-                    <option key={value}>{value}</option>
-                  ))}
-                </SelectField>
-                <div className="bilingual-pair span-2">
-                  <Field
-                    id="nameAr"
-                    label={t('PropertyForm.nameAr')}
-                    value={property.nameAr}
-                    tone={tone(property.nameAr, true, showErrors)}
-                    onChange={(event) => updateProperty('nameAr', event.target.value)}
-                    minLength={2}
-                    maxLength={160}
-                    required
-                  />
-                  <div className="bilingual-pair__actions">
-                    <Button
-                      type="button"
-                      variant="quiet"
-                      disabled={translating !== null || !property.nameAr.trim()}
-                      onClick={() =>
-                        void translateField(
-                          property.nameAr,
-                          'en',
-                          (value) => updateProperty('nameEn', value),
-                          'name-en',
-                        )
-                      }
-                    >
-                      {translating === 'name-en' ? '…' : 'AR → EN'}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="quiet"
-                      disabled={translating !== null || !property.nameEn.trim()}
-                      onClick={() =>
-                        void translateField(
-                          property.nameEn,
-                          'ar',
-                          (value) => updateProperty('nameAr', value),
-                          'name-ar',
-                        )
-                      }
-                    >
-                      {translating === 'name-ar' ? '…' : 'EN → AR'}
-                    </Button>
-                  </div>
-                  <Field
-                    id="nameEn"
-                    label={t('PropertyForm.nameEn')}
-                    value={property.nameEn}
-                    tone={tone(property.nameEn, true, showErrors)}
-                    onChange={(event) => updateProperty('nameEn', event.target.value)}
-                    minLength={2}
-                    maxLength={160}
-                    required
-                    dir="ltr"
-                  />
-                </div>
-
-                {property.countryCode === 'OM' ? (
-                  <>
+                    {kind === 'multi_unit' ? (
+                      <div className="field span-2 multi-unit-counts">
+                        <label>{t('PropertyForm.unitCounts')}</label>
+                        <p className="field__hint">{t('PropertyForm.unitCountsHint')}</p>
+                        <div className="form-grid">
+                          <Field
+                            id="unit-count-shop"
+                            type="number"
+                            min={0}
+                            label={t('PropertyForm.unitCountShop')}
+                            value={unitCountShop}
+                            tone={
+                              (Number(unitCountShop) || 0) +
+                                (Number(unitCountShowroom) || 0) +
+                                (Number(unitCountApartment) || 0) >
+                              0
+                                ? 'ok'
+                                : tone('', true, showErrors)
+                            }
+                            onChange={(event) => applyMultiUnitCounts({ shop: event.target.value })}
+                          />
+                          <Field
+                            id="unit-count-showroom"
+                            type="number"
+                            min={0}
+                            label={t('PropertyForm.unitCountShowroom')}
+                            value={unitCountShowroom}
+                            onChange={(event) =>
+                              applyMultiUnitCounts({ showroom: event.target.value })
+                            }
+                          />
+                          <Field
+                            id="unit-count-apartment"
+                            type="number"
+                            min={0}
+                            label={t('PropertyForm.unitCountApartment')}
+                            value={unitCountApartment}
+                            onChange={(event) =>
+                              applyMultiUnitCounts({ apartment: event.target.value })
+                            }
+                          />
+                        </div>
+                      </div>
+                    ) : null}
                     <SelectField
-                      id="governorate"
-                      label={t('PropertyForm.governorate')}
-                      value={property.governorate}
-                      tone={tone(property.governorate, true, showErrors)}
+                      id="country"
+                      label={t('PropertyForm.country')}
+                      value={property.countryCode}
+                      tone="ok"
                       onChange={(event) => {
-                        updateProperty('governorate', event.target.value);
+                        const code = event.target.value as CountryPackCode;
+                        updateProperty('countryCode', code);
+                        setCurrency(countryPacks[code].defaultCurrency);
+                        updateProperty('governorate', '');
                         updateProperty('wilayat', '');
                         updateProperty('city', '');
                         focusNextField(event.currentTarget);
                       }}
                       required
                     >
-                      <option value="">{t('PropertyForm.selectGovernorate')}</option>
-                      {omanLocations.map((g) => (
-                        <option key={g.en} value={g.ar}>
-                          {ar ? g.ar : g.en}
+                      {Object.values(countryPacks).map((pack) => (
+                        <option key={pack.countryCode} value={pack.countryCode}>
+                          {pack.name[locale]}
                         </option>
                       ))}
                     </SelectField>
-                    {property.governorate ? (
-                      <SelectField
-                        id="wilayat"
-                        label={t('PropertyForm.wilayat')}
-                        value={property.wilayat}
-                        tone={tone(property.wilayat, true, showErrors)}
-                        onChange={(event) => {
-                          updateProperty('wilayat', event.target.value);
-                          updateProperty('city', '');
-                          focusNextField(event.currentTarget);
-                        }}
-                        required
-                      >
-                        <option value="">{t('PropertyForm.selectWilayat')}</option>
-                        {(selectedGov?.states ?? []).map((s) => (
-                          <option key={s.en} value={s.ar}>
-                            {ar ? s.ar : s.en}
-                          </option>
-                        ))}
-                      </SelectField>
-                    ) : null}
-                    {property.wilayat ? (
-                      <SelectField
-                        id="village"
-                        label={t('PropertyForm.village')}
-                        value={property.city}
-                        tone={tone(property.city, true, showErrors)}
-                        onChange={(event) =>
-                          onSelectAdvance(event, (value) => updateProperty('city', value))
-                        }
-                        required
-                      >
-                        <option value="">{t('PropertyForm.selectVillage')}</option>
-                        {(selectedWilayat?.villages ?? []).map((v) => (
-                          <option key={v.ar} value={v.ar}>
-                            {v.ar}
-                          </option>
-                        ))}
-                      </SelectField>
-                    ) : null}
-                  </>
-                ) : (
-                  <>
-                    <Field
-                      id="governorate"
-                      label={t('PropertyForm.governorate')}
-                      value={property.governorate}
-                      tone={tone(property.governorate, true, showErrors)}
-                      onChange={(event) => updateProperty('governorate', event.target.value)}
-                      required
-                    />
-                    <Field
-                      id="wilayat"
-                      label={t('PropertyForm.wilayat')}
-                      value={property.wilayat}
-                      tone={tone(property.wilayat, true, showErrors)}
-                      onChange={(event) => updateProperty('wilayat', event.target.value)}
-                      required
-                    />
-                    <Field
-                      id="city"
-                      label={t('PropertyForm.city')}
-                      value={property.city}
-                      tone={tone(property.city, true, showErrors)}
-                      onChange={(event) => updateProperty('city', event.target.value)}
-                      required
-                    />
-                  </>
-                )}
-                <Field
-                  id="street"
-                  label={t('PropertyForm.street')}
-                  value={property.street}
-                  onChange={(event) => updateProperty('street', event.target.value)}
-                />
-                <div className="span-2 maps-field">
-                  <div className="maps-field__row">
-                    <Field
-                      id="mapsUrl"
-                      label={t('PropertyForm.mapsUrl')}
-                      value={property.mapsUrl}
-                      tone={
-                        !property.mapsUrl.trim()
-                          ? tone('', true, showErrors)
-                          : mapCoords
-                            ? 'ok'
-                            : showErrors
-                              ? 'missing'
-                              : 'neutral'
+                    <SelectField
+                      id="category"
+                      label={t('PropertyForm.category')}
+                      value={kind === 'multi_unit' ? 'building' : property.category}
+                      tone={tone(property.category, true, showErrors)}
+                      onChange={(event) =>
+                        onSelectAdvance(event, (value) => updateProperty('category', value))
                       }
-                      onChange={(event) => applyMapsUrl(event.target.value)}
-                      hint={t('PropertyForm.mapsUrlHint')}
                       required
-                      dir="ltr"
-                      placeholder="https://maps.google.com/..."
+                      disabled={kind === 'multi_unit'}
+                    >
+                      {(
+                        [
+                          ['apartment', 'categoryApartment'],
+                          ['villa', 'categoryVilla'],
+                          ['building', 'categoryBuilding'],
+                          ['office', 'categoryOffice'],
+                          ['shop', 'categoryShop'],
+                          ['warehouse', 'categoryWarehouse'],
+                          ['land', 'categoryLand'],
+                          ['other', 'categoryOther'],
+                        ] as const
+                      ).map(([value, key]) => (
+                        <option key={value} value={value}>
+                          {t(`PropertyForm.${key}`)}
+                        </option>
+                      ))}
+                    </SelectField>
+                    {kind === 'multi_unit' ? (
+                      <p className="field__hint span-2">{t('PropertyForm.multiCategoryHint')}</p>
+                    ) : null}
+                    <SelectField
+                      id="currency"
+                      name="currency"
+                      label={t('Common.currency')}
+                      value={currency}
+                      tone="ok"
+                      onChange={(event) => {
+                        setCurrency(event.target.value as CurrencyCode);
+                        focusNextField(event.currentTarget);
+                      }}
+                      required
+                    >
+                      {supportedCurrencyCodes.map((value) => (
+                        <option key={value}>{value}</option>
+                      ))}
+                    </SelectField>
+                    <div className="bilingual-pair span-2">
+                      <Field
+                        id="nameAr"
+                        label={t('PropertyForm.nameAr')}
+                        value={property.nameAr}
+                        tone={tone(property.nameAr, true, showErrors)}
+                        onChange={(event) => updateProperty('nameAr', event.target.value)}
+                        minLength={2}
+                        maxLength={160}
+                        required
+                      />
+                      <div className="bilingual-pair__actions">
+                        <Button
+                          type="button"
+                          variant="quiet"
+                          disabled={translating !== null || !property.nameAr.trim()}
+                          onClick={() =>
+                            void translateField(
+                              property.nameAr,
+                              'en',
+                              (value) => updateProperty('nameEn', value),
+                              'name-en',
+                            )
+                          }
+                        >
+                          {translating === 'name-en' ? '…' : 'AR → EN'}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="quiet"
+                          disabled={translating !== null || !property.nameEn.trim()}
+                          onClick={() =>
+                            void translateField(
+                              property.nameEn,
+                              'ar',
+                              (value) => updateProperty('nameAr', value),
+                              'name-ar',
+                            )
+                          }
+                        >
+                          {translating === 'name-ar' ? '…' : 'EN → AR'}
+                        </Button>
+                      </div>
+                      <Field
+                        id="nameEn"
+                        label={t('PropertyForm.nameEn')}
+                        value={property.nameEn}
+                        tone={tone(property.nameEn, true, showErrors)}
+                        onChange={(event) => updateProperty('nameEn', event.target.value)}
+                        minLength={2}
+                        maxLength={160}
+                        required
+                        dir="ltr"
+                      />
+                    </div>
+
+                    {property.countryCode === 'OM' ? (
+                      <>
+                        <SelectField
+                          id="governorate"
+                          label={t('PropertyForm.governorate')}
+                          value={property.governorate}
+                          tone={tone(property.governorate, true, showErrors)}
+                          onChange={(event) => {
+                            updateProperty('governorate', event.target.value);
+                            updateProperty('wilayat', '');
+                            updateProperty('city', '');
+                            focusNextField(event.currentTarget);
+                          }}
+                          required
+                        >
+                          <option value="">{t('PropertyForm.selectGovernorate')}</option>
+                          {omanLocations.map((g) => (
+                            <option key={g.en} value={g.ar}>
+                              {ar ? g.ar : g.en}
+                            </option>
+                          ))}
+                        </SelectField>
+                        {property.governorate ? (
+                          <SelectField
+                            id="wilayat"
+                            label={t('PropertyForm.wilayat')}
+                            value={property.wilayat}
+                            tone={tone(property.wilayat, true, showErrors)}
+                            onChange={(event) => {
+                              updateProperty('wilayat', event.target.value);
+                              updateProperty('city', '');
+                              focusNextField(event.currentTarget);
+                            }}
+                            required
+                          >
+                            <option value="">{t('PropertyForm.selectWilayat')}</option>
+                            {(selectedGov?.states ?? []).map((s) => (
+                              <option key={s.en} value={s.ar}>
+                                {ar ? s.ar : s.en}
+                              </option>
+                            ))}
+                          </SelectField>
+                        ) : null}
+                        {property.wilayat ? (
+                          <SelectField
+                            id="village"
+                            label={t('PropertyForm.village')}
+                            value={property.city}
+                            tone={tone(property.city, true, showErrors)}
+                            onChange={(event) =>
+                              onSelectAdvance(event, (value) => updateProperty('city', value))
+                            }
+                            required
+                          >
+                            <option value="">{t('PropertyForm.selectVillage')}</option>
+                            {(selectedWilayat?.villages ?? []).map((v) => (
+                              <option key={v.ar} value={v.ar}>
+                                {v.ar}
+                              </option>
+                            ))}
+                          </SelectField>
+                        ) : null}
+                      </>
+                    ) : (
+                      <>
+                        <Field
+                          id="governorate"
+                          label={t('PropertyForm.governorate')}
+                          value={property.governorate}
+                          tone={tone(property.governorate, true, showErrors)}
+                          onChange={(event) => updateProperty('governorate', event.target.value)}
+                          required
+                        />
+                        <Field
+                          id="wilayat"
+                          label={t('PropertyForm.wilayat')}
+                          value={property.wilayat}
+                          tone={tone(property.wilayat, true, showErrors)}
+                          onChange={(event) => updateProperty('wilayat', event.target.value)}
+                          required
+                        />
+                        <Field
+                          id="city"
+                          label={t('PropertyForm.city')}
+                          value={property.city}
+                          tone={tone(property.city, true, showErrors)}
+                          onChange={(event) => updateProperty('city', event.target.value)}
+                          required
+                        />
+                      </>
+                    )}
+                    <Field
+                      id="street"
+                      label={t('PropertyForm.street')}
+                      value={property.street}
+                      onChange={(event) => updateProperty('street', event.target.value)}
                     />
-                    <div className="maps-field__pick">
-                      <Button type="button" variant="quiet" onClick={() => setMapPickerOpen(true)}>
-                        {t('PropertyForm.pickOnMap')}
-                      </Button>
+                    <div className="span-2 maps-field">
+                      <div className="maps-field__row">
+                        <Field
+                          id="mapsUrl"
+                          label={t('PropertyForm.mapsUrl')}
+                          value={property.mapsUrl}
+                          tone={
+                            !property.mapsUrl.trim()
+                              ? tone('', true, showErrors)
+                              : mapCoords
+                                ? 'ok'
+                                : showErrors
+                                  ? 'missing'
+                                  : 'neutral'
+                          }
+                          onChange={(event) => applyMapsUrl(event.target.value)}
+                          hint={t('PropertyForm.mapsUrlHint')}
+                          required
+                          dir="ltr"
+                          placeholder="https://maps.google.com/..."
+                        />
+                        <div className="maps-field__pick">
+                          <Button
+                            type="button"
+                            variant="quiet"
+                            onClick={() => setMapPickerOpen(true)}
+                          >
+                            {t('PropertyForm.pickOnMap')}
+                          </Button>
+                        </div>
+                      </div>
+                      {mapCoords ? (
+                        <div className="maps-preview">
+                          <p className="maps-preview__label">{t('PropertyForm.mapsPreview')}</p>
+                          <iframe
+                            title={t('PropertyForm.mapsPreview')}
+                            className="maps-preview__frame"
+                            loading="lazy"
+                            referrerPolicy="no-referrer-when-downgrade"
+                            src={googleMapsEmbedSrc(mapCoords.latitude, mapCoords.longitude)}
+                          />
+                        </div>
+                      ) : property.mapsUrl.trim() ? (
+                        <p className="field__error">{t('PropertyForm.mapsUrlInvalid')}</p>
+                      ) : null}
                     </div>
                   </div>
-                  {mapCoords ? (
-                    <div className="maps-preview">
-                      <p className="maps-preview__label">{t('PropertyForm.mapsPreview')}</p>
-                      <iframe
-                        title={t('PropertyForm.mapsPreview')}
-                        className="maps-preview__frame"
-                        loading="lazy"
-                        referrerPolicy="no-referrer-when-downgrade"
-                        src={googleMapsEmbedSrc(mapCoords.latitude, mapCoords.longitude)}
-                      />
-                    </div>
-                  ) : property.mapsUrl.trim() ? (
-                    <p className="field__error">{t('PropertyForm.mapsUrlInvalid')}</p>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
+                ) : null}
 
-            {step === 1 ? (
-              <div>
-                {kind === 'multi_unit' ? (
-                  <>
-                    <div className="form-grid" style={{ marginBottom: '1rem' }}>
-                      <Field
-                        id="multi-total-area"
-                        inputMode="decimal"
-                        label={t('PropertyForm.multiUnitTotalArea')}
-                        value={profile.builtUpArea}
-                        tone={tone(profile.builtUpArea, true, showErrors)}
-                        onChange={(event) => updateProfile('builtUpArea', event.target.value)}
-                        required
-                        hint={t('PropertyForm.multiUnitTotalAreaHint')}
-                      />
-                      <p className="span-2 field__hint">{t('PropertyForm.multiUnitsEditorHint')}</p>
-                    </div>
-                    {units.length === 0 ? (
-                      <p className="notice notice--error" role="alert">
-                        {t('PropertyForm.unitCountsRequired')}
-                      </p>
-                    ) : null}
-                    {units.map((unit, index) => {
-                      const typeLabel =
-                        unit.unitKind === 'shop'
-                          ? t('PropertyForm.unitKindShop')
-                          : unit.unitKind === 'showroom'
-                            ? t('PropertyForm.unitKindShowroom')
-                            : t('PropertyForm.unitKindApartment');
-                      const isApartment = unit.unitKind === 'apartment';
-                      const sameKind = units.filter((item) => item.unitKind === unit.unitKind);
-                      const sameKindIndex = sameKind.findIndex(
-                        (item) => item.localId === unit.localId,
-                      );
-                      const canCloneToRest =
-                        sameKindIndex === 0 && sameKind.length > 1;
-                      return (
-                        <fieldset className="unit-editor" key={unit.localId}>
-                          <legend className="sr-only">
-                            {typeLabel} {index + 1}
-                          </legend>
-                          <div className="unit-editor__head">
-                            <h3>
-                              {typeLabel} · {unit.code || index + 1}
-                            </h3>
-                            {canCloneToRest ? (
-                              <Button
-                                type="button"
-                                variant="quiet"
-                                onClick={() => cloneUnitDetailsToSameKind(unit.localId)}
-                              >
-                                {t('PropertyForm.cloneUnitDetails')}
-                              </Button>
-                            ) : null}
-                          </div>
-                          {canCloneToRest ? (
-                            <p className="field__hint" style={{ marginTop: 0 }}>
-                              {t('PropertyForm.cloneUnitDetailsHint')}
-                            </p>
-                          ) : null}
-                          <div className="form-grid">
-                            <Field
-                              id={`unit-number-${unit.localId}`}
-                              label={t('PropertyForm.unitNumber')}
-                              value={unit.code}
-                              tone={tone(unit.code, true, showErrors)}
-                              onChange={(event) =>
-                                updateUnit(unit.localId, 'code', event.target.value)
-                              }
-                              required
-                            />
-                            <Field
-                              id={`unit-area-${unit.localId}`}
-                              inputMode="decimal"
-                              label={t('PropertyForm.area')}
-                              value={unit.area}
-                              tone={tone(unit.area, true, showErrors)}
-                              onChange={(event) =>
-                                updateUnit(unit.localId, 'area', event.target.value)
-                              }
-                              required
-                            />
-                            <fieldset className="wizard-offering-modes">
-                              <legend>{t('PropertyForm.offeringModes')}</legend>
-                              <p className="muted wizard-offering-modes__hint">
-                                {t('PropertyForm.offeringModesHint')}
-                              </p>
-                              {(
-                                [
-                                  ['monthly', t('PropertyForm.offerMonthly')],
-                                  ['yearly', t('PropertyForm.offerYearly')],
-                                  ['daily', t('PropertyForm.offerDaily')],
-                                  ['sale', t('PropertyForm.offerSale')],
-                                ] as const
-                              ).map(([mode, label]) => (
-                                <label key={mode} className="wizard-offering-modes__item">
-                                  <input
-                                    type="checkbox"
-                                    checked={unit.offeringModes.includes(mode)}
-                                    onChange={(event) => {
-                                      setUnits((current) =>
-                                        current.map((row) => {
-                                          if (row.localId !== unit.localId) return row;
-                                          const nextModes = event.target.checked
-                                            ? [...row.offeringModes, mode]
-                                            : row.offeringModes.filter((item) => item !== mode);
-                                          const modes = (
-                                            nextModes.length ? nextModes : ['monthly']
-                                          ) as OfferingMode[];
-                                          return {
-                                            ...row,
-                                            offeringModes: modes,
-                                            listingPurpose: listingPurposeFromOfferingModes(modes),
-                                            publishWhenAvailable:
-                                              modes.includes('daily') &&
-                                              !modes.some(
-                                                (item) =>
-                                                  item === 'monthly' ||
-                                                  item === 'yearly' ||
-                                                  item === 'sale',
-                                              )
-                                                ? false
-                                                : row.publishWhenAvailable,
-                                          };
-                                        }),
-                                      );
-                                    }}
-                                  />
-                                  <span>{label}</span>
-                                </label>
-                              ))}
+                {step === 1 ? (
+                  <div>
+                    {kind === 'multi_unit' ? (
+                      <>
+                        <div className="form-grid" style={{ marginBottom: '1rem' }}>
+                          <Field
+                            id="multi-total-area"
+                            inputMode="decimal"
+                            label={t('PropertyForm.multiUnitTotalArea')}
+                            value={profile.builtUpArea}
+                            tone={tone(profile.builtUpArea, true, showErrors)}
+                            onChange={(event) => updateProfile('builtUpArea', event.target.value)}
+                            required
+                            hint={t('PropertyForm.multiUnitTotalAreaHint')}
+                          />
+                          <p className="span-2 field__hint">
+                            {t('PropertyForm.multiUnitsEditorHint')}
+                          </p>
+                        </div>
+                        {units.length === 0 ? (
+                          <p className="notice notice--error" role="alert">
+                            {t('PropertyForm.unitCountsRequired')}
+                          </p>
+                        ) : null}
+                        {units.map((unit, index) => {
+                          const typeLabel =
+                            unit.unitKind === 'shop'
+                              ? t('PropertyForm.unitKindShop')
+                              : unit.unitKind === 'showroom'
+                                ? t('PropertyForm.unitKindShowroom')
+                                : t('PropertyForm.unitKindApartment');
+                          const isApartment = unit.unitKind === 'apartment';
+                          const sameKind = units.filter((item) => item.unitKind === unit.unitKind);
+                          const sameKindIndex = sameKind.findIndex(
+                            (item) => item.localId === unit.localId,
+                          );
+                          const canCloneToRest = sameKindIndex === 0 && sameKind.length > 1;
+                          return (
+                            <fieldset className="unit-editor" key={unit.localId}>
+                              <legend className="sr-only">
+                                {typeLabel} {index + 1}
+                              </legend>
+                              <div className="unit-editor__head">
+                                <h3>
+                                  {typeLabel} · {unit.code || index + 1}
+                                </h3>
+                                {canCloneToRest ? (
+                                  <Button
+                                    type="button"
+                                    variant="quiet"
+                                    onClick={() => cloneUnitDetailsToSameKind(unit.localId)}
+                                  >
+                                    {t('PropertyForm.cloneUnitDetails')}
+                                  </Button>
+                                ) : null}
+                              </div>
+                              {canCloneToRest ? (
+                                <p className="field__hint" style={{ marginTop: 0 }}>
+                                  {t('PropertyForm.cloneUnitDetailsHint')}
+                                </p>
+                              ) : null}
+                              <div className="form-grid">
+                                <Field
+                                  id={`unit-number-${unit.localId}`}
+                                  label={t('PropertyForm.unitNumber')}
+                                  value={unit.code}
+                                  tone={tone(unit.code, true, showErrors)}
+                                  onChange={(event) =>
+                                    updateUnit(unit.localId, 'code', event.target.value)
+                                  }
+                                  required
+                                />
+                                <Field
+                                  id={`unit-area-${unit.localId}`}
+                                  inputMode="decimal"
+                                  label={t('PropertyForm.area')}
+                                  value={unit.area}
+                                  tone={tone(unit.area, true, showErrors)}
+                                  onChange={(event) =>
+                                    updateUnit(unit.localId, 'area', event.target.value)
+                                  }
+                                  required
+                                />
+                                <fieldset className="wizard-offering-modes">
+                                  <legend>{t('PropertyForm.offeringModes')}</legend>
+                                  <p className="muted wizard-offering-modes__hint">
+                                    {t('PropertyForm.offeringModesHint')}
+                                  </p>
+                                  {(
+                                    [
+                                      ['monthly', t('PropertyForm.offerMonthly')],
+                                      ['yearly', t('PropertyForm.offerYearly')],
+                                      ['daily', t('PropertyForm.offerDaily')],
+                                      ['sale', t('PropertyForm.offerSale')],
+                                    ] as const
+                                  ).map(([mode, label]) => (
+                                    <label key={mode} className="wizard-offering-modes__item">
+                                      <input
+                                        type="checkbox"
+                                        checked={unit.offeringModes.includes(mode)}
+                                        onChange={(event) => {
+                                          setUnits((current) =>
+                                            current.map((row) => {
+                                              if (row.localId !== unit.localId) return row;
+                                              const nextModes = event.target.checked
+                                                ? [...row.offeringModes, mode]
+                                                : row.offeringModes.filter((item) => item !== mode);
+                                              const modes = (
+                                                nextModes.length ? nextModes : ['monthly']
+                                              ) as OfferingMode[];
+                                              return {
+                                                ...row,
+                                                offeringModes: modes,
+                                                listingPurpose:
+                                                  listingPurposeFromOfferingModes(modes),
+                                                publishWhenAvailable:
+                                                  modes.includes('daily') &&
+                                                  !modes.some(
+                                                    (item) =>
+                                                      item === 'monthly' ||
+                                                      item === 'yearly' ||
+                                                      item === 'sale',
+                                                  )
+                                                    ? false
+                                                    : row.publishWhenAvailable,
+                                              };
+                                            }),
+                                          );
+                                        }}
+                                      />
+                                      <span>{label}</span>
+                                    </label>
+                                  ))}
+                                </fieldset>
+                                <Field
+                                  id={`unit-rent-${unit.localId}`}
+                                  inputMode="decimal"
+                                  label={`${t('PropertyForm.rent')} (${currency})`}
+                                  value={unit.rent}
+                                  tone={
+                                    unit.offeringModes.includes('sale') &&
+                                    !unit.offeringModes.some(
+                                      (mode) =>
+                                        mode === 'monthly' || mode === 'yearly' || mode === 'daily',
+                                    )
+                                      ? 'neutral'
+                                      : tone(unit.rent, true, showErrors)
+                                  }
+                                  onChange={(event) =>
+                                    updateUnit(unit.localId, 'rent', event.target.value)
+                                  }
+                                  required={
+                                    !(
+                                      unit.offeringModes.includes('sale') &&
+                                      !unit.offeringModes.some(
+                                        (mode) =>
+                                          mode === 'monthly' ||
+                                          mode === 'yearly' ||
+                                          mode === 'daily',
+                                      )
+                                    )
+                                  }
+                                />
+                                <Field
+                                  id={`unit-sale-price-${unit.localId}`}
+                                  inputMode="decimal"
+                                  label={`${t('PropertyForm.salePrice')} (${currency})`}
+                                  value={unit.salePrice}
+                                  tone={
+                                    unit.offeringModes.includes('sale')
+                                      ? tone(unit.salePrice, true, showErrors)
+                                      : 'neutral'
+                                  }
+                                  onChange={(event) =>
+                                    updateUnit(unit.localId, 'salePrice', event.target.value)
+                                  }
+                                  required={unit.offeringModes.includes('sale')}
+                                />
+                                {renderDepositFields(unit)}
+                                {isApartment ? (
+                                  <>
+                                    <SelectField
+                                      id={`unit-floor-${unit.localId}`}
+                                      label={t('PropertyForm.floor')}
+                                      value={unit.floor}
+                                      onChange={(event) =>
+                                        updateUnit(unit.localId, 'floor', event.target.value)
+                                      }
+                                    >
+                                      <option value="">{t('PropertyForm.selectFloor')}</option>
+                                      {FLOOR_OPTIONS.map((value) => (
+                                        <option key={value} value={value}>
+                                          {value === '0' ? t('PropertyForm.floorGround') : value}
+                                        </option>
+                                      ))}
+                                    </SelectField>
+                                    <SelectField
+                                      id={`unit-beds-${unit.localId}`}
+                                      label={t('PropertyForm.bedrooms')}
+                                      value={unit.bedrooms}
+                                      tone={tone(unit.bedrooms, true, showErrors)}
+                                      onChange={(event) =>
+                                        updateUnit(unit.localId, 'bedrooms', event.target.value)
+                                      }
+                                      required
+                                    >
+                                      <option value="">{t('PropertyForm.selectBedrooms')}</option>
+                                      {BEDROOM_OPTIONS.map((value) => (
+                                        <option key={value} value={value}>
+                                          {value}
+                                        </option>
+                                      ))}
+                                    </SelectField>
+                                    <SelectField
+                                      id={`unit-baths-${unit.localId}`}
+                                      label={t('PropertyForm.bathrooms')}
+                                      value={unit.bathrooms}
+                                      tone={tone(unit.bathrooms, true, showErrors)}
+                                      onChange={(event) =>
+                                        updateUnit(unit.localId, 'bathrooms', event.target.value)
+                                      }
+                                      required
+                                    >
+                                      <option value="">{t('PropertyForm.selectBathrooms')}</option>
+                                      {BATHROOM_OPTIONS.map((value) => (
+                                        <option key={value} value={value}>
+                                          {value}
+                                        </option>
+                                      ))}
+                                    </SelectField>
+                                    <SelectField
+                                      id={`unit-majlis-${unit.localId}`}
+                                      label={t('PropertyForm.majlis')}
+                                      value={unit.majlis}
+                                      tone={tone(unit.majlis, true, showErrors)}
+                                      onChange={(event) =>
+                                        updateUnit(unit.localId, 'majlis', event.target.value)
+                                      }
+                                      required
+                                    >
+                                      <option value="">{t('PropertyForm.selectMajlis')}</option>
+                                      {ROOM_COUNT_OPTIONS.map((value) => (
+                                        <option key={value} value={value}>
+                                          {value}
+                                        </option>
+                                      ))}
+                                    </SelectField>
+                                    <SelectField
+                                      id={`unit-halls-${unit.localId}`}
+                                      label={t('PropertyForm.halls')}
+                                      value={unit.halls}
+                                      tone={tone(unit.halls, true, showErrors)}
+                                      onChange={(event) =>
+                                        updateUnit(unit.localId, 'halls', event.target.value)
+                                      }
+                                      required
+                                    >
+                                      <option value="">{t('PropertyForm.selectHalls')}</option>
+                                      {ROOM_COUNT_OPTIONS.map((value) => (
+                                        <option key={value} value={value}>
+                                          {value}
+                                        </option>
+                                      ))}
+                                    </SelectField>
+                                  </>
+                                ) : (
+                                  <p className="span-2 field__hint">
+                                    {t('PropertyForm.commercialUnitHint')}
+                                  </p>
+                                )}
+                                <div className="span-2 publish-hint">
+                                  <label className="checkbox-row">
+                                    <input
+                                      type="checkbox"
+                                      checked={unit.publishWhenAvailable}
+                                      onChange={(event) =>
+                                        updateUnit(
+                                          unit.localId,
+                                          'publishWhenAvailable',
+                                          event.target.checked,
+                                        )
+                                      }
+                                    />
+                                    {t('PropertyForm.publish')}
+                                  </label>
+                                  <p className="field__hint">{t('PropertyForm.publishHint')}</p>
+                                </div>
+                              </div>
                             </fieldset>
-                            <Field
-                              id={`unit-rent-${unit.localId}`}
-                              inputMode="decimal"
-                              label={`${t('PropertyForm.rent')} (${currency})`}
-                              value={unit.rent}
-                              tone={
-                                unit.offeringModes.includes('sale') &&
-                                !unit.offeringModes.some(
-                                  (mode) =>
-                                    mode === 'monthly' || mode === 'yearly' || mode === 'daily',
-                                )
-                                  ? 'neutral'
-                                  : tone(unit.rent, true, showErrors)
-                              }
-                              onChange={(event) =>
-                                updateUnit(unit.localId, 'rent', event.target.value)
-                              }
-                              required={
-                                !(
+                          );
+                        })}
+                      </>
+                    ) : (
+                      <>
+                        {units.map((unit, index) => (
+                          <fieldset className="unit-editor" key={unit.localId}>
+                            <legend className="sr-only">
+                              {t('PropertyForm.unit')} {index + 1}
+                            </legend>
+                            <div className="unit-editor__head">
+                              <h3>
+                                {t('PropertyForm.unit')} {index + 1}
+                              </h3>
+                            </div>
+                            <div className="form-grid">
+                              <p className="span-2 field__hint">
+                                {t('PropertyForm.nameSharedHint')}
+                              </p>
+                              <div className="field">
+                                <label>{t('PropertyForm.code')}</label>
+                                <div className="wizard-readonly" dir="ltr">
+                                  {`U-${String(index + 1).padStart(2, '0')}`}
+                                </div>
+                                <p className="field__hint">{t('PropertyForm.codeAutoHint')}</p>
+                              </div>
+                              <SelectField
+                                id={`unit-floor-${unit.localId}`}
+                                label={t('PropertyForm.floor')}
+                                value={unit.floor}
+                                tone={tone(unit.floor, true, showErrors)}
+                                onChange={(event) =>
+                                  updateUnit(unit.localId, 'floor', event.target.value)
+                                }
+                                required
+                              >
+                                <option value="">{t('PropertyForm.selectFloor')}</option>
+                                {FLOOR_OPTIONS.map((value) => (
+                                  <option key={value} value={value}>
+                                    {value === '0' ? t('PropertyForm.floorGround') : value}
+                                  </option>
+                                ))}
+                              </SelectField>
+                              <SelectField
+                                id={`unit-beds-${unit.localId}`}
+                                label={t('PropertyForm.bedrooms')}
+                                value={unit.bedrooms}
+                                tone={tone(unit.bedrooms, true, showErrors)}
+                                onChange={(event) =>
+                                  updateUnit(unit.localId, 'bedrooms', event.target.value)
+                                }
+                                required
+                              >
+                                <option value="">{t('PropertyForm.selectBedrooms')}</option>
+                                {BEDROOM_OPTIONS.map((value) => (
+                                  <option key={value} value={value}>
+                                    {value}
+                                  </option>
+                                ))}
+                              </SelectField>
+                              <SelectField
+                                id={`unit-baths-${unit.localId}`}
+                                label={t('PropertyForm.bathrooms')}
+                                value={unit.bathrooms}
+                                tone={tone(unit.bathrooms, true, showErrors)}
+                                onChange={(event) =>
+                                  updateUnit(unit.localId, 'bathrooms', event.target.value)
+                                }
+                                required
+                              >
+                                <option value="">{t('PropertyForm.selectBathrooms')}</option>
+                                {BATHROOM_OPTIONS.map((value) => (
+                                  <option key={value} value={value}>
+                                    {value}
+                                  </option>
+                                ))}
+                              </SelectField>
+                              <SelectField
+                                id={`unit-majlis-${unit.localId}`}
+                                label={t('PropertyForm.majlis')}
+                                value={unit.majlis}
+                                tone={tone(unit.majlis, true, showErrors)}
+                                onChange={(event) =>
+                                  updateUnit(unit.localId, 'majlis', event.target.value)
+                                }
+                                required
+                              >
+                                <option value="">{t('PropertyForm.selectMajlis')}</option>
+                                {ROOM_COUNT_OPTIONS.map((value) => (
+                                  <option key={value} value={value}>
+                                    {value}
+                                  </option>
+                                ))}
+                              </SelectField>
+                              <SelectField
+                                id={`unit-halls-${unit.localId}`}
+                                label={t('PropertyForm.halls')}
+                                value={unit.halls}
+                                tone={tone(unit.halls, true, showErrors)}
+                                onChange={(event) =>
+                                  updateUnit(unit.localId, 'halls', event.target.value)
+                                }
+                                required
+                              >
+                                <option value="">{t('PropertyForm.selectHalls')}</option>
+                                {ROOM_COUNT_OPTIONS.map((value) => (
+                                  <option key={value} value={value}>
+                                    {value}
+                                  </option>
+                                ))}
+                              </SelectField>
+                              <SelectField
+                                id={`unit-kitchens-${unit.localId}`}
+                                label={t('PropertyForm.kitchens')}
+                                value={unit.kitchens}
+                                tone={tone(unit.kitchens, true, showErrors)}
+                                onChange={(event) =>
+                                  updateUnit(unit.localId, 'kitchens', event.target.value)
+                                }
+                                required
+                              >
+                                <option value="">{t('PropertyForm.selectKitchens')}</option>
+                                {ROOM_COUNT_OPTIONS.map((value) => (
+                                  <option key={value} value={value}>
+                                    {value}
+                                  </option>
+                                ))}
+                              </SelectField>
+                              <SelectField
+                                id={`unit-pool-${unit.localId}`}
+                                label={t('PropertyForm.hasPool')}
+                                value={unit.hasPool}
+                                tone={tone(unit.hasPool, true, showErrors)}
+                                onChange={(event) =>
+                                  updateUnit(unit.localId, 'hasPool', event.target.value)
+                                }
+                                required
+                              >
+                                <option value="">{t('PropertyForm.selectPool')}</option>
+                                <option value="true">{t('PropertyForm.poolAvailable')}</option>
+                                <option value="false">{t('PropertyForm.poolUnavailable')}</option>
+                              </SelectField>
+                              <Field
+                                id={`unit-area-${unit.localId}`}
+                                inputMode="decimal"
+                                label={t('PropertyForm.area')}
+                                value={unit.area}
+                                onChange={(event) =>
+                                  updateUnit(unit.localId, 'area', event.target.value)
+                                }
+                              />
+                              <fieldset className="wizard-offering-modes">
+                                <legend>{t('PropertyForm.offeringModes')}</legend>
+                                <p className="muted wizard-offering-modes__hint">
+                                  {t('PropertyForm.offeringModesHint')}
+                                </p>
+                                {(
+                                  [
+                                    ['monthly', t('PropertyForm.offerMonthly')],
+                                    ['yearly', t('PropertyForm.offerYearly')],
+                                    ['daily', t('PropertyForm.offerDaily')],
+                                    ['sale', t('PropertyForm.offerSale')],
+                                  ] as const
+                                ).map(([mode, label]) => (
+                                  <label key={mode} className="wizard-offering-modes__item">
+                                    <input
+                                      type="checkbox"
+                                      checked={unit.offeringModes.includes(mode)}
+                                      onChange={(event) => {
+                                        setUnits((current) =>
+                                          current.map((row) => {
+                                            if (row.localId !== unit.localId) return row;
+                                            const nextModes = event.target.checked
+                                              ? [...row.offeringModes, mode]
+                                              : row.offeringModes.filter((item) => item !== mode);
+                                            const modes = (
+                                              nextModes.length ? nextModes : ['monthly']
+                                            ) as OfferingMode[];
+                                            return {
+                                              ...row,
+                                              offeringModes: modes,
+                                              listingPurpose:
+                                                listingPurposeFromOfferingModes(modes),
+                                              publishWhenAvailable:
+                                                modes.includes('daily') &&
+                                                !modes.some(
+                                                  (item) =>
+                                                    item === 'monthly' ||
+                                                    item === 'yearly' ||
+                                                    item === 'sale',
+                                                )
+                                                  ? false
+                                                  : row.publishWhenAvailable,
+                                            };
+                                          }),
+                                        );
+                                      }}
+                                    />
+                                    <span>{label}</span>
+                                  </label>
+                                ))}
+                              </fieldset>
+                              <Field
+                                id={`unit-rent-${unit.localId}`}
+                                inputMode="decimal"
+                                label={`${t('PropertyForm.rent')} (${currency})`}
+                                value={unit.rent}
+                                tone={
                                   unit.offeringModes.includes('sale') &&
                                   !unit.offeringModes.some(
                                     (mode) =>
                                       mode === 'monthly' || mode === 'yearly' || mode === 'daily',
                                   )
-                                )
-                              }
-                            />
-                            <Field
-                              id={`unit-sale-price-${unit.localId}`}
-                              inputMode="decimal"
-                              label={`${t('PropertyForm.salePrice')} (${currency})`}
-                              value={unit.salePrice}
-                              tone={
-                                unit.offeringModes.includes('sale')
-                                  ? tone(unit.salePrice, true, showErrors)
-                                  : 'neutral'
-                              }
-                              onChange={(event) =>
-                                updateUnit(unit.localId, 'salePrice', event.target.value)
-                              }
-                              required={unit.offeringModes.includes('sale')}
-                            />
-                            <Field
-                              id={`unit-deposit-${unit.localId}`}
-                              inputMode="decimal"
-                              label={`${t('PropertyForm.deposit')} (${currency})`}
-                              value={unit.deposit}
-                              onChange={(event) =>
-                                updateUnit(unit.localId, 'deposit', event.target.value)
-                              }
-                              hint={t('PropertyForm.depositHint')}
-                            />
-                            {isApartment ? (
-                              <>
-                                <SelectField
-                                  id={`unit-floor-${unit.localId}`}
-                                  label={t('PropertyForm.floor')}
-                                  value={unit.floor}
-                                  onChange={(event) =>
-                                    updateUnit(unit.localId, 'floor', event.target.value)
-                                  }
-                                >
-                                  <option value="">{t('PropertyForm.selectFloor')}</option>
-                                  {FLOOR_OPTIONS.map((value) => (
-                                    <option key={value} value={value}>
-                                      {value === '0' ? t('PropertyForm.floorGround') : value}
-                                    </option>
-                                  ))}
-                                </SelectField>
-                                <SelectField
-                                  id={`unit-beds-${unit.localId}`}
-                                  label={t('PropertyForm.bedrooms')}
-                                  value={unit.bedrooms}
-                                  tone={tone(unit.bedrooms, true, showErrors)}
-                                  onChange={(event) =>
-                                    updateUnit(unit.localId, 'bedrooms', event.target.value)
-                                  }
-                                  required
-                                >
-                                  <option value="">{t('PropertyForm.selectBedrooms')}</option>
-                                  {BEDROOM_OPTIONS.map((value) => (
-                                    <option key={value} value={value}>
-                                      {value}
-                                    </option>
-                                  ))}
-                                </SelectField>
-                                <SelectField
-                                  id={`unit-baths-${unit.localId}`}
-                                  label={t('PropertyForm.bathrooms')}
-                                  value={unit.bathrooms}
-                                  tone={tone(unit.bathrooms, true, showErrors)}
-                                  onChange={(event) =>
-                                    updateUnit(unit.localId, 'bathrooms', event.target.value)
-                                  }
-                                  required
-                                >
-                                  <option value="">{t('PropertyForm.selectBathrooms')}</option>
-                                  {BATHROOM_OPTIONS.map((value) => (
-                                    <option key={value} value={value}>
-                                      {value}
-                                    </option>
-                                  ))}
-                                </SelectField>
-                                <SelectField
-                                  id={`unit-majlis-${unit.localId}`}
-                                  label={t('PropertyForm.majlis')}
-                                  value={unit.majlis}
-                                  tone={tone(unit.majlis, true, showErrors)}
-                                  onChange={(event) =>
-                                    updateUnit(unit.localId, 'majlis', event.target.value)
-                                  }
-                                  required
-                                >
-                                  <option value="">{t('PropertyForm.selectMajlis')}</option>
-                                  {ROOM_COUNT_OPTIONS.map((value) => (
-                                    <option key={value} value={value}>
-                                      {value}
-                                    </option>
-                                  ))}
-                                </SelectField>
-                                <SelectField
-                                  id={`unit-halls-${unit.localId}`}
-                                  label={t('PropertyForm.halls')}
-                                  value={unit.halls}
-                                  tone={tone(unit.halls, true, showErrors)}
-                                  onChange={(event) =>
-                                    updateUnit(unit.localId, 'halls', event.target.value)
-                                  }
-                                  required
-                                >
-                                  <option value="">{t('PropertyForm.selectHalls')}</option>
-                                  {ROOM_COUNT_OPTIONS.map((value) => (
-                                    <option key={value} value={value}>
-                                      {value}
-                                    </option>
-                                  ))}
-                                </SelectField>
-                              </>
-                            ) : (
-                              <p className="span-2 field__hint">
-                                {t('PropertyForm.commercialUnitHint')}
-                              </p>
-                            )}
-                            <div className="span-2 publish-hint">
-                              <label className="checkbox-row">
-                                <input
-                                  type="checkbox"
-                                  checked={unit.publishWhenAvailable}
-                                  onChange={(event) =>
-                                    updateUnit(
-                                      unit.localId,
-                                      'publishWhenAvailable',
-                                      event.target.checked,
-                                    )
-                                  }
-                                />
-                                {t('PropertyForm.publish')}
-                              </label>
-                              <p className="field__hint">{t('PropertyForm.publishHint')}</p>
-                            </div>
-                          </div>
-                        </fieldset>
-                      );
-                    })}
-                  </>
-                ) : (
-                  <>
-                    {units.map((unit, index) => (
-                      <fieldset className="unit-editor" key={unit.localId}>
-                        <legend className="sr-only">
-                          {t('PropertyForm.unit')} {index + 1}
-                        </legend>
-                        <div className="unit-editor__head">
-                          <h3>
-                            {t('PropertyForm.unit')} {index + 1}
-                          </h3>
-                        </div>
-                        <div className="form-grid">
-                          <p className="span-2 field__hint">{t('PropertyForm.nameSharedHint')}</p>
-                          <div className="field">
-                            <label>{t('PropertyForm.code')}</label>
-                            <div className="wizard-readonly" dir="ltr">
-                              {`U-${String(index + 1).padStart(2, '0')}`}
-                            </div>
-                            <p className="field__hint">{t('PropertyForm.codeAutoHint')}</p>
-                          </div>
-                          <SelectField
-                            id={`unit-floor-${unit.localId}`}
-                            label={t('PropertyForm.floor')}
-                            value={unit.floor}
-                            tone={tone(unit.floor, true, showErrors)}
-                            onChange={(event) =>
-                              updateUnit(unit.localId, 'floor', event.target.value)
-                            }
-                            required
-                          >
-                            <option value="">{t('PropertyForm.selectFloor')}</option>
-                            {FLOOR_OPTIONS.map((value) => (
-                              <option key={value} value={value}>
-                                {value === '0' ? t('PropertyForm.floorGround') : value}
-                              </option>
-                            ))}
-                          </SelectField>
-                          <SelectField
-                            id={`unit-beds-${unit.localId}`}
-                            label={t('PropertyForm.bedrooms')}
-                            value={unit.bedrooms}
-                            tone={tone(unit.bedrooms, true, showErrors)}
-                            onChange={(event) =>
-                              updateUnit(unit.localId, 'bedrooms', event.target.value)
-                            }
-                            required
-                          >
-                            <option value="">{t('PropertyForm.selectBedrooms')}</option>
-                            {BEDROOM_OPTIONS.map((value) => (
-                              <option key={value} value={value}>
-                                {value}
-                              </option>
-                            ))}
-                          </SelectField>
-                          <SelectField
-                            id={`unit-baths-${unit.localId}`}
-                            label={t('PropertyForm.bathrooms')}
-                            value={unit.bathrooms}
-                            tone={tone(unit.bathrooms, true, showErrors)}
-                            onChange={(event) =>
-                              updateUnit(unit.localId, 'bathrooms', event.target.value)
-                            }
-                            required
-                          >
-                            <option value="">{t('PropertyForm.selectBathrooms')}</option>
-                            {BATHROOM_OPTIONS.map((value) => (
-                              <option key={value} value={value}>
-                                {value}
-                              </option>
-                            ))}
-                          </SelectField>
-                          <SelectField
-                            id={`unit-majlis-${unit.localId}`}
-                            label={t('PropertyForm.majlis')}
-                            value={unit.majlis}
-                            tone={tone(unit.majlis, true, showErrors)}
-                            onChange={(event) =>
-                              updateUnit(unit.localId, 'majlis', event.target.value)
-                            }
-                            required
-                          >
-                            <option value="">{t('PropertyForm.selectMajlis')}</option>
-                            {ROOM_COUNT_OPTIONS.map((value) => (
-                              <option key={value} value={value}>
-                                {value}
-                              </option>
-                            ))}
-                          </SelectField>
-                          <SelectField
-                            id={`unit-halls-${unit.localId}`}
-                            label={t('PropertyForm.halls')}
-                            value={unit.halls}
-                            tone={tone(unit.halls, true, showErrors)}
-                            onChange={(event) =>
-                              updateUnit(unit.localId, 'halls', event.target.value)
-                            }
-                            required
-                          >
-                            <option value="">{t('PropertyForm.selectHalls')}</option>
-                            {ROOM_COUNT_OPTIONS.map((value) => (
-                              <option key={value} value={value}>
-                                {value}
-                              </option>
-                            ))}
-                          </SelectField>
-                          <SelectField
-                            id={`unit-kitchens-${unit.localId}`}
-                            label={t('PropertyForm.kitchens')}
-                            value={unit.kitchens}
-                            tone={tone(unit.kitchens, true, showErrors)}
-                            onChange={(event) =>
-                              updateUnit(unit.localId, 'kitchens', event.target.value)
-                            }
-                            required
-                          >
-                            <option value="">{t('PropertyForm.selectKitchens')}</option>
-                            {ROOM_COUNT_OPTIONS.map((value) => (
-                              <option key={value} value={value}>
-                                {value}
-                              </option>
-                            ))}
-                          </SelectField>
-                          <SelectField
-                            id={`unit-pool-${unit.localId}`}
-                            label={t('PropertyForm.hasPool')}
-                            value={unit.hasPool}
-                            tone={tone(unit.hasPool, true, showErrors)}
-                            onChange={(event) =>
-                              updateUnit(unit.localId, 'hasPool', event.target.value)
-                            }
-                            required
-                          >
-                            <option value="">{t('PropertyForm.selectPool')}</option>
-                            <option value="true">{t('PropertyForm.poolAvailable')}</option>
-                            <option value="false">{t('PropertyForm.poolUnavailable')}</option>
-                          </SelectField>
-                          <Field
-                            id={`unit-area-${unit.localId}`}
-                            inputMode="decimal"
-                            label={t('PropertyForm.area')}
-                            value={unit.area}
-                            onChange={(event) =>
-                              updateUnit(unit.localId, 'area', event.target.value)
-                            }
-                          />
-                          <fieldset className="wizard-offering-modes">
-                            <legend>{t('PropertyForm.offeringModes')}</legend>
-                            <p className="muted wizard-offering-modes__hint">
-                              {t('PropertyForm.offeringModesHint')}
-                            </p>
-                            {(
-                              [
-                                ['monthly', t('PropertyForm.offerMonthly')],
-                                ['yearly', t('PropertyForm.offerYearly')],
-                                ['daily', t('PropertyForm.offerDaily')],
-                                ['sale', t('PropertyForm.offerSale')],
-                              ] as const
-                            ).map(([mode, label]) => (
-                              <label key={mode} className="wizard-offering-modes__item">
-                                <input
-                                  type="checkbox"
-                                  checked={unit.offeringModes.includes(mode)}
-                                  onChange={(event) => {
-                                    setUnits((current) =>
-                                      current.map((row) => {
-                                        if (row.localId !== unit.localId) return row;
-                                        const nextModes = event.target.checked
-                                          ? [...row.offeringModes, mode]
-                                          : row.offeringModes.filter((item) => item !== mode);
-                                        const modes = (
-                                          nextModes.length ? nextModes : ['monthly']
-                                        ) as OfferingMode[];
-                                        return {
-                                          ...row,
-                                          offeringModes: modes,
-                                          listingPurpose: listingPurposeFromOfferingModes(modes),
-                                          publishWhenAvailable:
-                                            modes.includes('daily') &&
-                                            !modes.some(
-                                              (item) =>
-                                                item === 'monthly' ||
-                                                item === 'yearly' ||
-                                                item === 'sale',
-                                            )
-                                              ? false
-                                              : row.publishWhenAvailable,
-                                        };
-                                      }),
-                                    );
-                                  }}
-                                />
-                                <span>{label}</span>
-                              </label>
-                            ))}
-                          </fieldset>
-                          <Field
-                            id={`unit-rent-${unit.localId}`}
-                            inputMode="decimal"
-                            label={`${t('PropertyForm.rent')} (${currency})`}
-                            value={unit.rent}
-                            tone={
-                              unit.offeringModes.includes('sale') &&
-                              !unit.offeringModes.some(
-                                (mode) =>
-                                  mode === 'monthly' || mode === 'yearly' || mode === 'daily',
-                              )
-                                ? 'neutral'
-                                : tone(unit.rent, true, showErrors)
-                            }
-                            onChange={(event) =>
-                              updateUnit(unit.localId, 'rent', event.target.value)
-                            }
-                            required={
-                              !(
-                                unit.offeringModes.includes('sale') &&
-                                !unit.offeringModes.some(
-                                  (mode) =>
-                                    mode === 'monthly' || mode === 'yearly' || mode === 'daily',
-                                )
-                              )
-                            }
-                          />
-                          <Field
-                            id={`unit-sale-price-${unit.localId}`}
-                            inputMode="decimal"
-                            label={`${t('PropertyForm.salePrice')} (${currency})`}
-                            value={unit.salePrice}
-                            tone={
-                              unit.offeringModes.includes('sale')
-                                ? tone(unit.salePrice, true, showErrors)
-                                : 'neutral'
-                            }
-                            onChange={(event) =>
-                              updateUnit(unit.localId, 'salePrice', event.target.value)
-                            }
-                            required={unit.offeringModes.includes('sale')}
-                          />
-                          <Field
-                            id={`unit-deposit-${unit.localId}`}
-                            inputMode="decimal"
-                            label={`${t('PropertyForm.deposit')} (${currency})`}
-                            value={unit.deposit}
-                            onChange={(event) =>
-                              updateUnit(unit.localId, 'deposit', event.target.value)
-                            }
-                            hint={t('PropertyForm.depositHint')}
-                          />
-                          <div className="span-2 publish-hint">
-                            <label className="checkbox-row">
-                              <input
-                                type="checkbox"
-                                checked={unit.publishWhenAvailable}
+                                    ? 'neutral'
+                                    : tone(unit.rent, true, showErrors)
+                                }
                                 onChange={(event) =>
-                                  updateUnit(
-                                    unit.localId,
-                                    'publishWhenAvailable',
-                                    event.target.checked,
+                                  updateUnit(unit.localId, 'rent', event.target.value)
+                                }
+                                required={
+                                  !(
+                                    unit.offeringModes.includes('sale') &&
+                                    !unit.offeringModes.some(
+                                      (mode) =>
+                                        mode === 'monthly' || mode === 'yearly' || mode === 'daily',
+                                    )
                                   )
                                 }
                               />
-                              {t('PropertyForm.publish')}
-                            </label>
-                            <p className="field__hint">{t('PropertyForm.publishHint')}</p>
-                          </div>
-                        </div>
-                      </fieldset>
-                    ))}
-                  </>
-                )}
-              </div>
-            ) : null}
-
-            {step === 2 ? (
-              <div>
-                <div className="form-grid">
-                  <Field
-                    id="land-area"
-                    inputMode="decimal"
-                    label={ar ? 'مساحة الأرض (م²)' : 'Land area (m²)'}
-                    value={profile.landArea}
-                    onChange={(event) => updateProfile('landArea', event.target.value)}
-                  />
-                  <Field
-                    id="built-area"
-                    inputMode="decimal"
-                    label={
-                      kind === 'multi_unit'
-                        ? t('PropertyForm.multiUnitTotalArea')
-                        : ar
-                          ? 'المساحة المبنية (م²)'
-                          : 'Built-up area (m²)'
-                    }
-                    value={profile.builtUpArea}
-                    onChange={(event) => updateProfile('builtUpArea', event.target.value)}
-                  />
-                  <Field
-                    id="year-built"
-                    type="number"
-                    min={1800}
-                    max={2200}
-                    label={ar ? 'سنة البناء' : 'Year built'}
-                    value={profile.yearBuilt}
-                    onChange={(event) => updateProfile('yearBuilt', event.target.value)}
-                  />
-                  <Field
-                    id="parking-spaces"
-                    type="number"
-                    min={0}
-                    label={ar ? 'عدد المواقف' : 'Parking spaces'}
-                    value={profile.parkingSpaces}
-                    onChange={(event) => updateProfile('parkingSpaces', event.target.value)}
-                  />
-                  <SelectField
-                    id="furnishing"
-                    label={ar ? 'التأثيث' : 'Furnishing'}
-                    value={profile.furnishing}
-                    onChange={(event) => updateProfile('furnishing', event.target.value)}
-                  >
-                    <option value="unfurnished">{ar ? 'غير مؤثث' : 'Unfurnished'}</option>
-                    <option value="semi_furnished">{ar ? 'شبه مؤثث' : 'Semi-furnished'}</option>
-                    <option value="furnished">{ar ? 'مؤثث' : 'Furnished'}</option>
-                  </SelectField>
-                </div>
-                <fieldset className="amenity-picker">
-                  <legend>{t('PropertyForm.amenitiesLegend')}</legend>
-                  <div className="amenity-picker__grid">
-                    {amenityOptions.map(([code, labelAr, labelEn, icon]) => (
-                      <label
-                        className={
-                          amenities.includes(code)
-                            ? 'amenity-chip is-selected'
-                            : 'amenity-chip'
-                        }
-                        key={code}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={amenities.includes(code)}
-                          onChange={(event) =>
-                            setAmenities((current) =>
-                              event.target.checked
-                                ? [...current, code]
-                                : current.filter((value) => value !== code),
-                            )
-                          }
-                        />
-                        <span className="amenity-chip__icon" aria-hidden="true">
-                          {icon}
-                        </span>
-                        <span>{ar ? labelAr : labelEn}</span>
-                      </label>
-                    ))}
-                  </div>
-                  <div className="amenity-custom">
-                    <div className="bilingual-pair">
-                      <Field
-                        id="custom-amenity-ar"
-                        label={t('PropertyForm.customAmenityAr')}
-                        value={customDraft.ar}
-                        onChange={(event) =>
-                          setCustomDraft((c) => ({ ...c, ar: event.target.value }))
-                        }
+                              <Field
+                                id={`unit-sale-price-${unit.localId}`}
+                                inputMode="decimal"
+                                label={`${t('PropertyForm.salePrice')} (${currency})`}
+                                value={unit.salePrice}
+                                tone={
+                                  unit.offeringModes.includes('sale')
+                                    ? tone(unit.salePrice, true, showErrors)
+                                    : 'neutral'
+                                }
+                                onChange={(event) =>
+                                  updateUnit(unit.localId, 'salePrice', event.target.value)
+                                }
+                                required={unit.offeringModes.includes('sale')}
+                              />
+                              {renderDepositFields(unit)}
+                              <div className="span-2 publish-hint">
+                                <label className="checkbox-row">
+                                  <input
+                                    type="checkbox"
+                                    checked={unit.publishWhenAvailable}
+                                    onChange={(event) =>
+                                      updateUnit(
+                                        unit.localId,
+                                        'publishWhenAvailable',
+                                        event.target.checked,
+                                      )
+                                    }
+                                  />
+                                  {t('PropertyForm.publish')}
+                                </label>
+                                <p className="field__hint">{t('PropertyForm.publishHint')}</p>
+                              </div>
+                            </div>
+                          </fieldset>
+                        ))}
+                      </>
+                    )}
+                    {mode === 'edit' && propertyId && staySettings ? (
+                      <PropertyStaySettingsPanel
+                        locale={locale}
+                        units={staySettings}
+                        setupHref={`/${portal}/stays/setup?propertyId=${encodeURIComponent(propertyId)}`}
+                        hasDailyUnits={units.some((unit) => unit.offeringModes.includes('daily'))}
                       />
-                      <div className="bilingual-pair__actions">
-                        <span className="bilingual-pair__hint">AR ‖ EN</span>
-                      </div>
-                      <Field
-                        id="custom-amenity-en"
-                        label={t('PropertyForm.customAmenityEn')}
-                        value={customDraft.en}
-                        onChange={(event) =>
-                          setCustomDraft((c) => ({ ...c, en: event.target.value }))
-                        }
-                        dir="ltr"
-                      />
-                    </div>
-                    <Button type="button" variant="quiet" onClick={addCustomAmenity}>
-                      {t('PropertyForm.addCustomAmenity')}
-                    </Button>
-                  </div>
-                </fieldset>
-              </div>
-            ) : null}
-
-            {step === 3 ? (
-              <div className="form-grid">
-                <SelectField
-                  id="owner-party"
-                  label={ar ? 'الملكية باسم' : 'Ownership under'}
-                  value={selectedOwnerPartyId}
-                  onChange={(event) => setSelectedOwnerPartyId(event.target.value)}
-                  required
-                >
-                  {(ownerPartyOptions.length
-                    ? ownerPartyOptions
-                    : [{ id: ownerPartyId, displayName: ar ? 'حسابي' : 'My account', type: 'person' }]
-                  ).map((party) => (
-                    <option key={party.id} value={party.id}>
-                      {party.displayName}
-                      {party.id === ownerPartyId
-                        ? ar
-                          ? ' (حسابي)'
-                          : ' (me)'
-                        : ''}
-                    </option>
-                  ))}
-                </SelectField>
-                <label className="checkbox-row" htmlFor="show-owner-name">
-                  <input
-                    id="show-owner-name"
-                    type="checkbox"
-                    checked={profile.showOwnerNameOnListing}
-                    onChange={(event) =>
-                      setProfile((current) => ({
-                        ...current,
-                        showOwnerNameOnListing: event.target.checked,
-                      }))
-                    }
-                  />
-                  <span>
-                    {ar
-                      ? 'السماح بإظهار اسم المالك في الإعلان العام'
-                      : 'Allow showing the owner name on the public listing'}
-                  </span>
-                </label>
-                <p className="field__hint span-2">
-                  {ar
-                    ? 'مقفول افتراضياً. عند التفعيل يظهر الاسم في صفحة العقار العامة فقط.'
-                    : 'Off by default. When enabled, the name appears on the public property page only.'}
-                </p>
-                <p className="muted span-2">
-                  {ar
-                    ? 'اختر الطرف الذي سيُسجَّل كمالك للعقار في سجل الملكية. يمكنك إضافة أطراف من قائمة الأطراف والجهات.'
-                    : 'Choose the party recorded as owner. Add more parties from the Parties section.'}
-                </p>
-                <Field
-                  id="deed-number"
-                  label={ar ? 'رقم سند الملكية' : 'Title deed number'}
-                  value={profile.deedNumber}
-                  onChange={(event) => updateProfile('deedNumber', event.target.value)}
-                />
-                <Field
-                  id="plot-number"
-                  label={ar ? 'رقم القطعة' : 'Plot number'}
-                  value={profile.plotNumber}
-                  onChange={(event) => updateProfile('plotNumber', event.target.value)}
-                />
-                <Field
-                  id="municipality-number"
-                  label={ar ? 'الرقم البلدي' : 'Municipality number'}
-                  value={profile.municipalityNumber}
-                  onChange={(event) => updateProfile('municipalityNumber', event.target.value)}
-                />
-                <Field
-                  id="insurance-number"
-                  label={ar ? 'رقم وثيقة التأمين' : 'Insurance policy number'}
-                  value={profile.insuranceNumber}
-                  onChange={(event) => updateProfile('insuranceNumber', event.target.value)}
-                />
-                <Field
-                  id="insurance-expiry"
-                  type="date"
-                  label={ar ? 'انتهاء التأمين' : 'Insurance expiry'}
-                  value={profile.insuranceExpiresOn}
-                  onChange={(event) => updateProfile('insuranceExpiresOn', event.target.value)}
-                />
-                <Field
-                  id="electricity-meter"
-                  label={ar ? 'عداد الكهرباء' : 'Electricity meter'}
-                  value={profile.electricityMeter}
-                  onChange={(event) => updateProfile('electricityMeter', event.target.value)}
-                />
-                <Field
-                  id="water-meter"
-                  label={ar ? 'عداد المياه' : 'Water meter'}
-                  value={profile.waterMeter}
-                  onChange={(event) => updateProfile('waterMeter', event.target.value)}
-                />
-                <TextAreaField
-                  id="property-notes"
-                  label={ar ? 'ملاحظات تشغيلية وقانونية' : 'Operational/legal notes'}
-                  value={profile.notes}
-                  onChange={(event) => updateProfile('notes', event.target.value)}
-                  maxLength={5000}
-                />
-                <div className="span-2 private-docs">
-                  <div className="private-docs__banner" role="note">
-                    <strong>{t('PropertyForm.privateDocsTitle')}</strong>
-                    <p>{t('PropertyForm.privateDocsNote')}</p>
-                  </div>
-                  {(
-                    [
-                      ['title_deed', 'docOwnership'],
-                      ['floor_plan', 'docSurvey'],
-                      ['other', 'docOwnerId'],
-                    ] as const
-                  ).map(([docType, labelKey]) => {
-                    const current = documents.find((item) => item.documentType === docType);
-                    const inputId = `property-doc-${docType}`;
-                    return (
-                      <div className="private-docs__slot" key={docType}>
-                        <div className="private-docs__head">
-                          <strong>{t(`PropertyForm.${labelKey}`)}</strong>
-                          <span>{t('PropertyForm.optional')}</span>
-                        </div>
-                        <label className="private-docs__drop" htmlFor={inputId}>
-                          <input
-                            id={inputId}
-                            className="sr-only"
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp,application/pdf"
-                            onChange={(event) => selectDocuments(docType, event)}
-                          />
-                          {current ? (
-                            <span className="private-docs__file">
-                              <button
-                                type="button"
-                                className="media-icon"
-                                onClick={(event) => {
-                                  event.preventDefault();
-                                  setPreviewId(current.id);
-                                }}
-                              >
-                                <span aria-hidden="true">{current.kind === 'pdf' ? 'PDF' : 'IMG'}</span>
-                                <small>
-                                  {current.file?.name ||
-                                    current.label ||
-                                    (current.existing
-                                      ? ar
-                                        ? 'مستند محفوظ'
-                                        : 'Saved document'
-                                      : t('PropertyForm.chooseFile'))}
-                                </small>
-                              </button>
-                            </span>
-                          ) : (
-                            <span>{t('PropertyForm.chooseFile')}</span>
-                          )}
-                        </label>
-                        {current ? (
-                          <Button type="button" variant="quiet" onClick={() => removeDocument(docType)}>
-                            {t('PropertyForm.removeFile')}
-                          </Button>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : null}
-
-            {step === 4 ? (
-              <div className="upload-zone">
-                {kind === 'multi_unit' ? (
-                  <div className="field span-2" style={{ marginBottom: '1rem' }}>
-                    <label>{t('PropertyForm.multiMediaMode')}</label>
-                    <div className="wizard-seg" role="radiogroup">
-                      <label
-                        className={
-                          multiMediaMode === 'building'
-                            ? 'wizard-seg__item is-active'
-                            : 'wizard-seg__item'
-                        }
-                      >
-                        <input
-                          type="radio"
-                          name="multi-media-mode"
-                          checked={multiMediaMode === 'building'}
-                          onChange={() => setMultiMediaMode('building')}
-                        />
-                        {t('PropertyForm.multiMediaBuilding')}
-                      </label>
-                      <label
-                        className={
-                          multiMediaMode === 'per_unit'
-                            ? 'wizard-seg__item is-active'
-                            : 'wizard-seg__item'
-                        }
-                      >
-                        <input
-                          type="radio"
-                          name="multi-media-mode"
-                          checked={multiMediaMode === 'per_unit'}
-                          onChange={() => setMultiMediaMode('per_unit')}
-                        />
-                        {t('PropertyForm.multiMediaPerUnit')}
-                      </label>
-                    </div>
-                    <p className="field__hint">{t('PropertyForm.multiMediaModeHint')}</p>
+                    ) : null}
                   </div>
                 ) : null}
 
-                {kind !== 'multi_unit' || multiMediaMode === 'building' ? (
-                  <>
-                    <label htmlFor="property-images" className="upload-zone__label">
-                      <strong>
-                        {kind === 'multi_unit'
-                          ? t('PropertyForm.buildingImages')
-                          : t('PropertyForm.images')}
-                      </strong>
-                      <p>{t('PropertyForm.imagesOptional')}</p>
-                      {kind === 'multi_unit' ? (
-                        <p className="field__hint">{t('PropertyForm.buildingImagesHint')}</p>
-                      ) : null}
-                      <p className="field__hint">{t('PropertyForm.imagesAppendHint')}</p>
-                      <p className="field__hint">{t('PropertyForm.imageHelp')}</p>
-                      <span className="button button--quiet">
-                        {images.length
-                          ? t('PropertyForm.addMoreImages')
-                          : t('PropertyForm.chooseImages')}
+                {step === 2 ? (
+                  <div>
+                    <div className="form-grid">
+                      <Field
+                        id="land-area"
+                        inputMode="decimal"
+                        label={ar ? 'مساحة الأرض (م²)' : 'Land area (m²)'}
+                        value={profile.landArea}
+                        onChange={(event) => updateProfile('landArea', event.target.value)}
+                      />
+                      <Field
+                        id="built-area"
+                        inputMode="decimal"
+                        label={
+                          kind === 'multi_unit'
+                            ? t('PropertyForm.multiUnitTotalArea')
+                            : ar
+                              ? 'المساحة المبنية (م²)'
+                              : 'Built-up area (m²)'
+                        }
+                        value={profile.builtUpArea}
+                        onChange={(event) => updateProfile('builtUpArea', event.target.value)}
+                      />
+                      <Field
+                        id="year-built"
+                        type="number"
+                        min={1800}
+                        max={2200}
+                        label={ar ? 'سنة البناء' : 'Year built'}
+                        value={profile.yearBuilt}
+                        onChange={(event) => updateProfile('yearBuilt', event.target.value)}
+                      />
+                      <Field
+                        id="parking-spaces"
+                        type="number"
+                        min={0}
+                        label={ar ? 'عدد المواقف' : 'Parking spaces'}
+                        value={profile.parkingSpaces}
+                        onChange={(event) => updateProfile('parkingSpaces', event.target.value)}
+                      />
+                      <SelectField
+                        id="furnishing"
+                        label={ar ? 'التأثيث' : 'Furnishing'}
+                        value={profile.furnishing}
+                        onChange={(event) => updateProfile('furnishing', event.target.value)}
+                      >
+                        <option value="unfurnished">{ar ? 'غير مؤثث' : 'Unfurnished'}</option>
+                        <option value="semi_furnished">{ar ? 'شبه مؤثث' : 'Semi-furnished'}</option>
+                        <option value="furnished">{ar ? 'مؤثث' : 'Furnished'}</option>
+                      </SelectField>
+                    </div>
+                    <fieldset className="amenity-picker">
+                      <legend>{t('PropertyForm.amenitiesLegend')}</legend>
+                      <div className="amenity-picker__grid">
+                        {amenityOptions.map(([code, labelAr, labelEn, icon]) => (
+                          <label
+                            className={
+                              amenities.includes(code) ? 'amenity-chip is-selected' : 'amenity-chip'
+                            }
+                            key={code}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={amenities.includes(code)}
+                              onChange={(event) =>
+                                setAmenities((current) =>
+                                  event.target.checked
+                                    ? [...current, code]
+                                    : current.filter((value) => value !== code),
+                                )
+                              }
+                            />
+                            <span className="amenity-chip__icon" aria-hidden="true">
+                              {icon}
+                            </span>
+                            <span>{ar ? labelAr : labelEn}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <div className="amenity-custom">
+                        <div className="bilingual-pair">
+                          <Field
+                            id="custom-amenity-ar"
+                            label={t('PropertyForm.customAmenityAr')}
+                            value={customDraft.ar}
+                            onChange={(event) =>
+                              setCustomDraft((c) => ({ ...c, ar: event.target.value }))
+                            }
+                          />
+                          <div className="bilingual-pair__actions">
+                            <span className="bilingual-pair__hint">AR ‖ EN</span>
+                          </div>
+                          <Field
+                            id="custom-amenity-en"
+                            label={t('PropertyForm.customAmenityEn')}
+                            value={customDraft.en}
+                            onChange={(event) =>
+                              setCustomDraft((c) => ({ ...c, en: event.target.value }))
+                            }
+                            dir="ltr"
+                          />
+                        </div>
+                        <Button type="button" variant="quiet" onClick={addCustomAmenity}>
+                          {t('PropertyForm.addCustomAmenity')}
+                        </Button>
+                      </div>
+                    </fieldset>
+                  </div>
+                ) : null}
+
+                {step === 3 ? (
+                  <div className="form-grid">
+                    <SelectField
+                      id="owner-party"
+                      label={ar ? 'الملكية باسم' : 'Ownership under'}
+                      value={selectedOwnerPartyId}
+                      onChange={(event) => setSelectedOwnerPartyId(event.target.value)}
+                      required
+                    >
+                      {(ownerPartyOptions.length
+                        ? ownerPartyOptions
+                        : [
+                            {
+                              id: ownerPartyId,
+                              displayName: ar ? 'حسابي' : 'My account',
+                              type: 'person',
+                            },
+                          ]
+                      ).map((party) => (
+                        <option key={party.id} value={party.id}>
+                          {party.displayName}
+                          {party.id === ownerPartyId ? (ar ? ' (حسابي)' : ' (me)') : ''}
+                        </option>
+                      ))}
+                    </SelectField>
+                    <label className="checkbox-row" htmlFor="show-owner-name">
+                      <input
+                        id="show-owner-name"
+                        type="checkbox"
+                        checked={profile.showOwnerNameOnListing}
+                        onChange={(event) =>
+                          setProfile((current) => ({
+                            ...current,
+                            showOwnerNameOnListing: event.target.checked,
+                          }))
+                        }
+                      />
+                      <span>
+                        {ar
+                          ? 'السماح بإظهار اسم المالك في الإعلان العام'
+                          : 'Allow showing the owner name on the public listing'}
                       </span>
                     </label>
-                    <input
-                      id="property-images"
-                      className="sr-only"
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      multiple
-                      onChange={selectImages}
-                    />
-                    <ul className="media-icon-grid">
-                      {images.map((item) => (
-                        <li key={item.id} className={coverId === item.id ? 'is-cover' : undefined}>
-                          <button
-                            type="button"
-                            className="media-thumb"
-                            onClick={() => setPreviewId(item.id)}
-                          >
-                            <img src={item.url} alt="" />
-                          </button>
-                          <div className="media-thumb__actions">
-                            <label className="checkbox-row">
-                              <input
-                                type="radio"
-                                name="cover"
-                                checked={coverId === item.id}
-                                onChange={() => setCoverId(item.id)}
-                              />
-                              {t('PropertyForm.coverImage')}
-                            </label>
-                            <Button
-                              type="button"
-                              variant="quiet"
-                              disabled={removingIds.has(item.id) || busy}
-                              onClick={() => void removeImage(item.id)}
-                            >
-                              {removingIds.has(item.id)
-                                ? ar
-                                  ? 'جارٍ الحذف…'
-                                  : 'Removing…'
-                                : t('PropertyForm.removeImage')}
-                            </Button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                    {images.length >= 12 ? (
-                      <p className="field__hint">{t('PropertyForm.imagesMaxReached')}</p>
-                    ) : null}
-                  </>
-                ) : (
-                  <div className="form-grid">
-                    <p className="span-2 field__hint">{t('PropertyForm.perUnitImagesHint')}</p>
-                    {units.map((unit) => {
-                      const typeLabel =
-                        unit.unitKind === 'shop'
-                          ? t('PropertyForm.unitKindShop')
-                          : unit.unitKind === 'showroom'
-                            ? t('PropertyForm.unitKindShowroom')
-                            : t('PropertyForm.unitKindApartment');
-                      const inputId = `unit-images-${unit.localId}`;
-                      return (
-                        <div className="span-2 unit-editor" key={unit.localId}>
-                          <div className="unit-editor__head">
-                            <h3>
-                              {typeLabel} · {unit.code}
-                            </h3>
-                          </div>
-                          <label htmlFor={inputId} className="upload-zone__label">
-                            <strong>{t('PropertyForm.unitImages')}</strong>
-                            <span className="button button--quiet">
-                              {unit.images.length
-                                ? t('PropertyForm.addMoreImages')
-                                : t('PropertyForm.chooseImages')}
-                            </span>
-                          </label>
-                          <input
-                            id={inputId}
-                            className="sr-only"
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp"
-                            multiple
-                            onChange={(event) => selectUnitImages(unit.localId, event)}
-                          />
-                          <ul className="media-icon-grid">
-                            {unit.images.map((item) => (
-                              <li key={item.id}>
-                                <button
-                                  type="button"
-                                  className="media-thumb"
-                                  onClick={() => setPreviewId(item.id)}
-                                >
-                                  <img src={item.url} alt="" />
-                                </button>
-                                <div className="media-thumb__actions">
-                                  <Button
-                                    type="button"
-                                    variant="quiet"
-                                    disabled={removingIds.has(item.id) || busy}
-                                    onClick={() => void removeImage(item.id)}
-                                  >
-                                    {removingIds.has(item.id)
-                                      ? ar
-                                        ? 'جارٍ الحذف…'
-                                        : 'Removing…'
-                                      : t('PropertyForm.removeImage')}
-                                  </Button>
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            ) : null}
-
-            {step === 5 ? (
-              <div className="wizard-review">
-                <section className="wizard-review__copy">
-                  <header className="wizard-review__head">
-                    <h2>{t('PropertyForm.professionalDescription')}</h2>
-                    <div className="hero-actions">
-                      <Button type="button" variant="quiet" onClick={runAiDescription}>
-                        {t('PropertyForm.generateDescription')}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="quiet"
-                        disabled={translating !== null || !property.descriptionAr.trim()}
-                        onClick={() =>
-                          void translateField(
-                            property.descriptionAr,
-                            'en',
-                            (value) => updateProperty('descriptionEn', value),
-                            'desc-en',
-                          )
-                        }
-                      >
-                        {translating === 'desc-en' ? '…' : t('PropertyForm.translateToEn')}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="quiet"
-                        disabled={translating !== null || !property.descriptionEn.trim()}
-                        onClick={() =>
-                          void translateField(
-                            property.descriptionEn,
-                            'ar',
-                            (value) => updateProperty('descriptionAr', value),
-                            'desc-ar',
-                          )
-                        }
-                      >
-                        {translating === 'desc-ar' ? '…' : t('PropertyForm.translateToAr')}
-                      </Button>
-                    </div>
-                  </header>
-                  <div className="bilingual-pair bilingual-pair--tall">
-                    <TextAreaField
-                      id="descriptionAr"
-                      label={t('PropertyForm.descriptionAr')}
-                      value={property.descriptionAr}
-                      onChange={(event) => updateProperty('descriptionAr', event.target.value)}
-                      maxLength={5000}
-                    />
-                    <div className="bilingual-pair__actions">
-                      <span className="bilingual-pair__hint">AR ‖ EN</span>
-                    </div>
-                    <TextAreaField
-                      id="descriptionEn"
-                      label={t('PropertyForm.descriptionEn')}
-                      value={property.descriptionEn}
-                      onChange={(event) => updateProperty('descriptionEn', event.target.value)}
-                      maxLength={5000}
-                      dir="ltr"
-                    />
-                  </div>
-                  <p className="field__hint">{t('PropertyForm.serialHint')}</p>
-                </section>
-              </div>
-            ) : null}
-
-            {step === 6 ? (
-              <div className="listing-showcase">
-                <header className="listing-showcase__hero">
-                  <p className="listing-showcase__eyebrow">{t('PropertyForm.listingPreviewHint')}</p>
-                  <h2>{previewTitle}</h2>
-                  <p>{previewLocation || t('PropertyForm.locationFallback')}</p>
-                  <div className="listing-showcase__price">
-                    <strong>{priceLabel}</strong>
-                    <span>{t('Common.monthly')}</span>
-                  </div>
-                </header>
-                <div className="listing-showcase__gallery">
-                  {images.map((item, index) => (
-                    <button
-                      type="button"
-                      key={item.id}
-                      className={
-                        item.id === coverId
-                          ? 'listing-showcase__shot is-cover'
-                          : 'listing-showcase__shot'
-                      }
-                      onClick={() => setPreviewId(item.id)}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={item.url} alt="" />
-                      {index === 0 || item.id === coverId ? (
-                        <span>{t('PropertyForm.coverImage')}</span>
-                      ) : null}
-                    </button>
-                  ))}
-                </div>
-                <div className="listing-showcase__grid">
-                  <section className="listing-showcase__panel">
-                    <h3>{t('Property.details')}</h3>
-                    <dl className="detail-facts">
-                      <div>
-                        <dt>{t('PropertyForm.code')}</dt>
-                        <dd dir="ltr">U-01</dd>
-                      </div>
-                      <div>
-                        <dt>{t('PropertyForm.floor')}</dt>
-                        <dd>{primary.floor || '—'}</dd>
-                      </div>
-                      <div>
-                        <dt>{t('Property.beds')}</dt>
-                        <dd>{primary.bedrooms || '—'}</dd>
-                      </div>
-                      <div>
-                        <dt>{t('Property.baths')}</dt>
-                        <dd>{primary.bathrooms || '—'}</dd>
-                      </div>
-                      <div>
-                        <dt>{t('PropertyForm.majlis')}</dt>
-                        <dd>{primary.majlis || '—'}</dd>
-                      </div>
-                      <div>
-                        <dt>{t('PropertyForm.halls')}</dt>
-                        <dd>{primary.halls || '—'}</dd>
-                      </div>
-                      <div>
-                        <dt>{t('PropertyForm.kitchens')}</dt>
-                        <dd>{primary.kitchens || '—'}</dd>
-                      </div>
-                      <div>
-                        <dt>{t('PropertyForm.hasPool')}</dt>
-                        <dd>
-                          {primary.hasPool === 'true'
-                            ? t('PropertyForm.poolAvailable')
-                            : primary.hasPool === 'false'
-                              ? t('PropertyForm.poolUnavailable')
-                              : '—'}
-                        </dd>
-                      </div>
-                      {primary.area ? (
-                        <div>
-                          <dt>{t('Property.area')}</dt>
-                          <dd>
-                            {primary.area} m²
-                          </dd>
-                        </div>
-                      ) : null}
-                      <div>
-                        <dt>{t('PropertyForm.category')}</dt>
-                        <dd>
-                          {
-                            (
-                              {
-                                apartment: t('PropertyForm.categoryApartment'),
-                                villa: t('PropertyForm.categoryVilla'),
-                                building: t('PropertyForm.categoryBuilding'),
-                                office: t('PropertyForm.categoryOffice'),
-                                shop: t('PropertyForm.categoryShop'),
-                                warehouse: t('PropertyForm.categoryWarehouse'),
-                                land: t('PropertyForm.categoryLand'),
-                                other: t('PropertyForm.categoryOther'),
-                              } as Record<string, string>
-                            )[property.category]
-                          }
-                        </dd>
-                      </div>
-                    </dl>
-                    <p>
-                      {locale === 'ar'
-                        ? property.descriptionAr || '—'
-                        : property.descriptionEn || '—'}
+                    <p className="field__hint span-2">
+                      {ar
+                        ? 'مقفول افتراضياً. عند التفعيل يظهر الاسم في صفحة العقار العامة فقط.'
+                        : 'Off by default. When enabled, the name appears on the public property page only.'}
                     </p>
-                  </section>
-                  <aside className="listing-showcase__aside">
-                    <div className="listing-showcase__book">
-                      <p>{t('Property.available')}</p>
-                      <h3>
-                        {priceLabel} <small>{t('Common.monthly')}</small>
-                      </h3>
-                      <p className="field__hint">{t('PropertyForm.listingPreviewCta')}</p>
+                    <p className="muted span-2">
+                      {ar
+                        ? 'اختر الطرف الذي سيُسجَّل كمالك للعقار في سجل الملكية. يمكنك إضافة أطراف من قائمة الأطراف والجهات.'
+                        : 'Choose the party recorded as owner. Add more parties from the Parties section.'}
+                    </p>
+                    <Field
+                      id="deed-number"
+                      label={ar ? 'رقم سند الملكية' : 'Title deed number'}
+                      value={profile.deedNumber}
+                      onChange={(event) => updateProfile('deedNumber', event.target.value)}
+                    />
+                    <Field
+                      id="plot-number"
+                      label={ar ? 'رقم القطعة' : 'Plot number'}
+                      value={profile.plotNumber}
+                      onChange={(event) => updateProfile('plotNumber', event.target.value)}
+                    />
+                    <Field
+                      id="municipality-number"
+                      label={ar ? 'الرقم البلدي' : 'Municipality number'}
+                      value={profile.municipalityNumber}
+                      onChange={(event) => updateProfile('municipalityNumber', event.target.value)}
+                    />
+                    <Field
+                      id="insurance-number"
+                      label={ar ? 'رقم وثيقة التأمين' : 'Insurance policy number'}
+                      value={profile.insuranceNumber}
+                      onChange={(event) => updateProfile('insuranceNumber', event.target.value)}
+                    />
+                    <Field
+                      id="insurance-expiry"
+                      type="date"
+                      label={ar ? 'انتهاء التأمين' : 'Insurance expiry'}
+                      value={profile.insuranceExpiresOn}
+                      onChange={(event) => updateProfile('insuranceExpiresOn', event.target.value)}
+                    />
+                    <Field
+                      id="electricity-meter"
+                      label={ar ? 'عداد الكهرباء' : 'Electricity meter'}
+                      value={profile.electricityMeter}
+                      onChange={(event) => updateProfile('electricityMeter', event.target.value)}
+                    />
+                    <Field
+                      id="water-meter"
+                      label={ar ? 'عداد المياه' : 'Water meter'}
+                      value={profile.waterMeter}
+                      onChange={(event) => updateProfile('waterMeter', event.target.value)}
+                    />
+                    <TextAreaField
+                      id="property-notes"
+                      label={ar ? 'ملاحظات تشغيلية وقانونية' : 'Operational/legal notes'}
+                      value={profile.notes}
+                      onChange={(event) => updateProfile('notes', event.target.value)}
+                      maxLength={5000}
+                    />
+                    <div className="span-2 private-docs">
+                      <div className="private-docs__banner" role="note">
+                        <strong>{t('PropertyForm.privateDocsTitle')}</strong>
+                        <p>{t('PropertyForm.privateDocsNote')}</p>
+                      </div>
+                      {(
+                        [
+                          ['title_deed', 'docOwnership'],
+                          ['floor_plan', 'docSurvey'],
+                          ['other', 'docOwnerId'],
+                        ] as const
+                      ).map(([docType, labelKey]) => {
+                        const current = documents.find((item) => item.documentType === docType);
+                        const inputId = `property-doc-${docType}`;
+                        return (
+                          <div className="private-docs__slot" key={docType}>
+                            <div className="private-docs__head">
+                              <strong>{t(`PropertyForm.${labelKey}`)}</strong>
+                              <span>{t('PropertyForm.optional')}</span>
+                            </div>
+                            <label className="private-docs__drop" htmlFor={inputId}>
+                              <input
+                                id={inputId}
+                                className="sr-only"
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp,application/pdf"
+                                onChange={(event) => selectDocuments(docType, event)}
+                              />
+                              {current ? (
+                                <span className="private-docs__file">
+                                  <button
+                                    type="button"
+                                    className="media-icon"
+                                    onClick={(event) => {
+                                      event.preventDefault();
+                                      setPreviewId(current.id);
+                                    }}
+                                  >
+                                    <span aria-hidden="true">
+                                      {current.kind === 'pdf' ? 'PDF' : 'IMG'}
+                                    </span>
+                                    <small>
+                                      {current.file?.name ||
+                                        current.label ||
+                                        (current.existing
+                                          ? ar
+                                            ? 'مستند محفوظ'
+                                            : 'Saved document'
+                                          : t('PropertyForm.chooseFile'))}
+                                    </small>
+                                  </button>
+                                </span>
+                              ) : (
+                                <span>{t('PropertyForm.chooseFile')}</span>
+                              )}
+                            </label>
+                            {current ? (
+                              <Button
+                                type="button"
+                                variant="quiet"
+                                onClick={() => removeDocument(docType)}
+                              >
+                                {t('PropertyForm.removeFile')}
+                              </Button>
+                            ) : null}
+                          </div>
+                        );
+                      })}
                     </div>
-                    {mapCoords ? (
-                      <iframe
-                        title={t('PropertyForm.mapsPreview')}
-                        className="maps-preview__frame"
-                        loading="lazy"
-                        referrerPolicy="no-referrer-when-downgrade"
-                        src={googleMapsEmbedSrc(mapCoords.latitude, mapCoords.longitude)}
-                      />
-                    ) : null}
-                  </aside>
-                </div>
-                <section className="listing-showcase__amenities">
-                  <h3>{t('PropertyForm.amenitiesLegend')}</h3>
-                  <div className="amenity-picker__grid">
-                    {amenityOptions
-                      .filter(([code]) => amenities.includes(code))
-                      .map(([code, labelAr, labelEn, icon]) => (
-                        <div className="amenity-chip is-selected" key={code}>
-                          <span className="amenity-chip__icon" aria-hidden="true">
-                            {icon}
-                          </span>
-                          <span>{ar ? labelAr : labelEn}</span>
-                        </div>
-                      ))}
-                    {!amenities.length ? (
-                      <p className="field__hint">{ar ? 'لم تُختر مرافق بعد.' : 'No amenities selected yet.'}</p>
-                    ) : null}
                   </div>
-                </section>
-              </div>
-            ) : null}
+                ) : null}
+
+                {step === 4 ? (
+                  <div className="upload-zone">
+                    {kind === 'multi_unit' ? (
+                      <div className="field span-2" style={{ marginBottom: '1rem' }}>
+                        <label>{t('PropertyForm.multiMediaMode')}</label>
+                        <div className="wizard-seg" role="radiogroup">
+                          <label
+                            className={
+                              multiMediaMode === 'building'
+                                ? 'wizard-seg__item is-active'
+                                : 'wizard-seg__item'
+                            }
+                          >
+                            <input
+                              type="radio"
+                              name="multi-media-mode"
+                              checked={multiMediaMode === 'building'}
+                              onChange={() => setMultiMediaMode('building')}
+                            />
+                            {t('PropertyForm.multiMediaBuilding')}
+                          </label>
+                          <label
+                            className={
+                              multiMediaMode === 'per_unit'
+                                ? 'wizard-seg__item is-active'
+                                : 'wizard-seg__item'
+                            }
+                          >
+                            <input
+                              type="radio"
+                              name="multi-media-mode"
+                              checked={multiMediaMode === 'per_unit'}
+                              onChange={() => setMultiMediaMode('per_unit')}
+                            />
+                            {t('PropertyForm.multiMediaPerUnit')}
+                          </label>
+                        </div>
+                        <p className="field__hint">{t('PropertyForm.multiMediaModeHint')}</p>
+                      </div>
+                    ) : null}
+
+                    {kind !== 'multi_unit' || multiMediaMode === 'building' ? (
+                      <>
+                        <label htmlFor="property-images" className="upload-zone__label">
+                          <strong>
+                            {kind === 'multi_unit'
+                              ? t('PropertyForm.buildingImages')
+                              : t('PropertyForm.images')}
+                          </strong>
+                          <p>{t('PropertyForm.imagesOptional')}</p>
+                          {kind === 'multi_unit' ? (
+                            <p className="field__hint">{t('PropertyForm.buildingImagesHint')}</p>
+                          ) : null}
+                          <p className="field__hint">{t('PropertyForm.imagesAppendHint')}</p>
+                          <p className="field__hint">{t('PropertyForm.imageHelp')}</p>
+                          <span className="button button--quiet">
+                            {images.length
+                              ? t('PropertyForm.addMoreImages')
+                              : t('PropertyForm.chooseImages')}
+                          </span>
+                        </label>
+                        <input
+                          id="property-images"
+                          className="sr-only"
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          multiple
+                          onChange={selectImages}
+                        />
+                        <ul className="media-icon-grid">
+                          {images.map((item) => (
+                            <li
+                              key={item.id}
+                              className={coverId === item.id ? 'is-cover' : undefined}
+                            >
+                              <button
+                                type="button"
+                                className="media-thumb"
+                                onClick={() => setPreviewId(item.id)}
+                              >
+                                <img src={item.url} alt="" />
+                              </button>
+                              <div className="media-thumb__actions">
+                                <label className="checkbox-row">
+                                  <input
+                                    type="radio"
+                                    name="cover"
+                                    checked={coverId === item.id}
+                                    onChange={() => setCoverId(item.id)}
+                                  />
+                                  {t('PropertyForm.coverImage')}
+                                </label>
+                                <Button
+                                  type="button"
+                                  variant="quiet"
+                                  disabled={removingIds.has(item.id) || busy}
+                                  onClick={() => void removeImage(item.id)}
+                                >
+                                  {removingIds.has(item.id)
+                                    ? ar
+                                      ? 'جارٍ الحذف…'
+                                      : 'Removing…'
+                                    : t('PropertyForm.removeImage')}
+                                </Button>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                        {images.length >= 12 ? (
+                          <p className="field__hint">{t('PropertyForm.imagesMaxReached')}</p>
+                        ) : null}
+                      </>
+                    ) : (
+                      <div className="form-grid">
+                        <p className="span-2 field__hint">{t('PropertyForm.perUnitImagesHint')}</p>
+                        {units.map((unit) => {
+                          const typeLabel =
+                            unit.unitKind === 'shop'
+                              ? t('PropertyForm.unitKindShop')
+                              : unit.unitKind === 'showroom'
+                                ? t('PropertyForm.unitKindShowroom')
+                                : t('PropertyForm.unitKindApartment');
+                          const inputId = `unit-images-${unit.localId}`;
+                          return (
+                            <div className="span-2 unit-editor" key={unit.localId}>
+                              <div className="unit-editor__head">
+                                <h3>
+                                  {typeLabel} · {unit.code}
+                                </h3>
+                              </div>
+                              <label htmlFor={inputId} className="upload-zone__label">
+                                <strong>{t('PropertyForm.unitImages')}</strong>
+                                <span className="button button--quiet">
+                                  {unit.images.length
+                                    ? t('PropertyForm.addMoreImages')
+                                    : t('PropertyForm.chooseImages')}
+                                </span>
+                              </label>
+                              <input
+                                id={inputId}
+                                className="sr-only"
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                multiple
+                                onChange={(event) => selectUnitImages(unit.localId, event)}
+                              />
+                              <ul className="media-icon-grid">
+                                {unit.images.map((item) => (
+                                  <li key={item.id}>
+                                    <button
+                                      type="button"
+                                      className="media-thumb"
+                                      onClick={() => setPreviewId(item.id)}
+                                    >
+                                      <img src={item.url} alt="" />
+                                    </button>
+                                    <div className="media-thumb__actions">
+                                      <Button
+                                        type="button"
+                                        variant="quiet"
+                                        disabled={removingIds.has(item.id) || busy}
+                                        onClick={() => void removeImage(item.id)}
+                                      >
+                                        {removingIds.has(item.id)
+                                          ? ar
+                                            ? 'جارٍ الحذف…'
+                                            : 'Removing…'
+                                          : t('PropertyForm.removeImage')}
+                                      </Button>
+                                    </div>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+
+                {step === 5 ? (
+                  <div className="wizard-review">
+                    <section className="wizard-review__copy">
+                      <header className="wizard-review__head">
+                        <h2>{t('PropertyForm.professionalDescription')}</h2>
+                        <div className="hero-actions">
+                          <Button type="button" variant="quiet" onClick={runAiDescription}>
+                            {t('PropertyForm.generateDescription')}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="quiet"
+                            disabled={translating !== null || !property.descriptionAr.trim()}
+                            onClick={() =>
+                              void translateField(
+                                property.descriptionAr,
+                                'en',
+                                (value) => updateProperty('descriptionEn', value),
+                                'desc-en',
+                              )
+                            }
+                          >
+                            {translating === 'desc-en' ? '…' : t('PropertyForm.translateToEn')}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="quiet"
+                            disabled={translating !== null || !property.descriptionEn.trim()}
+                            onClick={() =>
+                              void translateField(
+                                property.descriptionEn,
+                                'ar',
+                                (value) => updateProperty('descriptionAr', value),
+                                'desc-ar',
+                              )
+                            }
+                          >
+                            {translating === 'desc-ar' ? '…' : t('PropertyForm.translateToAr')}
+                          </Button>
+                        </div>
+                      </header>
+                      <div className="bilingual-pair bilingual-pair--tall">
+                        <TextAreaField
+                          id="descriptionAr"
+                          label={t('PropertyForm.descriptionAr')}
+                          value={property.descriptionAr}
+                          onChange={(event) => updateProperty('descriptionAr', event.target.value)}
+                          maxLength={5000}
+                        />
+                        <div className="bilingual-pair__actions">
+                          <span className="bilingual-pair__hint">AR ‖ EN</span>
+                        </div>
+                        <TextAreaField
+                          id="descriptionEn"
+                          label={t('PropertyForm.descriptionEn')}
+                          value={property.descriptionEn}
+                          onChange={(event) => updateProperty('descriptionEn', event.target.value)}
+                          maxLength={5000}
+                          dir="ltr"
+                        />
+                      </div>
+                      <p className="field__hint">{t('PropertyForm.serialHint')}</p>
+                    </section>
+                  </div>
+                ) : null}
+
+                {step === 6 ? (
+                  <div className="listing-showcase">
+                    <header className="listing-showcase__hero">
+                      <p className="listing-showcase__eyebrow">
+                        {t('PropertyForm.listingPreviewHint')}
+                      </p>
+                      <h2>{previewTitle}</h2>
+                      <p>{previewLocation || t('PropertyForm.locationFallback')}</p>
+                      <div className="listing-showcase__price">
+                        <strong>{priceLabel}</strong>
+                        <span>{t('Common.monthly')}</span>
+                      </div>
+                    </header>
+                    <div className="listing-showcase__gallery">
+                      {images.map((item, index) => (
+                        <button
+                          type="button"
+                          key={item.id}
+                          className={
+                            item.id === coverId
+                              ? 'listing-showcase__shot is-cover'
+                              : 'listing-showcase__shot'
+                          }
+                          onClick={() => setPreviewId(item.id)}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={item.url} alt="" />
+                          {index === 0 || item.id === coverId ? (
+                            <span>{t('PropertyForm.coverImage')}</span>
+                          ) : null}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="listing-showcase__grid">
+                      <section className="listing-showcase__panel">
+                        <h3>{t('Property.details')}</h3>
+                        <dl className="detail-facts">
+                          <div>
+                            <dt>{t('PropertyForm.code')}</dt>
+                            <dd dir="ltr">U-01</dd>
+                          </div>
+                          <div>
+                            <dt>{t('PropertyForm.floor')}</dt>
+                            <dd>{primary.floor || '—'}</dd>
+                          </div>
+                          <div>
+                            <dt>{t('Property.beds')}</dt>
+                            <dd>{primary.bedrooms || '—'}</dd>
+                          </div>
+                          <div>
+                            <dt>{t('Property.baths')}</dt>
+                            <dd>{primary.bathrooms || '—'}</dd>
+                          </div>
+                          <div>
+                            <dt>{t('PropertyForm.majlis')}</dt>
+                            <dd>{primary.majlis || '—'}</dd>
+                          </div>
+                          <div>
+                            <dt>{t('PropertyForm.halls')}</dt>
+                            <dd>{primary.halls || '—'}</dd>
+                          </div>
+                          <div>
+                            <dt>{t('PropertyForm.kitchens')}</dt>
+                            <dd>{primary.kitchens || '—'}</dd>
+                          </div>
+                          <div>
+                            <dt>{t('PropertyForm.hasPool')}</dt>
+                            <dd>
+                              {primary.hasPool === 'true'
+                                ? t('PropertyForm.poolAvailable')
+                                : primary.hasPool === 'false'
+                                  ? t('PropertyForm.poolUnavailable')
+                                  : '—'}
+                            </dd>
+                          </div>
+                          {primary.area ? (
+                            <div>
+                              <dt>{t('Property.area')}</dt>
+                              <dd>{primary.area} m²</dd>
+                            </div>
+                          ) : null}
+                          <div>
+                            <dt>{t('PropertyForm.category')}</dt>
+                            <dd>
+                              {
+                                (
+                                  {
+                                    apartment: t('PropertyForm.categoryApartment'),
+                                    villa: t('PropertyForm.categoryVilla'),
+                                    building: t('PropertyForm.categoryBuilding'),
+                                    office: t('PropertyForm.categoryOffice'),
+                                    shop: t('PropertyForm.categoryShop'),
+                                    warehouse: t('PropertyForm.categoryWarehouse'),
+                                    land: t('PropertyForm.categoryLand'),
+                                    other: t('PropertyForm.categoryOther'),
+                                  } as Record<string, string>
+                                )[property.category]
+                              }
+                            </dd>
+                          </div>
+                        </dl>
+                        <p>
+                          {locale === 'ar'
+                            ? property.descriptionAr || '—'
+                            : property.descriptionEn || '—'}
+                        </p>
+                      </section>
+                      <aside className="listing-showcase__aside">
+                        <div className="listing-showcase__book">
+                          <p>{t('Property.available')}</p>
+                          <h3>
+                            {priceLabel} <small>{t('Common.monthly')}</small>
+                          </h3>
+                          <p className="field__hint">{t('PropertyForm.listingPreviewCta')}</p>
+                        </div>
+                        {mapCoords ? (
+                          <iframe
+                            title={t('PropertyForm.mapsPreview')}
+                            className="maps-preview__frame"
+                            loading="lazy"
+                            referrerPolicy="no-referrer-when-downgrade"
+                            src={googleMapsEmbedSrc(mapCoords.latitude, mapCoords.longitude)}
+                          />
+                        ) : null}
+                      </aside>
+                    </div>
+                    <section className="listing-showcase__amenities">
+                      <h3>{t('PropertyForm.amenitiesLegend')}</h3>
+                      <div className="amenity-picker__grid">
+                        {amenityOptions
+                          .filter(([code]) => amenities.includes(code))
+                          .map(([code, labelAr, labelEn, icon]) => (
+                            <div className="amenity-chip is-selected" key={code}>
+                              <span className="amenity-chip__icon" aria-hidden="true">
+                                {icon}
+                              </span>
+                              <span>{ar ? labelAr : labelEn}</span>
+                            </div>
+                          ))}
+                        {!amenities.length ? (
+                          <p className="field__hint">
+                            {ar ? 'لم تُختر مرافق بعد.' : 'No amenities selected yet.'}
+                          </p>
+                        ) : null}
+                      </div>
+                    </section>
+                  </div>
+                ) : null}
               </div>
             </div>
 
             {error ? (
               <div className="notice notice--error" role="alert">
                 <p>{error}</p>
-                {/Render|health\/ready|DATABASE_URL|api_unreachable|تعذر الوصول إلى/i.test(error) ? (
+                {/Render|health\/ready|DATABASE_URL|api_unreachable|تعذر الوصول إلى/i.test(
+                  error,
+                ) ? (
                   <div style={{ marginTop: '0.75rem' }}>
                     <NestReconnectButton locale={locale === 'en' ? 'en' : 'ar'} />
                   </div>
@@ -3290,7 +3373,9 @@ export function PropertyWizard({
                   type="button"
                   variant="quiet"
                   disabled={busy}
-                  onClick={(event) => void submit(event as unknown as FormEvent<HTMLFormElement>, true)}
+                  onClick={(event) =>
+                    void submit(event as unknown as FormEvent<HTMLFormElement>, true)
+                  }
                 >
                   {busy ? t('Common.saving') : t('PropertyForm.saveDraft')}
                 </Button>

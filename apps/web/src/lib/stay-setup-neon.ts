@@ -21,6 +21,7 @@ import {
   units,
   type Database,
 } from '@bhd-r/db';
+import type { PropertyStaySettingsUnit } from '@/lib/property-stay-settings';
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdRStaySetupWriteDb?: DbHandle };
@@ -136,6 +137,106 @@ async function loadUnitCovers(
     }
   }
   return map;
+}
+
+/** Per-unit daily-rental settings for the property edit page (units that have a stay profile). */
+export async function loadPropertyStaySettingsOnNeon(
+  claims: SessionClaims,
+  propertyId: string,
+): Promise<PropertyStaySettingsUnit[]> {
+  const organizationId = assertOrg(claims);
+  return withinTenant(claims, async (transaction) => {
+    const rows = await transaction
+      .select({
+        unitId: units.id,
+        unitCode: units.code,
+        unitNameAr: units.nameAr,
+        unitNameEn: units.nameEn,
+        profileId: stayProfiles.id,
+        unitTypeId: stayProfiles.unitTypeId,
+        publishStatus: stayProfiles.publishStatus,
+        currency: stayProfiles.currency,
+        minorUnit: stayProfiles.minorUnit,
+        maxGuests: stayProfiles.maxGuests,
+        overnightMaxGuests: stayProfiles.overnightMaxGuests,
+        dayUseMaxGuests: stayProfiles.dayUseMaxGuests,
+        minNights: stayProfiles.minNights,
+        maxNights: stayProfiles.maxNights,
+        instantBook: stayProfiles.instantBook,
+        checkInFrom: stayProfiles.checkInFrom,
+        checkOutUntil: stayProfiles.checkOutUntil,
+        dayUseCheckOutUntil: stayProfiles.dayUseCheckOutUntil,
+        overnightCheckOutUntil: stayProfiles.overnightCheckOutUntil,
+        depositMinor: stayProfiles.depositMinor,
+      })
+      .from(stayProfiles)
+      .innerJoin(units, eq(units.id, stayProfiles.unitId))
+      .where(and(eq(stayProfiles.organizationId, organizationId), eq(units.propertyId, propertyId)))
+      .orderBy(asc(units.code));
+    if (!rows.length) return [];
+
+    const [rates, listingRows] = await Promise.all([
+      transaction
+        .select({
+          stayProfileId: stayRatePlans.stayProfileId,
+          baseNightlyMinor: stayRatePlans.baseNightlyMinor,
+          weekendNightlyMinor: stayRatePlans.weekendNightlyMinor,
+          dayUseMinor: stayRatePlans.dayUseMinor,
+          overnightOnlyMinor: stayRatePlans.overnightOnlyMinor,
+        })
+        .from(stayRatePlans)
+        .where(
+          and(
+            eq(stayRatePlans.organizationId, organizationId),
+            eq(stayRatePlans.code, 'base'),
+            inArray(
+              stayRatePlans.stayProfileId,
+              rows.map((row) => row.profileId),
+            ),
+          ),
+        ),
+      transaction
+        .select({ unitTypeId: stayPublicListings.unitTypeId, slug: stayPublicListings.slug })
+        .from(stayPublicListings)
+        .where(
+          and(
+            eq(stayPublicListings.organizationId, organizationId),
+            eq(stayPublicListings.propertyId, propertyId),
+          ),
+        ),
+    ]);
+    const rateByProfile = new Map(rates.map((rate) => [rate.stayProfileId, rate]));
+    const slugByUnitType = new Map(listingRows.map((row) => [row.unitTypeId, row.slug]));
+    const text = (value: bigint | null | undefined) => (value == null ? null : String(value));
+
+    return rows.map((row) => {
+      const rate = rateByProfile.get(row.profileId);
+      return {
+        unitId: row.unitId,
+        unitCode: row.unitCode,
+        unitNameAr: row.unitNameAr,
+        unitNameEn: row.unitNameEn,
+        profileId: row.profileId,
+        publishStatus: row.publishStatus,
+        listingSlug: row.unitTypeId ? (slugByUnitType.get(row.unitTypeId) ?? null) : null,
+        currency: row.currency,
+        minorUnit: row.minorUnit,
+        overnightMaxGuests: row.overnightMaxGuests ?? row.maxGuests,
+        dayUseMaxGuests: row.dayUseMaxGuests,
+        minNights: row.minNights,
+        maxNights: row.maxNights,
+        instantBook: row.instantBook,
+        checkInFrom: row.checkInFrom,
+        dayUseCheckOutUntil: row.dayUseCheckOutUntil,
+        overnightCheckOutUntil: row.overnightCheckOutUntil ?? row.checkOutUntil,
+        depositMinor: text(row.depositMinor),
+        baseNightlyMinor: text(rate?.baseNightlyMinor),
+        weekendNightlyMinor: text(rate?.weekendNightlyMinor),
+        dayUseMinor: text(rate?.dayUseMinor),
+        overnightOnlyMinor: text(rate?.overnightOnlyMinor),
+      };
+    });
+  });
 }
 
 export async function loadStaySetupContextOnNeon(
@@ -277,19 +378,15 @@ export async function loadStaySetupContextOnNeon(
           instantBook: draftSource.instantBook,
           checkInFrom: draftSource.checkInFrom,
           dayUseCheckOutUntil: draftSource.dayUseCheckOutUntil,
-          overnightCheckOutUntil:
-            draftSource.overnightCheckOutUntil ?? draftSource.checkOutUntil,
+          overnightCheckOutUntil: draftSource.overnightCheckOutUntil ?? draftSource.checkOutUntil,
           dayUseMaxGuests: draftSource.dayUseMaxGuests,
           overnightMaxGuests: draftSource.overnightMaxGuests,
-          depositMinor:
-            draftSource.depositMinor == null ? null : String(draftSource.depositMinor),
+          depositMinor: draftSource.depositMinor == null ? null : String(draftSource.depositMinor),
           baseNightlyMinor:
             primaryRate?.baseNightlyMinor == null ? null : String(primaryRate.baseNightlyMinor),
           dayUseMinor: primaryRate?.dayUseMinor == null ? null : String(primaryRate.dayUseMinor),
           overnightOnlyMinor:
-            primaryRate?.overnightOnlyMinor == null
-              ? null
-              : String(primaryRate.overnightOnlyMinor),
+            primaryRate?.overnightOnlyMinor == null ? null : String(primaryRate.overnightOnlyMinor),
           policiesAr: draftSource.policiesAr,
           policiesEn: draftSource.policiesEn,
           policiesJson: draftSource.policiesJson ?? [],
@@ -490,7 +587,9 @@ export async function createStayProfilesOnNeon(
       const [existing] = await transaction
         .select({ id: stayProfiles.id })
         .from(stayProfiles)
-        .where(and(eq(stayProfiles.organizationId, organizationId), eq(stayProfiles.unitId, unitId)))
+        .where(
+          and(eq(stayProfiles.organizationId, organizationId), eq(stayProfiles.unitId, unitId)),
+        )
         .limit(1);
 
       if (existing) {
@@ -558,13 +657,8 @@ export async function updateStayProfileOnNeon(
       .limit(1);
     if (!profile) throw new Error('stay_profile_not_found');
 
-    const {
-      depositMinor,
-      policiesJson,
-      overnightCheckOutUntil,
-      overnightMaxGuests,
-      ...rest
-    } = input;
+    const { depositMinor, policiesJson, overnightCheckOutUntil, overnightMaxGuests, ...rest } =
+      input;
 
     const [updated] = await transaction
       .update(stayProfiles)
@@ -760,7 +854,9 @@ async function rebuildStayInventoryDaysOnNeon(
         base_nightly_minor: string | null;
       }
     | undefined;
-  const advance = row ? Math.min(Math.max(row.advance_booking_days || horizon, 1), horizon) : horizon;
+  const advance = row
+    ? Math.min(Math.max(row.advance_booking_days || horizon, 1), horizon)
+    : horizon;
   const currency = row?.currency ?? null;
   const minNights = row?.min_nights ?? null;
   const rateMinor = row?.base_nightly_minor ?? null;

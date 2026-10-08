@@ -32,6 +32,7 @@ import {
   unitKindLabel,
 } from '@/lib/unit-identity';
 import type { ReviewTargetType } from '@/lib/reviews-types';
+import type { OfferingMode } from '@/lib/unit-offering-modes';
 
 function defaultStayCheckIn(): string {
   const d = new Date();
@@ -61,6 +62,9 @@ interface ManagedUnit {
   rentMinor: string;
   salePriceMinor: string | null;
   depositMinor: string | null;
+  /** Purchase booking deposit; when null, purchase bookings use `depositMinor`. */
+  saleDepositMinor?: string | null;
+  offeringModes?: OfferingMode[];
   currency: CurrencyCode;
   listingPurpose: 'rent' | 'sale' | 'both';
   publishWhenAvailable: boolean;
@@ -253,9 +257,7 @@ export function PropertyDetailManager({
 
   const publicPath = `/${locale}/properties/${property.id}`;
   /** QR and «عرض العقار» always open the public listing URL. */
-  const propertyPath = focusUnitId
-    ? `/${locale}/units/${focusUnitId}`
-    : publicPath;
+  const propertyPath = focusUnitId ? `/${locale}/units/${focusUnitId}` : publicPath;
   const gallery = useMemo(() => {
     const unitIdsOrdered = [...property.units]
       .sort((a, b) => a.code.localeCompare(b.code))
@@ -278,9 +280,9 @@ export function PropertyDetailManager({
     [property.serialNumber, property.units],
   );
   const unitKindCounts = useMemo(() => summarizeUnitKinds(property.units), [property.units]);
-  const focusedSerial = primaryUnit ? unitSerials.get(primaryUnit.id) ?? null : null;
+  const focusedSerial = primaryUnit ? (unitSerials.get(primaryUnit.id) ?? null) : null;
   const displaySerial =
-    focusUnitId && focusedSerial ? focusedSerial : property.serialNumber ?? null;
+    focusUnitId && focusedSerial ? focusedSerial : (property.serialNumber ?? null);
   const focusedUnitKind = primaryUnit ? inferUnitKind(primaryUnit) : null;
   const focusedUnitHeadline =
     focusUnitId && primaryUnit && focusedUnitKind
@@ -774,203 +776,207 @@ export function PropertyDetailManager({
           ) : null}
 
           {!stayBooking ? (
-          <section className="property-360__section">
-            <h2>
-              {property.kind === 'multi_unit'
-                ? ar
-                  ? 'الوحدات داخل المبنى'
-                  : 'Units in this building'
-                : ar
-                  ? 'الوحدات'
-                  : 'Units'}
-            </h2>
-            {property.kind === 'multi_unit' ? (
-              <p className="muted property-360__units-intro">
-                {ar
-                  ? 'اضغط على أي وحدة لعرض التفاصيل — القائمة مطوية افتراضياً لتبقى الصفحة منظمة.'
-                  : 'Tap a unit to expand details — collapsed by default for a cleaner page.'}
-              </p>
-            ) : null}
-            <div
-              className={
-                property.kind === 'multi_unit' && isPublic
-                  ? 'property-360__units property-360__units--accordion'
-                  : 'property-360__units'
-              }
-            >
-              {property.units.map((unit) => {
-                const kind = inferUnitKind(unit);
-                const serial = unitSerials.get(unit.id);
-                const occupancy = (unit.occupancy ?? 'available') as UnitOccupancy;
-                const unitTitle =
-                  property.kind === 'multi_unit'
-                    ? `${unitKindLabel(kind, locale)} ${unit.code}`.trim()
-                    : ar
-                      ? unit.nameAr
-                      : unit.nameEn;
+            <section className="property-360__section">
+              <h2>
+                {property.kind === 'multi_unit'
+                  ? ar
+                    ? 'الوحدات داخل المبنى'
+                    : 'Units in this building'
+                  : ar
+                    ? 'الوحدات'
+                    : 'Units'}
+              </h2>
+              {property.kind === 'multi_unit' ? (
+                <p className="muted property-360__units-intro">
+                  {ar
+                    ? 'اضغط على أي وحدة لعرض التفاصيل — القائمة مطوية افتراضياً لتبقى الصفحة منظمة.'
+                    : 'Tap a unit to expand details — collapsed by default for a cleaner page.'}
+                </p>
+              ) : null}
+              <div
+                className={
+                  property.kind === 'multi_unit' && isPublic
+                    ? 'property-360__units property-360__units--accordion'
+                    : 'property-360__units'
+                }
+              >
+                {property.units.map((unit) => {
+                  const kind = inferUnitKind(unit);
+                  const serial = unitSerials.get(unit.id);
+                  const occupancy = (unit.occupancy ?? 'available') as UnitOccupancy;
+                  const unitTitle =
+                    property.kind === 'multi_unit'
+                      ? `${unitKindLabel(kind, locale)} ${unit.code}`.trim()
+                      : ar
+                        ? unit.nameAr
+                        : unit.nameEn;
 
-                const unitBody = (
-                  <>
-                    <header>
-                      <div>
-                        <strong>{unitTitle}</strong>
-                        {property.kind === 'multi_unit' ? (
-                          <small>{buildingNameLine}</small>
-                        ) : (
-                          <small dir="ltr">{unit.code}</small>
-                        )}
-                        {serial ? (
-                          <small className="property-360__unit-serial" dir="ltr">
-                            {serial}
-                          </small>
-                        ) : null}
-                      </div>
-                      <div className="property-360__unit-badges">
-                        <span
-                          className={`status-pill status-pill--${
-                            occupancy === 'available'
-                              ? 'ready'
-                              : occupancy === 'reserved'
-                                ? 'warn'
-                                : 'muted'
-                          }`}
-                        >
-                          {occupancyLabel(occupancy, locale)}
-                        </span>
-                        <span
-                          className={`status-pill status-pill--${unit.listingEnabled ? 'ready' : 'muted'}`}
-                        >
-                          {listingPurposeCaption(unit.listingPurpose, locale)}
-                        </span>
-                      </div>
-                    </header>
-                    <dl>
-                      <div>
-                        <dt>
-                          <span aria-hidden="true">🛏</span>
-                          {ar ? 'غرف' : 'Beds'}
-                        </dt>
-                        <dd>{unit.bedrooms}</dd>
-                      </div>
-                      <div>
-                        <dt>
-                          <span aria-hidden="true">🛁</span>
-                          {ar ? 'حمامات' : 'Baths'}
-                        </dt>
-                        <dd>{unit.bathrooms}</dd>
-                      </div>
-                      <div>
-                        <dt>
-                          <span aria-hidden="true">🪑</span>
-                          {ar ? 'مجالس' : 'Majlis'}
-                        </dt>
-                        <dd>{unit.majlis}</dd>
-                      </div>
-                      <div>
-                        <dt>
-                          <span aria-hidden="true">🛋</span>
-                          {ar ? 'صالات' : 'Halls'}
-                        </dt>
-                        <dd>{unit.halls}</dd>
-                      </div>
-                      <div>
-                        <dt>
-                          <span aria-hidden="true">🍳</span>
-                          {ar ? 'مطابخ' : 'Kitchens'}
-                        </dt>
-                        <dd>{unit.kitchens}</dd>
-                      </div>
-                      <div>
-                        <dt>
-                          <span aria-hidden="true">🏊</span>
-                          {ar ? 'مسبح' : 'Pool'}
-                        </dt>
-                        <dd>{unit.hasPool ? (ar ? 'متوفر' : 'Yes') : ar ? 'غير متوفر' : 'No'}</dd>
-                      </div>
-                      <div>
-                        <dt>
-                          <span aria-hidden="true">📐</span>
-                          {ar ? 'المساحة' : 'Area'}
-                        </dt>
-                        <dd>{unit.areaSquareMeters ? `${unit.areaSquareMeters} m²` : '—'}</dd>
-                      </div>
-                      <div>
-                        <dt>
-                          <span aria-hidden="true">💰</span>
-                          {ar ? 'السعر' : 'Price'}
-                        </dt>
-                        <dd dir="ltr">
-                          {unit.listingPurpose === 'both' ? (
-                            <>
-                              {formatMoney(unit.rentMinor, unit.currency, locale)}
-                              <small> {ar ? 'شهري' : 'mo'}</small>
-                              {unit.salePriceMinor ? (
-                                <>
-                                  {' · '}
-                                  {formatMoney(unit.salePriceMinor, unit.currency, locale)}
-                                  <small> {ar ? 'بيع' : 'sale'}</small>
-                                </>
-                              ) : null}
-                            </>
-                          ) : unit.listingPurpose === 'sale' && unit.salePriceMinor
-                            ? formatMoney(unit.salePriceMinor, unit.currency, locale)
-                            : formatMoney(unit.rentMinor, unit.currency, locale)}
-                        </dd>
-                      </div>
-                    </dl>
-                    {isPublic ? (
-                      <p className="property-360__unit-actions">
-                        <Link
-                          className="button button--quiet"
-                          href={`/${locale}/units/${unit.id}`}
-                        >
-                          {ar ? 'عرض هذه الوحدة' : 'View this unit'}
-                        </Link>
-                      </p>
-                    ) : null}
-                  </>
-                );
+                  const unitBody = (
+                    <>
+                      <header>
+                        <div>
+                          <strong>{unitTitle}</strong>
+                          {property.kind === 'multi_unit' ? (
+                            <small>{buildingNameLine}</small>
+                          ) : (
+                            <small dir="ltr">{unit.code}</small>
+                          )}
+                          {serial ? (
+                            <small className="property-360__unit-serial" dir="ltr">
+                              {serial}
+                            </small>
+                          ) : null}
+                        </div>
+                        <div className="property-360__unit-badges">
+                          <span
+                            className={`status-pill status-pill--${
+                              occupancy === 'available'
+                                ? 'ready'
+                                : occupancy === 'reserved'
+                                  ? 'warn'
+                                  : 'muted'
+                            }`}
+                          >
+                            {occupancyLabel(occupancy, locale)}
+                          </span>
+                          <span
+                            className={`status-pill status-pill--${unit.listingEnabled ? 'ready' : 'muted'}`}
+                          >
+                            {listingPurposeCaption(unit.listingPurpose, locale)}
+                          </span>
+                        </div>
+                      </header>
+                      <dl>
+                        <div>
+                          <dt>
+                            <span aria-hidden="true">🛏</span>
+                            {ar ? 'غرف' : 'Beds'}
+                          </dt>
+                          <dd>{unit.bedrooms}</dd>
+                        </div>
+                        <div>
+                          <dt>
+                            <span aria-hidden="true">🛁</span>
+                            {ar ? 'حمامات' : 'Baths'}
+                          </dt>
+                          <dd>{unit.bathrooms}</dd>
+                        </div>
+                        <div>
+                          <dt>
+                            <span aria-hidden="true">🪑</span>
+                            {ar ? 'مجالس' : 'Majlis'}
+                          </dt>
+                          <dd>{unit.majlis}</dd>
+                        </div>
+                        <div>
+                          <dt>
+                            <span aria-hidden="true">🛋</span>
+                            {ar ? 'صالات' : 'Halls'}
+                          </dt>
+                          <dd>{unit.halls}</dd>
+                        </div>
+                        <div>
+                          <dt>
+                            <span aria-hidden="true">🍳</span>
+                            {ar ? 'مطابخ' : 'Kitchens'}
+                          </dt>
+                          <dd>{unit.kitchens}</dd>
+                        </div>
+                        <div>
+                          <dt>
+                            <span aria-hidden="true">🏊</span>
+                            {ar ? 'مسبح' : 'Pool'}
+                          </dt>
+                          <dd>{unit.hasPool ? (ar ? 'متوفر' : 'Yes') : ar ? 'غير متوفر' : 'No'}</dd>
+                        </div>
+                        <div>
+                          <dt>
+                            <span aria-hidden="true">📐</span>
+                            {ar ? 'المساحة' : 'Area'}
+                          </dt>
+                          <dd>{unit.areaSquareMeters ? `${unit.areaSquareMeters} m²` : '—'}</dd>
+                        </div>
+                        <div>
+                          <dt>
+                            <span aria-hidden="true">💰</span>
+                            {ar ? 'السعر' : 'Price'}
+                          </dt>
+                          <dd dir="ltr">
+                            {unit.listingPurpose === 'both' ? (
+                              <>
+                                {formatMoney(unit.rentMinor, unit.currency, locale)}
+                                <small> {ar ? 'شهري' : 'mo'}</small>
+                                {unit.salePriceMinor ? (
+                                  <>
+                                    {' · '}
+                                    {formatMoney(unit.salePriceMinor, unit.currency, locale)}
+                                    <small> {ar ? 'بيع' : 'sale'}</small>
+                                  </>
+                                ) : null}
+                              </>
+                            ) : unit.listingPurpose === 'sale' && unit.salePriceMinor ? (
+                              formatMoney(unit.salePriceMinor, unit.currency, locale)
+                            ) : (
+                              formatMoney(unit.rentMinor, unit.currency, locale)
+                            )}
+                          </dd>
+                        </div>
+                      </dl>
+                      {isPublic ? (
+                        <p className="property-360__unit-actions">
+                          <Link
+                            className="button button--quiet"
+                            href={`/${locale}/units/${unit.id}`}
+                          >
+                            {ar ? 'عرض هذه الوحدة' : 'View this unit'}
+                          </Link>
+                        </p>
+                      ) : null}
+                    </>
+                  );
 
-                if (property.kind === 'multi_unit' && isPublic) {
+                  if (property.kind === 'multi_unit' && isPublic) {
+                    return (
+                      <details
+                        key={unit.id}
+                        className={
+                          focusUnitId && unit.id === focusUnitId
+                            ? 'property-360__unit-details property-360__unit-details--focus'
+                            : 'property-360__unit-details'
+                        }
+                      >
+                        <summary className="property-360__unit-summary">
+                          <span className="property-360__unit-summary-title">{unitTitle}</span>
+                          <span className="property-360__unit-summary-meta">
+                            {occupancyLabel(occupancy, locale)} ·{' '}
+                            {listingPurposeCaption(unit.listingPurpose, locale)}
+                          </span>
+                        </summary>
+                        <article className="property-360__unit">{unitBody}</article>
+                      </details>
+                    );
+                  }
+
                   return (
-                    <details
-                      key={unit.id}
+                    <article
                       className={
                         focusUnitId && unit.id === focusUnitId
-                          ? 'property-360__unit-details property-360__unit-details--focus'
-                          : 'property-360__unit-details'
+                          ? 'property-360__unit property-360__unit--focus'
+                          : 'property-360__unit'
                       }
+                      key={unit.id}
                     >
-                      <summary className="property-360__unit-summary">
-                        <span className="property-360__unit-summary-title">{unitTitle}</span>
-                        <span className="property-360__unit-summary-meta">
-                          {occupancyLabel(occupancy, locale)} ·{' '}
-                          {listingPurposeCaption(unit.listingPurpose, locale)}
-                        </span>
-                      </summary>
-                      <article className="property-360__unit">{unitBody}</article>
-                    </details>
+                      {unitBody}
+                    </article>
                   );
-                }
-
-                return (
-                  <article
-                    className={
-                      focusUnitId && unit.id === focusUnitId
-                        ? 'property-360__unit property-360__unit--focus'
-                        : 'property-360__unit'
-                    }
-                    key={unit.id}
-                  >
-                    {unitBody}
-                  </article>
-                );
-              })}
-            </div>
-          </section>
+                })}
+              </div>
+            </section>
           ) : null}
 
-          {isPublic && stayDetail ? <StayGuestInfoSection detail={stayDetail} locale={locale} /> : null}
+          {isPublic && stayDetail ? (
+            <StayGuestInfoSection detail={stayDetail} locale={locale} />
+          ) : null}
 
           {isPublic && stayBooking ? (
             <StayReviewsHub
@@ -1347,7 +1353,10 @@ export function PropertyDetailManager({
                   {ar ? 'عرض العقار' : 'View listing'}
                 </a>
                 {property.status !== 'archived' ? (
-                  <Link className="button button--primary property-360__summary-cta" href={editHref}>
+                  <Link
+                    className="button button--primary property-360__summary-cta"
+                    href={editHref}
+                  >
                     {ar ? 'تعديل العقار' : 'Edit property'}
                   </Link>
                 ) : null}
@@ -1409,15 +1418,12 @@ export function PropertyDetailManager({
                   locale={locale}
                   signedIn={signedIn}
                   depositMinor={primaryUnit.depositMinor}
+                  saleDepositMinor={primaryUnit.saleDepositMinor ?? null}
                   currency={primaryUnit.currency}
                   listingPurpose={primaryUnit.listingPurpose}
                   rentMinor={primaryUnit.rentMinor}
                   salePriceMinor={primaryUnit.salePriceMinor}
-                  canBook={Boolean(
-                    primaryUnit.depositMinor &&
-                    primaryUnit.depositMinor !== '0' &&
-                    primaryUnit.listingEnabled !== false,
-                  )}
+                  canBook={primaryUnit.listingEnabled !== false}
                   sharePath={propertyPath}
                   shareTitle={headline}
                   shareDescription={

@@ -128,7 +128,10 @@ export const createUnitSchema = z.object({
     .optional(),
   rent: moneySchema,
   salePrice: moneySchema.optional(),
+  /** Rent booking deposit; also used for purchase when `saleDeposit` is not set. */
   deposit: moneySchema.optional(),
+  /** Purchase booking deposit. `null` clears it; omitted keeps the stored value. */
+  saleDeposit: moneySchema.nullable().optional(),
   publishWhenAvailable: z.boolean().default(false),
 });
 
@@ -182,6 +185,7 @@ export const publicUnitDetailSchema = publicListingSchema
     descriptionEn: z.string().nullable(),
     city: z.string().max(120),
     deposit: moneySchema.nullable(),
+    saleDeposit: moneySchema.nullable().optional(),
     images: z
       .array(
         z.object({

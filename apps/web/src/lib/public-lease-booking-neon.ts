@@ -23,8 +23,10 @@ import {
   type Tx,
 } from '@/lib/public-booking-neon';
 import type { TermsBlock } from '@/lib/booking-terms';
+import { depositForMode } from '@/lib/booking-deposit';
 import { resolveBookingTerms } from '@/lib/booking-terms-neon';
 import { leaseSignPath } from '@/lib/lease-booking-paths';
+import { readUnitSaleDeposits } from '@/lib/unit-sale-deposit-neon';
 
 export const LEASE_BOOKING_FLOW = 'public_deposit_v1';
 export const LEASE_BOOKING_TERMS_VERSION = '2026-10';
@@ -246,11 +248,21 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
         .innerJoin(listings, eq(listings.unitId, units.id))
         .where(and(eq(units.id, input.unitId), eq(listings.enabled, true)))
         .limit(1);
-      return rows[0];
+      const row = rows[0];
+      if (!row) return undefined;
+      const saleDeposits = await readUnitSaleDeposits(transaction, row.organizationId, [
+        input.unitId,
+      ]);
+      return { ...row, saleDepositMinor: saleDeposits.get(input.unitId)?.amountMinor ?? null };
     });
     if (!preview) fail('unit_unavailable');
     if (!modeAllowed(preview.listingPurpose, input.mode)) fail('mode_unavailable');
-    if (!preview.depositMinor || preview.depositMinor <= 0n) fail('deposit_not_set');
+    const depositMinor = depositForMode(
+      input.mode,
+      preview.depositMinor?.toString(),
+      preview.saleDepositMinor,
+    );
+    if (!depositMinor) fail('deposit_not_set');
 
     await applyOrgScope(transaction, {
       organizationId: preview.organizationId,
@@ -325,6 +337,7 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
       const nextSnapshot: LeaseBookingSnapshot = {
         ...snapshot,
         mode: input.mode,
+        depositMinor,
         locale: input.locale,
         contact,
         ...booker,
@@ -339,7 +352,7 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
       return {
         referenceCode: snapshot.referenceCode,
         sessionReference: snapshot.checkoutSessionReference,
-        amountMinor: snapshot.depositMinor,
+        amountMinor: depositMinor,
         currency: snapshot.currency,
         expiresAt: own.expiresAt.toISOString(),
         alreadyPaid: false as const,
@@ -356,7 +369,6 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
       if (error instanceof Error && error.message === 'unit_unavailable') fail('unit_unavailable');
       throw error;
     });
-    const depositMinor = unit.depositMinor!;
     const expiresAt = new Date(now.getTime() + CHECKOUT_TTL_MS);
     const referenceCode = newReferenceCode();
     const sessionReference = newSessionReference();
@@ -377,7 +389,7 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
       checkoutSessionReference: sessionReference,
       locale: input.locale,
       listingPurpose: unit.listingPurpose,
-      depositMinor: depositMinor.toString(),
+      depositMinor,
       currency: unit.currency,
       rentMinor: unit.rentMinor?.toString() ?? null,
       salePriceMinor: preview.salePriceMinor?.toString() ?? null,

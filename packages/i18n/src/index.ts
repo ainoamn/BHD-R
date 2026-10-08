@@ -360,6 +360,14 @@ export const messages = {
       deposit: 'مبلغ العربون / الحجز',
       depositHint:
         'يُستخدم هذا المبلغ عندما يضغط الزائر «احجز الآن» ويدفع عبر شاشة الدفع. المبلغ بعملة العقار (عادةً ر.ع).',
+      depositRent: 'عربون حجز التأجير',
+      depositRentHint:
+        'يدفعه الزائر عند «أريد التأجير — احجز الآن» (إيجار شهري أو سنوي). المبلغ بعملة العقار.',
+      depositSale: 'عربون حجز الشراء',
+      depositSaleHint:
+        'يدفعه الزائر عند «أريد الشراء — احجز الآن». مبلغ مستقل عن عربون التأجير، بعملة العقار.',
+      depositDailyNote:
+        'عربون الإيجار اليومي وعدد الضيوف والأسعار تُعدّل في «إعدادات الإيجار اليومي» أسفل الوحدات.',
       publish: 'عرض الوحدة عند توفرها',
       images: 'صور العقار',
       imageHelp:
@@ -795,6 +803,14 @@ export const messages = {
       deposit: 'Booking deposit / hold',
       depositHint:
         'Charged when a visitor taps Book now and pays on the checkout screen. Amount is in the property currency (usually OMR).',
+      depositRent: 'Rent booking deposit',
+      depositRentHint:
+        'Paid when a visitor taps “I want to rent — book now” (monthly or yearly). Property currency.',
+      depositSale: 'Purchase booking deposit',
+      depositSaleHint:
+        'Paid when a visitor taps “I want to buy — book now”. Separate from the rent deposit, in the property currency.',
+      depositDailyNote:
+        'Daily-rental deposit, guest limits and prices are edited under “Daily rental settings” below the units.',
       publish: 'Publish this unit whenever available',
       images: 'Property images',
       imageHelp:

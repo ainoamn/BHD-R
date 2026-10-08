@@ -8,8 +8,21 @@ import { formatMoney } from '@/lib/format';
 import { formatListingLocation } from '@/lib/listing-card-copy';
 import { listingPurposeCaption, occupancyLabel } from '@/lib/listing-purpose-display';
 import { inferUnitKind, unitKindLabel } from '@/lib/unit-identity';
+import { depositForMode } from '@/lib/booking-deposit';
+import { offeringModesFromListingPurpose } from '@/lib/unit-offering-modes';
 import type { ManagedProperty } from '@/components/property-detail-manager';
 import type { PropertyOpsPulse } from '@/lib/property-ops-pulse-neon';
+
+type HubUnit = ManagedProperty['units'][number];
+
+/** Which booking deposits a unit needs: rent (monthly/yearly) and/or purchase. */
+function depositNeeds(unit: HubUnit): { rent: boolean; sale: boolean } {
+  const modes = unit.offeringModes ?? offeringModesFromListingPurpose(unit.listingPurpose);
+  return {
+    rent: modes.includes('monthly') || modes.includes('yearly'),
+    sale: modes.includes('sale'),
+  };
+}
 
 function stayStatusLabel(status: string, ar: boolean): string {
   const map: Record<string, [string, string]> = {
@@ -197,10 +210,26 @@ export function PropertyManageHub({
   const unpublishedUnits = property.units.length - publishedUnits;
   const primaryUnit = property.units[0];
   const currency = primaryUnit?.currency ?? property.defaultCurrency;
-  const depositLabel =
-    primaryUnit?.depositMinor && primaryUnit.depositMinor !== '0'
-      ? formatMoney(primaryUnit.depositMinor, currency, locale)
-      : null;
+  const primaryNeeds = primaryUnit ? depositNeeds(primaryUnit) : { rent: false, sale: false };
+  const depositFacts = (['rent', 'sale'] as const)
+    .filter((mode) => primaryNeeds[mode])
+    .map((mode) => {
+      const amount = primaryUnit
+        ? depositForMode(mode, primaryUnit.depositMinor, primaryUnit.saleDepositMinor)
+        : null;
+      return {
+        mode,
+        label:
+          mode === 'rent'
+            ? ar
+              ? 'عربون حجز التأجير'
+              : 'Rent booking deposit'
+            : ar
+              ? 'عربون حجز الشراء'
+              : 'Purchase booking deposit',
+        value: amount ? formatMoney(amount, currency, locale) : null,
+      };
+    });
   const cover = useMemo(
     () =>
       [...(property.gallery ?? [])].sort((a, b) => a.position - b.position).find((item) => item.url)
@@ -265,14 +294,18 @@ export function PropertyManageHub({
         href: editHref,
       });
     }
-    const missingDeposit = property.units.filter(
-      (unit) => !unit.depositMinor || unit.depositMinor === '0',
-    ).length;
+    const missingDeposit = property.units.filter((unit) => {
+      const needs = depositNeeds(unit);
+      return (
+        (needs.rent && !depositForMode('rent', unit.depositMinor, unit.saleDepositMinor)) ||
+        (needs.sale && !depositForMode('sale', unit.depositMinor, unit.saleDepositMinor))
+      );
+    }).length;
     if (missingDeposit > 0) {
       items.push({
         text: ar
-          ? 'حدّد مبلغ العربون/الحجز من تعديل العقار ← الوحدات حتى يعمل زر «احجز الآن».'
-          : 'Set the booking deposit under Edit property → Units so Book now works.',
+          ? 'حدّد عربون حجز التأجير وعربون حجز الشراء من تعديل العقار ← الوحدات حتى يعمل زر «احجز الآن».'
+          : 'Set the rent and purchase booking deposits under Edit property → Units so Book now works.',
         href: editHref,
       });
     }
@@ -557,12 +590,14 @@ export function PropertyManageHub({
               <dt>{ar ? 'المالك' : 'Owner'}</dt>
               <dd>{currentOwner ?? '—'}</dd>
             </div>
-            <div>
-              <dt>{ar ? 'عربون الحجز' : 'Booking deposit'}</dt>
-              <dd dir={depositLabel ? 'ltr' : undefined}>
-                {depositLabel ?? (ar ? 'غير محدد' : 'Not set')}
-              </dd>
-            </div>
+            {depositFacts.map((fact) => (
+              <div key={fact.mode}>
+                <dt>{fact.label}</dt>
+                <dd dir={fact.value ? 'ltr' : undefined}>
+                  {fact.value ?? (ar ? 'غير محدد' : 'Not set')}
+                </dd>
+              </div>
+            ))}
             {property.profile?.builtUpAreaSquareMeters ? (
               <div>
                 <dt>{ar ? 'المساحة' : 'Area'}</dt>

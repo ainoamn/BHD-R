@@ -6,6 +6,7 @@ import { Link } from '@/i18n/navigation';
 import { LeaseDepositCheckout } from '@/components/lease-deposit-checkout';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { loadBookingContacts, type BookingContactsForViewer } from '@/lib/booking-contacts-neon';
+import { depositForMode } from '@/lib/booking-deposit';
 import { loadBookingTermsForUnit } from '@/lib/booking-terms-neon';
 import { localizedName } from '@/lib/format';
 import { loadPublicPropertyShowcaseFromNeon } from '@/lib/load-public-property-neon';
@@ -55,7 +56,18 @@ export default async function BookUnitPage({
   if (unitResult.status === 'ok' && !unitResult.value) notFound();
   const unit = unitResult.status === 'ok' ? unitResult.value : null;
 
-  const allowedModes = unit ? allowedModesFor(unit.listingPurpose) : (['rent'] as Mode[]);
+  const depositByMode: Partial<Record<Mode, string>> = {};
+  for (const option of unit ? allowedModesFor(unit.listingPurpose) : []) {
+    const amount = depositForMode(
+      option,
+      unit?.deposit?.amountMinor,
+      unit?.saleDeposit?.amountMinor,
+    );
+    if (amount) depositByMode[option] = amount;
+  }
+  const listedModes = unit ? allowedModesFor(unit.listingPurpose) : (['rent'] as Mode[]);
+  const bookableModes = listedModes.filter((option) => depositByMode[option]);
+  const allowedModes = bookableModes.length ? bookableModes : listedModes;
   const mode: Mode =
     requestedMode && allowedModes.includes(requestedMode) ? requestedMode : allowedModes[0]!;
 
@@ -76,8 +88,7 @@ export default async function BookUnitPage({
   const title = unit
     ? `${localizedName(locale, unit.propertyNameAr, unit.propertyNameEn)} — ${localizedName(locale, unit.unitNameAr, unit.unitNameEn)}`
     : '';
-  const depositMinor = unit?.deposit?.amountMinor ?? null;
-  const hasDeposit = Boolean(depositMinor && depositMinor !== '0');
+  const hasDeposit = Boolean(depositByMode[mode]);
   const paymentEnabled = isPaymentSandboxPilotEnabled();
 
   const termsResult =
@@ -247,7 +258,7 @@ export default async function BookUnitPage({
             title={title}
             initialMode={mode}
             allowedModes={allowedModes}
-            depositMinor={depositMinor!}
+            depositByMode={depositByMode}
             currency={unit.deposit?.currency ?? unit.rent.currency}
             rentMinor={unit.rent.amountMinor}
             salePriceMinor={unit.salePrice?.amountMinor ?? null}

@@ -11,6 +11,7 @@ import {
   type Database,
 } from '@bhd-r/db';
 import type { PublicUnitDetail } from '@bhd-r/contracts';
+import { readUnitSaleDeposits } from '@/lib/unit-sale-deposit-neon';
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdRPublicUnitDb?: DbHandle };
@@ -38,6 +39,7 @@ export async function loadPublicUnitFromNeon(unitId: string): Promise<PublicUnit
       .select({
         id: listings.id,
         slug: listings.slug,
+        organizationId: units.organizationId,
         propertyId: properties.id,
         unitId: units.id,
         code: units.code,
@@ -97,6 +99,12 @@ export async function loadPublicUnitFromNeon(unitId: string): Promise<PublicUnit
       .orderBy(asc(unitMedia.position))
       .limit(40);
 
+    // Last read of the transaction: owner pricing rows are not public under RLS.
+    await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
+    const saleDeposit = (await readUnitSaleDeposits(transaction, row.organizationId, [unitId])).get(
+      unitId,
+    );
+
     const currency = row.currency as PublicUnitDetail['rent']['currency'];
     return {
       id: row.id,
@@ -127,9 +135,8 @@ export async function loadPublicUnitFromNeon(unitId: string): Promise<PublicUnit
           ? null
           : { amountMinor: row.salePriceMinor.toString(), currency },
       deposit:
-        row.depositMinor === null
-          ? null
-          : { amountMinor: row.depositMinor.toString(), currency },
+        row.depositMinor === null ? null : { amountMinor: row.depositMinor.toString(), currency },
+      saleDeposit: saleDeposit ? { amountMinor: saleDeposit.amountMinor, currency } : null,
       available: true as const,
       images: imageRows
         .filter((image) => image.mimeType.startsWith('image/'))

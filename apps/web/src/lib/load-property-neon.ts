@@ -19,6 +19,8 @@ import type { CurrencyCode } from '@bhd-r/contracts';
 import type { ManagedProperty } from '@/components/property-detail-manager';
 import { googleMapsLinkFromCoords } from '@/lib/parse-google-maps-url';
 import { loadPropertyProfileRow } from '@/lib/load-property-profile';
+import { readUnitSaleDeposits } from '@/lib/unit-sale-deposit-neon';
+import { parseOfferingModes } from '@/lib/unit-offering-modes';
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdRPropertyWriteDb?: DbHandle };
@@ -140,9 +142,10 @@ export async function loadManagedPropertyFromNeon(
         `),
       ]);
 
-    const coordRow = (Array.isArray(coords) ? coords[0] : null) as
-      | { lat?: number | string | null; lon?: number | string | null }
-      | null;
+    const coordRow = (Array.isArray(coords) ? coords[0] : null) as {
+      lat?: number | string | null;
+      lon?: number | string | null;
+    } | null;
     const latitude =
       coordRow?.lat !== null && coordRow?.lat !== undefined && Number.isFinite(Number(coordRow.lat))
         ? Number(coordRow.lat)
@@ -163,6 +166,20 @@ export async function loadManagedPropertyFromNeon(
     }
 
     const unitIds = unitRows.map((unit) => unit.id);
+    const [modeRows, saleDeposits] = await Promise.all([
+      transaction.execute(sql`
+        select id::text as id, offering_modes
+        from units
+        where property_id = ${property.id}::uuid
+      `),
+      readUnitSaleDeposits(transaction, organizationId, unitIds),
+    ]);
+    const modesByUnit = new Map(
+      (Array.isArray(modeRows) ? modeRows : []).map((row) => {
+        const record = row as { id: string; offering_modes: string | null };
+        return [record.id, parseOfferingModes(record.offering_modes)] as const;
+      }),
+    );
     let gallery: ManagedProperty['gallery'] = [];
     if (unitIds.length) {
       const mediaRows = await transaction
@@ -177,7 +194,9 @@ export async function loadManagedPropertyFromNeon(
         })
         .from(unitMedia)
         .innerJoin(mediaAssets, eq(mediaAssets.id, unitMedia.mediaAssetId))
-        .where(and(eq(unitMedia.organizationId, organizationId), inArray(unitMedia.unitId, unitIds)))
+        .where(
+          and(eq(unitMedia.organizationId, organizationId), inArray(unitMedia.unitId, unitIds)),
+        )
         .orderBy(asc(unitMedia.position));
       gallery = mediaRows
         .filter((row) => row.mimeType.startsWith('image/'))
@@ -221,10 +240,7 @@ export async function loadManagedPropertyFromNeon(
             builtUpAreaSquareMeters: profile.builtUpAreaSquareMeters,
             yearBuilt: profile.yearBuilt,
             parkingSpaces: profile.parkingSpaces,
-            furnishing: profile.furnishing as
-              | 'unfurnished'
-              | 'semi_furnished'
-              | 'furnished',
+            furnishing: profile.furnishing as 'unfurnished' | 'semi_furnished' | 'furnished',
             managementStartedOn: profile.managementStartedOn,
             managementFeeMinor: profile.managementFeeMinor?.toString() ?? null,
             showOwnerNameOnListing: Boolean(profile.showOwnerNameOnListing),
@@ -288,6 +304,8 @@ export async function loadManagedPropertyFromNeon(
         rentMinor: unit.rentMinor.toString(),
         salePriceMinor: unit.salePriceMinor?.toString() ?? null,
         depositMinor: unit.depositMinor?.toString() ?? null,
+        saleDepositMinor: saleDeposits.get(unit.id)?.amountMinor ?? null,
+        offeringModes: modesByUnit.get(unit.id),
         currency: unit.currency as CurrencyCode,
         listingPurpose: unit.listingPurpose as 'rent' | 'sale' | 'both',
         publishWhenAvailable: unit.publishWhenAvailable,

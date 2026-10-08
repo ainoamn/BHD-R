@@ -21,6 +21,7 @@ import {
   type Database,
 } from '@bhd-r/db';
 import { loadPropertyProfileRow, writePropertyProfileRow } from '@/lib/load-property-profile';
+import { writeUnitSaleDeposit } from '@/lib/unit-sale-deposit-neon';
 import {
   hasLongTermCatalogueOffer,
   isDailyOnlyOffering,
@@ -322,6 +323,15 @@ export async function createPropertyBundleOnNeon(
       if (!created) continue;
       const offering = resolveUnitOffering(unit);
       await persistUnitOfferingModes(transaction, created.id, offering.modesCsv);
+      if (unit.saleDeposit) {
+        await writeUnitSaleDeposit(transaction, {
+          organizationId: claims.organizationId!,
+          unitId: created.id,
+          amountMinor: unit.saleDeposit.amountMinor,
+          currency: unit.saleDeposit.currency,
+          userId: claims.sub,
+        });
+      }
     }
 
     if (input.property.meters.length) {
@@ -459,6 +469,20 @@ export async function updatePropertyBundleOnNeon(
     });
     if (!property) throw new Error('property_not_found');
     if (property.status === 'archived') throw new Error('property_archived');
+
+    const persistSaleDeposit = async (
+      unitId: string,
+      unit: (typeof input.units)[number],
+    ): Promise<void> => {
+      if (unit.saleDeposit === undefined) return;
+      await writeUnitSaleDeposit(transaction, {
+        organizationId: claims.organizationId!,
+        unitId,
+        amountMinor: unit.saleDeposit?.amountMinor ?? null,
+        currency: unit.saleDeposit?.currency ?? unit.rent.currency,
+        userId: claims.sub,
+      });
+    };
 
     const owner = await transaction.query.parties.findFirst({
       where: and(
@@ -677,6 +701,7 @@ export async function updatePropertyBundleOnNeon(
         if (rows[0]) {
           unitRows.push(rows[0]);
           await persistUnitOfferingModes(transaction, rows[0].id, offering.modesCsv);
+          await persistSaleDeposit(rows[0].id, unit);
           const existingListing = await transaction.query.listings.findFirst({
             where: and(
               eq(listings.unitId, rows[0].id),
@@ -720,6 +745,7 @@ export async function updatePropertyBundleOnNeon(
           if (rows[0]) {
             unitRows.push(rows[0]);
             await persistUnitOfferingModes(transaction, rows[0].id, offering.modesCsv);
+            await persistSaleDeposit(rows[0].id, unit);
             const existingListing = await transaction.query.listings.findFirst({
               where: and(
                 eq(listings.unitId, rows[0].id),

@@ -5458,6 +5458,54 @@ body:has(.stays-booking-receipt) #main-content {
   margin: 0;
   font-size: 1rem;
 }
+.stay-settings-panel {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 2px solid var(--sand-200);
+}
+.stay-settings-panel__head h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.1rem;
+}
+.stay-settings-panel__head p {
+  margin: 0;
+}
+.stay-settings-panel > .button {
+  justify-self: start;
+}
+.stay-settings-unit {
+  margin-bottom: 0;
+}
+.stay-settings-unit__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+.stay-settings-unit__head a {
+  margin-inline-start: auto;
+  font-size: 0.9rem;
+}
+.stay-settings-unit__title {
+  margin: 1rem 0 0.5rem;
+  font-size: 0.95rem;
+  color: var(--ink-700, #5c6b64);
+}
+.stay-settings-unit__check {
+  align-self: end;
+}
+.stay-settings-unit__actions {
+  display: grid;
+  gap: 0.6rem;
+  justify-items: start;
+  margin-top: 1rem;
+}
+.stay-settings-unit__actions .notice {
+  margin: 0;
+}
 .checkbox-row {
   display: flex;
   align-items: center;

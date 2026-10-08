@@ -7,14 +7,14 @@ import type { ManagedProperty } from '@/components/property-detail-manager';
 import { ensureOwnerPartyId, hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { loadManagedPropertyFromNeon } from '@/lib/load-property-neon';
 import { listOwnerPartyOptions } from '@/lib/owner-parties';
+import type { PropertyStaySettingsUnit } from '@/lib/property-stay-settings';
+import { loadPropertyStaySettingsOnNeon } from '@/lib/stay-setup-neon';
+import { readSessionClaimsFromCookies } from '@/lib/stay-setup-session';
+import { isStaysPlatformEnabled } from '@/lib/stays-flags';
 import { ApiError, apiFetch } from '@/lib/server-api';
 import { requirePortal } from '@/lib/viewer';
 
-async function Page({
-  params,
-}: {
-  params: Promise<{ locale: string; propertyId: string }>;
-}) {
+async function Page({ params }: { params: Promise<{ locale: string; propertyId: string }> }) {
   const { locale: rawLocale, propertyId } = await params;
   const locale = rawLocale === 'en' ? 'en' : 'ar';
   if (propertyId === 'new') redirect(`/${locale}/owner/properties/new`);
@@ -59,6 +59,16 @@ async function Page({
     property.ownership[0]?.partyId ??
     partyId;
 
+  let staySettings: PropertyStaySettingsUnit[] | undefined;
+  if (hasDatabaseUrl() && isStaysPlatformEnabled()) {
+    const claims = await readSessionClaimsFromCookies().catch(() => null);
+    if (claims?.organizationId) {
+      staySettings = await loadPropertyStaySettingsOnNeon(claims, property.id).catch(
+        () => undefined,
+      );
+    }
+  }
+
   return (
     <PropertyWizard
       ownerPartyId={currentOwner}
@@ -67,6 +77,7 @@ async function Page({
       mode="edit"
       propertyId={property.id}
       initialProperty={property}
+      {...(staySettings ? { staySettings } : {})}
     />
   );
 }

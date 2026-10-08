@@ -59,7 +59,7 @@ export function LeaseDepositCheckout({
   title,
   initialMode,
   allowedModes,
-  depositMinor,
+  depositByMode,
   currency,
   rentMinor,
   salePriceMinor,
@@ -71,7 +71,8 @@ export function LeaseDepositCheckout({
   title: string;
   initialMode: Mode;
   allowedModes: Mode[];
-  depositMinor: string;
+  /** Rent and purchase can carry different booking deposits. */
+  depositByMode: Partial<Record<Mode, string>>;
   currency: string;
   rentMinor: string | null;
   salePriceMinor: string | null;
@@ -114,6 +115,7 @@ export function LeaseDepositCheckout({
     setError(null);
   }, [step]);
 
+  const depositMinor = depositByMode[mode] ?? '0';
   const deposit = formatMoney(depositMinor, currency, locale);
   const priceMinor = mode === 'sale' ? salePriceMinor : rentMinor;
   const price = priceMinor && priceMinor !== '0' ? formatMoney(priceMinor, currency, locale) : null;
