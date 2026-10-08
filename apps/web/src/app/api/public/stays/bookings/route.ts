@@ -6,6 +6,7 @@ import {
   stayBookingJson,
 } from '@/lib/public-stays-booking-route';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
+import { getViewer } from '@/lib/viewer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -43,8 +44,13 @@ export async function POST(request: Request) {
     return stayBookingJson({ error: { code: 'idempotency_required' } }, { status: 400 });
   }
 
+  const viewer = await getViewer().catch(() => null);
+  const bookedBy = viewer
+    ? { userId: viewer.id, displayName: viewer.displayName, email: viewer.email ?? null }
+    : null;
+
   try {
-    const payload = await createPublicStayBookingOnNeon(parsed.data, idempotencyKey);
+    const payload = await createPublicStayBookingOnNeon(parsed.data, idempotencyKey, bookedBy);
     return stayBookingJson(payload);
   } catch (error) {
     return stayBookingErrorResponse(error);

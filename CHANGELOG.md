@@ -2,6 +2,14 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.94 — 2026-10-07
+
+- Daily stay booking page (`/stays/[slug]/book`): same layout as rent/purchase booking (narrower image, wider form), new intro listing four steps (dates and stay type, your details, review and accept terms, pay and sign), a "Start your booking now" call to action with an arrow toward the form, and a language switch that keeps the dates, unit, and guest query.
+- "Your details" step: signed-in users choose "Yes, for me" or "No, for someone else", pick a saved person or enter a new one, and can save their phone or the other person to their profile. Anonymous guests keep the single guest form.
+- `createStayBookingSchema` accepts optional `bookingFor`; the booking snapshot stores `bookingFor` and the signed-in booker (`bookedBy`). The stay contract shows "Booked by" when the booking is for someone else.
+- New `POST /api/public/booking-contacts` (live session, CSRF, rate limit) to save a booking contact after the booking is created; failures never block the booking.
+- Details: [`docs/implementation/RELEASE-0.4.94-AR.md`](./docs/implementation/RELEASE-0.4.94-AR.md).
+
 ## 0.4.93 — 2026-10-07
 
 - Default monthly/yearly rent terms are now the owner's tenancy addendum copied verbatim in Arabic and English: 17 headings and 52 clauses (official communication, non-refundable booking deposit, security deposit, payment terms, late payments, utility bills, conditions of stay, violations, access cards, legal action, maintenance, right of entry, renewal, vacating, handover, fees and taxes, severability). Only PDF extraction artifacts and obvious English typos were fixed.

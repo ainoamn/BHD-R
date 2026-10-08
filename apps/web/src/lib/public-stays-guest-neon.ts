@@ -80,6 +80,8 @@ export type GuestStayBookingProjection = {
   listingSlug?: string | null;
   esignCompleted?: boolean;
   acceptedTerms?: AcceptedTerms | null;
+  bookingFor?: 'self' | 'other' | null;
+  bookedByName?: string | null;
   canPay?: boolean;
   canCancel?: boolean;
   canRebook?: boolean;
@@ -131,6 +133,22 @@ function readGuestContact(snapshot: unknown): {
     ...(typeof contact.email === 'string' ? { email: contact.email } : {}),
     ...(typeof contact.phone === 'string' ? { phone: contact.phone } : {}),
   };
+}
+
+function readBookedBy(snapshot: unknown): {
+  bookingFor: 'self' | 'other' | null;
+  bookedByName: string | null;
+} {
+  if (!snapshot || typeof snapshot !== 'object') return { bookingFor: null, bookedByName: null };
+  const root = snapshot as Record<string, unknown>;
+  const bookingFor =
+    root.bookingFor === 'self' || root.bookingFor === 'other' ? root.bookingFor : null;
+  const bookedBy =
+    root.bookedBy && typeof root.bookedBy === 'object'
+      ? (root.bookedBy as Record<string, unknown>)
+      : {};
+  const name = typeof bookedBy.displayName === 'string' ? bookedBy.displayName.trim() : '';
+  return { bookingFor, bookedByName: name || null };
 }
 
 function readStayTypeFromSnapshot(snapshot: unknown): string | null {
@@ -224,6 +242,7 @@ function toProjection(booking: {
     listingSlug: booking.listingSlug ?? null,
     esignCompleted: readEsignCompleted(booking.pricingSnapshotJson),
     acceptedTerms: readAcceptedTerms(booking.pricingSnapshotJson),
+    ...readBookedBy(booking.pricingSnapshotJson),
     ...flags,
     canPay: flags.canPay && Boolean(booking.paymentIntentId),
   };

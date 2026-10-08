@@ -1023,6 +1023,7 @@ export async function createPublicStayHoldOnNeon(
 export async function createPublicStayBookingOnNeon(
   input: CreateStayBookingInput,
   idempotencyKey: string,
+  bookedBy: { userId: string; displayName: string; email: string | null } | null = null,
 ) {
   assertPlatformEnabled();
 
@@ -1171,6 +1172,8 @@ export async function createPublicStayBookingOnNeon(
             ...(input.guestPhone?.trim() ? { phone: input.guestPhone.trim() } : {}),
           },
           ...(acceptedTerms ? { acceptedTerms } : {}),
+          ...(input.bookingFor ? { bookingFor: input.bookingFor } : {}),
+          ...(bookedBy ? { bookedBy } : {}),
         },
       })
       .returning();

@@ -66,6 +66,7 @@ export default async function StayBookingSignPage({
       <dl class="stay-doc__grid">
         <div class="stay-doc__row"><dt>${ar ? 'الضيف' : 'Guest'}</dt><dd>${escapeHtml(booking.guestDisplayName ?? '—')}</dd></div>
         <div class="stay-doc__row"><dt>${ar ? 'الهاتف' : 'Phone'}</dt><dd dir="ltr">${escapeHtml(booking.guestPhone ?? '—')}</dd></div>
+        ${booking.bookingFor === 'other' && booking.bookedByName ? `<div class="stay-doc__row"><dt>${ar ? 'تم الحجز بواسطة' : 'Booked by'}</dt><dd>${escapeHtml(booking.bookedByName)}</dd></div>` : ''}
         <div class="stay-doc__row"><dt>${ar ? 'الوصول' : 'Check-in'}</dt><dd dir="ltr">${escapeHtml(booking.checkInOn)}</dd></div>
         <div class="stay-doc__row"><dt>${ar ? 'المغادرة' : 'Check-out'}</dt><dd dir="ltr">${escapeHtml(booking.checkOutOn)}</dd></div>
         <div class="stay-doc__row"><dt>${ar ? 'المبلغ' : 'Amount'}</dt><dd dir="ltr">${escapeHtml(amount)}</dd></div>

@@ -8,8 +8,10 @@ import {
   ApiError,
   browserStayBookingGet,
   browserStayBookingMutation,
+  fetchBrowserCsrfToken,
   humanizeBrowserError,
 } from '@/lib/api';
+import type { BookingContactsForViewer, BookingFor } from '@/lib/booking-contacts-neon';
 import { bookingTermsDocument, type BookingTermsForCheckout } from '@/lib/booking-terms';
 import { formatMoney } from '@/lib/format';
 import { rememberStayTripAlert } from '@/lib/stay-trip-alerts';
@@ -26,6 +28,32 @@ import {
   type StayBookingType,
 } from '@/lib/stay-booking-dates';
 import { stayStatusLabel } from '@/lib/ui-labels';
+
+type ContactForm = { fullName: string; phone: string; email: string };
+
+const EMPTY_OTHER: ContactForm = { fullName: '', phone: '', email: '' };
+const NEW_CONTACT = 'new';
+
+async function saveBookingContactBestEffort(body: Record<string, unknown>): Promise<void> {
+  const send = async (csrf: string) =>
+    fetch('/api/public/booking-contacts', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+        'x-csrf-token': csrf,
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10_000),
+    });
+  try {
+    const response = await send(await fetchBrowserCsrfToken());
+    if (response.status === 403) await send(await fetchBrowserCsrfToken(true));
+  } catch {
+    // Saving the contact must never block the booking.
+  }
+}
 
 type QuoteResult = {
   id: string;
@@ -91,6 +119,7 @@ export function StayCheckout({
   bookingDates,
   unitId,
   terms,
+  contacts = null,
 }: {
   locale: string;
   slug: string;
@@ -115,6 +144,8 @@ export function StayCheckout({
   unitId?: string;
   /** Owner daily-rental terms; null shows the platform defaults. */
   terms?: BookingTermsForCheckout | null;
+  /** Signed-in booker's own details and saved people; null for anonymous guests. */
+  contacts?: BookingContactsForViewer | null;
 }) {
   const router = useRouter();
   const ar = locale === 'ar';
@@ -128,9 +159,26 @@ export function StayCheckout({
   const [adults, setAdults] = useState(defaults?.adults ?? '2');
   const [children, setChildren] = useState(defaults?.children ?? '0');
   const [stayType, setStayType] = useState<StayType>(defaults?.stayType ?? 'overnight_stay');
-  const [guestName, setGuestName] = useState(defaults?.guestName ?? '');
-  const [guestPhone, setGuestPhone] = useState(defaults?.guestPhone ?? '');
-  const [guestEmail, setGuestEmail] = useState(defaults?.guestEmail ?? '');
+  const [selfName, setSelfName] = useState(defaults?.guestName ?? contacts?.self.fullName ?? '');
+  const [selfPhone, setSelfPhone] = useState(defaults?.guestPhone ?? contacts?.self.phone ?? '');
+  const [selfEmail, setSelfEmail] = useState(defaults?.guestEmail ?? contacts?.self.email ?? '');
+  const [bookingFor, setBookingFor] = useState<BookingFor>('self');
+  const [otherForm, setOtherForm] = useState<ContactForm>(EMPTY_OTHER);
+  const [savedContactId, setSavedContactId] = useState<string>(NEW_CONTACT);
+  const [saveContact, setSaveContact] = useState(true);
+  const forSelf = bookingFor === 'self';
+  const guestName = forSelf ? selfName : otherForm.fullName;
+  const guestPhone = forSelf ? selfPhone : otherForm.phone;
+  const guestEmail = forSelf ? selfEmail : otherForm.email;
+  const savedContacts = contacts?.saved ?? [];
+  const selectedSaved = savedContacts.find((row) => row.id === savedContactId) ?? null;
+  const contactChanged = forSelf
+    ? selfPhone.trim() !== (contacts?.self.phone ?? '').trim()
+    : !selectedSaved ||
+      otherForm.fullName.trim() !== selectedSaved.fullName.trim() ||
+      otherForm.phone.trim() !== (selectedSaved.phone ?? '').trim() ||
+      otherForm.email.trim() !== (selectedSaved.email ?? '').trim();
+  const offerSave = Boolean(contacts?.canSave) && contactChanged;
   const [quote, setQuote] = useState<QuoteResult | null>(null);
   const [booking, setBooking] = useState<BookingResult | null>(null);
   const [stepHint, setStepHint] = useState<string | null>(null);
@@ -169,8 +217,8 @@ export function StayCheckout({
           email?: string;
         };
         if (!me.authenticated || cancelled) return;
-        if (me.displayName?.trim()) setGuestName((prev) => prev || me.displayName!.trim());
-        if (me.email?.trim()) setGuestEmail((prev) => prev || me.email!.trim());
+        if (me.displayName?.trim()) setSelfName((prev) => prev || me.displayName!.trim());
+        if (me.email?.trim()) setSelfEmail((prev) => prev || me.email!.trim());
       } catch {
         /* anonymous guest — leave blank */
       }
@@ -250,6 +298,35 @@ export function StayCheckout({
       return;
     }
     setStep('guest');
+  }
+
+  function updateGuest(patch: Partial<ContactForm>) {
+    setError(null);
+    if (forSelf) {
+      if (patch.fullName !== undefined) setSelfName(patch.fullName);
+      if (patch.phone !== undefined) setSelfPhone(patch.phone);
+      if (patch.email !== undefined) setSelfEmail(patch.email);
+    } else {
+      setOtherForm((current) => ({ ...current, ...patch }));
+    }
+  }
+
+  function chooseBookingFor(next: BookingFor) {
+    setError(null);
+    setBookingFor(next);
+    setSaveContact(next === 'self');
+  }
+
+  function chooseSavedContact(id: string) {
+    setError(null);
+    setSavedContactId(id);
+    const row = savedContacts.find((item) => item.id === id);
+    setOtherForm(
+      row
+        ? { fullName: row.fullName, phone: row.phone ?? '', email: row.email ?? '' }
+        : EMPTY_OTHER,
+    );
+    setSaveContact(false);
   }
 
   function continueFromGuest() {
@@ -345,11 +422,21 @@ export function StayCheckout({
             guestDisplayName: guestName.trim(),
             guestPhone: guestPhone.trim(),
             ...(guestEmail.trim() ? { guestEmail: guestEmail.trim() } : {}),
+            ...(contacts ? { bookingFor } : {}),
             termsRef,
           },
           { idempotencyKey: bookKey },
         );
         setBooking(nextBooking);
+        if (offerSave && saveContact) {
+          await saveBookingContactBestEffort({
+            bookingFor,
+            fullName: guestName.trim(),
+            phone: guestPhone.trim(),
+            email: guestEmail.trim(),
+            ...(!forSelf && selectedSaved ? { savedContactId: selectedSaved.id } : {}),
+          });
+        }
         rememberStayTripAlert({
           id: nextBooking.bookingId,
           referenceCode: nextBooking.referenceCode,
@@ -581,15 +668,88 @@ export function StayCheckout({
 
       {step === 'guest' ? (
         <div className="stays-checkout__panel">
-          <h3>{ar ? 'بيانات الضيف' : 'Guest details'}</h3>
-          <p className="muted stays-checkout__hint">
-            {ar
-              ? 'تم تعبئة بياناتك من حسابك إن وُجدت — يمكنك تعديلها قبل المتابعة.'
-              : 'We prefilled your account details when available — you can edit before continuing.'}
-          </p>
+          <h3>{ar ? 'بياناتك' : 'Your details'}</h3>
+          {contacts ? (
+            <>
+              <p className="lease-checkout__question" id="stay-book-for-label">
+                {ar ? 'هل الحجز لك؟' : 'Is this booking for you?'}
+              </p>
+              <div
+                className="lease-checkout__modes"
+                role="radiogroup"
+                aria-labelledby="stay-book-for-label"
+              >
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={forSelf}
+                  className={`button ${forSelf ? 'button--primary' : 'button--quiet'}`}
+                  onClick={() => chooseBookingFor('self')}
+                >
+                  {ar ? 'نعم، الحجز لي' : 'Yes, for me'}
+                </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={!forSelf}
+                  className={`button ${!forSelf ? 'button--primary' : 'button--quiet'}`}
+                  onClick={() => chooseBookingFor('other')}
+                >
+                  {ar ? 'لا، لشخص آخر' : 'No, for someone else'}
+                </button>
+              </div>
+            </>
+          ) : null}
+
+          {forSelf ? (
+            <p className="muted stays-checkout__hint">
+              {contacts
+                ? ar
+                  ? 'جلبنا بياناتك من ملفك — راجعها وأكمل ما ينقص قبل المتابعة.'
+                  : 'We loaded your details from your profile — review them and fill anything missing.'
+                : ar
+                  ? 'أدخل بيانات الضيف الذي سيتم الحجز باسمه.'
+                  : 'Enter the details of the guest the booking is for.'}
+            </p>
+          ) : savedContacts.length ? (
+            <div className="field">
+              <label htmlFor="stay-book-saved">
+                {ar ? 'اختر من الأشخاص المحفوظين في ملفك' : 'Choose a saved person'}
+              </label>
+              <select
+                className="select"
+                id="stay-book-saved"
+                value={savedContactId}
+                onChange={(event) => chooseSavedContact(event.target.value)}
+              >
+                <option value={NEW_CONTACT}>{ar ? '+ شخص جديد' : '+ New person'}</option>
+                {savedContacts.map((row) => (
+                  <option key={row.id} value={row.id}>
+                    {row.fullName}
+                    {row.phone ? ` — ${row.phone}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <p className="muted stays-checkout__hint">
+              {ar
+                ? 'أدخل بيانات الشخص الذي سيتم الحجز باسمه.'
+                : 'Enter the details of the person the booking is for.'}
+            </p>
+          )}
+
           <div className="stays-checkout__grid">
             <div className="field stays-checkout__name">
-              <label htmlFor="stay-book-name">{ar ? 'الاسم الكامل' : 'Full name'}</label>
+              <label htmlFor="stay-book-name">
+                {forSelf
+                  ? ar
+                    ? 'الاسم الكامل'
+                    : 'Full name'
+                  : ar
+                    ? 'اسم الضيف الكامل'
+                    : "Guest's full name"}
+              </label>
               <input
                 className="input"
                 id="stay-book-name"
@@ -598,8 +758,8 @@ export function StayCheckout({
                 minLength={2}
                 maxLength={160}
                 value={guestName}
-                onChange={(event) => setGuestName(event.target.value)}
-                autoComplete="name"
+                onChange={(event) => updateGuest({ fullName: event.target.value })}
+                autoComplete={forSelf ? 'name' : 'off'}
               />
             </div>
             <div className="field">
@@ -610,8 +770,8 @@ export function StayCheckout({
                 type="tel"
                 required
                 value={guestPhone}
-                onChange={(event) => setGuestPhone(event.target.value)}
-                autoComplete="tel"
+                onChange={(event) => updateGuest({ phone: event.target.value })}
+                autoComplete={forSelf ? 'tel' : 'off'}
                 dir="ltr"
                 placeholder={ar ? 'مثال: 9689xxxxxxx' : 'e.g. 9689xxxxxxx'}
               />
@@ -630,12 +790,34 @@ export function StayCheckout({
                 id="stay-book-email"
                 type="email"
                 value={guestEmail}
-                onChange={(event) => setGuestEmail(event.target.value)}
-                autoComplete="email"
+                onChange={(event) => updateGuest({ email: event.target.value })}
+                autoComplete={forSelf ? 'email' : 'off'}
                 dir="ltr"
               />
             </div>
           </div>
+          {offerSave ? (
+            <label className="checkbox-row lease-checkout__accept">
+              <input
+                type="checkbox"
+                checked={saveContact}
+                onChange={(event) => setSaveContact(event.target.checked)}
+              />
+              <span>
+                {forSelf
+                  ? ar
+                    ? 'حفظ رقم هاتفي في ملفي لاستخدامه في الحجوزات القادمة'
+                    : 'Save my phone number to my profile for future bookings'
+                  : selectedSaved
+                    ? ar
+                      ? 'تحديث بيانات هذا الشخص المحفوظة في ملفي'
+                      : 'Update this saved person in my profile'
+                    : ar
+                      ? 'حفظ بيانات هذا الشخص في ملفي لحجز آخر'
+                      : 'Save this person to my profile for another booking'}
+              </span>
+            </label>
+          ) : null}
           <div className="stays-checkout__nav">
             <button type="button" className="button button--quiet" onClick={() => setStep('stay')}>
               {ar ? 'رجوع' : 'Back'}
@@ -656,6 +838,12 @@ export function StayCheckout({
         <div className="stays-checkout__panel">
           <h3>{ar ? 'مراجعة الحجز' : 'Review your booking'}</h3>
           <dl className="stays-checkout__summary">
+            {contacts ? (
+              <div>
+                <dt>{ar ? 'الحجز لـ' : 'Booking for'}</dt>
+                <dd>{forSelf ? (ar ? 'لي شخصيًا' : 'Myself') : ar ? 'شخص آخر' : 'Someone else'}</dd>
+              </div>
+            ) : null}
             <div>
               <dt>{ar ? 'الضيف' : 'Guest'}</dt>
               <dd>{guestName}</dd>

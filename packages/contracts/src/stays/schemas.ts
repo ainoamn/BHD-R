@@ -94,7 +94,10 @@ export const stayBookingPublicSchema = z.object({
 
 export const staySearchQuerySchema = z.object({
   locale: localeSchema.default('ar'),
-  countryCode: z.string().regex(/^[A-Z]{2}$/).default('OM'),
+  countryCode: z
+    .string()
+    .regex(/^[A-Z]{2}$/)
+    .default('OM'),
   governorate: z.string().trim().max(120).optional(),
   wilayat: z.string().trim().max(120).optional(),
   checkInOn: z.iso.date().optional(),
@@ -123,8 +126,7 @@ export const createStayQuoteSchema = z
   })
   .strict()
   .superRefine((value, ctx) => {
-    const sameDayOk =
-      value.stayType === 'day_use' || value.stayType === 'overnight_only';
+    const sameDayOk = value.stayType === 'day_use' || value.stayType === 'overnight_only';
     if (sameDayOk) {
       // UI may send checkOut === checkIn; server expands to exclusive +1.
       if (value.checkOutOn < value.checkInOn) {
@@ -161,6 +163,8 @@ export const createStayBookingSchema = z
     termsVersion: z.number().int().min(0).max(1_000_000).optional(),
     /** Reference of the daily terms the guest accepted (`property:n`, `organization:n`, or `default`). */
     termsRef: z.string().trim().max(60).optional(),
+    /** Whether the signed-in booker is the guest or books for someone else. */
+    bookingFor: z.enum(['self', 'other']).optional(),
   })
   .strict();
 
