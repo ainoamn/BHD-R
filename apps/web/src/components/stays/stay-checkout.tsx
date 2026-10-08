@@ -464,10 +464,10 @@ export function StayCheckout({
     return request;
   }
 
-  /** Warm the cache for one night more / less so the − / + buttons update instantly. */
+  /** Warm the cache for the next two nights and one night less so − / + update instantly. */
   function prefetchNeighbourNights() {
     if (stayType !== 'overnight_stay' || !isIsoDate(checkInOn)) return;
-    for (const nights of [stayNights + 1, stayNights - 1]) {
+    for (const nights of [stayNights + 1, stayNights - 1, stayNights + 2]) {
       if (nights < 1 || nights > MAX_STAY_NIGHTS) continue;
       const path = availabilityPathFor(slug, unitId, {
         checkInOn,
