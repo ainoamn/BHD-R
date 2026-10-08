@@ -163,6 +163,34 @@ function nightsLabel(nights: number, ar: boolean): string {
   return `${nights} ${nights <= 10 ? 'ليالٍ' : 'ليلة'}`;
 }
 
+function paymentErrorMessage(error: unknown, ar: boolean, canRetry: boolean): string {
+  if (!(error instanceof ApiError)) return humanizeBrowserError(error, ar);
+  const retry = canRetry
+    ? ar
+      ? ' يمكنك المحاولة من زر «ادفع الآن».'
+      : ' Use Pay now to retry.'
+    : '';
+  switch (error.code) {
+    case 'payment_gateway_inactive':
+      return (
+        (ar ? 'بوابة الدفع غير مفعّلة حالياً.' : 'The payment gateway is not active right now.') +
+        retry
+      );
+    case 'booking_not_payable':
+      return ar
+        ? 'هذا الحجز لم يعد قابلاً للدفع (قد يكون أُلغي أو انتهت مهلته). ابدأ حجزاً جديداً.'
+        : 'This booking can no longer be paid (it may be cancelled or expired). Start a new booking.';
+    case 'already_paid':
+      return ar ? 'تم دفع هذا الحجز مسبقاً.' : 'This booking is already paid.';
+    case 'intent_not_payable':
+      return ar
+        ? 'انتهت صلاحية عملية الدفع لهذا الحجز. ابدأ حجزاً جديداً.'
+        : 'The payment for this booking has expired. Start a new booking.';
+    default:
+      return humanizeBrowserError(error, ar) + retry;
+  }
+}
+
 /** Public listing prices used to label the stay-type cards (the server quote stays authoritative). */
 export type StayCheckoutOffer = {
   currency: string;
@@ -834,13 +862,7 @@ export function StayCheckout({
         } catch (payError) {
           setStepHint(null);
           setPayBusy(false);
-          setError(
-            payError instanceof ApiError && payError.status === 409
-              ? ar
-                ? 'بوابة الدفع غير مفعّلة في هذه البيئة. يمكنك المحاولة من زر ادفع الآن.'
-                : 'Payment gateway is not active. Use Pay now to retry.'
-              : humanizeBrowserError(payError, ar),
-          );
+          setError(paymentErrorMessage(payError, ar, true));
         }
       } catch (caught) {
         setStepHint(null);
@@ -878,13 +900,7 @@ export function StayCheckout({
       try {
         await redirectToPayment(booking);
       } catch (caught) {
-        setError(
-          caught instanceof ApiError && caught.status === 409
-            ? ar
-              ? 'بوابة الدفع غير مفعّلة في هذه البيئة.'
-              : 'Payment gateway is not active in this environment.'
-            : humanizeBrowserError(caught, ar),
-        );
+        setError(paymentErrorMessage(caught, ar, false));
         setPayBusy(false);
         setStepHint(null);
       }

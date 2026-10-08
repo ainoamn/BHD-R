@@ -333,14 +333,11 @@ export function UnitStaySettings({
               value={draft.overnightCheckOutUntil}
               onChange={(event) => set('overnightCheckOutUntil', event.target.value)}
             />
-            <label className="checkbox-row stay-settings-unit__check">
-              <input
-                type="checkbox"
-                checked={draft.instantBook}
-                onChange={(event) => set('instantBook', event.target.checked)}
-              />
-              {ar ? 'حجز فوري (دون انتظار موافقتي)' : 'Instant booking (no approval needed)'}
-            </label>
+            <p className="muted stay-settings-unit__check">
+              {ar
+                ? 'الحجز من الموقع فوري: يدفع الضيف مباشرة ويتأكّد الحجز بعد الدفع.'
+                : 'Site bookings are instant: the guest pays right away and the booking confirms after payment.'}
+            </p>
           </div>
         </>
       )}

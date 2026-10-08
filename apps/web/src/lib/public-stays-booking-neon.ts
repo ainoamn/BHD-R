@@ -1059,7 +1059,7 @@ export async function createPublicStayBookingOnNeon(
     }
 
     const profile = await transaction.execute(sql`
-      SELECT sut.property_id, sp.unit_type_id, sp.instant_book, sp.timezone
+      SELECT sut.property_id, sp.unit_type_id, sp.timezone
       FROM stay_profiles sp
       INNER JOIN stay_unit_types sut ON sut.id = sp.unit_type_id
       WHERE sp.id = ${quote.stayProfileId}::uuid
@@ -1072,7 +1072,6 @@ export async function createPublicStayBookingOnNeon(
       | {
           property_id: string;
           unit_type_id: string;
-          instant_book: boolean;
           timezone: string;
         }
       | undefined;
@@ -1103,9 +1102,10 @@ export async function createPublicStayBookingOnNeon(
       };
     }
 
-    const bookingMode = profileRow.instant_book ? 'instant' : 'request';
-    const status: StayBookingStatus =
-      bookingMode === 'instant' ? 'payment_pending' : 'request_pending';
+    // No owner-approval step exists yet (request_pending → payment_pending), so a
+    // request-mode booking could never be paid; public checkout is pay-now only.
+    const bookingMode = 'instant';
+    const status: StayBookingStatus = 'payment_pending';
     const referenceCode = `ST-${randomBytes(4).toString('hex').toUpperCase()}`;
 
     const stayTypeFromFees = (() => {

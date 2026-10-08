@@ -266,7 +266,7 @@ const copy = {
     overnightMaxGuests: 'عدد الضيوف المسموح (مع المبيت)',
     minNights: 'الحد الأدنى لليالي',
     maxNights: 'الحد الأقصى لليالي',
-    instantBook: 'حجز فوري',
+    instantBook: 'الحجز من الموقع فوري: يدفع الضيف مباشرة ويتأكّد الحجز بعد الدفع.',
     policiesHint: 'سطر واحد لكل سياسة. اكتب بالعربية أو الإنجليزية ثم استخدم الترجمة التلقائية.',
     policiesAr: 'السياسات (عربي)',
     policiesEn: 'السياسات (إنجليزي)',
@@ -338,7 +338,8 @@ const copy = {
     overnightMaxGuests: 'Guests allowed (overnight)',
     minNights: 'Minimum nights',
     maxNights: 'Maximum nights',
-    instantBook: 'Instant book',
+    instantBook:
+      'Site bookings are instant: the guest pays right away and the booking confirms after payment.',
     policiesHint: 'One policy per line. Write in Arabic or English, then use automatic translation.',
     policiesAr: 'Policies (Arabic)',
     policiesEn: 'Policies (English)',
@@ -1428,14 +1429,7 @@ export function StaySetupWizard({
                     />
                   </div>
                 </div>
-                <label className="checkbox-row">
-                  <input
-                    type="checkbox"
-                    checked={instantBook}
-                    onChange={(event) => setInstantBook(event.target.checked)}
-                  />
-                  <span>{t.instantBook}</span>
-                </label>
+                <p className="muted">{t.instantBook}</p>
               </section>
 
               <section className="stays-setup-section">

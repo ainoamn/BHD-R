@@ -2,6 +2,15 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.5.4 — 2026-10-08
+
+- إصلاح رسالة «بوابة الدفع غير مفعّلة» التي كانت تظهر بعد تأكيد حجز الإقامة اليومية مع أن البوابة مفعّلة.
+- السبب: الوحدات على وضع «طلب حجز» تُنشئ حجزاً «بانتظار الاعتماد» لا يقبل الدفع، ولا يوجد زر اعتماد للمالك.
+- حجز الإقامة من الموقع أصبح فورياً دائماً: يُنشأ «بانتظار الدفع» ويُحوَّل الضيف إلى الدفع مباشرة.
+- رسائل دقيقة لأخطاء الدفع حسب الرمز (`payment_gateway_inactive`، `booking_not_payable`، `already_paid`، `intent_not_payable`).
+- استبدال خانة «حجز فوري» في إعدادات المالك بملاحظة توضّح أن الحجز من الموقع فوري.
+- التفاصيل: [`docs/implementation/RELEASE-0.5.4-AR.md`](./docs/implementation/RELEASE-0.5.4-AR.md).
+
 ## 0.5.3 — 2026-10-08
 
 - إعادة تصميم صفحة حجز الإقامة اليومية (`/stays/[slug]/book`).
