@@ -618,8 +618,93 @@ a.pmh-actionbar__title:hover,
 a.pmh-actionbar__title[aria-current='page'] {
   background: var(--pmh-soft);
 }
-.pmh-section .ops-workspace--scoped .ops-header h1 {
-  font-size: 1.35rem;
+
+/* Property section records (in-page tabs of the property hub) */
+.psr-refresh {
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.psr-refresh:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.psr-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.6rem;
+}
+.psr-summary article {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.7rem 0.85rem;
+  background: var(--pmh-soft);
+  border: 1px solid var(--pmh-line);
+  border-radius: 0.8rem;
+}
+.psr-summary span {
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+.psr-summary strong {
+  color: var(--oman-deep);
+  font-size: 0.95rem;
+}
+.psr-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+.psr-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.psr-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2rem;
+  padding: 0 0.7rem;
+  color: #2f4a40;
+  background: white;
+  border: 1px solid var(--pmh-line);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.psr-chip span {
+  color: var(--muted);
+  font-weight: 800;
+}
+.psr-chip--active {
+  color: white;
+  background: var(--oman-deep);
+  border-color: var(--oman-deep);
+}
+.psr-chip--active span {
+  color: #d7c2a2;
+}
+.psr-search {
+  flex: 0 1 18rem;
+  min-width: 12rem;
+}
+.psr-table td {
+  white-space: nowrap;
+}
+.psr-money--in {
+  color: #11643f;
+  font-weight: 800;
+}
+.psr-money--out {
+  color: #a1331f;
+  font-weight: 800;
 }
 
 /* Hero */
@@ -933,6 +1018,10 @@ a.pmh-actionbar__title[aria-current='page'] {
 .pmh-badge--muted {
   color: #5f6d67;
   background: #eef1f0;
+}
+.pmh-badge--danger {
+  color: #a1331f;
+  background: #fbe6e1;
 }
 
 /* Units */

@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Link } from '@/i18n/navigation';
-import { OperationsWorkspaceClient } from '@/components/operations-workspace-client';
-import type { OperationsSection } from '@/lib/portal-ops-types';
+import { PropertySectionRecords } from '@/components/property-section-records';
+import type { PropertyRecordSection } from '@/lib/property-records-neon';
 import { clearBrowserCsrfCache, fetchBrowserCsrfToken } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { formatListingLocation } from '@/lib/listing-card-copy';
@@ -27,7 +27,7 @@ const HUB_SECTIONS = [
   'maintenance',
   'invoices',
   'accounting',
-] as const satisfies readonly OperationsSection[];
+] as const satisfies readonly PropertyRecordSection[];
 type HubSection = (typeof HUB_SECTIONS)[number];
 
 function parseHubSection(value: string | null): HubSection | null {
@@ -522,8 +522,6 @@ export function PropertyManageHub({
     () => [...property.units].sort((a, b) => a.code.localeCompare(b.code)),
     [property.units],
   );
-  const unitIds = useMemo(() => property.units.map((unit) => unit.id), [property.units]);
-
   return (
     <div className="form-shell property-manage-hub pmh" ref={rootRef}>
       <nav className="pmh-actionbar" aria-label={ar ? 'إجراءات هذا العقار' : 'Property actions'}>
@@ -598,16 +596,13 @@ export function PropertyManageHub({
       ) : null}
 
       {activeSection ? (
-        <section className="pmh-section" aria-label={name}>
-          <OperationsWorkspaceClient
-            key={activeSection}
-            portal={portal}
-            section={activeSection}
-            locale={locale}
-            scopePropertyId={property.id}
-            scopeUnitIds={unitIds}
-          />
-        </section>
+        <PropertySectionRecords
+          key={activeSection}
+          portal={portal}
+          propertyId={property.id}
+          section={activeSection}
+          locale={locale}
+        />
       ) : (
         <>
           <section className="pmh-hero">

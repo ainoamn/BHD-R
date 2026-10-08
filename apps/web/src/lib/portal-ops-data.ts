@@ -62,7 +62,7 @@ function getSharedDatabase(): DbHandle {
   return globalForDb.__bhdRWebDb;
 }
 
-function ownerPartyScope(claims: SessionClaims): string | null {
+export function ownerPartyScope(claims: SessionClaims): string | null {
   if (!claims.partyId) return null;
   if (claims.roles.some((role) => ORG_WIDE_ROLES.has(role))) return null;
   return claims.partyId;
@@ -78,7 +78,7 @@ async function readClaims(): Promise<SessionClaims | null> {
   }
 }
 
-async function withinViewerTenant<T>(
+export async function withinViewerTenant<T>(
   claims: SessionClaims,
   work: (tx: Parameters<Parameters<Database['transaction']>[0]>[0]) => Promise<T>,
 ): Promise<T> {

@@ -28,15 +28,11 @@ export function OperationsWorkspaceClient({
   section,
   locale,
   active = true,
-  scopePropertyId,
-  scopeUnitIds,
 }: {
   portal: PortalRole;
   section: OperationsSection;
   locale: 'ar' | 'en';
   active?: boolean;
-  scopePropertyId?: string;
-  scopeUnitIds?: readonly string[];
 }) {
   const cached = getOpsCache(portal, section);
   const [payload, setPayload] = useState<OperationsWorkspacePayload>(() =>
@@ -117,8 +113,6 @@ export function OperationsWorkspaceClient({
         dataFromDb={payload.dataFromDb}
         loading={hydrating}
         loadError={statusReady ? Boolean(payload.loadError) : false}
-        {...(scopePropertyId ? { scopePropertyId } : {})}
-        {...(scopeUnitIds ? { scopeUnitIds } : {})}
       />
     </div>
   );

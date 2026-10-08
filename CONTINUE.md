@@ -1,5 +1,8 @@
 # CONTINUE — 2026-10-08
 
+**0.5.9** · أقسام صفحة العقار من Neon لهذا العقار فقط (`property-records-neon.ts` + `GET /api/portal/property-records/:propertyId/:section` + `PropertySectionRecords`): العقود والتأجير بكل حالاتها وأسماء المستأجرين، وملخص مالي للفواتير والحسابات  
+**تفاصيل:** [`docs/implementation/RELEASE-0.5.9-AR.md`](./docs/implementation/RELEASE-0.5.9-AR.md)
+
 **0.5.8** · صفحة إدارة العقار: أقسام الحجوزات والعقود والتأجير والبيع والصيانة والفواتير والحسابات تُعرض داخل الصفحة (`?section=`) ببيانات العقار فقط (`scopePropertyId` في `OperationsConsole`)  
 **تفاصيل:** [`docs/implementation/RELEASE-0.5.8-AR.md`](./docs/implementation/RELEASE-0.5.8-AR.md)
 
