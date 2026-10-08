@@ -706,7 +706,7 @@ export async function getPublicStayAvailabilityOnNeon(slug: string, query: StayA
     }
     return { available: false as const, reason: 'nights_out_of_range' as const, nights: 0 };
   }
-  const estimate = await priceStayRange(ctx, range, stayType)
+  const estimatePromise = priceStayRange(ctx, range, stayType)
     .then((priced) => ({
       nights: priced.nights,
       currency: priced.currency,
@@ -716,6 +716,24 @@ export async function getPublicStayAvailabilityOnNeon(slug: string, query: StayA
       totalMinor: priced.totalMinor,
     }))
     .catch(() => null);
+  const withinRules =
+    guests <= ctx.maxGuests &&
+    (stayType === 'overnight_stay'
+      ? nights >= ctx.minNights && nights <= ctx.maxNights
+      : nights >= 1);
+  const availablePromise = withinRules
+    ? asPublic((transaction) =>
+        isRangeAvailableInTransaction(
+          transaction,
+          ctx.organizationId,
+          ctx.unitId,
+          range.checkInOn,
+          range.checkOutOn,
+          stayType,
+        ),
+      )
+    : Promise.resolve(false);
+  const [estimate, availableInRange] = await Promise.all([estimatePromise, availablePromise]);
   if (guests > ctx.maxGuests) {
     return {
       available: false as const,
@@ -738,16 +756,7 @@ export async function getPublicStayAvailabilityOnNeon(slug: string, query: StayA
   if (stayType !== 'overnight_stay' && nights < 1) {
     return { available: false as const, reason: 'nights_out_of_range' as const, nights };
   }
-  const available = await asPublic((transaction) =>
-    isRangeAvailableInTransaction(
-      transaction,
-      ctx.organizationId,
-      ctx.unitId,
-      range.checkInOn,
-      range.checkOutOn,
-      stayType,
-    ),
-  );
+  const available = availableInRange;
   return {
     available,
     nights,

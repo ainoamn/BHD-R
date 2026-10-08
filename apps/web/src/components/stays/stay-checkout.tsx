@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { GuestCountField, isValidGuestCount } from '@/components/stays/guest-count-field';
 import { TermsAcceptance } from '@/components/terms-acceptance';
 import { Link } from '@/i18n/navigation';
@@ -109,8 +109,31 @@ type AvailabilityResult = {
 type EstimateState =
   | { status: 'idle' }
   | { status: 'loading' }
-  | { status: 'ready'; result: AvailabilityResult }
+  | { status: 'ready'; result: AvailabilityResult; refreshing?: boolean }
   | { status: 'error' };
+
+/** Prices are re-checked when the quote is created, so a short-lived browser cache is safe. */
+const ESTIMATE_CACHE_MS = 60_000;
+
+type AvailabilityParams = {
+  checkInOn: string;
+  checkOutOn: string;
+  adults: string;
+  children: string;
+  stayType: StayBookingType;
+};
+
+function availabilityPathFor(slug: string, unitId: string | undefined, p: AvailabilityParams) {
+  const qs = new URLSearchParams({
+    checkInOn: p.checkInOn,
+    checkOutOn: p.checkOutOn,
+    adults: p.adults,
+    children: p.children,
+    stayType: p.stayType,
+  });
+  if (unitId) qs.set('unitId', unitId);
+  return `/${encodeURIComponent(slug)}/availability?${qs.toString()}`;
+}
 
 type StayType = StayBookingType;
 
@@ -177,6 +200,7 @@ function StayEstimateCard({
     );
   }
   const { result } = state;
+  const refreshing = state.refreshing === true;
   const estimate = result.estimate ?? null;
   const rateLabel =
     stayType === 'day_use'
@@ -192,16 +216,21 @@ function StayEstimateCard({
           : 'Base nightly rate';
   const unitsLabel =
     stayType === 'overnight_stay'
-      ? ar
-        ? `الإيجار (${estimate?.nights ?? 0} ليلة)`
-        : `Rent (${estimate?.nights ?? 0} nights)`
+      ? `${ar ? 'الإيجار' : 'Rent'} (${nightsLabel(estimate?.nights ?? 0, ar)})`
       : ar
         ? 'الإيجار (فترة واحدة)'
         : 'Rent (one slot)';
   return (
     <div
-      className={result.available ? 'stays-estimate' : 'stays-estimate stays-estimate--unavailable'}
+      className={[
+        'stays-estimate',
+        result.available ? '' : 'stays-estimate--unavailable',
+        refreshing ? 'is-refreshing' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       aria-live="polite"
+      aria-busy={refreshing}
     >
       {estimate ? (
         <dl className="stays-estimate__rows">
@@ -313,6 +342,8 @@ export function StayCheckout({
   const offerSave = Boolean(contacts?.canSave) && contactChanged;
   const [quote, setQuote] = useState<QuoteResult | null>(null);
   const [estimate, setEstimate] = useState<EstimateState>({ status: 'idle' });
+  const estimateCache = useRef(new Map<string, { at: number; result: AvailabilityResult }>());
+  const estimateInflight = useRef(new Map<string, Promise<AvailabilityResult>>());
   const [booking, setBooking] = useState<BookingResult | null>(null);
   const [stepHint, setStepHint] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -396,15 +427,57 @@ export function StayCheckout({
   }
 
   function availabilityPath(): string {
-    const qs = new URLSearchParams({
+    return availabilityPathFor(slug, unitId, {
       checkInOn,
       checkOutOn: apiCheckOutOn,
       adults,
       children,
       stayType,
     });
-    if (unitId) qs.set('unitId', unitId);
-    return `/${encodeURIComponent(slug)}/availability?${qs.toString()}`;
+  }
+
+  function cachedEstimate(path: string): AvailabilityResult | null {
+    const hit = estimateCache.current.get(path);
+    if (!hit) return null;
+    if (Date.now() - hit.at > ESTIMATE_CACHE_MS) {
+      estimateCache.current.delete(path);
+      return null;
+    }
+    return hit.result;
+  }
+
+  /** One request per path: a click reuses the prefetch already in flight instead of starting over. */
+  function fetchEstimate(path: string): Promise<AvailabilityResult> {
+    const cached = cachedEstimate(path);
+    if (cached) return Promise.resolve(cached);
+    const inflight = estimateInflight.current.get(path);
+    if (inflight) return inflight;
+    const request = browserStayBookingGet<AvailabilityResult>(path)
+      .then((result) => {
+        estimateCache.current.set(path, { at: Date.now(), result });
+        return result;
+      })
+      .finally(() => {
+        estimateInflight.current.delete(path);
+      });
+    estimateInflight.current.set(path, request);
+    return request;
+  }
+
+  /** Warm the cache for one night more / less so the − / + buttons update instantly. */
+  function prefetchNeighbourNights() {
+    if (stayType !== 'overnight_stay' || !isIsoDate(checkInOn)) return;
+    for (const nights of [stayNights + 1, stayNights - 1]) {
+      if (nights < 1 || nights > MAX_STAY_NIGHTS) continue;
+      const path = availabilityPathFor(slug, unitId, {
+        checkInOn,
+        checkOutOn: addUtcDays(checkInOn, nights),
+        adults,
+        children,
+        stayType,
+      });
+      void fetchEstimate(path).catch(() => undefined);
+    }
   }
 
   function unavailableMessage(availability: AvailabilityResult): string {
@@ -444,17 +517,31 @@ export function StayCheckout({
       setEstimate({ status: 'idle' });
       return;
     }
+    const path = availabilityPath();
+    const cached = cachedEstimate(path);
+    if (cached) {
+      setEstimate({ status: 'ready', result: cached });
+      prefetchNeighbourNights();
+      return;
+    }
     let cancelled = false;
-    setEstimate({ status: 'loading' });
-    const timer = window.setTimeout(() => {
-      browserStayBookingGet<AvailabilityResult>(availabilityPath())
-        .then((result) => {
-          if (!cancelled) setEstimate({ status: 'ready', result });
-        })
-        .catch(() => {
-          if (!cancelled) setEstimate({ status: 'error' });
-        });
-    }, 350);
+    setEstimate((current) =>
+      current.status === 'ready' ? { ...current, refreshing: true } : { status: 'loading' },
+    );
+    const timer = window.setTimeout(
+      () => {
+        fetchEstimate(path)
+          .then((result) => {
+            if (cancelled) return;
+            setEstimate({ status: 'ready', result });
+            prefetchNeighbourNights();
+          })
+          .catch(() => {
+            if (!cancelled) setEstimate({ status: 'error' });
+          });
+      },
+      estimateInflight.current.has(path) ? 0 : 150,
+    );
     return () => {
       cancelled = true;
       window.clearTimeout(timer);

@@ -13026,6 +13026,21 @@ body:has(.stays-book-shell) #main-content {
   background: linear-gradient(180deg, #fff6f6, #fff);
   border-color: #f0d2d6;
 }
+.stays-estimate__rows,
+.stays-estimate__status {
+  transition: opacity 0.15s ease;
+}
+.stays-estimate.is-refreshing .stays-estimate__rows,
+.stays-estimate.is-refreshing .stays-estimate__status {
+  opacity: 0.55;
+  transition-delay: 0.2s;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stays-estimate__rows,
+  .stays-estimate__status {
+    transition: none;
+  }
+}
 .stays-estimate__rows {
   display: grid;
   gap: 0.35rem;
