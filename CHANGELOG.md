@@ -2,6 +2,15 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.95 — 2026-10-08
+
+- Stay calendars show fully vs partly booked days. Each day now carries morning/evening slot status (morning = day use «بدون مبيت», evening = overnight only «مبيت فقط») computed from active inventory locks (`lock_slot`) and live bookings (`pricingSnapshotJson.stayType`), plus `remainingSlot` and `remainingRateMinor` (the owner's price for the free slot, falling back to the nightly price like the quote).
+- Public stay page calendar: partly booked days are split-coloured with AM/PM badges and the remaining slot price; a "Partly booked days" list explains each (e.g. morning booked · evening free — price). Tapping such a day selects only the free slot and "Continue to book" passes `stayType` to checkout.
+- Owner calendar (`/owner/stays/calendar`) and booking detail calendar show the same; the bookings/blocks list labels each entry "Whole day" or "Partial — morning/evening".
+- Owner booking detail: new "Booking scope" row (full day vs partial morning/evening) and, for half-day bookings, the other slot's status with its bookable price.
+- Internal `slot:` markers are no longer shown as public day notes.
+- Details: [`docs/implementation/RELEASE-0.4.95-AR.md`](./docs/implementation/RELEASE-0.4.95-AR.md).
+
 ## 0.4.94 — 2026-10-07
 
 - Daily stay booking page (`/stays/[slug]/book`): same layout as rent/purchase booking (narrower image, wider form), new intro listing four steps (dates and stay type, your details, review and accept terms, pay and sign), a "Start your booking now" call to action with an arrow toward the form, and a language switch that keeps the dates, unit, and guest query.

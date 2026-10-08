@@ -18,12 +18,21 @@ type StayInventoryDay = {
   effectiveRateMinor?: string | null;
   currency?: string | null;
   publicNote?: string | null;
+  slots?: { morning: SlotStatus; evening: SlotStatus };
+  remainingSlot?: 'morning' | 'evening' | null;
+  remainingRateMinor?: string | null;
 };
+
+type SlotStatus = 'available' | 'booked' | 'hold' | 'blocked';
+
+/** Half-day stay type that books the given free slot. */
+export type HalfDayStayType = 'day_use' | 'overnight_only';
 
 type StayInventoryLockSpan = {
   kind: string;
   checkInOn: string;
   checkOutOn: string;
+  slot?: 'morning' | 'evening' | 'full';
   bookingReference?: string | null;
   note?: string | null;
 };
@@ -127,6 +136,40 @@ function statusMark(status: StayInventoryDay['availabilityStatus'], ar: boolean)
   }
 }
 
+function slotStatusLabel(status: SlotStatus, ar: boolean): string {
+  const labels: Record<SlotStatus, [string, string]> = {
+    available: ['شاغرة', 'free'],
+    booked: ['محجوزة', 'booked'],
+    hold: ['محجوزة مؤقتاً', 'on hold'],
+    blocked: ['مغلقة', 'closed'],
+  };
+  return ar ? labels[status][0] : labels[status][1];
+}
+
+function slotName(slot: 'morning' | 'evening', ar: boolean): string {
+  if (slot === 'morning') return ar ? 'الصباحية' : 'Morning';
+  return ar ? 'المسائية' : 'Evening';
+}
+
+function isPartialDay(day: StayInventoryDay): boolean {
+  return (
+    Boolean(day.remainingSlot && day.slots) &&
+    (day.availabilityStatus === 'booked' || day.availabilityStatus === 'hold')
+  );
+}
+
+function partialSummary(day: StayInventoryDay, ar: boolean): string {
+  if (!day.slots) return '';
+  return `${slotName('morning', ar)} ${slotStatusLabel(day.slots.morning, ar)} · ${slotName(
+    'evening',
+    ar,
+  )} ${slotStatusLabel(day.slots.evening, ar)}`;
+}
+
+function halfDayTypeForSlot(slot: 'morning' | 'evening'): HalfDayStayType {
+  return slot === 'morning' ? 'day_use' : 'overnight_only';
+}
+
 function rangeFullyAvailable(
   daysByDate: Map<string, StayInventoryDay>,
   checkInOn: string,
@@ -171,7 +214,8 @@ export function StayAvailabilityCalendar({
   size?: 'default' | 'large';
   selectedCheckIn?: string;
   selectedCheckOut?: string;
-  onRangeChange?: (checkIn: string, checkOut: string) => void;
+  /** `halfDay` is set when the guest picks the free slot of a partially booked day. */
+  onRangeChange?: (checkIn: string, checkOut: string, halfDay?: HalfDayStayType) => void;
   onDaySelect?: (day: StayInventoryDay) => void;
 }) {
   const ar = locale === 'ar';
@@ -260,6 +304,11 @@ export function StayAvailabilityCalendar({
     return map;
   }, [data]);
 
+  const partialDays = useMemo(() => {
+    const today = todayIso();
+    return (data?.days ?? []).filter((day) => day.stayDate >= today && isPartialDay(day));
+  }, [data]);
+
   const months = useMemo(
     () =>
       Array.from({ length: monthCount }, (_, index) => addCalendarMonths(viewMonthStart, index)),
@@ -280,6 +329,22 @@ export function StayAvailabilityCalendar({
     }
 
     if (mode !== 'public' || !onRangeChange) return;
+
+    if (isPartialDay(day) && day.remainingSlot && stayDate >= todayIso()) {
+      if (
+        pickStart &&
+        stayDate > pickStart &&
+        rangeFullyAvailable(daysByDate, pickStart, stayDate)
+      ) {
+        onRangeChange(pickStart, stayDate);
+        setPickStart(null);
+        return;
+      }
+      setPickStart(null);
+      onRangeChange(stayDate, stayDate, halfDayTypeForSlot(day.remainingSlot));
+      return;
+    }
+
     if (!isStayDateSelectable(day.availabilityStatus, stayDate)) return;
 
     if (!pickStart) {
@@ -406,8 +471,9 @@ export function StayAvailabilityCalendar({
                     currency: data?.currency ?? null,
                   };
                   const lock = lockForDay(data?.locks, cell.stayDate);
-                  const status =
-                    lock?.kind === 'booking'
+                  const status = day.slots
+                    ? day.availabilityStatus
+                    : lock?.kind === 'booking'
                       ? ('booked' as const)
                       : lock?.kind === 'hold'
                         ? ('hold' as const)
@@ -418,16 +484,28 @@ export function StayAvailabilityCalendar({
                             : lock?.kind === 'owner_block' || lock?.kind === 'channel'
                               ? ('blocked' as const)
                               : day.availabilityStatus;
+                  const partial = isPartialDay({ ...day, availabilityStatus: status });
                   const selectable =
                     (mode === 'public' &&
                       Boolean(onRangeChange) &&
-                      isStayDateSelectable(status, cell.stayDate)) ||
+                      (isStayDateSelectable(status, cell.stayDate) ||
+                        (partial && cell.stayDate >= todayIso()))) ||
                     (mode === 'ops' && Boolean(onDaySelect) && cell.stayDate >= todayIso());
                   const currency = day.currency ?? data?.currency ?? null;
-                  const titleParts = [statusLabel(status, ar)];
+                  const titleParts = partial
+                    ? [ar ? 'محجوز جزئياً' : 'Partly booked', partialSummary(day, ar)]
+                    : [statusLabel(status, ar)];
                   if (day.publicNote) titleParts.push(day.publicNote);
                   if (lock?.bookingReference) titleParts.push(lock.bookingReference);
-                  if (day.effectiveRateMinor && currency) {
+                  if (partial && day.remainingSlot && day.remainingRateMinor && currency) {
+                    titleParts.push(
+                      `${ar ? 'سعر الفترة' : 'Slot price'} ${slotName(day.remainingSlot, ar)}: ${formatMoney(
+                        day.remainingRateMinor,
+                        currency,
+                        locale,
+                      )}`,
+                    );
+                  } else if (day.effectiveRateMinor && currency) {
                     titleParts.push(formatMoney(day.effectiveRateMinor, currency, locale));
                   }
 
@@ -455,7 +533,9 @@ export function StayAvailabilityCalendar({
                       type="button"
                       className={[
                         'stays-calendar__day',
-                        statusClass(status),
+                        partial
+                          ? `is-partial is-partial--${day.remainingSlot}-free`
+                          : statusClass(status),
                         selected ? 'is-in-range' : '',
                         rangeStart ? 'is-range-start' : '',
                         rangeEnd ? 'is-range-end' : '',
@@ -467,7 +547,7 @@ export function StayAvailabilityCalendar({
                       disabled={!selectable}
                       onClick={() => handleDayClick(cell.stayDate!)}
                       title={titleParts.join(' · ')}
-                      aria-label={`${cell.stayDate} — ${statusLabel(status, ar)}${
+                      aria-label={`${cell.stayDate} — ${titleParts.slice(0, 2).join(' — ')}${
                         selectedLabel ? ` — ${selectedLabel}` : ''
                       }`}
                       aria-pressed={selected}
@@ -475,8 +555,28 @@ export function StayAvailabilityCalendar({
                       <span className="stays-calendar__day-num">
                         {Number(cell.stayDate.slice(8, 10))}
                       </span>
+                      {partial && day.slots ? (
+                        <span className="stays-calendar__slots" aria-hidden="true">
+                          <span className={`stays-calendar__slot is-${day.slots.morning}`}>
+                            {ar ? 'ص' : 'AM'}
+                          </span>
+                          <span className={`stays-calendar__slot is-${day.slots.evening}`}>
+                            {ar ? 'م' : 'PM'}
+                          </span>
+                        </span>
+                      ) : null}
                       {selectedLabel ? (
                         <span className="stays-calendar__day-status">{selectedLabel}</span>
+                      ) : partial ? (
+                        day.remainingRateMinor && currency ? (
+                          <span className="stays-calendar__day-price" dir="ltr">
+                            {compactMoney(day.remainingRateMinor, currency, locale)}
+                          </span>
+                        ) : (
+                          <span className="stays-calendar__day-status">
+                            {ar ? 'جزئي' : 'Partial'}
+                          </span>
+                        )
                       ) : status === 'booked' ||
                         status === 'hold' ||
                         status === 'blocked' ||
@@ -518,18 +618,66 @@ export function StayAvailabilityCalendar({
             <span>{statusLabel(status, ar)}</span>
           </li>
         ))}
+        <li className="stays-calendar__legend-item is-partial">
+          <span className="stays-calendar__swatch is-partial" aria-hidden="true" />
+          <span>
+            {ar ? 'محجوز جزئياً (ص صباحية · م مسائية)' : 'Partly booked (AM morning · PM evening)'}
+          </span>
+        </li>
       </ul>
+
+      {partialDays.length ? (
+        <div className="stays-calendar__partials">
+          <h4>{ar ? 'أيام محجوزة جزئياً' : 'Partly booked days'}</h4>
+          <ul>
+            {partialDays.map((day) => {
+              const currency = day.currency ?? data?.currency ?? null;
+              return (
+                <li key={day.stayDate}>
+                  <strong dir="ltr">{day.stayDate}</strong>
+                  <span>{partialSummary(day, ar)}</span>
+                  {day.remainingSlot ? (
+                    <span className="stays-calendar__partial-price">
+                      {ar ? 'المتبقي: الفترة ' : 'Remaining: '}
+                      {slotName(day.remainingSlot, ar)}
+                      {day.remainingRateMinor && currency
+                        ? ` — ${formatMoney(day.remainingRateMinor, currency, locale)}`
+                        : ''}
+                    </span>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+          {mode === 'public' && onRangeChange ? (
+            <p className="muted stays-calendar__partials-hint">
+              {ar
+                ? 'اضغط على اليوم المحجوز جزئياً لحجز الفترة المتبقية فقط.'
+                : 'Tap a partly booked day to book only the remaining slot.'}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       {mode === 'ops' && data?.locks?.length ? (
         <div className="stays-calendar__locks">
           <h4>{ar ? 'الحجوزات والإغلاقات' : 'Bookings and blocks'}</h4>
           <ul>
-            {data.locks.map((lock) => (
-              <li key={`${lock.kind}-${lock.checkInOn}-${lock.checkOutOn}`}>
+            {data.locks.map((lock, index) => (
+              <li
+                key={`${lock.kind}-${lock.checkInOn}-${lock.checkOutOn}-${lock.slot ?? 'full'}-${index}`}
+              >
                 <strong dir="ltr">
                   {lock.checkInOn} → {lock.checkOutOn}
                 </strong>
                 <span>{lockKindLabel(lock.kind, ar)}</span>
+                <span className="muted">
+                  {lock.slot === 'morning' || lock.slot === 'evening'
+                    ? `${ar ? 'جزئي — الفترة ' : 'Partial — '}${slotName(lock.slot, ar)}`
+                    : ar
+                      ? 'كامل اليوم'
+                      : 'Whole day'}
+                </span>
                 {lock.bookingReference ? <span dir="ltr">{lock.bookingReference}</span> : null}
                 {lock.note ? <span className="muted">{lock.note}</span> : null}
               </li>

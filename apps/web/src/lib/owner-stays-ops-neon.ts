@@ -20,6 +20,13 @@ import type {
   StayBookingContractData,
   StayBookingNeighbor,
 } from '@/components/stays/stay-booking-contract';
+import {
+  applyStayDaySlots,
+  hasLockSlotColumn,
+  loadStayDaySlots,
+  loadStaySlotPrices,
+  remainingSlotRateMinor,
+} from '@/lib/stay-day-slots-neon';
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdROwnerStaysOpsDb?: DbHandle };
@@ -353,6 +360,28 @@ export async function getOwnerStayBookingContractOnNeon(
       ]);
 
     const contact = readGuestContact(row.pricingSnapshotJson);
+    let otherSlot: StayBookingContractData['otherSlot'] = null;
+    if (contact.stayType === 'day_use' || contact.stayType === 'overnight_only') {
+      const slot = contact.stayType === 'day_use' ? 'evening' : 'morning';
+      const next = new Date(`${row.checkInOn}T00:00:00.000Z`);
+      next.setUTCDate(next.getUTCDate() + 1);
+      const [slotsByDate, prices] = await Promise.all([
+        loadStayDaySlots(transaction, {
+          organizationId,
+          unitId: row.unitId,
+          fromOn: row.checkInOn,
+          toOn: next.toISOString().slice(0, 10),
+          includeRequests: true,
+        }),
+        loadStaySlotPrices(transaction, organizationId, row.unitId),
+      ]);
+      const status = slotsByDate.get(row.checkInOn)?.[slot] ?? 'available';
+      otherSlot = {
+        slot,
+        status,
+        rateMinor: status === 'available' ? remainingSlotRateMinor(slot, prices) : null,
+      };
+    }
     const paid =
       row.status === 'confirmed' || row.status === 'paid' || intent?.status === 'succeeded';
 
@@ -450,6 +479,7 @@ export async function getOwnerStayBookingContractOnNeon(
       adults: contact.adults ?? null,
       children: contact.children ?? null,
       stayType: contact.stayType ?? null,
+      otherSlot,
       propertyId: row.propertyId,
       propertyNameAr: row.propertyNameAr,
       propertyNameEn: row.propertyNameEn,
@@ -780,11 +810,13 @@ export async function getOwnerStayInventoryDaysOnNeon(
       defaultCurrency: profile.currency,
     });
 
+    const slotReady = await hasLockSlotColumn(transaction);
     const lockResult = await transaction.execute(sql`
       SELECT
         l.kind::text AS kind,
         lower(l.stay_range)::text AS check_in_on,
         upper(l.stay_range)::text AS check_out_on,
+        ${slotReady ? sql`COALESCE(l.lock_slot, 'full')::text` : sql`'full'::text`} AS slot,
         l.note,
         sb.reference_code AS booking_reference
       FROM stay_inventory_locks l
@@ -810,6 +842,11 @@ export async function getOwnerStayInventoryDaysOnNeon(
           WHEN b.check_out_on > b.check_in_on THEN b.check_out_on::text
           ELSE (b.check_in_on + 1)::text
         END AS check_out_on,
+        CASE b.pricing_snapshot_json->>'stayType'
+          WHEN 'day_use' THEN 'morning'
+          WHEN 'overnight_only' THEN 'evening'
+          ELSE 'full'
+        END AS slot,
         NULL::text AS note,
         b.reference_code AS booking_reference
       FROM stay_bookings b
@@ -832,11 +869,15 @@ export async function getOwnerStayInventoryDaysOnNeon(
 
     const normalizeDate = (value: string) => String(value).slice(0, 10);
 
+    const normalizeSlot = (value: string): 'morning' | 'evening' | 'full' =>
+      value === 'morning' || value === 'evening' ? value : 'full';
+
     const locksFromDb = (
       lockRows as Array<{
         kind: string;
         check_in_on: string;
         check_out_on: string;
+        slot: string;
         note: string | null;
         booking_reference: string | null;
       }>
@@ -844,6 +885,7 @@ export async function getOwnerStayInventoryDaysOnNeon(
       kind: row.kind,
       checkInOn: normalizeDate(row.check_in_on),
       checkOutOn: normalizeDate(row.check_out_on),
+      slot: normalizeSlot(row.slot),
       ...(row.booking_reference ? { bookingReference: row.booking_reference } : {}),
       ...(row.note ? { note: row.note } : {}),
     }));
@@ -853,6 +895,7 @@ export async function getOwnerStayInventoryDaysOnNeon(
         kind: string;
         check_in_on: string;
         check_out_on: string;
+        slot: string;
         note: string | null;
         booking_reference: string | null;
       }>
@@ -860,6 +903,7 @@ export async function getOwnerStayInventoryDaysOnNeon(
       kind: row.kind,
       checkInOn: normalizeDate(row.check_in_on),
       checkOutOn: normalizeDate(row.check_out_on),
+      slot: normalizeSlot(row.slot),
       ...(row.booking_reference ? { bookingReference: row.booking_reference } : {}),
     }));
 
@@ -901,12 +945,23 @@ export async function getOwnerStayInventoryDaysOnNeon(
       };
     });
 
+    const [slotsByDate, prices] = await Promise.all([
+      loadStayDaySlots(transaction, {
+        organizationId,
+        unitId,
+        fromOn,
+        toOn,
+        includeRequests: true,
+      }),
+      loadStaySlotPrices(transaction, organizationId, unitId),
+    ]);
+
     return {
       unitId,
       fromOn,
       toOn,
       currency: profile.currency as StayInventoryCalendarResponse['currency'],
-      days: daysWithLocks,
+      days: applyStayDaySlots(daysWithLocks, slotsByDate, prices),
       locks,
     };
   });

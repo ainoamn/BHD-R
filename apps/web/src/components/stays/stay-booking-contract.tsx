@@ -30,6 +30,12 @@ export type StayBookingContractData = {
   adults?: number | null;
   children?: number | null;
   stayType?: string | null;
+  /** Half-day bookings: status and price of the other slot on the same date. */
+  otherSlot?: {
+    slot: 'morning' | 'evening';
+    status: 'available' | 'booked' | 'hold' | 'blocked';
+    rateMinor: string | null;
+  } | null;
   propertyId: string;
   propertyNameAr?: string | null;
   propertyNameEn?: string | null;
@@ -110,6 +116,37 @@ function paymentStatusCopy(status: string, ar: boolean): string {
       return ar ? 'ملغى' : 'Cancelled';
     default:
       return status;
+  }
+}
+
+function stayScopeCopy(stayType: string | null | undefined, ar: boolean): string {
+  if (stayType === 'day_use') {
+    return ar ? 'حجز جزئي — الفترة الصباحية (بدون مبيت)' : 'Partial — morning slot (day use)';
+  }
+  if (stayType === 'overnight_only') {
+    return ar ? 'حجز جزئي — الفترة المسائية (مبيت فقط)' : 'Partial — evening slot (overnight only)';
+  }
+  return ar ? 'حجز كلي — اليوم كاملاً (مع مبيت)' : 'Full — whole day (overnight stay)';
+}
+
+function otherSlotCopy(
+  other: NonNullable<StayBookingContractData['otherSlot']>,
+  currency: string,
+  locale: string,
+): string {
+  const ar = locale === 'ar';
+  switch (other.status) {
+    case 'available': {
+      const price = other.rateMinor ? formatMoney(other.rateMinor, currency, locale) : null;
+      const label = ar ? 'شاغرة' : 'Available';
+      return price ? `${label} — ${ar ? 'متاحة للحجز بقيمة' : 'bookable for'} ${price}` : label;
+    }
+    case 'booked':
+      return ar ? 'محجوزة (اليوم محجوز كليًا)' : 'Booked (day fully booked)';
+    case 'hold':
+      return ar ? 'محجوزة مؤقتًا' : 'On hold';
+    default:
+      return ar ? 'مغلقة' : 'Closed';
   }
 }
 
@@ -221,6 +258,24 @@ export function StayBookingContract({
             <Row
               label={ar ? 'نوع الإقامة' : 'Stay type'}
               value={stayTypeLabel(booking.stayType, ar)}
+            />
+          ) : null}
+          <Row
+            label={ar ? 'نطاق الحجز' : 'Booking scope'}
+            value={stayScopeCopy(booking.stayType, ar)}
+          />
+          {booking.otherSlot ? (
+            <Row
+              label={
+                booking.otherSlot.slot === 'morning'
+                  ? ar
+                    ? 'الفترة الصباحية'
+                    : 'Morning slot'
+                  : ar
+                    ? 'الفترة المسائية'
+                    : 'Evening slot'
+              }
+              value={otherSlotCopy(booking.otherSlot, booking.currency, locale)}
             />
           ) : null}
           {typeof booking.adults === 'number' ? (

@@ -16,7 +16,10 @@ import { ReviewsPanel } from '@/components/reviews-panel';
 import { StayGuestInfoSection } from '@/components/stays/stay-guest-info-section';
 import { StayReviewsHub } from '@/components/stays/stay-reviews-hub';
 import type { StayPublicDetail } from '@bhd-r/contracts';
-import { StayAvailabilityCalendar } from '@/components/stays/stay-availability-calendar';
+import {
+  StayAvailabilityCalendar,
+  type HalfDayStayType,
+} from '@/components/stays/stay-availability-calendar';
 import { googleMapsEmbedSrc } from '@/lib/parse-google-maps-url';
 import { listingPurposeCaption, occupancyLabel } from '@/lib/listing-purpose-display';
 import type { UnitOccupancy } from '@/lib/listing-purpose-display';
@@ -226,6 +229,7 @@ export function PropertyDetailManager({
   const [stayCheckOutOn, setStayCheckOutOn] = useState(
     stayBooking?.checkOutOn ?? defaultStayCheckOut(initialStayIn),
   );
+  const [stayHalfDay, setStayHalfDay] = useState<HalfDayStayType | null>(null);
   const editHref = `/${locale}/${portal}/properties/${property.id}/edit`;
 
   const currentOwner =
@@ -657,9 +661,10 @@ export function PropertyDetailManager({
                 monthCount={2}
                 selectedCheckIn={stayCheckInOn}
                 selectedCheckOut={stayCheckOutOn}
-                onRangeChange={(nextIn, nextOut) => {
+                onRangeChange={(nextIn, nextOut, halfDay) => {
                   setStayCheckInOn(nextIn);
                   setStayCheckOutOn(nextOut);
+                  setStayHalfDay(halfDay ?? null);
                 }}
               />
             </section>
@@ -1360,6 +1365,20 @@ export function PropertyDetailManager({
                       <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
                       <dd dir="ltr">{stayCheckOutOn}</dd>
                     </div>
+                    {stayHalfDay ? (
+                      <div>
+                        <dt>{ar ? 'الفترة' : 'Slot'}</dt>
+                        <dd>
+                          {stayHalfDay === 'day_use'
+                            ? ar
+                              ? 'الصباحية (بدون مبيت)'
+                              : 'Morning (day use)'
+                            : ar
+                              ? 'المسائية (مبيت فقط)'
+                              : 'Evening (overnight only)'}
+                        </dd>
+                      </div>
+                    ) : null}
                   </dl>
                   <p className="muted stays-checkout__hint">
                     {ar
@@ -1375,6 +1394,7 @@ export function PropertyDetailManager({
                         ...(stayBooking.unitId ? { unit: stayBooking.unitId } : {}),
                         ...(stayBooking.adults ? { adults: stayBooking.adults } : {}),
                         ...(stayBooking.children ? { children: stayBooking.children } : {}),
+                        ...(stayHalfDay ? { stayType: stayHalfDay } : {}),
                       },
                     ).toString()}`}
                   >

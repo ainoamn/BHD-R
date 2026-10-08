@@ -215,12 +215,22 @@ export const stayInventoryCalendarQuerySchema = z
     }
   });
 
+/** Per-slot occupancy: morning = day_use (بدون مبيت), evening = overnight_only (مبيت فقط). */
+export const stayDaySlotStatusSchema = z.enum(['available', 'booked', 'hold', 'blocked']);
+
 export const stayInventoryDaySchema = z.object({
   stayDate: z.iso.date(),
   availabilityStatus: stayDayAvailabilityStatusSchema,
   effectiveRateMinor: z.string().regex(/^\d+$/).nullable().optional(),
   currency: currencyCodeSchema.nullable().optional(),
   publicNote: z.string().trim().max(280).nullable().optional(),
+  /** Present when any booking or hold touches the day. */
+  slots: z
+    .object({ morning: stayDaySlotStatusSchema, evening: stayDaySlotStatusSchema })
+    .optional(),
+  /** Set only for partially booked days: the slot that can still be booked and its price. */
+  remainingSlot: z.enum(['morning', 'evening']).nullable().optional(),
+  remainingRateMinor: z.string().regex(/^\d+$/).nullable().optional(),
 });
 
 export const upsertStayInventoryDaySchema = z
@@ -241,6 +251,7 @@ export const stayInventoryLockSpanSchema = z.object({
   kind: z.string().min(1).max(24),
   checkInOn: z.iso.date(),
   checkOutOn: z.iso.date(),
+  slot: z.enum(['morning', 'evening', 'full']).optional(),
   bookingReference: z.string().max(32).nullable().optional(),
   note: z.string().max(500).nullable().optional(),
 });

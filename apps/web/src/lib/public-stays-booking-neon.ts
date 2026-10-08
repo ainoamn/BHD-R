@@ -35,6 +35,7 @@ import {
 } from '@bhd-r/domain';
 import { normalizeTermsRef } from '@/lib/booking-terms';
 import { loadBookingTermsForProperty } from '@/lib/booking-terms-neon';
+import { applyStayDaySlots, loadStayDaySlots } from '@/lib/stay-day-slots-neon';
 
 const QUOTE_TTL_MS = 30 * 60_000;
 const HOLD_TTL_MS = 15 * 60_000;
@@ -602,98 +603,30 @@ export async function getPublicStayCalendarOnNeon(slug: string, query: StayInven
       });
     }
 
-    // Overlay live locks + confirmed/active unpaid holds so the calendar matches checkout.
-    const overlay = await transaction.execute(sql`
-      WITH days AS (
-        SELECT generate_series(
-          ${query.fromOn}::date,
-          (${query.toOn}::date - 1),
-          '1 day'::interval
-        )::date AS stay_date
-      ),
-      lock_hits AS (
-        SELECT
-          d.stay_date,
-          bool_or(l.kind = 'booking') AS hard_booked,
-          bool_or(l.kind = 'hold') AS on_hold
-        FROM days d
-        INNER JOIN stay_inventory_locks l
-          ON l.organization_id = ${ctx.organizationId}::uuid
-         AND l.unit_id = ${ctx.unitId}::uuid
-         AND l.status = 'active'
-         AND l.stay_range @> d.stay_date
-        GROUP BY d.stay_date
-      ),
-      booking_hits AS (
-        SELECT
-          d.stay_date,
-          bool_or(b.status IN ('confirmed', 'pre_arrival', 'checked_in')) AS hard_booked,
-          bool_or(
-            b.status = 'payment_pending'
-            AND h.status = 'active'
-            AND h.expires_at > now()
-          ) AS on_hold
-        FROM days d
-        INNER JOIN stay_bookings b
-          ON b.organization_id = ${ctx.organizationId}::uuid
-         AND b.unit_id = ${ctx.unitId}::uuid
-         AND daterange(b.check_in_on, b.check_out_on, '[)') @> d.stay_date
-         AND (
-           b.status IN ('confirmed', 'pre_arrival', 'checked_in')
-           OR b.status = 'payment_pending'
-         )
-        LEFT JOIN stay_holds h ON h.id = b.hold_id
-        GROUP BY d.stay_date
-      )
-      SELECT
-        d.stay_date::text AS stay_date,
-        CASE
-          WHEN COALESCE(l.hard_booked, false) OR COALESCE(b.hard_booked, false) THEN 'booked'
-          WHEN COALESCE(l.on_hold, false) OR COALESCE(b.on_hold, false) THEN 'hold'
-          ELSE NULL
-        END AS overlay_status
-      FROM days d
-      LEFT JOIN lock_hits l ON l.stay_date = d.stay_date
-      LEFT JOIN booking_hits b ON b.stay_date = d.stay_date
-      WHERE COALESCE(l.hard_booked, false)
-         OR COALESCE(l.on_hold, false)
-         OR COALESCE(b.hard_booked, false)
-         OR COALESCE(b.on_hold, false)
-    `);
-    const overlayRows = Array.isArray(overlay)
-      ? overlay
-      : ((overlay as { rows?: Array<{ stay_date: string; overlay_status: string }> }).rows ?? []);
-    for (const row of overlayRows as Array<{ stay_date: string; overlay_status: string }>) {
-      if (!row.overlay_status) continue;
-      const existing = byDate.get(row.stay_date);
-      const rank = (status: string) =>
-        status === 'booked' ? 3 : status === 'hold' ? 2 : status === 'blocked' ? 2 : 1;
-      if (!existing) {
-        byDate.set(row.stay_date, {
-          stayDate: row.stay_date,
-          availabilityStatus: row.overlay_status,
-          effectiveRateMinor: ctx.baseNightlyMinor,
-          currency: ctx.currency,
-          publicNote: null,
-        });
-        continue;
-      }
-      if (rank(row.overlay_status) >= rank(existing.availabilityStatus)) {
-        existing.availabilityStatus = row.overlay_status;
-      }
-    }
+    // Overlay live locks + bookings per morning/evening slot so the calendar matches checkout.
+    const slotsByDate = await loadStayDaySlots(transaction, {
+      organizationId: ctx.organizationId,
+      unitId: ctx.unitId,
+      fromOn: query.fromOn,
+      toOn: query.toOn,
+    });
 
     const mapped = [...byDate.values()].sort((a, b) => a.stayDate.localeCompare(b.stayDate));
+    const days = fillInventoryCalendarDays(mapped, query.fromOn, query.toOn, {
+      defaultAvailability: 'available',
+      defaultRateMinor: ctx.baseNightlyMinor,
+      defaultCurrency: ctx.currency,
+    });
 
     return {
       unitId: ctx.unitId,
       fromOn: query.fromOn,
       toOn: query.toOn,
       currency: ctx.currency,
-      days: fillInventoryCalendarDays(mapped, query.fromOn, query.toOn, {
-        defaultAvailability: 'available',
-        defaultRateMinor: ctx.baseNightlyMinor,
-        defaultCurrency: ctx.currency,
+      days: applyStayDaySlots(days, slotsByDate, {
+        baseNightlyMinor: ctx.baseNightlyMinor,
+        dayUseMinor: ctx.dayUseMinor,
+        overnightOnlyMinor: ctx.overnightOnlyMinor,
       }),
     };
   });

@@ -11139,6 +11139,96 @@ button.ops-row-key {
     rgb(75 85 99 / 0.08) 6px
   );
 }
+/* Partly booked: one half shows the taken slot, the other the free slot. */
+.stays-calendar__day.is-partial {
+  border-color: #e7c27a;
+  color: #7a4b00;
+}
+.stays-calendar__day.is-partial--morning-free {
+  background: linear-gradient(160deg, #dff3ea 0 50%, #fde8e8 50% 100%);
+}
+.stays-calendar__day.is-partial--evening-free {
+  background: linear-gradient(160deg, #fde8e8 0 50%, #dff3ea 50% 100%);
+}
+.stays-calendar__day.is-partial:not(:disabled) {
+  cursor: pointer;
+}
+.stays-calendar__day.is-partial:not(:disabled):hover {
+  border-color: var(--oman-teal, #0d5c4d);
+  box-shadow: 0 4px 12px rgb(9 45 36 / 0.08);
+}
+.stays-calendar__slots {
+  display: inline-flex;
+  gap: 0.15rem;
+}
+.stays-calendar__slot {
+  min-width: 1.05rem;
+  padding: 0.05rem 0.2rem;
+  border-radius: 0.3rem;
+  font-size: 0.56rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+}
+.stays-calendar__slot.is-available {
+  background: #0d5c4d;
+  color: #fff;
+}
+.stays-calendar__slot.is-booked {
+  background: #9b1c1c;
+  color: #fff;
+}
+.stays-calendar__slot.is-hold {
+  background: #9a6700;
+  color: #fff;
+}
+.stays-calendar__slot.is-blocked {
+  background: #4b5563;
+  color: #fff;
+}
+.stays-calendar__legend-item.is-partial {
+  background: linear-gradient(160deg, #dff3ea 0 50%, #fde8e8 50% 100%);
+  border-color: #e7c27a;
+  color: #7a4b00;
+}
+.stays-calendar__swatch.is-partial {
+  background: linear-gradient(160deg, #dff3ea 0 50%, #fde8e8 50% 100%);
+  border-color: #b7791f;
+}
+.stays-calendar__partials {
+  padding-top: 0.6rem;
+  border-top: 1px solid #e3e8e5;
+}
+.stays-calendar__partials h4 {
+  margin: 0 0 0.55rem;
+  font-size: 0.95rem;
+}
+.stays-calendar__partials ul {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.stays-calendar__partials li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.75rem;
+  align-items: baseline;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #f0d9a8;
+  border-radius: 0.55rem;
+  background: #fffaf0;
+  font-size: 0.88rem;
+}
+.stays-calendar__partial-price {
+  font-weight: 750;
+  color: #0d5c4d;
+}
+.stays-calendar__partials-hint {
+  margin: 0.45rem 0 0;
+  font-size: 0.82rem;
+}
 .stays-calendar__day.is-unavailable {
   background: #f4f6f5;
   color: #8a9690;
