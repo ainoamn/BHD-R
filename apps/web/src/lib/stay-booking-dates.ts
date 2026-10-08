@@ -10,6 +10,23 @@ export function addUtcDays(isoDate: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
+/** Today's calendar date in Oman (YYYY-MM-DD), the same on server and browser. */
+export function stayTodayInOman(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Muscat' }).format(now);
+}
+
+export function isIsoDate(value: string | undefined | null): value is string {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+/** Whole nights between two ISO dates (negative when check-out is before check-in). */
+export function nightsBetween(checkInOn: string, checkOutOn: string): number {
+  const start = Date.parse(`${checkInOn}T00:00:00.000Z`);
+  const end = Date.parse(`${checkOutOn}T00:00:00.000Z`);
+  if (Number.isNaN(start) || Number.isNaN(end)) return 0;
+  return Math.round((end - start) / 86_400_000);
+}
+
 export function isSameCalendarDayStay(type: StayBookingType): boolean {
   return type === 'day_use' || type === 'overnight_only';
 }

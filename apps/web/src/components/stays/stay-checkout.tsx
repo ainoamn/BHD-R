@@ -22,10 +22,14 @@ import {
   stayEsignReturnPath,
 } from '@/lib/stay-esign-flags';
 import {
+  addUtcDays,
   exclusiveCheckOutOn,
+  isIsoDate,
   isSameCalendarDayStay,
   isValidGuestPhone,
+  nightsBetween,
   stayDatesValid,
+  stayTodayInOman,
   type StayBookingType,
 } from '@/lib/stay-booking-dates';
 import { stayStatusLabel } from '@/lib/ui-labels';
@@ -112,16 +116,28 @@ type StayType = StayBookingType;
 
 type Step = 'stay' | 'guest' | 'review' | 'payment';
 
-function defaultCheckIn(): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() + 7);
-  return d.toISOString().slice(0, 10);
+/** Arrival defaults to today (Oman); a past or malformed date from the link falls back to today. */
+function initialCheckIn(requested: string | undefined, today: string): string {
+  return isIsoDate(requested) && requested >= today ? requested : today;
 }
 
-function defaultCheckOut(checkIn: string): string {
-  const d = new Date(`${checkIn}T00:00:00.000Z`);
-  d.setUTCDate(d.getUTCDate() + 2);
-  return d.toISOString().slice(0, 10);
+/** Full-day stays default to one night (leave tomorrow); same-day types leave on arrival day. */
+function initialCheckOut(
+  requested: string | undefined,
+  checkIn: string,
+  stayType: StayBookingType,
+): string {
+  if (isSameCalendarDayStay(stayType)) return checkIn;
+  return isIsoDate(requested) && requested > checkIn ? requested : addUtcDays(checkIn, 1);
+}
+
+const MAX_STAY_NIGHTS = 90;
+
+function nightsLabel(nights: number, ar: boolean): string {
+  if (!ar) return `${nights} ${nights === 1 ? 'night' : 'nights'}`;
+  if (nights === 1) return 'ليلة واحدة';
+  if (nights === 2) return 'ليلتان';
+  return `${nights} ${nights <= 10 ? 'ليالٍ' : 'ليلة'}`;
 }
 
 function stayTypeLabel(type: StayType, ar: boolean): string {
@@ -264,13 +280,17 @@ export function StayCheckout({
   const termsRef = terms?.ref ?? 'default';
   const termsBlocks = bookingTermsDocument({ mode: 'daily', blocks: terms?.blocks ?? null });
   const [termsAccepted, setTermsAccepted] = useState(false);
-  const initialIn = defaults?.checkInOn || defaultCheckIn();
+  const [today] = useState(() => stayTodayInOman());
+  const initialType: StayType = defaults?.stayType ?? 'overnight_stay';
+  const initialIn = initialCheckIn(defaults?.checkInOn, today);
   const [step, setStep] = useState<Step>('stay');
   const [checkInOn, setCheckInOn] = useState(initialIn);
-  const [checkOutOn, setCheckOutOn] = useState(defaults?.checkOutOn || defaultCheckOut(initialIn));
+  const [checkOutOn, setCheckOutOn] = useState(() =>
+    initialCheckOut(defaults?.checkOutOn, initialIn, initialType),
+  );
   const [adults, setAdults] = useState(defaults?.adults ?? '2');
   const [children, setChildren] = useState(defaults?.children ?? '0');
-  const [stayType, setStayType] = useState<StayType>(defaults?.stayType ?? 'overnight_stay');
+  const [stayType, setStayType] = useState<StayType>(initialType);
   const [selfName, setSelfName] = useState(defaults?.guestName ?? contacts?.self.fullName ?? '');
   const [selfPhone, setSelfPhone] = useState(defaults?.guestPhone ?? contacts?.self.phone ?? '');
   const [selfEmail, setSelfEmail] = useState(defaults?.guestEmail ?? contacts?.self.email ?? '');
@@ -307,9 +327,32 @@ export function StayCheckout({
   }, [bookingDates?.checkInOn, bookingDates?.checkOutOn]);
 
   useEffect(() => {
-    if (!isSameCalendarDayStay(stayType)) return;
-    if (checkOutOn !== checkInOn) setCheckOutOn(checkInOn);
+    if (isSameCalendarDayStay(stayType)) {
+      if (checkOutOn !== checkInOn) setCheckOutOn(checkInOn);
+      return;
+    }
+    if (isIsoDate(checkInOn) && !(checkOutOn > checkInOn)) {
+      setCheckOutOn(addUtcDays(checkInOn, 1));
+    }
   }, [stayType, checkInOn, checkOutOn]);
+
+  const stayNights = isSameCalendarDayStay(stayType) ? 0 : nightsBetween(checkInOn, checkOutOn);
+
+  function changeCheckIn(next: string) {
+    setCheckInOn(next);
+    if (!isIsoDate(next)) return;
+    if (isSameCalendarDayStay(stayType)) {
+      setCheckOutOn(next);
+      return;
+    }
+    if (!(checkOutOn > next)) setCheckOutOn(addUtcDays(next, Math.max(1, stayNights)));
+  }
+
+  function changeNights(delta: number) {
+    if (!isIsoDate(checkInOn)) return;
+    const next = Math.min(MAX_STAY_NIGHTS, Math.max(1, stayNights + delta));
+    setCheckOutOn(addUtcDays(checkInOn, next));
+  }
 
   const apiCheckOutOn = exclusiveCheckOutOn(stayType, checkInOn, checkOutOn);
 
@@ -751,12 +794,9 @@ export function StayCheckout({
                   id="stay-book-in"
                   type="date"
                   required
+                  min={today}
                   value={checkInOn}
-                  onChange={(event) => {
-                    const next = event.target.value;
-                    setCheckInOn(next);
-                    if (isSameCalendarDayStay(stayType)) setCheckOutOn(next);
-                  }}
+                  onChange={(event) => changeCheckIn(event.target.value)}
                 />
               </div>
               {!isSameCalendarDayStay(stayType) ? (
@@ -767,6 +807,7 @@ export function StayCheckout({
                     id="stay-book-out"
                     type="date"
                     required
+                    min={isIsoDate(checkInOn) ? addUtcDays(checkInOn, 1) : today}
                     value={checkOutOn}
                     onChange={(event) => setCheckOutOn(event.target.value)}
                   />
@@ -787,6 +828,38 @@ export function StayCheckout({
               )}
             </div>
           )}
+          {!embedded && !isSameCalendarDayStay(stayType) ? (
+            <div className="stays-checkout__nights">
+              <div className="stays-checkout__nights-stepper">
+                <button
+                  type="button"
+                  className="button button--quiet"
+                  onClick={() => changeNights(-1)}
+                  disabled={stayNights <= 1}
+                  aria-label={ar ? 'إنقاص ليلة' : 'One night less'}
+                >
+                  −
+                </button>
+                <output aria-live="polite">
+                  {stayNights > 0 ? nightsLabel(stayNights, ar) : '—'}
+                </output>
+                <button
+                  type="button"
+                  className="button button--quiet"
+                  onClick={() => changeNights(1)}
+                  disabled={stayNights >= MAX_STAY_NIGHTS}
+                  aria-label={ar ? 'تمديد ليلة' : 'Add a night'}
+                >
+                  +
+                </button>
+              </div>
+              <p className="muted stays-checkout__hint">
+                {ar
+                  ? 'الوصول اليوم والمغادرة غداً افتراضياً. غيّر التاريخين أو اضغط + لتمديد الإقامة.'
+                  : 'Arrives today and leaves tomorrow by default. Change the dates or press + to extend.'}
+              </p>
+            </div>
+          ) : null}
           <div className={`field stays-checkout__tone stays-checkout__tone--stay-${stayType}`}>
             <label htmlFor="stay-book-type">{ar ? 'نوع الحجز' : 'Stay type'}</label>
             <select

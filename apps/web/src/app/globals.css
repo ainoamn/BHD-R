@@ -12959,6 +12959,41 @@ body:has(.stays-book-shell) #main-content {
   font-size: 0.88rem;
   font-weight: 700;
 }
+.stays-checkout__nights {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.85rem;
+  margin-block: 0.6rem 0.2rem;
+}
+.stays-checkout__nights .stays-checkout__hint {
+  flex: 1 1 14rem;
+  margin: 0;
+}
+.stays-checkout__nights-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  border: 1px solid color-mix(in srgb, #174b70 18%, white);
+  border-radius: 999px;
+  background: color-mix(in srgb, #174b70 5%, white);
+}
+.stays-checkout__nights-stepper .button {
+  min-width: 2.4rem;
+  min-height: 2.4rem;
+  padding: 0;
+  border-radius: 999px;
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.stays-checkout__nights-stepper output {
+  min-width: 5.5rem;
+  text-align: center;
+  font-weight: 800;
+  color: #174b70;
+}
 .guest-count-field__total {
   display: grid;
   gap: 0.3rem;
