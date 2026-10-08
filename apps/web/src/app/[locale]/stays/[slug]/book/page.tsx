@@ -174,8 +174,8 @@ export default async function StayBookPage({
   ].filter((fact): fact is string => Boolean(fact));
   const checkInFrom = shortTime(detail.checkInFrom);
   const checkOutUntil = shortTime(detail.checkOutUntil);
-  const score = detail.smartScoreTen ?? detail.guestScoreTen ?? null;
   const reviewCount = detail.stayReviewCount ?? 0;
+  const score = reviewCount > 0 ? (detail.guestScoreTen ?? detail.smartScoreTen ?? null) : null;
 
   return (
     <section className="stay-book" data-stay-book-immersive="true">
