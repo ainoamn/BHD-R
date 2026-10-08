@@ -4,68 +4,69 @@ All notable changes are documented here. The project follows Semantic Versioning
 
 ## 0.4.96 — 2026-10-08
 
-- Performance: Vercel functions now run in `lhr1` (London), next to the Neon database in `eu-west-2`. They previously ran in `iad1` (Washington), so every query crossed the Atlantic (~80 ms) and calendar requests with 20–30 sequential queries took several seconds. Tenant/public session setup is now one `set_config` statement instead of six/two.
-- Owner/developer stays calendar (`/owner|developer/stays/calendar`): one bookings calendar for all properties by default; red days have bookings (with a count), green days are free; clicking a date lists that day's bookings (property and unit, guest, phone, period, dates, amount, status, reference, link to booking details).
-- Searchable property dropdown ("All properties" or one unit; search by property name, unit name, or code). Selecting a property filters the calendar to it and shows its rates/closed-days calendar and editor below.
-- New `GET /api/owner/stays/calendar-overview?fromOn&toOn[&unitId]` (live session, ≤ 93 days).
-- Details: [`docs/implementation/RELEASE-0.4.96-AR.md`](./docs/implementation/RELEASE-0.4.96-AR.md).
+- **الأداء:** دوال Vercel أصبحت تعمل في لندن (`lhr1`) بجانب قاعدة بيانات Neon في (`eu-west-2`). كانت تعمل في واشنطن (`iad1`)، فكان كل استعلام يعبر الأطلسي (~80 ملي ثانية)، وطلب التقويم الواحد (20–30 استعلامًا متتاليًا) يستغرق عدة ثوانٍ. النتيجة: طلب التقويم من ~2 ثانية إلى ~0.3 ثانية، وصفحة العقار من ~4 ثوانٍ إلى ~1.6 ثانية.
+- تهيئة جلسة قاعدة البيانات أصبحت استعلامًا واحدًا بدل ستة في صفحات المالك وبدل اثنين في الصفحات العامة.
+- **تقويم المالك/المطوّر الموحّد** (`/owner|developer/stays/calendar`): تقويم حجوزات واحد لكل العقارات؛ الأحمر يوم فيه حجوزات (مع عددها) والأخضر يوم شاغر؛ الضغط على التاريخ يعرض حجوزات ذلك اليوم (العقار والوحدة، الضيف، الهاتف، الفترة، التواريخ، المبلغ، الحالة، المرجع، رابط تفاصيل الحجز).
+- قائمة منسدلة للعقارات مع بحث (باسم العقار أو اسم الوحدة أو رمزها): «كل العقارات» أو عقار محدد؛ اختيار عقار يعرض حجوزاته فقط ويُظهر أسفله تقويم «الأسعار وإغلاق الأيام» ومحرر اليوم.
+- مسار جديد `GET /api/owner/stays/calendar-overview?fromOn&toOn[&unitId]` (جلسة حيّة، حد أقصى 93 يومًا).
+- التفاصيل: [`docs/implementation/RELEASE-0.4.96-AR.md`](./docs/implementation/RELEASE-0.4.96-AR.md).
 
 ## 0.4.95 — 2026-10-08
 
-- Stay calendars show fully vs partly booked days. Each day now carries morning/evening slot status (morning = day use «بدون مبيت», evening = overnight only «مبيت فقط») computed from active inventory locks (`lock_slot`) and live bookings (`pricingSnapshotJson.stayType`), plus `remainingSlot` and `remainingRateMinor` (the owner's price for the free slot, falling back to the nightly price like the quote).
-- Public stay page calendar: partly booked days are split-coloured with AM/PM badges and the remaining slot price; a "Partly booked days" list explains each (e.g. morning booked · evening free — price). Tapping such a day selects only the free slot and "Continue to book" passes `stayType` to checkout.
-- Owner calendar (`/owner/stays/calendar`) and booking detail calendar show the same; the bookings/blocks list labels each entry "Whole day" or "Partial — morning/evening".
-- Owner booking detail: new "Booking scope" row (full day vs partial morning/evening) and, for half-day bookings, the other slot's status with its bookable price.
-- Internal `slot:` markers are no longer shown as public day notes.
-- Slot badges carry ✓ (free) / ✗ (booked) marks, and the calendar legend has a second row explaining ص/AM (morning, day use), م/PM (evening, overnight only), ✓, ✗, and the remaining slot price.
-- Details: [`docs/implementation/RELEASE-0.4.95-AR.md`](./docs/implementation/RELEASE-0.4.95-AR.md).
+- التقويمات تميّز **الحجز الكلي** من **الحجز الجزئي**: لكل يوم حالة الفترة الصباحية (بدون مبيت) والمسائية (مبيت فقط)، محسوبة من أقفال المخزون النشطة (`lock_slot`) والحجوزات الحية (`pricingSnapshotJson.stayType`)، مع `remainingSlot` و`remainingRateMinor` (سعر المالك للفترة المتبقية، وإن لم يُضبط فسعر الليلة كما في عرض السعر).
+- تقويم صفحة العقار العامة: اليوم الجزئي بلونين مع شارتي «ص» و«م» وعلامة ✓ للشاغرة و✗ للمحجوزة وسعر الفترة المتبقية؛ قائمة «أيام محجوزة جزئياً»؛ الضغط على اليوم الجزئي يختار الفترة المتبقية فقط ويمرّر نوع الإقامة لصفحة الحجز.
+- دليل التقويم: صف إضافي يشرح «ص» الصباحية (بدون مبيت)، «م» المسائية (مبيت فقط)، ✓ شاغرة، ✗ محجوزة، وسعر الفترة المتبقية.
+- تقويم المالك وتقويم صفحة تفاصيل الحجز يعرضان نفس المعلومات، وقائمة «الحجوزات والإغلاقات» تبيّن «كامل اليوم» أو «جزئي — الفترة الصباحية/المسائية».
+- صفحة تفاصيل الحجز للمالك: صف «نطاق الحجز» (كلي/جزئي)، وللحجز الجزئي حالة الفترة الأخرى وسعرها المتاح.
+- علامات `slot:` الداخلية لم تعد تظهر كملاحظة عامة لليوم.
+- التفاصيل: [`docs/implementation/RELEASE-0.4.95-AR.md`](./docs/implementation/RELEASE-0.4.95-AR.md).
 
 ## 0.4.94 — 2026-10-07
 
-- Daily stay booking page (`/stays/[slug]/book`): same layout as rent/purchase booking (narrower image, wider form), new intro listing four steps (dates and stay type, your details, review and accept terms, pay and sign), a "Start your booking now" call to action with an arrow toward the form, and a language switch that keeps the dates, unit, and guest query.
-- "Your details" step: signed-in users choose "Yes, for me" or "No, for someone else", pick a saved person or enter a new one, and can save their phone or the other person to their profile. Anonymous guests keep the single guest form.
-- `createStayBookingSchema` accepts optional `bookingFor`; the booking snapshot stores `bookingFor` and the signed-in booker (`bookedBy`). The stay contract shows "Booked by" when the booking is for someone else.
-- New `POST /api/public/booking-contacts` (live session, CSRF, rate limit) to save a booking contact after the booking is created; failures never block the booking.
-- Details: [`docs/implementation/RELEASE-0.4.94-AR.md`](./docs/implementation/RELEASE-0.4.94-AR.md).
+- صفحة حجز الإقامة اليومية (`/stays/[slug]/book`): نفس تخطيط صفحة حجز الإيجار/الشراء (صورة أصغر ونموذج أكبر)، ونص جديد بأربع خطوات (اختيار التواريخ ونوع الإقامة، إدخال بياناتك، المراجعة والموافقة على الشروط، الدفع والتوقيع)، وعبارة «ابدأ إجراءات الحجز الآن» مع سهم نحو النموذج، وزر تبديل اللغة مع الحفاظ على التواريخ والوحدة والضيوف.
+- خطوة «بياناتك»: المستخدم المسجّل يختار «نعم، الحجز لي» أو «لا، لشخص آخر»، ويختار شخصًا محفوظًا أو يضيف جديدًا، ويمكنه حفظ هاتفه أو بيانات الشخص في ملفه. الزائر غير المسجّل يبقى له نموذج الضيف.
+- `createStayBookingSchema` يقبل `bookingFor` اختياريًا؛ لقطة الحجز تحفظ `bookingFor` و`bookedBy`؛ عقد الإقامة يعرض «تم الحجز بواسطة» عند الحجز لشخص آخر.
+- مسار جديد `POST /api/public/booking-contacts` (جلسة حيّة + CSRF + حد للطلبات) لحفظ جهة الاتصال بعد إنشاء الحجز؛ فشل الحفظ لا يوقف الحجز.
+- التفاصيل: [`docs/implementation/RELEASE-0.4.94-AR.md`](./docs/implementation/RELEASE-0.4.94-AR.md).
 
 ## 0.4.93 — 2026-10-07
 
-- Default monthly/yearly rent terms are now the owner's tenancy addendum copied verbatim in Arabic and English: 17 headings and 52 clauses (official communication, non-refundable booking deposit, security deposit, payment terms, late payments, utility bills, conditions of stay, violations, access cards, legal action, maintenance, right of entry, renewal, vacating, handover, fees and taxes, severability). Only PDF extraction artifacts and obvious English typos were fixed.
-- `TERMS_MAX_BLOCKS` raised from 80 to 150 headings/clauses per contract type.
-- Rent/purchase booking page (`/book/[unitId]`): narrower side image and wider form panel (`stays-book-shell--wide-form`); intro text now lists the four steps (terms, details, deposit, sign).
-- Details: [`docs/implementation/RELEASE-0.4.93-AR.md`](./docs/implementation/RELEASE-0.4.93-AR.md).
+- الشروط الافتراضية للإيجار الشهري/السنوي أصبحت نص ملحق عقد الإيجار لدى المالك منسوخًا حرفيًا بالعربية والإنجليزية: 17 عنوانًا و52 بندًا (طريقة الاتصال الرسمية، وديعة الحجز غير القابلة للاسترداد، مبلغ التأمين، شروط الدفع، المدفوعات المتأخرة، فواتير المياه والكهرباء، شروط الإقامة، المخالفات، بطاقات الوصول، الإجراءات القانونية، الصيانة، حق الدخول، التجديد، الإخلاء، التسليم، الرسوم والضرائب، شرط الفصل). صُحّحت فقط أخطاء استخراج النص من PDF والأخطاء الإملائية الواضحة في الإنجليزية.
+- رفع الحد الأقصى `TERMS_MAX_BLOCKS` من 80 إلى 150 عنوانًا/بندًا لكل نوع عقد.
+- صفحة حجز الإيجار/الشراء (`/book/[unitId]`): صورة جانبية أصغر ونموذج أوسع، ونص بأربع خطوات (الشروط، البيانات، مبلغ الضمان، التوقيع).
+- التفاصيل: [`docs/implementation/RELEASE-0.4.93-AR.md`](./docs/implementation/RELEASE-0.4.93-AR.md).
 
 ## 0.4.92 — 2026-10-07
 
-- New platform default terms (bilingual, Omani-law based) used when no standard or custom terms exist: monthly/yearly rent (non-refundable reservation deposit that converts to a security deposit, lease term, security deposit, use and maintenance, notice and vacating, general), sale (earnest money, price and certified-cheque payment, title transfer at the Ministry of Housing and Urban Planning and fees, seller warranties, inspection and handover, breach, general), and daily stays (booking, check-in/out, house rules, damage and liability, cancellation, general).
-- AI tools in the terms editor under every field: legal translation to the other language (fills an empty side or offers a suggestion), legal rephrasing, and proofreading with a list of corrections; plus "AI-translate missing items". New `POST /api/owner/booking-terms/ai` (live session, CSRF, `property.update`, rate limit). Uses Vercel AI Gateway (`AI_GATEWAY_API_KEY`) or OpenAI (`OPENAI_API_KEY`), optional `AI_MODEL`; without a key, translation falls back to free machine translation and rephrase/proofread return `ai_unconfigured`.
-- One-click copy of the current items between sale, monthly/yearly rent, and daily stays (with confirmation before replacing existing items; nothing is saved automatically).
-- Details: [`docs/implementation/RELEASE-0.4.92-AR.md`](./docs/implementation/RELEASE-0.4.92-AR.md).
+- شروط افتراضية للمنصة (ثنائية اللغة ومبنية على القانون العُماني) تُستخدم عند عدم وجود صيغة موحدة أو مخصصة: الإيجار الشهري/السنوي، البيع (العربون، السداد بشيك مصدّق، نقل الملكية في وزارة الإسكان والتخطيط العمراني والرسوم، ضمانات البائع، المعاينة والتسليم، الإخلال)، والإيجار اليومي.
+- أدوات الذكاء الاصطناعي أسفل كل حقل في محرر الشروط: ترجمة قانونية للغة الأخرى، إعادة صياغة قانونية، وتدقيق لغوي مع قائمة التصحيحات، وزر «ترجمة كل البنود الناقصة». مسار جديد `POST /api/owner/booking-terms/ai` (جلسة حيّة، CSRF، صلاحية `property.update`، حد للطلبات). يعمل عبر Vercel AI Gateway (`AI_GATEWAY_API_KEY`) أو OpenAI (`OPENAI_API_KEY`) مع `AI_MODEL` اختياري؛ بدون مفتاح تعمل الترجمة بالترجمة الآلية المجانية، والصياغة والتدقيق يعيدان `ai_unconfigured`.
+- نسخ البنود بضغطة واحدة بين البيع والإيجار الشهري/السنوي والإيجار اليومي (مع تأكيد قبل الاستبدال؛ لا يُحفظ شيء تلقائيًا).
+- التفاصيل: [`docs/implementation/RELEASE-0.4.92-AR.md`](./docs/implementation/RELEASE-0.4.92-AR.md).
 
 ## 0.4.91 — 2026-10-07
 
-- Terms are now structured headings and clauses, each written in Arabic (right) and English (left) and framed on its own. Automatic numbering: headings get letters (أ/A, ب/B…), clauses numbers restarting under each heading; typed numbering is stripped. Pasting multi-line text splits it into headings and clauses.
-- Customers see the bilingual numbered document on rent/purchase/daily checkout and in the e-sign contract; "Print terms & conditions" prints the company logo and name on top and the company address at the bottom.
-- New "Print letterhead" section on `/owner|developer/terms` (logo, Arabic/English name and address, phone, email, CR) via `PUT /api/owner/booking-terms/letterhead`.
-- Owner terms APIs now take `{mode, blocks}`; blocks live in `stay_policies.rulesJson.blocks` with derived plain-text bodies; legacy line-based terms convert automatically.
-- Details: [`docs/implementation/RELEASE-0.4.91-AR.md`](./docs/implementation/RELEASE-0.4.91-AR.md).
+- الشروط أصبحت عناوين وبنود، كل منها بالعربية (يمين) والإنجليزية (يسار) في إطار مستقل. ترقيم تلقائي: العناوين بالحروف (أ/A، ب/B…) والبنود بالأرقام تحت كل عنوان، ويُحذف الترقيم المكتوب يدويًا. لصق نص متعدد الأسطر يقسّمه النظام إلى عناوين وبنود.
+- العميل يرى المستند المرقّم ثنائي اللغة في صفحات الحجز (إيجار/شراء/يومي) وفي عقد التوقيع الإلكتروني؛ زر «طباعة الشروط والأحكام» يطبع شعار الشركة واسمها في الأعلى وعنوانها في الأسفل.
+- قسم جديد «ترويسة الطباعة» في `/owner|developer/terms` (الشعار، الاسم والعنوان بالعربية والإنجليزية، الهاتف، البريد، السجل التجاري) عبر `PUT /api/owner/booking-terms/letterhead`.
+- واجهات الشروط تستقبل `{mode, blocks}`، والعناصر محفوظة في `stay_policies.rulesJson.blocks`؛ الشروط القديمة السطرية تُحوّل تلقائيًا.
+- التفاصيل: [`docs/implementation/RELEASE-0.4.91-AR.md`](./docs/implementation/RELEASE-0.4.91-AR.md).
 
 ## 0.4.90 — 2026-10-07
 
-- Standard (organization-wide) contract terms per booking type on `/owner|developer/terms`, saved in `stay_policies` as `booking_terms:{mode}:org`; every property inherits them as-is. Properties can still override per booking type from "Customize terms" and revert to the standard text. Effective terms resolve property → organization → platform defaults.
-- Checkout sends `termsRef` (`property:n` / `organization:n` / `default`) instead of a bare version so a change to either the template or the override triggers `terms_changed`; legacy `termsVersion` is still accepted. The accepted text and its source are snapshotted into the booking.
-- Terms page property list shows two properties at first with "Show more" / "Show all" / "Collapse", plus search (name, serial, owner, location — Arabic-insensitive) and filters by owner, location, contract type and terms status (custom / standard).
-- Details: [`docs/implementation/RELEASE-0.4.90-AR.md`](./docs/implementation/RELEASE-0.4.90-AR.md).
+- صيغة موحدة (على مستوى المؤسسة) للشروط لكل نوع حجز في `/owner|developer/terms`، محفوظة في `stay_policies` بالمفتاح `booking_terms:{mode}:org`، وتستوردها كل العقارات كما هي. يمكن تخصيص الشروط لعقار معيّن من «تخصيص الشروط» والعودة للصيغة الموحدة. ترتيب الأولوية: العقار ← المؤسسة ← افتراضي المنصة.
+- صفحة الحجز ترسل `termsRef` (`property:n` / `organization:n` / `default`) بدل رقم الإصدار، فأي تغيير في الصيغة أو التخصيص يعيد `terms_changed`؛ ولا يزال `termsVersion` القديم مقبولًا. النص المقبول ومصدره يُحفظان في الحجز.
+- قائمة العقارات في صفحة الشروط تعرض عقارين أولًا مع «عرض المزيد» و«عرض القائمة كاملة» و«طي»، مع بحث (الاسم، الرقم المتسلسل، المالك، المكان — بدون حساسية للهمزات) وتصفية بالمالك والمكان ونوع العقد وحالة الشروط.
+- التفاصيل: [`docs/implementation/RELEASE-0.4.90-AR.md`](./docs/implementation/RELEASE-0.4.90-AR.md).
 
 ## 0.4.89 — 2026-10-07
 
-- Fix empty `/properties`: drop runtime `ALTER TABLE units` from catalogue/heal/save paths (it took ACCESS EXCLUSIVE and starved reads); `offering_modes` moves to migration `0025_unit_offering_modes.sql` (run `pnpm db:migrate` on production).
-- Fix BHD SSO `redirect_uri` rejection: `proxy.ts` redirects `baitak.bhd-om.com` to `r.bhd-om.com` (reads `x-forwarded-host` on Vercel).
-- Fix every Vercel deploy failing on Hobby: `vercel.json` crons are daily; `.github/workflows/scheduled-pings.yml` calls `warmup-nest` and `expire-locks` every 10 minutes (needs `CRON_SECRET` repo secret).
-- Rent/purchase deposit booking from the unit page (`/book/[unitId]?mode=rent|sale`): terms → details → review → BHD Pay deposit → e-sign contract with ID front/back and selfie → confirmation, mirroring daily stays. Unpaid holds last 30 minutes; paid reservations hold the unit 30 days; sale bookings open a `reserved` sales deal.
-- Owner-editable contract terms per property for sale, monthly/yearly rent, and daily stays (`/owner|developer/properties/[id]/terms`), versioned in `stay_policies`; sidebar item "الشروط والأحكام" (`/owner|developer/terms`) lists every property with its custom/default status per booking type. Booking pages reveal the accept checkbox only after scrolling to the end, reject stale versions (`terms_changed`), and snapshot the accepted text into the reservation/stay booking and contract.
-- "Is this booking for you?" on the details step: self prefills name/email/phone from the user's own party (phone saved on first use); other picks a saved person or enters a new one and can save it as a tenant contact in the user's own organization. Contracts add "Booked by" when booking for someone else.
-- Details: [`docs/implementation/RELEASE-0.4.89-AR.md`](./docs/implementation/RELEASE-0.4.89-AR.md).
+- إصلاح صفحة `/properties` الفارغة: إزالة `ALTER TABLE units` وقت التشغيل من مسارات الكتالوج والحفظ (كان يقفل الجدول ويوقف القراءة)؛ نُقل `offering_modes` إلى الترحيل `0025_unit_offering_modes.sql` (يجب تشغيل `pnpm db:migrate` على الإنتاج).
+- إصلاح رفض `redirect_uri` في تسجيل الدخول الموحد BHD: `proxy.ts` يحوّل `baitak.bhd-om.com` إلى `r.bhd-om.com`.
+- إصلاح فشل كل عمليات النشر على Vercel (خطة Hobby): المهام المجدولة في `vercel.json` يومية، و`.github/workflows/scheduled-pings.yml` يستدعي `warmup-nest` و`expire-locks` كل 10 دقائق (يحتاج السر `CRON_SECRET` في GitHub).
+- الحجز بالعربون للإيجار/الشراء من صفحة الوحدة (`/book/[unitId]?mode=rent|sale`): الشروط ← البيانات ← المراجعة ← دفع العربون عبر BHD Pay ← توقيع العقد مع صور الهوية والصورة الشخصية ← التأكيد. الحجز غير المدفوع يُحفظ 30 دقيقة، والمدفوع يحجز الوحدة 30 يومًا، وحجز الشراء يفتح صفقة بيع بحالة `reserved`.
+- شروط يكتبها المالك لكل عقار (بيع، إيجار شهري/سنوي، إيجار يومي) بإصدارات محفوظة؛ عنصر «الشروط والأحكام» في القائمة الجانبية. صفحات الحجز لا تُظهر مربع الموافقة إلا بعد التمرير لآخر الشروط، وترفض الإصدارات القديمة (`terms_changed`)، وتحفظ النص المقبول في الحجز والعقد.
+- «هل الحجز لك؟» في خطوة البيانات: «لي» يجلب الاسم والبريد والهاتف من ملف المستخدم، و«لشخص آخر» يختار شخصًا محفوظًا أو يضيف جديدًا ويحفظه. العقود تعرض «تم الحجز بواسطة» عند الحجز لشخص آخر.
+- التفاصيل: [`docs/implementation/RELEASE-0.4.89-AR.md`](./docs/implementation/RELEASE-0.4.89-AR.md).
 
 ## 0.4.88 — 2026-10-04
 
