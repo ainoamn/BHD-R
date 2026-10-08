@@ -272,6 +272,58 @@ async function resolveListingContext(
   };
 }
 
+async function priceStayRange(
+  ctx: ListingContext,
+  range: { checkInOn: string; checkOutOn: string },
+  stayType: StayTypeArg,
+) {
+  const nightRates = await asPublic(async (transaction) => {
+    const result = await transaction.execute(sql`
+      SELECT stay_date::text AS stay_date, effective_rate_minor::text AS effective_rate_minor
+      FROM stay_inventory_days
+      WHERE organization_id = ${ctx.organizationId}::uuid
+        AND unit_id = ${ctx.unitId}::uuid
+        AND stay_date >= ${range.checkInOn}::date
+        AND stay_date < ${range.checkOutOn}::date
+        AND effective_rate_minor IS NOT NULL
+    `);
+    const rows = Array.isArray(result) ? result : ((result as { rows?: unknown[] }).rows ?? []);
+    const map: Record<string, string> = {};
+    for (const row of rows as Array<{ stay_date: string; effective_rate_minor: string }>) {
+      map[row.stay_date] = row.effective_rate_minor;
+    }
+    return map;
+  });
+
+  const selectedBase =
+    stayType === 'day_use'
+      ? (ctx.dayUseMinor ?? ctx.baseNightlyMinor)
+      : stayType === 'overnight_only'
+        ? (ctx.overnightOnlyMinor ?? ctx.baseNightlyMinor)
+        : ctx.baseNightlyMinor;
+  if (!selectedBase || !/^\d+$/.test(selectedBase)) {
+    throw new PublicStayBookingError(
+      'dates_unavailable',
+      'Stay pricing is not configured for this unit',
+      409,
+    );
+  }
+  // Day-use / overnight-only ignore weekend premium and per-day inventory overrides.
+  const useInventoryOverrides = stayType === 'overnight_stay';
+  const priced = quoteStay({
+    currency: ctx.currency,
+    checkInOn: range.checkInOn,
+    checkOutOn: range.checkOutOn,
+    baseNightlyMinor: selectedBase,
+    weekendNightlyMinor: stayType === 'overnight_stay' ? ctx.weekendNightlyMinor : selectedBase,
+    cleaningFeeMinor: ctx.cleaningFeeMinor,
+    ...(useInventoryOverrides && Object.keys(nightRates).length
+      ? { nightRateOverrides: nightRates }
+      : {}),
+  });
+  return { ...priced, rateMinor: selectedBase };
+}
+
 /** Exported for payment race checks inside the same Neon transaction. */
 export async function isRangeAvailableInTransaction(
   transaction: Tx,
@@ -639,19 +691,49 @@ export async function getPublicStayAvailabilityOnNeon(slug: string, query: StayA
   assertOrgEnabled(ctx.organizationId);
 
   const guests = query.adults + query.children;
-  if (guests > ctx.maxGuests) {
-    return { available: false as const, reason: 'guests_exceed_max' as const };
-  }
   const stayType = query.stayType ?? 'overnight_stay';
   const range = exclusiveStayRange(stayType, query.checkInOn, query.checkOutOn);
   let nights: number;
   try {
     nights = nightsBetween(range);
   } catch {
+    if (guests > ctx.maxGuests) {
+      return {
+        available: false as const,
+        reason: 'guests_exceed_max' as const,
+        maxGuests: ctx.maxGuests,
+      };
+    }
     return { available: false as const, reason: 'nights_out_of_range' as const, nights: 0 };
   }
+  const estimate = await priceStayRange(ctx, range, stayType)
+    .then((priced) => ({
+      nights: priced.nights,
+      currency: priced.currency,
+      rateMinor: priced.rateMinor,
+      subtotalMinor: priced.subtotalMinor,
+      feesMinor: priced.cleaningFeeMinor,
+      totalMinor: priced.totalMinor,
+    }))
+    .catch(() => null);
+  if (guests > ctx.maxGuests) {
+    return {
+      available: false as const,
+      reason: 'guests_exceed_max' as const,
+      maxGuests: ctx.maxGuests,
+      nights,
+      estimate,
+    };
+  }
   if (stayType === 'overnight_stay' && (nights < ctx.minNights || nights > ctx.maxNights)) {
-    return { available: false as const, reason: 'nights_out_of_range' as const, nights };
+    return {
+      available: false as const,
+      reason: 'nights_out_of_range' as const,
+      nights,
+      minNights: ctx.minNights,
+      maxNights: ctx.maxNights,
+      estimate,
+    };
   }
   if (stayType !== 'overnight_stay' && nights < 1) {
     return { available: false as const, reason: 'nights_out_of_range' as const, nights };
@@ -671,6 +753,8 @@ export async function getPublicStayAvailabilityOnNeon(slug: string, query: StayA
     nights,
     unitId: ctx.unitId,
     currency: ctx.currency,
+    maxGuests: ctx.maxGuests,
+    estimate,
     ...(available ? {} : { reason: 'slot_taken' as const }),
   };
 }
@@ -717,51 +801,8 @@ export async function createPublicStayQuoteOnNeon(slug: string, input: CreateSta
     throw new PublicStayBookingError('dates_unavailable', 'Selected dates are not available', 409);
   }
 
-  const nightRates = await asPublic(async (transaction) => {
-    const result = await transaction.execute(sql`
-      SELECT stay_date::text AS stay_date, effective_rate_minor::text AS effective_rate_minor
-      FROM stay_inventory_days
-      WHERE organization_id = ${ctx.organizationId}::uuid
-        AND unit_id = ${ctx.unitId}::uuid
-        AND stay_date >= ${range.checkInOn}::date
-        AND stay_date < ${range.checkOutOn}::date
-        AND effective_rate_minor IS NOT NULL
-    `);
-    const rows = Array.isArray(result) ? result : ((result as { rows?: unknown[] }).rows ?? []);
-    const map: Record<string, string> = {};
-    for (const row of rows as Array<{ stay_date: string; effective_rate_minor: string }>) {
-      map[row.stay_date] = row.effective_rate_minor;
-    }
-    return map;
-  });
-
   const stayType = stayTypeEarly;
-  const selectedBase =
-    stayType === 'day_use'
-      ? (ctx.dayUseMinor ?? ctx.baseNightlyMinor)
-      : stayType === 'overnight_only'
-        ? (ctx.overnightOnlyMinor ?? ctx.baseNightlyMinor)
-        : ctx.baseNightlyMinor;
-  if (!selectedBase || !/^\d+$/.test(selectedBase)) {
-    throw new PublicStayBookingError(
-      'dates_unavailable',
-      'Stay pricing is not configured for this unit',
-      409,
-    );
-  }
-  // Day-use / overnight-only ignore weekend premium and per-day inventory overrides.
-  const useInventoryOverrides = stayType === 'overnight_stay';
-  const priced = quoteStay({
-    currency: ctx.currency,
-    checkInOn: range.checkInOn,
-    checkOutOn: range.checkOutOn,
-    baseNightlyMinor: selectedBase,
-    weekendNightlyMinor: stayType === 'overnight_stay' ? ctx.weekendNightlyMinor : selectedBase,
-    cleaningFeeMinor: ctx.cleaningFeeMinor,
-    ...(useInventoryOverrides && Object.keys(nightRates).length
-      ? { nightRateOverrides: nightRates }
-      : {}),
-  });
+  const priced = await priceStayRange(ctx, range, stayType);
 
   const payloadHash = createHash('sha256')
     .update(

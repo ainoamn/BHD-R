@@ -2238,11 +2238,14 @@ body:has(.stays-booking-receipt) #main-content {
 }
 .pay-gateway__card-number.is-placeholder,
 .pay-gateway__card-holder strong.is-placeholder {
-  opacity: 0.45;
-  font-weight: 600;
+  opacity: 0.3;
+  font-weight: 500;
 }
+/* Sample card data must read as a hint, never as already-entered data. */
 .pay-gateway__form .input::placeholder {
-  color: color-mix(in srgb, var(--ink-700, #5c6b64) 72%, transparent);
+  color: color-mix(in srgb, var(--ink-700, #5c6b64) 32%, transparent);
+  font-weight: 400;
+  letter-spacing: 0.02em;
   opacity: 1;
 }
 .pay-gateway__card-meta {
@@ -12704,6 +12707,79 @@ body:has(.stays-book-shell) #main-content {
   background: color-mix(in srgb, #174b70 8%, white);
   font-size: 0.88rem;
   font-weight: 700;
+}
+.guest-count-field__total {
+  display: grid;
+  gap: 0.3rem;
+  margin-block-start: 0.45rem;
+}
+.guest-count-field__total label {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.guest-count-field__total small {
+  color: var(--muted);
+  font-weight: 600;
+}
+.stays-estimate {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.85rem 1rem;
+  background: linear-gradient(180deg, #f2faf6, #fff);
+  border: 1px solid #cfe7da;
+  border-radius: 0.9rem;
+}
+.stays-estimate--loading,
+.stays-estimate--muted {
+  color: var(--muted);
+  background: #f6f8f7;
+  border-color: #e1e9e5;
+  font-size: 0.86rem;
+}
+.stays-estimate--unavailable {
+  background: linear-gradient(180deg, #fff6f6, #fff);
+  border-color: #f0d2d6;
+}
+.stays-estimate__rows {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+}
+.stays-estimate__rows div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.stays-estimate__rows dt {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.stays-estimate__rows dd {
+  margin: 0;
+  color: var(--oman-deep);
+  font-weight: 700;
+}
+.stays-estimate__total {
+  padding-block-start: 0.45rem;
+  border-block-start: 1px dashed #cfe0d7;
+}
+.stays-estimate__total dt {
+  color: var(--oman-deep) !important;
+  font-weight: 800 !important;
+}
+.stays-estimate__total strong {
+  font-size: 1.2rem;
+}
+.stays-estimate__status {
+  margin: 0;
+  color: var(--success);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.stays-estimate--unavailable .stays-estimate__status {
+  color: var(--danger);
 }
 .stay-esign-shell {
   min-height: 100dvh;

@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
+import { GuestCountField, isValidGuestCount } from '@/components/stays/guest-count-field';
 import { TermsAcceptance } from '@/components/terms-acceptance';
 import { Link } from '@/i18n/navigation';
 import {
@@ -82,11 +83,30 @@ type BookingResult = {
   duplicate?: boolean;
 };
 
+type StayEstimate = {
+  nights: number;
+  currency: string;
+  rateMinor: string;
+  subtotalMinor: string;
+  feesMinor: string;
+  totalMinor: string;
+};
+
 type AvailabilityResult = {
   available: boolean;
   reason?: string;
   nights?: number;
+  maxGuests?: number;
+  minNights?: number;
+  maxNights?: number;
+  estimate?: StayEstimate | null;
 };
+
+type EstimateState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'ready'; result: AvailabilityResult }
+  | { status: 'error' };
 
 type StayType = StayBookingType;
 
@@ -108,6 +128,98 @@ function stayTypeLabel(type: StayType, ar: boolean): string {
   if (type === 'day_use') return ar ? 'إقامة بدون مبيت (صباحي ~11–16)' : 'Day use (morning ~11–16)';
   if (type === 'overnight_only') return ar ? 'مبيت فقط (مسائي)' : 'Overnight only (evening)';
   return ar ? 'إقامة مع مبيت (يوم كامل)' : 'Stay with overnight (full day)';
+}
+
+function StayEstimateCard({
+  ar,
+  locale,
+  stayType,
+  state,
+  unavailableMessage,
+}: {
+  ar: boolean;
+  locale: string;
+  stayType: StayType;
+  state: EstimateState;
+  unavailableMessage: (result: AvailabilityResult) => string;
+}) {
+  if (state.status === 'idle') return null;
+  if (state.status === 'loading') {
+    return (
+      <div className="stays-estimate stays-estimate--loading" aria-live="polite">
+        {ar ? 'جاري حساب مبلغ التأجير…' : 'Calculating the rental amount…'}
+      </div>
+    );
+  }
+  if (state.status === 'error') {
+    return (
+      <div className="stays-estimate stays-estimate--muted" aria-live="polite">
+        {ar
+          ? 'تعذر حساب المبلغ الآن — سيظهر في خطوة المراجعة.'
+          : 'Could not calculate the amount now — it will show at review.'}
+      </div>
+    );
+  }
+  const { result } = state;
+  const estimate = result.estimate ?? null;
+  const rateLabel =
+    stayType === 'day_use'
+      ? ar
+        ? 'سعر الإقامة بدون مبيت'
+        : 'Day-use price'
+      : stayType === 'overnight_only'
+        ? ar
+          ? 'سعر المبيت فقط'
+          : 'Overnight-only price'
+        : ar
+          ? 'سعر الليلة الأساسي'
+          : 'Base nightly rate';
+  const unitsLabel =
+    stayType === 'overnight_stay'
+      ? ar
+        ? `الإيجار (${estimate?.nights ?? 0} ليلة)`
+        : `Rent (${estimate?.nights ?? 0} nights)`
+      : ar
+        ? 'الإيجار (فترة واحدة)'
+        : 'Rent (one slot)';
+  return (
+    <div
+      className={result.available ? 'stays-estimate' : 'stays-estimate stays-estimate--unavailable'}
+      aria-live="polite"
+    >
+      {estimate ? (
+        <dl className="stays-estimate__rows">
+          <div>
+            <dt>{rateLabel}</dt>
+            <dd dir="ltr">{formatMoney(estimate.rateMinor, estimate.currency, locale)}</dd>
+          </div>
+          <div>
+            <dt>{unitsLabel}</dt>
+            <dd dir="ltr">{formatMoney(estimate.subtotalMinor, estimate.currency, locale)}</dd>
+          </div>
+          {estimate.feesMinor !== '0' ? (
+            <div>
+              <dt>{ar ? 'رسوم التنظيف' : 'Cleaning fee'}</dt>
+              <dd dir="ltr">{formatMoney(estimate.feesMinor, estimate.currency, locale)}</dd>
+            </div>
+          ) : null}
+          <div className="stays-estimate__total">
+            <dt>{ar ? 'مبلغ التأجير الإجمالي' : 'Total rental amount'}</dt>
+            <dd dir="ltr">
+              <strong>{formatMoney(estimate.totalMinor, estimate.currency, locale)}</strong>
+            </dd>
+          </div>
+        </dl>
+      ) : null}
+      <p className="stays-estimate__status">
+        {result.available
+          ? ar
+            ? '✓ متاح للحجز بهذه الاختيارات. المبلغ النهائي يُثبَّت في خطوة المراجعة.'
+            : '✓ Available with these choices. The final amount is locked at review.'
+          : `✗ ${unavailableMessage(result)}`}
+      </p>
+    </div>
+  );
 }
 
 export function StayCheckout({
@@ -180,6 +292,7 @@ export function StayCheckout({
       otherForm.email.trim() !== (selectedSaved.email ?? '').trim();
   const offerSave = Boolean(contacts?.canSave) && contactChanged;
   const [quote, setQuote] = useState<QuoteResult | null>(null);
+  const [estimate, setEstimate] = useState<EstimateState>({ status: 'idle' });
   const [booking, setBooking] = useState<BookingResult | null>(null);
   const [stepHint, setStepHint] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -239,7 +352,7 @@ export function StayCheckout({
     return steps.findIndex((item) => item.id === id);
   }
 
-  async function loadQuote(): Promise<QuoteResult> {
+  function availabilityPath(): string {
     const qs = new URLSearchParams({
       checkInOn,
       checkOutOn: apiCheckOutOn,
@@ -248,27 +361,78 @@ export function StayCheckout({
       stayType,
     });
     if (unitId) qs.set('unitId', unitId);
-    const availability = await browserStayBookingGet<AvailabilityResult>(
-      `/${encodeURIComponent(slug)}/availability?${qs.toString()}`,
-    );
+    return `/${encodeURIComponent(slug)}/availability?${qs.toString()}`;
+  }
+
+  function unavailableMessage(availability: AvailabilityResult): string {
+    if (availability.reason === 'guests_exceed_max') {
+      return availability.maxGuests
+        ? ar
+          ? `عدد الضيوف يتجاوز الحد الأقصى لهذه الإقامة (${availability.maxGuests}).`
+          : `Guest count exceeds this stay's maximum (${availability.maxGuests}).`
+        : ar
+          ? 'عدد الضيوف يتجاوز الحد الأقصى'
+          : 'Guest count exceeds the maximum';
+    }
+    if (availability.reason === 'nights_out_of_range') {
+      return availability.minNights && availability.maxNights
+        ? ar
+          ? `مدة الإقامة يجب أن تكون بين ${availability.minNights} و${availability.maxNights} ليلة.`
+          : `Stay length must be between ${availability.minNights} and ${availability.maxNights} nights.`
+        : ar
+          ? 'مدة الإقامة خارج النطاق المسموح'
+          : 'Stay length is outside the allowed range';
+    }
+    if (availability.reason === 'slot_taken' || availability.reason === 'dates_unavailable') {
+      return ar
+        ? `نفد الحجز لهذا اليوم (${checkInOn}). حاول اختيار يوم أو فترة أخرى.`
+        : `This day is taken (${checkInOn}). Try another day or slot.`;
+    }
+    return ar
+      ? 'التواريخ غير متاحة — جرّب تواريخاً أخرى'
+      : 'Dates not available — try different dates';
+  }
+
+  const guestsValid = isValidGuestCount(adults, 1) && isValidGuestCount(children, 0);
+  const datesValid = stayDatesValid(stayType, checkInOn, checkOutOn);
+
+  useEffect(() => {
+    if (step !== 'stay' || !guestsValid || !datesValid) {
+      setEstimate({ status: 'idle' });
+      return;
+    }
+    let cancelled = false;
+    setEstimate({ status: 'loading' });
+    const timer = window.setTimeout(() => {
+      browserStayBookingGet<AvailabilityResult>(availabilityPath())
+        .then((result) => {
+          if (!cancelled) setEstimate({ status: 'ready', result });
+        })
+        .catch(() => {
+          if (!cancelled) setEstimate({ status: 'error' });
+        });
+    }, 350);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [
+    step,
+    guestsValid,
+    datesValid,
+    checkInOn,
+    apiCheckOutOn,
+    stayType,
+    adults,
+    children,
+    slug,
+    unitId,
+  ]);
+
+  async function loadQuote(): Promise<QuoteResult> {
+    const availability = await browserStayBookingGet<AvailabilityResult>(availabilityPath());
     if (!availability.available) {
-      throw new Error(
-        availability.reason === 'guests_exceed_max'
-          ? ar
-            ? 'عدد الضيوف يتجاوز الحد الأقصى'
-            : 'Guest count exceeds the maximum'
-          : availability.reason === 'nights_out_of_range'
-            ? ar
-              ? 'مدة الإقامة خارج النطاق المسموح'
-              : 'Stay length is outside the allowed range'
-            : availability.reason === 'slot_taken' || availability.reason === 'dates_unavailable'
-              ? ar
-                ? `نفد الحجز لهذا اليوم (${checkInOn}). حاول اختيار يوم أو فترة أخرى.`
-                : `This day is taken (${checkInOn}). Try another day or slot.`
-              : ar
-                ? 'التواريخ غير متاحة — جرّب تواريخاً أخرى'
-                : 'Dates not available — try different dates',
-      );
+      throw new Error(unavailableMessage(availability));
     }
     return browserStayBookingMutation<QuoteResult>(
       `/${encodeURIComponent(slug)}/quotes${unitId ? `?unitId=${encodeURIComponent(unitId)}` : ''}`,
@@ -294,6 +458,14 @@ export function StayCheckout({
           : ar
             ? 'تحقق من التواريخ — المغادرة يجب أن تكون بعد الوصول'
             : 'Check your dates — check-out must be after check-in',
+      );
+      return;
+    }
+    if (!guestsValid) {
+      setError(
+        ar
+          ? 'أدخل العدد الإجمالي للبالغين (1 أو أكثر) والأطفال (0 أو أكثر) حتى 999.'
+          : 'Enter the total adults (1 or more) and children (0 or more), up to 999.',
       );
       return;
     }
@@ -629,37 +801,32 @@ export function StayCheckout({
             </select>
           </div>
           <div className="stays-checkout__grid stays-checkout__grid--compact">
-            <div className="field stays-checkout__tone stays-checkout__tone--adults">
-              <label htmlFor="stay-book-adults">{ar ? 'بالغون' : 'Adults'}</label>
-              <select
-                className="select"
-                id="stay-book-adults"
-                value={adults}
-                onChange={(event) => setAdults(event.target.value)}
-              >
-                {[1, 2, 3, 4, 5, 6, 8, 10].map((count) => (
-                  <option key={count} value={count}>
-                    {count}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="field stays-checkout__tone stays-checkout__tone--children">
-              <label htmlFor="stay-book-children">{ar ? 'أطفال' : 'Children'}</label>
-              <select
-                className="select"
-                id="stay-book-children"
-                value={children}
-                onChange={(event) => setChildren(event.target.value)}
-              >
-                {[0, 1, 2, 3, 4, 5].map((count) => (
-                  <option key={count} value={count}>
-                    {count}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <GuestCountField
+              id="stay-book-adults"
+              label={ar ? 'بالغون' : 'Adults'}
+              value={adults}
+              onChange={setAdults}
+              min={1}
+              ar={ar}
+              className="stays-checkout__tone stays-checkout__tone--adults"
+            />
+            <GuestCountField
+              id="stay-book-children"
+              label={ar ? 'أطفال' : 'Children'}
+              value={children}
+              onChange={setChildren}
+              min={0}
+              ar={ar}
+              className="stays-checkout__tone stays-checkout__tone--children"
+            />
           </div>
+          <StayEstimateCard
+            ar={ar}
+            locale={locale}
+            stayType={stayType}
+            state={estimate}
+            unavailableMessage={unavailableMessage}
+          />
           <button type="button" className="button button--primary" onClick={continueFromStay}>
             {ar ? 'متابعة' : 'Continue'}
           </button>
