@@ -1,4 +1,4 @@
-@import 'tailwindcss';
+﻿@import 'tailwindcss';
 @source "../../../../packages/ui/src/**/*.{ts,tsx}";
 
 :root {
@@ -13322,6 +13322,9 @@ body:has(.stay-book) #main-content {
     font-size: 0.85rem;
   }
   .stay-book__trust {
+    display: none;
+  }
+  .stay-book__extra:not(:has(.stay-book__times)) {
     display: none;
   }
 }
