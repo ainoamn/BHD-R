@@ -1,5 +1,6 @@
 'use client';
 
+import { useSearchParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
@@ -12,8 +13,20 @@ import {
 } from '@/lib/portal-ops-types';
 import type { PortalRole, Viewer } from '@/lib/types';
 
-type NavItem = { path: string; label: string; mark: string };
+type NavItem = { path: string; label: string; mark: string; children?: NavItem[] };
 type NavGroup = { id: string; label: string; items: NavItem[] };
+
+const PROPERTIES_MANAGE_PATH = '/properties?mode=manage';
+
+const propertiesNavItem: NavItem = {
+  path: '/properties',
+  label: 'Common.properties',
+  mark: '▤',
+  children: [
+    { path: '/properties', label: 'Portal.viewProperties', mark: '◫' },
+    { path: PROPERTIES_MANAGE_PATH, label: 'Portal.manageProperties', mark: '⚙' },
+  ],
+};
 
 const staysNavGroup: NavGroup = {
   id: 'stays',
@@ -52,7 +65,7 @@ const navGroups: Record<PortalRole, NavGroup[]> = {
       label: 'Portal.groupCore',
       items: [
         { path: '', label: 'Common.dashboard', mark: '⌂' },
-        { path: '/properties', label: 'Common.properties', mark: '▤' },
+        propertiesNavItem,
         { path: '/contacts', label: 'Common.contacts', mark: '◎' },
       ],
     },
@@ -105,7 +118,7 @@ const navGroups: Record<PortalRole, NavGroup[]> = {
       label: 'Portal.groupCore',
       items: [
         { path: '', label: 'Common.dashboard', mark: '⌂' },
-        { path: '/properties', label: 'Common.properties', mark: '▤' },
+        propertiesNavItem,
         { path: '/contacts', label: 'Common.contacts', mark: '◎' },
       ],
     },
@@ -278,15 +291,56 @@ export function PortalNav({
 }) {
   const t = useTranslations();
   const pathname = usePathname();
+  const manageMode = useSearchParams().get('mode') === 'manage';
   const locale = useLocale() as 'ar' | 'en';
   const [open, setOpen] = useState(false);
   const [isDrawerViewport, setIsDrawerViewport] = useState(false);
+  const [menuOpen, setMenuOpen] = useState<Record<string, boolean>>({});
   const panelId = useId();
   const root = `/${portal}`;
   const groups =
     staysEnabled && (portal === 'owner' || portal === 'developer')
       ? insertStaysGroup(navGroups[portal])
       : navGroups[portal];
+
+  const isActive = (item: NavItem): boolean => {
+    if (item.children) return item.children.some(isActive);
+    const [basePath = '', query] = item.path.split('?');
+    const href = `${root}${basePath}`;
+    if (basePath === '/properties') {
+      // Property detail/edit pages belong to "manage"; the add wizard belongs to "view".
+      const manageItem = query === 'mode=manage';
+      if (pathname === href) return manageItem === manageMode;
+      if (pathname === `${href}/new`) return !manageItem;
+      return manageItem && pathname.startsWith(`${href}/`);
+    }
+    return (
+      pathname === href ||
+      (basePath !== '' && basePath !== '/stays' && pathname.startsWith(`${href}/`))
+    );
+  };
+
+  const renderLink = (item: NavItem) => {
+    const basePath = item.path.split('?')[0] ?? '';
+    const sectionName = basePath.replace(/^\//, '');
+    const section =
+      isOperationsSection(sectionName) && opsSectionsForPortal(portal).includes(sectionName)
+        ? sectionName
+        : null;
+    return (
+      <PortalIntentLink
+        key={item.path || 'root'}
+        portal={portal}
+        href={`${root}${item.path}`}
+        section={section}
+        active={isActive(item)}
+        mark={item.mark}
+        onNavigate={() => setOpen(false)}
+      >
+        {t(item.label)}
+      </PortalIntentLink>
+    );
+  };
 
   useEffect(() => {
     setOpen(false);
@@ -361,28 +415,34 @@ export function PortalNav({
             <div key={group.id} className="portal-nav__group">
               <p className="portal-nav__group-label">{t(group.label)}</p>
               {group.items.map((item) => {
-                const href = `${root}${item.path}`;
-                const active =
-                  pathname === href ||
-                  (item.path !== '' && item.path !== '/stays' && pathname.startsWith(`${href}/`));
-                const sectionName = item.path.replace(/^\//, '');
-                const section =
-                  isOperationsSection(sectionName) &&
-                  opsSectionsForPortal(portal).includes(sectionName)
-                    ? sectionName
-                    : null;
+                if (!item.children) return renderLink(item);
+                const active = isActive(item);
+                const expanded = menuOpen[item.path] ?? active;
+                const submenuId = `${panelId}-menu${item.path.replace(/\W/g, '-')}`;
                 return (
-                  <PortalIntentLink
-                    key={item.path || 'root'}
-                    portal={portal}
-                    href={href}
-                    section={section}
-                    active={active}
-                    mark={item.mark}
-                    onNavigate={() => setOpen(false)}
-                  >
-                    {t(item.label)}
-                  </PortalIntentLink>
+                  <div key={item.path} className="portal-nav__menu">
+                    <button
+                      type="button"
+                      className="portal-nav__toggle"
+                      aria-expanded={expanded}
+                      aria-controls={submenuId}
+                      data-active={active || undefined}
+                      onClick={() =>
+                        setMenuOpen((current) => ({ ...current, [item.path]: !expanded }))
+                      }
+                    >
+                      <span className="portal-nav__mark" aria-hidden="true">
+                        {item.mark}
+                      </span>
+                      <span className="portal-nav__toggle-label">{t(item.label)}</span>
+                      <span className="portal-nav__chevron" aria-hidden="true">
+                        ▾
+                      </span>
+                    </button>
+                    <div id={submenuId} className="portal-nav__submenu" hidden={!expanded}>
+                      {item.children.map(renderLink)}
+                    </div>
+                  </div>
                 );
               })}
             </div>

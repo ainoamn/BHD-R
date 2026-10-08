@@ -1,6 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode, type ChangeEvent } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+  type ReactNode,
+  type ChangeEvent,
+} from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { CurrencyCode } from '@bhd-r/contracts';
 import { BrandMark } from '@bhd-r/ui';
@@ -114,7 +121,11 @@ const API_KEY_SCOPE_OPTIONS: Array<{ value: string; ar: string; en: string }> = 
   { value: 'property.read', ar: 'قراءة العقارات والعناوين', en: 'Read properties & addresses' },
   { value: 'unit.read', ar: 'قراءة الوحدات', en: 'Read units' },
   { value: 'party.read', ar: 'قراءة الأطراف والعناوين', en: 'Read parties & addresses' },
-  { value: 'party.sensitive.read', ar: 'قراءة بيانات الطرف الحساسة', en: 'Read sensitive party data' },
+  {
+    value: 'party.sensitive.read',
+    ar: 'قراءة بيانات الطرف الحساسة',
+    en: 'Read sensitive party data',
+  },
   { value: 'organization.read', ar: 'قراءة المؤسسة', en: 'Read organization' },
   { value: 'contract.read', ar: 'قراءة العقود', en: 'Read contracts' },
   { value: 'lease.read', ar: 'قراءة الإيجارات', en: 'Read leases' },
@@ -123,7 +134,11 @@ const API_KEY_SCOPE_OPTIONS: Array<{ value: string; ar: string; en: string }> = 
   { value: 'payment.read', ar: 'قراءة المدفوعات (وارد)', en: 'Read inbound payments' },
   { value: 'receipt.read', ar: 'قراءة الإيصالات', en: 'Read receipts' },
   { value: 'cheque.read', ar: 'قراءة الشيكات', en: 'Read cheques' },
-  { value: 'accounting.read', ar: 'قراءة الحسابات والقيود والمصروفات', en: 'Read accounts, journals & expenses' },
+  {
+    value: 'accounting.read',
+    ar: 'قراءة الحسابات والقيود والمصروفات',
+    en: 'Read accounts, journals & expenses',
+  },
   { value: 'billing.schedule.read', ar: 'قراءة جداول الفوترة', en: 'Read billing schedules' },
   { value: 'stay.booking.read', ar: 'قراءة حجوزات الإقامة', en: 'Read stay bookings' },
   { value: 'sale.read', ar: 'قراءة المبيعات', en: 'Read sales' },
@@ -1671,7 +1686,9 @@ function CreateFields({
             required
           />
           <fieldset className="field span-2">
-            <legend>{ar ? 'الصلاحيات المحدودة (قراءة في الغالب)' : 'Limited scopes (mostly read)'}</legend>
+            <legend>
+              {ar ? 'الصلاحيات المحدودة (قراءة في الغالب)' : 'Limited scopes (mostly read)'}
+            </legend>
             <div className="form-actions" style={{ marginBottom: '0.75rem' }}>
               <button
                 type="button"
@@ -2192,6 +2209,9 @@ export function OperationsConsole({
   const search = useSearchParams().toString();
   const definition = definitions[section];
   const ar = locale === 'ar';
+  const manageMode =
+    section === 'properties' && new URLSearchParams(search).get('mode') === 'manage';
+  const showActionColumn = section !== 'properties' || manageMode;
   const refreshWorkspace = () => {
     invalidateOpsCache(portal, section);
     if (typeof window !== 'undefined') {
@@ -2760,13 +2780,17 @@ export function OperationsConsole({
     if (!id) return;
     setAccountingDetailBusy(true);
     try {
-      const response = await fetch(browserApiPath(`/v1/accounting/journals/${encodeURIComponent(id)}`), {
-        credentials: 'same-origin',
-        headers: { accept: 'application/json' },
-        cache: 'no-store',
-        signal: AbortSignal.timeout(20_000),
-      });
-      if (!response.ok) throw new Error(ar ? 'تعذر تحميل تفاصيل القيد' : 'Could not load journal details');
+      const response = await fetch(
+        browserApiPath(`/v1/accounting/journals/${encodeURIComponent(id)}`),
+        {
+          credentials: 'same-origin',
+          headers: { accept: 'application/json' },
+          cache: 'no-store',
+          signal: AbortSignal.timeout(20_000),
+        },
+      );
+      if (!response.ok)
+        throw new Error(ar ? 'تعذر تحميل تفاصيل القيد' : 'Could not load journal details');
       const payload = (await response.json()) as DataRow & { lines?: DataRow[] };
       setAccountingDetail({ ...row, ...payload });
       setAccountingJournalLines(Array.isArray(payload.lines) ? payload.lines : []);
@@ -2971,12 +2995,27 @@ ${
       <header className="ops-header">
         <div>
           <span className="ops-kicker">BHD R · {portal.toUpperCase()}</span>
-          <h1>{ar ? definition.titleAr : definition.titleEn}</h1>
-          <p>{ar ? definition.introAr : definition.introEn}</p>
+          {manageMode ? (
+            <>
+              <h1>{ar ? 'إدارة العقارات' : 'Manage properties'}</h1>
+              <p>
+                {ar
+                  ? 'اختر العقار أو الوحدة التي تريد إدارتها.'
+                  : 'Choose the property or unit you want to manage.'}
+              </p>
+            </>
+          ) : (
+            <>
+              <h1>{ar ? definition.titleAr : definition.titleEn}</h1>
+              <p>{ar ? definition.introAr : definition.introEn}</p>
+            </>
+          )}
           {section === 'api-keys' ? (
             <div className="notice notice--info api-keys-guide" role="note">
               <p>
-                <strong>{ar ? 'ربط Hisaby (المحاسبة المفصّلة)' : 'Hisaby (detailed accounting) link'}</strong>
+                <strong>
+                  {ar ? 'ربط Hisaby (المحاسبة المفصّلة)' : 'Hisaby (detailed accounting) link'}
+                </strong>
               </p>
               <ol>
                 <li>
@@ -3027,10 +3066,16 @@ ${
                   ) : null}
                 </p>
               ) : null}
-              {hisabyLinkNotice ? <p className="notice notice--success">{hisabyLinkNotice}</p> : null}
+              {hisabyLinkNotice ? (
+                <p className="notice notice--success">{hisabyLinkNotice}</p>
+              ) : null}
               <form className="ops-form hisaby-link-form" onSubmit={saveHisabyLink}>
                 <label className="field">
-                  <span>{ar ? 'رابط استقبال الأحداث (HTTPS على hisaby.bhd-om.com)' : 'Events URL (HTTPS on hisaby.bhd-om.com)'}</span>
+                  <span>
+                    {ar
+                      ? 'رابط استقبال الأحداث (HTTPS على hisaby.bhd-om.com)'
+                      : 'Events URL (HTTPS on hisaby.bhd-om.com)'}
+                  </span>
                   <input
                     className="input"
                     name="eventsUrl"
@@ -3041,7 +3086,9 @@ ${
                   />
                 </label>
                 <label className="field">
-                  <span>{ar ? 'رمز التكامل الوارد من Hisaby' : 'Hisaby inbound integration token'}</span>
+                  <span>
+                    {ar ? 'رمز التكامل الوارد من Hisaby' : 'Hisaby inbound integration token'}
+                  </span>
                   <input
                     className="input"
                     name="inboundToken"
@@ -3062,8 +3109,14 @@ ${
                 </label>
                 <label className="field">
                   <span>{ar ? 'حالة المزامنة' : 'Sync status'}</span>
-                  <select className="select" name="status" defaultValue={hisabyLink?.status === 'paused' ? 'paused' : 'active'}>
-                    <option value="active">{ar ? 'نشط — مزامنة تلقائية' : 'Active — auto sync'}</option>
+                  <select
+                    className="select"
+                    name="status"
+                    defaultValue={hisabyLink?.status === 'paused' ? 'paused' : 'active'}
+                  >
+                    <option value="active">
+                      {ar ? 'نشط — مزامنة تلقائية' : 'Active — auto sync'}
+                    </option>
                     <option value="paused">{ar ? 'متوقف مؤقتاً' : 'Paused'}</option>
                   </select>
                 </label>
@@ -3377,9 +3430,7 @@ ${
                     className="ops-action"
                     type="button"
                     disabled={busy}
-                    onClick={() =>
-                      void leaseLifecycle({ ...row }, 'approve_cancellation')
-                    }
+                    onClick={() => void leaseLifecycle({ ...row }, 'approve_cancellation')}
                   >
                     {ar ? 'اعتماد + تاريخ' : 'Approve + date'}
                   </button>
@@ -3465,117 +3516,119 @@ ${
       ) : null}
 
       {isDailyBookings ? null : (
-      <section
-        className="ops-stats"
-        aria-label={ar ? 'المؤشرات ومراحل العمل' : 'Metrics and stages'}
-      >
-        <button
-          type="button"
-          className="ops-stats__toggle"
-          aria-expanded={statsOpen}
-          onClick={() => {
-            setStatsOpen((open) => {
-              const next = !open;
-              try {
-                window.sessionStorage.setItem(`ops-stats-open:${section}`, next ? '1' : '0');
-              } catch {
-                /* ignore */
-              }
-              return next;
-            });
-          }}
+        <section
+          className="ops-stats"
+          aria-label={ar ? 'المؤشرات ومراحل العمل' : 'Metrics and stages'}
         >
-          <span>
-            {ar ? 'المؤشرات ومراحل العمل' : 'Metrics & stages'}
-            <small>
-              {records.length} {ar ? 'سجل' : 'records'} · {openCount} {ar ? 'متابعة' : 'open'}
-            </small>
-          </span>
-          <em aria-hidden="true">{statsOpen ? (ar ? 'طي' : 'Hide') : ar ? 'عرض' : 'Show'}</em>
-        </button>
+          <button
+            type="button"
+            className="ops-stats__toggle"
+            aria-expanded={statsOpen}
+            onClick={() => {
+              setStatsOpen((open) => {
+                const next = !open;
+                try {
+                  window.sessionStorage.setItem(`ops-stats-open:${section}`, next ? '1' : '0');
+                } catch {
+                  /* ignore */
+                }
+                return next;
+              });
+            }}
+          >
+            <span>
+              {ar ? 'المؤشرات ومراحل العمل' : 'Metrics & stages'}
+              <small>
+                {records.length} {ar ? 'سجل' : 'records'} · {openCount} {ar ? 'متابعة' : 'open'}
+              </small>
+            </span>
+            <em aria-hidden="true">{statsOpen ? (ar ? 'طي' : 'Hide') : ar ? 'عرض' : 'Show'}</em>
+          </button>
 
-        {statsOpen ? (
-          <>
-            <section className="ops-metrics" aria-label={ar ? 'المؤشرات' : 'Metrics'}>
-              <article>
-                <span>{ar ? 'إجمالي السجلات' : 'Total records'}</span>
-                <strong>{records.length}</strong>
-                <small>{ar ? 'ضمن المؤسسة الحالية' : 'Current organization'}</small>
-              </article>
-              <article>
-                <span>{ar ? 'قيد المتابعة' : 'In progress'}</span>
-                <strong>{openCount}</strong>
-                <small>{ar ? 'تحتاج إجراء أو متابعة' : 'Needs action or follow-up'}</small>
-              </article>
-              <article>
-                <span>{ar ? 'مكتمل/مغلق' : 'Completed/closed'}</span>
-                <strong>{completedCount}</strong>
-                <small>{ar ? 'محفوظة في سجل العمل' : 'Retained in workflow history'}</small>
-              </article>
-              <article className="ops-metric--accent">
-                <span>
-                  {definition.moneyKey
-                    ? ar
-                      ? 'القيمة المسجلة'
-                      : 'Recorded value'
-                    : ar
-                      ? 'مؤشر إضافي'
-                      : 'Additional indicator'}
-                </span>
-                <strong>
-                  {definition.moneyKey
-                    ? amountTotals.size === 1
-                      ? [...amountTotals].map(([currency, amount]) =>
-                          formatMoney(amount.toString(), currency, locale),
-                        )[0]
-                      : amountTotals.size > 1
-                        ? `${amountTotals.size} ${ar ? 'عملات' : 'currencies'}`
-                        : '—'
-                    : safeString(
-                        summary.pendingApprovals ?? summary.draftJournals ?? secondary.length,
-                      )}
-                </strong>
-                <small>{ar ? 'محدث من البيانات التشغيلية' : 'Updated from operational data'}</small>
-              </article>
-            </section>
-
-            {definition.moneyKey && amountTotals.size > 1 ? (
-              <section
-                className="ops-currency-totals"
-                aria-label={ar ? 'الإجماليات حسب العملة' : 'Totals by currency'}
-              >
-                {[...amountTotals]
-                  .sort(([left], [right]) => left.localeCompare(right))
-                  .map(([currency, amount]) => (
-                    <article key={currency}>
-                      <span>{currency}</span>
-                      <strong>{formatMoney(amount.toString(), currency, locale)}</strong>
-                    </article>
-                  ))}
+          {statsOpen ? (
+            <>
+              <section className="ops-metrics" aria-label={ar ? 'المؤشرات' : 'Metrics'}>
+                <article>
+                  <span>{ar ? 'إجمالي السجلات' : 'Total records'}</span>
+                  <strong>{records.length}</strong>
+                  <small>{ar ? 'ضمن المؤسسة الحالية' : 'Current organization'}</small>
+                </article>
+                <article>
+                  <span>{ar ? 'قيد المتابعة' : 'In progress'}</span>
+                  <strong>{openCount}</strong>
+                  <small>{ar ? 'تحتاج إجراء أو متابعة' : 'Needs action or follow-up'}</small>
+                </article>
+                <article>
+                  <span>{ar ? 'مكتمل/مغلق' : 'Completed/closed'}</span>
+                  <strong>{completedCount}</strong>
+                  <small>{ar ? 'محفوظة في سجل العمل' : 'Retained in workflow history'}</small>
+                </article>
+                <article className="ops-metric--accent">
+                  <span>
+                    {definition.moneyKey
+                      ? ar
+                        ? 'القيمة المسجلة'
+                        : 'Recorded value'
+                      : ar
+                        ? 'مؤشر إضافي'
+                        : 'Additional indicator'}
+                  </span>
+                  <strong>
+                    {definition.moneyKey
+                      ? amountTotals.size === 1
+                        ? [...amountTotals].map(([currency, amount]) =>
+                            formatMoney(amount.toString(), currency, locale),
+                          )[0]
+                        : amountTotals.size > 1
+                          ? `${amountTotals.size} ${ar ? 'عملات' : 'currencies'}`
+                          : '—'
+                      : safeString(
+                          summary.pendingApprovals ?? summary.draftJournals ?? secondary.length,
+                        )}
+                  </strong>
+                  <small>
+                    {ar ? 'محدث من البيانات التشغيلية' : 'Updated from operational data'}
+                  </small>
+                </article>
               </section>
-            ) : null}
 
-            <section className="ops-flow" aria-label={ar ? 'مراحل العمل' : 'Workflow stages'}>
-              {definition.flow.map((stage, index) => {
-                const count = records.filter(
-                  (row) => safeString(row.status) === stage.value,
-                ).length;
-                return (
-                  <article key={stage.value}>
-                    <span>{String(index + 1).padStart(2, '0')}</span>
-                    <div>
-                      <strong>{ar ? stage.ar : stage.en}</strong>
-                      <small>
-                        {count} {ar ? 'سجل' : 'records'}
-                      </small>
-                    </div>
-                  </article>
-                );
-              })}
-            </section>
-          </>
-        ) : null}
-      </section>
+              {definition.moneyKey && amountTotals.size > 1 ? (
+                <section
+                  className="ops-currency-totals"
+                  aria-label={ar ? 'الإجماليات حسب العملة' : 'Totals by currency'}
+                >
+                  {[...amountTotals]
+                    .sort(([left], [right]) => left.localeCompare(right))
+                    .map(([currency, amount]) => (
+                      <article key={currency}>
+                        <span>{currency}</span>
+                        <strong>{formatMoney(amount.toString(), currency, locale)}</strong>
+                      </article>
+                    ))}
+                </section>
+              ) : null}
+
+              <section className="ops-flow" aria-label={ar ? 'مراحل العمل' : 'Workflow stages'}>
+                {definition.flow.map((stage, index) => {
+                  const count = records.filter(
+                    (row) => safeString(row.status) === stage.value,
+                  ).length;
+                  return (
+                    <article key={stage.value}>
+                      <span>{String(index + 1).padStart(2, '0')}</span>
+                      <div>
+                        <strong>{ar ? stage.ar : stage.en}</strong>
+                        <small>
+                          {count} {ar ? 'سجل' : 'records'}
+                        </small>
+                      </div>
+                    </article>
+                  );
+                })}
+              </section>
+            </>
+          ) : null}
+        </section>
       )}
 
       {vacancyFollowUpTotal > 0 &&
@@ -3702,60 +3755,63 @@ ${
 
       <section className={isDailyBookings ? 'ops-panel ops-panel--bare' : 'ops-panel'}>
         {isDailyBookings ? null : (
-        <div className="ops-toolbar">
-          <label className="ops-search">
-            <span className="sr-only">{ar ? 'بحث' : 'Search'}</span>
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={
-                ar ? 'ابحث بالاسم أو المرجع أو الحالة…' : 'Search name, reference or status…'
-              }
-            />
-          </label>
-          <label>
-            <span className="sr-only">{ar ? 'تصفية الحالة' : 'Filter status'}</span>
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-              <option value="">{ar ? 'كل الحالات' : 'All statuses'}</option>
-              {definition.flow.map((stage) => (
-                <option key={stage.value} value={stage.value}>
-                  {ar ? stage.ar : stage.en}
-                </option>
-              ))}
-            </select>
-          </label>
-          <span className="ops-result-count">
-            {filtered.length} {ar ? 'نتيجة' : 'results'}
-          </span>
-          {section === 'accounting' ? (
-            <span className="ops-inline-actions ops-toolbar__accounting">
-              <button
-                type="button"
-                className="button button--quiet button--sm"
-                disabled={!filtered.length}
-                onClick={() => printAccountingStatement()}
+          <div className="ops-toolbar">
+            <label className="ops-search">
+              <span className="sr-only">{ar ? 'بحث' : 'Search'}</span>
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={
+                  ar ? 'ابحث بالاسم أو المرجع أو الحالة…' : 'Search name, reference or status…'
+                }
+              />
+            </label>
+            <label>
+              <span className="sr-only">{ar ? 'تصفية الحالة' : 'Filter status'}</span>
+              <select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
               >
-                {ar ? 'طباعة الكشف' : 'Print statement'}
-              </button>
-              <button
-                type="button"
-                className="button button--quiet button--sm"
-                disabled={!filtered.length}
-                onClick={() => exportAccountingCsv()}
-              >
-                {ar ? 'تصدير CSV' : 'Export CSV'}
-              </button>
-              <a
-                className="button button--quiet button--sm"
-                href="https://hisaby.bhd-om.com"
-                target="_blank"
-                rel="noreferrer"
-              >
-                {ar ? 'فتح حسابي (كشوفات مفصّلة)' : 'Open Hisaby (full statements)'}
-              </a>
+                <option value="">{ar ? 'كل الحالات' : 'All statuses'}</option>
+                {definition.flow.map((stage) => (
+                  <option key={stage.value} value={stage.value}>
+                    {ar ? stage.ar : stage.en}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <span className="ops-result-count">
+              {filtered.length} {ar ? 'نتيجة' : 'results'}
             </span>
-          ) : null}
-        </div>
+            {section === 'accounting' ? (
+              <span className="ops-inline-actions ops-toolbar__accounting">
+                <button
+                  type="button"
+                  className="button button--quiet button--sm"
+                  disabled={!filtered.length}
+                  onClick={() => printAccountingStatement()}
+                >
+                  {ar ? 'طباعة الكشف' : 'Print statement'}
+                </button>
+                <button
+                  type="button"
+                  className="button button--quiet button--sm"
+                  disabled={!filtered.length}
+                  onClick={() => exportAccountingCsv()}
+                >
+                  {ar ? 'تصدير CSV' : 'Export CSV'}
+                </button>
+                <a
+                  className="button button--quiet button--sm"
+                  href="https://hisaby.bhd-om.com"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {ar ? 'فتح حسابي (كشوفات مفصّلة)' : 'Open Hisaby (full statements)'}
+                </a>
+              </span>
+            ) : null}
+          </div>
         )}
         {error ? (
           <div className="notice notice--error" role="alert">
@@ -3770,584 +3826,594 @@ ${
           />
         ) : (
           <>
-        <div className="data-table-wrap ops-desktop-table">
-          <table className="data-table ops-table">
-            <thead>
-              <tr>
-                {definition.columns.map((column) => (
-                  <th key={column.key}>{ar ? column.ar : column.en}</th>
-                ))}
-                <th>{ar ? 'الإجراء التالي' : 'Next action'}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tableRows.map((row, index) => {
-                const isChildUnit = safeString(row.rowKind) === 'unit';
-                const childUnits = Array.isArray(row.childUnits)
-                  ? (row.childUnits as DataRow[])
-                  : [];
-                const canExpand =
-                  section === 'properties' &&
-                  !isChildUnit &&
-                  safeString(row.kind) === 'multi_unit' &&
-                  childUnits.length > 0;
-                const propertyId = safeString(row.id);
-                const isExpanded = expandedProperties.has(propertyId);
-                const action = nextAction(section, row);
-                const reportId = section === 'reports' ? safeString(row.id) : '';
-                const reportReady = Boolean(reportId && safeString(row.status) === 'completed');
-                const documentKind =
-                  section === 'invoices' && row.documentReady
-                    ? 'invoice'
-                    : section === 'payments' &&
-                        safeString(row.recordKind) === 'receipt' &&
-                        row.documentReady
-                      ? 'receipt'
-                      : null;
-                return (
-                  <tr
-                    key={safeString(row.id ?? row.reference) || String(index)}
-                    className={isChildUnit ? 'ops-table__child-row' : undefined}
-                  >
+            <div className="data-table-wrap ops-desktop-table">
+              <table className="data-table ops-table">
+                <thead>
+                  <tr>
                     {definition.columns.map((column) => (
-                      <td
-                        key={column.key}
-                        className={column.format === 'thumb' ? 'ops-table__thumb-cell' : undefined}
+                      <th key={column.key}>{ar ? column.ar : column.en}</th>
+                    ))}
+                    {showActionColumn ? (
+                      <th>
+                        {manageMode
+                          ? ar
+                            ? 'الإدارة'
+                            : 'Manage'
+                          : ar
+                            ? 'الإجراء التالي'
+                            : 'Next action'}
+                      </th>
+                    ) : null}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tableRows.map((row, index) => {
+                    const isChildUnit = safeString(row.rowKind) === 'unit';
+                    const childUnits = Array.isArray(row.childUnits)
+                      ? (row.childUnits as DataRow[])
+                      : [];
+                    const canExpand =
+                      section === 'properties' &&
+                      !isChildUnit &&
+                      safeString(row.kind) === 'multi_unit' &&
+                      childUnits.length > 0;
+                    const propertyId = safeString(row.id);
+                    const isExpanded = expandedProperties.has(propertyId);
+                    const action = nextAction(section, row);
+                    const reportId = section === 'reports' ? safeString(row.id) : '';
+                    const reportReady = Boolean(reportId && safeString(row.status) === 'completed');
+                    const documentKind =
+                      section === 'invoices' && row.documentReady
+                        ? 'invoice'
+                        : section === 'payments' &&
+                            safeString(row.recordKind) === 'receipt' &&
+                            row.documentReady
+                          ? 'receipt'
+                          : null;
+                    return (
+                      <tr
+                        key={safeString(row.id ?? row.reference) || String(index)}
+                        className={isChildUnit ? 'ops-table__child-row' : undefined}
                       >
-                        {section === 'properties' && column.format === 'thumb' ? (
-                          <span className="ops-table__thumb-wrap">
-                            {canExpand ? (
+                        {definition.columns.map((column) => (
+                          <td
+                            key={column.key}
+                            className={
+                              column.format === 'thumb' ? 'ops-table__thumb-cell' : undefined
+                            }
+                          >
+                            {section === 'properties' && column.format === 'thumb' ? (
+                              <span className="ops-table__thumb-wrap">
+                                {canExpand ? (
+                                  <button
+                                    type="button"
+                                    className={`ops-expand${isExpanded ? ' ops-expand--open' : ''}`}
+                                    aria-expanded={isExpanded}
+                                    aria-label={ar ? 'عرض وحدات المبنى' : 'Show building units'}
+                                    onClick={() =>
+                                      setExpandedProperties((current) => {
+                                        const next = new Set(current);
+                                        if (next.has(propertyId)) next.delete(propertyId);
+                                        else next.add(propertyId);
+                                        return next;
+                                      })
+                                    }
+                                  >
+                                    {isExpanded ? '▾' : '▸'}
+                                  </button>
+                                ) : isChildUnit ? (
+                                  <span
+                                    className="ops-expand ops-expand--spacer"
+                                    aria-hidden="true"
+                                  />
+                                ) : null}
+                                <PropertyOpsRowKey
+                                  propertyId={
+                                    isChildUnit
+                                      ? safeString(row.parentPropertyId)
+                                      : safeString(row.id)
+                                  }
+                                  coverImageUrl={
+                                    typeof row.coverImageUrl === 'string' ? row.coverImageUrl : null
+                                  }
+                                  locale={locale}
+                                  {...(() => {
+                                    const n =
+                                      safeString(row.nameAr) ||
+                                      safeString(row.nameEn) ||
+                                      safeString(row.name);
+                                    return n ? { name: n } : {};
+                                  })()}
+                                />
+                              </span>
+                            ) : (
+                              displayCell(row, column, locale, context, definition.flow)
+                            )}
+                          </td>
+                        ))}
+                        {showActionColumn ? (
+                          <td>
+                            {section === 'leasing' ? (
+                              <span className="ops-inline-actions">
+                                {safeString(row.status) === 'draft' ? (
+                                  <button
+                                    className="ops-action"
+                                    type="button"
+                                    disabled={busy}
+                                    onClick={() => void leaseLifecycle(row, 'activate')}
+                                  >
+                                    {ar ? 'تفعيل (ساري)' : 'Activate'}
+                                  </button>
+                                ) : null}
+                                {safeString(row.status) === 'active' ? (
+                                  <>
+                                    <button
+                                      className="ops-action"
+                                      type="button"
+                                      disabled={busy}
+                                      onClick={() => {
+                                        setError(null);
+                                        setRenewingLease(row);
+                                      }}
+                                    >
+                                      {ar ? 'تجديد' : 'Renew'}
+                                    </button>
+                                    {row.renewalPendingContractId ? (
+                                      <>
+                                        <button
+                                          className="ops-action"
+                                          type="button"
+                                          disabled={busy}
+                                          onClick={() =>
+                                            void leaseLifecycle(row, 'confirm_renewal')
+                                          }
+                                        >
+                                          {ar ? 'اعتماد تجديد (محاسب)' : 'Confirm renewal'}
+                                        </button>
+                                        <button
+                                          className="ops-action"
+                                          type="button"
+                                          disabled={busy}
+                                          onClick={() =>
+                                            void leaseLifecycle(row, 'waive_renewal_gate')
+                                          }
+                                        >
+                                          {ar ? 'استثناء مدير' : 'Manager waive'}
+                                        </button>
+                                      </>
+                                    ) : null}
+                                    <button
+                                      className="ops-action"
+                                      type="button"
+                                      disabled={busy}
+                                      onClick={() => void leaseLifecycle(row, 'end')}
+                                    >
+                                      {ar ? 'إنهاء → محاسب' : 'End → clearance'}
+                                    </button>
+                                    <button
+                                      className="ops-action ops-action--danger"
+                                      type="button"
+                                      disabled={busy}
+                                      onClick={() =>
+                                        void leaseLifecycle(row, 'request_cancellation')
+                                      }
+                                    >
+                                      {ar ? 'طلب إلغاء' : 'Request cancel'}
+                                    </button>
+                                  </>
+                                ) : null}
+                                {safeString(row.status) === 'cancel_requested' ? (
+                                  <button
+                                    className="ops-action"
+                                    type="button"
+                                    disabled={busy}
+                                    onClick={() => void leaseLifecycle(row, 'approve_cancellation')}
+                                  >
+                                    {ar ? 'اعتماد الإدارة + تاريخ' : 'Admin approve + date'}
+                                  </button>
+                                ) : null}
+                                {safeString(row.status) === 'clearance_pending' ? (
+                                  <button
+                                    className="ops-action"
+                                    type="button"
+                                    disabled={busy}
+                                    onClick={() => void leaseLifecycle(row, 'clear_cancellation')}
+                                  >
+                                    {ar ? 'تصفية محاسب (لا متأخرات)' : 'Accountant clear'}
+                                  </button>
+                                ) : null}
+                                {safeString(row.status) === 'draft' ? (
+                                  <button
+                                    className="ops-action ops-action--danger"
+                                    type="button"
+                                    disabled={busy}
+                                    onClick={() => void leaseLifecycle(row, 'terminate')}
+                                  >
+                                    {ar ? 'إلغاء مسودة' : 'Void draft'}
+                                  </button>
+                                ) : null}
+                                {![
+                                  'draft',
+                                  'active',
+                                  'cancel_requested',
+                                  'clearance_pending',
+                                ].includes(safeString(row.status))
+                                  ? '—'
+                                  : null}
+                              </span>
+                            ) : section === 'team' ? (
                               <button
+                                className={`ops-action ${safeString(row.status) === 'active' ? 'ops-action--danger' : ''}`}
                                 type="button"
-                                className={`ops-expand${isExpanded ? ' ops-expand--open' : ''}`}
-                                aria-expanded={isExpanded}
-                                aria-label={ar ? 'عرض وحدات المبنى' : 'Show building units'}
+                                disabled={busy}
                                 onClick={() =>
-                                  setExpandedProperties((current) => {
-                                    const next = new Set(current);
-                                    if (next.has(propertyId)) next.delete(propertyId);
-                                    else next.add(propertyId);
-                                    return next;
-                                  })
+                                  void updateMemberAccess(
+                                    row,
+                                    safeString(row.status) === 'active' ? 'inactive' : 'active',
+                                  )
                                 }
                               >
-                                {isExpanded ? '▾' : '▸'}
+                                {safeString(row.status) === 'active'
+                                  ? ar
+                                    ? 'تعطيل وإلغاء الجلسات'
+                                    : 'Disable & revoke sessions'
+                                  : ar
+                                    ? 'إعادة التفعيل'
+                                    : 'Reactivate'}
                               </button>
-                            ) : isChildUnit ? (
-                              <span className="ops-expand ops-expand--spacer" aria-hidden="true" />
-                            ) : null}
-                            <PropertyOpsRowKey
-                              propertyId={
-                                isChildUnit ? safeString(row.parentPropertyId) : safeString(row.id)
-                              }
-                              coverImageUrl={
-                                typeof row.coverImageUrl === 'string' ? row.coverImageUrl : null
-                              }
-                              locale={locale}
-                              {...(() => {
-                                const n =
-                                  safeString(row.nameAr) ||
-                                  safeString(row.nameEn) ||
-                                  safeString(row.name);
-                                return n ? { name: n } : {};
-                              })()}
-                            />
-                          </span>
-                        ) : (
-                          displayCell(row, column, locale, context, definition.flow)
-                        )}
-                      </td>
-                    ))}
-                    <td>
-                      {section === 'leasing' ? (
-                        <span className="ops-inline-actions">
-                          {safeString(row.status) === 'draft' ? (
-                            <button
-                              className="ops-action"
-                              type="button"
-                              disabled={busy}
-                              onClick={() => void leaseLifecycle(row, 'activate')}
-                            >
-                              {ar ? 'تفعيل (ساري)' : 'Activate'}
-                            </button>
-                          ) : null}
-                          {safeString(row.status) === 'active' ? (
-                            <>
-                              <button
-                                className="ops-action"
-                                type="button"
-                                disabled={busy}
-                                onClick={() => {
-                                  setError(null);
-                                  setRenewingLease(row);
-                                }}
-                              >
-                                {ar ? 'تجديد' : 'Renew'}
-                              </button>
-                              {row.renewalPendingContractId ? (
-                                <>
-                                  <button
-                                    className="ops-action"
-                                    type="button"
-                                    disabled={busy}
-                                    onClick={() => void leaseLifecycle(row, 'confirm_renewal')}
-                                  >
-                                    {ar ? 'اعتماد تجديد (محاسب)' : 'Confirm renewal'}
-                                  </button>
-                                  <button
-                                    className="ops-action"
-                                    type="button"
-                                    disabled={busy}
-                                    onClick={() => void leaseLifecycle(row, 'waive_renewal_gate')}
-                                  >
-                                    {ar ? 'استثناء مدير' : 'Manager waive'}
-                                  </button>
-                                </>
-                              ) : null}
-                              <button
-                                className="ops-action"
-                                type="button"
-                                disabled={busy}
-                                onClick={() => void leaseLifecycle(row, 'end')}
-                              >
-                                {ar ? 'إنهاء → محاسب' : 'End → clearance'}
-                              </button>
+                            ) : section === 'api-keys' && safeString(row.status) === 'active' ? (
                               <button
                                 className="ops-action ops-action--danger"
                                 type="button"
                                 disabled={busy}
-                                onClick={() => void leaseLifecycle(row, 'request_cancellation')}
+                                onClick={() => {
+                                  setRevokeKeyRow(row);
+                                  setRevokeTotp('');
+                                  setError(null);
+                                }}
                               >
-                                {ar ? 'طلب إلغاء' : 'Request cancel'}
+                                {ar ? 'إلغاء المفتاح' : 'Revoke key'}
                               </button>
-                            </>
-                          ) : null}
-                          {safeString(row.status) === 'cancel_requested' ? (
-                            <button
-                              className="ops-action"
-                              type="button"
-                              disabled={busy}
-                              onClick={() => void leaseLifecycle(row, 'approve_cancellation')}
-                            >
-                              {ar ? 'اعتماد الإدارة + تاريخ' : 'Admin approve + date'}
-                            </button>
-                          ) : null}
-                          {safeString(row.status) === 'clearance_pending' ? (
-                            <button
-                              className="ops-action"
-                              type="button"
-                              disabled={busy}
-                              onClick={() => void leaseLifecycle(row, 'clear_cancellation')}
-                            >
-                              {ar ? 'تصفية محاسب (لا متأخرات)' : 'Accountant clear'}
-                            </button>
-                          ) : null}
-                          {safeString(row.status) === 'draft' ? (
-                            <button
-                              className="ops-action ops-action--danger"
-                              type="button"
-                              disabled={busy}
-                              onClick={() => void leaseLifecycle(row, 'terminate')}
-                            >
-                              {ar ? 'إلغاء مسودة' : 'Void draft'}
-                            </button>
-                          ) : null}
-                          {!['draft', 'active', 'cancel_requested', 'clearance_pending'].includes(
-                            safeString(row.status),
-                          )
-                            ? '—'
-                            : null}
-                        </span>
-                      ) : section === 'team' ? (
-                        <button
-                          className={`ops-action ${safeString(row.status) === 'active' ? 'ops-action--danger' : ''}`}
-                          type="button"
-                          disabled={busy}
-                          onClick={() =>
-                            void updateMemberAccess(
-                              row,
-                              safeString(row.status) === 'active' ? 'inactive' : 'active',
-                            )
-                          }
-                        >
-                          {safeString(row.status) === 'active'
-                            ? ar
-                              ? 'تعطيل وإلغاء الجلسات'
-                              : 'Disable & revoke sessions'
-                            : ar
-                              ? 'إعادة التفعيل'
-                              : 'Reactivate'}
-                        </button>
-                      ) : section === 'api-keys' && safeString(row.status) === 'active' ? (
-                        <button
-                          className="ops-action ops-action--danger"
-                          type="button"
-                          disabled={busy}
-                          onClick={() => {
-                            setRevokeKeyRow(row);
-                            setRevokeTotp('');
-                            setError(null);
-                          }}
-                        >
-                          {ar ? 'إلغاء المفتاح' : 'Revoke key'}
-                        </button>
-                      ) : section === 'approvals' && safeString(row.status) === 'pending' ? (
-                        <span className="ops-inline-actions">
-                          <button
-                            className="ops-action"
-                            type="button"
-                            disabled={busy}
-                            onClick={() => void decideApproval(row, 'approved')}
-                          >
-                            {ar ? 'اعتماد' : 'Approve'}
-                          </button>
-                          <button
-                            className="ops-action ops-action--danger"
-                            type="button"
-                            disabled={busy}
-                            onClick={() => void decideApproval(row, 'rejected')}
-                          >
-                            {ar ? 'رفض' : 'Reject'}
-                          </button>
-                        </span>
-                      ) : section === 'bookings' && safeString(row.recordKind) === 'stay_booking' ? (
-                        <Link
-                          className="ops-action ops-action--primary"
-                          href={`/${portal}/stays/bookings/${encodeURIComponent(safeString(row.id))}`}
-                          prefetch
-                        >
-                          {ar ? 'عقد الإقامة' : 'Stay contract'}
-                        </Link>
-                      ) : section === 'bookings' && safeString(row.recordKind) === 'reservation' ? (
-                        <span className="ops-inline-actions">
-                          {safeString(row.status) === 'pending' ? (
-                            <button
-                              className="ops-action"
-                              type="button"
-                              disabled={busy}
-                              onClick={() => void advance(row)}
-                            >
-                              {ar ? 'تأكيد العربون (محاسب)' : 'Confirm deposit'}
-                            </button>
-                          ) : null}
-                          {safeString(row.status) === 'confirmed' ? (
-                            <Link
-                              className="ops-action"
-                              href={`/${portal}/leasing?create=1&reservationId=${encodeURIComponent(safeString(row.id))}&unitId=${encodeURIComponent(safeString(row.unitId))}&tenantId=${encodeURIComponent(safeString(row.tenantPartyId))}`}
-                              prefetch
-                            >
-                              {ar ? 'تحويل لعقد قيد الإجراء' : 'Convert to lease'}
-                            </Link>
-                          ) : null}
+                            ) : section === 'approvals' && safeString(row.status) === 'pending' ? (
+                              <span className="ops-inline-actions">
+                                <button
+                                  className="ops-action"
+                                  type="button"
+                                  disabled={busy}
+                                  onClick={() => void decideApproval(row, 'approved')}
+                                >
+                                  {ar ? 'اعتماد' : 'Approve'}
+                                </button>
+                                <button
+                                  className="ops-action ops-action--danger"
+                                  type="button"
+                                  disabled={busy}
+                                  onClick={() => void decideApproval(row, 'rejected')}
+                                >
+                                  {ar ? 'رفض' : 'Reject'}
+                                </button>
+                              </span>
+                            ) : section === 'bookings' &&
+                              safeString(row.recordKind) === 'stay_booking' ? (
+                              <Link
+                                className="ops-action ops-action--primary"
+                                href={`/${portal}/stays/bookings/${encodeURIComponent(safeString(row.id))}`}
+                                prefetch
+                              >
+                                {ar ? 'عقد الإقامة' : 'Stay contract'}
+                              </Link>
+                            ) : section === 'bookings' &&
+                              safeString(row.recordKind) === 'reservation' ? (
+                              <span className="ops-inline-actions">
+                                {safeString(row.status) === 'pending' ? (
+                                  <button
+                                    className="ops-action"
+                                    type="button"
+                                    disabled={busy}
+                                    onClick={() => void advance(row)}
+                                  >
+                                    {ar ? 'تأكيد العربون (محاسب)' : 'Confirm deposit'}
+                                  </button>
+                                ) : null}
+                                {safeString(row.status) === 'confirmed' ? (
+                                  <Link
+                                    className="ops-action"
+                                    href={`/${portal}/leasing?create=1&reservationId=${encodeURIComponent(safeString(row.id))}&unitId=${encodeURIComponent(safeString(row.unitId))}&tenantId=${encodeURIComponent(safeString(row.tenantPartyId))}`}
+                                    prefetch
+                                  >
+                                    {ar ? 'تحويل لعقد قيد الإجراء' : 'Convert to lease'}
+                                  </Link>
+                                ) : null}
+                                <Link
+                                  className="ops-action"
+                                  href={`/${portal}/bookings/${encodeURIComponent(safeString(row.id))}`}
+                                  prefetch
+                                >
+                                  {ar ? 'المستندات' : 'Documents'}
+                                </Link>
+                                {safeString(row.status) === 'confirmed' ? (
+                                  <Link
+                                    className="ops-action"
+                                    href={`/${portal}/accounting`}
+                                    prefetch
+                                  >
+                                    {ar ? 'القيد المحاسبي' : 'Ledger'}
+                                  </Link>
+                                ) : null}
+                              </span>
+                            ) : section === 'properties' ? (
+                              <span className="ops-action-group">
+                                {isChildUnit ? (
+                                  <Link
+                                    className="ops-action ops-action--primary"
+                                    href={`/${portal}/properties/${encodeURIComponent(safeString(row.parentPropertyId))}?unit=${encodeURIComponent(safeString(row.id))}`}
+                                    prefetch
+                                  >
+                                    {ar ? 'إدارة الوحدة' : 'Manage unit'}
+                                  </Link>
+                                ) : (
+                                  <Link
+                                    className="ops-action ops-action--primary"
+                                    href={`/${portal}/properties/${encodeURIComponent(safeString(row.id))}`}
+                                    prefetch
+                                  >
+                                    {ar ? 'إدارة العقار' : 'Manage property'}
+                                  </Link>
+                                )}
+                              </span>
+                            ) : section === 'contracts' ? (
+                              <Link
+                                className="ops-action"
+                                href={`/${portal}/contracts/${encodeURIComponent(safeString(row.id))}`}
+                                prefetch
+                              >
+                                {ar ? 'عرض العقد' : 'View contract'}
+                              </Link>
+                            ) : section === 'accounting' ? (
+                              <span className="ops-inline-actions">
+                                <button
+                                  className="ops-action ops-action--primary"
+                                  type="button"
+                                  disabled={busy || accountingDetailBusy}
+                                  onClick={() => void openAccountingDetail(row)}
+                                >
+                                  {ar ? 'التفاصيل' : 'Details'}
+                                </button>
+                                {action ? (
+                                  <button
+                                    className="ops-action"
+                                    type="button"
+                                    disabled={busy}
+                                    onClick={() => void advance(row)}
+                                  >
+                                    {ar ? 'ترحيل' : 'Post'}
+                                  </button>
+                                ) : null}
+                                {safeString(row.recordKind) === 'stay_payment' &&
+                                safeString(row.bookingId) ? (
+                                  <Link
+                                    className="ops-action"
+                                    href={`/${portal}/stays/bookings/${encodeURIComponent(safeString(row.bookingId))}`}
+                                    prefetch
+                                  >
+                                    {ar ? 'الحجز' : 'Booking'}
+                                  </Link>
+                                ) : null}
+                              </span>
+                            ) : documentKind ? (
+                              <button
+                                className="ops-action"
+                                type="button"
+                                disabled={busy}
+                                onClick={() =>
+                                  void downloadFinanceDocument(documentKind, safeString(row.id))
+                                }
+                              >
+                                {ar ? 'عرض PDF آمن' : 'View secure PDF'}
+                              </button>
+                            ) : reportReady ? (
+                              <button
+                                className="ops-action"
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void downloadReport(reportId)}
+                              >
+                                {ar ? 'تنزيل آمن' : 'Secure download'}
+                              </button>
+                            ) : action ? (
+                              <button
+                                className="ops-action"
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void advance(row)}
+                              >
+                                {ar
+                                  ? `نقل إلى ${action.next.replaceAll('_', ' ')}`
+                                  : `Move to ${action.next.replaceAll('_', ' ')}`}
+                              </button>
+                            ) : (
+                              <span className="muted">—</span>
+                            )}
+                          </td>
+                        ) : null}
+                      </tr>
+                    );
+                  })}
+                  {!filtered.length ? (
+                    <tr>
+                      <td colSpan={definition.columns.length + (showActionColumn ? 1 : 0)}>
+                        <div className="ops-empty">
+                          <span className="ops-empty__mark" aria-hidden="true">
+                            <BrandMark />
+                          </span>
+                          <strong>
+                            {loading
+                              ? ar
+                                ? 'جاري التحميل…'
+                                : 'Loading…'
+                              : loadError
+                                ? ar
+                                  ? 'تعذّر التحميل'
+                                  : 'Load failed'
+                                : ar
+                                  ? 'لا توجد سجلات مطابقة'
+                                  : 'No matching records'}
+                          </strong>
+                          <p>
+                            {loading
+                              ? ar
+                                ? 'نحضّر قائمة العقارات الآن.'
+                                : 'Preparing the property list.'
+                              : loadError
+                                ? ar
+                                  ? 'استخدم زر إعادة المحاولة أعلاه.'
+                                  : 'Use the retry button above.'
+                                : ar
+                                  ? 'أنشئ أول سجل أو غيّر التصفية.'
+                                  : 'Create the first record or change the filters.'}
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
+            <div className="ops-mobile-cards" aria-label={ar ? 'قائمة السجلات' : 'Records list'}>
+              {filtered.map((row, index) => {
+                const serial = safeString(row.serialNumber);
+                const name =
+                  safeString(row.nameAr) ||
+                  safeString(row.nameEn) ||
+                  safeString(row.displayName) ||
+                  safeString(row.name) ||
+                  '—';
+                const location =
+                  safeString(row.location) ||
+                  [safeString(row.governorate), safeString(row.city)].filter(Boolean).join(' · ') ||
+                  '—';
+                const statusRaw = safeString(row.status) || '—';
+                const statusLabeled =
+                  definition.flow.find((item) => item.value === statusRaw) ?? null;
+                const status = statusLabeled
+                  ? ar
+                    ? statusLabeled.ar
+                    : statusLabeled.en
+                  : statusRaw;
+                const cover = typeof row.coverImageUrl === 'string' ? row.coverImageUrl : null;
+                return (
+                  <article
+                    className="ops-mobile-card"
+                    key={safeString(row.id ?? row.reference) || `m-${index}`}
+                  >
+                    <div className="ops-mobile-card__head">
+                      {section === 'properties' ? (
+                        <PropertyOpsRowKey
+                          propertyId={safeString(row.id)}
+                          coverImageUrl={cover}
+                          locale={locale}
+                          {...(name && name !== '—' ? { name } : {})}
+                        />
+                      ) : null}
+                      <div className="ops-mobile-card__head-copy">
+                        <h3 className="ops-mobile-card__title">{name}</h3>
+                        {serial ? (
+                          <p className="ops-mobile-card__serial" dir="ltr">
+                            {serial}
+                          </p>
+                        ) : null}
+                        {section === 'properties' &&
+                        Array.isArray(row.channels) &&
+                        row.channels.length ? (
+                          <div className="ops-channel-badges ops-channel-badges--mobile">
+                            {(row.channels as unknown[]).map((code) => {
+                              const key = String(code);
+                              const label =
+                                key === 'rent'
+                                  ? ar
+                                    ? 'إيجار'
+                                    : 'Rent'
+                                  : key === 'sale'
+                                    ? ar
+                                      ? 'بيع'
+                                      : 'Sale'
+                                    : key === 'stay'
+                                      ? ar
+                                        ? 'إقامة'
+                                        : 'Stay'
+                                      : key;
+                              return (
+                                <span
+                                  key={key}
+                                  className={`status-pill status-pill--${
+                                    key === 'stay' ? 'ready' : key === 'sale' ? 'warn' : 'muted'
+                                  }`}
+                                >
+                                  {label}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                    <dl className="ops-mobile-card__meta">
+                      {section === 'properties' ? (
+                        <>
+                          <div>
+                            <dt>{ar ? 'الموقع' : 'Location'}</dt>
+                            <dd>{location}</dd>
+                          </div>
+                          <div>
+                            <dt>{ar ? 'الحالة' : 'Status'}</dt>
+                            <dd>{status}</dd>
+                          </div>
+                        </>
+                      ) : (
+                        definition.columns.slice(0, 4).map((column) => (
+                          <div key={column.key}>
+                            <dt>{ar ? column.ar : column.en}</dt>
+                            <dd>{displayCell(row, column, locale, context, definition.flow)}</dd>
+                          </div>
+                        ))
+                      )}
+                    </dl>
+                    {section === 'properties' ? (
+                      manageMode ? (
+                        <div className="ops-action-group">
                           <Link
-                            className="ops-action"
-                            href={`/${portal}/bookings/${encodeURIComponent(safeString(row.id))}`}
+                            className="ops-action button button--quiet ops-action--primary"
+                            href={`/${portal}/properties/${encodeURIComponent(safeString(row.id))}`}
                             prefetch
                           >
-                            {ar ? 'المستندات' : 'Documents'}
+                            {ar ? 'إدارة العقار' : 'Manage property'}
                           </Link>
-                          {safeString(row.status) === 'confirmed' ? (
-                            <Link className="ops-action" href={`/${portal}/accounting`} prefetch>
-                              {ar ? 'القيد المحاسبي' : 'Ledger'}
-                            </Link>
-                          ) : null}
-                        </span>
-                      ) : section === 'properties' ? (
-                        <span className="ops-action-group">
-                          {isChildUnit ? (
-                            <>
-                              <Link
-                                className="ops-action"
-                                href={`/properties/${encodeURIComponent(safeString(row.parentPropertyId))}?unit=${encodeURIComponent(safeString(row.id))}`}
-                                prefetch
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                {ar ? 'عرض الوحدة' : 'View unit'}
-                              </Link>
-                              <Link
-                                className="ops-action ops-action--primary"
-                                href={`/${portal}/properties/${encodeURIComponent(safeString(row.parentPropertyId))}?unit=${encodeURIComponent(safeString(row.id))}`}
-                                prefetch
-                              >
-                                {ar ? 'إدارة الوحدة' : 'Manage unit'}
-                              </Link>
-                            </>
-                          ) : (
-                            <>
-                              <Link
-                                className="ops-action"
-                                href={`/properties/${encodeURIComponent(safeString(row.id))}`}
-                                prefetch
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                {ar ? 'عرض العقار' : 'View listing'}
-                              </Link>
-                              <Link
-                                className="ops-action ops-action--primary"
-                                href={`/${portal}/properties/${encodeURIComponent(safeString(row.id))}`}
-                                prefetch
-                              >
-                                {ar ? 'إدارة العقار' : 'Manage property'}
-                              </Link>
-                            </>
-                          )}
-                        </span>
-                      ) : section === 'contracts' ? (
-                        <Link
-                          className="ops-action"
-                          href={`/${portal}/contracts/${encodeURIComponent(safeString(row.id))}`}
-                          prefetch
-                        >
-                          {ar ? 'عرض العقد' : 'View contract'}
-                        </Link>
-                      ) : section === 'accounting' ? (
-                        <span className="ops-inline-actions">
-                          <button
-                            className="ops-action ops-action--primary"
-                            type="button"
-                            disabled={busy || accountingDetailBusy}
-                            onClick={() => void openAccountingDetail(row)}
-                          >
-                            {ar ? 'التفاصيل' : 'Details'}
-                          </button>
-                          {action ? (
-                            <button
-                              className="ops-action"
-                              type="button"
-                              disabled={busy}
-                              onClick={() => void advance(row)}
-                            >
-                              {ar ? 'ترحيل' : 'Post'}
-                            </button>
-                          ) : null}
-                          {safeString(row.recordKind) === 'stay_payment' &&
-                          safeString(row.bookingId) ? (
-                            <Link
-                              className="ops-action"
-                              href={`/${portal}/stays/bookings/${encodeURIComponent(safeString(row.bookingId))}`}
-                              prefetch
-                            >
-                              {ar ? 'الحجز' : 'Booking'}
-                            </Link>
-                          ) : null}
-                        </span>
-                      ) : documentKind ? (
+                        </div>
+                      ) : null
+                    ) : section === 'accounting' ? (
+                      <div className="ops-action-group">
                         <button
-                          className="ops-action"
                           type="button"
-                          disabled={busy}
-                          onClick={() =>
-                            void downloadFinanceDocument(documentKind, safeString(row.id))
-                          }
+                          className="ops-action button button--quiet ops-action--primary"
+                          disabled={busy || accountingDetailBusy}
+                          onClick={() => void openAccountingDetail(row)}
                         >
-                          {ar ? 'عرض PDF آمن' : 'View secure PDF'}
+                          {ar ? 'التفاصيل والطباعة' : 'Details & print'}
                         </button>
-                      ) : reportReady ? (
-                        <button
-                          className="ops-action"
-                          type="button"
-                          disabled={busy}
-                          onClick={() => void downloadReport(reportId)}
-                        >
-                          {ar ? 'تنزيل آمن' : 'Secure download'}
-                        </button>
-                      ) : action ? (
-                        <button
-                          className="ops-action"
-                          type="button"
-                          disabled={busy}
-                          onClick={() => void advance(row)}
-                        >
-                          {ar
-                            ? `نقل إلى ${action.next.replaceAll('_', ' ')}`
-                            : `Move to ${action.next.replaceAll('_', ' ')}`}
-                        </button>
-                      ) : (
-                        <span className="muted">—</span>
-                      )}
-                    </td>
-                  </tr>
+                      </div>
+                    ) : null}
+                  </article>
                 );
               })}
               {!filtered.length ? (
-                <tr>
-                  <td colSpan={definition.columns.length + 1}>
-                    <div className="ops-empty">
-                      <span className="ops-empty__mark" aria-hidden="true">
-                        <BrandMark />
-                      </span>
-                      <strong>
-                        {loading
-                          ? ar
-                            ? 'جاري التحميل…'
-                            : 'Loading…'
-                          : loadError
-                            ? ar
-                              ? 'تعذّر التحميل'
-                              : 'Load failed'
-                            : ar
-                              ? 'لا توجد سجلات مطابقة'
-                              : 'No matching records'}
-                      </strong>
-                      <p>
-                        {loading
-                          ? ar
-                            ? 'نحضّر قائمة العقارات الآن.'
-                            : 'Preparing the property list.'
-                          : loadError
-                            ? ar
-                              ? 'استخدم زر إعادة المحاولة أعلاه.'
-                              : 'Use the retry button above.'
-                            : ar
-                              ? 'أنشئ أول سجل أو غيّر التصفية.'
-                              : 'Create the first record or change the filters.'}
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
-        </div>
-        <div className="ops-mobile-cards" aria-label={ar ? 'قائمة السجلات' : 'Records list'}>
-          {filtered.map((row, index) => {
-            const serial = safeString(row.serialNumber);
-            const name =
-              safeString(row.nameAr) ||
-              safeString(row.nameEn) ||
-              safeString(row.displayName) ||
-              safeString(row.name) ||
-              '—';
-            const location =
-              safeString(row.location) ||
-              [safeString(row.governorate), safeString(row.city)].filter(Boolean).join(' · ') ||
-              '—';
-            const statusRaw = safeString(row.status) || '—';
-            const statusLabeled = definition.flow.find((item) => item.value === statusRaw) ?? null;
-            const status = statusLabeled ? (ar ? statusLabeled.ar : statusLabeled.en) : statusRaw;
-            const cover = typeof row.coverImageUrl === 'string' ? row.coverImageUrl : null;
-            return (
-              <article
-                className="ops-mobile-card"
-                key={safeString(row.id ?? row.reference) || `m-${index}`}
-              >
-                <div className="ops-mobile-card__head">
-                  {section === 'properties' ? (
-                    <PropertyOpsRowKey
-                      propertyId={safeString(row.id)}
-                      coverImageUrl={cover}
-                      locale={locale}
-                      {...(name && name !== '—' ? { name } : {})}
-                    />
-                  ) : null}
-                  <div className="ops-mobile-card__head-copy">
-                    <h3 className="ops-mobile-card__title">{name}</h3>
-                    {serial ? (
-                      <p className="ops-mobile-card__serial" dir="ltr">
-                        {serial}
-                      </p>
-                    ) : null}
-                    {section === 'properties' &&
-                    Array.isArray(row.channels) &&
-                    row.channels.length ? (
-                      <div className="ops-channel-badges ops-channel-badges--mobile">
-                        {(row.channels as unknown[]).map((code) => {
-                          const key = String(code);
-                          const label =
-                            key === 'rent'
-                              ? ar
-                                ? 'إيجار'
-                                : 'Rent'
-                              : key === 'sale'
-                                ? ar
-                                  ? 'بيع'
-                                  : 'Sale'
-                                : key === 'stay'
-                                  ? ar
-                                    ? 'إقامة'
-                                    : 'Stay'
-                                  : key;
-                          return (
-                            <span
-                              key={key}
-                              className={`status-pill status-pill--${
-                                key === 'stay' ? 'ready' : key === 'sale' ? 'warn' : 'muted'
-                              }`}
-                            >
-                              {label}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    ) : null}
-                  </div>
+                <div className="ops-empty">
+                  <span className="ops-empty__mark" aria-hidden="true">
+                    <BrandMark />
+                  </span>
+                  <strong>{ar ? 'لا توجد سجلات مطابقة' : 'No matching records'}</strong>
                 </div>
-                <dl className="ops-mobile-card__meta">
-                  {section === 'properties' ? (
-                    <>
-                      <div>
-                        <dt>{ar ? 'الموقع' : 'Location'}</dt>
-                        <dd>{location}</dd>
-                      </div>
-                      <div>
-                        <dt>{ar ? 'الحالة' : 'Status'}</dt>
-                        <dd>{status}</dd>
-                      </div>
-                    </>
-                  ) : (
-                    definition.columns.slice(0, 4).map((column) => (
-                      <div key={column.key}>
-                        <dt>{ar ? column.ar : column.en}</dt>
-                        <dd>{displayCell(row, column, locale, context, definition.flow)}</dd>
-                      </div>
-                    ))
-                  )}
-                </dl>
-                {section === 'properties' ? (
-                  <div className="ops-action-group">
-                    <Link
-                      className="ops-action button button--quiet"
-                      href={`/properties/${encodeURIComponent(safeString(row.id))}`}
-                      prefetch
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {ar ? 'عرض العقار' : 'View listing'}
-                    </Link>
-                    <Link
-                      className="ops-action button button--quiet ops-action--primary"
-                      href={`/${portal}/properties/${encodeURIComponent(safeString(row.id))}`}
-                      prefetch
-                    >
-                      {ar ? 'إدارة العقار' : 'Manage property'}
-                    </Link>
-                  </div>
-                ) : section === 'accounting' ? (
-                  <div className="ops-action-group">
-                    <button
-                      type="button"
-                      className="ops-action button button--quiet ops-action--primary"
-                      disabled={busy || accountingDetailBusy}
-                      onClick={() => void openAccountingDetail(row)}
-                    >
-                      {ar ? 'التفاصيل والطباعة' : 'Details & print'}
-                    </button>
-                  </div>
-                ) : null}
-              </article>
-            );
-          })}
-          {!filtered.length ? (
-            <div className="ops-empty">
-              <span className="ops-empty__mark" aria-hidden="true">
-                <BrandMark />
-              </span>
-              <strong>{ar ? 'لا توجد سجلات مطابقة' : 'No matching records'}</strong>
+              ) : null}
             </div>
-          ) : null}
-        </div>
           </>
         )}
       </section>
@@ -4502,7 +4568,11 @@ ${
                   </a>
                 </p>
                 <div className="form-actions">
-                  <button type="button" className="button button--primary" onClick={printAccountingDetail}>
+                  <button
+                    type="button"
+                    className="button button--primary"
+                    onClick={printAccountingDetail}
+                  >
                     {ar ? 'طباعة التفاصيل' : 'Print details'}
                   </button>
                   {safeString(accountingDetail.recordKind) === 'stay_payment' &&
@@ -4676,13 +4746,7 @@ ${
                       );
                     }}
                   >
-                    {apiKeyCopied
-                      ? ar
-                        ? 'تم النسخ'
-                        : 'Copied'
-                      : ar
-                        ? 'نسخ المفتاح'
-                        : 'Copy key'}
+                    {apiKeyCopied ? (ar ? 'تم النسخ' : 'Copied') : ar ? 'نسخ المفتاح' : 'Copy key'}
                   </button>
                   <button
                     className="button button--quiet"
@@ -4807,7 +4871,13 @@ ${
                 disabled={busy}
                 onClick={() => void revokeApiKey(revokeKeyRow, revokeTotp)}
               >
-                {busy ? (ar ? 'جارٍ الإلغاء…' : 'Revoking…') : ar ? 'تأكيد الإلغاء' : 'Confirm revoke'}
+                {busy
+                  ? ar
+                    ? 'جارٍ الإلغاء…'
+                    : 'Revoking…'
+                  : ar
+                    ? 'تأكيد الإلغاء'
+                    : 'Confirm revoke'}
               </button>
             </div>
           </section>

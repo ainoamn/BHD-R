@@ -463,11 +463,11 @@ export function PropertyManageHub({
       <nav className="pmh-actionbar" aria-label={ar ? 'إجراءات هذا العقار' : 'Property actions'}>
         <Link
           className="pmh-actionbar__back"
-          href={`${base}/properties`}
+          href={`${base}/properties?mode=manage`}
           prefetch
           scroll={false}
-          aria-label={ar ? 'العودة للمحفظة' : 'Back to portfolio'}
-          title={ar ? 'العودة للمحفظة' : 'Back to portfolio'}
+          aria-label={ar ? 'العودة لإدارة العقارات' : 'Back to manage properties'}
+          title={ar ? 'العودة لإدارة العقارات' : 'Back to manage properties'}
         >
           <Icon name="back" />
         </Link>

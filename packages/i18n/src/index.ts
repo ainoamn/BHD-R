@@ -201,6 +201,8 @@ export const messages = {
       groupOrg: 'المنظمة',
       groupInsight: 'الرقابة',
       groupStays: 'الإقامات اليومية',
+      viewProperties: 'عرض العقارات',
+      manageProperties: 'إدارة العقارات',
     },
     Stays: {
       dashboard: 'لوحة الإقامات',
@@ -639,6 +641,8 @@ export const messages = {
       groupOrg: 'Organization',
       groupInsight: 'Oversight',
       groupStays: 'Daily stays',
+      viewProperties: 'View properties',
+      manageProperties: 'Manage properties',
     },
     Stays: {
       dashboard: 'Stays dashboard',
