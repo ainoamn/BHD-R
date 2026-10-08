@@ -146,6 +146,10 @@ function slotStatusLabel(status: SlotStatus, ar: boolean): string {
   return ar ? labels[status][0] : labels[status][1];
 }
 
+function slotMark(status: SlotStatus): string {
+  return status === 'available' ? '✓' : '✗';
+}
+
 function slotName(slot: 'morning' | 'evening', ar: boolean): string {
   if (slot === 'morning') return ar ? 'الصباحية' : 'Morning';
   return ar ? 'المسائية' : 'Evening';
@@ -559,9 +563,11 @@ export function StayAvailabilityCalendar({
                         <span className="stays-calendar__slots" aria-hidden="true">
                           <span className={`stays-calendar__slot is-${day.slots.morning}`}>
                             {ar ? 'ص' : 'AM'}
+                            <i>{slotMark(day.slots.morning)}</i>
                           </span>
                           <span className={`stays-calendar__slot is-${day.slots.evening}`}>
                             {ar ? 'م' : 'PM'}
+                            <i>{slotMark(day.slots.evening)}</i>
                           </span>
                         </span>
                       ) : null}
@@ -620,9 +626,42 @@ export function StayAvailabilityCalendar({
         ))}
         <li className="stays-calendar__legend-item is-partial">
           <span className="stays-calendar__swatch is-partial" aria-hidden="true" />
-          <span>
-            {ar ? 'محجوز جزئياً (ص صباحية · م مسائية)' : 'Partly booked (AM morning · PM evening)'}
+          <span>{ar ? 'محجوز جزئياً' : 'Partly booked'}</span>
+        </li>
+      </ul>
+      <ul
+        className="stays-calendar__legend stays-calendar__legend--slots"
+        aria-label={ar ? 'دليل الفترات' : 'Slot legend'}
+      >
+        <li className="stays-calendar__legend-item">
+          <span className="stays-calendar__slot is-available" aria-hidden="true">
+            {ar ? 'ص' : 'AM'}
           </span>
+          <span>{ar ? 'الفترة الصباحية (بدون مبيت)' : 'Morning slot (day use)'}</span>
+        </li>
+        <li className="stays-calendar__legend-item">
+          <span className="stays-calendar__slot is-available" aria-hidden="true">
+            {ar ? 'م' : 'PM'}
+          </span>
+          <span>{ar ? 'الفترة المسائية (مبيت فقط)' : 'Evening slot (overnight only)'}</span>
+        </li>
+        <li className="stays-calendar__legend-item">
+          <span className="stays-calendar__slot is-available" aria-hidden="true">
+            ✓
+          </span>
+          <span>{ar ? 'الفترة شاغرة' : 'Slot free'}</span>
+        </li>
+        <li className="stays-calendar__legend-item">
+          <span className="stays-calendar__slot is-booked" aria-hidden="true">
+            ✗
+          </span>
+          <span>{ar ? 'الفترة محجوزة' : 'Slot booked'}</span>
+        </li>
+        <li className="stays-calendar__legend-item">
+          <span className="stays-calendar__legend-price" aria-hidden="true">
+            {ar ? '٨٠' : '80'}
+          </span>
+          <span>{ar ? 'سعر الفترة المتبقية' : 'Remaining slot price'}</span>
         </li>
       </ul>
 

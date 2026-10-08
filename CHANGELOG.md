@@ -9,6 +9,7 @@ All notable changes are documented here. The project follows Semantic Versioning
 - Owner calendar (`/owner/stays/calendar`) and booking detail calendar show the same; the bookings/blocks list labels each entry "Whole day" or "Partial — morning/evening".
 - Owner booking detail: new "Booking scope" row (full day vs partial morning/evening) and, for half-day bookings, the other slot's status with its bookable price.
 - Internal `slot:` markers are no longer shown as public day notes.
+- Slot badges carry ✓ (free) / ✗ (booked) marks, and the calendar legend has a second row explaining ص/AM (morning, day use), م/PM (evening, overnight only), ✓, ✗, and the remaining slot price.
 - Details: [`docs/implementation/RELEASE-0.4.95-AR.md`](./docs/implementation/RELEASE-0.4.95-AR.md).
 
 ## 0.4.94 — 2026-10-07

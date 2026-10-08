@@ -11170,6 +11170,27 @@ button.ops-row-key {
   line-height: 1.2;
   text-align: center;
 }
+.stays-calendar__slot i {
+  margin-inline-start: 0.1rem;
+  font-style: normal;
+}
+.stays-calendar__legend--slots {
+  padding-top: 0.5rem;
+  border-top: 0;
+}
+.stays-calendar__legend--slots .stays-calendar__legend-item {
+  padding: 0.25rem 0.5rem;
+  background: #fbfcfb;
+  border-color: #e3e8e5;
+}
+.stays-calendar__legend--slots .stays-calendar__slot {
+  font-size: 0.7rem;
+}
+.stays-calendar__legend-price {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #0d5c4d;
+}
 .stays-calendar__slot.is-available {
   background: #0d5c4d;
   color: #fff;
