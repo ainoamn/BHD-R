@@ -1,6 +1,6 @@
 import 'server-only';
 import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
-import type { SessionClaims } from '@bhd-r/authz';
+import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import {
   approvalRequests,
   contractSignatures,
@@ -10,6 +10,7 @@ import {
   leases,
   maintenanceTickets,
   parties,
+  partyRoles,
   payments,
   properties,
   reservations,
@@ -18,6 +19,7 @@ import {
   stayBookings,
   stayPaymentIntents,
   units,
+  utilityMeters,
   viewingRequests,
 } from '@bhd-r/db';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
@@ -41,10 +43,28 @@ export type PropertyRecordUnit = {
   code: string;
   rentMinor: string | null;
   salePriceMinor: string | null;
+  depositMinor: string | null;
   currency: string;
+  floor: string | null;
+  areaSquareMeters: string | null;
+  electricityMeter: string | null;
+  waterMeter: string | null;
 };
 
-export type PropertySectionRecords = { rows: PropertyRecordRow[]; units: PropertyRecordUnit[] };
+/** Address-book entry offered when filling a manual lease. */
+export type PropertyRecordTenant = {
+  id: string;
+  displayName: string;
+  type: 'person' | 'company';
+  email: string | null;
+  phone: string | null;
+};
+
+export type PropertySectionRecords = {
+  rows: PropertyRecordRow[];
+  units: PropertyRecordUnit[];
+  tenants: PropertyRecordTenant[];
+};
 
 function omanToday(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Muscat' }).format(new Date());
@@ -112,7 +132,10 @@ export async function loadPropertySectionRecords(
         code: units.code,
         rentMinor: units.rentMinor,
         salePriceMinor: units.salePriceMinor,
+        depositMinor: units.depositMinor,
         currency: units.currency,
+        floor: units.floor,
+        areaSquareMeters: units.areaSquareMeters,
       })
       .from(units)
       .where(and(eq(units.organizationId, orgId), eq(units.propertyId, propertyId)))
@@ -139,6 +162,32 @@ export async function loadPropertySectionRecords(
           return loadAccounting(tx, orgId, propertyId, unitIds, codeOf);
       }
     })();
+    const [meters, tenants] =
+      section === 'leasing'
+        ? await Promise.all([
+            unitIds.length
+              ? tx
+                  .select({
+                    unitId: utilityMeters.unitId,
+                    utilityType: utilityMeters.utilityType,
+                    meterNumber: utilityMeters.meterNumber,
+                  })
+                  .from(utilityMeters)
+                  .where(
+                    and(
+                      eq(utilityMeters.organizationId, orgId),
+                      inArray(utilityMeters.unitId, unitIds),
+                    ),
+                  )
+              : Promise.resolve([]),
+            hasPermission(claims, 'lease.create') && !ownerPartyId
+              ? loadTenantDirectory(tx, orgId)
+              : Promise.resolve([]),
+          ])
+        : [[], []];
+    const meterOf = (unitId: string, type: string) =>
+      meters.find((meter) => meter.unitId === unitId && meter.utilityType === type)?.meterNumber ??
+      null;
     return {
       rows,
       units: unitRows.map((row) => ({
@@ -146,10 +195,46 @@ export async function loadPropertySectionRecords(
         code: row.code,
         rentMinor: minor(row.rentMinor),
         salePriceMinor: minor(row.salePriceMinor),
+        depositMinor: minor(row.depositMinor),
         currency: row.currency,
+        floor: row.floor,
+        areaSquareMeters: row.areaSquareMeters,
+        electricityMeter: meterOf(row.id, 'electricity'),
+        waterMeter: meterOf(row.id, 'water'),
       })),
+      tenants,
     };
   });
+}
+
+/** Tenants and prospects of the organization, for the manual lease address-book picker. */
+async function loadTenantDirectory(tx: Tx, orgId: string): Promise<PropertyRecordTenant[]> {
+  const rows = await tx
+    .selectDistinct({
+      id: parties.id,
+      displayName: parties.displayName,
+      type: parties.type,
+      email: parties.email,
+      phone: parties.phone,
+    })
+    .from(parties)
+    .innerJoin(partyRoles, eq(partyRoles.partyId, parties.id))
+    .where(
+      and(
+        eq(parties.organizationId, orgId),
+        eq(parties.status, 'active'),
+        inArray(partyRoles.roleKey, ['tenant', 'prospect']),
+      ),
+    )
+    .orderBy(parties.displayName)
+    .limit(500);
+  return rows.map((row) => ({
+    id: row.id,
+    displayName: row.displayName,
+    type: row.type,
+    email: row.email,
+    phone: row.phone,
+  }));
 }
 
 /** Contracts issued from stay bookings, keyed by booking id. */
@@ -396,6 +481,8 @@ async function loadContracts(
         string | null
       >`${contracts.payloadSnapshot}->'amount'->>'amountMinor'`,
       payloadCurrency: sql<string | null>`${contracts.payloadSnapshot}->'amount'->>'currency'`,
+      termsJson: sql<string | null>`(${contracts.payloadSnapshot}->'leaseTerms')::text`,
+      tenantJson: sql<string | null>`(${contracts.payloadSnapshot}->'tenantDetails')::text`,
     })
     .from(contracts)
     .leftJoin(leases, eq(leases.contractId, contracts.id))
@@ -468,8 +555,10 @@ async function loadContracts(
       signedOn: isoDate(row.completedAt),
       fromOn: isoDate(row.startsOn) ?? (isSale ? isoDate(row.payloadStartsOn) : null),
       toOn: isoDate(row.endsOn),
-      amountMinor: minor(row.rentMinor) ?? row.payloadAmountMinor,
-      currency: row.currency ?? row.payloadCurrency ?? null,
+      amountMinor: row.payloadAmountMinor ?? minor(row.rentMinor),
+      currency: row.payloadCurrency ?? row.currency ?? null,
+      termsJson: row.termsJson,
+      tenantJson: row.tenantJson,
     };
   });
 }
@@ -497,6 +586,11 @@ async function loadLeases(
       contractReference: contracts.reference,
       sourceType: sql<string | null>`${contracts.payloadSnapshot}->'source'->>'type'`,
       sourceReference: sql<string | null>`${contracts.payloadSnapshot}->'source'->>'referenceCode'`,
+      contractTotalMinor: sql<
+        string | null
+      >`${contracts.payloadSnapshot}->'amount'->>'amountMinor'`,
+      termsJson: sql<string | null>`(${contracts.payloadSnapshot}->'leaseTerms')::text`,
+      tenantJson: sql<string | null>`(${contracts.payloadSnapshot}->'tenantDetails')::text`,
     })
     .from(leases)
     .leftJoin(contracts, eq(contracts.id, leases.contractId))
@@ -522,8 +616,11 @@ async function loadLeases(
     toOn: isoDate(row.endsOn),
     cancellationOn: isoDate(row.cancellationEffectiveOn),
     amountMinor: minor(row.rentMinor),
+    contractTotalMinor: row.contractTotalMinor,
     depositMinor: minor(row.depositMinor),
     currency: row.currency,
+    termsJson: row.termsJson,
+    tenantJson: row.tenantJson,
   }));
 }
 

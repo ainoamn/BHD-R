@@ -1,8 +1,10 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { Fragment, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link } from '@/i18n/navigation';
+import { LeaseContractForm, type LeaseContractPayload } from '@/components/lease-contract-form';
+import { LeaseTermsView, parseLeaseTerms, parseTenantDetails } from '@/components/lease-terms-view';
 import { Icon, type IconName } from '@/components/pmh-icon';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
@@ -10,6 +12,7 @@ import { domainStatusLabel } from '@/lib/ui-labels';
 import type {
   PropertyRecordRow,
   PropertyRecordSection,
+  PropertyRecordTenant,
   PropertyRecordUnit,
 } from '@/lib/property-records-neon';
 
@@ -120,7 +123,7 @@ const SECTIONS: Record<PropertyRecordSection, SectionConfig> = {
       { key: 'party', ar: 'المستأجر / المشتري', en: 'Tenant / buyer' },
       { key: 'fromOn', ar: 'من', en: 'From', format: 'date' },
       { key: 'toOn', ar: 'إلى', en: 'To', format: 'date' },
-      { key: 'amountMinor', ar: 'القيمة', en: 'Amount', format: 'money' },
+      { key: 'amountMinor', ar: 'قيمة العقد', en: 'Contract value', format: 'money' },
       { key: 'ownerSignedBy', ar: 'التوقيعات', en: 'Signatures', format: 'signatures' },
       { key: 'signedOn', ar: 'تاريخ الاعتماد', en: 'Approved on', format: 'date' },
       { key: 'status', ar: 'حالة العقد', en: 'Contract status', format: 'status' },
@@ -142,6 +145,7 @@ const SECTIONS: Record<PropertyRecordSection, SectionConfig> = {
       { key: 'fromOn', ar: 'يبدأ من', en: 'From', format: 'date' },
       { key: 'toOn', ar: 'ينتهي في', en: 'To', format: 'date' },
       { key: 'amountMinor', ar: 'قيمة الإيجار', en: 'Rent', format: 'money' },
+      { key: 'contractTotalMinor', ar: 'إجمالي العقد', en: 'Contract total', format: 'money' },
       { key: 'depositMinor', ar: 'التأمين', en: 'Deposit', format: 'money' },
       { key: 'cancellationOn', ar: 'تاريخ الإلغاء', en: 'Cancelled on', format: 'date' },
       { key: 'status', ar: 'حالة التأجير', en: 'Status', format: 'status' },
@@ -220,7 +224,7 @@ const SECTIONS: Record<PropertyRecordSection, SectionConfig> = {
 };
 
 /** Sections whose rows carry workflow buttons. */
-const ACTION_SECTIONS = new Set<PropertyRecordSection>(['bookings', 'contracts']);
+const ACTION_SECTIONS = new Set<PropertyRecordSection>(['bookings', 'contracts', 'leasing']);
 const ACCEPTED_STAY = new Set(['confirmed', 'pre_arrival', 'checked_in', 'checked_out', 'closed']);
 
 const READY = new Set([
@@ -273,6 +277,20 @@ const ERROR_TEXT: Record<string, [string, string]> = {
     'Another lease covers this unit for the same period.',
   ],
   invalid_amount: ['المبلغ غير صحيح.', 'Invalid amount.'],
+  invalid_schedule: [
+    'جدول الدفع غير مكتمل: تحقّق من التواريخ والمبالغ.',
+    'The payment schedule is incomplete.',
+  ],
+  invalid_terms: [
+    'تحقّق من النسب والمبالغ وبنود الإضافات والتأمين.',
+    'Check rates, amounts, extra items and deposit lines.',
+  ],
+  duplicate_cheque_number: ['رقم شيك مكرر في العقد.', 'A cheque number is repeated.'],
+  cheque_number_taken: [
+    'أحد أرقام الشيكات مسجّل مسبقاً في النظام.',
+    'One of the cheque numbers is already registered.',
+  ],
+  party_not_found: ['المستأجر المختار غير موجود.', 'The selected tenant was not found.'],
   invalid_dates: ['تاريخ النهاية يجب أن يكون بعد تاريخ البداية.', 'End date must be after start.'],
   invalid_body: ['تحقّق من الحقول المطلوبة.', 'Check the required fields.'],
   forbidden: ['لا تملك صلاحية تنفيذ هذا الإجراء.', 'You are not allowed to do this.'],
@@ -471,8 +489,7 @@ function Cell({
   }
 }
 
-function ManualContractForm({
-  kind,
+function ManualSaleForm({
   units,
   canSign,
   locale,
@@ -480,7 +497,6 @@ function ManualContractForm({
   onSubmit,
   onCancel,
 }: {
-  kind: 'lease' | 'sale';
   units: PropertyRecordUnit[];
   canSign: boolean;
   locale: 'ar' | 'en';
@@ -492,9 +508,7 @@ function ManualContractForm({
   const today = new Date().toISOString().slice(0, 10);
   const firstUnit = units[0];
   const defaultAmount = (unit: PropertyRecordUnit | undefined) =>
-    unit
-      ? minorToDecimal(kind === 'sale' ? unit.salePriceMinor : unit.rentMinor, unit.currency)
-      : '';
+    unit ? minorToDecimal(unit.salePriceMinor, unit.currency) : '';
   const [unitId, setUnitId] = useState(firstUnit?.id ?? '');
   const [amount, setAmount] = useState(defaultAmount(firstUnit));
   const unit = units.find((item) => item.id === unitId);
@@ -511,15 +525,7 @@ function ManualContractForm({
 
   return (
     <form className="psr-form" onSubmit={submit}>
-      <h3>
-        {kind === 'sale'
-          ? ar
-            ? 'عقد بيع يدوي'
-            : 'Manual sale contract'
-          : ar
-            ? 'عقد تأجير يدوي'
-            : 'Manual lease contract'}
-      </h3>
+      <h3>{ar ? 'عقد بيع يدوي' : 'Manual sale contract'}</h3>
       <div className="form-grid">
         <div className="field">
           <label htmlFor="psr-unit">{ar ? 'الوحدة' : 'Unit'}</label>
@@ -542,15 +548,7 @@ function ManualContractForm({
           </select>
         </div>
         <div className="field">
-          <label htmlFor="psr-party">
-            {kind === 'sale'
-              ? ar
-                ? 'اسم المشتري'
-                : 'Buyer name'
-              : ar
-                ? 'اسم المستأجر'
-                : 'Tenant name'}
-          </label>
+          <label htmlFor="psr-party">{ar ? 'اسم المشتري' : 'Buyer name'}</label>
           <input
             id="psr-party"
             name="partyName"
@@ -575,46 +573,20 @@ function ManualContractForm({
             maxLength={40}
           />
         </div>
-        {kind === 'lease' ? (
-          <>
-            <div className="field">
-              <label htmlFor="psr-from">{ar ? 'يبدأ من' : 'Starts on'}</label>
-              <input
-                id="psr-from"
-                name="startsOn"
-                type="date"
-                className="input"
-                required
-                defaultValue={today}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="psr-to">{ar ? 'ينتهي في' : 'Ends on'}</label>
-              <input id="psr-to" name="endsOn" type="date" className="input" required />
-            </div>
-          </>
-        ) : (
-          <div className="field">
-            <label htmlFor="psr-signed">{ar ? 'تاريخ العقد' : 'Contract date'}</label>
-            <input
-              id="psr-signed"
-              name="signedOn"
-              type="date"
-              className="input"
-              required
-              defaultValue={today}
-            />
-          </div>
-        )}
+        <div className="field">
+          <label htmlFor="psr-signed">{ar ? 'تاريخ العقد' : 'Contract date'}</label>
+          <input
+            id="psr-signed"
+            name="signedOn"
+            type="date"
+            className="input"
+            required
+            defaultValue={today}
+          />
+        </div>
         <div className="field">
           <label htmlFor="psr-amount">
-            {kind === 'sale'
-              ? ar
-                ? `ثمن البيع (${unit?.currency ?? ''})`
-                : `Sale price (${unit?.currency ?? ''})`
-              : ar
-                ? `قيمة الإيجار للمدة (${unit?.currency ?? ''})`
-                : `Rent for the term (${unit?.currency ?? ''})`}
+            {ar ? `ثمن البيع (${unit?.currency ?? ''})` : `Sale price (${unit?.currency ?? ''})`}
           </label>
           <input
             id="psr-amount"
@@ -628,21 +600,6 @@ function ManualContractForm({
             onChange={(event) => setAmount(event.target.value)}
           />
         </div>
-        {kind === 'lease' ? (
-          <div className="field">
-            <label htmlFor="psr-deposit">
-              {ar ? `مبلغ التأمين (${unit?.currency ?? ''})` : `Deposit (${unit?.currency ?? ''})`}
-            </label>
-            <input
-              id="psr-deposit"
-              name="deposit"
-              className="input"
-              dir="ltr"
-              inputMode="decimal"
-              pattern="\d{1,12}(\.\d{1,3})?"
-            />
-          </div>
-        ) : null}
         <div className="field span-2">
           <label htmlFor="psr-notes">{ar ? 'ملاحظات' : 'Notes'}</label>
           <textarea id="psr-notes" name="notes" className="textarea" rows={2} maxLength={2000} />
@@ -685,6 +642,8 @@ export function PropertySectionRecords({
   const focusId = useSearchParams().get('focus');
   const [rows, setRows] = useState<PropertyRecordRow[] | null>(null);
   const [units, setUnits] = useState<PropertyRecordUnit[]>([]);
+  const [tenants, setTenants] = useState<PropertyRecordTenant[]>([]);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [viewer, setViewer] = useState<Viewer>(NO_VIEWER);
   const [failed, setFailed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
@@ -713,10 +672,12 @@ export function PropertySectionRecords({
         const payload = (await response.json()) as {
           rows?: PropertyRecordRow[];
           units?: PropertyRecordUnit[];
+          tenants?: PropertyRecordTenant[];
           viewer?: Viewer;
         };
         setRows(payload.rows ?? []);
         setUnits(payload.units ?? []);
+        setTenants(payload.tenants ?? []);
         setViewer(payload.viewer ?? NO_VIEWER);
       } catch {
         if (!controller.signal.aborted) setFailed(true);
@@ -792,7 +753,7 @@ export function PropertySectionRecords({
     return [];
   }, [rows, section, ar]);
 
-  async function runAction(busyKey: string, body: Record<string, string>) {
+  async function runAction(busyKey: string, body: Record<string, unknown>) {
     setBusyId(busyKey);
     setNotice(null);
     try {
@@ -884,7 +845,10 @@ export function PropertySectionRecords({
     setReloadKey((key) => key + 1);
   }
 
-  async function createManual(kind: 'lease' | 'sale', payload: Record<string, string>) {
+  async function createManual(
+    kind: 'lease' | 'sale',
+    payload: Record<string, string> | LeaseContractPayload,
+  ) {
     const result = await runAction('form', {
       action: kind === 'sale' ? 'create_sale' : 'create_lease',
       ...payload,
@@ -900,6 +864,33 @@ export function PropertySectionRecords({
 
   function rowActions(row: PropertyRecordRow) {
     const busy = busyId === row.id;
+    const details =
+      row.termsJson && row.id ? (
+        <button
+          type="button"
+          className="button button--quiet psr-action"
+          aria-expanded={expandedId === row.id}
+          onClick={() => setExpandedId(expandedId === row.id ? null : (row.id ?? null))}
+        >
+          {expandedId === row.id
+            ? ar
+              ? 'إخفاء التفاصيل'
+              : 'Hide details'
+            : ar
+              ? 'التفاصيل المالية'
+              : 'Financial details'}
+        </button>
+      ) : null;
+    const action = workflowAction(row, busy);
+    return action || details ? (
+      <>
+        {action}
+        {details}
+      </>
+    ) : null;
+  }
+
+  function workflowAction(row: PropertyRecordRow, busy: boolean) {
     if (section === 'bookings' && row.kind === 'stay' && viewer.canManageBookings) {
       if (row.status === 'request_pending') {
         return (
@@ -1013,14 +1004,24 @@ export function PropertySectionRecords({
         </div>
       ) : null}
 
-      {manualKind && formOpen ? (
-        <ManualContractForm
-          kind={manualKind}
+      {manualKind === 'lease' && formOpen ? (
+        <LeaseContractForm
+          units={units}
+          tenants={tenants}
+          canSign={viewer.canSignContracts}
+          locale={locale}
+          busy={busyId === 'form'}
+          onSubmit={(payload) => void createManual('lease', payload)}
+          onCancel={() => setFormOpen(false)}
+        />
+      ) : null}
+      {manualKind === 'sale' && formOpen ? (
+        <ManualSaleForm
           units={units}
           canSign={viewer.canSignContracts}
           locale={locale}
           busy={busyId === 'form'}
-          onSubmit={(payload) => void createManual(manualKind, payload)}
+          onSubmit={(payload) => void createManual('sale', payload)}
           onCancel={() => setFormOpen(false)}
         />
       ) : null}
@@ -1105,30 +1106,43 @@ export function PropertySectionRecords({
             <tbody>
               {visible.map((row) => {
                 const href = config.href?.(row, portal) ?? null;
+                const terms = expandedId === row.id ? parseLeaseTerms(row.termsJson) : null;
                 return (
-                  <tr
-                    key={`${row.kind ?? section}-${row.id}`}
-                    id={`psr-row-${row.id}`}
-                    className={focusId === row.id ? 'psr-row--focus' : undefined}
-                  >
-                    {config.columns.map((column) => (
-                      <td key={column.key}>
-                        <Cell row={row} column={column} locale={locale} />
-                      </td>
-                    ))}
-                    {showActions ? (
-                      <td>
-                        <div className="psr-actions">
-                          {rowActions(row)}
-                          {href ? (
-                            <Link className="pmh-card__link" href={href} prefetch={false}>
-                              {ar ? 'فتح' : 'Open'}
-                            </Link>
-                          ) : null}
-                        </div>
-                      </td>
+                  <Fragment key={`${row.kind ?? section}-${row.id}`}>
+                    <tr
+                      id={`psr-row-${row.id}`}
+                      className={focusId === row.id ? 'psr-row--focus' : undefined}
+                    >
+                      {config.columns.map((column) => (
+                        <td key={column.key}>
+                          <Cell row={row} column={column} locale={locale} />
+                        </td>
+                      ))}
+                      {showActions ? (
+                        <td>
+                          <div className="psr-actions">
+                            {rowActions(row)}
+                            {href ? (
+                              <Link className="pmh-card__link" href={href} prefetch={false}>
+                                {ar ? 'فتح' : 'Open'}
+                              </Link>
+                            ) : null}
+                          </div>
+                        </td>
+                      ) : null}
+                    </tr>
+                    {terms ? (
+                      <tr className="psr-details">
+                        <td colSpan={config.columns.length + (showActions ? 1 : 0)}>
+                          <LeaseTermsView
+                            terms={terms}
+                            tenant={parseTenantDetails(row.tenantJson)}
+                            locale={locale}
+                          />
+                        </td>
+                      </tr>
                     ) : null}
-                  </tr>
+                  </Fragment>
                 );
               })}
             </tbody>

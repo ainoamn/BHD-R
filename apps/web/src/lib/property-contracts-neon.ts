@@ -5,6 +5,7 @@ import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import { currencyMinorUnits, type CurrencyCode } from '@bhd-r/contracts';
 import {
   approvalRequests,
+  cheques,
   contractSignatures,
   contractTemplates,
   contracts,
@@ -24,6 +25,7 @@ import {
   workflowEvents,
 } from '@bhd-r/db';
 import { assertStayBookingTransition } from '@bhd-r/domain';
+import { computeLeaseTerms, type LeaseTermsDraft } from '@/lib/lease-terms';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 import {
   PublicStayBookingError,
@@ -200,7 +202,12 @@ async function allocateContractReference(tx: Tx, orgId: string, year: number): P
 async function findOrCreateParty(
   tx: Tx,
   orgId: string,
-  input: { displayName: string; email?: string | null; phone?: string | null },
+  input: {
+    displayName: string;
+    email?: string | null;
+    phone?: string | null;
+    type?: 'person' | 'company';
+  },
   roleKey: 'tenant' | 'prospect',
   source: string,
 ): Promise<{ id: string; displayName: string }> {
@@ -223,7 +230,7 @@ async function findOrCreateParty(
     .insert(parties)
     .values({
       organizationId: orgId,
-      type: 'person',
+      type: input.type ?? 'person',
       displayName: input.displayName.trim().slice(0, 200),
       email,
       phone: input.phone?.trim().slice(0, 40) || null,
@@ -327,6 +334,9 @@ async function issueContract(
     startsOn: string;
     endsOn: string | null;
     amountMinor: bigint;
+    /** Lease rent per month when it differs from the contract amount (manual leases). */
+    leaseRentMinor?: bigint;
+    billingDay?: number;
     depositMinor: bigint | null;
     currency: string;
     source: Record<string, unknown>;
@@ -429,11 +439,11 @@ async function issueContract(
         status: canSign ? 'active' : 'draft',
         startsOn: input.startsOn,
         endsOn: input.endsOn,
-        rentMinor: input.amountMinor,
+        rentMinor: input.leaseRentMinor ?? input.amountMinor,
         depositMinor: input.depositMinor,
         currency: input.currency,
         minorUnit: minorUnitsFor(input.currency),
-        billingDay: Math.min(Number(input.startsOn.slice(8, 10)), 28),
+        billingDay: Math.min(input.billingDay ?? Number(input.startsOn.slice(8, 10)), 28),
       })
       .returning({ id: leases.id });
     leaseId = lease!.id;
@@ -895,18 +905,52 @@ export async function approveContractOnNeon(
   });
 }
 
-export type ManualLeaseInput = {
-  unitId: string;
-  partyName: string;
-  partyEmail?: string | undefined;
-  partyPhone?: string | undefined;
-  startsOn: string;
-  endsOn: string;
-  amount: string;
-  deposit?: string | undefined;
-  notes?: string | undefined;
+export type ManualLeaseTenantInput = {
+  partyId?: string | undefined;
+  entityType: 'person' | 'company';
+  nameAr: string;
+  nameEn?: string | undefined;
+  civilId?: string | undefined;
+  passport?: string | undefined;
+  nationality?: string | undefined;
+  crNumber?: string | undefined;
+  crExpiry?: string | undefined;
+  signatoryName?: string | undefined;
+  signatoryCivilId?: string | undefined;
+  phone?: string | undefined;
+  email?: string | undefined;
 };
 
+export type ManualLeaseInput = {
+  unitId: string;
+  tenant: ManualLeaseTenantInput;
+  terms: LeaseTermsDraft;
+};
+
+function tenantDetails(input: ManualLeaseTenantInput) {
+  const clean = (value: string | undefined, max: number) => value?.trim().slice(0, max) || null;
+  const company = input.entityType === 'company';
+  return {
+    entityType: input.entityType,
+    nameAr: input.nameAr.trim().slice(0, 200),
+    nameEn: clean(input.nameEn, 200),
+    civilId: company ? null : clean(input.civilId, 40),
+    passport: company ? null : clean(input.passport, 40),
+    nationality: company ? null : clean(input.nationality, 80),
+    crNumber: company ? clean(input.crNumber, 40) : null,
+    crExpiry: company ? clean(input.crExpiry, 10) : null,
+    signatoryName: company ? clean(input.signatoryName, 200) : null,
+    signatoryCivilId: company ? clean(input.signatoryCivilId, 40) : null,
+    phone: clean(input.phone, 40),
+    email: clean(input.email, 320)?.toLowerCase() ?? null,
+  };
+}
+
+/**
+ * Manual lease with the full terms: rent schedule, VAT, municipality fee, other
+ * taxes, grace, deposit lines, extra charges / discounts and cheques. Amounts are
+ * recomputed here from the draft; the client preview is never trusted.
+ */
 export async function createManualLeaseContractOnNeon(
   claims: SessionClaims,
   propertyId: string,
@@ -915,11 +959,14 @@ export async function createManualLeaseContractOnNeon(
   if (!hasPermission(claims, 'contract.create') || !hasPermission(claims, 'lease.create')) {
     fail('forbidden');
   }
-  if (input.endsOn <= input.startsOn) fail('invalid_dates');
   return withinViewerTenant(claims, async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${input.unitId}::text))`);
     const { orgId, property } = await loadProperty(tx, claims, propertyId);
     const unit = await loadUnit(tx, orgId, property.id, input.unitId);
+    const computed = computeLeaseTerms(input.terms, unit.currency, minorUnitsFor(unit.currency));
+    if (!computed.ok) fail(computed.error);
+    const terms = computed.terms;
+
     const [overlap] = await tx
       .select({ id: leases.id })
       .from(leases)
@@ -928,43 +975,118 @@ export async function createManualLeaseContractOnNeon(
           eq(leases.organizationId, orgId),
           eq(leases.unitId, unit.id),
           inArray(leases.status, ['draft', 'active', 'cancel_requested', 'clearance_pending']),
-          lte(leases.startsOn, addDays(input.endsOn, -1)),
-          gte(leases.endsOn, addDays(input.startsOn, 1)),
+          lte(leases.startsOn, addDays(terms.endsOn, -1)),
+          gte(leases.endsOn, addDays(terms.startsOn, 1)),
         ),
       )
       .limit(1);
     if (overlap) fail('lease_overlap');
-    const amountMinor = decimalToMinor(input.amount, unit.currency);
-    if (amountMinor <= 0n) fail('invalid_amount');
-    const depositMinor = input.deposit?.trim()
-      ? decimalToMinor(input.deposit, unit.currency)
-      : null;
-    const tenant = await findOrCreateParty(
-      tx,
-      orgId,
-      {
-        displayName: input.partyName,
-        email: input.partyEmail ?? null,
-        phone: input.partyPhone ?? null,
-      },
-      'tenant',
-      'manual_contract',
-    );
-    return issueContract(tx, {
+
+    const chequeRows = [
+      ...terms.schedule.map((row) => ({
+        number: row.chequeNumber,
+        bank: row.bankName,
+        amountMinor: row.totalMinor,
+        dueOn: row.dueOn,
+      })),
+      ...terms.vatCheques.map((row) => ({
+        number: row.chequeNumber,
+        bank: terms.chequeBankName,
+        amountMinor: row.amountMinor,
+        dueOn: row.dueOn,
+      })),
+      ...terms.depositItems
+        .filter((item) => item.method === 'cheque')
+        .map((item) => ({
+          number: item.reference,
+          bank: item.bankName ?? terms.chequeBankName,
+          amountMinor: item.amountMinor,
+          dueOn: item.dueOn ?? terms.startsOn,
+        })),
+    ].filter((row): row is typeof row & { number: string } => Boolean(row.number));
+    if (chequeRows.length) {
+      const [taken] = await tx
+        .select({ number: cheques.chequeNumber })
+        .from(cheques)
+        .where(
+          and(
+            eq(cheques.organizationId, orgId),
+            inArray(
+              cheques.chequeNumber,
+              chequeRows.map((row) => row.number),
+            ),
+          ),
+        )
+        .limit(1);
+      if (taken) fail('cheque_number_taken');
+    }
+
+    const details = tenantDetails(input.tenant);
+    let tenant: { id: string; displayName: string };
+    if (input.tenant.partyId) {
+      const [existing] = await tx
+        .select({ id: parties.id, displayName: parties.displayName })
+        .from(parties)
+        .where(and(eq(parties.id, input.tenant.partyId), eq(parties.organizationId, orgId)))
+        .limit(1);
+      if (!existing) fail('party_not_found');
+      await tx
+        .insert(partyRoles)
+        .values({ organizationId: orgId, partyId: existing.id, roleKey: 'tenant' })
+        .onConflictDoNothing();
+      tenant = existing;
+    } else {
+      tenant = await findOrCreateParty(
+        tx,
+        orgId,
+        {
+          displayName: details.nameAr,
+          email: details.email,
+          phone: details.phone,
+          type: details.entityType,
+        },
+        'tenant',
+        'manual_contract',
+      );
+    }
+
+    const outcome = await issueContract(tx, {
       claims,
       orgId,
       property,
       unit: { id: unit.id, code: unit.code, nameAr: unit.nameAr, nameEn: unit.nameEn },
       counterparty: tenant,
       type: 'lease',
-      startsOn: input.startsOn,
-      endsOn: input.endsOn,
-      amountMinor,
-      depositMinor,
+      startsOn: terms.startsOn,
+      endsOn: terms.endsOn,
+      amountMinor: BigInt(terms.totals.grandTotalMinor),
+      leaseRentMinor: BigInt(terms.monthlyRentMinor),
+      billingDay: terms.paymentDay,
+      depositMinor: terms.totals.depositMinor > 0 ? BigInt(terms.totals.depositMinor) : null,
       currency: unit.currency,
       source: { type: 'manual' },
-      extra: input.notes?.trim() ? { notes: input.notes.trim().slice(0, 2000) } : {},
+      extra: {
+        tenantDetails: details,
+        leaseTerms: terms,
+        ...(terms.notes ? { notes: terms.notes } : {}),
+      },
     });
+
+    if (outcome.leaseId && chequeRows.length) {
+      await tx.insert(cheques).values(
+        chequeRows.map((row) => ({
+          organizationId: orgId,
+          leaseId: outcome.leaseId,
+          ownerPartyId: tenant.id,
+          bankName: row.bank ?? '—',
+          chequeNumber: row.number,
+          amountMinor: BigInt(row.amountMinor),
+          currency: unit.currency,
+          dueOn: row.dueOn,
+        })),
+      );
+    }
+    return outcome;
   });
 }
 

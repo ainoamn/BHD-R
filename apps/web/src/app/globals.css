@@ -751,6 +751,141 @@ a.pmh-actionbar__title[aria-current='page'] {
     grid-template-columns: 1fr;
   }
 }
+.lcf-section {
+  display: grid;
+  gap: 0.7rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0.9rem 1rem 1rem;
+  background: white;
+  border: 1px solid var(--pmh-line);
+  border-radius: 0.8rem;
+}
+.lcf-section legend {
+  padding: 0 0.4rem;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+.lcf-help {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+.lcf-output {
+  display: flex;
+  align-items: center;
+  background: var(--pmh-soft);
+  color: var(--ink-900);
+  font-weight: 700;
+}
+.lcf-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem;
+  background: var(--pmh-soft);
+  border: 1px solid var(--pmh-line);
+  border-radius: 0.6rem;
+}
+.lcf-line > .input,
+.lcf-line > .select {
+  flex: 1 1 8rem;
+  min-width: 7rem;
+}
+.lcf-line > .lcf-short {
+  flex: 0 0 5.5rem;
+  min-width: 5.5rem;
+}
+.lcf-line__total {
+  min-width: 7rem;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+.lcf-table td,
+.lcf-table th {
+  white-space: nowrap;
+}
+.lcf-table .lcf-cell {
+  min-width: 8.5rem;
+  min-height: 2.2rem;
+  padding-block: 0.25rem;
+}
+.lcf-period {
+  font-size: 0.78rem;
+  color: var(--ink-600, #5b6670);
+}
+.lcf-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: 0.5rem 1rem;
+  margin: 0;
+}
+.lcf-facts div {
+  display: grid;
+  gap: 0.15rem;
+}
+.lcf-facts dt {
+  font-size: 0.75rem;
+  color: var(--ink-600, #5b6670);
+}
+.lcf-facts dd {
+  margin: 0;
+  font-weight: 700;
+}
+.lcf-totals {
+  display: grid;
+  gap: 0.35rem;
+  max-width: 34rem;
+  margin: 0;
+}
+.lcf-totals div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px dashed var(--pmh-line);
+}
+.lcf-totals dd {
+  margin: 0;
+  font-weight: 700;
+}
+.lcf-totals__minus dd {
+  color: #a1331f;
+}
+.lcf-totals__total {
+  background: #eef6f1;
+  border-radius: 0.5rem;
+  border-bottom: none !important;
+  font-size: 1.02rem;
+  font-weight: 800;
+}
+.lcf-totals__info {
+  color: var(--ink-600, #5b6670);
+  font-size: 0.85rem;
+}
+.lcf-view {
+  display: grid;
+  gap: 1rem;
+  padding: 0.6rem 0.2rem;
+  white-space: normal;
+}
+.lcf-view h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.92rem;
+}
+.lcf-list {
+  margin: 0.4rem 0 0;
+  padding-inline-start: 1.2rem;
+  line-height: 1.8;
+}
+.lcf-notes {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.psr-table tr.psr-details > td {
+  background: #fbfaf6;
+}
 
 /* Hero */
 .pmh-hero {
