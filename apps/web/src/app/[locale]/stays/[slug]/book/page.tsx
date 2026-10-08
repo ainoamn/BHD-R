@@ -6,7 +6,7 @@ import { StayCheckout } from '@/components/stays/stay-checkout';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { loadBookingContacts, type BookingContactsForViewer } from '@/lib/booking-contacts-neon';
 import { loadBookingTermsForUnit } from '@/lib/booking-terms-neon';
-import { localizedName } from '@/lib/format';
+import { formatMoney, localizedName } from '@/lib/format';
 import { loadPublicStayBySlugOnNeon } from '@/lib/load-public-stays-neon';
 import { toPublicMediaSrc } from '@/lib/public-media-url';
 import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
@@ -25,6 +25,19 @@ function pickQuery(
   if (typeof raw === 'string' && raw.trim()) return raw.trim();
   if (Array.isArray(raw) && typeof raw[0] === 'string' && raw[0].trim()) return raw[0].trim();
   return undefined;
+}
+
+/** Arabic counted noun: 1 and 2 take dedicated forms, 3–10 plural, 11+ singular accusative. */
+function arCount(n: number, one: string, two: string, few: string, many: string): string {
+  if (n === 1) return one;
+  if (n === 2) return two;
+  return `${n} ${n <= 10 ? few : many}`;
+}
+
+/** "14:00:00" → "14:00"; anything unexpected is hidden. */
+function shortTime(value: string | null | undefined): string | null {
+  const match = value?.trim().match(/^(\d{1,2}):(\d{2})/);
+  return match ? `${match[1]!.padStart(2, '0')}:${match[2]}` : null;
 }
 
 function parseStayType(value: string | undefined): StayType | undefined {
@@ -130,108 +143,141 @@ export default async function StayBookPage({
   }
   const switchQs = switchQuery.toString();
   const otherLocale = ar ? 'en' : 'ar';
+  const stayHref = `/stays/${encodeURIComponent(slug)}${unitId ? `?unit=${encodeURIComponent(unitId)}` : ''}`;
+  const currency = detail.currency ?? 'OMR';
+  const location = [detail.city, detail.wilayat, detail.destination]
+    .map((part) => part?.trim())
+    .filter((part, index, all): part is string => Boolean(part) && all.indexOf(part) === index)
+    .slice(0, 2)
+    .join(ar ? '، ' : ', ');
+  const facts = [
+    detail.bedrooms
+      ? ar
+        ? arCount(detail.bedrooms, 'غرفة نوم', 'غرفتا نوم', 'غرف نوم', 'غرفة نوم')
+        : `${detail.bedrooms} ${detail.bedrooms === 1 ? 'bedroom' : 'bedrooms'}`
+      : null,
+    detail.bathrooms
+      ? ar
+        ? arCount(detail.bathrooms, 'دورة مياه', 'دورتا مياه', 'دورات مياه', 'دورة مياه')
+        : `${detail.bathrooms} ${detail.bathrooms === 1 ? 'bath' : 'baths'}`
+      : null,
+    detail.maxGuests
+      ? ar
+        ? `حتى ${arCount(detail.maxGuests, 'ضيف واحد', 'ضيفين', 'ضيوف', 'ضيفاً')}`
+        : `Up to ${detail.maxGuests} ${detail.maxGuests === 1 ? 'guest' : 'guests'}`
+      : null,
+    detail.areaSquareMeters
+      ? ar
+        ? `${Math.round(detail.areaSquareMeters)} م²`
+        : `${Math.round(detail.areaSquareMeters)} m²`
+      : null,
+  ].filter((fact): fact is string => Boolean(fact));
+  const checkInFrom = shortTime(detail.checkInFrom);
+  const checkOutUntil = shortTime(detail.checkOutUntil);
+  const score = detail.smartScoreTen ?? detail.guestScoreTen ?? null;
+  const reviewCount = detail.stayReviewCount ?? 0;
 
   return (
-    <section
-      className="stays-book-shell stays-book-shell--wide-form"
-      data-stay-book-immersive="true"
-    >
-      <aside className="stays-book-shell__aside">
-        <div className="stays-book-shell__aside-inner">
-          {cover ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img className="stays-book-shell__aside-bg" src={cover} alt="" />
-          ) : (
-            <div className="stays-book-shell__aside-bg stays-book-shell__aside-bg--fallback" />
-          )}
-          <div className="stays-book-shell__aside-scrim" />
-          <div className="stays-book-shell__aside-content">
-            <div className="stays-book-shell__topbar">
-              <Link
-                className="stays-book-shell__back"
-                href={`/stays/${encodeURIComponent(slug)}${unitId ? `?unit=${encodeURIComponent(unitId)}` : ''}`}
-              >
-                {ar ? '← العودة للإقامة' : '← Back to stay'}
-              </Link>
-              <Link
-                className="stays-book-shell__lang"
-                href={`/stays/${encodeURIComponent(slug)}/book${switchQs ? `?${switchQs}` : ''}`}
-                locale={otherLocale}
-                hrefLang={otherLocale}
-                lang={otherLocale}
-                aria-label={ar ? 'Switch to English' : 'التبديل إلى العربية'}
-              >
-                <span aria-hidden="true">🌐</span>
-                {ar ? 'English' : 'العربية'}
-              </Link>
-            </div>
-            <div className="stays-book-shell__intro">
-              <span
-                className="stays-book-shell__brand logo__product logo__product--on-dark"
-                aria-label="BHD R"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/brand/bhd-official-symbol.svg" alt="" width="156" height="52" />
-                <i>R</i>
-              </span>
-              <p className="stays-book-shell__headline">
-                {ar ? (
-                  <>
-                    احجز إقامتك القادمة
-                    <span>بدفع آمن عبر BHD R</span>
-                  </>
-                ) : (
-                  <>
-                    Book your next stay
-                    <span>with secure payment through BHD R</span>
-                  </>
-                )}
-              </p>
-              <p className="stays-book-shell__place">{title}</p>
-              <p className="stays-book-shell__lede">
-                {ar
-                  ? 'أصبح حجز إقامتك أسهل من أي وقت مضى، في أربع خطوات بسيطة:'
-                  : 'Booking your stay has never been easier — four simple steps:'}
-              </p>
-              <ol className="stays-book-shell__steps">
-                {(ar
-                  ? [
-                      'اختيار تواريخ الإقامة ونوعها.',
-                      'إدخال بياناتك.',
-                      'مراجعة الحجز والموافقة على الشروط والأحكام.',
-                      'الدفع بأمان وتوقيع العقد إلكترونيًا.',
-                    ]
-                  : [
-                      'Choose your dates and stay type.',
-                      'Enter your details.',
-                      'Review the booking and accept the terms and conditions.',
-                      'Pay securely and sign the contract online.',
-                    ]
-                ).map((step) => (
-                  <li key={step}>{step}</li>
+    <section className="stay-book" data-stay-book-immersive="true">
+      <aside className="stay-book__hero" aria-label={ar ? 'ملخص الإقامة' : 'Stay summary'}>
+        {cover ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img className="stay-book__hero-img" src={cover} alt="" />
+        ) : (
+          <div className="stay-book__hero-img stay-book__hero-img--fallback" />
+        )}
+        <div className="stay-book__hero-scrim" />
+        <div className="stay-book__hero-content">
+          <div className="stay-book__topbar">
+            <Link className="stay-book__back" href={stayHref}>
+              <span aria-hidden="true">{ar ? '→' : '←'}</span>
+              {ar ? 'العودة للإقامة' : 'Back to stay'}
+            </Link>
+            <span
+              className="stay-book__brand logo__product logo__product--on-dark"
+              aria-label="BHD R"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/brand/bhd-official-symbol.svg" alt="" width="96" height="32" />
+              <i>R</i>
+            </span>
+            <Link
+              className="stay-book__lang"
+              href={`/stays/${encodeURIComponent(slug)}/book${switchQs ? `?${switchQs}` : ''}`}
+              locale={otherLocale}
+              hrefLang={otherLocale}
+              lang={otherLocale}
+              aria-label={ar ? 'Switch to English' : 'التبديل إلى العربية'}
+            >
+              {ar ? 'English' : 'العربية'}
+            </Link>
+          </div>
+
+          <div className="stay-book__hero-body">
+            <p className="stay-book__eyebrow">
+              {ar ? 'إقامة يومية' : 'Daily stay'}
+              {location ? <span>{location}</span> : null}
+            </p>
+            <h1 className="stay-book__title">{title}</h1>
+            {facts.length ? (
+              <ul className="stay-book__facts">
+                {facts.map((fact) => (
+                  <li key={fact}>{fact}</li>
                 ))}
-              </ol>
-              <p className="stays-book-shell__cta">
-                {ar ? 'ابدأ إجراءات الحجز الآن' : 'Start your booking now'}
-                <span
-                  className="stays-book-shell__cta-arrow stays-book-shell__cta-arrow--down"
-                  aria-hidden="true"
-                >
-                  ↓
-                </span>
-                <span
-                  className="stays-book-shell__cta-arrow stays-book-shell__cta-arrow--side"
-                  aria-hidden="true"
-                >
-                  {ar ? '←' : '→'}
-                </span>
-              </p>
+              </ul>
+            ) : null}
+            <div className="stay-book__highlights">
+              {detail.nightlyMinor ? (
+                <p className="stay-book__price">
+                  <small>{ar ? 'تبدأ من' : 'From'}</small>
+                  <strong dir="ltr">{formatMoney(detail.nightlyMinor, currency, locale)}</strong>
+                  <small>{ar ? '/ الليلة' : '/ night'}</small>
+                </p>
+              ) : null}
+              {score !== null && score > 0 ? (
+                <p className="stay-book__score">
+                  <strong>{score.toFixed(1)}</strong>
+                  <small>
+                    {reviewCount > 0
+                      ? ar
+                        ? `من 10 · ${reviewCount} تقييم`
+                        : `/ 10 · ${reviewCount} reviews`
+                      : ar
+                        ? 'من 10'
+                        : '/ 10'}
+                  </small>
+                </p>
+              ) : null}
             </div>
+          </div>
+
+          <div className="stay-book__hero-foot">
+            {checkInFrom || checkOutUntil ? (
+              <dl className="stay-book__times">
+                {checkInFrom ? (
+                  <div>
+                    <dt>{ar ? 'الوصول من' : 'Check-in from'}</dt>
+                    <dd dir="ltr">{checkInFrom}</dd>
+                  </div>
+                ) : null}
+                {checkOutUntil ? (
+                  <div>
+                    <dt>{ar ? 'المغادرة حتى' : 'Check-out by'}</dt>
+                    <dd dir="ltr">{checkOutUntil}</dd>
+                  </div>
+                ) : null}
+              </dl>
+            ) : null}
+            <ul className="stay-book__trust">
+              <li>{ar ? 'دفع آمن' : 'Secure payment'}</li>
+              <li>{ar ? 'تأكيد فوري بعد الدفع' : 'Instant confirmation'}</li>
+              <li>{ar ? 'عقد إلكتروني' : 'Online contract'}</li>
+            </ul>
           </div>
         </div>
       </aside>
 
-      <div className="stays-book-shell__panel">
+      <div className="stay-book__panel">
         <StayCheckout
           locale={locale}
           slug={slug}
@@ -239,6 +285,13 @@ export default async function StayBookPage({
           {...(bookingUnitId ? { unitId: bookingUnitId } : {})}
           terms={dailyTerms}
           contacts={contacts}
+          offer={{
+            currency,
+            nightlyMinor: detail.nightlyMinor ?? null,
+            dayUseMinor: detail.dayUseMinor ?? null,
+            overnightOnlyMinor: detail.overnightOnlyMinor ?? null,
+            maxGuests: detail.maxGuests ?? null,
+          }}
           defaults={{
             ...(pickQuery(query, 'checkInOn') ? { checkInOn: pickQuery(query, 'checkInOn')! } : {}),
             ...(pickQuery(query, 'checkOutOn')

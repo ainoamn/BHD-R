@@ -163,6 +163,84 @@ function nightsLabel(nights: number, ar: boolean): string {
   return `${nights} ${nights <= 10 ? 'ليالٍ' : 'ليلة'}`;
 }
 
+/** Public listing prices used to label the stay-type cards (the server quote stays authoritative). */
+export type StayCheckoutOffer = {
+  currency: string;
+  nightlyMinor: string | null;
+  dayUseMinor: string | null;
+  overnightOnlyMinor: string | null;
+  maxGuests: number | null;
+};
+
+const STAY_TYPES: StayType[] = ['overnight_stay', 'day_use', 'overnight_only'];
+
+function stayTypeTitle(type: StayType, ar: boolean): string {
+  if (type === 'day_use') return ar ? 'بدون مبيت' : 'Day use';
+  if (type === 'overnight_only') return ar ? 'مبيت فقط' : 'Overnight only';
+  return ar ? 'يوم كامل مع مبيت' : 'Full stay';
+}
+
+function stayTypeHint(type: StayType, ar: boolean): string {
+  if (type === 'day_use') return ar ? 'فترة صباحية · نفس اليوم' : 'Morning slot · same day';
+  if (type === 'overnight_only') return ar ? 'فترة مسائية مع مبيت' : 'Evening slot with overnight';
+  return ar ? 'ليلة أو أكثر · قابل للتمديد' : 'One night or more · extendable';
+}
+
+function stayTypeUnit(type: StayType, ar: boolean): string {
+  if (type === 'overnight_stay') return ar ? '/ الليلة' : '/ night';
+  return ar ? '/ الفترة' : '/ slot';
+}
+
+function stayTypePrice(type: StayType, offer: StayCheckoutOffer): string | null {
+  const value =
+    type === 'day_use'
+      ? offer.dayUseMinor
+      : type === 'overnight_only'
+        ? offer.overnightOnlyMinor
+        : offer.nightlyMinor;
+  return value && value !== '0' ? value : null;
+}
+
+function guestsLabelAr(n: number): string {
+  if (n === 1) return 'ضيف واحد';
+  if (n === 2) return 'ضيفين';
+  return `${n} ${n <= 10 ? 'ضيوف' : 'ضيفاً'}`;
+}
+
+function StayTypeIcon({ type }: { type: StayType }) {
+  const common = {
+    width: 22,
+    height: 22,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.7,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+  };
+  if (type === 'day_use') {
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4" />
+      </svg>
+    );
+  }
+  if (type === 'overnight_only') {
+    return (
+      <svg {...common}>
+        <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <path d="M3 18V7M3 14h18v4M21 14v-2a3 3 0 0 0-3-3h-7v5" />
+      <circle cx="7" cy="11" r="1.6" />
+    </svg>
+  );
+}
+
 function stayTypeLabel(type: StayType, ar: boolean): string {
   if (type === 'day_use') return ar ? 'إقامة بدون مبيت (صباحي ~11–16)' : 'Day use (morning ~11–16)';
   if (type === 'overnight_only') return ar ? 'مبيت فقط (مسائي)' : 'Overnight only (evening)';
@@ -277,10 +355,12 @@ export function StayCheckout({
   unitId,
   terms,
   contacts = null,
+  offer = null,
 }: {
   locale: string;
   slug: string;
   title?: string;
+  offer?: StayCheckoutOffer | null;
   defaults?: {
     checkInOn?: string;
     checkOutOn?: string;
@@ -847,139 +927,186 @@ export function StayCheckout({
       </ol>
 
       {step === 'stay' ? (
-        <div className="stays-checkout__panel">
-          <h3>{ar ? 'تواريخ الإقامة' : 'Stay dates'}</h3>
-          {embedded ? (
-            <dl className="stays-checkout__summary stays-checkout__summary--inline">
-              <div>
-                <dt>{ar ? 'الوصول' : 'Check-in'}</dt>
-                <dd className="stays-checkout__chip stays-checkout__chip--check-in" dir="ltr">
-                  {checkInOn}
-                </dd>
-              </div>
-              <div>
-                <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
-                <dd className="stays-checkout__chip stays-checkout__chip--check-out" dir="ltr">
-                  {checkOutOn}
-                </dd>
-              </div>
-            </dl>
-          ) : (
-            <div className="stays-checkout__grid stays-checkout__grid--compact">
-              <div className="field stays-checkout__tone stays-checkout__tone--check-in">
-                <label htmlFor="stay-book-in">
-                  {isSameCalendarDayStay(stayType)
-                    ? ar
-                      ? 'تاريخ الإقامة'
-                      : 'Stay date'
-                    : ar
-                      ? 'الوصول'
-                      : 'Check-in'}
-                </label>
-                <input
-                  className="input"
-                  id="stay-book-in"
-                  type="date"
-                  required
-                  min={today}
-                  value={checkInOn}
-                  onChange={(event) => changeCheckIn(event.target.value)}
-                />
-              </div>
-              {!isSameCalendarDayStay(stayType) ? (
-                <div className="field stays-checkout__tone stays-checkout__tone--check-out">
-                  <label htmlFor="stay-book-out">{ar ? 'المغادرة' : 'Check-out'}</label>
+        <div className="stays-checkout__panel stays-checkout__panel--stay">
+          <section className="stays-checkout__section" aria-labelledby="stay-book-type-title">
+            <h3 className="stays-checkout__section-title" id="stay-book-type-title">
+              {ar ? 'نوع الإقامة' : 'Stay type'}
+            </h3>
+            <div
+              className="stays-checkout__types"
+              role="radiogroup"
+              aria-labelledby="stay-book-type-title"
+            >
+              {STAY_TYPES.map((type) => {
+                const selected = type === stayType;
+                const price = offer ? stayTypePrice(type, offer) : null;
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    className={
+                      selected ? 'stays-checkout__type is-selected' : 'stays-checkout__type'
+                    }
+                    onClick={() => setStayType(type)}
+                  >
+                    <span className="stays-checkout__type-icon" aria-hidden="true">
+                      <StayTypeIcon type={type} />
+                    </span>
+                    <span className="stays-checkout__type-text">
+                      <strong>{stayTypeTitle(type, ar)}</strong>
+                      <small>{stayTypeHint(type, ar)}</small>
+                    </span>
+                    {price && offer ? (
+                      <span className="stays-checkout__type-price">
+                        <b dir="ltr">{formatMoney(price, offer.currency, locale)}</b>
+                        <small>{stayTypeUnit(type, ar)}</small>
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="stays-checkout__section" aria-labelledby="stay-book-dates-title">
+            <h3 className="stays-checkout__section-title" id="stay-book-dates-title">
+              {isSameCalendarDayStay(stayType)
+                ? ar
+                  ? 'تاريخ الإقامة'
+                  : 'Stay date'
+                : ar
+                  ? 'التواريخ'
+                  : 'Dates'}
+            </h3>
+            {embedded ? (
+              <dl className="stays-checkout__summary stays-checkout__summary--inline">
+                <div>
+                  <dt>{ar ? 'الوصول' : 'Check-in'}</dt>
+                  <dd className="stays-checkout__chip stays-checkout__chip--check-in" dir="ltr">
+                    {checkInOn}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
+                  <dd className="stays-checkout__chip stays-checkout__chip--check-out" dir="ltr">
+                    {checkOutOn}
+                  </dd>
+                </div>
+              </dl>
+            ) : (
+              <div className="stays-checkout__dates">
+                <div className="stays-checkout__date">
+                  <label htmlFor="stay-book-in">
+                    {isSameCalendarDayStay(stayType)
+                      ? ar
+                        ? 'اليوم'
+                        : 'Day'
+                      : ar
+                        ? 'الوصول'
+                        : 'Check-in'}
+                  </label>
                   <input
                     className="input"
-                    id="stay-book-out"
+                    id="stay-book-in"
                     type="date"
                     required
-                    min={isIsoDate(checkInOn) ? addUtcDays(checkInOn, 1) : today}
-                    value={checkOutOn}
-                    onChange={(event) => setCheckOutOn(event.target.value)}
+                    min={today}
+                    value={checkInOn}
+                    onChange={(event) => changeCheckIn(event.target.value)}
                   />
                 </div>
-              ) : (
-                <div className="field stays-checkout__tone stays-checkout__tone--check-out">
-                  <label>{ar ? 'الفترة' : 'Period'}</label>
-                  <p className="stays-checkout__period-note" dir="ltr">
-                    {stayType === 'day_use'
-                      ? ar
-                        ? 'صباحي تقريباً 11:00–16:00 · نفس اليوم'
-                        : 'Morning ≈ 11:00–16:00 · same day'
-                      : ar
-                        ? 'مسائي / مبيت · نفس اليوم'
-                        : 'Evening / overnight · same day'}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-          {!embedded && !isSameCalendarDayStay(stayType) ? (
-            <div className="stays-checkout__nights">
-              <div className="stays-checkout__nights-stepper">
-                <button
-                  type="button"
-                  className="button button--quiet"
-                  onClick={() => changeNights(-1)}
-                  disabled={stayNights <= 1}
-                  aria-label={ar ? 'إنقاص ليلة' : 'One night less'}
-                >
-                  −
-                </button>
-                <output aria-live="polite">
-                  {stayNights > 0 ? nightsLabel(stayNights, ar) : '—'}
-                </output>
-                <button
-                  type="button"
-                  className="button button--quiet"
-                  onClick={() => changeNights(1)}
-                  disabled={stayNights >= MAX_STAY_NIGHTS}
-                  aria-label={ar ? 'تمديد ليلة' : 'Add a night'}
-                >
-                  +
-                </button>
+                {!isSameCalendarDayStay(stayType) ? (
+                  <div className="stays-checkout__date">
+                    <label htmlFor="stay-book-out">{ar ? 'المغادرة' : 'Check-out'}</label>
+                    <input
+                      className="input"
+                      id="stay-book-out"
+                      type="date"
+                      required
+                      min={isIsoDate(checkInOn) ? addUtcDays(checkInOn, 1) : today}
+                      value={checkOutOn}
+                      onChange={(event) => setCheckOutOn(event.target.value)}
+                    />
+                  </div>
+                ) : (
+                  <div className="stays-checkout__date stays-checkout__date--note">
+                    <span className="stays-checkout__date-label">{ar ? 'الفترة' : 'Period'}</span>
+                    <p className="stays-checkout__period-note">
+                      {stayType === 'day_use'
+                        ? ar
+                          ? 'صباحية · تقريباً 11:00–16:00'
+                          : 'Morning · about 11:00–16:00'
+                        : ar
+                          ? 'مسائية مع مبيت'
+                          : 'Evening with overnight'}
+                    </p>
+                  </div>
+                )}
               </div>
-              <p className="muted stays-checkout__hint">
-                {ar
-                  ? 'الوصول اليوم والمغادرة غداً افتراضياً. غيّر التاريخين أو اضغط + لتمديد الإقامة.'
-                  : 'Arrives today and leaves tomorrow by default. Change the dates or press + to extend.'}
-              </p>
+            )}
+            {!embedded && !isSameCalendarDayStay(stayType) ? (
+              <div className="stays-checkout__nights">
+                <span className="stays-checkout__nights-label">
+                  {ar ? 'مدة الإقامة' : 'Length of stay'}
+                </span>
+                <div className="stays-checkout__nights-stepper">
+                  <button
+                    type="button"
+                    onClick={() => changeNights(-1)}
+                    disabled={stayNights <= 1}
+                    aria-label={ar ? 'إنقاص ليلة' : 'One night less'}
+                  >
+                    −
+                  </button>
+                  <output aria-live="polite">
+                    {stayNights > 0 ? nightsLabel(stayNights, ar) : '—'}
+                  </output>
+                  <button
+                    type="button"
+                    onClick={() => changeNights(1)}
+                    disabled={stayNights >= MAX_STAY_NIGHTS}
+                    aria-label={ar ? 'تمديد ليلة' : 'Add a night'}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </section>
+
+          <section className="stays-checkout__section" aria-labelledby="stay-book-guests-title">
+            <h3 className="stays-checkout__section-title" id="stay-book-guests-title">
+              {ar ? 'الضيوف' : 'Guests'}
+            </h3>
+            <div className="stays-checkout__guests">
+              <GuestCountField
+                id="stay-book-adults"
+                label={ar ? 'بالغون' : 'Adults'}
+                value={adults}
+                onChange={setAdults}
+                min={1}
+                ar={ar}
+              />
+              <GuestCountField
+                id="stay-book-children"
+                label={ar ? 'أطفال' : 'Children'}
+                value={children}
+                onChange={setChildren}
+                min={0}
+                ar={ar}
+              />
             </div>
-          ) : null}
-          <div className={`field stays-checkout__tone stays-checkout__tone--stay-${stayType}`}>
-            <label htmlFor="stay-book-type">{ar ? 'نوع الحجز' : 'Stay type'}</label>
-            <select
-              className="select"
-              id="stay-book-type"
-              value={stayType}
-              onChange={(event) => setStayType(event.target.value as StayType)}
-            >
-              <option value="overnight_stay">{stayTypeLabel('overnight_stay', ar)}</option>
-              <option value="day_use">{stayTypeLabel('day_use', ar)}</option>
-              <option value="overnight_only">{stayTypeLabel('overnight_only', ar)}</option>
-            </select>
-          </div>
-          <div className="stays-checkout__grid stays-checkout__grid--compact">
-            <GuestCountField
-              id="stay-book-adults"
-              label={ar ? 'بالغون' : 'Adults'}
-              value={adults}
-              onChange={setAdults}
-              min={1}
-              ar={ar}
-              className="stays-checkout__tone stays-checkout__tone--adults"
-            />
-            <GuestCountField
-              id="stay-book-children"
-              label={ar ? 'أطفال' : 'Children'}
-              value={children}
-              onChange={setChildren}
-              min={0}
-              ar={ar}
-              className="stays-checkout__tone stays-checkout__tone--children"
-            />
-          </div>
+            {offer?.maxGuests ? (
+              <p className="stays-checkout__hint">
+                {ar
+                  ? `تتسع هذه الإقامة حتى ${guestsLabelAr(offer.maxGuests)} (بالغون وأطفال).`
+                  : `This stay fits up to ${offer.maxGuests} guests (adults and children).`}
+              </p>
+            ) : null}
+          </section>
+
           <StayEstimateCard
             ar={ar}
             locale={locale}
@@ -987,8 +1114,13 @@ export function StayCheckout({
             state={estimate}
             unavailableMessage={unavailableMessage}
           />
-          <button type="button" className="button button--primary" onClick={continueFromStay}>
-            {ar ? 'متابعة' : 'Continue'}
+          <button
+            type="button"
+            className="button button--primary stays-checkout__submit"
+            onClick={continueFromStay}
+          >
+            {ar ? 'متابعة إلى بياناتك' : 'Continue to your details'}
+            <span aria-hidden="true">{ar ? '←' : '→'}</span>
           </button>
         </div>
       ) : null}
