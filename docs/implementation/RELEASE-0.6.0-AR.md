@@ -96,7 +96,8 @@
 
 | الإجراء              | الصلاحيات المطلوبة                        |
 | -------------------- | ----------------------------------------- |
-| اعتماد الحجز أو رفضه | `stay.booking.manage` + `contract.create` |
+| اعتماد الحجز         | `stay.booking.manage` + `contract.create` |
+| رفض الحجز            | `stay.booking.manage`                     |
 | توقيع العقد واعتماده | `contract.sign`                           |
 | عقد تأجير يدوي       | `contract.create` + `lease.create`        |
 | عقد بيع يدوي         | `contract.create` + `sale.manage`         |

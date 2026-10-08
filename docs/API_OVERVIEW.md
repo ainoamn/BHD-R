@@ -63,6 +63,27 @@
 | التقارير | `/reports`, `/reports/operational-summary`, `/reports/:id/download`                                 |
 | المنصة   | `/platform/organizations`, `/plans`, `/entitlements`, `/cms`                                        |
 
+## مسارات تطبيق الويب لصفحة العقار (Next.js)
+
+هذه المسارات في تطبيق الويب (`apps/web`) وليست تحت `/v1`. تقرأ وتكتب Neon مباشرة داخل `withinViewerTenant`، وتُرجع الأخطاء بالشكل `{ "error": { "code": "…" } }` بعد تمريرها على `clientSafeErrorCode`.
+
+| المسار                                                  | الوصف                                                                                                                                                                                                               |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/portal/property-records/:propertyId/:section` | سجلات قسم واحد لعقار واحد. الأقسام: `bookings`، `contracts`، `leasing`، `sales`، `maintenance`، `invoices`، `accounting`. يُرجع أيضاً `units` و`tenants` (للتأجير) و`viewer` (صلاحيات الأزرار). `private, no-store` |
+| `POST /api/owner/properties/:propertyId/records`        | إجراءات الأقسام. جلسة حيّة + `x-csrf-token` + 30 طلباً في الدقيقة                                                                                                                                                   |
+
+**إجراءات `POST` (الحقل `action`):**
+
+| الإجراء            | الجسم                                        | الصلاحيات                                 |
+| ------------------ | -------------------------------------------- | ----------------------------------------- |
+| `approve_booking`  | `bookingId`                                  | `stay.booking.manage` + `contract.create` |
+| `reject_booking`   | `bookingId`                                  | `stay.booking.manage`                     |
+| `approve_contract` | `contractId`                                 | `contract.sign`                           |
+| `create_lease`     | `unitId`، `tenant`، `terms`                  | `contract.create` + `lease.create`        |
+| `create_sale`      | `unitId`، `partyName`، `amount`، `signedOn`… | `contract.create` + `sale.manage`         |
+
+الرد في إجراءات العقود: `{ contractId, contractReference, contractStatus, routedToManager }`، ويضيف `approve_booking` حالة الحجز `bookingStatus`. `reject_booking` يُرجع `{ bookingStatus }` فقط. شكل `create_lease` الكامل وقواعد حسابه وأخطاؤه في [`implementation/LEASE-REGISTRATION-AR.md`](./implementation/LEASE-REGISTRATION-AR.md).
+
 ## Pagination وcache
 
 قوائم الإدارة cursor-based: `?limit=50&after=...` بحد أقصى 100. الموقع العام يدعم CDN عبر ETag و`stale-while-revalidate`; الصفحات الخاصة والروابط الموقعة `private, no-store`. لا تدخل `organization_id` أو PII في cache key عام.

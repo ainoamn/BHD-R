@@ -158,7 +158,7 @@ flowchart TD
   - الإيجار الشهري ويوم الاستحقاق في `leases`.
   - الشيكات في `cheques` بحالة «بانتظار المراجعة».
 - **العرض:** عمود «إجمالي العقد» في التأجير، وزر «التفاصيل المالية» في التأجير والعقود.
-- التفاصيل: [implementation/RELEASE-0.6.1-AR.md](./implementation/RELEASE-0.6.1-AR.md).
+- التفاصيل: [implementation/RELEASE-0.6.1-AR.md](./implementation/RELEASE-0.6.1-AR.md). المرجع الدائم (الحقول، شكل الطلب، ما يُحفظ، الأخطاء): [implementation/LEASE-REGISTRATION-AR.md](./implementation/LEASE-REGISTRATION-AR.md).
 
 ### 4.2 الظهور في الرئيسية
 
