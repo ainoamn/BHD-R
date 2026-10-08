@@ -2,6 +2,13 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.5.5 — 2026-10-08
+
+- صفحة حجز الإقامة اليومية: صورة العقار أصغر وحقول التعبئة أكبر.
+- الصورة: عمود أضيق (19–26rem) وارتفاع حتى 36rem على الشاشات الكبيرة، و13–15rem على الجوال.
+- النموذج: بطاقة أعرض (حتى 48rem)، وحقول بارتفاع 3.4rem، وخطوط وبطاقات نوع الإقامة وأزرار المدة وزر المتابعة أكبر.
+- التفاصيل: [`docs/implementation/RELEASE-0.5.5-AR.md`](./docs/implementation/RELEASE-0.5.5-AR.md).
+
 ## 0.5.4 — 2026-10-08
 
 - إصلاح رسالة «بوابة الدفع غير مفعّلة» التي كانت تظهر بعد تأكيد حجز الإقامة اليومية مع أن البوابة مفعّلة.
