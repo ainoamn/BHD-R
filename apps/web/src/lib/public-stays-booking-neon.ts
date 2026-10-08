@@ -58,8 +58,9 @@ type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 async function asPublic<T>(work: (transaction: Tx) => Promise<T>): Promise<T> {
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
-    await transaction.execute(sql`select set_config('app.public', 'true', true)`);
-    await transaction.execute(sql`select set_config('app.platform_admin', 'false', true)`);
+    await transaction.execute(
+      sql`select set_config('app.public', 'true', true), set_config('app.platform_admin', 'false', true)`,
+    );
     return work(transaction);
   });
 }

@@ -3,6 +3,11 @@
 import { useMemo, useState } from 'react';
 import { EmptyState } from '@bhd-r/ui';
 import { StayAvailabilityCalendar } from '@/components/stays/stay-availability-calendar';
+import {
+  StayOpsOverviewCalendar,
+  StayUnitPicker,
+  unitLabel,
+} from '@/components/stays/stay-ops-overview-calendar';
 import { ApiError, browserNextMutation, humanizeBrowserError } from '@/lib/api';
 import { currencyMinorUnits, type CurrencyCode } from '@bhd-r/contracts';
 import { formatMoney } from '@/lib/format';
@@ -16,6 +21,25 @@ export type StayCalendarUnit = {
   calendarPath: string;
   propertyNameAr?: string;
   propertyNameEn?: string;
+  unitNameAr?: string;
+  unitNameEn?: string;
+};
+
+export type StayCalendarOverviewBooking = {
+  id: string;
+  referenceCode: string;
+  unitId: string;
+  unitCode: string;
+  propertyNameAr: string | null;
+  propertyNameEn: string | null;
+  checkInOn: string;
+  checkOutOn: string;
+  status: string;
+  totalMinor: string;
+  currency: string;
+  stayType: string | null;
+  guestName: string | null;
+  guestPhone: string | null;
 };
 
 type EditableDay = {
@@ -36,12 +60,14 @@ function minorToMajorInput(amountMinor: string | null | undefined, currency: str
 export function StayOpsCalendarPanel({
   locale,
   items,
+  portal = 'owner',
 }: {
   locale: string;
   items: StayCalendarUnit[];
+  portal?: 'owner' | 'developer';
 }) {
   const ar = locale === 'ar';
-  const [activeUnitId, setActiveUnitId] = useState(items[0]?.unitId ?? '');
+  const [activeUnitId, setActiveUnitId] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<EditableDay | null>(null);
   const [rateMajor, setRateMajor] = useState('');
   const [publicNote, setPublicNote] = useState('');
@@ -52,11 +78,11 @@ export function StayOpsCalendarPanel({
   const [reloadKey, setReloadKey] = useState(0);
 
   const activeUnit = useMemo(
-    () => items.find((unit) => unit.unitId === activeUnitId) ?? items[0],
+    () => items.find((unit) => unit.unitId === activeUnitId) ?? null,
     [activeUnitId, items],
   );
 
-  if (!items.length || !activeUnit) {
+  if (!items.length) {
     return (
       <EmptyState
         title={ar ? 'لا وحدات إقامة بعد' : 'No stay units yet'}
@@ -115,154 +141,147 @@ export function StayOpsCalendarPanel({
     <div className="ops-panel stays-ops-calendar">
       <header className="stays-ops-calendar__header">
         <div>
-          <h2>{ar ? 'تقويم الإشغال والتسعير' : 'Occupancy & pricing calendar'}</h2>
+          <h2>{ar ? 'تقويم الحجوزات' : 'Bookings calendar'}</h2>
           <p className="muted">
             {ar
-              ? 'الأيام الحمراء محجوزة. اضغط يوماً شاغراً لتحديد سعر خاص أو إغلاقه. تأكد من اختيار الوحدة الصحيحة أعلاه.'
-              : 'Red days are booked. Click an open day to set a custom rate or close it. Make sure the correct unit is selected above.'}
+              ? 'الأيام الحمراء فيها حجوزات والخضراء شاغرة. اضغط على أي تاريخ لعرض تفاصيل حجوزاته. اختر عقاراً من القائمة لعرض بياناته وتعديل أسعاره وإغلاق الأيام.'
+              : 'Red days have bookings, green days are free. Click a date to see its bookings. Pick a property to view it alone and edit its rates or close days.'}
           </p>
         </div>
       </header>
 
-      <div
-        className="stays-ops-calendar__units"
-        role="tablist"
-        aria-label={ar ? 'الوحدات' : 'Units'}
-      >
-        {items.map((unit) => (
-          <button
-            key={unit.unitId}
-            type="button"
-            role="tab"
-            aria-selected={unit.unitId === activeUnit.unitId}
-            className={
-              unit.unitId === activeUnit.unitId
-                ? 'button button--primary stays-ops-calendar__unit-tab'
-                : 'button button--quiet stays-ops-calendar__unit-tab'
-            }
-            onClick={() => {
-              setActiveUnitId(unit.unitId);
-              setSelectedDay(null);
-            }}
-          >
-            <span className="stays-ops-calendar__unit-name">
-              {ar
-                ? unit.propertyNameAr || unit.propertyNameEn || unit.unitCode
-                : unit.propertyNameEn || unit.propertyNameAr || unit.unitCode}
-            </span>
-            <span dir="ltr" className="stays-ops-calendar__unit-code">
-              {unit.unitCode}
-            </span>
-          </button>
-        ))}
-      </div>
+      <StayUnitPicker
+        locale={locale}
+        units={items}
+        value={activeUnit?.unitId ?? null}
+        onChange={(unitId) => {
+          setActiveUnitId(unitId);
+          setSelectedDay(null);
+        }}
+      />
 
-      <div className="stays-ops-calendar__layout">
-        <StayAvailabilityCalendar
-          key={`${activeUnit.unitId}-${reloadKey}`}
-          locale={locale}
-          mode="ops"
-          unitId={activeUnit.unitId}
-          monthCount={2}
-          size="large"
-          onDaySelect={openDay}
-        />
+      <StayOpsOverviewCalendar
+        key={activeUnit?.unitId ?? 'all'}
+        locale={locale}
+        portal={portal}
+        units={items}
+        unitId={activeUnit?.unitId ?? null}
+      />
 
-        {selectedDay ? (
-          <aside
-            className="stays-ops-calendar__editor"
-            aria-label={ar ? 'تعديل اليوم' : 'Edit day'}
-          >
-            <h3 dir="ltr">{selectedDay.stayDate}</h3>
-            <p className="muted">
-              {selectedDay.effectiveRateMinor && selectedDay.currency
-                ? `${ar ? 'السعر الحالي' : 'Current'}: ${formatMoney(selectedDay.effectiveRateMinor, selectedDay.currency, locale)}`
-                : ar
-                  ? 'لا سعر مخصّص بعد — سيُستخدم السعر الأساسي.'
-                  : 'No custom rate yet — base rate applies.'}
-            </p>
+      {activeUnit ? (
+        <section className="stays-ops-calendar__pricing">
+          <h3>
+            {ar ? 'الأسعار وإغلاق الأيام — ' : 'Rates and closed days — '}
+            {unitLabel(activeUnit, ar)}
+          </h3>
+          <div className="stays-ops-calendar__layout">
+            <StayAvailabilityCalendar
+              key={`${activeUnit.unitId}-${reloadKey}`}
+              locale={locale}
+              mode="ops"
+              unitId={activeUnit.unitId}
+              monthCount={2}
+              size="large"
+              onDaySelect={openDay}
+            />
 
-            <div className="field">
-              <label htmlFor="stay-day-rate">
-                {ar ? 'إيجار الليلة (ر.ع.)' : 'Nightly rate (OMR)'}
-              </label>
-              <input
-                id="stay-day-rate"
-                className="input"
-                inputMode="decimal"
-                dir="ltr"
-                value={rateMajor}
-                onChange={(event) => setRateMajor(event.target.value)}
-                placeholder={ar ? 'مثال: 20 أو 18.5' : 'e.g. 20 or 18.5'}
-              />
-            </div>
-
-            <div className="field">
-              <label htmlFor="stay-day-note">
-                {ar
-                  ? 'ملاحظة للجمهور (تهنئة / سبب التخفيض)'
-                  : 'Public note (greeting / discount reason)'}
-              </label>
-              <textarea
-                id="stay-day-note"
-                className="input"
-                rows={3}
-                maxLength={280}
-                value={publicNote}
-                onChange={(event) => setPublicNote(event.target.value)}
-                placeholder={
-                  ar
-                    ? 'مثال: عرض العيد الوطني — خصم خاص'
-                    : 'e.g. National Day offer — special discount'
-                }
-              />
-            </div>
-
-            <label className="stays-ops-calendar__check">
-              <input
-                type="checkbox"
-                checked={blocked}
-                onChange={(event) => setBlocked(event.target.checked)}
-              />
-              {ar ? 'إغلاق هذا اليوم (مغلق)' : 'Close this day (blocked)'}
-            </label>
-
-            <div className="stays-checkout__nav">
-              <button
-                type="button"
-                className="button button--quiet"
-                disabled={busy}
-                onClick={() => setSelectedDay(null)}
+            {selectedDay ? (
+              <aside
+                className="stays-ops-calendar__editor"
+                aria-label={ar ? 'تعديل اليوم' : 'Edit day'}
               >
-                {ar ? 'إلغاء' : 'Cancel'}
-              </button>
-              <button
-                type="button"
-                className="button button--quiet"
-                disabled={busy}
-                onClick={() => void saveDay({ clearManualRate: true })}
-              >
-                {ar ? 'إرجاع للسعر الأساسي' : 'Reset to base rate'}
-              </button>
-              <button
-                type="button"
-                className="button button--primary"
-                disabled={busy}
-                onClick={() => void saveDay()}
-              >
-                {busy ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : ar ? 'حفظ' : 'Save'}
-              </button>
-            </div>
+                <h3 dir="ltr">{selectedDay.stayDate}</h3>
+                <p className="muted">
+                  {selectedDay.effectiveRateMinor && selectedDay.currency
+                    ? `${ar ? 'السعر الحالي' : 'Current'}: ${formatMoney(selectedDay.effectiveRateMinor, selectedDay.currency, locale)}`
+                    : ar
+                      ? 'لا سعر مخصّص بعد — سيُستخدم السعر الأساسي.'
+                      : 'No custom rate yet — base rate applies.'}
+                </p>
 
-            {message ? <p className="notice notice--success">{message}</p> : null}
-            {error ? (
-              <p className="field__error" role="alert">
-                {error}
-              </p>
+                <div className="field">
+                  <label htmlFor="stay-day-rate">
+                    {ar ? 'إيجار الليلة (ر.ع.)' : 'Nightly rate (OMR)'}
+                  </label>
+                  <input
+                    id="stay-day-rate"
+                    className="input"
+                    inputMode="decimal"
+                    dir="ltr"
+                    value={rateMajor}
+                    onChange={(event) => setRateMajor(event.target.value)}
+                    placeholder={ar ? 'مثال: 20 أو 18.5' : 'e.g. 20 or 18.5'}
+                  />
+                </div>
+
+                <div className="field">
+                  <label htmlFor="stay-day-note">
+                    {ar
+                      ? 'ملاحظة للجمهور (تهنئة / سبب التخفيض)'
+                      : 'Public note (greeting / discount reason)'}
+                  </label>
+                  <textarea
+                    id="stay-day-note"
+                    className="input"
+                    rows={3}
+                    maxLength={280}
+                    value={publicNote}
+                    onChange={(event) => setPublicNote(event.target.value)}
+                    placeholder={
+                      ar
+                        ? 'مثال: عرض العيد الوطني — خصم خاص'
+                        : 'e.g. National Day offer — special discount'
+                    }
+                  />
+                </div>
+
+                <label className="stays-ops-calendar__check">
+                  <input
+                    type="checkbox"
+                    checked={blocked}
+                    onChange={(event) => setBlocked(event.target.checked)}
+                  />
+                  {ar ? 'إغلاق هذا اليوم (مغلق)' : 'Close this day (blocked)'}
+                </label>
+
+                <div className="stays-checkout__nav">
+                  <button
+                    type="button"
+                    className="button button--quiet"
+                    disabled={busy}
+                    onClick={() => setSelectedDay(null)}
+                  >
+                    {ar ? 'إلغاء' : 'Cancel'}
+                  </button>
+                  <button
+                    type="button"
+                    className="button button--quiet"
+                    disabled={busy}
+                    onClick={() => void saveDay({ clearManualRate: true })}
+                  >
+                    {ar ? 'إرجاع للسعر الأساسي' : 'Reset to base rate'}
+                  </button>
+                  <button
+                    type="button"
+                    className="button button--primary"
+                    disabled={busy}
+                    onClick={() => void saveDay()}
+                  >
+                    {busy ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : ar ? 'حفظ' : 'Save'}
+                  </button>
+                </div>
+
+                {message ? <p className="notice notice--success">{message}</p> : null}
+                {error ? (
+                  <p className="field__error" role="alert">
+                    {error}
+                  </p>
+                ) : null}
+              </aside>
             ) : null}
-          </aside>
-        ) : null}
-      </div>
+          </div>
+        </section>
+      ) : null}
 
       <details className="stays-ops-calendar__export">
         <summary>{ar ? 'تصدير iCal' : 'iCal export'}</summary>

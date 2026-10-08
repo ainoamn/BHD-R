@@ -2,6 +2,14 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.4.96 — 2026-10-08
+
+- Performance: Vercel functions now run in `lhr1` (London), next to the Neon database in `eu-west-2`. They previously ran in `iad1` (Washington), so every query crossed the Atlantic (~80 ms) and calendar requests with 20–30 sequential queries took several seconds. Tenant/public session setup is now one `set_config` statement instead of six/two.
+- Owner/developer stays calendar (`/owner|developer/stays/calendar`): one bookings calendar for all properties by default; red days have bookings (with a count), green days are free; clicking a date lists that day's bookings (property and unit, guest, phone, period, dates, amount, status, reference, link to booking details).
+- Searchable property dropdown ("All properties" or one unit; search by property name, unit name, or code). Selecting a property filters the calendar to it and shows its rates/closed-days calendar and editor below.
+- New `GET /api/owner/stays/calendar-overview?fromOn&toOn[&unitId]` (live session, ≤ 93 days).
+- Details: [`docs/implementation/RELEASE-0.4.96-AR.md`](./docs/implementation/RELEASE-0.4.96-AR.md).
+
 ## 0.4.95 — 2026-10-08
 
 - Stay calendars show fully vs partly booked days. Each day now carries morning/evening slot status (morning = day use «بدون مبيت», evening = overnight only «مبيت فقط») computed from active inventory locks (`lock_slot`) and live bookings (`pricingSnapshotJson.stayType`), plus `remainingSlot` and `remainingRateMinor` (the owner's price for the free slot, falling back to the nightly price like the quote).

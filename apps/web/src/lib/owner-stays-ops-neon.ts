@@ -15,7 +15,10 @@ import {
   type Database,
 } from '@bhd-r/db';
 import type { OpsStayBooking } from '@/components/stays/stay-ops-bookings-table';
-import type { StayCalendarUnit } from '@/components/stays/stay-ops-calendar-panel';
+import type {
+  StayCalendarOverviewBooking,
+  StayCalendarUnit,
+} from '@/components/stays/stay-ops-calendar-panel';
 import type {
   StayBookingContractData,
   StayBookingNeighbor,
@@ -47,20 +50,15 @@ async function withinTenant<T>(
 ): Promise<T> {
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
-    await transaction.execute(
-      sql`select set_config('app.organization_id', ${claims.organizationId ?? ''}, true)`,
-    );
-    await transaction.execute(sql`select set_config('app.user_id', ${claims.sub}, true)`);
-    await transaction.execute(
-      sql`select set_config('app.party_id', ${claims.partyId ?? ''}, true)`,
-    );
-    await transaction.execute(
-      sql`select set_config('app.platform_admin', ${String(claims.roles.includes('platform_admin'))}, true)`,
-    );
-    await transaction.execute(
-      sql`select set_config('app.is_tenant', ${String(claims.roles.includes('tenant'))}, true)`,
-    );
-    await transaction.execute(sql`select set_config('app.public', 'false', true)`);
+    await transaction.execute(sql`
+      select
+        set_config('app.organization_id', ${claims.organizationId ?? ''}, true),
+        set_config('app.user_id', ${claims.sub}, true),
+        set_config('app.party_id', ${claims.partyId ?? ''}, true),
+        set_config('app.platform_admin', ${String(claims.roles.includes('platform_admin'))}, true),
+        set_config('app.is_tenant', ${String(claims.roles.includes('tenant'))}, true),
+        set_config('app.public', 'false', true)
+    `);
     return work(transaction);
   });
 }
@@ -602,6 +600,95 @@ export async function listOwnerStayBookingsOnNeon(
   });
 }
 
+/** Live bookings across every stay unit (or one unit) overlapping [fromOn, toOn). */
+export async function getOwnerStayCalendarOverviewOnNeon(
+  claims: SessionClaims,
+  input: { fromOn: string; toOn: string; unitId?: string | null },
+): Promise<{ fromOn: string; toOn: string; bookings: StayCalendarOverviewBooking[] }> {
+  const organizationId = assertOrg(claims);
+
+  return withinTenant(claims, async (transaction) => {
+    const result = await transaction.execute(sql`
+      SELECT
+        b.id::text AS id,
+        b.reference_code,
+        b.unit_id::text AS unit_id,
+        u.code AS unit_code,
+        p.name_ar AS property_name_ar,
+        p.name_en AS property_name_en,
+        b.check_in_on::text AS check_in_on,
+        b.check_out_on::text AS check_out_on,
+        b.status::text AS status,
+        b.total_minor::text AS total_minor,
+        b.currency,
+        b.pricing_snapshot_json->>'stayType' AS stay_type,
+        COALESCE(
+          NULLIF(b.pricing_snapshot_json->'guestContact'->>'displayName', ''),
+          g.display_name
+        ) AS guest_name,
+        b.pricing_snapshot_json->'guestContact'->>'phone' AS guest_phone
+      FROM stay_bookings b
+      INNER JOIN units u ON u.id = b.unit_id
+      INNER JOIN properties p ON p.id = b.property_id
+      LEFT JOIN LATERAL (
+        SELECT sg.display_name
+        FROM stay_booking_guests sg
+        WHERE sg.booking_id = b.id AND sg.is_primary = true
+        LIMIT 1
+      ) g ON true
+      WHERE b.organization_id = ${organizationId}::uuid
+        ${input.unitId ? sql`AND b.unit_id = ${input.unitId}::uuid` : sql``}
+        AND b.status IN (${sql.join(
+          LIVE_BOOKING_STATUSES.map((status) => sql`${status}`),
+          sql`, `,
+        )})
+        AND b.check_in_on < ${input.toOn}::date
+        AND GREATEST(b.check_out_on, b.check_in_on + 1) > ${input.fromOn}::date
+      ORDER BY b.check_in_on ASC, b.created_at ASC
+      LIMIT 500
+    `);
+    const rows = (
+      Array.isArray(result) ? result : ((result as { rows?: unknown[] }).rows ?? [])
+    ) as Array<{
+      id: string;
+      reference_code: string;
+      unit_id: string;
+      unit_code: string;
+      property_name_ar: string | null;
+      property_name_en: string | null;
+      check_in_on: string;
+      check_out_on: string;
+      status: string;
+      total_minor: string;
+      currency: string;
+      stay_type: string | null;
+      guest_name: string | null;
+      guest_phone: string | null;
+    }>;
+
+    return {
+      fromOn: input.fromOn,
+      toOn: input.toOn,
+      bookings: rows.map((row) => ({
+        id: row.id,
+        referenceCode: row.reference_code,
+        unitId: row.unit_id,
+        unitCode: row.unit_code,
+        propertyNameAr: row.property_name_ar,
+        propertyNameEn: row.property_name_en,
+        checkInOn: String(row.check_in_on).slice(0, 10),
+        checkOutOn: String(row.check_out_on).slice(0, 10),
+        status: row.status,
+        totalMinor: row.total_minor,
+        currency: row.currency,
+        stayType: row.stay_type,
+        guestName: row.guest_name,
+        guestPhone: row.guest_phone,
+      })),
+    };
+  });
+}
+
 export async function listOwnerStayCalendarUnitsOnNeon(
   claims: SessionClaims,
 ): Promise<{ items: StayCalendarUnit[] }> {
@@ -615,6 +702,8 @@ export async function listOwnerStayCalendarUnitsOnNeon(
         stayProfileId: stayProfiles.id,
         timezone: stayProfiles.timezone,
         unitCode: units.code,
+        unitNameAr: units.nameAr,
+        unitNameEn: units.nameEn,
         propertyNameAr: properties.nameAr,
         propertyNameEn: properties.nameEn,
       })
@@ -632,6 +721,8 @@ export async function listOwnerStayCalendarUnitsOnNeon(
         timezone: row.timezone,
         unitCode: row.unitCode,
         calendarPath: `/v1/stays/units/${row.unitId}/calendar.ics`,
+        ...(row.unitNameAr ? { unitNameAr: row.unitNameAr } : {}),
+        ...(row.unitNameEn ? { unitNameEn: row.unitNameEn } : {}),
         ...(row.propertyNameAr ? { propertyNameAr: row.propertyNameAr } : {}),
         ...(row.propertyNameEn ? { propertyNameEn: row.propertyNameEn } : {}),
       })),

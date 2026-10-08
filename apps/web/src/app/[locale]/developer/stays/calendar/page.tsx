@@ -39,7 +39,7 @@ async function Page({ params }: { params: Promise<{ locale: string }> }) {
 
   return (
     <StaysPortalPage locale={locale} portal="developer" section="calendar">
-      <StayOpsCalendarPanel locale={locale} items={items} />
+      <StayOpsCalendarPanel locale={locale} items={items} portal="developer" />
     </StaysPortalPage>
   );
 }
