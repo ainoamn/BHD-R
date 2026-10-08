@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Link } from '@/i18n/navigation';
+import { OperationsWorkspaceClient } from '@/components/operations-workspace-client';
+import type { OperationsSection } from '@/lib/portal-ops-types';
 import { clearBrowserCsrfCache, fetchBrowserCsrfToken } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { formatListingLocation } from '@/lib/listing-card-copy';
@@ -15,6 +17,22 @@ import type { ManagedProperty } from '@/components/property-detail-manager';
 import type { PropertyOpsPulse } from '@/lib/property-ops-pulse-neon';
 
 type HubUnit = ManagedProperty['units'][number];
+
+/** Sections shown inside the property page, narrowed to this property. */
+const HUB_SECTIONS = [
+  'bookings',
+  'contracts',
+  'leasing',
+  'sales',
+  'maintenance',
+  'invoices',
+  'accounting',
+] as const satisfies readonly OperationsSection[];
+type HubSection = (typeof HUB_SECTIONS)[number];
+
+function parseHubSection(value: string | null): HubSection | null {
+  return (HUB_SECTIONS as readonly string[]).includes(value ?? '') ? (value as HubSection) : null;
+}
 
 /** Which booking deposits a unit needs: rent (monthly/yearly) and/or purchase. */
 function depositNeeds(unit: HubUnit): { rent: boolean; sale: boolean } {
@@ -147,14 +165,39 @@ export function PropertyManageHub({
     return () => observer.disconnect();
   }, []);
 
+  const activeSection = parseHubSection(useSearchParams().get('section'));
   const base = `/${portal}`;
   const propertyId = encodeURIComponent(property.id);
   const publicPath = `/${locale}/properties/${property.id}`;
-  const editHref = `${base}/properties/${property.id}/edit`;
+  const pageHref = `${base}/properties/${property.id}`;
+  const editHref = `${pageHref}/edit`;
   const staysSetupHref = `${base}/stays/setup?propertyId=${propertyId}`;
-  const bookingsHref = `${base}/bookings?tab=daily&propertyId=${propertyId}`;
-  const scoped = (section: string) => `${base}/${section}?propertyId=${propertyId}`;
-  const contractsHref = scoped('contracts');
+  const sectionHref = (section: HubSection) => `${pageHref}?section=${section}`;
+  const bookingsHref = sectionHref('bookings');
+  const contractsHref = sectionHref('contracts');
+
+  /** Swap the in-page view without a server round-trip; Next keeps useSearchParams in sync. */
+  const openSection = (event: MouseEvent<HTMLAnchorElement>, section: HubSection | null) => {
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      return;
+    }
+    event.preventDefault();
+    if (section !== activeSection) {
+      window.history.pushState(
+        null,
+        '',
+        `${window.location.pathname}${section ? `?section=${section}` : ''}`,
+      );
+    }
+    window.scrollTo({ top: 0 });
+  };
 
   const name = ar ? property.nameAr || property.nameEn : property.nameEn || property.nameAr;
   const status = lifecycleLabel(property.status, ar);
@@ -371,6 +414,7 @@ export function PropertyManageHub({
     icon: IconName;
     primary?: boolean;
     external?: boolean;
+    section?: HubSection;
   }> = [
     ...(!archived
       ? [
@@ -396,18 +440,39 @@ export function PropertyManageHub({
       href: bookingsHref,
       label: ar ? 'الحجوزات والمعاينات' : 'Bookings & viewings',
       icon: 'calendar',
+      section: 'bookings',
     },
-    { href: contractsHref, label: ar ? 'العقود' : 'Contracts', icon: 'file' },
+    { href: contractsHref, label: ar ? 'العقود' : 'Contracts', icon: 'file', section: 'contracts' },
     {
-      href: `${base}/properties/${property.id}/terms`,
+      href: `${pageHref}/terms`,
       label: ar ? 'الشروط والأحكام' : 'Terms & conditions',
       icon: 'scale',
     },
-    { href: scoped('leasing'), label: ar ? 'التأجير' : 'Leasing', icon: 'key' },
-    { href: scoped('sales'), label: ar ? 'البيع' : 'Sales', icon: 'tag' },
-    { href: scoped('maintenance'), label: ar ? 'الصيانة' : 'Maintenance', icon: 'wrench' },
-    { href: scoped('invoices'), label: ar ? 'الفواتير' : 'Invoices', icon: 'receipt' },
-    { href: `${base}/accounting`, label: ar ? 'الحسابات' : 'Accounting', icon: 'chart' },
+    {
+      href: sectionHref('leasing'),
+      label: ar ? 'التأجير' : 'Leasing',
+      icon: 'key',
+      section: 'leasing',
+    },
+    { href: sectionHref('sales'), label: ar ? 'البيع' : 'Sales', icon: 'tag', section: 'sales' },
+    {
+      href: sectionHref('maintenance'),
+      label: ar ? 'الصيانة' : 'Maintenance',
+      icon: 'wrench',
+      section: 'maintenance',
+    },
+    {
+      href: sectionHref('invoices'),
+      label: ar ? 'الفواتير' : 'Invoices',
+      icon: 'receipt',
+      section: 'invoices',
+    },
+    {
+      href: sectionHref('accounting'),
+      label: ar ? 'الحسابات' : 'Accounting',
+      icon: 'chart',
+      section: 'accounting',
+    },
   ];
 
   const stats: Array<{ label: string; value: number; icon: IconName; hint?: string }> = [
@@ -457,6 +522,7 @@ export function PropertyManageHub({
     () => [...property.units].sort((a, b) => a.code.localeCompare(b.code)),
     [property.units],
   );
+  const unitIds = useMemo(() => property.units.map((unit) => unit.id), [property.units]);
 
   return (
     <div className="form-shell property-manage-hub pmh" ref={rootRef}>
@@ -471,13 +537,34 @@ export function PropertyManageHub({
         >
           <Icon name="back" />
         </Link>
-        <div className="pmh-actionbar__title">
+        <Link
+          className="pmh-actionbar__title"
+          href={pageHref}
+          scroll={false}
+          aria-current={activeSection ? undefined : 'page'}
+          title={ar ? 'نظرة عامة على العقار' : 'Property overview'}
+          onClick={(event) => openSection(event, null)}
+        >
           <small>{ar ? 'إجراءات هذا العقار' : 'Property actions'}</small>
           <strong>{name}</strong>
-        </div>
+        </Link>
         <div className="pmh-actionbar__list">
           {actions.map((action) =>
-            action.external ? (
+            action.section ? (
+              <Link
+                key={action.href}
+                className={
+                  action.section === activeSection ? 'pmh-action pmh-action--active' : 'pmh-action'
+                }
+                href={action.href}
+                scroll={false}
+                aria-current={action.section === activeSection ? 'page' : undefined}
+                onClick={(event) => openSection(event, action.section ?? null)}
+              >
+                <Icon name={action.icon} />
+                <span>{action.label}</span>
+              </Link>
+            ) : action.external ? (
               <a
                 key={action.href}
                 className="pmh-action"
@@ -510,349 +597,370 @@ export function PropertyManageHub({
         </div>
       ) : null}
 
-      <section className="pmh-hero">
-        <div className="pmh-hero__media">
-          {cover ? (
-            <img src={cover} alt="" decoding="async" fetchPriority="high" />
-          ) : (
-            <Link className="pmh-hero__media-empty" href={editHref} prefetch>
-              <Icon name="image" />
-              <span>{ar ? 'أضف صور العقار' : 'Add property photos'}</span>
-            </Link>
-          )}
-        </div>
-        <div className="pmh-hero__body">
-          <div className="pmh-hero__chips">
-            <span className={`pmh-badge pmh-badge--${status.tone}`}>{status.text}</span>
-            <span className="pmh-chip">{kindLabel}</span>
-            {property.serialNumber ? (
-              <span className="pmh-chip pmh-chip--mono" dir="ltr">
-                {property.serialNumber}
-              </span>
-            ) : null}
-          </div>
-          <h1>{name}</h1>
-          {addressLine ? (
-            <p className="pmh-hero__address">
-              <Icon name="pin" />
-              <span>{addressLine}</span>
-            </p>
-          ) : null}
-          <dl className="pmh-hero__facts">
-            <div>
-              <dt>{ar ? 'المالك' : 'Owner'}</dt>
-              <dd>{currentOwner ?? '—'}</dd>
+      {activeSection ? (
+        <section className="pmh-section" aria-label={name}>
+          <OperationsWorkspaceClient
+            key={activeSection}
+            portal={portal}
+            section={activeSection}
+            locale={locale}
+            scopePropertyId={property.id}
+            scopeUnitIds={unitIds}
+          />
+        </section>
+      ) : (
+        <>
+          <section className="pmh-hero">
+            <div className="pmh-hero__media">
+              {cover ? (
+                <img src={cover} alt="" decoding="async" fetchPriority="high" />
+              ) : (
+                <Link className="pmh-hero__media-empty" href={editHref} prefetch>
+                  <Icon name="image" />
+                  <span>{ar ? 'أضف صور العقار' : 'Add property photos'}</span>
+                </Link>
+              )}
             </div>
-            {depositFacts.map((fact) => (
-              <div key={fact.mode}>
-                <dt>{fact.label}</dt>
-                <dd dir={fact.value ? 'ltr' : undefined}>
-                  {fact.value ?? (ar ? 'غير محدد' : 'Not set')}
-                </dd>
+            <div className="pmh-hero__body">
+              <div className="pmh-hero__chips">
+                <span className={`pmh-badge pmh-badge--${status.tone}`}>{status.text}</span>
+                <span className="pmh-chip">{kindLabel}</span>
+                {property.serialNumber ? (
+                  <span className="pmh-chip pmh-chip--mono" dir="ltr">
+                    {property.serialNumber}
+                  </span>
+                ) : null}
               </div>
-            ))}
-            {property.profile?.builtUpAreaSquareMeters ? (
-              <div>
-                <dt>{ar ? 'المساحة' : 'Area'}</dt>
-                <dd>{property.profile.builtUpAreaSquareMeters} m²</dd>
-              </div>
-            ) : null}
-            {property.profile?.yearBuilt ? (
-              <div>
-                <dt>{ar ? 'سنة البناء' : 'Year built'}</dt>
-                <dd>{property.profile.yearBuilt}</dd>
-              </div>
-            ) : null}
-          </dl>
-        </div>
-      </section>
-
-      <section className="pmh-stats" aria-label={ar ? 'إحصائيات' : 'Stats'}>
-        {stats.map((stat) => (
-          <article key={stat.label}>
-            <span className="pmh-stats__icon">
-              <Icon name={stat.icon} />
-            </span>
-            <div>
-              <strong>{stat.value}</strong>
-              <span>{stat.label}</span>
-              {stat.hint ? <small>{stat.hint}</small> : null}
-            </div>
-          </article>
-        ))}
-      </section>
-
-      <div className="pmh-grid">
-        <div className="pmh-grid__main">
-          <Card
-            title={ar ? 'الحجوزات اليومية' : 'Daily stay bookings'}
-            icon="calendar"
-            link={{ href: bookingsHref, label: ar ? 'عرض الكل' : 'View all' }}
-          >
-            {pulse?.stayBookings.length ? (
-              <ul className="pmh-list">
-                {pulse.stayBookings.slice(0, 6).map((booking) => (
-                  <li key={booking.id}>
-                    <Link href={`${base}/stays/bookings/${booking.id}`} prefetch>
-                      <div className="pmh-list__main">
-                        <strong dir="ltr">{booking.referenceCode}</strong>
-                        <span>
-                          {booking.guestName ?? '—'} · {booking.unitCode}
-                        </span>
-                      </div>
-                      <div className="pmh-list__meta">
-                        <span dir="ltr">
-                          {booking.checkInOn} → {booking.checkOutOn}
-                        </span>
-                        <span className="pmh-list__amount" dir="ltr">
-                          {formatMoney(booking.totalMinor, booking.currency, locale)}
-                        </span>
-                      </div>
-                      <span className="pmh-badge">{stayStatusLabel(booking.status, ar)}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="pmh-empty">
-                {ar
-                  ? 'لا حجوزات إقامة يومية بعد لهذا العقار.'
-                  : 'No daily stay bookings for this property yet.'}
-              </p>
-            )}
-          </Card>
-
-          <Card
-            title={ar ? 'العقود والإيجارات' : 'Contracts & leases'}
-            icon="file"
-            link={{ href: contractsHref, label: ar ? 'كل العقود' : 'All contracts' }}
-          >
-            {pulse?.contracts.length || pulse?.leases.length ? (
-              <ul className="pmh-list">
-                {(pulse?.contracts ?? []).slice(0, 5).map((contract) => (
-                  <li key={`c-${contract.id}`}>
-                    <Link href={`${base}/contracts/${contract.id}`} prefetch>
-                      <div className="pmh-list__main">
-                        <strong dir="ltr">{contract.reference ?? contract.id.slice(0, 8)}</strong>
-                        <span>{contract.unitCode}</span>
-                      </div>
-                      <span className="pmh-badge">{contractStatusLabel(contract.status, ar)}</span>
-                    </Link>
-                  </li>
-                ))}
-                {(pulse?.leases ?? []).slice(0, 5).map((lease) => (
-                  <li key={`l-${lease.id}`}>
-                    <div className="pmh-list__row">
-                      <div className="pmh-list__main">
-                        <strong>{lease.unitCode}</strong>
-                        <span dir="ltr">
-                          {lease.startsOn} → {lease.endsOn}
-                        </span>
-                      </div>
-                      <span className="pmh-list__amount" dir="ltr">
-                        {formatMoney(lease.rentMinor, lease.currency, locale)}
-                      </span>
-                      <span className="pmh-badge">{contractStatusLabel(lease.status, ar)}</span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="pmh-empty">
-                {ar ? 'لا عقود تأجير طويلة مرتبطة بعد.' : 'No long-term lease contracts yet.'}
-              </p>
-            )}
-          </Card>
-
-          <Card
-            title={ar ? `الوحدات (${property.units.length})` : `Units (${property.units.length})`}
-            icon="home"
-            link={
-              archived
-                ? undefined
-                : { href: editHref, label: ar ? 'إدارة الوحدات' : 'Manage units' }
-            }
-          >
-            {sortedUnits.length ? (
-              <div className="pmh-units">
-                {sortedUnits.map((unit) => {
-                  const title =
-                    property.kind === 'multi_unit'
-                      ? `${unitKindLabel(inferUnitKind(unit), locale)} ${unit.code}`.trim()
-                      : (ar ? unit.nameAr : unit.nameEn) || unit.code;
-                  const price =
-                    unit.listingPurpose === 'sale' && unit.salePriceMinor
-                      ? formatMoney(unit.salePriceMinor, unit.currency, locale)
-                      : formatMoney(unit.rentMinor, unit.currency, locale);
-                  return (
-                    <article key={unit.id} className="pmh-unit">
-                      <div className="pmh-unit__main">
-                        <strong>{title}</strong>
-                        <span dir="ltr">{unit.code}</span>
-                      </div>
-                      <div className="pmh-unit__specs">
-                        <span>
-                          {unit.bedrooms} {ar ? 'غرف' : 'bd'}
-                        </span>
-                        <span>
-                          {unit.bathrooms} {ar ? 'حمامات' : 'ba'}
-                        </span>
-                        {unit.areaSquareMeters ? <span>{unit.areaSquareMeters} m²</span> : null}
-                      </div>
-                      <div className="pmh-unit__price">
-                        <strong dir="ltr">{price}</strong>
-                        <span>{listingPurposeCaption(unit.listingPurpose, locale)}</span>
-                      </div>
-                      <div className="pmh-unit__badges">
-                        {unit.occupancy ? (
-                          <span className="pmh-badge">
-                            {occupancyLabel(unit.occupancy, locale)}
-                          </span>
-                        ) : null}
-                        <span
-                          className={`pmh-badge pmh-badge--${unit.listingEnabled ? 'ready' : 'muted'}`}
-                        >
-                          {unit.listingEnabled
-                            ? ar
-                              ? 'منشورة'
-                              : 'Published'
-                            : ar
-                              ? 'غير منشورة'
-                              : 'Unpublished'}
-                        </span>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="pmh-empty">{ar ? 'لا وحدات بعد.' : 'No units yet.'}</p>
-            )}
-          </Card>
-        </div>
-
-        <aside className="pmh-grid__side">
-          <Card
-            title={ar ? 'يحتاج انتباهك' : 'Needs attention'}
-            icon="alert"
-            className={alerts.length ? 'pmh-card--alerts' : 'pmh-card--ok'}
-          >
-            {alerts.length ? (
-              <ul className="pmh-alerts">
-                {alerts.map((item) => (
-                  <li key={item.text}>
-                    {item.href ? (
-                      <Link href={item.href} prefetch>
-                        {item.text}
-                      </Link>
-                    ) : (
-                      <span>{item.text}</span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="pmh-ok">
-                <Icon name="check" />
-                {ar ? 'كل شيء جاهز — لا تنبيهات حالياً.' : 'All set — no alerts right now.'}
-              </p>
-            )}
-          </Card>
-
-          <Card
-            title={ar ? 'المالية' : 'Finance'}
-            icon="chart"
-            link={{ href: `${base}/accounting`, label: ar ? 'الحسابات' : 'Accounting' }}
-          >
-            <dl className="pmh-finance">
-              {financeRows.map((row) => (
-                <div key={row.label}>
-                  <dt>{row.label}</dt>
-                  <dd>
-                    {row.rows.length
-                      ? row.rows.map((amount) => (
-                          <span key={amount.currency} dir="ltr">
-                            {formatMoney(amount.amountMinor, amount.currency, locale)}
-                          </span>
-                        ))
-                      : '—'}
-                  </dd>
+              <h1>{name}</h1>
+              {addressLine ? (
+                <p className="pmh-hero__address">
+                  <Icon name="pin" />
+                  <span>{addressLine}</span>
+                </p>
+              ) : null}
+              <dl className="pmh-hero__facts">
+                <div>
+                  <dt>{ar ? 'المالك' : 'Owner'}</dt>
+                  <dd>{currentOwner ?? '—'}</dd>
                 </div>
-              ))}
-            </dl>
-            {succeededPayments.length ? (
-              <>
-                <h3 className="pmh-subhead">{ar ? 'آخر المدفوعات' : 'Latest payments'}</h3>
-                <ul className="pmh-list pmh-list--compact">
-                  {succeededPayments.map((payment) => (
-                    <li key={payment.id}>
-                      <Link href={`${base}/stays/bookings/${payment.bookingId}`} prefetch>
-                        <strong dir="ltr">{payment.referenceCode}</strong>
-                        <span className="pmh-list__amount" dir="ltr">
-                          {formatMoney(payment.amountMinor, payment.currency, locale)}
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            ) : null}
-          </Card>
-        </aside>
-      </div>
-
-      <section className="pmh-danger" aria-label={ar ? 'إجراءات حساسة' : 'Sensitive actions'}>
-        <div className="pmh-danger__row">
-          <div>
-            <h2>
-              {archived
-                ? ar
-                  ? 'استعادة العقار'
-                  : 'Restore property'
-                : ar
-                  ? 'أرشفة العقار'
-                  : 'Archive property'}
-            </h2>
-            <p>
-              {archived
-                ? ar
-                  ? 'تعيد الأصل دون إعادة نشر أي وحدة تلقائياً.'
-                  : 'Restores the asset without automatically republishing units.'
-                : ar
-                  ? 'يتوقف نشر جميع الوحدات، ولا تُحذف السجلات أو الوثائق.'
-                  : 'All listings are unpublished; records and documents remain retained.'}
-            </p>
-          </div>
-          <button
-            className={`button ${archived ? 'button--primary' : 'button--danger'}`}
-            type="button"
-            disabled={busy}
-            onClick={() => void archiveOrRestore()}
-          >
-            {archived ? (ar ? 'استعادة' : 'Restore') : ar ? 'أرشفة' : 'Archive'}
-          </button>
-        </div>
-        {archived ? (
-          <div className="pmh-danger__row">
-            <div>
-              <h2>{ar ? 'حذف نهائي' : 'Permanent delete'}</h2>
-              <p>
-                {ar
-                  ? 'يزيل العقار ووحداته من النظام. غير متاح إن وُجدت عقود أو ملف إقامة يومية.'
-                  : 'Removes the property and its units. Blocked when lease history or a stay profile exists.'}
-              </p>
+                {depositFacts.map((fact) => (
+                  <div key={fact.mode}>
+                    <dt>{fact.label}</dt>
+                    <dd dir={fact.value ? 'ltr' : undefined}>
+                      {fact.value ?? (ar ? 'غير محدد' : 'Not set')}
+                    </dd>
+                  </div>
+                ))}
+                {property.profile?.builtUpAreaSquareMeters ? (
+                  <div>
+                    <dt>{ar ? 'المساحة' : 'Area'}</dt>
+                    <dd>{property.profile.builtUpAreaSquareMeters} m²</dd>
+                  </div>
+                ) : null}
+                {property.profile?.yearBuilt ? (
+                  <div>
+                    <dt>{ar ? 'سنة البناء' : 'Year built'}</dt>
+                    <dd>{property.profile.yearBuilt}</dd>
+                  </div>
+                ) : null}
+              </dl>
             </div>
-            <button
-              className="button button--danger"
-              type="button"
-              disabled={busy}
-              onClick={() => void purgePermanently()}
-            >
-              {ar ? 'حذف نهائي' : 'Delete permanently'}
-            </button>
+          </section>
+
+          <section className="pmh-stats" aria-label={ar ? 'إحصائيات' : 'Stats'}>
+            {stats.map((stat) => (
+              <article key={stat.label}>
+                <span className="pmh-stats__icon">
+                  <Icon name={stat.icon} />
+                </span>
+                <div>
+                  <strong>{stat.value}</strong>
+                  <span>{stat.label}</span>
+                  {stat.hint ? <small>{stat.hint}</small> : null}
+                </div>
+              </article>
+            ))}
+          </section>
+
+          <div className="pmh-grid">
+            <div className="pmh-grid__main">
+              <Card
+                title={ar ? 'الحجوزات اليومية' : 'Daily stay bookings'}
+                icon="calendar"
+                link={{ href: bookingsHref, label: ar ? 'عرض الكل' : 'View all' }}
+              >
+                {pulse?.stayBookings.length ? (
+                  <ul className="pmh-list">
+                    {pulse.stayBookings.slice(0, 6).map((booking) => (
+                      <li key={booking.id}>
+                        <Link href={`${base}/stays/bookings/${booking.id}`} prefetch>
+                          <div className="pmh-list__main">
+                            <strong dir="ltr">{booking.referenceCode}</strong>
+                            <span>
+                              {booking.guestName ?? '—'} · {booking.unitCode}
+                            </span>
+                          </div>
+                          <div className="pmh-list__meta">
+                            <span dir="ltr">
+                              {booking.checkInOn} → {booking.checkOutOn}
+                            </span>
+                            <span className="pmh-list__amount" dir="ltr">
+                              {formatMoney(booking.totalMinor, booking.currency, locale)}
+                            </span>
+                          </div>
+                          <span className="pmh-badge">{stayStatusLabel(booking.status, ar)}</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="pmh-empty">
+                    {ar
+                      ? 'لا حجوزات إقامة يومية بعد لهذا العقار.'
+                      : 'No daily stay bookings for this property yet.'}
+                  </p>
+                )}
+              </Card>
+
+              <Card
+                title={ar ? 'العقود والإيجارات' : 'Contracts & leases'}
+                icon="file"
+                link={{ href: contractsHref, label: ar ? 'كل العقود' : 'All contracts' }}
+              >
+                {pulse?.contracts.length || pulse?.leases.length ? (
+                  <ul className="pmh-list">
+                    {(pulse?.contracts ?? []).slice(0, 5).map((contract) => (
+                      <li key={`c-${contract.id}`}>
+                        <Link href={`${base}/contracts/${contract.id}`} prefetch>
+                          <div className="pmh-list__main">
+                            <strong dir="ltr">
+                              {contract.reference ?? contract.id.slice(0, 8)}
+                            </strong>
+                            <span>{contract.unitCode}</span>
+                          </div>
+                          <span className="pmh-badge">
+                            {contractStatusLabel(contract.status, ar)}
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                    {(pulse?.leases ?? []).slice(0, 5).map((lease) => (
+                      <li key={`l-${lease.id}`}>
+                        <div className="pmh-list__row">
+                          <div className="pmh-list__main">
+                            <strong>{lease.unitCode}</strong>
+                            <span dir="ltr">
+                              {lease.startsOn} → {lease.endsOn}
+                            </span>
+                          </div>
+                          <span className="pmh-list__amount" dir="ltr">
+                            {formatMoney(lease.rentMinor, lease.currency, locale)}
+                          </span>
+                          <span className="pmh-badge">{contractStatusLabel(lease.status, ar)}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="pmh-empty">
+                    {ar ? 'لا عقود تأجير طويلة مرتبطة بعد.' : 'No long-term lease contracts yet.'}
+                  </p>
+                )}
+              </Card>
+
+              <Card
+                title={
+                  ar ? `الوحدات (${property.units.length})` : `Units (${property.units.length})`
+                }
+                icon="home"
+                link={
+                  archived
+                    ? undefined
+                    : { href: editHref, label: ar ? 'إدارة الوحدات' : 'Manage units' }
+                }
+              >
+                {sortedUnits.length ? (
+                  <div className="pmh-units">
+                    {sortedUnits.map((unit) => {
+                      const title =
+                        property.kind === 'multi_unit'
+                          ? `${unitKindLabel(inferUnitKind(unit), locale)} ${unit.code}`.trim()
+                          : (ar ? unit.nameAr : unit.nameEn) || unit.code;
+                      const price =
+                        unit.listingPurpose === 'sale' && unit.salePriceMinor
+                          ? formatMoney(unit.salePriceMinor, unit.currency, locale)
+                          : formatMoney(unit.rentMinor, unit.currency, locale);
+                      return (
+                        <article key={unit.id} className="pmh-unit">
+                          <div className="pmh-unit__main">
+                            <strong>{title}</strong>
+                            <span dir="ltr">{unit.code}</span>
+                          </div>
+                          <div className="pmh-unit__specs">
+                            <span>
+                              {unit.bedrooms} {ar ? 'غرف' : 'bd'}
+                            </span>
+                            <span>
+                              {unit.bathrooms} {ar ? 'حمامات' : 'ba'}
+                            </span>
+                            {unit.areaSquareMeters ? <span>{unit.areaSquareMeters} m²</span> : null}
+                          </div>
+                          <div className="pmh-unit__price">
+                            <strong dir="ltr">{price}</strong>
+                            <span>{listingPurposeCaption(unit.listingPurpose, locale)}</span>
+                          </div>
+                          <div className="pmh-unit__badges">
+                            {unit.occupancy ? (
+                              <span className="pmh-badge">
+                                {occupancyLabel(unit.occupancy, locale)}
+                              </span>
+                            ) : null}
+                            <span
+                              className={`pmh-badge pmh-badge--${unit.listingEnabled ? 'ready' : 'muted'}`}
+                            >
+                              {unit.listingEnabled
+                                ? ar
+                                  ? 'منشورة'
+                                  : 'Published'
+                                : ar
+                                  ? 'غير منشورة'
+                                  : 'Unpublished'}
+                            </span>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="pmh-empty">{ar ? 'لا وحدات بعد.' : 'No units yet.'}</p>
+                )}
+              </Card>
+            </div>
+
+            <aside className="pmh-grid__side">
+              <Card
+                title={ar ? 'يحتاج انتباهك' : 'Needs attention'}
+                icon="alert"
+                className={alerts.length ? 'pmh-card--alerts' : 'pmh-card--ok'}
+              >
+                {alerts.length ? (
+                  <ul className="pmh-alerts">
+                    {alerts.map((item) => (
+                      <li key={item.text}>
+                        {item.href ? (
+                          <Link href={item.href} prefetch>
+                            {item.text}
+                          </Link>
+                        ) : (
+                          <span>{item.text}</span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="pmh-ok">
+                    <Icon name="check" />
+                    {ar ? 'كل شيء جاهز — لا تنبيهات حالياً.' : 'All set — no alerts right now.'}
+                  </p>
+                )}
+              </Card>
+
+              <Card
+                title={ar ? 'المالية' : 'Finance'}
+                icon="chart"
+                link={{ href: sectionHref('accounting'), label: ar ? 'الحسابات' : 'Accounting' }}
+              >
+                <dl className="pmh-finance">
+                  {financeRows.map((row) => (
+                    <div key={row.label}>
+                      <dt>{row.label}</dt>
+                      <dd>
+                        {row.rows.length
+                          ? row.rows.map((amount) => (
+                              <span key={amount.currency} dir="ltr">
+                                {formatMoney(amount.amountMinor, amount.currency, locale)}
+                              </span>
+                            ))
+                          : '—'}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+                {succeededPayments.length ? (
+                  <>
+                    <h3 className="pmh-subhead">{ar ? 'آخر المدفوعات' : 'Latest payments'}</h3>
+                    <ul className="pmh-list pmh-list--compact">
+                      {succeededPayments.map((payment) => (
+                        <li key={payment.id}>
+                          <Link href={`${base}/stays/bookings/${payment.bookingId}`} prefetch>
+                            <strong dir="ltr">{payment.referenceCode}</strong>
+                            <span className="pmh-list__amount" dir="ltr">
+                              {formatMoney(payment.amountMinor, payment.currency, locale)}
+                            </span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : null}
+              </Card>
+            </aside>
           </div>
-        ) : null}
-      </section>
+
+          <section className="pmh-danger" aria-label={ar ? 'إجراءات حساسة' : 'Sensitive actions'}>
+            <div className="pmh-danger__row">
+              <div>
+                <h2>
+                  {archived
+                    ? ar
+                      ? 'استعادة العقار'
+                      : 'Restore property'
+                    : ar
+                      ? 'أرشفة العقار'
+                      : 'Archive property'}
+                </h2>
+                <p>
+                  {archived
+                    ? ar
+                      ? 'تعيد الأصل دون إعادة نشر أي وحدة تلقائياً.'
+                      : 'Restores the asset without automatically republishing units.'
+                    : ar
+                      ? 'يتوقف نشر جميع الوحدات، ولا تُحذف السجلات أو الوثائق.'
+                      : 'All listings are unpublished; records and documents remain retained.'}
+                </p>
+              </div>
+              <button
+                className={`button ${archived ? 'button--primary' : 'button--danger'}`}
+                type="button"
+                disabled={busy}
+                onClick={() => void archiveOrRestore()}
+              >
+                {archived ? (ar ? 'استعادة' : 'Restore') : ar ? 'أرشفة' : 'Archive'}
+              </button>
+            </div>
+            {archived ? (
+              <div className="pmh-danger__row">
+                <div>
+                  <h2>{ar ? 'حذف نهائي' : 'Permanent delete'}</h2>
+                  <p>
+                    {ar
+                      ? 'يزيل العقار ووحداته من النظام. غير متاح إن وُجدت عقود أو ملف إقامة يومية.'
+                      : 'Removes the property and its units. Blocked when lease history or a stay profile exists.'}
+                  </p>
+                </div>
+                <button
+                  className="button button--danger"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void purgePermanently()}
+                >
+                  {ar ? 'حذف نهائي' : 'Delete permanently'}
+                </button>
+              </div>
+            ) : null}
+          </section>
+        </>
+      )}
     </div>
   );
 }

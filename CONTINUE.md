@@ -1,5 +1,8 @@
 # CONTINUE — 2026-10-08
 
+**0.5.8** · صفحة إدارة العقار: أقسام الحجوزات والعقود والتأجير والبيع والصيانة والفواتير والحسابات تُعرض داخل الصفحة (`?section=`) ببيانات العقار فقط (`scopePropertyId` في `OperationsConsole`)  
+**تفاصيل:** [`docs/implementation/RELEASE-0.5.8-AR.md`](./docs/implementation/RELEASE-0.5.8-AR.md)
+
 **0.5.7** · الشريط الجانبي: «العقارات» قائمة منسدلة (عرض العقارات / إدارة العقارات) + صفحة العرض بلا أزرار إجراءات وصفحة الإدارة بزر واحد لاختيار العقار  
 **تفاصيل:** [`docs/implementation/RELEASE-0.5.7-AR.md`](./docs/implementation/RELEASE-0.5.7-AR.md)
 

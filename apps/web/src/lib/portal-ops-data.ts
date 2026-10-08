@@ -350,8 +350,13 @@ async function listInvoices(claims: SessionClaims): Promise<Record<string, unkno
         issuedOn: invoices.issuedOn,
         dueOn: invoices.dueOn,
         createdAt: invoices.createdAt,
+        leaseId: invoices.leaseId,
+        unitId: leases.unitId,
+        propertyId: units.propertyId,
       })
       .from(invoices)
+      .leftJoin(leases, eq(leases.id, invoices.leaseId))
+      .leftJoin(units, eq(units.id, leases.unitId))
       .where(eq(invoices.organizationId, orgId))
       .orderBy(desc(invoices.createdAt))
       .limit(200);
@@ -507,6 +512,8 @@ async function listExpenses(claims: SessionClaims): Promise<Record<string, unkno
         status: expenses.status,
         issuedOn: expenses.issuedOn,
         createdAt: expenses.createdAt,
+        propertyId: expenses.propertyId,
+        unitId: expenses.unitId,
       })
       .from(expenses)
       .where(eq(expenses.organizationId, orgId))
@@ -530,8 +537,11 @@ async function listMaintenance(claims: SessionClaims): Promise<Record<string, un
         priority: maintenanceTickets.priority,
         category: maintenanceTickets.category,
         createdAt: maintenanceTickets.createdAt,
+        unitId: maintenanceTickets.unitId,
+        propertyId: units.propertyId,
       })
       .from(maintenanceTickets)
+      .leftJoin(units, eq(units.id, maintenanceTickets.unitId))
       .where(eq(maintenanceTickets.organizationId, orgId))
       .orderBy(desc(maintenanceTickets.createdAt))
       .limit(200);

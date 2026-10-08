@@ -669,6 +669,24 @@ function safeString(value: unknown): string {
   return '';
 }
 
+function unitIdsOfProperty(context: OperationsContext, propertyId: string): Set<string> {
+  return new Set(
+    [...(context.units ?? []), ...(context.vacantUnits ?? [])]
+      .filter((unit) => unit.propertyId === propertyId)
+      .map((unit) => unit.id),
+  );
+}
+
+function rowBelongsToProperty(row: DataRow, propertyId: string, unitIds: Set<string>): boolean {
+  const rowUnitId = safeString(row.unitId);
+  return (
+    safeString(row.propertyId) === propertyId ||
+    safeString(row.parentPropertyId) === propertyId ||
+    (Boolean(rowUnitId) && unitIds.has(rowUnitId)) ||
+    JSON.stringify(row).includes(propertyId)
+  );
+}
+
 function labelForOption(option: OptionRow, locale: 'ar' | 'en'): string {
   return (
     (locale === 'ar' ? option.nameAr : option.nameEn) ??
@@ -2176,7 +2194,7 @@ export function OperationsConsole({
   portal,
   section,
   locale,
-  records,
+  records: allRecords,
   summary,
   secondary,
   context,
@@ -2188,6 +2206,8 @@ export function OperationsConsole({
   active = true,
   loading = false,
   loadError = false,
+  scopePropertyId,
+  scopeUnitIds,
 }: {
   portal: PortalRole;
   section: OperationsSection;
@@ -2204,11 +2224,32 @@ export function OperationsConsole({
   active?: boolean;
   loading?: boolean;
   loadError?: boolean;
+  /** Embedded inside a property's manage page: every list, metric and queue covers that property only. */
+  scopePropertyId?: string;
+  /** Units of the scoped property, for rows that only carry a unitId. */
+  scopeUnitIds?: readonly string[];
 }) {
   const router = useRouter();
   const search = useSearchParams().toString();
   const definition = definitions[section];
   const ar = locale === 'ar';
+  const scopeUnitSet = useMemo(() => {
+    if (!scopePropertyId) return null;
+    const set = unitIdsOfProperty(context, scopePropertyId);
+    for (const id of scopeUnitIds ?? []) set.add(id);
+    return set;
+  }, [scopePropertyId, scopeUnitIds, context]);
+  const inScope = <T extends object>(rows: T[]): T[] =>
+    scopePropertyId && scopeUnitSet
+      ? rows.filter((row) => rowBelongsToProperty(row as DataRow, scopePropertyId, scopeUnitSet))
+      : rows;
+  const records = useMemo(
+    () =>
+      scopePropertyId && scopeUnitSet
+        ? allRecords.filter((row) => rowBelongsToProperty(row, scopePropertyId, scopeUnitSet))
+        : allRecords,
+    [allRecords, scopePropertyId, scopeUnitSet],
+  );
   const manageMode =
     section === 'properties' && new URLSearchParams(search).get('mode') === 'manage';
   const showActionColumn = section !== 'properties' || manageMode;
@@ -2309,7 +2350,8 @@ export function OperationsConsole({
     setPrefillReservationId(reservationId);
     setPrefillTenantId(tenantId);
     // Portfolio lists every property — ?propertyId= is for bookings/leasing filters only.
-    setPropertyFilter(section === 'properties' ? '' : propertyId);
+    // Embedded consoles are already narrowed via scopePropertyId.
+    setPropertyFilter(section === 'properties' || scopePropertyId ? '' : propertyId);
     const tabRaw = params.get('tab');
     if (
       section === 'bookings' &&
@@ -2329,14 +2371,22 @@ export function OperationsConsole({
       if (match?.unitId && !unitId) setPrefillUnitId(match.unitId);
     }
     if (params.get('create') === '1') setShowCreate(true);
-  }, [active, search, section, context.confirmedReservations, context.reservations]);
+  }, [
+    active,
+    search,
+    section,
+    scopePropertyId,
+    context.confirmedReservations,
+    context.reservations,
+  ]);
 
-  const vacantUnits = context.vacantUnits ?? [];
-  const pendingDeposits = context.pendingDepositReservations ?? [];
-  const cancelRequestedLeases = context.cancelRequestedLeases ?? [];
-  const clearancePendingLeases = context.clearancePendingLeases ?? [];
-  const renewalPendingLeases = context.renewalPendingLeases ?? [];
-  const vacancyFollowUps = context.vacancyFollowUps;
+  // Vacant-unit and vacancy follow-up strips link out to org-wide sections.
+  const vacantUnits = scopePropertyId ? [] : (context.vacantUnits ?? []);
+  const pendingDeposits = inScope(context.pendingDepositReservations ?? []);
+  const cancelRequestedLeases = inScope(context.cancelRequestedLeases ?? []);
+  const clearancePendingLeases = inScope(context.clearancePendingLeases ?? []);
+  const renewalPendingLeases = inScope(context.renewalPendingLeases ?? []);
+  const vacancyFollowUps = scopePropertyId ? undefined : context.vacancyFollowUps;
   const vacancyFollowUpTotal = vacancyFollowUps
     ? vacancyFollowUps.tasks +
       vacancyFollowUps.maintenance +
@@ -2346,13 +2396,7 @@ export function OperationsConsole({
   const sourceRecords = section === 'properties' && archiveMode ? (archiveRecords ?? []) : records;
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
-    const unitIdsForProperty = propertyFilter
-      ? new Set(
-          [...(context.units ?? []), ...(context.vacantUnits ?? [])]
-            .filter((unit) => unit.propertyId === propertyFilter)
-            .map((unit) => unit.id),
-        )
-      : null;
+    const unitIdsForProperty = propertyFilter ? unitIdsOfProperty(context, propertyFilter) : null;
     return sourceRecords.filter((row) => {
       if (section === 'bookings' && !matchesBookingPurposeTab(row, bookingPurposeTab)) {
         return false;
@@ -2370,14 +2414,13 @@ export function OperationsConsole({
       } else if (statusFilter && status !== statusFilter) {
         return false;
       }
-      if (propertyFilter && section !== 'properties') {
-        const rowPropertyId = safeString(row.propertyId);
-        const rowUnitId = safeString(row.unitId);
-        const matchesProperty =
-          rowPropertyId === propertyFilter ||
-          (rowUnitId && unitIdsForProperty?.has(rowUnitId)) ||
-          JSON.stringify(row).includes(propertyFilter);
-        if (!matchesProperty) return false;
+      if (
+        propertyFilter &&
+        unitIdsForProperty &&
+        section !== 'properties' &&
+        !rowBelongsToProperty(row, propertyFilter, unitIdsForProperty)
+      ) {
+        return false;
       }
       if (!normalized) return true;
       return JSON.stringify(row).toLocaleLowerCase().includes(normalized);
@@ -2387,8 +2430,7 @@ export function OperationsConsole({
     sourceRecords,
     statusFilter,
     propertyFilter,
-    context.units,
-    context.vacantUnits,
+    context,
     section,
     archiveMode,
     bookingPurposeTab,
@@ -2409,6 +2451,7 @@ export function OperationsConsole({
       setQuery('');
       setStatusFilter('');
     }
+    if (scopePropertyId) return;
     const params = new URLSearchParams(search);
     if (tab === 'all') params.delete('tab');
     else params.set('tab', tab);
@@ -2991,10 +3034,14 @@ ${
 
   const canCreate = creatable.has(section) && !(portal === 'tenant' && section !== 'requests');
   return (
-    <div className={`ops-workspace ops-workspace--${section}`}>
+    <div
+      className={`ops-workspace ops-workspace--${section}${scopePropertyId ? ' ops-workspace--scoped' : ''}`}
+    >
       <header className="ops-header">
         <div>
-          <span className="ops-kicker">BHD R · {portal.toUpperCase()}</span>
+          {scopePropertyId ? null : (
+            <span className="ops-kicker">BHD R · {portal.toUpperCase()}</span>
+          )}
           {manageMode ? (
             <>
               <h1>{ar ? 'إدارة العقارات' : 'Manage properties'}</h1>
@@ -3551,7 +3598,15 @@ ${
                 <article>
                   <span>{ar ? 'إجمالي السجلات' : 'Total records'}</span>
                   <strong>{records.length}</strong>
-                  <small>{ar ? 'ضمن المؤسسة الحالية' : 'Current organization'}</small>
+                  <small>
+                    {scopePropertyId
+                      ? ar
+                        ? 'ضمن هذا العقار'
+                        : 'This property'
+                      : ar
+                        ? 'ضمن المؤسسة الحالية'
+                        : 'Current organization'}
+                  </small>
                 </article>
                 <article>
                   <span>{ar ? 'قيد المتابعة' : 'In progress'}</span>
@@ -3582,9 +3637,11 @@ ${
                         : amountTotals.size > 1
                           ? `${amountTotals.size} ${ar ? 'عملات' : 'currencies'}`
                           : '—'
-                      : safeString(
-                          summary.pendingApprovals ?? summary.draftJournals ?? secondary.length,
-                        )}
+                      : scopePropertyId
+                        ? '—'
+                        : safeString(
+                            summary.pendingApprovals ?? summary.draftJournals ?? secondary.length,
+                          )}
                   </strong>
                   <small>
                     {ar ? 'محدث من البيانات التشغيلية' : 'Updated from operational data'}
@@ -3749,7 +3806,7 @@ ${
         </nav>
       ) : null}
 
-      {isDailyBookings && (portal === 'owner' || portal === 'developer') ? (
+      {isDailyBookings && !scopePropertyId && (portal === 'owner' || portal === 'developer') ? (
         <StaysPortalNav locale={locale} portal={portal} section="bookings" />
       ) : null}
 
@@ -4766,7 +4823,18 @@ ${
                   <CreateFields
                     section={section}
                     locale={locale}
-                    context={context}
+                    context={
+                      scopePropertyId
+                        ? {
+                            ...context,
+                            properties: (context.properties ?? []).filter(
+                              (row) => row.id === scopePropertyId,
+                            ),
+                            units: inScope(context.units ?? []),
+                            vacantUnits: inScope(context.vacantUnits ?? []),
+                          }
+                        : context
+                    }
                     prefillUnitId={prefillUnitId}
                     prefillReservationId={prefillReservationId}
                     prefillTenantId={prefillTenantId}

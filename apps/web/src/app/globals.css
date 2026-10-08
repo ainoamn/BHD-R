@@ -604,6 +604,23 @@ h3 {
   background: linear-gradient(145deg, #092d24, #0b4a3c);
   border-color: transparent;
 }
+.pmh-action--active {
+  color: var(--oman-deep);
+  background: #e3f1ec;
+  border-color: #b9dccf;
+}
+a.pmh-actionbar__title {
+  padding: 0.2rem 0.45rem;
+  border-radius: 0.6rem;
+  transition: background 0.15s ease;
+}
+a.pmh-actionbar__title:hover,
+a.pmh-actionbar__title[aria-current='page'] {
+  background: var(--pmh-soft);
+}
+.pmh-section .ops-workspace--scoped .ops-header h1 {
+  font-size: 1.35rem;
+}
 
 /* Hero */
 .pmh-hero {
