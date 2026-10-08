@@ -706,6 +706,51 @@ a.pmh-actionbar__title[aria-current='page'] {
   color: #a1331f;
   font-weight: 800;
 }
+.psr-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.psr-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.psr-action {
+  min-height: 2rem;
+  padding: 0.25rem 0.8rem;
+  font-size: 0.8rem;
+}
+.psr-signatures {
+  display: inline-block;
+  max-width: 22rem;
+  white-space: normal;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+.psr-table tr.psr-row--focus td {
+  background: #fff6dc;
+}
+.psr-form {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem;
+  background: var(--pmh-soft);
+  border: 1px solid var(--pmh-line);
+  border-radius: 0.9rem;
+}
+.psr-form h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+.psr-form .form-actions {
+  justify-content: flex-start;
+}
+@media (max-width: 640px) {
+  .psr-form .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
 
 /* Hero */
 .pmh-hero {

@@ -1,5 +1,8 @@
 # CONTINUE — 2026-10-08
 
+**0.6.0** · اعتماد الحجز من صفحة العقار يؤكّده وينشئ عقد إيجار موقّعاً باسم المستخدم (أو بانتظار اعتماد المدير) وإيجاراً لفترة الحجز؛ عقود يدوية للتأجير والبيع (`property-contracts-neon.ts` + `POST /api/owner/properties/:propertyId/records`)  
+**تفاصيل:** [`docs/implementation/RELEASE-0.6.0-AR.md`](./docs/implementation/RELEASE-0.6.0-AR.md)
+
 **0.5.9** · أقسام صفحة العقار من Neon لهذا العقار فقط (`property-records-neon.ts` + `GET /api/portal/property-records/:propertyId/:section` + `PropertySectionRecords`): العقود والتأجير بكل حالاتها وأسماء المستأجرين، وملخص مالي للفواتير والحسابات  
 **تفاصيل:** [`docs/implementation/RELEASE-0.5.9-AR.md`](./docs/implementation/RELEASE-0.5.9-AR.md)
 

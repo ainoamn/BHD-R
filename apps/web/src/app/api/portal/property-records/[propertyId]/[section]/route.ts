@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { verifySessionToken } from '@bhd-r/authz';
+import { hasPermission, verifySessionToken, type Permission } from '@bhd-r/authz';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { isPropertyRecordSection, loadPropertySectionRecords } from '@/lib/property-records-neon';
 import { requireSessionSecret } from '@/lib/runtime-env';
@@ -54,11 +54,23 @@ export async function GET(
   }
 
   try {
-    const rows = await loadPropertySectionRecords(claims, propertyId, section);
-    if (!rows) {
+    const records = await loadPropertySectionRecords(claims, propertyId, section);
+    if (!records) {
       return NextResponse.json({ error: { code: 'not_found' } }, { status: 404 });
     }
-    return NextResponse.json({ rows }, { headers: { 'Cache-Control': 'private, no-store' } });
+    const can = (permission: Permission) => hasPermission(claims, permission);
+    return NextResponse.json(
+      {
+        ...records,
+        viewer: {
+          canManageBookings: can('stay.booking.manage') && can('contract.create'),
+          canSignContracts: can('contract.sign'),
+          canCreateLease: can('contract.create') && can('lease.create'),
+          canCreateSale: can('contract.create') && can('sale.manage'),
+        },
+      },
+      { headers: { 'Cache-Control': 'private, no-store' } },
+    );
   } catch (error) {
     console.error('GET /api/portal/property-records failed', error);
     return NextResponse.json({ error: { code: 'load_failed' } }, { status: 500 });

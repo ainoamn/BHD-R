@@ -80,6 +80,7 @@ describe('stay pricing OMR 3 decimals', () => {
 describe('stay booking machine', () => {
   it('rejects illegal transitions', () => {
     expect(assertStayBookingTransition('request_pending', 'checked_in').ok).toBe(false);
+    expect(assertStayBookingTransition('request_pending', 'confirmed').ok).toBe(true);
     expect(assertStayBookingTransition('payment_pending', 'confirmed').ok).toBe(true);
     expect(assertStayBookingTransition('confirmed', 'pre_arrival').ok).toBe(true);
     expect(assertStayBookingTransition('confirmed', 'no_show').ok).toBe(true);

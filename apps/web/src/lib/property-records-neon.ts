@@ -1,7 +1,9 @@
 import 'server-only';
-import { and, desc, eq, inArray, or } from 'drizzle-orm';
+import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import type { SessionClaims } from '@bhd-r/authz';
 import {
+  approvalRequests,
+  contractSignatures,
   contracts,
   expenses,
   invoices,
@@ -33,6 +35,20 @@ export type PropertyRecordSection = (typeof PROPERTY_RECORD_SECTIONS)[number];
 
 /** Flat, display-ready row; every value is a string so the client never stringifies objects. */
 export type PropertyRecordRow = Record<string, string | null>;
+
+export type PropertyRecordUnit = {
+  id: string;
+  code: string;
+  rentMinor: string | null;
+  salePriceMinor: string | null;
+  currency: string;
+};
+
+export type PropertySectionRecords = { rows: PropertyRecordRow[]; units: PropertyRecordUnit[] };
+
+function omanToday(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Muscat' }).format(new Date());
+}
 
 export function isPropertyRecordSection(value: string): value is PropertyRecordSection {
   return (PROPERTY_RECORD_SECTIONS as readonly string[]).includes(value);
@@ -71,7 +87,7 @@ export async function loadPropertySectionRecords(
   claims: SessionClaims,
   propertyId: string,
   section: PropertyRecordSection,
-): Promise<PropertyRecordRow[] | null> {
+): Promise<PropertySectionRecords | null> {
   const orgId = claims.organizationId;
   if (!orgId) return null;
   const ownerPartyId = ownerPartyScope(claims);
@@ -91,30 +107,103 @@ export async function loadPropertySectionRecords(
     if (!property) return null;
 
     const unitRows = await tx
-      .select({ id: units.id, code: units.code })
+      .select({
+        id: units.id,
+        code: units.code,
+        rentMinor: units.rentMinor,
+        salePriceMinor: units.salePriceMinor,
+        currency: units.currency,
+      })
       .from(units)
-      .where(and(eq(units.organizationId, orgId), eq(units.propertyId, propertyId)));
+      .where(and(eq(units.organizationId, orgId), eq(units.propertyId, propertyId)))
+      .orderBy(units.code);
     const unitIds = unitRows.map((row) => row.id);
     const unitCode = new Map(unitRows.map((row) => [row.id, row.code]));
     const codeOf = (id: string | null | undefined) => (id ? (unitCode.get(id) ?? null) : null);
 
-    switch (section) {
-      case 'bookings':
-        return loadBookings(tx, orgId, propertyId, unitIds, codeOf);
-      case 'contracts':
-        return loadContracts(tx, orgId, unitIds, codeOf);
-      case 'leasing':
-        return loadLeases(tx, orgId, unitIds, codeOf);
-      case 'sales':
-        return loadSales(tx, orgId, propertyId, codeOf);
-      case 'maintenance':
-        return loadMaintenance(tx, orgId, unitIds, codeOf);
-      case 'invoices':
-        return loadInvoices(tx, orgId, unitIds, codeOf);
-      case 'accounting':
-        return loadAccounting(tx, orgId, propertyId, unitIds, codeOf);
-    }
+    const rows = await (() => {
+      switch (section) {
+        case 'bookings':
+          return loadBookings(tx, orgId, propertyId, unitIds, codeOf);
+        case 'contracts':
+          return loadContracts(tx, orgId, unitIds, codeOf);
+        case 'leasing':
+          return loadLeases(tx, orgId, unitIds, codeOf);
+        case 'sales':
+          return loadSales(tx, orgId, propertyId, codeOf);
+        case 'maintenance':
+          return loadMaintenance(tx, orgId, unitIds, codeOf);
+        case 'invoices':
+          return loadInvoices(tx, orgId, unitIds, codeOf);
+        case 'accounting':
+          return loadAccounting(tx, orgId, propertyId, unitIds, codeOf);
+      }
+    })();
+    return {
+      rows,
+      units: unitRows.map((row) => ({
+        id: row.id,
+        code: row.code,
+        rentMinor: minor(row.rentMinor),
+        salePriceMinor: minor(row.salePriceMinor),
+        currency: row.currency,
+      })),
+    };
   });
+}
+
+/** Contracts issued from stay bookings, keyed by booking id. */
+async function contractsByStayBooking(tx: Tx, orgId: string, unitIds: string[]) {
+  if (!unitIds.length) return new Map<string, { id: string; reference: string; status: string }>();
+  const rows = await tx
+    .select({
+      id: contracts.id,
+      reference: contracts.reference,
+      status: contracts.status,
+      bookingId: sql<string | null>`${contracts.payloadSnapshot}->'source'->>'stayBookingId'`,
+    })
+    .from(contracts)
+    .where(
+      and(
+        eq(contracts.organizationId, orgId),
+        inArray(contracts.unitId, unitIds),
+        sql`${contracts.payloadSnapshot}->'source'->>'type' = 'stay_booking'`,
+      ),
+    );
+  const map = new Map<string, { id: string; reference: string; status: string }>();
+  for (const row of rows) {
+    if (!row.bookingId || (map.has(row.bookingId) && row.status === 'void')) continue;
+    map.set(row.bookingId, {
+      id: row.id,
+      reference: row.reference ?? row.id.slice(0, 8).toUpperCase(),
+      status: row.status,
+    });
+  }
+  return map;
+}
+
+/** Contract status as the owner reads it: approved & signed, or waiting for the manager. */
+function contractDisplayStatus(status: string, pendingApproval: boolean): string {
+  if (status === 'signed') return 'approved_signed';
+  if (status === 'draft' && !pendingApproval) return 'draft';
+  if (status === 'draft' || status === 'sent' || status === 'partially_signed') {
+    return 'pending_manager_approval';
+  }
+  return status;
+}
+
+/** Lease status by today's date: rented now, starting later, or its term has run out. */
+function leaseDisplayStatus(
+  status: string,
+  startsOn: string | null,
+  endsOn: string | null,
+): string {
+  if (status === 'draft') return 'pending_manager_approval';
+  if (status !== 'active') return status;
+  const today = omanToday();
+  if (endsOn && endsOn < today) return 'lease_completed';
+  if (startsOn && startsOn > today) return 'upcoming_lease';
+  return 'rented';
 }
 
 type CodeOf = (id: string | null | undefined) => string | null;
@@ -138,6 +227,13 @@ async function loadBookings(
       currency: stayBookings.currency,
       totalMinor: stayBookings.totalMinor,
       createdAt: stayBookings.createdAt,
+      bookingMode: stayBookings.bookingMode,
+      termsAcceptedAt: sql<
+        string | null
+      >`${stayBookings.pricingSnapshotJson}->'acceptedTerms'->>'acceptedAt'`,
+      contactName: sql<
+        string | null
+      >`${stayBookings.pricingSnapshotJson}->'guestContact'->>'displayName'`,
     })
     .from(stayBookings)
     .where(and(eq(stayBookings.organizationId, orgId), eq(stayBookings.propertyId, propertyId)))
@@ -201,28 +297,40 @@ async function loadBookings(
       ])
     : [[], []];
 
-  const names = await partyNames(tx, [
-    ...stays.map((row) => row.guestPartyId),
-    ...reservationRows.map((row) => row.tenantPartyId),
-    ...viewingRows.map((row) => row.prospectPartyId),
+  const [names, bookingContracts] = await Promise.all([
+    partyNames(tx, [
+      ...stays.map((row) => row.guestPartyId),
+      ...reservationRows.map((row) => row.tenantPartyId),
+      ...viewingRows.map((row) => row.prospectPartyId),
+    ]),
+    contractsByStayBooking(tx, orgId, unitIds),
   ]);
 
   const rows: PropertyRecordRow[] = [
-    ...stays.map((row) => ({
-      id: row.id,
-      kind: 'stay',
-      reference: row.referenceCode,
-      unitCode: codeOf(row.unitId),
-      party:
-        guestByBooking.get(row.id) ??
-        (row.guestPartyId ? (names.get(row.guestPartyId) ?? null) : null),
-      fromOn: isoDate(row.checkInOn),
-      toOn: isoDate(row.checkOutOn),
-      amountMinor: minor(row.totalMinor),
-      currency: row.currency,
-      status: row.status,
-      sortOn: isoDate(row.createdAt),
-    })),
+    ...stays.map((row) => {
+      const contract = bookingContracts.get(row.id);
+      return {
+        id: row.id,
+        kind: 'stay',
+        reference: row.referenceCode,
+        unitCode: codeOf(row.unitId),
+        party:
+          guestByBooking.get(row.id) ??
+          row.contactName ??
+          (row.guestPartyId ? (names.get(row.guestPartyId) ?? null) : null),
+        fromOn: isoDate(row.checkInOn),
+        toOn: isoDate(row.checkOutOn),
+        amountMinor: minor(row.totalMinor),
+        currency: row.currency,
+        status: row.status,
+        bookingMode: row.bookingMode,
+        termsAcceptedOn: row.termsAcceptedAt ? row.termsAcceptedAt.slice(0, 10) : null,
+        contractId: contract?.id ?? null,
+        contractReference: contract?.reference ?? null,
+        contractStatus: contract?.status ?? null,
+        sortOn: isoDate(row.createdAt),
+      };
+    }),
     ...reservationRows.map((row) => ({
       id: row.id,
       kind: 'reservation',
@@ -250,7 +358,10 @@ async function loadBookings(
       sortOn: isoDate(row.createdAt),
     })),
   ];
-  return rows.sort((a, b) => (b.sortOn ?? '').localeCompare(a.sortOn ?? ''));
+  const awaiting = (row: PropertyRecordRow) => (row.status === 'request_pending' ? 0 : 1);
+  return rows.sort(
+    (a, b) => awaiting(a) - awaiting(b) || (b.sortOn ?? '').localeCompare(a.sortOn ?? ''),
+  );
 }
 
 async function loadContracts(
@@ -277,33 +388,90 @@ async function loadContracts(
       endsOn: leases.endsOn,
       rentMinor: leases.rentMinor,
       currency: leases.currency,
+      contractType: sql<string | null>`${contracts.payloadSnapshot}->'contract'->>'type'`,
+      sourceType: sql<string | null>`${contracts.payloadSnapshot}->'source'->>'type'`,
+      sourceReference: sql<string | null>`${contracts.payloadSnapshot}->'source'->>'referenceCode'`,
+      payloadStartsOn: sql<string | null>`${contracts.payloadSnapshot}->>'startsOn'`,
+      payloadAmountMinor: sql<
+        string | null
+      >`${contracts.payloadSnapshot}->'amount'->>'amountMinor'`,
+      payloadCurrency: sql<string | null>`${contracts.payloadSnapshot}->'amount'->>'currency'`,
     })
     .from(contracts)
     .leftJoin(leases, eq(leases.contractId, contracts.id))
     .where(and(eq(contracts.organizationId, orgId), inArray(contracts.unitId, unitIds)))
     .orderBy(desc(contracts.createdAt))
     .limit(ROW_LIMIT);
-  const names = await partyNames(tx, [
-    ...rows.map((row) => row.tenantPartyId),
-    ...rows.map((row) => row.ownerPartyId),
+  const contractIds = rows.map((row) => row.id);
+  const [names, signatures, pendingApprovals] = await Promise.all([
+    partyNames(tx, [
+      ...rows.map((row) => row.tenantPartyId),
+      ...rows.map((row) => row.ownerPartyId),
+    ]),
+    contractIds.length
+      ? tx
+          .select({
+            contractId: contractSignatures.contractId,
+            signerRole: contractSignatures.signerRole,
+            method: contractSignatures.method,
+            signedByName: sql<string | null>`${contractSignatures.evidence}->>'signedByName'`,
+            signedAt: contractSignatures.signedAt,
+          })
+          .from(contractSignatures)
+          .where(inArray(contractSignatures.contractId, contractIds))
+      : Promise.resolve([]),
+    contractIds.length
+      ? tx
+          .select({ contractId: approvalRequests.resourceId })
+          .from(approvalRequests)
+          .where(
+            and(
+              eq(approvalRequests.organizationId, orgId),
+              eq(approvalRequests.resourceType, 'contract'),
+              inArray(approvalRequests.resourceId, contractIds),
+              inArray(approvalRequests.status, ['pending', 'on_hold']),
+            ),
+          )
+      : Promise.resolve([]),
   ]);
-  return rows.map((row) => ({
-    id: row.id,
-    reference: row.reference ?? row.id.slice(0, 8).toUpperCase(),
-    contractKind: row.kind,
-    unitCode: codeOf(row.unitId),
-    party: names.get(row.tenantPartyId) ?? null,
-    ownerName: names.get(row.ownerPartyId) ?? null,
-    status: row.status,
-    leaseStatus: row.leaseStatus ?? null,
-    createdOn: isoDate(row.createdAt),
-    sentOn: isoDate(row.sentAt),
-    signedOn: isoDate(row.completedAt),
-    fromOn: isoDate(row.startsOn),
-    toOn: isoDate(row.endsOn),
-    amountMinor: minor(row.rentMinor),
-    currency: row.currency ?? null,
-  }));
+  const pending = new Set(pendingApprovals.map((row) => row.contractId));
+  const counterpartySigned = new Map<string, string>();
+  const ownerSigned = new Map<string, string>();
+  for (const signature of signatures) {
+    if (signature.signerRole === 'owner') {
+      ownerSigned.set(signature.contractId, signature.signedByName ?? '');
+    } else {
+      counterpartySigned.set(signature.contractId, signature.method);
+    }
+  }
+  return rows.map((row) => {
+    const isSale = row.contractType === 'sale';
+    return {
+      id: row.id,
+      reference: row.reference ?? row.id.slice(0, 8).toUpperCase(),
+      contractKind: row.kind,
+      contractType: isSale ? 'sale' : 'lease',
+      sourceType: row.sourceType,
+      sourceReference: row.sourceReference,
+      unitCode: codeOf(row.unitId),
+      party: names.get(row.tenantPartyId) ?? null,
+      ownerName: names.get(row.ownerPartyId) ?? null,
+      status: contractDisplayStatus(row.status, pending.has(row.id)),
+      contractStatus: row.status,
+      leaseStatus: row.leaseStatus
+        ? leaseDisplayStatus(row.leaseStatus, isoDate(row.startsOn), isoDate(row.endsOn))
+        : null,
+      counterpartySignature: counterpartySigned.get(row.id) ?? null,
+      ownerSignedBy: ownerSigned.has(row.id) ? ownerSigned.get(row.id) || '—' : null,
+      createdOn: isoDate(row.createdAt),
+      sentOn: isoDate(row.sentAt),
+      signedOn: isoDate(row.completedAt),
+      fromOn: isoDate(row.startsOn) ?? (isSale ? isoDate(row.payloadStartsOn) : null),
+      toOn: isoDate(row.endsOn),
+      amountMinor: minor(row.rentMinor) ?? row.payloadAmountMinor,
+      currency: row.currency ?? row.payloadCurrency ?? null,
+    };
+  });
 }
 
 async function loadLeases(
@@ -327,6 +495,8 @@ async function loadLeases(
       cancellationEffectiveOn: leases.cancellationEffectiveOn,
       contractId: leases.contractId,
       contractReference: contracts.reference,
+      sourceType: sql<string | null>`${contracts.payloadSnapshot}->'source'->>'type'`,
+      sourceReference: sql<string | null>`${contracts.payloadSnapshot}->'source'->>'referenceCode'`,
     })
     .from(leases)
     .leftJoin(contracts, eq(contracts.id, leases.contractId))
@@ -341,9 +511,13 @@ async function loadLeases(
     id: row.id,
     reference: row.contractReference ?? row.id.slice(0, 8).toUpperCase(),
     contractId: row.contractId,
+    contractReference: row.contractReference,
+    sourceType: row.sourceType,
+    sourceReference: row.sourceReference,
     unitCode: codeOf(row.unitId),
     party: names.get(row.tenantPartyId) ?? null,
-    status: row.status,
+    status: leaseDisplayStatus(row.status, isoDate(row.startsOn), isoDate(row.endsOn)),
+    leaseStatus: row.status,
     fromOn: isoDate(row.startsOn),
     toOn: isoDate(row.endsOn),
     cancellationOn: isoDate(row.cancellationEffectiveOn),
@@ -377,13 +551,37 @@ async function loadSales(
     .where(and(eq(salesDeals.organizationId, orgId), eq(salesDeals.propertyId, propertyId)))
     .orderBy(desc(salesDeals.createdAt))
     .limit(ROW_LIMIT);
-  const names = await partyNames(tx, [
-    ...rows.map((row) => row.buyerPartyId),
-    ...rows.map((row) => row.sellerPartyId),
+  const dealIds = rows.map((row) => row.id);
+  const [names, dealContracts] = await Promise.all([
+    partyNames(tx, [
+      ...rows.map((row) => row.buyerPartyId),
+      ...rows.map((row) => row.sellerPartyId),
+    ]),
+    dealIds.length
+      ? tx
+          .select({
+            id: contracts.id,
+            reference: contracts.reference,
+            dealId: sql<string | null>`${contracts.payloadSnapshot}->'sale'->>'dealId'`,
+          })
+          .from(contracts)
+          .where(
+            and(
+              eq(contracts.organizationId, orgId),
+              sql`${contracts.payloadSnapshot}->'sale'->>'dealId' in (${sql.join(
+                dealIds.map((id) => sql`${id}`),
+                sql`, `,
+              )})`,
+            ),
+          )
+      : Promise.resolve([]),
   ]);
+  const contractByDeal = new Map(dealContracts.map((row) => [row.dealId, row]));
   return rows.map((row) => ({
     id: row.id,
     reference: row.reference,
+    contractId: contractByDeal.get(row.id)?.id ?? null,
+    contractReference: contractByDeal.get(row.id)?.reference ?? null,
     unitCode: codeOf(row.unitId),
     party: row.buyerPartyId ? (names.get(row.buyerPartyId) ?? null) : null,
     sellerName: names.get(row.sellerPartyId) ?? null,

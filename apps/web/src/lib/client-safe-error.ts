@@ -36,6 +36,14 @@ const KNOWN_CODES = new Set([
   'validation_failed',
   'ai_unconfigured',
   'ai_failed',
+  'booking_not_found',
+  'booking_not_approvable',
+  'dates_unavailable',
+  'contract_not_found',
+  'contract_not_pending',
+  'lease_overlap',
+  'invalid_dates',
+  'invalid_amount',
 ]);
 
 export function clientSafeErrorCode(error: unknown, fallback = 'request_failed'): string {
@@ -59,7 +67,13 @@ export function statusForSafeCode(code: string): number {
     case 'property_not_found':
     case 'no_units':
     case 'unit_not_found':
+    case 'booking_not_found':
+    case 'contract_not_found':
       return 404;
+    case 'booking_not_approvable':
+    case 'dates_unavailable':
+    case 'contract_not_pending':
+    case 'lease_overlap':
     case 'deposit_not_set':
     case 'property_archived':
     case 'duplicate_property':
@@ -70,6 +84,8 @@ export function statusForSafeCode(code: string): number {
     case 'invalid_body':
     case 'invalid_file':
     case 'organization_required':
+    case 'invalid_dates':
+    case 'invalid_amount':
       return 400;
     case 'rate_limited':
       return 429;

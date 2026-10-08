@@ -509,7 +509,7 @@ async function releaseExpiredHoldsInTransaction(transaction: Tx, organizationId:
   `);
 }
 
-async function createLockInTransaction(
+export async function createLockInTransaction(
   transaction: Tx,
   input: {
     organizationId: string;

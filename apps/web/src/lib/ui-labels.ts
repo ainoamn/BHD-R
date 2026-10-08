@@ -91,6 +91,11 @@ const DOMAIN_STATUS: Record<string, { ar: string; en: string }> = {
   closed_won: { ar: 'تم البيع', en: 'Sold' },
   closed_lost: { ar: 'لم يتم البيع', en: 'Lost' },
   posted: { ar: 'مُرحَّل', en: 'Posted' },
+  approved_signed: { ar: 'معتمد وموقّع', en: 'Approved & signed' },
+  pending_manager_approval: { ar: 'بانتظار اعتماد المدير', en: 'Awaiting manager approval' },
+  rented: { ar: 'مؤجر', en: 'Rented' },
+  upcoming_lease: { ar: 'مؤجر — يبدأ لاحقاً', en: 'Rented — starts later' },
+  lease_completed: { ar: 'انتهت مدة الإيجار', en: 'Lease term ended' },
 };
 
 const WORKFLOW_EVENTS: Record<string, { ar: string; en: string }> = {
@@ -104,6 +109,11 @@ const WORKFLOW_EVENTS: Record<string, { ar: string; en: string }> = {
     en: 'Stay booking e-signature completed',
   },
   'stay.booking.confirmed': { ar: 'تأكيد حجز إقامة', en: 'Stay booking confirmed' },
+  'contract.signed': { ar: 'اعتماد عقد وتوقيعه', en: 'Contract approved & signed' },
+  'contract.approval_requested': {
+    ar: 'عقد بانتظار اعتماد المدير',
+    en: 'Contract awaiting manager approval',
+  },
   'stay.checked_out': { ar: 'مغادرة ضيف إقامة', en: 'Stay guest checked out' },
   'stay.cancelled': { ar: 'إلغاء حجز إقامة', en: 'Stay booking cancelled' },
   'stay.no_show': { ar: 'عدم حضور ضيف', en: 'Stay guest no-show' },
