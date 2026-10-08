@@ -1,10 +1,36 @@
-import { getTranslations } from 'next-intl/server';
-import { Link } from '@/i18n/navigation';
 import type { PortalRole } from '@/lib/types';
+import {
+  StaysPortalNav,
+  staysSectionLabel,
+  type StaysPortalSection,
+} from '@/components/stays/stays-portal-nav';
 
-export type StaysPortalSection = 'dashboard' | 'calendar' | 'bookings' | 'rates' | 'setup';
+export type { StaysPortalSection };
 
-export async function StaysPortalPage({
+function sectionIntro(section: StaysPortalSection, ar: boolean): string {
+  switch (section) {
+    case 'dashboard':
+      return ar
+        ? 'نظرة سريعة على حركة اليوم والحجوزات القادمة ووحداتك المعروضة للإيجار اليومي.'
+        : "Today's movements, upcoming bookings and your daily-rental units at a glance.";
+    case 'calendar':
+      return ar
+        ? 'الأيام الحمراء فيها حجوزات والخضراء شاغرة. اضغط على يوم لعرض حجوزاته، واختر وحدة لتعديل سعر يوم أو إغلاقه.'
+        : 'Red days have bookings, green days are free. Tap a day to see its bookings; pick a unit to change a day’s price or close it.';
+    case 'rates':
+      return ar
+        ? 'السعر الأساسي لكل وحدة يُطبَّق على كل الأيام. للعروض وأسعار أيام معيّنة استخدم التقويم.'
+        : 'Each unit’s base price applies to every day. Use the calendar for offers and specific-day prices.';
+    case 'bookings':
+      return ar
+        ? 'كل حجوزات الإقامة اليومية مع حالتها وإجراءاتها.'
+        : 'Every daily-stay booking with its status and actions.';
+    default:
+      return '';
+  }
+}
+
+export function StaysPortalPage({
   locale,
   portal,
   section,
@@ -15,71 +41,23 @@ export async function StaysPortalPage({
   section: StaysPortalSection;
   children?: React.ReactNode;
 }) {
-  const t = await getTranslations('Stays');
-  const root = `/${portal}/stays`;
-  const title =
-    section === 'dashboard'
-      ? t('dashboard')
-      : section === 'calendar'
-        ? t('calendar')
-        : section === 'bookings'
-          ? t('bookings')
-          : section === 'rates'
-            ? t('rates')
-            : t('setup');
-
-  const tabs = [
-    { id: 'dashboard' as const, label: t('dashboard'), href: root },
-    { id: 'calendar' as const, label: t('calendar'), href: `${root}/calendar` },
-    {
-      id: 'bookings' as const,
-      label: t('bookings'),
-      href: `/${portal}/bookings?tab=daily`,
-    },
-    { id: 'rates' as const, label: t('rates'), href: `${root}/rates` },
-  ];
+  const ar = locale === 'ar';
+  const intro = sectionIntro(section, ar);
 
   return (
     <div className="form-shell stays-portal">
+      <StaysPortalNav locale={locale} portal={portal} section={section} />
+
       <header className="stays-portal__header">
-        <div>
-          <span className="ops-kicker">
-            BHD R · {locale === 'ar' ? 'الإقامات اليومية' : 'Daily stays'}
-          </span>
-          <h1>{title}</h1>
-          <p className="muted">
-            {locale === 'ar'
-              ? 'التقويم والأسعار هنا؛ الحجوزات اليومية ضمن شاشة الحجوزات والمعاينات الموحّدة.'
-              : 'Calendar and rates stay here; daily bookings live on the unified bookings & viewings screen.'}
-          </p>
-        </div>
+        <h1>{staysSectionLabel(section, ar)}</h1>
+        {intro ? <p className="muted">{intro}</p> : null}
       </header>
 
-      <nav className="purpose-tabs stays-portal__tabs" aria-label={title}>
-        {tabs.map((tab) => {
-          const active = section === tab.id;
-          return (
-            <Link
-              key={tab.id}
-              href={tab.href}
-              prefetch
-              scroll={false}
-              className={active ? 'purpose-tabs__item is-active' : 'purpose-tabs__item'}
-              aria-current={active ? 'page' : undefined}
-            >
-              {tab.label}
-            </Link>
-          );
-        })}
-      </nav>
-
-      <section className="ops-panel stays-portal__panel" aria-live="polite">
+      <div className="stays-portal__body" aria-live="polite">
         {children ?? (
-          <p className="muted">
-            {t('comingOnline')} — <code dir="ltr">/v1/stays/*</code>
-          </p>
+          <p className="pmh-empty">{ar ? 'قريباً — الخدمة قيد التفعيل.' : 'Coming online soon.'}</p>
         )}
-      </section>
+      </div>
     </div>
   );
 }

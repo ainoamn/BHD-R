@@ -79,15 +79,21 @@ function publishLabel(status: string, ar: boolean): { text: string; tone: string
   return { text: ar ? 'مسودة' : 'Draft', tone: 'warn' };
 }
 
-function UnitStaySettings({
+/** `sections="prices"` edits only the rate plan and the security deposit (stays rates page). */
+export function UnitStaySettings({
   unit,
   ar,
   showUnitName,
+  sections = 'all',
+  onSaved,
 }: {
   unit: PropertyStaySettingsUnit;
   ar: boolean;
   showUnitName: boolean;
+  sections?: 'all' | 'prices';
+  onSaved?: (unit: PropertyStaySettingsUnit) => void;
 }) {
+  const pricesOnly = sections === 'prices';
   const [draft, setDraft] = useState<Draft>(() => toDraft(unit));
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => {
@@ -98,12 +104,46 @@ function UnitStaySettings({
   const badge = publishLabel(unit.publishStatus, ar);
   const id = (field: string) => `stay-${field}-${unit.unitId}`;
 
+  function validateMoney():
+    { error: string } | { rates: Record<string, string>; depositMinor: string | null } {
+    const money = {
+      nightly: minorFromMajor(draft.nightly, unit.minorUnit),
+      weekend: minorFromMajor(draft.weekend, unit.minorUnit),
+      dayUse: minorFromMajor(draft.dayUse, unit.minorUnit),
+      overnightOnly: minorFromMajor(draft.overnightOnly, unit.minorUnit),
+      deposit: minorFromMajor(draft.deposit, unit.minorUnit),
+    };
+    if (Object.values(money).some((value) => value === undefined)) {
+      return {
+        error: ar
+          ? `اكتب المبالغ بالأرقام فقط (حتى ${unit.minorUnit} خانات عشرية).`
+          : `Enter amounts as numbers (up to ${unit.minorUnit} decimals).`,
+      };
+    }
+    if (!money.nightly || money.nightly === '0') {
+      return { error: ar ? 'سعر الليلة مطلوب.' : 'The nightly rate is required.' };
+    }
+    const rates: Record<string, string> = { baseNightlyMinor: money.nightly, currency };
+    if (money.weekend) rates.weekendNightlyMinor = money.weekend;
+    if (money.dayUse) rates.dayUseMinor = money.dayUse;
+    if (money.overnightOnly) rates.overnightOnlyMinor = money.overnightOnly;
+    return {
+      rates,
+      depositMinor: money.deposit && money.deposit !== '0' ? money.deposit : null,
+    };
+  }
+
   function validate():
     | { error: string }
     | {
         profile: Record<string, unknown>;
         rates: Record<string, string>;
       } {
+    const priced = validateMoney();
+    if ('error' in priced) return priced;
+    if (pricesOnly) {
+      return { profile: { depositMinor: priced.depositMinor }, rates: priced.rates };
+    }
     const overnightGuests = wholeNumber(draft.overnightMaxGuests, 1, 999);
     if (!overnightGuests) {
       return {
@@ -131,27 +171,6 @@ function UnitStaySettings({
           : 'Minimum and maximum nights are 1–365, and the maximum cannot be below the minimum.',
       };
     }
-    const money = {
-      nightly: minorFromMajor(draft.nightly, unit.minorUnit),
-      weekend: minorFromMajor(draft.weekend, unit.minorUnit),
-      dayUse: minorFromMajor(draft.dayUse, unit.minorUnit),
-      overnightOnly: minorFromMajor(draft.overnightOnly, unit.minorUnit),
-      deposit: minorFromMajor(draft.deposit, unit.minorUnit),
-    };
-    if (Object.values(money).some((value) => value === undefined)) {
-      return {
-        error: ar
-          ? `اكتب المبالغ بالأرقام فقط (حتى ${unit.minorUnit} خانات عشرية).`
-          : `Enter amounts as numbers (up to ${unit.minorUnit} decimals).`,
-      };
-    }
-    if (!money.nightly || money.nightly === '0') {
-      return { error: ar ? 'سعر الليلة مطلوب.' : 'The nightly rate is required.' };
-    }
-    const rates: Record<string, string> = { baseNightlyMinor: money.nightly, currency };
-    if (money.weekend) rates.weekendNightlyMinor = money.weekend;
-    if (money.dayUse) rates.dayUseMinor = money.dayUse;
-    if (money.overnightOnly) rates.overnightOnlyMinor = money.overnightOnly;
     return {
       profile: {
         overnightMaxGuests: overnightGuests,
@@ -162,9 +181,9 @@ function UnitStaySettings({
         checkInFrom: draft.checkInFrom || null,
         dayUseCheckOutUntil: draft.dayUseCheckOutUntil || null,
         overnightCheckOutUntil: draft.overnightCheckOutUntil || null,
-        depositMinor: money.deposit && money.deposit !== '0' ? money.deposit : null,
+        depositMinor: priced.depositMinor,
       },
-      rates,
+      rates: priced.rates,
     };
   }
 
@@ -193,6 +212,14 @@ function UnitStaySettings({
         }),
       });
       setStatus({ kind: 'saved' });
+      onSaved?.({
+        ...unit,
+        baseNightlyMinor: checked.rates.baseNightlyMinor ?? null,
+        weekendNightlyMinor: checked.rates.weekendNightlyMinor ?? null,
+        dayUseMinor: checked.rates.dayUseMinor ?? null,
+        overnightOnlyMinor: checked.rates.overnightOnlyMinor ?? null,
+        depositMinor: (checked.profile.depositMinor as string | null | undefined) ?? null,
+      });
     } catch (caught) {
       setStatus({
         kind: 'error',
@@ -207,104 +234,116 @@ function UnitStaySettings({
   }
 
   return (
-    <fieldset className="unit-editor stay-settings-unit">
-      <div className="unit-editor__head stay-settings-unit__head">
-        <strong>
-          {showUnitName
-            ? `${ar ? unit.unitNameAr || unit.unitNameEn : unit.unitNameEn || unit.unitNameAr} · ${unit.unitCode}`
-            : ar
-              ? 'الإقامة اليومية'
-              : 'Daily stay'}
-        </strong>
-        <span className={`pmh-badge pmh-badge--${badge.tone}`}>{badge.text}</span>
-        {unit.listingSlug ? (
-          <Link href={`/stays/${unit.listingSlug}`} target="_blank" rel="noreferrer">
-            {ar ? 'عرض صفحة الإقامة ↗' : 'View stay page ↗'}
-          </Link>
-        ) : null}
-      </div>
+    <fieldset
+      className={
+        pricesOnly ? 'unit-editor stay-settings-unit is-prices' : 'unit-editor stay-settings-unit'
+      }
+    >
+      {pricesOnly ? null : (
+        <div className="unit-editor__head stay-settings-unit__head">
+          <strong>
+            {showUnitName
+              ? `${ar ? unit.unitNameAr || unit.unitNameEn : unit.unitNameEn || unit.unitNameAr} · ${unit.unitCode}`
+              : ar
+                ? 'الإقامة اليومية'
+                : 'Daily stay'}
+          </strong>
+          <span className={`pmh-badge pmh-badge--${badge.tone}`}>{badge.text}</span>
+          {unit.listingSlug ? (
+            <Link href={`/stays/${unit.listingSlug}`} target="_blank" rel="noreferrer">
+              {ar ? 'عرض صفحة الإقامة ↗' : 'View stay page ↗'}
+            </Link>
+          ) : null}
+        </div>
+      )}
 
-      <h4 className="stay-settings-unit__title">{ar ? 'الضيوف والمدة' : 'Guests and length'}</h4>
-      <div className="form-grid">
-        <Field
-          id={id('overnight-guests')}
-          type="number"
-          min={1}
-          max={999}
-          inputMode="numeric"
-          label={ar ? 'عدد الضيوف المسموح (مع المبيت)' : 'Guests allowed (overnight)'}
-          value={draft.overnightMaxGuests}
-          onChange={(event) => set('overnightMaxGuests', event.target.value)}
-          required
-        />
-        <Field
-          id={id('day-guests')}
-          type="number"
-          min={1}
-          max={999}
-          inputMode="numeric"
-          label={ar ? 'عدد الضيوف المسموح (بدون مبيت)' : 'Guests allowed (day use)'}
-          value={draft.dayUseMaxGuests}
-          onChange={(event) => set('dayUseMaxGuests', event.target.value)}
-        />
-        <Field
-          id={id('min-nights')}
-          type="number"
-          min={1}
-          max={365}
-          inputMode="numeric"
-          label={ar ? 'الحد الأدنى لليالي' : 'Minimum nights'}
-          value={draft.minNights}
-          onChange={(event) => set('minNights', event.target.value)}
-          required
-        />
-        <Field
-          id={id('max-nights')}
-          type="number"
-          min={1}
-          max={365}
-          inputMode="numeric"
-          label={ar ? 'الحد الأقصى لليالي' : 'Maximum nights'}
-          value={draft.maxNights}
-          onChange={(event) => set('maxNights', event.target.value)}
-          required
-        />
-      </div>
+      {pricesOnly ? null : (
+        <>
+          <h4 className="stay-settings-unit__title">
+            {ar ? 'الضيوف والمدة' : 'Guests and length'}
+          </h4>
+          <div className="form-grid">
+            <Field
+              id={id('overnight-guests')}
+              type="number"
+              min={1}
+              max={999}
+              inputMode="numeric"
+              label={ar ? 'عدد الضيوف المسموح (مع المبيت)' : 'Guests allowed (overnight)'}
+              value={draft.overnightMaxGuests}
+              onChange={(event) => set('overnightMaxGuests', event.target.value)}
+              required
+            />
+            <Field
+              id={id('day-guests')}
+              type="number"
+              min={1}
+              max={999}
+              inputMode="numeric"
+              label={ar ? 'عدد الضيوف المسموح (بدون مبيت)' : 'Guests allowed (day use)'}
+              value={draft.dayUseMaxGuests}
+              onChange={(event) => set('dayUseMaxGuests', event.target.value)}
+            />
+            <Field
+              id={id('min-nights')}
+              type="number"
+              min={1}
+              max={365}
+              inputMode="numeric"
+              label={ar ? 'الحد الأدنى لليالي' : 'Minimum nights'}
+              value={draft.minNights}
+              onChange={(event) => set('minNights', event.target.value)}
+              required
+            />
+            <Field
+              id={id('max-nights')}
+              type="number"
+              min={1}
+              max={365}
+              inputMode="numeric"
+              label={ar ? 'الحد الأقصى لليالي' : 'Maximum nights'}
+              value={draft.maxNights}
+              onChange={(event) => set('maxNights', event.target.value)}
+              required
+            />
+          </div>
 
-      <h4 className="stay-settings-unit__title">
-        {ar ? 'أوقات الدخول والخروج' : 'Check-in and check-out'}
-      </h4>
-      <div className="form-grid">
-        <Field
-          id={id('check-in')}
-          type="time"
-          label={ar ? 'الدخول من الساعة' : 'Check-in from'}
-          value={draft.checkInFrom}
-          onChange={(event) => set('checkInFrom', event.target.value)}
-        />
-        <Field
-          id={id('day-out')}
-          type="time"
-          label={ar ? 'الخروج بدون مبيت حتى' : 'Day-use check-out until'}
-          value={draft.dayUseCheckOutUntil}
-          onChange={(event) => set('dayUseCheckOutUntil', event.target.value)}
-        />
-        <Field
-          id={id('night-out')}
-          type="time"
-          label={ar ? 'الخروج بعد المبيت حتى' : 'Overnight check-out until'}
-          value={draft.overnightCheckOutUntil}
-          onChange={(event) => set('overnightCheckOutUntil', event.target.value)}
-        />
-        <label className="checkbox-row stay-settings-unit__check">
-          <input
-            type="checkbox"
-            checked={draft.instantBook}
-            onChange={(event) => set('instantBook', event.target.checked)}
-          />
-          {ar ? 'حجز فوري (دون انتظار موافقتي)' : 'Instant booking (no approval needed)'}
-        </label>
-      </div>
+          <h4 className="stay-settings-unit__title">
+            {ar ? 'أوقات الدخول والخروج' : 'Check-in and check-out'}
+          </h4>
+          <div className="form-grid">
+            <Field
+              id={id('check-in')}
+              type="time"
+              label={ar ? 'الدخول من الساعة' : 'Check-in from'}
+              value={draft.checkInFrom}
+              onChange={(event) => set('checkInFrom', event.target.value)}
+            />
+            <Field
+              id={id('day-out')}
+              type="time"
+              label={ar ? 'الخروج بدون مبيت حتى' : 'Day-use check-out until'}
+              value={draft.dayUseCheckOutUntil}
+              onChange={(event) => set('dayUseCheckOutUntil', event.target.value)}
+            />
+            <Field
+              id={id('night-out')}
+              type="time"
+              label={ar ? 'الخروج بعد المبيت حتى' : 'Overnight check-out until'}
+              value={draft.overnightCheckOutUntil}
+              onChange={(event) => set('overnightCheckOutUntil', event.target.value)}
+            />
+            <label className="checkbox-row stay-settings-unit__check">
+              <input
+                type="checkbox"
+                checked={draft.instantBook}
+                onChange={(event) => set('instantBook', event.target.checked)}
+              />
+              {ar ? 'حجز فوري (دون انتظار موافقتي)' : 'Instant booking (no approval needed)'}
+            </label>
+          </div>
+        </>
+      )}
 
       <h4 className="stay-settings-unit__title">
         {ar ? `الأسعار والعربون (${currency})` : `Prices and deposit (${currency})`}
@@ -360,9 +399,13 @@ function UnitStaySettings({
             ? ar
               ? 'جارٍ الحفظ…'
               : 'Saving…'
-            : ar
-              ? 'حفظ إعدادات الإيجار اليومي'
-              : 'Save daily rental settings'}
+            : pricesOnly
+              ? ar
+                ? 'حفظ الأسعار'
+                : 'Save prices'
+              : ar
+                ? 'حفظ إعدادات الإيجار اليومي'
+                : 'Save daily rental settings'}
         </Button>
         {status.kind === 'saved' ? (
           <p className="notice notice--success" role="status">

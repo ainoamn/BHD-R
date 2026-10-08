@@ -197,7 +197,12 @@ export function StayOpsOverviewCalendar({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const detailsRef = useRef<HTMLElement>(null);
   const weekdays = useMemo(() => weekdayLabels(locale), [locale]);
+
+  useEffect(() => {
+    if (selectedDate) detailsRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [selectedDate]);
   const months = useMemo(
     () => [viewMonthStart, addCalendarMonths(viewMonthStart, 1)],
     [viewMonthStart],
@@ -369,10 +374,17 @@ export function StayOpsOverviewCalendar({
       </ul>
 
       {selectedDate ? (
-        <section className="stays-overview__details" aria-live="polite">
+        <section ref={detailsRef} className="stays-overview__details" aria-live="polite">
           <header className="stays-overview__details-head">
             <h3>
-              {ar ? 'حجوزات يوم' : 'Bookings on'} <span dir="ltr">{selectedDate}</span>
+              {ar ? 'حجوزات يوم' : 'Bookings on'}{' '}
+              {new Intl.DateTimeFormat(ar ? 'ar-OM' : 'en-GB', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+                timeZone: 'UTC',
+              }).format(new Date(`${selectedDate}T00:00:00.000Z`))}
             </h3>
             <button
               type="button"

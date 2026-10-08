@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { EmptyState } from '@bhd-r/ui';
 import { StayAvailabilityCalendar } from '@/components/stays/stay-availability-calendar';
 import {
@@ -57,18 +57,28 @@ function minorToMajorInput(amountMinor: string | null | undefined, currency: str
   return Number.isFinite(value) ? String(value) : '';
 }
 
+type PanelView = 'bookings' | 'prices';
+
 export function StayOpsCalendarPanel({
   locale,
   items,
   portal = 'owner',
+  initialUnitId = null,
+  initialView = 'bookings',
 }: {
   locale: string;
   items: StayCalendarUnit[];
   portal?: 'owner' | 'developer';
+  initialUnitId?: string | null;
+  initialView?: PanelView;
 }) {
   const ar = locale === 'ar';
-  const [activeUnitId, setActiveUnitId] = useState<string | null>(null);
+  const [activeUnitId, setActiveUnitId] = useState<string | null>(() =>
+    initialUnitId && items.some((unit) => unit.unitId === initialUnitId) ? initialUnitId : null,
+  );
+  const [view, setView] = useState<PanelView>(initialView);
   const [selectedDay, setSelectedDay] = useState<EditableDay | null>(null);
+  const editorRef = useRef<HTMLElement>(null);
   const [rateMajor, setRateMajor] = useState('');
   const [publicNote, setPublicNote] = useState('');
   const [blocked, setBlocked] = useState(false);
@@ -81,6 +91,10 @@ export function StayOpsCalendarPanel({
     () => items.find((unit) => unit.unitId === activeUnitId) ?? null,
     [activeUnitId, items],
   );
+
+  useEffect(() => {
+    if (selectedDay) editorRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [selectedDay]);
 
   if (!items.length) {
     return (
@@ -137,56 +151,85 @@ export function StayOpsCalendarPanel({
     }
   }
 
+  const showPrices = Boolean(activeUnit) && view === 'prices';
+
   return (
-    <div className="ops-panel stays-ops-calendar">
-      <header className="stays-ops-calendar__header">
-        <div>
-          <h2>{ar ? 'تقويم الحجوزات' : 'Bookings calendar'}</h2>
-          <p className="muted">
-            {ar
-              ? 'الأيام الحمراء فيها حجوزات والخضراء شاغرة. اضغط على أي تاريخ لعرض تفاصيل حجوزاته. اختر عقاراً من القائمة لعرض بياناته وتعديل أسعاره وإغلاق الأيام.'
-              : 'Red days have bookings, green days are free. Click a date to see its bookings. Pick a property to view it alone and edit its rates or close days.'}
-          </p>
+    <div className="stays-ops-calendar">
+      <section className="pmh-card stays-ops-calendar__board">
+        <div className="stays-ops-calendar__toolbar">
+          <StayUnitPicker
+            locale={locale}
+            units={items}
+            value={activeUnit?.unitId ?? null}
+            onChange={(unitId) => {
+              setActiveUnitId(unitId);
+              setSelectedDay(null);
+              if (!unitId) setView('bookings');
+            }}
+          />
+          {activeUnit ? (
+            <div
+              className="stays-bookings-board__filters stays-ops-calendar__views"
+              role="tablist"
+              aria-label={unitLabel(activeUnit, ar)}
+            >
+              {(
+                [
+                  ['bookings', ar ? 'الحجوزات' : 'Bookings'],
+                  ['prices', ar ? 'الأسعار وإغلاق الأيام' : 'Prices & closed days'],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={view === id}
+                  className={
+                    view === id
+                      ? 'stays-bookings-board__chip is-active'
+                      : 'stays-bookings-board__chip'
+                  }
+                  onClick={() => {
+                    setView(id);
+                    setSelectedDay(null);
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="muted stays-ops-calendar__hint">
+              {ar
+                ? 'لتعديل سعر يوم أو إغلاقه اختر وحدة من القائمة.'
+                : 'Pick a unit to change a day’s price or close it.'}
+            </p>
+          )}
         </div>
-      </header>
 
-      <StayUnitPicker
-        locale={locale}
-        units={items}
-        value={activeUnit?.unitId ?? null}
-        onChange={(unitId) => {
-          setActiveUnitId(unitId);
-          setSelectedDay(null);
-        }}
-      />
-
-      <StayOpsOverviewCalendar
-        key={activeUnit?.unitId ?? 'all'}
-        locale={locale}
-        portal={portal}
-        units={items}
-        unitId={activeUnit?.unitId ?? null}
-      />
-
-      {activeUnit ? (
-        <section className="stays-ops-calendar__pricing">
-          <h3>
-            {ar ? 'الأسعار وإغلاق الأيام — ' : 'Rates and closed days — '}
-            {unitLabel(activeUnit, ar)}
-          </h3>
+        {showPrices && activeUnit ? (
           <div className="stays-ops-calendar__layout">
-            <StayAvailabilityCalendar
-              key={`${activeUnit.unitId}-${reloadKey}`}
-              locale={locale}
-              mode="ops"
-              unitId={activeUnit.unitId}
-              monthCount={2}
-              size="large"
-              onDaySelect={openDay}
-            />
+            <div className="stays-ops-calendar__prices">
+              <p className="muted stays-ops-calendar__hint">
+                {ar
+                  ? 'اضغط على أي يوم لتغيير سعره (عرض أو مناسبة) أو إغلاقه أمام الحجز.'
+                  : 'Tap a day to change its price (offer or occasion) or close it for booking.'}
+              </p>
+              <StayAvailabilityCalendar
+                key={`${activeUnit.unitId}-${reloadKey}`}
+                locale={locale}
+                mode="ops"
+                unitId={activeUnit.unitId}
+                monthCount={2}
+                size="large"
+                onDaySelect={openDay}
+              />
+              {message ? <p className="notice notice--success">{message}</p> : null}
+            </div>
 
             {selectedDay ? (
               <aside
+                ref={editorRef}
                 className="stays-ops-calendar__editor"
                 aria-label={ar ? 'تعديل اليوم' : 'Edit day'}
               >
@@ -271,7 +314,6 @@ export function StayOpsCalendarPanel({
                   </button>
                 </div>
 
-                {message ? <p className="notice notice--success">{message}</p> : null}
                 {error ? (
                   <p className="field__error" role="alert">
                     {error}
@@ -280,10 +322,18 @@ export function StayOpsCalendarPanel({
               </aside>
             ) : null}
           </div>
-        </section>
-      ) : null}
+        ) : (
+          <StayOpsOverviewCalendar
+            key={activeUnit?.unitId ?? 'all'}
+            locale={locale}
+            portal={portal}
+            units={items}
+            unitId={activeUnit?.unitId ?? null}
+          />
+        )}
+      </section>
 
-      <details className="stays-ops-calendar__export">
+      <details className="pmh-card stays-ops-calendar__export">
         <summary>{ar ? 'تصدير iCal' : 'iCal export'}</summary>
         <p className="muted">
           {ar

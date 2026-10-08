@@ -17,6 +17,7 @@ import {
   StayOpsBookingsTable,
   type OpsStayBooking,
 } from '@/components/stays/stay-ops-bookings-table';
+import { StaysPortalNav } from '@/components/stays/stays-portal-nav';
 import {
   BOOKING_PURPOSE_TABS,
   matchesBookingPurposeTab,
@@ -2380,8 +2381,14 @@ export function OperationsConsole({
       .filter((item): item is OpsStayBooking => Boolean(item));
   }, [section, bookingPurposeTab, filtered]);
 
+  const isDailyBookings = section === 'bookings' && bookingPurposeTab === 'daily';
+
   function setBookingTab(tab: BookingPurposeTab) {
     setBookingPurposeTab(tab);
+    if (tab === 'daily') {
+      setQuery('');
+      setStatusFilter('');
+    }
     const params = new URLSearchParams(search);
     if (tab === 'all') params.delete('tab');
     else params.set('tab', tab);
@@ -3299,7 +3306,7 @@ ${
         </div>
       ) : null}
 
-      {section === 'bookings' && pendingDeposits.length ? (
+      {section === 'bookings' && !isDailyBookings && pendingDeposits.length ? (
         <section
           className="ops-deposit-queue"
           aria-label={ar ? 'طابور تأكيد العربون' : 'Deposit confirmation queue'}
@@ -3457,6 +3464,7 @@ ${
         </section>
       ) : null}
 
+      {isDailyBookings ? null : (
       <section
         className="ops-stats"
         aria-label={ar ? 'المؤشرات ومراحل العمل' : 'Metrics and stages'}
@@ -3568,8 +3576,10 @@ ${
           </>
         ) : null}
       </section>
+      )}
 
       {vacancyFollowUpTotal > 0 &&
+      !isDailyBookings &&
       (section === 'tasks' ||
         section === 'maintenance' ||
         section === 'legal' ||
@@ -3614,6 +3624,7 @@ ${
       ) : null}
 
       {vacantUnits.length &&
+      !isDailyBookings &&
       (section === 'bookings' ||
         section === 'tasks' ||
         section === 'maintenance' ||
@@ -3685,7 +3696,12 @@ ${
         </nav>
       ) : null}
 
-      <section className="ops-panel">
+      {isDailyBookings && (portal === 'owner' || portal === 'developer') ? (
+        <StaysPortalNav locale={locale} portal={portal} section="bookings" />
+      ) : null}
+
+      <section className={isDailyBookings ? 'ops-panel ops-panel--bare' : 'ops-panel'}>
+        {isDailyBookings ? null : (
         <div className="ops-toolbar">
           <label className="ops-search">
             <span className="sr-only">{ar ? 'بحث' : 'Search'}</span>
@@ -3740,6 +3756,7 @@ ${
             </span>
           ) : null}
         </div>
+        )}
         {error ? (
           <div className="notice notice--error" role="alert">
             {error}

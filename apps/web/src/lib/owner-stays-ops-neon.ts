@@ -528,13 +528,25 @@ export async function getOwnerStayBookingContractOnNeon(
   });
 }
 
+const LIVE_STAY_STATUSES = ['confirmed', 'paid', 'pre_arrival', 'checked_in'] as const;
+
+/** Today's date (YYYY-MM-DD) in Oman, where every stay unit operates. */
+export function stayTodayIso(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Muscat' }).format(new Date());
+}
+
+/**
+ * `upcomingFrom`: only live bookings that have not checked out before that date,
+ * soonest check-in first (dashboard "upcoming" list).
+ */
 export async function listOwnerStayBookingsOnNeon(
   claims: SessionClaims,
-  options?: { limit?: number; propertyId?: string },
+  options?: { limit?: number; propertyId?: string; upcomingFrom?: string },
 ): Promise<{ items: OpsStayBooking[] }> {
   const organizationId = assertOrg(claims);
   const limit = Math.min(Math.max(options?.limit ?? 50, 1), 100);
   const propertyId = options?.propertyId?.trim() || null;
+  const upcomingFrom = options?.upcomingFrom ?? null;
 
   return withinTenant(claims, async (transaction) => {
     const rows = await transaction
@@ -563,9 +575,19 @@ export async function listOwnerStayBookingsOnNeon(
         and(
           eq(stayBookings.organizationId, organizationId),
           ...(propertyId ? [eq(stayBookings.propertyId, propertyId)] : []),
+          ...(upcomingFrom
+            ? [
+                inArray(stayBookings.status, [...LIVE_STAY_STATUSES]),
+                sql`${stayBookings.checkOutOn} >= ${upcomingFrom}::date`,
+              ]
+            : []),
         ),
       )
-      .orderBy(desc(stayBookings.checkInOn), desc(stayBookings.createdAt))
+      .orderBy(
+        ...(upcomingFrom
+          ? [asc(stayBookings.checkInOn), asc(stayBookings.createdAt)]
+          : [desc(stayBookings.checkInOn), desc(stayBookings.createdAt)]),
+      )
       .limit(limit);
 
     const bookingIds = rows.map((row) => row.id);
@@ -1058,18 +1080,30 @@ export async function getOwnerStayInventoryDaysOnNeon(
   });
 }
 
-export async function countOwnerStayBookingsOnNeon(claims: SessionClaims): Promise<{
+export async function countOwnerStayBookingsOnNeon(
+  claims: SessionClaims,
+  today: string = stayTodayIso(),
+): Promise<{
   total: number;
   confirmed: number;
   pending: number;
+  arrivalsToday: number;
+  departuresToday: number;
+  inHouse: number;
+  upcoming: number;
 }> {
   const organizationId = assertOrg(claims);
+  const live = sql`${stayBookings.status} in ('confirmed', 'paid', 'pre_arrival', 'checked_in')`;
   return withinTenant(claims, async (transaction) => {
     const [row] = await transaction
       .select({
         total: sql<number>`count(*)::int`,
         confirmed: sql<number>`count(*) filter (where ${stayBookings.status} in ('confirmed', 'paid', 'pre_arrival', 'checked_in', 'checked_out'))::int`,
         pending: sql<number>`count(*) filter (where ${stayBookings.status} in ('payment_pending', 'request_pending'))::int`,
+        arrivalsToday: sql<number>`count(*) filter (where ${live} and ${stayBookings.checkInOn} = ${today}::date)::int`,
+        departuresToday: sql<number>`count(*) filter (where (${live} or ${stayBookings.status} = 'checked_out') and ${stayBookings.checkOutOn} = ${today}::date and ${stayBookings.checkOutOn} > ${stayBookings.checkInOn})::int`,
+        inHouse: sql<number>`count(*) filter (where ${stayBookings.status} = 'checked_in' or (${live} and ${stayBookings.checkInOn} < ${today}::date and ${stayBookings.checkOutOn} > ${today}::date))::int`,
+        upcoming: sql<number>`count(*) filter (where ${live} and ${stayBookings.checkInOn} > ${today}::date)::int`,
       })
       .from(stayBookings)
       .where(eq(stayBookings.organizationId, organizationId));
@@ -1077,6 +1111,10 @@ export async function countOwnerStayBookingsOnNeon(claims: SessionClaims): Promi
       total: Number(row?.total ?? 0),
       confirmed: Number(row?.confirmed ?? 0),
       pending: Number(row?.pending ?? 0),
+      arrivalsToday: Number(row?.arrivalsToday ?? 0),
+      departuresToday: Number(row?.departuresToday ?? 0),
+      inHouse: Number(row?.inHouse ?? 0),
+      upcoming: Number(row?.upcoming ?? 0),
     };
   });
 }

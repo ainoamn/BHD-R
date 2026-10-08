@@ -32,14 +32,28 @@ async function loadUnits(): Promise<StayCalendarUnit[]> {
   return units.items ?? [];
 }
 
-async function Page({ params }: { params: Promise<{ locale: string }> }) {
+async function Page({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<{ unitId?: string; view?: string }>;
+}) {
   if (!isStaysPlatformEnabled()) notFound();
   const { locale } = await params;
+  const { unitId, view } = await searchParams;
   const items = await loadUnits();
 
   return (
     <StaysPortalPage locale={locale} portal="developer" section="calendar">
-      <StayOpsCalendarPanel locale={locale} items={items} portal="developer" />
+      <StayOpsCalendarPanel
+        key={`${unitId ?? 'all'}:${view ?? ''}`}
+        locale={locale}
+        items={items}
+        portal="developer"
+        initialUnitId={unitId ?? null}
+        initialView={view === 'prices' ? 'prices' : 'bookings'}
+      />
     </StaysPortalPage>
   );
 }

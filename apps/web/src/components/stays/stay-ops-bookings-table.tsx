@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { EmptyState } from '@bhd-r/ui';
 import { Link } from '@/i18n/navigation';
@@ -107,6 +107,10 @@ export function StayOpsBookingsTable({
   const [query, setQuery] = useState('');
   const today = useMemo(() => todayIso(), []);
 
+  useEffect(() => {
+    setRows(items);
+  }, [items]);
+
   const stats = useMemo(() => {
     const attention = rows.filter((b) => matchesFilter(b, 'attention', today)).length;
     const upcoming = rows.filter((b) => matchesFilter(b, 'upcoming', today)).length;
@@ -166,12 +170,37 @@ export function StayOpsBookingsTable({
     }
   }
 
-  const filters: Array<{ id: FilterId; label: string; count: number }> = [
-    { id: 'all', label: ar ? 'الكل' : 'All', count: stats.total },
-    { id: 'attention', label: ar ? 'تحتاج إجراء' : 'Needs action', count: stats.attention },
-    { id: 'upcoming', label: ar ? 'قادمة' : 'Upcoming', count: stats.upcoming },
-    { id: 'active', label: ar ? 'داخل العقار' : 'In-house', count: stats.active },
-    { id: 'done', label: ar ? 'منتهية' : 'Closed', count: stats.done },
+  const filters: Array<{ id: FilterId; label: string; hint: string; count: number }> = [
+    {
+      id: 'all',
+      label: ar ? 'كل الحجوزات' : 'All bookings',
+      hint: ar ? 'كل الحالات' : 'Every status',
+      count: stats.total,
+    },
+    {
+      id: 'attention',
+      label: ar ? 'تحتاج إجراء' : 'Needs action',
+      hint: ar ? 'بانتظار الدفع أو الاعتماد' : 'Awaiting payment or approval',
+      count: stats.attention,
+    },
+    {
+      id: 'upcoming',
+      label: ar ? 'قادمة' : 'Upcoming',
+      hint: ar ? 'مؤكدة ولم يصل الضيف' : 'Confirmed, not arrived yet',
+      count: stats.upcoming,
+    },
+    {
+      id: 'active',
+      label: ar ? 'داخل العقار' : 'In-house',
+      hint: ar ? 'سجّل الضيف الدخول' : 'Guest checked in',
+      count: stats.active,
+    },
+    {
+      id: 'done',
+      label: ar ? 'منتهية' : 'Closed',
+      hint: ar ? 'غادر، أُلغي أو لم يحضر' : 'Left, cancelled or no-show',
+      count: stats.done,
+    },
   ];
 
   if (!rows.length) {
@@ -189,49 +218,39 @@ export function StayOpsBookingsTable({
 
   return (
     <div className="stays-bookings-board">
-      <div className="stays-bookings-board__stats" role="list">
-        <div className="stays-bookings-board__stat" role="listitem">
-          <span>{ar ? 'إجمالي' : 'Total'}</span>
-          <strong>{stats.total}</strong>
-        </div>
-        <div className="stays-bookings-board__stat is-attention" role="listitem">
-          <span>{ar ? 'تحتاج إجراء' : 'Needs action'}</span>
-          <strong>{stats.attention}</strong>
-        </div>
-        <div className="stays-bookings-board__stat is-upcoming" role="listitem">
-          <span>{ar ? 'قادمة' : 'Upcoming'}</span>
-          <strong>{stats.upcoming}</strong>
-        </div>
-        <div className="stays-bookings-board__stat is-active" role="listitem">
-          <span>{ar ? 'داخل العقار' : 'In-house'}</span>
-          <strong>{stats.active}</strong>
-        </div>
+      <div
+        className="stays-bookings-board__stats"
+        role="tablist"
+        aria-label={ar ? 'تصفية الحجوزات' : 'Filter bookings'}
+      >
+        {filters.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={filter === item.id}
+            className={[
+              'stays-bookings-board__stat',
+              `is-${item.id}`,
+              filter === item.id ? 'is-selected' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            onClick={() => setFilter(item.id)}
+          >
+            <strong>{item.count}</strong>
+            <span>{item.label}</span>
+            <small>{item.hint}</small>
+          </button>
+        ))}
       </div>
 
       <div className="stays-bookings-board__toolbar">
-        <div
-          className="stays-bookings-board__filters"
-          role="tablist"
-          aria-label={ar ? 'تصفية' : 'Filter'}
-        >
-          {filters.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              role="tab"
-              aria-selected={filter === item.id}
-              className={
-                filter === item.id
-                  ? 'stays-bookings-board__chip is-active'
-                  : 'stays-bookings-board__chip'
-              }
-              onClick={() => setFilter(item.id)}
-            >
-              {item.label}
-              <em>{item.count}</em>
-            </button>
-          ))}
-        </div>
+        <span className="stays-bookings-board__count">
+          {ar
+            ? `${filtered.length} من ${rows.length} حجز`
+            : `${filtered.length} of ${rows.length} bookings`}
+        </span>
         <label className="stays-bookings-board__search">
           <span className="sr-only">{ar ? 'بحث' : 'Search'}</span>
           <input
@@ -284,41 +303,13 @@ export function StayOpsBookingsTable({
             return (
               <li key={booking.id} className={`stays-bookings-card is-${tone}`}>
                 <div className="stays-bookings-card__main">
-                  <div className="stays-bookings-card__identity">
-                    <Link
-                      className="stays-bookings-card__ref"
-                      href={`/${portal}/stays/bookings/${booking.id}`}
-                    >
-                      <strong dir="ltr">{booking.referenceCode}</strong>
-                    </Link>
-                    <span className={`stays-bookings-card__badge is-${tone}`}>
-                      {stayStatusLabel(booking.status, locale)}
-                    </span>
-                    <span className="stays-bookings-card__mode">
-                      {stayBookingModeLabel(booking.bookingMode, locale)}
-                    </span>
-                  </div>
-
-                  <div className="stays-bookings-card__guest">
-                    <span className="stays-bookings-card__label">{ar ? 'الضيف' : 'Guest'}</span>
-                    <strong>{booking.guestDisplayName || (ar ? 'ضيف' : 'Guest')}</strong>
-                  </div>
-
-                  <div className="stays-bookings-card__property">
-                    <span className="stays-bookings-card__label">{ar ? 'العقار' : 'Property'}</span>
-                    <Link href={`/${portal}/properties/${booking.propertyId}`}>
-                      {propertyName || (ar ? 'فتح العقار' : 'Open property')}
-                    </Link>
-                    <span className="muted">{unitLabel}</span>
-                  </div>
-
-                  <div className="stays-bookings-card__dates" dir="ltr">
+                  <div className="stays-bookings-card__dates">
                     <div>
                       <span className="stays-bookings-card__label">{ar ? 'وصول' : 'Check-in'}</span>
                       <strong>{formatStayDate(booking.checkInOn, locale)}</strong>
                     </div>
                     <span className="stays-bookings-card__arrow" aria-hidden>
-                      →
+                      {ar ? '←' : '→'}
                     </span>
                     <div>
                       <span className="stays-bookings-card__label">
@@ -327,20 +318,54 @@ export function StayOpsBookingsTable({
                       <strong>{formatStayDate(booking.checkOutOn, locale)}</strong>
                     </div>
                     <em>
-                      {booking.nights ?? '—'}{' '}
-                      {ar
-                        ? booking.nights === 1
-                          ? 'ليلة'
-                          : 'ليالٍ'
-                        : booking.nights === 1
-                          ? 'night'
-                          : 'nights'}
+                      {booking.nights
+                        ? `${booking.nights} ${
+                            ar
+                              ? booking.nights === 1
+                                ? 'ليلة'
+                                : 'ليالٍ'
+                              : booking.nights === 1
+                                ? 'night'
+                                : 'nights'
+                          }`
+                        : ar
+                          ? 'بدون مبيت'
+                          : 'Day use'}
                     </em>
                   </div>
 
-                  <div className="stays-bookings-card__amount" dir="ltr">
+                  <div className="stays-bookings-card__info">
+                    <div className="stays-bookings-card__identity">
+                      <strong className="stays-bookings-card__guest">
+                        {booking.guestDisplayName || (ar ? 'ضيف' : 'Guest')}
+                      </strong>
+                      <span className={`stays-bookings-card__badge is-${tone}`}>
+                        {stayStatusLabel(booking.status, locale)}
+                      </span>
+                    </div>
+                    <div className="stays-bookings-card__property">
+                      <Link href={`/${portal}/properties/${booking.propertyId}`}>
+                        {propertyName || (ar ? 'فتح العقار' : 'Open property')}
+                      </Link>
+                      <span className="muted">· {unitLabel}</span>
+                    </div>
+                    <div className="stays-bookings-card__meta">
+                      <Link
+                        className="stays-bookings-card__ref"
+                        href={`/${portal}/stays/bookings/${booking.id}`}
+                        dir="ltr"
+                      >
+                        {booking.referenceCode}
+                      </Link>
+                      <span>{stayBookingModeLabel(booking.bookingMode, locale)}</span>
+                    </div>
+                  </div>
+
+                  <div className="stays-bookings-card__amount">
                     <span className="stays-bookings-card__label">{ar ? 'المبلغ' : 'Total'}</span>
-                    <strong>{formatMoney(booking.totalMinor, booking.currency, locale)}</strong>
+                    <strong dir="ltr">
+                      {formatMoney(booking.totalMinor, booking.currency, locale)}
+                    </strong>
                   </div>
                 </div>
 

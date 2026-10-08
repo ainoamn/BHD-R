@@ -139,15 +139,18 @@ async function loadUnitCovers(
   return map;
 }
 
-/** Per-unit daily-rental settings for the property edit page (units that have a stay profile). */
+/** Per-unit daily-rental settings of one property, or of every property when `propertyId` is null. */
 export async function loadPropertyStaySettingsOnNeon(
   claims: SessionClaims,
-  propertyId: string,
+  propertyId: string | null,
 ): Promise<PropertyStaySettingsUnit[]> {
   const organizationId = assertOrg(claims);
   return withinTenant(claims, async (transaction) => {
     const rows = await transaction
       .select({
+        propertyId: units.propertyId,
+        propertyNameAr: properties.nameAr,
+        propertyNameEn: properties.nameEn,
         unitId: units.id,
         unitCode: units.code,
         unitNameAr: units.nameAr,
@@ -171,8 +174,14 @@ export async function loadPropertyStaySettingsOnNeon(
       })
       .from(stayProfiles)
       .innerJoin(units, eq(units.id, stayProfiles.unitId))
-      .where(and(eq(stayProfiles.organizationId, organizationId), eq(units.propertyId, propertyId)))
-      .orderBy(asc(units.code));
+      .innerJoin(properties, eq(properties.id, units.propertyId))
+      .where(
+        and(
+          eq(stayProfiles.organizationId, organizationId),
+          ...(propertyId ? [eq(units.propertyId, propertyId)] : []),
+        ),
+      )
+      .orderBy(asc(properties.nameAr), asc(units.code));
     if (!rows.length) return [];
 
     const [rates, listingRows] = await Promise.all([
@@ -201,7 +210,7 @@ export async function loadPropertyStaySettingsOnNeon(
         .where(
           and(
             eq(stayPublicListings.organizationId, organizationId),
-            eq(stayPublicListings.propertyId, propertyId),
+            ...(propertyId ? [eq(stayPublicListings.propertyId, propertyId)] : []),
           ),
         ),
     ]);
@@ -212,6 +221,9 @@ export async function loadPropertyStaySettingsOnNeon(
     return rows.map((row) => {
       const rate = rateByProfile.get(row.profileId);
       return {
+        propertyId: row.propertyId,
+        propertyNameAr: row.propertyNameAr,
+        propertyNameEn: row.propertyNameEn,
         unitId: row.unitId,
         unitCode: row.unitCode,
         unitNameAr: row.unitNameAr,

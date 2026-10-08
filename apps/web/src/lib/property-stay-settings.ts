@@ -1,5 +1,8 @@
-/** Daily-rental settings of one unit, edited from the property edit page. Money in minor units. */
+/** Daily-rental settings of one unit (property edit page, stays rates page). Money in minor units. */
 export type PropertyStaySettingsUnit = {
+  propertyId: string;
+  propertyNameAr: string;
+  propertyNameEn: string;
   unitId: string;
   unitCode: string;
   unitNameAr: string;

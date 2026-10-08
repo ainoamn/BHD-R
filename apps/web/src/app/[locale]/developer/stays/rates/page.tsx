@@ -1,12 +1,12 @@
 import { persistentPortalPage } from '@/lib/persistent-portal-page';
 import { notFound } from 'next/navigation';
-import { StaysPortalPage } from '@/components/stays/stays-portal-page';
+import { StaysRatesPage } from '@/components/stays/stays-rates-page';
 import { isStaysPlatformEnabled } from '@/lib/stays-flags';
 
 async function Page({ params }: { params: Promise<{ locale: string }> }) {
   if (!isStaysPlatformEnabled()) notFound();
   const { locale } = await params;
-  return <StaysPortalPage locale={locale} portal="developer" section="rates" />;
+  return <StaysRatesPage locale={locale} portal="developer" />;
 }
 
 export default persistentPortalPage('/developer/stays/rates', Page);

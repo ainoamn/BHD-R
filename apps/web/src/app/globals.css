@@ -9864,72 +9864,215 @@ button.ops-row-key {
 .stays-search__grid {
   grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
 }
-.stays-portal__header {
-  margin-bottom: 1rem;
+/* Daily stays screens: dashboard, calendar, rates, and the daily bookings tab. */
+.stays-portal,
+.stays-nav {
+  --pmh-line: #e1e9e5;
+  --pmh-soft: #f6f9f7;
+  --pmh-card-shadow: 0 1px 2px rgb(9 45 36 / 0.04), 0 10px 28px rgb(9 45 36 / 0.05);
 }
-.stays-portal__tabs {
-  margin-bottom: 1.25rem;
-}
-.stays-portal__stats {
+.stays-portal {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.85rem;
-  list-style: none;
+  gap: 1rem;
+  min-width: 0;
+}
+.stays-portal__header h1 {
   margin: 0;
-  padding: 0;
+  color: var(--oman-deep);
+  font-size: clamp(1.3rem, 2.2vw, 1.7rem);
+  line-height: 1.3;
 }
-.stays-portal__stats li {
+.stays-portal__header p {
+  max-width: 62rem;
+  margin: 0.3rem 0 0;
+  line-height: 1.7;
+}
+.stays-portal__body {
   display: grid;
-  gap: 0.25rem;
-  padding: 0.85rem 1rem;
-  background: color-mix(in srgb, var(--oman-sand, #f3efe6) 70%, white);
-  border: 1px solid #d7e1db;
-  border-radius: var(--radius);
+  gap: 1rem;
+  min-width: 0;
 }
-.stays-portal__stats span {
-  color: var(--muted, #5c6b64);
-  font-size: 0.85rem;
+.stays-nav .pmh-action.is-active {
+  color: var(--oman-deep);
+  background: #e8f2ee;
+  border-color: #cfe0d8;
 }
-.stays-portal__recent {
-  margin: 1.25rem 0 1.5rem;
-  padding: 1rem 1.1rem;
-  border: 1px solid #d7e1db;
-  border-radius: var(--radius);
-  background: #fff;
+.ops-workspace .stays-nav {
+  margin-block: 0.75rem;
 }
-.stays-portal__recent .dash-section-head {
-  display: flex;
+.ops-panel.ops-panel--bare {
+  overflow: visible;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+.ops-panel.ops-panel--bare > * {
+  padding-inline: 0 !important;
+}
+.stays-dash__today {
+  margin-inline-start: 0.4rem;
+  padding: 0.05rem 0.45rem;
+  color: #8a5207;
+  background: #fbefdc;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-style: normal;
+  font-weight: 800;
+}
+.stays-dash__unit-actions {
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
+  gap: 0.5rem;
 }
-.stays-portal__recent-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.stays-dash__empty {
   display: grid;
-  gap: 0.65rem;
+  justify-items: center;
+  gap: 0.75rem;
 }
-.stays-portal__recent-list li {
+.stays-dash__empty p {
+  margin: 0;
+}
+
+/* Rates page */
+.stays-rates {
+  display: grid;
+  gap: 1rem;
+}
+.stays-rates__toolbar {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: space-between;
-  gap: 0.5rem 1rem;
-  padding: 0.65rem 0.75rem;
-  border-radius: 0.55rem;
-  background: #f8faf9;
-  border: 1px solid color-mix(in srgb, var(--oman-deep) 8%, #d7e1db);
+  gap: 0.75rem 1rem;
 }
-.stays-portal__recent-list li > div {
+.stays-rates__tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  flex: 1 1 26rem;
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  color: #3e5850;
+  background: #f1f7f4;
+  border: 1px solid #d9e8e1;
+  border-radius: 0.85rem;
+  font-size: 0.86rem;
+  line-height: 1.6;
+}
+.stays-rates__tip .pmh-icon {
+  margin-block-start: 0.15rem;
+  color: var(--bhd-teal);
+}
+.stays-rates__list {
   display: grid;
-  gap: 0.15rem;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
-.stays-portal__recent-list a {
+.stays-rates__unit {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.8rem 0.9rem;
+  background: var(--pmh-soft);
+  border: 1px solid transparent;
+  border-radius: 0.95rem;
+  scroll-margin-block-start: 9rem;
+}
+.stays-rates__unit.is-open {
+  background: white;
+  border-color: #cfe0d8;
+}
+.stays-rates__row {
+  display: grid;
+  grid-template-columns: minmax(9rem, 14rem) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+.stays-rates__name {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+.stays-rates__name strong {
+  color: var(--oman-deep);
+}
+.stays-rates__name > span {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.stays-rates__prices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+  gap: 0.4rem;
+  margin: 0;
+}
+.stays-rates__prices div {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.4rem 0.6rem;
+  background: white;
+  border: 1px solid var(--pmh-line);
+  border-radius: 0.7rem;
+}
+.stays-rates__prices dt {
+  color: var(--muted);
+  font-size: 0.72rem;
   font-weight: 700;
-  color: var(--oman-deep, #092d24);
-  text-decoration: underline;
-  text-underline-offset: 0.12em;
+}
+.stays-rates__prices dd {
+  margin: 0;
+  color: var(--oman-deep);
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+.stays-rates__prices .is-main {
+  border-color: #b9d6ca;
+  background: #f3faf7;
+}
+.stays-rates__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+.stays-rates__actions .button {
+  min-height: 2.35rem;
+}
+.stays-rates__public {
+  color: var(--bhd-navy);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+.stay-settings-unit.is-prices {
+  margin: 0;
+  padding: 0.25rem 0 0;
+  border: 0;
+  border-block-start: 1px solid var(--pmh-line);
+  border-radius: 0;
+  background: transparent;
+}
+@media (max-width: 1100px) {
+  .stays-rates__row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .stays-rates__prices {
+    grid-column: 1 / -1;
+    order: 3;
+  }
+}
+@media (max-width: 640px) {
+  .stays-rates__row {
+    grid-template-columns: 1fr;
+  }
+  .stays-rates__actions {
+    justify-content: flex-start;
+  }
 }
 .stays-ops-bookings__actions {
   display: flex;
@@ -9950,37 +10093,63 @@ button.ops-row-key {
 }
 .stays-bookings-board__stats {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.6rem;
 }
 .stays-bookings-board__stat {
   display: grid;
-  gap: 0.2rem;
-  padding: 0.9rem 1rem;
+  align-content: start;
+  gap: 0.1rem;
+  padding: 0.75rem 0.9rem;
   border-radius: 0.95rem;
-  background: linear-gradient(180deg, #ffffff, #f7faf8);
+  background: #fff;
   border: 1px solid #d7e1db;
-  box-shadow: 0 10px 24px rgb(9 45 36 / 0.04);
+  box-shadow:
+    0 1px 2px rgb(9 45 36 / 0.04),
+    0 8px 20px rgb(9 45 36 / 0.04);
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
 }
-.stays-bookings-board__stat span {
-  font-size: 0.82rem;
-  color: var(--muted, #5c6b64);
+.stays-bookings-board__stat:hover {
+  border-color: #b9cdc4;
 }
 .stays-bookings-board__stat strong {
-  font-size: 1.35rem;
+  font-size: 1.4rem;
+  line-height: 1.15;
   color: var(--oman-deep, #092d24);
   font-variant-numeric: tabular-nums;
 }
+.stays-bookings-board__stat span {
+  font-size: 0.86rem;
+  font-weight: 750;
+  color: var(--oman-deep, #092d24);
+}
+.stays-bookings-board__stat small {
+  font-size: 0.72rem;
+  color: var(--muted, #5c6b64);
+}
 .stays-bookings-board__stat.is-attention {
-  border-color: color-mix(in srgb, #c47a1a 35%, #d7e1db);
-  background: linear-gradient(180deg, #fffaf3, #fff);
+  border-inline-start: 4px solid #c47a1a;
 }
 .stays-bookings-board__stat.is-upcoming {
-  border-color: color-mix(in srgb, var(--bhd-teal) 35%, #d7e1db);
+  border-inline-start: 4px solid var(--bhd-teal, #08a39f);
 }
 .stays-bookings-board__stat.is-active {
-  border-color: color-mix(in srgb, #1f6b45 35%, #d7e1db);
-  background: linear-gradient(180deg, #f2faf5, #fff);
+  border-inline-start: 4px solid #1f6b45;
+}
+.stays-bookings-board__stat.is-selected {
+  background: var(--oman-deep, #092d24);
+  border-color: var(--oman-deep, #092d24);
+}
+.stays-bookings-board__stat.is-selected strong,
+.stays-bookings-board__stat.is-selected span,
+.stays-bookings-board__stat.is-selected small {
+  color: #f4f0e8;
 }
 .stays-bookings-board__toolbar {
   display: flex;
@@ -9988,6 +10157,11 @@ button.ops-row-key {
   gap: 0.75rem 1rem;
   align-items: center;
   justify-content: space-between;
+}
+.stays-bookings-board__count {
+  color: var(--muted, #5c6b64);
+  font-size: 0.85rem;
+  font-weight: 700;
 }
 .stays-bookings-board__filters {
   display: flex;
@@ -10086,30 +10260,54 @@ button.ops-row-key {
 }
 .stays-bookings-card__main {
   display: grid;
-  grid-template-columns:
-    minmax(150px, 1.1fr) minmax(120px, 0.9fr) minmax(140px, 1.1fr) minmax(180px, 1.2fr)
-    minmax(100px, 0.8fr);
-  gap: 0.85rem 1rem;
-  align-items: start;
+  grid-template-columns: minmax(10rem, 12rem) minmax(0, 1fr) auto;
+  gap: 0.85rem 1.1rem;
+  align-items: center;
 }
-.stays-bookings-card__identity,
-.stays-bookings-card__guest,
-.stays-bookings-card__property,
-.stays-bookings-card__dates,
+.stays-bookings-card__info {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+.stays-bookings-card__identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+.stays-bookings-card__guest {
+  color: var(--oman-deep, #092d24);
+  font-size: 1rem;
+}
+.stays-bookings-card__property {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  min-width: 0;
+  font-size: 0.88rem;
+}
+.stays-bookings-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  color: var(--muted, #5c6b64);
+  font-size: 0.78rem;
+}
 .stays-bookings-card__amount {
   display: grid;
-  gap: 0.25rem;
-  min-width: 0;
+  gap: 0.15rem;
+  justify-items: end;
+  text-align: end;
 }
 .stays-bookings-card__label {
   font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
   color: #6a7771;
 }
 .stays-bookings-card__ref {
-  color: var(--oman-deep, #092d24);
+  color: inherit;
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-weight: 700;
   text-decoration: none;
 }
 .stays-bookings-card__ref:hover {
@@ -10156,9 +10354,14 @@ button.ops-row-key {
   text-underline-offset: 0.12em;
 }
 .stays-bookings-card__dates {
+  display: grid;
   grid-template-columns: auto auto auto;
+  justify-content: start;
   align-items: end;
-  column-gap: 0.55rem;
+  gap: 0.15rem 0.55rem;
+  padding: 0.55rem 0.75rem;
+  background: #f6f9f7;
+  border-radius: 0.8rem;
 }
 .stays-bookings-card__dates > div {
   display: grid;
@@ -10190,19 +10393,23 @@ button.ops-row-key {
   min-height: 2.35rem;
 }
 @media (max-width: 1100px) {
-  .stays-bookings-card__main {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .stays-bookings-board__stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 @media (max-width: 720px) {
   .stays-bookings-board__stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .stays-bookings-card__main {
-    grid-template-columns: 1fr;
+  .stays-bookings-board__stat.is-all {
+    grid-column: 1 / -1;
   }
-  .stays-bookings-card__dates {
-    grid-template-columns: auto auto 1fr;
+  .stays-bookings-card__main {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .stays-bookings-card__info {
+    grid-column: 1 / -1;
+    order: -1;
   }
   .stays-bookings-board__search {
     max-width: none;
@@ -10861,19 +11068,8 @@ button.ops-row-key {
 .guest-stays__list {
   margin-top: 2rem;
 }
-.stays-performance {
-  margin-top: 1rem;
-}
-.stays-performance__title {
-  margin: 1.25rem 0 0.5rem;
-  font-size: 1.05rem;
-}
-.stays-performance__stats {
-  margin-top: 0.75rem;
-}
 @media (max-width: 760px) {
   .stays-search__grid,
-  .stays-portal__stats,
   .stays-checkout__grid,
   .guest-stays-lookup__form {
     grid-template-columns: 1fr;
@@ -11402,7 +11598,7 @@ button.ops-row-key {
   .stay-contract-nav,
   .stay-contract-toolbar,
   .stays-portal__header,
-  .stays-portal__tabs,
+  .stays-nav,
   .portal-sidebar,
   .portal-header {
     display: none !important;
@@ -11990,9 +12186,6 @@ button.ops-row-key {
 .stays-checkout__grid--compact {
   margin-top: 0.5rem;
 }
-.stays-ops-calendar__header h2 {
-  margin: 0 0 0.35rem;
-}
 .stays-unit-picker {
   position: relative;
   display: grid;
@@ -12084,6 +12277,7 @@ button.ops-row-key {
   box-shadow: 0 4px 12px rgb(9 45 36 / 0.12);
 }
 .stays-overview__details {
+  scroll-margin-block: 9rem 1rem;
   display: grid;
   gap: 0.75rem;
   padding: 0.9rem;
@@ -12146,22 +12340,43 @@ button.ops-row-key {
   margin: 0;
   font-weight: 650;
 }
-.stays-ops-calendar__pricing {
+.stays-ops-calendar {
   display: grid;
-  gap: 0.75rem;
-  margin-top: 1.25rem;
-  padding-top: 1rem;
-  border-top: 1px solid #e3e8e5;
+  gap: 1rem;
+  width: 100%;
+  min-width: 0;
 }
-.stays-ops-calendar__pricing h3 {
-  margin: 0;
-  font-size: 1.05rem;
+.stays-ops-calendar__board {
+  min-width: 0;
 }
-.stays-ops-calendar__units {
+.stays-ops-calendar__toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+}
+.stays-ops-calendar__toolbar .stays-unit-picker {
+  flex: 1 1 20rem;
+  margin-bottom: 0;
+}
+.stays-ops-calendar__hint {
+  margin: 0;
+  font-size: 0.86rem;
+}
+.stays-ops-calendar__prices {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.stays-ops-calendar .stays-calendar {
+  container-type: inline-size;
+  margin-bottom: 0;
+}
+@container (max-width: 44rem) {
+  .stays-ops-calendar .stays-calendar__months--2 {
+    grid-template-columns: 1fr;
+  }
 }
 .stays-ops-calendar__layout {
   display: grid;
@@ -12183,7 +12398,8 @@ button.ops-row-key {
   display: grid;
   gap: 0.75rem;
   position: sticky;
-  inset-block-start: 5.5rem;
+  inset-block-start: calc(var(--pmh-sticky-top, 4.4rem) + 4.25rem);
+  scroll-margin-block: 9rem 1rem;
 }
 .stays-ops-calendar__editor h3 {
   margin: 0;
@@ -12195,45 +12411,32 @@ button.ops-row-key {
   gap: 0.5rem;
   font-size: 0.9rem;
 }
-.stays-ops-calendar {
-  width: 100%;
-}
-.stays-ops-calendar.ops-panel {
-  padding: 1rem 1.1rem 1.25rem;
-}
-.stays-ops-calendar.ops-panel > * {
-  padding-inline: 0;
-}
-.stays-ops-calendar__unit-tab {
-  min-height: 2.55rem;
-  display: inline-flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.1rem;
-  padding-block: 0.4rem;
-}
-.stays-ops-calendar__unit-name {
-  font-weight: 750;
-  font-size: 0.88rem;
-  line-height: 1.2;
-  max-width: 14rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.stays-ops-calendar__unit-code {
-  font-size: 0.72rem;
-  opacity: 0.75;
-  font-weight: 600;
-}
-.stays-ops-calendar__export {
-  margin-top: 1.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid #e3e8e5;
-}
 .stays-ops-calendar__export summary {
   cursor: pointer;
+  color: var(--oman-deep);
   font-weight: 700;
+}
+.stays-ops-calendar__export p {
+  margin: 0;
+}
+@media (max-width: 640px) {
+  .stays-portal .pmh-card {
+    padding: 0.8rem 0.75rem 0.9rem;
+  }
+  .stays-ops-calendar .stays-calendar__month {
+    padding: 0.5rem 0.4rem;
+  }
+  .stays-ops-calendar .stays-calendar__grid,
+  .stays-ops-calendar .stays-calendar__weekdays {
+    gap: 0.2rem;
+  }
+  .stays-ops-calendar .stays-calendar--ops .stays-calendar__day {
+    min-height: 3rem;
+    padding: 0.3rem 0.1rem;
+  }
+  .stays-ops-calendar__views {
+    width: 100%;
+  }
 }
 .stays-hero__search {
   max-width: 56rem;
