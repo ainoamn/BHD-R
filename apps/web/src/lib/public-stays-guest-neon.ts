@@ -21,6 +21,7 @@ import {
   priceStayRangeForUnitOnNeon,
   PublicStayBookingError,
 } from '@/lib/public-stays-booking-neon';
+import { loadStayStamps, type StayStamp } from '@/lib/stay-arrival-neon';
 import { stayRescheduleCharge, type StayRescheduleCharge } from '@/lib/stay-reschedule-pricing';
 
 type DbHandle = { db: Database };
@@ -97,7 +98,11 @@ export type GuestStayBookingProjection = {
   canCancel?: boolean;
   canRebook?: boolean;
   canReschedule?: boolean;
+  checkIn?: StayStamp | null;
+  checkOut?: StayStamp | null;
 };
+
+const STAMPED_STATUSES = new Set(['checked_in', 'checked_out', 'closed']);
 
 const GUEST_RESCHEDULABLE = new Set([
   'payment_pending',
@@ -381,10 +386,14 @@ async function enrichProjection(
   booking: typeof stayBookings.$inferSelect,
   guestDisplayName?: string | null,
 ): Promise<GuestStayBookingProjection> {
-  const [paymentIntentId, listing] = await Promise.all([
+  const [paymentIntentId, listing, stamps] = await Promise.all([
     resolvePaymentIntentId(transaction, booking.organizationId, booking.id),
     resolveListing(transaction, booking.organizationId, booking.stayProfileId),
+    STAMPED_STATUSES.has(booking.status)
+      ? loadStayStamps(transaction, booking.organizationId, [booking.id])
+      : Promise.resolve(null),
   ]);
+  const stamp = stamps?.get(booking.id);
   return {
     ...toProjection({
       ...booking,
@@ -394,6 +403,8 @@ async function enrichProjection(
     }),
     listingTitleAr: listing?.titleAr ?? null,
     listingTitleEn: listing?.titleEn ?? null,
+    checkIn: stamp?.checkIn ?? null,
+    checkOut: stamp?.checkOut ?? null,
   };
 }
 

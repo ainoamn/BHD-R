@@ -1,69 +1,10 @@
-import { setRequestLocale } from 'next-intl/server';
-import { notFound } from 'next/navigation';
-import { Link } from '@/i18n/navigation';
-import { RememberStayTripAlert } from '@/components/stays/remember-stay-trip-alert';
-import { formatMoney } from '@/lib/format';
+import { notFound, redirect } from 'next/navigation';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { lookupPublicStayBookingOnNeon } from '@/lib/public-stays-guest-neon';
-import { isStayEsignRequiredServer } from '@/lib/stay-esign-flags';
 import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
 import { publicApiFetch } from '@/lib/server-api';
-import { stayStatusLabel, stayTypeLabel } from '@/lib/ui-labels';
 
-type PublicBooking = {
-  id?: string;
-  referenceCode: string;
-  status: string;
-  checkInOn?: string;
-  checkOutOn?: string;
-  currency?: string;
-  totalMinor?: string;
-  nights?: number;
-  guestDisplayName?: string | null;
-  guestEmail?: string | null;
-  adults?: number | null;
-  children?: number | null;
-  stayType?: string | null;
-  esignCompleted?: boolean;
-};
-
-function confirmationWelcome(input: {
-  ar: boolean;
-  paid: boolean;
-  guestName?: string | null;
-  amountLabel?: string | null;
-}): { greeting: string; guestName: string; body: string } {
-  const guestName = input.guestName?.trim() || (input.ar ? 'الضيف الكريم' : 'valued guest');
-  const greeting = input.ar ? 'عزيزي' : 'Dear';
-  if (input.paid) {
-    if (input.ar) {
-      const amountPart = input.amountLabel ? ` بمبلغ إجمالي ${input.amountLabel}` : '';
-      return {
-        greeting,
-        guestName,
-        body: `نودّ أن نؤكّد لك استلام حجزك، وأن الحجز والدفع قد تمّا بنجاح${amountPart}. نتطلّع لاستضافتك، ونتمنى لك إقامةً هانئة.`,
-      };
-    }
-    const amountPart = input.amountLabel ? ` for a total of ${input.amountLabel}` : '';
-    return {
-      greeting,
-      guestName,
-      body: `We are pleased to confirm that your booking has been received, and that both the reservation and payment were completed successfully${amountPart}. We look forward to hosting you.`,
-    };
-  }
-  if (input.ar) {
-    return {
-      greeting,
-      guestName,
-      body: 'نودّ أن نؤكّد لك استلام طلب حجزك. يرجى إكمال الدفع لتأكيد الإقامة.',
-    };
-  }
-  return {
-    greeting,
-    guestName,
-    body: 'We confirm receipt of your booking request. Please complete payment to confirm your stay.',
-  };
-}
+type PublicBooking = { id?: string; referenceCode: string };
 
 async function loadBooking(ref: string): Promise<PublicBooking | null> {
   if (hasDatabaseUrl()) {
@@ -79,6 +20,10 @@ async function loadBooking(ref: string): Promise<PublicBooking | null> {
   ).catch(() => null);
 }
 
+/**
+ * Landing URL after booking, payment and e-sign (also linked from emails).
+ * The guest stay page is the single view of a booking, so this only forwards to it.
+ */
 export default async function StayBookingConfirmedPage({
   params,
   searchParams,
@@ -87,11 +32,9 @@ export default async function StayBookingConfirmedPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   if (!isStaysPublicSurfaceEnabled()) notFound();
-  const { locale } = await params;
+  const { locale: raw } = await params;
+  const locale = raw === 'en' ? 'en' : 'ar';
   const query = await searchParams;
-  setRequestLocale(locale);
-  const ar = locale === 'ar';
-
   const refRaw = query.ref;
   const ref = typeof refRaw === 'string' ? refRaw : Array.isArray(refRaw) ? refRaw[0] : undefined;
   if (!ref) notFound();
@@ -99,235 +42,7 @@ export default async function StayBookingConfirmedPage({
   const booking = await loadBooking(ref);
   if (!booking) notFound();
 
-  const paid = booking.status === 'confirmed' || booking.status === 'paid';
-  const esignRequired = isStayEsignRequiredServer();
-  const needsEsign = esignRequired && paid && !booking.esignCompleted;
-  const esignDone = esignRequired && paid && Boolean(booking.esignCompleted);
-  const stayTone =
-    booking.stayType === 'day_use' || booking.stayType === 'overnight_only'
-      ? booking.stayType
-      : 'overnight_stay';
-  const nights =
-    typeof booking.nights === 'number'
-      ? booking.nights
-      : booking.checkInOn && booking.checkOutOn
-        ? Math.max(
-            0,
-            Math.round(
-              (Date.parse(`${booking.checkOutOn}T00:00:00.000Z`) -
-                Date.parse(`${booking.checkInOn}T00:00:00.000Z`)) /
-                86_400_000,
-            ),
-          )
-        : null;
-
-  const amountLabel =
-    booking.totalMinor && booking.currency
-      ? formatMoney(booking.totalMinor, booking.currency, locale)
-      : null;
-  const welcome = confirmationWelcome({
-    ar,
-    paid,
-    guestName: booking.guestDisplayName ?? null,
-    amountLabel,
-  });
-
-  return (
-    <section className="stay-confirm-shell" data-stay-immersive="true">
-      <RememberStayTripAlert
-        id={booking.id ?? booking.referenceCode}
-        referenceCode={booking.referenceCode}
-        status={booking.status}
-        {...(booking.checkInOn ? { checkInOn: booking.checkInOn } : {})}
-        {...(booking.checkOutOn ? { checkOutOn: booking.checkOutOn } : {})}
-        {...(booking.currency ? { currency: booking.currency } : {})}
-        {...(booking.totalMinor ? { totalMinor: booking.totalMinor } : {})}
-      />
-
-      <aside className="stay-confirm-shell__aside">
-        <div className="stay-confirm-shell__aside-inner">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            className="stay-confirm-shell__aside-bg"
-            src="/brand/oman-landmark-salalah.jpg"
-            alt=""
-          />
-          <div className="stay-confirm-shell__aside-scrim" />
-          <span
-            className="stay-confirm-shell__logo logo__product logo__product--on-dark"
-            aria-label="BHD R"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/brand/bhd-official-symbol.svg" alt="" width="96" height="30" />
-            <i>R</i>
-          </span>
-          <div className="stay-confirm-shell__aside-content">
-            <p className="stay-confirm-shell__greeting">
-              {welcome.greeting}
-              {ar ? '، أهلاً بك' : ', welcome'}
-            </p>
-            <h1 id="stays-booking-confirmed-title" className="stay-confirm-shell__guest">
-              {welcome.guestName}
-            </h1>
-            <p className="stay-confirm-shell__lede">{welcome.body}</p>
-            <p className="stay-confirm-shell__ref-label">
-              {ar ? 'رقم التأكيد' : 'Confirmation number'}
-            </p>
-            <p className="stay-confirm-shell__ref" dir="ltr">
-              {booking.referenceCode}
-            </p>
-          </div>
-        </div>
-      </aside>
-
-      <div className="stay-confirm-shell__panel">
-        <header className="stay-confirm-shell__header">
-          <h2>{ar ? 'تفاصيل الحجز' : 'Booking details'}</h2>
-          <p className="muted">
-            {needsEsign
-              ? ar
-                ? 'الحجز مؤكّد والدفع مكتمل. يرجى توقيع عقد الإقامة إلكترونياً لإتمام الاعتماد.'
-                : 'Booking is confirmed and paid. Please e-sign the stay contract to complete approval.'
-              : paid
-                ? ar
-                  ? 'يمكنك تنزيل إيصال الدفع وتأكيد الحجز كملف PDF من هذه الصفحة.'
-                  : 'You can download the payment receipt and booking confirmation as PDF from this page.'
-                : ar
-                  ? 'راجع التفاصيل أدناه ثم أكمل الدفع عند الحاجة.'
-                  : 'Review the details below, then complete payment if needed.'}
-          </p>
-        </header>
-
-        <dl className="stay-confirm-shell__grid">
-          <div>
-            <dt>{ar ? 'مرجع الحجز' : 'Booking reference'}</dt>
-            <dd dir="ltr">
-              <strong>{booking.referenceCode}</strong>
-            </dd>
-          </div>
-          {booking.guestDisplayName ? (
-            <div>
-              <dt>{ar ? 'الضيف' : 'Guest'}</dt>
-              <dd>{booking.guestDisplayName}</dd>
-            </div>
-          ) : null}
-          {booking.checkInOn ? (
-            <div>
-              <dt>{ar ? 'الوصول' : 'Check-in'}</dt>
-              <dd className="stays-checkout__chip stays-checkout__chip--check-in" dir="ltr">
-                {booking.checkInOn}
-              </dd>
-            </div>
-          ) : null}
-          {booking.checkOutOn ? (
-            <div>
-              <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
-              <dd className="stays-checkout__chip stays-checkout__chip--check-out" dir="ltr">
-                {booking.checkOutOn}
-              </dd>
-            </div>
-          ) : null}
-          {typeof nights === 'number' ? (
-            <div>
-              <dt>{ar ? 'عدد الأيام' : 'Nights'}</dt>
-              <dd>
-                {nights}{' '}
-                {ar ? (nights === 1 ? 'ليلة' : 'ليالٍ') : nights === 1 ? 'night' : 'nights'}
-              </dd>
-            </div>
-          ) : null}
-          {booking.stayType ? (
-            <div>
-              <dt>{ar ? 'نوع الحجز' : 'Stay type'}</dt>
-              <dd className={`stays-checkout__chip stays-checkout__chip--stay-${stayTone}`}>
-                {stayTypeLabel(booking.stayType, locale)}
-              </dd>
-            </div>
-          ) : null}
-          {typeof booking.adults === 'number' ? (
-            <div>
-              <dt>{ar ? 'بالغون' : 'Adults'}</dt>
-              <dd className="stays-checkout__chip stays-checkout__chip--adults">
-                {booking.adults}
-              </dd>
-            </div>
-          ) : null}
-          {typeof booking.children === 'number' ? (
-            <div>
-              <dt>{ar ? 'أطفال' : 'Children'}</dt>
-              <dd className="stays-checkout__chip stays-checkout__chip--children">
-                {booking.children}
-              </dd>
-            </div>
-          ) : null}
-          {booking.totalMinor && booking.currency ? (
-            <div>
-              <dt>{ar ? 'المجموع' : 'Total'}</dt>
-              <dd dir="ltr">
-                <strong>{formatMoney(booking.totalMinor, booking.currency, locale)}</strong>
-              </dd>
-            </div>
-          ) : null}
-          <div>
-            <dt>{ar ? 'الحالة' : 'Status'}</dt>
-            <dd>{stayStatusLabel(booking.status, locale)}</dd>
-          </div>
-          {esignRequired && paid ? (
-            <div>
-              <dt>{ar ? 'العقد الإلكتروني' : 'E-contract'}</dt>
-              <dd>
-                {esignDone
-                  ? ar
-                    ? 'معتمد إلكترونياً من بن حمود'
-                    : 'Electronically approved by Bin Hamood'
-                  : ar
-                    ? 'بانتظار التوقيع'
-                    : 'Awaiting signature'}
-              </dd>
-            </div>
-          ) : null}
-        </dl>
-
-        <div className="stay-confirm-shell__actions">
-          {needsEsign ? (
-            <Link
-              className="button button--primary stay-confirm-shell__esign-cta"
-              href={`/stays/booking/sign?ref=${encodeURIComponent(ref)}`}
-            >
-              {ar ? 'توقيع عقد الإقامة' : 'Sign stay contract'}
-            </Link>
-          ) : null}
-          <Link
-            className="button button--primary"
-            href={`/stays/booking/receipt?ref=${encodeURIComponent(ref)}&doc=payment`}
-          >
-            {ar ? 'إيصال الدفع (PDF)' : 'Payment receipt (PDF)'}
-          </Link>
-          <Link
-            className="button button--primary"
-            href={`/stays/booking/receipt?ref=${encodeURIComponent(ref)}&doc=confirmation`}
-          >
-            {ar ? 'تأكيد الحجز (PDF)' : 'Booking confirmation (PDF)'}
-          </Link>
-          <Link
-            className="button button--quiet"
-            href={`/guest/stays?ref=${encodeURIComponent(ref)}`}
-          >
-            {ar ? 'متابعة رحلتي' : 'Track my trip'}
-          </Link>
-          <Link className="button button--quiet" href="/stays">
-            {ar ? 'ابحث عن إقامة أخرى' : 'Search another stay'}
-          </Link>
-        </div>
-
-        {paid && booking.guestEmail ? (
-          <p className="muted stay-confirm-shell__hint">
-            {ar
-              ? `أُرسلت رسالة تأكيد مع رابط الإيصال إلى ${booking.guestEmail}.`
-              : `A confirmation email with the receipt link was sent to ${booking.guestEmail}.`}
-          </p>
-        ) : null}
-      </div>
-    </section>
-  );
+  const refQuery = encodeURIComponent(booking.referenceCode);
+  if (!booking.id) redirect(`/${locale}/guest/stays?ref=${refQuery}`);
+  redirect(`/${locale}/guest/stays/${encodeURIComponent(booking.id)}?ref=${refQuery}&welcome=1`);
 }

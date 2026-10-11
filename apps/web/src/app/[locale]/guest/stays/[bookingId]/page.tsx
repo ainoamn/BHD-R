@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
@@ -11,6 +12,9 @@ import { ApiError, apiFetch, publicApiFetch } from '@/lib/server-api';
 import { stayBookingModeLabel, stayStatusLabel, stayTypeLabel } from '@/lib/ui-labels';
 import { getViewer } from '@/lib/viewer';
 import { formatMoney } from '@/lib/format';
+import { RememberStayTripAlert } from '@/components/stays/remember-stay-trip-alert';
+import { isStayEsignRequiredServer } from '@/lib/stay-esign-flags';
+import type { StayStamp } from '@/lib/stay-arrival-neon';
 
 type GuestBooking = {
   id: string;
@@ -36,6 +40,10 @@ type GuestBooking = {
   canCancel?: boolean;
   canRebook?: boolean;
   canReschedule?: boolean;
+  guestEmail?: string | null;
+  esignCompleted?: boolean;
+  checkIn?: StayStamp | null;
+  checkOut?: StayStamp | null;
 };
 
 const PAID_STATUSES = new Set(['confirmed', 'paid', 'pre_arrival', 'checked_in', 'checked_out']);
@@ -81,9 +89,26 @@ function statusMessage(status: string, ar: boolean): string {
   }
 }
 
-type Step = { label: string; state: 'done' | 'current' | 'upcoming' };
+type Step = { label: string; state: 'done' | 'current' | 'upcoming'; detail?: string | null };
 
-function journeySteps(status: string, mode: string | undefined, ar: boolean): Step[] {
+function formatStamp(value: string, ar: boolean): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(ar ? 'ar-OM-u-nu-latn' : 'en-GB', {
+    day: 'numeric',
+    month: 'long',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'Asia/Muscat',
+  }).format(date);
+}
+
+function journeySteps(
+  status: string,
+  mode: string | undefined,
+  ar: boolean,
+  stamps: { checkIn?: StayStamp | null; checkOut?: StayStamp | null },
+): Step[] {
   const request = mode === 'request' || status === 'request_pending';
   const labels = request
     ? ar
@@ -100,10 +125,15 @@ function journeySteps(status: string, mode: string | undefined, ar: boolean): St
         : status === 'checked_out' || status === 'closed'
           ? 4
           : 2;
-  return labels.map((label, index) => ({
-    label,
-    state: index < current ? 'done' : index === current ? 'current' : 'upcoming',
-  }));
+  const details = [null, null, stamps.checkIn?.at, stamps.checkOut?.at];
+  return labels.map((label, index) => {
+    const at = details[index];
+    return {
+      label,
+      state: index < current ? 'done' : index === current ? 'current' : 'upcoming',
+      detail: at ? formatStamp(at, ar) : null,
+    };
+  });
 }
 
 function formatStayDate(value: string, ar: boolean): { weekday: string; date: string } {
@@ -156,6 +186,7 @@ export default async function GuestStayDetailPage({
   const refRaw = query.ref;
   const referenceCode =
     typeof refRaw === 'string' ? refRaw : Array.isArray(refRaw) ? refRaw[0] : undefined;
+  const welcome = query.welcome === '1';
 
   const viewer = await getViewer();
   let booking: GuestBooking | null = null;
@@ -189,7 +220,33 @@ export default async function GuestStayDetailPage({
   const message = statusMessage(booking.status, ar);
   const ended = ENDED_STATUSES.has(booking.status);
   const paid = PAID_STATUSES.has(booking.status);
-  const steps = ended ? [] : journeySteps(booking.status, booking.bookingMode, ar);
+  const steps = ended
+    ? []
+    : journeySteps(booking.status, booking.bookingMode, ar, {
+        checkIn: booking.checkIn ?? null,
+        checkOut: booking.checkOut ?? null,
+      });
+  const esignRequired = isStayEsignRequiredServer();
+  const accepted = booking.status === 'confirmed' || booking.status === 'pre_arrival';
+  const needsEsign = esignRequired && accepted && !booking.esignCompleted;
+  const stayLog = [
+    booking.checkIn
+      ? {
+          key: 'in',
+          label: ar ? 'وقت الدخول والاستلام' : 'Checked in at',
+          notesLabel: ar ? 'ملاحظات الدخول' : 'Check-in notes',
+          stamp: booking.checkIn,
+        }
+      : null,
+    booking.checkOut
+      ? {
+          key: 'out',
+          label: ar ? 'وقت المغادرة' : 'Checked out at',
+          notesLabel: ar ? 'ملاحظات المغادرة' : 'Check-out notes',
+          stamp: booking.checkOut,
+        }
+      : null,
+  ].filter((entry) => entry !== null);
   const title =
     (ar ? booking.listingTitleAr : booking.listingTitleEn) ??
     booking.listingTitleAr ??
@@ -223,6 +280,15 @@ export default async function GuestStayDetailPage({
 
   return (
     <main className="guest-stay-detail">
+      <RememberStayTripAlert
+        id={booking.id}
+        referenceCode={booking.referenceCode}
+        status={booking.status}
+        checkInOn={booking.checkInOn}
+        checkOutOn={booking.checkOutOn}
+        currency={booking.currency}
+        totalMinor={booking.totalMinor}
+      />
       <section className="guest-stay-detail__hero" aria-labelledby="guest-stay-title">
         <img
           className="guest-stay-detail__hero-img"
@@ -256,6 +322,13 @@ export default async function GuestStayDetailPage({
               {booking.referenceCode}
             </span>
           </div>
+          {welcome && booking.guestDisplayName ? (
+            <p className="guest-stay-detail__message">
+              {ar
+                ? `أهلاً ${booking.guestDisplayName}، استلمنا حجزك بنجاح.`
+                : `Welcome ${booking.guestDisplayName}, we have received your booking.`}
+            </p>
+          ) : null}
           {message ? <p className="guest-stay-detail__message">{message}</p> : null}
           {steps.length ? (
             <ol
@@ -272,6 +345,9 @@ export default async function GuestStayDetailPage({
                     {step.state === 'done' ? '✓' : index + 1}
                   </span>
                   <span className="guest-stay-detail__step-label">{step.label}</span>
+                  {step.detail ? (
+                    <span className="guest-stay-detail__step-time">{step.detail}</span>
+                  ) : null}
                 </li>
               ))}
             </ol>
@@ -342,8 +418,44 @@ export default async function GuestStayDetailPage({
                   <dd dir="ltr">{booking.timezone}</dd>
                 </div>
               ) : null}
+              {stayLog.map((entry) => (
+                <Fragment key={entry.key}>
+                  <div>
+                    <dt>{entry.label}</dt>
+                    <dd>{formatStamp(entry.stamp.at, ar)}</dd>
+                  </div>
+                  {entry.stamp.notes ? (
+                    <div className="guest-stay-detail__fact--wide">
+                      <dt>{entry.notesLabel}</dt>
+                      <dd className="guest-stay-detail__notes">{entry.stamp.notes}</dd>
+                    </div>
+                  ) : null}
+                </Fragment>
+              ))}
+              {esignRequired && accepted ? (
+                <div>
+                  <dt>{ar ? 'عقد الإقامة' : 'Stay contract'}</dt>
+                  <dd>
+                    {needsEsign
+                      ? ar
+                        ? 'بانتظار توقيعك'
+                        : 'Awaiting your signature'
+                      : ar
+                        ? 'موقّع إلكترونياً'
+                        : 'Signed electronically'}
+                  </dd>
+                </div>
+              ) : null}
             </dl>
           </section>
+          {needsEsign ? (
+            <Link
+              className="button button--primary guest-stay-detail__esign"
+              href={`/stays/booking/sign?ref=${refQuery}`}
+            >
+              {ar ? 'توقيع عقد الإقامة' : 'Sign stay contract'}
+            </Link>
+          ) : null}
           {paid ? (
             <div className="guest-stay-detail__docs">
               <Link
@@ -359,6 +471,13 @@ export default async function GuestStayDetailPage({
                 {ar ? 'تأكيد الحجز (PDF)' : 'Booking confirmation (PDF)'}
               </Link>
             </div>
+          ) : null}
+          {welcome && paid && booking.guestEmail ? (
+            <p className="guest-stay-detail__help muted">
+              {ar
+                ? `أُرسلت رسالة تأكيد مع رابط الإيصال إلى ${booking.guestEmail}.`
+                : `A confirmation email with the receipt link was sent to ${booking.guestEmail}.`}
+            </p>
           ) : null}
           <p className="guest-stay-detail__help muted">
             {ar

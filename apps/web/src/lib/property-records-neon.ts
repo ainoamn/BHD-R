@@ -23,6 +23,7 @@ import {
   viewingRequests,
 } from '@bhd-r/db';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
+import { loadStayStamps } from '@/lib/stay-arrival-neon';
 
 export const PROPERTY_RECORD_SECTIONS = [
   'bookings',
@@ -293,6 +294,15 @@ function leaseDisplayStatus(
 
 type CodeOf = (id: string | null | undefined) => string | null;
 
+const STAY_AFTER_CHECK_OUT = new Set(['checked_out', 'closed']);
+
+/** Where a stay stands for the host: waiting for the guest to arrive, or to leave. */
+function stayStage(status: string): string {
+  if (status === 'confirmed' || status === 'pre_arrival') return 'awaiting_check_in';
+  if (status === 'checked_in') return 'awaiting_check_out';
+  return status;
+}
+
 async function loadBookings(
   tx: Tx,
   orgId: string,
@@ -382,19 +392,32 @@ async function loadBookings(
       ])
     : [[], []];
 
-  const [names, bookingContracts] = await Promise.all([
+  const [names, bookingContracts, stamps] = await Promise.all([
     partyNames(tx, [
       ...stays.map((row) => row.guestPartyId),
       ...reservationRows.map((row) => row.tenantPartyId),
       ...viewingRows.map((row) => row.prospectPartyId),
     ]),
     contractsByStayBooking(tx, orgId, unitIds),
+    loadStayStamps(
+      tx,
+      orgId,
+      stays
+        .filter((row) => row.status === 'checked_in' || STAY_AFTER_CHECK_OUT.has(row.status))
+        .map((row) => row.id),
+    ),
   ]);
 
   const rows: PropertyRecordRow[] = [
     ...stays.map((row) => {
       const contract = bookingContracts.get(row.id);
+      const stamp = stamps.get(row.id);
       return {
+        stage: stayStage(row.status),
+        checkedInAt: stamp?.checkIn?.at ?? null,
+        checkInNotes: stamp?.checkIn?.notes ?? null,
+        checkedOutAt: stamp?.checkOut?.at ?? null,
+        checkOutNotes: stamp?.checkOut?.notes ?? null,
         id: row.id,
         kind: 'stay',
         reference: row.referenceCode,

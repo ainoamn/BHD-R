@@ -28,7 +28,8 @@ export const stayBookingMachine: StateMachine = {
     // confirmed: owner approves the request and settles payment outside online checkout.
     request_pending: ['payment_pending', 'confirmed', 'cancelled'],
     payment_pending: ['confirmed', 'expired', 'payment_failed', 'cancelled'],
-    confirmed: ['pre_arrival', 'cancelled', 'no_show'],
+    // confirmed → checked_in: the host records arrival without a separate pre-arrival step.
+    confirmed: ['pre_arrival', 'checked_in', 'cancelled', 'no_show'],
     pre_arrival: ['checked_in', 'no_show', 'cancelled'],
     checked_in: ['checked_out'],
     checked_out: ['closed'],

@@ -23,6 +23,7 @@ import {
   rejectStayBookingOnNeon,
 } from '@/lib/property-contracts-neon';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
+import { recordStayStampOnNeon } from '@/lib/stay-arrival-neon';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -157,6 +158,17 @@ const bodySchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('approve_contract'), contractId: uuid }).strict(),
   z
     .object({
+      action: z.enum(['check_in', 'check_out']),
+      bookingId: uuid,
+      at: z
+        .string()
+        .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
+        .optional(),
+      notes: z.string().max(1000).optional(),
+    })
+    .strict(),
+  z
+    .object({
       action: z.literal('create_lease'),
       unitId: uuid,
       tenant: leaseTenantSchema,
@@ -169,7 +181,8 @@ const bodySchema = z.discriminatedUnion('action', [
 /**
  * POST /api/owner/properties/:propertyId/records
  * Workflow actions of the property hub tabs: approve/reject a booking (approval issues the
- * contract and lease), approve a pending contract, and manual lease / sale contracts.
+ * contract and lease), record a stay's check-in / check-out, approve a pending contract,
+ * and manual lease / sale contracts.
  */
 export async function POST(request: Request, context: { params: Promise<{ propertyId: string }> }) {
   if (!hasDatabaseUrl()) {
@@ -220,6 +233,15 @@ export async function POST(request: Request, context: { params: Promise<{ proper
         return NextResponse.json(await rejectStayBookingOnNeon(claims, propertyId, body.bookingId));
       case 'approve_contract':
         return NextResponse.json(await approveContractOnNeon(claims, propertyId, body.contractId));
+      case 'check_in':
+      case 'check_out':
+        return NextResponse.json(
+          await recordStayStampOnNeon(claims, propertyId, body.bookingId, {
+            kind: body.action,
+            at: body.at,
+            notes: body.notes,
+          }),
+        );
       case 'create_lease':
         return NextResponse.json(await createManualLeaseContractOnNeon(claims, propertyId, body));
       case 'create_sale':

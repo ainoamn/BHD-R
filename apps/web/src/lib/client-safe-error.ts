@@ -49,6 +49,9 @@ const KNOWN_CODES = new Set([
   'duplicate_cheque_number',
   'cheque_number_taken',
   'party_not_found',
+  'stay_status_invalid',
+  'stay_time_in_future',
+  'stay_checkout_before_checkin',
 ]);
 
 export function clientSafeErrorCode(error: unknown, fallback = 'request_failed'): string {
@@ -87,7 +90,11 @@ export function statusForSafeCode(code: string): number {
     case 'single_unit_requires_one_unit':
     case 'multi_unit_requires_units':
     case 'idempotency_payload_mismatch':
+    case 'stay_status_invalid':
       return 409;
+    case 'stay_time_in_future':
+    case 'stay_checkout_before_checkin':
+      return 400;
     case 'invalid_body':
     case 'invalid_file':
     case 'organization_required':

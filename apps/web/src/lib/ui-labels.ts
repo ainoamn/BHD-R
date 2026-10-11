@@ -38,6 +38,8 @@ const STAY_TYPE: Record<string, { ar: string; en: string }> = {
 
 const DOMAIN_STATUS: Record<string, { ar: string; en: string }> = {
   ...STAY_STATUS,
+  awaiting_check_in: { ar: 'بانتظار الدخول', en: 'Awaiting check-in' },
+  awaiting_check_out: { ar: 'بانتظار المغادرة', en: 'Awaiting check-out' },
   active: { ar: 'ساري', en: 'Active' },
   inactive: { ar: 'غير نشط', en: 'Inactive' },
   draft: { ar: 'مسودة', en: 'Draft' },
@@ -114,6 +116,7 @@ const WORKFLOW_EVENTS: Record<string, { ar: string; en: string }> = {
     ar: 'عقد بانتظار اعتماد المدير',
     en: 'Contract awaiting manager approval',
   },
+  'stay.checked_in': { ar: 'دخول ضيف إقامة', en: 'Stay guest checked in' },
   'stay.checked_out': { ar: 'مغادرة ضيف إقامة', en: 'Stay guest checked out' },
   'stay.cancelled': { ar: 'إلغاء حجز إقامة', en: 'Stay booking cancelled' },
   'stay.no_show': { ar: 'عدم حضور ضيف', en: 'Stay guest no-show' },

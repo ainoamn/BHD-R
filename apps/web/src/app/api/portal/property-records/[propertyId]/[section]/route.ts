@@ -64,6 +64,7 @@ export async function GET(
         ...records,
         viewer: {
           canManageBookings: can('stay.booking.manage') && can('contract.create'),
+          canRecordStays: can('stay.booking.manage'),
           canSignContracts: can('contract.sign'),
           canCreateLease: can('contract.create') && can('lease.create'),
           canCreateSale: can('contract.create') && can('sale.manage'),

@@ -31,6 +31,7 @@ type Format =
   | 'source'
   | 'terms'
   | 'signatures'
+  | 'stayLog'
   | 'priority';
 
 type Column = { key: string; ar: string; en: string; format?: Format };
@@ -47,13 +48,17 @@ type SectionConfig = {
 
 type Viewer = {
   canManageBookings: boolean;
+  canRecordStays?: boolean;
   canSignContracts: boolean;
   canCreateLease: boolean;
   canCreateSale: boolean;
 };
 
+type StampKind = 'check_in' | 'check_out';
+
 const NO_VIEWER: Viewer = {
   canManageBookings: false,
+  canRecordStays: false,
   canSignContracts: false,
   canCreateLease: false,
   canCreateSale: false,
@@ -98,6 +103,7 @@ const SECTIONS: Record<PropertyRecordSection, SectionConfig> = {
       { key: 'party', ar: 'العميل / الضيف', en: 'Client / guest' },
       { key: 'fromOn', ar: 'من', en: 'From', format: 'date' },
       { key: 'toOn', ar: 'إلى', en: 'To', format: 'date' },
+      { key: 'checkedInAt', ar: 'الدخول والمغادرة', en: 'Check-in / out', format: 'stayLog' },
       { key: 'amountMinor', ar: 'المبلغ', en: 'Amount', format: 'money' },
       { key: 'termsAcceptedOn', ar: 'الشروط والأحكام', en: 'Terms', format: 'terms' },
       { key: 'status', ar: 'حالة الحجز', en: 'Status', format: 'status' },
@@ -246,7 +252,10 @@ const READY = new Set([
   'converted',
   'approved',
   'posted',
+  'awaiting_check_out',
 ]);
+const INFO = new Set(['awaiting_check_in']);
+const CHECK_IN_READY = new Set(['confirmed', 'pre_arrival']);
 const DANGER = new Set(['overdue', 'failed', 'payment_failed', 'no_show']);
 const MUTED = new Set([
   'cancelled',
@@ -296,9 +305,44 @@ const ERROR_TEXT: Record<string, [string, string]> = {
   invalid_body: ['تحقّق من الحقول المطلوبة.', 'Check the required fields.'],
   forbidden: ['لا تملك صلاحية تنفيذ هذا الإجراء.', 'You are not allowed to do this.'],
   unit_not_found: ['الوحدة غير موجودة في هذا العقار.', 'Unit not found on this property.'],
+  stay_status_invalid: [
+    'لا يمكن تسجيل ذلك بحالة الحجز الحالية. حدّث الصفحة.',
+    'This cannot be recorded in the booking’s current status. Refresh the page.',
+  ],
+  stay_time_in_future: [
+    'الوقت المدخل في المستقبل. أدخل وقت الدخول أو المغادرة الفعلي.',
+    'That time is in the future. Enter the actual time.',
+  ],
+  stay_checkout_before_checkin: [
+    'وقت المغادرة قبل وقت الدخول المسجّل.',
+    'Check-out time is before the recorded check-in.',
+  ],
 };
 
+/** Current time in Oman as a `datetime-local` value. */
+function muscatNowLocal(): string {
+  return new Date(Date.now() + 4 * 3_600_000).toISOString().slice(0, 16);
+}
+
+function formatStamp(value: string, locale: 'ar' | 'en'): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(locale === 'ar' ? 'ar-OM-u-nu-latn' : 'en-GB', {
+    day: 'numeric',
+    month: 'short',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'Asia/Muscat',
+  }).format(date);
+}
+
+/** Stay rows show where the guest stands (awaiting check-in / check-out) instead of the raw status. */
+function displayStatus(row: PropertyRecordRow): string | null {
+  return row.stage ?? row.status ?? null;
+}
+
 function statusTone(status: string): string {
+  if (INFO.has(status)) return 'info';
   if (READY.has(status)) return 'ready';
   if (DANGER.has(status)) return 'danger';
   if (MUTED.has(status)) return 'muted';
@@ -378,14 +422,38 @@ function Cell({
   const ar = locale === 'ar';
   const value = row[column.key] ?? null;
   switch (column.format) {
-    case 'status':
-      return value ? (
-        <span className={`pmh-badge pmh-badge--${statusTone(value)}`}>
-          {domainStatusLabel(value, locale)}
+    case 'status': {
+      const status = column.key === 'status' ? displayStatus(row) : value;
+      return status ? (
+        <span className={`pmh-badge pmh-badge--${statusTone(status)}`}>
+          {domainStatusLabel(status, locale)}
         </span>
       ) : (
         <span className="muted">—</span>
       );
+    }
+    case 'stayLog': {
+      if (row.kind !== 'stay' || (!row.checkedInAt && !row.checkedOutAt)) {
+        return <span className="muted">—</span>;
+      }
+      const entries = [
+        { at: row.checkedInAt, notes: row.checkInNotes, label: ar ? 'دخول' : 'In' },
+        { at: row.checkedOutAt, notes: row.checkOutNotes, label: ar ? 'مغادرة' : 'Out' },
+      ];
+      return (
+        <div className="psr-stay-log">
+          {entries.map((entry) =>
+            entry.at ? (
+              <div key={entry.label}>
+                <span className="psr-stay-log__label">{entry.label}</span>{' '}
+                <span>{formatStamp(entry.at, locale)}</span>
+                {entry.notes ? <small>{entry.notes}</small> : null}
+              </div>
+            ) : null,
+          )}
+        </div>
+      );
+    }
     case 'kind':
     case 'contractKind':
     case 'contractType':
@@ -488,6 +556,114 @@ function Cell({
     default:
       return value ? <>{value}</> : <span className="muted">—</span>;
   }
+}
+
+function StayStampForm({
+  kind,
+  reference,
+  locale,
+  busy,
+  onSubmit,
+  onCancel,
+}: {
+  kind: StampKind;
+  reference: string;
+  locale: 'ar' | 'en';
+  busy: boolean;
+  onSubmit: (at: string, notes: string) => void;
+  onCancel: () => void;
+}) {
+  const ar = locale === 'ar';
+  const [now] = useState(muscatNowLocal);
+  const [at, setAt] = useState(now);
+  const [notes, setNotes] = useState('');
+  const checkIn = kind === 'check_in';
+
+  return (
+    <form
+      className="psr-form psr-stamp-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSubmit(at, notes);
+      }}
+    >
+      <h3>
+        {checkIn
+          ? ar
+            ? `تسجيل دخول الضيف — ${reference}`
+            : `Guest check-in — ${reference}`
+          : ar
+            ? `تسجيل مغادرة الضيف — ${reference}`
+            : `Guest check-out — ${reference}`}
+      </h3>
+      <div className="form-grid">
+        <div className="field">
+          <label htmlFor={`psr-stamp-at-${reference}`}>
+            {checkIn
+              ? ar
+                ? 'تاريخ ووقت الاستلام والدخول'
+                : 'Check-in date and time'
+              : ar
+                ? 'تاريخ ووقت المغادرة'
+                : 'Check-out date and time'}
+          </label>
+          <input
+            id={`psr-stamp-at-${reference}`}
+            className="input"
+            type="datetime-local"
+            dir="ltr"
+            required
+            max={now}
+            value={at}
+            onChange={(event) => setAt(event.target.value)}
+          />
+        </div>
+        <div className="field span-2">
+          <label htmlFor={`psr-stamp-notes-${reference}`}>{ar ? 'ملاحظات' : 'Notes'}</label>
+          <textarea
+            id={`psr-stamp-notes-${reference}`}
+            className="textarea"
+            rows={2}
+            maxLength={1000}
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            placeholder={
+              checkIn
+                ? ar
+                  ? 'مثال: استلم المفاتيح، عدد الضيوف، حالة الوحدة عند الاستلام…'
+                  : 'e.g. keys handed over, number of guests, unit condition…'
+                : ar
+                  ? 'مثال: سلّم المفاتيح، حالة الوحدة، أي أضرار أو مستلزمات ناقصة…'
+                  : 'e.g. keys returned, unit condition, any damage or missing items…'
+            }
+          />
+        </div>
+      </div>
+      <p className="muted">
+        {ar
+          ? 'يظهر الوقت والملاحظات للضيف في صفحة تفاصيل إقامته.'
+          : 'The guest sees this time and these notes on their stay page.'}
+      </p>
+      <div className="form-actions">
+        <button type="submit" className="button button--primary" disabled={busy || !at}>
+          {busy
+            ? ar
+              ? 'جارٍ الحفظ…'
+              : 'Saving…'
+            : checkIn
+              ? ar
+                ? 'تأكيد الدخول'
+                : 'Confirm check-in'
+              : ar
+                ? 'تأكيد المغادرة'
+                : 'Confirm check-out'}
+        </button>
+        <button type="button" className="button button--quiet" onClick={onCancel} disabled={busy}>
+          {ar ? 'إلغاء' : 'Cancel'}
+        </button>
+      </div>
+    </form>
+  );
 }
 
 function ManualSaleForm({
@@ -653,6 +829,7 @@ export function PropertySectionRecords({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [stampForm, setStampForm] = useState<{ rowId: string; kind: StampKind } | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -697,7 +874,8 @@ export function PropertySectionRecords({
   const statusCounts = useMemo(() => {
     const counts = new Map<string, number>();
     for (const row of rows ?? []) {
-      if (row.status) counts.set(row.status, (counts.get(row.status) ?? 0) + 1);
+      const status = displayStatus(row);
+      if (status) counts.set(status, (counts.get(status) ?? 0) + 1);
     }
     return [...counts.entries()].sort((a, b) => b[1] - a[1]);
   }, [rows]);
@@ -705,7 +883,7 @@ export function PropertySectionRecords({
   const visible = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
     return (rows ?? []).filter((row) => {
-      if (statusFilter && row.status !== statusFilter) return false;
+      if (statusFilter && displayStatus(row) !== statusFilter) return false;
       if (!needle) return true;
       return Object.values(row).some((value) => value?.toLocaleLowerCase().includes(needle));
     });
@@ -830,6 +1008,31 @@ export function PropertySectionRecords({
     setReloadKey((key) => key + 1);
   }
 
+  async function submitStamp(row: PropertyRecordRow, kind: StampKind, at: string, notes: string) {
+    const id = row.id ?? '';
+    const result = await runAction(id, {
+      action: kind,
+      bookingId: id,
+      at,
+      ...(notes.trim() ? { notes: notes.trim() } : {}),
+    });
+    if (!result) return;
+    setStampForm(null);
+    const when = formatStamp(`${at}:00+04:00`, locale);
+    setNotice({
+      tone: 'success',
+      text:
+        kind === 'check_in'
+          ? ar
+            ? `تم تسجيل دخول الضيف للحجز ${row.reference} (${when}). الحالة الآن: بانتظار المغادرة.`
+            : `Guest checked in for ${row.reference} (${when}). Now awaiting check-out.`
+          : ar
+            ? `تم تسجيل مغادرة الضيف للحجز ${row.reference} (${when}).`
+            : `Guest checked out for ${row.reference} (${when}).`,
+    });
+    setReloadKey((key) => key + 1);
+  }
+
   async function approveContract(row: PropertyRecordRow) {
     const question = ar
       ? `اعتماد العقد ${row.reference} وتوقيعه باسمك نيابة عن المالك؟`
@@ -892,7 +1095,49 @@ export function PropertySectionRecords({
     ) : null;
   }
 
+  function stayStampAction(row: PropertyRecordRow, busy: boolean) {
+    if (section !== 'bookings' || row.kind !== 'stay' || !viewer.canRecordStays) return null;
+    const kind: StampKind | null = CHECK_IN_READY.has(row.status ?? '')
+      ? 'check_in'
+      : row.status === 'checked_in'
+        ? 'check_out'
+        : null;
+    if (!kind || !row.id) return null;
+    const open = stampForm?.rowId === row.id;
+    return (
+      <button
+        type="button"
+        className="button button--primary psr-action"
+        disabled={busy}
+        aria-expanded={open}
+        onClick={() => {
+          setNotice(null);
+          setStampForm(open ? null : { rowId: row.id ?? '', kind });
+        }}
+      >
+        {kind === 'check_in'
+          ? ar
+            ? 'تسجيل الدخول'
+            : 'Check in'
+          : ar
+            ? 'تسجيل المغادرة'
+            : 'Check out'}
+      </button>
+    );
+  }
+
   function workflowAction(row: PropertyRecordRow, busy: boolean) {
+    const stamp = stayStampAction(row, busy);
+    const approval = bookingApprovalAction(row, busy);
+    return stamp || approval ? (
+      <>
+        {stamp}
+        {approval}
+      </>
+    ) : null;
+  }
+
+  function bookingApprovalAction(row: PropertyRecordRow, busy: boolean) {
     if (section === 'bookings' && row.kind === 'stay' && viewer.canManageBookings) {
       if (row.status === 'request_pending') {
         return (
@@ -1133,6 +1378,22 @@ export function PropertySectionRecords({
                         </td>
                       ) : null}
                     </tr>
+                    {stampForm && stampForm.rowId === row.id ? (
+                      <tr className="psr-details">
+                        <td colSpan={config.columns.length + (showActions ? 1 : 0)}>
+                          <StayStampForm
+                            kind={stampForm.kind}
+                            reference={row.reference ?? ''}
+                            locale={locale}
+                            busy={busyId === row.id}
+                            onSubmit={(at, notes) =>
+                              void submitStamp(row, stampForm.kind, at, notes)
+                            }
+                            onCancel={() => setStampForm(null)}
+                          />
+                        </td>
+                      </tr>
+                    ) : null}
                     {terms ? (
                       <tr className="psr-details">
                         <td colSpan={config.columns.length + (showActions ? 1 : 0)}>
