@@ -34,9 +34,16 @@ async function Page({
   const viewer = await requirePortal(locale, 'owner');
 
   let property: ManagedProperty | null = null;
+  const neonOrgId = hasDatabaseUrl() ? viewer.organizationId : null;
+  const opsPulsePromise: Promise<PropertyOpsPulse> = neonOrgId
+    ? loadPropertyOpsPulseOnNeon(neonOrgId, propertyId, {
+        userId: viewer.id,
+        partyId: viewer.partyId,
+      }).catch(() => emptyPropertyOpsPulse())
+    : Promise.resolve(emptyPropertyOpsPulse());
 
   // Prefer Neon for complete profile/maps/gallery when configured.
-  if (hasDatabaseUrl() && viewer.organizationId) {
+  if (neonOrgId) {
     const token = (await cookies()).get('bhd_r_session')?.value;
     if (token) {
       try {
@@ -46,7 +53,7 @@ async function Page({
         /* ignore heal failures */
       }
     }
-    property = await loadManagedPropertyFromNeon(viewer.organizationId, propertyId, {
+    property = await loadManagedPropertyFromNeon(neonOrgId, propertyId, {
       userId: viewer.id,
       partyId: viewer.partyId,
     }).catch(() => null);
@@ -64,13 +71,7 @@ async function Page({
 
   if (!property) notFound();
 
-  let opsPulse: PropertyOpsPulse = emptyPropertyOpsPulse();
-  if (hasDatabaseUrl() && viewer.organizationId) {
-    opsPulse = await loadPropertyOpsPulseOnNeon(viewer.organizationId, propertyId, {
-      userId: viewer.id,
-      partyId: viewer.partyId,
-    }).catch(() => emptyPropertyOpsPulse());
-  }
+  const opsPulse = await opsPulsePromise;
 
   const unitQuery = typeof query.unit === 'string' ? query.unit : query.unit?.[0];
   const focusUnitId =

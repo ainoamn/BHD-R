@@ -1,6 +1,11 @@
 import 'server-only';
 import { createHash, randomUUID } from 'node:crypto';
-import { DeleteObjectCommand, PutObjectCommand, S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectCommand,
+  PutObjectCommand,
+  S3Client,
+  GetObjectCommand,
+} from '@aws-sdk/client-s3';
 import { and, eq, sql } from 'drizzle-orm';
 import type { SessionClaims } from '@bhd-r/authz';
 import {
@@ -13,6 +18,7 @@ import {
   type Database,
 } from '@bhd-r/db';
 import { isProductionRuntime } from '@/lib/runtime-env';
+import { applySessionSettings, viewerTenantSettings } from '@/lib/db-session-settings';
 
 /** Transitional public promote after magic-bytes (not a malware scan). */
 function mediaPromoteMode(): 'await_worker' | 'magic_bytes_best_effort' {
@@ -50,9 +56,9 @@ function getDatabase(): DbHandle {
 function s3Configured(): boolean {
   return Boolean(
     process.env.S3_ENDPOINT?.trim() &&
-      process.env.S3_ACCESS_KEY?.trim() &&
-      process.env.S3_SECRET_KEY?.trim() &&
-      !String(process.env.S3_ENDPOINT).includes('example.com'),
+    process.env.S3_ACCESS_KEY?.trim() &&
+    process.env.S3_SECRET_KEY?.trim() &&
+    !String(process.env.S3_ENDPOINT).includes('example.com'),
   );
 }
 
@@ -115,20 +121,7 @@ async function withinTenant<T>(
 ): Promise<T> {
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
-    await transaction.execute(
-      sql`select set_config('app.organization_id', ${claims.organizationId ?? ''}, true)`,
-    );
-    await transaction.execute(sql`select set_config('app.user_id', ${claims.sub}, true)`);
-    await transaction.execute(
-      sql`select set_config('app.party_id', ${claims.partyId ?? ''}, true)`,
-    );
-    await transaction.execute(
-      sql`select set_config('app.platform_admin', ${String(claims.roles.includes('platform_admin'))}, true)`,
-    );
-    await transaction.execute(
-      sql`select set_config('app.is_tenant', ${String(claims.roles.includes('tenant'))}, true)`,
-    );
-    await transaction.execute(sql`select set_config('app.public', 'false', true)`);
+    await applySessionSettings(transaction, viewerTenantSettings(claims));
     return work(transaction);
   });
 }
@@ -157,10 +150,7 @@ async function persistAssetRow(
   const sha256 = createHash('sha256').update(input.bytes).digest('hex');
   return withinTenant(claims, async (transaction) => {
     const unit = await transaction.query.units.findFirst({
-      where: and(
-        eq(units.id, input.unitId),
-        eq(units.organizationId, claims.organizationId!),
-      ),
+      where: and(eq(units.id, input.unitId), eq(units.organizationId, claims.organizationId!)),
     });
     if (!unit) throw new Error('unit_not_found');
 
@@ -329,7 +319,9 @@ export async function loadUnitMediaBytes(
 
   const publicBucket = process.env.S3_BUCKET_PUBLIC?.trim();
   const privateBucket =
-    process.env.S3_BUCKET_PRIVATE?.trim() || process.env.S3_BUCKET_PUBLIC?.trim() || 'bhd-r-private';
+    process.env.S3_BUCKET_PRIVATE?.trim() ||
+    process.env.S3_BUCKET_PUBLIC?.trim() ||
+    'bhd-r-private';
   const bucket = asset.publicObjectKey && publicBucket ? publicBucket : privateBucket;
   const key = asset.publicObjectKey || asset.privateObjectKey;
   if (!key || key.startsWith('inline/')) return null;
@@ -356,8 +348,7 @@ export async function deleteUnitMediaAsset(
   if (!claims.organizationId) throw new Error('organization_required');
   const canDelete =
     claims.permissions.includes('media.delete') ||
-    (claims.permissions.includes('media.create') &&
-      claims.permissions.includes('property.update'));
+    (claims.permissions.includes('media.create') && claims.permissions.includes('property.update'));
   if (!canDelete) throw new Error('forbidden');
   if (!/^[0-9a-f-]{36}$/i.test(assetId)) throw new Error('invalid_asset');
 
@@ -403,10 +394,7 @@ export async function deleteUnitMediaAsset(
       await transaction
         .delete(mediaAssets)
         .where(
-          and(
-            eq(mediaAssets.id, assetId),
-            eq(mediaAssets.organizationId, claims.organizationId!),
-          ),
+          and(eq(mediaAssets.id, assetId), eq(mediaAssets.organizationId, claims.organizationId!)),
         );
     }
 

@@ -1,8 +1,8 @@
 # Implementation status
 
 **Updated:** 2026-10-11  
-**Product version:** 0.6.7  
-**Active focus:** Owner approvals and guest experience — bookings priority and approval alerts, redesigned guest stay detail page  
+**Product version:** 0.6.8  
+**Active focus:** Owner dashboard speed and redesign — phase 1 (parallel loads, single-statement session settings) shipped; Neon loaders and unified design next  
 **Release 0.6.3:** [`RELEASE-0.6.3-AR.md`](./RELEASE-0.6.3-AR.md)  
 **Release 0.6.2:** [`RELEASE-0.6.2-AR.md`](./RELEASE-0.6.2-AR.md)  
 **Release 0.6.1:** [`RELEASE-0.6.1-AR.md`](./RELEASE-0.6.1-AR.md)  
@@ -13,6 +13,7 @@
 
 | Version         | Focus                                                                                                                    |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 0.6.8           | Owner dashboard speed phase 1: one `set_config` statement per transaction, parallel loads, panels mount on first visit   |
 | 0.6.7           | Guest cancel shows a no-refund warning; real date change from free days at calendar price (no refund on cheaper dates)   |
 | 0.6.6           | Vacant units collapsed as a dropdown; operations modals full-screen and responsive (portal to body)                      |
 | 0.6.5           | Bookings metrics collapsed as a dropdown; compact unified statistics cards across the site                               |

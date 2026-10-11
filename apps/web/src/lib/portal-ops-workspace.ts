@@ -106,15 +106,14 @@ async function loadFromNest(portal: PortalRole, section: OperationsSection): Pro
           : Promise.resolve([] as Record<string, unknown>[]),
       ]);
       const leaseRows = [
-        ...reservations.map((row) =>
-          tagLeaseBookingPurpose({ ...row, recordKind: 'reservation' }),
-        ),
+        ...reservations.map((row) => tagLeaseBookingPurpose({ ...row, recordKind: 'reservation' })),
         ...viewings.map((row) => tagLeaseBookingPurpose({ ...row, recordKind: 'viewing' })),
         ...holds.map((row) => tagLeaseBookingPurpose({ ...row, recordKind: 'hold' })),
       ];
       const fromDb = stayRows.length > 0;
       return {
-        source: fromDb && !leaseRows.length ? 'db' : leaseRows.length ? 'nest' : fromDb ? 'db' : 'nest',
+        source:
+          fromDb && !leaseRows.length ? 'db' : leaseRows.length ? 'nest' : fromDb ? 'db' : 'nest',
         records: [...stayRows, ...leaseRows],
       };
     }
@@ -329,24 +328,26 @@ export async function loadOperationsWorkspacePayload(
   const nestConfigured = isNestApiConfiguredForRuntime();
   if (section === 'bookings' || section === 'leasing') clearOpsContextDbCache();
 
-  // List first. Skip heavy ops context on the properties grid — it blocks TTFB
-  // and is only needed for create/filter forms on other sections.
-  const loaded = await loadSection(portal, section);
-  let neonContext: Record<string, unknown> | null = null;
+  // Skip heavy ops context on the properties grid — it is only needed for
+  // create/filter forms on other sections. When needed, load it alongside the list.
   const needsOpsContext =
     portal !== 'tenant' &&
     section !== 'properties' &&
     section !== 'approvals' &&
     section !== 'team' &&
     section !== 'api-keys';
-  if (needsOpsContext) {
-    neonContext = await Promise.race([
-      loadOpsContextFromDb(portal),
-      new Promise<null>((resolve) => {
-        setTimeout(() => resolve(null), 1_800);
-      }),
-    ]);
-  }
+  const neonContextPromise: Promise<Record<string, unknown> | null> = needsOpsContext
+    ? Promise.race([
+        loadOpsContextFromDb(portal).catch(() => null),
+        new Promise<null>((resolve) => {
+          setTimeout(() => resolve(null), 1_800);
+        }),
+      ])
+    : Promise.resolve(null);
+  const [loaded, neonContext] = await Promise.all([
+    loadSection(portal, section),
+    neonContextPromise,
+  ]);
 
   const dataFromDb = loaded.source === 'db';
   const offline = loaded.source === 'offline';

@@ -18,8 +18,9 @@ import {
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { requireSessionSecret } from '@/lib/runtime-env';
 import { apiFetch } from '@/lib/server-api';
-import type { PortalOverview, PortalRole, Viewer } from '@/lib/types';
+import type { PortalOverview, PortalRole } from '@/lib/types';
 import { withTimeoutFallback } from '@/lib/with-timeout';
+import { applySessionSettings, viewerTenantSettings } from '@/lib/db-session-settings';
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdRWebDb?: DbHandle };
@@ -78,20 +79,7 @@ async function withinViewerTenant<T>(
 ): Promise<T> {
   const { db } = getSharedDatabase();
   return db.transaction(async (transaction) => {
-    await transaction.execute(
-      sql`select set_config('app.organization_id', ${claims.organizationId ?? ''}, true)`,
-    );
-    await transaction.execute(sql`select set_config('app.user_id', ${claims.sub}, true)`);
-    await transaction.execute(
-      sql`select set_config('app.party_id', ${claims.partyId ?? ''}, true)`,
-    );
-    await transaction.execute(
-      sql`select set_config('app.platform_admin', ${String(claims.roles.includes('platform_admin'))}, true)`,
-    );
-    await transaction.execute(
-      sql`select set_config('app.is_tenant', ${String(claims.roles.includes('tenant'))}, true)`,
-    );
-    await transaction.execute(sql`select set_config('app.public', 'false', true)`);
+    await applySessionSettings(transaction, viewerTenantSettings(claims));
     return work(transaction);
   });
 }
@@ -109,10 +97,7 @@ async function organizationOverviewFromDb(claims: SessionClaims): Promise<Portal
 
     const ownedPropertyIds = ownerPartyId
       ? (
-          await transaction
-            .select({ id: properties.id })
-            .from(properties)
-            .where(propertyFilter)
+          await transaction.select({ id: properties.id }).from(properties).where(propertyFilter)
         ).map((row) => row.id)
       : null;
 
@@ -150,37 +135,36 @@ async function organizationOverviewFromDb(claims: SessionClaims): Promise<Portal
           lte(leases.endsOn, expiryCutoff),
         );
 
-    const [propertyCount, unitCount, activeLeaseCount, openMaintenanceCount, expiringContracts] =
-      await Promise.all([
-        transaction.select({ value: count() }).from(properties).where(propertyFilter),
-        transaction.select({ value: count() }).from(units).where(unitFilter),
-        transaction.select({ value: count() }).from(leases).where(leaseFilter),
-        ownerPartyId
-          ? transaction
-              .select({ value: count() })
-              .from(maintenanceTickets)
-              .innerJoin(units, eq(maintenanceTickets.unitId, units.id))
-              .innerJoin(properties, eq(units.propertyId, properties.id))
-              .where(
-                and(
-                  eq(maintenanceTickets.organizationId, orgId),
-                  eq(properties.ownerPartyId, ownerPartyId),
-                  inArray(maintenanceTickets.status, ['open', 'assigned', 'in_progress']),
-                ),
-              )
-          : transaction
-              .select({ value: count() })
-              .from(maintenanceTickets)
-              .where(
-                and(
-                  eq(maintenanceTickets.organizationId, orgId),
-                  inArray(maintenanceTickets.status, ['open', 'assigned', 'in_progress']),
-                ),
+    const countsQuery = Promise.all([
+      transaction.select({ value: count() }).from(properties).where(propertyFilter),
+      transaction.select({ value: count() }).from(units).where(unitFilter),
+      transaction.select({ value: count() }).from(leases).where(leaseFilter),
+      ownerPartyId
+        ? transaction
+            .select({ value: count() })
+            .from(maintenanceTickets)
+            .innerJoin(units, eq(maintenanceTickets.unitId, units.id))
+            .innerJoin(properties, eq(units.propertyId, properties.id))
+            .where(
+              and(
+                eq(maintenanceTickets.organizationId, orgId),
+                eq(properties.ownerPartyId, ownerPartyId),
+                inArray(maintenanceTickets.status, ['open', 'assigned', 'in_progress']),
               ),
-        transaction.select({ value: count() }).from(leases).where(expiringFilter),
-      ]);
+            )
+        : transaction
+            .select({ value: count() })
+            .from(maintenanceTickets)
+            .where(
+              and(
+                eq(maintenanceTickets.organizationId, orgId),
+                inArray(maintenanceTickets.status, ['open', 'assigned', 'in_progress']),
+              ),
+            ),
+      transaction.select({ value: count() }).from(leases).where(expiringFilter),
+    ]);
 
-    const [collected, activity, openInvoicesRows, stayBookingRows] = await Promise.all([
+    const totalsQuery = Promise.all([
       transaction
         .select({
           currency: payments.currency,
@@ -237,6 +221,12 @@ async function organizationOverviewFromDb(claims: SessionClaims): Promise<Portal
         .where(eq(stayBookings.organizationId, orgId)),
     ]);
 
+    // One pipelined batch: both groups are independent.
+    const [
+      [propertyCount, unitCount, activeLeaseCount, openMaintenanceCount, expiringContracts],
+      [collected, activity, openInvoicesRows, stayBookingRows],
+    ] = await Promise.all([countsQuery, totalsQuery]);
+
     const activeUnits = Number(unitCount[0]?.value ?? 0);
     const occupied = Number(activeLeaseCount[0]?.value ?? 0);
     const openTickets = Number(openMaintenanceCount[0]?.value ?? 0);
@@ -247,11 +237,14 @@ async function organizationOverviewFromDb(claims: SessionClaims): Promise<Portal
     const stayBookingCount = Number(stayBookingRows[0]?.value ?? 0);
 
     const alerts: NonNullable<PortalOverview['alerts']> = [];
-    if (openTickets > 0) alerts.push({ severity: 'danger', code: 'open_tickets', count: openTickets });
-    if (expiring > 0) alerts.push({ severity: 'warning', code: 'expiring_leases', count: expiring });
+    if (openTickets > 0)
+      alerts.push({ severity: 'danger', code: 'open_tickets', count: openTickets });
+    if (expiring > 0)
+      alerts.push({ severity: 'warning', code: 'expiring_leases', count: expiring });
     if (openInvoices > 0)
       alerts.push({ severity: 'warning', code: 'open_invoices', count: openInvoices });
-    if (vacantUnits > 0) alerts.push({ severity: 'info', code: 'vacant_units', count: vacantUnits });
+    if (vacantUnits > 0)
+      alerts.push({ severity: 'info', code: 'vacant_units', count: vacantUnits });
     if (stayBookingCount > 0)
       alerts.push({ severity: 'info', code: 'stay_bookings', count: stayBookingCount });
 
@@ -422,41 +415,39 @@ const emptyOverview = (): PortalOverview => ({
  * WAZEN-style path: read Neon directly from the Next app when DATABASE_URL is set.
  * Avoids waiting on Render Nest cold-start for the owner/developer/tenant dashboard.
  */
-export const loadPortalOverview = cache(
-  async (portal: PortalRole, _viewer: Viewer): Promise<PortalOverview> => {
-    if (hasDatabaseUrl() && portal !== 'platform') {
-      const claims = await readClaims();
-      if (claims?.organizationId) {
-        try {
-          if (portal === 'tenant') {
-            return await withTimeoutFallback(
-              tenantOverviewFromDb(claims),
-              3_000,
-              emptyOverview(),
-              'tenant-overview-neon',
-            );
-          }
+export const loadPortalOverview = cache(async (portal: PortalRole): Promise<PortalOverview> => {
+  if (hasDatabaseUrl() && portal !== 'platform') {
+    const claims = await readClaims();
+    if (claims?.organizationId) {
+      try {
+        if (portal === 'tenant') {
           return await withTimeoutFallback(
-            organizationOverviewFromDb(claims),
+            tenantOverviewFromDb(claims),
             3_000,
             emptyOverview(),
-            'org-overview-neon',
+            'tenant-overview-neon',
           );
-        } catch {
-          /* fall through to Nest / empty */
         }
+        return await withTimeoutFallback(
+          organizationOverviewFromDb(claims),
+          3_000,
+          emptyOverview(),
+          'org-overview-neon',
+        );
+      } catch {
+        /* fall through to Nest / empty */
       }
     }
+  }
 
-    try {
-      return await Promise.race([
-        apiFetch<PortalOverview>(`/v1/${portal}/overview`),
-        new Promise<PortalOverview>((resolve) => {
-          setTimeout(() => resolve(emptyOverview()), 4_000);
-        }),
-      ]);
-    } catch {
-      return emptyOverview();
-    }
-  },
-);
+  try {
+    return await Promise.race([
+      apiFetch<PortalOverview>(`/v1/${portal}/overview`),
+      new Promise<PortalOverview>((resolve) => {
+        setTimeout(() => resolve(emptyOverview()), 4_000);
+      }),
+    ]);
+  } catch {
+    return emptyOverview();
+  }
+});

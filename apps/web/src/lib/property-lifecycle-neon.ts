@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, eq, inArray, ne, sql } from 'drizzle-orm';
+import { and, eq, inArray, ne } from 'drizzle-orm';
 import type { SessionClaims } from '@bhd-r/authz';
 import {
   createDatabase,
@@ -16,6 +16,7 @@ import {
   utilityMeters,
   type Database,
 } from '@bhd-r/db';
+import { applySessionSettings, viewerTenantSettings } from '@/lib/db-session-settings';
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdRPropertyLifecycleDb?: DbHandle };
@@ -36,20 +37,7 @@ async function withinTenant<T>(
 ): Promise<T> {
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
-    await transaction.execute(
-      sql`select set_config('app.organization_id', ${claims.organizationId ?? ''}, true)`,
-    );
-    await transaction.execute(sql`select set_config('app.user_id', ${claims.sub}, true)`);
-    await transaction.execute(
-      sql`select set_config('app.party_id', ${claims.partyId ?? ''}, true)`,
-    );
-    await transaction.execute(
-      sql`select set_config('app.platform_admin', ${String(claims.roles.includes('platform_admin'))}, true)`,
-    );
-    await transaction.execute(
-      sql`select set_config('app.is_tenant', ${String(claims.roles.includes('tenant'))}, true)`,
-    );
-    await transaction.execute(sql`select set_config('app.public', 'false', true)`);
+    await applySessionSettings(transaction, viewerTenantSettings(claims));
     return work(transaction);
   });
 }
@@ -185,7 +173,10 @@ export async function purgePropertyOnNeon(claims: SessionClaims, propertyId: str
         .select({ id: stayProfiles.id })
         .from(stayProfiles)
         .where(
-          and(eq(stayProfiles.organizationId, organizationId), inArray(stayProfiles.unitId, unitIds)),
+          and(
+            eq(stayProfiles.organizationId, organizationId),
+            inArray(stayProfiles.unitId, unitIds),
+          ),
         )
         .limit(1);
       if (stayRow[0]) throw new Error('property_has_stay_profile');
@@ -230,7 +221,10 @@ export async function purgePropertyOnNeon(claims: SessionClaims, propertyId: str
     await transaction
       .delete(utilityMeters)
       .where(
-        and(eq(utilityMeters.propertyId, propertyId), eq(utilityMeters.organizationId, organizationId)),
+        and(
+          eq(utilityMeters.propertyId, propertyId),
+          eq(utilityMeters.organizationId, organizationId),
+        ),
       );
 
     if (unitIds.length) {

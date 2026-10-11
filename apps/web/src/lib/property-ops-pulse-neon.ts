@@ -1,5 +1,6 @@
 import 'server-only';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
+import { applySessionSettings } from '@/lib/db-session-settings';
 import {
   contracts,
   createDatabase,
@@ -120,26 +121,20 @@ export async function loadPropertyOpsPulseOnNeon(
 ): Promise<PropertyOpsPulse> {
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
-    await transaction.execute(
-      sql`select set_config('app.organization_id', ${organizationId}, true)`,
-    );
-    await transaction.execute(
-      sql`select set_config('app.user_id', ${options?.userId ?? ''}, true)`,
-    );
-    await transaction.execute(
-      sql`select set_config('app.party_id', ${options?.partyId ?? ''}, true)`,
-    );
-    await transaction.execute(sql`select set_config('app.platform_admin', 'false', true)`);
-    await transaction.execute(sql`select set_config('app.public', 'false', true)`);
+    await applySessionSettings(transaction, {
+      'app.organization_id': organizationId,
+      'app.user_id': options?.userId ?? '',
+      'app.party_id': options?.partyId ?? '',
+      'app.platform_admin': 'false',
+      'app.public': 'false',
+    });
 
-    const unitRows = await transaction
+    const unitRowsQuery = transaction
       .select({ id: units.id, code: units.code })
       .from(units)
       .where(and(eq(units.organizationId, organizationId), eq(units.propertyId, propertyId)));
-    const unitIds = unitRows.map((row) => row.id);
-    const unitCodeById = new Map(unitRows.map((row) => [row.id, row.code]));
 
-    const stayRows = await transaction
+    const stayRowsQuery = transaction
       .select({
         id: stayBookings.id,
         referenceCode: stayBookings.referenceCode,
@@ -160,25 +155,87 @@ export async function loadPropertyOpsPulseOnNeon(
       .orderBy(desc(stayBookings.createdAt))
       .limit(40);
 
+    // postgres.js pipelines concurrent queries on the transaction's connection.
+    const [unitRows, stayRows] = await Promise.all([unitRowsQuery, stayRowsQuery]);
+    const unitIds = unitRows.map((row) => row.id);
+    const unitCodeById = new Map(unitRows.map((row) => [row.id, row.code]));
     const stayIds = stayRows.map((row) => row.id);
+
+    const [guests, contractRows, leaseRows, stayPaymentRows] = await Promise.all([
+      stayIds.length
+        ? transaction
+            .select({
+              bookingId: stayBookingGuests.bookingId,
+              displayName: stayBookingGuests.displayName,
+            })
+            .from(stayBookingGuests)
+            .where(
+              and(
+                eq(stayBookingGuests.organizationId, organizationId),
+                eq(stayBookingGuests.isPrimary, true),
+                inArray(stayBookingGuests.bookingId, stayIds),
+              ),
+            )
+        : Promise.resolve([]),
+      unitIds.length
+        ? transaction
+            .select({
+              id: contracts.id,
+              reference: contracts.reference,
+              status: contracts.status,
+              unitId: contracts.unitId,
+              kind: contracts.kind,
+            })
+            .from(contracts)
+            .where(
+              and(eq(contracts.organizationId, organizationId), inArray(contracts.unitId, unitIds)),
+            )
+            .orderBy(desc(contracts.createdAt))
+            .limit(40)
+        : Promise.resolve([]),
+      unitIds.length
+        ? transaction
+            .select({
+              id: leases.id,
+              status: leases.status,
+              unitId: leases.unitId,
+              startsOn: leases.startsOn,
+              endsOn: leases.endsOn,
+              currency: leases.currency,
+              rentMinor: leases.rentMinor,
+              contractId: leases.contractId,
+            })
+            .from(leases)
+            .where(and(eq(leases.organizationId, organizationId), inArray(leases.unitId, unitIds)))
+            .orderBy(desc(leases.createdAt))
+            .limit(40)
+        : Promise.resolve([]),
+      stayIds.length
+        ? transaction
+            .select({
+              id: stayPaymentIntents.id,
+              bookingId: stayPaymentIntents.bookingId,
+              status: stayPaymentIntents.status,
+              currency: stayPaymentIntents.currency,
+              amountMinor: stayPaymentIntents.amountMinor,
+              provider: stayPaymentIntents.provider,
+              createdAt: stayPaymentIntents.createdAt,
+            })
+            .from(stayPaymentIntents)
+            .where(
+              and(
+                eq(stayPaymentIntents.organizationId, organizationId),
+                inArray(stayPaymentIntents.bookingId, stayIds),
+              ),
+            )
+            .orderBy(desc(stayPaymentIntents.createdAt))
+            .limit(40)
+        : Promise.resolve([]),
+    ]);
+
     const guestByBooking = new Map<string, string>();
-    if (stayIds.length) {
-      const guests = await transaction
-        .select({
-          bookingId: stayBookingGuests.bookingId,
-          displayName: stayBookingGuests.displayName,
-        })
-        .from(stayBookingGuests)
-        .where(
-          and(
-            eq(stayBookingGuests.organizationId, organizationId),
-            eq(stayBookingGuests.isPrimary, true),
-            inArray(stayBookingGuests.bookingId, stayIds),
-          ),
-        );
-      for (const guest of guests) {
-        if (guest.displayName) guestByBooking.set(guest.bookingId, guest.displayName);
-      }
+    for (const guest of guests) {
+      if (guest.displayName) guestByBooking.set(guest.bookingId, guest.displayName);
     }
 
     const stayBookingItems: PropertyOpsStayBooking[] = stayRows.map((row) => ({
@@ -193,64 +250,31 @@ export async function loadPropertyOpsPulseOnNeon(
       guestName: guestByBooking.get(row.id) ?? null,
     }));
 
-    let contractItems: PropertyOpsContract[] = [];
-    let leaseItems: PropertyOpsLease[] = [];
+    const contractItems: PropertyOpsContract[] = contractRows.map((row) => ({
+      id: row.id,
+      reference: row.reference,
+      status: row.status,
+      unitCode: unitCodeById.get(row.unitId) ?? '—',
+      kind: row.kind,
+    }));
+    const leaseItems: PropertyOpsLease[] = leaseRows.map((row) => ({
+      id: row.id,
+      status: row.status,
+      unitCode: unitCodeById.get(row.unitId) ?? '—',
+      startsOn: isoDate(row.startsOn),
+      endsOn: isoDate(row.endsOn),
+      currency: row.currency,
+      rentMinor: row.rentMinor.toString(),
+      contractId: row.contractId,
+    }));
     let invoiceItems: PropertyOpsInvoice[] = [];
     let leaseOpen: Array<{ currency: string; amount: bigint }> = [];
     let leaseCollected: Array<{ currency: string; amount: bigint }> = [];
 
-    if (unitIds.length) {
-      const contractRows = await transaction
-        .select({
-          id: contracts.id,
-          reference: contracts.reference,
-          status: contracts.status,
-          unitId: contracts.unitId,
-          kind: contracts.kind,
-        })
-        .from(contracts)
-        .where(
-          and(eq(contracts.organizationId, organizationId), inArray(contracts.unitId, unitIds)),
-        )
-        .orderBy(desc(contracts.createdAt))
-        .limit(40);
-      contractItems = contractRows.map((row) => ({
-        id: row.id,
-        reference: row.reference,
-        status: row.status,
-        unitCode: unitCodeById.get(row.unitId) ?? '—',
-        kind: row.kind,
-      }));
-
-      const leaseRows = await transaction
-        .select({
-          id: leases.id,
-          status: leases.status,
-          unitId: leases.unitId,
-          startsOn: leases.startsOn,
-          endsOn: leases.endsOn,
-          currency: leases.currency,
-          rentMinor: leases.rentMinor,
-          contractId: leases.contractId,
-        })
-        .from(leases)
-        .where(and(eq(leases.organizationId, organizationId), inArray(leases.unitId, unitIds)))
-        .orderBy(desc(leases.createdAt))
-        .limit(40);
-      leaseItems = leaseRows.map((row) => ({
-        id: row.id,
-        status: row.status,
-        unitCode: unitCodeById.get(row.unitId) ?? '—',
-        startsOn: isoDate(row.startsOn),
-        endsOn: isoDate(row.endsOn),
-        currency: row.currency,
-        rentMinor: row.rentMinor.toString(),
-        contractId: row.contractId,
-      }));
-
+    {
       const leaseIds = leaseRows.map((row) => row.id);
       if (leaseIds.length) {
-        const invoiceRows = await transaction
+        const invoiceRowsQuery = transaction
           .select({
             id: invoices.id,
             invoiceNumber: invoices.invoiceNumber,
@@ -266,6 +290,22 @@ export async function loadPropertyOpsPulseOnNeon(
           )
           .orderBy(desc(invoices.createdAt))
           .limit(40);
+        const paymentRowsQuery = transaction
+          .select({
+            currency: payments.currency,
+            amountMinor: payments.amountMinor,
+            status: payments.status,
+          })
+          .from(payments)
+          .innerJoin(invoices, eq(invoices.id, payments.invoiceId))
+          .where(
+            and(
+              eq(payments.organizationId, organizationId),
+              inArray(invoices.leaseId, leaseIds),
+              eq(payments.status, 'succeeded'),
+            ),
+          );
+        const [invoiceRows, paymentRows] = await Promise.all([invoiceRowsQuery, paymentRowsQuery]);
         invoiceItems = invoiceRows.map((row) => ({
           id: row.id,
           invoiceNumber: row.invoiceNumber,
@@ -282,50 +322,12 @@ export async function loadPropertyOpsPulseOnNeon(
             amount: row.totalMinor - row.paidMinor,
           }))
           .filter((row) => row.amount > 0n);
-
-        const paymentRows = await transaction
-          .select({
-            currency: payments.currency,
-            amountMinor: payments.amountMinor,
-            status: payments.status,
-          })
-          .from(payments)
-          .innerJoin(invoices, eq(invoices.id, payments.invoiceId))
-          .where(
-            and(
-              eq(payments.organizationId, organizationId),
-              inArray(invoices.leaseId, leaseIds),
-              eq(payments.status, 'succeeded'),
-            ),
-          );
         leaseCollected = paymentRows.map((row) => ({
           currency: row.currency,
           amount: row.amountMinor,
         }));
       }
     }
-
-    const stayPaymentRows = stayIds.length
-      ? await transaction
-          .select({
-            id: stayPaymentIntents.id,
-            bookingId: stayPaymentIntents.bookingId,
-            status: stayPaymentIntents.status,
-            currency: stayPaymentIntents.currency,
-            amountMinor: stayPaymentIntents.amountMinor,
-            provider: stayPaymentIntents.provider,
-            createdAt: stayPaymentIntents.createdAt,
-          })
-          .from(stayPaymentIntents)
-          .where(
-            and(
-              eq(stayPaymentIntents.organizationId, organizationId),
-              inArray(stayPaymentIntents.bookingId, stayIds),
-            ),
-          )
-          .orderBy(desc(stayPaymentIntents.createdAt))
-          .limit(40)
-      : [];
 
     const stayRefById = new Map(stayRows.map((row) => [row.id, row.referenceCode]));
     const stayPaymentItems: PropertyOpsStayPayment[] = stayPaymentRows.map((row) => ({

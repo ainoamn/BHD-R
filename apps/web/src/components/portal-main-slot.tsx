@@ -4,7 +4,6 @@ import { usePathname } from '@/i18n/navigation';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { OperationsWorkspaceClient } from '@/components/operations-workspace-client';
 import { PortalPageContext } from '@/components/portal-page';
-import { OPS_WARM_DONE_EVENT } from '@/lib/portal-ops-client-cache';
 import {
   isOperationsSection,
   opsSectionsForPortal,
@@ -27,7 +26,10 @@ export function opsSectionFromPathname(
   return opsSectionsForPortal(portal).includes(candidate) ? candidate : null;
 }
 
-/** Panels live in this shared layout, so switching only changes visibility. */
+/**
+ * Panels live in this shared layout, so switching only changes visibility.
+ * A panel mounts on first visit; its data is already warm in the client cache.
+ */
 export function PortalMainSlot({
   portal,
   locale,
@@ -49,29 +51,6 @@ export function PortalMainSlot({
     if (!section) return;
     setVisited((current) => (current.includes(section) ? current : [...current, section]));
   }, [section]);
-
-  useEffect(() => {
-    const onWarmDone = (event: Event) => {
-      if ((event as CustomEvent<{ portal: PortalRole }>).detail?.portal !== portal) return;
-      // Spread mounting work across frames instead of mounting 19 consoles at once.
-      let index = 0;
-      const sections = opsSectionsForPortal(portal);
-      const next = () => {
-        const candidate = sections[index++];
-        if (!candidate) return;
-        setVisited((current) => (current.includes(candidate) ? current : [...current, candidate]));
-        timer = window.setTimeout(next, 100);
-      };
-      window.clearTimeout(timer);
-      next();
-    };
-    let timer: number | undefined;
-    window.addEventListener(OPS_WARM_DONE_EVENT, onWarmDone);
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener(OPS_WARM_DONE_EVENT, onWarmDone);
-    };
-  }, [portal]);
 
   const panels = section && !visited.includes(section) ? [...visited, section] : visited;
   return (

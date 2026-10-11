@@ -22,6 +22,7 @@ import {
   type Database,
 } from '@bhd-r/db';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { applySessionSettings, viewerTenantSettings } from '@/lib/db-session-settings';
 import { requireSessionSecret } from '@/lib/runtime-env';
 import type { PortalRole } from '@/lib/types';
 
@@ -34,7 +35,7 @@ const globalForOpsContext = globalThis as unknown as {
     value: Record<string, unknown>;
   };
 };
-const OPS_CONTEXT_TTL_MS = 5_000;
+const OPS_CONTEXT_TTL_MS = 20_000;
 
 const ORG_WIDE_ROLES = new Set([
   'organization_owner',
@@ -85,21 +86,10 @@ export async function withinViewerTenant<T>(
   const { db } = getSharedDatabase();
   return db.transaction(async (transaction) => {
     // Cap every ops txn — owner properties used to hang minutes under pool contention.
-    await transaction.execute(sql`select set_config('statement_timeout', '6000', true)`);
-    await transaction.execute(
-      sql`select set_config('app.organization_id', ${claims.organizationId ?? ''}, true)`,
-    );
-    await transaction.execute(sql`select set_config('app.user_id', ${claims.sub}, true)`);
-    await transaction.execute(
-      sql`select set_config('app.party_id', ${claims.partyId ?? ''}, true)`,
-    );
-    await transaction.execute(
-      sql`select set_config('app.platform_admin', ${String(claims.roles.includes('platform_admin'))}, true)`,
-    );
-    await transaction.execute(
-      sql`select set_config('app.is_tenant', ${String(claims.roles.includes('tenant'))}, true)`,
-    );
-    await transaction.execute(sql`select set_config('app.public', 'false', true)`);
+    await applySessionSettings(transaction, {
+      statement_timeout: '6000',
+      ...viewerTenantSettings(claims),
+    });
     return work(transaction);
   });
 }
@@ -633,7 +623,8 @@ export async function loadOpsContextFromDb(
   const claims = await readClaims();
   if (!claims?.organizationId) return null;
 
-  const cacheKey = `${portal}:${claims.organizationId}`;
+  // Owner-scoped viewers see only their own properties, so the key includes the viewer.
+  const cacheKey = `${portal}:${claims.organizationId}:${claims.sub}:${claims.partyId ?? ''}`;
   const cached = globalForOpsContext.__bhdROpsContextCache;
   if (cached && cached.key === cacheKey && Date.now() - cached.at < OPS_CONTEXT_TTL_MS) {
     return cached.value;

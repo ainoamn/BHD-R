@@ -1,5 +1,8 @@
 # CONTINUE — 2026-10-11
 
+**0.6.8** · سرعة لوحة المالك (مرحلة 1): `applySessionSettings`/`viewerTenantSettings` في `lib/db-session-settings.ts` (أمر `set_config` واحد لكل معاملة)؛ تحميل متوازٍ في `portal-overview`، `pending-approvals-neon`، `portal-ops-workspace` (القائمة + `loadOpsContextFromDb` معاً، TTL 20 ثانية ومفتاح يشمل المستخدم)، `property-ops-pulse-neon` (3 دفعات)، وصفحة تفاصيل العقار؛ `PortalMainSlot` يركّب اللوحة عند الزيارة فقط. التالي: Neon بدل Nest للأقسام المتبقية، فهارس (بموافقة)، ثم التصميم الموحّد  
+**تفاصيل:** [`docs/implementation/RELEASE-0.6.8-AR.md`](./docs/implementation/RELEASE-0.6.8-AR.md)
+
 **0.6.7** · الضيف: نافذة إلغاء بتنبيه عدم الاسترداد؛ تعديل تواريخ فعلي عبر `POST /api/public/stays/guest/reschedule` (`rescheduleGuestStayBookingOnNeon` + `priceStayRangeForUnitOnNeon` + قاعدة `stayRescheduleCharge`: السعر = max(سعر التقويم، الأصلي)، والمدفوع لا يزيد إلكترونياً)؛ تقويم بخيار `ownRange`  
 **تفاصيل:** [`docs/implementation/RELEASE-0.6.7-AR.md`](./docs/implementation/RELEASE-0.6.7-AR.md)
 

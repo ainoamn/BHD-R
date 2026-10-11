@@ -17,6 +17,7 @@ import {
 } from '@bhd-r/db';
 import type { CurrencyCode } from '@bhd-r/contracts';
 import type { ManagedProperty } from '@/components/property-detail-manager';
+import { applySessionSettings } from '@/lib/db-session-settings';
 import { googleMapsLinkFromCoords } from '@/lib/parse-google-maps-url';
 import { loadPropertyProfileRow } from '@/lib/load-property-profile';
 import { readUnitSaleDeposits } from '@/lib/unit-sale-deposit-neon';
@@ -63,16 +64,14 @@ export async function loadManagedPropertyFromNeon(
 ): Promise<ManagedProperty | null> {
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
-    await transaction.execute(
-      sql`select set_config('app.organization_id', ${organizationId}, true)`,
-    );
-    await transaction.execute(sql`select set_config('app.user_id', ${viewer.userId}, true)`);
-    await transaction.execute(
-      sql`select set_config('app.party_id', ${viewer.partyId ?? ''}, true)`,
-    );
-    await transaction.execute(sql`select set_config('app.platform_admin', 'false', true)`);
-    await transaction.execute(sql`select set_config('app.is_tenant', 'false', true)`);
-    await transaction.execute(sql`select set_config('app.public', 'false', true)`);
+    await applySessionSettings(transaction, {
+      'app.organization_id': organizationId,
+      'app.user_id': viewer.userId,
+      'app.party_id': viewer.partyId ?? '',
+      'app.platform_admin': 'false',
+      'app.is_tenant': 'false',
+      'app.public': 'false',
+    });
 
     const property = await transaction.query.properties.findFirst({
       where: and(eq(properties.id, propertyId), eq(properties.organizationId, organizationId)),

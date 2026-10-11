@@ -71,13 +71,15 @@ function localizeWorkflowLabel(
 }
 
 export async function PortalOverview({ locale, portal }: { locale: string; portal: PortalRole }) {
-  const t = await getTranslations();
-  const viewer = await requirePortal(locale, portal);
   const managesProperties = portal === 'owner' || portal === 'developer';
-  const [overview, approvals]: [OverviewData, PendingApprovals] = await Promise.all([
-    loadPortalOverview(portal, viewer),
+  // Data loads read the session themselves; start them alongside the access check.
+  const dataPromise: Promise<[OverviewData, PendingApprovals]> = Promise.all([
+    loadPortalOverview(portal),
     managesProperties ? loadViewerPendingApprovals() : Promise.resolve(EMPTY_PENDING_APPROVALS),
   ]);
+  dataPromise.catch(() => undefined);
+  const [t, viewer] = await Promise.all([getTranslations(), requirePortal(locale, portal)]);
+  const [overview, approvals] = await dataPromise;
   const firstContract = approvals.items.find((item) => item.kind === 'contract');
   const approvalAlerts: Array<{ code: string; count: number; href: string }> = [
     ...(approvals.contracts && firstContract

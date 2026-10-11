@@ -36,8 +36,8 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
   const ownerPartyId = ownerPartyScope(claims);
 
   return withinViewerTenant(claims, async (tx) => {
-    const contractRows = canSign
-      ? await tx
+    const contractQuery = canSign
+      ? tx
           .select({
             id: contracts.id,
             reference: contracts.reference,
@@ -67,10 +67,10 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
           )
           .orderBy(asc(approvalRequests.createdAt))
           .limit(ITEM_LIMIT)
-      : [];
+      : Promise.resolve([]);
 
-    const bookingRows = canManageBookings
-      ? await tx
+    const bookingQuery = canManageBookings
+      ? tx
           .select({
             id: stayBookings.id,
             reference: stayBookings.referenceCode,
@@ -96,7 +96,8 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
           )
           .orderBy(asc(stayBookings.createdAt))
           .limit(ITEM_LIMIT)
-      : [];
+      : Promise.resolve([]);
+    const [contractRows, bookingRows] = await Promise.all([contractQuery, bookingQuery]);
 
     const items: PendingApprovalItem[] = [
       ...contractRows.map((row) => ({

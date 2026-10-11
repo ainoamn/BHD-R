@@ -4,6 +4,7 @@ import type { SessionClaims } from '@bhd-r/authz';
 import type { CurrencyCode, UpsertStayInventoryDayInput } from '@bhd-r/contracts';
 import { createDatabase, stayInventoryDays, type Database } from '@bhd-r/db';
 import { toMinorUnits } from '@/lib/format';
+import { applySessionSettings, viewerTenantSettings } from '@/lib/db-session-settings';
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdRStayDayOverrideDb?: DbHandle };
@@ -24,17 +25,7 @@ async function withinTenant<T>(
 ): Promise<T> {
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
-    await transaction.execute(
-      sql`select set_config('app.organization_id', ${claims.organizationId ?? ''}, true)`,
-    );
-    await transaction.execute(sql`select set_config('app.user_id', ${claims.sub}, true)`);
-    await transaction.execute(
-      sql`select set_config('app.party_id', ${claims.partyId ?? ''}, true)`,
-    );
-    await transaction.execute(
-      sql`select set_config('app.platform_admin', ${String(claims.roles.includes('platform_admin'))}, true)`,
-    );
-    await transaction.execute(sql`select set_config('app.public', 'false', true)`);
+    await applySessionSettings(transaction, viewerTenantSettings(claims));
     return work(transaction);
   });
 }

@@ -7,6 +7,8 @@ import { portalNavHrefs } from '@/lib/portal-nav-paths';
 import { opsSectionsForPortal, OPS_WARM_ORDER } from '@/lib/portal-ops-types';
 import { OPS_WARM_DONE_EVENT, warmOpsSection } from '@/lib/portal-ops-client-cache';
 
+const PROPERTY_SEED_LIMIT = 6;
+
 /** Only authenticated, same-portal page links are eligible for background work. */
 export function portalPrefetchHref(
   href: string,
@@ -120,7 +122,8 @@ export function PortalRoutePrefetch({
       const payload = await warmOpsSection(portal, section);
       if (cancelled) return;
       if (section === 'properties' && payload) {
-        for (const record of payload.records) {
+        // Visible links are discovered by scan(); only seed the first few off-screen ones.
+        for (const record of payload.records.slice(0, PROPERTY_SEED_LIMIT)) {
           if (typeof record.id !== 'string') continue;
           const path = `/${portal}/properties/${encodeURIComponent(record.id)}`;
           enqueue(path);
