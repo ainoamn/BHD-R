@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.7.3 — 2026-10-11
+
+- صفحة العقد (`/owner/contracts/[id]`) لم تعد تسقط حين يكون Nest نائماً: تُقرأ من Neon أولاً، وNest بديل، ورسالة هادئة إن فشل الاثنان.
+- تسجيل دخول ومغادرة الضيف: التقويم استُبدل بإدخال يدوي للتاريخ (يوم/شهر/سنة) والوقت (ساعة:دقيقة مع ص/م)، يقبل الأرقام العربية، مع أزرار «الآن / قبل ساعة / أمس» وسطر تأكيد.
+- التفاصيل: [`docs/implementation/RELEASE-0.7.3-AR.md`](./docs/implementation/RELEASE-0.7.3-AR.md).
+
 ## 0.7.2 — 2026-10-11
 
 - مزامنة حية: ما يُعدَّل في أي حساب (المالك، المستأجر، الضيف، أي جهاز) يظهر في الحسابات الأخرى خلال ثوانٍ بلا تحديث للصفحة.

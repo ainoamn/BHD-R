@@ -1,7 +1,7 @@
 # Implementation status
 
 **Updated:** 2026-10-11  
-**Product version:** 0.7.2  
+**Product version:** 0.7.3  
 **Active focus:** Owner dashboard speed and redesign — phases 1–3 shipped (parallel loads, Neon reads and indexes, calm unified design); live page-by-page review and loading skeletons next  
 **Release 0.6.3:** [`RELEASE-0.6.3-AR.md`](./RELEASE-0.6.3-AR.md)  
 **Release 0.6.2:** [`RELEASE-0.6.2-AR.md`](./RELEASE-0.6.2-AR.md)  
@@ -13,6 +13,7 @@
 
 | Version         | Focus                                                                                                                              |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| 0.7.3           | Contract detail reads Neon first (no crash when Nest sleeps); hand-typed check-in/out date and time with AM/PM                     |
 | 0.7.2           | Live sync across accounts without page reload (`live_changes` triggers + pulse endpoint + `LiveSync`); guest page reads Neon first |
 | 0.7.1           | Stay check-in / check-out with time and notes (property bookings tab); guest sees both; one booking page                           |
 | 0.7.0           | Calm unified portal design: light sidebar, white headers without rainbow stripes, neutral metrics, calm forms and modals           |

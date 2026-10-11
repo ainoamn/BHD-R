@@ -1,42 +1,12 @@
 import { Card, CardContent, StatusBadge } from '@bhd-r/ui';
 import Link from 'next/link';
-import { apiFetch } from '@/lib/server-api';
+import { notFound } from 'next/navigation';
+import { loadContractDetailFromNeon, type ContractDetail } from '@/lib/contract-detail-neon';
+import { ApiError, apiFetch } from '@/lib/server-api';
 import { requirePortal } from '@/lib/viewer';
 import type { PortalRole } from '@/lib/types';
 import { ContractActions } from './contract-actions';
 import { SignatureForm } from './signature-form';
-
-interface ContractDetail {
-  id: string;
-  reference: string;
-  kind: 'initial' | 'renewal' | 'amendment' | 'termination';
-  parentContractId: string | null;
-  status: string;
-  startsOn: string;
-  endsOn: string;
-  documentUrl: string | null;
-  documentHash: string | null;
-  canSign: boolean;
-  approval: {
-    id: string;
-    reference: string;
-    status: string;
-    decisionNote: string | null;
-    decidedAt: string | null;
-  } | null;
-  parties: {
-    owner: { id: string; displayName: string } | null;
-    tenant: { id: string; displayName: string } | null;
-  };
-  property: { id: string; nameAr: string; nameEn: string } | null;
-  unit: { id: string; code: string; nameAr: string; nameEn: string } | null;
-  signatures: Array<{
-    id: string;
-    signerRole: string;
-    signatureHash: string;
-    signedAt: string;
-  }>;
-}
 
 export async function ContractDetailView({
   portal,
@@ -50,11 +20,42 @@ export async function ContractDetailView({
   const currentLocale = locale === 'en' ? 'en' : 'ar';
   const ar = currentLocale === 'ar';
   const viewer = await requirePortal(currentLocale, portal);
-  const contract = await apiFetch<ContractDetail>(
-    portal === 'tenant'
-      ? `/v1/tenant/contracts/${encodeURIComponent(contractId)}`
-      : `/v1/leasing/contracts/${encodeURIComponent(contractId)}`,
-  );
+  let contract = await loadContractDetailFromNeon(contractId, portal).catch((error: unknown) => {
+    console.error('contract detail (neon) failed', error);
+    return null;
+  });
+  if (!contract) {
+    contract = await apiFetch<ContractDetail>(
+      portal === 'tenant'
+        ? `/v1/tenant/contracts/${encodeURIComponent(contractId)}`
+        : `/v1/leasing/contracts/${encodeURIComponent(contractId)}`,
+    ).catch((error: unknown) => {
+      if (error instanceof ApiError && [400, 403, 404].includes(error.status)) notFound();
+      return null;
+    });
+  }
+  if (!contract) {
+    return (
+      <div className="form-shell contract-detail">
+        <Card>
+          <CardContent>
+            <h1>{ar ? 'تعذّر فتح العقد الآن' : 'The contract could not be opened'}</h1>
+            <p className="muted">
+              {ar
+                ? 'الخدمة مشغولة لحظياً. أعد المحاولة بعد ثوانٍ.'
+                : 'The service is busy for a moment. Try again in a few seconds.'}
+            </p>
+            <Link
+              className="button button--secondary"
+              href={`/${currentLocale}/${portal}/contracts`}
+            >
+              {ar ? 'العودة إلى العقود' : 'Back to contracts'}
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
   return (
     <div className="form-shell contract-detail">
       <header className="portal-topbar">

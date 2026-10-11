@@ -17231,12 +17231,97 @@ body:has(.stay-esign-shell) {
   white-space: pre-line;
 }
 .psr-stamp-form .form-grid {
-  grid-template-columns: minmax(0, 16rem) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
 }
-@media (max-width: 640px) {
-  .psr-stamp-form .form-grid {
-    grid-template-columns: 1fr;
-  }
+
+/* Hand-typed date + time (check-in / check-out) */
+.stamp-dt {
+  display: grid;
+  gap: 0.5rem;
+}
+.stamp-dt__label {
+  font-weight: 700;
+}
+.stamp-dt__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.6rem;
+}
+.stamp-dt__part {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--calm-muted, #6c7b75);
+}
+.stamp-dt__part .input {
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.03em;
+  text-align: center;
+}
+.stamp-dt__part--date .input {
+  width: 9.5rem;
+}
+.stamp-dt__part--time .input {
+  width: 5.5rem;
+}
+.stamp-dt__period {
+  display: inline-flex;
+  border: 1px solid var(--calm-line, #dfe6e2);
+  border-radius: 0.6rem;
+  overflow: hidden;
+  background: #fff;
+}
+.stamp-dt__period button {
+  min-width: 2.75rem;
+  min-height: 2.6rem;
+  padding: 0 0.7rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.stamp-dt__period button + button {
+  border-inline-start: 1px solid var(--calm-line, #dfe6e2);
+}
+.stamp-dt__period button[aria-checked='true'] {
+  background: var(--calm-accent-soft, #e6f2ec);
+  color: var(--calm-accent, #1f6b4f);
+}
+.stamp-dt__period button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+.stamp-dt__shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.stamp-dt__chip {
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--calm-line, #dfe6e2);
+  border-radius: 999px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.stamp-dt__chip:hover {
+  border-color: var(--calm-accent, #1f6b4f);
+  color: var(--calm-accent, #1f6b4f);
+}
+.stamp-dt__preview {
+  color: var(--calm-muted, #6c7b75);
+}
+.stamp-dt__preview strong {
+  color: var(--calm-ink, #1d2b26);
+}
+.stamp-dt__error {
+  color: #b42318;
 }
 
 /* Guest stay page: recorded check-in / check-out times and notes */

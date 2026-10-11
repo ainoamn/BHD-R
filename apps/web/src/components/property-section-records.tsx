@@ -9,6 +9,7 @@ import { Icon, type IconName } from '@/components/pmh-icon';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { LIVE_CHANGE_EVENT } from '@/lib/live-sync-shared';
+import { StampDateTimeField } from './stays/stamp-date-time-field';
 import { PENDING_APPROVALS_CHANGED_EVENT } from '@/lib/pending-approvals-shared';
 import { domainStatusLabel } from '@/lib/ui-labels';
 import type {
@@ -320,11 +321,6 @@ const ERROR_TEXT: Record<string, [string, string]> = {
   ],
 };
 
-/** Current time in Oman as a `datetime-local` value. */
-function muscatNowLocal(): string {
-  return new Date(Date.now() + 4 * 3_600_000).toISOString().slice(0, 16);
-}
-
 function formatStamp(value: string, locale: 'ar' | 'en'): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -575,8 +571,7 @@ function StayStampForm({
   onCancel: () => void;
 }) {
   const ar = locale === 'ar';
-  const [now] = useState(muscatNowLocal);
-  const [at, setAt] = useState(now);
+  const [at, setAt] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const checkIn = kind === 'check_in';
 
@@ -585,7 +580,7 @@ function StayStampForm({
       className="psr-form psr-stamp-form"
       onSubmit={(event) => {
         event.preventDefault();
-        onSubmit(at, notes);
+        if (at) onSubmit(at, notes);
       }}
     >
       <h3>
@@ -598,27 +593,20 @@ function StayStampForm({
             : `Guest check-out — ${reference}`}
       </h3>
       <div className="form-grid">
-        <div className="field">
-          <label htmlFor={`psr-stamp-at-${reference}`}>
-            {checkIn
+        <StampDateTimeField
+          id={`psr-stamp-at-${reference}`}
+          locale={locale}
+          onChange={setAt}
+          label={
+            checkIn
               ? ar
                 ? 'تاريخ ووقت الاستلام والدخول'
                 : 'Check-in date and time'
               : ar
                 ? 'تاريخ ووقت المغادرة'
-                : 'Check-out date and time'}
-          </label>
-          <input
-            id={`psr-stamp-at-${reference}`}
-            className="input"
-            type="datetime-local"
-            dir="ltr"
-            required
-            max={now}
-            value={at}
-            onChange={(event) => setAt(event.target.value)}
-          />
-        </div>
+                : 'Check-out date and time'
+          }
+        />
         <div className="field span-2">
           <label htmlFor={`psr-stamp-notes-${reference}`}>{ar ? 'ملاحظات' : 'Notes'}</label>
           <textarea

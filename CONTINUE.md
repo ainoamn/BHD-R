@@ -1,5 +1,8 @@
 # CONTINUE — 2026-10-11
 
+**0.7.3** · صفحة العقد: `loadContractDetailFromNeon` (`lib/contract-detail-neon.ts`) بنفس شكل `/v1/leasing/contracts/:id` (شرط المنظمة، `ownerPartyScope`، المستأجر طرف إلزامي، توقيع PDF محلي 180 ثانية)؛ `ContractDetailView` Neon ← Nest ← رسالة بدل السقوط. وقت الدخول/المغادرة: `StampDateTimeField` (`components/stays/stamp-date-time-field.tsx`) نصّان يدويان + ص/م، يُخرج `YYYY-MM-DDTHH:MM` بتوقيت مسقط أو null؛ اختبار `tests/unit/stamp-date-time-field.test.ts`. التالي: قراءة بوابة المستأجر من Neon  
+**تفاصيل:** [`docs/implementation/RELEASE-0.7.3-AR.md`](./docs/implementation/RELEASE-0.7.3-AR.md)
+
 **0.7.2** · مزامنة حية: جدول `live_changes` تكتبه مشغّلات جمل (`custom/0027_live_changes.sql`، دالة `live_changes_capture` SECURITY DEFINER، 57 جدولاً بعمود `organization_id`؛ جداول الإقامة الفرعية بـ `booking_id`). `GET /api/live/pulse` يعيد `max(id)` للمنظمة أو للحجز (`?booking=&ref=`)، و`v: null` إن غاب الجدول. `components/live-sync.tsx` يسأل كل 3 ثوانٍ (يتخطى `document.hidden`)، وعند التغيّر: `markOpsCacheStale` + حدث `bhd-r-live-change` (لوحة العمليات وسجلات العقار تعيد الجلب بصمت) + `PENDING_APPROVALS_CHANGED_EVENT` + `router.refresh()`. صفحة الضيف: Neon أولاً مع `ref`. الترحيل يحتاج تطبيقاً على الإنتاج بموافقة. التالي: قراءة بوابة المستأجر من Neon  
 **تفاصيل:** [`docs/implementation/RELEASE-0.7.2-AR.md`](./docs/implementation/RELEASE-0.7.2-AR.md)
 
