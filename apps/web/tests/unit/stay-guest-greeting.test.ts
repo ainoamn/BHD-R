@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { friendlyGuestName, stayGuestGreeting } from '@/lib/stay-guest-greeting';
+import {
+  friendlyGuestName,
+  stayGuestGreeting,
+  stayJourneyInitialStep,
+  stayJourneyScreens,
+} from '@/lib/stay-guest-greeting';
 
 const stageOf = (status: string, welcome = false) =>
   stayGuestGreeting({ status, ar: true, welcome, guestName: 'ABDUL HAMID' })?.stage;
@@ -23,6 +28,20 @@ describe('guest stay greeting', () => {
     });
     expect(greeting?.headline).toContain('Abdul Hamid Al Rawahi');
     expect(greeting?.guide).toHaveLength(4);
+  });
+
+  it('opens only reached steps, each with its own screen', () => {
+    const screens = (status: string) =>
+      stayJourneyScreens({ status, ar: true, welcome: false, mode: 'request' }).map(
+        (screen) => screen?.stage ?? null,
+      );
+    expect(screens('request_pending')).toEqual(['submitted', 'review', null, null]);
+    expect(screens('confirmed')).toEqual(['submitted', 'confirmed', 'confirmed', null]);
+    expect(screens('checked_in')).toEqual(['submitted', 'confirmed', 'checked_in', 'checked_in']);
+    expect(screens('checked_out')).toEqual(['submitted', 'confirmed', 'checked_in', 'checked_out']);
+    expect(stayJourneyInitialStep('request_pending', true)).toBe(0);
+    expect(stayJourneyInitialStep('confirmed', true)).toBe(2);
+    expect(stayJourneyInitialStep('checked_out', false)).toBe(3);
   });
 
   it('tidies all-caps names only', () => {

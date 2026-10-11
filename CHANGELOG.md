@@ -2,6 +2,13 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.7.5 — 2026-10-11
+
+- صفحة الضيف تفاعلية: الضغط على أي مرحلة وصلها الضيف يعرض شاشتها كما ظهرت (الترحيب والإرشاد، المراجعة أو الموافقة، الوصول بوقته وملاحظاته، الوداع).
+  - المراحل التي لم يصلها الضيف مقفلة.
+  - زر «العودة إلى الآن» يرجع إلى المرحلة الحالية.
+- التفاصيل: [`docs/implementation/RELEASE-0.7.5-AR.md`](./docs/implementation/RELEASE-0.7.5-AR.md).
+
 ## 0.7.4 — 2026-10-11
 
 - صفحة الضيف: رسالة ترحيب باسم الضيف تتبدّل مع مراحل الحجز، بأسلوب حفيّ مرح:

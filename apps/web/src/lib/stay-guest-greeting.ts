@@ -12,6 +12,8 @@ export type StayGreeting = {
   body: string;
   guide?: string[];
   rebook?: boolean;
+  /** Recorded check-in / check-out moment shown under the message. */
+  stamp?: { label: string; at: string; notes: string | null } | undefined;
 };
 
 /** "ABDUL HAMID AL RAWAHI" → "Abdul Hamid Al Rawahi"; Arabic and mixed-case names stay as typed. */
@@ -228,4 +230,117 @@ export function stayGuestGreeting(input: {
     default:
       return null;
   }
+}
+
+type GreetingInput = Parameters<typeof stayGuestGreeting>[0];
+type StampText = { at: string; notes: string | null };
+
+/** Journey position: 1 = waiting on host/payment, 2 = awaiting arrival, 3 = in stay, 4 = checked out. */
+export function stayJourneyCurrent(status: string): number {
+  if (status === 'request_pending' || status === 'payment_pending' || status === 'payment_failed') {
+    return 1;
+  }
+  if (status === 'checked_in') return 3;
+  if (status === 'checked_out' || status === 'closed') return 4;
+  return 2;
+}
+
+/**
+ * One screen per journey step (submitted, host approval / payment, arrival,
+ * departure), each showing how the page read at that moment. Steps not yet
+ * reached are null so the guest cannot open them.
+ */
+export function stayJourneyScreens(
+  input: GreetingInput & {
+    mode?: string | undefined;
+    checkOutDate?: string | null | undefined;
+    checkIn?: StampText | null | undefined;
+    checkOut?: StampText | null | undefined;
+  },
+): Array<StayGreeting | null> {
+  const { status, ar } = input;
+  const current = stayJourneyCurrent(status);
+  const request = input.mode === 'request' || status === 'request_pending';
+  const name = friendlyGuestName(input.guestName);
+  const hi = (arText: string, enText: string) =>
+    ar
+      ? arText.replace('{name}', name ? ` يا ${name}` : '')
+      : enText.replace('{name}', name ? `, ${name}` : '');
+  const live = (overrides: Partial<GreetingInput>) => stayGuestGreeting({ ...input, ...overrides });
+
+  const submitted = live({
+    status: request ? 'request_pending' : 'payment_pending',
+    welcome: true,
+  });
+
+  const approval: StayGreeting | null =
+    current === 1
+      ? live({ welcome: false })
+      : request
+        ? {
+            stage: 'confirmed',
+            headline: hi('تمّت الموافقة{name}!', 'Approved{name}!'),
+            body: ar
+              ? 'راجع المالك طلبك ووافق عليه بكل سرور، فصار حجزك مؤكَّداً رسمياً. (ونحن صفّقنا من خلف الشاشة.)'
+              : 'The host reviewed your request and happily said yes — your stay became officially confirmed. (We clapped behind the screen.)',
+          }
+        : {
+            stage: 'confirmed',
+            headline: hi('اكتمل الدفع{name}!', 'Payment complete{name}!'),
+            body: ar
+              ? 'وصلنا الدفع بأمان، وتثبّتت تواريخك باسمك. لم يبقَ إلا العدّ التنازلي.'
+              : 'Your payment arrived safely and the dates are yours. Only the countdown is left.',
+          };
+
+  const arrival: StayGreeting | null =
+    current < 2
+      ? null
+      : current === 2
+        ? live({})
+        : {
+            stage: 'checked_in',
+            headline: hi('وصلت بالسلامة{name}!', 'You made it{name}!'),
+            body: ar
+              ? 'هنا بدأت الحكاية: استلمت المفاتيح، وفُتح الباب على أيام من الراحة.'
+              : 'This is where the story began: keys in hand, door open to days of rest.',
+            stamp: input.checkIn
+              ? { label: ar ? 'وقت الدخول والاستلام' : 'Checked in at', ...input.checkIn }
+              : undefined,
+          };
+
+  const departure: StayGreeting | null =
+    current < 3
+      ? null
+      : current === 3
+        ? (() => {
+            const inStay = live({});
+            if (!inStay || !input.checkOutDate) return inStay;
+            return {
+              ...inStay,
+              body:
+                inStay.body +
+                (ar
+                  ? ` موعد المغادرة يوم ${input.checkOutDate}، ولا داعي للعجلة… فقط لا تنسَ أغراضك (خصوصاً الشاحن!).`
+                  : ` Check-out is on ${input.checkOutDate} — no rush… just do not forget your things (especially the charger!).`),
+            };
+          })()
+        : (() => {
+            const farewell = live({});
+            if (!farewell) return null;
+            return {
+              ...farewell,
+              stamp: input.checkOut
+                ? { label: ar ? 'وقت المغادرة' : 'Checked out at', ...input.checkOut }
+                : undefined,
+            };
+          })();
+
+  return [submitted, approval, arrival, departure];
+}
+
+/** Step opened first: the welcome guide right after submitting, otherwise where the booking stands. */
+export function stayJourneyInitialStep(status: string, welcome: boolean): number {
+  const current = stayJourneyCurrent(status);
+  if (current === 1 && welcome) return 0;
+  return Math.min(current, 3);
 }

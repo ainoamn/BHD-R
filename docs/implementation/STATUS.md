@@ -1,7 +1,7 @@
 # Implementation status
 
 **Updated:** 2026-10-11  
-**Product version:** 0.7.4  
+**Product version:** 0.7.5  
 **Active focus:** Owner dashboard speed and redesign — phases 1–3 shipped (parallel loads, Neon reads and indexes, calm unified design); live page-by-page review and loading skeletons next  
 **Release 0.6.3:** [`RELEASE-0.6.3-AR.md`](./RELEASE-0.6.3-AR.md)  
 **Release 0.6.2:** [`RELEASE-0.6.2-AR.md`](./RELEASE-0.6.2-AR.md)  
@@ -13,6 +13,7 @@
 
 | Version         | Focus                                                                                                                                    |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.7.5           | Interactive guest journey: reached steps replay their screen, upcoming steps locked, "back to now"                                       |
 | 0.7.4           | Guest stay page: warm, playful greeting by name that follows each booking stage (welcome guide → review → confirmed → enjoy → thank you) |
 | 0.7.3           | Contract detail reads Neon first (no crash when Nest sleeps); hand-typed check-in/out date and time with AM/PM                           |
 | 0.7.2           | Live sync across accounts without page reload (`live_changes` triggers + pulse endpoint + `LiveSync`); guest page reads Neon first       |

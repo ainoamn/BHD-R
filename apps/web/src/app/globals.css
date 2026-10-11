@@ -17422,6 +17422,99 @@ body:has(.stay-esign-shell) {
   justify-self: start;
   margin-top: 0.2rem;
 }
+
+/* Clickable journey: reached steps replay their screen, upcoming ones stay locked */
+.guest-stay-detail__step-button {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 0.3rem;
+  width: 100%;
+  padding: 0.15rem 0.1rem 0.25rem;
+  border: 0;
+  border-radius: 0.7rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+.guest-stay-detail__step-button:not(:disabled):hover {
+  background: rgb(255 255 255 / 0.1);
+}
+.guest-stay-detail__step-button:not(:disabled):hover .guest-stay-detail__step-dot {
+  transform: scale(1.08);
+}
+.guest-stay-detail__step-button:focus-visible {
+  outline: 2px solid #99f6e4;
+  outline-offset: 2px;
+}
+.guest-stay-detail__step-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.guest-stay-detail__step-dot {
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.guest-stay-detail__step--selected .guest-stay-detail__step-button {
+  background: rgb(255 255 255 / 0.14);
+}
+.guest-stay-detail__step--selected .guest-stay-detail__step-dot {
+  box-shadow: 0 0 0 4px rgb(153 246 228 / 0.45);
+}
+.guest-stay-detail__step--selected .guest-stay-detail__step-label {
+  font-weight: 700;
+  color: #fff;
+}
+.guest-stay-detail__greeting--past {
+  border-inline-start-style: dashed;
+}
+.guest-stay-detail__replay {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem 0.75rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px dashed rgb(15 47 69 / 0.12);
+  font-size: 0.78rem;
+  color: #64748b;
+}
+.guest-stay-detail__replay button {
+  padding: 0.2rem 0.7rem;
+  border: 1px solid var(--greet-tone);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--greet-tone);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.guest-stay-detail__moment {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.7rem;
+  background: rgb(255 255 255 / 0.75);
+  border: 1px solid rgb(15 47 69 / 0.08);
+  font-size: 0.82rem;
+  color: #64748b;
+}
+.guest-stay-detail__moment strong {
+  font-size: 0.92rem;
+  color: var(--bhd-navy);
+}
+.guest-stay-detail__moment small {
+  line-height: 1.6;
+  white-space: pre-line;
+  color: #334155;
+}
 @keyframes guest-greeting-in {
   from {
     opacity: 0;

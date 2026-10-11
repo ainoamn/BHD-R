@@ -1,5 +1,8 @@
 # CONTINUE — 2026-10-11
 
+**0.7.5** · مراحل تفاعلية في صفحة الضيف: `stayJourneyScreens` (شاشة لكل مرحلة، `null` لغير المبلوغة) و`stayJourneyCurrent`/`stayJourneyInitialStep` في `lib/stay-guest-greeting.ts`؛ `components/stays/stay-journey.tsx` فيه `StayJourneyProvider` (مفتاحه الحالة + المرحلة الافتتاحية فيُعاد ضبطه مع المزامنة الحية) و`StayJourneySteps` (أزرار، المقفلة `disabled`) و`StayJourneyCard` (شريط «العودة إلى الآن» للمراحل السابقة). التالي: قراءة بوابة المستأجر من Neon  
+**تفاصيل:** [`docs/implementation/RELEASE-0.7.5-AR.md`](./docs/implementation/RELEASE-0.7.5-AR.md)
+
 **0.7.4** · رسالة الضيف حسب المرحلة: `stayGuestGreeting` في `lib/stay-guest-greeting.ts` (مراحل `submitted` حين `request_pending`/`payment_pending` مع `welcome=1`، ثم `review`، `payment`، `payment_failed`، `confirmed`، `checked_in`، `checked_out` مع `rebook`، `ended`)؛ `friendlyGuestName` لتنسيق الأسماء الكبيرة. صفحة الضيف: العنوان في الصورة + بطاقة `.guest-stay-detail__greeting--{stage}` أول اللوحة. التالي: قراءة بوابة المستأجر من Neon  
 **تفاصيل:** [`docs/implementation/RELEASE-0.7.4-AR.md`](./docs/implementation/RELEASE-0.7.4-AR.md)
 

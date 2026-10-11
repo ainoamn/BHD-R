@@ -13,7 +13,17 @@ import { stayBookingModeLabel, stayStatusLabel, stayTypeLabel } from '@/lib/ui-l
 import { getViewer } from '@/lib/viewer';
 import { formatMoney } from '@/lib/format';
 import { LiveSync } from '@/components/live-sync';
-import { stayGuestGreeting } from '@/lib/stay-guest-greeting';
+import {
+  StayJourneyCard,
+  StayJourneyProvider,
+  StayJourneySteps,
+} from '@/components/stays/stay-journey';
+import {
+  stayGuestGreeting,
+  stayJourneyCurrent,
+  stayJourneyInitialStep,
+  stayJourneyScreens,
+} from '@/lib/stay-guest-greeting';
 import { RememberStayTripAlert } from '@/components/stays/remember-stay-trip-alert';
 import { isStayEsignRequiredServer } from '@/lib/stay-esign-flags';
 import type { StayStamp } from '@/lib/stay-arrival-neon';
@@ -79,14 +89,7 @@ function journeySteps(
     : ar
       ? ['الحجز', 'الدفع', 'الوصول', 'المغادرة']
       : ['Booked', 'Payment', 'Check-in', 'Check-out'];
-  const current =
-    status === 'request_pending' || status === 'payment_pending' || status === 'payment_failed'
-      ? 1
-      : status === 'checked_in'
-        ? 3
-        : status === 'checked_out' || status === 'closed'
-          ? 4
-          : 2;
+  const current = stayJourneyCurrent(status);
   const details = [null, null, stamps.checkIn?.at, stamps.checkOut?.at];
   return labels.map((label, index) => {
     const at = details[index];
@@ -221,7 +224,7 @@ export default async function GuestStayDetailPage({
   const checkIn = formatStayDate(booking.checkInOn, ar);
   const checkOut = formatStayDate(booking.checkOutOn, ar);
   const muscatToday = new Date(Date.now() + 4 * 3_600_000).toISOString().slice(0, 10);
-  const greeting = stayGuestGreeting({
+  const greetingInput = {
     status: booking.status,
     ar,
     welcome,
@@ -229,12 +232,28 @@ export default async function GuestStayDetailPage({
     checkInDate: [checkIn.weekday, checkIn.date].filter(Boolean).join(' '),
     arrival:
       booking.checkInOn.slice(0, 10) > muscatToday
-        ? 'upcoming'
+        ? ('upcoming' as const)
         : booking.checkInOn.slice(0, 10) === muscatToday
-          ? 'today'
-          : 'due',
+          ? ('today' as const)
+          : ('due' as const),
     needsEsign,
-  });
+  };
+  const stampText = (stamp: StayStamp | null | undefined) =>
+    stamp ? { at: formatStamp(stamp.at, ar), notes: stamp.notes } : null;
+  const greeting = ended ? stayGuestGreeting(greetingInput) : null;
+  const screens = ended
+    ? []
+    : stayJourneyScreens({
+        ...greetingInput,
+        mode: booking.bookingMode,
+        checkOutDate: [checkOut.weekday, checkOut.date].filter(Boolean).join(' '),
+        checkIn: stampText(booking.checkIn),
+        checkOut: stampText(booking.checkOut),
+      });
+  const initialStep = stayJourneyInitialStep(booking.status, welcome);
+  const rebookHref = booking.listingSlug
+    ? `/stays/${encodeURIComponent(booking.listingSlug)}`
+    : '/stays';
   const nights = typeof booking.nights === 'number' ? booking.nights : null;
   const total = formatMoney(booking.totalMinor, booking.currency, locale);
   const perNight =
@@ -271,248 +290,236 @@ export default async function GuestStayDetailPage({
         totalMinor={booking.totalMinor}
       />
       <LiveSync booking={booking.id} reference={booking.referenceCode} />
-      <section className="guest-stay-detail__hero" aria-labelledby="guest-stay-title">
-        <img
-          className="guest-stay-detail__hero-img"
-          src="/brand/oman-landmark-mosque.jpg"
-          alt={ar ? 'جامع السلطان قابوس الأكبر، مسقط' : 'Sultan Qaboos Grand Mosque, Muscat'}
-        />
-        <div className="guest-stay-detail__hero-scrim" />
-        <div className="guest-stay-detail__hero-top">
-          <Link className="guest-stay-detail__back" href="/guest/stays">
-            {ar ? '→ رحلاتي' : '← My trips'}
-          </Link>
-          <Link
-            className="guest-stay-detail__logo logo__product logo__product--on-dark"
-            href="/"
-            aria-label="BHD R"
-          >
-            <img src="/brand/bhd-official-symbol.svg" alt="" width="84" height="26" />
-            <i>R</i>
-          </Link>
-        </div>
-        <div className="guest-stay-detail__hero-content">
-          <p className="guest-stay-detail__kicker">{ar ? 'تفاصيل الإقامة' : 'Stay details'}</p>
-          <h1 id="guest-stay-title" className="guest-stay-detail__title">
-            {title}
-          </h1>
-          <div className="guest-stay-detail__badges">
-            <span className={`guest-stay-detail__status guest-stay-detail__status--${tone}`}>
-              {stayStatusLabel(booking.status, locale)}
-            </span>
-            <span className="guest-stay-detail__ref" dir="ltr">
-              {booking.referenceCode}
-            </span>
-          </div>
-          {steps.length ? (
-            <ol
-              className="guest-stay-detail__steps"
-              aria-label={ar ? 'مراحل الحجز' : 'Booking progress'}
-            >
-              {steps.map((step, index) => (
-                <li
-                  key={step.label}
-                  className={`guest-stay-detail__step guest-stay-detail__step--${step.state}`}
-                  aria-current={step.state === 'current' ? 'step' : undefined}
-                >
-                  <span className="guest-stay-detail__step-dot">
-                    {step.state === 'done' ? '✓' : index + 1}
-                  </span>
-                  <span className="guest-stay-detail__step-label">{step.label}</span>
-                  {step.detail ? (
-                    <span className="guest-stay-detail__step-time">{step.detail}</span>
-                  ) : null}
-                </li>
-              ))}
-            </ol>
-          ) : null}
-        </div>
-        <p className="guest-stay-detail__caption">
-          {ar ? 'جامع السلطان قابوس الأكبر · مسقط' : 'Sultan Qaboos Grand Mosque · Muscat'}
-        </p>
-      </section>
-
-      <section className="guest-stay-detail__panel">
-        <div className="guest-stay-detail__panel-body">
-          {greeting ? (
-            <section
-              className={`guest-stay-detail__greeting guest-stay-detail__greeting--${greeting.stage}`}
-              aria-live="polite"
-            >
-              <h2>{greeting.headline}</h2>
-              <p>{greeting.body}</p>
-              {greeting.guide ? (
-                <ol className="guest-stay-detail__guide">
-                  {greeting.guide.map((line) => (
-                    <li key={line}>{line}</li>
-                  ))}
-                </ol>
-              ) : null}
-              {greeting.rebook ? (
-                <Link
-                  className="button button--primary guest-stay-detail__rebook"
-                  href={
-                    booking.listingSlug
-                      ? `/stays/${encodeURIComponent(booking.listingSlug)}`
-                      : '/stays'
-                  }
-                >
-                  {greeting.stage === 'checked_out'
-                    ? ar
-                      ? 'احجز إقامتك القادمة'
-                      : 'Book your next stay'
-                    : ar
-                      ? 'تصفّح الإقامات'
-                      : 'Browse stays'}
-                </Link>
-              ) : null}
-            </section>
-          ) : null}
-          <section className="guest-stay-detail__card">
-            <h2>{ar ? 'موعد الإقامة' : 'Your dates'}</h2>
-            <div className="guest-stay-detail__dates">
-              <div className="guest-stay-detail__date">
-                <span className="guest-stay-detail__date-label">{ar ? 'الوصول' : 'Check-in'}</span>
-                <strong>{checkIn.date}</strong>
-                <span className="muted">{checkIn.weekday}</span>
-              </div>
-              <div className="guest-stay-detail__nights" aria-hidden={nights == null}>
-                {nights != null ? <span>{nightsLabel(nights, ar)}</span> : null}
-              </div>
-              <div className="guest-stay-detail__date">
-                <span className="guest-stay-detail__date-label">
-                  {ar ? 'المغادرة' : 'Check-out'}
-                </span>
-                <strong>{checkOut.date}</strong>
-                <span className="muted">{checkOut.weekday}</span>
-              </div>
-            </div>
-          </section>
-
-          <section className="guest-stay-detail__card">
-            <h2>{ar ? 'تفاصيل الحجز' : 'Booking details'}</h2>
-            <dl className="guest-stay-detail__facts">
-              {booking.guestDisplayName ? (
-                <div>
-                  <dt>{ar ? 'الضيف' : 'Guest'}</dt>
-                  <dd>{booking.guestDisplayName}</dd>
-                </div>
-              ) : null}
-              {guests.length ? (
-                <div>
-                  <dt>{ar ? 'عدد الضيوف' : 'Guests'}</dt>
-                  <dd>{guests.join(ar ? ' و' : ', ')}</dd>
-                </div>
-              ) : null}
-              {booking.stayType ? (
-                <div>
-                  <dt>{ar ? 'نوع الإقامة' : 'Stay type'}</dt>
-                  <dd>{stayTypeLabel(booking.stayType, locale)}</dd>
-                </div>
-              ) : null}
-              {booking.bookingMode ? (
-                <div>
-                  <dt>{ar ? 'نمط الحجز' : 'Booking mode'}</dt>
-                  <dd>{stayBookingModeLabel(booking.bookingMode, locale)}</dd>
-                </div>
-              ) : null}
-              <div>
-                <dt>{ar ? 'رقم الحجز' : 'Reference'}</dt>
-                <dd dir="ltr">{booking.referenceCode}</dd>
-              </div>
-              {booking.timezone ? (
-                <div>
-                  <dt>{ar ? 'المنطقة الزمنية' : 'Time zone'}</dt>
-                  <dd dir="ltr">{booking.timezone}</dd>
-                </div>
-              ) : null}
-              {stayLog.map((entry) => (
-                <Fragment key={entry.key}>
-                  <div>
-                    <dt>{entry.label}</dt>
-                    <dd>{formatStamp(entry.stamp.at, ar)}</dd>
-                  </div>
-                  {entry.stamp.notes ? (
-                    <div className="guest-stay-detail__fact--wide">
-                      <dt>{entry.notesLabel}</dt>
-                      <dd className="guest-stay-detail__notes">{entry.stamp.notes}</dd>
-                    </div>
-                  ) : null}
-                </Fragment>
-              ))}
-              {esignRequired && accepted ? (
-                <div>
-                  <dt>{ar ? 'عقد الإقامة' : 'Stay contract'}</dt>
-                  <dd>
-                    {needsEsign
-                      ? ar
-                        ? 'بانتظار توقيعك'
-                        : 'Awaiting your signature'
-                      : ar
-                        ? 'موقّع إلكترونياً'
-                        : 'Signed electronically'}
-                  </dd>
-                </div>
-              ) : null}
-            </dl>
-          </section>
-          {needsEsign ? (
-            <Link
-              className="button button--primary guest-stay-detail__esign"
-              href={`/stays/booking/sign?ref=${refQuery}`}
-            >
-              {ar ? 'توقيع عقد الإقامة' : 'Sign stay contract'}
+      <StayJourneyProvider key={`${booking.status}:${initialStep}`} initial={initialStep}>
+        <section className="guest-stay-detail__hero" aria-labelledby="guest-stay-title">
+          <img
+            className="guest-stay-detail__hero-img"
+            src="/brand/oman-landmark-mosque.jpg"
+            alt={ar ? 'جامع السلطان قابوس الأكبر، مسقط' : 'Sultan Qaboos Grand Mosque, Muscat'}
+          />
+          <div className="guest-stay-detail__hero-scrim" />
+          <div className="guest-stay-detail__hero-top">
+            <Link className="guest-stay-detail__back" href="/guest/stays">
+              {ar ? '→ رحلاتي' : '← My trips'}
             </Link>
-          ) : null}
-          {paid ? (
-            <div className="guest-stay-detail__docs">
-              <Link
-                className="button button--quiet"
-                href={`/stays/booking/receipt?ref=${refQuery}&doc=payment`}
-              >
-                {ar ? 'إيصال الدفع (PDF)' : 'Payment receipt (PDF)'}
-              </Link>
-              <Link
-                className="button button--quiet"
-                href={`/stays/booking/receipt?ref=${refQuery}&doc=confirmation`}
-              >
-                {ar ? 'تأكيد الحجز (PDF)' : 'Booking confirmation (PDF)'}
-              </Link>
-            </div>
-          ) : null}
-          {welcome && paid && booking.guestEmail ? (
-            <p className="guest-stay-detail__help muted">
-              {ar
-                ? `أُرسلت رسالة تأكيد مع رابط الإيصال إلى ${booking.guestEmail}.`
-                : `A confirmation email with the receipt link was sent to ${booking.guestEmail}.`}
-            </p>
-          ) : null}
-          <p className="guest-stay-detail__help muted">
-            {ar
-              ? 'احتفظ برقم الحجز للمتابعة أو عند التواصل مع المالك.'
-              : 'Keep your reference handy to track this stay or when contacting the host.'}
-          </p>
-        </div>
-
-        <footer className="guest-stay-detail__footer">
-          <div className="guest-stay-detail__price">
-            <span className="guest-stay-detail__price-label">
-              {ar ? 'المبلغ الإجمالي' : 'Total amount'}
-            </span>
-            <strong className="guest-stay-detail__price-total" dir="ltr">
-              {total}
-            </strong>
-            {perNight && nights ? (
-              <span className="guest-stay-detail__price-meta">
-                {ar
-                  ? `${nightsLabel(nights, ar)} · متوسط الليلة ${perNight}`
-                  : `${nightsLabel(nights, ar)} · ${perNight} per night on average`}
+            <Link
+              className="guest-stay-detail__logo logo__product logo__product--on-dark"
+              href="/"
+              aria-label="BHD R"
+            >
+              <img src="/brand/bhd-official-symbol.svg" alt="" width="84" height="26" />
+              <i>R</i>
+            </Link>
+          </div>
+          <div className="guest-stay-detail__hero-content">
+            <p className="guest-stay-detail__kicker">{ar ? 'تفاصيل الإقامة' : 'Stay details'}</p>
+            <h1 id="guest-stay-title" className="guest-stay-detail__title">
+              {title}
+            </h1>
+            <div className="guest-stay-detail__badges">
+              <span className={`guest-stay-detail__status guest-stay-detail__status--${tone}`}>
+                {stayStatusLabel(booking.status, locale)}
               </span>
+              <span className="guest-stay-detail__ref" dir="ltr">
+                {booking.referenceCode}
+              </span>
+            </div>
+            {steps.length ? (
+              <StayJourneySteps
+                steps={steps}
+                reachable={screens.map((screen) => screen !== null)}
+                ar={ar}
+              />
             ) : null}
           </div>
-          <GuestStayActions booking={booking} compact />
-        </footer>
-      </section>
+          <p className="guest-stay-detail__caption">
+            {ar ? 'جامع السلطان قابوس الأكبر · مسقط' : 'Sultan Qaboos Grand Mosque · Muscat'}
+          </p>
+        </section>
+
+        <section className="guest-stay-detail__panel">
+          <div className="guest-stay-detail__panel-body">
+            {greeting ? (
+              <section
+                className={`guest-stay-detail__greeting guest-stay-detail__greeting--${greeting.stage}`}
+                aria-live="polite"
+              >
+                <h2>{greeting.headline}</h2>
+                <p>{greeting.body}</p>
+                {greeting.guide ? (
+                  <ol className="guest-stay-detail__guide">
+                    {greeting.guide.map((line) => (
+                      <li key={line}>{line}</li>
+                    ))}
+                  </ol>
+                ) : null}
+                {greeting.rebook ? (
+                  <Link
+                    className="button button--primary guest-stay-detail__rebook"
+                    href={rebookHref}
+                  >
+                    {greeting.stage === 'checked_out'
+                      ? ar
+                        ? 'احجز إقامتك القادمة'
+                        : 'Book your next stay'
+                      : ar
+                        ? 'تصفّح الإقامات'
+                        : 'Browse stays'}
+                  </Link>
+                ) : null}
+              </section>
+            ) : null}
+            {screens.length ? (
+              <StayJourneyCard screens={screens} steps={steps} rebookHref={rebookHref} ar={ar} />
+            ) : null}
+            <section className="guest-stay-detail__card">
+              <h2>{ar ? 'موعد الإقامة' : 'Your dates'}</h2>
+              <div className="guest-stay-detail__dates">
+                <div className="guest-stay-detail__date">
+                  <span className="guest-stay-detail__date-label">
+                    {ar ? 'الوصول' : 'Check-in'}
+                  </span>
+                  <strong>{checkIn.date}</strong>
+                  <span className="muted">{checkIn.weekday}</span>
+                </div>
+                <div className="guest-stay-detail__nights" aria-hidden={nights == null}>
+                  {nights != null ? <span>{nightsLabel(nights, ar)}</span> : null}
+                </div>
+                <div className="guest-stay-detail__date">
+                  <span className="guest-stay-detail__date-label">
+                    {ar ? 'المغادرة' : 'Check-out'}
+                  </span>
+                  <strong>{checkOut.date}</strong>
+                  <span className="muted">{checkOut.weekday}</span>
+                </div>
+              </div>
+            </section>
+
+            <section className="guest-stay-detail__card">
+              <h2>{ar ? 'تفاصيل الحجز' : 'Booking details'}</h2>
+              <dl className="guest-stay-detail__facts">
+                {booking.guestDisplayName ? (
+                  <div>
+                    <dt>{ar ? 'الضيف' : 'Guest'}</dt>
+                    <dd>{booking.guestDisplayName}</dd>
+                  </div>
+                ) : null}
+                {guests.length ? (
+                  <div>
+                    <dt>{ar ? 'عدد الضيوف' : 'Guests'}</dt>
+                    <dd>{guests.join(ar ? ' و' : ', ')}</dd>
+                  </div>
+                ) : null}
+                {booking.stayType ? (
+                  <div>
+                    <dt>{ar ? 'نوع الإقامة' : 'Stay type'}</dt>
+                    <dd>{stayTypeLabel(booking.stayType, locale)}</dd>
+                  </div>
+                ) : null}
+                {booking.bookingMode ? (
+                  <div>
+                    <dt>{ar ? 'نمط الحجز' : 'Booking mode'}</dt>
+                    <dd>{stayBookingModeLabel(booking.bookingMode, locale)}</dd>
+                  </div>
+                ) : null}
+                <div>
+                  <dt>{ar ? 'رقم الحجز' : 'Reference'}</dt>
+                  <dd dir="ltr">{booking.referenceCode}</dd>
+                </div>
+                {booking.timezone ? (
+                  <div>
+                    <dt>{ar ? 'المنطقة الزمنية' : 'Time zone'}</dt>
+                    <dd dir="ltr">{booking.timezone}</dd>
+                  </div>
+                ) : null}
+                {stayLog.map((entry) => (
+                  <Fragment key={entry.key}>
+                    <div>
+                      <dt>{entry.label}</dt>
+                      <dd>{formatStamp(entry.stamp.at, ar)}</dd>
+                    </div>
+                    {entry.stamp.notes ? (
+                      <div className="guest-stay-detail__fact--wide">
+                        <dt>{entry.notesLabel}</dt>
+                        <dd className="guest-stay-detail__notes">{entry.stamp.notes}</dd>
+                      </div>
+                    ) : null}
+                  </Fragment>
+                ))}
+                {esignRequired && accepted ? (
+                  <div>
+                    <dt>{ar ? 'عقد الإقامة' : 'Stay contract'}</dt>
+                    <dd>
+                      {needsEsign
+                        ? ar
+                          ? 'بانتظار توقيعك'
+                          : 'Awaiting your signature'
+                        : ar
+                          ? 'موقّع إلكترونياً'
+                          : 'Signed electronically'}
+                    </dd>
+                  </div>
+                ) : null}
+              </dl>
+            </section>
+            {needsEsign ? (
+              <Link
+                className="button button--primary guest-stay-detail__esign"
+                href={`/stays/booking/sign?ref=${refQuery}`}
+              >
+                {ar ? 'توقيع عقد الإقامة' : 'Sign stay contract'}
+              </Link>
+            ) : null}
+            {paid ? (
+              <div className="guest-stay-detail__docs">
+                <Link
+                  className="button button--quiet"
+                  href={`/stays/booking/receipt?ref=${refQuery}&doc=payment`}
+                >
+                  {ar ? 'إيصال الدفع (PDF)' : 'Payment receipt (PDF)'}
+                </Link>
+                <Link
+                  className="button button--quiet"
+                  href={`/stays/booking/receipt?ref=${refQuery}&doc=confirmation`}
+                >
+                  {ar ? 'تأكيد الحجز (PDF)' : 'Booking confirmation (PDF)'}
+                </Link>
+              </div>
+            ) : null}
+            {welcome && paid && booking.guestEmail ? (
+              <p className="guest-stay-detail__help muted">
+                {ar
+                  ? `أُرسلت رسالة تأكيد مع رابط الإيصال إلى ${booking.guestEmail}.`
+                  : `A confirmation email with the receipt link was sent to ${booking.guestEmail}.`}
+              </p>
+            ) : null}
+            <p className="guest-stay-detail__help muted">
+              {ar
+                ? 'احتفظ برقم الحجز للمتابعة أو عند التواصل مع المالك.'
+                : 'Keep your reference handy to track this stay or when contacting the host.'}
+            </p>
+          </div>
+
+          <footer className="guest-stay-detail__footer">
+            <div className="guest-stay-detail__price">
+              <span className="guest-stay-detail__price-label">
+                {ar ? 'المبلغ الإجمالي' : 'Total amount'}
+              </span>
+              <strong className="guest-stay-detail__price-total" dir="ltr">
+                {total}
+              </strong>
+              {perNight && nights ? (
+                <span className="guest-stay-detail__price-meta">
+                  {ar
+                    ? `${nightsLabel(nights, ar)} · متوسط الليلة ${perNight}`
+                    : `${nightsLabel(nights, ar)} · ${perNight} per night on average`}
+                </span>
+              ) : null}
+            </div>
+            <GuestStayActions booking={booking} compact />
+          </footer>
+        </section>
+      </StayJourneyProvider>
     </main>
   );
 }
