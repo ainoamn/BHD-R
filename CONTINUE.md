@@ -1,5 +1,8 @@
 # CONTINUE — 2026-10-11
 
+**0.7.0** · تصميم هادئ موحّد: قسم «Portal calm design» في آخر `globals.css` (متغيرات `--calm-*` على `.portal-layout, .ops-modal`؛ كل المحددات تبدأ بـ `.portal-layout`، والنوافذ بـ `.ops-modal` لأنها تُرسم في `body` عبر `ModalPortal`). حقول النماذج بمحدد `:where(...) :is(.input…)` حتى تبقى `.field--missing`/`.field--ok` غالبة. حركة الدخول بـ `backwards` حتى لا تحبس `position: fixed`. التالي: مراجعة حية بحساب المالك وهياكل تحميل  
+**تفاصيل:** [`docs/implementation/RELEASE-0.7.0-AR.md`](./docs/implementation/RELEASE-0.7.0-AR.md)
+
 **0.6.9** · `loadOpsSectionFromNeon` (`lib/portal-ops-sections-neon.ts`) يخدم 12 قسماً كانت على Nest، بعد `loadOpsRecordsFromDb` وقبل أي فحص لـ Nest (فشل/8 ثوانٍ ← Nest)؛ صلاحيات Nest نفسها، `jsonSafe` للأرقام الكبيرة. `loadOpsContextExtras` يكمّل سياق Neon ليطابق `/v1/operations/context`. دور الموقع `neondb_owner` يتجاوز RLS ← شرط المنظمة إلزامي في كل استعلام. فهارس `custom/0026_portal_read_indexes.sql` مطبّقة على الإنتاج. مفاتيح API ما زالت عبر Nest. التالي: المرحلة 3 (تصميم)  
 **تفاصيل:** [`docs/implementation/RELEASE-0.6.9-AR.md`](./docs/implementation/RELEASE-0.6.9-AR.md)
 

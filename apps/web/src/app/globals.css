@@ -16619,3 +16619,586 @@ body:has(.stay-esign-shell) {
   outline: 2px dashed #08a39f;
   outline-offset: -3px;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Portal calm design — one quiet look for every dashboard page.               */
+/* Every selector starts with `.portal-layout` so it wins over older portal    */
+/* rules without touching the public site.                                     */
+/* -------------------------------------------------------------------------- */
+.portal-layout,
+.ops-modal {
+  --calm-bg: #f4f6f5;
+  --calm-surface: #fff;
+  --calm-surface-2: #f7f9f8;
+  --calm-line: #e3e9e6;
+  --calm-line-strong: #d2dbd7;
+  --calm-ink: #142520;
+  --calm-ink-2: #3a4b45;
+  --calm-muted: #6c7b75;
+  --calm-accent: #0f5b4a;
+  --calm-accent-hover: #0b4a3c;
+  --calm-accent-soft: #e9f3ef;
+  --calm-gold: #a07a45;
+  --calm-radius: 1rem;
+  --calm-radius-sm: 0.65rem;
+  --calm-shadow: 0 1px 2px rgb(20 37 32 / 0.04), 0 4px 14px rgb(20 37 32 / 0.035);
+  --calm-shadow-hover: 0 2px 6px rgb(20 37 32 / 0.05), 0 12px 28px rgb(20 37 32 / 0.07);
+  --calm-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.portal-layout {
+  color: var(--calm-ink);
+  background: var(--calm-bg);
+  -webkit-font-smoothing: antialiased;
+}
+.portal-layout .portal-main {
+  background: transparent;
+}
+.portal-layout :is(.pmh, .stays-portal, .stays-nav) {
+  --pmh-line: var(--calm-line);
+  --pmh-soft: var(--calm-surface-2);
+  --pmh-card-shadow: var(--calm-shadow);
+}
+
+/* Top bar */
+.portal-layout .portal-chrome {
+  background: rgb(255 255 255 / 0.9);
+  border-bottom: 1px solid var(--calm-line);
+  box-shadow: none;
+  backdrop-filter: saturate(1.3) blur(12px);
+}
+.portal-layout .portal-chrome__menu {
+  color: var(--calm-ink-2);
+  background: var(--calm-surface-2);
+  border-color: var(--calm-line);
+}
+
+/* Sidebar: light, with a soft highlight for the current page */
+.portal-layout .portal-sidebar {
+  color: var(--calm-ink-2);
+  background: var(--calm-surface);
+  border-inline-end: 1px solid var(--calm-line);
+  scrollbar-color: var(--calm-line-strong) transparent;
+}
+.portal-layout .portal-sidebar__head,
+.portal-layout .portal-sidebar__foot {
+  border-color: var(--calm-line);
+}
+.portal-layout .portal-sidebar__title {
+  color: var(--calm-gold);
+  letter-spacing: 0.04em;
+}
+.portal-layout .portal-sidebar__close {
+  color: var(--calm-ink-2);
+  background: var(--calm-surface-2);
+}
+.portal-layout .portal-nav__group-label {
+  color: #94a29c;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.portal-layout .portal-nav a,
+.portal-layout .portal-nav__toggle {
+  position: relative;
+  color: var(--calm-ink-2);
+  border-radius: var(--calm-radius-sm);
+  font-weight: 600;
+  transition:
+    background-color 0.2s var(--calm-ease),
+    color 0.2s var(--calm-ease);
+}
+.portal-layout .portal-nav a:hover,
+.portal-layout .portal-nav__toggle:hover {
+  color: var(--calm-ink);
+  background: var(--calm-surface-2);
+  transform: none;
+}
+.portal-layout .portal-nav__toggle[data-active] {
+  color: var(--calm-ink);
+  background: transparent;
+  font-weight: 700;
+}
+.portal-layout .portal-nav a[aria-current='page'] {
+  color: var(--calm-accent);
+  background: var(--calm-accent-soft);
+  box-shadow: none;
+  font-weight: 700;
+}
+.portal-layout .portal-nav a[aria-current='page']::before {
+  position: absolute;
+  inset-block: 0.55rem;
+  inset-inline-start: 0;
+  width: 3px;
+  content: '';
+  background: var(--calm-accent);
+  border-radius: 3px;
+}
+.portal-layout .portal-nav__mark {
+  color: var(--calm-accent);
+  opacity: 0.8;
+}
+.portal-layout .portal-nav__submenu {
+  border-inline-start-color: var(--calm-line);
+}
+.portal-layout .portal-sidebar__account {
+  color: var(--calm-muted);
+}
+.portal-layout .portal-sidebar__account:hover {
+  color: var(--calm-accent);
+}
+.portal-layout .portal-nav-backdrop {
+  background: rgb(20 37 32 / 0.32);
+  backdrop-filter: blur(2px);
+}
+
+/* Smooth page entrance */
+@keyframes portal-calm-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+.portal-layout :is(.dash-shell, .ops-workspace, .pmh, .stays-portal) {
+  animation: portal-calm-in 0.28s var(--calm-ease) backwards;
+}
+
+/* Page headers */
+.portal-layout :is(.dash-hero, .ops-header, .pmh-hero) {
+  background: var(--calm-surface);
+  border: 1px solid var(--calm-line);
+  border-radius: var(--calm-radius);
+  box-shadow: var(--calm-shadow);
+}
+.portal-layout .ops-header::after {
+  display: none;
+}
+.portal-layout :is(.dash-hero h1, .ops-header h1, .pmh-hero__body h1) {
+  color: var(--calm-ink);
+  font-weight: 750;
+  letter-spacing: -0.01em;
+}
+.portal-layout :is(.dash-hero__kicker, .ops-kicker) {
+  color: var(--calm-gold);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+.portal-layout :is(.dash-hero__lede, .ops-header p) {
+  color: var(--calm-muted);
+}
+.portal-layout :is(.dash-section-head h2, .card__header h3) {
+  color: var(--calm-ink);
+  font-weight: 750;
+}
+.portal-layout .dash-section-hint {
+  color: var(--calm-muted);
+  font-weight: 500;
+}
+
+/* Surfaces */
+.portal-layout
+  :is(
+    .dash-alerts,
+    .dash-shortcuts,
+    .dash-panel,
+    .dash-finance__card,
+    .ops-panel:not(.ops-panel--bare),
+    .card,
+    .pmh-card
+  ) {
+  background: var(--calm-surface);
+  border: 1px solid var(--calm-line);
+  border-radius: var(--calm-radius);
+  box-shadow: var(--calm-shadow);
+}
+.portal-layout .dash-shell {
+  gap: 1rem;
+}
+
+/* Numbers: one neutral card style, the value carries a soft tone */
+.portal-layout .dash-metric {
+  background: var(--calm-surface);
+  border: 1px solid var(--calm-line);
+  border-radius: 0.8rem;
+  box-shadow: none;
+  transition:
+    border-color 0.2s var(--calm-ease),
+    box-shadow 0.2s var(--calm-ease),
+    transform 0.2s var(--calm-ease);
+}
+.portal-layout .dash-metric:hover {
+  border-color: var(--calm-line-strong);
+  box-shadow: var(--calm-shadow-hover);
+  transform: translateY(-1px);
+}
+.portal-layout .dash-metric span {
+  color: var(--calm-muted);
+  font-weight: 600;
+}
+.portal-layout .dash-metric strong {
+  color: var(--calm-ink);
+  font-weight: 750;
+}
+.portal-layout .ops-metrics > :nth-child(1) {
+  --metric-tone: #0f5b4a;
+}
+.portal-layout .ops-metrics > :nth-child(2) {
+  --metric-tone: #a86b12;
+}
+.portal-layout .ops-metrics > :nth-child(3) {
+  --metric-tone: #2d6a4f;
+}
+.portal-layout .ops-metrics > :nth-child(4) {
+  --metric-tone: #2f5f7d;
+}
+.portal-layout .ops-metrics > article,
+.portal-layout .ops-metrics > div {
+  background: var(--calm-surface);
+  border: 1px solid var(--calm-line);
+  border-inline-start: 3px solid color-mix(in srgb, var(--metric-tone) 45%, transparent);
+  border-radius: 0.8rem;
+  box-shadow: none;
+}
+.portal-layout .ops-metrics span {
+  color: var(--calm-ink-2);
+  font-weight: 650;
+}
+.portal-layout .ops-metrics small {
+  color: var(--calm-muted);
+}
+.portal-layout .ops-metrics > .ops-metric--accent {
+  --metric-tone: var(--calm-accent);
+  background: var(--calm-accent-soft) !important;
+  border-color: color-mix(in srgb, var(--calm-accent) 18%, transparent);
+}
+.portal-layout .ops-metrics > .ops-metric--accent :is(span, small) {
+  color: var(--calm-ink-2);
+}
+.portal-layout .ops-flow > article.is-active {
+  background: var(--calm-accent-soft);
+  border-color: color-mix(in srgb, var(--calm-accent) 30%, transparent);
+}
+.portal-layout .ops-flow > article.is-active > span {
+  background: var(--calm-accent);
+}
+.portal-layout .ops-stats__toggle {
+  background: var(--calm-surface);
+  border: 1px solid var(--calm-line);
+  border-radius: var(--calm-radius-sm);
+}
+
+/* Alerts and approvals: still noticeable, never loud */
+.portal-layout .dash-alert a {
+  border-radius: var(--calm-radius-sm);
+}
+.portal-layout .dash-alert--approval a {
+  color: #9a3412;
+  background: #fff4ec;
+  border-color: #f4cfb4;
+}
+.portal-layout .dash-approvals {
+  background: #fffaf6;
+  border: 1px solid #f4dcc9;
+  border-inline-start: 3px solid #d0692f;
+  border-radius: var(--calm-radius);
+  box-shadow: var(--calm-shadow);
+}
+.portal-layout .dash-approvals__list a {
+  border-color: #f4dcc9;
+  border-radius: var(--calm-radius-sm);
+}
+.portal-layout .dash-approvals__count {
+  background: #d0692f;
+}
+
+/* Shortcuts, tabs, chips */
+.portal-layout :is(.dash-shortcuts__grid a, .purpose-tabs__item) {
+  color: var(--calm-ink-2);
+  background: var(--calm-surface);
+  border: 1px solid var(--calm-line);
+  border-radius: var(--calm-radius-sm);
+  font-weight: 650;
+  transition:
+    background-color 0.2s var(--calm-ease),
+    border-color 0.2s var(--calm-ease),
+    color 0.2s var(--calm-ease);
+}
+.portal-layout :is(.dash-shortcuts__grid a, .purpose-tabs__item):hover {
+  color: var(--calm-accent);
+  background: var(--calm-accent-soft);
+  border-color: color-mix(in srgb, var(--calm-accent) 25%, transparent);
+}
+.portal-layout .purpose-tabs__item.is-active {
+  color: #fff;
+  background: var(--calm-accent);
+  border-color: var(--calm-accent);
+}
+
+/* Buttons */
+.portal-layout .button {
+  border-radius: var(--calm-radius-sm);
+  font-weight: 700;
+  transition:
+    background-color 0.2s var(--calm-ease),
+    border-color 0.2s var(--calm-ease),
+    color 0.2s var(--calm-ease),
+    box-shadow 0.2s var(--calm-ease);
+}
+.portal-layout .button:hover {
+  transform: none;
+}
+.portal-layout .button--primary {
+  color: #fff;
+  background: var(--calm-accent);
+  border-color: var(--calm-accent);
+  box-shadow: 0 1px 2px rgb(15 91 74 / 0.2);
+}
+.portal-layout .button--primary:hover {
+  background: var(--calm-accent-hover);
+}
+.portal-layout :is(.button--quiet, .button--secondary) {
+  color: var(--calm-ink-2);
+  background: var(--calm-surface);
+  border-color: var(--calm-line-strong);
+}
+.portal-layout :is(.button--quiet, .button--secondary):hover {
+  color: var(--calm-accent);
+  background: var(--calm-accent-soft);
+  border-color: color-mix(in srgb, var(--calm-accent) 35%, transparent);
+}
+.portal-layout :is(a, button, input, select, textarea, summary):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--calm-accent) 55%, transparent);
+  outline-offset: 2px;
+}
+
+/* Lists: toolbar, search and tables */
+.portal-layout .ops-toolbar {
+  flex-wrap: wrap;
+  padding: 0.8rem 1rem;
+  background: var(--calm-surface);
+  border-bottom: 1px solid var(--calm-line);
+}
+.portal-layout :is(.ops-search input, .ops-toolbar select, .ops-toolbar .select) {
+  min-height: 2.5rem;
+  background: var(--calm-surface-2);
+  border: 1px solid var(--calm-line-strong);
+  border-radius: var(--calm-radius-sm);
+  box-shadow: none;
+}
+.portal-layout .ops-search input:focus {
+  background: var(--calm-surface);
+  border-color: var(--calm-accent);
+  box-shadow: 0 0 0 3px rgb(15 91 74 / 0.12);
+}
+.portal-layout .ops-search::before {
+  color: var(--calm-muted);
+  content: '⌕';
+}
+.portal-layout .ops-result-count {
+  color: var(--calm-muted);
+  font-weight: 650;
+}
+.portal-layout .data-table th {
+  padding-block: 0.7rem;
+  color: var(--calm-muted);
+  background: var(--calm-surface-2);
+  border-bottom: 1px solid var(--calm-line);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.portal-layout .data-table td {
+  padding-block: 0.8rem;
+  color: var(--calm-ink-2);
+  border-bottom: 1px solid #edf1ef;
+}
+.portal-layout .data-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.portal-layout .ops-table tbody tr {
+  transition: background-color 0.15s var(--calm-ease);
+}
+.portal-layout .ops-table tbody tr:hover {
+  background: #f6faf8;
+}
+.portal-layout :is(.ops-status, .status-pill) {
+  font-weight: 700;
+}
+.portal-layout .ops-status--approval {
+  color: #9a3412;
+  background: #fdebdd;
+}
+.portal-layout .ops-table tbody tr.ops-table__row--approval {
+  background: #fffaf6;
+  box-shadow: inset 3px 0 0 #e08a55;
+}
+[dir='rtl'] .portal-layout .ops-table tbody tr.ops-table__row--approval {
+  box-shadow: inset -3px 0 0 #e08a55;
+}
+.portal-layout .ops-table tbody tr.ops-table__row--approval:hover {
+  background: #fff3ea;
+}
+
+/* Welcome header: a soft brand tint so the dashboard feels inviting */
+.portal-layout .dash-hero {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(1.15rem, 2.6vw, 1.75rem);
+  background:
+    radial-gradient(circle at 0% 0%, rgb(15 91 74 / 0.07), transparent 22rem),
+    linear-gradient(135deg, #f3f8f5 0%, #fff 55%);
+}
+.portal-layout .dash-hero::after {
+  position: absolute;
+  inset-block-start: -3.5rem;
+  inset-inline-end: -3.5rem;
+  width: 11rem;
+  height: 11rem;
+  content: '';
+  border: 1.5rem solid rgb(160 122 69 / 0.06);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.portal-layout .dash-hero h1 {
+  font-size: clamp(1.4rem, 2.4vw, 1.95rem);
+}
+.portal-layout .dash-hero__meta {
+  color: var(--calm-muted);
+  font-weight: 600;
+}
+.portal-layout .dash-hero__actions {
+  position: relative;
+  z-index: 1;
+}
+
+/* Comfortable reading sizes and rhythm */
+.portal-layout .dash-shell,
+.portal-layout .ops-workspace {
+  row-gap: 1.25rem;
+}
+.portal-layout .dash-section-head h2 {
+  font-size: 1rem;
+}
+.portal-layout .dash-section-hint {
+  font-size: 0.78rem;
+}
+.portal-layout .data-table td {
+  font-size: 0.88rem;
+}
+.portal-layout .dash-metrics {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
+  gap: 0.6rem;
+}
+.portal-layout .dash-metric {
+  --tone: #0f5b4a;
+  min-height: 3.6rem;
+  padding: 0.65rem 0.8rem;
+}
+.portal-layout .dash-metric span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.76rem;
+}
+.portal-layout .dash-metric span::before {
+  flex: 0 0 auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  content: '';
+  background: var(--tone);
+  border-radius: 50%;
+  opacity: 0.75;
+}
+.portal-layout .dash-metric strong {
+  font-size: 1.3rem;
+}
+.portal-layout .dash-metric--2 {
+  --tone: #2f5f7d;
+}
+.portal-layout .dash-metric--3 {
+  --tone: #4f7a63;
+}
+.portal-layout .dash-metric--4 {
+  --tone: #2d6a4f;
+}
+.portal-layout .dash-metric--5 {
+  --tone: #a07a45;
+}
+.portal-layout .dash-metric--6 {
+  --tone: #b45f3a;
+}
+.portal-layout .dash-metric--7 {
+  --tone: #a86b12;
+}
+.portal-layout .dash-metric--8 {
+  --tone: #5b6fa8;
+}
+.portal-layout .ops-metrics strong {
+  font-size: 1.3rem;
+}
+.portal-layout .ops-metrics span {
+  font-size: 0.78rem;
+}
+.portal-layout .dash-alert span {
+  font-size: 0.82rem;
+}
+
+/* Forms (portal pages and modals, which render into <body>).               */
+/* Low specificity so field validation states keep their colours.            */
+:where(.portal-layout, .ops-modal) :is(.input, .select, .textarea) {
+  color: var(--calm-ink);
+  border-color: var(--calm-line-strong);
+  transition:
+    border-color 0.2s var(--calm-ease),
+    box-shadow 0.2s var(--calm-ease);
+}
+:where(.portal-layout, .ops-modal)
+  :where(:not(.field--missing, .field--ok))
+  > :is(.input, .select, .textarea):hover {
+  border-color: color-mix(in srgb, var(--calm-accent) 40%, var(--calm-line-strong));
+}
+:where(.portal-layout, .ops-modal)
+  :where(:not(.field--missing, .field--ok))
+  > :is(.input, .select, .textarea):focus {
+  border-color: var(--calm-accent);
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(15 91 74 / 0.12);
+}
+
+/* Modals: lighter veil, calm card edges */
+.ops-modal {
+  background: rgb(20 37 32 / 0.42);
+  backdrop-filter: blur(4px);
+}
+@media (min-width: 901px) {
+  .ops-modal__card {
+    border: 1px solid var(--calm-line);
+    box-shadow: 0 1.5rem 4rem rgb(20 37 32 / 0.18);
+  }
+}
+.ops-modal__card > header,
+.ops-modal__card > form > .form-actions,
+.ops-modal__card > .form-actions {
+  border-color: var(--calm-line);
+}
+.ops-modal__card h2 {
+  color: var(--calm-ink);
+  font-weight: 750;
+}
+.ops-modal .ops-kicker {
+  color: var(--calm-gold);
+}
+.ops-modal .button--primary {
+  color: #fff;
+  background: var(--calm-accent);
+  border-color: var(--calm-accent);
+}
+.ops-modal .button--primary:hover {
+  background: var(--calm-accent-hover);
+}
+.ops-modal :is(.button--quiet, .button--secondary) {
+  color: var(--calm-ink-2);
+  background: var(--calm-surface);
+  border-color: var(--calm-line-strong);
+}
+.ops-modal .button {
+  border-radius: var(--calm-radius-sm);
+}
