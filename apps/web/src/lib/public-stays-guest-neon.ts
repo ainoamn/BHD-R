@@ -78,6 +78,8 @@ export type GuestStayBookingProjection = {
   stayType?: string | null;
   paymentIntentId?: string | null;
   listingSlug?: string | null;
+  listingTitleAr?: string | null;
+  listingTitleEn?: string | null;
   esignCompleted?: boolean;
   acceptedTerms?: AcceptedTerms | null;
   bookingFor?: 'self' | 'other' | null;
@@ -248,13 +250,15 @@ function toProjection(booking: {
   };
 }
 
-async function resolveListingSlug(
+type ListingRef = { slug: string; titleAr: string | null; titleEn: string | null };
+
+async function resolveListing(
   transaction: Tx,
   organizationId: string,
   stayProfileId: string,
-): Promise<string | null> {
+): Promise<ListingRef | null> {
   const listingRows = await transaction.execute(sql`
-    SELECT spl.slug
+    SELECT spl.slug, spl.title_ar, spl.title_en
     FROM stay_profiles sp
     INNER JOIN stay_public_listings spl
       ON spl.unit_type_id = sp.unit_type_id
@@ -265,11 +269,16 @@ async function resolveListingSlug(
     ORDER BY spl.published_at DESC NULLS LAST, spl.updated_at DESC NULLS LAST
     LIMIT 1
   `);
-  const rows = Array.isArray(listingRows)
-    ? listingRows
-    : ((listingRows as { rows?: Array<{ slug: string }> }).rows ?? []);
-  const slug = rows[0]?.slug;
-  return typeof slug === 'string' && slug.trim() ? slug.trim() : null;
+  type Row = { slug?: unknown; title_ar?: unknown; title_en?: unknown };
+  const rows = (
+    Array.isArray(listingRows) ? listingRows : ((listingRows as { rows?: Row[] }).rows ?? [])
+  ) as Row[];
+  const row = rows[0];
+  const slug = typeof row?.slug === 'string' ? row.slug.trim() : '';
+  if (!slug) return null;
+  const text = (value: unknown) =>
+    typeof value === 'string' && value.trim() ? value.trim() : null;
+  return { slug, titleAr: text(row?.title_ar), titleEn: text(row?.title_en) };
 }
 
 async function resolvePaymentIntentId(
@@ -347,16 +356,20 @@ async function enrichProjection(
   booking: typeof stayBookings.$inferSelect,
   guestDisplayName?: string | null,
 ): Promise<GuestStayBookingProjection> {
-  const [paymentIntentId, listingSlug] = await Promise.all([
+  const [paymentIntentId, listing] = await Promise.all([
     resolvePaymentIntentId(transaction, booking.organizationId, booking.id),
-    resolveListingSlug(transaction, booking.organizationId, booking.stayProfileId),
+    resolveListing(transaction, booking.organizationId, booking.stayProfileId),
   ]);
-  return toProjection({
-    ...booking,
-    guestDisplayName: guestDisplayName ?? null,
-    paymentIntentId,
-    listingSlug,
-  });
+  return {
+    ...toProjection({
+      ...booking,
+      guestDisplayName: guestDisplayName ?? null,
+      paymentIntentId,
+      listingSlug: listing?.slug ?? null,
+    }),
+    listingTitleAr: listing?.titleAr ?? null,
+    listingTitleEn: listing?.titleEn ?? null,
+  };
 }
 
 export async function lookupPublicStayBookingOnNeon(referenceCode: string) {
