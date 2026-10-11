@@ -1,5 +1,8 @@
 # CONTINUE — 2026-10-11
 
+**0.7.6** · العقد كوثيقة كاملة: `loadContractDetailFromNeon` يملأ `document` (`ContractDocument` في `lib/contract-document.ts`: القالب المنقّى، الترويسة، الشروط عبر `bookingTermsDocument`، أدلة التواقيع، الإقامة والاستلام، الملفات، الملاحق)؛ فحص الوصول مشترك (`contractAccess`/`visibleContract`) مع `readContractFile` ومسار `api/portal/contracts/[contractId]/files/[file]` (الهوية والصورة الشخصية لـ `stay.booking.manage` أو المستأجر نفسه). `ContractDocumentToolbar` يطبع `#contract-document` بنسخه إلى `.contract-print` مع `body.printing-contract`. التالي: توليد PDF على الخادم وإرفاقه بالبريد، وقراءة بوابة المستأجر من Neon  
+**تفاصيل:** [`docs/implementation/RELEASE-0.7.6-AR.md`](./docs/implementation/RELEASE-0.7.6-AR.md)
+
 **0.7.5** · مراحل تفاعلية في صفحة الضيف: `stayJourneyScreens` (شاشة لكل مرحلة، `null` لغير المبلوغة) و`stayJourneyCurrent`/`stayJourneyInitialStep` في `lib/stay-guest-greeting.ts`؛ `components/stays/stay-journey.tsx` فيه `StayJourneyProvider` (مفتاحه الحالة + المرحلة الافتتاحية فيُعاد ضبطه مع المزامنة الحية) و`StayJourneySteps` (أزرار، المقفلة `disabled`) و`StayJourneyCard` (شريط «العودة إلى الآن» للمراحل السابقة). التالي: قراءة بوابة المستأجر من Neon  
 **تفاصيل:** [`docs/implementation/RELEASE-0.7.5-AR.md`](./docs/implementation/RELEASE-0.7.5-AR.md)
 
