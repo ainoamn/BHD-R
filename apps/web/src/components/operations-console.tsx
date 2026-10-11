@@ -23,6 +23,7 @@ import { invalidateOpsCache } from '@/lib/portal-ops-client-cache';
 import { domainStatusLabel } from '@/lib/ui-labels';
 import type { PortalRole } from '@/lib/types';
 import type { OperationsSection } from './operations-workspace';
+import { ModalPortal } from './modal-portal';
 import { NestReconnectButton } from './nest-reconnect-button';
 import { PropertyOpsRowKey } from './property-ops-row-key';
 import {
@@ -3731,17 +3732,23 @@ ${
         section === 'maintenance' ||
         section === 'legal' ||
         section === 'accounting') ? (
-        <section className="ops-vacant-strip" aria-label={ar ? 'الوحدات الشاغرة' : 'Vacant units'}>
-          <header>
-            <h2>{ar ? 'وحدات شاغرة — إجراءات سريعة' : 'Vacant units — quick actions'}</h2>
-            <p>
-              {ar
-                ? 'بعد شغور الوحدة اربطها بمهمة أو صيانة أو محاماة أو قيد محاسبي.'
-                : 'When a unit is vacant, link it to a task, maintenance, legal case, or journal.'}
-            </p>
-          </header>
+        <details className="ops-vacant-strip" aria-label={ar ? 'الوحدات الشاغرة' : 'Vacant units'}>
+          <summary className="ops-vacant-strip__toggle">
+            <span>
+              <strong>{ar ? 'وحدات شاغرة — إجراءات سريعة' : 'Vacant units — quick actions'}</strong>
+              <small>
+                {ar
+                  ? 'بعد شغور الوحدة اربطها بمهمة أو صيانة أو محاماة أو قيد محاسبي.'
+                  : 'When a unit is vacant, link it to a task, maintenance, legal case, or journal.'}
+              </small>
+            </span>
+            <em>
+              {vacantUnits.length} {ar ? 'وحدة' : vacantUnits.length === 1 ? 'unit' : 'units'}
+              <i className="ops-stats__chevron" aria-hidden="true" />
+            </em>
+          </summary>
           <ul>
-            {vacantUnits.slice(0, 12).map((unit) => {
+            {vacantUnits.map((unit) => {
               const label = labelForOption(unit, locale);
               return (
                 <li key={unit.id}>
@@ -3767,7 +3774,7 @@ ${
               );
             })}
           </ul>
-        </section>
+        </details>
       ) : null}
 
       {section === 'bookings' ? (
@@ -4482,255 +4489,454 @@ ${
       </section>
 
       {accountingDetail ? (
-        <div
-          className="ops-modal"
-          role="presentation"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              setAccountingDetail(null);
-              setAccountingJournalLines([]);
-            }
-          }}
-        >
-          <section
-            className="ops-modal__card ops-modal__card--wide accounting-detail-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="ops-accounting-detail-title"
+        <ModalPortal>
+          <div
+            className="ops-modal"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) {
+                setAccountingDetail(null);
+                setAccountingJournalLines([]);
+              }
+            }}
           >
-            <header>
-              <h2 id="ops-accounting-detail-title">
-                {ar ? 'تفاصيل الحركة المحاسبية' : 'Accounting entry details'}
-              </h2>
-              <button
-                type="button"
-                className="button button--quiet"
-                onClick={() => {
-                  setAccountingDetail(null);
-                  setAccountingJournalLines([]);
-                }}
-              >
-                {ar ? 'إغلاق' : 'Close'}
-              </button>
-            </header>
-            {accountingDetailBusy ? (
-              <p className="notice">{ar ? 'جاري تحميل التفاصيل…' : 'Loading details…'}</p>
-            ) : (
-              <div className="accounting-detail-body">
-                <dl className="ops-mobile-card__meta">
-                  <div>
-                    <dt>{ar ? 'المرجع' : 'Reference'}</dt>
-                    <dd>{safeString(accountingDetail.reference) || '—'}</dd>
-                  </div>
-                  <div>
-                    <dt>{ar ? 'التاريخ' : 'Date'}</dt>
-                    <dd>
-                      {safeString(accountingDetail.occurredOn) ||
-                        safeString(accountingDetail.createdAt).slice(0, 10) ||
-                        '—'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>{ar ? 'البيان' : 'Description'}</dt>
-                    <dd>
-                      {safeString(accountingDetail.description) ||
-                        safeString(accountingDetail.memo) ||
-                        '—'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>{ar ? 'الحالة' : 'Status'}</dt>
-                    <dd>{safeString(accountingDetail.status) || '—'}</dd>
-                  </div>
-                  <div>
-                    <dt>{ar ? 'النوع' : 'Kind'}</dt>
-                    <dd>
-                      {safeString(accountingDetail.recordKind) === 'stay_payment'
-                        ? ar
-                          ? 'تحصيل إقامة (وارد)'
-                          : 'Stay payment (inbound)'
-                        : ar
-                          ? 'قيد يومية'
-                          : 'Journal'}
-                    </dd>
-                  </div>
-                  {safeString(accountingDetail.recordKind) === 'stay_payment' ? (
-                    <>
-                      <div>
-                        <dt>{ar ? 'المبلغ' : 'Amount'}</dt>
-                        <dd dir="ltr">
-                          {formatMoney(
-                            safeString(accountingDetail.amountMinor) ||
-                              safeString(accountingDetail.debitMinor) ||
-                              '0',
-                            safeString(accountingDetail.currency) || 'OMR',
-                            locale,
-                          )}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt>{ar ? 'المزود' : 'Provider'}</dt>
-                        <dd>{safeString(accountingDetail.provider) || '—'}</dd>
-                      </div>
-                      <div>
-                        <dt>{ar ? 'الوصول / المغادرة' : 'Check-in / out'}</dt>
-                        <dd>
-                          {safeString(accountingDetail.checkInOn) || '—'} →{' '}
-                          {safeString(accountingDetail.checkOutOn) || '—'}
-                        </dd>
-                      </div>
-                    </>
-                  ) : null}
-                </dl>
-                {accountingJournalLines.length ? (
-                  <div className="data-table-wrap">
-                    <table className="data-table">
-                      <thead>
-                        <tr>
-                          <th>{ar ? 'الحساب' : 'Account'}</th>
-                          <th>{ar ? 'مدين' : 'Debit'}</th>
-                          <th>{ar ? 'دائن' : 'Credit'}</th>
-                          <th>{ar ? 'بيان السطر' : 'Line memo'}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {accountingJournalLines.map((line, index) => (
-                          <tr key={safeString(line.id) || String(index)}>
-                            <td>{ledgerAccountLabel(safeString(line.accountId))}</td>
-                            <td dir="ltr">
-                              {formatMoney(
-                                safeString(line.debitMinor) || '0',
-                                safeString(line.currency) ||
-                                  safeString(accountingDetail.currency) ||
-                                  'OMR',
-                                locale,
-                              )}
-                            </td>
-                            <td dir="ltr">
-                              {formatMoney(
-                                safeString(line.creditMinor) || '0',
-                                safeString(line.currency) ||
-                                  safeString(accountingDetail.currency) ||
-                                  'OMR',
-                                locale,
-                              )}
-                            </td>
-                            <td>{safeString(line.memo) || '—'}</td>
+            <section
+              className="ops-modal__card ops-modal__card--wide accounting-detail-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="ops-accounting-detail-title"
+            >
+              <header>
+                <h2 id="ops-accounting-detail-title">
+                  {ar ? 'تفاصيل الحركة المحاسبية' : 'Accounting entry details'}
+                </h2>
+                <button
+                  type="button"
+                  className="button button--quiet"
+                  onClick={() => {
+                    setAccountingDetail(null);
+                    setAccountingJournalLines([]);
+                  }}
+                >
+                  {ar ? 'إغلاق' : 'Close'}
+                </button>
+              </header>
+              {accountingDetailBusy ? (
+                <p className="notice">{ar ? 'جاري تحميل التفاصيل…' : 'Loading details…'}</p>
+              ) : (
+                <div className="accounting-detail-body">
+                  <dl className="ops-mobile-card__meta">
+                    <div>
+                      <dt>{ar ? 'المرجع' : 'Reference'}</dt>
+                      <dd>{safeString(accountingDetail.reference) || '—'}</dd>
+                    </div>
+                    <div>
+                      <dt>{ar ? 'التاريخ' : 'Date'}</dt>
+                      <dd>
+                        {safeString(accountingDetail.occurredOn) ||
+                          safeString(accountingDetail.createdAt).slice(0, 10) ||
+                          '—'}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{ar ? 'البيان' : 'Description'}</dt>
+                      <dd>
+                        {safeString(accountingDetail.description) ||
+                          safeString(accountingDetail.memo) ||
+                          '—'}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{ar ? 'الحالة' : 'Status'}</dt>
+                      <dd>{safeString(accountingDetail.status) || '—'}</dd>
+                    </div>
+                    <div>
+                      <dt>{ar ? 'النوع' : 'Kind'}</dt>
+                      <dd>
+                        {safeString(accountingDetail.recordKind) === 'stay_payment'
+                          ? ar
+                            ? 'تحصيل إقامة (وارد)'
+                            : 'Stay payment (inbound)'
+                          : ar
+                            ? 'قيد يومية'
+                            : 'Journal'}
+                      </dd>
+                    </div>
+                    {safeString(accountingDetail.recordKind) === 'stay_payment' ? (
+                      <>
+                        <div>
+                          <dt>{ar ? 'المبلغ' : 'Amount'}</dt>
+                          <dd dir="ltr">
+                            {formatMoney(
+                              safeString(accountingDetail.amountMinor) ||
+                                safeString(accountingDetail.debitMinor) ||
+                                '0',
+                              safeString(accountingDetail.currency) || 'OMR',
+                              locale,
+                            )}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>{ar ? 'المزود' : 'Provider'}</dt>
+                          <dd>{safeString(accountingDetail.provider) || '—'}</dd>
+                        </div>
+                        <div>
+                          <dt>{ar ? 'الوصول / المغادرة' : 'Check-in / out'}</dt>
+                          <dd>
+                            {safeString(accountingDetail.checkInOn) || '—'} →{' '}
+                            {safeString(accountingDetail.checkOutOn) || '—'}
+                          </dd>
+                        </div>
+                      </>
+                    ) : null}
+                  </dl>
+                  {accountingJournalLines.length ? (
+                    <div className="data-table-wrap">
+                      <table className="data-table">
+                        <thead>
+                          <tr>
+                            <th>{ar ? 'الحساب' : 'Account'}</th>
+                            <th>{ar ? 'مدين' : 'Debit'}</th>
+                            <th>{ar ? 'دائن' : 'Credit'}</th>
+                            <th>{ar ? 'بيان السطر' : 'Line memo'}</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : null}
-                <p className="notice notice--info">
-                  {ar
-                    ? 'للميزان والأستاذ والكشوفات الضريبية استخدم Hisaby. هذا العرض تشغيلي من برنامج العقارات.'
-                    : 'Use Hisaby for trial balance, full GL and tax statements. This view is operational from the property app.'}{' '}
-                  <a href="https://hisaby.bhd-om.com" target="_blank" rel="noreferrer">
-                    hisaby.bhd-om.com
-                  </a>
-                </p>
-                <div className="form-actions">
-                  <button
-                    type="button"
-                    className="button button--primary"
-                    onClick={printAccountingDetail}
-                  >
-                    {ar ? 'طباعة التفاصيل' : 'Print details'}
-                  </button>
-                  {safeString(accountingDetail.recordKind) === 'stay_payment' &&
-                  safeString(accountingDetail.bookingId) ? (
-                    <Link
-                      className="button button--quiet"
-                      href={`/${portal}/stays/bookings/${encodeURIComponent(safeString(accountingDetail.bookingId))}`}
-                      prefetch
-                    >
-                      {ar ? 'فتح الحجز' : 'Open booking'}
-                    </Link>
+                        </thead>
+                        <tbody>
+                          {accountingJournalLines.map((line, index) => (
+                            <tr key={safeString(line.id) || String(index)}>
+                              <td>{ledgerAccountLabel(safeString(line.accountId))}</td>
+                              <td dir="ltr">
+                                {formatMoney(
+                                  safeString(line.debitMinor) || '0',
+                                  safeString(line.currency) ||
+                                    safeString(accountingDetail.currency) ||
+                                    'OMR',
+                                  locale,
+                                )}
+                              </td>
+                              <td dir="ltr">
+                                {formatMoney(
+                                  safeString(line.creditMinor) || '0',
+                                  safeString(line.currency) ||
+                                    safeString(accountingDetail.currency) ||
+                                    'OMR',
+                                  locale,
+                                )}
+                              </td>
+                              <td>{safeString(line.memo) || '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   ) : null}
+                  <p className="notice notice--info">
+                    {ar
+                      ? 'للميزان والأستاذ والكشوفات الضريبية استخدم Hisaby. هذا العرض تشغيلي من برنامج العقارات.'
+                      : 'Use Hisaby for trial balance, full GL and tax statements. This view is operational from the property app.'}{' '}
+                    <a href="https://hisaby.bhd-om.com" target="_blank" rel="noreferrer">
+                      hisaby.bhd-om.com
+                    </a>
+                  </p>
+                  <div className="form-actions">
+                    <button
+                      type="button"
+                      className="button button--primary"
+                      onClick={printAccountingDetail}
+                    >
+                      {ar ? 'طباعة التفاصيل' : 'Print details'}
+                    </button>
+                    {safeString(accountingDetail.recordKind) === 'stay_payment' &&
+                    safeString(accountingDetail.bookingId) ? (
+                      <Link
+                        className="button button--quiet"
+                        href={`/${portal}/stays/bookings/${encodeURIComponent(safeString(accountingDetail.bookingId))}`}
+                        prefetch
+                      >
+                        {ar ? 'فتح الحجز' : 'Open booking'}
+                      </Link>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            )}
-          </section>
-        </div>
+              )}
+            </section>
+          </div>
+        </ModalPortal>
       ) : null}
 
       {renewingLease ? (
-        <div
-          className="ops-modal"
-          role="presentation"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setRenewingLease(null);
-          }}
-        >
-          <section
-            className="ops-modal__card"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="ops-renewal-title"
+        <ModalPortal onClose={() => setRenewingLease(null)}>
+          <div
+            className="ops-modal"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setRenewingLease(null);
+            }}
           >
-            <header>
-              <div>
-                <span className="ops-kicker">BHD R · CONTRACT CONTROL</span>
-                <h2 id="ops-renewal-title">
-                  {ar ? 'إنشاء ملحق تجديد' : 'Create renewal addendum'}
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setRenewingLease(null)}
-                aria-label={ar ? 'إغلاق' : 'Close'}
-              >
-                ×
-              </button>
-            </header>
-            <p className="muted">
-              {ar
-                ? 'لن يتغير العقد الحالي حتى يُعتمد الملحق ويوقعه المالك والمستأجر.'
-                : 'The current lease will not change until the addendum is approved and signed by both owner and tenant.'}
-            </p>
-            <form onSubmit={(event) => void submitRenewal(event)}>
+            <section
+              className="ops-modal__card"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="ops-renewal-title"
+            >
+              <header>
+                <div>
+                  <span className="ops-kicker">BHD R · CONTRACT CONTROL</span>
+                  <h2 id="ops-renewal-title">
+                    {ar ? 'إنشاء ملحق تجديد' : 'Create renewal addendum'}
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRenewingLease(null)}
+                  aria-label={ar ? 'إغلاق' : 'Close'}
+                >
+                  ×
+                </button>
+              </header>
+              <p className="muted">
+                {ar
+                  ? 'لن يتغير العقد الحالي حتى يُعتمد الملحق ويوقعه المالك والمستأجر.'
+                  : 'The current lease will not change until the addendum is approved and signed by both owner and tenant.'}
+              </p>
+              <form onSubmit={(event) => void submitRenewal(event)}>
+                <div className="form-grid">
+                  <SelectOptions
+                    name="templateVersionId"
+                    label={ar ? 'قالب ملحق العقد' : 'Addendum template'}
+                    options={context.contractTemplates ?? []}
+                    locale={locale}
+                    required
+                  />
+                  <Input
+                    name="endsOn"
+                    label={ar ? 'تاريخ النهاية الجديد' : 'New end date'}
+                    type="date"
+                    min={safeString(renewingLease.endsOn)}
+                    required
+                  />
+                  <Input
+                    name="rent"
+                    label={`${ar ? 'الإيجار الجديد (اختياري)' : 'New rent (optional)'} · ${safeString(renewingLease.currency)}`}
+                    type="number"
+                    min="0"
+                    step="0.001"
+                  />
+                  <label className="field span-2">
+                    <span>{ar ? 'شروط إضافية' : 'Additional terms'}</span>
+                    <textarea className="textarea" name="additionalTerms" maxLength={10000} />
+                  </label>
+                  <p className="muted span-2" style={{ margin: 0 }}>
+                    {ar
+                      ? 'جدول شيكات الفترة الجديدة (اختياري — مطلوب قبل اعتماد المحاسب ما لم يستثنِ المدير)'
+                      : 'Renewal cheque schedule (optional — required before accountant confirm unless manager waives)'}
+                  </p>
+                  <Input name="chequeBank" label={ar ? 'بنك الشيك' : 'Cheque bank'} />
+                  <Input name="chequeNumber" label={ar ? 'رقم الشيك' : 'Cheque number'} />
+                  <Input
+                    name="chequeAmount"
+                    label={`${ar ? 'مبلغ الشيك' : 'Cheque amount'} · ${safeString(renewingLease.currency)}`}
+                    type="number"
+                    min="0"
+                    step="0.001"
+                  />
+                  <Input
+                    name="chequeDueOn"
+                    label={ar ? 'استحقاق الشيك' : 'Cheque due'}
+                    type="date"
+                  />
+                </div>
+                {error ? (
+                  <div className="notice notice--error" role="alert">
+                    {error}
+                  </div>
+                ) : null}
+                <div className="form-actions">
+                  <button
+                    className="button button--quiet"
+                    type="button"
+                    onClick={() => setRenewingLease(null)}
+                  >
+                    {ar ? 'إلغاء' : 'Cancel'}
+                  </button>
+                  <button className="button button--primary" type="submit" disabled={busy}>
+                    {busy
+                      ? ar
+                        ? 'جارٍ الحفظ…'
+                        : 'Saving…'
+                      : ar
+                        ? 'حفظ وإرسال للاعتماد'
+                        : 'Save & request approval'}
+                  </button>
+                </div>
+              </form>
+            </section>
+          </div>
+        </ModalPortal>
+      ) : null}
+
+      {showCreate ? (
+        <ModalPortal onClose={closeCreate}>
+          <div
+            className="ops-modal ops-modal--create"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) closeCreate();
+            }}
+          >
+            <section
+              className="ops-modal__card"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="ops-create-title"
+            >
+              <header>
+                <div>
+                  <span className="ops-kicker">
+                    {section === 'api-keys'
+                      ? ar
+                        ? 'تكامل BHD R'
+                        : 'BHD R integration'
+                      : 'BHD R WORKFLOW'}
+                  </span>
+                  <h2 id="ops-create-title">{ar ? definition.createAr : definition.createEn}</h2>
+                </div>
+                <button type="button" onClick={closeCreate} aria-label={ar ? 'إغلاق' : 'Close'}>
+                  ×
+                </button>
+              </header>
+              {apiKeySecret ? (
+                <div className="api-key-secret" role="status">
+                  <strong>{ar ? 'انسخ المفتاح السري الآن' : 'Copy the secret key now'}</strong>
+                  <p>
+                    {ar
+                      ? 'لن تُعرض هذه القيمة مرة أخرى بعد إغلاق النافذة. احفظها في Hisaby أو مدير أسرار فوراً.'
+                      : 'This value will not be shown again after closing. Save it in Hisaby or a secrets manager now.'}
+                  </p>
+                  <code dir="ltr">{apiKeySecret}</code>
+                  <div className="form-actions">
+                    <button
+                      className="button button--primary"
+                      type="button"
+                      onClick={() => {
+                        void navigator.clipboard?.writeText(apiKeySecret).then(
+                          () => setApiKeyCopied(true),
+                          () => setApiKeyCopied(false),
+                        );
+                      }}
+                    >
+                      {apiKeyCopied
+                        ? ar
+                          ? 'تم النسخ'
+                          : 'Copied'
+                        : ar
+                          ? 'نسخ المفتاح'
+                          : 'Copy key'}
+                    </button>
+                    <button
+                      className="button button--quiet"
+                      type="button"
+                      onClick={() => {
+                        setApiKeyCopied(false);
+                        closeCreate();
+                      }}
+                    >
+                      {ar ? 'إغلاق' : 'Close'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={(event) => void submitCreate(event)}>
+                  <div className="form-grid">
+                    <CreateFields
+                      section={section}
+                      locale={locale}
+                      context={context}
+                      prefillUnitId={prefillUnitId}
+                      prefillReservationId={prefillReservationId}
+                      prefillTenantId={prefillTenantId}
+                    />
+                  </div>
+                  {error ? (
+                    <div className="notice notice--error" role="alert">
+                      {error}
+                    </div>
+                  ) : null}
+                  <div className="form-actions">
+                    <button className="button button--quiet" type="button" onClick={closeCreate}>
+                      {ar ? 'إلغاء' : 'Cancel'}
+                    </button>
+                    <button className="button button--primary" type="submit" disabled={busy}>
+                      {busy
+                        ? ar
+                          ? 'جارٍ الحفظ…'
+                          : 'Saving…'
+                        : section === 'api-keys'
+                          ? ar
+                            ? 'إنشاء المفتاح'
+                            : 'Create key'
+                          : ar
+                            ? 'حفظ وبدء سير العمل'
+                            : 'Save & start workflow'}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </section>
+          </div>
+        </ModalPortal>
+      ) : null}
+
+      {revokeKeyRow ? (
+        <ModalPortal>
+          <div
+            className="ops-modal"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) {
+                setRevokeKeyRow(null);
+                setRevokeTotp('');
+              }
+            }}
+          >
+            <section
+              className="ops-modal__card"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="ops-revoke-key-title"
+            >
+              <header>
+                <div>
+                  <span className="ops-kicker">{ar ? 'أمان التكامل' : 'Integration security'}</span>
+                  <h2 id="ops-revoke-key-title">{ar ? 'إلغاء مفتاح API' : 'Revoke API key'}</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRevokeKeyRow(null);
+                    setRevokeTotp('');
+                  }}
+                  aria-label={ar ? 'إغلاق' : 'Close'}
+                >
+                  ×
+                </button>
+              </header>
+              <p>
+                {ar
+                  ? `سيتم إيقاف المفتاح «${safeString(revokeKeyRow.name) || safeString(revokeKeyRow.prefix)}» فوراً. أي تكامل يستخدمه (مثل Hisaby) سيفشل حتى تُنشئ مفتاحاً جديداً.`
+                  : `Key “${safeString(revokeKeyRow.name) || safeString(revokeKeyRow.prefix)}” will stop immediately. Partners using it (e.g. Hisaby) will fail until you create a new key.`}
+              </p>
               <div className="form-grid">
-                <SelectOptions
-                  name="templateVersionId"
-                  label={ar ? 'قالب ملحق العقد' : 'Addendum template'}
-                  options={context.contractTemplates ?? []}
-                  locale={locale}
-                  required
-                />
                 <Input
-                  name="endsOn"
-                  label={ar ? 'تاريخ النهاية الجديد' : 'New end date'}
-                  type="date"
-                  min={safeString(renewingLease.endsOn)}
-                  required
+                  name="revokeTotp"
+                  label={
+                    ar ? 'رمز التحقق الثنائي TOTP (إن كان مفعّلاً)' : 'TOTP code (when enabled)'
+                  }
+                  value={revokeTotp}
+                  onChange={(event) => setRevokeTotp(event.target.value)}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
                 />
-                <Input
-                  name="rent"
-                  label={`${ar ? 'الإيجار الجديد (اختياري)' : 'New rent (optional)'} · ${safeString(renewingLease.currency)}`}
-                  type="number"
-                  min="0"
-                  step="0.001"
-                />
-                <label className="field span-2">
-                  <span>{ar ? 'شروط إضافية' : 'Additional terms'}</span>
-                  <textarea className="textarea" name="additionalTerms" maxLength={10000} />
-                </label>
-                <p className="muted span-2" style={{ margin: 0 }}>
-                  {ar
-                    ? 'جدول شيكات الفترة الجديدة (اختياري — مطلوب قبل اعتماد المحاسب ما لم يستثنِ المدير)'
-                    : 'Renewal cheque schedule (optional — required before accountant confirm unless manager waives)'}
-                </p>
-                <Input name="chequeBank" label={ar ? 'بنك الشيك' : 'Cheque bank'} />
-                <Input name="chequeNumber" label={ar ? 'رقم الشيك' : 'Cheque number'} />
-                <Input
-                  name="chequeAmount"
-                  label={`${ar ? 'مبلغ الشيك' : 'Cheque amount'} · ${safeString(renewingLease.currency)}`}
-                  type="number"
-                  min="0"
-                  step="0.001"
-                />
-                <Input name="chequeDueOn" label={ar ? 'استحقاق الشيك' : 'Cheque due'} type="date" />
               </div>
               {error ? (
                 <div className="notice notice--error" role="alert">
@@ -4741,210 +4947,31 @@ ${
                 <button
                   className="button button--quiet"
                   type="button"
-                  onClick={() => setRenewingLease(null)}
+                  onClick={() => {
+                    setRevokeKeyRow(null);
+                    setRevokeTotp('');
+                  }}
                 >
-                  {ar ? 'إلغاء' : 'Cancel'}
+                  {ar ? 'تراجع' : 'Cancel'}
                 </button>
-                <button className="button button--primary" type="submit" disabled={busy}>
+                <button
+                  className="button button--primary"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void revokeApiKey(revokeKeyRow, revokeTotp)}
+                >
                   {busy
                     ? ar
-                      ? 'جارٍ الحفظ…'
-                      : 'Saving…'
+                      ? 'جارٍ الإلغاء…'
+                      : 'Revoking…'
                     : ar
-                      ? 'حفظ وإرسال للاعتماد'
-                      : 'Save & request approval'}
+                      ? 'تأكيد الإلغاء'
+                      : 'Confirm revoke'}
                 </button>
               </div>
-            </form>
-          </section>
-        </div>
-      ) : null}
-
-      {showCreate ? (
-        <div
-          className="ops-modal"
-          role="presentation"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) closeCreate();
-          }}
-        >
-          <section
-            className="ops-modal__card"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="ops-create-title"
-          >
-            <header>
-              <div>
-                <span className="ops-kicker">
-                  {section === 'api-keys'
-                    ? ar
-                      ? 'تكامل BHD R'
-                      : 'BHD R integration'
-                    : 'BHD R WORKFLOW'}
-                </span>
-                <h2 id="ops-create-title">{ar ? definition.createAr : definition.createEn}</h2>
-              </div>
-              <button type="button" onClick={closeCreate} aria-label={ar ? 'إغلاق' : 'Close'}>
-                ×
-              </button>
-            </header>
-            {apiKeySecret ? (
-              <div className="api-key-secret" role="status">
-                <strong>{ar ? 'انسخ المفتاح السري الآن' : 'Copy the secret key now'}</strong>
-                <p>
-                  {ar
-                    ? 'لن تُعرض هذه القيمة مرة أخرى بعد إغلاق النافذة. احفظها في Hisaby أو مدير أسرار فوراً.'
-                    : 'This value will not be shown again after closing. Save it in Hisaby or a secrets manager now.'}
-                </p>
-                <code dir="ltr">{apiKeySecret}</code>
-                <div className="form-actions">
-                  <button
-                    className="button button--primary"
-                    type="button"
-                    onClick={() => {
-                      void navigator.clipboard?.writeText(apiKeySecret).then(
-                        () => setApiKeyCopied(true),
-                        () => setApiKeyCopied(false),
-                      );
-                    }}
-                  >
-                    {apiKeyCopied ? (ar ? 'تم النسخ' : 'Copied') : ar ? 'نسخ المفتاح' : 'Copy key'}
-                  </button>
-                  <button
-                    className="button button--quiet"
-                    type="button"
-                    onClick={() => {
-                      setApiKeyCopied(false);
-                      closeCreate();
-                    }}
-                  >
-                    {ar ? 'إغلاق' : 'Close'}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <form onSubmit={(event) => void submitCreate(event)}>
-                <div className="form-grid">
-                  <CreateFields
-                    section={section}
-                    locale={locale}
-                    context={context}
-                    prefillUnitId={prefillUnitId}
-                    prefillReservationId={prefillReservationId}
-                    prefillTenantId={prefillTenantId}
-                  />
-                </div>
-                {error ? (
-                  <div className="notice notice--error" role="alert">
-                    {error}
-                  </div>
-                ) : null}
-                <div className="form-actions">
-                  <button className="button button--quiet" type="button" onClick={closeCreate}>
-                    {ar ? 'إلغاء' : 'Cancel'}
-                  </button>
-                  <button className="button button--primary" type="submit" disabled={busy}>
-                    {busy
-                      ? ar
-                        ? 'جارٍ الحفظ…'
-                        : 'Saving…'
-                      : section === 'api-keys'
-                        ? ar
-                          ? 'إنشاء المفتاح'
-                          : 'Create key'
-                        : ar
-                          ? 'حفظ وبدء سير العمل'
-                          : 'Save & start workflow'}
-                  </button>
-                </div>
-              </form>
-            )}
-          </section>
-        </div>
-      ) : null}
-
-      {revokeKeyRow ? (
-        <div
-          className="ops-modal"
-          role="presentation"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) {
-              setRevokeKeyRow(null);
-              setRevokeTotp('');
-            }
-          }}
-        >
-          <section
-            className="ops-modal__card"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="ops-revoke-key-title"
-          >
-            <header>
-              <div>
-                <span className="ops-kicker">{ar ? 'أمان التكامل' : 'Integration security'}</span>
-                <h2 id="ops-revoke-key-title">{ar ? 'إلغاء مفتاح API' : 'Revoke API key'}</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setRevokeKeyRow(null);
-                  setRevokeTotp('');
-                }}
-                aria-label={ar ? 'إغلاق' : 'Close'}
-              >
-                ×
-              </button>
-            </header>
-            <p>
-              {ar
-                ? `سيتم إيقاف المفتاح «${safeString(revokeKeyRow.name) || safeString(revokeKeyRow.prefix)}» فوراً. أي تكامل يستخدمه (مثل Hisaby) سيفشل حتى تُنشئ مفتاحاً جديداً.`
-                : `Key “${safeString(revokeKeyRow.name) || safeString(revokeKeyRow.prefix)}” will stop immediately. Partners using it (e.g. Hisaby) will fail until you create a new key.`}
-            </p>
-            <div className="form-grid">
-              <Input
-                name="revokeTotp"
-                label={ar ? 'رمز التحقق الثنائي TOTP (إن كان مفعّلاً)' : 'TOTP code (when enabled)'}
-                value={revokeTotp}
-                onChange={(event) => setRevokeTotp(event.target.value)}
-                inputMode="numeric"
-                autoComplete="one-time-code"
-              />
-            </div>
-            {error ? (
-              <div className="notice notice--error" role="alert">
-                {error}
-              </div>
-            ) : null}
-            <div className="form-actions">
-              <button
-                className="button button--quiet"
-                type="button"
-                onClick={() => {
-                  setRevokeKeyRow(null);
-                  setRevokeTotp('');
-                }}
-              >
-                {ar ? 'تراجع' : 'Cancel'}
-              </button>
-              <button
-                className="button button--primary"
-                type="button"
-                disabled={busy}
-                onClick={() => void revokeApiKey(revokeKeyRow, revokeTotp)}
-              >
-                {busy
-                  ? ar
-                    ? 'جارٍ الإلغاء…'
-                    : 'Revoking…'
-                  : ar
-                    ? 'تأكيد الإلغاء'
-                    : 'Confirm revoke'}
-              </button>
-            </div>
-          </section>
-        </div>
+            </section>
+          </div>
+        </ModalPortal>
       ) : null}
     </div>
   );

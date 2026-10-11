@@ -16284,3 +16284,224 @@ body:has(.stay-esign-shell) {
 .psr-summary strong {
   font-size: 0.92rem;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Vacant units — collapsed dropdown                                           */
+/* -------------------------------------------------------------------------- */
+.ops-vacant-strip {
+  padding: 0;
+  overflow: hidden;
+}
+.ops-vacant-strip__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 1rem;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.ops-vacant-strip__toggle::-webkit-details-marker {
+  display: none;
+}
+.ops-vacant-strip__toggle::marker {
+  content: '';
+}
+.ops-vacant-strip__toggle > span {
+  display: grid;
+  min-width: 0;
+  gap: 0.1rem;
+}
+.ops-vacant-strip__toggle strong {
+  color: var(--oman-deep, #092d24);
+  font-size: 0.95rem;
+}
+.ops-vacant-strip__toggle small {
+  overflow: hidden;
+  color: #53665e;
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ops-vacant-strip__toggle em {
+  display: inline-flex;
+  flex: none;
+  gap: 0.45rem;
+  align-items: center;
+  padding: 0.25rem 0.7rem;
+  color: #0a6b4b;
+  font-size: 0.8rem;
+  font-style: normal;
+  font-weight: 800;
+  background: rgb(8 163 159 / 0.1);
+  border-radius: 999px;
+}
+.ops-vacant-strip__toggle:hover em {
+  background: rgb(8 163 159 / 0.18);
+}
+.ops-vacant-strip__toggle:focus-visible {
+  outline: 2px solid #08a39f;
+  outline-offset: -2px;
+}
+.ops-vacant-strip[open] .ops-stats__chevron {
+  transform: translateY(0.1rem) rotate(-135deg);
+}
+.ops-vacant-strip > ul {
+  max-height: min(24rem, 55dvh);
+  padding: 0 0.75rem 0.75rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  animation: ops-stats-open 0.18s ease both;
+}
+@media (max-width: 520px) {
+  .ops-vacant-strip__toggle small {
+    display: none;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Operations modals — full-screen overlay, responsive on every device          */
+/* Rendered through ModalPortal into <body> so no transformed ancestor traps it. */
+/* -------------------------------------------------------------------------- */
+.ops-modal {
+  --modal-pad: clamp(1rem, 2.5vw, 1.6rem);
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100vw;
+  height: 100dvh;
+  padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background: rgb(3 25 20 / 0.72);
+  backdrop-filter: blur(8px);
+  animation: ops-modal-fade 0.16s ease both;
+}
+.ops-modal__card,
+.ops-modal__card--wide {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 60rem);
+  max-height: 100%;
+  padding: 0 var(--modal-pad);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 1.15rem;
+  animation: ops-modal-rise 0.2s ease both;
+}
+.ops-modal--create .ops-modal__card {
+  width: min(100%, 64rem);
+  height: 100%;
+}
+.ops-modal__card > header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  flex: none;
+  margin: 0 calc(-1 * var(--modal-pad)) 1rem;
+  padding: 0.9rem var(--modal-pad);
+  background: #fff;
+  border-bottom: 1px solid #e5ece9;
+}
+.ops-modal__card > header > button:not(.button) {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  color: var(--oman-deep, #092d24);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  background: #f1f5f3;
+  border: 1px solid #dfe8e4;
+  border-radius: 999px;
+}
+.ops-modal__card > header > button:not(.button):hover {
+  background: #e3ece8;
+}
+.ops-modal__card > form,
+.ops-modal__card > .api-key-secret {
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+  gap: 1rem;
+}
+.ops-modal__card > form > .form-actions,
+.ops-modal__card > .form-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  justify-content: flex-end;
+  margin: auto calc(-1 * var(--modal-pad)) 0;
+  padding: 0.85rem var(--modal-pad) max(0.85rem, env(safe-area-inset-bottom));
+  background: #fff;
+  border-top: 1px solid #e5ece9;
+}
+.ops-modal__card > :last-child:not(form, .form-actions) {
+  margin-bottom: var(--modal-pad);
+}
+.ops-modal .ops-kicker {
+  font-size: 0.7rem;
+}
+@keyframes ops-modal-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes ops-modal-rise {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem) scale(0.99);
+  }
+}
+
+/* Phones and tablets: the dialog takes the whole screen. */
+@media (max-width: 900px) {
+  .ops-modal {
+    padding: 0;
+  }
+  .ops-modal__card,
+  .ops-modal__card--wide,
+  .ops-modal--create .ops-modal__card {
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .ops-modal__card > header {
+    padding-top: max(0.9rem, env(safe-area-inset-top));
+  }
+}
+@media (max-width: 520px) {
+  .ops-modal__card > form > .form-actions,
+  .ops-modal__card > .form-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .ops-modal__card > form > .form-actions > .button,
+  .ops-modal__card > .form-actions > .button {
+    width: 100%;
+    min-width: 0;
+  }
+  .ops-modal__card > form > .form-actions > :only-child {
+    grid-column: 1 / -1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ops-modal,
+  .ops-modal__card {
+    animation: none;
+  }
+}

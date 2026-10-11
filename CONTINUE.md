@@ -1,5 +1,8 @@
 # CONTINUE — 2026-10-11
 
+**0.6.6** · `ops-vacant-strip` أصبح `<details>` مطوياً بعدد وسهم؛ كل نوافذ `ops-modal` تمر عبر `ModalPortal` (`createPortal` إلى `body`، لأن حركة `transform` على `.portal-ops-pane` كانت تحبس `position: fixed`) مع تصميم كامل الشاشة متجاوب في آخر `globals.css`  
+**تفاصيل:** [`docs/implementation/RELEASE-0.6.6-AR.md`](./docs/implementation/RELEASE-0.6.6-AR.md)
+
 **0.6.5** · مؤشرات الحجوزات مطوية كقائمة منسدلة (`statsOpen` افتراضياً `false` في `bookings`)؛ إحصائيات مضغوطة موحّدة (`ops-metrics`، `ops-flow` مع `is-active`، `dash-metric`، `pmh-stats`، `psr-summary`) في قسم «Compact statistics» آخر `globals.css`  
 **تفاصيل:** [`docs/implementation/RELEASE-0.6.5-AR.md`](./docs/implementation/RELEASE-0.6.5-AR.md)
 
