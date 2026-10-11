@@ -154,9 +154,13 @@ export function stayGuestGreeting(input: {
         stage: 'confirmed',
         headline: hi('أبشر{name}، اعتُمد حجزك!', 'Good news{name} — you are confirmed!'),
         body:
-          (ar
-            ? 'كل شيء جاهز من طرفنا، والمكان بدأ يتزيّن لاستقبالك. بقيت عليك أهم مهمة: حزم الحقائب (ولا تنسَ الشاحن!).'
-            : 'Everything is ready on our side, and the place is getting dressed up for you. Your only job now: packing (and do not forget the charger!).') +
+          (input.arrival === 'today' || input.arrival === 'due'
+            ? ar
+              ? 'كل شيء جاهز من طرفنا، والمكان متزيّن لاستقبالك.'
+              : 'Everything is ready on our side, and the place is all dressed up for you.'
+            : ar
+              ? 'كل شيء جاهز من طرفنا، والمكان بدأ يتزيّن لاستقبالك. بقيت عليك أهم مهمة: حزم الحقائب (ولا تنسَ الشاحن!).'
+              : 'Everything is ready on our side, and the place is getting dressed up for you. Your only job now: packing (and do not forget the charger!).') +
           when +
           sign,
       };
