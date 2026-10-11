@@ -1,5 +1,8 @@
 # CONTINUE — 2026-10-11
 
+**0.7.9** · عقد فخم: `components/contract-document-view.tsx` (جديد، فُصل من `contract-detail-view.tsx`). ترويسة وتذييل في `thead`/`tfoot` يتكرران في كل صفحة مطبوعة، وإطار وعلامة مائية `position: fixed`. المحمِّل يجلب العقار مع العنوان و`property_profiles`، ومواصفات الوحدة، وهاتف الطرفين وبريدهما، وآخر 4 أرقام من `party_identity_documents`. الرقم الكامل مشفّر، فيظهر مخفياً أو خطاً للملء. التالي: توليد PDF للعقد على الخادم، وقراءة بوابة المستأجر من Neon  
+**تفاصيل:** [`docs/implementation/RELEASE-0.7.9-AR.md`](./docs/implementation/RELEASE-0.7.9-AR.md)
+
 **0.7.8** · مشهد الطائرة: `flight` في `StayGreeting` (`landing` يوم الوصول وأثناء الإقامة وفي إعادة مرحلة الوصول، و`ready` يوم المغادرة أثناء الإقامة، و`takeoff` بعد المغادرة)، و`departure` بجانب `arrival`. `components/stays/stay-flight.tsx` يرسمه (CSS فقط، معكوس في RTL، ثابت مع تقليل الحركة). زر اللغة في صفحة الضيف (`Link` بـ `locale` مع `ref` و`welcome`). التالي: توليد PDF للعقد على الخادم، وقراءة بوابة المستأجر من Neon  
 **تفاصيل:** [`docs/implementation/RELEASE-0.7.8-AR.md`](./docs/implementation/RELEASE-0.7.8-AR.md)
 

@@ -12,6 +12,55 @@ export const CONTRACT_FILE_FIELDS: Record<ContractFileKind, string> = {
 type Money = { amountMinor: string; currency: string };
 type Stamp = { at: string; notes: string | null };
 
+/** A contracting party as written on the contract; missing details stay null (printed as a blank line). */
+export interface ContractPartyCard {
+  name: string;
+  entityType: 'person' | 'company';
+  civilId: string | null;
+  passport: string | null;
+  nationality: string | null;
+  crNumber: string | null;
+  signatoryName: string | null;
+  signatoryCivilId: string | null;
+  phone: string | null;
+  email: string | null;
+}
+
+export interface ContractPremises {
+  propertyNameAr: string;
+  propertyNameEn: string;
+  kind: string;
+  category: string;
+  serialNumber: string | null;
+  governorate: string;
+  wilayat: string;
+  city: string;
+  area: string | null;
+  street: string | null;
+  buildingNumber: string | null;
+  postalCode: string | null;
+  deedNumber: string | null;
+  plotNumber: string | null;
+  furnishing: string | null;
+  parkingSpaces: number | null;
+  builtUpArea: string | null;
+  floorsCount: number | null;
+  yearBuilt: number | null;
+  unit: {
+    code: string;
+    nameAr: string;
+    nameEn: string;
+    floor: string | null;
+    bedrooms: number;
+    bathrooms: number;
+    majlis: number;
+    halls: number;
+    kitchens: number;
+    hasPool: boolean;
+    areaSquareMeters: string | null;
+  } | null;
+}
+
 /** Everything needed to render the contract as its original document. */
 export interface ContractDocument {
   type: 'stay' | 'lease' | 'sale';
@@ -26,6 +75,9 @@ export interface ContractDocument {
   source: { type: string; referenceCode: string | null; stayBookingId: string | null } | null;
   approval: { mode: string | null; byName: string | null; at: string | null } | null;
   tenantContact: { email: string | null; phone: string | null } | null;
+  owner: ContractPartyCard | null;
+  tenant: ContractPartyCard | null;
+  premises: ContractPremises | null;
   terms: NumberedTermsBlock[];
   termsAcceptedAt: string | null;
   signatures: Array<{

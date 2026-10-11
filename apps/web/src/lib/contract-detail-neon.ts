@@ -1,16 +1,19 @@
 import 'server-only';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import {
+  addresses,
   approvalRequests,
   contractSignatures,
   contractTemplates,
   contracts,
   leases,
   parties,
+  partyIdentityDocuments,
   properties,
+  propertyProfiles,
   stayBookingStatusHistory,
   units,
 } from '@bhd-r/db';
@@ -27,12 +30,22 @@ import {
   sanitizeContractHtml,
   type ContractDocument,
   type ContractFileKind,
+  type ContractPartyCard,
+  type ContractPremises,
 } from '@/lib/contract-document';
 import { formatMoney } from '@/lib/format';
 import { ownerPartyScope, readClaims, withinViewerTenant } from '@/lib/portal-ops-data';
 import { lookupPublicStayBookingOnNeon } from '@/lib/public-stays-guest-neon';
 
 type Tx = Parameters<Parameters<typeof withinViewerTenant>[1]>[0];
+
+const PARTY_COLUMNS = {
+  id: parties.id,
+  displayName: parties.displayName,
+  type: parties.type,
+  email: parties.email,
+  phone: parties.phone,
+};
 
 export interface ContractDetail {
   id: string;
@@ -253,13 +266,13 @@ export async function loadContractDetailFromNeon(
             .then((rows) => rows[0])
         : Promise.resolve(undefined),
       tx
-        .select({ id: parties.id, displayName: parties.displayName })
+        .select(PARTY_COLUMNS)
         .from(parties)
         .where(and(eq(parties.organizationId, orgId), eq(parties.id, contract.ownerPartyId)))
         .limit(1)
         .then((rows) => rows[0] ?? null),
       tx
-        .select({ id: parties.id, displayName: parties.displayName })
+        .select(PARTY_COLUMNS)
         .from(parties)
         .where(and(eq(parties.organizationId, orgId), eq(parties.id, contract.tenantPartyId)))
         .limit(1)
@@ -271,6 +284,14 @@ export async function loadContractDetailFromNeon(
           nameAr: units.nameAr,
           nameEn: units.nameEn,
           propertyId: units.propertyId,
+          floor: units.floor,
+          bedrooms: units.bedrooms,
+          bathrooms: units.bathrooms,
+          majlis: units.majlis,
+          halls: units.halls,
+          kitchens: units.kitchens,
+          hasPool: units.hasPool,
+          areaSquareMeters: units.areaSquareMeters,
         })
         .from(units)
         .where(and(eq(units.organizationId, orgId), eq(units.id, contract.unitId)))
@@ -314,15 +335,71 @@ export async function loadContractDetailFromNeon(
         .limit(1)
         .then((rows) => rows[0] ?? null),
     ]);
-    const property = unit
-      ? await tx
-          .select({ id: properties.id, nameAr: properties.nameAr, nameEn: properties.nameEn })
-          .from(properties)
-          .where(and(eq(properties.organizationId, orgId), eq(properties.id, unit.propertyId)))
-          .limit(1)
-          .then((rows) => rows[0] ?? null)
+    const [propertyRow, identityDocs] = await Promise.all([
+      unit
+        ? tx
+            .select({
+              id: properties.id,
+              nameAr: properties.nameAr,
+              nameEn: properties.nameEn,
+              kind: properties.kind,
+              category: properties.category,
+              serialNumber: properties.serialNumber,
+              governorate: addresses.governorate,
+              wilayat: addresses.wilayat,
+              city: addresses.city,
+              area: addresses.area,
+              street: addresses.street,
+              buildingNumber: addresses.buildingNumber,
+              postalCode: addresses.postalCode,
+              deedNumber: propertyProfiles.deedNumber,
+              plotNumber: propertyProfiles.plotNumber,
+              furnishing: propertyProfiles.furnishing,
+              parkingSpaces: propertyProfiles.parkingSpaces,
+              builtUpArea: propertyProfiles.builtUpAreaSquareMeters,
+              floorsCount: propertyProfiles.floorsCount,
+              yearBuilt: propertyProfiles.yearBuilt,
+            })
+            .from(properties)
+            .innerJoin(
+              addresses,
+              and(eq(addresses.id, properties.addressId), eq(addresses.organizationId, orgId)),
+            )
+            .leftJoin(
+              propertyProfiles,
+              and(
+                eq(propertyProfiles.propertyId, properties.id),
+                eq(propertyProfiles.organizationId, orgId),
+              ),
+            )
+            .where(and(eq(properties.organizationId, orgId), eq(properties.id, unit.propertyId)))
+            .limit(1)
+            .then((rows) => rows[0] ?? null)
+        : Promise.resolve(null),
+      tx
+        .select({
+          partyId: partyIdentityDocuments.partyId,
+          documentType: partyIdentityDocuments.documentType,
+          last4: partyIdentityDocuments.numberLast4,
+        })
+        .from(partyIdentityDocuments)
+        .where(
+          and(
+            eq(partyIdentityDocuments.organizationId, orgId),
+            inArray(partyIdentityDocuments.partyId, [
+              contract.ownerPartyId,
+              contract.tenantPartyId,
+            ]),
+          ),
+        )
+        .orderBy(desc(partyIdentityDocuments.createdAt)),
+    ]);
+    const property = propertyRow
+      ? { id: propertyRow.id, nameAr: propertyRow.nameAr, nameEn: propertyRow.nameEn }
       : null;
     return {
+      propertyRow,
+      identityDocs,
       contract,
       lease,
       owner,
@@ -372,7 +449,10 @@ export async function loadContractDetailFromNeon(
           decidedAt: approval.decidedAt ? approval.decidedAt.toISOString() : null,
         }
       : null,
-    parties: { owner, tenant },
+    parties: {
+      owner: owner ? { id: owner.id, displayName: owner.displayName } : null,
+      tenant: tenant ? { id: tenant.id, displayName: tenant.displayName } : null,
+    },
     property,
     unit: unit ? { id: unit.id, code: unit.code, nameAr: unit.nameAr, nameEn: unit.nameEn } : null,
     signatures: signatures.map((signature) => ({
@@ -386,7 +466,7 @@ export async function loadContractDetailFromNeon(
 
 type Loaded = {
   contract: typeof contracts.$inferSelect;
-  tenant: { id: string; displayName: string } | null;
+  tenant: PartyRow | null;
   signatures: Array<{
     id: string;
     signerRole: string;
@@ -408,7 +488,62 @@ type Loaded = {
   esign: Record<string, unknown> | null;
   stayBookingId: string | null;
   showIdentityFiles: boolean;
+  owner: PartyRow | null;
+  unit: {
+    code: string;
+    nameAr: string;
+    nameEn: string;
+    floor: string | null;
+    bedrooms: number;
+    bathrooms: number;
+    majlis: number;
+    halls: number;
+    kitchens: number;
+    hasPool: boolean;
+    areaSquareMeters: string | null;
+  } | null;
+  propertyRow:
+    | (Omit<ContractPremises, 'unit' | 'propertyNameAr' | 'propertyNameEn'> & {
+        nameAr: string;
+        nameEn: string;
+      })
+    | null;
+  identityDocs: Array<{ partyId: string; documentType: string; last4: string }>;
 };
+
+type PartyRow = {
+  id: string;
+  displayName: string;
+  type: string;
+  email: string | null;
+  phone: string | null;
+};
+
+function partyCard(
+  row: PartyRow | null,
+  docs: Loaded['identityDocs'],
+  details: Record<string, unknown>,
+  fallback: { email: string | null; phone: string | null },
+): ContractPartyCard | null {
+  if (!row) return null;
+  const masked = (documentType: string) => {
+    const doc = docs.find((item) => item.partyId === row.id && item.documentType === documentType);
+    return doc ? `•••• ${doc.last4}` : null;
+  };
+  const company = details.entityType === 'company' || row.type === 'company';
+  return {
+    name: text(details.nameAr) ?? row.displayName,
+    entityType: company ? 'company' : 'person',
+    civilId: text(details.civilId) ?? (company ? null : masked('civil_id')),
+    passport: text(details.passport) ?? (company ? null : masked('passport')),
+    nationality: text(details.nationality),
+    crNumber: text(details.crNumber) ?? (company ? masked('commercial_registration') : null),
+    signatoryName: text(details.signatoryName),
+    signatoryCivilId: text(details.signatoryCivilId),
+    phone: text(details.phone) ?? row.phone ?? fallback.phone,
+    email: text(details.email) ?? row.email ?? fallback.email,
+  };
+}
 
 const record = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' && !Array.isArray(value)
@@ -515,6 +650,36 @@ async function buildContractDocument(
             phone: text(guestContact.phone) ?? stay?.guestPhone ?? null,
           }
         : null,
+    owner: partyCard(loaded.owner, loaded.identityDocs, {}, { email: null, phone: null }),
+    tenant: partyCard(loaded.tenant, loaded.identityDocs, record(snapshot.tenantDetails), {
+      email: text(guestContact.email) ?? stay?.guestEmail ?? null,
+      phone: text(guestContact.phone) ?? stay?.guestPhone ?? null,
+    }),
+    premises: loaded.propertyRow
+      ? (() => {
+          const { nameAr, nameEn, ...rest } = loaded.propertyRow;
+          return {
+            ...rest,
+            propertyNameAr: nameAr,
+            propertyNameEn: nameEn,
+            unit: loaded.unit
+              ? {
+                  code: loaded.unit.code,
+                  nameAr: loaded.unit.nameAr,
+                  nameEn: loaded.unit.nameEn,
+                  floor: loaded.unit.floor,
+                  bedrooms: loaded.unit.bedrooms,
+                  bathrooms: loaded.unit.bathrooms,
+                  majlis: loaded.unit.majlis,
+                  halls: loaded.unit.halls,
+                  kitchens: loaded.unit.kitchens,
+                  hasPool: loaded.unit.hasPool,
+                  areaSquareMeters: loaded.unit.areaSquareMeters,
+                }
+              : null,
+          };
+        })()
+      : null,
     terms,
     termsAcceptedAt: text(accepted.acceptedAt) ?? null,
     signatures: loaded.signatures.map((row) => {
