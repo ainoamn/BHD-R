@@ -9,6 +9,7 @@ import {
   getOpsCache,
   isOpsCacheFresh,
 } from '@/lib/portal-ops-client-cache';
+import { LIVE_CHANGE_EVENT } from '@/lib/live-sync-shared';
 import { OperationsConsole } from './operations-console';
 
 function resolvePayload(
@@ -87,11 +88,19 @@ export function OperationsWorkspaceClient({
         setHydrating(false);
       });
     };
+    // Live change from another account: refetch in place, keep showing current rows.
+    const onLiveChange = () => {
+      void fetchOpsPayload(portal, section).then((fresh) => {
+        if (!cancelled && fresh && !fresh.loadError) setPayload(fresh);
+      });
+    };
     window.addEventListener('bhd-r-ops-refresh', onRefresh);
+    window.addEventListener(LIVE_CHANGE_EVENT, onLiveChange);
 
     return () => {
       cancelled = true;
       window.removeEventListener('bhd-r-ops-refresh', onRefresh);
+      window.removeEventListener(LIVE_CHANGE_EVENT, onLiveChange);
     };
   }, [portal, section, locale, active]);
 

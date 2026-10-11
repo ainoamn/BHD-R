@@ -1,5 +1,8 @@
 # CONTINUE — 2026-10-11
 
+**0.7.2** · مزامنة حية: جدول `live_changes` تكتبه مشغّلات جمل (`custom/0027_live_changes.sql`، دالة `live_changes_capture` SECURITY DEFINER، 57 جدولاً بعمود `organization_id`؛ جداول الإقامة الفرعية بـ `booking_id`). `GET /api/live/pulse` يعيد `max(id)` للمنظمة أو للحجز (`?booking=&ref=`)، و`v: null` إن غاب الجدول. `components/live-sync.tsx` يسأل كل 3 ثوانٍ (يتخطى `document.hidden`)، وعند التغيّر: `markOpsCacheStale` + حدث `bhd-r-live-change` (لوحة العمليات وسجلات العقار تعيد الجلب بصمت) + `PENDING_APPROVALS_CHANGED_EVENT` + `router.refresh()`. صفحة الضيف: Neon أولاً مع `ref`. الترحيل يحتاج تطبيقاً على الإنتاج بموافقة. التالي: قراءة بوابة المستأجر من Neon  
+**تفاصيل:** [`docs/implementation/RELEASE-0.7.2-AR.md`](./docs/implementation/RELEASE-0.7.2-AR.md)
+
 **0.7.1** · دخول/مغادرة الإقامة: `recordStayStampOnNeon` في `lib/stay-arrival-neon.ts` (إجراءا `check_in`/`check_out` في `POST /api/owner/properties/[id]/records`)؛ الوقت (`datetime-local` بتوقيت مسقط +04:00) والملاحظات في `stay_booking_status_history.metadata_json` بلا ترحيل، وتُقرأ بـ `loadStayStamps` في `property-records-neon` (حقول `stage`/`checkedInAt`/…) وفي إسقاط الضيف (`checkIn`/`checkOut`). آلة الحالات: `confirmed → checked_in` مسموح. `/stays/booking/confirmed` يحوّل إلى `/guest/stays/[id]?ref=&welcome=1`. التالي: نفس التسجيل في صفحة حجوزات الإقامات (ما زالت عبر Nest)  
 **تفاصيل:** [`docs/implementation/RELEASE-0.7.1-AR.md`](./docs/implementation/RELEASE-0.7.1-AR.md)
 

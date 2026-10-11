@@ -111,6 +111,14 @@ export function invalidateOpsCache(portal?: PortalRole, section?: OperationsSect
   store.delete(key(portal, section));
 }
 
+/** Keep cached payloads for instant paint, but refetch them on next use. */
+export function markOpsCacheStale(): void {
+  const staleAt = Date.now() - FRESH_TTL_MS - 1;
+  for (const entry of store.values()) {
+    entry.savedAt = Math.min(entry.savedAt, staleAt);
+  }
+}
+
 export async function fetchOpsPayload(
   portal: PortalRole,
   section: OperationsSection,

@@ -1,3 +1,4 @@
+import { LiveSync } from './live-sync';
 import { PortalNav } from './portal-nav';
 import { NestKeepAlive } from './nest-keep-alive';
 import { NavigationProgress } from './navigation-progress';
@@ -24,6 +25,7 @@ export async function PortalShell({
       <NavigationProgress />
       <PortalRoutePrefetch portal={portal} staysEnabled={staysEnabled} />
       <NestKeepAlive />
+      <LiveSync />
       <PortalNav portal={portal} viewer={viewer} staysEnabled={staysEnabled} />
       <div className="portal-main">
         <PortalMainSlot

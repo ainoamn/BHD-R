@@ -2,6 +2,14 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.7.2 — 2026-10-11
+
+- مزامنة حية: ما يُعدَّل في أي حساب (المالك، المستأجر، الضيف، أي جهاز) يظهر في الحسابات الأخرى خلال ثوانٍ بلا تحديث للصفحة.
+  - سجل تغييرات `live_changes` تكتبه مشغّلات قاعدة البيانات (ترحيل `custom/0027_live_changes.sql`).
+  - نبض خفيف `GET /api/live/pulse`، ومكوّن `LiveSync` يعيد جلب البيانات بصمت فقط عند تغيّرها.
+- صفحة الضيف تقرأ من Neon مباشرة مع رمز الحجز، فتفتح أسرع.
+- التفاصيل: [`docs/implementation/RELEASE-0.7.2-AR.md`](./docs/implementation/RELEASE-0.7.2-AR.md).
+
 ## 0.7.1 — 2026-10-11
 
 - حجوزات الإقامة في صفحة العقار:

@@ -1,13 +1,14 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { Fragment, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link } from '@/i18n/navigation';
 import { LeaseContractForm, type LeaseContractPayload } from '@/components/lease-contract-form';
 import { LeaseTermsView, parseLeaseTerms, parseTenantDetails } from '@/components/lease-terms-view';
 import { Icon, type IconName } from '@/components/pmh-icon';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
+import { LIVE_CHANGE_EVENT } from '@/lib/live-sync-shared';
 import { PENDING_APPROVALS_CHANGED_EVENT } from '@/lib/pending-approvals-shared';
 import { domainStatusLabel } from '@/lib/ui-labels';
 import type {
@@ -830,11 +831,25 @@ export function PropertySectionRecords({
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [stampForm, setStampForm] = useState<{ rowId: string; kind: StampKind } | null>(null);
+  const silentReload = useRef(false);
+
+  useEffect(() => {
+    const onLiveChange = () => {
+      silentReload.current = true;
+      setReloadKey((key) => key + 1);
+    };
+    window.addEventListener(LIVE_CHANGE_EVENT, onLiveChange);
+    return () => window.removeEventListener(LIVE_CHANGE_EVENT, onLiveChange);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
-    setRows(null);
-    setFailed(false);
+    const silent = silentReload.current;
+    silentReload.current = false;
+    if (!silent) {
+      setRows(null);
+      setFailed(false);
+    }
     void (async () => {
       try {
         const response = await fetch(
@@ -858,7 +873,7 @@ export function PropertySectionRecords({
         setTenants(payload.tenants ?? []);
         setViewer(payload.viewer ?? NO_VIEWER);
       } catch {
-        if (!controller.signal.aborted) setFailed(true);
+        if (!controller.signal.aborted && !silent) setFailed(true);
       }
     })();
     return () => controller.abort();

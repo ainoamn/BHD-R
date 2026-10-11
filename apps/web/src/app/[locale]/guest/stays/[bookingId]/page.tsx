@@ -12,6 +12,7 @@ import { ApiError, apiFetch, publicApiFetch } from '@/lib/server-api';
 import { stayBookingModeLabel, stayStatusLabel, stayTypeLabel } from '@/lib/ui-labels';
 import { getViewer } from '@/lib/viewer';
 import { formatMoney } from '@/lib/format';
+import { LiveSync } from '@/components/live-sync';
 import { RememberStayTripAlert } from '@/components/stays/remember-stay-trip-alert';
 import { isStayEsignRequiredServer } from '@/lib/stay-esign-flags';
 import type { StayStamp } from '@/lib/stay-arrival-neon';
@@ -188,22 +189,27 @@ export default async function GuestStayDetailPage({
     typeof refRaw === 'string' ? refRaw : Array.isArray(refRaw) ? refRaw[0] : undefined;
   const welcome = query.welcome === '1';
 
-  const viewer = await getViewer();
   let booking: GuestBooking | null = null;
+  const fromNeonByRef = async (ref: string) => {
+    const found = await lookupPublicStayBookingOnNeon(ref).catch(() => null);
+    return found && found.id === bookingId ? found : null;
+  };
 
-  if (viewer) {
+  // The reference code is the guest's key: read Neon directly, so a refresh
+  // never waits on the (possibly cold) API.
+  if (referenceCode && hasDatabaseUrl()) booking = await fromNeonByRef(referenceCode);
+
+  if (!booking && (await getViewer())) {
     booking = await apiFetch<GuestBooking>(
       `/v1/guest/stays/bookings/${encodeURIComponent(bookingId)}`,
     ).catch((error: unknown) => {
       if (error instanceof ApiError && (error.status === 404 || error.status === 401)) return null;
       return null;
     });
-  }
-
-  const neonRef = referenceCode ?? booking?.referenceCode;
-  if (neonRef && hasDatabaseUrl()) {
-    const fromNeon = await lookupPublicStayBookingOnNeon(neonRef).catch(() => null);
-    if (fromNeon && fromNeon.id === bookingId) booking = { ...booking, ...fromNeon };
+    if (booking && hasDatabaseUrl()) {
+      const fromNeon = await fromNeonByRef(booking.referenceCode);
+      if (fromNeon) booking = { ...booking, ...fromNeon };
+    }
   }
 
   if (!booking && referenceCode) {
@@ -289,6 +295,7 @@ export default async function GuestStayDetailPage({
         currency={booking.currency}
         totalMinor={booking.totalMinor}
       />
+      <LiveSync booking={booking.id} reference={booking.referenceCode} />
       <section className="guest-stay-detail__hero" aria-labelledby="guest-stay-title">
         <img
           className="guest-stay-detail__hero-img"
