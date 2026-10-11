@@ -1,7 +1,7 @@
 # Implementation status
 
 **Updated:** 2026-10-11  
-**Product version:** 0.6.4  
+**Product version:** 0.6.5  
 **Active focus:** Owner approvals and guest experience — bookings priority and approval alerts, redesigned guest stay detail page  
 **Release 0.6.3:** [`RELEASE-0.6.3-AR.md`](./RELEASE-0.6.3-AR.md)  
 **Release 0.6.2:** [`RELEASE-0.6.2-AR.md`](./RELEASE-0.6.2-AR.md)  
@@ -13,6 +13,7 @@
 
 | Version         | Focus                                                                                                                    |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 0.6.5           | Bookings metrics collapsed as a dropdown; compact unified statistics cards across the site                               |
 | 0.6.4           | Guest stay detail page fills the viewport on every device (no page scroll, pinned price and actions bar)                 |
 | 0.6.3           | Guest stay detail page redesign: Omani landmark hero, status message, journey steps, date cards, price sidebar           |
 | 0.6.2           | Bookings ordered by priority (approval first) with status colours; pending-approval alerts on dashboard and header bell  |

@@ -2268,7 +2268,7 @@ export function OperationsConsole({
   const [bookingPurposeTab, setBookingPurposeTab] = useState<BookingPurposeTab>('all');
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [hideApiBanner, setHideApiBanner] = useState(false);
-  const [statsOpen, setStatsOpen] = useState(true);
+  const [statsOpen, setStatsOpen] = useState(section !== 'bookings');
   const [expandedProperties, setExpandedProperties] = useState<Set<string>>(() => new Set());
   const [accountingDetail, setAccountingDetail] = useState<DataRow | null>(null);
   const [accountingJournalLines, setAccountingJournalLines] = useState<DataRow[]>([]);
@@ -2310,7 +2310,9 @@ export function OperationsConsole({
       const stored = window.sessionStorage.getItem(`ops-stats-open:${section}`);
       if (stored === '0') setStatsOpen(false);
       else if (stored === '1') setStatsOpen(true);
-      else if (window.matchMedia('(max-width: 960px)').matches) setStatsOpen(false);
+      else if (section === 'bookings' || window.matchMedia('(max-width: 960px)').matches)
+        setStatsOpen(false);
+      else setStatsOpen(true);
     } catch {
       /* ignore */
     }
@@ -3566,6 +3568,7 @@ ${
             type="button"
             className="ops-stats__toggle"
             aria-expanded={statsOpen}
+            aria-controls={`ops-stats-body-${section}`}
             onClick={() => {
               setStatsOpen((open) => {
                 const next = !open;
@@ -3584,11 +3587,14 @@ ${
                 {records.length} {ar ? 'سجل' : 'records'} · {openCount} {ar ? 'متابعة' : 'open'}
               </small>
             </span>
-            <em aria-hidden="true">{statsOpen ? (ar ? 'طي' : 'Hide') : ar ? 'عرض' : 'Show'}</em>
+            <em aria-hidden="true">
+              {statsOpen ? (ar ? 'طي' : 'Hide') : ar ? 'عرض' : 'Show'}
+              <i className="ops-stats__chevron" />
+            </em>
           </button>
 
           {statsOpen ? (
-            <>
+            <div className="ops-stats__body" id={`ops-stats-body-${section}`}>
               <section className="ops-metrics" aria-label={ar ? 'المؤشرات' : 'Metrics'}>
                 <article>
                   <span>{ar ? 'إجمالي السجلات' : 'Total records'}</span>
@@ -3656,7 +3662,7 @@ ${
                     (row) => safeString(row.status) === stage.value,
                   ).length;
                   return (
-                    <article key={stage.value}>
+                    <article key={stage.value} className={count ? 'is-active' : undefined}>
                       <span>{String(index + 1).padStart(2, '0')}</span>
                       <div>
                         <strong>{ar ? stage.ar : stage.en}</strong>
@@ -3668,7 +3674,7 @@ ${
                   );
                 })}
               </section>
-            </>
+            </div>
           ) : null}
         </section>
       )}
