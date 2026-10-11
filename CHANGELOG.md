@@ -2,6 +2,15 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.6.9 — 2026-10-11
+
+- لوحة المالك — المرحلة الثانية:
+  - الأقسام الاثنا عشر التي كانت تنتظر خادم Nest صارت تُقرأ من Neon مباشرة: الطلبات، الحجوزات، التأجير، المبيعات، العقود، المدفوعات، المحاسبة، أوامر العمل، المهام، المحاماة، التقارير، الفريق.
+  - مع فحص الصلاحيات نفسها وشرط المنظمة في كل استعلام.
+  - بيانات النماذج من Neon صارت مطابقة لـ Nest، فلا تفرغ القوائم المنسدلة.
+  - تسعة فهارس قراءة طُبّقت على الإنتاج (`custom/0026_portal_read_indexes.sql`).
+- التفاصيل: [`docs/implementation/RELEASE-0.6.9-AR.md`](./docs/implementation/RELEASE-0.6.9-AR.md).
+
 ## 0.6.8 — 2026-10-11
 
 - لوحة تحكم المالك — المرحلة الأولى من السرعة:

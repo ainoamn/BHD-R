@@ -1,5 +1,8 @@
 # CONTINUE — 2026-10-11
 
+**0.6.9** · `loadOpsSectionFromNeon` (`lib/portal-ops-sections-neon.ts`) يخدم 12 قسماً كانت على Nest، بعد `loadOpsRecordsFromDb` وقبل أي فحص لـ Nest (فشل/8 ثوانٍ ← Nest)؛ صلاحيات Nest نفسها، `jsonSafe` للأرقام الكبيرة. `loadOpsContextExtras` يكمّل سياق Neon ليطابق `/v1/operations/context`. دور الموقع `neondb_owner` يتجاوز RLS ← شرط المنظمة إلزامي في كل استعلام. فهارس `custom/0026_portal_read_indexes.sql` مطبّقة على الإنتاج. مفاتيح API ما زالت عبر Nest. التالي: المرحلة 3 (تصميم)  
+**تفاصيل:** [`docs/implementation/RELEASE-0.6.9-AR.md`](./docs/implementation/RELEASE-0.6.9-AR.md)
+
 **0.6.8** · سرعة لوحة المالك (مرحلة 1): `applySessionSettings`/`viewerTenantSettings` في `lib/db-session-settings.ts` (أمر `set_config` واحد لكل معاملة)؛ تحميل متوازٍ في `portal-overview`، `pending-approvals-neon`، `portal-ops-workspace` (القائمة + `loadOpsContextFromDb` معاً، TTL 20 ثانية ومفتاح يشمل المستخدم)، `property-ops-pulse-neon` (3 دفعات)، وصفحة تفاصيل العقار؛ `PortalMainSlot` يركّب اللوحة عند الزيارة فقط. التالي: Neon بدل Nest للأقسام المتبقية، فهارس (بموافقة)، ثم التصميم الموحّد  
 **تفاصيل:** [`docs/implementation/RELEASE-0.6.8-AR.md`](./docs/implementation/RELEASE-0.6.8-AR.md)
 

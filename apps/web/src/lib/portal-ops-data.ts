@@ -23,6 +23,7 @@ import {
 } from '@bhd-r/db';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { applySessionSettings, viewerTenantSettings } from '@/lib/db-session-settings';
+import { loadOpsContextExtras } from '@/lib/portal-ops-context-extras';
 import { requireSessionSecret } from '@/lib/runtime-env';
 import type { PortalRole } from '@/lib/types';
 
@@ -69,7 +70,7 @@ export function ownerPartyScope(claims: SessionClaims): string | null {
   return claims.partyId;
 }
 
-async function readClaims(): Promise<SessionClaims | null> {
+export async function readClaims(): Promise<SessionClaims | null> {
   const token = (await cookies()).get('bhd_r_session')?.value;
   if (!token) return null;
   try {
@@ -643,6 +644,7 @@ export async function loadOpsContextFromDb(
         activeHolds,
         activeReservations,
         activeLeases,
+        extras,
       ] = await Promise.all([
         transaction
           .select({
@@ -721,6 +723,7 @@ export async function loadOpsContextFromDb(
               inArray(leases.status, ['draft', 'active', 'cancel_requested', 'clearance_pending']),
             ),
           ),
+        loadOpsContextExtras(transaction, orgId),
       ]);
 
       const blockedUnitIds = new Set<string>([
@@ -748,6 +751,7 @@ export async function loadOpsContextFromDb(
       );
 
       return {
+        ...extras,
         properties: propertyRows.map((row) => ({
           id: row.id,
           nameAr: row.nameAr,

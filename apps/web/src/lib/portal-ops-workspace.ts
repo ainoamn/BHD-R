@@ -9,6 +9,7 @@ import {
   loadOpsRecordsFromDb,
   loadStayAccountingRowsForViewer,
 } from '@/lib/portal-ops-data';
+import { loadOpsSectionFromNeon } from '@/lib/portal-ops-sections-neon';
 import { loadStayBookingOpsRows, tagLeaseBookingPurpose } from '@/lib/unified-bookings';
 import type { PortalRole } from '@/lib/types';
 import type { OperationsContext } from '@/components/operations-console';
@@ -202,6 +203,8 @@ async function loadFromNest(portal: PortalRole, section: OperationsSection): Pro
 async function loadSection(portal: PortalRole, section: OperationsSection): Promise<SectionLoad> {
   const fromDb = await loadOpsRecordsFromDb(portal, section);
   if (fromDb !== null) return { records: fromDb, source: 'db' };
+  const fromNeon = await loadOpsSectionFromNeon(portal, section);
+  if (fromNeon !== null) return { ...fromNeon, source: 'db' };
 
   // Unified bookings: daily stays from Neon even when Nest is asleep.
   if (section === 'bookings' && (portal === 'owner' || portal === 'developer')) {
@@ -326,7 +329,14 @@ export async function loadOperationsWorkspacePayload(
 ): Promise<OperationsWorkspacePayload> {
   const locale = localeHint ?? ((await getLocale()) === 'en' ? 'en' : 'ar');
   const nestConfigured = isNestApiConfiguredForRuntime();
-  if (section === 'bookings' || section === 'leasing') clearOpsContextDbCache();
+  if (
+    section === 'bookings' ||
+    section === 'leasing' ||
+    section === 'contracts' ||
+    section === 'payments'
+  ) {
+    clearOpsContextDbCache();
+  }
 
   // Skip heavy ops context on the properties grid — it is only needed for
   // create/filter forms on other sections. When needed, load it alongside the list.

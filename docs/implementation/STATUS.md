@@ -1,8 +1,8 @@
 # Implementation status
 
 **Updated:** 2026-10-11  
-**Product version:** 0.6.8  
-**Active focus:** Owner dashboard speed and redesign — phase 1 (parallel loads, single-statement session settings) shipped; Neon loaders and unified design next  
+**Product version:** 0.6.9  
+**Active focus:** Owner dashboard speed and redesign — phases 1–2 shipped (parallel loads, every ops section read from Neon, read indexes); unified design next  
 **Release 0.6.3:** [`RELEASE-0.6.3-AR.md`](./RELEASE-0.6.3-AR.md)  
 **Release 0.6.2:** [`RELEASE-0.6.2-AR.md`](./RELEASE-0.6.2-AR.md)  
 **Release 0.6.1:** [`RELEASE-0.6.1-AR.md`](./RELEASE-0.6.1-AR.md)  
@@ -13,6 +13,7 @@
 
 | Version         | Focus                                                                                                                    |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 0.6.9           | All 12 Nest-only ops sections read from Neon (same permissions, org filter); full form context from Neon; 9 read indexes |
 | 0.6.8           | Owner dashboard speed phase 1: one `set_config` statement per transaction, parallel loads, panels mount on first visit   |
 | 0.6.7           | Guest cancel shows a no-refund warning; real date change from free days at calendar price (no refund on cheaper dates)   |
 | 0.6.6           | Vacant units collapsed as a dropdown; operations modals full-screen and responsive (portal to body)                      |
