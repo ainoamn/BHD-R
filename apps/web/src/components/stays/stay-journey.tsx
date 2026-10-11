@@ -69,11 +69,11 @@ export function StayJourneySteps({
               title={
                 open
                   ? ar
-                    ? 'اعرض هذه المرحلة'
+                    ? 'اعرض شاشة هذه المرحلة'
                     : 'Show this step'
                   : ar
-                    ? 'لم تصل إلى هذه المرحلة بعد'
-                    : 'You have not reached this step yet'
+                    ? 'لم نصل إلى هذه المرحلة بعد… فلكل شيء أوانه!'
+                    : 'Not there yet… all in good time!'
               }
               onClick={() => select(index)}
             >
@@ -120,11 +120,11 @@ export function StayJourneyCard({
         <div className="guest-stay-detail__replay">
           <span>
             {ar
-              ? `هكذا ظهرت مرحلة «${steps[selected]?.label ?? ''}»`
-              : `How the “${steps[selected]?.label ?? ''}” step looked`}
+              ? `هكذا بدت لك مرحلة «${steps[selected]?.label ?? ''}»`
+              : `How the “${steps[selected]?.label ?? ''}” step looked to you`}
           </span>
           <button type="button" onClick={() => select(initial)}>
-            {ar ? 'العودة إلى الآن' : 'Back to now'}
+            {ar ? 'العودة إلى المرحلة الحالية' : 'Back to where you are now'}
           </button>
         </div>
       ) : null}

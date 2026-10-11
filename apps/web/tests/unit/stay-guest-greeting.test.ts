@@ -44,6 +44,14 @@ describe('guest stay greeting', () => {
     expect(stayJourneyInitialStep('checked_out', false)).toBe(3);
   });
 
+  it('does not ask the guest to relax when the requested arrival date has passed', () => {
+    const review = (arrival: 'upcoming' | 'due') =>
+      stayGuestGreeting({ status: 'request_pending', ar: true, welcome: false, arrival })?.body;
+    expect(review('upcoming')).toContain('قهوتك');
+    expect(review('due')).toContain('قد مضى');
+    expect(review('due')).not.toContain('قهوتك');
+  });
+
   it('tidies all-caps names only', () => {
     expect(friendlyGuestName('ABDUL HAMID AL RAWAHI')).toBe('Abdul Hamid Al Rawahi');
     expect(friendlyGuestName('عبدالحميد')).toBe('عبدالحميد');

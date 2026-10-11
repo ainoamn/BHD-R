@@ -123,6 +123,13 @@ function nightsLabel(nights: number, ar: boolean): string {
   return `${nights} ${nights <= 10 ? 'ليالٍ' : 'ليلة'}`;
 }
 
+/** Arabic counted noun: واحد / مثنى / 3–10 جمع / 11+ مفرد منصوب. */
+function arCount(count: number, forms: [string, string, string, string]): string {
+  if (count === 1) return forms[0];
+  if (count === 2) return forms[1];
+  return `${count} ${count <= 10 ? forms[2] : forms[3]}`;
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -267,12 +274,12 @@ export default async function GuestStayDetailPage({
   const guests = [
     typeof booking.adults === 'number' && booking.adults > 0
       ? ar
-        ? `${booking.adults} بالغ`
+        ? arCount(booking.adults, ['بالغ واحد', 'بالغان', 'بالغين', 'بالغاً'])
         : `${booking.adults} adult${booking.adults === 1 ? '' : 's'}`
       : null,
     typeof booking.children === 'number' && booking.children > 0
       ? ar
-        ? `${booking.children} طفل`
+        ? arCount(booking.children, ['طفل واحد', 'طفلان', 'أطفال', 'طفلاً'])
         : `${booking.children} child${booking.children === 1 ? '' : 'ren'}`
       : null,
   ].filter(Boolean);
@@ -489,14 +496,14 @@ export default async function GuestStayDetailPage({
             {welcome && paid && booking.guestEmail ? (
               <p className="guest-stay-detail__help muted">
                 {ar
-                  ? `أُرسلت رسالة تأكيد مع رابط الإيصال إلى ${booking.guestEmail}.`
+                  ? `أرسلنا رسالة التأكيد ورابط الإيصال إلى ${booking.guestEmail}، فألقِ نظرة على بريدك.`
                   : `A confirmation email with the receipt link was sent to ${booking.guestEmail}.`}
               </p>
             ) : null}
             <p className="guest-stay-detail__help muted">
               {ar
-                ? 'احتفظ برقم الحجز للمتابعة أو عند التواصل مع المالك.'
-                : 'Keep your reference handy to track this stay or when contacting the host.'}
+                ? 'احتفظ برقم حجزك في متناول يدك؛ فهو مفتاحك لمتابعة الحجز والتواصل مع المالك.'
+                : 'Keep your booking reference handy — it is your key to tracking this stay and reaching the host.'}
             </p>
           </div>
 
@@ -511,7 +518,7 @@ export default async function GuestStayDetailPage({
               {perNight && nights ? (
                 <span className="guest-stay-detail__price-meta">
                   {ar
-                    ? `${nightsLabel(nights, ar)} · متوسط الليلة ${perNight}`
+                    ? `${nightsLabel(nights, ar)} · متوسط سعر الليلة ${perNight}`
                     : `${nightsLabel(nights, ar)} · ${perNight} per night on average`}
                 </span>
               ) : null}

@@ -1,7 +1,7 @@
 # Implementation status
 
 **Updated:** 2026-10-11  
-**Product version:** 0.7.6  
+**Product version:** 0.7.7  
 **Active focus:** Owner dashboard speed and redesign — phases 1–3 shipped (parallel loads, Neon reads and indexes, calm unified design); live page-by-page review and loading skeletons next  
 **Release 0.6.3:** [`RELEASE-0.6.3-AR.md`](./RELEASE-0.6.3-AR.md)  
 **Release 0.6.2:** [`RELEASE-0.6.2-AR.md`](./RELEASE-0.6.2-AR.md)  
@@ -13,6 +13,7 @@
 
 | Version         | Focus                                                                                                                                    |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.7.7           | Guest stay page copy: warmer, playful, proofread Arabic; review message follows arrival date; correct Arabic counting                    |
 | 0.7.6           | Full contract document (terms, signatures, ID files, addenda, record) with print, PDF export, share and email/WhatsApp send              |
 | 0.7.5           | Interactive guest journey: reached steps replay their screen, upcoming steps locked, "back to now"                                       |
 | 0.7.4           | Guest stay page: warm, playful greeting by name that follows each booking stage (welcome guide → review → confirmed → enjoy → thank you) |
