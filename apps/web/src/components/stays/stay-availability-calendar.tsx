@@ -209,6 +209,7 @@ export function StayAvailabilityCalendar({
   selectedCheckOut,
   onRangeChange,
   onDaySelect,
+  ownRange,
 }: {
   locale: string;
   mode: CalendarMode;
@@ -221,6 +222,8 @@ export function StayAvailabilityCalendar({
   /** `halfDay` is set when the guest picks the free slot of a partially booked day. */
   onRangeChange?: (checkIn: string, checkOut: string, halfDay?: HalfDayStayType) => void;
   onDaySelect?: (day: StayInventoryDay) => void;
+  /** The guest's own booking being moved: its days count as free and are marked. */
+  ownRange?: { checkInOn: string; checkOutOn: string };
 }) {
   const ar = locale === 'ar';
   const [viewMonthStart, setViewMonthStart] = useState(() =>
@@ -302,11 +305,33 @@ export function StayAvailabilityCalendar({
     void loadCalendar();
   }, [loadCalendar]);
 
+  const isOwnDay = useCallback(
+    (stayDate: string) =>
+      Boolean(ownRange && stayDate >= ownRange.checkInOn && stayDate < ownRange.checkOutOn),
+    [ownRange],
+  );
+
   const daysByDate = useMemo(() => {
     const map = new Map<string, StayInventoryDay>();
-    for (const day of data?.days ?? []) map.set(day.stayDate, day);
+    for (const day of data?.days ?? []) {
+      const ownBooked =
+        isOwnDay(day.stayDate) &&
+        (day.availabilityStatus === 'booked' || day.availabilityStatus === 'hold');
+      map.set(
+        day.stayDate,
+        ownBooked
+          ? {
+              stayDate: day.stayDate,
+              availabilityStatus: 'available',
+              effectiveRateMinor: day.effectiveRateMinor ?? null,
+              currency: day.currency ?? null,
+              publicNote: day.publicNote ?? null,
+            }
+          : day,
+      );
+    }
     return map;
-  }, [data]);
+  }, [data, isOwnDay]);
 
   const partialDays = useMemo(() => {
     const today = todayIso();
@@ -499,6 +524,8 @@ export function StayAvailabilityCalendar({
                   const titleParts = partial
                     ? [ar ? 'محجوز جزئياً' : 'Partly booked', partialSummary(day, ar)]
                     : [statusLabel(status, ar)];
+                  const own = isOwnDay(cell.stayDate);
+                  if (own) titleParts.push(ar ? 'ضمن حجزك الحالي' : 'In your current booking');
                   if (day.publicNote) titleParts.push(day.publicNote);
                   if (lock?.bookingReference) titleParts.push(lock.bookingReference);
                   if (partial && day.remainingSlot && day.remainingRateMinor && currency) {
@@ -544,6 +571,7 @@ export function StayAvailabilityCalendar({
                         rangeStart ? 'is-range-start' : '',
                         rangeEnd ? 'is-range-end' : '',
                         cell.stayDate < todayIso() ? 'is-past' : '',
+                        own ? 'is-own' : '',
                         day.publicNote ? 'has-note' : '',
                       ]
                         .filter(Boolean)

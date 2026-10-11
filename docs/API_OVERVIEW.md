@@ -85,6 +85,15 @@
 
 الرد في إجراءات العقود: `{ contractId, contractReference, contractStatus, routedToManager }`، ويضيف `approve_booking` حالة الحجز `bookingStatus`. `reject_booking` يُرجع `{ bookingStatus }` فقط. شكل `create_lease` الكامل وقواعد حسابه وأخطاؤه في [`implementation/LEASE-REGISTRATION-AR.md`](./implementation/LEASE-REGISTRATION-AR.md).
 
+## مسارات الضيف للإقامات (Next.js)
+
+مسارات عامة في `apps/web` تعمل برقم الحجز (`referenceCode`)، وتقرأ وتكتب Neon مباشرة. الأخطاء بالشكل `{ "error": { "code", "message", "messageAr" } }`.
+
+| المسار                                    | الوصف                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/public/stays/guest/cancel`     | إلغاء الحجز وتحرير التواريخ. الجسم `{ referenceCode }`. 20 طلباً في الدقيقة                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `POST /api/public/stays/guest/reschedule` | تعديل تواريخ الحجز إلى أيام شاغرة. الجسم `{ referenceCode, checkInOn, checkOutOn, confirm }`. مع `confirm: false` يُرجع `{ quote }` فقط (سعر التقويم `quotedTotalMinor`، والمبلغ المعتمد `chargedTotalMinor`، و`forfeitedMinor`، و`extraDueMinor`، و`hasOffer`، و`requiresPayment`). مع `confirm: true` ينقل القفل ويحدّث الحجز ويُرجع `{ quote, booking }`. الأخطاء: `dates_unavailable`، `dates_in_past`، `same_dates`، `nights_out_of_range`، `reschedule_requires_payment`، `illegal_transition`. 30 طلباً في الدقيقة |
+
 ## Pagination وcache
 
 قوائم الإدارة cursor-based: `?limit=50&after=...` بحد أقصى 100. الموقع العام يدعم CDN عبر ETag و`stale-while-revalidate`; الصفحات الخاصة والروابط الموقعة `private, no-store`. لا تدخل `organization_id` أو PII في cache key عام.

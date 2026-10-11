@@ -3,16 +3,25 @@ import { and, desc, eq, sql } from 'drizzle-orm';
 import { resolveStaysEnabledFromEnv, readStaysFlagsFromEnv } from '@bhd-r/config';
 import {
   createDatabase,
+  outboxEvents,
   stayBookingGuests,
   stayBookingStatusHistory,
   stayBookings,
+  stayFolios,
   stayHolds,
   stayInventoryLocks,
+  stayPaymentIntents,
   type Database,
 } from '@bhd-r/db';
 import { assertStayBookingTransition, nightsBetween } from '@bhd-r/domain';
 import { termsBlocksFromStored, type TermsBlock } from '@/lib/booking-terms';
-import { PublicStayBookingError } from '@/lib/public-stays-booking-neon';
+import {
+  createLockInTransaction,
+  isRangeAvailableInTransaction,
+  priceStayRangeForUnitOnNeon,
+  PublicStayBookingError,
+} from '@/lib/public-stays-booking-neon';
+import { stayRescheduleCharge, type StayRescheduleCharge } from '@/lib/stay-reschedule-pricing';
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdRPublicStaysGuestDb?: DbHandle };
@@ -87,7 +96,17 @@ export type GuestStayBookingProjection = {
   canPay?: boolean;
   canCancel?: boolean;
   canRebook?: boolean;
+  canReschedule?: boolean;
 };
+
+const GUEST_RESCHEDULABLE = new Set([
+  'payment_pending',
+  'request_pending',
+  'payment_failed',
+  'confirmed',
+  'pre_arrival',
+]);
+const PAID_STATUSES = new Set(['confirmed', 'pre_arrival']);
 
 type AcceptedTerms = {
   version: number;
@@ -166,8 +185,14 @@ function readStayTypeFromSnapshot(snapshot: unknown): string | null {
   return null;
 }
 
-function actionFlags(status: string): { canPay: boolean; canCancel: boolean; canRebook: boolean } {
+function actionFlags(status: string): {
+  canPay: boolean;
+  canCancel: boolean;
+  canRebook: boolean;
+  canReschedule: boolean;
+} {
   return {
+    canReschedule: GUEST_RESCHEDULABLE.has(status),
     canPay: status === 'payment_pending' || status === 'payment_failed',
     canCancel:
       status === 'payment_pending' ||
@@ -563,5 +588,278 @@ export async function cancelGuestStayBookingOnNeon(referenceCode: string) {
     });
 
     return enrichProjection(transaction, updated);
+  });
+}
+
+type RescheduleStayType = 'overnight_stay' | 'day_use' | 'overnight_only';
+
+function rescheduleStayType(value: string | null): RescheduleStayType {
+  return value === 'day_use' || value === 'overnight_only' ? value : 'overnight_stay';
+}
+
+function todayInTimezone(timezone: string): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
+export type GuestStayRescheduleQuote = StayRescheduleCharge & {
+  referenceCode: string;
+  currency: string;
+  checkInOn: string;
+  checkOutOn: string;
+  nights: number;
+  hasOffer: boolean;
+  paid: boolean;
+};
+
+/**
+ * Guest moves a booking to new free dates. With `confirm: false` it only prices the move;
+ * with `confirm: true` it moves the inventory lock and updates the booking in one transaction.
+ * See `stayRescheduleCharge` for the no-refund price rule.
+ */
+export async function rescheduleGuestStayBookingOnNeon(input: {
+  referenceCode: string;
+  checkInOn: string;
+  checkOutOn: string;
+  confirm: boolean;
+}): Promise<{ quote: GuestStayRescheduleQuote; booking?: GuestStayBookingProjection }> {
+  assertPlatformEnabled();
+  const normalized = input.referenceCode.trim().toUpperCase();
+  if (normalized.length < 4) {
+    throw new PublicStayBookingError('invalid_body', 'Invalid booking reference', 400);
+  }
+
+  return asPublic(async (transaction) => {
+    const found = await transaction.query.stayBookings.findFirst({
+      where: eq(stayBookings.referenceCode, normalized),
+    });
+    if (!found) {
+      throw new PublicStayBookingError('not_found', 'Stay booking not found', 404);
+    }
+    assertOrgEnabled(found.organizationId);
+    await transaction.execute(sql`select pg_advisory_xact_lock(hashtext(${found.unitId}::text))`);
+
+    const booking = (await refreshUnpaidBooking(transaction, found.id)) ?? found;
+    if (!GUEST_RESCHEDULABLE.has(booking.status)) {
+      throw new PublicStayBookingError(
+        'illegal_transition',
+        `Cannot change dates in status ${booking.status}`,
+        409,
+      );
+    }
+    if (input.checkInOn < todayInTimezone(booking.timezone)) {
+      throw new PublicStayBookingError('dates_in_past', 'New dates must not be in the past', 409);
+    }
+
+    const listing = await resolveListing(
+      transaction,
+      booking.organizationId,
+      booking.stayProfileId,
+    );
+    if (!listing) {
+      throw new PublicStayBookingError('not_found', 'Stay listing not found', 404);
+    }
+
+    const stayType = rescheduleStayType(readStayTypeFromSnapshot(booking.pricingSnapshotJson));
+    const priced = await priceStayRangeForUnitOnNeon({
+      slug: listing.slug,
+      unitId: booking.unitId,
+      stayType,
+      checkInOn: input.checkInOn,
+      checkOutOn: input.checkOutOn,
+    });
+    if (priced.checkInOn === booking.checkInOn && priced.checkOutOn === booking.checkOutOn) {
+      throw new PublicStayBookingError('same_dates', 'New dates match the current booking', 409);
+    }
+    if (priced.currency !== booking.currency) {
+      throw new PublicStayBookingError('currency_changed', 'Listing currency changed', 409);
+    }
+
+    const available = await isRangeAvailableInTransaction(
+      transaction,
+      booking.organizationId,
+      booking.unitId,
+      priced.checkInOn,
+      priced.checkOutOn,
+      stayType,
+      booking.id,
+    );
+    if (!available) {
+      throw new PublicStayBookingError(
+        'dates_unavailable',
+        'Selected dates are not available',
+        409,
+      );
+    }
+
+    const paid = PAID_STATUSES.has(booking.status);
+    const charge = stayRescheduleCharge({
+      originalTotalMinor: booking.totalMinor.toString(),
+      quotedTotalMinor: priced.totalMinor,
+      paid,
+    });
+    const quote: GuestStayRescheduleQuote = {
+      ...charge,
+      referenceCode: booking.referenceCode,
+      currency: booking.currency,
+      checkInOn: priced.checkInOn,
+      checkOutOn: priced.checkOutOn,
+      nights: priced.nights,
+      hasOffer: priced.hasOffer,
+      paid,
+    };
+    if (!input.confirm) return { quote };
+    if (charge.requiresPayment) {
+      throw new PublicStayBookingError(
+        'reschedule_requires_payment',
+        'New dates cost more than the amount paid',
+        409,
+      );
+    }
+
+    const now = new Date();
+    let inventoryLockId = booking.inventoryLockId;
+    if (booking.inventoryLockId) {
+      const [oldLock] = await transaction
+        .select()
+        .from(stayInventoryLocks)
+        .where(
+          and(
+            eq(stayInventoryLocks.id, booking.inventoryLockId),
+            eq(stayInventoryLocks.organizationId, booking.organizationId),
+          ),
+        )
+        .limit(1);
+      if (oldLock?.status === 'active') {
+        await transaction
+          .update(stayInventoryLocks)
+          .set({ status: 'released', updatedAt: now })
+          .where(eq(stayInventoryLocks.id, oldLock.id));
+        const lock = await createLockInTransaction(transaction, {
+          organizationId: booking.organizationId,
+          unitId: booking.unitId,
+          checkInOn: priced.checkInOn,
+          checkOutOn: priced.checkOutOn,
+          kind: oldLock.kind,
+          lockSlot:
+            stayType === 'day_use' ? 'morning' : stayType === 'overnight_only' ? 'evening' : 'full',
+          ...(oldLock.expiresAt ? { expiresAt: oldLock.expiresAt } : {}),
+          ...(oldLock.sourceType ? { sourceType: oldLock.sourceType } : {}),
+          ...(oldLock.sourceId ? { sourceId: oldLock.sourceId } : {}),
+          note: `Guest rescheduled ${booking.referenceCode}`,
+        });
+        inventoryLockId = lock.id;
+        if (booking.holdId) {
+          await transaction
+            .update(stayHolds)
+            .set({ inventoryLockId: lock.id, updatedAt: now })
+            .where(
+              and(
+                eq(stayHolds.id, booking.holdId),
+                eq(stayHolds.organizationId, booking.organizationId),
+              ),
+            );
+        }
+      }
+    }
+
+    const rawSnapshot: unknown = booking.pricingSnapshotJson;
+    const snapshot: Record<string, unknown> =
+      rawSnapshot && typeof rawSnapshot === 'object' ? { ...rawSnapshot } : {};
+    const previousMoves: unknown[] = Array.isArray(snapshot.reschedules)
+      ? (snapshot.reschedules as unknown[])
+      : [];
+    const move = {
+      at: now.toISOString(),
+      fromCheckInOn: booking.checkInOn,
+      fromCheckOutOn: booking.checkOutOn,
+      toCheckInOn: priced.checkInOn,
+      toCheckOutOn: priced.checkOutOn,
+      quotedTotalMinor: charge.quotedTotalMinor,
+      chargedTotalMinor: charge.chargedTotalMinor,
+      forfeitedMinor: charge.forfeitedMinor,
+      hasOffer: priced.hasOffer,
+    };
+    const takesNewPrice = !charge.keptOriginalPrice;
+    const [updated] = await transaction
+      .update(stayBookings)
+      .set({
+        checkInOn: priced.checkInOn,
+        checkOutOn: priced.checkOutOn,
+        inventoryLockId,
+        ...(takesNewPrice
+          ? {
+              subtotalMinor: BigInt(priced.subtotalMinor),
+              feesMinor: BigInt(priced.feesMinor),
+              totalMinor: BigInt(priced.totalMinor),
+            }
+          : {}),
+        pricingSnapshotJson: {
+          ...snapshot,
+          lineItems: priced.nightLines,
+          reschedules: [...previousMoves, move],
+        },
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(stayBookings.id, booking.id),
+          eq(stayBookings.organizationId, booking.organizationId),
+        ),
+      )
+      .returning();
+    if (!updated) {
+      throw new PublicStayBookingError('reschedule_failed', 'Could not change dates', 409);
+    }
+
+    if (!paid && charge.chargedTotalMinor !== charge.originalTotalMinor) {
+      const amount = BigInt(charge.chargedTotalMinor);
+      await transaction
+        .update(stayPaymentIntents)
+        .set({ amountMinor: amount, updatedAt: now })
+        .where(
+          and(
+            eq(stayPaymentIntents.bookingId, booking.id),
+            eq(stayPaymentIntents.organizationId, booking.organizationId),
+            eq(stayPaymentIntents.status, 'pending'),
+          ),
+        );
+      await transaction
+        .update(stayFolios)
+        .set({ balanceMinor: amount, updatedAt: now })
+        .where(
+          and(
+            eq(stayFolios.bookingId, booking.id),
+            eq(stayFolios.organizationId, booking.organizationId),
+            eq(stayFolios.status, 'open'),
+          ),
+        );
+    }
+
+    await transaction.insert(stayBookingStatusHistory).values({
+      organizationId: booking.organizationId,
+      bookingId: booking.id,
+      fromStatus: booking.status,
+      toStatus: booking.status,
+      reason: 'guest_rescheduled',
+      metadataJson: move,
+    });
+    await transaction.insert(outboxEvents).values({
+      organizationId: booking.organizationId,
+      topic: 'stay.booking.rescheduled',
+      aggregateType: 'stay_booking',
+      aggregateId: booking.id,
+      payload: { referenceCode: booking.referenceCode, unitId: booking.unitId, ...move },
+    });
+
+    return { quote, booking: await enrichProjection(transaction, updated) };
   });
 }

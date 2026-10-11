@@ -50,6 +50,12 @@ export function stayBookingErrorResponse(error: unknown) {
       session_not_found: 'جلسة الدفع غير موجودة.',
       already_paid: 'تم دفع هذا الحجز مسبقاً.',
       terms_changed: 'حدّث المالك الشروط والأحكام — راجعها ووافق عليها مجدداً.',
+      dates_in_past: 'لا يمكن اختيار تاريخ سابق — اختر تاريخاً من اليوم فصاعداً.',
+      same_dates: 'التواريخ المختارة هي نفس تواريخ حجزك الحالي.',
+      currency_changed: 'تغيّرت عملة العقار — تواصل مع المالك لتعديل الحجز.',
+      reschedule_requires_payment:
+        'سعر التواريخ الجديدة أعلى من المبلغ المدفوع — تواصل مع المالك لدفع الفرق أو اختر تواريخ أخرى.',
+      reschedule_failed: 'تعذّر تعديل التواريخ.',
     };
     return stayBookingJson(
       {

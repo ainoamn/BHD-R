@@ -35,6 +35,7 @@ type GuestBooking = {
   canPay?: boolean;
   canCancel?: boolean;
   canRebook?: boolean;
+  canReschedule?: boolean;
 };
 
 const PAID_STATUSES = new Set(['confirmed', 'paid', 'pre_arrival', 'checked_in', 'checked_out']);

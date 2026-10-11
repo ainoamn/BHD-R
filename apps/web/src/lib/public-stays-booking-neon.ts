@@ -324,6 +324,76 @@ async function priceStayRange(
   return { ...priced, rateMinor: selectedBase };
 }
 
+export type StayRangePricing = {
+  unitId: string;
+  currency: SupportedCurrency;
+  checkInOn: string;
+  checkOutOn: string;
+  nights: number;
+  subtotalMinor: string;
+  feesMinor: string;
+  totalMinor: string;
+  nightLines: Array<{ stayDate: string; amountMinor: string; isWeekend: boolean }>;
+  /** True when at least one night is priced below its standard rate (owner offer). */
+  hasOffer: boolean;
+};
+
+/**
+ * Prices a date range for one unit at the rates the public calendar shows,
+ * enforcing the profile's night limits. Used when a guest moves a booking.
+ */
+export async function priceStayRangeForUnitOnNeon(input: {
+  slug: string;
+  unitId: string;
+  stayType: StayTypeArg;
+  checkInOn: string;
+  checkOutOn: string;
+}): Promise<StayRangePricing> {
+  const ctx = await resolveListingContext(input.slug, input.unitId);
+  assertOrgEnabled(ctx.organizationId);
+  const range = exclusiveStayRange(input.stayType, input.checkInOn, input.checkOutOn);
+  let nights: number;
+  try {
+    nights = nightsBetween(range);
+  } catch {
+    throw new PublicStayBookingError('nights_out_of_range', 'Invalid stay range', 409);
+  }
+  if (
+    input.stayType === 'overnight_stay'
+      ? nights < ctx.minNights || nights > ctx.maxNights
+      : nights < 1
+  ) {
+    throw new PublicStayBookingError(
+      'nights_out_of_range',
+      'Stay length is outside profile min/max nights',
+      409,
+    );
+  }
+  const priced = await priceStayRange(ctx, range, input.stayType);
+  const standardWeekday = BigInt(priced.rateMinor);
+  const standardWeekend =
+    input.stayType === 'overnight_stay' && ctx.weekendNightlyMinor
+      ? BigInt(ctx.weekendNightlyMinor)
+      : standardWeekday;
+  const hasOffer = priced.nightLines.some((line) => {
+    const day = new Date(`${line.stayDate}T00:00:00.000Z`).getUTCDay();
+    const standard = day === 5 || day === 6 ? standardWeekend : standardWeekday;
+    return BigInt(line.amountMinor) < standard;
+  });
+  return {
+    unitId: ctx.unitId,
+    currency: priced.currency,
+    checkInOn: range.checkInOn,
+    checkOutOn: range.checkOutOn,
+    nights: priced.nights,
+    subtotalMinor: priced.subtotalMinor,
+    feesMinor: priced.cleaningFeeMinor,
+    totalMinor: priced.totalMinor,
+    nightLines: priced.nightLines,
+    hasOffer,
+  };
+}
+
 /** Exported for payment race checks inside the same Neon transaction. */
 export async function isRangeAvailableInTransaction(
   transaction: Tx,
