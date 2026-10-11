@@ -17964,7 +17964,7 @@ body:has(.stay-esign-shell) {
   filter: drop-shadow(0 6px 6px rgb(16 55 42 / 0.18));
 }
 .stay-flight--landing .stay-flight__plane {
-  animation: stay-flight-land 4s cubic-bezier(0.25, 0.6, 0.35, 1) both;
+  animation: stay-flight-land 4.2s cubic-bezier(0.35, 0.15, 0.4, 1) both;
 }
 .stay-flight--takeoff .stay-flight__plane {
   left: 70%;
@@ -17996,9 +17996,7 @@ body:has(.stay-esign-shell) {
   gap: 0.4rem 0.9rem;
   padding: 0.55rem 0.9rem;
   color: #ffd864;
-  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
   font-size: 0.85rem;
-  letter-spacing: 0.04em;
 }
 .stay-flight__type {
   padding: 0.1rem 0.5rem;
@@ -18009,6 +18007,8 @@ body:has(.stay-esign-shell) {
 }
 .stay-flight__no {
   color: #fff;
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  letter-spacing: 0.06em;
 }
 .stay-flight__status {
   display: inline-flex;
