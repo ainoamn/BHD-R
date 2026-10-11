@@ -17849,3 +17849,300 @@ body:has(.stay-esign-shell) {
     font-size: 10pt;
   }
 }
+
+/* Guest stay: language switch + airport scene (arrival lands, departure takes off). */
+.guest-stay-detail__lang {
+  margin-inline-end: auto;
+}
+.stay-flight {
+  margin: -0.25rem 0 0.9rem;
+  overflow: hidden;
+  border-radius: 0.9rem;
+  border: 1px solid rgb(16 55 42 / 0.12);
+  background: #0f1b16;
+}
+.stay-flight__scene {
+  position: relative;
+  height: 132px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #8fd0f2 0%, #cfeefc 62%, #f4fbff 100%);
+}
+[dir='rtl'] .stay-flight__scene {
+  transform: scaleX(-1);
+}
+.stay-flight--takeoff .stay-flight__scene {
+  background: linear-gradient(180deg, #f6a96b 0%, #fbd3a1 58%, #fff1dc 100%);
+}
+.stay-flight--ready .stay-flight__scene {
+  background: linear-gradient(180deg, #9fc9e6 0%, #e3f1f9 70%, #f7fbfd 100%);
+}
+.stay-flight__sun {
+  position: absolute;
+  top: 14px;
+  right: 14%;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff7c2 0%, #ffd864 60%, rgb(255 216 100 / 0) 72%);
+}
+.stay-flight--takeoff .stay-flight__sun {
+  top: 52px;
+  right: 22%;
+  background: radial-gradient(circle, #fff1c9 0%, #ff9f4a 60%, rgb(255 159 74 / 0) 72%);
+}
+.stay-flight__cloud {
+  position: absolute;
+  height: 14px;
+  border-radius: 999px;
+  background: #fff;
+  opacity: 0.9;
+  animation: stay-flight-cloud 18s linear infinite;
+}
+.stay-flight__cloud::before,
+.stay-flight__cloud::after {
+  content: '';
+  position: absolute;
+  bottom: 4px;
+  border-radius: 50%;
+  background: inherit;
+}
+.stay-flight__cloud::before {
+  left: 18%;
+  width: 22px;
+  height: 18px;
+}
+.stay-flight__cloud::after {
+  left: 45%;
+  width: 16px;
+  height: 13px;
+}
+.stay-flight__cloud--a {
+  top: 18px;
+  left: 12%;
+  width: 64px;
+}
+.stay-flight__cloud--b {
+  top: 46px;
+  left: 48%;
+  width: 46px;
+  opacity: 0.75;
+  animation-duration: 26s;
+  animation-delay: -9s;
+}
+.stay-flight__cloud--c {
+  top: 30px;
+  left: 76%;
+  width: 54px;
+  opacity: 0.6;
+  animation-duration: 22s;
+  animation-delay: -15s;
+}
+.stay-flight__runway {
+  position: absolute;
+  inset: auto 0 0;
+  height: 22px;
+  background:
+    repeating-linear-gradient(90deg, #f4f4f4 0 18px, transparent 18px 38px) center / 100% 2px
+      no-repeat,
+    linear-gradient(180deg, #4b5550, #3a423e);
+}
+.stay-flight__runway::before {
+  content: '';
+  position: absolute;
+  inset: -3px 0 auto;
+  height: 3px;
+  background: repeating-linear-gradient(90deg, #ffd864 0 3px, transparent 3px 26px);
+  animation: stay-flight-lights 1.2s steps(2) infinite;
+}
+.stay-flight__plane {
+  position: absolute;
+  width: 110px;
+  height: auto;
+  left: 64%;
+  bottom: 20px;
+  transform-origin: 70% 60%;
+  filter: drop-shadow(0 6px 6px rgb(16 55 42 / 0.18));
+}
+.stay-flight--landing .stay-flight__plane {
+  animation: stay-flight-land 4s cubic-bezier(0.25, 0.6, 0.35, 1) both;
+}
+.stay-flight--takeoff .stay-flight__plane {
+  left: 70%;
+  bottom: 96px;
+  transform: rotate(-12deg);
+  animation: stay-flight-takeoff 4.4s cubic-bezier(0.55, 0, 0.7, 1) 0.4s both;
+}
+.stay-flight--ready .stay-flight__plane {
+  left: 10%;
+  animation: stay-flight-idle 1.6s ease-in-out infinite;
+}
+.stay-flight__puff {
+  position: absolute;
+  left: calc(44% + 22px);
+  bottom: 16px;
+  width: 26px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.9);
+  opacity: 0;
+}
+.stay-flight--landing .stay-flight__puff {
+  animation: stay-flight-puff 4s ease-out both;
+}
+.stay-flight__board {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.9rem;
+  padding: 0.55rem 0.9rem;
+  color: #ffd864;
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+}
+.stay-flight__type {
+  padding: 0.1rem 0.5rem;
+  border-radius: 0.3rem;
+  background: #ffd864;
+  color: #0f1b16;
+  font-weight: 800;
+}
+.stay-flight__no {
+  color: #fff;
+}
+.stay-flight__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.stay-flight__status i {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 6px #4ade80;
+  animation: stay-flight-blink 1.4s ease-in-out infinite;
+}
+.stay-flight--ready .stay-flight__status i {
+  background: #fbbf24;
+  box-shadow: 0 0 6px #fbbf24;
+}
+.stay-flight__board button {
+  margin-inline-start: auto;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid rgb(255 216 100 / 0.5);
+  border-radius: 999px;
+  background: transparent;
+  color: #ffd864;
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.stay-flight__board button:hover {
+  background: rgb(255 216 100 / 0.12);
+}
+@keyframes stay-flight-land {
+  0% {
+    left: -32%;
+    bottom: 112px;
+    transform: rotate(4deg);
+  }
+  55% {
+    left: 32%;
+    bottom: 30px;
+    transform: rotate(3deg);
+  }
+  68% {
+    left: 42%;
+    bottom: 21px;
+    transform: rotate(-5deg);
+  }
+  76% {
+    left: 50%;
+    bottom: 20px;
+    transform: rotate(0deg);
+  }
+  100% {
+    left: 64%;
+    bottom: 20px;
+    transform: rotate(0deg);
+  }
+}
+@keyframes stay-flight-takeoff {
+  0% {
+    left: 4%;
+    bottom: 20px;
+    transform: rotate(0deg);
+  }
+  48% {
+    left: 46%;
+    bottom: 20px;
+    transform: rotate(0deg);
+  }
+  58% {
+    left: 56%;
+    bottom: 26px;
+    transform: rotate(-9deg);
+  }
+  100% {
+    left: 118%;
+    bottom: 128px;
+    transform: rotate(-13deg);
+  }
+}
+@keyframes stay-flight-idle {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1px);
+  }
+}
+@keyframes stay-flight-puff {
+  0%,
+  66% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  70% {
+    opacity: 0.9;
+    transform: scale(0.6);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.2) translateX(-14px);
+  }
+}
+@keyframes stay-flight-cloud {
+  from {
+    left: 105%;
+  }
+  to {
+    left: -25%;
+  }
+}
+@keyframes stay-flight-lights {
+  50% {
+    opacity: 0.35;
+  }
+}
+@keyframes stay-flight-blink {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stay-flight__plane,
+  .stay-flight__cloud,
+  .stay-flight__puff,
+  .stay-flight__runway::before,
+  .stay-flight__status i {
+    animation: none !important;
+  }
+}
+@media print {
+  .stay-flight {
+    display: none;
+  }
+}

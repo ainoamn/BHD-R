@@ -52,6 +52,16 @@ describe('guest stay greeting', () => {
     expect(review('due')).not.toContain('قهوتك');
   });
 
+  it('lands the plane on arrival day and takes off on departure', () => {
+    const flight = (status: string, extra: Partial<Parameters<typeof stayGuestGreeting>[0]> = {}) =>
+      stayGuestGreeting({ status, ar: true, welcome: false, ...extra })?.flight?.kind;
+    expect(flight('confirmed', { arrival: 'upcoming' })).toBeUndefined();
+    expect(flight('confirmed', { arrival: 'today' })).toBe('landing');
+    expect(flight('checked_in', { departure: 'upcoming' })).toBe('landing');
+    expect(flight('checked_in', { departure: 'today' })).toBe('ready');
+    expect(flight('checked_out')).toBe('takeoff');
+  });
+
   it('tidies all-caps names only', () => {
     expect(friendlyGuestName('ABDUL HAMID AL RAWAHI')).toBe('Abdul Hamid Al Rawahi');
     expect(friendlyGuestName('عبدالحميد')).toBe('عبدالحميد');

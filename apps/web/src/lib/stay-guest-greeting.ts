@@ -14,7 +14,11 @@ export type StayGreeting = {
   rebook?: boolean;
   /** Recorded check-in / check-out moment shown under the message. */
   stamp?: { label: string; at: string; notes: string | null } | undefined;
+  /** Arrival / departure moment drawn as a plane landing, waiting on the runway, or taking off. */
+  flight?: StayFlightMoment | undefined;
 };
+
+export type StayFlightMoment = { kind: 'landing' | 'ready' | 'takeoff'; status: string };
 
 /** "ABDUL HAMID AL RAWAHI" → "Abdul Hamid Al Rawahi"; Arabic and mixed-case names stay as typed. */
 export function friendlyGuestName(name: string | null | undefined): string | null {
@@ -38,9 +42,15 @@ export function stayGuestGreeting(input: {
   checkInDate?: string | null | undefined;
   /** Check-in day relative to today in Muscat. */
   arrival?: 'upcoming' | 'today' | 'due' | undefined;
+  /** Check-out day relative to today in Muscat. */
+  departure?: 'upcoming' | 'today' | 'due' | undefined;
   needsEsign?: boolean;
 }): StayGreeting | null {
   const { status, ar, welcome, checkInDate, needsEsign } = input;
+  const flight = (kind: StayFlightMoment['kind'], arText: string, enText: string) => ({
+    kind,
+    status: ar ? arText : enText,
+  });
   const name = friendlyGuestName(input.guestName);
   const hi = (arText: string, enText: string) =>
     ar
@@ -163,6 +173,12 @@ export function stayGuestGreeting(input: {
         : '';
       return {
         stage: 'confirmed',
+        flight:
+          input.arrival === 'today'
+            ? flight('landing', 'وصول اليوم · جاهزون للهبوط', 'Arriving today · cleared to land')
+            : input.arrival === 'due'
+              ? flight('landing', 'حان موعد الهبوط', 'Cleared to land')
+              : undefined,
         headline: hi('أبشر{name}، اعتُمد حجزك!', 'Good news{name} — you are confirmed!'),
         body:
           (input.arrival === 'today' || input.arrival === 'due'
@@ -180,6 +196,14 @@ export function stayGuestGreeting(input: {
     case 'checked_in':
       return {
         stage: 'checked_in',
+        flight:
+          input.departure === 'today' || input.departure === 'due'
+            ? flight(
+                'ready',
+                'مغادرة اليوم · استعد للإقلاع',
+                'Departing today · ready for take-off',
+              )
+            : flight('landing', 'هبطت بالسلامة', 'Landed safely'),
         headline: hi(
           'حيّاك الله{name}، نوّرت المكان!',
           'Welcome in{name} — the place just got brighter!',
@@ -193,6 +217,7 @@ export function stayGuestGreeting(input: {
     case 'closed':
       return {
         stage: 'checked_out',
+        flight: flight('takeoff', 'أقلعت · رحلة سعيدة', 'Departed · safe travels'),
         headline: hi('شكراً من القلب{name}!', 'Thank you from the heart{name}!'),
         body: ar
           ? 'سعدنا باستضافتك، وسيفتقدك المكان (سألناه فأكّد لنا ذلك!). نرجو أن تكون رحلتك قد امتلأت بالذكريات الجميلة، وأن نراك قريباً في حجز جديد؛ فالبيت بيتك متى شئت.'
@@ -308,6 +333,7 @@ export function stayJourneyScreens(
         ? live({})
         : {
             stage: 'checked_in',
+            flight: { kind: 'landing', status: ar ? 'هبطت بالسلامة' : 'Landed safely' },
             headline: hi('وصلت بالسلامة{name}!', 'You made it{name}!'),
             body: ar
               ? 'من هنا بدأت الحكاية: استلمت المفاتيح، وانفتح الباب على أيام من الراحة.'

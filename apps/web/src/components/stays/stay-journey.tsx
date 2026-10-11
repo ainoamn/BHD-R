@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import { Link } from '@/i18n/navigation';
 import type { StayGreeting } from '@/lib/stay-guest-greeting';
+import { StayFlight } from './stay-flight';
 
 type JourneyStep = {
   label: string;
@@ -96,11 +97,14 @@ export function StayJourneyCard({
   screens,
   steps,
   rebookHref,
+  flightNo,
   ar,
 }: {
   screens: Array<StayGreeting | null>;
   steps: JourneyStep[];
   rebookHref: string;
+  /** Booking reference, shown as the flight number. */
+  flightNo: string;
   ar: boolean;
 }) {
   const { selected, initial, select } = useJourney();
@@ -128,6 +132,7 @@ export function StayJourneyCard({
           </button>
         </div>
       ) : null}
+      {screen.flight ? <StayFlight moment={screen.flight} flightNo={flightNo} ar={ar} /> : null}
       <h2>{screen.headline}</h2>
       <p>{screen.body}</p>
       {screen.guide ? (

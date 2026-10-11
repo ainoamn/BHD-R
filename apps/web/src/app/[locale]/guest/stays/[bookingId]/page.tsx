@@ -231,20 +231,26 @@ export default async function GuestStayDetailPage({
   const checkIn = formatStayDate(booking.checkInOn, ar);
   const checkOut = formatStayDate(booking.checkOutOn, ar);
   const muscatToday = new Date(Date.now() + 4 * 3_600_000).toISOString().slice(0, 10);
+  const relativeDay = (value: string) =>
+    value.slice(0, 10) > muscatToday
+      ? ('upcoming' as const)
+      : value.slice(0, 10) === muscatToday
+        ? ('today' as const)
+        : ('due' as const);
   const greetingInput = {
     status: booking.status,
     ar,
     welcome,
     guestName: booking.guestDisplayName,
     checkInDate: [checkIn.weekday, checkIn.date].filter(Boolean).join(' '),
-    arrival:
-      booking.checkInOn.slice(0, 10) > muscatToday
-        ? ('upcoming' as const)
-        : booking.checkInOn.slice(0, 10) === muscatToday
-          ? ('today' as const)
-          : ('due' as const),
+    arrival: relativeDay(booking.checkInOn),
+    departure: relativeDay(booking.checkOutOn),
     needsEsign,
   };
+  const otherLocale = ar ? 'en' : 'ar';
+  const samePageHref = `/guest/stays/${encodeURIComponent(bookingId)}${
+    referenceCode ? `?ref=${encodeURIComponent(referenceCode)}${welcome ? '&welcome=1' : ''}` : ''
+  }`;
   const stampText = (stamp: StayStamp | null | undefined) =>
     stamp ? { at: formatStamp(stamp.at, ar), notes: stamp.notes } : null;
   const greeting = ended ? stayGuestGreeting(greetingInput) : null;
@@ -308,6 +314,16 @@ export default async function GuestStayDetailPage({
           <div className="guest-stay-detail__hero-top">
             <Link className="guest-stay-detail__back" href="/guest/stays">
               {ar ? '→ رحلاتي' : '← My trips'}
+            </Link>
+            <Link
+              className="guest-stay-detail__back guest-stay-detail__lang"
+              href={samePageHref}
+              locale={otherLocale}
+              hrefLang={otherLocale}
+              lang={otherLocale}
+              title={ar ? 'View this page in English' : 'اعرض الصفحة بالعربية'}
+            >
+              {ar ? 'English' : 'العربية'}
             </Link>
             <Link
               className="guest-stay-detail__logo logo__product logo__product--on-dark"
@@ -377,7 +393,13 @@ export default async function GuestStayDetailPage({
               </section>
             ) : null}
             {screens.length ? (
-              <StayJourneyCard screens={screens} steps={steps} rebookHref={rebookHref} ar={ar} />
+              <StayJourneyCard
+                screens={screens}
+                steps={steps}
+                rebookHref={rebookHref}
+                flightNo={booking.referenceCode}
+                ar={ar}
+              />
             ) : null}
             <section className="guest-stay-detail__card">
               <h2>{ar ? 'موعد الإقامة' : 'Your dates'}</h2>

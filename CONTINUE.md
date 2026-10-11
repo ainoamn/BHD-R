@@ -1,5 +1,8 @@
 # CONTINUE — 2026-10-11
 
+**0.7.8** · مشهد الطائرة: `flight` في `StayGreeting` (`landing` يوم الوصول وأثناء الإقامة وفي إعادة مرحلة الوصول، و`ready` يوم المغادرة أثناء الإقامة، و`takeoff` بعد المغادرة)، و`departure` بجانب `arrival`. `components/stays/stay-flight.tsx` يرسمه (CSS فقط، معكوس في RTL، ثابت مع تقليل الحركة). زر اللغة في صفحة الضيف (`Link` بـ `locale` مع `ref` و`welcome`). التالي: توليد PDF للعقد على الخادم، وقراءة بوابة المستأجر من Neon  
+**تفاصيل:** [`docs/implementation/RELEASE-0.7.8-AR.md`](./docs/implementation/RELEASE-0.7.8-AR.md)
+
 **0.7.7** · عبارات صفحة الضيف: مراجعة لغوية ومرح في `lib/stay-guest-greeting.ts`؛ رسالة `review` تتفرع حسب `arrival` (`upcoming`/`today`/`due`)، فلا تقول «اشرب قهوتك» إن مضى تاريخ الوصول. `arCount` في صفحة الضيف للعدد والمعدود (بالغ/طفل). التالي: توليد PDF للعقد على الخادم، وقراءة بوابة المستأجر من Neon  
 **تفاصيل:** [`docs/implementation/RELEASE-0.7.7-AR.md`](./docs/implementation/RELEASE-0.7.7-AR.md)
 
