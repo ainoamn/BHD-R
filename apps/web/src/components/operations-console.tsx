@@ -13,6 +13,11 @@ import type { CurrencyCode } from '@bhd-r/contracts';
 import { BrandMark } from '@bhd-r/ui';
 import { Link } from '@/i18n/navigation';
 import { browserMutation, browserApiPath } from '@/lib/api';
+import {
+  bookingNeedsApproval,
+  bookingStatusTone,
+  compareBookingPriority,
+} from '@/lib/booking-priority';
 import { formatMoney, toMinorUnits } from '@/lib/format';
 import { invalidateOpsCache } from '@/lib/portal-ops-client-cache';
 import { domainStatusLabel } from '@/lib/ui-labels';
@@ -713,7 +718,15 @@ function moneyFromRecord(row: DataRow, key: string, locale: 'ar' | 'en'): string
   return formatMoney(safeString(value), currency, locale);
 }
 
-function statusTone(status: string): string {
+const BOOKING_RECORD_KINDS = new Set(['stay_booking', 'reservation', 'viewing', 'hold']);
+
+function statusTone(status: string, recordKind?: string): string {
+  if (recordKind && BOOKING_RECORD_KINDS.has(recordKind)) {
+    return bookingStatusTone(status, recordKind);
+  }
+  if (['request_pending', 'pending_manager_approval', 'awaiting_approval'].includes(status)) {
+    return 'approval';
+  }
   if (
     [
       'active',
@@ -735,18 +748,23 @@ function statusTone(status: string): string {
     )
   )
     return 'negative';
-  if (
-    [
-      'pending',
-      'draft',
-      'on_hold',
-      'awaiting_approval',
-      'partially_paid',
-      'partially_signed',
-    ].includes(status)
-  )
+  if (['pending', 'draft', 'on_hold', 'partially_paid', 'partially_signed'].includes(status))
     return 'warning';
   return 'neutral';
+}
+
+function bookingSortKey(row: DataRow) {
+  const date =
+    safeString(row.scheduledAt) ||
+    safeString(row.preferredAt) ||
+    safeString(row.startsAt) ||
+    safeString(row.checkInOn) ||
+    safeString(row.expiresAt);
+  return {
+    status: safeString(row.status),
+    recordKind: safeString(row.recordKind),
+    date: date ? date.slice(0, 10) : null,
+  };
 }
 
 function displayCell(
@@ -785,7 +803,7 @@ function displayCell(
     const status = safeString(value);
     const labeled = flow?.find((item) => item.value === status);
     return (
-      <span className={`ops-status ops-status--${statusTone(status)}`}>
+      <span className={`ops-status ops-status--${statusTone(status, safeString(row.recordKind))}`}>
         {labeled ? (locale === 'ar' ? labeled.ar : labeled.en) : domainStatusLabel(status, locale)}
       </span>
     );
@@ -2402,6 +2420,12 @@ export function OperationsConsole({
   }, [section, bookingPurposeTab, filtered]);
 
   const isDailyBookings = section === 'bookings' && bookingPurposeTab === 'daily';
+  const bookingApprovalCount =
+    section === 'bookings'
+      ? records.filter((row) =>
+          bookingNeedsApproval(safeString(row.status), safeString(row.recordKind)),
+        ).length
+      : 0;
 
   function setBookingTab(tab: BookingPurposeTab) {
     setBookingPurposeTab(tab);
@@ -2416,6 +2440,11 @@ export function OperationsConsole({
     router.replace(`/${locale}/${portal}/bookings${qs ? `?${qs}` : ''}`, { scroll: false });
   }
   const tableRows = useMemo(() => {
+    if (section === 'bookings') {
+      return [...filtered].sort((a, b) =>
+        compareBookingPriority(bookingSortKey(a), bookingSortKey(b)),
+      );
+    }
     if (section !== 'properties') return filtered;
     const rows: DataRow[] = [];
     for (const row of filtered) {
@@ -3359,6 +3388,19 @@ ${
         </div>
       ) : null}
 
+      {bookingApprovalCount ? (
+        <div className="ops-approval-banner" role="status">
+          <strong>{bookingApprovalCount}</strong>
+          <span>
+            {ar
+              ? 'معاملة بانتظار الاعتماد — تظهر أولاً في القائمة.'
+              : bookingApprovalCount === 1
+                ? 'item awaits approval — listed first.'
+                : 'items await approval — listed first.'}
+          </span>
+        </div>
+      ) : null}
+
       {section === 'bookings' && !isDailyBookings && pendingDeposits.length ? (
         <section
           className="ops-deposit-queue"
@@ -3873,7 +3915,17 @@ ${
                     return (
                       <tr
                         key={safeString(row.id ?? row.reference) || String(index)}
-                        className={isChildUnit ? 'ops-table__child-row' : undefined}
+                        className={
+                          isChildUnit
+                            ? 'ops-table__child-row'
+                            : section === 'bookings' &&
+                                bookingNeedsApproval(
+                                  safeString(row.status),
+                                  safeString(row.recordKind),
+                                )
+                              ? 'ops-table__row--approval'
+                              : undefined
+                        }
                       >
                         {definition.columns.map((column) => (
                           <td
@@ -4280,7 +4332,7 @@ ${
               </table>
             </div>
             <div className="ops-mobile-cards" aria-label={ar ? 'قائمة السجلات' : 'Records list'}>
-              {filtered.map((row, index) => {
+              {(section === 'bookings' ? tableRows : filtered).map((row, index) => {
                 const serial = safeString(row.serialNumber);
                 const name =
                   safeString(row.nameAr) ||
@@ -4303,7 +4355,12 @@ ${
                 const cover = typeof row.coverImageUrl === 'string' ? row.coverImageUrl : null;
                 return (
                   <article
-                    className="ops-mobile-card"
+                    className={
+                      section === 'bookings' &&
+                      bookingNeedsApproval(safeString(row.status), safeString(row.recordKind))
+                        ? 'ops-mobile-card ops-mobile-card--approval'
+                        : 'ops-mobile-card'
+                    }
                     key={safeString(row.id ?? row.reference) || `m-${index}`}
                   >
                     <div className="ops-mobile-card__head">

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { EmptyState } from '@bhd-r/ui';
 import { Link } from '@/i18n/navigation';
 import { ApiError, browserMutation } from '@/lib/api';
+import { compareBookingPriority } from '@/lib/booking-priority';
 import { formatMoney } from '@/lib/format';
 import { stayBookingModeLabel, stayStatusLabel } from '@/lib/ui-labels';
 
@@ -42,6 +43,7 @@ function todayIso(): string {
 function statusTone(status: string): string {
   switch (status) {
     case 'request_pending':
+      return 'approval';
     case 'payment_pending':
       return 'attention';
     case 'confirmed':
@@ -121,7 +123,12 @@ export function StayOpsBookingsTable({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return rows.filter((booking) => {
+    const sortKey = (booking: OpsStayBooking) => ({
+      status: booking.status,
+      recordKind: 'stay_booking',
+      date: booking.checkInOn,
+    });
+    const matching = rows.filter((booking) => {
       if (!matchesFilter(booking, filter, today)) return false;
       if (!q) return true;
       const propertyName = (
@@ -143,6 +150,7 @@ export function StayOpsBookingsTable({
         .toLowerCase();
       return haystack.includes(q);
     });
+    return matching.sort((a, b) => compareBookingPriority(sortKey(a), sortKey(b)));
   }, [rows, filter, query, today, ar]);
 
   async function runAction(bookingId: string, action: 'cancel' | 'no-show' | 'checkout') {

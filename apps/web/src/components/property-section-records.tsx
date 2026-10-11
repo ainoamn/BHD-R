@@ -8,6 +8,7 @@ import { LeaseTermsView, parseLeaseTerms, parseTenantDetails } from '@/component
 import { Icon, type IconName } from '@/components/pmh-icon';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
+import { PENDING_APPROVALS_CHANGED_EVENT } from '@/lib/pending-approvals-shared';
 import { domainStatusLabel } from '@/lib/ui-labels';
 import type {
   PropertyRecordRow,
@@ -761,6 +762,7 @@ export function PropertySectionRecords({
         `/api/owner/properties/${encodeURIComponent(propertyId)}/records`,
         { method: 'POST', body: JSON.stringify(body) },
       );
+      window.dispatchEvent(new Event(PENDING_APPROVALS_CHANGED_EVENT));
       return result;
     } catch (error) {
       setNotice({ tone: 'error', text: errorText(error, ar) });

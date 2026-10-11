@@ -1,4 +1,7 @@
-# CONTINUE — 2026-10-08
+# CONTINUE — 2026-10-11
+
+**0.6.2** · الحجوزات مرتبة بالأولوية (الاعتماد أولاً) مع لون لكل حالة (`booking-priority.ts`)؛ تنبيهات «بانتظار اعتمادك» في الشاشة الرئيسية وجرس في رأس البوابة (`pending-approvals-neon.ts` + `GET /api/portal/pending-approvals` + `PortalApprovalsBell`)  
+**تفاصيل:** [`docs/implementation/RELEASE-0.6.2-AR.md`](./docs/implementation/RELEASE-0.6.2-AR.md)
 
 **0.6.1** · تسجيل عقد الإيجار كما في bhd-om (`lease-terms.ts` + `LeaseContractForm` + `LeaseTermsView`): بيانات المستأجر، الضريبة 5% والبلدية 3% والتسجيل، السماح، الإضافات والخصومات، جدول الشيكات بترقيم تلقائي، وحفظ الشروط في نسخة العقد مع جدول `cheques`  
 **تفاصيل:** [`docs/implementation/RELEASE-0.6.1-AR.md`](./docs/implementation/RELEASE-0.6.1-AR.md) · **مرجع:** [`LEASE-REGISTRATION-AR.md`](./docs/implementation/LEASE-REGISTRATION-AR.md) · **تسليم:** [`handoffs/2026-10-08-property-leasing-0.6.1`](./docs/handoffs/2026-10-08-property-leasing-0.6.1/README.md)

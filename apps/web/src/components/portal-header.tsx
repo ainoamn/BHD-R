@@ -4,6 +4,7 @@ import { Logo } from '@bhd-r/ui';
 import { useLocale, useTranslations } from 'next-intl';
 import { Link, usePathname } from '@/i18n/navigation';
 import { BhdAppSwitcher } from '@/components/bhd-app-switcher';
+import { PortalApprovalsBell } from '@/components/portal-approvals-bell';
 import type { PortalRole, Viewer } from '@/lib/types';
 
 export function PortalHeader({
@@ -59,6 +60,10 @@ export function PortalHeader({
           >
             <span className="portal-chrome__lang-code">{nextLocale.toUpperCase()}</span>
           </Link>
+
+          {portal === 'owner' || portal === 'developer' ? (
+            <PortalApprovalsBell portal={portal} locale={locale} />
+          ) : null}
 
           <BhdAppSwitcher viewer={viewer} locale={locale} />
         </div>

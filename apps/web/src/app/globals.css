@@ -3325,10 +3325,83 @@ body:has(.stays-booking-receipt) #main-content {
   background: rgb(8 163 159 / 0.1);
   border-color: rgb(8 163 159 / 0.28);
 }
+.dash-alert--approval a {
+  color: #fff;
+  background: #c2410c;
+  border-color: #9a3412;
+}
 .dash-alerts__empty {
   margin: 0;
   color: var(--muted);
   font-size: 0.86rem;
+}
+.dash-approvals {
+  padding: 0.85rem 0.95rem;
+  background: #fff8f3;
+  border: 1px solid #f6c7a6;
+  border-inline-start: 0.3rem solid #c2410c;
+  border-radius: 1rem;
+  box-shadow: 0 8px 22px rgb(194 65 12 / 0.08);
+}
+.dash-approvals h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #7c2d12;
+}
+.dash-approvals__count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.6rem;
+  height: 1.6rem;
+  padding-inline: 0.35rem;
+  color: #fff;
+  background: #c2410c;
+  border-radius: 999px;
+  font-size: 0.82rem;
+}
+.dash-approvals__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.dash-approvals__list a {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.65rem 0.8rem;
+  color: inherit;
+  text-decoration: none;
+  background: #fff;
+  border: 1px solid #f6c7a6;
+  border-radius: 0.75rem;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease;
+}
+.dash-approvals__list a:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgb(194 65 12 / 0.12);
+}
+.dash-approvals__title {
+  color: #9a3412;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+.dash-approvals__ref {
+  font-weight: 800;
+}
+.dash-approvals__meta {
+  color: #5c6b64;
+  font-size: 0.8rem;
+}
+.dash-approvals__open {
+  color: #c2410c;
+  font-size: 0.78rem;
+  font-style: normal;
+  font-weight: 800;
 }
 .dash-metrics-block {
   min-width: 0;
@@ -6921,6 +6994,29 @@ body:has(.stays-booking-receipt) #main-content {
   color: #9a3412;
   font-weight: 700;
 }
+.portal-approvals-bell .header-stay-alerts__bell {
+  width: 2.45rem;
+  height: 2.45rem;
+  color: var(--bhd-navy);
+  background: rgb(23 75 112 / 0.06);
+  border-color: rgb(23 75 112 / 0.14);
+  border-radius: 999px;
+}
+.portal-approvals-bell__item {
+  gap: 0.2rem;
+}
+@media (max-width: 640px) {
+  .portal-approvals-bell .header-stay-alerts__bell {
+    width: 2.1rem;
+    height: 2.1rem;
+  }
+  .portal-approvals-bell .header-stay-alerts__panel {
+    position: fixed;
+    inset-block-start: 3.6rem;
+    inset-inline: 0.75rem;
+    width: auto;
+  }
+}
 .header-stay-alerts__all {
   display: inline-block;
   margin-top: 0.75rem;
@@ -8472,13 +8568,58 @@ button.ops-row-key {
   color: #9a6100;
   background: #fff4d6;
 }
-.ops-status--danger {
+.ops-status--danger,
+.ops-status--negative {
   color: #a3292d;
   background: #feecec;
 }
 .ops-status--info {
   color: #1b5e91;
   background: #eaf4fc;
+}
+.ops-status--approval {
+  color: #fff;
+  background: #c2410c;
+}
+.ops-status--neutral {
+  color: #4f5e58;
+  background: #edf0ee;
+}
+.ops-table tbody tr.ops-table__row--approval {
+  background: #fff4ec;
+  box-shadow: inset 0.22rem 0 0 #c2410c;
+}
+.ops-table tbody tr.ops-table__row--approval:hover {
+  background: #ffeadb;
+}
+[dir='rtl'] .ops-table tbody tr.ops-table__row--approval {
+  box-shadow: inset -0.22rem 0 0 #c2410c;
+}
+.ops-mobile-card--approval {
+  border-inline-start: 0.22rem solid #c2410c;
+  background: #fff8f3;
+}
+.ops-approval-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.95rem;
+  color: #7c2d12;
+  background: #fff4ec;
+  border: 1px solid #f6c7a6;
+  border-radius: 0.85rem;
+  font-weight: 700;
+}
+.ops-approval-banner strong {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.8rem;
+  height: 1.8rem;
+  padding-inline: 0.35rem;
+  color: #fff;
+  background: #c2410c;
+  border-radius: 999px;
 }
 .ops-action {
   min-height: 2rem;
@@ -10589,6 +10730,10 @@ button.ops-row-key {
 .stays-bookings-card.is-attention {
   border-inline-start-color: #c47a1a;
 }
+.stays-bookings-card.is-approval {
+  border-inline-start-color: #c2410c;
+  background: #fff8f3;
+}
 .stays-bookings-card.is-confirmed {
   border-inline-start-color: var(--bhd-teal, #08a39f);
 }
@@ -10668,6 +10813,10 @@ button.ops-row-key {
 .stays-bookings-card__badge.is-attention {
   background: #fff1dd;
   color: #8a4f08;
+}
+.stays-bookings-card__badge.is-approval {
+  background: #c2410c;
+  color: #fff;
 }
 .stays-bookings-card__badge.is-confirmed {
   background: #e4f6f4;

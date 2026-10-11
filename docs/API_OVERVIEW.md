@@ -67,10 +67,11 @@
 
 هذه المسارات في تطبيق الويب (`apps/web`) وليست تحت `/v1`. تقرأ وتكتب Neon مباشرة داخل `withinViewerTenant`، وتُرجع الأخطاء بالشكل `{ "error": { "code": "…" } }` بعد تمريرها على `clientSafeErrorCode`.
 
-| المسار                                                  | الوصف                                                                                                                                                                                                               |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /api/portal/property-records/:propertyId/:section` | سجلات قسم واحد لعقار واحد. الأقسام: `bookings`، `contracts`، `leasing`، `sales`، `maintenance`، `invoices`، `accounting`. يُرجع أيضاً `units` و`tenants` (للتأجير) و`viewer` (صلاحيات الأزرار). `private, no-store` |
-| `POST /api/owner/properties/:propertyId/records`        | إجراءات الأقسام. جلسة حيّة + `x-csrf-token` + 30 طلباً في الدقيقة                                                                                                                                                   |
+| المسار                                                  | الوصف                                                                                                                                                                                                                                    |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/portal/pending-approvals`                     | العقود (لمن يملك `contract.sign`) وطلبات الحجز (لمن يملك `stay.booking.manage` و`contract.create`) بانتظار الاعتماد، الأقدم أولاً، ضمن نطاق المالك. يُرجع `items` و`contracts` و`bookings` و`total`. `401` بلا جلسة، `private, no-store` |
+| `GET /api/portal/property-records/:propertyId/:section` | سجلات قسم واحد لعقار واحد. الأقسام: `bookings`، `contracts`، `leasing`، `sales`، `maintenance`، `invoices`، `accounting`. يُرجع أيضاً `units` و`tenants` (للتأجير) و`viewer` (صلاحيات الأزرار). `private, no-store`                      |
+| `POST /api/owner/properties/:propertyId/records`        | إجراءات الأقسام. جلسة حيّة + `x-csrf-token` + 30 طلباً في الدقيقة                                                                                                                                                                        |
 
 **إجراءات `POST` (الحقل `action`):**
 

@@ -2,6 +2,13 @@ import { EmptyState } from '@bhd-r/ui';
 import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { formatMoney } from '@/lib/format';
+import { loadViewerPendingApprovals } from '@/lib/pending-approvals-neon';
+import {
+  EMPTY_PENDING_APPROVALS,
+  pendingApprovalHref,
+  pendingApprovalTitle,
+  type PendingApprovals,
+} from '@/lib/pending-approvals-shared';
 import { loadPortalOverview } from '@/lib/portal-overview-data';
 import { workflowEventLabel, workflowStatusLabel } from '@/lib/ui-labels';
 import { requirePortal } from '@/lib/viewer';
@@ -28,6 +35,10 @@ function alertCopy(
       return t('Portal.alertVacant', { count });
     case 'stay_bookings':
       return t('Portal.alertStayBookings', { count });
+    case 'contracts_approval':
+      return t('Portal.alertContractsApproval', { count });
+    case 'booking_requests':
+      return t('Portal.alertBookingRequests', { count });
     default:
       return `${code}: ${count}`;
   }
@@ -62,7 +73,29 @@ function localizeWorkflowLabel(
 export async function PortalOverview({ locale, portal }: { locale: string; portal: PortalRole }) {
   const t = await getTranslations();
   const viewer = await requirePortal(locale, portal);
-  const overview: OverviewData = await loadPortalOverview(portal, viewer);
+  const managesProperties = portal === 'owner' || portal === 'developer';
+  const [overview, approvals]: [OverviewData, PendingApprovals] = await Promise.all([
+    loadPortalOverview(portal, viewer),
+    managesProperties ? loadViewerPendingApprovals() : Promise.resolve(EMPTY_PENDING_APPROVALS),
+  ]);
+  const firstContract = approvals.items.find((item) => item.kind === 'contract');
+  const approvalAlerts: Array<{ code: string; count: number; href: string }> = [
+    ...(approvals.contracts && firstContract
+      ? [
+          {
+            code: 'contracts_approval',
+            count: approvals.contracts,
+            href:
+              approvals.contracts === 1
+                ? pendingApprovalHref(portal, firstContract)
+                : `/${portal}#pending-approvals`,
+          },
+        ]
+      : []),
+    ...(approvals.bookings
+      ? [{ code: 'booking_requests', count: approvals.bookings, href: `/${portal}/bookings` }]
+      : []),
+  ];
   const collected =
     overview.collected ??
     (overview.collectedMinor !== null && overview.collectedMinor !== undefined
@@ -180,6 +213,54 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
         </div>
       </header>
 
+      {approvals.total ? (
+        <section
+          id="pending-approvals"
+          className="dash-approvals"
+          aria-label={t('Portal.approvalsTitle')}
+        >
+          <div className="dash-section-head dash-section-head--compact">
+            <h2>
+              {t('Portal.approvalsTitle')}
+              <span className="dash-approvals__count">{approvals.total}</span>
+            </h2>
+            <p className="dash-section-hint">{t('Portal.approvalsHint')}</p>
+          </div>
+          <ul className="dash-approvals__list">
+            {approvals.items.slice(0, 6).map((item) => (
+              <li key={`${item.kind}:${item.id}`}>
+                <Link href={pendingApprovalHref(portal, item)} prefetch>
+                  <span className="dash-approvals__title">
+                    {pendingApprovalTitle(item, locale === 'ar')}
+                  </span>
+                  <span className="dash-approvals__ref" dir="ltr">
+                    {item.reference}
+                  </span>
+                  <span className="dash-approvals__meta">
+                    {[
+                      locale === 'ar'
+                        ? item.propertyNameAr
+                        : item.propertyNameEn || item.propertyNameAr,
+                      item.unitCode,
+                      item.party,
+                      item.fromOn,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </span>
+                  <em className="dash-approvals__open">{t('Portal.approvalsOpen')}</em>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          {approvals.total > 6 ? (
+            <p className="dash-section-hint">
+              {t('Portal.approvalsMore', { count: approvals.total - 6 })}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
       <section className="dash-metrics-block" aria-label={t('Portal.liveStats')}>
         <div className="dash-section-head dash-section-head--compact">
           <h2>{t('Portal.liveStats')}</h2>
@@ -205,8 +286,16 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
           <h2>{t('Portal.alertsTitle')}</h2>
           <p className="dash-section-hint">{t('Portal.alertsHint')}</p>
         </div>
-        {alerts.length ? (
+        {alerts.length || approvalAlerts.length ? (
           <ul className="dash-alerts__list">
+            {approvalAlerts.map((alert) => (
+              <li key={alert.code} className="dash-alert dash-alert--approval">
+                <Link href={alert.href} prefetch>
+                  <strong>{alert.count}</strong>
+                  <span>{alertCopy(alert.code, alert.count, t)}</span>
+                </Link>
+              </li>
+            ))}
             {alerts.map((alert) => (
               <li key={alert.code} className={`dash-alert dash-alert--${alert.severity}`}>
                 <Link href={alertHref(portal, alert.code)} prefetch>
