@@ -17341,3 +17341,95 @@ body:has(.stay-esign-shell) {
 .guest-stay-detail__esign {
   justify-content: center;
 }
+
+/* Stage greeting: follows the booking from request to farewell */
+.guest-stay-detail__greeting {
+  --greet-tone: #0f766e;
+  --greet-soft: rgb(15 118 110 / 0.07);
+  position: relative;
+  display: grid;
+  gap: 0.5rem;
+  padding: 1rem 1.1rem;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--greet-soft), rgb(255 255 255 / 0.96) 60%);
+  border: 1px solid rgb(15 47 69 / 0.08);
+  border-inline-start: 4px solid var(--greet-tone);
+  border-radius: 1rem;
+  box-shadow: 0 12px 30px rgb(15 47 69 / 0.07);
+  animation: guest-greeting-in 0.45s ease-out backwards;
+}
+.guest-stay-detail__greeting--review,
+.guest-stay-detail__greeting--payment {
+  --greet-tone: #b7791f;
+  --greet-soft: rgb(183 121 31 / 0.08);
+}
+.guest-stay-detail__greeting--payment_failed,
+.guest-stay-detail__greeting--ended {
+  --greet-tone: #64748b;
+  --greet-soft: rgb(100 116 139 / 0.08);
+}
+.guest-stay-detail__greeting--checked_in {
+  --greet-tone: #0e7490;
+  --greet-soft: rgb(14 116 144 / 0.08);
+}
+.guest-stay-detail__greeting--checked_out {
+  --greet-tone: #a07a45;
+  --greet-soft: rgb(160 122 69 / 0.1);
+}
+.guest-stay-detail__greeting h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--bhd-navy);
+}
+.guest-stay-detail__greeting p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.75;
+  color: #334155;
+}
+.guest-stay-detail__guide {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0.15rem 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: guide;
+}
+.guest-stay-detail__guide li {
+  position: relative;
+  padding-inline-start: 2rem;
+  font-size: 0.86rem;
+  line-height: 1.65;
+  color: #334155;
+  counter-increment: guide;
+}
+.guest-stay-detail__guide li::before {
+  content: counter(guide);
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0.05rem;
+  display: grid;
+  place-items: center;
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 50%;
+  background: var(--greet-tone);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.guest-stay-detail__rebook {
+  justify-self: start;
+  margin-top: 0.2rem;
+}
+@keyframes guest-greeting-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .guest-stay-detail__greeting {
+    animation: none;
+  }
+}

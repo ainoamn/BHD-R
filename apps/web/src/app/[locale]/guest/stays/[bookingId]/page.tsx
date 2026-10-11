@@ -13,6 +13,7 @@ import { stayBookingModeLabel, stayStatusLabel, stayTypeLabel } from '@/lib/ui-l
 import { getViewer } from '@/lib/viewer';
 import { formatMoney } from '@/lib/format';
 import { LiveSync } from '@/components/live-sync';
+import { stayGuestGreeting } from '@/lib/stay-guest-greeting';
 import { RememberStayTripAlert } from '@/components/stays/remember-stay-trip-alert';
 import { isStayEsignRequiredServer } from '@/lib/stay-esign-flags';
 import type { StayStamp } from '@/lib/stay-arrival-neon';
@@ -49,46 +50,6 @@ type GuestBooking = {
 
 const PAID_STATUSES = new Set(['confirmed', 'paid', 'pre_arrival', 'checked_in', 'checked_out']);
 const ENDED_STATUSES = new Set(['cancelled', 'expired', 'no_show', 'rejected']);
-
-function statusMessage(status: string, ar: boolean): string {
-  switch (status) {
-    case 'request_pending':
-      return ar
-        ? 'وصل طلب حجزك إلى المالك وهو قيد المراجعة. ستتغيّر الحالة هنا فور اعتماده.'
-        : 'Your request has reached the host and is under review. This page updates as soon as it is approved.';
-    case 'payment_pending':
-      return ar
-        ? 'التواريخ محجوزة لك مؤقتاً. أكمل الدفع لتأكيد إقامتك.'
-        : 'Your dates are held for you. Complete payment to confirm your stay.';
-    case 'payment_failed':
-      return ar
-        ? 'لم يكتمل الدفع. يمكنك المحاولة مرة أخرى.'
-        : 'Payment did not go through. You can try again.';
-    case 'confirmed':
-    case 'paid':
-    case 'pre_arrival':
-      return ar
-        ? 'حجزك مؤكَّد، ونتطلّع لاستضافتك.'
-        : 'Your stay is confirmed. We look forward to hosting you.';
-    case 'checked_in':
-      return ar ? 'أهلاً بك، نتمنى لك إقامة هانئة.' : 'Welcome — enjoy your stay.';
-    case 'checked_out':
-    case 'closed':
-      return ar
-        ? 'انتهت إقامتك. شكراً لاختيارك BHD R.'
-        : 'Your stay has ended. Thank you for choosing BHD R.';
-    case 'cancelled':
-      return ar ? 'تم إلغاء هذا الحجز.' : 'This booking was cancelled.';
-    case 'expired':
-      return ar
-        ? 'انتهت مهلة هذا الحجز قبل إتمامه.'
-        : 'This booking expired before it was completed.';
-    case 'no_show':
-      return ar ? 'سُجّل عدم الحضور لهذا الحجز.' : 'This booking was marked as a no-show.';
-    default:
-      return '';
-  }
-}
 
 type Step = { label: string; state: 'done' | 'current' | 'upcoming'; detail?: string | null };
 
@@ -223,7 +184,6 @@ export default async function GuestStayDetailPage({
   if (!booking) notFound();
 
   const tone = bookingStatusTone(booking.status, 'stay_booking');
-  const message = statusMessage(booking.status, ar);
   const ended = ENDED_STATUSES.has(booking.status);
   const paid = PAID_STATUSES.has(booking.status);
   const steps = ended
@@ -260,6 +220,14 @@ export default async function GuestStayDetailPage({
     (ar ? 'إقامتك في عُمان' : 'Your stay in Oman');
   const checkIn = formatStayDate(booking.checkInOn, ar);
   const checkOut = formatStayDate(booking.checkOutOn, ar);
+  const greeting = stayGuestGreeting({
+    status: booking.status,
+    ar,
+    welcome,
+    guestName: booking.guestDisplayName,
+    checkInDate: [checkIn.weekday, checkIn.date].filter(Boolean).join(' '),
+    needsEsign,
+  });
   const nights = typeof booking.nights === 'number' ? booking.nights : null;
   const total = formatMoney(booking.totalMinor, booking.currency, locale);
   const perNight =
@@ -329,14 +297,7 @@ export default async function GuestStayDetailPage({
               {booking.referenceCode}
             </span>
           </div>
-          {welcome && booking.guestDisplayName ? (
-            <p className="guest-stay-detail__message">
-              {ar
-                ? `أهلاً ${booking.guestDisplayName}، استلمنا حجزك بنجاح.`
-                : `Welcome ${booking.guestDisplayName}, we have received your booking.`}
-            </p>
-          ) : null}
-          {message ? <p className="guest-stay-detail__message">{message}</p> : null}
+          {greeting ? <p className="guest-stay-detail__message">{greeting.headline}</p> : null}
           {steps.length ? (
             <ol
               className="guest-stay-detail__steps"
@@ -367,6 +328,40 @@ export default async function GuestStayDetailPage({
 
       <section className="guest-stay-detail__panel">
         <div className="guest-stay-detail__panel-body">
+          {greeting ? (
+            <section
+              className={`guest-stay-detail__greeting guest-stay-detail__greeting--${greeting.stage}`}
+              aria-live="polite"
+            >
+              <h2>{greeting.headline}</h2>
+              <p>{greeting.body}</p>
+              {greeting.guide ? (
+                <ol className="guest-stay-detail__guide">
+                  {greeting.guide.map((line) => (
+                    <li key={line}>{line}</li>
+                  ))}
+                </ol>
+              ) : null}
+              {greeting.rebook ? (
+                <Link
+                  className="button button--primary guest-stay-detail__rebook"
+                  href={
+                    booking.listingSlug
+                      ? `/stays/${encodeURIComponent(booking.listingSlug)}`
+                      : '/stays'
+                  }
+                >
+                  {greeting.stage === 'checked_out'
+                    ? ar
+                      ? 'احجز إقامتك القادمة'
+                      : 'Book your next stay'
+                    : ar
+                      ? 'تصفّح الإقامات'
+                      : 'Browse stays'}
+                </Link>
+              ) : null}
+            </section>
+          ) : null}
           <section className="guest-stay-detail__card">
             <h2>{ar ? 'موعد الإقامة' : 'Your dates'}</h2>
             <div className="guest-stay-detail__dates">

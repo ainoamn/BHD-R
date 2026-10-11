@@ -1,5 +1,8 @@
 # CONTINUE — 2026-10-11
 
+**0.7.4** · رسالة الضيف حسب المرحلة: `stayGuestGreeting` في `lib/stay-guest-greeting.ts` (مراحل `submitted` حين `request_pending`/`payment_pending` مع `welcome=1`، ثم `review`، `payment`، `payment_failed`، `confirmed`، `checked_in`، `checked_out` مع `rebook`، `ended`)؛ `friendlyGuestName` لتنسيق الأسماء الكبيرة. صفحة الضيف: العنوان في الصورة + بطاقة `.guest-stay-detail__greeting--{stage}` أول اللوحة. التالي: قراءة بوابة المستأجر من Neon  
+**تفاصيل:** [`docs/implementation/RELEASE-0.7.4-AR.md`](./docs/implementation/RELEASE-0.7.4-AR.md)
+
 **0.7.3** · صفحة العقد: `loadContractDetailFromNeon` (`lib/contract-detail-neon.ts`) بنفس شكل `/v1/leasing/contracts/:id` (شرط المنظمة، `ownerPartyScope`، المستأجر طرف إلزامي، توقيع PDF محلي 180 ثانية)؛ `ContractDetailView` Neon ← Nest ← رسالة بدل السقوط. وقت الدخول/المغادرة: `StampDateTimeField` (`components/stays/stamp-date-time-field.tsx`) نصّان يدويان + ص/م، يُخرج `YYYY-MM-DDTHH:MM` بتوقيت مسقط أو null؛ اختبار `tests/unit/stamp-date-time-field.test.ts`. التالي: قراءة بوابة المستأجر من Neon  
 **تفاصيل:** [`docs/implementation/RELEASE-0.7.3-AR.md`](./docs/implementation/RELEASE-0.7.3-AR.md)
 
