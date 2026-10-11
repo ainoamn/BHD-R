@@ -220,12 +220,19 @@ export default async function GuestStayDetailPage({
     (ar ? 'إقامتك في عُمان' : 'Your stay in Oman');
   const checkIn = formatStayDate(booking.checkInOn, ar);
   const checkOut = formatStayDate(booking.checkOutOn, ar);
+  const muscatToday = new Date(Date.now() + 4 * 3_600_000).toISOString().slice(0, 10);
   const greeting = stayGuestGreeting({
     status: booking.status,
     ar,
     welcome,
     guestName: booking.guestDisplayName,
     checkInDate: [checkIn.weekday, checkIn.date].filter(Boolean).join(' '),
+    arrival:
+      booking.checkInOn.slice(0, 10) > muscatToday
+        ? 'upcoming'
+        : booking.checkInOn.slice(0, 10) === muscatToday
+          ? 'today'
+          : 'due',
     needsEsign,
   });
   const nights = typeof booking.nights === 'number' ? booking.nights : null;
@@ -297,7 +304,6 @@ export default async function GuestStayDetailPage({
               {booking.referenceCode}
             </span>
           </div>
-          {greeting ? <p className="guest-stay-detail__message">{greeting.headline}</p> : null}
           {steps.length ? (
             <ol
               className="guest-stay-detail__steps"

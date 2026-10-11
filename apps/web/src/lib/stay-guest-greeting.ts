@@ -34,6 +34,8 @@ export function stayGuestGreeting(input: {
   welcome: boolean;
   guestName?: string | null | undefined;
   checkInDate?: string | null | undefined;
+  /** Check-in day relative to today in Muscat. */
+  arrival?: 'upcoming' | 'today' | 'due' | undefined;
   needsEsign?: boolean;
 }): StayGreeting | null {
   const { status, ar, welcome, checkInDate, needsEsign } = input;
@@ -129,11 +131,20 @@ export function stayGuestGreeting(input: {
     case 'confirmed':
     case 'paid':
     case 'pre_arrival': {
-      const when = checkInDate
-        ? ar
-          ? ` نراك يوم ${checkInDate}.`
-          : ` See you on ${checkInDate}.`
-        : '';
+      const when =
+        input.arrival === 'today'
+          ? ar
+            ? ' واليوم يومك! المكان على أهبة الاستعداد، ونراك بعد قليل.'
+            : ' And today is the day! Everything is ready — see you very soon.'
+          : input.arrival === 'due'
+            ? ar
+              ? ' موعد وصولك قد حلّ، والمكان بانتظارك على أحرّ من الجمر. أبلغ المالك عند وصولك ليسلّمك المفاتيح.'
+              : ' Your arrival day is here and the place cannot wait to see you. Let the host know when you arrive to get your keys.'
+            : checkInDate
+              ? ar
+                ? ` نراك يوم ${checkInDate}.`
+                : ` See you on ${checkInDate}.`
+              : '';
       const sign = needsEsign
         ? ar
           ? ' وقبلها، وقّع عقد الإقامة بضغطة زر من الأسفل.'
