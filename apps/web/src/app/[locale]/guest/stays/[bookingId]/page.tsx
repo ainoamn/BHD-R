@@ -222,19 +222,31 @@ export default async function GuestStayDetailPage({
 
   return (
     <main className="guest-stay-detail">
-      <section className="guest-stay-detail__hero">
+      <section className="guest-stay-detail__hero" aria-labelledby="guest-stay-title">
         <img
           className="guest-stay-detail__hero-img"
           src="/brand/oman-landmark-mosque.jpg"
           alt={ar ? 'جامع السلطان قابوس الأكبر، مسقط' : 'Sultan Qaboos Grand Mosque, Muscat'}
         />
         <div className="guest-stay-detail__hero-scrim" />
-        <div className="container guest-stay-detail__hero-inner">
+        <div className="guest-stay-detail__hero-top">
           <Link className="guest-stay-detail__back" href="/guest/stays">
             {ar ? '→ رحلاتي' : '← My trips'}
           </Link>
+          <Link
+            className="guest-stay-detail__logo logo__product logo__product--on-dark"
+            href="/"
+            aria-label="BHD R"
+          >
+            <img src="/brand/bhd-official-symbol.svg" alt="" width="84" height="26" />
+            <i>R</i>
+          </Link>
+        </div>
+        <div className="guest-stay-detail__hero-content">
           <p className="guest-stay-detail__kicker">{ar ? 'تفاصيل الإقامة' : 'Stay details'}</p>
-          <h1 className="guest-stay-detail__title">{title}</h1>
+          <h1 id="guest-stay-title" className="guest-stay-detail__title">
+            {title}
+          </h1>
           <div className="guest-stay-detail__badges">
             <span className={`guest-stay-detail__status guest-stay-detail__status--${tone}`}>
               {stayStatusLabel(booking.status, locale)}
@@ -243,21 +255,7 @@ export default async function GuestStayDetailPage({
               {booking.referenceCode}
             </span>
           </div>
-          <p className="guest-stay-detail__caption">
-            {ar ? 'جامع السلطان قابوس الأكبر · مسقط' : 'Sultan Qaboos Grand Mosque · Muscat'}
-          </p>
-        </div>
-      </section>
-
-      <div className="container guest-stay-detail__body">
-        <div className="guest-stay-detail__main">
-          {message ? (
-            <section className={`guest-stay-detail__notice guest-stay-detail__notice--${tone}`}>
-              <strong>{stayStatusLabel(booking.status, locale)}</strong>
-              <p>{message}</p>
-            </section>
-          ) : null}
-
+          {message ? <p className="guest-stay-detail__message">{message}</p> : null}
           {steps.length ? (
             <ol
               className="guest-stay-detail__steps"
@@ -277,7 +275,14 @@ export default async function GuestStayDetailPage({
               ))}
             </ol>
           ) : null}
+        </div>
+        <p className="guest-stay-detail__caption">
+          {ar ? 'جامع السلطان قابوس الأكبر · مسقط' : 'Sultan Qaboos Grand Mosque · Muscat'}
+        </p>
+      </section>
 
+      <section className="guest-stay-detail__panel">
+        <div className="guest-stay-detail__panel-body">
           <section className="guest-stay-detail__card">
             <h2>{ar ? 'موعد الإقامة' : 'Your dates'}</h2>
             <div className="guest-stay-detail__dates">
@@ -338,10 +343,31 @@ export default async function GuestStayDetailPage({
               ) : null}
             </dl>
           </section>
+          {paid ? (
+            <div className="guest-stay-detail__docs">
+              <Link
+                className="button button--quiet"
+                href={`/stays/booking/receipt?ref=${refQuery}&doc=payment`}
+              >
+                {ar ? 'إيصال الدفع (PDF)' : 'Payment receipt (PDF)'}
+              </Link>
+              <Link
+                className="button button--quiet"
+                href={`/stays/booking/receipt?ref=${refQuery}&doc=confirmation`}
+              >
+                {ar ? 'تأكيد الحجز (PDF)' : 'Booking confirmation (PDF)'}
+              </Link>
+            </div>
+          ) : null}
+          <p className="guest-stay-detail__help muted">
+            {ar
+              ? 'احتفظ برقم الحجز للمتابعة أو عند التواصل مع المالك.'
+              : 'Keep your reference handy to track this stay or when contacting the host.'}
+          </p>
         </div>
 
-        <aside className="guest-stay-detail__side">
-          <section className="guest-stay-detail__card guest-stay-detail__price">
+        <footer className="guest-stay-detail__footer">
+          <div className="guest-stay-detail__price">
             <span className="guest-stay-detail__price-label">
               {ar ? 'المبلغ الإجمالي' : 'Total amount'}
             </span>
@@ -349,37 +375,16 @@ export default async function GuestStayDetailPage({
               {total}
             </strong>
             {perNight && nights ? (
-              <span className="muted">
+              <span className="guest-stay-detail__price-meta">
                 {ar
                   ? `${nightsLabel(nights, ar)} · متوسط الليلة ${perNight}`
                   : `${nightsLabel(nights, ar)} · ${perNight} per night on average`}
               </span>
             ) : null}
-            <GuestStayActions booking={booking} />
-            {paid ? (
-              <div className="guest-stay-detail__docs">
-                <Link
-                  className="button button--quiet"
-                  href={`/stays/booking/receipt?ref=${refQuery}&doc=payment`}
-                >
-                  {ar ? 'إيصال الدفع (PDF)' : 'Payment receipt (PDF)'}
-                </Link>
-                <Link
-                  className="button button--quiet"
-                  href={`/stays/booking/receipt?ref=${refQuery}&doc=confirmation`}
-                >
-                  {ar ? 'تأكيد الحجز (PDF)' : 'Booking confirmation (PDF)'}
-                </Link>
-              </div>
-            ) : null}
-          </section>
-          <p className="guest-stay-detail__help muted">
-            {ar
-              ? 'احتفظ برقم الحجز للمتابعة أو عند التواصل مع المالك.'
-              : 'Keep your reference handy to track this stay or when contacting the host.'}
-          </p>
-        </aside>
-      </div>
+          </div>
+          <GuestStayActions booking={booking} compact />
+        </footer>
+      </section>
     </main>
   );
 }

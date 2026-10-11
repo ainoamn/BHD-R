@@ -11560,27 +11560,34 @@ button.ops-row-key {
   margin-top: 2rem;
 }
 
-/* Guest stay detail */
-.guest-stay-detail {
-  position: relative;
-  isolation: isolate;
-  padding-bottom: 3.5rem;
-  background: #f6f4ef;
+/* Guest stay detail — fits the viewport on every device */
+body:has(.guest-stay-detail) .site-header,
+body:has(.guest-stay-detail) .site-footer {
+  display: none !important;
 }
-.guest-stay-detail::after {
-  position: absolute;
-  inset: 22rem 0 0;
-  z-index: -1;
-  content: '';
-  background: url('/brand/oman-landmark-mosque.jpg') center bottom / cover no-repeat;
-  opacity: 0.07;
-  mask-image: linear-gradient(to bottom, transparent, #000 35%);
-  pointer-events: none;
+body:has(.guest-stay-detail) #main-content {
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+}
+.guest-stay-detail {
+  --gsd-pad: clamp(0.85rem, 2.6vw, 1.75rem);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: #f6f4ef;
 }
 .guest-stay-detail__hero {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.85rem;
   overflow: hidden;
-  min-height: 22rem;
+  padding: max(0.85rem, env(safe-area-inset-top)) max(var(--gsd-pad), env(safe-area-inset-right))
+    0.95rem max(var(--gsd-pad), env(safe-area-inset-left));
   color: #fff;
   background: #0f2f45;
 }
@@ -11591,82 +11598,82 @@ button.ops-row-key {
   height: 100%;
   object-fit: cover;
   object-position: center 40%;
-  opacity: 0.92;
 }
 .guest-stay-detail__hero-scrim {
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(
-      to top,
-      rgb(12 34 50 / 0.9) 0%,
-      rgb(12 34 50 / 0.55) 45%,
-      rgb(12 34 50 / 0.12) 100%
-    ),
-    linear-gradient(to left, rgb(12 34 50 / 0.35), transparent 60%);
+  background: linear-gradient(
+    to top,
+    rgb(12 34 50 / 0.93) 0%,
+    rgb(12 34 50 / 0.62) 52%,
+    rgb(12 34 50 / 0.18) 100%
+  );
 }
-[dir='ltr'] .guest-stay-detail__hero-scrim {
-  background:
-    linear-gradient(
-      to top,
-      rgb(12 34 50 / 0.9) 0%,
-      rgb(12 34 50 / 0.55) 45%,
-      rgb(12 34 50 / 0.12) 100%
-    ),
-    linear-gradient(to right, rgb(12 34 50 / 0.35), transparent 60%);
-}
-.guest-stay-detail__hero-inner {
+.guest-stay-detail__hero-top,
+.guest-stay-detail__hero-content,
+.guest-stay-detail__caption {
   position: relative;
+  z-index: 1;
+}
+.guest-stay-detail__hero-top {
   display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  gap: 0.55rem;
-  min-height: 22rem;
-  padding-block: 1.5rem 4.75rem;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
 }
 .guest-stay-detail__back {
-  position: absolute;
-  inset-block-start: 1.25rem;
-  inset-inline-start: 0;
-  padding: 0.4rem 0.85rem;
-  font-size: 0.9rem;
+  padding: 0.38rem 0.85rem;
+  font-size: 0.88rem;
   font-weight: 600;
   color: #fff;
   text-decoration: none;
+  white-space: nowrap;
   background: rgb(255 255 255 / 0.16);
-  border: 1px solid rgb(255 255 255 / 0.28);
+  border: 1px solid rgb(255 255 255 / 0.3);
   border-radius: 999px;
   backdrop-filter: blur(6px);
 }
 .guest-stay-detail__back:hover {
   background: rgb(255 255 255 / 0.26);
 }
+.guest-stay-detail__logo {
+  text-decoration: none;
+}
+.guest-stay-detail__logo img {
+  width: clamp(3.8rem, 10vw, 5rem);
+  height: auto;
+}
+.guest-stay-detail__hero-content {
+  display: grid;
+  gap: 0.45rem;
+}
 .guest-stay-detail__kicker {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   color: #9fe3dc;
 }
 .guest-stay-detail__title {
   margin: 0;
-  font-size: clamp(1.6rem, 3.4vw, 2.5rem);
-  line-height: 1.25;
+  font-size: clamp(1.35rem, 4.6vw, 2.4rem);
+  line-height: 1.2;
   color: #fff;
+  overflow-wrap: anywhere;
   text-shadow: 0 2px 18px rgb(0 0 0 / 0.35);
 }
 .guest-stay-detail__badges {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.45rem;
   align-items: center;
 }
 .guest-stay-detail__status,
 .guest-stay-detail__ref {
   display: inline-flex;
   align-items: center;
-  padding: 0.3rem 0.8rem;
-  font-size: 0.85rem;
+  padding: 0.26rem 0.75rem;
+  font-size: 0.82rem;
   font-weight: 700;
   border-radius: 999px;
 }
@@ -11701,121 +11708,53 @@ button.ops-row-key {
   color: #fff;
   background: #b91c1c;
 }
-.guest-stay-detail__caption {
-  position: absolute;
-  inset-block-start: 1.6rem;
-  inset-inline-end: 0;
-  margin: 0;
-  font-size: 0.75rem;
-  color: rgb(255 255 255 / 0.75);
-}
-.guest-stay-detail__body {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(17rem, 21rem);
-  gap: 1.25rem;
-  align-items: start;
-  margin-top: -3.25rem;
-}
-.guest-stay-detail__main,
-.guest-stay-detail__side {
-  display: grid;
-  gap: 1rem;
-}
-.guest-stay-detail__side {
-  position: sticky;
-  top: 5.5rem;
-}
-.guest-stay-detail__card {
-  padding: 1.25rem 1.35rem;
-  background: rgb(255 255 255 / 0.94);
-  border: 1px solid rgb(15 47 69 / 0.08);
-  border-radius: 1.1rem;
-  box-shadow: 0 18px 40px rgb(15 47 69 / 0.08);
-  backdrop-filter: blur(8px);
-}
-.guest-stay-detail__card h2 {
-  margin: 0 0 1rem;
-  font-size: 1.05rem;
-  color: var(--bhd-navy);
-}
-.guest-stay-detail__notice {
-  padding: 1rem 1.25rem;
-  background: #fff;
-  border: 1px solid rgb(15 47 69 / 0.08);
-  border-inline-start: 0.35rem solid #64748b;
-  border-radius: 1.1rem;
-  box-shadow: 0 18px 40px rgb(15 47 69 / 0.1);
-}
-.guest-stay-detail__notice strong {
-  display: block;
-  margin-bottom: 0.25rem;
-  color: var(--bhd-navy);
-}
-.guest-stay-detail__notice p {
-  margin: 0;
-  line-height: 1.7;
-  color: #334155;
-}
-.guest-stay-detail__notice--approval {
-  background: #fff7ed;
-  border-inline-start-color: #c2410c;
-}
-.guest-stay-detail__notice--warning {
-  background: #fffbeb;
-  border-inline-start-color: #d97706;
-}
-.guest-stay-detail__notice--positive {
-  background: #f0fdf4;
-  border-inline-start-color: #15803d;
-}
-.guest-stay-detail__notice--info {
-  background: #eff6ff;
-  border-inline-start-color: #1d4ed8;
-}
-.guest-stay-detail__notice--negative {
-  background: #fef2f2;
-  border-inline-start-color: #b91c1c;
+.guest-stay-detail__message {
+  max-width: 44ch;
+  margin: 0.1rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: rgb(255 255 255 / 0.9);
 }
 .guest-stay-detail__steps {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin: 0;
-  padding: 1rem 0.75rem;
+  margin: 0.3rem 0 0;
+  padding: 0.65rem 0.35rem;
   list-style: none;
-  background: rgb(255 255 255 / 0.94);
-  border: 1px solid rgb(15 47 69 / 0.08);
-  border-radius: 1.1rem;
+  background: rgb(255 255 255 / 0.1);
+  border: 1px solid rgb(255 255 255 / 0.2);
+  border-radius: 0.9rem;
+  backdrop-filter: blur(8px);
 }
 .guest-stay-detail__step {
   position: relative;
   display: grid;
   justify-items: center;
-  gap: 0.4rem;
+  gap: 0.3rem;
   text-align: center;
 }
 .guest-stay-detail__step:not(:last-child)::after {
   position: absolute;
-  top: 0.9rem;
-  inset-inline-start: calc(50% + 1.1rem);
-  width: calc(100% - 2.2rem);
+  top: 0.8rem;
+  inset-inline-start: calc(50% + 1rem);
+  width: calc(100% - 2rem);
   height: 2px;
   content: '';
-  background: #d6dde4;
+  background: rgb(255 255 255 / 0.3);
 }
 .guest-stay-detail__step--done:not(:last-child)::after {
-  background: var(--bhd-teal);
+  background: #2dd4bf;
 }
 .guest-stay-detail__step-dot {
   display: grid;
   place-items: center;
-  width: 1.8rem;
-  height: 1.8rem;
-  font-size: 0.8rem;
+  width: 1.6rem;
+  height: 1.6rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  color: #64748b;
-  background: #fff;
-  border: 2px solid #d6dde4;
+  color: rgb(255 255 255 / 0.85);
+  background: rgb(255 255 255 / 0.08);
+  border: 2px solid rgb(255 255 255 / 0.45);
   border-radius: 999px;
 }
 .guest-stay-detail__step--done .guest-stay-detail__step-dot {
@@ -11824,45 +11763,91 @@ button.ops-row-key {
   border-color: var(--bhd-teal);
 }
 .guest-stay-detail__step--current .guest-stay-detail__step-dot {
-  color: #fff;
-  background: var(--bhd-navy);
-  border-color: var(--bhd-navy);
-  box-shadow: 0 0 0 4px rgb(23 75 112 / 0.15);
+  color: var(--bhd-navy);
+  background: #fff;
+  border-color: #fff;
+  box-shadow: 0 0 0 4px rgb(255 255 255 / 0.22);
 }
 .guest-stay-detail__step-label {
-  font-size: 0.82rem;
-  color: #64748b;
+  font-size: 0.74rem;
+  line-height: 1.3;
+  color: rgb(255 255 255 / 0.75);
 }
 .guest-stay-detail__step--current .guest-stay-detail__step-label {
   font-weight: 700;
+  color: #fff;
+}
+.guest-stay-detail__caption {
+  margin: 0;
+  font-size: 0.7rem;
+  color: rgb(255 255 255 / 0.7);
+}
+.guest-stay-detail__panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background:
+    linear-gradient(rgb(246 244 239 / 0.93), rgb(246 244 239 / 0.97)),
+    url('/brand/oman-landmark-mosque.jpg') center bottom / cover no-repeat;
+}
+.guest-stay-detail__panel-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 0;
+  padding: var(--gsd-pad) max(var(--gsd-pad), env(safe-area-inset-right)) var(--gsd-pad)
+    max(var(--gsd-pad), env(safe-area-inset-left));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.guest-stay-detail__panel-body > * {
+  width: 100%;
+  max-width: 46rem;
+  margin-inline: auto;
+}
+.guest-stay-detail__card {
+  padding: 0.9rem 1rem;
+  background: rgb(255 255 255 / 0.95);
+  border: 1px solid rgb(15 47 69 / 0.08);
+  border-radius: 1rem;
+  box-shadow: 0 12px 30px rgb(15 47 69 / 0.07);
+}
+.guest-stay-detail__card h2 {
+  margin: 0 0 0.65rem;
+  font-size: 0.95rem;
   color: var(--bhd-navy);
 }
 .guest-stay-detail__dates {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  gap: 0.75rem;
+  gap: 0.6rem;
   align-items: center;
 }
 .guest-stay-detail__date {
   display: grid;
-  gap: 0.2rem;
-  padding: 0.9rem 1rem;
+  gap: 0.15rem;
+  min-width: 0;
+  padding: 0.65rem 0.8rem;
   background: #f4f8fa;
-  border-radius: 0.85rem;
+  border-radius: 0.8rem;
 }
 .guest-stay-detail__date strong {
-  font-size: 1.05rem;
+  font-size: 0.98rem;
   color: #0f2f45;
 }
+.guest-stay-detail__date .muted {
+  font-size: 0.8rem;
+}
 .guest-stay-detail__date-label {
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-weight: 700;
   color: var(--bhd-teal);
 }
 .guest-stay-detail__nights span {
   display: inline-block;
-  padding: 0.35rem 0.75rem;
-  font-size: 0.82rem;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.78rem;
   font-weight: 700;
   color: var(--bhd-navy);
   white-space: nowrap;
@@ -11871,76 +11856,223 @@ button.ops-row-key {
 }
 .guest-stay-detail__facts {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.85rem 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: 0.55rem 1rem;
   margin: 0;
 }
 .guest-stay-detail__facts div {
   display: grid;
-  gap: 0.15rem;
-  padding-bottom: 0.65rem;
+  gap: 0.1rem;
+  min-width: 0;
+  padding-bottom: 0.45rem;
   border-bottom: 1px dashed rgb(15 47 69 / 0.12);
 }
 .guest-stay-detail__facts dt {
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   color: #64748b;
 }
 .guest-stay-detail__facts dd {
   margin: 0;
+  font-size: 0.92rem;
   font-weight: 600;
   color: #0f2f45;
-}
-.guest-stay-detail__price {
-  display: grid;
-  gap: 0.35rem;
-}
-.guest-stay-detail__price-label {
-  font-size: 0.82rem;
-  color: #64748b;
-}
-.guest-stay-detail__price-total {
-  font-size: 1.9rem;
-  line-height: 1.2;
-  color: var(--bhd-navy);
+  overflow-wrap: anywhere;
 }
 .guest-stay-detail__docs {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
-  margin-top: 0.5rem;
 }
 .guest-stay-detail__docs .button {
+  flex: 1 1 10rem;
   justify-content: center;
 }
 .guest-stay-detail__help {
   margin: 0;
-  padding-inline: 0.25rem;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   line-height: 1.6;
+  text-align: center;
 }
-@media (max-width: 900px) {
-  .guest-stay-detail__body {
+.guest-stay-detail__footer {
+  display: grid;
+  flex-shrink: 0;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.6rem 1rem;
+  align-items: center;
+  padding: 0.75rem max(var(--gsd-pad), env(safe-area-inset-right))
+    max(0.75rem, env(safe-area-inset-bottom)) max(var(--gsd-pad), env(safe-area-inset-left));
+  background: #fff;
+  border-top: 1px solid rgb(15 47 69 / 0.08);
+  box-shadow: 0 -10px 30px rgb(15 47 69 / 0.08);
+}
+.guest-stay-detail__price {
+  display: grid;
+  gap: 0.05rem;
+}
+.guest-stay-detail__price-label,
+.guest-stay-detail__price-meta {
+  font-size: 0.74rem;
+  color: #64748b;
+}
+.guest-stay-detail__price-total {
+  font-size: 1.35rem;
+  line-height: 1.15;
+  color: var(--bhd-navy);
+}
+.guest-stay-detail__footer .guest-stay-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin: 0;
+}
+.guest-stay-detail__footer .guest-stay-actions .button {
+  flex: 1 1 8.5rem;
+  width: auto;
+  max-width: 14rem;
+  min-height: 2.6rem;
+}
+.guest-stay-detail__footer .guest-stay-actions > p {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.82rem;
+}
+@media (max-width: 479px) {
+  .guest-stay-detail__footer {
     grid-template-columns: 1fr;
   }
-  .guest-stay-detail__side {
-    position: static;
+  .guest-stay-detail__price {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.15rem 0.5rem;
+    align-items: baseline;
   }
-}
-@media (max-width: 560px) {
-  .guest-stay-detail__hero,
-  .guest-stay-detail__hero-inner {
-    min-height: 18rem;
+  .guest-stay-detail__footer .guest-stay-actions .button {
+    max-width: none;
+  }
+  .guest-stay-detail__panel-body {
+    gap: 0.6rem;
+  }
+  .guest-stay-detail__card {
+    padding: 0.75rem 0.85rem;
+  }
+  .guest-stay-detail__card h2 {
+    margin-bottom: 0.5rem;
   }
   .guest-stay-detail__dates {
-    grid-template-columns: 1fr;
+    gap: 0.4rem;
   }
-  .guest-stay-detail__nights {
-    justify-self: center;
+  .guest-stay-detail__date {
+    padding: 0.55rem 0.65rem;
+  }
+  .guest-stay-detail__date strong {
+    font-size: 0.9rem;
+  }
+  .guest-stay-detail__nights span {
+    padding-inline: 0.5rem;
+    font-size: 0.72rem;
   }
   .guest-stay-detail__facts {
-    grid-template-columns: 1fr;
+    gap: 0.45rem 0.85rem;
   }
-  .guest-stay-detail__step-label {
-    font-size: 0.72rem;
+  .guest-stay-detail__help {
+    display: none;
+  }
+}
+@media (max-width: 359px) {
+  .guest-stay-detail__dates {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .guest-stay-detail__nights {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: center;
+  }
+}
+@media (orientation: portrait) and (max-width: 1199px) {
+  .guest-stay-detail__caption {
+    display: none;
+  }
+}
+@media (orientation: portrait) and (min-width: 600px) and (max-width: 1199px) {
+  .guest-stay-detail__hero {
+    min-height: 34dvh;
+  }
+  .guest-stay-detail__hero-content {
+    width: 100%;
+    max-width: 46rem;
+    margin-inline: auto;
+  }
+}
+@media (orientation: portrait) and (max-width: 1199px) and (max-height: 700px) {
+  .guest-stay-detail__kicker {
+    display: none;
+  }
+  .guest-stay-detail__message {
+    font-size: 0.82rem;
+    line-height: 1.5;
+  }
+  .guest-stay-detail__steps {
+    padding-block: 0.5rem;
+  }
+}
+@media (orientation: landscape) and (min-width: 640px), (min-width: 1200px) {
+  .guest-stay-detail {
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .guest-stay-detail__hero {
+    padding: max(1.25rem, env(safe-area-inset-top)) clamp(1.25rem, 3vw, 2.5rem)
+      max(1.1rem, env(safe-area-inset-bottom));
+  }
+  .guest-stay-detail__hero-content {
+    gap: 0.6rem;
+    margin-block: auto;
+  }
+  .guest-stay-detail__hero-scrim {
+    background: linear-gradient(
+      to top,
+      rgb(12 34 50 / 0.9) 0%,
+      rgb(12 34 50 / 0.55) 55%,
+      rgb(12 34 50 / 0.3) 100%
+    );
+  }
+  .guest-stay-detail__panel-body {
+    padding: clamp(1rem, 3vh, 2rem) clamp(1rem, 3.5vw, 2.75rem);
+  }
+  .guest-stay-detail__panel-body > :first-child {
+    margin-top: auto;
+  }
+  .guest-stay-detail__panel-body > :last-child {
+    margin-bottom: auto;
+  }
+  .guest-stay-detail__footer {
+    padding-inline: clamp(1rem, 3.5vw, 2.75rem);
+  }
+}
+@media (orientation: landscape) and (max-height: 520px) {
+  .guest-stay-detail__kicker,
+  .guest-stay-detail__message,
+  .guest-stay-detail__caption {
+    display: none;
+  }
+  .guest-stay-detail__title {
+    font-size: 1.3rem;
+  }
+  .guest-stay-detail__panel-body {
+    gap: 0.55rem;
+    padding-block: 0.75rem;
+  }
+  .guest-stay-detail__footer {
+    padding-block: 0.5rem max(0.5rem, env(safe-area-inset-bottom));
+  }
+  .guest-stay-detail__price-total {
+    font-size: 1.15rem;
+  }
+  .guest-stay-detail__footer .guest-stay-actions .button {
+    flex-basis: 6.5rem;
+    min-height: 2.2rem;
+    padding-block: 0.35rem;
   }
 }
 @media (max-width: 760px) {

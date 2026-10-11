@@ -1,5 +1,8 @@
 # CONTINUE — 2026-10-11
 
+**0.6.4** · صفحة تفاصيل الإقامة للضيف على كامل الشاشة (`100dvh`، رأس الموقع وتذييله مخفيان): عمودان أفقياً، صورة بالأعلى عمودياً، شريط سفلي ثابت بالمبلغ والأزرار  
+**تفاصيل:** [`docs/implementation/RELEASE-0.6.4-AR.md`](./docs/implementation/RELEASE-0.6.4-AR.md)
+
 **0.6.3** · صفحة تفاصيل الإقامة للضيف (`guest/stays/[bookingId]`) بتصميم جديد: صورة جامع السلطان قابوس بتدرّج شفاف، اسم العقار (`listingTitleAr/En`)، رسالة الحالة، مراحل الحجز، بطاقات التواريخ، وعمود المبلغ والأزرار (`guest-stay-detail*`)  
 **تفاصيل:** [`docs/implementation/RELEASE-0.6.3-AR.md`](./docs/implementation/RELEASE-0.6.3-AR.md)
 
