@@ -23,6 +23,7 @@ import { decimalToMinor } from '@/lib/property-contracts-neon';
 import { publicWebOrigin } from '@/lib/seo';
 import { muscatLocalToDate } from '@/lib/stay-arrival-neon';
 import {
+  depositReceiptNumbers,
   REFUND_CONSENT_VERSION,
   REFUND_NOTE_MAX,
   REFUND_RECEIPT_DATA_URL,
@@ -170,8 +171,11 @@ export async function loadDepositRefunds(
       decidedBy: null,
       decisionNote: null,
       transfer: null,
+      settledDepositMinor: null,
     };
     for (const { meta, receipt } of byRefund.get(refund.id) ?? []) {
+      const settledDeposit = text(meta.depositMinor);
+      if (settledDeposit && /^\d+$/.test(settledDeposit)) view.settledDepositMinor = settledDeposit;
       if (meta.event === 'requested') {
         view.requestedBy = meta.by === 'guest' ? 'guest' : 'host';
         view.guestNote = text(meta.note);
@@ -300,7 +304,15 @@ async function queueGuestRefundNotice(
   notice:
     | { event: 'approved'; amountMinor: bigint; note: string | null }
     | { event: 'rejected'; note: string | null }
-    | { event: 'paid'; amountMinor: bigint; paidTo: string; at: Date },
+    | {
+        event: 'paid';
+        amountMinor: bigint;
+        paidTo: string;
+        at: Date;
+        depositMinor: bigint;
+        retainedMinor: bigint;
+        note: string | null;
+      },
 ) {
   const [row] = await tx
     .select({
@@ -351,6 +363,13 @@ async function queueGuestRefundNotice(
                 timeStyle: 'short',
                 timeZone: 'Asia/Muscat',
               }).format(notice.at)}`,
+              ...(notice.retainedMinor > 0n
+                ? [
+                    `مبلغ التأمين ${money(notice.depositMinor)}، خُصم منه ${money(notice.retainedMinor)}${
+                      notice.note ? `: ${notice.note}` : '.'
+                    }`,
+                  ]
+                : []),
             ],
           };
   const greeting = name ? `مرحباً ${name}،` : 'مرحباً،';
@@ -577,6 +596,13 @@ export async function decideDepositRefundOnNeon(
         refundId,
         note,
         amountMinor: amount.toString(),
+        depositMinor: deposit.toString(),
+        ...(status === 'rejected'
+          ? {
+              retainedMinor: deposit.toString(),
+              receipts: depositReceiptNumbers(booking.referenceCode),
+            }
+          : {}),
         decidedBy: await actorName(tx, claims.sub),
       },
       audit: { amountMinor: amount.toString(), depositMinor: deposit.toString() },
@@ -627,6 +653,29 @@ export async function recordDepositRefundPayoutOnNeon(
     const booking = await loadHostBooking(tx, claims, propertyId, bookingId);
     const refund = await currentRefund(tx, booking);
     if (refund?.status !== 'approved') fail('refund_not_approved');
+    const [decision] = await tx
+      .select({
+        depositMinor: sql<string | null>`${stayBookingStatusHistory.metadataJson}->>'depositMinor'`,
+        note: sql<string | null>`${stayBookingStatusHistory.metadataJson}->>'note'`,
+      })
+      .from(stayBookingStatusHistory)
+      .where(
+        and(
+          eq(stayBookingStatusHistory.organizationId, booking.organizationId),
+          eq(stayBookingStatusHistory.bookingId, booking.id),
+          eq(stayBookingStatusHistory.toStatus, HISTORY_STATUS),
+          sql`${stayBookingStatusHistory.metadataJson}->>'refundId' = ${refund.id}`,
+          sql`${stayBookingStatusHistory.metadataJson}->>'event' = 'approved'`,
+        ),
+      )
+      .orderBy(desc(stayBookingStatusHistory.createdAt))
+      .limit(1);
+    const deposit =
+      decision?.depositMinor && /^\d+$/.test(decision.depositMinor)
+        ? BigInt(decision.depositMinor)
+        : await depositOf(tx, booking);
+    const retained = deposit > refund.amountMinor ? deposit - refund.amountMinor : 0n;
+    const receipts = depositReceiptNumbers(booking.referenceCode);
     const now = new Date();
     await tx
       .update(stayRefunds)
@@ -644,9 +693,19 @@ export async function recordDepositRefundPayoutOnNeon(
     await recordEvent(tx, booking, {
       event: 'paid',
       actorUserId: claims.sub,
-      metadata: { refundId: refund.id, transfer, receipt: input.receipt },
+      metadata: {
+        refundId: refund.id,
+        transfer,
+        receipt: input.receipt,
+        depositMinor: deposit.toString(),
+        retainedMinor: retained.toString(),
+        receipts,
+      },
       audit: {
         amountMinor: refund.amountMinor.toString(),
+        depositMinor: deposit.toString(),
+        retainedMinor: retained.toString(),
+        receipts,
         at: transfer.at,
         bank: transfer.bank,
         account: maskAccount(transfer.account),
@@ -657,6 +716,9 @@ export async function recordDepositRefundPayoutOnNeon(
       amountMinor: refund.amountMinor,
       paidTo: [transfer.bank, maskAccount(transfer.account)].filter(Boolean).join(' · '),
       at,
+      depositMinor: deposit,
+      retainedMinor: retained,
+      note: decision?.note ?? null,
     });
     const bookingStatus = await closeBooking(tx, booking, claims.sub, 'deposit_refund_paid');
     return { refundStatus: 'executed', bookingStatus };

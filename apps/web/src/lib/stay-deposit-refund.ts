@@ -85,7 +85,52 @@ export type DepositRefundView = {
   decidedBy: string | null;
   decisionNote: string | null;
   transfer: RefundTransfer | null;
+  /** Deposit held when the refund was settled (0.8.18 onward); the profile may change later. */
+  settledDepositMinor: string | null;
 };
+
+/**
+ * Where a received deposit stands for the accountant: held during the stay, waiting for the
+ * host's decision after check-out, waiting for the transfer, or settled (refunded and/or kept).
+ */
+export type DepositHolding =
+  'deposit_held' | 'awaiting_deposit_refund' | 'awaiting_refund_transfer' | 'deposit_settled';
+
+export function depositHolding(
+  bookingStatus: string,
+  refundStatus: DepositRefundStatus | null | undefined,
+): DepositHolding {
+  if (refundStatus === 'executed' || refundStatus === 'rejected') return 'deposit_settled';
+  if (refundStatus === 'approved') return 'awaiting_refund_transfer';
+  if (bookingStatus === 'checked_in') return 'deposit_held';
+  return 'awaiting_deposit_refund';
+}
+
+/**
+ * The part of the deposit the property keeps, booked as its income: the deduction once the
+ * refund is transferred, or the whole deposit when the refund is rejected. Null until settled.
+ */
+export function retainedDepositMinor(
+  depositMinor: string | null | undefined,
+  refundStatus: DepositRefundStatus | null | undefined,
+  refundedMinor: string | null | undefined,
+): string | null {
+  if (!hasDeposit(depositMinor)) return null;
+  const deposit = BigInt(depositMinor!);
+  if (refundStatus === 'rejected') return deposit.toString();
+  if (refundStatus !== 'executed' || !refundedMinor || !/^\d+$/.test(refundedMinor)) return null;
+  const kept = deposit - BigInt(refundedMinor);
+  return kept > 0n ? kept.toString() : null;
+}
+
+/**
+ * Linked receipt numbers of one stay's deposit settlement: the refund paid to the guest and the
+ * income kept by the property. Together they account for the whole deposit received.
+ */
+export function depositReceiptNumbers(reference: string): { refund: string; income: string } {
+  const code = reference.replace(/^ST-/i, '');
+  return { refund: `DR-${code}`, income: `DI-${code}` };
+}
 
 /** What the guest sees: status, amount and dates; the receiving account only masked. */
 export type GuestDepositRefund = {

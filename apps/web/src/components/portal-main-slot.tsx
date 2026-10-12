@@ -2,6 +2,7 @@
 
 import { usePathname } from '@/i18n/navigation';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { DepositLedgerPanel } from '@/components/accounting/deposit-ledger';
 import { OperationsWorkspaceClient } from '@/components/operations-workspace-client';
 import { PortalPageContext } from '@/components/portal-page';
 import { TeamManager } from '@/components/team-manager';
@@ -79,6 +80,16 @@ export function PortalMainSlot({
         >
           {panel === 'team' ? (
             <TeamManager locale={locale} active={panel === section} />
+          ) : panel === 'accounting' ? (
+            <OperationsWorkspaceClient
+              portal={portal}
+              section={panel}
+              locale={locale}
+              active={panel === section}
+              beforeList={
+                <DepositLedgerPanel portal={portal} locale={locale} active={panel === section} />
+              }
+            />
           ) : (
             <OperationsWorkspaceClient
               portal={portal}

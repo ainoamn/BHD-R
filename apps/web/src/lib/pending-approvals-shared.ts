@@ -45,7 +45,7 @@ export function pendingApprovalHref(portal: string, item: PendingApprovalItem): 
     return `${base}?section=bookings&focus=${encodeURIComponent(item.id)}`;
   }
   if (item.kind === 'refund_transfer') {
-    return `${base}?section=accounting&focus=${encodeURIComponent(item.id)}`;
+    return `/${portal}/accounting?focus=${encodeURIComponent(item.id)}#deposits`;
   }
   return `${base}?section=bookings`;
 }

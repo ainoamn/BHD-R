@@ -784,6 +784,10 @@ a.pmh-actionbar__title[aria-current='page'] {
   color: #a1331f;
   font-weight: 800;
 }
+.psr-money--held {
+  color: #1f5a85;
+  font-weight: 800;
+}
 .psr-head-actions {
   display: flex;
   align-items: center;
@@ -18130,6 +18134,167 @@ body:has(.stay-esign-shell) {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
+}
+
+/* Deposit settlement: received = refunded + kept as income, with linked receipts */
+.deposit-recon {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 12rem;
+  max-width: 24rem;
+  font-size: 0.82rem;
+}
+.deposit-recon__lines {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0;
+}
+.deposit-recon__lines > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.15rem 0.75rem;
+}
+.deposit-recon__lines dt {
+  color: var(--calm-muted, #6c7b75);
+}
+.deposit-recon__lines dd {
+  margin: 0;
+  font-weight: 700;
+}
+.deposit-recon__income dd {
+  color: #11643f;
+}
+.deposit-recon__no {
+  margin-inline-start: 0.4rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 0.3rem;
+  background: #eef1f0;
+  color: #3f4d47;
+  font-weight: 600;
+}
+.deposit-recon__note {
+  margin: 0;
+  line-height: 1.5;
+  white-space: pre-line;
+  unicode-bidi: plaintext;
+}
+.deposit-recon__trust {
+  margin: 0 0 0.3rem;
+  color: #1f5a85;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.deposit-recon__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.deposit-recon__actions .button {
+  min-height: 2rem;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.78rem;
+}
+
+/* Deposits held in trust on the accountant page */
+.deposit-ledger__who {
+  display: grid;
+  gap: 0.1rem;
+}
+.deposit-ledger__head h2 {
+  margin: 0 0 0.3rem;
+  font-size: 1.1rem;
+}
+.deposit-ledger__head p {
+  margin: 0;
+  line-height: 1.6;
+  font-size: 0.88rem;
+}
+.deposit-ledger__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.6rem;
+}
+.deposit-ledger__card {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--pmh-line, #e2e8e5);
+  border-radius: 0.6rem;
+  background: #fbfcfb;
+}
+.deposit-ledger__label {
+  font-size: 0.8rem;
+  color: var(--calm-muted, #6c7b75);
+  font-weight: 600;
+}
+.deposit-ledger__card strong {
+  font-size: 1.05rem;
+}
+.deposit-ledger__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.deposit-ledger__chip {
+  padding: 0.3rem 0.75rem;
+  border: 1px solid var(--pmh-line, #e2e8e5);
+  border-radius: 999px;
+  background: white;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.deposit-ledger__chip.is-active {
+  border-color: #0b623c;
+  background: #e3f4eb;
+  color: #0b623c;
+  font-weight: 700;
+}
+.deposit-ledger__list {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.deposit-ledger__item {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--pmh-line, #e2e8e5);
+  border-radius: 0.7rem;
+  background: white;
+  scroll-margin-top: 6rem;
+}
+.deposit-ledger__item.is-focus {
+  border-color: #d6a63a;
+  background: #fffaf0;
+}
+.deposit-ledger__item-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+.deposit-ledger__item-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.6rem 1.25rem;
+  align-items: start;
+}
+.deposit-ledger__item-body .deposit-recon,
+.deposit-ledger__item-body .psr-refund {
+  max-width: none;
+}
+.deposit-ledger__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.deposit-ledger__empty {
+  margin: 0;
 }
 
 /* AI note translation (refund, handover, and contract notes) */

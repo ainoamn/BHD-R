@@ -7,9 +7,9 @@ import {
   clearOpsContextDbCache,
   loadOpsContextFromDb,
   loadOpsRecordsFromDb,
-  loadStayAccountingRowsForViewer,
 } from '@/lib/portal-ops-data';
 import { loadOpsSectionFromNeon } from '@/lib/portal-ops-sections-neon';
+import { loadStayIncomeRowsForViewer } from '@/lib/stay-deposit-ledger-neon';
 import { loadStayBookingOpsRows, tagLeaseBookingPurpose } from '@/lib/unified-bookings';
 import type { PortalRole } from '@/lib/types';
 import type { OperationsContext } from '@/components/operations-console';
@@ -151,7 +151,7 @@ async function loadFromNest(portal: PortalRole, section: OperationsSection): Pro
           apiFetch<Record<string, unknown>>('/v1/accounting/dashboard').catch(() => ({})),
           safeRows('/v1/finance/cheques'),
           safeRows('/v1/finance/invoices'),
-          loadStayAccountingRowsForViewer(),
+          loadStayIncomeRowsForViewer(),
           safeRows('/v1/accounting/accounts'),
         ]);
       return {
@@ -161,7 +161,8 @@ async function loadFromNest(portal: PortalRole, section: OperationsSection): Pro
           ...dashboard,
           activeLeaseInvoices: invoiceRows.filter((row) => row.leaseId && row.status !== 'void')
             .length,
-          stayPaymentsCollected: stayPayments.length,
+          stayPaymentsCollected: stayPayments.filter((row) => row.recordKind === 'stay_payment')
+            .length,
           pendingCheques: chequeRows.filter((row) => row.reviewStatus === 'pending').length,
         },
         secondary: [
@@ -226,7 +227,7 @@ async function loadSection(portal: PortalRole, section: OperationsSection): Prom
   // Accounting: always paint Neon stay rows first. Nest journals are optional
   // enrichment with a hard ceiling so Render cold starts cannot block the page.
   if (hasDatabaseUrl() && section === 'accounting') {
-    const stayPayments = await loadStayAccountingRowsForViewer();
+    const stayPayments = await loadStayIncomeRowsForViewer();
     const nestEnrichment = await Promise.race([
       (async () => {
         const ready = await probeNestHealthz();
@@ -254,7 +255,8 @@ async function loadSection(portal: PortalRole, section: OperationsSection): Prom
           activeLeaseInvoices: nestEnrichment.invoiceRows.filter(
             (row) => row.leaseId && row.status !== 'void',
           ).length,
-          stayPaymentsCollected: stayPayments.length,
+          stayPaymentsCollected: stayPayments.filter((row) => row.recordKind === 'stay_payment')
+            .length,
           pendingCheques: nestEnrichment.chequeRows.filter((row) => row.reviewStatus === 'pending')
             .length,
         },
@@ -276,7 +278,10 @@ async function loadSection(portal: PortalRole, section: OperationsSection): Prom
     return {
       records: stayPayments,
       source: stayPayments.length ? 'db' : 'offline',
-      summary: { stayPaymentsCollected: stayPayments.length },
+      summary: {
+        stayPaymentsCollected: stayPayments.filter((row) => row.recordKind === 'stay_payment')
+          .length,
+      },
       secondary: stayPayments,
     };
   }

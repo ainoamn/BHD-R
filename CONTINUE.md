@@ -1,5 +1,28 @@
 # CONTINUE — 2026-10-12
 
+**0.8.18** · أمانات التأمين في صفحة المحاسب:
+
+- **القاعدة:** التأمين أمانة، لا دخل. يُعدّ مستلماً من `checked_in` بمبلغ `stay_profiles.deposit_minor`.
+  - الاسترداد يُخرج من الأمانة.
+  - المحتجز = التأمين − المُسترد بعد `executed`، أو التأمين كاملاً عند `rejected`. وهو وحده دخل للعقار.
+- **المشترك (`lib/stay-deposit-refund.ts`):**
+  - `depositHolding`: `deposit_held`، `awaiting_deposit_refund`، `awaiting_refund_transfer`، `deposit_settled`.
+  - `retainedDepositMinor`، و`depositReceiptNumbers` (`DR-`/`DI-` + المرجع دون `ST-`).
+- **الخادم:**
+  - `lib/stay-deposit-ledger-neon.ts`: `loadDepositLedger` صف لكل إقامة، و`loadStayIncomeRowsForViewer` (دفعات الإقامة + سطور `deposit_retained`). و`refundFields` و`accountReader` انتقلا إليه.
+  - `GET /api/owner/accounting/deposits`.
+  - أحداث `deposit_refund` تحفظ `depositMinor` عند القرار. وعند `paid` تحفظ أيضاً `retainedMinor` و`receipts`، و`settledDepositMinor` في `DepositRefundView` يقرأها.
+- **الواجهة:**
+  - `DepositLedgerPanel` يُمرَّر إلى `OperationsConsole` عبر `beforeList` في `PortalMainSlot` للقسم `accounting`.
+  - `DepositReconciliation` و`printDepositReceipt` مشتركان مع صفحة العقار.
+  - حسابات العقار: سطور `deposit_received` (اتجاه `held`)، و`deposit_refund`، و`deposit_retained`.
+- **الروابط:** «لدى المحاسب ←» و`pendingApprovalHref('refund_transfer')` يفتحان `/{portal}/accounting?focus=<bookingId>#deposits`.
+- **لاحقاً:** تأمينات عقود الإيجار (الشيكات)، وقيد يومية للخصم في دليل الحسابات عند تفعيله.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.18-AR.md`](./docs/implementation/RELEASE-0.8.18-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.17** · التقييم الإلزامي من الطرفين:
 
 - **البيانات (0028):** `booking_reviews` فيه تقييم واحد لكل `(booking_id, direction)`، والاتجاه `guest_to_host` أو `host_to_guest`. ومعه `booking_review_photos` (صور data URL) و`review_profiles` (خلاصة الملف، والمفتاح `(subject_type, subject_key)`). مطبَّق على الإنتاج.

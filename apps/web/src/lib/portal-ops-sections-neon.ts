@@ -30,11 +30,8 @@ import {
 } from '@bhd-r/db';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { contractCategory, contractTerm, propertyUsage } from '@/lib/contract-list-facets';
-import {
-  loadStayAccountingRowsForViewer,
-  readClaims,
-  withinViewerTenant,
-} from '@/lib/portal-ops-data';
+import { readClaims, withinViewerTenant } from '@/lib/portal-ops-data';
+import { loadStayIncomeRowsForViewer } from '@/lib/stay-deposit-ledger-neon';
 import type { OperationsSection } from '@/lib/portal-ops-types';
 import type { PortalRole } from '@/lib/types';
 import { isStaysPlatformEnabled } from '@/lib/stays-flags';
@@ -694,11 +691,15 @@ async function readSection(
     case 'accounting': {
       const [ledger, stayPayments] = await Promise.all([
         withinViewerTenant(claims, (tx) => loadAccounting(tx, orgId, can)),
-        loadStayAccountingRowsForViewer(),
+        loadStayIncomeRowsForViewer(),
       ]);
       return {
         records: [...stayPayments, ...ledger.journals],
-        summary: { ...ledger.summary, stayPaymentsCollected: stayPayments.length },
+        summary: {
+          ...ledger.summary,
+          stayPaymentsCollected: stayPayments.filter((row) => row.recordKind === 'stay_payment')
+            .length,
+        },
         secondary: [...(ledger.secondary ?? []), ...stayPayments],
         ...(ledger.contextPatch ? { contextPatch: ledger.contextPatch } : {}),
       };

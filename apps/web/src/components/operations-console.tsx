@@ -745,6 +745,23 @@ function scalar(row: DataRow, column: Column): unknown {
   return null;
 }
 
+/** Kind of an accounting list line: stay payment, deposit deduction kept as income, or journal. */
+function accountingKindLabel(recordKind: string, ar: boolean, long = false): string {
+  if (recordKind === 'stay_payment') {
+    return long ? (ar ? 'تحصيل إقامة (وارد)' : 'Stay payment (inbound)') : ar ? 'إقامة' : 'stay';
+  }
+  if (recordKind === 'deposit_retained') {
+    return long
+      ? ar
+        ? 'دخل من خصم التأمين (وارد)'
+        : 'Kept from a deposit (income)'
+      : ar
+        ? 'خصم تأمين'
+        : 'deposit deduction';
+  }
+  return long ? (ar ? 'قيد يومية' : 'Journal') : ar ? 'قيد' : 'journal';
+}
+
 function safeString(value: unknown): string {
   if (
     typeof value === 'string' ||
@@ -2336,6 +2353,7 @@ export function OperationsConsole({
   active = true,
   loading = false,
   loadError = false,
+  beforeList = null,
 }: {
   portal: PortalRole;
   section: OperationsSection;
@@ -2352,6 +2370,8 @@ export function OperationsConsole({
   active?: boolean;
   loading?: boolean;
   loadError?: boolean;
+  /** Section panel shown under the page header, above the metrics and the list. */
+  beforeList?: ReactNode;
 }) {
   const router = useRouter();
   const search = useSearchParams().toString();
@@ -2973,7 +2993,7 @@ export function OperationsConsole({
     setAccountingDetail(row);
     setAccountingJournalLines([]);
     const kind = safeString(row.recordKind);
-    if (kind === 'stay_payment') return;
+    if (kind === 'stay_payment' || kind === 'deposit_retained') return;
     const id = safeString(row.id);
     if (!id) return;
     setAccountingDetailBusy(true);
@@ -3002,8 +3022,20 @@ export function OperationsConsole({
   function printAccountingDetail() {
     if (!accountingDetail) return;
     const row = accountingDetail;
-    const kind = safeString(row.recordKind) === 'stay_payment' ? 'stay' : 'journal';
+    const recordKind = safeString(row.recordKind);
+    const kind =
+      recordKind === 'stay_payment'
+        ? 'stay'
+        : recordKind === 'deposit_retained'
+          ? 'deposit'
+          : 'journal';
     const currency = safeString(row.currency) || 'OMR';
+    const depositHtml =
+      kind === 'deposit'
+        ? `<p class="meta"><strong>${ar ? 'المبلغ' : 'Amount'}:</strong> <span dir="ltr">${formatMoney(safeString(row.amountMinor) || '0', currency, locale)}</span></p>
+<p class="meta"><strong>${ar ? 'من تأمين مستلم' : 'Out of a deposit of'}:</strong> <span dir="ltr">${formatMoney(safeString(row.depositMinor) || '0', currency, locale)}</span>${safeString(row.refundedMinor) ? ` · ${ar ? 'مُسترد للضيف' : 'refunded'} <span dir="ltr">${formatMoney(safeString(row.refundedMinor), currency, locale)}</span>` : ''}</p>
+<p class="meta"><strong>${ar ? 'إيصال الاسترداد المرتبط' : 'Linked refund receipt'}:</strong> <span dir="ltr">${safeString(row.refundReceiptNo) || '—'}</span></p>`
+        : '';
     const linesHtml =
       kind === 'journal' && accountingJournalLines.length
         ? `<table><thead><tr><th>${ar ? 'الحساب' : 'Account'}</th><th>${ar ? 'مدين' : 'Debit'}</th><th>${ar ? 'دائن' : 'Credit'}</th><th>${ar ? 'بيان' : 'Memo'}</th></tr></thead><tbody>${accountingJournalLines
@@ -3020,14 +3052,16 @@ export function OperationsConsole({
 <p class="meta"><strong>${ar ? 'التاريخ' : 'Date'}:</strong> ${safeString(row.occurredOn) || safeString(row.createdAt) || '—'}</p>
 <p class="meta"><strong>${ar ? 'البيان' : 'Description'}:</strong> ${safeString(row.description) || safeString(row.memo) || '—'}</p>
 <p class="meta"><strong>${ar ? 'الحالة' : 'Status'}:</strong> ${safeString(row.status) || '—'}</p>
-<p class="meta"><strong>${ar ? 'النوع' : 'Kind'}:</strong> ${kind === 'stay' ? (ar ? 'تحصيل إقامة (وارد)' : 'Stay payment (inbound)') : ar ? 'قيد يومية' : 'Journal'}</p>
-${
-  kind === 'stay'
-    ? `<p class="meta"><strong>${ar ? 'المبلغ' : 'Amount'}:</strong> <span dir="ltr">${formatMoney(safeString(row.amountMinor) || safeString(row.debitMinor) || '0', currency, locale)}</span></p>
+<p class="meta"><strong>${ar ? 'النوع' : 'Kind'}:</strong> ${accountingKindLabel(recordKind, ar, true)}</p>
+${depositHtml}${
+      kind === 'stay'
+        ? `<p class="meta"><strong>${ar ? 'المبلغ' : 'Amount'}:</strong> <span dir="ltr">${formatMoney(safeString(row.amountMinor) || safeString(row.debitMinor) || '0', currency, locale)}</span></p>
 <p class="meta"><strong>${ar ? 'المزود' : 'Provider'}:</strong> ${safeString(row.provider) || '—'}</p>
 <p class="meta"><strong>${ar ? 'الوصول / المغادرة' : 'Check-in / out'}:</strong> ${safeString(row.checkInOn) || '—'} → ${safeString(row.checkOutOn) || '—'}</p>`
-    : linesHtml
-}
+        : kind === 'journal'
+          ? linesHtml
+          : ''
+    }
 <p class="muted">${ar ? 'كشف تشغيلي من BHD R — الأستاذ المفصّل في Hisaby.' : 'Operational slip from BHD R — detailed GL in Hisaby.'}</p>
 <script>window.onload=()=>{window.print();}</script></body></html>`;
     const popup = window.open('', '_blank', 'noopener,noreferrer,width=900,height=700');
@@ -3052,14 +3086,7 @@ ${
     ];
     const escape = (value: string) => `"${value.replaceAll('"', '""')}"`;
     const rows = filtered.map((row) => {
-      const kind =
-        safeString(row.recordKind) === 'stay_payment'
-          ? ar
-            ? 'إقامة'
-            : 'stay'
-          : ar
-            ? 'قيد'
-            : 'journal';
+      const kind = accountingKindLabel(safeString(row.recordKind), ar);
       return [
         safeString(row.reference),
         safeString(row.occurredOn) || safeString(row.createdAt).slice(0, 10),
@@ -3093,7 +3120,7 @@ ${
 <td dir="ltr">${formatMoney(safeString(row.debitMinor) || safeString(row.amountMinor) || '0', cur, locale)}</td>
 <td dir="ltr">${formatMoney(safeString(row.creditMinor) || '0', cur, locale)}</td>
 <td>${safeString(row.status) || '—'}</td>
-<td>${safeString(row.recordKind) === 'stay_payment' ? (ar ? 'إقامة' : 'stay') : ar ? 'قيد' : 'journal'}</td>
+<td>${accountingKindLabel(safeString(row.recordKind), ar)}</td>
 </tr>`;
       })
       .join('');
@@ -3733,6 +3760,8 @@ ${
           </ul>
         </section>
       ) : null}
+
+      {beforeList}
 
       {isDailyBookings ? null : (
         <section
@@ -4524,6 +4553,16 @@ ${
                                     {ar ? 'الحجز' : 'Booking'}
                                   </Link>
                                 ) : null}
+                                {safeString(row.recordKind) === 'deposit_retained' &&
+                                safeString(row.bookingId) ? (
+                                  <Link
+                                    className="ops-action"
+                                    href={`/${portal}/accounting?focus=${encodeURIComponent(safeString(row.bookingId))}#deposits`}
+                                    prefetch={false}
+                                  >
+                                    {ar ? 'التأمين' : 'Deposit'}
+                                  </Link>
+                                ) : null}
                               </span>
                             ) : documentKind ? (
                               <button
@@ -4825,15 +4864,37 @@ ${
                     <div>
                       <dt>{ar ? 'النوع' : 'Kind'}</dt>
                       <dd>
-                        {safeString(accountingDetail.recordKind) === 'stay_payment'
-                          ? ar
-                            ? 'تحصيل إقامة (وارد)'
-                            : 'Stay payment (inbound)'
-                          : ar
-                            ? 'قيد يومية'
-                            : 'Journal'}
+                        {accountingKindLabel(safeString(accountingDetail.recordKind), ar, true)}
                       </dd>
                     </div>
+                    {safeString(accountingDetail.recordKind) === 'deposit_retained' ? (
+                      <>
+                        <div>
+                          <dt>{ar ? 'المبلغ' : 'Amount'}</dt>
+                          <dd dir="ltr">
+                            {formatMoney(
+                              safeString(accountingDetail.amountMinor) || '0',
+                              safeString(accountingDetail.currency) || 'OMR',
+                              locale,
+                            )}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>{ar ? 'من تأمين مستلم' : 'Out of a deposit of'}</dt>
+                          <dd dir="ltr">
+                            {formatMoney(
+                              safeString(accountingDetail.depositMinor) || '0',
+                              safeString(accountingDetail.currency) || 'OMR',
+                              locale,
+                            )}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>{ar ? 'إيصال الاسترداد المرتبط' : 'Linked refund receipt'}</dt>
+                          <dd dir="ltr">{safeString(accountingDetail.refundReceiptNo) || '—'}</dd>
+                        </div>
+                      </>
+                    ) : null}
                     {safeString(accountingDetail.recordKind) === 'stay_payment' ? (
                       <>
                         <div>
@@ -4926,6 +4987,17 @@ ${
                         prefetch
                       >
                         {ar ? 'فتح الحجز' : 'Open booking'}
+                      </Link>
+                    ) : null}
+                    {safeString(accountingDetail.recordKind) === 'deposit_retained' &&
+                    safeString(accountingDetail.bookingId) ? (
+                      <Link
+                        className="button button--quiet"
+                        href={`/${portal}/accounting?focus=${encodeURIComponent(safeString(accountingDetail.bookingId))}#deposits`}
+                        prefetch={false}
+                        onClick={() => setAccountingDetail(null)}
+                      >
+                        {ar ? 'تسوية التأمين والإيصالات' : 'Deposit settlement & receipts'}
                       </Link>
                     ) : null}
                   </div>

@@ -242,6 +242,12 @@ export function DepositRefundForm({
   const ar = locale === 'ar';
   const id = `refund-${mode}-${row.id ?? ''}`;
   const currency = row.currency ?? 'OMR';
+  const kept =
+    mode === 'payout' &&
+    /^\d+$/.test(row.depositMinor ?? '') &&
+    /^\d+$/.test(row.refundAmountMinor ?? '')
+      ? BigInt(row.depositMinor!) - BigInt(row.refundAmountMinor!)
+      : 0n;
   const [amount, setAmount] = useState(defaultAmount);
   const [note, setNote] = useState('');
   const [method, setMethod] = useState<RefundPayoutMethod>(
@@ -339,6 +345,16 @@ export function DepositRefundForm({
             {' · '}
             {ar ? 'المبلغ المعتمد للتحويل' : 'Approved to transfer'}{' '}
             <strong dir="ltr">{formatMoney(row.refundAmountMinor, currency, locale)}</strong>
+            {kept > 0n ? (
+              <>
+                <br />
+                {ar
+                  ? 'يُسجَّل الفرق دخلاً للعقار بعد التحويل، بإيصال مرتبط بإيصال الاسترداد'
+                  : 'The difference is booked as property income after the transfer, with a receipt linked to the refund receipt'}
+                {': '}
+                <strong dir="ltr">{formatMoney(kept.toString(), currency, locale)}</strong>
+              </>
+            ) : null}
           </>
         ) : null}
         {row.refundGuestNote ? (
@@ -374,8 +390,8 @@ export function DepositRefundForm({
             />
             <small className="muted">
               {ar
-                ? 'كامل التأمين افتراضياً؛ يمكنك تخفيضه عند وجود خصم، مع ذكر السبب في الملاحظة.'
-                : 'The full deposit by default; lower it for a deduction and give the reason in the note.'}
+                ? 'كامل التأمين افتراضياً؛ يمكنك تخفيضه عند وجود خصم، مع ذكر السبب في الملاحظة. المخصوم يُسجَّل دخلاً للعقار بالملاحظة نفسها بعد تحويل الاسترداد.'
+                : 'The full deposit by default; lower it for a deduction and give the reason in the note. The deduction is booked as property income, with the same note, once the refund is transferred.'}
             </small>
           </div>
         ) : null}

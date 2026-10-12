@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  depositHolding,
+  depositReceiptNumbers,
   depositRefundStage,
   guestDepositRefund,
+  retainedDepositMinor,
   hasDeposit,
   maskAccount,
   REFUND_CONSENT,
@@ -31,6 +34,7 @@ const view: DepositRefundView = {
   decidedAt: '2026-10-12T09:00:00.000Z',
   decidedBy: 'Owner',
   decisionNote: null,
+  settledDepositMinor: null,
   transfer: {
     method: 'bank',
     account: 'OM81 0123 4567 8901 2345',
@@ -84,8 +88,30 @@ describe('deposit refund', () => {
       '/owner/properties/p1?section=bookings&focus=b1',
     );
     expect(pendingApprovalHref('owner', item('refund_transfer'))).toBe(
-      '/owner/properties/p1?section=accounting&focus=b1',
+      '/owner/accounting?focus=b1#deposits',
     );
+  });
+
+  it('keeps deposits out of income until settled, then books only the deduction', () => {
+    expect(depositHolding('checked_in', null)).toBe('deposit_held');
+    expect(depositHolding('checked_out', null)).toBe('awaiting_deposit_refund');
+    expect(depositHolding('checked_out', 'requested')).toBe('awaiting_deposit_refund');
+    expect(depositHolding('checked_out', 'approved')).toBe('awaiting_refund_transfer');
+    expect(depositHolding('closed', 'executed')).toBe('deposit_settled');
+    expect(depositHolding('closed', 'rejected')).toBe('deposit_settled');
+
+    expect(retainedDepositMinor('80000', 'approved', '60000')).toBeNull();
+    expect(retainedDepositMinor('80000', 'executed', '60000')).toBe('20000');
+    expect(retainedDepositMinor('80000', 'executed', '80000')).toBeNull();
+    expect(retainedDepositMinor('80000', 'rejected', '80000')).toBe('80000');
+    expect(retainedDepositMinor(null, 'executed', '60000')).toBeNull();
+  });
+
+  it('links the refund and income receipts of one stay', () => {
+    expect(depositReceiptNumbers('ST-FE61E6C8')).toEqual({
+      refund: 'DR-FE61E6C8',
+      income: 'DI-FE61E6C8',
+    });
   });
 
   it('accepts bank accounts / IBANs and phone numbers only', () => {

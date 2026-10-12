@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { PortalRole } from '@/lib/types';
 import type { OperationsSection, OperationsWorkspacePayload } from '@/lib/portal-ops-types';
 import {
@@ -29,11 +29,13 @@ export function OperationsWorkspaceClient({
   section,
   locale,
   active = true,
+  beforeList = null,
 }: {
   portal: PortalRole;
   section: OperationsSection;
   locale: 'ar' | 'en';
   active?: boolean;
+  beforeList?: ReactNode;
 }) {
   const cached = getOpsCache(portal, section);
   const [payload, setPayload] = useState<OperationsWorkspacePayload>(() =>
@@ -122,6 +124,7 @@ export function OperationsWorkspaceClient({
         dataFromDb={payload.dataFromDb}
         loading={hydrating}
         loadError={statusReady ? Boolean(payload.loadError) : false}
+        beforeList={beforeList}
       />
     </div>
   );

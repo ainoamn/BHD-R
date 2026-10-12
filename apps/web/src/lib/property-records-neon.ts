@@ -25,7 +25,8 @@ import {
 import { loadBookingReviewFacts } from '@/lib/booking-reviews-neon';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 import { loadStayStamps } from '@/lib/stay-arrival-neon';
-import { depositRefundStage, maskAccount, type DepositRefundView } from '@/lib/stay-deposit-refund';
+import { depositRefundStage } from '@/lib/stay-deposit-refund';
+import { accountReader, loadDepositLedger, refundFields } from '@/lib/stay-deposit-ledger-neon';
 import { loadBookingDeposits, loadDepositRefunds } from '@/lib/stay-deposit-refund-neon';
 
 export const PROPERTY_RECORD_SECTIONS = [
@@ -316,43 +317,6 @@ function leaseDisplayStatus(
 type CodeOf = (id: string | null | undefined) => string | null;
 
 const STAY_AFTER_CHECK_OUT = new Set(['checked_out', 'closed']);
-
-/** Full account numbers for refund approvers and accountants; masked for everyone else. */
-function accountReader(revealAccounts: boolean) {
-  return (value: string | null | undefined) =>
-    !value ? null : revealAccounts ? value : maskAccount(value);
-}
-
-/** Refund request, decision and transfer of one stay, as flat row fields. */
-function refundFields(
-  refund: DepositRefundView | undefined,
-  account: (value: string | null | undefined) => string | null,
-): PropertyRecordRow {
-  const transfer = refund?.transfer;
-  return {
-    refundStatus: refund?.status ?? null,
-    refundAmountMinor: refund?.amountMinor ?? null,
-    refundRequestedAt: refund?.requestedAt ?? null,
-    refundRequestedBy: refund?.requestedBy ?? null,
-    refundGuestNote: refund?.guestNote ?? null,
-    refundGuestMethod: refund?.guestPayout?.method ?? null,
-    refundGuestAccount: account(refund?.guestPayout?.account),
-    refundGuestBank: refund?.guestPayout?.bank ?? null,
-    refundGuestHolder: refund?.guestPayout?.holder ?? null,
-    refundGuestPhone: account(refund?.guestPayout?.phone),
-    refundDecidedAt: refund?.decidedAt ?? null,
-    refundDecidedBy: refund?.decidedBy ?? null,
-    refundDecisionNote: refund?.decisionNote ?? null,
-    refundPaidAt: transfer?.at ?? null,
-    refundPaidMethod: transfer?.method ?? null,
-    refundPaidAccount: account(transfer?.account),
-    refundPaidBank: transfer?.bank ?? null,
-    refundPaidHolder: transfer?.holder ?? null,
-    refundPaidReference: transfer?.reference ?? null,
-    refundPaidBy: transfer?.recordedBy ?? null,
-    refundReceipt: transfer?.hasReceipt ? '1' : null,
-  };
-}
 
 /** Where a stay stands for the host: waiting for the guest to arrive, or to leave. */
 function stayStage(status: string): string {
@@ -902,75 +866,66 @@ async function loadInvoices(
 }
 
 /**
- * Deposit refunds the host approved: waiting for the accountant's transfer, or transferred
- * (completed). The accountant records the transfer from here, not from the bookings tab.
+ * Stay deposits of the property, kept apart from income: the deposit held in trust, its refund
+ * to the guest (out of the deposit, not of income) and the deducted part, which alone becomes
+ * the property's income. The refund and income rows carry the same linked receipt numbers.
  */
-async function loadRefundTransfers(
+async function loadDepositRows(
   tx: Tx,
   orgId: string,
   propertyId: string,
-  codeOf: CodeOf,
   revealAccounts: boolean,
 ): Promise<PropertyRecordRow[]> {
-  const stays = await tx
-    .select({
-      id: stayBookings.id,
-      referenceCode: stayBookings.referenceCode,
-      unitId: stayBookings.unitId,
-      currency: stayBookings.currency,
-      contactName: sql<
-        string | null
-      >`${stayBookings.pricingSnapshotJson}->'guestContact'->>'displayName'`,
-    })
-    .from(stayBookings)
-    .where(
-      and(
-        eq(stayBookings.organizationId, orgId),
-        eq(stayBookings.propertyId, propertyId),
-        inArray(stayBookings.status, [...STAY_AFTER_CHECK_OUT]),
-      ),
-    )
-    .orderBy(desc(stayBookings.updatedAt))
-    .limit(ROW_LIMIT);
-  if (!stays.length) return [];
-  const ids = stays.map((row) => row.id);
-  const [deposits, refunds, guests] = await Promise.all([
-    loadBookingDeposits(tx, orgId, ids),
-    loadDepositRefunds(tx, orgId, ids),
-    tx
-      .select({ bookingId: stayBookingGuests.bookingId, name: stayBookingGuests.displayName })
-      .from(stayBookingGuests)
-      .where(and(inArray(stayBookingGuests.bookingId, ids), eq(stayBookingGuests.isPrimary, true))),
-  ]);
-  const guestByBooking = new Map(guests.map((row) => [row.bookingId, row.name]));
-  const account = accountReader(revealAccounts);
-  return stays.flatMap((row) => {
-    const refund = refunds.get(row.id);
-    if (refund?.status !== 'approved' && refund?.status !== 'executed') return [];
-    const transferred = refund.status === 'executed';
-    return [
+  const ledger = await loadDepositLedger(tx, orgId, { propertyId }, revealAccounts);
+  return ledger.flatMap((entry) => {
+    const bookingId = entry.id ?? '';
+    const linked = {
+      ...entry,
+      bookingId,
+      depositStatus: entry.status ?? null,
+    };
+    const rows: PropertyRecordRow[] = [
       {
-        ...refundFields(refund, account),
-        id: row.id,
-        kind: 'deposit_refund',
-        direction: 'out',
-        reference: row.referenceCode,
-        unitCode: codeOf(row.unitId),
-        party: guestByBooking.get(row.id) ?? row.contactName,
+        ...linked,
+        id: `deposit-${bookingId}`,
+        kind: 'deposit_received',
+        direction: 'held',
         description: null,
-        status: transferred ? 'completed' : 'awaiting_refund_transfer',
-        depositMinor: deposits.get(row.id) ?? null,
-        amountMinor: refund.amountMinor,
-        currency: refund.currency || row.currency,
-        fromOn: isoDate(refund.transfer?.at ?? refund.decidedAt),
+        amountMinor: entry.depositMinor ?? null,
+        fromOn: entry.receivedOn ?? null,
       },
     ];
+    if (entry.refundStatus === 'approved' || entry.refundStatus === 'executed') {
+      rows.push({
+        ...linked,
+        id: bookingId,
+        kind: 'deposit_refund',
+        direction: 'out',
+        description: null,
+        status: entry.refundStatus === 'executed' ? 'completed' : 'awaiting_refund_transfer',
+        amountMinor: entry.refundAmountMinor ?? null,
+        fromOn: isoDate(entry.refundPaidAt ?? entry.refundDecidedAt),
+      });
+    }
+    if (entry.retainedMinor) {
+      rows.push({
+        ...linked,
+        id: `retained-${bookingId}`,
+        kind: 'deposit_retained',
+        direction: 'in',
+        description: entry.refundDecisionNote ?? null,
+        status: 'deposit_income',
+        amountMinor: entry.retainedMinor,
+        fromOn: isoDate(entry.settledOn),
+      });
+    }
+    return rows;
   });
 }
 
 /**
- * Money in (stay payments, lease invoice payments) and out (expenses) for the property, plus
- * approved deposit refunds for the accountant to transfer.
+ * Money in (stay payments, lease invoice payments, kept deposit deductions) and out (expenses)
+ * for the property, with the stay deposits held in trust beside them.
  */
 async function loadAccounting(
   tx: Tx,
@@ -1046,7 +1001,7 @@ async function loadAccounting(
       )
       .orderBy(desc(expenses.issuedOn))
       .limit(ROW_LIMIT),
-    loadRefundTransfers(tx, orgId, propertyId, codeOf, revealAccounts),
+    loadDepositRows(tx, orgId, propertyId, revealAccounts),
   ]);
   const names = await partyNames(
     tx,

@@ -7,6 +7,7 @@ import { LeaseContractForm, type LeaseContractPayload } from '@/components/lease
 import { LeaseTermsView, parseLeaseTerms, parseTenantDetails } from '@/components/lease-terms-view';
 import { NoteTranslateBar } from '@/components/note-translate';
 import { Icon, type IconName } from '@/components/pmh-icon';
+import { DepositReconciliation } from '@/components/accounting/deposit-receipts';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { LIVE_CHANGE_EVENT } from '@/lib/live-sync-shared';
@@ -97,6 +98,8 @@ const LABELS: Record<string, [string, string]> = {
   lease_payment: ['دفعة إيجار', 'Rent payment'],
   expense: ['مصروف', 'Expense'],
   deposit_refund: ['استرداد تأمين', 'Deposit refund'],
+  deposit_received: ['تأمين مستلم (أمانة)', 'Deposit received (trust)'],
+  deposit_retained: ['دخل من خصم التأمين', 'Kept from deposit'],
   initial: ['عقد أولي', 'Initial'],
   renewal: ['تجديد', 'Renewal'],
   amendment: ['ملحق تعديل', 'Amendment'],
@@ -276,8 +279,10 @@ const READY = new Set([
   'approved',
   'posted',
   'awaiting_check_out',
+  'deposit_settled',
+  'deposit_income',
 ]);
-const INFO = new Set(['awaiting_check_in']);
+const INFO = new Set(['awaiting_check_in', 'deposit_held']);
 const CHECK_IN_READY = new Set(['confirmed', 'pre_arrival']);
 const STAY_DEPARTED = new Set(['checked_out', 'closed']);
 const DANGER = new Set(['overdue', 'failed', 'payment_failed', 'no_show']);
@@ -503,6 +508,34 @@ function Cell({
       if (row.kind === 'deposit_refund') {
         return <DepositRefundCell row={row} locale={locale} receiptHref={receiptHref} />;
       }
+      if (row.kind === 'deposit_received') {
+        const money = (minor: string | null | undefined) =>
+          minor ? formatMoney(minor, row.currency ?? 'OMR', locale) : null;
+        const refunded = money(row.refundedMinor);
+        const kept = money(row.retainedMinor);
+        return (
+          <div className="deposit-recon">
+            <p className="deposit-recon__trust">
+              {ar
+                ? 'أمانة لدى العقار، معزولة عن الإيرادات.'
+                : 'Held in trust, kept apart from income.'}
+            </p>
+            {refunded || kept ? (
+              <small className="muted">
+                {[
+                  refunded ? `${ar ? 'مُسترد' : 'Refunded'} ${refunded}` : null,
+                  kept ? `${ar ? 'دخل للعقار' : 'Property income'} ${kept}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </small>
+            ) : null}
+          </div>
+        );
+      }
+      if (row.kind === 'deposit_retained') {
+        return <DepositReconciliation row={row} locale={locale} />;
+      }
       return value ? <>{value}</> : <span className="muted">—</span>;
     case 'status': {
       const status = column.key === 'status' ? displayStatus(row) : value;
@@ -675,11 +708,10 @@ function Cell({
       return value && row.currency ? (
         <span
           dir="ltr"
-          className={
-            row.direction === 'out' ? 'psr-money psr-money--out' : 'psr-money psr-money--in'
-          }
+          className={`psr-money psr-money--${row.direction === 'out' ? 'out' : row.direction === 'held' ? 'held' : 'in'}`}
         >
-          {row.direction === 'out' ? '−' : '+'} {formatMoney(value, row.currency, locale)}
+          {row.direction === 'out' ? '− ' : row.direction === 'held' ? '' : '+ '}
+          {formatMoney(value, row.currency, locale)}
         </span>
       ) : (
         <span className="muted">—</span>
@@ -1009,6 +1041,9 @@ export function PropertySectionRecords({
       const income = all.filter((r) => r.direction === 'in');
       const spent = all.filter((r) => r.kind === 'expense' && r.status !== 'rejected');
       const refundsDue = all.filter((r) => r.status === 'awaiting_refund_transfer');
+      const held = all.filter(
+        (r) => r.kind === 'deposit_received' && r.depositStatus !== 'deposit_settled',
+      );
       const net = totalsByCurrency(
         [
           ...income,
@@ -1026,6 +1061,16 @@ export function PropertySectionRecords({
           value: totalsByCurrency(spent, (r) => r.amountMinor),
         },
         { label: ar ? 'الصافي' : 'Net', value: net },
+        ...(held.length
+          ? [
+              {
+                label: ar
+                  ? `أمانات تأمين محتجزة (${held.length})`
+                  : `Deposits held in trust (${held.length})`,
+                value: totalsByCurrency(held, (r) => r.amountMinor),
+              },
+            ]
+          : []),
         ...(refundsDue.length
           ? [
               {
@@ -1161,8 +1206,8 @@ export function PropertySectionRecords({
             : `Deposit transfer recorded for ${row.reference}: the request is complete and the booking closed.`
           : value.decision === 'approve'
             ? ar
-              ? `تم اعتماد استرداد التأمين للحجز ${row.reference}، وانتقل الطلب إلى المحاسب ليحوّله من قسم «الحسابات».`
-              : `Deposit refund approved for ${row.reference}; the accountant transfers it from Accounting.`
+              ? `تم اعتماد استرداد التأمين للحجز ${row.reference}، وانتقل الطلب إلى المحاسب ليحوّله من صفحة المحاسب. ما يُخصم من التأمين يصبح دخلاً للعقار بعد التحويل.`
+              : `Deposit refund approved for ${row.reference}; the accountant transfers it from the Accounting page. Any deduction becomes property income after the transfer.`
             : ar
               ? `تم رفض استرداد التأمين للحجز ${row.reference} وأُغلق الحجز. يرى الضيف سبب الرفض.`
               : `Deposit refund rejected for ${row.reference}; the booking is closed.`,
@@ -1370,34 +1415,32 @@ export function PropertySectionRecords({
     };
     if (section === 'accounting') {
       if (row.kind !== 'deposit_refund' || row.refundStatus !== 'approved') return null;
-      if (!viewer.canPayRefunds) return null;
       return (
-        <button
-          type="button"
-          className="button button--primary psr-action"
-          disabled={busy}
-          aria-expanded={open('payout')}
-          onClick={() => toggle('payout')}
+        <Link
+          className={`button ${viewer.canPayRefunds ? 'button--primary' : 'button--quiet'} psr-action`}
+          href={`/${portal}/accounting?focus=${encodeURIComponent(row.id)}#deposits`}
+          prefetch={false}
         >
-          {ar ? 'تحويل التأمين' : 'Transfer deposit'}
-        </button>
+          {viewer.canPayRefunds
+            ? ar
+              ? 'التحويل من صفحة المحاسب ←'
+              : 'Transfer from Accounting →'
+            : ar
+              ? 'لدى المحاسب ←'
+              : 'With accountant →'}
+        </Link>
       );
     }
     if (section !== 'bookings' || row.kind !== 'stay') return null;
     if (row.refundStatus === 'approved') {
-      const id = row.id;
       return (
-        <a
+        <Link
           className="button button--quiet psr-action"
-          href={`?section=accounting&focus=${encodeURIComponent(id)}`}
-          onClick={(event) => {
-            if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey) return;
-            event.preventDefault();
-            openRecord('accounting', id);
-          }}
+          href={`/${portal}/accounting?focus=${encodeURIComponent(row.id)}#deposits`}
+          prefetch={false}
         >
           {ar ? 'لدى المحاسب ←' : 'With accountant →'}
-        </a>
+        </Link>
       );
     }
     if (row.stage === 'awaiting_deposit_refund' && viewer.canDecideRefunds && row.hostReviewScore) {
@@ -1671,8 +1714,8 @@ export function PropertySectionRecords({
                             receiptHref={
                               (viewer.canDecideRefunds || viewer.canPayRefunds) &&
                               row.refundReceipt &&
-                              row.id
-                                ? `/api/owner/properties/${encodeURIComponent(propertyId)}/records/refund-receipt/${row.id}`
+                              (row.bookingId ?? row.id)
+                                ? `/api/owner/properties/${encodeURIComponent(propertyId)}/records/refund-receipt/${row.bookingId ?? row.id}`
                                 : null
                             }
                           />
