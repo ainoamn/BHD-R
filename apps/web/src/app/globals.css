@@ -17628,6 +17628,7 @@ body:has(.stay-esign-shell) {
   font-weight: 600;
 }
 .verify-card__statement b {
+  color: #c8102e;
   font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
   font-size: 1.15rem;
   letter-spacing: 0.04em;
