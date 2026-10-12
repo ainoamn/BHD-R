@@ -1,8 +1,10 @@
 # توثيق مشروع BHD R — إدارة العقارات
 
-**الإصدار:** 0.1.6
+**الإصدار:** 0.8.33
 
-**التاريخ:** 24 أغسطس 2026
+**التاريخ:** 12 أكتوبر 2026 (أُنشئت الوثيقة في 24 أغسطس 2026 مع الإصدار 0.1.6)
+
+**تسليم آخر جلسة:** [`handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه ما تم من 25 أغسطس إلى 12 أكتوبر 2026 بالتاريخ والوقت، وفهرس الإصدارات، والمهام المفتوحة.
 
 **المستودع المستهدف:** [ainoamn/BHD-R](https://github.com/ainoamn/BHD-R)
 
@@ -27,7 +29,7 @@
 | المنتج   | منصة عقارية متعددة الأدوار مع سوق عام                                               |
 | الهوية   | BHD Identity OIDC (`bhd-r`) عبر `/api/auth/bhd/*` + جلسات Host-only `bhd_r_session` |
 | الواجهة  | Next.js 16 + React 19 + Tailwind 4 + next-intl                                      |
-| الـ API  | NestJS 11 على Fastify                                                               |
+| الـ API  | NestJS 11 على Express (منذ 0.2.45؛ كان على Fastify)                                 |
 | البيانات | PostgreSQL 17 + PostGIS + Drizzle + RLS                                             |
 | الخلفية  | Worker + Redis/BullMQ + Outbox                                                      |
 | الوسائط  | S3 خاص للأصل + مشتقات عامة بعلامة مائية                                             |
@@ -776,7 +778,7 @@ flowchart TD
 BHD-R/
 ├── apps/
 │   ├── web/          # Next.js — موقع + 4 لوحات
-│   ├── api/          # NestJS/Fastify — مصدر الحقيقة للأذونات والمعاملات
+│   ├── api/          # NestJS/Express — مصدر الحقيقة للأذونات والمعاملات
 │   └── worker/       # صور، PDF، إشعارات، outbox
 ├── packages/
 │   ├── db/           # Drizzle schema + migrations + RLS + seed
@@ -801,7 +803,7 @@ BHD-R/
 | Runtime       | Node.js 24+, pnpm 10, Turbo                              |
 | اللغة         | TypeScript 5.9 strict                                    |
 | Web           | Next.js 16, React 19, Tailwind 4, next-intl, Playwright  |
-| API           | NestJS 11, Fastify, Zod, Jose (OIDC/JWT)                 |
+| API           | NestJS 11, Express, Zod, Jose (OIDC/JWT)                 |
 | DB            | PostgreSQL 17, PostGIS, Drizzle ORM, RLS                 |
 | Queue         | Redis, BullMQ, Transactional Outbox                      |
 | Storage       | S3-compatible (MinIO محلياً), Sharp                      |

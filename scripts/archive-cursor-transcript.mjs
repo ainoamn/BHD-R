@@ -35,11 +35,15 @@ function redact(text) {
     [/S3_ACCESS_KEY\s*=\s*[^\s"'`\\]+/gi, 'S3_ACCESS_KEY=[REDACTED]'],
     [/RESEND_API_KEY\s*=\s*[^\s"'`\\]+/gi, 'RESEND_API_KEY=[REDACTED-RESEND-KEY]'],
     [/\b[a-f0-9]{64}\b/gi, '[REDACTED-HEX-SECRET]'],
-    [/(?:Access Key ID|Secret Access Key)[^\n]*\n\s*[a-f0-9]{16,64}\b/gi, (m) =>
-      m.replace(/\b[a-f0-9]{16,64}\b/gi, '[REDACTED-ACCESS-CREDENTIAL]'),
+    [
+      /(?:Access Key ID|Secret Access Key)[^\n]*\n\s*[a-f0-9]{16,64}\b/gi,
+      (m) => m.replace(/\b[a-f0-9]{16,64}\b/gi, '[REDACTED-ACCESS-CREDENTIAL]'),
     ],
     [/workspaceStorage_[a-f0-9]{16,}/gi, 'workspaceStorage_[REDACTED-ACCESS-KEY-ID]'],
     [/AKIA[0-9A-Z]{16}/g, '[REDACTED-AWS-ACCESS-KEY]'],
+    [/gh[pousr]_[A-Za-z0-9]{20,}/g, '[REDACTED-GITHUB-TOKEN]'],
+    [/github_pat_[A-Za-z0-9_]{20,}/g, '[REDACTED-GITHUB-TOKEN]'],
+    [/eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g, '[REDACTED-JWT]'],
   ];
   for (const [pattern, replacement] of rules) {
     out = out.replace(pattern, replacement);
@@ -83,7 +87,7 @@ const mdParts = [
   '',
   '- **المصدر:** conversation-transcript-FULL.jsonl (نسخة حرفية **مع تنقيح الأسرار**)',
   `- **تاريخ التوثيق:** ${new Date().toISOString().slice(0, 10)}`,
-  '- **معرّف المحادثة:** d0d5551b-99f7-449e-92d1-5d812bcf527d',
+  `- **معرّف المحادثة:** ${path.basename(src, '.jsonl')}`,
   `- **عدد أسطر JSONL:** ${lines.length}`,
   `- **SHA256 (بعد التنقيح):** \`${hash}\``,
   '',
@@ -115,4 +119,10 @@ for (const line of redactedLines) {
 
 fs.writeFileSync(mdOut, mdParts.join('\n'), 'utf8');
 
-console.log(JSON.stringify({ lines: lines.length, sha256: hash, jsonlOut, mdOut, messages: msgIndex }, null, 2));
+console.log(
+  JSON.stringify(
+    { lines: lines.length, sha256: hash, jsonlOut, mdOut, messages: msgIndex },
+    null,
+    2,
+  ),
+);

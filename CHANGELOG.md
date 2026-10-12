@@ -838,6 +838,47 @@ All notable changes are documented here. The project follows Semantic Versioning
 - Fix review-step quote failure for same-day day_use: server normalizes exclusive checkout; availability no longer 500s on equal dates; lock_slot probed via information_schema (no aborted txn).
 - Clearer Arabic errors for invalid quote body; review step Retry when quote fails.
 
+## 0.4.53 — 2026-09-03
+
+- Day-use and overnight-only stays (same-day allowed; exclusive checkout is the next day), half-day `lock_slot` (morning / evening / full, migration `0023_stay_lock_slots.sql`).
+- Full-screen booking design, mandatory guest phone, consent dialog before payment, e-signature, and concurrency lock on holds.
+- Details: [`docs/implementation/RELEASE-0.4.53-AR.md`](./docs/implementation/RELEASE-0.4.53-AR.md).
+
+## 0.4.52 — 2026-09-03
+
+- Sandbox payment stores only the card's last 4 digits, holder name and brand; shown on the owner's booking contract. The server rejects a full card number or CVC.
+- Details: [`docs/implementation/RELEASE-0.4.52-AR.md`](./docs/implementation/RELEASE-0.4.52-AR.md).
+
+## 0.4.51 — 2026-09-03
+
+- Owner dashboard "recent activity" items (booking request / payment confirmed) open a contract-style booking document with dates, amount and guest contacts.
+- Details: [`docs/implementation/RELEASE-0.4.51-AR.md`](./docs/implementation/RELEASE-0.4.51-AR.md).
+
+## 0.4.50 — 2026-09-02
+
+- Payment card shows the official BHD R logo over a Sultan Qaboos Grand Mosque background.
+- Details: [`docs/implementation/RELEASE-0.4.50-AR.md`](./docs/implementation/RELEASE-0.4.50-AR.md).
+
+## 0.4.49 — 2026-09-02
+
+- Full-screen responsive payment gateway (`100dvh`, site header/footer hidden; mobile summary bar).
+- Details: [`docs/implementation/RELEASE-0.4.49-AR.md`](./docs/implementation/RELEASE-0.4.49-AR.md).
+
+## 0.4.48 — 2026-09-02
+
+- `/payments/sandbox/{session}` looks like a real gateway: amount, reference and dates from the session, live card preview.
+- Details: [`docs/implementation/RELEASE-0.4.48-AR.md`](./docs/implementation/RELEASE-0.4.48-AR.md).
+
+## 0.4.47 — 2026-09-02
+
+- Fix 404 on the stay sandbox payment page after booking confirmation.
+- Details: [`docs/implementation/RELEASE-0.4.47-AR.md`](./docs/implementation/RELEASE-0.4.47-AR.md).
+
+## 0.4.46 — 2026-09-02
+
+- Stay checkout: colour-coded arrival / departure / stay type / guests fields carried to review, confirmation and receipt; guest details prefilled from the signed-in user; PDF receipt and email.
+- Details: [`docs/implementation/RELEASE-0.4.46-AR.md`](./docs/implementation/RELEASE-0.4.46-AR.md).
+
 ## 0.4.45 — 2026-09-02
 
 - Stay detail accepts `unit` or `unitId` query (and metadata) so multi-unit calendars stay pinned.
@@ -862,6 +903,37 @@ All notable changes are documented here. The project follows Semantic Versioning
 - Property portfolio shows rent / sale / stay channel badges (from unit `listingPurpose` + stay profiles).
 - Scope mobile `property-360` heading shrink under `.portal-layout` so public stay/unit titles keep 0.4.40 sizing.
 
+## 0.4.41 — 2026-09-02
+
+- Sandbox payment gateway for stays on Vercel + Neon (`/api/public/stays/payment-sessions`), enabled automatically when `STAYS_PLATFORM_ENABLED=true`.
+- `/admin` (any case, any sub-path) redirects to the platform console `/platform`; stays catalogue link in the platform sidebar.
+- Details: [`docs/implementation/RELEASE-0.4.41-AR.md`](./docs/implementation/RELEASE-0.4.41-AR.md).
+
+## 0.4.40 — 2026-09-02
+
+- Larger page and section headings on public stay and unit pages; alternating section backgrounds; stay sections split into separate blocks.
+- Details: [`docs/implementation/RELEASE-0.4.40-AR.md`](./docs/implementation/RELEASE-0.4.40-AR.md).
+
+## 0.4.39 — 2026-09-02
+
+- Fix stays catalogue returning 0 results (`stays_catalogue_failed` from a bad nightly-price subquery); fallback to `/v1/public/stays/search`.
+- Details: [`docs/implementation/RELEASE-0.4.39-AR.md`](./docs/implementation/RELEASE-0.4.39-AR.md).
+
+## 0.4.38 — 2026-09-02
+
+- `/stays` lists one card per published unit with full filters, list / grid / table views and sorting; cards open `/stays/{slug}?unit={unitId}`.
+- Details: [`docs/implementation/RELEASE-0.4.38-AR.md`](./docs/implementation/RELEASE-0.4.38-AR.md).
+
+## 0.4.37 — 2026-09-02
+
+- Fix rates disappearing on edit; per-unit stay pricing; expandable multi-unit tree in the portfolio; Masarrah-style public stay layout.
+- Details: [`docs/implementation/RELEASE-0.4.37-AR.md`](./docs/implementation/RELEASE-0.4.37-AR.md).
+
+## 0.4.36 — 2026-09-02
+
+- Stay setup policies split into four bilingual sections (general, cancellation and changes, events, …) with translation per section; preview image fix.
+- Details: [`docs/implementation/RELEASE-0.4.36-AR.md`](./docs/implementation/RELEASE-0.4.36-AR.md).
+
 ## 0.4.35 — 2026-09-02
 
 - Public stay page shows policies, period times, three stay rates, deposit, and smart score.
@@ -882,6 +954,16 @@ All notable changes are documented here. The project follows Semantic Versioning
 - Public stay page shows policies, instructions, period times, and deposit.
 - Migration `0021_stay_profile_policies` on `stay_profiles`.
 
+## 0.4.32 — 2026-09-02
+
+- Fix trip lookup ("invalid response from booking server") by reading from Neon via `/api/public/stays/guest/lookup`; header bell for recent bookings; link bookings to the account (`guest/claim`, `guest/mine`).
+- Details: [`docs/implementation/RELEASE-0.4.32-AR.md`](./docs/implementation/RELEASE-0.4.32-AR.md).
+
+## 0.4.31 — 2026-09-02
+
+- Prices without decimals unless there is a real fraction; fix hold failure from a raw `Date` passed to SQL; standalone `/stays/{slug}/book` page; stay types from setup.
+- Details: [`docs/implementation/RELEASE-0.4.31-AR.md`](./docs/implementation/RELEASE-0.4.31-AR.md).
+
 ## 0.4.30 — 2026-09-02
 
 - Stay calendar: missing inventory nights render as available (green) with base nightly rate instead of grey unavailable.
@@ -896,6 +978,26 @@ All notable changes are documented here. The project follows Semantic Versioning
 ## 0.4.28 — 2026-09-02
 
 - Fix public stay `Failed to fetch`: calendar, availability, quotes, holds, and bookings route through Vercel Neon (`/api/public/stays/*`) instead of Render Nest cold starts; Arabic network errors instead of raw browser text.
+
+## 0.4.27 — 2026-09-02
+
+- Full-width occupancy calendar in the main column; collapsed unit list; slimmer search bar; Booking-style review score and cards.
+- Details: [`docs/implementation/RELEASE-0.4.27-AR.md`](./docs/implementation/RELEASE-0.4.27-AR.md).
+
+## 0.4.26 — 2026-09-02
+
+- Property 360 layout for stays with the booking wizard in the sidebar; two-month occupancy calendar for guests and owners (`/v1/public/stays/:slug/calendar`, `/v1/stays/units/:unitId/inventory-days`).
+- Details: [`docs/implementation/RELEASE-0.4.26-AR.md`](./docs/implementation/RELEASE-0.4.26-AR.md).
+
+## 0.4.25 — 2026-09-02
+
+- Booking.com-style home search bar (destination, dates, guests) with daily stay as the default tab; 4-step booking wizard; `/stays/booking/confirmed?ref=…`.
+- Details: [`docs/implementation/RELEASE-0.4.25-AR.md`](./docs/implementation/RELEASE-0.4.25-AR.md).
+
+## 0.4.24 — 2026-09-01
+
+- Stay wizard: instant AR↔EN translation, AI summary, preview, one-step publish; `stay_inventory_days` rebuilt for 365 days on publish; portfolio fix (all organisation properties visible).
+- Details: [`docs/implementation/RELEASE-0.4.24-AR.md`](./docs/implementation/RELEASE-0.4.24-AR.md).
 
 ## 0.4.23 — 2026-09-01
 

@@ -7,7 +7,7 @@
 **Release 0.6.2:** [`RELEASE-0.6.2-AR.md`](./RELEASE-0.6.2-AR.md)  
 **Release 0.6.1:** [`RELEASE-0.6.1-AR.md`](./RELEASE-0.6.1-AR.md)  
 **Lease registration reference:** [`LEASE-REGISTRATION-AR.md`](./LEASE-REGISTRATION-AR.md)  
-**Session handoff:** [`../handoffs/2026-10-08-property-leasing-0.6.1/README.md`](../handoffs/2026-10-08-property-leasing-0.6.1/README.md)
+**Session handoff:** [`../handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](../handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md) (full session 2026-08-25 → 2026-10-12, release index with times, redacted chat)
 
 ## Recent releases (2026-10-07 → 2026-10-11)
 
