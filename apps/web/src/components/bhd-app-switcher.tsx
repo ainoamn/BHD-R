@@ -2,7 +2,9 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import Link from 'next/link';
+import { browserNextMutation } from '@/lib/api';
 import { BHD_APPS, type BhdApp } from '@/lib/bhd/apps';
+import { roleLabel, type OrganizationChoice } from '@/lib/team-shared';
 import type { Viewer } from '@/lib/types';
 
 type Panel = 'apps' | 'account' | null;
@@ -16,6 +18,77 @@ function hrefForApp(app: BhdApp, locale: 'ar' | 'en'): string {
   if (isCurrentApp(app)) return `/${locale}`;
   if (app.mode === 'sso' && app.startUrl) return app.startUrl;
   return `${app.origin.replace(/\/$/, '')}/`;
+}
+
+/** Shown only when the account works in more than one organization (own + employer teams). */
+function OrganizationSwitcher({ ar, locale }: { ar: boolean; locale: 'ar' | 'en' }) {
+  const [choices, setChoices] = useState<OrganizationChoice[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch('/api/auth/organization', {
+      credentials: 'same-origin',
+      headers: { accept: 'application/json' },
+      cache: 'no-store',
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: { organizations?: OrganizationChoice[] } | null) => {
+        if (!cancelled && payload?.organizations) setChoices(payload.organizations);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (choices.length < 2) return null;
+
+  const choose = async (organizationId: string) => {
+    setBusy(organizationId);
+    setFailed(false);
+    try {
+      await browserNextMutation('/api/auth/organization', {
+        method: 'POST',
+        body: JSON.stringify({ organizationId }),
+      });
+      window.location.assign(`/${locale}/portal`);
+    } catch {
+      setFailed(true);
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="bhd-switcher-orgs">
+      <small>{ar ? 'المنشأة التي تعمل عليها' : 'Working in'}</small>
+      {choices.map((choice) => (
+        <button
+          key={choice.organizationId}
+          type="button"
+          className={choice.current ? 'bhd-switcher-org is-current' : 'bhd-switcher-org'}
+          aria-current={choice.current || undefined}
+          disabled={choice.current || busy !== null}
+          onClick={() => void choose(choice.organizationId)}
+        >
+          <span>{ar ? choice.nameAr : choice.nameEn}</span>
+          <small>
+            {busy === choice.organizationId
+              ? ar
+                ? 'جارٍ التبديل…'
+                : 'Switching…'
+              : roleLabel(choice.role, ar)}
+          </small>
+        </button>
+      ))}
+      {failed ? (
+        <small className="bhd-switcher-orgs__error">
+          {ar ? 'تعذر التبديل، أعد المحاولة.' : 'Could not switch; try again.'}
+        </small>
+      ) : null}
+    </div>
+  );
 }
 
 export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar' | 'en' }) {
@@ -122,6 +195,7 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
               <small>{viewer.email ?? viewer.username ?? (ar ? 'حساب BHD' : 'BHD account')}</small>
             </div>
           </div>
+          <OrganizationSwitcher ar={ar} locale={locale} />
           <Link href={`/${locale}/portal`} onClick={() => setPanel(null)}>
             {ar ? 'مساحتي في BHD R' : 'My BHD R workspace'}
           </Link>

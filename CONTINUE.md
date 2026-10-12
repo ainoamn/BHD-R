@@ -1,5 +1,24 @@
 # CONTINUE — 2026-10-12
 
+**0.8.16** · الفريق والصلاحيات واختيار المنشأة:
+
+- **الفريق (`lib/team-neon.ts`):** `loadTeam` و`addTeamMember` و`updateTeamMember` و`removeTeamMember` في معاملة مرتفعة الصلاحية، مع تصفية صريحة بـ `organizationId`.
+  - قفل صف المنشأة (`for update`) قبل فحص المقاعد (`entitlementsForPlan().representatives`).
+  - الإزالة تجعل الحالة `archived`، والتعديل يزيد `users.sessionVersion` فيُعاد دخول العضو بصمت.
+- **الصلاحيات الإضافية (`lib/team-shared.ts`):** `TEAM_CAPABILITIES` تُخزَّن في `memberships.permissions` كصلاحيات حقيقية فقط.
+  - قواعد `assignableRoles` و`canManageMember` و`grantableCapabilities`.
+  - `mergedPermissions` يُبقي ما لا يملك المعدِّل منحه.
+- **المسارات:** `GET/POST /api/owner/team`، و`PATCH/DELETE /api/owner/team/[userId]`، و`GET/POST /api/auth/organization` للقائمة والتبديل.
+- **الدخول:** `issueForUser(tx, userId, {preferred, strict})` و`chooseOrganization`.
+  - الأولوية: ملف `bhd_r_org`، ثم منشأة مالك لها عقارات، ثم أحدث عضوية موظف.
+  - `switchOrganizationSession` يُلغي صف الجلسة القديم لهذا الجهاز فقط.
+- **الواجهة:** `TeamManager` يعرضه `PortalMainSlot` لقسم `team`، و`OrganizationSwitcher` داخل `bhd-app-switcher.tsx`.
+- **قاعدة البيانات:** مُشغّل `live_changes` على `memberships` يستخدم `user_id`، وعلى `unit_media` يستخدم `unit_id` (مطبَّق على الإنتاج وفي `0027`).
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.16-AR.md`](./docs/implementation/RELEASE-0.8.16-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.15** · تحويل التأمين من قسم الحسابات:
 
 - **البيانات:** `loadRefundTransfers` في `lib/property-records-neon.ts` يضيف إلى قسم `accounting` صفوف `kind: 'deposit_refund'` (`direction: 'out'`) للاستردادات `approved` (الحالة `awaiting_refund_transfer`) و`executed` (الحالة `completed`). والحقول من `refundFields` المشترك مع `loadBookings`.

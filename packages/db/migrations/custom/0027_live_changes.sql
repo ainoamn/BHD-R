@@ -82,6 +82,12 @@ BEGIN
     ) THEN
       resource_column := 'booking_id';
     END IF;
+    -- Join tables have no id; naming a missing column makes every write to them fail.
+    IF target = 'memberships' THEN
+      resource_column := 'user_id';
+    ELSIF target = 'unit_media' THEN
+      resource_column := 'unit_id';
+    END IF;
 
     EXECUTE format(
       'CREATE OR REPLACE TRIGGER live_changes_ins AFTER INSERT ON %I

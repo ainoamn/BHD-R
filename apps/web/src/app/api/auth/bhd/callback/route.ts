@@ -1,16 +1,28 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { PRODUCT_SESSION_MAX_AGE_SECONDS } from '@bhd-r/authz';
 import { identitySettings, openOidcState, secureCookies } from '@/lib/bhd/oauth';
-import { hasDatabaseUrl, issueIdentitySession } from '@/lib/bhd/identity-session';
+import {
+  hasDatabaseUrl,
+  issueIdentitySession,
+  type IssuedSession,
+} from '@/lib/bhd/identity-session';
+import {
+  ORGANIZATION_COOKIE,
+  rememberedOrganization,
+  setSessionCookies,
+} from '@/lib/bhd/session-cookies';
 
 export const runtime = 'nodejs';
 
 function classifySessionError(error: unknown): { code: string } {
   const message = error instanceof Error ? error.message : String(error);
   console.error('[bhd callback] session detail', message.slice(0, 200));
-  if (/identity_verify_failed|userinfo|access:|id_token:|jwks:|missing_access_token|missing_hs256/i.test(message)) {
+  if (
+    /identity_verify_failed|userinfo|access:|id_token:|jwks:|missing_access_token|missing_hs256/i.test(
+      message,
+    )
+  ) {
     return { code: 'verify' };
   }
   if (/nonce/i.test(message)) return { code: 'verify_nonce' };
@@ -67,9 +79,12 @@ export async function GET(request: Request) {
   }
   if (saved.state !== state) return clearAndRedirect('/ar/login?bhd=state');
 
-  const { issuer, clientId, clientSecret, redirectUri: originRedirect } = identitySettings(
-    url.origin,
-  );
+  const {
+    issuer,
+    clientId,
+    clientSecret,
+    redirectUri: originRedirect,
+  } = identitySettings(url.origin);
   const redirectUri =
     typeof saved.redirectUri === 'string' && saved.redirectUri.startsWith('https://')
       ? saved.redirectUri
@@ -122,16 +137,20 @@ export async function GET(request: Request) {
     return clearAndRedirect('/ar/login?bhd=verify');
   }
 
-  let issued: { token: string; csrf: string };
+  let issued: IssuedSession;
   try {
     if (!hasDatabaseUrl()) {
       return clearAndRedirect('/ar/login?bhd=api');
     }
+    const preferredOrganizationId = rememberedOrganization(
+      cookieStore.get(ORGANIZATION_COOKIE)?.value,
+    );
     issued = await issueIdentitySession({
       idToken: tokens.id_token,
       nonce: saved.nonce,
       accessToken: tokens.access_token,
       ...(discovery.jwks_uri ? { jwksUri: discovery.jwks_uri } : {}),
+      ...(preferredOrganizationId ? { preferredOrganizationId } : {}),
     });
   } catch (error) {
     const classified = classifySessionError(error);
@@ -159,23 +178,6 @@ export async function GET(request: Request) {
     path: '/',
     maxAge: 0,
   });
-  response.cookies.set({
-    name: 'bhd_r_session',
-    value: issued.token,
-    httpOnly: true,
-    secure: secureCookies(),
-    sameSite: 'lax',
-    path: '/',
-    maxAge: PRODUCT_SESSION_MAX_AGE_SECONDS,
-  });
-  response.cookies.set({
-    name: 'bhd_r_csrf',
-    value: issued.csrf,
-    httpOnly: false,
-    secure: secureCookies(),
-    sameSite: 'strict',
-    path: '/',
-    maxAge: PRODUCT_SESSION_MAX_AGE_SECONDS,
-  });
+  setSessionCookies(response, issued);
   return response;
 }

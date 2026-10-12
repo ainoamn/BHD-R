@@ -4,6 +4,7 @@ import { usePathname } from '@/i18n/navigation';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { OperationsWorkspaceClient } from '@/components/operations-workspace-client';
 import { PortalPageContext } from '@/components/portal-page';
+import { TeamManager } from '@/components/team-manager';
 import {
   isOperationsSection,
   opsSectionsForPortal,
@@ -76,12 +77,16 @@ export function PortalMainSlot({
           inert={panel !== section}
           aria-hidden={panel !== section || undefined}
         >
-          <OperationsWorkspaceClient
-            portal={portal}
-            section={panel}
-            locale={locale}
-            active={panel === section}
-          />
+          {panel === 'team' ? (
+            <TeamManager locale={locale} active={panel === section} />
+          ) : (
+            <OperationsWorkspaceClient
+              portal={portal}
+              section={panel}
+              locale={locale}
+              active={panel === section}
+            />
+          )}
         </div>
       ))}
     </PortalPageContext.Provider>

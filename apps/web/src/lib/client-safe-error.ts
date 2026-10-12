@@ -65,6 +65,14 @@ const KNOWN_CODES = new Set([
   'refund_bank_required',
   'refund_phone_invalid',
   'refund_receipt_required',
+  'team_seat_limit',
+  'team_role_not_allowed',
+  'team_self_change',
+  'team_owner_locked',
+  'team_member_exists',
+  'team_member_not_found',
+  'team_email_invalid',
+  'organization_not_member',
 ]);
 
 export function clientSafeErrorCode(error: unknown, fallback = 'request_failed'): string {
@@ -91,7 +99,18 @@ export function statusForSafeCode(code: string): number {
     case 'booking_not_found':
     case 'contract_not_found':
     case 'party_not_found':
+    case 'team_member_not_found':
       return 404;
+    case 'team_role_not_allowed':
+    case 'team_self_change':
+    case 'team_owner_locked':
+    case 'organization_not_member':
+      return 403;
+    case 'team_seat_limit':
+    case 'team_member_exists':
+      return 409;
+    case 'team_email_invalid':
+      return 400;
     case 'booking_not_approvable':
     case 'dates_unavailable':
     case 'contract_not_pending':

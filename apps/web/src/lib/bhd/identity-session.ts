@@ -1,11 +1,12 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import {
   createDatabase,
   memberships,
   organizations,
   parties,
   partyRoles,
+  properties,
   sessions,
   users,
   type Database,
@@ -125,14 +126,61 @@ async function ensureOwnerParty(
   return ownerPartyId;
 }
 
-async function issueForUser(tx: Tx, userId: string): Promise<IssuedSession> {
+type MembershipRow = typeof memberships.$inferSelect;
+
+function newest(rows: MembershipRow[]): MembershipRow | undefined {
+  return [...rows].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+}
+
+/**
+ * Remembered choice first; otherwise an owner's organization that has properties, then the
+ * newest staff membership (a team member lands in the employer, not their empty personal org).
+ */
+async function chooseOrganization(
+  tx: Tx,
+  active: MembershipRow[],
+  preferredOrganizationId: string | undefined,
+): Promise<string> {
+  const organizationIds = [...new Set(active.map((membership) => membership.organizationId))];
+  if (preferredOrganizationId && organizationIds.includes(preferredOrganizationId)) {
+    return preferredOrganizationId;
+  }
+  if (organizationIds.length === 1) return organizationIds[0]!;
+  const owned = active
+    .filter((membership) => membership.roleKey === 'organization_owner')
+    .map((membership) => membership.organizationId);
+  if (owned.length > 0) {
+    const withProperties = await tx
+      .select({ organizationId: properties.organizationId })
+      .from(properties)
+      .where(inArray(properties.organizationId, owned))
+      .limit(1);
+    if (withProperties[0]) return withProperties[0].organizationId;
+  }
+  const staff = active.filter(
+    (membership) => membership.roleKey !== 'organization_owner' && membership.roleKey !== 'tenant',
+  );
+  return (newest(staff) ?? newest(active))!.organizationId;
+}
+
+async function issueForUser(
+  tx: Tx,
+  userId: string,
+  organization: { preferred?: string; strict?: boolean } = {},
+): Promise<IssuedSession> {
   const user = await tx.query.users.findFirst({ where: eq(users.id, userId) });
   if (!user) throw new Error('User missing after identity login');
   const allMemberships = await tx.query.memberships.findMany({
     where: and(eq(memberships.userId, userId), eq(memberships.status, 'active')),
   });
   if (allMemberships.length === 0) throw new Error('No active organization membership');
-  const selectedOrganization = allMemberships[0]!.organizationId;
+  if (
+    organization.strict &&
+    !allMemberships.some((membership) => membership.organizationId === organization.preferred)
+  ) {
+    throw new Error('organization_not_member');
+  }
+  const selectedOrganization = await chooseOrganization(tx, allMemberships, organization.preferred);
   let organizationMemberships = allMemberships.filter(
     (membership) => membership.organizationId === selectedOrganization,
   );
@@ -201,7 +249,6 @@ async function provisionIdentityUser(
       .toLowerCase()
       .slice(0, 16) || 'user';
   const username = `${base}.${randomBytes(3).toString('hex')}`;
-  const slug = `sso-${identity.subject.replace(/[^a-z0-9-]/gi, '').slice(0, 40) || randomBytes(6).toString('hex')}`;
 
   const insertedUsers = await tx
     .insert(users)
@@ -213,25 +260,50 @@ async function provisionIdentityUser(
     })
     .returning();
   const user = insertedUsers[0]!;
+  await provisionPersonalOrganization(tx, user, identity.subject);
+  return user;
+}
 
+/** Every account owns a personal organization (also for staff left with no active team). */
+async function provisionPersonalOrganization(
+  tx: Tx,
+  user: { id: string; email: string; displayName: string },
+  subject: string,
+) {
+  const slug = `sso-${subject.replace(/[^a-z0-9-]/gi, '').slice(0, 40) || randomBytes(6).toString('hex')}`;
   const insertedOrgs = await tx
     .insert(organizations)
     .values({
       type: 'individual',
       slug,
-      legalName: displayName,
-      displayNameAr: displayName,
-      displayNameEn: displayName,
+      legalName: user.displayName,
+      displayNameAr: user.displayName,
+      displayNameEn: user.displayName,
       planKey: 'starter',
     })
+    .onConflictDoNothing()
     .returning();
-  const organization = insertedOrgs[0]!;
+  const organization =
+    insertedOrgs[0] ??
+    (
+      await tx
+        .insert(organizations)
+        .values({
+          type: 'individual',
+          slug: `sso-${randomBytes(8).toString('hex')}`,
+          legalName: user.displayName,
+          displayNameAr: user.displayName,
+          displayNameEn: user.displayName,
+          planKey: 'starter',
+        })
+        .returning()
+    )[0]!;
 
   const ownerPartyId = await ensureOwnerParty(tx, {
     userId: user.id,
     organizationId: organization.id,
-    displayName,
-    email,
+    displayName: user.displayName,
+    email: user.email,
     membershipPartyId: null,
   });
 
@@ -241,8 +313,6 @@ async function provisionIdentityUser(
     partyId: ownerPartyId,
     roleKey: 'organization_owner',
   });
-
-  return user;
 }
 
 /** Repair SSO accounts created without an owner party (needed for property wizard). */
@@ -271,6 +341,8 @@ export async function issueIdentitySession(input: {
   nonce: string;
   accessToken?: string;
   jwksUri?: string;
+  /** Organization remembered on this device (`bhd_r_org`). */
+  preferredOrganizationId?: string;
 }): Promise<IssuedSession> {
   const cleanEnv = (value: string | undefined) =>
     value
@@ -347,15 +419,46 @@ export async function issueIdentitySession(input: {
         .where(eq(users.id, user.id));
     }
 
+    const active = await tx
+      .select({ organizationId: memberships.organizationId })
+      .from(memberships)
+      .where(and(eq(memberships.userId, user.id), eq(memberships.status, 'active')))
+      .limit(1);
+    if (active.length === 0) await provisionPersonalOrganization(tx, user, identity.subject);
+
     // Signing in on another device must not end existing sessions (BHD-SESSION-POLICY).
     try {
-      return await issueForUser(tx, user.id);
+      return await issueForUser(tx, user.id, {
+        ...(input.preferredOrganizationId ? { preferred: input.preferredOrganizationId } : {}),
+      });
     } catch (error) {
       throw new Error(
         `identity_session_issue:${error instanceof Error ? error.message : String(error)}`,
         { cause: error },
       );
     }
+  });
+}
+
+/**
+ * Move the current session to another organization the user belongs to: a new session with
+ * that organization's roles replaces this one (only this device; other sessions stay).
+ */
+export async function switchOrganizationSession(input: {
+  userId: string;
+  sessionId: string;
+  organizationId: string;
+}): Promise<IssuedSession> {
+  return withSystem(async (tx) => {
+    const issued = await issueForUser(tx, input.userId, {
+      preferred: input.organizationId,
+      strict: true,
+    });
+    await tx
+      .update(sessions)
+      .set({ revokedAt: new Date() })
+      .where(and(eq(sessions.id, input.sessionId), eq(sessions.userId, input.userId)));
+    return issued;
   });
 }
 

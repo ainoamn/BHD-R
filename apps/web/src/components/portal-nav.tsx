@@ -326,12 +326,18 @@ export function PortalNav({
     persistPortalNavCollapsed(next);
   };
   const root = `/${portal}`;
-  const groups =
+  const baseGroups =
     staysEnabled && (portal === 'owner' || portal === 'developer')
       ? insertStaysGroup(navGroups[portal])
       : portal === 'tenant' && !viewer.roles.includes('tenant')
         ? navGroups.tenant.filter((group) => group.id !== 'ops')
         : navGroups[portal];
+  const groups = viewer.permissions.includes('organization.members.read')
+    ? baseGroups
+    : baseGroups.map((group) => ({
+        ...group,
+        items: group.items.filter((item) => item.path !== '/team'),
+      }));
 
   const isActive = (item: NavItem): boolean => {
     if (item.children) {
