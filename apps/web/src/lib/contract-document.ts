@@ -131,6 +131,13 @@ export interface ContractDocument {
   parent: { id: string; reference: string } | null;
   /** Stay annexes (check-in, check-out, deposit refund), each a separate document. */
   annexes: ContractAnnexLink[];
+  /** Rent or purchase reservation the customer signs after paying the booking deposit. */
+  reservation?: {
+    mode: 'rent' | 'sale';
+    depositPaid: Money | null;
+    paidAt: string | null;
+    reservedUntil: string | null;
+  };
 }
 
 const ALLOWED_TAGS = new Set([

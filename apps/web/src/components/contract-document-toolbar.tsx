@@ -50,6 +50,7 @@ export function ContractDocumentToolbar({
   recipientPath,
   pdfUrl,
   parts = null,
+  printOnly = false,
 }: {
   ar: boolean;
   documentId: string;
@@ -62,6 +63,8 @@ export function ContractDocumentToolbar({
   pdfUrl: string | null;
   /** When set, printing first asks which of these documents to include. */
   parts?: PrintPart[] | null;
+  /** Print and PDF only, for a signer keeping their own copy. */
+  printOnly?: boolean;
 }) {
   const [printing, setPrinting] = useState<string[] | null>(null);
   const [picker, setPicker] = useState<'print' | 'pdf' | null>(null);
@@ -209,15 +212,19 @@ export function ContractDocumentToolbar({
           {ar ? 'النسخة المختومة' : 'Sealed PDF'}
         </a>
       ) : null}
-      <button type="button" className="button button--secondary" onClick={() => void share()}>
-        {ar ? 'مشاركة' : 'Share'}
-      </button>
-      <button type="button" className="button button--secondary" onClick={sendEmail}>
-        {ar ? 'إرسال بالبريد' : 'Send by email'}
-      </button>
-      <button type="button" className="button button--secondary" onClick={sendWhatsapp}>
-        {ar ? 'إرسال واتساب' : 'Send on WhatsApp'}
-      </button>
+      {printOnly ? null : (
+        <>
+          <button type="button" className="button button--secondary" onClick={() => void share()}>
+            {ar ? 'مشاركة' : 'Share'}
+          </button>
+          <button type="button" className="button button--secondary" onClick={sendEmail}>
+            {ar ? 'إرسال بالبريد' : 'Send by email'}
+          </button>
+          <button type="button" className="button button--secondary" onClick={sendWhatsapp}>
+            {ar ? 'إرسال واتساب' : 'Send on WhatsApp'}
+          </button>
+        </>
+      )}
       {recipient?.name ? (
         <span className="contract-doc-toolbar__to">
           {ar ? 'المرسل إليه: ' : 'To: '}

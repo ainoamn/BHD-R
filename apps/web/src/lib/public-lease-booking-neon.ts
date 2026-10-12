@@ -3,11 +3,13 @@ import { randomBytes } from 'node:crypto';
 import { and, eq, gt, inArray, sql } from 'drizzle-orm';
 import type { SessionClaims } from '@bhd-r/authz';
 import {
+  addresses,
   holds,
   listings,
   outboxEvents,
   parties,
   properties,
+  propertyProfiles,
   reservations,
   salesDeals,
   units,
@@ -24,7 +26,8 @@ import {
 } from '@/lib/public-booking-neon';
 import type { TermsBlock } from '@/lib/booking-terms';
 import { depositForMode } from '@/lib/booking-deposit';
-import { resolveBookingTerms } from '@/lib/booking-terms-neon';
+import { readTermsLetterhead, resolveBookingTerms } from '@/lib/booking-terms-neon';
+import { reservationSignatureSerial } from '@/lib/contract-verify';
 import { leaseSignPath } from '@/lib/lease-booking-paths';
 import { readUnitSaleDeposits } from '@/lib/unit-sale-deposit-neon';
 
@@ -614,6 +617,39 @@ export async function completeLeaseSandboxPayment(
   });
 }
 
+type LeaseReservationMatch = NonNullable<Awaited<ReturnType<typeof findLeaseReservation>>>;
+
+const SIGNATURE_IMAGE = /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+
+function leaseBookingView(match: LeaseReservationMatch) {
+  const snapshot = match.snapshot;
+  return {
+    referenceCode: snapshot.referenceCode,
+    status: match.status,
+    mode: snapshot.mode,
+    unitId: match.unitId,
+    unitCode: match.unitCode,
+    unitNameAr: match.unitNameAr,
+    unitNameEn: match.unitNameEn,
+    propertyNameAr: match.propertyNameAr,
+    propertyNameEn: match.propertyNameEn,
+    depositMinor: snapshot.depositMinor,
+    currency: snapshot.currency,
+    rentMinor: snapshot.rentMinor,
+    salePriceMinor: snapshot.salePriceMinor,
+    contact: snapshot.contact,
+    bookingFor: snapshot.bookingFor ?? 'self',
+    bookedByName: snapshot.bookedBy?.displayName ?? null,
+    termsAcceptedAt: snapshot.termsAcceptedAt,
+    ownerTerms: snapshot.ownerTerms ?? null,
+    depositPaidAt: snapshot.depositPaidAt ?? null,
+    cardLast4: snapshot.payment?.cardLast4 ?? null,
+    esignSignedAt: snapshot.esign?.signedAt ?? null,
+    reservedUntil: match.expiresAt.toISOString(),
+    sessionReference: snapshot.checkoutSessionReference,
+  };
+}
+
 export async function loadLeaseBookingForViewer(userId: string, referenceCode: string) {
   const normalized = normalizeLeaseReference(referenceCode);
   if (!normalized) return null;
@@ -622,32 +658,115 @@ export async function loadLeaseBookingForViewer(userId: string, referenceCode: s
     const match = await findLeaseReservation(transaction, 'referenceCode', normalized);
     if (!match) return null;
     await assertBookingOwner(transaction, userId, match.partyEmail);
-    const snapshot = match.snapshot;
-    return {
-      referenceCode: snapshot.referenceCode,
-      status: match.status,
-      mode: snapshot.mode,
-      unitId: match.unitId,
-      unitCode: match.unitCode,
-      unitNameAr: match.unitNameAr,
-      unitNameEn: match.unitNameEn,
-      propertyNameAr: match.propertyNameAr,
-      propertyNameEn: match.propertyNameEn,
-      depositMinor: snapshot.depositMinor,
-      currency: snapshot.currency,
-      rentMinor: snapshot.rentMinor,
-      salePriceMinor: snapshot.salePriceMinor,
-      contact: snapshot.contact,
-      bookingFor: snapshot.bookingFor ?? 'self',
-      bookedByName: snapshot.bookedBy?.displayName ?? null,
-      termsAcceptedAt: snapshot.termsAcceptedAt,
-      ownerTerms: snapshot.ownerTerms ?? null,
-      depositPaidAt: snapshot.depositPaidAt ?? null,
-      cardLast4: snapshot.payment?.cardLast4 ?? null,
-      esignSignedAt: snapshot.esign?.signedAt ?? null,
-      reservedUntil: match.expiresAt.toISOString(),
-      sessionReference: snapshot.checkoutSessionReference,
-    };
+    return leaseBookingView(match);
+  });
+}
+
+/**
+ * The reservation with everything its agreement prints: landlord, premises, letterhead,
+ * and once signed, the customer's signature image and its e-signature serial.
+ */
+export async function loadLeaseBookingAgreement(userId: string, referenceCode: string) {
+  const normalized = normalizeLeaseReference(referenceCode);
+  if (!normalized) return null;
+  const { db } = getDatabase();
+  return db.transaction(async (transaction) => {
+    const match = await findLeaseReservation(transaction, 'referenceCode', normalized);
+    if (!match) return null;
+    await assertBookingOwner(transaction, userId, match.partyEmail);
+    const orgId = match.organizationId;
+    const esign = match.snapshot.esign ?? null;
+    return withElevatedRead(transaction, async () => {
+      const [owner, premises, letterhead, signaturePng] = await Promise.all([
+        transaction
+          .select({
+            displayName: parties.displayName,
+            type: parties.type,
+            email: parties.email,
+            phone: parties.phone,
+          })
+          .from(parties)
+          .where(and(eq(parties.organizationId, orgId), eq(parties.id, match.ownerPartyId)))
+          .limit(1)
+          .then((rows) => rows[0] ?? null),
+        transaction
+          .select({
+            propertyNameAr: properties.nameAr,
+            propertyNameEn: properties.nameEn,
+            kind: properties.kind,
+            category: properties.category,
+            serialNumber: properties.serialNumber,
+            governorate: addresses.governorate,
+            wilayat: addresses.wilayat,
+            city: addresses.city,
+            area: addresses.area,
+            street: addresses.street,
+            buildingNumber: addresses.buildingNumber,
+            postalCode: addresses.postalCode,
+            deedNumber: propertyProfiles.deedNumber,
+            plotNumber: propertyProfiles.plotNumber,
+            furnishing: propertyProfiles.furnishing,
+            parkingSpaces: propertyProfiles.parkingSpaces,
+            builtUpArea: propertyProfiles.builtUpAreaSquareMeters,
+            floorsCount: propertyProfiles.floorsCount,
+            yearBuilt: propertyProfiles.yearBuilt,
+            unitFloor: units.floor,
+            unitBedrooms: units.bedrooms,
+            unitBathrooms: units.bathrooms,
+            unitMajlis: units.majlis,
+            unitHalls: units.halls,
+            unitKitchens: units.kitchens,
+            unitHasPool: units.hasPool,
+            unitAreaSquareMeters: units.areaSquareMeters,
+          })
+          .from(units)
+          .innerJoin(
+            properties,
+            and(eq(properties.id, units.propertyId), eq(properties.organizationId, orgId)),
+          )
+          .innerJoin(
+            addresses,
+            and(eq(addresses.id, properties.addressId), eq(addresses.organizationId, orgId)),
+          )
+          .leftJoin(
+            propertyProfiles,
+            and(
+              eq(propertyProfiles.propertyId, properties.id),
+              eq(propertyProfiles.organizationId, orgId),
+            ),
+          )
+          .where(and(eq(units.organizationId, orgId), eq(units.id, match.unitId)))
+          .limit(1)
+          .then((rows) => rows[0] ?? null),
+        readTermsLetterhead(transaction, orgId).catch(() => null),
+        esign
+          ? transaction
+              .select({
+                png: sql<string | null>`${workflowEvents.metadata}->'esign'->>'signaturePng'`,
+              })
+              .from(workflowEvents)
+              .where(
+                and(
+                  eq(workflowEvents.organizationId, orgId),
+                  eq(workflowEvents.id, esign.evidenceEventId),
+                ),
+              )
+              .limit(1)
+              .then((rows) => rows[0]?.png ?? null)
+          : Promise.resolve(null),
+      ]);
+      const serial = esign ? await reservationSignatureSerial(transaction, orgId, match.id) : null;
+      const png = signaturePng && SIGNATURE_IMAGE.test(signaturePng) ? signaturePng : null;
+      return {
+        ...leaseBookingView(match),
+        reservationId: match.id,
+        capturedAt: match.snapshot.capturedAt,
+        owner,
+        premises,
+        letterhead,
+        signature: esign ? { signedAt: esign.signedAt, png, serial } : null,
+      };
+    });
   });
 }
 

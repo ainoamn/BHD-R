@@ -121,80 +121,79 @@ export async function loadContractVerification(
         ? contract.parentContractId
         : contract.id;
 
-    const [partyRows, identityDocs, unit, signatures, lease, letterhead, serials] =
-      await Promise.all([
-        tx
-          .select({
-            id: parties.id,
-            displayName: parties.displayName,
-            type: parties.type,
-            email: parties.email,
-            phone: parties.phone,
-          })
-          .from(parties)
-          .where(
-            and(
-              eq(parties.organizationId, orgId),
-              inArray(parties.id, [contract.ownerPartyId, contract.tenantPartyId]),
-            ),
+    const [partyRows, identityDocs, unit, signatures, lease, letterhead] = await Promise.all([
+      tx
+        .select({
+          id: parties.id,
+          displayName: parties.displayName,
+          type: parties.type,
+          email: parties.email,
+          phone: parties.phone,
+        })
+        .from(parties)
+        .where(
+          and(
+            eq(parties.organizationId, orgId),
+            inArray(parties.id, [contract.ownerPartyId, contract.tenantPartyId]),
           ),
-        tx
-          .select({
-            partyId: partyIdentityDocuments.partyId,
-            documentType: partyIdentityDocuments.documentType,
-            last4: partyIdentityDocuments.numberLast4,
-          })
-          .from(partyIdentityDocuments)
-          .where(
-            and(
-              eq(partyIdentityDocuments.organizationId, orgId),
-              inArray(partyIdentityDocuments.partyId, [
-                contract.ownerPartyId,
-                contract.tenantPartyId,
-              ]),
-            ),
-          )
-          .orderBy(desc(partyIdentityDocuments.createdAt)),
-        tx
-          .select({
-            code: units.code,
-            nameAr: units.nameAr,
-            nameEn: units.nameEn,
-            propertyNameAr: properties.nameAr,
-            propertyNameEn: properties.nameEn,
-          })
-          .from(units)
-          .innerJoin(
-            properties,
-            and(eq(properties.id, units.propertyId), eq(properties.organizationId, orgId)),
-          )
-          .where(and(eq(units.organizationId, orgId), eq(units.id, contract.unitId)))
-          .limit(1)
-          .then((rows) => rows[0] ?? null),
-        tx
-          .select({
-            id: contractSignatures.id,
-            signerRole: contractSignatures.signerRole,
-            evidence: contractSignatures.evidence,
-            signedAt: contractSignatures.signedAt,
-          })
-          .from(contractSignatures)
-          .where(
-            and(
-              eq(contractSignatures.organizationId, orgId),
-              eq(contractSignatures.contractId, contract.id),
-            ),
-          )
-          .orderBy(contractSignatures.signedAt),
-        tx
-          .select({ startsOn: leases.startsOn, endsOn: leases.endsOn })
-          .from(leases)
-          .where(and(eq(leases.organizationId, orgId), eq(leases.contractId, linkedContractId)))
-          .limit(1)
-          .then((rows) => rows[0] ?? null),
-        readTermsLetterhead(tx, orgId).catch(() => null),
-        signatureSerials(tx, orgId, contract.id),
-      ]);
+        ),
+      tx
+        .select({
+          partyId: partyIdentityDocuments.partyId,
+          documentType: partyIdentityDocuments.documentType,
+          last4: partyIdentityDocuments.numberLast4,
+        })
+        .from(partyIdentityDocuments)
+        .where(
+          and(
+            eq(partyIdentityDocuments.organizationId, orgId),
+            inArray(partyIdentityDocuments.partyId, [
+              contract.ownerPartyId,
+              contract.tenantPartyId,
+            ]),
+          ),
+        )
+        .orderBy(desc(partyIdentityDocuments.createdAt)),
+      tx
+        .select({
+          code: units.code,
+          nameAr: units.nameAr,
+          nameEn: units.nameEn,
+          propertyNameAr: properties.nameAr,
+          propertyNameEn: properties.nameEn,
+        })
+        .from(units)
+        .innerJoin(
+          properties,
+          and(eq(properties.id, units.propertyId), eq(properties.organizationId, orgId)),
+        )
+        .where(and(eq(units.organizationId, orgId), eq(units.id, contract.unitId)))
+        .limit(1)
+        .then((rows) => rows[0] ?? null),
+      tx
+        .select({
+          id: contractSignatures.id,
+          signerRole: contractSignatures.signerRole,
+          evidence: contractSignatures.evidence,
+          signedAt: contractSignatures.signedAt,
+        })
+        .from(contractSignatures)
+        .where(
+          and(
+            eq(contractSignatures.organizationId, orgId),
+            eq(contractSignatures.contractId, contract.id),
+          ),
+        )
+        .orderBy(contractSignatures.signedAt),
+      tx
+        .select({ startsOn: leases.startsOn, endsOn: leases.endsOn })
+        .from(leases)
+        .where(and(eq(leases.organizationId, orgId), eq(leases.contractId, linkedContractId)))
+        .limit(1)
+        .then((rows) => rows[0] ?? null),
+      readTermsLetterhead(tx, orgId).catch(() => null),
+    ]);
+    const serials = await signatureSerials(tx, orgId, contract.id);
 
     const snapshot = record(contract.payloadSnapshot);
     const contractInfo = record(snapshot.contract);

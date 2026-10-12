@@ -1,10 +1,14 @@
 import 'server-only';
-import { formatMoney, localizedName } from '@/lib/format';
+import { createHash } from 'node:crypto';
+import { formatMoney } from '@/lib/format';
 import { bookingTermsDocument, termsBlocksFromStored } from '@/lib/booking-terms';
-import { termsDocumentHtml } from '@/lib/terms-document-html';
-import type { loadLeaseBookingForViewer } from '@/lib/public-lease-booking-neon';
+import type { ContractDocument } from '@/lib/contract-document';
+import type { loadLeaseBookingAgreement } from '@/lib/public-lease-booking-neon';
+import type { ContractArticleHead } from '@/components/contract-document-view';
 
-export type LeaseBookingView = NonNullable<Awaited<ReturnType<typeof loadLeaseBookingForViewer>>>;
+export type LeaseBookingAgreement = NonNullable<
+  Awaited<ReturnType<typeof loadLeaseBookingAgreement>>
+>;
 
 export function escapeHtml(value: string): string {
   return value
@@ -15,64 +19,164 @@ export function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
-function formatDate(iso: string | null, ar: boolean): string {
-  if (!iso) return '—';
-  return new Intl.DateTimeFormat(ar ? 'ar-OM' : 'en-GB', { dateStyle: 'medium' }).format(
-    new Date(iso),
-  );
-}
-
 export function leaseContractTitle(mode: 'rent' | 'sale') {
   return mode === 'sale'
-    ? { ar: 'اتفاقية حجز عقار للشراء', en: 'Purchase reservation agreement' }
-    : { ar: 'اتفاقية حجز وحدة للإيجار', en: 'Rental reservation agreement' };
+    ? { ar: 'اتفاقية حجز عقار للشراء', en: 'Purchase Reservation Agreement' }
+    : { ar: 'اتفاقية حجز وحدة للإيجار', en: 'Rental Reservation Agreement' };
 }
 
-export function buildLeaseContractHtml(booking: LeaseBookingView, locale: 'ar' | 'en'): string {
-  const ar = locale === 'ar';
-  const title = leaseContractTitle(booking.mode);
-  const deposit = formatMoney(booking.depositMinor, booking.currency, locale);
-  const priceMinor = booking.mode === 'sale' ? booking.salePriceMinor : booking.rentMinor;
-  const price =
-    priceMinor && priceMinor !== '0' ? formatMoney(priceMinor, booking.currency, locale) : null;
-  const property = `${localizedName(locale, booking.propertyNameAr, booking.propertyNameEn)} — ${localizedName(locale, booking.unitNameAr, booking.unitNameEn)}`;
-  const terms = bookingTermsDocument({
-    mode: booking.mode,
-    depositAr: formatMoney(booking.depositMinor, booking.currency, 'ar'),
-    depositEn: formatMoney(booking.depositMinor, booking.currency, 'en'),
-    blocks: booking.ownerTerms ? termsBlocksFromStored(booking.ownerTerms) : null,
-  });
-  const row = (label: string, value: string, ltr = false) =>
-    `<div class="stay-doc__row"><dt>${escapeHtml(label)}</dt><dd${ltr ? ' dir="ltr"' : ''}>${escapeHtml(value)}</dd></div>`;
+/**
+ * The reservation as an official document in the shared contract layout, so the customer
+ * reads and signs the same design the landlord sees on contracts.
+ */
+export function leaseBookingAgreement(booking: LeaseBookingAgreement): {
+  head: ContractArticleHead;
+  doc: ContractDocument;
+} {
+  const sale = booking.mode === 'sale';
+  const priceMinor = sale ? booking.salePriceMinor : booking.rentMinor;
+  const money = (amountMinor: string | null) =>
+    amountMinor && amountMinor !== '0' ? { amountMinor, currency: booking.currency } : null;
+  const signature = booking.signature;
+  const ownerName = booking.owner?.displayName ?? '—';
+  const premises = booking.premises;
 
-  return `
-    <article class="stay-doc stay-doc--contract">
-      <header class="stay-doc__header">
-        <div class="stay-doc__brand">
-          <span class="stay-doc__logo logo__product" aria-label="BHD R">
-            <img src="/brand/bhd-official-symbol.svg" alt="" width="88" height="28" />
-            <i>R</i>
-          </span>
-          <p class="stay-doc__tagline">${escapeHtml(ar ? title.ar : title.en)}</p>
-        </div>
-        <div class="stay-doc__meta">
-          <p class="stay-doc__kind">${ar ? 'مستند الحجز' : 'Booking record'}</p>
-          <p class="stay-doc__number" dir="ltr">${escapeHtml(booking.referenceCode)}</p>
-        </div>
-      </header>
-      <dl class="stay-doc__grid">
-        ${row(ar ? (booking.mode === 'sale' ? 'المشتري' : 'المستأجر') : booking.mode === 'sale' ? 'Buyer' : 'Tenant', booking.contact.fullName)}
-        ${row(ar ? 'الهاتف' : 'Phone', booking.contact.phone, true)}
-        ${booking.bookingFor === 'other' && booking.bookedByName ? row(ar ? 'تم الحجز بواسطة' : 'Booked by', booking.bookedByName) : ''}
-        ${row(ar ? 'العقار' : 'Property', property)}
-        ${row(ar ? 'رمز الوحدة' : 'Unit code', booking.unitCode, true)}
-        ${row(booking.mode === 'sale' ? (ar ? 'سعر البيع' : 'Sale price') : ar ? 'الإيجار الشهري' : 'Monthly rent', price ?? '—', true)}
-        ${row(ar ? 'مبلغ الضمان المدفوع' : 'Deposit paid', deposit, true)}
-        ${row(ar ? 'تاريخ الدفع' : 'Paid on', formatDate(booking.depositPaidAt, ar))}
-        ${row(ar ? 'محجوز حتى' : 'Reserved until', formatDate(booking.reservedUntil, ar))}
-      </dl>
-      <p class="stay-doc__subtitle">${ar ? 'الشروط والأحكام' : 'Terms and conditions'}</p>
-      ${termsDocumentHtml(terms)}
-    </article>
-  `;
+  const head: ContractArticleHead = {
+    reference: booking.referenceCode,
+    kind: 'initial',
+    status: signature ? 'signed' : 'sent',
+    startsOn: '',
+    endsOn: '',
+    documentUrl: null,
+    documentHash: null,
+    parties: {
+      owner: { id: '', displayName: ownerName },
+      tenant: { id: '', displayName: booking.contact.fullName },
+    },
+    property: { id: '', nameAr: booking.propertyNameAr, nameEn: booking.propertyNameEn },
+    unit: {
+      id: booking.unitId,
+      code: booking.unitCode,
+      nameAr: booking.unitNameAr,
+      nameEn: booking.unitNameEn,
+    },
+  };
+
+  const doc: ContractDocument = {
+    type: sale ? 'sale' : 'lease',
+    createdAt: booking.capturedAt,
+    sentAt: null,
+    completedAt: null,
+    template: { ar: null, en: null },
+    letterhead: booking.letterhead,
+    amount: money(priceMinor),
+    deposit: null,
+    stayType: null,
+    source: {
+      type: 'lease_reservation',
+      referenceCode: booking.referenceCode,
+      stayBookingId: null,
+    },
+    approval: null,
+    tenantContact: { email: booking.contact.email, phone: booking.contact.phone },
+    owner: booking.owner
+      ? {
+          name: booking.owner.displayName,
+          entityType: booking.owner.type === 'company' ? 'company' : 'person',
+          civilId: null,
+          passport: null,
+          nationality: null,
+          crNumber: null,
+          signatoryName: null,
+          signatoryCivilId: null,
+          phone: booking.owner.phone,
+          email: booking.owner.email,
+        }
+      : null,
+    tenant: {
+      name: booking.contact.fullName,
+      entityType: 'person',
+      civilId: null,
+      passport: null,
+      nationality: null,
+      crNumber: null,
+      signatoryName: null,
+      signatoryCivilId: null,
+      phone: booking.contact.phone,
+      email: booking.contact.email,
+    },
+    premises: premises
+      ? {
+          propertyNameAr: premises.propertyNameAr,
+          propertyNameEn: premises.propertyNameEn,
+          kind: premises.kind,
+          category: premises.category,
+          serialNumber: premises.serialNumber,
+          governorate: premises.governorate,
+          wilayat: premises.wilayat,
+          city: premises.city,
+          area: premises.area,
+          street: premises.street,
+          buildingNumber: premises.buildingNumber,
+          postalCode: premises.postalCode,
+          deedNumber: premises.deedNumber,
+          plotNumber: premises.plotNumber,
+          furnishing: premises.furnishing,
+          parkingSpaces: premises.parkingSpaces,
+          builtUpArea: premises.builtUpArea,
+          floorsCount: premises.floorsCount,
+          yearBuilt: premises.yearBuilt,
+          unit: {
+            code: booking.unitCode,
+            nameAr: booking.unitNameAr,
+            nameEn: booking.unitNameEn,
+            floor: premises.unitFloor,
+            bedrooms: premises.unitBedrooms,
+            bathrooms: premises.unitBathrooms,
+            majlis: premises.unitMajlis,
+            halls: premises.unitHalls,
+            kitchens: premises.unitKitchens,
+            hasPool: premises.unitHasPool,
+            areaSquareMeters: premises.unitAreaSquareMeters,
+          },
+        }
+      : null,
+    terms: bookingTermsDocument({
+      mode: booking.mode,
+      depositAr: formatMoney(booking.depositMinor, booking.currency, 'ar'),
+      depositEn: formatMoney(booking.depositMinor, booking.currency, 'en'),
+      blocks: booking.ownerTerms ? termsBlocksFromStored(booking.ownerTerms) : null,
+    }),
+    termsAcceptedAt: booking.termsAcceptedAt,
+    signatures: signature
+      ? [
+          {
+            id: booking.reservationId,
+            role: sale ? 'buyer' : 'tenant',
+            method: 'reservation_esign',
+            name: booking.contact.fullName,
+            email: booking.contact.email,
+            signedAt: signature.signedAt,
+            hash: createHash('sha256')
+              .update([booking.referenceCode, signature.signedAt, signature.png ?? ''].join('|'))
+              .digest('hex'),
+            serial: signature.serial,
+          },
+        ]
+      : [],
+    verification: null,
+    files: signature?.png ? [{ kind: 'signature', signedAt: signature.signedAt }] : [],
+    stay: null,
+    addenda: [],
+    parent: null,
+    annexes: [],
+    reservation: {
+      mode: booking.mode,
+      depositPaid: money(booking.depositMinor),
+      paidAt: booking.depositPaidAt,
+      reservedUntil: booking.reservedUntil,
+    },
+  };
+
+  return { head, doc };
 }

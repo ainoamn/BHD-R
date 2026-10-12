@@ -15713,6 +15713,27 @@ body:has(.stay-esign-shell) {
   margin: 0.25rem 0 0;
   font-size: 0.82rem;
 }
+.stay-esign__seal-serial {
+  margin: 0.3rem 0 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #123528;
+}
+.stay-esign__seal-serial bdi {
+  font-family: var(--font-latin), sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: #c8102e;
+}
+.stay-esign--document[data-step='contract'],
+.stay-esign--document[data-step='done'] {
+  max-width: 1040px;
+}
+.stay-esign__document {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+}
 .stay-esign__contract--signed {
   position: relative;
 }

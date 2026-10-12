@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchBrowserCsrfToken } from '@/lib/api';
 import { stayConfirmedReturnPath } from '@/lib/stay-esign-flags';
@@ -16,6 +16,8 @@ export function StayEsignWizard({
   locale,
   referenceCode,
   contractHtml,
+  contractDocument,
+  signatureSerial = null,
   initiallyComplete = false,
   submitUrl,
   continuePath,
@@ -24,7 +26,11 @@ export function StayEsignWizard({
 }: {
   locale: string;
   referenceCode: string;
-  contractHtml: string;
+  contractHtml?: string;
+  /** Server-rendered official document; replaces `contractHtml` and is refreshed once signed. */
+  contractDocument?: ReactNode;
+  /** E-signature serial (ES-YYYY-NNNNNN) once the document is signed. */
+  signatureSerial?: string | null;
   initiallyComplete?: boolean;
   /** Defaults to the stays e-sign endpoint. */
   submitUrl?: string;
@@ -121,6 +127,7 @@ export function StayEsignWizard({
         }).format(at),
       );
       setStep('done');
+      if (contractDocument) router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'esign_failed');
     } finally {
@@ -129,7 +136,10 @@ export function StayEsignWizard({
   }
 
   return (
-    <div className="stay-esign stay-esign--fullscreen" data-step={step}>
+    <div
+      className={`stay-esign stay-esign--fullscreen${contractDocument ? ' stay-esign--document' : ''}`}
+      data-step={step}
+    >
       {step !== 'done' ? (
         <header className="stay-esign__top">
           <div className="stay-esign__brand" aria-hidden>
@@ -160,10 +170,14 @@ export function StayEsignWizard({
                   ? 'راجع شروط الإقامة وبيانات الحجز، ثم وافق ووقّع إلكترونياً.'
                   : 'Review stay terms and booking details, then agree and sign electronically.'}
             </p>
-            <div
-              className="stay-esign__contract"
-              dangerouslySetInnerHTML={{ __html: contractHtml }}
-            />
+            {contractDocument ? (
+              <div className="stay-esign__document">{contractDocument}</div>
+            ) : (
+              <div
+                className="stay-esign__contract"
+                dangerouslySetInnerHTML={{ __html: contractHtml ?? '' }}
+              />
+            )}
           </section>
         ) : null}
 
@@ -250,7 +264,11 @@ export function StayEsignWizard({
               />
             </div>
             <div className="stay-esign__footer-nav">
-              <button type="button" className="button button--quiet" onClick={() => setStep('id_back')}>
+              <button
+                type="button"
+                className="button button--quiet"
+                onClick={() => setStep('id_back')}
+              >
                 {ar ? 'رجوع' : 'Back'}
               </button>
             </div>
@@ -260,7 +278,9 @@ export function StayEsignWizard({
         {step === 'review' ? (
           <section className="stay-esign__panel stay-esign__panel--scroll">
             <p className="muted stay-esign__lede">
-              {ar ? 'راجع المرفقات قبل إتمام التوقيع الإلكتروني.' : 'Review attachments before completing e-sign.'}
+              {ar
+                ? 'راجع المرفقات قبل إتمام التوقيع الإلكتروني.'
+                : 'Review attachments before completing e-sign.'}
             </p>
             <div className="esign-review-grid">
               {signatureDataUrl ? (
@@ -268,7 +288,11 @@ export function StayEsignWizard({
                   <figcaption>{ar ? 'التوقيع' : 'Signature'}</figcaption>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={signatureDataUrl} alt="" />
-                  <button type="button" className="button button--quiet" onClick={() => setStep('sign')}>
+                  <button
+                    type="button"
+                    className="button button--quiet"
+                    onClick={() => setStep('sign')}
+                  >
                     {ar ? 'تعديل' : 'Edit'}
                   </button>
                 </figure>
@@ -278,7 +302,11 @@ export function StayEsignWizard({
                   <figcaption>{ar ? 'البطاقة — أمام' : 'ID — front'}</figcaption>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={idFront} alt="" />
-                  <button type="button" className="button button--quiet" onClick={() => setStep('id_front')}>
+                  <button
+                    type="button"
+                    className="button button--quiet"
+                    onClick={() => setStep('id_front')}
+                  >
                     {ar ? 'تعديل' : 'Edit'}
                   </button>
                 </figure>
@@ -288,7 +316,11 @@ export function StayEsignWizard({
                   <figcaption>{ar ? 'البطاقة — خلف' : 'ID — back'}</figcaption>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={idBack} alt="" />
-                  <button type="button" className="button button--quiet" onClick={() => setStep('id_back')}>
+                  <button
+                    type="button"
+                    className="button button--quiet"
+                    onClick={() => setStep('id_back')}
+                  >
                     {ar ? 'تعديل' : 'Edit'}
                   </button>
                 </figure>
@@ -298,7 +330,11 @@ export function StayEsignWizard({
                   <figcaption>{ar ? 'الصورة الشخصية' : 'Portrait'}</figcaption>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={selfie} alt="" />
-                  <button type="button" className="button button--quiet" onClick={() => setStep('selfie')}>
+                  <button
+                    type="button"
+                    className="button button--quiet"
+                    onClick={() => setStep('selfie')}
+                  >
                     {ar ? 'تعديل' : 'Edit'}
                   </button>
                 </figure>
@@ -318,10 +354,14 @@ export function StayEsignWizard({
                   {ar ? 'العقد معتمد إلكترونياً' : 'Contract electronically approved'}
                 </p>
                 <p className="stay-esign__seal-sub">
-                  {ar
-                    ? 'من موقع بن حمود للتطوير — BHD R'
-                    : 'By Bin Hamood Development — BHD R'}
+                  {ar ? 'من موقع بن حمود للتطوير — BHD R' : 'By Bin Hamood Development — BHD R'}
                 </p>
+                {signatureSerial ? (
+                  <p className="stay-esign__seal-serial">
+                    {ar ? 'رقم التوقيع الإلكتروني ' : 'E-signature No. '}
+                    <bdi dir="ltr">{signatureSerial}</bdi>
+                  </p>
+                ) : null}
                 {signedAtLabel ? (
                   <p className="muted stay-esign__seal-time" dir="ltr">
                     {signedAtLabel}
@@ -329,11 +369,15 @@ export function StayEsignWizard({
                 ) : null}
               </div>
             </div>
-            <div
-              className="stay-esign__contract stay-esign__contract--signed"
-              dangerouslySetInnerHTML={{ __html: contractHtml }}
-            />
-            {signatureDataUrl ? (
+            {contractDocument ? (
+              <div className="stay-esign__document">{contractDocument}</div>
+            ) : (
+              <div
+                className="stay-esign__contract stay-esign__contract--signed"
+                dangerouslySetInnerHTML={{ __html: contractHtml ?? '' }}
+              />
+            )}
+            {signatureDataUrl && !contractDocument ? (
               <figure className="stay-esign__signed-figure">
                 <figcaption>{ar ? 'توقيعك' : 'Your signature'}</figcaption>
                 {/* eslint-disable-next-line @next/next/no-img-element */}

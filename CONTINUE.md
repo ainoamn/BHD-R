@@ -1,5 +1,16 @@
 # CONTINUE — 2026-10-12
 
+**0.8.27** · اتفاقية الحجز بتصميم العقد المعتمد، ورقم لكل توقيع إلكتروني:
+
+- **`ContractArticle`** (`components/contract-document-view.tsx`): المستند الرسمي وحده، بالمدخلات `contract: ContractArticleHead` و`doc` و`links: ContractArticleLinks`. تستعمله صفحة العقد (`ContractDocumentView`) وصفحة `/book/sign`.
+- **اتفاقية الحجز:** `loadLeaseBookingAgreement` في `lib/public-lease-booking-neon.ts`، ثم `leaseBookingAgreement` في `lib/lease-booking-contract.ts` الذي يعيد `{ head, doc }`، ويضع `doc.reservation` الذي يغيّر خانات المبالغ والسجل ويُخفي الملاحق.
+- **السلسلة الموحّدة:** `numberedSignatures` في `lib/contract-verify.ts` (عقود + `reservation.esign_completed`، والحد `RESERVATION_SERIES_FROM`). لا تُستدعى داخل `Promise.all` لأنها ترفع `app.platform_admin` مؤقتاً.
+- **مفتوح:** التحقق على قاعدة البيانات بعد النشر؛ رمز QR لاتفاقية الحجز؛ توحيد `stay-booking-contract.tsx`.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.27-AR.md`](./docs/implementation/RELEASE-0.8.27-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.26** · مشاهد وترحيب لصفحتي الحجز:
 
 - **`BookingStepScene`** (`components/stays/booking-step-scene.tsx`): مشهد 600×150 بأجزاء `stay-scene-parts` وحركات `stay-send__*`. الشاشة المكبَّرة تتغير حسب `kind`: `stay` أو `details` أو `terms` أو `review` أو `payment`.
