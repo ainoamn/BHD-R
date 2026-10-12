@@ -1,4 +1,5 @@
 import type { NumberedTermsBlock, TermsLetterhead } from '@/lib/booking-terms';
+import type { ContractAnnexLink } from '@/lib/contract-annex';
 
 export type ContractFileKind = 'signature' | 'id-front' | 'id-back' | 'selfie';
 
@@ -128,6 +129,8 @@ export interface ContractDocument {
     createdAt: string;
   }>;
   parent: { id: string; reference: string } | null;
+  /** Stay annexes (check-in, check-out, deposit refund), each a separate document. */
+  annexes: ContractAnnexLink[];
 }
 
 const ALLOWED_TAGS = new Set([

@@ -54,6 +54,8 @@ const KNOWN_CODES = new Set([
   'stay_checkout_before_checkin',
   'handover_document_required',
   'handover_phone_invalid',
+  'handover_photo_invalid',
+  'handover_photos_too_many',
   'refund_not_open',
   'refund_no_deposit',
   'refund_already_decided',
@@ -109,6 +111,8 @@ export function statusForSafeCode(code: string): number {
     case 'stay_checkout_before_checkin':
     case 'handover_document_required':
     case 'handover_phone_invalid':
+    case 'handover_photo_invalid':
+    case 'handover_photos_too_many':
     case 'refund_note_required':
     case 'refund_account_invalid':
     case 'refund_receipt_required':

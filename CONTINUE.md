@@ -1,5 +1,22 @@
 # CONTINUE — 2026-10-12
 
+**0.8.8** · ملاحق العقد المستقلة وصور الاستلام والتسليم:
+
+- **الملاحق:** `lib/contract-annex.ts` يعرّف الأنواع `check-in` و`check-out` و`deposit-refund`، بأرقام ثابتة A1–A3 (`annexReference`).
+  - `lib/contract-annex-neon.ts` يحتوي `loadContractAnnexFromNeon(contractId, portal, kind)`، بصلاحيات العقد نفسها (`contractAccess` و`visibleContract` صارتا مُصدَّرتين).
+  - يرجع null إن لم يُسجَّل الحدث بعد، فتعرض الصفحة 404.
+  - العرض في `components/contract-annex-view.tsx` (`ContractAnnexDocumentView` خالص للمعاينة).
+- **أجزاء مشتركة:** `components/contract-doc-parts.tsx` فيه `contractSerif` و`contractKit` و`DocLetterhead`، ويستخدمه العقد والملاحق.
+- **الصور:** `photos[]` في بيانات سجل `checked_in` و`checked_out`: `{ source, takenAt, sha256, data }`.
+  - `loadStayStamps` يزيل `data` بـ SQL.
+  - `readHandoverPhoto` يقرأ صورة واحدة برقمها.
+  - الحدود: `HANDOVER_PHOTOS_MAX = 6`، و`HANDOVER_PHOTO_MAX = 450_000` حرفاً.
+- **التالي:** التوقيع على الملاحق: رمز OTP عبر واتساب، والتوقيع اليدوي، وصور البطاقة الفورية، والسيلفي. ثم ملاحق لعقود طويل الأجل.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.8-AR.md`](./docs/implementation/RELEASE-0.8.8-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.7** · موافقة استرداد التأمين وإشعارات الضيف:
 
 - **الموافقة:** `REFUND_CONSENT` و`REFUND_CONSENT_VERSION` في `lib/stay-deposit-refund.ts`.

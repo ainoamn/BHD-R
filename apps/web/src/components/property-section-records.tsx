@@ -16,7 +16,7 @@ import {
   type RefundFormMode,
   type RefundSubmit,
 } from './stays/stay-deposit-refund-admin';
-import { handoverDocumentKind } from '@/lib/stay-handover';
+import { HANDOVER_PHOTOS_MAX, handoverDocumentKind } from '@/lib/stay-handover';
 import { PENDING_APPROVALS_CHANGED_EVENT } from '@/lib/pending-approvals-shared';
 import { domainStatusLabel } from '@/lib/ui-labels';
 import type {
@@ -337,6 +337,14 @@ const ERROR_TEXT: Record<string, [string, string]> = {
     'A photo of the recipient’s ID is required to check in.',
   ],
   handover_phone_invalid: ['رقم هاتف المستلم غير صحيح.', 'The recipient phone number is invalid.'],
+  handover_photo_invalid: [
+    'إحدى صور حالة الوحدة غير صالحة أو كبيرة جداً. احذفها وأعد التصوير.',
+    'One of the unit photos is invalid or too large. Remove it and retake it.',
+  ],
+  handover_photos_too_many: [
+    `الحد الأقصى ${HANDOVER_PHOTOS_MAX} صور لكل محضر.`,
+    `At most ${HANDOVER_PHOTOS_MAX} photos per record.`,
+  ],
   refund_not_open: [
     'استرداد التأمين متاح بعد تأكيد المغادرة فقط. حدّث الصفحة.',
     'Deposit refunds open after check-out only. Refresh the page.',
@@ -1004,7 +1012,7 @@ export function PropertySectionRecords({
 
   async function submitStamp(row: PropertyRecordRow, kind: StampKind, value: HandoverSubmit) {
     const id = row.id ?? '';
-    const { at, notes, noteKeys, important, recipient } = value;
+    const { at, notes, noteKeys, important, recipient, photos } = value;
     const result = await runAction(id, {
       action: kind,
       bookingId: id,
@@ -1013,6 +1021,7 @@ export function PropertySectionRecords({
       ...(noteKeys.length ? { noteKeys } : {}),
       ...(important ? { important } : {}),
       ...(recipient ? { recipient } : {}),
+      ...(photos.length ? { photos } : {}),
     });
     if (!result) return;
     setStampForm(null);

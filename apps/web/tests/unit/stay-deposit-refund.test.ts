@@ -24,6 +24,7 @@ const view: DepositRefundView = {
   currency: 'OMR',
   requestedAt: '2026-10-12T08:00:00.000Z',
   requestedBy: 'guest',
+  consent: null,
   guestNote: null,
   guestPayout: null,
   decidedAt: '2026-10-12T09:00:00.000Z',

@@ -44,6 +44,8 @@ import {
   signatureSerials,
 } from '@/lib/contract-verify';
 import { loadStayStamps, type StayStamps } from '@/lib/stay-arrival-neon';
+import { loadDepositRefunds } from '@/lib/stay-deposit-refund-neon';
+import { contractAnnexLinks } from '@/lib/contract-annex';
 
 type Tx = Parameters<Parameters<typeof withinViewerTenant>[1]>[0];
 
@@ -117,9 +119,10 @@ async function signedDocumentUrl(key: string, reference: string): Promise<string
 }
 
 type Portal = 'owner' | 'tenant' | 'developer';
-type Access = { claims: SessionClaims; orgId: string; partyScope: string | null };
+export type ContractAccess = { claims: SessionClaims; orgId: string; partyScope: string | null };
+type Access = ContractAccess;
 
-async function contractAccess(contractId: string, portal: Portal): Promise<Access | null> {
+export async function contractAccess(contractId: string, portal: Portal): Promise<Access | null> {
   if (!hasDatabaseUrl() || !UUID.test(contractId)) return null;
   const claims = await readClaims();
   if (!claims?.organizationId || !hasPermission(claims, 'contract.read')) return null;
@@ -128,7 +131,7 @@ async function contractAccess(contractId: string, portal: Portal): Promise<Acces
   return { claims, orgId: claims.organizationId, partyScope };
 }
 
-async function visibleContract(tx: Tx, contractId: string, access: Access) {
+export async function visibleContract(tx: Tx, contractId: string, access: Access) {
   const [contract] = await tx
     .select()
     .from(contracts)
@@ -152,7 +155,7 @@ function canViewIdentityFiles(access: Access, contract: { tenantPartyId: string 
   );
 }
 
-function stayBookingIdOf(snapshot: Record<string, unknown>): string | null {
+export function stayBookingIdOf(snapshot: Record<string, unknown>): string | null {
   const source = snapshot.source as { type?: unknown; stayBookingId?: unknown } | undefined;
   return source?.type === 'stay_booking' && typeof source.stayBookingId === 'string'
     ? source.stayBookingId
@@ -348,86 +351,93 @@ export async function loadContractDetailFromNeon(
         .limit(1)
         .then((rows) => rows[0] ?? null),
     ]);
-    const [propertyRow, identityDocs, templateSibling, serials, stamps] = await Promise.all([
-      unit
-        ? tx
-            .select({
-              id: properties.id,
-              nameAr: properties.nameAr,
-              nameEn: properties.nameEn,
-              kind: properties.kind,
-              category: properties.category,
-              serialNumber: properties.serialNumber,
-              governorate: addresses.governorate,
-              wilayat: addresses.wilayat,
-              city: addresses.city,
-              area: addresses.area,
-              street: addresses.street,
-              buildingNumber: addresses.buildingNumber,
-              postalCode: addresses.postalCode,
-              deedNumber: propertyProfiles.deedNumber,
-              plotNumber: propertyProfiles.plotNumber,
-              furnishing: propertyProfiles.furnishing,
-              parkingSpaces: propertyProfiles.parkingSpaces,
-              builtUpArea: propertyProfiles.builtUpAreaSquareMeters,
-              floorsCount: propertyProfiles.floorsCount,
-              yearBuilt: propertyProfiles.yearBuilt,
-            })
-            .from(properties)
-            .innerJoin(
-              addresses,
-              and(eq(addresses.id, properties.addressId), eq(addresses.organizationId, orgId)),
+    const [propertyRow, identityDocs, templateSibling, serials, stamps, refund] = await Promise.all(
+      [
+        unit
+          ? tx
+              .select({
+                id: properties.id,
+                nameAr: properties.nameAr,
+                nameEn: properties.nameEn,
+                kind: properties.kind,
+                category: properties.category,
+                serialNumber: properties.serialNumber,
+                governorate: addresses.governorate,
+                wilayat: addresses.wilayat,
+                city: addresses.city,
+                area: addresses.area,
+                street: addresses.street,
+                buildingNumber: addresses.buildingNumber,
+                postalCode: addresses.postalCode,
+                deedNumber: propertyProfiles.deedNumber,
+                plotNumber: propertyProfiles.plotNumber,
+                furnishing: propertyProfiles.furnishing,
+                parkingSpaces: propertyProfiles.parkingSpaces,
+                builtUpArea: propertyProfiles.builtUpAreaSquareMeters,
+                floorsCount: propertyProfiles.floorsCount,
+                yearBuilt: propertyProfiles.yearBuilt,
+              })
+              .from(properties)
+              .innerJoin(
+                addresses,
+                and(eq(addresses.id, properties.addressId), eq(addresses.organizationId, orgId)),
+              )
+              .leftJoin(
+                propertyProfiles,
+                and(
+                  eq(propertyProfiles.propertyId, properties.id),
+                  eq(propertyProfiles.organizationId, orgId),
+                ),
+              )
+              .where(and(eq(properties.organizationId, orgId), eq(properties.id, unit.propertyId)))
+              .limit(1)
+              .then((rows) => rows[0] ?? null)
+          : Promise.resolve(null),
+        tx
+          .select({
+            partyId: partyIdentityDocuments.partyId,
+            documentType: partyIdentityDocuments.documentType,
+            last4: partyIdentityDocuments.numberLast4,
+          })
+          .from(partyIdentityDocuments)
+          .where(
+            and(
+              eq(partyIdentityDocuments.organizationId, orgId),
+              inArray(partyIdentityDocuments.partyId, [
+                contract.ownerPartyId,
+                contract.tenantPartyId,
+              ]),
+            ),
+          )
+          .orderBy(desc(partyIdentityDocuments.createdAt)),
+        template
+          ? tx
+              .select({ html: contractTemplates.html })
+              .from(contractTemplates)
+              .where(
+                and(
+                  eq(contractTemplates.organizationId, orgId),
+                  eq(contractTemplates.key, template.key),
+                  eq(contractTemplates.version, template.version),
+                  ne(contractTemplates.language, template.language),
+                ),
+              )
+              .limit(1)
+              .then((rows) => rows[0]?.html ?? null)
+          : Promise.resolve(null),
+        signatures.length
+          ? signatureSerials(tx, orgId, contract.id)
+          : Promise.resolve(new Map<string, string>()),
+        stayBookingId
+          ? loadStayStamps(tx, orgId, [stayBookingId]).then((map) => map.get(stayBookingId) ?? null)
+          : Promise.resolve(null),
+        stayBookingId
+          ? loadDepositRefunds(tx, orgId, [stayBookingId]).then(
+              (map) => map.get(stayBookingId) ?? null,
             )
-            .leftJoin(
-              propertyProfiles,
-              and(
-                eq(propertyProfiles.propertyId, properties.id),
-                eq(propertyProfiles.organizationId, orgId),
-              ),
-            )
-            .where(and(eq(properties.organizationId, orgId), eq(properties.id, unit.propertyId)))
-            .limit(1)
-            .then((rows) => rows[0] ?? null)
-        : Promise.resolve(null),
-      tx
-        .select({
-          partyId: partyIdentityDocuments.partyId,
-          documentType: partyIdentityDocuments.documentType,
-          last4: partyIdentityDocuments.numberLast4,
-        })
-        .from(partyIdentityDocuments)
-        .where(
-          and(
-            eq(partyIdentityDocuments.organizationId, orgId),
-            inArray(partyIdentityDocuments.partyId, [
-              contract.ownerPartyId,
-              contract.tenantPartyId,
-            ]),
-          ),
-        )
-        .orderBy(desc(partyIdentityDocuments.createdAt)),
-      template
-        ? tx
-            .select({ html: contractTemplates.html })
-            .from(contractTemplates)
-            .where(
-              and(
-                eq(contractTemplates.organizationId, orgId),
-                eq(contractTemplates.key, template.key),
-                eq(contractTemplates.version, template.version),
-                ne(contractTemplates.language, template.language),
-              ),
-            )
-            .limit(1)
-            .then((rows) => rows[0]?.html ?? null)
-        : Promise.resolve(null),
-      signatures.length
-        ? signatureSerials(tx, orgId, contract.id)
-        : Promise.resolve(new Map<string, string>()),
-      stayBookingId
-        ? loadStayStamps(tx, orgId, [stayBookingId]).then((map) => map.get(stayBookingId) ?? null)
-        : Promise.resolve(null),
-    ]);
+          : Promise.resolve(null),
+      ],
+    );
     const builtIn = defaultTemplateCounterpart(template?.html);
     const templateAr =
       template?.language === 'ar' ? template.html : (templateSibling ?? builtIn?.ar ?? null);
@@ -457,6 +467,7 @@ export async function loadContractDetailFromNeon(
       canManageStays: hasPermission(claims, 'stay.booking.manage'),
       serials,
       stamps,
+      refundRequestedAt: refund?.requestedAt || null,
     };
   });
   if (!detail) return null;
@@ -533,6 +544,7 @@ type Loaded = {
   canManageStays: boolean;
   serials: Map<string, string>;
   stamps: StayStamps | null;
+  refundRequestedAt: string | null;
   owner: PartyRow | null;
   unit: {
     code: string;
@@ -807,5 +819,12 @@ async function buildContractDocument(
           reference: loaded.parent.reference ?? `CTR-${loaded.parent.id.slice(0, 8).toUpperCase()}`,
         }
       : null,
+    annexes: loaded.stayBookingId
+      ? contractAnnexLinks(contract.reference ?? `CTR-${contract.id.slice(0, 8).toUpperCase()}`, {
+          checkIn: checkInStamp?.at ?? null,
+          checkOut: checkOutStamp?.at ?? null,
+          depositRefund: loaded.refundRequestedAt,
+        })
+      : [],
   };
 }

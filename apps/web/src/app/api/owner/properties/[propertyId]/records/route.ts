@@ -34,7 +34,13 @@ import {
   decideDepositRefundOnNeon,
   recordDepositRefundPayoutOnNeon,
 } from '@/lib/stay-deposit-refund-neon';
-import { HANDOVER_DOCUMENT_KEYS, HANDOVER_DOCUMENT_MAX } from '@/lib/stay-handover';
+import {
+  HANDOVER_DOCUMENT_KEYS,
+  HANDOVER_DOCUMENT_MAX,
+  HANDOVER_PHOTOS_MAX,
+  HANDOVER_PHOTO_MAX,
+  HANDOVER_PHOTO_SOURCES,
+} from '@/lib/stay-handover';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -190,6 +196,21 @@ const bodySchema = z.discriminatedUnion('action', [
         })
         .strict()
         .optional(),
+      photos: z
+        .array(
+          z
+            .object({
+              data: z
+                .string()
+                .regex(/^data:image\/(?:png|jpeg|webp);base64,/)
+                .max(HANDOVER_PHOTO_MAX),
+              source: z.enum(HANDOVER_PHOTO_SOURCES),
+              takenAt: z.string().max(40).optional(),
+            })
+            .strict(),
+        )
+        .max(HANDOVER_PHOTOS_MAX)
+        .optional(),
     })
     .strict(),
   z
@@ -290,6 +311,7 @@ export async function POST(request: Request, context: { params: Promise<{ proper
             noteKeys: body.noteKeys,
             important: body.important,
             recipient: body.recipient,
+            photos: body.photos,
           }),
         );
       case 'create_lease':

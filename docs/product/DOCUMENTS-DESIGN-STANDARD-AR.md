@@ -67,15 +67,16 @@
 
 ## 7. المستندات الحالية ومطابقتها
 
-| المستند                        | الملف                                                                         | الحالة                        |
-| ------------------------------ | ----------------------------------------------------------------------------- | ----------------------------- |
-| العقد وملاحقه                  | `components/contract-document-view.tsx`                                       | المرجع                        |
-| صفحة التحقق من العقد           | `components/contract-verify-view.tsx`                                         | مطابقة (الشعار، الرقم الأحمر) |
-| إيصال الدفع وتأكيد الحجز (PDF) | `components/stays/stay-booking-document.tsx` (`.stay-doc`)                    | يحتاج توحيداً                 |
-| ملخص عقد الحجز                 | `components/stays/stay-booking-contract.tsx`، `lib/lease-booking-contract.ts` | يحتاج توحيداً                 |
-| الفاتورة العامة                | `app/[locale]/invoice/[publicToken]/page.tsx`                                 | يحتاج توحيداً                 |
-| إيصال الدفع التجريبي           | `components/sandbox-payment-form.tsx`                                         | يحتاج توحيداً                 |
-| طباعة الشروط                   | `components/terms-print-button.tsx`                                           | يحتاج توحيداً                 |
+| المستند                                            | الملف                                                                                          | الحالة                               |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------ |
+| العقد وملاحقه                                      | `components/contract-document-view.tsx`                                                        | المرجع                               |
+| ملاحق العقد (الاستلام، والإعادة، واسترداد التأمين) | `components/contract-annex-view.tsx`، والأجزاء المشتركة في `components/contract-doc-parts.tsx` | مطابقة (نفس الترويسة والخط والألوان) |
+| صفحة التحقق من العقد                               | `components/contract-verify-view.tsx`                                                          | مطابقة (الشعار، الرقم الأحمر)        |
+| إيصال الدفع وتأكيد الحجز (PDF)                     | `components/stays/stay-booking-document.tsx` (`.stay-doc`)                                     | يحتاج توحيداً                        |
+| ملخص عقد الحجز                                     | `components/stays/stay-booking-contract.tsx`، `lib/lease-booking-contract.ts`                  | يحتاج توحيداً                        |
+| الفاتورة العامة                                    | `app/[locale]/invoice/[publicToken]/page.tsx`                                                  | يحتاج توحيداً                        |
+| إيصال الدفع التجريبي                               | `components/sandbox-payment-form.tsx`                                                          | يحتاج توحيداً                        |
+| طباعة الشروط                                       | `components/terms-print-button.tsx`                                                            | يحتاج توحيداً                        |
 
 «يحتاج توحيداً» يعني أن المستند يستخدم الشعار الرسمي لكن بخطوطه وألوانه الخاصة. يُنقل إلى متغيّرات `--doc-*` والخطوط أعلاه عند أول تعديل عليه، أو في إصدار توحيد مستقل.
 

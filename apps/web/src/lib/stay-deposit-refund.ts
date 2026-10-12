@@ -70,6 +70,8 @@ export type DepositRefundView = {
   currency: string;
   requestedAt: string;
   requestedBy: 'guest' | 'host';
+  /** The refund terms the guest accepted with the request (0.8.7 onward). */
+  consent: { version: string; acceptedAt: string } | null;
   guestNote: string | null;
   guestPayout: RefundPayout | null;
   decidedAt: string | null;

@@ -430,8 +430,8 @@ async function enrichProjection(
     }),
     listingTitleAr: listing?.titleAr ?? null,
     listingTitleEn: listing?.titleEn ?? null,
-    checkIn: stamp?.checkIn ? { ...stamp.checkIn, recipient: null } : null,
-    checkOut: stamp?.checkOut ? { ...stamp.checkOut, recipient: null } : null,
+    checkIn: stamp?.checkIn ? { ...stamp.checkIn, recipient: null, photos: [] } : null,
+    checkOut: stamp?.checkOut ? { ...stamp.checkOut, recipient: null, photos: [] } : null,
   };
 }
 

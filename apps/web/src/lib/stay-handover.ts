@@ -70,6 +70,28 @@ export function validHandoverPhone(value: string): boolean {
 /** Largest stored document image (data URL characters, ~0.9 MB of JPEG). */
 export const HANDOVER_DOCUMENT_MAX = 1_200_000;
 
+/**
+ * Condition photos of the unit at check-in / check-out. Six of the largest plus the ID image
+ * stay under the 4.5 MB request limit of the hosting platform.
+ */
+export const HANDOVER_PHOTOS_MAX = 6;
+export const HANDOVER_PHOTO_MAX = 450_000;
+export const HANDOVER_PHOTO_SOURCES = ['camera', 'device'] as const;
+export type HandoverPhotoSource = (typeof HANDOVER_PHOTO_SOURCES)[number];
+export const HANDOVER_IMAGE_DATA_URL = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/;
+
+/** A stored condition photo without its bytes: where it came from, when, and its fingerprint. */
+export type HandoverPhoto = {
+  index: number;
+  source: HandoverPhotoSource;
+  takenAt: string | null;
+  sha256: string;
+};
+
+export function isHandoverPhotoSource(value: unknown): value is HandoverPhotoSource {
+  return value === 'camera' || value === 'device';
+}
+
 export function handoverNote(kind: HandoverKind, key: string): Choice | null {
   return HANDOVER_NOTES[kind].find((item) => item.key === key) ?? null;
 }

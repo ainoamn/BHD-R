@@ -5,8 +5,11 @@ import {
   HANDOVER_DOCUMENT_KINDS,
   HANDOVER_DOCUMENT_MAX,
   HANDOVER_NOTES,
+  HANDOVER_PHOTOS_MAX,
+  HANDOVER_PHOTO_MAX,
   validHandoverPhone,
   type HandoverKind,
+  type HandoverPhotoSource,
 } from '@/lib/stay-handover';
 import { StampDateTimeField } from './stamp-date-time-field';
 
@@ -16,6 +19,7 @@ export type HandoverSubmit = {
   noteKeys: string[];
   important: boolean;
   recipient?: { name?: string; phone: string; documentKind: string; document: string };
+  photos: Array<{ data: string; source: HandoverPhotoSource; takenAt: string }>;
 };
 
 /** Reader's language first, the other underneath, so the form reads in Arabic and English. */
@@ -47,14 +51,30 @@ function loadImage(file: File): Promise<HTMLImageElement> {
   });
 }
 
+const DOCUMENT_STEPS = [
+  [1800, 0.82],
+  [1400, 0.72],
+  [1100, 0.62],
+] as const;
+const PHOTO_STEPS = [
+  [1600, 0.78],
+  [1280, 0.7],
+  [1024, 0.62],
+  [800, 0.55],
+] as const;
+
 /** Phone photos are several MB; store a readable JPEG under the server limit. */
-export async function compressDocument(file: File): Promise<string> {
+export function compressDocument(file: File): Promise<string> {
+  return compressImage(file, HANDOVER_DOCUMENT_MAX, DOCUMENT_STEPS);
+}
+
+async function compressImage(
+  file: File,
+  max: number,
+  steps: ReadonlyArray<readonly [number, number]>,
+): Promise<string> {
   const image = await loadImage(file);
-  for (const [edge, quality] of [
-    [1800, 0.82],
-    [1400, 0.72],
-    [1100, 0.62],
-  ] as const) {
+  for (const [edge, quality] of steps) {
     const scale = Math.min(1, edge / Math.max(image.naturalWidth, image.naturalHeight));
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(image.naturalWidth * scale);
@@ -65,7 +85,7 @@ export async function compressDocument(file: File): Promise<string> {
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
     const dataUrl = canvas.toDataURL('image/jpeg', quality);
-    if (dataUrl.length <= HANDOVER_DOCUMENT_MAX) return dataUrl;
+    if (dataUrl.length <= max) return dataUrl;
   }
   throw new Error('image_too_large');
 }
@@ -103,6 +123,46 @@ export function StayHandoverForm({
   const [tried, setTried] = useState(false);
   const cameraRef = useRef<HTMLInputElement>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
+  const [photos, setPhotos] = useState<HandoverSubmit['photos']>([]);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const photoCameraRef = useRef<HTMLInputElement>(null);
+  const photoDeviceRef = useRef<HTMLInputElement>(null);
+  const photosFull = photos.length >= HANDOVER_PHOTOS_MAX;
+
+  async function addPhotos(files: FileList | null, source: HandoverPhotoSource) {
+    const picked = [...(files ?? [])].filter((file) => file.type.startsWith('image/'));
+    if (!picked.length) return;
+    setPhotoError(null);
+    const room = HANDOVER_PHOTOS_MAX - photos.length;
+    if (picked.length > room) {
+      setPhotoError(
+        ar
+          ? `الحد الأقصى ${HANDOVER_PHOTOS_MAX} صور؛ أُضيفت أول ${room}. / Up to ${HANDOVER_PHOTOS_MAX} photos.`
+          : `Up to ${HANDOVER_PHOTOS_MAX} photos; the first ${room} were added. / الحد الأقصى ${HANDOVER_PHOTOS_MAX} صور.`,
+      );
+    }
+    setPhotoBusy(true);
+    try {
+      const added: HandoverSubmit['photos'] = [];
+      for (const file of picked.slice(0, Math.max(room, 0))) {
+        added.push({
+          data: await compressImage(file, HANDOVER_PHOTO_MAX, PHOTO_STEPS),
+          source,
+          takenAt: new Date(source === 'camera' ? Date.now() : file.lastModified).toISOString(),
+        });
+      }
+      setPhotos((current) => [...current, ...added].slice(0, HANDOVER_PHOTOS_MAX));
+    } catch {
+      setPhotoError(
+        ar
+          ? 'تعذّرت قراءة إحدى الصور، أعد المحاولة. / A photo could not be read; try again.'
+          : 'A photo could not be read; try again. / تعذّرت قراءة إحدى الصور، أعد المحاولة.',
+      );
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
 
   const bi = (arText: string, enText: string): ReactNode => (
     <Bi ar={arText} en={enText} primary={locale} />
@@ -110,7 +170,7 @@ export function StayHandoverForm({
   const phoneOk = validHandoverPhone(phone);
   const missingDocument = checkIn && !document;
   const missingPhone = checkIn && !phoneOk;
-  const ready = Boolean(at) && !missingDocument && !missingPhone && !reading;
+  const ready = Boolean(at) && !missingDocument && !missingPhone && !reading && !photoBusy;
 
   async function pickFile(file: File | undefined) {
     if (!file) return;
@@ -155,6 +215,7 @@ export function StayHandoverForm({
           notes: custom,
           noteKeys,
           important,
+          photos,
           ...(checkIn && document
             ? {
                 recipient: {
@@ -352,6 +413,104 @@ export function StayHandoverForm({
           </fieldset>
         ) : null}
 
+        <fieldset className="field span-2 handover-photos">
+          <legend>
+            {bi(
+              `صور حالة الوحدة (اختياري، حتى ${HANDOVER_PHOTOS_MAX})`,
+              `Unit condition photos (optional, up to ${HANDOVER_PHOTOS_MAX})`,
+            )}
+          </legend>
+          {photos.length ? (
+            <ol className="handover-photos__grid">
+              {photos.map((photo, index) => (
+                <li key={`${photo.takenAt}-${index}`}>
+                  <img src={photo.data} alt={ar ? `صورة ${index + 1}` : `Photo ${index + 1}`} />
+                  <span className="handover-photos__tag">
+                    {index + 1} ·{' '}
+                    {photo.source === 'camera'
+                      ? ar
+                        ? 'تصوير فوري'
+                        : 'Live photo'
+                      : ar
+                        ? 'من الجهاز'
+                        : 'From device'}
+                  </span>
+                  <button
+                    type="button"
+                    className="handover-photos__remove"
+                    aria-label={ar ? `حذف الصورة ${index + 1}` : `Remove photo ${index + 1}`}
+                    onClick={() =>
+                      setPhotos((current) => current.filter((_, position) => position !== index))
+                    }
+                  >
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ol>
+          ) : null}
+          <div className="handover-doc__actions">
+            <button
+              type="button"
+              className="button button--secondary"
+              disabled={photoBusy || photosFull}
+              onClick={() => photoCameraRef.current?.click()}
+            >
+              📷 {ar ? 'تصوير فوري · Take photo' : 'Take photo · تصوير فوري'}
+            </button>
+            <button
+              type="button"
+              className="button button--quiet"
+              disabled={photoBusy || photosFull}
+              onClick={() => photoDeviceRef.current?.click()}
+            >
+              🖼 {ar ? 'من الجهاز · From device' : 'From device · من الجهاز'}
+            </button>
+            <span className="muted handover-photos__count" dir="ltr">
+              {photos.length} / {HANDOVER_PHOTOS_MAX}
+            </span>
+          </div>
+          <input
+            ref={photoCameraRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            hidden
+            onChange={(event) => {
+              void addPhotos(event.target.files, 'camera');
+              event.target.value = '';
+            }}
+          />
+          <input
+            ref={photoDeviceRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+            multiple
+            hidden
+            onChange={(event) => {
+              void addPhotos(event.target.files, 'device');
+              event.target.value = '';
+            }}
+          />
+          {photoBusy ? (
+            <small className="muted">
+              {ar
+                ? 'جارٍ تجهيز الصور… · Preparing photos…'
+                : 'Preparing photos… · جارٍ تجهيز الصور…'}
+            </small>
+          ) : photoError ? (
+            <small className="stamp-dt__error" role="alert">
+              {photoError}
+            </small>
+          ) : (
+            <small className="muted">
+              {ar
+                ? 'تُرفق الصور بمحضر الاستلام أو التسليم ببصمة لكل صورة، ويوقَّع عليها مع المحضر. · Photos join the handover record, each with a fingerprint, and are signed with it.'
+                : 'Photos join the handover record, each with a fingerprint, and are signed with it. · تُرفق الصور بالمحضر ويوقَّع عليها معه.'}
+            </small>
+          )}
+        </fieldset>
+
         <fieldset className="field span-2 handover-notes">
           <legend>{bi('ملاحظات جاهزة (اختر ما ينطبق)', 'Quick notes (pick any)')}</legend>
           <div className="handover-notes__chips">
@@ -408,7 +567,11 @@ export function StayHandoverForm({
           : 'The guest sees the time and notes; the phone and ID photo stay private. · يظهر الوقت والملاحظات للضيف، ورقم الهاتف وصورة الوثيقة لا تظهر له.'}
       </p>
       <div className="form-actions">
-        <button type="submit" className="button button--primary" disabled={busy || reading || !at}>
+        <button
+          type="submit"
+          className="button button--primary"
+          disabled={busy || reading || photoBusy || !at}
+        >
           {busy
             ? ar
               ? 'جارٍ الحفظ…'

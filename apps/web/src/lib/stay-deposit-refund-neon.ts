@@ -154,6 +154,7 @@ export async function loadDepositRefunds(
       currency: refund.currency,
       requestedAt: iso(refund.createdAt) ?? '',
       requestedBy: 'host',
+      consent: null,
       guestNote: null,
       guestPayout: null,
       decidedAt: iso(refund.approvedAt),
@@ -166,6 +167,13 @@ export async function loadDepositRefunds(
         view.requestedBy = meta.by === 'guest' ? 'guest' : 'host';
         view.guestNote = text(meta.note);
         view.guestPayout = readPayout(meta.payout);
+        const consent =
+          meta.consent && typeof meta.consent === 'object'
+            ? (meta.consent as Record<string, unknown>)
+            : {};
+        const version = text(consent.version);
+        const acceptedAt = text(consent.acceptedAt);
+        view.consent = version && acceptedAt ? { version, acceptedAt } : null;
       } else if (meta.event === 'approved' || meta.event === 'rejected') {
         view.decidedBy = text(meta.decidedBy);
         view.decisionNote = text(meta.note);

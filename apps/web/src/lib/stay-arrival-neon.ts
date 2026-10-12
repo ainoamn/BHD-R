@@ -1,4 +1,5 @@
 import 'server-only';
+import { createHash } from 'node:crypto';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import {
@@ -14,10 +15,16 @@ import { assertStayBookingTransition } from '@bhd-r/domain';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 import {
   HANDOVER_DOCUMENT_MAX,
+  HANDOVER_IMAGE_DATA_URL,
+  HANDOVER_PHOTOS_MAX,
+  HANDOVER_PHOTO_MAX,
   composeHandoverNotes,
   handoverDocumentKind,
   handoverNote,
+  isHandoverPhotoSource,
   validHandoverPhone,
+  type HandoverPhoto,
+  type HandoverPhotoSource,
 } from '@/lib/stay-handover';
 
 type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
@@ -42,6 +49,14 @@ export type StayStamp = {
   customNote: string | null;
   important: boolean;
   recipient: StayRecipient | null;
+  /** Condition photos of the unit; the bytes are only served on request. */
+  photos: HandoverPhoto[];
+};
+
+export type StayPhotoInput = {
+  data: string;
+  source: HandoverPhotoSource;
+  takenAt?: string | undefined;
 };
 
 export type StayRecipientInput = {
@@ -73,6 +88,17 @@ export function muscatLocalToDate(value: string): Date {
 const text = (value: unknown): string | null =>
   typeof value === 'string' && value.trim() ? value.trim() : null;
 
+function readPhotos(value: unknown): HandoverPhoto[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item, index) => {
+    const row = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
+    const sha256 = text(row.sha256);
+    return sha256 && isHandoverPhotoSource(row.source)
+      ? [{ index, source: row.source, takenAt: text(row.takenAt), sha256 }]
+      : [];
+  });
+}
+
 function readStamp(metadata: unknown, fallbackAt: Date, hasDocument: boolean): StayStamp {
   const row = metadata && typeof metadata === 'object' ? (metadata as Record<string, unknown>) : {};
   const recipient =
@@ -88,6 +114,7 @@ function readStamp(metadata: unknown, fallbackAt: Date, hasDocument: boolean): S
       : [],
     customNote: text(row.customNote),
     important: row.important === true,
+    photos: readPhotos(row.photos),
     recipient: recipient
       ? {
           name: text(recipient.name),
@@ -99,7 +126,36 @@ function readStamp(metadata: unknown, fallbackAt: Date, hasDocument: boolean): S
   };
 }
 
-const DOCUMENT_DATA_URL = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/;
+const DOCUMENT_DATA_URL = HANDOVER_IMAGE_DATA_URL;
+
+/** One condition photo of a check-in / check-out as image bytes. */
+export async function readHandoverPhoto(
+  tx: Pick<Tx, 'select'>,
+  orgId: string,
+  bookingId: string,
+  kind: StayStampKind,
+  index: number,
+): Promise<{ bytes: Buffer; mimeType: string } | null> {
+  const [row] = await tx
+    .select({
+      data: sql<
+        string | null
+      >`${stayBookingStatusHistory.metadataJson}->'photos'->${index}::int->>'data'`,
+    })
+    .from(stayBookingStatusHistory)
+    .where(
+      and(
+        eq(stayBookingStatusHistory.organizationId, orgId),
+        eq(stayBookingStatusHistory.bookingId, bookingId),
+        eq(stayBookingStatusHistory.toStatus, TO_STATUS[kind]),
+      ),
+    )
+    .orderBy(desc(stayBookingStatusHistory.createdAt))
+    .limit(1);
+  const match = row?.data?.match(HANDOVER_IMAGE_DATA_URL);
+  if (!match) return null;
+  return { mimeType: match[1]!, bytes: Buffer.from(match[2]!, 'base64') };
+}
 
 /** The recipient's document photo captured at check-in, as image bytes. */
 export async function readHandoverDocument(
@@ -168,7 +224,17 @@ export async function loadStayStamps(
     .select({
       bookingId: stayBookingStatusHistory.bookingId,
       toStatus: stayBookingStatusHistory.toStatus,
-      metadata: sql<unknown>`${stayBookingStatusHistory.metadataJson} #- '{recipient,document}'`,
+      metadata: sql<unknown>`case
+        when jsonb_typeof(${stayBookingStatusHistory.metadataJson}->'photos') = 'array'
+        then jsonb_set(
+          ${stayBookingStatusHistory.metadataJson} #- '{recipient,document}',
+          '{photos}',
+          (select coalesce(jsonb_agg(photo - 'data' order by position), '[]'::jsonb)
+             from jsonb_array_elements(${stayBookingStatusHistory.metadataJson}->'photos')
+             with ordinality as listed(photo, position))
+        )
+        else ${stayBookingStatusHistory.metadataJson} #- '{recipient,document}'
+      end`,
       hasDocument: sql<boolean>`(${stayBookingStatusHistory.metadataJson}->'recipient'->>'document') is not null`,
       createdAt: stayBookingStatusHistory.createdAt,
     })
@@ -206,6 +272,7 @@ export async function recordStayStampOnNeon(
     noteKeys?: string[] | undefined;
     important?: boolean | undefined;
     recipient?: StayRecipientInput | undefined;
+    photos?: StayPhotoInput[] | undefined;
   },
 ): Promise<{ bookingStatus: string; stamp: StayStamp }> {
   if (!hasPermission(claims, 'stay.booking.manage')) fail('forbidden');
@@ -228,6 +295,21 @@ export async function recordStayStampOnNeon(
     if (!validHandoverPhone(recipient.phone)) fail('handover_phone_invalid');
     if (!handoverDocumentKind(recipient.documentKind)) fail('invalid_body');
   }
+  const photoInput = input.photos ?? [];
+  if (photoInput.length > HANDOVER_PHOTOS_MAX) fail('handover_photos_too_many');
+  const photos = photoInput.map((photo) => {
+    const match = photo.data.match(HANDOVER_IMAGE_DATA_URL);
+    if (!match || photo.data.length > HANDOVER_PHOTO_MAX || !isHandoverPhotoSource(photo.source)) {
+      fail('handover_photo_invalid');
+    }
+    const takenAt = photo.takenAt ? new Date(photo.takenAt) : null;
+    return {
+      source: photo.source,
+      takenAt: takenAt && !Number.isNaN(takenAt.getTime()) ? takenAt.toISOString() : null,
+      sha256: createHash('sha256').update(Buffer.from(match[2]!, 'base64')).digest('hex'),
+      data: photo.data,
+    };
+  });
   const toStatus = TO_STATUS[input.kind];
 
   return withinViewerTenant(claims, async (tx) => {
@@ -281,6 +363,12 @@ export async function recordStayStampOnNeon(
       customNote: input.notes?.trim() || null,
       important: input.important === true,
       recipient: handover ? { ...handover, hasDocument: true } : null,
+      photos: photos.map(({ source, takenAt, sha256 }, index) => ({
+        index,
+        source,
+        takenAt,
+        sha256,
+      })),
     };
     const metadata = {
       at: stamp.at,
@@ -289,6 +377,7 @@ export async function recordStayStampOnNeon(
       noteKeys,
       customNote: stamp.customNote,
       important: stamp.important,
+      ...(photos.length ? { photos } : {}),
       ...(handover && recipient
         ? { recipient: { ...handover, document: recipient.document } }
         : {}),
@@ -320,6 +409,7 @@ export async function recordStayStampOnNeon(
         at: stamp.at,
         notes,
         important: stamp.important,
+        photoCount: photos.length,
         ...(handover ? { recipientPhone: handover.phone, hasDocument: true } : {}),
       },
     });

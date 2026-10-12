@@ -1,5 +1,4 @@
 import { Card, CardContent } from '@bhd-r/ui';
-import { Amiri } from 'next/font/google';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { TermsDocument } from '@/components/terms-document';
@@ -12,27 +11,24 @@ import type {
 } from '@/lib/contract-document';
 import { formatMoney } from '@/lib/format';
 import { omanLocations } from '@/lib/oman-locations';
-import { HANDOVER_DOCUMENT_KINDS, handoverNote, type HandoverKind } from '@/lib/stay-handover';
+import { ANNEX_META } from '@/lib/contract-annex';
 import type { PortalRole } from '@/lib/types';
 import { stayTypeLabel } from '@/lib/ui-labels';
 import { ContractActions } from './contract-actions';
+import {
+  BRAND_LOGO,
+  DocLetterhead,
+  contractKit,
+  contractSerif,
+  ltr,
+  type Pair,
+} from './contract-doc-parts';
 import { ContractDocumentToolbar } from './contract-document-toolbar';
 import { SignatureForm } from './signature-form';
-
-const contractSerif = Amiri({
-  subsets: ['arabic', 'latin'],
-  weight: ['400', '700'],
-  display: 'swap',
-  variable: '--font-contract',
-});
 
 type Portal = Exclude<PortalRole, 'platform'>;
 
 const DOCUMENT_ID = 'contract-document';
-const BRAND_LOGO = '/brand/bhd-official-symbol.svg';
-
-/** [Arabic, English] — the contract prints both. */
-type Pair = readonly [string, string];
 
 const STATUS_LABELS: Record<string, Pair> = {
   draft: ['مسودة', 'Draft'],
@@ -133,64 +129,6 @@ function docTitle(doc: ContractDocument, contract: ContractDetail): Pair {
   return ['عقد إيجار', 'Lease Agreement'];
 }
 
-/** Empty contract field: a dotted line to fill in by hand, like a printed form. */
-function Value({ children }: { children: ReactNode }) {
-  const empty = children === null || children === undefined || children === '';
-  return empty ? <span className="contract-doc__blank" aria-label="—" /> : <>{children}</>;
-}
-
-function ltr(value: string | null | undefined) {
-  return value ? <bdi dir="ltr">{value}</bdi> : null;
-}
-
-/**
- * Bilingual building blocks. The reader's language comes first; side-by-side
- * text keeps Arabic on the right and English on the left in both layouts.
- */
-function contractKit(ar: boolean) {
-  const order = (arNode: ReactNode, enNode: ReactNode) =>
-    ar ? [arNode, enNode] : [enNode, arNode];
-  const bi = (value: Pair | string | null | undefined): ReactNode => {
-    if (value === null || value === undefined) return null;
-    if (typeof value === 'string') return value || null;
-    const [arText, enText] = value;
-    if (!arText || !enText || arText === enText) return arText || enText || null;
-    return (
-      <span className="contract-doc__bi">
-        {order(
-          <span key="ar" className="contract-doc__ar" lang="ar" dir="rtl">
-            {arText}
-          </span>,
-          <span key="en" className="contract-doc__en" lang="en" dir="ltr">
-            {enText}
-          </span>,
-        )}
-      </span>
-    );
-  };
-  const row = (term: Pair, value: ReactNode, wide = false) => (
-    <div className={`contract-doc__row${wide ? ' contract-doc__row--wide' : ''}`}>
-      <dt>{bi(term)}</dt>
-      <dd>
-        <Value>{value}</Value>
-      </dd>
-    </div>
-  );
-  const para = (arText: string, enText: string, className = '') => (
-    <div className={`contract-doc__para${className ? ` ${className}` : ''}`}>
-      {order(
-        <p key="ar" lang="ar" dir="rtl">
-          {arText}
-        </p>,
-        <p key="en" lang="en" dir="ltr">
-          {enText}
-        </p>,
-      )}
-    </div>
-  );
-  return { ar, order, bi, row, para };
-}
-
 type Kit = ReturnType<typeof contractKit>;
 
 export function ContractDocumentView({
@@ -277,8 +215,6 @@ export function ContractDocumentView({
     : `${ownerName} → ${tenantName} · ${pick(propertyName)} (${unitName}) · ${pick(day(contract.startsOn))} – ${pick(day(contract.endsOn))} · ${pick(money(doc.amount))}`;
 
   const letterhead = doc.letterhead;
-  const companyAr = letterhead?.nameAr || ownerName;
-  const companyEn = letterhead?.nameEn || ownerName;
   const contactLine = [
     letterhead?.phone || owner?.phone || null,
     letterhead?.email || owner?.email || null,
@@ -365,49 +301,6 @@ export function ContractDocumentView({
       .filter((signature) => signature.serial)
       .sort((left, right) => left.signedAt.localeCompare(right.signedAt))
       .at(-1)?.serial ?? null;
-  const recipient = doc.stay?.recipient ?? null;
-  const recipientDocument = label(
-    Object.fromEntries(
-      HANDOVER_DOCUMENT_KINDS.map((item) => [item.key, [item.ar, item.en] as const]),
-    ),
-    recipient?.documentKind,
-  );
-  const stampNote = (
-    kind: HandoverKind,
-    stamp: {
-      notes: string | null;
-      noteKeys: string[];
-      customNote: string | null;
-      important: boolean;
-    },
-  ) => {
-    const presets = stamp.noteKeys
-      .map((key) => handoverNote(kind, key))
-      .filter((item): item is NonNullable<typeof item> => Boolean(item));
-    const structured = presets.length > 0 || Boolean(stamp.customNote);
-    return (
-      <>
-        {stamp.important ? (
-          <span className="contract-doc__important">{bi(['ملاحظة مهمة', 'Important note'])}</span>
-        ) : null}
-        {structured ? (
-          <ul className="contract-doc__note-list">
-            {presets.map((item) => (
-              <li key={item.key}>{bi([item.ar, item.en])}</li>
-            ))}
-            {stamp.customNote ? (
-              <li>
-                <bdi>{stamp.customNote}</bdi>
-              </li>
-            ) : null}
-          </ul>
-        ) : stamp.notes ? (
-          <span className="contract-doc__note">{stamp.notes}</span>
-        ) : null}
-      </>
-    );
-  };
-
   return (
     <div className="form-shell contract-detail contract-detail--document">
       <header className="portal-topbar contract-detail__topbar">
@@ -471,19 +364,7 @@ export function ContractDocumentView({
           <thead>
             <tr>
               <td>
-                <header className="contract-doc__letterhead" dir="rtl">
-                  <div className="contract-doc__lh-side" dir="rtl" lang="ar">
-                    <strong>{companyAr}</strong>
-                    {letterhead?.addressAr ? <span>{letterhead.addressAr}</span> : null}
-                  </div>
-                  <div className="contract-doc__lh-logo">
-                    <img src={letterhead?.logoDataUrl || BRAND_LOGO} alt={companyEn} />
-                  </div>
-                  <div className="contract-doc__lh-side" dir="ltr" lang="en">
-                    <strong>{companyEn}</strong>
-                    {letterhead?.addressEn ? <span>{letterhead.addressEn}</span> : null}
-                  </div>
-                </header>
+                <DocLetterhead letterhead={letterhead} fallbackName={ownerName} />
               </td>
             </tr>
           </thead>
@@ -632,63 +513,6 @@ export function ContractDocumentView({
                       : null}
                   </dl>
                 </section>
-
-                {doc.stay ? (
-                  <section className="contract-doc__section">
-                    {heading(['التسليم والاستلام', 'Handover'])}
-                    <dl className="contract-doc__table">
-                      {row(
-                        ['تسلّم الضيف العين', 'Checked in'],
-                        doc.stay.checkIn ? (
-                          <>
-                            {bi(dateTime(doc.stay.checkIn.at))}
-                            {stampNote('check_in', doc.stay.checkIn)}
-                          </>
-                        ) : null,
-                      )}
-                      {recipient
-                        ? row(
-                            ['المستلم', 'Received by'],
-                            <span className="contract-doc__stack">
-                              {recipient.name ? <bdi>{recipient.name}</bdi> : null}
-                              {recipient.phone ? (
-                                <bdi dir="ltr" className="contract-doc__nowrap">
-                                  {recipient.phone}
-                                </bdi>
-                              ) : null}
-                            </span>,
-                          )
-                        : null}
-                      {recipient && recipientDocument
-                        ? row(
-                            ['وثيقة المستلم', 'Recipient ID'],
-                            <>
-                              {bi(recipientDocument)}
-                              {recipient.documentHref ? (
-                                <a
-                                  className="contract-doc__doc-link"
-                                  href={recipient.documentHref}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                >
-                                  {bi(['عرض صورة الوثيقة', 'View ID photo'])}
-                                </a>
-                              ) : null}
-                            </>,
-                          )
-                        : null}
-                      {row(
-                        ['أعاد الضيف العين', 'Checked out'],
-                        doc.stay.checkOut ? (
-                          <>
-                            {bi(dateTime(doc.stay.checkOut.at))}
-                            {stampNote('check_out', doc.stay.checkOut)}
-                          </>
-                        ) : null,
-                      )}
-                    </dl>
-                  </section>
-                ) : null}
 
                 {templateAr || templateEn ? (
                   <section className="contract-doc__section">
@@ -856,6 +680,43 @@ export function ContractDocumentView({
                       </Link>
                     </p>
                   ) : null}
+                  {doc.annexes.length ? (
+                    <>
+                      {para(
+                        'تُعدّ الملاحق التالية جزءاً لا يتجزأ من هذا العقد ومتمّمة له، ولكلٍّ منها مستند مستقل يُطبع ويوقَّع على حدة.',
+                        'The following annexes form an integral part of this agreement and complete it; each is a separate document, printed and signed on its own.',
+                        'contract-doc__lead',
+                      )}
+                      <ol className="contract-doc__annexes">
+                        {doc.annexes.map((annex) => {
+                          const meta = ANNEX_META[annex.kind];
+                          const title = bi(meta.title);
+                          return (
+                            <li key={annex.kind}>
+                              <span className="contract-doc__annex-no">{meta.number}</span>
+                              <span className="contract-doc__annex-title">
+                                {annex.recordedAt ? (
+                                  <Link
+                                    href={`/${locale}/${portal}/contracts/${contract.id}/annex/${annex.kind}`}
+                                  >
+                                    {title}
+                                  </Link>
+                                ) : (
+                                  title
+                                )}
+                                <bdi dir="ltr">{annex.reference}</bdi>
+                              </span>
+                              <span className="contract-doc__annex-state">
+                                {annex.recordedAt
+                                  ? bi(dateTime(annex.recordedAt))
+                                  : bi(['لم يُسجَّل بعد', 'Not recorded yet'])}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    </>
+                  ) : null}
                   {doc.addenda.length ? (
                     <ul className="contract-doc__addenda">
                       {doc.addenda.map((addendum) => (
@@ -875,7 +736,7 @@ export function ContractDocumentView({
                         </li>
                       ))}
                     </ul>
-                  ) : doc.parent ? null : (
+                  ) : doc.parent || doc.annexes.length ? null : (
                     para('لا توجد ملاحق لهذا العقد.', 'No addenda.', 'contract-doc__lead')
                   )}
                 </section>
