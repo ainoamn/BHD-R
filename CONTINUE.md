@@ -1,5 +1,20 @@
 # CONTINUE — 2026-10-12
 
+**0.8.7** · موافقة استرداد التأمين وإشعارات الضيف:
+
+- **الموافقة:** `REFUND_CONSENT` و`REFUND_CONSENT_VERSION` في `lib/stay-deposit-refund.ts`.
+  - المسار `api/public/stays/guest/deposit-refund` يرفض الطلب دون `consent: true` (`refund_consent_required`).
+  - `insertGuestDepositRefundRequest` يحفظ `consent: { version, acceptedAt }` في بيانات حدث `requested`.
+- **إشعارات الصفحة:** `refundNotices(refund, ar, { money, stamp })` تبني الإشعارات بمعرّفات ثابتة (`<kind>:<ISO>`).
+  - `components/stays/stay-refund-notices.tsx` يعرضها فوق بطاقة الرحلة، مع «جديد» ونافذة منبثقة لما لم يُرَ.
+  - المرئي محفوظ في `localStorage` (`bhd-refund-seen:<ref>`). و`useRef` يمنع التشغيل المزدوج للتأثير في وضع التطوير من إخفاء الجديد.
+- **البريد:** `queueGuestRefundNotice` في `stay-deposit-refund-neon.ts` يضيف `notification.delivery.requested` إلى `outbox_events` عند القبول والرفض والتحويل.
+- **التالي:** نشر `apps/worker` (Redis، و`SMTP_*`، و`EMAIL_FROM`). لا شيء نُشر من صندوق الصادر حتى الآن.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.7-AR.md`](./docs/implementation/RELEASE-0.8.7-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.6** · فصل العقود وحالتها:
 
 - **الأنواع:** `?kind=sale|purchase|daily|long_term` على `/contracts`.

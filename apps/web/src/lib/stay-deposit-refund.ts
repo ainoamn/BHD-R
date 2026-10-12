@@ -15,6 +15,24 @@ export const REFUND_RECEIPT_MAX = 1_200_000;
 export const REFUND_RECEIPT_DATA_URL =
   /^data:(image\/(?:png|jpeg|webp)|application\/pdf);base64,([A-Za-z0-9+/=]+)$/;
 
+/**
+ * What the guest agrees to before asking for the deposit back. The version is stored with
+ * the request, so a later wording change never rewrites what an earlier guest accepted.
+ */
+export const REFUND_CONSENT_VERSION = 'refund-terms-2026-10-12';
+export const REFUND_CONSENT: { ar: readonly string[]; en: readonly string[] } = {
+  ar: [
+    'قد يستغرق طلب استرداد التأمين من يوم عمل واحد حتى أسبوعَي عمل، بحسب أولوية الطلبات السابقة.',
+    'يراجع المالك الطلب فيقبله أو يرفضه، ثم يحوّل المحاسب المبلغ المعتمد إلى الحساب أو الهاتف الذي تحدده.',
+    'سيصلك إشعار عند كل خطوة: قبول الطلب أو رفضه، وتحويل المبلغ.',
+  ],
+  en: [
+    'A deposit refund may take from one working day up to two working weeks, depending on the priority of earlier requests.',
+    'The host reviews the request and approves or declines it; the accountant then transfers the approved amount to the account or phone you give.',
+    'You will be notified at every step: when the request is approved or declined, and when the money is transferred.',
+  ],
+};
+
 /** Suggestions for the bank field; any other bank can be typed. */
 export const OMAN_BANKS: readonly string[] = [
   'بنك مسقط · Bank Muscat',
@@ -109,6 +127,86 @@ export function depositRefundStage(
   if (!refundStatus || refundStatus === 'requested') return 'awaiting_deposit_refund';
   if (refundStatus === 'approved') return 'awaiting_refund_transfer';
   return null;
+}
+
+export type RefundNoticeKind = 'requested' | 'approved' | 'rejected' | 'paid';
+
+/** One step of the refund told to the guest; the id stays the same across reloads. */
+export type RefundNotice = {
+  id: string;
+  kind: RefundNoticeKind;
+  at: string;
+  title: string;
+  body: string;
+};
+
+/** The guest's notices, newest first: request received, host decision, transfer. */
+export function refundNotices(
+  refund: GuestDepositRefund,
+  ar: boolean,
+  format: { money: (minor: string) => string; stamp: (iso: string) => string },
+): RefundNotice[] {
+  const amount = format.money(refund.amountMinor);
+  const notices: RefundNotice[] = [
+    {
+      id: `requested:${refund.requestedAt}`,
+      kind: 'requested',
+      at: format.stamp(refund.requestedAt),
+      title: ar ? 'استلمنا طلب استرداد التأمين' : 'Deposit refund request received',
+      body: ar
+        ? 'قد يستغرق الطلب من يوم عمل واحد حتى أسبوعَي عمل بحسب أولوية الطلبات السابقة.'
+        : 'It may take from one working day up to two working weeks, depending on earlier requests.',
+    },
+  ];
+  if (refund.decidedAt && refund.status === 'rejected') {
+    const reason = refund.decisionNote?.trim();
+    notices.push({
+      id: `rejected:${refund.decidedAt}`,
+      kind: 'rejected',
+      at: format.stamp(refund.decidedAt),
+      title: ar ? 'رُفض طلب استرداد التأمين' : 'Deposit refund declined',
+      body: reason
+        ? ar
+          ? `سبب الرفض: ${reason}`
+          : `Reason: ${reason}`
+        : ar
+          ? 'لم يوافق المالك على استرداد مبلغ التأمين.'
+          : 'The host did not approve the deposit refund.',
+    });
+  }
+  if (refund.decidedAt && (refund.status === 'approved' || refund.status === 'executed')) {
+    const note = refund.decisionNote?.trim();
+    notices.push({
+      id: `approved:${refund.decidedAt}`,
+      kind: 'approved',
+      at: format.stamp(refund.decidedAt),
+      title: ar ? 'وافق المالك على استرداد التأمين' : 'Deposit refund approved',
+      body: [
+        ar
+          ? `اعتُمد استرداد ${amount}، وسيصلك إشعار عند تحويل المبلغ.`
+          : `${amount} was approved; you will be notified when it is transferred.`,
+        note ? (ar ? `ملاحظة المالك: ${note}` : `Host note: ${note}`) : null,
+      ]
+        .filter(Boolean)
+        .join(' '),
+    });
+  }
+  if (refund.paidAt && refund.status === 'executed') {
+    notices.push({
+      id: `paid:${refund.paidAt}`,
+      kind: 'paid',
+      at: format.stamp(refund.paidAt),
+      title: ar ? 'تم تحويل مبلغ التأمين' : 'Deposit transferred',
+      body: refund.paidTo
+        ? ar
+          ? `حُوّل ${amount} إلى ${refund.paidTo}.`
+          : `${amount} was transferred to ${refund.paidTo}.`
+        : ar
+          ? `حُوّل ${amount}.`
+          : `${amount} was transferred.`,
+    });
+  }
+  return notices.reverse();
 }
 
 export function guestDepositRefund(view: DepositRefundView): GuestDepositRefund {

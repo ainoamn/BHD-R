@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { StayRefundMoment } from '@/lib/stay-guest-greeting';
 import {
   OMAN_BANKS,
+  REFUND_CONSENT,
   REFUND_NOTE_MAX,
   validPayoutAccount,
   type RefundPayoutMethod,
@@ -72,12 +73,13 @@ export function StayDepositRefund({ moment, ar }: { moment: StayRefundMoment; ar
   const [holder, setHolder] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [tried, setTried] = useState(false);
+  const [consent, setConsent] = useState(false);
   const accountGiven = account.trim().length > 0;
   const accountOk = !accountGiven || validPayoutAccount(method, account);
 
   function submit() {
     setTried(true);
-    if (!accountOk) return;
+    if (!accountOk || !consent) return;
     startTransition(async () => {
       setError(null);
       try {
@@ -91,6 +93,7 @@ export function StayDepositRefund({ moment, ar }: { moment: StayRefundMoment; ar
           },
           body: JSON.stringify({
             referenceCode: moment.referenceCode,
+            consent: true,
             ...(note.trim() ? { note: note.trim() } : {}),
             ...(accountGiven
               ? {
@@ -156,6 +159,28 @@ export function StayDepositRefund({ moment, ar }: { moment: StayRefundMoment; ar
             submit();
           }}
         >
+          <section
+            className="stay-refund__consent stay-refund__wide"
+            aria-labelledby="stay-refund-consent-title"
+          >
+            <h3 id="stay-refund-consent-title">
+              {ar ? 'قبل إرسال الطلب' : 'Before you send the request'}
+            </h3>
+            <ul>
+              {REFUND_CONSENT[ar ? 'ar' : 'en'].map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+            <label className="stay-refund__agree">
+              <input
+                type="checkbox"
+                checked={consent}
+                aria-invalid={tried && !consent}
+                onChange={(event) => setConsent(event.target.checked)}
+              />{' '}
+              {ar ? 'قرأت ما سبق وأوافق عليه' : 'I have read the above and agree'}
+            </label>
+          </section>
           <fieldset className="stay-refund__methods">
             <legend>{ar ? 'أين نحوّل المبلغ؟' : 'Where should we send it?'}</legend>
             {(['bank', 'phone'] as const).map((value) => (
@@ -248,7 +273,7 @@ export function StayDepositRefund({ moment, ar }: { moment: StayRefundMoment; ar
               : 'Only the host and accountant see these details, to make the transfer. You may leave them empty and they will contact you.'}
           </p>
           <div className="form-actions stay-refund__wide">
-            <button type="submit" className="button button--primary" disabled={pending}>
+            <button type="submit" className="button button--primary" disabled={pending || !consent}>
               {pending ? (ar ? 'جارٍ الإرسال…' : 'Sending…') : ar ? 'إرسال الطلب' : 'Send request'}
             </button>
             <button

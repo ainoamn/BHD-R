@@ -4,6 +4,9 @@ import {
   guestDepositRefund,
   hasDeposit,
   maskAccount,
+  REFUND_CONSENT,
+  REFUND_CONSENT_VERSION,
+  refundNotices,
   validPayoutAccount,
   type DepositRefundView,
 } from '@/lib/stay-deposit-refund';
@@ -103,5 +106,35 @@ describe('deposit refund', () => {
       refund: moment('open'),
     });
     expect(confirmed[4]).toBeNull();
+  });
+
+  it('notifies the guest at each host step, newest first, with stable ids', () => {
+    const format = { money: (minor: string) => `${minor} bz`, stamp: (iso: string) => iso };
+    const paid = refundNotices(guestDepositRefund(view), true, format);
+    expect(paid.map((notice) => notice.kind)).toEqual(['paid', 'approved', 'requested']);
+    expect(paid[0]?.id).toBe('paid:2026-10-12T10:00:00.000Z');
+    expect(paid[0]?.body).toContain('••••2345');
+    expect(JSON.stringify(paid)).not.toContain('0123 4567');
+    const rejected = refundNotices(
+      { ...guestDepositRefund(view), status: 'rejected', decisionNote: 'Damage', paidAt: null },
+      false,
+      format,
+    );
+    expect(rejected.map((notice) => notice.kind)).toEqual(['rejected', 'requested']);
+    expect(rejected[0]?.body).toBe('Reason: Damage');
+    const requested = refundNotices(
+      { ...guestDepositRefund(view), status: 'requested', decidedAt: null, paidAt: null },
+      true,
+      format,
+    );
+    expect(requested.map((notice) => notice.kind)).toEqual(['requested']);
+    expect(requested[0]?.body).toContain('أسبوعَي عمل');
+  });
+
+  it('asks the guest to accept the refund timeframe and the notices', () => {
+    expect(REFUND_CONSENT_VERSION).toMatch(/^refund-terms-/);
+    expect(REFUND_CONSENT.ar.join(' ')).toContain('يوم عمل واحد حتى أسبوعَي عمل');
+    expect(REFUND_CONSENT.ar.join(' ')).toContain('إشعار');
+    expect(REFUND_CONSENT.en).toHaveLength(REFUND_CONSENT.ar.length);
   });
 });

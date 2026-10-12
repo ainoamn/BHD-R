@@ -1,4 +1,5 @@
 import 'server-only';
+import { randomUUID } from 'node:crypto';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import {
@@ -15,9 +16,13 @@ import {
 } from '@bhd-r/db';
 import { assertStayBookingTransition } from '@bhd-r/domain';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
+import { formatMoney } from '@/lib/format';
+import { escapeHtml } from '@/lib/lease-booking-contract';
 import { decimalToMinor } from '@/lib/property-contracts-neon';
+import { publicWebOrigin } from '@/lib/seo';
 import { muscatLocalToDate } from '@/lib/stay-arrival-neon';
 import {
+  REFUND_CONSENT_VERSION,
   REFUND_NOTE_MAX,
   REFUND_RECEIPT_DATA_URL,
   REFUND_RECEIPT_MAX,
@@ -267,6 +272,91 @@ async function recordEvent(
   });
 }
 
+/**
+ * Emails the guest about a host step (approval, rejection, transfer) through the outbox
+ * worker. The guest page shows the same notice live; this is the copy that reaches them
+ * away from it. Guests without an email on the booking or account get the page only.
+ */
+async function queueGuestRefundNotice(
+  tx: Tx,
+  booking: RefundBooking,
+  notice:
+    | { event: 'approved'; amountMinor: bigint; note: string | null }
+    | { event: 'rejected'; note: string | null }
+    | { event: 'paid'; amountMinor: bigint; paidTo: string; at: Date },
+) {
+  const [row] = await tx
+    .select({
+      bookingId: stayBookings.id,
+      snapshot: stayBookings.pricingSnapshotJson,
+      accountEmail: users.email,
+    })
+    .from(stayBookings)
+    .leftJoin(users, eq(users.id, stayBookings.userId))
+    .where(
+      and(eq(stayBookings.id, booking.id), eq(stayBookings.organizationId, booking.organizationId)),
+    )
+    .limit(1);
+  if (!row) return;
+  const contact =
+    row.snapshot.guestContact && typeof row.snapshot.guestContact === 'object'
+      ? (row.snapshot.guestContact as Record<string, unknown>)
+      : {};
+  const email = [text(contact.email), text(row.accountEmail)].find((value) => value?.includes('@'));
+  if (!email) return;
+  const name = text(contact.displayName);
+  const money = (minor: bigint) => formatMoney(minor.toString(), booking.currency, 'ar');
+  const pageUrl = `${publicWebOrigin()}/ar/guest/stays/${booking.id}?ref=${encodeURIComponent(booking.referenceCode)}`;
+  const lines =
+    notice.event === 'approved'
+      ? {
+          subject: `تمت الموافقة على استرداد التأمين — ${booking.referenceCode}`,
+          body: [
+            `وافق المالك على استرداد ${money(notice.amountMinor)} من مبلغ التأمين.`,
+            'الطلب الآن لدى المحاسب لتحويل المبلغ، وسيصلك إشعار عند التحويل.',
+            ...(notice.note ? [`ملاحظة المالك: ${notice.note}`] : []),
+          ],
+        }
+      : notice.event === 'rejected'
+        ? {
+            subject: `رُفض طلب استرداد التأمين — ${booking.referenceCode}`,
+            body: [
+              'لم يوافق المالك على استرداد مبلغ التأمين.',
+              ...(notice.note ? [`سبب الرفض: ${notice.note}`] : []),
+            ],
+          }
+        : {
+            subject: `تم تحويل مبلغ التأمين — ${booking.referenceCode}`,
+            body: [
+              `حُوّل ${money(notice.amountMinor)} إلى ${notice.paidTo}.`,
+              `تاريخ التحويل: ${new Intl.DateTimeFormat('ar-OM', {
+                dateStyle: 'long',
+                timeStyle: 'short',
+                timeZone: 'Asia/Muscat',
+              }).format(notice.at)}`,
+            ],
+          };
+  const greeting = name ? `مرحباً ${name}،` : 'مرحباً،';
+  await tx.insert(outboxEvents).values({
+    organizationId: booking.organizationId,
+    topic: 'notification.delivery.requested',
+    aggregateType: 'stay_booking',
+    aggregateId: booking.id,
+    payload: {
+      correlationId: randomUUID(),
+      organizationId: booking.organizationId,
+      notificationId: randomUUID(),
+      channel: 'email',
+      recipient: email.toLowerCase(),
+      subject: lines.subject,
+      text: [greeting, '', ...lines.body, '', `تابع طلبك: ${pageUrl}`, '', 'BHD R'].join('\n'),
+      html: `<div dir="rtl"><p>${escapeHtml(greeting)}</p>${lines.body
+        .map((line) => `<p>${escapeHtml(line)}</p>`)
+        .join('')}<p><a href="${escapeHtml(pageUrl)}">تابع طلب الاسترداد</a></p><p>BHD R</p></div>`,
+    },
+  });
+}
+
 /** The refund settles the stay: checked_out → closed. */
 async function closeBooking(
   tx: Tx,
@@ -327,6 +417,7 @@ export async function insertGuestDepositRefundRequest(
     metadata: {
       refundId: refund!.id,
       by: 'guest',
+      consent: { version: REFUND_CONSENT_VERSION, acceptedAt: new Date().toISOString() },
       note,
       payout: payout
         ? {
@@ -470,6 +561,13 @@ export async function decideDepositRefundOnNeon(
       },
       audit: { amountMinor: amount.toString(), depositMinor: deposit.toString() },
     });
+    await queueGuestRefundNotice(
+      tx,
+      booking,
+      status === 'approved'
+        ? { event: 'approved', amountMinor: amount, note }
+        : { event: 'rejected', note },
+    );
     const bookingStatus =
       status === 'rejected'
         ? await closeBooking(tx, booking, claims.sub, 'deposit_refund_rejected')
@@ -533,6 +631,12 @@ export async function recordDepositRefundPayoutOnNeon(
         bank: transfer.bank,
         account: maskAccount(transfer.account),
       },
+    });
+    await queueGuestRefundNotice(tx, booking, {
+      event: 'paid',
+      amountMinor: refund.amountMinor,
+      paidTo: [transfer.bank, maskAccount(transfer.account)].filter(Boolean).join(' · '),
+      at,
     });
     const bookingStatus = await closeBooking(tx, booking, claims.sub, 'deposit_refund_paid');
     return { refundStatus: 'executed', bookingStatus };

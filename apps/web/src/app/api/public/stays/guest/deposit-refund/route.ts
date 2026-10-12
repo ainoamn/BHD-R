@@ -22,6 +22,7 @@ const optionalText = (max: number) =>
 const bodySchema = z
   .object({
     referenceCode: z.string().trim().min(4).max(40),
+    consent: z.boolean().optional(),
     note: optionalText(REFUND_NOTE_MAX),
     payout: z
       .object({
@@ -63,7 +64,19 @@ export async function POST(request: Request) {
     return stayBookingJson({ error: { code: 'invalid_body' } }, { status: 400 });
   }
 
-  const { referenceCode, note, payout } = parsed.data;
+  const { referenceCode, consent, note, payout } = parsed.data;
+  if (consent !== true) {
+    return stayBookingJson(
+      {
+        error: {
+          code: 'refund_consent_required',
+          messageAr: 'وافق على شروط الاسترداد قبل إرسال الطلب.',
+          message: 'Accept the refund terms before sending the request.',
+        },
+      },
+      { status: 400 },
+    );
+  }
   try {
     const booking = await requestGuestDepositRefundOnNeon({
       referenceCode,

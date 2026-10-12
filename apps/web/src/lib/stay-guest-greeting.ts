@@ -328,8 +328,8 @@ function refundScreen(
         refund,
         headline: hi('وصلنا طلبك{name}', 'Request received{name}'),
         body: ar
-          ? `طلب استرداد التأمين (${refund.deposit}) بين يدَي المالك الآن لمراجعته. ستتحدّث هذه الصفحة وحدها فور صدور القرار.`
-          : `Your deposit refund request (${refund.deposit}) is with the host for review. This page updates by itself the moment they decide.`,
+          ? `طلب استرداد التأمين (${refund.deposit}) بين يدَي المالك الآن لمراجعته، وقد يستغرق من يوم عمل واحد حتى أسبوعَي عمل بحسب أولوية الطلبات السابقة. سيصلك إشعار عند القبول أو الرفض وعند تحويل المبلغ.`
+          : `Your deposit refund request (${refund.deposit}) is with the host for review; it may take from one working day up to two working weeks, depending on earlier requests. You will be notified when it is approved or declined and when the money is transferred.`,
       };
     case 'approved':
       return {

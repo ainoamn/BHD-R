@@ -27,7 +27,8 @@ import {
 import { RememberStayTripAlert } from '@/components/stays/remember-stay-trip-alert';
 import { isStayEsignRequiredServer } from '@/lib/stay-esign-flags';
 import type { StayStamp } from '@/lib/stay-arrival-neon';
-import { hasDeposit, type GuestDepositRefund } from '@/lib/stay-deposit-refund';
+import { StayRefundNotices } from '@/components/stays/stay-refund-notices';
+import { hasDeposit, refundNotices, type GuestDepositRefund } from '@/lib/stay-deposit-refund';
 import type { StayRefundMoment } from '@/lib/stay-guest-greeting';
 
 type GuestBooking = {
@@ -240,6 +241,12 @@ export default async function GuestStayDetailPage({
           paidTo: refund?.paidTo ?? null,
         }
       : undefined;
+  const notices = refund
+    ? refundNotices(refund, ar, {
+        money: (minor) => formatMoney(minor, refund.currency, locale),
+        stamp: (iso) => formatStamp(iso, ar),
+      })
+    : [];
   const steps = ended
     ? []
     : journeySteps(
@@ -445,6 +452,9 @@ export default async function GuestStayDetailPage({
                   </Link>
                 ) : null}
               </section>
+            ) : null}
+            {notices.length ? (
+              <StayRefundNotices notices={notices} referenceCode={booking.referenceCode} ar={ar} />
             ) : null}
             {screens.length ? (
               <StayJourneyCard
