@@ -16,9 +16,12 @@ export type StayGreeting = {
   stamp?: { label: string; at: string; notes: string | null } | undefined;
   /** Arrival / departure moment drawn as a car arriving and unloading, parked, or loading up and leaving. */
   trip?: StayTripMoment | undefined;
+  /** Host approval drawn as the host at the desk: reading the request, or signing it. */
+  desk?: StayDeskMoment | undefined;
 };
 
 export type StayTripMoment = { kind: 'arrive' | 'parked' | 'depart'; status: string };
+export type StayDeskMoment = { signed: boolean; status: string };
 
 /** "ABDUL HAMID AL RAWAHI" → "Abdul Hamid Al Rawahi"; Arabic and mixed-case names stay as typed. */
 export function friendlyGuestName(name: string | null | undefined): string | null {
@@ -92,6 +95,10 @@ export function stayGuestGreeting(input: {
       }
       return {
         stage: 'review',
+        desk: {
+          signed: false,
+          status: ar ? 'قيد المراجعة لدى المالك' : 'With the host for review',
+        },
         headline: hi('أهلاً بك مجدداً{name}!', 'Welcome back{name}!'),
         body:
           input.arrival === 'due'
@@ -309,6 +316,10 @@ export function stayJourneyScreens(
       : request
         ? {
             stage: 'confirmed',
+            desk: {
+              signed: true,
+              status: ar ? 'وُقّع الطلب واعتُمد' : 'Request signed & approved',
+            },
             headline: hi('تمّت الموافقة{name}!', 'Approved{name}!'),
             body: ar
               ? 'راجع المالك طلبك ووافق عليه بكل سرور، فأصبح حجزك مؤكَّداً رسمياً. (أما نحن فصفّقنا خلف الشاشة!)'

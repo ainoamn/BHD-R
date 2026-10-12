@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import { Link } from '@/i18n/navigation';
 import type { StayGreeting } from '@/lib/stay-guest-greeting';
+import { StayApprovalDesk } from './stay-approval-desk';
 import { StayTrip } from './stay-trip';
 
 type JourneyStep = {
@@ -133,6 +134,7 @@ export function StayJourneyCard({
         </div>
       ) : null}
       {screen.trip ? <StayTrip moment={screen.trip} plateNo={plateNo} ar={ar} /> : null}
+      {screen.desk ? <StayApprovalDesk moment={screen.desk} plateNo={plateNo} ar={ar} /> : null}
       <h2>{screen.headline}</h2>
       <p>{screen.body}</p>
       {screen.guide ? (

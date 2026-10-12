@@ -18939,7 +18939,12 @@ body:has(.stay-esign-shell) {
   transform-origin: 50% 100%;
 }
 .stay-trip__boot {
-  transform-origin: 100% 100%;
+  transform-origin: 0 0;
+}
+.stay-trip__flag {
+  transform-box: fill-box;
+  transform-origin: 0 50%;
+  animation: stay-trip-flag 2.6s ease-in-out infinite;
 }
 .stay-trip__puff {
   fill: rgb(255 255 255 / 0.85);
@@ -18994,7 +18999,7 @@ body:has(.stay-esign-shell) {
 
 /* Departure day: parked, boot open, bags lined up on the kerb. */
 .stay-trip--parked .stay-trip__boot {
-  transform: rotate(55deg);
+  transform: rotate(110deg);
 }
 .stay-trip--parked .stay-trip__bag {
   opacity: 1;
@@ -19149,7 +19154,7 @@ body:has(.stay-esign-shell) {
   }
   10%,
   86% {
-    transform: rotate(55deg);
+    transform: rotate(110deg);
   }
   100% {
     transform: rotate(0deg);
@@ -19157,7 +19162,7 @@ body:has(.stay-esign-shell) {
 }
 @keyframes stay-trip-boot-close {
   from {
-    transform: rotate(55deg);
+    transform: rotate(110deg);
   }
   to {
     transform: rotate(0deg);
@@ -19245,7 +19250,157 @@ body:has(.stay-esign-shell) {
     opacity: 0.35;
   }
 }
+@keyframes stay-trip-flag {
+  0%,
+  100% {
+    transform: skewY(0deg) scaleX(1);
+  }
+  50% {
+    transform: skewY(-4deg) scaleX(0.94);
+  }
+}
+/* Host approval: the host reads the request, then signs it on the pen tablet and the stamp lands. */
+.stay-desk__scene {
+  position: relative;
+  height: 150px;
+  overflow: hidden;
+  background: #f4ead8;
+}
+.stay-desk__scene svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.stay-desk__pen-hand,
+.stay-desk__stamp,
+.stay-desk__head {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.stay-desk__head {
+  transform-origin: 50% 100%;
+}
+.stay-desk__clock {
+  transform-box: view-box;
+  transform-origin: 500px 42px;
+  animation: stay-desk-clock 12s linear infinite;
+}
+.stay-desk__scan {
+  fill: rgb(13 92 69 / 0.12);
+  opacity: 0;
+}
+.stay-desk--pending .stay-trip__status i {
+  background: #fbbf24;
+  box-shadow: 0 0 6px #fbbf24;
+}
+.stay-desk--pending .stay-desk__scan {
+  animation: stay-desk-scan 3.2s ease-in-out infinite;
+}
+.stay-desk--pending .stay-desk__head {
+  animation: stay-desk-nod 3.2s ease-in-out infinite;
+}
+.stay-desk--pending .stay-desk__typing circle {
+  animation: stay-trip-blink 1.2s ease-in-out infinite;
+}
+.stay-desk--pending .stay-desk__typing circle:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.stay-desk--pending .stay-desk__typing circle:nth-child(3) {
+  animation-delay: 0.4s;
+}
+.stay-desk--signed .stay-desk__pen-hand {
+  animation: stay-desk-write 1.9s ease-in-out 0.5s both;
+}
+.stay-desk--signed .stay-desk__signature {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: stay-desk-sign 1.9s ease-in-out 0.5s forwards;
+}
+.stay-desk--signed .stay-desk__stamp {
+  animation: stay-desk-stamp 0.55s cubic-bezier(0.3, 1.6, 0.5, 1) 2.6s both;
+}
+.stay-desk--signed .stay-desk__approved {
+  animation: stay-desk-fade 0.4s ease-out 3s both;
+}
+@keyframes stay-desk-write {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  12% {
+    transform: translate(-2px, -1.6px);
+  }
+  25% {
+    transform: translate(0.6px, 0.6px);
+  }
+  38% {
+    transform: translate(1.6px, -1.4px);
+  }
+  50% {
+    transform: translate(2.6px, 0.4px);
+  }
+  63% {
+    transform: translate(3.4px, -1.2px);
+  }
+  76% {
+    transform: translate(4.4px, 0.2px);
+  }
+  90% {
+    transform: translate(6px, -0.4px);
+  }
+}
+@keyframes stay-desk-sign {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes stay-desk-stamp {
+  from {
+    opacity: 0;
+    transform: scale(2.2);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes stay-desk-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes stay-desk-scan {
+  0% {
+    opacity: 0;
+    transform: translateY(0);
+  }
+  15%,
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+@keyframes stay-desk-nod {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(2deg);
+  }
+}
+@keyframes stay-desk-clock {
+  to {
+    transform: rotate(360deg);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
+  .stay-desk--signed .stay-desk__signature {
+    stroke-dashoffset: 0;
+  }
   .stay-trip *,
   .stay-trip__status i {
     animation: none !important;

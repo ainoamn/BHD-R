@@ -22,6 +22,37 @@ function House() {
       <circle cx="288" cy="102" r="1.2" fill="#e8c27a" />
       <circle cx="296" cy="102" r="1.2" fill="#e8c27a" />
       <circle className="stay-trip__lamp" cx="308" cy="84" r="2.4" />
+      <OmanFlag />
+    </g>
+  );
+}
+
+/** Flag of Oman on a rooftop pole: red hoist band with the emblem, white / red / green fly. */
+function OmanFlag() {
+  return (
+    <g className="stay-trip__flag-mast" aria-hidden="true">
+      <rect x="224.6" y="20" width="1.8" height="42" rx="0.9" fill="#8d9692" />
+      <circle cx="225.5" cy="19.4" r="1.8" fill="#e2b23a" />
+      <g className="stay-trip__flag">
+        <rect x="226.4" y="22" width="8" height="16" fill="#db161b" />
+        <rect x="234.4" y="22" width="24" height="5.4" fill="#ffffff" />
+        <rect x="234.4" y="27.4" width="24" height="5.2" fill="#db161b" />
+        <rect x="234.4" y="32.6" width="24" height="5.4" fill="#008000" />
+        <g stroke="#ffffff" strokeWidth="0.55" strokeLinecap="round" fill="none">
+          <path d="M227.8 23.6 L233 28.4 M233 23.6 L227.8 28.4" />
+          <path d="M230.4 23.2 V27.2 Q230.4 28.8 231.7 29.2" />
+          <path d="M229.1 24.6 H231.7" />
+        </g>
+        <rect
+          x="226.4"
+          y="22"
+          width="32"
+          height="16"
+          fill="none"
+          stroke="rgb(0 0 0 / 0.08)"
+          strokeWidth="0.4"
+        />
+      </g>
     </g>
   );
 }
@@ -41,33 +72,34 @@ function Palm() {
   );
 }
 
-/** White SUV facing right; rear (boot) at x=0, wheels touch y≈49.5 in its own coordinates. */
+/**
+ * White SUV facing right (bonnet and headlight at the front, x≈111); the tall
+ * tailgate sits at the rear (x≈2) and swings up to unload. Wheels touch y≈49.5.
+ */
 function Car() {
   return (
     <g className="stay-trip__car">
       <g className="stay-trip__car-body">
-        <path d="M4 20 h26 v4 H4 Z" fill="#2a2f2c" />
         <path
-          d="M30 22 L40 8 Q41.5 6 44 6 L84 6 Q87 6 89 8 L101 22 Z"
+          d="M2 38 V13 Q2 6 9 6 H58 Q62 6 65 9 L77 21 L103 23.5 Q111 24.5 111 31 V38 Q111 41 108 41 H5 Q2 41 2 38 Z"
           fill="#fbfdfc"
           stroke="#c9d3ce"
           strokeWidth="0.8"
         />
-        <path d="M35 21 L43 10 H62 V21 Z" fill="#9cc7dc" />
-        <path d="M66 21 V10 H85 L95 21 Z" fill="#9cc7dc" />
-        <path d="M44 4 H82" stroke="#6f7c76" strokeWidth="1.6" strokeLinecap="round" />
-        <path
-          d="M2 26 Q2 22 8 22 H102 Q110 23 111 30 V38 Q111 41 108 41 H5 Q2 41 2 38 Z"
-          fill="#fbfdfc"
-          stroke="#c9d3ce"
-          strokeWidth="0.8"
-        />
-        <rect x="2" y="30" width="109" height="2.4" fill="#0b8f8a" />
-        <rect x="104" y="25" width="6" height="3.4" rx="1" fill="#ffe08a" />
-        <rect x="2" y="25" width="3.4" height="4" rx="1" fill="#d6453b" />
-        <path d="M64 25 h6" stroke="#9aa6a0" strokeWidth="1.2" strokeLinecap="round" />
+        <path d="M9 20 V12 Q9 10 11 10 H31 V20 Z" fill="#9cc7dc" />
+        <path d="M35 20 V10 H57 Q59 10 60.5 11.5 L69 20 Z" fill="#9cc7dc" />
+        <path d="M33 21 V38 M68 21 V36" stroke="#dfe6e2" strokeWidth="0.9" />
+        <path d="M12 4 H55" stroke="#6f7c76" strokeWidth="1.6" strokeLinecap="round" />
+        <rect x="2" y="27" width="109" height="2.4" fill="#0b8f8a" />
+        <path d="M100 24.2 L110 25.4 Q110.6 27.6 109.6 28.4 L101 27.6 Z" fill="#ffe08a" />
+        <rect x="107.6" y="31.4" width="3.6" height="4.6" rx="1" fill="#3a423e" />
+        <path d="M66 20.5 h4 v2.6 h-3 Z" fill="#3a423e" />
+        <path d="M38 24 h5 M14 24 h5" stroke="#9aa6a0" strokeWidth="1.2" strokeLinecap="round" />
+        <rect x="0.6" y="34.6" width="4" height="4" rx="1" fill="#3a423e" />
+        <rect x="108" y="36.4" width="4" height="3.4" rx="1" fill="#3a423e" />
         <g className="stay-trip__boot">
-          <rect x="2" y="18.6" width="29" height="4.2" rx="1.6" fill="#fbfdfc" stroke="#c9d3ce" />
+          <rect x="1.2" y="7" width="4.2" height="26" rx="1.6" fill="#fbfdfc" stroke="#c9d3ce" />
+          <rect x="1.8" y="15" width="3" height="6.5" rx="0.8" fill="#d6453b" />
         </g>
       </g>
       {[24, 89].map((cx) => (

@@ -1,7 +1,7 @@
 # Implementation status
 
 **Updated:** 2026-10-12  
-**Product version:** 0.8.1  
+**Product version:** 0.8.2  
 **Active focus:** Owner dashboard speed and redesign — phases 1–3 shipped (parallel loads, Neon reads and indexes, calm unified design); live page-by-page review and loading skeletons next  
 **Release 0.6.3:** [`RELEASE-0.6.3-AR.md`](./RELEASE-0.6.3-AR.md)  
 **Release 0.6.2:** [`RELEASE-0.6.2-AR.md`](./RELEASE-0.6.2-AR.md)  
@@ -13,6 +13,7 @@
 
 | Version         | Focus                                                                                                                                           |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.8.2           | Guest stay scenes: Omani flag on the house, SUV redrawn so it clearly drives forward, host-approval desk scene (Omani dress, review / signing)  |
 | 0.8.1           | Check-in handover: required recipient ID photo and phone, bilingual quick notes; contract QR verification page; e-signature serial numbers      |
 | 0.8.0           | Bilingual (AR/EN) contract document; logo-and-address letterhead, fixed footer, tidy A4 print; guest page car arrives/unloads and loads/departs |
 | 0.7.9           | Contract page as a formal document: letterhead repeated on every printed page, party civil ID/phone/email, full premises address and unit specs |

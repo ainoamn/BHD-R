@@ -1,5 +1,20 @@
 # CONTINUE — 2026-10-12
 
+**0.8.2** · مشاهد صفحة الضيف:
+
+- **`stay-trip.tsx`:**
+  - `Car` بمقدّمة عند x≈111. الباب الخلفي `.stay-trip__boot` يدور حول زاويته العليا بـ 110°.
+  - `OmanFlag` على سطح البيت، ويرفرف بالحركة `stay-trip-flag`.
+- **`StayDeskMoment { signed, status }`:**
+  - في الحقل `desk`.
+  - قيد المراجعة في `request_pending`، ووُقّع في شاشة الاعتماد لطلبات الحجز.
+  - يُرسم في `components/stays/stay-approval-desk.tsx`. المشهد لا يُعكس في العربية لأن فيه نصوصاً.
+- **التالي:** حقل عنوان إنجليزي (يحتاج ترحيلاً)، وتوليد PDF للعقد على الخادم.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.2-AR.md`](./docs/implementation/RELEASE-0.8.2-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.1** · توثيق الاستلام، وQR العقد، ورقم التوقيع:
 
 - **الاستلام:**
