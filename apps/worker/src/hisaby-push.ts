@@ -11,6 +11,7 @@ export const HISABY_PUSH_TOPICS = new Set([
   'payment.refunded',
   'stay_booking.payment_confirmed',
   'reservation.deposit_confirmed',
+  'reservation.deposit_paid',
   'accounting.journal-posted',
   'cheque.created',
 ]);
@@ -43,6 +44,8 @@ function mapTopic(topic: string): string {
   switch (topic) {
     case 'stay_booking.payment_confirmed':
       return 'stay.payment.succeeded';
+    case 'reservation.deposit_paid':
+      return 'reservation.deposit_confirmed';
     case 'payment.recorded':
       return 'lease.payment.received';
     case 'invoice.issued':
@@ -104,7 +107,10 @@ export async function pushHisabyDomainEvent(
         [input.organizationId, 'token_decrypt_failed'],
       );
       await client.query('COMMIT');
-      logger.warn({ err: error, organizationId: input.organizationId }, 'Hisaby token decrypt failed');
+      logger.warn(
+        { err: error, organizationId: input.organizationId },
+        'Hisaby token decrypt failed',
+      );
       return { pushed: false, skipped: 'token_decrypt_failed' };
     }
 
@@ -126,19 +132,23 @@ export async function pushHisabyDomainEvent(
       aggregateId: input.aggregateId,
       payload: input.payload,
       amountMinor:
-        typeof input.payload.amountMinor === 'string' || typeof input.payload.amountMinor === 'number'
+        typeof input.payload.amountMinor === 'string' ||
+        typeof input.payload.amountMinor === 'number'
           ? String(input.payload.amountMinor)
           : undefined,
       currency: typeof input.payload.currency === 'string' ? input.payload.currency : undefined,
-      propertyId: typeof input.payload.propertyId === 'string' ? input.payload.propertyId : undefined,
+      propertyId:
+        typeof input.payload.propertyId === 'string' ? input.payload.propertyId : undefined,
       unitId: typeof input.payload.unitId === 'string' ? input.payload.unitId : undefined,
       memo: typeof input.payload.memo === 'string' ? input.payload.memo : undefined,
       sourceRefs: {
         eventId: input.eventId,
         bookingId:
           typeof input.payload.bookingId === 'string' ? input.payload.bookingId : input.aggregateId,
-        invoiceId: typeof input.payload.invoiceId === 'string' ? input.payload.invoiceId : undefined,
-        paymentId: typeof input.payload.paymentId === 'string' ? input.payload.paymentId : undefined,
+        invoiceId:
+          typeof input.payload.invoiceId === 'string' ? input.payload.invoiceId : undefined,
+        paymentId:
+          typeof input.payload.paymentId === 'string' ? input.payload.paymentId : undefined,
       },
     };
 
@@ -164,7 +174,10 @@ export async function pushHisabyDomainEvent(
              last_sync_error = $2,
              updated_at = now()
          WHERE organization_id = $1::uuid`,
-        [input.organizationId, error instanceof Error ? error.message.slice(0, 500) : 'fetch_failed'],
+        [
+          input.organizationId,
+          error instanceof Error ? error.message.slice(0, 500) : 'fetch_failed',
+        ],
       );
       await client.query('COMMIT');
       throw error;

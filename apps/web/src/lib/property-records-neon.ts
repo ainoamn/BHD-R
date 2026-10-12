@@ -468,6 +468,13 @@ async function loadBookings(
             rentMinor: reservations.rentMinor,
             currency: reservations.currency,
             createdAt: reservations.createdAt,
+            referenceCode: sql<string | null>`${reservations.termsSnapshot}->>'referenceCode'`,
+            mode: sql<string | null>`${reservations.termsSnapshot}->>'mode'`,
+            depositMinor: sql<string | null>`${reservations.termsSnapshot}->>'depositMinor'`,
+            depositPaidAt: sql<string | null>`${reservations.termsSnapshot}->>'depositPaidAt'`,
+            signedAt: sql<string | null>`${reservations.termsSnapshot}->'esign'->>'signedAt'`,
+            contactName: sql<string | null>`${reservations.termsSnapshot}->'contact'->>'fullName'`,
+            contactPhone: sql<string | null>`${reservations.termsSnapshot}->'contact'->>'phone'`,
           })
           .from(reservations)
           .where(and(eq(reservations.organizationId, orgId), inArray(reservations.unitId, unitIds)))
@@ -571,20 +578,27 @@ async function loadBookings(
         sortOn: isoDate(row.createdAt),
       };
     }),
-    ...reservationRows.map((row) => ({
-      id: row.id,
-      kind: 'reservation',
-      reference: row.id.slice(0, 8).toUpperCase(),
-      ...placeOf(unitProperty.get(row.unitId)),
-      unitCode: codeOf(row.unitId),
-      party: names.get(row.tenantPartyId) ?? null,
-      fromOn: isoDate(row.startsAt),
-      toOn: isoDate(row.expiresAt),
-      amountMinor: minor(row.rentMinor),
-      currency: row.currency,
-      status: row.status,
-      sortOn: isoDate(row.createdAt),
-    })),
+    ...reservationRows.map((row) => {
+      const paidAt = row.depositPaidAt;
+      return {
+        id: row.id,
+        kind: 'reservation',
+        reference: row.referenceCode ?? row.id.slice(0, 8).toUpperCase(),
+        ...placeOf(unitProperty.get(row.unitId)),
+        unitCode: codeOf(row.unitId),
+        party: row.contactName ?? names.get(row.tenantPartyId) ?? null,
+        guestPhone: row.contactPhone,
+        fromOn: paidAt ? paidAt.slice(0, 10) : isoDate(row.startsAt),
+        toOn: isoDate(row.expiresAt),
+        amountMinor: row.depositMinor ?? minor(row.rentMinor),
+        currency: row.currency,
+        status: row.status,
+        stage: paidAt && row.status === 'confirmed' ? 'deposit_paid' : null,
+        bookingMode: row.mode,
+        termsAcceptedOn: row.signedAt ? row.signedAt.slice(0, 10) : null,
+        sortOn: paidAt ? paidAt.slice(0, 10) : isoDate(row.createdAt),
+      };
+    }),
     ...viewingRows.map((row) => ({
       id: row.id,
       kind: 'viewing',
@@ -602,6 +616,7 @@ async function loadBookings(
   ];
   const awaiting = (row: PropertyRecordRow) =>
     row.status === 'request_pending' ||
+    row.stage === 'deposit_paid' ||
     row.stage === 'awaiting_deposit_refund' ||
     row.stage === 'awaiting_refund_transfer'
       ? 0
@@ -1010,7 +1025,7 @@ async function loadAccounting(
   codeOf: CodeOf,
   revealAccounts: boolean,
 ): Promise<PropertyRecordRow[]> {
-  const [stayRows, leasePaymentRows, expenseRows, refundRows] = await Promise.all([
+  const [stayRows, leasePaymentRows, expenseRows, refundRows, reservationRows] = await Promise.all([
     tx
       .select({
         id: stayPaymentIntents.id,
@@ -1077,6 +1092,28 @@ async function loadAccounting(
       .orderBy(desc(expenses.issuedOn))
       .limit(ROW_LIMIT),
     loadDepositRows(tx, orgId, propertyId, revealAccounts),
+    unitIds.length
+      ? tx
+          .select({
+            id: reservations.id,
+            unitId: reservations.unitId,
+            currency: reservations.currency,
+            referenceCode: sql<string | null>`${reservations.termsSnapshot}->>'referenceCode'`,
+            mode: sql<string | null>`${reservations.termsSnapshot}->>'mode'`,
+            depositMinor: sql<string | null>`${reservations.termsSnapshot}->>'depositMinor'`,
+            paidAt: sql<string>`${reservations.termsSnapshot}->>'depositPaidAt'`,
+            contactName: sql<string | null>`${reservations.termsSnapshot}->'contact'->>'fullName'`,
+          })
+          .from(reservations)
+          .where(
+            and(
+              eq(reservations.organizationId, orgId),
+              inArray(reservations.unitId, unitIds),
+              sql`${reservations.termsSnapshot}->>'depositPaidAt' is not null`,
+            ),
+          )
+          .limit(ROW_LIMIT)
+      : Promise.resolve([]),
   ]);
   const names = await partyNames(
     tx,
@@ -1096,6 +1133,19 @@ async function loadAccounting(
       amountMinor: minor(row.amountMinor),
       currency: row.currency,
       fromOn: isoDate(row.createdAt),
+    })),
+    ...reservationRows.map((row) => ({
+      id: row.id,
+      kind: 'reservation_deposit',
+      direction: 'in',
+      reference: row.referenceCode ?? row.id.slice(0, 8).toUpperCase(),
+      unitCode: codeOf(row.unitId),
+      party: row.contactName,
+      description: row.mode === 'sale' ? 'purchase' : 'rent',
+      status: 'paid',
+      amountMinor: row.depositMinor,
+      currency: row.currency,
+      fromOn: row.paidAt.slice(0, 10),
     })),
     ...leasePaymentRows.map((row) => ({
       id: row.id,

@@ -96,6 +96,7 @@ const LABELS: Record<string, [string, string]> = {
   reservation: ['حجز بعربون', 'Deposit booking'],
   viewing: ['معاينة', 'Viewing'],
   stay_payment: ['دفعة إقامة', 'Stay payment'],
+  reservation_deposit: ['عربون حجز إيجار أو شراء', 'Rent or purchase booking deposit'],
   lease_payment: ['دفعة إيجار', 'Rent payment'],
   expense: ['مصروف', 'Expense'],
   deposit_refund: ['استرداد تأمين', 'Deposit refund'],
@@ -551,6 +552,16 @@ function Cell({
       if (row.kind === 'deposit_retained') {
         return <DepositReconciliation row={row} locale={locale} />;
       }
+      if (row.kind === 'reservation_deposit') {
+        const sale = value === 'purchase';
+        return (
+          <>
+            {ar
+              ? `عربون حجز ${sale ? 'شراء' : 'إيجار'} — أمانة حتى إعداد العقد`
+              : `${sale ? 'Purchase' : 'Rent'} booking deposit — held until the contract`}
+          </>
+        );
+      }
       return value ? <>{value}</> : <span className="muted">—</span>;
     case 'status': {
       const status = column.key === 'status' ? displayStatus(row) : value;
@@ -625,6 +636,13 @@ function Cell({
       );
     }
     case 'kind':
+      if (value === 'reservation' && row.bookingMode === 'rent') {
+        return <>{ar ? 'حجز إيجار بعربون' : 'Rent deposit booking'}</>;
+      }
+      if (value === 'reservation' && row.bookingMode === 'sale') {
+        return <>{ar ? 'حجز شراء بعربون' : 'Purchase deposit booking'}</>;
+      }
+      return <>{label(value, ar)}</>;
     case 'contractKind':
     case 'contractType':
     case 'priority':
@@ -665,10 +683,18 @@ function Cell({
       );
     }
     case 'terms':
-      if (row.kind !== 'stay') return <span className="muted">—</span>;
+      if (row.kind !== 'stay' && row.kind !== 'reservation') {
+        return <span className="muted">—</span>;
+      }
       return value ? (
         <span className="pmh-badge pmh-badge--ready" title={value}>
-          {ar ? 'وقّع المستأجر' : 'Signed by guest'}
+          {row.kind === 'reservation'
+            ? ar
+              ? 'وقّع العميل'
+              : 'Signed by client'
+            : ar
+              ? 'وقّع المستأجر'
+              : 'Signed by guest'}
         </span>
       ) : (
         <span className="muted">{ar ? 'لا يوجد توقيع' : 'Not signed'}</span>

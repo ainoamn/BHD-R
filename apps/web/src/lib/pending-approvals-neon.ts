@@ -2,7 +2,15 @@ import 'server-only';
 import { cookies } from 'next/headers';
 import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { hasPermission, verifySessionToken, type SessionClaims } from '@bhd-r/authz';
-import { approvalRequests, contracts, parties, properties, stayBookings, units } from '@bhd-r/db';
+import {
+  approvalRequests,
+  contracts,
+  parties,
+  properties,
+  reservations,
+  stayBookings,
+  units,
+} from '@bhd-r/db';
 import {
   EMPTY_PENDING_APPROVALS,
   type PendingApprovalItem,
@@ -52,7 +60,8 @@ function queueItem(
 
 /**
  * Contracts awaiting signature (for users with `contract.sign`), stay booking requests awaiting
- * approval (for users with `stay.booking.manage`), and deposit refunds awaiting the host's
+ * approval (for users with `stay.booking.manage`), paid rent or purchase bookings awaiting their
+ * final contract (for users with `reservation.manage`), and deposit refunds awaiting the host's
  * decision or the accountant's transfer, oldest first. Owner-scoped users only see their own
  * properties.
  */
@@ -61,12 +70,20 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
   const canSign = hasPermission(claims, 'contract.sign');
   const canManageBookings =
     hasPermission(claims, 'stay.booking.manage') && hasPermission(claims, 'contract.create');
+  const canManageReservations = hasPermission(claims, 'reservation.manage');
   const canDecideRefunds = canDecideDepositRefunds(claims);
   const canPayRefunds = canPayDepositRefunds(claims);
   const complaints = (
     await loadOpenComplaintQueue(claims, ITEM_LIMIT).catch(() => [] as DepositClaimQueueRow[])
   ).map((row) => queueItem('deposit_complaint', row, row.claimId));
-  if (!orgId || (!canSign && !canManageBookings && !canDecideRefunds && !canPayRefunds)) {
+  if (
+    !orgId ||
+    (!canSign &&
+      !canManageBookings &&
+      !canManageReservations &&
+      !canDecideRefunds &&
+      !canPayRefunds)
+  ) {
     return complaints.length
       ? {
           ...EMPTY_PENDING_APPROVALS,
@@ -140,6 +157,35 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
           .orderBy(asc(stayBookings.createdAt))
           .limit(ITEM_LIMIT)
       : Promise.resolve([]);
+    const reservationQuery = canManageReservations
+      ? tx
+          .select({
+            id: reservations.id,
+            reference: sql<string | null>`${reservations.termsSnapshot}->>'referenceCode'`,
+            mode: sql<string | null>`${reservations.termsSnapshot}->>'mode'`,
+            propertyId: properties.id,
+            propertyNameAr: properties.nameAr,
+            propertyNameEn: properties.nameEn,
+            unitCode: units.code,
+            party: sql<string | null>`${reservations.termsSnapshot}->'contact'->>'fullName'`,
+            depositMinor: sql<string | null>`${reservations.termsSnapshot}->>'depositMinor'`,
+            currency: reservations.currency,
+            paidAt: sql<string>`${reservations.termsSnapshot}->>'depositPaidAt'`,
+          })
+          .from(reservations)
+          .innerJoin(units, eq(units.id, reservations.unitId))
+          .innerJoin(properties, eq(properties.id, units.propertyId))
+          .where(
+            and(
+              eq(reservations.organizationId, orgId),
+              eq(reservations.status, 'confirmed'),
+              sql`${reservations.termsSnapshot}->>'depositPaidAt' is not null`,
+              ...(ownerPartyId ? [eq(properties.ownerPartyId, ownerPartyId)] : []),
+            ),
+          )
+          .orderBy(asc(reservations.updatedAt))
+          .limit(ITEM_LIMIT)
+      : Promise.resolve([]);
     const refundQuery =
       canDecideRefunds || canPayRefunds
         ? loadDepositRefundQueue(tx, orgId, { ownerPartyId, limit: ITEM_LIMIT })
@@ -147,9 +193,10 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
     const claimQuery = canDecideRefunds
       ? loadOpenClaimQueue(tx, orgId, { ownerPartyId, limit: ITEM_LIMIT })
       : Promise.resolve([]);
-    const [contractRows, bookingRows, refundRows, claimRows] = await Promise.all([
+    const [contractRows, bookingRows, reservationRows, refundRows, claimRows] = await Promise.all([
       contractQuery,
       bookingQuery,
+      reservationQuery,
       refundQuery,
       claimQuery,
     ]);
@@ -188,6 +235,21 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
         fromOn: iso(row.fromOn)?.slice(0, 10) ?? null,
         requestedAt: iso(row.requestedAt) ?? '',
       })),
+      ...reservationRows.map((row) => ({
+        kind: 'lease_reservation' as const,
+        id: row.id,
+        reference: row.reference ?? row.id.slice(0, 8).toUpperCase(),
+        propertyId: row.propertyId,
+        propertyNameAr: row.propertyNameAr,
+        propertyNameEn: row.propertyNameEn,
+        unitCode: row.unitCode,
+        party: row.party,
+        contractType: row.mode === 'sale' ? ('sale' as const) : ('lease' as const),
+        fromOn: null,
+        requestedAt: row.paidAt,
+        amountMinor: row.depositMinor,
+        currency: row.currency,
+      })),
       ...refundItems.map((row) => ({
         kind: row.step === 'decision' ? ('deposit_refund' as const) : ('refund_transfer' as const),
         id: row.bookingId,
@@ -210,6 +272,7 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
       items,
       contracts: contractRows.length,
       bookings: bookingRows.length,
+      reservations: reservationRows.length,
       refunds: refundItems.length + depositItems.length,
       total: items.length,
     };

@@ -48,6 +48,7 @@ const DOMAIN_STATUS: Record<string, { ar: string; en: string }> = {
     ar: 'لدى المحاسب لتحويل التأمين',
     en: 'With the accountant for transfer',
   },
+  deposit_paid: { ar: 'عربون مدفوع — جهّز العقد', en: 'Deposit paid — prepare the contract' },
   deposit_held: { ar: 'أمانة محتجزة', en: 'Held in trust' },
   deposit_settled: { ar: 'تأمين مُسوّى', en: 'Deposit settled' },
   deposit_income: { ar: 'دخل للعقار', en: 'Property income' },
@@ -133,6 +134,22 @@ const WORKFLOW_EVENTS: Record<string, { ar: string; en: string }> = {
   'stay.no_show': { ar: 'عدم حضور ضيف', en: 'Stay guest no-show' },
   'reservation.created': { ar: 'إنشاء حجز معاينة/عربون', en: 'Reservation created' },
   'reservation.deposit_confirmed': { ar: 'تأكيد عربون حجز', en: 'Reservation deposit confirmed' },
+  'reservation.public_checkout_started': {
+    ar: 'بدء حجز إيجار أو شراء من الموقع',
+    en: 'Website rent or purchase booking started',
+  },
+  'reservation.deposit_paid': {
+    ar: 'دفع عربون حجز إيجار أو شراء',
+    en: 'Rent or purchase booking deposit paid',
+  },
+  'reservation.esign_completed': {
+    ar: 'توقيع إلكتروني لاتفاقية حجز',
+    en: 'Reservation agreement e-signed',
+  },
+  'reservation.esign_evidence': {
+    ar: 'إثبات هوية لتوقيع اتفاقية حجز',
+    en: 'Reservation e-signature identity evidence',
+  },
   'hold.cancelled': { ar: 'إلغاء حجز مؤقت', en: 'Hold cancelled' },
   'lease.renewal_requested': { ar: 'طلب تجديد عقد', en: 'Lease renewal requested' },
   'lease.renewal_pending_clearance': {

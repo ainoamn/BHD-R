@@ -445,9 +445,9 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
     titleAr: 'المحاسبة التشغيلية',
     titleEn: 'Operational accounting',
     introAr:
-      'سجل حركات العقار: مدفوعات الإقامة والقيود. افتح التفاصيل للطباعة، أو صدّر كشف الفترة. المحاسبة المفصّلة والكشوفات الكاملة في Hisaby.',
+      'سجل حركات العقار: مدفوعات الإقامة، وعربون حجوزات الإيجار والشراء، والقيود. افتح التفاصيل للطباعة، أو صدّر كشف الفترة. المحاسبة المفصّلة والكشوفات الكاملة في Hisaby.',
     introEn:
-      'Property ledger: stay payments and journals. Open details to print, or export a period statement. Full GL and statements live in Hisaby.',
+      'Property ledger: stay payments, rent and purchase booking deposits, and journals. Open details to print, or export a period statement. Full GL and statements live in Hisaby.',
     createAr: 'قيد يومية متوازن',
     createEn: 'Balanced journal',
     columns: [
@@ -745,10 +745,22 @@ function scalar(row: DataRow, column: Column): unknown {
   return null;
 }
 
-/** Kind of an accounting list line: stay payment, deposit deduction kept as income, or journal. */
+/**
+ * Kind of an accounting list line: stay payment, rent or purchase booking deposit, deposit
+ * deduction kept as income, or journal.
+ */
 function accountingKindLabel(recordKind: string, ar: boolean, long = false): string {
   if (recordKind === 'stay_payment') {
     return long ? (ar ? 'تحصيل إقامة (وارد)' : 'Stay payment (inbound)') : ar ? 'إقامة' : 'stay';
+  }
+  if (recordKind === 'reservation_deposit') {
+    return long
+      ? ar
+        ? 'عربون حجز مستلم (أمانة حتى العقد)'
+        : 'Booking deposit received (held until the contract)'
+      : ar
+        ? 'عربون حجز'
+        : 'booking deposit';
   }
   if (recordKind === 'deposit_retained') {
     return long
@@ -2996,7 +3008,9 @@ export function OperationsConsole({
     setAccountingDetail(row);
     setAccountingJournalLines([]);
     const kind = safeString(row.recordKind);
-    if (kind === 'stay_payment' || kind === 'deposit_retained') return;
+    if (kind === 'stay_payment' || kind === 'deposit_retained' || kind === 'reservation_deposit') {
+      return;
+    }
     const id = safeString(row.id);
     if (!id) return;
     setAccountingDetailBusy(true);
@@ -3031,7 +3045,9 @@ export function OperationsConsole({
         ? 'stay'
         : recordKind === 'deposit_retained'
           ? 'deposit'
-          : 'journal';
+          : recordKind === 'reservation_deposit'
+            ? 'reservation'
+            : 'journal';
     const currency = safeString(row.currency) || 'OMR';
     const depositHtml =
       kind === 'deposit'
@@ -3061,9 +3077,13 @@ ${depositHtml}${
         ? `<p class="meta"><strong>${ar ? 'المبلغ' : 'Amount'}:</strong> <span dir="ltr">${formatMoney(safeString(row.amountMinor) || safeString(row.debitMinor) || '0', currency, locale)}</span></p>
 <p class="meta"><strong>${ar ? 'المزود' : 'Provider'}:</strong> ${safeString(row.provider) || '—'}</p>
 <p class="meta"><strong>${ar ? 'الوصول / المغادرة' : 'Check-in / out'}:</strong> ${safeString(row.checkInOn) || '—'} → ${safeString(row.checkOutOn) || '—'}</p>`
-        : kind === 'journal'
-          ? linesHtml
-          : ''
+        : kind === 'reservation'
+          ? `<p class="meta"><strong>${ar ? 'المبلغ' : 'Amount'}:</strong> <span dir="ltr">${formatMoney(safeString(row.amountMinor) || '0', currency, locale)}</span></p>
+<p class="meta"><strong>${ar ? 'العميل' : 'Client'}:</strong> ${safeString(row.party) || '—'}</p>
+<p class="meta"><strong>${ar ? 'المزود' : 'Provider'}:</strong> ${safeString(row.provider) || '—'}</p>`
+          : kind === 'journal'
+            ? linesHtml
+            : ''
     }
 <p class="muted">${ar ? 'كشف تشغيلي من BHD R — الأستاذ المفصّل في Hisaby.' : 'Operational slip from BHD R — detailed GL in Hisaby.'}</p>
 <script>window.onload=()=>{window.print();}</script></body></html>`;
@@ -4578,6 +4598,17 @@ ${depositHtml}${
                                       {ar ? 'التأمين' : 'Deposit'}
                                     </Link>
                                   ) : null}
+                                  {safeString(row.recordKind) === 'reservation_deposit' &&
+                                  safeString(row.propertyId) &&
+                                  safeString(row.reservationId) ? (
+                                    <Link
+                                      className="ops-action"
+                                      href={`/${portal}/properties/${encodeURIComponent(safeString(row.propertyId))}?section=bookings&focus=${encodeURIComponent(safeString(row.reservationId))}`}
+                                      prefetch={false}
+                                    >
+                                      {ar ? 'الحجز' : 'Booking'}
+                                    </Link>
+                                  ) : null}
                                 </span>
                               ) : documentKind ? (
                                 <button
@@ -4910,6 +4941,28 @@ ${depositHtml}${
                         <div>
                           <dt>{ar ? 'إيصال الاسترداد المرتبط' : 'Linked refund receipt'}</dt>
                           <dd dir="ltr">{safeString(accountingDetail.refundReceiptNo) || '—'}</dd>
+                        </div>
+                      </>
+                    ) : null}
+                    {safeString(accountingDetail.recordKind) === 'reservation_deposit' ? (
+                      <>
+                        <div>
+                          <dt>{ar ? 'المبلغ' : 'Amount'}</dt>
+                          <dd dir="ltr">
+                            {formatMoney(
+                              safeString(accountingDetail.amountMinor) || '0',
+                              safeString(accountingDetail.currency) || 'OMR',
+                              locale,
+                            )}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>{ar ? 'العميل' : 'Client'}</dt>
+                          <dd>{safeString(accountingDetail.party) || '—'}</dd>
+                        </div>
+                        <div>
+                          <dt>{ar ? 'المزود' : 'Provider'}</dt>
+                          <dd>{safeString(accountingDetail.provider) || '—'}</dd>
                         </div>
                       </>
                     ) : null}

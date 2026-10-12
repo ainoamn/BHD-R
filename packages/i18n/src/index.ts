@@ -173,6 +173,7 @@ export const messages = {
       alertStayBookings: '{count} حجوزات إقامة يومية',
       alertContractsApproval: '{count} عقد بانتظار اعتمادك',
       alertBookingRequests: '{count} طلب حجز بانتظار الاعتماد',
+      alertPaidReservations: '{count} حجز إيجار أو شراء مدفوع العربون بانتظار العقد',
       alertDepositRefunds: '{count} استرداد تأمين بانتظار إجراء',
       approvalsTitle: 'بانتظار اعتمادك',
       approvalsHint:
@@ -625,6 +626,7 @@ export const messages = {
       alertStayBookings: '{count} daily stay bookings',
       alertContractsApproval: '{count} contracts awaiting your approval',
       alertBookingRequests: '{count} booking requests awaiting approval',
+      alertPaidReservations: '{count} paid rent or purchase bookings awaiting their contract',
       alertDepositRefunds: '{count} deposit refunds awaiting action',
       approvalsTitle: 'Awaiting your approval',
       approvalsHint:

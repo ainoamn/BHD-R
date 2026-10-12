@@ -1,5 +1,16 @@
 # CONTINUE — 2026-10-12
 
+**0.8.28** · حجز الإيجار أو الشراء المدفوع عند المالك والمحاسبة:
+
+- **الجرس:** النوع `lease_reservation` في `pending-approvals-*`: حجوزات `confirmed` فيها `termsSnapshot.depositPaidAt`، بصلاحية `reservation.manage`، مع `ownerPartyScope`. والتنبيه `paid_reservations` في `portal-overview.tsx`.
+- **الحجوزات:** صفوف `reservation` في `loadBookings` (`property-records-neon.ts`) تقرأ `termsSnapshot`، والمرحلة `deposit_paid` ترفعها لأعلى القائمة.
+- **المحاسبة:** `listReservationDepositAccountingRows` (`recordKind: 'reservation_deposit'`) داخل `loadStayIncomeRowsForViewer`، وتستثني ما له `depositJournalEntryId`. وفي حسابات العقار `kind: 'reservation_deposit'`.
+- **مفتوح:** إشعار بريد أو واتساب للمالك؛ قيد يومية للعربون المدفوع من الموقع؛ صفحة `/owner/bookings/{id}` تعتمد على الـ API.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.28-AR.md`](./docs/implementation/RELEASE-0.8.28-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.27** · اتفاقية الحجز بتصميم العقد المعتمد، ورقم لكل توقيع إلكتروني:
 
 - **`ContractArticle`** (`components/contract-document-view.tsx`): المستند الرسمي وحده، بالمدخلات `contract: ContractArticleHead` و`doc` و`links: ContractArticleLinks`. تستعمله صفحة العقد (`ContractDocumentView`) وصفحة `/book/sign`.

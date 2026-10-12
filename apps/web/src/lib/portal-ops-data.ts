@@ -422,6 +422,80 @@ export async function listStayAccountingRows(
   });
 }
 
+/**
+ * Booking deposits paid on the website for rent or purchase, as inbound lines held in trust.
+ * Deposits the API already posted as a journal entry are left to that entry.
+ */
+export async function listReservationDepositAccountingRows(
+  claims: SessionClaims,
+): Promise<Record<string, unknown>[]> {
+  return withinViewerTenant(claims, async (transaction) => {
+    const orgId = claims.organizationId!;
+    const ownerPartyId = ownerPartyScope(claims);
+    const snapshot = reservations.termsSnapshot;
+    const rows = await transaction
+      .select({
+        id: reservations.id,
+        status: reservations.status,
+        currency: reservations.currency,
+        unitId: reservations.unitId,
+        referenceCode: sql<string | null>`${snapshot}->>'referenceCode'`,
+        mode: sql<string | null>`${snapshot}->>'mode'`,
+        depositMinor: sql<string | null>`${snapshot}->>'depositMinor'`,
+        paidAt: sql<string>`${snapshot}->>'depositPaidAt'`,
+        provider: sql<string | null>`${snapshot}->'payment'->>'provider'`,
+        contactName: sql<string | null>`${snapshot}->'contact'->>'fullName'`,
+        propertyId: properties.id,
+        propertyNameAr: properties.nameAr,
+        propertyNameEn: properties.nameEn,
+        unitCode: units.code,
+      })
+      .from(reservations)
+      .innerJoin(units, eq(units.id, reservations.unitId))
+      .innerJoin(properties, eq(properties.id, units.propertyId))
+      .where(
+        and(
+          eq(reservations.organizationId, orgId),
+          sql`${snapshot}->>'depositPaidAt' is not null`,
+          sql`${snapshot}->>'depositJournalEntryId' is null`,
+          ...(ownerPartyId ? [eq(properties.ownerPartyId, ownerPartyId)] : []),
+        ),
+      )
+      .orderBy(desc(sql`${snapshot}->>'depositPaidAt'`))
+      .limit(200);
+
+    return rows.flatMap((row) => {
+      if (!row.depositMinor || !/^\d+$/.test(row.depositMinor)) return [];
+      const reference = row.referenceCode ?? row.id.slice(0, 8).toUpperCase();
+      const propertyLabel = row.propertyNameAr || row.propertyNameEn || '—';
+      const kind = row.mode === 'sale' ? 'حجز شراء' : 'حجز إيجار';
+      const description = `عربون ${kind} ${reference} · ${propertyLabel}${row.unitCode ? ` (${row.unitCode})` : ''}${row.contactName ? ` · ${row.contactName}` : ''}`;
+      return [
+        {
+          id: `reservation-deposit-${row.id}`,
+          recordKind: 'reservation_deposit',
+          status: 'posted',
+          reference,
+          description,
+          memo: description,
+          occurredOn: row.paidAt.slice(0, 10),
+          currency: row.currency ?? 'OMR',
+          amountMinor: row.depositMinor,
+          debitMinor: row.depositMinor,
+          creditMinor: '0',
+          propertyId: row.propertyId,
+          reservationId: row.id,
+          reservationStatus: row.status,
+          mode: row.mode,
+          party: row.contactName,
+          provider: row.provider,
+          createdAt: row.paidAt,
+        },
+      ];
+    });
+  });
+}
+
 /** Confirmed stays without a succeeded intent still need a ledger line (sandbox/status drift). */
 export async function listConfirmedStayBookingAccountingFallback(
   claims: SessionClaims,

@@ -12,6 +12,7 @@ import {
 } from '@bhd-r/db';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import {
+  listReservationDepositAccountingRows,
   loadStayAccountingRowsForViewer,
   ownerPartyScope,
   readClaims,
@@ -234,24 +235,29 @@ export async function loadDepositLedgerForViewer(claims: SessionClaims): Promise
 }
 
 /**
- * Income lines from stays for the accounting list: stay payments plus kept deposit deductions.
- * Deposits held in trust are not income and never appear here.
+ * Booking money lines for the accounting list: stay payments, kept deposit deductions, and
+ * rent or purchase booking deposits paid on the website. Stay deposits held in trust are not
+ * income and never appear here.
  */
 export async function loadStayIncomeRowsForViewer(): Promise<Record<string, unknown>[]> {
-  const [payments, kept] = await Promise.all([
+  const viewerRows = async (
+    load: (claims: SessionClaims) => Promise<Record<string, unknown>[]>,
+  ): Promise<Record<string, unknown>[]> => {
+    if (!hasDatabaseUrl()) return [];
+    const claims = await readClaims();
+    if (!claims?.organizationId) return [];
+    try {
+      return await load(claims);
+    } catch {
+      return [];
+    }
+  };
+  const [payments, kept, reservationDeposits] = await Promise.all([
     loadStayAccountingRowsForViewer(),
-    (async () => {
-      if (!hasDatabaseUrl()) return [];
-      const claims = await readClaims();
-      if (!claims?.organizationId) return [];
-      try {
-        return await loadRetainedDepositIncome(claims);
-      } catch {
-        return [];
-      }
-    })(),
+    viewerRows(loadRetainedDepositIncome),
+    viewerRows(listReservationDepositAccountingRows),
   ]);
-  return [...kept, ...payments];
+  return [...reservationDeposits, ...kept, ...payments];
 }
 
 /**

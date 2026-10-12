@@ -42,6 +42,8 @@ function alertCopy(
       return t('Portal.alertContractsApproval', { count });
     case 'booking_requests':
       return t('Portal.alertBookingRequests', { count });
+    case 'paid_reservations':
+      return t('Portal.alertPaidReservations', { count });
     case 'deposit_refunds':
       return t('Portal.alertDepositRefunds', { count });
     default:
@@ -92,6 +94,7 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
   ]);
   const ar = locale === 'ar';
   const firstContract = approvals.items.find((item) => item.kind === 'contract');
+  const firstReservation = approvals.items.find((item) => item.kind === 'lease_reservation');
   const firstRefund = approvals.items.find(
     (item) =>
       item.kind === 'deposit_refund' ||
@@ -114,6 +117,18 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
       : []),
     ...(approvals.bookings
       ? [{ code: 'booking_requests', count: approvals.bookings, href: `/${portal}/bookings` }]
+      : []),
+    ...(approvals.reservations && firstReservation
+      ? [
+          {
+            code: 'paid_reservations',
+            count: approvals.reservations,
+            href:
+              approvals.reservations === 1
+                ? pendingApprovalHref(portal, firstReservation)
+                : `/${portal}/bookings`,
+          },
+        ]
       : []),
     ...(approvals.refunds && firstRefund
       ? [
@@ -451,12 +466,13 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
           {overview.recentActivity.length ? (
             <ul className="dash-activity">
               {overview.recentActivity.map((item) => {
+                const managed = portal === 'owner' || portal === 'developer';
                 const href =
-                  item.resourceType === 'stay_booking' &&
-                  item.resourceId &&
-                  (portal === 'owner' || portal === 'developer')
+                  item.resourceType === 'stay_booking' && item.resourceId && managed
                     ? `/${portal}/stays/bookings/${item.resourceId}`
-                    : null;
+                    : item.resourceType === 'reservation' && managed
+                      ? `/${portal}/bookings`
+                      : null;
                 const body = (
                   <>
                     <div>

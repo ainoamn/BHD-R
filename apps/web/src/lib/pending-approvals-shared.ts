@@ -1,14 +1,16 @@
 import { formatMoney } from '@/lib/format';
 
 /**
- * One thing waiting for the viewer: a contract to sign, a stay booking request, a deposit
- * refund to decide (host), an approved deposit refund to transfer (accountant), a guest's
- * deposit request or objection (host), or a guest complaint (site administration).
+ * One thing waiting for the viewer: a contract to sign, a stay booking request, a paid rent or
+ * purchase booking awaiting its final contract, a deposit refund to decide (host), an approved
+ * deposit refund to transfer (accountant), a guest's deposit request or objection (host), or a
+ * guest complaint (site administration).
  */
 export type PendingApprovalItem = {
   kind:
     | 'contract'
     | 'stay_booking'
+    | 'lease_reservation'
     | 'deposit_refund'
     | 'refund_transfer'
     | 'deposit_claim'
@@ -23,7 +25,7 @@ export type PendingApprovalItem = {
   contractType: 'lease' | 'sale' | null;
   fromOn: string | null;
   requestedAt: string;
-  /** Deposit still to transfer, for `refund_transfer`. */
+  /** Deposit still to transfer for `refund_transfer`; deposit paid for `lease_reservation`. */
   amountMinor?: string | null;
   currency?: string | null;
 };
@@ -32,6 +34,8 @@ export type PendingApprovals = {
   items: PendingApprovalItem[];
   contracts: number;
   bookings: number;
+  /** Paid rent or purchase bookings awaiting their final contract. */
+  reservations: number;
   refunds: number;
   total: number;
 };
@@ -40,6 +44,7 @@ export const EMPTY_PENDING_APPROVALS: PendingApprovals = {
   items: [],
   contracts: 0,
   bookings: 0,
+  reservations: 0,
   refunds: 0,
   total: 0,
 };
@@ -53,7 +58,7 @@ export function pendingApprovalHref(portal: string, item: PendingApprovalItem): 
   if (item.kind === 'contract') {
     return `${base}?section=contracts&focus=${encodeURIComponent(item.id)}`;
   }
-  if (item.kind === 'deposit_refund') {
+  if (item.kind === 'deposit_refund' || item.kind === 'lease_reservation') {
     return `${base}?section=bookings&focus=${encodeURIComponent(item.id)}`;
   }
   if (item.kind === 'refund_transfer' || item.kind === 'deposit_claim') {
@@ -63,21 +68,32 @@ export function pendingApprovalHref(portal: string, item: PendingApprovalItem): 
   return `${base}?section=bookings`;
 }
 
-/** "To transfer: 60.000 OMR" for a deposit transfer; null for other items. */
+/**
+ * "To transfer: 60.000 OMR" for a deposit transfer, "Deposit paid: 100.000 OMR" for a paid
+ * rent or purchase booking; null for other items.
+ */
 export function pendingApprovalAmount(
   item: PendingApprovalItem,
   locale: 'ar' | 'en',
 ): string | null {
-  if (item.kind !== 'refund_transfer' || !item.amountMinor || !/^\d+$/.test(item.amountMinor)) {
-    return null;
-  }
+  if (item.kind !== 'refund_transfer' && item.kind !== 'lease_reservation') return null;
+  if (!item.amountMinor || !/^\d+$/.test(item.amountMinor)) return null;
   const amount = formatMoney(item.amountMinor, item.currency || 'OMR', locale);
+  if (item.kind === 'lease_reservation') {
+    return locale === 'ar' ? `عربون مدفوع: ${amount}` : `Deposit paid: ${amount}`;
+  }
   return locale === 'ar' ? `للتحويل: ${amount}` : `To transfer: ${amount}`;
 }
 
 export function pendingApprovalTitle(item: PendingApprovalItem, ar: boolean): string {
   if (item.kind === 'stay_booking') {
     return ar ? 'طلب حجز بانتظار الاعتماد' : 'Booking request awaiting approval';
+  }
+  if (item.kind === 'lease_reservation') {
+    if (item.contractType === 'sale') {
+      return ar ? 'حجز شراء مدفوع — جهّز عقد البيع' : 'Paid purchase booking — prepare the sale';
+    }
+    return ar ? 'حجز إيجار مدفوع — جهّز العقد' : 'Paid rent booking — prepare the lease';
   }
   if (item.kind === 'deposit_refund') {
     return ar ? 'استرداد تأمين بانتظار قرارك' : 'Deposit refund awaiting your decision';
