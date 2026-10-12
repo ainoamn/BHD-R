@@ -27,6 +27,8 @@ import {
 import { RememberStayTripAlert } from '@/components/stays/remember-stay-trip-alert';
 import { isStayEsignRequiredServer } from '@/lib/stay-esign-flags';
 import type { StayStamp } from '@/lib/stay-arrival-neon';
+import { hasDeposit, type GuestDepositRefund } from '@/lib/stay-deposit-refund';
+import type { StayRefundMoment } from '@/lib/stay-guest-greeting';
 
 type GuestBooking = {
   id: string;
@@ -56,6 +58,16 @@ type GuestBooking = {
   esignCompleted?: boolean;
   checkIn?: StayStamp | null;
   checkOut?: StayStamp | null;
+  depositMinor?: string | null;
+  depositRefund?: GuestDepositRefund | null;
+  canRequestDepositRefund?: boolean;
+};
+
+const REFUND_STATE: Record<GuestDepositRefund['status'], StayRefundMoment['state']> = {
+  requested: 'requested',
+  approved: 'approved',
+  rejected: 'rejected',
+  executed: 'paid',
 };
 
 const PAID_STATUSES = new Set(['confirmed', 'paid', 'pre_arrival', 'checked_in', 'checked_out']);
@@ -80,6 +92,7 @@ function journeySteps(
   mode: string | undefined,
   ar: boolean,
   stamps: { checkIn?: StayStamp | null; checkOut?: StayStamp | null },
+  refund: StayRefundMoment | undefined,
 ): Step[] {
   const request = mode === 'request' || status === 'request_pending';
   const labels = request
@@ -89,16 +102,32 @@ function journeySteps(
     : ar
       ? ['الحجز', 'الدفع', 'الوصول', 'المغادرة']
       : ['Booked', 'Payment', 'Check-in', 'Check-out'];
-  const current = stayJourneyCurrent(status);
-  const details = [null, null, stamps.checkIn?.at, stamps.checkOut?.at];
-  return labels.map((label, index) => {
-    const at = details[index];
-    return {
-      label,
-      state: index < current ? 'done' : index === current ? 'current' : 'upcoming',
-      detail: at ? formatStamp(at, ar) : null,
-    };
-  });
+  if (refund) labels.push(ar ? 'استرداد التأمين' : 'Deposit refund');
+  const current = stayJourneyCurrent(status, refund);
+  const details: Array<string | null | undefined> = [
+    null,
+    null,
+    stamps.checkIn?.at ? formatStamp(stamps.checkIn.at, ar) : null,
+    stamps.checkOut?.at ? formatStamp(stamps.checkOut.at, ar) : null,
+    refund
+      ? refund.state === 'open'
+        ? null
+        : refund.state === 'paid'
+          ? (refund.paidAt ?? (ar ? 'حُوّل' : 'Transferred'))
+          : refund.state === 'rejected'
+            ? ar
+              ? 'مرفوض'
+              : 'Declined'
+            : ar
+              ? 'قيد الإجراء'
+              : 'In progress'
+      : null,
+  ];
+  return labels.map((label, index) => ({
+    label,
+    state: index < current ? 'done' : index === current ? 'current' : 'upcoming',
+    detail: details[index] ?? null,
+  }));
 }
 
 function formatStayDate(value: string, ar: boolean): { weekday: string; date: string } {
@@ -196,12 +225,33 @@ export default async function GuestStayDetailPage({
   const tone = bookingStatusTone(booking.status, 'stay_booking');
   const ended = ENDED_STATUSES.has(booking.status);
   const paid = PAID_STATUSES.has(booking.status);
+  const refund = booking.depositRefund ?? null;
+  const refundMoment: StayRefundMoment | undefined =
+    hasDeposit(booking.depositMinor) && (refund || booking.canRequestDepositRefund)
+      ? {
+          state: refund ? REFUND_STATE[refund.status] : 'open',
+          referenceCode: booking.referenceCode,
+          deposit: formatMoney(booking.depositMinor ?? '0', booking.currency, locale),
+          amount: refund ? formatMoney(refund.amountMinor, refund.currency, locale) : null,
+          requestedAt: refund ? formatStamp(refund.requestedAt, ar) : null,
+          decidedAt: refund?.decidedAt ? formatStamp(refund.decidedAt, ar) : null,
+          note: refund?.decisionNote ?? null,
+          paidAt: refund?.paidAt ? formatStamp(refund.paidAt, ar) : null,
+          paidTo: refund?.paidTo ?? null,
+        }
+      : undefined;
   const steps = ended
     ? []
-    : journeySteps(booking.status, booking.bookingMode, ar, {
-        checkIn: booking.checkIn ?? null,
-        checkOut: booking.checkOut ?? null,
-      });
+    : journeySteps(
+        booking.status,
+        booking.bookingMode,
+        ar,
+        {
+          checkIn: booking.checkIn ?? null,
+          checkOut: booking.checkOut ?? null,
+        },
+        refundMoment,
+      );
   const esignRequired = isStayEsignRequiredServer();
   const accepted = booking.status === 'confirmed' || booking.status === 'pre_arrival';
   const needsEsign = esignRequired && accepted && !booking.esignCompleted;
@@ -262,8 +312,9 @@ export default async function GuestStayDetailPage({
         checkOutDate: [checkOut.weekday, checkOut.date].filter(Boolean).join(' '),
         checkIn: stampText(booking.checkIn),
         checkOut: stampText(booking.checkOut),
+        refund: refundMoment,
       });
-  const initialStep = stayJourneyInitialStep(booking.status, welcome);
+  const initialStep = stayJourneyInitialStep(booking.status, welcome, refundMoment);
   const rebookHref = booking.listingSlug
     ? `/stays/${encodeURIComponent(booking.listingSlug)}`
     : '/stays';
@@ -303,7 +354,10 @@ export default async function GuestStayDetailPage({
         totalMinor={booking.totalMinor}
       />
       <LiveSync booking={booking.id} reference={booking.referenceCode} />
-      <StayJourneyProvider key={`${booking.status}:${initialStep}`} initial={initialStep}>
+      <StayJourneyProvider
+        key={`${booking.status}:${refundMoment?.state ?? ''}:${initialStep}`}
+        initial={initialStep}
+      >
         <section className="guest-stay-detail__hero" aria-labelledby="guest-stay-title">
           <img
             className="guest-stay-detail__hero-img"
@@ -475,6 +529,24 @@ export default async function GuestStayDetailPage({
                     ) : null}
                   </Fragment>
                 ))}
+                {refundMoment ? (
+                  <div>
+                    <dt>{ar ? 'مبلغ التأمين' : 'Security deposit'}</dt>
+                    <dd>
+                      <bdi dir="ltr">{refundMoment.deposit}</bdi>
+                      {' · '}
+                      {
+                        {
+                          open: ar ? 'لم يُطلب استرداده بعد' : 'Refund not requested yet',
+                          requested: ar ? 'طلب الاسترداد قيد المراجعة' : 'Refund under review',
+                          approved: ar ? 'الاسترداد قيد الإجراء' : 'Refund in progress',
+                          rejected: ar ? 'رُفض الاسترداد' : 'Refund declined',
+                          paid: ar ? 'حُوّل إليك' : 'Transferred to you',
+                        }[refundMoment.state]
+                      }
+                    </dd>
+                  </div>
+                ) : null}
                 {esignRequired && accepted ? (
                   <div>
                     <dt>{ar ? 'عقد الإقامة' : 'Stay contract'}</dt>

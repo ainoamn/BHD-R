@@ -48,7 +48,7 @@ function loadImage(file: File): Promise<HTMLImageElement> {
 }
 
 /** Phone photos are several MB; store a readable JPEG under the server limit. */
-async function compressDocument(file: File): Promise<string> {
+export async function compressDocument(file: File): Promise<string> {
   const image = await loadImage(file);
   for (const [edge, quality] of [
     [1800, 0.82],

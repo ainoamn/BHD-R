@@ -56,6 +56,9 @@ export function stayBookingErrorResponse(error: unknown) {
       reschedule_requires_payment:
         'سعر التواريخ الجديدة أعلى من المبلغ المدفوع — تواصل مع المالك لدفع الفرق أو اختر تواريخ أخرى.',
       reschedule_failed: 'تعذّر تعديل التواريخ.',
+      refund_not_open: 'يُتاح طلب استرداد التأمين بعد تأكيد المغادرة فقط.',
+      refund_no_deposit: 'لا يوجد مبلغ تأمين لهذه الإقامة.',
+      refund_account_invalid: 'رقم الحساب أو الهاتف غير صحيح — تحقّق منه وأعد المحاولة.',
     };
     return stayBookingJson(
       {

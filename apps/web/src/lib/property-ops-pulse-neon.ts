@@ -1,6 +1,7 @@
 import 'server-only';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { applySessionSettings } from '@/lib/db-session-settings';
+import { loadDepositRefundQueue } from '@/lib/stay-deposit-refund-neon';
 import {
   contracts,
   createDatabase,
@@ -68,6 +69,8 @@ export type PropertyOpsStayPayment = {
 
 export type PropertyOpsPulse = {
   stayBookings: PropertyOpsStayBooking[];
+  /** Checked-out stays whose deposit refund waits on the host's decision or the transfer. */
+  depositRefunds: { decision: number; transfer: number };
   contracts: PropertyOpsContract[];
   leases: PropertyOpsLease[];
   invoices: PropertyOpsInvoice[];
@@ -156,7 +159,11 @@ export async function loadPropertyOpsPulseOnNeon(
       .limit(40);
 
     // postgres.js pipelines concurrent queries on the transaction's connection.
-    const [unitRows, stayRows] = await Promise.all([unitRowsQuery, stayRowsQuery]);
+    const [unitRows, stayRows, refundQueue] = await Promise.all([
+      unitRowsQuery,
+      stayRowsQuery,
+      loadDepositRefundQueue(transaction, organizationId, { propertyId }),
+    ]);
     const unitIds = unitRows.map((row) => row.id);
     const unitCodeById = new Map(unitRows.map((row) => [row.id, row.code]));
     const stayIds = stayRows.map((row) => row.id);
@@ -363,6 +370,10 @@ export async function loadPropertyOpsPulseOnNeon(
 
     return {
       stayBookings: stayBookingItems,
+      depositRefunds: {
+        decision: refundQueue.filter((item) => item.step === 'decision').length,
+        transfer: refundQueue.filter((item) => item.step === 'transfer').length,
+      },
       contracts: contractItems,
       leases: leaseItems,
       invoices: invoiceItems,
@@ -378,6 +389,7 @@ export async function loadPropertyOpsPulseOnNeon(
 
 export const emptyPropertyOpsPulse = (): PropertyOpsPulse => ({
   stayBookings: [],
+  depositRefunds: { decision: 0, transfer: 0 },
   contracts: [],
   leases: [],
   invoices: [],

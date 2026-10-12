@@ -4,6 +4,7 @@ import { createContext, useContext, useState, type ReactNode } from 'react';
 import { Link } from '@/i18n/navigation';
 import type { StayGreeting } from '@/lib/stay-guest-greeting';
 import { StayApprovalDesk } from './stay-approval-desk';
+import { StayDepositRefund } from './stay-deposit-refund-guest';
 import { StayTrip } from './stay-trip';
 
 type JourneyStep = {
@@ -137,6 +138,7 @@ export function StayJourneyCard({
       {screen.desk ? <StayApprovalDesk moment={screen.desk} plateNo={plateNo} ar={ar} /> : null}
       <h2>{screen.headline}</h2>
       <p>{screen.body}</p>
+      {screen.refund ? <StayDepositRefund moment={screen.refund} ar={ar} /> : null}
       {screen.guide ? (
         <ol className="guest-stay-detail__guide">
           {screen.guide.map((line) => (
@@ -153,7 +155,7 @@ export function StayJourneyCard({
       ) : null}
       {screen.rebook ? (
         <Link className="button button--primary guest-stay-detail__rebook" href={rebookHref}>
-          {screen.stage === 'checked_out'
+          {screen.stage === 'checked_out' || screen.stage === 'refund'
             ? ar
               ? 'احجز إقامتك القادمة'
               : 'Book your next stay'

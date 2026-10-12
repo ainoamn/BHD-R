@@ -10,6 +10,12 @@ import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { LIVE_CHANGE_EVENT } from '@/lib/live-sync-shared';
 import { StayHandoverForm, type HandoverSubmit } from './stays/stay-handover-form';
+import {
+  DepositRefundCell,
+  DepositRefundForm,
+  type RefundFormMode,
+  type RefundSubmit,
+} from './stays/stay-deposit-refund-admin';
 import { handoverDocumentKind } from '@/lib/stay-handover';
 import { PENDING_APPROVALS_CHANGED_EVENT } from '@/lib/pending-approvals-shared';
 import { domainStatusLabel } from '@/lib/ui-labels';
@@ -35,6 +41,7 @@ type Format =
   | 'terms'
   | 'signatures'
   | 'stayLog'
+  | 'refund'
   | 'priority';
 
 type Column = { key: string; ar: string; en: string; format?: Format };
@@ -55,6 +62,8 @@ type Viewer = {
   canSignContracts: boolean;
   canCreateLease: boolean;
   canCreateSale: boolean;
+  canDecideRefunds?: boolean;
+  canPayRefunds?: boolean;
 };
 
 type StampKind = 'check_in' | 'check_out';
@@ -65,6 +74,8 @@ const NO_VIEWER: Viewer = {
   canSignContracts: false,
   canCreateLease: false,
   canCreateSale: false,
+  canDecideRefunds: false,
+  canPayRefunds: false,
 };
 
 type ContractOutcome = {
@@ -108,6 +119,7 @@ const SECTIONS: Record<PropertyRecordSection, SectionConfig> = {
       { key: 'toOn', ar: 'إلى', en: 'To', format: 'date' },
       { key: 'checkedInAt', ar: 'الدخول والمغادرة', en: 'Check-in / out', format: 'stayLog' },
       { key: 'amountMinor', ar: 'المبلغ', en: 'Amount', format: 'money' },
+      { key: 'refundStatus', ar: 'استرداد التأمين', en: 'Deposit refund', format: 'refund' },
       { key: 'termsAcceptedOn', ar: 'الشروط والأحكام', en: 'Terms', format: 'terms' },
       { key: 'status', ar: 'حالة الحجز', en: 'Status', format: 'status' },
       { key: 'contractReference', ar: 'العقد', en: 'Contract', format: 'contractLink' },
@@ -325,6 +337,28 @@ const ERROR_TEXT: Record<string, [string, string]> = {
     'A photo of the recipient’s ID is required to check in.',
   ],
   handover_phone_invalid: ['رقم هاتف المستلم غير صحيح.', 'The recipient phone number is invalid.'],
+  refund_not_open: [
+    'استرداد التأمين متاح بعد تأكيد المغادرة فقط. حدّث الصفحة.',
+    'Deposit refunds open after check-out only. Refresh the page.',
+  ],
+  refund_no_deposit: ['لا يوجد مبلغ تأمين لهذه الإقامة.', 'This stay has no security deposit.'],
+  refund_already_decided: [
+    'صدر قرار الاسترداد مسبقاً. حدّث الصفحة.',
+    'The refund was already decided. Refresh the page.',
+  ],
+  refund_not_approved: [
+    'الاسترداد غير معتمد للتحويل بعد. حدّث الصفحة.',
+    'This refund is not approved for transfer. Refresh the page.',
+  ],
+  refund_note_required: ['اكتب سبب رفض الاسترداد.', 'Write the reason for the rejection.'],
+  refund_account_invalid: [
+    'رقم الحساب أو الهاتف المحوَّل إليه غير صحيح.',
+    'The receiving account or phone number is invalid.',
+  ],
+  refund_receipt_required: [
+    'إيصال التحويل مطلوب (صورة أو PDF).',
+    'The transfer receipt (image or PDF) is required.',
+  ],
 };
 
 function formatStamp(value: string, locale: 'ar' | 'en'): string {
@@ -418,16 +452,21 @@ function Cell({
   column,
   locale,
   documentHref,
+  receiptHref,
 }: {
   row: PropertyRecordRow;
   column: Column;
   locale: 'ar' | 'en';
   /** Check-in ID photo; only for viewers who manage stay bookings. */
   documentHref: string | null;
+  /** Deposit refund transfer receipt; only for refund approvers and accountants. */
+  receiptHref: string | null;
 }) {
   const ar = locale === 'ar';
   const value = row[column.key] ?? null;
   switch (column.format) {
+    case 'refund':
+      return <DepositRefundCell row={row} locale={locale} receiptHref={receiptHref} />;
     case 'status': {
       const status = column.key === 'status' ? displayStatus(row) : value;
       return status ? (
@@ -768,6 +807,9 @@ export function PropertySectionRecords({
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [stampForm, setStampForm] = useState<{ rowId: string; kind: StampKind } | null>(null);
+  const [refundForm, setRefundForm] = useState<{ rowId: string; mode: RefundFormMode } | null>(
+    null,
+  );
   const silentReload = useRef(false);
 
   useEffect(() => {
@@ -989,6 +1031,31 @@ export function PropertySectionRecords({
     setReloadKey((key) => key + 1);
   }
 
+  async function submitRefund(row: PropertyRecordRow, value: RefundSubmit) {
+    const id = row.id ?? '';
+    const result = await runAction(id, { ...value, bookingId: id });
+    if (!result) return;
+    setRefundForm(null);
+    const money = (minor: string | null | undefined) =>
+      minor && row.currency ? formatMoney(minor, row.currency, locale) : '';
+    setNotice({
+      tone: 'success',
+      text:
+        value.action === 'refund_payout'
+          ? ar
+            ? `تم تسجيل تحويل تأمين الحجز ${row.reference} وأُغلق الحجز. يرى الضيف الآن أن المبلغ حُوّل.`
+            : `Deposit transfer recorded for ${row.reference}; the booking is closed and the guest sees it.`
+          : value.decision === 'approve'
+            ? ar
+              ? `تم اعتماد استرداد التأمين ${money(row.depositMinor)} للحجز ${row.reference}، وانتقل الطلب إلى المحاسب للتحويل.`
+              : `Deposit refund approved for ${row.reference}; it is now with the accountant.`
+            : ar
+              ? `تم رفض استرداد التأمين للحجز ${row.reference} وأُغلق الحجز. يرى الضيف سبب الرفض.`
+              : `Deposit refund rejected for ${row.reference}; the booking is closed.`,
+    });
+    setReloadKey((key) => key + 1);
+  }
+
   async function approveContract(row: PropertyRecordRow) {
     const question = ar
       ? `اعتماد العقد ${row.reference} وتوقيعه باسمك نيابة عن المالك؟`
@@ -1068,6 +1135,7 @@ export function PropertySectionRecords({
         aria-expanded={open}
         onClick={() => {
           setNotice(null);
+          setRefundForm(null);
           setStampForm(open ? null : { rowId: row.id ?? '', kind });
         }}
       >
@@ -1085,12 +1153,63 @@ export function PropertySectionRecords({
   function workflowAction(row: PropertyRecordRow, busy: boolean) {
     const stamp = stayStampAction(row, busy);
     const approval = bookingApprovalAction(row, busy);
-    return stamp || approval ? (
+    const refund = depositRefundAction(row, busy);
+    return stamp || approval || refund ? (
       <>
         {stamp}
         {approval}
+        {refund}
       </>
     ) : null;
+  }
+
+  function depositRefundAction(row: PropertyRecordRow, busy: boolean) {
+    if (section !== 'bookings' || row.kind !== 'stay' || !row.id) return null;
+    const open = (mode: RefundFormMode) =>
+      refundForm !== null && refundForm.rowId === row.id && refundForm.mode === mode;
+    const toggle = (mode: RefundFormMode) => {
+      setNotice(null);
+      setStampForm(null);
+      setRefundForm(open(mode) ? null : { rowId: row.id ?? '', mode });
+    };
+    if (row.stage === 'awaiting_deposit_refund' && viewer.canDecideRefunds) {
+      return (
+        <>
+          <button
+            type="button"
+            className="button button--primary psr-action"
+            disabled={busy}
+            aria-expanded={open('approve')}
+            onClick={() => toggle('approve')}
+          >
+            {ar ? 'اعتماد استرداد التأمين' : 'Approve deposit refund'}
+          </button>
+          <button
+            type="button"
+            className="button button--quiet psr-action"
+            disabled={busy}
+            aria-expanded={open('reject')}
+            onClick={() => toggle('reject')}
+          >
+            {ar ? 'رفض الاسترداد' : 'Reject refund'}
+          </button>
+        </>
+      );
+    }
+    if (row.stage === 'awaiting_refund_transfer' && viewer.canPayRefunds) {
+      return (
+        <button
+          type="button"
+          className="button button--primary psr-action"
+          disabled={busy}
+          aria-expanded={open('payout')}
+          onClick={() => toggle('payout')}
+        >
+          {ar ? 'تسجيل تحويل التأمين' : 'Record deposit transfer'}
+        </button>
+      );
+    }
+    return null;
   }
 
   function bookingApprovalAction(row: PropertyRecordRow, busy: boolean) {
@@ -1327,6 +1446,13 @@ export function PropertySectionRecords({
                                 ? `/api/owner/properties/${encodeURIComponent(propertyId)}/records/handover/${row.id}`
                                 : null
                             }
+                            receiptHref={
+                              (viewer.canDecideRefunds || viewer.canPayRefunds) &&
+                              row.refundReceipt &&
+                              row.id
+                                ? `/api/owner/properties/${encodeURIComponent(propertyId)}/records/refund-receipt/${row.id}`
+                                : null
+                            }
                           />
                         </td>
                       ))}
@@ -1354,6 +1480,24 @@ export function PropertySectionRecords({
                             guestPhone={row.guestPhone ?? null}
                             onSubmit={(value) => void submitStamp(row, stampForm.kind, value)}
                             onCancel={() => setStampForm(null)}
+                          />
+                        </td>
+                      </tr>
+                    ) : null}
+                    {refundForm && refundForm.rowId === row.id ? (
+                      <tr className="psr-details">
+                        <td colSpan={config.columns.length + (showActions ? 1 : 0)}>
+                          <DepositRefundForm
+                            mode={refundForm.mode}
+                            row={row}
+                            locale={locale}
+                            busy={busyId === row.id}
+                            defaultAmount={minorToDecimal(
+                              row.refundAmountMinor ?? row.depositMinor ?? null,
+                              row.currency ?? 'OMR',
+                            )}
+                            onSubmit={(value) => void submitRefund(row, value)}
+                            onCancel={() => setRefundForm(null)}
                           />
                         </td>
                       </tr>

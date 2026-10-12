@@ -11,6 +11,11 @@ import {
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 import { requireSessionSecret } from '@/lib/runtime-env';
+import {
+  canDecideDepositRefunds,
+  canPayDepositRefunds,
+  loadDepositRefundQueue,
+} from '@/lib/stay-deposit-refund-neon';
 import { withTimeoutFallback } from '@/lib/with-timeout';
 
 const ITEM_LIMIT = 50;
@@ -21,16 +26,19 @@ function iso(value: Date | string | null | undefined): string | null {
 }
 
 /**
- * Contracts awaiting signature (for users with `contract.sign`) and stay booking requests awaiting
- * approval (for users with `stay.booking.manage`), oldest first. Owner-scoped users only see their
- * own properties.
+ * Contracts awaiting signature (for users with `contract.sign`), stay booking requests awaiting
+ * approval (for users with `stay.booking.manage`), and deposit refunds awaiting the host's
+ * decision or the accountant's transfer, oldest first. Owner-scoped users only see their own
+ * properties.
  */
 export async function loadPendingApprovals(claims: SessionClaims): Promise<PendingApprovals> {
   const orgId = claims.organizationId;
   const canSign = hasPermission(claims, 'contract.sign');
   const canManageBookings =
     hasPermission(claims, 'stay.booking.manage') && hasPermission(claims, 'contract.create');
-  if (!orgId || (!canSign && !canManageBookings)) {
+  const canDecideRefunds = canDecideDepositRefunds(claims);
+  const canPayRefunds = canPayDepositRefunds(claims);
+  if (!orgId || (!canSign && !canManageBookings && !canDecideRefunds && !canPayRefunds)) {
     return EMPTY_PENDING_APPROVALS;
   }
   const ownerPartyId = ownerPartyScope(claims);
@@ -97,7 +105,18 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
           .orderBy(asc(stayBookings.createdAt))
           .limit(ITEM_LIMIT)
       : Promise.resolve([]);
-    const [contractRows, bookingRows] = await Promise.all([contractQuery, bookingQuery]);
+    const refundQuery =
+      canDecideRefunds || canPayRefunds
+        ? loadDepositRefundQueue(tx, orgId, { ownerPartyId, limit: ITEM_LIMIT })
+        : Promise.resolve([]);
+    const [contractRows, bookingRows, refundRows] = await Promise.all([
+      contractQuery,
+      bookingQuery,
+      refundQuery,
+    ]);
+    const refundItems = refundRows.filter((row) =>
+      row.step === 'decision' ? canDecideRefunds : canPayRefunds,
+    );
 
     const items: PendingApprovalItem[] = [
       ...contractRows.map((row) => ({
@@ -126,12 +145,26 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
         fromOn: iso(row.fromOn)?.slice(0, 10) ?? null,
         requestedAt: iso(row.requestedAt) ?? '',
       })),
+      ...refundItems.map((row) => ({
+        kind: row.step === 'decision' ? ('deposit_refund' as const) : ('refund_transfer' as const),
+        id: row.bookingId,
+        reference: row.reference,
+        propertyId: row.propertyId,
+        propertyNameAr: row.propertyNameAr,
+        propertyNameEn: row.propertyNameEn,
+        unitCode: row.unitCode,
+        party: row.party,
+        contractType: null,
+        fromOn: null,
+        requestedAt: row.since,
+      })),
     ].sort((a, b) => a.requestedAt.localeCompare(b.requestedAt));
 
     return {
       items,
       contracts: contractRows.length,
       bookings: bookingRows.length,
+      refunds: refundItems.length,
       total: items.length,
     };
   });

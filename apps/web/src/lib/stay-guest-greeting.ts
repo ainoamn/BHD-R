@@ -7,6 +7,7 @@ export type StayGreeting = {
     | 'confirmed'
     | 'checked_in'
     | 'checked_out'
+    | 'refund'
     | 'ended';
   headline: string;
   body: string;
@@ -18,10 +19,28 @@ export type StayGreeting = {
   trip?: StayTripMoment | undefined;
   /** Host approval drawn as the host at the desk: reading the request, or signing it. */
   desk?: StayDeskMoment | undefined;
+  /** Deposit refund after check-out: request form, or where the refund stands. */
+  refund?: StayRefundMoment | undefined;
 };
 
 export type StayTripMoment = { kind: 'arrive' | 'parked' | 'depart'; status: string };
 export type StayDeskMoment = { signed: boolean; status: string };
+
+/** Display-ready deposit refund state; amounts and dates already formatted. */
+export type StayRefundMoment = {
+  state: 'open' | 'requested' | 'approved' | 'rejected' | 'paid';
+  referenceCode: string;
+  deposit: string;
+  amount: string | null;
+  requestedAt: string | null;
+  decidedAt: string | null;
+  note: string | null;
+  paidAt: string | null;
+  paidTo: string | null;
+};
+
+const refundSettled = (refund: StayRefundMoment) =>
+  refund.state === 'rejected' || refund.state === 'paid';
 
 /** "ABDUL HAMID AL RAWAHI" → "Abdul Hamid Al Rawahi"; Arabic and mixed-case names stay as typed. */
 export function friendlyGuestName(name: string | null | undefined): string | null {
@@ -272,20 +291,83 @@ export function stayGuestGreeting(input: {
 type GreetingInput = Parameters<typeof stayGuestGreeting>[0];
 type StampText = { at: string; notes: string | null };
 
-/** Journey position: 1 = waiting on host/payment, 2 = awaiting arrival, 3 = in stay, 4 = checked out. */
-export function stayJourneyCurrent(status: string): number {
+/**
+ * Journey position: 1 = waiting on host/payment, 2 = awaiting arrival, 3 = in stay,
+ * 4 = checked out (with a deposit: the refund step is open), 5 = deposit refund settled.
+ */
+export function stayJourneyCurrent(status: string, refund?: StayRefundMoment): number {
   if (status === 'request_pending' || status === 'payment_pending' || status === 'payment_failed') {
     return 1;
   }
   if (status === 'checked_in') return 3;
-  if (status === 'checked_out' || status === 'closed') return 4;
+  if (status === 'checked_out' || status === 'closed') {
+    return refund && (status === 'closed' || refundSettled(refund)) ? 5 : 4;
+  }
   return 2;
+}
+
+function refundScreen(
+  refund: StayRefundMoment,
+  ar: boolean,
+  hi: (arText: string, enText: string) => string,
+): StayGreeting {
+  const amount = refund.amount ?? refund.deposit;
+  switch (refund.state) {
+    case 'open':
+      return {
+        stage: 'refund',
+        refund,
+        headline: hi('بقي تأمينك{name}', 'Your deposit is next{name}'),
+        body: ar
+          ? `غادرت بالسلامة، وبقيت خطوة أخيرة: استرداد مبلغ التأمين (${refund.deposit}). اطلبه الآن وأخبرنا أين نحوّله؛ يراجعه المالك ثم يحوّله المحاسب، وتتابع كل خطوة من هنا.`
+          : `You left safely, and one last step remains: getting your deposit (${refund.deposit}) back. Ask for it now and tell us where to send it; the host reviews it, the accountant transfers it, and you follow every step right here.`,
+      };
+    case 'requested':
+      return {
+        stage: 'refund',
+        refund,
+        headline: hi('وصلنا طلبك{name}', 'Request received{name}'),
+        body: ar
+          ? `طلب استرداد التأمين (${refund.deposit}) بين يدَي المالك الآن لمراجعته. ستتحدّث هذه الصفحة وحدها فور صدور القرار.`
+          : `Your deposit refund request (${refund.deposit}) is with the host for review. This page updates by itself the moment they decide.`,
+      };
+    case 'approved':
+      return {
+        stage: 'refund',
+        refund,
+        headline: hi('وافق المالك على الاسترداد{name}!', 'The host approved your refund{name}!'),
+        body: ar
+          ? `اعتُمد استرداد ${amount}، والطلب الآن لدى المحاسب لتحويل المبلغ إليك. قيد الإجراء… وسيظهر هنا تاريخ التحويل فور إتمامه.`
+          : `${amount} was approved and is now with the accountant for the transfer. In progress… the transfer date will show here as soon as it is done.`,
+      };
+    case 'rejected':
+      return {
+        stage: 'refund',
+        refund,
+        rebook: true,
+        headline: hi('نعتذر منك{name}', 'We are sorry{name}'),
+        body: ar
+          ? 'لم يعتمد المالك استرداد مبلغ التأمين. تجد سبب الرفض أدناه، ويسعدنا التواصل معك لأي استفسار.'
+          : 'The host did not approve the deposit refund. You will find the reason below; we are happy to help with any question.',
+      };
+    case 'paid':
+      return {
+        stage: 'refund',
+        refund,
+        rebook: true,
+        headline: hi('وصل تأمينك{name}!', 'Your deposit is on its way{name}!'),
+        body: ar
+          ? `حُوّل مبلغ ${amount}${refund.paidTo ? ` إلى ${refund.paidTo}` : ''}${refund.paidAt ? ` بتاريخ ${refund.paidAt}` : ''}. شكراً لأنك تركت المكان كما وجدته… وأجمل!`
+          : `${amount} was transferred${refund.paidTo ? ` to ${refund.paidTo}` : ''}${refund.paidAt ? ` on ${refund.paidAt}` : ''}. Thank you for leaving the place as you found it… or nicer!`,
+      };
+  }
 }
 
 /**
  * One screen per journey step (submitted, host approval / payment, arrival,
- * departure), each showing how the page read at that moment. Steps not yet
- * reached are null so the guest cannot open them.
+ * departure, and deposit refund when the stay holds a deposit), each showing how
+ * the page read at that moment. Steps not yet reached are null so the guest
+ * cannot open them.
  */
 export function stayJourneyScreens(
   input: GreetingInput & {
@@ -293,10 +375,11 @@ export function stayJourneyScreens(
     checkOutDate?: string | null | undefined;
     checkIn?: StampText | null | undefined;
     checkOut?: StampText | null | undefined;
+    refund?: StayRefundMoment | undefined;
   },
 ): Array<StayGreeting | null> {
   const { status, ar } = input;
-  const current = stayJourneyCurrent(status);
+  const current = stayJourneyCurrent(status, input.refund);
   const request = input.mode === 'request' || status === 'request_pending';
   const name = friendlyGuestName(input.guestName);
   const hi = (arText: string, enText: string) =>
@@ -374,15 +457,22 @@ export function stayJourneyScreens(
               stamp: input.checkOut
                 ? { label: ar ? 'وقت المغادرة' : 'Checked out at', ...input.checkOut }
                 : undefined,
+              ...(input.refund ? { rebook: false } : {}),
             };
           })();
 
-  return [submitted, approval, arrival, departure];
+  if (!input.refund) return [submitted, approval, arrival, departure];
+  const refund = current < 4 ? null : refundScreen(input.refund, ar, hi);
+  return [submitted, approval, arrival, departure, refund];
 }
 
 /** Step opened first: the welcome guide right after submitting, otherwise where the booking stands. */
-export function stayJourneyInitialStep(status: string, welcome: boolean): number {
-  const current = stayJourneyCurrent(status);
+export function stayJourneyInitialStep(
+  status: string,
+  welcome: boolean,
+  refund?: StayRefundMoment,
+): number {
+  const current = stayJourneyCurrent(status, refund);
   if (current === 1 && welcome) return 0;
-  return Math.min(current, 3);
+  return Math.min(current, refund ? 4 : 3);
 }

@@ -1,0 +1,581 @@
+'use client';
+
+import { useRef, useState } from 'react';
+import { formatMoney } from '@/lib/format';
+import {
+  OMAN_BANKS,
+  REFUND_NOTE_MAX,
+  REFUND_RECEIPT_MAX,
+  hasDeposit,
+  validPayoutAccount,
+  type RefundPayoutMethod,
+} from '@/lib/stay-deposit-refund';
+import type { PropertyRecordRow } from '@/lib/property-records-neon';
+import { StampDateTimeField } from './stamp-date-time-field';
+import { compressDocument } from './stay-handover-form';
+
+export type RefundFormMode = 'approve' | 'reject' | 'payout';
+
+export type RefundSubmit =
+  | { action: 'refund_decide'; decision: 'approve' | 'reject'; amount?: string; note?: string }
+  | {
+      action: 'refund_payout';
+      method: RefundPayoutMethod;
+      account: string;
+      bank: string;
+      holder?: string;
+      reference?: string;
+      at: string;
+      receipt: string;
+    };
+
+function formatStamp(value: string, ar: boolean): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(ar ? 'ar-OM-u-nu-latn' : 'en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'Asia/Muscat',
+  }).format(date);
+}
+
+function methodLabel(method: string | null | undefined, ar: boolean): string {
+  if (method === 'phone') return ar ? 'رقم هاتف' : 'Phone';
+  return ar ? 'حساب بنكي' : 'Bank account';
+}
+
+/** Where the guest asked the money to go (as typed in their request). */
+function GuestPayout({ row, ar }: { row: PropertyRecordRow; ar: boolean }) {
+  if (!row.refundGuestAccount) return null;
+  return (
+    <span className="psr-refund__line">
+      {ar ? 'يحوَّل إلى' : 'Send to'}: {methodLabel(row.refundGuestMethod, ar)}{' '}
+      <bdi dir="ltr">{row.refundGuestAccount}</bdi>
+      {row.refundGuestBank ? ` · ${row.refundGuestBank}` : ''}
+      {row.refundGuestHolder ? ` · ${row.refundGuestHolder}` : ''}
+    </span>
+  );
+}
+
+/** Refund column of a stay row: deposit, where the refund stands, and its details. */
+export function DepositRefundCell({
+  row,
+  locale,
+  receiptHref,
+}: {
+  row: PropertyRecordRow;
+  locale: 'ar' | 'en';
+  receiptHref: string | null;
+}) {
+  const ar = locale === 'ar';
+  if (row.kind !== 'stay' || !hasDeposit(row.depositMinor)) {
+    return <span className="muted">—</span>;
+  }
+  const currency = row.currency ?? 'OMR';
+  const money = (minor: string | null | undefined) =>
+    minor ? formatMoney(minor, currency, locale) : '—';
+  const deposit = (
+    <span className="psr-refund__deposit">
+      {ar ? 'التأمين' : 'Deposit'} <bdi dir="ltr">{money(row.depositMinor)}</bdi>
+    </span>
+  );
+
+  if (!row.refundStatus) {
+    if (row.status !== 'checked_out') return <div className="psr-refund">{deposit}</div>;
+    return (
+      <div className="psr-refund">
+        {deposit}
+        <span className="pmh-badge pmh-badge--warn">
+          {ar ? 'لم يُطلب بعد · بانتظار قرارك' : 'Not requested · your decision'}
+        </span>
+      </div>
+    );
+  }
+
+  const badges: Record<string, [string, string]> = {
+    requested: ['warn', ar ? 'طلب الضيف الاسترداد' : 'Guest requested a refund'],
+    approved: ['info', ar ? 'معتمد · بانتظار المحاسب' : 'Approved · with the accountant'],
+    rejected: ['muted', ar ? 'رُفض الاسترداد' : 'Refund rejected'],
+    executed: ['ready', ar ? 'حُوّل المبلغ' : 'Refund transferred'],
+  };
+  const badge = badges[row.refundStatus] ?? ['warn', row.refundStatus];
+
+  return (
+    <div className="psr-refund">
+      {deposit}
+      <span className={`pmh-badge pmh-badge--${badge[0]}`}>{badge[1]}</span>
+      {row.refundRequestedAt && row.refundRequestedBy === 'guest' ? (
+        <span className="psr-refund__line">
+          {ar ? 'طُلب في' : 'Requested'} {formatStamp(row.refundRequestedAt, ar)}
+        </span>
+      ) : null}
+      {row.refundGuestNote ? (
+        <small className="psr-refund__note">
+          {ar ? 'ملاحظة الضيف' : 'Guest note'}: {row.refundGuestNote}
+        </small>
+      ) : null}
+      {row.refundStatus === 'requested' ? <GuestPayout row={row} ar={ar} /> : null}
+      {row.refundStatus === 'approved' || row.refundStatus === 'executed' ? (
+        <span className="psr-refund__line">
+          {ar ? 'المبلغ المعتمد' : 'Approved amount'}{' '}
+          <bdi dir="ltr">{money(row.refundAmountMinor)}</bdi>
+          {row.refundDecidedBy ? ` · ${row.refundDecidedBy}` : ''}
+        </span>
+      ) : null}
+      {row.refundStatus === 'approved' ? <GuestPayout row={row} ar={ar} /> : null}
+      {row.refundDecisionNote ? (
+        <small className="psr-refund__note">
+          {row.refundStatus === 'rejected'
+            ? ar
+              ? 'سبب الرفض'
+              : 'Reason'
+            : ar
+              ? 'ملاحظة المالك'
+              : 'Host note'}
+          : {row.refundDecisionNote}
+        </small>
+      ) : null}
+      {row.refundStatus === 'executed' && row.refundPaidAt ? (
+        <span className="psr-refund__line">
+          {formatStamp(row.refundPaidAt, ar)} · {methodLabel(row.refundPaidMethod, ar)}{' '}
+          <bdi dir="ltr">{row.refundPaidAccount}</bdi>
+          {row.refundPaidBank ? ` · ${row.refundPaidBank}` : ''}
+          {row.refundPaidReference ? (
+            <>
+              {' · '}
+              {ar ? 'مرجع' : 'Ref'} <bdi dir="ltr">{row.refundPaidReference}</bdi>
+            </>
+          ) : null}
+          {row.refundPaidBy ? ` · ${row.refundPaidBy}` : ''}
+        </span>
+      ) : null}
+      {row.refundReceipt && receiptHref ? (
+        <a className="psr-refund__receipt" href={receiptHref} target="_blank" rel="noreferrer">
+          🧾 {ar ? 'إيصال التحويل' : 'Transfer receipt'}
+        </a>
+      ) : null}
+    </div>
+  );
+}
+
+function readAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () =>
+      typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('unreadable'));
+    reader.onerror = () => reject(new Error('unreadable'));
+    reader.readAsDataURL(file);
+  });
+}
+
+/** Host approval / rejection of a deposit refund, or the accountant's transfer record. */
+export function DepositRefundForm({
+  mode,
+  row,
+  locale,
+  busy,
+  defaultAmount,
+  onSubmit,
+  onCancel,
+}: {
+  mode: RefundFormMode;
+  row: PropertyRecordRow;
+  locale: 'ar' | 'en';
+  busy: boolean;
+  /** Deposit as a decimal string, the approval's default amount. */
+  defaultAmount: string;
+  onSubmit: (value: RefundSubmit) => void;
+  onCancel: () => void;
+}) {
+  const ar = locale === 'ar';
+  const id = `refund-${mode}-${row.id ?? ''}`;
+  const currency = row.currency ?? 'OMR';
+  const [amount, setAmount] = useState(defaultAmount);
+  const [note, setNote] = useState('');
+  const [method, setMethod] = useState<RefundPayoutMethod>(
+    row.refundGuestMethod === 'phone' ? 'phone' : 'bank',
+  );
+  const [account, setAccount] = useState(row.refundGuestAccount ?? '');
+  const [bank, setBank] = useState(row.refundGuestBank ?? '');
+  const [holder, setHolder] = useState(row.refundGuestHolder ?? '');
+  const [reference, setReference] = useState('');
+  const [at, setAt] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<string | null>(null);
+  const [reading, setReading] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [tried, setTried] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const accountOk = validPayoutAccount(method, account);
+  const noteMissing = mode === 'reject' && note.trim().length < 3;
+  const payoutMissing = mode === 'payout' && (!accountOk || bank.trim().length < 2 || !receipt);
+  const ready = !noteMissing && !payoutMissing && !reading && (mode !== 'payout' || Boolean(at));
+
+  async function pickFile(file: File | undefined) {
+    if (!file) return;
+    setFileError(null);
+    setReading(true);
+    try {
+      if (file.type === 'application/pdf') {
+        const dataUrl = await readAsDataUrl(file);
+        if (dataUrl.length > REFUND_RECEIPT_MAX) throw new Error('too_large');
+        setReceipt(dataUrl);
+      } else if (file.type.startsWith('image/')) {
+        setReceipt(await compressDocument(file));
+      } else {
+        throw new Error('type');
+      }
+    } catch {
+      setFileError(
+        ar
+          ? 'اختر صورة الإيصال (JPG/PNG) أو ملف PDF أصغر من 0.9 ميجابايت.'
+          : 'Choose a receipt image (JPG/PNG) or a PDF under 0.9 MB.',
+      );
+    } finally {
+      setReading(false);
+    }
+  }
+
+  const title =
+    mode === 'approve'
+      ? ar
+        ? `اعتماد استرداد التأمين — ${row.reference ?? ''}`
+        : `Approve deposit refund — ${row.reference ?? ''}`
+      : mode === 'reject'
+        ? ar
+          ? `رفض استرداد التأمين — ${row.reference ?? ''}`
+          : `Reject deposit refund — ${row.reference ?? ''}`
+        : ar
+          ? `تسجيل تحويل التأمين — ${row.reference ?? ''}`
+          : `Record deposit transfer — ${row.reference ?? ''}`;
+
+  return (
+    <form
+      className="psr-form psr-refund-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        setTried(true);
+        if (!ready) return;
+        if (mode === 'payout') {
+          if (!at || !receipt) return;
+          onSubmit({
+            action: 'refund_payout',
+            method,
+            account: account.trim(),
+            bank: bank.trim(),
+            ...(holder.trim() ? { holder: holder.trim() } : {}),
+            ...(reference.trim() ? { reference: reference.trim() } : {}),
+            at,
+            receipt,
+          });
+          return;
+        }
+        onSubmit({
+          action: 'refund_decide',
+          decision: mode,
+          ...(mode === 'approve' && amount.trim() ? { amount: amount.trim() } : {}),
+          ...(note.trim() ? { note: note.trim() } : {}),
+        });
+      }}
+    >
+      <h3>{title}</h3>
+      <p className="psr-refund-form__facts">
+        {ar ? 'مبلغ التأمين' : 'Deposit'}{' '}
+        <bdi dir="ltr">{formatMoney(row.depositMinor ?? '0', currency, locale)}</bdi>
+        {row.refundAmountMinor && mode === 'payout' ? (
+          <>
+            {' · '}
+            {ar ? 'المبلغ المعتمد للتحويل' : 'Approved to transfer'}{' '}
+            <strong dir="ltr">{formatMoney(row.refundAmountMinor, currency, locale)}</strong>
+          </>
+        ) : null}
+        {row.refundGuestNote ? (
+          <>
+            <br />
+            {ar ? 'ملاحظة الضيف' : 'Guest note'}: {row.refundGuestNote}
+          </>
+        ) : null}
+        {row.refundDecisionNote && mode === 'payout' ? (
+          <>
+            <br />
+            {ar ? 'ملاحظة المالك' : 'Host note'}: {row.refundDecisionNote}
+          </>
+        ) : null}
+      </p>
+
+      <div className="form-grid">
+        {mode === 'approve' ? (
+          <div className="field">
+            <label htmlFor={`${id}-amount`}>
+              {ar ? `المبلغ المسترد (${currency})` : `Refund amount (${currency})`}
+            </label>
+            <input
+              id={`${id}-amount`}
+              className="input"
+              dir="ltr"
+              inputMode="decimal"
+              pattern="\d{1,12}(\.\d{1,3})?"
+              required
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+            />
+            <small className="muted">
+              {ar
+                ? 'كامل التأمين افتراضياً؛ يمكنك تخفيضه عند وجود خصم، مع ذكر السبب في الملاحظة.'
+                : 'The full deposit by default; lower it for a deduction and give the reason in the note.'}
+            </small>
+          </div>
+        ) : null}
+
+        {mode === 'payout' ? (
+          <>
+            <fieldset className="field span-2 psr-refund-form__method">
+              <legend>{ar ? 'طريقة التحويل' : 'Transfer to'}</legend>
+              {(['bank', 'phone'] as const).map((value) => (
+                <label key={value}>
+                  <input
+                    type="radio"
+                    name={`${id}-method`}
+                    checked={method === value}
+                    onChange={() => setMethod(value)}
+                  />{' '}
+                  {value === 'bank'
+                    ? ar
+                      ? 'رقم الحساب / IBAN'
+                      : 'Account number / IBAN'
+                    : ar
+                      ? 'رقم الهاتف (تحويل عبر الهاتف)'
+                      : 'Phone number (mobile transfer)'}
+                </label>
+              ))}
+            </fieldset>
+            <div className="field">
+              <label htmlFor={`${id}-account`}>
+                {method === 'bank'
+                  ? ar
+                    ? 'رقم الحساب أو IBAN المحوَّل إليه *'
+                    : 'Account number or IBAN sent to *'
+                  : ar
+                    ? 'رقم الهاتف المحوَّل إليه *'
+                    : 'Phone number sent to *'}
+              </label>
+              <input
+                id={`${id}-account`}
+                className="input"
+                dir="ltr"
+                autoComplete="off"
+                maxLength={64}
+                value={account}
+                aria-invalid={tried && !accountOk}
+                onChange={(event) => setAccount(event.target.value)}
+              />
+              {tried && !accountOk ? (
+                <small className="stamp-dt__error" role="alert">
+                  {method === 'bank'
+                    ? ar
+                      ? 'أدخل رقم حساب أو IBAN صحيحاً (حروف وأرقام).'
+                      : 'Enter a valid account number or IBAN.'
+                    : ar
+                      ? 'أدخل رقم هاتف صحيحاً.'
+                      : 'Enter a valid phone number.'}
+                </small>
+              ) : null}
+            </div>
+            <div className="field">
+              <label htmlFor={`${id}-bank`}>{ar ? 'البنك *' : 'Bank *'}</label>
+              <input
+                id={`${id}-bank`}
+                className="input"
+                list={`${id}-banks`}
+                maxLength={120}
+                value={bank}
+                aria-invalid={tried && bank.trim().length < 2}
+                onChange={(event) => setBank(event.target.value)}
+              />
+              <datalist id={`${id}-banks`}>
+                {OMAN_BANKS.map((name) => (
+                  <option key={name} value={name} />
+                ))}
+              </datalist>
+            </div>
+            <div className="field">
+              <label htmlFor={`${id}-holder`}>
+                {ar ? 'اسم صاحب الحساب (اختياري)' : 'Account holder (optional)'}
+              </label>
+              <input
+                id={`${id}-holder`}
+                className="input"
+                maxLength={120}
+                value={holder}
+                onChange={(event) => setHolder(event.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor={`${id}-ref`}>
+                {ar ? 'رقم مرجع التحويل (اختياري)' : 'Transfer reference (optional)'}
+              </label>
+              <input
+                id={`${id}-ref`}
+                className="input"
+                dir="ltr"
+                maxLength={80}
+                value={reference}
+                onChange={(event) => setReference(event.target.value)}
+              />
+            </div>
+            <StampDateTimeField
+              id={`${id}-at`}
+              locale={locale}
+              onChange={setAt}
+              label={ar ? 'تاريخ ووقت التحويل' : 'Transfer date and time'}
+            />
+            <div
+              className={`field span-2 handover-doc${tried && !receipt ? ' handover-doc--missing' : ''}`}
+            >
+              <span className="handover-doc__label">
+                {ar ? 'إيصال التحويل *' : 'Transfer receipt *'}
+              </span>
+              {receipt?.startsWith('data:image/') ? (
+                <figure className="handover-doc__preview">
+                  <img src={receipt} alt={ar ? 'إيصال التحويل' : 'Transfer receipt'} />
+                </figure>
+              ) : receipt ? (
+                <span className="psr-refund__line">📄 PDF</span>
+              ) : null}
+              <div className="handover-doc__actions">
+                <button
+                  type="button"
+                  className="button button--secondary"
+                  disabled={reading}
+                  onClick={() => fileRef.current?.click()}
+                >
+                  ⬆{' '}
+                  {receipt
+                    ? ar
+                      ? 'تغيير الإيصال'
+                      : 'Replace receipt'
+                    : ar
+                      ? 'إرفاق الإيصال'
+                      : 'Attach receipt'}
+                </button>
+                {receipt ? (
+                  <button
+                    type="button"
+                    className="button button--quiet"
+                    onClick={() => setReceipt(null)}
+                  >
+                    {ar ? 'إزالة' : 'Remove'}
+                  </button>
+                ) : null}
+              </div>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
+                hidden
+                onChange={(event) => {
+                  void pickFile(event.target.files?.[0]);
+                  event.target.value = '';
+                }}
+              />
+              {reading ? (
+                <small className="muted">{ar ? 'جارٍ تجهيز الملف…' : 'Preparing file…'}</small>
+              ) : fileError ? (
+                <small className="stamp-dt__error" role="alert">
+                  {fileError}
+                </small>
+              ) : tried && !receipt ? (
+                <small className="stamp-dt__error" role="alert">
+                  {ar ? 'إيصال التحويل مطلوب.' : 'The transfer receipt is required.'}
+                </small>
+              ) : (
+                <small className="muted">
+                  {ar
+                    ? 'يُحفظ الإيصال بشكل خاص؛ يراه المالك والمحاسب فقط، ولا يظهر للضيف.'
+                    : 'Stored privately for the host and accountant; the guest does not see it.'}
+                </small>
+              )}
+            </div>
+          </>
+        ) : (
+          <div className="field span-2">
+            <label htmlFor={`${id}-note`}>
+              {mode === 'reject'
+                ? ar
+                  ? 'سبب الرفض * (يظهر للضيف)'
+                  : 'Reason * (shown to the guest)'
+                : ar
+                  ? 'ملاحظة للضيف والمحاسب (اختياري)'
+                  : 'Note for the guest and accountant (optional)'}
+            </label>
+            <textarea
+              id={`${id}-note`}
+              className="textarea"
+              rows={2}
+              maxLength={REFUND_NOTE_MAX}
+              value={note}
+              aria-invalid={tried && noteMissing}
+              onChange={(event) => setNote(event.target.value)}
+              placeholder={
+                mode === 'reject'
+                  ? ar
+                    ? 'مثال: أضرار في الوحدة موثّقة عند المغادرة…'
+                    : 'e.g. damage recorded at check-out…'
+                  : ar
+                    ? 'مثال: خُصم 10 ر.ع. لتنظيف إضافي…'
+                    : 'e.g. 10 OMR deducted for extra cleaning…'
+              }
+            />
+            {tried && noteMissing ? (
+              <small className="stamp-dt__error" role="alert">
+                {ar ? 'اكتب سبب الرفض.' : 'Write the reason for rejecting.'}
+              </small>
+            ) : null}
+          </div>
+        )}
+      </div>
+      <p className="muted">
+        {mode === 'approve'
+          ? ar
+            ? 'بعد الاعتماد ينتقل الطلب إلى المحاسب لتحويل المبلغ، ويرى الضيف أن طلبه قيد الإجراء.'
+            : 'Once approved it moves to the accountant for the transfer; the guest sees it in progress.'
+          : mode === 'reject'
+            ? ar
+              ? 'يرى الضيف الرفض مع السبب، ويُغلق الحجز.'
+              : 'The guest sees the rejection and reason, and the booking is closed.'
+            : ar
+              ? 'بعد التسجيل يرى الضيف أن المبلغ حُوّل مع التاريخ والبنك (برقم حساب مخفي)، ويُغلق الحجز.'
+              : 'The guest then sees the transfer date and bank (account masked), and the booking is closed.'}
+      </p>
+      <div className="form-actions">
+        <button
+          type="submit"
+          className={mode === 'reject' ? 'button button--danger' : 'button button--primary'}
+          disabled={busy || reading}
+        >
+          {busy
+            ? ar
+              ? 'جارٍ الحفظ…'
+              : 'Saving…'
+            : mode === 'approve'
+              ? ar
+                ? 'اعتماد الاسترداد'
+                : 'Approve refund'
+              : mode === 'reject'
+                ? ar
+                  ? 'رفض الاسترداد'
+                  : 'Reject refund'
+                : ar
+                  ? 'تأكيد التحويل'
+                  : 'Confirm transfer'}
+        </button>
+        <button type="button" className="button button--quiet" onClick={onCancel} disabled={busy}>
+          {ar ? 'إلغاء' : 'Cancel'}
+        </button>
+      </div>
+    </form>
+  );
+}

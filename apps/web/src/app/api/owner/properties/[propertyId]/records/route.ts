@@ -24,6 +24,16 @@ import {
 } from '@/lib/property-contracts-neon';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 import { recordStayStampOnNeon } from '@/lib/stay-arrival-neon';
+import {
+  REFUND_NOTE_MAX,
+  REFUND_PAYOUT_METHODS,
+  REFUND_RECEIPT_DATA_URL,
+  REFUND_RECEIPT_MAX,
+} from '@/lib/stay-deposit-refund';
+import {
+  decideDepositRefundOnNeon,
+  recordDepositRefundPayoutOnNeon,
+} from '@/lib/stay-deposit-refund-neon';
 import { HANDOVER_DOCUMENT_KEYS, HANDOVER_DOCUMENT_MAX } from '@/lib/stay-handover';
 
 export const runtime = 'nodejs';
@@ -191,13 +201,35 @@ const bodySchema = z.discriminatedUnion('action', [
     })
     .strict(),
   z.object({ action: z.literal('create_sale'), ...party, signedOn: isoDate }).strict(),
+  z
+    .object({
+      action: z.literal('refund_decide'),
+      bookingId: uuid,
+      decision: z.enum(['approve', 'reject']),
+      amount: amount.optional(),
+      note: z.string().max(REFUND_NOTE_MAX).optional(),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal('refund_payout'),
+      bookingId: uuid,
+      method: z.enum(REFUND_PAYOUT_METHODS),
+      account: z.string().trim().min(4).max(64),
+      bank: z.string().trim().min(2).max(120),
+      holder: z.string().max(120).optional(),
+      reference: z.string().max(80).optional(),
+      at: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/),
+      receipt: z.string().max(REFUND_RECEIPT_MAX).regex(REFUND_RECEIPT_DATA_URL),
+    })
+    .strict(),
 ]);
 
 /**
  * POST /api/owner/properties/:propertyId/records
  * Workflow actions of the property hub tabs: approve/reject a booking (approval issues the
  * contract and lease), record a stay's check-in / check-out, approve a pending contract,
- * and manual lease / sale contracts.
+ * manual lease / sale contracts, and the deposit refund (host decision, accountant transfer).
  */
 export async function POST(request: Request, context: { params: Promise<{ propertyId: string }> }) {
   if (!hasDatabaseUrl()) {
@@ -264,6 +296,26 @@ export async function POST(request: Request, context: { params: Promise<{ proper
         return NextResponse.json(await createManualLeaseContractOnNeon(claims, propertyId, body));
       case 'create_sale':
         return NextResponse.json(await createManualSaleContractOnNeon(claims, propertyId, body));
+      case 'refund_decide':
+        return NextResponse.json(
+          await decideDepositRefundOnNeon(claims, propertyId, body.bookingId, {
+            decision: body.decision,
+            amount: body.amount,
+            note: body.note,
+          }),
+        );
+      case 'refund_payout':
+        return NextResponse.json(
+          await recordDepositRefundPayoutOnNeon(claims, propertyId, body.bookingId, {
+            method: body.method,
+            account: body.account,
+            bank: body.bank,
+            holder: body.holder,
+            reference: body.reference,
+            at: body.at,
+            receipt: body.receipt,
+          }),
+        );
     }
   } catch (error) {
     const code = clientSafeErrorCode(error, 'update_failed');

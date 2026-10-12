@@ -40,6 +40,11 @@ const DOMAIN_STATUS: Record<string, { ar: string; en: string }> = {
   ...STAY_STATUS,
   awaiting_check_in: { ar: 'بانتظار الدخول', en: 'Awaiting check-in' },
   awaiting_check_out: { ar: 'بانتظار المغادرة', en: 'Awaiting check-out' },
+  awaiting_deposit_refund: {
+    ar: 'بانتظار قرار استرداد التأمين',
+    en: 'Deposit refund decision due',
+  },
+  awaiting_refund_transfer: { ar: 'بانتظار تحويل التأمين', en: 'Deposit transfer due' },
   active: { ar: 'ساري', en: 'Active' },
   inactive: { ar: 'غير نشط', en: 'Inactive' },
   draft: { ar: 'مسودة', en: 'Draft' },

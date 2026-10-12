@@ -39,6 +39,8 @@ function alertCopy(
       return t('Portal.alertContractsApproval', { count });
     case 'booking_requests':
       return t('Portal.alertBookingRequests', { count });
+    case 'deposit_refunds':
+      return t('Portal.alertDepositRefunds', { count });
     default:
       return `${code}: ${count}`;
   }
@@ -81,6 +83,9 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
   const [t, viewer] = await Promise.all([getTranslations(), requirePortal(locale, portal)]);
   const [overview, approvals] = await dataPromise;
   const firstContract = approvals.items.find((item) => item.kind === 'contract');
+  const firstRefund = approvals.items.find(
+    (item) => item.kind === 'deposit_refund' || item.kind === 'refund_transfer',
+  );
   const approvalAlerts: Array<{ code: string; count: number; href: string }> = [
     ...(approvals.contracts && firstContract
       ? [
@@ -96,6 +101,18 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
       : []),
     ...(approvals.bookings
       ? [{ code: 'booking_requests', count: approvals.bookings, href: `/${portal}/bookings` }]
+      : []),
+    ...(approvals.refunds && firstRefund
+      ? [
+          {
+            code: 'deposit_refunds',
+            count: approvals.refunds,
+            href:
+              approvals.refunds === 1
+                ? pendingApprovalHref(portal, firstRefund)
+                : `/${portal}#pending-approvals`,
+          },
+        ]
       : []),
   ];
   const collected =

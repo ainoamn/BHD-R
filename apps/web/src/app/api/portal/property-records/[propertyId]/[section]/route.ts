@@ -68,6 +68,8 @@ export async function GET(
           canSignContracts: can('contract.sign'),
           canCreateLease: can('contract.create') && can('lease.create'),
           canCreateSale: can('contract.create') && can('sale.manage'),
+          canDecideRefunds: can('stay.booking.manage') || can('stay.refund.approve'),
+          canPayRefunds: can('payment.refund'),
         },
       },
       { headers: { 'Cache-Control': 'private, no-store' } },

@@ -22,6 +22,16 @@ import {
   PublicStayBookingError,
 } from '@/lib/public-stays-booking-neon';
 import { loadStayStamps, type StayStamp } from '@/lib/stay-arrival-neon';
+import {
+  guestDepositRefund,
+  type GuestDepositRefund,
+  type RefundPayout,
+} from '@/lib/stay-deposit-refund';
+import {
+  insertGuestDepositRefundRequest,
+  loadBookingDeposits,
+  loadDepositRefunds,
+} from '@/lib/stay-deposit-refund-neon';
 import { stayRescheduleCharge, type StayRescheduleCharge } from '@/lib/stay-reschedule-pricing';
 
 type DbHandle = { db: Database };
@@ -100,9 +110,14 @@ export type GuestStayBookingProjection = {
   canReschedule?: boolean;
   checkIn?: StayStamp | null;
   checkOut?: StayStamp | null;
+  /** Security deposit held for the stay (not part of the booking total). */
+  depositMinor?: string | null;
+  depositRefund?: GuestDepositRefund | null;
+  canRequestDepositRefund?: boolean;
 };
 
 const STAMPED_STATUSES = new Set(['checked_in', 'checked_out', 'closed']);
+const DEPARTED_STATUSES = new Set(['checked_out', 'closed']);
 
 const GUEST_RESCHEDULABLE = new Set([
   'payment_pending',
@@ -386,15 +401,27 @@ async function enrichProjection(
   booking: typeof stayBookings.$inferSelect,
   guestDisplayName?: string | null,
 ): Promise<GuestStayBookingProjection> {
-  const [paymentIntentId, listing, stamps] = await Promise.all([
+  const departed = DEPARTED_STATUSES.has(booking.status);
+  const [paymentIntentId, listing, stamps, deposits, refunds] = await Promise.all([
     resolvePaymentIntentId(transaction, booking.organizationId, booking.id),
     resolveListing(transaction, booking.organizationId, booking.stayProfileId),
     STAMPED_STATUSES.has(booking.status)
       ? loadStayStamps(transaction, booking.organizationId, [booking.id])
       : Promise.resolve(null),
+    departed
+      ? loadBookingDeposits(transaction, booking.organizationId, [booking.id])
+      : Promise.resolve(null),
+    departed
+      ? loadDepositRefunds(transaction, booking.organizationId, [booking.id])
+      : Promise.resolve(null),
   ]);
   const stamp = stamps?.get(booking.id);
+  const depositMinor = deposits?.get(booking.id) ?? null;
+  const refund = refunds?.get(booking.id);
   return {
+    depositMinor,
+    depositRefund: refund ? guestDepositRefund(refund) : null,
+    canRequestDepositRefund: Boolean(depositMinor && !refund && booking.status === 'checked_out'),
     ...toProjection({
       ...booking,
       guestDisplayName: guestDisplayName ?? null,
@@ -599,6 +626,53 @@ export async function cancelGuestStayBookingOnNeon(referenceCode: string) {
     });
 
     return enrichProjection(transaction, updated);
+  });
+}
+
+const REFUND_ERRORS: Record<string, string> = {
+  refund_not_open: 'Deposit refunds open after check-out',
+  refund_no_deposit: 'This stay has no security deposit',
+  refund_account_invalid: 'Invalid receiving account or phone',
+};
+
+/** Guest asks for the security deposit back after check-out (by booking reference). */
+export async function requestGuestDepositRefundOnNeon(input: {
+  referenceCode: string;
+  note?: string | undefined;
+  payout?: RefundPayout | undefined;
+}) {
+  assertPlatformEnabled();
+  const normalized = input.referenceCode.trim().toUpperCase();
+  if (normalized.length < 4) {
+    throw new PublicStayBookingError('invalid_body', 'Invalid booking reference', 400);
+  }
+
+  return asPublic(async (transaction) => {
+    const booking = await transaction.query.stayBookings.findFirst({
+      where: eq(stayBookings.referenceCode, normalized),
+    });
+    if (!booking) {
+      throw new PublicStayBookingError('not_found', 'Stay booking not found', 404);
+    }
+    assertOrgEnabled(booking.organizationId);
+    try {
+      await insertGuestDepositRefundRequest(transaction, booking, {
+        note: input.note,
+        payout: input.payout,
+      });
+    } catch (error) {
+      const code = error instanceof Error ? error.message : '';
+      const message = REFUND_ERRORS[code];
+      if (message) {
+        throw new PublicStayBookingError(
+          code,
+          message,
+          code === 'refund_account_invalid' ? 400 : 409,
+        );
+      }
+      throw error;
+    }
+    return enrichProjection(transaction, booking);
   });
 }
 

@@ -24,6 +24,8 @@ import {
 } from '@bhd-r/db';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 import { loadStayStamps } from '@/lib/stay-arrival-neon';
+import { depositRefundStage, maskAccount } from '@/lib/stay-deposit-refund';
+import { loadBookingDeposits, loadDepositRefunds } from '@/lib/stay-deposit-refund-neon';
 
 export const PROPERTY_RECORD_SECTIONS = [
   'bookings',
@@ -148,7 +150,16 @@ export async function loadPropertySectionRecords(
     const rows = await (() => {
       switch (section) {
         case 'bookings':
-          return loadBookings(tx, orgId, propertyId, unitIds, codeOf);
+          return loadBookings(
+            tx,
+            orgId,
+            propertyId,
+            unitIds,
+            codeOf,
+            hasPermission(claims, 'stay.booking.manage') ||
+              hasPermission(claims, 'stay.refund.approve') ||
+              hasPermission(claims, 'payment.refund'),
+          );
         case 'contracts':
           return loadContracts(tx, orgId, unitIds, codeOf);
         case 'leasing':
@@ -309,7 +320,11 @@ async function loadBookings(
   propertyId: string,
   unitIds: string[],
   codeOf: CodeOf,
+  /** Refund account numbers in full; other viewers see them masked. */
+  revealAccounts: boolean,
 ): Promise<PropertyRecordRow[]> {
+  const account = (value: string | null | undefined) =>
+    !value ? null : revealAccounts ? value : maskAccount(value);
   const stays = await tx
     .select({
       id: stayBookings.id,
@@ -395,7 +410,10 @@ async function loadBookings(
       ])
     : [[], []];
 
-  const [names, bookingContracts, stamps] = await Promise.all([
+  const departedIds = stays
+    .filter((row) => STAY_AFTER_CHECK_OUT.has(row.status))
+    .map((row) => row.id);
+  const [names, bookingContracts, stamps, deposits, refunds] = await Promise.all([
     partyNames(tx, [
       ...stays.map((row) => row.guestPartyId),
       ...reservationRows.map((row) => row.tenantPartyId),
@@ -409,14 +427,41 @@ async function loadBookings(
         .filter((row) => row.status === 'checked_in' || STAY_AFTER_CHECK_OUT.has(row.status))
         .map((row) => row.id),
     ),
+    loadBookingDeposits(tx, orgId, departedIds),
+    loadDepositRefunds(tx, orgId, departedIds),
   ]);
 
   const rows: PropertyRecordRow[] = [
     ...stays.map((row) => {
       const contract = bookingContracts.get(row.id);
       const stamp = stamps.get(row.id);
+      const depositMinor = deposits.get(row.id) ?? null;
+      const refund = refunds.get(row.id);
+      const transfer = refund?.transfer;
       return {
-        stage: stayStage(row.status),
+        stage:
+          depositRefundStage(row.status, depositMinor, refund?.status) ?? stayStage(row.status),
+        depositMinor,
+        refundStatus: refund?.status ?? null,
+        refundAmountMinor: refund?.amountMinor ?? null,
+        refundRequestedAt: refund?.requestedAt ?? null,
+        refundRequestedBy: refund?.requestedBy ?? null,
+        refundGuestNote: refund?.guestNote ?? null,
+        refundGuestMethod: refund?.guestPayout?.method ?? null,
+        refundGuestAccount: account(refund?.guestPayout?.account),
+        refundGuestBank: refund?.guestPayout?.bank ?? null,
+        refundGuestHolder: refund?.guestPayout?.holder ?? null,
+        refundDecidedAt: refund?.decidedAt ?? null,
+        refundDecidedBy: refund?.decidedBy ?? null,
+        refundDecisionNote: refund?.decisionNote ?? null,
+        refundPaidAt: transfer?.at ?? null,
+        refundPaidMethod: transfer?.method ?? null,
+        refundPaidAccount: account(transfer?.account),
+        refundPaidBank: transfer?.bank ?? null,
+        refundPaidHolder: transfer?.holder ?? null,
+        refundPaidReference: transfer?.reference ?? null,
+        refundPaidBy: transfer?.recordedBy ?? null,
+        refundReceipt: transfer?.hasReceipt ? '1' : null,
         checkedInAt: stamp?.checkIn?.at ?? null,
         checkInNotes: stamp?.checkIn?.notes ?? null,
         checkInImportant: stamp?.checkIn?.important ? '1' : null,
@@ -476,7 +521,12 @@ async function loadBookings(
       sortOn: isoDate(row.createdAt),
     })),
   ];
-  const awaiting = (row: PropertyRecordRow) => (row.status === 'request_pending' ? 0 : 1);
+  const awaiting = (row: PropertyRecordRow) =>
+    row.status === 'request_pending' ||
+    row.stage === 'awaiting_deposit_refund' ||
+    row.stage === 'awaiting_refund_transfer'
+      ? 0
+      : 1;
   return rows.sort(
     (a, b) => awaiting(a) - awaiting(b) || (b.sortOn ?? '').localeCompare(a.sortOn ?? ''),
   );

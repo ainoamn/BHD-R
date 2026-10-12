@@ -54,6 +54,13 @@ const KNOWN_CODES = new Set([
   'stay_checkout_before_checkin',
   'handover_document_required',
   'handover_phone_invalid',
+  'refund_not_open',
+  'refund_no_deposit',
+  'refund_already_decided',
+  'refund_not_approved',
+  'refund_note_required',
+  'refund_account_invalid',
+  'refund_receipt_required',
 ]);
 
 export function clientSafeErrorCode(error: unknown, fallback = 'request_failed'): string {
@@ -93,11 +100,18 @@ export function statusForSafeCode(code: string): number {
     case 'multi_unit_requires_units':
     case 'idempotency_payload_mismatch':
     case 'stay_status_invalid':
+    case 'refund_not_open':
+    case 'refund_no_deposit':
+    case 'refund_already_decided':
+    case 'refund_not_approved':
       return 409;
     case 'stay_time_in_future':
     case 'stay_checkout_before_checkin':
     case 'handover_document_required':
     case 'handover_phone_invalid':
+    case 'refund_note_required':
+    case 'refund_account_invalid':
+    case 'refund_receipt_required':
       return 400;
     case 'invalid_body':
     case 'invalid_file':

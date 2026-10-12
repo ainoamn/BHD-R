@@ -1,5 +1,29 @@
 # CONTINUE — 2026-10-12
 
+**0.8.4** · استرداد التأمين:
+
+- **التخزين (دون ترحيل):**
+  - الحالة في `stay_refunds` بالمفتاح `deposit:<bookingId>`: `requested` ← `approved` ← `executed`، أو `rejected`.
+  - التفاصيل في `stay_booking_status_history` بـ `to_status='deposit_refund'` و`metadata_json.event`.
+  - الإيصال في `metadata_json.receipt` (data URL)، ويُحذف من القراءة بـ `#- '{receipt}'`.
+  - التحويل أو الرفض: `checked_out → closed`.
+- **الخادم** في `lib/stay-deposit-refund-neon.ts`:
+  - `insertGuestDepositRefundRequest`، و`decideDepositRefundOnNeon`، و`recordDepositRefundPayoutOnNeon`، و`readDepositRefundReceiptOnNeon`، و`loadDepositRefundQueue`.
+  - الصلاحيات: القرار بـ `stay.booking.manage` أو `stay.refund.approve`، والتحويل بـ `payment.refund`.
+- **العميل:**
+  - `lib/stay-deposit-refund.ts`: `depositRefundStage` يعطي `awaiting_deposit_refund` أو `awaiting_refund_transfer`.
+  - `stay-deposit-refund-admin.tsx`: الخلية والنماذج. `stay-deposit-refund-guest.tsx`: متتبّع الضيف ونموذجه.
+  - الرحلة: `stayJourneyScreens(..., refund)` تعطي 5 شاشات، و`StayRefundMoment` في `stay-guest-greeting.ts`.
+- **المسارات:**
+  - `POST /api/public/stays/guest/deposit-refund`.
+  - `records` بالإجراءين `refund_decide` و`refund_payout`.
+  - `GET records/refund-receipt/[bookingId]`.
+- **التالي:** إشعار الضيف بالقرار والتحويل، وقيد محاسبي للتحويل، ونقل الإيصالات إلى تخزين ملفات.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.4-AR.md`](./docs/implementation/RELEASE-0.8.4-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.3** · قائمة العقود:
 
 - **`loadContracts`** في `portal-ops-sections-neon.ts`:

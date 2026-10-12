@@ -319,6 +319,24 @@ export function PropertyManageHub({
         href: bookingsHref,
       });
     }
+    const refundDecisions = pulse?.depositRefunds.decision ?? 0;
+    if (refundDecisions > 0) {
+      items.push({
+        text: ar
+          ? `${refundDecisions} استرداد تأمين بانتظار قرارك (موافقة أو رفض) لإغلاق الحجز نهائياً.`
+          : `${refundDecisions} deposit refund(s) awaiting your decision to fully close the booking.`,
+        href: bookingsHref,
+      });
+    }
+    const refundTransfers = pulse?.depositRefunds.transfer ?? 0;
+    if (refundTransfers > 0) {
+      items.push({
+        text: ar
+          ? `${refundTransfers} تأمين معتمد بانتظار تحويل المحاسب.`
+          : `${refundTransfers} approved deposit(s) awaiting the accountant’s transfer.`,
+        href: bookingsHref,
+      });
+    }
     if ((pulse?.contracts.length ?? 0) > 0) {
       items.push({
         text: ar
