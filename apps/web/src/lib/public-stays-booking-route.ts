@@ -61,6 +61,7 @@ export function stayBookingErrorResponse(error: unknown) {
       refund_account_invalid: 'رقم الحساب أو IBAN غير صحيح — تحقّق منه وأعد المحاولة.',
       refund_bank_required: 'اختر البنك أو اكتب اسمه.',
       refund_phone_invalid: 'رقم الهاتف غير صحيح — تحقّق منه وأعد المحاولة.',
+      review_required: 'قيّم إقامتك أولاً، ثم اطلب استرداد التأمين.',
     };
     return stayBookingJson(
       {

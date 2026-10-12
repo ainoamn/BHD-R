@@ -1,12 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { ReviewSummary } from '@/lib/reviews-types';
-
-function toTenScale(avgRating: number | null): string | null {
-  if (avgRating == null || !Number.isFinite(avgRating)) return null;
-  return (avgRating * 2).toFixed(1);
-}
+import { reviewScoreLabel, reviewScoreTone, type Reputation } from '@/lib/review-rubric';
 
 export function PropertyReviewScore({
   propertyId,
@@ -18,18 +13,21 @@ export function PropertyReviewScore({
   variant?: 'chip' | 'headline';
 }) {
   const ar = locale === 'ar';
-  const [summary, setSummary] = useState<ReviewSummary | null>(null);
+  const [summary, setSummary] = useState<{ score: number; count: number } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
       try {
         const res = await fetch(
-          `/api/public/reviews?targetType=property&targetId=${encodeURIComponent(propertyId)}`,
+          `/api/public/reputation?subject=property&key=${encodeURIComponent(propertyId)}`,
         );
         if (!res.ok) return;
-        const json = (await res.json()) as { summary: ReviewSummary };
-        if (!cancelled) setSummary(json.summary);
+        const json = (await res.json()) as { reputation?: Reputation };
+        const score = json.reputation?.score ?? null;
+        if (!cancelled && score !== null && json.reputation?.count) {
+          setSummary({ score, count: json.reputation.count });
+        }
       } catch {
         /* ignore */
       }
@@ -39,8 +37,8 @@ export function PropertyReviewScore({
     };
   }, [propertyId]);
 
-  const score = toTenScale(summary?.avgRating ?? null);
-  if (!score || !summary?.reviewCount) return null;
+  if (!summary) return null;
+  const score = summary.score.toFixed(1);
 
   if (variant === 'headline') {
     return (
@@ -49,9 +47,9 @@ export function PropertyReviewScore({
           {score}
         </span>
         <div>
-          <strong>{ar ? 'ممتاز' : 'Wonderful'}</strong>
+          <strong>{reviewScoreLabel(summary.score, ar)}</strong>
           <span>
-            {summary.reviewCount} {ar ? 'تقييم' : 'reviews'}
+            {summary.count} {ar ? 'تقييم' : 'reviews'}
           </span>
         </div>
       </div>
@@ -59,9 +57,16 @@ export function PropertyReviewScore({
   }
 
   return (
-    <span className="property-review-score property-review-score--chip" dir="ltr">
+    <a
+      className={`property-review-score property-review-score--chip property-review-score--${reviewScoreTone(summary.score)}`}
+      href="#property-reviews"
+      dir="ltr"
+      title={`${reviewScoreLabel(summary.score, ar)} · ${summary.count} ${ar ? 'تقييم' : 'reviews'}`}
+    >
       <span className="property-review-score__value">{score}</span>
-      <span className="property-review-score__label">{ar ? 'تقييم' : 'Score'}</span>
-    </span>
+      <span className="property-review-score__label">
+        {reviewScoreLabel(summary.score, ar)} · {summary.count}
+      </span>
+    </a>
   );
 }

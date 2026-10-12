@@ -10,6 +10,8 @@ import { Icon, type IconName } from '@/components/pmh-icon';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { LIVE_CHANGE_EVENT } from '@/lib/live-sync-shared';
+import { reviewScoreTone } from '@/lib/review-rubric';
+import { ReviewForm, type ReviewFormValue } from './reviews/review-form';
 import { StayHandoverForm, type HandoverSubmit } from './stays/stay-handover-form';
 import {
   DepositRefundCell,
@@ -277,6 +279,7 @@ const READY = new Set([
 ]);
 const INFO = new Set(['awaiting_check_in']);
 const CHECK_IN_READY = new Set(['confirmed', 'pre_arrival']);
+const STAY_DEPARTED = new Set(['checked_out', 'closed']);
 const DANGER = new Set(['overdue', 'failed', 'payment_failed', 'no_show']);
 const MUTED = new Set([
   'cancelled',
@@ -372,6 +375,21 @@ const ERROR_TEXT: Record<string, [string, string]> = {
   refund_receipt_required: [
     'إيصال التحويل مطلوب (صورة أو PDF).',
     'The transfer receipt (image or PDF) is required.',
+  ],
+  review_required: [
+    'قيّم الضيف أولاً، ثم اعتمد استرداد التأمين أو ارفضه.',
+    'Rate the guest first, then approve or reject the deposit refund.',
+  ],
+  review_exists: ['قيّمت هذا الضيف مسبقاً. حدّث الصفحة.', 'You already rated this guest.'],
+  review_not_open: ['يُتاح تقييم الضيف بعد تسجيل مغادرته.', 'Guests can be rated after check-out.'],
+  review_invalid: ['قيّم كل البنود المطلوبة.', 'Rate every required item.'],
+  review_comment_required: [
+    'التقييم أقل من 6: اكتب سبب ذلك بإيجاز.',
+    'The score is below 6: briefly say why.',
+  ],
+  review_photo_invalid: [
+    'إحدى الصور غير صالحة أو كبيرة جداً.',
+    'One of the photos is invalid or too large.',
   ],
 };
 
@@ -667,8 +685,48 @@ function Cell({
         <span className="muted">—</span>
       );
     default:
+      if (column.key === 'party' && row.kind === 'stay') {
+        return (
+          <span className="psr-guest">
+            {value ? <bdi>{value}</bdi> : <span className="muted">—</span>}
+            <GuestStanding row={row} locale={locale} />
+          </span>
+        );
+      }
       return value ? <>{value}</> : <span className="muted">—</span>;
   }
+}
+
+/** The guest's rating from hosts across the platform, to decide on a booking request. */
+function GuestStanding({ row, locale }: { row: PropertyRecordRow; locale: 'ar' | 'en' }) {
+  const ar = locale === 'ar';
+  if (!row.guestKey) return null;
+  const count = Number.parseInt(row.guestReviewCount ?? '0', 10) || 0;
+  const score = row.guestScore ? Number.parseFloat(row.guestScore) : null;
+  return (
+    <a
+      className={`psr-guest__standing psr-guest__standing--${
+        score === null ? 'new' : reviewScoreTone(score)
+      }`}
+      href={`/${locale}/profiles/guests/${encodeURIComponent(row.guestKey)}`}
+      target="_blank"
+      rel="noreferrer"
+      title={ar ? 'ملف الضيف وتقييمات المؤجرين له' : 'Guest profile and host reviews'}
+    >
+      {score !== null ? (
+        <>
+          <strong dir="ltr">{score.toFixed(1)}</strong>
+          {ar
+            ? ` · ${count === 1 ? 'تقييم واحد' : count === 2 ? 'تقييمان' : `${count} تقييمات`}`
+            : ` · ${count} review${count === 1 ? '' : 's'}`}
+        </>
+      ) : ar ? (
+        'ضيف جديد · بلا تقييمات'
+      ) : (
+        'New guest · no reviews'
+      )}
+    </a>
+  );
 }
 
 function ManualSaleForm({
@@ -854,6 +912,8 @@ export function PropertySectionRecords({
   const [refundForm, setRefundForm] = useState<{ rowId: string; mode: RefundFormMode } | null>(
     null,
   );
+  const [reviewRowId, setReviewRowId] = useState<string | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
   const silentReload = useRef(false);
 
   useEffect(() => {
@@ -1110,6 +1170,37 @@ export function PropertySectionRecords({
     setReloadKey((key) => key + 1);
   }
 
+  async function submitGuestReview(row: PropertyRecordRow, value: ReviewFormValue) {
+    const id = row.id ?? '';
+    setBusyId(id);
+    setNotice(null);
+    setReviewError(null);
+    try {
+      const result = await browserNextMutation<{ review: { score: number } }>(
+        `/api/owner/properties/${encodeURIComponent(propertyId)}/guest-review`,
+        { method: 'POST', body: JSON.stringify({ bookingId: id, ...value }) },
+      );
+      setReviewRowId(null);
+      const score = result.review.score.toFixed(1);
+      setNotice({
+        tone: 'success',
+        text:
+          row.stage === 'awaiting_deposit_refund'
+            ? ar
+              ? `تم حفظ تقييمك للضيف (${score} من 10). يمكنك الآن اعتماد استرداد التأمين أو رفضه.`
+              : `Guest review saved (${score}/10). You can now approve or reject the deposit refund.`
+            : ar
+              ? `تم حفظ تقييمك للضيف (${score} من 10).`
+              : `Guest review saved (${score}/10).`,
+      });
+      setReloadKey((key) => key + 1);
+    } catch (error) {
+      setReviewError(errorText(error, ar));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function approveContract(row: PropertyRecordRow) {
     const question = ar
       ? `اعتماد العقد ${row.reference} وتوقيعه باسمك نيابة عن المالك؟`
@@ -1207,14 +1298,65 @@ export function PropertySectionRecords({
   function workflowAction(row: PropertyRecordRow, busy: boolean) {
     const stamp = stayStampAction(row, busy);
     const approval = bookingApprovalAction(row, busy);
+    const review = guestReviewAction(row, busy);
     const refund = depositRefundAction(row, busy);
-    return stamp || approval || refund ? (
+    return stamp || approval || review || refund ? (
       <>
         {stamp}
         {approval}
+        {review}
         {refund}
       </>
     ) : null;
+  }
+
+  /** After check-out the host rates the guest; required before the deposit refund decision. */
+  function guestReviewAction(row: PropertyRecordRow, busy: boolean) {
+    if (section !== 'bookings' || row.kind !== 'stay' || !row.id) return null;
+    if (!STAY_DEPARTED.has(row.status ?? '')) return null;
+    const guestNote = row.guestReviewed ? (
+      <span className="psr-review-note">{ar ? 'قيّم الضيف إقامته ✓' : 'Guest reviewed ✓'}</span>
+    ) : null;
+    if (row.hostReviewScore) {
+      return (
+        <>
+          <span className="psr-review-note psr-review-note--done">
+            {ar ? 'تقييمك للضيف' : 'Your rating'}{' '}
+            <strong dir="ltr">{Number.parseFloat(row.hostReviewScore).toFixed(1)}</strong>
+          </span>
+          {guestNote}
+        </>
+      );
+    }
+    if (!viewer.canDecideRefunds) return guestNote;
+    const required = row.stage === 'awaiting_deposit_refund';
+    const open = reviewRowId === row.id;
+    return (
+      <>
+        <button
+          type="button"
+          className={`button ${required ? 'button--primary' : 'button--quiet'} psr-action`}
+          disabled={busy}
+          aria-expanded={open}
+          onClick={() => {
+            setNotice(null);
+            setReviewError(null);
+            setStampForm(null);
+            setRefundForm(null);
+            setReviewRowId(open ? null : (row.id ?? null));
+          }}
+        >
+          {required
+            ? ar
+              ? 'قيّم الضيف (مطلوب قبل قرار التأمين)'
+              : 'Rate the guest (before the deposit decision)'
+            : ar
+              ? 'قيّم الضيف'
+              : 'Rate the guest'}
+        </button>
+        {guestNote}
+      </>
+    );
   }
 
   function depositRefundAction(row: PropertyRecordRow, busy: boolean) {
@@ -1258,7 +1400,7 @@ export function PropertySectionRecords({
         </a>
       );
     }
-    if (row.stage === 'awaiting_deposit_refund' && viewer.canDecideRefunds) {
+    if (row.stage === 'awaiting_deposit_refund' && viewer.canDecideRefunds && row.hostReviewScore) {
       return (
         <>
           <button
@@ -1560,6 +1702,22 @@ export function PropertySectionRecords({
                             guestPhone={row.guestPhone ?? null}
                             onSubmit={(value) => void submitStamp(row, stampForm.kind, value)}
                             onCancel={() => setStampForm(null)}
+                          />
+                        </td>
+                      </tr>
+                    ) : null}
+                    {reviewRowId && reviewRowId === row.id ? (
+                      <tr className="psr-details">
+                        <td colSpan={config.columns.length + (showActions ? 1 : 0)}>
+                          <ReviewForm
+                            direction="host_to_guest"
+                            ar={ar}
+                            idPrefix={`host-review-${row.id}`}
+                            busy={busyId === row.id}
+                            error={reviewError}
+                            subjectName={row.party ?? null}
+                            onSubmit={(value) => void submitGuestReview(row, value)}
+                            onCancel={() => setReviewRowId(null)}
                           />
                         </td>
                       </tr>

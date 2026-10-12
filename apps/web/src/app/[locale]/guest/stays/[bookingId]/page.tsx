@@ -6,7 +6,9 @@ import { Link } from '@/i18n/navigation';
 import { GuestStayActions } from '@/components/stays/guest-stay-actions';
 import { bookingStatusTone } from '@/lib/booking-priority';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { loadGuestReviewState } from '@/lib/booking-reviews-neon';
 import { lookupPublicStayBookingOnNeon } from '@/lib/public-stays-guest-neon';
+import { StayGuestReview } from '@/components/stays/stay-guest-review';
 import { isStaysPlatformEnabled } from '@/lib/stays-flags';
 import { ApiError, apiFetch, publicApiFetch } from '@/lib/server-api';
 import { stayBookingModeLabel, stayStatusLabel, stayTypeLabel } from '@/lib/ui-labels';
@@ -72,6 +74,7 @@ const REFUND_STATE: Record<GuestDepositRefund['status'], StayRefundMoment['state
 };
 
 const PAID_STATUSES = new Set(['confirmed', 'paid', 'pre_arrival', 'checked_in', 'checked_out']);
+const DEPARTED_STATUSES = new Set(['checked_out', 'closed']);
 const ENDED_STATUSES = new Set(['cancelled', 'expired', 'no_show', 'rejected']);
 
 type Step = { label: string; state: 'done' | 'current' | 'upcoming'; detail?: string | null };
@@ -226,10 +229,15 @@ export default async function GuestStayDetailPage({
   const tone = bookingStatusTone(booking.status, 'stay_booking');
   const ended = ENDED_STATUSES.has(booking.status);
   const paid = PAID_STATUSES.has(booking.status);
+  const review =
+    DEPARTED_STATUSES.has(booking.status) && hasDatabaseUrl()
+      ? await loadGuestReviewState(booking.id).catch(() => null)
+      : null;
   const refund = booking.depositRefund ?? null;
   const refundMoment: StayRefundMoment | undefined =
     hasDeposit(booking.depositMinor) && (refund || booking.canRequestDepositRefund)
       ? {
+          reviewRequired: !refund && Boolean(review?.required),
           state: refund ? REFUND_STATE[refund.status] : 'open',
           referenceCode: booking.referenceCode,
           deposit: formatMoney(booking.depositMinor ?? '0', booking.currency, locale),
@@ -362,7 +370,7 @@ export default async function GuestStayDetailPage({
       />
       <LiveSync booking={booking.id} reference={booking.referenceCode} />
       <StayJourneyProvider
-        key={`${booking.status}:${refundMoment?.state ?? ''}:${initialStep}`}
+        key={`${booking.status}:${refundMoment?.state ?? ''}:${review?.required ? 'review' : ''}:${initialStep}`}
         initial={initialStep}
       >
         <section className="guest-stay-detail__hero" aria-labelledby="guest-stay-title">
@@ -455,6 +463,15 @@ export default async function GuestStayDetailPage({
             ) : null}
             {notices.length ? (
               <StayRefundNotices notices={notices} referenceCode={booking.referenceCode} ar={ar} />
+            ) : null}
+            {review ? (
+              <StayGuestReview
+                referenceCode={booking.referenceCode}
+                propertyName={title}
+                state={review}
+                depositWaiting={Boolean(refundMoment?.reviewRequired)}
+                ar={ar}
+              />
             ) : null}
             {screens.length ? (
               <StayJourneyCard

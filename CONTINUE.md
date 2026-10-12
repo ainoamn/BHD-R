@@ -1,5 +1,25 @@
 # CONTINUE — 2026-10-12
 
+**0.8.17** · التقييم الإلزامي من الطرفين:
+
+- **البيانات (0028):** `booking_reviews` فيه تقييم واحد لكل `(booking_id, direction)`، والاتجاه `guest_to_host` أو `host_to_guest`. ومعه `booking_review_photos` (صور data URL) و`review_profiles` (خلاصة الملف، والمفتاح `(subject_type, subject_key)`). مطبَّق على الإنتاج.
+- **الدرجة (`lib/review-rubric.ts`):** `GUEST_RUBRIC` و`HOST_RUBRIC` بأوزان 0.4/0.3/0.3.
+  - `scoreAnswers` يحوّل 1–5 إلى 10، و`blendScore` = البنود 0.8 + نص الذكاء الاصطناعي 0.2.
+  - `needsComment` تحت 6.
+- **الخادم (`lib/booking-reviews-neon.ts`):**
+  - `submitGuestReview` (برقم الحجز، بعد `checked_out` أو `closed`) و`submitHostReview` (المنشأة والعقار ونطاق المالك).
+  - `hasBookingReview` شرط في `insertGuestDepositRefundRequest` و`decideDepositRefundOnNeon`.
+  - `loadReputation` و`refreshReviewProfile` (عبر `after()`)، و`loadBookingReviewFacts` لتبويب الحجوزات.
+- **الإخفاء المتبادل:** `released` يعني أن الاتجاه المقابل موجود أو مضت `REVIEW_BLIND_DAYS` (14). العرض العام والصور لا يشملان إلا المنشور.
+- **مفتاح الضيف:** `stay_bookings.user_id`، وإلا `'e' + sha256('bhd-r:guest:' + email)` (32 حرفاً).
+- **الذكاء الاصطناعي (`lib/review-ai.ts`):** `analyzeReview` (12 ثانية) و`analyzeProfile` (20 ثانية)، ومحرك قواعد بديل. `aiChatJson` صار يقبل المهلة.
+- **الواجهة:** `ReviewForm` و`ReputationView` و`StayGuestReview`، وصفحتا `/profiles/guests/[guestKey]` و`/profiles/hosts/[organizationId]`.
+- **لاحقاً:** تقييم عقود الإيجار طويلة الأجل، وتقييد الموظف بعقارات محددة (من 0.8.16).
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.17-AR.md`](./docs/implementation/RELEASE-0.8.17-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.16** · الفريق والصلاحيات واختيار المنشأة:
 
 - **الفريق (`lib/team-neon.ts`):** `loadTeam` و`addTeamMember` و`updateTeamMember` و`removeTeamMember` في معاملة مرتفعة الصلاحية، مع تصفية صريحة بـ `organizationId`.

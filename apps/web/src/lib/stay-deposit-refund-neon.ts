@@ -15,6 +15,7 @@ import {
   type Database,
 } from '@bhd-r/db';
 import { assertStayBookingTransition } from '@bhd-r/domain';
+import { hasBookingReview } from '@/lib/booking-reviews-neon';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 import { formatMoney } from '@/lib/format';
 import { escapeHtml } from '@/lib/lease-booking-contract';
@@ -410,6 +411,7 @@ export async function insertGuestDepositRefundRequest(
   await lockBooking(tx, booking.id);
   if (await currentRefund(tx, booking)) return;
   if (booking.status !== 'checked_out') fail('refund_not_open');
+  if (!(await hasBookingReview(tx, booking.id, 'guest_to_host'))) fail('review_required');
   const deposit = await depositOf(tx, booking);
   if (deposit <= 0n) fail('refund_no_deposit');
   const payout = input.payout;
@@ -523,6 +525,7 @@ export async function decideDepositRefundOnNeon(
     if (deposit <= 0n) fail('refund_no_deposit');
     const existing = await currentRefund(tx, booking);
     if (existing && existing.status !== 'requested') fail('refund_already_decided');
+    if (!(await hasBookingReview(tx, booking.id, 'host_to_guest'))) fail('review_required');
 
     const amount =
       input.decision === 'approve' && input.amount

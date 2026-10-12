@@ -141,7 +141,19 @@ export function StayDepositRefund({ moment, ar }: { moment: StayRefundMoment; ar
           <strong>{moment.note}</strong>
         </div>
       ) : null}
-      {moment.state === 'open' && !formOpen ? (
+      {moment.state === 'open' && moment.reviewRequired ? (
+        <div className="stay-refund__review-first">
+          <p>
+            {ar
+              ? 'قبل طلب استرداد التأمين، قيّم إقامتك: نظافة المكان والعقار وتعامل الإدارة.'
+              : 'Before requesting your deposit, rate your stay: cleanliness, the property and the management.'}
+          </p>
+          <a className="button button--primary stay-refund__ask" href="#stay-review">
+            {ar ? 'قيّم إقامتك أولاً' : 'Rate your stay first'}
+          </a>
+        </div>
+      ) : null}
+      {moment.state === 'open' && !moment.reviewRequired && !formOpen ? (
         <button
           type="button"
           className="button button--primary stay-refund__ask"
@@ -150,7 +162,7 @@ export function StayDepositRefund({ moment, ar }: { moment: StayRefundMoment; ar
           {ar ? 'طلب استرداد التأمين' : 'Request my deposit back'}
         </button>
       ) : null}
-      {moment.state === 'open' && formOpen ? (
+      {moment.state === 'open' && !moment.reviewRequired && formOpen ? (
         <form
           className="stay-refund__form"
           onSubmit={(event) => {

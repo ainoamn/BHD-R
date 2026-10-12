@@ -11,7 +11,9 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -235,7 +237,10 @@ export const stayRateRules = pgTable(
       .references(() => stayRatePlans.id),
     startsOn: date('starts_on').notNull(),
     endsOn: date('ends_on').notNull(),
-    daysOfWeek: integer('days_of_week').array().notNull().default(sql`ARRAY[0,1,2,3,4,5,6]::integer[]`),
+    daysOfWeek: integer('days_of_week')
+      .array()
+      .notNull()
+      .default(sql`ARRAY[0,1,2,3,4,5,6]::integer[]`),
     adjustmentType: varchar('adjustment_type', { length: 24 }).notNull(),
     adjustmentMinor: bigint('adjustment_minor', { mode: 'bigint' }),
     adjustmentBps: integer('adjustment_bps'),
@@ -332,7 +337,9 @@ export const stayInventoryDays = pgTable(
       .notNull()
       .references(() => units.id),
     stayDate: date('stay_date').notNull(),
-    availabilityStatus: varchar('availability_status', { length: 24 }).notNull().default('available'),
+    availabilityStatus: varchar('availability_status', { length: 24 })
+      .notNull()
+      .default('available'),
     effectiveRateMinor: bigint('effective_rate_minor', { mode: 'bigint' }),
     currency: varchar('currency', { length: 3 }),
     minNights: integer('min_nights'),
@@ -366,8 +373,12 @@ export const stayQuotes = pgTable(
     currency: varchar('currency', { length: 3 }).notNull(),
     minorUnit: integer('minor_unit').notNull(),
     subtotalMinor: bigint('subtotal_minor', { mode: 'bigint' }).notNull(),
-    feesMinor: bigint('fees_minor', { mode: 'bigint' }).notNull().default(sql`0`),
-    taxMinor: bigint('tax_minor', { mode: 'bigint' }).notNull().default(sql`0`),
+    feesMinor: bigint('fees_minor', { mode: 'bigint' })
+      .notNull()
+      .default(sql`0`),
+    taxMinor: bigint('tax_minor', { mode: 'bigint' })
+      .notNull()
+      .default(sql`0`),
     totalMinor: bigint('total_minor', { mode: 'bigint' }).notNull(),
     lineItemsJson: jsonb('line_items_json').$type<unknown[]>().notNull().default([]),
     feesSnapshotJson: jsonb('fees_snapshot_json').$type<unknown[]>().notNull().default([]),
@@ -443,8 +454,12 @@ export const stayBookings = pgTable(
     currency: varchar('currency', { length: 3 }).notNull(),
     minorUnit: integer('minor_unit').notNull(),
     subtotalMinor: bigint('subtotal_minor', { mode: 'bigint' }).notNull(),
-    feesMinor: bigint('fees_minor', { mode: 'bigint' }).notNull().default(sql`0`),
-    taxMinor: bigint('tax_minor', { mode: 'bigint' }).notNull().default(sql`0`),
+    feesMinor: bigint('fees_minor', { mode: 'bigint' })
+      .notNull()
+      .default(sql`0`),
+    taxMinor: bigint('tax_minor', { mode: 'bigint' })
+      .notNull()
+      .default(sql`0`),
     totalMinor: bigint('total_minor', { mode: 'bigint' }).notNull(),
     pricingSnapshotJson: jsonb('pricing_snapshot_json')
       .$type<Record<string, unknown>>()
@@ -536,7 +551,9 @@ export const stayFolios = pgTable(
       .references(() => stayBookings.id),
     status: varchar('status', { length: 24 }).notNull().default('open'),
     currency: varchar('currency', { length: 3 }).notNull(),
-    balanceMinor: bigint('balance_minor', { mode: 'bigint' }).notNull().default(sql`0`),
+    balanceMinor: bigint('balance_minor', { mode: 'bigint' })
+      .notNull()
+      .default(sql`0`),
   },
   (table) => [
     index('stay_folios_org_idx').on(table.organizationId),
@@ -726,4 +743,99 @@ export const stayHousekeepingTasks = pgTable(
       sql`${table.status} IN ('open', 'in_progress', 'done', 'cancelled')`,
     ),
   ],
+);
+
+/**
+ * Two-sided stay reviews: the guest rates the property and its management, the host rates
+ * the guest. One review per booking and direction; scores are on 10.
+ */
+export const bookingReviews = pgTable(
+  'booking_reviews',
+  {
+    ...identityColumns,
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    bookingId: uuid('booking_id')
+      .notNull()
+      .references(() => stayBookings.id),
+    propertyId: uuid('property_id')
+      .notNull()
+      .references(() => properties.id),
+    unitId: uuid('unit_id').references(() => units.id),
+    direction: varchar('direction', { length: 16 }).notNull(),
+    authorUserId: uuid('author_user_id').references(() => users.id),
+    authorName: varchar('author_name', { length: 160 }),
+    subjectUserId: uuid('subject_user_id').references(() => users.id),
+    subjectEmailHash: varchar('subject_email_hash', { length: 32 }),
+    subjectName: varchar('subject_name', { length: 160 }),
+    criteria: jsonb('criteria').$type<Record<string, number>>().notNull().default({}),
+    criteriaScore: numeric('criteria_score', { precision: 4, scale: 2 }).notNull(),
+    aiTextScore: numeric('ai_text_score', { precision: 4, scale: 2 }),
+    score: numeric('score', { precision: 4, scale: 2 }).notNull(),
+    propertyScore: numeric('property_score', { precision: 4, scale: 2 }),
+    hostScore: numeric('host_score', { precision: 4, scale: 2 }),
+    recommend: boolean('recommend'),
+    comment: text('comment'),
+    aiSummaryAr: text('ai_summary_ar'),
+    aiSummaryEn: text('ai_summary_en'),
+    aiHighlights: jsonb('ai_highlights')
+      .$type<Array<{ ar: string; en: string }>>()
+      .notNull()
+      .default([]),
+    aiConcerns: jsonb('ai_concerns')
+      .$type<Array<{ ar: string; en: string }>>()
+      .notNull()
+      .default([]),
+    aiFlags: jsonb('ai_flags').$type<string[]>().notNull().default([]),
+    aiEngine: varchar('ai_engine', { length: 16 }).notNull().default('rules'),
+    photoCount: integer('photo_count').notNull().default(0),
+    status: varchar('status', { length: 16 }).notNull().default('published'),
+  },
+  (table) => [
+    uniqueIndex('booking_reviews_booking_direction_unique').on(table.bookingId, table.direction),
+    index('booking_reviews_property_idx').on(table.propertyId, table.direction, table.createdAt),
+    index('booking_reviews_org_idx').on(table.organizationId, table.direction, table.createdAt),
+    check(
+      'booking_reviews_direction_check',
+      sql`${table.direction} IN ('guest_to_host', 'host_to_guest')`,
+    ),
+    check('booking_reviews_status_check', sql`${table.status} IN ('published', 'hidden')`),
+  ],
+);
+
+export const bookingReviewPhotos = pgTable(
+  'booking_review_photos',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    reviewId: uuid('review_id')
+      .notNull()
+      .references(() => bookingReviews.id, { onDelete: 'cascade' }),
+    position: integer('position').notNull(),
+    dataUrl: text('data_url').notNull(),
+  },
+  (table) => [
+    uniqueIndex('booking_review_photos_review_position_unique').on(table.reviewId, table.position),
+  ],
+);
+
+/** AI reading of all published reviews of one property, host organization or guest. */
+export const reviewProfiles = pgTable(
+  'review_profiles',
+  {
+    subjectType: varchar('subject_type', { length: 16 }).notNull(),
+    subjectKey: varchar('subject_key', { length: 64 }).notNull(),
+    reviewCount: integer('review_count').notNull().default(0),
+    summaryAr: text('summary_ar'),
+    summaryEn: text('summary_en'),
+    strengths: jsonb('strengths').$type<Array<{ ar: string; en: string }>>().notNull().default([]),
+    watchouts: jsonb('watchouts').$type<Array<{ ar: string; en: string }>>().notNull().default([]),
+    engine: varchar('engine', { length: 16 }).notNull().default('rules'),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.subjectType, table.subjectKey] })],
 );

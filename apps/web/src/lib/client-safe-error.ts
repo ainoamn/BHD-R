@@ -73,6 +73,12 @@ const KNOWN_CODES = new Set([
   'team_member_not_found',
   'team_email_invalid',
   'organization_not_member',
+  'review_required',
+  'review_exists',
+  'review_not_open',
+  'review_invalid',
+  'review_comment_required',
+  'review_photo_invalid',
 ]);
 
 export function clientSafeErrorCode(error: unknown, fallback = 'request_failed'): string {
@@ -127,7 +133,14 @@ export function statusForSafeCode(code: string): number {
     case 'refund_no_deposit':
     case 'refund_already_decided':
     case 'refund_not_approved':
+    case 'review_required':
+    case 'review_exists':
+    case 'review_not_open':
       return 409;
+    case 'review_invalid':
+    case 'review_comment_required':
+    case 'review_photo_invalid':
+      return 400;
     case 'stay_time_in_future':
     case 'stay_checkout_before_checkin':
     case 'handover_document_required':

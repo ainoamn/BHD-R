@@ -34,6 +34,7 @@ export async function aiChatJson(
   instruction: string,
   payload: unknown,
   label: string,
+  timeoutMs = 45_000,
 ): Promise<Record<string, unknown>> {
   const response = await fetch(endpoint.url, {
     method: 'POST',
@@ -50,7 +51,7 @@ export async function aiChatJson(
         { role: 'user', content: `${instruction}\n\nINPUT:\n${JSON.stringify(payload)}` },
       ],
     }),
-    signal: AbortSignal.timeout(45_000),
+    signal: AbortSignal.timeout(timeoutMs),
     cache: 'no-store',
   });
   if (!response.ok) {

@@ -69,6 +69,11 @@ export function compressDocument(file: File): Promise<string> {
   return compressImage(file, HANDOVER_DOCUMENT_MAX, DOCUMENT_STEPS);
 }
 
+/** A photo as a JPEG data URL no longer than `max` characters. */
+export function compressPhoto(file: File, max: number): Promise<string> {
+  return compressImage(file, max, PHOTO_STEPS);
+}
+
 async function compressImage(
   file: File,
   max: number,

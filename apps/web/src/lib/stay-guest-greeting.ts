@@ -40,6 +40,8 @@ export type StayRefundMoment = {
   note: string | null;
   paidAt: string | null;
   paidTo: string | null;
+  /** The guest must review the stay before asking for the deposit. */
+  reviewRequired?: boolean;
 };
 
 const refundSettled = (refund: StayRefundMoment) =>

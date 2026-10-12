@@ -1,0 +1,841 @@
+import 'server-only';
+import { createHash } from 'node:crypto';
+import { and, desc, eq, inArray, or, sql, type SQL } from 'drizzle-orm';
+import { hasPermission, type SessionClaims } from '@bhd-r/authz';
+import {
+  bookingReviewPhotos,
+  bookingReviews,
+  createDatabase,
+  organizations,
+  properties,
+  reviewProfiles,
+  stayBookingGuests,
+  stayBookings,
+  users,
+  type Database,
+} from '@bhd-r/db';
+import { applySessionSettings } from '@/lib/db-session-settings';
+import { ownerPartyScope } from '@/lib/portal-ops-data';
+import { analyzeProfile, analyzeReview } from '@/lib/review-ai';
+import {
+  REVIEW_BLIND_DAYS,
+  REVIEW_COMMENT_MAX,
+  REVIEW_COMMENT_MIN_WHEN_LOW,
+  REVIEW_PHOTO_DATA_URL,
+  REVIEW_PHOTO_MAX,
+  REVIEW_PHOTOS_MAX,
+  blendScore,
+  groupLabel,
+  needsComment,
+  publicPersonName,
+  rubricFor,
+  scoreAnswers,
+  validAnswers,
+  type GuestStanding,
+  type PublicReview,
+  type Reputation,
+  type ReputationSubject,
+  type ReviewAnswers,
+  type ReviewDirection,
+  type ReviewText,
+} from '@/lib/review-rubric';
+
+type DbHandle = { db: Database };
+type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
+type AiContext = { oidcToken: string | null };
+
+const globalForDb = globalThis as unknown as { __bhdRWebDb?: DbHandle };
+
+const DEPARTED = new Set(['checked_out', 'closed']);
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const EMAIL_KEY = /^e[0-9a-f]{32}$/;
+const HIDDEN_COMMENT_FLAGS = new Set(['abusive', 'personal_data']);
+
+function sharedDb(): Database {
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error('DATABASE_URL is required');
+  if (!globalForDb.__bhdRWebDb) {
+    const { db } = createDatabase(url, { max: 3 });
+    globalForDb.__bhdRWebDb = { db };
+  }
+  return globalForDb.__bhdRWebDb.db;
+}
+
+/** Every query filters explicitly: the app's database role bypasses RLS. */
+async function elevated<T>(work: (tx: Tx) => Promise<T>): Promise<T> {
+  return sharedDb().transaction(async (tx) => {
+    await applySessionSettings(tx, {
+      statement_timeout: '8000',
+      'app.platform_admin': 'true',
+      'app.public': 'false',
+    });
+    return work(tx);
+  });
+}
+
+function fail(code: string): never {
+  throw new Error(code);
+}
+
+function num(value: string | number | null | undefined): number | null {
+  if (value === null || value === undefined) return null;
+  const parsed = typeof value === 'number' ? value : Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function round1(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+function emailHash(email: string): string {
+  return createHash('sha256')
+    .update(`bhd-r:guest:${email.trim().toLowerCase()}`)
+    .digest('hex')
+    .slice(0, 32);
+}
+
+/** Public profile key of a guest: their account when the booking is linked, else their email. */
+export function guestKeyOf(userId: string | null, email: string | null): string | null {
+  if (userId) return userId;
+  return email?.includes('@') ? `e${emailHash(email)}` : null;
+}
+
+export function validGuestKey(key: string): boolean {
+  return UUID.test(key) || EMAIL_KEY.test(key);
+}
+
+/** Review released to everyone (and to the other side): both sides wrote, or the blind window ended. */
+const released: SQL = sql`(
+  ${bookingReviews.createdAt} < now() - make_interval(days => ${REVIEW_BLIND_DAYS})
+  OR EXISTS (
+    SELECT 1 FROM booking_reviews other
+    WHERE other.booking_id = ${bookingReviews.bookingId}
+      AND other.direction <> ${bookingReviews.direction}
+  )
+)`;
+
+const contactEmail = sql<
+  string | null
+>`${stayBookings.pricingSnapshotJson}->'guestContact'->>'email'`;
+const contactName = sql<
+  string | null
+>`${stayBookings.pricingSnapshotJson}->'guestContact'->>'displayName'`;
+
+export type ReviewSubmission = {
+  answers: ReviewAnswers;
+  comment?: string | undefined;
+  recommend?: boolean | null | undefined;
+  photos?: string[] | undefined;
+};
+
+export type SubmittedReview = { id: string; score: number; criteriaScore: number; engine: string };
+
+type Prepared = Awaited<ReturnType<typeof prepareReview>>;
+
+async function prepareReview(
+  direction: ReviewDirection,
+  input: ReviewSubmission,
+  context: AiContext,
+) {
+  if (!validAnswers(direction, input.answers)) fail('review_invalid');
+  const comment = input.comment?.trim().slice(0, REVIEW_COMMENT_MAX) || null;
+  if (
+    needsComment(direction, input.answers) &&
+    (comment?.length ?? 0) < REVIEW_COMMENT_MIN_WHEN_LOW
+  ) {
+    fail('review_comment_required');
+  }
+  const photos = input.photos ?? [];
+  if (photos.length > REVIEW_PHOTOS_MAX) fail('review_photo_invalid');
+  for (const photo of photos) {
+    if (photo.length > REVIEW_PHOTO_MAX || !REVIEW_PHOTO_DATA_URL.test(photo)) {
+      fail('review_photo_invalid');
+    }
+  }
+  const scores = scoreAnswers(direction, input.answers);
+  const recommend = typeof input.recommend === 'boolean' ? input.recommend : null;
+  const analysis = await analyzeReview(context, {
+    direction,
+    answers: input.answers,
+    scores,
+    comment,
+    recommend,
+  });
+  return {
+    direction,
+    answers: input.answers,
+    comment,
+    recommend,
+    photos,
+    scores,
+    analysis,
+    score: blendScore(scores.criteria, analysis.textScore),
+  };
+}
+
+type ReviewBooking = {
+  id: string;
+  organizationId: string;
+  propertyId: string;
+  unitId: string;
+  status: string;
+  userId: string | null;
+  email: string | null;
+  contactName: string | null;
+};
+
+const bookingColumns = {
+  id: stayBookings.id,
+  organizationId: stayBookings.organizationId,
+  propertyId: stayBookings.propertyId,
+  unitId: stayBookings.unitId,
+  status: stayBookings.status,
+  userId: stayBookings.userId,
+  email: contactEmail,
+  contactName,
+};
+
+async function guestName(tx: Tx, booking: ReviewBooking): Promise<string | null> {
+  const [primary] = await tx
+    .select({ name: stayBookingGuests.displayName })
+    .from(stayBookingGuests)
+    .where(and(eq(stayBookingGuests.bookingId, booking.id), eq(stayBookingGuests.isPrimary, true)))
+    .limit(1);
+  if (primary?.name?.trim()) return primary.name.trim();
+  if (booking.contactName?.trim()) return booking.contactName.trim();
+  if (!booking.userId) return null;
+  const [user] = await tx
+    .select({ name: users.displayName })
+    .from(users)
+    .where(eq(users.id, booking.userId))
+    .limit(1);
+  return user?.name ?? null;
+}
+
+async function reviewExists(tx: Tx, bookingId: string, direction: ReviewDirection) {
+  const [row] = await tx
+    .select({ id: bookingReviews.id })
+    .from(bookingReviews)
+    .where(and(eq(bookingReviews.bookingId, bookingId), eq(bookingReviews.direction, direction)))
+    .limit(1);
+  return Boolean(row);
+}
+
+/** Gate for the deposit refund: has this side reviewed the stay? Runs in the caller's transaction. */
+export async function hasBookingReview(
+  tx: Tx,
+  bookingId: string,
+  direction: ReviewDirection,
+): Promise<boolean> {
+  return reviewExists(tx, bookingId, direction);
+}
+
+async function insertReview(
+  booking: ReviewBooking,
+  prepared: Prepared,
+  people: {
+    authorUserId: string | null;
+    authorName: string | null;
+    subjectUserId: string | null;
+    subjectEmailHash: string | null;
+    subjectName: string | null;
+  },
+): Promise<SubmittedReview> {
+  return elevated(async (tx) => {
+    const { analysis, scores } = prepared;
+    const [row] = await tx
+      .insert(bookingReviews)
+      .values({
+        organizationId: booking.organizationId,
+        bookingId: booking.id,
+        propertyId: booking.propertyId,
+        unitId: booking.unitId,
+        direction: prepared.direction,
+        ...people,
+        criteria: prepared.answers,
+        criteriaScore: scores.criteria.toFixed(2),
+        aiTextScore: analysis.textScore === null ? null : analysis.textScore.toFixed(2),
+        score: prepared.score.toFixed(2),
+        propertyScore: scores.property === null ? null : scores.property.toFixed(2),
+        hostScore: scores.host === null ? null : scores.host.toFixed(2),
+        recommend: prepared.recommend,
+        comment: prepared.comment,
+        aiSummaryAr: analysis.summary?.ar ?? null,
+        aiSummaryEn: analysis.summary?.en ?? null,
+        aiHighlights: analysis.highlights,
+        aiConcerns: analysis.concerns,
+        aiFlags: analysis.flags,
+        aiEngine: analysis.engine,
+        photoCount: prepared.photos.length,
+      })
+      .onConflictDoNothing({ target: [bookingReviews.bookingId, bookingReviews.direction] })
+      .returning({ id: bookingReviews.id });
+    if (!row) fail('review_exists');
+    if (prepared.photos.length) {
+      await tx.insert(bookingReviewPhotos).values(
+        prepared.photos.map((dataUrl, position) => ({
+          organizationId: booking.organizationId,
+          reviewId: row.id,
+          position,
+          dataUrl,
+        })),
+      );
+    }
+    return {
+      id: row.id,
+      score: prepared.score,
+      criteriaScore: scores.criteria,
+      engine: analysis.engine,
+    };
+  });
+}
+
+/** Guest rates the property and its management (reference-code access, after check-out). */
+export async function submitGuestReview(
+  referenceCode: string,
+  input: ReviewSubmission,
+  context: AiContext,
+): Promise<SubmittedReview & { subjects: Array<[ReputationSubject, string]> }> {
+  const reference = referenceCode.trim().toUpperCase();
+  const { booking, name } = await elevated(async (tx) => {
+    const [found] = await tx
+      .select(bookingColumns)
+      .from(stayBookings)
+      .where(eq(stayBookings.referenceCode, reference))
+      .limit(1);
+    if (!found) fail('booking_not_found');
+    if (!DEPARTED.has(found.status)) fail('review_not_open');
+    if (await reviewExists(tx, found.id, 'guest_to_host')) fail('review_exists');
+    return { booking: found, name: await guestName(tx, found) };
+  });
+  const prepared = await prepareReview('guest_to_host', input, context);
+  const saved = await insertReview(booking, prepared, {
+    authorUserId: booking.userId,
+    authorName: name,
+    subjectUserId: null,
+    subjectEmailHash: null,
+    subjectName: null,
+  });
+  return {
+    ...saved,
+    subjects: [
+      ['property', booking.propertyId],
+      ['host', booking.organizationId],
+    ],
+  };
+}
+
+export function canReviewGuests(claims: SessionClaims): boolean {
+  return (
+    hasPermission(claims, 'stay.booking.manage') || hasPermission(claims, 'stay.refund.approve')
+  );
+}
+
+/** Host rates the guest after check-out (property hub, bookings tab). */
+export async function submitHostReview(
+  claims: SessionClaims,
+  propertyId: string,
+  bookingId: string,
+  input: ReviewSubmission,
+  context: AiContext,
+): Promise<SubmittedReview & { subjects: Array<[ReputationSubject, string]> }> {
+  if (!canReviewGuests(claims)) fail('forbidden');
+  const orgId = claims.organizationId ?? fail('organization_required');
+  const ownerPartyId = ownerPartyScope(claims);
+  const { booking, name, authorName } = await elevated(async (tx) => {
+    const [found] = await tx
+      .select(bookingColumns)
+      .from(stayBookings)
+      .innerJoin(properties, eq(properties.id, stayBookings.propertyId))
+      .where(
+        and(
+          eq(stayBookings.id, bookingId),
+          eq(stayBookings.organizationId, orgId),
+          eq(stayBookings.propertyId, propertyId),
+          eq(properties.organizationId, orgId),
+          ...(ownerPartyId ? [eq(properties.ownerPartyId, ownerPartyId)] : []),
+        ),
+      )
+      .limit(1);
+    if (!found) fail('booking_not_found');
+    if (!DEPARTED.has(found.status)) fail('review_not_open');
+    if (await reviewExists(tx, found.id, 'host_to_guest')) fail('review_exists');
+    const [author] = await tx
+      .select({ name: users.displayName })
+      .from(users)
+      .where(eq(users.id, claims.sub))
+      .limit(1);
+    return { booking: found, name: await guestName(tx, found), authorName: author?.name ?? null };
+  });
+  const prepared = await prepareReview('host_to_guest', input, context);
+  const saved = await insertReview(booking, prepared, {
+    authorUserId: claims.sub,
+    authorName,
+    subjectUserId: booking.userId,
+    subjectEmailHash: booking.email?.includes('@') ? emailHash(booking.email) : null,
+    subjectName: name,
+  });
+  const guestKey = guestKeyOf(booking.userId, booking.email);
+  return {
+    ...saved,
+    subjects: [
+      ['property', booking.propertyId],
+      ['host', booking.organizationId],
+      ...(guestKey ? [['guest', guestKey] as [ReputationSubject, string]] : []),
+    ],
+  };
+}
+
+export type GuestReviewState = {
+  /** The guest still owes the review (blocks the deposit refund request). */
+  required: boolean;
+  mine: { score: number; createdAt: string } | null;
+  /** The host's review of the guest, once both sides have written. */
+  fromHost: {
+    score: number;
+    recommend: boolean | null;
+    summary: ReviewText | null;
+    comment: string | null;
+  } | null;
+  hostWrote: boolean;
+  guestKey: string | null;
+};
+
+export async function loadGuestReviewState(bookingId: string): Promise<GuestReviewState> {
+  return elevated(async (tx) => {
+    const [booking] = await tx
+      .select(bookingColumns)
+      .from(stayBookings)
+      .where(eq(stayBookings.id, bookingId))
+      .limit(1);
+    if (!booking) fail('booking_not_found');
+    const rows = await tx
+      .select({
+        direction: bookingReviews.direction,
+        score: bookingReviews.score,
+        recommend: bookingReviews.recommend,
+        comment: bookingReviews.comment,
+        flags: bookingReviews.aiFlags,
+        summaryAr: bookingReviews.aiSummaryAr,
+        summaryEn: bookingReviews.aiSummaryEn,
+        createdAt: bookingReviews.createdAt,
+      })
+      .from(bookingReviews)
+      .where(eq(bookingReviews.bookingId, bookingId));
+    const mine = rows.find((row) => row.direction === 'guest_to_host');
+    const host = rows.find((row) => row.direction === 'host_to_guest');
+    return {
+      required: DEPARTED.has(booking.status) && !mine,
+      mine: mine ? { score: num(mine.score) ?? 0, createdAt: mine.createdAt.toISOString() } : null,
+      fromHost:
+        host && mine
+          ? {
+              score: num(host.score) ?? 0,
+              recommend: host.recommend,
+              summary:
+                host.summaryAr && host.summaryEn
+                  ? { ar: host.summaryAr, en: host.summaryEn }
+                  : null,
+              comment: host.flags.some((flag) => HIDDEN_COMMENT_FLAGS.has(flag))
+                ? null
+                : host.comment,
+            }
+          : null,
+      hostWrote: Boolean(host),
+      guestKey: guestKeyOf(booking.userId, booking.email),
+    };
+  });
+}
+
+/** Released host reviews of a guest, by account or by booking email. */
+function guestCondition(key: string): SQL {
+  if (UUID.test(key)) return eq(stayBookings.userId, key);
+  return eq(bookingReviews.subjectEmailHash, key.slice(1));
+}
+
+export type BookingReviewFacts = {
+  guestReviewed: boolean;
+  hostScore: number | null;
+  standing: GuestStanding | null;
+};
+
+/**
+ * For the host's bookings tab: whether each side reviewed, and the guest's standing from all
+ * hosts on the platform (released reviews only), shown when deciding on a booking request.
+ */
+export async function loadBookingReviewFacts(
+  tx: Tx,
+  bookings: Array<{ id: string; userId: string | null; email: string | null }>,
+): Promise<Map<string, BookingReviewFacts>> {
+  const facts = new Map<string, BookingReviewFacts>();
+  if (!bookings.length) return facts;
+  const own = await tx
+    .select({
+      bookingId: bookingReviews.bookingId,
+      direction: bookingReviews.direction,
+      score: bookingReviews.score,
+    })
+    .from(bookingReviews)
+    .where(
+      inArray(
+        bookingReviews.bookingId,
+        bookings.map((row) => row.id),
+      ),
+    );
+  const keys = new Map(bookings.map((row) => [row.id, guestKeyOf(row.userId, row.email)]));
+  const userIds = [...new Set(bookings.flatMap((row) => (row.userId ? [row.userId] : [])))];
+  const hashes = [
+    ...new Set(bookings.flatMap((row) => (row.email?.includes('@') ? [emailHash(row.email)] : []))),
+  ];
+  const history =
+    userIds.length || hashes.length
+      ? await tx
+          .select({
+            score: bookingReviews.score,
+            userId: stayBookings.userId,
+            hash: bookingReviews.subjectEmailHash,
+          })
+          .from(bookingReviews)
+          .innerJoin(stayBookings, eq(stayBookings.id, bookingReviews.bookingId))
+          .where(
+            and(
+              eq(bookingReviews.direction, 'host_to_guest'),
+              eq(bookingReviews.status, 'published'),
+              released,
+              or(
+                ...(userIds.length ? [inArray(stayBookings.userId, userIds)] : []),
+                ...(hashes.length ? [inArray(bookingReviews.subjectEmailHash, hashes)] : []),
+              ),
+            ),
+          )
+          .limit(2000)
+      : [];
+  for (const booking of bookings) {
+    const hash = booking.email?.includes('@') ? emailHash(booking.email) : null;
+    const scores = history
+      .filter(
+        (row) =>
+          (booking.userId && row.userId === booking.userId) || (hash !== null && row.hash === hash),
+      )
+      .flatMap((row) => {
+        const value = num(row.score);
+        return value === null ? [] : [value];
+      });
+    const key = keys.get(booking.id) ?? null;
+    const mine = own.filter((row) => row.bookingId === booking.id);
+    const hostRow = mine.find((row) => row.direction === 'host_to_guest');
+    facts.set(booking.id, {
+      guestReviewed: mine.some((row) => row.direction === 'guest_to_host'),
+      hostScore: hostRow ? num(hostRow.score) : null,
+      standing: key
+        ? {
+            key,
+            count: scores.length,
+            score: scores.length
+              ? round1(scores.reduce((sum, value) => sum + value, 0) / scores.length)
+              : null,
+          }
+        : null,
+    });
+  }
+  return facts;
+}
+
+function subjectCondition(subject: ReputationSubject, key: string): SQL {
+  if (subject === 'property') {
+    return and(
+      eq(bookingReviews.propertyId, key),
+      eq(bookingReviews.direction, 'guest_to_host'),
+    ) as SQL;
+  }
+  if (subject === 'host') {
+    return and(
+      eq(bookingReviews.organizationId, key),
+      eq(bookingReviews.direction, 'guest_to_host'),
+    ) as SQL;
+  }
+  return and(eq(bookingReviews.direction, 'host_to_guest'), guestCondition(key)) as SQL;
+}
+
+async function subjectName(
+  tx: Tx,
+  subject: ReputationSubject,
+  key: string,
+  latestGuestName: string | null,
+): Promise<ReviewText | null | undefined> {
+  if (subject === 'property') {
+    const [row] = await tx
+      .select({ ar: properties.nameAr, en: properties.nameEn })
+      .from(properties)
+      .where(eq(properties.id, key))
+      .limit(1);
+    return row ? { ar: row.ar, en: row.en } : undefined;
+  }
+  if (subject === 'host') {
+    const [row] = await tx
+      .select({ ar: organizations.displayNameAr, en: organizations.displayNameEn })
+      .from(organizations)
+      .where(eq(organizations.id, key))
+      .limit(1);
+    return row ? { ar: row.ar, en: row.en } : undefined;
+  }
+  if (UUID.test(key)) {
+    const [row] = await tx
+      .select({ name: users.displayName })
+      .from(users)
+      .where(eq(users.id, key))
+      .limit(1);
+    if (!row) return undefined;
+    const name = publicPersonName(row.name);
+    return name ? { ar: name, en: name } : null;
+  }
+  const name = publicPersonName(latestGuestName);
+  return name ? { ar: name, en: name } : latestGuestName === null ? undefined : null;
+}
+
+function averageBy<T>(rows: T[], pick: (row: T) => number | null): number | null {
+  const values = rows.flatMap((row) => {
+    const value = pick(row);
+    return value === null ? [] : [value];
+  });
+  return values.length
+    ? round1(values.reduce((sum, value) => sum + value, 0) / values.length)
+    : null;
+}
+
+/**
+ * Public reputation of a property, a host organization or a guest: average on 10, criteria
+ * breakdown, the AI profile summary (cached) and the latest reviews. `stale` asks the caller
+ * to refresh the AI summary in the background. Null when the subject does not exist.
+ */
+export async function loadReputation(
+  subject: ReputationSubject,
+  key: string,
+  limit = 20,
+): Promise<{ reputation: Reputation; stale: boolean } | null> {
+  if (subject === 'guest' ? !validGuestKey(key) : !UUID.test(key)) return null;
+  return elevated(async (tx) => {
+    const rows = await tx
+      .select({
+        id: bookingReviews.id,
+        createdAt: bookingReviews.createdAt,
+        direction: bookingReviews.direction,
+        organizationId: bookingReviews.organizationId,
+        propertyId: bookingReviews.propertyId,
+        authorName: bookingReviews.authorName,
+        subjectName: bookingReviews.subjectName,
+        subjectHash: bookingReviews.subjectEmailHash,
+        criteria: bookingReviews.criteria,
+        score: bookingReviews.score,
+        propertyScore: bookingReviews.propertyScore,
+        hostScore: bookingReviews.hostScore,
+        recommend: bookingReviews.recommend,
+        comment: bookingReviews.comment,
+        summaryAr: bookingReviews.aiSummaryAr,
+        summaryEn: bookingReviews.aiSummaryEn,
+        highlights: bookingReviews.aiHighlights,
+        concerns: bookingReviews.aiConcerns,
+        flags: bookingReviews.aiFlags,
+        engine: bookingReviews.aiEngine,
+        photoCount: bookingReviews.photoCount,
+        checkInOn: stayBookings.checkInOn,
+        bookingUserId: stayBookings.userId,
+        bookingEmail: contactEmail,
+        hostAr: organizations.displayNameAr,
+        hostEn: organizations.displayNameEn,
+        propertyAr: properties.nameAr,
+        propertyEn: properties.nameEn,
+      })
+      .from(bookingReviews)
+      .innerJoin(stayBookings, eq(stayBookings.id, bookingReviews.bookingId))
+      .innerJoin(organizations, eq(organizations.id, bookingReviews.organizationId))
+      .innerJoin(properties, eq(properties.id, bookingReviews.propertyId))
+      .where(and(subjectCondition(subject, key), eq(bookingReviews.status, 'published'), released))
+      .orderBy(desc(bookingReviews.createdAt))
+      .limit(300);
+
+    const name = await subjectName(tx, subject, key, rows[0]?.subjectName ?? null);
+    if (name === undefined) return null;
+
+    const direction: ReviewDirection = subject === 'guest' ? 'host_to_guest' : 'guest_to_host';
+    const rubric = rubricFor(direction);
+    const perReview = rows.map((row) => scoreAnswers(direction, row.criteria));
+    const groups = rubric.map((group) => ({
+      key: group.key,
+      score: averageBy(
+        perReview,
+        (scores) => scores.groups.find((item) => item.key === group.key)?.score ?? null,
+      ),
+    }));
+    const criteria = rubric.flatMap((group) =>
+      group.criteria.map((item) => {
+        const values = rows.flatMap((row) =>
+          row.criteria[item.key] ? [row.criteria[item.key]! * 2] : [],
+        );
+        return {
+          key: item.key,
+          count: values.length,
+          score: values.length
+            ? round1(values.reduce((sum, value) => sum + value, 0) / values.length)
+            : null,
+        };
+      }),
+    );
+    const score = averageBy(rows, (row) =>
+      subject === 'host' ? num(row.hostScore) : num(row.score),
+    );
+    const recommended = rows.filter((row) => row.recommend !== null);
+    const recommendRate = recommended.length
+      ? Math.round((recommended.filter((row) => row.recommend).length / recommended.length) * 100)
+      : null;
+
+    const shown = rows.slice(0, limit);
+    const photos = shown.some((row) => row.photoCount > 0)
+      ? await tx
+          .select({
+            id: bookingReviewPhotos.id,
+            reviewId: bookingReviewPhotos.reviewId,
+            position: bookingReviewPhotos.position,
+          })
+          .from(bookingReviewPhotos)
+          .where(
+            inArray(
+              bookingReviewPhotos.reviewId,
+              shown.filter((row) => row.photoCount > 0).map((row) => row.id),
+            ),
+          )
+      : [];
+
+    const reviews: PublicReview[] = shown.map((row) => {
+      const hidden = row.flags.some((flag) => HIDDEN_COMMENT_FLAGS.has(flag));
+      const guestKey =
+        row.direction === 'guest_to_host'
+          ? guestKeyOf(row.bookingUserId, row.bookingEmail)
+          : (row.bookingUserId ?? (row.subjectHash ? `e${row.subjectHash}` : null));
+      return {
+        id: row.id,
+        direction: row.direction as ReviewDirection,
+        createdAt: row.createdAt.toISOString(),
+        stayMonth: String(row.checkInOn).slice(0, 7),
+        authorName: row.direction === 'guest_to_host' ? publicPersonName(row.authorName) : null,
+        guestKey,
+        guestName: publicPersonName(
+          row.direction === 'guest_to_host' ? row.authorName : row.subjectName,
+        ),
+        hostKey: row.organizationId,
+        hostName: { ar: row.hostAr, en: row.hostEn },
+        propertyId: row.propertyId,
+        propertyName: { ar: row.propertyAr, en: row.propertyEn },
+        score: num(row.score) ?? 0,
+        propertyScore: num(row.propertyScore),
+        hostScore: num(row.hostScore),
+        groups: scoreAnswers(row.direction as ReviewDirection, row.criteria).groups,
+        recommend: row.recommend,
+        comment: hidden ? null : row.comment,
+        commentHidden: hidden && Boolean(row.comment),
+        summary: row.summaryAr && row.summaryEn ? { ar: row.summaryAr, en: row.summaryEn } : null,
+        highlights: row.highlights,
+        concerns: row.concerns,
+        photoIds: photos
+          .filter((photo) => photo.reviewId === row.id)
+          .sort((a, b) => a.position - b.position)
+          .map((photo) => photo.id),
+        aiEngine: row.engine,
+      };
+    });
+
+    const [profile] = await tx
+      .select()
+      .from(reviewProfiles)
+      .where(and(eq(reviewProfiles.subjectType, subject), eq(reviewProfiles.subjectKey, key)))
+      .limit(1);
+
+    return {
+      stale: rows.length > 0 && (!profile || profile.reviewCount !== rows.length),
+      reputation: {
+        subject,
+        key,
+        name,
+        score,
+        count: rows.length,
+        recommendRate,
+        groups,
+        criteria,
+        profile:
+          profile && rows.length
+            ? {
+                summary:
+                  profile.summaryAr && profile.summaryEn
+                    ? { ar: profile.summaryAr, en: profile.summaryEn }
+                    : null,
+                strengths: profile.strengths,
+                watchouts: profile.watchouts,
+                engine: profile.engine,
+                updatedAt: profile.updatedAt.toISOString(),
+              }
+            : null,
+        reviews,
+      },
+    };
+  });
+}
+
+/** Re-reads a subject's published reviews and stores the AI profile summary. */
+export async function refreshReviewProfile(
+  subject: ReputationSubject,
+  key: string,
+  context: AiContext,
+): Promise<void> {
+  const loaded = await loadReputation(subject, key, 30);
+  if (!loaded || !loaded.reputation.count) return;
+  const { reputation } = loaded;
+  const direction: ReviewDirection = subject === 'guest' ? 'host_to_guest' : 'guest_to_host';
+  const analysis = await analyzeProfile(context, {
+    subject,
+    score: reputation.score,
+    groups: reputation.groups.map((group) => ({
+      label: groupLabel(direction, group.key, false),
+      score: group.score,
+    })),
+    reviews: reputation.reviews.map((review) => ({
+      score: review.score,
+      comment: review.comment,
+      highlights: review.highlights,
+      concerns: review.concerns,
+    })),
+  });
+  const values = {
+    reviewCount: reputation.count,
+    summaryAr: analysis.summary?.ar ?? null,
+    summaryEn: analysis.summary?.en ?? null,
+    strengths: analysis.strengths,
+    watchouts: analysis.watchouts,
+    engine: analysis.engine,
+    updatedAt: new Date(),
+  };
+  await elevated((tx) =>
+    tx
+      .insert(reviewProfiles)
+      .values({ subjectType: subject, subjectKey: key, ...values })
+      .onConflictDoUpdate({
+        target: [reviewProfiles.subjectType, reviewProfiles.subjectKey],
+        set: values,
+      }),
+  );
+}
+
+/** A review photo, only once its review is public. */
+export async function loadReviewPhoto(photoId: string): Promise<string | null> {
+  if (!UUID.test(photoId)) return null;
+  return elevated(async (tx) => {
+    const [row] = await tx
+      .select({ dataUrl: bookingReviewPhotos.dataUrl })
+      .from(bookingReviewPhotos)
+      .innerJoin(bookingReviews, eq(bookingReviews.id, bookingReviewPhotos.reviewId))
+      .where(
+        and(eq(bookingReviewPhotos.id, photoId), eq(bookingReviews.status, 'published'), released),
+      )
+      .limit(1);
+    return row?.dataUrl ?? null;
+  });
+}

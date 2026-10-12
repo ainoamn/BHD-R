@@ -22,6 +22,7 @@ import {
   utilityMeters,
   viewingRequests,
 } from '@bhd-r/db';
+import { loadBookingReviewFacts } from '@/lib/booking-reviews-neon';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 import { loadStayStamps } from '@/lib/stay-arrival-neon';
 import { depositRefundStage, maskAccount, type DepositRefundView } from '@/lib/stay-deposit-refund';
@@ -392,6 +393,10 @@ async function loadBookings(
       contactPhone: sql<
         string | null
       >`${stayBookings.pricingSnapshotJson}->'guestContact'->>'phone'`,
+      contactEmail: sql<
+        string | null
+      >`${stayBookings.pricingSnapshotJson}->'guestContact'->>'email'`,
+      userId: stayBookings.userId,
     })
     .from(stayBookings)
     .where(and(eq(stayBookings.organizationId, orgId), eq(stayBookings.propertyId, propertyId)))
@@ -458,7 +463,7 @@ async function loadBookings(
   const departedIds = stays
     .filter((row) => STAY_AFTER_CHECK_OUT.has(row.status))
     .map((row) => row.id);
-  const [names, bookingContracts, stamps, deposits, refunds] = await Promise.all([
+  const [names, bookingContracts, stamps, deposits, refunds, reviewFacts] = await Promise.all([
     partyNames(tx, [
       ...stays.map((row) => row.guestPartyId),
       ...reservationRows.map((row) => row.tenantPartyId),
@@ -474,6 +479,10 @@ async function loadBookings(
     ),
     loadBookingDeposits(tx, orgId, departedIds),
     loadDepositRefunds(tx, orgId, departedIds),
+    loadBookingReviewFacts(
+      tx,
+      stays.map((row) => ({ id: row.id, userId: row.userId, email: row.contactEmail })),
+    ),
   ]);
 
   const rows: PropertyRecordRow[] = [
@@ -482,7 +491,13 @@ async function loadBookings(
       const stamp = stamps.get(row.id);
       const depositMinor = deposits.get(row.id) ?? null;
       const refund = refunds.get(row.id);
+      const review = reviewFacts.get(row.id);
       return {
+        guestReviewed: review?.guestReviewed ? '1' : null,
+        hostReviewScore: review?.hostScore != null ? review.hostScore.toFixed(1) : null,
+        guestKey: review?.standing?.key ?? null,
+        guestScore: review?.standing?.score != null ? review.standing.score.toFixed(1) : null,
+        guestReviewCount: review?.standing ? String(review.standing.count) : null,
         stage:
           depositRefundStage(row.status, depositMinor, refund?.status) ?? stayStage(row.status),
         depositMinor,

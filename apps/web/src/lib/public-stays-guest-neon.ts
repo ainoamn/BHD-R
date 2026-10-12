@@ -640,6 +640,7 @@ const REFUND_ERRORS: Record<string, string> = {
   refund_account_invalid: 'Invalid account number or IBAN',
   refund_bank_required: 'Choose the bank',
   refund_phone_invalid: 'Invalid phone number',
+  review_required: 'Rate your stay first, then request the deposit',
 };
 
 /** Guest asks for the security deposit back after check-out (by booking reference). */
@@ -674,7 +675,9 @@ export async function requestGuestDepositRefundOnNeon(input: {
         throw new PublicStayBookingError(
           code,
           message,
-          code === 'refund_not_open' || code === 'refund_no_deposit' ? 409 : 400,
+          code === 'refund_not_open' || code === 'refund_no_deposit' || code === 'review_required'
+            ? 409
+            : 400,
         );
       }
       throw error;

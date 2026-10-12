@@ -12,9 +12,8 @@ import { PropertyQrCard } from '@/components/property-qr-card';
 import { PublicListingActions } from '@/components/public-listing-actions';
 import { PropertyManageHub } from '@/components/property-manage-hub';
 import { PropertyReviewScore } from '@/components/property-review-score';
-import { ReviewsPanel } from '@/components/reviews-panel';
+import { ReputationView } from '@/components/reviews/reputation-view';
 import { StayGuestInfoSection } from '@/components/stays/stay-guest-info-section';
-import { StayReviewsHub } from '@/components/stays/stay-reviews-hub';
 import type { StayPublicDetail } from '@bhd-r/contracts';
 import {
   StayAvailabilityCalendar,
@@ -31,7 +30,6 @@ import {
   summarizeUnitKinds,
   unitKindLabel,
 } from '@/lib/unit-identity';
-import type { ReviewTargetType } from '@/lib/reviews-types';
 import type { OfferingMode } from '@/lib/unit-offering-modes';
 
 function defaultStayCheckIn(): string {
@@ -340,32 +338,6 @@ export function PropertyDetailManager({
         ? property.nameAr
         : property.nameEn;
   const mapsUrl = property.mapsUrl || mapsUrlFromNotes(property.profile?.notes) || null;
-  const reviewTargets = useMemo(() => {
-    if (!isPublic) return [];
-    const targets: Array<{
-      type: ReviewTargetType;
-      id: string;
-      titleAr: string;
-      titleEn: string;
-    }> = [{ type: 'property', id: property.id, titleAr: 'العقار', titleEn: 'Property' }];
-    if (property.ownerPartyId && property.ownerPartyName) {
-      targets.push({
-        type: 'party',
-        id: property.ownerPartyId,
-        titleAr: `المالك · ${property.ownerPartyName}`,
-        titleEn: `Owner · ${property.ownerPartyName}`,
-      });
-    }
-    if (property.organizationId) {
-      targets.push({
-        type: 'organization',
-        id: property.organizationId,
-        titleAr: 'المؤسسة',
-        titleEn: 'Organization',
-      });
-    }
-    return targets;
-  }, [isPublic, property]);
   const latitude =
     typeof property.latitude === 'number' && Number.isFinite(property.latitude)
       ? property.latitude
@@ -978,15 +950,13 @@ export function PropertyDetailManager({
             <StayGuestInfoSection detail={stayDetail} locale={locale} />
           ) : null}
 
-          {isPublic && stayBooking ? (
-            <StayReviewsHub
+          {isPublic ? (
+            <ReputationView
+              subject="property"
+              subjectKey={property.id}
               locale={locale}
-              signedIn={signedIn}
-              propertyId={property.id}
-              propertyName={stayBooking.title || (ar ? property.nameAr : property.nameEn)}
+              hostKey={property.organizationId ?? null}
             />
-          ) : isPublic && reviewTargets.length ? (
-            <ReviewsPanel locale={locale} signedIn={signedIn} targets={reviewTargets} />
           ) : null}
 
           {!isPublic ? (
@@ -1318,7 +1288,13 @@ export function PropertyDetailManager({
                 <div>
                   <dt>{ar ? 'المالك' : 'Owner'}</dt>
                   <dd>
-                    <Link href={`/${locale}/parties/${property.ownerPartyId}`}>
+                    <Link
+                      href={
+                        property.organizationId
+                          ? `/${locale}/profiles/hosts/${property.organizationId}`
+                          : `/${locale}/parties/${property.ownerPartyId}`
+                      }
+                    >
                       {property.ownerPartyName}
                     </Link>
                   </dd>
