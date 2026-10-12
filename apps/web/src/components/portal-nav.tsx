@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import { PortalHeader } from '@/components/portal-header';
+import { persistPortalNavCollapsed } from '@/lib/portal-nav-state';
 import { warmOpsSection } from '@/lib/portal-ops-client-cache';
 import {
   isOperationsSection,
@@ -221,6 +222,7 @@ function PortalIntentLink({
   section,
   active,
   mark,
+  title,
   onNavigate,
   children,
 }: {
@@ -229,6 +231,7 @@ function PortalIntentLink({
   section: OperationsSection | null;
   active: boolean;
   mark: string;
+  title?: string | undefined;
   onNavigate: () => void;
   children: ReactNode;
 }) {
@@ -259,6 +262,7 @@ function PortalIntentLink({
       // does not feel like a full document reload.
       {...(section ? { 'data-no-progress': '' } : {})}
       aria-current={active ? 'page' : undefined}
+      title={title}
       onMouseEnter={warmDestination}
       onFocus={warmDestination}
       onTouchStart={warmDestination}
@@ -286,7 +290,7 @@ function PortalIntentLink({
       <span className="portal-nav__mark" aria-hidden="true">
         {mark}
       </span>
-      {children}
+      <span className="portal-nav__label">{children}</span>
     </Link>
   );
 }
@@ -295,11 +299,14 @@ export function PortalNav({
   portal,
   viewer,
   staysEnabled = false,
+  initialCollapsed = false,
 }: {
   portal: PortalRole;
   viewer: Viewer;
   /** Server-resolved STAYS_PLATFORM_ENABLED — owner/developer only. */
   staysEnabled?: boolean;
+  /** Desktop rail preference from the nav cookie. */
+  initialCollapsed?: boolean;
 }) {
   const t = useTranslations();
   const pathname = usePathname();
@@ -309,7 +316,15 @@ export function PortalNav({
   const [open, setOpen] = useState(false);
   const [isDrawerViewport, setIsDrawerViewport] = useState(false);
   const [menuOpen, setMenuOpen] = useState<Record<string, boolean>>({});
+  const [collapsed, setCollapsed] = useState(initialCollapsed);
   const panelId = useId();
+  const ar = locale === 'ar';
+  const railed = collapsed && !isDrawerViewport;
+
+  const toggleCollapsed = (next: boolean) => {
+    setCollapsed(next);
+    persistPortalNavCollapsed(next);
+  };
   const root = `/${portal}`;
   const groups =
     staysEnabled && (portal === 'owner' || portal === 'developer')
@@ -360,6 +375,7 @@ export function PortalNav({
         section={section}
         active={isActive(item)}
         mark={item.mark}
+        title={railed ? t(item.label) : undefined}
         onNavigate={() => setOpen(false)}
       >
         {t(item.label)}
@@ -420,12 +436,65 @@ export function PortalNav({
 
       <aside
         id={panelId}
-        className={open ? 'portal-sidebar portal-sidebar--open' : 'portal-sidebar'}
+        className={[
+          'portal-sidebar',
+          open ? 'portal-sidebar--open' : '',
+          collapsed ? 'portal-sidebar--collapsed' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
         aria-hidden={drawerHidden || undefined}
         {...(drawerHidden ? { inert: true } : {})}
       >
         <div className="portal-sidebar__head">
           <p className="portal-sidebar__title">{t(`Portal.${portal}`)}</p>
+          <button
+            type="button"
+            className="portal-sidebar__collapse"
+            onClick={() => toggleCollapsed(!collapsed)}
+            aria-expanded={!collapsed}
+            aria-label={
+              collapsed
+                ? ar
+                  ? 'توسيع القائمة الجانبية'
+                  : 'Expand sidebar'
+                : ar
+                  ? 'طي القائمة الجانبية'
+                  : 'Collapse sidebar'
+            }
+            title={
+              collapsed
+                ? ar
+                  ? 'توسيع القائمة'
+                  : 'Expand menu'
+                : ar
+                  ? 'طي القائمة'
+                  : 'Collapse menu'
+            }
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <rect
+                x="3.5"
+                y="4.5"
+                width="17"
+                height="15"
+                rx="3"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+              />
+              <path d="M9.5 4.5v15" stroke="currentColor" strokeWidth="1.6" />
+              <path
+                className="portal-sidebar__collapse-arrow"
+                d="M16 9.5 13.5 12l2.5 2.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
           <button
             type="button"
             className="portal-sidebar__close"
@@ -452,9 +521,15 @@ export function PortalNav({
                       aria-expanded={expanded}
                       aria-controls={submenuId}
                       data-active={active || undefined}
-                      onClick={() =>
-                        setMenuOpen((current) => ({ ...current, [item.path]: !expanded }))
-                      }
+                      title={railed ? t(item.label) : undefined}
+                      onClick={() => {
+                        if (railed) {
+                          toggleCollapsed(false);
+                          setMenuOpen((current) => ({ ...current, [item.path]: true }));
+                          return;
+                        }
+                        setMenuOpen((current) => ({ ...current, [item.path]: !expanded }));
+                      }}
                     >
                       <span className="portal-nav__mark" aria-hidden="true">
                         {item.mark}

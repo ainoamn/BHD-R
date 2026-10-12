@@ -29,6 +29,7 @@ import type {
 type Format =
   | 'text'
   | 'date'
+  | 'period'
   | 'money'
   | 'signedMoney'
   | 'balance'
@@ -115,8 +116,7 @@ const SECTIONS: Record<PropertyRecordSection, SectionConfig> = {
       { key: 'reference', ar: 'المرجع', en: 'Reference' },
       { key: 'unitCode', ar: 'الوحدة', en: 'Unit' },
       { key: 'party', ar: 'العميل / الضيف', en: 'Client / guest' },
-      { key: 'fromOn', ar: 'من', en: 'From', format: 'date' },
-      { key: 'toOn', ar: 'إلى', en: 'To', format: 'date' },
+      { key: 'fromOn', ar: 'الفترة', en: 'Dates', format: 'period' },
       { key: 'checkedInAt', ar: 'الدخول والمغادرة', en: 'Check-in / out', format: 'stayLog' },
       { key: 'amountMinor', ar: 'المبلغ', en: 'Amount', format: 'money' },
       { key: 'refundStatus', ar: 'استرداد التأمين', en: 'Deposit refund', format: 'refund' },
@@ -143,8 +143,7 @@ const SECTIONS: Record<PropertyRecordSection, SectionConfig> = {
       { key: 'sourceType', ar: 'المصدر', en: 'Source', format: 'source' },
       { key: 'unitCode', ar: 'الوحدة', en: 'Unit' },
       { key: 'party', ar: 'المستأجر / المشتري', en: 'Tenant / buyer' },
-      { key: 'fromOn', ar: 'من', en: 'From', format: 'date' },
-      { key: 'toOn', ar: 'إلى', en: 'To', format: 'date' },
+      { key: 'fromOn', ar: 'المدة', en: 'Term', format: 'period' },
       { key: 'amountMinor', ar: 'قيمة العقد', en: 'Contract value', format: 'money' },
       { key: 'ownerSignedBy', ar: 'التوقيعات', en: 'Signatures', format: 'signatures' },
       { key: 'signedOn', ar: 'تاريخ الاعتماد', en: 'Approved on', format: 'date' },
@@ -164,8 +163,7 @@ const SECTIONS: Record<PropertyRecordSection, SectionConfig> = {
       { key: 'sourceType', ar: 'المصدر', en: 'Source', format: 'source' },
       { key: 'unitCode', ar: 'الوحدة', en: 'Unit' },
       { key: 'party', ar: 'المستأجر', en: 'Tenant' },
-      { key: 'fromOn', ar: 'يبدأ من', en: 'From', format: 'date' },
-      { key: 'toOn', ar: 'ينتهي في', en: 'To', format: 'date' },
+      { key: 'fromOn', ar: 'المدة', en: 'Term', format: 'period' },
       { key: 'amountMinor', ar: 'قيمة الإيجار', en: 'Rent', format: 'money' },
       { key: 'contractTotalMinor', ar: 'إجمالي العقد', en: 'Contract total', format: 'money' },
       { key: 'depositMinor', ar: 'التأمين', en: 'Deposit', format: 'money' },
@@ -619,6 +617,15 @@ function Cell({
     }
     case 'date':
       return value ? <span dir="ltr">{value}</span> : <span className="muted">—</span>;
+    case 'period':
+      return value || row.toOn ? (
+        <span className="psr-period">
+          <span dir="ltr">{value ?? '—'}</span>
+          <span dir="ltr">{row.toOn ?? '—'}</span>
+        </span>
+      ) : (
+        <span className="muted">—</span>
+      );
     case 'money':
       return value && row.currency ? (
         <span dir="ltr">{formatMoney(value, row.currency, locale)}</span>
@@ -1429,9 +1436,13 @@ export function PropertySectionRecords({
             <thead>
               <tr>
                 {config.columns.map((column) => (
-                  <th key={column.key}>{ar ? column.ar : column.en}</th>
+                  <th key={column.key} className={`psr-col--${column.format ?? 'text'}`}>
+                    {ar ? column.ar : column.en}
+                  </th>
                 ))}
-                {showActions ? <th>{ar ? 'الإجراءات' : 'Actions'}</th> : null}
+                {showActions ? (
+                  <th className="psr-col--actions">{ar ? 'الإجراءات' : 'Actions'}</th>
+                ) : null}
               </tr>
             </thead>
             <tbody>
@@ -1445,7 +1456,10 @@ export function PropertySectionRecords({
                       className={focusId === row.id ? 'psr-row--focus' : undefined}
                     >
                       {config.columns.map((column) => (
-                        <td key={column.key}>
+                        <td
+                          key={column.key}
+                          className={`psr-col--${column.format ?? 'text'} psr-key--${column.key}`}
+                        >
                           <Cell
                             row={row}
                             column={column}
@@ -1466,7 +1480,7 @@ export function PropertySectionRecords({
                         </td>
                       ))}
                       {showActions ? (
-                        <td>
+                        <td className="psr-col--actions">
                           <div className="psr-actions">
                             {rowActions(row)}
                             {href ? (

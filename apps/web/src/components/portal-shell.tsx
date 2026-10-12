@@ -1,9 +1,11 @@
+import { cookies } from 'next/headers';
 import { LiveSync } from './live-sync';
 import { PortalNav } from './portal-nav';
 import { NestKeepAlive } from './nest-keep-alive';
 import { NavigationProgress } from './navigation-progress';
 import { PortalRoutePrefetch } from './portal-route-prefetch';
 import { PortalMainSlot } from './portal-main-slot';
+import { PORTAL_NAV_COOKIE } from '@/lib/portal-nav-state';
 import { isStaysPlatformEnabled } from '@/lib/stays-flags';
 import { requirePortalShell } from '@/lib/viewer';
 import type { PortalRole } from '@/lib/types';
@@ -20,13 +22,19 @@ export async function PortalShell({
   const viewer = await requirePortalShell(locale, portal);
   const loc = locale === 'en' ? 'en' : 'ar';
   const staysEnabled = (portal === 'owner' || portal === 'developer') && isStaysPlatformEnabled();
+  const navCollapsed = (await cookies()).get(PORTAL_NAV_COOKIE)?.value === 'collapsed';
   return (
     <div className="portal-layout">
       <NavigationProgress />
       <PortalRoutePrefetch portal={portal} staysEnabled={staysEnabled} />
       <NestKeepAlive />
       <LiveSync />
-      <PortalNav portal={portal} viewer={viewer} staysEnabled={staysEnabled} />
+      <PortalNav
+        portal={portal}
+        viewer={viewer}
+        staysEnabled={staysEnabled}
+        initialCollapsed={navCollapsed}
+      />
       <div className="portal-main">
         <PortalMainSlot
           key={`${viewer.id}:${viewer.organizationId}:${portal}:${loc}`}

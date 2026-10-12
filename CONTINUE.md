@@ -1,5 +1,21 @@
 # CONTINUE — 2026-10-12
 
+**0.8.12** · جدول يتّسع للشاشة وطيّ القائمة الجانبية:
+
+- **الجدول (`property-section-records.tsx`):**
+  - كل خلية تحمل `psr-col--<format>` و`psr-key--<key>`، وعمود الإجراءات `psr-col--actions`، وهو `position: sticky` على `inset-inline-end`.
+  - التنسيق `period` يعرض `fromOn` فوق `row.toOn`.
+  - أنماط الجدول كلها تحت `.data-table.psr-table` لتتقدّم على أنماط `.data-table` العامة.
+- **طيّ القائمة (`portal-nav.tsx`):**
+  - الحالة `collapsed` والزر `.portal-sidebar__collapse`.
+  - التفضيل في ملف تعريف الارتباط `bhd_r_nav`، والاسم معرّف في `lib/portal-nav-state.ts` لأن `PortalShell` (خادم) يقرؤه، ولا يصح استيراد ثابت من ملف `'use client'`.
+  - العرض بـ `.portal-layout:has(> .portal-sidebar--collapsed)` داخل `@media (min-width: 961px)` فقط، فدرج الهاتف لا يتأثر.
+- **اسم الرابط** صار داخل `span.portal-nav__label`، ويُخفى بصرياً فقط في وضع الشريط.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.12-AR.md`](./docs/implementation/RELEASE-0.8.12-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.11** · مشهد «استرداد التأمين»:
 
 - **المكوّن:** `components/stays/stay-refund-scene.tsx` (`StayRefundScene`). يأخذ `StayRefundMoment` ويرسم مشهداً لكل حالة (`open` و`requested` و`approved` و`paid` و`rejected`).
