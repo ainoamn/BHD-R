@@ -15,7 +15,7 @@
 
 - **المكوّن:** `components/stays/stay-send-phone.tsx` (`StaySendPhone`). يُعرض عندما يحمل `StayGreeting` الحقل `send` (`StaySendMoment`).
 - **أين يُملأ `send`:** في شاشتَي `submitted` داخل `stayGuestGreeting`: الحالة `request_pending` مع الترحيب، والحالة `payment_pending` مع الترحيب (`mode: 'instant'`).
-- **المشهد لا يُعكس في RTL:** الصنف `.stay-send__scene` مستقل عن `.stay-trip__scene`، لأن الأخير يُعكس في RTL.
+- **المشهد لا يُعكس في RTL:** الصنف `.stay-scene` (كان `.stay-send__scene` حتى 0.8.11) مستقل عن `.stay-trip__scene`، لأن الأخير يُعكس في RTL. وأجزاء المشهد في `stay-scene-parts.tsx` منذ 0.8.11.
 - **الشاشات الضيقة:** العناصر المهمة بين x=165 وx=470، فتبقى ظاهرة على الهاتف.
 
 **تفاصيل:** [`docs/implementation/RELEASE-0.8.10-AR.md`](./docs/implementation/RELEASE-0.8.10-AR.md)
