@@ -11,10 +11,11 @@ import type {
 } from '@/lib/contract-document';
 import { formatMoney } from '@/lib/format';
 import { omanLocations } from '@/lib/oman-locations';
-import { ANNEX_META } from '@/lib/contract-annex';
+import { ANNEX_META, type ContractAnnexDocument } from '@/lib/contract-annex';
 import type { PortalRole } from '@/lib/types';
 import { stayTypeLabel } from '@/lib/ui-labels';
 import { ContractActions } from './contract-actions';
+import { ContractAnnexArticle } from './contract-annex-view';
 import {
   BRAND_LOGO,
   DocLetterhead,
@@ -29,6 +30,7 @@ import { SignatureForm } from './signature-form';
 type Portal = Exclude<PortalRole, 'platform'>;
 
 const DOCUMENT_ID = 'contract-document';
+const annexDocumentId = (kind: string) => `contract-annex-${kind}`;
 
 const STATUS_LABELS: Record<string, Pair> = {
   draft: ['مسودة', 'Draft'],
@@ -134,12 +136,15 @@ type Kit = ReturnType<typeof contractKit>;
 export function ContractDocumentView({
   contract,
   doc,
+  annexDocuments = [],
   portal,
   locale,
   viewerName,
 }: {
   contract: ContractDetail;
   doc: ContractDocument;
+  /** Recorded annexes, held on the page so they can be printed with the contract. */
+  annexDocuments?: ContractAnnexDocument[];
   portal: Portal;
   locale: 'ar' | 'en';
   viewerName: string;
@@ -333,7 +338,71 @@ export function ContractDocumentView({
         }
         recipientPath={portal === 'tenant' ? null : recipientPath}
         pdfUrl={contract.documentUrl}
+        parts={
+          doc.annexes.length
+            ? [
+                { id: DOCUMENT_ID, label: ar ? 'العقد' : 'Contract', available: true },
+                ...doc.annexes.map((annex) => ({
+                  id: annexDocumentId(annex.kind),
+                  label: pick(ANNEX_META[annex.kind].title),
+                  available: annexDocuments.some((item) => item.kind === annex.kind),
+                })),
+              ]
+            : null
+        }
       />
+
+      {doc.annexes.length ? (
+        <nav className="contract-annex-bar" aria-label={ar ? 'محاضر العقد' : 'Contract records'}>
+          {doc.annexes.map((annex) => {
+            const meta = ANNEX_META[annex.kind];
+            const content = (
+              <>
+                <span className="contract-annex-bar__no">A{meta.number}</span>
+                <span className="contract-annex-bar__title">{pick(meta.title)}</span>
+                <small>
+                  {annex.recordedAt
+                    ? pick(dateTime(annex.recordedAt))
+                    : ar
+                      ? 'لم يُسجَّل بعد'
+                      : 'Not recorded yet'}
+                </small>
+              </>
+            );
+            return annex.recordedAt ? (
+              <Link
+                key={annex.kind}
+                className="contract-annex-bar__item"
+                href={`/${locale}/${portal}/contracts/${contract.id}/annex/${annex.kind}`}
+              >
+                {content}
+              </Link>
+            ) : (
+              <span
+                key={annex.kind}
+                className="contract-annex-bar__item contract-annex-bar__item--pending"
+                aria-disabled="true"
+              >
+                {content}
+              </span>
+            );
+          })}
+        </nav>
+      ) : null}
+
+      {annexDocuments.length ? (
+        <div className="contract-annex-stash" hidden>
+          {annexDocuments.map((annex) => (
+            <ContractAnnexArticle
+              key={annex.kind}
+              annex={annex}
+              portal={portal}
+              lang={locale}
+              id={annexDocumentId(annex.kind)}
+            />
+          ))}
+        </div>
+      ) : null}
 
       {portal !== 'tenant' && !letterhead?.logoDataUrl ? (
         <p className="contract-doc-hint">

@@ -19622,6 +19622,124 @@ body:has(.stay-esign-shell) {
   font-size: 0.85rem;
   font-weight: 600;
 }
+.contract-print-picker {
+  flex-basis: 100%;
+  margin: 0.25rem 0 0;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid #d7e5dd;
+  border-radius: 0.75rem;
+  background: #fff;
+}
+.contract-print-picker legend {
+  padding-inline: 0.3rem;
+  font-weight: 700;
+  color: #10372a;
+}
+.contract-print-picker ul {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  list-style: none;
+}
+.contract-print-picker li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.5rem;
+  background: #f6fbf8;
+}
+.contract-print-picker label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.contract-print-picker label.is-unavailable {
+  color: #7b8a83;
+  cursor: not-allowed;
+}
+.contract-print-picker small {
+  color: #7b8a83;
+  font-weight: 400;
+}
+.contract-print-picker p {
+  margin: 0 0 0.6rem;
+  font-size: 0.85rem;
+}
+.contract-print-picker__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.contract-annex-bar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 0 0 1rem;
+}
+.contract-annex-bar__item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 0.6rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid #c9a86a;
+  border-radius: 0.8rem;
+  background: #fffaf0;
+  color: #10372a;
+  text-decoration: none;
+  transition:
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+a.contract-annex-bar__item:hover,
+a.contract-annex-bar__item:focus-visible {
+  background: #fff3da;
+  box-shadow: 0 2px 10px rgb(168 131 74 / 0.18);
+}
+.contract-annex-bar__item--pending {
+  border-style: dashed;
+  border-color: #d5dcd8;
+  background: #f7f8f7;
+  color: #7b8a83;
+}
+.contract-annex-bar__no {
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+  width: 2.3rem;
+  height: 2.3rem;
+  border-radius: 50%;
+  background: #10372a;
+  color: #f3e3bd;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.contract-annex-bar__item--pending .contract-annex-bar__no {
+  background: #d5dcd8;
+  color: #5d6b65;
+}
+.contract-annex-bar__title {
+  font-weight: 700;
+  line-height: 1.35;
+}
+.contract-annex-bar__item small {
+  color: #6b5a3a;
+  font-size: 0.78rem;
+}
+.contract-annex-bar__item--pending small {
+  color: #7b8a83;
+}
+@media (max-width: 720px) {
+  .contract-annex-bar {
+    grid-template-columns: 1fr;
+  }
+}
 .contract-doc-hint {
   margin: 0 0 1rem;
   padding: 0.6rem 0.9rem;
@@ -20645,6 +20763,25 @@ body:has(.stay-esign-shell) {
   }
   body.printing-contract .contract-doc .terms-doc {
     font-size: 10pt;
+  }
+  body.printing-contract .contract-print--bundle .contract-doc + .contract-doc {
+    break-before: page;
+    page-break-before: always;
+  }
+  body.printing-contract
+    .contract-print--bundle
+    .contract-doc
+    + .contract-doc
+    .contract-doc__page-frame,
+  body.printing-contract
+    .contract-print--bundle
+    .contract-doc
+    + .contract-doc
+    .contract-doc__watermark {
+    display: none;
+  }
+  body.printing-contract .contract-print--bundle .contract-doc__pagefoot {
+    display: none;
   }
 }
 

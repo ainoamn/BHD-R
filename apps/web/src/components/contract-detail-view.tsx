@@ -1,6 +1,8 @@
 import { Card, CardContent, StatusBadge } from '@bhd-r/ui';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import type { ContractAnnexDocument } from '@/lib/contract-annex';
+import { loadContractAnnexFromNeon } from '@/lib/contract-annex-neon';
 import { loadContractDetailFromNeon, type ContractDetail } from '@/lib/contract-detail-neon';
 import { ApiError, apiFetch } from '@/lib/server-api';
 import { requirePortal } from '@/lib/viewer';
@@ -61,10 +63,21 @@ export async function ContractDetailView({
     );
   }
   if (contract.document) {
+    const annexes = await Promise.all(
+      contract.document.annexes
+        .filter((annex) => annex.recordedAt)
+        .map((annex) =>
+          loadContractAnnexFromNeon(contractId, portal, annex.kind).catch((error: unknown) => {
+            console.error('contract annex (neon) failed', error);
+            return null;
+          }),
+        ),
+    );
     return (
       <ContractDocumentView
         contract={contract}
         doc={contract.document}
+        annexDocuments={annexes.filter((annex): annex is ContractAnnexDocument => Boolean(annex))}
         portal={portal}
         locale={currentLocale}
         viewerName={viewer.displayName}

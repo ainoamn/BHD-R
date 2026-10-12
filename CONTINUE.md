@@ -1,5 +1,16 @@
 # CONTINUE — 2026-10-12
 
+**0.8.24** · ملاحق العقد وخيارات الطباعة:
+
+- **`ContractDetailView`:** يحمّل الملاحق المسجلة (`recordedAt`) بـ`loadContractAnnexFromNeon` ويمررها `annexDocuments` إلى `ContractDocumentView`.
+- **`ContractDocumentView`:** شريط `.contract-annex-bar` بروابط `/{portal}/contracts/{id}/annex/{kind}`، ونسخة مخفية `ContractAnnexArticle` لكل ملحق بالمعرّف `contract-annex-{kind}`، وخاصية `parts` للأدوات.
+- **`ContractDocumentToolbar`:** مع ملحق مسجَّل واحد على الأقل تظهر `.contract-print-picker`. الأجزاء المحددة تُنسخ إلى `.contract-print` (و`--bundle` لأكثر من جزء)، و`imagesReady` قبل `window.print()`.
+- **مفتوح:** المشاركة والبريد وواتساب في صفحة العقد ترسل رابط العقد وحده.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.24-AR.md`](./docs/implementation/RELEASE-0.8.24-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.23** · عرض موحّد للحجوزات والمعاينات:
 
 - **`PortalMainSlot`:** قسم `bookings` لبوابتي المالك والمطوّر يمرر `listOverride={<PropertySectionRecords propertyId={null} section="bookings" />}` إلى `OperationsConsole`. يبقى الرأس و«حجز جديد» وطابور العربون، وتختفي المؤشرات وتبويبات الغرض والجدول العام.
