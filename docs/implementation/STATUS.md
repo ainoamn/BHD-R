@@ -1,7 +1,7 @@
 # Implementation status
 
 **Updated:** 2026-10-12  
-**Product version:** 0.8.4  
+**Product version:** 0.8.5  
 **Active focus:** Owner dashboard speed and redesign — phases 1–3 shipped (parallel loads, Neon reads and indexes, calm unified design); live page-by-page review and loading skeletons next  
 **Release 0.6.3:** [`RELEASE-0.6.3-AR.md`](./RELEASE-0.6.3-AR.md)  
 **Release 0.6.2:** [`RELEASE-0.6.2-AR.md`](./RELEASE-0.6.2-AR.md)  
@@ -13,6 +13,7 @@
 
 | Version         | Focus                                                                                                                                                       |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.8.5           | Contract seal: e-signature number in red; BHD logo inside the verification QR; one design standard for all contracts and invoices                           |
 | 0.8.4           | Deposit refund after check-out: guest request, owner approve/reject with note, accountant transfer with receipt; 5th guest journey step; closes booking     |
 | 0.8.3           | Contracts list: tenant, property & unit, term (daily/monthly/yearly/sale), property use, signed/start/end dates; filters by term, use, validity, date range |
 | 0.8.2           | Guest stay scenes: Omani flag on the house, SUV redrawn so it clearly drives forward, host-approval desk scene (Omani dress, review / signing)              |

@@ -17709,8 +17709,8 @@ body:has(.stay-esign-shell) {
 .verify-sign__serial {
   padding: 0.15rem 0.5rem;
   border-radius: 6px;
-  background: #eef8f2;
-  color: #0b3d2a;
+  background: #fdf0f2;
+  color: #c8102e;
   font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
   font-size: 0.85rem;
 }
@@ -18201,6 +18201,7 @@ body:has(.stay-esign-shell) {
   --doc-ink: #1f2a24;
   --doc-muted: #5f6b64;
   --doc-paper: #fffdf7;
+  --doc-serial: #c8102e;
   position: relative;
   overflow: hidden;
   padding: 2.25rem 2.5rem;
@@ -18406,8 +18407,10 @@ body:has(.stay-esign-shell) {
   font-size: 0.7rem;
 }
 .contract-doc__seal--serial b {
+  color: var(--doc-serial);
   font-family: var(--font-latin), 'Segoe UI', sans-serif;
-  font-size: 0.68rem;
+  font-size: 0.74rem;
+  font-weight: 800;
   letter-spacing: 0;
   white-space: nowrap;
 }
@@ -18487,7 +18490,7 @@ body:has(.stay-esign-shell) {
   font-size: 0.85rem;
 }
 .contract-doc__serial {
-  color: var(--doc-green);
+  color: var(--doc-serial);
   letter-spacing: 0.02em;
 }
 .contract-doc__integrity--qr {

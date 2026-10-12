@@ -2,6 +2,13 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.5 — 2026-10-12
+
+- **رقم التوقيع الإلكتروني بالأحمر** (`#c8102e`) داخل الختم الأخضر للعقد، وفي قسم التواقيع وصفحة التحقق.
+- **شعار الموقع في وسط رمز QR** للتحقق، مع تصحيح أخطاء بمستوى Q. قُرئ آلياً بنجاح، والروابط المطبوعة سابقاً صالحة.
+- **معيار موحّد للمستندات:** [`docs/product/DOCUMENTS-DESIGN-STANDARD-AR.md`](./docs/product/DOCUMENTS-DESIGN-STANDARD-AR.md). كل العقود والفواتير بنفس التنسيق والخط والألوان، مع قاعدة `.cursor/rules/documents-design.mdc`.
+- التفاصيل: [`docs/implementation/RELEASE-0.8.5-AR.md`](./docs/implementation/RELEASE-0.8.5-AR.md).
+
 ## 0.8.4 — 2026-10-12
 
 - **استرداد مبلغ التأمين بعد المغادرة:**

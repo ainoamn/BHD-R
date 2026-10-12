@@ -1,5 +1,18 @@
 # CONTINUE — 2026-10-12
 
+**0.8.5** · ختم التوقيع، وQR بالشعار، ومعيار المستندات:
+
+- **`--doc-serial: #c8102e`** في `.contract-doc`. يُستخدم في `.contract-doc__seal--serial b` و`.contract-doc__serial`، ولون `.verify-sign__serial` مطابق.
+- **`contractQrSvg`** في `lib/contract-verify.ts`:
+  - `errorCorrectionLevel: 'Q'`.
+  - `withBrandMark` يضيف لوحة بيضاء ومسارات الشعار (`BRAND_MARK`) كـ `<svg>` داخلي بعرض 36% من الرمز.
+- **المعيار:** `docs/product/DOCUMENTS-DESIGN-STANDARD-AR.md`، والقاعدة `.cursor/rules/documents-design.mdc`.
+- **التالي:** توحيد `.stay-doc` (الإيصال وتأكيد الحجز)، والفاتورة العامة، وملخص عقد الحجز، على متغيّرات `--doc-*` وخطوط العقد.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.5-AR.md`](./docs/implementation/RELEASE-0.8.5-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.4** · استرداد التأمين:
 
 - **التخزين (دون ترحيل):**

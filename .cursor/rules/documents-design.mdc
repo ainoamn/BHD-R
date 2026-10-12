@@ -1,0 +1,22 @@
+---
+description: Unified design for contracts, invoices, receipts and other official documents (same layout, fonts and colours site-wide)
+globs: apps/web/src/**/*contract*,apps/web/src/**/*invoice*,apps/web/src/**/*receipt*,apps/web/src/**/*document*,apps/web/src/**/*verify*
+alwaysApply: false
+---
+
+# Official documents share one design
+
+Full standard: `docs/product/DOCUMENTS-DESIGN-STANDARD-AR.md`. Reference implementation: `components/contract-document-view.tsx` + `.contract-doc` in `globals.css`.
+
+- Never give a contract, invoice, receipt or booking confirmation its own look. Reuse the `.contract-doc` layout: letterhead with `/brand/bhd-official-symbol.svg`, title + other-language title, number/date/status bar, seal, QR, fixed print footer.
+- Fonts: `--font-contract` (Amiri) for headings, `--font-arabic` for Arabic text, `--font-latin` for English and numbers.
+- Colours only from the `--doc-*` variables. Official numbers inside seals (e-signature `ES-YYYY-NNNNNN`) use `--doc-serial` (`#c8102e`).
+- QR codes for official documents come from `contractQrSvg` (`lib/contract-verify.ts`): brand mark in the middle, error correction Q.
+- Reference numbers inside `<bdi dir="ltr">`; dates in Muscat time; amounts in OMR with 3 decimals; labels bilingual.
+- Print: A4, letterhead and footer on every page, `print-color-adjust: exact`.
+- Privacy: IDs, transfer receipts and account numbers only for permission holders, masked for everyone else.
+
+```css
+/* ❌ */ .invoice-doc h1 { font-family: Georgia; color: #224488; }
+/* ✅ */ .invoice-doc h1 { font-family: var(--font-contract), serif; color: var(--doc-green); }
+```
