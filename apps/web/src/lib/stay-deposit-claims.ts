@@ -20,6 +20,8 @@ export const RECEIPT_CONFIRM_HOURS = 24;
 export const ESCALATION_BUSINESS_DAYS = 3;
 /** Days after the refund (or its rejection) during which the guest may send a claim. */
 export const CLAIM_WINDOW_DAYS = 30;
+/** Working days the host has to settle a refund request: the two working weeks told to the guest. */
+export const CLAIM_WAIT_BUSINESS_DAYS = 10;
 export const MAX_CLAIMS_PER_STAY = 5;
 
 export type DepositReceiptState = 'pending' | 'confirmed' | 'auto' | 'not_received';
@@ -66,6 +68,23 @@ export function addBusinessDays(fromIso: string, days: number): string {
     if (weekday !== 5 && weekday !== 6) counted += 1;
   }
   return new Date(local - MUSCAT_OFFSET_MS).toISOString();
+}
+
+/**
+ * When the guest may send the host a request or objection: at once when the deposit was
+ * transferred (in part or in full) or the refund rejected; otherwise two working weeks after
+ * the refund request. Null means open now.
+ */
+export function claimsOpenFrom(refund: {
+  status: string;
+  requestedAt: string | null;
+  paidMinor: string | null;
+}): string | null {
+  if (refund.status === 'executed' || refund.status === 'rejected') return null;
+  if (refund.paidMinor && /^\d+$/.test(refund.paidMinor) && BigInt(refund.paidMinor) > 0n) {
+    return null;
+  }
+  return refund.requestedAt ? addBusinessDays(refund.requestedAt, CLAIM_WAIT_BUSINESS_DAYS) : null;
 }
 
 /**
@@ -180,6 +199,16 @@ export const CLAIM_ERRORS: Record<string, { status: number; ar: string; en: stri
     status: 409,
     ar: 'تُتاح الطلبات والاعتراضات بعد قرار المالك في استرداد التأمين.',
     en: 'Requests open once the host has decided on the deposit refund.',
+  },
+  claim_not_yet: {
+    status: 409,
+    ar: 'تُتاح الطلبات والاعتراضات بعد تحويل مبلغ التأمين، أو بعد أسبوعَي عمل من طلب الاسترداد.',
+    en: 'Requests open once the deposit is transferred, or two working weeks after the refund request.',
+  },
+  refund_decide_first: {
+    status: 409,
+    ar: 'قرّر طلب استرداد التأمين أولاً، ثم أضف المبلغ للضيف.',
+    en: 'Decide the deposit refund request first, then add the amount.',
   },
   receipt_not_open: {
     status: 409,

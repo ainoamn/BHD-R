@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addBusinessDays,
   claimEscalationFrom,
+  claimsOpenFrom,
   depositReceiptState,
   whatsappDigits,
   whatsappLink,
@@ -57,6 +58,20 @@ describe('deposit receipt and claims', () => {
         settled,
       ),
     ).toBeNull();
+  });
+
+  it('opens guest requests on transfer or rejection, else two working weeks after the request', () => {
+    // Monday 12 Oct 2026, 10:52 Muscat → ten working days → Monday 26 Oct.
+    const requestedAt = '2026-10-12T06:52:00.000Z';
+    expect(claimsOpenFrom({ status: 'requested', requestedAt, paidMinor: '0' })).toBe(
+      '2026-10-26T06:52:00.000Z',
+    );
+    expect(claimsOpenFrom({ status: 'approved', requestedAt, paidMinor: '0' })).toBe(
+      '2026-10-26T06:52:00.000Z',
+    );
+    expect(claimsOpenFrom({ status: 'approved', requestedAt, paidMinor: '60000' })).toBeNull();
+    expect(claimsOpenFrom({ status: 'executed', requestedAt, paidMinor: '60000' })).toBeNull();
+    expect(claimsOpenFrom({ status: 'rejected', requestedAt, paidMinor: '0' })).toBeNull();
   });
 
   it('transfers only what is still due on an approved refund', () => {

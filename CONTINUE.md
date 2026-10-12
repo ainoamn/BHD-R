@@ -1,5 +1,16 @@
 # CONTINUE — 2026-10-12
 
+**0.8.25** · موعد طلبات الضيف بشأن التأمين:
+
+- **`claimsOpenFrom`** في `lib/stay-deposit-claims.ts`: فارغ (متاح فوراً) عند `executed` أو `rejected` أو `paidMinor > 0`، وإلا `addBusinessDays(requestedAt, CLAIM_WAIT_BUSINESS_DAYS = 10)`.
+- **الخادم:** `guestDepositClaimAction` يرد بـ`claim_not_yet` قبل الموعد، ولا يقبل مبلغاً والاسترداد `requested`. و`addToDepositRefund` يرد بـ`refund_decide_first`. ومهلة `CLAIM_WINDOW_DAYS` تُحسب من `settledAtOf` فقط.
+- **الضيف:** `StayDepositClaims` يظهر من لحظة طلب الاسترداد، والزر مخفي حتى الموعد مع `.stay-deposit-claims__wait`.
+- **مفتوح:** الإجازات الرسمية غير محتسبة في أيام العمل.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.25-AR.md`](./docs/implementation/RELEASE-0.8.25-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.24** · ملاحق العقد وخيارات الطباعة:
 
 - **`ContractDetailView`:** يحمّل الملاحق المسجلة (`recordedAt`) بـ`loadContractAnnexFromNeon` ويمررها `annexDocuments` إلى `ContractDocumentView`.

@@ -12,6 +12,7 @@ import {
   claimKindLabel,
   claimStatusLabel,
   claimStatusTone,
+  claimsOpenFrom,
   type DepositClaimView,
 } from '@/lib/stay-deposit-claims';
 import type { GuestDepositRefund } from '@/lib/stay-deposit-refund';
@@ -93,14 +94,16 @@ export function StayDepositClaims({
   const kept =
     refund.status === 'rejected'
       ? deposit
-      : deposit > BigInt(refund.amountMinor)
+      : refund.status !== 'requested' && deposit > BigInt(refund.amountMinor)
         ? deposit - BigInt(refund.amountMinor)
         : 0n;
   const lastPaid = refund.lastPaidMinor ?? refund.paidMinor;
   const partial = lastPaid !== refund.paidMinor;
   const open = claims.some((claim) => claim.status === 'open');
-  const canClaim = refund.status !== 'requested' && !open && claims.length < MAX_CLAIMS_PER_STAY;
   const [now] = useState(() => Date.now());
+  const opensFrom = claimsOpenFrom(refund);
+  const waiting = opensFrom !== null && Date.parse(opensFrom) > now;
+  const canClaim = !waiting && !open && claims.length < MAX_CLAIMS_PER_STAY;
 
   function run(body: Record<string, unknown>, success: string) {
     startTransition(async () => {
@@ -484,6 +487,12 @@ export function StayDepositClaims({
               ? 'لديك طلب بانتظار رد المالك؛ يصلك رده هنا وعلى بريدك.'
               : 'Your request is waiting for the host; the answer will appear here.'}
           </small>
+        ) : waiting ? (
+          <p className="stay-deposit-claims__wait">
+            {ar
+              ? `يُتاح تقديم طلب أو اعتراض فور تحويل مبلغ التأمين إليك، أو ابتداءً من ${stamp(opensFrom, ar)} إن لم يُحوَّل حتى ذلك الحين (أسبوعا عمل من طلب الاسترداد).`
+              : `You can send a request or objection as soon as the deposit is transferred, or from ${stamp(opensFrom, ar)} if it has not been by then (two working weeks after the refund request).`}
+          </p>
         ) : null}
       </div>
 

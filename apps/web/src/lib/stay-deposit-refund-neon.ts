@@ -246,6 +246,7 @@ export async function currentRefund(tx: Tx, booking: RefundBooking) {
       status: stayRefunds.status,
       amountMinor: stayRefunds.amountMinor,
       paidMinor: stayRefunds.paidMinor,
+      requestedAt: stayRefunds.createdAt,
       approvedAt: stayRefunds.approvedAt,
       transferRecordedAt: stayRefunds.transferRecordedAt,
       guestReceipt: stayRefunds.guestReceipt,
@@ -835,7 +836,8 @@ export async function addToDepositRefund(
   meta: Adjustment,
 ): Promise<void> {
   const refund = await currentRefund(tx, booking);
-  if (!refund || refund.status === 'requested') fail('refund_not_decided');
+  if (!refund) fail('refund_not_decided');
+  if (refund.status === 'requested') fail('refund_decide_first');
   const deposit = await refundDepositMinor(tx, booking, refund.id);
   if (extra <= 0n || extra > keptOfRefund(refund, deposit)) fail('claim_amount_invalid');
   const rejected = refund.status === 'rejected';

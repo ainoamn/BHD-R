@@ -31,6 +31,7 @@ import {
   SITE_ADMIN_LIMIT,
   claimEscalationFrom,
   claimKindLabel,
+  claimsOpenFrom,
   validAdminEmail,
   whatsappDigits,
   whatsappLink,
@@ -350,10 +351,15 @@ export async function guestDepositClaimAction(
       return { whatsapp };
     }
 
-    if (!refund || refund.status === 'requested') fail('refund_not_decided');
+    if (!refund) fail('refund_not_decided');
+    const opensFrom = claimsOpenFrom({
+      status: refund.status,
+      requestedAt: iso(refund.requestedAt),
+      paidMinor: refund.paidMinor.toString(),
+    });
+    if (opensFrom && Date.parse(opensFrom) > now.getTime()) fail('claim_not_yet');
     const settledAt = settledAtOf(refund);
-    const since = settledAt ?? iso(refund.approvedAt);
-    if (since && now.getTime() - Date.parse(since) > CLAIM_WINDOW_DAYS * DAY_MS) {
+    if (settledAt && now.getTime() - Date.parse(settledAt) > CLAIM_WINDOW_DAYS * DAY_MS) {
       fail('claim_window_closed');
     }
     const counts = await claimCounts(tx, booking.id);
@@ -387,6 +393,7 @@ export async function guestDepositClaimAction(
     } else if (input.action === 'open') {
       amount = parseAmount(input.amount, booking.currency);
       if (amount !== null) {
+        if (refund.status === 'requested') fail('claim_amount_invalid');
         const deposit = await refundDepositMinor(tx, booking, refund.id);
         if (amount <= 0n || amount > keptOfRefund(refund, deposit)) fail('claim_amount_invalid');
       }

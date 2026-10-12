@@ -483,7 +483,7 @@ export default async function GuestStayDetailPage({
                 ar={ar}
               />
             ) : null}
-            {refund && refund.status !== 'requested' ? (
+            {refund ? (
               <StayDepositClaims
                 referenceCode={booking.referenceCode}
                 refund={refund}
