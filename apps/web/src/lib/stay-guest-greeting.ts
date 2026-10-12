@@ -19,12 +19,15 @@ export type StayGreeting = {
   trip?: StayTripMoment | undefined;
   /** Host approval drawn as the host at the desk: reading the request, or signing it. */
   desk?: StayDeskMoment | undefined;
+  /** First step drawn as the guest sending the booking from their phone. */
+  send?: StaySendMoment | undefined;
   /** Deposit refund after check-out: request form, or where the refund stands. */
   refund?: StayRefundMoment | undefined;
 };
 
 export type StayTripMoment = { kind: 'arrive' | 'parked' | 'depart'; status: string };
 export type StayDeskMoment = { signed: boolean; status: string };
+export type StaySendMoment = { mode: 'request' | 'instant'; status: string };
 
 /** Display-ready deposit refund state; amounts and dates already formatted. */
 export type StayRefundMoment = {
@@ -94,6 +97,10 @@ export function stayGuestGreeting(input: {
       if (welcome) {
         return {
           stage: 'submitted',
+          send: {
+            mode: 'request',
+            status: ar ? 'أرسلت الطلب من هاتفك إلى المالك' : 'Sent from your phone to the host',
+          },
           headline: hi('يا هلا ويا مرحبا{name}!', 'Welcome aboard{name}!'),
           body: ar
             ? 'وصلَنا طلبك، ورحلتك معنا بدأت من هذه اللحظة. إليك الطريق خطوة بخطوة، بلا مفاجآت… إلا السارّة منها:'
@@ -137,6 +144,12 @@ export function stayGuestGreeting(input: {
       if (welcome) {
         return {
           stage: 'submitted',
+          send: {
+            mode: 'instant',
+            status: ar
+              ? 'حجزت من هاتفك · التواريخ محجوزة لك'
+              : 'Booked from your phone · dates held',
+          },
           headline: hi('يا هلا ويا مرحبا{name}!', 'Welcome aboard{name}!'),
           body: ar
             ? 'اختيار موفّق! تواريخك محجوزة لك مؤقتاً، وما تبقّى أسهل مما تظن:'

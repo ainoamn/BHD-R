@@ -1,7 +1,7 @@
 # Implementation status
 
 **Updated:** 2026-10-12  
-**Product version:** 0.8.9  
+**Product version:** 0.8.10  
 **Active focus:** Owner dashboard speed and redesign — phases 1–3 shipped (parallel loads, Neon reads and indexes, calm unified design); live page-by-page review and loading skeletons next  
 **Release 0.6.3:** [`RELEASE-0.6.3-AR.md`](./RELEASE-0.6.3-AR.md)  
 **Release 0.6.2:** [`RELEASE-0.6.2-AR.md`](./RELEASE-0.6.2-AR.md)  
@@ -13,6 +13,7 @@
 
 | Version         | Focus                                                                                                                                                                                                                                                        |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 0.8.10          | Guest stay page: animated "request sent" scene for the first step — guest in dishdasha and kumma taps send on the phone, a paper plane flies to the host's house (instant bookings show "Book now"); replay button, reduced-motion aware                     |
 | 0.8.9           | Deposit refund request: account / IBAN, bank and phone required; guest picks bank or phone transfer (phone is contact-only for bank); server-side checks; calmer consent wording (`refund-terms-2026-10-12.2`); phone shown to host, accountant and annex A3 |
 | 0.8.8           | Contract annexes as separate printable documents (check-in A1, check-out A2, deposit refund A3); handover removed from the contract body; up to 6 unit condition photos (live or from device) at check-in / check-out, fingerprinted and shown in the annex  |
 | 0.8.7           | Deposit refund consent (1 working day to 2 working weeks, notices promised) required before the request; guest notices for approve / reject / transfer on the stay page and queued emails                                                                    |

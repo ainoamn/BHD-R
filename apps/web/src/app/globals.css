@@ -19954,6 +19954,158 @@ body:has(.stay-esign-shell) {
     transform: rotate(360deg);
   }
 }
+/* First step: the guest taps send on the phone, and the request flies to the host's house. */
+.stay-send__scene {
+  position: relative;
+  height: 150px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #8fd0f2 0%, #d6f0fb 66%, #f4fbff 100%);
+}
+.stay-send__scene svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.stay-send__head,
+.stay-send__thumb,
+.stay-send__button,
+.stay-send__ripple,
+.stay-send__finger,
+.stay-send__plane,
+.stay-send__badge,
+.stay-send__ring {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.stay-send__head {
+  transform-origin: 50% 100%;
+  animation: stay-desk-nod 3.2s ease-in-out infinite;
+}
+.stay-send__glow {
+  opacity: 0.18;
+  animation: stay-trip-blink 2.4s ease-in-out infinite;
+}
+.stay-send__cloud {
+  animation: stay-send-drift 16s ease-in-out infinite alternate;
+}
+.stay-send__cloud--slow {
+  animation-duration: 24s;
+}
+.stay-send__thumb {
+  animation: stay-send-thumb 0.5s ease-in-out 0.75s both;
+}
+.stay-send__button {
+  animation: stay-send-press 0.3s ease-in-out 0.85s both;
+}
+.stay-send__sent {
+  animation: stay-desk-fade 0.35s ease-out 1.15s both;
+}
+.stay-send__ripple {
+  opacity: 0;
+  animation: stay-send-ripple 0.7s ease-out 0.85s both;
+}
+.stay-send__finger {
+  opacity: 0;
+  animation: stay-send-finger 1.1s ease-in-out 0.2s both;
+}
+.stay-send__trail {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: stay-desk-sign 1.6s linear 1.3s forwards;
+}
+.stay-send__plane {
+  opacity: 0;
+  animation: stay-send-fly 1.6s linear 1.3s both;
+}
+.stay-send__badge {
+  animation: stay-send-pop 0.45s cubic-bezier(0.3, 1.6, 0.5, 1) 2.85s both;
+}
+.stay-send__ring {
+  opacity: 0;
+  animation: stay-send-ripple 1s ease-out 2.85s both;
+}
+@keyframes stay-send-drift {
+  to {
+    transform: translateX(36px);
+  }
+}
+@keyframes stay-send-thumb {
+  50% {
+    transform: translateY(1.4px);
+  }
+}
+@keyframes stay-send-press {
+  50% {
+    transform: scale(0.92);
+  }
+}
+@keyframes stay-send-ripple {
+  from {
+    opacity: 0.9;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+@keyframes stay-send-finger {
+  0% {
+    opacity: 0;
+    transform: translate(8px, 10px);
+  }
+  40% {
+    opacity: 1;
+    transform: translate(2px, 3px);
+  }
+  65% {
+    opacity: 1;
+    transform: translate(0, 0) scale(0.9);
+  }
+  85% {
+    opacity: 1;
+    transform: translate(2px, 3px);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(6px, 8px);
+  }
+}
+@keyframes stay-send-fly {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(-52deg) scale(0.5);
+  }
+  8% {
+    opacity: 1;
+  }
+  25% {
+    transform: translate(37px, -37px) rotate(-37deg) scale(0.8);
+  }
+  50% {
+    transform: translate(73.5px, -55px) rotate(-12deg) scale(1);
+  }
+  75% {
+    opacity: 1;
+    transform: translate(110px, -53px) rotate(18deg) scale(0.9);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(146px, -32px) rotate(41deg) scale(0.5);
+  }
+}
+@keyframes stay-send-pop {
+  from {
+    opacity: 0;
+    transform: scale(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stay-send__trail {
+    stroke-dashoffset: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .stay-desk--signed .stay-desk__signature {
     stroke-dashoffset: 0;
