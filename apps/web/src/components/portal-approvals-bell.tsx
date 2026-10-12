@@ -5,6 +5,7 @@ import { Link } from '@/i18n/navigation';
 import {
   PENDING_APPROVALS_CHANGED_EVENT,
   pendingApprovalHref,
+  pendingApprovalAmount,
   pendingApprovalTitle,
   type PendingApprovals,
 } from '@/lib/pending-approvals-shared';
@@ -149,6 +150,11 @@ export function PortalApprovalsBell({
                         .filter(Boolean)
                         .join(' · ')}
                     </span>
+                    {pendingApprovalAmount(item, locale) ? (
+                      <strong className="header-stay-alerts__meta">
+                        {pendingApprovalAmount(item, locale)}
+                      </strong>
+                    ) : null}
                   </Link>
                 </li>
               ))}

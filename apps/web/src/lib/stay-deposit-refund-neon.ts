@@ -975,6 +975,9 @@ export type DepositRefundQueueItem = {
   party: string | null;
   /** decision: waiting for the host; transfer: approved, waiting for the accountant. */
   step: 'decision' | 'transfer';
+  /** Still to transfer (approved minus already paid); null while awaiting the decision. */
+  dueMinor: string | null;
+  currency: string;
   since: string;
 };
 
@@ -996,6 +999,9 @@ export async function loadDepositRefundQueue(
         string | null
       >`${stayBookings.pricingSnapshotJson}->'guestContact'->>'displayName'`,
       refundStatus: stayRefunds.status,
+      refundAmountMinor: stayRefunds.amountMinor,
+      refundPaidMinor: stayRefunds.paidMinor,
+      currency: stayBookings.currency,
       refundUpdatedAt: stayRefunds.updatedAt,
       bookingUpdatedAt: stayBookings.updatedAt,
     })
@@ -1039,6 +1045,11 @@ export async function loadDepositRefundQueue(
         unitCode: row.unitCode,
         party: row.party,
         step,
+        dueMinor:
+          step === 'transfer' && row.refundAmountMinor !== null
+            ? (row.refundAmountMinor - (row.refundPaidMinor ?? 0n)).toString()
+            : null,
+        currency: row.currency,
         since: iso(row.refundUpdatedAt ?? row.bookingUpdatedAt) ?? '',
       },
     ];

@@ -46,6 +46,34 @@ function totals(rows: Row[], pick: (row: Row) => string | null | undefined) {
   return [...sums.entries()];
 }
 
+/** Refund and deduction once the host decided; both null while the decision is pending. */
+function settlementSplit(row: Row): { refund: string | null; deducted: string | null } {
+  const deposit = row.depositMinor;
+  if (!deposit || !/^\d+$/.test(deposit)) return { refund: null, deducted: null };
+  if (row.refundStatus === 'rejected') return { refund: '0', deducted: deposit };
+  const amount = row.refundAmountMinor;
+  if (
+    (row.refundStatus !== 'approved' && row.refundStatus !== 'executed') ||
+    !amount ||
+    !/^\d+$/.test(amount)
+  ) {
+    return { refund: null, deducted: null };
+  }
+  const kept = BigInt(deposit) - BigInt(amount);
+  return { refund: amount, deducted: (kept > 0n ? kept : 0n).toString() };
+}
+
+function formatDay(value: string, ar: boolean): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(ar ? 'ar-OM-u-nu-latn' : 'en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'Asia/Muscat',
+  }).format(date);
+}
+
 function pendingRefund(row: Row): string | null {
   return row.status === 'awaiting_refund_transfer'
     ? (row.refundDueMinor ?? row.refundAmountMinor ?? null)
@@ -77,6 +105,7 @@ export function DepositLedgerPanel({
   const [reloadKey, setReloadKey] = useState(0);
   const [filter, setFilter] = useState<Filter>('open');
   const [payoutId, setPayoutId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
   const silentReload = useRef(false);
@@ -347,104 +376,98 @@ export function DepositLedgerPanel({
             const status = row.status ?? '';
             const property = ar ? row.propertyName : row.propertyNameEn;
             const propertyHref = `/${portal}/properties/${encodeURIComponent(propertyId)}`;
+            const currency = row.currency || 'OMR';
+            const split = settlementSplit(row);
+            const hasClaim = claimOpen.has(id);
+            const isOpen = expanded[id] ?? (hasClaim || focusId === id);
+            const detailsId = `deposit-details-${id}`;
+            const money = (value: string | null) =>
+              value === null ? '—' : formatMoney(value, currency, locale);
             return (
               <li
                 key={id}
                 id={`deposit-${id}`}
-                className={`deposit-ledger__item${focusId === id ? ' is-focus' : ''}`}
+                className={`deposit-ledger__item${focusId === id ? ' is-focus' : ''}${
+                  isOpen ? ' is-open' : ''
+                }`}
               >
-                <div className="deposit-ledger__item-head">
+                <div className="deposit-ledger__row">
                   <div className="deposit-ledger__who">
                     <strong className="deposit-ledger__ref" dir="ltr">
                       {row.reference}
                     </strong>
                     <span className="deposit-ledger__place">
                       <bdi>{[property, row.unitCode].filter(Boolean).join(' · ') || '—'}</bdi>
-                      {row.party ? (
-                        <>
-                          {' · '}
-                          {ar ? 'الضيف: ' : 'Guest: '}
-                          <bdi>{row.party}</bdi>
-                        </>
-                      ) : null}
                     </span>
                   </div>
-                  <span className={`pmh-badge pmh-badge--${TONE[status] ?? 'muted'}`}>
-                    {domainStatusLabel(status, locale)}
-                  </span>
-                </div>
-                <div className="deposit-ledger__item-body">
-                  <section className="deposit-ledger__panel">
-                    <h3 className="deposit-ledger__panel-title">{ar ? 'التسوية' : 'Settlement'}</h3>
-                    <DepositReconciliation
-                      row={row}
-                      locale={locale}
-                      hideNote={Boolean(row.refundStatus)}
-                      onError={(message) => setNotice({ tone: 'error', text: message })}
-                    />
-                  </section>
-                  {row.refundStatus ? (
-                    <section className="deposit-ledger__panel deposit-ledger__panel--refund">
-                      <h3 className="deposit-ledger__panel-title">
-                        {ar ? 'تفاصيل الاسترداد' : 'Refund details'}
-                      </h3>
-                      <DepositRefundCell
-                        row={{ ...row, kind: 'deposit_refund' }}
-                        locale={locale}
-                        receiptHref={
-                          row.refundReceipt && propertyId
-                            ? `/api/owner/properties/${encodeURIComponent(propertyId)}/records/refund-receipt/${id}`
-                            : null
+                  <dl className="deposit-ledger__facts">
+                    <div>
+                      <dt>{ar ? 'تاريخ الطلب' : 'Requested'}</dt>
+                      <dd>{row.refundRequestedAt ? formatDay(row.refundRequestedAt, ar) : '—'}</dd>
+                    </div>
+                    <div>
+                      <dt>{ar ? 'مبلغ التأمين' : 'Deposit'}</dt>
+                      <dd dir="ltr">{money(row.depositMinor ?? null)}</dd>
+                    </div>
+                    <div>
+                      <dt>{ar ? 'الخصم' : 'Deducted'}</dt>
+                      <dd
+                        dir="ltr"
+                        className={
+                          split.deducted && split.deducted !== '0' ? 'is-deducted' : undefined
                         }
-                      />
-                    </section>
-                  ) : null}
-                  <DepositClaimsAdmin
-                    claims={claims[id] ?? []}
-                    currency={row.currency || 'OMR'}
-                    canDecide={viewer.canDecideRefunds}
-                    locale={locale}
-                    onDone={(next, reload) => {
-                      setNotice(next);
-                      if (!reload) return;
-                      window.dispatchEvent(new Event(PENDING_APPROVALS_CHANGED_EVENT));
-                      setReloadKey((key) => key + 1);
-                    }}
-                  />
-                </div>
-                <div className="deposit-ledger__actions">
-                  {status === 'awaiting_refund_transfer' && viewer.canPayRefunds ? (
+                      >
+                        {money(split.deducted)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{ar ? 'المسترد' : 'Refund'}</dt>
+                      <dd dir="ltr" className="is-refund">
+                        {money(split.refund)}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="deposit-ledger__state">
+                    <span className={`pmh-badge pmh-badge--${TONE[status] ?? 'muted'}`}>
+                      {domainStatusLabel(status, locale)}
+                    </span>
+                    {hasClaim ? (
+                      <span className="pmh-badge pmh-badge--danger">
+                        {ar ? 'طلب من الضيف' : 'Guest request'}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="deposit-ledger__row-actions">
+                    {status === 'awaiting_refund_transfer' && viewer.canPayRefunds ? (
+                      <button
+                        type="button"
+                        className="button button--primary"
+                        disabled={busyId === id}
+                        aria-expanded={payoutId === id}
+                        onClick={() => {
+                          setNotice(null);
+                          setPayoutId(payoutId === id ? null : id);
+                        }}
+                      >
+                        {ar ? 'تحويل التأمين' : 'Transfer deposit'}
+                      </button>
+                    ) : null}
                     <button
                       type="button"
-                      className="button button--primary"
-                      disabled={busyId === id}
-                      aria-expanded={payoutId === id}
-                      onClick={() => {
-                        setNotice(null);
-                        setPayoutId(payoutId === id ? null : id);
-                      }}
+                      className="button button--secondary deposit-ledger__toggle"
+                      aria-expanded={isOpen}
+                      aria-controls={detailsId}
+                      onClick={() => setExpanded((map) => ({ ...map, [id]: !isOpen }))}
                     >
-                      {ar ? 'تحويل التأمين' : 'Transfer deposit'}
+                      {isOpen
+                        ? ar
+                          ? 'إخفاء التفاصيل'
+                          : 'Hide details'
+                        : ar
+                          ? 'التفاصيل'
+                          : 'Details'}
                     </button>
-                  ) : null}
-                  {status === 'awaiting_deposit_refund' && viewer.canDecideRefunds ? (
-                    <Link
-                      className="button button--quiet"
-                      href={`${propertyHref}?section=bookings&focus=${encodeURIComponent(id)}`}
-                      prefetch={false}
-                    >
-                      {ar ? 'قرار الاسترداد (المالك) ←' : 'Refund decision (owner) →'}
-                    </Link>
-                  ) : null}
-                  {propertyId ? (
-                    <Link
-                      className="button button--quiet"
-                      href={`${propertyHref}?section=accounting&focus=${encodeURIComponent(id)}`}
-                      prefetch={false}
-                    >
-                      {ar ? 'حسابات العقار ←' : 'Property accounting →'}
-                    </Link>
-                  ) : null}
+                  </div>
                 </div>
                 {payoutId === id ? (
                   <DepositRefundForm
@@ -456,6 +479,77 @@ export function DepositLedgerPanel({
                     onSubmit={(value) => void submitPayout(row, value)}
                     onCancel={() => setPayoutId(null)}
                   />
+                ) : null}
+                {isOpen ? (
+                  <div className="deposit-ledger__details" id={detailsId}>
+                    {row.party ? (
+                      <p className="deposit-ledger__guest">
+                        {ar ? 'الضيف: ' : 'Guest: '}
+                        <bdi>{row.party}</bdi>
+                      </p>
+                    ) : null}
+                    <div className="deposit-ledger__item-body">
+                      <section className="deposit-ledger__panel">
+                        <h3 className="deposit-ledger__panel-title">
+                          {ar ? 'التسوية' : 'Settlement'}
+                        </h3>
+                        <DepositReconciliation
+                          row={row}
+                          locale={locale}
+                          hideNote={Boolean(row.refundStatus)}
+                          onError={(message) => setNotice({ tone: 'error', text: message })}
+                        />
+                      </section>
+                      {row.refundStatus ? (
+                        <section className="deposit-ledger__panel deposit-ledger__panel--refund">
+                          <h3 className="deposit-ledger__panel-title">
+                            {ar ? 'تفاصيل الاسترداد' : 'Refund details'}
+                          </h3>
+                          <DepositRefundCell
+                            row={{ ...row, kind: 'deposit_refund' }}
+                            locale={locale}
+                            receiptHref={
+                              row.refundReceipt && propertyId
+                                ? `/api/owner/properties/${encodeURIComponent(propertyId)}/records/refund-receipt/${id}`
+                                : null
+                            }
+                          />
+                        </section>
+                      ) : null}
+                      <DepositClaimsAdmin
+                        claims={claims[id] ?? []}
+                        currency={row.currency || 'OMR'}
+                        canDecide={viewer.canDecideRefunds}
+                        locale={locale}
+                        onDone={(next, reload) => {
+                          setNotice(next);
+                          if (!reload) return;
+                          window.dispatchEvent(new Event(PENDING_APPROVALS_CHANGED_EVENT));
+                          setReloadKey((key) => key + 1);
+                        }}
+                      />
+                    </div>
+                    <div className="deposit-ledger__actions">
+                      {status === 'awaiting_deposit_refund' && viewer.canDecideRefunds ? (
+                        <Link
+                          className="button button--quiet"
+                          href={`${propertyHref}?section=bookings&focus=${encodeURIComponent(id)}`}
+                          prefetch={false}
+                        >
+                          {ar ? 'قرار الاسترداد (المالك) ←' : 'Refund decision (owner) →'}
+                        </Link>
+                      ) : null}
+                      {propertyId ? (
+                        <Link
+                          className="button button--quiet"
+                          href={`${propertyHref}?section=accounting&focus=${encodeURIComponent(id)}`}
+                          prefetch={false}
+                        >
+                          {ar ? 'حسابات العقار ←' : 'Property accounting →'}
+                        </Link>
+                      ) : null}
+                    </div>
+                  </div>
                 ) : null}
               </li>
             );

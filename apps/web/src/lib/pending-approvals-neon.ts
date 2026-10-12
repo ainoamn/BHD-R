@@ -200,6 +200,8 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
         contractType: null,
         fromOn: null,
         requestedAt: row.since,
+        amountMinor: row.dueMinor,
+        currency: row.currency,
       })),
       ...depositItems,
     ].sort((a, b) => a.requestedAt.localeCompare(b.requestedAt));

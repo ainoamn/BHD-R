@@ -1,3 +1,5 @@
+import { formatMoney } from '@/lib/format';
+
 /**
  * One thing waiting for the viewer: a contract to sign, a stay booking request, a deposit
  * refund to decide (host), an approved deposit refund to transfer (accountant), a guest's
@@ -21,6 +23,9 @@ export type PendingApprovalItem = {
   contractType: 'lease' | 'sale' | null;
   fromOn: string | null;
   requestedAt: string;
+  /** Deposit still to transfer, for `refund_transfer`. */
+  amountMinor?: string | null;
+  currency?: string | null;
 };
 
 export type PendingApprovals = {
@@ -58,6 +63,18 @@ export function pendingApprovalHref(portal: string, item: PendingApprovalItem): 
   return `${base}?section=bookings`;
 }
 
+/** "To transfer: 60.000 OMR" for a deposit transfer; null for other items. */
+export function pendingApprovalAmount(
+  item: PendingApprovalItem,
+  locale: 'ar' | 'en',
+): string | null {
+  if (item.kind !== 'refund_transfer' || !item.amountMinor || !/^\d+$/.test(item.amountMinor)) {
+    return null;
+  }
+  const amount = formatMoney(item.amountMinor, item.currency || 'OMR', locale);
+  return locale === 'ar' ? `للتحويل: ${amount}` : `To transfer: ${amount}`;
+}
+
 export function pendingApprovalTitle(item: PendingApprovalItem, ar: boolean): string {
   if (item.kind === 'stay_booking') {
     return ar ? 'طلب حجز بانتظار الاعتماد' : 'Booking request awaiting approval';
@@ -66,9 +83,7 @@ export function pendingApprovalTitle(item: PendingApprovalItem, ar: boolean): st
     return ar ? 'استرداد تأمين بانتظار قرارك' : 'Deposit refund awaiting your decision';
   }
   if (item.kind === 'refund_transfer') {
-    return ar
-      ? 'تأمين معتمد بانتظار تحويلك (الحسابات)'
-      : 'Approved deposit awaiting your transfer (Accounting)';
+    return ar ? 'معاملة تحويل تأمين (الحسابات)' : 'Deposit transfer to make (Accounting)';
   }
   if (item.kind === 'deposit_claim') {
     return ar ? 'طلب أو اعتراض من الضيف على التأمين' : 'Guest deposit request or objection';

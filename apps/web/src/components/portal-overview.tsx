@@ -6,6 +6,7 @@ import { loadViewerPendingApprovals } from '@/lib/pending-approvals-neon';
 import {
   EMPTY_PENDING_APPROVALS,
   pendingApprovalHref,
+  pendingApprovalAmount,
   pendingApprovalTitle,
   type PendingApprovals,
 } from '@/lib/pending-approvals-shared';
@@ -318,6 +319,11 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
                       .filter(Boolean)
                       .join(' · ')}
                   </span>
+                  {pendingApprovalAmount(item, locale === 'ar' ? 'ar' : 'en') ? (
+                    <strong className="dash-approvals__meta">
+                      {pendingApprovalAmount(item, locale === 'ar' ? 'ar' : 'en')}
+                    </strong>
+                  ) : null}
                   <em className="dash-approvals__open">{t('Portal.approvalsOpen')}</em>
                 </Link>
               </li>

@@ -1,5 +1,20 @@
 # CONTINUE — 2026-10-12
 
+**0.8.21** · صفوف مختصرة في «أمانات التأمين» وتنبيه التحويل:
+
+- **`deposit-ledger.tsx`:**
+  - `deposit-ledger__row`: الرقم والمبنى، ثم `deposit-ledger__facts` (تاريخ الطلب، والتأمين، والخصم، والمسترد من `settlementSplit`)، ثم الحالة، وزرا «تحويل التأمين» و«التفاصيل».
+  - التفاصيل في `deposit-ledger__details`، وحالتها في `expanded[id]`. تُفتح افتراضياً عند `claimOpen` أو `focus`.
+- **التنبيه:**
+  - `loadDepositRefundQueue` يعيد `dueMinor` (المعتمد − `paid_minor`) و`currency`.
+  - `PendingApprovalItem.amountMinor` و`currency` يُعرضان بالدالة `pendingApprovalAmount` في الجرس ولوحة البوابة.
+  - العنوان «معاملة تحويل تأمين (الحسابات)».
+- **مفتوح:** اختباران قديمان في `next-write-route-policy.test.ts` ينتظران قرار المالك. الأول: حماية CSRF لمسارات الضيف العامة أو استثناؤها. الثاني: إضافة `clientSafeErrorCode` لثلاثة مسارات مالك.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.21-AR.md`](./docs/implementation/RELEASE-0.8.21-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.20** · تنسيق صفحة المحاسبة:
 
 - **`deposit-ledger.tsx`:** رأس البطاقة (`deposit-ledger__ref` و`deposit-ledger__place`)، ثم `deposit-ledger__item-body`. فيه قسم `deposit-ledger__panel` «التسوية» (`DepositReconciliation`)، وقسم «تفاصيل الاسترداد» (`DepositRefundCell`) إن وُجد طلب، ثم `DepositClaimsAdmin` بالعرض كاملاً.
