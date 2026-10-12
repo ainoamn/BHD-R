@@ -67,7 +67,8 @@ export interface ContractDocument {
   createdAt: string;
   sentAt: string | null;
   completedAt: string | null;
-  templateHtml: string | null;
+  /** Contract wording per language (sanitised); either may be missing. */
+  template: { ar: string | null; en: string | null };
   letterhead: TermsLetterhead | null;
   amount: Money | null;
   deposit: Money | null;

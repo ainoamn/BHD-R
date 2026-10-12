@@ -1,5 +1,18 @@
 # CONTINUE — 2026-10-11
 
+**0.8.0** · العقد بلغتين وصفحة الضيف:
+
+- **العقد:**
+  - `contractKit(ar)` في `contract-document-view.tsx` يوفّر `bi` و`row` و`para` و`order` (لغة الصفحة أولاً، والعربي يمين دائماً). `ltr()` يعيد `null` للفارغ، فيظهر خط الملء.
+  - `doc.template` صار `{ ar, en }`: القالب الآخر بالمفتاح والإصدار نفسيهما، أو `DEFAULT_CONTRACT_TEMPLATES` من `lib/contract-default-templates.ts`.
+  - التذييل خارج الجدول، و`position: fixed` في الطباعة، مع فاصل في `tfoot`. الصفحة مسمّاة `@page contract`.
+- **صفحة الضيف:**
+  - `StayTripMoment` بالأنواع `arrive` و`parked` و`depart`، في الحقل `trip`.
+  - `components/stays/stay-trip.tsx` مشهد SVG للبيت والسيارة والأمتعة، والحركة بـ CSS عبر المتغيرين `--door` و`--wait`.
+- **التالي:** حقل عنوان إنجليزي (يحتاج ترحيلاً)، وتوليد PDF للعقد على الخادم.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.0-AR.md`](./docs/implementation/RELEASE-0.8.0-AR.md)
+
 **0.7.9** · عقد فخم: `components/contract-document-view.tsx` (جديد، فُصل من `contract-detail-view.tsx`). ترويسة وتذييل في `thead`/`tfoot` يتكرران في كل صفحة مطبوعة، وإطار وعلامة مائية `position: fixed`. المحمِّل يجلب العقار مع العنوان و`property_profiles`، ومواصفات الوحدة، وهاتف الطرفين وبريدهما، وآخر 4 أرقام من `party_identity_documents`. الرقم الكامل مشفّر، فيظهر مخفياً أو خطاً للملء. التالي: توليد PDF للعقد على الخادم، وقراءة بوابة المستأجر من Neon  
 **تفاصيل:** [`docs/implementation/RELEASE-0.7.9-AR.md`](./docs/implementation/RELEASE-0.7.9-AR.md)
 

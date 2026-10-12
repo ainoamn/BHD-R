@@ -397,7 +397,7 @@ export default async function GuestStayDetailPage({
                 screens={screens}
                 steps={steps}
                 rebookHref={rebookHref}
-                flightNo={booking.referenceCode}
+                plateNo={booking.referenceCode}
                 ar={ar}
               />
             ) : null}

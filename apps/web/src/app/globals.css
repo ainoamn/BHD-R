@@ -17655,22 +17655,17 @@ body:has(.stay-esign-shell) {
   font-size: 1.15rem;
   font-weight: 700;
 }
-.contract-doc[dir='ltr'] .contract-doc__lh-side[dir='rtl'] {
-  order: 3;
-}
+
 .contract-doc__lh-logo img {
   display: block;
-  max-width: 150px;
-  max-height: 64px;
+  width: 150px;
+  height: 60px;
   object-fit: contain;
 }
-.contract-doc__lh-contact {
-  grid-column: 1 / -1;
-  color: var(--doc-muted);
-  font-size: 0.75rem;
-  letter-spacing: 0.02em;
-  text-align: center;
+.contract-doc__foot-space {
+  display: none;
 }
+
 .contract-doc__pagefoot {
   display: flex;
   justify-content: space-between;
@@ -17859,7 +17854,7 @@ body:has(.stay-esign-shell) {
   margin: 0;
   min-width: 0;
   font-weight: 600;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 /* Parties */
@@ -18083,6 +18078,126 @@ body:has(.stay-esign-shell) {
   display: none;
 }
 
+/* Bilingual pieces: stacked labels/values, side-by-side paragraphs (Arabic right, English left). */
+.contract-doc__bi {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 100%;
+  vertical-align: top;
+}
+.contract-doc__bi > :last-child {
+  color: var(--doc-muted);
+  font-size: 0.8em;
+  font-weight: 400;
+  line-height: 1.45;
+}
+.contract-doc__bi > [lang='en'] {
+  font-family: var(--font-latin), 'Segoe UI', sans-serif;
+}
+.contract-doc__bi > [lang='ar']:last-child {
+  font-size: 0.9em;
+}
+.contract-doc__party-band .contract-doc__bi > :last-child,
+.contract-doc__seal small {
+  color: inherit;
+  opacity: 0.8;
+}
+.contract-doc__heading {
+  justify-content: space-between;
+  flex-wrap: wrap;
+  row-gap: 0.1rem;
+}
+.contract-doc__heading > [lang='en'] {
+  font-family: var(--font-latin), 'Segoe UI', sans-serif;
+  font-size: 0.78em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.contract-doc__para {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.25rem 1.75rem;
+  break-inside: avoid;
+}
+.contract-doc__para--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+.contract-doc__para > * {
+  margin: 0;
+}
+.contract-doc__para > [lang='en'] {
+  font-family: var(--font-latin), 'Segoe UI', sans-serif;
+  font-size: 0.92em;
+  line-height: 1.7;
+}
+.contract-doc__para > [dir='ltr'] {
+  text-align: left;
+}
+.contract-doc__para > [dir='rtl'] {
+  text-align: right;
+}
+.contract-doc__preamble > * {
+  text-align: center !important;
+}
+.contract-doc__template > div > :first-child {
+  margin-top: 0;
+}
+.contract-doc__template h1 {
+  font-size: 1.05rem;
+}
+.contract-doc__address {
+  display: grid;
+  gap: 0.15rem;
+  break-inside: avoid;
+}
+.contract-doc__party-facts .contract-doc__row {
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 1rem;
+}
+.contract-doc__row dd bdi[dir='ltr'] {
+  font-weight: 500;
+}
+.contract-doc__address p {
+  margin: 0;
+}
+.contract-doc__address [lang='en'] {
+  color: var(--doc-muted);
+  font-family: var(--font-latin), 'Segoe UI', sans-serif;
+  font-size: 0.88em;
+  font-weight: 500;
+}
+.contract-doc__address [dir='ltr'] {
+  text-align: left;
+}
+.contract-doc__address [dir='rtl'] {
+  text-align: right;
+}
+.contract-doc__parent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+}
+.contract-doc__unit-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.35rem 0.75rem;
+}
+.contract-doc__unit-title strong {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+.contract-doc__timeline time {
+  display: block;
+}
+.contract-doc__pagefoot > span:last-child {
+  text-align: end;
+}
+
 @media (max-width: 760px) {
   .contract-doc {
     padding: 1.4rem 1rem;
@@ -18118,7 +18233,8 @@ body:has(.stay-esign-shell) {
   }
   .contract-doc__parties,
   .contract-doc__signatures,
-  .contract-doc__table {
+  .contract-doc__table,
+  .contract-doc__para {
     grid-template-columns: 1fr;
   }
   .contract-doc__row,
@@ -18138,12 +18254,15 @@ body:has(.stay-esign-shell) {
 }
 
 @media print {
-  @page {
+  @page contract {
     size: A4;
     margin: 9mm;
   }
   body.printing-contract > *:not(.contract-print) {
     display: none !important;
+  }
+  body.printing-contract .contract-print {
+    page: contract;
   }
   body.printing-contract {
     background: #fff;
@@ -18191,8 +18310,24 @@ body:has(.stay-esign-shell) {
   body.printing-contract .contract-doc__frame > tfoot > tr > td {
     padding: 0 9mm 6mm;
   }
+  html:has(body.printing-contract) {
+    background: #fff;
+  }
+  body.printing-contract .contract-doc__letterhead {
+    margin-bottom: 5mm;
+  }
+  body.printing-contract .contract-doc__foot-space {
+    display: block;
+    height: 16mm;
+  }
   body.printing-contract .contract-doc__pagefoot {
-    margin-top: 6mm;
+    position: fixed;
+    right: 9mm;
+    bottom: 6mm;
+    left: 9mm;
+    margin: 0;
+    padding-top: 2mm;
+    background: #fff;
   }
   body.printing-contract .contract-doc__title h1 {
     font-size: 20pt;
@@ -18204,8 +18339,25 @@ body:has(.stay-esign-shell) {
   body.printing-contract .contract-doc__signatures {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  body.printing-contract .contract-doc__table {
+  body.printing-contract .contract-doc__table,
+  body.printing-contract .contract-doc__para:not(.contract-doc__para--single) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  body.printing-contract .contract-doc__row,
+  body.printing-contract .contract-doc__party,
+  body.printing-contract .contract-doc__unit,
+  body.printing-contract .contract-doc__para,
+  body.printing-contract .contract-doc__timeline li {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  body.printing-contract .contract-doc__heading {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+  body.printing-contract .contract-doc__section {
+    orphans: 3;
+    widows: 3;
   }
   body.printing-contract .contract-doc a {
     color: inherit;
@@ -18220,295 +18372,391 @@ body:has(.stay-esign-shell) {
 .guest-stay-detail__lang {
   margin-inline-end: auto;
 }
-.stay-flight {
+.stay-trip {
   margin: -0.25rem 0 0.9rem;
   overflow: hidden;
   border-radius: 0.9rem;
-  border: 1px solid rgb(16 55 42 / 0.12);
-  background: #0f1b16;
+  border: 1px solid rgb(16 55 42 / 0.14);
+  background: #0d5c45;
 }
-.stay-flight__scene {
+.stay-trip__scene {
   position: relative;
-  height: 132px;
+  height: 150px;
   overflow: hidden;
-  background: linear-gradient(180deg, #8fd0f2 0%, #cfeefc 62%, #f4fbff 100%);
+  background: linear-gradient(180deg, #8fd0f2 0%, #d6f0fb 66%, #f4fbff 100%);
 }
-[dir='rtl'] .stay-flight__scene {
+.stay-trip__scene svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+[dir='rtl'] .stay-trip__scene svg {
   transform: scaleX(-1);
 }
-.stay-flight--takeoff .stay-flight__scene {
-  background: linear-gradient(180deg, #f6a96b 0%, #fbd3a1 58%, #fff1dc 100%);
+.stay-trip--parked .stay-trip__scene {
+  background: linear-gradient(180deg, #a8d4ee 0%, #e6f3fa 70%, #f7fbfd 100%);
 }
-.stay-flight--ready .stay-flight__scene {
-  background: linear-gradient(180deg, #9fc9e6 0%, #e3f1f9 70%, #f7fbfd 100%);
+.stay-trip--depart .stay-trip__scene {
+  background: linear-gradient(180deg, #f3a46a 0%, #fcd9a8 60%, #fff1dc 100%);
 }
-.stay-flight__sun {
-  position: absolute;
-  top: 14px;
-  right: 14%;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: radial-gradient(circle, #fff7c2 0%, #ffd864 60%, rgb(255 216 100 / 0) 72%);
+.stay-trip__sun {
+  fill: #ffd864;
 }
-.stay-flight--takeoff .stay-flight__sun {
-  top: 52px;
-  right: 22%;
-  background: radial-gradient(circle, #fff1c9 0%, #ff9f4a 60%, rgb(255 159 74 / 0) 72%);
+.stay-trip--depart .stay-trip__sun {
+  fill: #ff9f4a;
+  transform: translate(-30px, 34px);
 }
-.stay-flight__cloud {
-  position: absolute;
-  height: 14px;
-  border-radius: 999px;
-  background: #fff;
+.stay-trip__clouds {
+  fill: #fff;
   opacity: 0.9;
-  animation: stay-flight-cloud 18s linear infinite;
+  animation: stay-trip-clouds 24s ease-in-out infinite alternate;
 }
-.stay-flight__cloud::before,
-.stay-flight__cloud::after {
-  content: '';
-  position: absolute;
-  bottom: 4px;
-  border-radius: 50%;
-  background: inherit;
+.stay-trip__hills {
+  fill: #e6d3ab;
+  opacity: 0.85;
 }
-.stay-flight__cloud::before {
-  left: 18%;
-  width: 22px;
-  height: 18px;
+.stay-trip--depart .stay-trip__hills {
+  fill: #e0b48c;
 }
-.stay-flight__cloud::after {
-  left: 45%;
-  width: 16px;
-  height: 13px;
+.stay-trip__window {
+  fill: #ffd98a;
+  stroke: #8a5a2b;
+  stroke-width: 1.6;
 }
-.stay-flight__cloud--a {
-  top: 18px;
-  left: 12%;
-  width: 64px;
+.stay-trip__lamp {
+  fill: #ffe7a3;
+  filter: drop-shadow(0 0 3px #ffcf5a);
 }
-.stay-flight__cloud--b {
-  top: 46px;
-  left: 48%;
-  width: 46px;
-  opacity: 0.75;
-  animation-duration: 26s;
-  animation-delay: -9s;
+.stay-trip__car {
+  filter: drop-shadow(0 4px 4px rgb(16 55 42 / 0.2));
 }
-.stay-flight__cloud--c {
-  top: 30px;
-  left: 76%;
-  width: 54px;
-  opacity: 0.6;
-  animation-duration: 22s;
-  animation-delay: -15s;
+.stay-trip__wheel,
+.stay-trip__car-body,
+.stay-trip__boot,
+.stay-trip__puff {
+  transform-box: fill-box;
 }
-.stay-flight__runway {
-  position: absolute;
-  inset: auto 0 0;
-  height: 22px;
-  background:
-    repeating-linear-gradient(90deg, #f4f4f4 0 18px, transparent 18px 38px) center / 100% 2px
-      no-repeat,
-    linear-gradient(180deg, #4b5550, #3a423e);
+.stay-trip__wheel {
+  transform-origin: center;
 }
-.stay-flight__runway::before {
-  content: '';
-  position: absolute;
-  inset: -3px 0 auto;
-  height: 3px;
-  background: repeating-linear-gradient(90deg, #ffd864 0 3px, transparent 3px 26px);
-  animation: stay-flight-lights 1.2s steps(2) infinite;
+.stay-trip__car-body {
+  transform-origin: 50% 100%;
 }
-.stay-flight__plane {
-  position: absolute;
-  width: 110px;
-  height: auto;
-  left: 64%;
-  bottom: 20px;
-  transform-origin: 70% 60%;
-  filter: drop-shadow(0 6px 6px rgb(16 55 42 / 0.18));
+.stay-trip__boot {
+  transform-origin: 100% 100%;
 }
-.stay-flight--landing .stay-flight__plane {
-  animation: stay-flight-land 4.2s cubic-bezier(0.35, 0.15, 0.4, 1) both;
+.stay-trip__puff {
+  fill: rgb(255 255 255 / 0.85);
+  opacity: 0;
+  transform-origin: center;
 }
-.stay-flight--takeoff .stay-flight__plane {
-  left: 70%;
-  bottom: 96px;
-  transform: rotate(-12deg);
-  animation: stay-flight-takeoff 4.4s cubic-bezier(0.55, 0, 0.7, 1) 0.4s both;
-}
-.stay-flight--ready .stay-flight__plane {
-  left: 10%;
-  animation: stay-flight-idle 1.6s ease-in-out infinite;
-}
-.stay-flight__puff {
-  position: absolute;
-  left: calc(44% + 22px);
-  bottom: 16px;
-  width: 26px;
-  height: 12px;
-  border-radius: 50%;
-  background: rgb(255 255 255 / 0.9);
+.stay-trip__bag {
   opacity: 0;
 }
-.stay-flight--landing .stay-flight__puff {
-  animation: stay-flight-puff 4s ease-out both;
+.stay-trip__bag--1 {
+  --door: -60px;
+  --wait: -40px;
 }
-.stay-flight__board {
+.stay-trip__bag--2 {
+  --door: -67px;
+  --wait: -37px;
+}
+.stay-trip__bag--3 {
+  --door: -74px;
+  --wait: -34px;
+}
+
+/* Arrival: drive in, open the boot, bags hop into the house, lights come on. */
+.stay-trip--arrive .stay-trip__car {
+  animation: stay-trip-drive-in 3.2s cubic-bezier(0.2, 0.6, 0.3, 1) both;
+}
+.stay-trip--arrive .stay-trip__wheel {
+  animation: stay-trip-wheel-in 3.2s cubic-bezier(0.2, 0.6, 0.3, 1) both;
+}
+.stay-trip--arrive .stay-trip__car-body {
+  animation: stay-trip-settle 0.7s ease-out 3.1s both;
+}
+.stay-trip--arrive .stay-trip__boot {
+  animation: stay-trip-boot-cycle 4.6s ease-in-out 3.5s both;
+}
+.stay-trip--arrive .stay-trip__bag {
+  animation: stay-trip-unload 1.5s ease-in-out both;
+}
+.stay-trip--arrive .stay-trip__bag--1 {
+  animation-delay: 4s;
+}
+.stay-trip--arrive .stay-trip__bag--2 {
+  animation-delay: 4.8s;
+}
+.stay-trip--arrive .stay-trip__bag--3 {
+  animation-delay: 5.6s;
+}
+.stay-trip--arrive .stay-trip__window,
+.stay-trip--arrive .stay-trip__lamp {
+  animation: stay-trip-lights-on 0.9s ease-out 7s both;
+}
+
+/* Departure day: parked, boot open, bags lined up on the kerb. */
+.stay-trip--parked .stay-trip__boot {
+  transform: rotate(55deg);
+}
+.stay-trip--parked .stay-trip__bag {
+  opacity: 1;
+  transform: translate(var(--wait), 0);
+}
+.stay-trip--parked .stay-trip__bag--2 {
+  animation: stay-trip-bob 2.4s ease-in-out infinite;
+}
+
+/* Departure: bags hop into the boot, it shuts, the car drives off, the house goes quiet. */
+.stay-trip--depart .stay-trip__bag {
+  animation: stay-trip-load 1.5s ease-in-out both;
+}
+.stay-trip--depart .stay-trip__bag--1 {
+  animation-delay: 0.4s;
+}
+.stay-trip--depart .stay-trip__bag--2 {
+  animation-delay: 1.2s;
+}
+.stay-trip--depart .stay-trip__bag--3 {
+  animation-delay: 2s;
+}
+.stay-trip--depart .stay-trip__boot {
+  animation: stay-trip-boot-close 0.5s ease-in 3.8s both;
+}
+.stay-trip--depart .stay-trip__car {
+  animation: stay-trip-drive-off 3.2s cubic-bezier(0.55, 0, 0.8, 0.4) 4.6s both;
+}
+.stay-trip--depart .stay-trip__wheel {
+  animation: stay-trip-wheel-off 3.2s cubic-bezier(0.55, 0, 0.8, 0.4) 4.6s both;
+}
+.stay-trip--depart .stay-trip__puff--a {
+  animation: stay-trip-puff 1.3s ease-out 4.6s both;
+}
+.stay-trip--depart .stay-trip__puff--b {
+  animation: stay-trip-puff 1.3s ease-out 4.9s both;
+}
+.stay-trip--depart .stay-trip__window,
+.stay-trip--depart .stay-trip__lamp {
+  animation: stay-trip-lights-off 1s ease-in 7.4s both;
+}
+
+.stay-trip__board {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem 0.9rem;
-  padding: 0.55rem 0.9rem;
-  color: #ffd864;
+  margin: 0.35rem;
+  padding: 0.45rem 0.75rem;
+  border: 2px solid #fff;
+  border-radius: 0.55rem;
+  color: #fff;
   font-size: 0.85rem;
 }
-.stay-flight__type {
-  padding: 0.1rem 0.5rem;
+.stay-trip__type {
+  padding: 0.05rem 0.55rem;
   border-radius: 0.3rem;
-  background: #ffd864;
-  color: #0f1b16;
+  background: #fff;
+  color: #0d5c45;
   font-weight: 800;
 }
-.stay-flight__no {
-  color: #fff;
+.stay-trip__plate {
+  padding: 0.05rem 0.55rem 0.05rem 0.45rem;
+  border: 1.5px solid #1f2421;
+  border-left: 6px solid #c8102e;
+  border-radius: 0.3rem;
+  background: #fff;
+  color: #1f2421;
   font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  font-weight: 700;
   letter-spacing: 0.06em;
 }
-.stay-flight__status {
+.stay-trip__status {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
 }
-.stay-flight__status i {
+.stay-trip__status i {
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 50%;
   background: #4ade80;
   box-shadow: 0 0 6px #4ade80;
-  animation: stay-flight-blink 1.4s ease-in-out infinite;
+  animation: stay-trip-blink 1.4s ease-in-out infinite;
 }
-.stay-flight--ready .stay-flight__status i {
+.stay-trip--parked .stay-trip__status i {
   background: #fbbf24;
   box-shadow: 0 0 6px #fbbf24;
 }
-.stay-flight__board button {
+.stay-trip__board button {
   margin-inline-start: auto;
   padding: 0.2rem 0.6rem;
-  border: 1px solid rgb(255 216 100 / 0.5);
+  border: 1px solid rgb(255 255 255 / 0.6);
   border-radius: 999px;
   background: transparent;
-  color: #ffd864;
+  color: #fff;
   font: inherit;
   font-size: 0.78rem;
   cursor: pointer;
 }
-.stay-flight__board button:hover {
-  background: rgb(255 216 100 / 0.12);
+.stay-trip__board button:hover {
+  background: rgb(255 255 255 / 0.12);
 }
-@keyframes stay-flight-land {
-  0% {
-    left: -32%;
-    bottom: 112px;
-    transform: rotate(4deg);
-  }
-  55% {
-    left: 32%;
-    bottom: 30px;
-    transform: rotate(3deg);
-  }
-  68% {
-    left: 42%;
-    bottom: 21px;
-    transform: rotate(-5deg);
-  }
-  76% {
-    left: 50%;
-    bottom: 20px;
-    transform: rotate(0deg);
-  }
-  100% {
-    left: 64%;
-    bottom: 20px;
-    transform: rotate(0deg);
-  }
-}
-@keyframes stay-flight-takeoff {
-  0% {
-    left: 4%;
-    bottom: 20px;
-    transform: rotate(0deg);
-  }
-  48% {
-    left: 46%;
-    bottom: 20px;
-    transform: rotate(0deg);
-  }
-  58% {
-    left: 56%;
-    bottom: 26px;
-    transform: rotate(-9deg);
-  }
-  100% {
-    left: 118%;
-    bottom: 128px;
-    transform: rotate(-13deg);
-  }
-}
-@keyframes stay-flight-idle {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-1px);
-  }
-}
-@keyframes stay-flight-puff {
-  0%,
-  66% {
-    opacity: 0;
-    transform: scale(0.3);
-  }
-  70% {
-    opacity: 0.9;
-    transform: scale(0.6);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(2.2) translateX(-14px);
-  }
-}
-@keyframes stay-flight-cloud {
+
+@keyframes stay-trip-drive-in {
   from {
-    left: 105%;
+    transform: translateX(-560px);
   }
   to {
-    left: -25%;
+    transform: translateX(0);
   }
 }
-@keyframes stay-flight-lights {
+@keyframes stay-trip-wheel-in {
+  from {
+    transform: rotate(-1500deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+@keyframes stay-trip-drive-off {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(440px);
+  }
+}
+@keyframes stay-trip-wheel-off {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(1500deg);
+  }
+}
+@keyframes stay-trip-settle {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  35% {
+    transform: rotate(1.4deg);
+  }
+  70% {
+    transform: rotate(-0.5deg);
+  }
+}
+@keyframes stay-trip-boot-cycle {
+  0% {
+    transform: rotate(0deg);
+  }
+  10%,
+  86% {
+    transform: rotate(55deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+@keyframes stay-trip-boot-close {
+  from {
+    transform: rotate(55deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
+@keyframes stay-trip-unload {
+  0% {
+    opacity: 0;
+    transform: translate(0, 6px) scale(0.5);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(0, -12px) scale(1);
+  }
+  55% {
+    transform: translate(calc(var(--door) * 0.5), -26px) scale(1);
+  }
+  85% {
+    opacity: 1;
+    transform: translate(var(--door), 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--door), 0) scale(0.8);
+  }
+}
+@keyframes stay-trip-load {
+  0% {
+    opacity: 1;
+    transform: translate(var(--wait), 0) scale(1);
+  }
+  40% {
+    transform: translate(calc(var(--wait) * 0.5), -24px) scale(1);
+  }
+  75% {
+    opacity: 1;
+    transform: translate(0, -12px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(0, 6px) scale(0.5);
+  }
+}
+@keyframes stay-trip-bob {
+  0%,
+  100% {
+    transform: translate(var(--wait), 0);
+  }
   50% {
-    opacity: 0.35;
+    transform: translate(var(--wait), -1.5px);
   }
 }
-@keyframes stay-flight-blink {
+@keyframes stay-trip-lights-on {
+  from {
+    fill: #8fb0c2;
+    filter: none;
+  }
+}
+@keyframes stay-trip-lights-off {
+  to {
+    fill: #8fb0c2;
+    filter: none;
+  }
+}
+@keyframes stay-trip-puff {
+  0% {
+    opacity: 0;
+    transform: translateX(0) scale(0.4);
+  }
+  25% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-18px) scale(2.4);
+  }
+}
+@keyframes stay-trip-clouds {
+  to {
+    transform: translateX(-40px);
+  }
+}
+@keyframes stay-trip-blink {
   50% {
     opacity: 0.35;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .stay-flight__plane,
-  .stay-flight__cloud,
-  .stay-flight__puff,
-  .stay-flight__runway::before,
-  .stay-flight__status i {
+  .stay-trip *,
+  .stay-trip__status i {
     animation: none !important;
   }
 }
 @media print {
-  .stay-flight {
+  .stay-trip {
     display: none;
   }
 }

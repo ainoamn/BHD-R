@@ -25,6 +25,10 @@ import {
   workflowEvents,
 } from '@bhd-r/db';
 import { assertStayBookingTransition } from '@bhd-r/domain';
+import {
+  DEFAULT_CONTRACT_TEMPLATES,
+  type DefaultContractTemplateKey,
+} from '@/lib/contract-default-templates';
 import { computeLeaseTerms, type LeaseTermsDraft } from '@/lib/lease-terms';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 import {
@@ -138,15 +142,7 @@ async function viewerIdentity(tx: Tx, claims: SessionClaims) {
   return { userId: claims.sub, displayName: user?.displayName ?? null, email: user?.email ?? null };
 }
 
-/** Default contract wording; the binding details live in the contract payload snapshot. */
-const DEFAULT_TEMPLATES = {
-  lease_default:
-    '<h1>عقد إيجار</h1><p>يُبرم هذا العقد بين المؤجر والمستأجر المذكورين في بيانات العقد لتأجير الوحدة المحددة فيه، للمدة وبالقيمة المبينتين، ويخضع للشروط والأحكام المعتمدة للعقار التي وافق عليها المستأجر.</p>',
-  sale_default:
-    '<h1>عقد بيع</h1><p>يُبرم هذا العقد بين البائع والمشتري المذكورين في بيانات العقد لبيع الوحدة المحددة فيه بالثمن المتفق عليه، وتنتقل الملكية وفق الإجراءات النظامية المعمول بها.</p>',
-} as const;
-
-async function ensureTemplate(tx: Tx, orgId: string, key: keyof typeof DEFAULT_TEMPLATES) {
+async function ensureTemplate(tx: Tx, orgId: string, key: DefaultContractTemplateKey) {
   await tx.execute(
     sql`select pg_advisory_xact_lock(hashtextextended(${`${orgId}:${key}:ar`}, 11))`,
   );
@@ -163,7 +159,7 @@ async function ensureTemplate(tx: Tx, orgId: string, key: keyof typeof DEFAULT_T
     )
     .limit(1);
   if (existing) return existing.id;
-  const html = DEFAULT_TEMPLATES[key];
+  const html = DEFAULT_CONTRACT_TEMPLATES[key].ar;
   const [versionRow] = rowsOf<{ version: number }>(
     await tx.execute(sql`
       select coalesce(max(version), 0)::integer + 1 as version

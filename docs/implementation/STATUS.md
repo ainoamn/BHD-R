@@ -1,7 +1,7 @@
 # Implementation status
 
 **Updated:** 2026-10-11  
-**Product version:** 0.7.9  
+**Product version:** 0.8.0  
 **Active focus:** Owner dashboard speed and redesign — phases 1–3 shipped (parallel loads, Neon reads and indexes, calm unified design); live page-by-page review and loading skeletons next  
 **Release 0.6.3:** [`RELEASE-0.6.3-AR.md`](./RELEASE-0.6.3-AR.md)  
 **Release 0.6.2:** [`RELEASE-0.6.2-AR.md`](./RELEASE-0.6.2-AR.md)  
@@ -13,6 +13,7 @@
 
 | Version         | Focus                                                                                                                                           |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.8.0           | Bilingual (AR/EN) contract document; logo-and-address letterhead, fixed footer, tidy A4 print; guest page car arrives/unloads and loads/departs |
 | 0.7.9           | Contract page as a formal document: letterhead repeated on every printed page, party civil ID/phone/email, full premises address and unit specs |
 | 0.7.8           | Guest stay page: plane lands on arrival day and takes off after check-out (airport board, replay); AR/EN language switch                        |
 | 0.7.7           | Guest stay page copy: warmer, playful, proofread Arabic; review message follows arrival date; correct Arabic counting                           |

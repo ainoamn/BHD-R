@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
@@ -33,6 +33,7 @@ import {
   type ContractPartyCard,
   type ContractPremises,
 } from '@/lib/contract-document';
+import { defaultTemplateCounterpart } from '@/lib/contract-default-templates';
 import { formatMoney } from '@/lib/format';
 import { ownerPartyScope, readClaims, withinViewerTenant } from '@/lib/portal-ops-data';
 import { lookupPublicStayBookingOnNeon } from '@/lib/public-stays-guest-neon';
@@ -220,7 +221,12 @@ export async function loadContractDetailFromNeon(
     const linkedContractId = contract.kind === 'renewal' ? contract.parentContractId : contract.id;
     const [template, letterhead, addenda, parent, esign] = await Promise.all([
       tx
-        .select({ html: contractTemplates.html })
+        .select({
+          html: contractTemplates.html,
+          key: contractTemplates.key,
+          version: contractTemplates.version,
+          language: contractTemplates.language,
+        })
         .from(contractTemplates)
         .where(
           and(
@@ -335,7 +341,7 @@ export async function loadContractDetailFromNeon(
         .limit(1)
         .then((rows) => rows[0] ?? null),
     ]);
-    const [propertyRow, identityDocs] = await Promise.all([
+    const [propertyRow, identityDocs, templateSibling] = await Promise.all([
       unit
         ? tx
             .select({
@@ -393,7 +399,27 @@ export async function loadContractDetailFromNeon(
           ),
         )
         .orderBy(desc(partyIdentityDocuments.createdAt)),
+      template
+        ? tx
+            .select({ html: contractTemplates.html })
+            .from(contractTemplates)
+            .where(
+              and(
+                eq(contractTemplates.organizationId, orgId),
+                eq(contractTemplates.key, template.key),
+                eq(contractTemplates.version, template.version),
+                ne(contractTemplates.language, template.language),
+              ),
+            )
+            .limit(1)
+            .then((rows) => rows[0]?.html ?? null)
+        : Promise.resolve(null),
     ]);
+    const builtIn = defaultTemplateCounterpart(template?.html);
+    const templateAr =
+      template?.language === 'ar' ? template.html : (templateSibling ?? builtIn?.ar ?? null);
+    const templateEn =
+      template?.language === 'en' ? template.html : (templateSibling ?? builtIn?.en ?? null);
     const property = propertyRow
       ? { id: propertyRow.id, nameAr: propertyRow.nameAr, nameEn: propertyRow.nameEn }
       : null;
@@ -408,7 +434,7 @@ export async function loadContractDetailFromNeon(
       property,
       signatures,
       approval,
-      template,
+      template: { ar: templateAr, en: templateEn },
       letterhead,
       addenda,
       parent,
@@ -475,7 +501,7 @@ type Loaded = {
     signatureHash: string;
     signedAt: Date;
   }>;
-  template: { html: string } | null;
+  template: { ar: string | null; en: string | null };
   letterhead: TermsLetterhead | null;
   addenda: Array<{
     id: string;
@@ -628,7 +654,10 @@ async function buildContractDocument(
     createdAt: contract.createdAt.toISOString(),
     sentAt: contract.sentAt?.toISOString() ?? null,
     completedAt: contract.completedAt?.toISOString() ?? null,
-    templateHtml: sanitizeContractHtml(loaded.template?.html),
+    template: {
+      ar: sanitizeContractHtml(loaded.template.ar),
+      en: sanitizeContractHtml(loaded.template.en),
+    },
     letterhead: loaded.letterhead,
     amount: money(snapshot.amount),
     deposit,
