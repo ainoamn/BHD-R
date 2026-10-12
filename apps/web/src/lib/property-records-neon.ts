@@ -329,6 +329,9 @@ async function loadBookings(
       contactName: sql<
         string | null
       >`${stayBookings.pricingSnapshotJson}->'guestContact'->>'displayName'`,
+      contactPhone: sql<
+        string | null
+      >`${stayBookings.pricingSnapshotJson}->'guestContact'->>'phone'`,
     })
     .from(stayBookings)
     .where(and(eq(stayBookings.organizationId, orgId), eq(stayBookings.propertyId, propertyId)))
@@ -416,8 +419,15 @@ async function loadBookings(
         stage: stayStage(row.status),
         checkedInAt: stamp?.checkIn?.at ?? null,
         checkInNotes: stamp?.checkIn?.notes ?? null,
+        checkInImportant: stamp?.checkIn?.important ? '1' : null,
+        checkInRecipient: stamp?.checkIn?.recipient?.name ?? null,
+        checkInPhone: stamp?.checkIn?.recipient?.phone ?? null,
+        checkInDocumentKind: stamp?.checkIn?.recipient?.documentKind ?? null,
+        checkInDocument: stamp?.checkIn?.recipient?.hasDocument ? '1' : null,
         checkedOutAt: stamp?.checkOut?.at ?? null,
         checkOutNotes: stamp?.checkOut?.notes ?? null,
+        checkOutImportant: stamp?.checkOut?.important ? '1' : null,
+        guestPhone: row.contactPhone,
         id: row.id,
         kind: 'stay',
         reference: row.referenceCode,

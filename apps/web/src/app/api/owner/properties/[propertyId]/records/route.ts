@@ -24,6 +24,7 @@ import {
 } from '@/lib/property-contracts-neon';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 import { recordStayStampOnNeon } from '@/lib/stay-arrival-neon';
+import { HANDOVER_DOCUMENT_KEYS, HANDOVER_DOCUMENT_MAX } from '@/lib/stay-handover';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -165,6 +166,20 @@ const bodySchema = z.discriminatedUnion('action', [
         .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)
         .optional(),
       notes: z.string().max(1000).optional(),
+      noteKeys: z.array(z.string().max(40)).max(20).optional(),
+      important: z.boolean().optional(),
+      recipient: z
+        .object({
+          name: z.string().max(120).optional(),
+          phone: z.string().max(32),
+          documentKind: z.enum(HANDOVER_DOCUMENT_KEYS),
+          document: z
+            .string()
+            .regex(/^data:image\/(?:png|jpeg|webp);base64,/)
+            .max(HANDOVER_DOCUMENT_MAX),
+        })
+        .strict()
+        .optional(),
     })
     .strict(),
   z
@@ -240,6 +255,9 @@ export async function POST(request: Request, context: { params: Promise<{ proper
             kind: body.action,
             at: body.at,
             notes: body.notes,
+            noteKeys: body.noteKeys,
+            important: body.important,
+            recipient: body.recipient,
           }),
         );
       case 'create_lease':

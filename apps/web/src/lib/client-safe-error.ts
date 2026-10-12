@@ -52,6 +52,8 @@ const KNOWN_CODES = new Set([
   'stay_status_invalid',
   'stay_time_in_future',
   'stay_checkout_before_checkin',
+  'handover_document_required',
+  'handover_phone_invalid',
 ]);
 
 export function clientSafeErrorCode(error: unknown, fallback = 'request_failed'): string {
@@ -94,6 +96,8 @@ export function statusForSafeCode(code: string): number {
       return 409;
     case 'stay_time_in_future':
     case 'stay_checkout_before_checkin':
+    case 'handover_document_required':
+    case 'handover_phone_invalid':
       return 400;
     case 'invalid_body':
     case 'invalid_file':

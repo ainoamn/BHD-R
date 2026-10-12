@@ -10,7 +10,21 @@ export const CONTRACT_FILE_FIELDS: Record<ContractFileKind, string> = {
 };
 
 type Money = { amountMinor: string; currency: string };
-type Stamp = { at: string; notes: string | null };
+type Stamp = {
+  at: string;
+  notes: string | null;
+  noteKeys: string[];
+  customNote: string | null;
+  important: boolean;
+};
+
+/** Who received the premises at check-in; `documentHref` only for booking managers. */
+export type ContractHandoverRecipient = {
+  name: string | null;
+  phone: string | null;
+  documentKind: string | null;
+  documentHref: string | null;
+};
 
 /** A contracting party as written on the contract; missing details stay null (printed as a blank line). */
 export interface ContractPartyCard {
@@ -89,7 +103,11 @@ export interface ContractDocument {
     email: string | null;
     signedAt: string;
     hash: string;
+    /** Electronic-signature serial number, e.g. ES-2026-000012. */
+    serial: string | null;
   }>;
+  /** Public verification link printed as a QR code; never exposes terms or documents. */
+  verification: { url: string; qrSvg: string } | null;
   /** Files captured during e-sign; ID images only listed when the viewer may see them. */
   files: Array<{ kind: ContractFileKind; signedAt: string | null }>;
   stay: {
@@ -99,6 +117,7 @@ export interface ContractDocument {
     children: number | null;
     checkIn: Stamp | null;
     checkOut: Stamp | null;
+    recipient: ContractHandoverRecipient | null;
     guestPageHref: string;
   } | null;
   addenda: Array<{

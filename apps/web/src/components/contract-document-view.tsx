@@ -12,6 +12,7 @@ import type {
 } from '@/lib/contract-document';
 import { formatMoney } from '@/lib/format';
 import { omanLocations } from '@/lib/oman-locations';
+import { HANDOVER_DOCUMENT_KINDS, handoverNote, type HandoverKind } from '@/lib/stay-handover';
 import type { PortalRole } from '@/lib/types';
 import { stayTypeLabel } from '@/lib/ui-labels';
 import { ContractActions } from './contract-actions';
@@ -359,6 +360,53 @@ export function ContractDocumentView({
 
   const templateAr = doc.template.ar;
   const templateEn = doc.template.en;
+  const sealSerial =
+    [...doc.signatures]
+      .filter((signature) => signature.serial)
+      .sort((left, right) => left.signedAt.localeCompare(right.signedAt))
+      .at(-1)?.serial ?? null;
+  const recipient = doc.stay?.recipient ?? null;
+  const recipientDocument = label(
+    Object.fromEntries(
+      HANDOVER_DOCUMENT_KINDS.map((item) => [item.key, [item.ar, item.en] as const]),
+    ),
+    recipient?.documentKind,
+  );
+  const stampNote = (
+    kind: HandoverKind,
+    stamp: {
+      notes: string | null;
+      noteKeys: string[];
+      customNote: string | null;
+      important: boolean;
+    },
+  ) => {
+    const presets = stamp.noteKeys
+      .map((key) => handoverNote(kind, key))
+      .filter((item): item is NonNullable<typeof item> => Boolean(item));
+    const structured = presets.length > 0 || Boolean(stamp.customNote);
+    return (
+      <>
+        {stamp.important ? (
+          <span className="contract-doc__important">{bi(['ملاحظة مهمة', 'Important note'])}</span>
+        ) : null}
+        {structured ? (
+          <ul className="contract-doc__note-list">
+            {presets.map((item) => (
+              <li key={item.key}>{bi([item.ar, item.en])}</li>
+            ))}
+            {stamp.customNote ? (
+              <li>
+                <bdi>{stamp.customNote}</bdi>
+              </li>
+            ) : null}
+          </ul>
+        ) : stamp.notes ? (
+          <span className="contract-doc__note">{stamp.notes}</span>
+        ) : null}
+      </>
+    );
+  };
 
   return (
     <div className="form-shell contract-detail contract-detail--document">
@@ -473,13 +521,44 @@ export function ContractDocumentView({
                       <strong>{bi(status)}</strong>
                     </div>
                   </div>
-                  <span
-                    className={`contract-doc__seal contract-doc__seal--${contract.status}`}
-                    aria-hidden="true"
-                  >
-                    <span>{status[0]}</span>
-                    <small>{status[1]}</small>
-                  </span>
+                  {sealSerial ? (
+                    <span
+                      className={`contract-doc__seal contract-doc__seal--${contract.status} contract-doc__seal--serial`}
+                      role="img"
+                      aria-label={
+                        ar
+                          ? `توقيع إلكتروني رقم ${sealSerial}`
+                          : `Electronic signature No. ${sealSerial}`
+                      }
+                    >
+                      <span>توقيع إلكتروني</span>
+                      <b dir="ltr">{sealSerial}</b>
+                      <small dir="ltr">E-SIGNATURE No.</small>
+                    </span>
+                  ) : (
+                    <span
+                      className={`contract-doc__seal contract-doc__seal--${contract.status}`}
+                      aria-hidden="true"
+                    >
+                      <span>{status[0]}</span>
+                      <small>{status[1]}</small>
+                    </span>
+                  )}
+                  {doc.verification ? (
+                    <a
+                      className="contract-doc__qr"
+                      href={doc.verification.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={ar ? 'رمز التحقق من العقد' : 'Contract verification code'}
+                    >
+                      <span dangerouslySetInnerHTML={{ __html: doc.verification.qrSvg }} />
+                      <small>
+                        <span lang="ar">امسح للتحقق</span>
+                        <span lang="en">Scan to verify</span>
+                      </small>
+                    </a>
+                  ) : null}
                 </div>
 
                 {para(
@@ -563,20 +642,47 @@ export function ContractDocumentView({
                         doc.stay.checkIn ? (
                           <>
                             {bi(dateTime(doc.stay.checkIn.at))}
-                            {doc.stay.checkIn.notes ? (
-                              <span className="contract-doc__note">{doc.stay.checkIn.notes}</span>
-                            ) : null}
+                            {stampNote('check_in', doc.stay.checkIn)}
                           </>
                         ) : null,
                       )}
+                      {recipient
+                        ? row(
+                            ['المستلم', 'Received by'],
+                            <span className="contract-doc__stack">
+                              {recipient.name ? <bdi>{recipient.name}</bdi> : null}
+                              {recipient.phone ? (
+                                <bdi dir="ltr" className="contract-doc__nowrap">
+                                  {recipient.phone}
+                                </bdi>
+                              ) : null}
+                            </span>,
+                          )
+                        : null}
+                      {recipient && recipientDocument
+                        ? row(
+                            ['وثيقة المستلم', 'Recipient ID'],
+                            <>
+                              {bi(recipientDocument)}
+                              {recipient.documentHref ? (
+                                <a
+                                  className="contract-doc__doc-link"
+                                  href={recipient.documentHref}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  {bi(['عرض صورة الوثيقة', 'View ID photo'])}
+                                </a>
+                              ) : null}
+                            </>,
+                          )
+                        : null}
                       {row(
                         ['أعاد الضيف العين', 'Checked out'],
                         doc.stay.checkOut ? (
                           <>
                             {bi(dateTime(doc.stay.checkOut.at))}
-                            {doc.stay.checkOut.notes ? (
-                              <span className="contract-doc__note">{doc.stay.checkOut.notes}</span>
-                            ) : null}
+                            {stampNote('check_out', doc.stay.checkOut)}
                           </>
                         ) : null,
                       )}
@@ -681,6 +787,14 @@ export function ContractDocumentView({
                                   bi(label(SIGNATURE_METHODS, signature.method)),
                                 )
                               : null}
+                            {signature?.serial
+                              ? row(
+                                  ['رقم التوقيع الإلكتروني', 'E-signature No.'],
+                                  <strong className="contract-doc__serial">
+                                    {ltr(signature.serial)}
+                                  </strong>,
+                                )
+                              : null}
                           </dl>
                           {signature ? (
                             <code className="contract-doc__hash" dir="ltr">
@@ -778,14 +892,48 @@ export function ContractDocumentView({
                   </ol>
                 </section>
 
-                <div className="contract-doc__integrity">
-                  {para(
-                    'صدرت هذه الوثيقة إلكترونياً عبر منصة BHD R، والتواقيع أعلاه موثّقة ببصمات رقمية لا تقبل التعديل.',
-                    'Issued electronically via BHD R; the signatures above are sealed with tamper-evident digital fingerprints.',
-                  )}
-                  {contract.documentHash ? (
-                    <code dir="ltr">SHA-256 {contract.documentHash}</code>
+                <div
+                  className={`contract-doc__integrity${doc.verification ? ' contract-doc__integrity--qr' : ''}`}
+                >
+                  {doc.verification ? (
+                    <span
+                      className="contract-doc__integrity-qr"
+                      aria-hidden="true"
+                      dangerouslySetInnerHTML={{ __html: doc.verification.qrSvg }}
+                    />
                   ) : null}
+                  <div>
+                    {para(
+                      'صدرت هذه الوثيقة إلكترونياً عبر منصة BHD R، والتواقيع أعلاه موثّقة ببصمات رقمية لا تقبل التعديل.',
+                      'Issued electronically via BHD R; the signatures above are sealed with tamper-evident digital fingerprints.',
+                    )}
+                    {sealSerial ? (
+                      <div className="contract-doc__para">
+                        {order(
+                          <p key="ar" lang="ar" dir="rtl">
+                            تم توثيق هذا العقد بتوقيع إلكتروني رقم{' '}
+                            <bdi dir="ltr" className="contract-doc__nowrap">
+                              {sealSerial}
+                            </bdi>
+                          </p>,
+                          <p key="en" lang="en" dir="ltr">
+                            This contract was authenticated by electronic signature No.{' '}
+                            <span className="contract-doc__nowrap">{sealSerial}</span>
+                          </p>,
+                        )}
+                      </div>
+                    ) : null}
+                    {doc.verification
+                      ? para(
+                          'للتحقق من صحة العقد واعتماده امسح الرمز أو افتح الرابط:',
+                          'To verify this contract, scan the code or open:',
+                        )
+                      : null}
+                    {doc.verification ? <code dir="ltr">{doc.verification.url}</code> : null}
+                    {contract.documentHash ? (
+                      <code dir="ltr">SHA-256 {contract.documentHash}</code>
+                    ) : null}
+                  </div>
                 </div>
               </td>
             </tr>

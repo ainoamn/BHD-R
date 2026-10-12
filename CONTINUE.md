@@ -1,3 +1,18 @@
+# CONTINUE — 2026-10-12
+
+**0.8.1** · توثيق الاستلام، وQR العقد، ورقم التوقيع:
+
+- **الاستلام:**
+  - `recordStayStampOnNeon` يحفظ في `metadata_json` لسجل الحالة: `noteKeys` و`customNote` و`important` و`recipient { name, phone, documentKind, document }`.
+  - `loadStayStamps` يحذف `recipient.document` بـ `#-`، ويعيد `hasDocument`.
+  - الصورة من `readHandoverDocument`، ومفردات الملاحظات والوثائق في `lib/stay-handover.ts`.
+- **التحقق والأرقام:**
+  - `lib/contract-verify.ts`:
+    - `contractVerifyToken` (المعرّف + أول 10 خانات من sha256 للمعرّف وتاريخ الإنشاء، بلا مفتاح سري).
+    - `signatureSerials`: `row_number` لكل منشأة وسنة.
+  - صفحة `/[locale]/verify/[token]` تقرأ عبر `contract-verify-neon.ts`.
+- **التالي:** حقل عنوان إنجليزي (يحتاج ترحيلاً)، وتوليد PDF للعقد على الخادم.
+
 # CONTINUE — 2026-10-11
 
 **0.8.0** · العقد بلغتين وصفحة الضيف:

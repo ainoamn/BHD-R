@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import {
   outboxEvents,
@@ -12,16 +12,43 @@ import {
 } from '@bhd-r/db';
 import { assertStayBookingTransition } from '@bhd-r/domain';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
+import {
+  HANDOVER_DOCUMENT_MAX,
+  composeHandoverNotes,
+  handoverDocumentKind,
+  handoverNote,
+  validHandoverPhone,
+} from '@/lib/stay-handover';
 
 type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 export type StayStampKind = 'check_in' | 'check_out';
+
+/** Who received the keys at check-in; the document image itself is only served on request. */
+export type StayRecipient = {
+  name: string | null;
+  phone: string | null;
+  documentKind: string | null;
+  hasDocument: boolean;
+};
 
 /** When the guest actually arrived or left, as recorded by the host. */
 export type StayStamp = {
   at: string;
   notes: string | null;
   recordedBy: string | null;
+  noteKeys: string[];
+  /** The host's own words; `notes` also lists the chosen quick notes. */
+  customNote: string | null;
+  important: boolean;
+  recipient: StayRecipient | null;
+};
+
+export type StayRecipientInput = {
+  name?: string | undefined;
+  phone: string;
+  documentKind: string;
+  document: string;
 };
 
 export type StayStamps = { checkIn: StayStamp | null; checkOut: StayStamp | null };
@@ -43,13 +70,90 @@ export function muscatLocalToDate(value: string): Date {
   return new Date(`${value}:00+04:00`);
 }
 
-function readStamp(metadata: unknown, fallbackAt: Date): StayStamp {
+const text = (value: unknown): string | null =>
+  typeof value === 'string' && value.trim() ? value.trim() : null;
+
+function readStamp(metadata: unknown, fallbackAt: Date, hasDocument: boolean): StayStamp {
   const row = metadata && typeof metadata === 'object' ? (metadata as Record<string, unknown>) : {};
-  const at = typeof row.at === 'string' && row.at ? row.at : fallbackAt.toISOString();
-  const notes = typeof row.notes === 'string' && row.notes.trim() ? row.notes.trim() : null;
-  const recordedBy =
-    typeof row.recordedBy === 'string' && row.recordedBy.trim() ? row.recordedBy.trim() : null;
-  return { at, notes, recordedBy };
+  const recipient =
+    row.recipient && typeof row.recipient === 'object'
+      ? (row.recipient as Record<string, unknown>)
+      : null;
+  return {
+    at: text(row.at) ?? fallbackAt.toISOString(),
+    notes: text(row.notes),
+    recordedBy: text(row.recordedBy),
+    noteKeys: Array.isArray(row.noteKeys)
+      ? row.noteKeys.filter((key): key is string => typeof key === 'string')
+      : [],
+    customNote: text(row.customNote),
+    important: row.important === true,
+    recipient: recipient
+      ? {
+          name: text(recipient.name),
+          phone: text(recipient.phone),
+          documentKind: text(recipient.documentKind),
+          hasDocument,
+        }
+      : null,
+  };
+}
+
+const DOCUMENT_DATA_URL = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/;
+
+/** The recipient's document photo captured at check-in, as image bytes. */
+export async function readHandoverDocument(
+  tx: Pick<Tx, 'select'>,
+  orgId: string,
+  bookingId: string,
+): Promise<{ bytes: Buffer; mimeType: string } | null> {
+  const [row] = await tx
+    .select({
+      document: sql<
+        string | null
+      >`${stayBookingStatusHistory.metadataJson}->'recipient'->>'document'`,
+    })
+    .from(stayBookingStatusHistory)
+    .where(
+      and(
+        eq(stayBookingStatusHistory.organizationId, orgId),
+        eq(stayBookingStatusHistory.bookingId, bookingId),
+        eq(stayBookingStatusHistory.toStatus, 'checked_in'),
+      ),
+    )
+    .orderBy(desc(stayBookingStatusHistory.createdAt))
+    .limit(1);
+  const match = row?.document?.match(DOCUMENT_DATA_URL);
+  if (!match) return null;
+  return { mimeType: match[1]!, bytes: Buffer.from(match[2]!, 'base64') };
+}
+
+/** Host-side read of the check-in document: booking managers of the property only. */
+export async function readStayHandoverDocumentOnNeon(
+  claims: SessionClaims,
+  propertyId: string,
+  bookingId: string,
+): Promise<{ bytes: Buffer; mimeType: string } | null> {
+  if (!hasPermission(claims, 'stay.booking.manage') || !claims.organizationId) return null;
+  const orgId = claims.organizationId;
+  const ownerPartyId = ownerPartyScope(claims);
+  return withinViewerTenant(claims, async (tx) => {
+    const [booking] = await tx
+      .select({ id: stayBookings.id })
+      .from(stayBookings)
+      .innerJoin(properties, eq(properties.id, stayBookings.propertyId))
+      .where(
+        and(
+          eq(stayBookings.id, bookingId),
+          eq(stayBookings.organizationId, orgId),
+          eq(stayBookings.propertyId, propertyId),
+          eq(properties.organizationId, orgId),
+          ...(ownerPartyId ? [eq(properties.ownerPartyId, ownerPartyId)] : []),
+        ),
+      )
+      .limit(1);
+    return booking ? readHandoverDocument(tx, orgId, booking.id) : null;
+  });
 }
 
 /** Latest check-in / check-out stamps per booking, from the status history. */
@@ -64,7 +168,8 @@ export async function loadStayStamps(
     .select({
       bookingId: stayBookingStatusHistory.bookingId,
       toStatus: stayBookingStatusHistory.toStatus,
-      metadata: stayBookingStatusHistory.metadataJson,
+      metadata: sql<unknown>`${stayBookingStatusHistory.metadataJson} #- '{recipient,document}'`,
+      hasDocument: sql<boolean>`(${stayBookingStatusHistory.metadataJson}->'recipient'->>'document') is not null`,
       createdAt: stayBookingStatusHistory.createdAt,
     })
     .from(stayBookingStatusHistory)
@@ -78,7 +183,7 @@ export async function loadStayStamps(
     .orderBy(asc(stayBookingStatusHistory.createdAt));
   for (const row of rows) {
     const entry = stamps.get(row.bookingId) ?? { checkIn: null, checkOut: null };
-    const stamp = readStamp(row.metadata, row.createdAt);
+    const stamp = readStamp(row.metadata, row.createdAt, row.hasDocument === true);
     if (row.toStatus === 'checked_in') entry.checkIn = stamp;
     else entry.checkOut = stamp;
     stamps.set(row.bookingId, entry);
@@ -94,7 +199,14 @@ export async function recordStayStampOnNeon(
   claims: SessionClaims,
   propertyId: string,
   bookingId: string,
-  input: { kind: StayStampKind; at?: string | undefined; notes?: string | undefined },
+  input: {
+    kind: StayStampKind;
+    at?: string | undefined;
+    notes?: string | undefined;
+    noteKeys?: string[] | undefined;
+    important?: boolean | undefined;
+    recipient?: StayRecipientInput | undefined;
+  },
 ): Promise<{ bookingStatus: string; stamp: StayStamp }> {
   if (!hasPermission(claims, 'stay.booking.manage')) fail('forbidden');
   const orgId = claims.organizationId ?? fail('organization_required');
@@ -103,7 +215,19 @@ export async function recordStayStampOnNeon(
   const at = input.at ? muscatLocalToDate(input.at) : now;
   if (Number.isNaN(at.getTime())) fail('invalid_body');
   if (at.getTime() > now.getTime() + FUTURE_TOLERANCE_MS) fail('stay_time_in_future');
-  const notes = input.notes?.trim() || null;
+  const noteKeys = [...new Set(input.noteKeys ?? [])].filter((key) =>
+    handoverNote(input.kind, key),
+  );
+  const notes = composeHandoverNotes(input.kind, noteKeys, input.notes);
+  const recipient = input.recipient;
+  if (input.kind === 'check_in') {
+    if (!recipient?.document || !DOCUMENT_DATA_URL.test(recipient.document)) {
+      fail('handover_document_required');
+    }
+    if (recipient.document.length > HANDOVER_DOCUMENT_MAX) fail('handover_document_required');
+    if (!validHandoverPhone(recipient.phone)) fail('handover_phone_invalid');
+    if (!handoverDocumentKind(recipient.documentKind)) fail('invalid_body');
+  }
   const toStatus = TO_STATUS[input.kind];
 
   return withinViewerTenant(claims, async (tx) => {
@@ -141,10 +265,33 @@ export async function recordStayStampOnNeon(
       .from(users)
       .where(eq(users.id, claims.sub))
       .limit(1);
+    const handover =
+      input.kind === 'check_in' && recipient
+        ? {
+            name: recipient.name?.trim() || null,
+            phone: recipient.phone.trim(),
+            documentKind: recipient.documentKind,
+          }
+        : null;
     const stamp: StayStamp = {
       at: at.toISOString(),
       notes,
       recordedBy: actor?.displayName ?? null,
+      noteKeys,
+      customNote: input.notes?.trim() || null,
+      important: input.important === true,
+      recipient: handover ? { ...handover, hasDocument: true } : null,
+    };
+    const metadata = {
+      at: stamp.at,
+      notes,
+      recordedBy: stamp.recordedBy,
+      noteKeys,
+      customNote: stamp.customNote,
+      important: stamp.important,
+      ...(handover && recipient
+        ? { recipient: { ...handover, document: recipient.document } }
+        : {}),
     };
 
     await tx
@@ -158,7 +305,7 @@ export async function recordStayStampOnNeon(
       toStatus,
       actorUserId: claims.sub,
       reason: input.kind === 'check_in' ? 'host_check_in' : 'host_check_out',
-      metadataJson: stamp,
+      metadataJson: metadata,
     });
     await tx.insert(workflowEvents).values({
       organizationId: orgId,
@@ -168,7 +315,13 @@ export async function recordStayStampOnNeon(
       eventType: `stay.${toStatus}`,
       fromStatus: booking.status,
       toStatus,
-      metadata: { referenceCode: booking.referenceCode, at: stamp.at, notes },
+      metadata: {
+        referenceCode: booking.referenceCode,
+        at: stamp.at,
+        notes,
+        important: stamp.important,
+        ...(handover ? { recipientPhone: handover.phone, hasDocument: true } : {}),
+      },
     });
     if (input.kind === 'check_out') {
       await tx.insert(outboxEvents).values({

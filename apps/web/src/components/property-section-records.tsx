@@ -9,7 +9,8 @@ import { Icon, type IconName } from '@/components/pmh-icon';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { LIVE_CHANGE_EVENT } from '@/lib/live-sync-shared';
-import { StampDateTimeField } from './stays/stamp-date-time-field';
+import { StayHandoverForm, type HandoverSubmit } from './stays/stay-handover-form';
+import { handoverDocumentKind } from '@/lib/stay-handover';
 import { PENDING_APPROVALS_CHANGED_EVENT } from '@/lib/pending-approvals-shared';
 import { domainStatusLabel } from '@/lib/ui-labels';
 import type {
@@ -319,6 +320,11 @@ const ERROR_TEXT: Record<string, [string, string]> = {
     'وقت المغادرة قبل وقت الدخول المسجّل.',
     'Check-out time is before the recorded check-in.',
   ],
+  handover_document_required: [
+    'صورة وثيقة المستلم مطلوبة لتسجيل الدخول.',
+    'A photo of the recipient’s ID is required to check in.',
+  ],
+  handover_phone_invalid: ['رقم هاتف المستلم غير صحيح.', 'The recipient phone number is invalid.'],
 };
 
 function formatStamp(value: string, locale: 'ar' | 'en'): string {
@@ -411,10 +417,13 @@ function Cell({
   row,
   column,
   locale,
+  documentHref,
 }: {
   row: PropertyRecordRow;
   column: Column;
   locale: 'ar' | 'en';
+  /** Check-in ID photo; only for viewers who manage stay bookings. */
+  documentHref: string | null;
 }) {
   const ar = locale === 'ar';
   const value = row[column.key] ?? null;
@@ -433,9 +442,22 @@ function Cell({
       if (row.kind !== 'stay' || (!row.checkedInAt && !row.checkedOutAt)) {
         return <span className="muted">—</span>;
       }
+      const documentKind = handoverDocumentKind(row.checkInDocumentKind);
       const entries = [
-        { at: row.checkedInAt, notes: row.checkInNotes, label: ar ? 'دخول' : 'In' },
-        { at: row.checkedOutAt, notes: row.checkOutNotes, label: ar ? 'مغادرة' : 'Out' },
+        {
+          at: row.checkedInAt,
+          notes: row.checkInNotes,
+          important: row.checkInImportant === '1',
+          label: ar ? 'دخول' : 'In',
+          handover: row.checkInPhone || row.checkInDocument,
+        },
+        {
+          at: row.checkedOutAt,
+          notes: row.checkOutNotes,
+          important: row.checkOutImportant === '1',
+          label: ar ? 'مغادرة' : 'Out',
+          handover: false,
+        },
       ];
       return (
         <div className="psr-stay-log">
@@ -444,6 +466,33 @@ function Cell({
               <div key={entry.label}>
                 <span className="psr-stay-log__label">{entry.label}</span>{' '}
                 <span>{formatStamp(entry.at, locale)}</span>
+                {entry.important ? (
+                  <span className="psr-stay-log__important">
+                    {ar ? 'مهم · Important' : 'Important · مهم'}
+                  </span>
+                ) : null}
+                {entry.handover ? (
+                  <span className="psr-stay-log__recipient">
+                    {row.checkInRecipient ? <bdi>{row.checkInRecipient}</bdi> : null}
+                    {row.checkInPhone ? (
+                      <a href={`tel:${row.checkInPhone.replace(/[^\d+]/g, '')}`} dir="ltr">
+                        {row.checkInPhone}
+                      </a>
+                    ) : null}
+                    {row.checkInDocument && documentHref ? (
+                      <a href={documentHref} target="_blank" rel="noreferrer">
+                        🪪{' '}
+                        {documentKind
+                          ? ar
+                            ? documentKind.ar
+                            : documentKind.en
+                          : ar
+                            ? 'الوثيقة'
+                            : 'ID'}
+                      </a>
+                    ) : null}
+                  </span>
+                ) : null}
                 {entry.notes ? <small>{entry.notes}</small> : null}
               </div>
             ) : null,
@@ -553,106 +602,6 @@ function Cell({
     default:
       return value ? <>{value}</> : <span className="muted">—</span>;
   }
-}
-
-function StayStampForm({
-  kind,
-  reference,
-  locale,
-  busy,
-  onSubmit,
-  onCancel,
-}: {
-  kind: StampKind;
-  reference: string;
-  locale: 'ar' | 'en';
-  busy: boolean;
-  onSubmit: (at: string, notes: string) => void;
-  onCancel: () => void;
-}) {
-  const ar = locale === 'ar';
-  const [at, setAt] = useState<string | null>(null);
-  const [notes, setNotes] = useState('');
-  const checkIn = kind === 'check_in';
-
-  return (
-    <form
-      className="psr-form psr-stamp-form"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (at) onSubmit(at, notes);
-      }}
-    >
-      <h3>
-        {checkIn
-          ? ar
-            ? `تسجيل دخول الضيف — ${reference}`
-            : `Guest check-in — ${reference}`
-          : ar
-            ? `تسجيل مغادرة الضيف — ${reference}`
-            : `Guest check-out — ${reference}`}
-      </h3>
-      <div className="form-grid">
-        <StampDateTimeField
-          id={`psr-stamp-at-${reference}`}
-          locale={locale}
-          onChange={setAt}
-          label={
-            checkIn
-              ? ar
-                ? 'تاريخ ووقت الاستلام والدخول'
-                : 'Check-in date and time'
-              : ar
-                ? 'تاريخ ووقت المغادرة'
-                : 'Check-out date and time'
-          }
-        />
-        <div className="field span-2">
-          <label htmlFor={`psr-stamp-notes-${reference}`}>{ar ? 'ملاحظات' : 'Notes'}</label>
-          <textarea
-            id={`psr-stamp-notes-${reference}`}
-            className="textarea"
-            rows={2}
-            maxLength={1000}
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            placeholder={
-              checkIn
-                ? ar
-                  ? 'مثال: استلم المفاتيح، عدد الضيوف، حالة الوحدة عند الاستلام…'
-                  : 'e.g. keys handed over, number of guests, unit condition…'
-                : ar
-                  ? 'مثال: سلّم المفاتيح، حالة الوحدة، أي أضرار أو مستلزمات ناقصة…'
-                  : 'e.g. keys returned, unit condition, any damage or missing items…'
-            }
-          />
-        </div>
-      </div>
-      <p className="muted">
-        {ar
-          ? 'يظهر الوقت والملاحظات للضيف في صفحة تفاصيل إقامته.'
-          : 'The guest sees this time and these notes on their stay page.'}
-      </p>
-      <div className="form-actions">
-        <button type="submit" className="button button--primary" disabled={busy || !at}>
-          {busy
-            ? ar
-              ? 'جارٍ الحفظ…'
-              : 'Saving…'
-            : checkIn
-              ? ar
-                ? 'تأكيد الدخول'
-                : 'Confirm check-in'
-              : ar
-                ? 'تأكيد المغادرة'
-                : 'Confirm check-out'}
-        </button>
-        <button type="button" className="button button--quiet" onClick={onCancel} disabled={busy}>
-          {ar ? 'إلغاء' : 'Cancel'}
-        </button>
-      </div>
-    </form>
-  );
 }
 
 function ManualSaleForm({
@@ -1011,13 +960,17 @@ export function PropertySectionRecords({
     setReloadKey((key) => key + 1);
   }
 
-  async function submitStamp(row: PropertyRecordRow, kind: StampKind, at: string, notes: string) {
+  async function submitStamp(row: PropertyRecordRow, kind: StampKind, value: HandoverSubmit) {
     const id = row.id ?? '';
+    const { at, notes, noteKeys, important, recipient } = value;
     const result = await runAction(id, {
       action: kind,
       bookingId: id,
       at,
       ...(notes.trim() ? { notes: notes.trim() } : {}),
+      ...(noteKeys.length ? { noteKeys } : {}),
+      ...(important ? { important } : {}),
+      ...(recipient ? { recipient } : {}),
     });
     if (!result) return;
     setStampForm(null);
@@ -1365,7 +1318,16 @@ export function PropertySectionRecords({
                     >
                       {config.columns.map((column) => (
                         <td key={column.key}>
-                          <Cell row={row} column={column} locale={locale} />
+                          <Cell
+                            row={row}
+                            column={column}
+                            locale={locale}
+                            documentHref={
+                              viewer.canRecordStays && row.checkInDocument && row.id
+                                ? `/api/owner/properties/${encodeURIComponent(propertyId)}/records/handover/${row.id}`
+                                : null
+                            }
+                          />
                         </td>
                       ))}
                       {showActions ? (
@@ -1384,14 +1346,13 @@ export function PropertySectionRecords({
                     {stampForm && stampForm.rowId === row.id ? (
                       <tr className="psr-details">
                         <td colSpan={config.columns.length + (showActions ? 1 : 0)}>
-                          <StayStampForm
+                          <StayHandoverForm
                             kind={stampForm.kind}
                             reference={row.reference ?? ''}
                             locale={locale}
                             busy={busyId === row.id}
-                            onSubmit={(at, notes) =>
-                              void submitStamp(row, stampForm.kind, at, notes)
-                            }
+                            guestPhone={row.guestPhone ?? null}
+                            onSubmit={(value) => void submitStamp(row, stampForm.kind, value)}
                             onCancel={() => setStampForm(null)}
                           />
                         </td>

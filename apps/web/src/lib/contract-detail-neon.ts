@@ -37,6 +37,13 @@ import { defaultTemplateCounterpart } from '@/lib/contract-default-templates';
 import { formatMoney } from '@/lib/format';
 import { ownerPartyScope, readClaims, withinViewerTenant } from '@/lib/portal-ops-data';
 import { lookupPublicStayBookingOnNeon } from '@/lib/public-stays-guest-neon';
+import {
+  contractQrSvg,
+  contractVerifyToken,
+  contractVerifyUrl,
+  signatureSerials,
+} from '@/lib/contract-verify';
+import { loadStayStamps, type StayStamps } from '@/lib/stay-arrival-neon';
 
 type Tx = Parameters<Parameters<typeof withinViewerTenant>[1]>[0];
 
@@ -341,7 +348,7 @@ export async function loadContractDetailFromNeon(
         .limit(1)
         .then((rows) => rows[0] ?? null),
     ]);
-    const [propertyRow, identityDocs, templateSibling] = await Promise.all([
+    const [propertyRow, identityDocs, templateSibling, serials, stamps] = await Promise.all([
       unit
         ? tx
             .select({
@@ -414,6 +421,12 @@ export async function loadContractDetailFromNeon(
             .limit(1)
             .then((rows) => rows[0]?.html ?? null)
         : Promise.resolve(null),
+      signatures.length
+        ? signatureSerials(tx, orgId, contract.id)
+        : Promise.resolve(new Map<string, string>()),
+      stayBookingId
+        ? loadStayStamps(tx, orgId, [stayBookingId]).then((map) => map.get(stayBookingId) ?? null)
+        : Promise.resolve(null),
     ]);
     const builtIn = defaultTemplateCounterpart(template?.html);
     const templateAr =
@@ -441,6 +454,9 @@ export async function loadContractDetailFromNeon(
       esign,
       stayBookingId,
       showIdentityFiles: canViewIdentityFiles(access, contract),
+      canManageStays: hasPermission(claims, 'stay.booking.manage'),
+      serials,
+      stamps,
     };
   });
   if (!detail) return null;
@@ -514,6 +530,9 @@ type Loaded = {
   esign: Record<string, unknown> | null;
   stayBookingId: string | null;
   showIdentityFiles: boolean;
+  canManageStays: boolean;
+  serials: Map<string, string>;
+  stamps: StayStamps | null;
   owner: PartyRow | null;
   unit: {
     code: string;
@@ -530,6 +549,7 @@ type Loaded = {
   } | null;
   propertyRow:
     | (Omit<ContractPremises, 'unit' | 'propertyNameAr' | 'propertyNameEn'> & {
+        id: string;
         nameAr: string;
         nameEn: string;
       })
@@ -649,8 +669,15 @@ async function buildContractDocument(
     : [];
 
   const approval = record(snapshot.approval);
+  const verifyUrl = contractVerifyUrl(contractVerifyToken(contract.id, contract.createdAt));
+  const qrSvg = await contractQrSvg(verifyUrl).catch(() => null);
+  const checkInStamp = loaded.stamps?.checkIn ?? null;
+  const checkOutStamp = loaded.stamps?.checkOut ?? null;
+  const recipient = checkInStamp?.recipient ?? null;
+  const propertyId = loaded.propertyRow?.id ?? null;
   return {
     type,
+    verification: qrSvg ? { url: verifyUrl, qrSvg } : null,
     createdAt: contract.createdAt.toISOString(),
     sentAt: contract.sentAt?.toISOString() ?? null,
     completedAt: contract.completedAt?.toISOString() ?? null,
@@ -725,6 +752,7 @@ async function buildContractDocument(
         email: text(evidence.signedByEmail) ?? text(contact.email),
         signedAt: row.signedAt.toISOString(),
         hash: row.signatureHash,
+        serial: loaded.serials.get(row.id) ?? null,
       };
     }),
     files,
@@ -734,8 +762,35 @@ async function buildContractDocument(
           nights: stay.nights ?? null,
           adults: stay.adults ?? null,
           children: stay.children ?? null,
-          checkIn: stay.checkIn ? { at: stay.checkIn.at, notes: stay.checkIn.notes } : null,
-          checkOut: stay.checkOut ? { at: stay.checkOut.at, notes: stay.checkOut.notes } : null,
+          checkIn: checkInStamp
+            ? {
+                at: checkInStamp.at,
+                notes: checkInStamp.notes,
+                noteKeys: checkInStamp.noteKeys,
+                customNote: checkInStamp.customNote,
+                important: checkInStamp.important,
+              }
+            : null,
+          checkOut: checkOutStamp
+            ? {
+                at: checkOutStamp.at,
+                notes: checkOutStamp.notes,
+                noteKeys: checkOutStamp.noteKeys,
+                customNote: checkOutStamp.customNote,
+                important: checkOutStamp.important,
+              }
+            : null,
+          recipient: recipient
+            ? {
+                name: recipient.name,
+                phone: recipient.phone,
+                documentKind: recipient.documentKind,
+                documentHref:
+                  recipient.hasDocument && loaded.canManageStays && propertyId
+                    ? `/api/owner/properties/${propertyId}/records/handover/${stay.id}`
+                    : null,
+              }
+            : null,
           guestPageHref: `/guest/stays/${stay.id}?ref=${encodeURIComponent(stay.referenceCode)}`,
         }
       : null,
