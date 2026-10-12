@@ -30,6 +30,7 @@ import {
   type Pair,
 } from './contract-doc-parts';
 import { ContractDocumentToolbar } from './contract-document-toolbar';
+import { PropertyLocationMap } from './property-location-map';
 import { SignatureForm } from './signature-form';
 
 type Portal = Exclude<PortalRole, 'platform'>;
@@ -672,6 +673,9 @@ export function ContractArticle({
                   sale ? ['العقار المبيع', 'The Property'] : ['العين المؤجَّرة', 'The Premises'],
                 )}
                 {premisesBlock(kit, premises, propertyName)}
+                {doc.location ? (
+                  <PropertyLocationMap location={doc.location} locale={locale} bilingual />
+                ) : null}
               </section>
 
               <section className="contract-doc__section">

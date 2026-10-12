@@ -141,6 +141,7 @@ export function leaseBookingAgreement(booking: LeaseBookingAgreement): {
           },
         }
       : null,
+    location: booking.location,
     terms: bookingTermsDocument({
       mode: booking.mode,
       depositAr: formatMoney(booking.depositMinor, booking.currency, 'ar'),

@@ -20378,6 +20378,221 @@ a.contract-annex-bar__item:focus-visible {
   line-height: 1.25;
   text-align: center;
 }
+
+/* Property location: map with the BHD watermark, and a QR code that opens the location. */
+.loc-map {
+  --loc-gold: var(--doc-gold, #a8834a);
+  --loc-gold-soft: var(--doc-gold-soft, #d9c59c);
+  --loc-green: var(--doc-green, #10372a);
+  --loc-muted: var(--doc-muted, #5f6b64);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 9.5rem;
+  grid-template-areas:
+    'map qr'
+    'caption caption';
+  gap: 0.75rem;
+  margin: 1rem 0 0;
+  padding: 0.75rem;
+  border: 1px solid var(--loc-gold-soft);
+  border-radius: 0.9rem;
+  background: linear-gradient(180deg, #fffefb, #fbf6ea);
+  break-inside: avoid;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+.loc-map--qr-only {
+  grid-template-columns: 9.5rem minmax(0, 1fr);
+  grid-template-areas: 'qr caption';
+  align-items: center;
+}
+.loc-map__map {
+  grid-area: map;
+  position: relative;
+  display: block;
+  height: 15rem;
+  overflow: hidden;
+  border: 1px solid var(--loc-gold);
+  border-radius: 0.65rem;
+  outline: 3px double var(--loc-gold-soft);
+  outline-offset: 3px;
+  background: #e9efe9;
+  isolation: isolate;
+}
+.loc-map__tiles {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+}
+.loc-map__tiles img {
+  position: absolute;
+  width: 256px;
+  height: 256px;
+  max-width: none;
+  filter: saturate(0.8) sepia(0.12);
+  user-select: none;
+}
+.loc-map__veil {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(16, 55, 42, 0.16) 100%);
+  pointer-events: none;
+}
+.loc-map__watermark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(62%, 300px);
+  transform: translate(-50%, -50%) rotate(-14deg);
+  opacity: 0.16;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  user-select: none;
+}
+.loc-map__pin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 40px;
+  height: 52px;
+  transform: translate(-50%, -100%);
+  filter: drop-shadow(0 4px 6px rgba(11, 61, 42, 0.35));
+}
+.loc-map__pin svg {
+  position: relative;
+  display: block;
+}
+.loc-map__pulse {
+  position: absolute;
+  left: 50%;
+  bottom: -9px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(8, 163, 159, 0.35);
+  transform: translateX(-50%);
+  animation: loc-map-pulse 2.2s ease-out infinite;
+}
+@keyframes loc-map-pulse {
+  0% {
+    transform: translateX(-50%) scale(0.4);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateX(-50%) scale(2.4);
+    opacity: 0;
+  }
+}
+.loc-map__brand {
+  position: absolute;
+  inset-block-start: 0.55rem;
+  inset-inline-end: 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--loc-gold-soft);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2px 6px rgba(16, 55, 42, 0.15);
+}
+.loc-map__brand img {
+  display: block;
+  width: 54px;
+  height: auto;
+}
+.loc-map__brand i {
+  color: var(--loc-green);
+  font-size: 0.8rem;
+  font-style: normal;
+  font-weight: 800;
+}
+.loc-map__attrib {
+  position: absolute;
+  inset-block-end: 0.3rem;
+  inset-inline-start: 0.4rem;
+  padding: 0 0.35rem;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.85);
+  color: #44554d;
+  font-size: 0.6rem;
+}
+.loc-map__qr {
+  grid-area: qr;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 0.4rem;
+  color: var(--loc-muted);
+  text-decoration: none;
+}
+.loc-map__qr-code {
+  display: block;
+  width: 100%;
+  padding: 0.35rem;
+  border: 1px solid var(--loc-gold);
+  border-radius: 0.5rem;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(60, 45, 20, 0.1);
+}
+.loc-map__qr-code svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.loc-map__qr small,
+.loc-map__caption a {
+  display: grid;
+  font-size: 0.7rem;
+  line-height: 1.3;
+  text-align: center;
+}
+.loc-map__caption {
+  grid-area: caption;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 1rem;
+  color: var(--loc-muted);
+  font-size: 0.78rem;
+}
+.loc-map__caption strong {
+  display: inline-flex;
+  gap: 0.5rem;
+  color: var(--loc-green);
+}
+.loc-map__caption a {
+  display: inline-flex;
+  gap: 0.4rem;
+  color: var(--loc-green);
+  font-weight: 700;
+}
+@media (max-width: 560px) {
+  .loc-map,
+  .loc-map--qr-only {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'map'
+      'qr'
+      'caption';
+  }
+  .loc-map__qr {
+    width: 9rem;
+    margin-inline: auto;
+  }
+}
+@media print {
+  .loc-map__pulse {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loc-map__pulse {
+    animation: none;
+  }
+}
 .contract-doc__important {
   display: inline-block;
   margin-inline-start: 0.4rem;

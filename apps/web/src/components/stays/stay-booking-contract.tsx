@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link } from '@/i18n/navigation';
+import { PropertyLocationMap } from '@/components/property-location-map';
+import type { PropertyLocation } from '@/lib/contract-document';
 import { formatMoney } from '@/lib/format';
 import { stayBookingModeLabel, stayStatusLabel, stayTypeLabel } from '@/lib/ui-labels';
 
@@ -41,6 +43,8 @@ export type StayBookingContractData = {
   propertyNameEn?: string | null;
   /** Owner-authenticated media proxy URL. */
   propertyCoverUrl?: string | null;
+  /** Map pin and the QR code that opens the property's location. */
+  location?: PropertyLocation | null;
   /** Public /stays/{slug} when published. */
   stayListingSlug?: string | null;
   unitId: string;
@@ -359,6 +363,9 @@ export function StayBookingContract({
             }
           />
         </dl>
+        {booking.location ? (
+          <PropertyLocationMap location={booking.location} locale={locale} />
+        ) : null}
       </section>
 
       {(booking.overlappingBookings && booking.overlappingBookings.length > 0) ||

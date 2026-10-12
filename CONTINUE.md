@@ -1,5 +1,15 @@
 # CONTINUE — 2026-10-12
 
+**0.8.31** · خارطة موقع العقار ورمز QR في المستندات:
+
+- **`loadPropertyLocation(tx, orgId, propertyId)`** (`lib/property-location-neon.ts`): `ST_Y`/`ST_X` من `addresses.location`، وإلا رابط «Google Maps:» من `property_profiles.notes`. يعيد `PropertyLocation { latitude, longitude, mapsUrl, qrSvg }` أو null.
+- **`PropertyLocationMap`** (`components/property-location-map.tsx`): بلاطات OSM بالتكبير 16 حول الدبوس (5×3)، مع العلامة المائية ورمز QR. في `ContractArticle` (`doc.location`) وفي `StayBookingContract` (`booking.location`).
+- **مفتوح:** التحقق على قاعدة البيانات بعد النشر؛ صفحة الضيف لحجز الإقامة و`/book/confirmed` بلا خارطة بعد.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.31-AR.md`](./docs/implementation/RELEASE-0.8.31-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.30** · رحلة حجز الإيجار أو الشراء بعد الدفع:
 
 - **النموذج:** `reservations.termsSnapshot.lifecycle` (`ReservationLifecycle` في `lib/lease-reservation-lifecycle.ts`). المرحلة تُحسب بـ `leaseJourneyPhase`، والدور بـ `phaseWaitsOn`. الحجز يبقى `confirmed` حتى توقيع المستأجر ثم `converted`.

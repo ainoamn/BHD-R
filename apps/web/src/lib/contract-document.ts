@@ -76,6 +76,17 @@ export interface ContractPremises {
   } | null;
 }
 
+/**
+ * Where the property is: the map pin when coordinates are known, and the link the QR code
+ * opens (Google Maps at the pin, or the link the owner saved with the property).
+ */
+export interface PropertyLocation {
+  latitude: number | null;
+  longitude: number | null;
+  mapsUrl: string;
+  qrSvg: string | null;
+}
+
 /** Everything needed to render the contract as its original document. */
 export interface ContractDocument {
   type: 'stay' | 'lease' | 'sale';
@@ -94,6 +105,7 @@ export interface ContractDocument {
   owner: ContractPartyCard | null;
   tenant: ContractPartyCard | null;
   premises: ContractPremises | null;
+  location: PropertyLocation | null;
   terms: NumberedTermsBlock[];
   termsAcceptedAt: string | null;
   signatures: Array<{

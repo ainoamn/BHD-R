@@ -35,6 +35,7 @@ import {
   type ReservationLifecycle,
 } from '@/lib/lease-reservation-lifecycle';
 import { ownerPartyScope } from '@/lib/portal-ops-data';
+import { loadPropertyLocation } from '@/lib/property-location-neon';
 import { readUnitSaleDeposits } from '@/lib/unit-sale-deposit-neon';
 
 export const LEASE_BOOKING_FLOW = 'public_deposit_v1';
@@ -812,7 +813,7 @@ async function leaseBookingAgreementData(transaction: Tx, match: LeaseReservatio
   const orgId = match.organizationId;
   const esign = match.snapshot.esign ?? null;
   return withElevatedRead(transaction, async () => {
-    const [owner, premises, letterhead, signaturePng] = await Promise.all([
+    const [owner, premises, letterhead, signaturePng, location] = await Promise.all([
       transaction
         .select({
           displayName: parties.displayName,
@@ -889,6 +890,7 @@ async function leaseBookingAgreementData(transaction: Tx, match: LeaseReservatio
             .limit(1)
             .then((rows) => rows[0]?.png ?? null)
         : Promise.resolve(null),
+      loadPropertyLocation(transaction, orgId, match.propertyId),
     ]);
     const serial = esign ? await reservationSignatureSerial(transaction, orgId, match.id) : null;
     const png = signaturePng && SIGNATURE_IMAGE.test(signaturePng) ? signaturePng : null;
@@ -898,6 +900,7 @@ async function leaseBookingAgreementData(transaction: Tx, match: LeaseReservatio
       capturedAt: match.snapshot.capturedAt,
       owner,
       premises,
+      location,
       letterhead,
       signature: esign ? { signedAt: esign.signedAt, png, serial } : null,
     };
