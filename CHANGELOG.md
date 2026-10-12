@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.33 — 2026-10-12
+
+- **التنقّل بين مراحل الحجز المكتملة** في صفحة الحجز عند المالك. الضغط على مرحلة عليها ✓ (إتمام الحجز، اعتماد المالك، المستندات، العقد) يعرض تفاصيلها للقراءة فقط، مع زر للعودة إلى المرحلة الحالية. والمراحل التي لم يصل إليها الحجز تبقى مقفلة.
+- لا ترحيل لقاعدة البيانات.
+- التفاصيل: [`docs/implementation/RELEASE-0.8.33-AR.md`](./docs/implementation/RELEASE-0.8.33-AR.md).
+
 ## 0.8.32 — 2026-10-12
 
 - **صفحة العقارات:**

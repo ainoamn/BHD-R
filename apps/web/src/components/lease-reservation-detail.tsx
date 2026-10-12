@@ -110,6 +110,9 @@ export function LeaseReservationDetail({
         party={booking.party}
         salePriceMinor={booking.salePriceMinor}
         currency={booking.currency}
+        depositLabel={deposit}
+        depositPaidAt={booking.depositPaidAt}
+        termsAcceptedAt={booking.termsAcceptedAt}
         hasEsign={Boolean(signature)}
         canManage={permissions.canManage}
         canSign={permissions.canSign}

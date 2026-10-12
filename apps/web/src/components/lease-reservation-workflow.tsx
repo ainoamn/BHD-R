@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { LeaseContractForm, type LeaseContractPayload } from '@/components/lease-contract-form';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
@@ -63,6 +63,9 @@ type Props = {
   party: ReservationParty | null;
   salePriceMinor: string | null;
   currency: string;
+  depositLabel: string;
+  depositPaidAt: string | null;
+  termsAcceptedAt: string | null;
   hasEsign: boolean;
   canManage: boolean;
   canSign: boolean;
@@ -110,8 +113,11 @@ export function LeaseReservationWorkflow(props: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  const [viewing, setViewing] = useState<number | null>(null);
   const stage = leaseJourneyStageIndex(phase);
   const labels = leaseJourneyStageLabels(sale, ar);
+  /** A completed stage the owner opened to review; later stages stay locked. */
+  const reviewing = viewing !== null && viewing < stage ? viewing : null;
   const fileHref = (file: string) =>
     `/api/owner/bookings/${encodeURIComponent(reservationId)}/files/${file}`;
   const contractHref = lifecycle.contract
@@ -151,18 +157,47 @@ export function LeaseReservationWorkflow(props: Props) {
         </div>
       </header>
       <ol className="lrw__steps">
-        {labels.map((label, index) => (
-          <li
-            key={label}
-            className={`lrw__step lrw__step--${
-              index < stage ? 'done' : index === stage ? 'current' : 'upcoming'
-            }`}
-            aria-current={index === stage ? 'step' : undefined}
-          >
-            <span className="lrw__dot">{index < stage ? '✓' : index + 1}</span>
-            <span>{label}</span>
-          </li>
-        ))}
+        {labels.map((label, index) => {
+          const state = index < stage ? 'done' : index === stage ? 'current' : 'upcoming';
+          const shown = reviewing === null ? index === stage : index === reviewing;
+          const content = (
+            <>
+              <span className="lrw__dot">{index < stage ? '✓' : index + 1}</span>
+              <span>{label}</span>
+            </>
+          );
+          return (
+            <li
+              key={label}
+              className={`lrw__step lrw__step--${state}${shown ? ' lrw__step--shown' : ''}`}
+              aria-current={index === stage ? 'step' : undefined}
+            >
+              {state === 'upcoming' ? (
+                <span
+                  className="lrw__step-body"
+                  aria-disabled="true"
+                  title={t('لم تصل إلى هذه المرحلة بعد', 'Not reached yet')}
+                >
+                  {content}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="lrw__step-body"
+                  aria-pressed={shown}
+                  title={
+                    state === 'done'
+                      ? t('عرض تفاصيل هذه المرحلة', 'View this stage')
+                      : t('العودة إلى المرحلة الحالية', 'Back to the current stage')
+                  }
+                  onClick={() => setViewing(state === 'done' ? index : null)}
+                >
+                  {content}
+                </button>
+              )}
+            </li>
+          );
+        })}
       </ol>
 
       {error ? (
@@ -171,184 +206,352 @@ export function LeaseReservationWorkflow(props: Props) {
         </p>
       ) : null}
 
-      {phase === 'awaiting_terms_signature' ? (
-        <p className="notice notice--info">
-          {t(
-            'دفع العميل العربون ولم يوقّع اتفاقية الحجز بعد. ستتمكن من اعتماد الحجز بعد توقيعه.',
-            'The client paid the deposit but has not signed the booking agreement yet.',
-          )}
-        </p>
-      ) : null}
-
-      {phase === 'awaiting_owner_approval' ? (
-        <div className="lrw__card lrw__card--action">
-          <h3>{t('اعتماد الحجز', 'Approve the booking')}</h3>
-          <p>
-            {t(
-              'دفع العميل العربون ووقّع اتفاقية الحجز إلكترونياً مع صور هويته. راجع البيانات ثم اعتمد الحجز ليفتح لك نافذة إعداد العقد، ويظهر للعميل أن حجزه معتمد.',
-              'The client paid the deposit and e-signed the booking agreement with their ID. Review, then approve to open the contract step; the client will see the booking as approved.',
-            )}
-          </p>
-          {canManage ? (
-            <button
-              type="button"
-              className="button button--primary"
-              disabled={busy}
-              onClick={() => void act({ action: 'approve' })}
-            >
-              {busy ? t('جارٍ الاعتماد…', 'Approving…') : t('اعتماد الحجز', 'Approve booking')}
-            </button>
-          ) : (
-            <p className="muted">
-              {t('يعتمد الحجز المالك أو من يمثله.', 'The owner or their representative approves.')}
-            </p>
-          )}
-        </div>
-      ) : null}
-
-      {draftOpen && canManage ? (
-        <ContractDraftEditor
+      {reviewing !== null ? (
+        <CompletedStage
           {...props}
-          busy={busy}
-          onSave={act}
-          onCancel={() => setEditing(false)}
+          index={reviewing}
+          label={labels[reviewing] ?? ''}
+          contractHref={contractHref}
+          fileHref={fileHref}
+          onBack={() => setViewing(null)}
         />
       ) : null}
 
-      {!draftOpen &&
-      (phase === 'awaiting_documents' ||
-        phase === 'awaiting_documents_review' ||
-        phase === 'awaiting_contract_approval') ? (
-        <div className="lrw__card">
-          <div className="lrw__card-head">
-            <h3>{sale ? t('عقد البيع', 'Sale contract') : t('عقد الإيجار', 'Lease contract')}</h3>
-            {canManage ? (
-              <button
-                type="button"
-                className="button button--quiet"
-                onClick={() => setEditing(true)}
-                disabled={busy}
-              >
-                {t('تعديل العقد والمستندات', 'Edit contract & documents')}
-              </button>
-            ) : null}
-          </div>
-          <DraftSummary {...props} />
-          <RequirementsReview
-            {...props}
-            busy={busy}
-            fileHref={fileHref}
-            onReview={(code, decision, note) =>
-              act({ action: 'review_document', code, decision, ...(note ? { note } : {}) })
-            }
-          />
-          <div className="lrw__approve">
-            <p className="muted">
-              {phase === 'awaiting_contract_approval'
-                ? t(
-                    'المستندات مكتملة. باعتمادك يوقَّع العقد باسم المالك ويُرسل للعميل ليوقّعه إلكترونياً.',
-                    'Documents are complete. Approving signs for the owner and sends the contract to the client to e-sign.',
-                  )
-                : t(
-                    'يُفتح اعتماد العقد بعد أن يرفع العميل كل المستندات المطلوبة وتقبلها.',
-                    'Contract approval opens once every required document is uploaded and accepted.',
-                  )}
+      {reviewing === null ? (
+        <>
+          {phase === 'awaiting_terms_signature' ? (
+            <p className="notice notice--info">
+              {t(
+                'دفع العميل العربون ولم يوقّع اتفاقية الحجز بعد. ستتمكن من اعتماد الحجز بعد توقيعه.',
+                'The client paid the deposit but has not signed the booking agreement yet.',
+              )}
             </p>
-            <button
-              type="button"
-              className="button button--primary"
-              disabled={busy || phase !== 'awaiting_contract_approval' || !canSign}
-              onClick={() => void act({ action: 'issue_contract' })}
-            >
-              {busy
-                ? t('جارٍ الاعتماد…', 'Approving…')
-                : t('اعتماد العقد وإرساله للتوقيع', 'Approve contract & send for signature')}
-            </button>
-            {!canSign ? (
-              <p className="muted">
+          ) : null}
+
+          {phase === 'awaiting_owner_approval' ? (
+            <div className="lrw__card lrw__card--action">
+              <h3>{t('اعتماد الحجز', 'Approve the booking')}</h3>
+              <p>
                 {t(
-                  'اعتماد العقد يحتاج صلاحية توقيع العقود (المالك أو مدير المؤسسة).',
-                  'Approving the contract needs contract-signing permission.',
+                  'دفع العميل العربون ووقّع اتفاقية الحجز إلكترونياً مع صور هويته. راجع البيانات ثم اعتمد الحجز ليفتح لك نافذة إعداد العقد، ويظهر للعميل أن حجزه معتمد.',
+                  'The client paid the deposit and e-signed the booking agreement with their ID. Review, then approve to open the contract step; the client will see the booking as approved.',
                 )}
               </p>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-
-      {phase === 'awaiting_tenant_signature' ? (
-        <div className="lrw__card">
-          <h3>{t('بانتظار توقيع الطرف الثاني', 'Awaiting the second party')}</h3>
-          <p>
-            {t(
-              `اعتمدت العقد ${lifecycle.contract?.reference ?? ''} ووُقّع باسم المالك. ينتظر الآن توقيع ${sale ? 'المشتري' : 'المستأجر'} إلكترونياً من صفحة حجزه.`,
-              `You approved contract ${lifecycle.contract?.reference ?? ''}; it is signed for the owner and now awaits the ${sale ? 'buyer' : 'tenant'}'s e-signature.`,
-            )}
-          </p>
-          {contractHref ? (
-            <a className="button button--quiet" href={contractHref}>
-              {t('عرض العقد', 'View contract')}
-            </a>
-          ) : null}
-        </div>
-      ) : null}
-
-      {phase === 'awaiting_handover' ? (
-        <HandoverForm
-          {...props}
-          busy={busy}
-          contractHref={contractHref}
-          onSave={(body) => act({ action: 'record_handover', ...body })}
-        />
-      ) : null}
-
-      {phase === 'handed_over' && lifecycle.handover ? (
-        <div className="lrw__card">
-          <h3>{t('تم تسليم العقار', 'Premises handed over')}</h3>
-          <dl className="contract-detail__facts">
-            <div>
-              <dt>{t('تاريخ التسليم', 'Handover date')}</dt>
-              <dd>{lifecycle.handover.on}</dd>
+              {canManage ? (
+                <button
+                  type="button"
+                  className="button button--primary"
+                  disabled={busy}
+                  onClick={() => void act({ action: 'approve' })}
+                >
+                  {busy ? t('جارٍ الاعتماد…', 'Approving…') : t('اعتماد الحجز', 'Approve booking')}
+                </button>
+              ) : (
+                <p className="muted">
+                  {t(
+                    'يعتمد الحجز المالك أو من يمثله.',
+                    'The owner or their representative approves.',
+                  )}
+                </p>
+              )}
             </div>
-            <div>
-              <dt>{t('المستلم', 'Received by')}</dt>
-              <dd>{lifecycle.handover.recipientName}</dd>
-            </div>
-            {lifecycle.handover.keys ? (
-              <div>
-                <dt>{t('المفاتيح', 'Keys')}</dt>
-                <dd>{lifecycle.handover.keys}</dd>
-              </div>
-            ) : null}
-            {lifecycle.handover.electricityReading ? (
-              <div>
-                <dt>{t('قراءة الكهرباء', 'Electricity reading')}</dt>
-                <dd dir="ltr">{lifecycle.handover.electricityReading}</dd>
-              </div>
-            ) : null}
-            {lifecycle.handover.waterReading ? (
-              <div>
-                <dt>{t('قراءة الماء', 'Water reading')}</dt>
-                <dd dir="ltr">{lifecycle.handover.waterReading}</dd>
-              </div>
-            ) : null}
-            {lifecycle.handover.notes ? (
-              <div>
-                <dt>{t('ملاحظات', 'Notes')}</dt>
-                <dd>{lifecycle.handover.notes}</dd>
-              </div>
-            ) : null}
-          </dl>
-          {contractHref ? (
-            <a className="button button--quiet" href={contractHref}>
-              {t('عرض العقد الموقّع', 'View signed contract')}
-            </a>
           ) : null}
-        </div>
+
+          {draftOpen && canManage ? (
+            <ContractDraftEditor
+              {...props}
+              busy={busy}
+              onSave={act}
+              onCancel={() => setEditing(false)}
+            />
+          ) : null}
+
+          {!draftOpen &&
+          (phase === 'awaiting_documents' ||
+            phase === 'awaiting_documents_review' ||
+            phase === 'awaiting_contract_approval') ? (
+            <div className="lrw__card">
+              <div className="lrw__card-head">
+                <h3>
+                  {sale ? t('عقد البيع', 'Sale contract') : t('عقد الإيجار', 'Lease contract')}
+                </h3>
+                {canManage ? (
+                  <button
+                    type="button"
+                    className="button button--quiet"
+                    onClick={() => setEditing(true)}
+                    disabled={busy}
+                  >
+                    {t('تعديل العقد والمستندات', 'Edit contract & documents')}
+                  </button>
+                ) : null}
+              </div>
+              <DraftSummary {...props} />
+              <RequirementsReview
+                {...props}
+                busy={busy}
+                fileHref={fileHref}
+                onReview={(code, decision, note) =>
+                  act({ action: 'review_document', code, decision, ...(note ? { note } : {}) })
+                }
+              />
+              <div className="lrw__approve">
+                <p className="muted">
+                  {phase === 'awaiting_contract_approval'
+                    ? t(
+                        'المستندات مكتملة. باعتمادك يوقَّع العقد باسم المالك ويُرسل للعميل ليوقّعه إلكترونياً.',
+                        'Documents are complete. Approving signs for the owner and sends the contract to the client to e-sign.',
+                      )
+                    : t(
+                        'يُفتح اعتماد العقد بعد أن يرفع العميل كل المستندات المطلوبة وتقبلها.',
+                        'Contract approval opens once every required document is uploaded and accepted.',
+                      )}
+                </p>
+                <button
+                  type="button"
+                  className="button button--primary"
+                  disabled={busy || phase !== 'awaiting_contract_approval' || !canSign}
+                  onClick={() => void act({ action: 'issue_contract' })}
+                >
+                  {busy
+                    ? t('جارٍ الاعتماد…', 'Approving…')
+                    : t('اعتماد العقد وإرساله للتوقيع', 'Approve contract & send for signature')}
+                </button>
+                {!canSign ? (
+                  <p className="muted">
+                    {t(
+                      'اعتماد العقد يحتاج صلاحية توقيع العقود (المالك أو مدير المؤسسة).',
+                      'Approving the contract needs contract-signing permission.',
+                    )}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          {phase === 'awaiting_tenant_signature' ? (
+            <div className="lrw__card">
+              <h3>{t('بانتظار توقيع الطرف الثاني', 'Awaiting the second party')}</h3>
+              <p>
+                {t(
+                  `اعتمدت العقد ${lifecycle.contract?.reference ?? ''} ووُقّع باسم المالك. ينتظر الآن توقيع ${sale ? 'المشتري' : 'المستأجر'} إلكترونياً من صفحة حجزه.`,
+                  `You approved contract ${lifecycle.contract?.reference ?? ''}; it is signed for the owner and now awaits the ${sale ? 'buyer' : 'tenant'}'s e-signature.`,
+                )}
+              </p>
+              {contractHref ? (
+                <a className="button button--quiet" href={contractHref}>
+                  {t('عرض العقد', 'View contract')}
+                </a>
+              ) : null}
+            </div>
+          ) : null}
+
+          {phase === 'awaiting_handover' ? (
+            <HandoverForm
+              {...props}
+              busy={busy}
+              contractHref={contractHref}
+              onSave={(body) => act({ action: 'record_handover', ...body })}
+            />
+          ) : null}
+
+          {phase === 'handed_over' && lifecycle.handover ? (
+            <div className="lrw__card">
+              <h3>{t('تم تسليم العقار', 'Premises handed over')}</h3>
+              <HandoverFacts handover={lifecycle.handover} ar={ar} />
+              {contractHref ? (
+                <a className="button button--quiet" href={contractHref}>
+                  {t('عرض العقد الموقّع', 'View signed contract')}
+                </a>
+              ) : null}
+            </div>
+          ) : null}
+        </>
       ) : null}
 
       {props.hasEsign && canManage ? <IdentityGallery ar={ar} fileHref={fileHref} /> : null}
     </section>
+  );
+}
+
+function HandoverFacts({
+  handover,
+  ar,
+}: {
+  handover: NonNullable<ReservationLifecycle['handover']>;
+  ar: boolean;
+}) {
+  const t = (arText: string, enText: string) => (ar ? arText : enText);
+  return (
+    <dl className="contract-detail__facts">
+      <div>
+        <dt>{t('تاريخ التسليم', 'Handover date')}</dt>
+        <dd>{handover.on}</dd>
+      </div>
+      <div>
+        <dt>{t('المستلم', 'Received by')}</dt>
+        <dd>{handover.recipientName}</dd>
+      </div>
+      {handover.keys ? (
+        <div>
+          <dt>{t('المفاتيح', 'Keys')}</dt>
+          <dd>{handover.keys}</dd>
+        </div>
+      ) : null}
+      {handover.electricityReading ? (
+        <div>
+          <dt>{t('قراءة الكهرباء', 'Electricity reading')}</dt>
+          <dd dir="ltr">{handover.electricityReading}</dd>
+        </div>
+      ) : null}
+      {handover.waterReading ? (
+        <div>
+          <dt>{t('قراءة الماء', 'Water reading')}</dt>
+          <dd dir="ltr">{handover.waterReading}</dd>
+        </div>
+      ) : null}
+      {handover.notes ? (
+        <div>
+          <dt>{t('ملاحظات', 'Notes')}</dt>
+          <dd>{handover.notes}</dd>
+        </div>
+      ) : null}
+    </dl>
+  );
+}
+
+/** Read-only record of a stage the booking has already passed. */
+function CompletedStage(
+  props: Props & {
+    index: number;
+    label: string;
+    contractHref: string | null;
+    fileHref: (file: string) => string;
+    onBack: () => void;
+  },
+) {
+  const { index, label, lifecycle, locale, mode, contractHref, onBack } = props;
+  const ar = locale === 'ar';
+  const t = (arText: string, enText: string) => (ar ? arText : enText);
+  const sale = mode === 'sale';
+  const when = (iso: string | null | undefined) =>
+    iso
+      ? new Date(iso).toLocaleString(ar ? 'ar-OM' : 'en-GB', {
+          timeZone: 'Asia/Muscat',
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        })
+      : '—';
+
+  let body: ReactNode = null;
+  if (index === 0) {
+    body = (
+      <dl className="contract-detail__facts">
+        <div>
+          <dt>{t('رقم الحجز', 'Booking reference')}</dt>
+          <dd>
+            <bdi dir="ltr" className="lrw__serial">
+              {props.referenceCode}
+            </bdi>
+          </dd>
+        </div>
+        <div>
+          <dt>{t('العربون المدفوع', 'Deposit paid')}</dt>
+          <dd dir="ltr">{props.depositPaidAt ? props.depositLabel : '—'}</dd>
+        </div>
+        <div>
+          <dt>{t('تاريخ الدفع', 'Paid on')}</dt>
+          <dd>{when(props.depositPaidAt)}</dd>
+        </div>
+        <div>
+          <dt>{t('قبول الشروط', 'Terms accepted')}</dt>
+          <dd>{when(props.termsAcceptedAt)}</dd>
+        </div>
+        <div>
+          <dt>{t('اتفاقية الحجز', 'Booking agreement')}</dt>
+          <dd>
+            {props.hasEsign
+              ? t('موقّعة إلكترونياً مع صور الهوية', 'E-signed with ID photos')
+              : t('غير موقّعة', 'Not signed')}
+          </dd>
+        </div>
+      </dl>
+    );
+  } else if (index === 1) {
+    body = (
+      <dl className="contract-detail__facts">
+        <div>
+          <dt>{t('تاريخ الاعتماد', 'Approved on')}</dt>
+          <dd>{when(lifecycle.approval?.at)}</dd>
+        </div>
+        <div>
+          <dt>{t('اعتمده', 'Approved by')}</dt>
+          <dd>{lifecycle.approval?.byName ?? '—'}</dd>
+        </div>
+      </dl>
+    );
+  } else if (index === 2) {
+    body = (
+      <>
+        <DraftSummary {...props} />
+        <RequirementsReview
+          {...props}
+          canManage={false}
+          busy
+          fileHref={props.fileHref}
+          onReview={async () => undefined}
+        />
+      </>
+    );
+  } else if (index === 3) {
+    body = (
+      <>
+        <dl className="contract-detail__facts">
+          <div>
+            <dt>{t('رقم العقد', 'Contract no.')}</dt>
+            <dd>
+              <bdi dir="ltr" className="lrw__serial">
+                {lifecycle.contract?.reference ?? '—'}
+              </bdi>
+            </dd>
+          </div>
+          <div>
+            <dt>{t('اعتماد المالك وتوقيعه', 'Owner approved & signed')}</dt>
+            <dd>
+              {when(lifecycle.contract?.issuedAt)}
+              {lifecycle.contract?.byName ? ` · ${lifecycle.contract.byName}` : ''}
+            </dd>
+          </div>
+          <div>
+            <dt>
+              {sale ? t('توقيع المشتري', 'Buyer signed') : t('توقيع المستأجر', 'Tenant signed')}
+            </dt>
+            <dd>{when(lifecycle.tenantSignature?.signedAt)}</dd>
+          </div>
+        </dl>
+        {contractHref ? (
+          <a className="button button--quiet" href={contractHref}>
+            {t('عرض العقد', 'View contract')}
+          </a>
+        ) : null}
+      </>
+    );
+  } else if (lifecycle.handover) {
+    body = <HandoverFacts handover={lifecycle.handover} ar={ar} />;
+  }
+
+  return (
+    <div className="lrw__card lrw__card--review">
+      <div className="lrw__card-head">
+        <h3>
+          {label} <span className="lrw__done-tag">{t('مكتملة', 'Completed')}</span>
+        </h3>
+        <button type="button" className="button button--quiet" onClick={onBack}>
+          {t('العودة إلى المرحلة الحالية', 'Back to the current stage')}
+        </button>
+      </div>
+      {body}
+    </div>
   );
 }
 

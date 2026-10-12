@@ -15967,14 +15967,60 @@ body:has(.stay-esign-shell) {
 }
 .lrw__step {
   display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.55rem 0.65rem;
   border: 1px solid #d7e1db;
   border-radius: 0.75rem;
   background: #fafcfa;
   color: #5b6b63;
   font-size: 0.85rem;
+  font-weight: 700;
+}
+.lrw__step-body {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.65rem;
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+}
+button.lrw__step-body {
+  cursor: pointer;
+}
+button.lrw__step-body:hover {
+  background: rgb(13 92 69 / 0.06);
+}
+button.lrw__step-body:focus-visible {
+  outline: 2px solid #0d5c45;
+  outline-offset: 2px;
+}
+.lrw__step--upcoming .lrw__step-body {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+.lrw__step--done.lrw__step--shown {
+  border-color: #1f6b45;
+  box-shadow: 0 0 0 3px rgb(31 107 69 / 0.18);
+}
+.lrw__card--review {
+  border-color: #b9d8c6;
+  background: #f7fbf8;
+}
+.lrw__done-tag {
+  display: inline-block;
+  margin-inline-start: 0.4rem;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  background: #1f6b45;
+  color: #fff;
+  font-size: 0.72rem;
+  vertical-align: middle;
+}
+.lrw__serial {
+  color: #c8102e;
   font-weight: 700;
 }
 .lrw__dot {

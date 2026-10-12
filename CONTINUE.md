@@ -1,5 +1,14 @@
 # CONTINUE — 2026-10-12
 
+**0.8.33** · التنقّل بين مراحل الحجز المكتملة عند المالك:
+
+- في `LeaseReservationWorkflow` تحفظ الحالة `viewing` المرحلة المفتوحة. ولا تُقبل إلا مرحلة سابقة، أي `viewing < stage`.
+- `CompletedStage` يعرض المرحلة للقراءة فقط، والمراحل القادمة `aria-disabled`.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.33-AR.md`](./docs/implementation/RELEASE-0.8.33-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.32** · الحجز في صفحة العقارات، وقرار البيع، وبيانات الطرف المتعاقد:
 
 - **صفحة العقارات** (`searchPublicListingsFromNeon`):
