@@ -44,7 +44,10 @@ const DOMAIN_STATUS: Record<string, { ar: string; en: string }> = {
     ar: 'بانتظار قرار استرداد التأمين',
     en: 'Deposit refund decision due',
   },
-  awaiting_refund_transfer: { ar: 'بانتظار تحويل التأمين', en: 'Deposit transfer due' },
+  awaiting_refund_transfer: {
+    ar: 'لدى المحاسب لتحويل التأمين',
+    en: 'With the accountant for transfer',
+  },
   active: { ar: 'ساري', en: 'Active' },
   inactive: { ar: 'غير نشط', en: 'Inactive' },
   draft: { ar: 'مسودة', en: 'Draft' },

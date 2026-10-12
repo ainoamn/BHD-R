@@ -10,6 +10,7 @@ import {
   validPayoutAccount,
   type DepositRefundView,
 } from '@/lib/stay-deposit-refund';
+import { pendingApprovalHref, type PendingApprovalItem } from '@/lib/pending-approvals-shared';
 import {
   stayJourneyCurrent,
   stayJourneyInitialStep,
@@ -63,6 +64,28 @@ describe('deposit refund', () => {
     expect(depositRefundStage('checked_out', null, null)).toBeNull();
     expect(depositRefundStage('checked_in', '80000', null)).toBeNull();
     expect(depositRefundStage('closed', '80000', null)).toBeNull();
+  });
+
+  it('sends the host decision to Bookings and the transfer to Accounting', () => {
+    const item = (kind: PendingApprovalItem['kind']): PendingApprovalItem => ({
+      kind,
+      id: 'b1',
+      reference: 'ST-1',
+      propertyId: 'p1',
+      propertyNameAr: 'مبنى',
+      propertyNameEn: null,
+      unitCode: null,
+      party: null,
+      contractType: null,
+      fromOn: null,
+      requestedAt: '',
+    });
+    expect(pendingApprovalHref('owner', item('deposit_refund'))).toBe(
+      '/owner/properties/p1?section=bookings&focus=b1',
+    );
+    expect(pendingApprovalHref('owner', item('refund_transfer'))).toBe(
+      '/owner/properties/p1?section=accounting&focus=b1',
+    );
   });
 
   it('accepts bank accounts / IBANs and phone numbers only', () => {

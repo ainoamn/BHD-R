@@ -24,7 +24,7 @@ import {
 } from '@bhd-r/db';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 import { loadStayStamps } from '@/lib/stay-arrival-neon';
-import { depositRefundStage, maskAccount } from '@/lib/stay-deposit-refund';
+import { depositRefundStage, maskAccount, type DepositRefundView } from '@/lib/stay-deposit-refund';
 import { loadBookingDeposits, loadDepositRefunds } from '@/lib/stay-deposit-refund-neon';
 
 export const PROPERTY_RECORD_SECTIONS = [
@@ -171,7 +171,16 @@ export async function loadPropertySectionRecords(
         case 'invoices':
           return loadInvoices(tx, orgId, unitIds, codeOf);
         case 'accounting':
-          return loadAccounting(tx, orgId, propertyId, unitIds, codeOf);
+          return loadAccounting(
+            tx,
+            orgId,
+            propertyId,
+            unitIds,
+            codeOf,
+            hasPermission(claims, 'stay.booking.manage') ||
+              hasPermission(claims, 'stay.refund.approve') ||
+              hasPermission(claims, 'payment.refund'),
+          );
       }
     })();
     const [meters, tenants] =
@@ -307,6 +316,43 @@ type CodeOf = (id: string | null | undefined) => string | null;
 
 const STAY_AFTER_CHECK_OUT = new Set(['checked_out', 'closed']);
 
+/** Full account numbers for refund approvers and accountants; masked for everyone else. */
+function accountReader(revealAccounts: boolean) {
+  return (value: string | null | undefined) =>
+    !value ? null : revealAccounts ? value : maskAccount(value);
+}
+
+/** Refund request, decision and transfer of one stay, as flat row fields. */
+function refundFields(
+  refund: DepositRefundView | undefined,
+  account: (value: string | null | undefined) => string | null,
+): PropertyRecordRow {
+  const transfer = refund?.transfer;
+  return {
+    refundStatus: refund?.status ?? null,
+    refundAmountMinor: refund?.amountMinor ?? null,
+    refundRequestedAt: refund?.requestedAt ?? null,
+    refundRequestedBy: refund?.requestedBy ?? null,
+    refundGuestNote: refund?.guestNote ?? null,
+    refundGuestMethod: refund?.guestPayout?.method ?? null,
+    refundGuestAccount: account(refund?.guestPayout?.account),
+    refundGuestBank: refund?.guestPayout?.bank ?? null,
+    refundGuestHolder: refund?.guestPayout?.holder ?? null,
+    refundGuestPhone: account(refund?.guestPayout?.phone),
+    refundDecidedAt: refund?.decidedAt ?? null,
+    refundDecidedBy: refund?.decidedBy ?? null,
+    refundDecisionNote: refund?.decisionNote ?? null,
+    refundPaidAt: transfer?.at ?? null,
+    refundPaidMethod: transfer?.method ?? null,
+    refundPaidAccount: account(transfer?.account),
+    refundPaidBank: transfer?.bank ?? null,
+    refundPaidHolder: transfer?.holder ?? null,
+    refundPaidReference: transfer?.reference ?? null,
+    refundPaidBy: transfer?.recordedBy ?? null,
+    refundReceipt: transfer?.hasReceipt ? '1' : null,
+  };
+}
+
 /** Where a stay stands for the host: waiting for the guest to arrive, or to leave. */
 function stayStage(status: string): string {
   if (status === 'confirmed' || status === 'pre_arrival') return 'awaiting_check_in';
@@ -323,8 +369,7 @@ async function loadBookings(
   /** Refund account numbers in full; other viewers see them masked. */
   revealAccounts: boolean,
 ): Promise<PropertyRecordRow[]> {
-  const account = (value: string | null | undefined) =>
-    !value ? null : revealAccounts ? value : maskAccount(value);
+  const account = accountReader(revealAccounts);
   const stays = await tx
     .select({
       id: stayBookings.id,
@@ -437,32 +482,11 @@ async function loadBookings(
       const stamp = stamps.get(row.id);
       const depositMinor = deposits.get(row.id) ?? null;
       const refund = refunds.get(row.id);
-      const transfer = refund?.transfer;
       return {
         stage:
           depositRefundStage(row.status, depositMinor, refund?.status) ?? stayStage(row.status),
         depositMinor,
-        refundStatus: refund?.status ?? null,
-        refundAmountMinor: refund?.amountMinor ?? null,
-        refundRequestedAt: refund?.requestedAt ?? null,
-        refundRequestedBy: refund?.requestedBy ?? null,
-        refundGuestNote: refund?.guestNote ?? null,
-        refundGuestMethod: refund?.guestPayout?.method ?? null,
-        refundGuestAccount: account(refund?.guestPayout?.account),
-        refundGuestBank: refund?.guestPayout?.bank ?? null,
-        refundGuestHolder: refund?.guestPayout?.holder ?? null,
-        refundGuestPhone: account(refund?.guestPayout?.phone),
-        refundDecidedAt: refund?.decidedAt ?? null,
-        refundDecidedBy: refund?.decidedBy ?? null,
-        refundDecisionNote: refund?.decisionNote ?? null,
-        refundPaidAt: transfer?.at ?? null,
-        refundPaidMethod: transfer?.method ?? null,
-        refundPaidAccount: account(transfer?.account),
-        refundPaidBank: transfer?.bank ?? null,
-        refundPaidHolder: transfer?.holder ?? null,
-        refundPaidReference: transfer?.reference ?? null,
-        refundPaidBy: transfer?.recordedBy ?? null,
-        refundReceipt: transfer?.hasReceipt ? '1' : null,
+        ...refundFields(refund, account),
         checkedInAt: stamp?.checkIn?.at ?? null,
         checkInNotes: stamp?.checkIn?.notes ?? null,
         checkInImportant: stamp?.checkIn?.important ? '1' : null,
@@ -862,15 +886,86 @@ async function loadInvoices(
   }));
 }
 
-/** Money in (stay payments, lease invoice payments) and out (expenses) for the property. */
+/**
+ * Deposit refunds the host approved: waiting for the accountant's transfer, or transferred
+ * (completed). The accountant records the transfer from here, not from the bookings tab.
+ */
+async function loadRefundTransfers(
+  tx: Tx,
+  orgId: string,
+  propertyId: string,
+  codeOf: CodeOf,
+  revealAccounts: boolean,
+): Promise<PropertyRecordRow[]> {
+  const stays = await tx
+    .select({
+      id: stayBookings.id,
+      referenceCode: stayBookings.referenceCode,
+      unitId: stayBookings.unitId,
+      currency: stayBookings.currency,
+      contactName: sql<
+        string | null
+      >`${stayBookings.pricingSnapshotJson}->'guestContact'->>'displayName'`,
+    })
+    .from(stayBookings)
+    .where(
+      and(
+        eq(stayBookings.organizationId, orgId),
+        eq(stayBookings.propertyId, propertyId),
+        inArray(stayBookings.status, [...STAY_AFTER_CHECK_OUT]),
+      ),
+    )
+    .orderBy(desc(stayBookings.updatedAt))
+    .limit(ROW_LIMIT);
+  if (!stays.length) return [];
+  const ids = stays.map((row) => row.id);
+  const [deposits, refunds, guests] = await Promise.all([
+    loadBookingDeposits(tx, orgId, ids),
+    loadDepositRefunds(tx, orgId, ids),
+    tx
+      .select({ bookingId: stayBookingGuests.bookingId, name: stayBookingGuests.displayName })
+      .from(stayBookingGuests)
+      .where(and(inArray(stayBookingGuests.bookingId, ids), eq(stayBookingGuests.isPrimary, true))),
+  ]);
+  const guestByBooking = new Map(guests.map((row) => [row.bookingId, row.name]));
+  const account = accountReader(revealAccounts);
+  return stays.flatMap((row) => {
+    const refund = refunds.get(row.id);
+    if (refund?.status !== 'approved' && refund?.status !== 'executed') return [];
+    const transferred = refund.status === 'executed';
+    return [
+      {
+        ...refundFields(refund, account),
+        id: row.id,
+        kind: 'deposit_refund',
+        direction: 'out',
+        reference: row.referenceCode,
+        unitCode: codeOf(row.unitId),
+        party: guestByBooking.get(row.id) ?? row.contactName,
+        description: null,
+        status: transferred ? 'completed' : 'awaiting_refund_transfer',
+        depositMinor: deposits.get(row.id) ?? null,
+        amountMinor: refund.amountMinor,
+        currency: refund.currency || row.currency,
+        fromOn: isoDate(refund.transfer?.at ?? refund.decidedAt),
+      },
+    ];
+  });
+}
+
+/**
+ * Money in (stay payments, lease invoice payments) and out (expenses) for the property, plus
+ * approved deposit refunds for the accountant to transfer.
+ */
 async function loadAccounting(
   tx: Tx,
   orgId: string,
   propertyId: string,
   unitIds: string[],
   codeOf: CodeOf,
+  revealAccounts: boolean,
 ): Promise<PropertyRecordRow[]> {
-  const [stayRows, leasePaymentRows, expenseRows] = await Promise.all([
+  const [stayRows, leasePaymentRows, expenseRows, refundRows] = await Promise.all([
     tx
       .select({
         id: stayPaymentIntents.id,
@@ -936,6 +1031,7 @@ async function loadAccounting(
       )
       .orderBy(desc(expenses.issuedOn))
       .limit(ROW_LIMIT),
+    loadRefundTransfers(tx, orgId, propertyId, codeOf, revealAccounts),
   ]);
   const names = await partyNames(
     tx,
@@ -982,6 +1078,10 @@ async function loadAccounting(
       currency: row.currency,
       fromOn: isoDate(row.issuedOn),
     })),
+    ...refundRows,
   ];
-  return rows.sort((a, b) => (b.fromOn ?? '').localeCompare(a.fromOn ?? ''));
+  const awaiting = (row: PropertyRecordRow) => (row.status === 'awaiting_refund_transfer' ? 0 : 1);
+  return rows.sort(
+    (a, b) => awaiting(a) - awaiting(b) || (b.fromOn ?? '').localeCompare(a.fromOn ?? ''),
+  );
 }

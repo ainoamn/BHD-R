@@ -175,6 +175,7 @@ export function PropertyManageHub({
   const sectionHref = (section: HubSection) => `${pageHref}?section=${section}`;
   const bookingsHref = sectionHref('bookings');
   const contractsHref = sectionHref('contracts');
+  const accountingHref = sectionHref('accounting');
 
   /** Swap the in-page view without a server round-trip; Next keeps useSearchParams in sync. */
   const openSection = (event: MouseEvent<HTMLAnchorElement>, section: HubSection | null) => {
@@ -332,9 +333,9 @@ export function PropertyManageHub({
     if (refundTransfers > 0) {
       items.push({
         text: ar
-          ? `${refundTransfers} تأمين معتمد بانتظار تحويل المحاسب.`
-          : `${refundTransfers} approved deposit(s) awaiting the accountant’s transfer.`,
-        href: bookingsHref,
+          ? `${refundTransfers} تأمين معتمد لدى المحاسب للتحويل من «الحسابات».`
+          : `${refundTransfers} approved deposit(s) with the accountant to transfer from Accounting.`,
+        href: accountingHref,
       });
     }
     if ((pulse?.contracts.length ?? 0) > 0) {
@@ -346,7 +347,17 @@ export function PropertyManageHub({
       });
     }
     return items;
-  }, [ar, bookingsHref, contractsHref, editHref, liveStayCount, property, pulse, unpublishedUnits]);
+  }, [
+    accountingHref,
+    ar,
+    bookingsHref,
+    contractsHref,
+    editHref,
+    liveStayCount,
+    property,
+    pulse,
+    unpublishedUnits,
+  ]);
 
   async function runLifecycle(action: 'archive' | 'restore' | 'purge') {
     const once = async (csrfToken: string) =>

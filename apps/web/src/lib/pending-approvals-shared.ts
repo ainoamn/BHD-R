@@ -41,8 +41,11 @@ export function pendingApprovalHref(portal: string, item: PendingApprovalItem): 
   if (item.kind === 'contract') {
     return `${base}?section=contracts&focus=${encodeURIComponent(item.id)}`;
   }
-  if (item.kind === 'deposit_refund' || item.kind === 'refund_transfer') {
+  if (item.kind === 'deposit_refund') {
     return `${base}?section=bookings&focus=${encodeURIComponent(item.id)}`;
+  }
+  if (item.kind === 'refund_transfer') {
+    return `${base}?section=accounting&focus=${encodeURIComponent(item.id)}`;
   }
   return `${base}?section=bookings`;
 }
@@ -55,7 +58,9 @@ export function pendingApprovalTitle(item: PendingApprovalItem, ar: boolean): st
     return ar ? 'استرداد تأمين بانتظار قرارك' : 'Deposit refund awaiting your decision';
   }
   if (item.kind === 'refund_transfer') {
-    return ar ? 'تأمين معتمد بانتظار التحويل' : 'Approved deposit awaiting transfer';
+    return ar
+      ? 'تأمين معتمد بانتظار تحويلك (الحسابات)'
+      : 'Approved deposit awaiting your transfer (Accounting)';
   }
   if (item.contractType === 'sale') {
     return ar ? 'عقد بيع بانتظار اعتمادك' : 'Sale contract awaiting your approval';

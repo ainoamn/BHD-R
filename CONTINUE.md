@@ -1,5 +1,16 @@
 # CONTINUE — 2026-10-12
 
+**0.8.15** · تحويل التأمين من قسم الحسابات:
+
+- **البيانات:** `loadRefundTransfers` في `lib/property-records-neon.ts` يضيف إلى قسم `accounting` صفوف `kind: 'deposit_refund'` (`direction: 'out'`) للاستردادات `approved` (الحالة `awaiting_refund_transfer`) و`executed` (الحالة `completed`). والحقول من `refundFields` المشترك مع `loadBookings`.
+- **الواجهة (`property-section-records.tsx`):** `depositRefundAction` يعرض «تحويل التأمين» في `accounting` فقط (`viewer.canPayRefunds`)، و«لدى المحاسب ←» في `bookings` عبر `openRecord('accounting', id)`. والعمود `description` بتنسيق `detail` يعرض `DepositRefundCell` لصفوف الاسترداد.
+- **الروابط:** `pendingApprovalHref` يرسل `refund_transfer` إلى `?section=accounting&focus=`.
+- **الملخص:** المصروفات `kind === 'expense'` فقط، وبطاقة «تأمين بانتظار التحويل».
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.15-AR.md`](./docs/implementation/RELEASE-0.8.15-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.14** · مساحة المستأجر وتنبيهاته عبر كل الملاك:
 
 - **الربط (`lib/tenancy-neon.ts`):** `loadTenancyLinks(userId)` قراءة مرتفعة الصلاحية (`app.platform_admin`) تطابق `lower(users.email)` مع `lower(parties.email)` لطرف نشط له عقد أو إيجار أو حجز أو فاتورة كمستأجر، أو إقامة كضيف (حتى 12 رابطاً).

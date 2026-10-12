@@ -103,7 +103,10 @@ function GuestPayout({ row, ar }: { row: PropertyRecordRow; ar: boolean }) {
   );
 }
 
-/** Refund column of a stay row: deposit, where the refund stands, and its details. */
+/**
+ * Refund of a stay row (bookings tab) or of a refund row (accounting tab): deposit, where the
+ * refund stands, and its details.
+ */
 export function DepositRefundCell({
   row,
   locale,
@@ -114,7 +117,7 @@ export function DepositRefundCell({
   receiptHref: string | null;
 }) {
   const ar = locale === 'ar';
-  if (row.kind !== 'stay' || !hasDeposit(row.depositMinor)) {
+  if ((row.kind !== 'stay' && row.kind !== 'deposit_refund') || !hasDeposit(row.depositMinor)) {
     return <span className="muted">—</span>;
   }
   const currency = row.currency ?? 'OMR';
@@ -140,9 +143,12 @@ export function DepositRefundCell({
 
   const badges: Record<string, [string, string]> = {
     requested: ['warn', ar ? 'طلب الضيف الاسترداد' : 'Guest requested a refund'],
-    approved: ['info', ar ? 'معتمد · بانتظار المحاسب' : 'Approved · with the accountant'],
+    approved: [
+      'info',
+      ar ? 'معتمد · لدى المحاسب للتحويل' : 'Approved · with the accountant to transfer',
+    ],
     rejected: ['muted', ar ? 'رُفض الاسترداد' : 'Refund rejected'],
-    executed: ['ready', ar ? 'حُوّل المبلغ' : 'Refund transferred'],
+    executed: ['ready', ar ? 'مكتمل · حوّله المحاسب' : 'Completed · transferred by the accountant'],
   };
   const badge = badges[row.refundStatus] ?? ['warn', row.refundStatus];
 
@@ -596,15 +602,15 @@ export function DepositRefundForm({
       <p className="muted">
         {mode === 'approve'
           ? ar
-            ? 'بعد الاعتماد ينتقل الطلب إلى المحاسب لتحويل المبلغ، ويرى الضيف أن طلبه قيد الإجراء.'
-            : 'Once approved it moves to the accountant for the transfer; the guest sees it in progress.'
+            ? 'بعد الاعتماد ينتقل الطلب إلى المحاسب ليحوّل المبلغ من قسم «الحسابات»، ويرى الضيف أن طلبه قيد الإجراء.'
+            : 'Once approved it moves to the accountant, who transfers it from Accounting; the guest sees it in progress.'
           : mode === 'reject'
             ? ar
               ? 'يرى الضيف الرفض مع السبب، ويُغلق الحجز.'
               : 'The guest sees the rejection and reason, and the booking is closed.'
             : ar
-              ? 'بعد التسجيل يرى الضيف أن المبلغ حُوّل مع التاريخ والبنك (برقم حساب مخفي)، ويُغلق الحجز.'
-              : 'The guest then sees the transfer date and bank (account masked), and the booking is closed.'}
+              ? 'بتأكيد التحويل يكتمل الطلب ويُغلق الحجز: تراه الإدارة مكتملاً، ويرى الضيف أن المبلغ حُوّل مع التاريخ والبنك (برقم حساب مخفي).'
+              : 'Confirming completes the request and closes the booking: management sees it completed, and the guest sees the transfer date and bank (account masked).'}
       </p>
       <div className="form-actions">
         <button

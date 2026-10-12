@@ -1,7 +1,7 @@
 # Implementation status
 
 **Updated:** 2026-10-12  
-**Product version:** 0.8.14  
+**Product version:** 0.8.15  
 **Active focus:** Owner dashboard speed and redesign — phases 1–3 shipped (parallel loads, Neon reads and indexes, calm unified design); live page-by-page review and loading skeletons next  
 **Release 0.6.3:** [`RELEASE-0.6.3-AR.md`](./RELEASE-0.6.3-AR.md)  
 **Release 0.6.2:** [`RELEASE-0.6.2-AR.md`](./RELEASE-0.6.2-AR.md)  
@@ -13,6 +13,7 @@
 
 | Version         | Focus                                                                                                                                                                                                                                                                                                                                                                                                               |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.8.15          | Deposit refund transfer moved to the property Accounting tab: approved refunds listed there for the accountant ("Transfer deposit" with receipt), bookings tab links to it instead of a transfer button; transfer completes the request (booking closed, "Completed · transferred by the accountant"); approvals and property alerts open Accounting; refunds excluded from expenses                                |
 | 0.8.14          | Tenant space separate from owner: `/tenant` (blue identity, alerts, metrics, stays/reservations/contracts/leases/invoices/payments across all landlords), account linked to landlord-held tenant/guest parties by verified email with explicit org + party filters; owner/tenant switch in portal header; owner dashboard tenancy banner; home bell shows sign/pay/booking/lease-expiry alerts, stays and contracts |
 | 0.8.13          | AI note translation (Arabic ↔ English): translate button under deposit refund decision, check-in/out, manual sale and lease notes — translation appended under a marker line, updatable/removable; guest refund note translated read-only; AI first, free machine translation fallback; per-line text direction for bilingual notes                                                                                 |
 | 0.8.12          | Property records table fits the screen: pinned actions column, merged "Dates" column, wrapping long cells (min width ~1150px instead of 1560px); property action bar wraps on desktop; collapsible desktop sidebar (icon rail, cookie-persisted, no flash; phone drawer unchanged)                                                                                                                                  |

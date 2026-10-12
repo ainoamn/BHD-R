@@ -44,6 +44,7 @@ type Format =
   | 'signatures'
   | 'stayLog'
   | 'refund'
+  | 'detail'
   | 'priority';
 
 type Column = { key: string; ar: string; en: string; format?: Format };
@@ -93,6 +94,7 @@ const LABELS: Record<string, [string, string]> = {
   stay_payment: ['دفعة إقامة', 'Stay payment'],
   lease_payment: ['دفعة إيجار', 'Rent payment'],
   expense: ['مصروف', 'Expense'],
+  deposit_refund: ['استرداد تأمين', 'Deposit refund'],
   initial: ['عقد أولي', 'Initial'],
   renewal: ['تجديد', 'Renewal'],
   amendment: ['ملحق تعديل', 'Amendment'],
@@ -237,7 +239,7 @@ const SECTIONS: Record<PropertyRecordSection, SectionConfig> = {
       { key: 'reference', ar: 'المرجع', en: 'Reference' },
       { key: 'unitCode', ar: 'الوحدة', en: 'Unit' },
       { key: 'party', ar: 'الطرف', en: 'Party' },
-      { key: 'description', ar: 'البيان', en: 'Description' },
+      { key: 'description', ar: 'البيان', en: 'Description', format: 'detail' },
       { key: 'amountMinor', ar: 'المبلغ', en: 'Amount', format: 'signedMoney' },
       { key: 'status', ar: 'الحالة', en: 'Status', format: 'status' },
     ],
@@ -245,7 +247,12 @@ const SECTIONS: Record<PropertyRecordSection, SectionConfig> = {
 };
 
 /** Sections whose rows carry workflow buttons. */
-const ACTION_SECTIONS = new Set<PropertyRecordSection>(['bookings', 'contracts', 'leasing']);
+const ACTION_SECTIONS = new Set<PropertyRecordSection>([
+  'bookings',
+  'contracts',
+  'leasing',
+  'accounting',
+]);
 const ACCEPTED_STAY = new Set(['confirmed', 'pre_arrival', 'checked_in', 'checked_out', 'closed']);
 
 const READY = new Set([
@@ -444,12 +451,12 @@ function moneyList(entries: Array<[string, bigint]>, locale: 'ar' | 'en'): strin
     .join(' · ');
 }
 
-/** Switch the hub to the contracts tab and spotlight one contract. */
-function openContract(contractId: string) {
+/** Switch the hub to another tab and spotlight one of its rows. */
+function openRecord(section: PropertyRecordSection, id: string) {
   window.history.pushState(
     null,
     '',
-    `${window.location.pathname}?section=contracts&focus=${encodeURIComponent(contractId)}`,
+    `${window.location.pathname}?section=${section}&focus=${encodeURIComponent(id)}`,
   );
   window.scrollTo({ top: 0 });
 }
@@ -474,6 +481,11 @@ function Cell({
   switch (column.format) {
     case 'refund':
       return <DepositRefundCell row={row} locale={locale} receiptHref={receiptHref} />;
+    case 'detail':
+      if (row.kind === 'deposit_refund') {
+        return <DepositRefundCell row={row} locale={locale} receiptHref={receiptHref} />;
+      }
+      return value ? <>{value}</> : <span className="muted">—</span>;
     case 'status': {
       const status = column.key === 'status' ? displayStatus(row) : value;
       return status ? (
@@ -572,7 +584,7 @@ function Cell({
           onClick={(event) => {
             if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey) return;
             event.preventDefault();
-            openContract(contractId);
+            openRecord('contracts', contractId);
           }}
         >
           {value}
@@ -935,7 +947,8 @@ export function PropertySectionRecords({
     }
     if (section === 'accounting') {
       const income = all.filter((r) => r.direction === 'in');
-      const spent = all.filter((r) => r.direction === 'out' && r.status !== 'rejected');
+      const spent = all.filter((r) => r.kind === 'expense' && r.status !== 'rejected');
+      const refundsDue = all.filter((r) => r.status === 'awaiting_refund_transfer');
       const net = totalsByCurrency(
         [
           ...income,
@@ -953,6 +966,16 @@ export function PropertySectionRecords({
           value: totalsByCurrency(spent, (r) => r.amountMinor),
         },
         { label: ar ? 'الصافي' : 'Net', value: net },
+        ...(refundsDue.length
+          ? [
+              {
+                label: ar
+                  ? `تأمين بانتظار التحويل (${refundsDue.length})`
+                  : `Deposits to transfer (${refundsDue.length})`,
+                value: totalsByCurrency(refundsDue, (r) => r.amountMinor),
+              },
+            ]
+          : []),
       ];
     }
     return [];
@@ -1069,19 +1092,17 @@ export function PropertySectionRecords({
     const result = await runAction(id, { ...value, bookingId: id });
     if (!result) return;
     setRefundForm(null);
-    const money = (minor: string | null | undefined) =>
-      minor && row.currency ? formatMoney(minor, row.currency, locale) : '';
     setNotice({
       tone: 'success',
       text:
         value.action === 'refund_payout'
           ? ar
-            ? `تم تسجيل تحويل تأمين الحجز ${row.reference} وأُغلق الحجز. يرى الضيف الآن أن المبلغ حُوّل.`
-            : `Deposit transfer recorded for ${row.reference}; the booking is closed and the guest sees it.`
+            ? `تم تسجيل تحويل تأمين الحجز ${row.reference}: اكتمل الطلب وأُغلق الحجز. تراه الإدارة مكتملاً، ويرى الضيف أن المبلغ حُوّل.`
+            : `Deposit transfer recorded for ${row.reference}: the request is complete and the booking closed.`
           : value.decision === 'approve'
             ? ar
-              ? `تم اعتماد استرداد التأمين ${money(row.depositMinor)} للحجز ${row.reference}، وانتقل الطلب إلى المحاسب للتحويل.`
-              : `Deposit refund approved for ${row.reference}; it is now with the accountant.`
+              ? `تم اعتماد استرداد التأمين للحجز ${row.reference}، وانتقل الطلب إلى المحاسب ليحوّله من قسم «الحسابات».`
+              : `Deposit refund approved for ${row.reference}; the accountant transfers it from Accounting.`
             : ar
               ? `تم رفض استرداد التأمين للحجز ${row.reference} وأُغلق الحجز. يرى الضيف سبب الرفض.`
               : `Deposit refund rejected for ${row.reference}; the booking is closed.`,
@@ -1197,7 +1218,7 @@ export function PropertySectionRecords({
   }
 
   function depositRefundAction(row: PropertyRecordRow, busy: boolean) {
-    if (section !== 'bookings' || row.kind !== 'stay' || !row.id) return null;
+    if (!row.id) return null;
     const open = (mode: RefundFormMode) =>
       refundForm !== null && refundForm.rowId === row.id && refundForm.mode === mode;
     const toggle = (mode: RefundFormMode) => {
@@ -1205,6 +1226,38 @@ export function PropertySectionRecords({
       setStampForm(null);
       setRefundForm(open(mode) ? null : { rowId: row.id ?? '', mode });
     };
+    if (section === 'accounting') {
+      if (row.kind !== 'deposit_refund' || row.refundStatus !== 'approved') return null;
+      if (!viewer.canPayRefunds) return null;
+      return (
+        <button
+          type="button"
+          className="button button--primary psr-action"
+          disabled={busy}
+          aria-expanded={open('payout')}
+          onClick={() => toggle('payout')}
+        >
+          {ar ? 'تحويل التأمين' : 'Transfer deposit'}
+        </button>
+      );
+    }
+    if (section !== 'bookings' || row.kind !== 'stay') return null;
+    if (row.refundStatus === 'approved') {
+      const id = row.id;
+      return (
+        <a
+          className="button button--quiet psr-action"
+          href={`?section=accounting&focus=${encodeURIComponent(id)}`}
+          onClick={(event) => {
+            if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey) return;
+            event.preventDefault();
+            openRecord('accounting', id);
+          }}
+        >
+          {ar ? 'لدى المحاسب ←' : 'With accountant →'}
+        </a>
+      );
+    }
     if (row.stage === 'awaiting_deposit_refund' && viewer.canDecideRefunds) {
       return (
         <>
@@ -1227,19 +1280,6 @@ export function PropertySectionRecords({
             {ar ? 'رفض الاسترداد' : 'Reject refund'}
           </button>
         </>
-      );
-    }
-    if (row.stage === 'awaiting_refund_transfer' && viewer.canPayRefunds) {
-      return (
-        <button
-          type="button"
-          className="button button--primary psr-action"
-          disabled={busy}
-          aria-expanded={open('payout')}
-          onClick={() => toggle('payout')}
-        >
-          {ar ? 'تسجيل تحويل التأمين' : 'Record deposit transfer'}
-        </button>
       );
     }
     return null;
