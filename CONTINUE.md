@@ -1,5 +1,16 @@
 # CONTINUE — 2026-10-12
 
+**0.8.26** · مشاهد وترحيب لصفحتي الحجز:
+
+- **`BookingStepScene`** (`components/stays/booking-step-scene.tsx`): مشهد 600×150 بأجزاء `stay-scene-parts` وحركات `stay-send__*`. الشاشة المكبَّرة تتغير حسب `kind`: `stay` أو `details` أو `terms` أو `review` أو `payment`.
+- **الصياغة** في `lib/booking-step-greeting.ts`: `stayCheckoutGreeting` و`leaseCheckoutGreeting`، و`greetingName` الذي يتجاهل «مستخدم BHD» ويحوّل ABDUL إلى Abdul.
+- **الربط:** `StayCheckout` (ليس في الوضع المضمَّن) و`LeaseDepositCheckout` تحت `.stays-checkout__steps`.
+- **مفتوح:** صفحات ما بعد الدفع (`/stays/booking/confirmed` و`/book/confirmed` و`/book/sign`) بلا مشاهد بعد.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.26-AR.md`](./docs/implementation/RELEASE-0.8.26-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.25** · موعد طلبات الضيف بشأن التأمين:
 
 - **`claimsOpenFrom`** في `lib/stay-deposit-claims.ts`: فارغ (متاح فوراً) عند `executed` أو `rejected` أو `paidMinor > 0`، وإلا `addBusinessDays(requestedAt, CLAIM_WAIT_BUSINESS_DAYS = 10)`.

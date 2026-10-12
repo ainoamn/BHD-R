@@ -167,12 +167,12 @@ export default async function BookUnitPage({
               <p className="stays-book-shell__headline">
                 {ar ? (
                   <>
-                    احجز عقارك القادم
-                    <span>بدفع مبلغ ضمان آمن عبر BHD R</span>
+                    {mode === 'sale' ? 'عقارك القادم' : 'بيتك القادم'} على بُعد أربع خطوات
+                    <span>بمبلغ ضمان آمن عبر BHD R</span>
                   </>
                 ) : (
                   <>
-                    Reserve your next property
+                    {mode === 'sale' ? 'Your next property' : 'Your next home'} is four steps away
                     <span>with a secure deposit through BHD R</span>
                   </>
                 )}
@@ -180,22 +180,22 @@ export default async function BookUnitPage({
               {title ? <p className="stays-book-shell__place">{title}</p> : null}
               <p className="stays-book-shell__lede">
                 {ar
-                  ? 'أصبح حجز عقارك أسهل من أي وقت مضى، في أربع خطوات بسيطة:'
-                  : 'Reserving your property has never been easier — four simple steps:'}
+                  ? 'خطوات بسيطة وواضحة، ونحن معك في كل واحدة منها:'
+                  : 'Simple, clear steps, and we are with you through each one:'}
               </p>
               <ol className="stays-book-shell__steps">
                 {(ar
                   ? [
-                      'الموافقة على الشروط والأحكام.',
-                      'إدخال بياناتك.',
-                      'دفع مبلغ الضمان بأمان.',
-                      'توقيع العقد وإرفاق المستندات إلكترونيًا.',
+                      'تقرأ الشروط والأحكام وتوافق عليها.',
+                      'تعرّفنا بنفسك.',
+                      'تدفع مبلغ الضمان بأمان.',
+                      'توقّع العقد وترفق مستنداتك إلكترونياً، ثم تستلم المفاتيح.',
                     ]
                   : [
-                      'Accept the terms and conditions.',
-                      'Enter your details.',
+                      'Read and accept the terms and conditions.',
+                      'Tell us about yourself.',
                       'Pay the deposit securely.',
-                      'Sign the contract and attach your documents online.',
+                      'Sign the contract and attach your documents online, then get the keys.',
                     ]
                 ).map((step) => (
                   <li key={step}>{step}</li>

@@ -21468,6 +21468,82 @@ a.contract-annex-bar__item:focus-visible {
     transform: scale(0);
   }
 }
+/* Booking wizards: one scene per step (calendar, guest card, terms, review, payment). */
+.booking-scene-block {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0.15rem 0 1.1rem;
+}
+.booking-scene-block .stay-trip {
+  margin: 0;
+}
+.booking-greeting h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: var(--bhd-navy);
+}
+.booking-scene__pop,
+.booking-scene__type,
+.booking-scene__band,
+.booking-scene__stamp,
+.booking-scene__lens,
+.booking-scene__shackle {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.booking-scene__pop {
+  animation: stay-send-pop 0.4s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+.booking-scene__type,
+.booking-scene__band {
+  transform-origin: 0 50%;
+  animation: booking-scene-type 0.45s ease-out both;
+}
+.booking-scene__draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: stay-desk-sign 0.7s linear forwards;
+}
+.booking-scene__stamp {
+  animation: booking-scene-stamp 0.45s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+.booking-scene__lens {
+  animation: booking-scene-scan 1.6s ease-in-out 0.1s both;
+}
+.booking-scene__shackle {
+  transform-origin: 50% 100%;
+  animation: booking-scene-lock 0.35s ease-in both;
+}
+@keyframes booking-scene-type {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes booking-scene-stamp {
+  from {
+    opacity: 0;
+    transform: scale(2.2) rotate(-18deg);
+  }
+}
+@keyframes booking-scene-scan {
+  50% {
+    transform: translateY(26px);
+  }
+  100% {
+    transform: translateY(13px);
+  }
+}
+@keyframes booking-scene-lock {
+  from {
+    transform: translateY(-4px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .booking-scene__draw {
+    stroke-dashoffset: 0;
+  }
+}
 /* Deposit refund step: the deposit safe, the request to the host, the answer, the coins home. */
 .stay-refund__door,
 .stay-refund__tag,

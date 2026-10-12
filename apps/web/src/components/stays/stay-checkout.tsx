@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
+import { BookingStepScene } from '@/components/stays/booking-step-scene';
 import { GuestCountField, isValidGuestCount } from '@/components/stays/guest-count-field';
 import { TermsAcceptance } from '@/components/terms-acceptance';
 import { Link } from '@/i18n/navigation';
@@ -13,6 +14,7 @@ import {
   humanizeBrowserError,
 } from '@/lib/api';
 import type { BookingContactsForViewer, BookingFor } from '@/lib/booking-contacts-neon';
+import { greetingName, stayCheckoutGreeting } from '@/lib/booking-step-greeting';
 import { bookingTermsDocument, type BookingTermsForCheckout } from '@/lib/booking-terms';
 import { formatMoney } from '@/lib/format';
 import { rememberStayTripAlert } from '@/lib/stay-trip-alerts';
@@ -941,6 +943,20 @@ export function StayCheckout({
           );
         })}
       </ol>
+
+      {embedded ? null : (
+        <BookingStepScene
+          greeting={stayCheckoutGreeting(step, {
+            ar,
+            title: title ?? '',
+            name: greetingName(selfName),
+          })}
+          label={steps[stepIndex(step)]!.label}
+          stepNo={stepIndex(step) + 1}
+          stepCount={steps.length}
+          ar={ar}
+        />
+      )}
 
       {step === 'stay' ? (
         <div className="stays-checkout__panel stays-checkout__panel--stay">

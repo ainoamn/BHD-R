@@ -2,9 +2,11 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
+import { BookingStepScene } from '@/components/stays/booking-step-scene';
 import { TermsAcceptance } from '@/components/terms-acceptance';
 import { ApiError, fetchBrowserCsrfToken, humanizeBrowserError } from '@/lib/api';
 import type { BookingContactsForViewer, BookingFor } from '@/lib/booking-contacts-neon';
+import { greetingName, leaseCheckoutGreeting } from '@/lib/booking-step-greeting';
 import { bookingTermsDocument, type BookingTermsForCheckout } from '@/lib/booking-terms';
 import { formatMoney } from '@/lib/format';
 import { isValidGuestPhone } from '@/lib/stay-booking-dates';
@@ -298,6 +300,18 @@ export function LeaseDepositCheckout({
           );
         })}
       </ol>
+
+      <BookingStepScene
+        greeting={leaseCheckoutGreeting(step, {
+          ar,
+          sale: mode === 'sale',
+          name: greetingName(contacts.self.fullName),
+        })}
+        label={steps[currentIndex]!.label}
+        stepNo={currentIndex + 1}
+        stepCount={steps.length}
+        ar={ar}
+      />
 
       {step === 'terms' ? (
         <div className="stays-checkout__panel">
