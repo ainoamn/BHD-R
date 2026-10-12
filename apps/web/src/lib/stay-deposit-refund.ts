@@ -2,6 +2,7 @@
  * Deposit refund after check-out: the guest may ask for it, the host approves (or rejects with a
  * note), and the accountant records the transfer with its receipt. Shared by server and client.
  */
+import { depositReceiptState, type DepositReceiptState } from '@/lib/stay-deposit-claims';
 import { validHandoverPhone } from '@/lib/stay-handover';
 
 export type DepositRefundStatus = 'requested' | 'approved' | 'rejected' | 'executed';
@@ -67,6 +68,8 @@ export type RefundTransfer = RefundPayout & {
   reference: string | null;
   recordedBy: string | null;
   hasReceipt: boolean;
+  /** This transfer alone; a claim may add a further transfer to the same refund. */
+  amountMinor?: string | null;
 };
 
 /** Full refund record for the host and the accountant. */
@@ -87,7 +90,22 @@ export type DepositRefundView = {
   transfer: RefundTransfer | null;
   /** Deposit held when the refund was settled (0.8.18 onward); the profile may change later. */
   settledDepositMinor: string | null;
+  /** Transferred so far; below the approved amount while a (further) transfer is due. */
+  paidMinor: string;
+  /** When the accountant recorded the last transfer: the guest's 24 hours start here. */
+  transferRecordedAt: string | null;
+  guestReceipt: 'confirmed' | 'not_received' | null;
+  guestReceiptAt: string | null;
 };
+
+/** What the accountant still has to transfer for an approved refund. */
+export function refundDueMinor(
+  view: Pick<DepositRefundView, 'status' | 'amountMinor' | 'paidMinor'>,
+) {
+  if (view.status !== 'approved') return null;
+  const due = BigInt(view.amountMinor) - BigInt(view.paidMinor || '0');
+  return due > 0n ? due.toString() : null;
+}
 
 /**
  * Where a received deposit stands for the accountant: held during the stay, waiting for the
@@ -142,6 +160,13 @@ export type GuestDepositRefund = {
   decisionNote: string | null;
   paidAt: string | null;
   paidTo: string | null;
+  /** Transferred so far (a claim may add to the refund later). */
+  paidMinor: string;
+  /** The last transfer alone, when known. */
+  lastPaidMinor: string | null;
+  /** The guest's answer to the last transfer, and until when they can give it. */
+  receipt: DepositReceiptState | null;
+  receiptDeadline: string | null;
 };
 
 /** Host-side stage of a checked-out stay that still holds a deposit. */
@@ -265,7 +290,12 @@ export function refundNotices(
 
 export function guestDepositRefund(view: DepositRefundView): GuestDepositRefund {
   const transfer = view.transfer;
+  const receipt = depositReceiptState(view);
   return {
+    paidMinor: view.paidMinor,
+    lastPaidMinor: transfer?.amountMinor ?? null,
+    receipt: receipt?.state ?? null,
+    receiptDeadline: receipt?.deadline ?? null,
     status: view.status,
     amountMinor: view.amountMinor,
     currency: view.currency,

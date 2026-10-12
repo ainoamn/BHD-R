@@ -43,6 +43,21 @@ function formatStamp(value: string, ar: boolean): string {
   }).format(date);
 }
 
+function receiptStateLabel(state: string, deadline: string | null | undefined, ar: boolean) {
+  switch (state) {
+    case 'pending':
+      return ar
+        ? `بانتظار تأكيد الضيف للاستلام${deadline ? ` حتى ${formatStamp(deadline, ar)}` : ''}`
+        : `Waiting for the guest to confirm${deadline ? ` by ${formatStamp(deadline, ar)}` : ''}`;
+    case 'confirmed':
+      return ar ? '✓ أكّد الضيف استلام المبلغ' : '✓ The guest confirmed receipt';
+    case 'not_received':
+      return ar ? 'أبلغ الضيف بعدم وصول المبلغ' : 'The guest reported it did not arrive';
+    default:
+      return ar ? 'اعتُبر مستلَماً تلقائياً بعد 24 ساعة' : 'Counted as received after 24 hours';
+  }
+}
+
 function methodLabel(method: string | null | undefined, ar: boolean): string {
   if (method === 'phone') return ar ? 'رقم هاتف' : 'Phone';
   return ar ? 'حساب بنكي' : 'Bank account';
@@ -201,6 +216,11 @@ export function DepositRefundCell({
           {row.refundPaidBy ? ` · ${row.refundPaidBy}` : ''}
         </span>
       ) : null}
+      {row.refundReceiptState ? (
+        <span className={`psr-refund__line psr-refund__receipt-state is-${row.refundReceiptState}`}>
+          {receiptStateLabel(row.refundReceiptState, row.refundReceiptDeadline, ar)}
+        </span>
+      ) : null}
       {row.refundReceipt && receiptHref ? (
         <a className="psr-refund__receipt" href={receiptHref} target="_blank" rel="noreferrer">
           🧾 {ar ? 'إيصال التحويل' : 'Transfer receipt'}
@@ -343,8 +363,21 @@ export function DepositRefundForm({
         {row.refundAmountMinor && mode === 'payout' ? (
           <>
             {' · '}
-            {ar ? 'المبلغ المعتمد للتحويل' : 'Approved to transfer'}{' '}
-            <strong dir="ltr">{formatMoney(row.refundAmountMinor, currency, locale)}</strong>
+            {row.refundPaidMinor && row.refundDueMinor ? (
+              <>
+                {ar ? 'المتبقي للتحويل' : 'Left to transfer'}{' '}
+                <strong dir="ltr">{formatMoney(row.refundDueMinor, currency, locale)}</strong>
+                {ar ? ' (حُوّل سابقاً ' : ' (already transferred '}
+                <bdi dir="ltr">{formatMoney(row.refundPaidMinor, currency, locale)}</bdi>
+                {ar ? ' من أصل ' : ' of '}
+                <bdi dir="ltr">{formatMoney(row.refundAmountMinor, currency, locale)}</bdi>)
+              </>
+            ) : (
+              <>
+                {ar ? 'المبلغ المعتمد للتحويل' : 'Approved to transfer'}{' '}
+                <strong dir="ltr">{formatMoney(row.refundAmountMinor, currency, locale)}</strong>
+              </>
+            )}
             {kept > 0n ? (
               <>
                 <br />

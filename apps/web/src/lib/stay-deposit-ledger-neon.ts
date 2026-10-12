@@ -21,9 +21,12 @@ import {
   depositHolding,
   depositReceiptNumbers,
   maskAccount,
+  refundDueMinor,
   retainedDepositMinor,
   type DepositRefundView,
 } from '@/lib/stay-deposit-refund';
+import { depositReceiptState, type DepositClaimView } from '@/lib/stay-deposit-claims';
+import { loadDepositClaims } from '@/lib/stay-deposit-claims-neon';
 import { loadDepositRefunds } from '@/lib/stay-deposit-refund-neon';
 
 type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
@@ -48,9 +51,15 @@ export function refundFields(
   account: (value: string | null | undefined) => string | null,
 ): DepositLedgerRow {
   const transfer = refund?.transfer;
+  const receipt = refund ? depositReceiptState(refund) : null;
   return {
     refundStatus: refund?.status ?? null,
     refundAmountMinor: refund?.amountMinor ?? null,
+    refundPaidMinor: refund && refund.paidMinor !== '0' ? refund.paidMinor : null,
+    refundDueMinor: refund ? refundDueMinor(refund) : null,
+    refundReceiptState: receipt?.state ?? null,
+    refundReceiptDeadline: receipt?.deadline ?? null,
+    refundReceiptAt: refund?.guestReceiptAt ?? null,
     refundRequestedAt: refund?.requestedAt ?? null,
     refundRequestedBy: refund?.requestedBy ?? null,
     refundGuestNote: refund?.guestNote ?? null,
@@ -141,7 +150,12 @@ export async function loadDepositLedger(
       refund?.settledDepositMinor ??
       (row.depositMinor && row.depositMinor > 0n ? row.depositMinor.toString() : null);
     if (!deposit) return [];
-    const refunded = refund?.status === 'executed' ? refund.amountMinor : null;
+    const refunded =
+      refund?.status === 'executed'
+        ? refund.amountMinor
+        : refund && refund.paidMinor !== '0'
+          ? refund.paidMinor
+          : null;
     const retained = retainedDepositMinor(deposit, refund?.status, refund?.amountMinor);
     const receipts = depositReceiptNumbers(row.referenceCode);
     const settledOn =
@@ -193,21 +207,30 @@ export function canReadDepositLedger(claims: SessionClaims): boolean {
 }
 
 /** Deposits ledger of the viewer's organization (owners see their own properties only). */
-export async function loadDepositLedgerForViewer(
-  claims: SessionClaims,
-): Promise<{ rows: DepositLedgerRow[]; viewer: DepositLedgerViewer }> {
+export async function loadDepositLedgerForViewer(claims: SessionClaims): Promise<{
+  rows: DepositLedgerRow[];
+  claims: Record<string, DepositClaimView[]>;
+  viewer: DepositLedgerViewer;
+}> {
   const orgId = claims.organizationId;
   const viewer: DepositLedgerViewer = {
     canPayRefunds: hasPermission(claims, 'payment.refund'),
     canDecideRefunds:
       hasPermission(claims, 'stay.booking.manage') || hasPermission(claims, 'stay.refund.approve'),
   };
-  if (!orgId) return { rows: [], viewer };
+  if (!orgId) return { rows: [], claims: {}, viewer };
   const revealAccounts = viewer.canPayRefunds || viewer.canDecideRefunds;
-  const rows = await withinViewerTenant(claims, (tx) =>
-    loadDepositLedger(tx, orgId, { ownerPartyId: ownerPartyScope(claims) }, revealAccounts),
-  );
-  return { rows, viewer };
+  const { rows, byBooking } = await withinViewerTenant(claims, async (tx) => {
+    const rows = await loadDepositLedger(
+      tx,
+      orgId,
+      { ownerPartyId: ownerPartyScope(claims) },
+      revealAccounts,
+    );
+    const ids = rows.flatMap((row) => (row.id ? [row.id] : []));
+    return { rows, byBooking: await loadDepositClaims(tx, orgId, ids) };
+  });
+  return { rows, claims: Object.fromEntries(byBooking), viewer };
 }
 
 /**

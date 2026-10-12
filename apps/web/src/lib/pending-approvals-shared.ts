@@ -1,9 +1,16 @@
 /**
  * One thing waiting for the viewer: a contract to sign, a stay booking request, a deposit
- * refund to decide (host), or an approved deposit refund to transfer (accountant).
+ * refund to decide (host), an approved deposit refund to transfer (accountant), a guest's
+ * deposit request or objection (host), or a guest complaint (site administration).
  */
 export type PendingApprovalItem = {
-  kind: 'contract' | 'stay_booking' | 'deposit_refund' | 'refund_transfer';
+  kind:
+    | 'contract'
+    | 'stay_booking'
+    | 'deposit_refund'
+    | 'refund_transfer'
+    | 'deposit_claim'
+    | 'deposit_complaint';
   id: string;
   reference: string;
   propertyId: string;
@@ -44,9 +51,10 @@ export function pendingApprovalHref(portal: string, item: PendingApprovalItem): 
   if (item.kind === 'deposit_refund') {
     return `${base}?section=bookings&focus=${encodeURIComponent(item.id)}`;
   }
-  if (item.kind === 'refund_transfer') {
+  if (item.kind === 'refund_transfer' || item.kind === 'deposit_claim') {
     return `/${portal}/accounting?focus=${encodeURIComponent(item.id)}#deposits`;
   }
+  if (item.kind === 'deposit_complaint') return '/site-admin';
   return `${base}?section=bookings`;
 }
 
@@ -61,6 +69,12 @@ export function pendingApprovalTitle(item: PendingApprovalItem, ar: boolean): st
     return ar
       ? 'تأمين معتمد بانتظار تحويلك (الحسابات)'
       : 'Approved deposit awaiting your transfer (Accounting)';
+  }
+  if (item.kind === 'deposit_claim') {
+    return ar ? 'طلب أو اعتراض من الضيف على التأمين' : 'Guest deposit request or objection';
+  }
+  if (item.kind === 'deposit_complaint') {
+    return ar ? 'شكوى تأمين لدى إدارة الموقع' : 'Deposit complaint for the site administration';
   }
   if (item.contractType === 'sale') {
     return ar ? 'عقد بيع بانتظار اعتمادك' : 'Sale contract awaiting your approval';

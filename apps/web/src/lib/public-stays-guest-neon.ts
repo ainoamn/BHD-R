@@ -32,6 +32,8 @@ import {
   loadBookingDeposits,
   loadDepositRefunds,
 } from '@/lib/stay-deposit-refund-neon';
+import type { DepositClaimView } from '@/lib/stay-deposit-claims';
+import { loadDepositClaims } from '@/lib/stay-deposit-claims-neon';
 import { stayRescheduleCharge, type StayRescheduleCharge } from '@/lib/stay-reschedule-pricing';
 
 type DbHandle = { db: Database };
@@ -114,6 +116,8 @@ export type GuestStayBookingProjection = {
   depositMinor?: string | null;
   depositRefund?: GuestDepositRefund | null;
   canRequestDepositRefund?: boolean;
+  /** The guest's deposit requests and objections to the host, oldest first. */
+  depositClaims?: DepositClaimView[];
 };
 
 const STAMPED_STATUSES = new Set(['checked_in', 'checked_out', 'closed']);
@@ -402,7 +406,7 @@ async function enrichProjection(
   guestDisplayName?: string | null,
 ): Promise<GuestStayBookingProjection> {
   const departed = DEPARTED_STATUSES.has(booking.status);
-  const [paymentIntentId, listing, stamps, deposits, refunds] = await Promise.all([
+  const [paymentIntentId, listing, stamps, deposits, refunds, claims] = await Promise.all([
     resolvePaymentIntentId(transaction, booking.organizationId, booking.id),
     resolveListing(transaction, booking.organizationId, booking.stayProfileId),
     STAMPED_STATUSES.has(booking.status)
@@ -414,6 +418,9 @@ async function enrichProjection(
     departed
       ? loadDepositRefunds(transaction, booking.organizationId, [booking.id])
       : Promise.resolve(null),
+    departed
+      ? loadDepositClaims(transaction, booking.organizationId, [booking.id])
+      : Promise.resolve(null),
   ]);
   const stamp = stamps?.get(booking.id);
   const depositMinor = deposits?.get(booking.id) ?? null;
@@ -421,6 +428,7 @@ async function enrichProjection(
   return {
     depositMinor,
     depositRefund: refund ? guestDepositRefund(refund) : null,
+    depositClaims: claims?.get(booking.id) ?? [],
     canRequestDepositRefund: Boolean(depositMinor && !refund && booking.status === 'checked_out'),
     ...toProjection({
       ...booking,

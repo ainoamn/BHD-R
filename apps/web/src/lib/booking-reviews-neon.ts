@@ -1,6 +1,6 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
-import { and, desc, eq, inArray, or, sql, type SQL } from 'drizzle-orm';
+import { and, desc, eq, inArray, or, sql, type SQL, type SQLWrapper } from 'drizzle-orm';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import {
   bookingReviewPhotos,
@@ -17,8 +17,8 @@ import {
 import { applySessionSettings } from '@/lib/db-session-settings';
 import { ownerPartyScope } from '@/lib/portal-ops-data';
 import { analyzeProfile, analyzeReview } from '@/lib/review-ai';
+import { RECEIPT_CONFIRM_HOURS } from '@/lib/stay-deposit-claims';
 import {
-  REVIEW_BLIND_DAYS,
   REVIEW_COMMENT_MAX,
   REVIEW_COMMENT_MIN_WHEN_LOW,
   REVIEW_PHOTO_DATA_URL,
@@ -104,14 +104,48 @@ export function validGuestKey(key: string): boolean {
   return UUID.test(key) || EMAIL_KEY.test(key);
 }
 
-/** Review released to everyone (and to the other side): both sides wrote, or the blind window ended. */
+/**
+ * The guest's deposit is settled: no deposit, the refund was declined, or the transfer arrived
+ * (confirmed, or 24 hours without an answer); and no request or complaint is still open.
+ */
+function depositSettled(bookingId: SQLWrapper): SQL {
+  return sql`(
+    NOT EXISTS (
+      SELECT 1 FROM stay_deposit_claims dc
+      WHERE dc.booking_id = ${bookingId} AND dc.status IN ('open', 'escalated')
+    )
+    AND (
+      NOT EXISTS (
+        SELECT 1 FROM stay_bookings db
+        JOIN stay_profiles dp ON dp.id = db.stay_profile_id
+        WHERE db.id = ${bookingId} AND dp.deposit_minor > 0
+      )
+      OR EXISTS (
+        SELECT 1 FROM stay_refunds dr
+        WHERE dr.booking_id = ${bookingId}
+          AND dr.idempotency_key = 'deposit:' || ${bookingId}::text
+          AND (
+            dr.status = 'rejected'
+            OR (
+              dr.status = 'executed'
+              AND (
+                dr.guest_receipt IS NOT NULL
+                OR dr.transfer_recorded_at IS NULL
+                OR dr.transfer_recorded_at < now() - make_interval(hours => ${RECEIPT_CONFIRM_HOURS})
+              )
+            )
+          )
+      )
+    )
+  )`;
+}
+
+/**
+ * Review released to everyone: the host's review of a guest at once; the guest's review of the
+ * stay only once their deposit is settled, so the host cannot hold the deposit against it.
+ */
 const released: SQL = sql`(
-  ${bookingReviews.createdAt} < now() - make_interval(days => ${REVIEW_BLIND_DAYS})
-  OR EXISTS (
-    SELECT 1 FROM booking_reviews other
-    WHERE other.booking_id = ${bookingReviews.bookingId}
-      AND other.direction <> ${bookingReviews.direction}
-  )
+  ${bookingReviews.direction} = 'host_to_guest' OR ${depositSettled(bookingReviews.bookingId)}
 )`;
 
 const contactEmail = sql<
@@ -128,7 +162,14 @@ export type ReviewSubmission = {
   photos?: string[] | undefined;
 };
 
-export type SubmittedReview = { id: string; score: number; criteriaScore: number; engine: string };
+export type SubmittedReview = {
+  id: string;
+  bookingId: string;
+  score: number;
+  criteriaScore: number;
+  engine: string;
+  summaryAr: string | null;
+};
 
 type Prepared = Awaited<ReturnType<typeof prepareReview>>;
 
@@ -283,9 +324,11 @@ async function insertReview(
     }
     return {
       id: row.id,
+      bookingId: booking.id,
       score: prepared.score,
       criteriaScore: scores.criteria,
       engine: analysis.engine,
+      summaryAr: analysis.summary?.ar ?? null,
     };
   });
 }
@@ -389,8 +432,9 @@ export async function submitHostReview(
 export type GuestReviewState = {
   /** The guest still owes the review (blocks the deposit refund request). */
   required: boolean;
-  mine: { score: number; createdAt: string } | null;
-  /** The host's review of the guest, once both sides have written. */
+  /** `published`: public and visible to the host (only once the deposit is settled). */
+  mine: { score: number; createdAt: string; published: boolean } | null;
+  /** The host's review of the guest, shown to the guest as soon as it is written. */
   fromHost: {
     score: number;
     recommend: boolean | null;
@@ -424,23 +468,29 @@ export async function loadGuestReviewState(bookingId: string): Promise<GuestRevi
       .where(eq(bookingReviews.bookingId, bookingId));
     const mine = rows.find((row) => row.direction === 'guest_to_host');
     const host = rows.find((row) => row.direction === 'host_to_guest');
+    const [settled] = mine
+      ? await tx
+          .select({ value: sql<boolean>`${depositSettled(stayBookings.id)}` })
+          .from(stayBookings)
+          .where(eq(stayBookings.id, bookingId))
+      : [];
+    const published = settled?.value === true;
     return {
       required: DEPARTED.has(booking.status) && !mine,
-      mine: mine ? { score: num(mine.score) ?? 0, createdAt: mine.createdAt.toISOString() } : null,
-      fromHost:
-        host && mine
-          ? {
-              score: num(host.score) ?? 0,
-              recommend: host.recommend,
-              summary:
-                host.summaryAr && host.summaryEn
-                  ? { ar: host.summaryAr, en: host.summaryEn }
-                  : null,
-              comment: host.flags.some((flag) => HIDDEN_COMMENT_FLAGS.has(flag))
-                ? null
-                : host.comment,
-            }
-          : null,
+      mine: mine
+        ? { score: num(mine.score) ?? 0, createdAt: mine.createdAt.toISOString(), published }
+        : null,
+      fromHost: host
+        ? {
+            score: num(host.score) ?? 0,
+            recommend: host.recommend,
+            summary:
+              host.summaryAr && host.summaryEn ? { ar: host.summaryAr, en: host.summaryEn } : null,
+            comment: host.flags.some((flag) => HIDDEN_COMMENT_FLAGS.has(flag))
+              ? null
+              : host.comment,
+          }
+        : null,
       hostWrote: Boolean(host),
       guestKey: guestKeyOf(booking.userId, booking.email),
     };
@@ -454,6 +504,7 @@ function guestCondition(key: string): SQL {
 }
 
 export type BookingReviewFacts = {
+  /** Only once the guest's review is released (deposit settled): the host is not told before. */
   guestReviewed: boolean;
   hostScore: number | null;
   standing: GuestStanding | null;
@@ -474,6 +525,7 @@ export async function loadBookingReviewFacts(
       bookingId: bookingReviews.bookingId,
       direction: bookingReviews.direction,
       score: bookingReviews.score,
+      released: sql<boolean>`${released}`,
     })
     .from(bookingReviews)
     .where(
@@ -525,7 +577,7 @@ export async function loadBookingReviewFacts(
     const mine = own.filter((row) => row.bookingId === booking.id);
     const hostRow = mine.find((row) => row.direction === 'host_to_guest');
     facts.set(booking.id, {
-      guestReviewed: mine.some((row) => row.direction === 'guest_to_host'),
+      guestReviewed: mine.some((row) => row.direction === 'guest_to_host' && row.released),
       hostScore: hostRow ? num(hostRow.score) : null,
       standing: key
         ? {

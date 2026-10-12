@@ -16,6 +16,11 @@ import {
   canPayDepositRefunds,
   loadDepositRefundQueue,
 } from '@/lib/stay-deposit-refund-neon';
+import {
+  loadOpenClaimQueue,
+  loadOpenComplaintQueue,
+  type DepositClaimQueueRow,
+} from '@/lib/stay-deposit-claims-neon';
 import { withTimeoutFallback } from '@/lib/with-timeout';
 
 const ITEM_LIMIT = 50;
@@ -23,6 +28,26 @@ const ITEM_LIMIT = 50;
 function iso(value: Date | string | null | undefined): string | null {
   if (!value) return null;
   return typeof value === 'string' ? value : value.toISOString();
+}
+
+function queueItem(
+  kind: 'deposit_claim' | 'deposit_complaint',
+  row: DepositClaimQueueRow,
+  id: string,
+): PendingApprovalItem {
+  return {
+    kind,
+    id,
+    reference: row.reference,
+    propertyId: row.propertyId,
+    propertyNameAr: row.propertyNameAr,
+    propertyNameEn: row.propertyNameEn,
+    unitCode: null,
+    party: row.party,
+    contractType: null,
+    fromOn: null,
+    requestedAt: row.since,
+  };
 }
 
 /**
@@ -38,8 +63,18 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
     hasPermission(claims, 'stay.booking.manage') && hasPermission(claims, 'contract.create');
   const canDecideRefunds = canDecideDepositRefunds(claims);
   const canPayRefunds = canPayDepositRefunds(claims);
+  const complaints = (
+    await loadOpenComplaintQueue(claims, ITEM_LIMIT).catch(() => [] as DepositClaimQueueRow[])
+  ).map((row) => queueItem('deposit_complaint', row, row.claimId));
   if (!orgId || (!canSign && !canManageBookings && !canDecideRefunds && !canPayRefunds)) {
-    return EMPTY_PENDING_APPROVALS;
+    return complaints.length
+      ? {
+          ...EMPTY_PENDING_APPROVALS,
+          items: complaints,
+          refunds: complaints.length,
+          total: complaints.length,
+        }
+      : EMPTY_PENDING_APPROVALS;
   }
   const ownerPartyId = ownerPartyScope(claims);
 
@@ -109,11 +144,19 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
       canDecideRefunds || canPayRefunds
         ? loadDepositRefundQueue(tx, orgId, { ownerPartyId, limit: ITEM_LIMIT })
         : Promise.resolve([]);
-    const [contractRows, bookingRows, refundRows] = await Promise.all([
+    const claimQuery = canDecideRefunds
+      ? loadOpenClaimQueue(tx, orgId, { ownerPartyId, limit: ITEM_LIMIT })
+      : Promise.resolve([]);
+    const [contractRows, bookingRows, refundRows, claimRows] = await Promise.all([
       contractQuery,
       bookingQuery,
       refundQuery,
+      claimQuery,
     ]);
+    const depositItems = [
+      ...claimRows.map((row) => queueItem('deposit_claim', row, row.bookingId)),
+      ...complaints,
+    ];
     const refundItems = refundRows.filter((row) =>
       row.step === 'decision' ? canDecideRefunds : canPayRefunds,
     );
@@ -158,13 +201,14 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
         fromOn: null,
         requestedAt: row.since,
       })),
+      ...depositItems,
     ].sort((a, b) => a.requestedAt.localeCompare(b.requestedAt));
 
     return {
       items,
       contracts: contractRows.length,
       bookings: bookingRows.length,
-      refunds: refundItems.length,
+      refunds: refundItems.length + depositItems.length,
       total: items.length,
     };
   });

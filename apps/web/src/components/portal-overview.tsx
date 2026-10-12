@@ -92,7 +92,11 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
   const ar = locale === 'ar';
   const firstContract = approvals.items.find((item) => item.kind === 'contract');
   const firstRefund = approvals.items.find(
-    (item) => item.kind === 'deposit_refund' || item.kind === 'refund_transfer',
+    (item) =>
+      item.kind === 'deposit_refund' ||
+      item.kind === 'refund_transfer' ||
+      item.kind === 'deposit_claim' ||
+      item.kind === 'deposit_complaint',
   );
   const approvalAlerts: Array<{ code: string; count: number; href: string }> = [
     ...(approvals.contracts && firstContract

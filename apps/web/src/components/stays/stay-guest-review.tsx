@@ -7,7 +7,7 @@ import type { ReviewText } from '@/lib/review-rubric';
 
 export type StayGuestReviewState = {
   required: boolean;
-  mine: { score: number } | null;
+  mine: { score: number; published: boolean } | null;
   fromHost: {
     score: number;
     recommend: boolean | null;
@@ -73,6 +73,24 @@ export function StayGuestReview({
   }
 
   const mine = saved ?? state.mine?.score ?? null;
+  const published = saved === null && state.mine?.published === true;
+
+  const fromHost = state.fromHost ? (
+    <div className="stay-guest-review__host">
+      <h3>{ar ? 'تقييم المالك لك' : 'The host’s review of you'}</h3>
+      <div className="stay-guest-review__done">
+        <ScoreBadge score={state.fromHost.score} ar={ar} size="sm" />
+        <div>
+          {state.fromHost.summary ? (
+            <p>{ar ? state.fromHost.summary.ar : state.fromHost.summary.en}</p>
+          ) : null}
+          {state.fromHost.comment ? (
+            <blockquote className="stay-guest-review__quote">{state.fromHost.comment}</blockquote>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   if (mine !== null) {
     return (
@@ -83,37 +101,27 @@ export function StayGuestReview({
           <p>
             {ar
               ? 'شكراً لتقييمك. يساعد رأيك الضيوف الآخرين ويحسّن الخدمة.'
-              : 'Thank you. Your review helps other guests and improves the service.'}
-            {state.hostWrote || state.fromHost
-              ? null
+              : 'Thank you. Your review helps other guests and improves the service.'}{' '}
+            {published
+              ? ar
+                ? 'تقييمك منشور الآن.'
+                : 'Your review is now published.'
               : ar
-                ? ' يُنشر تقييمك بعد أن يقيّمك المالك، أو بعد 14 يوماً.'
-                : ' It is published once the host reviews you, or after 14 days.'}
+                ? 'لحمايتك، لا يُنشر تقييمك ولا يُبلَّغ المالك بوجوده إلا بعد استرداد مبلغ التأمين وتأكيد استلامه.'
+                : 'To protect you, your review is not published and the host is not told about it until your deposit is refunded and received.'}
           </p>
         </div>
-        {state.fromHost ? (
-          <div className="stay-guest-review__host">
-            <h3>{ar ? 'تقييم المالك لك' : 'The host’s review of you'}</h3>
-            <div className="stay-guest-review__done">
-              <ScoreBadge score={state.fromHost.score} ar={ar} size="sm" />
-              <div>
-                {state.fromHost.summary ? (
-                  <p>{ar ? state.fromHost.summary.ar : state.fromHost.summary.en}</p>
-                ) : null}
-                {state.fromHost.comment ? (
-                  <blockquote className="stay-guest-review__quote">
-                    {state.fromHost.comment}
-                  </blockquote>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        ) : null}
+        {fromHost}
       </section>
     );
   }
 
-  if (!state.required) return null;
+  if (!state.required)
+    return fromHost ? (
+      <section className="guest-stay-detail__card stay-guest-review" id="stay-review">
+        {fromHost}
+      </section>
+    ) : null;
 
   return (
     <section
@@ -129,7 +137,10 @@ export function StayGuestReview({
             : 'Required before you can request your deposit back: rate the cleanliness, the property and the management. It takes two minutes.'
           : ar
             ? 'التقييم إلزامي بعد المغادرة: قيّم نظافة المكان والعقار وتعامل الإدارة. يستغرق دقيقتين.'
-            : 'Reviews are required after check-out: rate the cleanliness, the property and the management. It takes two minutes.'}
+            : 'Reviews are required after check-out: rate the cleanliness, the property and the management. It takes two minutes.'}{' '}
+        {ar
+          ? 'لن يرى المالك تقييمك ولن يُبلَّغ بوجوده قبل استرداد التأمين.'
+          : 'The host will not see your review, or know it exists, before your deposit is refunded.'}
       </p>
       {open ? (
         <ReviewForm
@@ -151,6 +162,7 @@ export function StayGuestReview({
           {ar ? 'ابدأ التقييم' : 'Start the review'}
         </button>
       )}
+      {fromHost}
     </section>
   );
 }

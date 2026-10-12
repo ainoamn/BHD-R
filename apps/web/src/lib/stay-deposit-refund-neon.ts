@@ -117,6 +117,10 @@ export async function loadDepositRefunds(
         reason: stayRefunds.reason,
         approvedAt: stayRefunds.approvedAt,
         createdAt: stayRefunds.createdAt,
+        paidMinor: stayRefunds.paidMinor,
+        transferRecordedAt: stayRefunds.transferRecordedAt,
+        guestReceipt: stayRefunds.guestReceipt,
+        guestReceiptAt: stayRefunds.guestReceiptAt,
       })
       .from(stayRefunds)
       .where(
@@ -172,6 +176,13 @@ export async function loadDepositRefunds(
       decisionNote: null,
       transfer: null,
       settledDepositMinor: null,
+      paidMinor: refund.paidMinor.toString(),
+      transferRecordedAt: iso(refund.transferRecordedAt),
+      guestReceipt:
+        refund.guestReceipt === 'confirmed' || refund.guestReceipt === 'not_received'
+          ? refund.guestReceipt
+          : null,
+      guestReceiptAt: iso(refund.guestReceiptAt),
     };
     for (const { meta, receipt } of byRefund.get(refund.id) ?? []) {
       const settledDeposit = text(meta.depositMinor);
@@ -203,8 +214,11 @@ export async function loadDepositRefunds(
             reference: text(transfer.reference),
             recordedBy: text(transfer.recordedBy),
             hasReceipt: receipt,
+            amountMinor: text(meta.amountMinor),
           };
         }
+      } else if (meta.event === 'transfer_voided') {
+        view.transfer = null;
       }
     }
     views.set(refund.bookingId, view);
@@ -212,7 +226,7 @@ export async function loadDepositRefunds(
   return views;
 }
 
-type RefundBooking = {
+export type RefundBooking = {
   id: string;
   organizationId: string;
   status: string;
@@ -221,16 +235,20 @@ type RefundBooking = {
   stayProfileId: string;
 };
 
-async function lockBooking(tx: Tx, bookingId: string) {
+export async function lockBooking(tx: Tx, bookingId: string) {
   await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${bookingId}, 29))`);
 }
 
-async function currentRefund(tx: Tx, booking: RefundBooking) {
+export async function currentRefund(tx: Tx, booking: RefundBooking) {
   const [row] = await tx
     .select({
       id: stayRefunds.id,
       status: stayRefunds.status,
       amountMinor: stayRefunds.amountMinor,
+      paidMinor: stayRefunds.paidMinor,
+      approvedAt: stayRefunds.approvedAt,
+      transferRecordedAt: stayRefunds.transferRecordedAt,
+      guestReceipt: stayRefunds.guestReceipt,
     })
     .from(stayRefunds)
     .where(
@@ -257,11 +275,21 @@ async function depositOf(tx: Tx, booking: RefundBooking): Promise<bigint> {
   return profile?.depositMinor ?? 0n;
 }
 
-async function recordEvent(
+export type DepositRefundEvent =
+  | 'requested'
+  | 'approved'
+  | 'rejected'
+  | 'paid'
+  | 'adjusted'
+  | 'transfer_voided'
+  | 'receipt_confirmed'
+  | 'receipt_not_received';
+
+export async function recordDepositEvent(
   tx: Tx,
   booking: RefundBooking,
   input: {
-    event: 'requested' | 'approved' | 'rejected' | 'paid';
+    event: DepositRefundEvent;
     actorUserId: string | null;
     metadata: Record<string, unknown>;
     audit: Record<string, unknown>;
@@ -314,28 +342,7 @@ async function queueGuestRefundNotice(
         note: string | null;
       },
 ) {
-  const [row] = await tx
-    .select({
-      bookingId: stayBookings.id,
-      snapshot: stayBookings.pricingSnapshotJson,
-      accountEmail: users.email,
-    })
-    .from(stayBookings)
-    .leftJoin(users, eq(users.id, stayBookings.userId))
-    .where(
-      and(eq(stayBookings.id, booking.id), eq(stayBookings.organizationId, booking.organizationId)),
-    )
-    .limit(1);
-  if (!row) return;
-  const contact =
-    row.snapshot.guestContact && typeof row.snapshot.guestContact === 'object'
-      ? (row.snapshot.guestContact as Record<string, unknown>)
-      : {};
-  const email = [text(contact.email), text(row.accountEmail)].find((value) => value?.includes('@'));
-  if (!email) return;
-  const name = text(contact.displayName);
   const money = (minor: bigint) => formatMoney(minor.toString(), booking.currency, 'ar');
-  const pageUrl = `${publicWebOrigin()}/ar/guest/stays/${booking.id}?ref=${encodeURIComponent(booking.referenceCode)}`;
   const lines =
     notice.event === 'approved'
       ? {
@@ -370,8 +377,42 @@ async function queueGuestRefundNotice(
                     }`,
                   ]
                 : []),
+              'أكّد استلام المبلغ من صفحة إقامتك خلال 24 ساعة، أو أخبرنا إن لم يصلك. دون رد خلال 24 ساعة يُعتبر المبلغ مستلماً.',
             ],
           };
+  await queueGuestEmail(tx, booking, lines);
+}
+
+/**
+ * Emails the guest through the outbox worker, with a link to their stay page. Guests without
+ * an email on the booking or their account get the page only.
+ */
+export async function queueGuestEmail(
+  tx: Tx,
+  booking: RefundBooking,
+  lines: { subject: string; body: string[] },
+) {
+  const [row] = await tx
+    .select({
+      bookingId: stayBookings.id,
+      snapshot: stayBookings.pricingSnapshotJson,
+      accountEmail: users.email,
+    })
+    .from(stayBookings)
+    .leftJoin(users, eq(users.id, stayBookings.userId))
+    .where(
+      and(eq(stayBookings.id, booking.id), eq(stayBookings.organizationId, booking.organizationId)),
+    )
+    .limit(1);
+  if (!row) return;
+  const contact =
+    row.snapshot.guestContact && typeof row.snapshot.guestContact === 'object'
+      ? (row.snapshot.guestContact as Record<string, unknown>)
+      : {};
+  const email = [text(contact.email), text(row.accountEmail)].find((value) => value?.includes('@'));
+  if (!email) return;
+  const name = text(contact.displayName);
+  const pageUrl = guestStayUrl(booking);
   const greeting = name ? `مرحباً ${name}،` : 'مرحباً،';
   await tx.insert(outboxEvents).values({
     organizationId: booking.organizationId,
@@ -385,12 +426,16 @@ async function queueGuestRefundNotice(
       channel: 'email',
       recipient: email.toLowerCase(),
       subject: lines.subject,
-      text: [greeting, '', ...lines.body, '', `تابع طلبك: ${pageUrl}`, '', 'BHD R'].join('\n'),
+      text: [greeting, '', ...lines.body, '', `صفحة إقامتك: ${pageUrl}`, '', 'BHD R'].join('\n'),
       html: `<div dir="rtl"><p>${escapeHtml(greeting)}</p>${lines.body
         .map((line) => `<p>${escapeHtml(line)}</p>`)
-        .join('')}<p><a href="${escapeHtml(pageUrl)}">تابع طلب الاسترداد</a></p><p>BHD R</p></div>`,
+        .join('')}<p><a href="${escapeHtml(pageUrl)}">افتح صفحة إقامتك</a></p><p>BHD R</p></div>`,
     },
   });
+}
+
+export function guestStayUrl(booking: Pick<RefundBooking, 'id' | 'referenceCode'>): string {
+  return `${publicWebOrigin()}/ar/guest/stays/${booking.id}?ref=${encodeURIComponent(booking.referenceCode)}`;
 }
 
 /** The refund settles the stay: checked_out → closed. */
@@ -450,7 +495,7 @@ export async function insertGuestDepositRefundRequest(
       idempotencyKey: refundKey(booking.id),
     })
     .returning({ id: stayRefunds.id });
-  await recordEvent(tx, booking, {
+  await recordDepositEvent(tx, booking, {
     event: 'requested',
     actorUserId: null,
     metadata: {
@@ -503,7 +548,7 @@ async function loadHostBooking(
   return booking ?? fail('booking_not_found');
 }
 
-async function actorName(tx: Tx, userId: string): Promise<string | null> {
+export async function actorName(tx: Tx, userId: string): Promise<string | null> {
   const [actor] = await tx
     .select({ displayName: users.displayName })
     .from(users)
@@ -582,14 +627,14 @@ export async function decideDepositRefundOnNeon(
         })
         .returning({ id: stayRefunds.id });
       refundId = created!.id;
-      await recordEvent(tx, booking, {
+      await recordDepositEvent(tx, booking, {
         event: 'requested',
         actorUserId: claims.sub,
         metadata: { refundId, by: 'host', note: null, payout: null },
         audit: { amountMinor: deposit.toString(), by: 'host' },
       });
     }
-    await recordEvent(tx, booking, {
+    await recordDepositEvent(tx, booking, {
       event: status,
       actorUserId: claims.sub,
       metadata: {
@@ -653,33 +698,24 @@ export async function recordDepositRefundPayoutOnNeon(
     const booking = await loadHostBooking(tx, claims, propertyId, bookingId);
     const refund = await currentRefund(tx, booking);
     if (refund?.status !== 'approved') fail('refund_not_approved');
-    const [decision] = await tx
-      .select({
-        depositMinor: sql<string | null>`${stayBookingStatusHistory.metadataJson}->>'depositMinor'`,
-        note: sql<string | null>`${stayBookingStatusHistory.metadataJson}->>'note'`,
-      })
-      .from(stayBookingStatusHistory)
-      .where(
-        and(
-          eq(stayBookingStatusHistory.organizationId, booking.organizationId),
-          eq(stayBookingStatusHistory.bookingId, booking.id),
-          eq(stayBookingStatusHistory.toStatus, HISTORY_STATUS),
-          sql`${stayBookingStatusHistory.metadataJson}->>'refundId' = ${refund.id}`,
-          sql`${stayBookingStatusHistory.metadataJson}->>'event' = 'approved'`,
-        ),
-      )
-      .orderBy(desc(stayBookingStatusHistory.createdAt))
-      .limit(1);
-    const deposit =
-      decision?.depositMinor && /^\d+$/.test(decision.depositMinor)
-        ? BigInt(decision.depositMinor)
-        : await depositOf(tx, booking);
+    const due = refund.amountMinor - refund.paidMinor;
+    if (due <= 0n) fail('refund_not_approved');
+    const decision = await refundDecision(tx, booking, refund.id);
+    const deposit = decision.depositMinor ?? (await depositOf(tx, booking));
     const retained = deposit > refund.amountMinor ? deposit - refund.amountMinor : 0n;
     const receipts = depositReceiptNumbers(booking.referenceCode);
     const now = new Date();
     await tx
       .update(stayRefunds)
-      .set({ status: 'executed', executedAt: at, updatedAt: now })
+      .set({
+        status: 'executed',
+        executedAt: at,
+        paidMinor: refund.amountMinor,
+        transferRecordedAt: now,
+        guestReceipt: null,
+        guestReceiptAt: null,
+        updatedAt: now,
+      })
       .where(eq(stayRefunds.id, refund.id));
     const transfer: Omit<RefundTransfer, 'hasReceipt'> = {
       method: input.method,
@@ -690,19 +726,22 @@ export async function recordDepositRefundPayoutOnNeon(
       at: at.toISOString(),
       recordedBy: await actorName(tx, claims.sub),
     };
-    await recordEvent(tx, booking, {
+    await recordDepositEvent(tx, booking, {
       event: 'paid',
       actorUserId: claims.sub,
       metadata: {
         refundId: refund.id,
         transfer,
         receipt: input.receipt,
+        amountMinor: due.toString(),
+        totalMinor: refund.amountMinor.toString(),
         depositMinor: deposit.toString(),
         retainedMinor: retained.toString(),
         receipts,
       },
       audit: {
-        amountMinor: refund.amountMinor.toString(),
+        amountMinor: due.toString(),
+        totalMinor: refund.amountMinor.toString(),
         depositMinor: deposit.toString(),
         retainedMinor: retained.toString(),
         receipts,
@@ -713,16 +752,176 @@ export async function recordDepositRefundPayoutOnNeon(
     });
     await queueGuestRefundNotice(tx, booking, {
       event: 'paid',
-      amountMinor: refund.amountMinor,
+      amountMinor: due,
       paidTo: [transfer.bank, maskAccount(transfer.account)].filter(Boolean).join(' · '),
       at,
       depositMinor: deposit,
       retainedMinor: retained,
-      note: decision?.note ?? null,
+      note: decision.note,
     });
     const bookingStatus = await closeBooking(tx, booking, claims.sub, 'deposit_refund_paid');
     return { refundStatus: 'executed', bookingStatus };
   });
+}
+
+/** The host's decision on a refund: the deposit it was taken from and its note. */
+export async function refundDecision(
+  tx: Tx,
+  booking: RefundBooking,
+  refundId: string,
+): Promise<{ depositMinor: bigint | null; note: string | null }> {
+  const [decision] = await tx
+    .select({
+      depositMinor: sql<string | null>`${stayBookingStatusHistory.metadataJson}->>'depositMinor'`,
+      note: sql<string | null>`${stayBookingStatusHistory.metadataJson}->>'note'`,
+    })
+    .from(stayBookingStatusHistory)
+    .where(
+      and(
+        eq(stayBookingStatusHistory.organizationId, booking.organizationId),
+        eq(stayBookingStatusHistory.bookingId, booking.id),
+        eq(stayBookingStatusHistory.toStatus, HISTORY_STATUS),
+        sql`${stayBookingStatusHistory.metadataJson}->>'refundId' = ${refundId}`,
+        sql`${stayBookingStatusHistory.metadataJson}->>'event' in ('approved', 'rejected')`,
+      ),
+    )
+    .orderBy(desc(stayBookingStatusHistory.createdAt))
+    .limit(1);
+  return {
+    depositMinor:
+      decision?.depositMinor && /^\d+$/.test(decision.depositMinor)
+        ? BigInt(decision.depositMinor)
+        : null,
+    note: text(decision?.note),
+  };
+}
+
+/** Deposit a refund is measured against: the one recorded at the decision, else the profile's. */
+export async function refundDepositMinor(
+  tx: Tx,
+  booking: RefundBooking,
+  refundId: string,
+): Promise<bigint> {
+  return (
+    (await refundDecision(tx, booking, refundId)).depositMinor ?? (await depositOf(tx, booking))
+  );
+}
+
+/** Deposit still kept by the property: all of it after a rejection, else what was deducted. */
+export function keptOfRefund(
+  refund: { status: string; amountMinor: bigint },
+  deposit: bigint,
+): bigint {
+  if (refund.status === 'rejected') return deposit;
+  return deposit > refund.amountMinor ? deposit - refund.amountMinor : 0n;
+}
+
+type Adjustment = {
+  claimId: string;
+  note: string | null;
+  by: string | null;
+  actorUserId: string | null;
+};
+
+/**
+ * A claim decided for the guest gives back more of the deposit: the refund grows by `extra`
+ * (a rejected refund becomes an approved one of `extra`) and waits for the accountant, who
+ * transfers only the difference. The property's kept income shrinks once it is paid.
+ */
+export async function addToDepositRefund(
+  tx: Tx,
+  booking: RefundBooking,
+  extra: bigint,
+  meta: Adjustment,
+): Promise<void> {
+  const refund = await currentRefund(tx, booking);
+  if (!refund || refund.status === 'requested') fail('refund_not_decided');
+  const deposit = await refundDepositMinor(tx, booking, refund.id);
+  if (extra <= 0n || extra > keptOfRefund(refund, deposit)) fail('claim_amount_invalid');
+  const rejected = refund.status === 'rejected';
+  const amount = (rejected ? 0n : refund.amountMinor) + extra;
+  const now = new Date();
+  await tx
+    .update(stayRefunds)
+    .set({
+      status: 'approved',
+      amountMinor: amount,
+      ...(rejected ? { paidMinor: 0n } : {}),
+      updatedAt: now,
+    })
+    .where(eq(stayRefunds.id, refund.id));
+  await recordDepositEvent(tx, booking, {
+    event: 'adjusted',
+    actorUserId: meta.actorUserId,
+    metadata: {
+      refundId: refund.id,
+      claimId: meta.claimId,
+      extraMinor: extra.toString(),
+      amountMinor: amount.toString(),
+      depositMinor: deposit.toString(),
+      note: meta.note,
+      by: meta.by,
+    },
+    audit: { claimId: meta.claimId, extraMinor: extra.toString(), amountMinor: amount.toString() },
+  });
+}
+
+/**
+ * The guest never received the last transfer and the host (or the site administration)
+ * agrees: the transfer is voided and the refund waits for the accountant to send it again.
+ */
+export async function voidLastDepositTransfer(
+  tx: Tx,
+  booking: RefundBooking,
+  meta: Adjustment,
+): Promise<bigint> {
+  const refund = await currentRefund(tx, booking);
+  if (refund?.status !== 'executed' || refund.paidMinor <= 0n) {
+    fail('claim_not_received_invalid');
+  }
+  const [last] = await tx
+    .select({
+      amountMinor: sql<string | null>`${stayBookingStatusHistory.metadataJson}->>'amountMinor'`,
+    })
+    .from(stayBookingStatusHistory)
+    .where(
+      and(
+        eq(stayBookingStatusHistory.organizationId, booking.organizationId),
+        eq(stayBookingStatusHistory.bookingId, booking.id),
+        eq(stayBookingStatusHistory.toStatus, HISTORY_STATUS),
+        sql`${stayBookingStatusHistory.metadataJson}->>'refundId' = ${refund.id}`,
+        sql`${stayBookingStatusHistory.metadataJson}->>'event' = 'paid'`,
+      ),
+    )
+    .orderBy(desc(stayBookingStatusHistory.createdAt))
+    .limit(1);
+  const lastMinor =
+    last?.amountMinor && /^\d+$/.test(last.amountMinor) ? BigInt(last.amountMinor) : null;
+  const voided = lastMinor && lastMinor <= refund.paidMinor ? lastMinor : refund.paidMinor;
+  await tx
+    .update(stayRefunds)
+    .set({
+      status: 'approved',
+      paidMinor: refund.paidMinor - voided,
+      transferRecordedAt: null,
+      guestReceipt: null,
+      guestReceiptAt: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(stayRefunds.id, refund.id));
+  await recordDepositEvent(tx, booking, {
+    event: 'transfer_voided',
+    actorUserId: meta.actorUserId,
+    metadata: {
+      refundId: refund.id,
+      claimId: meta.claimId,
+      amountMinor: voided.toString(),
+      note: meta.note,
+      by: meta.by,
+    },
+    audit: { claimId: meta.claimId, amountMinor: voided.toString() },
+  });
+  return voided;
 }
 
 /** Transfer receipt of a refund; booking managers, refund approvers and accountants only. */

@@ -1,5 +1,30 @@
 # CONTINUE — 2026-10-12
 
+**0.8.19** · حماية الضيف في التأمين والتقييم:
+
+- **البيانات (0029، مطبَّق على الإنتاج):**
+  - `stay_refunds`: `paid_minor` (المحوَّل حتى الآن)، و`transfer_recorded_at`، و`guest_receipt` (`confirmed`/`not_received`)، و`guest_receipt_at`.
+  - `stay_deposit_claims`: `kind` (`not_received`/`deduction`/`other`)، و`status` (`open`/`accepted`/`rejected`/`escalated`/`resolved`)، والرد والتصعيد والقرار.
+  - `platform_settings`: المفتاح `site_admin_contacts` = `{channel, emails, whatsapp}`.
+- **النشر (`booking-reviews-neon.ts` → `depositSettled`):** `guest_to_host` يُنشر حين لا طلب `open`/`escalated`، ومعه:
+  - لا تأمين، أو `rejected`،
+  - أو `executed` مع (`guest_receipt` موجود أو مضت `RECEIPT_CONFIRM_HOURS` على `transfer_recorded_at`).
+  - `host_to_guest` يُنشر فوراً، ويُبلَّغ الضيف بالبريد.
+- **المشترك (`lib/stay-deposit-claims.ts`):** `depositReceiptState`، و`addBusinessDays` (الأحد–الخميس)، و`claimEscalationFrom` (3 أيام عمل من آخر تحويل، وبعد الرد أو 3 أيام على الطلب)، و`whatsappLink`، و`CLAIM_ERRORS`.
+- **الخادم (`stay-deposit-claims-neon.ts`):**
+  - `guestDepositClaimAction`، و`respondToDepositClaimOnNeon`، و`resolveDepositComplaint`، و`isSiteAdmin`، والإعدادات، و`loadOpenClaimQueue`/`loadOpenComplaintQueue` للتنبيهات.
+  - `voidLastDepositTransfer` في `stay-deposit-refund-neon.ts`: يعيد الاسترداد `approved` وينقص آخر تحويل. والتحويل يدفع `amount − paid` ويصفّر الاستلام.
+- **الواجهة:**
+  - `StayDepositClaims` في صفحة إقامة الضيف.
+  - `DepositClaimsAdmin` داخل «أمانات التأمين».
+  - `/site-admin` (`SiteAdminPanel`، ومعه `InboxSettings`).
+  - بندا التنبيه `deposit_claim` و`deposit_complaint`.
+- **لاحقاً:** ربط برمجي بواجهة واتساب (الآن روابط `wa.me` من الضيف)، وتذكير للضيف قبل انتهاء الـ24 ساعة.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.19-AR.md`](./docs/implementation/RELEASE-0.8.19-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.18** · أمانات التأمين في صفحة المحاسب:
 
 - **القاعدة:** التأمين أمانة، لا دخل. يُعدّ مستلماً من `checked_in` بمبلغ `stay_profiles.deposit_minor`.

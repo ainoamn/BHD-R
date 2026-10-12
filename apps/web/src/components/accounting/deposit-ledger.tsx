@@ -3,6 +3,7 @@
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from '@/i18n/navigation';
+import { DepositClaimsAdmin } from '@/components/accounting/deposit-claims-admin';
 import { DepositReconciliation } from '@/components/accounting/deposit-receipts';
 import {
   DepositRefundCell,
@@ -13,6 +14,7 @@ import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { LIVE_CHANGE_EVENT } from '@/lib/live-sync-shared';
 import { PENDING_APPROVALS_CHANGED_EVENT } from '@/lib/pending-approvals-shared';
+import type { DepositClaimView } from '@/lib/stay-deposit-claims';
 import { domainStatusLabel } from '@/lib/ui-labels';
 
 type Row = Record<string, string | null>;
@@ -45,7 +47,9 @@ function totals(rows: Row[], pick: (row: Row) => string | null | undefined) {
 }
 
 function pendingRefund(row: Row): string | null {
-  return row.status === 'awaiting_refund_transfer' ? (row.refundAmountMinor ?? null) : null;
+  return row.status === 'awaiting_refund_transfer'
+    ? (row.refundDueMinor ?? row.refundAmountMinor ?? null)
+    : null;
 }
 
 /**
@@ -66,6 +70,7 @@ export function DepositLedgerPanel({
   const searchParams = useSearchParams();
   const focusId = active ? searchParams.get('focus') : null;
   const [rows, setRows] = useState<Row[] | null>(null);
+  const [claims, setClaims] = useState<Record<string, DepositClaimView[]>>({});
   const [viewer, setViewer] = useState<Viewer>({ canPayRefunds: false, canDecideRefunds: false });
   const [hidden, setHidden] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -103,8 +108,13 @@ export function DepositLedgerPanel({
           return;
         }
         if (!response.ok) throw new Error(`status_${response.status}`);
-        const payload = (await response.json()) as { rows?: Row[]; viewer?: Viewer };
+        const payload = (await response.json()) as {
+          rows?: Row[];
+          claims?: Record<string, DepositClaimView[]>;
+          viewer?: Viewer;
+        };
         setRows(payload.rows ?? []);
+        setClaims(payload.claims ?? {});
         setViewer(payload.viewer ?? { canPayRefunds: false, canDecideRefunds: false });
         setFailed(false);
       } catch {
@@ -125,26 +135,38 @@ export function DepositLedgerPanel({
     return () => window.clearTimeout(timer);
   }, [focusId, rows]);
 
+  const claimOpen = useMemo(() => {
+    const ids = new Set<string>();
+    for (const [bookingId, list] of Object.entries(claims)) {
+      if (list.some((claim) => claim.status === 'open' || claim.status === 'escalated')) {
+        ids.add(bookingId);
+      }
+    }
+    return ids;
+  }, [claims]);
+
   const sorted = useMemo(
     () =>
       [...(rows ?? [])].sort(
         (a, b) =>
+          Number(claimOpen.has(b.id ?? '')) - Number(claimOpen.has(a.id ?? '')) ||
           (ORDER[a.status ?? ''] ?? 9) - (ORDER[b.status ?? ''] ?? 9) ||
           (b.settledOn ?? b.receivedOn ?? '').localeCompare(a.settledOn ?? a.receivedOn ?? ''),
       ),
-    [rows],
+    [rows, claimOpen],
   );
 
   const visible = useMemo(
     () =>
       sorted.filter((row) => {
         if (filter === 'all') return true;
-        if (filter === 'open') return row.status !== 'deposit_settled';
+        if (filter === 'open')
+          return row.status !== 'deposit_settled' || claimOpen.has(row.id ?? '');
         if (filter === 'deposit_held')
           return row.status === 'deposit_held' || row.status === 'awaiting_deposit_refund';
         return row.status === filter;
       }),
-    [sorted, filter],
+    [sorted, filter, claimOpen],
   );
 
   if (hidden) return null;
@@ -367,6 +389,18 @@ export function DepositLedgerPanel({
                       }
                     />
                   ) : null}
+                  <DepositClaimsAdmin
+                    claims={claims[id] ?? []}
+                    currency={row.currency || 'OMR'}
+                    canDecide={viewer.canDecideRefunds}
+                    locale={locale}
+                    onDone={(next, reload) => {
+                      setNotice(next);
+                      if (!reload) return;
+                      window.dispatchEvent(new Event(PENDING_APPROVALS_CHANGED_EVENT));
+                      setReloadKey((key) => key + 1);
+                    }}
+                  />
                 </div>
                 <div className="deposit-ledger__actions">
                   {status === 'awaiting_refund_transfer' && viewer.canPayRefunds ? (

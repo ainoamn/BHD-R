@@ -32,6 +32,9 @@ import type { StayStamp } from '@/lib/stay-arrival-neon';
 import { StayRefundNotices } from '@/components/stays/stay-refund-notices';
 import { hasDeposit, refundNotices, type GuestDepositRefund } from '@/lib/stay-deposit-refund';
 import type { StayRefundMoment } from '@/lib/stay-guest-greeting';
+import { StayDepositClaims } from '@/components/stays/stay-deposit-claims';
+import type { DepositClaimView } from '@/lib/stay-deposit-claims';
+import { loadComplaintWhatsapp } from '@/lib/stay-deposit-claims-neon';
 
 type GuestBooking = {
   id: string;
@@ -64,6 +67,7 @@ type GuestBooking = {
   depositMinor?: string | null;
   depositRefund?: GuestDepositRefund | null;
   canRequestDepositRefund?: boolean;
+  depositClaims?: DepositClaimView[];
 };
 
 const REFUND_STATE: Record<GuestDepositRefund['status'], StayRefundMoment['state']> = {
@@ -234,6 +238,12 @@ export default async function GuestStayDetailPage({
       ? await loadGuestReviewState(booking.id).catch(() => null)
       : null;
   const refund = booking.depositRefund ?? null;
+  const depositClaims = booking.depositClaims ?? [];
+  const escalated = depositClaims.find((claim) => claim.status === 'escalated');
+  const complaintWhatsapp =
+    escalated && hasDatabaseUrl()
+      ? await loadComplaintWhatsapp(booking.referenceCode, escalated).catch(() => [])
+      : [];
   const refundMoment: StayRefundMoment | undefined =
     hasDeposit(booking.depositMinor) && (refund || booking.canRequestDepositRefund)
       ? {
@@ -470,6 +480,16 @@ export default async function GuestStayDetailPage({
                 propertyName={title}
                 state={review}
                 depositWaiting={Boolean(refundMoment?.reviewRequired)}
+                ar={ar}
+              />
+            ) : null}
+            {refund && refund.status !== 'requested' ? (
+              <StayDepositClaims
+                referenceCode={booking.referenceCode}
+                refund={refund}
+                claims={depositClaims}
+                depositMinor={booking.depositMinor ?? null}
+                whatsapp={complaintWhatsapp}
                 ar={ar}
               />
             ) : null}

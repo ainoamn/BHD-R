@@ -5,6 +5,7 @@ import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { refreshReviewProfile, submitHostReview } from '@/lib/booking-reviews-neon';
 import { clientSafeErrorCode, statusForSafeCode } from '@/lib/client-safe-error';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
+import { notifyGuestOfHostReview } from '@/lib/stay-deposit-claims-neon';
 import { reviewFields } from '@/lib/review-route';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 
@@ -56,6 +57,10 @@ export async function POST(request: Request, context: { params: Promise<{ proper
   try {
     const saved = await submitHostReview(claims, propertyId, body.bookingId, body, ai);
     after(async () => {
+      await notifyGuestOfHostReview(saved.bookingId, {
+        score: saved.score,
+        summary: saved.summaryAr,
+      }).catch((error: unknown) => console.error('host review guest notice', error));
       for (const [subject, key] of saved.subjects) {
         await refreshReviewProfile(subject, key, ai).catch((error: unknown) =>
           console.error('review profile refresh', subject, error),

@@ -660,6 +660,12 @@ export const stayRefunds = pgTable(
     approvedAt: timestamp('approved_at', { withTimezone: true }),
     executedAt: timestamp('executed_at', { withTimezone: true }),
     idempotencyKey: varchar('idempotency_key', { length: 128 }),
+    /** Transferred to the guest so far; below `amountMinor` while a transfer is due. */
+    paidMinor: bigint('paid_minor', { mode: 'bigint' }).notNull().default(0n),
+    transferRecordedAt: timestamp('transfer_recorded_at', { withTimezone: true }),
+    /** The guest's answer to the last transfer; none within 24 hours counts as received. */
+    guestReceipt: varchar('guest_receipt', { length: 16 }),
+    guestReceiptAt: timestamp('guest_receipt_at', { withTimezone: true }),
   },
   (table) => [
     index('stay_refunds_org_idx').on(table.organizationId),
@@ -668,8 +674,72 @@ export const stayRefunds = pgTable(
       'stay_refunds_status_check',
       sql`${table.status} IN ('requested', 'approved', 'rejected', 'executed', 'failed')`,
     ),
+    check(
+      'stay_refunds_guest_receipt_check',
+      sql`${table.guestReceipt} IS NULL OR ${table.guestReceipt} IN ('confirmed', 'not_received')`,
+    ),
   ],
 );
+
+/**
+ * A guest's request or objection about the deposit, answered by the host; escalated to the
+ * site administration as a complaint when the guest is not satisfied.
+ */
+export const stayDepositClaims = pgTable(
+  'stay_deposit_claims',
+  {
+    ...identityColumns,
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    bookingId: uuid('booking_id')
+      .notNull()
+      .references(() => stayBookings.id),
+    propertyId: uuid('property_id')
+      .notNull()
+      .references(() => properties.id),
+    refundId: uuid('refund_id').references(() => stayRefunds.id),
+    kind: varchar('kind', { length: 16 }).notNull(),
+    status: varchar('status', { length: 16 }).notNull().default('open'),
+    amountMinor: bigint('amount_minor', { mode: 'bigint' }),
+    currency: varchar('currency', { length: 3 }).notNull(),
+    message: text('message').notNull(),
+    response: varchar('response', { length: 16 }),
+    responseNote: text('response_note'),
+    responseAmountMinor: bigint('response_amount_minor', { mode: 'bigint' }),
+    respondedAt: timestamp('responded_at', { withTimezone: true }),
+    respondedByUserId: uuid('responded_by_user_id').references(() => users.id),
+    respondedByName: varchar('responded_by_name', { length: 160 }),
+    escalatedAt: timestamp('escalated_at', { withTimezone: true }),
+    escalationMessage: text('escalation_message'),
+    resolution: varchar('resolution', { length: 16 }),
+    resolutionNote: text('resolution_note'),
+    resolutionAmountMinor: bigint('resolution_amount_minor', { mode: 'bigint' }),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    resolvedByUserId: uuid('resolved_by_user_id').references(() => users.id),
+    resolvedByName: varchar('resolved_by_name', { length: 160 }),
+  },
+  (table) => [
+    index('stay_deposit_claims_booking_idx').on(table.bookingId, table.createdAt),
+    index('stay_deposit_claims_org_status_idx').on(table.organizationId, table.status),
+    check(
+      'stay_deposit_claims_kind_check',
+      sql`${table.kind} IN ('not_received', 'deduction', 'other')`,
+    ),
+    check(
+      'stay_deposit_claims_status_check',
+      sql`${table.status} IN ('open', 'accepted', 'rejected', 'escalated', 'resolved')`,
+    ),
+  ],
+);
+
+/** Platform-wide settings, one JSON value per key. */
+export const platformSettings = pgTable('platform_settings', {
+  key: varchar('key', { length: 64 }).primaryKey(),
+  value: jsonb('value').$type<Record<string, unknown>>().notNull().default({}),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedByUserId: uuid('updated_by_user_id').references(() => users.id),
+});
 
 export const stayReviews = pgTable(
   'stay_reviews',

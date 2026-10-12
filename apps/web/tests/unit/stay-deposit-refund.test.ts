@@ -35,6 +35,10 @@ const view: DepositRefundView = {
   decidedBy: 'Owner',
   decisionNote: null,
   settledDepositMinor: null,
+  paidMinor: '80000',
+  transferRecordedAt: '2026-10-12T10:05:00.000Z',
+  guestReceipt: null,
+  guestReceiptAt: null,
   transfer: {
     method: 'bank',
     account: 'OM81 0123 4567 8901 2345',
