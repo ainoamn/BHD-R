@@ -25,7 +25,7 @@ import { loadStayStamps, type StayStamp } from '@/lib/stay-arrival-neon';
 import {
   guestDepositRefund,
   type GuestDepositRefund,
-  type RefundPayout,
+  type RefundRequestPayout,
 } from '@/lib/stay-deposit-refund';
 import {
   insertGuestDepositRefundRequest,
@@ -632,14 +632,16 @@ export async function cancelGuestStayBookingOnNeon(referenceCode: string) {
 const REFUND_ERRORS: Record<string, string> = {
   refund_not_open: 'Deposit refunds open after check-out',
   refund_no_deposit: 'This stay has no security deposit',
-  refund_account_invalid: 'Invalid receiving account or phone',
+  refund_account_invalid: 'Invalid account number or IBAN',
+  refund_bank_required: 'Choose the bank',
+  refund_phone_invalid: 'Invalid phone number',
 };
 
 /** Guest asks for the security deposit back after check-out (by booking reference). */
 export async function requestGuestDepositRefundOnNeon(input: {
   referenceCode: string;
   note?: string | undefined;
-  payout?: RefundPayout | undefined;
+  payout: RefundRequestPayout;
 }) {
   assertPlatformEnabled();
   const normalized = input.referenceCode.trim().toUpperCase();
@@ -667,7 +669,7 @@ export async function requestGuestDepositRefundOnNeon(input: {
         throw new PublicStayBookingError(
           code,
           message,
-          code === 'refund_account_invalid' ? 400 : 409,
+          code === 'refund_not_open' || code === 'refund_no_deposit' ? 409 : 400,
         );
       }
       throw error;

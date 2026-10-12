@@ -100,7 +100,13 @@ export type AnnexRefund = {
   consent: { version: string; acceptedAt: string } | null;
   guestNote: string | null;
   /** Full account only for refund approvers and accountants; otherwise masked. */
-  guestPayout: { method: RefundPayoutMethod; account: string; bank: string | null } | null;
+  guestPayout: {
+    method: RefundPayoutMethod;
+    account: string;
+    bank: string | null;
+    /** Transfer phone with a `phone` method, contact only with `bank`; null before 0.8.9. */
+    phone: string | null;
+  } | null;
   decidedAt: string | null;
   decidedBy: string | null;
   decisionNote: string | null;

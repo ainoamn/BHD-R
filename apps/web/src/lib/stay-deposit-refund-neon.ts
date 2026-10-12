@@ -33,8 +33,10 @@ import {
   type DepositRefundView,
   type RefundPayout,
   type RefundPayoutMethod,
+  type RefundRequestPayout,
   type RefundTransfer,
 } from '@/lib/stay-deposit-refund';
+import { validHandoverPhone } from '@/lib/stay-handover';
 
 type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
@@ -60,6 +62,12 @@ function readPayout(value: unknown): RefundPayout | null {
   const account = text(row.account);
   if (!isRefundPayoutMethod(row.method) || !account) return null;
   return { method: row.method, account, bank: text(row.bank), holder: text(row.holder) };
+}
+
+function readRequestPayout(value: unknown): RefundRequestPayout | null {
+  const payout = readPayout(value);
+  if (!payout) return null;
+  return { ...payout, phone: text((value as Record<string, unknown>).phone) };
 }
 
 function cleanNote(value: string | null | undefined): string | null {
@@ -166,7 +174,7 @@ export async function loadDepositRefunds(
       if (meta.event === 'requested') {
         view.requestedBy = meta.by === 'guest' ? 'guest' : 'host';
         view.guestNote = text(meta.note);
-        view.guestPayout = readPayout(meta.payout);
+        view.guestPayout = readRequestPayout(meta.payout);
         const consent =
           meta.consent && typeof meta.consent === 'object'
             ? (meta.consent as Record<string, unknown>)
@@ -397,7 +405,7 @@ async function closeBooking(
 export async function insertGuestDepositRefundRequest(
   tx: Tx,
   booking: RefundBooking,
-  input: { note?: string | undefined; payout?: RefundPayout | undefined },
+  input: { note?: string | undefined; payout: RefundRequestPayout },
 ): Promise<void> {
   await lockBooking(tx, booking.id);
   if (await currentRefund(tx, booking)) return;
@@ -405,7 +413,9 @@ export async function insertGuestDepositRefundRequest(
   const deposit = await depositOf(tx, booking);
   if (deposit <= 0n) fail('refund_no_deposit');
   const payout = input.payout;
-  if (payout && !validPayoutAccount(payout.method, payout.account)) fail('refund_account_invalid');
+  if (!validPayoutAccount('bank', payout.account)) fail('refund_account_invalid');
+  if ((payout.bank?.trim().length ?? 0) < 2) fail('refund_bank_required');
+  if (!payout.phone || !validHandoverPhone(payout.phone.trim())) fail('refund_phone_invalid');
   const note = cleanNote(input.note);
   const [refund] = await tx
     .insert(stayRefunds)
@@ -427,14 +437,13 @@ export async function insertGuestDepositRefundRequest(
       by: 'guest',
       consent: { version: REFUND_CONSENT_VERSION, acceptedAt: new Date().toISOString() },
       note,
-      payout: payout
-        ? {
-            method: payout.method,
-            account: payout.account.trim(),
-            bank: payout.bank?.trim() || null,
-            holder: payout.holder?.trim() || null,
-          }
-        : null,
+      payout: {
+        method: payout.method,
+        account: payout.account.trim(),
+        bank: payout.bank?.trim() || null,
+        holder: payout.holder?.trim() || null,
+        phone: payout.phone.trim(),
+      },
     },
     audit: { amountMinor: deposit.toString(), by: 'guest' },
   });

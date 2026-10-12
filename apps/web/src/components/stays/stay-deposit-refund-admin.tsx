@@ -47,16 +47,58 @@ function methodLabel(method: string | null | undefined, ar: boolean): string {
   return ar ? 'حساب بنكي' : 'Bank account';
 }
 
+/**
+ * The guest's own value for a transfer method. Requests before 0.8.9 have no separate phone,
+ * and a phone request kept the number in the account field.
+ */
+function guestPayoutValue(row: PropertyRecordRow, method: RefundPayoutMethod): string {
+  if (!row.refundGuestPhone)
+    return row.refundGuestMethod === method ? (row.refundGuestAccount ?? '') : '';
+  return (method === 'phone' ? row.refundGuestPhone : row.refundGuestAccount) ?? '';
+}
+
 /** Where the guest asked the money to go (as typed in their request). */
 function GuestPayout({ row, ar }: { row: PropertyRecordRow; ar: boolean }) {
   if (!row.refundGuestAccount) return null;
+  if (!row.refundGuestPhone) {
+    return (
+      <span className="psr-refund__line">
+        {ar ? 'يحوَّل إلى' : 'Send to'}: {methodLabel(row.refundGuestMethod, ar)}{' '}
+        <bdi dir="ltr">{row.refundGuestAccount}</bdi>
+        {row.refundGuestBank ? ` · ${row.refundGuestBank}` : ''}
+        {row.refundGuestHolder ? ` · ${row.refundGuestHolder}` : ''}
+      </span>
+    );
+  }
+  const byPhone = row.refundGuestMethod === 'phone';
   return (
-    <span className="psr-refund__line">
-      {ar ? 'يحوَّل إلى' : 'Send to'}: {methodLabel(row.refundGuestMethod, ar)}{' '}
-      <bdi dir="ltr">{row.refundGuestAccount}</bdi>
-      {row.refundGuestBank ? ` · ${row.refundGuestBank}` : ''}
-      {row.refundGuestHolder ? ` · ${row.refundGuestHolder}` : ''}
-    </span>
+    <>
+      <span className="psr-refund__line">
+        {ar ? 'يفضّل الضيف' : 'Guest prefers'}:{' '}
+        {byPhone
+          ? ar
+            ? 'تحويل عبر رقم الهاتف'
+            : 'Transfer to phone'
+          : ar
+            ? 'تحويل إلى الحساب البنكي'
+            : 'Transfer to bank account'}
+      </span>
+      <span className="psr-refund__line">
+        {ar ? 'الحساب' : 'Account'}: <bdi dir="ltr">{row.refundGuestAccount}</bdi>
+        {row.refundGuestBank ? ` · ${row.refundGuestBank}` : ''}
+        {row.refundGuestHolder ? ` · ${row.refundGuestHolder}` : ''}
+      </span>
+      <span className="psr-refund__line">
+        {byPhone
+          ? ar
+            ? 'هاتف التحويل'
+            : 'Transfer phone'
+          : ar
+            ? 'هاتف للتواصل فقط'
+            : 'Contact phone only'}
+        : <bdi dir="ltr">{row.refundGuestPhone}</bdi>
+      </span>
+    </>
   );
 }
 
@@ -198,7 +240,7 @@ export function DepositRefundForm({
   const [method, setMethod] = useState<RefundPayoutMethod>(
     row.refundGuestMethod === 'phone' ? 'phone' : 'bank',
   );
-  const [account, setAccount] = useState(row.refundGuestAccount ?? '');
+  const [account, setAccount] = useState(() => guestPayoutValue(row, method));
   const [bank, setBank] = useState(row.refundGuestBank ?? '');
   const [holder, setHolder] = useState(row.refundGuestHolder ?? '');
   const [reference, setReference] = useState('');
@@ -340,7 +382,12 @@ export function DepositRefundForm({
                     type="radio"
                     name={`${id}-method`}
                     checked={method === value}
-                    onChange={() => setMethod(value)}
+                    onChange={() => {
+                      if (account.trim() === guestPayoutValue(row, method).trim()) {
+                        setAccount(guestPayoutValue(row, value));
+                      }
+                      setMethod(value);
+                    }}
                   />{' '}
                   {value === 'bank'
                     ? ar

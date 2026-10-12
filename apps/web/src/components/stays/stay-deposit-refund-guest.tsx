@@ -71,15 +71,17 @@ export function StayDepositRefund({ moment, ar }: { moment: StayRefundMoment; ar
   const [account, setAccount] = useState('');
   const [bank, setBank] = useState('');
   const [holder, setHolder] = useState('');
+  const [phone, setPhone] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [tried, setTried] = useState(false);
   const [consent, setConsent] = useState(false);
-  const accountGiven = account.trim().length > 0;
-  const accountOk = !accountGiven || validPayoutAccount(method, account);
+  const accountOk = validPayoutAccount('bank', account);
+  const bankOk = bank.trim().length >= 2;
+  const phoneOk = validPayoutAccount('phone', phone);
 
   function submit() {
     setTried(true);
-    if (!accountOk || !consent) return;
+    if (!accountOk || !bankOk || !phoneOk || !consent) return;
     startTransition(async () => {
       setError(null);
       try {
@@ -95,16 +97,13 @@ export function StayDepositRefund({ moment, ar }: { moment: StayRefundMoment; ar
             referenceCode: moment.referenceCode,
             consent: true,
             ...(note.trim() ? { note: note.trim() } : {}),
-            ...(accountGiven
-              ? {
-                  payout: {
-                    method,
-                    account: account.trim(),
-                    ...(bank.trim() ? { bank: bank.trim() } : {}),
-                    ...(holder.trim() ? { holder: holder.trim() } : {}),
-                  },
-                }
-              : {}),
+            payout: {
+              method,
+              account: account.trim(),
+              bank: bank.trim(),
+              phone: phone.trim(),
+              ...(holder.trim() ? { holder: holder.trim() } : {}),
+            },
           }),
           signal: AbortSignal.timeout(30_000),
         });
@@ -182,7 +181,9 @@ export function StayDepositRefund({ moment, ar }: { moment: StayRefundMoment; ar
             </label>
           </section>
           <fieldset className="stay-refund__methods">
-            <legend>{ar ? 'أين نحوّل المبلغ؟' : 'Where should we send it?'}</legend>
+            <legend>
+              {ar ? 'كيف تفضّل استلام المبلغ؟ *' : 'How would you like to be paid? *'}
+            </legend>
             {(['bank', 'phone'] as const).map((value) => (
               <label key={value}>
                 <input
@@ -193,42 +194,53 @@ export function StayDepositRefund({ moment, ar }: { moment: StayRefundMoment; ar
                 />{' '}
                 {value === 'bank'
                   ? ar
-                    ? 'حساب بنكي / IBAN'
-                    : 'Bank account / IBAN'
+                    ? 'تحويل إلى الحساب البنكي'
+                    : 'Transfer to my bank account'
                   : ar
-                    ? 'رقم هاتف (تحويل عبر الهاتف)'
-                    : 'Phone number (mobile transfer)'}
+                    ? 'تحويل عبر رقم الهاتف'
+                    : 'Transfer to my phone number'}
               </label>
             ))}
+            <small className="muted">
+              {ar
+                ? 'إن لم يكن لديك رقم هاتف مفعّل للتحويل، اختر «تحويل إلى الحساب البنكي» واكتب رقم هاتفك للتواصل فقط.'
+                : 'No phone number set up for transfers? Choose the bank account and give your phone for contact only.'}
+            </small>
           </fieldset>
           <label className="field">
-            <span>
-              {method === 'bank'
-                ? ar
-                  ? 'رقم الحساب أو IBAN'
-                  : 'Account number or IBAN'
-                : ar
-                  ? 'رقم الهاتف'
-                  : 'Phone number'}
-            </span>
+            <span>{ar ? 'رقم الحساب أو IBAN *' : 'Account number or IBAN *'}</span>
             <input
               className="input"
               dir="ltr"
               autoComplete="off"
               maxLength={64}
-              placeholder={method === 'bank' ? 'OM•• •••• ••••' : '+968 9X XXX XXX'}
+              placeholder="OM•• •••• ••••"
+              aria-required="true"
               value={account}
               aria-invalid={tried && !accountOk}
               onChange={(event) => setAccount(event.target.value)}
             />
+            {tried && !accountOk ? (
+              <small className="field__error" role="alert">
+                {account.trim()
+                  ? ar
+                    ? 'رقم الحساب أو IBAN غير صحيح.'
+                    : 'The account number or IBAN looks wrong.'
+                  : ar
+                    ? 'رقم الحساب مطلوب.'
+                    : 'The account number is required.'}
+              </small>
+            ) : null}
           </label>
           <label className="field">
-            <span>{ar ? 'البنك' : 'Bank'}</span>
+            <span>{ar ? 'البنك *' : 'Bank *'}</span>
             <input
               className="input"
               list="stay-refund-banks"
               maxLength={120}
+              aria-required="true"
               value={bank}
+              aria-invalid={tried && !bankOk}
               onChange={(event) => setBank(event.target.value)}
             />
             <datalist id="stay-refund-banks">
@@ -236,6 +248,55 @@ export function StayDepositRefund({ moment, ar }: { moment: StayRefundMoment; ar
                 <option key={name} value={name} />
               ))}
             </datalist>
+            {tried && !bankOk ? (
+              <small className="field__error" role="alert">
+                {ar ? 'اختر البنك أو اكتب اسمه.' : 'Choose or type the bank.'}
+              </small>
+            ) : null}
+          </label>
+          <label className="field">
+            <span>
+              {method === 'phone'
+                ? ar
+                  ? 'رقم الهاتف للتحويل *'
+                  : 'Phone number for the transfer *'
+                : ar
+                  ? 'رقم هاتف للتواصل *'
+                  : 'Contact phone *'}
+            </span>
+            <input
+              className="input"
+              type="tel"
+              dir="ltr"
+              autoComplete="tel"
+              maxLength={32}
+              placeholder="+968 9X XXX XXX"
+              aria-required="true"
+              value={phone}
+              aria-invalid={tried && !phoneOk}
+              onChange={(event) => setPhone(event.target.value)}
+            />
+            {tried && !phoneOk ? (
+              <small className="field__error" role="alert">
+                {phone.trim()
+                  ? ar
+                    ? 'رقم الهاتف غير صحيح.'
+                    : 'The phone number looks wrong.'
+                  : ar
+                    ? 'رقم الهاتف مطلوب.'
+                    : 'The phone number is required.'}
+              </small>
+            ) : (
+              <small className="muted">
+                {method === 'phone'
+                  ? ar
+                    ? 'رقم مفعّل لاستقبال التحويلات لدى البنك أعلاه.'
+                    : 'A number set up to receive transfers at the bank above.'
+                  : ar
+                    ? 'للتواصل فقط — يتم التحويل إلى رقم الحساب.'
+                    : 'For contact only — the money goes to the account number.'}
+              </small>
+            )}
           </label>
           <label className="field">
             <span>{ar ? 'اسم صاحب الحساب' : 'Account holder'}</span>
@@ -256,21 +317,10 @@ export function StayDepositRefund({ moment, ar }: { moment: StayRefundMoment; ar
               onChange={(event) => setNote(event.target.value)}
             />
           </label>
-          {tried && !accountOk ? (
-            <p className="field__error stay-refund__wide" role="alert">
-              {method === 'bank'
-                ? ar
-                  ? 'رقم الحساب أو IBAN غير صحيح.'
-                  : 'The account number or IBAN looks wrong.'
-                : ar
-                  ? 'رقم الهاتف غير صحيح.'
-                  : 'The phone number looks wrong.'}
-            </p>
-          ) : null}
           <p className="muted stay-refund__wide">
             {ar
-              ? 'تصل بياناتك إلى المالك والمحاسب فقط لإتمام التحويل. يمكنك تركها فارغة وسيتواصلون معك.'
-              : 'Only the host and accountant see these details, to make the transfer. You may leave them empty and they will contact you.'}
+              ? 'تصل بياناتك إلى المالك ومن يمثّله والمحاسب فقط، لإتمام التحويل والتواصل معك.'
+              : 'Only the owner, their representative and the accountant see these details, to make the transfer and reach you.'}
           </p>
           <div className="form-actions stay-refund__wide">
             <button type="submit" className="button button--primary" disabled={pending || !consent}>

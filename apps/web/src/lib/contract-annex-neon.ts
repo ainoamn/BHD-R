@@ -173,6 +173,7 @@ export async function loadContractAnnexFromNeon(
               method: refund.guestPayout.method,
               account: account(refund.guestPayout.account),
               bank: refund.guestPayout.bank,
+              phone: refund.guestPayout.phone ? account(refund.guestPayout.phone) : null,
             }
           : null,
         decidedAt: refund.decidedAt,

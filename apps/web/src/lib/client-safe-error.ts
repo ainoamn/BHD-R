@@ -62,6 +62,8 @@ const KNOWN_CODES = new Set([
   'refund_not_approved',
   'refund_note_required',
   'refund_account_invalid',
+  'refund_bank_required',
+  'refund_phone_invalid',
   'refund_receipt_required',
 ]);
 
@@ -115,6 +117,8 @@ export function statusForSafeCode(code: string): number {
     case 'handover_photos_too_many':
     case 'refund_note_required':
     case 'refund_account_invalid':
+    case 'refund_bank_required':
+    case 'refund_phone_invalid':
     case 'refund_receipt_required':
       return 400;
     case 'invalid_body':

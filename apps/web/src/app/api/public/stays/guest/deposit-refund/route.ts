@@ -27,9 +27,10 @@ const bodySchema = z
     payout: z
       .object({
         method: z.enum(REFUND_PAYOUT_METHODS),
-        account: z.string().trim().min(4).max(64),
+        account: z.string().trim().max(64),
         bank: optionalText(120),
         holder: optionalText(120),
+        phone: optionalText(32),
       })
       .strict()
       .optional(),
@@ -77,18 +78,29 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+  if (!payout) {
+    return stayBookingJson(
+      {
+        error: {
+          code: 'refund_payout_required',
+          messageAr: 'أدخل رقم الحساب والبنك ورقم الهاتف، واختر طريقة التحويل، ثم أعد الإرسال.',
+          message: 'Give the account number, bank and phone, and choose how to be paid.',
+        },
+      },
+      { status: 400 },
+    );
+  }
   try {
     const booking = await requestGuestDepositRefundOnNeon({
       referenceCode,
       note,
-      payout: payout
-        ? {
-            method: payout.method,
-            account: payout.account,
-            bank: payout.bank ?? null,
-            holder: payout.holder ?? null,
-          }
-        : undefined,
+      payout: {
+        method: payout.method,
+        account: payout.account,
+        bank: payout.bank ?? null,
+        holder: payout.holder ?? null,
+        phone: payout.phone ?? null,
+      },
     });
     return stayBookingJson({ booking });
   } catch (error) {

@@ -415,7 +415,7 @@ export function ContractAnnexDocumentView({
                           : null}
                         {refund.guestPayout
                           ? row(
-                              ['الحساب المطلوب التحويل إليه', 'Requested payout'],
+                              ['طريقة التحويل والحساب', 'Requested payout'],
                               <span className="contract-doc__stack">
                                 {bi(PAYOUT_METHOD[refund.guestPayout.method] ?? null)}
                                 {refund.guestPayout.bank ? (
@@ -423,6 +423,14 @@ export function ContractAnnexDocumentView({
                                 ) : null}
                                 {ltr(refund.guestPayout.account)}
                               </span>,
+                            )
+                          : null}
+                        {refund.guestPayout?.phone
+                          ? row(
+                              refund.guestPayout.method === 'phone'
+                                ? ['هاتف التحويل', 'Transfer phone']
+                                : ['هاتف للتواصل فقط', 'Contact phone only'],
+                              ltr(refund.guestPayout.phone),
                             )
                           : null}
                         {refund.guestNote

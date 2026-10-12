@@ -19,17 +19,17 @@ export const REFUND_RECEIPT_DATA_URL =
  * What the guest agrees to before asking for the deposit back. The version is stored with
  * the request, so a later wording change never rewrites what an earlier guest accepted.
  */
-export const REFUND_CONSENT_VERSION = 'refund-terms-2026-10-12';
+export const REFUND_CONSENT_VERSION = 'refund-terms-2026-10-12.2';
 export const REFUND_CONSENT: { ar: readonly string[]; en: readonly string[] } = {
   ar: [
     'قد يستغرق طلب استرداد التأمين من يوم عمل واحد حتى أسبوعَي عمل، بحسب أولوية الطلبات السابقة.',
-    'يراجع المالك الطلب فيقبله أو يرفضه، ثم يحوّل المحاسب المبلغ المعتمد إلى الحساب أو الهاتف الذي تحدده.',
-    'سيصلك إشعار عند كل خطوة: قبول الطلب أو رفضه، وتحويل المبلغ.',
+    'سيراجع المالك أو من يمثّله طلبكم لاسترداد مبلغ التأمين، وسنوافيكم فور اتخاذ أي قرار بشأنه.',
+    'عند اعتماد الطلب يُحوَّل المبلغ بالطريقة التي اخترتموها، ويصلكم إشعار بإتمام التحويل.',
   ],
   en: [
     'A deposit refund may take from one working day up to two working weeks, depending on the priority of earlier requests.',
-    'The host reviews the request and approves or declines it; the accountant then transfers the approved amount to the account or phone you give.',
-    'You will be notified at every step: when the request is approved or declined, and when the money is transferred.',
+    'The owner or their representative will review your deposit refund request, and we will let you know as soon as a decision is made.',
+    'Once approved, the amount is transferred by the method you chose, and you will be notified when the transfer is done.',
   ],
 };
 
@@ -55,6 +55,13 @@ export type RefundPayout = {
   holder: string | null;
 };
 
+/**
+ * The guest's request (0.8.9 onward): the bank account, bank and a phone are always given;
+ * `method` is how they prefer to be paid. With `bank` the phone is for contact only.
+ * Earlier requests have no `phone`, and a `phone` method kept the number in `account`.
+ */
+export type RefundRequestPayout = RefundPayout & { phone: string | null };
+
 export type RefundTransfer = RefundPayout & {
   at: string;
   reference: string | null;
@@ -73,7 +80,7 @@ export type DepositRefundView = {
   /** The refund terms the guest accepted with the request (0.8.7 onward). */
   consent: { version: string; acceptedAt: string } | null;
   guestNote: string | null;
-  guestPayout: RefundPayout | null;
+  guestPayout: RefundRequestPayout | null;
   decidedAt: string | null;
   decidedBy: string | null;
   decisionNote: string | null;

@@ -1,5 +1,22 @@
 # CONTINUE — 2026-10-12
 
+**0.8.9** · بيانات تحويل إلزامية في طلب استرداد التأمين:
+
+- **الطلب الجديد:** `RefundRequestPayout = RefundPayout & { phone }`.
+  - `account` هو الحساب أو IBAN دائماً.
+  - `method` هو الطريقة المفضّلة.
+  - مع `bank` يكون `phone` للتواصل فقط.
+  - الحفظ في `metadata_json.payout` لحدث `requested`.
+- **الطلبات القديمة:** بلا `phone`. وما كان منها بطريقة `phone` يحمل الرقم في `account`. الدالة `guestPayoutValue` في `stay-deposit-refund-admin.tsx` تتعامل مع الحالتين.
+- **الإلزام في الخادم** (`insertGuestDepositRefundRequest`):
+  - `refund_account_invalid` و`refund_bank_required` و`refund_phone_invalid`.
+  - المسار يعيد `refund_payout_required` إن غابت `payout`.
+- **إصدار الموافقة:** `refund-terms-2026-10-12.2`.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.9-AR.md`](./docs/implementation/RELEASE-0.8.9-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.8** · ملاحق العقد المستقلة وصور الاستلام والتسليم:
 
 - **الملاحق:** `lib/contract-annex.ts` يعرّف الأنواع `check-in` و`check-out` و`deposit-refund`، بأرقام ثابتة A1–A3 (`annexReference`).

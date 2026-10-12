@@ -451,6 +451,7 @@ async function loadBookings(
         refundGuestAccount: account(refund?.guestPayout?.account),
         refundGuestBank: refund?.guestPayout?.bank ?? null,
         refundGuestHolder: refund?.guestPayout?.holder ?? null,
+        refundGuestPhone: account(refund?.guestPayout?.phone),
         refundDecidedAt: refund?.decidedAt ?? null,
         refundDecidedBy: refund?.decidedBy ?? null,
         refundDecisionNote: refund?.decisionNote ?? null,
