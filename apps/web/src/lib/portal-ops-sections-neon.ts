@@ -15,17 +15,21 @@ import {
   maintenanceWorkOrders,
   memberships,
   operationalRequests,
+  parties,
   payments,
+  properties,
   receipts,
   reportJobs,
   reservations,
   salesDeals,
+  units,
   users,
   viewingRequests,
   workTasks,
   type Database,
 } from '@bhd-r/db';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { contractTerm, propertyUsage } from '@/lib/contract-list-facets';
 import {
   loadStayAccountingRowsForViewer,
   readClaims,
@@ -182,6 +186,7 @@ async function loadSales(tx: OpsTransaction, orgId: string): Promise<NeonSection
 }
 
 async function loadContracts(tx: OpsTransaction, orgId: string): Promise<NeonSectionLoad> {
+  const snapshot = contracts.payloadSnapshot;
   const rows = await tx
     .select({
       id: contracts.id,
@@ -196,6 +201,42 @@ async function loadContracts(tx: OpsTransaction, orgId: string): Promise<NeonSec
       completedAt: contracts.completedAt,
       renderedPdfHash: contracts.renderedPdfHash,
       createdAt: contracts.createdAt,
+      propertyId: units.propertyId,
+      propertyNameAr: properties.nameAr,
+      propertyNameEn: properties.nameEn,
+      unitCode: units.code,
+      unitNameAr: units.nameAr,
+      unitNameEn: units.nameEn,
+      category: properties.category,
+      tenantName: sql<string | null>`coalesce(
+        ${parties.displayName},
+        ${snapshot}->'tenant'->>'displayName',
+        ${snapshot}->'buyer'->>'displayName'
+      )`,
+      contractType: sql<string | null>`${snapshot}->'contract'->>'type'`,
+      sourceType: sql<string | null>`${snapshot}->'source'->>'type'`,
+      stayType: sql<string | null>`${snapshot}->>'stayType'`,
+      usageType: sql<string | null>`${snapshot}->'leaseTerms'->>'usageType'`,
+      startsOn: sql<string | null>`coalesce(
+        ${snapshot}->>'startsOn',
+        (select l.starts_on::text from leases l
+          where l.organization_id = ${contracts.organizationId}
+            and l.contract_id = ${contracts.id}
+          limit 1)
+      )`,
+      endsOn: sql<string | null>`coalesce(
+        ${snapshot}->>'endsOn',
+        (select l.ends_on::text from leases l
+          where l.organization_id = ${contracts.organizationId}
+            and l.contract_id = ${contracts.id}
+          limit 1)
+      )`,
+      signedAt: sql<string | null>`to_json(coalesce(
+        (select max(cs.signed_at) from contract_signatures cs
+          where cs.organization_id = ${contracts.organizationId}
+            and cs.contract_id = ${contracts.id}),
+        ${contracts.completedAt}
+      )) #>> '{}'`,
       approvalStatus: sql<string | null>`(
         select ar.status::text
         from approval_requests ar
@@ -207,10 +248,33 @@ async function loadContracts(tx: OpsTransaction, orgId: string): Promise<NeonSec
       )`,
     })
     .from(contracts)
+    .leftJoin(units, and(eq(units.id, contracts.unitId), eq(units.organizationId, orgId)))
+    .leftJoin(
+      properties,
+      and(eq(properties.id, units.propertyId), eq(properties.organizationId, orgId)),
+    )
+    .leftJoin(
+      parties,
+      and(eq(parties.id, contracts.tenantPartyId), eq(parties.organizationId, orgId)),
+    )
     .where(eq(contracts.organizationId, orgId))
     .orderBy(desc(contracts.createdAt))
     .limit(LIST_LIMIT);
-  return { records: rows.map(jsonSafe) };
+  return {
+    records: rows.map((row) => {
+      const { contractType, sourceType, stayType, usageType, category, ...rest } = row;
+      const startsOn = row.startsOn?.slice(0, 10) ?? null;
+      const endsOn = row.endsOn?.slice(0, 10) ?? null;
+      return jsonSafe({
+        ...rest,
+        startsOn,
+        endsOn,
+        signedAt: row.signedAt ? new Date(row.signedAt).toISOString() : null,
+        term: contractTerm({ contractType, sourceType, stayType, startsOn, endsOn }),
+        usage: propertyUsage({ usageType, category }),
+      });
+    }),
+  };
 }
 
 async function loadPayments(

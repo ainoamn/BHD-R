@@ -8427,7 +8427,7 @@ body:has(.stays-booking-receipt) #main-content {
   inset-block-start: 50%;
   inset-inline-start: 0.9rem;
   color: #718079;
-  content: 'âŒ•';
+  content: '\2315';
   transform: translateY(-50%);
 }
 .ops-toolbar .select {
@@ -8441,6 +8441,100 @@ body:has(.stays-booking-receipt) #main-content {
   color: #6a7771;
   font-size: 0.74rem;
   font-weight: 800;
+}
+.ops-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.6rem 0.75rem;
+  padding: 0.7rem 1.05rem 0.85rem;
+  background: rgb(251 250 247 / 0.94);
+  border-bottom: 1px solid rgb(9 45 36 / 0.07);
+}
+.ops-filters label {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 8.5rem;
+  color: #4b5d55;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+.ops-filters select,
+.ops-filters input {
+  min-height: 2.35rem;
+  padding-inline: 0.7rem;
+  background: white;
+  border: 1px solid rgb(9 45 36 / 0.14);
+  border-radius: 0.6rem;
+  color: #1f2924;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.ops-filters select:focus,
+.ops-filters input:focus {
+  outline: none;
+  border-color: rgb(8 163 159 / 0.55);
+  box-shadow: 0 0 0 3px rgb(8 163 159 / 0.12);
+}
+.ops-filters .button {
+  min-height: 2.35rem;
+}
+.ops-facet {
+  display: inline-block;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  background: #eef2f0;
+  color: #304a40;
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.ops-facet--daily {
+  background: #e6f6f5;
+  color: #0b6e6a;
+}
+.ops-facet--monthly {
+  background: #eaf1fb;
+  color: #2a5a93;
+}
+.ops-facet--yearly {
+  background: #f1ecfa;
+  color: #5b3d99;
+}
+.ops-facet--sale {
+  background: #fdf1e2;
+  color: #9a5a12;
+}
+.ops-facet--residential {
+  background: #e9f5ec;
+  color: #2e6b3d;
+}
+.ops-facet--commercial {
+  background: #fdeee9;
+  color: #a2401f;
+}
+.ops-facet--agricultural {
+  background: #f1f6e2;
+  color: #5b6d14;
+}
+.ops-facet--industrial {
+  background: #eceff1;
+  color: #44535b;
+}
+.ops-place {
+  display: grid;
+  gap: 0.1rem;
+}
+.ops-place small {
+  color: #6a7771;
+  font-size: 0.76rem;
+}
+@media (max-width: 640px) {
+  .ops-filters label {
+    flex: 1 1 calc(50% - 0.75rem);
+    min-width: 0;
+  }
 }
 .ops-table th {
   color: #304a40;

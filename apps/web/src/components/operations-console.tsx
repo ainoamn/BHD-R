@@ -18,6 +18,16 @@ import {
   bookingStatusTone,
   compareBookingPriority,
 } from '@/lib/booking-priority';
+import {
+  CONTRACT_TERM_LABELS,
+  CONTRACT_TERMS,
+  CONTRACT_VALIDITY,
+  CONTRACT_VALIDITY_LABELS,
+  PROPERTY_USAGE_LABELS,
+  PROPERTY_USAGES,
+  contractValidity,
+  muscatToday,
+} from '@/lib/contract-list-facets';
 import { formatMoney, toMinorUnits } from '@/lib/format';
 import { invalidateOpsCache } from '@/lib/portal-ops-client-cache';
 import { domainStatusLabel } from '@/lib/ui-labels';
@@ -107,7 +117,18 @@ interface Column {
   key: string;
   ar: string;
   en: string;
-  format?: 'status' | 'money' | 'date' | 'count' | 'kind' | 'thumb' | 'channels' | 'scopes';
+  format?:
+    | 'status'
+    | 'money'
+    | 'date'
+    | 'count'
+    | 'kind'
+    | 'thumb'
+    | 'channels'
+    | 'scopes'
+    | 'term'
+    | 'usage'
+    | 'place';
   fallbackKeys?: string[];
 }
 
@@ -354,18 +375,22 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
     introEn: 'Prepare, send and track multi-party signatures and final evidence.',
     columns: [
       { key: 'reference', fallbackKeys: ['id'], ar: 'العقد', en: 'Contract' },
-      { key: 'kind', ar: 'النوع', en: 'Type', format: 'kind' },
+      { key: 'tenantName', ar: 'المستأجر / المشتري', en: 'Tenant / buyer' },
+      { key: 'propertyNameAr', ar: 'العقار والوحدة', en: 'Property & unit', format: 'place' },
+      { key: 'term', ar: 'نوع العقد', en: 'Contract term', format: 'term' },
+      { key: 'usage', ar: 'نوع العقار', en: 'Property use', format: 'usage' },
+      { key: 'signedAt', ar: 'تاريخ التوقيع', en: 'Signed on', format: 'date' },
+      { key: 'startsOn', ar: 'تاريخ البداية', en: 'Starts', format: 'date' },
+      { key: 'endsOn', ar: 'تاريخ الانتهاء', en: 'Ends', format: 'date' },
       { key: 'status', ar: 'الحالة', en: 'Status', format: 'status' },
-      { key: 'approvalStatus', ar: 'الاعتماد', en: 'Approval', format: 'status' },
-      { key: 'unitId', ar: 'الوحدة', en: 'Unit' },
-      { key: 'sentAt', ar: 'تاريخ الإرسال', en: 'Sent', format: 'date' },
-      { key: 'completedAt', ar: 'تاريخ الاكتمال', en: 'Completed', format: 'date' },
     ],
     flow: [
       { value: 'draft', ar: 'مسودة', en: 'Draft' },
       { value: 'sent', ar: 'مرسل', en: 'Sent' },
       { value: 'partially_signed', ar: 'توقيع جزئي', en: 'Partially signed' },
       { value: 'signed', ar: 'موقع', en: 'Signed' },
+      { value: 'void', ar: 'ملغى', en: 'Void' },
+      { value: 'terminated', ar: 'مفسوخ', en: 'Terminated' },
     ],
   },
   invoices: {
@@ -655,6 +680,28 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
   },
 };
 
+const EMPTY_CONTRACT_FILTER = { term: '', usage: '', validity: '', from: '', to: '' };
+type ContractFilter = typeof EMPTY_CONTRACT_FILTER;
+
+/** Term, property use, validity today, and a date window the contract term overlaps. */
+function matchesContractFilter(row: DataRow, filter: ContractFilter, today: string): boolean {
+  if (filter.term && safeString(row.term) !== filter.term) return false;
+  if (filter.usage && safeString(row.usage) !== filter.usage) return false;
+  const startsOn = safeString(row.startsOn).slice(0, 10);
+  const endsOn = safeString(row.endsOn).slice(0, 10);
+  if (
+    filter.validity &&
+    (safeString(row.term) === 'sale' ||
+      contractValidity(startsOn, endsOn, today) !== filter.validity)
+  ) {
+    return false;
+  }
+  if ((filter.from || filter.to) && (!startsOn || !endsOn)) return false;
+  if (filter.from && endsOn < filter.from) return false;
+  if (filter.to && startsOn > filter.to) return false;
+  return true;
+}
+
 function scalar(row: DataRow, column: Column): unknown {
   const keys = [column.key, ...(column.fallbackKeys ?? [])];
   for (const key of keys) {
@@ -793,12 +840,44 @@ function displayCell(
     );
   }
   if (column.format === 'date') {
-    const date = new Date(safeString(value));
+    const raw = safeString(value);
+    const date = new Date(raw);
     return Number.isNaN(date.valueOf())
-      ? safeString(value)
+      ? raw
       : new Intl.DateTimeFormat(locale === 'ar' ? 'ar-OM' : 'en-OM', {
           dateStyle: 'medium',
+          timeZone: /^\d{4}-\d{2}-\d{2}$/.test(raw) ? 'UTC' : 'Asia/Muscat',
         }).format(date);
+  }
+  if (column.format === 'term' || column.format === 'usage') {
+    const key = safeString(value);
+    const labels: Record<string, { ar: string; en: string }> =
+      column.format === 'term' ? CONTRACT_TERM_LABELS : PROPERTY_USAGE_LABELS;
+    const label = labels[key];
+    if (!label) return '—';
+    return (
+      <span className={`ops-facet ops-facet--${key}`}>{locale === 'ar' ? label.ar : label.en}</span>
+    );
+  }
+  if (column.format === 'place') {
+    const property =
+      (locale === 'ar' ? safeString(row.propertyNameAr) : safeString(row.propertyNameEn)) ||
+      safeString(row.propertyNameAr) ||
+      safeString(row.propertyNameEn);
+    const unitName =
+      (locale === 'ar' ? safeString(row.unitNameAr) : safeString(row.unitNameEn)) ||
+      safeString(row.unitCode);
+    const unit =
+      property && unitName.startsWith(property)
+        ? unitName.slice(property.length).replace(/^[\s—–\-·]+/, '') || unitName
+        : unitName;
+    if (!property && !unit) return '—';
+    return (
+      <span className="ops-place">
+        <span>{property || '—'}</span>
+        {unit && unit !== property ? <small>{unit}</small> : null}
+      </span>
+    );
   }
   if (column.format === 'status') {
     const status = safeString(value);
@@ -2240,6 +2319,8 @@ export function OperationsConsole({
   };
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [contractFilter, setContractFilter] = useState(EMPTY_CONTRACT_FILTER);
+  const contractFilterActive = Object.values(contractFilter).some(Boolean);
   const [archiveMode, setArchiveMode] = useState(false);
   const [archiveRecords, setArchiveRecords] = useState<DataRow[] | null>(null);
   const [archiveBusy, setArchiveBusy] = useState(false);
@@ -2365,6 +2446,7 @@ export function OperationsConsole({
       vacancyFollowUps.expenses
     : 0;
   const sourceRecords = section === 'properties' && archiveMode ? (archiveRecords ?? []) : records;
+  const today = useMemo(() => muscatToday(), []);
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
     const unitIdsForProperty = propertyFilter
@@ -2400,6 +2482,9 @@ export function OperationsConsole({
           JSON.stringify(row).includes(propertyFilter);
         if (!matchesProperty) return false;
       }
+      if (section === 'contracts' && !matchesContractFilter(row, contractFilter, today)) {
+        return false;
+      }
       if (!normalized) return true;
       return JSON.stringify(row).toLocaleLowerCase().includes(normalized);
     });
@@ -2407,6 +2492,8 @@ export function OperationsConsole({
     query,
     sourceRecords,
     statusFilter,
+    contractFilter,
+    today,
     propertyFilter,
     context.units,
     context.vacantUnits,
@@ -3817,7 +3904,13 @@ ${
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder={
-                  ar ? 'ابحث بالاسم أو المرجع أو الحالة…' : 'Search name, reference or status…'
+                  section === 'contracts'
+                    ? ar
+                      ? 'ابحث برقم العقد أو المستأجر أو العقار أو الوحدة…'
+                      : 'Search contract no., tenant, property or unit…'
+                    : ar
+                      ? 'ابحث بالاسم أو المرجع أو الحالة…'
+                      : 'Search name, reference or status…'
                 }
               />
             </label>
@@ -3868,6 +3961,99 @@ ${
             ) : null}
           </div>
         )}
+        {section === 'contracts' ? (
+          <div
+            className="ops-filters"
+            role="group"
+            aria-label={ar ? 'تصفية العقود' : 'Filter contracts'}
+          >
+            <label>
+              <span>{ar ? 'نوع العقد' : 'Contract term'}</span>
+              <select
+                value={contractFilter.term}
+                onChange={(event) =>
+                  setContractFilter((current) => ({ ...current, term: event.target.value }))
+                }
+              >
+                <option value="">{ar ? 'الكل' : 'All'}</option>
+                {CONTRACT_TERMS.map((term) => (
+                  <option key={term} value={term}>
+                    {ar ? CONTRACT_TERM_LABELS[term].ar : CONTRACT_TERM_LABELS[term].en}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>{ar ? 'نوع العقار' : 'Property use'}</span>
+              <select
+                value={contractFilter.usage}
+                onChange={(event) =>
+                  setContractFilter((current) => ({ ...current, usage: event.target.value }))
+                }
+              >
+                <option value="">{ar ? 'الكل' : 'All'}</option>
+                {PROPERTY_USAGES.map((usage) => (
+                  <option key={usage} value={usage}>
+                    {ar ? PROPERTY_USAGE_LABELS[usage].ar : PROPERTY_USAGE_LABELS[usage].en}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>{ar ? 'السريان' : 'Validity'}</span>
+              <select
+                value={contractFilter.validity}
+                onChange={(event) =>
+                  setContractFilter((current) => ({ ...current, validity: event.target.value }))
+                }
+              >
+                <option value="">{ar ? 'الكل' : 'All'}</option>
+                {CONTRACT_VALIDITY.map((validity) => (
+                  <option key={validity} value={validity}>
+                    {ar
+                      ? CONTRACT_VALIDITY_LABELS[validity].ar
+                      : CONTRACT_VALIDITY_LABELS[validity].en}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>{ar ? 'من تاريخ' : 'From'}</span>
+              <input
+                type="date"
+                value={contractFilter.from}
+                max={contractFilter.to || undefined}
+                onChange={(event) =>
+                  setContractFilter((current) => ({ ...current, from: event.target.value }))
+                }
+              />
+            </label>
+            <label>
+              <span>{ar ? 'إلى تاريخ' : 'To'}</span>
+              <input
+                type="date"
+                value={contractFilter.to}
+                min={contractFilter.from || undefined}
+                onChange={(event) =>
+                  setContractFilter((current) => ({ ...current, to: event.target.value }))
+                }
+              />
+            </label>
+            {contractFilterActive || query || statusFilter ? (
+              <button
+                type="button"
+                className="button button--quiet button--sm"
+                onClick={() => {
+                  setContractFilter(EMPTY_CONTRACT_FILTER);
+                  setQuery('');
+                  setStatusFilter('');
+                }}
+              >
+                {ar ? 'مسح التصفية' : 'Clear filters'}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         {error ? (
           <div className="notice notice--error" role="alert">
             {error}
@@ -4348,6 +4534,7 @@ ${
               {(section === 'bookings' ? tableRows : filtered).map((row, index) => {
                 const serial = safeString(row.serialNumber);
                 const name =
+                  (section === 'contracts' ? safeString(row.reference) : '') ||
                   safeString(row.nameAr) ||
                   safeString(row.nameEn) ||
                   safeString(row.displayName) ||
@@ -4440,7 +4627,10 @@ ${
                           </div>
                         </>
                       ) : (
-                        definition.columns.slice(0, 4).map((column) => (
+                        (section === 'contracts'
+                          ? definition.columns.slice(1)
+                          : definition.columns.slice(0, 4)
+                        ).map((column) => (
                           <div key={column.key}>
                             <dt>{ar ? column.ar : column.en}</dt>
                             <dd>{displayCell(row, column, locale, context, definition.flow)}</dd>
@@ -4470,6 +4660,16 @@ ${
                         >
                           {ar ? 'التفاصيل والطباعة' : 'Details & print'}
                         </button>
+                      </div>
+                    ) : section === 'contracts' ? (
+                      <div className="ops-action-group">
+                        <Link
+                          className="ops-action button button--quiet ops-action--primary"
+                          href={`/${portal}/contracts/${encodeURIComponent(safeString(row.id))}`}
+                          prefetch
+                        >
+                          {ar ? 'عرض العقد' : 'View contract'}
+                        </Link>
                       </div>
                     ) : null}
                   </article>

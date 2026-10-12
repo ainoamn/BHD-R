@@ -1,7 +1,7 @@
 # Implementation status
 
 **Updated:** 2026-10-12  
-**Product version:** 0.8.2  
+**Product version:** 0.8.3  
 **Active focus:** Owner dashboard speed and redesign — phases 1–3 shipped (parallel loads, Neon reads and indexes, calm unified design); live page-by-page review and loading skeletons next  
 **Release 0.6.3:** [`RELEASE-0.6.3-AR.md`](./RELEASE-0.6.3-AR.md)  
 **Release 0.6.2:** [`RELEASE-0.6.2-AR.md`](./RELEASE-0.6.2-AR.md)  
@@ -11,36 +11,37 @@
 
 ## Recent releases (2026-10-07 → 2026-10-11)
 
-| Version         | Focus                                                                                                                                           |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0.8.2           | Guest stay scenes: Omani flag on the house, SUV redrawn so it clearly drives forward, host-approval desk scene (Omani dress, review / signing)  |
-| 0.8.1           | Check-in handover: required recipient ID photo and phone, bilingual quick notes; contract QR verification page; e-signature serial numbers      |
-| 0.8.0           | Bilingual (AR/EN) contract document; logo-and-address letterhead, fixed footer, tidy A4 print; guest page car arrives/unloads and loads/departs |
-| 0.7.9           | Contract page as a formal document: letterhead repeated on every printed page, party civil ID/phone/email, full premises address and unit specs |
-| 0.7.8           | Guest stay page: plane lands on arrival day and takes off after check-out (airport board, replay); AR/EN language switch                        |
-| 0.7.7           | Guest stay page copy: warmer, playful, proofread Arabic; review message follows arrival date; correct Arabic counting                           |
-| 0.7.6           | Full contract document (terms, signatures, ID files, addenda, record) with print, PDF export, share and email/WhatsApp send                     |
-| 0.7.5           | Interactive guest journey: reached steps replay their screen, upcoming steps locked, "back to now"                                              |
-| 0.7.4           | Guest stay page: warm, playful greeting by name that follows each booking stage (welcome guide → review → confirmed → enjoy → thank you)        |
-| 0.7.3           | Contract detail reads Neon first (no crash when Nest sleeps); hand-typed check-in/out date and time with AM/PM                                  |
-| 0.7.2           | Live sync across accounts without page reload (`live_changes` triggers + pulse endpoint + `LiveSync`); guest page reads Neon first              |
-| 0.7.1           | Stay check-in / check-out with time and notes (property bookings tab); guest sees both; one booking page                                        |
-| 0.7.0           | Calm unified portal design: light sidebar, white headers without rainbow stripes, neutral metrics, calm forms and modals                        |
-| 0.6.9           | All 12 Nest-only ops sections read from Neon (same permissions, org filter); full form context from Neon; 9 read indexes                        |
-| 0.6.8           | Owner dashboard speed phase 1: one `set_config` statement per transaction, parallel loads, panels mount on first visit                          |
-| 0.6.7           | Guest cancel shows a no-refund warning; real date change from free days at calendar price (no refund on cheaper dates)                          |
-| 0.6.6           | Vacant units collapsed as a dropdown; operations modals full-screen and responsive (portal to body)                                             |
-| 0.6.5           | Bookings metrics collapsed as a dropdown; compact unified statistics cards across the site                                                      |
-| 0.6.4           | Guest stay detail page fills the viewport on every device (no page scroll, pinned price and actions bar)                                        |
-| 0.6.3           | Guest stay detail page redesign: Omani landmark hero, status message, journey steps, date cards, price sidebar                                  |
-| 0.6.2           | Bookings ordered by priority (approval first) with status colours; pending-approval alerts on dashboard and header bell                         |
-| 0.6.1           | Lease registration: tenant details, VAT / municipality / registration fees, grace, extras and discounts, cheque schedule                        |
-| 0.6.0           | Booking approval issues a signed (or manager-routed) lease contract; manual lease and sale contracts                                            |
-| 0.5.9           | Property hub sections read from Neon for that property only                                                                                     |
-| 0.5.8           | Property hub sections render inside the property page (`?section=`)                                                                             |
-| 0.5.7           | Sidebar «العقارات» dropdown: view vs. manage properties                                                                                         |
-| 0.5.0 – 0.5.6   | Daily stays screens and booking page redesign, payment gateway message fix                                                                      |
-| 0.4.89 – 0.4.99 | Booking terms, deposits, unified calendar, Vercel region `lhr1`                                                                                 |
+| Version         | Focus                                                                                                                                                       |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.8.3           | Contracts list: tenant, property & unit, term (daily/monthly/yearly/sale), property use, signed/start/end dates; filters by term, use, validity, date range |
+| 0.8.2           | Guest stay scenes: Omani flag on the house, SUV redrawn so it clearly drives forward, host-approval desk scene (Omani dress, review / signing)              |
+| 0.8.1           | Check-in handover: required recipient ID photo and phone, bilingual quick notes; contract QR verification page; e-signature serial numbers                  |
+| 0.8.0           | Bilingual (AR/EN) contract document; logo-and-address letterhead, fixed footer, tidy A4 print; guest page car arrives/unloads and loads/departs             |
+| 0.7.9           | Contract page as a formal document: letterhead repeated on every printed page, party civil ID/phone/email, full premises address and unit specs             |
+| 0.7.8           | Guest stay page: plane lands on arrival day and takes off after check-out (airport board, replay); AR/EN language switch                                    |
+| 0.7.7           | Guest stay page copy: warmer, playful, proofread Arabic; review message follows arrival date; correct Arabic counting                                       |
+| 0.7.6           | Full contract document (terms, signatures, ID files, addenda, record) with print, PDF export, share and email/WhatsApp send                                 |
+| 0.7.5           | Interactive guest journey: reached steps replay their screen, upcoming steps locked, "back to now"                                                          |
+| 0.7.4           | Guest stay page: warm, playful greeting by name that follows each booking stage (welcome guide → review → confirmed → enjoy → thank you)                    |
+| 0.7.3           | Contract detail reads Neon first (no crash when Nest sleeps); hand-typed check-in/out date and time with AM/PM                                              |
+| 0.7.2           | Live sync across accounts without page reload (`live_changes` triggers + pulse endpoint + `LiveSync`); guest page reads Neon first                          |
+| 0.7.1           | Stay check-in / check-out with time and notes (property bookings tab); guest sees both; one booking page                                                    |
+| 0.7.0           | Calm unified portal design: light sidebar, white headers without rainbow stripes, neutral metrics, calm forms and modals                                    |
+| 0.6.9           | All 12 Nest-only ops sections read from Neon (same permissions, org filter); full form context from Neon; 9 read indexes                                    |
+| 0.6.8           | Owner dashboard speed phase 1: one `set_config` statement per transaction, parallel loads, panels mount on first visit                                      |
+| 0.6.7           | Guest cancel shows a no-refund warning; real date change from free days at calendar price (no refund on cheaper dates)                                      |
+| 0.6.6           | Vacant units collapsed as a dropdown; operations modals full-screen and responsive (portal to body)                                                         |
+| 0.6.5           | Bookings metrics collapsed as a dropdown; compact unified statistics cards across the site                                                                  |
+| 0.6.4           | Guest stay detail page fills the viewport on every device (no page scroll, pinned price and actions bar)                                                    |
+| 0.6.3           | Guest stay detail page redesign: Omani landmark hero, status message, journey steps, date cards, price sidebar                                              |
+| 0.6.2           | Bookings ordered by priority (approval first) with status colours; pending-approval alerts on dashboard and header bell                                     |
+| 0.6.1           | Lease registration: tenant details, VAT / municipality / registration fees, grace, extras and discounts, cheque schedule                                    |
+| 0.6.0           | Booking approval issues a signed (or manager-routed) lease contract; manual lease and sale contracts                                                        |
+| 0.5.9           | Property hub sections read from Neon for that property only                                                                                                 |
+| 0.5.8           | Property hub sections render inside the property page (`?section=`)                                                                                         |
+| 0.5.7           | Sidebar «العقارات» dropdown: view vs. manage properties                                                                                                     |
+| 0.5.0 – 0.5.6   | Daily stays screens and booking page redesign, payment gateway message fix                                                                                  |
+| 0.4.89 – 0.4.99 | Booking terms, deposits, unified calendar, Vercel region `lhr1`                                                                                             |
 
 Full list: [`../../CHANGELOG.md`](../../CHANGELOG.md).
 

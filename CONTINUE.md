@@ -1,5 +1,21 @@
 # CONTINUE — 2026-10-12
 
+**0.8.3** · قائمة العقود:
+
+- **`loadContracts`** في `portal-ops-sections-neon.ts`:
+  - يضيف للصف: `propertyNameAr/En`، و`unitNameAr/En`، و`unitCode`، و`tenantName`.
+  - و`startsOn` و`endsOn` من اللقطة، وإلا من `leases`.
+  - و`signedAt`: آخر `contract_signatures.signed_at`، وإلا `completedAt`.
+  - و`term` و`usage` من `lib/contract-list-facets.ts`.
+- **`operations-console.tsx`:**
+  - أعمدة بالصيغ `term` و`usage` و`place`.
+  - المرشحات في `matchesContractFilter` (نوع العقد، ونوع العقار، والسريان، ومن/إلى)، في المكوّن `.ops-filters`.
+- **التالي:** حقل «نوع الاستخدام» على العقار (يحتاج ترحيلاً بموافقة)، وحقل عنوان إنجليزي، وPDF للعقد على الخادم.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.3-AR.md`](./docs/implementation/RELEASE-0.8.3-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.2** · مشاهد صفحة الضيف:
 
 - **`stay-trip.tsx`:**
