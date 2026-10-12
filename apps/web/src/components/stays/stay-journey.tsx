@@ -5,6 +5,7 @@ import { Link } from '@/i18n/navigation';
 import type { StayGreeting } from '@/lib/stay-guest-greeting';
 import { StayApprovalDesk } from './stay-approval-desk';
 import { StayDepositRefund } from './stay-deposit-refund-guest';
+import { StayRefundScene } from './stay-refund-scene';
 import { StaySendPhone } from './stay-send-phone';
 import { StayTrip } from './stay-trip';
 
@@ -138,6 +139,7 @@ export function StayJourneyCard({
       {screen.send ? <StaySendPhone moment={screen.send} plateNo={plateNo} ar={ar} /> : null}
       {screen.trip ? <StayTrip moment={screen.trip} plateNo={plateNo} ar={ar} /> : null}
       {screen.desk ? <StayApprovalDesk moment={screen.desk} plateNo={plateNo} ar={ar} /> : null}
+      {screen.refund ? <StayRefundScene moment={screen.refund} plateNo={plateNo} ar={ar} /> : null}
       <h2>{screen.headline}</h2>
       <p>{screen.body}</p>
       {screen.refund ? <StayDepositRefund moment={screen.refund} ar={ar} /> : null}

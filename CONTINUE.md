@@ -1,5 +1,16 @@
 # CONTINUE — 2026-10-12
 
+**0.8.11** · مشهد «استرداد التأمين»:
+
+- **المكوّن:** `components/stays/stay-refund-scene.tsx` (`StayRefundScene`). يأخذ `StayRefundMoment` ويرسم مشهداً لكل حالة (`open` و`requested` و`approved` و`paid` و`rejected`).
+- **الأجزاء المشتركة:** في `stay-scene-parts.tsx`، ويستخدمها هذا المشهد ومشهد `StaySendPhone`.
+- **الأصناف:** المشتركة `.stay-scene` و`.stay-scene__*`، والخاصة `.stay-refund__*` و`.stay-refund-scene--<state>`.
+- **نصوص شاشات الاسترداد** في `refundScreen`: بصياغة «المالك أو من يمثّله».
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.11-AR.md`](./docs/implementation/RELEASE-0.8.11-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.10** · مشهد «تقديم الطلب» (ضيف يرسل الطلب من هاتفه):
 
 - **المكوّن:** `components/stays/stay-send-phone.tsx` (`StaySendPhone`). يُعرض عندما يحمل `StayGreeting` الحقل `send` (`StaySendMoment`).

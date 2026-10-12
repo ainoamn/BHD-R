@@ -19954,20 +19954,38 @@ body:has(.stay-esign-shell) {
     transform: rotate(360deg);
   }
 }
-/* First step: the guest taps send on the phone, and the request flies to the host's house. */
-.stay-send__scene {
+/* Guest outdoor scenes (request sent, deposit refund): never mirrored in RTL. */
+.stay-scene {
   position: relative;
   height: 150px;
   overflow: hidden;
   background: linear-gradient(180deg, #8fd0f2 0%, #d6f0fb 66%, #f4fbff 100%);
 }
-.stay-send__scene svg {
+.stay-scene svg {
   display: block;
   width: 100%;
   height: 100%;
 }
-.stay-send__head,
-.stay-send__thumb,
+.stay-scene__head,
+.stay-scene__thumb {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.stay-scene__head {
+  transform-origin: 50% 100%;
+  animation: stay-desk-nod 3.2s ease-in-out infinite;
+}
+.stay-scene__glow {
+  opacity: 0.18;
+  animation: stay-trip-blink 2.4s ease-in-out infinite;
+}
+.stay-scene__cloud {
+  animation: stay-send-drift 16s ease-in-out infinite alternate;
+}
+.stay-scene__cloud--slow {
+  animation-duration: 24s;
+}
+/* First step: the guest taps send on the phone, and the request flies to the host's house. */
 .stay-send__button,
 .stay-send__ripple,
 .stay-send__finger,
@@ -19977,21 +19995,7 @@ body:has(.stay-esign-shell) {
   transform-box: fill-box;
   transform-origin: center;
 }
-.stay-send__head {
-  transform-origin: 50% 100%;
-  animation: stay-desk-nod 3.2s ease-in-out infinite;
-}
-.stay-send__glow {
-  opacity: 0.18;
-  animation: stay-trip-blink 2.4s ease-in-out infinite;
-}
-.stay-send__cloud {
-  animation: stay-send-drift 16s ease-in-out infinite alternate;
-}
-.stay-send__cloud--slow {
-  animation-duration: 24s;
-}
-.stay-send__thumb {
+.stay-send .stay-scene__thumb {
   animation: stay-send-thumb 0.5s ease-in-out 0.75s both;
 }
 .stay-send__button {
@@ -20100,8 +20104,154 @@ body:has(.stay-esign-shell) {
     transform: scale(0);
   }
 }
+/* Deposit refund step: the deposit safe, the request to the host, the answer, the coins home. */
+.stay-refund__door,
+.stay-refund__tag,
+.stay-refund__call,
+.stay-refund__hourglass,
+.stay-refund__wait,
+.stay-refund__verdict,
+.stay-refund__coin-wait,
+.stay-refund__coin,
+.stay-refund__got,
+.stay-refund__plane {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.stay-refund__tag {
+  transform-origin: 18% 100%;
+}
+.stay-refund-scene--open .stay-refund__tag {
+  animation: stay-refund-swing 2.6s ease-in-out infinite;
+}
+.stay-refund__call {
+  opacity: 0;
+  animation: stay-send-ripple 1.8s ease-out infinite;
+}
+.stay-refund-scene--requested .stay-trip__status i,
+.stay-refund-scene--approved .stay-trip__status i {
+  background: #fbbf24;
+  box-shadow: 0 0 6px #fbbf24;
+}
+.stay-refund-scene--rejected .stay-trip__status i {
+  background: #f87171;
+  box-shadow: 0 0 6px #f87171;
+  animation: none;
+}
+.stay-refund-scene--requested .stay-scene__thumb {
+  animation: stay-send-thumb 0.5s ease-in-out 0.2s both;
+}
+.stay-refund__trail {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: stay-desk-sign 1.6s linear 0.6s forwards;
+}
+.stay-refund__plane {
+  opacity: 0;
+  animation: stay-refund-fly 1.6s linear 0.6s both;
+}
+.stay-refund__wait {
+  animation: stay-send-pop 0.45s cubic-bezier(0.3, 1.6, 0.5, 1) 2.2s both;
+}
+.stay-refund__hourglass {
+  animation: stay-refund-flip 2.4s ease-in-out 2.6s infinite;
+}
+.stay-refund__verdict {
+  animation: stay-send-pop 0.45s cubic-bezier(0.3, 1.6, 0.5, 1) 0.3s both;
+}
+.stay-refund__coin-wait {
+  animation: stay-refund-bounce 1.2s ease-in-out infinite;
+}
+.stay-refund-scene--paid .stay-refund__door {
+  transform-origin: 0% 50%;
+  transform: scaleX(0.12);
+  animation: stay-refund-open 0.7s ease-in-out 0.2s both;
+}
+.stay-refund__coin {
+  opacity: 0;
+  animation: stay-refund-coin 1.1s ease-in both;
+}
+.stay-refund__got {
+  animation: stay-send-pop 0.45s cubic-bezier(0.3, 1.6, 0.5, 1) 2.2s both;
+}
+@keyframes stay-refund-swing {
+  0%,
+  100% {
+    transform: rotate(-4deg);
+  }
+  50% {
+    transform: rotate(4deg);
+  }
+}
+@keyframes stay-refund-flip {
+  0%,
+  60% {
+    transform: rotate(0deg);
+  }
+  85%,
+  100% {
+    transform: rotate(180deg);
+  }
+}
+@keyframes stay-refund-bounce {
+  50% {
+    transform: translateY(-4px);
+  }
+}
+@keyframes stay-refund-open {
+  from {
+    transform: scaleX(1);
+  }
+}
+@keyframes stay-refund-fly {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(-34deg) scale(0.5);
+  }
+  8% {
+    opacity: 1;
+  }
+  25% {
+    transform: translate(56.5px, -29px) rotate(-20deg) scale(0.85);
+  }
+  50% {
+    transform: translate(113px, -41px) rotate(-3deg) scale(1);
+  }
+  75% {
+    opacity: 1;
+    transform: translate(169.5px, -35px) rotate(14deg) scale(0.9);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(226px, -12px) rotate(30deg) scale(0.5);
+  }
+}
+@keyframes stay-refund-coin {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  10%,
+  85% {
+    opacity: 1;
+  }
+  25% {
+    transform: translate(-25px, -17px);
+  }
+  50% {
+    transform: translate(-50px, -20.5px);
+  }
+  75% {
+    transform: translate(-75px, -10px);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-100px, 14px) scale(0.6);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
-  .stay-send__trail {
+  .stay-send__trail,
+  .stay-refund__trail {
     stroke-dashoffset: 0;
   }
 }

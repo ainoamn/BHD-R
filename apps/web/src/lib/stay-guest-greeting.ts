@@ -332,8 +332,8 @@ function refundScreen(
         refund,
         headline: hi('بقي تأمينك{name}', 'Your deposit is next{name}'),
         body: ar
-          ? `غادرت بالسلامة، وبقيت خطوة أخيرة: استرداد مبلغ التأمين (${refund.deposit}). اطلبه الآن وأخبرنا أين نحوّله؛ يراجعه المالك ثم يحوّله المحاسب، وتتابع كل خطوة من هنا.`
-          : `You left safely, and one last step remains: getting your deposit (${refund.deposit}) back. Ask for it now and tell us where to send it; the host reviews it, the accountant transfers it, and you follow every step right here.`,
+          ? `غادرت بالسلامة، وبقيت خطوة أخيرة: استرداد مبلغ التأمين (${refund.deposit}). اطلبه الآن وأخبرنا أين نحوّله؛ سيراجع المالك أو من يمثّله طلبك، وتتابع كل خطوة من هنا.`
+          : `You left safely, and one last step remains: getting your deposit (${refund.deposit}) back. Ask for it now and tell us where to send it; the owner or their representative will review it, and you follow every step right here.`,
       };
     case 'requested':
       return {
@@ -341,8 +341,8 @@ function refundScreen(
         refund,
         headline: hi('وصلنا طلبك{name}', 'Request received{name}'),
         body: ar
-          ? `طلب استرداد التأمين (${refund.deposit}) بين يدَي المالك الآن لمراجعته، وقد يستغرق من يوم عمل واحد حتى أسبوعَي عمل بحسب أولوية الطلبات السابقة. سيصلك إشعار عند القبول أو الرفض وعند تحويل المبلغ.`
-          : `Your deposit refund request (${refund.deposit}) is with the host for review; it may take from one working day up to two working weeks, depending on earlier requests. You will be notified when it is approved or declined and when the money is transferred.`,
+          ? `طلب استرداد التأمين (${refund.deposit}) لدى المالك أو من يمثّله لمراجعته، وقد يستغرق من يوم عمل واحد حتى أسبوعَي عمل بحسب أولوية الطلبات السابقة. سنوافيك فور اتخاذ أي قرار، وعند تحويل المبلغ.`
+          : `Your deposit refund request (${refund.deposit}) is with the owner or their representative for review; it may take from one working day up to two working weeks, depending on earlier requests. We will let you know as soon as a decision is made, and when the money is transferred.`,
       };
     case 'approved':
       return {
