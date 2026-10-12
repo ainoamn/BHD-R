@@ -20,7 +20,8 @@ function portalsForRoles(roles: readonly string[]): PortalRole[] {
   if (roles.some((role) => role === 'platform_admin' || role === 'platform_support'))
     portalSet.add('platform');
   if (roles.includes('developer_admin')) portalSet.add('developer');
-  if (roles.includes('tenant')) portalSet.add('tenant');
+  // Any account can rent or book; the tenant space finds its records by verified email.
+  portalSet.add('tenant');
   if (
     roles.some((role) =>
       [

@@ -1,5 +1,19 @@
 # CONTINUE — 2026-10-12
 
+**0.8.14** · مساحة المستأجر وتنبيهاته عبر كل الملاك:
+
+- **الربط (`lib/tenancy-neon.ts`):** `loadTenancyLinks(userId)` قراءة مرتفعة الصلاحية (`app.platform_admin`) تطابق `lower(users.email)` مع `lower(parties.email)` لطرف نشط له عقد أو إيجار أو حجز أو فاتورة كمستأجر، أو إقامة كضيف (حتى 12 رابطاً).
+- **القراءة:** `withinTenant` بجلسة `roles ['tenant']` لكل منشأة. ودور قاعدة البيانات يتجاوز RLS، فكل استعلام جديد **يجب** أن يصفّي بـ `organizationId` وطرف المستأجر صراحةً.
+- **البيانات:** `loadMyTenancy` (للمساحة والجرس) و`loadTenancySummary` (لشريط لوحة المالك، بمهلة 2.5 ثانية). والتنبيهات من `buildTenancyAlerts` في `lib/tenancy-shared.ts` (آمن للعميل).
+- **المسار:** `GET /api/public/me/alerts` للجرس في `header-stay-alerts.tsx`.
+- **المساحة:** `components/tenant-space.tsx` (`TenantSpace` يحمّل، و`TenantSpaceContent` يعرض). و`tenant/[...section]` يحوّل إلى `/tenant` أي قسم آخر لمن لا يملك دور `tenant`.
+- **العقد عبر المنشآت:** `contractAccess` يجرّب `tenantClaimsForContract` أولاً، ويضع `crossOrganization` فيُخفى التوقيع.
+- **البوابات:** `portalsForRoles` يضيف `tenant` دائماً، والمفتاح `.portal-space-switch` في `portal-header.tsx`، و`data-portal` على `.portal-layout` للهوية الزرقاء.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.14-AR.md`](./docs/implementation/RELEASE-0.8.14-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.13** · ترجمة الملاحظات بالذكاء الاصطناعي:
 
 - **المسار:** `POST /api/owner/notes/translate` (`{text, target: 'ar'|'en'}`، حتى 2000 حرف، 30 طلباً في الدقيقة) يستدعي `translateNote` في `lib/note-translate-ai.ts`: الذكاء الاصطناعي ثم `machineTranslate`.

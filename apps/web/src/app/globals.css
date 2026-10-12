@@ -7102,6 +7102,201 @@ body:has(.stays-booking-receipt) #main-content {
   font-weight: 700;
   color: var(--oman-deep);
 }
+.header-stay-alerts__body {
+  display: grid;
+  gap: 0.75rem;
+  max-height: min(65vh, 28rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.header-stay-alerts__body .header-stay-alerts__list {
+  max-height: none;
+  overflow: visible;
+}
+.header-stay-alerts__section {
+  margin: 0 0 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #5c6b64;
+}
+.header-stay-alerts__links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+}
+.header-stay-alerts__all--quiet {
+  font-weight: 600;
+  color: #5c6b64;
+}
+
+/* Owner / tenant space switch in the portal header */
+.portal-space-switch {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 0.15rem;
+  padding: 0.18rem;
+  border: 1px solid rgb(23 75 112 / 0.14);
+  border-radius: 999px;
+  background: rgb(23 75 112 / 0.05);
+}
+.portal-space-switch a {
+  padding: 0.32rem 0.75rem;
+  border-radius: 999px;
+  color: var(--bhd-navy);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.portal-space-switch a:hover {
+  background: rgb(23 75 112 / 0.08);
+}
+.portal-space-switch a[aria-current='page'] {
+  background: var(--bhd-navy);
+  color: #fff;
+}
+@media (max-width: 640px) {
+  .portal-space-switch a {
+    padding: 0.28rem 0.5rem;
+    font-size: 0.72rem;
+  }
+}
+
+/* Tenant space: its own blue tint so it never reads as the owner dashboard */
+.tenant-space {
+  --tenant-accent: #1d4f8a;
+}
+.portal-layout .tenant-space .dash-hero {
+  background:
+    radial-gradient(circle at 0% 0%, rgb(29 79 138 / 0.09), transparent 22rem),
+    linear-gradient(135deg, #f1f5fb 0%, #fff 55%);
+}
+.tenant-space .dash-hero__kicker,
+.tenant-kicker {
+  color: var(--tenant-accent);
+}
+.tenant-kicker {
+  display: inline-block;
+  margin-bottom: 0.25rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+.portal-layout[data-portal='tenant'] .portal-sidebar__title {
+  color: #1d4f8a;
+}
+.tenant-section {
+  display: grid;
+  gap: 0.55rem;
+}
+.dash-tenancy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid rgb(29 79 138 / 0.2);
+  border-radius: 0.9rem;
+  background: linear-gradient(135deg, #f1f5fb 0%, #fff 70%);
+  color: #12355e;
+  text-decoration: none;
+}
+.dash-tenancy:hover {
+  border-color: rgb(29 79 138 / 0.4);
+}
+.dash-tenancy__copy {
+  display: grid;
+  gap: 0.15rem;
+}
+.dash-tenancy__copy strong {
+  font-size: 0.95rem;
+}
+.dash-tenancy__copy span {
+  font-size: 0.82rem;
+  opacity: 0.85;
+}
+.dash-tenancy__open {
+  font-style: normal;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.tenant-notice {
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid #efd2a0;
+  border-radius: 0.7rem;
+  background: #fff8eb;
+  color: #7a4a08;
+}
+.tenant-alerts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tenant-alert {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid rgb(29 79 138 / 0.18);
+  border-radius: 0.8rem;
+  background: rgb(29 79 138 / 0.05);
+  color: #12355e;
+  text-decoration: none;
+}
+.tenant-alert:hover {
+  background: rgb(29 79 138 / 0.09);
+}
+.tenant-alert--action {
+  border-color: #efc8a8;
+  background: #fff4ec;
+  color: #7c2d12;
+}
+.tenant-alert--action:hover {
+  background: #ffeadb;
+}
+.tenant-alert strong {
+  font-size: 0.9rem;
+}
+.tenant-alert__ref {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.tenant-alert__meta {
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+.tenant-status {
+  display: inline-block;
+  padding: 0.12rem 0.55rem;
+  border-radius: 999px;
+  background: #eef2f6;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.tenant-status--action {
+  background: #fff1e6;
+  color: #9a3412;
+}
+.tenant-status--good {
+  background: #e7f5ee;
+  color: #0f5b4a;
+}
+.tenant-table__ref {
+  font-weight: 700;
+  white-space: nowrap;
+}
+.tenant-table__sub {
+  display: block;
+  color: var(--calm-muted, #5c6b64);
+  font-size: 0.76rem;
+}
 @keyframes header-shimmer {
   to {
     background-position: -220% 0;

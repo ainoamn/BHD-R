@@ -10,6 +10,8 @@ import {
   type PendingApprovals,
 } from '@/lib/pending-approvals-shared';
 import { loadPortalOverview } from '@/lib/portal-overview-data';
+import { loadTenancySummary } from '@/lib/tenancy-neon';
+import { withTimeoutFallback } from '@/lib/with-timeout';
 import { workflowEventLabel, workflowStatusLabel } from '@/lib/ui-labels';
 import { requirePortal } from '@/lib/viewer';
 import type { PortalOverview as OverviewData, PortalRole } from '@/lib/types';
@@ -81,7 +83,13 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
   ]);
   dataPromise.catch(() => undefined);
   const [t, viewer] = await Promise.all([getTranslations(), requirePortal(locale, portal)]);
-  const [overview, approvals] = await dataPromise;
+  const [[overview, approvals], tenancy] = await Promise.all([
+    dataPromise,
+    managesProperties
+      ? withTimeoutFallback(loadTenancySummary(viewer.id), 2_500, null, 'tenancy-summary')
+      : null,
+  ]);
+  const ar = locale === 'ar';
   const firstContract = approvals.items.find((item) => item.kind === 'contract');
   const firstRefund = approvals.items.find(
     (item) => item.kind === 'deposit_refund' || item.kind === 'refund_transfer',
@@ -231,6 +239,45 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
           </Link>
         </div>
       </header>
+
+      {tenancy ? (
+        <Link href="/tenant" className="dash-tenancy" prefetch>
+          <span className="dash-tenancy__copy">
+            <strong>
+              {ar
+                ? 'لديك أيضاً حجوزات وعقود بصفتك مستأجراً أو ضيفاً'
+                : 'You also have bookings and contracts as a tenant or guest'}
+            </strong>
+            <span>
+              {[
+                tenancy.bookings
+                  ? ar
+                    ? `${tenancy.bookings} حجز`
+                    : `${tenancy.bookings} bookings`
+                  : '',
+                tenancy.contracts
+                  ? ar
+                    ? `${tenancy.contracts} عقد`
+                    : `${tenancy.contracts} contracts`
+                  : '',
+                tenancy.leases
+                  ? ar
+                    ? `${tenancy.leases} إيجار ساري`
+                    : `${tenancy.leases} active leases`
+                  : '',
+                tenancy.openInvoices
+                  ? ar
+                    ? `${tenancy.openInvoices} فاتورة مستحقة`
+                    : `${tenancy.openInvoices} invoices due`
+                  : '',
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </span>
+          </span>
+          <em className="dash-tenancy__open">{ar ? 'مساحة المستأجر ←' : 'Tenant space →'}</em>
+        </Link>
+      ) : null}
 
       {approvals.total ? (
         <section

@@ -44,6 +44,7 @@ import {
   signatureSerials,
 } from '@/lib/contract-verify';
 import { loadStayStamps, type StayStamps } from '@/lib/stay-arrival-neon';
+import { tenantClaimsForContract } from '@/lib/tenancy-neon';
 import { loadDepositRefunds } from '@/lib/stay-deposit-refund-neon';
 import { contractAnnexLinks } from '@/lib/contract-annex';
 
@@ -119,13 +120,33 @@ async function signedDocumentUrl(key: string, reference: string): Promise<string
 }
 
 type Portal = 'owner' | 'tenant' | 'developer';
-export type ContractAccess = { claims: SessionClaims; orgId: string; partyScope: string | null };
+export type ContractAccess = {
+  claims: SessionClaims;
+  orgId: string;
+  partyScope: string | null;
+  /** Tenant reading a contract held in another organization than the session's. */
+  crossOrganization?: boolean;
+};
 type Access = ContractAccess;
 
 export async function contractAccess(contractId: string, portal: Portal): Promise<Access | null> {
   if (!hasDatabaseUrl() || !UUID.test(contractId)) return null;
   const claims = await readClaims();
-  if (!claims?.organizationId || !hasPermission(claims, 'contract.read')) return null;
+  if (!claims) return null;
+  if (portal === 'tenant') {
+    // The tenant record usually lives in the landlord's organization, not the session's.
+    const tenant = await tenantClaimsForContract(claims, contractId);
+    if (tenant?.organizationId && tenant.partyId) {
+      return {
+        claims: tenant,
+        orgId: tenant.organizationId,
+        partyScope: tenant.partyId,
+        crossOrganization: tenant.organizationId !== claims.organizationId,
+      };
+    }
+    if (!claims.roles.includes('tenant')) return null;
+  }
+  if (!claims.organizationId || !hasPermission(claims, 'contract.read')) return null;
   const partyScope = portal === 'tenant' ? claims.partyId : ownerPartyScope(claims);
   if (portal === 'tenant' && !partyScope) return null;
   return { claims, orgId: claims.organizationId, partyScope };
@@ -491,6 +512,7 @@ export async function loadContractDetailFromNeon(
       : null,
     documentHash: contract.renderedPdfHash,
     canSign:
+      !access.crossOrganization &&
       Boolean(signerPartyId) &&
       [contract.ownerPartyId, contract.tenantPartyId].includes(signerPartyId!) &&
       Boolean(contract.renderedPdfHash) &&

@@ -87,8 +87,7 @@ export function isOperationsSection(value: string): value is OperationsSection {
 
 export function opsSectionsForPortal(portal: PortalRole): OperationsSection[] {
   if (portal === 'platform') return [];
-  if (portal === 'tenant') {
-    return ['requests', 'contracts', 'invoices', 'payments', 'maintenance'];
-  }
+  // Tenant pages are server-rendered across every landlord organization (tenant-space.tsx).
+  if (portal === 'tenant') return [];
   return [...OPS_WARM_ORDER];
 }

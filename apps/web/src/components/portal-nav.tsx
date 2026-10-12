@@ -329,7 +329,9 @@ export function PortalNav({
   const groups =
     staysEnabled && (portal === 'owner' || portal === 'developer')
       ? insertStaysGroup(navGroups[portal])
-      : navGroups[portal];
+      : portal === 'tenant' && !viewer.roles.includes('tenant')
+        ? navGroups.tenant.filter((group) => group.id !== 'ops')
+        : navGroups[portal];
 
   const isActive = (item: NavItem): boolean => {
     if (item.children) {

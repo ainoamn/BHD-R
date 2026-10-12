@@ -1,5 +1,5 @@
-import { PortalOverview } from '@/components/portal-overview';
+import { TenantSpace } from '@/components/tenant-space';
 export default async function Page({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
-  return <PortalOverview locale={locale} portal="tenant" />;
+  return <TenantSpace locale={locale} view="overview" />;
 }

@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import { resolveStaysEnabledFromEnv, readStaysFlagsFromEnv } from '@bhd-r/config';
 import {
   createDatabase,
@@ -465,13 +465,18 @@ export async function lookupPublicStayBookingOnNeon(referenceCode: string) {
   });
 }
 
-export async function listGuestStayBookingsOnNeon(userId: string) {
+/** `guestPartyIds`: the account's own guest records, matched by its verified email. */
+export async function listGuestStayBookingsOnNeon(userId: string, guestPartyIds: string[] = []) {
   assertPlatformEnabled();
   return asPublic(async (transaction) => {
     const rows = await transaction
       .select()
       .from(stayBookings)
-      .where(eq(stayBookings.userId, userId))
+      .where(
+        guestPartyIds.length
+          ? or(eq(stayBookings.userId, userId), inArray(stayBookings.guestPartyId, guestPartyIds))
+          : eq(stayBookings.userId, userId),
+      )
       .orderBy(desc(stayBookings.checkInOn), desc(stayBookings.createdAt))
       .limit(50);
 

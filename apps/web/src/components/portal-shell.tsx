@@ -24,7 +24,7 @@ export async function PortalShell({
   const staysEnabled = (portal === 'owner' || portal === 'developer') && isStaysPlatformEnabled();
   const navCollapsed = (await cookies()).get(PORTAL_NAV_COOKIE)?.value === 'collapsed';
   return (
-    <div className="portal-layout">
+    <div className="portal-layout" data-portal={portal}>
       <NavigationProgress />
       <PortalRoutePrefetch portal={portal} staysEnabled={staysEnabled} />
       <NestKeepAlive />
