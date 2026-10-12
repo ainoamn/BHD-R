@@ -48,7 +48,8 @@ type Format =
   | 'stayLog'
   | 'refund'
   | 'detail'
-  | 'priority';
+  | 'priority'
+  | 'property';
 
 type Column = { key: string; ar: string; en: string; format?: Format };
 
@@ -249,6 +250,13 @@ const SECTIONS: Record<PropertyRecordSection, SectionConfig> = {
       { key: 'status', ar: 'الحالة', en: 'Status', format: 'status' },
     ],
   },
+};
+
+const PROPERTY_COLUMN: Column = {
+  key: 'propertyId',
+  ar: 'العقار',
+  en: 'Property',
+  format: 'property',
 };
 
 /** Sections whose rows carry workflow buttons. */
@@ -490,6 +498,7 @@ function Cell({
   locale,
   documentHref,
   receiptHref,
+  contractHref,
 }: {
   row: PropertyRecordRow;
   column: Column;
@@ -498,10 +507,16 @@ function Cell({
   documentHref: string | null;
   /** Deposit refund transfer receipt; only for refund approvers and accountants. */
   receiptHref: string | null;
+  /** Contract row in its property's hub, when the list is not inside that hub. */
+  contractHref: string | null;
 }) {
   const ar = locale === 'ar';
   const value = row[column.key] ?? null;
   switch (column.format) {
+    case 'property': {
+      const name = ar ? row.propertyNameAr : row.propertyNameEn;
+      return name ? <bdi>{name}</bdi> : <span className="muted">—</span>;
+    }
     case 'refund':
       return <DepositRefundCell row={row} locale={locale} receiptHref={receiptHref} />;
     case 'detail':
@@ -627,6 +642,13 @@ function Cell({
     case 'contractLink': {
       const contractId = row.contractId;
       if (!contractId || !value) return <span className="muted">—</span>;
+      if (contractHref) {
+        return (
+          <Link className="pmh-card__link" dir="ltr" href={contractHref} prefetch={false}>
+            {value}
+          </Link>
+        );
+      }
       return (
         <a
           className="pmh-card__link"
@@ -921,12 +943,23 @@ export function PropertySectionRecords({
   locale,
 }: {
   portal: 'owner' | 'developer';
-  propertyId: string;
+  /** null lists the bookings of every property the viewer may see. */
+  propertyId: string | null;
   section: PropertyRecordSection;
   locale: 'ar' | 'en';
 }) {
   const ar = locale === 'ar';
   const config = SECTIONS[section];
+  const columns = useMemo(
+    () =>
+      propertyId
+        ? config.columns
+        : config.columns.flatMap((column) =>
+            column.key === 'reference' ? [column, PROPERTY_COLUMN] : [column],
+          ),
+    [config, propertyId],
+  );
+  const propertyOf = (row: PropertyRecordRow) => propertyId ?? row.propertyId ?? '';
   const focusId = useSearchParams().get('focus');
   const [rows, setRows] = useState<PropertyRecordRow[] | null>(null);
   const [units, setUnits] = useState<PropertyRecordUnit[]>([]);
@@ -968,7 +1001,7 @@ export function PropertySectionRecords({
     void (async () => {
       try {
         const response = await fetch(
-          `/api/portal/property-records/${encodeURIComponent(propertyId)}/${section}`,
+          `/api/portal/property-records/${propertyId ? encodeURIComponent(propertyId) : 'all'}/${section}`,
           {
             credentials: 'same-origin',
             cache: 'no-store',
@@ -1086,12 +1119,12 @@ export function PropertySectionRecords({
     return [];
   }, [rows, section, ar]);
 
-  async function runAction(busyKey: string, body: Record<string, unknown>) {
+  async function runAction(busyKey: string, body: Record<string, unknown>, target: string) {
     setBusyId(busyKey);
     setNotice(null);
     try {
       const result = await browserNextMutation<ContractOutcome>(
-        `/api/owner/properties/${encodeURIComponent(propertyId)}/records`,
+        `/api/owner/properties/${encodeURIComponent(target)}/records`,
         { method: 'POST', body: JSON.stringify(body) },
       );
       window.dispatchEvent(new Event(PENDING_APPROVALS_CHANGED_EVENT));
@@ -1127,7 +1160,11 @@ export function PropertySectionRecords({
         : `Issue the lease contract for booking ${row.reference}?`;
     if (!window.confirm(question)) return;
     const id = row.id ?? '';
-    const result = await runAction(id, { action: 'approve_booking', bookingId: id });
+    const result = await runAction(
+      id,
+      { action: 'approve_booking', bookingId: id },
+      propertyOf(row),
+    );
     if (!result) return;
     setNotice({
       tone: 'success',
@@ -1151,7 +1188,11 @@ export function PropertySectionRecords({
       : `Reject booking request ${row.reference}? The dates will be freed.`;
     if (!window.confirm(question)) return;
     const id = row.id ?? '';
-    const result = await runAction(id, { action: 'reject_booking', bookingId: id });
+    const result = await runAction(
+      id,
+      { action: 'reject_booking', bookingId: id },
+      propertyOf(row),
+    );
     if (!result) return;
     setNotice({
       tone: 'success',
@@ -1165,16 +1206,20 @@ export function PropertySectionRecords({
   async function submitStamp(row: PropertyRecordRow, kind: StampKind, value: HandoverSubmit) {
     const id = row.id ?? '';
     const { at, notes, noteKeys, important, recipient, photos } = value;
-    const result = await runAction(id, {
-      action: kind,
-      bookingId: id,
-      at,
-      ...(notes.trim() ? { notes: notes.trim() } : {}),
-      ...(noteKeys.length ? { noteKeys } : {}),
-      ...(important ? { important } : {}),
-      ...(recipient ? { recipient } : {}),
-      ...(photos.length ? { photos } : {}),
-    });
+    const result = await runAction(
+      id,
+      {
+        action: kind,
+        bookingId: id,
+        at,
+        ...(notes.trim() ? { notes: notes.trim() } : {}),
+        ...(noteKeys.length ? { noteKeys } : {}),
+        ...(important ? { important } : {}),
+        ...(recipient ? { recipient } : {}),
+        ...(photos.length ? { photos } : {}),
+      },
+      propertyOf(row),
+    );
     if (!result) return;
     setStampForm(null);
     const when = formatStamp(`${at}:00+04:00`, locale);
@@ -1194,7 +1239,7 @@ export function PropertySectionRecords({
 
   async function submitRefund(row: PropertyRecordRow, value: RefundSubmit) {
     const id = row.id ?? '';
-    const result = await runAction(id, { ...value, bookingId: id });
+    const result = await runAction(id, { ...value, bookingId: id }, propertyOf(row));
     if (!result) return;
     setRefundForm(null);
     setNotice({
@@ -1222,7 +1267,7 @@ export function PropertySectionRecords({
     setReviewError(null);
     try {
       const result = await browserNextMutation<{ review: { score: number } }>(
-        `/api/owner/properties/${encodeURIComponent(propertyId)}/guest-review`,
+        `/api/owner/properties/${encodeURIComponent(propertyOf(row))}/guest-review`,
         { method: 'POST', body: JSON.stringify({ bookingId: id, ...value }) },
       );
       setReviewRowId(null);
@@ -1252,7 +1297,11 @@ export function PropertySectionRecords({
       : `Approve contract ${row.reference} and sign it in your name for the owner?`;
     if (!window.confirm(question)) return;
     const id = row.id ?? '';
-    const result = await runAction(id, { action: 'approve_contract', contractId: id });
+    const result = await runAction(
+      id,
+      { action: 'approve_contract', contractId: id },
+      propertyOf(row),
+    );
     if (!result) return;
     setNotice({
       tone: 'success',
@@ -1267,10 +1316,12 @@ export function PropertySectionRecords({
     kind: 'lease' | 'sale',
     payload: Record<string, string> | LeaseContractPayload,
   ) {
-    const result = await runAction('form', {
-      action: kind === 'sale' ? 'create_sale' : 'create_lease',
-      ...payload,
-    });
+    if (!propertyId) return;
+    const result = await runAction(
+      'form',
+      { action: kind === 'sale' ? 'create_sale' : 'create_lease', ...payload },
+      propertyId,
+    );
     if (!result) return;
     setFormOpen(false);
     setNotice({
@@ -1526,8 +1577,9 @@ export function PropertySectionRecords({
     return null;
   }
 
-  const manualKind =
-    section === 'leasing' && viewer.canCreateLease
+  const manualKind = !propertyId
+    ? null
+    : section === 'leasing' && viewer.canCreateLease
       ? 'lease'
       : section === 'sales' && viewer.canCreateSale
         ? 'sale'
@@ -1677,7 +1729,7 @@ export function PropertySectionRecords({
           <table className="data-table psr-table">
             <thead>
               <tr>
-                {config.columns.map((column) => (
+                {columns.map((column) => (
                   <th key={column.key} className={`psr-col--${column.format ?? 'text'}`}>
                     {ar ? column.ar : column.en}
                   </th>
@@ -1697,7 +1749,7 @@ export function PropertySectionRecords({
                       id={`psr-row-${row.id}`}
                       className={focusId === row.id ? 'psr-row--focus' : undefined}
                     >
-                      {config.columns.map((column) => (
+                      {columns.map((column) => (
                         <td
                           key={column.key}
                           className={`psr-col--${column.format ?? 'text'} psr-key--${column.key}`}
@@ -1708,14 +1760,19 @@ export function PropertySectionRecords({
                             locale={locale}
                             documentHref={
                               viewer.canRecordStays && row.checkInDocument && row.id
-                                ? `/api/owner/properties/${encodeURIComponent(propertyId)}/records/handover/${row.id}`
+                                ? `/api/owner/properties/${encodeURIComponent(propertyOf(row))}/records/handover/${row.id}`
                                 : null
                             }
                             receiptHref={
                               (viewer.canDecideRefunds || viewer.canPayRefunds) &&
                               row.refundReceipt &&
                               (row.bookingId ?? row.id)
-                                ? `/api/owner/properties/${encodeURIComponent(propertyId)}/records/refund-receipt/${row.bookingId ?? row.id}`
+                                ? `/api/owner/properties/${encodeURIComponent(propertyOf(row))}/records/refund-receipt/${row.bookingId ?? row.id}`
+                                : null
+                            }
+                            contractHref={
+                              !propertyId && row.propertyId && row.contractId
+                                ? `/${portal}/properties/${encodeURIComponent(row.propertyId)}?section=contracts&focus=${encodeURIComponent(row.contractId)}`
                                 : null
                             }
                           />
@@ -1736,7 +1793,7 @@ export function PropertySectionRecords({
                     </tr>
                     {stampForm && stampForm.rowId === row.id ? (
                       <tr className="psr-details">
-                        <td colSpan={config.columns.length + (showActions ? 1 : 0)}>
+                        <td colSpan={columns.length + (showActions ? 1 : 0)}>
                           <StayHandoverForm
                             kind={stampForm.kind}
                             reference={row.reference ?? ''}
@@ -1751,7 +1808,7 @@ export function PropertySectionRecords({
                     ) : null}
                     {reviewRowId && reviewRowId === row.id ? (
                       <tr className="psr-details">
-                        <td colSpan={config.columns.length + (showActions ? 1 : 0)}>
+                        <td colSpan={columns.length + (showActions ? 1 : 0)}>
                           <ReviewForm
                             direction="host_to_guest"
                             ar={ar}
@@ -1767,7 +1824,7 @@ export function PropertySectionRecords({
                     ) : null}
                     {refundForm && refundForm.rowId === row.id ? (
                       <tr className="psr-details">
-                        <td colSpan={config.columns.length + (showActions ? 1 : 0)}>
+                        <td colSpan={columns.length + (showActions ? 1 : 0)}>
                           <DepositRefundForm
                             mode={refundForm.mode}
                             row={row}
@@ -1785,7 +1842,7 @@ export function PropertySectionRecords({
                     ) : null}
                     {terms ? (
                       <tr className="psr-details">
-                        <td colSpan={config.columns.length + (showActions ? 1 : 0)}>
+                        <td colSpan={columns.length + (showActions ? 1 : 0)}>
                           <LeaseTermsView
                             terms={terms}
                             tenant={parseTenantDetails(row.tenantJson)}

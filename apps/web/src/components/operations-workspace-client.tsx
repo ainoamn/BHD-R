@@ -30,12 +30,14 @@ export function OperationsWorkspaceClient({
   locale,
   active = true,
   beforeList = null,
+  listOverride = null,
 }: {
   portal: PortalRole;
   section: OperationsSection;
   locale: 'ar' | 'en';
   active?: boolean;
   beforeList?: ReactNode;
+  listOverride?: ReactNode;
 }) {
   const cached = getOpsCache(portal, section);
   const [payload, setPayload] = useState<OperationsWorkspacePayload>(() =>
@@ -125,6 +127,7 @@ export function OperationsWorkspaceClient({
         loading={hydrating}
         loadError={statusReady ? Boolean(payload.loadError) : false}
         beforeList={beforeList}
+        listOverride={listOverride}
       />
     </div>
   );

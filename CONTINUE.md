@@ -1,5 +1,20 @@
 # CONTINUE — 2026-10-12
 
+**0.8.23** · عرض موحّد للحجوزات والمعاينات:
+
+- **`PortalMainSlot`:** قسم `bookings` لبوابتي المالك والمطوّر يمرر `listOverride={<PropertySectionRecords propertyId={null} section="bookings" />}` إلى `OperationsConsole`. يبقى الرأس و«حجز جديد» وطابور العربون، وتختفي المؤشرات وتبويبات الغرض والجدول العام.
+- **البيانات:**
+  - `GET /api/portal/property-records/all/bookings` ← `loadAllPropertyBookings`، ثم `loadBookings` بنطاق `BookingScope` (`propertyIds`، و`unitProperty`، و`propertyNames`).
+  - كل صف يحمل `propertyId` و`propertyNameAr` و`propertyNameEn`.
+- **`PropertySectionRecords`:** مع `propertyId` فارغ، يضاف عمود «العقار». والإجراءات تُرسل إلى `/api/owner/properties/{row.propertyId}/…`، ورابط العقد يفتح `/{portal}/properties/{row.propertyId}?section=contracts&focus=…`.
+- **مفتوح:**
+  - الحجوزات المؤقتة (holds) غير معروضة في الجدول الموحد، ولا يوجد منها شيء في الإنتاج.
+  - بوابة المنصة ما زالت بالجدول العام.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.23-AR.md`](./docs/implementation/RELEASE-0.8.23-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.22** · سرعة التحديث والتنقل:
 
 - **`PortalRoutePrefetch`:** يبدأ بعد `SETTLE_MS` (2.5 ثانية)، وبعد `document.readyState === 'complete'`، وبعد `!hasOpsInflight()`. يمسح `.portal-nav a[href]` فقط، ويزرع أول 6 عقارات دون `/edit`.

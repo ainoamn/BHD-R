@@ -155,12 +155,13 @@ export async function loadPropertySectionRecords(
           return loadBookings(
             tx,
             orgId,
-            propertyId,
-            unitIds,
-            codeOf,
-            hasPermission(claims, 'stay.booking.manage') ||
-              hasPermission(claims, 'stay.refund.approve') ||
-              hasPermission(claims, 'payment.refund'),
+            {
+              propertyIds: [propertyId],
+              unitIds,
+              codeOf,
+              unitProperty: new Map(unitIds.map((id) => [id, propertyId])),
+            },
+            revealsRefundAccounts(claims),
           );
         case 'contracts':
           return loadContracts(tx, orgId, unitIds, codeOf);
@@ -179,9 +180,7 @@ export async function loadPropertySectionRecords(
             propertyId,
             unitIds,
             codeOf,
-            hasPermission(claims, 'stay.booking.manage') ||
-              hasPermission(claims, 'stay.refund.approve') ||
-              hasPermission(claims, 'payment.refund'),
+            revealsRefundAccounts(claims),
           );
       }
     })();
@@ -227,6 +226,61 @@ export async function loadPropertySectionRecords(
       })),
       tenants,
     };
+  });
+}
+
+/** Refund account numbers in full only for those who decide or pay refunds. */
+function revealsRefundAccounts(claims: SessionClaims): boolean {
+  return (
+    hasPermission(claims, 'stay.booking.manage') ||
+    hasPermission(claims, 'stay.refund.approve') ||
+    hasPermission(claims, 'payment.refund')
+  );
+}
+
+/**
+ * Bookings and viewings of every property the viewer may see, in the same rows as a
+ * single property's bookings tab, each tagged with its property.
+ */
+export async function loadAllPropertyBookings(
+  claims: SessionClaims,
+): Promise<PropertySectionRecords | null> {
+  const orgId = claims.organizationId;
+  if (!orgId) return null;
+  const ownerPartyId = ownerPartyScope(claims);
+
+  return withinViewerTenant(claims, async (tx) => {
+    const propertyRows = await tx
+      .select({ id: properties.id, nameAr: properties.nameAr, nameEn: properties.nameEn })
+      .from(properties)
+      .where(
+        and(
+          eq(properties.organizationId, orgId),
+          ...(ownerPartyId ? [eq(properties.ownerPartyId, ownerPartyId)] : []),
+        ),
+      );
+    if (!propertyRows.length) return { rows: [], units: [], tenants: [] };
+    const propertyIds = propertyRows.map((row) => row.id);
+    const unitRows = await tx
+      .select({ id: units.id, code: units.code, propertyId: units.propertyId })
+      .from(units)
+      .where(and(eq(units.organizationId, orgId), inArray(units.propertyId, propertyIds)));
+    const unitCode = new Map(unitRows.map((row) => [row.id, row.code]));
+    const rows = await loadBookings(
+      tx,
+      orgId,
+      {
+        propertyIds,
+        unitIds: unitRows.map((row) => row.id),
+        codeOf: (id) => (id ? (unitCode.get(id) ?? null) : null),
+        unitProperty: new Map(unitRows.map((row) => [row.id, row.propertyId])),
+        propertyNames: new Map(
+          propertyRows.map((row) => [row.id, { ar: row.nameAr, en: row.nameEn }]),
+        ),
+      },
+      revealsRefundAccounts(claims),
+    );
+    return { rows, units: [], tenants: [] };
   });
 }
 
@@ -325,20 +379,36 @@ function stayStage(status: string): string {
   return status;
 }
 
+type BookingScope = {
+  propertyIds: string[];
+  unitIds: string[];
+  codeOf: CodeOf;
+  unitProperty: Map<string, string>;
+  /** Set when the list spans several properties, so each row names its property. */
+  propertyNames?: Map<string, { ar: string; en: string }>;
+};
+
 async function loadBookings(
   tx: Tx,
   orgId: string,
-  propertyId: string,
-  unitIds: string[],
-  codeOf: CodeOf,
+  { propertyIds, unitIds, codeOf, unitProperty, propertyNames }: BookingScope,
   /** Refund account numbers in full; other viewers see them masked. */
   revealAccounts: boolean,
 ): Promise<PropertyRecordRow[]> {
   const account = accountReader(revealAccounts);
+  const placeOf = (propertyId: string | null | undefined) => {
+    const name = propertyId ? propertyNames?.get(propertyId) : undefined;
+    return {
+      propertyId: propertyId ?? null,
+      propertyNameAr: name?.ar ?? null,
+      propertyNameEn: name?.en ?? null,
+    };
+  };
   const stays = await tx
     .select({
       id: stayBookings.id,
       referenceCode: stayBookings.referenceCode,
+      propertyId: stayBookings.propertyId,
       unitId: stayBookings.unitId,
       guestPartyId: stayBookings.guestPartyId,
       status: stayBookings.status,
@@ -363,7 +433,9 @@ async function loadBookings(
       userId: stayBookings.userId,
     })
     .from(stayBookings)
-    .where(and(eq(stayBookings.organizationId, orgId), eq(stayBookings.propertyId, propertyId)))
+    .where(
+      and(eq(stayBookings.organizationId, orgId), inArray(stayBookings.propertyId, propertyIds)),
+    )
     .orderBy(desc(stayBookings.createdAt))
     .limit(ROW_LIMIT);
 
@@ -480,6 +552,7 @@ async function loadBookings(
         id: row.id,
         kind: 'stay',
         reference: row.referenceCode,
+        ...placeOf(row.propertyId),
         unitCode: codeOf(row.unitId),
         party:
           guestByBooking.get(row.id) ??
@@ -502,6 +575,7 @@ async function loadBookings(
       id: row.id,
       kind: 'reservation',
       reference: row.id.slice(0, 8).toUpperCase(),
+      ...placeOf(unitProperty.get(row.unitId)),
       unitCode: codeOf(row.unitId),
       party: names.get(row.tenantPartyId) ?? null,
       fromOn: isoDate(row.startsAt),
@@ -515,6 +589,7 @@ async function loadBookings(
       id: row.id,
       kind: 'viewing',
       reference: row.reference,
+      ...placeOf(unitProperty.get(row.unitId)),
       unitCode: codeOf(row.unitId),
       party: names.get(row.prospectPartyId) ?? null,
       fromOn: isoDate(row.scheduledAt ?? row.preferredAt),

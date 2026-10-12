@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { usePathname } from '@/i18n/navigation';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { DepositLedgerPanel } from '@/components/accounting/deposit-ledger';
@@ -12,6 +13,10 @@ import {
   type OperationsSection,
 } from '@/lib/portal-ops-types';
 import type { PortalRole } from '@/lib/types';
+
+const PropertySectionRecords = dynamic(() =>
+  import('@/components/property-section-records').then((mod) => mod.PropertySectionRecords),
+);
 
 export function opsSectionFromPathname(
   pathname: string,
@@ -88,6 +93,21 @@ export function PortalMainSlot({
               active={panel === section}
               beforeList={
                 <DepositLedgerPanel portal={portal} locale={locale} active={panel === section} />
+              }
+            />
+          ) : panel === 'bookings' && (portal === 'owner' || portal === 'developer') ? (
+            <OperationsWorkspaceClient
+              portal={portal}
+              section={panel}
+              locale={locale}
+              active={panel === section}
+              listOverride={
+                <PropertySectionRecords
+                  portal={portal}
+                  propertyId={null}
+                  section="bookings"
+                  locale={locale}
+                />
               }
             />
           ) : (

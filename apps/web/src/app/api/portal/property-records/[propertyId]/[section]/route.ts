@@ -2,7 +2,11 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { hasPermission, verifySessionToken, type Permission } from '@bhd-r/authz';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
-import { isPropertyRecordSection, loadPropertySectionRecords } from '@/lib/property-records-neon';
+import {
+  isPropertyRecordSection,
+  loadAllPropertyBookings,
+  loadPropertySectionRecords,
+} from '@/lib/property-records-neon';
 import { requireSessionSecret } from '@/lib/runtime-env';
 
 export const runtime = 'nodejs';
@@ -26,13 +30,15 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  * GET /api/portal/property-records/:propertyId/:section
  * Section records (bookings, contracts, leasing, sales, maintenance, invoices,
  * accounting) for a single property — powers the in-page tabs of the property hub.
+ * `all/bookings` lists the bookings of every visible property for the bookings page.
  */
 export async function GET(
   _request: Request,
   context: { params: Promise<{ propertyId: string; section: string }> },
 ) {
   const { propertyId, section } = await context.params;
-  if (!UUID.test(propertyId) || !isPropertyRecordSection(section)) {
+  const allProperties = propertyId === 'all' && section === 'bookings';
+  if ((!allProperties && !UUID.test(propertyId)) || !isPropertyRecordSection(section)) {
     return NextResponse.json({ error: { code: 'not_found' } }, { status: 404 });
   }
   if (!hasDatabaseUrl()) {
@@ -54,7 +60,9 @@ export async function GET(
   }
 
   try {
-    const records = await loadPropertySectionRecords(claims, propertyId, section);
+    const records = allProperties
+      ? await loadAllPropertyBookings(claims)
+      : await loadPropertySectionRecords(claims, propertyId, section);
     if (!records) {
       return NextResponse.json({ error: { code: 'not_found' } }, { status: 404 });
     }
