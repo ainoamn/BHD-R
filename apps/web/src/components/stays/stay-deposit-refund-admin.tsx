@@ -11,6 +11,7 @@ import {
   type RefundPayoutMethod,
 } from '@/lib/stay-deposit-refund';
 import type { PropertyRecordRow } from '@/lib/property-records-neon';
+import { NoteTranslateBar, TranslatableNote } from '@/components/note-translate';
 import { StampDateTimeField } from './stamp-date-time-field';
 import { compressDocument } from './stay-handover-form';
 
@@ -337,7 +338,8 @@ export function DepositRefundForm({
         {row.refundGuestNote ? (
           <>
             <br />
-            {ar ? 'ملاحظة الضيف' : 'Guest note'}: {row.refundGuestNote}
+            {ar ? 'ملاحظة الضيف' : 'Guest note'}: <bdi>{row.refundGuestNote}</bdi>{' '}
+            <TranslatableNote text={row.refundGuestNote} locale={locale} />
           </>
         ) : null}
         {row.refundDecisionNote && mode === 'payout' ? (
@@ -575,6 +577,13 @@ export function DepositRefundForm({
                     ? 'مثال: خُصم 10 ر.ع. لتنظيف إضافي…'
                     : 'e.g. 10 OMR deducted for extra cleaning…'
               }
+            />
+            <NoteTranslateBar
+              value={note}
+              onChange={setNote}
+              locale={locale}
+              max={REFUND_NOTE_MAX}
+              disabled={busy}
             />
             {tried && noteMissing ? (
               <small className="stamp-dt__error" role="alert">

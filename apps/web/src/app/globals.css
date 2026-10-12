@@ -17576,6 +17576,95 @@ body:has(.stay-esign-shell) {
   gap: 0.35rem;
 }
 
+/* AI note translation (refund, handover, and contract notes) */
+:is(.field, .lcf-section):has(> .note-translate) > textarea {
+  field-sizing: content;
+  min-height: 3.6rem;
+  max-height: 16rem;
+}
+/* Each line of a bilingual note takes its own direction (Arabic line, then English line). */
+:is(.field, .lcf-section):has(> .note-translate) > textarea,
+.psr-refund__note,
+.psr-stay-log small,
+.guest-stay-detail__moment small,
+.lcf-notes,
+.contract-doc__note,
+.contract-doc__pre {
+  unicode-bidi: plaintext;
+}
+.note-translate {
+  display: grid;
+  justify-items: start;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+}
+.note-translate__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.note-translate__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 1.9rem;
+  padding: 0.2rem 0.75rem;
+  color: var(--calm-accent, #0b623c);
+  background: var(--calm-accent-soft, #e3f1ec);
+  border: 1px solid color-mix(in srgb, var(--calm-accent, #0b623c) 25%, transparent);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+.note-translate__button:hover:not(:disabled) {
+  border-color: var(--calm-accent, #0b623c);
+}
+.note-translate__button:focus-visible {
+  outline: 2px solid var(--calm-accent, #0b623c);
+  outline-offset: 2px;
+}
+.note-translate__button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.note-translate__button--quiet {
+  color: var(--calm-muted, #6c7b75);
+  background: transparent;
+  border-color: var(--calm-line, #e1e9e5);
+}
+.note-translate__hint {
+  color: var(--calm-muted, #6c7b75);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+.note-translate__error {
+  color: #a12a2a;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+.note-translate--inline {
+  display: inline-grid;
+  margin-top: 0.25rem;
+  vertical-align: top;
+}
+.note-translate__result {
+  display: block;
+  padding: 0.35rem 0.6rem;
+  background: var(--calm-surface-2, #f6f9f7);
+  border-inline-start: 3px solid var(--calm-accent, #0b623c);
+  border-radius: 0.5rem;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+.note-translate__result small {
+  color: var(--calm-muted, #6c7b75);
+}
+
 /* Guest deposit refund (5th journey step) */
 .guest-stay-detail__greeting--refund {
   --greet-tone: #0b623c;
@@ -18940,6 +19029,9 @@ body:has(.stay-esign-shell) {
   color: var(--doc-muted);
   font-size: 0.85rem;
   font-weight: 400;
+  white-space: pre-line;
+}
+.contract-doc__pre {
   white-space: pre-line;
 }
 .contract-doc__blank {

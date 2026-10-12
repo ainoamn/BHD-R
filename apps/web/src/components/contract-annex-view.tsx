@@ -466,7 +466,7 @@ export function ContractAnnexDocumentView({
                               refund.status === 'rejected'
                                 ? ['سبب الرفض', 'Reason']
                                 : ['ملاحظة المالك', 'Host note'],
-                              <bdi>{refund.decisionNote}</bdi>,
+                              <bdi className="contract-doc__pre">{refund.decisionNote}</bdi>,
                               true,
                             )
                           : null}

@@ -11,6 +11,7 @@ import {
   periodText,
   pick,
 } from '@/components/lease-terms-view';
+import { NoteTranslateBar } from '@/components/note-translate';
 import { formatMoney } from '@/lib/format';
 import {
   ADJUSTMENT_RECURRENCES,
@@ -1464,6 +1465,13 @@ export function LeaseContractForm({
           aria-label={t('ملاحظات', 'Notes')}
           value={draft.notes ?? ''}
           onChange={(event) => set('notes', event.target.value)}
+        />
+        <NoteTranslateBar
+          value={draft.notes ?? ''}
+          onChange={(next) => set('notes', next)}
+          locale={locale}
+          max={2000}
+          disabled={busy}
         />
       </Section>
 

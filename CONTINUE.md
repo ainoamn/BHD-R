@@ -1,5 +1,19 @@
 # CONTINUE — 2026-10-12
 
+**0.8.13** · ترجمة الملاحظات بالذكاء الاصطناعي:
+
+- **المسار:** `POST /api/owner/notes/translate` (`{text, target: 'ar'|'en'}`، حتى 2000 حرف، 30 طلباً في الدقيقة) يستدعي `translateNote` في `lib/note-translate-ai.ts`: الذكاء الاصطناعي ثم `machineTranslate`.
+- **الذكاء الاصطناعي المشترك:** `lib/ai-chat.ts` (`resolveAiEndpoint` و`aiChatJson`)، ويستخدمه `terms-ai.ts` أيضاً.
+- **صيغة الملاحظة:** الأصل، ثم سطر `— English —` أو `— العربية —`، ثم الترجمة. الدوال في `lib/note-translation.ts` (آمنة للعميل)، و`noteOriginal` يعيد ما قبل السطر الفاصل.
+- **المكوّنات:** `components/note-translate.tsx`:
+  - `NoteTranslateBar` تحت حقل الملاحظة (يأخذ `value` و`onChange` و`max`).
+  - `TranslatableNote` ترجمة للقراءة فقط.
+- **الاتجاه:** `unicode-bidi: plaintext` على حقول الملاحظات وأماكن عرضها، فيأخذ كل سطر اتجاه لغته.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.13-AR.md`](./docs/implementation/RELEASE-0.8.13-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.12** · جدول يتّسع للشاشة وطيّ القائمة الجانبية:
 
 - **الجدول (`property-section-records.tsx`):**

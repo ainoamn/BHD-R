@@ -11,6 +11,7 @@ import {
   type HandoverKind,
   type HandoverPhotoSource,
 } from '@/lib/stay-handover';
+import { NoteTranslateBar } from '@/components/note-translate';
 import { StampDateTimeField } from './stamp-date-time-field';
 
 export type HandoverSubmit = {
@@ -550,6 +551,13 @@ export function StayHandoverForm({
                   ? 'مثال: أضرار، مستلزمات ناقصة… · e.g. damage, missing items…'
                   : 'e.g. damage, missing items… · مثال: أضرار، مستلزمات ناقصة…'
             }
+          />
+          <NoteTranslateBar
+            value={custom}
+            onChange={setCustom}
+            locale={locale}
+            max={1000}
+            disabled={busy}
           />
           <label className="handover-important">
             <input

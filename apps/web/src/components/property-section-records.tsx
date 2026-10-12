@@ -5,6 +5,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from '
 import { Link } from '@/i18n/navigation';
 import { LeaseContractForm, type LeaseContractPayload } from '@/components/lease-contract-form';
 import { LeaseTermsView, parseLeaseTerms, parseTenantDetails } from '@/components/lease-terms-view';
+import { NoteTranslateBar } from '@/components/note-translate';
 import { Icon, type IconName } from '@/components/pmh-icon';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
@@ -680,6 +681,7 @@ function ManualSaleForm({
     unit ? minorToDecimal(unit.salePriceMinor, unit.currency) : '';
   const [unitId, setUnitId] = useState(firstUnit?.id ?? '');
   const [amount, setAmount] = useState(defaultAmount(firstUnit));
+  const [notes, setNotes] = useState('');
   const unit = units.find((item) => item.id === unitId);
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -771,7 +773,22 @@ function ManualSaleForm({
         </div>
         <div className="field span-2">
           <label htmlFor="psr-notes">{ar ? 'ملاحظات' : 'Notes'}</label>
-          <textarea id="psr-notes" name="notes" className="textarea" rows={2} maxLength={2000} />
+          <textarea
+            id="psr-notes"
+            name="notes"
+            className="textarea"
+            rows={2}
+            maxLength={2000}
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+          />
+          <NoteTranslateBar
+            value={notes}
+            onChange={setNotes}
+            locale={locale}
+            max={2000}
+            disabled={busy}
+          />
         </div>
       </div>
       <p className="muted">
