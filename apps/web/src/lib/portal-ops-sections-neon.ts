@@ -29,7 +29,7 @@ import {
   type Database,
 } from '@bhd-r/db';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
-import { contractTerm, propertyUsage } from '@/lib/contract-list-facets';
+import { contractCategory, contractTerm, propertyUsage } from '@/lib/contract-list-facets';
 import {
   loadStayAccountingRowsForViewer,
   readClaims,
@@ -237,6 +237,17 @@ async function loadContracts(tx: OpsTransaction, orgId: string): Promise<NeonSec
             and cs.contract_id = ${contracts.id}),
         ${contracts.completedAt}
       )) #>> '{}'`,
+      // A stay's booking outranks the lease row issued with it (that lease stays active).
+      linkedStatus: sql<string | null>`coalesce(
+        (select b.status from stay_bookings b
+          where b.organization_id = ${contracts.organizationId}
+            and b.id::text = ${snapshot}->'source'->>'stayBookingId'
+          limit 1),
+        (select l.status::text from leases l
+          where l.organization_id = ${contracts.organizationId}
+            and l.contract_id = ${contracts.id}
+          limit 1)
+      )`,
       approvalStatus: sql<string | null>`(
         select ar.status::text
         from approval_requests ar
@@ -260,6 +271,7 @@ async function loadContracts(tx: OpsTransaction, orgId: string): Promise<NeonSec
     .where(eq(contracts.organizationId, orgId))
     .orderBy(desc(contracts.createdAt))
     .limit(LIST_LIMIT);
+  const categories = new Map(rows.map((row) => [row.id, contractCategory(row)]));
   return {
     records: rows.map((row) => {
       const { contractType, sourceType, stayType, usageType, category, ...rest } = row;
@@ -272,6 +284,9 @@ async function loadContracts(tx: OpsTransaction, orgId: string): Promise<NeonSec
         signedAt: row.signedAt ? new Date(row.signedAt).toISOString() : null,
         term: contractTerm({ contractType, sourceType, stayType, startsOn, endsOn }),
         usage: propertyUsage({ usageType, category }),
+        // Addenda belong to the list of the contract they amend.
+        category:
+          (row.parentContractId && categories.get(row.parentContractId)) ?? categories.get(row.id),
       });
     }),
   };

@@ -1,5 +1,22 @@
 # CONTINUE — 2026-10-12
 
+**0.8.6** · فصل العقود وحالتها:
+
+- **الأنواع:** `?kind=sale|purchase|daily|long_term` على `/contracts`.
+  - `contractCategory` في `lib/contract-list-facets.ts`: `purchase` و`sale` من `contract.type`، و`daily` للإقامات، وغيرها `long_term`.
+  - الخادم يضيف `category` في `loadContracts`، والملحق يرث نوع أصله. والعميل يرجع إلى `rowContractCategory(category, term)` إن غاب.
+- **الحالة:** `contractState({ status, endsOn, linkedStatus, today })` تعطي `active`، أو `ended`، أو `cancelled`، أو `pending`.
+  - `linkedStatus` من حالة حجز الإقامة أولاً (`source.stayBookingId`)، وإلا من حالة الإيجار.
+  - سجل الإيجار المرافق للإقامة يبقى `active` بعد المغادرة.
+- **الواجهة:**
+  - `operations-console.tsx`: `contractsDefinition` (العنوان، وعمود الطرف، وعمود المدة لطويل الأجل فقط)، والصيغة `contract_state`. التصفية والعدّادات بـ `row.state`.
+  - `portal-nav.tsx`: `contractsNavItem` بأربعة بنود، والتمييز بـ `searchParams.get('kind')`.
+- **التالي:** نموذج «عقد شراء» (المالك مشترٍ) ليمتلئ قسم الشراء.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.6-AR.md`](./docs/implementation/RELEASE-0.8.6-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.5** · ختم التوقيع، وQR بالشعار، ومعيار المستندات:
 
 - **`--doc-serial: #c8102e`** في `.contract-doc`. يُستخدم في `.contract-doc__seal--serial b` و`.contract-doc__serial`، ولون `.verify-sign__serial` مطابق.

@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  contractCategory,
+  contractState,
   contractTerm,
   contractValidity,
   muscatToday,
   propertyUsage,
+  rowContractCategory,
 } from '../../src/lib/contract-list-facets';
 
 const lease = (startsOn: string, endsOn: string) =>
@@ -60,6 +63,39 @@ describe('contract list facets', () => {
     expect(contractValidity('2026-11-01', '2026-11-30', '2026-10-12')).toBe('upcoming');
     expect(contractValidity('2026-10-08', '2026-10-09', '2026-10-12')).toBe('ended');
     expect(contractValidity(null, '2026-10-09', '2026-10-12')).toBeNull();
+  });
+
+  it('sorts contracts into the sidebar kinds', () => {
+    const category = (contractType: string | null, sourceType: string | null, stayType = null) =>
+      contractCategory({ contractType, sourceType, stayType });
+    expect(category('sale', 'manual')).toBe('sale');
+    expect(category('purchase', 'manual')).toBe('purchase');
+    expect(category('lease', 'stay_booking')).toBe('daily');
+    expect(category('lease', 'manual')).toBe('long_term');
+    expect(category(null, 'reservation')).toBe('long_term');
+    expect(rowContractCategory(undefined, 'daily')).toBe('daily');
+    expect(rowContractCategory(undefined, 'sale')).toBe('sale');
+    expect(rowContractCategory(undefined, 'yearly')).toBe('long_term');
+    expect(rowContractCategory('purchase', 'sale')).toBe('purchase');
+  });
+
+  it('gives each contract one of four statuses', () => {
+    const today = '2026-10-12';
+    const state = (status: string, endsOn: string | null, linkedStatus: string | null = null) =>
+      contractState({ status, endsOn, linkedStatus, today });
+    expect(state('signed', '2026-12-31')).toBe('active');
+    expect(state('signed', '2026-10-12')).toBe('active');
+    expect(state('signed', null)).toBe('active');
+    expect(state('signed', '2026-10-11')).toBe('ended');
+    expect(state('signed', '2026-12-31', 'checked_out')).toBe('ended');
+    expect(state('signed', '2027-12-31', 'terminated')).toBe('ended');
+    expect(state('void', '2026-12-31')).toBe('cancelled');
+    expect(state('terminated', '2026-12-31')).toBe('cancelled');
+    expect(state('signed', '2026-12-31', 'cancelled')).toBe('cancelled');
+    expect(state('sent', '2026-12-31', 'expired')).toBe('cancelled');
+    expect(state('draft', '2026-12-31')).toBe('pending');
+    expect(state('sent', '2026-12-31')).toBe('pending');
+    expect(state('partially_signed', '2026-10-01')).toBe('pending');
   });
 
   it('reads today in Muscat', () => {

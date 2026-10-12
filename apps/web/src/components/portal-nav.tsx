@@ -28,6 +28,18 @@ const propertiesNavItem: NavItem = {
   ],
 };
 
+const contractsNavItem: NavItem = {
+  path: '/contracts',
+  label: 'Common.contracts',
+  mark: '✎',
+  children: [
+    { path: '/contracts?kind=sale', label: 'Portal.contractsSale', mark: '◆' },
+    { path: '/contracts?kind=purchase', label: 'Portal.contractsPurchase', mark: '◇' },
+    { path: '/contracts?kind=daily', label: 'Portal.contractsDaily', mark: '☾' },
+    { path: '/contracts?kind=long_term', label: 'Portal.contractsLongTerm', mark: '▣' },
+  ],
+};
+
 const staysNavGroup: NavGroup = {
   id: 'stays',
   label: 'Portal.groupStays',
@@ -77,7 +89,7 @@ const navGroups: Record<PortalRole, NavGroup[]> = {
         { path: '/bookings', label: 'Common.bookings', mark: '⌁' },
         { path: '/leasing', label: 'Common.leasing', mark: '⌂' },
         { path: '/sales', label: 'Common.sales', mark: '◆' },
-        { path: '/contracts', label: 'Common.contracts', mark: '✎' },
+        contractsNavItem,
         { path: '/terms', label: 'Common.contractTerms', mark: '¶' },
       ],
     },
@@ -130,7 +142,7 @@ const navGroups: Record<PortalRole, NavGroup[]> = {
         { path: '/bookings', label: 'Common.bookings', mark: '⌁' },
         { path: '/leasing', label: 'Common.leasing', mark: '⌂' },
         { path: '/sales', label: 'Common.sales', mark: '◆' },
-        { path: '/contracts', label: 'Common.contracts', mark: '✎' },
+        contractsNavItem,
         { path: '/terms', label: 'Common.contractTerms', mark: '¶' },
       ],
     },
@@ -291,7 +303,8 @@ export function PortalNav({
 }) {
   const t = useTranslations();
   const pathname = usePathname();
-  const manageMode = useSearchParams().get('mode') === 'manage';
+  const searchParams = useSearchParams();
+  const manageMode = searchParams.get('mode') === 'manage';
   const locale = useLocale() as 'ar' | 'en';
   const [open, setOpen] = useState(false);
   const [isDrawerViewport, setIsDrawerViewport] = useState(false);
@@ -304,9 +317,21 @@ export function PortalNav({
       : navGroups[portal];
 
   const isActive = (item: NavItem): boolean => {
-    if (item.children) return item.children.some(isActive);
+    if (item.children) {
+      // Contract pages (and ?kind-less lists) keep the contracts menu open.
+      if (item.path === '/contracts') {
+        const href = `${root}/contracts`;
+        return pathname === href || pathname.startsWith(`${href}/`);
+      }
+      return item.children.some(isActive);
+    }
     const [basePath = '', query] = item.path.split('?');
     const href = `${root}${basePath}`;
+    if (basePath === '/contracts' && query) {
+      return (
+        pathname === href && searchParams.get('kind') === new URLSearchParams(query).get('kind')
+      );
+    }
     if (basePath === '/properties') {
       // Property detail/edit pages belong to "manage"; the add wizard belongs to "view".
       const manageItem = query === 'mode=manage';

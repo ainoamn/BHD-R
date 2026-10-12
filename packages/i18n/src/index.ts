@@ -211,6 +211,10 @@ export const messages = {
       groupStays: 'الإقامات اليومية',
       viewProperties: 'عرض العقارات',
       manageProperties: 'إدارة العقارات',
+      contractsSale: 'عقود البيع',
+      contractsPurchase: 'عقود الشراء',
+      contractsDaily: 'عقود الإيجار اليومي',
+      contractsLongTerm: 'عقود الإيجار طويل الأجل',
     },
     Stays: {
       dashboard: 'لوحة الإقامات',
@@ -659,6 +663,10 @@ export const messages = {
       groupStays: 'Daily stays',
       viewProperties: 'View properties',
       manageProperties: 'Manage properties',
+      contractsSale: 'Sale contracts',
+      contractsPurchase: 'Purchase contracts',
+      contractsDaily: 'Daily rental contracts',
+      contractsLongTerm: 'Long-term lease contracts',
     },
     Stays: {
       dashboard: 'Stays dashboard',

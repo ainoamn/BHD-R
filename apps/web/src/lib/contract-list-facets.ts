@@ -29,6 +29,114 @@ export const CONTRACT_VALIDITY_LABELS: Record<ContractValidity, { ar: string; en
   ended: { ar: 'منتهٍ', en: 'Ended' },
 };
 
+/** Sidebar pages under «العقود»: one list per kind of contract. */
+export const CONTRACT_CATEGORIES = ['sale', 'purchase', 'daily', 'long_term'] as const;
+export type ContractCategory = (typeof CONTRACT_CATEGORIES)[number];
+
+export const CONTRACT_CATEGORY_LABELS: Record<
+  ContractCategory,
+  {
+    ar: string;
+    en: string;
+    introAr: string;
+    introEn: string;
+    partyAr: string;
+    partyEn: string;
+  }
+> = {
+  sale: {
+    ar: 'عقود البيع',
+    en: 'Sale contracts',
+    introAr: 'عقود بيع العقارات والوحدات للمشترين، مع التوقيع الإلكتروني وحالة كل عقد.',
+    introEn: 'Contracts selling properties and units to buyers, with e-signatures and status.',
+    partyAr: 'المشتري',
+    partyEn: 'Buyer',
+  },
+  purchase: {
+    ar: 'عقود الشراء',
+    en: 'Purchase contracts',
+    introAr: 'عقود شراء العقارات والوحدات من البائعين، مع التوقيع الإلكتروني وحالة كل عقد.',
+    introEn: 'Contracts buying properties and units from sellers, with e-signatures and status.',
+    partyAr: 'البائع',
+    partyEn: 'Seller',
+  },
+  daily: {
+    ar: 'عقود الإيجار اليومي',
+    en: 'Daily rental contracts',
+    introAr: 'عقود الإقامات القصيرة بالليلة، تصدر مع كل حجز يومي معتمد.',
+    introEn: 'Short-stay contracts by the night, issued with every approved daily booking.',
+    partyAr: 'الضيف',
+    partyEn: 'Guest',
+  },
+  long_term: {
+    ar: 'عقود الإيجار طويل الأجل',
+    en: 'Long-term lease contracts',
+    introAr: 'عقود الإيجار الشهري والسنوي، مع التوقيع الإلكتروني وحالة كل عقد.',
+    introEn: 'Monthly and yearly lease contracts, with e-signatures and status.',
+    partyAr: 'المستأجر',
+    partyEn: 'Tenant',
+  },
+};
+
+export function isContractCategory(value: unknown): value is ContractCategory {
+  return (CONTRACT_CATEGORIES as readonly unknown[]).includes(value);
+}
+
+/** Purchase and sale by contract type; stays are daily; every other lease is long-term. */
+export function contractCategory(input: {
+  contractType: string | null;
+  sourceType: string | null;
+  stayType: string | null;
+}): ContractCategory {
+  if (input.contractType === 'purchase') return 'purchase';
+  if (input.contractType === 'sale') return 'sale';
+  if (input.sourceType === 'stay_booking' || input.stayType) return 'daily';
+  return 'long_term';
+}
+
+/** Rows loaded without a category (older API) fall back to their term. */
+export function rowContractCategory(category: unknown, term: unknown): ContractCategory {
+  if (isContractCategory(category)) return category;
+  if (term === 'sale') return 'sale';
+  if (term === 'daily') return 'daily';
+  return 'long_term';
+}
+
+export const CONTRACT_STATES = ['active', 'ended', 'cancelled', 'pending'] as const;
+export type ContractState = (typeof CONTRACT_STATES)[number];
+
+export const CONTRACT_STATE_LABELS: Record<ContractState, { ar: string; en: string }> = {
+  active: { ar: 'ساري', en: 'In force' },
+  ended: { ar: 'منتهي', en: 'Expired' },
+  cancelled: { ar: 'ملغي', en: 'Cancelled' },
+  pending: { ar: 'معلق', en: 'Pending' },
+};
+
+/** Lease or stay booking statuses that cancel the contract, and those that end it. */
+const LINK_CANCELLED = new Set(['cancelled', 'expired', 'payment_failed']);
+const LINK_ENDED = new Set(['ended', 'terminated', 'checked_out', 'closed', 'no_show']);
+
+/**
+ * Void or terminated contracts and cancelled bookings are cancelled; anything not
+ * fully signed is pending; signed contracts end with their lease or stay, or on
+ * their end date (Muscat), and are in force until then.
+ */
+export function contractState(input: {
+  status: string | null | undefined;
+  endsOn: string | null | undefined;
+  linkedStatus: string | null | undefined;
+  today: string;
+}): ContractState {
+  const linked = input.linkedStatus ?? '';
+  if (input.status === 'void' || input.status === 'terminated') return 'cancelled';
+  if (LINK_CANCELLED.has(linked)) return 'cancelled';
+  if (input.status !== 'signed') return 'pending';
+  if (LINK_ENDED.has(linked)) return 'ended';
+  const endsOn = input.endsOn?.slice(0, 10);
+  if (endsOn && endsOn < input.today) return 'ended';
+  return 'active';
+}
+
 const CATEGORY_USAGE: Record<string, PropertyUsage> = {
   apartment: 'residential',
   villa: 'residential',
