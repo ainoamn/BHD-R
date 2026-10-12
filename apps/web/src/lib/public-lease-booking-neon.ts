@@ -1,7 +1,7 @@
 import 'server-only';
 import { randomBytes } from 'node:crypto';
 import { and, eq, gt, inArray, sql } from 'drizzle-orm';
-import type { SessionClaims } from '@bhd-r/authz';
+import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import {
   addresses,
   holds,
@@ -29,6 +29,7 @@ import { depositForMode } from '@/lib/booking-deposit';
 import { readTermsLetterhead, resolveBookingTerms } from '@/lib/booking-terms-neon';
 import { reservationSignatureSerial } from '@/lib/contract-verify';
 import { leaseSignPath } from '@/lib/lease-booking-paths';
+import { ownerPartyScope } from '@/lib/portal-ops-data';
 import { readUnitSaleDeposits } from '@/lib/unit-sale-deposit-neon';
 
 export const LEASE_BOOKING_FLOW = 'public_deposit_v1';
@@ -169,9 +170,13 @@ async function lockKey(transaction: Tx, key: string) {
 
 async function findLeaseReservation(
   transaction: Tx,
-  key: 'referenceCode' | 'checkoutSessionReference',
+  key: 'id' | 'referenceCode' | 'checkoutSessionReference',
   value: string,
 ) {
+  const match =
+    key === 'id'
+      ? eq(reservations.id, value)
+      : sql`${reservations.termsSnapshot}->>${sql.raw(`'${key}'`)} = ${value}`;
   return withElevatedRead(transaction, async () => {
     const rows = await transaction
       .select({
@@ -181,6 +186,7 @@ async function findLeaseReservation(
         tenantPartyId: reservations.tenantPartyId,
         status: reservations.status,
         expiresAt: reservations.expiresAt,
+        convertedLeaseId: reservations.convertedLeaseId,
         termsSnapshot: reservations.termsSnapshot,
         unitCode: units.code,
         unitNameAr: units.nameAr,
@@ -199,12 +205,7 @@ async function findLeaseReservation(
       .innerJoin(units, eq(units.id, reservations.unitId))
       .innerJoin(properties, eq(properties.id, units.propertyId))
       .innerJoin(parties, eq(parties.id, reservations.tenantPartyId))
-      .where(
-        and(
-          sql`${reservations.termsSnapshot}->>'flow' = ${LEASE_BOOKING_FLOW}`,
-          sql`${reservations.termsSnapshot}->>${sql.raw(`'${key}'`)} = ${value}`,
-        ),
-      )
+      .where(and(sql`${reservations.termsSnapshot}->>'flow' = ${LEASE_BOOKING_FLOW}`, match))
       .limit(1);
     const row = rows[0];
     if (!row) return null;
@@ -674,99 +675,130 @@ export async function loadLeaseBookingAgreement(userId: string, referenceCode: s
     const match = await findLeaseReservation(transaction, 'referenceCode', normalized);
     if (!match) return null;
     await assertBookingOwner(transaction, userId, match.partyEmail);
-    const orgId = match.organizationId;
-    const esign = match.snapshot.esign ?? null;
-    return withElevatedRead(transaction, async () => {
-      const [owner, premises, letterhead, signaturePng] = await Promise.all([
-        transaction
-          .select({
-            displayName: parties.displayName,
-            type: parties.type,
-            email: parties.email,
-            phone: parties.phone,
-          })
-          .from(parties)
-          .where(and(eq(parties.organizationId, orgId), eq(parties.id, match.ownerPartyId)))
-          .limit(1)
-          .then((rows) => rows[0] ?? null),
-        transaction
-          .select({
-            propertyNameAr: properties.nameAr,
-            propertyNameEn: properties.nameEn,
-            kind: properties.kind,
-            category: properties.category,
-            serialNumber: properties.serialNumber,
-            governorate: addresses.governorate,
-            wilayat: addresses.wilayat,
-            city: addresses.city,
-            area: addresses.area,
-            street: addresses.street,
-            buildingNumber: addresses.buildingNumber,
-            postalCode: addresses.postalCode,
-            deedNumber: propertyProfiles.deedNumber,
-            plotNumber: propertyProfiles.plotNumber,
-            furnishing: propertyProfiles.furnishing,
-            parkingSpaces: propertyProfiles.parkingSpaces,
-            builtUpArea: propertyProfiles.builtUpAreaSquareMeters,
-            floorsCount: propertyProfiles.floorsCount,
-            yearBuilt: propertyProfiles.yearBuilt,
-            unitFloor: units.floor,
-            unitBedrooms: units.bedrooms,
-            unitBathrooms: units.bathrooms,
-            unitMajlis: units.majlis,
-            unitHalls: units.halls,
-            unitKitchens: units.kitchens,
-            unitHasPool: units.hasPool,
-            unitAreaSquareMeters: units.areaSquareMeters,
-          })
-          .from(units)
-          .innerJoin(
-            properties,
-            and(eq(properties.id, units.propertyId), eq(properties.organizationId, orgId)),
-          )
-          .innerJoin(
-            addresses,
-            and(eq(addresses.id, properties.addressId), eq(addresses.organizationId, orgId)),
-          )
-          .leftJoin(
-            propertyProfiles,
-            and(
-              eq(propertyProfiles.propertyId, properties.id),
-              eq(propertyProfiles.organizationId, orgId),
-            ),
-          )
-          .where(and(eq(units.organizationId, orgId), eq(units.id, match.unitId)))
-          .limit(1)
-          .then((rows) => rows[0] ?? null),
-        readTermsLetterhead(transaction, orgId).catch(() => null),
-        esign
-          ? transaction
-              .select({
-                png: sql<string | null>`${workflowEvents.metadata}->'esign'->>'signaturePng'`,
-              })
-              .from(workflowEvents)
-              .where(
-                and(
-                  eq(workflowEvents.organizationId, orgId),
-                  eq(workflowEvents.id, esign.evidenceEventId),
-                ),
-              )
-              .limit(1)
-              .then((rows) => rows[0]?.png ?? null)
-          : Promise.resolve(null),
-      ]);
-      const serial = esign ? await reservationSignatureSerial(transaction, orgId, match.id) : null;
-      const png = signaturePng && SIGNATURE_IMAGE.test(signaturePng) ? signaturePng : null;
-      return {
-        ...leaseBookingView(match),
-        reservationId: match.id,
-        capturedAt: match.snapshot.capturedAt,
-        owner,
-        premises,
-        letterhead,
-        signature: esign ? { signedAt: esign.signedAt, png, serial } : null,
-      };
-    });
+    return leaseBookingAgreementData(transaction, match);
+  });
+}
+
+/**
+ * The same agreement for the property side: staff of the reservation's organization with
+ * `reservation.read`, and for an individual owner only on their own property. Null when the
+ * reservation is not a website rent or purchase booking or the viewer may not see it.
+ */
+export async function loadLeaseBookingForStaff(claims: SessionClaims, reservationId: string) {
+  if (!/^[0-9a-f-]{36}$/i.test(reservationId)) return null;
+  if (!claims.organizationId || !hasPermission(claims, 'reservation.read')) return null;
+  const { db } = getDatabase();
+  return db.transaction(async (transaction) => {
+    const match = await findLeaseReservation(transaction, 'id', reservationId);
+    if (!match || match.organizationId !== claims.organizationId) return null;
+    const ownerPartyId = ownerPartyScope(claims);
+    if (ownerPartyId && match.ownerPartyId !== ownerPartyId) return null;
+    const agreement = await leaseBookingAgreementData(transaction, match);
+    return {
+      ...agreement,
+      propertyId: match.propertyId,
+      bookedByEmail: match.snapshot.bookedBy?.email ?? null,
+      paymentProvider: match.snapshot.payment?.provider ?? null,
+      cardBrand: match.snapshot.payment?.cardBrand ?? null,
+      salesDealId: match.snapshot.salesDealId ?? null,
+      convertedLeaseId: match.convertedLeaseId,
+    };
+  });
+}
+
+async function leaseBookingAgreementData(transaction: Tx, match: LeaseReservationMatch) {
+  const orgId = match.organizationId;
+  const esign = match.snapshot.esign ?? null;
+  return withElevatedRead(transaction, async () => {
+    const [owner, premises, letterhead, signaturePng] = await Promise.all([
+      transaction
+        .select({
+          displayName: parties.displayName,
+          type: parties.type,
+          email: parties.email,
+          phone: parties.phone,
+        })
+        .from(parties)
+        .where(and(eq(parties.organizationId, orgId), eq(parties.id, match.ownerPartyId)))
+        .limit(1)
+        .then((rows) => rows[0] ?? null),
+      transaction
+        .select({
+          propertyNameAr: properties.nameAr,
+          propertyNameEn: properties.nameEn,
+          kind: properties.kind,
+          category: properties.category,
+          serialNumber: properties.serialNumber,
+          governorate: addresses.governorate,
+          wilayat: addresses.wilayat,
+          city: addresses.city,
+          area: addresses.area,
+          street: addresses.street,
+          buildingNumber: addresses.buildingNumber,
+          postalCode: addresses.postalCode,
+          deedNumber: propertyProfiles.deedNumber,
+          plotNumber: propertyProfiles.plotNumber,
+          furnishing: propertyProfiles.furnishing,
+          parkingSpaces: propertyProfiles.parkingSpaces,
+          builtUpArea: propertyProfiles.builtUpAreaSquareMeters,
+          floorsCount: propertyProfiles.floorsCount,
+          yearBuilt: propertyProfiles.yearBuilt,
+          unitFloor: units.floor,
+          unitBedrooms: units.bedrooms,
+          unitBathrooms: units.bathrooms,
+          unitMajlis: units.majlis,
+          unitHalls: units.halls,
+          unitKitchens: units.kitchens,
+          unitHasPool: units.hasPool,
+          unitAreaSquareMeters: units.areaSquareMeters,
+        })
+        .from(units)
+        .innerJoin(
+          properties,
+          and(eq(properties.id, units.propertyId), eq(properties.organizationId, orgId)),
+        )
+        .innerJoin(
+          addresses,
+          and(eq(addresses.id, properties.addressId), eq(addresses.organizationId, orgId)),
+        )
+        .leftJoin(
+          propertyProfiles,
+          and(
+            eq(propertyProfiles.propertyId, properties.id),
+            eq(propertyProfiles.organizationId, orgId),
+          ),
+        )
+        .where(and(eq(units.organizationId, orgId), eq(units.id, match.unitId)))
+        .limit(1)
+        .then((rows) => rows[0] ?? null),
+      readTermsLetterhead(transaction, orgId).catch(() => null),
+      esign
+        ? transaction
+            .select({
+              png: sql<string | null>`${workflowEvents.metadata}->'esign'->>'signaturePng'`,
+            })
+            .from(workflowEvents)
+            .where(
+              and(
+                eq(workflowEvents.organizationId, orgId),
+                eq(workflowEvents.id, esign.evidenceEventId),
+              ),
+            )
+            .limit(1)
+            .then((rows) => rows[0]?.png ?? null)
+        : Promise.resolve(null),
+    ]);
+    const serial = esign ? await reservationSignatureSerial(transaction, orgId, match.id) : null;
+    const png = signaturePng && SIGNATURE_IMAGE.test(signaturePng) ? signaturePng : null;
+    return {
+      ...leaseBookingView(match),
+      reservationId: match.id,
+      capturedAt: match.snapshot.capturedAt,
+      owner,
+      premises,
+      letterhead,
+      signature: esign ? { signedAt: esign.signedAt, png, serial } : null,
+    };
   });
 }
 

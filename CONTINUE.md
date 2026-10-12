@@ -1,5 +1,15 @@
 # CONTINUE — 2026-10-12
 
+**0.8.29** · صفحة حجز الموقع عند المالك:
+
+- **`loadLeaseBookingForStaff(claims, reservationId)`** في `lib/public-lease-booking-neon.ts`: المنظمة نفسها، و`reservation.read`، و`ownerPartyScope`. تعيد بيانات الاتفاقية (`leaseBookingAgreementData` المشتركة مع `/book/sign`) ومعها `propertyId` والدفع.
+- **`LeaseReservationDetail`** (`components/lease-reservation-detail.tsx`) في `/owner/bookings/[reservationId]`. والحجوزات الأخرى تبقى على `ReservationComplianceManager` عبر الـ API، مع رسالة بدل الانهيار.
+- **مفتوح:** عرض صور الهوية للمالك؛ تحويل الحجز إلى عقد من الصفحة.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.29-AR.md`](./docs/implementation/RELEASE-0.8.29-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.28** · حجز الإيجار أو الشراء المدفوع عند المالك والمحاسبة:
 
 - **الجرس:** النوع `lease_reservation` في `pending-approvals-*`: حجوزات `confirmed` فيها `termsSnapshot.depositPaidAt`، بصلاحية `reservation.manage`، مع `ownerPartyScope`. والتنبيه `paid_reservations` في `portal-overview.tsx`.

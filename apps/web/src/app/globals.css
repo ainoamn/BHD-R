@@ -15734,6 +15734,27 @@ body:has(.stay-esign-shell) {
   gap: 0.75rem;
   margin: 0 0 1rem;
 }
+.contract-detail__facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.85rem 1.25rem;
+  margin: 0;
+}
+.contract-detail__facts dt {
+  font-size: 0.8rem;
+  color: var(--muted, #5b6b63);
+}
+.contract-detail__facts dd {
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.doc-serial {
+  font-family: var(--font-latin), sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: #c8102e;
+}
 .stay-esign__contract--signed {
   position: relative;
 }
