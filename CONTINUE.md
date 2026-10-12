@@ -1,5 +1,19 @@
 # CONTINUE — 2026-10-12
 
+**0.8.20** · تنسيق صفحة المحاسبة:
+
+- **`deposit-ledger.tsx`:** رأس البطاقة (`deposit-ledger__ref` و`deposit-ledger__place`)، ثم `deposit-ledger__item-body`. فيه قسم `deposit-ledger__panel` «التسوية» (`DepositReconciliation`)، وقسم «تفاصيل الاسترداد» (`DepositRefundCell`) إن وُجد طلب، ثم `DepositClaimsAdmin` بالعرض كاملاً.
+- **`globals.css`:**
+  - البطاقات تأخذ لونها من `--tone` حسب ترتيبها.
+  - داخل القسم يُخفى `.psr-refund__deposit` لأن المبلغ في «التسوية».
+  - `.psr-refund__note` في إطار بخط جانبي.
+  - `.ops-workspace--accounting .ops-stats` بطاقة مؤطرة في صفحة المحاسبة وحدها.
+- لا تغيير في المنطق أو البيانات.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.20-AR.md`](./docs/implementation/RELEASE-0.8.20-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.19** · حماية الضيف في التأمين والتقييم:
 
 - **البيانات (0029، مطبَّق على الإنتاج):**

@@ -355,39 +355,49 @@ export function DepositLedgerPanel({
               >
                 <div className="deposit-ledger__item-head">
                   <div className="deposit-ledger__who">
-                    <strong>
-                      <bdi dir="ltr">{row.reference}</bdi>
-                      {' · '}
-                      <bdi>{[property, row.unitCode].filter(Boolean).join(' · ') || '—'}</bdi>
+                    <strong className="deposit-ledger__ref" dir="ltr">
+                      {row.reference}
                     </strong>
-                    {row.party ? (
-                      <small className="muted">
-                        {ar ? 'الضيف: ' : 'Guest: '}
-                        <bdi>{row.party}</bdi>
-                      </small>
-                    ) : null}
+                    <span className="deposit-ledger__place">
+                      <bdi>{[property, row.unitCode].filter(Boolean).join(' · ') || '—'}</bdi>
+                      {row.party ? (
+                        <>
+                          {' · '}
+                          {ar ? 'الضيف: ' : 'Guest: '}
+                          <bdi>{row.party}</bdi>
+                        </>
+                      ) : null}
+                    </span>
                   </div>
                   <span className={`pmh-badge pmh-badge--${TONE[status] ?? 'muted'}`}>
                     {domainStatusLabel(status, locale)}
                   </span>
                 </div>
                 <div className="deposit-ledger__item-body">
-                  <DepositReconciliation
-                    row={row}
-                    locale={locale}
-                    hideNote={Boolean(row.refundStatus)}
-                    onError={(message) => setNotice({ tone: 'error', text: message })}
-                  />
-                  {row.refundStatus ? (
-                    <DepositRefundCell
-                      row={{ ...row, kind: 'deposit_refund' }}
+                  <section className="deposit-ledger__panel">
+                    <h3 className="deposit-ledger__panel-title">{ar ? 'التسوية' : 'Settlement'}</h3>
+                    <DepositReconciliation
+                      row={row}
                       locale={locale}
-                      receiptHref={
-                        row.refundReceipt && propertyId
-                          ? `/api/owner/properties/${encodeURIComponent(propertyId)}/records/refund-receipt/${id}`
-                          : null
-                      }
+                      hideNote={Boolean(row.refundStatus)}
+                      onError={(message) => setNotice({ tone: 'error', text: message })}
                     />
+                  </section>
+                  {row.refundStatus ? (
+                    <section className="deposit-ledger__panel deposit-ledger__panel--refund">
+                      <h3 className="deposit-ledger__panel-title">
+                        {ar ? 'تفاصيل الاسترداد' : 'Refund details'}
+                      </h3>
+                      <DepositRefundCell
+                        row={{ ...row, kind: 'deposit_refund' }}
+                        locale={locale}
+                        receiptHref={
+                          row.refundReceipt && propertyId
+                            ? `/api/owner/properties/${encodeURIComponent(propertyId)}/records/refund-receipt/${id}`
+                            : null
+                        }
+                      />
+                    </section>
                   ) : null}
                   <DepositClaimsAdmin
                     claims={claims[id] ?? []}
