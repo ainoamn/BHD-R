@@ -9,6 +9,8 @@ import { loadBookingContacts, type BookingContactsForViewer } from '@/lib/bookin
 import { depositForMode } from '@/lib/booking-deposit';
 import { loadBookingTermsForUnit } from '@/lib/booking-terms-neon';
 import { localizedName } from '@/lib/format';
+import { loadMinLeaseMonthsForUnit } from '@/lib/lease-min-term-neon';
+import { DEFAULT_MIN_LEASE_MONTHS } from '@/lib/reservation-party';
 import { loadPublicPropertyShowcaseFromNeon } from '@/lib/load-public-property-neon';
 import { loadPublicUnitFromNeon } from '@/lib/load-public-unit-neon';
 import { toPublicMediaSrc } from '@/lib/public-media-url';
@@ -123,6 +125,12 @@ export default async function BookUnitPage({
         )
       : null;
   const contacts = contactsResult?.status === 'ok' ? contactsResult.value : contactsFallback;
+  const minTermResult =
+    unit && hasDeposit && paymentEnabled
+      ? await withTimedResult(loadMinLeaseMonthsForUnit(unitId), 3_000, 'book-min-term')
+      : null;
+  const minLeaseMonths =
+    minTermResult?.status === 'ok' ? minTermResult.value : DEFAULT_MIN_LEASE_MONTHS;
 
   return (
     <section
@@ -264,6 +272,7 @@ export default async function BookUnitPage({
             salePriceMinor={unit.salePrice?.amountMinor ?? null}
             termsByMode={termsByMode}
             contacts={contacts}
+            minLeaseMonths={minLeaseMonths}
           />
         )}
       </div>

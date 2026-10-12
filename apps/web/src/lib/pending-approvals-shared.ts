@@ -15,7 +15,8 @@ export type PendingApprovalItem = {
     | 'deposit_refund'
     | 'refund_transfer'
     | 'deposit_claim'
-    | 'deposit_complaint';
+    | 'deposit_complaint'
+    | 'sale_decision';
   id: string;
   reference: string;
   propertyId: string;
@@ -71,6 +72,7 @@ export function pendingApprovalHref(portal: string, item: PendingApprovalItem): 
     return `/${portal}/accounting?focus=${encodeURIComponent(item.id)}#deposits`;
   }
   if (item.kind === 'deposit_complaint') return '/site-admin';
+  if (item.kind === 'sale_decision') return `${base}?unit=${encodeURIComponent(item.id)}`;
   return `${base}?section=bookings`;
 }
 
@@ -132,6 +134,11 @@ export function pendingApprovalTitle(item: PendingApprovalItem, ar: boolean): st
   }
   if (item.kind === 'deposit_complaint') {
     return ar ? 'شكوى تأمين لدى إدارة الموقع' : 'Deposit complaint for the site administration';
+  }
+  if (item.kind === 'sale_decision') {
+    return ar
+      ? 'تم تأجير الوحدة — هل ما زلت تريد بيعها؟'
+      : 'Unit leased — do you still want to sell it?';
   }
   if (item.contractType === 'sale') {
     return ar ? 'عقد بيع بانتظار اعتمادك' : 'Sale contract awaiting your approval';

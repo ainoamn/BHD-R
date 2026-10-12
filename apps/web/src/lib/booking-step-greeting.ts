@@ -94,7 +94,7 @@ export function stayCheckoutGreeting(
 
 /** Monthly rent or purchase deposit: terms, details, review, payment. */
 export function leaseCheckoutGreeting(
-  step: 'terms' | 'details' | 'review' | 'payment',
+  step: 'terms' | 'details' | 'party' | 'review' | 'payment',
   { ar, sale, name }: { ar: boolean; sale: boolean; name: string },
 ): BookingStepGreeting {
   const home = ar
@@ -136,6 +136,20 @@ export function leaseCheckoutGreeting(
             status: 'Preparing your details',
             heading: name ? `Lovely to meet you, ${name}!` : 'Lovely to meet you!',
             body: 'We need your details so the owner can reach you and the contract is issued in your name. They stay safe and only those serving your booking see them.',
+          };
+    case 'party':
+      return ar
+        ? {
+            kind: 'details',
+            status: sale ? 'نجهّز بيانات عقد البيع' : 'نجهّز بيانات عقد الإيجار',
+            heading: sale ? 'من سيُكتب العقد باسمه؟' : 'لمن سيكون عقد الإيجار؟',
+            body: 'أدخل بيانات الطرف المتعاقد مرة واحدة فقط، وستنتقل كما هي إلى العقد دون أن يعيد المالك كتابتها.',
+          }
+        : {
+            kind: 'details',
+            status: sale ? 'Preparing the sale contract' : 'Preparing the lease contract',
+            heading: sale ? 'Who is the contract for?' : 'Who will the lease be with?',
+            body: 'Enter the contracting party once; it goes into the contract as is, without the owner retyping it.',
           };
     case 'review':
       return ar

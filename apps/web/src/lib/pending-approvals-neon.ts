@@ -34,6 +34,7 @@ import {
   loadOpenComplaintQueue,
   type DepositClaimQueueRow,
 } from '@/lib/stay-deposit-claims-neon';
+import { canDecideUnitSale, listSaleDecisionUnits } from '@/lib/unit-sale-decision-neon';
 import { withTimeoutFallback } from '@/lib/with-timeout';
 
 const ITEM_LIMIT = 50;
@@ -78,6 +79,7 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
   const canManageReservations = hasPermission(claims, 'reservation.manage');
   const canDecideRefunds = canDecideDepositRefunds(claims);
   const canPayRefunds = canPayDepositRefunds(claims);
+  const canDecideSale = canDecideUnitSale(claims);
   const complaints = (
     await loadOpenComplaintQueue(claims, ITEM_LIMIT).catch(() => [] as DepositClaimQueueRow[])
   ).map((row) => queueItem('deposit_complaint', row, row.claimId));
@@ -87,7 +89,8 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
       !canManageBookings &&
       !canManageReservations &&
       !canDecideRefunds &&
-      !canPayRefunds)
+      !canPayRefunds &&
+      !canDecideSale)
   ) {
     return complaints.length
       ? {
@@ -202,13 +205,18 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
     const claimQuery = canDecideRefunds
       ? loadOpenClaimQueue(tx, orgId, { ownerPartyId, limit: ITEM_LIMIT })
       : Promise.resolve([]);
-    const [contractRows, bookingRows, reservationRows, refundRows, claimRows] = await Promise.all([
-      contractQuery,
-      bookingQuery,
-      reservationQuery,
-      refundQuery,
-      claimQuery,
-    ]);
+    const saleQuery = canDecideSale
+      ? listSaleDecisionUnits(tx, orgId, { ownerPartyId, limit: ITEM_LIMIT })
+      : Promise.resolve([]);
+    const [contractRows, bookingRows, reservationRows, refundRows, claimRows, saleRows] =
+      await Promise.all([
+        contractQuery,
+        bookingQuery,
+        reservationQuery,
+        refundQuery,
+        claimQuery,
+        saleQuery,
+      ]);
     const depositItems = [
       ...claimRows.map((row) => queueItem('deposit_claim', row, row.bookingId)),
       ...complaints,
@@ -286,6 +294,19 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
         currency: row.currency,
       })),
       ...depositItems,
+      ...saleRows.map((row) => ({
+        kind: 'sale_decision' as const,
+        id: row.unitId,
+        reference: row.unitCode ?? row.unitId.slice(0, 8).toUpperCase(),
+        propertyId: row.propertyId,
+        propertyNameAr: row.propertyNameAr,
+        propertyNameEn: row.propertyNameEn,
+        unitCode: row.unitCode,
+        party: row.tenant,
+        contractType: 'sale' as const,
+        fromOn: null,
+        requestedAt: row.leasedSince,
+      })),
     ].sort((a, b) => a.requestedAt.localeCompare(b.requestedAt));
 
     return {

@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { LeaseJourneyCard } from '@/components/lease-journey';
+import { PropertyLocationMap } from '@/components/property-location-map';
 import { StayJourneyProvider, StayJourneySteps } from '@/components/stays/stay-journey';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { formatMoney, localizedName } from '@/lib/format';
@@ -17,6 +18,7 @@ import {
 } from '@/lib/lease-journey-screens';
 import { leasePhaseLabel, phaseWaitsOn } from '@/lib/lease-reservation-lifecycle';
 import { loadLeaseBookingForViewer, leasePaymentPath } from '@/lib/public-lease-booking-neon';
+import { partyDisplayName } from '@/lib/reservation-party';
 import { getViewer } from '@/lib/viewer';
 
 export const dynamic = 'force-dynamic';
@@ -199,10 +201,22 @@ export default async function LeaseBookingConfirmedPage({
                   <dt>{ar ? 'رقم الحجز' : 'Reference'}</dt>
                   <dd dir="ltr">{booking.referenceCode}</dd>
                 </div>
-                {forOther ? (
+                {forOther || booking.party ? (
                   <div>
                     <dt>{sale ? (ar ? 'المشتري' : 'Buyer') : ar ? 'المستأجر' : 'Tenant'}</dt>
-                    <dd>{booking.contact.fullName}</dd>
+                    <dd>
+                      {booking.party
+                        ? partyDisplayName(booking.party, ar)
+                        : booking.contact.fullName}
+                    </dd>
+                  </div>
+                ) : null}
+                {!sale && booking.party?.termMonths ? (
+                  <div>
+                    <dt>{ar ? 'مدة العقد المطلوبة' : 'Requested term'}</dt>
+                    <dd>
+                      {booking.party.termMonths} {ar ? 'شهراً' : 'months'}
+                    </dd>
                   </div>
                 ) : null}
                 <div>
@@ -271,6 +285,13 @@ export default async function LeaseBookingConfirmedPage({
                 ) : null}
               </dl>
             </section>
+
+            {booking.location ? (
+              <section className="guest-stay-detail__card">
+                <h2>{ar ? 'موقع العقار' : 'Property location'}</h2>
+                <PropertyLocationMap location={booking.location} locale={locale} />
+              </section>
+            ) : null}
 
             <div className="guest-stay-detail__docs">
               {paid ? (

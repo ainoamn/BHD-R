@@ -35,6 +35,8 @@ import type { StayRefundMoment } from '@/lib/stay-guest-greeting';
 import { StayDepositClaims } from '@/components/stays/stay-deposit-claims';
 import type { DepositClaimView } from '@/lib/stay-deposit-claims';
 import { loadComplaintWhatsapp } from '@/lib/stay-deposit-claims-neon';
+import { loadStayBookingLocation } from '@/lib/stay-booking-location-neon';
+import { PropertyLocationMap } from '@/components/property-location-map';
 
 type GuestBooking = {
   id: string;
@@ -237,6 +239,9 @@ export default async function GuestStayDetailPage({
     DEPARTED_STATUSES.has(booking.status) && hasDatabaseUrl()
       ? await loadGuestReviewState(booking.id).catch(() => null)
       : null;
+  const location = hasDatabaseUrl()
+    ? await loadStayBookingLocation(booking.id).catch(() => null)
+    : null;
   const refund = booking.depositRefund ?? null;
   const depositClaims = booking.depositClaims ?? [];
   const escalated = depositClaims.find((claim) => claim.status === 'escalated');
@@ -610,6 +615,12 @@ export default async function GuestStayDetailPage({
                 ) : null}
               </dl>
             </section>
+            {location ? (
+              <section className="guest-stay-detail__card">
+                <h2>{ar ? 'موقع العقار' : 'Property location'}</h2>
+                <PropertyLocationMap location={location} locale={locale} />
+              </section>
+            ) : null}
             {needsEsign ? (
               <Link
                 className="button button--primary guest-stay-detail__esign"

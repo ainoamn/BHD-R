@@ -14,7 +14,9 @@ import {
 } from '@/lib/property-ops-pulse-neon';
 import { ApiError, apiFetch } from '@/lib/server-api';
 import { isStaysPlatformEnabled } from '@/lib/stays-flags';
+import { loadPropertySaleDecisions, type SaleDecisionUnit } from '@/lib/unit-sale-decision-neon';
 import { requirePortal } from '@/lib/viewer';
+import { UnitSaleDecisionPrompt } from '@/components/unit-sale-decision-prompt';
 
 function sessionSecret(): Uint8Array {
   return requireSessionSecret();
@@ -42,13 +44,18 @@ async function Page({
       }).catch(() => emptyPropertyOpsPulse())
     : Promise.resolve(emptyPropertyOpsPulse());
 
+  let saleDecisions: SaleDecisionUnit[] = [];
   // Prefer Neon for complete profile/maps/gallery when configured.
   if (neonOrgId) {
     const token = (await cookies()).get('bhd_r_session')?.value;
     if (token) {
       try {
         const claims = await verifySessionToken(token, sessionSecret());
+        const decisions = loadPropertySaleDecisions(claims, propertyId).catch(
+          () => [] as SaleDecisionUnit[],
+        );
         await ensurePublishedListingsMatchFlags(claims, propertyId);
+        saleDecisions = await decisions;
       } catch {
         /* ignore heal failures */
       }
@@ -80,14 +87,19 @@ async function Page({
       : undefined;
 
   return (
-    <PropertyDetailManager
-      property={property}
-      locale={locale}
-      portal="owner"
-      staysEnabled={isStaysPlatformEnabled()}
-      opsPulse={opsPulse}
-      {...(focusUnitId ? { focusUnitId } : {})}
-    />
+    <>
+      {saleDecisions.length ? (
+        <UnitSaleDecisionPrompt units={saleDecisions} locale={locale} />
+      ) : null}
+      <PropertyDetailManager
+        property={property}
+        locale={locale}
+        portal="owner"
+        staysEnabled={isStaysPlatformEnabled()}
+        opsPulse={opsPulse}
+        {...(focusUnitId ? { focusUnitId } : {})}
+      />
+    </>
   );
 }
 

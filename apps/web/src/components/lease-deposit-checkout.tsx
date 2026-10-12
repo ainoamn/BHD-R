@@ -2,6 +2,13 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
+import { InternationalPhoneField } from '@/components/international-phone-field';
+import {
+  ReservationPartyForm,
+  buildReservationParty,
+  emptyPartyForm,
+  type PartyForm,
+} from '@/components/reservation-party-form';
 import { BookingStepScene } from '@/components/stays/booking-step-scene';
 import { TermsAcceptance } from '@/components/terms-acceptance';
 import { ApiError, fetchBrowserCsrfToken, humanizeBrowserError } from '@/lib/api';
@@ -9,10 +16,21 @@ import type { BookingContactsForViewer, BookingFor } from '@/lib/booking-contact
 import { greetingName, leaseCheckoutGreeting } from '@/lib/booking-step-greeting';
 import { bookingTermsDocument, type BookingTermsForCheckout } from '@/lib/booking-terms';
 import { formatMoney } from '@/lib/format';
+import { partyDisplayName, partyErrorText, type ReservationParty } from '@/lib/reservation-party';
 import { isValidGuestPhone } from '@/lib/stay-booking-dates';
+import { countryName, toInternationalPhone } from '@/lib/world-countries';
 
 type Mode = 'rent' | 'sale';
-type Step = 'terms' | 'details' | 'review' | 'payment';
+type Step = 'terms' | 'details' | 'party' | 'review' | 'payment';
+
+const ARABIC = /[\u0600-\u06FF]/;
+const PARTY_ERRORS = new Set([
+  'tenant_details_invalid',
+  'passport_required',
+  'cr_expired',
+  'cr_expiring_soon',
+  'term_too_short',
+]);
 type ContactForm = { fullName: string; phone: string; email: string };
 
 const EMPTY_CONTACT: ContactForm = { fullName: '', phone: '', email: '' };
@@ -67,6 +85,7 @@ export function LeaseDepositCheckout({
   salePriceMinor,
   termsByMode,
   contacts,
+  minLeaseMonths,
 }: {
   locale: 'ar' | 'en';
   unitId: string;
@@ -80,6 +99,8 @@ export function LeaseDepositCheckout({
   salePriceMinor: string | null;
   termsByMode: Partial<Record<Mode, BookingTermsForCheckout>>;
   contacts: BookingContactsForViewer;
+  /** Shortest lease the owner accepts, in months (one year unless the owner set otherwise). */
+  minLeaseMonths: number;
 }) {
   const router = useRouter();
   const ar = locale === 'ar';
@@ -89,9 +110,11 @@ export function LeaseDepositCheckout({
   const [bookingFor, setBookingFor] = useState<BookingFor>('self');
   const [selfForm, setSelfForm] = useState<ContactForm>({
     fullName: contacts.self.fullName,
-    phone: contacts.self.phone ?? '',
+    phone: toInternationalPhone(contacts.self.phone),
     email: contacts.self.email ?? '',
   });
+  const [partyForm, setPartyForm] = useState<PartyForm>(() => emptyPartyForm(minLeaseMonths));
+  const [party, setParty] = useState<ReservationParty | null>(null);
   const [otherForm, setOtherForm] = useState<ContactForm>(EMPTY_CONTACT);
   const [savedContactId, setSavedContactId] = useState<string>(NEW_CONTACT);
   const [saveContact, setSaveContact] = useState(true);
@@ -100,10 +123,10 @@ export function LeaseDepositCheckout({
   const selectedSaved = contacts.saved.find((row) => row.id === savedContactId) ?? null;
   const formChanged =
     bookingFor === 'self'
-      ? phone.trim() !== (contacts.self.phone ?? '').trim()
+      ? phone.trim() !== toInternationalPhone(contacts.self.phone)
       : !selectedSaved ||
         fullName.trim() !== selectedSaved.fullName.trim() ||
-        phone.trim() !== (selectedSaved.phone ?? '').trim() ||
+        phone.trim() !== toInternationalPhone(selectedSaved.phone) ||
         email.trim() !== (selectedSaved.email ?? '').trim();
   const offerSave = contacts.canSave && formChanged;
   const [checkout, setCheckout] = useState<CheckoutResult | null>(null);
@@ -143,6 +166,7 @@ export function LeaseDepositCheckout({
   const steps: { id: Step; label: string }[] = [
     { id: 'terms', label: ar ? 'الشروط' : 'Terms' },
     { id: 'details', label: ar ? 'بياناتك' : 'Your details' },
+    { id: 'party', label: ar ? 'بيانات العقد' : 'Contract details' },
     { id: 'review', label: ar ? 'المراجعة' : 'Review' },
     { id: 'payment', label: ar ? 'الدفع' : 'Payment' },
   ];
@@ -174,7 +198,11 @@ export function LeaseDepositCheckout({
     const row = contacts.saved.find((item) => item.id === id);
     setOtherForm(
       row
-        ? { fullName: row.fullName, phone: row.phone ?? '', email: row.email ?? '' }
+        ? {
+            fullName: row.fullName,
+            phone: toInternationalPhone(row.phone),
+            email: row.email ?? '',
+          }
         : EMPTY_CONTACT,
     );
     setSaveContact(false);
@@ -191,10 +219,40 @@ export function LeaseDepositCheckout({
       setError(ar ? 'رقم الهاتف إلزامي (٨–١٥ رقماً)' : 'Phone is required (8–15 digits)');
       return;
     }
-    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setError(ar ? 'البريد الإلكتروني غير صالح' : 'Email is invalid');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError(ar ? 'البريد الإلكتروني إلزامي وبصيغة صحيحة' : 'A valid email is required');
       return;
     }
+    // First visit to the contract step: start the person from the contact just entered.
+    setPartyForm((current) => {
+      const person = current.person;
+      if (person.nameAr || person.nameEn || person.phone || person.email) return current;
+      const name = fullName.trim();
+      return {
+        ...current,
+        person: {
+          ...person,
+          ...(ARABIC.test(name) ? { nameAr: name } : { nameEn: name }),
+          phone: phone.trim(),
+          email: email.trim(),
+        },
+      };
+    });
+    setStep('party');
+  }
+
+  function continueFromParty() {
+    const built = buildReservationParty(partyForm, {
+      holder: bookingFor,
+      mode,
+      minMonths: minLeaseMonths,
+      ar,
+    });
+    if ('error' in built) {
+      setError(built.error);
+      return;
+    }
+    setParty(built.party);
     setStep('review');
   }
 
@@ -205,6 +263,10 @@ export function LeaseDepositCheckout({
 
   function confirmAndPay() {
     setConfirmOpen(false);
+    if (!party) {
+      setStep('party');
+      return;
+    }
     startTransition(async () => {
       setError(null);
       setStepHint(ar ? 'حجز الوحدة مؤقتاً…' : 'Holding the unit…');
@@ -219,6 +281,7 @@ export function LeaseDepositCheckout({
           termsAccepted: true,
           termsRef,
           bookingFor,
+          party,
           saveContact: offerSave && saveContact,
           ...(bookingFor === 'other' && selectedSaved ? { savedContactId: selectedSaved.id } : {}),
         });
@@ -253,6 +316,11 @@ export function LeaseDepositCheckout({
               ? 'حدّث المالك الشروط والأحكام — راجعها حتى النهاية ووافق عليها مجدداً.'
               : 'The owner updated the terms — read them to the end and accept again.',
           );
+          return;
+        }
+        if (caught instanceof ApiError && PARTY_ERRORS.has(caught.code)) {
+          setStep('party');
+          setError(partyErrorText(caught.code, ar));
           return;
         }
         setError(humanizeBrowserError(caught, ar));
@@ -479,28 +547,26 @@ export function LeaseDepositCheckout({
                 autoComplete={bookingFor === 'self' ? 'name' : 'off'}
               />
             </div>
-            <div className="field">
-              <label htmlFor="lease-book-phone">
-                {ar ? 'الهاتف (إلزامي)' : 'Phone (required)'}
-              </label>
-              <input
-                className="input"
-                id="lease-book-phone"
-                type="tel"
-                required
-                value={phone}
-                onChange={(event) => updateForm({ phone: event.target.value })}
-                autoComplete={bookingFor === 'self' ? 'tel' : 'off'}
-                dir="ltr"
-                placeholder={ar ? 'مثال: 9689xxxxxxx' : 'e.g. 9689xxxxxxx'}
-              />
-            </div>
+            <InternationalPhoneField
+              key={`${bookingFor}:${savedContactId}`}
+              id="lease-book-phone"
+              label={ar ? 'الهاتف' : 'Phone'}
+              value={phone}
+              onChange={(next) => updateForm({ phone: next })}
+              locale={locale}
+              required
+              autoComplete={bookingFor === 'self' ? 'tel' : 'off'}
+            />
             <div className="field stays-checkout__name">
-              <label htmlFor="lease-book-email">{ar ? 'البريد الإلكتروني' : 'Email'}</label>
+              <label htmlFor="lease-book-email">
+                {ar ? 'البريد الإلكتروني' : 'Email'}
+                <span aria-hidden="true"> *</span>
+              </label>
               <input
                 className="input"
                 id="lease-book-email"
                 type="email"
+                required
                 value={email}
                 onChange={(event) => updateForm({ email: event.target.value })}
                 autoComplete={bookingFor === 'self' ? 'email' : 'off'}
@@ -542,6 +608,52 @@ export function LeaseDepositCheckout({
         </div>
       ) : null}
 
+      {step === 'party' ? (
+        <div className="stays-checkout__panel">
+          <h3>
+            {mode === 'sale'
+              ? ar
+                ? 'بيانات المشتري وعقد البيع'
+                : 'Buyer & sale contract details'
+              : ar
+                ? 'بيانات المستأجر وعقد الإيجار'
+                : 'Tenant & lease details'}
+          </h3>
+          <p className="muted stays-checkout__hint">
+            {bookingFor === 'self'
+              ? ar
+                ? `${mode === 'sale' ? 'المشتري' : 'المستأجر'} هو أنت — أكمل بياناتك كما في الهوية.`
+                : `You are the ${mode === 'sale' ? 'buyer' : 'tenant'} — complete your details as on your ID.`
+              : ar
+                ? `${mode === 'sale' ? 'المشتري' : 'المستأجر'} شخص آخر — حدّد إن كان فرداً أو شركة وأدخل بياناته.`
+                : `The ${mode === 'sale' ? 'buyer' : 'tenant'} is someone else — choose individual or company and enter their details.`}
+          </p>
+          <ReservationPartyForm
+            value={partyForm}
+            onChange={(next) => {
+              setError(null);
+              setPartyForm(next);
+            }}
+            holder={bookingFor}
+            mode={mode}
+            minMonths={minLeaseMonths}
+            locale={locale}
+          />
+          <div className="stays-checkout__nav">
+            <button
+              type="button"
+              className="button button--quiet"
+              onClick={() => setStep('details')}
+            >
+              {ar ? 'رجوع' : 'Back'}
+            </button>
+            <button type="button" className="button button--primary" onClick={continueFromParty}>
+              {ar ? 'متابعة' : 'Continue'}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {step === 'review' ? (
         <div className="stays-checkout__panel">
           <h3>{ar ? 'مراجعة الحجز' : 'Review your booking'}</h3>
@@ -574,6 +686,42 @@ export function LeaseDepositCheckout({
               <dt>{ar ? 'الهاتف' : 'Phone'}</dt>
               <dd dir="ltr">{phone}</dd>
             </div>
+            {party ? (
+              <>
+                <div>
+                  <dt>
+                    {mode === 'sale' ? (ar ? 'المشتري' : 'Buyer') : ar ? 'المستأجر' : 'Tenant'}
+                  </dt>
+                  <dd>
+                    {partyDisplayName(party, ar)}
+                    {' · '}
+                    {party.entityType === 'company'
+                      ? ar
+                        ? 'شركة'
+                        : 'Company'
+                      : party.person
+                        ? countryName(party.person.nationality, locale)
+                        : ''}
+                  </dd>
+                </div>
+                {mode === 'rent' ? (
+                  <div>
+                    <dt>{ar ? 'نوع العقد ومدته' : 'Contract type & term'}</dt>
+                    <dd>
+                      {party.contractType === 'commercial'
+                        ? ar
+                          ? 'تجاري'
+                          : 'Commercial'
+                        : ar
+                          ? 'سكني'
+                          : 'Residential'}
+                      {' · '}
+                      {party.termMonths} {ar ? 'شهراً' : 'months'}
+                    </dd>
+                  </div>
+                ) : null}
+              </>
+            ) : null}
             <div>
               <dt>{priceLabel}</dt>
               <dd dir="ltr">{price ?? '—'}</dd>
@@ -591,11 +739,7 @@ export function LeaseDepositCheckout({
               : 'The property is reserved for you only after the deposit is paid; you then sign the contract and attach documents.'}
           </p>
           <div className="stays-checkout__nav">
-            <button
-              type="button"
-              className="button button--quiet"
-              onClick={() => setStep('details')}
-            >
+            <button type="button" className="button button--quiet" onClick={() => setStep('party')}>
               {ar ? 'رجوع' : 'Back'}
             </button>
             <button

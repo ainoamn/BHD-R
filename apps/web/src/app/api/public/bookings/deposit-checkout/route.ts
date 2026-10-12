@@ -6,6 +6,7 @@ import { normalizeTermsRef } from '@/lib/booking-terms';
 import { leaseBookingErrorResponse, leaseBookingJson } from '@/lib/lease-booking-route';
 import { requireLiveSession } from '@/lib/next-route-guard';
 import { createLeaseBookingCheckout } from '@/lib/public-lease-booking-neon';
+import { reservationPartySchema } from '@/lib/reservation-party';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 import { isValidGuestPhone } from '@/lib/stay-booking-dates';
 
@@ -19,11 +20,12 @@ const bodySchema = z
     locale: z.enum(['ar', 'en']).default('ar'),
     fullName: z.string().trim().min(2).max(160),
     phone: z.string().trim().max(32).refine(isValidGuestPhone),
-    email: z.union([z.string().trim().email().max(320), z.literal('')]).optional(),
+    email: z.string().trim().email().max(320),
     termsAccepted: z.literal(true),
     termsRef: z.string().max(60).optional(),
     termsVersion: z.number().int().min(0).max(1_000_000).optional(),
     bookingFor: z.enum(['self', 'other']).default('self'),
+    party: reservationPartySchema,
     saveContact: z.boolean().default(false),
     savedContactId: z.string().uuid().optional(),
   })
@@ -68,8 +70,16 @@ export async function POST(request: Request) {
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
+    const partyIssue = parsed.error.issues.some((issue) => issue.path[0] === 'party');
     return leaseBookingJson(
-      { error: { code: 'invalid_body', messageAr: 'تحقق من البيانات المدخلة.' } },
+      {
+        error: partyIssue
+          ? {
+              code: 'tenant_details_invalid',
+              messageAr: 'أكمل بيانات المستأجر أو المشتري بشكل صحيح.',
+            }
+          : { code: 'invalid_body', messageAr: 'تحقق من البيانات المدخلة.' },
+      },
       { status: 400 },
     );
   }
@@ -84,6 +94,7 @@ export async function POST(request: Request) {
       email: parsed.data.email || null,
       termsRef: normalizeTermsRef(parsed.data.termsRef, parsed.data.termsVersion) ?? 'default',
       bookingFor: parsed.data.bookingFor,
+      party: parsed.data.party,
     });
     let contactSaved = false;
     if (parsed.data.saveContact) {

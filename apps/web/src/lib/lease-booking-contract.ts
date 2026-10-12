@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { formatMoney } from '@/lib/format';
 import { bookingTermsDocument, termsBlocksFromStored } from '@/lib/booking-terms';
 import type { ContractDocument } from '@/lib/contract-document';
+import { partyToLeaseTenant } from '@/lib/reservation-party';
 import type { loadLeaseBookingAgreement } from '@/lib/public-lease-booking-neon';
 import type { ContractArticleHead } from '@/components/contract-document-view';
 
@@ -40,6 +41,8 @@ export function leaseBookingAgreement(booking: LeaseBookingAgreement): {
   const signature = booking.signature;
   const ownerName = booking.owner?.displayName ?? '—';
   const premises = booking.premises;
+  const partyCard = booking.party ? partyToLeaseTenant(booking.party) : null;
+  const tenantName = partyCard?.nameAr || booking.contact.fullName;
 
   const head: ContractArticleHead = {
     reference: booking.referenceCode,
@@ -51,7 +54,7 @@ export function leaseBookingAgreement(booking: LeaseBookingAgreement): {
     documentHash: null,
     parties: {
       owner: { id: '', displayName: ownerName },
-      tenant: { id: '', displayName: booking.contact.fullName },
+      tenant: { id: '', displayName: tenantName },
     },
     property: { id: '', nameAr: booking.propertyNameAr, nameEn: booking.propertyNameEn },
     unit: {
@@ -93,18 +96,31 @@ export function leaseBookingAgreement(booking: LeaseBookingAgreement): {
           email: booking.owner.email,
         }
       : null,
-    tenant: {
-      name: booking.contact.fullName,
-      entityType: 'person',
-      civilId: null,
-      passport: null,
-      nationality: null,
-      crNumber: null,
-      signatoryName: null,
-      signatoryCivilId: null,
-      phone: booking.contact.phone,
-      email: booking.contact.email,
-    },
+    tenant: partyCard
+      ? {
+          name: partyCard.nameAr,
+          entityType: partyCard.entityType,
+          civilId: partyCard.civilId || null,
+          passport: partyCard.passport || null,
+          nationality: partyCard.nationality || null,
+          crNumber: partyCard.crNumber || null,
+          signatoryName: partyCard.signatoryName || null,
+          signatoryCivilId: partyCard.signatoryCivilId || null,
+          phone: partyCard.phone,
+          email: partyCard.email,
+        }
+      : {
+          name: booking.contact.fullName,
+          entityType: 'person',
+          civilId: null,
+          passport: null,
+          nationality: null,
+          crNumber: null,
+          signatoryName: null,
+          signatoryCivilId: null,
+          phone: booking.contact.phone,
+          email: booking.contact.email,
+        },
     premises: premises
       ? {
           propertyNameAr: premises.propertyNameAr,

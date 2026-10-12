@@ -34,8 +34,14 @@ import {
   lifecycleOf,
   type ReservationLifecycle,
 } from '@/lib/lease-reservation-lifecycle';
+import { effectiveMinLeaseMonths } from '@/lib/lease-min-term-neon';
 import { ownerPartyScope } from '@/lib/portal-ops-data';
 import { loadPropertyLocation } from '@/lib/property-location-neon';
+import {
+  parseReservationParty,
+  reservationPartyError,
+  type ReservationParty,
+} from '@/lib/reservation-party';
 import { readUnitSaleDeposits } from '@/lib/unit-sale-deposit-neon';
 
 export const LEASE_BOOKING_FLOW = 'public_deposit_v1';
@@ -60,6 +66,8 @@ export type LeaseBookingSnapshot = {
   rentMinor: string | null;
   salePriceMinor: string | null;
   contact: { fullName: string; phone: string; email: string | null };
+  /** Tenant or buyer details the customer filled in; prefills the final contract. */
+  party?: ReservationParty;
   /** `other` when the account holder books on behalf of the person in `contact`. */
   bookingFor?: 'self' | 'other';
   bookedBy?: { userId: string; displayName: string; email: string | null };
@@ -149,6 +157,31 @@ const ERRORS = {
     400,
     'الملف غير مدعوم أو كبير جداً — أرسل صورة أو PDF بحجم أصغر.',
     'Unsupported or too large — send an image or a PDF under the size limit.',
+  ],
+  tenant_details_invalid: [
+    400,
+    'أكمل بيانات المستأجر أو المشتري بشكل صحيح.',
+    'Complete the tenant or buyer details correctly.',
+  ],
+  passport_required: [
+    400,
+    'رقم الجواز إلزامي لغير العمانيين.',
+    'A passport number is required for non-Omanis.',
+  ],
+  cr_expired: [
+    400,
+    'السجل التجاري منتهٍ — يجب تجديده أولاً.',
+    'The commercial registration has expired — renew it first.',
+  ],
+  cr_expiring_soon: [
+    400,
+    'السجل التجاري ينتهي خلال أقل من شهرين — يجب تجديده أولاً.',
+    'The commercial registration expires in under two months — renew it first.',
+  ],
+  term_too_short: [
+    400,
+    'مدة العقد أقل من الحد الأدنى الذي حدده المالك.',
+    'The contract term is shorter than the owner’s minimum.',
   ],
 } as const satisfies Record<string, readonly [number, string, string]>;
 
@@ -272,6 +305,7 @@ export type LeaseCheckoutInput = {
   /** Reference of the terms shown to the customer (`property:n`, `organization:n`, or `default`). */
   termsRef: string;
   bookingFor: 'self' | 'other';
+  party: ReservationParty;
 };
 
 export async function createLeaseBookingCheckout(claims: SessionClaims, input: LeaseCheckoutInput) {
@@ -331,6 +365,18 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
     const assertTermsCurrent = () => {
       if (resolvedTerms.ref !== input.termsRef) fail('terms_changed');
     };
+    const partyError = reservationPartyError(input.party, {
+      mode: input.mode,
+      minMonths: await effectiveMinLeaseMonths(
+        transaction,
+        preview.organizationId,
+        preview.propertyId,
+      ),
+      today: new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Muscat' }).format(new Date()),
+    });
+    if (partyError) fail(partyError);
+    const bookingParty: ReservationParty =
+      input.mode === 'sale' ? { ...input.party, contractType: null, termMonths: null } : input.party;
 
     const now = new Date();
     const contact = {
@@ -382,6 +428,7 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
         depositMinor,
         locale: input.locale,
         contact,
+        party: bookingParty,
         ...booker,
         termsVersion: LEASE_BOOKING_TERMS_VERSION,
         termsAcceptedAt: now.toISOString(),
@@ -436,6 +483,7 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
       rentMinor: unit.rentMinor?.toString() ?? null,
       salePriceMinor: preview.salePriceMinor?.toString() ?? null,
       contact,
+      party: bookingParty,
       ...booker,
       termsVersion: LEASE_BOOKING_TERMS_VERSION,
       termsAcceptedAt: now.toISOString(),
@@ -721,6 +769,7 @@ function leaseBookingView(match: LeaseReservationMatch) {
     rentMinor: snapshot.rentMinor,
     salePriceMinor: snapshot.salePriceMinor,
     contact: snapshot.contact,
+    party: parseReservationParty(snapshot.party),
     bookingFor: snapshot.bookingFor ?? 'self',
     bookedByName: snapshot.bookedBy?.displayName ?? null,
     termsAcceptedAt: snapshot.termsAcceptedAt,
@@ -741,7 +790,10 @@ export async function loadLeaseBookingForViewer(userId: string, referenceCode: s
     const match = await findLeaseReservation(transaction, 'referenceCode', normalized);
     if (!match) return null;
     await assertBookingOwner(transaction, userId, match.partyEmail);
-    return leaseBookingView(match);
+    const location = await withElevatedRead(transaction, () =>
+      loadPropertyLocation(transaction, match.organizationId, match.propertyId),
+    ).catch(() => null);
+    return { ...leaseBookingView(match), location };
   });
 }
 

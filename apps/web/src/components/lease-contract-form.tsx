@@ -30,6 +30,7 @@ import {
   minorDigitsFor,
   nextChequeNumber,
   parseMoney,
+  type ContractUse,
   type LeaseAdjustmentDraft,
   type LeaseDepositItemDraft,
   type LeaseTermsDraft,
@@ -203,6 +204,7 @@ export function LeaseContractForm({
   onCancel,
   initialTenant,
   initialTerms,
+  termsSeed,
   heading,
   submitLabel,
   footnote,
@@ -218,6 +220,8 @@ export function LeaseContractForm({
   initialTenant?: Partial<LeaseTenantDraft> | undefined;
   /** Terms saved earlier, to edit instead of starting over. */
   initialTerms?: LeaseTermsDraft | undefined;
+  /** Contract type and term the customer asked for, used when there is no saved draft yet. */
+  termsSeed?: { contractType?: ContractUse; months?: number } | undefined;
   heading?: string | undefined;
   submitLabel?: string | undefined;
   /** Replaces the note on who approves the contract. */
@@ -233,8 +237,20 @@ export function LeaseContractForm({
     ...EMPTY_TENANT,
     ...initialTenant,
   }));
-  const [draft, setDraft] = useState<LeaseTermsDraft>(() => initialTerms ?? initialDraft(units[0]));
-  const [months, setMonths] = useState('12');
+  const [draft, setDraft] = useState<LeaseTermsDraft>(() => {
+    if (initialTerms) return initialTerms;
+    const base = initialDraft(units[0]);
+    return {
+      ...base,
+      ...(termsSeed?.contractType
+        ? { contractType: termsSeed.contractType, usageType: termsSeed.contractType }
+        : {}),
+      ...(termsSeed?.months ? { endsOn: endDateForMonths(base.startsOn, termsSeed.months) } : {}),
+    };
+  });
+  const [months, setMonths] = useState(() =>
+    !initialTerms && termsSeed?.months ? String(termsSeed.months) : '12',
+  );
   const [localError, setLocalError] = useState<string | null>(null);
 
   const set = <K extends keyof LeaseTermsDraft>(key: K, value: LeaseTermsDraft[K]) =>

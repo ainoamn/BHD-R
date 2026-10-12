@@ -286,6 +286,7 @@ type CatalogueRow = {
   unit_cover_asset_id: string | null;
   building_cover_asset_id: string | null;
   occupancy: string;
+  reserved_until: Date | string | null;
   has_pool: boolean | null;
   parking_spaces: number | null;
   amenity_codes: string[] | null;
@@ -480,6 +481,26 @@ export async function searchPublicListingsFromNeon(
       )
     )`;
 
+    // Sold, leased (unless the owner kept it for sale) and owner-approved reservations leave the catalogue.
+    const takenClause = sql`and not exists (
+      select 1 from sales_deals sd_t
+      where sd_t.unit_id = u.id and sd_t.status::text = 'closed_won'
+    )
+    and not (
+      u.listing_purpose <> 'sale' and exists (
+        select 1 from leases le_t
+        where le_t.unit_id = u.id
+          and le_t.status::text in ('draft', 'active', 'cancel_requested', 'clearance_pending')
+      )
+    )
+    and not exists (
+      select 1 from reservations r_t
+      where r_t.unit_id = u.id
+        and r_t.status::text = 'confirmed'
+        and r_t.expires_at > now()
+        and r_t.terms_snapshot->'lifecycle'->'approval' is not null
+    )`;
+
     const result = await transaction.execute(sql`
       select
         l.id::text as listing_id,
@@ -542,7 +563,7 @@ export async function searchPublicListingsFromNeon(
             select 1 from sales_deals sd
             where sd.unit_id = u.id and sd.status::text = 'closed_won'
           ) then 'sold'
-          when exists (
+          when u.listing_purpose <> 'sale' and exists (
             select 1 from leases le
             where le.unit_id = u.id
               and le.status::text in ('draft', 'active', 'cancel_requested', 'clearance_pending')
@@ -558,6 +579,13 @@ export async function searchPublicListingsFromNeon(
           ) then 'reserved'
           else 'available'
         end as occupancy,
+        (
+          select max(r.expires_at)
+          from reservations r
+          where r.unit_id = u.id
+            and r.status::text = 'confirmed'
+            and r.expires_at > now()
+        ) as reserved_until,
         u.has_pool as has_pool,
         coalesce(pp.parking_spaces, 0) as parking_spaces,
         (
@@ -580,6 +608,7 @@ export async function searchPublicListingsFromNeon(
       where u.publish_when_available = true
         and p.status = 'active'
         and u.status in ('active', 'draft', 'inactive')
+        ${takenClause}
         ${dailyOnlyClause}
         ${countryClause}
         ${governorateClause}
@@ -724,6 +753,10 @@ export async function searchPublicListingsFromNeon(
         available: true as const,
         publishedAt: publishedAt.toISOString(),
         marketStatus,
+        reservedUntil:
+          marketStatus === 'reserved' && row.reserved_until
+            ? new Date(row.reserved_until).toISOString()
+            : null,
         hasPool: Boolean(row.has_pool),
         parkingSpaces: Number(row.parking_spaces) || 0,
         amenities: Array.isArray(row.amenity_codes) ? row.amenity_codes.filter(Boolean) : [],

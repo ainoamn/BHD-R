@@ -87,6 +87,12 @@ const KNOWN_CODES = new Set([
   'documents_incomplete',
   'contract_awaiting_counterparty',
   'handover_invalid',
+  'sale_decision_not_open',
+  'tenant_details_invalid',
+  'cr_expired',
+  'cr_expiring_soon',
+  'passport_required',
+  'term_too_short',
 ]);
 
 export function clientSafeErrorCode(error: unknown, fallback = 'request_failed'): string {
@@ -124,7 +130,14 @@ export function statusForSafeCode(code: string): number {
       return 409;
     case 'requirements_invalid':
     case 'handover_invalid':
+    case 'tenant_details_invalid':
+    case 'cr_expired':
+    case 'cr_expiring_soon':
+    case 'passport_required':
+    case 'term_too_short':
       return 400;
+    case 'sale_decision_not_open':
+      return 409;
     case 'team_role_not_allowed':
     case 'team_self_change':
     case 'team_owner_locked':

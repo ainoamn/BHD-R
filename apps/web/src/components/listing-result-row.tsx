@@ -4,13 +4,11 @@ import Image from 'next/image';
 import { BrandMark } from '@bhd-r/ui';
 import { Link } from '@/i18n/navigation';
 import { formatMoney } from '@/lib/format';
-import {
-  formatListingCardTitle,
-  formatListingLocation,
-} from '@/lib/listing-card-copy';
+import { formatListingCardTitle, formatListingLocation } from '@/lib/listing-card-copy';
 import {
   marketStatusFromPurpose,
   marketStatusLabel,
+  reservedUntilNote,
   type CatalogueListing,
 } from '@/lib/listing-market-status';
 import { toPublicMediaSrc } from '@/lib/public-media-url';
@@ -18,8 +16,7 @@ import { categoryLabel } from '@/lib/properties-browse-filters';
 import { listingPurposeCaption } from '@/lib/listing-purpose-display';
 
 function statusCopy(listing: CatalogueListing, locale: string): string {
-  const status =
-    listing.marketStatus ?? marketStatusFromPurpose(listing.listingPurpose);
+  const status = listing.marketStatus ?? marketStatusFromPurpose(listing.listingPurpose);
   const t = (key: string) => {
     const ar = locale === 'ar';
     const map: Record<string, [string, string]> = {
@@ -60,8 +57,7 @@ export function ListingResultRow({
     listing.salePrice != null
       ? formatMoney(listing.salePrice.amountMinor, listing.salePrice.currency, locale)
       : null;
-  const buildingHref =
-    isMulti && listing.propertyId ? `/properties/${listing.propertyId}` : null;
+  const buildingHref = isMulti && listing.propertyId ? `/properties/${listing.propertyId}` : null;
   const highlights: string[] = [];
   if (listing.hasPool || listing.amenities?.includes('pool')) {
     highlights.push(ar ? 'مسبح' : 'Pool');
@@ -76,17 +72,13 @@ export function ListingResultRow({
   }
   const rating =
     typeof listing.avgRating === 'number' && listing.avgRating > 0 ? listing.avgRating : null;
+  const reservedNote = reservedUntilNote(listing, locale);
 
   return (
     <article className="listing-row">
       <Link href={href} className="listing-row__media" aria-label={headline} prefetch>
         {coverSrc ? (
-          <Image
-            src={coverSrc}
-            alt={headline}
-            fill
-            sizes="(max-width: 760px) 100vw, 280px"
-          />
+          <Image src={coverSrc} alt={headline} fill sizes="(max-width: 760px) 100vw, 280px" />
         ) : (
           <div className="listing-row__placeholder" aria-hidden="true">
             <BrandMark tone="onDark" />
@@ -114,10 +106,13 @@ export function ListingResultRow({
               {listing.unitSerial}
             </p>
           ) : null}
-          {!isMulti ? (
-            <p className="listing-row__purpose">
-              {listingPurposeCaption(purpose, loc)}
+          {reservedNote ? (
+            <p className="listing-reserved-note" role="note">
+              {reservedNote}
             </p>
+          ) : null}
+          {!isMulti ? (
+            <p className="listing-row__purpose">{listingPurposeCaption(purpose, loc)}</p>
           ) : null}
           {buildingHref ? (
             <div className="listing-card__building-cta listing-row__building-cta">

@@ -3,6 +3,7 @@ import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import { ContractArticle, type ContractArticleLinks } from '@/components/contract-document-view';
 import { ContractDocumentToolbar } from '@/components/contract-document-toolbar';
 import { LeaseReservationWorkflow } from '@/components/lease-reservation-workflow';
+import { ReservationPartyCard } from '@/components/reservation-party-card';
 import { formatMoney } from '@/lib/format';
 import { leaseBookingAgreement, leaseContractTitle } from '@/lib/lease-booking-contract';
 import { leaseSignPath } from '@/lib/lease-booking-paths';
@@ -106,6 +107,7 @@ export function LeaseReservationDetail({
         lifecycle={booking.ownerLifecycle}
         unit={booking.formUnit}
         tenant={booking.formTenant}
+        party={booking.party}
         salePriceMinor={booking.salePriceMinor}
         currency={booking.currency}
         hasEsign={Boolean(signature)}
@@ -213,6 +215,10 @@ export function LeaseReservationDetail({
           </div>
         </dl>
       </section>
+
+      {booking.party ? (
+        <ReservationPartyCard party={booking.party} locale={locale} sale={sale} />
+      ) : null}
 
       <ContractDocumentToolbar
         ar={ar}

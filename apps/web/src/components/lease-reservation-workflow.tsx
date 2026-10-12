@@ -15,6 +15,7 @@ import {
   type ReservationRequirement,
 } from '@/lib/lease-reservation-lifecycle';
 import { minorDigitsFor, type LeaseTermsDraft } from '@/lib/lease-terms';
+import { partyToLeaseTenant, type ReservationParty } from '@/lib/reservation-party';
 import type { PropertyRecordTenant, PropertyRecordUnit } from '@/lib/property-records-neon';
 
 const ERROR_TEXT: Record<string, [string, string]> = {
@@ -58,6 +59,8 @@ type Props = {
   lifecycle: ReservationLifecycle;
   unit: PropertyRecordUnit;
   tenant: PropertyRecordTenant;
+  /** Tenant or buyer details the customer filled in while booking. */
+  party: ReservationParty | null;
   salePriceMinor: string | null;
   currency: string;
   hasEsign: boolean;
@@ -633,6 +636,7 @@ function ContractDraftEditor({
   lifecycle,
   unit,
   tenant,
+  party,
   salePriceMinor,
   currency,
   canSign,
@@ -779,14 +783,26 @@ function ContractDraftEditor({
         submitLabel={ar ? 'حفظ العقد والمستندات' : 'Save contract & documents'}
         footnote={footnote}
         initialTenant={{
-          entityType: tenant.type,
-          nameAr: tenant.displayName,
-          email: tenant.email ?? '',
-          phone: tenant.phone ?? '',
+          ...(party
+            ? partyToLeaseTenant(party)
+            : {
+                entityType: tenant.type,
+                nameAr: tenant.displayName,
+                email: tenant.email ?? '',
+                phone: tenant.phone ?? '',
+              }),
           ...savedTenant,
           partyId: tenant.id,
         }}
         initialTerms={savedLease?.terms}
+        termsSeed={
+          party?.contractType || party?.termMonths
+            ? {
+                ...(party.contractType ? { contractType: party.contractType } : {}),
+                ...(party.termMonths ? { months: party.termMonths } : {}),
+              }
+            : undefined
+        }
         onSubmit={(payload) =>
           void onSave({ action: 'save_contract', lease: payload, requirements })
         }

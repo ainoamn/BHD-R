@@ -4,13 +4,11 @@ import Image from 'next/image';
 import { BrandMark } from '@bhd-r/ui';
 import { Link } from '@/i18n/navigation';
 import { formatMoney, localizedName } from '@/lib/format';
-import {
-  formatListingCardTitle,
-  formatListingLocation,
-} from '@/lib/listing-card-copy';
+import { formatListingCardTitle, formatListingLocation } from '@/lib/listing-card-copy';
 import {
   marketStatusFromPurpose,
   marketStatusLabel,
+  reservedUntilNote,
   type CatalogueListing,
 } from '@/lib/listing-market-status';
 import { listingPurposeCaption } from '@/lib/listing-purpose-display';
@@ -63,9 +61,10 @@ export function ListingCatalogueCard({
     listing.salePrice != null
       ? formatMoney(listing.salePrice.amountMinor, listing.salePrice.currency, locale)
       : null;
+  const reservedNote = reservedUntilNote(listing, locale);
 
   return (
-    <article className="listing-card">
+    <article className={`listing-card${reservedNote ? ' listing-card--reserved' : ''}`}>
       <Link href={href} aria-label={headline} prefetch>
         <div className="listing-card__image">
           {coverSrc ? (
@@ -85,9 +84,18 @@ export function ListingCatalogueCard({
               <BrandMark tone="onDark" />
             </span>
           ) : null}
-          <span className="listing-card__status-mark">{statusCopy(listing, locale)}</span>
+          <span
+            className={`listing-card__status-mark${reservedNote ? ' listing-card__status-mark--reserved' : ''}`}
+          >
+            {statusCopy(listing, locale)}
+          </span>
         </div>
         <div className="listing-card__body">
+          {reservedNote ? (
+            <p className="listing-reserved-note" role="note">
+              {reservedNote}
+            </p>
+          ) : null}
           <h3>{headline}</h3>
           {buildingLine ? <p className="listing-card__building-name">{buildingLine}</p> : null}
           {locationLine ? <p className="listing-card__location">{locationLine}</p> : null}
@@ -140,7 +148,11 @@ export function ListingCatalogueCard({
           <p className="listing-card__building-cta-label">
             {ar ? 'وحدة مرتبطة بالمبنى' : 'Unit linked to the building'}
           </p>
-          <Link href={buildingHref} className="button button--quiet listing-card__building-cta-btn" prefetch>
+          <Link
+            href={buildingHref}
+            className="button button--quiet listing-card__building-cta-btn"
+            prefetch
+          >
             {ar ? `عرض «${propertyTitle}» وكل وحداته` : `View “${propertyTitle}” and all units`}
           </Link>
         </div>

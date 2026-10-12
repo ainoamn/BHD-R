@@ -3,14 +3,12 @@ import { BrandMark, StatusBadge } from '@bhd-r/ui';
 import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { formatMoney } from '@/lib/format';
-import {
-  formatListingCardTitle,
-  formatListingLocation,
-} from '@/lib/listing-card-copy';
+import { formatListingCardTitle, formatListingLocation } from '@/lib/listing-card-copy';
 import {
   marketStatusFromPurpose,
   marketStatusLabel,
   marketStatusTone,
+  reservedUntilNote,
   type CatalogueListing,
 } from '@/lib/listing-market-status';
 import { listingPurposeCaption } from '@/lib/listing-purpose-display';
@@ -46,6 +44,10 @@ export async function ListingCard({
       : marketStatusFromPurpose(listing.listingPurpose);
   const statusLabel = marketStatusLabel(marketStatus, t, listing.listingPurpose);
   const tone = marketStatusTone(marketStatus);
+  const reservedNote = reservedUntilNote(
+    { marketStatus, reservedUntil: catalogue.reservedUntil ?? null },
+    locale,
+  );
   const serial =
     'unitSerial' in listing && listing.unitSerial
       ? listing.unitSerial
@@ -88,6 +90,11 @@ export async function ListingCard({
           </span>
         </div>
         <div className="listing-card__body">
+          {reservedNote ? (
+            <p className="listing-reserved-note" role="note">
+              {reservedNote}
+            </p>
+          ) : null}
           <h3>{headline}</h3>
           {buildingLine ? <p className="listing-card__building-name">{buildingLine}</p> : null}
           {locationLine ? <p className="listing-card__location">{locationLine}</p> : null}
@@ -97,9 +104,7 @@ export async function ListingCard({
             </p>
           ) : null}
           {!isMulti ? (
-            <p className="listing-card__purpose">
-              {listingPurposeCaption(purpose, loc)}
-            </p>
+            <p className="listing-card__purpose">{listingPurposeCaption(purpose, loc)}</p>
           ) : null}
           <div className={`listing-card__facts${isMulti ? ' listing-card__facts--stack' : ''}`}>
             <span>
@@ -130,18 +135,14 @@ export async function ListingCard({
           ) : (
             <div className="listing-card__price listing-card__price--stack">
               <span>{purpose === 'sale' && saleLabel ? saleLabel : rentLabel}</span>
-              <small>
-                {purpose === 'sale' ? t('Property.forSale') : t('Common.monthly')}
-              </small>
+              <small>{purpose === 'sale' ? t('Property.forSale') : t('Common.monthly')}</small>
             </div>
           )}
         </div>
       </Link>
       {buildingHref ? (
         <div className="listing-card__building-cta">
-          <p className="listing-card__building-cta-label">
-            {t('Property.linkedToBuilding')}
-          </p>
+          <p className="listing-card__building-cta-label">{t('Property.linkedToBuilding')}</p>
           <Link
             href={buildingHref}
             className="button button--quiet listing-card__building-cta-btn"

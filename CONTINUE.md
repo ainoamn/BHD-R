@@ -1,5 +1,28 @@
 # CONTINUE — 2026-10-12
 
+**0.8.32** · الحجز في صفحة العقارات، وقرار البيع، وبيانات الطرف المتعاقد:
+
+- **صفحة العقارات** (`searchPublicListingsFromNeon`):
+  - `takenClause` يُخفي المباع، والمؤجّر إن لم يكن غرضه `sale`، والحجز المعتمد (`lifecycle.approval`)؛
+  - `reserved_until` من الحجز `confirmed` يُعرض بـ `reservedUntilNote`.
+- **قرار البيع:**
+  - `listSaleDecisionUnits` و`decideUnitSale` في `lib/unit-sale-decision-neon.ts`؛
+  - `POST /api/owner/units/{id}/sale-decision`؛
+  - النوع `sale_decision` في `pending-approvals`؛
+  - `UnitSaleDecisionPrompt` في صفحة العقار.
+- **بيانات الطرف:**
+  - `ReservationParty` في `lib/reservation-party.ts`: مخطط zod، و`reservationPartyError`، و`partyToLeaseTenant`؛
+  - تُحفظ في `termsSnapshot.party`، ويتحقق منها `createLeaseBookingCheckout` مقابل `effectiveMinLeaseMonths`؛
+  - الواجهة في الخطوة `party` من `LeaseDepositCheckout`؛
+  - تُعرض بـ `ReservationPartyCard`، ويملأ `LeaseContractForm` مسبقاً عبر `initialTenant` و`termsSeed`.
+- **الترجمة:** `translateName` في `lib/name-translate-ai.ts` و`POST /api/public/name-translate`.
+- **أقل مدة:** `stay_policies` بالرمز `lease_min_term:{propertyId}`، و`LeaseMinTermCard` في صفحة الشروط.
+- **مفتوح:** التحقق على قاعدة البيانات بعد النشر.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.32-AR.md`](./docs/implementation/RELEASE-0.8.32-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.31** · خارطة موقع العقار ورمز QR في المستندات:
 
 - **`loadPropertyLocation(tx, orgId, propertyId)`** (`lib/property-location-neon.ts`): `ST_Y`/`ST_X` من `addresses.location`، وإلا رابط «Google Maps:» من `property_profiles.notes`. يعيد `PropertyLocation { latitude, longitude, mapsUrl, qrSvg }` أو null.
