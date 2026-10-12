@@ -10,6 +10,7 @@ import { leaseBookingAgreement, leaseContractTitle } from '@/lib/lease-booking-c
 import { leaseConfirmedPath, leaseSignPath } from '@/lib/lease-booking-paths';
 import { leasePaymentPath, loadLeaseBookingAgreement } from '@/lib/public-lease-booking-neon';
 import { getViewer } from '@/lib/viewer';
+import { Link } from '@/i18n/navigation';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,8 +69,33 @@ export default async function LeaseBookingSignPage({
     <ContractArticle id={AGREEMENT_ID} contract={head} doc={doc} locale={locale} links={links} />
   );
 
+  const approved = Boolean(booking.lifecycle.approvedAt);
+  const contractWord = booking.mode === 'sale' ? 'عقد البيع' : 'عقد الإيجار';
+  const statusText = !approved
+    ? null
+    : booking.lifecycle.tenantSignedAt
+      ? ar
+        ? `حجزك معتمد، و${contractWord} موقّع إلكترونياً من الطرفين.`
+        : 'Your booking is approved and the contract is signed by both parties.'
+      : booking.lifecycle.contract
+        ? ar
+          ? `حجزك معتمد، و${contractWord} جاهز وينتظر توقيعك.`
+          : 'Your booking is approved and the contract awaits your signature.'
+        : ar
+          ? `حجزك معتمد من المالك وفي انتظار قيام المالك بعمل ${contractWord}.`
+          : 'Your booking is approved and waiting for the owner to prepare the contract.';
+
   return (
     <main className="stay-esign-shell">
+      {statusText ? (
+        <div className="lease-approved-banner" role="status">
+          <span aria-hidden="true">✅</span>
+          <p>{statusText}</p>
+          <Link href={`/book/confirmed?ref=${encodeURIComponent(booking.referenceCode)}`}>
+            {ar ? 'تابع مراحل حجزك' : 'Follow your booking'}
+          </Link>
+        </div>
+      ) : null}
       <StayEsignWizard
         locale={locale}
         referenceCode={booking.referenceCode}

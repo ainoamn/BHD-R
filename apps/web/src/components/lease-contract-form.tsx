@@ -201,6 +201,11 @@ export function LeaseContractForm({
   busy,
   onSubmit,
   onCancel,
+  initialTenant,
+  initialTerms,
+  heading,
+  submitLabel,
+  footnote,
 }: {
   units: PropertyRecordUnit[];
   tenants: PropertyRecordTenant[];
@@ -209,6 +214,14 @@ export function LeaseContractForm({
   busy: boolean;
   onSubmit: (payload: LeaseContractPayload) => void;
   onCancel: () => void;
+  /** Prefilled tenant, e.g. the customer of a website booking. */
+  initialTenant?: Partial<LeaseTenantDraft> | undefined;
+  /** Terms saved earlier, to edit instead of starting over. */
+  initialTerms?: LeaseTermsDraft | undefined;
+  heading?: string | undefined;
+  submitLabel?: string | undefined;
+  /** Replaces the note on who approves the contract. */
+  footnote?: string | undefined;
 }) {
   const ar = locale === 'ar';
   const t = (arText: string, enText: string) => (ar ? arText : enText);
@@ -216,8 +229,11 @@ export function LeaseContractForm({
   const unit = units.find((item) => item.id === unitId);
   const currency = unit?.currency ?? 'OMR';
   const digits = minorDigitsFor(currency);
-  const [tenant, setTenant] = useState<LeaseTenantDraft>(EMPTY_TENANT);
-  const [draft, setDraft] = useState<LeaseTermsDraft>(() => initialDraft(units[0]));
+  const [tenant, setTenant] = useState<LeaseTenantDraft>(() => ({
+    ...EMPTY_TENANT,
+    ...initialTenant,
+  }));
+  const [draft, setDraft] = useState<LeaseTermsDraft>(() => initialTerms ?? initialDraft(units[0]));
   const [months, setMonths] = useState('12');
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -406,7 +422,7 @@ export function LeaseContractForm({
 
   return (
     <form className="psr-form lcf" onSubmit={submit}>
-      <h3>{t('عقد تأجير يدوي', 'Manual lease contract')}</h3>
+      <h3>{heading ?? t('عقد تأجير يدوي', 'Manual lease contract')}</h3>
 
       <Section title={t('📝 بيانات العقد الرئيسية', '📝 Main contract data')}>
         <div className="form-grid">
@@ -1491,19 +1507,22 @@ export function LeaseContractForm({
         </div>
       ) : null}
       <p className="muted">
-        {canSign
-          ? t(
-              'سيُعتمد العقد فوراً ويوقّعه النظام باسمك نيابة عن المالك، وتُسجَّل الشيكات للمراجعة المحاسبية.',
-              'The contract is approved at once and system-signed in your name; cheques go to accounting review.',
-            )
-          : t(
-              'لا تملك صلاحية اعتماد العقود، لذلك سيُرسل العقد إلى المدير لاعتماده.',
-              'You cannot approve contracts, so it will be sent to the manager for approval.',
-            )}
+        {footnote ??
+          (canSign
+            ? t(
+                'سيُعتمد العقد فوراً ويوقّعه النظام باسمك نيابة عن المالك، وتُسجَّل الشيكات للمراجعة المحاسبية.',
+                'The contract is approved at once and system-signed in your name; cheques go to accounting review.',
+              )
+            : t(
+                'لا تملك صلاحية اعتماد العقود، لذلك سيُرسل العقد إلى المدير لاعتماده.',
+                'You cannot approve contracts, so it will be sent to the manager for approval.',
+              ))}
       </p>
       <div className="form-actions">
         <button type="submit" className="button button--primary" disabled={busy || !units.length}>
-          {busy ? t('جارٍ الحفظ…', 'Saving…') : t('إنشاء عقد الإيجار', 'Create lease contract')}
+          {busy
+            ? t('جارٍ الحفظ…', 'Saving…')
+            : (submitLabel ?? t('إنشاء عقد الإيجار', 'Create lease contract'))}
         </button>
         <button type="button" className="button button--quiet" onClick={onCancel} disabled={busy}>
           {t('إلغاء', 'Cancel')}

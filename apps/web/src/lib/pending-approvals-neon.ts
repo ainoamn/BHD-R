@@ -17,6 +17,11 @@ import {
   type PendingApprovals,
 } from '@/lib/pending-approvals-shared';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import {
+  leaseJourneyPhase,
+  phaseWaitsOn,
+  type ReservationLifecycle,
+} from '@/lib/lease-reservation-lifecycle';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 import { requireSessionSecret } from '@/lib/runtime-env';
 import {
@@ -171,6 +176,9 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
             depositMinor: sql<string | null>`${reservations.termsSnapshot}->>'depositMinor'`,
             currency: reservations.currency,
             paidAt: sql<string>`${reservations.termsSnapshot}->>'depositPaidAt'`,
+            status: reservations.status,
+            esignAt: sql<string | null>`${reservations.termsSnapshot}->'esign'->>'signedAt'`,
+            lifecycle: sql<ReservationLifecycle | null>`${reservations.termsSnapshot}->'lifecycle'`,
           })
           .from(reservations)
           .innerJoin(units, eq(units.id, reservations.unitId))
@@ -178,8 +186,9 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
           .where(
             and(
               eq(reservations.organizationId, orgId),
-              eq(reservations.status, 'confirmed'),
+              inArray(reservations.status, ['confirmed', 'converted']),
               sql`${reservations.termsSnapshot}->>'depositPaidAt' is not null`,
+              sql`${reservations.termsSnapshot}->'lifecycle'->'handover' is null`,
               ...(ownerPartyId ? [eq(properties.ownerPartyId, ownerPartyId)] : []),
             ),
           )
@@ -235,21 +244,32 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
         fromOn: iso(row.fromOn)?.slice(0, 10) ?? null,
         requestedAt: iso(row.requestedAt) ?? '',
       })),
-      ...reservationRows.map((row) => ({
-        kind: 'lease_reservation' as const,
-        id: row.id,
-        reference: row.reference ?? row.id.slice(0, 8).toUpperCase(),
-        propertyId: row.propertyId,
-        propertyNameAr: row.propertyNameAr,
-        propertyNameEn: row.propertyNameEn,
-        unitCode: row.unitCode,
-        party: row.party,
-        contractType: row.mode === 'sale' ? ('sale' as const) : ('lease' as const),
-        fromOn: null,
-        requestedAt: row.paidAt,
-        amountMinor: row.depositMinor,
-        currency: row.currency,
-      })),
+      ...reservationRows
+        .flatMap((row) => {
+          const phase = leaseJourneyPhase({
+            status: row.status,
+            depositPaidAt: row.paidAt,
+            esignSignedAt: row.esignAt,
+            lifecycle: row.lifecycle,
+          });
+          return phaseWaitsOn(phase) === 'owner' ? [{ ...row, phase }] : [];
+        })
+        .map((row) => ({
+          kind: 'lease_reservation' as const,
+          phase: row.phase,
+          id: row.id,
+          reference: row.reference ?? row.id.slice(0, 8).toUpperCase(),
+          propertyId: row.propertyId,
+          propertyNameAr: row.propertyNameAr,
+          propertyNameEn: row.propertyNameEn,
+          unitCode: row.unitCode,
+          party: row.party,
+          contractType: row.mode === 'sale' ? ('sale' as const) : ('lease' as const),
+          fromOn: null,
+          requestedAt: row.paidAt,
+          amountMinor: row.depositMinor,
+          currency: row.currency,
+        })),
       ...refundItems.map((row) => ({
         kind: row.step === 'decision' ? ('deposit_refund' as const) : ('refund_transfer' as const),
         id: row.bookingId,
@@ -272,7 +292,7 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
       items,
       contracts: contractRows.length,
       bookings: bookingRows.length,
-      reservations: reservationRows.length,
+      reservations: items.filter((item) => item.kind === 'lease_reservation').length,
       refunds: refundItems.length + depositItems.length,
       total: items.length,
     };

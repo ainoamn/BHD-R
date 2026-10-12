@@ -290,8 +290,15 @@ const READY = new Set([
   'awaiting_check_out',
   'deposit_settled',
   'deposit_income',
+  'handed_over',
 ]);
-const INFO = new Set(['awaiting_check_in', 'deposit_held']);
+const INFO = new Set([
+  'awaiting_check_in',
+  'deposit_held',
+  'awaiting_terms_signature',
+  'awaiting_documents',
+  'awaiting_tenant_signature',
+]);
 const CHECK_IN_READY = new Set(['confirmed', 'pre_arrival']);
 const STAY_DEPARTED = new Set(['checked_out', 'closed']);
 const DANGER = new Set(['overdue', 'failed', 'payment_failed', 'no_show']);

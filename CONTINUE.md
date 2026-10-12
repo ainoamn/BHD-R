@@ -1,5 +1,17 @@
 # CONTINUE — 2026-10-12
 
+**0.8.30** · رحلة حجز الإيجار أو الشراء بعد الدفع:
+
+- **النموذج:** `reservations.termsSnapshot.lifecycle` (`ReservationLifecycle` في `lib/lease-reservation-lifecycle.ts`). المرحلة تُحسب بـ `leaseJourneyPhase`، والدور بـ `phaseWaitsOn`. الحجز يبقى `confirmed` حتى توقيع المستأجر ثم `converted`.
+- **المالك:** `reservationOwnerAction` في `lib/lease-reservation-lifecycle-neon.ts` (`approve`، `save_contract`، `review_document`، `issue_contract`، `record_handover`) عبر `POST /api/owner/bookings/{id}/lifecycle`. الملفات عبر `GET …/files/{file}`. الواجهة `LeaseReservationWorkflow`.
+- **العقد بانتظار المستأجر:** `issueContract({ awaitCounterparty: true })` يعطي `partially_signed` و`approvalMode: 'awaiting_counterparty'`. والمستأجر يوقّع بـ `completeCounterpartySignatureInTx`.
+- **العميل:** `LeaseJourneyCard` (`components/lease-journey.tsx`) والنصوص في `lib/lease-journey-screens.ts`. الرفع والتوقيع عبر `POST /api/public/bookings/deposits/{ref}/documents` و`…/contract-sign`.
+- **مفتوح:** التحقق على قاعدة البيانات بعد النشر؛ إشعار العميل بتغيّر المرحلة؛ اختبارا السياسة الفاشلان سابقاً.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.30-AR.md`](./docs/implementation/RELEASE-0.8.30-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.29** · صفحة حجز الموقع عند المالك:
 
 - **`loadLeaseBookingForStaff(claims, reservationId)`** في `lib/public-lease-booking-neon.ts`: المنظمة نفسها، و`reservation.read`، و`ownerPartyScope`. تعيد بيانات الاتفاقية (`leaseBookingAgreementData` المشتركة مع `/book/sign`) ومعها `propertyId` والدفع.

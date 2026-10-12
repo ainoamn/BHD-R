@@ -1,6 +1,9 @@
 import { persistentPortalPage } from '@/lib/persistent-portal-page';
 import { notFound } from 'next/navigation';
-import { LeaseReservationDetail } from '@/components/lease-reservation-detail';
+import {
+  LeaseReservationDetail,
+  reservationPermissions,
+} from '@/components/lease-reservation-detail';
 import {
   ReservationComplianceManager,
   type ReservationCompliance,
@@ -20,7 +23,16 @@ async function Page({ params }: { params: Promise<{ locale: string; reservationI
   const booking = claims
     ? await loadLeaseBookingForStaff(claims, reservationId).catch(() => null)
     : null;
-  if (booking) return <LeaseReservationDetail booking={booking} locale={locale} portal="owner" />;
+  if (booking && claims) {
+    return (
+      <LeaseReservationDetail
+        booking={booking}
+        locale={locale}
+        portal="owner"
+        permissions={reservationPermissions(claims)}
+      />
+    );
+  }
 
   try {
     const compliance = await apiFetch<ReservationCompliance>(

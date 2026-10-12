@@ -307,7 +307,7 @@ async function signForOwner(
     .onConflictDoNothing();
 }
 
-type CounterpartySignature = {
+export type CounterpartySignature = {
   partyId: string;
   method: string;
   evidence: Record<string, unknown>;
@@ -338,10 +338,14 @@ async function issueContract(
     source: Record<string, unknown>;
     extra?: Record<string, unknown>;
     counterpartySignature?: CounterpartySignature | null;
+    /** Owner signs now; the contract waits for the tenant or buyer to sign it themself. */
+    awaitCounterparty?: boolean;
   },
 ): Promise<ContractOutcome & { leaseId: string | null }> {
   const { claims, orgId, property, unit } = input;
   const canSign = hasPermission(claims, 'contract.sign');
+  const awaiting = Boolean(input.awaitCounterparty);
+  if (awaiting && !canSign) fail('forbidden');
   const viewer = await viewerIdentity(tx, claims);
   const now = new Date();
   const templateId = await ensureTemplate(
@@ -351,7 +355,8 @@ async function issueContract(
   );
   const reference = await allocateContractReference(tx, orgId, Number(input.startsOn.slice(0, 4)));
   const ownerName = await partyName(tx, property.ownerPartyId);
-  const status = canSign ? 'signed' : 'sent';
+  const status = awaiting ? 'partially_signed' : canSign ? 'signed' : 'sent';
+  const fullySigned = status === 'signed';
 
   const [contract] = await tx
     .insert(contracts)
@@ -364,7 +369,7 @@ async function issueContract(
       tenantPartyId: input.counterparty.id,
       status,
       sentAt: now,
-      completedAt: canSign ? now : null,
+      completedAt: fullySigned ? now : null,
       payloadSnapshot: {
         contract: { reference, type: input.type },
         source: input.source,
@@ -379,7 +384,11 @@ async function issueContract(
           ? { amountMinor: input.depositMinor.toString(), currency: input.currency }
           : null,
         approval: {
-          mode: canSign ? 'signed_on_approval' : 'awaiting_manager',
+          mode: awaiting
+            ? 'awaiting_counterparty'
+            : canSign
+              ? 'signed_on_approval'
+              : 'awaiting_manager',
           byUserId: viewer.userId,
           byName: viewer.displayName,
           at: now.toISOString(),
@@ -432,7 +441,7 @@ async function issueContract(
         unitId: unit.id,
         ownerPartyId: property.ownerPartyId,
         tenantPartyId: input.counterparty.id,
-        status: canSign ? 'active' : 'draft',
+        status: fullySigned ? 'active' : 'draft',
         startsOn: input.startsOn,
         endsOn: input.endsOn,
         rentMinor: input.leaseRentMinor ?? input.amountMinor,
@@ -464,7 +473,11 @@ async function issueContract(
     actorUserId: claims.sub,
     resourceType: 'contract',
     resourceId: contractId,
-    eventType: canSign ? 'contract.signed' : 'contract.approval_requested',
+    eventType: awaiting
+      ? 'contract.awaiting_counterparty'
+      : canSign
+        ? 'contract.signed'
+        : 'contract.approval_requested',
     toStatus: status,
     metadata: { reference, type: input.type, source: input.source, leaseId },
   });
@@ -810,6 +823,7 @@ export async function approveContractOnNeon(
         ownerPartyId: contracts.ownerPartyId,
         type: sql<string | null>`${contracts.payloadSnapshot}->'contract'->>'type'`,
         saleDealId: sql<string | null>`${contracts.payloadSnapshot}->'sale'->>'dealId'`,
+        approvalMode: sql<string | null>`${contracts.payloadSnapshot}->'approval'->>'mode'`,
       })
       .from(contracts)
       .innerJoin(units, eq(units.id, contracts.unitId))
@@ -823,6 +837,12 @@ export async function approveContractOnNeon(
       .limit(1);
     if (!contract) fail('contract_not_found');
     const reference = contract.reference ?? contract.id.slice(0, 8).toUpperCase();
+    if (
+      contract.status === 'partially_signed' &&
+      contract.approvalMode === 'awaiting_counterparty'
+    ) {
+      fail('contract_awaiting_counterparty');
+    }
     if (contract.status === 'signed') {
       return {
         contractId: contract.id,
@@ -955,135 +975,156 @@ export async function createManualLeaseContractOnNeon(
   if (!hasPermission(claims, 'contract.create') || !hasPermission(claims, 'lease.create')) {
     fail('forbidden');
   }
-  return withinViewerTenant(claims, async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${input.unitId}::text))`);
-    const { orgId, property } = await loadProperty(tx, claims, propertyId);
-    const unit = await loadUnit(tx, orgId, property.id, input.unitId);
-    const computed = computeLeaseTerms(input.terms, unit.currency, minorUnitsFor(unit.currency));
-    if (!computed.ok) fail(computed.error);
-    const terms = computed.terms;
+  return withinViewerTenant(claims, (tx) =>
+    issueManualLeaseInTx(tx, claims, propertyId, input, { source: { type: 'manual' } }),
+  );
+}
 
-    const [overlap] = await tx
-      .select({ id: leases.id })
-      .from(leases)
+/** Rejects lease terms the server cannot compute, before anything is stored. */
+export function assertLeaseTermsValid(terms: LeaseTermsDraft, currency: string) {
+  const computed = computeLeaseTerms(terms, currency, minorUnitsFor(currency));
+  if (!computed.ok) fail(computed.error);
+}
+
+/**
+ * The manual lease inside an open viewer transaction. `awaitCounterparty` leaves the
+ * contract signed by the owner only, with its lease in draft until the tenant signs.
+ */
+export async function issueManualLeaseInTx(
+  tx: Tx,
+  claims: SessionClaims,
+  propertyId: string,
+  input: ManualLeaseInput,
+  options: { source: Record<string, unknown>; awaitCounterparty?: boolean },
+): Promise<ContractOutcome & { leaseId: string | null }> {
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${input.unitId}::text))`);
+  const { orgId, property } = await loadProperty(tx, claims, propertyId);
+  const unit = await loadUnit(tx, orgId, property.id, input.unitId);
+  const computed = computeLeaseTerms(input.terms, unit.currency, minorUnitsFor(unit.currency));
+  if (!computed.ok) fail(computed.error);
+  const terms = computed.terms;
+
+  const [overlap] = await tx
+    .select({ id: leases.id })
+    .from(leases)
+    .where(
+      and(
+        eq(leases.organizationId, orgId),
+        eq(leases.unitId, unit.id),
+        inArray(leases.status, ['draft', 'active', 'cancel_requested', 'clearance_pending']),
+        lte(leases.startsOn, addDays(terms.endsOn, -1)),
+        gte(leases.endsOn, addDays(terms.startsOn, 1)),
+      ),
+    )
+    .limit(1);
+  if (overlap) fail('lease_overlap');
+
+  const chequeRows = [
+    ...terms.schedule.map((row) => ({
+      number: row.chequeNumber,
+      bank: row.bankName,
+      amountMinor: row.totalMinor,
+      dueOn: row.dueOn,
+    })),
+    ...terms.vatCheques.map((row) => ({
+      number: row.chequeNumber,
+      bank: terms.chequeBankName,
+      amountMinor: row.amountMinor,
+      dueOn: row.dueOn,
+    })),
+    ...terms.depositItems
+      .filter((item) => item.method === 'cheque')
+      .map((item) => ({
+        number: item.reference,
+        bank: item.bankName ?? terms.chequeBankName,
+        amountMinor: item.amountMinor,
+        dueOn: item.dueOn ?? terms.startsOn,
+      })),
+  ].filter((row): row is typeof row & { number: string } => Boolean(row.number));
+  if (chequeRows.length) {
+    const [taken] = await tx
+      .select({ number: cheques.chequeNumber })
+      .from(cheques)
       .where(
         and(
-          eq(leases.organizationId, orgId),
-          eq(leases.unitId, unit.id),
-          inArray(leases.status, ['draft', 'active', 'cancel_requested', 'clearance_pending']),
-          lte(leases.startsOn, addDays(terms.endsOn, -1)),
-          gte(leases.endsOn, addDays(terms.startsOn, 1)),
+          eq(cheques.organizationId, orgId),
+          inArray(
+            cheques.chequeNumber,
+            chequeRows.map((row) => row.number),
+          ),
         ),
       )
       .limit(1);
-    if (overlap) fail('lease_overlap');
+    if (taken) fail('cheque_number_taken');
+  }
 
-    const chequeRows = [
-      ...terms.schedule.map((row) => ({
-        number: row.chequeNumber,
-        bank: row.bankName,
-        amountMinor: row.totalMinor,
-        dueOn: row.dueOn,
-      })),
-      ...terms.vatCheques.map((row) => ({
-        number: row.chequeNumber,
-        bank: terms.chequeBankName,
-        amountMinor: row.amountMinor,
-        dueOn: row.dueOn,
-      })),
-      ...terms.depositItems
-        .filter((item) => item.method === 'cheque')
-        .map((item) => ({
-          number: item.reference,
-          bank: item.bankName ?? terms.chequeBankName,
-          amountMinor: item.amountMinor,
-          dueOn: item.dueOn ?? terms.startsOn,
-        })),
-    ].filter((row): row is typeof row & { number: string } => Boolean(row.number));
-    if (chequeRows.length) {
-      const [taken] = await tx
-        .select({ number: cheques.chequeNumber })
-        .from(cheques)
-        .where(
-          and(
-            eq(cheques.organizationId, orgId),
-            inArray(
-              cheques.chequeNumber,
-              chequeRows.map((row) => row.number),
-            ),
-          ),
-        )
-        .limit(1);
-      if (taken) fail('cheque_number_taken');
-    }
-
-    const details = tenantDetails(input.tenant);
-    let tenant: { id: string; displayName: string };
-    if (input.tenant.partyId) {
-      const [existing] = await tx
-        .select({ id: parties.id, displayName: parties.displayName })
-        .from(parties)
-        .where(and(eq(parties.id, input.tenant.partyId), eq(parties.organizationId, orgId)))
-        .limit(1);
-      if (!existing) fail('party_not_found');
-      await tx
-        .insert(partyRoles)
-        .values({ organizationId: orgId, partyId: existing.id, roleKey: 'tenant' })
-        .onConflictDoNothing();
-      tenant = existing;
-    } else {
-      tenant = await findOrCreateParty(
-        tx,
-        orgId,
-        {
-          displayName: details.nameAr,
-          email: details.email,
-          phone: details.phone,
-          type: details.entityType,
-        },
-        'tenant',
-        'manual_contract',
-      );
-    }
-
-    const outcome = await issueContract(tx, {
-      claims,
+  const details = tenantDetails(input.tenant);
+  let tenant: { id: string; displayName: string };
+  if (input.tenant.partyId) {
+    const [existing] = await tx
+      .select({ id: parties.id, displayName: parties.displayName })
+      .from(parties)
+      .where(and(eq(parties.id, input.tenant.partyId), eq(parties.organizationId, orgId)))
+      .limit(1);
+    if (!existing) fail('party_not_found');
+    await tx
+      .insert(partyRoles)
+      .values({ organizationId: orgId, partyId: existing.id, roleKey: 'tenant' })
+      .onConflictDoNothing();
+    tenant = existing;
+  } else {
+    tenant = await findOrCreateParty(
+      tx,
       orgId,
-      property,
-      unit: { id: unit.id, code: unit.code, nameAr: unit.nameAr, nameEn: unit.nameEn },
-      counterparty: tenant,
-      type: 'lease',
-      startsOn: terms.startsOn,
-      endsOn: terms.endsOn,
-      amountMinor: BigInt(terms.totals.grandTotalMinor),
-      leaseRentMinor: BigInt(terms.monthlyRentMinor),
-      billingDay: terms.paymentDay,
-      depositMinor: terms.totals.depositMinor > 0 ? BigInt(terms.totals.depositMinor) : null,
-      currency: unit.currency,
-      source: { type: 'manual' },
-      extra: {
-        tenantDetails: details,
-        leaseTerms: terms,
-        ...(terms.notes ? { notes: terms.notes } : {}),
+      {
+        displayName: details.nameAr,
+        email: details.email,
+        phone: details.phone,
+        type: details.entityType,
       },
-    });
+      'tenant',
+      'manual_contract',
+    );
+  }
 
-    if (outcome.leaseId && chequeRows.length) {
-      await tx.insert(cheques).values(
-        chequeRows.map((row) => ({
-          organizationId: orgId,
-          leaseId: outcome.leaseId,
-          ownerPartyId: tenant.id,
-          bankName: row.bank ?? '—',
-          chequeNumber: row.number,
-          amountMinor: BigInt(row.amountMinor),
-          currency: unit.currency,
-          dueOn: row.dueOn,
-        })),
-      );
-    }
-    return outcome;
+  const outcome = await issueContract(tx, {
+    claims,
+    orgId,
+    property,
+    unit: { id: unit.id, code: unit.code, nameAr: unit.nameAr, nameEn: unit.nameEn },
+    counterparty: tenant,
+    type: 'lease',
+    startsOn: terms.startsOn,
+    endsOn: terms.endsOn,
+    amountMinor: BigInt(terms.totals.grandTotalMinor),
+    leaseRentMinor: BigInt(terms.monthlyRentMinor),
+    billingDay: terms.paymentDay,
+    depositMinor: terms.totals.depositMinor > 0 ? BigInt(terms.totals.depositMinor) : null,
+    currency: unit.currency,
+    source: options.source,
+    awaitCounterparty: options.awaitCounterparty ?? false,
+    extra: {
+      tenantDetails: details,
+      leaseTerms: terms,
+      ...(terms.notes ? { notes: terms.notes } : {}),
+    },
   });
+
+  if (outcome.leaseId && chequeRows.length) {
+    await tx.insert(cheques).values(
+      chequeRows.map((row) => ({
+        organizationId: orgId,
+        leaseId: outcome.leaseId,
+        ownerPartyId: tenant.id,
+        bankName: row.bank ?? '—',
+        chequeNumber: row.number,
+        amountMinor: BigInt(row.amountMinor),
+        currency: unit.currency,
+        dueOn: row.dueOn,
+      })),
+    );
+  }
+  return outcome;
 }
 
 export type ManualSaleInput = {
@@ -1160,4 +1201,181 @@ export async function createManualSaleContractOnNeon(
       },
     });
   });
+}
+
+/**
+ * Sale contract for a website purchase booking: the owner signs now and the buyer signs
+ * later. Reuses the booking's sales deal when there is one.
+ */
+export async function issueReservationSaleInTx(
+  tx: Tx,
+  claims: SessionClaims,
+  propertyId: string,
+  input: {
+    unitId: string;
+    buyerPartyId: string;
+    dealId: string | null;
+    signedOn: string;
+    amount: string;
+    notes?: string | undefined;
+    source: Record<string, unknown>;
+  },
+): Promise<ContractOutcome & { leaseId: string | null }> {
+  const { orgId, property } = await loadProperty(tx, claims, propertyId);
+  const unit = await loadUnit(tx, orgId, property.id, input.unitId);
+  const priceMinor = decimalToMinor(input.amount, unit.currency);
+  if (priceMinor <= 0n) fail('invalid_amount');
+  const buyer = { id: input.buyerPartyId, displayName: await partyName(tx, input.buyerPartyId) };
+  const notes = input.notes?.trim().slice(0, 2000) || null;
+  let deal: { id: string; reference: string | null } | null = null;
+  if (input.dealId) {
+    const [updated] = await tx
+      .update(salesDeals)
+      .set({ status: 'contracting', agreedPriceMinor: priceMinor, updatedAt: new Date() })
+      .where(and(eq(salesDeals.id, input.dealId), eq(salesDeals.organizationId, orgId)))
+      .returning({ id: salesDeals.id, reference: salesDeals.reference });
+    deal = updated ?? null;
+  }
+  if (!deal) {
+    const [created] = await tx
+      .insert(salesDeals)
+      .values({
+        organizationId: orgId,
+        reference: `SALE-${input.signedOn.slice(0, 4)}-${randomUUID().slice(0, 8).toUpperCase()}`,
+        propertyId: property.id,
+        unitId: unit.id,
+        sellerPartyId: property.ownerPartyId,
+        buyerPartyId: buyer.id,
+        assignedToUserId: claims.sub,
+        status: 'contracting',
+        askingPriceMinor: unit.salePriceMinor ?? priceMinor,
+        agreedPriceMinor: priceMinor,
+        currency: unit.currency,
+        minorUnit: minorUnitsFor(unit.currency),
+        notes,
+      })
+      .returning({ id: salesDeals.id, reference: salesDeals.reference });
+    deal = created!;
+  }
+  return issueContract(tx, {
+    claims,
+    orgId,
+    property,
+    unit: { id: unit.id, code: unit.code, nameAr: unit.nameAr, nameEn: unit.nameEn },
+    counterparty: buyer,
+    type: 'sale',
+    startsOn: input.signedOn,
+    endsOn: null,
+    amountMinor: priceMinor,
+    depositMinor: null,
+    currency: unit.currency,
+    source: input.source,
+    awaitCounterparty: true,
+    extra: {
+      sale: { dealId: deal.id, dealReference: deal.reference },
+      ...(notes ? { notes } : {}),
+    },
+  });
+}
+
+/**
+ * The tenant or buyer signs a contract the owner already signed: the contract is complete,
+ * its lease starts and a sale deal closes. Runs in the caller's organization-scoped transaction.
+ */
+export async function completeCounterpartySignatureInTx(
+  tx: Tx,
+  input: {
+    orgId: string;
+    contractId: string;
+    actorUserId: string;
+    signature: CounterpartySignature;
+  },
+): Promise<{ contractReference: string; leaseId: string | null; alreadySigned: boolean }> {
+  const [contract] = await tx
+    .select({
+      id: contracts.id,
+      reference: contracts.reference,
+      status: contracts.status,
+      tenantPartyId: contracts.tenantPartyId,
+      type: sql<string | null>`${contracts.payloadSnapshot}->'contract'->>'type'`,
+      saleDealId: sql<string | null>`${contracts.payloadSnapshot}->'sale'->>'dealId'`,
+    })
+    .from(contracts)
+    .where(and(eq(contracts.id, input.contractId), eq(contracts.organizationId, input.orgId)))
+    .limit(1);
+  if (!contract) fail('contract_not_found');
+  const reference = contract.reference ?? contract.id.slice(0, 8).toUpperCase();
+  const [lease] = await tx
+    .select({ id: leases.id })
+    .from(leases)
+    .where(and(eq(leases.organizationId, input.orgId), eq(leases.contractId, contract.id)))
+    .limit(1);
+  if (contract.status === 'signed') {
+    return { contractReference: reference, leaseId: lease?.id ?? null, alreadySigned: true };
+  }
+  if (contract.status !== 'partially_signed') fail('contract_not_pending');
+  if (contract.tenantPartyId !== input.signature.partyId) fail('forbidden');
+
+  const signature = input.signature;
+  const now = signature.signedAt;
+  await tx
+    .insert(contractSignatures)
+    .values({
+      organizationId: input.orgId,
+      contractId: contract.id,
+      signerPartyId: signature.partyId,
+      signerRole: contract.type === 'sale' ? 'buyer' : 'tenant',
+      method: signature.method,
+      evidence: signature.evidence,
+      signatureHash: signatureHash([
+        contract.id,
+        signature.partyId,
+        signature.method,
+        now.toISOString(),
+      ]),
+      signedAt: now,
+    })
+    .onConflictDoNothing();
+  await tx
+    .update(contracts)
+    .set({ status: 'signed', completedAt: now, updatedAt: now })
+    .where(and(eq(contracts.id, contract.id), eq(contracts.organizationId, input.orgId)));
+  if (lease) {
+    await tx
+      .update(leases)
+      .set({ status: 'active', updatedAt: now })
+      .where(
+        and(
+          eq(leases.id, lease.id),
+          eq(leases.organizationId, input.orgId),
+          eq(leases.status, 'draft'),
+        ),
+      );
+  }
+  if (contract.type === 'sale' && contract.saleDealId) {
+    await tx
+      .update(salesDeals)
+      .set({ status: 'closed_won', closedOn: omanToday(), updatedAt: now })
+      .where(
+        and(eq(salesDeals.id, contract.saleDealId), eq(salesDeals.organizationId, input.orgId)),
+      );
+  }
+  await tx.insert(workflowEvents).values({
+    organizationId: input.orgId,
+    actorUserId: input.actorUserId,
+    resourceType: 'contract',
+    resourceId: contract.id,
+    eventType: 'contract.signed',
+    fromStatus: contract.status,
+    toStatus: 'signed',
+    metadata: { reference, signedBy: contract.type === 'sale' ? 'buyer' : 'tenant' },
+  });
+  await tx.insert(outboxEvents).values({
+    organizationId: input.orgId,
+    topic: 'contract.counterparty_signed',
+    aggregateType: 'contract',
+    aggregateId: contract.id,
+    payload: { contractId: contract.id, reference, leaseId: lease?.id ?? null },
+  });
+  return { contractReference: reference, leaseId: lease?.id ?? null, alreadySigned: false };
 }

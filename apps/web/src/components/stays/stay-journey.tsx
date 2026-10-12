@@ -27,6 +27,9 @@ function useJourney() {
   return value;
 }
 
+/** The opened step, for journey cards outside stays (rent / purchase bookings). */
+export const useStayJourney = useJourney;
+
 /** Shares the opened step between the progress bar (hero) and the message card (panel). */
 export function StayJourneyProvider({
   initial,

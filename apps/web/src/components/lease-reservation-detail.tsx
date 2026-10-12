@@ -1,15 +1,26 @@
 import Link from 'next/link';
+import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import { ContractArticle, type ContractArticleLinks } from '@/components/contract-document-view';
 import { ContractDocumentToolbar } from '@/components/contract-document-toolbar';
+import { LeaseReservationWorkflow } from '@/components/lease-reservation-workflow';
 import { formatMoney } from '@/lib/format';
 import { leaseBookingAgreement, leaseContractTitle } from '@/lib/lease-booking-contract';
 import { leaseSignPath } from '@/lib/lease-booking-paths';
+import { leasePhaseLabel } from '@/lib/lease-reservation-lifecycle';
 import type { loadLeaseBookingForStaff } from '@/lib/public-lease-booking-neon';
-import { domainStatusLabel } from '@/lib/ui-labels';
 
 export type LeaseReservationStaffView = NonNullable<
   Awaited<ReturnType<typeof loadLeaseBookingForStaff>>
 >;
+
+export type ReservationPermissions = { canManage: boolean; canSign: boolean };
+
+export function reservationPermissions(claims: SessionClaims): ReservationPermissions {
+  return {
+    canManage: hasPermission(claims, 'reservation.manage'),
+    canSign: hasPermission(claims, 'contract.create') && hasPermission(claims, 'contract.sign'),
+  };
+}
 
 const AGREEMENT_ID = 'reservation-agreement';
 
@@ -18,10 +29,12 @@ export function LeaseReservationDetail({
   booking,
   locale,
   portal,
+  permissions,
 }: {
   booking: LeaseReservationStaffView;
   locale: 'ar' | 'en';
   portal: 'owner' | 'developer';
+  permissions: ReservationPermissions;
 }) {
   const ar = locale === 'ar';
   const sale = booking.mode === 'sale';
@@ -53,7 +66,7 @@ export function LeaseReservationDetail({
   const unit = ar ? booking.unitNameAr : (booking.unitNameEn ?? booking.unitNameAr);
   const deposit = formatMoney(booking.depositMinor, booking.currency, locale);
   const price = sale ? booking.salePriceMinor : booking.rentMinor;
-  const awaitingContract = booking.status === 'confirmed' && Boolean(booking.depositPaidAt);
+  const awaitingApproval = booking.phase === 'awaiting_owner_approval';
   const bookingsHref = `/${locale}/${portal}/properties/${encodeURIComponent(booking.propertyId)}?section=bookings&focus=${encodeURIComponent(booking.reservationId)}`;
 
   return (
@@ -75,22 +88,35 @@ export function LeaseReservationDetail({
         </Link>
       </header>
 
-      {awaitingContract ? (
+      {awaitingApproval ? (
         <p className="notice notice--info">
           {ar
-            ? `دفع العميل العربون${signature ? ' ووقّع اتفاقية الحجز' : ''}. الوحدة محجوزة له حتى ${day(booking.reservedUntil)}؛ جهّز ${sale ? 'عقد البيع' : 'عقد الإيجار'} النهائي قبل ذلك.`
-            : `The client paid the deposit${signature ? ' and signed the reservation agreement' : ''}. The unit is held until ${day(booking.reservedUntil)}; prepare the final ${sale ? 'sale' : 'lease'} contract before then.`}
+            ? `دفع العميل العربون ووقّع اتفاقية الحجز. الوحدة محجوزة له حتى ${day(booking.reservedUntil)}؛ اعتمد الحجز ثم جهّز ${sale ? 'عقد البيع' : 'عقد الإيجار'} النهائي.`
+            : `The client paid the deposit and signed the reservation agreement. The unit is held until ${day(booking.reservedUntil)}; approve the booking, then prepare the final ${sale ? 'sale' : 'lease'} contract.`}
         </p>
       ) : null}
+
+      <LeaseReservationWorkflow
+        reservationId={booking.reservationId}
+        referenceCode={booking.referenceCode}
+        locale={locale}
+        portal={portal}
+        mode={booking.mode}
+        phase={booking.phase}
+        lifecycle={booking.ownerLifecycle}
+        unit={booking.formUnit}
+        tenant={booking.formTenant}
+        salePriceMinor={booking.salePriceMinor}
+        currency={booking.currency}
+        hasEsign={Boolean(signature)}
+        canManage={permissions.canManage}
+        canSign={permissions.canSign}
+      />
 
       <section className="ops-metrics" aria-label={ar ? 'ملخص الحجز' : 'Booking summary'}>
         <article>
           <span>{ar ? 'حالة الحجز' : 'Booking status'}</span>
-          <strong>
-            {awaitingContract
-              ? domainStatusLabel('deposit_paid', locale)
-              : domainStatusLabel(booking.status, locale)}
-          </strong>
+          <strong>{leasePhaseLabel(booking.phase, ar)}</strong>
           <small>{ar ? (sale ? 'حجز شراء' : 'حجز إيجار') : sale ? 'Purchase' : 'Rent'}</small>
         </article>
         <article className="ops-metric--accent">

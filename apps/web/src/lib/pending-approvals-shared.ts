@@ -1,4 +1,5 @@
 import { formatMoney } from '@/lib/format';
+import type { LeaseJourneyPhase } from '@/lib/lease-reservation-lifecycle';
 
 /**
  * One thing waiting for the viewer: a contract to sign, a stay booking request, a paid rent or
@@ -28,6 +29,8 @@ export type PendingApprovalItem = {
   /** Deposit still to transfer for `refund_transfer`; deposit paid for `lease_reservation`. */
   amountMinor?: string | null;
   currency?: string | null;
+  /** Where a `lease_reservation` stands: which owner step is due. */
+  phase?: LeaseJourneyPhase | null;
 };
 
 export type PendingApprovals = {
@@ -57,6 +60,9 @@ export function pendingApprovalHref(portal: string, item: PendingApprovalItem): 
   const base = `/${portal}/properties/${encodeURIComponent(item.propertyId)}`;
   if (item.kind === 'contract') {
     return `${base}?section=contracts&focus=${encodeURIComponent(item.id)}`;
+  }
+  if (item.kind === 'lease_reservation' && portal === 'owner') {
+    return `/owner/bookings/${encodeURIComponent(item.id)}`;
   }
   if (item.kind === 'deposit_refund' || item.kind === 'lease_reservation') {
     return `${base}?section=bookings&focus=${encodeURIComponent(item.id)}`;
@@ -90,10 +96,30 @@ export function pendingApprovalTitle(item: PendingApprovalItem, ar: boolean): st
     return ar ? 'طلب حجز بانتظار الاعتماد' : 'Booking request awaiting approval';
   }
   if (item.kind === 'lease_reservation') {
-    if (item.contractType === 'sale') {
-      return ar ? 'حجز شراء مدفوع — جهّز عقد البيع' : 'Paid purchase booking — prepare the sale';
+    const sale = item.contractType === 'sale';
+    const kind = sale ? (ar ? 'حجز شراء' : 'Purchase booking') : ar ? 'حجز إيجار' : 'Rent booking';
+    switch (item.phase) {
+      case 'awaiting_owner_approval':
+        return ar ? `${kind} مدفوع — بانتظار اعتمادك` : `Paid ${kind.toLowerCase()} — approve it`;
+      case 'awaiting_contract_draft':
+        return ar
+          ? `${kind} معتمد — جهّز ${sale ? 'عقد البيع' : 'العقد'} والمستندات`
+          : `${kind} approved — prepare the contract`;
+      case 'awaiting_documents_review':
+        return ar ? `${kind} — مستندات بانتظار مراجعتك` : `${kind} — documents to review`;
+      case 'awaiting_contract_approval':
+        return ar ? `${kind} — العقد جاهز لاعتمادك` : `${kind} — contract ready to approve`;
+      case 'awaiting_handover':
+        return ar ? `${kind} — العقد موقّع، سجّل التسليم` : `${kind} — signed, record handover`;
+      default:
+        return sale
+          ? ar
+            ? 'حجز شراء مدفوع — جهّز عقد البيع'
+            : 'Paid purchase booking — prepare the sale'
+          : ar
+            ? 'حجز إيجار مدفوع — جهّز العقد'
+            : 'Paid rent booking — prepare the lease';
     }
-    return ar ? 'حجز إيجار مدفوع — جهّز العقد' : 'Paid rent booking — prepare the lease';
   }
   if (item.kind === 'deposit_refund') {
     return ar ? 'استرداد تأمين بانتظار قرارك' : 'Deposit refund awaiting your decision';

@@ -15755,6 +15755,309 @@ body:has(.stay-esign-shell) {
   letter-spacing: 0.03em;
   color: #c8102e;
 }
+
+/* Website rent / purchase booking: owner workflow after the deposit. */
+.lrw {
+  display: grid;
+  gap: 1rem;
+}
+.lrw__head h2 {
+  margin: 0.15rem 0 0;
+}
+.lrw__steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lrw__step {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #d7e1db;
+  border-radius: 0.75rem;
+  background: #fafcfa;
+  color: #5b6b63;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.lrw__dot {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  background: #e4ebe7;
+  color: #33463d;
+  font-size: 0.8rem;
+}
+.lrw__step--done {
+  border-color: #b9d8c6;
+  background: #eef7f1;
+  color: #1f6b45;
+}
+.lrw__step--done .lrw__dot {
+  background: #1f6b45;
+  color: #fff;
+}
+.lrw__step--current {
+  border-color: #0d5c45;
+  background: #fff;
+  color: #0d5c45;
+  box-shadow: 0 0 0 3px rgb(13 92 69 / 0.12);
+}
+.lrw__step--current .lrw__dot {
+  background: #0d5c45;
+  color: #fff;
+}
+.lrw__card {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid #d7e1db;
+  border-radius: 1rem;
+  background: #fff;
+}
+.lrw__card h3,
+.lrw__card p {
+  margin: 0;
+}
+.lrw__card--action {
+  border-color: #0d5c45;
+  background: linear-gradient(180deg, #f3faf6, #fff 60%);
+}
+.lrw__card > .button {
+  justify-self: start;
+}
+.lrw__card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.lrw__approve {
+  display: grid;
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed #d7e1db;
+}
+.lrw__approve .button {
+  justify-self: start;
+}
+.lrw__docs h4 {
+  margin: 0 0 0.5rem;
+}
+.lrw__docs ul {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lrw__doc {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #e1e8e4;
+  border-inline-start: 4px solid #c9d3ce;
+  border-radius: 0.6rem;
+}
+.lrw__doc--submitted {
+  border-inline-start-color: #c98a12;
+  background: #fffaf0;
+}
+.lrw__doc--approved {
+  border-inline-start-color: #1f6b45;
+}
+.lrw__doc--rejected {
+  border-inline-start-color: #c8102e;
+}
+.lrw__doc-main {
+  display: grid;
+  gap: 0.15rem;
+}
+.lrw__doc-status {
+  font-size: 0.8rem;
+  color: #5b6b63;
+}
+.lrw__doc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.lrw__reject {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+.lrw__reject .input {
+  flex: 1 1 16rem;
+}
+.lrw__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.lrw__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid #d7e1db;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.lrw__chip:has(input:checked) {
+  border-color: #0d5c45;
+  background: #eef7f1;
+  color: #0d5c45;
+  font-weight: 700;
+}
+.lrw__custom {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+.lrw__custom .input {
+  flex: 1 1 auto;
+}
+.lrw__gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.75rem;
+}
+.lrw__shot {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.45rem;
+  border: 1px solid #d7e1db;
+  border-radius: 0.75rem;
+  background: #fafcfa;
+  color: inherit;
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
+}
+.lrw__shot img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 0.5rem;
+  background: #eef2f0;
+}
+@media (max-width: 720px) {
+  .lrw__steps {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Website rent / purchase booking: the customer's journey. */
+.lease-docs-wrap {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.85rem;
+}
+.lease-docs {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.lease-docs-wrap .lease-docs {
+  margin-top: 0;
+}
+.lease-docs__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid rgb(9 45 36 / 0.12);
+  border-inline-start: 4px solid #c9a24a;
+  border-radius: 0.75rem;
+  background: #fff;
+  color: #123528;
+}
+.lease-docs__item--submitted {
+  border-inline-start-color: #2f6f8f;
+}
+.lease-docs__item--approved {
+  border-inline-start-color: #1f6b45;
+  background: #f3faf6;
+}
+.lease-docs__item--rejected {
+  border-inline-start-color: #c8102e;
+  background: #fff6f7;
+}
+.lease-docs__text {
+  display: grid;
+  gap: 0.15rem;
+}
+.lease-docs__text span {
+  font-size: 0.82rem;
+  color: #5b6b63;
+}
+.lease-docs__text small {
+  font-size: 0.8rem;
+  color: #8a2a36;
+}
+.lease-docs__upload {
+  cursor: pointer;
+}
+.lease-sign {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+.lease-sign > .button {
+  justify-self: start;
+}
+.lease-sign__accept {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+.lease-sign__accept input {
+  margin-top: 0.3rem;
+}
+.lease-approved-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: 980px;
+  margin: 1rem auto 0;
+  padding: 0.85rem 1.1rem;
+  border: 1px solid #b9d8c6;
+  border-radius: 0.9rem;
+  background: #eef7f1;
+  color: #123528;
+  font-weight: 700;
+}
+.lease-approved-banner p {
+  flex: 1 1 16rem;
+  margin: 0;
+}
+.lease-approved-banner a {
+  color: #0d5c45;
+  font-weight: 800;
+}
 .stay-esign__contract--signed {
   position: relative;
 }

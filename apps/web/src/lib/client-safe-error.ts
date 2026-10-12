@@ -79,6 +79,14 @@ const KNOWN_CODES = new Set([
   'review_invalid',
   'review_comment_required',
   'review_photo_invalid',
+  'reservation_not_found',
+  'reservation_not_ready',
+  'reservation_closed',
+  'requirements_invalid',
+  'requirement_not_found',
+  'documents_incomplete',
+  'contract_awaiting_counterparty',
+  'handover_invalid',
 ]);
 
 export function clientSafeErrorCode(error: unknown, fallback = 'request_failed'): string {
@@ -106,7 +114,17 @@ export function statusForSafeCode(code: string): number {
     case 'contract_not_found':
     case 'party_not_found':
     case 'team_member_not_found':
+    case 'reservation_not_found':
+    case 'requirement_not_found':
       return 404;
+    case 'reservation_not_ready':
+    case 'reservation_closed':
+    case 'documents_incomplete':
+    case 'contract_awaiting_counterparty':
+      return 409;
+    case 'requirements_invalid':
+    case 'handover_invalid':
+      return 400;
     case 'team_role_not_allowed':
     case 'team_self_change':
     case 'team_owner_locked':

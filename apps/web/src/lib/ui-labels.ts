@@ -49,6 +49,24 @@ const DOMAIN_STATUS: Record<string, { ar: string; en: string }> = {
     en: 'With the accountant for transfer',
   },
   deposit_paid: { ar: 'عربون مدفوع — جهّز العقد', en: 'Deposit paid — prepare the contract' },
+  awaiting_terms_signature: {
+    ar: 'بانتظار توقيع العميل على الشروط',
+    en: 'Awaiting client terms signature',
+  },
+  awaiting_owner_approval: { ar: 'عربون مدفوع — بانتظار اعتمادك', en: 'Paid — awaiting approval' },
+  awaiting_contract_draft: {
+    ar: 'معتمد — جهّز العقد والمستندات',
+    en: 'Approved — prepare the contract',
+  },
+  awaiting_documents: { ar: 'بانتظار مستندات العميل', en: 'Awaiting client documents' },
+  awaiting_documents_review: { ar: 'مستندات بانتظار مراجعتك', en: 'Documents to review' },
+  awaiting_contract_approval: { ar: 'العقد جاهز لاعتمادك', en: 'Contract ready to approve' },
+  awaiting_tenant_signature: {
+    ar: 'العقد بانتظار توقيع العميل',
+    en: 'Contract awaiting client signature',
+  },
+  awaiting_handover: { ar: 'عقد موقّع — بانتظار التسليم', en: 'Signed — awaiting handover' },
+  handed_over: { ar: 'تم تسليم العقار', en: 'Handed over' },
   deposit_held: { ar: 'أمانة محتجزة', en: 'Held in trust' },
   deposit_settled: { ar: 'تأمين مُسوّى', en: 'Deposit settled' },
   deposit_income: { ar: 'دخل للعقار', en: 'Property income' },
@@ -149,6 +167,31 @@ const WORKFLOW_EVENTS: Record<string, { ar: string; en: string }> = {
   'reservation.esign_evidence': {
     ar: 'إثبات هوية لتوقيع اتفاقية حجز',
     en: 'Reservation e-signature identity evidence',
+  },
+  'reservation.owner_approved': { ar: 'اعتماد المالك للحجز', en: 'Booking approved by owner' },
+  'reservation.contract_prepared': {
+    ar: 'تجهيز بيانات العقد والمستندات المطلوبة',
+    en: 'Contract details and required documents prepared',
+  },
+  'reservation.document_submitted': { ar: 'رفع العميل مستنداً', en: 'Client uploaded a document' },
+  'reservation.document_approved': { ar: 'قبول مستند العميل', en: 'Client document accepted' },
+  'reservation.document_rejected': { ar: 'رفض مستند العميل', en: 'Client document rejected' },
+  'reservation.contract_issued': {
+    ar: 'اعتماد العقد وإرساله لتوقيع العميل',
+    en: 'Contract approved and sent to the client',
+  },
+  'reservation.converted': {
+    ar: 'توقيع العميل على العقد — حجز محوّل إلى عقد',
+    en: 'Client signed the contract — booking converted',
+  },
+  'reservation.handed_over': { ar: 'تسليم العقار للعميل', en: 'Premises handed over' },
+  'contract.awaiting_counterparty': {
+    ar: 'عقد بانتظار توقيع الطرف الثاني',
+    en: 'Contract awaiting the other party',
+  },
+  'contract.counterparty_signed': {
+    ar: 'توقيع الطرف الثاني على العقد',
+    en: 'Other party signed the contract',
   },
   'hold.cancelled': { ar: 'إلغاء حجز مؤقت', en: 'Hold cancelled' },
   'lease.renewal_requested': { ar: 'طلب تجديد عقد', en: 'Lease renewal requested' },

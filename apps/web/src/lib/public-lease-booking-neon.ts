@@ -29,6 +29,11 @@ import { depositForMode } from '@/lib/booking-deposit';
 import { readTermsLetterhead, resolveBookingTerms } from '@/lib/booking-terms-neon';
 import { reservationSignatureSerial } from '@/lib/contract-verify';
 import { leaseSignPath } from '@/lib/lease-booking-paths';
+import {
+  leaseJourneyPhase,
+  lifecycleOf,
+  type ReservationLifecycle,
+} from '@/lib/lease-reservation-lifecycle';
 import { ownerPartyScope } from '@/lib/portal-ops-data';
 import { readUnitSaleDeposits } from '@/lib/unit-sale-deposit-neon';
 
@@ -42,7 +47,7 @@ const PAID_RESERVATION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 export type LeaseBookingMode = 'rent' | 'sale';
 
-type LeaseBookingSnapshot = {
+export type LeaseBookingSnapshot = {
   flow: typeof LEASE_BOOKING_FLOW;
   mode: LeaseBookingMode;
   referenceCode: string;
@@ -81,6 +86,7 @@ type LeaseBookingSnapshot = {
   };
   salesDealId?: string;
   esign?: { signedAt: string; completed: true; evidenceEventId: string };
+  lifecycle?: ReservationLifecycle;
 };
 
 export class LeaseBookingError extends Error {
@@ -128,7 +134,28 @@ const ERRORS = {
     'حدّث المالك الشروط والأحكام — راجعها ووافق عليها مجدداً.',
     'The owner updated the terms — please review and accept them again.',
   ],
+  not_ready: [
+    409,
+    'هذه الخطوة غير متاحة الآن — حدّث الصفحة لترى أين وصل حجزك.',
+    'This step is not open right now — refresh to see where your booking stands.',
+  ],
+  requirement_not_found: [
+    404,
+    'لم يعد هذا المستند مطلوباً.',
+    'This document is no longer required.',
+  ],
+  invalid_file: [
+    400,
+    'الملف غير مدعوم أو كبير جداً — أرسل صورة أو PDF بحجم أصغر.',
+    'Unsupported or too large — send an image or a PDF under the size limit.',
+  ],
 } as const satisfies Record<string, readonly [number, string, string]>;
+
+export type LeaseBookingErrorCode = keyof typeof ERRORS;
+
+export function leaseBookingFail(code: LeaseBookingErrorCode): never {
+  return fail(code);
+}
 
 function fail(code: keyof typeof ERRORS): never {
   const [status, messageAr, message] = ERRORS[code];
@@ -164,11 +191,11 @@ export function leasePaymentPath(
   return `/${locale}/payments/sandbox/${encodeURIComponent(sessionReference)}?${qs.toString()}`;
 }
 
-async function lockKey(transaction: Tx, key: string) {
+export async function lockKey(transaction: Tx, key: string) {
   await transaction.execute(sql`select pg_advisory_xact_lock(hashtextextended(${key}, 43))`);
 }
 
-async function findLeaseReservation(
+export async function findLeaseReservation(
   transaction: Tx,
   key: 'id' | 'referenceCode' | 'checkoutSessionReference',
   value: string,
@@ -195,11 +222,17 @@ async function findLeaseReservation(
         unitSalePriceMinor: units.salePriceMinor,
         unitCurrency: units.currency,
         unitMinorUnit: units.minorUnit,
+        unitDepositMinor: units.depositMinor,
+        unitFloor: units.floor,
+        unitAreaSquareMeters: units.areaSquareMeters,
         propertyId: properties.id,
         propertyNameAr: properties.nameAr,
         propertyNameEn: properties.nameEn,
         ownerPartyId: properties.ownerPartyId,
         partyEmail: parties.email,
+        partyName: parties.displayName,
+        partyType: parties.type,
+        partyPhone: parties.phone,
       })
       .from(reservations)
       .innerJoin(units, eq(units.id, reservations.unitId))
@@ -213,7 +246,11 @@ async function findLeaseReservation(
   });
 }
 
-async function assertBookingOwner(transaction: Tx, userId: string, partyEmail: string | null) {
+export async function assertBookingOwner(
+  transaction: Tx,
+  userId: string,
+  partyEmail: string | null,
+) {
   const user = await withElevatedRead(transaction, () =>
     transaction.query.users.findFirst({
       where: eq(users.id, userId),
@@ -622,9 +659,53 @@ type LeaseReservationMatch = NonNullable<Awaited<ReturnType<typeof findLeaseRese
 
 const SIGNATURE_IMAGE = /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
 
+/** The lifecycle without the owner's working draft and stored file ids. */
+function visibleLifecycle(lifecycle: ReservationLifecycle) {
+  return {
+    approvedAt: lifecycle.approval?.at ?? null,
+    contractPreparedAt: lifecycle.contractDraft?.savedAt ?? null,
+    requirements: (lifecycle.requirements ?? []).map((item) => ({
+      code: item.code,
+      labelAr: item.labelAr,
+      labelEn: item.labelEn,
+      status: item.status,
+      note: item.note ?? null,
+      fileName: item.file?.name ?? null,
+      submittedAt: item.file?.submittedAt ?? null,
+    })),
+    contract: lifecycle.contract
+      ? {
+          id: lifecycle.contract.id,
+          reference: lifecycle.contract.reference,
+          issuedAt: lifecycle.contract.issuedAt,
+        }
+      : null,
+    tenantSignedAt: lifecycle.tenantSignature?.signedAt ?? null,
+    handover: lifecycle.handover
+      ? {
+          on: lifecycle.handover.on,
+          at: lifecycle.handover.at,
+          recipientName: lifecycle.handover.recipientName,
+          keys: lifecycle.handover.keys,
+          notes: lifecycle.handover.notes,
+        }
+      : null,
+  };
+}
+
+export type LeaseLifecycleView = ReturnType<typeof visibleLifecycle>;
+
 function leaseBookingView(match: LeaseReservationMatch) {
   const snapshot = match.snapshot;
+  const lifecycle = lifecycleOf(snapshot);
   return {
+    phase: leaseJourneyPhase({
+      status: match.status,
+      depositPaidAt: snapshot.depositPaidAt ?? null,
+      esignSignedAt: snapshot.esign?.signedAt ?? null,
+      lifecycle,
+    }),
+    lifecycle: visibleLifecycle(lifecycle),
     referenceCode: snapshot.referenceCode,
     status: match.status,
     mode: snapshot.mode,
@@ -694,6 +775,7 @@ export async function loadLeaseBookingForStaff(claims: SessionClaims, reservatio
     const ownerPartyId = ownerPartyScope(claims);
     if (ownerPartyId && match.ownerPartyId !== ownerPartyId) return null;
     const agreement = await leaseBookingAgreementData(transaction, match);
+    const lifecycle = lifecycleOf(match.snapshot);
     return {
       ...agreement,
       propertyId: match.propertyId,
@@ -702,6 +784,26 @@ export async function loadLeaseBookingForStaff(claims: SessionClaims, reservatio
       cardBrand: match.snapshot.payment?.cardBrand ?? null,
       salesDealId: match.snapshot.salesDealId ?? null,
       convertedLeaseId: match.convertedLeaseId,
+      ownerLifecycle: lifecycle,
+      formUnit: {
+        id: match.unitId,
+        code: match.unitCode,
+        rentMinor: match.unitRentMinor?.toString() ?? null,
+        salePriceMinor: match.unitSalePriceMinor?.toString() ?? null,
+        depositMinor: match.unitDepositMinor?.toString() ?? null,
+        currency: match.unitCurrency,
+        floor: match.unitFloor,
+        areaSquareMeters: match.unitAreaSquareMeters,
+        electricityMeter: null,
+        waterMeter: null,
+      },
+      formTenant: {
+        id: match.tenantPartyId,
+        displayName: match.partyName,
+        type: match.partyType === 'company' ? ('company' as const) : ('person' as const),
+        email: match.partyEmail,
+        phone: match.partyPhone,
+      },
     };
   });
 }

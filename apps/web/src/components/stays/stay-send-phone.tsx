@@ -12,10 +12,13 @@ export function StaySendPhone({
   moment,
   plateNo,
   ar,
+  labels,
 }: {
   moment: StaySendMoment;
   plateNo: string;
   ar: boolean;
+  /** Wording for non-stay bookings: phone header, button before / after the tap, board type. */
+  labels?: { screen: string; button: string; sent: string; type: string } | undefined;
 }) {
   const [run, setRun] = useState(0);
   const request = moment.mode === 'request';
@@ -71,7 +74,14 @@ export function StaySendPhone({
           <rect x="278" y="18.4" width="16" height="2.2" rx="1.1" fill="#3a4540" />
           <path d="M254 35 V27 Q254 22 259 22 H313 Q318 22 318 27 V35 Z" fill="#0d5c45" />
           <text x="286" y="30.8" textAnchor="middle" fontSize="5" fontWeight="700" fill="#ffffff">
-            {request ? (ar ? 'طلب حجز إقامة' : 'STAY REQUEST') : ar ? 'حجز إقامة' : 'BOOK A STAY'}
+            {labels?.screen ??
+              (request
+                ? ar
+                  ? 'طلب حجز إقامة'
+                  : 'STAY REQUEST'
+                : ar
+                  ? 'حجز إقامة'
+                  : 'BOOK A STAY')}
           </text>
           <text
             x="286"
@@ -123,7 +133,8 @@ export function StaySendPhone({
               fontWeight="700"
               fill="#ffffff"
             >
-              {request ? (ar ? 'إرسال الطلب' : 'Send request') : ar ? 'احجز الآن' : 'Book now'}
+              {labels?.button ??
+                (request ? (ar ? 'إرسال الطلب' : 'Send request') : ar ? 'احجز الآن' : 'Book now')}
             </text>
           </g>
           <g className="stay-send__sent">
@@ -136,7 +147,8 @@ export function StaySendPhone({
               fontWeight="700"
               fill="#ffffff"
             >
-              {request ? (ar ? 'تم الإرسال ✓' : 'Sent ✓') : ar ? 'تم الحجز ✓' : 'Booked ✓'}
+              {labels?.sent ??
+                (request ? (ar ? 'تم الإرسال ✓' : 'Sent ✓') : ar ? 'تم الحجز ✓' : 'Booked ✓')}
             </text>
           </g>
           <circle
@@ -162,7 +174,8 @@ export function StaySendPhone({
       </div>
       <div className="stay-trip__board">
         <span className="stay-trip__type">
-          {request ? (ar ? 'تقديم الطلب' : 'Request sent') : ar ? 'الحجز' : 'Booked'}
+          {labels?.type ??
+            (request ? (ar ? 'تقديم الطلب' : 'Request sent') : ar ? 'الحجز' : 'Booked')}
         </span>
         <span className="stay-trip__plate" dir="ltr">
           {plateNo}

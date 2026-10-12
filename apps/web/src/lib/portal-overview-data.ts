@@ -1,7 +1,7 @@
 import 'server-only';
 import { cache } from 'react';
 import { cookies } from 'next/headers';
-import { and, count, desc, eq, gte, inArray, lte, ne, or, sql } from 'drizzle-orm';
+import { and, count, desc, eq, gte, inArray, lte, notInArray, or, sql } from 'drizzle-orm';
 import { verifySessionToken, type SessionClaims } from '@bhd-r/authz';
 import {
   createDatabase,
@@ -194,7 +194,11 @@ async function organizationOverviewFromDb(claims: SessionClaims): Promise<Portal
         .where(
           and(
             eq(workflowEvents.organizationId, orgId),
-            ne(workflowEvents.resourceType, 'reservation_esign_evidence'),
+            notInArray(workflowEvents.resourceType, [
+              'reservation_esign_evidence',
+              'reservation_document',
+              'reservation_contract_esign',
+            ]),
           ),
         )
         .orderBy(desc(workflowEvents.occurredAt))

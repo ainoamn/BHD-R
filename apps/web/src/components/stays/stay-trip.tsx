@@ -143,10 +143,12 @@ export function StayTrip({
   moment,
   plateNo,
   ar,
+  typeLabel,
 }: {
   moment: StayTripMoment;
   plateNo: string;
   ar: boolean;
+  typeLabel?: string | undefined;
 }) {
   const [run, setRun] = useState(0);
   const arriving = moment.kind === 'arrive';
@@ -185,7 +187,7 @@ export function StayTrip({
       </div>
       <div className="stay-trip__board">
         <span className="stay-trip__type">
-          {arriving ? (ar ? 'وصول' : 'Arrival') : ar ? 'مغادرة' : 'Departure'}
+          {typeLabel ?? (arriving ? (ar ? 'وصول' : 'Arrival') : ar ? 'مغادرة' : 'Departure')}
         </span>
         <span className="stay-trip__plate" dir="ltr">
           {plateNo}

@@ -111,10 +111,15 @@ export function StayApprovalDesk({
   moment,
   plateNo,
   ar,
+  screenTitle,
+  typeLabel,
 }: {
   moment: StayDeskMoment;
   plateNo: string;
   ar: boolean;
+  /** Header on the host's screen; defaults to the stay request. */
+  screenTitle?: string | undefined;
+  typeLabel?: string | undefined;
 }) {
   const [run, setRun] = useState(0);
   const signed = moment.signed;
@@ -193,7 +198,7 @@ export function StayApprovalDesk({
           />
           <path d="M362 48 V42 Q362 40 364 40 H444 Q446 40 446 42 V48 Z" fill="#0d5c45" />
           <text x="404" y="45.8" textAnchor="middle" fontSize="4.4" fontWeight="700" fill="#ffffff">
-            {ar ? 'طلب حجز إقامة' : 'STAY REQUEST'}
+            {screenTitle ?? (ar ? 'طلب حجز إقامة' : 'STAY REQUEST')}
           </text>
           <text
             x="404"
@@ -276,7 +281,9 @@ export function StayApprovalDesk({
         </svg>
       </div>
       <div className="stay-trip__board">
-        <span className="stay-trip__type">{ar ? 'اعتماد المالك' : 'Host approval'}</span>
+        <span className="stay-trip__type">
+          {typeLabel ?? (ar ? 'اعتماد المالك' : 'Host approval')}
+        </span>
         <span className="stay-trip__plate" dir="ltr">
           {plateNo}
         </span>

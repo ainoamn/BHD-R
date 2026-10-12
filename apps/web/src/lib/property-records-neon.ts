@@ -23,6 +23,12 @@ import {
   viewingRequests,
 } from '@bhd-r/db';
 import { loadBookingReviewFacts } from '@/lib/booking-reviews-neon';
+import {
+  leaseJourneyPhase,
+  phaseWaitsOn,
+  type LeaseJourneyPhase,
+  type ReservationLifecycle,
+} from '@/lib/lease-reservation-lifecycle';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 import { loadStayStamps } from '@/lib/stay-arrival-neon';
 import { depositRefundStage } from '@/lib/stay-deposit-refund';
@@ -475,6 +481,7 @@ async function loadBookings(
             signedAt: sql<string | null>`${reservations.termsSnapshot}->'esign'->>'signedAt'`,
             contactName: sql<string | null>`${reservations.termsSnapshot}->'contact'->>'fullName'`,
             contactPhone: sql<string | null>`${reservations.termsSnapshot}->'contact'->>'phone'`,
+            lifecycle: sql<ReservationLifecycle | null>`((${reservations.termsSnapshot}->'lifecycle') - 'contractDraft') || jsonb_build_object('contractDraft', case when (${reservations.termsSnapshot}->'lifecycle'->'contractDraft') is not null then '{}'::jsonb end)`,
           })
           .from(reservations)
           .where(and(eq(reservations.organizationId, orgId), inArray(reservations.unitId, unitIds)))
@@ -580,6 +587,14 @@ async function loadBookings(
     }),
     ...reservationRows.map((row) => {
       const paidAt = row.depositPaidAt;
+      const phase = paidAt
+        ? leaseJourneyPhase({
+            status: row.status,
+            depositPaidAt: paidAt,
+            esignSignedAt: row.signedAt,
+            lifecycle: row.lifecycle,
+          })
+        : null;
       return {
         id: row.id,
         kind: 'reservation',
@@ -593,7 +608,7 @@ async function loadBookings(
         amountMinor: row.depositMinor ?? minor(row.rentMinor),
         currency: row.currency,
         status: row.status,
-        stage: paidAt && row.status === 'confirmed' ? 'deposit_paid' : null,
+        stage: phase && phase !== 'closed' ? phase : null,
         bookingMode: row.mode,
         termsAcceptedOn: row.signedAt ? row.signedAt.slice(0, 10) : null,
         sortOn: paidAt ? paidAt.slice(0, 10) : isoDate(row.createdAt),
@@ -616,7 +631,9 @@ async function loadBookings(
   ];
   const awaiting = (row: PropertyRecordRow) =>
     row.status === 'request_pending' ||
-    row.stage === 'deposit_paid' ||
+    (row.kind === 'reservation' &&
+      !!row.stage &&
+      phaseWaitsOn(row.stage as LeaseJourneyPhase) === 'owner') ||
     row.stage === 'awaiting_deposit_refund' ||
     row.stage === 'awaiting_refund_transfer'
       ? 0
