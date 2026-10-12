@@ -161,6 +161,11 @@ export async function fetchOpsPayload(
   return task;
 }
 
+/** True while a section payload request is in flight (the visible page's first load included). */
+export function hasOpsInflight(): boolean {
+  return inflight.size > 0;
+}
+
 /** Warm a section without throwing; returning the task lets callers serialize it. */
 export function warmOpsSection(
   portal: PortalRole,

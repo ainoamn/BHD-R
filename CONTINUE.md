@@ -1,5 +1,20 @@
 # CONTINUE — 2026-10-12
 
+**0.8.22** · سرعة التحديث والتنقل:
+
+- **`PortalRoutePrefetch`:** يبدأ بعد `SETTLE_MS` (2.5 ثانية)، وبعد `document.readyState === 'complete'`، وبعد `!hasOpsInflight()`. يمسح `.portal-nav a[href]` فقط، ويزرع أول 6 عقارات دون `/edit`.
+- **المجمّعات `max: 8`:** `viewer.ts`، و`portal-ops-data.ts` (`withinViewerTenant`)، و`live-changes-neon.ts`، و`portal-overview-data.ts`. وما زال في التطبيق نحو 35 مجمّعاً منفصلاً، وتوحيدها خطوة لاحقة.
+- **للقياس:**
+  - `next build` و`next start` على فرع Neon، ثم Playwright يسجّل الطلبات مع `marks` (ظهور `.deposit-ledger__item`).
+  - كل استعلام من جهاز القياس نحو 0.13 ثانية، وفي الإنتاج (Vercel `lhr1` وNeon `eu-west-2`) نحو 1–2 ملّي ثانية.
+- **مفتوح:**
+  - حوسبة Neon في الإنتاج: الحد الأدنى 0.25 وحدة، وتتوقف بعد الخمول. رفعها قرار مدفوع للمالك.
+  - انتظار Nest في المحاسبة (حتى 1.2 ثانية).
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.22-AR.md`](./docs/implementation/RELEASE-0.8.22-AR.md)
+
+# CONTINUE — 2026-10-12
+
 **0.8.21** · صفوف مختصرة في «أمانات التأمين» وتنبيه التحويل:
 
 - **`deposit-ledger.tsx`:**

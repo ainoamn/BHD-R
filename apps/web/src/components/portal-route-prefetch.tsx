@@ -5,9 +5,11 @@ import { useEffect } from 'react';
 import type { PortalRole } from '@/lib/types';
 import { portalNavHrefs } from '@/lib/portal-nav-paths';
 import { opsSectionsForPortal, OPS_WARM_ORDER } from '@/lib/portal-ops-types';
-import { OPS_WARM_DONE_EVENT, warmOpsSection } from '@/lib/portal-ops-client-cache';
+import { hasOpsInflight, OPS_WARM_DONE_EVENT, warmOpsSection } from '@/lib/portal-ops-client-cache';
 
 const PROPERTY_SEED_LIMIT = 6;
+/** Background work waits this long after the page finished loading its own data. */
+const SETTLE_MS = 2_500;
 
 /** Only authenticated, same-portal page links are eligible for background work. */
 export function portalPrefetchHref(
@@ -54,8 +56,10 @@ export function PortalRoutePrefetch({
       queued.add(path);
       queue.push(path);
     };
+    // Sidebar links only: record, edit and create links are heavy server renders that used to
+    // compete with the visible page's own data on every refresh.
     const scan = () => {
-      document.querySelectorAll<HTMLAnchorElement>('.portal-layout a[href]').forEach((anchor) => {
+      document.querySelectorAll<HTMLAnchorElement>('.portal-nav a[href]').forEach((anchor) => {
         if (anchor.hasAttribute('download') || (anchor.target && anchor.target !== '_self')) return;
         enqueue(anchor.href);
       });
@@ -92,15 +96,14 @@ export function PortalRoutePrefetch({
         scan();
       }, 200);
     });
-    const shell = document.querySelector('.portal-layout');
-    if (shell)
-      observer.observe(shell, {
+    const nav = document.querySelector('.portal-nav');
+    if (nav)
+      observer.observe(nav, {
         childList: true,
         subtree: true,
         attributes: true,
         attributeFilter: ['href'],
       });
-    later(drain, 200);
 
     const sections = OPS_WARM_ORDER.filter((section) =>
       opsSectionsForPortal(portal).includes(section),
@@ -125,9 +128,7 @@ export function PortalRoutePrefetch({
         // Visible links are discovered by scan(); only seed the first few off-screen ones.
         for (const record of payload.records.slice(0, PROPERTY_SEED_LIMIT)) {
           if (typeof record.id !== 'string') continue;
-          const path = `/${portal}/properties/${encodeURIComponent(record.id)}`;
-          enqueue(path);
-          if (portal === 'owner') enqueue(`${path}/edit`);
+          enqueue(`/${portal}/properties/${encodeURIComponent(record.id)}`);
         }
       }
       // Pace after properties so the grid isn't starved by a warm storm.
@@ -136,9 +137,17 @@ export function PortalRoutePrefetch({
         void warmNext();
       }, pauseMs);
     };
-    later(() => {
+    // Start only once the visible page has its data, so a refresh never waits behind warm-up.
+    const begin = () => {
+      if (cancelled) return;
+      if (document.readyState !== 'complete' || hasOpsInflight()) {
+        later(begin, 300);
+        return;
+      }
+      later(drain, 0);
       void warmNext();
-    }, 200);
+    };
+    later(begin, SETTLE_MS);
     const refreshQueue = () => {
       if (document.visibilityState === 'hidden') return;
       for (const href of portalNavHrefs(portal, staysEnabled)) enqueue(href);

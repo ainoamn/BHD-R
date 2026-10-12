@@ -14,6 +14,7 @@ const router = { prefetch: nav.prefetch };
 vi.mock('@/i18n/navigation', () => ({ usePathname: () => nav.pathname, useRouter: () => router }));
 vi.mock('@/lib/portal-ops-client-cache', () => ({
   OPS_WARM_DONE_EVENT: 'warm-done',
+  hasOpsInflight: () => false,
   warmOpsSection: vi.fn(async () => ({ records: [] })),
 }));
 vi.mock('@/components/operations-workspace-client', () => ({
@@ -103,22 +104,30 @@ describe('background prefetch', () => {
       expect(portalPrefetchHref(href, origin, 'owner')).toBeNull();
     }
   });
-  it('warms every sidebar route under StrictMode and discovers internal form links', async () => {
+  it('warms every sidebar route under StrictMode, after the page settles, and skips page links', async () => {
     vi.useFakeTimers();
     render(
       <StrictMode>
         <div className="portal-layout">
+          <nav className="portal-nav">
+            <a href="/ar/owner/stays/rates?tab=season">Rates</a>
+          </nav>
           <a href="/ar/owner/properties/123/edit">Edit</a>
           <PortalRoutePrefetch portal="owner" staysEnabled />
         </div>
       </StrictMode>,
     );
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(10000);
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    expect(nav.prefetch).not.toHaveBeenCalled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20000);
     });
     const hrefs = nav.prefetch.mock.calls.map((args) => args[0]);
     for (const href of portalNavHrefs('owner', true)) expect(hrefs).toContain(href);
-    expect(hrefs).toContain('/owner/properties/123/edit');
+    expect(hrefs).toContain('/owner/stays/rates?tab=season');
+    expect(hrefs).not.toContain('/owner/properties/123/edit');
     const count = hrefs.length;
     cleanup();
     await act(async () => {
