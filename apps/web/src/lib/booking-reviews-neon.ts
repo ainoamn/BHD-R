@@ -755,6 +755,7 @@ async function subjectName(
   subject: ReputationSubject,
   key: string,
   latestGuestName: string | null,
+  hasReviews: boolean,
 ): Promise<ReviewText | null | undefined> {
   if (subject === 'property') {
     const [row] = await tx
@@ -790,8 +791,28 @@ async function subjectName(
     const name = publicPersonName(row.name);
     return name ? { ar: name, en: name } : null;
   }
+  if (!hasReviews) {
+    // No host has rated this guest yet: the profile still exists if they wrote a review.
+    const [own] = await tx
+      .select({ name: bookingReviews.authorName })
+      .from(bookingReviews)
+      .innerJoin(stayBookings, eq(stayBookings.id, bookingReviews.bookingId))
+      .where(
+        and(
+          eq(bookingReviews.direction, 'guest_to_host'),
+          eq(bookingReviews.status, 'published'),
+          released,
+          sql`left(encode(sha256(convert_to('bhd-r:guest:' || lower(btrim(${contactEmail})), 'UTF8')), 'hex'), 32) = ${key.slice(1)}`,
+        ),
+      )
+      .orderBy(desc(bookingReviews.createdAt))
+      .limit(1);
+    if (!own) return undefined;
+    const ownName = publicPersonName(own.name);
+    return ownName ? { ar: ownName, en: ownName } : null;
+  }
   const name = publicPersonName(latestGuestName);
-  return name ? { ar: name, en: name } : latestGuestName === null ? undefined : null;
+  return name ? { ar: name, en: name } : null;
 }
 
 function averageBy<T>(rows: T[], pick: (row: T) => number | null): number | null {
@@ -861,7 +882,7 @@ export async function loadReputation(
       .orderBy(desc(bookingReviews.createdAt))
       .limit(300);
 
-    const name = await subjectName(tx, subject, key, rows[0]?.subjectName ?? null);
+    const name = await subjectName(tx, subject, key, rows[0]?.subjectName ?? null, rows.length > 0);
     if (name === undefined) return null;
 
     const direction: ReviewDirection = subject === 'guest' ? 'host_to_guest' : 'guest_to_host';

@@ -50,7 +50,9 @@ export default async function GuestProfilePage({
           </span>
           <div>
             <p className="party-profile__eyebrow">{ar ? 'ملف الضيف' : 'Guest profile'}</p>
-            <h1>{name ?? (ar ? 'ضيف' : 'Guest')}</h1>
+            <h1>
+              <bdi>{name ?? (ar ? 'ضيف' : 'Guest')}</bdi>
+            </h1>
             <p className="muted">
               {ar
                 ? 'تقييمات المؤجرين بعد كل إقامة، يطّلع عليها المؤجرون قبل قبول الحجز.'
