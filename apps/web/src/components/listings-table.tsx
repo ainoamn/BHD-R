@@ -6,10 +6,12 @@ import { Link } from '@/i18n/navigation';
 import { formatMoney } from '@/lib/format';
 import { formatListingCardTitle, formatListingLocation } from '@/lib/listing-card-copy';
 import {
+  catalogueRating,
   marketStatusFromPurpose,
   marketStatusLabel,
   type CatalogueListing,
 } from '@/lib/listing-market-status';
+import { StayRatingBadge } from '@/components/stays/stay-rating-badge';
 import { categoryLabel } from '@/lib/properties-browse-filters';
 import { toPublicMediaSrc } from '@/lib/public-media-url';
 
@@ -64,10 +66,7 @@ export function ListingsTable({
     <div className="props-table-shell">
       <ul className="props-table-mobile" aria-label={ar ? 'نتائج جدولية' : 'Table results'}>
         {listings.map((listing) => {
-          const { headline, buildingLine } = formatListingCardTitle(
-            listing,
-            ar ? 'ar' : 'en',
-          );
+          const { headline, buildingLine } = formatListingCardTitle(listing, ar ? 'ar' : 'en');
           const locationLine =
             formatListingLocation(listing) ||
             `${listing.governorate}${listing.wilayat ? ` · ${listing.wilayat}` : ''}`;
@@ -84,7 +83,12 @@ export function ListingsTable({
               }
               onMouseEnter={() => onHover?.(listing.id)}
             >
-              <Link href={href} className="props-table-mobile__thumb" aria-label={headline} prefetch>
+              <Link
+                href={href}
+                className="props-table-mobile__thumb"
+                aria-label={headline}
+                prefetch
+              >
                 <span className="props-table__thumb-frame">
                   {coverSrc ? (
                     <Image src={coverSrc} alt="" fill sizes="88px" />
@@ -104,6 +108,9 @@ export function ListingsTable({
                   <p className="props-table-mobile__building">{buildingLine}</p>
                 ) : null}
                 <p className="props-table-mobile__meta">{locationLine}</p>
+                {catalogueRating(listing) ? (
+                  <StayRatingBadge rating={catalogueRating(listing)} ar={ar} compact />
+                ) : null}
                 {listing.unitSerial ? (
                   <p className="props-table-mobile__serial" dir="ltr">
                     {listing.unitSerial}
@@ -186,6 +193,9 @@ export function ListingsTable({
                     <Link href={href} className="props-table__title" prefetch>
                       {title}
                     </Link>
+                    {catalogueRating(listing) ? (
+                      <StayRatingBadge rating={catalogueRating(listing)} ar={ar} compact />
+                    ) : null}
                   </td>
                   <td>{categoryLabel(listing.category, ar)}</td>
                   <td>

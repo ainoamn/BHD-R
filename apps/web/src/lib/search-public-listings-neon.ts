@@ -7,6 +7,8 @@ import { ownerHidTakenUnit } from '@/lib/listing-visibility-sql';
 import { omanLocations } from '@/lib/oman-locations';
 import { googleMapsLinkFromCoords, parseGoogleMapsUrl } from '@/lib/parse-google-maps-url';
 import { assignUnitSerials, inferUnitKind, unitKindToCategory } from '@/lib/unit-identity';
+import { loadPropertyRatings, loadUnitRatings, type UnitRating } from '@/lib/booking-reviews-neon';
+import { withTimeoutFallback } from '@/lib/with-timeout';
 
 function mapsUrlFromNotes(notes?: string | null): string | null {
   if (!notes) return null;
@@ -313,7 +315,7 @@ export async function searchPublicListingsFromNeon(
   // Heal after the read starts claiming a connection (separate pool + deferred).
   scheduleCatalogueHeal();
 
-  return db.transaction(async (transaction) => {
+  const collection = await db.transaction(async (transaction) => {
     // Privileged read with explicit publish filters — public RLS made the heavy
     // catalogue SELECT routinely hit statement_timeout and empty /properties.
     await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
@@ -761,4 +763,39 @@ export async function searchPublicListingsFromNeon(
 
     return { data, pagination: { nextCursor: null, hasMore: false } };
   });
+  return withGuestRatings(collection);
+}
+
+/**
+ * Guest score of each card: the unit's own stays when it has any, else the property's
+ * (the same released reviews as the property page). Never delays the catalogue long.
+ */
+async function withGuestRatings<T extends { data: CatalogueListing[] }>(collection: T): Promise<T> {
+  if (!collection.data.length) return collection;
+  const empty = new Map<string, UnitRating>();
+  const [byUnit, byProperty] = await Promise.all([
+    withTimeoutFallback(
+      loadUnitRatings(collection.data.flatMap((item) => (item.unitId ? [item.unitId] : []))),
+      2_500,
+      empty,
+      'catalogue-unit-ratings',
+    ),
+    withTimeoutFallback(
+      loadPropertyRatings(
+        collection.data.flatMap((item) => (item.propertyId ? [item.propertyId] : [])),
+      ),
+      2_500,
+      empty,
+      'catalogue-property-ratings',
+    ),
+  ]);
+  return {
+    ...collection,
+    data: collection.data.map((item) => {
+      const rating =
+        (item.unitId ? byUnit.get(item.unitId) : undefined) ??
+        (item.propertyId ? byProperty.get(item.propertyId) : undefined);
+      return rating ? { ...item, avgRating: rating.score, reviewCount: rating.count } : item;
+    }),
+  };
 }

@@ -6,11 +6,13 @@ import { Link } from '@/i18n/navigation';
 import { formatMoney, localizedName } from '@/lib/format';
 import { formatListingCardTitle, formatListingLocation } from '@/lib/listing-card-copy';
 import {
+  catalogueRating,
   marketStatusFromPurpose,
   marketStatusLabel,
   reservedUntilNote,
   type CatalogueListing,
 } from '@/lib/listing-market-status';
+import { StayRatingBadge } from '@/components/stays/stay-rating-badge';
 import { listingPurposeCaption } from '@/lib/listing-purpose-display';
 import { toPublicMediaSrc } from '@/lib/public-media-url';
 
@@ -62,6 +64,7 @@ export function ListingCatalogueCard({
       ? formatMoney(listing.salePrice.amountMinor, listing.salePrice.currency, locale)
       : null;
   const reservedNote = reservedUntilNote(listing, locale);
+  const rating = catalogueRating(listing);
 
   return (
     <article className={`listing-card${reservedNote ? ' listing-card--reserved' : ''}`}>
@@ -104,6 +107,7 @@ export function ListingCatalogueCard({
               {listing.unitSerial}
             </p>
           ) : null}
+          {rating ? <StayRatingBadge rating={rating} ar={ar} /> : null}
           {!isMulti ? (
             <p className="listing-card__purpose">{listingPurposeCaption(purpose, loc)}</p>
           ) : null}

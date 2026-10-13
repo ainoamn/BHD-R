@@ -28,6 +28,15 @@ export type CatalogueListing = PublicListing & {
   reservedUntil?: string | null;
 };
 
+/** Guest score on 10 and review count of a card, or null before any released review. */
+export function catalogueRating(
+  listing: CatalogueListing,
+): { score: number; count: number } | null {
+  const score = listing.avgRating;
+  const count = listing.reviewCount ?? 0;
+  return typeof score === 'number' && score > 0 && count > 0 ? { score, count } : null;
+}
+
 /** «Reserved until …» note for cards; null when the unit is not under a paid reservation. */
 export function reservedUntilNote(
   listing: Pick<CatalogueListing, 'marketStatus' | 'reservedUntil'>,

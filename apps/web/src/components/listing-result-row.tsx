@@ -6,11 +6,13 @@ import { Link } from '@/i18n/navigation';
 import { formatMoney } from '@/lib/format';
 import { formatListingCardTitle, formatListingLocation } from '@/lib/listing-card-copy';
 import {
+  catalogueRating,
   marketStatusFromPurpose,
   marketStatusLabel,
   reservedUntilNote,
   type CatalogueListing,
 } from '@/lib/listing-market-status';
+import { StayRatingBadge } from '@/components/stays/stay-rating-badge';
 import { toPublicMediaSrc } from '@/lib/public-media-url';
 import { categoryLabel } from '@/lib/properties-browse-filters';
 import { listingPurposeCaption } from '@/lib/listing-purpose-display';
@@ -70,8 +72,7 @@ export function ListingResultRow({
   if (listing.amenities?.includes('central_ac')) {
     highlights.push(ar ? 'مكيف هواء' : 'Air conditioning');
   }
-  const rating =
-    typeof listing.avgRating === 'number' && listing.avgRating > 0 ? listing.avgRating : null;
+  const rating = catalogueRating(listing);
   const reservedNote = reservedUntilNote(listing, locale);
 
   return (
@@ -152,12 +153,7 @@ export function ListingResultRow({
 
         <div className="listing-row__aside">
           {rating ? (
-            <span className="listing-row__rating" title={`${listing.reviewCount ?? 0}`}>
-              <strong>{rating.toFixed(1)}</strong>
-              <small>
-                {listing.reviewCount ?? 0} {ar ? 'تقييم' : 'reviews'}
-              </small>
-            </span>
+            <StayRatingBadge rating={rating} ar={ar} className="listing-row__stay-rating" />
           ) : null}
           <span className="listing-row__status">{statusCopy(listing, locale)}</span>
           {purpose === 'both' ? (

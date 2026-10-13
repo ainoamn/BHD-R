@@ -470,6 +470,38 @@ export async function loadUnitRatings(unitIds: string[]): Promise<Map<string, Un
   });
 }
 
+/** Same as {@link loadUnitRatings} per property, for rent and sale cards of units never stayed in. */
+export async function loadPropertyRatings(propertyIds: string[]): Promise<Map<string, UnitRating>> {
+  const ids = [...new Set(propertyIds.filter((id) => UUID.test(id)))];
+  if (!ids.length) return new Map();
+  return elevated(async (tx) => {
+    const rows = await tx
+      .select({
+        propertyId: bookingReviews.propertyId,
+        score: sql<string>`avg(${bookingReviews.score})`,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(bookingReviews)
+      .where(
+        and(
+          inArray(bookingReviews.propertyId, ids),
+          eq(bookingReviews.direction, 'guest_to_host'),
+          eq(bookingReviews.status, 'published'),
+          released,
+        ),
+      )
+      .groupBy(bookingReviews.propertyId);
+    const ratings = new Map<string, UnitRating>();
+    for (const row of rows) {
+      const score = num(row.score);
+      if (score !== null && row.count > 0) {
+        ratings.set(row.propertyId, { score: round1(score), count: Number(row.count) });
+      }
+    }
+    return ratings;
+  });
+}
+
 /** The guest may still review this stay: it exists, has checked out, and has no guest review. */
 export async function assertGuestReviewOpen(referenceCode: string): Promise<void> {
   const reference = referenceCode.trim().toUpperCase();

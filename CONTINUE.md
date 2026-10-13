@@ -2,6 +2,15 @@
 
 **تسليم الجلسة كاملة (0.2.24 → 0.8.33):** للاستكمال من جهاز آخر ابدأ من [`docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه خطوات الإعداد، والمراحل بالتاريخ والوقت، والمهام المفتوحة. ويرافقه فهرس الإصدارات (251 إصداراً) والمحادثة كاملة بعد حذف الأسرار.
 
+# CONTINUE — 2026-10-13 15:10 (مسقط)
+
+**0.8.51** · التقييم في `/properties` وعارض صور التقييمات:
+
+- **الكتالوج:** استعلام `searchPublicListingsFromNeon` ما زال يُرجع `null::float as avg_rating`. بعده تملأ `withGuestRatings` القيم من `loadUnitRatings`، وإلا من `loadPropertyRatings` (guest_to_host، منشور، `released`)، بالتوازي مع `withTimeoutFallback` لمدة 2.5 ثانية. الشارة `StayRatingBadge` تظهر عبر `catalogueRating` في الصف والبطاقة والجدول.
+- **العارض:** `PhotoViewer` في `reputation-view.tsx`، بعنصر `<dialog>` و`showModal()`، ومسار أفقي بـscroll-snap، والفئة `photo-viewer-open` على `<html>`. التنظيف لا يستدعي `dialog.close()`، وإلا ينغلق العارض في StrictMode.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.51-AR.md`](./docs/implementation/RELEASE-0.8.51-AR.md)
+
 # CONTINUE — 2026-10-13 15:00 (مسقط)
 
 **0.8.50** · «مسار الحجز ومستجداته» في `/owner/stays/bookings/[bookingId]` (وبوابة المطوّر):

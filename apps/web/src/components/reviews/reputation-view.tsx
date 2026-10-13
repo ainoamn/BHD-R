@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ScoreBadge } from '@/components/reviews/review-form';
 import {
   criterionLabel,
@@ -263,6 +263,135 @@ function ReviewRow({
   );
 }
 
+const photoSrc = (id: string) => `/api/public/reviews/photos/${id}`;
+
+/** Full-screen viewer over the page: swipe or use the arrows between the review's photos. */
+function PhotoViewer({
+  ids,
+  start,
+  ar,
+  onClose,
+}: {
+  ids: string[];
+  start: number;
+  ar: boolean;
+  onClose: () => void;
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [index, setIndex] = useState(start);
+
+  const slideAt = (at: number) => trackRef.current?.children[at] as HTMLElement | undefined;
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (!dialog.open) dialog.showModal();
+    document.documentElement.classList.add('photo-viewer-open');
+    slideAt(start)?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'auto' });
+    // Closing here would fire a deferred `close` event and unmount the viewer on re-run;
+    // unmounting the element already removes it from the top layer.
+    return () => document.documentElement.classList.remove('photo-viewer-open');
+  }, [start]);
+
+  function go(next: number) {
+    const target = Math.max(0, Math.min(ids.length - 1, next));
+    slideAt(target)?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+  }
+
+  function onScroll() {
+    const track = trackRef.current;
+    if (!track?.clientWidth) return;
+    setIndex(Math.round(Math.abs(track.scrollLeft) / track.clientWidth));
+  }
+
+  const close = () => dialogRef.current?.close();
+  const step = ar ? -1 : 1;
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className="photo-viewer"
+      aria-label={ar ? 'صور التقييم' : 'Review photos'}
+      onClose={onClose}
+      onClick={(event) => {
+        const target = event.target as HTMLElement;
+        if (target === event.currentTarget || target.classList.contains('photo-viewer__slide')) {
+          close();
+        }
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'ArrowRight') go(index + step);
+        else if (event.key === 'ArrowLeft') go(index - step);
+      }}
+    >
+      <div className="photo-viewer__bar">
+        <span dir="ltr">
+          {index + 1} / {ids.length}
+        </span>
+        <button type="button" className="photo-viewer__close" onClick={close}>
+          {ar ? 'إغلاق ×' : 'Close ×'}
+        </button>
+      </div>
+      <div className="photo-viewer__track" ref={trackRef} onScroll={onScroll}>
+        {ids.map((id, at) => (
+          <figure key={id} className="photo-viewer__slide">
+            <img
+              src={photoSrc(id)}
+              alt={ar ? `صورة من التقييم ${at + 1}` : `Review photo ${at + 1}`}
+            />
+          </figure>
+        ))}
+      </div>
+      {ids.length > 1 ? (
+        <>
+          <button
+            type="button"
+            className="photo-viewer__nav photo-viewer__nav--prev"
+            onClick={() => go(index - 1)}
+            disabled={index === 0}
+            aria-label={ar ? 'الصورة السابقة' : 'Previous photo'}
+          >
+            {ar ? '›' : '‹'}
+          </button>
+          <button
+            type="button"
+            className="photo-viewer__nav photo-viewer__nav--next"
+            onClick={() => go(index + 1)}
+            disabled={index === ids.length - 1}
+            aria-label={ar ? 'الصورة التالية' : 'Next photo'}
+          >
+            {ar ? '‹' : '›'}
+          </button>
+        </>
+      ) : null}
+    </dialog>
+  );
+}
+
+function ReviewPhotos({ ids, ar }: { ids: string[]; ar: boolean }) {
+  const [open, setOpen] = useState<number | null>(null);
+  return (
+    <>
+      <div className="reputation-card__photos">
+        {ids.map((id, index) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setOpen(index)}
+            aria-label={ar ? `عرض صورة التقييم ${index + 1}` : `View review photo ${index + 1}`}
+          >
+            <img src={photoSrc(id)} alt="" loading="lazy" />
+          </button>
+        ))}
+      </div>
+      {open !== null ? (
+        <PhotoViewer ids={ids} start={open} ar={ar} onClose={() => setOpen(null)} />
+      ) : null}
+    </>
+  );
+}
+
 function ReviewCard({
   review,
   subject,
@@ -359,24 +488,7 @@ function ReviewCard({
             ))}
           </ul>
         ) : null}
-        {review.photoIds.length ? (
-          <div className="reputation-card__photos">
-            {review.photoIds.map((id, index) => (
-              <a
-                key={id}
-                href={`/api/public/reviews/photos/${id}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <img
-                  src={`/api/public/reviews/photos/${id}`}
-                  alt={ar ? `صورة من التقييم ${index + 1}` : `Review photo ${index + 1}`}
-                  loading="lazy"
-                />
-              </a>
-            ))}
-          </div>
-        ) : null}
+        {review.photoIds.length ? <ReviewPhotos ids={review.photoIds} ar={ar} /> : null}
       </div>
     </li>
   );
