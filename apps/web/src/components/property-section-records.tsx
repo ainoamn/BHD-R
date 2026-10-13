@@ -1759,7 +1759,7 @@ export function PropertySectionRecords({
         <p className="pmh-empty">{ar ? 'لا توجد سجلات مطابقة.' : 'No matching records.'}</p>
       ) : (
         <div className="data-table-wrap">
-          <table className="data-table psr-table">
+          <table className="data-table data-table--stack psr-table">
             <thead>
               <tr>
                 {columns.map((column) => (
@@ -1786,6 +1786,7 @@ export function PropertySectionRecords({
                         <td
                           key={column.key}
                           className={`psr-col--${column.format ?? 'text'} psr-key--${column.key}`}
+                          data-label={ar ? column.ar : column.en}
                         >
                           <Cell
                             row={row}

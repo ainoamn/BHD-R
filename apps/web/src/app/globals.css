@@ -768,39 +768,64 @@ a.pmh-actionbar__title[aria-current='page'] {
   flex: 0 1 18rem;
   min-width: 12rem;
 }
-.psr-table td {
-  white-space: nowrap;
-}
-.data-table.psr-table :is(th, td) {
-  padding-inline: 0.6rem;
-}
-.data-table.psr-table th {
-  white-space: normal;
-  min-width: 4.5rem;
-}
-/* Long text wraps so the table fits the card instead of scrolling sideways. */
-.data-table.psr-table
-  td:is(
-    .psr-col--text,
-    .psr-col--kind,
-    .psr-col--stayLog,
-    .psr-col--refund,
-    .psr-col--terms,
-    .psr-col--signatures,
-    .psr-col--source,
-    .psr-col--contractKind,
-    .psr-col--contractType
-  ) {
-  min-width: 4.5rem;
-  max-width: 14rem;
-  white-space: normal;
-  overflow-wrap: break-word;
-}
-.data-table.psr-table td:is(.psr-key--reference, .psr-key--unitCode) {
-  white-space: nowrap;
-}
-.data-table.psr-table td.psr-col--stayLog {
-  max-width: 16rem;
+@media (min-width: 961px) {
+  .psr-table td {
+    white-space: nowrap;
+  }
+  .data-table.psr-table :is(th, td) {
+    padding-inline: 0.6rem;
+  }
+  .data-table.psr-table th {
+    white-space: normal;
+    min-width: 4.5rem;
+  }
+  /* Long text wraps so the table fits the card instead of scrolling sideways. */
+  .data-table.psr-table
+    td:is(
+      .psr-col--text,
+      .psr-col--kind,
+      .psr-col--stayLog,
+      .psr-col--refund,
+      .psr-col--terms,
+      .psr-col--signatures,
+      .psr-col--source,
+      .psr-col--contractKind,
+      .psr-col--contractType
+    ) {
+    min-width: 4.5rem;
+    max-width: 14rem;
+    white-space: normal;
+    overflow-wrap: break-word;
+  }
+  .data-table.psr-table td:is(.psr-key--reference, .psr-key--unitCode) {
+    white-space: nowrap;
+  }
+  .data-table.psr-table td.psr-col--stayLog {
+    max-width: 16rem;
+  }
+  .data-table.psr-table .psr-refund {
+    min-width: 7.5rem;
+  }
+  .data-table.psr-table .psr-stay-log {
+    min-width: 7.5rem;
+  }
+  /* Actions stay pinned to the row end even when the table must scroll. */
+  .data-table.psr-table .psr-col--actions {
+    position: sticky;
+    inset-inline-end: 0;
+    z-index: 1;
+    background: var(--calm-surface, #fff);
+    box-shadow: -12px 0 14px -14px rgb(9 45 36 / 0.45);
+  }
+  [dir='rtl'] .data-table.psr-table .psr-col--actions {
+    box-shadow: 12px 0 14px -14px rgb(9 45 36 / 0.45);
+  }
+  .data-table.psr-table th.psr-col--actions {
+    background: var(--calm-surface-2, #f6f9f7);
+  }
+  .data-table.psr-table tr.psr-row--focus td.psr-col--actions {
+    background: #fff6dc;
+  }
 }
 .psr-period {
   display: grid;
@@ -816,32 +841,9 @@ a.pmh-actionbar__title[aria-current='page'] {
   text-align: center;
   white-space: normal;
 }
-.data-table.psr-table .psr-refund {
-  min-width: 7.5rem;
-}
-.data-table.psr-table .psr-stay-log {
-  min-width: 7.5rem;
-}
 .data-table.psr-table .psr-col--actions .psr-actions {
   flex-wrap: wrap;
   gap: 0.3rem;
-}
-/* Actions stay pinned to the row end even when the table must scroll. */
-.data-table.psr-table .psr-col--actions {
-  position: sticky;
-  inset-inline-end: 0;
-  z-index: 1;
-  background: var(--calm-surface, #fff);
-  box-shadow: -12px 0 14px -14px rgb(9 45 36 / 0.45);
-}
-[dir='rtl'] .data-table.psr-table .psr-col--actions {
-  box-shadow: 12px 0 14px -14px rgb(9 45 36 / 0.45);
-}
-.data-table.psr-table th.psr-col--actions {
-  background: var(--calm-surface-2, #f6f9f7);
-}
-.data-table.psr-table tr.psr-row--focus td.psr-col--actions {
-  background: #fff6dc;
 }
 .psr-money--in {
   color: #11643f;
@@ -879,6 +881,91 @@ a.pmh-actionbar__title[aria-current='page'] {
 }
 .psr-table tr.psr-row--focus td {
   background: #fff6dc;
+}
+/* Wide record tables become one card per row; each cell shows its column name from data-label. */
+@media (max-width: 960px) {
+  .data-table-wrap:has(> .data-table--stack) {
+    overflow: visible;
+    background: none;
+    border: 0;
+    box-shadow: none;
+  }
+  .data-table.data-table--stack,
+  .data-table--stack tbody {
+    display: grid;
+    gap: 0.65rem;
+    min-width: 0;
+    white-space: normal;
+  }
+  .data-table--stack thead {
+    display: none;
+  }
+  .data-table--stack tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0.2rem 0.9rem;
+    background: var(--calm-surface, #fff);
+    border: 1px solid var(--calm-line, #e1e9e5);
+    border-radius: 0.9rem;
+    box-shadow: 0 1px 2px rgb(9 45 36 / 0.04);
+  }
+  .data-table--stack tr.psr-row--focus {
+    background: #fff6dc;
+    border-color: #ecd9a6;
+  }
+  .data-table--stack tr.psr-details {
+    padding: 0.6rem;
+    background: #fbfaf6;
+  }
+  .data-table.data-table--stack td {
+    position: relative;
+    display: block;
+    min-width: 0;
+    min-height: 2.5rem;
+    padding: 0.55rem 0;
+    padding-inline-start: calc(36% + 0.75rem);
+    background: none;
+    border-bottom: 1px dashed var(--calm-line, #e1e9e5);
+    overflow-wrap: anywhere;
+  }
+  .data-table--stack td::before {
+    content: attr(data-label);
+    position: absolute;
+    inset-block-start: 0.6rem;
+    inset-inline-start: 0;
+    width: 36%;
+    color: var(--calm-muted, #6c7b75);
+    font-size: 0.76rem;
+    font-weight: 700;
+    line-height: 1.4;
+  }
+  .data-table.data-table--stack td:not([data-label]) {
+    padding-inline-start: 0;
+  }
+  .data-table--stack td:not([data-label])::before {
+    content: none;
+  }
+  .data-table--stack td:last-child {
+    border-bottom: 0;
+  }
+  .data-table--stack td:empty {
+    display: none;
+  }
+  .data-table--stack td > .psr-actions {
+    flex-wrap: wrap;
+  }
+  .data-table--stack .psr-signatures {
+    max-width: none;
+  }
+}
+@media (min-width: 680px) and (max-width: 960px) {
+  .data-table--stack tbody {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+  .data-table--stack tr.psr-details {
+    grid-column: 1 / -1;
+  }
 }
 .psr-form {
   display: grid;
@@ -7360,6 +7447,12 @@ body:has(.stays-booking-receipt) #main-content {
   background: #e7f5ee;
   color: #0f5b4a;
 }
+.tenant-table-wrap {
+  background: rgb(255 255 255 / 0.96);
+  border: 1px solid rgb(9 45 36 / 0.08);
+  border-radius: 1.2rem;
+  box-shadow: 0 14px 36px rgb(9 45 36 / 0.05);
+}
 .tenant-table__ref {
   font-weight: 700;
   white-space: nowrap;
@@ -11170,6 +11263,7 @@ button.ops-row-key {
 }
 .stays-portal {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   min-width: 0;
 }
@@ -11186,6 +11280,7 @@ button.ops-row-key {
 }
 .stays-portal__body {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   min-width: 0;
 }
@@ -11196,6 +11291,33 @@ button.ops-row-key {
 }
 .ops-workspace .stays-nav {
   margin-block: 0.75rem;
+}
+@media (max-width: 760px) {
+  .stays-nav {
+    position: static;
+    flex-wrap: wrap;
+  }
+  .stays-nav .pmh-actionbar__list {
+    display: grid;
+    flex-basis: 100%;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    overflow: visible;
+  }
+  .stays-nav .stays-nav__item {
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.2rem;
+    min-height: 3.4rem;
+    padding: 0.35rem 0.25rem;
+    font-size: 0.72rem;
+    line-height: 1.25;
+    text-align: center;
+    white-space: normal;
+  }
+  .stays-nav > .pmh-action--primary {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
 }
 .ops-panel.ops-panel--bare {
   overflow: visible;
@@ -11233,6 +11355,7 @@ button.ops-row-key {
 /* Rates page */
 .stays-rates {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
 }
 .stays-rates__toolbar {

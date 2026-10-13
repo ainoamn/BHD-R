@@ -2,6 +2,18 @@
 
 **تسليم الجلسة كاملة (0.2.24 → 0.8.33):** للاستكمال من جهاز آخر ابدأ من [`docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه خطوات الإعداد، والمراحل بالتاريخ والوقت، والمهام المفتوحة. ويرافقه فهرس الإصدارات (251 إصداراً) والمحادثة كاملة بعد حذف الأسرار.
 
+# CONTINUE — 2026-10-13 08:57 (مسقط)
+
+**0.8.36** · صفحات المالك والمستأجر والإقامات متوافقة مع الهاتف:
+
+- **النمط `data-table--stack`** في `globals.css`: تحت 960px يصير كل صف بطاقة، وكل خلية تبدأ بـ `data-label`. والحاوية `.data-table-wrap:has(> .data-table--stack)` تفقد إطارها وتمريرها.
+- **`PropertySectionRecords`:** `data-label` لكل خلية، وقواعد `psr-table` العريضة صارت داخل `@media (min-width: 961px)`.
+- **`tenant-space.tsx`:** `Table` يضيف `data-label` من `head` بـ `cloneElement`، والحاوية `tenant-table-wrap` بدل `ops-panel` الذي كان يقصّ.
+- **الإقامات:** `minmax(0, 1fr)` في `.stays-portal` و`.stays-portal__body` و`.stays-rates`، وشريط `.stays-nav` تحت 760px غير مثبّت وأقسامه شبكة من أربعة أعمدة.
+- **التحقق:** الصفحات السبع بعرض الشاشة على 390px و768px، بجلستين محليتين على فرع Neon مؤقت حُذف بعد الفحص.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.36-AR.md`](./docs/implementation/RELEASE-0.8.36-AR.md)
+
 # CONTINUE — 2026-10-13 06:57 (مسقط)
 
 **0.8.35** · ظهور العقار بعد التأجير أو البيع، وبيانات العقار في الخطوة 3:

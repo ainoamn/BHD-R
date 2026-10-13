@@ -1,5 +1,5 @@
 import { EmptyState } from '@bhd-r/ui';
-import type { ReactNode } from 'react';
+import { Children, cloneElement, isValidElement, type ReactNode } from 'react';
 import { Link } from '@/i18n/navigation';
 import { formatMoney } from '@/lib/format';
 import { loadMyTenancy } from '@/lib/tenancy-neon';
@@ -47,10 +47,24 @@ function money(amountMinor: string | null, currency: string | null, locale: stri
   return amountMinor && currency ? formatMoney(amountMinor, currency, locale) : '—';
 }
 
+/** Rows are `<tr>` of `<td>` in `head` order; each cell gets its header as `data-label` for phone cards. */
 function Table({ head, children }: { head: string[]; children: ReactNode }) {
+  const rows = Children.map(children, (row) =>
+    isValidElement<{ children?: ReactNode }>(row)
+      ? cloneElement(
+          row,
+          undefined,
+          Children.map(row.props.children, (cell, index) =>
+            isValidElement<{ 'data-label'?: string }>(cell) && head[index]
+              ? cloneElement(cell, { 'data-label': head[index] })
+              : cell,
+          ),
+        )
+      : row,
+  );
   return (
-    <div className="ops-panel data-table-wrap">
-      <table className="data-table tenant-table">
+    <div className="data-table-wrap tenant-table-wrap">
+      <table className="data-table data-table--stack tenant-table">
         <thead>
           <tr>
             {head.map((label) => (
@@ -58,7 +72,7 @@ function Table({ head, children }: { head: string[]; children: ReactNode }) {
             ))}
           </tr>
         </thead>
-        <tbody>{children}</tbody>
+        <tbody>{rows}</tbody>
       </table>
     </div>
   );
