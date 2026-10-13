@@ -118,15 +118,7 @@ function Bar({ label, score }: { label: string; score: number | null }) {
   );
 }
 
-function ReviewCard({
-  review,
-  subject,
-  locale,
-}: {
-  review: PublicReview;
-  subject: ReputationSubject;
-  locale: 'ar' | 'en';
-}) {
+function reviewFacts(review: PublicReview, subject: ReputationSubject, locale: 'ar' | 'en') {
   const ar = locale === 'ar';
   const fromGuest = review.direction === 'guest_to_host';
   const name = fromGuest
@@ -162,6 +154,126 @@ function ReviewCard({
     .join(' · ');
   const unit = review.unitName ? (ar ? review.unitName.ar : review.unitName.en) : null;
   const reviewedOn = dayLabel(review.createdAt, ar);
+  return { ar, fromGuest, name, nameHref, place, shownScore, stayed, party, unit, reviewedOn };
+}
+
+function ReviewerName({ name, href }: { name: string; href: string | null }) {
+  return href ? (
+    <a href={href}>
+      <bdi>{name}</bdi>
+    </a>
+  ) : (
+    <bdi>{name}</bdi>
+  );
+}
+
+function RecommendChip({ review, ar }: { review: PublicReview; ar: boolean }) {
+  if (review.recommend === null) return null;
+  const fromGuest = review.direction === 'guest_to_host';
+  return (
+    <span className={review.recommend ? 'reputation-card__yes' : 'reputation-card__no'}>
+      {review.recommend
+        ? fromGuest
+          ? ar
+            ? 'ينصح بالعقار'
+            : 'Recommends'
+          : ar
+            ? 'يستضيفه مجدداً'
+            : 'Would host again'
+        : fromGuest
+          ? ar
+            ? 'لا ينصح'
+            : 'Does not recommend'
+          : ar
+            ? 'لن يستضيفه مجدداً'
+            : 'Would not host again'}
+    </span>
+  );
+}
+
+/** Table view: one row per review; the comment is clamped until opened. */
+function ReviewRow({
+  review,
+  subject,
+  locale,
+}: {
+  review: PublicReview;
+  subject: ReputationSubject;
+  locale: 'ar' | 'en';
+}) {
+  const facts = reviewFacts(review, subject, locale);
+  const { ar } = facts;
+  const [open, setOpen] = useState(false);
+  const long = (review.comment?.length ?? 0) > 140;
+  return (
+    <tr>
+      <td data-label={ar ? 'الضيف' : 'Guest'}>
+        <span className="reputation-table__who">
+          <span className="reputation-card__avatar" aria-hidden="true">
+            {facts.name.trim().charAt(0)}
+          </span>
+          <span>
+            <ReviewerName name={facts.name} href={facts.nameHref} />
+            {facts.party ? <small className="muted">{facts.party}</small> : null}
+          </span>
+        </span>
+      </td>
+      <td data-label={ar ? 'الإقامة' : 'Stay'}>
+        <span>
+          {facts.fromGuest ? facts.stayed : monthLabel(review.stayMonth, ar)}
+          {facts.fromGuest && facts.unit && subject !== 'unit' ? (
+            <small className="muted">
+              <bdi>{facts.unit}</bdi>
+            </small>
+          ) : null}
+        </span>
+      </td>
+      <td data-label={ar ? 'الدرجة' : 'Score'}>
+        <ScoreBadge score={facts.shownScore} ar={ar} size="sm" />
+      </td>
+      <td data-label={ar ? 'التعليق' : 'Comment'} className="reputation-table__comment">
+        <div>
+          {review.comment ? (
+            <>
+              <p className={open ? undefined : 'is-clamped'} dir="auto">
+                {review.comment}
+              </p>
+              {long ? (
+                <button
+                  type="button"
+                  className="reputation-table__more"
+                  onClick={() => setOpen(!open)}
+                >
+                  {open ? (ar ? 'أقل' : 'Less') : ar ? 'التعليق كاملاً' : 'Full comment'}
+                </button>
+              ) : null}
+            </>
+          ) : review.commentHidden ? (
+            <span className="muted">{ar ? 'أُخفي التعليق' : 'Comment hidden'}</span>
+          ) : (
+            <span className="muted">{ar ? 'بلا تعليق' : 'No comment'}</span>
+          )}
+          <span className="reputation-card__groups">
+            <RecommendChip review={review} ar={ar} />
+          </span>
+        </div>
+      </td>
+      <td data-label={ar ? 'تاريخ التقييم' : 'Reviewed'}>{facts.reviewedOn}</td>
+    </tr>
+  );
+}
+
+function ReviewCard({
+  review,
+  subject,
+  locale,
+}: {
+  review: PublicReview;
+  subject: ReputationSubject;
+  locale: 'ar' | 'en';
+}) {
+  const { ar, fromGuest, name, nameHref, place, shownScore, stayed, party, unit, reviewedOn } =
+    reviewFacts(review, subject, locale);
   return (
     <li className="reputation-card">
       <aside className="reputation-card__guest">
@@ -170,13 +282,7 @@ function ReviewCard({
             {name.trim().charAt(0)}
           </span>
           <div className="reputation-card__who">
-            {nameHref ? (
-              <a href={nameHref}>
-                <bdi>{name}</bdi>
-              </a>
-            ) : (
-              <bdi>{name}</bdi>
-            )}
+            <ReviewerName name={name} href={nameHref} />
             {!fromGuest && place ? <small className="muted">{place}</small> : null}
           </div>
         </div>
@@ -221,25 +327,7 @@ function ReviewCard({
               </span>
             ),
           )}
-          {review.recommend !== null ? (
-            <span className={review.recommend ? 'reputation-card__yes' : 'reputation-card__no'}>
-              {review.recommend
-                ? fromGuest
-                  ? ar
-                    ? 'ينصح بالعقار'
-                    : 'Recommends'
-                  : ar
-                    ? 'يستضيفه مجدداً'
-                    : 'Would host again'
-                : fromGuest
-                  ? ar
-                    ? 'لا ينصح'
-                    : 'Does not recommend'
-                  : ar
-                    ? 'لن يستضيفه مجدداً'
-                    : 'Would not host again'}
-            </span>
-          ) : null}
+          <RecommendChip review={review} ar={ar} />
         </div>
         {review.comment ? (
           <blockquote className="reputation-card__comment" dir="auto">
@@ -330,6 +418,18 @@ const TITLES: Record<
   },
 };
 
+type ReviewsView = 'list' | 'grid' | 'table';
+const REVIEWS_VIEW_KEY = 'bhd-r-reviews-view';
+const REVIEWS_VIEWS: Array<[ReviewsView, string, string]> = [
+  ['list', 'قائمة', 'List'],
+  ['grid', 'شبكة', 'Grid'],
+  ['table', 'جدول', 'Table'],
+];
+
+function parseReviewsView(raw: string | null): ReviewsView {
+  return raw === 'grid' || raw === 'table' ? raw : 'list';
+}
+
 export function ReputationView({
   subject,
   subjectKey,
@@ -353,6 +453,24 @@ export function ReputationView({
   const [data, setData] = useState<Reputation | null>(initial ?? null);
   const [loaded, setLoaded] = useState(initial !== undefined);
   const [showAll, setShowAll] = useState(showAllReviews);
+  const [view, setView] = useState<ReviewsView>('list');
+
+  useEffect(() => {
+    try {
+      setView(parseReviewsView(window.localStorage.getItem(REVIEWS_VIEW_KEY)));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  function changeView(next: ReviewsView) {
+    setView(next);
+    try {
+      window.localStorage.setItem(REVIEWS_VIEW_KEY, next);
+    } catch {
+      /* ignore */
+    }
+  }
 
   useEffect(() => {
     if (initial !== undefined) return;
@@ -517,41 +635,88 @@ export function ReputationView({
             </div>
           </details>
 
-          {showTravellers ? (
-            <div
-              className="reputation__travellers"
-              role="group"
-              aria-label={ar ? 'تصفية حسب نوع الضيوف' : 'Filter by traveller type'}
-            >
-              <span className="reputation__travellers-label">
-                {ar ? 'المقيّمون:' : 'Reviewers:'}
-              </span>
-              <button
-                type="button"
-                aria-pressed={traveller === 'all'}
-                onClick={() => setTraveller('all')}
+          <div className="reputation__toolbar">
+            {showTravellers ? (
+              <div
+                className="reputation__travellers"
+                role="group"
+                aria-label={ar ? 'تصفية حسب نوع الضيوف' : 'Filter by traveller type'}
               >
-                {ar ? 'الكل' : 'All'} <span dir="ltr">({data.count})</span>
-              </button>
-              {travellers.map((item) => (
+                <span className="reputation__travellers-label">
+                  {ar ? 'المقيّمون:' : 'Reviewers:'}
+                </span>
                 <button
-                  key={item.type}
                   type="button"
-                  aria-pressed={traveller === item.type}
-                  disabled={item.count === 0}
-                  onClick={() => setTraveller(item.type)}
+                  aria-pressed={traveller === 'all'}
+                  onClick={() => setTraveller('all')}
                 >
-                  {travellerLabel(item.type, ar, true)} <span dir="ltr">({item.count})</span>
+                  {ar ? 'الكل' : 'All'} <span dir="ltr">({data.count})</span>
+                </button>
+                {travellers.map((item) => (
+                  <button
+                    key={item.type}
+                    type="button"
+                    aria-pressed={traveller === item.type}
+                    disabled={item.count === 0}
+                    onClick={() => setTraveller(item.type)}
+                  >
+                    {travellerLabel(item.type, ar, true)} <span dir="ltr">({item.count})</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <div
+              className="props-view-toggle reputation__views"
+              role="group"
+              aria-label={ar ? 'طريقة عرض التقييمات' : 'Reviews view'}
+            >
+              {REVIEWS_VIEWS.map(([mode, labelAr, labelEn]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className={view === mode ? 'is-active' : undefined}
+                  aria-pressed={view === mode}
+                  onClick={() => changeView(mode)}
+                >
+                  {ar ? labelAr : labelEn}
                 </button>
               ))}
             </div>
-          ) : null}
+          </div>
 
-          <ul className="reputation__list">
-            {visible.map((review) => (
-              <ReviewCard key={review.id} review={review} subject={subject} locale={locale} />
-            ))}
-          </ul>
+          {view === 'table' ? (
+            visible.length ? (
+              <div className="reputation-table-wrap">
+                <table className="reputation-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">{ar ? 'الضيف' : 'Guest'}</th>
+                      <th scope="col">{ar ? 'الإقامة' : 'Stay'}</th>
+                      <th scope="col">{ar ? 'الدرجة' : 'Score'}</th>
+                      <th scope="col">{ar ? 'التعليق' : 'Comment'}</th>
+                      <th scope="col">{ar ? 'تاريخ التقييم' : 'Reviewed'}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visible.map((review) => (
+                      <ReviewRow
+                        key={review.id}
+                        review={review}
+                        subject={subject}
+                        locale={locale}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null
+          ) : (
+            <ul className={`reputation__list reputation__list--${view}`}>
+              {visible.map((review) => (
+                <ReviewCard key={review.id} review={review} subject={subject} locale={locale} />
+              ))}
+            </ul>
+          )}
           {!reviews.length ? (
             <p className="muted">
               {ar ? 'لا توجد تقييمات معروضة من هذا النوع.' : 'No reviews of this type shown.'}
