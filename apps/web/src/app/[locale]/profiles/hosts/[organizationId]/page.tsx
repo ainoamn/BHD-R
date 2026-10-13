@@ -3,6 +3,7 @@ import { after } from 'next/server';
 import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import { hostRoleLabel, hostStockLabel, memberSinceLabel } from '@/components/host-card';
+import { HostShareQr } from '@/components/host-share-qr';
 import { ListingCatalogueCard } from '@/components/listing-catalogue-card';
 import { ReputationView } from '@/components/reviews/reputation-view';
 import { ScoreBadge } from '@/components/reviews/review-form';
@@ -13,7 +14,8 @@ import { loadHostSummary, loadReputation, refreshReviewProfile } from '@/lib/boo
 import type { CatalogueListing } from '@/lib/listing-market-status';
 import { searchPublicListingsFromNeon } from '@/lib/search-public-listings-neon';
 import { searchStaysCatalogueFromNeon } from '@/lib/search-stays-catalogue-neon';
-import { bilingualAlternates } from '@/lib/seo';
+import { contractQrSvg } from '@/lib/contract-verify';
+import { bilingualAlternates, publicWebOrigin } from '@/lib/seo';
 import type { StayCatalogueListing } from '@/lib/stays-catalogue-listing';
 import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
 import { withTimeoutFallback } from '@/lib/with-timeout';
@@ -72,6 +74,8 @@ export default async function HostProfilePage({
     );
   }
   const name = ar ? host.name.ar : host.name.en;
+  const profileUrl = `${publicWebOrigin()}/${locale}/profiles/hosts/${organizationId}`;
+  const qrSvg = await contractQrSvg(profileUrl);
 
   return (
     <main className="section">
@@ -127,6 +131,8 @@ export default async function HostProfilePage({
             <dd dir="ltr">{host.score !== null ? host.score.toFixed(1) : '—'}</dd>
           </div>
         </dl>
+
+        <HostShareQr svg={qrSvg} url={profileUrl} name={name} locale={locale} />
 
         <section className="host-profile__section" aria-labelledby="host-stays-title">
           <h2 id="host-stays-title">
