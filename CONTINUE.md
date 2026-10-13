@@ -10,7 +10,7 @@
 - **البحث:** `searchStaysCatalogueFromNeon` يرفق `rating` بكل وحدة بعد المعاملة، بمهلة 2.5 ثانية (`withTimeoutFallback`).
 - **العرض:** `StayRatingBadge` في القائمة والشبكة والجدول. انتبه: `.listing-row__rating` اسم قديم لعقارات الإيجار، فالصف يستخدم `.listing-row__stay-rating`.
 - **الترتيب:** `rating_desc` أُضيف إلى `BrowseSort` المشترك، ولا يستخدمه إلا بحث الإقامات.
-- **مفتوح:** تقييم ST-FE61E6C8 يظهر بعد 14 أكتوبر 09:58 بتوقيت مسقط أو عند تأكيد الضيف الاستلام. بعدها تُراجع الصفحة الحية.
+- **على الموقع الحي:** «شقة A-01» تظهر بـ 8.6 «ممتاز» و«تقييم واحد»، بعد أن أكّد ضيف ST-FE61E6C8 استلام الوديعة.
 
 **تفاصيل:** [`docs/implementation/RELEASE-0.8.40-AR.md`](./docs/implementation/RELEASE-0.8.40-AR.md)
 
