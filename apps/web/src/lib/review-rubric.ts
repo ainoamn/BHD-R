@@ -507,7 +507,39 @@ export type PublicReview = {
   concerns: ReviewText[];
   photoIds: string[];
   aiEngine: string;
+  /** Guest reviews only: the booked unit, nights and party, as booked. */
+  unitName: ReviewText | null;
+  nights: number | null;
+  guests: number | null;
+  traveller: TravellerType | null;
 };
+
+/** Derived from the booked party: children → family, one adult → solo, two adults → pair, more → group. */
+export type TravellerType = 'family' | 'pair' | 'group' | 'solo';
+
+export const TRAVELLER_TYPES: TravellerType[] = ['family', 'pair', 'group', 'solo'];
+
+export function travellerTypeOf(
+  adults: number | null,
+  children: number | null,
+): TravellerType | null {
+  if (adults === null || adults < 1) return null;
+  if ((children ?? 0) > 0) return 'family';
+  if (adults === 1) return 'solo';
+  if (adults === 2) return 'pair';
+  return 'group';
+}
+
+export function travellerLabel(type: TravellerType, ar: boolean, plural = false): string {
+  const labels: Record<TravellerType, [string, string, string, string]> = {
+    family: ['عائلة', 'عائلات', 'Family', 'Families'],
+    pair: ['شخصان', 'شخصان', 'Two people', 'Pairs'],
+    group: ['مجموعة', 'مجموعات', 'Group', 'Groups'],
+    solo: ['مسافر منفرد', 'مسافرون منفردون', 'Solo traveller', 'Solo travellers'],
+  };
+  const [arOne, arMany, enOne, enMany] = labels[type];
+  return ar ? (plural ? arMany : arOne) : plural ? enMany : enOne;
+}
 
 /** `unit`: one rentable unit of a property (a daily stay); it has no cached AI profile. */
 export type ReputationSubject = 'property' | 'unit' | 'host' | 'guest';
@@ -518,6 +550,10 @@ export type Reputation = {
   name: ReviewText | null;
   score: number | null;
   count: number;
+  /** Distinct guests (or hosts, for a guest) who wrote the reviews. */
+  reviewers: number;
+  /** Guest reviews per traveller type, over every published review, not only the loaded ones. */
+  travellers: Array<{ type: TravellerType; count: number }>;
   recommendRate: number | null;
   groups: Array<{ key: string; score: number | null }>;
   criteria: Array<{ key: string; score: number | null; count: number }>;

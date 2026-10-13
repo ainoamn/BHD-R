@@ -33,6 +33,8 @@ import {
   reviewTags,
   rubricFor,
   scoreAnswers,
+  TRAVELLER_TYPES,
+  travellerTypeOf,
   validAnswers,
   type GuestStanding,
   type PublicReview,
@@ -157,6 +159,12 @@ const contactEmail = sql<
 const contactName = sql<
   string | null
 >`${stayBookings.pricingSnapshotJson}->'guestContact'->>'displayName'`;
+
+/** Party size as booked; null when the snapshot has no clean whole number. */
+function snapshotCount(field: 'adults' | 'children') {
+  const value = sql`${stayBookings.pricingSnapshotJson}->>${field}`;
+  return sql<number | null>`case when ${value} ~ '^[0-9]{1,3}$' then (${value})::int end`;
+}
 
 export type ReviewSubmission = {
   answers: ReviewAnswers;
@@ -832,17 +840,23 @@ export async function loadReputation(
         engine: bookingReviews.aiEngine,
         photoCount: bookingReviews.photoCount,
         checkInOn: stayBookings.checkInOn,
+        nights: sql<number>`(${stayBookings.checkOutOn} - ${stayBookings.checkInOn})::int`,
+        adults: snapshotCount('adults'),
+        children: snapshotCount('children'),
         bookingUserId: stayBookings.userId,
         bookingEmail: contactEmail,
         hostAr: organizations.displayNameAr,
         hostEn: organizations.displayNameEn,
         propertyAr: properties.nameAr,
         propertyEn: properties.nameEn,
+        unitAr: units.nameAr,
+        unitEn: units.nameEn,
       })
       .from(bookingReviews)
       .innerJoin(stayBookings, eq(stayBookings.id, bookingReviews.bookingId))
       .innerJoin(organizations, eq(organizations.id, bookingReviews.organizationId))
       .innerJoin(properties, eq(properties.id, bookingReviews.propertyId))
+      .leftJoin(units, eq(units.id, stayBookings.unitId))
       .where(and(subjectCondition(subject, key), eq(bookingReviews.status, 'published'), released))
       .orderBy(desc(bookingReviews.createdAt))
       .limit(300);
@@ -881,6 +895,21 @@ export async function loadReputation(
     const recommendRate = recommended.length
       ? Math.round((recommended.filter((row) => row.recommend).length / recommended.length) * 100)
       : null;
+
+    const fromGuests = direction === 'guest_to_host';
+    const typeOf = (row: (typeof rows)[number]) =>
+      fromGuests ? travellerTypeOf(row.adults, row.children) : null;
+    const travellers = TRAVELLER_TYPES.map((type) => ({
+      type,
+      count: rows.filter((row) => typeOf(row) === type).length,
+    }));
+    const reviewers = new Set(
+      rows.map((row) =>
+        fromGuests
+          ? (guestKeyOf(row.bookingUserId, row.bookingEmail) ?? row.id)
+          : row.organizationId,
+      ),
+    ).size;
 
     const shown = rows.slice(0, limit);
     const photos = shown.some((row) => row.photoCount > 0)
@@ -934,6 +963,11 @@ export async function loadReputation(
           .sort((a, b) => a.position - b.position)
           .map((photo) => photo.id),
         aiEngine: row.engine,
+        unitName:
+          fromGuests && row.unitAr && row.unitEn ? { ar: row.unitAr, en: row.unitEn } : null,
+        nights: fromGuests && row.nights > 0 ? row.nights : null,
+        guests: fromGuests && row.adults !== null ? row.adults + (row.children ?? 0) : null,
+        traveller: typeOf(row),
       };
     });
 
@@ -955,6 +989,8 @@ export async function loadReputation(
         name,
         score,
         count: rows.length,
+        reviewers,
+        travellers,
         recommendRate,
         groups,
         criteria,

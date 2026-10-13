@@ -10,6 +10,8 @@ import {
   reviewScoreLabel,
   reviewTags,
   scoreAnswers,
+  travellerLabel,
+  travellerTypeOf,
   validAnswers,
   type ReviewAnswers,
   type ReviewGroup,
@@ -26,6 +28,16 @@ function all(rubric: ReviewGroup[], value: number, skipOptional = false): Review
 }
 
 describe('review rubric', () => {
+  it('derives the traveller type from the booked party', () => {
+    expect(travellerTypeOf(2, 1)).toBe('family');
+    expect(travellerTypeOf(1, 0)).toBe('solo');
+    expect(travellerTypeOf(2, 0)).toBe('pair');
+    expect(travellerTypeOf(4, null)).toBe('group');
+    expect(travellerTypeOf(null, 2)).toBeNull();
+    expect(travellerTypeOf(0, 0)).toBeNull();
+    expect(travellerLabel('solo', true, true)).toBe('مسافرون منفردون');
+  });
+
   it('weights add up to 1 in both rubrics', () => {
     for (const rubric of [GUEST_RUBRIC, HOST_RUBRIC]) {
       expect(rubric.reduce((sum, group) => sum + group.weight, 0)).toBeCloseTo(1);

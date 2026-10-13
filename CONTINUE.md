@@ -2,6 +2,17 @@
 
 **تسليم الجلسة كاملة (0.2.24 → 0.8.33):** للاستكمال من جهاز آخر ابدأ من [`docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه خطوات الإعداد، والمراحل بالتاريخ والوقت، والمهام المفتوحة. ويرافقه فهرس الإصدارات (251 إصداراً) والمحادثة كاملة بعد حذف الأسرار.
 
+# CONTINUE — 2026-10-13 12:00 (مسقط)
+
+**0.8.43** · قائمة التقييمات الطولية وعدد المقيّمين:
+
+- **البيانات:** `loadReputation` تقرأ `adults` و`children` من `pricing_snapshot_json` عبر `snapshotCount` (أعداد صحيحة فقط)، و`nights = check_out_on - check_in_on`، واسم الوحدة عبر left join على `units`.
+- **الحساب:** `reviewers` هو عدد الضيوف المختلفين (`guestKeyOf`)، و`travellers` عدد التقييمات لكل نوع من `TRAVELLER_TYPES`، من كل الصفوف حتى 300.
+- **النوع:** `travellerTypeOf` في `review-rubric.ts`: أطفال تعني family، وبالغ واحد solo، وبالغان pair («شخصان»، لا «زوجان»)، وأكثر group.
+- **الواجهة:** `ReputationView` فيها `.reputation-card__guest` و`.reputation-card__main`، وأزرار `.reputation__travellers` بـ aria-pressed. `.reputation__list` صار عموداً واحداً.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.43-AR.md`](./docs/implementation/RELEASE-0.8.43-AR.md)
+
 # CONTINUE — 2026-10-13 11:50 (مسقط)
 
 **0.8.42** · بطاقة المالك أو مدير العقار وصفحة ملفه:
