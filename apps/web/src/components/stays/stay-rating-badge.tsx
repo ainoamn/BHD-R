@@ -15,31 +15,34 @@ export function StayRatingBadge({
   ar,
   compact = false,
   className,
+  as: Tag = 'p',
 }: {
   rating: StayCatalogueListing['rating'];
   ar: boolean;
   compact?: boolean;
   className?: string;
+  /** `span` inside buttons and links, where a paragraph is not allowed. */
+  as?: 'p' | 'span';
 }) {
   const classes = ['stay-rating', compact ? 'stay-rating--compact' : '', className ?? '']
     .filter(Boolean)
     .join(' ');
   if (!rating) {
     return (
-      <p className={`${classes} stay-rating--new`}>
+      <Tag className={`${classes} stay-rating--new`}>
         <span className="stay-rating__score stay-rating__score--new" aria-hidden="true">
           ★
         </span>
         <span className="stay-rating__count">
           {compact ? (ar ? 'جديد' : 'New') : ar ? 'جديد · لا تقييمات بعد' : 'New · no reviews yet'}
         </span>
-      </p>
+      </Tag>
     );
   }
   const score = rating.score.toFixed(1);
   const count = reviewCountLabel(rating.count, ar);
   return (
-    <p
+    <Tag
       className={classes}
       aria-label={ar ? `التقييم ${score} من 10، ${count}` : `Rated ${score} out of 10, ${count}`}
     >
@@ -53,6 +56,6 @@ export function StayRatingBadge({
         <strong>{reviewScoreLabel(rating.score, ar)}</strong>
         <span className="stay-rating__count">{count}</span>
       </span>
-    </p>
+    </Tag>
   );
 }

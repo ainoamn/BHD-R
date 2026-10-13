@@ -8,6 +8,7 @@ import {
   createDatabase,
   organizations,
   properties,
+  units,
   reviewProfiles,
   stayBookingGuests,
   stayBookings,
@@ -655,6 +656,12 @@ function subjectCondition(subject: ReputationSubject, key: string): SQL {
       eq(bookingReviews.direction, 'guest_to_host'),
     ) as SQL;
   }
+  if (subject === 'unit') {
+    return and(
+      eq(bookingReviews.unitId, key),
+      eq(bookingReviews.direction, 'guest_to_host'),
+    ) as SQL;
+  }
   if (subject === 'host') {
     return and(
       eq(bookingReviews.organizationId, key),
@@ -675,6 +682,14 @@ async function subjectName(
       .select({ ar: properties.nameAr, en: properties.nameEn })
       .from(properties)
       .where(eq(properties.id, key))
+      .limit(1);
+    return row ? { ar: row.ar, en: row.en } : undefined;
+  }
+  if (subject === 'unit') {
+    const [row] = await tx
+      .select({ ar: units.nameAr, en: units.nameEn })
+      .from(units)
+      .where(eq(units.id, key))
       .limit(1);
     return row ? { ar: row.ar, en: row.en } : undefined;
   }
@@ -851,14 +866,18 @@ export async function loadReputation(
       };
     });
 
-    const [profile] = await tx
-      .select()
-      .from(reviewProfiles)
-      .where(and(eq(reviewProfiles.subjectType, subject), eq(reviewProfiles.subjectKey, key)))
-      .limit(1);
+    const [profile] =
+      subject === 'unit'
+        ? []
+        : await tx
+            .select()
+            .from(reviewProfiles)
+            .where(and(eq(reviewProfiles.subjectType, subject), eq(reviewProfiles.subjectKey, key)))
+            .limit(1);
 
     return {
-      stale: rows.length > 0 && (!profile || profile.reviewCount !== rows.length),
+      stale:
+        subject !== 'unit' && rows.length > 0 && (!profile || profile.reviewCount !== rows.length),
       reputation: {
         subject,
         key,
@@ -893,6 +912,7 @@ export async function refreshReviewProfile(
   key: string,
   context: AiContext,
 ): Promise<void> {
+  if (subject === 'unit') return;
   const loaded = await loadReputation(subject, key, 30);
   if (!loaded || !loaded.reputation.count) return;
   const { reputation } = loaded;

@@ -509,7 +509,8 @@ export type PublicReview = {
   aiEngine: string;
 };
 
-export type ReputationSubject = 'property' | 'host' | 'guest';
+/** `unit`: one rentable unit of a property (a daily stay); it has no cached AI profile. */
+export type ReputationSubject = 'property' | 'unit' | 'host' | 'guest';
 
 export type Reputation = {
   subject: ReputationSubject;

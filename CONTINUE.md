@@ -2,6 +2,18 @@
 
 **تسليم الجلسة كاملة (0.2.24 → 0.8.33):** للاستكمال من جهاز آخر ابدأ من [`docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه خطوات الإعداد، والمراحل بالتاريخ والوقت، والمهام المفتوحة. ويرافقه فهرس الإصدارات (251 إصداراً) والمحادثة كاملة بعد حذف الأسرار.
 
+# CONTINUE — 2026-10-13 11:40 (مسقط)
+
+**0.8.41** · تقييم الإقامة على صورتها ونافذة التعليقات:
+
+- **المكوّن:** `StayPhotoRating` يعرض داخل `.property-360__hero-shot` زراً فيه `StayRatingBadge` بخيار `as="span"`، ويفتح نافذة عبر `createPortal`، بطبقة z-index 200 لأن رأس الموقع 100.
+- **النافذة:** `ReputationView subject="unit" showAllReviews`.
+- **موضوع `unit`:** شرطه `booking_reviews.unit_id`، واسمه من `units`. لا يقرأ `review_profiles` ولا يكتب فيها لأن قيد `subject_type` يقبل ثلاث قيم فقط، فيكون `stale` دائماً false. ويعيد المسار حتى 100 تقييم.
+- **الصفحة:** `stays/[slug]/page.tsx` تحمّل `loadUnitRatings([detail.unitId ?? unit])` مع العقار، وتمرر `stayRating`. وعند وجود `stayRating` تُخفى `PropertyReviewScore` بجانب العنوان.
+- **مفتوح:** قسم «التقييم الذكي» القديم (من `stay_reviews`) ما زال يعرض «0 مراجعة إقامة».
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.41-AR.md`](./docs/implementation/RELEASE-0.8.41-AR.md)
+
 # CONTINUE — 2026-10-13 11:15 (مسقط)
 
 **0.8.40** · التقييمات في صفحة البحث عن الإقامات:

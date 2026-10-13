@@ -93,7 +93,9 @@ function ReviewCard({
                 ? `أقام في ${monthLabel(review.stayMonth, ar)}`
                 : `Stayed ${monthLabel(review.stayMonth, ar)}`
               : `${place ? `${place} · ` : ''}${monthLabel(review.stayMonth, ar)}`}
-            {fromGuest && subject !== 'property' && place ? ` · ${place}` : ''}
+            {fromGuest && subject !== 'property' && subject !== 'unit' && place
+              ? ` · ${place}`
+              : ''}
           </small>
         </div>
         <ScoreBadge score={shownScore} ar={ar} size="sm" />
@@ -186,6 +188,14 @@ const TITLES: Record<
     leadEn:
       'Verified reviews from guests who actually stayed, written after check-out: detailed cleanliness, the property and the management.',
   },
+  unit: {
+    ar: 'تقييمات الضيوف لهذه الإقامة',
+    en: 'Guest reviews of this stay',
+    leadAr:
+      'كل تقييمات الضيوف الذين أقاموا في هذه الوحدة، وتعليقاتهم كاملة: النظافة، والعقار، والمالك أو شركة الإدارة، والموظفون.',
+    leadEn:
+      'Every review from guests who stayed in this unit, with their full comments: cleanliness, the property, the owner or management company, and the staff.',
+  },
   host: {
     ar: 'تقييم الضيوف لإدارة المالك',
     en: 'How guests rate this host',
@@ -208,6 +218,8 @@ export function ReputationView({
   locale,
   hostKey = null,
   initial,
+  showAllReviews = false,
+  titleId,
 }: {
   subject: ReputationSubject;
   subjectKey: string;
@@ -215,11 +227,14 @@ export function ReputationView({
   /** On a property page: link to the host's profile. */
   hostKey?: string | null;
   initial?: Reputation | null;
+  /** List every loaded review at once instead of the first four. */
+  showAllReviews?: boolean;
+  titleId?: string;
 }) {
   const ar = locale === 'ar';
   const [data, setData] = useState<Reputation | null>(initial ?? null);
   const [loaded, setLoaded] = useState(initial !== undefined);
-  const [showAll, setShowAll] = useState(false);
+  const [showAll, setShowAll] = useState(showAllReviews);
 
   useEffect(() => {
     if (initial !== undefined) return;
@@ -257,10 +272,10 @@ export function ReputationView({
     <section
       className="reputation property-360__section"
       id={subject === 'property' ? 'property-reviews' : undefined}
-      aria-labelledby={`reputation-${subject}-title`}
+      aria-labelledby={titleId ?? `reputation-${subject}-title`}
     >
       <header className="reputation__head">
-        <h2 id={`reputation-${subject}-title`}>{ar ? title.ar : title.en}</h2>
+        <h2 id={titleId ?? `reputation-${subject}-title`}>{ar ? title.ar : title.en}</h2>
         <p className="muted">{ar ? title.leadAr : title.leadEn}</p>
       </header>
 
@@ -297,7 +312,7 @@ export function ReputationView({
                         : `${data.recommendRate}% of guests recommend it`}
                   </span>
                 ) : null}
-                {subject === 'property' && hostKey ? (
+                {(subject === 'property' || subject === 'unit') && hostKey ? (
                   <a
                     className="reputation__host-link"
                     href={`/${locale}/profiles/hosts/${hostKey}`}

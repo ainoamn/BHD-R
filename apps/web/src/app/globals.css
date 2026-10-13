@@ -5194,6 +5194,129 @@ body:has(.stays-booking-receipt) #main-content {
 .property-360__hero-shot .media-watermark .logo__product img {
   width: 3.2rem;
 }
+.stay-photo-rating {
+  position: absolute;
+  inset-inline-start: 0.85rem;
+  inset-block-start: 0.85rem;
+  z-index: 3;
+  display: grid;
+  gap: 0.2rem;
+  max-width: calc(100% - 1.7rem);
+  padding: 0.5rem 0.65rem;
+  color: var(--oman-deep);
+  font: inherit;
+  text-align: start;
+  background: rgb(255 255 255 / 0.95);
+  border: 1px solid rgb(255 255 255 / 0.7);
+  border-radius: 0.85rem;
+  box-shadow: 0 10px 26px rgb(9 45 36 / 0.22);
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.stay-photo-rating:hover,
+.stay-photo-rating:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgb(9 45 36 / 0.3);
+  outline: none;
+}
+.stay-photo-rating:focus-visible {
+  box-shadow:
+    0 0 0 3px var(--bhd-teal),
+    0 14px 30px rgb(9 45 36 / 0.3);
+}
+.stay-photo-rating .stay-rating {
+  font-size: 0.92rem;
+}
+.stay-photo-rating .stay-rating__score {
+  min-width: 2.5rem;
+  height: 2.05rem;
+  font-size: 1rem;
+}
+.stay-photo-rating__more {
+  color: var(--bhd-teal);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.stay-reviews-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+.stay-reviews-dialog__backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgb(8 28 22 / 0.6);
+  cursor: pointer;
+}
+.stay-reviews-dialog__card {
+  position: relative;
+  width: min(100%, 860px);
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1.25rem 1.35rem 1.4rem;
+  background: var(--surface);
+  border-radius: 1.1rem;
+  box-shadow: 0 30px 70px rgb(9 45 36 / 0.35);
+}
+.stay-reviews-dialog__card .reputation {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+}
+.stay-reviews-dialog__card .reputation__head {
+  padding-inline-end: 2.6rem;
+}
+.stay-reviews-dialog__close {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  float: inline-end;
+  display: grid;
+  place-items: center;
+  width: 2.3rem;
+  height: 2.3rem;
+  margin-block-end: -2.3rem;
+  color: var(--oman-deep);
+  font-size: 1.5rem;
+  line-height: 1;
+  background: #eef2f0;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.stay-reviews-dialog__close:hover,
+.stay-reviews-dialog__close:focus-visible {
+  color: #fff;
+  background: var(--oman-deep);
+  outline: none;
+}
+@media (max-width: 640px) {
+  .stay-reviews-dialog {
+    place-items: end stretch;
+    padding: 0;
+  }
+  .stay-reviews-dialog__card {
+    width: 100%;
+    max-height: 92dvh;
+    padding: 1rem 0.95rem 1.2rem;
+    border-radius: 1.1rem 1.1rem 0 0;
+  }
+  .stay-photo-rating {
+    inset-inline-start: 0.6rem;
+    inset-block-start: 0.6rem;
+    padding: 0.4rem 0.55rem;
+  }
+}
 
 .property-360__thumbs {
   list-style: none;

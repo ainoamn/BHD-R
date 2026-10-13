@@ -14,6 +14,7 @@ import { PropertyManageHub } from '@/components/property-manage-hub';
 import { PropertyReviewScore } from '@/components/property-review-score';
 import { ReputationView } from '@/components/reviews/reputation-view';
 import { StayGuestInfoSection } from '@/components/stays/stay-guest-info-section';
+import { StayPhotoRating } from '@/components/stays/stay-photo-rating';
 import type { StayPublicDetail } from '@bhd-r/contracts';
 import {
   StayAvailabilityCalendar,
@@ -191,6 +192,7 @@ export function PropertyDetailManager({
   opsPulse = null,
   stayBooking,
   stayDetail = null,
+  stayRating = null,
 }: {
   property: ManagedProperty;
   locale: 'ar' | 'en';
@@ -219,6 +221,8 @@ export function PropertyDetailManager({
     children?: string;
   };
   stayDetail?: StayPublicDetail | null;
+  /** Daily stay: the unit's guest score, shown on the main photo. */
+  stayRating?: { unitId: string; rating: { score: number; count: number } | null } | null;
 }) {
   const router = useRouter();
   const ar = locale === 'ar';
@@ -443,6 +447,14 @@ export function PropertyDetailManager({
                   <span className="media-watermark" aria-hidden="true">
                     <BrandMark tone="onDark" />
                   </span>
+                  {isPublic && stayRating ? (
+                    <StayPhotoRating
+                      unitId={stayRating.unitId}
+                      rating={stayRating.rating}
+                      locale={locale}
+                      hostKey={property.organizationId ?? null}
+                    />
+                  ) : null}
                 </div>
                 {displaySerial ? (
                   <p className="property-360__serial property-360__serial--gallery" dir="ltr">
@@ -512,7 +524,7 @@ export function PropertyDetailManager({
               </span>
               <div className="property-360__title-row">
                 <h1>{headline}</h1>
-                {isPublic ? (
+                {isPublic && !stayRating ? (
                   <PropertyReviewScore propertyId={property.id} locale={locale} variant="chip" />
                 ) : null}
               </div>

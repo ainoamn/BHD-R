@@ -7,9 +7,9 @@ import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-li
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const SUBJECTS = new Set<ReputationSubject>(['property', 'host', 'guest']);
+const SUBJECTS = new Set<ReputationSubject>(['property', 'unit', 'host', 'guest']);
 
-/** GET /api/public/reputation?subject=property|host|guest&key=… — public verified reviews. */
+/** GET /api/public/reputation?subject=property|unit|host|guest&key=… — public verified reviews. */
 export async function GET(request: Request) {
   if (!hasDatabaseUrl()) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: { code: 'invalid_body' } }, { status: 400 });
   }
   try {
-    const loaded = await loadReputation(subject, key);
+    const loaded = await loadReputation(subject, key, subject === 'unit' ? 100 : undefined);
     if (!loaded) return NextResponse.json({ error: { code: 'not_found' } }, { status: 404 });
     if (loaded.stale) {
       const context = { oidcToken: request.headers.get('x-vercel-oidc-token') };
