@@ -53,7 +53,7 @@ export function TermsPrintButton({
       </button>
       {printing
         ? createPortal(
-            <div className="terms-print" aria-hidden="true">
+            <div className="terms-print" dir={ar ? 'rtl' : 'ltr'} aria-hidden="true">
               {letterhead ? <TermsLetterheadHeader letterhead={letterhead} /> : null}
               <div className="terms-print__title">
                 <span dir="ltr" lang="en">

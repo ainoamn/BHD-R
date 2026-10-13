@@ -17952,6 +17952,9 @@ button.lrw__step-body:focus-visible {
   @page {
     margin: 14mm 12mm;
   }
+  html:has(body.printing-terms) {
+    direction: ltr;
+  }
   body.printing-terms > *:not(.terms-print) {
     display: none !important;
   }
@@ -22177,7 +22180,7 @@ a.contract-annex-bar__item:focus-visible {
     border: 0;
     outline: 0;
     box-shadow: none;
-    background: #fff;
+    background: transparent;
     font-size: 10.5pt;
     line-height: 1.7;
   }
@@ -22209,7 +22212,9 @@ a.contract-annex-bar__item:focus-visible {
   body.printing-contract .contract-doc__frame > tfoot > tr > td {
     padding: 0 9mm 6mm;
   }
+  /* Chrome shifts an RTL root off the left edge of the paper; the printed document carries its own dir. */
   html:has(body.printing-contract) {
+    direction: ltr;
     background: #fff;
   }
   body.printing-contract .contract-doc__letterhead {
