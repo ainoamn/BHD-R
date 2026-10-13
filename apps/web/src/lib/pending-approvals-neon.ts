@@ -4,13 +4,16 @@ import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { hasPermission, verifySessionToken, type SessionClaims } from '@bhd-r/authz';
 import {
   approvalRequests,
+  bookingReviews,
   contracts,
   parties,
   properties,
   reservations,
+  stayBookingStatusHistory,
   stayBookings,
   units,
 } from '@bhd-r/db';
+import { canReviewGuests } from '@/lib/booking-reviews-neon';
 import {
   EMPTY_PENDING_APPROVALS,
   type PendingApprovalItem,
@@ -38,6 +41,8 @@ import { canDecideUnitSale, listSaleDecisionUnits } from '@/lib/unit-sale-decisi
 import { withTimeoutFallback } from '@/lib/with-timeout';
 
 const ITEM_LIMIT = 50;
+/** How long after check-out the host is reminded to rate the guest. */
+const GUEST_REVIEW_REMINDER_DAYS = 60;
 
 function iso(value: Date | string | null | undefined): string | null {
   if (!value) return null;
@@ -67,9 +72,9 @@ function queueItem(
 /**
  * Contracts awaiting signature (for users with `contract.sign`), stay booking requests awaiting
  * approval (for users with `stay.booking.manage`), paid rent or purchase bookings awaiting their
- * final contract (for users with `reservation.manage`), and deposit refunds awaiting the host's
- * decision or the accountant's transfer, oldest first. Owner-scoped users only see their own
- * properties.
+ * final contract (for users with `reservation.manage`), deposit refunds awaiting the host's
+ * decision or the accountant's transfer, and departed guests the host has not rated yet, oldest
+ * first. Owner-scoped users only see their own properties.
  */
 export async function loadPendingApprovals(claims: SessionClaims): Promise<PendingApprovals> {
   const orgId = claims.organizationId;
@@ -80,6 +85,7 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
   const canDecideRefunds = canDecideDepositRefunds(claims);
   const canPayRefunds = canPayDepositRefunds(claims);
   const canDecideSale = canDecideUnitSale(claims);
+  const canRateGuests = canReviewGuests(claims);
   const complaints = (
     await loadOpenComplaintQueue(claims, ITEM_LIMIT).catch(() => [] as DepositClaimQueueRow[])
   ).map((row) => queueItem('deposit_complaint', row, row.claimId));
@@ -90,7 +96,8 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
       !canManageReservations &&
       !canDecideRefunds &&
       !canPayRefunds &&
-      !canDecideSale)
+      !canDecideSale &&
+      !canRateGuests)
   ) {
     return complaints.length
       ? {
@@ -208,15 +215,63 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
     const saleQuery = canDecideSale
       ? listSaleDecisionUnits(tx, orgId, { ownerPartyId, limit: ITEM_LIMIT })
       : Promise.resolve([]);
-    const [contractRows, bookingRows, reservationRows, refundRows, claimRows, saleRows] =
-      await Promise.all([
-        contractQuery,
-        bookingQuery,
-        reservationQuery,
-        refundQuery,
-        claimQuery,
-        saleQuery,
-      ]);
+    const departedAt = sql<Date | string | null>`(
+      select max(${stayBookingStatusHistory.createdAt}) from ${stayBookingStatusHistory}
+      where ${stayBookingStatusHistory.bookingId} = ${stayBookings.id}
+        and ${stayBookingStatusHistory.toStatus} = 'checked_out'
+    )`;
+    const reviewQuery = canRateGuests
+      ? tx
+          .select({
+            id: stayBookings.id,
+            reference: stayBookings.referenceCode,
+            propertyId: properties.id,
+            propertyNameAr: properties.nameAr,
+            propertyNameEn: properties.nameEn,
+            unitCode: units.code,
+            party: sql<
+              string | null
+            >`${stayBookings.pricingSnapshotJson}->'guestContact'->>'displayName'`,
+            fromOn: stayBookings.checkOutOn,
+            departedAt,
+            updatedAt: stayBookings.updatedAt,
+          })
+          .from(stayBookings)
+          .innerJoin(properties, eq(properties.id, stayBookings.propertyId))
+          .leftJoin(units, eq(units.id, stayBookings.unitId))
+          .where(
+            and(
+              eq(stayBookings.organizationId, orgId),
+              inArray(stayBookings.status, ['checked_out', 'closed']),
+              sql`coalesce(${departedAt}, ${stayBookings.updatedAt}) > now() - make_interval(days => ${GUEST_REVIEW_REMINDER_DAYS})`,
+              sql`not exists (
+                select 1 from ${bookingReviews}
+                where ${bookingReviews.bookingId} = ${stayBookings.id}
+                  and ${bookingReviews.direction} = 'host_to_guest'
+              )`,
+              ...(ownerPartyId ? [eq(properties.ownerPartyId, ownerPartyId)] : []),
+            ),
+          )
+          .orderBy(asc(stayBookings.checkOutOn))
+          .limit(ITEM_LIMIT)
+      : Promise.resolve([]);
+    const [
+      contractRows,
+      bookingRows,
+      reservationRows,
+      refundRows,
+      claimRows,
+      saleRows,
+      reviewRows,
+    ] = await Promise.all([
+      contractQuery,
+      bookingQuery,
+      reservationQuery,
+      refundQuery,
+      claimQuery,
+      saleQuery,
+      reviewQuery,
+    ]);
     const depositItems = [
       ...claimRows.map((row) => queueItem('deposit_claim', row, row.bookingId)),
       ...complaints,
@@ -316,6 +371,19 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
               ? ('hide_sold' as const)
               : ('hide_leased' as const),
       })),
+      ...reviewRows.map((row) => ({
+        kind: 'guest_review' as const,
+        id: row.id,
+        reference: row.reference,
+        propertyId: row.propertyId,
+        propertyNameAr: row.propertyNameAr,
+        propertyNameEn: row.propertyNameEn,
+        unitCode: row.unitCode,
+        party: row.party,
+        contractType: null,
+        fromOn: iso(row.fromOn)?.slice(0, 10) ?? null,
+        requestedAt: iso(row.departedAt) ?? iso(row.updatedAt) ?? '',
+      })),
     ].sort((a, b) => a.requestedAt.localeCompare(b.requestedAt));
 
     return {
@@ -324,6 +392,7 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
       bookings: bookingRows.length,
       reservations: items.filter((item) => item.kind === 'lease_reservation').length,
       refunds: refundItems.length + depositItems.length,
+      reviews: reviewRows.length,
       total: items.length,
     };
   });

@@ -4,8 +4,8 @@ import type { LeaseJourneyPhase } from '@/lib/lease-reservation-lifecycle';
 /**
  * One thing waiting for the viewer: a contract to sign, a stay booking request, a paid rent or
  * purchase booking awaiting its final contract, a deposit refund to decide (host), an approved
- * deposit refund to transfer (accountant), a guest's deposit request or objection (host), or a
- * guest complaint (site administration).
+ * deposit refund to transfer (accountant), a guest's deposit request or objection (host), a
+ * departed guest still to rate (host), or a guest complaint (site administration).
  */
 export type PendingApprovalItem = {
   kind:
@@ -16,7 +16,8 @@ export type PendingApprovalItem = {
     | 'refund_transfer'
     | 'deposit_claim'
     | 'deposit_complaint'
-    | 'sale_decision';
+    | 'sale_decision'
+    | 'guest_review';
   id: string;
   reference: string;
   propertyId: string;
@@ -43,6 +44,8 @@ export type PendingApprovals = {
   /** Paid rent or purchase bookings awaiting their final contract. */
   reservations: number;
   refunds: number;
+  /** Departed stay guests the host has not rated yet. */
+  reviews: number;
   total: number;
 };
 
@@ -52,6 +55,7 @@ export const EMPTY_PENDING_APPROVALS: PendingApprovals = {
   bookings: 0,
   reservations: 0,
   refunds: 0,
+  reviews: 0,
   total: 0,
 };
 
@@ -69,6 +73,9 @@ export function pendingApprovalHref(portal: string, item: PendingApprovalItem): 
   }
   if (item.kind === 'deposit_refund' || item.kind === 'lease_reservation') {
     return `${base}?section=bookings&focus=${encodeURIComponent(item.id)}`;
+  }
+  if (item.kind === 'guest_review') {
+    return `${base}?section=bookings&focus=${encodeURIComponent(item.id)}&review=1`;
   }
   if (item.kind === 'refund_transfer' || item.kind === 'deposit_claim') {
     return `/${portal}/accounting?focus=${encodeURIComponent(item.id)}#deposits`;
@@ -136,6 +143,9 @@ export function pendingApprovalTitle(item: PendingApprovalItem, ar: boolean): st
   }
   if (item.kind === 'deposit_complaint') {
     return ar ? 'شكوى تأمين لدى إدارة الموقع' : 'Deposit complaint for the site administration';
+  }
+  if (item.kind === 'guest_review') {
+    return ar ? 'غادر الضيف — قيّم الضيف الآن' : 'Guest departed — rate the guest';
   }
   if (item.kind === 'sale_decision') {
     if (item.decision === 'hide_sold') {

@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { hasPermission, verifySessionToken, type Permission } from '@bhd-r/authz';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { canReviewGuests } from '@/lib/booking-reviews-neon';
 import {
   isPropertyRecordSection,
   loadAllPropertyBookings,
@@ -78,6 +79,7 @@ export async function GET(
           canCreateSale: can('contract.create') && can('sale.manage'),
           canDecideRefunds: can('stay.booking.manage') || can('stay.refund.approve'),
           canPayRefunds: can('payment.refund'),
+          canReviewGuests: canReviewGuests(claims),
         },
       },
       { headers: { 'Cache-Control': 'private, no-store' } },

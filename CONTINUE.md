@@ -2,6 +2,23 @@
 
 **تسليم الجلسة كاملة (0.2.24 → 0.8.33):** للاستكمال من جهاز آخر ابدأ من [`docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه خطوات الإعداد، والمراحل بالتاريخ والوقت، والمهام المفتوحة. ويرافقه فهرس الإصدارات (251 إصداراً) والمحادثة كاملة بعد حذف الأسرار.
 
+# CONTINUE — 2026-10-13 12:45 (مسقط)
+
+**0.8.46** · طلب «قيّم الضيف» عند المغادرة وفي الجرس:
+
+- **بند جديد في الجرس:** `guest_review` في `loadPendingApprovals`، للحجوزات `checked_out` أو `closed` بلا `host_to_guest`.
+  - النافذة 60 يوماً من `max(stay_booking_status_history.created_at where to_status='checked_out')`، وإلا `updated_at`.
+  - الصلاحية `canReviewGuests`.
+  - الرابط `?section=bookings&focus=id&review=1`.
+- **في جدول الحجوزات (`property-section-records`):**
+  - يفتح `ReviewForm` بعد `check_out`، مع إعادة تحميل صامتة كي لا يضيع موضع الانتقال؛
+  - يفتحه أيضاً من `review=1`؛
+  - يرسل `PENDING_APPROVALS_CHANGED_EVENT` بعد الحفظ.
+- **لوحة التحكم:** تنبيه `guest_reviews`.
+- **ملاحظة تشغيل:** في المعاينة المحلية كانت كل مسارات `/api` تعطي 404 بسبب ذاكرة Turbopack قديمة. الحل حذف `apps/web/.next/dev`.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.46-AR.md`](./docs/implementation/RELEASE-0.8.46-AR.md)
+
 # CONTINUE — 2026-10-13 12:15 (مسقط)
 
 **0.8.45** · ملف الضيف لم يعد 404:

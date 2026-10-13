@@ -71,6 +71,7 @@ type Viewer = {
   canCreateSale: boolean;
   canDecideRefunds?: boolean;
   canPayRefunds?: boolean;
+  canReviewGuests?: boolean;
 };
 
 type StampKind = 'check_in' | 'check_out';
@@ -83,6 +84,7 @@ const NO_VIEWER: Viewer = {
   canCreateSale: false,
   canDecideRefunds: false,
   canPayRefunds: false,
+  canReviewGuests: false,
 };
 
 type ContractOutcome = {
@@ -993,7 +995,9 @@ export function PropertySectionRecords({
     [config, propertyId],
   );
   const propertyOf = (row: PropertyRecordRow) => propertyId ?? row.propertyId ?? '';
-  const focusId = useSearchParams().get('focus');
+  const searchParams = useSearchParams();
+  const focusId = searchParams.get('focus');
+  const reviewRequested = searchParams.get('review') === '1';
   const [rows, setRows] = useState<PropertyRecordRow[] | null>(null);
   const [units, setUnits] = useState<PropertyRecordUnit[]>([]);
   const [tenants, setTenants] = useState<PropertyRecordTenant[]>([]);
@@ -1013,6 +1017,9 @@ export function PropertySectionRecords({
   const [reviewRowId, setReviewRowId] = useState<string | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const silentReload = useRef(false);
+  const reviewLinkOpened = useRef(false);
+  const scrollToReview = useRef(false);
+  const canRateGuests = viewer.canReviewGuests ?? viewer.canDecideRefunds ?? false;
 
   useEffect(() => {
     const onLiveChange = () => {
@@ -1066,6 +1073,25 @@ export function PropertySectionRecords({
       .getElementById(`psr-row-${focusId}`)
       ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [focusId, rows]);
+
+  useEffect(() => {
+    if (!reviewRequested || !focusId || !canRateGuests || reviewLinkOpened.current) return;
+    const row = rows?.find((candidate) => candidate.id === focusId);
+    if (!row) return;
+    reviewLinkOpened.current = true;
+    if (row.kind === 'stay' && STAY_DEPARTED.has(row.status ?? '') && !row.hostReviewScore) {
+      scrollToReview.current = true;
+      setReviewRowId(focusId);
+    }
+  }, [reviewRequested, focusId, canRateGuests, rows]);
+
+  useEffect(() => {
+    if (!scrollToReview.current || !reviewRowId || !rows?.length) return;
+    const form = document.getElementById(`psr-review-${reviewRowId}`);
+    if (!form) return;
+    scrollToReview.current = false;
+    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [reviewRowId, rows]);
 
   const statusCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -1256,6 +1282,14 @@ export function PropertySectionRecords({
     if (!result) return;
     setStampForm(null);
     const when = formatStamp(`${at}:00+04:00`, locale);
+    const rateNow = kind === 'check_out' && canRateGuests && !row.hostReviewScore;
+    if (rateNow) {
+      setReviewError(null);
+      setRefundForm(null);
+      scrollToReview.current = true;
+      silentReload.current = true;
+      setReviewRowId(id);
+    }
     setNotice({
       tone: 'success',
       text:
@@ -1263,9 +1297,13 @@ export function PropertySectionRecords({
           ? ar
             ? `تم تسجيل دخول الضيف للحجز ${row.reference} (${when}). الحالة الآن: بانتظار المغادرة.`
             : `Guest checked in for ${row.reference} (${when}). Now awaiting check-out.`
-          : ar
-            ? `تم تسجيل مغادرة الضيف للحجز ${row.reference} (${when}).`
-            : `Guest checked out for ${row.reference} (${when}).`,
+          : rateNow
+            ? ar
+              ? `تم تسجيل مغادرة الضيف واستلام العقار للحجز ${row.reference} (${when}). قيّم الضيف الآن من النموذج أسفل الحجز — يصله تقييمك فوراً ويظهر في ملفه.`
+              : `Guest checked out and property received for ${row.reference} (${when}). Rate the guest now in the form below the booking.`
+            : ar
+              ? `تم تسجيل مغادرة الضيف للحجز ${row.reference} (${when}).`
+              : `Guest checked out for ${row.reference} (${when}).`,
     });
     setReloadKey((key) => key + 1);
   }
@@ -1304,6 +1342,7 @@ export function PropertySectionRecords({
         { method: 'POST', body: JSON.stringify({ bookingId: id, ...value }) },
       );
       setReviewRowId(null);
+      window.dispatchEvent(new Event(PENDING_APPROVALS_CHANGED_EVENT));
       const score = result.review.score.toFixed(1);
       setNotice({
         tone: 'success',
@@ -1457,14 +1496,14 @@ export function PropertySectionRecords({
         </>
       );
     }
-    if (!viewer.canDecideRefunds) return guestNote;
+    if (!canRateGuests) return guestNote;
     const required = row.stage === 'awaiting_deposit_refund';
     const open = reviewRowId === row.id;
     return (
       <>
         <button
           type="button"
-          className={`button ${required ? 'button--primary' : 'button--quiet'} psr-action`}
+          className="button button--primary psr-action"
           disabled={busy}
           aria-expanded={open}
           onClick={() => {
@@ -1841,7 +1880,7 @@ export function PropertySectionRecords({
                       </tr>
                     ) : null}
                     {reviewRowId && reviewRowId === row.id ? (
-                      <tr className="psr-details">
+                      <tr id={`psr-review-${row.id}`} className="psr-details">
                         <td colSpan={columns.length + (showActions ? 1 : 0)}>
                           <ReviewForm
                             direction="host_to_guest"

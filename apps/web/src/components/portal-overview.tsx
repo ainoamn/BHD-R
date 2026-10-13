@@ -46,6 +46,8 @@ function alertCopy(
       return t('Portal.alertPaidReservations', { count });
     case 'deposit_refunds':
       return t('Portal.alertDepositRefunds', { count });
+    case 'guest_reviews':
+      return t('Portal.alertGuestReviews', { count });
     default:
       return `${code}: ${count}`;
   }
@@ -102,6 +104,7 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
       item.kind === 'deposit_claim' ||
       item.kind === 'deposit_complaint',
   );
+  const firstGuestReview = approvals.items.find((item) => item.kind === 'guest_review');
   const approvalAlerts: Array<{ code: string; count: number; href: string }> = [
     ...(approvals.contracts && firstContract
       ? [
@@ -138,6 +141,18 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
             href:
               approvals.refunds === 1
                 ? pendingApprovalHref(portal, firstRefund)
+                : `/${portal}#pending-approvals`,
+          },
+        ]
+      : []),
+    ...(approvals.reviews && firstGuestReview
+      ? [
+          {
+            code: 'guest_reviews',
+            count: approvals.reviews,
+            href:
+              approvals.reviews === 1
+                ? pendingApprovalHref(portal, firstGuestReview)
                 : `/${portal}#pending-approvals`,
           },
         ]

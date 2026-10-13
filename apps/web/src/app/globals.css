@@ -882,6 +882,9 @@ a.pmh-actionbar__title[aria-current='page'] {
 .psr-table tr.psr-row--focus td {
   background: #fff6dc;
 }
+.psr-table tr[id^='psr-review-'] {
+  scroll-margin-block: 9rem 1rem;
+}
 /* Wide record tables become one card per row; each cell shows its column name from data-label. */
 @media (max-width: 960px) {
   .data-table-wrap:has(> .data-table--stack) {

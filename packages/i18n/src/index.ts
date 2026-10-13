@@ -175,6 +175,7 @@ export const messages = {
       alertBookingRequests: '{count} طلب حجز بانتظار الاعتماد',
       alertPaidReservations: '{count} حجز إيجار أو شراء مدفوع العربون بانتظار العقد',
       alertDepositRefunds: '{count} استرداد تأمين بانتظار إجراء',
+      alertGuestReviews: '{count} ضيف غادر بانتظار تقييمك',
       approvalsTitle: 'بانتظار اعتمادك',
       approvalsHint:
         'العقود وطلبات الحجز التي تحتاج اعتمادك، الأقدم أولاً. اضغط أي بند لفتحه واعتماده.',
@@ -628,6 +629,7 @@ export const messages = {
       alertBookingRequests: '{count} booking requests awaiting approval',
       alertPaidReservations: '{count} paid rent or purchase bookings awaiting their contract',
       alertDepositRefunds: '{count} deposit refunds awaiting action',
+      alertGuestReviews: '{count} departed guests awaiting your rating',
       approvalsTitle: 'Awaiting your approval',
       approvalsHint:
         'Contracts and booking requests that need your approval, oldest first. Open one to approve it.',
