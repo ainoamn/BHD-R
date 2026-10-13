@@ -57,7 +57,10 @@ const DOCUMENT_STEPS = [
   [1400, 0.72],
   [1100, 0.62],
 ] as const;
+/** Starts near-lossless: the server re-encodes photos once as WebP with the platform mark. */
 const PHOTO_STEPS = [
+  [1600, 0.9],
+  [1600, 0.82],
   [1600, 0.78],
   [1280, 0.7],
   [1024, 0.62],

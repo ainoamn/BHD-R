@@ -12,6 +12,7 @@ import {
   type Database,
 } from '@bhd-r/db';
 import { assertStayBookingTransition } from '@bhd-r/domain';
+import { brandUploadedPhoto } from '@/lib/brand-uploaded-photo';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 import {
   HANDOVER_DOCUMENT_MAX,
@@ -297,19 +298,29 @@ export async function recordStayStampOnNeon(
   }
   const photoInput = input.photos ?? [];
   if (photoInput.length > HANDOVER_PHOTOS_MAX) fail('handover_photos_too_many');
-  const photos = photoInput.map((photo) => {
-    const match = photo.data.match(HANDOVER_IMAGE_DATA_URL);
-    if (!match || photo.data.length > HANDOVER_PHOTO_MAX || !isHandoverPhotoSource(photo.source)) {
+  for (const photo of photoInput) {
+    if (
+      !HANDOVER_IMAGE_DATA_URL.test(photo.data) ||
+      photo.data.length > HANDOVER_PHOTO_MAX ||
+      !isHandoverPhotoSource(photo.source)
+    ) {
       fail('handover_photo_invalid');
     }
-    const takenAt = photo.takenAt ? new Date(photo.takenAt) : null;
-    return {
-      source: photo.source,
-      takenAt: takenAt && !Number.isNaN(takenAt.getTime()) ? takenAt.toISOString() : null,
-      sha256: createHash('sha256').update(Buffer.from(match[2]!, 'base64')).digest('hex'),
-      data: photo.data,
-    };
-  });
+  }
+  const photos = await Promise.all(
+    photoInput.map(async (photo) => {
+      const data = await brandUploadedPhoto(photo.data, HANDOVER_PHOTO_MAX);
+      const takenAt = photo.takenAt ? new Date(photo.takenAt) : null;
+      return {
+        source: photo.source,
+        takenAt: takenAt && !Number.isNaN(takenAt.getTime()) ? takenAt.toISOString() : null,
+        sha256: createHash('sha256')
+          .update(Buffer.from(data.match(HANDOVER_IMAGE_DATA_URL)![2]!, 'base64'))
+          .digest('hex'),
+        data,
+      };
+    }),
+  );
   const toStatus = TO_STATUS[input.kind];
 
   return withinViewerTenant(claims, async (tx) => {

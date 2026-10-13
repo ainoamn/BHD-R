@@ -16,6 +16,7 @@ import {
   workflowEvents,
   type Database,
 } from '@bhd-r/db';
+import { brandUploadedPhoto } from '@/lib/brand-uploaded-photo';
 import { applySessionSettings } from '@/lib/db-session-settings';
 import { withTimeoutFallback } from '@/lib/with-timeout';
 import { ownerPartyScope } from '@/lib/portal-ops-data';
@@ -215,13 +216,16 @@ async function prepareReview(
   ) {
     fail('review_comment_required');
   }
-  const photos = input.photos ?? [];
-  if (photos.length > REVIEW_PHOTOS_MAX) fail('review_photo_invalid');
-  for (const photo of photos) {
+  const uploaded = input.photos ?? [];
+  if (uploaded.length > REVIEW_PHOTOS_MAX) fail('review_photo_invalid');
+  for (const photo of uploaded) {
     if (photo.length > REVIEW_PHOTO_MAX || !REVIEW_PHOTO_DATA_URL.test(photo)) {
       fail('review_photo_invalid');
     }
   }
+  const photos = await Promise.all(
+    uploaded.map((photo) => brandUploadedPhoto(photo, REVIEW_PHOTO_MAX)),
+  );
   const scores = scoreAnswers(direction, input.answers);
   const recommend = typeof input.recommend === 'boolean' ? input.recommend : null;
   const analysis = await analyzeReview(context, {
