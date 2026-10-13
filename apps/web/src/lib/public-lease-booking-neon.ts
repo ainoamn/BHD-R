@@ -24,12 +24,14 @@ import {
   withElevatedRead,
   type Tx,
 } from '@/lib/public-booking-neon';
+import { resolveApprovalPolicy } from '@/lib/approval-policy-neon';
 import type { TermsBlock } from '@/lib/booking-terms';
 import { depositForMode } from '@/lib/booking-deposit';
 import { readTermsLetterhead, resolveBookingTerms } from '@/lib/booking-terms-neon';
 import { reservationSignatureSerial } from '@/lib/contract-verify';
 import { leaseSignPath } from '@/lib/lease-booking-paths';
 import {
+  approvedElectronically,
   leaseJourneyPhase,
   lifecycleOf,
   type ReservationLifecycle,
@@ -631,8 +633,17 @@ export async function completeLeaseSandboxPayment(
     }
 
     const paidAt = now.toISOString();
+    const { policy } = await resolveApprovalPolicy(
+      transaction,
+      match.organizationId,
+      match.propertyId,
+    );
+    const lifecycle = lifecycleOf(snapshot);
     const nextSnapshot: LeaseBookingSnapshot = {
       ...snapshot,
+      ...(policy.payment === 'manual'
+        ? { lifecycle: { ...lifecycle, paymentReview: { status: 'pending', reportedAt: paidAt } } }
+        : {}),
       awaitingPublicDepositPayment: false,
       depositPaidAt: paidAt,
       publicDepositPaidAt: paidAt,
@@ -716,7 +727,10 @@ const SIGNATURE_IMAGE = /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0
 /** The lifecycle without the owner's working draft and stored file ids. */
 function visibleLifecycle(lifecycle: ReservationLifecycle) {
   return {
+    paymentUnderReview: lifecycle.paymentReview?.status === 'pending',
     approvedAt: lifecycle.approval?.at ?? null,
+    approvedAutomatically: Boolean(lifecycle.approval?.automatic),
+    electronic: approvedElectronically(lifecycle),
     contractPreparedAt: lifecycle.contractDraft?.savedAt ?? null,
     requirements: (lifecycle.requirements ?? []).map((item) => ({
       code: item.code,
@@ -726,12 +740,22 @@ function visibleLifecycle(lifecycle: ReservationLifecycle) {
       note: item.note ?? null,
       fileName: item.file?.name ?? null,
       submittedAt: item.file?.submittedAt ?? null,
+      autoApproved: Boolean(item.autoApproved),
+      verified: Boolean(item.verifiedAt) && item.status === 'approved',
     })),
     contract: lifecycle.contract
       ? {
           id: lifecycle.contract.id,
           reference: lifecycle.contract.reference,
           issuedAt: lifecycle.contract.issuedAt,
+          automatic: Boolean(lifecycle.contract.automatic),
+        }
+      : null,
+    cancellation: lifecycle.cancellation
+      ? {
+          at: lifecycle.cancellation.at,
+          reason: lifecycle.cancellation.reason,
+          note: lifecycle.cancellation.note,
         }
       : null,
     tenantSignedAt: lifecycle.tenantSignature?.signedAt ?? null,
@@ -993,6 +1017,7 @@ export async function completeLeaseEsign(
         completed: true as const,
         referenceCode: normalized,
         signedAt: snapshot.esign.signedAt,
+        reservationId: match.id,
       };
     }
     if (fresh.status !== 'confirmed' && fresh.status !== 'converted') fail('booking_expired');
@@ -1056,6 +1081,11 @@ export async function completeLeaseEsign(
       })
       .where(eq(reservations.id, match.id));
 
-    return { completed: true as const, referenceCode: normalized, signedAt };
+    return {
+      completed: true as const,
+      referenceCode: normalized,
+      signedAt,
+      reservationId: match.id,
+    };
   });
 }

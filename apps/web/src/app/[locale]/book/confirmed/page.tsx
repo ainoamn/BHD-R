@@ -163,7 +163,32 @@ export default async function LeaseBookingConfirmedPage({
 
         <section className="guest-stay-detail__panel">
           <div className="guest-stay-detail__panel-body">
-            {closed ? (
+            {closed && booking.lifecycle.cancellation ? (
+              <section className="guest-stay-detail__greeting guest-stay-detail__greeting--ended">
+                <h2>{ar ? 'أُلغي هذا الحجز' : 'This booking was cancelled'}</h2>
+                <p>
+                  {booking.lifecycle.cancellation.reason === 'documents_invalid'
+                    ? ar
+                      ? 'بعد تحقق الفريق تبيّن أن المستندات المرفوعة تخالف الاشتراطات أو غير ملائمة، لذا اعتُبر الحجز ملغياً كما نُبّهت عند الاعتماد الإلكتروني.'
+                      : 'After the team verified them, the uploaded documents broke the requirements or were unsuitable, so the booking was cancelled as you were told at the electronic approval.'
+                    : ar
+                      ? 'لم يتأكد وصول مبلغ العربون، لذا أُلغي الحجز.'
+                      : 'The deposit could not be confirmed as received, so the booking was cancelled.'}
+                </p>
+                {booking.lifecycle.cancellation.note ? (
+                  <p>
+                    <strong>{ar ? 'السبب: ' : 'Reason: '}</strong>
+                    {booking.lifecycle.cancellation.note}
+                  </p>
+                ) : null}
+                <Link
+                  className="button button--primary guest-stay-detail__rebook"
+                  href={`/book/${booking.unitId}?mode=${booking.mode}`}
+                >
+                  {ar ? 'ابدأ حجزاً جديداً' : 'Start a new booking'}
+                </Link>
+              </section>
+            ) : closed ? (
               <section className="guest-stay-detail__greeting guest-stay-detail__greeting--ended">
                 <h2>
                   {paid
@@ -273,13 +298,17 @@ export default async function LeaseBookingConfirmedPage({
                     <dd>
                       <bdi dir="ltr">{contract.reference}</bdi>
                       {' · '}
-                      {booking.lifecycle.tenantSignedAt
+                      {booking.lifecycle.cancellation
                         ? ar
-                          ? 'موقّع من الطرفين'
-                          : 'Signed by both parties'
-                        : ar
-                          ? 'بانتظار توقيعك'
-                          : 'Awaiting your signature'}
+                          ? 'ملغى'
+                          : 'Voided'
+                        : booking.lifecycle.tenantSignedAt
+                          ? ar
+                            ? 'موقّع من الطرفين'
+                            : 'Signed by both parties'
+                          : ar
+                            ? 'بانتظار توقيعك'
+                            : 'Awaiting your signature'}
                     </dd>
                   </div>
                 ) : null}

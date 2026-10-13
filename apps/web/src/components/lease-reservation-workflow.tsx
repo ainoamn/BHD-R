@@ -7,6 +7,7 @@ import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import {
   REQUIREMENT_CATALOGUE,
+  documentsToVerify,
   leaseJourneyStageIndex,
   leaseJourneyStageLabels,
   leasePhaseLabel,
@@ -102,6 +103,232 @@ const STATUS_TEXT: Record<ReservationRequirement['status'], [string, string]> = 
   approved: ['مقبول', 'Accepted'],
   rejected: ['مرفوض — بانتظار بديل', 'Rejected — awaiting a new file'],
 };
+
+function requirementStatusText(item: ReservationRequirement, ar: boolean): string {
+  if (item.autoApproved && item.status === 'approved') {
+    return item.verifiedAt
+      ? ar
+        ? 'قُبل إلكترونياً وتحقّق منه الفريق ✓'
+        : 'Accepted electronically, verified by the team ✓'
+      : ar
+        ? 'قُبل إلكترونياً — بانتظار تحقق الفريق'
+        : 'Accepted electronically — awaiting team verification';
+  }
+  return STATUS_TEXT[item.status][ar ? 0 : 1];
+}
+
+function cancelReasonText(
+  reason: NonNullable<ReservationLifecycle['cancellation']>['reason'],
+  ar: boolean,
+): string {
+  return reason === 'documents_invalid'
+    ? ar
+      ? 'أُلغي الحجز لأن المستندات المرفوعة خالفت الاشتراطات أو لم تكن ملائمة، وأُلغي العقد المرتبط به إن وُجد.'
+      : 'Cancelled because the uploaded documents broke the requirements or were unsuitable; any linked contract was voided.'
+    : ar
+      ? 'أُلغي الحجز لعدم استلام مبلغ العربون.'
+      : 'Cancelled because the deposit was not received.';
+}
+
+/** The channel reported the deposit paid; the owner confirms the money actually arrived. */
+function PaymentReviewCard({
+  locale,
+  depositLabel,
+  depositPaidAt,
+  lifecycle,
+  canManage,
+  busy,
+  onConfirm,
+  onReject,
+}: Props & {
+  busy: boolean;
+  onConfirm: () => Promise<void>;
+  onReject: (note: string) => Promise<void>;
+}) {
+  const ar = locale === 'ar';
+  const t = (arText: string, enText: string) => (ar ? arText : enText);
+  const [rejecting, setRejecting] = useState(false);
+  const [note, setNote] = useState('');
+  const reported = lifecycle.paymentReview?.reportedAt ?? depositPaidAt;
+  return (
+    <div className="lrw__card lrw__card--action">
+      <h3>{t('تأكيد استلام العربون', 'Confirm the deposit arrived')}</h3>
+      <p>
+        {t(
+          `أبلغت قناة الدفع بنجاح دفع العربون ${depositLabel}${reported ? ` في ${new Date(reported).toLocaleString('ar-OM', { timeZone: 'Asia/Muscat', dateStyle: 'medium', timeStyle: 'short' })}` : ''}. سياسة الاعتماد لهذا العقار تتطلب أن تتحقق من وصول المبلغ إلى حسابك قبل متابعة الحجز.`,
+          `The payment channel reported the ${depositLabel} deposit as paid. This property's approval policy asks you to check the money reached your account before the booking moves on.`,
+        )}
+      </p>
+      {canManage ? (
+        <div className="form-actions">
+          <button
+            type="button"
+            className="button button--primary"
+            disabled={busy}
+            onClick={() => void onConfirm()}
+          >
+            {busy ? t('جارٍ التأكيد…', 'Confirming…') : t('تأكيد استلام المبلغ', 'Confirm receipt')}
+          </button>
+          <button
+            type="button"
+            className="button button--quiet"
+            disabled={busy}
+            onClick={() => setRejecting((open) => !open)}
+          >
+            {t('لم يصل المبلغ', 'Money not received')}
+          </button>
+        </div>
+      ) : (
+        <p className="muted">
+          {t('يؤكد الاستلام المالك أو من يمثله.', 'The owner or their representative confirms.')}
+        </p>
+      )}
+      {rejecting ? (
+        <form
+          className="lrw__reject"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (note.trim().length < 2) return;
+            void onReject(note.trim());
+          }}
+        >
+          <label htmlFor="lrw-payment-note">
+            {t('سبب الإلغاء (يظهر للعميل)', 'Reason (shown to the client)')}
+          </label>
+          <input
+            id="lrw-payment-note"
+            className="input"
+            value={note}
+            minLength={2}
+            maxLength={500}
+            required
+            onChange={(event) => setNote(event.target.value)}
+          />
+          <button type="submit" className="button button--danger" disabled={busy}>
+            {t('إلغاء الحجز', 'Cancel the booking')}
+          </button>
+        </form>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Documents the system accepted for the owner: the team confirms each one, or rejects one as
+ * breaking the requirements, which cancels the booking straight away.
+ */
+function VerificationPanel({
+  lifecycle,
+  locale,
+  busy,
+  fileHref,
+  onVerify,
+}: Props & {
+  busy: boolean;
+  fileHref: (file: string) => string;
+  onVerify: (code: string, decision: 'verified' | 'rejected', note?: string) => Promise<void>;
+}) {
+  const ar = locale === 'ar';
+  const t = (arText: string, enText: string) => (ar ? arText : enText);
+  const [rejecting, setRejecting] = useState<string | null>(null);
+  const [note, setNote] = useState('');
+  const pending = documentsToVerify(lifecycle);
+  return (
+    <div className="lrw__card lrw__card--verify">
+      <h3>
+        {t(
+          'تحقّق من المستندات المعتمدة إلكترونياً',
+          'Verify the electronically accepted documents',
+        )}
+      </h3>
+      <p>
+        {t(
+          'قبل النظام هذه المستندات نيابةً عنك. راجع كل مستند: إن كان سليماً أكّده، وإن خالف الاشتراطات أو لم يكن ملائماً فرفضه يلغي الحجز مباشرة كما أُبلغ العميل.',
+          'The system accepted these for you. Check each one: confirm it if it is fine; rejecting one for breaking the requirements cancels the booking at once, as the client was told.',
+        )}
+      </p>
+      <ul className="lrw__docs-list">
+        {pending.map((item) => (
+          <li key={item.code} className="lrw__doc lrw__doc--approved">
+            <div className="lrw__doc-main">
+              <strong>{ar ? item.labelAr : item.labelEn || item.labelAr}</strong>
+              <span className="lrw__doc-status">{requirementStatusText(item, ar)}</span>
+            </div>
+            <div className="lrw__doc-actions">
+              {item.file ? (
+                <a
+                  className="button button--quiet"
+                  href={fileHref(`doc-${item.code}`)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {t('عرض الملف', 'View file')}
+                </a>
+              ) : null}
+              <button
+                type="button"
+                className="button button--primary"
+                disabled={busy}
+                onClick={() => void onVerify(item.code, 'verified')}
+              >
+                {t('المستند سليم', 'Document is valid')}
+              </button>
+              <button
+                type="button"
+                className="button button--quiet"
+                disabled={busy}
+                onClick={() => {
+                  setRejecting(item.code);
+                  setNote('');
+                }}
+              >
+                {t('مخالف — إلغاء الحجز', 'Invalid — cancel booking')}
+              </button>
+            </div>
+            {rejecting === item.code ? (
+              <form
+                className="lrw__reject"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!note.trim()) return;
+                  void onVerify(item.code, 'rejected', note.trim()).then(() => setRejecting(null));
+                }}
+              >
+                <label htmlFor={`verify-${item.code}`}>
+                  {t('سبب المخالفة (يظهر للعميل)', 'What is wrong (shown to the client)')}
+                </label>
+                <input
+                  id={`verify-${item.code}`}
+                  className="input"
+                  value={note}
+                  maxLength={500}
+                  required
+                  onChange={(event) => setNote(event.target.value)}
+                />
+                <p className="notice notice--error">
+                  {t(
+                    'سيُلغى الحجز فوراً، ويُلغى العقد المرتبط به إن صدر، ويُبلَّغ العميل بالسبب.',
+                    'The booking is cancelled at once, any issued contract is voided, and the client sees the reason.',
+                  )}
+                </p>
+                <button type="submit" className="button button--danger" disabled={busy}>
+                  {t('تأكيد المخالفة وإلغاء الحجز', 'Confirm and cancel the booking')}
+                </button>
+                <button
+                  type="button"
+                  className="button button--quiet"
+                  onClick={() => setRejecting(null)}
+                >
+                  {t('تراجع', 'Back')}
+                </button>
+              </form>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 /**
  * The owner's side of a website booking after its deposit, stage by stage: approve the booking,
@@ -232,6 +459,47 @@ export function LeaseReservationWorkflow(props: Props) {
             </p>
           ) : null}
 
+          {phase === 'awaiting_payment_review' ? (
+            <PaymentReviewCard
+              {...props}
+              busy={busy}
+              onConfirm={() => act({ action: 'confirm_payment' })}
+              onReject={(note) => act({ action: 'reject_payment', note })}
+            />
+          ) : null}
+
+          {phase === 'closed' && lifecycle.cancellation ? (
+            <div className="lrw__card lrw__card--cancelled">
+              <h3>{t('الحجز ملغى', 'Booking cancelled')}</h3>
+              <p>{cancelReasonText(lifecycle.cancellation.reason, ar)}</p>
+              {lifecycle.cancellation.note ? (
+                <p className="muted">
+                  {t('الملاحظة المرسلة للعميل: ', 'Note sent to the client: ')}
+                  {lifecycle.cancellation.note}
+                </p>
+              ) : null}
+              <p className="muted">
+                {new Date(lifecycle.cancellation.at).toLocaleString(ar ? 'ar-OM' : 'en-GB', {
+                  timeZone: 'Asia/Muscat',
+                  dateStyle: 'medium',
+                  timeStyle: 'short',
+                })}
+                {lifecycle.cancellation.byName ? ` · ${lifecycle.cancellation.byName}` : ''}
+              </p>
+            </div>
+          ) : null}
+
+          {canManage && phase !== 'closed' && documentsToVerify(lifecycle).length ? (
+            <VerificationPanel
+              {...props}
+              busy={busy}
+              fileHref={fileHref}
+              onVerify={(code, decision, note) =>
+                act({ action: 'verify_document', code, decision, ...(note ? { note } : {}) })
+              }
+            />
+          ) : null}
+
           {phase === 'awaiting_owner_approval' ? (
             <div className="lrw__card lrw__card--action">
               <h3>{t('اعتماد الحجز', 'Approve the booking')}</h3>
@@ -337,10 +605,15 @@ export function LeaseReservationWorkflow(props: Props) {
             <div className="lrw__card">
               <h3>{t('بانتظار توقيع الطرف الثاني', 'Awaiting the second party')}</h3>
               <p>
-                {t(
-                  `اعتمدت العقد ${lifecycle.contract?.reference ?? ''} ووُقّع باسم المالك. ينتظر الآن توقيع ${sale ? 'المشتري' : 'المستأجر'} إلكترونياً من صفحة حجزه.`,
-                  `You approved contract ${lifecycle.contract?.reference ?? ''}; it is signed for the owner and now awaits the ${sale ? 'buyer' : 'tenant'}'s e-signature.`,
-                )}
+                {lifecycle.contract?.automatic
+                  ? t(
+                      `اعتمد النظام العقد ${lifecycle.contract.reference} نيابةً عنك بعد اكتمال المستندات ووُقّع باسم المالك. ينتظر الآن توقيع ${sale ? 'المشتري' : 'المستأجر'} إلكترونياً من صفحة حجزه.`,
+                      `The system approved contract ${lifecycle.contract.reference} for you once the documents were in; it is signed for the owner and awaits the ${sale ? 'buyer' : 'tenant'}'s e-signature.`,
+                    )
+                  : t(
+                      `اعتمدت العقد ${lifecycle.contract?.reference ?? ''} ووُقّع باسم المالك. ينتظر الآن توقيع ${sale ? 'المشتري' : 'المستأجر'} إلكترونياً من صفحة حجزه.`,
+                      `You approved contract ${lifecycle.contract?.reference ?? ''}; it is signed for the owner and now awaits the ${sale ? 'buyer' : 'tenant'}'s e-signature.`,
+                    )}
               </p>
               {contractHref ? (
                 <a className="button button--quiet" href={contractHref}>
@@ -492,6 +765,15 @@ function CompletedStage(
           <dt>{t('اعتمده', 'Approved by')}</dt>
           <dd>{lifecycle.approval?.byName ?? '—'}</dd>
         </div>
+        {lifecycle.paymentReview?.confirmedAt ? (
+          <div>
+            <dt>{t('تأكيد استلام العربون', 'Deposit receipt confirmed')}</dt>
+            <dd>
+              {when(lifecycle.paymentReview.confirmedAt)}
+              {lifecycle.paymentReview.byName ? ` · ${lifecycle.paymentReview.byName}` : ''}
+            </dd>
+          </div>
+        ) : null}
       </dl>
     );
   } else if (index === 2) {
@@ -682,7 +964,7 @@ function RequirementsReview({
           <li key={item.code} className={`lrw__doc lrw__doc--${item.status}`}>
             <div className="lrw__doc-main">
               <strong>{ar ? item.labelAr : item.labelEn || item.labelAr}</strong>
-              <span className="lrw__doc-status">{STATUS_TEXT[item.status][ar ? 0 : 1]}</span>
+              <span className="lrw__doc-status">{requirementStatusText(item, ar)}</span>
               {item.note && item.status === 'rejected' ? (
                 <small className="muted">{item.note}</small>
               ) : null}

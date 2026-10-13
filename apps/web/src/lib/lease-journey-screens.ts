@@ -75,26 +75,56 @@ export function leaseScreens(props: LeaseJourneyProps): Array<LeaseJourneyScreen
   const approval: LeaseJourneyScreen | null =
     current < 1
       ? null
-      : phase === 'awaiting_owner_approval'
+      : phase === 'awaiting_payment_review'
         ? {
-            headline: t('حجزك على مكتب المالك الآن ☕', 'Your booking is on the owner’s desk ☕'),
+            headline: t('نتحقق من وصول العربون 🔎', 'Checking your deposit arrived 🔎'),
             body: t(
-              'أرسلنا حجزك إلى المالك ليعتمده. عادةً لا يطول الأمر — وسيتغيّر هذا المشهد فور الاعتماد، فعُد إلى هذه الصفحة متى شئت.',
-              'We sent your booking to the owner for approval. It rarely takes long — this scene changes the moment they approve.',
+              `أبلغتنا قناة الدفع بنجاح دفع العربون ${deposit}، ويتحقق المالك الآن من وصول المبلغ. بعد التأكيد مباشرة ينتقل حجزك إلى الاعتماد.`,
+              `The payment channel reported your ${deposit} deposit as paid and the owner is confirming it arrived. Your booking moves on to approval right after.`,
             ),
             scene: 'desk',
-            sceneStatus: t('قيد المراجعة', 'Under review'),
+            sceneStatus: t('التحقق من الدفع', 'Payment check'),
           }
-        : {
-            headline: t('مبروك! المالك اعتمد حجزك ✅', 'Congratulations! The owner approved ✅'),
-            body: t(
-              `اعتمد المالك حجزك${lifecycle.approvedAt ? ` في ${journeyStamp(lifecycle.approvedAt, ar)}` : ''}. حجزك الآن معتمد، والخطوة التالية أن يُعدّ المالك ${contractWord}.`,
-              `The owner approved your booking${lifecycle.approvedAt ? ` on ${journeyStamp(lifecycle.approvedAt, ar)}` : ''}. Next, the owner prepares your ${contractWord}.`,
-            ),
-            scene: 'desk',
-            sceneDone: true,
-            sceneStatus: t('معتمد', 'Approved'),
-          };
+        : lifecycle.approvedAutomatically
+          ? {
+              headline: t(
+                'اعتُمد حجزك إلكترونياً ✅',
+                'Your booking was approved electronically ✅',
+              ),
+              body: t(
+                `اعتمد النظام حجزك إلكترونياً نيابةً عن المالك${lifecycle.approvedAt ? ` في ${journeyStamp(lifecycle.approvedAt, ar)}` : ''} فور اكتمال الدفع والتوقيع. الخطوة التالية أن يُعدّ المالك ${contractWord}.`,
+                `The system approved your booking for the owner${lifecycle.approvedAt ? ` on ${journeyStamp(lifecycle.approvedAt, ar)}` : ''} as soon as payment and signature were complete. Next, the owner prepares your ${contractWord}.`,
+              ),
+              scene: 'desk',
+              sceneDone: true,
+              sceneStatus: t('معتمد إلكترونياً', 'Approved electronically'),
+            }
+          : phase === 'awaiting_owner_approval'
+            ? {
+                headline: t(
+                  'حجزك على مكتب المالك الآن ☕',
+                  'Your booking is on the owner’s desk ☕',
+                ),
+                body: t(
+                  'أرسلنا حجزك إلى المالك ليعتمده. عادةً لا يطول الأمر — وسيتغيّر هذا المشهد فور الاعتماد، فعُد إلى هذه الصفحة متى شئت.',
+                  'We sent your booking to the owner for approval. It rarely takes long — this scene changes the moment they approve.',
+                ),
+                scene: 'desk',
+                sceneStatus: t('قيد المراجعة', 'Under review'),
+              }
+            : {
+                headline: t(
+                  'مبروك! المالك اعتمد حجزك ✅',
+                  'Congratulations! The owner approved ✅',
+                ),
+                body: t(
+                  `اعتمد المالك حجزك${lifecycle.approvedAt ? ` في ${journeyStamp(lifecycle.approvedAt, ar)}` : ''}. حجزك الآن معتمد، والخطوة التالية أن يُعدّ المالك ${contractWord}.`,
+                  `The owner approved your booking${lifecycle.approvedAt ? ` on ${journeyStamp(lifecycle.approvedAt, ar)}` : ''}. Next, the owner prepares your ${contractWord}.`,
+                ),
+                scene: 'desk',
+                sceneDone: true,
+                sceneStatus: t('معتمد', 'Approved'),
+              };
 
   let documents: LeaseJourneyScreen | null = null;
   if (current >= 2) {
@@ -134,6 +164,15 @@ export function leaseScreens(props: LeaseJourneyProps): Array<LeaseJourneyScreen
         ),
         action: 'documents',
       };
+    } else if (requirements.some((item) => item.autoApproved)) {
+      documents = {
+        headline: t('قُبلت مستنداتك إلكترونياً 👌', 'Documents accepted electronically 👌'),
+        body: t(
+          'قبل النظام مستنداتك إلكترونياً فور اكتمالها، وسيتحقق الفريق منها. إن تبيّن أن أي مستند يخالف الاشتراطات أو غير ملائم يُلغى الحجز مباشرة.',
+          'The system accepted your documents as soon as they were complete, and the team will verify them. If any breaks the requirements or is unsuitable, the booking is cancelled at once.',
+        ),
+        action: 'documents',
+      };
     } else {
       documents = {
         headline: t('مستنداتك مكتملة ومقبولة 👌', 'Documents complete and accepted 👌'),
@@ -160,10 +199,15 @@ export function leaseScreens(props: LeaseJourneyProps): Array<LeaseJourneyScreen
     } else if (phase === 'awaiting_tenant_signature') {
       contract = {
         headline: t('عقدك جاهز وينتظر توقيعك ✨', 'Your contract is ready for your signature ✨'),
-        body: t(
-          `اعتمد المالك ${contractWord} ${lifecycle.contract?.reference ?? ''} ووقّعه. اقرأه بتمعّن، ثم وقّع بإصبعك — وبتوقيعك يصبح العقد موقّعاً إلكترونياً من الطرفين.`,
-          `The owner approved and signed ${lifecycle.contract?.reference ?? 'the contract'}. Read it carefully, then sign with your finger — it becomes signed by both parties.`,
-        ),
+        body: lifecycle.contract?.automatic
+          ? t(
+              `اعتمد النظام ${contractWord} ${lifecycle.contract.reference} إلكترونياً نيابةً عن المالك ووُقّع باسمه. اقرأه بتمعّن، ثم وقّع بإصبعك — وبتوقيعك يصبح العقد موقّعاً إلكترونياً من الطرفين.`,
+              `The system approved ${lifecycle.contract.reference} electronically for the owner and signed it in their name. Read it carefully, then sign with your finger.`,
+            )
+          : t(
+              `اعتمد المالك ${contractWord} ${lifecycle.contract?.reference ?? ''} ووقّعه. اقرأه بتمعّن، ثم وقّع بإصبعك — وبتوقيعك يصبح العقد موقّعاً إلكترونياً من الطرفين.`,
+              `The owner approved and signed ${lifecycle.contract?.reference ?? 'the contract'}. Read it carefully, then sign with your finger — it becomes signed by both parties.`,
+            ),
         scene: 'contract',
         sceneStatus: t('بانتظار توقيع الطرف الثاني', 'Awaiting second-party signature'),
         action: 'sign_contract',

@@ -93,6 +93,7 @@ const KNOWN_CODES = new Set([
   'cr_expiring_soon',
   'passport_required',
   'term_too_short',
+  'approval_delegate_forbidden',
 ]);
 
 export function clientSafeErrorCode(error: unknown, fallback = 'request_failed'): string {
@@ -142,6 +143,7 @@ export function statusForSafeCode(code: string): number {
     case 'team_self_change':
     case 'team_owner_locked':
     case 'organization_not_member':
+    case 'approval_delegate_forbidden':
       return 403;
     case 'team_seat_limit':
     case 'team_member_exists':

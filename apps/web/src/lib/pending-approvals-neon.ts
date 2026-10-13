@@ -21,6 +21,7 @@ import {
 } from '@/lib/pending-approvals-shared';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import {
+  documentsToVerify,
   leaseJourneyPhase,
   phaseWaitsOn,
   type ReservationLifecycle,
@@ -315,11 +316,13 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
             esignSignedAt: row.esignAt,
             lifecycle: row.lifecycle,
           });
-          return phaseWaitsOn(phase) === 'owner' ? [{ ...row, phase }] : [];
+          const verify = documentsToVerify(row.lifecycle).length > 0;
+          return phaseWaitsOn(phase) === 'owner' || verify ? [{ ...row, phase, verify }] : [];
         })
         .map((row) => ({
           kind: 'lease_reservation' as const,
           phase: row.phase,
+          verifyDocuments: row.verify,
           id: row.id,
           reference: row.reference ?? row.id.slice(0, 8).toUpperCase(),
           propertyId: row.propertyId,

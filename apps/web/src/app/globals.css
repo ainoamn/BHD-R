@@ -16354,6 +16354,151 @@ button.lrw__step-body:focus-visible {
 .lrw__reject .input {
   flex: 1 1 16rem;
 }
+.lrw__reject .notice {
+  flex-basis: 100%;
+  margin: 0;
+}
+.lrw__card--verify {
+  border-color: #c98a12;
+  background: linear-gradient(180deg, #fffaf0, #fff 60%);
+}
+.lrw__card--cancelled {
+  border-color: #c8102e;
+  background: #fff6f7;
+}
+.lrw__docs-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Owner approval policy: manual or automatic, step by step */
+.approval-policy {
+  display: grid;
+  gap: 1rem;
+  margin-block-end: 1.25rem;
+  padding: 1.25rem;
+  border: 1px solid #d7e1db;
+  border-radius: 1rem;
+  background: #fff;
+}
+.approval-policy__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.approval-policy__head h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+}
+.approval-policy__head p {
+  margin: 0;
+  max-width: 46rem;
+}
+.approval-policy__source {
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  background: #eef2f0;
+  color: #44544c;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+.approval-policy__source--own {
+  background: #e3f3ea;
+  color: #0d5c45;
+}
+.approval-policy__steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.75rem;
+}
+.approval-policy__step {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.85rem;
+  border: 1px solid #e1e8e4;
+  border-radius: 0.8rem;
+}
+.approval-policy__step legend {
+  padding: 0 0.3rem;
+  font-weight: 700;
+}
+.approval-policy__options {
+  display: grid;
+  gap: 0.5rem;
+}
+.approval-policy__option {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid #e1e8e4;
+  border-radius: 0.6rem;
+  cursor: pointer;
+}
+.approval-policy__option input {
+  margin-block-start: 0.25rem;
+  accent-color: #0d5c45;
+}
+.approval-policy__option span {
+  display: grid;
+  gap: 0.2rem;
+}
+.approval-policy__option small {
+  color: #5b6b63;
+  line-height: 1.5;
+}
+.approval-policy__option--on {
+  border-color: #0d5c45;
+  background: #f3faf6;
+}
+.approval-policy__preview {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.8rem 0.9rem;
+  border-inline-start: 4px solid #c98a12;
+  border-radius: 0.6rem;
+  background: #fffaf0;
+}
+.approval-policy__preview p {
+  margin: 0;
+  line-height: 1.7;
+}
+.approval-policy__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.approval-policy > .notice {
+  margin: 0;
+}
+
+/* Customer notice after an electronic approval */
+.electronic-approval-notice {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid #f0d49a;
+  border-inline-start: 4px solid #c98a12;
+  border-radius: 0.8rem;
+  background: #fffaf0;
+  color: #4a3a12;
+  line-height: 1.75;
+}
+.electronic-approval-notice strong {
+  display: block;
+  margin-block-end: 0.15rem;
+}
+.electronic-approval-notice p {
+  margin: 0;
+}
 .lrw__chips {
   display: flex;
   flex-wrap: wrap;

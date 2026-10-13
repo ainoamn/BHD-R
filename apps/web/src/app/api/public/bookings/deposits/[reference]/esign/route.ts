@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { leaseBookingErrorResponse, leaseBookingJson } from '@/lib/lease-booking-route';
+import { runReservationAutomation } from '@/lib/lease-reservation-lifecycle-neon';
 import { requireLiveSession } from '@/lib/next-route-guard';
 import { completeLeaseEsign } from '@/lib/public-lease-booking-neon';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
@@ -17,10 +18,7 @@ const bodySchema = z
   })
   .strict();
 
-export async function POST(
-  request: Request,
-  context: { params: Promise<{ reference: string }> },
-) {
+export async function POST(request: Request, context: { params: Promise<{ reference: string }> }) {
   if (!hasDatabaseUrl()) {
     return leaseBookingJson({ error: { code: 'db_unconfigured' } }, { status: 503 });
   }
@@ -54,7 +52,9 @@ export async function POST(
 
   const { reference } = await context.params;
   try {
-    return leaseBookingJson(await completeLeaseEsign(claims, reference, parsed.data));
+    const { reservationId, ...result } = await completeLeaseEsign(claims, reference, parsed.data);
+    await runReservationAutomation(reservationId, claims.sub);
+    return leaseBookingJson(result);
   } catch (error) {
     return leaseBookingErrorResponse(error, 'request_failed');
   }

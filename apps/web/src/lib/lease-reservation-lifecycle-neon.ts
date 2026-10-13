@@ -1,13 +1,28 @@
 import 'server-only';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
-import { outboxEvents, properties, reservations, units, users, workflowEvents } from '@bhd-r/db';
+import {
+  contracts,
+  leases,
+  outboxEvents,
+  properties,
+  reservations,
+  salesDeals,
+  units,
+  users,
+  workflowEvents,
+} from '@bhd-r/db';
+import { SYSTEM_APPROVER_AR } from '@/lib/approval-policy';
+import { delegateClaims, resolveApprovalPolicy } from '@/lib/approval-policy-neon';
+import { clientSafeErrorCode } from '@/lib/client-safe-error';
+import { applySessionSettings, viewerTenantSettings } from '@/lib/db-session-settings';
 import {
   REQUIREMENT_FILE_MAX_CHARS,
   REQUIREMENT_FILE_TYPES,
   leaseJourneyPhase,
   lifecycleOf,
   type LeaseJourneyPhase,
+  type ReservationCancelReason,
   type ReservationLifecycle,
   type ReservationRequirement,
   type ReservationSaleDraft,
@@ -67,8 +82,16 @@ async function viewerName(tx: Tx, userId: string): Promise<string | null> {
 
 async function loadForOwner(tx: Tx, claims: SessionClaims, reservationId: string) {
   const orgId = claims.organizationId ?? fail('organization_required');
+  return loadReservationRow(tx, orgId, reservationId, ownerPartyScope(claims));
+}
+
+async function loadReservationRow(
+  tx: Tx,
+  orgId: string,
+  reservationId: string,
+  ownerPartyId: string | null,
+) {
   await lockKey(tx, reservationId);
-  const ownerPartyId = ownerPartyScope(claims);
   const [row] = await tx
     .select({
       id: reservations.id,
@@ -97,13 +120,17 @@ async function loadForOwner(tx: Tx, claims: SessionClaims, reservationId: string
   return { ...row, orgId, snapshot, lifecycle: lifecycleOf(snapshot) };
 }
 
-type OwnerRow = Awaited<ReturnType<typeof loadForOwner>>;
+type OwnerRow = Awaited<ReturnType<typeof loadReservationRow>>;
 
 async function saveLifecycle(
   tx: Tx,
   row: { id: string; snapshot: LeaseBookingSnapshot },
   lifecycle: ReservationLifecycle,
-  patch: { status?: 'converted'; convertedLeaseId?: string | null; expiresAt?: Date } = {},
+  patch: {
+    status?: 'converted' | 'cancelled';
+    convertedLeaseId?: string | null;
+    expiresAt?: Date;
+  } = {},
 ) {
   await tx
     .update(reservations)
@@ -121,7 +148,7 @@ async function logEvent(
   tx: Tx,
   input: {
     orgId: string;
-    actorUserId: string;
+    actorUserId: string | null;
     reservationId: string;
     eventType: string;
     status: string;
@@ -144,7 +171,15 @@ async function logEvent(
 export type RequirementInput = { code: string; labelAr: string; labelEn: string };
 
 export type ReservationOwnerAction =
+  | { action: 'confirm_payment' }
+  | { action: 'reject_payment'; note: string }
   | { action: 'approve' }
+  | {
+      action: 'verify_document';
+      code: string;
+      decision: 'verified' | 'rejected';
+      note?: string | undefined;
+    }
   | {
       action: 'save_contract';
       lease?: ManualLeaseInput | undefined;
@@ -186,7 +221,153 @@ function cleanRequirements(
 }
 
 function assertOpen(row: OwnerRow) {
-  if (row.status === 'cancelled' || row.status === 'expired') fail('reservation_closed');
+  if (row.status === 'cancelled' || row.status === 'expired' || row.lifecycle.cancellation) {
+    fail('reservation_closed');
+  }
+}
+
+/** Signs the prepared contract for the owner and sends it to the tenant or buyer to sign. */
+async function issueReservationContract(
+  tx: Tx,
+  claims: SessionClaims,
+  row: OwnerRow,
+  lifecycle: ReservationLifecycle,
+  issuer: { byName: string | null; automatic: boolean },
+) {
+  const draft = lifecycle.contractDraft ?? fail('reservation_not_ready');
+  const source = {
+    type: 'lease_reservation',
+    reservationId: row.id,
+    referenceCode: row.snapshot.referenceCode,
+    ...(issuer.automatic ? { automatic: true } : {}),
+  };
+  let outcome: { contractId: string; contractReference: string };
+  if (row.snapshot.mode === 'sale') {
+    if (!hasPermission(claims, 'sale.manage') || !draft.sale) fail('forbidden');
+    outcome = await issueReservationSaleInTx(tx, claims, row.propertyId, {
+      unitId: row.unitId,
+      buyerPartyId: row.tenantPartyId,
+      dealId: row.snapshot.salesDealId ?? null,
+      signedOn: draft.sale.signedOn,
+      amount: draft.sale.amount,
+      notes: draft.sale.notes,
+      source,
+    });
+  } else {
+    if (!hasPermission(claims, 'lease.create') || !draft.lease) fail('forbidden');
+    const lease = draft.lease as unknown as ManualLeaseInput;
+    outcome = await issueManualLeaseInTx(
+      tx,
+      claims,
+      row.propertyId,
+      {
+        ...lease,
+        unitId: row.unitId,
+        tenant: { ...lease.tenant, partyId: row.tenantPartyId },
+      },
+      { source, awaitCounterparty: true },
+    );
+  }
+  const next: ReservationLifecycle = {
+    ...lifecycle,
+    contract: {
+      id: outcome.contractId,
+      reference: outcome.contractReference,
+      issuedAt: new Date().toISOString(),
+      byName: issuer.byName,
+      ...(issuer.automatic ? { automatic: true } : {}),
+    },
+  };
+  await saveLifecycle(tx, row, next, { expiresAt: extendedHold(row.expiresAt) });
+  return { outcome, lifecycle: next };
+}
+
+/**
+ * Cancels a booking whose payment never arrived or whose documents broke the requirements.
+ * An issued contract is voided (terminated once both signed) and its lease cancelled; only a
+ * booking whose premises were handed over can no longer be cancelled here.
+ */
+async function cancelReservationInTx(
+  tx: Tx,
+  row: OwnerRow,
+  lifecycle: ReservationLifecycle,
+  input: {
+    actorUserId: string;
+    byName: string | null;
+    reason: ReservationCancelReason;
+    note: string | null;
+    code?: string | null;
+  },
+) {
+  if (lifecycle.handover) fail('reservation_not_ready');
+  const now = new Date();
+  const contract = lifecycle.contract;
+  if (contract) {
+    const [current] = await tx
+      .select({ status: contracts.status })
+      .from(contracts)
+      .where(and(eq(contracts.id, contract.id), eq(contracts.organizationId, row.orgId)))
+      .limit(1);
+    if (current && current.status !== 'void' && current.status !== 'terminated') {
+      await tx
+        .update(contracts)
+        .set({ status: current.status === 'signed' ? 'terminated' : 'void', updatedAt: now })
+        .where(and(eq(contracts.id, contract.id), eq(contracts.organizationId, row.orgId)));
+    }
+    await tx
+      .update(leases)
+      .set({ status: 'cancelled', updatedAt: now })
+      .where(
+        and(
+          eq(leases.organizationId, row.orgId),
+          eq(leases.contractId, contract.id),
+          inArray(leases.status, ['draft', 'active']),
+        ),
+      );
+  }
+  if (row.snapshot.salesDealId) {
+    await tx
+      .update(salesDeals)
+      .set({ status: 'cancelled', updatedAt: now })
+      .where(
+        and(eq(salesDeals.id, row.snapshot.salesDealId), eq(salesDeals.organizationId, row.orgId)),
+      );
+  }
+  const next: ReservationLifecycle = {
+    ...lifecycle,
+    cancellation: {
+      at: now.toISOString(),
+      byName: input.byName,
+      reason: input.reason,
+      note: input.note,
+      ...(input.code ? { code: input.code } : {}),
+    },
+  };
+  await saveLifecycle(tx, row, next, { status: 'cancelled' });
+  await logEvent(tx, {
+    orgId: row.orgId,
+    actorUserId: input.actorUserId,
+    reservationId: row.id,
+    eventType: 'reservation.cancelled',
+    status: row.status,
+    toStatus: 'cancelled',
+    metadata: {
+      referenceCode: row.snapshot.referenceCode,
+      byName: input.byName,
+      reason: input.reason,
+      note: input.note,
+      ...(input.code ? { code: input.code } : {}),
+      ...(contract ? { contractId: contract.id } : {}),
+    },
+  });
+  await tx.insert(outboxEvents).values({
+    organizationId: row.orgId,
+    topic: 'reservation.cancelled',
+    aggregateType: 'reservation',
+    aggregateId: row.id,
+    payload: { referenceCode: row.snapshot.referenceCode, reason: input.reason },
+  });
+  return next;
 }
 
 /**
@@ -195,6 +376,24 @@ function assertOpen(row: OwnerRow) {
  * approve the contract for the tenant to sign, and hand the premises over.
  */
 export async function reservationOwnerAction(
+  claims: SessionClaims,
+  reservationId: string,
+  input: ReservationOwnerAction,
+): Promise<{ phase: LeaseJourneyPhase; contractId?: string; contractReference?: string }> {
+  const result = await ownerActionInTx(claims, reservationId, input);
+  if (!AUTOMATION_TRIGGERS.has(input.action)) return result;
+  const phase = await runReservationAutomation(reservationId, claims.sub);
+  return phase ? { ...result, phase } : result;
+}
+
+/** Owner steps after which the system may take the next one on the owner's behalf. */
+const AUTOMATION_TRIGGERS = new Set<ReservationOwnerAction['action']>([
+  'confirm_payment',
+  'save_contract',
+  'review_document',
+]);
+
+async function ownerActionInTx(
   claims: SessionClaims,
   reservationId: string,
   input: ReservationOwnerAction,
@@ -220,6 +419,73 @@ export async function reservationOwnerAction(
       });
 
     switch (input.action) {
+      case 'confirm_payment': {
+        const review = row.lifecycle.paymentReview;
+        if (!review || review.status !== 'pending') break;
+        await saveLifecycle(tx, row, {
+          ...row.lifecycle,
+          paymentReview: { ...review, status: 'confirmed', confirmedAt: at, byName },
+        });
+        await event('reservation.payment_confirmed', {});
+        break;
+      }
+
+      case 'reject_payment': {
+        if (row.lifecycle.paymentReview?.status !== 'pending') fail('reservation_not_ready');
+        const note = input.note.trim().slice(0, 500);
+        if (!note) fail('invalid_body');
+        await cancelReservationInTx(tx, row, row.lifecycle, {
+          actorUserId: claims.sub,
+          byName,
+          reason: 'payment_not_received',
+          note,
+        });
+        break;
+      }
+
+      case 'verify_document': {
+        const requirements = row.lifecycle.requirements ?? [];
+        const target = requirements.find((item) => item.code === input.code);
+        if (!target) fail('requirement_not_found');
+        if (!target.autoApproved || target.verifiedAt || row.lifecycle.handover) {
+          fail('reservation_not_ready');
+        }
+        if (input.decision === 'verified') {
+          const next = requirements.map((item) =>
+            item.code === input.code ? { ...item, verifiedAt: at, verifiedByName: byName } : item,
+          );
+          await saveLifecycle(tx, row, { ...row.lifecycle, requirements: next });
+          await event('reservation.document_verified', { code: input.code });
+          break;
+        }
+        const note = input.note?.trim().slice(0, 500) || null;
+        if (!note) fail('invalid_body');
+        const next = requirements.map((item) =>
+          item.code === input.code
+            ? {
+                ...item,
+                status: 'rejected' as const,
+                note,
+                verifiedAt: at,
+                verifiedByName: byName,
+              }
+            : item,
+        );
+        await cancelReservationInTx(
+          tx,
+          row,
+          { ...row.lifecycle, requirements: next },
+          {
+            actorUserId: claims.sub,
+            byName,
+            reason: 'documents_invalid',
+            note,
+            code: input.code,
+          },
+        );
+        break;
+      }
+
       case 'approve': {
         if (row.lifecycle.approval) break;
         if (phase !== 'awaiting_owner_approval' || row.status !== 'confirmed') {
@@ -310,50 +576,13 @@ export async function reservationOwnerAction(
           fail('documents_incomplete');
         }
         if (phase !== 'awaiting_contract_approval') fail('reservation_not_ready');
-        const draft = row.lifecycle.contractDraft;
-        if (!draft) fail('reservation_not_ready');
-        const source = {
-          type: 'lease_reservation',
-          reservationId: row.id,
-          referenceCode: row.snapshot.referenceCode,
-        };
-        let outcome: { contractId: string; contractReference: string };
-        if (sale) {
-          if (!hasPermission(claims, 'sale.manage') || !draft.sale) fail('forbidden');
-          outcome = await issueReservationSaleInTx(tx, claims, row.propertyId, {
-            unitId: row.unitId,
-            buyerPartyId: row.tenantPartyId,
-            dealId: row.snapshot.salesDealId ?? null,
-            signedOn: draft.sale.signedOn,
-            amount: draft.sale.amount,
-            notes: draft.sale.notes,
-            source,
-          });
-        } else {
-          if (!hasPermission(claims, 'lease.create') || !draft.lease) fail('forbidden');
-          const lease = draft.lease as unknown as ManualLeaseInput;
-          outcome = await issueManualLeaseInTx(
-            tx,
-            claims,
-            row.propertyId,
-            {
-              ...lease,
-              unitId: row.unitId,
-              tenant: { ...lease.tenant, partyId: row.tenantPartyId },
-            },
-            { source, awaitCounterparty: true },
-          );
-        }
-        const lifecycle: ReservationLifecycle = {
-          ...row.lifecycle,
-          contract: {
-            id: outcome.contractId,
-            reference: outcome.contractReference,
-            issuedAt: at,
-            byName,
-          },
-        };
-        await saveLifecycle(tx, row, lifecycle, { expiresAt: extendedHold(row.expiresAt) });
+        const { outcome, lifecycle } = await issueReservationContract(
+          tx,
+          claims,
+          row,
+          row.lifecycle,
+          { byName, automatic: false },
+        );
         await event('reservation.contract_issued', {
           contractId: outcome.contractId,
           contractReference: outcome.contractReference,
@@ -403,6 +632,155 @@ export async function reservationOwnerAction(
   });
 }
 
+/**
+ * Takes every step the owner's approval policy hands to the system: approves a paid, signed
+ * booking, and once all required documents are in, accepts them and approves the contract in
+ * the policy delegate's name. Runs in its own transaction after the step that triggered it, so a
+ * failure (an overlapping lease, a delegate who lost signing rights) leaves the step to the owner.
+ * Returns the booking's phase afterwards, or null when nothing could be read.
+ */
+export async function runReservationAutomation(
+  reservationId: string,
+  actorUserId: string,
+): Promise<LeaseJourneyPhase | null> {
+  const { db } = getDatabase();
+  try {
+    return await db.transaction(async (tx) => {
+      const [base] = await withElevatedRead(tx, () =>
+        tx
+          .select({
+            orgId: reservations.organizationId,
+            propertyId: units.propertyId,
+            flow: sql<string | null>`${reservations.termsSnapshot}->>'flow'`,
+          })
+          .from(reservations)
+          .innerJoin(units, eq(units.id, reservations.unitId))
+          .where(eq(reservations.id, reservationId))
+          .limit(1),
+      );
+      if (!base || base.flow !== LEASE_BOOKING_FLOW) return null;
+      const resolved = await resolveApprovalPolicy(tx, base.orgId, base.propertyId);
+      const { policy, delegate } = resolved;
+      const signer =
+        policy.contract === 'auto' && delegate
+          ? await delegateClaims(tx, base.orgId, delegate)
+          : null;
+      if (signer) {
+        await applySessionSettings(tx, viewerTenantSettings(signer));
+      } else {
+        await applyOrgScope(tx, { organizationId: base.orgId, userId: actorUserId });
+      }
+
+      const row = await loadReservationRow(tx, base.orgId, reservationId, null);
+      let lifecycle = row.lifecycle;
+      const phase = () => phaseOf(row.status, row.snapshot, lifecycle);
+      if (row.status === 'cancelled' || row.status === 'expired' || lifecycle.cancellation) {
+        return phase();
+      }
+      const at = new Date().toISOString();
+      const event = (eventType: string, metadata: Record<string, unknown>) =>
+        logEvent(tx, {
+          orgId: row.orgId,
+          actorUserId: delegate?.userId ?? null,
+          reservationId: row.id,
+          eventType,
+          status: row.status,
+          metadata: {
+            referenceCode: row.snapshot.referenceCode,
+            byName: SYSTEM_APPROVER_AR,
+            automatic: true,
+            policySource: resolved.source,
+            ...metadata,
+          },
+        });
+
+      if (
+        policy.booking === 'auto' &&
+        row.status === 'confirmed' &&
+        phase() === 'awaiting_owner_approval'
+      ) {
+        lifecycle = {
+          ...lifecycle,
+          approval: {
+            at,
+            byUserId: delegate?.userId ?? null,
+            byName: SYSTEM_APPROVER_AR,
+            automatic: true,
+          },
+        };
+        await saveLifecycle(tx, row, lifecycle, { expiresAt: extendedHold(row.expiresAt) });
+        await event('reservation.owner_approved', {});
+        await tx.insert(outboxEvents).values({
+          organizationId: row.orgId,
+          topic: 'reservation.owner_approved',
+          aggregateType: 'reservation',
+          aggregateId: row.id,
+          payload: {
+            referenceCode: row.snapshot.referenceCode,
+            mode: row.snapshot.mode,
+            automatic: true,
+          },
+        });
+      }
+
+      const ready =
+        phase() === 'awaiting_documents_review' || phase() === 'awaiting_contract_approval';
+      if (policy.contract === 'auto' && ready && lifecycle.contractDraft && !lifecycle.contract) {
+        if (!signer) {
+          await event('reservation.auto_contract_skipped', { reason: 'delegate_unavailable' });
+          return phase();
+        }
+        const submitted = (lifecycle.requirements ?? []).filter(
+          (item) => item.status === 'submitted',
+        );
+        if (submitted.length) {
+          lifecycle = {
+            ...lifecycle,
+            requirements: (lifecycle.requirements ?? []).map((item) =>
+              item.status === 'submitted'
+                ? {
+                    ...item,
+                    status: 'approved' as const,
+                    note: null,
+                    autoApproved: true,
+                    reviewedAt: at,
+                    reviewedByName: SYSTEM_APPROVER_AR,
+                  }
+                : item,
+            ),
+          };
+          await saveLifecycle(tx, row, lifecycle);
+          await event('reservation.documents_auto_accepted', {
+            codes: submitted.map((item) => item.code),
+          });
+        }
+        try {
+          const issued = await tx.transaction((savepoint) =>
+            issueReservationContract(savepoint, signer, row, lifecycle, {
+              byName: SYSTEM_APPROVER_AR,
+              automatic: true,
+            }),
+          );
+          lifecycle = issued.lifecycle;
+          await event('reservation.contract_issued', {
+            contractId: issued.outcome.contractId,
+            contractReference: issued.outcome.contractReference,
+            signedForOwnerBy: delegate?.name ?? null,
+          });
+        } catch (error) {
+          await event('reservation.auto_contract_skipped', {
+            reason: clientSafeErrorCode(error, 'issue_failed'),
+          });
+        }
+      }
+      return phase();
+    });
+  } catch (error) {
+    console.error('reservation automation failed', error);
+    return null;
+  }
+}
+
 async function customerReservation(transaction: Tx, userId: string, referenceCode: string) {
   const normalized = normalizeLeaseReference(referenceCode);
   if (!normalized) leaseBookingFail('not_found');
@@ -445,7 +823,7 @@ export async function submitReservationDocument(
   const mime = parsed[1]!;
   const size = Math.floor((parsed[2]!.length * 3) / 4);
   const { db } = getDatabase();
-  return db.transaction(async (transaction) => {
+  const reservationId = await db.transaction(async (transaction) => {
     const current = await customerReservation(transaction, claims.sub, referenceCode);
     if (current.phase !== 'awaiting_documents' && current.phase !== 'awaiting_documents_review') {
       leaseBookingFail('not_ready');
@@ -499,8 +877,10 @@ export async function submitReservationDocument(
       status: current.status,
       metadata: { referenceCode: current.snapshot.referenceCode, code: input.code },
     });
-    return { submitted: true as const, code: input.code };
+    return current.match.id;
   });
+  await runReservationAutomation(reservationId, claims.sub);
+  return { submitted: true as const, code: input.code };
 }
 
 /**

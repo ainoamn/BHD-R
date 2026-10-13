@@ -16,7 +16,19 @@ const uuid = z.string().uuid();
 const requirementCode = z.string().regex(/^[a-z0-9_]{2,40}$/);
 
 const bodySchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('confirm_payment') }).strict(),
+  z
+    .object({ action: z.literal('reject_payment'), note: z.string().trim().min(2).max(500) })
+    .strict(),
   z.object({ action: z.literal('approve') }).strict(),
+  z
+    .object({
+      action: z.literal('verify_document'),
+      code: requirementCode,
+      decision: z.enum(['verified', 'rejected']),
+      note: z.string().max(500).optional(),
+    })
+    .strict(),
   z
     .object({
       action: z.literal('save_contract'),

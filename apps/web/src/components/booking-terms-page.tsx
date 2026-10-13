@@ -1,7 +1,10 @@
 import 'server-only';
 import { notFound } from 'next/navigation';
 import { EmptyState } from '@bhd-r/ui';
+import { ApprovalPolicyCard } from '@/components/approval-policy-card';
 import { BookingTermsEditor } from '@/components/booking-terms-editor';
+import { DEFAULT_APPROVAL_POLICY } from '@/lib/approval-policy';
+import { loadOwnerApprovalPolicy } from '@/lib/approval-policy-neon';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { LeaseMinTermCard } from '@/components/lease-min-term-card';
 import { loadOwnerBookingTerms } from '@/lib/booking-terms-neon';
@@ -30,14 +33,24 @@ export async function BookingTermsPage({
     partyId: viewer.partyId,
     roles: viewer.roles,
   };
-  const [data, minTerm] = await Promise.all([
+  const [data, minTerm, approval] = await Promise.all([
     loadOwnerBookingTerms(scope, propertyId),
     loadOwnerLeaseMinTerm(scope, propertyId).catch(() => null),
+    loadOwnerApprovalPolicy(scope, propertyId).catch(() => null),
   ]);
   if (!data) notFound();
 
   return (
     <>
+      {approval ? (
+        <ApprovalPolicyCard
+          locale={locale}
+          propertyId={propertyId}
+          initialPolicy={approval.own?.policy ?? null}
+          delegateName={approval.own?.delegate?.name ?? null}
+          inherited={approval.inherited ?? { source: 'default', policy: DEFAULT_APPROVAL_POLICY }}
+        />
+      ) : null}
       <LeaseMinTermCard locale={locale} propertyId={propertyId} initialMonths={minTerm} />
       <BookingTermsEditor
         locale={locale}

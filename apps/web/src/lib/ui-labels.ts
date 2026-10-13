@@ -53,6 +53,10 @@ const DOMAIN_STATUS: Record<string, { ar: string; en: string }> = {
     ar: 'بانتظار توقيع العميل على الشروط',
     en: 'Awaiting client terms signature',
   },
+  awaiting_payment_review: {
+    ar: 'أكّد استلام العربون',
+    en: 'Confirm the deposit was received',
+  },
   awaiting_owner_approval: { ar: 'عربون مدفوع — بانتظار اعتمادك', en: 'Paid — awaiting approval' },
   awaiting_contract_draft: {
     ar: 'معتمد — جهّز العقد والمستندات',

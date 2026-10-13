@@ -1,6 +1,9 @@
 import 'server-only';
 import { EmptyState } from '@bhd-r/ui';
+import { ApprovalPolicyCard } from '@/components/approval-policy-card';
 import { BookingTermsEditor } from '@/components/booking-terms-editor';
+import { DEFAULT_APPROVAL_POLICY } from '@/lib/approval-policy';
+import { loadOwnerApprovalPolicy } from '@/lib/approval-policy-neon';
 import { BookingTermsPropertyList } from '@/components/booking-terms-property-list';
 import { TermsLetterheadEditor } from '@/components/terms-letterhead-editor';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
@@ -23,17 +26,19 @@ export async function BookingTermsOverview({
     return <EmptyState title={ar ? 'لا توجد بيانات' : 'No data'} />;
   }
 
+  const scope = {
+    organizationId: viewer.organizationId,
+    userId: viewer.id,
+    partyId: viewer.partyId ?? null,
+    roles: viewer.roles,
+  };
   let overview: Overview | null = null;
   try {
-    overview = await loadBookingTermsOverview({
-      organizationId: viewer.organizationId,
-      userId: viewer.id,
-      partyId: viewer.partyId ?? null,
-      roles: viewer.roles,
-    });
+    overview = await loadBookingTermsOverview(scope);
   } catch (error) {
     console.error('booking terms overview failed', error);
   }
+  const approval = await loadOwnerApprovalPolicy(scope, null).catch(() => null);
 
   if (!overview) {
     return (
@@ -52,6 +57,15 @@ export async function BookingTermsOverview({
 
   return (
     <>
+      {approval ? (
+        <ApprovalPolicyCard
+          locale={locale}
+          propertyId={null}
+          initialPolicy={approval.own?.policy ?? null}
+          delegateName={approval.own?.delegate?.name ?? null}
+          inherited={{ source: 'default', policy: DEFAULT_APPROVAL_POLICY }}
+        />
+      ) : null}
       <BookingTermsEditor
         locale={locale}
         portal={portal}

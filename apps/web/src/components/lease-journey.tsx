@@ -106,6 +106,7 @@ export function LeaseJourneyCard(props: LeaseJourneyProps) {
       ) : null}
       <h2>{screen.headline}</h2>
       <p>{screen.body}</p>
+      {props.lifecycle.electronic && !past ? <ElectronicApprovalNotice ar={ar} /> : null}
       {screen.guide ? (
         <ol className="guest-stay-detail__guide">
           {screen.guide.map((line) => (
@@ -144,12 +145,37 @@ export function LeaseJourneyCard(props: LeaseJourneyProps) {
   );
 }
 
+/** Shown whenever the system approved a step for the owner, so the client knows checks follow. */
+export function ElectronicApprovalNotice({ ar }: { ar: boolean }) {
+  return (
+    <div className="electronic-approval-notice" role="note">
+      <span aria-hidden="true">⚠️</span>
+      <p>
+        <strong>{ar ? 'اعتماد إلكتروني' : 'Electronic approval'}</strong>
+        {ar
+          ? 'تم اعتماد هذا الطلب إلكترونياً من النظام، وسيقوم الفريق بالتحقق من المستندات. في حال تبيّن أن المستندات تخالف الاشتراطات أو غير ملائمة يُعتبر الحجز ملغياً مباشرة، لذا يرجى التأكد من رفع المستندات الصحيحة.'
+          : 'This request was approved electronically by the system, and the team will verify the documents. If they turn out to break the requirements or to be unsuitable, the booking is cancelled immediately — please make sure you upload the correct documents.'}
+      </p>
+    </div>
+  );
+}
+
 const REQUIREMENT_STATUS: Record<string, [string, string]> = {
   pending: ['مطلوب', 'Needed'],
   submitted: ['أُرسل — قيد المراجعة', 'Sent — under review'],
   approved: ['مقبول ✓', 'Accepted ✓'],
   rejected: ['مطلوب بديل', 'Replacement needed'],
 };
+
+function requirementStatus(
+  item: LeaseJourneyProps['lifecycle']['requirements'][number],
+  ar: boolean,
+): string | undefined {
+  if (item.autoApproved && item.status === 'approved' && !item.verified) {
+    return ar ? 'قُبل إلكترونياً — قيد تحقق الفريق' : 'Accepted electronically — being verified';
+  }
+  return REQUIREMENT_STATUS[item.status]?.[ar ? 0 : 1];
+}
 
 function LeaseDocumentList({ lifecycle, locale }: LeaseJourneyProps) {
   const ar = locale === 'ar';
@@ -158,7 +184,7 @@ function LeaseDocumentList({ lifecycle, locale }: LeaseJourneyProps) {
       {lifecycle.requirements.map((item) => (
         <li key={item.code} className={`lease-docs__item lease-docs__item--${item.status}`}>
           <strong>{ar ? item.labelAr : item.labelEn || item.labelAr}</strong>
-          <span>{REQUIREMENT_STATUS[item.status]?.[ar ? 0 : 1]}</span>
+          <span>{requirementStatus(item, ar)}</span>
         </li>
       ))}
     </ul>
@@ -219,7 +245,7 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
             <li key={item.code} className={`lease-docs__item lease-docs__item--${item.status}`}>
               <div className="lease-docs__text">
                 <strong>{ar ? item.labelAr : item.labelEn || item.labelAr}</strong>
-                <span>{REQUIREMENT_STATUS[item.status]?.[ar ? 0 : 1]}</span>
+                <span>{requirementStatus(item, ar)}</span>
                 {item.status === 'rejected' && item.note ? (
                   <small>
                     {ar ? 'ملاحظة المالك: ' : 'Owner note: '}

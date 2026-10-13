@@ -22,7 +22,13 @@ export type ReservationRequirement = {
   } | null;
   reviewedAt?: string | null;
   reviewedByName?: string | null;
+  /** Accepted by the system on the owner's behalf; the team still has to verify it. */
+  autoApproved?: boolean;
+  verifiedAt?: string | null;
+  verifiedByName?: string | null;
 };
+
+export type ReservationCancelReason = 'documents_invalid' | 'payment_not_received';
 
 export type ReservationSaleDraft = {
   signedOn: string;
@@ -31,7 +37,14 @@ export type ReservationSaleDraft = {
 };
 
 export type ReservationLifecycle = {
-  approval?: { at: string; byUserId: string; byName: string | null };
+  /** Set when the owner confirms payments by hand: the channel reported success, receipt is unconfirmed. */
+  paymentReview?: {
+    status: 'pending' | 'confirmed';
+    reportedAt: string;
+    confirmedAt?: string | null;
+    byName?: string | null;
+  };
+  approval?: { at: string; byUserId: string | null; byName: string | null; automatic?: boolean };
   contractDraft?: {
     savedAt: string;
     byName: string | null;
@@ -40,8 +53,21 @@ export type ReservationLifecycle = {
     sale?: ReservationSaleDraft;
   };
   requirements?: ReservationRequirement[];
-  contract?: { id: string; reference: string; issuedAt: string; byName: string | null };
+  contract?: {
+    id: string;
+    reference: string;
+    issuedAt: string;
+    byName: string | null;
+    automatic?: boolean;
+  };
   tenantSignature?: { signedAt: string; evidenceEventId: string };
+  cancellation?: {
+    at: string;
+    byName: string | null;
+    reason: ReservationCancelReason;
+    note: string | null;
+    code?: string | null;
+  };
   handover?: {
     at: string;
     on: string;
@@ -134,6 +160,7 @@ export const REQUIREMENT_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 
 export type LeaseJourneyPhase =
   | 'awaiting_payment'
   | 'awaiting_terms_signature'
+  | 'awaiting_payment_review'
   | 'awaiting_owner_approval'
   | 'awaiting_contract_draft'
   | 'awaiting_documents'
@@ -165,6 +192,23 @@ export function requirementsOf(lifecycle: ReservationLifecycle | null | undefine
   return lifecycle?.requirements ?? [];
 }
 
+/** Documents the system accepted on the owner's behalf that the team has not verified yet. */
+export function documentsToVerify(lifecycle: ReservationLifecycle | null | undefined) {
+  if (lifecycle?.cancellation || lifecycle?.handover) return [];
+  return requirementsOf(lifecycle).filter(
+    (item) => item.autoApproved && item.status === 'approved' && !item.verifiedAt,
+  );
+}
+
+/** Any step the system approved for the owner, which the customer is told about. */
+export function approvedElectronically(lifecycle: ReservationLifecycle | null | undefined) {
+  return Boolean(
+    lifecycle?.approval?.automatic ||
+    lifecycle?.contract?.automatic ||
+    requirementsOf(lifecycle).some((item) => item.autoApproved),
+  );
+}
+
 export function lifecycleOf(snapshot: unknown): ReservationLifecycle {
   if (!snapshot || typeof snapshot !== 'object') return {};
   const value = (snapshot as { lifecycle?: unknown }).lifecycle;
@@ -175,10 +219,12 @@ export function lifecycleOf(snapshot: unknown): ReservationLifecycle {
 export function leaseJourneyPhase(input: LeaseJourneyInput): LeaseJourneyPhase {
   const life = input.lifecycle ?? {};
   if (life.handover) return 'handed_over';
+  if (life.cancellation) return 'closed';
   if (life.tenantSignature) return 'awaiting_handover';
   if (input.status === 'cancelled' || input.status === 'expired') return 'closed';
   if (!input.depositPaidAt) return input.status === 'pending' ? 'awaiting_payment' : 'closed';
   if (!input.esignSignedAt) return 'awaiting_terms_signature';
+  if (life.paymentReview?.status === 'pending') return 'awaiting_payment_review';
   if (!life.approval) return 'awaiting_owner_approval';
   if (life.contract) return 'awaiting_tenant_signature';
   if (!life.contractDraft) return 'awaiting_contract_draft';
@@ -193,6 +239,7 @@ export function leaseJourneyPhase(input: LeaseJourneyInput): LeaseJourneyPhase {
 const PHASE_STAGE: Record<LeaseJourneyPhase, number> = {
   awaiting_payment: 0,
   awaiting_terms_signature: 0,
+  awaiting_payment_review: 1,
   awaiting_owner_approval: 1,
   awaiting_contract_draft: 2,
   awaiting_documents: 2,
@@ -216,6 +263,7 @@ export function phaseWaitsOn(phase: LeaseJourneyPhase): 'customer' | 'owner' | n
     case 'awaiting_documents':
     case 'awaiting_tenant_signature':
       return 'customer';
+    case 'awaiting_payment_review':
     case 'awaiting_owner_approval':
     case 'awaiting_contract_draft':
     case 'awaiting_documents_review':
@@ -251,6 +299,7 @@ export function leasePhaseLabel(phase: LeaseJourneyPhase, ar: boolean): string {
   const labels: Record<LeaseJourneyPhase, [string, string]> = {
     awaiting_payment: ['بانتظار دفع العربون', 'Awaiting deposit'],
     awaiting_terms_signature: ['بانتظار توقيع العميل', 'Awaiting client signature'],
+    awaiting_payment_review: ['بانتظار تأكيد استلام العربون', 'Confirm the deposit was received'],
     awaiting_owner_approval: ['بانتظار اعتمادك للحجز', 'Awaiting your approval'],
     awaiting_contract_draft: ['معتمد — جهّز العقد', 'Approved — prepare the contract'],
     awaiting_documents: ['بانتظار مستندات العميل', 'Awaiting client documents'],

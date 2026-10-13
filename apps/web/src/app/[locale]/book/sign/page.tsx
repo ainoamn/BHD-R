@@ -81,9 +81,13 @@ export default async function LeaseBookingSignPage({
         ? ar
           ? `حجزك معتمد، و${contractWord} جاهز وينتظر توقيعك.`
           : 'Your booking is approved and the contract awaits your signature.'
-        : ar
-          ? `حجزك معتمد من المالك وفي انتظار قيام المالك بعمل ${contractWord}.`
-          : 'Your booking is approved and waiting for the owner to prepare the contract.';
+        : booking.lifecycle.approvedAutomatically
+          ? ar
+            ? `حجزك معتمد إلكترونياً من النظام وفي انتظار قيام المالك بعمل ${contractWord}.`
+            : 'Your booking was approved electronically and awaits the owner’s contract.'
+          : ar
+            ? `حجزك معتمد من المالك وفي انتظار قيام المالك بعمل ${contractWord}.`
+            : 'Your booking is approved and waiting for the owner to prepare the contract.';
 
   return (
     <main className="stay-esign-shell">

@@ -33,6 +33,8 @@ export type PendingApprovalItem = {
   currency?: string | null;
   /** Where a `lease_reservation` stands: which owner step is due. */
   phase?: LeaseJourneyPhase | null;
+  /** A `lease_reservation` whose documents the system accepted and the team still has to verify. */
+  verifyDocuments?: boolean;
   /** For `sale_decision`: keep selling a leased rent-and-sale unit, or hide a leased or sold one. */
   decision?: 'keep_selling' | 'hide_leased' | 'hide_sold' | null;
 };
@@ -109,7 +111,14 @@ export function pendingApprovalTitle(item: PendingApprovalItem, ar: boolean): st
   if (item.kind === 'lease_reservation') {
     const sale = item.contractType === 'sale';
     const kind = sale ? (ar ? 'حجز شراء' : 'Purchase booking') : ar ? 'حجز إيجار' : 'Rent booking';
+    if (item.verifyDocuments) {
+      return ar
+        ? `${kind} — مستندات قُبلت إلكترونياً، تحقّق منها`
+        : `${kind} — documents accepted electronically, verify them`;
+    }
     switch (item.phase) {
+      case 'awaiting_payment_review':
+        return ar ? `${kind} — أكّد استلام العربون` : `${kind} — confirm the deposit arrived`;
       case 'awaiting_owner_approval':
         return ar ? `${kind} مدفوع — بانتظار اعتمادك` : `Paid ${kind.toLowerCase()} — approve it`;
       case 'awaiting_contract_draft':

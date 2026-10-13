@@ -2,6 +2,27 @@
 
 **تسليم الجلسة كاملة (0.2.24 → 0.8.33):** للاستكمال من جهاز آخر ابدأ من [`docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه خطوات الإعداد، والمراحل بالتاريخ والوقت، والمهام المفتوحة. ويرافقه فهرس الإصدارات (251 إصداراً) والمحادثة كاملة بعد حذف الأسرار.
 
+# CONTINUE — 2026-10-13 13:50 (مسقط)
+
+**0.8.48** · سياسة الاعتماد (تلقائي أو يدوي) لحجوزات الإيجار والشراء من الموقع:
+
+- **التخزين:** `stay_policies` بالنوع `other` والرمز `approval_policy:{propertyId|org}`. يحوي `rulesJson.policy {booking, contract, payment}` و`delegate {userId, name}`. الحفظ يؤرشف النسخة السابقة. الترتيب: العقار، ثم المؤسسة، ثم الافتراضي `{manual, manual, auto}`.
+- **التنفيذ الآلي:** `runReservationAutomation` في `lease-reservation-lifecycle-neon.ts`، في معاملة مستقلة بعد:
+  - التوقيع الإلكتروني (من المسار، لتجنّب استيراد دائري)؛
+  - رفع مستند؛
+  - `confirm_payment` و`save_contract` و`review_document`.
+
+  إصدار العقد داخل savepoint. الفشل يُسجَّل `reservation.auto_contract_skipped`.
+
+- **المفوَّض:** يوقّع العقد الآلي باسم من حفظ السياسة. `delegateClaims` تعيد بناء صلاحياته من `memberships` النشطة، وتشترط `contract.create` و`contract.sign` و`lease.create`.
+- **مراحل وإجراءات جديدة:**
+  - `awaiting_payment_review` (مع `lifecycle.paymentReview`)؛
+  - `confirm_payment` و`reject_payment` و`verify_document`؛
+  - `lifecycle.cancellation`: يلغي العقد والإيجار أو صفقة البيع حتى التسليم.
+- **ملاحظة اختبار:** في وضع التطوير ينتظر Playwright اكتمال hydration قبل النقر، ويتأخر `router.refresh()` عدة ثوانٍ.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.48-AR.md`](./docs/implementation/RELEASE-0.8.48-AR.md)
+
 # CONTINUE — 2026-10-13 13:10 (مسقط)
 
 **0.8.47** · ربط الحجز بالحساب، وحذف «التقييم الذكي»:
