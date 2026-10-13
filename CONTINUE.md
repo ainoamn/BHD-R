@@ -2,6 +2,16 @@
 
 **تسليم الجلسة كاملة (0.2.24 → 0.8.33):** للاستكمال من جهاز آخر ابدأ من [`docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه خطوات الإعداد، والمراحل بالتاريخ والوقت، والمهام المفتوحة. ويرافقه فهرس الإصدارات (251 إصداراً) والمحادثة كاملة بعد حذف الأسرار.
 
+# CONTINUE — 2026-10-13 15:00 (مسقط)
+
+**0.8.50** · «مسار الحجز ومستجداته» في `/owner/stays/bookings/[bookingId]` (وبوابة المطوّر):
+
+- **البيانات:** `loadTimelineFacts` في `owner-stays-ops-neon.ts`، داخل `getOwnerStayBookingContractOnNeon`. تجمع `stay_booking_status_history` (خفيفاً، دون esign أو الصور)، و`loadStayStamps`، و`loadBookingDeposits`، و`loadDepositRefunds`، و`loadDepositClaims`، و`loadBookingReviewMoments` (تقييم الضيف بعد `released` فقط).
+- **البناء:** `buildStayBookingTimeline` في `stay-booking-timeline.ts` (نقية ومختبرة). صفوف السجل `checked_in` و`checked_out` و`deposit_refund` تُروى من المصادر الأغنى لا من السجل.
+- **الدفع:** `paymentStatus` تكون `succeeded` فقط بدفع إلكتروني ناجح. وتكون `offline` إن كانت الحالة في `SETTLED_STATUSES` دون دفع، لأن حجوزات «الطلب» يبقى intent فيها `pending` بلا مزوّد.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.50-AR.md`](./docs/implementation/RELEASE-0.8.50-AR.md)
+
 # CONTINUE — 2026-10-13 14:40 (مسقط)
 
 **0.8.49** · مساعد الذكاء الاصطناعي في تقييم المؤجر للضيف، وتقييم أعمى متبادل:

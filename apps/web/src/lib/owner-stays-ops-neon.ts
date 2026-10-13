@@ -31,6 +31,11 @@ import {
   remainingSlotRateMinor,
 } from '@/lib/stay-day-slots-neon';
 import { loadPropertyLocation } from '@/lib/property-location-neon';
+import { loadBookingReviewMoments } from '@/lib/booking-reviews-neon';
+import { loadStayStamps } from '@/lib/stay-arrival-neon';
+import { loadDepositClaims } from '@/lib/stay-deposit-claims-neon';
+import { loadBookingDeposits, loadDepositRefunds } from '@/lib/stay-deposit-refund-neon';
+import type { StayBookingTimelineFacts } from '@/lib/stay-booking-timeline';
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdROwnerStaysOpsDb?: DbHandle };
@@ -141,8 +146,69 @@ function readGuestContact(snapshot: unknown): {
   };
 }
 
+/** Past payment or approval: the stay went ahead, so nothing is still due. */
+const SETTLED_STATUSES = new Set([
+  'confirmed',
+  'paid',
+  'pre_arrival',
+  'checked_in',
+  'checked_out',
+  'closed',
+]);
+
+async function loadTimelineFacts(
+  tx: Parameters<Parameters<Database['transaction']>[0]>[0],
+  organizationId: string,
+  bookingId: string,
+): Promise<StayBookingTimelineFacts> {
+  const ids = [bookingId];
+  const [history, stamps, deposits, refunds, claims, reviews] = await Promise.all([
+    tx
+      .select({
+        at: stayBookingStatusHistory.createdAt,
+        toStatus: stayBookingStatusHistory.toStatus,
+        reason: stayBookingStatusHistory.reason,
+        by: sql<string | null>`coalesce(
+          ${stayBookingStatusHistory.metadataJson}->>'approvedBy',
+          ${stayBookingStatusHistory.metadataJson}->>'recordedBy',
+          ${stayBookingStatusHistory.metadataJson}->>'decidedBy',
+          ${stayBookingStatusHistory.metadataJson}->>'cancelledBy'
+        )`,
+      })
+      .from(stayBookingStatusHistory)
+      .where(
+        and(
+          eq(stayBookingStatusHistory.organizationId, organizationId),
+          eq(stayBookingStatusHistory.bookingId, bookingId),
+        ),
+      )
+      .orderBy(asc(stayBookingStatusHistory.createdAt))
+      .limit(80),
+    loadStayStamps(tx, organizationId, ids),
+    loadBookingDeposits(tx, organizationId, ids),
+    loadDepositRefunds(tx, organizationId, ids),
+    loadDepositClaims(tx, organizationId, ids),
+    loadBookingReviewMoments(tx, bookingId),
+  ]);
+  const stamp = stamps.get(bookingId);
+  return {
+    history: history.map((entry) => ({
+      at: entry.at instanceof Date ? entry.at.toISOString() : String(entry.at),
+      toStatus: entry.toStatus,
+      reason: entry.reason,
+      by: entry.by,
+    })),
+    checkIn: stamp?.checkIn ?? null,
+    checkOut: stamp?.checkOut ?? null,
+    depositMinor: deposits.get(bookingId) ?? null,
+    refund: refunds.get(bookingId) ?? null,
+    claims: claims.get(bookingId) ?? [],
+    reviews,
+  };
+}
+
 function paymentMethodLabel(provider: string | null | undefined, status: string): string {
-  const paid = status === 'confirmed' || status === 'paid' || status === 'succeeded';
+  const paid = SETTLED_STATUSES.has(status) || status === 'succeeded';
   if (!provider) return paid ? 'card' : 'pending';
   if (provider === 'sandbox') return 'sandbox_card';
   return provider;
@@ -364,6 +430,7 @@ export async function getOwnerStayBookingContractOnNeon(
         .limit(8),
       loadPropertyLocation(transaction, organizationId, row.propertyId),
     ]);
+    const timeline = await loadTimelineFacts(transaction, organizationId, bookingId);
 
     const contact = readGuestContact(row.pricingSnapshotJson);
     let otherSlot: StayBookingContractData['otherSlot'] = null;
@@ -388,8 +455,8 @@ export async function getOwnerStayBookingContractOnNeon(
         rateMinor: status === 'available' ? remainingSlotRateMinor(slot, prices) : null,
       };
     }
-    const paid =
-      row.status === 'confirmed' || row.status === 'paid' || intent?.status === 'succeeded';
+    const paid = intent?.status === 'succeeded';
+    const settled = SETTLED_STATUSES.has(row.status);
 
     let cardLast4: string | null = null;
     let cardBrand: string | null = null;
@@ -496,8 +563,9 @@ export async function getOwnerStayBookingContractOnNeon(
       unitCode: row.unitCode,
       unitNameAr: row.unitNameAr,
       unitNameEn: row.unitNameEn,
-      paymentStatus: intent?.status ?? (paid ? 'succeeded' : 'pending'),
-      paymentMethod: paymentMethodLabel(intent?.provider, row.status),
+      paymentStatus: paid ? 'succeeded' : settled ? 'offline' : (intent?.status ?? 'pending'),
+      paymentMethod:
+        paid || !settled ? paymentMethodLabel(intent?.provider, row.status) : 'offline',
       paymentProviderRef: intent?.providerIntentId ?? null,
       paidAt:
         paid && intent?.updatedAt
@@ -527,6 +595,7 @@ export async function getOwnerStayBookingContractOnNeon(
             guestDisplayName: guestNameByBooking.get(nextRow.id) ?? null,
           })
         : null,
+      timeline,
       overlappingBookings: overlapRows.map((item) =>
         toNeighbor({
           ...item,

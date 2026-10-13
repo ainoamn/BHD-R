@@ -735,6 +735,40 @@ function guestCondition(key: string): SQL {
   return eq(bookingReviews.subjectEmailHash, key.slice(1));
 }
 
+export type BookingReviewMoment = {
+  direction: ReviewDirection;
+  score: number | null;
+  createdAt: string;
+  released: boolean;
+};
+
+/**
+ * Both reviews of one booking for the host's booking page: the host's own always, the guest's
+ * only once released, like everywhere else the host looks.
+ */
+export async function loadBookingReviewMoments(
+  tx: Tx,
+  bookingId: string,
+): Promise<BookingReviewMoment[]> {
+  const rows = await tx
+    .select({
+      direction: bookingReviews.direction,
+      score: bookingReviews.score,
+      createdAt: bookingReviews.createdAt,
+      released: sql<boolean>`${released}`,
+    })
+    .from(bookingReviews)
+    .where(eq(bookingReviews.bookingId, bookingId));
+  return rows
+    .filter((row) => row.direction === 'host_to_guest' || row.released === true)
+    .map((row) => ({
+      direction: row.direction as ReviewDirection,
+      score: num(row.score),
+      createdAt: row.createdAt.toISOString(),
+      released: row.released === true,
+    }));
+}
+
 export type BookingReviewFacts = {
   /** Only once the guest's review is released (deposit settled): the host is not told before. */
   guestReviewed: boolean;

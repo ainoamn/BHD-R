@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react';
 import { Link } from '@/i18n/navigation';
 import { PropertyLocationMap } from '@/components/property-location-map';
+import { StayBookingTimelineSection } from '@/components/stays/stay-booking-timeline';
 import type { PropertyLocation } from '@/lib/contract-document';
 import { formatMoney } from '@/lib/format';
+import type { StayBookingTimelineFacts } from '@/lib/stay-booking-timeline';
 import { stayBookingModeLabel, stayStatusLabel, stayTypeLabel } from '@/lib/ui-labels';
 
 export type StayBookingNeighbor = {
@@ -69,6 +71,7 @@ export type StayBookingContractData = {
   previousBooking?: StayBookingNeighbor | null;
   nextBooking?: StayBookingNeighbor | null;
   overlappingBookings?: StayBookingNeighbor[];
+  timeline?: StayBookingTimelineFacts | null;
 };
 
 function Row({ label, value, ltr }: { label: string; value: ReactNode; ltr?: boolean }) {
@@ -103,6 +106,10 @@ function paymentMethodCopy(method: string, ar: boolean): string {
       return ar ? 'بطاقة بنكية' : 'Bank card';
     case 'pending':
       return ar ? 'لم يتم الدفع بعد' : 'Payment not completed';
+    case 'offline':
+      return ar
+        ? 'خارج المنصة (لم يُسجَّل دفع إلكتروني)'
+        : 'Outside the platform (no online payment)';
     default:
       return method;
   }
@@ -118,6 +125,8 @@ function paymentStatusCopy(status: string, ar: boolean): string {
       return ar ? 'فشل الدفع' : 'Payment failed';
     case 'cancelled':
       return ar ? 'ملغى' : 'Cancelled';
+    case 'offline':
+      return ar ? 'اعتُمد الحجز دون دفع عبر المنصة' : 'Approved without an online payment';
     default:
       return status;
   }
@@ -164,10 +173,8 @@ export function StayBookingContract({
   portal: 'owner' | 'developer';
 }) {
   const ar = locale === 'ar';
-  const paid =
-    booking.status === 'confirmed' ||
-    booking.status === 'paid' ||
-    booking.paymentStatus === 'succeeded';
+  const paid = booking.paymentStatus === 'succeeded';
+  const offline = booking.paymentStatus === 'offline';
   const propertyName = ar
     ? booking.propertyNameAr || booking.propertyNameEn
     : booking.propertyNameEn || booking.propertyNameAr;
@@ -232,9 +239,23 @@ export function StayBookingContract({
         </figure>
       ) : null}
 
-      <div className="stay-doc__badge" data-paid={paid ? 'true' : 'false'}>
+      <div className="stay-doc__badge" data-paid={paid || offline ? 'true' : 'false'}>
         {stayStatusLabel(booking.status, ar)}
       </div>
+
+      {booking.timeline ? (
+        <StayBookingTimelineSection
+          facts={booking.timeline}
+          bookingId={booking.id}
+          propertyId={booking.propertyId}
+          status={booking.status}
+          bookingMode={booking.bookingMode}
+          createdAt={booking.createdAt}
+          currency={booking.currency}
+          locale={locale}
+          portal={portal}
+        />
+      ) : null}
 
       <section className="stay-doc__section">
         <h2>{ar ? 'بيانات الحجز' : 'Booking details'}</h2>
@@ -551,9 +572,13 @@ export function StayBookingContract({
             ? ar
               ? 'المبلغ المستلم'
               : 'Amount received'
-            : ar
-              ? 'المبلغ المستحق'
-              : 'Amount due'}
+            : offline
+              ? ar
+                ? 'قيمة الحجز'
+                : 'Booking value'
+              : ar
+                ? 'المبلغ المستحق'
+                : 'Amount due'}
         </span>
         <strong dir="ltr">{paid ? paidAmountLabel : amountLabel}</strong>
       </div>
