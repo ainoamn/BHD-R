@@ -1,8 +1,13 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { ReviewForm, ScoreBadge, type ReviewFormValue } from '@/components/reviews/review-form';
+import {
+  ReviewForm,
+  ScoreBadge,
+  guestReviewAssistant,
+  type ReviewFormValue,
+} from '@/components/reviews/review-form';
 import type { ReviewText } from '@/lib/review-rubric';
 
 export type StayGuestReviewState = {
@@ -37,6 +42,7 @@ export function StayGuestReview({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [saved, setSaved] = useState<number | null>(null);
+  const assistant = useMemo(() => guestReviewAssistant(referenceCode), [referenceCode]);
 
   function submit(value: ReviewFormValue) {
     startTransition(async () => {
@@ -89,6 +95,19 @@ export function StayGuestReview({
           ) : null}
         </div>
       </div>
+    </div>
+  ) : state.hostWrote ? (
+    <div className="stay-guest-review__host">
+      <h3>{ar ? 'تقييم المالك لك' : 'The host’s review of you'}</h3>
+      <p className="muted">
+        {mine === null
+          ? ar
+            ? 'كتب المالك تقييمه لك. يظهر هنا بعد أن تكتب تقييمك ويُحوَّل مبلغ التأمين وتؤكد استلامه، فلا يرى أي طرف تقييم الآخر قبل أن يكتب تقييمه.'
+            : 'The host has reviewed you. It shows here once you have written yours and your deposit is refunded and received, so neither side sees the other’s review before writing their own.'
+          : ar
+            ? 'كتب المالك تقييمه لك. يظهر هنا بعد تحويل مبلغ التأمين وتأكيد استلامه.'
+            : 'The host has reviewed you. It shows here once your deposit is refunded and received.'}
+      </p>
     </div>
   ) : null;
 
@@ -150,7 +169,7 @@ export function StayGuestReview({
           busy={pending}
           error={error}
           subjectName={propertyName}
-          referenceCode={referenceCode}
+          assistant={assistant}
           onSubmit={submit}
           onCancel={() => setOpen(false)}
         />

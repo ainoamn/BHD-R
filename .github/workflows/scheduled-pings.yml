@@ -1,7 +1,8 @@
 name: Scheduled pings
 
-# Vercel Hobby only allows daily crons; this keeps the Render API warm and
-# expires holds/reservations every 10 minutes. Needs repo secret CRON_SECRET
+# Vercel Hobby only allows daily crons; this keeps the Render API warm,
+# expires holds/reservations and announces released reviews every 10 minutes.
+# Needs repo secret CRON_SECRET
 # (same value as the Vercel env var).
 on:
   schedule:
@@ -39,3 +40,9 @@ jobs:
           curl --fail-with-body --silent --show-error --max-time 40 \
             -H "Authorization: Bearer $CRON_SECRET" \
             "$SITE_ORIGIN/api/cron/expire-locks"
+      - name: Announce released reviews
+        if: ${{ !cancelled() && env.CRON_SECRET != '' }}
+        run: |
+          curl --fail-with-body --silent --show-error --max-time 70 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$SITE_ORIGIN/api/cron/review-release"

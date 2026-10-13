@@ -1,5 +1,7 @@
+import { after } from 'next/server';
 import { z } from 'zod';
 import { stayBookingDbGuard, stayBookingJson } from '@/lib/public-stays-booking-route';
+import { announceReleasedReviews } from '@/lib/review-release-neon';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 import { CLAIM_MESSAGE_MAX, claimErrorBody } from '@/lib/stay-deposit-claims';
 import { guestDepositClaimAction } from '@/lib/stay-deposit-claims-neon';
@@ -71,6 +73,14 @@ export async function POST(request: Request) {
   try {
     const { referenceCode, ...action } = body;
     const result = await guestDepositClaimAction(referenceCode, action);
+    if (action.action === 'confirm_receipt') {
+      const ai = { oidcToken: request.headers.get('x-vercel-oidc-token') };
+      after(() =>
+        announceReleasedReviews(ai, { referenceCode }).catch((error: unknown) =>
+          console.error('review release', error),
+        ),
+      );
+    }
     return stayBookingJson({ ok: true, whatsapp: result.whatsapp });
   } catch (error) {
     const failed = claimErrorBody(error instanceof Error ? error.message : '');

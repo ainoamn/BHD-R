@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { z } from 'zod';
 import type { SessionClaims } from '@bhd-r/authz';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
+import { announceReleasedReviews } from '@/lib/review-release-neon';
 import { CLAIM_MESSAGE_MAX, claimErrorBody } from '@/lib/stay-deposit-claims';
 import { resolveDepositComplaint } from '@/lib/stay-deposit-claims-neon';
 
@@ -38,7 +39,14 @@ export async function POST(request: Request, context: { params: Promise<{ claimI
     return NextResponse.json(failed.body, { status: failed.status });
   }
   try {
-    return NextResponse.json(await resolveDepositComplaint(claims, claimId, body));
+    const result = await resolveDepositComplaint(claims, claimId, body);
+    const ai = { oidcToken: request.headers.get('x-vercel-oidc-token') };
+    after(() =>
+      announceReleasedReviews(ai, { limit: 10 }).catch((error: unknown) =>
+        console.error('review release', error),
+      ),
+    );
+    return NextResponse.json(result);
   } catch (error) {
     const failed = claimErrorBody(error instanceof Error ? error.message : '');
     if (failed.status === 500) console.error('POST /api/site-admin/complaints', error);

@@ -12,7 +12,7 @@ import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { LIVE_CHANGE_EVENT } from '@/lib/live-sync-shared';
 import { reviewScoreTone } from '@/lib/review-rubric';
-import { ReviewForm, type ReviewFormValue } from './reviews/review-form';
+import { ReviewForm, hostReviewAssistant, type ReviewFormValue } from './reviews/review-form';
 import { StayHandoverForm, type HandoverSubmit } from './stays/stay-handover-form';
 import {
   DepositRefundCell,
@@ -445,6 +445,44 @@ function label(key: string | null, ar: boolean): string {
   if (!key) return '—';
   const pair = LABELS[key];
   return pair ? (ar ? pair[0] : pair[1]) : key;
+}
+
+function HostGuestReviewForm({
+  propertyId,
+  bookingId,
+  ar,
+  busy,
+  error,
+  subjectName,
+  onSubmit,
+  onCancel,
+}: {
+  propertyId: string;
+  bookingId: string;
+  ar: boolean;
+  busy: boolean;
+  error: string | null;
+  subjectName: string | null;
+  onSubmit: (value: ReviewFormValue) => void;
+  onCancel: () => void;
+}) {
+  const assistant = useMemo(
+    () => hostReviewAssistant(propertyId, bookingId),
+    [propertyId, bookingId],
+  );
+  return (
+    <ReviewForm
+      direction="host_to_guest"
+      ar={ar}
+      idPrefix={`host-review-${bookingId}`}
+      busy={busy}
+      error={error}
+      subjectName={subjectName}
+      assistant={assistant}
+      onSubmit={onSubmit}
+      onCancel={onCancel}
+    />
+  );
 }
 
 function errorText(error: unknown, ar: boolean): string {
@@ -1349,11 +1387,11 @@ export function PropertySectionRecords({
         text:
           row.stage === 'awaiting_deposit_refund'
             ? ar
-              ? `تم حفظ تقييمك للضيف (${score} من 10). يمكنك الآن اعتماد استرداد التأمين أو رفضه.`
-              : `Guest review saved (${score}/10). You can now approve or reject the deposit refund.`
+              ? `تم حفظ تقييمك للضيف (${score} من 10). يمكنك الآن اعتماد استرداد التأمين أو رفضه. لن يرى الضيف تقييمك قبل تحويل التأمين وتأكيده استلامه.`
+              : `Guest review saved (${score}/10). You can now approve or reject the deposit refund. The guest will not see it before the deposit is refunded and received.`
             : ar
-              ? `تم حفظ تقييمك للضيف (${score} من 10).`
-              : `Guest review saved (${score}/10).`,
+              ? `تم حفظ تقييمك للضيف (${score} من 10). لن يراه الضيف قبل تحويل مبلغ التأمين وتأكيده استلامه.`
+              : `Guest review saved (${score}/10). The guest will not see it before the deposit is refunded and received.`,
       });
       setReloadKey((key) => key + 1);
     } catch (error) {
@@ -1882,10 +1920,10 @@ export function PropertySectionRecords({
                     {reviewRowId && reviewRowId === row.id ? (
                       <tr id={`psr-review-${row.id}`} className="psr-details">
                         <td colSpan={columns.length + (showActions ? 1 : 0)}>
-                          <ReviewForm
-                            direction="host_to_guest"
+                          <HostGuestReviewForm
+                            propertyId={propertyOf(row)}
+                            bookingId={row.id ?? ''}
                             ar={ar}
-                            idPrefix={`host-review-${row.id}`}
                             busy={busyId === row.id}
                             error={reviewError}
                             subjectName={row.party ?? null}

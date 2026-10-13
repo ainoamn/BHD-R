@@ -1,7 +1,8 @@
 import { after } from 'next/server';
 import { z } from 'zod';
-import { refreshReviewProfile, submitGuestReview } from '@/lib/booking-reviews-neon';
+import { submitGuestReview } from '@/lib/booking-reviews-neon';
 import { stayBookingDbGuard, stayBookingJson } from '@/lib/public-stays-booking-route';
+import { announceReleasedReviews } from '@/lib/review-release-neon';
 import { reviewFields } from '@/lib/review-route';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 
@@ -69,13 +70,11 @@ export async function POST(request: Request) {
   const context = { oidcToken: request.headers.get('x-vercel-oidc-token') };
   try {
     const saved = await submitGuestReview(body.referenceCode, body, context);
-    after(async () => {
-      for (const [subject, key] of saved.subjects) {
-        await refreshReviewProfile(subject, key, context).catch((error: unknown) =>
-          console.error('review profile refresh', subject, error),
-        );
-      }
-    });
+    after(() =>
+      announceReleasedReviews(context, { bookingId: saved.bookingId }).catch((error: unknown) =>
+        console.error('review release', error),
+      ),
+    );
     return stayBookingJson({
       review: { id: saved.id, score: saved.score, criteriaScore: saved.criteriaScore },
     });

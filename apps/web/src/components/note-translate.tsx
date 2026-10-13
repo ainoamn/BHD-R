@@ -45,7 +45,7 @@ export type NoteService = {
   translate: (text: string, target: NoteLang) => Promise<Result>;
 };
 
-const OWNER_NOTE_SERVICE: NoteService = {
+export const OWNER_NOTE_SERVICE: NoteService = {
   assist: (text, signal) =>
     browserNextMutation<Assist>('/api/owner/notes/assist', {
       method: 'POST',

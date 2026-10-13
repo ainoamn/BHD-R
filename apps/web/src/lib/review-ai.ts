@@ -175,14 +175,40 @@ export async function analyzeReview(
   }
 }
 
-const DRAFT_SYSTEM = [
-  'You help a guest write the comment of their verified short-stay review on BHD R, a property',
-  'platform in the Sultanate of Oman. Write in the first person, as the guest, from their ratings',
-  '(1–5, 5 = excellent), the quick tags they picked and their own notes. Summarise long notes; keep',
-  'every fact and its tone, never invent facts, names or numbers, and never include phone numbers,',
-  'IDs or account numbers. Arabic is clear Modern Standard Arabic; English is plain English.',
-  'Respond with a single JSON object only.',
+const DRAFT_RULES = [
+  'Summarise long notes; keep every fact and its tone, never invent facts, names or numbers, and',
+  'never include phone numbers, IDs or account numbers. Arabic is clear Modern Standard Arabic;',
+  'English is plain English. Respond with a single JSON object only.',
 ].join(' ');
+
+const DRAFT_SYSTEM: Record<ReviewDirection, string> = {
+  guest_to_host: [
+    'You help a guest write the comment of their verified short-stay review on BHD R, a property',
+    'platform in the Sultanate of Oman. Write in the first person, as the guest, from their ratings',
+    '(1–5, 5 = excellent), the quick tags they picked and their own notes.',
+    DRAFT_RULES,
+  ].join(' '),
+  host_to_guest: [
+    'You help a host (the owner or the property management) write the comment of their verified',
+    'review of a guest after a short stay on BHD R, a property platform in the Sultanate of Oman.',
+    'Write in the first person, as the host, from their ratings (1–5, 5 = excellent) and their own',
+    'notes. Stay courteous and factual even when the ratings are low: describe what happened',
+    '(cleanliness, care of the place, house rules, conduct, payment, times), never insult the guest.',
+    DRAFT_RULES,
+  ].join(' '),
+};
+
+const DRAFT_TASK: Record<ReviewDirection, string> = {
+  guest_to_host: [
+    'two to four sentences (max 80 words): what stood out, what needs improvement, and whether',
+    'they recommend the place. Mention the owner or management company and the on-site staff',
+    'only when they were rated.',
+  ].join(' '),
+  host_to_guest: [
+    'two to four sentences (max 80 words): how the guest left the place, how they behaved and',
+    'kept their commitments, and whether the host would host them again.',
+  ].join(' '),
+};
 
 export type ReviewDraft = { engine: 'ai' | 'rules'; text: string };
 
@@ -196,6 +222,7 @@ function listOf(items: string[], lang: 'ar' | 'en'): string {
 /** The draft from the ratings alone, when the AI is unavailable. */
 function rulesDraft(
   input: {
+    direction: ReviewDirection;
     answers: ReviewAnswers;
     scores: ReviewScores;
     tags: Array<ReviewText & { tone: 'good' | 'bad' }>;
@@ -205,9 +232,10 @@ function rulesDraft(
   lang: 'ar' | 'en',
 ): string {
   const ar = lang === 'ar';
+  const guest = input.direction === 'guest_to_host';
   /** A section whose rated items all match names the section; otherwise the matching items. */
   const matching = (test: (value: number) => boolean) =>
-    rubricFor('guest_to_host').flatMap((group) => {
+    rubricFor(input.direction).flatMap((group) => {
       const rated = group.criteria.filter((item) => input.answers[item.key] !== undefined);
       const hits = rated.filter((item) => test(input.answers[item.key]!));
       if (rated.length > 1 && hits.length === rated.length) return [ar ? group.ar : group.en];
@@ -222,32 +250,61 @@ function rulesDraft(
     ...input.tags.filter((tag) => tag.tone === 'bad').map((tag) => (ar ? tag.ar : tag.en)),
   ].slice(0, 4);
   const score = input.scores.criteria.toFixed(1);
-  const lines = [
-    ar ? `قيّمت إقامتي بـ ${score} من 10.` : `I rated my stay ${score} out of 10.`,
-    good.length ? (ar ? `أعجبني: ${listOf(good, lang)}.` : `I liked: ${listOf(good, lang)}.`) : '',
-    bad.length
-      ? ar
-        ? `يحتاج إلى تحسين: ${listOf(bad, lang)}.`
-        : `Needs improvement: ${listOf(bad, lang)}.`
-      : '',
-    input.recommend === true
-      ? ar
-        ? 'أنصح به.'
-        : 'I recommend it.'
-      : input.recommend === false
-        ? ar
-          ? 'لا أنصح به.'
-          : 'I would not recommend it.'
-        : '',
-    input.comment ?? '',
-  ];
+  const lines = guest
+    ? [
+        ar ? `قيّمت إقامتي بـ ${score} من 10.` : `I rated my stay ${score} out of 10.`,
+        good.length
+          ? ar
+            ? `أعجبني: ${listOf(good, lang)}.`
+            : `I liked: ${listOf(good, lang)}.`
+          : '',
+        bad.length
+          ? ar
+            ? `يحتاج إلى تحسين: ${listOf(bad, lang)}.`
+            : `Needs improvement: ${listOf(bad, lang)}.`
+          : '',
+        input.recommend === true
+          ? ar
+            ? 'أنصح به.'
+            : 'I recommend it.'
+          : input.recommend === false
+            ? ar
+              ? 'لا أنصح به.'
+              : 'I would not recommend it.'
+            : '',
+        input.comment ?? '',
+      ]
+    : [
+        ar ? `قيّمت الضيف بـ ${score} من 10.` : `I rated the guest ${score} out of 10.`,
+        good.length
+          ? ar
+            ? `كان ممتازاً في: ${listOf(good, lang)}.`
+            : `Excellent on: ${listOf(good, lang)}.`
+          : '',
+        bad.length
+          ? ar
+            ? `لاحظنا تقصيراً في: ${listOf(bad, lang)}.`
+            : `We noticed shortcomings in: ${listOf(bad, lang)}.`
+          : '',
+        input.recommend === true
+          ? ar
+            ? 'نرحّب باستضافته مرة أخرى.'
+            : 'We would welcome them again.'
+          : input.recommend === false
+            ? ar
+              ? 'لا نرغب في استضافته مرة أخرى.'
+              : 'We would not host them again.'
+            : '',
+        input.comment ?? '',
+      ];
   return lines.filter(Boolean).join(' ').slice(0, 1200);
 }
 
-/** A first-person review comment the guest can edit, summarising their ratings, tags and notes. */
+/** A first-person review comment the author can edit, summarising their ratings, tags and notes. */
 export async function draftReviewSummary(
   context: { oidcToken: string | null },
   input: {
+    direction: ReviewDirection;
     answers: ReviewAnswers;
     scores: ReviewScores;
     tags: Array<ReviewText & { tone: 'good' | 'bad' }>;
@@ -259,21 +316,17 @@ export async function draftReviewSummary(
   const endpoint = resolveAiEndpoint(context.oidcToken);
   if (endpoint) {
     try {
+      const author = input.direction === 'guest_to_host' ? "guest's" : "host's";
       const result = await aiChatJson(
         endpoint,
-        DRAFT_SYSTEM,
-        [
-          `Return {"text": string}: the guest's review comment in ${input.lang === 'ar' ? 'Arabic' : 'English'},`,
-          'two to four sentences (max 80 words): what stood out, what needs improvement, and whether',
-          'they recommend the place. Mention the owner or management company and the on-site staff',
-          'only when they were rated.',
-        ].join(' '),
+        DRAFT_SYSTEM[input.direction],
+        `Return {"text": string}: the ${author} review comment in ${input.lang === 'ar' ? 'Arabic' : 'English'}, ${DRAFT_TASK[input.direction]}`,
         {
           criteria: Object.entries(input.answers).map(([key, value]) => ({
-            group: rubricFor('guest_to_host').find((group) =>
+            group: rubricFor(input.direction).find((group) =>
               group.criteria.some((item) => item.key === key),
             )?.en,
-            criterion: criterionLabel('guest_to_host', key, false),
+            criterion: criterionLabel(input.direction, key, false),
             score: value,
           })),
           scoreOutOf10: input.scores.criteria,

@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { z } from 'zod';
 import type { SessionClaims } from '@bhd-r/authz';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
+import { announceReleasedReviews } from '@/lib/review-release-neon';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 import { clientSafeErrorCode } from '@/lib/client-safe-error';
 import { CLAIM_ERRORS, CLAIM_MESSAGE_MAX, claimErrorBody } from '@/lib/stay-deposit-claims';
@@ -56,6 +57,12 @@ export async function POST(request: Request, context: { params: Promise<{ claimI
 
   try {
     const result = await respondToDepositClaimOnNeon(claims, claimId, body);
+    const ai = { oidcToken: request.headers.get('x-vercel-oidc-token') };
+    after(() =>
+      announceReleasedReviews(ai, { limit: 10 }).catch((error: unknown) =>
+        console.error('review release', error),
+      ),
+    );
     return NextResponse.json(result);
   } catch (error) {
     const raw = error instanceof Error ? error.message : '';

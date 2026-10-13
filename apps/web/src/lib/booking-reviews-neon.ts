@@ -1,6 +1,6 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
-import { and, desc, eq, inArray, or, sql, type SQL, type SQLWrapper } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, or, sql, type SQL, type SQLWrapper } from 'drizzle-orm';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import {
   bookingReviewPhotos,
@@ -13,6 +13,7 @@ import {
   stayBookingGuests,
   stayBookings,
   users,
+  workflowEvents,
   type Database,
 } from '@bhd-r/db';
 import { applySessionSettings } from '@/lib/db-session-settings';
@@ -146,12 +147,27 @@ function depositSettled(bookingId: SQLWrapper): SQL {
   )`;
 }
 
+/** A review shows after this many days even if the other side never wrote theirs. */
+const REVEAL_AFTER_DAYS = 14;
+/** Reviews written before then keep the earlier rule (deposit settled) and were announced. */
+const BLIND_REVIEWS_SINCE = new Date('2026-10-13T10:00:00Z');
+
 /**
- * Review released to everyone: the host's review of a guest at once; the guest's review of the
- * stay only once their deposit is settled, so the host cannot hold the deposit against it.
+ * Review released to the other side and to everyone, blind both ways: nothing before the
+ * guest's deposit is settled (so the host cannot hold the deposit against a review), and then
+ * only once both sides reviewed or 14 days passed (so neither can answer a low review in kind).
  */
 const released: SQL = sql`(
-  ${bookingReviews.direction} = 'host_to_guest' OR ${depositSettled(bookingReviews.bookingId)}
+  ${depositSettled(bookingReviews.bookingId)}
+  AND (
+    ${bookingReviews.createdAt} < ${BLIND_REVIEWS_SINCE.toISOString()}::timestamptz
+    OR ${bookingReviews.createdAt} < now() - make_interval(days => ${REVEAL_AFTER_DAYS})
+    OR EXISTS (
+      SELECT 1 FROM booking_reviews other_side
+      WHERE other_side.booking_id = ${bookingReviews.bookingId}
+        AND other_side.direction <> ${bookingReviews.direction}
+    )
+  )
 )`;
 
 const contactEmail = sql<
@@ -569,6 +585,45 @@ export function canReviewGuests(claims: SessionClaims): boolean {
   );
 }
 
+/** The booking the host may still review: their own departed stay, not reviewed yet. */
+async function openHostReviewBooking(
+  tx: Tx,
+  claims: SessionClaims,
+  propertyId: string,
+  bookingId: string,
+) {
+  if (!canReviewGuests(claims)) fail('forbidden');
+  const orgId = claims.organizationId ?? fail('organization_required');
+  const ownerPartyId = ownerPartyScope(claims);
+  const [found] = await tx
+    .select(bookingColumns)
+    .from(stayBookings)
+    .innerJoin(properties, eq(properties.id, stayBookings.propertyId))
+    .where(
+      and(
+        eq(stayBookings.id, bookingId),
+        eq(stayBookings.organizationId, orgId),
+        eq(stayBookings.propertyId, propertyId),
+        eq(properties.organizationId, orgId),
+        ...(ownerPartyId ? [eq(properties.ownerPartyId, ownerPartyId)] : []),
+      ),
+    )
+    .limit(1);
+  if (!found) fail('booking_not_found');
+  if (!DEPARTED.has(found.status)) fail('review_not_open');
+  if (await reviewExists(tx, found.id, 'host_to_guest')) fail('review_exists');
+  return found;
+}
+
+/** Writing help for the host's review is only for a stay they can still review. */
+export async function assertHostReviewOpen(
+  claims: SessionClaims,
+  propertyId: string,
+  bookingId: string,
+): Promise<void> {
+  await elevated((tx) => openHostReviewBooking(tx, claims, propertyId, bookingId));
+}
+
 /** Host rates the guest after check-out (property hub, bookings tab). */
 export async function submitHostReview(
   claims: SessionClaims,
@@ -577,27 +632,8 @@ export async function submitHostReview(
   input: ReviewSubmission,
   context: AiContext,
 ): Promise<SubmittedReview & { subjects: Array<[ReputationSubject, string]> }> {
-  if (!canReviewGuests(claims)) fail('forbidden');
-  const orgId = claims.organizationId ?? fail('organization_required');
-  const ownerPartyId = ownerPartyScope(claims);
   const { booking, name, authorName } = await elevated(async (tx) => {
-    const [found] = await tx
-      .select(bookingColumns)
-      .from(stayBookings)
-      .innerJoin(properties, eq(properties.id, stayBookings.propertyId))
-      .where(
-        and(
-          eq(stayBookings.id, bookingId),
-          eq(stayBookings.organizationId, orgId),
-          eq(stayBookings.propertyId, propertyId),
-          eq(properties.organizationId, orgId),
-          ...(ownerPartyId ? [eq(properties.ownerPartyId, ownerPartyId)] : []),
-        ),
-      )
-      .limit(1);
-    if (!found) fail('booking_not_found');
-    if (!DEPARTED.has(found.status)) fail('review_not_open');
-    if (await reviewExists(tx, found.id, 'host_to_guest')) fail('review_exists');
+    const found = await openHostReviewBooking(tx, claims, propertyId, bookingId);
     const [author] = await tx
       .select({ name: users.displayName })
       .from(users)
@@ -627,9 +663,9 @@ export async function submitHostReview(
 export type GuestReviewState = {
   /** The guest still owes the review (blocks the deposit refund request). */
   required: boolean;
-  /** `published`: public and visible to the host (only once the deposit is settled). */
+  /** `published`: public and visible to the host (deposit settled and both sides reviewed). */
   mine: { score: number; createdAt: string; published: boolean } | null;
-  /** The host's review of the guest, shown to the guest as soon as it is written. */
+  /** The host's review of the guest, only once it is released like the guest's own. */
   fromHost: {
     score: number;
     recommend: boolean | null;
@@ -658,34 +694,35 @@ export async function loadGuestReviewState(bookingId: string): Promise<GuestRevi
         summaryAr: bookingReviews.aiSummaryAr,
         summaryEn: bookingReviews.aiSummaryEn,
         createdAt: bookingReviews.createdAt,
+        released: sql<boolean>`${released}`,
       })
       .from(bookingReviews)
       .where(eq(bookingReviews.bookingId, bookingId));
     const mine = rows.find((row) => row.direction === 'guest_to_host');
     const host = rows.find((row) => row.direction === 'host_to_guest');
-    const [settled] = mine
-      ? await tx
-          .select({ value: sql<boolean>`${depositSettled(stayBookings.id)}` })
-          .from(stayBookings)
-          .where(eq(stayBookings.id, bookingId))
-      : [];
-    const published = settled?.value === true;
     return {
       required: DEPARTED.has(booking.status) && !mine,
       mine: mine
-        ? { score: num(mine.score) ?? 0, createdAt: mine.createdAt.toISOString(), published }
-        : null,
-      fromHost: host
         ? {
-            score: num(host.score) ?? 0,
-            recommend: host.recommend,
-            summary:
-              host.summaryAr && host.summaryEn ? { ar: host.summaryAr, en: host.summaryEn } : null,
-            comment: host.flags.some((flag) => HIDDEN_COMMENT_FLAGS.has(flag))
-              ? null
-              : host.comment,
+            score: num(mine.score) ?? 0,
+            createdAt: mine.createdAt.toISOString(),
+            published: mine.released === true,
           }
         : null,
+      fromHost:
+        host?.released === true
+          ? {
+              score: num(host.score) ?? 0,
+              recommend: host.recommend,
+              summary:
+                host.summaryAr && host.summaryEn
+                  ? { ar: host.summaryAr, en: host.summaryEn }
+                  : null,
+              comment: host.flags.some((flag) => HIDDEN_COMMENT_FLAGS.has(flag))
+                ? null
+                : host.comment,
+            }
+          : null,
       hostWrote: Boolean(host),
       guestKey: guestKeyOf(booking.userId, booking.email),
     };
@@ -1091,6 +1128,99 @@ export async function loadReputation(
         reviews,
       },
     };
+  });
+}
+
+const RELEASE_EVENT = 'stay.review.released';
+
+export type ReleasedReview = {
+  bookingId: string;
+  direction: ReviewDirection;
+  score: number;
+  summaryAr: string | null;
+  /** Profiles that now include this review. */
+  subjects: Array<[ReputationSubject, string]>;
+};
+
+/**
+ * Reviews released since they were written and not announced yet, each marked announced in
+ * the same transaction so it is handed out once.
+ */
+export async function claimReleasedReviews(
+  scope: { bookingId?: string; referenceCode?: string; limit?: number } = {},
+): Promise<ReleasedReview[]> {
+  return elevated(async (tx) => {
+    const rows = await tx
+      .select({
+        id: bookingReviews.id,
+        bookingId: bookingReviews.bookingId,
+        direction: bookingReviews.direction,
+        score: bookingReviews.score,
+        summaryAr: bookingReviews.aiSummaryAr,
+        organizationId: stayBookings.organizationId,
+        propertyId: stayBookings.propertyId,
+        referenceCode: stayBookings.referenceCode,
+        userId: stayBookings.userId,
+        email: contactEmail,
+      })
+      .from(bookingReviews)
+      .innerJoin(stayBookings, eq(stayBookings.id, bookingReviews.bookingId))
+      .where(
+        and(
+          ...(scope.bookingId ? [eq(bookingReviews.bookingId, scope.bookingId)] : []),
+          ...(scope.referenceCode
+            ? [eq(stayBookings.referenceCode, scope.referenceCode.trim().toUpperCase())]
+            : []),
+          eq(bookingReviews.status, 'published'),
+          gte(bookingReviews.createdAt, BLIND_REVIEWS_SINCE),
+          released,
+          sql`NOT EXISTS (
+            SELECT 1 FROM workflow_events announced
+            WHERE announced.organization_id = ${stayBookings.organizationId}
+              AND announced.resource_type = 'stay_booking'
+              AND announced.resource_id = ${bookingReviews.bookingId}
+              AND announced.event_type = ${RELEASE_EVENT}
+              AND announced.metadata->>'reviewId' = ${bookingReviews.id}::text
+          )`,
+        ),
+      )
+      .orderBy(bookingReviews.createdAt)
+      .limit(scope.limit ?? 20)
+      .for('update', { of: bookingReviews, skipLocked: true });
+    if (rows.length) {
+      await tx.insert(workflowEvents).values(
+        rows.map((row) => ({
+          organizationId: row.organizationId,
+          actorUserId: null,
+          resourceType: 'stay_booking',
+          resourceId: row.bookingId,
+          eventType: RELEASE_EVENT,
+          metadata: {
+            referenceCode: row.referenceCode,
+            reviewId: row.id,
+            direction: row.direction,
+          },
+        })),
+      );
+    }
+    return rows.map((row) => {
+      const guestKey = guestKeyOf(row.userId, row.email);
+      return {
+        bookingId: row.bookingId,
+        direction: row.direction as ReviewDirection,
+        score: num(row.score) ?? 0,
+        summaryAr: row.summaryAr,
+        subjects:
+          row.direction === 'host_to_guest'
+            ? guestKey
+              ? [['guest', guestKey] as [ReputationSubject, string]]
+              : []
+            : [
+                ['property', row.propertyId] as [ReputationSubject, string],
+                ['host', row.organizationId] as [ReputationSubject, string],
+              ],
+      };
+    });
   });
 }
 

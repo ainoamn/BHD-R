@@ -1,8 +1,14 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
-import { NoteTranslateBar, guestReviewNoteService } from '@/components/note-translate';
+import {
+  NoteTranslateBar,
+  OWNER_NOTE_SERVICE,
+  guestReviewNoteService,
+  type NoteService,
+} from '@/components/note-translate';
 import { compressPhoto } from '@/components/stays/stay-handover-form';
+import { ApiError, browserNextMutation } from '@/lib/api';
 import { noteLanguage, noteOriginal } from '@/lib/note-translation';
 import {
   GUEST_REVIEW_TAGS,
@@ -32,6 +38,72 @@ export type ReviewFormValue = {
 };
 
 type ReviewDraft = { engine: 'ai' | 'rules'; text: string };
+
+export type ReviewDraftRequest = {
+  answers: ReviewAnswers;
+  tags: string[];
+  recommend: boolean | null;
+  comment?: string;
+  lang: 'ar' | 'en';
+};
+
+/** AI writing help for the comment: an editable summary plus live translation and rewording. */
+export type ReviewAssistant = {
+  notes: NoteService;
+  summarize: (request: ReviewDraftRequest) => Promise<ReviewDraft>;
+};
+
+/** The guest's review: public route, allowed while the stay's review is open. */
+export function guestReviewAssistant(referenceCode: string): ReviewAssistant {
+  return {
+    notes: guestReviewNoteService(referenceCode),
+    summarize: async (request) => {
+      const response = await fetch('/api/public/stays/guest/review/assist', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          accept: 'application/json',
+          'content-type': 'application/json',
+          'x-requested-with': 'BHD-R',
+        },
+        body: JSON.stringify({ action: 'summarize', referenceCode, ...request }),
+        signal: AbortSignal.timeout(45_000),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        (ReviewDraft & { error?: { code?: string; messageAr?: string } }) | null;
+      if (!response.ok || !payload?.text) {
+        throw new ApiError(
+          response.status,
+          payload?.error?.code ?? 'ai_failed',
+          payload?.error?.messageAr ?? 'تعذّر التلخيص الآن.',
+        );
+      }
+      return { engine: payload.engine, text: payload.text };
+    },
+  };
+}
+
+/** The host's review of a guest: owner session, allowed while that review is still open. */
+export function hostReviewAssistant(propertyId: string, bookingId: string): ReviewAssistant {
+  return {
+    notes: OWNER_NOTE_SERVICE,
+    summarize: ({ answers, recommend, comment, lang }) =>
+      browserNextMutation<ReviewDraft>(
+        `/api/owner/properties/${encodeURIComponent(propertyId)}/guest-review/assist`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            bookingId,
+            answers,
+            recommend,
+            ...(comment ? { comment } : {}),
+            lang,
+          }),
+          signal: AbortSignal.timeout(45_000),
+        },
+      ),
+  };
+}
 
 /** Low answers (1–2) that deserve a word in the comment. */
 const LOW_ANSWER = 2;
@@ -64,7 +136,7 @@ export function ReviewForm({
   busy,
   error,
   subjectName,
-  referenceCode,
+  assistant,
   onSubmit,
   onCancel,
 }: {
@@ -74,8 +146,8 @@ export function ReviewForm({
   busy: boolean;
   error: string | null;
   subjectName?: string | null;
-  /** The guest's booking: turns on the AI summary and live translation of the comment. */
-  referenceCode?: string;
+  /** Turns on the AI summary and live translation of the comment; keep it memoized. */
+  assistant?: ReviewAssistant;
   onSubmit: (value: ReviewFormValue) => void;
   onCancel?: () => void;
 }) {
@@ -92,10 +164,6 @@ export function ReviewForm({
   const [drafting, setDrafting] = useState(false);
   const [draftError, setDraftError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const noteService = useMemo(
-    () => (referenceCode ? guestReviewNoteService(referenceCode) : null),
-    [referenceCode],
-  );
 
   const required = rubric.flatMap((group) =>
     group.criteria.filter((item) => !item.optional).map((item) => item.key),
@@ -154,41 +222,30 @@ export function ReviewForm({
   }
 
   async function summarize() {
-    if (!referenceCode || drafting) return;
+    if (!assistant || drafting) return;
     setDrafting(true);
     setDraftError(null);
     const notes = noteOriginal(comment).trim();
     try {
-      const response = await fetch('/api/public/stays/guest/review/assist', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: {
-          accept: 'application/json',
-          'content-type': 'application/json',
-          'x-requested-with': 'BHD-R',
-        },
-        body: JSON.stringify({
-          action: 'summarize',
-          referenceCode,
+      setDraft(
+        await assistant.summarize({
           answers,
           tags,
           recommend,
           ...(notes ? { comment: notes } : {}),
           lang: notes.length >= 10 ? noteLanguage(notes) : ar ? 'ar' : 'en',
         }),
-        signal: AbortSignal.timeout(45_000),
-      });
-      const payload = (await response.json().catch(() => null)) as
-        (ReviewDraft & { error?: { messageAr?: string; message?: string } }) | null;
-      if (!response.ok || !payload?.text) {
-        throw new Error(
-          (ar ? payload?.error?.messageAr : payload?.error?.message) ??
-            (ar ? 'تعذّر التلخيص الآن. أعد المحاولة.' : 'Could not summarise right now.'),
-        );
-      }
-      setDraft({ engine: payload.engine, text: payload.text });
+      );
     } catch (caught) {
-      setDraftError(caught instanceof Error ? caught.message : String(caught));
+      setDraftError(
+        caught instanceof ApiError && caught.code === 'rate_limited'
+          ? ar
+            ? 'طلبات كثيرة خلال دقيقة — انتظر قليلاً.'
+            : 'Too many requests in a minute — wait a moment.'
+          : ar
+            ? 'تعذّر التلخيص الآن. أعد المحاولة.'
+            : 'Could not summarise right now. Try again.',
+      );
     } finally {
       setDrafting(false);
     }
@@ -520,7 +577,7 @@ export function ReviewForm({
         )}
       </label>
 
-      {referenceCode && noteService ? (
+      {assistant ? (
         <div className="review-ai">
           <div className="review-ai__bar">
             <button
@@ -607,7 +664,7 @@ export function ReviewForm({
             locale={ar ? 'ar' : 'en'}
             max={REVIEW_COMMENT_MAX}
             disabled={busy}
-            service={noteService}
+            service={assistant.notes}
           />
         </div>
       ) : null}
@@ -683,8 +740,8 @@ export function ReviewForm({
       </div>
       <p className="muted review-form__note">
         {ar
-          ? 'التقييم نهائي ولا يُعدَّل بعد إرساله. يظهر للطرف الآخر وللعامة بعد أن يقيّم الطرفان، أو بعد 14 يوماً.'
-          : 'Reviews are final. They become visible once both sides have reviewed, or after 14 days.'}
+          ? 'التقييم نهائي ولا يُعدَّل بعد إرساله. لا يرى أي طرف تقييم الآخر قبل تحويل مبلغ التأمين وتأكيد استلامه، ثم يظهر للطرف الآخر وللعامة بعد أن يقيّم الطرفان (أو بعد 14 يوماً).'
+          : 'Reviews are final. Neither side sees the other’s review before the deposit is refunded and received; it then becomes visible once both sides have reviewed (or after 14 days).'}
       </p>
     </form>
   );

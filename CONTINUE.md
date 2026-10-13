@@ -2,6 +2,18 @@
 
 **تسليم الجلسة كاملة (0.2.24 → 0.8.33):** للاستكمال من جهاز آخر ابدأ من [`docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه خطوات الإعداد، والمراحل بالتاريخ والوقت، والمهام المفتوحة. ويرافقه فهرس الإصدارات (251 إصداراً) والمحادثة كاملة بعد حذف الأسرار.
 
+# CONTINUE — 2026-10-13 14:40 (مسقط)
+
+**0.8.49** · مساعد الذكاء الاصطناعي في تقييم المؤجر للضيف، وتقييم أعمى متبادل:
+
+- **المساعد:** `ReviewForm` تأخذ `assistant` (`guestReviewAssistant(ref)` أو `hostReviewAssistant(propertyId, bookingId)`، مع `useMemo`). مسار المؤجر `POST /api/owner/properties/[propertyId]/guest-review/assist` يستدعي `draftReviewSummary({direction: 'host_to_guest'})`. الترجمة والاقتراحات من `OWNER_NOTE_SERVICE`.
+- **الظهور (`released` في `booking-reviews-neon.ts`):** `depositSettled` AND (`created_at < BLIND_REVIEWS_SINCE` 2026-10-13T10:00Z، أو مرّ `REVEAL_AFTER_DAYS` = 14 يوماً، أو قيّم الطرف الآخر). يُطبَّق على الاتجاهين، وفي حالة الضيف (`hostWrote` بلا `fromHost` = معلّق).
+- **الإعلان:** `claimReleasedReviews` (FOR UPDATE SKIP LOCKED) تسجّل `workflow_events` بالنوع `stay.review.released` مرة لكل تقييم. ثم `announceReleasedReviews` في `review-release-neon.ts` (ملف منفصل لتجنّب استيراد دائري مع deposit-refund) ترسل بريد الضيف وتحدّث الخلاصات.
+- **المستدعون:** حفظ التقييمين، و`confirm_receipt`، و`refund_decide`، وإغلاق المطالبات (`after()`)، و`/api/cron/review-release` (Vercel 03:30 UTC، والـ workflow كل 10 دقائق).
+- **ملاحظة اختبار:** صفحة الضيف تحتاج `?ref=ST-…` وإلا 404. وفي `outbox_events` العمود `occurred_at` لا `created_at`.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.49-AR.md`](./docs/implementation/RELEASE-0.8.49-AR.md)
+
 # CONTINUE — 2026-10-13 13:50 (مسقط)
 
 **0.8.48** · سياسة الاعتماد (تلقائي أو يدوي) لحجوزات الإيجار والشراء من الموقع:

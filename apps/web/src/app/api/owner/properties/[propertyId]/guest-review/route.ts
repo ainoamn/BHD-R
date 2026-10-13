@@ -2,10 +2,10 @@ import { NextResponse, after } from 'next/server';
 import { z } from 'zod';
 import type { SessionClaims } from '@bhd-r/authz';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
-import { refreshReviewProfile, submitHostReview } from '@/lib/booking-reviews-neon';
+import { submitHostReview } from '@/lib/booking-reviews-neon';
 import { clientSafeErrorCode, statusForSafeCode } from '@/lib/client-safe-error';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
-import { notifyGuestOfHostReview } from '@/lib/stay-deposit-claims-neon';
+import { announceReleasedReviews } from '@/lib/review-release-neon';
 import { reviewFields } from '@/lib/review-route';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 
@@ -56,17 +56,11 @@ export async function POST(request: Request, context: { params: Promise<{ proper
   const ai = { oidcToken: request.headers.get('x-vercel-oidc-token') };
   try {
     const saved = await submitHostReview(claims, propertyId, body.bookingId, body, ai);
-    after(async () => {
-      await notifyGuestOfHostReview(saved.bookingId, {
-        score: saved.score,
-        summary: saved.summaryAr,
-      }).catch((error: unknown) => console.error('host review guest notice', error));
-      for (const [subject, key] of saved.subjects) {
-        await refreshReviewProfile(subject, key, ai).catch((error: unknown) =>
-          console.error('review profile refresh', subject, error),
-        );
-      }
-    });
+    after(() =>
+      announceReleasedReviews(ai, { bookingId: saved.bookingId }).catch((error: unknown) =>
+        console.error('review release', error),
+      ),
+    );
     return NextResponse.json({
       review: { id: saved.id, score: saved.score, criteriaScore: saved.criteriaScore },
     });

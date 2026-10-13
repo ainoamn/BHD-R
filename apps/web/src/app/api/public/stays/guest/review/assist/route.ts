@@ -101,6 +101,7 @@ export async function POST(request: Request) {
     await assertGuestReviewOpen(body.referenceCode);
     if (body.action === 'summarize') {
       const draft = await draftReviewSummary(context, {
+        direction: 'guest_to_host',
         answers: body.answers,
         scores: scoreAnswers('guest_to_host', body.answers),
         tags: reviewTags('guest_to_host', body.tags),

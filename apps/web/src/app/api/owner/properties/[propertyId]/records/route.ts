@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { z } from 'zod';
 import type { SessionClaims } from '@bhd-r/authz';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
@@ -12,6 +12,7 @@ import {
   createManualSaleContractOnNeon,
   rejectStayBookingOnNeon,
 } from '@/lib/property-contracts-neon';
+import { announceReleasedReviews } from '@/lib/review-release-neon';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 import { recordStayStampOnNeon } from '@/lib/stay-arrival-neon';
 import {
@@ -207,14 +208,21 @@ export async function POST(request: Request, context: { params: Promise<{ proper
         return NextResponse.json(await createManualLeaseContractOnNeon(claims, propertyId, body));
       case 'create_sale':
         return NextResponse.json(await createManualSaleContractOnNeon(claims, propertyId, body));
-      case 'refund_decide':
-        return NextResponse.json(
-          await decideDepositRefundOnNeon(claims, propertyId, body.bookingId, {
-            decision: body.decision,
-            amount: body.amount,
-            note: body.note,
-          }),
+      case 'refund_decide': {
+        const decided = await decideDepositRefundOnNeon(claims, propertyId, body.bookingId, {
+          decision: body.decision,
+          amount: body.amount,
+          note: body.note,
+        });
+        const { bookingId } = body;
+        const ai = { oidcToken: request.headers.get('x-vercel-oidc-token') };
+        after(() =>
+          announceReleasedReviews(ai, { bookingId }).catch((error: unknown) =>
+            console.error('review release', error),
+          ),
         );
+        return NextResponse.json(decided);
+      }
       case 'refund_payout':
         return NextResponse.json(
           await recordDepositRefundPayoutOnNeon(claims, propertyId, body.bookingId, {

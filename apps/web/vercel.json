@@ -12,6 +12,10 @@
     {
       "path": "/api/cron/expire-locks",
       "schedule": "15 3 * * *"
+    },
+    {
+      "path": "/api/cron/review-release",
+      "schedule": "30 3 * * *"
     }
   ]
 }
