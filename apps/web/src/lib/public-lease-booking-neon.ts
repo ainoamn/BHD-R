@@ -376,7 +376,9 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
     });
     if (partyError) fail(partyError);
     const bookingParty: ReservationParty =
-      input.mode === 'sale' ? { ...input.party, contractType: null, termMonths: null } : input.party;
+      input.mode === 'sale'
+        ? { ...input.party, contractType: null, termMonths: null }
+        : input.party;
 
     const now = new Date();
     const contact = {
@@ -454,10 +456,13 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
     }
 
     assertTermsCurrent();
-    const unit = await assertUnitBookable(transaction, input.unitId).catch((error: unknown) => {
-      if (error instanceof Error && error.message === 'unit_unavailable') fail('unit_unavailable');
-      throw error;
-    });
+    const unit = await assertUnitBookable(transaction, input.unitId, input.mode).catch(
+      (error: unknown) => {
+        if (error instanceof Error && error.message === 'unit_unavailable')
+          fail('unit_unavailable');
+        throw error;
+      },
+    );
     const expiresAt = new Date(now.getTime() + CHECKOUT_TTL_MS);
     const referenceCode = newReferenceCode();
     const sessionReference = newSessionReference();

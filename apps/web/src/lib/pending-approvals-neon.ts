@@ -303,9 +303,18 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
         propertyNameEn: row.propertyNameEn,
         unitCode: row.unitCode,
         party: row.tenant,
-        contractType: 'sale' as const,
+        contractType:
+          row.reason === 'sold' || row.question === 'keep_selling'
+            ? ('sale' as const)
+            : ('lease' as const),
         fromOn: null,
         requestedAt: row.leasedSince,
+        decision:
+          row.question === 'keep_selling'
+            ? ('keep_selling' as const)
+            : row.reason === 'sold'
+              ? ('hide_sold' as const)
+              : ('hide_leased' as const),
       })),
     ].sort((a, b) => a.requestedAt.localeCompare(b.requestedAt));
 

@@ -32,6 +32,8 @@ export type PendingApprovalItem = {
   currency?: string | null;
   /** Where a `lease_reservation` stands: which owner step is due. */
   phase?: LeaseJourneyPhase | null;
+  /** For `sale_decision`: keep selling a leased rent-and-sale unit, or hide a leased or sold one. */
+  decision?: 'keep_selling' | 'hide_leased' | 'hide_sold' | null;
 };
 
 export type PendingApprovals = {
@@ -136,6 +138,14 @@ export function pendingApprovalTitle(item: PendingApprovalItem, ar: boolean): st
     return ar ? 'شكوى تأمين لدى إدارة الموقع' : 'Deposit complaint for the site administration';
   }
   if (item.kind === 'sale_decision') {
+    if (item.decision === 'hide_sold') {
+      return ar ? 'بيعت الوحدة — هل تخفيها من العقارات؟' : 'Unit sold — hide it from the listings?';
+    }
+    if (item.decision === 'hide_leased') {
+      return ar
+        ? 'أُجّرت الوحدة بعقد طويل — هل تخفيها من العقارات؟'
+        : 'Unit leased — hide it from the listings?';
+    }
     return ar
       ? 'تم تأجير الوحدة — هل ما زلت تريد بيعها؟'
       : 'Unit leased — do you still want to sell it?';

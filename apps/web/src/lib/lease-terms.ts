@@ -51,6 +51,13 @@ export type DepositMethod = (typeof DEPOSIT_METHODS)[number];
 export const CONTRACT_USES = ['residential', 'commercial'] as const;
 export type ContractUse = (typeof CONTRACT_USES)[number];
 
+/** Offices, shops and warehouses lease commercially; homes and the rest residentially. */
+export function contractUseForCategory(category: string | null | undefined): ContractUse {
+  return category === 'office' || category === 'shop' || category === 'warehouse'
+    ? 'commercial'
+    : 'residential';
+}
+
 export const DEFAULT_VAT_RATE_PERCENT = '5';
 export const MUNICIPALITY_FEE_BASIS_POINTS = 300;
 export const MAX_SCHEDULE_ROWS = 240;

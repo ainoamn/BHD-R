@@ -1396,7 +1396,18 @@ export function PropertyDetailManager({
                   depositMinor={primaryUnit.depositMinor}
                   saleDepositMinor={primaryUnit.saleDepositMinor ?? null}
                   currency={primaryUnit.currency}
-                  listingPurpose={primaryUnit.listingPurpose}
+                  taken={
+                    primaryUnit.occupancy === 'sold'
+                      ? 'sold'
+                      : primaryUnit.occupancy === 'leased' && primaryUnit.listingPurpose === 'rent'
+                        ? 'leased'
+                        : null
+                  }
+                  listingPurpose={
+                    primaryUnit.occupancy === 'leased' && primaryUnit.listingPurpose === 'both'
+                      ? 'sale'
+                      : primaryUnit.listingPurpose
+                  }
                   rentMinor={primaryUnit.rentMinor}
                   salePriceMinor={primaryUnit.salePriceMinor}
                   canBook={primaryUnit.listingEnabled !== false}

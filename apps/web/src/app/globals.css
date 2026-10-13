@@ -12000,6 +12000,47 @@ button.ops-row-key {
   display: grid;
   gap: 1rem;
 }
+.party-form__property {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid #d7e1dc;
+  border-radius: 0.9rem;
+  background: #f7faf8;
+  min-width: 0;
+}
+.party-form__property h4 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.lrw__request {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.25rem 0 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid #d7e1dc;
+  border-radius: 0.8rem;
+  background: #f7faf8;
+}
+.lrw__request h4 {
+  margin: 0;
+  font-size: 0.92rem;
+}
+.lrw__request dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(11rem, 100%), 1fr));
+  gap: 0.4rem 1rem;
+  margin: 0;
+}
+.lrw__request dt {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.lrw__request dd {
+  margin: 0;
+  font-weight: 700;
+}
 .party-form__section {
   margin: 0;
   padding: 0.9rem 1rem 0.4rem;

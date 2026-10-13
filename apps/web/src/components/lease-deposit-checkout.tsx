@@ -16,6 +16,7 @@ import type { BookingContactsForViewer, BookingFor } from '@/lib/booking-contact
 import { greetingName, leaseCheckoutGreeting } from '@/lib/booking-step-greeting';
 import { bookingTermsDocument, type BookingTermsForCheckout } from '@/lib/booking-terms';
 import { formatMoney } from '@/lib/format';
+import { contractUseForCategory } from '@/lib/lease-terms';
 import { partyDisplayName, partyErrorText, type ReservationParty } from '@/lib/reservation-party';
 import { isValidGuestPhone } from '@/lib/stay-booking-dates';
 import { countryName, toInternationalPhone } from '@/lib/world-countries';
@@ -32,6 +33,26 @@ const PARTY_ERRORS = new Set([
   'term_too_short',
 ]);
 type ContactForm = { fullName: string; phone: string; email: string };
+
+export type PropertyFacts = {
+  category: string;
+  areaSquareMeters: string | null;
+  bedrooms: number;
+  bathrooms: number;
+  governorate: string;
+  wilayat: string;
+};
+
+const CATEGORY_TEXT: Record<string, [string, string]> = {
+  apartment: ['شقة', 'Apartment'],
+  villa: ['فيلا', 'Villa'],
+  building: ['مبنى', 'Building'],
+  office: ['مكتب', 'Office'],
+  shop: ['محل', 'Shop'],
+  warehouse: ['مستودع', 'Warehouse'],
+  land: ['أرض', 'Land'],
+  other: ['أخرى', 'Other'],
+};
 
 const EMPTY_CONTACT: ContactForm = { fullName: '', phone: '', email: '' };
 const NEW_CONTACT = 'new';
@@ -86,6 +107,7 @@ export function LeaseDepositCheckout({
   termsByMode,
   contacts,
   minLeaseMonths,
+  property = null,
 }: {
   locale: 'ar' | 'en';
   unitId: string;
@@ -101,6 +123,8 @@ export function LeaseDepositCheckout({
   contacts: BookingContactsForViewer;
   /** Shortest lease the owner accepts, in months (one year unless the owner set otherwise). */
   minLeaseMonths: number;
+  /** Unit facts shown beside the contract details. */
+  property?: PropertyFacts | null;
 }) {
   const router = useRouter();
   const ar = locale === 'ar';
@@ -113,7 +137,9 @@ export function LeaseDepositCheckout({
     phone: toInternationalPhone(contacts.self.phone),
     email: contacts.self.email ?? '',
   });
-  const [partyForm, setPartyForm] = useState<PartyForm>(() => emptyPartyForm(minLeaseMonths));
+  const [partyForm, setPartyForm] = useState<PartyForm>(() =>
+    emptyPartyForm(minLeaseMonths, contractUseForCategory(property?.category)),
+  );
   const [party, setParty] = useState<ReservationParty | null>(null);
   const [otherForm, setOtherForm] = useState<ContactForm>(EMPTY_CONTACT);
   const [savedContactId, setSavedContactId] = useState<string>(NEW_CONTACT);
@@ -628,6 +654,79 @@ export function LeaseDepositCheckout({
                 ? `${mode === 'sale' ? 'المشتري' : 'المستأجر'} شخص آخر — حدّد إن كان فرداً أو شركة وأدخل بياناته.`
                 : `The ${mode === 'sale' ? 'buyer' : 'tenant'} is someone else — choose individual or company and enter their details.`}
           </p>
+          <section className="party-form__property" aria-labelledby="lease-property-facts">
+            <h4 id="lease-property-facts">{ar ? 'بيانات العقار' : 'Property details'}</h4>
+            <dl className="stays-checkout__summary">
+              <div>
+                <dt>{ar ? 'العقار' : 'Property'}</dt>
+                <dd>{title}</dd>
+              </div>
+              {property ? (
+                <>
+                  <div>
+                    <dt>{ar ? 'النوع' : 'Type'}</dt>
+                    <dd>{CATEGORY_TEXT[property.category]?.[ar ? 0 : 1] ?? property.category}</dd>
+                  </div>
+                  {[property.wilayat, property.governorate].some(Boolean) ? (
+                    <div>
+                      <dt>{ar ? 'الموقع' : 'Location'}</dt>
+                      <dd>{[property.wilayat, property.governorate].filter(Boolean).join('، ')}</dd>
+                    </div>
+                  ) : null}
+                  {property.areaSquareMeters ? (
+                    <div>
+                      <dt>{ar ? 'المساحة' : 'Area'}</dt>
+                      <dd>
+                        <bdi dir="ltr">{property.areaSquareMeters} m²</bdi>
+                      </dd>
+                    </div>
+                  ) : null}
+                  {property.bedrooms || property.bathrooms ? (
+                    <div>
+                      <dt>{ar ? 'الغرف / الحمامات' : 'Beds / baths'}</dt>
+                      <dd>
+                        <bdi dir="ltr">
+                          {property.bedrooms} / {property.bathrooms}
+                        </bdi>
+                      </dd>
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
+              {mode === 'rent' ? (
+                <div>
+                  <dt>{ar ? 'نوع الاستخدام' : 'Usage type'}</dt>
+                  <dd>
+                    {partyForm.contractType === 'commercial'
+                      ? ar
+                        ? 'تجاري'
+                        : 'Commercial'
+                      : ar
+                        ? 'سكني'
+                        : 'Residential'}
+                  </dd>
+                </div>
+              ) : null}
+              {price ? (
+                <div>
+                  <dt>{priceLabel}</dt>
+                  <dd>
+                    <bdi dir="ltr">{price}</bdi>
+                  </dd>
+                </div>
+              ) : null}
+              {mode === 'rent' ? (
+                <div>
+                  <dt>{ar ? 'مدة العقد' : 'Contract term'}</dt>
+                  <dd>
+                    {ar
+                      ? `${partyForm.termMonths || '—'} شهراً (الحد الأدنى ${minLeaseMonths})`
+                      : `${partyForm.termMonths || '—'} months (minimum ${minLeaseMonths})`}
+                  </dd>
+                </div>
+              ) : null}
+            </dl>
+          </section>
           <ReservationPartyForm
             value={partyForm}
             onChange={(next) => {

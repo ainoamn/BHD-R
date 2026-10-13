@@ -3,17 +3,16 @@ import { sql } from 'drizzle-orm';
 import { createDatabase, type Database } from '@bhd-r/db';
 import type { ListingCollection, PublicListing } from '@bhd-r/contracts';
 import { marketStatusFromPurpose, type CatalogueListing } from '@/lib/listing-market-status';
+import { ownerHidTakenUnit } from '@/lib/listing-visibility-sql';
 import { omanLocations } from '@/lib/oman-locations';
 import { googleMapsLinkFromCoords, parseGoogleMapsUrl } from '@/lib/parse-google-maps-url';
-import {
-  assignUnitSerials,
-  inferUnitKind,
-  unitKindToCategory,
-} from '@/lib/unit-identity';
+import { assignUnitSerials, inferUnitKind, unitKindToCategory } from '@/lib/unit-identity';
 
 function mapsUrlFromNotes(notes?: string | null): string | null {
   if (!notes) return null;
-  const match = notes.match(/https?:\/\/(?:www\.)?(?:google\.[^/\s]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps)[^\s)]*/i);
+  const match = notes.match(
+    /https?:\/\/(?:www\.)?(?:google\.[^/\s]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps)[^\s)]*/i,
+  );
   return match?.[0] ?? null;
 }
 function locationNameAlts(kind: 'governorate' | 'wilayat', value: string): string[] {
@@ -417,9 +416,7 @@ export async function searchPublicListingsFromNeon(
           ? sql`and u.bedrooms >= ${bedroomsMin}`
           : sql``;
     const bathroomsClause =
-      bathroomsMin !== null && bathroomsMin > 0
-        ? sql`and u.bathrooms >= ${bathroomsMin}`
-        : sql``;
+      bathroomsMin !== null && bathroomsMin > 0 ? sql`and u.bathrooms >= ${bathroomsMin}` : sql``;
     const currencyClause = currency ? sql`and u.currency = ${currency}` : sql``;
     const purposeClause =
       purpose === 'rent'
@@ -466,9 +463,7 @@ export async function searchPublicListingsFromNeon(
           or coalesce(a.city, '') ilike ${`%${q}%`}
         )`
       : sql``;
-    const excludeClause = excludePropertyId
-      ? sql`and p.id <> ${excludePropertyId}::uuid`
-      : sql``;
+    const excludeClause = excludePropertyId ? sql`and p.id <> ${excludePropertyId}::uuid` : sql``;
 
     // Daily-only units belong on /stays, not the long-term /properties catalogue.
     const dailyOnlyClause = sql`and not (
@@ -481,25 +476,8 @@ export async function searchPublicListingsFromNeon(
       )
     )`;
 
-    // Sold, leased (unless the owner kept it for sale) and owner-approved reservations leave the catalogue.
-    const takenClause = sql`and not exists (
-      select 1 from sales_deals sd_t
-      where sd_t.unit_id = u.id and sd_t.status::text = 'closed_won'
-    )
-    and not (
-      u.listing_purpose <> 'sale' and exists (
-        select 1 from leases le_t
-        where le_t.unit_id = u.id
-          and le_t.status::text in ('draft', 'active', 'cancel_requested', 'clearance_pending')
-      )
-    )
-    and not exists (
-      select 1 from reservations r_t
-      where r_t.unit_id = u.id
-        and r_t.status::text = 'confirmed'
-        and r_t.expires_at > now()
-        and r_t.terms_snapshot->'lifecycle'->'approval' is not null
-    )`;
+    // Leased (long contract) and sold units stay listed, marked as such, until the owner hides them.
+    const takenClause = sql`and not ${ownerHidTakenUnit}`;
 
     const result = await transaction.execute(sql`
       select
@@ -634,7 +612,7 @@ export async function searchPublicListingsFromNeon(
     const rows: CatalogueRow[] = Array.isArray(rawUnknown)
       ? (rawUnknown as CatalogueRow[])
       : Array.isArray((rawUnknown as { rows?: CatalogueRow[] }).rows)
-        ? ((rawUnknown as { rows: CatalogueRow[] }).rows)
+        ? (rawUnknown as { rows: CatalogueRow[] }).rows
         : [];
 
     const serialsByProperty = new Map<string, Map<string, string>>();
@@ -694,7 +672,9 @@ export async function searchPublicListingsFromNeon(
         mapsUrl = googleMapsLinkFromCoords(latitude, longitude);
       }
       const avgRating =
-        row.avg_rating !== null && row.avg_rating !== undefined && Number.isFinite(Number(row.avg_rating))
+        row.avg_rating !== null &&
+        row.avg_rating !== undefined &&
+        Number.isFinite(Number(row.avg_rating))
           ? Math.round(Number(row.avg_rating) * 10) / 10
           : null;
       const isMulti = row.property_kind === 'multi_unit';

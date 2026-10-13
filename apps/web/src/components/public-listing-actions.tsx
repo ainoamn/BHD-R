@@ -24,6 +24,7 @@ export function PublicListingActions({
   listingPurpose = 'rent',
   rentMinor,
   salePriceMinor,
+  taken = null,
 }: {
   unitId: string;
   locale: 'ar' | 'en';
@@ -38,6 +39,8 @@ export function PublicListingActions({
   listingPurpose?: ListingPurpose;
   rentMinor?: string | null;
   salePriceMinor?: string | null;
+  /** Leased or sold units stay listed until the owner hides them, but can't be booked. */
+  taken?: 'leased' | 'sold' | null;
 }) {
   const router = useRouter();
   const ar = locale === 'ar';
@@ -191,6 +194,28 @@ export function PublicListingActions({
     } finally {
       setBusy(false);
     }
+  }
+
+  if (taken) {
+    return (
+      <div className="public-listing-actions">
+        <p className="notice" role="status">
+          {taken === 'sold'
+            ? ar
+              ? 'تم بيع هذا العقار، فلا يمكن حجزه أو طلب معاينته.'
+              : 'This property has been sold and can no longer be booked or viewed.'
+            : ar
+              ? 'هذا العقار مؤجّر حالياً بعقد طويل، فلا يمكن حجزه أو طلب معاينته الآن.'
+              : 'This property is currently on a long-term lease and cannot be booked or viewed now.'}
+        </p>
+        <PublicListingShare
+          path={sharePath}
+          title={shareTitle}
+          description={shareDescription}
+          locale={locale}
+        />
+      </div>
+    );
   }
 
   return (

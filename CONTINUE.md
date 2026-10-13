@@ -2,6 +2,22 @@
 
 **تسليم الجلسة كاملة (0.2.24 → 0.8.33):** للاستكمال من جهاز آخر ابدأ من [`docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه خطوات الإعداد، والمراحل بالتاريخ والوقت، والمهام المفتوحة. ويرافقه فهرس الإصدارات (251 إصداراً) والمحادثة كاملة بعد حذف الأسرار.
 
+# CONTINUE — 2026-10-13 06:57 (مسقط)
+
+**0.8.35** · ظهور العقار بعد التأجير أو البيع، وبيانات العقار في الخطوة 3:
+
+- **الكتالوج** (`searchPublicListingsFromNeon`): `takenClause` صار `not ownerHidTakenUnit` من `lib/listing-visibility-sql.ts`، فلا يُخفى إلا ما أخفاه المالك. والإيجار اليومي لا يُخفى أبداً.
+- **القرار:** `listSaleDecisionUnits` و`decideUnitSale` في `lib/unit-sale-decision-neon.ts`، بالسؤالين `keep_selling` و`hide`. ويُحفظ في `stay_policies` بالرمز `listing_visibility:{unitId}` مع `takenRef`.
+- **الحجز:** `assertUnitBookable(tx, unitId, mode)` يرفض المباع، ويسمح بالشراء لمؤجّرة أُبقيت للبيع.
+- **الخطوة 3:**
+  - `LeaseDepositCheckout` يأخذ `property` ويعرض «بيانات العقار»، و`contractUseForCategory` يحدد نوع الاستخدام الافتراضي؛
+  - `ClientRequest` في `LeaseReservationWorkflow` يعرض طلب العميل للمالك.
+- **مفتوح:**
+  - التحقق من سؤال الإخفاء على الإنتاج؛
+  - الفحص الفعلي لصفحات المالك والمستأجر بعد تسجيل الدخول، لأن الجلسة المحفوظة انتهت وحُذف ملفها.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.35-AR.md`](./docs/implementation/RELEASE-0.8.35-AR.md)
+
 # CONTINUE — 2026-10-13 06:15 (مسقط)
 
 **0.8.34** · توافق الشاشات مع كل الأجهزة:

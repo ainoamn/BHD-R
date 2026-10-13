@@ -58,7 +58,9 @@ export type MemberScope = {
 /** Scope to the signed-in member's own organization, mirroring the session's role flags. */
 export async function applyMemberScope(transaction: Tx, scope: MemberScope) {
   const roles = scope.roles ?? [];
-  await transaction.execute(sql`select set_config('app.organization_id', ${scope.organizationId}, true)`);
+  await transaction.execute(
+    sql`select set_config('app.organization_id', ${scope.organizationId}, true)`,
+  );
   await transaction.execute(sql`select set_config('app.user_id', ${scope.userId}, true)`);
   await transaction.execute(sql`select set_config('app.party_id', ${scope.partyId ?? ''}, true)`);
   await transaction.execute(
@@ -106,7 +108,11 @@ async function expireTimedOutLocks(transaction: Tx, unitId?: string) {
   `);
 }
 
-export async function assertUnitBookable(transaction: Tx, unitId: string) {
+export async function assertUnitBookable(
+  transaction: Tx,
+  unitId: string,
+  mode: 'rent' | 'sale' = 'rent',
+) {
   await expireTimedOutLocks(transaction, unitId);
   const now = new Date();
   const rows = await transaction
@@ -149,15 +155,26 @@ export async function assertUnitBookable(transaction: Tx, unitId: string) {
               ),
             ),
         ),
+        // A leased unit the owner kept for sale can still be reserved for purchase.
+        mode === 'sale'
+          ? sql`true`
+          : notExists(
+              transaction
+                .select({ id: leases.id })
+                .from(leases)
+                .where(
+                  and(
+                    eq(leases.unitId, units.id),
+                    sql`${leases.status}::text in ('draft', 'active', 'cancel_requested', 'clearance_pending')`,
+                  ),
+                ),
+            ),
         notExists(
           transaction
-            .select({ id: leases.id })
-            .from(leases)
+            .select({ id: salesDeals.id })
+            .from(salesDeals)
             .where(
-              and(
-                eq(leases.unitId, units.id),
-                sql`${leases.status}::text in ('draft', 'active', 'cancel_requested', 'clearance_pending')`,
-              ),
+              and(eq(salesDeals.unitId, units.id), sql`${salesDeals.status}::text = 'closed_won'`),
             ),
         ),
       ),
@@ -168,7 +185,11 @@ export async function assertUnitBookable(transaction: Tx, unitId: string) {
   return row;
 }
 
-export async function ensureProspectParty(transaction: Tx, organizationId: string, claims: SessionClaims) {
+export async function ensureProspectParty(
+  transaction: Tx,
+  organizationId: string,
+  claims: SessionClaims,
+) {
   const user = await transaction.query.users.findFirst({
     where: eq(users.id, claims.sub),
     columns: { id: true, email: true, displayName: true },
@@ -207,7 +228,8 @@ export async function createAuthenticatedViewingRequest(
     interest?: 'rent' | 'sale' | null;
   } = {},
 ) {
-  const interest = options.interest === 'sale' || options.interest === 'rent' ? options.interest : null;
+  const interest =
+    options.interest === 'sale' || options.interest === 'rent' ? options.interest : null;
   const interestNote =
     interest === 'sale'
       ? locale === 'ar'
@@ -386,9 +408,7 @@ export async function createAuthenticatedSaleInterest(
         currency,
         minorUnit: currencyMinorUnits[currency] ?? 3,
         notes:
-          locale === 'ar'
-            ? 'اهتمام شراء من الموقع العام'
-            : 'Purchase interest from public website',
+          locale === 'ar' ? 'اهتمام شراء من الموقع العام' : 'Purchase interest from public website',
       })
       .returning({
         reference: salesDeals.reference,
@@ -525,7 +545,13 @@ export async function updatePropertyDepositOnNeon(
       ? options.idempotencyKey.trim().slice(0, 200)
       : null;
   const hash = createHash('sha256')
-    .update(JSON.stringify({ propertyId, amountMinor: body.amountMinor, currency: body.currency ?? null }))
+    .update(
+      JSON.stringify({
+        propertyId,
+        amountMinor: body.amountMinor,
+        currency: body.currency ?? null,
+      }),
+    )
     .digest('hex');
 
   const { db } = getDatabase();
@@ -560,7 +586,10 @@ export async function updatePropertyDepositOnNeon(
     }
 
     const property = await transaction.query.properties.findFirst({
-      where: and(eq(properties.id, propertyId), eq(properties.organizationId, claims.organizationId!)),
+      where: and(
+        eq(properties.id, propertyId),
+        eq(properties.organizationId, claims.organizationId!),
+      ),
     });
     if (!property) throw new Error('not_found');
     if (property.status === 'archived') throw new Error('property_archived');
@@ -577,9 +606,7 @@ export async function updatePropertyDepositOnNeon(
       .update(units)
       .set({
         depositMinor: BigInt(body.amountMinor),
-        ...(body.currency
-          ? { currency: body.currency as typeof units.$inferSelect.currency }
-          : {}),
+        ...(body.currency ? { currency: body.currency as typeof units.$inferSelect.currency } : {}),
         updatedAt: new Date(),
       })
       .where(
@@ -670,7 +697,11 @@ export async function completePublicBookingPayment(
       .update(holds)
       .set({ status: 'converted', updatedAt: new Date() })
       .where(
-        and(eq(holds.unitId, match.unitId), eq(holds.status, 'active'), eq(holds.prospectPartyId, party.id)),
+        and(
+          eq(holds.unitId, match.unitId),
+          eq(holds.status, 'active'),
+          eq(holds.prospectPartyId, party.id),
+        ),
       );
 
     return {

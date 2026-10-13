@@ -15,7 +15,11 @@ import {
   type ReservationRequirement,
 } from '@/lib/lease-reservation-lifecycle';
 import { minorDigitsFor, type LeaseTermsDraft } from '@/lib/lease-terms';
-import { partyToLeaseTenant, type ReservationParty } from '@/lib/reservation-party';
+import {
+  partyDisplayName,
+  partyToLeaseTenant,
+  type ReservationParty,
+} from '@/lib/reservation-party';
 import type { PropertyRecordTenant, PropertyRecordUnit } from '@/lib/property-records-neon';
 
 const ERROR_TEXT: Record<string, [string, string]> = {
@@ -833,6 +837,83 @@ function RequirementsPicker({
   );
 }
 
+/** What the client chose while booking, beside the unit's facts, so the contract matches it. */
+function ClientRequest({
+  ar,
+  sale,
+  party,
+  unit,
+  currency,
+  salePriceMinor,
+  locale,
+}: {
+  ar: boolean;
+  sale: boolean;
+  party: ReservationParty | null;
+  unit: PropertyRecordUnit;
+  currency: string;
+  salePriceMinor: string | null;
+  locale: 'ar' | 'en';
+}) {
+  const priceMinor = sale ? salePriceMinor : unit.rentMinor;
+  const rows: [string, ReactNode][] = [[ar ? 'الوحدة' : 'Unit', <bdi dir="ltr">{unit.code}</bdi>]];
+  if (unit.areaSquareMeters) {
+    rows.push([ar ? 'المساحة' : 'Area', <bdi dir="ltr">{unit.areaSquareMeters} m²</bdi>]);
+  }
+  if (priceMinor && /^\d+$/.test(priceMinor) && priceMinor !== '0') {
+    rows.push([
+      sale ? (ar ? 'سعر البيع المعلن' : 'Listed price') : ar ? 'الإيجار الشهري' : 'Monthly rent',
+      <bdi dir="ltr">{formatMoney(priceMinor, currency, locale)}</bdi>,
+    ]);
+  }
+  if (!sale && party?.contractType) {
+    rows.push([
+      ar ? 'نوع الاستخدام' : 'Usage type',
+      party.contractType === 'commercial'
+        ? ar
+          ? 'تجاري'
+          : 'Commercial'
+        : ar
+          ? 'سكني'
+          : 'Residential',
+    ]);
+  }
+  if (!sale && party?.termMonths) {
+    rows.push([
+      ar ? 'مدة العقد المطلوبة' : 'Requested term',
+      ar ? `${party.termMonths} شهراً` : `${party.termMonths} months`,
+    ]);
+  }
+  if (party) {
+    rows.push([
+      sale ? (ar ? 'المشتري' : 'Buyer') : ar ? 'المستأجر' : 'Tenant',
+      `${partyDisplayName(party, ar)} · ${
+        party.entityType === 'company' ? (ar ? 'شركة' : 'Company') : ar ? 'فرد' : 'Individual'
+      }`,
+    ]);
+  }
+  return (
+    <section className="lrw__request" aria-label={ar ? 'طلب العميل' : 'Client request'}>
+      <h4>{ar ? 'بيانات العقار وطلب العميل' : 'Property and client request'}</h4>
+      <dl>
+        {rows.map(([label, value]) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {party && !sale ? (
+        <p className="muted">
+          {ar
+            ? 'نوع الاستخدام والمدة مُعبّآن في نموذج العقد أدناه كما اختارهما العميل، ويمكنك تعديلهما.'
+            : 'The usage type and term are prefilled in the contract form below as the client chose; you can change them.'}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 function ContractDraftEditor({
   locale,
   mode,
@@ -891,6 +972,15 @@ function ContractDraftEditor({
           ? 'الحجز معتمد. عبّئ بيانات العقد كاملة واختر المستندات التي يلزم أن يوفرها العميل.'
           : 'The booking is approved. Fill in the contract and choose the documents the client must provide.'}
       </p>
+      <ClientRequest
+        ar={ar}
+        sale={sale}
+        party={party}
+        unit={unit}
+        currency={currency}
+        salePriceMinor={salePriceMinor}
+        locale={locale}
+      />
       <RequirementsPicker ar={ar} sale={sale} value={requirements} onChange={setRequirements} />
     </div>
   );

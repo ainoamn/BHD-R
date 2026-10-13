@@ -273,6 +273,14 @@ export default async function BookUnitPage({
             termsByMode={termsByMode}
             contacts={contacts}
             minLeaseMonths={minLeaseMonths}
+            property={{
+              category: unit.category,
+              areaSquareMeters: unit.areaSquareMeters,
+              bedrooms: unit.bedrooms,
+              bathrooms: unit.bathrooms,
+              governorate: unit.governorate,
+              wilayat: unit.wilayat,
+            }}
           />
         )}
       </div>

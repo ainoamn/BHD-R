@@ -10,9 +10,15 @@ import { decideUnitSale } from '@/lib/unit-sale-decision-neon';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const bodySchema = z.object({ keepSelling: z.boolean() }).strict();
+const bodySchema = z.union([
+  z.object({ keepSelling: z.boolean() }).strict(),
+  z.object({ hide: z.boolean() }).strict(),
+]);
 
-/** Owner answers "still want to sell?" for a rent-and-sale unit that has just been leased. */
+/**
+ * Owner answers for a leased or sold unit: "still want to sell?" (rent-and-sale unit now leased)
+ * or "hide it from the listings?".
+ */
 export async function POST(request: Request, context: { params: Promise<{ unitId: string }> }) {
   if (!hasDatabaseUrl()) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
@@ -50,7 +56,15 @@ export async function POST(request: Request, context: { params: Promise<{ unitId
   }
 
   try {
-    return NextResponse.json(await decideUnitSale(claims, unitId, body.keepSelling));
+    return NextResponse.json(
+      await decideUnitSale(
+        claims,
+        unitId,
+        'keepSelling' in body
+          ? { question: 'keep_selling', keepSelling: body.keepSelling }
+          : { question: 'hide', hide: body.hide },
+      ),
+    );
   } catch (error) {
     const code = clientSafeErrorCode(error, 'update_failed');
     return NextResponse.json({ error: { code } }, { status: statusForSafeCode(code) });

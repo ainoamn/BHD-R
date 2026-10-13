@@ -48,9 +48,12 @@ export type PartyForm = {
 
 const EMPTY_SIGNATORY: SignatoryForm = { name: '', civilId: '', phone: '' };
 
-export function emptyPartyForm(minMonths: number): PartyForm {
+export function emptyPartyForm(
+  minMonths: number,
+  contractType: ContractUse = 'residential',
+): PartyForm {
   return {
-    contractType: 'residential',
+    contractType,
     termMonths: String(Math.max(minMonths, 12)),
     entityType: 'person',
     person: {
@@ -203,7 +206,9 @@ export function ReservationPartyForm({
           <legend>{ar ? 'العقد' : 'Contract'}</legend>
           <div className="stays-checkout__grid">
             <div className="field">
-              <label htmlFor="party-contract-type">{ar ? 'نوع العقد' : 'Contract type'}</label>
+              <label htmlFor="party-contract-type">
+                {ar ? 'نوع الاستخدام (العقد)' : 'Usage type (contract)'}
+              </label>
               <select
                 id="party-contract-type"
                 className="select"
