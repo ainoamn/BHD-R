@@ -2,6 +2,17 @@
 
 **تسليم الجلسة كاملة (0.2.24 → 0.8.33):** للاستكمال من جهاز آخر ابدأ من [`docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه خطوات الإعداد، والمراحل بالتاريخ والوقت، والمهام المفتوحة. ويرافقه فهرس الإصدارات (251 إصداراً) والمحادثة كاملة بعد حذف الأسرار.
 
+# CONTINUE — 2026-10-13 09:59 (مسقط)
+
+**0.8.38** · صفحة حجز الإقامة اليومية بتصميم صفحة حجز الإيجار الدائم:
+
+- `stays/[slug]/book/page.tsx` يستخدم `stays-book-shell stays-book-shell--wide-form` مثل `book/[unitId]`، مع سطر شارات `stays-book-shell__facts` يضم المواصفات والسعر والأوقات.
+- حُذفت `.stay-book`.
+- شريط خطوات `.stays-checkout--page` صار `grid-auto-flow: column`، فيتسع للخطوات الخمس في صفحة الإيجار.
+- حُسم بند «stay-book split layout» من القائمة المعلّقة.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.38-AR.md`](./docs/implementation/RELEASE-0.8.38-AR.md)
+
 # CONTINUE — 2026-10-13 09:46 (مسقط)
 
 **0.8.37** · ملاحظة على تحويل التأمين، ومساعد ذكي للملاحظات:
