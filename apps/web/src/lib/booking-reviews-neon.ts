@@ -44,6 +44,7 @@ import {
   type ReviewDirection,
   type ReviewText,
 } from '@/lib/review-rubric';
+import type { StayReviewPending } from '@/lib/stay-reviews-types';
 
 type DbHandle = { db: Database };
 type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
@@ -465,6 +466,65 @@ export async function assertGuestReviewOpen(referenceCode: string): Promise<void
     if (!found) fail('booking_not_found');
     if (!DEPARTED.has(found.status)) fail('review_not_open');
     if (await reviewExists(tx, found.id, 'guest_to_host')) fail('review_exists');
+  });
+}
+
+const GUEST_REVIEW_REMINDER_DAYS = 90;
+
+/** The account's departed stays it has not reviewed yet, newest check-out first (My trips). */
+export async function listPendingGuestReviews(userId: string): Promise<StayReviewPending[]> {
+  return elevated(async (tx) => {
+    const rows = await tx
+      .select({
+        bookingId: stayBookings.id,
+        referenceCode: stayBookings.referenceCode,
+        checkOutOn: sql<string>`${stayBookings.checkOutOn}::text`,
+        titleAr: properties.nameAr,
+        titleEn: properties.nameEn,
+        unitNameAr: units.nameAr,
+        unitNameEn: units.nameEn,
+        daysLeft: sql<number>`greatest(0, ${GUEST_REVIEW_REMINDER_DAYS}::int - (current_date - ${stayBookings.checkOutOn}))::int`,
+        coverImageUrl: sql<string | null>`(
+          select '/api/public/media/' || ma.id::text
+          from unit_media um
+          inner join media_assets ma on ma.id = um.media_asset_id
+          inner join units bu on bu.id = um.unit_id
+          where bu.property_id = ${stayBookings.propertyId}
+            and ma.processing_status = 'ready'
+            and ma.scan_status = 'clean'
+            and ma.mime_type like 'image/%'
+          order by um.position asc
+          limit 1
+        )`,
+      })
+      .from(stayBookings)
+      .innerJoin(properties, eq(properties.id, stayBookings.propertyId))
+      .leftJoin(units, eq(units.id, stayBookings.unitId))
+      .where(
+        and(
+          eq(stayBookings.userId, userId),
+          inArray(stayBookings.status, [...DEPARTED]),
+          sql`${stayBookings.checkOutOn} >= current_date - ${GUEST_REVIEW_REMINDER_DAYS}::int`,
+          sql`not exists (
+            select 1 from ${bookingReviews}
+            where ${bookingReviews.bookingId} = ${stayBookings.id}
+              and ${bookingReviews.direction} = 'guest_to_host'
+          )`,
+        ),
+      )
+      .orderBy(desc(stayBookings.checkOutOn))
+      .limit(20);
+    const title = (property: string, unit: string | null) =>
+      !unit ? property : unit.includes(property) ? unit : `${property} · ${unit}`;
+    return rows.map((row) => ({
+      bookingId: row.bookingId,
+      referenceCode: row.referenceCode,
+      checkOutOn: row.checkOutOn,
+      titleAr: title(row.titleAr, row.unitNameAr),
+      titleEn: title(row.titleEn ?? row.titleAr, row.unitNameEn ?? row.unitNameAr),
+      coverImageUrl: row.coverImageUrl,
+      daysLeft: row.daysLeft,
+    }));
   });
 }
 

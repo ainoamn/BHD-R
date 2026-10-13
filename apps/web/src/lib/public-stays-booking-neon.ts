@@ -1196,6 +1196,7 @@ export async function createPublicStayBookingOnNeon(
         unitTypeId: profileRow.unit_type_id,
         unitId: quote.unitId,
         stayProfileId: quote.stayProfileId,
+        userId: bookedBy?.userId ?? null,
         referenceCode,
         checkInOn: quote.checkInOn,
         checkOutOn: quote.checkOutOn,

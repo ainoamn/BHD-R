@@ -12938,9 +12938,6 @@ button.ops-row-key {
   padding: 0.45rem 0;
   border-block-end: 1px solid var(--border-subtle, #e7e5e4);
 }
-.stay-guest-info__smart strong {
-  font-size: 1.35rem;
-}
 .stay-reviews-timeline {
   list-style: none;
   margin: 0.85rem 0 0;

@@ -38,15 +38,13 @@ export function GuestPendingStayReviews({ locale }: { locale: string }) {
       <h2 id="guest-pending-reviews-title">{ar ? 'قيّم إقاماتك' : 'Rate your stays'}</h2>
       <p className="muted">
         {ar
-          ? 'بعد انتهاء الإقامة يظهر طلب التقييم مباشرة — ساعدنا في بناء التقييم الذكي للعقار.'
-          : 'Right after checkout, rate your stay — your feedback powers the smart property score.'}
+          ? 'بعد مغادرتك يظهر طلب التقييم هنا. يُنشر تقييمك في صفحة الإقامة بعد تسوية مبلغ التأمين.'
+          : 'After you check out, rate your stay here. Your review is published on the stay page once the deposit is settled.'}
       </p>
       <ul className="stay-reviews-timeline">
         {items.map((item) => {
           const cover = toPublicMediaSrc(item.coverImageUrl);
-          const href = item.slug
-            ? `/stays/${encodeURIComponent(item.slug)}#stay-reviews-title`
-            : `/guest/stays/${item.bookingId}?ref=${encodeURIComponent(item.referenceCode)}`;
+          const href = `/guest/stays/${item.bookingId}?ref=${encodeURIComponent(item.referenceCode)}#stay-review`;
           return (
             <li key={item.bookingId} className="stay-review-card stay-review-card--pending">
               <div className="stay-review-card__body">
@@ -65,7 +63,11 @@ export function GuestPendingStayReviews({ locale }: { locale: string }) {
                 </Link>
               </div>
               <div className="stay-review-card__thumb">
-                {cover ? <Image src={cover} alt="" fill sizes="96px" /> : <BrandMark tone="onDark" />}
+                {cover ? (
+                  <Image src={cover} alt="" fill sizes="96px" />
+                ) : (
+                  <BrandMark tone="onDark" />
+                )}
               </div>
             </li>
           );

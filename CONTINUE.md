@@ -2,6 +2,19 @@
 
 **تسليم الجلسة كاملة (0.2.24 → 0.8.33):** للاستكمال من جهاز آخر ابدأ من [`docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه خطوات الإعداد، والمراحل بالتاريخ والوقت، والمهام المفتوحة. ويرافقه فهرس الإصدارات (251 إصداراً) والمحادثة كاملة بعد حذف الأسرار.
 
+# CONTINUE — 2026-10-13 13:10 (مسقط)
+
+**0.8.47** · ربط الحجز بالحساب، وحذف «التقييم الذكي»:
+
+- **السبب:** `createPublicStayBookingOnNeon` كان يكتب `bookedBy` في `pricing_snapshot_json` فقط. صار يكتب أيضاً `userId: bookedBy?.userId ?? null`.
+- **«التقييم الذكي»:** حُذف من `StayGuestInfoSection`، وحُذف `loadStaySmartScoreOnNeon` (من `stay_reviews` والإشغال) وحقوله من `stayPublicDetailSchema`.
+- **«قيّم إقاماتك»:** صارت `listPendingGuestReviews` في `booking-reviews-neon`. تعرض الحجوزات `checked_out` أو `closed` للحساب بلا `guest_to_host`، خلال 90 يوماً، برابط `#stay-review`.
+- **محذوف:** `stay-reviews-neon.ts` و`stay-reviews-hub.tsx` و`/api/public/stays/reviews` و`/reviews/assist`. جدول `stay_reviews` باقٍ.
+- **ينتظر موافقة المستخدم:** ربط 3 حجوزات قديمة على الإنتاج (ST-6C2A8BBC وST-FE61E6C8 وST-1E372C24). الاستعلام في ملاحظات الإصدار.
+- **ملاحظة تشغيل:** بعد حذف مسارات يجب `npx next typegen`، وإلا يفشل `tsc` بسبب `.next/types/validator.ts` القديم.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.47-AR.md`](./docs/implementation/RELEASE-0.8.47-AR.md)
+
 # CONTINUE — 2026-10-13 12:45 (مسقط)
 
 **0.8.46** · طلب «قيّم الضيف» عند المغادرة وفي الجرس:

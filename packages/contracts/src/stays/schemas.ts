@@ -326,11 +326,6 @@ export const stayPublicDetailSchema = z.object({
   instructionsEn: z.string().nullable().optional(),
   coverImageUrl: z.string().nullable().optional(),
   imageUrls: z.array(z.string()).optional(),
-  /** Smart score /10 blending guest reviews + occupancy (optional on detail). */
-  smartScoreTen: z.number().nullable().optional(),
-  guestScoreTen: z.number().nullable().optional(),
-  occupancyPercent: z.number().nullable().optional(),
-  stayReviewCount: z.number().int().nullable().optional(),
 });
 
 export type StayProfile = z.infer<typeof stayProfileSchema>;

@@ -92,9 +92,7 @@ export function StayGuestInfoSection({
   ].filter(Boolean) as Array<{ label: string; value: ReactNode; dir?: 'ltr' | 'rtl' }>;
 
   const hasPolicies = Boolean(
-    detail.policiesJson ||
-      detail.policiesAr?.trim() ||
-      detail.policiesEn?.trim(),
+    detail.policiesJson || detail.policiesAr?.trim() || detail.policiesEn?.trim(),
   );
 
   if (
@@ -183,40 +181,6 @@ export function StayGuestInfoSection({
           </p>
         </section>
       )}
-
-      {detail.smartScoreTen != null || detail.guestScoreTen != null ? (
-        <section className="stay-guest-info stay-guest-info__smart property-360__section">
-          <h2>{ar ? 'التقييم الذكي' : 'Smart rating'}</h2>
-          <p>
-            {detail.smartScoreTen != null ? (
-              <>
-                <strong dir="ltr">{detail.smartScoreTen.toFixed(1)}</strong>
-                <span>/10</span>
-              </>
-            ) : null}
-            {detail.guestScoreTen != null ? (
-              <span className="muted">
-                {' '}
-                · {ar ? 'تقييم الضيوف' : 'Guest score'}{' '}
-                <span dir="ltr">{detail.guestScoreTen.toFixed(1)}</span>
-              </span>
-            ) : null}
-            {detail.occupancyPercent != null ? (
-              <span className="muted">
-                {' '}
-                · {ar ? 'نسبة الإشغال' : 'Occupancy'}{' '}
-                <span dir="ltr">{Math.round(detail.occupancyPercent)}%</span>
-              </span>
-            ) : null}
-            {detail.stayReviewCount != null ? (
-              <span className="muted">
-                {' '}
-                · {detail.stayReviewCount} {ar ? 'مراجعة إقامة' : 'stay reviews'}
-              </span>
-            ) : null}
-          </p>
-        </section>
-      ) : null}
     </Fragment>
   );
 }
