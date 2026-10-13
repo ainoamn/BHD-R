@@ -3,7 +3,10 @@ import { cookies } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { verifySessionToken } from '@bhd-r/authz';
 import { PropertyDetailManager, type ManagedProperty } from '@/components/property-detail-manager';
+import type { PropertyHubAccess } from '@/components/property-manage-hub';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { canOpenPortalPath, holdsSectionPermission, scopedOwnerParty } from '@/lib/portal-access';
+import { PROPERTY_RECORD_SECTIONS } from '@/lib/property-records-neon';
 import { requireSessionSecret } from '@/lib/runtime-env';
 import { ensurePublishedListingsMatchFlags } from '@/lib/create-property-neon';
 import { loadManagedPropertyFromNeon } from '@/lib/load-property-neon';
@@ -34,15 +37,19 @@ async function Page({
   const locale = rawLocale === 'en' ? 'en' : 'ar';
   if (propertyId === 'new') redirect(`/${locale}/owner/properties/new`);
   const viewer = await requirePortal(locale, 'owner');
+  // A building owner opens only their own properties, and never through the unscoped API.
+  const ownerPartyId = scopedOwnerParty(viewer);
 
   let property: ManagedProperty | null = null;
   const neonOrgId = hasDatabaseUrl() ? viewer.organizationId : null;
-  const opsPulsePromise: Promise<PropertyOpsPulse> = neonOrgId
-    ? loadPropertyOpsPulseOnNeon(neonOrgId, propertyId, {
-        userId: viewer.id,
-        partyId: viewer.partyId,
-      }).catch(() => emptyPropertyOpsPulse())
-    : Promise.resolve(emptyPropertyOpsPulse());
+  const loadPulse = (): Promise<PropertyOpsPulse> =>
+    neonOrgId
+      ? loadPropertyOpsPulseOnNeon(neonOrgId, propertyId, {
+          userId: viewer.id,
+          partyId: viewer.partyId,
+        }).catch(() => emptyPropertyOpsPulse())
+      : Promise.resolve(emptyPropertyOpsPulse());
+  const opsPulsePromise = ownerPartyId ? null : loadPulse();
 
   let saleDecisions: SaleDecisionUnit[] = [];
   // Prefer Neon for complete profile/maps/gallery when configured.
@@ -54,7 +61,7 @@ async function Page({
         const decisions = loadPropertySaleDecisions(claims, propertyId).catch(
           () => [] as SaleDecisionUnit[],
         );
-        await ensurePublishedListingsMatchFlags(claims, propertyId);
+        if (!ownerPartyId) await ensurePublishedListingsMatchFlags(claims, propertyId);
         saleDecisions = await decisions;
       } catch {
         /* ignore heal failures */
@@ -63,10 +70,11 @@ async function Page({
     property = await loadManagedPropertyFromNeon(neonOrgId, propertyId, {
       userId: viewer.id,
       partyId: viewer.partyId,
+      ownerPartyId,
     }).catch(() => null);
   }
 
-  if (!property) {
+  if (!property && !ownerPartyId) {
     try {
       property = await apiFetch<ManagedProperty>(
         `/v1/portfolio/properties/${encodeURIComponent(propertyId)}`,
@@ -78,7 +86,17 @@ async function Page({
 
   if (!property) notFound();
 
-  const opsPulse = await opsPulsePromise;
+  const opsPulse = await (opsPulsePromise ?? loadPulse());
+
+  const can = (permission: string) => viewer.permissions.includes(permission);
+  const hubAccess: PropertyHubAccess = {
+    sections: PROPERTY_RECORD_SECTIONS.filter((section) => holdsSectionPermission(viewer, section)),
+    edit: canOpenPortalPath(viewer, 'owner', '/properties/edit'),
+    archive: !ownerPartyId && (can('property.update') || can('property.archive')),
+    stays: canOpenPortalPath(viewer, 'owner', '/stays/setup'),
+    terms: canOpenPortalPath(viewer, 'owner', '/properties/terms'),
+    finance: can('payment.read') || can('invoice.read') || can('accounting.read'),
+  };
 
   const unitQuery = typeof query.unit === 'string' ? query.unit : query.unit?.[0];
   const focusUnitId =
@@ -97,6 +115,7 @@ async function Page({
         portal="owner"
         staysEnabled={isStaysPlatformEnabled()}
         opsPulse={opsPulse}
+        hubAccess={hubAccess}
         {...(focusUnitId ? { focusUnitId } : {})}
       />
     </>

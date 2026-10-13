@@ -30,6 +30,25 @@ const HUB_SECTIONS = [
 ] as const satisfies readonly PropertyRecordSection[];
 type HubSection = (typeof HUB_SECTIONS)[number];
 
+/** What the viewer's role opens on this page; the server enforces the same rules. */
+export type PropertyHubAccess = {
+  sections: readonly PropertyRecordSection[];
+  edit: boolean;
+  archive: boolean;
+  stays: boolean;
+  terms: boolean;
+  finance: boolean;
+};
+
+const FULL_HUB_ACCESS: PropertyHubAccess = {
+  sections: HUB_SECTIONS,
+  edit: true,
+  archive: true,
+  stays: true,
+  terms: true,
+  finance: true,
+};
+
 function parseHubSection(value: string | null): HubSection | null {
   return (HUB_SECTIONS as readonly string[]).includes(value ?? '') ? (value as HubSection) : null;
 }
@@ -141,12 +160,14 @@ export function PropertyManageHub({
   portal,
   staysEnabled = false,
   opsPulse,
+  access = FULL_HUB_ACCESS,
 }: {
   property: ManagedProperty;
   locale: 'ar' | 'en';
   portal: 'owner' | 'developer';
   staysEnabled?: boolean;
   opsPulse?: PropertyOpsPulse | null;
+  access?: PropertyHubAccess;
 }) {
   const router = useRouter();
   const ar = locale === 'ar';
@@ -165,7 +186,9 @@ export function PropertyManageHub({
     return () => observer.disconnect();
   }, []);
 
-  const activeSection = parseHubSection(useSearchParams().get('section'));
+  const requestedSection = parseHubSection(useSearchParams().get('section'));
+  const activeSection =
+    requestedSection && access.sections.includes(requestedSection) ? requestedSection : null;
   const base = `/${portal}`;
   const propertyId = encodeURIComponent(property.id);
   const publicPath = `/${locale}/properties/${property.id}`;
@@ -346,8 +369,15 @@ export function PropertyManageHub({
         href: contractsHref,
       });
     }
-    return items;
+    const canFollow = (href: string): boolean => {
+      if (href === editHref) return access.edit;
+      const section = parseHubSection(new URLSearchParams(href.split('?')[1]).get('section'));
+      return !section || access.sections.includes(section);
+    };
+    // A link the viewer cannot open stays as plain text.
+    return items.map((item) => (item.href && !canFollow(item.href) ? { text: item.text } : item));
   }, [
+    access,
     accountingHref,
     ar,
     bookingsHref,
@@ -503,6 +533,17 @@ export function PropertyManageHub({
       section: 'accounting',
     },
   ];
+  const visibleActions = actions.filter((action) =>
+    action.section
+      ? access.sections.includes(action.section)
+      : action.href === editHref
+        ? access.edit
+        : action.href === staysSetupHref
+          ? access.stays
+          : action.href === `${pageHref}/terms`
+            ? access.terms
+            : true,
+  );
 
   const stats: Array<{ label: string; value: number; icon: IconName; hint?: string }> = [
     {
@@ -576,7 +617,7 @@ export function PropertyManageHub({
           <strong>{name}</strong>
         </Link>
         <div className="pmh-actionbar__list">
-          {actions.map((action) =>
+          {visibleActions.map((action) =>
             action.section ? (
               <Link
                 key={action.href}
@@ -889,10 +930,15 @@ export function PropertyManageHub({
                 )}
               </Card>
 
+              {access.finance ? (
               <Card
                 title={ar ? 'المالية' : 'Finance'}
                 icon="chart"
-                link={{ href: sectionHref('accounting'), label: ar ? 'الحسابات' : 'Accounting' }}
+                link={
+                  access.sections.includes('accounting')
+                    ? { href: sectionHref('accounting'), label: ar ? 'الحسابات' : 'Accounting' }
+                    : undefined
+                }
               >
                 <dl className="pmh-finance">
                   {financeRows.map((row) => (
@@ -928,9 +974,11 @@ export function PropertyManageHub({
                   </>
                 ) : null}
               </Card>
+              ) : null}
             </aside>
           </div>
 
+          {access.archive ? (
           <section className="pmh-danger" aria-label={ar ? 'إجراءات حساسة' : 'Sensitive actions'}>
             <div className="pmh-danger__row">
               <div>
@@ -983,6 +1031,7 @@ export function PropertyManageHub({
               </div>
             ) : null}
           </section>
+          ) : null}
         </>
       )}
     </div>

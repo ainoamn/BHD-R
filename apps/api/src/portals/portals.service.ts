@@ -28,6 +28,10 @@ const ORG_WIDE_ROLES = new Set([
   'platform_admin',
   'platform_support',
   'developer_admin',
+  'admin_staff',
+  'building_guard',
+  'legal_counsel',
+  'custom_member',
 ]);
 
 /** Tenant portal actors (no staff roles) — scope by tenant party. */

@@ -13,13 +13,13 @@ import {
 } from '@bhd-r/db';
 import {
   PRODUCT_SESSION_MAX_AGE_SECONDS,
+  accessFromMemberships,
+  customRoleIds,
   issueSessionToken,
-  permissionsForRoles,
-  roleKeySchema,
   sessionClaimsSchema,
-  type Permission,
   type SessionClaims,
 } from '@bhd-r/authz';
+import { loadSavedRolePermissions } from '@/lib/organization-roles-read';
 import { requireCsrfSecret } from '@/lib/runtime-env';
 import { createCsrfToken } from '@bhd-r/security';
 import { verifyBhdIdToken } from '@/lib/bhd/verify-id-token';
@@ -199,24 +199,20 @@ async function issueForUser(
       membership === ownerMembership ? { ...membership, partyId: ownerPartyId } : membership,
     );
   }
-  const roles = organizationMemberships
-    .map((membership) => roleKeySchema.safeParse(membership.roleKey))
-    .filter((result) => result.success)
-    .map((result) => result.data);
-  const customPermissions = organizationMemberships
-    .flatMap((membership) => membership.permissions)
-    .filter(
-      (permission): permission is Permission =>
-        sessionClaimsSchema.shape.permissions.element.safeParse(permission).success,
-    );
+  const savedRoles = await loadSavedRolePermissions(
+    tx,
+    selectedOrganization,
+    customRoleIds(organizationMemberships),
+  );
+  const access = accessFromMemberships(organizationMemberships, savedRoles);
   const sid = randomUUID();
   const claims = sessionClaimsSchema.parse({
     sub: user.id,
     sid,
     organizationId: selectedOrganization,
-    partyId: organizationMemberships.find((membership) => membership.partyId)?.partyId ?? null,
-    roles,
-    permissions: [...new Set([...permissionsForRoles(roles), ...customPermissions])],
+    partyId: access.partyId,
+    roles: access.roles,
+    permissions: access.permissions,
     locale: user.locale === 'en' ? 'en' : 'ar',
     sessionVersion: user.sessionVersion,
   });

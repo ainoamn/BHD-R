@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { verifySessionToken } from '@bhd-r/authz';
 import { requireSessionSecret } from '@/lib/runtime-env';
+import { canOpenSection, portalsForRoles } from '@/lib/portal-access';
 import { isOperationsSection } from '@/lib/portal-ops-types';
 import { loadOperationsWorkspacePayload } from '@/lib/portal-ops-workspace';
 import type { PortalRole } from '@/lib/types';
@@ -14,28 +15,6 @@ const PORTALS = new Set<PortalRole>(['owner', 'developer', 'tenant', 'platform']
 
 function sessionSecret(): Uint8Array {
   return requireSessionSecret();
-}
-
-function portalsForRoles(roles: readonly string[]): PortalRole[] {
-  const portalSet = new Set<PortalRole>();
-  if (roles.some((role) => role === 'platform_admin' || role === 'platform_support'))
-    portalSet.add('platform');
-  if (roles.includes('developer_admin')) portalSet.add('developer');
-  if (roles.includes('tenant')) portalSet.add('tenant');
-  if (
-    roles.some((role) =>
-      [
-        'organization_owner',
-        'organization_admin',
-        'property_manager',
-        'finance_manager',
-        'maintenance_agent',
-        'auditor',
-      ].includes(role),
-    )
-  )
-    portalSet.add('owner');
-  return [...portalSet];
 }
 
 /**
@@ -65,12 +44,12 @@ export async function GET(
   }
 
   const allowed = portalsForRoles(claims.roles);
-  if (!allowed.includes(portal)) {
+  if (!allowed.includes(portal) || !canOpenSection(claims, portal, sectionRaw)) {
     return NextResponse.json({ error: { code: 'forbidden' } }, { status: 403 });
   }
 
   const locale = claims.locale === 'en' ? 'en' : 'ar';
-  const payload = await loadOperationsWorkspacePayload(portal, sectionRaw, locale);
+  const payload = await loadOperationsWorkspacePayload(portal, sectionRaw, claims, locale);
   return NextResponse.json(payload, {
     headers: {
       'Cache-Control': 'private, no-store',

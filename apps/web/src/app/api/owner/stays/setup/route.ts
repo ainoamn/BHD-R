@@ -134,7 +134,11 @@ export async function POST(request: Request) {
 
   let claims;
   try {
-    claims = await requireLiveSession(request, { requireCsrf: true });
+    claims = await requireLiveSession(request, {
+      requireCsrf: true,
+      anyPermission: ['stay.inventory.manage', 'stay.rate.manage'],
+      orgWide: true,
+    });
   } catch (error) {
     const mapped = guardErrorResponse(error);
     return NextResponse.json(mapped.body, { status: mapped.status });

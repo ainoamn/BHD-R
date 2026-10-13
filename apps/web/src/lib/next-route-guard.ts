@@ -2,9 +2,10 @@ import 'server-only';
 import { createHash } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { and, eq, isNull } from 'drizzle-orm';
-import { verifySessionToken, type SessionClaims } from '@bhd-r/authz';
+import { verifySessionToken, type Permission, type SessionClaims } from '@bhd-r/authz';
 import { createDatabase, sessions, users, type Database } from '@bhd-r/db';
 import { verifyCsrfToken } from '@bhd-r/security';
+import { scopedOwnerParty } from '@/lib/portal-access';
 import { requireCsrfSecret, requireSessionSecret } from '@/lib/runtime-env';
 
 type DbHandle = { db: Database };
@@ -67,7 +68,13 @@ function assertBrowserOrigin(request: Request): void {
  */
 export async function requireLiveSession(
   request: Request,
-  options: { requireCsrf?: boolean } = {},
+  options: {
+    requireCsrf?: boolean;
+    /** Holding any one of these is enough. */
+    anyPermission?: readonly Permission[];
+    /** Refuse building owners, whose access stops at their own properties. */
+    orgWide?: boolean;
+  } = {},
 ): Promise<SessionClaims> {
   const cookieStore = await cookies();
   const token = cookieStore.get('bhd_r_session')?.value;
@@ -114,6 +121,14 @@ export async function requireLiveSession(
     }
   }
 
+  if (
+    (options.anyPermission &&
+      !options.anyPermission.some((permission) => claims.permissions.includes(permission))) ||
+    (options.orgWide && scopedOwnerParty(claims))
+  ) {
+    throw new RouteGuardError(403, 'forbidden');
+  }
+
   return claims;
 }
 
@@ -129,6 +144,10 @@ export function guardErrorResponse(error: unknown): {
         ar: 'رمز الحماية مرفوض — حدّث الصفحة وأعد المحاولة',
       },
       misconfigured: { en: 'Server misconfigured', ar: 'إعداد الخادم غير مكتمل' },
+      forbidden: {
+        en: 'Your role does not allow this action',
+        ar: 'دورك في الفريق لا يسمح بهذا الإجراء',
+      },
     };
     const known = messages[error.code];
     return {

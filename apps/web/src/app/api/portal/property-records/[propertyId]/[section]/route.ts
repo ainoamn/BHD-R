@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { hasPermission, verifySessionToken, type Permission } from '@bhd-r/authz';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { canReviewGuests } from '@/lib/booking-reviews-neon';
+import { holdsSectionPermission, portalsForRoles } from '@/lib/portal-access';
 import {
   isPropertyRecordSection,
   loadAllPropertyBookings,
@@ -13,17 +14,6 @@ import { requireSessionSecret } from '@/lib/runtime-env';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 20;
-
-/** Same roles that may open the owner or developer portal (see /api/portal/ops). */
-const PROPERTY_PORTAL_ROLES = new Set([
-  'organization_owner',
-  'organization_admin',
-  'property_manager',
-  'finance_manager',
-  'maintenance_agent',
-  'auditor',
-  'developer_admin',
-]);
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -56,7 +46,12 @@ export async function GET(
   } catch {
     return NextResponse.json({ error: { code: 'unauthorized' } }, { status: 401 });
   }
-  if (!claims.organizationId || !claims.roles.some((role) => PROPERTY_PORTAL_ROLES.has(role))) {
+  const portals = portalsForRoles(claims.roles);
+  if (
+    !claims.organizationId ||
+    (!portals.includes('owner') && !portals.includes('developer')) ||
+    !holdsSectionPermission(claims, section)
+  ) {
     return NextResponse.json({ error: { code: 'forbidden' } }, { status: 403 });
   }
 

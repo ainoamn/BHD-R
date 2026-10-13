@@ -16,6 +16,7 @@ import {
   type Database,
 } from '@bhd-r/db';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { ORG_WIDE_ROLES, scopedOwnerParty } from '@/lib/portal-access';
 import { requireSessionSecret } from '@/lib/runtime-env';
 import { apiFetch } from '@/lib/server-api';
 import type { PortalOverview, PortalRole } from '@/lib/types';
@@ -24,18 +25,6 @@ import { applySessionSettings, viewerTenantSettings } from '@/lib/db-session-set
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdRWebDb?: DbHandle };
-
-const ORG_WIDE_ROLES = new Set([
-  'organization_owner',
-  'organization_admin',
-  'property_manager',
-  'finance_manager',
-  'maintenance_agent',
-  'auditor',
-  'platform_admin',
-  'platform_support',
-  'developer_admin',
-]);
 
 function sessionSecret(): Uint8Array {
   return requireSessionSecret();
@@ -52,9 +41,7 @@ function getSharedDatabase(): DbHandle {
 }
 
 function ownerPartyScope(claims: SessionClaims): string | null {
-  if (!claims.partyId) return null;
-  if (claims.roles.some((role) => ORG_WIDE_ROLES.has(role))) return null;
-  return claims.partyId;
+  return scopedOwnerParty(claims);
 }
 
 function tenantPartyScope(claims: SessionClaims): string | null {
@@ -199,6 +186,8 @@ async function organizationOverviewFromDb(claims: SessionClaims): Promise<Portal
               'reservation_document',
               'reservation_contract_esign',
             ]),
+            // Events are organization-wide; a building owner's feed would show other owners'.
+            ...(ownerPartyId ? [sql`false`] : []),
           ),
         )
         .orderBy(desc(workflowEvents.occurredAt))
@@ -227,7 +216,16 @@ async function organizationOverviewFromDb(claims: SessionClaims): Promise<Portal
       transaction
         .select({ value: count() })
         .from(stayBookings)
-        .where(eq(stayBookings.organizationId, orgId)),
+        .where(
+          ownedPropertyIds !== null
+            ? ownedPropertyIds.length
+              ? and(
+                  eq(stayBookings.organizationId, orgId),
+                  inArray(stayBookings.propertyId, ownedPropertyIds),
+                )
+              : sql`false`
+            : eq(stayBookings.organizationId, orgId),
+        ),
     ]);
 
     // One pipelined batch: both groups are independent.
@@ -411,6 +409,18 @@ async function tenantOverviewFromDb(claims: SessionClaims): Promise<PortalOvervi
   });
 }
 
+/** Guards and technicians see the portfolio counts, not the money. */
+function withoutFinanceFor(claims: SessionClaims, overview: PortalOverview): PortalOverview {
+  if (claims.permissions.includes('payment.read') || claims.permissions.includes('invoice.read'))
+    return overview;
+  return {
+    ...overview,
+    collected: [],
+    openInvoices: null,
+    alerts: (overview.alerts ?? []).filter((alert) => alert.code !== 'open_invoices'),
+  };
+}
+
 const emptyOverview = (): PortalOverview => ({
   occupancyPercent: null,
   collected: [],
@@ -430,6 +440,8 @@ export const loadPortalOverview = cache(async (portal: PortalRole): Promise<Port
     if (claims?.organizationId) {
       try {
         if (portal === 'tenant') {
+          const orgWide = claims.roles.some((role) => ORG_WIDE_ROLES.has(role));
+          if (!orgWide && !tenantPartyScope(claims)) return emptyOverview();
           return await withTimeoutFallback(
             tenantOverviewFromDb(claims),
             3_000,
@@ -437,12 +449,13 @@ export const loadPortalOverview = cache(async (portal: PortalRole): Promise<Port
             'tenant-overview-neon',
           );
         }
-        return await withTimeoutFallback(
+        const overview = await withTimeoutFallback(
           organizationOverviewFromDb(claims),
           3_000,
           emptyOverview(),
           'org-overview-neon',
         );
+        return withoutFinanceFor(claims, overview);
       } catch {
         /* fall through to Nest / empty */
       }

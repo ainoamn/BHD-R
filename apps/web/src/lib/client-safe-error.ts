@@ -72,6 +72,11 @@ const KNOWN_CODES = new Set([
   'team_member_exists',
   'team_member_not_found',
   'team_email_invalid',
+  'team_roles_required',
+  'team_owner_party_required',
+  'team_role_invalid',
+  'team_role_not_found',
+  'team_role_limit',
   'organization_not_member',
   'review_required',
   'review_exists',
@@ -121,6 +126,7 @@ export function statusForSafeCode(code: string): number {
     case 'contract_not_found':
     case 'party_not_found':
     case 'team_member_not_found':
+    case 'team_role_not_found':
     case 'reservation_not_found':
     case 'requirement_not_found':
       return 404;
@@ -147,8 +153,12 @@ export function statusForSafeCode(code: string): number {
       return 403;
     case 'team_seat_limit':
     case 'team_member_exists':
+    case 'team_role_limit':
       return 409;
     case 'team_email_invalid':
+    case 'team_roles_required':
+    case 'team_owner_party_required':
+    case 'team_role_invalid':
       return 400;
     case 'booking_not_approvable':
     case 'dates_unavailable':

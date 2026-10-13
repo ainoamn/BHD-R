@@ -2,6 +2,19 @@
 
 **تسليم الجلسة كاملة (0.2.24 → 0.8.33):** للاستكمال من جهاز آخر ابدأ من [`docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه خطوات الإعداد، والمراحل بالتاريخ والوقت، والمهام المفتوحة. ويرافقه فهرس الإصدارات (251 إصداراً) والمحادثة كاملة بعد حذف الأسرار.
 
+# CONTINUE — 2026-10-13 16:40 (مسقط)
+
+**0.8.54** · الفريق والأدوار:
+
+- **العضوية:** صف لكل دور في `memberships`. والدور المخصص `role_key = 'custom:<organization_roles.id>'`. عند الدخول تجمع `accessFromMemberships` (في authz) الأدوار وصلاحيات الأدوار المخصصة (`loadSavedRolePermissions`) وصلاحيات `permissions` الإضافية. ومالك العقار `property_owner` يحمل `party_id` لمالكه، وهو نطاقه.
+- **فتح الأقسام:** `apps/web/src/lib/portal-access.ts` هو المرجع الوحيد: `canOpenSection` و`canOpenPortalPath` و`scopedOwnerParty`. ويستخدمه الشريط الجانبي ولوحة التحكم ومسارات ops وصفحات الإقامة والشروط (`requirePortalPath`).
+- **`team-shared.ts` يُحمَّل في المتصفح:** لا يستورد من `@bhd-r/authz` إلا الأنواع، لأن الحزمة تستورد `node:crypto`.
+- **مسارات الفريق** تستدعي `requireLiveSession({ requireCsrf: true, anyPermission: TEAM_WRITE })` و`clientSafeErrorCode` بنفسها، لأن اختبار السياسة يقرأ نص المسار.
+- **الترحيل 0030 على الإنتاج ينتظر موافقة المستخدم.** `readSavedRoles` تعمل بنقطة حفظ (savepoint)، فالصفحة لا تتعطل قبل الترحيل.
+- **بعد تعديل `portal-overview.tsx`** قدّم خادم التطوير نسخة نصف محدَّثة. أعِد تشغيله واحذف `.next/dev` قبل الحكم على النتيجة.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.54-AR.md`](./docs/implementation/RELEASE-0.8.54-AR.md)
+
 # CONTINUE — 2026-10-13 15:50 (مسقط)
 
 **0.8.53** · تقييم الوحدة مقابل تقييم المبنى:

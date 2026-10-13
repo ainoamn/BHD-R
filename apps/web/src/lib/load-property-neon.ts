@@ -60,7 +60,7 @@ function publicMediaUrl(objectKey: string | null | undefined): string | null {
 export async function loadManagedPropertyFromNeon(
   organizationId: string,
   propertyId: string,
-  viewer: { userId: string; partyId?: string | null },
+  viewer: { userId: string; partyId?: string | null; ownerPartyId?: string | null },
 ): Promise<ManagedProperty | null> {
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
@@ -74,7 +74,11 @@ export async function loadManagedPropertyFromNeon(
     });
 
     const property = await transaction.query.properties.findFirst({
-      where: and(eq(properties.id, propertyId), eq(properties.organizationId, organizationId)),
+      where: and(
+        eq(properties.id, propertyId),
+        eq(properties.organizationId, organizationId),
+        ...(viewer.ownerPartyId ? [eq(properties.ownerPartyId, viewer.ownerPartyId)] : []),
+      ),
     });
     if (!property) return null;
 

@@ -10,7 +10,7 @@ import { formatMoney } from '@/lib/format';
 import { formatListingLocation } from '@/lib/listing-card-copy';
 import { PropertyQrCard } from '@/components/property-qr-card';
 import { PublicListingActions } from '@/components/public-listing-actions';
-import { PropertyManageHub } from '@/components/property-manage-hub';
+import { PropertyManageHub, type PropertyHubAccess } from '@/components/property-manage-hub';
 import { PropertyReviewScore } from '@/components/property-review-score';
 import { ReputationView } from '@/components/reviews/reputation-view';
 import { StayGuestInfoSection } from '@/components/stays/stay-guest-info-section';
@@ -192,6 +192,7 @@ export function PropertyDetailManager({
   signedIn = false,
   staysEnabled = false,
   opsPulse = null,
+  hubAccess,
   stayBooking,
   stayDetail = null,
   stayRating = null,
@@ -210,6 +211,8 @@ export function PropertyDetailManager({
   staysEnabled?: boolean;
   /** Live bookings/contracts/finance for owner/developer manage hub. */
   opsPulse?: import('@/lib/property-ops-pulse-neon').PropertyOpsPulse | null;
+  /** What the viewer's team role opens in the manage hub (everything when omitted). */
+  hubAccess?: PropertyHubAccess;
   /** Daily-stay booking replaces rent/sale CTAs in the public sidebar. */
   stayBooking?: {
     slug: string;
@@ -403,6 +406,7 @@ export function PropertyDetailManager({
         portal={portal}
         staysEnabled={staysEnabled}
         opsPulse={opsPulse}
+        {...(hubAccess ? { access: hubAccess } : {})}
       />
     );
   }

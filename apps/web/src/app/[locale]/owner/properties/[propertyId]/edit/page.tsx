@@ -12,13 +12,14 @@ import { loadPropertyStaySettingsOnNeon } from '@/lib/stay-setup-neon';
 import { readSessionClaimsFromCookies } from '@/lib/stay-setup-session';
 import { isStaysPlatformEnabled } from '@/lib/stays-flags';
 import { ApiError, apiFetch } from '@/lib/server-api';
-import { requirePortal } from '@/lib/viewer';
+import { requirePortal, requirePortalPath } from '@/lib/viewer';
 
 async function Page({ params }: { params: Promise<{ locale: string; propertyId: string }> }) {
   const { locale: rawLocale, propertyId } = await params;
   const locale = rawLocale === 'en' ? 'en' : 'ar';
   if (propertyId === 'new') redirect(`/${locale}/owner/properties/new`);
   const viewer = await requirePortal(locale, 'owner');
+  await requirePortalPath('owner', '/properties/edit');
   const t = await getTranslations();
   if (!viewer.organizationId) return <EmptyState title={t('Portal.noData')} />;
 

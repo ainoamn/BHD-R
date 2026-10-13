@@ -308,6 +308,24 @@ export const memberships = pgTable(
   ],
 );
 
+/** Team roles an organization defines itself; members hold them as role_key 'custom:<id>'. */
+export const organizationRoles = pgTable(
+  'organization_roles',
+  {
+    ...identityColumns,
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    nameAr: varchar('name_ar', { length: 80 }).notNull(),
+    nameEn: varchar('name_en', { length: 80 }).notNull(),
+    description: varchar('description', { length: 300 }),
+    permissions: jsonb('permissions').$type<string[]>().notNull().default([]),
+    status: lifecycleStatus('status').notNull().default('active'),
+    createdByUserId: uuid('created_by_user_id').references(() => users.id),
+  },
+  (table) => [index('organization_roles_org_idx').on(table.organizationId, table.status)],
+);
+
 export const sessions = pgTable(
   'sessions',
   {

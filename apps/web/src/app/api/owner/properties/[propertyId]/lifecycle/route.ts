@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
-import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
+import { guardErrorResponse, requireLiveSession, RouteGuardError } from '@/lib/next-route-guard';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 import {
   archivePropertyOnNeon,
@@ -90,7 +90,11 @@ export async function POST(request: Request, context: Ctx) {
 
   let claims;
   try {
-    claims = await requireLiveSession(request, { requireCsrf: true });
+    claims = await requireLiveSession(request, {
+      requireCsrf: true,
+      anyPermission: ['property.update', 'property.archive'],
+      orgWide: true,
+    });
   } catch (error) {
     const mapped = guardErrorResponse(error);
     return NextResponse.json(mapped.body, { status: mapped.status });
@@ -122,6 +126,12 @@ export async function POST(request: Request, context: Ctx) {
       },
       { status: 400 },
     );
+  }
+
+  const needed = action === 'purge' ? 'property.archive' : 'property.update';
+  if (!claims.permissions.includes(needed)) {
+    const mapped = guardErrorResponse(new RouteGuardError(403, 'forbidden'));
+    return NextResponse.json(mapped.body, { status: mapped.status });
   }
 
   try {

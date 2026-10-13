@@ -5,6 +5,7 @@ import { createDatabase, memberships, users, type Database } from '@bhd-r/db';
 import { verifySessionToken } from '@bhd-r/authz';
 import type { PortalRole, Viewer } from './types';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { canOpenPortalPath, portalsForRoles as portalsForRoleKeys } from '@/lib/portal-access';
 import { requireSessionSecret } from '@/lib/runtime-env';
 
 type DbHandle = { db: Database };
@@ -16,26 +17,8 @@ function sessionSecret(): Uint8Array {
 }
 
 function portalsForRoles(roles: readonly string[]): PortalRole[] {
-  const portalSet = new Set<PortalRole>();
-  if (roles.some((role) => role === 'platform_admin' || role === 'platform_support'))
-    portalSet.add('platform');
-  if (roles.includes('developer_admin')) portalSet.add('developer');
   // Any account can rent or book; the tenant space finds its records by verified email.
-  portalSet.add('tenant');
-  if (
-    roles.some((role) =>
-      [
-        'organization_owner',
-        'organization_admin',
-        'property_manager',
-        'finance_manager',
-        'maintenance_agent',
-        'auditor',
-      ].includes(role),
-    )
-  )
-    portalSet.add('owner');
-  return [...portalSet];
+  return portalsForRoleKeys(roles, { tenantForEveryone: true });
 }
 
 function getSharedDatabase(): DbHandle {
@@ -188,6 +171,15 @@ export async function requirePortal(locale: string, portal: PortalRole): Promise
     throw new Error('unreachable');
   }
   return viewer;
+}
+
+/** Pages outside the ops sections follow the same rules as their sidebar entry. */
+export async function requirePortalPath(portal: PortalRole, path: string): Promise<void> {
+  const viewer = await getShellViewer();
+  if (!viewer || !canOpenPortalPath(viewer, portal, path)) {
+    const { notFound } = await import('next/navigation');
+    notFound();
+  }
 }
 
 /** Layout-only gate: prefer shell viewer so navigations do not blank the chrome. */

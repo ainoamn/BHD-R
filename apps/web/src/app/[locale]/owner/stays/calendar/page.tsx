@@ -11,6 +11,7 @@ import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { listOwnerStayCalendarUnitsOnNeon } from '@/lib/owner-stays-ops-neon';
 import { requireSessionSecret } from '@/lib/runtime-env';
 import { isStaysPlatformEnabled } from '@/lib/stays-flags';
+import { requirePortalPath } from '@/lib/viewer';
 import { apiFetch } from '@/lib/server-api';
 
 async function loadUnits(): Promise<StayCalendarUnit[]> {
@@ -40,6 +41,7 @@ async function Page({
   searchParams: Promise<{ unitId?: string; view?: string }>;
 }) {
   if (!isStaysPlatformEnabled()) notFound();
+  await requirePortalPath('owner', '/stays/calendar');
   const { locale } = await params;
   const { unitId, view } = await searchParams;
   const items = await loadUnits();

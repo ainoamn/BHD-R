@@ -53,7 +53,10 @@ export async function GET(request: Request) {
 
   let claims;
   try {
-    claims = await requireLiveSession(request);
+    claims = await requireLiveSession(request, {
+      anyPermission: ['stay.inventory.manage', 'stay.rate.manage'],
+      orgWide: true,
+    });
   } catch (error) {
     const mapped = guardErrorResponse(error);
     return NextResponse.json(mapped.body, { status: mapped.status });

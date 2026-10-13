@@ -8018,19 +8018,25 @@ body:has(.stays-booking-receipt) #main-content {
   font-size: 0.7rem;
   font-weight: 700;
 }
-.team-layout {
+.team-stack {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(18rem, 1fr);
   gap: 1rem;
-  align-items: start;
 }
-.team-layout > .team-guide {
-  grid-column: 1 / -1;
+.team-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
 }
-@media (max-width: 960px) {
-  .team-layout {
-    grid-template-columns: 1fr;
-  }
+.team-card__head h2 {
+  margin: 0;
+}
+.team-add-toggle {
+  min-height: 2.4rem;
+  padding-inline: 1rem;
+  font-size: 0.84rem;
 }
 .team-card {
   margin: 0;
@@ -8204,6 +8210,7 @@ body:has(.stays-booking-receipt) #main-content {
 }
 .team-add__grid {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
   gap: 0.7rem;
 }
 .team-field {
@@ -8237,6 +8244,7 @@ body:has(.stays-booking-receipt) #main-content {
 }
 .team-caps {
   display: grid;
+  align-content: start;
   gap: 0.35rem;
   margin: 0;
   padding: 0.7rem 0.8rem;
@@ -8297,6 +8305,188 @@ body:has(.stays-booking-receipt) #main-content {
   margin: 0.2rem 0 0;
   color: var(--muted);
   font-size: 0.76rem;
+}
+.team-guide h3 {
+  margin: 0.4rem 0 0;
+  color: var(--maroon-950);
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+.team-tabs {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding: 0.3rem;
+  background: rgb(255 255 255 / 0.9);
+  border: 1px solid rgb(9 45 36 / 0.08);
+  border-radius: 0.95rem;
+  scrollbar-width: thin;
+}
+.team-tab {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.4rem;
+  padding: 0.4rem 0.9rem;
+  color: var(--oman-deep);
+  background: transparent;
+  border: 0;
+  border-radius: 0.7rem;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.team-tab small {
+  min-width: 1.4rem;
+  padding: 0.05rem 0.4rem;
+  color: var(--muted);
+  background: #eef2f0;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  text-align: center;
+}
+.team-tab:hover {
+  background: #f1f6f3;
+}
+.team-tab.is-active {
+  color: white;
+  background: linear-gradient(145deg, var(--bhd-teal), var(--oman-deep));
+}
+.team-tab.is-active small {
+  color: var(--oman-deep);
+  background: rgb(255 255 255 / 0.85);
+}
+.team-role-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.team-role--organization_admin,
+.team-role--developer_admin {
+  color: #5b2a86;
+  background: #efe6f8;
+}
+.team-role--auditor {
+  color: #4a4a4a;
+  background: #ececea;
+}
+.team-role--admin_staff {
+  color: #1d4f91;
+  background: #e3edfa;
+}
+.team-role--legal_counsel {
+  color: #7a1f2b;
+  background: #f7e4e6;
+}
+.team-role--building_guard {
+  color: #3d5a1a;
+  background: #ebf3df;
+}
+.team-role--property_owner {
+  color: #6b4a17;
+  background: #f6ead3;
+}
+.team-role--custom {
+  color: #0b5f5c;
+  background: #dff4f3;
+}
+.team-roles {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid #e4ebe7;
+  border-radius: 0.8rem;
+}
+.team-roles legend {
+  padding: 0 0.3rem;
+  color: var(--oman-deep);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+.team-roles__group {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: 0.4rem;
+}
+.team-roles__title {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.team-role-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 0.6rem;
+  background: #fbfcfb;
+  border: 1px solid #e4ebe7;
+  border-radius: 0.7rem;
+  cursor: pointer;
+}
+.team-role-option:has(input:checked) {
+  background: #eaf7f5;
+  border-color: var(--bhd-teal);
+}
+.team-role-option input {
+  margin-top: 0.2rem;
+  accent-color: var(--bhd-teal);
+}
+.team-role-option span {
+  display: grid;
+  gap: 0.1rem;
+}
+.team-role-option strong {
+  color: var(--oman-deep);
+  font-size: 0.82rem;
+}
+.team-role-option small {
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+.team-role-option.is-locked {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.team-caps-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 0.6rem;
+}
+.team-caps-groups__legend {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--oman-deep);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+.team-caps__all {
+  justify-self: end;
+  padding: 0.1rem 0.5rem;
+  color: var(--bhd-teal);
+  background: transparent;
+  border: 1px solid #cde7e5;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.team-field--inline {
+  grid-auto-flow: column;
+  align-items: center;
+}
+.team-field--inline select {
+  min-height: 2.1rem;
+  font-size: 0.78rem;
+}
+.team-search {
+  max-width: 22rem;
+  margin-bottom: 0.7rem;
 }
 
 .button--gold {

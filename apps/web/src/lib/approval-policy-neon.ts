@@ -2,14 +2,14 @@ import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import {
+  accessFromMemberships,
+  customRoleIds,
   hasPermission,
-  permissionsForRoles,
-  roleKeySchema,
-  sessionClaimsSchema,
   type Permission,
   type SessionClaims,
 } from '@bhd-r/authz';
 import { memberships, properties, stayPolicies, users } from '@bhd-r/db';
+import { loadSavedRolePermissions } from '@/lib/organization-roles-read';
 import {
   DEFAULT_APPROVAL_POLICY,
   sanitizeApprovalPolicy,
@@ -241,23 +241,17 @@ export async function delegateClaims(
       ),
   );
   if (!rows.length) return null;
-  const roles = rows
-    .map((row) => roleKeySchema.safeParse(row.roleKey))
-    .filter((result) => result.success)
-    .map((result) => result.data);
-  const custom = rows
-    .flatMap((row) => row.permissions)
-    .filter(
-      (permission): permission is Permission =>
-        sessionClaimsSchema.shape.permissions.element.safeParse(permission).success,
-    );
+  const savedRoles = await withElevatedRead(transaction, () =>
+    loadSavedRolePermissions(transaction, organizationId, customRoleIds(rows)),
+  );
+  const access = accessFromMemberships(rows, savedRoles);
   const claims: SessionClaims = {
     sub: delegate.userId,
     sid: randomUUID(),
     organizationId,
-    partyId: rows.find((row) => row.partyId)?.partyId ?? null,
-    roles,
-    permissions: [...new Set([...permissionsForRoles(roles), ...custom])],
+    partyId: access.partyId,
+    roles: access.roles,
+    permissions: access.permissions,
     locale: 'ar',
     sessionVersion: 0,
   };

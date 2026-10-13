@@ -1,14 +1,21 @@
 'use client';
 
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import {
+  CAPABILITY_GROUPS,
+  isCustomRoleKey,
+  ROLE_GROUPS,
   ROLE_LABELS,
   roleLabel,
+  savedRoleKey,
   TEAM_CAPABILITIES,
   validTeamEmail,
+  type PropertyOwnerMember,
+  type SavedRole,
   type TeamMember,
   type TeamView,
+  type TenantMember,
 } from '@/lib/team-shared';
 
 const ERRORS: Record<string, [string, string]> = {
@@ -22,10 +29,24 @@ const ERRORS: Record<string, [string, string]> = {
   ],
   team_self_change: ['لا يمكنك تعديل صلاحياتك بنفسك.', 'You cannot change your own access.'],
   team_owner_locked: ['صلاحيات المالك ثابتة.', 'The owner’s access cannot be changed.'],
-  team_member_exists: ['هذا البريد عضو في الفريق بالفعل.', 'This email is already on the team.'],
+  team_member_exists: ['هذا البريد مضاف بالفعل.', 'This email is already added.'],
   team_member_not_found: ['العضو غير موجود.', 'Member not found.'],
   team_email_invalid: ['البريد الإلكتروني غير صحيح.', 'The email is invalid.'],
-  forbidden: ['لا تملك صلاحية إدارة الفريق.', 'You cannot manage the team.'],
+  team_roles_required: ['اختر دوراً واحداً على الأقل.', 'Choose at least one role.'],
+  team_owner_party_required: [
+    'اختر المالك من ملاك العقارات المسجلين.',
+    'Choose the owner from the registered property owners.',
+  ],
+  team_role_invalid: [
+    'أدخل اسماً للدور واختر صلاحية واحدة على الأقل.',
+    'Name the role and choose at least one permission.',
+  ],
+  team_role_not_found: ['الدور غير موجود.', 'Role not found.'],
+  team_role_limit: [
+    'وصلت إلى الحد الأعلى للأدوار المخصصة (30).',
+    'Custom role limit (30) reached.',
+  ],
+  forbidden: ['لا تملك صلاحية هذا الإجراء.', 'You cannot do this.'],
   rate_limited: ['محاولات كثيرة، انتظر دقيقة.', 'Too many attempts; wait a minute.'],
 };
 
@@ -37,80 +58,212 @@ function errorText(error: unknown, ar: boolean): string {
   return ar ? 'تعذر حفظ التغيير. أعد المحاولة.' : 'Could not save. Try again.';
 }
 
+function capabilityLabel(id: string, ar: boolean): string {
+  const capability = TEAM_CAPABILITIES.find((item) => item.id === id);
+  return capability ? (ar ? capability.ar : capability.en) : id;
+}
+
+/** Capabilities that come with any of the given roles. */
+function includedBy(view: TeamView, roles: readonly string[]): Set<string> {
+  return new Set(roles.flatMap((role) => view.roleCapabilities[role] ?? []));
+}
+
+function statusInfo(
+  status: 'active' | 'inactive',
+  signedIn: boolean,
+  ar: boolean,
+): { text: string; className: string } {
+  if (status !== 'active') return { text: ar ? 'معطّل' : 'Disabled', className: 'is-off' };
+  if (signedIn) return { text: ar ? 'نشط' : 'Active', className: 'is-on' };
+  return { text: ar ? 'بانتظار أول دخول' : 'Awaiting first sign-in', className: 'is-pending' };
+}
+
+function useMutation(ar: boolean) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const run = async (path: string, method: 'POST' | 'PATCH' | 'DELETE', body?: object) => {
+    setBusy(true);
+    setError(null);
+    try {
+      return await browserNextMutation<Record<string, unknown>>(path, {
+        method,
+        ...(body ? { body: JSON.stringify(body) } : {}),
+      });
+    } catch (caught) {
+      setError(errorText(caught, ar));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  };
+  return { busy, error, setError, run };
+}
+
 function CapabilityPicker({
   ar,
-  role,
+  view,
+  included,
+  selected,
+  onChange,
+  legend,
+}: {
+  ar: boolean;
+  view: TeamView;
+  included: ReadonlySet<string>;
+  selected: string[];
+  onChange: (next: string[]) => void;
+  legend: string;
+}) {
+  const grantable = new Set(view.grantableCapabilities);
+  return (
+    <div className="team-caps-groups">
+      <p className="team-caps-groups__legend">{legend}</p>
+      {CAPABILITY_GROUPS.map((group) => {
+        const open = group.capabilities.filter(
+          (capability) => grantable.has(capability.id) && !included.has(capability.id),
+        );
+        const allOn =
+          open.length > 0 && open.every((capability) => selected.includes(capability.id));
+        return (
+          <fieldset key={group.id} className="team-caps">
+            <legend>{ar ? group.ar : group.en}</legend>
+            {open.length > 1 ? (
+              <button
+                type="button"
+                className="team-caps__all"
+                onClick={() =>
+                  onChange(
+                    allOn
+                      ? selected.filter((id) => !open.some((capability) => capability.id === id))
+                      : [...new Set([...selected, ...open.map((capability) => capability.id)])],
+                  )
+                }
+              >
+                {allOn ? (ar ? 'إلغاء الكل' : 'Clear all') : ar ? 'تحديد الكل' : 'Select all'}
+              </button>
+            ) : null}
+            {group.capabilities.map((capability) => {
+              const inRole = included.has(capability.id);
+              const allowed = grantable.has(capability.id);
+              return (
+                <label
+                  key={capability.id}
+                  className={
+                    inRole ? 'team-cap is-included' : allowed ? 'team-cap' : 'team-cap is-locked'
+                  }
+                >
+                  <input
+                    type="checkbox"
+                    checked={inRole || selected.includes(capability.id)}
+                    disabled={inRole || !allowed}
+                    onChange={(event) =>
+                      onChange(
+                        event.target.checked
+                          ? [...selected, capability.id]
+                          : selected.filter((id) => id !== capability.id),
+                      )
+                    }
+                  />
+                  <span>{ar ? capability.ar : capability.en}</span>
+                  {inRole ? <small>{ar ? 'ضمن الدور' : 'In role'}</small> : null}
+                </label>
+              );
+            })}
+          </fieldset>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Built-in and saved roles as toggles; a member may hold several. */
+function RolePicker({
+  ar,
   view,
   selected,
+  held = [],
   onChange,
 }: {
   ar: boolean;
-  role: string;
   view: TeamView;
   selected: string[];
+  /** Roles the member already holds; kept even when the actor could not give them. */
+  held?: readonly string[];
   onChange: (next: string[]) => void;
 }) {
-  const included = new Set(view.roleCapabilities[role] ?? []);
-  const grantable = new Set(view.grantableCapabilities);
+  const assignable = new Set<string>(view.assignableRoles);
+  const savedAssignable = new Set(view.assignableSavedRoles.map(savedRoleKey));
+  const toggle = (role: string, on: boolean) =>
+    onChange(on ? [...selected, role] : selected.filter((item) => item !== role));
+  const option = (role: string, label: string, hint: string | null, allowed: boolean) => (
+    <label key={role} className={allowed ? 'team-role-option' : 'team-role-option is-locked'}>
+      <input
+        type="checkbox"
+        checked={selected.includes(role)}
+        disabled={!allowed}
+        onChange={(event) => toggle(role, event.target.checked)}
+      />
+      <span>
+        <strong>{label}</strong>
+        {hint ? <small>{hint}</small> : null}
+      </span>
+    </label>
+  );
   return (
-    <fieldset className="team-caps">
-      <legend>{ar ? 'صلاحيات إضافية على الدور' : 'Extra permissions on top of the role'}</legend>
-      {TEAM_CAPABILITIES.map((capability) => {
-        const inRole = included.has(capability.id);
-        const allowed = grantable.has(capability.id);
-        const checked = inRole || selected.includes(capability.id);
+    <fieldset className="team-roles">
+      <legend>{ar ? 'الأدوار (يمكن اختيار أكثر من دور)' : 'Roles (choose one or more)'}</legend>
+      {ROLE_GROUPS.map((group) => {
+        const roles = group.roles.filter((role) => assignable.has(role) || held.includes(role));
+        if (!roles.length) return null;
         return (
-          <label
-            key={capability.id}
-            className={
-              inRole ? 'team-cap is-included' : allowed ? 'team-cap' : 'team-cap is-locked'
-            }
-          >
-            <input
-              type="checkbox"
-              checked={checked}
-              disabled={inRole || !allowed}
-              onChange={(event) =>
-                onChange(
-                  event.target.checked
-                    ? [...selected, capability.id]
-                    : selected.filter((id) => id !== capability.id),
-                )
-              }
-            />
-            <span>{ar ? capability.ar : capability.en}</span>
-            {inRole ? <small>{ar ? 'ضمن الدور' : 'In role'}</small> : null}
-          </label>
+          <div key={group.id} className="team-roles__group">
+            <span className="team-roles__title">{ar ? group.ar : group.en}</span>
+            {roles.map((role) => {
+              const label = ROLE_LABELS[role]!;
+              return option(
+                role,
+                ar ? label.ar : label.en,
+                ar ? label.hintAr : label.hintEn,
+                assignable.has(role),
+              );
+            })}
+          </div>
         );
       })}
+      {view.savedRoles.length ? (
+        <div className="team-roles__group">
+          <span className="team-roles__title">{ar ? 'أدوار مخصصة' : 'Custom roles'}</span>
+          {view.savedRoles
+            .filter(
+              (role) =>
+                savedAssignable.has(savedRoleKey(role.id)) || held.includes(savedRoleKey(role.id)),
+            )
+            .map((role) =>
+              option(
+                savedRoleKey(role.id),
+                ar ? role.nameAr : role.nameEn || role.nameAr,
+                role.description,
+                savedAssignable.has(savedRoleKey(role.id)),
+              ),
+            )}
+        </div>
+      ) : null}
     </fieldset>
   );
 }
 
-function RoleSelect({
-  ar,
-  roles,
-  value,
-  onChange,
-}: {
-  ar: boolean;
-  roles: string[];
-  value: string;
-  onChange: (role: string) => void;
-}) {
-  const hint = ROLE_LABELS[value];
+function RoleChips({ ar, roles, view }: { ar: boolean; roles: readonly string[]; view: TeamView }) {
   return (
-    <label className="team-field">
-      <span>{ar ? 'الدور' : 'Role'}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)}>
-        {roles.map((role) => (
-          <option key={role} value={role}>
-            {roleLabel(role, ar)}
-          </option>
-        ))}
-      </select>
-      {hint ? <small>{ar ? hint.hintAr : hint.hintEn}</small> : null}
-    </label>
+    <span className="team-role-chips">
+      {roles.map((role) => (
+        <span
+          key={role}
+          className={`team-role team-role--${isCustomRoleKey(role) ? 'custom' : role}`}
+        >
+          {roleLabel(role, ar, view.savedRoles)}
+        </span>
+      ))}
+    </span>
   );
 }
 
@@ -118,57 +271,45 @@ function AddMemberForm({
   ar,
   view,
   onDone,
+  onCancel,
 }: {
   ar: boolean;
   view: TeamView;
   onDone: (message: string) => void;
+  onCancel: () => void;
 }) {
-  const defaultRole = view.assignableRoles.includes('finance_manager')
-    ? 'finance_manager'
-    : (view.assignableRoles[0] ?? '');
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
-  const [role, setRole] = useState<string>(defaultRole);
+  const [roles, setRoles] = useState<string[]>([]);
   const [extras, setExtras] = useState<string[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, setError, run } = useMutation(ar);
   const full = view.seats.used >= view.seats.limit;
+  const included = includedBy(view, roles);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!validTeamEmail(email)) {
-      setError(ERRORS.team_email_invalid![ar ? 0 : 1]);
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      const result = await browserNextMutation<{ existingAccount: boolean }>('/api/owner/team', {
-        method: 'POST',
-        body: JSON.stringify({
-          email: email.trim(),
-          ...(name.trim() ? { displayName: name.trim() } : {}),
-          role,
-          capabilities: extras.filter((id) => !(view.roleCapabilities[role] ?? []).includes(id)),
-        }),
-      });
-      setEmail('');
-      setName('');
-      setExtras([]);
-      onDone(
-        ar
-          ? result.existingAccount
-            ? 'أُضيف العضو. سيجد الفريق في قائمة حسابه عند دخوله.'
-            : 'أُضيف العضو وأُرسل له بريد. ينضم عند أول دخول بحساب BHD بنفس البريد.'
-          : result.existingAccount
-            ? 'Member added. They will find the team in their account menu.'
-            : 'Member added and emailed. They join on first BHD sign-in with that email.',
-      );
-    } catch (caught) {
-      setError(errorText(caught, ar));
-    } finally {
-      setBusy(false);
-    }
+    if (!validTeamEmail(email)) return setError(ERRORS.team_email_invalid![ar ? 0 : 1]);
+    if (!roles.length) return setError(ERRORS.team_roles_required![ar ? 0 : 1]);
+    const result = await run('/api/owner/team', 'POST', {
+      email: email.trim(),
+      ...(name.trim() ? { displayName: name.trim() } : {}),
+      roles,
+      capabilities: extras.filter((id) => !included.has(id)),
+    });
+    if (!result) return;
+    setEmail('');
+    setName('');
+    setRoles([]);
+    setExtras([]);
+    onDone(
+      ar
+        ? result.existingAccount
+          ? 'أُضيف العضو. سيجد الفريق في قائمة حسابه عند دخوله.'
+          : 'أُضيف العضو وأُرسل له بريد. ينضم عند أول دخول بحساب BHD بنفس البريد.'
+        : result.existingAccount
+          ? 'Member added. They will find the team in their account menu.'
+          : 'Member added and emailed. They join on first BHD sign-in with that email.',
+    );
   };
 
   return (
@@ -176,8 +317,8 @@ function AddMemberForm({
       <h2>{ar ? 'إضافة عضو للفريق' : 'Add a team member'}</h2>
       <p className="team-muted">
         {ar
-          ? 'أدخل البريد الذي يستخدمه في حساب BHD. يدخل بنفس البريد فتظهر له أعمالك حسب صلاحياته فقط.'
-          : 'Use the email of their BHD account. They sign in with it and see only what their access allows.'}
+          ? 'أدخل البريد الذي يستخدمه في حساب BHD، واختر دوراً أو أكثر، ثم أضف ما تريد من صلاحيات منفصلة.'
+          : 'Use the email of their BHD account, choose one or more roles, then add any separate permissions.'}
       </p>
       <div className="team-add__grid">
         <label className="team-field">
@@ -195,21 +336,27 @@ function AddMemberForm({
           <span>{ar ? 'الاسم (اختياري)' : 'Name (optional)'}</span>
           <input value={name} maxLength={160} onChange={(event) => setName(event.target.value)} />
         </label>
-        <RoleSelect
-          ar={ar}
-          roles={view.assignableRoles}
-          value={role}
-          onChange={(next) => {
-            setRole(next);
-            setExtras([]);
-          }}
-        />
       </div>
-      <CapabilityPicker ar={ar} role={role} view={view} selected={extras} onChange={setExtras} />
+      <RolePicker ar={ar} view={view} selected={roles} onChange={setRoles} />
+      <CapabilityPicker
+        ar={ar}
+        view={view}
+        included={included}
+        selected={extras}
+        onChange={setExtras}
+        legend={
+          ar
+            ? 'صلاحيات إضافية منفصلة (مثلاً: بعض صلاحيات المحاسب دون الدور كاملاً)'
+            : 'Separate extra permissions (for example some accountant powers without the full role)'
+        }
+      />
       {error ? <p className="team-error">{error}</p> : null}
       <div className="team-actions">
-        <button className="button button--primary" type="submit" disabled={busy || full || !role}>
+        <button className="button button--primary" type="submit" disabled={busy || full}>
           {busy ? (ar ? 'جارٍ الإضافة…' : 'Adding…') : ar ? 'إضافة للفريق' : 'Add to team'}
+        </button>
+        <button type="button" className="button button--quiet" disabled={busy} onClick={onCancel}>
+          {ar ? 'إلغاء' : 'Cancel'}
         </button>
         {full ? (
           <small className="team-muted">
@@ -233,51 +380,29 @@ function MemberRow({
   onChanged: (message: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [role, setRole] = useState(member.role);
+  const [roles, setRoles] = useState(member.roles);
   const [extras, setExtras] = useState(member.extras);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const owner = member.role === 'organization_owner';
+  const { busy, error, run } = useMutation(ar);
+  const owner = member.roles.includes('organization_owner');
   const manageable =
     view.canManage &&
     !owner &&
     !member.isSelf &&
-    (view.assignableRoles as string[]).includes(member.role);
-  const roleIncluded = new Set(view.roleCapabilities[member.role] ?? []);
-  const extraLabels = member.extras
-    .filter((id) => !roleIncluded.has(id))
-    .map((id) => TEAM_CAPABILITIES.find((capability) => capability.id === id))
-    .filter((capability) => capability !== undefined);
+    member.roles
+      .filter((role) => !isCustomRoleKey(role))
+      .every((role) => (view.assignableRoles as string[]).includes(role));
+  const memberIncluded = includedBy(view, member.roles);
+  const extraIds = member.extras.filter((id) => !memberIncluded.has(id));
+  const included = includedBy(view, roles);
+  const status = statusInfo(member.status, member.signedIn, ar);
+  const path = `/api/owner/team/${encodeURIComponent(member.userId)}`;
 
-  const send = async (method: 'PATCH' | 'DELETE', body: object | null, done: string) => {
-    setBusy(true);
-    setError(null);
-    try {
-      await browserNextMutation(`/api/owner/team/${encodeURIComponent(member.userId)}`, {
-        method,
-        ...(body ? { body: JSON.stringify(body) } : {}),
-      });
+  const send = async (method: 'PATCH' | 'DELETE', body: object | undefined, done: string) => {
+    if (await run(path, method, body)) {
       setEditing(false);
       onChanged(done);
-    } catch (caught) {
-      setError(errorText(caught, ar));
-    } finally {
-      setBusy(false);
     }
   };
-
-  const statusLabel =
-    member.status !== 'active'
-      ? ar
-        ? 'معطّل'
-        : 'Disabled'
-      : member.signedIn
-        ? ar
-          ? 'نشط'
-          : 'Active'
-        : ar
-          ? 'بانتظار أول دخول'
-          : 'Awaiting first sign-in';
 
   return (
     <li className={member.status === 'active' ? 'team-member' : 'team-member is-inactive'}>
@@ -292,24 +417,14 @@ function MemberRow({
           </strong>
           <small dir="ltr">{member.email}</small>
         </div>
-        <span className={`team-role team-role--${member.role}`}>{roleLabel(member.role, ar)}</span>
-        <span
-          className={
-            member.status !== 'active'
-              ? 'team-status is-off'
-              : member.signedIn
-                ? 'team-status is-on'
-                : 'team-status is-pending'
-          }
-        >
-          {statusLabel}
-        </span>
+        <RoleChips ar={ar} roles={member.roles} view={view} />
+        <span className={`team-status ${status.className}`}>{status.text}</span>
       </div>
-      {extraLabels.length > 0 ? (
+      {extraIds.length > 0 ? (
         <div className="team-member__extras">
           <span>{ar ? 'إضافية:' : 'Extra:'}</span>
-          {extraLabels.map((capability) => (
-            <i key={capability.id}>{ar ? capability.ar : capability.en}</i>
+          {extraIds.map((id) => (
+            <i key={id}>{capabilityLabel(id, ar)}</i>
           ))}
         </div>
       ) : null}
@@ -320,12 +435,12 @@ function MemberRow({
             className="ops-action"
             disabled={busy}
             onClick={() => {
-              setRole(member.role);
+              setRoles(member.roles);
               setExtras(member.extras);
               setEditing(true);
             }}
           >
-            {ar ? 'تعديل الدور والصلاحيات' : 'Edit role & access'}
+            {ar ? 'تعديل الأدوار والصلاحيات' : 'Edit roles & access'}
           </button>
           <button
             type="button"
@@ -357,9 +472,8 @@ function MemberRow({
                   ? `إزالة ${member.displayName} من الفريق؟ يبقى حسابه في BHD لكنه لن يرى أعمالك.`
                   : `Remove ${member.displayName} from the team? Their BHD account stays.`,
               );
-              if (ok) {
-                void send('DELETE', null, ar ? 'أُزيل العضو من الفريق.' : 'Member removed.');
-              }
+              if (ok)
+                void send('DELETE', undefined, ar ? 'أُزيل العضو من الفريق.' : 'Member removed.');
             }}
           >
             {ar ? 'إزالة' : 'Remove'}
@@ -368,33 +482,30 @@ function MemberRow({
       ) : null}
       {editing ? (
         <div className="team-edit">
-          <RoleSelect
+          <RolePicker
             ar={ar}
-            roles={view.assignableRoles}
-            value={role}
-            onChange={(next) => setRole(next)}
+            view={view}
+            selected={roles}
+            held={member.roles}
+            onChange={setRoles}
           />
           <CapabilityPicker
             ar={ar}
-            role={role}
             view={view}
+            included={included}
             selected={extras}
             onChange={setExtras}
+            legend={ar ? 'صلاحيات إضافية منفصلة' : 'Separate extra permissions'}
           />
           <div className="team-actions">
             <button
               type="button"
               className="button button--primary button--tiny"
-              disabled={busy}
+              disabled={busy || !roles.length}
               onClick={() =>
                 void send(
                   'PATCH',
-                  {
-                    role,
-                    capabilities: extras.filter(
-                      (id) => !(view.roleCapabilities[role] ?? []).includes(id),
-                    ),
-                  },
+                  { roles, capabilities: extras.filter((id) => !included.has(id)) },
                   ar
                     ? 'حُفظت الصلاحيات. تسري على العضو فوراً.'
                     : 'Access saved; it applies right away.',
@@ -419,12 +530,583 @@ function MemberRow({
   );
 }
 
-/** Owner/admin team: who works on the organization's properties and with what access. */
+function OwnerRow({
+  ar,
+  owner,
+  view,
+  onChanged,
+}: {
+  ar: boolean;
+  owner: PropertyOwnerMember;
+  view: TeamView;
+  onChanged: (message: string) => void;
+}) {
+  const { busy, error, run } = useMutation(ar);
+  const status = statusInfo(owner.status, owner.signedIn, ar);
+  const path = `/api/owner/team/owners/${encodeURIComponent(owner.userId)}`;
+  const send = async (method: 'PATCH' | 'DELETE', body: object | undefined, done: string) => {
+    if (await run(path, method, body)) onChanged(done);
+  };
+  return (
+    <li className={owner.status === 'active' ? 'team-member' : 'team-member is-inactive'}>
+      <div className="team-member__head">
+        <span className="team-member__initial" aria-hidden="true">
+          {owner.displayName.trim().slice(0, 1) || '•'}
+        </span>
+        <div className="team-member__who">
+          <strong>{owner.displayName}</strong>
+          <small dir="ltr">{owner.email}</small>
+        </div>
+        <span className="team-role team-role--property_owner">
+          {owner.partyName ?? (ar ? 'مالك غير محدد' : 'Owner not set')}
+        </span>
+        <span className="team-role">
+          {ar ? `${owner.propertyCount} عقار` : `${owner.propertyCount} properties`}
+        </span>
+        <span className={`team-status ${status.className}`}>{status.text}</span>
+      </div>
+      {view.canManage ? (
+        <div className="team-actions">
+          {view.ownerParties.length > 1 ? (
+            <label className="team-field team-field--inline">
+              <span>{ar ? 'يرى عقارات' : 'Sees properties of'}</span>
+              <select
+                value={owner.partyId ?? ''}
+                disabled={busy}
+                onChange={(event) =>
+                  void send(
+                    'PATCH',
+                    { partyId: event.target.value },
+                    ar ? 'تغيّر المالك المرتبط بالحساب.' : 'Linked owner changed.',
+                  )
+                }
+              >
+                {view.ownerParties.map((party) => (
+                  <option key={party.id} value={party.id}>
+                    {party.name} ({party.propertyCount})
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <button
+            type="button"
+            className="ops-action"
+            disabled={busy}
+            onClick={() =>
+              void send(
+                'PATCH',
+                { status: owner.status === 'active' ? 'inactive' : 'active' },
+                owner.status === 'active'
+                  ? ar
+                    ? 'أُوقف دخول المالك.'
+                    : 'Owner access paused.'
+                  : ar
+                    ? 'أُعيد دخول المالك.'
+                    : 'Owner access restored.',
+              )
+            }
+          >
+            {owner.status === 'active' ? (ar ? 'تعطيل' : 'Disable') : ar ? 'تفعيل' : 'Reactivate'}
+          </button>
+          <button
+            type="button"
+            className="ops-action ops-action--danger"
+            disabled={busy}
+            onClick={() => {
+              if (
+                window.confirm(
+                  ar
+                    ? `إنهاء دخول ${owner.displayName} إلى بوابة المالك؟`
+                    : `End ${owner.displayName}'s owner portal access?`,
+                )
+              )
+                void send('DELETE', undefined, ar ? 'أُنهي دخول المالك.' : 'Owner access ended.');
+            }}
+          >
+            {ar ? 'إزالة' : 'Remove'}
+          </button>
+        </div>
+      ) : null}
+      {error ? <p className="team-error">{error}</p> : null}
+    </li>
+  );
+}
+
+function AddOwnerForm({
+  ar,
+  view,
+  onDone,
+  onCancel,
+}: {
+  ar: boolean;
+  view: TeamView;
+  onDone: (message: string) => void;
+  onCancel: () => void;
+}) {
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [partyId, setPartyId] = useState(view.ownerParties[0]?.id ?? '');
+  const { busy, error, setError, run } = useMutation(ar);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!validTeamEmail(email)) return setError(ERRORS.team_email_invalid![ar ? 0 : 1]);
+    if (!partyId) return setError(ERRORS.team_owner_party_required![ar ? 0 : 1]);
+    const result = await run('/api/owner/team/owners', 'POST', {
+      email: email.trim(),
+      partyId,
+      ...(name.trim() ? { displayName: name.trim() } : {}),
+    });
+    if (!result) return;
+    setEmail('');
+    setName('');
+    onDone(
+      ar
+        ? 'أُضيف مالك العقار. يدخل بحساب BHD بنفس البريد فيرى عقاراته فقط.'
+        : 'Property owner added. They sign in with that email and see only their properties.',
+    );
+  };
+
+  if (!view.ownerParties.length) {
+    return (
+      <p className="team-card team-muted">
+        {ar
+          ? 'لا يوجد ملاك عقارات مسجلون بعد. حدّد مالك العقار من صفحة العقار ← المالك، ثم عد إلى هنا لمنحه الدخول.'
+          : 'No property owners are registered yet. Set the owner on the property page, then come back to give them access.'}
+      </p>
+    );
+  }
+  return (
+    <form className="team-card team-add" onSubmit={(event) => void submit(event)}>
+      <h2>{ar ? 'منح مالك عقار دخولاً' : 'Give a property owner access'}</h2>
+      <p className="team-muted">
+        {ar
+          ? 'يرى المالك عقاراته فقط: حجوزاتها وعقودها وفواتيرها وصيانتها، ولا يرى عقارات غيره أو بيانات المنشأة. لا يُحتسب ضمن مقاعد الفريق.'
+          : 'The owner sees only their own properties (bookings, contracts, invoices, maintenance), nothing else. Does not use a team seat.'}
+      </p>
+      <div className="team-add__grid">
+        <label className="team-field">
+          <span>{ar ? 'المالك' : 'Owner'}</span>
+          <select value={partyId} onChange={(event) => setPartyId(event.target.value)}>
+            {view.ownerParties.map((party) => (
+              <option key={party.id} value={party.id}>
+                {party.name} —{' '}
+                {ar ? `${party.propertyCount} عقار` : `${party.propertyCount} properties`}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="team-field">
+          <span>{ar ? 'بريده في حساب BHD' : 'Their BHD account email'}</span>
+          <input
+            type="email"
+            dir="ltr"
+            required
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="owner@example.com"
+          />
+        </label>
+        <label className="team-field">
+          <span>{ar ? 'الاسم (اختياري)' : 'Name (optional)'}</span>
+          <input value={name} maxLength={160} onChange={(event) => setName(event.target.value)} />
+        </label>
+      </div>
+      {error ? <p className="team-error">{error}</p> : null}
+      <div className="team-actions">
+        <button className="button button--primary" type="submit" disabled={busy}>
+          {busy ? (ar ? 'جارٍ الإضافة…' : 'Adding…') : ar ? 'منح الدخول' : 'Give access'}
+        </button>
+        <button type="button" className="button button--quiet" disabled={busy} onClick={onCancel}>
+          {ar ? 'إلغاء' : 'Cancel'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function TenantRow({
+  ar,
+  tenant,
+  canManage,
+  onChanged,
+}: {
+  ar: boolean;
+  tenant: TenantMember;
+  canManage: boolean;
+  onChanged: (message: string) => void;
+}) {
+  const { busy, error, run } = useMutation(ar);
+  const status = statusInfo(tenant.status, tenant.signedIn, ar);
+  const toggle = async () => {
+    const next = tenant.status === 'active' ? 'inactive' : 'active';
+    const done = await run(
+      `/api/owner/team/tenants/${encodeURIComponent(tenant.userId)}`,
+      'PATCH',
+      {
+        status: next,
+      },
+    );
+    if (done)
+      onChanged(
+        next === 'inactive'
+          ? ar
+            ? 'أُوقف دخول المستأجر.'
+            : 'Tenant access paused.'
+          : ar
+            ? 'أُعيد دخول المستأجر.'
+            : 'Tenant access restored.',
+      );
+  };
+  return (
+    <li className={tenant.status === 'active' ? 'team-member' : 'team-member is-inactive'}>
+      <div className="team-member__head">
+        <span className="team-member__initial" aria-hidden="true">
+          {tenant.displayName.trim().slice(0, 1) || '•'}
+        </span>
+        <div className="team-member__who">
+          <strong>{tenant.displayName}</strong>
+          <small dir="ltr">{tenant.email}</small>
+        </div>
+        {tenant.partyName ? <span className="team-role">{tenant.partyName}</span> : null}
+        <span className={`team-status ${status.className}`}>{status.text}</span>
+        {canManage ? (
+          <button
+            type="button"
+            className="ops-action"
+            disabled={busy}
+            onClick={() => void toggle()}
+          >
+            {tenant.status === 'active'
+              ? ar
+                ? 'تعطيل الدخول'
+                : 'Pause access'
+              : ar
+                ? 'تفعيل'
+                : 'Restore'}
+          </button>
+        ) : null}
+      </div>
+      {error ? <p className="team-error">{error}</p> : null}
+    </li>
+  );
+}
+
+function TenantsTab({
+  ar,
+  view,
+  onChanged,
+}: {
+  ar: boolean;
+  view: TeamView;
+  onChanged: (message: string) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const shown = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return needle
+      ? view.tenants.filter((tenant) =>
+          `${tenant.displayName} ${tenant.email} ${tenant.partyName ?? ''}`
+            .toLowerCase()
+            .includes(needle),
+        )
+      : view.tenants;
+  }, [query, view.tenants]);
+  return (
+    <section className="team-card">
+      <h2>
+        {ar ? 'المستأجرون الذين لديهم دخول' : 'Tenants with portal access'}{' '}
+        <small>({view.tenants.length})</small>
+      </h2>
+      <p className="team-muted">
+        {ar
+          ? 'يُضاف المستأجر تلقائياً عند توقيعه عقداً أو حجزه. التعطيل يوقف دخوله إلى صفحات المستأجر في منشأتك دون حذف سجلاته.'
+          : 'Tenants join automatically when they sign or book. Pausing stops their tenant pages in your organization; their records stay.'}
+      </p>
+      {view.tenants.length > 8 ? (
+        <label className="team-field team-search">
+          <span>{ar ? 'بحث' : 'Search'}</span>
+          <input value={query} onChange={(event) => setQuery(event.target.value)} />
+        </label>
+      ) : null}
+      {shown.length ? (
+        <ul className="team-list">
+          {shown.map((tenant) => (
+            <TenantRow
+              key={`${tenant.userId}:${tenant.status}`}
+              ar={ar}
+              tenant={tenant}
+              canManage={view.canManage}
+              onChanged={onChanged}
+            />
+          ))}
+        </ul>
+      ) : (
+        <p className="team-muted">{ar ? 'لا يوجد مستأجرون بعد.' : 'No tenants yet.'}</p>
+      )}
+    </section>
+  );
+}
+
+function SavedRoleEditor({
+  ar,
+  view,
+  role,
+  onDone,
+  onCancel,
+}: {
+  ar: boolean;
+  view: TeamView;
+  role: SavedRole | null;
+  onDone: (message: string) => void;
+  onCancel?: () => void;
+}) {
+  const [nameAr, setNameAr] = useState(role?.nameAr ?? '');
+  const [nameEn, setNameEn] = useState(role?.nameEn ?? '');
+  const [description, setDescription] = useState(role?.description ?? '');
+  const [capabilities, setCapabilities] = useState<string[]>(role?.capabilities ?? []);
+  const { busy, error, setError, run } = useMutation(ar);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (nameAr.trim().length < 2 || !capabilities.length)
+      return setError(ERRORS.team_role_invalid![ar ? 0 : 1]);
+    const body = {
+      nameAr: nameAr.trim(),
+      ...(nameEn.trim() ? { nameEn: nameEn.trim() } : {}),
+      ...(description.trim() ? { description: description.trim() } : {}),
+      capabilities,
+    };
+    const done = role
+      ? await run(`/api/owner/team/roles/${encodeURIComponent(role.id)}`, 'PATCH', body)
+      : await run('/api/owner/team/roles', 'POST', body);
+    if (!done) return;
+    if (!role) {
+      setNameAr('');
+      setNameEn('');
+      setDescription('');
+      setCapabilities([]);
+    }
+    onDone(
+      role
+        ? ar
+          ? 'حُفظ الدور، وتسري صلاحياته الجديدة على حامليه فوراً.'
+          : 'Role saved; holders get the new access right away.'
+        : ar
+          ? 'أُنشئ الدور. يمكنك منحه من تبويب الفريق.'
+          : 'Role created. Give it from the Team tab.',
+    );
+  };
+
+  return (
+    <form
+      className={role ? 'team-edit' : 'team-card team-add'}
+      onSubmit={(event) => void submit(event)}
+    >
+      {role ? null : <h2>{ar ? 'إنشاء دور مخصص' : 'Create a custom role'}</h2>}
+      {role ? null : (
+        <p className="team-muted">
+          {ar
+            ? 'سمِّ الدور (مثلاً «محاسب استلام» أو «مشرف مبنى») واختر صلاحياته، ثم امنحه لأي عضو. تعديل الدور يسري على كل من يحمله.'
+            : 'Name the role (e.g. “Cashier” or “Building supervisor”), pick its permissions, then give it to members. Editing applies to every holder.'}
+        </p>
+      )}
+      <div className="team-add__grid">
+        <label className="team-field">
+          <span>{ar ? 'اسم الدور بالعربية' : 'Arabic name'}</span>
+          <input
+            value={nameAr}
+            maxLength={80}
+            required
+            onChange={(event) => setNameAr(event.target.value)}
+          />
+        </label>
+        <label className="team-field">
+          <span>{ar ? 'الاسم بالإنجليزية (اختياري)' : 'English name (optional)'}</span>
+          <input
+            dir="ltr"
+            value={nameEn}
+            maxLength={80}
+            onChange={(event) => setNameEn(event.target.value)}
+          />
+        </label>
+        <label className="team-field">
+          <span>{ar ? 'وصف قصير (اختياري)' : 'Short description (optional)'}</span>
+          <input
+            value={description}
+            maxLength={300}
+            onChange={(event) => setDescription(event.target.value)}
+          />
+        </label>
+      </div>
+      <CapabilityPicker
+        ar={ar}
+        view={view}
+        included={new Set()}
+        selected={capabilities}
+        onChange={setCapabilities}
+        legend={ar ? 'صلاحيات الدور' : 'Role permissions'}
+      />
+      {error ? <p className="team-error">{error}</p> : null}
+      <div className="team-actions">
+        <button className="button button--primary button--tiny" type="submit" disabled={busy}>
+          {busy
+            ? ar
+              ? 'جارٍ الحفظ…'
+              : 'Saving…'
+            : role
+              ? ar
+                ? 'حفظ'
+                : 'Save'
+              : ar
+                ? 'إنشاء الدور'
+                : 'Create role'}
+        </button>
+        {onCancel ? (
+          <button type="button" className="button button--quiet button--tiny" onClick={onCancel}>
+            {ar ? 'إلغاء' : 'Cancel'}
+          </button>
+        ) : null}
+      </div>
+    </form>
+  );
+}
+
+function SavedRoleRow({
+  ar,
+  role,
+  view,
+  onChanged,
+}: {
+  ar: boolean;
+  role: SavedRole;
+  view: TeamView;
+  onChanged: (message: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const { busy, error, run } = useMutation(ar);
+  const archive = async () => {
+    const ok = window.confirm(
+      ar
+        ? `حذف دور «${role.nameAr}»؟ يفقده ${role.memberCount} عضو فوراً.`
+        : `Delete “${role.nameEn || role.nameAr}”? ${role.memberCount} member(s) lose it now.`,
+    );
+    if (ok && (await run(`/api/owner/team/roles/${encodeURIComponent(role.id)}`, 'DELETE')))
+      onChanged(ar ? 'حُذف الدور.' : 'Role deleted.');
+  };
+  return (
+    <li className="team-member">
+      <div className="team-member__head">
+        <div className="team-member__who">
+          <strong>{ar ? role.nameAr : role.nameEn || role.nameAr}</strong>
+          {role.description ? <small>{role.description}</small> : null}
+        </div>
+        <span className="team-role team-role--custom">
+          {ar ? `${role.memberCount} عضو` : `${role.memberCount} member(s)`}
+        </span>
+      </div>
+      <div className="team-member__extras">
+        {role.capabilities.map((id) => (
+          <i key={id}>{capabilityLabel(id, ar)}</i>
+        ))}
+      </div>
+      {view.canEditRoles && !editing ? (
+        <div className="team-actions">
+          <button
+            type="button"
+            className="ops-action"
+            disabled={busy}
+            onClick={() => setEditing(true)}
+          >
+            {ar ? 'تعديل' : 'Edit'}
+          </button>
+          <button
+            type="button"
+            className="ops-action ops-action--danger"
+            disabled={busy}
+            onClick={() => void archive()}
+          >
+            {ar ? 'حذف' : 'Delete'}
+          </button>
+        </div>
+      ) : null}
+      {editing ? (
+        <SavedRoleEditor
+          ar={ar}
+          view={view}
+          role={role}
+          onDone={(message) => {
+            setEditing(false);
+            onChanged(message);
+          }}
+          onCancel={() => setEditing(false)}
+        />
+      ) : null}
+      {error ? <p className="team-error">{error}</p> : null}
+    </li>
+  );
+}
+
+function RolesGuide({ ar }: { ar: boolean }) {
+  const extra = ['organization_owner', 'property_owner'] as const;
+  return (
+    <section className="team-card team-guide">
+      {ROLE_GROUPS.map((group) => (
+        <div key={group.id}>
+          <h3>{ar ? group.ar : group.en}</h3>
+          <dl>
+            {group.roles.map((role) => {
+              const label = ROLE_LABELS[role]!;
+              return (
+                <div key={role}>
+                  <dt>{ar ? label.ar : label.en}</dt>
+                  <dd>{ar ? label.hintAr : label.hintEn}</dd>
+                </div>
+              );
+            })}
+          </dl>
+        </div>
+      ))}
+      <h3>{ar ? 'المالك وملاك العقارات والمستأجرون' : 'Owner, property owners and tenants'}</h3>
+      <dl>
+        {extra.map((role) => {
+          const label = ROLE_LABELS[role]!;
+          return (
+            <div key={role}>
+              <dt>{ar ? label.ar : label.en}</dt>
+              <dd>{ar ? label.hintAr : label.hintEn}</dd>
+            </div>
+          );
+        })}
+        <div>
+          <dt>{ar ? 'مستأجر' : 'Tenant'}</dt>
+          <dd>
+            {ar
+              ? 'يرى عقوده وحجوزاته وفواتيره وطلبات صيانته في بوابة المستأجر.'
+              : 'Sees their own contracts, bookings, invoices and maintenance requests.'}
+          </dd>
+        </div>
+      </dl>
+      <p className="team-muted">
+        {ar
+          ? 'يمكن منح العضو أكثر من دور، أو دوراً مخصصاً، أو صلاحيات منفصلة مثل «عرض الفواتير» و«تسجيل المدفوعات» دون دور المحاسب كاملاً. تحويل التأمين يتم من «الحسابات» بيد من يملك صلاحية التحويل.'
+          : 'A member can hold several roles, a custom role, or separate permissions such as “see invoices” and “record payments” without the full accountant role. Deposit transfers happen in Accounting by whoever holds that permission.'}
+      </p>
+    </section>
+  );
+}
+
+type Tab = 'staff' | 'owners' | 'tenants' | 'roles' | 'guide';
+
+/** Owner/admin team: staff, building owners, tenants and custom roles, each with their access. */
 export function TeamManager({ locale, active }: { locale: 'ar' | 'en'; active: boolean }) {
   const ar = locale === 'ar';
   const [view, setView] = useState<TeamView | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>('staff');
+  const [adding, setAdding] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -454,6 +1136,161 @@ export function TeamManager({ locale, active }: { locale: 'ar' | 'en'; active: b
     void load();
   };
 
+  const tabs: { id: Tab; label: string; count?: number }[] = view
+    ? [
+        { id: 'staff', label: ar ? 'الفريق' : 'Team', count: view.members.length },
+        {
+          id: 'owners',
+          label: ar ? 'ملاك العقارات' : 'Property owners',
+          count: view.owners.length,
+        },
+        { id: 'tenants', label: ar ? 'المستأجرون' : 'Tenants', count: view.tenants.length },
+        {
+          id: 'roles',
+          label: ar ? 'الأدوار المخصصة' : 'Custom roles',
+          count: view.savedRoles.length,
+        },
+        { id: 'guide', label: ar ? 'دليل الأدوار' : 'Roles guide' },
+      ]
+    : [];
+
+  const added = (message: string) => {
+    setAdding(false);
+    changed(message);
+  };
+  const addButton = (label: string) => (
+    <button
+      type="button"
+      className="button button--primary team-add-toggle"
+      onClick={() => {
+        setAdding(true);
+        setNotice(null);
+      }}
+    >
+      ＋ {label}
+    </button>
+  );
+
+  let body: ReactNode = null;
+  if (view && tab === 'staff') {
+    const canAdd =
+      view.canManage && (view.assignableRoles.length > 0 || view.assignableSavedRoles.length > 0);
+    body = (
+      <div className="team-stack">
+        {canAdd && adding ? (
+          <AddMemberForm ar={ar} view={view} onDone={added} onCancel={() => setAdding(false)} />
+        ) : null}
+        <section className="team-card">
+          <div className="team-card__head">
+            <h2>
+              {ar ? 'أعضاء الفريق' : 'Team members'} <small>({view.members.length})</small>
+            </h2>
+            {canAdd && !adding ? addButton(ar ? 'إضافة عضو' : 'Add member') : null}
+          </div>
+          <ul className="team-list">
+            {view.members.map((member) => (
+              <MemberRow
+                key={`${member.userId}:${member.roles.join(',')}:${member.status}:${member.extras.join(',')}`}
+                ar={ar}
+                member={member}
+                view={view}
+                onChanged={changed}
+              />
+            ))}
+          </ul>
+        </section>
+      </div>
+    );
+  } else if (view && tab === 'owners') {
+    const canAdd = view.canManage && view.ownerParties.length > 0;
+    body = (
+      <div className="team-stack">
+        {canAdd && adding ? (
+          <AddOwnerForm ar={ar} view={view} onDone={added} onCancel={() => setAdding(false)} />
+        ) : null}
+        {view.canManage && !view.ownerParties.length ? (
+          <AddOwnerForm ar={ar} view={view} onDone={added} onCancel={() => setAdding(false)} />
+        ) : null}
+        <section className="team-card">
+          <div className="team-card__head">
+            <h2>
+              {ar ? 'ملاك العقارات' : 'Property owners'} <small>({view.owners.length})</small>
+            </h2>
+            {canAdd && !adding ? addButton(ar ? 'منح مالك دخولاً' : 'Give an owner access') : null}
+          </div>
+          <p className="team-muted">
+            {ar
+              ? 'مالك العقار يرى عقاراته فقط وحجوزاتها وعقودها وفواتيرها وصيانتها من صفحة العقار، ولا يُحتسب ضمن مقاعد الفريق.'
+              : 'A property owner sees only their own properties and, from each property page, its bookings, contracts, invoices and maintenance. No team seat.'}
+          </p>
+          {view.owners.length ? (
+            <ul className="team-list">
+              {view.owners.map((owner) => (
+                <OwnerRow
+                  key={`${owner.userId}:${owner.partyId}:${owner.status}`}
+                  ar={ar}
+                  owner={owner}
+                  view={view}
+                  onChanged={changed}
+                />
+              ))}
+            </ul>
+          ) : (
+            <p className="team-muted">
+              {ar ? 'لم يُمنح أي مالك عقار دخولاً بعد.' : 'No property owner has access yet.'}
+            </p>
+          )}
+        </section>
+      </div>
+    );
+  } else if (view && tab === 'tenants') {
+    body = <TenantsTab ar={ar} view={view} onChanged={changed} />;
+  } else if (view && tab === 'roles') {
+    body = (
+      <div className="team-stack">
+        {view.canEditRoles && adding ? (
+          <SavedRoleEditor
+            ar={ar}
+            view={view}
+            role={null}
+            onDone={added}
+            onCancel={() => setAdding(false)}
+          />
+        ) : null}
+        <section className="team-card">
+          <div className="team-card__head">
+            <h2>
+              {ar ? 'الأدوار المخصصة' : 'Custom roles'} <small>({view.savedRoles.length})</small>
+            </h2>
+            {view.canEditRoles && !adding ? addButton(ar ? 'إنشاء دور' : 'Create role') : null}
+          </div>
+          {view.savedRoles.length ? (
+            <ul className="team-list">
+              {view.savedRoles.map((role) => (
+                <SavedRoleRow key={role.id} ar={ar} role={role} view={view} onChanged={changed} />
+              ))}
+            </ul>
+          ) : (
+            <p className="team-muted">
+              {ar
+                ? 'لا أدوار مخصصة بعد. أنشئ دوراً بصلاحيات تختارها ثم امنحه لأعضاء الفريق.'
+                : 'No custom roles yet. Create one with the permissions you choose, then give it to members.'}
+            </p>
+          )}
+          {view.canEditRoles ? null : (
+            <p className="team-muted">
+              {ar
+                ? 'إنشاء الأدوار المخصصة وتعديلها للمالك فقط.'
+                : 'Only the owner creates and edits custom roles.'}
+            </p>
+          )}
+        </section>
+      </div>
+    );
+  } else if (view && tab === 'guide') {
+    body = <RolesGuide ar={ar} />;
+  }
+
   return (
     <div className="team-page">
       <header className="portal-topbar">
@@ -461,8 +1298,8 @@ export function TeamManager({ locale, active }: { locale: 'ar' | 'en'; active: b
           <h1>{ar ? 'الفريق والصلاحيات' : 'Team & access'}</h1>
           <p>
             {ar
-              ? 'أضف مديرين ومحاسبين وفنيي صيانة لإدارة عقاراتك، ولكل منهم صلاحياته.'
-              : 'Add administrators, accountants and maintenance staff, each with their own access.'}
+              ? 'مديرون ومحاسبون ومدققون وقانونيون وموظفون إداريون وفنيون وحراس مبانٍ، وملاك العقارات والمستأجرون، ولكل منهم صلاحياته.'
+              : 'Managers, accountants, auditors, legal, office staff, technicians and guards, plus property owners and tenants, each with their own access.'}
           </p>
         </div>
         {view ? (
@@ -475,6 +1312,32 @@ export function TeamManager({ locale, active }: { locale: 'ar' | 'en'; active: b
         ) : null}
       </header>
 
+      {view ? (
+        <div
+          className="team-tabs"
+          role="tablist"
+          aria-label={ar ? 'أقسام الفريق' : 'Team sections'}
+        >
+          {tabs.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === item.id}
+              className={tab === item.id ? 'team-tab is-active' : 'team-tab'}
+              onClick={() => {
+                setTab(item.id);
+                setAdding(false);
+                setNotice(null);
+              }}
+            >
+              {item.label}
+              {item.count !== undefined ? <small>{item.count}</small> : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       {notice ? (
         <p className="team-notice" role="status">
           {notice}
@@ -484,8 +1347,8 @@ export function TeamManager({ locale, active }: { locale: 'ar' | 'en'; active: b
       {failed === 'forbidden' ? (
         <p className="team-card team-muted">
           {ar
-            ? 'إدارة الفريق متاحة للمالك والمدير الإداري فقط.'
-            : 'Team management is for the owner and administrators.'}
+            ? 'إدارة الفريق متاحة للمالك والمدير العام فقط.'
+            : 'Team management is for the owner and general managers.'}
         </p>
       ) : failed ? (
         <p className="team-card team-error">
@@ -497,43 +1360,7 @@ export function TeamManager({ locale, active }: { locale: 'ar' | 'en'; active: b
       ) : !view ? (
         <p className="team-card team-muted">{ar ? 'جارٍ التحميل…' : 'Loading…'}</p>
       ) : (
-        <div className="team-layout">
-          <section className="team-card">
-            <h2>
-              {ar ? 'أعضاء الفريق' : 'Team members'} <small>({view.members.length})</small>
-            </h2>
-            <ul className="team-list">
-              {view.members.map((member) => (
-                <MemberRow
-                  key={`${member.userId}:${member.role}:${member.status}:${member.extras.join(',')}`}
-                  ar={ar}
-                  member={member}
-                  view={view}
-                  onChanged={changed}
-                />
-              ))}
-            </ul>
-          </section>
-          {view.canManage && view.assignableRoles.length > 0 ? (
-            <AddMemberForm ar={ar} view={view} onDone={changed} />
-          ) : null}
-          <details className="team-card team-guide">
-            <summary>{ar ? 'دليل الأدوار' : 'Roles guide'}</summary>
-            <dl>
-              {Object.entries(ROLE_LABELS).map(([role, label]) => (
-                <div key={role}>
-                  <dt>{ar ? label.ar : label.en}</dt>
-                  <dd>{ar ? label.hintAr : label.hintEn}</dd>
-                </div>
-              ))}
-            </dl>
-            <p className="team-muted">
-              {ar
-                ? 'تحويل التأمين يتم من تبويب «الحسابات» بيد المحاسب، واعتماد الاسترداد بيد المالك أو من تمنحه الصلاحية.'
-                : 'Deposit transfers happen in Accounting by the accountant; refund approval by the owner or whoever you grant it.'}
-            </p>
-          </details>
-        </div>
+        body
       )}
     </div>
   );

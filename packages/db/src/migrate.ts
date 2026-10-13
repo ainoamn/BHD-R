@@ -39,6 +39,9 @@ try {
   await client.unsafe(
     await readFile(resolve(migrationsRoot, 'custom/0029_deposit_claims.sql'), 'utf8'),
   );
+  await client.unsafe(
+    await readFile(resolve(migrationsRoot, 'custom/0030_organization_roles.sql'), 'utf8'),
+  );
   if (process.env.APPLY_PRIVILEGED_ROLES === 'true') {
     await client.unsafe(
       await readFile(resolve(migrationsRoot, 'privileged/runtime_roles.sql'), 'utf8'),

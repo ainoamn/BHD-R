@@ -4,11 +4,12 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { and, desc, eq, gt, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import {
   apiKeys,
   credentialTokens,
   memberships,
+  organizationRoles,
   organizations,
   outboxEvents,
   parties,
@@ -18,9 +19,9 @@ import {
 } from '@bhd-r/db';
 import {
   PRODUCT_SESSION_MAX_AGE_SECONDS,
+  accessFromMemberships,
+  customRoleIds,
   issueSessionToken,
-  permissionsForRoles,
-  roleKeySchema,
   sessionClaimsSchema,
   verifyIdentityToken,
   verifySessionToken,
@@ -63,6 +64,27 @@ const totpRecoveryPepper = () =>
     .update(`${process.env.BHD_R_SESSION_SECRET ?? 'development'}\0totp-recovery`)
     .digest('base64url');
 const tokenHash = (token: string) => createHash('sha256').update(token).digest('hex');
+
+/** Current permissions of the organization's saved roles a member holds. */
+async function savedRolePermissions(
+  transaction: DatabaseTransaction,
+  organizationId: string,
+  rows: readonly { roleKey: string; permissions: readonly string[] }[],
+): Promise<Map<string, string[]>> {
+  const ids = customRoleIds(rows).filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+  if (!ids.length) return new Map();
+  const saved = await transaction
+    .select({ id: organizationRoles.id, permissions: organizationRoles.permissions })
+    .from(organizationRoles)
+    .where(
+      and(
+        eq(organizationRoles.organizationId, organizationId),
+        inArray(organizationRoles.id, ids),
+        eq(organizationRoles.status, 'active'),
+      ),
+    );
+  return new Map(saved.map((row) => [row.id, row.permissions]));
+}
 
 function encryptionKeyring(purpose: string): Keyring {
   const entries = Object.entries(process.env).filter(
@@ -156,14 +178,12 @@ export class AuthService {
         currentMemberships.length === 0
       )
         throw new UnauthorizedException('API key principal is no longer active');
-      const roles = currentMemberships
-        .map((membership) => roleKeySchema.safeParse(membership.roleKey))
-        .filter((result) => result.success)
-        .map((result) => result.data);
-      const currentPermissions = new Set([
-        ...permissionsForRoles(roles),
-        ...currentMemberships.flatMap((membership) => membership.permissions),
-      ]);
+      const access = accessFromMemberships(
+        currentMemberships,
+        await savedRolePermissions(transaction, row.organizationId, currentMemberships),
+      );
+      const roles = access.roles;
+      const currentPermissions = new Set<string>(access.permissions);
       if (!row.lastUsedAt || row.lastUsedAt < new Date(Date.now() - 5 * 60_000)) {
         await transaction
           .update(apiKeys)
@@ -572,11 +592,7 @@ export class AuthService {
           throw new UnauthorizedException('Current TOTP or recovery code is required to re-enroll');
         }
         const keyring = encryptionKeyring('totp');
-        const existingSecret = decryptField(
-          user.totpSecretEncrypted,
-          keyring,
-          `totp:${user.id}`,
-        );
+        const existingSecret = decryptField(user.totpSecretEncrypted, keyring, `totp:${user.id}`);
         const verification = verifyTotp({
           code: currentCode,
           secret: existingSecret,
@@ -1014,32 +1030,22 @@ export class AuthService {
       );
       await ensureDefaultContractTemplate(transaction, selectedOrganization);
     }
-    const roles = organizationMemberships
-      .map((membership) => roleKeySchema.safeParse(membership.roleKey))
-      .filter((result) => result.success)
-      .map((result) => result.data);
-    const customPermissions = organizationMemberships
-      .flatMap((membership) => membership.permissions)
-      .filter(
-        (permission): permission is Permission =>
-          sessionClaimsSchema.shape.permissions.element.safeParse(permission).success,
-      );
+    const access = accessFromMemberships(
+      organizationMemberships,
+      await savedRolePermissions(transaction, selectedOrganization, organizationMemberships),
+    );
     const sid = randomUUID();
     const claims = sessionClaimsSchema.parse({
       sub: user.id,
       sid,
       organizationId: selectedOrganization,
-      partyId: organizationMemberships.find((membership) => membership.partyId)?.partyId ?? null,
-      roles,
-      permissions: [...new Set([...permissionsForRoles(roles), ...customPermissions])],
+      partyId: access.partyId,
+      roles: access.roles,
+      permissions: access.permissions,
       locale: user.locale === 'en' ? 'en' : 'ar',
       sessionVersion: user.sessionVersion,
     });
-    const token = await issueSessionToken(
-      claims,
-      sessionSecret(),
-      PRODUCT_SESSION_MAX_AGE_SECONDS,
-    );
+    const token = await issueSessionToken(claims, sessionSecret(), PRODUCT_SESSION_MAX_AGE_SECONDS);
     await transaction.insert(sessions).values({
       id: sid,
       userId: user.id,

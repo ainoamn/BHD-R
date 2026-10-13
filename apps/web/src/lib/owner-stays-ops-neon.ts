@@ -30,6 +30,7 @@ import {
   loadStaySlotPrices,
   remainingSlotRateMinor,
 } from '@/lib/stay-day-slots-neon';
+import { scopedOwnerParty } from '@/lib/portal-access';
 import { loadPropertyLocation } from '@/lib/property-location-neon';
 import { loadBookingReviewMoments } from '@/lib/booking-reviews-neon';
 import { loadStayStamps } from '@/lib/stay-arrival-neon';
@@ -247,6 +248,8 @@ export async function getOwnerStayBookingContractOnNeon(
 ): Promise<StayBookingContractData | null> {
   const organizationId = assertOrg(claims);
   if (!/^[0-9a-f-]{36}$/i.test(bookingId)) return null;
+  if (!claims.permissions.includes('stay.booking.read')) return null;
+  const ownerPartyId = scopedOwnerParty(claims);
 
   return withinTenant(claims, async (transaction) => {
     const [row] = await transaction
@@ -273,7 +276,13 @@ export async function getOwnerStayBookingContractOnNeon(
       .from(stayBookings)
       .innerJoin(properties, eq(properties.id, stayBookings.propertyId))
       .innerJoin(units, eq(units.id, stayBookings.unitId))
-      .where(and(eq(stayBookings.organizationId, organizationId), eq(stayBookings.id, bookingId)))
+      .where(
+        and(
+          eq(stayBookings.organizationId, organizationId),
+          eq(stayBookings.id, bookingId),
+          ...(ownerPartyId ? [eq(properties.ownerPartyId, ownerPartyId)] : []),
+        ),
+      )
       .limit(1);
 
     if (!row) return null;

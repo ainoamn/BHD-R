@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import { PortalHeader } from '@/components/portal-header';
+import { canOpenPortalPath, scopedOwnerParty } from '@/lib/portal-access';
 import { persistPortalNavCollapsed } from '@/lib/portal-nav-state';
 import { warmOpsSection } from '@/lib/portal-ops-client-cache';
 import {
@@ -326,18 +327,32 @@ export function PortalNav({
     persistPortalNavCollapsed(next);
   };
   const root = `/${portal}`;
+  const canManageProperties =
+    viewer.permissions.includes('property.update') && !scopedOwnerParty(viewer);
   const baseGroups =
     staysEnabled && (portal === 'owner' || portal === 'developer')
       ? insertStaysGroup(navGroups[portal])
       : portal === 'tenant' && !viewer.roles.includes('tenant')
         ? navGroups.tenant.filter((group) => group.id !== 'ops')
         : navGroups[portal];
-  const groups = viewer.permissions.includes('organization.members.read')
-    ? baseGroups
-    : baseGroups.map((group) => ({
-        ...group,
-        items: group.items.filter((item) => item.path !== '/team'),
-      }));
+  const opens = (item: NavItem) => canOpenPortalPath(viewer, portal, item.path);
+  const groups = baseGroups
+    .map((group) => ({
+      ...group,
+      items: group.items
+        .filter(opens)
+        .map((item) =>
+          item.children
+            ? {
+                ...item,
+                children: item.children.filter(
+                  (child) => child.path !== PROPERTIES_MANAGE_PATH || canManageProperties,
+                ),
+              }
+            : item,
+        ),
+    }))
+    .filter((group) => group.items.length);
 
   const isActive = (item: NavItem): boolean => {
     if (item.children) {

@@ -4,11 +4,12 @@ import { getTranslations } from 'next-intl/server';
 import { PropertyWizard } from '@/components/property-wizard';
 import { ensureOwnerPartyId } from '@/lib/bhd/identity-session';
 import { listOwnerPartyOptions } from '@/lib/owner-parties';
-import { requirePortal } from '@/lib/viewer';
+import { requirePortal, requirePortalPath } from '@/lib/viewer';
 
 async function Page({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   const viewer = await requirePortal(locale, 'owner');
+  await requirePortalPath('owner', '/properties/new');
   const t = await getTranslations();
   if (!viewer.organizationId) return <EmptyState title={t('Portal.noData')} />;
   const partyId = await ensureOwnerPartyId({

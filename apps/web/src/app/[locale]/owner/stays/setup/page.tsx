@@ -2,6 +2,7 @@ import { persistentPortalPage } from '@/lib/persistent-portal-page';
 import { notFound } from 'next/navigation';
 import { StaySetupWizard } from '@/components/stays/stay-setup-wizard';
 import { isStaysPlatformEnabled } from '@/lib/stays-flags';
+import { requirePortalPath } from '@/lib/viewer';
 import { loadStaySetupPageData } from '@/lib/stay-setup-context';
 
 async function Page({
@@ -12,6 +13,7 @@ async function Page({
   searchParams: Promise<{ propertyId?: string }>;
 }) {
   if (!isStaysPlatformEnabled()) notFound();
+  await requirePortalPath('owner', '/stays/setup');
   const { locale: raw } = await params;
   const locale = raw === 'en' ? 'en' : 'ar';
   const { propertyId } = await searchParams;

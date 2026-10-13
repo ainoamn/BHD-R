@@ -10,6 +10,7 @@ import {
   pendingApprovalTitle,
   type PendingApprovals,
 } from '@/lib/pending-approvals-shared';
+import { canOpenPortalPath } from '@/lib/portal-access';
 import { loadPortalOverview } from '@/lib/portal-overview-data';
 import { loadTenancySummary } from '@/lib/tenancy-neon';
 import { withTimeoutFallback } from '@/lib/with-timeout';
@@ -95,6 +96,9 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
       : null,
   ]);
   const ar = locale === 'ar';
+  const opens = (href: string) =>
+    !href.startsWith(`/${portal}`) ||
+    canOpenPortalPath(viewer, portal, href.slice(portal.length + 1));
   const firstContract = approvals.items.find((item) => item.kind === 'contract');
   const firstReservation = approvals.items.find((item) => item.kind === 'lease_reservation');
   const firstRefund = approvals.items.find(
@@ -239,6 +243,31 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
       tone: 8,
     },
   ];
+  const financeLinks = [
+    { href: `/${portal}/invoices`, label: t('Common.invoices') },
+    { href: `/${portal}/payments`, label: t('Common.payments') },
+    { href: `/${portal}/expenses`, label: t('Common.expenses') },
+  ].filter((link) => opens(link.href));
+  const shortcuts = [
+    {
+      href: portal === 'tenant' ? `/${portal}/leases` : `/${portal}/leasing`,
+      label: t('Common.leasing'),
+    },
+    { href: `/${portal}/contracts`, label: t('Common.contracts') },
+    { href: `/${portal}/invoices`, label: t('Common.invoices') },
+    {
+      href: portal === 'tenant' ? `/${portal}/reservations` : `/${portal}/bookings`,
+      label: t('Common.bookings'),
+    },
+    { href: `/${portal}/maintenance`, label: t('Common.maintenance') },
+    ...(portal === 'tenant'
+      ? []
+      : [
+          { href: `/${portal}/stays/calendar`, label: t('Stays.calendar') },
+          { href: `/${portal}/bookings?tab=daily`, label: t('Portal.viewStayBookings') },
+          { href: `/${portal}/contacts`, label: t('Common.contacts') },
+        ]),
+  ].filter((link) => opens(link.href));
 
   return (
     <div className="dash-shell">
@@ -254,7 +283,7 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
           ) : null}
         </div>
         <div className="dash-hero__actions">
-          {portal === 'owner' || portal === 'developer' ? (
+          {(portal === 'owner' || portal === 'developer') && opens(`/${portal}/properties/new`) ? (
             <Link href={`/${portal}/properties/new`} className="button button--primary" prefetch>
               ＋ {t('Portal.addProperty')}
             </Link>
@@ -264,14 +293,16 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
               {t('Maintenance.new')}
             </Link>
           ) : null}
-          {(portal === 'owner' || portal === 'developer') && (
+          {(portal === 'owner' || portal === 'developer') && opens(`/${portal}/stays/calendar`) && (
             <Link href={`/${portal}/stays/calendar`} className="button button--quiet" prefetch>
               {t('Portal.openCalendar')}
             </Link>
           )}
-          <Link href={`/${portal}/reports`} className="button button--quiet">
-            {t('Common.reports')}
-          </Link>
+          {opens(`/${portal}/reports`) ? (
+            <Link href={`/${portal}/reports`} className="button button--quiet">
+              {t('Common.reports')}
+            </Link>
+          ) : null}
         </div>
       </header>
 
@@ -373,17 +404,24 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
           <p className="dash-section-hint">{t('Portal.metricsHint')}</p>
         </div>
         <div className="dash-metrics">
-          {metrics.map((metric) => (
-            <Link
-              key={metric.key}
-              href={metric.href}
-              className={`dash-metric dash-metric--${metric.tone}`}
-              prefetch
-            >
-              <span>{metric.label}</span>
-              <strong>{metric.value}</strong>
-            </Link>
-          ))}
+          {metrics.map((metric) =>
+            opens(metric.href) ? (
+              <Link
+                key={metric.key}
+                href={metric.href}
+                className={`dash-metric dash-metric--${metric.tone}`}
+                prefetch
+              >
+                <span>{metric.label}</span>
+                <strong>{metric.value}</strong>
+              </Link>
+            ) : (
+              <div key={metric.key} className={`dash-metric dash-metric--${metric.tone}`}>
+                <span>{metric.label}</span>
+                <strong>{metric.value}</strong>
+              </div>
+            ),
+          )}
         </div>
       </section>
 
@@ -404,10 +442,17 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
             ))}
             {alerts.map((alert) => (
               <li key={alert.code} className={`dash-alert dash-alert--${alert.severity}`}>
-                <Link href={alertHref(portal, alert.code)} prefetch>
-                  <strong>{alert.count}</strong>
-                  <span>{alertCopy(alert.code, alert.count, t)}</span>
-                </Link>
+                {opens(alertHref(portal, alert.code)) ? (
+                  <Link href={alertHref(portal, alert.code)} prefetch>
+                    <strong>{alert.count}</strong>
+                    <span>{alertCopy(alert.code, alert.count, t)}</span>
+                  </Link>
+                ) : (
+                  <span>
+                    <strong>{alert.count}</strong>
+                    <span>{alertCopy(alert.code, alert.count, t)}</span>
+                  </span>
+                )}
               </li>
             ))}
           </ul>
@@ -417,60 +462,54 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
       </section>
 
       <div className="dash-mid">
-        <section className="dash-finance" aria-label={t('Portal.accountingPulse')}>
-          <div className="dash-section-head dash-section-head--compact">
-            <h2>{t('Portal.accountingPulse')}</h2>
-            <Link href={`/${portal}/accounting`} className="button button--quiet button--tiny">
-              {t('Common.accounting')}
-            </Link>
-          </div>
-          <div className="dash-finance__card">
-            <p>{t('Portal.collected')}</p>
-            <strong className="metric-money-stack">
-              {collected.length
-                ? collected.map((amount) => (
-                    <span key={amount.currency}>
-                      {formatMoney(amount.amountMinor, amount.currency, locale)}
-                    </span>
-                  ))
-                : '—'}
-            </strong>
-            <div className="dash-finance__links">
-              <Link href={`/${portal}/invoices`}>{t('Common.invoices')}</Link>
-              <Link href={`/${portal}/payments`}>{t('Common.payments')}</Link>
-              <Link href={`/${portal}/expenses`}>{t('Common.expenses')}</Link>
+        {financeLinks.length || opens(`/${portal}/accounting`) ? (
+          <section className="dash-finance" aria-label={t('Portal.accountingPulse')}>
+            <div className="dash-section-head dash-section-head--compact">
+              <h2>{t('Portal.accountingPulse')}</h2>
+              {opens(`/${portal}/accounting`) ? (
+                <Link href={`/${portal}/accounting`} className="button button--quiet button--tiny">
+                  {t('Common.accounting')}
+                </Link>
+              ) : null}
             </div>
-          </div>
-        </section>
+            <div className="dash-finance__card">
+              <p>{t('Portal.collected')}</p>
+              <strong className="metric-money-stack">
+                {collected.length
+                  ? collected.map((amount) => (
+                      <span key={amount.currency}>
+                        {formatMoney(amount.amountMinor, amount.currency, locale)}
+                      </span>
+                    ))
+                  : '—'}
+              </strong>
+              <div className="dash-finance__links">
+                {financeLinks.map((link) => (
+                  <Link key={link.href} href={link.href}>
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </section>
+        ) : null}
 
-        {(portal === 'owner' || portal === 'developer' || portal === 'tenant') && (
+        {(portal === 'owner' || portal === 'developer' || portal === 'tenant') &&
+        shortcuts.length ? (
           <nav className="dash-shortcuts" aria-label={t('Portal.quickNav')}>
             <div className="dash-section-head dash-section-head--compact">
               <h2>{t('Portal.quickNav')}</h2>
               <p className="dash-section-hint">{t('Portal.quickNavHint')}</p>
             </div>
             <div className="dash-shortcuts__grid">
-              <Link href={portal === 'tenant' ? `/${portal}/leases` : `/${portal}/leasing`}>
-                {t('Common.leasing')}
-              </Link>
-              <Link href={`/${portal}/contracts`}>{t('Common.contracts')}</Link>
-              <Link href={`/${portal}/invoices`}>{t('Common.invoices')}</Link>
-              {portal !== 'tenant' ? (
-                <Link href={`/${portal}/bookings`}>{t('Common.bookings')}</Link>
-              ) : (
-                <Link href={`/${portal}/reservations`}>{t('Common.bookings')}</Link>
-              )}
-              <Link href={`/${portal}/maintenance`}>{t('Common.maintenance')}</Link>
-              {portal !== 'tenant' ? (
-                <>
-                  <Link href={`/${portal}/stays/calendar`}>{t('Stays.calendar')}</Link>
-                  <Link href={`/${portal}/bookings?tab=daily`}>{t('Portal.viewStayBookings')}</Link>
-                  <Link href={`/${portal}/contacts`}>{t('Common.contacts')}</Link>
-                </>
-              ) : null}
+              {shortcuts.map((link) => (
+                <Link key={link.href} href={link.href}>
+                  {link.label}
+                </Link>
+              ))}
             </div>
           </nav>
-        )}
+        ) : null}
       </div>
 
       <div className="dash-grid">
@@ -529,29 +568,29 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
             <p className="dash-section-hint">{t('Portal.actionsHint')}</p>
           </div>
           <div className="dash-actions">
-            {portal === 'owner' || portal === 'developer' ? (
-              <>
-                <Link
-                  className="button button--primary"
-                  href={`/${portal}/properties/new`}
-                  prefetch
-                >
-                  {t('Portal.addProperty')}
-                </Link>
-                <Link className="button button--quiet" href={`/${portal}/bookings?tab=daily`}>
-                  {t('Portal.viewStayBookings')}
-                </Link>
-                <Link className="button button--quiet" href={`/${portal}/properties`}>
-                  {t('Common.properties')}
-                </Link>
-                <Link className="button button--quiet" href={`/${portal}/approvals`}>
-                  {t('Common.approvals')}
-                </Link>
-                <Link className="button button--quiet" href={`/${portal}/team`}>
-                  {t('Common.team')}
-                </Link>
-              </>
-            ) : null}
+            {portal === 'owner' || portal === 'developer'
+              ? [
+                  { href: `/${portal}/properties/new`, label: t('Portal.addProperty') },
+                  { href: `/${portal}/bookings?tab=daily`, label: t('Portal.viewStayBookings') },
+                  { href: `/${portal}/properties`, label: t('Common.properties') },
+                  { href: `/${portal}/approvals`, label: t('Common.approvals') },
+                  { href: `/${portal}/team`, label: t('Common.team') },
+                ]
+                  .filter((link) => opens(link.href))
+                  .map((link) => (
+                    <Link
+                      key={link.href}
+                      className={
+                        link.href.endsWith('/properties/new')
+                          ? 'button button--primary'
+                          : 'button button--quiet'
+                      }
+                      href={link.href}
+                    >
+                      {link.label}
+                    </Link>
+                  ))
+              : null}
             {portal === 'tenant' ? (
               <>
                 <Link className="button button--primary" href="/tenant/maintenance/new">

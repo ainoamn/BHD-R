@@ -23,6 +23,7 @@ import {
 } from '@bhd-r/db';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { applySessionSettings, viewerTenantSettings } from '@/lib/db-session-settings';
+import { scopedOwnerParty } from '@/lib/portal-access';
 import { loadOpsContextExtras } from '@/lib/portal-ops-context-extras';
 import { requireSessionSecret } from '@/lib/runtime-env';
 import type { PortalRole } from '@/lib/types';
@@ -37,18 +38,6 @@ const globalForOpsContext = globalThis as unknown as {
   };
 };
 const OPS_CONTEXT_TTL_MS = 20_000;
-
-const ORG_WIDE_ROLES = new Set([
-  'organization_owner',
-  'organization_admin',
-  'property_manager',
-  'finance_manager',
-  'maintenance_agent',
-  'auditor',
-  'platform_admin',
-  'platform_support',
-  'developer_admin',
-]);
 
 function sessionSecret(): Uint8Array {
   return requireSessionSecret();
@@ -65,9 +54,7 @@ function getSharedDatabase(): DbHandle {
 }
 
 export function ownerPartyScope(claims: SessionClaims): string | null {
-  if (!claims.partyId) return null;
-  if (claims.roles.some((role) => ORG_WIDE_ROLES.has(role))) return null;
-  return claims.partyId;
+  return scopedOwnerParty(claims);
 }
 
 export async function readClaims(): Promise<SessionClaims | null> {

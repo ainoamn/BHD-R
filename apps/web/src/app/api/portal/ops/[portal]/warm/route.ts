@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { verifySessionToken } from '@bhd-r/authz';
 import { requireSessionSecret } from '@/lib/runtime-env';
+import { portalsForRoles } from '@/lib/portal-access';
 import { loadAllOperationsWorkspacePayloads } from '@/lib/portal-ops-workspace';
 import type { PortalRole } from '@/lib/types';
 
@@ -14,28 +15,6 @@ const PORTALS = new Set<PortalRole>(['owner', 'developer', 'tenant', 'platform']
 
 function sessionSecret(): Uint8Array {
   return requireSessionSecret();
-}
-
-function portalsForRoles(roles: readonly string[]): PortalRole[] {
-  const portalSet = new Set<PortalRole>();
-  if (roles.some((role) => role === 'platform_admin' || role === 'platform_support'))
-    portalSet.add('platform');
-  if (roles.includes('developer_admin')) portalSet.add('developer');
-  if (roles.includes('tenant')) portalSet.add('tenant');
-  if (
-    roles.some((role) =>
-      [
-        'organization_owner',
-        'organization_admin',
-        'property_manager',
-        'finance_manager',
-        'maintenance_agent',
-        'auditor',
-      ].includes(role),
-    )
-  )
-    portalSet.add('owner');
-  return [...portalSet];
 }
 
 /**
@@ -70,7 +49,7 @@ export async function GET(
   }
 
   const locale = claims.locale === 'en' ? 'en' : 'ar';
-  const sections = await loadAllOperationsWorkspacePayloads(portal, locale);
+  const sections = await loadAllOperationsWorkspacePayloads(portal, claims, locale);
   return NextResponse.json(
     { sections },
     {

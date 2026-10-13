@@ -1,17 +1,35 @@
 import { describe, expect, it } from 'vitest';
-import { permissionsForRoles, type RoleKey } from '@bhd-r/authz';
+import {
+  accessFromMemberships,
+  customRoleIds,
+  permissionsForRoles,
+  type RoleKey,
+} from '@bhd-r/authz';
+import {
+  canOpenPortalPath,
+  canOpenSection,
+  portalsForRoles,
+  scopedOwnerParty,
+} from '@/lib/portal-access';
 import {
   assignableRoles,
+  canAssignSavedRole,
   canManageMember,
   capabilitiesFromPermissions,
   grantableCapabilities,
   permissionsForCapabilities,
+  primaryRole,
+  roleLabel,
+  savedRoleId,
+  savedRoleKey,
   TEAM_CAPABILITIES,
   validTeamEmail,
 } from '@/lib/team-shared';
 
 const ownerPermissions = permissionsForRoles(['organization_owner']);
 const adminPermissions = permissionsForRoles(['organization_admin']);
+const ROLE_ID = '0b6c2b0e-5d0f-4c3b-9a43-6a1f1c2d3e4f';
+const PARTY = '20570b48-4636-48fc-877c-6a813f5c7969';
 
 describe('team roles', () => {
   it('lets the owner give every staff role, admins only below admin', () => {
@@ -19,20 +37,27 @@ describe('team roles', () => {
       'organization_admin',
       'property_manager',
       'finance_manager',
+      'admin_staff',
+      'legal_counsel',
       'maintenance_agent',
+      'building_guard',
       'auditor',
       'developer_admin',
     ]);
     expect(assignableRoles(['organization_admin'])).toEqual([
       'property_manager',
       'finance_manager',
+      'admin_staff',
+      'legal_counsel',
       'maintenance_agent',
+      'building_guard',
       'auditor',
     ]);
-    expect(assignableRoles(['finance_manager'])).toEqual([
-      'property_manager',
-      'finance_manager',
+    expect(assignableRoles(['admin_staff'])).toEqual([
+      'admin_staff',
+      'legal_counsel',
       'maintenance_agent',
+      'building_guard',
       'auditor',
     ]);
   });
@@ -42,6 +67,18 @@ describe('team roles', () => {
     expect(canManageMember(['organization_owner'], 'organization_admin')).toBe(true);
     expect(canManageMember(['organization_admin'], 'organization_admin')).toBe(false);
     expect(canManageMember(['organization_admin'], 'finance_manager')).toBe(true);
+  });
+
+  it('orders a multi-role member by their highest role and names saved roles', () => {
+    expect(primaryRole(['auditor', savedRoleKey(ROLE_ID), 'finance_manager'])).toBe(
+      'finance_manager',
+    );
+    expect(savedRoleId(savedRoleKey(ROLE_ID))).toBe(ROLE_ID);
+    expect(savedRoleId('auditor')).toBeNull();
+    const saved = [{ id: ROLE_ID, nameAr: 'محاسب استلام', nameEn: '' }];
+    expect(roleLabel(savedRoleKey(ROLE_ID), true, saved)).toBe('محاسب استلام');
+    expect(roleLabel(savedRoleKey(ROLE_ID), false, saved)).toBe('محاسب استلام');
+    expect(roleLabel('building_guard', true)).toBe('حارس مبنى');
   });
 });
 
@@ -62,6 +99,12 @@ describe('team capabilities', () => {
     expect(capabilitiesFromPermissions(permissionsForCapabilities(['refund_approve']))).toEqual([
       'refund_approve',
     ]);
+    const partialAccountant = permissionsForCapabilities(['invoices_view', 'payments']);
+    expect(capabilitiesFromPermissions(partialAccountant).sort()).toEqual([
+      'invoices_view',
+      'payments',
+      'payments_view',
+    ]);
   });
 
   it('the accountant role already transfers deposits and approves refunds', () => {
@@ -76,6 +119,74 @@ describe('team capabilities', () => {
     for (const capability of TEAM_CAPABILITIES) {
       for (const permission of capability.permissions) expect(all.has(permission)).toBe(true);
     }
+  });
+
+  it('gives a saved role only to someone holding all of it; team control stays with the owner', () => {
+    const cashier = permissionsForCapabilities(['payments', 'refund_transfer']);
+    expect(canAssignSavedRole(adminPermissions, ['organization_admin'], cashier)).toBe(false);
+    const finance = permissionsForRoles(['finance_manager']);
+    expect(canAssignSavedRole(finance, ['finance_manager'], cashier)).toBe(true);
+    const teamControl = permissionsForCapabilities(['team']);
+    expect(canAssignSavedRole(ownerPermissions, ['organization_admin'], teamControl)).toBe(false);
+    expect(canAssignSavedRole([], ['organization_owner'], teamControl)).toBe(true);
+  });
+});
+
+describe('membership access', () => {
+  it('merges several roles, saved roles and extra grants', () => {
+    const rows = [
+      { roleKey: 'maintenance_agent', permissions: ['invoice.read', 'not.a.permission'] },
+      { roleKey: savedRoleKey(ROLE_ID), permissions: [] },
+      { roleKey: 'building_guard', permissions: [] },
+    ];
+    expect(customRoleIds(rows)).toEqual([ROLE_ID]);
+    const access = accessFromMemberships(
+      rows,
+      new Map([[ROLE_ID, ['payment.record', 'payment.read']]]),
+    );
+    expect(access.roles.sort()).toEqual(['building_guard', 'custom_member', 'maintenance_agent']);
+    expect(access.permissions).toContain('work_order.manage');
+    expect(access.permissions).toContain('stay.booking.read');
+    expect(access.permissions).toContain('payment.record');
+    expect(access.permissions).toContain('invoice.read');
+    expect(access.permissions).not.toContain('not.a.permission');
+  });
+
+  it('drops a saved role that was archived or deleted', () => {
+    const access = accessFromMemberships([{ roleKey: savedRoleKey(ROLE_ID), permissions: [] }]);
+    expect(access.roles).toEqual([]);
+    expect(access.permissions).toEqual([]);
+  });
+
+  it('limits a building owner to their own properties and bookings', () => {
+    const owner = accessFromMemberships([
+      { roleKey: 'property_owner', permissions: [], partyId: PARTY },
+    ]);
+    expect(owner.partyId).toBe(PARTY);
+    expect(scopedOwnerParty(owner)).toBe(PARTY);
+    expect(portalsForRoles(owner.roles)).toEqual(['owner']);
+    expect(canOpenSection(owner, 'owner', 'properties')).toBe(true);
+    expect(canOpenSection(owner, 'owner', 'bookings')).toBe(true);
+    expect(canOpenSection(owner, 'owner', 'contacts')).toBe(false);
+    expect(canOpenSection(owner, 'owner', 'invoices')).toBe(false);
+    expect(canOpenSection(owner, 'owner', 'team')).toBe(false);
+    expect(canOpenPortalPath(owner, 'owner', '/stays/rates')).toBe(false);
+    expect(canOpenPortalPath(owner, 'owner', '/properties/new')).toBe(false);
+  });
+
+  it('keeps staff organization-wide even with a party, and gates sections by permission', () => {
+    const staff = accessFromMemberships([
+      { roleKey: 'property_owner', permissions: [], partyId: PARTY },
+      { roleKey: 'finance_manager', permissions: [] },
+    ]);
+    expect(scopedOwnerParty(staff)).toBeNull();
+    expect(canOpenSection(staff, 'owner', 'invoices')).toBe(true);
+    const guard = accessFromMemberships([{ roleKey: 'building_guard', permissions: [] }]);
+    expect(canOpenSection(guard, 'owner', 'maintenance')).toBe(true);
+    expect(canOpenSection(guard, 'owner', 'invoices')).toBe(false);
+    expect(canOpenSection(guard, 'owner', 'contacts')).toBe(false);
+    expect(canOpenPortalPath(guard, 'owner', '/stays/rates')).toBe(false);
+    expect(canOpenPortalPath(guard, 'owner', '/stays/calendar')).toBe(true);
   });
 });
 

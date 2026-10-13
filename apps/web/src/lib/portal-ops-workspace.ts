@@ -15,6 +15,7 @@ import type { PortalRole } from '@/lib/types';
 import type { OperationsContext } from '@/components/operations-console';
 import type { OperationsSection, OperationsWorkspacePayload } from '@/lib/portal-ops-types';
 import { opsSectionsForPortal } from '@/lib/portal-ops-types';
+import { canOpenSection, scopedOwnerParty, type PortalAccess } from '@/lib/portal-access';
 import { isStaysPlatformEnabled } from '@/lib/stays-flags';
 
 export type { OperationsSection, OperationsWorkspacePayload } from '@/lib/portal-ops-types';
@@ -39,6 +40,19 @@ const NEST_PROBE_MS = 1_500;
 const NEST_ROW_RACE_MS = 2_500;
 const NEST_CONTEXT_RACE_MS = 2_000;
 const NEST_HEALTH_TTL_MS = 10_000;
+
+/** Context lists a member only sees with the matching read permission. */
+const CONTEXT_KEY_PERMISSIONS: readonly (readonly [string, readonly string[]])[] = [
+  ['party.read', ['parties', 'owners', 'tenants']],
+  [
+    'lease.read',
+    ['leases', 'cancelRequestedLeases', 'clearancePendingLeases', 'renewalPendingLeases'],
+  ],
+  ['invoice.read', ['invoices']],
+  ['accounting.read', ['ledgerAccounts']],
+  ['reservation.read', ['reservations', 'pendingDepositReservations', 'confirmedReservations']],
+  ['contract.template.read', ['contractTemplates']],
+];
 
 let nestHealthCache: { at: number; ok: boolean } | null = null;
 
@@ -329,11 +343,31 @@ async function loadOperationsContext(): Promise<OperationsContextResult> {
 export async function loadOperationsWorkspacePayload(
   portal: PortalRole,
   section: OperationsSection,
+  access: PortalAccess,
   localeHint?: 'ar' | 'en',
   contextHint?: OperationsContextResult,
 ): Promise<OperationsWorkspacePayload> {
   const locale = localeHint ?? ((await getLocale()) === 'en' ? 'en' : 'ar');
   const nestConfigured = isNestApiConfiguredForRuntime();
+  if (portal !== 'tenant' && scopedOwnerParty(access)) {
+    // Organization context and Nest rows are not party-scoped, so a building owner gets only
+    // their own properties here; their bookings list comes from the scoped property records.
+    const records =
+      section === 'properties' ? ((await loadOpsRecordsFromDb(portal, section)) ?? []) : [];
+    return {
+      records,
+      summary: {},
+      secondary: [],
+      context: {},
+      apiOnline: true,
+      nestConfigured,
+      recordsEmpty: !records.length,
+      apiUnauthorized: false,
+      dataFromDb: true,
+      loadError: false,
+      locale,
+    };
+  }
   if (
     section === 'bookings' ||
     section === 'leasing' ||
@@ -417,6 +451,10 @@ export async function loadOperationsWorkspacePayload(
         : neonContext?.owners) ?? [],
     ...(loaded.contextPatch ?? {}),
   };
+  for (const [permission, keys] of CONTEXT_KEY_PERMISSIONS) {
+    if (access.permissions.includes(permission)) continue;
+    for (const key of keys) delete (context as Record<string, unknown>)[key];
+  }
   const recordsEmpty = !loaded.records.length;
   const loadError = offline && recordsEmpty;
   const apiUnauthorized = Boolean(contextResult.unauthorized) && !(dataFromDb && !recordsEmpty);
@@ -439,9 +477,12 @@ export async function loadOperationsWorkspacePayload(
 /** Prefetch every ops section for a portal (one Nest health probe, pooled). */
 export async function loadAllOperationsWorkspacePayloads(
   portal: PortalRole,
+  access: PortalAccess,
   localeHint?: 'ar' | 'en',
 ): Promise<Partial<Record<OperationsSection, OperationsWorkspacePayload>>> {
-  const sections = opsSectionsForPortal(portal);
+  const sections = opsSectionsForPortal(portal).filter((section) =>
+    canOpenSection(access, portal, section),
+  );
   if (!sections.length) return {};
 
   // Warm Nest health cache once so offline/Neon sections do not re-probe.
@@ -469,6 +510,7 @@ export async function loadAllOperationsWorkspacePayloads(
       out[section] = await loadOperationsWorkspacePayload(
         portal,
         section,
+        access,
         localeHint,
         sharedContext,
       );

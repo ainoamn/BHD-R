@@ -131,6 +131,11 @@ export const roleKeys = [
   'developer_admin',
   'tenant',
   'auditor',
+  'admin_staff',
+  'building_guard',
+  'legal_counsel',
+  'property_owner',
+  'custom_member',
 ] as const;
 export const roleKeySchema = z.enum(roleKeys);
 export type RoleKey = z.infer<typeof roleKeySchema>;
@@ -575,6 +580,86 @@ export const rolePermissions: Readonly<Record<RoleKey, readonly Permission[]>> =
     'report.export',
     'stay.booking.read',
   ],
+  /** Front office: guests, viewings, requests and day-to-day bookings; no money or contracts. */
+  admin_staff: [
+    'organization.read',
+    'party.read',
+    'party.write',
+    'property.read',
+    'unit.read',
+    'media.read',
+    'prospect.read',
+    'prospect.manage',
+    'reservation.read',
+    'viewing.read',
+    'viewing.manage',
+    'request.read',
+    'request.create',
+    'request.update',
+    'task.read',
+    'task.create',
+    'task.update',
+    'contract.read',
+    'lease.read',
+    'invoice.read',
+    'receipt.read',
+    'maintenance.read',
+    'maintenance.create',
+    'stay.booking.read',
+    'stay.booking.manage',
+  ],
+  /** On-site guard: who arrives and leaves, and reporting issues. */
+  building_guard: [
+    'property.read',
+    'unit.read',
+    'stay.booking.read',
+    'maintenance.read',
+    'maintenance.create',
+    'request.read',
+    'request.create',
+    'task.read',
+    'task.update',
+  ],
+  /** Contracts, templates, legal cases and cheque review; no payments or property changes. */
+  legal_counsel: [
+    'organization.read',
+    'party.read',
+    'property.read',
+    'unit.read',
+    'reservation.read',
+    'contract.read',
+    'contract.create',
+    'contract.send',
+    'contract.template.read',
+    'contract.template.write',
+    'lease.read',
+    'invoice.read',
+    'cheque.read',
+    'cheque.review',
+    'legal.read',
+    'legal.manage',
+    'approval.read',
+    'report.read',
+  ],
+  /**
+   * Owner of buildings the organization manages. Never org-wide: the session's party scopes
+   * every read to properties whose owner party is theirs.
+   */
+  property_owner: [
+    'organization.read',
+    'property.read',
+    'unit.read',
+    'contract.read',
+    'lease.read',
+    'invoice.read',
+    'receipt.read',
+    'payment.read',
+    'stay.booking.read',
+    'maintenance.read',
+    'request.read',
+  ],
+  /** Base of an organization's saved custom roles; their permissions come with the membership. */
+  custom_member: ['organization.read'],
 };
 
 export const sessionClaimsSchema = z.object({
@@ -591,6 +676,64 @@ export type SessionClaims = z.infer<typeof sessionClaimsSchema>;
 
 export function permissionsForRoles(roles: readonly RoleKey[]): Permission[] {
   return [...new Set(roles.flatMap((role) => rolePermissions[role]))];
+}
+
+/** Membership role_key of an organization's own saved role: 'custom:<organization_roles.id>'. */
+export const CUSTOM_ROLE_PREFIX = 'custom:';
+
+export function customRoleKey(roleId: string): string {
+  return `${CUSTOM_ROLE_PREFIX}${roleId}`;
+}
+
+type MembershipGrant = {
+  roleKey: string;
+  permissions: readonly string[];
+  partyId?: string | null;
+};
+
+/** Saved-role ids among a member's rows, to load their permissions before building claims. */
+export function customRoleIds(rows: readonly MembershipGrant[]): string[] {
+  return rows
+    .filter((row) => row.roleKey.startsWith(CUSTOM_ROLE_PREFIX))
+    .map((row) => row.roleKey.slice(CUSTOM_ROLE_PREFIX.length));
+}
+
+/**
+ * Roles, permissions and party a member's active rows grant in one organization. A saved role
+ * contributes its current permissions (missing or archived roles contribute nothing).
+ */
+export function accessFromMemberships(
+  rows: readonly MembershipGrant[],
+  savedRolePermissions: ReadonlyMap<string, readonly string[]> = new Map(),
+): { roles: RoleKey[]; permissions: Permission[]; partyId: string | null } {
+  const roles = new Set<RoleKey>();
+  const granted: string[] = [];
+  for (const row of rows) {
+    const builtIn = roleKeySchema.safeParse(row.roleKey);
+    if (builtIn.success) roles.add(builtIn.data);
+    else if (row.roleKey.startsWith(CUSTOM_ROLE_PREFIX)) {
+      const saved = savedRolePermissions.get(row.roleKey.slice(CUSTOM_ROLE_PREFIX.length));
+      if (saved) {
+        roles.add('custom_member');
+        granted.push(...saved);
+      }
+    }
+    granted.push(...row.permissions);
+  }
+  const valid = granted.filter(
+    (permission): permission is Permission => permissionSchema.safeParse(permission).success,
+  );
+  // A building owner's scope is their owner party, even when another row carries a party too.
+  const partyId =
+    rows.find((row) => row.roleKey === 'property_owner' && row.partyId)?.partyId ??
+    rows.find((row) => row.partyId)?.partyId ??
+    null;
+  const roleList = [...roles];
+  return {
+    roles: roleList,
+    permissions: [...new Set([...permissionsForRoles(roleList), ...valid])],
+    partyId,
+  };
 }
 
 export function hasPermission(claims: SessionClaims, permission: Permission): boolean {

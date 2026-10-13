@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import type { ContractAnnexDocument } from '@/lib/contract-annex';
 import { loadContractAnnexFromNeon } from '@/lib/contract-annex-neon';
 import { loadContractDetailFromNeon, type ContractDetail } from '@/lib/contract-detail-neon';
+import { scopedOwnerParty } from '@/lib/portal-access';
 import { ApiError, apiFetch } from '@/lib/server-api';
 import { requirePortal } from '@/lib/viewer';
 import type { PortalRole } from '@/lib/types';
@@ -30,6 +31,8 @@ export async function ContractDetailView({
     console.error('contract detail (neon) failed', error);
     return null;
   });
+  // The Nest copy does not limit a building owner to their own properties.
+  if (!contract && portal !== 'tenant' && scopedOwnerParty(viewer)) notFound();
   if (!contract) {
     contract = await apiFetch<ContractDetail>(
       portal === 'tenant'
