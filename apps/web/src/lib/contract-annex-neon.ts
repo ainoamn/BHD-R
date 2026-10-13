@@ -9,7 +9,15 @@ import {
   type ContractAnnexDocument,
   type ContractAnnexKind,
 } from '@/lib/contract-annex';
-import { contractAccess, stayBookingIdOf, visibleContract } from '@/lib/contract-detail-neon';
+import {
+  contractAccess,
+  stayBookingIdOf,
+  visibleContract,
+  type ContractAccess,
+} from '@/lib/contract-detail-neon';
+import { lifecycleOf } from '@/lib/lease-reservation-lifecycle';
+import { handoverPhotoDataUrl } from '@/lib/lease-reservation-lifecycle-neon';
+import { findLeaseReservation } from '@/lib/public-lease-booking-neon';
 import { withinViewerTenant } from '@/lib/portal-ops-data';
 import { loadStayStamps, readHandoverPhoto, type StayStamp } from '@/lib/stay-arrival-neon';
 import { maskAccount } from '@/lib/stay-deposit-refund';
@@ -49,6 +57,11 @@ export async function loadContractAnnexFromNeon(
   const { claims, orgId } = access;
   const canManageStays = hasPermission(claims, 'stay.booking.manage');
   const canSeeAccounts = canDecideDepositRefunds(claims) || canPayDepositRefunds(claims);
+
+  if (kind === 'check-in') {
+    const lease = await leaseHandoverAnnex(access, contractId, portal);
+    if (lease !== undefined) return lease;
+  }
 
   const loaded = await withinViewerTenant(claims, async (tx) => {
     const contract = await visibleContract(tx, contractId, access);
@@ -266,20 +279,185 @@ export async function loadContractAnnexFromNeon(
   };
 }
 
+/** The reservation a website rent or purchase contract was issued from, if any. */
+function leaseReservationIdOf(snapshot: Record<string, unknown>): string | null {
+  const source = record(snapshot.source);
+  return source.type === 'lease_reservation' ? text(source.reservationId) : null;
+}
+
+/**
+ * The handover record (A1) of a rent or purchase contract, made by scanning the tenant's pass:
+ * keys, meters, the tenant receiving the key, premises photos and the tenant's defects.
+ * Undefined when the contract did not come from a website booking.
+ */
+async function leaseHandoverAnnex(
+  access: ContractAccess,
+  contractId: string,
+  portal: Portal,
+): Promise<ContractAnnexDocument | null | undefined> {
+  const { claims, orgId } = access;
+  const loaded = await withinViewerTenant(claims, async (tx) => {
+    const contract = await visibleContract(tx, contractId, access);
+    if (!contract) return null;
+    const snapshot = (contract.payloadSnapshot ?? {}) as Record<string, unknown>;
+    const reservationId = leaseReservationIdOf(snapshot);
+    if (!reservationId) return undefined;
+    const match = await findLeaseReservation(tx, 'id', reservationId);
+    if (!match || match.organizationId !== orgId) return null;
+    const handover = lifecycleOf(match.snapshot).handover;
+    if (!handover) return null;
+    const party = (id: string) =>
+      tx
+        .select({ displayName: parties.displayName, phone: parties.phone, email: parties.email })
+        .from(parties)
+        .where(and(eq(parties.organizationId, orgId), eq(parties.id, id)))
+        .limit(1)
+        .then((rows) => rows[0] ?? null);
+    const [letterhead, owner, tenant] = await Promise.all([
+      readTermsLetterhead(tx, orgId).catch(() => null),
+      party(contract.ownerPartyId),
+      party(contract.tenantPartyId),
+    ]);
+    return { contract, snapshot, match, handover, letterhead, owner, tenant };
+  });
+  if (loaded === undefined || loaded === null) return loaded;
+
+  const { contract, snapshot, match, handover } = loaded;
+  const contractReference = contract.reference ?? `CTR-${contract.id.slice(0, 8).toUpperCase()}`;
+  const tenantDetails = record(snapshot.tenantDetails);
+  const photoSrc = (file: string) =>
+    `/api/portal/contracts/${contract.id}/annex/check-in/photos/${file}?portal=${portal}`;
+  const photos = (handover.photos ?? []).map((photo) => ({
+    ...photo,
+    src: photoSrc(String(photo.index)),
+  }));
+  const defects = handover.defects
+    ? {
+        at: handover.defects.at,
+        note: handover.defects.note,
+        photos: handover.defects.photos.map((photo) => ({
+          ...photo,
+          src: photoSrc(`defect-${photo.index}`),
+        })),
+      }
+    : null;
+  const recipientPhoto = handover.recipientPhoto
+    ? { ...handover.recipientPhoto, src: photoSrc('recipient') }
+    : null;
+  const status = handover.status ?? 'accepted';
+
+  return {
+    kind: 'check-in',
+    reference: annexReference(contractReference, 'check-in'),
+    contract: {
+      id: contract.id,
+      reference: contractReference,
+      createdAt: contract.createdAt.toISOString(),
+      startsOn: text(snapshot.startsOn),
+      endsOn: text(snapshot.endsOn),
+    },
+    letterhead: loaded.letterhead,
+    ownerName: loaded.owner?.displayName ?? '—',
+    tenantName: text(tenantDetails.nameAr) ?? loaded.tenant?.displayName ?? '—',
+    tenantPhone: loaded.tenant?.phone ?? null,
+    tenantEmail: loaded.tenant?.email ?? null,
+    property: { nameAr: match.propertyNameAr, nameEn: match.propertyNameEn },
+    unit: { code: match.unitCode, nameAr: match.unitNameAr, nameEn: match.unitNameEn },
+    bookingReference: match.snapshot.referenceCode,
+    guestPageHref: `/book/confirmed?ref=${encodeURIComponent(match.snapshot.referenceCode)}`,
+    recordedAt: handover.at,
+    handover: {
+      at: handover.at,
+      recordedBy: handover.byName,
+      noteKeys: [],
+      customNote: handover.notes,
+      notes: handover.notes,
+      important: false,
+      recipient: {
+        name: handover.recipientName,
+        phone: null,
+        documentKind: null,
+        documentHref: null,
+      },
+      photos,
+      lease: {
+        keys: handover.keys,
+        electricityReading: handover.electricityReading,
+        waterReading: handover.waterReading,
+        recipientPhoto,
+        status,
+        acceptedAt: handover.acceptedAt ?? (status === 'accepted' ? handover.at : null),
+        defectsUntil: handover.defectsUntil ?? null,
+        defects,
+      },
+    },
+    refund: null,
+    fingerprint: sha256({
+      contract: contract.id,
+      annex: 'check-in',
+      handover: {
+        at: handover.at,
+        on: handover.on,
+        recordedBy: handover.byName,
+        recipientName: handover.recipientName,
+        keys: handover.keys,
+        electricityReading: handover.electricityReading,
+        waterReading: handover.waterReading,
+        notes: handover.notes,
+        status,
+        acceptedAt: handover.acceptedAt ?? null,
+        recipientPhoto: handover.recipientPhoto?.sha256 ?? null,
+        photos: (handover.photos ?? []).map((photo) => photo.sha256),
+        defects: handover.defects
+          ? {
+              at: handover.defects.at,
+              note: handover.defects.note,
+              photos: handover.defects.photos.map((photo) => photo.sha256),
+            }
+          : null,
+      },
+    }),
+  };
+}
+
+/** A photo of an annex: `n` (condition), `recipient` or `defect-n` (rent or purchase handover). */
+export type AnnexPhotoKey = number | 'recipient' | `defect-${number}`;
+
 /** One condition photo of a check-in / check-out annex, after the contract's access checks. */
 export async function readContractAnnexPhoto(
   contractId: string,
   portal: Portal,
   kind: 'check-in' | 'check-out',
-  index: number,
+  photo: AnnexPhotoKey,
 ): Promise<{ bytes: Buffer; mimeType: string } | null> {
   const access = await contractAccess(contractId, portal);
   if (!access) return null;
   return withinViewerTenant(access.claims, async (tx) => {
     const contract = await visibleContract(tx, contractId, access);
     if (!contract) return null;
-    const bookingId = stayBookingIdOf((contract.payloadSnapshot ?? {}) as Record<string, unknown>);
-    if (!bookingId) return null;
-    return readHandoverPhoto(tx, access.orgId, bookingId, STAMP_KIND[kind], index);
+    const snapshot = (contract.payloadSnapshot ?? {}) as Record<string, unknown>;
+    const reservationId = leaseReservationIdOf(snapshot);
+    if (reservationId) {
+      if (kind !== 'check-in') return null;
+      const match = await findLeaseReservation(tx, 'id', reservationId);
+      if (!match || match.organizationId !== access.orgId) return null;
+      const file =
+        photo === 'recipient'
+          ? 'handover-recipient'
+          : typeof photo === 'number'
+            ? `handover-${photo}`
+            : photo;
+      const dataUrl = await handoverPhotoDataUrl(
+        tx,
+        access.orgId,
+        lifecycleOf(match.snapshot),
+        file,
+      );
+      const parsed = dataUrl?.match(/^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/);
+      return parsed ? { mimeType: parsed[1]!, bytes: Buffer.from(parsed[2]!, 'base64') } : null;
+    }
+    const bookingId = stayBookingIdOf(snapshot);
+    if (!bookingId || typeof photo !== 'number') return null;
+    return readHandoverPhoto(tx, access.orgId, bookingId, STAMP_KIND[kind], photo);
   });
 }

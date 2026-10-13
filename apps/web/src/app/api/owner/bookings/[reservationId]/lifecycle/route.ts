@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { z } from 'zod';
 import type { SessionClaims } from '@bhd-r/authz';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
@@ -130,9 +130,10 @@ export async function POST(
   }
 
   try {
-    return NextResponse.json(await reservationOwnerAction(claims, reservationId, body), {
-      headers: { 'cache-control': 'no-store' },
+    const result = await reservationOwnerAction(claims, reservationId, body, {
+      defer: (task) => after(task),
     });
+    return NextResponse.json(result, { headers: { 'cache-control': 'no-store' } });
   } catch (error) {
     const code = clientSafeErrorCode(error, 'update_failed');
     if (code === 'update_failed') console.error('POST /api/owner/bookings/lifecycle', error);

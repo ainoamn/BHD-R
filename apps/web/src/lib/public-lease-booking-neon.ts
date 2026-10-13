@@ -185,6 +185,21 @@ const ERRORS = {
     'مدة العقد أقل من الحد الأدنى الذي حدده المالك.',
     'The contract term is shorter than the owner’s minimum.',
   ],
+  handover_pass_invalid: [
+    400,
+    'رمز التسليم غير صالح أو انتهت صلاحيته — اطلب من المستأجر تحديث صفحة حجزه وأعد المسح.',
+    'The handover code is invalid or expired — ask the tenant to refresh their booking page and scan again.',
+  ],
+  handover_invalid: [
+    400,
+    'أكمل بيانات التسليم وصورة المستأجر عند استلام المفتاح.',
+    'Complete the handover details and the photo of the tenant receiving the key.',
+  ],
+  handover_defects_closed: [
+    409,
+    'انتهت مهلة الساعات الثلاث لإرفاق ملاحظات الاستلام، واعتُبر العقار مستلماً بحالته.',
+    'The three-hour window to report defects has ended; the premises count as accepted as they are.',
+  ],
 } as const satisfies Record<string, readonly [number, string, string]>;
 
 export type LeaseBookingErrorCode = keyof typeof ERRORS;
@@ -766,6 +781,22 @@ function visibleLifecycle(lifecycle: ReservationLifecycle) {
           recipientName: lifecycle.handover.recipientName,
           keys: lifecycle.handover.keys,
           notes: lifecycle.handover.notes,
+          byName: lifecycle.handover.byName,
+          electricityReading: lifecycle.handover.electricityReading,
+          waterReading: lifecycle.handover.waterReading,
+          status: lifecycle.handover.status ?? ('accepted' as const),
+          scanned: lifecycle.handover.method === 'scan',
+          hasRecipientPhoto: Boolean(lifecycle.handover.recipientPhoto),
+          photos: (lifecycle.handover.photos ?? []).map((photo) => photo.index),
+          acceptedAt: lifecycle.handover.acceptedAt ?? null,
+          defectsUntil: lifecycle.handover.defectsUntil ?? null,
+          defects: lifecycle.handover.defects
+            ? {
+                at: lifecycle.handover.defects.at,
+                note: lifecycle.handover.defects.note,
+                photos: lifecycle.handover.defects.photos.map((photo) => photo.index),
+              }
+            : null,
         }
       : null,
   };
@@ -888,6 +919,34 @@ export async function loadLeaseBookingForStaff(claims: SessionClaims, reservatio
       },
     };
   });
+}
+
+/** The reservation behind a booking reference, for staff of its organization who may read it. */
+export async function leaseReservationIdForStaff(claims: SessionClaims, referenceCode: string) {
+  const normalized = normalizeLeaseReference(referenceCode);
+  if (!normalized || !claims.organizationId || !hasPermission(claims, 'reservation.read')) {
+    return null;
+  }
+  const { db } = getDatabase();
+  return db.transaction(async (transaction) => {
+    const match = await findLeaseReservation(transaction, 'referenceCode', normalized);
+    if (!match || match.organizationId !== claims.organizationId) return null;
+    const ownerPartyId = ownerPartyScope(claims);
+    if (ownerPartyId && match.ownerPartyId !== ownerPartyId) return null;
+    return match.id;
+  });
+}
+
+/** The booking agreement inside an open transaction of its organization (contract pages). */
+export async function loadLeaseBookingAgreementInTx(
+  transaction: Tx,
+  orgId: string,
+  reservationId: string,
+) {
+  if (!/^[0-9a-f-]{36}$/i.test(reservationId)) return null;
+  const match = await findLeaseReservation(transaction, 'id', reservationId);
+  if (!match || match.organizationId !== orgId) return null;
+  return leaseBookingAgreementData(transaction, match);
 }
 
 async function leaseBookingAgreementData(transaction: Tx, match: LeaseReservationMatch) {

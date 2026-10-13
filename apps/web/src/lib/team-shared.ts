@@ -236,6 +236,12 @@ export const CAPABILITY_GROUPS: readonly CapabilityGroup[] = [
         ],
       },
       {
+        id: 'handover',
+        ar: 'تسليم العقار للمستأجر بمسح رمزه',
+        en: 'Hand over premises by scanning the tenant code',
+        permissions: ['reservation.handover'],
+      },
+      {
         id: 'stay_rates',
         ar: 'الأسعار والتقويم وإعداد الإقامة اليومية',
         en: 'Rates, calendar and daily-stay setup',

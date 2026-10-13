@@ -2,6 +2,22 @@
 
 **تسليم الجلسة كاملة (0.2.24 → 0.8.33):** للاستكمال من جهاز آخر ابدأ من [`docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه خطوات الإعداد، والمراحل بالتاريخ والوقت، والمهام المفتوحة. ويرافقه فهرس الإصدارات (251 إصداراً) والمحادثة كاملة بعد حذف الأسرار.
 
+# CONTINUE — 2026-10-13 17:55 (مسقط)
+
+**0.8.56** · معاينة، قبول فوري، الشروط أساس العقد، تسليم بالرمز:
+
+- **المعاينة:** `FilePreviewDialog` يجرّب `<img src>` أولاً، فيستفيد من الصورة المصغّرة الظاهرة رغم `no-store`. وعند خطأ الصورة يجلب الملف `blob:` ويعرضه في `<iframe>`. ويحتاج ذلك `frame-src blob:` في `proxy.ts`. وعارض PDF في كروم يعمل مع `object-src 'none'`.
+- **القبول الفوري:** حالة `decisions` في `lease-reservation-workflow.tsx` تُطبَّق على `lifecycle` المعروض حتى يعكسها الخادم. والمرحلة تُحسب بـ`documentsPhase`. و`reservationOwnerAction(..., { defer })` يؤجل الإصدار الآلي عبر `after()`.
+- **التسليم:**
+  - الرمز من `handover-pass.ts`: AES-GCM بمفتاح HKDF من سر الجلسة، ونوافذ 5 دقائق، و4 نوافذ صالحة.
+  - التسليم `status: 'awaiting_tenant'` يُبقي المرحلة `awaiting_handover`، والقبول يجعلها `handed_over`.
+  - الصور في `workflow_events` (`reservation_handover`)، وتُقرأ بـ`handoverPhotoDataUrl`.
+- **قراءة صور التسليم للمستأجر تحتاج `applyOrgScope`** قبل `workflow_events`، وإلا تعيد RLS صفاً فارغاً (404).
+- **الملحق A1 لعقد الحجز:** `leaseHandoverAnnex` في `contract-annex-neon.ts`. والصور: `n` و`recipient` و`defect-n`.
+- **لاختبار التسليم على فرع مؤقت:** المستأجر في `RSV-KMF42LNE` هو حساب المالك نفسه، فجلسة واحدة تكفي للطرفين.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.56-AR.md`](./docs/implementation/RELEASE-0.8.56-AR.md)
+
 # CONTINUE — 2026-10-13 17:20 (مسقط)
 
 **0.8.55** · طباعة العقد:

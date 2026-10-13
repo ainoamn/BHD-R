@@ -67,6 +67,8 @@ export type TenancyReservation = {
   referenceCode: string | null;
   mode: 'rent' | 'sale' | null;
   status: string;
+  /** Premises handed over by scan: awaiting the tenant's acceptance, or open for defect photos. */
+  handover?: 'awaiting_acceptance' | 'defects_open' | null;
   expiresAt: string;
   awaitingPayment: boolean;
   depositMinor: string | null;
@@ -98,7 +100,9 @@ export type TenancyAlertKind =
   | 'reservation_review'
   | 'stay_payment'
   | 'stay_request'
-  | 'stay_refund';
+  | 'stay_refund'
+  | 'handover_accept'
+  | 'handover_defects';
 
 export type TenancyAlert = {
   kind: TenancyAlertKind;
@@ -208,6 +212,20 @@ export function buildTenancyAlerts(data: Omit<MyTenancy, 'alerts'>, today: strin
     });
   }
   for (const reservation of data.reservations) {
+    if (reservation.handover && reservation.referenceCode) {
+      alerts.push({
+        kind:
+          reservation.handover === 'awaiting_acceptance' ? 'handover_accept' : 'handover_defects',
+        id: reservation.id,
+        reference: reservation.referenceCode,
+        href: `/book/confirmed?ref=${encodeURIComponent(reservation.referenceCode)}`,
+        date: null,
+        amountMinor: null,
+        currency: null,
+        action: true,
+      });
+      continue;
+    }
     if (reservation.status !== 'pending' && reservation.status !== 'confirmed') continue;
     const awaitingPayment = reservation.status === 'pending' && reservation.awaitingPayment;
     alerts.push({
@@ -243,6 +261,8 @@ export function buildTenancyAlerts(data: Omit<MyTenancy, 'alerts'>, today: strin
     });
   }
   const rank: Record<TenancyAlertKind, number> = {
+    handover_accept: -2,
+    handover_defects: -1,
     invoice_overdue: 0,
     contract_sign: 1,
     reservation_payment: 2,
@@ -271,6 +291,14 @@ const ALERT_LABEL: Record<TenancyAlertKind, { ar: string; en: string }> = {
   stay_payment: { ar: 'إقامة بانتظار الدفع', en: 'Stay awaiting payment' },
   stay_request: { ar: 'طلب إقامة بانتظار موافقة المالك', en: 'Stay request awaiting the host' },
   stay_refund: { ar: 'يمكنك طلب استرداد التأمين', en: 'You can request your deposit back' },
+  handover_accept: {
+    ar: 'أكّد استلامك للعقار',
+    en: 'Confirm you received the premises',
+  },
+  handover_defects: {
+    ar: 'أرفق ملاحظات الاستلام خلال 3 ساعات',
+    en: 'Report defects within 3 hours',
+  },
 };
 
 export function tenancyAlertLabel(kind: TenancyAlertKind, ar: boolean): string {

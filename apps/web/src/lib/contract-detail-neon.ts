@@ -48,7 +48,12 @@ import {
 import { loadStayStamps, type StayStamps } from '@/lib/stay-arrival-neon';
 import { tenantClaimsForContract } from '@/lib/tenancy-neon';
 import { loadDepositRefunds } from '@/lib/stay-deposit-refund-neon';
-import { contractAnnexLinks } from '@/lib/contract-annex';
+import { contractAnnexLinks, leaseAnnexLinks } from '@/lib/contract-annex';
+import { leaseBookingAgreement, type LeaseBookingAgreement } from '@/lib/lease-booking-contract';
+import { leaseBookingDocumentPath } from '@/lib/lease-booking-paths';
+import { publicWebOrigin } from '@/lib/seo';
+import { loadLeaseBookingAgreementInTx } from '@/lib/public-lease-booking-neon';
+import type { ContractArticleHead } from '@/components/contract-document-view';
 
 type Tx = Parameters<Parameters<typeof withinViewerTenant>[1]>[0];
 
@@ -92,6 +97,12 @@ export interface ContractDetail {
   }>;
   /** Full document view; only the Neon reader fills it. */
   document?: ContractDocument;
+  /** Copy of the signed booking agreement a website rent or purchase contract completes. */
+  bookingCopy?: {
+    head: ContractArticleHead;
+    doc: ContractDocument;
+    signaturePng: string | null;
+  } | null;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -461,6 +472,16 @@ export async function loadContractDetailFromNeon(
     const serials = signatures.length
       ? await signatureSerials(tx, orgId, contract.id)
       : new Map<string, string>();
+    const bookingSource = record(snapshot.source);
+    const booking =
+      bookingSource.type === 'lease_reservation' && text(bookingSource.reservationId)
+        ? await loadLeaseBookingAgreementInTx(tx, orgId, text(bookingSource.reservationId)!).catch(
+            (error: unknown) => {
+              console.error('contract booking copy failed', error);
+              return null;
+            },
+          )
+        : null;
     const builtIn = defaultTemplateCounterpart(template?.html);
     const templateAr =
       template?.language === 'ar' ? template.html : (templateSibling ?? builtIn?.ar ?? null);
@@ -492,6 +513,7 @@ export async function loadContractDetailFromNeon(
       serials,
       stamps,
       refundRequestedAt: refund?.requestedAt || null,
+      booking,
     };
   });
   if (!detail) return null;
@@ -503,6 +525,12 @@ export async function loadContractDetailFromNeon(
   const document = await buildContractDocument(detail, snapshot, orgId);
   return {
     document,
+    bookingCopy: detail.booking
+      ? {
+          ...leaseBookingAgreement(detail.booking),
+          signaturePng: detail.booking.signature?.png ?? null,
+        }
+      : null,
     id: contract.id,
     reference,
     kind: contract.kind as ContractDetail['kind'],
@@ -593,6 +621,7 @@ type Loaded = {
     | null;
   identityDocs: Array<{ partyId: string; documentType: string; last4: string }>;
   location: PropertyLocation | null;
+  booking: LeaseBookingAgreement | null;
 };
 
 type PartyRow = {
@@ -683,6 +712,7 @@ async function buildContractDocument(
         ? 'sale'
         : 'rent';
   const deposit = money(snapshot.deposit);
+  const booking = loaded.booking;
   const terms = hasAccepted
     ? bookingTermsDocument({
         mode,
@@ -696,7 +726,12 @@ async function buildContractDocument(
         depositAr: deposit ? formatMoney(deposit.amountMinor, deposit.currency, 'ar') : null,
         depositEn: deposit ? formatMoney(deposit.amountMinor, deposit.currency, 'en') : null,
       })
-    : [];
+    : booking
+      ? leaseBookingAgreement(booking).doc.terms
+      : [];
+  const bookingUrl = booking
+    ? `${publicWebOrigin()}${leaseBookingDocumentPath('ar', booking.referenceCode)}`
+    : null;
 
   const esignAt = text(loaded.esign?.signedAt);
   const files: ContractDocument['files'] = loaded.esign
@@ -776,7 +811,17 @@ async function buildContractDocument(
       : null,
     location: loaded.location,
     terms,
-    termsAcceptedAt: text(accepted.acceptedAt) ?? null,
+    termsAcceptedAt: text(accepted.acceptedAt) ?? booking?.termsAcceptedAt ?? null,
+    booking:
+      booking && bookingUrl
+        ? {
+            referenceCode: booking.referenceCode,
+            url: bookingUrl,
+            qrSvg: await contractQrSvg(bookingUrl).catch(() => null),
+            termsAcceptedAt: booking.termsAcceptedAt ?? null,
+            signedAt: booking.signature?.signedAt ?? null,
+          }
+        : null,
     signatures: loaded.signatures.map((row) => {
       const evidence = record(row.evidence);
       const contact = record(evidence.guestContact);
@@ -852,6 +897,11 @@ async function buildContractDocument(
           checkOut: checkOutStamp?.at ?? null,
           depositRefund: loaded.refundRequestedAt,
         })
-      : [],
+      : booking
+        ? leaseAnnexLinks(
+            contract.reference ?? `CTR-${contract.id.slice(0, 8).toUpperCase()}`,
+            booking.lifecycle.handover?.at ?? null,
+          )
+        : [],
   };
 }

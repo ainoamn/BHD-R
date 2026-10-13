@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
+import { LeaseHandoverPanel } from '@/components/lease-handover-panel';
 import { LeaseJourneyCard } from '@/components/lease-journey';
 import { PropertyLocationMap } from '@/components/property-location-map';
 import { StayJourneyProvider, StayJourneySteps } from '@/components/stays/stay-journey';
@@ -214,6 +215,15 @@ export default async function LeaseBookingConfirmedPage({
             ) : (
               <LeaseJourneyCard {...journey} />
             )}
+
+            {!closed &&
+            (booking.phase === 'awaiting_handover' || booking.lifecycle.handover?.scanned) ? (
+              <LeaseHandoverPanel
+                locale={locale}
+                referenceCode={booking.referenceCode}
+                handover={booking.lifecycle.handover}
+              />
+            ) : null}
 
             <section className="guest-stay-detail__card">
               <h2>{ar ? 'تفاصيل الحجز' : 'Booking details'}</h2>

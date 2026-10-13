@@ -143,6 +143,17 @@ export interface ContractDocument {
   parent: { id: string; reference: string } | null;
   /** Stay annexes (check-in, check-out, deposit refund), each a separate document. */
   annexes: ContractAnnexLink[];
+  /**
+   * The website booking a rent or purchase contract was issued from: its terms are part of
+   * the contract, and the QR opens the booking document for its parties.
+   */
+  booking?: {
+    referenceCode: string;
+    url: string;
+    qrSvg: string | null;
+    termsAcceptedAt: string | null;
+    signedAt: string | null;
+  } | null;
   /** Rent or purchase reservation the customer signs after paying the booking deposit. */
   reservation?: {
     mode: 'rent' | 'sale';

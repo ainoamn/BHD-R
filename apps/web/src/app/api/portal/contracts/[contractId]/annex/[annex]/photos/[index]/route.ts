@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { readContractAnnexPhoto } from '@/lib/contract-annex-neon';
+import { readContractAnnexPhoto, type AnnexPhotoKey } from '@/lib/contract-annex-neon';
 import { HANDOVER_PHOTOS_MAX } from '@/lib/stay-handover';
 
 export const runtime = 'nodejs';
@@ -19,18 +19,23 @@ export async function GET(
   const { contractId, annex, index } = await context.params;
   const portalParam = new URL(request.url).searchParams.get('portal') ?? 'owner';
   const portal = PORTALS.has(portalParam as 'owner') ? (portalParam as 'owner') : null;
-  const position = /^\d$/.test(index) ? Number(index) : -1;
-  if (
-    !portal ||
-    (annex !== 'check-in' && annex !== 'check-out') ||
-    position < 0 ||
-    position >= HANDOVER_PHOTOS_MAX
-  ) {
+  const digit = /^\d$/.test(index) ? Number(index) : -1;
+  const defect = /^defect-\d$/.test(index) ? Number(index.slice(7)) : -1;
+  const photo: AnnexPhotoKey | null =
+    digit >= 0 && digit < HANDOVER_PHOTOS_MAX
+      ? digit
+      : index === 'recipient'
+        ? 'recipient'
+        : defect >= 0 && defect < HANDOVER_PHOTOS_MAX
+          ? `defect-${defect}`
+          : null;
+  if (!portal || (annex !== 'check-in' && annex !== 'check-out') || photo === null) {
     return NextResponse.json({ error: { code: 'not_found' } }, { status: 404 });
   }
+  const position = typeof photo === 'number' ? photo : index;
 
   try {
-    const found = await readContractAnnexPhoto(contractId, portal, annex, position);
+    const found = await readContractAnnexPhoto(contractId, portal, annex, photo);
     if (!found) {
       return NextResponse.json({ error: { code: 'not_found' } }, { status: 404 });
     }
@@ -40,7 +45,7 @@ export async function GET(
         'Content-Length': String(found.bytes.length),
         'Cache-Control': 'private, max-age=300',
         'X-Content-Type-Options': 'nosniff',
-        'Content-Disposition': `inline; filename="${annex}-photo-${position + 1}.${found.mimeType.split('/')[1]}"`,
+        'Content-Disposition': `inline; filename="${annex}-photo-${typeof position === 'number' ? position + 1 : position}.${found.mimeType.split('/')[1]}"`,
       },
     });
   } catch (error) {

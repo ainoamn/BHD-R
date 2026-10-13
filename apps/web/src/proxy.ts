@@ -76,7 +76,7 @@ function csp(nonce: string): string {
     `img-src ${img}`,
     "font-src 'self' data:",
     `connect-src ${connect}`,
-    "frame-src 'self' https://www.google.com https://maps.google.com https://www.google.com/maps",
+    "frame-src 'self' blob: https://www.google.com https://maps.google.com https://www.google.com/maps",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     // Logout form POST redirects to Identity end-session; Chromium checks form-action on redirects.

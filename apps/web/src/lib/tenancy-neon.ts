@@ -15,6 +15,11 @@ import {
 } from '@bhd-r/db';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { applySessionSettings, viewerTenantSettings } from '@/lib/db-session-settings';
+import {
+  handoverAwaitingTenant,
+  handoverDefectsOpen,
+  lifecycleOf,
+} from '@/lib/lease-reservation-lifecycle';
 import { listGuestStayBookingsOnNeon } from '@/lib/public-stays-guest-neon';
 import {
   buildTenancyAlerts,
@@ -406,12 +411,18 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
     const reservationItems: TenancyReservation[] = reservationRows.map((row) => {
       const terms = obj(row.terms);
       const mode = terms.mode === 'rent' || terms.mode === 'sale' ? terms.mode : null;
+      const lifecycle = lifecycleOf(terms);
       return {
         id: row.id,
         landlord,
         referenceCode: str(terms.referenceCode),
         mode,
         status: row.status,
+        handover: handoverAwaitingTenant(lifecycle)
+          ? 'awaiting_acceptance'
+          : handoverDefectsOpen(lifecycle)
+            ? 'defects_open'
+            : null,
         expiresAt: iso(row.expiresAt),
         awaitingPayment: terms.awaitingPublicDepositPayment === true,
         depositMinor: str(terms.depositMinor),

@@ -55,6 +55,20 @@ export type ContractAnnexLink = {
   recordedAt: string | null;
 };
 
+/** A rent or purchase contract has one annex: the handover record, once the keys are handed over. */
+export function leaseAnnexLinks(
+  contractReference: string,
+  handoverAt: string | null,
+): ContractAnnexLink[] {
+  return [
+    {
+      kind: 'check-in',
+      reference: annexReference(contractReference, 'check-in'),
+      recordedAt: handoverAt,
+    },
+  ];
+}
+
 /** The three annexes as listed on the contract, each with the time it was recorded (or null). */
 export function contractAnnexLinks(
   contractReference: string,
@@ -88,6 +102,17 @@ export type AnnexHandover = {
     documentHref: string | null;
   } | null;
   photos: AnnexPhoto[];
+  /** A rent or purchase contract's handover, recorded by scanning the tenant's pass. */
+  lease?: {
+    keys: string | null;
+    electricityReading: string | null;
+    waterReading: string | null;
+    recipientPhoto: AnnexPhoto | null;
+    status: 'awaiting_tenant' | 'accepted';
+    acceptedAt: string | null;
+    defectsUntil: string | null;
+    defects: { at: string; note: string | null; photos: AnnexPhoto[] } | null;
+  } | null;
 };
 
 export type AnnexRefund = {

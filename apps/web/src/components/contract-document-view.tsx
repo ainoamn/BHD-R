@@ -37,6 +37,17 @@ type Portal = Exclude<PortalRole, 'platform'>;
 
 const DOCUMENT_ID = 'contract-document';
 const annexDocumentId = (kind: string) => `contract-annex-${kind}`;
+const BOOKING_COPY_ID = 'contract-booking-copy';
+
+/** The QR's own link, kept on the site's origin so it opens in the same session. */
+function bookingDocumentHref(booking: NonNullable<ContractDocument['booking']>): string {
+  try {
+    const url = new URL(booking.url);
+    return `${url.pathname}${url.search}`;
+  } catch {
+    return booking.url;
+  }
+}
 
 const STATUS_LABELS: Record<string, Pair> = {
   draft: ['مسودة', 'Draft'],
@@ -242,6 +253,7 @@ export function ContractDocumentView({
   viewerName: string;
 }) {
   const ar = locale === 'ar';
+  const bookingCopy = contract.bookingCopy ?? null;
   const {
     dateTime,
     day,
@@ -303,9 +315,18 @@ export function ContractDocumentView({
         recipientPath={portal === 'tenant' ? null : recipientPath}
         pdfUrl={contract.documentUrl}
         parts={
-          doc.annexes.length
+          doc.annexes.length || bookingCopy
             ? [
                 { id: DOCUMENT_ID, label: ar ? 'العقد' : 'Contract', available: true },
+                ...(bookingCopy
+                  ? [
+                      {
+                        id: BOOKING_COPY_ID,
+                        label: ar ? 'نسخة مستند الحجز' : 'Booking document copy',
+                        available: true,
+                      },
+                    ]
+                  : []),
                 ...doc.annexes.map((annex) => ({
                   id: annexDocumentId(annex.kind),
                   label: pick(ANNEX_META[annex.kind].title),
@@ -316,8 +337,17 @@ export function ContractDocumentView({
         }
       />
 
-      {doc.annexes.length ? (
+      {doc.annexes.length || doc.booking ? (
         <nav className="contract-annex-bar" aria-label={ar ? 'محاضر العقد' : 'Contract records'}>
+          {doc.booking ? (
+            <Link className="contract-annex-bar__item" href={bookingDocumentHref(doc.booking)}>
+              <span className="contract-annex-bar__no">RSV</span>
+              <span className="contract-annex-bar__title">
+                {ar ? 'مستند الحجز وشروطه' : 'Booking document & terms'}
+              </span>
+              <small dir="ltr">{doc.booking.referenceCode}</small>
+            </Link>
+          ) : null}
           {doc.annexes.map((annex) => {
             const meta = ANNEX_META[annex.kind];
             const content = (
@@ -354,8 +384,21 @@ export function ContractDocumentView({
         </nav>
       ) : null}
 
-      {annexDocuments.length ? (
+      {annexDocuments.length || bookingCopy ? (
         <div className="contract-annex-stash" hidden>
+          {bookingCopy ? (
+            <ContractArticle
+              id={BOOKING_COPY_ID}
+              contract={bookingCopy.head}
+              doc={bookingCopy.doc}
+              locale={locale}
+              links={{
+                file: () => bookingCopy.signaturePng ?? '',
+                contract: (contractId) => `/${locale}/${portal}/contracts/${contractId}`,
+                annex: () => `/${locale}/${portal}/contracts/${contract.id}`,
+              }}
+            />
+          ) : null}
           {annexDocuments.map((annex) => (
             <ContractAnnexArticle
               key={annex.kind}
@@ -759,6 +802,46 @@ export function ContractArticle({
 
               <section className="contract-doc__section">
                 {heading(['الشروط والأحكام', 'Terms & Conditions'])}
+                {doc.booking ? (
+                  <div className="contract-doc__booking-basis">
+                    <div>
+                      {para(
+                        `تُعدّ الشروط والأحكام التي وافق عليها الطرف الثاني${doc.booking.termsAcceptedAt ? ` بتاريخ ${dateTime(doc.booking.termsAcceptedAt)?.[0] ?? ''}` : ''} عند الحجز بموجب مستند الحجز رقم ${doc.booking.referenceCode} جزءاً لا يتجزأ من هذا العقد ومتمّمةً له، وتُقرأ معه وتُفسَّر معه، وهي أساس هذا العقد. وتُرفق بهذا العقد نسخة من مستند الحجز الموقّع لتكون مكمّلةً له.`,
+                        `The terms and conditions the second party accepted${doc.booking.termsAcceptedAt ? ` on ${dateTime(doc.booking.termsAcceptedAt)?.[1] ?? ''}` : ''} when booking, under booking document No. ${doc.booking.referenceCode}, form an integral part of this agreement and complete it; they are read and construed together with it and are its basis. A copy of the signed booking document is attached to complete it.`,
+                        'contract-doc__lead',
+                      )}
+                      <dl className="contract-doc__table">
+                        {row(
+                          ['رقم مستند الحجز', 'Booking document No.'],
+                          <Link href={bookingDocumentHref(doc.booking)}>
+                            {ltr(doc.booking.referenceCode)}
+                          </Link>,
+                        )}
+                        {doc.booking.signedAt
+                          ? row(
+                              ['تاريخ توقيع مستند الحجز', 'Booking document signed'],
+                              bi(dateTime(doc.booking.signedAt)),
+                            )
+                          : null}
+                      </dl>
+                    </div>
+                    {doc.booking.qrSvg ? (
+                      <a
+                        className="contract-doc__qr contract-doc__qr--booking"
+                        href={bookingDocumentHref(doc.booking)}
+                        aria-label={ar ? 'رمز مستند الحجز' : 'Booking document code'}
+                      >
+                        <span dangerouslySetInnerHTML={{ __html: doc.booking.qrSvg }} />
+                        <small>
+                          <span lang="ar">مستند الحجز</span>
+                          <span lang="en" dir="ltr">
+                            {doc.booking.referenceCode}
+                          </span>
+                        </small>
+                      </a>
+                    ) : null}
+                  </div>
+                ) : null}
                 {doc.terms.length ? (
                   <>
                     {doc.termsAcceptedAt
@@ -853,6 +936,13 @@ export function ContractArticle({
 
               <section className="contract-doc__section">
                 {heading(['المرفقات والوثائق', 'Annexes & Documents'])}
+                {doc.booking
+                  ? para(
+                      `يُرفق بهذا العقد ويُعدّ مكمّلاً له: نسخة من مستند الحجز رقم ${doc.booking.referenceCode} الموقّع إلكترونياً، بما فيه الشروط والأحكام التي وافق عليها الطرف الثاني.`,
+                      `Attached to and completing this agreement: a copy of the e-signed booking document No. ${doc.booking.referenceCode}, including the terms the second party accepted.`,
+                      'contract-doc__lead',
+                    )
+                  : null}
                 {attachments.length || contract.documentUrl ? (
                   <ul className="contract-doc__files">
                     {attachments.map((file) => (
@@ -885,7 +975,7 @@ export function ContractArticle({
                     'ID documents are visible only to booking managers.',
                     'contract-doc__lead',
                   )
-                ) : (
+                ) : doc.booking ? null : (
                   para('لا توجد مرفقات.', 'No annexes.', 'contract-doc__lead')
                 )}
               </section>

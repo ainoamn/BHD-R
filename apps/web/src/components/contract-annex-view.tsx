@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
   ANNEX_META,
+  type AnnexPhoto,
   type ContractAnnexDocument,
   type ContractAnnexKind,
 } from '@/lib/contract-annex';
@@ -162,6 +163,7 @@ export function ContractAnnexArticle({
     ? [unitLabel(annex.unit.code, annex.unit.nameAr), unitLabel(annex.unit.code, annex.unit.nameEn)]
     : null;
   const handover = annex.handover;
+  const lease = handover?.lease ?? null;
   const refund = annex.refund;
   const stampKind = kind === 'check-out' ? 'check_out' : 'check_in';
   const documentKind = handover?.recipient?.documentKind
@@ -187,6 +189,32 @@ export function ContractAnnexArticle({
       </h2>
     );
   };
+
+  const photoList = (photos: AnnexPhoto[], numbered = true) => (
+    <ol className="contract-annex__photos">
+      {photos.map((photo) => (
+        <li key={photo.src}>
+          <a href={photo.src} target="_blank" rel="noreferrer">
+            <img
+              src={photo.src}
+              alt={ar ? `صورة ${photo.index + 1}` : `Photo ${photo.index + 1}`}
+              loading="lazy"
+            />
+          </a>
+          <small>
+            {numbered ? (
+              <>
+                <strong>{photo.index + 1}</strong> ·{' '}
+              </>
+            ) : null}
+            {bi(PHOTO_SOURCE[photo.source] ?? null)}
+            {photo.takenAt ? <> · {bi(dateTime(photo.takenAt))}</> : null}
+          </small>
+          <code dir="ltr">SHA-256 {photo.sha256.slice(0, 16)}…</code>
+        </li>
+      ))}
+    </ol>
+  );
 
   const signBox = (role: Pair, name: string | null, at: string | null, electronic: boolean) => (
     <div className="contract-doc__signature">
@@ -281,7 +309,9 @@ export function ContractAnnexArticle({
                     <bdi>{annex.ownerName}</bdi>,
                   )}
                   {row(
-                    ['الطرف الثاني — الضيف المستأجر', 'Second party — Guest'],
+                    lease
+                      ? ['الطرف الثاني — المستأجر', 'Second party — Tenant']
+                      : ['الطرف الثاني — الضيف المستأجر', 'Second party — Guest'],
                     <bdi>{annex.tenantName}</bdi>,
                   )}
                   {row(['العقار', 'Property'], bi(propertyName))}
@@ -310,6 +340,32 @@ export function ContractAnnexArticle({
                       ['سجّله', 'Recorded by'],
                       handover.recordedBy ? <bdi>{handover.recordedBy}</bdi> : null,
                     )}
+                    {lease ? (
+                      <>
+                        {row(
+                          ['طريقة التسليم', 'Method'],
+                          bi([
+                            'بمسح الرمز المشفّر في حساب المستأجر والتحقق من هويته',
+                            'By scanning the encrypted code in the tenant’s account and confirming their identity',
+                          ]),
+                        )}
+                        {row(['المفاتيح', 'Keys'], lease.keys ? <bdi>{lease.keys}</bdi> : null)}
+                        {row(
+                          ['قراءة عداد الكهرباء', 'Electricity meter'],
+                          lease.electricityReading ? ltr(lease.electricityReading) : null,
+                        )}
+                        {row(
+                          ['قراءة عداد الماء', 'Water meter'],
+                          lease.waterReading ? ltr(lease.waterReading) : null,
+                        )}
+                        {row(
+                          ['موافقة المستأجر', 'Tenant acceptance'],
+                          lease.acceptedAt
+                            ? bi(dateTime(lease.acceptedAt))
+                            : bi(['بانتظار موافقة المستأجر', 'Awaiting the tenant’s acceptance']),
+                        )}
+                      </>
+                    ) : null}
                     {handover.recipient
                       ? row(
                           ['المستلم', 'Received by'],
@@ -376,31 +432,56 @@ export function ContractAnnexArticle({
 
               {handover ? (
                 <section className="contract-doc__section">
-                  {heading(['صور حالة الوحدة', 'Unit condition photos'])}
-                  {handover.photos.length ? (
-                    <ol className="contract-annex__photos">
-                      {handover.photos.map((photo) => (
-                        <li key={photo.index}>
-                          <a href={photo.src} target="_blank" rel="noreferrer">
-                            <img
-                              src={photo.src}
-                              alt={ar ? `صورة ${photo.index + 1}` : `Photo ${photo.index + 1}`}
-                              loading="lazy"
-                            />
-                          </a>
-                          <small>
-                            <strong>{photo.index + 1}</strong> ·{' '}
-                            {bi(PHOTO_SOURCE[photo.source] ?? null)}
-                            {photo.takenAt ? <> · {bi(dateTime(photo.takenAt))}</> : null}
-                          </small>
-                          <code dir="ltr">SHA-256 {photo.sha256.slice(0, 16)}…</code>
-                        </li>
-                      ))}
-                    </ol>
+                  {heading(
+                    lease
+                      ? ['صور العين قبل التسليم', 'Premises photos before handover']
+                      : ['صور حالة الوحدة', 'Unit condition photos'],
+                  )}
+                  {handover.photos.length
+                    ? photoList(handover.photos)
+                    : para(
+                        'لم تُرفق صور لحالة الوحدة في هذا المحضر.',
+                        'No condition photos were attached to this record.',
+                        'contract-doc__lead',
+                      )}
+                </section>
+              ) : null}
+
+              {lease?.recipientPhoto ? (
+                <section className="contract-doc__section">
+                  {heading(['صورة المستأجر عند استلام المفتاح', 'Tenant receiving the key'])}
+                  {para(
+                    'التقطها ممثل المالك لحظة التسليم، وهي متمّمة لهذا المحضر.',
+                    'Taken by the owner’s representative at the moment of handover; it completes this record.',
+                    'contract-doc__lead',
+                  )}
+                  {photoList([lease.recipientPhoto], false)}
+                </section>
+              ) : null}
+
+              {lease && lease.acceptedAt ? (
+                <section className="contract-doc__section">
+                  {heading(['ملاحظات المستأجر بعد الاستلام', 'Tenant’s notes after handover'])}
+                  {lease.defects ? (
+                    <>
+                      <dl className="contract-doc__table">
+                        {row(['تاريخ الرفع', 'Submitted'], bi(dateTime(lease.defects.at)))}
+                        {row(
+                          ['الملاحظات', 'Notes'],
+                          lease.defects.note ? <bdi>{lease.defects.note}</bdi> : null,
+                          true,
+                        )}
+                      </dl>
+                      {lease.defects.photos.length ? photoList(lease.defects.photos) : null}
+                    </>
                   ) : (
                     para(
-                      'لم تُرفق صور لحالة الوحدة في هذا المحضر.',
-                      'No condition photos were attached to this record.',
+                      lease.defectsUntil && Date.parse(lease.defectsUntil) > Date.now()
+                        ? `للمستأجر رفع صور العيوب حتى ${dateTime(lease.defectsUntil)?.[0] ?? ''}، وإلا عُدّت العين مستلمة بحالتها الموثّقة أعلاه.`
+                        : 'لم يرفع المستأجر ملاحظات خلال المهلة، فتُعدّ العين مستلمة بحالتها الموثّقة أعلاه استلاماً رسمياً.',
+                      lease.defectsUntil && Date.parse(lease.defectsUntil) > Date.now()
+                        ? `The tenant may upload defect photos until ${dateTime(lease.defectsUntil)?.[1] ?? ''}; otherwise the premises are taken as received in the condition recorded above.`
+                        : 'The tenant raised no notes within the window, so the premises are formally received in the condition recorded above.',
                       'contract-doc__lead',
                     )
                   )}

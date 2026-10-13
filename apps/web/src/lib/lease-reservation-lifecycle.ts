@@ -77,8 +77,50 @@ export type ReservationLifecycle = {
     electricityReading: string | null;
     waterReading: string | null;
     notes: string | null;
+    /** Recorded by scanning the tenant's pass; older records were typed in by the owner. */
+    method?: 'scan';
+    byUserId?: string | null;
+    /** Scanned handovers wait for the tenant to accept the premises; older ones count as accepted. */
+    status?: 'awaiting_tenant' | 'accepted';
+    evidenceEventId?: string;
+    recipientPhoto?: HandoverPhotoMeta | null;
+    photos?: HandoverPhotoMeta[];
+    acceptedAt?: string | null;
+    /** End of the window in which the tenant may still report defects with photos. */
+    defectsUntil?: string | null;
+    defects?: {
+      at: string;
+      note: string | null;
+      evidenceEventId: string;
+      photos: HandoverPhotoMeta[];
+    } | null;
   };
 };
+
+/** A stored handover photo without its bytes. */
+export type HandoverPhotoMeta = {
+  index: number;
+  sha256: string;
+  takenAt: string | null;
+  source: 'camera' | 'device';
+};
+
+/** Hours after accepting the keys in which the tenant may report defects with photos. */
+export const HANDOVER_DEFECTS_HOURS = 3;
+
+export function handoverAwaitingTenant(lifecycle: ReservationLifecycle | null | undefined) {
+  return lifecycle?.handover?.status === 'awaiting_tenant';
+}
+
+/** The tenant may still attach defect photos: accepted, inside the window, none sent yet. */
+export function handoverDefectsOpen(
+  lifecycle: ReservationLifecycle | null | undefined,
+  now: Date = new Date(),
+): boolean {
+  const handover = lifecycle?.handover;
+  if (!handover || handover.status !== 'accepted' || handover.defects) return false;
+  return Boolean(handover.defectsUntil && new Date(handover.defectsUntil) > now);
+}
 
 export const REQUIREMENT_CATALOGUE: ReadonlyArray<{
   code: string;
@@ -218,7 +260,7 @@ export function lifecycleOf(snapshot: unknown): ReservationLifecycle {
 /** Where the booking stands and whose move it is. */
 export function leaseJourneyPhase(input: LeaseJourneyInput): LeaseJourneyPhase {
   const life = input.lifecycle ?? {};
-  if (life.handover) return 'handed_over';
+  if (life.handover && life.handover.status !== 'awaiting_tenant') return 'handed_over';
   if (life.cancellation) return 'closed';
   if (life.tenantSignature) return 'awaiting_handover';
   if (input.status === 'cancelled' || input.status === 'expired') return 'closed';
@@ -228,7 +270,12 @@ export function leaseJourneyPhase(input: LeaseJourneyInput): LeaseJourneyPhase {
   if (!life.approval) return 'awaiting_owner_approval';
   if (life.contract) return 'awaiting_tenant_signature';
   if (!life.contractDraft) return 'awaiting_contract_draft';
-  const requirements = requirementsOf(life);
+  return documentsPhase(life);
+}
+
+/** Once the draft is ready: waiting on the client's documents, on their review, or on approval. */
+export function documentsPhase(lifecycle: ReservationLifecycle): LeaseJourneyPhase {
+  const requirements = requirementsOf(lifecycle);
   if (requirements.some((item) => item.status === 'pending' || item.status === 'rejected')) {
     return 'awaiting_documents';
   }

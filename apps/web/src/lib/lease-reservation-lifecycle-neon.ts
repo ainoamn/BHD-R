@@ -1,4 +1,5 @@
 import 'server-only';
+import { createHash } from 'node:crypto';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import {
@@ -13,14 +14,21 @@ import {
   workflowEvents,
 } from '@bhd-r/db';
 import { SYSTEM_APPROVER_AR } from '@/lib/approval-policy';
+import { brandUploadedPhoto } from '@/lib/brand-uploaded-photo';
+import { issueHandoverPass, openHandoverPass, verifyHandoverCode } from '@/lib/handover-pass';
+import { HANDOVER_PHOTOS_MAX, HANDOVER_PHOTO_MAX } from '@/lib/stay-handover';
 import { delegateClaims, resolveApprovalPolicy } from '@/lib/approval-policy-neon';
 import { clientSafeErrorCode } from '@/lib/client-safe-error';
 import { applySessionSettings, viewerTenantSettings } from '@/lib/db-session-settings';
 import {
+  HANDOVER_DEFECTS_HOURS,
   REQUIREMENT_FILE_MAX_CHARS,
   REQUIREMENT_FILE_TYPES,
+  handoverAwaitingTenant,
+  handoverDefectsOpen,
   leaseJourneyPhase,
   lifecycleOf,
+  type HandoverPhotoMeta,
   type LeaseJourneyPhase,
   type ReservationCancelReason,
   type ReservationLifecycle,
@@ -379,9 +387,19 @@ export async function reservationOwnerAction(
   claims: SessionClaims,
   reservationId: string,
   input: ReservationOwnerAction,
-): Promise<{ phase: LeaseJourneyPhase; contractId?: string; contractReference?: string }> {
+  options: { defer?: (task: () => Promise<unknown>) => void } = {},
+): Promise<{
+  phase: LeaseJourneyPhase;
+  contractId?: string;
+  contractReference?: string;
+  automationPending?: boolean;
+}> {
   const result = await ownerActionInTx(claims, reservationId, input);
   if (!AUTOMATION_TRIGGERS.has(input.action)) return result;
+  if (options.defer && input.action === 'review_document') {
+    options.defer(() => runReservationAutomation(reservationId, claims.sub));
+    return { ...result, automationPending: true };
+  }
   const phase = await runReservationAutomation(reservationId, claims.sub);
   return phase ? { ...result, phase } : result;
 }
@@ -1000,7 +1018,11 @@ export async function readReservationFileForStaff(
 ): Promise<{ mimeType: string; bytes: Buffer; name: string } | null> {
   if (!/^[0-9a-f-]{36}$/i.test(reservationId)) return null;
   if (!claims.organizationId || !hasPermission(claims, 'reservation.read')) return null;
-  const identity = file !== 'signature' && file !== 'contract-signature';
+  const handoverPhoto = HANDOVER_PHOTO_FILE.test(file);
+  const identity =
+    file !== 'signature' &&
+    file !== 'contract-signature' &&
+    (!handoverPhoto || file === 'handover-recipient');
   if (identity && !hasPermission(claims, 'reservation.manage')) return null;
   const { db } = getDatabase();
   const dataUrl = await db.transaction(async (transaction) => {
@@ -1009,6 +1031,10 @@ export async function readReservationFileForStaff(
     const ownerPartyId = ownerPartyScope(claims);
     if (ownerPartyId && match.ownerPartyId !== ownerPartyId) return null;
     const lifecycle = lifecycleOf(match.snapshot);
+    if (handoverPhoto) {
+      const value = await handoverPhotoDataUrl(transaction, match.organizationId, lifecycle, file);
+      return value ? { value, name: `${match.snapshot.referenceCode}-${file}` } : null;
+    }
     let eventId: string | null = null;
     let path: string[] = [];
     let name = file;
@@ -1051,4 +1077,414 @@ export async function readReservationFileForStaff(
   const mimeType = parsed[1]!;
   if (!mimeType.startsWith('image/') && mimeType !== 'application/pdf') return null;
   return { mimeType, bytes: Buffer.from(parsed[2]!, 'base64'), name: dataUrl.name };
+}
+
+// ── Handover by the tenant's pass ───────────────────────────────────────────────────────────
+
+const HANDOVER_IMAGE = /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+
+export type HandoverPhotoInput = { data: string; takenAt: string; source: 'camera' | 'device' };
+
+/** The pass the staff member scanned, or the booking reference with the six-digit code typed in. */
+export type HandoverKey = { token: string } | { reference: string; code: string };
+
+/** Each photo re-encoded once with the platform mark, keeping its fingerprint and capture facts. */
+async function brandHandoverPhotos(photos: readonly HandoverPhotoInput[]) {
+  const branded: Array<{ data: string; meta: HandoverPhotoMeta }> = [];
+  for (const [index, photo] of photos.entries()) {
+    if (!HANDOVER_IMAGE.test(photo.data) || photo.data.length > HANDOVER_PHOTO_MAX) {
+      leaseBookingFail('invalid_file');
+    }
+    const data = await brandUploadedPhoto(photo.data, HANDOVER_PHOTO_MAX);
+    const taken = Date.parse(photo.takenAt);
+    branded.push({
+      data,
+      meta: {
+        index,
+        sha256: createHash('sha256').update(data).digest('hex'),
+        takenAt: Number.isNaN(taken) ? null : new Date(taken).toISOString(),
+        source: photo.source === 'camera' ? 'camera' : 'device',
+      },
+    });
+  }
+  return branded;
+}
+
+async function reservationIdForKey(tx: Tx, key: HandoverKey): Promise<string> {
+  if ('token' in key) {
+    return openHandoverPass(key.token) ?? leaseBookingFail('handover_pass_invalid');
+  }
+  const normalized = normalizeLeaseReference(key.reference);
+  const match = normalized ? await findLeaseReservation(tx, 'referenceCode', normalized) : null;
+  if (!match || !verifyHandoverCode(match.id, key.code.trim())) {
+    leaseBookingFail('handover_pass_invalid');
+  }
+  return match.id;
+}
+
+const muscatDate = (date: Date) => date.toLocaleDateString('en-CA', { timeZone: 'Asia/Muscat' });
+
+/**
+ * What the tenant's booking page shows at the handover stage: a fresh pass while the keys are
+ * still to be handed over, or the step after it once a staff member recorded the handover.
+ */
+export async function tenantHandoverPass(claims: SessionClaims, referenceCode: string) {
+  const normalized = normalizeLeaseReference(referenceCode);
+  if (!normalized) leaseBookingFail('not_found');
+  const { db } = getDatabase();
+  return db.transaction(async (transaction) => {
+    const match = await findLeaseReservation(transaction, 'referenceCode', normalized);
+    if (!match) leaseBookingFail('not_found');
+    await assertBookingOwner(transaction, claims.sub, match.partyEmail);
+    const lifecycle = lifecycleOf(match.snapshot);
+    const phase = phaseOf(match.status, match.snapshot, lifecycle);
+    if (phase === 'handed_over') return { state: 'handed_over' as const };
+    if (phase !== 'awaiting_handover') return { state: 'not_ready' as const };
+    if (handoverAwaitingTenant(lifecycle)) return { state: 'awaiting_acceptance' as const };
+    return { state: 'pass' as const, ...issueHandoverPass(match.id) };
+  });
+}
+
+/** Who the scanned pass belongs to, for the staff member about to hand over the keys. */
+export async function previewHandover(claims: SessionClaims, key: HandoverKey) {
+  if (!claims.organizationId || !hasPermission(claims, 'reservation.handover')) fail('forbidden');
+  return withinViewerTenant(claims, async (tx) => {
+    const reservationId = await reservationIdForKey(tx, key);
+    const match = await findLeaseReservation(tx, 'id', reservationId);
+    if (!match || match.organizationId !== claims.organizationId) {
+      leaseBookingFail('handover_pass_invalid');
+    }
+    const ownerPartyId = ownerPartyScope(claims);
+    if (ownerPartyId && match.ownerPartyId !== ownerPartyId) {
+      leaseBookingFail('handover_pass_invalid');
+    }
+    const lifecycle = lifecycleOf(match.snapshot);
+    const phase = phaseOf(match.status, match.snapshot, lifecycle);
+    const party = match.snapshot.party as { nameAr?: unknown } | undefined;
+    return {
+      reservationId: match.id,
+      referenceCode: match.snapshot.referenceCode,
+      mode: match.snapshot.mode,
+      phase,
+      ready: phase === 'awaiting_handover',
+      awaitingTenant: handoverAwaitingTenant(lifecycle),
+      tenantName:
+        (typeof party?.nameAr === 'string' && party.nameAr.trim()) ||
+        match.snapshot.contact?.fullName ||
+        match.partyName,
+      unit: { code: match.unitCode, nameAr: match.unitNameAr, nameEn: match.unitNameEn },
+      property: { nameAr: match.propertyNameAr, nameEn: match.propertyNameEn },
+      contractReference: lifecycle.contract?.reference ?? null,
+      tenantSignedAt: lifecycle.tenantSignature?.signedAt ?? null,
+      hasSelfie: Boolean(match.snapshot.esign?.evidenceEventId),
+    };
+  });
+}
+
+/** The selfie the tenant took when signing, so the staff member can match the face at the door. */
+export async function readHandoverSelfie(
+  claims: SessionClaims,
+  key: HandoverKey,
+): Promise<{ mimeType: string; bytes: Buffer } | null> {
+  const preview = await previewHandover(claims, key);
+  const { db } = getDatabase();
+  const dataUrl = await db.transaction(async (transaction) => {
+    const match = await findLeaseReservation(transaction, 'id', preview.reservationId);
+    const eventId = match?.snapshot.esign?.evidenceEventId;
+    if (!match || !eventId) return null;
+    return withElevatedRead(transaction, async () => {
+      const [row] = await transaction
+        .select({ png: sql<string | null>`${workflowEvents.metadata}->'esign'->>'selfiePng'` })
+        .from(workflowEvents)
+        .where(
+          and(
+            eq(workflowEvents.id, eventId),
+            eq(workflowEvents.organizationId, match.organizationId),
+          ),
+        )
+        .limit(1);
+      return row?.png ?? null;
+    });
+  });
+  const parsed = dataUrl ? DATA_URL.exec(dataUrl) : null;
+  if (!parsed || !parsed[1]!.startsWith('image/')) return null;
+  return { mimeType: parsed[1]!, bytes: Buffer.from(parsed[2]!, 'base64') };
+}
+
+/**
+ * The staff member records the handover after scanning the tenant's pass: keys, meters, a photo
+ * of the tenant receiving the key and photos of the premises. The tenant then accepts it.
+ */
+export async function offerHandover(
+  claims: SessionClaims,
+  key: HandoverKey,
+  input: {
+    recipientName: string;
+    keys?: string | undefined;
+    electricityReading?: string | undefined;
+    waterReading?: string | undefined;
+    notes?: string | undefined;
+    recipientPhoto: HandoverPhotoInput;
+    photos: HandoverPhotoInput[];
+  },
+) {
+  if (!claims.organizationId || !hasPermission(claims, 'reservation.handover')) fail('forbidden');
+  const recipientName = input.recipientName.trim().slice(0, 120);
+  if (recipientName.length < 2 || input.photos.length > HANDOVER_PHOTOS_MAX) {
+    leaseBookingFail('handover_invalid');
+  }
+  const [recipient] = await brandHandoverPhotos([input.recipientPhoto]);
+  const photos = await brandHandoverPhotos(input.photos);
+  const text = (value: string | undefined, max: number) => value?.trim().slice(0, max) || null;
+
+  return withinViewerTenant(claims, async (tx) => {
+    const reservationId = await reservationIdForKey(tx, key);
+    const row = await loadForOwner(tx, claims, reservationId);
+    assertOpen(row);
+    const existing = row.lifecycle.handover;
+    if (!row.lifecycle.tenantSignature || (existing && existing.status !== 'awaiting_tenant')) {
+      fail('reservation_not_ready');
+    }
+    const now = new Date();
+    const at = now.toISOString();
+    const byName = await viewerName(tx, claims.sub);
+    const [evidence] = await tx
+      .insert(workflowEvents)
+      .values({
+        organizationId: row.orgId,
+        actorUserId: claims.sub,
+        resourceType: 'reservation_handover',
+        resourceId: row.id,
+        eventType: 'reservation.handover_evidence',
+        metadata: {
+          referenceCode: row.snapshot.referenceCode,
+          recipientPhoto: recipient!.data,
+          photos: photos.map((photo) => photo.data),
+        },
+      })
+      .returning({ id: workflowEvents.id });
+    const lifecycle: ReservationLifecycle = {
+      ...row.lifecycle,
+      handover: {
+        at,
+        on: muscatDate(now),
+        byName,
+        byUserId: claims.sub,
+        recipientName,
+        keys: text(input.keys, 200),
+        electricityReading: text(input.electricityReading, 40),
+        waterReading: text(input.waterReading, 40),
+        notes: text(input.notes, 1000),
+        method: 'scan',
+        status: 'awaiting_tenant',
+        evidenceEventId: evidence!.id,
+        recipientPhoto: recipient!.meta,
+        photos: photos.map((photo) => photo.meta),
+        acceptedAt: null,
+        defectsUntil: null,
+        defects: null,
+      },
+    };
+    await saveLifecycle(tx, row, lifecycle);
+    await logEvent(tx, {
+      orgId: row.orgId,
+      actorUserId: claims.sub,
+      reservationId: row.id,
+      eventType: 'reservation.handover_offered',
+      status: row.status,
+      metadata: {
+        referenceCode: row.snapshot.referenceCode,
+        byName,
+        recipientName,
+        photos: photos.length,
+        evidenceEventId: evidence!.id,
+      },
+    });
+    await tx.insert(outboxEvents).values({
+      organizationId: row.orgId,
+      topic: 'reservation.handover_offered',
+      aggregateType: 'reservation',
+      aggregateId: row.id,
+      payload: { referenceCode: row.snapshot.referenceCode, offeredAt: at },
+    });
+    return { referenceCode: row.snapshot.referenceCode, offeredAt: at };
+  });
+}
+
+/** The tenant accepts the premises: the handover is complete and the defects window opens. */
+export async function acceptHandover(claims: SessionClaims, referenceCode: string) {
+  const { db } = getDatabase();
+  return db.transaction(async (transaction) => {
+    const current = await customerReservation(transaction, claims.sub, referenceCode);
+    const handover = current.lifecycle.handover;
+    if (handover?.status === 'accepted') {
+      return {
+        acceptedAt: handover.acceptedAt ?? handover.at,
+        defectsUntil: handover.defectsUntil,
+      };
+    }
+    if (!handover || handover.status !== 'awaiting_tenant') leaseBookingFail('not_ready');
+    const now = new Date();
+    const acceptedAt = now.toISOString();
+    const defectsUntil = new Date(
+      now.getTime() + HANDOVER_DEFECTS_HOURS * 60 * 60 * 1000,
+    ).toISOString();
+    const orgId = current.match.organizationId;
+    await saveLifecycle(
+      transaction,
+      { id: current.match.id, snapshot: current.snapshot },
+      {
+        ...current.lifecycle,
+        handover: { ...handover, status: 'accepted', acceptedAt, defectsUntil },
+      },
+    );
+    await logEvent(transaction, {
+      orgId,
+      actorUserId: claims.sub,
+      reservationId: current.match.id,
+      eventType: 'reservation.handed_over',
+      status: current.status,
+      metadata: {
+        referenceCode: current.snapshot.referenceCode,
+        method: 'scan',
+        acceptedAt,
+        recipientName: handover.recipientName,
+      },
+    });
+    await transaction.insert(outboxEvents).values({
+      organizationId: orgId,
+      topic: 'reservation.handed_over',
+      aggregateType: 'reservation',
+      aggregateId: current.match.id,
+      payload: { referenceCode: current.snapshot.referenceCode, acceptedAt, defectsUntil },
+    });
+    return { acceptedAt, defectsUntil };
+  });
+}
+
+/** Within three hours of accepting, the tenant may attach photos of defects with a note. */
+export async function reportHandoverDefects(
+  claims: SessionClaims,
+  referenceCode: string,
+  input: { note?: string | undefined; photos: HandoverPhotoInput[] },
+) {
+  if (!input.photos.length || input.photos.length > HANDOVER_PHOTOS_MAX) {
+    leaseBookingFail('invalid_file');
+  }
+  const photos = await brandHandoverPhotos(input.photos);
+  const note = input.note?.trim().slice(0, 1000) || null;
+  const { db } = getDatabase();
+  return db.transaction(async (transaction) => {
+    const current = await customerReservation(transaction, claims.sub, referenceCode);
+    const handover = current.lifecycle.handover;
+    if (!handover || !handoverDefectsOpen(current.lifecycle)) {
+      leaseBookingFail('handover_defects_closed');
+    }
+    const orgId = current.match.organizationId;
+    const at = new Date().toISOString();
+    const [evidence] = await transaction
+      .insert(workflowEvents)
+      .values({
+        organizationId: orgId,
+        actorUserId: claims.sub,
+        resourceType: 'reservation_handover',
+        resourceId: current.match.id,
+        eventType: 'reservation.handover_defects',
+        metadata: {
+          referenceCode: current.snapshot.referenceCode,
+          photos: photos.map((photo) => photo.data),
+        },
+      })
+      .returning({ id: workflowEvents.id });
+    await saveLifecycle(
+      transaction,
+      { id: current.match.id, snapshot: current.snapshot },
+      {
+        ...current.lifecycle,
+        handover: {
+          ...handover,
+          defects: {
+            at,
+            note,
+            evidenceEventId: evidence!.id,
+            photos: photos.map((photo) => photo.meta),
+          },
+        },
+      },
+    );
+    await logEvent(transaction, {
+      orgId,
+      actorUserId: claims.sub,
+      reservationId: current.match.id,
+      eventType: 'reservation.handover_defects_reported',
+      status: current.status,
+      metadata: {
+        referenceCode: current.snapshot.referenceCode,
+        photos: photos.length,
+        evidenceEventId: evidence!.id,
+      },
+    });
+    await transaction.insert(outboxEvents).values({
+      organizationId: orgId,
+      topic: 'reservation.handover_defects_reported',
+      aggregateType: 'reservation',
+      aggregateId: current.match.id,
+      payload: { referenceCode: current.snapshot.referenceCode, at, photos: photos.length },
+    });
+    return { reportedAt: at };
+  });
+}
+
+/** `handover-recipient`, `handover-<n>` (premises) or `defect-<n>` (tenant's defect photos). */
+export const HANDOVER_PHOTO_FILE = /^(?:handover-recipient|handover-[0-5]|defect-[0-5])$/;
+
+/** One stored handover photo as a data URL, read inside an organization-scoped transaction. */
+export async function handoverPhotoDataUrl(
+  tx: Tx,
+  orgId: string,
+  lifecycle: ReservationLifecycle,
+  file: string,
+): Promise<string | null> {
+  const handover = lifecycle.handover;
+  if (!handover || !HANDOVER_PHOTO_FILE.test(file)) return null;
+  const defect = file.startsWith('defect-');
+  const eventId = defect ? handover.defects?.evidenceEventId : handover.evidenceEventId;
+  if (!eventId) return null;
+  const path =
+    file === 'handover-recipient'
+      ? sql`${workflowEvents.metadata}->>'recipientPhoto'`
+      : sql`${workflowEvents.metadata}->'photos'->>${sql.raw(String(Number(file.slice(file.lastIndexOf('-') + 1))))}`;
+  return withElevatedRead(tx, async () => {
+    const [row] = await tx
+      .select({ value: sql<string | null>`${path}` })
+      .from(workflowEvents)
+      .where(and(eq(workflowEvents.id, eventId), eq(workflowEvents.organizationId, orgId)))
+      .limit(1);
+    return row?.value && HANDOVER_IMAGE.test(row.value) ? row.value : null;
+  });
+}
+
+/** A handover photo for the tenant of the booking: the premises, themselves, and their defects. */
+export async function readHandoverPhotoForTenant(
+  claims: SessionClaims,
+  referenceCode: string,
+  file: string,
+): Promise<{ mimeType: string; bytes: Buffer } | null> {
+  const normalized = normalizeLeaseReference(referenceCode);
+  if (!normalized || !HANDOVER_PHOTO_FILE.test(file)) return null;
+  const { db } = getDatabase();
+  const dataUrl = await db.transaction(async (transaction) => {
+    const match = await findLeaseReservation(transaction, 'referenceCode', normalized);
+    if (!match) return null;
+    await assertBookingOwner(transaction, claims.sub, match.partyEmail);
+    await applyOrgScope(transaction, { organizationId: match.organizationId, userId: claims.sub });
+    return handoverPhotoDataUrl(
+      transaction,
+      match.organizationId,
+      lifecycleOf(match.snapshot),
+      file,
+    );
+  });
+  const parsed = dataUrl ? DATA_URL.exec(dataUrl) : null;
+  return parsed ? { mimeType: parsed[1]!, bytes: Buffer.from(parsed[2]!, 'base64') } : null;
 }

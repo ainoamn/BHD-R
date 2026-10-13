@@ -7,7 +7,8 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 20;
 
-const FILE = /^(?:signature|id-front|id-back|selfie|contract-signature|doc-[a-z0-9_]{2,40})$/;
+const FILE =
+  /^(?:signature|id-front|id-back|selfie|contract-signature|doc-[a-z0-9_]{2,40}|handover-recipient|handover-[0-5]|defect-[0-5])$/;
 
 /**
  * GET /api/owner/bookings/:reservationId/files/:file

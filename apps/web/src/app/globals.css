@@ -16860,8 +16860,11 @@ button.lrw__step-body:focus-visible {
   background: #fafcfa;
   color: inherit;
   text-decoration: none;
+  font: inherit;
   font-size: 0.8rem;
   font-weight: 700;
+  text-align: start;
+  cursor: zoom-in;
   text-align: center;
 }
 .lrw__shot img {
@@ -21341,6 +21344,24 @@ a.contract-annex-bar__item:focus-visible {
   line-height: 1.25;
   text-align: center;
 }
+.contract-doc__booking-basis {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 6.5rem;
+  gap: 1rem;
+  align-items: start;
+  margin-block-end: 0.9rem;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--doc-gold-soft);
+  border-radius: 0.6rem;
+  background: #fffdf7;
+  break-inside: avoid;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+.contract-doc__qr--booking {
+  position: static;
+  width: 6.5rem;
+}
 
 /* Property location: map with the BHD watermark, and a QR code that opens the location. */
 .loc-map {
@@ -24414,6 +24435,301 @@ html.photo-viewer-open {
 }
 .photo-viewer__nav--next {
   inset-inline-end: 0.75rem;
+}
+.file-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(6, 20, 16, 0.72);
+}
+.file-preview__panel {
+  display: flex;
+  flex-direction: column;
+  width: min(960px, 100%);
+  height: min(90dvh, 1100px);
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+.file-preview__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid #e3ebe7;
+  background: #f6faf8;
+}
+.file-preview__bar strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.file-preview__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+.file-preview__button {
+  padding: 0.4rem 0.95rem;
+  border: 1px solid #cfdcd6;
+  border-radius: 999px;
+  background: #fff;
+  color: #0f3d2e;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+.file-preview__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eef3f1;
+}
+.file-preview__body img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.file-preview__body iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+}
+.file-preview__note {
+  margin: 0;
+  padding: 2rem;
+  color: #46605a;
+  text-align: center;
+}
+.file-link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.handover-pass__body {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.25rem;
+  margin: 1rem 0;
+}
+.handover-pass__qr {
+  display: block;
+  width: min(15rem, 70vw);
+  padding: 0.6rem;
+  border: 2px solid #0f3d2e;
+  border-radius: 1rem;
+  background: #fff;
+}
+.handover-pass__qr svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.handover-pass__facts {
+  display: grid;
+  gap: 0.2rem;
+}
+.handover-pass__facts > span {
+  color: #46605a;
+  font-size: 0.85rem;
+}
+.handover-pass__facts > strong {
+  margin-bottom: 0.4rem;
+  font-size: 1.1rem;
+}
+.handover-pass__code {
+  font-size: 1.9rem !important;
+  letter-spacing: 0.2em;
+  font-variant-numeric: tabular-nums;
+}
+.handover-pass__note {
+  margin: 0;
+  color: #8a5a00;
+  font-size: 0.9rem;
+}
+.handover-shots {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+.handover-shots__item {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0.4rem;
+  border: 1px solid #e3ebe7;
+  border-radius: 0.75rem;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  font-size: 0.82rem;
+  text-align: center;
+}
+button.handover-shots__item {
+  cursor: zoom-in;
+}
+.handover-shots__item img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 0.5rem;
+  background: #eef3f1;
+}
+.handover-accept > .button,
+.handover-after__defects > .button {
+  margin-top: 0.75rem;
+}
+.handover-after__defects {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px dashed #cfdcd6;
+}
+.handover-after__defects h3 {
+  margin: 0 0 0.35rem;
+}
+.handover-after__pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+.handover-after__note {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+.handover-desk-page {
+  width: min(880px, 100%);
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+}
+.handover-desk-page__head h1 {
+  margin: 0.2rem 0 0.4rem;
+}
+.handover-desk {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+.handover-desk--done,
+.handover-desk__scan,
+.handover-desk__manual,
+.handover-desk__form {
+  padding: 1.25rem;
+  border: 1px solid #e3ebe7;
+  border-radius: 1rem;
+  background: #fff;
+}
+.handover-desk--done h2,
+.handover-desk__scan h2,
+.handover-desk__manual h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.1rem;
+}
+.handover-desk__entry {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: 1rem;
+}
+.handover-desk__scan {
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+}
+.handover-desk__video {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 0.75rem;
+  background: #061410;
+}
+.handover-desk__manual {
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+}
+.handover-desk__manual label,
+.handover-desk__fields label {
+  display: grid;
+  gap: 0.3rem;
+}
+.handover-desk__form {
+  display: grid;
+  gap: 1rem;
+}
+.handover-desk__tenant {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e3ebe7;
+}
+.handover-desk__tenant h2 {
+  margin: 0.15rem 0;
+}
+.handover-desk__tenant p {
+  margin: 0.15rem 0;
+}
+.handover-desk__selfie {
+  width: 7.5rem;
+  height: 7.5rem;
+  object-fit: cover;
+  border: 3px solid #c9a646;
+  border-radius: 50%;
+}
+.handover-desk__photos {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid #e3ebe7;
+  border-radius: 0.75rem;
+}
+.handover-desk__photos legend {
+  padding: 0 0.35rem;
+  font-weight: 700;
+}
+.handover-desk__fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.75rem;
+}
+.handover-desk__wide {
+  grid-column: 1 / -1;
+}
+.handover-desk__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.lrw__handover-steps {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.75rem 0;
+  padding-inline-start: 1.25rem;
+}
+.lrw__handover-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
 }
 .profile-head {
   display: flex;

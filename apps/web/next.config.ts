@@ -98,6 +98,16 @@ const config: NextConfig = {
             : []),
         ],
       },
+      {
+        // The handover desk scans the tenant's pass with the device camera; nowhere else may.
+        source: '/:locale(ar|en)/handover',
+        headers: [
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(self), microphone=(), geolocation=(self), payment=(self), usb=()',
+          },
+        ],
+      },
     ];
   },
 };
