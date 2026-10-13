@@ -2,6 +2,16 @@
 
 **تسليم الجلسة كاملة (0.2.24 → 0.8.33):** للاستكمال من جهاز آخر ابدأ من [`docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه خطوات الإعداد، والمراحل بالتاريخ والوقت، والمهام المفتوحة. ويرافقه فهرس الإصدارات (251 إصداراً) والمحادثة كاملة بعد حذف الأسرار.
 
+# CONTINUE — 2026-10-13 15:50 (مسقط)
+
+**0.8.53** · تقييم الوحدة مقابل تقييم المبنى:
+
+- **الكتالوج:** `withGuestRatings` تعطي الوحدة `byUnit` فقط. أما `byProperty` فتُطلب وتُستخدم فقط حين `propertyKind !== 'multi_unit'`.
+- **صفحة الوحدة:** في `property-detail-manager`، `reviewedUnitId = multi_unit && focusUnitId`، فيُمرَّر إلى `PropertyReviewScore unitId` ويصير `ReputationView subject='unit'`. وصفحة المبنى بقيت `subject='property'`، أي مجموع الوحدات.
+- **محلياً** تتجاوز صفحة `/properties/[id]` مهلة `withTimedResult` (4 ثوانٍ) من هذا الجهاز. لا تُرفع المهلة في الكود.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.53-AR.md`](./docs/implementation/RELEASE-0.8.53-AR.md)
+
 # CONTINUE — 2026-10-13 15:30 (مسقط)
 
 **0.8.52** · الصورة بحجم الشاشة، وضغط الصور المرفوعة وختمها بالشعار:

@@ -502,13 +502,13 @@ const TITLES: Record<
     ar: 'تقييمات الضيوف',
     en: 'Guest reviews',
     leadAr:
-      'تقييمات موثّقة من ضيوف أقاموا فعلاً، تُكتب بعد المغادرة: النظافة بتفاصيلها، والعقار، وتعامل الإدارة.',
+      'تقييمات موثّقة من ضيوف أقاموا فعلاً، تُكتب بعد المغادرة: النظافة بتفاصيلها، والعقار، وتعامل الإدارة. وفي المبنى متعدد الوحدات يجمع التقييم كل وحداته.',
     leadEn:
-      'Verified reviews from guests who actually stayed, written after check-out: detailed cleanliness, the property and the management.',
+      'Verified reviews from guests who actually stayed, written after check-out: detailed cleanliness, the property and the management. For a multi-unit building it totals every unit.',
   },
   unit: {
-    ar: 'تقييمات الضيوف لهذه الإقامة',
-    en: 'Guest reviews of this stay',
+    ar: 'تقييمات الضيوف لهذه الوحدة',
+    en: 'Guest reviews of this unit',
     leadAr:
       'كل تقييمات الضيوف الذين أقاموا في هذه الوحدة، وتعليقاتهم كاملة: النظافة، والعقار، والمالك أو شركة الإدارة، والموظفون.',
     leadEn:

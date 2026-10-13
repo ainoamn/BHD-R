@@ -5,22 +5,28 @@ import { reviewScoreLabel, reviewScoreTone, type Reputation } from '@/lib/review
 
 export function PropertyReviewScore({
   propertyId,
+  unitId,
   locale,
   variant = 'chip',
 }: {
   propertyId: string;
+  /** Rate this unit of a building on its own instead of the whole property. */
+  unitId?: string | undefined;
   locale: string;
   variant?: 'chip' | 'headline';
 }) {
   const ar = locale === 'ar';
   const [summary, setSummary] = useState<{ score: number; count: number } | null>(null);
+  const subject = unitId ? 'unit' : 'property';
+  const subjectKey = unitId ?? propertyId;
 
   useEffect(() => {
     let cancelled = false;
+    setSummary(null);
     void (async () => {
       try {
         const res = await fetch(
-          `/api/public/reputation?subject=property&key=${encodeURIComponent(propertyId)}`,
+          `/api/public/reputation?subject=${subject}&key=${encodeURIComponent(subjectKey)}`,
         );
         if (!res.ok) return;
         const json = (await res.json()) as { reputation?: Reputation };
@@ -35,7 +41,7 @@ export function PropertyReviewScore({
     return () => {
       cancelled = true;
     };
-  }, [propertyId]);
+  }, [subject, subjectKey]);
 
   if (!summary) return null;
   const score = summary.score.toFixed(1);
@@ -59,7 +65,7 @@ export function PropertyReviewScore({
   return (
     <a
       className={`property-review-score property-review-score--chip property-review-score--${reviewScoreTone(summary.score)}`}
-      href="#property-reviews"
+      href={unitId ? '#reputation-unit-title' : '#property-reviews'}
       dir="ltr"
       title={`${reviewScoreLabel(summary.score, ar)} · ${summary.count} ${ar ? 'تقييم' : 'reviews'}`}
     >

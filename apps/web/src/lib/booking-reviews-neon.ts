@@ -474,7 +474,7 @@ export async function loadUnitRatings(unitIds: string[]): Promise<Map<string, Un
   });
 }
 
-/** Same as {@link loadUnitRatings} per property, for rent and sale cards of units never stayed in. */
+/** Same as {@link loadUnitRatings} per property: the total over all of its units. */
 export async function loadPropertyRatings(propertyIds: string[]): Promise<Map<string, UnitRating>> {
   const ids = [...new Set(propertyIds.filter((id) => UUID.test(id)))];
   if (!ids.length) return new Map();

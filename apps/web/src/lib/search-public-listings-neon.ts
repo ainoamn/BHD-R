@@ -767,8 +767,10 @@ export async function searchPublicListingsFromNeon(
 }
 
 /**
- * Guest score of each card: the unit's own stays when it has any, else the property's
- * (the same released reviews as the property page). Never delays the catalogue long.
+ * Guest score of each card from released guest reviews. A unit of a multi-unit building
+ * shows only its own stays; the building's total belongs to the building page. A
+ * single-unit property is its unit, so its property score applies. Never delays the
+ * catalogue long.
  */
 async function withGuestRatings<T extends { data: CatalogueListing[] }>(collection: T): Promise<T> {
   if (!collection.data.length) return collection;
@@ -782,7 +784,9 @@ async function withGuestRatings<T extends { data: CatalogueListing[] }>(collecti
     ),
     withTimeoutFallback(
       loadPropertyRatings(
-        collection.data.flatMap((item) => (item.propertyId ? [item.propertyId] : [])),
+        collection.data.flatMap((item) =>
+          item.propertyId && item.propertyKind !== 'multi_unit' ? [item.propertyId] : [],
+        ),
       ),
       2_500,
       empty,
@@ -794,7 +798,9 @@ async function withGuestRatings<T extends { data: CatalogueListing[] }>(collecti
     data: collection.data.map((item) => {
       const rating =
         (item.unitId ? byUnit.get(item.unitId) : undefined) ??
-        (item.propertyId ? byProperty.get(item.propertyId) : undefined);
+        (item.propertyId && item.propertyKind !== 'multi_unit'
+          ? byProperty.get(item.propertyId)
+          : undefined);
       return rating ? { ...item, avgRating: rating.score, reviewCount: rating.count } : item;
     }),
   };

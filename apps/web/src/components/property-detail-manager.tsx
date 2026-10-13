@@ -265,6 +265,8 @@ export function PropertyDetailManager({
   const publicPath = `/${locale}/properties/${property.id}`;
   /** QR and «عرض العقار» always open the public listing URL. */
   const propertyPath = focusUnitId ? `/${locale}/units/${focusUnitId}` : publicPath;
+  /** A unit page of a building rates only that unit; the building page totals all its units. */
+  const reviewedUnitId = property.kind === 'multi_unit' && focusUnitId ? focusUnitId : undefined;
   const gallery = useMemo(() => {
     const unitIdsOrdered = [...property.units]
       .sort((a, b) => a.code.localeCompare(b.code))
@@ -530,7 +532,12 @@ export function PropertyDetailManager({
               <div className="property-360__title-row">
                 <h1>{headline}</h1>
                 {isPublic && !stayRating ? (
-                  <PropertyReviewScore propertyId={property.id} locale={locale} variant="chip" />
+                  <PropertyReviewScore
+                    propertyId={property.id}
+                    unitId={reviewedUnitId}
+                    locale={locale}
+                    variant="chip"
+                  />
                 ) : null}
               </div>
               {focusedUnitHeadline ? (
@@ -977,8 +984,8 @@ export function PropertyDetailManager({
 
           {isPublic ? (
             <ReputationView
-              subject="property"
-              subjectKey={property.id}
+              subject={reviewedUnitId ? 'unit' : 'property'}
+              subjectKey={reviewedUnitId ?? property.id}
               locale={locale}
               hostKey={property.organizationId ?? null}
             />
