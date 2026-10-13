@@ -2367,6 +2367,7 @@ export function OperationsConsole({
   loadError = false,
   beforeList = null,
   listOverride = null,
+  allowCreate = true,
 }: {
   portal: PortalRole;
   section: OperationsSection;
@@ -2387,6 +2388,8 @@ export function OperationsConsole({
   beforeList?: ReactNode;
   /** Replaces the metrics, purpose tabs and generic list with a section-specific list. */
   listOverride?: ReactNode;
+  /** False hides the section's create button for viewers who may only read or follow up. */
+  allowCreate?: boolean;
 }) {
   const router = useRouter();
   const search = useSearchParams().toString();
@@ -3237,7 +3240,8 @@ ${depositHtml}${
     }
   }
 
-  const canCreate = creatable.has(section) && !(portal === 'tenant' && section !== 'requests');
+  const canCreate =
+    allowCreate && creatable.has(section) && !(portal === 'tenant' && section !== 'requests');
   const emptyTitle =
     contractKind && !records.length
       ? ar

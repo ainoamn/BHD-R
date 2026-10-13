@@ -31,6 +31,7 @@ export function OperationsWorkspaceClient({
   active = true,
   beforeList = null,
   listOverride = null,
+  allowCreate = true,
 }: {
   portal: PortalRole;
   section: OperationsSection;
@@ -38,6 +39,7 @@ export function OperationsWorkspaceClient({
   active?: boolean;
   beforeList?: ReactNode;
   listOverride?: ReactNode;
+  allowCreate?: boolean;
 }) {
   const cached = getOpsCache(portal, section);
   const [payload, setPayload] = useState<OperationsWorkspacePayload>(() =>
@@ -128,6 +130,7 @@ export function OperationsWorkspaceClient({
         loadError={statusReady ? Boolean(payload.loadError) : false}
         beforeList={beforeList}
         listOverride={listOverride}
+        allowCreate={allowCreate}
       />
     </div>
   );

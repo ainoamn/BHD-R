@@ -93,6 +93,8 @@ export const permissions = [
   'work_order.manage',
   'legal.read',
   'legal.manage',
+  'legal.case.read',
+  'legal.case.update',
   'accounting.read',
   'accounting.manage',
   'accounting.post',
@@ -136,6 +138,7 @@ export const roleKeys = [
   'building_guard',
   'legal_counsel',
   'property_owner',
+  'lawyer',
   'custom_member',
 ] as const;
 export const roleKeySchema = z.enum(roleKeys);
@@ -665,6 +668,11 @@ export const rolePermissions: Readonly<Record<RoleKey, readonly Permission[]>> =
     'maintenance.read',
     'request.read',
   ],
+  /**
+   * External lawyer or law firm. Never org-wide and never `legal.read`: the session's party
+   * limits them to the cases whose lawyer party is theirs, read and updated through the web app.
+   */
+  lawyer: ['legal.case.read', 'legal.case.update'],
   /** Base of an organization's saved custom roles; their permissions come with the membership. */
   custom_member: ['organization.read'],
 };
@@ -733,6 +741,7 @@ export function accessFromMemberships(
   // A building owner's scope is their owner party, even when another row carries a party too.
   const partyId =
     rows.find((row) => row.roleKey === 'property_owner' && row.partyId)?.partyId ??
+    rows.find((row) => row.roleKey === 'lawyer' && row.partyId)?.partyId ??
     rows.find((row) => row.partyId)?.partyId ??
     null;
   const roleList = [...roles];

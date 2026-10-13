@@ -99,6 +99,11 @@ const KNOWN_CODES = new Set([
   'passport_required',
   'term_too_short',
   'approval_delegate_forbidden',
+  'legal_case_not_found',
+  'legal_invalid',
+  'legal_file_invalid',
+  'legal_lawyer_invalid',
+  'team_lawyer_invalid',
 ]);
 
 export function clientSafeErrorCode(error: unknown, fallback = 'request_failed'): string {
@@ -129,7 +134,13 @@ export function statusForSafeCode(code: string): number {
     case 'team_role_not_found':
     case 'reservation_not_found':
     case 'requirement_not_found':
+    case 'legal_case_not_found':
       return 404;
+    case 'legal_invalid':
+    case 'legal_file_invalid':
+    case 'legal_lawyer_invalid':
+    case 'team_lawyer_invalid':
+      return 400;
     case 'reservation_not_ready':
     case 'reservation_closed':
     case 'documents_incomplete':

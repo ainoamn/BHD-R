@@ -11,6 +11,7 @@ import {
   savedRoleKey,
   TEAM_CAPABILITIES,
   validTeamEmail,
+  type LawyerMember,
   type PropertyOwnerMember,
   type SavedRole,
   type TeamMember,
@@ -36,6 +37,10 @@ const ERRORS: Record<string, [string, string]> = {
   team_owner_party_required: [
     'اختر المالك من ملاك العقارات المسجلين.',
     'Choose the owner from the registered property owners.',
+  ],
+  team_lawyer_invalid: [
+    'اختر المحامي أو المكتب من القائمة.',
+    'Choose the lawyer or firm from the list.',
   ],
   team_role_invalid: [
     'أدخل اسماً للدور واختر صلاحية واحدة على الأقل.',
@@ -726,6 +731,205 @@ function AddOwnerForm({
   );
 }
 
+function LawyerRow({
+  ar,
+  lawyer,
+  view,
+  onChanged,
+}: {
+  ar: boolean;
+  lawyer: LawyerMember;
+  view: TeamView;
+  onChanged: (message: string) => void;
+}) {
+  const { busy, error, run } = useMutation(ar);
+  const status = statusInfo(lawyer.status, lawyer.signedIn, ar);
+  const path = `/api/owner/team/lawyers/${encodeURIComponent(lawyer.userId)}`;
+  const send = async (method: 'PATCH' | 'DELETE', body: object | undefined, done: string) => {
+    if (await run(path, method, body)) onChanged(done);
+  };
+  return (
+    <li className={lawyer.status === 'active' ? 'team-member' : 'team-member is-inactive'}>
+      <div className="team-member__head">
+        <span className="team-member__initial" aria-hidden="true">
+          {lawyer.displayName.trim().slice(0, 1) || '•'}
+        </span>
+        <div className="team-member__who">
+          <strong>{lawyer.displayName}</strong>
+          <small dir="ltr">{lawyer.email}</small>
+        </div>
+        <span className="team-role team-role--lawyer">
+          {lawyer.partyName ?? (ar ? 'محامٍ' : 'Lawyer')}
+        </span>
+        <span className="team-role">
+          {ar ? `${lawyer.caseCount} قضية` : `${lawyer.caseCount} cases`}
+        </span>
+        <span className={`team-status ${status.className}`}>{status.text}</span>
+      </div>
+      {view.canManage ? (
+        <div className="team-actions">
+          {view.lawyerParties.length > 1 ? (
+            <label className="team-field team-field--inline">
+              <span>{ar ? 'يتبع' : 'Works for'}</span>
+              <select
+                value={lawyer.partyId ?? ''}
+                disabled={busy}
+                onChange={(event) =>
+                  void send(
+                    'PATCH',
+                    { partyId: event.target.value },
+                    ar ? 'تغيّر المكتب المرتبط بالمحامي.' : 'Linked firm changed.',
+                  )
+                }
+              >
+                {view.lawyerParties.map((party) => (
+                  <option key={party.id} value={party.id}>
+                    {party.name} ({party.caseCount})
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <button
+            type="button"
+            className="ops-action"
+            disabled={busy}
+            onClick={() =>
+              void send(
+                'PATCH',
+                { status: lawyer.status === 'active' ? 'inactive' : 'active' },
+                lawyer.status === 'active'
+                  ? ar
+                    ? 'أُوقف دخول المحامي.'
+                    : 'Lawyer access paused.'
+                  : ar
+                    ? 'أُعيد دخول المحامي.'
+                    : 'Lawyer access restored.',
+              )
+            }
+          >
+            {lawyer.status === 'active' ? (ar ? 'تعطيل' : 'Disable') : ar ? 'تفعيل' : 'Reactivate'}
+          </button>
+          <button
+            type="button"
+            className="ops-action ops-action--danger"
+            disabled={busy}
+            onClick={() => {
+              if (
+                window.confirm(
+                  ar
+                    ? `إنهاء دخول ${lawyer.displayName}؟ تبقى القضايا ومراسلاتها لدى المنشأة.`
+                    : `End ${lawyer.displayName}'s access? Cases and messages stay with you.`,
+                )
+              )
+                void send('DELETE', undefined, ar ? 'أُنهي دخول المحامي.' : 'Lawyer access ended.');
+            }}
+          >
+            {ar ? 'إزالة' : 'Remove'}
+          </button>
+        </div>
+      ) : null}
+      {error ? <p className="team-error">{error}</p> : null}
+    </li>
+  );
+}
+
+function AddLawyerForm({
+  ar,
+  view,
+  onDone,
+  onCancel,
+}: {
+  ar: boolean;
+  view: TeamView;
+  onDone: (message: string) => void;
+  onCancel: () => void;
+}) {
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [firm, setFirm] = useState('');
+  const [partyId, setPartyId] = useState('');
+  const { busy, error, setError, run } = useMutation(ar);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!validTeamEmail(email)) return setError(ERRORS.team_email_invalid![ar ? 0 : 1]);
+    const result = await run('/api/owner/team/lawyers', 'POST', {
+      email: email.trim(),
+      ...(name.trim() ? { displayName: name.trim() } : {}),
+      ...(partyId ? { partyId } : firm.trim() ? { firmName: firm.trim() } : {}),
+    });
+    if (!result) return;
+    setEmail('');
+    setName('');
+    setFirm('');
+    setPartyId('');
+    onDone(
+      ar
+        ? 'أُضيف المحامي. يدخل بحساب BHD بنفس البريد فيرى القضايا المسندة إليه فقط. أسند إليه القضايا من صفحة كل قضية.'
+        : 'Lawyer added. They sign in with that email and see only the cases assigned to them. Assign cases from each case page.',
+    );
+  };
+
+  return (
+    <form className="team-card team-add" onSubmit={(event) => void submit(event)}>
+      <h2>{ar ? 'إضافة محامٍ' : 'Add a lawyer'}</h2>
+      <p className="team-muted">
+        {ar
+          ? 'يرى المحامي القضايا المسندة إليه فقط مع بيانات العقار والعقد والخصم المرتبطة بها، ويحدّث المراحل والجلسات والمبالغ ويراسل فريقك. لا يرى أي شيء آخر ولا يُحتسب ضمن مقاعد الفريق.'
+          : 'The lawyer sees only the cases assigned to them, with the related property, lease and counterparty, updates stages, hearings and amounts, and messages your team. Nothing else; no team seat.'}
+      </p>
+      <div className="team-add__grid">
+        <label className="team-field">
+          <span>{ar ? 'بريده في حساب BHD' : 'Their BHD account email'}</span>
+          <input
+            type="email"
+            dir="ltr"
+            required
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="lawyer@example.com"
+          />
+        </label>
+        <label className="team-field">
+          <span>{ar ? 'اسم المحامي' : 'Lawyer’s name'}</span>
+          <input value={name} maxLength={160} onChange={(event) => setName(event.target.value)} />
+        </label>
+        {view.lawyerParties.length ? (
+          <label className="team-field">
+            <span>{ar ? 'يتبع مكتباً مسجلاً؟' : 'Works for a listed firm?'}</span>
+            <select value={partyId} onChange={(event) => setPartyId(event.target.value)}>
+              <option value="">
+                {ar ? 'لا — محامٍ أو مكتب جديد' : 'No — a new lawyer or firm'}
+              </option>
+              {view.lawyerParties.map((party) => (
+                <option key={party.id} value={party.id}>
+                  {party.name} — {ar ? `${party.caseCount} قضية` : `${party.caseCount} cases`}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        {!partyId ? (
+          <label className="team-field">
+            <span>{ar ? 'اسم مكتب المحاماة (اختياري)' : 'Law firm name (optional)'}</span>
+            <input value={firm} maxLength={200} onChange={(event) => setFirm(event.target.value)} />
+          </label>
+        ) : null}
+      </div>
+      {error ? <p className="team-error">{error}</p> : null}
+      <div className="team-actions">
+        <button className="button button--primary" type="submit" disabled={busy}>
+          {busy ? (ar ? 'جارٍ الإضافة…' : 'Adding…') : ar ? 'منح الدخول' : 'Give access'}
+        </button>
+        <button type="button" className="button button--quiet" disabled={busy} onClick={onCancel}>
+          {ar ? 'إلغاء' : 'Cancel'}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 function TenantRow({
   ar,
   tenant,
@@ -1049,7 +1253,7 @@ function SavedRoleRow({
 }
 
 function RolesGuide({ ar }: { ar: boolean }) {
-  const extra = ['organization_owner', 'property_owner'] as const;
+  const extra = ['organization_owner', 'property_owner', 'lawyer'] as const;
   return (
     <section className="team-card team-guide">
       {ROLE_GROUPS.map((group) => (
@@ -1068,7 +1272,11 @@ function RolesGuide({ ar }: { ar: boolean }) {
           </dl>
         </div>
       ))}
-      <h3>{ar ? 'المالك وملاك العقارات والمستأجرون' : 'Owner, property owners and tenants'}</h3>
+      <h3>
+        {ar
+          ? 'المالك وملاك العقارات والمحامون والمستأجرون'
+          : 'Owner, property owners, lawyers and tenants'}
+      </h3>
       <dl>
         {extra.map((role) => {
           const label = ROLE_LABELS[role]!;
@@ -1097,7 +1305,7 @@ function RolesGuide({ ar }: { ar: boolean }) {
   );
 }
 
-type Tab = 'staff' | 'owners' | 'tenants' | 'roles' | 'guide';
+type Tab = 'staff' | 'owners' | 'lawyers' | 'tenants' | 'roles' | 'guide';
 
 /** Owner/admin team: staff, building owners, tenants and custom roles, each with their access. */
 export function TeamManager({ locale, active }: { locale: 'ar' | 'en'; active: boolean }) {
@@ -1144,6 +1352,7 @@ export function TeamManager({ locale, active }: { locale: 'ar' | 'en'; active: b
           label: ar ? 'ملاك العقارات' : 'Property owners',
           count: view.owners.length,
         },
+        { id: 'lawyers', label: ar ? 'المحامون' : 'Lawyers', count: view.lawyers.length },
         { id: 'tenants', label: ar ? 'المستأجرون' : 'Tenants', count: view.tenants.length },
         {
           id: 'roles',
@@ -1238,6 +1447,45 @@ export function TeamManager({ locale, active }: { locale: 'ar' | 'en'; active: b
           ) : (
             <p className="team-muted">
               {ar ? 'لم يُمنح أي مالك عقار دخولاً بعد.' : 'No property owner has access yet.'}
+            </p>
+          )}
+        </section>
+      </div>
+    );
+  } else if (view && tab === 'lawyers') {
+    body = (
+      <div className="team-stack">
+        {view.canManage && adding ? (
+          <AddLawyerForm ar={ar} view={view} onDone={added} onCancel={() => setAdding(false)} />
+        ) : null}
+        <section className="team-card">
+          <div className="team-card__head">
+            <h2>
+              {ar ? 'المحامون ومكاتب المحاماة' : 'Lawyers and law firms'}{' '}
+              <small>({view.lawyers.length})</small>
+            </h2>
+            {view.canManage && !adding ? addButton(ar ? 'إضافة محامٍ' : 'Add a lawyer') : null}
+          </div>
+          <p className="team-muted">
+            {ar
+              ? 'المحامي يرى القضايا المسندة إليه فقط في «المحاماة والقضايا»، يحدّثها ويراسل فريقك داخل كل قضية ويصلكم تنبيه وبريد بكل رسالة. لا يُحتسب ضمن مقاعد الفريق.'
+              : 'A lawyer sees only the cases assigned to them under Legal cases, updates them and messages your team inside each case, with a bell and email for every message. No team seat.'}
+          </p>
+          {view.lawyers.length ? (
+            <ul className="team-list">
+              {view.lawyers.map((lawyer) => (
+                <LawyerRow
+                  key={`${lawyer.userId}:${lawyer.partyId}:${lawyer.status}`}
+                  ar={ar}
+                  lawyer={lawyer}
+                  view={view}
+                  onChanged={changed}
+                />
+              ))}
+            </ul>
+          ) : (
+            <p className="team-muted">
+              {ar ? 'لم يُضف أي محامٍ بعد.' : 'No lawyer has access yet.'}
             </p>
           )}
         </section>

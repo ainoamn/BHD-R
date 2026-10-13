@@ -36,6 +36,7 @@ const ROLE_RANK: Record<RoleKey, number> = {
   auditor: 10,
   custom_member: 10,
   property_owner: 0,
+  lawyer: 0,
   tenant: 0,
   platform_admin: 100,
   platform_support: 5,

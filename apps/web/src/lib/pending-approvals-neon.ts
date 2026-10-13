@@ -39,6 +39,7 @@ import {
   type DepositClaimQueueRow,
 } from '@/lib/stay-deposit-claims-neon';
 import { canDecideUnitSale, listSaleDecisionUnits } from '@/lib/unit-sale-decision-neon';
+import { unreadLegalCases } from '@/lib/legal-case-neon';
 import { withTimeoutFallback } from '@/lib/with-timeout';
 
 const ITEM_LIMIT = 50;
@@ -48,6 +49,30 @@ const GUEST_REVIEW_REMINDER_DAYS = 60;
 function iso(value: Date | string | null | undefined): string | null {
   if (!value) return null;
   return typeof value === 'string' ? value : value.toISOString();
+}
+
+/** Cases with unread messages or updates from the lawyer (for the team) or the team (for the lawyer). */
+async function legalItems(claims: SessionClaims): Promise<PendingApprovalItem[]> {
+  const cases = await unreadLegalCases(claims).catch(() => []);
+  return cases.map((item) => ({
+    kind: 'legal_message' as const,
+    id: item.id,
+    reference: item.reference,
+    propertyId: '',
+    propertyNameAr: item.title,
+    propertyNameEn: item.title,
+    unitCode: null,
+    party: item.counterpartyName,
+    contractType: null,
+    fromOn: null,
+    requestedAt: item.lastActivityAt,
+    unread: item.unread,
+  }));
+}
+
+function withLegal(base: PendingApprovals, legal: PendingApprovalItem[]): PendingApprovals {
+  if (!legal.length) return base;
+  return { ...base, items: [...legal, ...base.items], total: base.total + legal.length };
 }
 
 function queueItem(
@@ -75,9 +100,14 @@ function queueItem(
  * approval (for users with `stay.booking.manage`), paid rent or purchase bookings awaiting their
  * final contract (for users with `reservation.manage`), deposit refunds awaiting the host's
  * decision or the accountant's transfer, and departed guests the host has not rated yet, oldest
- * first. Owner-scoped users only see their own properties.
+ * first, after legal cases with unread messages. Owner-scoped users only see their own properties.
  */
 export async function loadPendingApprovals(claims: SessionClaims): Promise<PendingApprovals> {
+  const [queue, legal] = await Promise.all([loadApprovalQueue(claims), legalItems(claims)]);
+  return withLegal(queue, legal);
+}
+
+async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApprovals> {
   const orgId = claims.organizationId;
   const canSign = hasPermission(claims, 'contract.sign');
   const canManageBookings =

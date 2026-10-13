@@ -14,9 +14,12 @@ import {
 export function PortalApprovalsBell({
   portal,
   locale,
+  lawyer = false,
 }: {
   portal: 'owner' | 'developer';
   locale: 'ar' | 'en';
+  /** An external lawyer: only their cases' messages, and the footer opens the cases. */
+  lawyer?: boolean;
 }) {
   const ar = locale === 'ar';
   const [open, setOpen] = useState(false);
@@ -166,11 +169,17 @@ export function PortalApprovalsBell({
             </p>
           ) : null}
           <Link
-            href={`/${portal}/bookings`}
+            href={lawyer ? `/${portal}/legal` : `/${portal}/bookings`}
             className="header-stay-alerts__all"
             onClick={() => setOpen(false)}
           >
-            {ar ? 'فتح الحجوزات والمعاينات' : 'Open bookings & viewings'}
+            {lawyer
+              ? ar
+                ? 'فتح القضايا'
+                : 'Open legal cases'
+              : ar
+                ? 'فتح الحجوزات والمعاينات'
+                : 'Open bookings & viewings'}
           </Link>
         </div>
       ) : null}

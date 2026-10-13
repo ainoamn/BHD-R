@@ -8,6 +8,7 @@ import {
 import {
   canOpenPortalPath,
   canOpenSection,
+  lawyerParty,
   portalsForRoles,
   scopedOwnerParty,
 } from '@/lib/portal-access';
@@ -187,6 +188,32 @@ describe('membership access', () => {
     expect(canOpenSection(guard, 'owner', 'contacts')).toBe(false);
     expect(canOpenPortalPath(guard, 'owner', '/stays/rates')).toBe(false);
     expect(canOpenPortalPath(guard, 'owner', '/stays/calendar')).toBe(true);
+  });
+
+  it('limits an external lawyer to the legal cases assigned to their party', () => {
+    const lawyer = accessFromMemberships([{ roleKey: 'lawyer', permissions: [], partyId: PARTY }]);
+    expect(lawyer.partyId).toBe(PARTY);
+    expect(lawyerParty(lawyer)).toBe(PARTY);
+    expect(scopedOwnerParty(lawyer)).toBe(PARTY);
+    expect(lawyer.permissions).toEqual(['legal.case.read', 'legal.case.update']);
+    expect(portalsForRoles(lawyer.roles)).toEqual(['owner']);
+    expect(canOpenSection(lawyer, 'owner', 'legal')).toBe(true);
+    expect(canOpenSection(lawyer, 'owner', 'properties')).toBe(false);
+    expect(canOpenSection(lawyer, 'owner', 'bookings')).toBe(false);
+    expect(canOpenSection(lawyer, 'owner', 'contacts')).toBe(false);
+    expect(canOpenPortalPath(lawyer, 'owner', '/stays/rates')).toBe(false);
+    expect(assignableRoles(['organization_owner'])).not.toContain('lawyer');
+
+    const counsel = accessFromMemberships([
+      { roleKey: 'lawyer', permissions: [], partyId: PARTY },
+      { roleKey: 'legal_counsel', permissions: [] },
+    ]);
+    expect(lawyerParty(counsel)).toBeNull();
+    const owner = accessFromMemberships([
+      { roleKey: 'property_owner', permissions: [], partyId: PARTY },
+      { roleKey: 'lawyer', permissions: [], partyId: PARTY },
+    ]);
+    expect(lawyerParty(owner)).toBeNull();
   });
 });
 

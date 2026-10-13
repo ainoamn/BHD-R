@@ -5,6 +5,8 @@ import { NestKeepAlive } from './nest-keep-alive';
 import { NavigationProgress } from './navigation-progress';
 import { PortalRoutePrefetch } from './portal-route-prefetch';
 import { PortalMainSlot } from './portal-main-slot';
+import { canOpenSection, lawyerParty } from '@/lib/portal-access';
+import { opsSectionsForPortal } from '@/lib/portal-ops-types';
 import { PORTAL_NAV_COOKIE } from '@/lib/portal-nav-state';
 import { isStaysPlatformEnabled } from '@/lib/stays-flags';
 import { requirePortalShell } from '@/lib/viewer';
@@ -23,10 +25,13 @@ export async function PortalShell({
   const loc = locale === 'en' ? 'en' : 'ar';
   const staysEnabled = (portal === 'owner' || portal === 'developer') && isStaysPlatformEnabled();
   const navCollapsed = (await cookies()).get(PORTAL_NAV_COOKIE)?.value === 'collapsed';
+  const sections = opsSectionsForPortal(portal).filter((section) =>
+    canOpenSection(viewer, portal, section),
+  );
   return (
     <div className="portal-layout" data-portal={portal}>
       <NavigationProgress />
-      <PortalRoutePrefetch portal={portal} staysEnabled={staysEnabled} />
+      <PortalRoutePrefetch portal={portal} staysEnabled={staysEnabled} sections={sections} />
       <NestKeepAlive />
       <LiveSync />
       <PortalNav
@@ -40,6 +45,9 @@ export async function PortalShell({
           key={`${viewer.id}:${viewer.organizationId}:${portal}:${loc}`}
           portal={portal}
           locale={loc}
+          sections={sections}
+          legalManage={viewer.permissions.includes('legal.manage')}
+          lawyer={Boolean(lawyerParty(viewer))}
         >
           {children}
         </PortalMainSlot>

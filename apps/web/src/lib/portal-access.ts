@@ -24,6 +24,7 @@ export const OWNER_PORTAL_ROLES: readonly string[] = [
   'legal_counsel',
   'custom_member',
   'property_owner',
+  'lawyer',
 ];
 
 /** Roles that see the whole organization; everyone else with a party sees only that party's. */
@@ -63,6 +64,15 @@ export function scopedOwnerParty(access: PortalAccess): string | null {
   return access.partyId;
 }
 
+/**
+ * The lawyer party an external lawyer is limited to: their legal cases are the ones whose lawyer
+ * party is this. Null for organization-wide staff and for building owners.
+ */
+export function lawyerParty(access: PortalAccess): string | null {
+  if (!access.roles.includes('lawyer') || access.roles.includes('property_owner')) return null;
+  return scopedOwnerParty(access);
+}
+
 /** Sections a building owner may open; every one of them filters by their owner party. */
 const SCOPED_OWNER_SECTIONS: ReadonlySet<OperationsSection> = new Set(['properties', 'bookings']);
 
@@ -82,7 +92,7 @@ const SECTION_PERMISSIONS: Readonly<Record<OperationsSection, readonly string[]>
   maintenance: ['maintenance.read'],
   'work-orders': ['work_order.read'],
   tasks: ['task.read'],
-  legal: ['legal.read'],
+  legal: ['legal.read', 'legal.case.read'],
   approvals: ['approval.read'],
   reports: ['report.read'],
   team: ['organization.members.read'],
@@ -101,6 +111,7 @@ export function canOpenSection(
 ): boolean {
   if (portal === 'tenant') return true;
   if (!holdsSectionPermission(access, section)) return false;
+  if (lawyerParty(access)) return section === 'legal';
   return !scopedOwnerParty(access) || SCOPED_OWNER_SECTIONS.has(section);
 }
 

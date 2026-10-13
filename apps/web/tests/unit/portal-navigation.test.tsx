@@ -5,18 +5,31 @@ import { PortalMainSlot } from '@/components/portal-main-slot';
 import { PortalPage } from '@/components/portal-page';
 import { PortalRoutePrefetch, portalPrefetchHref } from '@/components/portal-route-prefetch';
 import { portalNavHrefs } from '@/lib/portal-nav-paths';
+import { opsSectionsForPortal } from '@/lib/portal-ops-types';
 
 const nav = vi.hoisted(() => ({
   pathname: '/owner',
   prefetch: vi.fn<(href: string, options?: { onInvalidate?: () => void }) => void>(),
 }));
 const router = { prefetch: nav.prefetch };
-vi.mock('@/i18n/navigation', () => ({ usePathname: () => nav.pathname, useRouter: () => router }));
+vi.mock('@/i18n/navigation', () => ({
+  usePathname: () => nav.pathname,
+  useRouter: () => router,
+  Link: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
+}));
+const cache = vi.hoisted(() => ({
+  warmOpsSection: vi.fn(async (_portal: string, _section: string) => ({ records: [] })),
+}));
 vi.mock('@/lib/portal-ops-client-cache', () => ({
   OPS_WARM_DONE_EVENT: 'warm-done',
   hasOpsInflight: () => false,
-  warmOpsSection: vi.fn(async () => ({ records: [] })),
+  warmOpsSection: cache.warmOpsSection,
 }));
+const OWNER_SECTIONS = opsSectionsForPortal('owner');
 vi.mock('@/components/operations-workspace-client', () => ({
   OperationsWorkspaceClient: ({ section }: { section: string }) => <input aria-label={section} />,
 }));
@@ -26,7 +39,7 @@ function Form({ label }: { label: string }) {
 }
 function page(path: string, label = path) {
   return (
-    <PortalMainSlot portal="owner" locale="en">
+    <PortalMainSlot portal="owner" locale="en" sections={OWNER_SECTIONS}>
       <PortalPage key={path} path={path}>
         <Form label={label} />
       </PortalPage>
@@ -86,6 +99,19 @@ describe('persistent portal pages', () => {
     view.rerender(page(nav.pathname));
     expect(screen.getByRole('textbox')).toHaveAttribute('aria-label', nav.pathname);
   });
+  it('shows a notice instead of a workspace for a section the viewer may not open', () => {
+    nav.pathname = '/owner/properties';
+    render(
+      <PortalMainSlot portal="owner" locale="en" sections={['legal']} lawyer>
+        <span />
+      </PortalMainSlot>,
+    );
+    expect(screen.queryByRole('textbox')).toBeNull();
+    expect(screen.getByRole('link', { name: 'Open cases' })).toHaveAttribute(
+      'href',
+      '/owner/legal',
+    );
+  });
 });
 
 describe('background prefetch', () => {
@@ -113,7 +139,7 @@ describe('background prefetch', () => {
             <a href="/ar/owner/stays/rates?tab=season">Rates</a>
           </nav>
           <a href="/ar/owner/properties/123/edit">Edit</a>
-          <PortalRoutePrefetch portal="owner" staysEnabled />
+          <PortalRoutePrefetch portal="owner" staysEnabled sections={['properties', 'legal']} />
         </div>
       </StrictMode>,
     );
@@ -128,6 +154,9 @@ describe('background prefetch', () => {
     for (const href of portalNavHrefs('owner', true)) expect(hrefs).toContain(href);
     expect(hrefs).toContain('/owner/stays/rates?tab=season');
     expect(hrefs).not.toContain('/owner/properties/123/edit');
+    expect(new Set(cache.warmOpsSection.mock.calls.map((args) => args[1]))).toEqual(
+      new Set(['properties', 'legal']),
+    );
     const count = hrefs.length;
     cleanup();
     await act(async () => {

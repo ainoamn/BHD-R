@@ -17,7 +17,8 @@ export type PendingApprovalItem = {
     | 'deposit_claim'
     | 'deposit_complaint'
     | 'sale_decision'
-    | 'guest_review';
+    | 'guest_review'
+    | 'legal_message';
   id: string;
   reference: string;
   propertyId: string;
@@ -37,6 +38,8 @@ export type PendingApprovalItem = {
   verifyDocuments?: boolean;
   /** For `sale_decision`: keep selling a leased rent-and-sale unit, or hide a leased or sold one. */
   decision?: 'keep_selling' | 'hide_leased' | 'hide_sold' | null;
+  /** For `legal_message`: unread messages and updates on the case. */
+  unread?: number;
 };
 
 export type PendingApprovals = {
@@ -66,6 +69,7 @@ export const PENDING_APPROVALS_CHANGED_EVENT = 'bhd-r-pending-approvals-changed'
 
 /** Where the viewer approves the item: the property hub tab that holds the approve button. */
 export function pendingApprovalHref(portal: string, item: PendingApprovalItem): string {
+  if (item.kind === 'legal_message') return `/${portal}/legal/${encodeURIComponent(item.id)}`;
   const base = `/${portal}/properties/${encodeURIComponent(item.propertyId)}`;
   if (item.kind === 'contract') {
     return `${base}?section=contracts&focus=${encodeURIComponent(item.id)}`;
@@ -105,6 +109,14 @@ export function pendingApprovalAmount(
 }
 
 export function pendingApprovalTitle(item: PendingApprovalItem, ar: boolean): string {
+  if (item.kind === 'legal_message') {
+    const count = item.unread ?? 1;
+    if (ar)
+      return count > 1 ? `قضية — ${count} رسائل وتحديثات جديدة` : 'قضية — رسالة أو تحديث جديد';
+    return count > 1
+      ? `Legal case — ${count} new messages and updates`
+      : 'Legal case — new message';
+  }
   if (item.kind === 'stay_booking') {
     return ar ? 'طلب حجز بانتظار الاعتماد' : 'Booking request awaiting approval';
   }

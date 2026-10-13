@@ -5,6 +5,7 @@ import { hasPermission, permissionsForRoles, type RoleKey, type SessionClaims } 
 import {
   auditLogs,
   createDatabase,
+  legalCases,
   memberships,
   organizationRoles,
   organizations,
@@ -35,6 +36,8 @@ import {
   STAFF_ROLES,
   TEAM_CAPABILITIES,
   validTeamEmail,
+  type LawyerMember,
+  type LawyerPartyChoice,
   type OrganizationChoice,
   type OwnerPartyChoice,
   type PropertyOwnerMember,
@@ -58,8 +61,8 @@ type SavedRoleRow = {
 const globalForDb = globalThis as unknown as { __bhdRWebDb?: DbHandle };
 
 /** Rows that are not staff roles: they never take a seat or appear in the staff list. */
-const NOT_STAFF = ['organization_owner', 'tenant', 'property_owner'];
-const NOT_STAFF_ROWS = ['tenant', 'property_owner'];
+const NOT_STAFF = ['organization_owner', 'tenant', 'property_owner', 'lawyer'];
+const NOT_STAFF_ROWS = ['tenant', 'property_owner', 'lawyer'];
 const MAX_ROLES_PER_MEMBER = 6;
 const MAX_SAVED_ROLES = 30;
 const CAPABILITY_PERMISSIONS = new Set<string>(
@@ -247,6 +250,34 @@ async function loadOwnerParties(tx: Tx, organizationId: string): Promise<OwnerPa
   return rows.map((row) => ({ ...row, propertyCount: Number(row.propertyCount) }));
 }
 
+async function loadLawyerParties(tx: Tx, organizationId: string): Promise<LawyerPartyChoice[]> {
+  const rows = await tx
+    .select({
+      id: parties.id,
+      name: parties.displayName,
+      caseCount: sql<number>`count(distinct ${legalCases.id})::int`,
+    })
+    .from(parties)
+    .innerJoin(
+      partyRoles,
+      and(
+        eq(partyRoles.partyId, parties.id),
+        eq(partyRoles.organizationId, organizationId),
+        eq(partyRoles.roleKey, 'lawyer'),
+        eq(partyRoles.status, 'active'),
+      ),
+    )
+    .leftJoin(
+      legalCases,
+      and(eq(legalCases.lawyerPartyId, parties.id), eq(legalCases.organizationId, organizationId)),
+    )
+    .where(eq(parties.organizationId, organizationId))
+    .groupBy(parties.id, parties.displayName)
+    .orderBy(parties.displayName)
+    .limit(300);
+  return rows.map((row) => ({ ...row, caseCount: Number(row.caseCount) }));
+}
+
 export async function loadTeam(claims: SessionClaims): Promise<TeamView> {
   if (!hasPermission(claims, 'organization.members.read')) throw new Error('forbidden');
   const organizationId = organizationOf(claims);
@@ -280,6 +311,7 @@ export async function loadTeam(claims: SessionClaims): Promise<TeamView> {
       .limit(2_000);
     const savedRoleRows = await readSavedRoles(tx, organizationId);
     const ownerParties = await loadOwnerParties(tx, organizationId);
+    const lawyerParties = await loadLawyerParties(tx, organizationId);
 
     const staffEntries = rows.filter((row) => !NOT_STAFF_ROWS.includes(row.roleKey));
     const byUser = new Map<string, typeof rows>();
@@ -328,6 +360,23 @@ export async function loadTeam(claims: SessionClaims): Promise<TeamView> {
         };
       });
 
+    const lawyerNames = new Map(lawyerParties.map((party) => [party.id, party]));
+    const lawyers: LawyerMember[] = rows
+      .filter((row) => row.roleKey === 'lawyer')
+      .map((row) => {
+        const party = row.partyId ? lawyerNames.get(row.partyId) : undefined;
+        return {
+          userId: row.userId,
+          displayName: row.displayName,
+          email: row.email,
+          partyId: row.partyId,
+          partyName: party?.name ?? null,
+          caseCount: party?.caseCount ?? 0,
+          status: row.status === 'active' ? 'active' : 'inactive',
+          signedIn: signedIn(row),
+        };
+      });
+
     const tenantRows = rows.filter((row) => row.roleKey === 'tenant');
     const tenantPartyIds = [
       ...new Set(tenantRows.map((row) => row.partyId).filter((id): id is string => Boolean(id))),
@@ -371,6 +420,8 @@ export async function loadTeam(claims: SessionClaims): Promise<TeamView> {
       members,
       owners,
       ownerParties: canManage ? ownerParties : [],
+      lawyers,
+      lawyerParties: canManage ? lawyerParties : [],
       tenants,
       savedRoles,
       seats: {
@@ -817,6 +868,196 @@ export async function removePropertyOwner(claims: SessionClaims, userId: string)
       );
     await refreshMemberSessions(tx, userId);
     await audit(tx, claims, 'organization.property_owner.removed', userId, {});
+  });
+}
+
+async function assertLawyerParty(tx: Tx, organizationId: string, partyId: string) {
+  const [row] = await tx
+    .select({ id: partyRoles.id })
+    .from(partyRoles)
+    .where(
+      and(
+        eq(partyRoles.organizationId, organizationId),
+        eq(partyRoles.partyId, partyId),
+        eq(partyRoles.roleKey, 'lawyer'),
+        eq(partyRoles.status, 'active'),
+      ),
+    )
+    .limit(1);
+  if (!row) throw new Error('team_lawyer_invalid');
+}
+
+/** The lawyer's contact (an existing one with the same email, or a new one) marked as lawyer. */
+async function lawyerPartyFor(
+  tx: Tx,
+  organizationId: string,
+  input: { email: string; name: string; type: 'person' | 'company' },
+): Promise<string> {
+  const [existing] = await tx
+    .select({ id: parties.id })
+    .from(parties)
+    .where(and(eq(parties.organizationId, organizationId), eq(parties.email, input.email)))
+    .limit(1);
+  const partyId =
+    existing?.id ??
+    (
+      await tx
+        .insert(parties)
+        .values({
+          organizationId,
+          type: input.type,
+          displayName: input.name,
+          email: input.email,
+          status: 'active',
+        })
+        .returning({ id: parties.id })
+    )[0]!.id;
+  await tx
+    .insert(partyRoles)
+    .values({ organizationId, partyId, roleKey: 'lawyer', status: 'active' })
+    .onConflictDoUpdate({
+      target: [partyRoles.organizationId, partyRoles.partyId, partyRoles.roleKey],
+      set: { status: 'active', updatedAt: new Date() },
+    });
+  return partyId;
+}
+
+async function lawyerRow(tx: Tx, organizationId: string, userId: string) {
+  const [row] = await tx
+    .select()
+    .from(memberships)
+    .where(
+      and(
+        eq(memberships.organizationId, organizationId),
+        eq(memberships.userId, userId),
+        eq(memberships.roleKey, 'lawyer'),
+        inArray(memberships.status, ['active', 'inactive']),
+      ),
+    )
+    .for('update');
+  return row ?? null;
+}
+
+/**
+ * Give an external lawyer access to the cases of one lawyer contact: a new contact from their
+ * name (or firm), or an existing firm other lawyers already work for.
+ */
+export async function addLawyer(
+  claims: SessionClaims,
+  input: {
+    email: string;
+    displayName?: string;
+    partyId?: string;
+    firmName?: string;
+    partyType?: 'person' | 'company';
+  },
+): Promise<{ userId: string; partyId: string; existingAccount: boolean }> {
+  requireMembersWrite(claims);
+  const email = input.email.trim().toLowerCase();
+  if (!validTeamEmail(email)) throw new Error('team_email_invalid');
+  const organizationId = organizationOf(claims);
+  return elevated(async (tx) => {
+    const organization = await lockOrganization(tx, organizationId);
+    const known = await tx.query.users.findFirst({ where: eq(users.email, email) });
+    if (known?.id === claims.sub) throw new Error('team_self_change');
+    if (known && (await lawyerRow(tx, organizationId, known.id))) {
+      throw new Error('team_member_exists');
+    }
+    let partyId: string;
+    if (input.partyId) {
+      await assertLawyerParty(tx, organizationId, input.partyId);
+      partyId = input.partyId;
+    } else {
+      const name =
+        input.firmName?.trim().slice(0, 200) ||
+        input.displayName?.trim().slice(0, 200) ||
+        email.split('@')[0]!;
+      partyId = await lawyerPartyFor(tx, organizationId, {
+        email,
+        name,
+        type: input.partyType ?? (input.firmName?.trim() ? 'company' : 'person'),
+      });
+    }
+    const { user, existingAccount } = await accountFor(tx, email, input.displayName);
+    await tx
+      .insert(memberships)
+      .values({
+        organizationId,
+        userId: user.id,
+        roleKey: 'lawyer',
+        partyId,
+        permissions: [],
+        status: 'active',
+      })
+      .onConflictDoUpdate({
+        target: [memberships.organizationId, memberships.userId, memberships.roleKey],
+        set: { partyId, permissions: [], status: 'active' },
+      });
+    if (existingAccount) await refreshMemberSessions(tx, user.id);
+    await audit(tx, claims, 'organization.lawyer.added', user.id, { partyId });
+    await queueWelcomeEmail(tx, {
+      organizationId,
+      organizationName: organization.displayNameAr || organization.displayNameEn,
+      memberId: user.id,
+      email,
+      name: user.displayName,
+      roleText: 'محامٍ يتابع القضايا المسندة إليه',
+      invitedBy: await actorName(tx, claims),
+    });
+    return { userId: user.id, partyId, existingAccount };
+  });
+}
+
+export async function updateLawyer(
+  claims: SessionClaims,
+  userId: string,
+  input: { status?: 'active' | 'inactive'; partyId?: string },
+): Promise<void> {
+  requireMembersWrite(claims);
+  if (userId === claims.sub) throw new Error('team_self_change');
+  const organizationId = organizationOf(claims);
+  await elevated(async (tx) => {
+    const row = await lawyerRow(tx, organizationId, userId);
+    if (!row) throw new Error('team_member_not_found');
+    if (input.partyId) await assertLawyerParty(tx, organizationId, input.partyId);
+    await tx
+      .update(memberships)
+      .set({
+        ...(input.partyId ? { partyId: input.partyId } : {}),
+        ...(input.status ? { status: input.status } : {}),
+      })
+      .where(
+        and(
+          eq(memberships.organizationId, organizationId),
+          eq(memberships.userId, userId),
+          eq(memberships.roleKey, 'lawyer'),
+        ),
+      );
+    await refreshMemberSessions(tx, userId);
+    await audit(tx, claims, 'organization.lawyer.updated', userId, input);
+  });
+}
+
+/** End a lawyer's access; their cases, messages and files stay with the organization. */
+export async function removeLawyer(claims: SessionClaims, userId: string): Promise<void> {
+  requireMembersWrite(claims);
+  if (userId === claims.sub) throw new Error('team_self_change');
+  const organizationId = organizationOf(claims);
+  await elevated(async (tx) => {
+    const row = await lawyerRow(tx, organizationId, userId);
+    if (!row) throw new Error('team_member_not_found');
+    await tx
+      .update(memberships)
+      .set({ status: 'archived' })
+      .where(
+        and(
+          eq(memberships.organizationId, organizationId),
+          eq(memberships.userId, userId),
+          eq(memberships.roleKey, 'lawyer'),
+        ),
+      );
+    await refreshMemberSessions(tx, userId);
+    await audit(tx, claims, 'organization.lawyer.removed', userId, {});
   });
 }
 

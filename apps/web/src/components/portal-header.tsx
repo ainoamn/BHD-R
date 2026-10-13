@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import { Link, usePathname } from '@/i18n/navigation';
 import { BhdAppSwitcher } from '@/components/bhd-app-switcher';
 import { PortalApprovalsBell } from '@/components/portal-approvals-bell';
+import { lawyerParty } from '@/lib/portal-access';
 import type { PortalRole, Viewer } from '@/lib/types';
 
 export function PortalHeader({
@@ -26,8 +27,12 @@ export function PortalHeader({
   const ar = locale === 'ar';
   const nextLocale = locale === 'ar' ? 'en' : 'ar';
   const managerPortal = viewer.portals.find((role) => role === 'owner' || role === 'developer');
+  const lawyer = Boolean(lawyerParty(viewer));
   const showSpaceSwitch =
-    portal !== 'platform' && Boolean(managerPortal) && viewer.portals.includes('tenant');
+    portal !== 'platform' &&
+    Boolean(managerPortal) &&
+    viewer.portals.includes('tenant') &&
+    (!lawyer || viewer.roles.includes('tenant'));
 
   return (
     <header className="portal-chrome">
@@ -67,9 +72,13 @@ export function PortalHeader({
                   ? ar
                     ? 'المطوّر'
                     : 'Developer'
-                  : ar
-                    ? 'المالك'
-                    : 'Owner'}
+                  : lawyer
+                    ? ar
+                      ? 'المحاماة'
+                      : 'Legal'
+                    : ar
+                      ? 'المالك'
+                      : 'Owner'}
               </Link>
               <Link
                 href="/tenant"
@@ -97,7 +106,7 @@ export function PortalHeader({
           </Link>
 
           {portal === 'owner' || portal === 'developer' ? (
-            <PortalApprovalsBell portal={portal} locale={locale} />
+            <PortalApprovalsBell portal={portal} locale={locale} lawyer={lawyer} />
           ) : null}
 
           <BhdAppSwitcher viewer={viewer} locale={locale} />

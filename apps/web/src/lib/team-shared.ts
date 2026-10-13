@@ -46,6 +46,7 @@ export const ROLE_RANK: Record<string, number> = {
   custom_member: 10,
   platform_support: 5,
   property_owner: 0,
+  lawyer: 0,
   tenant: 0,
 };
 
@@ -121,6 +122,14 @@ export const ROLE_LABELS: Record<
     en: 'Property owner',
     hintAr: 'يرى عقاراته فقط: حجوزاتها وعقودها وفواتيرها وصيانتها.',
     hintEn: 'Sees only their own properties: bookings, contracts, invoices and maintenance.',
+  },
+  lawyer: {
+    ar: 'محامٍ / مكتب محاماة',
+    en: 'Lawyer / law firm',
+    hintAr:
+      'يرى القضايا المسندة إليه فقط: يحدّث مراحلها وجلساتها ومبالغها ويراسل فريقك ويرفق المستندات.',
+    hintEn:
+      'Sees only the cases assigned to them: updates stages, hearings and amounts, messages your team and attaches documents.',
   },
   custom_member: {
     ar: 'دور مخصص',
@@ -534,6 +543,20 @@ export type PropertyOwnerMember = {
 
 export type OwnerPartyChoice = { id: string; name: string; propertyCount: number };
 
+export type LawyerMember = {
+  userId: string;
+  displayName: string;
+  email: string;
+  partyId: string | null;
+  partyName: string | null;
+  caseCount: number;
+  status: 'active' | 'inactive';
+  signedIn: boolean;
+};
+
+/** A lawyer or law firm contact; several lawyer accounts may work for one firm. */
+export type LawyerPartyChoice = { id: string; name: string; caseCount: number };
+
 export type TenantMember = {
   userId: string;
   displayName: string;
@@ -548,6 +571,8 @@ export type TeamView = {
   members: TeamMember[];
   owners: PropertyOwnerMember[];
   ownerParties: OwnerPartyChoice[];
+  lawyers: LawyerMember[];
+  lawyerParties: LawyerPartyChoice[];
   tenants: TenantMember[];
   savedRoles: SavedRole[];
   seats: { used: number; limit: number; plan: string };

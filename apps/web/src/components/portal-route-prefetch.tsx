@@ -4,7 +4,11 @@ import { useRouter } from '@/i18n/navigation';
 import { useEffect } from 'react';
 import type { PortalRole } from '@/lib/types';
 import { portalNavHrefs } from '@/lib/portal-nav-paths';
-import { opsSectionsForPortal, OPS_WARM_ORDER } from '@/lib/portal-ops-types';
+import {
+  opsSectionsForPortal,
+  OPS_WARM_ORDER,
+  type OperationsSection,
+} from '@/lib/portal-ops-types';
 import { hasOpsInflight, OPS_WARM_DONE_EVENT, warmOpsSection } from '@/lib/portal-ops-client-cache';
 
 const PROPERTY_SEED_LIMIT = 6;
@@ -32,11 +36,15 @@ export function portalPrefetchHref(
 export function PortalRoutePrefetch({
   portal,
   staysEnabled = false,
+  sections: allowed,
 }: {
   portal: PortalRole;
   staysEnabled?: boolean;
+  /** Sections this viewer may open; the others would only answer 403. */
+  sections: readonly OperationsSection[];
 }) {
   const router = useRouter();
+  const allowedKey = allowed.join(',');
   useEffect(() => {
     let cancelled = false;
     const queue: string[] = [];
@@ -105,8 +113,9 @@ export function PortalRoutePrefetch({
         attributeFilter: ['href'],
       });
 
-    const sections = OPS_WARM_ORDER.filter((section) =>
-      opsSectionsForPortal(portal).includes(section),
+    const permitted = new Set(allowedKey.split(','));
+    const sections = OPS_WARM_ORDER.filter(
+      (section) => opsSectionsForPortal(portal).includes(section) && permitted.has(section),
     );
     let index = 0;
     const warmNext = async () => {
@@ -161,6 +170,6 @@ export function PortalRoutePrefetch({
       for (const timer of timers) window.clearTimeout(timer);
       window.clearInterval(interval);
     };
-  }, [portal, router, staysEnabled]);
+  }, [allowedKey, portal, router, staysEnabled]);
   return null;
 }
