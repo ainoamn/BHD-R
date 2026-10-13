@@ -67,6 +67,8 @@ export type RefundTransfer = RefundPayout & {
   at: string;
   reference: string | null;
   recordedBy: string | null;
+  /** The accountant's note on the transfer (0.8.37 onward), shown to the guest too. */
+  note?: string | null;
   hasReceipt: boolean;
   /** This transfer alone; a claim may add a further transfer to the same refund. */
   amountMinor?: string | null;
@@ -160,6 +162,7 @@ export type GuestDepositRefund = {
   decisionNote: string | null;
   paidAt: string | null;
   paidTo: string | null;
+  paidNote: string | null;
   /** Transferred so far (a claim may add to the refund later). */
   paidMinor: string;
   /** The last transfer alone, when known. */
@@ -271,18 +274,24 @@ export function refundNotices(
     });
   }
   if (refund.paidAt && refund.status === 'executed') {
+    const note = refund.paidNote?.trim();
     notices.push({
       id: `paid:${refund.paidAt}`,
       kind: 'paid',
       at: format.stamp(refund.paidAt),
       title: ar ? 'تم تحويل مبلغ التأمين' : 'Deposit transferred',
-      body: refund.paidTo
-        ? ar
-          ? `حُوّل ${amount} إلى ${refund.paidTo}.`
-          : `${amount} was transferred to ${refund.paidTo}.`
-        : ar
-          ? `حُوّل ${amount}.`
-          : `${amount} was transferred.`,
+      body: [
+        refund.paidTo
+          ? ar
+            ? `حُوّل ${amount} إلى ${refund.paidTo}.`
+            : `${amount} was transferred to ${refund.paidTo}.`
+          : ar
+            ? `حُوّل ${amount}.`
+            : `${amount} was transferred.`,
+        note ? (ar ? `ملاحظة التحويل: ${note}` : `Transfer note: ${note}`) : null,
+      ]
+        .filter(Boolean)
+        .join(' '),
     });
   }
   return notices.reverse();
@@ -306,5 +315,6 @@ export function guestDepositRefund(view: DepositRefundView): GuestDepositRefund 
     paidTo: transfer
       ? [transfer.bank, maskAccount(transfer.account)].filter(Boolean).join(' · ')
       : null,
+    paidNote: transfer?.note ?? null,
   };
 }

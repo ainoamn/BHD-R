@@ -128,6 +128,7 @@ const bodySchema = z.discriminatedUnion('action', [
       bank: z.string().trim().min(2).max(120),
       holder: z.string().max(120).optional(),
       reference: z.string().max(80).optional(),
+      note: z.string().max(REFUND_NOTE_MAX).optional(),
       at: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/),
       receipt: z.string().max(REFUND_RECEIPT_MAX).regex(REFUND_RECEIPT_DATA_URL),
     })
@@ -222,6 +223,7 @@ export async function POST(request: Request, context: { params: Promise<{ proper
             bank: body.bank,
             holder: body.holder,
             reference: body.reference,
+            note: body.note,
             at: body.at,
             receipt: body.receipt,
           }),

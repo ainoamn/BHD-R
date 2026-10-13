@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ApiError, browserNextMutation, humanizeBrowserError } from '@/lib/api';
 import {
   NOTE_TRANSLATE_MAX,
@@ -13,6 +13,18 @@ import {
 } from '@/lib/note-translation';
 
 type Result = { engine: 'ai' | 'machine'; text: string };
+
+type Assist = {
+  engine: 'ai' | 'machine';
+  translation: string;
+  corrected: string | null;
+  rephrased: string | null;
+  target: NoteLang;
+};
+
+/** Idle time after typing before the note is checked and translated. */
+const ASSIST_DELAY_MS = 1200;
+const ASSIST_MIN_CHARS = 6;
 
 const LANG_LABEL: Record<NoteLang, [string, string]> = {
   ar: ['العربية', 'Arabic'],
@@ -49,8 +61,9 @@ function engineLabel(engine: Result['engine'], ar: boolean): string {
 }
 
 /**
- * Under a note field: adds the note's translation into the other language below the original,
- * so the guest, owner, and accountant each read it in their language.
+ * Under a note field: while the writer pauses, shows a live translation into the other language
+ * and, from AI, a corrected and a clearer wording to adopt. The translation can be added below
+ * the original, so the guest, owner, and accountant each read the note in their language.
  */
 export function NoteTranslateBar({
   value,
@@ -68,34 +81,75 @@ export function NoteTranslateBar({
   const ar = locale === 'ar';
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
+  const [assist, setAssist] = useState<(Assist & { forText: string }) | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [dismissedFor, setDismissedFor] = useState<string | null>(null);
   const original = noteOriginal(value);
   const translated = hasNoteTranslation(value);
   const target = otherLanguage(noteLanguage(original));
   const [targetAr, targetEn] = LANG_LABEL[target];
+  const live = assist && assist.forText === original && dismissedFor !== original ? assist : null;
+
+  useEffect(() => {
+    if (disabled || translated || original.length < ASSIST_MIN_CHARS) return;
+    if (dismissedFor === original || assist?.forText === original) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      setChecking(true);
+      browserNextMutation<Assist>('/api/owner/notes/assist', {
+        method: 'POST',
+        body: JSON.stringify({ text: original.slice(0, NOTE_TRANSLATE_MAX) }),
+        signal: controller.signal,
+      })
+        .then((result) => setAssist({ ...result, forText: original }))
+        .catch(() => undefined)
+        .finally(() => {
+          if (!controller.signal.aborted) setChecking(false);
+        });
+    }, ASSIST_DELAY_MS);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+      setChecking(false);
+    };
+  }, [original, translated, disabled, dismissedFor, assist?.forText]);
+
+  function addTranslation(text: string, engine: Result['engine']) {
+    const next = joinNoteTranslation(original, text, target);
+    if (next.length > max) {
+      setStatus({
+        tone: 'error',
+        text: ar
+          ? `الملاحظة مع ترجمتها أطول من الحد (${max} حرفاً)؛ اختصر النص ثم أعد الترجمة.`
+          : `The note with its translation exceeds ${max} characters; shorten it and translate again.`,
+      });
+      return;
+    }
+    onChange(next);
+    setStatus({
+      tone: 'ok',
+      text: ar
+        ? `أُضيفت الترجمة إلى ${targetAr} أسفل الملاحظة (${engineLabel(engine, true)}). راجعها قبل الحفظ.`
+        : `${targetEn} translation added below the note (${engineLabel(engine, false)}). Review it before saving.`,
+    });
+  }
+
+  function adopt(text: string) {
+    onChange(text.slice(0, max));
+    setStatus(null);
+  }
 
   async function translate() {
     if (original.length < 2 || busy) return;
+    if (live) {
+      addTranslation(live.translation, live.engine);
+      return;
+    }
     setBusy(true);
     setStatus(null);
     try {
       const result = await requestTranslation(original.slice(0, NOTE_TRANSLATE_MAX), target);
-      const next = joinNoteTranslation(original, result.text, target);
-      if (next.length > max) {
-        setStatus({
-          tone: 'error',
-          text: ar
-            ? `الملاحظة مع ترجمتها أطول من الحد (${max} حرفاً)؛ اختصر النص ثم أعد الترجمة.`
-            : `The note with its translation exceeds ${max} characters; shorten it and translate again.`,
-        });
-        return;
-      }
-      onChange(next);
-      setStatus({
-        tone: 'ok',
-        text: ar
-          ? `أُضيفت الترجمة إلى ${targetAr} أسفل الملاحظة (${engineLabel(result.engine, true)}). راجعها قبل الحفظ.`
-          : `${targetEn} translation added below the note (${engineLabel(result.engine, false)}). Review it before saving.`,
-      });
+      addTranslation(result.text, result.engine);
     } catch (error) {
       setStatus({ tone: 'error', text: errorMessage(error, ar) });
     } finally {
@@ -103,8 +157,70 @@ export function NoteTranslateBar({
     }
   }
 
+  const suggestions = live
+    ? [
+        live.corrected
+          ? {
+              key: 'corrected',
+              label: ar ? 'تصحيح إملائي ونحوي مقترح' : 'Suggested spelling and grammar fix',
+              text: live.corrected,
+              action: ar ? 'استخدم التصحيح' : 'Use the fix',
+            }
+          : null,
+        live.rephrased
+          ? {
+              key: 'rephrased',
+              label: ar ? 'صياغة أوضح مقترحة' : 'Suggested clearer wording',
+              text: live.rephrased,
+              action: ar ? 'استخدم هذه الصياغة' : 'Use this wording',
+            }
+          : null,
+      ].filter((item) => item !== null)
+    : [];
+  const sourceDir = noteLanguage(original) === 'ar' ? 'rtl' : 'ltr';
+
   return (
     <div className="note-translate">
+      {live && !translated ? (
+        <div className="note-assist" aria-live="polite">
+          <div className="note-assist__item">
+            <span className="note-assist__label">
+              <span aria-hidden="true">✨</span>
+              {ar
+                ? `الترجمة الفورية إلى ${targetAr} · ${engineLabel(live.engine, true)}`
+                : `Live ${targetEn} translation · ${engineLabel(live.engine, false)}`}
+            </span>
+            <p lang={target} dir={target === 'ar' ? 'rtl' : 'ltr'}>
+              {live.translation}
+            </p>
+          </div>
+          {suggestions.map((item) => (
+            <div key={item.key} className="note-assist__item note-assist__item--suggest">
+              <span className="note-assist__label">{item.label}</span>
+              <p dir={sourceDir}>{item.text}</p>
+              <button
+                type="button"
+                className="note-translate__button"
+                disabled={disabled}
+                onClick={() => adopt(item.text)}
+              >
+                {item.action}
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            className="note-translate__button note-translate__button--quiet note-assist__dismiss"
+            onClick={() => setDismissedFor(original)}
+          >
+            {ar ? 'إخفاء الاقتراحات' : 'Hide suggestions'}
+          </button>
+        </div>
+      ) : checking && !translated ? (
+        <small className="note-translate__hint" role="status">
+          {ar ? 'جارٍ مراجعة الملاحظة وترجمتها…' : 'Checking and translating the note…'}
+        </small>
+      ) : null}
       <div className="note-translate__actions">
         <button
           type="button"
@@ -121,9 +237,13 @@ export function NoteTranslateBar({
               ? ar
                 ? `تحديث الترجمة إلى ${targetAr}`
                 : `Update ${targetEn} translation`
-              : ar
-                ? `ترجمة إلى ${targetAr}`
-                : `Translate to ${targetEn}`}
+              : live
+                ? ar
+                  ? 'أضف الترجمة أسفل الملاحظة'
+                  : 'Add the translation below the note'
+                : ar
+                  ? `ترجمة إلى ${targetAr}`
+                  : `Translate to ${targetEn}`}
         </button>
         {translated && !busy ? (
           <button

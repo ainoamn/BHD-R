@@ -185,6 +185,20 @@ describe('deposit refund', () => {
     expect(requested[0]?.body).toContain('أسبوعَي عمل');
   });
 
+  it("tells the guest the accountant's transfer note with the transfer notice", () => {
+    const format = { money: (minor: string) => `${minor} bz`, stamp: (iso: string) => iso };
+    const noted = guestDepositRefund({
+      ...view,
+      transfer: { ...view.transfer!, note: 'Bank fee 0.500 OMR deducted' },
+    });
+    expect(noted.paidNote).toBe('Bank fee 0.500 OMR deducted');
+    const [paid] = refundNotices(noted, false, format);
+    expect(paid?.body).toContain('Transfer note: Bank fee 0.500 OMR deducted');
+    expect(refundNotices(guestDepositRefund(view), true, format)[0]?.body).not.toContain(
+      'ملاحظة التحويل',
+    );
+  });
+
   it('asks the guest to accept the refund timeframe and the notices', () => {
     expect(REFUND_CONSENT_VERSION).toMatch(/^refund-terms-/);
     expect(REFUND_CONSENT.ar.join(' ')).toContain('يوم عمل واحد حتى أسبوعَي عمل');

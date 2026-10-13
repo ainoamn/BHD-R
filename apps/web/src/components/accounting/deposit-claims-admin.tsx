@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { NoteTranslateBar } from '@/components/note-translate';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import {
@@ -220,6 +221,13 @@ export function DepositClaimsAdmin({
                         aria-invalid={tried && note.trim().length < CLAIM_NOTE_MIN}
                       />
                     </label>
+                    <NoteTranslateBar
+                      value={note}
+                      onChange={setNote}
+                      locale={locale}
+                      max={CLAIM_MESSAGE_MAX}
+                      disabled={busy}
+                    />
                     {tried && note.trim().length < CLAIM_NOTE_MIN ? (
                       <small className="field-error" role="alert">
                         {ar ? 'اكتب ردّك على الطلب.' : 'Write your answer.'}

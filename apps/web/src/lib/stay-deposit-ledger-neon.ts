@@ -79,6 +79,7 @@ export function refundFields(
     refundPaidHolder: transfer?.holder ?? null,
     refundPaidReference: transfer?.reference ?? null,
     refundPaidBy: transfer?.recordedBy ?? null,
+    refundPaidNote: transfer?.note ?? null,
     refundReceipt: transfer?.hasReceipt ? '1' : null,
   };
 }

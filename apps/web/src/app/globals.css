@@ -19380,6 +19380,52 @@ button.lrw__step-body:focus-visible {
 .note-translate__result small {
   color: var(--calm-muted, #6c7b75);
 }
+.note-assist {
+  display: grid;
+  gap: 0.45rem;
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  background: var(--calm-surface-2, #f6f9f7);
+  border: 1px solid var(--calm-line, #e1e9e5);
+  border-inline-start: 3px solid var(--calm-accent, #0b623c);
+  border-radius: 0.65rem;
+}
+.note-assist__item {
+  display: grid;
+  justify-items: start;
+  gap: 0.25rem;
+}
+.note-assist__item + .note-assist__item {
+  padding-top: 0.45rem;
+  border-top: 1px dashed var(--calm-line, #e1e9e5);
+}
+.note-assist__label {
+  display: inline-flex;
+  gap: 0.3rem;
+  color: var(--calm-muted, #6c7b75);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+.note-assist__item p {
+  margin: 0;
+  width: 100%;
+  color: var(--ink-900, #14231d);
+  font-size: 0.86rem;
+  line-height: 1.65;
+  white-space: pre-line;
+  unicode-bidi: plaintext;
+}
+.note-assist__item--suggest p {
+  color: #1f4a3a;
+}
+.note-assist__dismiss {
+  justify-self: end;
+}
+.psr-refund-form__note {
+  display: block;
+  white-space: pre-line;
+  unicode-bidi: plaintext;
+}
 
 /* Guest deposit refund (5th journey step) */
 .guest-stay-detail__greeting--refund {

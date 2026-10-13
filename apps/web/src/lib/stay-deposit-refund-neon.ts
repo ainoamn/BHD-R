@@ -213,6 +213,7 @@ export async function loadDepositRefunds(
             at: text(transfer.at) ?? '',
             reference: text(transfer.reference),
             recordedBy: text(transfer.recordedBy),
+            note: text(transfer.note),
             hasReceipt: receipt,
             amountMinor: text(meta.amountMinor),
           };
@@ -341,6 +342,7 @@ async function queueGuestRefundNotice(
         depositMinor: bigint;
         retainedMinor: bigint;
         note: string | null;
+        transferNote: string | null;
       },
 ) {
   const money = (minor: bigint) => formatMoney(minor.toString(), booking.currency, 'ar');
@@ -378,6 +380,7 @@ async function queueGuestRefundNotice(
                     }`,
                   ]
                 : []),
+              ...(notice.transferNote ? [`ملاحظة التحويل: ${notice.transferNote}`] : []),
               'أكّد استلام المبلغ من صفحة إقامتك خلال 24 ساعة، أو أخبرنا إن لم يصلك. دون رد خلال 24 ساعة يُعتبر المبلغ مستلماً.',
             ],
           };
@@ -674,6 +677,7 @@ export type RefundPayoutInput = {
   bank: string;
   holder?: string | undefined;
   reference?: string | undefined;
+  note?: string | undefined;
   at: string;
   receipt: string;
 };
@@ -726,6 +730,7 @@ export async function recordDepositRefundPayoutOnNeon(
       reference: input.reference?.trim() || null,
       at: at.toISOString(),
       recordedBy: await actorName(tx, claims.sub),
+      note: cleanNote(input.note),
     };
     await recordDepositEvent(tx, booking, {
       event: 'paid',
@@ -759,6 +764,7 @@ export async function recordDepositRefundPayoutOnNeon(
       depositMinor: deposit,
       retainedMinor: retained,
       note: decision.note,
+      transferNote: transfer.note ?? null,
     });
     const bookingStatus = await closeBooking(tx, booking, claims.sub, 'deposit_refund_paid');
     return { refundStatus: 'executed', bookingStatus };

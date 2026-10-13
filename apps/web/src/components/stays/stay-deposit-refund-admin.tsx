@@ -12,6 +12,7 @@ import {
 } from '@/lib/stay-deposit-refund';
 import type { PropertyRecordRow } from '@/lib/property-records-neon';
 import { NoteTranslateBar, TranslatableNote } from '@/components/note-translate';
+import { hasNoteTranslation } from '@/lib/note-translation';
 import { StampDateTimeField } from './stamp-date-time-field';
 import { compressDocument } from './stay-handover-form';
 
@@ -26,6 +27,7 @@ export type RefundSubmit =
       bank: string;
       holder?: string;
       reference?: string;
+      note?: string;
       at: string;
       receipt: string;
     };
@@ -216,6 +218,14 @@ export function DepositRefundCell({
           {row.refundPaidBy ? ` · ${row.refundPaidBy}` : ''}
         </span>
       ) : null}
+      {row.refundStatus === 'executed' && row.refundPaidNote ? (
+        <small className="psr-refund__note">
+          {ar ? 'ملاحظة التحويل' : 'Transfer note'}: {row.refundPaidNote}{' '}
+          {hasNoteTranslation(row.refundPaidNote) ? null : (
+            <TranslatableNote text={row.refundPaidNote} locale={locale} />
+          )}
+        </small>
+      ) : null}
       {row.refundReceiptState ? (
         <span className={`psr-refund__line psr-refund__receipt-state is-${row.refundReceiptState}`}>
           {receiptStateLabel(row.refundReceiptState, row.refundReceiptDeadline, ar)}
@@ -343,6 +353,7 @@ export function DepositRefundForm({
             bank: bank.trim(),
             ...(holder.trim() ? { holder: holder.trim() } : {}),
             ...(reference.trim() ? { reference: reference.trim() } : {}),
+            ...(note.trim() ? { note: note.trim() } : {}),
             at,
             receipt,
           });
@@ -400,7 +411,8 @@ export function DepositRefundForm({
         {row.refundDecisionNote && mode === 'payout' ? (
           <>
             <br />
-            {ar ? 'ملاحظة المالك' : 'Host note'}: {row.refundDecisionNote}
+            {ar ? 'ملاحظة المالك' : 'Host note'}:{' '}
+            <span className="psr-refund-form__note">{row.refundDecisionNote}</span>
           </>
         ) : null}
       </p>
@@ -536,6 +548,33 @@ export function DepositRefundForm({
               onChange={setAt}
               label={ar ? 'تاريخ ووقت التحويل' : 'Transfer date and time'}
             />
+            <div className="field span-2">
+              <label htmlFor={`${id}-note`}>
+                {ar
+                  ? 'ملاحظة التحويل (اختياري · تظهر للضيف والمالك)'
+                  : 'Transfer note (optional · shown to the guest and host)'}
+              </label>
+              <textarea
+                id={`${id}-note`}
+                className="textarea"
+                rows={2}
+                maxLength={REFUND_NOTE_MAX}
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                placeholder={
+                  ar
+                    ? 'مثال: حُوّل المبلغ بعد خصم رسوم التحويل البنكي 0.500 ر.ع.…'
+                    : 'e.g. sent after a 0.500 OMR bank transfer fee…'
+                }
+              />
+              <NoteTranslateBar
+                value={note}
+                onChange={setNote}
+                locale={locale}
+                max={REFUND_NOTE_MAX}
+                disabled={busy}
+              />
+            </div>
             <div
               className={`field span-2 handover-doc${tried && !receipt ? ' handover-doc--missing' : ''}`}
             >
