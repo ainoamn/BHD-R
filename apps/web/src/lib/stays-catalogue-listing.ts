@@ -33,6 +33,8 @@ export type StayCatalogueListing = {
   longitude?: number | null;
   mapsUrl?: string | null;
   unitSerial?: string | null;
+  /** Guest reviews of the unit, once released; null when it has none yet. */
+  rating?: { score: number; count: number } | null;
 };
 
 export type StayCatalogueCollection = {

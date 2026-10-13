@@ -9,6 +9,7 @@ import { categoryLabel } from '@/lib/properties-browse-filters';
 import { toPublicMediaSrc } from '@/lib/public-media-url';
 import type { StayCatalogueListing } from '@/lib/stays-catalogue-listing';
 import { stayAsCardListing, stayDetailHref } from '@/lib/stays-browse-filters';
+import { StayRatingBadge } from '@/components/stays/stay-rating-badge';
 
 export function StaysListingsTable({
   listings,
@@ -78,6 +79,7 @@ export function StaysListingsTable({
                   <p className="props-table-mobile__building">{buildingLine}</p>
                 ) : null}
                 <p className="props-table-mobile__loc">{locationLine}</p>
+                <StayRatingBadge rating={listing.rating} ar={ar} compact />
                 <p className="props-table-mobile__facts">
                   {listing.bedrooms} {ar ? 'غرف' : 'beds'} · {listing.bathrooms}{' '}
                   {ar ? 'حمامات' : 'baths'}
@@ -104,6 +106,7 @@ export function StaysListingsTable({
               <th scope="col">{ar ? 'الحمامات' : 'Baths'}</th>
               <th scope="col">{ar ? 'المساحة' : 'Area'}</th>
               <th scope="col">{ar ? 'الضيوف' : 'Guests'}</th>
+              <th scope="col">{ar ? 'التقييم' : 'Rating'}</th>
               <th scope="col">{ar ? 'السعر' : 'Price'}</th>
               <th scope="col">{ar ? 'إجراء' : 'Action'}</th>
             </tr>
@@ -153,6 +156,9 @@ export function StaysListingsTable({
                   <td>{listing.bathrooms}</td>
                   <td>{listing.areaSquareMeters ?? '—'}</td>
                   <td>{listing.maxGuests}</td>
+                  <td>
+                    <StayRatingBadge rating={listing.rating} ar={ar} compact />
+                  </td>
                   <td>
                     <strong dir="ltr">{price}</strong>
                     <small>{ar ? ' / ليلة' : ' / night'}</small>

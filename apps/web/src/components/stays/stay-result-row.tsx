@@ -9,6 +9,7 @@ import { toPublicMediaSrc } from '@/lib/public-media-url';
 import { categoryLabel } from '@/lib/properties-browse-filters';
 import type { StayCatalogueListing } from '@/lib/stays-catalogue-listing';
 import { stayAsCardListing, stayDetailHref } from '@/lib/stays-browse-filters';
+import { StayRatingBadge } from '@/components/stays/stay-rating-badge';
 
 export function StayResultRow({
   listing,
@@ -116,6 +117,7 @@ export function StayResultRow({
         </div>
 
         <div className="listing-row__aside">
+          <StayRatingBadge rating={listing.rating} ar={ar} className="listing-row__stay-rating" />
           <span className="listing-row__status">{ar ? 'إقامة يومية' : 'Daily stay'}</span>
           {priceLabel ? (
             <div className="listing-row__price">

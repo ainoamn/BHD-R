@@ -2,6 +2,18 @@
 
 **تسليم الجلسة كاملة (0.2.24 → 0.8.33):** للاستكمال من جهاز آخر ابدأ من [`docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه خطوات الإعداد، والمراحل بالتاريخ والوقت، والمهام المفتوحة. ويرافقه فهرس الإصدارات (251 إصداراً) والمحادثة كاملة بعد حذف الأسرار.
 
+# CONTINUE — 2026-10-13 11:15 (مسقط)
+
+**0.8.40** · التقييمات في صفحة البحث عن الإقامات:
+
+- **الدرجة:** `loadUnitRatings(unitIds)` في `booking-reviews-neon.ts` تحسب المتوسط والعدد من `booking_reviews`. تشترط `guest_to_host` و`published` و`released`، وتعمل عبر `elevated`.
+- **البحث:** `searchStaysCatalogueFromNeon` يرفق `rating` بكل وحدة بعد المعاملة، بمهلة 2.5 ثانية (`withTimeoutFallback`).
+- **العرض:** `StayRatingBadge` في القائمة والشبكة والجدول. انتبه: `.listing-row__rating` اسم قديم لعقارات الإيجار، فالصف يستخدم `.listing-row__stay-rating`.
+- **الترتيب:** `rating_desc` أُضيف إلى `BrowseSort` المشترك، ولا يستخدمه إلا بحث الإقامات.
+- **مفتوح:** تقييم ST-FE61E6C8 يظهر بعد 14 أكتوبر 09:58 بتوقيت مسقط أو عند تأكيد الضيف الاستلام. بعدها تُراجع الصفحة الحية.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.40-AR.md`](./docs/implementation/RELEASE-0.8.40-AR.md)
+
 # CONTINUE — 2026-10-13 10:15 (مسقط)
 
 **0.8.39** · أدوات تقييم الضيف الذكية:

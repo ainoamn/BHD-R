@@ -8,6 +8,7 @@ import { formatListingCardTitle, formatListingLocation } from '@/lib/listing-car
 import { toPublicMediaSrc } from '@/lib/public-media-url';
 import type { StayCatalogueListing } from '@/lib/stays-catalogue-listing';
 import { stayAsCardListing, stayDetailHref } from '@/lib/stays-browse-filters';
+import { StayRatingBadge } from '@/components/stays/stay-rating-badge';
 
 export function StayCatalogueCard({
   listing,
@@ -54,9 +55,7 @@ export function StayCatalogueCard({
               <BrandMark tone="onDark" />
             </span>
           ) : null}
-          <span className="listing-card__status-mark">
-            {ar ? 'إقامة يومية' : 'Daily stay'}
-          </span>
+          <span className="listing-card__status-mark">{ar ? 'إقامة يومية' : 'Daily stay'}</span>
         </div>
         <div className="listing-card__body">
           <h3>{headline}</h3>
@@ -67,6 +66,7 @@ export function StayCatalogueCard({
               {listing.unitSerial}
             </p>
           ) : null}
+          <StayRatingBadge rating={listing.rating} ar={ar} />
           <div className="listing-card__facts">
             {listing.bedrooms > 0 ? (
               <span>
@@ -86,8 +86,8 @@ export function StayCatalogueCard({
           </div>
           {priceLabel ? (
             <p className="stay-card__price">
-              {ar ? 'من' : 'From'}{' '}
-              <strong dir="ltr">{priceLabel}</strong> {ar ? 'لليلة' : '/ night'}
+              {ar ? 'من' : 'From'} <strong dir="ltr">{priceLabel}</strong>{' '}
+              {ar ? 'لليلة' : '/ night'}
             </p>
           ) : null}
         </div>

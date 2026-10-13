@@ -336,6 +336,43 @@ async function insertReview(
   });
 }
 
+export type UnitRating = { score: number; count: number };
+
+/**
+ * Average guest score on 10 and review count per unit, from released published guest reviews
+ * (the same rule as the property page), for the stay cards in search.
+ */
+export async function loadUnitRatings(unitIds: string[]): Promise<Map<string, UnitRating>> {
+  const ids = [...new Set(unitIds.filter((id) => UUID.test(id)))];
+  if (!ids.length) return new Map();
+  return elevated(async (tx) => {
+    const rows = await tx
+      .select({
+        unitId: bookingReviews.unitId,
+        score: sql<string>`avg(${bookingReviews.score})`,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(bookingReviews)
+      .where(
+        and(
+          inArray(bookingReviews.unitId, ids),
+          eq(bookingReviews.direction, 'guest_to_host'),
+          eq(bookingReviews.status, 'published'),
+          released,
+        ),
+      )
+      .groupBy(bookingReviews.unitId);
+    const ratings = new Map<string, UnitRating>();
+    for (const row of rows) {
+      const score = num(row.score);
+      if (row.unitId && score !== null && row.count > 0) {
+        ratings.set(row.unitId, { score: round1(score), count: Number(row.count) });
+      }
+    }
+    return ratings;
+  });
+}
+
 /** The guest may still review this stay: it exists, has checked out, and has no guest review. */
 export async function assertGuestReviewOpen(referenceCode: string): Promise<void> {
   const reference = referenceCode.trim().toUpperCase();

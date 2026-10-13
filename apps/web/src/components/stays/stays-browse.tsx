@@ -54,8 +54,7 @@ function stayToMapListing(listing: StayCatalogueListing): CatalogueListing {
     wilayat: listing.wilayat,
     bedrooms: listing.bedrooms,
     bathrooms: listing.bathrooms,
-    areaSquareMeters:
-      listing.areaSquareMeters != null ? String(listing.areaSquareMeters) : null,
+    areaSquareMeters: listing.areaSquareMeters != null ? String(listing.areaSquareMeters) : null,
     listingPurpose: 'rent',
     rent: {
       amountMinor: listing.nightlyMinor ?? '0',
@@ -134,7 +133,12 @@ function FilterCheckbox({
 }) {
   return (
     <label className={disabled && !checked ? 'props-check is-muted' : 'props-check'}>
-      <input type="checkbox" checked={checked} disabled={disabled && !checked} onChange={onChange} />
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled && !checked}
+        onChange={onChange}
+      />
       <span className="props-check__label">{label}</span>
       <span className="props-check__count">{count}</span>
     </label>
@@ -245,7 +249,8 @@ export function StaysBrowse({
     [universe, filters],
   );
   const amenityUniverse = useMemo(
-    () => stayFacetUniverse(universe, filters, { amenities: true, hasPool: true, hasParking: true }),
+    () =>
+      stayFacetUniverse(universe, filters, { amenities: true, hasPool: true, hasParking: true }),
     [universe, filters],
   );
   const priceUniverse = useMemo(
@@ -417,8 +422,8 @@ export function StaysBrowse({
           />
         </div>
         <p className="props-price-hint">
-          {filters.priceMin || hist.min} {filters.currency} –{' '}
-          {filters.priceMax || `${hist.max}+`} {filters.currency}
+          {filters.priceMin || hist.min} {filters.currency} – {filters.priceMax || `${hist.max}+`}{' '}
+          {filters.currency}
         </p>
       </div>
 
@@ -458,9 +463,11 @@ export function StaysBrowse({
           <FilterCheckbox
             checked={filters.bedroomsMin >= 3}
             label={ar ? '3 غرف فأكثر' : '3+ bedrooms'}
-            count={stayFacetUniverse(universe, filters, { bedrooms: true }).filter(
-              (item) => item.bedrooms >= 3,
-            ).length}
+            count={
+              stayFacetUniverse(universe, filters, { bedrooms: true }).filter(
+                (item) => item.bedrooms >= 3,
+              ).length
+            }
             onChange={() => patch({ bedroomsMin: filters.bedroomsMin >= 3 ? 0 : 3 })}
           />
         </div>
@@ -480,7 +487,11 @@ export function StaysBrowse({
               : 'e.g. I want an apartment with a pool and parking in Muscat'
           }
         />
-        <button type="button" className="button button--secondary props-smart-apply" onClick={applySmart}>
+        <button
+          type="button"
+          className="button button--secondary props-smart-apply"
+          onClick={applySmart}
+        >
           {ar ? 'تطبيق' : 'Apply'}
         </button>
       </div>
@@ -534,7 +545,12 @@ export function StaysBrowse({
               className="select"
               value={filters.countryCode}
               onChange={(event) =>
-                patch({ countryCode: event.target.value, governorate: '', wilayat: '', village: '' })
+                patch({
+                  countryCode: event.target.value,
+                  governorate: '',
+                  wilayat: '',
+                  village: '',
+                })
               }
             >
               <option value="">{ar ? 'كل الدول' : 'All countries'}</option>
@@ -665,14 +681,30 @@ export function StaysBrowse({
 
       <div className="props-searchbar sticky-search">
         <div className="container props-searchbar__inner">
-          <div className="purpose-tabs" role="tablist" aria-label={ar ? 'نوع العرض' : 'Listing purpose'}>
-            <Link className="purpose-tabs__item purpose-tabs__item--link" href="/properties" prefetch>
+          <div
+            className="purpose-tabs"
+            role="tablist"
+            aria-label={ar ? 'نوع العرض' : 'Listing purpose'}
+          >
+            <Link
+              className="purpose-tabs__item purpose-tabs__item--link"
+              href="/properties"
+              prefetch
+            >
               {ar ? 'الكل' : 'All'}
             </Link>
-            <Link className="purpose-tabs__item purpose-tabs__item--link" href="/properties?purpose=rent" prefetch>
+            <Link
+              className="purpose-tabs__item purpose-tabs__item--link"
+              href="/properties?purpose=rent"
+              prefetch
+            >
               {ar ? 'عقار للإيجار' : 'For rent'}
             </Link>
-            <Link className="purpose-tabs__item purpose-tabs__item--link" href="/properties?purpose=sale" prefetch>
+            <Link
+              className="purpose-tabs__item purpose-tabs__item--link"
+              href="/properties?purpose=sale"
+              prefetch
+            >
               {ar ? 'عقار للبيع' : 'For sale'}
             </Link>
             <span className="purpose-tabs__item is-active" aria-current="page">
@@ -686,7 +718,9 @@ export function StaysBrowse({
                 className="input"
                 value={filters.q}
                 onChange={(event) => patch({ q: event.target.value })}
-                placeholder={ar ? 'ابحث بالمنطقة أو اسم العقار…' : 'Search by area or property name…'}
+                placeholder={
+                  ar ? 'ابحث بالمنطقة أو اسم العقار…' : 'Search by area or property name…'
+                }
               />
             </label>
             <select
@@ -772,9 +806,14 @@ export function StaysBrowse({
                     onChange={(event) => patch({ sort: event.target.value as BrowseSort })}
                   >
                     <option value="newest">{ar ? 'الأحدث' : 'Newest'}</option>
-                    <option value="price_asc">{ar ? 'السعر: من الأقل' : 'Price: low to high'}</option>
-                    <option value="price_desc">{ar ? 'السعر: من الأعلى' : 'Price: high to low'}</option>
+                    <option value="price_asc">
+                      {ar ? 'السعر: من الأقل' : 'Price: low to high'}
+                    </option>
+                    <option value="price_desc">
+                      {ar ? 'السعر: من الأعلى' : 'Price: high to low'}
+                    </option>
                     <option value="beds_desc">{ar ? 'غرف النوم' : 'Most bedrooms'}</option>
+                    <option value="rating_desc">{ar ? 'الأعلى تقييماً' : 'Top rated'}</option>
                   </select>
                 </label>
               </div>
@@ -855,7 +894,12 @@ export function StaysBrowse({
       />
 
       {drawerOpen ? (
-        <div className="props-drawer" role="dialog" aria-modal="true" aria-label={ar ? 'التصفية' : 'Filters'}>
+        <div
+          className="props-drawer"
+          role="dialog"
+          aria-modal="true"
+          aria-label={ar ? 'التصفية' : 'Filters'}
+        >
           <button
             type="button"
             className="props-drawer__backdrop"
@@ -865,7 +909,11 @@ export function StaysBrowse({
           <div className="props-drawer__panel">
             <div className="props-drawer__head">
               <h2>{ar ? 'التصفية حسب' : 'Filter by'}</h2>
-              <button type="button" className="button button--secondary" onClick={() => setDrawerOpen(false)}>
+              <button
+                type="button"
+                className="button button--secondary"
+                onClick={() => setDrawerOpen(false)}
+              >
                 {ar ? 'تم' : 'Done'}
               </button>
             </div>
@@ -875,7 +923,11 @@ export function StaysBrowse({
       ) : null}
 
       <div className="props-mobile-bar">
-        <button type="button" className="button button--secondary" onClick={() => setDrawerOpen(true)}>
+        <button
+          type="button"
+          className="button button--secondary"
+          onClick={() => setDrawerOpen(true)}
+        >
           {ar ? `تصفية (${activeFilterCount})` : `Filters (${activeFilterCount})`}
         </button>
         <button type="button" className="button button--primary" onClick={() => setMapOpen(true)}>

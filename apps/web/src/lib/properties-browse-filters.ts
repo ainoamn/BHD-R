@@ -39,7 +39,7 @@ export const POPULAR_FILTER_KEYS = [
   'balcony',
 ] as const;
 
-export type BrowseSort = 'newest' | 'price_asc' | 'price_desc' | 'beds_desc';
+export type BrowseSort = 'newest' | 'price_asc' | 'price_desc' | 'beds_desc' | 'rating_desc';
 
 export type BrowseFilterState = {
   purpose: '' | 'rent' | 'sale';
@@ -99,7 +99,8 @@ function listingPriceMajor(listing: CatalogueListing, purpose: '' | 'rent' | 'sa
 }
 
 function hasAmenity(listing: CatalogueListing, code: string): boolean {
-  if (code === 'pool') return Boolean(listing.hasPool) || (listing.amenities ?? []).includes('pool');
+  if (code === 'pool')
+    return Boolean(listing.hasPool) || (listing.amenities ?? []).includes('pool');
   if (code === 'parking') {
     return (listing.parkingSpaces ?? 0) > 0 || (listing.amenities ?? []).includes('parking');
   }
@@ -121,7 +122,10 @@ export function applyBrowseFilters(
     if (filters.purpose === 'sale' && !['sale', 'both'].includes(listing.listingPurpose)) {
       return false;
     }
-    if (filters.categories.length && !filters.categories.includes(listing.category as BrowseCategory)) {
+    if (
+      filters.categories.length &&
+      !filters.categories.includes(listing.category as BrowseCategory)
+    ) {
       return false;
     }
     if (filters.bedroomsMin > 0 && listing.bedrooms < filters.bedroomsMin) return false;
@@ -137,7 +141,8 @@ export function applyBrowseFilters(
     }
     if (filters.village) {
       const v = filters.village.toLowerCase();
-      const hayLoc = `${listing.governorate} ${listing.wilayat} ${listing.city ?? ''} ${listing.propertyNameAr} ${listing.propertyNameEn}`.toLowerCase();
+      const hayLoc =
+        `${listing.governorate} ${listing.wilayat} ${listing.city ?? ''} ${listing.propertyNameAr} ${listing.propertyNameEn}`.toLowerCase();
       if (!hayLoc.includes(v)) return false;
     }
     if (filters.hasPool && !hasAmenity(listing, 'pool')) return false;
@@ -197,7 +202,12 @@ export function countCategory(items: CatalogueListing[], category: string): numb
 export function facetUniverse(
   items: CatalogueListing[],
   filters: BrowseFilterState,
-  omit: Partial<Record<'categories' | 'amenities' | 'hasPool' | 'hasParking' | 'bedrooms' | 'bathrooms' | 'price', boolean>> = {},
+  omit: Partial<
+    Record<
+      'categories' | 'amenities' | 'hasPool' | 'hasParking' | 'bedrooms' | 'bathrooms' | 'price',
+      boolean
+    >
+  > = {},
 ): CatalogueListing[] {
   const softened: BrowseFilterState = {
     ...filters,
@@ -219,7 +229,7 @@ export function priceHistogram(
   bucketCount = 18,
 ): { min: number; max: number; buckets: number[] } {
   const prices = items.map((item) => listingPriceMajor(item, purpose)).filter((n) => n > 0);
-  if (!prices.length) return { min: 0, max: 100, buckets: Array(bucketCount).fill(0) };
+  if (!prices.length) return { min: 0, max: 100, buckets: Array<number>(bucketCount).fill(0) };
   const min = Math.min(...prices);
   const max = Math.max(...prices);
   const span = Math.max(max - min, 1);
@@ -266,12 +276,14 @@ export function parseSmartFilterQuery(raw: string): Partial<BrowseFilterState> {
   if (/أطفال|kids|children/.test(text)) amenities.add('kids_area');
   if (/إعاقة|accessible|wheelchair|ذوي/.test(text)) amenities.add('accessible');
 
-  const beds = text.match(/(\d+)\s*(غرف|غرفة|bedrooms?|beds?)/) ?? text.match(/(غرف|غرفة|bedrooms?)\s*(\d+)/);
+  const beds =
+    text.match(/(\d+)\s*(غرف|غرفة|bedrooms?|beds?)/) ?? text.match(/(غرف|غرفة|bedrooms?)\s*(\d+)/);
   if (beds) {
     const n = Number(beds[1] && /\d/.test(beds[1]) ? beds[1] : beds[2]);
     if (Number.isFinite(n) && n > 0) patch.bedroomsMin = n;
   }
-  const baths = text.match(/(\d+)\s*(حمام|bathrooms?|baths?)/) ?? text.match(/(حمام|bathrooms?)\s*(\d+)/);
+  const baths =
+    text.match(/(\d+)\s*(حمام|bathrooms?|baths?)/) ?? text.match(/(حمام|bathrooms?)\s*(\d+)/);
   if (baths) {
     const n = Number(baths[1] && /\d/.test(baths[1]) ? baths[1] : baths[2]);
     if (Number.isFinite(n) && n > 0) patch.bathroomsMin = n;

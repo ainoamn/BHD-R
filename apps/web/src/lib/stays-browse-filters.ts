@@ -61,7 +61,8 @@ function listingPriceMajor(listing: StayCatalogueListing): number {
 }
 
 function hasAmenity(listing: StayCatalogueListing, code: string): boolean {
-  if (code === 'pool') return Boolean(listing.hasPool) || (listing.amenities ?? []).includes('pool');
+  if (code === 'pool')
+    return Boolean(listing.hasPool) || (listing.amenities ?? []).includes('pool');
   if (code === 'parking') {
     return (listing.parkingSpaces ?? 0) > 0 || (listing.amenities ?? []).includes('parking');
   }
@@ -77,7 +78,10 @@ export function applyStayBrowseFilters(
   const q = filters.q.trim().toLowerCase();
 
   let next = items.filter((listing) => {
-    if (filters.categories.length && !filters.categories.includes(listing.category as BrowseCategory)) {
+    if (
+      filters.categories.length &&
+      !filters.categories.includes(listing.category as BrowseCategory)
+    ) {
       return false;
     }
     if (filters.bedroomsMin > 0 && listing.bedrooms < filters.bedroomsMin) return false;
@@ -93,7 +97,8 @@ export function applyStayBrowseFilters(
     }
     if (filters.village) {
       const v = filters.village.toLowerCase();
-      const hayLoc = `${listing.governorate} ${listing.wilayat} ${listing.city ?? ''} ${listing.propertyNameAr} ${listing.propertyNameEn}`.toLowerCase();
+      const hayLoc =
+        `${listing.governorate} ${listing.wilayat} ${listing.city ?? ''} ${listing.propertyNameAr} ${listing.propertyNameEn}`.toLowerCase();
       if (!hayLoc.includes(v)) return false;
     }
     if (filters.hasPool && !hasAmenity(listing, 'pool')) return false;
@@ -135,6 +140,12 @@ export function applyStayBrowseFilters(
     if (filters.sort === 'beds_desc') {
       return b.bedrooms - a.bedrooms;
     }
+    if (filters.sort === 'rating_desc') {
+      const byScore = (b.rating?.score ?? -1) - (a.rating?.score ?? -1);
+      if (byScore) return byScore;
+      const byCount = (b.rating?.count ?? 0) - (a.rating?.count ?? 0);
+      if (byCount) return byCount;
+    }
     return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
   });
 
@@ -153,7 +164,10 @@ export function stayFacetUniverse(
   items: StayCatalogueListing[],
   filters: StayBrowseFilterState,
   omit: Partial<
-    Record<'categories' | 'amenities' | 'hasPool' | 'hasParking' | 'bedrooms' | 'bathrooms' | 'price', boolean>
+    Record<
+      'categories' | 'amenities' | 'hasPool' | 'hasParking' | 'bedrooms' | 'bathrooms' | 'price',
+      boolean
+    >
   > = {},
 ): StayCatalogueListing[] {
   const softened: StayBrowseFilterState = {
@@ -175,7 +189,7 @@ export function stayPriceHistogram(
   bucketCount = 18,
 ): { min: number; max: number; buckets: number[] } {
   const prices = items.map((item) => listingPriceMajor(item)).filter((n) => n > 0);
-  if (!prices.length) return { min: 0, max: 100, buckets: Array(bucketCount).fill(0) };
+  if (!prices.length) return { min: 0, max: 100, buckets: Array<number>(bucketCount).fill(0) };
   const min = Math.min(...prices);
   const max = Math.max(...prices);
   const span = Math.max(max - min, 1);
@@ -220,15 +234,13 @@ export function parseStaySmartFilterQuery(raw: string): Partial<StayBrowseFilter
   if (/مسقط|muscat/.test(text)) patch.governorate = 'Muscat';
 
   const beds =
-    text.match(/(\d+)\s*(غرف|غرفة|bedrooms?|beds?)/) ??
-    text.match(/(غرف|غرفة|bedrooms?)\s*(\d+)/);
+    text.match(/(\d+)\s*(غرف|غرفة|bedrooms?|beds?)/) ?? text.match(/(غرف|غرفة|bedrooms?)\s*(\d+)/);
   if (beds) {
     const n = Number(beds[1] && /\d/.test(beds[1]) ? beds[1] : beds[2]);
     if (Number.isFinite(n) && n > 0) patch.bedroomsMin = n;
   }
   const baths =
-    text.match(/(\d+)\s*(حمام|bathrooms?|baths?)/) ??
-    text.match(/(حمام|bathrooms?)\s*(\d+)/);
+    text.match(/(\d+)\s*(حمام|bathrooms?|baths?)/) ?? text.match(/(حمام|bathrooms?)\s*(\d+)/);
   if (baths) {
     const n = Number(baths[1] && /\d/.test(baths[1]) ? baths[1] : baths[2]);
     if (Number.isFinite(n) && n > 0) patch.bathroomsMin = n;
@@ -288,7 +300,10 @@ export function stayFiltersFromSearchRecord(
     .map((item) => item.trim())
     .filter(Boolean);
   const sort =
-    raw.sort === 'price_asc' || raw.sort === 'price_desc' || raw.sort === 'beds_desc'
+    raw.sort === 'price_asc' ||
+    raw.sort === 'price_desc' ||
+    raw.sort === 'beds_desc' ||
+    raw.sort === 'rating_desc'
       ? raw.sort
       : 'newest';
 

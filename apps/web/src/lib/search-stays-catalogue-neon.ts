@@ -4,13 +4,11 @@ import { createDatabase, type Database } from '@bhd-r/db';
 import type { PublicListing } from '@bhd-r/contracts';
 import { omanLocations } from '@/lib/oman-locations';
 import { googleMapsLinkFromCoords, parseGoogleMapsUrl } from '@/lib/parse-google-maps-url';
-import {
-  assignUnitSerials,
-  inferUnitKind,
-  unitKindToCategory,
-} from '@/lib/unit-identity';
+import { assignUnitSerials, inferUnitKind, unitKindToCategory } from '@/lib/unit-identity';
 import type { StayCatalogueCollection, StayCatalogueListing } from '@/lib/stays-catalogue-listing';
 import { asPublicListingCategory } from '@/lib/search-public-listings-neon';
+import { loadUnitRatings, type UnitRating } from '@/lib/booking-reviews-neon';
+import { withTimeoutFallback } from '@/lib/with-timeout';
 
 function mapsUrlFromNotes(notes?: string | null): string | null {
   if (!notes) return null;
@@ -123,7 +121,7 @@ export async function searchStaysCatalogueFromNeon(
   const limit = Math.min(Math.max(input.limit ?? 100, 1), 100);
   const { db } = getDatabase();
 
-  return db.transaction(async (transaction) => {
+  const collection = await db.transaction(async (transaction): Promise<StayCatalogueCollection> => {
     await transaction.execute(sql`select set_config('app.platform_admin', 'false', true)`);
     await transaction.execute(sql`select set_config('app.public', 'true', true)`);
     await transaction.execute(sql`select set_config('statement_timeout', '6000', true)`);
@@ -200,13 +198,9 @@ export async function searchStaysCatalogueFromNeon(
             )`
           : sql``;
     const bedroomsClause =
-      bedroomsMin !== null && bedroomsMin > 0
-        ? sql`and u.bedrooms >= ${bedroomsMin}`
-        : sql``;
+      bedroomsMin !== null && bedroomsMin > 0 ? sql`and u.bedrooms >= ${bedroomsMin}` : sql``;
     const bathroomsClause =
-      bathroomsMin !== null && bathroomsMin > 0
-        ? sql`and u.bathrooms >= ${bathroomsMin}`
-        : sql``;
+      bathroomsMin !== null && bathroomsMin > 0 ? sql`and u.bathrooms >= ${bathroomsMin}` : sql``;
     const currencyClause = currency ? sql`and sp.currency = ${currency}` : sql``;
     const priceExpr = sql`coalesce(
       (
@@ -508,6 +502,17 @@ export async function searchStaysCatalogueFromNeon(
       pagination: { nextCursor: null, hasMore: false },
     };
   });
+
+  const ratings = await withTimeoutFallback(
+    loadUnitRatings(collection.data.map((item) => item.unitId)),
+    2_500,
+    new Map<string, UnitRating>(),
+    'stays-catalogue-ratings',
+  );
+  return {
+    ...collection,
+    data: collection.data.map((item) => ({ ...item, rating: ratings.get(item.unitId) ?? null })),
+  };
 }
 
 export { asPublicListingCategory };

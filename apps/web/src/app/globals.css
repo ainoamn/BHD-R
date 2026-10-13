@@ -10722,7 +10722,7 @@ button.ops-row-key {
   font-weight: 700;
 }
 .listing-row__perks li::before {
-  content: 'âœ“ ';
+  content: '\2713  ';
 }
 .listing-row__aside {
   display: grid;
@@ -10854,6 +10854,9 @@ button.ops-row-key {
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: end;
     gap: 0.45rem 0.65rem;
+  }
+  .listing-row__stay-rating {
+    grid-column: 1 / -1;
   }
   .listing-row__title {
     font-size: 0.98rem;
@@ -12057,6 +12060,102 @@ button.ops-row-key {
   display: block;
   color: inherit;
   text-decoration: none;
+}
+.stay-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.25;
+  text-align: start;
+}
+.stay-card .stay-rating {
+  display: flex;
+  margin-top: 0.6rem;
+}
+.stay-rating__text {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.1rem 0.4rem;
+}
+.stay-rating__text strong {
+  color: var(--maroon-900, #0f2922);
+  font-weight: 800;
+}
+.stay-rating__score {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  min-width: 2.15rem;
+  height: 1.75rem;
+  padding: 0 0.4rem;
+  color: #fff;
+  border-radius: 0.55rem 0.55rem 0.55rem 0.15rem;
+  font-size: 0.88rem;
+  font-weight: 900;
+}
+.stay-rating__score--great {
+  background: #0d6b4f;
+}
+.stay-rating__score--good {
+  background: #17806a;
+}
+.stay-rating__score--fair {
+  background: #a26a12;
+}
+.stay-rating__score--poor {
+  background: #b3261e;
+}
+.stay-rating__score--new {
+  min-width: 1.75rem;
+  color: #a26a12;
+  background: #fbf3e4;
+  font-size: 0.8rem;
+}
+.stay-rating__count {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.stay-rating--new .stay-rating__count {
+  font-weight: 600;
+}
+.stay-rating--compact {
+  gap: 0.35rem;
+  font-size: 0.8rem;
+}
+.stay-rating--compact .stay-rating__score {
+  min-width: 1.9rem;
+  height: 1.5rem;
+  font-size: 0.8rem;
+}
+.stay-rating--compact .stay-rating__text strong {
+  font-size: 0.8rem;
+}
+.props-table-mobile__body .stay-rating {
+  margin-top: 0.3rem;
+}
+.listing-row__stay-rating {
+  flex-direction: row-reverse;
+}
+.listing-row__stay-rating .stay-rating__text {
+  display: grid;
+  justify-items: end;
+  gap: 0;
+}
+@media (max-width: 960px) {
+  .listing-row__stay-rating {
+    flex-direction: row;
+  }
+  .listing-row__stay-rating .stay-rating__text {
+    display: inline-flex;
+    gap: 0.1rem 0.4rem;
+  }
+}
+.props-table td .stay-rating__text {
+  display: grid;
+  gap: 0;
 }
 .property-360__viewing--stay {
   border-top: 0;
