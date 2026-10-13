@@ -5,6 +5,7 @@ import { Link } from '@/i18n/navigation';
 import { PropertyDetailManager } from '@/components/property-detail-manager';
 import { PropertyDiscoveryRails } from '@/components/property-discovery-rails';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { loadHostSummarySafe } from '@/lib/booking-reviews-neon';
 import { loadPublicPropertyShowcaseFromNeon } from '@/lib/load-public-property-neon';
 import { buildAiTags, loadPropertyDiscoveryRails } from '@/lib/property-discovery';
 import { bilingualAlternates } from '@/lib/seo';
@@ -118,15 +119,12 @@ export default async function PropertyPage({
       ? property.units.find((unit) => unit.id === query.unit || unit.code === query.unit)?.id
       : undefined;
 
-  const discovery = await withTimedResult(
-    loadPropertyDiscoveryRails(property),
-    4_000,
-    'property-discovery',
-  );
+  const [discovery, hostSummary] = await Promise.all([
+    withTimedResult(loadPropertyDiscoveryRails(property), 4_000, 'property-discovery'),
+    loadHostSummarySafe(property.organizationId),
+  ]);
   const rails =
-    discovery.status === 'ok'
-      ? discovery.value
-      : { similar: [], recommended: [], topRated: [] };
+    discovery.status === 'ok' ? discovery.value : { similar: [], recommended: [], topRated: [] };
   const aiTags = buildAiTags(property);
 
   return (
@@ -138,6 +136,7 @@ export default async function PropertyPage({
           portal="owner"
           variant="public"
           signedIn={Boolean(viewer)}
+          hostSummary={hostSummary}
           {...(focusUnitId ? { focusUnitId } : {})}
         />
         <PropertyDiscoveryRails

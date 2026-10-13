@@ -16,6 +16,7 @@ import {
   type Database,
 } from '@bhd-r/db';
 import { applySessionSettings } from '@/lib/db-session-settings';
+import { withTimeoutFallback } from '@/lib/with-timeout';
 import { ownerPartyScope } from '@/lib/portal-ops-data';
 import { analyzeProfile, analyzeReview } from '@/lib/review-ai';
 import { RECEIPT_CONFIRM_HOURS } from '@/lib/stay-deposit-claims';
@@ -335,6 +336,76 @@ async function insertReview(
       summaryAr: analysis.summary?.ar ?? null,
     };
   });
+}
+
+export type HostSummary = {
+  id: string;
+  name: ReviewText;
+  /** individual = the owner himself; company = a management company; developer = a developer. */
+  type: 'individual' | 'company' | 'developer';
+  memberSince: string;
+  properties: number;
+  units: number;
+  /** Guests' average rating of the host's management, on 10. */
+  score: number | null;
+  reviews: number;
+};
+
+/** Public card of the account that owns or manages a property: who it is and how guests rate it. */
+export async function loadHostSummary(organizationId: string): Promise<HostSummary | null> {
+  if (!UUID.test(organizationId)) return null;
+  return elevated(async (tx) => {
+    const [org] = await tx
+      .select({
+        ar: organizations.displayNameAr,
+        en: organizations.displayNameEn,
+        type: organizations.type,
+        createdAt: organizations.createdAt,
+      })
+      .from(organizations)
+      .where(and(eq(organizations.id, organizationId), eq(organizations.status, 'active')))
+      .limit(1);
+    if (!org) return null;
+    const [stock] = await tx
+      .select({
+        properties: sql<number>`count(distinct ${properties.id})::int`,
+        units: sql<number>`count(${units.id})::int`,
+      })
+      .from(properties)
+      .leftJoin(units, eq(units.propertyId, properties.id))
+      .where(and(eq(properties.organizationId, organizationId), eq(properties.status, 'active')));
+    const [rating] = await tx
+      .select({
+        score: sql<string | null>`avg(${bookingReviews.hostScore})`,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(bookingReviews)
+      .where(
+        and(
+          eq(bookingReviews.organizationId, organizationId),
+          eq(bookingReviews.direction, 'guest_to_host'),
+          eq(bookingReviews.status, 'published'),
+          released,
+        ),
+      );
+    const score = num(rating?.score);
+    return {
+      id: organizationId,
+      name: { ar: org.ar, en: org.en },
+      type: org.type,
+      memberSince: org.createdAt.toISOString(),
+      properties: Number(stock?.properties ?? 0),
+      units: Number(stock?.units ?? 0),
+      score: score === null ? null : round1(score),
+      reviews: Number(rating?.count ?? 0),
+    };
+  });
+}
+
+/** For public pages: never blocks the page longer than 2.5 seconds, and never throws. */
+export function loadHostSummarySafe(organizationId?: string | null): Promise<HostSummary | null> {
+  if (!organizationId) return Promise.resolve(null);
+  return withTimeoutFallback(loadHostSummary(organizationId), 2_500, null, 'host-summary');
 }
 
 export type UnitRating = { score: number; count: number };

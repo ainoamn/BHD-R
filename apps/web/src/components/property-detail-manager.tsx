@@ -15,6 +15,8 @@ import { PropertyReviewScore } from '@/components/property-review-score';
 import { ReputationView } from '@/components/reviews/reputation-view';
 import { StayGuestInfoSection } from '@/components/stays/stay-guest-info-section';
 import { StayPhotoRating } from '@/components/stays/stay-photo-rating';
+import { HostCard } from '@/components/host-card';
+import type { HostSummary } from '@/lib/booking-reviews-neon';
 import type { StayPublicDetail } from '@bhd-r/contracts';
 import {
   StayAvailabilityCalendar,
@@ -193,6 +195,7 @@ export function PropertyDetailManager({
   stayBooking,
   stayDetail = null,
   stayRating = null,
+  hostSummary = null,
 }: {
   property: ManagedProperty;
   locale: 'ar' | 'en';
@@ -223,6 +226,8 @@ export function PropertyDetailManager({
   stayDetail?: StayPublicDetail | null;
   /** Daily stay: the unit's guest score, shown on the main photo. */
   stayRating?: { unitId: string; rating: { score: number; count: number } | null } | null;
+  /** Public pages: the account that owns or manages the property. */
+  hostSummary?: HostSummary | null;
 }) {
   const router = useRouter();
   const ar = locale === 'ar';
@@ -587,6 +592,14 @@ export function PropertyDetailManager({
               )}
             </div>
           </header>
+
+          {isPublic && hostSummary ? (
+            <HostCard
+              host={hostSummary}
+              locale={locale}
+              ownerName={showPublicOwnerName ? (property.ownerPartyName ?? null) : null}
+            />
+          ) : null}
 
           {error ? (
             <div className="notice notice--error" role="alert">
@@ -1296,7 +1309,7 @@ export function PropertyDetailManager({
                   </div>
                 </>
               )}
-              {isPublic && showPublicOwnerName && property.ownerPartyId ? (
+              {isPublic && !hostSummary && showPublicOwnerName && property.ownerPartyId ? (
                 <div>
                   <dt>{ar ? 'المالك' : 'Owner'}</dt>
                   <dd>

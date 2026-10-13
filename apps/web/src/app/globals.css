@@ -5241,6 +5241,173 @@ body:has(.stays-booking-receipt) #main-content {
   font-weight: 800;
 }
 
+.host-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1rem;
+  color: inherit;
+  text-decoration: none;
+  background: linear-gradient(135deg, #f6fbf9, #ffffff 60%);
+  border: 1px solid #d2e7dc;
+  border-radius: 1rem;
+  box-shadow: 0 8px 22px rgb(9 45 36 / 0.06);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.host-card:hover,
+.host-card:focus-visible {
+  border-color: var(--bhd-teal);
+  box-shadow: 0 12px 28px rgb(9 45 36 / 0.12);
+  outline: none;
+}
+.host-card__avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 3.1rem;
+  height: 3.1rem;
+  color: #fff;
+  font-size: 1.25rem;
+  font-weight: 900;
+  background: linear-gradient(135deg, var(--bhd-teal), var(--bhd-navy));
+  border-radius: 50%;
+}
+.host-card__body {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 0.15rem;
+}
+.host-card__eyebrow {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.host-card__role {
+  color: var(--bhd-navy);
+  font-weight: 800;
+}
+.host-card__role--company,
+.host-card__role--developer {
+  color: #0d6b4f;
+}
+.host-card__name {
+  overflow: hidden;
+  color: var(--oman-deep);
+  font-size: 1.05rem;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.host-card__owner,
+.host-card__meta {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.host-card__side {
+  display: grid;
+  flex: none;
+  justify-items: end;
+  gap: 0.35rem;
+}
+.host-card__cta {
+  color: var(--bhd-teal);
+  font-size: 0.8rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .host-card {
+    flex-wrap: wrap;
+  }
+  .host-card__side {
+    flex-basis: 100%;
+    grid-template-columns: auto auto;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 0.55rem;
+    border-top: 1px dashed #d2e7dc;
+  }
+}
+
+.host-profile {
+  display: grid;
+  gap: 1.5rem;
+}
+.host-profile__head {
+  flex-wrap: wrap;
+  margin-bottom: 0;
+}
+.host-profile__score {
+  display: grid;
+  justify-items: center;
+  gap: 0.3rem;
+}
+.host-profile__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.5rem), 1fr));
+  gap: 0.6rem;
+  margin: 0;
+}
+.host-profile__stats > div {
+  padding: 0.75rem 0.9rem;
+  background: #f6fbf9;
+  border: 1px solid #d2e7dc;
+  border-radius: 0.85rem;
+}
+.host-profile__stats dt {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.host-profile__stats dd {
+  margin: 0.15rem 0 0;
+  color: var(--oman-deep);
+  font-size: 1.45rem;
+  font-weight: 900;
+}
+.host-profile__section {
+  display: grid;
+  gap: 0.85rem;
+}
+.host-profile__section h2 {
+  margin: 0;
+}
+.host-profile__section h2 small {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.host-profile__grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+}
+@media (max-width: 640px) {
+  .host-profile__head {
+    align-items: flex-start;
+  }
+  .host-profile__head > .host-profile__score {
+    display: flex;
+    flex: 1 1 100%;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .host-profile__stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.45rem;
+  }
+  .host-profile__stats > div {
+    padding: 0.55rem 0.6rem;
+  }
+  .host-profile__stats dt {
+    font-size: 0.7rem;
+  }
+  .host-profile__stats dd {
+    font-size: 1.15rem;
+  }
+}
+
 .stay-reviews-dialog {
   position: fixed;
   inset: 0;

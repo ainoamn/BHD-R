@@ -63,6 +63,8 @@ export type StayCatalogueSearchInput = {
   amenities?: string[];
   q?: string;
   limit?: number;
+  /** Only the stays of one host organization (its public profile). */
+  organizationId?: string;
 };
 
 type StayCatalogueRow = {
@@ -155,6 +157,9 @@ export async function searchStaysCatalogueFromNeon(
 
     const countryClause = country
       ? sql`and (upper(a.country_code) = ${country} or upper(a.country_code) = ${countryAlt})`
+      : sql``;
+    const organizationClause = input.organizationId
+      ? sql`and spl.organization_id = ${input.organizationId}::uuid`
       : sql``;
     const governorateClause = (() => {
       if (!governorate) return sql``;
@@ -367,6 +372,7 @@ export async function searchStaysCatalogueFromNeon(
        and u.organization_id = spl.organization_id
       where spl.enabled = true
         and spl.published_at is not null
+        ${organizationClause}
         ${countryClause}
         ${governorateClause}
         ${wilayatClause}

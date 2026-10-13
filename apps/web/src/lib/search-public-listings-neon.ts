@@ -231,6 +231,8 @@ export type PublicListingSearchInput = {
   q?: string;
   /** Exclude a property (similar rails) */
   excludePropertyId?: string;
+  /** Only the listings of one host organization (its public profile). */
+  organizationId?: string;
   limit?: number;
 };
 
@@ -464,6 +466,9 @@ export async function searchPublicListingsFromNeon(
         )`
       : sql``;
     const excludeClause = excludePropertyId ? sql`and p.id <> ${excludePropertyId}::uuid` : sql``;
+    const organizationClause = input.organizationId
+      ? sql`and p.organization_id = ${input.organizationId}::uuid`
+      : sql``;
 
     // Daily-only units belong on /stays, not the long-term /properties catalogue.
     const dailyOnlyClause = sql`and not (
@@ -604,6 +609,7 @@ export async function searchPublicListingsFromNeon(
         ${amenitiesClause}
         ${qClause}
         ${excludeClause}
+        ${organizationClause}
       order by l.published_at desc nulls last, u.updated_at desc, u.id desc
       limit ${limit}
     `);

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { PropertyDetailManager } from '@/components/property-detail-manager';
-import { loadUnitRatings, type UnitRating } from '@/lib/booking-reviews-neon';
+import { loadHostSummarySafe, loadUnitRatings, type UnitRating } from '@/lib/booking-reviews-neon';
 import { withTimeoutFallback } from '@/lib/with-timeout';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { localizedName } from '@/lib/format';
@@ -122,8 +122,10 @@ export default async function StayDetailPage({
   }
 
   const ratedUnitId = detail.unitId ?? unitQuery ?? null;
-  const [property, viewer, ratings] = await Promise.all([
-    loadPublicPropertyShowcaseFromNeon(detail.propertyId).catch(() => null),
+  const propertyLoad = loadPublicPropertyShowcaseFromNeon(detail.propertyId).catch(() => null);
+  const [property, hostSummary, viewer, ratings] = await Promise.all([
+    propertyLoad,
+    propertyLoad.then((loaded) => loadHostSummarySafe(loaded?.organizationId)),
     getViewer().catch(() => null),
     ratedUnitId
       ? withTimeoutFallback(
@@ -177,6 +179,7 @@ export default async function StayDetailPage({
             ...dateDefaults,
           }}
           stayDetail={detail}
+          hostSummary={hostSummary}
           stayRating={
             ratedUnitId ? { unitId: ratedUnitId, rating: ratings.get(ratedUnitId) ?? null } : null
           }

@@ -6,6 +6,7 @@ import { setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { PropertyDetailManager } from '@/components/property-detail-manager';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { loadHostSummarySafe } from '@/lib/booking-reviews-neon';
 import { localizedName } from '@/lib/format';
 import { loadPublicPropertyShowcaseFromNeon } from '@/lib/load-public-property-neon';
 import { loadPublicUnitFromNeon } from '@/lib/load-public-unit-neon';
@@ -22,9 +23,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
 type UnitLookup =
-  | { kind: 'found'; unit: PublicUnitDetail }
-  | { kind: 'missing' }
-  | { kind: 'transient' };
+  { kind: 'found'; unit: PublicUnitDetail } | { kind: 'missing' } | { kind: 'transient' };
 
 const getUnit = cache(async (id: string): Promise<UnitLookup> => {
   let neonConfirmedMissing = false;
@@ -44,11 +43,10 @@ const getUnit = cache(async (id: string): Promise<UnitLookup> => {
   }
 
   const nestResult = await withTimedResult(
-    publicApiFetch<PublicUnitDetail>(
-      `/v1/public/units/${encodeURIComponent(id)}`,
-      30,
-      [`public-listings`, `unit:${id}`],
-    ),
+    publicApiFetch<PublicUnitDetail>(`/v1/public/units/${encodeURIComponent(id)}`, 30, [
+      `public-listings`,
+      `unit:${id}`,
+    ]),
     3_000,
     'unit-nest',
   );
@@ -171,19 +169,21 @@ export default async function UnitPage({
     );
   }
 
-  const [showcaseResult, viewer] = await Promise.all([
-    withTimedResult(
-      loadPublicPropertyShowcaseFromNeon(unit.propertyId),
-      4_000,
-      'property-showcase-neon',
+  const showcaseLoad = withTimedResult(
+    loadPublicPropertyShowcaseFromNeon(unit.propertyId),
+    4_000,
+    'property-showcase-neon',
+  );
+  const [showcaseResult, hostSummary, viewer] = await Promise.all([
+    showcaseLoad,
+    showcaseLoad.then((result) =>
+      loadHostSummarySafe(result.status === 'ok' ? result.value?.organizationId : null),
     ),
     withTimedResult(getViewer(), 1_500, 'unit-viewer'),
   ]);
 
   const property =
-    showcaseResult.status === 'ok' && showcaseResult.value
-      ? showcaseResult.value
-      : liteProperty;
+    showcaseResult.status === 'ok' && showcaseResult.value ? showcaseResult.value : liteProperty;
   const showcaseDegraded = !(showcaseResult.status === 'ok' && showcaseResult.value);
 
   const title = `${localizedName(locale, unit.propertyNameAr, unit.propertyNameEn)} — ${localizedName(locale, unit.unitNameAr, unit.unitNameEn)}`;
@@ -200,9 +200,7 @@ export default async function UnitPage({
 
   return (
     <>
-      {heroImage ? (
-        <link rel="preload" as="image" href={heroImage} fetchPriority="high" />
-      ) : null}
+      {heroImage ? <link rel="preload" as="image" href={heroImage} fetchPriority="high" /> : null}
       <main className="section">
         <div className="container">
           {showcaseDegraded ? (
@@ -219,6 +217,7 @@ export default async function UnitPage({
             variant="public"
             focusUnitId={unit.unitId}
             signedIn={viewer.status === 'ok' ? Boolean(viewer.value) : false}
+            hostSummary={hostSummary}
           />
         </div>
       </main>

@@ -2,6 +2,18 @@
 
 **تسليم الجلسة كاملة (0.2.24 → 0.8.33):** للاستكمال من جهاز آخر ابدأ من [`docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه خطوات الإعداد، والمراحل بالتاريخ والوقت، والمهام المفتوحة. ويرافقه فهرس الإصدارات (251 إصداراً) والمحادثة كاملة بعد حذف الأسرار.
 
+# CONTINUE — 2026-10-13 11:50 (مسقط)
+
+**0.8.42** · بطاقة المالك أو مدير العقار وصفحة ملفه:
+
+- **البيانات:** `loadHostSummary(organizationId)` (elevated) تعيد الحساب النشط، وعدد العقارات النشطة ووحداتها، ومتوسط `host_score` من تقييمات `guest_to_host` المنشورة والمُظهَرة. وتلفّها `loadHostSummarySafe` بمهلة 2.5 ثانية وتعيد null عند التأخر.
+- **البطاقة:** `components/host-card.tsx`، وتُعرض في `PropertyDetailManager` بعد `</header>` حين `isPublic && hostSummary`. يُمرَّر اسم المالك الشخصي فقط إذا كان `showPublicOwnerName`.
+- **الصفحات:** stays وproperties وunits تحمّل الملخص من `organizationId` الخاص بالعقار. صفحة الوحدة تنتظر نتيجة showcase، فإن تأخرت لا تظهر البطاقة.
+- **الملف:** `profiles/hosts/[organizationId]` يحمّل الملخص والسمعة، و`searchStaysCatalogueFromNeon` و`searchPublicListingsFromNeon` مع `organizationId` (مرشّح جديد) و`limit: 100`، بمهلة 6 ثوانٍ لكل منهما.
+- **مفتوح:** قسم «التقييم الذكي» القديم (من `stay_reviews`).
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.42-AR.md`](./docs/implementation/RELEASE-0.8.42-AR.md)
+
 # CONTINUE — 2026-10-13 11:40 (مسقط)
 
 **0.8.41** · تقييم الإقامة على صورتها ونافذة التعليقات:
