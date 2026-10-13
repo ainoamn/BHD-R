@@ -2,6 +2,23 @@
 
 **تسليم الجلسة كاملة (0.2.24 → 0.8.33):** للاستكمال من جهاز آخر ابدأ من [`docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه خطوات الإعداد، والمراحل بالتاريخ والوقت، والمهام المفتوحة. ويرافقه فهرس الإصدارات (251 إصداراً) والمحادثة كاملة بعد حذف الأسرار.
 
+# CONTINUE — 2026-10-13 10:15 (مسقط)
+
+**0.8.39** · أدوات تقييم الضيف الذكية:
+
+- **التقييم:** `GUEST_RUBRIC` صار فيه:
+  - `management`، أي «المالك أو شركة إدارة العقار»، مع البندين الجديدين `host_conduct` و`host_clarity`؛
+  - `staff_team` الجديد، بالبنود الاختيارية `staff` و`staff_help` و`staff_knowledge` و`staff_presence`؛
+  - الأوزان 0.35 و0.3 و0.2 و0.15.
+- **الوسوم:** `GUEST_REVIEW_TAGS` تُرسل في `tags`، وتمر إلى `analyzeReview` دون تخزين في عمود مستقل.
+- **النموذج `ReviewForm`:**
+  - تعبئة سريعة، وتقدّم، ودرجتان حيّتان، ووسوم، وتنبيه للبنود المنخفضة؛
+  - مع `referenceCode`: تلخيص قابل للتعديل (`draftReviewSummary`) و`NoteTranslateBar` مع `guestReviewNoteService`.
+- **المسار:** `POST /api/public/stays/guest/review/assist` عام، ويشترط `assertGuestReviewOpen`. لذلك يظهر ضمن مسارات الضيف العامة في اختبار route-policy، وهو قرار CSRF المعلّق.
+- **مفتوح:** تجربة الملخص والتصحيح بالذكاء الاصطناعي على الإنتاج، لأن الفحص المحلي كان بلا ذكاء اصطناعي.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.39-AR.md`](./docs/implementation/RELEASE-0.8.39-AR.md)
+
 # CONTINUE — 2026-10-13 09:59 (مسقط)
 
 **0.8.38** · صفحة حجز الإقامة اليومية بتصميم صفحة حجز الإيجار الدائم:

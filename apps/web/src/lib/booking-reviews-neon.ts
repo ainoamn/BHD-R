@@ -28,6 +28,7 @@ import {
   groupLabel,
   needsComment,
   publicPersonName,
+  reviewTags,
   rubricFor,
   scoreAnswers,
   validAnswers,
@@ -159,6 +160,7 @@ export type ReviewSubmission = {
   answers: ReviewAnswers;
   comment?: string | undefined;
   recommend?: boolean | null | undefined;
+  tags?: string[] | undefined;
   photos?: string[] | undefined;
 };
 
@@ -201,6 +203,7 @@ async function prepareReview(
     scores,
     comment,
     recommend,
+    tags: reviewTags(direction, input.tags),
   });
   return {
     direction,
@@ -330,6 +333,21 @@ async function insertReview(
       engine: analysis.engine,
       summaryAr: analysis.summary?.ar ?? null,
     };
+  });
+}
+
+/** The guest may still review this stay: it exists, has checked out, and has no guest review. */
+export async function assertGuestReviewOpen(referenceCode: string): Promise<void> {
+  const reference = referenceCode.trim().toUpperCase();
+  await elevated(async (tx) => {
+    const [found] = await tx
+      .select({ id: stayBookings.id, status: stayBookings.status })
+      .from(stayBookings)
+      .where(eq(stayBookings.referenceCode, reference))
+      .limit(1);
+    if (!found) fail('booking_not_found');
+    if (!DEPARTED.has(found.status)) fail('review_not_open');
+    if (await reviewExists(tx, found.id, 'guest_to_host')) fail('review_exists');
   });
 }
 

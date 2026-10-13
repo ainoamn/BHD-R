@@ -39,6 +39,54 @@ function requestTranslation(text: string, target: NoteLang): Promise<Result> {
   });
 }
 
+/** Where the bar sends its requests; the owner portal by default. */
+export type NoteService = {
+  assist: (text: string, signal: AbortSignal) => Promise<Assist>;
+  translate: (text: string, target: NoteLang) => Promise<Result>;
+};
+
+const OWNER_NOTE_SERVICE: NoteService = {
+  assist: (text, signal) =>
+    browserNextMutation<Assist>('/api/owner/notes/assist', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+      signal,
+    }),
+  translate: requestTranslation,
+};
+
+/** The guest's review comment: public route, allowed while the stay's review is open. */
+export function guestReviewNoteService(referenceCode: string): NoteService {
+  const post = async <T,>(body: Record<string, unknown>, signal: AbortSignal): Promise<T> => {
+    const response = await fetch('/api/public/stays/guest/review/assist', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+        'x-requested-with': 'BHD-R',
+      },
+      body: JSON.stringify({ referenceCode, ...body }),
+      signal,
+    });
+    const payload = (await response.json().catch(() => null)) as
+      (T & { error?: { code?: string; messageAr?: string; message?: string } }) | null;
+    if (!response.ok || !payload) {
+      throw new ApiError(
+        response.status,
+        payload?.error?.code ?? 'api_error',
+        payload?.error?.messageAr ?? 'تعذّر إكمال الطلب.',
+      );
+    }
+    return payload;
+  };
+  return {
+    assist: (text, signal) => post<Assist>({ action: 'assist', text }, signal),
+    translate: (text, target) =>
+      post<Result>({ action: 'translate', text, target }, AbortSignal.timeout(60_000)),
+  };
+}
+
 function errorMessage(error: unknown, ar: boolean): string {
   if (error instanceof ApiError) {
     if (error.code === 'rate_limited') {
@@ -71,12 +119,15 @@ export function NoteTranslateBar({
   locale,
   max,
   disabled = false,
+  service = OWNER_NOTE_SERVICE,
 }: {
   value: string;
   onChange: (next: string) => void;
   locale: 'ar' | 'en';
   max: number;
   disabled?: boolean;
+  /** Keep it stable across renders (module constant or memoized). */
+  service?: NoteService;
 }) {
   const ar = locale === 'ar';
   const [busy, setBusy] = useState(false);
@@ -96,11 +147,8 @@ export function NoteTranslateBar({
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
       setChecking(true);
-      browserNextMutation<Assist>('/api/owner/notes/assist', {
-        method: 'POST',
-        body: JSON.stringify({ text: original.slice(0, NOTE_TRANSLATE_MAX) }),
-        signal: controller.signal,
-      })
+      service
+        .assist(original.slice(0, NOTE_TRANSLATE_MAX), controller.signal)
         .then((result) => setAssist({ ...result, forText: original }))
         .catch(() => undefined)
         .finally(() => {
@@ -112,7 +160,7 @@ export function NoteTranslateBar({
       controller.abort();
       setChecking(false);
     };
-  }, [original, translated, disabled, dismissedFor, assist?.forText]);
+  }, [original, translated, disabled, dismissedFor, assist?.forText, service]);
 
   function addTranslation(text: string, engine: Result['engine']) {
     const next = joinNoteTranslation(original, text, target);
@@ -148,7 +196,7 @@ export function NoteTranslateBar({
     setBusy(true);
     setStatus(null);
     try {
-      const result = await requestTranslation(original.slice(0, NOTE_TRANSLATE_MAX), target);
+      const result = await service.translate(original.slice(0, NOTE_TRANSLATE_MAX), target);
       addTranslation(result.text, result.engine);
     } catch (error) {
       setStatus({ tone: 'error', text: errorMessage(error, ar) });

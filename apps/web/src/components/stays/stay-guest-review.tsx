@@ -133,11 +133,11 @@ export function StayGuestReview({
       <p className="stay-guest-review__lead">
         {depositWaiting
           ? ar
-            ? 'خطوة إلزامية قبل طلب استرداد التأمين: قيّم نظافة المكان والعقار وتعامل الإدارة. يستغرق دقيقتين.'
-            : 'Required before you can request your deposit back: rate the cleanliness, the property and the management. It takes two minutes.'
+            ? 'خطوة إلزامية قبل طلب استرداد التأمين: قيّم نظافة المكان والعقار، وتعامل المالك أو شركة إدارة العقار، والموظفين العاملين في المكان. يستغرق دقيقتين.'
+            : 'Required before you can request your deposit back: rate the cleanliness, the property, the owner or management company, and the on-site staff. It takes two minutes.'
           : ar
-            ? 'التقييم إلزامي بعد المغادرة: قيّم نظافة المكان والعقار وتعامل الإدارة. يستغرق دقيقتين.'
-            : 'Reviews are required after check-out: rate the cleanliness, the property and the management. It takes two minutes.'}{' '}
+            ? 'التقييم إلزامي بعد المغادرة: قيّم نظافة المكان والعقار، وتعامل المالك أو شركة إدارة العقار، والموظفين العاملين في المكان. يستغرق دقيقتين.'
+            : 'Reviews are required after check-out: rate the cleanliness, the property, the owner or management company, and the on-site staff. It takes two minutes.'}{' '}
         {ar
           ? 'لن يرى المالك تقييمك ولن يُبلَّغ بوجوده قبل استرداد التأمين.'
           : 'The host will not see your review, or know it exists, before your deposit is refunded.'}
@@ -150,6 +150,7 @@ export function StayGuestReview({
           busy={pending}
           error={error}
           subjectName={propertyName}
+          referenceCode={referenceCode}
           onSubmit={submit}
           onCancel={() => setOpen(false)}
         />

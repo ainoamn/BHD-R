@@ -116,6 +116,7 @@ export async function analyzeReview(
     scores: ReviewScores;
     comment: string | null;
     recommend: boolean | null;
+    tags?: ReviewText[];
   },
 ): Promise<ReviewAnalysis> {
   const fallback = rulesAnalysis(input.direction, input.answers);
@@ -140,6 +141,7 @@ export async function analyzeReview(
           scoreOutOf10: group.score,
         })),
         recommend: input.recommend,
+        quickTags: (input.tags ?? []).map((tag) => tag.en),
         comment: input.comment ?? '',
       },
       'review analysis',
@@ -171,6 +173,124 @@ export async function analyzeReview(
   } catch {
     return fallback;
   }
+}
+
+const DRAFT_SYSTEM = [
+  'You help a guest write the comment of their verified short-stay review on BHD R, a property',
+  'platform in the Sultanate of Oman. Write in the first person, as the guest, from their ratings',
+  '(1–5, 5 = excellent), the quick tags they picked and their own notes. Summarise long notes; keep',
+  'every fact and its tone, never invent facts, names or numbers, and never include phone numbers,',
+  'IDs or account numbers. Arabic is clear Modern Standard Arabic; English is plain English.',
+  'Respond with a single JSON object only.',
+].join(' ');
+
+export type ReviewDraft = { engine: 'ai' | 'rules'; text: string };
+
+/** Readable list: «أ، ب و ج» / "a, b and c". */
+function listOf(items: string[], lang: 'ar' | 'en'): string {
+  if (items.length < 2) return items[0] ?? '';
+  const head = items.slice(0, -1).join(lang === 'ar' ? '، ' : ', ');
+  return lang === 'ar' ? `${head} و${items.at(-1)}` : `${head} and ${items.at(-1)}`;
+}
+
+/** The draft from the ratings alone, when the AI is unavailable. */
+function rulesDraft(
+  input: {
+    answers: ReviewAnswers;
+    scores: ReviewScores;
+    tags: Array<ReviewText & { tone: 'good' | 'bad' }>;
+    comment: string | null;
+    recommend: boolean | null;
+  },
+  lang: 'ar' | 'en',
+): string {
+  const ar = lang === 'ar';
+  /** A section whose rated items all match names the section; otherwise the matching items. */
+  const matching = (test: (value: number) => boolean) =>
+    rubricFor('guest_to_host').flatMap((group) => {
+      const rated = group.criteria.filter((item) => input.answers[item.key] !== undefined);
+      const hits = rated.filter((item) => test(input.answers[item.key]!));
+      if (rated.length > 1 && hits.length === rated.length) return [ar ? group.ar : group.en];
+      return hits.map((item) => (ar ? item.ar : item.en));
+    });
+  const good = [
+    ...matching((value) => value === 5),
+    ...input.tags.filter((tag) => tag.tone === 'good').map((tag) => (ar ? tag.ar : tag.en)),
+  ].slice(0, 4);
+  const bad = [
+    ...matching((value) => value <= 2),
+    ...input.tags.filter((tag) => tag.tone === 'bad').map((tag) => (ar ? tag.ar : tag.en)),
+  ].slice(0, 4);
+  const score = input.scores.criteria.toFixed(1);
+  const lines = [
+    ar ? `قيّمت إقامتي بـ ${score} من 10.` : `I rated my stay ${score} out of 10.`,
+    good.length ? (ar ? `أعجبني: ${listOf(good, lang)}.` : `I liked: ${listOf(good, lang)}.`) : '',
+    bad.length
+      ? ar
+        ? `يحتاج إلى تحسين: ${listOf(bad, lang)}.`
+        : `Needs improvement: ${listOf(bad, lang)}.`
+      : '',
+    input.recommend === true
+      ? ar
+        ? 'أنصح به.'
+        : 'I recommend it.'
+      : input.recommend === false
+        ? ar
+          ? 'لا أنصح به.'
+          : 'I would not recommend it.'
+        : '',
+    input.comment ?? '',
+  ];
+  return lines.filter(Boolean).join(' ').slice(0, 1200);
+}
+
+/** A first-person review comment the guest can edit, summarising their ratings, tags and notes. */
+export async function draftReviewSummary(
+  context: { oidcToken: string | null },
+  input: {
+    answers: ReviewAnswers;
+    scores: ReviewScores;
+    tags: Array<ReviewText & { tone: 'good' | 'bad' }>;
+    comment: string | null;
+    recommend: boolean | null;
+    lang: 'ar' | 'en';
+  },
+): Promise<ReviewDraft> {
+  const endpoint = resolveAiEndpoint(context.oidcToken);
+  if (endpoint) {
+    try {
+      const result = await aiChatJson(
+        endpoint,
+        DRAFT_SYSTEM,
+        [
+          `Return {"text": string}: the guest's review comment in ${input.lang === 'ar' ? 'Arabic' : 'English'},`,
+          'two to four sentences (max 80 words): what stood out, what needs improvement, and whether',
+          'they recommend the place. Mention the owner or management company and the on-site staff',
+          'only when they were rated.',
+        ].join(' '),
+        {
+          criteria: Object.entries(input.answers).map(([key, value]) => ({
+            group: rubricFor('guest_to_host').find((group) =>
+              group.criteria.some((item) => item.key === key),
+            )?.en,
+            criterion: criterionLabel('guest_to_host', key, false),
+            score: value,
+          })),
+          scoreOutOf10: input.scores.criteria,
+          recommend: input.recommend,
+          quickTags: input.tags.map((tag) => `${tag.en} (${tag.tone})`),
+          notes: input.comment ?? '',
+        },
+        'review draft',
+        20_000,
+      );
+      const draft = text(result.text, 1200);
+      if (draft) return { engine: 'ai', text: draft };
+    } catch {
+      /* fall back to the ratings */
+    }
+  }
+  return { engine: 'rules', text: rulesDraft(input, input.lang) };
 }
 
 /** Recurring strengths and problems across a subject's published reviews. */

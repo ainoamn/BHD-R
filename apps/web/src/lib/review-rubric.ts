@@ -32,7 +32,7 @@ export const GUEST_RUBRIC: ReviewGroup[] = [
     key: 'cleanliness',
     ar: 'النظافة',
     en: 'Cleanliness',
-    weight: 0.4,
+    weight: 0.35,
     side: 'property',
     criteria: [
       {
@@ -134,17 +134,17 @@ export const GUEST_RUBRIC: ReviewGroup[] = [
   },
   {
     key: 'management',
-    ar: 'إدارة العقار',
-    en: 'Management',
-    weight: 0.3,
+    ar: 'المالك أو شركة إدارة العقار',
+    en: 'Owner or management company',
+    weight: 0.2,
     side: 'host',
     criteria: [
       {
-        key: 'staff',
-        ar: 'تعامل فريق العمل',
-        en: 'Staff attitude',
-        hintAr: 'الاحترام واللباقة',
-        hintEn: 'Respect and courtesy',
+        key: 'host_conduct',
+        ar: 'حسن التعامل والاحترافية',
+        en: 'Courtesy and professionalism',
+        hintAr: 'الاحترام والالتزام بما اتُّفق عليه',
+        hintEn: 'Respect, and keeping to what was agreed',
       },
       {
         key: 'communication',
@@ -152,6 +152,13 @@ export const GUEST_RUBRIC: ReviewGroup[] = [
         en: 'Responsiveness',
         hintAr: 'الرد على الرسائل والاتصالات',
         hintEn: 'Replies to messages and calls',
+      },
+      {
+        key: 'host_clarity',
+        ar: 'وضوح الشروط والتعليمات',
+        en: 'Clear terms and instructions',
+        hintAr: 'لا رسوم ولا شروط مفاجئة',
+        hintEn: 'No surprise fees or conditions',
       },
       {
         key: 'check_in',
@@ -170,7 +177,82 @@ export const GUEST_RUBRIC: ReviewGroup[] = [
       },
     ],
   },
+  {
+    key: 'staff_team',
+    ar: 'الموظفون العاملون في المكان',
+    en: 'On-site staff',
+    weight: 0.15,
+    side: 'host',
+    criteria: [
+      {
+        key: 'staff',
+        ar: 'تعامل الموظفين ولباقتهم',
+        en: 'Staff attitude',
+        hintAr: 'الاحترام والابتسامة واللباقة',
+        hintEn: 'Respect, warmth and courtesy',
+        optional: true,
+      },
+      {
+        key: 'staff_help',
+        ar: 'المساعدة وتلبية الطلبات',
+        en: 'Help with requests',
+        hintAr: 'سرعة الاستجابة لما طلبته',
+        hintEn: 'How quickly they helped',
+        optional: true,
+      },
+      {
+        key: 'staff_knowledge',
+        ar: 'المعرفة والإرشاد',
+        en: 'Knowledge and guidance',
+        hintAr: 'الإجابة عن أسئلتك وإرشادك في المكان',
+        hintEn: 'Answering questions, showing you around',
+        optional: true,
+      },
+      {
+        key: 'staff_presence',
+        ar: 'التواجد عند الحاجة',
+        en: 'Available when needed',
+        hintAr: 'سهولة الوصول إليهم',
+        hintEn: 'Easy to reach',
+        optional: true,
+      },
+    ],
+  },
 ];
+
+/** One-tap observations a guest can add; they guide the AI summary and the review analysis. */
+export const GUEST_REVIEW_TAGS: Array<{
+  key: string;
+  tone: 'good' | 'bad';
+  ar: string;
+  en: string;
+}> = [
+  { key: 'spotless', tone: 'good', ar: 'نظافة لافتة', en: 'Spotless' },
+  { key: 'as_pictured', tone: 'good', ar: 'مطابق للصور', en: 'As pictured' },
+  { key: 'great_location', tone: 'good', ar: 'موقع ممتاز', en: 'Great location' },
+  { key: 'quiet', tone: 'good', ar: 'هادئ ومريح', en: 'Quiet and comfortable' },
+  { key: 'fast_replies', tone: 'good', ar: 'ردود سريعة', en: 'Fast replies' },
+  { key: 'helpful_staff', tone: 'good', ar: 'موظفون متعاونون', en: 'Helpful staff' },
+  { key: 'smooth_check_in', tone: 'good', ar: 'استلام سلس', en: 'Smooth check-in' },
+  { key: 'good_value', tone: 'good', ar: 'يستحق السعر', en: 'Good value' },
+  { key: 'noise', tone: 'bad', ar: 'ضوضاء', en: 'Noise' },
+  { key: 'ac_issue', tone: 'bad', ar: 'مشكلة في التكييف', en: 'AC problem' },
+  { key: 'weak_wifi', tone: 'bad', ar: 'إنترنت ضعيف', en: 'Weak Wi-Fi' },
+  { key: 'late_check_in', tone: 'bad', ar: 'تأخر في الاستلام', en: 'Late check-in' },
+  { key: 'bathroom_dirty', tone: 'bad', ar: 'نظافة الحمامات', en: 'Bathroom cleanliness' },
+  { key: 'slow_replies', tone: 'bad', ar: 'تأخر في الرد', en: 'Slow replies' },
+  { key: 'surprise_fees', tone: 'bad', ar: 'رسوم غير متوقعة', en: 'Unexpected fees' },
+  { key: 'not_as_listed', tone: 'bad', ar: 'لا يطابق الإعلان', en: 'Not as listed' },
+];
+
+export const REVIEW_TAGS_MAX = 8;
+
+/** Known tags of the direction (guest reviews only), labelled, in the order given. */
+export function reviewTags(direction: ReviewDirection, keys: readonly string[] | undefined) {
+  if (direction !== 'guest_to_host' || !keys?.length) return [];
+  const wanted = new Set(keys);
+  return GUEST_REVIEW_TAGS.filter((tag) => wanted.has(tag.key)).slice(0, REVIEW_TAGS_MAX);
+}
 
 export const HOST_RUBRIC: ReviewGroup[] = [
   {

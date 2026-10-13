@@ -1,13 +1,17 @@
 'use client';
 
 import { useMemo, useRef, useState } from 'react';
+import { NoteTranslateBar, guestReviewNoteService } from '@/components/note-translate';
 import { compressPhoto } from '@/components/stays/stay-handover-form';
+import { noteLanguage, noteOriginal } from '@/lib/note-translation';
 import {
+  GUEST_REVIEW_TAGS,
   REVIEW_COMMENT_MAX,
   REVIEW_COMMENT_MIN_WHEN_LOW,
   REVIEW_PHOTO_MAX,
   REVIEW_PHOTOS_MAX,
   REVIEW_SCALE,
+  REVIEW_TAGS_MAX,
   needsComment,
   reviewScoreLabel,
   reviewScoreTone,
@@ -16,14 +20,21 @@ import {
   validAnswers,
   type ReviewAnswers,
   type ReviewDirection,
+  type ReviewGroup,
 } from '@/lib/review-rubric';
 
 export type ReviewFormValue = {
   answers: ReviewAnswers;
   comment?: string;
   recommend: boolean | null;
+  tags?: string[];
   photos: string[];
 };
+
+type ReviewDraft = { engine: 'ai' | 'rules'; text: string };
+
+/** Low answers (1–2) that deserve a word in the comment. */
+const LOW_ANSWER = 2;
 
 /** Score badge on 10, colored by band. */
 export function ScoreBadge({
@@ -53,6 +64,7 @@ export function ReviewForm({
   busy,
   error,
   subjectName,
+  referenceCode,
   onSubmit,
   onCancel,
 }: {
@@ -62,6 +74,8 @@ export function ReviewForm({
   busy: boolean;
   error: string | null;
   subjectName?: string | null;
+  /** The guest's booking: turns on the AI summary and live translation of the comment. */
+  referenceCode?: string;
   onSubmit: (value: ReviewFormValue) => void;
   onCancel?: () => void;
 }) {
@@ -70,25 +84,114 @@ export function ReviewForm({
   const [skipped, setSkipped] = useState<Record<string, boolean>>({});
   const [comment, setComment] = useState('');
   const [recommend, setRecommend] = useState<boolean | null>(null);
+  const [tags, setTags] = useState<string[]>([]);
   const [photos, setPhotos] = useState<string[]>([]);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [tried, setTried] = useState(false);
+  const [draft, setDraft] = useState<ReviewDraft | null>(null);
+  const [drafting, setDrafting] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const noteService = useMemo(
+    () => (referenceCode ? guestReviewNoteService(referenceCode) : null),
+    [referenceCode],
+  );
 
   const required = rubric.flatMap((group) =>
     group.criteria.filter((item) => !item.optional).map((item) => item.key),
   );
   const answered = Object.keys(answers).length;
   const missing = required.filter((key) => !answers[key]);
+  const progress = required.length
+    ? Math.round(((required.length - missing.length) / required.length) * 100)
+    : 100;
   const complete = validAnswers(direction, answers);
   const scores = useMemo(() => scoreAnswers(direction, answers), [direction, answers]);
   const commentNeeded = complete && needsComment(direction, answers);
   const commentOk = !commentNeeded || comment.trim().length >= REVIEW_COMMENT_MIN_WHEN_LOW;
   const guest = direction === 'guest_to_host';
+  const lows = rubric.flatMap((group) =>
+    group.criteria.filter((item) => (answers[item.key] ?? 6) <= LOW_ANSWER),
+  );
 
   function pick(key: string, value: number) {
     setAnswers((current) => ({ ...current, [key]: value }));
     setSkipped((current) => ({ ...current, [key]: false }));
+  }
+
+  /** One tap for the whole section; each item can still be changed afterwards. */
+  function fillGroup(group: ReviewGroup, value: number) {
+    setAnswers((current) => ({
+      ...current,
+      ...Object.fromEntries(group.criteria.map((item) => [item.key, value])),
+    }));
+    setSkipped((current) => ({
+      ...current,
+      ...Object.fromEntries(group.criteria.map((item) => [item.key, false])),
+    }));
+  }
+
+  function skipGroup(group: ReviewGroup) {
+    setAnswers((current) => {
+      const next = { ...current };
+      for (const item of group.criteria) delete next[item.key];
+      return next;
+    });
+    setSkipped((current) => ({
+      ...current,
+      ...Object.fromEntries(group.criteria.map((item) => [item.key, true])),
+    }));
+  }
+
+  function toggleTag(key: string) {
+    setTags((current) =>
+      current.includes(key)
+        ? current.filter((tag) => tag !== key)
+        : current.length < REVIEW_TAGS_MAX
+          ? [...current, key]
+          : current,
+    );
+  }
+
+  async function summarize() {
+    if (!referenceCode || drafting) return;
+    setDrafting(true);
+    setDraftError(null);
+    const notes = noteOriginal(comment).trim();
+    try {
+      const response = await fetch('/api/public/stays/guest/review/assist', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          accept: 'application/json',
+          'content-type': 'application/json',
+          'x-requested-with': 'BHD-R',
+        },
+        body: JSON.stringify({
+          action: 'summarize',
+          referenceCode,
+          answers,
+          tags,
+          recommend,
+          ...(notes ? { comment: notes } : {}),
+          lang: notes.length >= 10 ? noteLanguage(notes) : ar ? 'ar' : 'en',
+        }),
+        signal: AbortSignal.timeout(45_000),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        (ReviewDraft & { error?: { messageAr?: string; message?: string } }) | null;
+      if (!response.ok || !payload?.text) {
+        throw new Error(
+          (ar ? payload?.error?.messageAr : payload?.error?.message) ??
+            (ar ? 'تعذّر التلخيص الآن. أعد المحاولة.' : 'Could not summarise right now.'),
+        );
+      }
+      setDraft({ engine: payload.engine, text: payload.text });
+    } catch (caught) {
+      setDraftError(caught instanceof Error ? caught.message : String(caught));
+    } finally {
+      setDrafting(false);
+    }
   }
 
   function skip(key: string) {
@@ -125,6 +228,7 @@ export function ReviewForm({
       answers,
       ...(comment.trim() ? { comment: comment.trim() } : {}),
       recommend,
+      ...(tags.length ? { tags } : {}),
       photos,
     });
   }
@@ -157,16 +261,49 @@ export function ReviewForm({
                 ? `قيّم الضيف${subjectName ? ` ${subjectName}` : ''}`
                 : `Rate the guest${subjectName ? ` ${subjectName}` : ''}`}
           </strong>
-          <p className="muted">
-            {ar
-              ? 'اختر لكل بند من 1 (سيئ جداً) إلى 5 (ممتاز). تُحسب الدرجة من 10 تلقائياً، ويحلّل الذكاء الاصطناعي ملاحظاتك ليكمل التقييم النهائي.'
-              : 'Rate each item from 1 (very poor) to 5 (excellent). The score on 10 updates as you go; AI reads your comment to finish the final score.'}
-          </p>
+          <div className="review-form__progress">
+            <span
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={progress}
+              aria-label={ar ? 'نسبة الإكمال' : 'Completion'}
+            >
+              <i style={{ width: `${progress}%` }} />
+            </span>
+            <small>
+              {ar
+                ? `${required.length - missing.length} من ${required.length} بنداً مطلوباً`
+                : `${required.length - missing.length} of ${required.length} required items`}
+            </small>
+          </div>
+          {guest && (scores.property !== null || scores.host !== null) ? (
+            <p className="review-form__sides">
+              {scores.property !== null ? (
+                <span>
+                  {ar ? 'المكان' : 'The place'} <b dir="ltr">{scores.property.toFixed(1)}</b>
+                </span>
+              ) : null}
+              {scores.host !== null ? (
+                <span>
+                  {ar ? 'المالك والموظفون' : 'Host and staff'}{' '}
+                  <b dir="ltr">{scores.host.toFixed(1)}</b>
+                </span>
+              ) : null}
+            </p>
+          ) : null}
         </div>
       </div>
+      <p className="muted review-form__how">
+        {ar
+          ? 'اختر لكل بند من 1 (سيئ جداً) إلى 5 (ممتاز)، أو استخدم «تعبئة سريعة» لكل قسم ثم عدّل ما تشاء. تُحسب الدرجة من 10 تلقائياً، ويحلّل الذكاء الاصطناعي ملاحظاتك ليكمل التقييم النهائي.'
+          : 'Rate each item from 1 (very poor) to 5 (excellent), or use "Quick fill" per section and adjust. The score on 10 updates as you go; AI reads your comment to finish the final score.'}
+      </p>
 
       {rubric.map((group) => {
         const groupScore = scores.groups.find((item) => item.key === group.key)?.score ?? null;
+        const allOptional = group.criteria.every((item) => item.optional);
+        const allSkipped = group.criteria.every((item) => skipped[item.key]);
         return (
           <fieldset key={group.key} className="review-form__group">
             <legend>
@@ -177,6 +314,34 @@ export function ReviewForm({
                 </span>
               ) : null}
             </legend>
+            <div className="review-form__quick">
+              <small>{ar ? 'تعبئة سريعة:' : 'Quick fill:'}</small>
+              {[5, 4, 3, 2, 1].map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`review-form__quick-step review-form__quick-step--${value}`}
+                  title={ar ? REVIEW_SCALE[value - 1]!.ar : REVIEW_SCALE[value - 1]!.en}
+                  aria-label={
+                    ar
+                      ? `${REVIEW_SCALE[value - 1]!.ar} لكل بنود ${group.ar}`
+                      : `${REVIEW_SCALE[value - 1]!.en} for all of ${group.en}`
+                  }
+                  onClick={() => fillGroup(group, value)}
+                >
+                  <span dir="ltr">{value}</span>
+                </button>
+              ))}
+              {allOptional ? (
+                <button
+                  type="button"
+                  className={`review-form__quick-skip${allSkipped ? ' is-on' : ''}`}
+                  onClick={() => skipGroup(group)}
+                >
+                  {ar ? 'لم أتعامل معهم' : 'Did not deal with them'}
+                </button>
+              ) : null}
+            </div>
             {group.criteria.map((item) => {
               const value = answers[item.key];
               const invalid = tried && !item.optional && !value;
@@ -281,6 +446,43 @@ export function ReviewForm({
         </div>
       </fieldset>
 
+      {guest ? (
+        <fieldset className="review-form__group review-form__tags">
+          <legend>{ar ? 'ما الذي ميّز إقامتك؟ (اختياري)' : 'What stood out? (optional)'}</legend>
+          <p className="muted">
+            {ar
+              ? `اختر ما ينطبق (حتى ${REVIEW_TAGS_MAX}). يستعين بها الذكاء الاصطناعي في تلخيص تقييمك.`
+              : `Pick what applies (up to ${REVIEW_TAGS_MAX}). The AI uses them to summarise your review.`}
+          </p>
+          <div className="review-form__tag-list">
+            {GUEST_REVIEW_TAGS.map((tag) => {
+              const on = tags.includes(tag.key);
+              return (
+                <button
+                  key={tag.key}
+                  type="button"
+                  aria-pressed={on}
+                  className={`review-form__tag review-form__tag--${tag.tone}${on ? ' is-on' : ''}`}
+                  disabled={!on && tags.length >= REVIEW_TAGS_MAX}
+                  onClick={() => toggleTag(tag.key)}
+                >
+                  <span aria-hidden="true">{tag.tone === 'good' ? '+' : '−'}</span>
+                  {ar ? tag.ar : tag.en}
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+      ) : null}
+
+      {lows.length ? (
+        <p className="review-form__lows" role="status">
+          {ar
+            ? `قيّمت بدرجة منخفضة: ${lows.map((item) => item.ar).join('، ')}. اكتب ما حدث في ملاحظاتك ليعرف المالك ما يحتاج إلى إصلاح.`
+            : `You rated low: ${lows.map((item) => item.en).join(', ')}. Say what happened so the host knows what to fix.`}
+        </p>
+      ) : null}
+
       <label className="field review-form__comment">
         <span>
           {ar ? 'ملاحظاتك' : 'Your comments'}
@@ -317,6 +519,98 @@ export function ReviewForm({
           </small>
         )}
       </label>
+
+      {referenceCode && noteService ? (
+        <div className="review-ai">
+          <div className="review-ai__bar">
+            <button
+              type="button"
+              className="note-translate__button"
+              disabled={busy || drafting || answered === 0}
+              onClick={() => void summarize()}
+            >
+              <span aria-hidden="true">✨</span>
+              {drafting
+                ? ar
+                  ? 'جارٍ التلخيص…'
+                  : 'Summarising…'
+                : draft
+                  ? ar
+                    ? 'إعادة التلخيص'
+                    : 'Summarise again'
+                  : ar
+                    ? 'لخّص تقييمي بالذكاء الاصطناعي'
+                    : 'Summarise my review with AI'}
+            </button>
+            <small className="muted">
+              {answered === 0
+                ? ar
+                  ? 'قيّم بعض البنود أولاً، ثم يكتب لك الذكاء الاصطناعي ملخصاً تعدّله كما تشاء.'
+                  : 'Rate a few items first; the AI then drafts a summary you can edit.'
+                : ar
+                  ? 'يكتب ملخصاً من تقييماتك واختياراتك وملاحظاتك، وتعدّله قبل اعتماده.'
+                  : 'Drafts a summary from your ratings, picks and notes; edit it before using it.'}
+            </small>
+          </div>
+          {draftError ? (
+            <small className="note-translate__error" role="alert">
+              {draftError}
+            </small>
+          ) : null}
+          {draft ? (
+            <div className="review-ai__draft" aria-live="polite">
+              <label className="field">
+                <span className="note-assist__label">
+                  <span aria-hidden="true">✨</span>
+                  {draft.engine === 'ai'
+                    ? ar
+                      ? 'ملخص مقترح بالذكاء الاصطناعي · قابل للتعديل'
+                      : 'AI-suggested summary · editable'
+                    : ar
+                      ? 'ملخص مقترح من تقييماتك · قابل للتعديل'
+                      : 'Summary from your ratings · editable'}
+                </span>
+                <textarea
+                  className="textarea"
+                  rows={4}
+                  maxLength={REVIEW_COMMENT_MAX}
+                  dir="auto"
+                  value={draft.text}
+                  onChange={(event) => setDraft({ ...draft, text: event.target.value })}
+                />
+              </label>
+              <div className="note-translate__actions">
+                <button
+                  type="button"
+                  className="note-translate__button"
+                  disabled={busy || !draft.text.trim()}
+                  onClick={() => {
+                    setComment(draft.text.trim().slice(0, REVIEW_COMMENT_MAX));
+                    setDraft(null);
+                  }}
+                >
+                  {ar ? 'استخدمه كملاحظتي' : 'Use as my comment'}
+                </button>
+                <button
+                  type="button"
+                  className="note-translate__button note-translate__button--quiet"
+                  onClick={() => setDraft(null)}
+                >
+                  {ar ? 'إلغاء' : 'Discard'}
+                </button>
+              </div>
+            </div>
+          ) : null}
+          <NoteTranslateBar
+            value={comment}
+            onChange={setComment}
+            locale={ar ? 'ar' : 'en'}
+            max={REVIEW_COMMENT_MAX}
+            disabled={busy}
+            service={noteService}
+          />
+        </div>
+      ) : null}
 
       <div className="review-form__photos">
         <span className="review-form__photos-title">

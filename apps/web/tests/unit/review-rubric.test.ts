@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  GUEST_REVIEW_TAGS,
   GUEST_RUBRIC,
   HOST_RUBRIC,
+  REVIEW_TAGS_MAX,
   blendScore,
   needsComment,
   publicPersonName,
   reviewScoreLabel,
+  reviewTags,
   scoreAnswers,
   validAnswers,
   type ReviewAnswers,
@@ -42,17 +45,12 @@ describe('review rubric', () => {
   it('maps 1–5 answers onto 10 and splits property and management', () => {
     expect(scoreAnswers('guest_to_host', all(GUEST_RUBRIC, 5)).criteria).toBe(10);
     expect(scoreAnswers('guest_to_host', all(GUEST_RUBRIC, 3)).criteria).toBe(6);
-    const mixed: ReviewAnswers = {
-      ...all(GUEST_RUBRIC, 5),
-      staff: 2,
-      communication: 2,
-      check_in: 2,
-      problem_solving: 2,
-    };
+    const hostSide = GUEST_RUBRIC.filter((group) => group.side === 'host');
+    const mixed: ReviewAnswers = { ...all(GUEST_RUBRIC, 5), ...all(hostSide, 2) };
     const scores = scoreAnswers('guest_to_host', mixed);
     expect(scores.property).toBe(10);
     expect(scores.host).toBe(4);
-    expect(scores.criteria).toBe(8.2);
+    expect(scores.criteria).toBe(7.9);
     const host = scoreAnswers('host_to_guest', all(HOST_RUBRIC, 4));
     expect(host.criteria).toBe(8);
     expect(host.property).toBeNull();
@@ -61,6 +59,36 @@ describe('review rubric', () => {
   it('skipped optional criteria do not drag the score down', () => {
     const scores = scoreAnswers('guest_to_host', all(GUEST_RUBRIC, 5, true));
     expect(scores.criteria).toBe(10);
+  });
+
+  it('rates the owner or management company and, when met, the on-site staff', () => {
+    const management = GUEST_RUBRIC.find((group) => group.key === 'management')!;
+    const staff = GUEST_RUBRIC.find((group) => group.key === 'staff_team')!;
+    expect(management.side).toBe('host');
+    expect(staff.side).toBe('host');
+    expect(staff.criteria.every((item) => item.optional)).toBe(true);
+    const noStaff = scoreAnswers('guest_to_host', all(GUEST_RUBRIC, 4, true));
+    expect(noStaff.groups.find((group) => group.key === 'staff_team')?.score).toBeNull();
+    expect(noStaff.host).toBe(8);
+    const rudeStaff = scoreAnswers('guest_to_host', {
+      ...all(GUEST_RUBRIC, 4, true),
+      ...all([staff], 1),
+    });
+    expect(rudeStaff.host).toBeLessThan(noStaff.host!);
+  });
+
+  it('keeps only known guest tags, in order, up to the limit', () => {
+    expect(reviewTags('guest_to_host', ['noise', 'bogus', 'spotless']).map((t) => t.key)).toEqual([
+      'spotless',
+      'noise',
+    ]);
+    expect(reviewTags('host_to_guest', ['spotless'])).toEqual([]);
+    expect(reviewTags('guest_to_host', undefined)).toEqual([]);
+    const many = reviewTags(
+      'guest_to_host',
+      GUEST_REVIEW_TAGS.map((tag) => tag.key),
+    );
+    expect(many).toHaveLength(REVIEW_TAGS_MAX);
   });
 
   it('lets the AI reading of the comment move the score by its 20% share', () => {
