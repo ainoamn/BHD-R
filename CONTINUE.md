@@ -2,6 +2,21 @@
 
 **تسليم الجلسة كاملة (0.2.24 → 0.8.33):** للاستكمال من جهاز آخر ابدأ من [`docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه خطوات الإعداد، والمراحل بالتاريخ والوقت، والمهام المفتوحة. ويرافقه فهرس الإصدارات (251 إصداراً) والمحادثة كاملة بعد حذف الأسرار.
 
+# CONTINUE — 2026-10-13 06:15 (مسقط)
+
+**0.8.34** · توافق الشاشات مع كل الأجهزة:
+
+- فُحصت الصفحات العامة فعلياً على سبعة عروض بـ `apps/web/scripts/responsive-audit.mjs`، وفُحص `globals.css` فحصاً ثابتاً.
+- **الإصلاحات:**
+  - `.property-discovery` صار `minmax(0, 1fr)`؛
+  - جدول الإقامات لُفّ بـ `props-table-wrap props-table-desktop`؛
+  - جدول المفوّضين لُفّ بـ `data-table-wrap`؛
+  - `.input` و`.select` و`.textarea` صار لها `min-width: 0`؛
+  - `.stays-checkout__modal-card` صار له حدّ ارتفاع.
+- **مفتوح:** الفحص الفعلي لصفحات المالك والمستأجر بعد الدخول، عبر `responsive-audit.mjs login` ثم `run --state … --crawl /ar/owner,/ar/tenant,/ar/guest`.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.34-AR.md`](./docs/implementation/RELEASE-0.8.34-AR.md)
+
 # CONTINUE — 2026-10-12
 
 **0.8.33** · التنقّل بين مراحل الحجز المكتملة عند المالك:

@@ -159,28 +159,30 @@ export function ReservationPartyCard({
                 ? 'المفوّضون بالتوقيع'
                 : 'Authorised signatories'}
           </h3>
-          <table className="party-card__table">
-            <thead>
-              <tr>
-                <th>{ar ? 'الاسم' : 'Name'}</th>
-                <th>{ar ? 'الرقم المدني' : 'Civil ID'}</th>
-                <th>{ar ? 'الهاتف' : 'Phone'}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {company.signatories.map((row, index) => (
-                <tr key={`${row.name}-${index}`}>
-                  <td>{row.name}</td>
-                  <td>
-                    <Ltr value={row.civilId} />
-                  </td>
-                  <td>
-                    <Ltr value={row.phone} />
-                  </td>
+          <div className="data-table-wrap">
+            <table className="party-card__table">
+              <thead>
+                <tr>
+                  <th>{ar ? 'الاسم' : 'Name'}</th>
+                  <th>{ar ? 'الرقم المدني' : 'Civil ID'}</th>
+                  <th>{ar ? 'الهاتف' : 'Phone'}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {company.signatories.map((row, index) => (
+                  <tr key={`${row.name}-${index}`}>
+                    <td>{row.name}</td>
+                    <td>
+                      <Ltr value={row.civilId} />
+                    </td>
+                    <td>
+                      <Ltr value={row.phone} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : null}
     </section>
