@@ -5,6 +5,7 @@ import { Link, usePathname } from '@/i18n/navigation';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { DepositLedgerPanel } from '@/components/accounting/deposit-ledger';
 import { ApprovalsHub } from '@/components/approvals-hub';
+import { ContactsBoard } from '@/components/contacts-board';
 import { LegalCasesBoard } from '@/components/legal-cases-board';
 import { OperationsWorkspaceClient } from '@/components/operations-workspace-client';
 import { PortalPageContext } from '@/components/portal-page';
@@ -151,6 +152,16 @@ export function PortalMainSlot({
                   active={panel === section}
                   lawyer={lawyer}
                 />
+              }
+            />
+          ) : panel === 'contacts' && portal === 'owner' ? (
+            <OperationsWorkspaceClient
+              portal={portal}
+              section={panel}
+              locale={locale}
+              active={panel === section}
+              listOverride={
+                <ContactsBoard portal={portal} locale={locale} active={panel === section} />
               }
             />
           ) : panel === 'approvals' ? (

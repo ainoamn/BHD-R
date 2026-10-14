@@ -104,6 +104,8 @@ const KNOWN_CODES = new Set([
   'legal_file_invalid',
   'legal_lawyer_invalid',
   'team_lawyer_invalid',
+  'contact_invalid',
+  'contact_email_taken',
 ]);
 
 export function clientSafeErrorCode(error: unknown, fallback = 'request_failed'): string {
@@ -140,7 +142,10 @@ export function statusForSafeCode(code: string): number {
     case 'legal_file_invalid':
     case 'legal_lawyer_invalid':
     case 'team_lawyer_invalid':
+    case 'contact_invalid':
       return 400;
+    case 'contact_email_taken':
+      return 409;
     case 'reservation_not_ready':
     case 'reservation_closed':
     case 'documents_incomplete':

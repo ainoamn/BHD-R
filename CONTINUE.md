@@ -2,6 +2,23 @@
 
 **تسليم الجلسة كاملة (0.2.24 → 0.8.33):** للاستكمال من جهاز آخر ابدأ من [`docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه خطوات الإعداد، والمراحل بالتاريخ والوقت، والمهام المفتوحة. ويرافقه فهرس الإصدارات (251 إصداراً) والمحادثة كاملة بعد حذف الأسرار.
 
+# CONTINUE — 2026-10-14 09:15 (مسقط)
+
+**0.8.60** · صفحة الطرف في دفتر العناوين:
+
+- **البيانات:** `contacts-neon.ts` (`listContacts` و`readContact` و`updateContact`)، عبر `withinViewerTenant` واستعلامات SQL مباشرة. النطاق لمالك المبنى في `partyScope` و`propertyScope`.
+- **المبالغ:** في `loadMoney`، وتُجمع بالعملة.
+  - إقامات الطرف بحالة confirmed فما بعدها.
+  - العرابين من `terms_snapshot.depositPaidAt`.
+  - `invoices.paid_minor`.
+  - `stay_refunds.paid_minor`.
+  - مصروفات المورّد عبر `vendors.party_id`.
+  - ولعقارات المالك: إقامات وعرابين وفواتير ومصروفات بحسب `property_id`.
+- **المسارات:** `GET /api/portal/contacts`، و`GET` و`PATCH` على `/api/portal/contacts/:partyId` (`party.read` و`party.write` مع CSRF).
+- **الصفحة:** `/owner/contacts/[partyId]` (`ContactWorkspace`). والقسم يعرض `ContactsBoard` عبر `listOverride` في بوابة المالك.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.60-AR.md`](./docs/implementation/RELEASE-0.8.60-AR.md)
+
 # CONTINUE — 2026-10-14 08:45 (مسقط)
 
 **0.8.59** · مركز الاعتمادات:
