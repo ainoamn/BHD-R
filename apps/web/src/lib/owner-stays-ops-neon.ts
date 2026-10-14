@@ -258,6 +258,7 @@ export async function getOwnerStayBookingContractOnNeon(
         referenceCode: stayBookings.referenceCode,
         propertyId: stayBookings.propertyId,
         unitId: stayBookings.unitId,
+        guestPartyId: stayBookings.guestPartyId,
         checkInOn: stayBookings.checkInOn,
         checkOutOn: stayBookings.checkOutOn,
         status: stayBookings.status,
@@ -556,6 +557,7 @@ export async function getOwnerStayBookingContractOnNeon(
       createdAt:
         row.createdAt instanceof Date ? row.createdAt.toISOString() : String(row.createdAt),
       guestDisplayName: contact.displayName ?? guest?.displayName ?? null,
+      guestPartyId: row.guestPartyId ?? null,
       guestEmail: contact.email ?? null,
       guestPhone: contact.phone ?? null,
       adults: contact.adults ?? null,

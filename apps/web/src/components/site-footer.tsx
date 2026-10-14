@@ -71,6 +71,9 @@ export function SiteFooter() {
         <p>{ar ? 'ابنِ أحلامًا أكبر.' : 'Build Higher Dreams.'}</p>
         <nav className="footer-links" aria-label={ar ? 'روابط الشركة' : 'Company links'}>
           <a href="https://www.bhd-om.com/about">{ar ? 'عن الشركة' : 'About'}</a>
+          <a href={`/${ar ? 'ar' : 'en'}/badges`}>
+            {ar ? 'الشارات والتوثيق' : 'Badges & verification'}
+          </a>
           <a href="https://www.bhd-om.com/brand">{ar ? 'هوية الشركة' : 'Brand'}</a>
           <a href="https://www.bhd-om.com/apps">{ar ? 'برامجنا' : 'Programmes'}</a>
           <a href="https://www.bhd-om.com/privacy">{ar ? 'الخصوصية' : 'Privacy'}</a>

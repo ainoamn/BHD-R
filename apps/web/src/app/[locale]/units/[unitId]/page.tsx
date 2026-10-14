@@ -6,6 +6,7 @@ import { setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { PropertyDetailManager } from '@/components/property-detail-manager';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { subjectBadgeChips } from '@/lib/badge-chips-neon';
 import { loadHostSummarySafe } from '@/lib/booking-reviews-neon';
 import { localizedName } from '@/lib/format';
 import { loadPublicPropertyShowcaseFromNeon } from '@/lib/load-public-property-neon';
@@ -174,12 +175,13 @@ export default async function UnitPage({
     4_000,
     'property-showcase-neon',
   );
-  const [showcaseResult, hostSummary, viewer] = await Promise.all([
+  const [showcaseResult, hostSummary, viewer, badges] = await Promise.all([
     showcaseLoad,
     showcaseLoad.then((result) =>
       loadHostSummarySafe(result.status === 'ok' ? result.value?.organizationId : null),
     ),
     withTimedResult(getViewer(), 1_500, 'unit-viewer'),
+    subjectBadgeChips('property', unit.propertyId),
   ]);
 
   const property =
@@ -218,6 +220,7 @@ export default async function UnitPage({
             focusUnitId={unit.unitId}
             signedIn={viewer.status === 'ok' ? Boolean(viewer.value) : false}
             hostSummary={hostSummary}
+            badges={badges}
           />
         </div>
       </main>

@@ -32,8 +32,9 @@ import {
   loadDefinitions,
   type DefinitionRow,
 } from '@/lib/badges-engine-neon';
-import { elevatedTx, isoOf, rowsOf, type ElevatedTx } from '@/lib/elevated-db';
+import { elevatedTx, isMissingTable, isoOf, rowsOf, type ElevatedTx } from '@/lib/elevated-db';
 import { scopedOwnerParty } from '@/lib/portal-access';
+import { withTimeoutFallback } from '@/lib/with-timeout';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const RECENT_LIMIT = 40;
@@ -812,6 +813,112 @@ function publicHolder(subject: BadgeSubject, name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length < 2) return parts[0] ?? '—';
   return `${parts[0]} ${parts[parts.length - 1]!.charAt(0)}.`;
+}
+
+export type ShowcaseAward = PublicAward & {
+  descriptionAr: string | null;
+  descriptionEn: string | null;
+};
+
+export type BadgeShowcase = {
+  awards: ShowcaseAward[];
+  activeCount: number;
+  holderCount: number;
+};
+
+/**
+ * The most prestigious current awards across the platform, one per holder, for the public
+ * home page and badges guide. People keep only their given name and family initial.
+ */
+export async function loadBadgeShowcase(limit = 6): Promise<BadgeShowcase> {
+  return elevatedTx(async (tx) => {
+    const rows = rowsOf<
+      AwardRow & {
+        organization_id: string;
+        org_ar: string;
+        org_en: string;
+        description_ar: string | null;
+        description_en: string | null;
+      }
+    >(
+      await tx.execute(sql`
+        select ${AWARD_COLUMNS}, a.organization_id::text, d.description_ar, d.description_en,
+          o.display_name_ar as org_ar, o.display_name_en as org_en
+        from badge_awards a join badge_definitions d on d.id = a.badge_id
+          join organizations o on o.id = a.organization_id
+        where a.status = 'active' and (a.expires_at is null or a.expires_at > now())
+          and o.status = 'active'
+        order by
+          case d.tier when 'medal' then 4 when 'certificate' then 3 when 'shield' then 2 else 1 end desc,
+          case d.level when 'diamond' then 5 when 'platinum' then 4 when 'gold' then 3
+            when 'silver' then 2 else 1 end desc,
+          a.awarded_at desc nulls last
+        limit ${Math.max(limit * 8, 40)}
+      `),
+    );
+    const seen = new Set<string>();
+    const picked = rows
+      .filter((row) => {
+        const key = `${row.subject_type}:${row.subject_id}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, limit);
+    const names = new Map<string, string>();
+    for (const organizationId of new Set(picked.map((row) => row.organization_id))) {
+      const found = await subjectNames(
+        tx,
+        organizationId,
+        picked
+          .filter((row) => row.organization_id === organizationId)
+          .map((row) => ({ type: row.subject_type, id: row.subject_id })),
+        true,
+      );
+      for (const [id, name] of found) names.set(id, name);
+    }
+    const [counts] = rowsOf<{ active: number; holders: number }>(
+      await tx.execute(sql`
+        select count(*)::int as active,
+          count(distinct (a.subject_type, a.subject_id))::int as holders
+        from badge_awards a join organizations o on o.id = a.organization_id
+        where a.status = 'active' and (a.expires_at is null or a.expires_at > now())
+          and o.status = 'active'
+      `),
+    );
+    return {
+      awards: picked.map((row) => ({
+        serial: awardSerial(Number(row.serial_year), Number(row.serial_no)),
+        badgeNameAr: row.name_ar,
+        badgeNameEn: row.name_en,
+        tier: row.tier,
+        level: row.level,
+        icon: row.icon,
+        subjectType: row.subject_type,
+        holder: publicHolder(row.subject_type, names.get(row.subject_id) ?? '—'),
+        organizationNameAr: row.org_ar,
+        organizationNameEn: row.org_en,
+        status: row.status,
+        awardedAt: isoOf(row.awarded_at),
+        expiresAt: isoOf(row.expires_at),
+        descriptionAr: row.description_ar,
+        descriptionEn: row.description_en,
+      })),
+      activeCount: Number(counts?.active ?? 0),
+      holderCount: Number(counts?.holders ?? 0),
+    };
+  });
+}
+
+/** Never lets the badge showcase break or hold up a public page. */
+export async function loadBadgeShowcaseSafe(limit = 6): Promise<BadgeShowcase> {
+  const empty: BadgeShowcase = { awards: [], activeCount: 0, holderCount: 0 };
+  try {
+    return await withTimeoutFallback(loadBadgeShowcase(limit), 3_000, empty, 'badge-showcase');
+  } catch (error) {
+    if (!isMissingTable(error)) console.error('badge showcase', error);
+    return empty;
+  }
 }
 
 export async function loadPublicAward(serial: string): Promise<PublicAward | null> {

@@ -9,6 +9,7 @@ import { toPublicMediaSrc } from '@/lib/public-media-url';
 import { categoryLabel } from '@/lib/properties-browse-filters';
 import type { StayCatalogueListing } from '@/lib/stays-catalogue-listing';
 import { stayAsCardListing, stayDetailHref } from '@/lib/stays-browse-filters';
+import { BadgeChips } from '@/components/badges/badge-chips';
 import { StayRatingBadge } from '@/components/stays/stay-rating-badge';
 
 export function StayResultRow({
@@ -68,6 +69,7 @@ export function StayResultRow({
           <Link href={href} className="listing-row__title" prefetch>
             {headline}
           </Link>
+          <BadgeChips badges={listing.badges} locale={locale} />
           {buildingLine ? <p className="listing-row__building-name">{buildingLine}</p> : null}
           {locationLine ? <p className="listing-row__location">{locationLine}</p> : null}
           {listing.unitSerial ? (

@@ -8,11 +8,13 @@ import {
   ReservationComplianceManager,
   type ReservationCompliance,
 } from '@/components/reservation-compliance-manager';
+import { activeBadgeChips, chipsOf, type BadgeChip } from '@/lib/badge-chips-neon';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { readClaims } from '@/lib/portal-ops-data';
 import { loadLeaseBookingForStaff } from '@/lib/public-lease-booking-neon';
 import { ApiError, apiFetch } from '@/lib/server-api';
 import { requirePortal } from '@/lib/viewer';
+import { withTimeoutFallback } from '@/lib/with-timeout';
 
 async function Page({ params }: { params: Promise<{ locale: string; reservationId: string }> }) {
   const { locale: rawLocale, reservationId } = await params;
@@ -24,12 +26,28 @@ async function Page({ params }: { params: Promise<{ locale: string; reservationI
     ? await loadLeaseBookingForStaff(claims, reservationId).catch(() => null)
     : null;
   if (booking && claims) {
+    const chips = await withTimeoutFallback(
+      activeBadgeChips(
+        [
+          { type: 'property', id: booking.propertyId },
+          { type: 'tenant', id: booking.formTenant.id },
+        ],
+        claims.organizationId,
+      ),
+      2_500,
+      new Map<string, BadgeChip[]>(),
+      'reservation-badges',
+    );
     return (
       <LeaseReservationDetail
         booking={booking}
         locale={locale}
         portal="owner"
         permissions={reservationPermissions(claims)}
+        badges={{
+          property: chipsOf(chips, 'property', booking.propertyId),
+          client: chipsOf(chips, 'tenant', booking.formTenant.id),
+        }}
       />
     );
   }

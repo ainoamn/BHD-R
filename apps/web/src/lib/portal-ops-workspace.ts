@@ -1,7 +1,10 @@
 import 'server-only';
 import { getLocale } from 'next-intl/server';
 import { ApiError } from '@/lib/api';
+import { activeBadgeChips, chipsOf, type BadgeRef } from '@/lib/badge-chips-neon';
+import type { BadgeChip } from '@/lib/badges-shared';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { withTimeoutFallback } from '@/lib/with-timeout';
 import { apiFetch, configuredApiOrigin, isNestApiConfiguredForRuntime } from '@/lib/server-api';
 import {
   clearOpsContextDbCache,
@@ -340,6 +343,42 @@ async function loadOperationsContext(): Promise<OperationsContextResult> {
   ]);
 }
 
+/** Buildings' and tenants' current awards on the rows that name them. */
+async function withSectionBadges(
+  section: OperationsSection,
+  records: Record<string, unknown>[],
+): Promise<Record<string, unknown>[]> {
+  if (!records.length || (section !== 'properties' && section !== 'contracts')) return records;
+  const text = (value: unknown) => (typeof value === 'string' ? value : null);
+  const refs: BadgeRef[] =
+    section === 'properties'
+      ? records
+          .filter((row) => !row.parentPropertyId)
+          .map((row) => ({ type: 'property', id: text(row.id) }))
+      : records.flatMap((row): BadgeRef[] => [
+          { type: 'property', id: text(row.propertyId) },
+          { type: 'tenant', id: text(row.tenantPartyId) },
+        ]);
+  const chips = await withTimeoutFallback(
+    activeBadgeChips(refs),
+    2_000,
+    new Map<string, BadgeChip[]>(),
+    'ops-badges',
+  );
+  if (!chips.size) return records;
+  return records.map((row) => {
+    if (section === 'properties') {
+      const badges = row.parentPropertyId ? [] : chipsOf(chips, 'property', text(row.id));
+      return badges.length ? { ...row, badges } : row;
+    }
+    const propertyBadges = chipsOf(chips, 'property', text(row.propertyId));
+    const tenantBadges = chipsOf(chips, 'tenant', text(row.tenantPartyId));
+    return propertyBadges.length || tenantBadges.length
+      ? { ...row, propertyBadges, tenantBadges }
+      : row;
+  });
+}
+
 export async function loadOperationsWorkspacePayload(
   portal: PortalRole,
   section: OperationsSection,
@@ -353,7 +392,9 @@ export async function loadOperationsWorkspacePayload(
     // Organization context and Nest rows are not party-scoped, so a building owner gets only
     // their own properties here; their bookings list comes from the scoped property records.
     const records =
-      section === 'properties' ? ((await loadOpsRecordsFromDb(portal, section)) ?? []) : [];
+      section === 'properties'
+        ? await withSectionBadges(section, (await loadOpsRecordsFromDb(portal, section)) ?? [])
+        : [];
     return {
       records,
       summary: {},
@@ -460,7 +501,7 @@ export async function loadOperationsWorkspacePayload(
   const apiUnauthorized = Boolean(contextResult.unauthorized) && !(dataFromDb && !recordsEmpty);
 
   return {
-    records: loaded.records,
+    records: await withSectionBadges(section, loaded.records),
     summary: loaded.summary ?? {},
     secondary: loaded.secondary ?? [],
     context,

@@ -1,5 +1,55 @@
 import { describe, expect, it } from 'vitest';
-import { parseVerifiedIdentityClaims, permissionsForRoles, rolePermissions } from '../src/index.js';
+import {
+  issueSessionToken,
+  parseVerifiedIdentityClaims,
+  permissionsForRoles,
+  rolePermissions,
+  verifySessionToken,
+  withCurrentRolePermissions,
+  type SessionClaims,
+} from '../src/index.js';
+
+describe('session permission snapshots', () => {
+  const secret = new TextEncoder().encode('test-secret-test-secret-test-secret!');
+  const staleOwner: SessionClaims = {
+    sub: '00000000-0000-4000-8000-000000000001',
+    sid: '00000000-0000-4000-8000-000000000002',
+    organizationId: '00000000-0000-4000-8000-000000000003',
+    partyId: null,
+    roles: ['organization_owner'],
+    permissions: permissionsForRoles(['organization_owner']).filter(
+      (permission) => permission !== 'reservation.handover',
+    ),
+    locale: 'ar',
+    sessionVersion: 0,
+  };
+
+  it('adds permissions a built-in role gained after the session was issued', async () => {
+    const claims = await verifySessionToken(await issueSessionToken(staleOwner, secret), secret);
+    expect(claims.permissions).toContain('reservation.handover');
+    expect(new Set(claims.permissions).size).toBe(claims.permissions.length);
+  });
+
+  it('keeps individual grants and returns up-to-date claims untouched', () => {
+    const current = withCurrentRolePermissions({
+      ...staleOwner,
+      roles: ['tenant'],
+      permissions: [...permissionsForRoles(['tenant']), 'reservation.handover'],
+    });
+    expect(current.permissions).toContain('reservation.handover');
+    expect(withCurrentRolePermissions(current)).toBe(current);
+  });
+
+  it('never widens a tenant session beyond the tenant role', () => {
+    const claims = withCurrentRolePermissions({
+      ...staleOwner,
+      roles: ['tenant'],
+      permissions: [],
+    });
+    expect(claims.permissions).not.toContain('property.update');
+    expect(claims.permissions).toContain('contract.sign');
+  });
+});
 
 describe('central role permissions regression', () => {
   it('keeps tenant access isolated from property administration and payment mutation', () => {

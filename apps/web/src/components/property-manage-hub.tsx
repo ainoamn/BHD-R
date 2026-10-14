@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Link } from '@/i18n/navigation';
+import { BadgeChips } from '@/components/badges/badge-chips';
 import { PropertySectionRecords } from '@/components/property-section-records';
+import type { BadgeChip } from '@/lib/badges-shared';
 import type { PropertyRecordSection } from '@/lib/property-records-neon';
 import { clearBrowserCsrfCache, fetchBrowserCsrfToken } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
@@ -161,6 +163,7 @@ export function PropertyManageHub({
   staysEnabled = false,
   opsPulse,
   access = FULL_HUB_ACCESS,
+  badges,
 }: {
   property: ManagedProperty;
   locale: 'ar' | 'en';
@@ -168,6 +171,7 @@ export function PropertyManageHub({
   staysEnabled?: boolean;
   opsPulse?: PropertyOpsPulse | null;
   access?: PropertyHubAccess;
+  badges?: readonly BadgeChip[] | undefined;
 }) {
   const router = useRouter();
   const ar = locale === 'ar';
@@ -697,6 +701,14 @@ export function PropertyManageHub({
                 ) : null}
               </div>
               <h1>{name}</h1>
+              <BadgeChips
+                badges={badges}
+                locale={locale}
+                labelled
+                size={22}
+                max={4}
+                className="property-360__badges"
+              />
               {addressLine ? (
                 <p className="pmh-hero__address">
                   <Icon name="pin" />
@@ -931,106 +943,106 @@ export function PropertyManageHub({
               </Card>
 
               {access.finance ? (
-              <Card
-                title={ar ? 'المالية' : 'Finance'}
-                icon="chart"
-                link={
-                  access.sections.includes('accounting')
-                    ? { href: sectionHref('accounting'), label: ar ? 'الحسابات' : 'Accounting' }
-                    : undefined
-                }
-              >
-                <dl className="pmh-finance">
-                  {financeRows.map((row) => (
-                    <div key={row.label}>
-                      <dt>{row.label}</dt>
-                      <dd>
-                        {row.rows.length
-                          ? row.rows.map((amount) => (
-                              <span key={amount.currency} dir="ltr">
-                                {formatMoney(amount.amountMinor, amount.currency, locale)}
+                <Card
+                  title={ar ? 'المالية' : 'Finance'}
+                  icon="chart"
+                  link={
+                    access.sections.includes('accounting')
+                      ? { href: sectionHref('accounting'), label: ar ? 'الحسابات' : 'Accounting' }
+                      : undefined
+                  }
+                >
+                  <dl className="pmh-finance">
+                    {financeRows.map((row) => (
+                      <div key={row.label}>
+                        <dt>{row.label}</dt>
+                        <dd>
+                          {row.rows.length
+                            ? row.rows.map((amount) => (
+                                <span key={amount.currency} dir="ltr">
+                                  {formatMoney(amount.amountMinor, amount.currency, locale)}
+                                </span>
+                              ))
+                            : '—'}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                  {succeededPayments.length ? (
+                    <>
+                      <h3 className="pmh-subhead">{ar ? 'آخر المدفوعات' : 'Latest payments'}</h3>
+                      <ul className="pmh-list pmh-list--compact">
+                        {succeededPayments.map((payment) => (
+                          <li key={payment.id}>
+                            <Link href={`${base}/stays/bookings/${payment.bookingId}`} prefetch>
+                              <strong dir="ltr">{payment.referenceCode}</strong>
+                              <span className="pmh-list__amount" dir="ltr">
+                                {formatMoney(payment.amountMinor, payment.currency, locale)}
                               </span>
-                            ))
-                          : '—'}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-                {succeededPayments.length ? (
-                  <>
-                    <h3 className="pmh-subhead">{ar ? 'آخر المدفوعات' : 'Latest payments'}</h3>
-                    <ul className="pmh-list pmh-list--compact">
-                      {succeededPayments.map((payment) => (
-                        <li key={payment.id}>
-                          <Link href={`${base}/stays/bookings/${payment.bookingId}`} prefetch>
-                            <strong dir="ltr">{payment.referenceCode}</strong>
-                            <span className="pmh-list__amount" dir="ltr">
-                              {formatMoney(payment.amountMinor, payment.currency, locale)}
-                            </span>
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                ) : null}
-              </Card>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  ) : null}
+                </Card>
               ) : null}
             </aside>
           </div>
 
           {access.archive ? (
-          <section className="pmh-danger" aria-label={ar ? 'إجراءات حساسة' : 'Sensitive actions'}>
-            <div className="pmh-danger__row">
-              <div>
-                <h2>
-                  {archived
-                    ? ar
-                      ? 'استعادة العقار'
-                      : 'Restore property'
-                    : ar
-                      ? 'أرشفة العقار'
-                      : 'Archive property'}
-                </h2>
-                <p>
-                  {archived
-                    ? ar
-                      ? 'تعيد الأصل دون إعادة نشر أي وحدة تلقائياً.'
-                      : 'Restores the asset without automatically republishing units.'
-                    : ar
-                      ? 'يتوقف نشر جميع الوحدات، ولا تُحذف السجلات أو الوثائق.'
-                      : 'All listings are unpublished; records and documents remain retained.'}
-                </p>
-              </div>
-              <button
-                className={`button ${archived ? 'button--primary' : 'button--danger'}`}
-                type="button"
-                disabled={busy}
-                onClick={() => void archiveOrRestore()}
-              >
-                {archived ? (ar ? 'استعادة' : 'Restore') : ar ? 'أرشفة' : 'Archive'}
-              </button>
-            </div>
-            {archived ? (
+            <section className="pmh-danger" aria-label={ar ? 'إجراءات حساسة' : 'Sensitive actions'}>
               <div className="pmh-danger__row">
                 <div>
-                  <h2>{ar ? 'حذف نهائي' : 'Permanent delete'}</h2>
+                  <h2>
+                    {archived
+                      ? ar
+                        ? 'استعادة العقار'
+                        : 'Restore property'
+                      : ar
+                        ? 'أرشفة العقار'
+                        : 'Archive property'}
+                  </h2>
                   <p>
-                    {ar
-                      ? 'يزيل العقار ووحداته من النظام. غير متاح إن وُجدت عقود أو ملف إقامة يومية.'
-                      : 'Removes the property and its units. Blocked when lease history or a stay profile exists.'}
+                    {archived
+                      ? ar
+                        ? 'تعيد الأصل دون إعادة نشر أي وحدة تلقائياً.'
+                        : 'Restores the asset without automatically republishing units.'
+                      : ar
+                        ? 'يتوقف نشر جميع الوحدات، ولا تُحذف السجلات أو الوثائق.'
+                        : 'All listings are unpublished; records and documents remain retained.'}
                   </p>
                 </div>
                 <button
-                  className="button button--danger"
+                  className={`button ${archived ? 'button--primary' : 'button--danger'}`}
                   type="button"
                   disabled={busy}
-                  onClick={() => void purgePermanently()}
+                  onClick={() => void archiveOrRestore()}
                 >
-                  {ar ? 'حذف نهائي' : 'Delete permanently'}
+                  {archived ? (ar ? 'استعادة' : 'Restore') : ar ? 'أرشفة' : 'Archive'}
                 </button>
               </div>
-            ) : null}
-          </section>
+              {archived ? (
+                <div className="pmh-danger__row">
+                  <div>
+                    <h2>{ar ? 'حذف نهائي' : 'Permanent delete'}</h2>
+                    <p>
+                      {ar
+                        ? 'يزيل العقار ووحداته من النظام. غير متاح إن وُجدت عقود أو ملف إقامة يومية.'
+                        : 'Removes the property and its units. Blocked when lease history or a stay profile exists.'}
+                    </p>
+                  </div>
+                  <button
+                    className="button button--danger"
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void purgePermanently()}
+                  >
+                    {ar ? 'حذف نهائي' : 'Delete permanently'}
+                  </button>
+                </div>
+              ) : null}
+            </section>
           ) : null}
         </>
       )}

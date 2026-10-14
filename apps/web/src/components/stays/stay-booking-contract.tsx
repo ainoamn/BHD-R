@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { Link } from '@/i18n/navigation';
+import { BadgeChips } from '@/components/badges/badge-chips';
 import { PropertyLocationMap } from '@/components/property-location-map';
+import type { BadgeChip } from '@/lib/badges-shared';
 import { StayBookingTimelineSection } from '@/components/stays/stay-booking-timeline';
 import type { PropertyLocation } from '@/lib/contract-document';
 import { formatMoney } from '@/lib/format';
@@ -29,6 +31,7 @@ export type StayBookingContractData = {
   totalMinor: string;
   createdAt: string;
   guestDisplayName?: string | null;
+  guestPartyId?: string | null;
   guestEmail?: string | null;
   guestPhone?: string | null;
   adults?: number | null;
@@ -167,10 +170,12 @@ export function StayBookingContract({
   booking,
   locale,
   portal,
+  badges,
 }: {
   booking: StayBookingContractData;
   locale: string;
   portal: 'owner' | 'developer';
+  badges?: { property: BadgeChip[]; guest: BadgeChip[] };
 }) {
   const ar = locale === 'ar';
   const paid = booking.paymentStatus === 'succeeded';
@@ -318,7 +323,12 @@ export function StayBookingContract({
         <dl className="stay-doc__grid">
           <Row
             label={ar ? 'اسم الضيف' : 'Guest name'}
-            value={booking.guestDisplayName || (ar ? 'غير متوفر' : 'Not provided')}
+            value={
+              <span className="name-with-mark">
+                {booking.guestDisplayName || (ar ? 'غير متوفر' : 'Not provided')}
+                <BadgeChips badges={badges?.guest} locale={locale} />
+              </span>
+            }
           />
           <Row
             label={ar ? 'البريد' : 'Email'}
@@ -352,9 +362,12 @@ export function StayBookingContract({
             label={ar ? 'العقار' : 'Property'}
             value={
               <span className="stay-doc__link-stack">
-                <Link href={`/${portal}/properties/${booking.propertyId}`}>
-                  {propertyName || (ar ? 'فتح العقار' : 'Open property')}
-                </Link>
+                <span className="name-with-mark">
+                  <Link href={`/${portal}/properties/${booking.propertyId}`}>
+                    {propertyName || (ar ? 'فتح العقار' : 'Open property')}
+                  </Link>
+                  <BadgeChips badges={badges?.property} locale={locale} />
+                </span>
                 {booking.stayListingSlug ? (
                   <Link href={`/stays/${booking.stayListingSlug}`}>
                     {ar ? 'صفحة الإقامة العامة + التقويم' : 'Public stay page + calendar'}

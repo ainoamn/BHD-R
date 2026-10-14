@@ -1,3 +1,4 @@
+import type { BadgeChip } from '@/lib/badges-shared';
 import type { IdentityMark } from '@/lib/identity-shared';
 
 export const CONTACT_ROLE_KEYS = [
@@ -52,6 +53,8 @@ export type ContactSummary = {
   openLegal: number;
   member: boolean;
   mark?: IdentityMark;
+  /** Current awards as an owner and as a tenant. */
+  badges?: BadgeChip[];
 };
 
 /** Sums by currency, in minor units. */
@@ -106,6 +109,7 @@ export type ContactDetail = {
     member: boolean;
     address: ContactAddress | null;
     mark?: IdentityMark;
+    badges?: BadgeChip[];
   };
   canEdit: boolean;
   owned: {

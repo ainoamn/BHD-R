@@ -13,6 +13,8 @@ import type { CurrencyCode } from '@bhd-r/contracts';
 import { BrandMark } from '@bhd-r/ui';
 import { Link } from '@/i18n/navigation';
 import { browserMutation, browserApiPath } from '@/lib/api';
+import type { BadgeChip } from '@/lib/badges-shared';
+import { BadgeChips } from './badges/badge-chips';
 import {
   bookingNeedsApproval,
   bookingStatusTone,
@@ -880,7 +882,37 @@ function bookingSortKey(row: DataRow) {
   };
 }
 
+function badgesOf(value: unknown): BadgeChip[] | null {
+  return Array.isArray(value) && value.length ? (value as BadgeChip[]) : null;
+}
+
+/** Awards the server attached to a row, for the column that names their holder. */
+function cellBadges(row: DataRow, column: Column): BadgeChip[] | null {
+  if (column.key === 'nameAr') return badgesOf(row.badges);
+  if (column.key === 'tenantName') return badgesOf(row.tenantBadges);
+  if (column.format === 'place') return badgesOf(row.propertyBadges);
+  return null;
+}
+
 function displayCell(
+  row: DataRow,
+  column: Column,
+  locale: 'ar' | 'en',
+  context: OperationsContext,
+  flow?: Array<{ value: string; ar: string; en: string }>,
+): ReactNode {
+  const content = displayCellValue(row, column, locale, context, flow);
+  const chips = cellBadges(row, column);
+  if (!chips) return content;
+  return (
+    <span className="name-with-mark">
+      {content}
+      <BadgeChips badges={chips} locale={locale} size={18} />
+    </span>
+  );
+}
+
+function displayCellValue(
   row: DataRow,
   column: Column,
   locale: 'ar' | 'en',
@@ -4738,7 +4770,10 @@ ${depositHtml}${
                           />
                         ) : null}
                         <div className="ops-mobile-card__head-copy">
-                          <h3 className="ops-mobile-card__title">{name}</h3>
+                          <h3 className="ops-mobile-card__title">
+                            {name}
+                            <BadgeChips badges={badgesOf(row.badges)} locale={locale} size={18} />
+                          </h3>
                           {serial ? (
                             <p className="ops-mobile-card__serial" dir="ltr">
                               {serial}

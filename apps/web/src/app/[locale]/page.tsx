@@ -2,6 +2,7 @@ import Image from 'next/image';
 import { EmptyState, Logo } from '@bhd-r/ui';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
+import { BadgeShowcaseSection } from '@/components/badges/badge-showcase';
 import { ListingCard } from '@/components/listing-card';
 import { PropertySearch } from '@/components/property-search';
 import { HomeSearchTabs } from '@/components/stays/home-search-tabs';
@@ -10,6 +11,7 @@ import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
 import { getShellViewer } from '@/lib/viewer';
 import { withTimeoutFallback } from '@/lib/with-timeout';
+import type { BadgeShowcase } from '@/lib/badges-neon';
 import type { ListingCollection } from '@/lib/types';
 
 const homeCopy = {
@@ -104,9 +106,15 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   const copy = homeCopy[locale === 'en' ? 'en' : 'ar'];
   const emptyListings = { data: [], pagination: { nextCursor: null, hasMore: false } };
   let listings = emptyListings as ListingCollection;
+  const emptyShowcase: BadgeShowcase = { awards: [], activeCount: 0, holderCount: 0 };
 
-  const [viewer] = await Promise.all([
+  const [viewer, showcase] = await Promise.all([
     getShellViewer().catch(() => null),
+    hasDatabaseUrl()
+      ? import('@/lib/badges-neon')
+          .then(({ loadBadgeShowcaseSafe }) => loadBadgeShowcaseSafe(6))
+          .catch(() => emptyShowcase)
+      : emptyShowcase,
     (async () => {
       if (!hasDatabaseUrl()) return;
       try {
@@ -238,6 +246,8 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
           )}
         </div>
       </section>
+
+      <BadgeShowcaseSection showcase={showcase} locale={locale} />
 
       <section id="how-it-works" className="section journey-section">
         <div className="container journey-layout">

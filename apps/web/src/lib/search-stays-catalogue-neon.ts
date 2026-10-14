@@ -7,6 +7,7 @@ import { googleMapsLinkFromCoords, parseGoogleMapsUrl } from '@/lib/parse-google
 import { assignUnitSerials, inferUnitKind, unitKindToCategory } from '@/lib/unit-identity';
 import type { StayCatalogueCollection, StayCatalogueListing } from '@/lib/stays-catalogue-listing';
 import { asPublicListingCategory } from '@/lib/search-public-listings-neon';
+import { withPropertyBadges } from '@/lib/badge-chips-neon';
 import { loadUnitRatings, type UnitRating } from '@/lib/booking-reviews-neon';
 import { withTimeoutFallback } from '@/lib/with-timeout';
 
@@ -509,15 +510,23 @@ export async function searchStaysCatalogueFromNeon(
     };
   });
 
-  const ratings = await withTimeoutFallback(
-    loadUnitRatings(collection.data.map((item) => item.unitId)),
-    2_500,
-    new Map<string, UnitRating>(),
-    'stays-catalogue-ratings',
-  );
+  const [ratings, data] = await Promise.all([
+    withTimeoutFallback(
+      loadUnitRatings(collection.data.map((item) => item.unitId)),
+      2_500,
+      new Map<string, UnitRating>(),
+      'stays-catalogue-ratings',
+    ),
+    withTimeoutFallback(
+      withPropertyBadges(collection.data),
+      2_500,
+      collection.data,
+      'stays-catalogue-badges',
+    ),
+  ]);
   return {
     ...collection,
-    data: collection.data.map((item) => ({ ...item, rating: ratings.get(item.unitId) ?? null })),
+    data: data.map((item) => ({ ...item, rating: ratings.get(item.unitId) ?? null })),
   };
 }
 

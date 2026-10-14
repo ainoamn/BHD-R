@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import { BrandMark, StatusBadge } from '@bhd-r/ui';
 import { getTranslations } from 'next-intl/server';
+import { BadgeChips } from '@/components/badges/badge-chips';
 import { Link } from '@/i18n/navigation';
 import { formatMoney } from '@/lib/format';
 import { formatListingCardTitle, formatListingLocation } from '@/lib/listing-card-copy';
@@ -26,6 +27,7 @@ export async function ListingCard({
   const ar = locale === 'ar';
   const loc = ar ? 'ar' : 'en';
   const catalogue = listing as CatalogueListing;
+  const badges = catalogue.badges;
   const { headline, buildingLine, isMulti } = formatListingCardTitle(catalogue, loc);
   const locationLine = formatListingLocation(catalogue);
   const href = listing.unitId
@@ -95,7 +97,10 @@ export async function ListingCard({
               {reservedNote}
             </p>
           ) : null}
-          <h3>{headline}</h3>
+          <h3 className={badges?.length ? 'name-with-mark' : undefined}>
+            {headline}
+            <BadgeChips badges={badges} locale={locale} linked={false} />
+          </h3>
           {buildingLine ? <p className="listing-card__building-name">{buildingLine}</p> : null}
           {locationLine ? <p className="listing-card__location">{locationLine}</p> : null}
           {serial ? (

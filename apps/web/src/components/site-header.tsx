@@ -100,6 +100,9 @@ export function SiteHeader() {
           <Link href="/trust" prefetch scroll={false} onClick={() => setOpen(false)}>
             {t('Nav.trust')}
           </Link>
+          <Link href="/badges" scroll={false} onClick={() => setOpen(false)}>
+            {locale === 'ar' ? 'الشارات' : 'Badges'}
+          </Link>
           <Link
             href={pathname}
             locale={locale === 'ar' ? 'en' : 'ar'}
@@ -109,10 +112,7 @@ export function SiteHeader() {
             {t('Nav.language')}
           </Link>
           <span className="header-auth-slot">
-            <HeaderStayAlerts
-              locale={locale}
-              signedIn={auth.status === 'signed-in'}
-            />
+            <HeaderStayAlerts locale={locale} signedIn={auth.status === 'signed-in'} />
             {auth.status === 'loading' ? (
               <span className="header-auth-loading" aria-hidden="true" />
             ) : auth.status === 'signed-in' ? (

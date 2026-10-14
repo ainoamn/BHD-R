@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { BadgeChips } from '@/components/badges/badge-chips';
 import { IdentityAvatar, VerifiedMark } from '@/components/identity/verified-mark';
 import { Link } from '@/i18n/navigation';
 import { arPlural, contactRoleLabel, type ContactSummary } from '@/lib/contacts-shared';
@@ -163,6 +164,7 @@ export function ContactsBoard({
                   <strong className="name-with-mark">
                     {contact.displayName}
                     <VerifiedMark verified={contact.mark?.verified} locale={locale} />
+                    <BadgeChips badges={contact.badges} locale={locale} size={18} linked={false} />
                   </strong>
                   <span className="contact-card__roles">
                     {contact.properties > 0 && !contact.roles.includes('owner') ? (

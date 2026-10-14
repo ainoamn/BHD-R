@@ -4,6 +4,7 @@ import { setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { PropertyDetailManager } from '@/components/property-detail-manager';
 import { PropertyDiscoveryRails } from '@/components/property-discovery-rails';
+import { subjectBadgeChips } from '@/lib/badge-chips-neon';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { loadHostSummarySafe } from '@/lib/booking-reviews-neon';
 import { loadPublicPropertyShowcaseFromNeon } from '@/lib/load-public-property-neon';
@@ -119,9 +120,10 @@ export default async function PropertyPage({
       ? property.units.find((unit) => unit.id === query.unit || unit.code === query.unit)?.id
       : undefined;
 
-  const [discovery, hostSummary] = await Promise.all([
+  const [discovery, hostSummary, badges] = await Promise.all([
     withTimedResult(loadPropertyDiscoveryRails(property), 4_000, 'property-discovery'),
     loadHostSummarySafe(property.organizationId),
+    subjectBadgeChips('property', property.id),
   ]);
   const rails =
     discovery.status === 'ok' ? discovery.value : { similar: [], recommended: [], topRated: [] };
@@ -137,6 +139,7 @@ export default async function PropertyPage({
           variant="public"
           signedIn={Boolean(viewer)}
           hostSummary={hostSummary}
+          badges={badges}
           {...(focusUnitId ? { focusUnitId } : {})}
         />
         <PropertyDiscoveryRails

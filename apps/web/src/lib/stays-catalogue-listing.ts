@@ -1,4 +1,5 @@
 import type { PublicListing } from '@bhd-r/contracts';
+import type { BadgeChip } from '@/lib/badges-shared';
 
 /** Public stay catalogue row — one published stay profile per unit. */
 export type StayCatalogueListing = {
@@ -35,6 +36,8 @@ export type StayCatalogueListing = {
   unitSerial?: string | null;
   /** Guest reviews of the unit, once released; null when it has none yet. */
   rating?: { score: number; count: number } | null;
+  /** Current awards of the building. */
+  badges?: BadgeChip[];
 };
 
 export type StayCatalogueCollection = {

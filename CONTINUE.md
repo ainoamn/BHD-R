@@ -2,6 +2,22 @@
 
 **تسليم الجلسة كاملة (0.2.24 → 0.8.33):** للاستكمال من جهاز آخر ابدأ من [`docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه خطوات الإعداد، والمراحل بالتاريخ والوقت، والمهام المفتوحة. ويرافقه فهرس الإصدارات (251 إصداراً) والمحادثة كاملة بعد حذف الأسرار.
 
+# CONTINUE — 2026-10-14 12:00 (مسقط)
+
+**0.8.63** · الشارات في كل مكان، ولوحة الشرف، وصفحة الشارات، وإصلاح التسليم:
+
+- **التسليم:** `verifySessionToken` يمر عبر `withCurrentRolePermissions` (اتحاد صلاحيات الجلسة مع `permissionsForRoles(claims.roles)`). سحب صلاحية من دور ما زال يحتاج رفع `sessionVersion`.
+- **القراءة:** `badge-chips-neon.ts`:
+  - `activeBadgeChips(refs, orgId?)` قراءة واحدة، بمفتاح `badgeSubjectKey(type, id)`، مرتّبة بـ `badgePrestige`.
+  - `subjectBadgeChips`، و`stayBookingBadges`، و`withPropertyBadges`، و`partyBadgeChips` + `partyChipsOf`، و`chipsOf`. كلها بمهلة 2.5 ثانية.
+  - أصحاب الشارات: العقار برقم العقار، والمالك والمستأجر برقم الطرف، والموظف برقم المستخدم، والعامل برقم المورّد.
+- **العرض:** `BadgeChips` (`labelled`، و`linked=false` داخل البطاقات التي هي روابط).
+- **التغطية:** البطاقات العامة، و`PropertyDetailManager` العام و`PropertyManageHub`، والعقد (`contractBadges`)، وحجوزات الإيجار والإقامة، و`property-records-neon` (`partyId` + `badges`)، و`portal-ops-workspace` (`badges`، و`propertyBadges`، و`tenantBadges`)، ودفتر العناوين، والفريق (`TeamView.badges`)، ومساحة المستأجر (`loadMyTenantBadges`).
+- **لوحة الشرف:** `loadBadgeShowcaseSafe` + `BadgeShowcaseSection` في الرئيسية وفي `/badges`.
+- **مفتوح:** قوائم العمال والمقاولين، وعمود المستأجر في قائمة التأجير التشغيلية، والمستأجرون في الفريق. ومن 0.8.62: الرسائل الـ 11 القديمة، وتوثيق نطاق Resend.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.63-AR.md`](./docs/implementation/RELEASE-0.8.63-AR.md)
+
 # CONTINUE — 2026-10-14 11:15 (مسقط)
 
 **0.8.62** · دعوات الفريق والبريد:

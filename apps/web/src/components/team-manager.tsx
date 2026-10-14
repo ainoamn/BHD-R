@@ -1,8 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { BadgeChips } from '@/components/badges/badge-chips';
 import { IdentityAvatar, VerifiedMark } from '@/components/identity/verified-mark';
 import { ApiError, browserNextMutation } from '@/lib/api';
+import { badgeSubjectKey } from '@/lib/badges-shared';
 import type { IdentityMark } from '@/lib/identity-shared';
 import {
   CAPABILITY_GROUPS,
@@ -542,6 +544,11 @@ function MemberRow({
               verified={view.marks?.[member.userId]?.verified}
               locale={ar ? 'ar' : 'en'}
             />
+            <BadgeChips
+              badges={view.badges?.[badgeSubjectKey('staff', member.userId)]}
+              locale={ar ? 'ar' : 'en'}
+              size={18}
+            />
             {member.isSelf ? <em>{ar ? ' (أنت)' : ' (you)'}</em> : null}
           </strong>
           <small dir="ltr">{member.email}</small>
@@ -690,6 +697,13 @@ function OwnerRow({
               verified={view.marks?.[owner.userId]?.verified}
               locale={ar ? 'ar' : 'en'}
             />
+            {owner.partyId ? (
+              <BadgeChips
+                badges={view.badges?.[badgeSubjectKey('owner', owner.partyId)]}
+                locale={ar ? 'ar' : 'en'}
+                size={18}
+              />
+            ) : null}
           </strong>
           <small dir="ltr">{owner.email}</small>
         </div>

@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { PartyBadgesPanel } from '@/components/badges/subject-badges-panel';
+import { BadgeChips } from '@/components/badges/badge-chips';
 import { IdentityAvatar, VerifiedMark } from '@/components/identity/verified-mark';
 import { Link } from '@/i18n/navigation';
 import { ApiError, browserNextMutation } from '@/lib/api';
@@ -326,6 +327,7 @@ export function ContactWorkspace({
             {party.displayName}
             <VerifiedMark verified={party.mark?.verified} locale={locale} size={22} />
           </h1>
+          <BadgeChips badges={party.badges} locale={locale} labelled size={22} max={5} />
           {party.mark ? (
             <p className={`account-status${party.mark.verified ? ' is-verified' : ''}`}>
               {party.mark.verified

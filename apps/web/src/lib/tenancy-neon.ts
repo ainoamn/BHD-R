@@ -13,6 +13,8 @@ import {
   units,
   type Database,
 } from '@bhd-r/db';
+import { activeBadgeChips } from '@/lib/badge-chips-neon';
+import { badgePrestige, type BadgeChip } from '@/lib/badges-shared';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { applySessionSettings, viewerTenantSettings } from '@/lib/db-session-settings';
 import {
@@ -33,6 +35,7 @@ import {
   type TenancyReservation,
   type TenancyStay,
 } from '@/lib/tenancy-shared';
+import { withTimeoutFallback } from '@/lib/with-timeout';
 
 type DbHandle = { db: Database };
 type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
@@ -480,6 +483,20 @@ async function loadStays(userId: string, links: TenancyLink[]): Promise<TenancyS
 
 function muscatToday(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Muscat' });
+}
+
+/** The account's current awards as a tenant, from every landlord, most prestigious first. */
+export async function loadMyTenantBadges(userId: string): Promise<BadgeChip[]> {
+  if (!hasDatabaseUrl()) return [];
+  const links = await loadTenancyLinks(userId);
+  if (!links.length) return [];
+  const chips = await withTimeoutFallback(
+    activeBadgeChips(links.map((link) => ({ type: 'tenant' as const, id: link.partyId }))),
+    2_500,
+    new Map<string, BadgeChip[]>(),
+    'tenant-badges',
+  );
+  return [...chips.values()].flat().sort((a, b) => badgePrestige(b) - badgePrestige(a));
 }
 
 /** Everything the account rents or booked, across every landlord, with what needs attention. */

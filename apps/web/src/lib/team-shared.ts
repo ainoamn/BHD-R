@@ -3,6 +3,7 @@
  * top of roles, and the organization's own saved roles. Shared by the team routes and page.
  */
 import type { Permission } from '@bhd-r/authz';
+import type { BadgeChip } from '@/lib/badges-shared';
 import type { IdentityMark } from '@/lib/identity-shared';
 
 /** Same as the authz package's prefix; that package is server-only (node crypto). */
@@ -603,6 +604,8 @@ export type TeamView = {
   organizationName: string;
   /** Verified tick and picture per user id. */
   marks?: Record<string, IdentityMark>;
+  /** Current awards keyed by `badgeSubjectKey`: staff by user, owners by party. */
+  badges?: Record<string, BadgeChip[]>;
 };
 
 export type OrganizationChoice = {

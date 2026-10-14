@@ -1,7 +1,9 @@
 import { Card, CardContent } from '@bhd-r/ui';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { BadgeChips } from '@/components/badges/badge-chips';
 import { TermsDocument } from '@/components/terms-document';
+import type { BadgeChip } from '@/lib/badges-shared';
 import type { ContractDetail } from '@/lib/contract-detail-neon';
 import type {
   ContractDocument,
@@ -243,6 +245,7 @@ export function ContractDocumentView({
   portal,
   locale,
   viewerName,
+  badges,
 }: {
   contract: ContractDetail;
   doc: ContractDocument;
@@ -251,6 +254,7 @@ export function ContractDocumentView({
   portal: Portal;
   locale: 'ar' | 'en';
   viewerName: string;
+  badges?: { owner: BadgeChip[]; tenant: BadgeChip[]; property: BadgeChip[] };
 }) {
   const ar = locale === 'ar';
   const bookingCopy = contract.bookingCopy ?? null;
@@ -291,6 +295,24 @@ export function ContractDocumentView({
           <p>
             {title} · {pick(status)}
           </p>
+          {badges && (badges.owner.length || badges.tenant.length || badges.property.length) ? (
+            <ul className="contract-detail__badges">
+              {(
+                [
+                  [ar ? 'المؤجر' : 'Landlord', ownerName, badges.owner],
+                  [ar ? 'المستأجر' : 'Tenant', tenantName, badges.tenant],
+                  [ar ? 'العقار' : 'Property', pick(propertyName), badges.property],
+                ] as const
+              )
+                .filter(([, , chips]) => chips.length)
+                .map(([label, name, chips]) => (
+                  <li key={label} className="name-with-mark">
+                    <span className="muted">{label}:</span> <bdi>{name}</bdi>
+                    <BadgeChips badges={chips} locale={locale} />
+                  </li>
+                ))}
+            </ul>
+          ) : null}
         </div>
         <Link className="button button--quiet" href={`/${locale}/${portal}/contracts`}>
           {ar ? 'كل العقود' : 'All contracts'}

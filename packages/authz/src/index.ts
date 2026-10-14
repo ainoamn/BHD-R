@@ -812,7 +812,14 @@ export async function verifySessionToken(
     audience: 'bhd-r-api',
     algorithms: ['HS256'],
   });
-  return sessionClaimsSchema.parse(result.payload);
+  return withCurrentRolePermissions(sessionClaimsSchema.parse(result.payload));
+}
+
+/** Permissions added to a built-in role reach sessions issued before that release. */
+export function withCurrentRolePermissions(claims: SessionClaims): SessionClaims {
+  const current = permissionsForRoles(claims.roles);
+  if (current.every((permission) => claims.permissions.includes(permission))) return claims;
+  return { ...claims, permissions: [...new Set([...claims.permissions, ...current])] };
 }
 
 function toError(value: unknown): Error {

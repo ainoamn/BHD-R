@@ -17,11 +17,14 @@ import {
   type Database,
 } from '@bhd-r/db';
 import { entitlementsForPlan } from '@bhd-r/domain';
+import { activeBadgeChips, type BadgeRef } from '@/lib/badge-chips-neon';
+import type { BadgeChip } from '@/lib/badges-shared';
 import { applySessionSettings } from '@/lib/db-session-settings';
 import { emailDeliveryState, sendQueuedEmailsSoon } from '@/lib/email-outbox';
 import { marksForUsers } from '@/lib/identity-marks-neon';
 import { escapeHtml } from '@/lib/lease-booking-contract';
 import { publicWebOrigin } from '@/lib/seo';
+import { withTimeoutFallback } from '@/lib/with-timeout';
 import {
   assignableRoles,
   canAssignSavedRole,
@@ -286,13 +289,27 @@ async function loadLawyerParties(tx: Tx, organizationId: string): Promise<Lawyer
 
 export async function loadTeam(claims: SessionClaims): Promise<TeamView> {
   const view = await loadTeamView(claims);
-  const marks = await marksForUsers([
-    ...view.members.map((member) => member.userId),
-    ...view.owners.map((owner) => owner.userId),
-    ...view.lawyers.map((lawyer) => lawyer.userId),
-    ...view.tenants.map((tenant) => tenant.userId),
+  const [marks, badges] = await Promise.all([
+    marksForUsers([
+      ...view.members.map((member) => member.userId),
+      ...view.owners.map((owner) => owner.userId),
+      ...view.lawyers.map((lawyer) => lawyer.userId),
+      ...view.tenants.map((tenant) => tenant.userId),
+    ]),
+    withTimeoutFallback(
+      activeBadgeChips(
+        [
+          ...view.members.map((member): BadgeRef => ({ type: 'staff', id: member.userId })),
+          ...view.owners.map((owner): BadgeRef => ({ type: 'owner', id: owner.partyId })),
+        ],
+        organizationOf(claims),
+      ),
+      2_500,
+      new Map<string, BadgeChip[]>(),
+      'team-badges',
+    ),
   ]);
-  return { ...view, marks: Object.fromEntries(marks) };
+  return { ...view, marks: Object.fromEntries(marks), badges: Object.fromEntries(badges) };
 }
 
 async function loadTeamView(claims: SessionClaims): Promise<TeamView> {

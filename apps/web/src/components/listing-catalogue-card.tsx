@@ -12,6 +12,7 @@ import {
   reservedUntilNote,
   type CatalogueListing,
 } from '@/lib/listing-market-status';
+import { BadgeChips } from '@/components/badges/badge-chips';
 import { StayRatingBadge } from '@/components/stays/stay-rating-badge';
 import { listingPurposeCaption } from '@/lib/listing-purpose-display';
 import { toPublicMediaSrc } from '@/lib/public-media-url';
@@ -99,7 +100,10 @@ export function ListingCatalogueCard({
               {reservedNote}
             </p>
           ) : null}
-          <h3>{headline}</h3>
+          <h3 className={listing.badges?.length ? 'name-with-mark' : undefined}>
+            {headline}
+            <BadgeChips badges={listing.badges} locale={locale} linked={false} />
+          </h3>
           {buildingLine ? <p className="listing-card__building-name">{buildingLine}</p> : null}
           {locationLine ? <p className="listing-card__location">{locationLine}</p> : null}
           {listing.unitSerial ? (

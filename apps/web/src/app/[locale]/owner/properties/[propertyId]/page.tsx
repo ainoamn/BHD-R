@@ -4,6 +4,7 @@ import { notFound, redirect } from 'next/navigation';
 import { verifySessionToken } from '@bhd-r/authz';
 import { PropertyDetailManager, type ManagedProperty } from '@/components/property-detail-manager';
 import type { PropertyHubAccess } from '@/components/property-manage-hub';
+import { subjectBadgeChips } from '@/lib/badge-chips-neon';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { canOpenPortalPath, holdsSectionPermission, scopedOwnerParty } from '@/lib/portal-access';
 import { PROPERTY_RECORD_SECTIONS } from '@/lib/property-records-neon';
@@ -87,7 +88,10 @@ async function Page({
 
   if (!property) notFound();
 
-  const opsPulse = await (opsPulsePromise ?? loadPulse());
+  const [opsPulse, badges] = await Promise.all([
+    opsPulsePromise ?? loadPulse(),
+    neonOrgId ? subjectBadgeChips('property', property.id, neonOrgId) : [],
+  ]);
 
   const can = (permission: string) => viewer.permissions.includes(permission);
   const hubAccess: PropertyHubAccess = {
@@ -117,6 +121,7 @@ async function Page({
         staysEnabled={isStaysPlatformEnabled()}
         opsPulse={opsPulse}
         hubAccess={hubAccess}
+        badges={badges}
         {...(focusUnitId ? { focusUnitId } : {})}
       />
       {!ownerPartyId && neonOrgId ? (

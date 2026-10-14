@@ -7,6 +7,7 @@ import { ownerHidTakenUnit } from '@/lib/listing-visibility-sql';
 import { omanLocations } from '@/lib/oman-locations';
 import { googleMapsLinkFromCoords, parseGoogleMapsUrl } from '@/lib/parse-google-maps-url';
 import { assignUnitSerials, inferUnitKind, unitKindToCategory } from '@/lib/unit-identity';
+import { withPropertyBadges } from '@/lib/badge-chips-neon';
 import { loadPropertyRatings, loadUnitRatings, type UnitRating } from '@/lib/booking-reviews-neon';
 import { withTimeoutFallback } from '@/lib/with-timeout';
 
@@ -763,7 +764,16 @@ export async function searchPublicListingsFromNeon(
 
     return { data, pagination: { nextCursor: null, hasMore: false } };
   });
-  return withGuestRatings(collection);
+  const rated = await withGuestRatings(collection);
+  return {
+    ...rated,
+    data: await withTimeoutFallback(
+      withPropertyBadges(rated.data),
+      2_500,
+      rated.data,
+      'catalogue-badges',
+    ),
+  };
 }
 
 /**

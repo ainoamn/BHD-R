@@ -12,6 +12,7 @@ import {
   reservedUntilNote,
   type CatalogueListing,
 } from '@/lib/listing-market-status';
+import { BadgeChips } from '@/components/badges/badge-chips';
 import { StayRatingBadge } from '@/components/stays/stay-rating-badge';
 import { toPublicMediaSrc } from '@/lib/public-media-url';
 import { categoryLabel } from '@/lib/properties-browse-filters';
@@ -100,6 +101,7 @@ export function ListingResultRow({
           <Link href={href} className="listing-row__title" prefetch>
             {headline}
           </Link>
+          <BadgeChips badges={listing.badges} locale={locale} />
           {buildingLine ? <p className="listing-row__building-name">{buildingLine}</p> : null}
           {locationLine ? <p className="listing-row__location">{locationLine}</p> : null}
           {listing.unitSerial ? (

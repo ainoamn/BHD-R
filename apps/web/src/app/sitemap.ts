@@ -5,7 +5,7 @@ import type { ListingCollection } from '@/lib/types';
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base =
     process.env.PUBLIC_WEB_ORIGIN ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'https://r.bhd-om.com';
-  const pages = ['', '/properties', '/trust', '/privacy', '/terms', '/accessibility'];
+  const pages = ['', '/properties', '/badges', '/trust', '/privacy', '/terms', '/accessibility'];
   const staticEntries = ['ar', 'en'].flatMap((locale) =>
     pages.map((page) => ({
       url: `${base}/${locale}${page}`,

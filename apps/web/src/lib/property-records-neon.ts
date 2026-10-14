@@ -22,7 +22,10 @@ import {
   utilityMeters,
   viewingRequests,
 } from '@bhd-r/db';
+import { activeBadgeChips } from '@/lib/badge-chips-neon';
+import type { BadgeChip } from '@/lib/badges-shared';
 import { loadBookingReviewFacts } from '@/lib/booking-reviews-neon';
+import { withTimeoutFallback } from '@/lib/with-timeout';
 import {
   leaseJourneyPhase,
   phaseWaitsOn,
@@ -75,7 +78,32 @@ export type PropertySectionRecords = {
   rows: PropertyRecordRow[];
   units: PropertyRecordUnit[];
   tenants: PropertyRecordTenant[];
+  /** Current awards keyed by `badgeSubjectKey`: rows' tenants (`partyId`) and buildings. */
+  badges?: Record<string, BadgeChip[]>;
 };
+
+async function withRecordBadges(
+  records: PropertySectionRecords | null,
+  orgId: string,
+  propertyIds: string[],
+): Promise<PropertySectionRecords | null> {
+  if (!records?.rows.length) return records;
+  const chips = await withTimeoutFallback(
+    activeBadgeChips(
+      [
+        ...records.rows.map((row) => ({ type: 'tenant' as const, id: row.partyId })),
+        ...[...new Set([...propertyIds, ...records.rows.map((row) => row.propertyId)])].map(
+          (id) => ({ type: 'property' as const, id }),
+        ),
+      ],
+      orgId,
+    ),
+    2_500,
+    new Map<string, BadgeChip[]>(),
+    'property-records-badges',
+  );
+  return chips.size ? { ...records, badges: Object.fromEntries(chips) } : records;
+}
 
 function omanToday(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Muscat' }).format(new Date());
@@ -123,7 +151,7 @@ export async function loadPropertySectionRecords(
   if (!orgId) return null;
   const ownerPartyId = ownerPartyScope(claims);
 
-  return withinViewerTenant(claims, async (tx) => {
+  const records = await withinViewerTenant(claims, async (tx) => {
     const [property] = await tx
       .select({ id: properties.id })
       .from(properties)
@@ -233,6 +261,7 @@ export async function loadPropertySectionRecords(
       tenants,
     };
   });
+  return withRecordBadges(records, orgId, [propertyId]);
 }
 
 /** Refund account numbers in full only for those who decide or pay refunds. */
@@ -255,7 +284,7 @@ export async function loadAllPropertyBookings(
   if (!orgId) return null;
   const ownerPartyId = ownerPartyScope(claims);
 
-  return withinViewerTenant(claims, async (tx) => {
+  const records = await withinViewerTenant(claims, async (tx) => {
     const propertyRows = await tx
       .select({ id: properties.id, nameAr: properties.nameAr, nameEn: properties.nameEn })
       .from(properties)
@@ -288,6 +317,7 @@ export async function loadAllPropertyBookings(
     );
     return { rows, units: [], tenants: [] };
   });
+  return withRecordBadges(records, orgId, []);
 }
 
 /** Tenants and prospects of the organization, for the manual lease address-book picker. */
@@ -572,6 +602,7 @@ async function loadBookings(
           guestByBooking.get(row.id) ??
           row.contactName ??
           (row.guestPartyId ? (names.get(row.guestPartyId) ?? null) : null),
+        partyId: row.guestPartyId ?? null,
         fromOn: isoDate(row.checkInOn),
         toOn: isoDate(row.checkOutOn),
         amountMinor: minor(row.totalMinor),
@@ -602,6 +633,7 @@ async function loadBookings(
         ...placeOf(unitProperty.get(row.unitId)),
         unitCode: codeOf(row.unitId),
         party: row.contactName ?? names.get(row.tenantPartyId) ?? null,
+        partyId: row.tenantPartyId ?? null,
         guestPhone: row.contactPhone,
         fromOn: paidAt ? paidAt.slice(0, 10) : isoDate(row.startsAt),
         toOn: isoDate(row.expiresAt),
@@ -621,6 +653,7 @@ async function loadBookings(
       ...placeOf(unitProperty.get(row.unitId)),
       unitCode: codeOf(row.unitId),
       party: names.get(row.prospectPartyId) ?? null,
+      partyId: row.prospectPartyId ?? null,
       fromOn: isoDate(row.scheduledAt ?? row.preferredAt),
       toOn: null,
       amountMinor: null,
@@ -736,6 +769,7 @@ async function loadContracts(
       sourceReference: row.sourceReference,
       unitCode: codeOf(row.unitId),
       party: names.get(row.tenantPartyId) ?? null,
+      partyId: row.tenantPartyId ?? null,
       ownerName: names.get(row.ownerPartyId) ?? null,
       status: contractDisplayStatus(row.status, pending.has(row.id)),
       contractStatus: row.status,
@@ -804,6 +838,7 @@ async function loadLeases(
     sourceReference: row.sourceReference,
     unitCode: codeOf(row.unitId),
     party: names.get(row.tenantPartyId) ?? null,
+    partyId: row.tenantPartyId ?? null,
     status: leaseDisplayStatus(row.status, isoDate(row.startsOn), isoDate(row.endsOn)),
     leaseStatus: row.status,
     fromOn: isoDate(row.startsOn),
@@ -963,6 +998,7 @@ async function loadInvoices(
     reference: row.invoiceNumber,
     unitCode: codeOf(row.unitId),
     party: names.get(row.tenantPartyId) ?? null,
+    partyId: row.tenantPartyId ?? null,
     status: row.status,
     amountMinor: minor(row.totalMinor),
     paidMinor: minor(row.paidMinor),

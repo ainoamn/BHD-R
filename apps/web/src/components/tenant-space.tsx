@@ -2,7 +2,9 @@ import { EmptyState } from '@bhd-r/ui';
 import { Children, cloneElement, isValidElement, type ReactNode } from 'react';
 import { Link } from '@/i18n/navigation';
 import { formatMoney } from '@/lib/format';
-import { loadMyTenancy } from '@/lib/tenancy-neon';
+import { BadgeChips } from '@/components/badges/badge-chips';
+import type { BadgeChip } from '@/lib/badges-shared';
+import { loadMyTenancy, loadMyTenantBadges } from '@/lib/tenancy-neon';
 import {
   EMPTY_TENANCY,
   invoiceOutstandingMinor,
@@ -448,17 +450,21 @@ export async function TenantSpace({
   const locale = rawLocale === 'en' ? 'en' : 'ar';
   const viewer = await requirePortal(locale, 'tenant');
   let failed = false;
-  const data = await loadMyTenancy(viewer.id).catch((error: unknown) => {
-    console.error('tenant space failed', error);
-    failed = true;
-    return EMPTY_TENANCY;
-  });
+  const [data, badges] = await Promise.all([
+    loadMyTenancy(viewer.id).catch((error: unknown) => {
+      console.error('tenant space failed', error);
+      failed = true;
+      return EMPTY_TENANCY;
+    }),
+    loadMyTenantBadges(viewer.id).catch(() => []),
+  ]);
   return (
     <TenantSpaceContent
       locale={locale}
       view={view}
       data={data}
       failed={failed}
+      badges={badges}
       displayName={viewer.displayName}
       ownerPortal={
         viewer.portals.find((portal) => portal === 'owner' || portal === 'developer') ?? null
@@ -472,6 +478,7 @@ export function TenantSpaceContent({
   view,
   data,
   failed,
+  badges,
   displayName,
   ownerPortal,
 }: {
@@ -479,6 +486,7 @@ export function TenantSpaceContent({
   view: TenantSpaceView;
   data: MyTenancy;
   failed: boolean;
+  badges?: readonly BadgeChip[];
   displayName: string;
   ownerPortal: string | null;
 }) {
@@ -565,6 +573,14 @@ export function TenantSpaceContent({
         <div className="dash-hero__copy">
           <p className="dash-hero__kicker">{ar ? 'مساحة المستأجر' : 'Tenant space'}</p>
           <h1>{ar ? `أهلاً ${displayName}` : `Welcome, ${displayName}`}</h1>
+          <BadgeChips
+            badges={badges}
+            locale={locale}
+            size={20}
+            max={6}
+            labelled
+            className="property-360__badges"
+          />
           <p className="dash-hero__lede">
             {ar
               ? 'كل ما استأجرته أو حجزته لدى الملاك على المنصة: الحجوزات والعقود والإيجارات والفواتير. أما عقاراتك التي تؤجّرها أنت ففي مساحة المالك.'

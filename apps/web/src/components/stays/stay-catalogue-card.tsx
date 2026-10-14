@@ -8,6 +8,7 @@ import { formatListingCardTitle, formatListingLocation } from '@/lib/listing-car
 import { toPublicMediaSrc } from '@/lib/public-media-url';
 import type { StayCatalogueListing } from '@/lib/stays-catalogue-listing';
 import { stayAsCardListing, stayDetailHref } from '@/lib/stays-browse-filters';
+import { BadgeChips } from '@/components/badges/badge-chips';
 import { StayRatingBadge } from '@/components/stays/stay-rating-badge';
 
 export function StayCatalogueCard({
@@ -58,7 +59,10 @@ export function StayCatalogueCard({
           <span className="listing-card__status-mark">{ar ? 'إقامة يومية' : 'Daily stay'}</span>
         </div>
         <div className="listing-card__body">
-          <h3>{headline}</h3>
+          <h3 className={listing.badges?.length ? 'name-with-mark' : undefined}>
+            {headline}
+            <BadgeChips badges={listing.badges} locale={locale} linked={false} />
+          </h3>
           {buildingLine ? <p className="listing-card__building-name">{buildingLine}</p> : null}
           {locationLine ? <p className="listing-card__location">{locationLine}</p> : null}
           {listing.unitSerial ? (

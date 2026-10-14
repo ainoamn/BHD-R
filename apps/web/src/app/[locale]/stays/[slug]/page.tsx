@@ -4,6 +4,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { PropertyDetailManager } from '@/components/property-detail-manager';
 import { loadHostSummarySafe, loadUnitRatings, type UnitRating } from '@/lib/booking-reviews-neon';
 import { withTimeoutFallback } from '@/lib/with-timeout';
+import { subjectBadgeChips } from '@/lib/badge-chips-neon';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { localizedName } from '@/lib/format';
 import { loadPublicPropertyShowcaseFromNeon } from '@/lib/load-public-property-neon';
@@ -123,7 +124,7 @@ export default async function StayDetailPage({
 
   const ratedUnitId = detail.unitId ?? unitQuery ?? null;
   const propertyLoad = loadPublicPropertyShowcaseFromNeon(detail.propertyId).catch(() => null);
-  const [property, hostSummary, viewer, ratings] = await Promise.all([
+  const [property, hostSummary, viewer, ratings, badges] = await Promise.all([
     propertyLoad,
     propertyLoad.then((loaded) => loadHostSummarySafe(loaded?.organizationId)),
     getViewer().catch(() => null),
@@ -135,6 +136,7 @@ export default async function StayDetailPage({
           'stay-unit-rating',
         )
       : Promise.resolve(new Map<string, UnitRating>()),
+    subjectBadgeChips('property', detail.propertyId),
   ]);
   if (!property) notFound();
 
@@ -180,6 +182,7 @@ export default async function StayDetailPage({
           }}
           stayDetail={detail}
           hostSummary={hostSummary}
+          badges={badges}
           stayRating={
             ratedUnitId ? { unitId: ratedUnitId, rating: ratings.get(ratedUnitId) ?? null } : null
           }

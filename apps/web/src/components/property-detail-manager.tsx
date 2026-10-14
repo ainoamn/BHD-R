@@ -16,6 +16,8 @@ import { ReputationView } from '@/components/reviews/reputation-view';
 import { StayGuestInfoSection } from '@/components/stays/stay-guest-info-section';
 import { StayPhotoRating } from '@/components/stays/stay-photo-rating';
 import { HostCard } from '@/components/host-card';
+import { BadgeChips } from '@/components/badges/badge-chips';
+import type { BadgeChip } from '@/lib/badges-shared';
 import type { HostSummary } from '@/lib/booking-reviews-neon';
 import type { StayPublicDetail } from '@bhd-r/contracts';
 import {
@@ -197,6 +199,7 @@ export function PropertyDetailManager({
   stayDetail = null,
   stayRating = null,
   hostSummary = null,
+  badges,
 }: {
   property: ManagedProperty;
   locale: 'ar' | 'en';
@@ -231,6 +234,8 @@ export function PropertyDetailManager({
   stayRating?: { unitId: string; rating: { score: number; count: number } | null } | null;
   /** Public pages: the account that owns or manages the property. */
   hostSummary?: HostSummary | null;
+  /** The building's current awards, shown under its name. */
+  badges?: readonly BadgeChip[];
 }) {
   const router = useRouter();
   const ar = locale === 'ar';
@@ -406,6 +411,7 @@ export function PropertyDetailManager({
         portal={portal}
         staysEnabled={staysEnabled}
         opsPulse={opsPulse}
+        badges={badges}
         {...(hubAccess ? { access: hubAccess } : {})}
       />
     );
@@ -544,6 +550,14 @@ export function PropertyDetailManager({
                   />
                 ) : null}
               </div>
+              <BadgeChips
+                badges={badges}
+                locale={locale}
+                labelled
+                size={22}
+                max={4}
+                className="property-360__badges"
+              />
               {focusedUnitHeadline ? (
                 <p className="property-360__building-name">{buildingNameLine}</p>
               ) : null}

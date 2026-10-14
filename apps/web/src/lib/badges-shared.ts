@@ -32,6 +32,34 @@ export type BadgeIcon = (typeof BADGE_ICONS)[number];
 
 export type AwardStatus = 'pending' | 'active' | 'expired' | 'revoked' | 'rejected';
 
+/** An active award as shown beside a name: enough to draw it and open its certificate. */
+export type BadgeChip = {
+  serial: string;
+  nameAr: string;
+  nameEn: string;
+  tier: BadgeTier;
+  level: BadgeLevel;
+  icon: BadgeIcon;
+};
+
+const TIER_RANK: Record<BadgeTier, number> = { medal: 4, certificate: 3, shield: 2, badge: 1 };
+const LEVEL_RANK: Record<BadgeLevel, number> = {
+  diamond: 5,
+  platinum: 4,
+  gold: 3,
+  silver: 2,
+  bronze: 1,
+};
+
+/** Medals before certificates, shields and badges; higher levels first within each. */
+export function badgePrestige(chip: Pick<BadgeChip, 'tier' | 'level'>): number {
+  return TIER_RANK[chip.tier] * 10 + LEVEL_RANK[chip.level];
+}
+
+export function badgeSubjectKey(subject: BadgeSubject, id: string): string {
+  return `${subject}:${id}`;
+}
+
 export const SUBJECT_LABELS: Record<BadgeSubject, { ar: string; en: string; arMany: string }> = {
   property: { ar: 'المبنى / العقار', en: 'Property', arMany: 'شارات المباني' },
   owner: { ar: 'المالك', en: 'Owner', arMany: 'شارات الملاك' },

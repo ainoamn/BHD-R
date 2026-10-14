@@ -1,4 +1,5 @@
 import type { PublicListing } from '@bhd-r/contracts';
+import type { BadgeChip } from '@/lib/badges-shared';
 
 export type ListingMarketStatus =
   'available' | 'available_rent' | 'available_sale' | 'reserved' | 'leased' | 'sold';
@@ -26,6 +27,8 @@ export type CatalogueListing = PublicListing & {
   unitSerial?: string | null;
   /** Paid reservation hold end — the unit returns to vacant if the booking is not completed. */
   reservedUntil?: string | null;
+  /** Current awards of the building. */
+  badges?: BadgeChip[];
 };
 
 /** Guest score on 10 and review count of a card, or null before any released review. */

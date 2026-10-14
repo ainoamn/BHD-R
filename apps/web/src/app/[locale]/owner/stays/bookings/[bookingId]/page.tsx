@@ -10,6 +10,7 @@ import {
 import { StayBookingDetailOps } from '@/components/stays/stay-booking-detail-ops';
 import { StayReceiptPrintButton } from '@/components/stays/stay-receipt-print-button';
 import { StaysPortalPage } from '@/components/stays/stays-portal-page';
+import { stayBookingBadges } from '@/lib/badge-chips-neon';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { getOwnerStayBookingContractOnNeon } from '@/lib/owner-stays-ops-neon';
 import { requireSessionSecret } from '@/lib/runtime-env';
@@ -36,6 +37,7 @@ async function OwnerStayBookingDetailPage({
   const { locale, bookingId } = await params;
   const booking = await loadContract(bookingId);
   if (!booking) notFound();
+  const badges = await stayBookingBadges(booking);
   const ar = locale === 'ar';
 
   return (
@@ -59,9 +61,12 @@ async function OwnerStayBookingDetailPage({
         checkOutOn={booking.checkOutOn}
         stayListingSlug={booking.stayListingSlug}
       />
-      <StayBookingContract booking={booking} locale={locale} portal="owner" />
+      <StayBookingContract booking={booking} locale={locale} portal="owner" badges={badges} />
     </StaysPortalPage>
   );
 }
 
-export default persistentPortalPage('/owner/stays/bookings/[bookingId]', OwnerStayBookingDetailPage);
+export default persistentPortalPage(
+  '/owner/stays/bookings/[bookingId]',
+  OwnerStayBookingDetailPage,
+);

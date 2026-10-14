@@ -1,6 +1,7 @@
 import { persistentPortalPage } from '@/lib/persistent-portal-page';
 import { notFound, redirect } from 'next/navigation';
 import { PropertyDetailManager, type ManagedProperty } from '@/components/property-detail-manager';
+import { subjectBadgeChips, type BadgeChip } from '@/lib/badge-chips-neon';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { loadManagedPropertyFromNeon } from '@/lib/load-property-neon';
 import {
@@ -12,11 +13,7 @@ import { ApiError, apiFetch } from '@/lib/server-api';
 import { isStaysPlatformEnabled } from '@/lib/stays-flags';
 import { requirePortal } from '@/lib/viewer';
 
-async function Page({
-  params,
-}: {
-  params: Promise<{ locale: string; propertyId: string }>;
-}) {
+async function Page({ params }: { params: Promise<{ locale: string; propertyId: string }> }) {
   const { locale: rawLocale, propertyId } = await params;
   const locale = rawLocale === 'en' ? 'en' : 'ar';
   if (propertyId === 'new') redirect(`/${locale}/developer/properties/new`);
@@ -44,11 +41,15 @@ async function Page({
   if (!property) notFound();
 
   let opsPulse: PropertyOpsPulse = emptyPropertyOpsPulse();
+  let badges: BadgeChip[] = [];
   if (hasDatabaseUrl() && viewer.organizationId) {
-    opsPulse = await loadPropertyOpsPulseOnNeon(viewer.organizationId, propertyId, {
-      userId: viewer.id,
-      partyId: viewer.partyId,
-    }).catch(() => emptyPropertyOpsPulse());
+    [opsPulse, badges] = await Promise.all([
+      loadPropertyOpsPulseOnNeon(viewer.organizationId, propertyId, {
+        userId: viewer.id,
+        partyId: viewer.partyId,
+      }).catch(() => emptyPropertyOpsPulse()),
+      subjectBadgeChips('property', property.id, viewer.organizationId),
+    ]);
   }
 
   return (
@@ -58,6 +59,7 @@ async function Page({
       portal="developer"
       staysEnabled={isStaysPlatformEnabled()}
       opsPulse={opsPulse}
+      badges={badges}
     />
   );
 }

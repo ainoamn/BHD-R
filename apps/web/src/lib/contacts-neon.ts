@@ -10,6 +10,7 @@ import {
   type ContactUpdate,
   type MoneyTotals,
 } from '@/lib/contacts-shared';
+import { partyBadgeChips, partyChipsOf } from '@/lib/badge-chips-neon';
 import { marksForParties, NO_MARK } from '@/lib/identity-marks-neon';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 
@@ -66,11 +67,19 @@ function partyScope(claims: SessionClaims, party: SQL): SQL {
 export async function listContacts(claims: SessionClaims): Promise<ContactSummary[]> {
   const orgId = requireOrg(claims);
   const list = await listContactRows(claims, orgId);
-  const marks = await marksForParties(
-    orgId,
-    list.map((contact) => contact.id),
-  );
-  return list.map((contact) => ({ ...contact, mark: marks.get(contact.id) ?? NO_MARK }));
+  const ids = list.map((contact) => contact.id);
+  const [marks, chips] = await Promise.all([
+    marksForParties(orgId, ids),
+    partyBadgeChips(orgId, ids),
+  ]);
+  return list.map((contact) => {
+    const badges = partyChipsOf(chips, contact.id);
+    return {
+      ...contact,
+      mark: marks.get(contact.id) ?? NO_MARK,
+      ...(badges.length ? { badges } : {}),
+    };
+  });
 }
 
 async function listContactRows(claims: SessionClaims, orgId: string): Promise<ContactSummary[]> {
@@ -308,8 +317,18 @@ export async function readContact(
   const orgId = requireOrg(claims);
   const detail = await readContactRows(claims, orgId, partyId);
   if (!detail) return null;
-  const marks = await marksForParties(orgId, [detail.party.id]);
-  return { ...detail, party: { ...detail.party, mark: marks.get(detail.party.id) ?? NO_MARK } };
+  const [marks, chips] = await Promise.all([
+    marksForParties(orgId, [detail.party.id]),
+    partyBadgeChips(orgId, [detail.party.id]),
+  ]);
+  return {
+    ...detail,
+    party: {
+      ...detail.party,
+      mark: marks.get(detail.party.id) ?? NO_MARK,
+      badges: partyChipsOf(chips, detail.party.id),
+    },
+  };
 }
 
 async function readContactRows(

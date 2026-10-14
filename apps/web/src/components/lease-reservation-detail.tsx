@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import { ContractArticle, type ContractArticleLinks } from '@/components/contract-document-view';
+import { BadgeChips } from '@/components/badges/badge-chips';
 import { ContractDocumentToolbar } from '@/components/contract-document-toolbar';
+import type { BadgeChip } from '@/lib/badges-shared';
 import { LeaseReservationWorkflow } from '@/components/lease-reservation-workflow';
 import { ReservationPartyCard } from '@/components/reservation-party-card';
 import { formatMoney } from '@/lib/format';
@@ -31,11 +33,13 @@ export function LeaseReservationDetail({
   locale,
   portal,
   permissions,
+  badges,
 }: {
   booking: LeaseReservationStaffView;
   locale: 'ar' | 'en';
   portal: 'owner' | 'developer';
   permissions: ReservationPermissions;
+  badges?: { property: BadgeChip[]; client: BadgeChip[] };
 }) {
   const ar = locale === 'ar';
   const sale = booking.mode === 'sale';
@@ -80,8 +84,12 @@ export function LeaseReservationDetail({
           <h1>
             <bdi dir="ltr">{booking.referenceCode}</bdi>
           </h1>
-          <p>
-            {property} · {booking.unitCode} {unit ? `(${unit})` : ''}
+          <p className="name-with-mark">
+            <span>{property}</span>
+            <BadgeChips badges={badges?.property} locale={locale} />
+            <span>
+              · {booking.unitCode} {unit ? `(${unit})` : ''}
+            </span>
           </p>
         </div>
         <Link className="button button--quiet" href={bookingsHref} prefetch={false}>
@@ -165,7 +173,10 @@ export function LeaseReservationDetail({
         <dl className="contract-detail__facts">
           <div>
             <dt>{ar ? 'العميل' : 'Client'}</dt>
-            <dd>{booking.contact.fullName}</dd>
+            <dd className="name-with-mark">
+              {booking.contact.fullName}
+              <BadgeChips badges={badges?.client} locale={locale} />
+            </dd>
           </div>
           <div>
             <dt>{ar ? 'الهاتف' : 'Phone'}</dt>

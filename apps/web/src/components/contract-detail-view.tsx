@@ -1,12 +1,16 @@
 import { Card, CardContent, StatusBadge } from '@bhd-r/ui';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { BadgeChips } from '@/components/badges/badge-chips';
+import { activeBadgeChips, chipsOf } from '@/lib/badge-chips-neon';
+import type { BadgeChip } from '@/lib/badges-shared';
 import type { ContractAnnexDocument } from '@/lib/contract-annex';
 import { loadContractAnnexFromNeon } from '@/lib/contract-annex-neon';
 import { loadContractDetailFromNeon, type ContractDetail } from '@/lib/contract-detail-neon';
 import { scopedOwnerParty } from '@/lib/portal-access';
 import { ApiError, apiFetch } from '@/lib/server-api';
 import { requirePortal } from '@/lib/viewer';
+import { withTimeoutFallback } from '@/lib/with-timeout';
 import type { PortalRole } from '@/lib/types';
 import { ContractActions } from './contract-actions';
 import { ContractDocumentView } from './contract-document-view';
@@ -65,6 +69,7 @@ export async function ContractDetailView({
       </div>
     );
   }
+  const badges = await contractBadges(contract);
   if (contract.document) {
     const annexes = await Promise.all(
       contract.document.annexes
@@ -84,6 +89,7 @@ export async function ContractDetailView({
         portal={portal}
         locale={currentLocale}
         viewerName={viewer.displayName}
+        badges={badges}
       />
     );
   }
@@ -93,8 +99,32 @@ export async function ContractDetailView({
       portal={portal}
       locale={currentLocale}
       viewer={viewer}
+      badges={badges}
     />
   );
+}
+
+export type ContractBadges = { property: BadgeChip[]; tenant: BadgeChip[]; owner: BadgeChip[] };
+
+async function contractBadges(contract: ContractDetail): Promise<ContractBadges> {
+  const property = contract.property?.id;
+  const tenant = contract.parties.tenant?.id;
+  const owner = contract.parties.owner?.id;
+  const chips = await withTimeoutFallback(
+    activeBadgeChips([
+      { type: 'property', id: property },
+      { type: 'tenant', id: tenant },
+      { type: 'owner', id: owner },
+    ]),
+    2_500,
+    new Map<string, BadgeChip[]>(),
+    'contract-badges',
+  );
+  return {
+    property: chipsOf(chips, 'property', property),
+    tenant: chipsOf(chips, 'tenant', tenant),
+    owner: chipsOf(chips, 'owner', owner),
+  };
 }
 
 function SimpleContractView({
@@ -102,11 +132,13 @@ function SimpleContractView({
   portal,
   locale,
   viewer,
+  badges,
 }: {
   contract: ContractDetail;
   portal: Portal;
   locale: 'ar' | 'en';
   viewer: Viewer;
+  badges: ContractBadges;
 }) {
   const ar = locale === 'ar';
   return (
@@ -139,20 +171,27 @@ function SimpleContractView({
             <dl className="detail-facts">
               <div>
                 <dt>{ar ? 'المالك' : 'Landlord'}</dt>
-                <dd>{contract.parties.owner?.displayName ?? '—'}</dd>
+                <dd className="name-with-mark">
+                  {contract.parties.owner?.displayName ?? '—'}
+                  <BadgeChips badges={badges.owner} locale={locale} />
+                </dd>
               </div>
               <div>
                 <dt>{ar ? 'المستأجر' : 'Tenant'}</dt>
-                <dd>{contract.parties.tenant?.displayName ?? viewer.displayName}</dd>
+                <dd className="name-with-mark">
+                  {contract.parties.tenant?.displayName ?? viewer.displayName}
+                  <BadgeChips badges={badges.tenant} locale={locale} />
+                </dd>
               </div>
               <div>
                 <dt>{ar ? 'العقار' : 'Property'}</dt>
-                <dd>
+                <dd className="name-with-mark">
                   {contract.property
                     ? ar
                       ? contract.property.nameAr
                       : contract.property.nameEn
                     : '—'}
+                  <BadgeChips badges={badges.property} locale={locale} />
                 </dd>
               </div>
               <div>

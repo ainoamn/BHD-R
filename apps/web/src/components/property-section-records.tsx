@@ -8,7 +8,9 @@ import { LeaseTermsView, parseLeaseTerms, parseTenantDetails } from '@/component
 import { NoteTranslateBar } from '@/components/note-translate';
 import { Icon, type IconName } from '@/components/pmh-icon';
 import { DepositReconciliation } from '@/components/accounting/deposit-receipts';
+import { BadgeChips } from '@/components/badges/badge-chips';
 import { ApiError, browserNextMutation } from '@/lib/api';
+import { badgeSubjectKey, type BadgeChip } from '@/lib/badges-shared';
 import { formatMoney } from '@/lib/format';
 import { LIVE_CHANGE_EVENT } from '@/lib/live-sync-shared';
 import { reviewScoreTone } from '@/lib/review-rubric';
@@ -544,6 +546,7 @@ function Cell({
   row,
   column,
   locale,
+  badges,
   documentHref,
   receiptHref,
   contractHref,
@@ -551,6 +554,8 @@ function Cell({
   row: PropertyRecordRow;
   column: Column;
   locale: 'ar' | 'en';
+  /** Current awards keyed by `badgeSubjectKey`. */
+  badges: Record<string, BadgeChip[]>;
   /** Check-in ID photo; only for viewers who manage stay bookings. */
   documentHref: string | null;
   /** Deposit refund transfer receipt; only for refund approvers and accountants. */
@@ -563,7 +568,18 @@ function Cell({
   switch (column.format) {
     case 'property': {
       const name = ar ? row.propertyNameAr : row.propertyNameEn;
-      return name ? <bdi>{name}</bdi> : <span className="muted">—</span>;
+      return name ? (
+        <span className="name-with-mark">
+          <bdi>{name}</bdi>
+          <BadgeChips
+            badges={row.propertyId ? badges[badgeSubjectKey('property', row.propertyId)] : null}
+            locale={locale}
+            size={18}
+          />
+        </span>
+      ) : (
+        <span className="muted">—</span>
+      );
     }
     case 'refund':
       return <DepositRefundCell row={row} locale={locale} receiptHref={receiptHref} />;
@@ -811,16 +827,30 @@ function Cell({
       ) : (
         <span className="muted">—</span>
       );
-    default:
+    default: {
+      const partyBadges =
+        column.key === 'party' && row.partyId
+          ? badges[badgeSubjectKey('tenant', row.partyId)]
+          : null;
       if (column.key === 'party' && row.kind === 'stay') {
         return (
           <span className="psr-guest">
             {value ? <bdi>{value}</bdi> : <span className="muted">—</span>}
+            <BadgeChips badges={partyBadges} locale={locale} size={18} />
             <GuestStanding row={row} locale={locale} />
           </span>
         );
       }
+      if (value && partyBadges?.length) {
+        return (
+          <span className="name-with-mark">
+            <bdi>{value}</bdi>
+            <BadgeChips badges={partyBadges} locale={locale} size={18} />
+          </span>
+        );
+      }
       return value ? <>{value}</> : <span className="muted">—</span>;
+    }
   }
 }
 
@@ -1039,6 +1069,7 @@ export function PropertySectionRecords({
   const [rows, setRows] = useState<PropertyRecordRow[] | null>(null);
   const [units, setUnits] = useState<PropertyRecordUnit[]>([]);
   const [tenants, setTenants] = useState<PropertyRecordTenant[]>([]);
+  const [badges, setBadges] = useState<Record<string, BadgeChip[]>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [viewer, setViewer] = useState<Viewer>(NO_VIEWER);
   const [failed, setFailed] = useState(false);
@@ -1092,11 +1123,13 @@ export function PropertySectionRecords({
           rows?: PropertyRecordRow[];
           units?: PropertyRecordUnit[];
           tenants?: PropertyRecordTenant[];
+          badges?: Record<string, BadgeChip[]>;
           viewer?: Viewer;
         };
         setRows(payload.rows ?? []);
         setUnits(payload.units ?? []);
         setTenants(payload.tenants ?? []);
+        setBadges(payload.badges ?? {});
         setViewer(payload.viewer ?? NO_VIEWER);
       } catch {
         if (!controller.signal.aborted && !silent) setFailed(true);
@@ -1869,6 +1902,7 @@ export function PropertySectionRecords({
                             row={row}
                             column={column}
                             locale={locale}
+                            badges={badges}
                             documentHref={
                               viewer.canRecordStays && row.checkInDocument && row.id
                                 ? `/api/owner/properties/${encodeURIComponent(propertyOf(row))}/records/handover/${row.id}`
