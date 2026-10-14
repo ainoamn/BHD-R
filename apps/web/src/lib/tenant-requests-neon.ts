@@ -7,7 +7,6 @@ import {
   leases,
   memberships,
   operationalRequests,
-  outboxEvents,
   parties,
   properties,
   units,
@@ -15,14 +14,20 @@ import {
   workflowEvents,
 } from '@bhd-r/db';
 import { brandUploadedPhoto } from '@/lib/brand-uploaded-photo';
+import { queueBrandedEmail } from '@/lib/email-notify';
 import { sendQueuedEmailsSoon } from '@/lib/email-outbox';
+import type { EmailDetail, EmailTone } from '@/lib/email-template';
 import { formatMoney } from '@/lib/format';
-import { escapeHtml } from '@/lib/lease-booking-contract';
 import type { PendingApprovalItem } from '@/lib/pending-approvals-shared';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 import { withElevatedRead } from '@/lib/public-booking-neon';
 import { publicWebOrigin } from '@/lib/seo';
 import { HANDOVER_PHOTO_MAX } from '@/lib/stay-handover';
+import {
+  putPrivateObject,
+  readPrivateObject,
+  s3BucketsReady,
+} from '@/lib/upload-property-media-neon';
 import {
   findTenancyLease,
   findTenancyRequestLink,
@@ -41,9 +46,15 @@ import { loadTenantPolicy } from '@/lib/tenant-policy-neon';
 import { maintenanceBlockedByPolicy } from '@/lib/tenant-policy-shared';
 import {
   OPEN_TENANT_REQUEST,
+  REQUEST_MEDIA_MAX,
+  REQUEST_PHOTO_UPLOAD_MAX_BYTES,
+  REQUEST_VIDEO_MAX_BYTES,
   TENANT_REQUEST_PHOTOS_MAX,
   TENANT_REQUEST_SOURCE,
+  closureProofMissing,
   emergencyScopeLabel,
+  tenantRequestStatusLabel,
+  type RequestMediaStage,
   isTenantReport,
   requestNeedsCheque,
   requestNeedsDate,
@@ -99,42 +110,31 @@ async function queueEmail(
     recipient: string;
     name: string | null;
     subject: string;
+    title?: string | undefined;
+    tone?: EmailTone | undefined;
     lines: string[];
+    details?: EmailDetail[] | undefined;
     link: string;
     linkLabel: string;
   },
 ) {
-  const recipient = input.recipient.trim().toLowerCase();
-  if (!recipient.includes('@') || recipient.endsWith('@identity.bhd-om.local')) return;
-  const greeting = input.name ? `مرحباً ${input.name}،` : 'مرحباً،';
-  await tx.insert(outboxEvents).values({
-    organizationId: input.orgId,
-    topic: 'notification.delivery.requested',
+  await queueBrandedEmail(tx, {
+    orgId: input.orgId,
+    recipient: input.recipient,
+    subject: input.subject,
     aggregateType: 'tenant_request',
     aggregateId: input.requestId,
-    payload: {
-      correlationId: randomUUID(),
-      organizationId: input.orgId,
-      notificationId: randomUUID(),
-      channel: 'email',
-      recipient,
-      subject: input.subject,
-      text: [
-        greeting,
-        '',
-        ...input.lines,
-        '',
-        `${input.linkLabel}: ${input.link}`,
-        '',
-        'BHD R',
-      ].join('\n'),
-      html: `<div dir="rtl"><p>${escapeHtml(greeting)}</p>${input.lines
-        .map((line) => `<p>${escapeHtml(line)}</p>`)
-        .join('')}<p><a href="${escapeHtml(input.link)}">${escapeHtml(
-        input.linkLabel,
-      )}</a></p><p>BHD R</p></div>`,
-    },
+    tone: input.tone ?? 'request',
+    recipientName: input.name,
+    title: input.title ?? input.subject,
+    lines: input.lines,
+    details: input.details,
+    cta: { label: input.linkLabel, url: input.link },
   });
+}
+
+function requestTone(type: string): EmailTone {
+  return type === 'maintenance' ? 'maintenance' : type.startsWith('report_') ? 'alert' : 'request';
 }
 
 /** The landlord's people who handle tenant requests for this property. */
@@ -333,7 +333,7 @@ export async function createTenantRequest(claims: SessionClaims, input: TenantRe
     if (clash) fail('tenant_request_duplicate');
 
     const [tenant] = await tx
-      .select({ name: parties.displayName })
+      .select({ name: parties.displayName, email: parties.email })
       .from(parties)
       .where(and(eq(parties.id, link.partyId), eq(parties.organizationId, orgId)))
       .limit(1);
@@ -419,6 +419,7 @@ export async function createTenantRequest(claims: SessionClaims, input: TenantRe
         ? await staffReportRecipients(tx, orgId)
         : await ownerRecipients(tx, orgId, lease.propertyId);
     const ownerLink = `${publicWebOrigin()}/ar/owner/tenant-requests?focus=${row.id}`;
+    const maintenanceLink = `${publicWebOrigin()}/ar/owner/maintenance?focus=${row.id}`;
     const kind = isTenantReport(input.type) ? 'بلاغ' : 'طلب';
     for (const person of people) {
       await queueEmail(tx, {
@@ -426,7 +427,18 @@ export async function createTenantRequest(claims: SessionClaims, input: TenantRe
         requestId: row.id,
         recipient: person.email,
         name: person.name,
-        subject: `${input.emergency ? 'عاجل — ' : ''}${kind} جديد من المستأجر: ${typeLabel} (${ref})`,
+        subject: `${input.emergency ? '🚨 عاجل — ' : ''}${kind} جديد من المستأجر: ${typeLabel} (${ref})`,
+        title: `${kind} جديد وصلك من المستأجر`,
+        tone: input.emergency ? 'alert' : requestTone(input.type),
+        details: [
+          { label: 'رقم الطلب', value: ref },
+          { label: 'النوع', value: typeLabel },
+          { label: 'المستأجر', value: tenant?.name ?? '—' },
+          {
+            label: 'الأولوية',
+            value: priority === 'urgent' ? 'عاجلة' : priority === 'high' ? 'مرتفعة' : 'عادية',
+          },
+        ],
         lines: [
           tenant?.name
             ? `أرسل المستأجر ${tenant.name} ${kind}اً جديداً: ${typeLabel}.`
@@ -443,8 +455,32 @@ export async function createTenantRequest(claims: SessionClaims, input: TenantRe
           ...(photos.length ? [`أرفق ${photos.length} صورة.`] : []),
           'افتحه في BHD R للرد عليه.',
         ],
-        link: ownerLink,
-        linkLabel: 'فتح طلبات وبلاغات المستأجرين',
+        link: input.type === 'maintenance' ? maintenanceLink : ownerLink,
+        linkLabel:
+          input.type === 'maintenance' ? 'فتح بلاغات الصيانة' : 'فتح طلبات وبلاغات المستأجرين',
+      });
+    }
+    if (tenant?.email) {
+      await queueEmail(tx, {
+        orgId,
+        requestId: row.id,
+        recipient: tenant.email,
+        name: tenant.name,
+        subject: `استلمنا ${kind}ك ${ref}: ${typeLabel}`,
+        title: `وصل ${kind}ك بأمان، ونحن عليه`,
+        tone: requestTone(input.type),
+        details: [
+          { label: 'رقم المرجع', value: ref },
+          { label: 'النوع', value: typeLabel },
+          { label: 'الموضوع', value: subject },
+          { label: 'الحالة', value: 'بانتظار رد الإدارة' },
+        ],
+        lines: [
+          `شكراً لأنك أخبرتنا. وصل ${kind}ك إلى المسؤولين عن العقار مباشرة، وسنرسل لك كل تحديث عليه هنا وعلى بريدك.`,
+          ...(photos.length ? [`أرفقت ${photos.length} صورة، وهذا يساعد الفريق كثيراً.`] : []),
+        ],
+        link: `${publicWebOrigin()}/ar/tenant/requests`,
+        linkLabel: 'متابعة طلباتي',
       });
     }
     return { id: row.id, reference: ref, notified: people.length };
@@ -532,14 +568,19 @@ export async function actOnTenantRequest(
           input.action === 'cancel'
             ? `سحب المستأجر طلبه ${row.reference}`
             : `رد جديد من المستأجر على الطلب ${row.reference}`,
+        tone: requestTone(row.type),
+        details: [
+          { label: 'رقم الطلب', value: row.reference },
+          { label: 'المستأجر', value: tenant?.name ?? '—' },
+        ],
         lines: [
           input.action === 'cancel'
             ? `سحب المستأجر ${tenant?.name ?? ''} طلبه (${typeLabel}).`
             : `أضاف المستأجر ${tenant?.name ?? ''} رداً على الطلب (${typeLabel}).`,
           ...(note ? [`«${note}»`] : []),
         ],
-        link: `${publicWebOrigin()}/ar/owner/tenant-requests?focus=${row.id}`,
-        linkLabel: 'فتح طلبات المستأجرين',
+        link: `${publicWebOrigin()}/ar/owner/${row.type === 'maintenance' ? 'maintenance' : 'tenant-requests'}?focus=${row.id}`,
+        linkLabel: row.type === 'maintenance' ? 'فتح بلاغات الصيانة' : 'فتح طلبات المستأجرين',
       });
     }
     return { id: row.id, status };
@@ -570,6 +611,7 @@ function ownerScope(claims: SessionClaims) {
 /** Requests tenants sent the organization, newest first; owner-scoped users see their own. */
 export async function listOwnerTenantRequests(
   claims: SessionClaims,
+  options: { type?: TenantRequestType } = {},
 ): Promise<OwnerTenantRequest[]> {
   if (!canHandleTenantRequests(claims)) fail('forbidden');
   const orgId = claims.organizationId!;
@@ -598,7 +640,12 @@ export async function listOwnerTenantRequests(
       .leftJoin(units, eq(units.id, operationalRequests.unitId))
       .leftJoin(properties, eq(properties.id, operationalRequests.propertyId))
       .leftJoin(parties, eq(parties.id, operationalRequests.requesterPartyId))
-      .where(ownerScope(claims))
+      .where(
+        and(
+          ownerScope(claims),
+          ...(options.type ? [eq(operationalRequests.type, options.type)] : []),
+        ),
+      )
       .orderBy(desc(operationalRequests.createdAt))
       .limit(OWNER_LIST_LIMIT);
     const requests = rows.map((row) => tenantRequestFromRow(row, orgId));
@@ -709,6 +756,13 @@ export async function decideTenantRequest(
       { ...row, unitCode: null, unitAr: null, unitEn: null },
       orgId,
     );
+    if (
+      input.action === 'complete' &&
+      request.type === 'maintenance' &&
+      closureProofMissing(request.media).length
+    ) {
+      fail('tenant_request_proof');
+    }
     const now = new Date();
     let status: TenantRequestStatus =
       input.action === 'reply' ||
@@ -917,16 +971,40 @@ export async function decideTenantRequest(
                         : status === 'in_progress'
                           ? 'بدأ المالك تنفيذ طلبك.'
                           : 'علّق المالك طلبك مؤقتاً.';
+        const fixed = status === 'completed' && request.type === 'maintenance';
+        const resolver = fixed
+          ? request.media.find((item) => item.stage === 'selfie' && item.by === 'team')?.name
+          : null;
         await queueEmail(tx, {
           orgId,
           requestId: row.id,
           recipient: tenant.email,
           name: tenant.name,
-          subject: `تحديث على طلبك ${row.reference}: ${typeLabel}`,
+          subject: fixed
+            ? `✅ تم إصلاح المشكلة — طلبك ${row.reference}`
+            : `تحديث على طلبك ${row.reference}: ${typeLabel}`,
+          title: fixed ? 'تم الإصلاح! عاد كل شيء إلى مكانه' : 'هناك جديد على طلبك',
+          tone: fixed ? 'maintenance' : requestTone(request.type),
+          details: [
+            { label: 'رقم المرجع', value: row.reference },
+            { label: 'النوع', value: typeLabel },
+            { label: 'الحالة', value: tenantRequestStatusLabel(status, true) },
+            ...(resolver ? [{ label: 'أنجز العمل', value: resolver }] : []),
+            ...(request.charge
+              ? [
+                  {
+                    label: 'تكلفة الصيانة',
+                    value: formatMoney(request.charge.amountMinor, request.charge.currency, 'ar'),
+                  },
+                ]
+              : []),
+          ],
           lines: [
-            verdict,
+            fixed
+              ? 'أنهى فريق الصيانة العمل، وأرفق صورة بعد الإصلاح وصورة سيلفي لمن أنجزه؛ تجدها في صفحة طلباتك.'
+              : verdict,
             ...(effect ? [effect] : []),
-            ...(note ? [`ملاحظة المالك: «${note}»`] : []),
+            ...(note ? [`ملاحظة الإدارة: «${note}»`] : []),
           ],
           link: `${publicWebOrigin()}/ar/tenant/requests`,
           linkLabel: 'فتح طلباتي',
@@ -1042,4 +1120,292 @@ export async function readTenantRequestPhoto(
   const parsed = dataUrl && REQUEST_IMAGE.test(dataUrl) ? DATA_URL.exec(dataUrl) : null;
   if (!parsed) return null;
   return { mimeType: parsed[1]!, bytes: Buffer.from(parsed[2]!, 'base64') };
+}
+
+type RequestRow = typeof operationalRequests.$inferSelect;
+type MediaSide = 'tenant' | 'team';
+
+/**
+ * Runs `work` on one tenant request for whoever may see it: the tenant who sent it (in their own
+ * session) or the landlord's people in scope. `side` limits who qualifies.
+ */
+async function onVisibleRequest<T>(
+  claims: SessionClaims,
+  requestId: string,
+  side: MediaSide | 'either',
+  work: (
+    tx: Tx,
+    row: RequestRow,
+    viewer: { side: MediaSide; partyId: string | null },
+  ) => Promise<T>,
+  options: { lock?: boolean } = {},
+): Promise<T | null> {
+  const lock = options.lock ?? true;
+  const link = side === 'team' ? null : await findTenancyRequestLink(claims.sub, requestId);
+  if (link) {
+    return withinTenancyLink(claims.sub, link, async (tx) => {
+      const query = tx
+        .select()
+        .from(operationalRequests)
+        .where(
+          and(
+            eq(operationalRequests.id, requestId),
+            eq(operationalRequests.organizationId, link.organizationId),
+            eq(operationalRequests.requesterPartyId, link.partyId),
+            eq(operationalRequests.source, TENANT_REQUEST_SOURCE),
+          ),
+        );
+      const [row] = await (lock ? query.for('update') : query).limit(1);
+      return row ? work(tx, row, { side: 'tenant', partyId: link.partyId }) : null;
+    });
+  }
+  if (side === 'tenant' || !canHandleTenantRequests(claims)) return null;
+  return withinViewerTenant(claims, async (tx) => {
+    const [found] = await tx
+      .select({ id: operationalRequests.id })
+      .from(operationalRequests)
+      .leftJoin(properties, eq(properties.id, operationalRequests.propertyId))
+      .where(and(eq(operationalRequests.id, requestId), ownerScope(claims)))
+      .limit(1);
+    if (!found) return null;
+    const query = tx.select().from(operationalRequests).where(eq(operationalRequests.id, found.id));
+    const [row] = await (lock ? query.for('update') : query).limit(1);
+    return row ? work(tx, row, { side: 'team', partyId: null }) : null;
+  });
+}
+
+type SniffedMedia = { kind: 'photo' | 'video'; mime: string; ext: string };
+
+/** The real file type from its first bytes; the browser's Content-Type is never trusted. */
+export function sniffRequestMedia(bytes: Buffer): SniffedMedia | null {
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return { kind: 'photo', mime: 'image/jpeg', ext: 'jpg' };
+  }
+  if (
+    bytes.length >= 8 &&
+    bytes.readUInt32BE(0) === 0x89504e47 &&
+    bytes.readUInt32BE(4) === 0x0d0a1a0a
+  ) {
+    return { kind: 'photo', mime: 'image/png', ext: 'png' };
+  }
+  if (
+    bytes.length >= 12 &&
+    bytes.toString('ascii', 0, 4) === 'RIFF' &&
+    bytes.toString('ascii', 8, 12) === 'WEBP'
+  ) {
+    return { kind: 'photo', mime: 'image/webp', ext: 'webp' };
+  }
+  if (bytes.length >= 12 && bytes.toString('ascii', 4, 8) === 'ftyp') {
+    return bytes.toString('ascii', 8, 12) === 'qt  '
+      ? { kind: 'video', mime: 'video/quicktime', ext: 'mov' }
+      : { kind: 'video', mime: 'video/mp4', ext: 'mp4' };
+  }
+  if (bytes.length >= 4 && bytes.readUInt32BE(0) === 0x1a45dfa3) {
+    return { kind: 'video', mime: 'video/webm', ext: 'webm' };
+  }
+  return null;
+}
+
+/**
+ * Adds a photo or a short video to a request. The tenant adds to what they reported; the
+ * maintenance team adds photos or videos while working, and the closing proof: a photo of the
+ * fixed problem and a selfie of whoever fixed it. Videos go to private object storage when it is
+ * set up, otherwise they are kept with the request's history.
+ */
+export async function addTenantRequestMedia(
+  claims: SessionClaims,
+  requestId: string,
+  input: { bytes: Buffer; stage: RequestMediaStage; side: MediaSide },
+): Promise<{ id: string; kind: 'photo' | 'video' }> {
+  const sniffed = sniffRequestMedia(input.bytes);
+  if (!sniffed) fail('tenant_request_media');
+  const limit = sniffed.kind === 'video' ? REQUEST_VIDEO_MAX_BYTES : REQUEST_PHOTO_UPLOAD_MAX_BYTES;
+  if (input.bytes.byteLength < 1 || input.bytes.byteLength > limit) fail('tenant_request_media');
+  if ((input.side === 'tenant') !== (input.stage === 'report')) fail('tenant_request_media');
+  if ((input.stage === 'after' || input.stage === 'selfie') && sniffed.kind !== 'photo') {
+    fail('tenant_request_media');
+  }
+  if (input.side === 'team' && !canHandleTenantRequests(claims)) fail('forbidden');
+
+  const mediaId = randomUUID();
+  let stored: Record<string, unknown>;
+  if (sniffed.kind === 'photo') {
+    const branded = await brandUploadedPhoto(
+      `data:${sniffed.mime};base64,${input.bytes.toString('base64')}`,
+      HANDOVER_PHOTO_MAX,
+    );
+    const parsed = DATA_URL.exec(branded);
+    if (!parsed || branded.length > HANDOVER_PHOTO_MAX * 2) fail('tenant_request_media');
+    stored = { storage: 'inline', mime: parsed[1], data: parsed[2] };
+  } else {
+    stored = { storage: 'pending', mime: sniffed.mime };
+  }
+
+  const prepared = await onVisibleRequest(
+    claims,
+    requestId,
+    input.side,
+    async (_tx, row) => {
+      if (!OPEN_TENANT_REQUEST.has(row.status)) fail('tenant_request_closed');
+      const type = tenantRequestFromRow(
+        { ...row, unitCode: null, unitAr: null, unitEn: null },
+        row.organizationId,
+      );
+      if (input.side === 'tenant' ? !requestTakesPhotos(type.type) : type.type !== 'maintenance') {
+        fail('tenant_request_invalid');
+      }
+      if (type.media.length >= REQUEST_MEDIA_MAX) fail('tenant_request_media');
+      return { orgId: row.organizationId };
+    },
+    { lock: false },
+  );
+  if (!prepared) fail('tenant_request_not_found');
+
+  if (sniffed.kind === 'video') {
+    if (s3BucketsReady()) {
+      const key = `org/${prepared.orgId}/requests/${requestId}/${mediaId}.${sniffed.ext}`;
+      try {
+        await putPrivateObject(key, input.bytes, sniffed.mime);
+        stored = { storage: 's3', mime: sniffed.mime, key };
+      } catch (error) {
+        console.error('request video upload failed', error instanceof Error ? error.message : '');
+        stored = { storage: 'inline', mime: sniffed.mime, data: input.bytes.toString('base64') };
+      }
+    } else {
+      stored = { storage: 'inline', mime: sniffed.mime, data: input.bytes.toString('base64') };
+    }
+  }
+
+  const result = await onVisibleRequest(claims, requestId, input.side, async (tx, row, viewer) => {
+    if (!OPEN_TENANT_REQUEST.has(row.status)) fail('tenant_request_closed');
+    const request = tenantRequestFromRow(
+      { ...row, unitCode: null, unitAr: null, unitEn: null },
+      row.organizationId,
+    );
+    if (request.media.length >= REQUEST_MEDIA_MAX) fail('tenant_request_media');
+    const orgId = row.organizationId;
+    let name: string | null;
+    if (viewer.side === 'tenant' && viewer.partyId) {
+      const [party] = await tx
+        .select({ name: parties.displayName })
+        .from(parties)
+        .where(eq(parties.id, viewer.partyId))
+        .limit(1);
+      name = party?.name ?? null;
+    } else {
+      const [user] = await tx
+        .select({ name: users.displayName })
+        .from(users)
+        .where(eq(users.id, claims.sub))
+        .limit(1);
+      name = user?.name ?? null;
+    }
+    const [event] = await tx
+      .insert(workflowEvents)
+      .values({
+        organizationId: orgId,
+        actorUserId: claims.sub,
+        resourceType: 'operational_request',
+        resourceId: row.id,
+        eventType: 'tenant_request.media',
+        metadata: {
+          reference: row.reference,
+          mediaId,
+          kind: sniffed.kind,
+          stage: input.stage,
+          ...stored,
+        },
+      })
+      .returning({ id: workflowEvents.id });
+    const entry = {
+      id: mediaId,
+      eventId: event!.id,
+      kind: sniffed.kind,
+      stage: input.stage,
+      by: viewer.side,
+      name,
+      at: new Date().toISOString(),
+    };
+    await tx
+      .update(operationalRequests)
+      .set({
+        metadata: sql`jsonb_set(${operationalRequests.metadata}, '{media}', coalesce(${operationalRequests.metadata}->'media', '[]'::jsonb) || ${JSON.stringify([entry])}::jsonb)`,
+        updatedAt: new Date(),
+      })
+      .where(eq(operationalRequests.id, row.id));
+
+    if (viewer.side === 'tenant') {
+      const people = await ownerRecipients(tx, orgId, row.propertyId);
+      for (const person of people) {
+        await queueEmail(tx, {
+          orgId,
+          requestId: row.id,
+          recipient: person.email,
+          name: person.name,
+          subject: `${sniffed.kind === 'video' ? '🎬 مقطع فيديو جديد' : '📷 صورة جديدة'} على الطلب ${row.reference}`,
+          title:
+            sniffed.kind === 'video'
+              ? 'أرسل المستأجر مقطع فيديو يوضّح المشكلة'
+              : 'أرسل المستأجر صورة إضافية',
+          tone: requestTone(row.type),
+          details: [
+            { label: 'رقم الطلب', value: row.reference },
+            { label: 'المستأجر', value: name ?? '—' },
+          ],
+          lines: ['افتح الطلب لمشاهدته؛ الصورة تغني عن ألف رسالة، والفيديو عن ألف مكالمة 😉'],
+          link: `${publicWebOrigin()}/ar/owner/${row.type === 'maintenance' ? 'maintenance' : 'tenant-requests'}?focus=${row.id}`,
+          linkLabel: 'فتح الطلب',
+        });
+      }
+    }
+    return { id: mediaId, kind: sniffed.kind };
+  });
+  if (!result) fail('tenant_request_not_found');
+  sendQueuedEmailsSoon();
+  return result;
+}
+
+/** One photo or video added to a request, for the tenant who sent it or the landlord's people. */
+export async function readTenantRequestMedia(
+  claims: SessionClaims,
+  requestId: string,
+  mediaId: string,
+): Promise<{ mimeType: string; bytes: Buffer } | null> {
+  const found = await onVisibleRequest(
+    claims,
+    requestId,
+    'either',
+    async (tx, row) => {
+      const entries = meta(row.metadata).media;
+      const entry = Array.isArray(entries)
+        ? (entries as Array<Record<string, unknown>>).find((item) => item?.id === mediaId)
+        : undefined;
+      const eventId = typeof entry?.eventId === 'string' ? entry.eventId : null;
+      if (!eventId) return null;
+      return withElevatedRead(tx, async () => {
+        const [event] = await tx
+          .select({ metadata: workflowEvents.metadata })
+          .from(workflowEvents)
+          .where(
+            and(
+              eq(workflowEvents.id, eventId),
+              eq(workflowEvents.organizationId, row.organizationId),
+              eq(workflowEvents.resourceId, row.id),
+            ),
+          )
+          .limit(1);
+        return event ? meta(event.metadata) : null;
+      });
+    },
+    { lock: false },
+  );
+  if (!found || typeof found.mime !== 'string') return null;
+  if (found.storage === 'inline' && typeof found.data === 'string') {
+    return { mimeType: found.mime, bytes: Buffer.from(found.data, 'base64') };
+  }
+  if (found.storage === 's3' && typeof found.key === 'string') {
+    const bytes = await readPrivateObject(found.key);
+    return bytes ? { mimeType: found.mime, bytes } : null;
+  }
+  return null;
 }

@@ -10,6 +10,7 @@ import { LegalCasesBoard } from '@/components/legal-cases-board';
 import { OperationsWorkspaceClient } from '@/components/operations-workspace-client';
 import { PortalPageContext } from '@/components/portal-page';
 import { TeamManager } from '@/components/team-manager';
+import { TenantMaintenanceBoard } from '@/components/tenant-maintenance-board';
 import {
   isOperationsSection,
   opsSectionsForPortal,
@@ -137,6 +138,14 @@ export function PortalMainSlot({
               beforeList={
                 <DepositLedgerPanel portal={portal} locale={locale} active={panel === section} />
               }
+            />
+          ) : panel === 'maintenance' && portal === 'owner' ? (
+            <OperationsWorkspaceClient
+              portal={portal}
+              section={panel}
+              locale={locale}
+              active={panel === section}
+              beforeList={<TenantMaintenanceBoard locale={locale} active={panel === section} />}
             />
           ) : panel === 'legal' && (portal === 'owner' || portal === 'developer') ? (
             <OperationsWorkspaceClient

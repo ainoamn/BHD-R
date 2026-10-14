@@ -30,6 +30,7 @@ import {
   evaluateOrganization,
   insertAwards,
   loadDefinitions,
+  queueAwardEmails,
   type DefinitionRow,
 } from '@/lib/badges-engine-neon';
 import { elevatedTx, isMissingTable, isoOf, rowsOf, type ElevatedTx } from '@/lib/elevated-db';
@@ -453,6 +454,7 @@ export async function decideAward(
         decided_by_user_id = ${claims.sub}, updated_at = now()
       where id = ${awardId}
     `);
+    await queueAwardEmails(tx, [awardId]);
     return { status: 'active' as const };
   });
 }

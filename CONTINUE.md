@@ -2,6 +2,37 @@
 
 **تسليم الجلسة كاملة (0.2.24 → 0.8.33):** للاستكمال من جهاز آخر ابدأ من [`docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه خطوات الإعداد، والمراحل بالتاريخ والوقت، والمهام المفتوحة. ويرافقه فهرس الإصدارات (251 إصداراً) والمحادثة كاملة بعد حذف الأسرار.
 
+# CONTINUE — 2026-10-14 20:30 (مسقط)
+
+**0.8.67** · طلبات المستأجرين في صفحة الصيانة، والمرفقات وإثبات الإنجاز، والبريد بهوية الشركة:
+
+- **صفحة الصيانة:**
+  - `portal-main-slot.tsx` يمرّر `beforeList={<TenantMaintenanceBoard/>}` لقسم `maintenance` في بوابة المالك.
+  - القسم يقرأ `GET /api/owner/tenant-requests?type=maintenance`، ويعرض `OwnerTenantRequests` (`showReports={false}`).
+- **المرفقات:**
+  - `addTenantRequestMedia` و`readTenantRequestMedia` في `tenant-requests-neon.ts`.
+  - البايتات في `workflow_events` (`tenant_request.media`، تخزين `inline|s3`)، والقائمة في `metadata.media` بالمراحل `report|work|after|selfie`.
+  - الرفع `POST .../media?stage=` بايتات خام، والقراءة مع Range.
+- **الإثبات:** `closureProofMissing` يفرض صورة `after` وصورة `selfie` من الفريق قبل `complete` (409 `tenant_request_proof`). الواجهة `ClosureProofPanel` في `request-media.tsx`.
+- **البريد:**
+  - `email-template.ts`: `renderBrandedEmail` و`wrapLegacyEmail` (العلامة `data-bhd-mail="1"`).
+  - `email-notify.ts`:
+    - `queueBrandedEmail` داخل المعاملة.
+    - `notifyByEmail` بعد الإجراء ولا يرمي خطأ.
+    - `notifyInTx` داخل savepoint.
+    - المستلمون: `parties` و`users` و`managersOf`.
+  - `email-outbox.ts` يغلّف القديم عند الإرسال.
+- **التذكيرات:**
+  - `email-reminders-neon.ts` يبني الكشوف بـ `leaseStatementsInTx` (عشرون عقداً في كل دفعة).
+  - مفاتيح `reminder:*` في `payload.dedupeKey` تمنع التكرار (نافذة 3 أيام).
+  - الملخص يوم الأحد، أو `?digest=1`.
+- **مفتوح:**
+  - الإثبات غير مفروض على `maintenance_tickets` (خدمة Nest).
+  - لا ميزة إعلانات عامة ولا اشتراك في الشواغر.
+  - رسائل الـ worker لا تُغلَّف.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.67-AR.md`](./docs/implementation/RELEASE-0.8.67-AR.md)
+
 # CONTINUE — 2026-10-14 17:45 (مسقط)
 
 **0.8.66** · سيلفي الطرفين، والمتأخرات والمطالبات، وسياسة الصيانة، والبلاغات:

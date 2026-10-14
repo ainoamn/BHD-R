@@ -25,6 +25,48 @@ export const TENANT_REQUEST_PHOTOS_MAX = 4;
 
 export const TENANT_REQUEST_SOURCE = 'tenant_portal';
 
+/**
+ * Photos and videos added to a request after it is sent: the tenant's own (`report`), the
+ * maintenance team's while working (`work`), and the closing proof — a photo of the fixed problem
+ * (`after`) and a selfie of whoever fixed it (`selfie`).
+ */
+export const REQUEST_MEDIA_STAGES = ['report', 'work', 'after', 'selfie'] as const;
+export type RequestMediaStage = (typeof REQUEST_MEDIA_STAGES)[number];
+export const REQUEST_MEDIA_MAX = 16;
+/** Uploads go through one serverless request, whose body cannot pass 4.5 MB. */
+export const REQUEST_VIDEO_MAX_BYTES = 4_000_000;
+export const REQUEST_PHOTO_UPLOAD_MAX_BYTES = 4_000_000;
+
+export type RequestMedia = {
+  id: string;
+  kind: 'photo' | 'video';
+  stage: RequestMediaStage;
+  by: 'tenant' | 'team';
+  name: string | null;
+  at: string;
+};
+
+export function isRequestMediaStage(value: unknown): value is RequestMediaStage {
+  return typeof value === 'string' && (REQUEST_MEDIA_STAGES as readonly string[]).includes(value);
+}
+
+/** What the team still owes before a maintenance request may be closed. */
+export function closureProofMissing(media: readonly RequestMedia[]): Array<'after' | 'selfie'> {
+  const has = (stage: RequestMediaStage) =>
+    media.some((item) => item.stage === stage && item.kind === 'photo' && item.by === 'team');
+  return (['after', 'selfie'] as const).filter((stage) => !has(stage));
+}
+
+export function requestMediaStageLabel(stage: RequestMediaStage, ar: boolean): string {
+  const labels: Record<RequestMediaStage, { ar: string; en: string }> = {
+    report: { ar: 'من المستأجر', en: 'From the tenant' },
+    work: { ar: 'أثناء العمل', en: 'During the work' },
+    after: { ar: 'بعد الإصلاح', en: 'After the fix' },
+    selfie: { ar: 'سيلفي من أنجز العمل', en: 'Selfie of who fixed it' },
+  };
+  return ar ? labels[stage].ar : labels[stage].en;
+}
+
 export type TenantRequestStatus =
   'pending' | 'approved' | 'in_progress' | 'on_hold' | 'completed' | 'rejected' | 'cancelled';
 
@@ -74,6 +116,7 @@ export type TenantRequest = {
   staffName: string | null;
   /** Maintenance accepted at the tenant's cost, billed as an invoice on the lease. */
   charge: TenantRequestCharge | null;
+  media: RequestMedia[];
 };
 
 export type TenantRequestCharge = {
@@ -305,7 +348,27 @@ export function tenantRequestFromRow(
         : 0,
     staffName: text(meta.staffName),
     charge: chargeOf(meta.charge),
+    media: mediaOf(meta.media),
   };
+}
+
+function mediaOf(value: unknown): RequestMedia[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((entry) => {
+    const item = entry && typeof entry === 'object' ? (entry as Record<string, unknown>) : null;
+    const id = text(item?.id);
+    if (!item || !id || !isRequestMediaStage(item.stage)) return [];
+    return [
+      {
+        id,
+        kind: item.kind === 'video' ? ('video' as const) : ('photo' as const),
+        stage: item.stage,
+        by: item.by === 'team' ? ('team' as const) : ('tenant' as const),
+        name: text(item.name),
+        at: text(item.at) ?? '',
+      },
+    ];
+  });
 }
 
 function emergencyOf(value: unknown): TenantRequest['emergency'] {
@@ -364,6 +427,18 @@ const TENANT_REQUEST_ERRORS: Record<string, { ar: string; en: string }> = {
   tenant_request_photos: {
     ar: 'تعذّر قبول الصور: أرفق حتى 4 صور بصيغة JPG أو PNG وبحجم معقول.',
     en: 'The photos could not be accepted: attach up to 4 JPG or PNG photos of reasonable size.',
+  },
+  tenant_request_media: {
+    ar: 'تعذّر قبول الملف: أرفق صورة (JPG أو PNG أو WebP) أو مقطع فيديو قصيراً (MP4 أو MOV أو WebM) لا يتجاوز 4 ميغابايت.',
+    en: 'The file could not be accepted: attach a photo (JPG, PNG or WebP) or a short video (MP4, MOV or WebM) up to 4 MB.',
+  },
+  tenant_request_proof: {
+    ar: 'لإغلاق طلب الصيانة أرفق أولاً صورة تُثبت أن المشكلة حُلّت، وصورة سيلفي لمن أنجز العمل.',
+    en: 'To close a maintenance request, first attach a photo proving the fix and a selfie of whoever did the work.',
+  },
+  storage_unavailable: {
+    ar: 'تخزين الملفات غير متاح الآن، أعد المحاولة لاحقاً.',
+    en: 'File storage is unavailable right now; try again later.',
   },
   tenant_charge_invalid: {
     ar: 'أكمل بيانات المطالبة: النوع والمبلغ وتاريخ الاستحقاق.',

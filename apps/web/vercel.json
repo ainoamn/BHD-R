@@ -22,6 +22,10 @@
       "schedule": "45 3 * * *"
     },
     {
+      "path": "/api/cron/tenant-reminders",
+      "schedule": "40 3 * * *"
+    },
+    {
       "path": "/api/cron/send-emails",
       "schedule": "50 3 * * *"
     }

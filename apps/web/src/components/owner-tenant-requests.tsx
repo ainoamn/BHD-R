@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
 import type { CurrencyCode } from '@bhd-r/contracts';
+import { ClosureProofPanel } from '@/components/request-media';
 import { RequestSummary } from '@/components/tenant-requests-list';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney, toMinorUnits } from '@/lib/format';
@@ -10,6 +11,7 @@ import { PENDING_APPROVALS_CHANGED_EVENT } from '@/lib/pending-approvals-shared'
 import type { ChargePayment } from '@/lib/tenant-charges-shared';
 import {
   OPEN_TENANT_REQUEST,
+  closureProofMissing,
   isTenantReport,
   requestNeedsCheque,
   tenantRequestErrorText,
@@ -50,15 +52,19 @@ function OwnerRequestItem({
   locale,
   focused,
   canRecordPayments,
+  onChanged,
 }: {
   request: OwnerTenantRequest;
   locale: 'ar' | 'en';
   focused: boolean;
   canRecordPayments: boolean;
+  onChanged?: (() => void) | undefined;
 }) {
   const ar = locale === 'ar';
   const router = useRouter();
   const [, startRefresh] = useTransition();
+  const refresh = onChanged ?? (() => startRefresh(() => router.refresh()));
+  const proofMissing = request.type === 'maintenance' ? closureProofMissing(request.media) : [];
   const [note, setNote] = useState('');
   const [date, setDate] = useState(request.proposedDate ?? '');
   const [charged, setCharged] = useState(false);
@@ -109,7 +115,7 @@ function OwnerRequestItem({
       setNote('');
       setCharged(false);
       window.dispatchEvent(new Event(PENDING_APPROVALS_CHANGED_EVENT));
-      startRefresh(() => router.refresh());
+      refresh();
     } catch (caught) {
       setError(tenantRequestErrorText(caught instanceof ApiError ? caught.code : null, ar));
     } finally {
@@ -276,6 +282,14 @@ function OwnerRequestItem({
               />
             </label>
           ) : null}
+          {request.type === 'maintenance' && request.status !== 'pending' ? (
+            <ClosureProofPanel
+              requestId={request.id}
+              media={request.media}
+              locale={locale}
+              onAdded={refresh}
+            />
+          ) : null}
           <textarea
             className="input"
             rows={2}
@@ -331,10 +345,23 @@ function OwnerRequestItem({
               <button
                 type="button"
                 className="button button--quiet button--tiny"
-                disabled={busy !== null}
+                disabled={busy !== null || proofMissing.length > 0}
+                title={
+                  proofMissing.length
+                    ? ar
+                      ? 'أرفق صورة بعد الإصلاح وسيلفي من أنجز العمل أولاً'
+                      : 'Attach the after photo and the selfie first'
+                    : undefined
+                }
                 onClick={() => void act('complete')}
               >
-                {ar ? 'تم الإنجاز' : 'Completed'}
+                {proofMissing.length
+                  ? ar
+                    ? '🔒 تم الإنجاز (يلزم الإثبات)'
+                    : '🔒 Completed (proof needed)'
+                  : ar
+                    ? 'تم الإنجاز'
+                    : 'Completed'}
               </button>
             ) : null}
             {request.status !== 'on_hold' ? (
@@ -380,11 +407,16 @@ export function OwnerTenantRequests({
   locale,
   focus,
   canRecordPayments,
+  onChanged,
+  showReports = true,
 }: {
   requests: OwnerTenantRequest[];
   locale: 'ar' | 'en';
   focus: string | null;
   canRecordPayments: boolean;
+  /** Reload after an action when the list is not server-rendered. */
+  onChanged?: () => void;
+  showReports?: boolean;
 }) {
   const ar = locale === 'ar';
   const [filter, setFilter] = useState<'open' | 'reports' | 'all'>('open');
@@ -414,15 +446,17 @@ export function OwnerTenantRequests({
         >
           {ar ? `المفتوحة (${openCount})` : `Open (${openCount})`}
         </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={filter === 'reports'}
-          className={`button button--tiny ${filter === 'reports' ? 'button--primary' : 'button--quiet'}`}
-          onClick={() => setFilter('reports')}
-        >
-          {ar ? `البلاغات (${reports.length})` : `Reports (${reports.length})`}
-        </button>
+        {showReports ? (
+          <button
+            type="button"
+            role="tab"
+            aria-selected={filter === 'reports'}
+            className={`button button--tiny ${filter === 'reports' ? 'button--primary' : 'button--quiet'}`}
+            onClick={() => setFilter('reports')}
+          >
+            {ar ? `البلاغات (${reports.length})` : `Reports (${reports.length})`}
+          </button>
+        ) : null}
         <button
           type="button"
           role="tab"
@@ -442,6 +476,7 @@ export function OwnerTenantRequests({
               locale={locale}
               focused={request.id === focus}
               canRecordPayments={canRecordPayments}
+              onChanged={onChanged}
             />
           ))}
         </ul>

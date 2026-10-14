@@ -5,11 +5,13 @@ import type { SessionClaims } from '@bhd-r/authz';
 import { auditLogs, platformSettings } from '@bhd-r/db';
 import { entitlementsForPlan } from '@bhd-r/domain';
 import { elevatedTx, isoOf, rowsOf, type ElevatedTx } from '@/lib/elevated-db';
+import { appLink, notifyInTx } from '@/lib/email-notify';
 import {
   ADMIN_SCOPES,
   DEFAULT_PLANS,
   DELEGATE_LIMIT,
   PLAN_LIMIT,
+  SUBSCRIPTION_LABELS,
   SUBSCRIPTION_STATUSES,
   isAdminScope,
   parsePlan,
@@ -453,6 +455,43 @@ export function updateOrganizationSubscription(
       { before, after: { planKey, status: input.status, endsOn, note } },
       organizationId,
     );
+    if (planKey !== current.plan_key || before.status !== input.status) {
+      const [org] = rowsOf<{ name: string }>(
+        await tx.execute(
+          sql`select display_name_ar as name from organizations where id = ${organizationId}::uuid`,
+        ),
+      );
+      const previous = readCatalog(await readSetting(tx, PLANS_KEY)).find(
+        (item) => item.key === current.plan_key,
+      );
+      const upgraded = planKey !== current.plan_key;
+      const orgName = org?.name ?? '';
+      await notifyInTx(tx, {
+        orgId: organizationId,
+        aggregateType: 'organization',
+        aggregateId: organizationId,
+        audience: { managersOf: { orgId: organizationId } },
+        content: () => ({
+          tone: 'upgrade',
+          subject: upgraded
+            ? `🚀 باقة ${orgName} الآن: ${plan.nameAr}`
+            : `تحديث على اشتراك ${orgName}`,
+          title: upgraded ? `أهلاً بك في باقة «${plan.nameAr}»` : 'تحدّث اشتراك منشأتك',
+          intro: upgraded
+            ? `انتقلت منشأتك «${orgName}» إلى باقة «${plan.nameAr}» بمزاياها وحدودها الجديدة.`
+            : `تحدّثت حالة اشتراك منشأتك «${orgName}».`,
+          details: [
+            ...(previous && upgraded ? [{ label: 'الباقة السابقة', value: previous.nameAr }] : []),
+            { label: 'الباقة الحالية', value: plan.nameAr },
+            { label: 'حالة الاشتراك', value: SUBSCRIPTION_LABELS[input.status].ar },
+            ...(endsOn
+              ? [{ label: 'ينتهي في', value: endsOn.split('-').reverse().join('/') }]
+              : []),
+          ],
+          cta: { label: 'فتح لوحة التحكم', url: appLink('/ar/owner') },
+        }),
+      });
+    }
     const updated = (await organizationsList(tx)).find((row) => row.id === organizationId);
     if (!updated) fail('organization_not_found');
     return updated;

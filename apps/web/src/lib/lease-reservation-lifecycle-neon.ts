@@ -1,5 +1,5 @@
 import 'server-only';
-import { createHash, randomUUID } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import {
@@ -20,8 +20,9 @@ import { HANDOVER_PHOTOS_MAX, HANDOVER_PHOTO_MAX } from '@/lib/stay-handover';
 import { delegateClaims, resolveApprovalPolicy } from '@/lib/approval-policy-neon';
 import { clientSafeErrorCode } from '@/lib/client-safe-error';
 import { applySessionSettings, viewerTenantSettings } from '@/lib/db-session-settings';
+import { elevatedTx, rowsOf } from '@/lib/elevated-db';
+import { appLink, notifyByEmail, notifyInTx, queueBrandedEmail } from '@/lib/email-notify';
 import { sendQueuedEmailsSoon } from '@/lib/email-outbox';
-import { escapeHtml } from '@/lib/lease-booking-contract';
 import { publicWebOrigin } from '@/lib/seo';
 import {
   HANDOVER_DEFECTS_HOURS,
@@ -381,6 +382,27 @@ async function cancelReservationInTx(
     aggregateId: row.id,
     payload: { referenceCode: row.snapshot.referenceCode, reason: input.reason },
   });
+  await notifyInTx(tx, {
+    orgId: row.orgId,
+    aggregateType: 'reservation',
+    aggregateId: row.id,
+    audience: { parties: [row.tenantPartyId] },
+    content: () => ({
+      tone: 'alert',
+      subject: `أُلغي حجزك ${row.snapshot.referenceCode ?? ''}`.trim(),
+      title: 'أُلغي الحجز',
+      intro:
+        input.note ??
+        'أُلغي حجزك لأن متطلباته لم تكتمل في الوقت المحدد. يسعدنا أن تحجز من جديد متى شئت.',
+      details: [
+        ...(row.snapshot.referenceCode
+          ? [{ label: 'رقم الحجز', value: row.snapshot.referenceCode }]
+          : []),
+        { label: 'الحالة', value: 'ملغى' },
+      ],
+      cta: { label: 'تصفّح العقارات المتاحة', url: appLink('/ar') },
+    }),
+  });
   return next;
 }
 
@@ -401,6 +423,7 @@ export async function reservationOwnerAction(
   automationPending?: boolean;
 }> {
   const result = await ownerActionInTx(claims, reservationId, input);
+  await notifyReservationStep(reservationId, input);
   if (!AUTOMATION_TRIGGERS.has(input.action)) return result;
   if (options.defer && input.action === 'review_document') {
     options.defer(() => runReservationAutomation(reservationId, claims.sub));
@@ -408,6 +431,133 @@ export async function reservationOwnerAction(
   }
   const phase = await runReservationAutomation(reservationId, claims.sub);
   return phase ? { ...result, phase } : result;
+}
+
+type ReservationFacts = {
+  organizationId: string;
+  tenantPartyId: string;
+  propertyId: string;
+  propertyName: string | null;
+  referenceCode: string | null;
+};
+
+async function reservationFacts(reservationId: string): Promise<ReservationFacts | null> {
+  try {
+    return await elevatedTx(async (tx) => {
+      const [row] = rowsOf<ReservationFacts>(
+        await tx.execute(sql`select r.organization_id as "organizationId",
+            r.tenant_party_id as "tenantPartyId", u.property_id as "propertyId",
+            p.name_ar as "propertyName", r.terms_snapshot->>'referenceCode' as "referenceCode"
+          from reservations r join units u on u.id = r.unit_id
+          join properties p on p.id = u.property_id
+          where r.id = ${reservationId}::uuid limit 1`),
+      );
+      return row ?? null;
+    });
+  } catch {
+    return null;
+  }
+}
+
+/** What the tenant or buyer hears after each owner step on their website booking. */
+function ownerStepNotice(
+  input: ReservationOwnerAction,
+): { subject: string; title: string; line: string } | null {
+  switch (input.action) {
+    case 'confirm_payment':
+      return {
+        subject: '💳 تأكّد استلام دفعة حجزك',
+        title: 'وصلت دفعتك بسلام',
+        line: 'أكّد المالك استلام دفعة الحجز، والوحدة محجوزة باسمك الآن. الخطوة التالية: تجهيز العقد والمستندات.',
+      };
+    case 'reject_payment':
+      return {
+        subject: '⚠️ لم يتأكد استلام دفعة حجزك',
+        title: 'نحتاج نظرة ثانية على الدفعة',
+        line: `لم يتمكن المالك من تأكيد استلام الدفعة. السبب: «${input.note}». راجع الحجز وتواصل معه إن لزم.`,
+      };
+    case 'approve':
+      return {
+        subject: '✅ وافق المالك على حجزك',
+        title: 'خبر سعيد: حجزك مقبول!',
+        line: 'وافق المالك على حجزك، وسنخبرك بكل خطوة قادمة أولاً بأول.',
+      };
+    case 'save_contract':
+      return {
+        subject: '📋 جهّز المالك عقدك وطلب بعض المستندات',
+        title: 'العقد يُجهَّز، وبقيت مستنداتك',
+        line: 'جهّز المالك مسودة العقد وحدّد المستندات المطلوبة. ارفعها من صفحة الحجز ليُكمل الإجراءات.',
+      };
+    case 'verify_document':
+    case 'review_document': {
+      const ok = input.decision === 'verified' || input.decision === 'approved';
+      return {
+        subject: ok ? '📄 اعتُمد أحد مستنداتك' : '📄 أحد مستنداتك يحتاج تعديلاً',
+        title: ok ? 'مستندك مقبول، أحسنت!' : 'مستند يحتاج إعادة رفع',
+        line: ok
+          ? 'راجع المالك المستند واعتمده.'
+          : `راجع المالك المستند ولم يعتمده${input.note ? `: «${input.note}»` : ''}. ارفع نسخة أوضح من صفحة الحجز.`,
+      };
+    }
+    case 'record_handover':
+      return {
+        subject: '🗝️ سُلّم العقار — أهلاً بك في بيتك الجديد',
+        title: 'المفتاح صار في يدك!',
+        line: `سُجّل تسليم العقار بتاريخ ${input.on.split('-').reverse().join('/')}. نتمنى لك إقامة سعيدة، ونحن هنا لأي طلب صيانة أو استفسار.`,
+      };
+    default:
+      return null;
+  }
+}
+
+async function notifyReservationStep(reservationId: string, input: ReservationOwnerAction) {
+  const notice = ownerStepNotice(input);
+  if (!notice) return;
+  const facts = await reservationFacts(reservationId);
+  if (!facts) return;
+  await notifyByEmail({
+    orgId: facts.organizationId,
+    aggregateType: 'reservation',
+    aggregateId: reservationId,
+    audience: { parties: [facts.tenantPartyId] },
+    content: () => ({
+      tone: input.action === 'record_handover' ? 'booking' : 'contract',
+      subject: `${notice.subject}${facts.referenceCode ? ` — ${facts.referenceCode}` : ''}`,
+      title: notice.title,
+      intro: notice.line,
+      details: [
+        ...(facts.referenceCode ? [{ label: 'رقم الحجز', value: facts.referenceCode }] : []),
+        ...(facts.propertyName ? [{ label: 'العقار', value: facts.propertyName }] : []),
+      ],
+      cta: { label: 'متابعة الحجز', url: appLink('/ar/tenant/reservations') },
+    }),
+  });
+}
+
+/** The owner's people hear when the customer moves the booking forward on their side. */
+async function notifyOwnersOfCustomerStep(
+  reservationId: string,
+  notice: { subject: string; title: string; line: string },
+) {
+  const facts = await reservationFacts(reservationId);
+  if (!facts) return;
+  await notifyByEmail({
+    orgId: facts.organizationId,
+    aggregateType: 'reservation',
+    aggregateId: reservationId,
+    audience: { managersOf: { orgId: facts.organizationId, propertyId: facts.propertyId } },
+    content: () => ({
+      tone: 'booking',
+      subject: `${notice.subject}${facts.referenceCode ? ` — ${facts.referenceCode}` : ''}`,
+      title: notice.title,
+      intro: notice.line,
+      details: [
+        ...(facts.referenceCode ? [{ label: 'رقم الحجز', value: facts.referenceCode }] : []),
+        ...(facts.propertyName ? [{ label: 'العقار', value: facts.propertyName }] : []),
+      ],
+      cta: { label: 'فتح الحجز', url: appLink(`/ar/owner/bookings/${reservationId}`) },
+    }),
+  });
 }
 
 /** Owner steps after which the system may take the next one on the owner's behalf. */
@@ -903,6 +1053,11 @@ export async function submitReservationDocument(
     });
     return current.match.id;
   });
+  await notifyOwnersOfCustomerStep(reservationId, {
+    subject: '📎 رفع العميل مستنداً للمراجعة',
+    title: 'مستند جديد ينتظر مراجعتك',
+    line: 'رفع العميل أحد المستندات المطلوبة على حجزه. راجعه واعتمده ليمضي الحجز إلى العقد.',
+  });
   await runReservationAutomation(reservationId, claims.sub);
   return { submitted: true as const, code: input.code };
 }
@@ -1168,28 +1323,20 @@ async function queueTenantHandoverEmail(
     lines: string[];
   },
 ) {
-  const recipient = input.recipient?.trim().toLowerCase() ?? '';
-  if (!recipient.includes('@') || recipient.endsWith('@identity.bhd-om.local')) return;
   const link = `${publicWebOrigin()}/ar/book/confirmed?ref=${encodeURIComponent(input.referenceCode)}`;
-  await tx.insert(outboxEvents).values({
-    organizationId: input.orgId,
-    topic: 'notification.delivery.requested',
+  const queued = await queueBrandedEmail(tx, {
+    orgId: input.orgId,
+    recipient: input.recipient,
+    subject: input.subject,
     aggregateType: 'reservation',
     aggregateId: input.reservationId,
-    payload: {
-      correlationId: randomUUID(),
-      organizationId: input.orgId,
-      notificationId: randomUUID(),
-      channel: 'email',
-      recipient,
-      subject: input.subject,
-      text: ['مرحباً،', '', ...input.lines, '', `فتح الحجز: ${link}`, '', 'BHD R'].join('\n'),
-      html: `<div dir="rtl"><p>مرحباً،</p>${input.lines
-        .map((line) => `<p>${escapeHtml(line)}</p>`)
-        .join('')}<p><a href="${escapeHtml(link)}">فتح الحجز</a></p><p>BHD R</p></div>`,
-    },
+    tone: 'booking',
+    title: input.subject,
+    lines: input.lines,
+    details: [{ label: 'رقم الحجز', value: input.referenceCode }],
+    cta: { label: 'فتح الحجز', url: link },
   });
-  sendQueuedEmailsSoon();
+  if (queued) sendQueuedEmailsSoon();
 }
 
 /** The tenant's selfie at the door, re-encoded once with the platform mark and stored as evidence. */
@@ -1642,7 +1789,7 @@ export async function reportHandoverDefects(
   const photos = await brandHandoverPhotos(input.photos);
   const note = input.note?.trim().slice(0, 1000) || null;
   const { db } = getDatabase();
-  return db.transaction(async (transaction) => {
+  const reported = await db.transaction(async (transaction) => {
     const current = await customerReservation(transaction, claims.sub, referenceCode);
     const handover = current.lifecycle.handover;
     if (!handover || !handoverDefectsOpen(current.lifecycle)) {
@@ -1699,8 +1846,14 @@ export async function reportHandoverDefects(
       aggregateId: current.match.id,
       payload: { referenceCode: current.snapshot.referenceCode, at, photos: photos.length },
     });
-    return { reportedAt: at };
+    return { reportedAt: at, reservationId: current.match.id };
   });
+  await notifyOwnersOfCustomerStep(reported.reservationId, {
+    subject: '🔍 أبلغ المستأجر عن ملاحظات بعد الاستلام',
+    title: 'ملاحظات جديدة على العقار بعد التسليم',
+    line: `أرفق المستأجر ${photos.length} صورة لملاحظات لاحظها بعد الاستلام${note ? `: «${note}»` : ''}. راجعها وخطّط لمعالجتها.`,
+  });
+  return { reportedAt: reported.reportedAt };
 }
 
 /**

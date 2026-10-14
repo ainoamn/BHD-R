@@ -2,12 +2,14 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useTransition, type ReactNode } from 'react';
+import { RequestMediaButton, RequestMediaGallery } from '@/components/request-media';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import {
   OPEN_TENANT_REQUEST,
   emergencyScopeLabel,
   requestAwaitsPayment,
+  requestTakesPhotos,
   tenantRequestErrorText,
   tenantRequestStatusLabel,
   tenantRequestTypeLabel,
@@ -179,6 +181,7 @@ export function RequestSummary({
           })}
         </div>
       ) : null}
+      <RequestMediaGallery requestId={request.id} media={request.media} ar={ar} />
       {request.replies.length ? (
         <ol className="tenant-request__replies">
           {request.replies.map((reply, index) => (
@@ -274,6 +277,16 @@ function TenantRequestItem({ request, locale }: { request: TenantRequest; locale
               >
                 {ar ? 'سحب الطلب' : 'Withdraw'}
               </button>
+            ) : null}
+            {requestTakesPhotos(request.type) ? (
+              <RequestMediaButton
+                requestId={request.id}
+                stage="report"
+                ar={ar}
+                label={ar ? '📎 إرفاق صورة أو فيديو' : '📎 Add a photo or video'}
+                accept="image/*,video/mp4,video/quicktime,video/webm"
+                onAdded={() => startRefresh(() => router.refresh())}
+              />
             ) : null}
           </div>
           {error ? (

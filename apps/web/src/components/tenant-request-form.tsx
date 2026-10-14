@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import { Link } from '@/i18n/navigation';
+import { uploadRequestMedia } from '@/components/request-media';
 import { compressPhoto } from '@/components/stays/stay-handover-form';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
@@ -10,6 +11,7 @@ import { HANDOVER_PHOTO_MAX } from '@/lib/stay-handover';
 import { arrearsLabel, type ArrearsCategory } from '@/lib/tenant-ledger';
 import {
   EMERGENCY_SCOPES,
+  REQUEST_VIDEO_MAX_BYTES,
   TENANT_REQUEST_PHOTOS_MAX,
   TENANT_REQUEST_TYPES,
   emergencyScopeLabel,
@@ -48,13 +50,18 @@ function RequestPhotos({
   ar,
   photos,
   onChange,
+  video,
+  onVideo,
 }: {
   ar: boolean;
   photos: Photo[];
   onChange: (photos: Photo[]) => void;
+  video: File | null;
+  onVideo: (video: File | null) => void;
 }) {
   const cameraRef = useRef<HTMLInputElement>(null);
   const deviceRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLInputElement>(null);
   const [reading, setReading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const full = photos.length >= TENANT_REQUEST_PHOTOS_MAX;
@@ -86,8 +93,8 @@ function RequestPhotos({
     <fieldset className="tenant-request-form__photos">
       <legend>
         {ar
-          ? `صور توضّح المشكلة (حتى ${TENANT_REQUEST_PHOTOS_MAX})`
-          : `Photos of the problem (up to ${TENANT_REQUEST_PHOTOS_MAX})`}
+          ? `صور توضّح المشكلة (حتى ${TENANT_REQUEST_PHOTOS_MAX}) ومقطع فيديو قصير إن شئت`
+          : `Photos of the problem (up to ${TENANT_REQUEST_PHOTOS_MAX}) and a short video if you like`}
       </legend>
       <div className="tenant-request-form__actions">
         <button
@@ -128,7 +135,42 @@ function RequestPhotos({
             event.target.value = '';
           }}
         />
+        <button
+          type="button"
+          className="button button--quiet button--tiny"
+          onClick={() => videoRef.current?.click()}
+        >
+          {video ? (ar ? 'تغيير الفيديو' : 'Change video') : ar ? '🎬 مقطع فيديو' : '🎬 Video clip'}
+        </button>
+        <input
+          ref={videoRef}
+          type="file"
+          accept="video/mp4,video/quicktime,video/webm"
+          hidden
+          onChange={(event) => {
+            const file = event.target.files?.[0] ?? null;
+            event.target.value = '';
+            if (file && file.size > REQUEST_VIDEO_MAX_BYTES) {
+              setError(
+                ar
+                  ? 'الفيديو أكبر من 4 ميغابايت؛ صوّر مقطعاً أقصر (نحو 15 ثانية) أو بدقة أقل.'
+                  : 'The video is over 4 MB; record a shorter clip (about 15 seconds) or at a lower quality.',
+              );
+              return;
+            }
+            setError(null);
+            onVideo(file);
+          }}
+        />
       </div>
+      {video ? (
+        <p className="tenant-request-form__video">
+          🎬 <bdi>{video.name}</bdi> · {(video.size / 1_000_000).toFixed(1)} MB{' '}
+          <button type="button" className="file-link-button" onClick={() => onVideo(null)}>
+            {ar ? 'إزالة' : 'Remove'}
+          </button>
+        </p>
+      ) : null}
       {photos.length ? (
         <div className="handover-shots">
           {photos.map((photo, index) => (
@@ -260,6 +302,8 @@ function TenantRequestDialog({
   const [emergency, setEmergency] = useState<EmergencyScope | ''>('');
   const [staffName, setStaffName] = useState('');
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [video, setVideo] = useState<File | null>(null);
+  const [videoFailed, setVideoFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState<string | null>(null);
@@ -283,20 +327,31 @@ function TenantRequestDialog({
     setBusy(true);
     setError(null);
     try {
-      const result = await browserNextMutation<{ reference: string }>('/api/tenant/requests', {
-        method: 'POST',
-        body: JSON.stringify({
-          leaseId: lease.id,
-          type,
-          subject: subject.trim() || undefined,
-          description: description.trim() || undefined,
-          ...(type === 'maintenance' ? (emergency ? { emergency } : { priority }) : {}),
-          ...(requestNeedsCheque(type) ? { chequeId: chequeId || undefined } : {}),
-          ...(requestNeedsDate(type) ? { proposedDate: proposedDate || undefined } : {}),
-          ...(type === 'report_staff' && staffName.trim() ? { staffName: staffName.trim() } : {}),
-          ...(requestTakesPhotos(type) && photos.length ? { photos } : {}),
-        }),
-      });
+      const result = await browserNextMutation<{ id: string; reference: string }>(
+        '/api/tenant/requests',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            leaseId: lease.id,
+            type,
+            subject: subject.trim() || undefined,
+            description: description.trim() || undefined,
+            ...(type === 'maintenance' ? (emergency ? { emergency } : { priority }) : {}),
+            ...(requestNeedsCheque(type) ? { chequeId: chequeId || undefined } : {}),
+            ...(requestNeedsDate(type) ? { proposedDate: proposedDate || undefined } : {}),
+            ...(type === 'report_staff' && staffName.trim() ? { staffName: staffName.trim() } : {}),
+            ...(requestTakesPhotos(type) && photos.length ? { photos } : {}),
+          }),
+        },
+      );
+      if (video && requestTakesPhotos(type)) {
+        setVideoFailed(
+          !(await uploadRequestMedia(result.id, 'report', video).then(
+            () => true,
+            () => false,
+          )),
+        );
+      }
       setSent(result.reference);
       startRefresh(() => router.refresh());
     } catch (caught) {
@@ -349,6 +404,13 @@ function TenantRequestDialog({
                   ? `أُرسل طلبك برقم ${sent} إلى المالك مباشرة، وسيصلك رده هنا وعلى بريدك.`
                   : `Your request ${sent} went straight to the landlord; their answer arrives here and by email.`}
             </p>
+            {videoFailed ? (
+              <p className="notice notice--error" role="alert">
+                {ar
+                  ? 'وصل الطلب، لكن تعذّر رفع الفيديو. يمكنك إرفاقه لاحقاً من الطلب نفسه في قائمة طلباتك.'
+                  : 'The request arrived, but the video could not be uploaded. You can add it later from the request in your list.'}
+              </p>
+            ) : null}
             <button type="button" className="button button--primary" onClick={onClose}>
               {ar ? 'تم' : 'Done'}
             </button>
@@ -518,7 +580,13 @@ function TenantRequestDialog({
               />
             </label>
             {requestTakesPhotos(type) && !gated ? (
-              <RequestPhotos ar={ar} photos={photos} onChange={setPhotos} />
+              <RequestPhotos
+                ar={ar}
+                photos={photos}
+                onChange={setPhotos}
+                video={video}
+                onVideo={setVideo}
+              />
             ) : null}
             {error ? (
               <p className="notice notice--error" role="alert">

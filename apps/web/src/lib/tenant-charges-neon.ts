@@ -14,6 +14,8 @@ import {
   units,
   workflowEvents,
 } from '@bhd-r/db';
+import { appLink, notifyByEmail } from '@/lib/email-notify';
+import { formatMoney } from '@/lib/format';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 import {
   CHARGE_CATEGORIES,
@@ -361,11 +363,11 @@ export async function createTenantCharge(
   }
   const amount = amountOf(input.amountMinor);
   const orgId = claims.organizationId!;
-  return withinViewerTenant(claims, async (tx) => {
+  const { invoice, lease, description } = await withinViewerTenant(claims, async (tx) => {
     const lease = await chargeableLease(tx, claims, input.leaseId);
     const description =
       input.description?.trim().slice(0, 300) || chargeLabel(input.category, true);
-    return insertChargeInvoice(tx, {
+    const invoice = await insertChargeInvoice(tx, {
       orgId,
       actorUserId: claims.sub,
       leaseId: lease.id,
@@ -377,7 +379,34 @@ export async function createTenantCharge(
       description,
       notes: null,
     });
+    return { invoice, lease, description };
   });
+  await notifyByEmail({
+    orgId,
+    aggregateType: 'invoice',
+    aggregateId: invoice.id,
+    audience: { parties: [lease.tenantPartyId] },
+    content: () => ({
+      tone: 'invoice',
+      subject: `🧾 مطالبة جديدة: ${chargeLabel(input.category, true)} — ${invoice.number}`,
+      title: 'وصلتك مطالبة جديدة على عقدك',
+      intro: 'أصدرت إدارة العقار مطالبة جديدة على عقد إيجارك، وهذه تفاصيلها:',
+      details: [
+        { label: 'رقم الفاتورة', value: invoice.number },
+        { label: 'النوع', value: chargeLabel(input.category, true) },
+        { label: 'البيان', value: description },
+        { label: 'المبلغ', value: formatMoney(amount.toString(), lease.currency, 'ar') },
+        { label: 'تاريخ الاستحقاق', value: arDate(invoice.dueOn) },
+      ],
+      lines: ['يمكنك مراجعتها في كشف حسابك، والسداد قبل الموعد يجعل يومك (ويومنا) أجمل.'],
+      cta: { label: 'فتح كشف الحساب', url: appLink('/ar/tenant/invoices') },
+    }),
+  });
+  return invoice;
+}
+
+function arDate(iso: string): string {
+  return /^\d{4}-\d{2}-\d{2}/.test(iso) ? iso.slice(0, 10).split('-').reverse().join('/') : iso;
 }
 
 /** Records a tenant's payment on a charge from the charges tab. */
@@ -389,7 +418,7 @@ export async function payTenantCharge(
   if (!canRecordTenantPayments(claims)) fail('forbidden');
   const orgId = claims.organizationId!;
   const scoped = ownerPartyScope(claims);
-  return withinViewerTenant(claims, async (tx) => {
+  const paid = await withinViewerTenant(claims, async (tx) => {
     if (scoped) {
       const [own] = await tx
         .select({ id: invoices.id })
@@ -422,9 +451,58 @@ export async function payTenantCharge(
         actorUserId: claims.sub,
       });
     }
-    return paid;
+    const [invoice] = await tx
+      .select({
+        number: invoices.invoiceNumber,
+        currency: invoices.currency,
+        totalMinor: invoices.totalMinor,
+        tenantPartyId: invoices.tenantPartyId,
+      })
+      .from(invoices)
+      .where(eq(invoices.id, invoiceId))
+      .limit(1);
+    return { ...paid, invoice: invoice ?? null };
   });
+  const { invoice, ...result } = paid;
+  if (invoice) {
+    const left = invoice.totalMinor - BigInt(result.paidMinor);
+    await notifyByEmail({
+      orgId,
+      aggregateType: 'invoice',
+      aggregateId: invoiceId,
+      audience: { parties: [invoice.tenantPartyId] },
+      content: () => ({
+        tone: 'invoice',
+        subject: `✅ استلمنا دفعتك — ${invoice.number}`,
+        title: result.status === 'paid' ? 'تم السداد بالكامل، شكراً لك!' : 'سجّلنا دفعة على حسابك',
+        intro: 'سُجّلت دفعتك في حسابك لدى إدارة العقار.',
+        details: [
+          { label: 'رقم الفاتورة', value: invoice.number },
+          { label: 'إجمالي ما سُدد', value: formatMoney(result.paidMinor, invoice.currency, 'ar') },
+          {
+            label: 'المتبقي',
+            value: formatMoney((left > 0n ? left : 0n).toString(), invoice.currency, 'ar'),
+          },
+          { label: 'طريقة السداد', value: PAYMENT_METHOD_AR[input.method] },
+        ],
+        lines: [
+          result.status === 'paid'
+            ? 'حسابك على هذه الفاتورة صافٍ تماماً. نحب هذا النوع من الأخبار 😄'
+            : 'بقي جزء صغير، ونحن واثقون أنك ستنهيه قريباً.',
+        ],
+        cta: { label: 'فتح كشف الحساب', url: appLink('/ar/tenant/invoices') },
+      }),
+    });
+  }
+  return result;
 }
+
+const PAYMENT_METHOD_AR: Record<ChargePaymentMethod, string> = {
+  cash: 'نقداً',
+  bank_transfer: 'تحويل بنكي',
+  card: 'بطاقة',
+  cheque: 'شيك',
+};
 
 /**
  * Once a maintenance charge is paid in full, its request notes it; a request that waited for the

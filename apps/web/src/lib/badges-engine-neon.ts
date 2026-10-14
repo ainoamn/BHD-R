@@ -4,6 +4,7 @@ import { aiChatJson, type AiEndpoint } from '@/lib/ai-chat';
 import {
   BADGE_METRICS,
   DEFAULT_BADGES,
+  awardSerial,
   criteriaMet,
   criterionMet,
   describeCriterion,
@@ -17,6 +18,8 @@ import {
   type MetricValues,
 } from '@/lib/badges-shared';
 import { rowsOf, type ElevatedTx } from '@/lib/elevated-db';
+import { appLink, queueBrandedEmail } from '@/lib/email-notify';
+import { sendQueuedEmailsSoon } from '@/lib/email-outbox';
 import { partyAccounts, verifiedUsers } from '@/lib/identity-marks-neon';
 
 const DAY_MS = 86_400_000;
@@ -704,7 +707,76 @@ export async function insertAwards(
       serial += 1;
     }
   }
+  const granted = ids.filter((_, index) => awards[index]?.status === 'active');
+  if (granted.length) await queueAwardEmails(tx, granted);
   return ids;
+}
+
+/**
+ * Congratulates whoever earned a badge: the tenant or owner themself, the staff member, the
+ * worker's contact, or a property's owner for a property badge.
+ */
+export async function queueAwardEmails(tx: ElevatedTx, awardIds: string[]): Promise<void> {
+  if (!awardIds.length) return;
+  try {
+    await tx.transaction(async (savepoint) => {
+      const rows = rowsOf<{
+        id: string;
+        organization_id: string;
+        subject_type: string;
+        serial_year: number;
+        serial_no: number;
+        rationale_ar: string | null;
+        name_ar: string;
+        icon: string | null;
+        email: string | null;
+        name: string | null;
+        property_name: string | null;
+      }>(
+        await savepoint.execute(sql`
+          select a.id::text, a.organization_id::text, a.subject_type, a.serial_year, a.serial_no,
+            a.rationale_ar, d.name_ar, d.icon,
+            case when a.subject_type = 'staff' then u.email else p.email end as email,
+            case when a.subject_type = 'staff' then u.display_name else p.display_name end as name,
+            pr.name_ar as property_name
+          from badge_awards a
+          join badge_definitions d on d.id = a.badge_id
+          left join users u on a.subject_type = 'staff' and u.id = a.subject_id
+          left join vendors v on a.subject_type = 'worker' and v.id = a.subject_id
+          left join properties pr on a.subject_type = 'property' and pr.id = a.subject_id
+          left join parties p on p.id = case a.subject_type
+            when 'worker' then v.party_id when 'property' then pr.owner_party_id
+            when 'staff' then null else a.subject_id end
+          where a.id = any(${`{${awardIds.join(',')}}`}::uuid[]) and a.status = 'active'
+        `),
+      );
+      for (const row of rows) {
+        const serial = awardSerial(num(row.serial_year), num(row.serial_no));
+        await queueBrandedEmail(savepoint, {
+          orgId: row.organization_id,
+          recipient: row.email,
+          recipientName: row.name,
+          subject: `🏆 مبروك! حصلت${row.property_name ? ` لعقارك «${row.property_name}»` : ''} على شارة «${row.name_ar}»`,
+          aggregateType: 'badge_award',
+          aggregateId: row.id,
+          tone: 'reward',
+          title: `شارة «${row.name_ar}» صارت لك!`,
+          intro: row.property_name
+            ? `استحق عقارك «${row.property_name}» شارة جديدة تظهر لكل من يزوره على المنصة.`
+            : 'استحققت شارة جديدة تقديراً لأدائك، وتظهر في ملفك على المنصة.',
+          lines: row.rationale_ar ? [row.rationale_ar] : [],
+          details: [
+            { label: 'الشارة', value: row.name_ar },
+            { label: 'رقم الشهادة', value: serial },
+          ],
+          cta: { label: 'عرض الشهادة', url: appLink(`/ar/verify/badge/${serial}`) },
+        });
+      }
+    });
+    sendQueuedEmailsSoon();
+  } catch (error) {
+    console.error('badge award emails failed', error instanceof Error ? error.message : '');
+  }
 }
 
 /** One AI call explaining every new award, from aggregate numbers only (no names, no ids). */

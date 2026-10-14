@@ -20,6 +20,7 @@ import {
   utilityMeters,
   type Database,
 } from '@bhd-r/db';
+import { appLink, queueBrandedEmail } from '@/lib/email-notify';
 import { loadPropertyProfileRow, writePropertyProfileRow } from '@/lib/load-property-profile';
 import { writeUnitSaleDeposit } from '@/lib/unit-sale-deposit-neon';
 import {
@@ -357,6 +358,26 @@ export async function createPropertyBundleOnNeon(
       aggregateId: property.id,
       payload: { kind: property.kind, unitCount: unitRows.length, via: 'vercel-neon' },
     });
+    const liveUnits = input.asDraft ? [] : unitRows.filter((unit) => unit.publishWhenAvailable);
+    if (liveUnits.length) {
+      await queueBrandedEmail(transaction, {
+        orgId: claims.organizationId!,
+        recipient: owner.email,
+        recipientName: owner.displayName,
+        aggregateType: 'property',
+        aggregateId: property.id,
+        tone: 'listing',
+        subject: `📣 إعلانك «${property.nameAr}» صار منشوراً`,
+        title: 'إعلانك على الهواء مباشرة!',
+        intro: `نُشر عقارك «${property.nameAr}» ويستطيع الباحثون عن سكن رؤيته وطلب الحجز الآن.`,
+        details: [
+          { label: 'العقار', value: property.nameAr },
+          { label: 'الوحدات المنشورة', value: String(liveUnits.length) },
+          { label: 'الموقع', value: [addr.governorate, addr.wilayat].filter(Boolean).join(' — ') },
+        ],
+        cta: { label: 'إدارة العقار', url: appLink(`/ar/owner/properties/${property.id}`) },
+      });
+    }
 
     const result = {
       ...property,

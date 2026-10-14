@@ -2,6 +2,9 @@ import 'server-only';
 import { sql } from 'drizzle-orm';
 import type { SessionClaims } from '@bhd-r/authz';
 import { elevatedTx, isoOf, rowsOf, type ElevatedTx } from '@/lib/elevated-db';
+import { appLink, queueBrandedEmail } from '@/lib/email-notify';
+import { sendQueuedEmailsSoon } from '@/lib/email-outbox';
+import { formatMoney } from '@/lib/format';
 import { avatarUrl, verifiedOrganizations, verifiedUsers } from '@/lib/identity-marks-neon';
 import { compactDocument, decodeDataUrl } from '@/lib/image-compact';
 import { managesOrganization } from '@/lib/profile-image-neon';
@@ -312,6 +315,7 @@ export async function submitVerification(
         values (${row!.id}, ${document.slot}, ${document.mime}, ${document.dataUrl})
       `);
     }
+    await queueVerificationEmail(tx, row!.id, 'submitted');
     return { id: row!.id, serial: verificationSerial(year, serial) };
   }, 15_000);
 }
@@ -471,6 +475,7 @@ export async function recordVerificationPayment(
       `),
     );
     if (!done.length) fail('verification_not_open');
+    if (!input.waive) await queueVerificationEmail(tx, verificationId, 'paid');
     return { ok: true as const };
   });
 }
@@ -506,6 +511,7 @@ export async function decideVerification(
           reviewed_by_user_id = ${claims.sub}, reviewed_at = now(), updated_at = now()
         where id = ${verificationId}
       `);
+      await queueVerificationEmail(tx, verificationId, 'rejected');
       return { status: 'rejected' as const, verifiedUntil: null };
     }
     if (row.payment_status === 'unpaid') fail('verification_unpaid');
@@ -520,7 +526,104 @@ export async function decideVerification(
         verified_until = ${until.toISOString()}::timestamptz, updated_at = now()
       where id = ${verificationId}
     `);
+    await queueVerificationEmail(tx, verificationId, 'approved');
     return { status: 'approved' as const, verifiedUntil: until.toISOString() };
+  });
+}
+
+type VerificationNotice = 'submitted' | 'paid' | 'approved' | 'rejected';
+
+/** Keeps the account holder posted on their verification, in the same transaction as the step. */
+async function queueVerificationEmail(
+  tx: ElevatedTx,
+  verificationId: string,
+  notice: VerificationNotice,
+): Promise<void> {
+  try {
+    await tx.transaction((savepoint) => writeVerificationEmail(savepoint, verificationId, notice));
+    sendQueuedEmailsSoon();
+  } catch (error) {
+    console.error('verification email not queued', error instanceof Error ? error.message : '');
+  }
+}
+
+async function writeVerificationEmail(
+  tx: ElevatedTx,
+  verificationId: string,
+  notice: VerificationNotice,
+): Promise<void> {
+  const [row] = rowsOf<{
+    email: string;
+    name: string;
+    serial_year: number;
+    serial_no: number;
+    kind: VerificationKind;
+    fee_minor: string;
+    currency: string;
+    payment_status: string;
+    review_note: string | null;
+    verified_until: Date | string | null;
+  }>(
+    await tx.execute(sql`select u.email, u.display_name as name, v.serial_year, v.serial_no, v.kind,
+        v.fee_minor::text, v.currency, v.payment_status, v.review_note, v.verified_until
+      from account_verifications v join users u on u.id = v.user_id
+      where v.id = ${verificationId}::uuid`),
+  );
+  if (!row) return;
+  const serial = verificationSerial(Number(row.serial_year), Number(row.serial_no));
+  const kind = row.kind === 'business' ? 'توثيق المنشأة' : 'توثيق الحساب';
+  const fee =
+    row.payment_status === 'unpaid' && row.fee_minor !== '0'
+      ? formatMoney(row.fee_minor, row.currency, 'ar')
+      : null;
+  const content = {
+    submitted: {
+      subject: `🛡️ استلمنا طلب ${kind} ${serial}`,
+      title: 'طلب التوثيق في الطريق الصحيح',
+      intro: 'وصلتنا مستنداتك، وسيراجعها فريق المنصة قريباً.',
+      lines: fee
+        ? [`رسوم التوثيق ${fee}؛ تبدأ المراجعة النهائية بعد تسجيل السداد.`]
+        : ['لا رسوم مطلوبة على هذا الطلب.'],
+    },
+    paid: {
+      subject: `💳 سُجّل سداد رسوم ${kind} ${serial}`,
+      title: 'استلمنا رسوم التوثيق',
+      intro: 'سُجّل سداد رسوم طلب التوثيق، وطلبك الآن في مرحلة المراجعة النهائية.',
+      lines: [],
+    },
+    approved: {
+      subject: `✅ تم ${kind} — شارة التوثيق صارت لك`,
+      title: 'مبروك! حسابك موثّق رسمياً',
+      intro: 'اعتمد فريق المنصة طلب التوثيق، وتظهر علامة التوثيق الآن بجانب اسمك.',
+      lines: row.verified_until
+        ? [
+            `يبقى التوثيق سارياً حتى ${new Date(row.verified_until).toISOString().slice(0, 10).split('-').reverse().join('/')}.`,
+          ]
+        : [],
+    },
+    rejected: {
+      subject: `عن طلب ${kind} ${serial}`,
+      title: 'طلب التوثيق يحتاج تعديلاً بسيطاً',
+      intro: 'راجع فريق المنصة طلبك ولم يتمكن من اعتماده هذه المرة.',
+      lines: row.review_note
+        ? [`ملاحظة المراجع: «${row.review_note}»`, 'صحّح ما يلزم وأعد التقديم، فنحن بانتظارك.']
+        : [],
+    },
+  }[notice];
+  await queueBrandedEmail(tx, {
+    orgId: null,
+    recipient: row.email,
+    recipientName: row.name,
+    aggregateType: 'account_verification',
+    aggregateId: verificationId,
+    tone: notice === 'approved' ? 'reward' : notice === 'rejected' ? 'alert' : 'general',
+    ...content,
+    details: [
+      { label: 'رقم الطلب', value: serial },
+      { label: 'النوع', value: kind },
+      ...(fee && notice === 'submitted' ? [{ label: 'الرسوم', value: fee }] : []),
+    ],
+    cta: { label: 'فتح حسابي', url: appLink('/ar/account') },
   });
 }
 

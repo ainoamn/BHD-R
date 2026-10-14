@@ -431,4 +431,29 @@ export async function deleteUnitMediaAsset(
   return true;
 }
 
+/** Stores bytes in the private bucket; callers check `s3BucketsReady()` first. */
+export async function putPrivateObject(
+  key: string,
+  bytes: Buffer,
+  mimeType: string,
+): Promise<void> {
+  await getS3().send(
+    new PutObjectCommand({
+      Bucket: process.env.S3_BUCKET_PRIVATE!.trim(),
+      Key: key,
+      Body: bytes,
+      ContentType: mimeType,
+      ContentLength: bytes.byteLength,
+    }),
+  );
+}
+
+export async function readPrivateObject(key: string): Promise<Buffer | null> {
+  if (!s3BucketsReady()) return null;
+  const result = await getS3().send(
+    new GetObjectCommand({ Bucket: process.env.S3_BUCKET_PRIVATE!.trim(), Key: key }),
+  );
+  return result.Body ? Buffer.from(await result.Body.transformToByteArray()) : null;
+}
+
 export { s3Configured, s3BucketsReady };

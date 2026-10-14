@@ -29,6 +29,8 @@ import {
   DEFAULT_CONTRACT_TEMPLATES,
   type DefaultContractTemplateKey,
 } from '@/lib/contract-default-templates';
+import { appLink, notifyByEmail, notifyInTx } from '@/lib/email-notify';
+import { formatMoney } from '@/lib/format';
 import { computeLeaseTerms, type LeaseTermsDraft } from '@/lib/lease-terms';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 import {
@@ -489,6 +491,72 @@ async function issueContract(
     payload: { contractId, reference, unitId: unit.id, leaseId, status },
   });
 
+  const kind = input.type === 'sale' ? 'عقد البيع' : 'عقد الإيجار';
+  const details = [
+    { label: 'رقم العقد', value: reference },
+    { label: 'العقار', value: `${property.nameAr} — ${unit.nameAr || unit.code}` },
+    { label: 'تاريخ البداية', value: arDate(input.startsOn) },
+    ...(input.endsOn ? [{ label: 'تاريخ النهاية', value: arDate(input.endsOn) }] : []),
+    {
+      label: input.type === 'sale' ? 'قيمة البيع' : 'قيمة الإيجار',
+      value: formatMoney(
+        (input.leaseRentMinor ?? input.amountMinor).toString(),
+        input.currency,
+        'ar',
+      ),
+    },
+  ];
+  const contractLink = appLink(
+    input.type === 'sale' ? '/ar/account' : `/ar/tenant/contracts/${contractId}`,
+  );
+  await notifyInTx(tx, {
+    orgId,
+    aggregateType: 'contract',
+    aggregateId: contractId,
+    audience: { parties: [input.counterparty.id] },
+    content: () =>
+      awaiting
+        ? {
+            tone: 'contract',
+            subject: `✍️ ${kind} ${reference} جاهز لتوقيعك`,
+            title: `${kind} بانتظار توقيعك`,
+            intro: `وقّع المالك ${kind}، وبقي توقيعك ليصبح سارياً.`,
+            details,
+            lines: ['راجع البنود على مهل، ثم وقّع من حسابك. لا حاجة لقلم، فقط إصبعك 😉'],
+            cta: { label: 'مراجعة العقد وتوقيعه', url: contractLink },
+          }
+        : fullySigned
+          ? {
+              tone: 'contract',
+              subject: `🎉 ${kind} ${reference} أصبح سارياً`,
+              title: `مبروك! ${kind} موقّع وساري المفعول`,
+              intro: `اكتملت التواقيع على ${kind}، وهذه أبرز تفاصيله:`,
+              details,
+              cta: { label: 'عرض العقد', url: contractLink },
+            }
+          : null,
+  });
+  await notifyInTx(tx, {
+    orgId,
+    aggregateType: 'contract',
+    aggregateId: contractId,
+    audience: canSign
+      ? { parties: [property.ownerPartyId] }
+      : { managersOf: { orgId, propertyId: property.id } },
+    content: () => ({
+      tone: 'contract',
+      subject: canSign
+        ? `📜 ${kind} جديد ${reference} — ${input.counterparty.displayName}`
+        : `⏳ ${kind} ${reference} بانتظار اعتمادك`,
+      title: canSign ? `صدر ${kind} جديد على عقارك` : `${kind} ينتظر اعتمادك`,
+      intro: canSign
+        ? `صدر ${kind} مع ${input.counterparty.displayName}${awaiting ? '، وينتظر توقيع الطرف الآخر' : ''}.`
+        : `أنشأ ${viewer.displayName ?? 'أحد أعضاء الفريق'} ${kind} مع ${input.counterparty.displayName}، ويحتاج اعتماد صاحب الصلاحية.`,
+      details,
+      cta: { label: 'فتح العقد', url: appLink(`/ar/owner/contracts/${contractId}`) },
+    }),
+  });
+
   return {
     contractId,
     contractReference: reference,
@@ -496,6 +564,10 @@ async function issueContract(
     routedToManager: !canSign,
     leaseId,
   };
+}
+
+function arDate(iso: string): string {
+  return /^\d{4}-\d{2}-\d{2}/.test(iso) ? iso.slice(0, 10).split('-').reverse().join('/') : iso;
 }
 
 function snapshotObject(value: unknown): Record<string, unknown> {
@@ -735,6 +807,29 @@ export async function approveStayBookingOnNeon(
       extra: { stayType },
       counterpartySignature,
     });
+    await notifyInTx(tx, {
+      orgId,
+      aggregateType: 'stay_booking',
+      aggregateId: booking.id,
+      audience: { parties: [tenant.id] },
+      content: () => ({
+        tone: 'booking',
+        subject: `🌴 تأكّد حجزك ${booking.referenceCode} في ${property.nameAr}`,
+        title: 'حجزك مؤكد، فجهّز حقيبتك!',
+        intro: `وافق المضيف على حجزك في ${property.nameAr}.`,
+        details: [
+          { label: 'رقم الحجز', value: booking.referenceCode },
+          { label: 'العقار', value: `${property.nameAr} — ${unit.nameAr || unit.code}` },
+          { label: 'تاريخ الوصول', value: arDate(booking.checkInOn) },
+          { label: 'تاريخ المغادرة', value: arDate(booking.checkOutOn) },
+          {
+            label: 'الإجمالي',
+            value: formatMoney(booking.totalMinor.toString(), booking.currency, 'ar'),
+          },
+        ],
+        cta: { label: 'تفاصيل الحجز', url: appLink(`/ar/guest/stays/${booking.id}`) },
+      }),
+    });
     return { bookingStatus, ...outcome };
   });
 }
@@ -755,6 +850,10 @@ export async function rejectStayBookingOnNeon(
         status: stayBookings.status,
         inventoryLockId: stayBookings.inventoryLockId,
         referenceCode: stayBookings.referenceCode,
+        guestPartyId: stayBookings.guestPartyId,
+        checkInOn: stayBookings.checkInOn,
+        checkOutOn: stayBookings.checkOutOn,
+        snapshot: stayBookings.pricingSnapshotJson,
       })
       .from(stayBookings)
       .where(
@@ -800,6 +899,35 @@ export async function rejectStayBookingOnNeon(
       fromStatus: 'request_pending',
       toStatus: 'cancelled',
       metadata: { referenceCode: booking.referenceCode, reason: 'owner_rejected' },
+    });
+    const contact = snapshotObject(snapshotObject(booking.snapshot).guestContact);
+    await notifyInTx(tx, {
+      orgId,
+      aggregateType: 'stay_booking',
+      aggregateId: booking.id,
+      audience: booking.guestPartyId
+        ? { parties: [booking.guestPartyId] }
+        : {
+            addresses: [
+              {
+                email: typeof contact.email === 'string' ? contact.email : null,
+                name: typeof contact.displayName === 'string' ? contact.displayName : null,
+              },
+            ],
+          },
+      content: () => ({
+        tone: 'booking',
+        subject: `عن طلب حجزك ${booking.referenceCode} في ${property.nameAr}`,
+        title: 'للأسف، التواريخ لم تناسب المضيف هذه المرة',
+        intro: `اعتذر المضيف عن قبول طلب حجزك في ${property.nameAr}، وأُلغي الطلب دون أي التزام عليك.`,
+        details: [
+          { label: 'رقم الحجز', value: booking.referenceCode },
+          { label: 'تاريخ الوصول', value: arDate(booking.checkInOn) },
+          { label: 'تاريخ المغادرة', value: arDate(booking.checkOutOn) },
+        ],
+        lines: ['لا تحزن، فالمكان المثالي ما زال ينتظرك؛ لدينا خيارات كثيرة أخرى تستحق نظرة.'],
+        cta: { label: 'تصفّح أماكن أخرى', url: appLink('/ar/stays') },
+      }),
     });
     return { bookingStatus: 'cancelled' };
   });
@@ -911,6 +1039,34 @@ export async function approveContractOnNeon(
       fromStatus: contract.status,
       toStatus: 'signed',
       metadata: { reference, approvedBy: viewer.displayName },
+    });
+    const [parties_] = await tx
+      .select({ tenantPartyId: contracts.tenantPartyId })
+      .from(contracts)
+      .where(eq(contracts.id, contract.id))
+      .limit(1);
+    const kind = contract.type === 'sale' ? 'عقد البيع' : 'عقد الإيجار';
+    await notifyInTx(tx, {
+      orgId,
+      aggregateType: 'contract',
+      aggregateId: contract.id,
+      audience: { parties: [parties_?.tenantPartyId, contract.ownerPartyId] },
+      content: () => ({
+        tone: 'contract',
+        subject: `🎉 اعتُمد ${kind} ${reference} وأصبح سارياً`,
+        title: `${kind} معتمد وساري المفعول`,
+        intro: `اعتمد ${viewer.displayName ?? 'المسؤول'} ${kind} ووقّعه، فأصبح سارياً.`,
+        details: [
+          { label: 'رقم العقد', value: reference },
+          { label: 'العقار', value: property.nameAr },
+        ],
+        cta: {
+          label: 'عرض العقد',
+          url: appLink(
+            contract.type === 'sale' ? '/ar/account' : `/ar/tenant/contracts/${contract.id}`,
+          ),
+        },
+      }),
     });
     return {
       contractId: contract.id,
@@ -1376,6 +1532,54 @@ export async function completeCounterpartySignatureInTx(
     aggregateType: 'contract',
     aggregateId: contract.id,
     payload: { contractId: contract.id, reference, leaseId: lease?.id ?? null },
+  });
+  const [owner] = await tx
+    .select({ ownerPartyId: contracts.ownerPartyId, propertyId: units.propertyId })
+    .from(contracts)
+    .innerJoin(units, eq(units.id, contracts.unitId))
+    .where(eq(contracts.id, contract.id))
+    .limit(1);
+  const kind = contract.type === 'sale' ? 'عقد البيع' : 'عقد الإيجار';
+  const signer = contract.type === 'sale' ? 'المشتري' : 'المستأجر';
+  const details = [
+    { label: 'رقم العقد', value: reference },
+    { label: 'تاريخ التوقيع', value: arDate(now.toISOString()) },
+  ];
+  await notifyByEmail({
+    orgId: input.orgId,
+    aggregateType: 'contract',
+    aggregateId: contract.id,
+    audience: {
+      parties: [owner?.ownerPartyId],
+      managersOf: { orgId: input.orgId, propertyId: owner?.propertyId },
+    },
+    content: () => ({
+      tone: 'contract',
+      subject: `✍️ وقّع ${signer} ${kind} ${reference} — العقد ساري الآن`,
+      title: `اكتملت التواقيع على ${kind} 🎉`,
+      intro: `وقّع ${signer} ${kind} إلكترونياً، فاكتمل وأصبح سارياً${lease ? ' وبدأ عقد الإيجار' : ''}.`,
+      details,
+      cta: { label: 'عرض العقد', url: appLink(`/ar/owner/contracts/${contract.id}`) },
+    }),
+  });
+  await notifyByEmail({
+    orgId: input.orgId,
+    aggregateType: 'contract',
+    aggregateId: contract.id,
+    audience: { parties: [contract.tenantPartyId] },
+    content: () => ({
+      tone: 'contract',
+      subject: `🎉 شكراً لتوقيعك — ${kind} ${reference} ساري الآن`,
+      title: 'توقيعك وصل، والعقد ساري المفعول',
+      intro: `اكتمل ${kind} بتوقيعك، ونسخته محفوظة في حسابك متى احتجتها.`,
+      details,
+      cta: {
+        label: 'عرض العقد',
+        url: appLink(
+          contract.type === 'sale' ? '/ar/account' : `/ar/tenant/contracts/${contract.id}`,
+        ),
+      },
+    }),
   });
   return { contractReference: reference, leaseId: lease?.id ?? null, alreadySigned: false };
 }

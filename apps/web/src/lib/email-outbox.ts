@@ -3,6 +3,8 @@ import { sql } from 'drizzle-orm';
 import { after } from 'next/server';
 import { z } from 'zod';
 import { elevatedTx, rowsOf } from '@/lib/elevated-db';
+import { wrapLegacyEmail } from '@/lib/email-template';
+import { publicWebOrigin } from '@/lib/seo';
 
 /** Same topic and claim rules as the worker's dispatcher, so both can run without double sends. */
 const TOPIC = 'notification.delivery.requested';
@@ -69,7 +71,7 @@ async function send(
         to: [message.recipient],
         subject: message.subject,
         text: message.text,
-        ...(message.html ? { html: message.html } : {}),
+        html: wrapLegacyEmail(message, { origin: publicWebOrigin(), seed: id }),
         headers: { 'X-BHD-R-Notification-Id': id },
       }),
     });
