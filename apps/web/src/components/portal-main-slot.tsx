@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { Link, usePathname } from '@/i18n/navigation';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { DepositLedgerPanel } from '@/components/accounting/deposit-ledger';
+import { ApprovalsHub } from '@/components/approvals-hub';
 import { LegalCasesBoard } from '@/components/legal-cases-board';
 import { OperationsWorkspaceClient } from '@/components/operations-workspace-client';
 import { PortalPageContext } from '@/components/portal-page';
@@ -150,6 +151,17 @@ export function PortalMainSlot({
                   active={panel === section}
                   lawyer={lawyer}
                 />
+              }
+            />
+          ) : panel === 'approvals' ? (
+            <OperationsWorkspaceClient
+              portal={portal}
+              section={panel}
+              locale={locale}
+              active={panel === section}
+              allowCreate={false}
+              listOverride={
+                <ApprovalsHub portal={portal} locale={locale} active={panel === section} />
               }
             />
           ) : panel === 'bookings' && (portal === 'owner' || portal === 'developer') ? (

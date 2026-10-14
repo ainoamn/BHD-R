@@ -25147,6 +25147,276 @@ button.handover-shots__item {
 }
 
 /* Legal cases: board, case page, conversation and timeline (owner team and external lawyer). */
+.approvals-hub {
+  display: grid;
+  gap: 0.9rem;
+}
+.approvals-hub .button--small {
+  min-height: 2.1rem;
+  padding: 0.3rem 0.85rem;
+  font-size: 0.82rem;
+}
+.approvals-hub__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.approvals-hub__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.95rem;
+  color: var(--oman-deep);
+  background: white;
+  border: 1px solid rgb(9 45 36 / 0.12);
+  border-radius: 999px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.approvals-hub__tab b {
+  min-width: 1.6rem;
+  padding: 0.05rem 0.45rem;
+  color: #08736f;
+  background: #e6f5f4;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  text-align: center;
+}
+.approvals-hub__tab.is-active {
+  color: white;
+  background: #0b3d2a;
+  border-color: #0b3d2a;
+}
+.approvals-hub__tab.is-active b {
+  color: #0b3d2a;
+  background: white;
+}
+.approvals-hub__group {
+  display: grid;
+  gap: 0.55rem;
+}
+.approvals-hub__group h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.3rem 0 0;
+  color: var(--oman-deep);
+  font-size: 0.98rem;
+}
+.approvals-hub__group h2 span {
+  padding: 0 0.5rem;
+  color: #7a4b00;
+  background: #fdf1d8;
+  border-radius: 999px;
+  font-size: 0.76rem;
+}
+.approvals-hub__list {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.approvals-hub__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  color: var(--oman-deep);
+  background: white;
+  border: 1px solid rgb(9 45 36 / 0.09);
+  border-inline-start: 4px solid #08a39f;
+  border-radius: 0.9rem;
+  box-shadow: 0 8px 22px rgb(9 45 36 / 0.04);
+}
+.approvals-hub__item--request {
+  border-inline-start-color: #174b70;
+}
+.approvals-hub__main {
+  display: grid;
+  flex: 1 1 18rem;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.approvals-hub__meta {
+  display: block;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.approvals-hub__amount {
+  color: #08736f;
+  font-weight: 800;
+  font-size: 0.86rem;
+}
+.approvals-hub__note {
+  padding: 0.35rem 0.6rem;
+  color: #4a5a55;
+  background: #f5f7f6;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+}
+.approvals-hub__side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.approvals-hub__side time {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.approvals-hub__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.approvals-hub__chip,
+.approvals-hub__status {
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.approvals-hub__chip {
+  color: #174b70;
+  background: #e3edfa;
+}
+.approvals-hub__status {
+  color: #7a4b00;
+  background: #fdf1d8;
+}
+.approvals-hub__status--approved {
+  color: #0b6b3a;
+  background: #e2f5ea;
+}
+.approvals-hub__status--rejected {
+  color: #9b1c1c;
+  background: #fde8e8;
+}
+.approvals-hub__status--on_hold {
+  color: #5b6470;
+  background: #eef0f3;
+}
+.approvals-hub__decide {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+.approvals-hub__decide input {
+  width: 13rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid rgb(9 45 36 / 0.16);
+  border-radius: 0.6rem;
+}
+.approvals-hub__error {
+  margin: 0;
+  padding: 0.6rem 0.85rem;
+  color: #9b1c1c;
+  background: #fde8e8;
+  border-radius: 0.7rem;
+  font-size: 0.85rem;
+}
+.approvals-hub__empty {
+  margin: 0;
+  padding: 1.4rem;
+  color: var(--muted);
+  text-align: center;
+  background: rgb(255 255 255 / 0.9);
+  border: 1px dashed rgb(9 45 36 / 0.16);
+  border-radius: 1rem;
+}
+.approvals-hub__register {
+  display: grid;
+  gap: 0.7rem;
+}
+.approvals-hub__intro {
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  color: var(--oman-deep);
+  background: #f3f8f6;
+  border: 1px solid rgb(8 163 159 / 0.18);
+  border-radius: 0.85rem;
+  font-size: 0.86rem;
+}
+.approvals-hub__search {
+  width: min(100%, 26rem);
+  padding: 0.55rem 0.8rem;
+  border: 1px solid rgb(9 45 36 / 0.16);
+  border-radius: 0.7rem;
+  background: white;
+}
+.approvals-hub__table-wrap {
+  overflow-x: auto;
+  background: white;
+  border: 1px solid rgb(9 45 36 / 0.09);
+  border-radius: 1rem;
+}
+.approvals-hub__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+.approvals-hub__table th,
+.approvals-hub__table td {
+  padding: 0.65rem 0.8rem;
+  text-align: start;
+  vertical-align: top;
+  border-bottom: 1px solid rgb(9 45 36 / 0.07);
+}
+.approvals-hub__table th {
+  color: var(--muted);
+  background: #f7faf9;
+  font-size: 0.76rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.approvals-hub__table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.approvals-hub__serial {
+  padding: 0.15rem 0.5rem;
+  color: #0b3d2a;
+  background: #e6f5f4;
+  border-radius: 0.4rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.approvals-hub__code {
+  white-space: nowrap;
+}
+.approvals-hub__actions {
+  white-space: nowrap;
+}
+.approvals-hub__actions .button + .button {
+  margin-inline-start: 0.35rem;
+}
+@media (max-width: 720px) {
+  .approvals-hub__table thead {
+    display: none;
+  }
+  .approvals-hub__table,
+  .approvals-hub__table tbody,
+  .approvals-hub__table tr,
+  .approvals-hub__table td {
+    display: block;
+    width: 100%;
+  }
+  .approvals-hub__table tr {
+    padding: 0.6rem 0.2rem;
+    border-bottom: 1px solid rgb(9 45 36 / 0.09);
+  }
+  .approvals-hub__table td {
+    padding: 0.2rem 0.8rem;
+    border: 0;
+  }
+  .approvals-hub__decide input {
+    width: 100%;
+  }
+}
+
 .legal-board {
   display: grid;
   gap: 0.8rem;

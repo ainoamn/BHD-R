@@ -2,6 +2,21 @@
 
 **تسليم الجلسة كاملة (0.2.24 → 0.8.33):** للاستكمال من جهاز آخر ابدأ من [`docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه خطوات الإعداد، والمراحل بالتاريخ والوقت، والمهام المفتوحة. ويرافقه فهرس الإصدارات (251 إصداراً) والمحادثة كاملة بعد حذف الأسرار.
 
+# CONTINUE — 2026-10-14 08:45 (مسقط)
+
+**0.8.59** · مركز الاعتمادات:
+
+- **البيانات:** `loadApprovalsHub` في `approvals-hub-neon.ts`، عبر `GET /api/portal/approvals` (يتطلب `approval.read`). يجمع ثلاثة أشياء:
+  - عناصر الجرس من `loadPendingApprovals`.
+  - طلبات `approval_requests` مع مراجع العقد والمصروف وأمر الصيانة ومبالغها.
+  - سجل التوقيعات من `signatureRegister`.
+- **الترقيم:** `signatureRegister` في `contract-verify.ts` يشارك استعلام الترقيم مع `numberedSignatures`، فتطابق الأرقام المطبوعة. يرفع `app.platform_admin` مؤقتاً، فلا يُشغَّل بالتوازي على نفس المعاملة.
+- **الواجهة:** `ApprovalsHub` تُمرَّر `listOverride` لقسم `approvals` في `PortalMainSlot`.
+  - قرار المصروف وأمر الصيانة عبر Nest: `PATCH /v1/operations/approvals/:id`.
+  - طلب العقد يُفتح للتوقيع ولا يُعتمد مجرداً.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.59-AR.md`](./docs/implementation/RELEASE-0.8.59-AR.md)
+
 # CONTINUE — 2026-10-13 18:55 (مسقط)
 
 **0.8.58** · رمز QR لملف المالك العام:

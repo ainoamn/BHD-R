@@ -600,8 +600,10 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
   approvals: {
     titleAr: 'مركز الاعتمادات',
     titleEn: 'Approval center',
-    introAr: 'قرارات موحدة للمصروفات وأوامر العمل والعروض والاستثناءات مع دليل القرار.',
-    introEn: 'Central decisions for expenses, work orders, offers and exceptions.',
+    introAr:
+      'كل ما ينتظر قرارك في مكان واحد: مستندات الحجوزات، العقود بانتظار التوقيع، طلبات اعتماد المصروفات وأوامر الصيانة، وسجل العقود الموقّعة إلكترونياً بأرقامها المتسلسلة.',
+    introEn:
+      'Everything awaiting your decision in one place: booking documents, contracts to sign, expense and work-order approvals, and the register of e-signed contracts with their serials.',
     columns: [
       { key: 'reference', ar: 'الطلب', en: 'Request' },
       { key: 'subject', ar: 'الموضوع', en: 'Subject' },
