@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { IdentityAvatar, VerifiedMark } from '@/components/identity/verified-mark';
 import { Link } from '@/i18n/navigation';
 import { arPlural, contactRoleLabel, type ContactSummary } from '@/lib/contacts-shared';
 import type { PortalRole } from '@/lib/types';
@@ -145,11 +146,24 @@ export function ContactsBoard({
                 className="contact-card"
                 href={`/${portal}/contacts/${encodeURIComponent(contact.id)}`}
               >
-                <span className="contact-card__avatar" aria-hidden="true">
-                  {contact.displayName.trim().charAt(0).toUpperCase() || '؟'}
-                </span>
+                {contact.mark?.avatarUrl ? (
+                  <IdentityAvatar
+                    name={contact.displayName}
+                    mark={contact.mark}
+                    locale={locale}
+                    size={44}
+                    className="contact-card__avatar"
+                  />
+                ) : (
+                  <span className="contact-card__avatar" aria-hidden="true">
+                    {contact.displayName.trim().charAt(0).toUpperCase() || '؟'}
+                  </span>
+                )}
                 <span className="contact-card__body">
-                  <strong>{contact.displayName}</strong>
+                  <strong className="name-with-mark">
+                    {contact.displayName}
+                    <VerifiedMark verified={contact.mark?.verified} locale={locale} />
+                  </strong>
                   <span className="contact-card__roles">
                     {contact.properties > 0 && !contact.roles.includes('owner') ? (
                       <span className="contact-role contact-role--owner">

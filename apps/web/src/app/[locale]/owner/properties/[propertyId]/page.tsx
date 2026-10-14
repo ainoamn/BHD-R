@@ -20,6 +20,7 @@ import { isStaysPlatformEnabled } from '@/lib/stays-flags';
 import { loadPropertySaleDecisions, type SaleDecisionUnit } from '@/lib/unit-sale-decision-neon';
 import { requirePortal } from '@/lib/viewer';
 import { UnitSaleDecisionPrompt } from '@/components/unit-sale-decision-prompt';
+import { PropertyBadgesPanel } from '@/components/badges/subject-badges-panel';
 
 function sessionSecret(): Uint8Array {
   return requireSessionSecret();
@@ -118,6 +119,9 @@ async function Page({
         hubAccess={hubAccess}
         {...(focusUnitId ? { focusUnitId } : {})}
       />
+      {!ownerPartyId && neonOrgId ? (
+        <PropertyBadgesPanel propertyId={property.id} locale={locale} portal="owner" />
+      ) : null}
     </>
   );
 }

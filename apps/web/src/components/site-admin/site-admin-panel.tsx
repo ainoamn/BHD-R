@@ -128,9 +128,14 @@ export function SiteAdminPanel({ locale }: { locale: 'ar' | 'en' }) {
               : 'Guest complaints about hosts’ deposit decisions, after no satisfying answer from the host. Your decision is final and the guest is told.'}
           </p>
         </div>
-        <Link className="button button--quiet" href="/" prefetch={false}>
-          {ar ? 'الرئيسية' : 'Home'}
-        </Link>
+        <div className="site-admin__links">
+          <Link className="button button--primary" href="/site-admin/verification" prefetch={false}>
+            {ar ? 'توثيق الحسابات' : 'Account verification'}
+          </Link>
+          <Link className="button button--quiet" href="/" prefetch={false}>
+            {ar ? 'الرئيسية' : 'Home'}
+          </Link>
+        </div>
       </header>
 
       {notice ? (

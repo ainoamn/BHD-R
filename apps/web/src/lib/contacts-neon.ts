@@ -10,6 +10,7 @@ import {
   type ContactUpdate,
   type MoneyTotals,
 } from '@/lib/contacts-shared';
+import { marksForParties, NO_MARK } from '@/lib/identity-marks-neon';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 
 type Tx = Parameters<Parameters<typeof withinViewerTenant>[1]>[0];
@@ -64,6 +65,15 @@ function partyScope(claims: SessionClaims, party: SQL): SQL {
 
 export async function listContacts(claims: SessionClaims): Promise<ContactSummary[]> {
   const orgId = requireOrg(claims);
+  const list = await listContactRows(claims, orgId);
+  const marks = await marksForParties(
+    orgId,
+    list.map((contact) => contact.id),
+  );
+  return list.map((contact) => ({ ...contact, mark: marks.get(contact.id) ?? NO_MARK }));
+}
+
+async function listContactRows(claims: SessionClaims, orgId: string): Promise<ContactSummary[]> {
   return withinViewerTenant(claims, async (tx) => {
     const result = rows<{
       id: string;
@@ -296,6 +306,17 @@ export async function readContact(
   partyId: string,
 ): Promise<ContactDetail | null> {
   const orgId = requireOrg(claims);
+  const detail = await readContactRows(claims, orgId, partyId);
+  if (!detail) return null;
+  const marks = await marksForParties(orgId, [detail.party.id]);
+  return { ...detail, party: { ...detail.party, mark: marks.get(detail.party.id) ?? NO_MARK } };
+}
+
+async function readContactRows(
+  claims: SessionClaims,
+  orgId: string,
+  partyId: string,
+): Promise<ContactDetail | null> {
   return withinViewerTenant(claims, async (tx) => {
     const [party] = rows<{
       id: string;

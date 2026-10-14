@@ -2,6 +2,27 @@
 
 **تسليم الجلسة كاملة (0.2.24 → 0.8.33):** للاستكمال من جهاز آخر ابدأ من [`docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه خطوات الإعداد، والمراحل بالتاريخ والوقت، والمهام المفتوحة. ويرافقه فهرس الإصدارات (251 إصداراً) والمحادثة كاملة بعد حذف الأسرار.
 
+# CONTINUE — 2026-10-14 10:30 (مسقط)
+
+**0.8.61** · الشارات والتوثيق:
+
+- **قاعدة البيانات:** الترحيل 0031، مطبّق على الإنتاج. فيه `badge_definitions` و`badge_awards` و`badge_progress`، و`verification_plans` و`account_verifications` و`verification_documents`، و`profile_images`.
+- **المحرك** `badges-engine-neon.ts`، عبر `evaluateOrganization`:
+  - مقاييس لكل فئة: مبنى، ومالك، ومستأجر، وموظف، وعامل.
+  - المنح بعد `sustain_days`، والانتهاء بعد `validity_days`، والسحب عند `auto_revoke`.
+  - الممنوح يدوياً (`granted_by_user_id`) لا يُسحب تلقائياً.
+  - بعد رفض أو سحب يدوي يُنتظر `max(window_days, 30)` يوماً قبل اقتراح الشارة مجدداً.
+  - يعمل يومياً عبر `/api/cron/badges-evaluate` (`45 3 * * *`).
+- **الواجهة البرمجية:** `api/portal/badges/**` (قراءة: `party.read` أو `property.read` أو `organization.members.read`. إدارة: `organization.members.write`). و`api/account/**`، و`api/site-admin/verification/**`، و`api/public/avatar/:kind/:id`.
+- **العلامة:**
+  - `identity-marks-neon.ts`: الدوال `marksForUsers` و`marksForOrganizations` و`marksForParties`.
+  - الطرف لا يرث علامة الحساب إلا بتطابق الاسم.
+  - المكوّنان `VerifiedMark` و`IdentityAvatar`.
+- **الصفحات:** `/owner/badges` و`/developer/badges`، و`badges/awards/[awardId]`، و`/verify/badge/[serial]`، و`/account`، و`/site-admin/verification`.
+- **الذكاء الاصطناعي:** يرى أرقاماً مجمّعة فقط. بدون `AI_GATEWAY_API_KEY` تُستخدم `rulesRationale`.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.61-AR.md`](./docs/implementation/RELEASE-0.8.61-AR.md)
+
 # CONTINUE — 2026-10-14 09:15 (مسقط)
 
 **0.8.60** · صفحة الطرف في دفتر العناوين:

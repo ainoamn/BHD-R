@@ -3,6 +3,7 @@
  * top of roles, and the organization's own saved roles. Shared by the team routes and page.
  */
 import type { Permission } from '@bhd-r/authz';
+import type { IdentityMark } from '@/lib/identity-shared';
 
 /** Same as the authz package's prefix; that package is server-only (node crypto). */
 const CUSTOM_ROLE_PREFIX = 'custom:';
@@ -585,6 +586,8 @@ export type TeamView = {
   grantableCapabilities: string[];
   /** Capabilities each role already includes, shown ticked and locked. */
   roleCapabilities: Record<string, string[]>;
+  /** Verified tick and picture per user id. */
+  marks?: Record<string, IdentityMark>;
 };
 
 export type OrganizationChoice = {

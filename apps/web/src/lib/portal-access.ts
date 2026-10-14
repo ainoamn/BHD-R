@@ -122,6 +122,7 @@ const PAGE_PERMISSIONS: Readonly<Record<string, readonly string[]>> = {
   '/stays/rates': ['stay.rate.manage'],
   '/stays/setup': ['stay.inventory.manage'],
   '/terms': ['property.update', 'contract.template.read'],
+  '/badges': ['party.read', 'property.read', 'organization.members.read'],
   '/properties/new': ['property.create'],
   '/properties/edit': ['property.update'],
   '/properties/terms': ['property.update', 'contract.template.read'],

@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, type FormEvent, type ReactNode } from 'react';
+import { PartyBadgesPanel } from '@/components/badges/subject-badges-panel';
+import { IdentityAvatar, VerifiedMark } from '@/components/identity/verified-mark';
 import { Link } from '@/i18n/navigation';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import {
@@ -306,11 +308,35 @@ export function ContactWorkspace({
       </Link>
 
       <header className="contact-hero">
-        <span className="contact-hero__avatar" aria-hidden="true">
-          {party.displayName.trim().charAt(0).toUpperCase() || '؟'}
-        </span>
+        {party.mark?.avatarUrl ? (
+          <IdentityAvatar
+            name={party.displayName}
+            mark={party.mark}
+            locale={locale}
+            size={72}
+            className="contact-hero__avatar"
+          />
+        ) : (
+          <span className="contact-hero__avatar" aria-hidden="true">
+            {party.displayName.trim().charAt(0).toUpperCase() || '؟'}
+          </span>
+        )}
         <div className="contact-hero__main">
-          <h1>{party.displayName}</h1>
+          <h1 className="name-with-mark">
+            {party.displayName}
+            <VerifiedMark verified={party.mark?.verified} locale={locale} size={22} />
+          </h1>
+          {party.mark ? (
+            <p className={`account-status${party.mark.verified ? ' is-verified' : ''}`}>
+              {party.mark.verified
+                ? ar
+                  ? 'حساب موثّق: طابق فريق بن حمود اسمه مع مستند رسمي'
+                  : 'Verified: BHD matched the name with an official document'
+                : ar
+                  ? 'غير موثّق'
+                  : 'Not verified'}
+            </p>
+          ) : null}
           <div className="contact-card__roles">
             <span className="contact-role contact-role--muted">
               {party.type === 'company' ? (ar ? 'شركة' : 'Company') : ar ? 'فرد' : 'Person'}
@@ -410,6 +436,8 @@ export function ContactWorkspace({
           ) : null}
         </div>
       </header>
+
+      <PartyBadgesPanel partyId={party.id} locale={locale} portal={portal} />
 
       {message ? (
         <p

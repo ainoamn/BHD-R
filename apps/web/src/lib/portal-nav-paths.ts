@@ -24,6 +24,7 @@ const PORTAL_PATHS: Record<PortalRole, string[]> = {
     '/approvals',
     '/reports',
     '/team',
+    '/badges',
     '/api-keys',
   ],
   developer: [
@@ -47,6 +48,7 @@ const PORTAL_PATHS: Record<PortalRole, string[]> = {
     '/approvals',
     '/reports',
     '/team',
+    '/badges',
     '/api-keys',
   ],
   tenant: [
@@ -61,12 +63,7 @@ const PORTAL_PATHS: Record<PortalRole, string[]> = {
   ],
 };
 
-const STAYS_PATHS = [
-  '/stays',
-  '/stays/calendar',
-  '/stays/rates',
-  '/stays/setup',
-];
+const STAYS_PATHS = ['/stays', '/stays/calendar', '/stays/rates', '/stays/setup'];
 
 export function portalNavHrefs(portal: PortalRole, staysEnabled = false): string[] {
   const base = PORTAL_PATHS[portal].map((path) => `/${portal}${path}`);

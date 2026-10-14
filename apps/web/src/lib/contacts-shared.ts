@@ -1,3 +1,5 @@
+import type { IdentityMark } from '@/lib/identity-shared';
+
 export const CONTACT_ROLE_KEYS = [
   'owner',
   'tenant',
@@ -49,6 +51,7 @@ export type ContactSummary = {
   contracts: number;
   openLegal: number;
   member: boolean;
+  mark?: IdentityMark;
 };
 
 /** Sums by currency, in minor units. */
@@ -102,6 +105,7 @@ export type ContactDetail = {
     createdAt: string;
     member: boolean;
     address: ContactAddress | null;
+    mark?: IdentityMark;
   };
   canEdit: boolean;
   owned: {

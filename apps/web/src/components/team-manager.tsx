@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { IdentityAvatar, VerifiedMark } from '@/components/identity/verified-mark';
 import { ApiError, browserNextMutation } from '@/lib/api';
+import type { IdentityMark } from '@/lib/identity-shared';
 import {
   CAPABILITY_GROUPS,
   isCustomRoleKey,
@@ -61,6 +63,32 @@ function errorText(error: unknown, ar: boolean): string {
   if (known) return ar ? known[0] : known[1];
   if (error instanceof ApiError && error.status === 0) return error.message;
   return ar ? 'تعذر حفظ التغيير. أعد المحاولة.' : 'Could not save. Try again.';
+}
+
+function TeamFace({
+  name,
+  mark,
+  ar,
+}: {
+  name: string;
+  mark: IdentityMark | undefined;
+  ar: boolean;
+}) {
+  if (mark?.avatarUrl)
+    return (
+      <IdentityAvatar
+        name={name}
+        mark={mark}
+        locale={ar ? 'ar' : 'en'}
+        size={40}
+        className="team-member__initial"
+      />
+    );
+  return (
+    <span className="team-member__initial" aria-hidden="true">
+      {name.trim().slice(0, 1) || '•'}
+    </span>
+  );
 }
 
 function capabilityLabel(id: string, ar: boolean): string {
@@ -412,12 +440,14 @@ function MemberRow({
   return (
     <li className={member.status === 'active' ? 'team-member' : 'team-member is-inactive'}>
       <div className="team-member__head">
-        <span className="team-member__initial" aria-hidden="true">
-          {member.displayName.trim().slice(0, 1) || '•'}
-        </span>
+        <TeamFace name={member.displayName} mark={view.marks?.[member.userId]} ar={ar} />
         <div className="team-member__who">
-          <strong>
+          <strong className="name-with-mark">
             {member.displayName}
+            <VerifiedMark
+              verified={view.marks?.[member.userId]?.verified}
+              locale={ar ? 'ar' : 'en'}
+            />
             {member.isSelf ? <em>{ar ? ' (أنت)' : ' (you)'}</em> : null}
           </strong>
           <small dir="ltr">{member.email}</small>
@@ -555,11 +585,15 @@ function OwnerRow({
   return (
     <li className={owner.status === 'active' ? 'team-member' : 'team-member is-inactive'}>
       <div className="team-member__head">
-        <span className="team-member__initial" aria-hidden="true">
-          {owner.displayName.trim().slice(0, 1) || '•'}
-        </span>
+        <TeamFace name={owner.displayName} mark={view.marks?.[owner.userId]} ar={ar} />
         <div className="team-member__who">
-          <strong>{owner.displayName}</strong>
+          <strong className="name-with-mark">
+            {owner.displayName}
+            <VerifiedMark
+              verified={view.marks?.[owner.userId]?.verified}
+              locale={ar ? 'ar' : 'en'}
+            />
+          </strong>
           <small dir="ltr">{owner.email}</small>
         </div>
         <span className="team-role team-role--property_owner">
@@ -751,11 +785,15 @@ function LawyerRow({
   return (
     <li className={lawyer.status === 'active' ? 'team-member' : 'team-member is-inactive'}>
       <div className="team-member__head">
-        <span className="team-member__initial" aria-hidden="true">
-          {lawyer.displayName.trim().slice(0, 1) || '•'}
-        </span>
+        <TeamFace name={lawyer.displayName} mark={view.marks?.[lawyer.userId]} ar={ar} />
         <div className="team-member__who">
-          <strong>{lawyer.displayName}</strong>
+          <strong className="name-with-mark">
+            {lawyer.displayName}
+            <VerifiedMark
+              verified={view.marks?.[lawyer.userId]?.verified}
+              locale={ar ? 'ar' : 'en'}
+            />
+          </strong>
           <small dir="ltr">{lawyer.email}</small>
         </div>
         <span className="team-role team-role--lawyer">
@@ -933,11 +971,13 @@ function AddLawyerForm({
 function TenantRow({
   ar,
   tenant,
+  mark,
   canManage,
   onChanged,
 }: {
   ar: boolean;
   tenant: TenantMember;
+  mark: IdentityMark | undefined;
   canManage: boolean;
   onChanged: (message: string) => void;
 }) {
@@ -966,11 +1006,12 @@ function TenantRow({
   return (
     <li className={tenant.status === 'active' ? 'team-member' : 'team-member is-inactive'}>
       <div className="team-member__head">
-        <span className="team-member__initial" aria-hidden="true">
-          {tenant.displayName.trim().slice(0, 1) || '•'}
-        </span>
+        <TeamFace name={tenant.displayName} mark={mark} ar={ar} />
         <div className="team-member__who">
-          <strong>{tenant.displayName}</strong>
+          <strong className="name-with-mark">
+            {tenant.displayName}
+            <VerifiedMark verified={mark?.verified} locale={ar ? 'ar' : 'en'} />
+          </strong>
           <small dir="ltr">{tenant.email}</small>
         </div>
         {tenant.partyName ? <span className="team-role">{tenant.partyName}</span> : null}
@@ -1041,6 +1082,7 @@ function TenantsTab({
               key={`${tenant.userId}:${tenant.status}`}
               ar={ar}
               tenant={tenant}
+              mark={view.marks?.[tenant.userId]}
               canManage={view.canManage}
               onChanged={onChanged}
             />

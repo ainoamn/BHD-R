@@ -122,6 +122,7 @@ const navGroups: Record<PortalRole, NavGroup[]> = {
       items: [
         { path: '/reports', label: 'Common.reports', mark: '↗' },
         { path: '/team', label: 'Common.team', mark: '◎' },
+        { path: '/badges', label: 'Common.badges', mark: '★' },
         { path: '/api-keys', label: 'Common.apiKeys', mark: '⌘' },
       ],
     },
@@ -175,6 +176,7 @@ const navGroups: Record<PortalRole, NavGroup[]> = {
       items: [
         { path: '/reports', label: 'Common.reports', mark: '↗' },
         { path: '/team', label: 'Common.team', mark: '◎' },
+        { path: '/badges', label: 'Common.badges', mark: '★' },
         { path: '/api-keys', label: 'Common.apiKeys', mark: '⌘' },
       ],
     },
@@ -339,18 +341,16 @@ export function PortalNav({
   const groups = baseGroups
     .map((group) => ({
       ...group,
-      items: group.items
-        .filter(opens)
-        .map((item) =>
-          item.children
-            ? {
-                ...item,
-                children: item.children.filter(
-                  (child) => child.path !== PROPERTIES_MANAGE_PATH || canManageProperties,
-                ),
-              }
-            : item,
-        ),
+      items: group.items.filter(opens).map((item) =>
+        item.children
+          ? {
+              ...item,
+              children: item.children.filter(
+                (child) => child.path !== PROPERTIES_MANAGE_PATH || canManageProperties,
+              ),
+            }
+          : item,
+      ),
     }))
     .filter((group) => group.items.length);
 

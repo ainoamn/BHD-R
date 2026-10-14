@@ -199,6 +199,9 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
           <Link href={`/${locale}/portal`} onClick={() => setPanel(null)}>
             {ar ? 'مساحتي في BHD R' : 'My BHD R workspace'}
           </Link>
+          <Link href={`/${locale}/account`} onClick={() => setPanel(null)}>
+            {ar ? 'صورتي وتوثيق حسابي ✓' : 'Picture & verification ✓'}
+          </Link>
           <a href="https://id.bhd-om.com/account">{ar ? 'إدارة حساب BHD' : 'Manage BHD account'}</a>
           <form
             method="post"

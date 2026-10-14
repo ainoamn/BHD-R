@@ -18,6 +18,7 @@ import {
 } from '@bhd-r/db';
 import { entitlementsForPlan } from '@bhd-r/domain';
 import { applySessionSettings } from '@/lib/db-session-settings';
+import { marksForUsers } from '@/lib/identity-marks-neon';
 import { escapeHtml } from '@/lib/lease-booking-contract';
 import { publicWebOrigin } from '@/lib/seo';
 import {
@@ -279,6 +280,17 @@ async function loadLawyerParties(tx: Tx, organizationId: string): Promise<Lawyer
 }
 
 export async function loadTeam(claims: SessionClaims): Promise<TeamView> {
+  const view = await loadTeamView(claims);
+  const marks = await marksForUsers([
+    ...view.members.map((member) => member.userId),
+    ...view.owners.map((owner) => owner.userId),
+    ...view.lawyers.map((lawyer) => lawyer.userId),
+    ...view.tenants.map((tenant) => tenant.userId),
+  ]);
+  return { ...view, marks: Object.fromEntries(marks) };
+}
+
+async function loadTeamView(claims: SessionClaims): Promise<TeamView> {
   if (!hasPermission(claims, 'organization.members.read')) throw new Error('forbidden');
   const organizationId = organizationOf(claims);
   return elevated(async (tx) => {

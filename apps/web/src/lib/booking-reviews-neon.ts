@@ -18,6 +18,7 @@ import {
 } from '@bhd-r/db';
 import { brandUploadedPhoto } from '@/lib/brand-uploaded-photo';
 import { applySessionSettings } from '@/lib/db-session-settings';
+import { marksForOrganizations, NO_MARK, type IdentityMark } from '@/lib/identity-marks-neon';
 import { withTimeoutFallback } from '@/lib/with-timeout';
 import { ownerPartyScope } from '@/lib/portal-ops-data';
 import { analyzeProfile, analyzeReview } from '@/lib/review-ai';
@@ -378,10 +379,19 @@ export type HostSummary = {
   /** Guests' average rating of the host's management, on 10. */
   score: number | null;
   reviews: number;
+  /** Business verified tick and logo. */
+  mark?: IdentityMark;
 };
 
 /** Public card of the account that owns or manages a property: who it is and how guests rate it. */
 export async function loadHostSummary(organizationId: string): Promise<HostSummary | null> {
+  const summary = await loadHostRow(organizationId);
+  if (!summary) return null;
+  const marks = await marksForOrganizations([summary.id]);
+  return { ...summary, mark: marks.get(summary.id) ?? NO_MARK };
+}
+
+async function loadHostRow(organizationId: string): Promise<HostSummary | null> {
   if (!UUID.test(organizationId)) return null;
   return elevated(async (tx) => {
     const [org] = await tx

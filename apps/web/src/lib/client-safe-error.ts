@@ -106,6 +106,18 @@ const KNOWN_CODES = new Set([
   'team_lawyer_invalid',
   'contact_invalid',
   'contact_email_taken',
+  'badge_invalid',
+  'badge_subject_invalid',
+  'badge_already_held',
+  'badge_award_closed',
+  'verification_invalid',
+  'verification_name_mismatch',
+  'verification_open',
+  'verification_document_required',
+  'verification_not_open',
+  'verification_unpaid',
+  'verification_renewal_closed',
+  'avatar_invalid',
 ]);
 
 export function clientSafeErrorCode(error: unknown, fallback = 'request_failed'): string {
@@ -145,6 +157,20 @@ export function statusForSafeCode(code: string): number {
     case 'contact_invalid':
       return 400;
     case 'contact_email_taken':
+      return 409;
+    case 'badge_invalid':
+    case 'badge_subject_invalid':
+    case 'verification_invalid':
+    case 'verification_name_mismatch':
+    case 'verification_document_required':
+    case 'avatar_invalid':
+      return 400;
+    case 'badge_already_held':
+    case 'badge_award_closed':
+    case 'verification_open':
+    case 'verification_not_open':
+    case 'verification_unpaid':
+    case 'verification_renewal_closed':
       return 409;
     case 'reservation_not_ready':
     case 'reservation_closed':

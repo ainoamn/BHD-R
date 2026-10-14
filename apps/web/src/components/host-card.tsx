@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { IdentityAvatar, VerifiedMark } from '@/components/identity/verified-mark';
 import { StayRatingBadge } from '@/components/stays/stay-rating-badge';
 import type { HostSummary } from '@/lib/booking-reviews-neon';
 
@@ -46,9 +47,20 @@ export function HostCard({
   const showOwner = ownerName && ownerName.trim() !== name.trim();
   return (
     <Link className="host-card" href={`/${locale}/profiles/hosts/${host.id}`}>
-      <span className="host-card__avatar" aria-hidden="true">
-        {name.trim().charAt(0) || '؟'}
-      </span>
+      {host.mark?.avatarUrl ? (
+        <IdentityAvatar
+          name={name}
+          mark={host.mark}
+          locale={locale}
+          size={52}
+          className="host-card__avatar"
+          business
+        />
+      ) : (
+        <span className="host-card__avatar" aria-hidden="true">
+          {name.trim().charAt(0) || '؟'}
+        </span>
+      )}
       <span className="host-card__body">
         <span className="host-card__eyebrow">
           {ar ? 'يملك هذا العقار أو يديره' : 'Owned or managed by'} ·{' '}
@@ -56,8 +68,9 @@ export function HostCard({
             {hostRoleLabel(host.type, ar)}
           </span>
         </span>
-        <strong className="host-card__name">
+        <strong className="host-card__name name-with-mark">
           <bdi>{name}</bdi>
+          <VerifiedMark verified={host.mark?.verified} locale={locale} business />
         </strong>
         {showOwner ? (
           <span className="host-card__owner">

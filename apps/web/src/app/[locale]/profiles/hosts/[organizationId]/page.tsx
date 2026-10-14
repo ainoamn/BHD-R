@@ -9,6 +9,7 @@ import { ReputationView } from '@/components/reviews/reputation-view';
 import { ScoreBadge } from '@/components/reviews/review-form';
 import { StayCatalogueCard } from '@/components/stays/stay-catalogue-card';
 import { reviewCountLabel } from '@/components/stays/stay-rating-badge';
+import { IdentityAvatar, VerifiedMark } from '@/components/identity/verified-mark';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { loadHostSummary, loadReputation, refreshReviewProfile } from '@/lib/booking-reviews-neon';
 import type { CatalogueListing } from '@/lib/listing-market-status';
@@ -81,9 +82,20 @@ export default async function HostProfilePage({
     <main className="section">
       <div className="container party-profile host-profile">
         <header className="party-profile__head profile-head host-profile__head">
-          <span className="profile-head__avatar" aria-hidden="true">
-            {name.trim().charAt(0) || '؟'}
-          </span>
+          {host.mark?.avatarUrl ? (
+            <IdentityAvatar
+              name={name}
+              mark={host.mark}
+              locale={locale}
+              size={72}
+              className="profile-head__avatar"
+              business
+            />
+          ) : (
+            <span className="profile-head__avatar" aria-hidden="true">
+              {name.trim().charAt(0) || '؟'}
+            </span>
+          )}
           <div>
             <p className="party-profile__eyebrow">
               {ar ? 'ملف المالك أو مدير العقار' : 'Owner or property manager'} ·{' '}
@@ -91,8 +103,9 @@ export default async function HostProfilePage({
                 {hostRoleLabel(host.type, ar)}
               </span>
             </p>
-            <h1>
+            <h1 className="name-with-mark">
               <bdi>{name}</bdi>
+              <VerifiedMark verified={host.mark?.verified} locale={locale} size={22} business />
             </h1>
             <p className="muted">
               {hostStockLabel(host, ar)} · {memberSinceLabel(host.memberSince, ar)}
