@@ -16,7 +16,6 @@ import {
   users,
   type Database,
 } from '@bhd-r/db';
-import { entitlementsForPlan } from '@bhd-r/domain';
 import { activeBadgeChips, type BadgeRef } from '@/lib/badge-chips-neon';
 import type { BadgeChip } from '@/lib/badges-shared';
 import { applySessionSettings } from '@/lib/db-session-settings';
@@ -24,6 +23,7 @@ import { emailDeliveryState, sendQueuedEmailsSoon } from '@/lib/email-outbox';
 import { marksForUsers } from '@/lib/identity-marks-neon';
 import { escapeHtml } from '@/lib/lease-booking-contract';
 import { publicWebOrigin } from '@/lib/seo';
+import { organizationSeatPlan } from '@/lib/site-admin-neon';
 import { withTimeoutFallback } from '@/lib/with-timeout';
 import {
   assignableRoles,
@@ -194,8 +194,10 @@ async function lockOrganization(tx: Tx, organizationId: string) {
 }
 
 async function assertSeatAvailable(tx: Tx, organizationId: string, planKey: string) {
-  const limit = entitlementsForPlan(planKey).representatives;
-  if ((await seatsUsed(tx, organizationId)) >= limit) throw new Error('team_seat_limit');
+  const plan = await organizationSeatPlan(organizationId, planKey);
+  if (plan.blocked || (await seatsUsed(tx, organizationId)) >= plan.representatives) {
+    throw new Error('team_seat_limit');
+  }
 }
 
 async function audit(
@@ -453,7 +455,7 @@ async function loadTeamView(claims: SessionClaims): Promise<TeamView> {
     }));
 
     const canManage = hasPermission(claims, 'organization.members.write');
-    const plan = entitlementsForPlan(organization?.planKey);
+    const plan = await organizationSeatPlan(organizationId, organization?.planKey);
     const invites = canManage
       ? await latestInvites(
           tx,
@@ -475,7 +477,7 @@ async function loadTeamView(claims: SessionClaims): Promise<TeamView> {
         used: members.filter(
           (member) => member.status === 'active' && member.role !== 'organization_owner',
         ).length,
-        limit: plan.representatives,
+        limit: plan.blocked ? 0 : plan.representatives,
         plan: plan.key,
       },
       canManage,

@@ -6,7 +6,7 @@ import { avatarUrl, verifiedOrganizations, verifiedUsers } from '@/lib/identity-
 import { compactDocument, decodeDataUrl } from '@/lib/image-compact';
 import { managesOrganization } from '@/lib/profile-image-neon';
 import { decimalToMinor } from '@/lib/property-contracts-neon';
-import { isSiteAdmin } from '@/lib/stay-deposit-claims-neon';
+import { hasAdminScope } from '@/lib/site-admin-neon';
 import {
   BUSINESS_DOCUMENTS,
   DOCUMENT_MAX_CHARS,
@@ -410,7 +410,7 @@ export async function cancelVerification(
 }
 
 async function requireSiteAdmin(claims: SessionClaims) {
-  if (!(await isSiteAdmin(claims).catch(() => false))) fail('forbidden');
+  if (!(await hasAdminScope(claims, 'verification').catch(() => false))) fail('forbidden');
 }
 
 export async function loadReviewQueue(
@@ -539,7 +539,10 @@ export async function readVerificationDocument(
       `),
     );
     if (!row) return null;
-    if (row.user_id !== claims.sub && !(await isSiteAdmin(claims).catch(() => false)))
+    if (
+      row.user_id !== claims.sub &&
+      !(await hasAdminScope(claims, 'verification').catch(() => false))
+    )
       fail('forbidden');
     return decodeDataUrl(row.data_url);
   });

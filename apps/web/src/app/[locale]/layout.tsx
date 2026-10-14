@@ -12,6 +12,8 @@ import { IBM_Plex_Sans, IBM_Plex_Sans_Arabic } from 'next/font/google';
 import '../globals.css';
 import '../portal-adaptive.css';
 import '../badges-verification.css';
+import '../home.css';
+import '../site-admin.css';
 
 const publicWebOrigin =
   process.env.PUBLIC_WEB_ORIGIN ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'https://r.bhd-om.com';

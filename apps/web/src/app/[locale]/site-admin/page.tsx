@@ -1,10 +1,8 @@
 import type { Metadata } from 'next';
-import { notFound, redirect } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
+import { SiteAdminNav } from '@/components/site-admin/site-admin-nav';
 import { SiteAdminPanel } from '@/components/site-admin/site-admin-panel';
-import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
-import { readClaims } from '@/lib/portal-ops-data';
-import { isSiteAdmin } from '@/lib/stay-deposit-claims-neon';
+import { requireSiteAdminPage } from '@/lib/site-admin-page';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,9 +16,11 @@ export default async function SiteAdminPage({ params }: { params: Promise<{ loca
   const { locale: raw } = await params;
   const locale = raw === 'en' ? 'en' : 'ar';
   setRequestLocale(locale);
-  if (!hasDatabaseUrl()) notFound();
-  const claims = await readClaims();
-  if (!claims) redirect(`/${locale}/login?next=${encodeURIComponent(`/${locale}/site-admin`)}`);
-  if (!(await isSiteAdmin(claims).catch(() => false))) notFound();
-  return <SiteAdminPanel locale={locale} />;
+  const access = await requireSiteAdminPage(locale, 'complaints');
+  return (
+    <>
+      <SiteAdminNav access={access} current="complaints" locale={locale} />
+      <SiteAdminPanel locale={locale} canEditInbox={access.root} />
+    </>
+  );
 }

@@ -1,11 +1,8 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { notFound, redirect } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
+import { SiteAdminNav } from '@/components/site-admin/site-admin-nav';
 import { VerificationReview } from '@/components/site-admin/verification-review';
-import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
-import { readClaims } from '@/lib/portal-ops-data';
-import { isSiteAdmin } from '@/lib/stay-deposit-claims-neon';
+import { requireSiteAdminPage } from '@/lib/site-admin-page';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,19 +20,13 @@ export default async function SiteAdminVerificationPage({
   const locale = raw === 'en' ? 'en' : 'ar';
   const ar = locale === 'ar';
   setRequestLocale(locale);
-  if (!hasDatabaseUrl()) notFound();
-  const claims = await readClaims();
-  if (!claims)
-    redirect(`/${locale}/login?next=${encodeURIComponent(`/${locale}/site-admin/verification`)}`);
-  if (!(await isSiteAdmin(claims).catch(() => false))) notFound();
+  const access = await requireSiteAdminPage(locale, 'verification');
   return (
-    <main className="account-page" dir={ar ? 'rtl' : 'ltr'}>
-      <nav className="account-page__nav">
-        <Link href={`/${locale}/site-admin`} className="button button--ghost button--small">
-          {ar ? '→ إدارة الموقع' : '← Site admin'}
-        </Link>
-      </nav>
-      <VerificationReview locale={locale} />
-    </main>
+    <>
+      <SiteAdminNav access={access} current="verification" locale={locale} />
+      <main className="account-page" dir={ar ? 'rtl' : 'ltr'}>
+        <VerificationReview locale={locale} />
+      </main>
+    </>
   );
 }

@@ -83,7 +83,13 @@ async function getJson<T>(path: string): Promise<T> {
 }
 
 /** Guests' deposit complaints escalated to the site administration, and the complaint inbox. */
-export function SiteAdminPanel({ locale }: { locale: 'ar' | 'en' }) {
+export function SiteAdminPanel({
+  locale,
+  canEditInbox,
+}: {
+  locale: 'ar' | 'en';
+  canEditInbox: boolean;
+}) {
   const ar = locale === 'ar';
   const [complaints, setComplaints] = useState<Complaint[] | null>(null);
   const [settings, setSettings] = useState<SiteAdminSettings | null>(null);
@@ -129,9 +135,6 @@ export function SiteAdminPanel({ locale }: { locale: 'ar' | 'en' }) {
           </p>
         </div>
         <div className="site-admin__links">
-          <Link className="button button--primary" href="/site-admin/verification" prefetch={false}>
-            {ar ? 'توثيق الحسابات' : 'Account verification'}
-          </Link>
           <Link className="button button--quiet" href="/" prefetch={false}>
             {ar ? 'الرئيسية' : 'Home'}
           </Link>
@@ -202,7 +205,7 @@ export function SiteAdminPanel({ locale }: { locale: 'ar' | 'en' }) {
         </>
       )}
 
-      {settings ? (
+      {settings && canEditInbox ? (
         <InboxSettings
           initial={settings}
           locale={locale}
@@ -544,8 +547,8 @@ function InboxSettings({
       <h2 id="site-admin-inbox">{ar ? 'استقبال الشكاوى' : 'Complaint inbox'}</h2>
       <p className="muted">
         {ar
-          ? 'أصحاب هذه العناوين يدخلون هذه الصفحة ويبتّون في الشكاوى. اختر كيف يصلكم إشعار الشكوى الجديدة.'
-          : 'These emails can open this page and decide complaints. Choose how a new complaint reaches you.'}
+          ? 'أصحاب هذه العناوين هم الإدارة العليا للموقع: يملكون كل الصلاحيات ويفوّضون غيرهم من قسم «التفويض». اختر كيف يصلكم إشعار الشكوى الجديدة.'
+          : 'These emails are the top-level site admins: they hold every permission and can delegate from “Delegation”. Choose how a new complaint reaches you.'}
       </p>
       <fieldset className="site-admin__outcome">
         <legend>{ar ? 'طريقة الإشعار' : 'Notify by'}</legend>

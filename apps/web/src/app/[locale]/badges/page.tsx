@@ -253,6 +253,73 @@ export default async function BadgesGuidePage({
         </div>
       </section>
 
+      <section className="section badges-guide__levels-section" id="ranking">
+        <div className="container">
+          <div className="section-heading">
+            <div>
+              <span className="section-kicker">{ar ? 'الترتيب' : 'Ranking'}</span>
+              <h2>{ar ? 'كيف نختار «الأفضل على BHD R»' : 'How we pick “The best on BHD R”'}</h2>
+              <p>
+                {ar
+                  ? 'قوائم الصفحة الرئيسية تُحسب تلقائياً من بيانات آخر 12 شهراً وتتحدّث كل 30 دقيقة تقريباً، دون أي تدخّل يدوي.'
+                  : 'The homepage lists are computed automatically from the last 12 months of data and refresh about every 30 minutes, with no manual picks.'}
+              </p>
+            </div>
+          </div>
+          <div className="badges-guide__rules">
+            <article>
+              <h3>{ar ? 'تقييم عادل لقلة التقييمات' : 'Fair to small numbers'}</h3>
+              <p>
+                {ar
+                  ? 'لا يتصدّر أحد بتقييم واحد بخمس نجوم: يُوزن المتوسط مع عدد التقييمات، فيقترب من المتوسط العام حتى تتراكم تقييمات كافية.'
+                  : 'A single five-star review cannot top the list: the average is weighted by how many ratings there are, staying near the overall mean until enough build up.'}
+              </p>
+            </article>
+            <article>
+              <h3>{ar ? 'أداء فعلي لا تقييم فقط' : 'Real performance, not only stars'}</h3>
+              <ul>
+                <li>
+                  {ar
+                    ? 'العقارات: تقييم الضيوف والإشغال وسرعة الصيانة.'
+                    : 'Properties: guest ratings, occupancy and maintenance speed.'}
+                </li>
+                <li>
+                  {ar
+                    ? 'الشركاء: الإنجاز في الموعد والجودة والتكلفة.'
+                    : 'Partners: on-time work, quality and cost.'}
+                </li>
+                <li>
+                  {ar
+                    ? 'الملاك والإدارات: تقييم مبانيهم والإشغال والتوثيق.'
+                    : 'Owners and managers: their buildings’ ratings, occupancy and verification.'}
+                </li>
+                <li>
+                  {ar
+                    ? 'المستأجرون: السداد في الموعد وتقييم الملاك، ويُستبعد من عليه قضايا أو تأخر متكرر.'
+                    : 'Tenants: on-time payment and hosts’ ratings; anyone with legal cases or repeated arrears is excluded.'}
+                </li>
+              </ul>
+            </article>
+            <article>
+              <h3>{ar ? 'الشارات ترفع الترتيب قليلاً' : 'Badges give a small lift'}</h3>
+              <p>
+                {ar
+                  ? 'الشارات والأوسمة النشطة تضيف حتى 5% للنتيجة، والحساب الموثّق يظهر بعلامته.'
+                  : 'Active badges and medals add up to 5% to the score, and verified accounts show their tick.'}
+              </p>
+            </article>
+            <article>
+              <h3>{ar ? 'الخصوصية أولاً' : 'Privacy first'}</h3>
+              <p>
+                {ar
+                  ? 'يظهر الأشخاص بالاسم الأول والحرف الأول فقط، ولا يظهر اسم المالك الفرد إلا إذا اختار إظهاره، ولا تظهر إلا العقارات المعروضة للعامة.'
+                  : 'People appear by first name and initial only, an individual owner’s name shows only if they chose to show it, and only public listings appear.'}
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
       <BadgeShowcaseSection showcase={showcase} locale={locale} guideLink={false} />
 
       <section className="section">

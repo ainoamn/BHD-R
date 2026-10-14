@@ -23,6 +23,8 @@ import { escapeHtml } from '@/lib/lease-booking-contract';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 import { decimalToMinor } from '@/lib/property-contracts-neon';
 import { publicWebOrigin } from '@/lib/seo';
+import { hasAdminScope, siteAdminAccess } from '@/lib/site-admin-neon';
+import type { AdminScope } from '@/lib/site-admin-shared';
 import {
   CLAIM_MESSAGE_MAX,
   CLAIM_MESSAGE_MIN,
@@ -652,21 +654,15 @@ export async function loadComplaintWhatsapp(
   });
 }
 
-const PLATFORM_ROLES = new Set(['platform_admin', 'platform_support']);
-
-/** Site administration: platform roles, or an account whose email is on the complaints list. */
-export async function isSiteAdmin(claims: SessionClaims): Promise<boolean> {
-  if (claims.roles.some((role) => PLATFORM_ROLES.has(role))) return true;
-  return elevated(async (tx) => {
-    const [user] = await tx
-      .select({ email: users.email })
-      .from(users)
-      .where(eq(users.id, claims.sub))
-      .limit(1);
-    const email = user?.email?.trim().toLowerCase();
-    if (!email) return false;
-    return (await loadSettings(tx)).emails.includes(email);
-  });
+/**
+ * Site administration: platform administrators and the complaint-inbox emails hold every scope;
+ * delegates hold the scopes they were granted.
+ */
+export async function isSiteAdmin(
+  claims: SessionClaims,
+  scope: AdminScope = 'complaints',
+): Promise<boolean> {
+  return hasAdminScope(claims, scope);
 }
 
 export async function loadSiteAdminSettings(claims: SessionClaims): Promise<SiteAdminSettings> {
@@ -674,11 +670,12 @@ export async function loadSiteAdminSettings(claims: SessionClaims): Promise<Site
   return elevated((tx) => loadSettings(tx));
 }
 
+/** The inbox emails are the top-level administrators, so only they may change the list. */
 export async function saveSiteAdminSettings(
   claims: SessionClaims,
   input: { channel: ComplaintChannel; emails: string[]; whatsapp: string[] },
 ): Promise<SiteAdminSettings> {
-  if (!(await isSiteAdmin(claims))) fail('forbidden');
+  if (!(await siteAdminAccess(claims))?.root) fail('forbidden');
   const emails = [...new Set(input.emails.map((email) => email.trim().toLowerCase()))].filter(
     Boolean,
   );

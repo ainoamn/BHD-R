@@ -99,6 +99,25 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
   const initial = viewer.displayName.trim().slice(0, 1) || 'B';
   const ar = locale === 'ar';
   const apps = BHD_APPS.filter((app) => app.enabled);
+  const [siteAdmin, setSiteAdmin] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (panel !== 'account' || siteAdmin !== null) return;
+    let live = true;
+    fetch('/api/site-admin/access', {
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: { accept: 'application/json' },
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then(
+        (payload: { access?: unknown } | null) => live && setSiteAdmin(Boolean(payload?.access)),
+      )
+      .catch(() => live && setSiteAdmin(false));
+    return () => {
+      live = false;
+    };
+  }, [panel, siteAdmin]);
 
   useEffect(() => {
     if (!panel) return;
@@ -202,6 +221,11 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
           <Link href={`/${locale}/account`} onClick={() => setPanel(null)}>
             {ar ? 'صورتي وتوثيق حسابي ✓' : 'Picture & verification ✓'}
           </Link>
+          {siteAdmin ? (
+            <Link href={`/${locale}/site-admin`} onClick={() => setPanel(null)}>
+              {ar ? 'إدارة الموقع' : 'Site admin'}
+            </Link>
+          ) : null}
           <a href="https://id.bhd-om.com/account">{ar ? 'إدارة حساب BHD' : 'Manage BHD account'}</a>
           <form
             method="post"

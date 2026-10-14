@@ -1,13 +1,15 @@
 import Image from 'next/image';
-import { EmptyState, Logo } from '@bhd-r/ui';
+import { EmptyState } from '@bhd-r/ui';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { BadgeShowcaseSection } from '@/components/badges/badge-showcase';
+import { HomeLeaderboardsSection } from '@/components/home/home-leaderboards';
 import { ListingCard } from '@/components/listing-card';
 import { PropertySearch } from '@/components/property-search';
 import { HomeSearchTabs } from '@/components/stays/home-search-tabs';
 import { StaySearch } from '@/components/stays/stay-search';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { EMPTY_LEADERBOARDS, type HomeLeaderboards } from '@/lib/leaderboards-shared';
 import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
 import { getShellViewer } from '@/lib/viewer';
 import { withTimeoutFallback } from '@/lib/with-timeout';
@@ -17,81 +19,42 @@ import type { ListingCollection } from '@/lib/types';
 const homeCopy = {
   ar: {
     heroNote: 'من عُمان، بمعيار يليق بعقارك',
-    proofTitle: 'منظومة واحدة لكل دورة العقار',
-    proofItems: ['إشغال لحظي', 'عقود إلكترونية', 'تحصيل منضبط', 'صيانة موثقة'],
-    live: 'المتاح يظهر. المؤجر والمحجوز يختفي تلقائياً.',
-    stats: [
-      ['4', 'بوابات مستقلة حسب الدور'],
-      ['7+', 'عملات خليجية ودولية'],
-      ['100%', 'عقود ومسارات موثقة'],
-      ['24/7', 'وصول آمن إلى الالتزامات'],
-    ],
-    journeyEyebrow: 'كيف يعمل BHD R',
-    journeyTitle: 'رحلة العقار، مرتبة من أول إضافة إلى آخر تحصيل.',
-    journeyText:
-      'لا نخلط الأنظمة ولا نكرر البيانات. كل خطوة تسلّم التالية حالة واضحة وصلاحية محددة وسجلاً قابلاً للمراجعة.',
+    subtitle: 'وحدات متاحة لحظياً، عقود إلكترونية، تحصيل وصيانة في منصة واحدة.',
+    stats: {
+      publicUnits: 'وحدة معروضة',
+      properties: 'عقار منشور',
+      partners: 'شريك خدمات',
+      ratings: 'تقييم موثّق',
+    },
+    stepsTitle: 'من الإضافة إلى التحصيل',
     steps: [
-      ['01', 'أضف العقار', 'فردي أو متعدد الوحدات مع العنوان والتفاصيل والصور.'],
-      ['02', 'انشر المتاح', 'لا تظهر إلا الوحدات المنشورة والمتاحة فعلياً.'],
-      ['03', 'وقّع العقد', 'توقيع إلكتروني ومسار اعتماد واضح لكل طرف.'],
-      ['04', 'تابع التشغيل', 'فواتير ومدفوعات وصيانة وتقارير في سجل واحد.'],
+      ['أضف العقار', 'فردي أو متعدد الوحدات'],
+      ['انشر المتاح', 'المؤجر يختفي تلقائياً'],
+      ['وقّع العقد', 'توقيع إلكتروني لكل طرف'],
+      ['تابع التشغيل', 'فواتير وصيانة وتقارير'],
     ],
-    rolesEyebrow: 'مساحات لا تتداخل',
-    rolesTitle: 'كل مستخدم يرى ما له وما عليه فقط.',
-    roles: [
-      ['المالك', 'محفظة العقارات، الإشغال، التحصيل، العقود والفريق المفوض.'],
-      ['المطور', 'المشاريع والوحدات والعقود والتقارير التشغيلية من مساحة مستقلة.'],
-      ['المستأجر', 'العقد والفواتير والإيصالات والصيانة دون كشف بيانات الإدارة.'],
-    ],
-    identityEyebrow: 'هوية BHD العُمانية',
-    identityTitle: 'جذور ثابتة. إدارة تتحرك مع المستقبل.',
-    identityText:
-      'استلهمنا الهدوء والثبات من العمارة العُمانية، وربطناهما بهندسة رقمية خفيفة تخدم المالك والمطور والمستأجر بلغتهم وسياقهم.',
-    identityQuote: 'عقارك. عقدك. كل شيء واضح.',
-    ctaTitle: 'عقار واحد أو محفظة كاملة—ابدأ من مساحة مصممة لدورك.',
-    ctaText: 'حساب BHD واحد، وصلاحيات مستقلة داخل BHD R، وبيانات كل مؤسسة معزولة.',
+    ctaTitle: 'عقار واحد أو محفظة كاملة',
+    ctaText: 'حساب BHD واحد، وصلاحيات مستقلة لكل دور.',
     portal: 'افتح مساحتك',
   },
   en: {
     heroNote: 'From Oman, built to a higher property standard',
-    proofTitle: 'One system for the full property lifecycle',
-    proofItems: ['Live occupancy', 'E-signatures', 'Controlled collection', 'Tracked maintenance'],
-    live: 'Available units appear. Leased and reserved units disappear automatically.',
-    stats: [
-      ['4', 'role-specific portals'],
-      ['7+', 'GCC and international currencies'],
-      ['100%', 'traceable lease workflows'],
-      ['24/7', 'secure access to obligations'],
-    ],
-    journeyEyebrow: 'How BHD R works',
-    journeyTitle: 'A clear property journey, from onboarding to collection.',
-    journeyText:
-      'No merged systems or duplicated records. Every step hands the next one a clear status, a precise permission and an auditable trail.',
+    subtitle: 'Live availability, e-signed leases, collections and maintenance in one platform.',
+    stats: {
+      publicUnits: 'listed units',
+      properties: 'published properties',
+      partners: 'service partners',
+      ratings: 'verified ratings',
+    },
+    stepsTitle: 'From onboarding to collection',
     steps: [
-      ['01', 'Add the property', 'Single or multi-unit, with address, details and images.'],
-      [
-        '02',
-        'Publish availability',
-        'Only published units that are genuinely available are shown.',
-      ],
-      ['03', 'Sign the lease', 'Electronic signatures with a clear approval path for every party.'],
-      ['04', 'Run operations', 'Invoices, payments, maintenance and reports in one record.'],
+      ['Add the property', 'Single or multi-unit'],
+      ['Publish availability', 'Leased units hide themselves'],
+      ['Sign the lease', 'E-signature for every party'],
+      ['Run operations', 'Invoices, upkeep, reports'],
     ],
-    rolesEyebrow: 'Spaces that never overlap',
-    rolesTitle: 'Every user sees only what belongs to their role.',
-    roles: [
-      ['Owner', 'Portfolio, occupancy, collections, leases and delegated team access.'],
-      ['Developer', 'Projects, units, leases and operational reports in a separate workspace.'],
-      ['Tenant', 'Lease, invoices, receipts and maintenance without exposing management data.'],
-    ],
-    identityEyebrow: 'Omani BHD identity',
-    identityTitle: 'Deep roots. Property operations ready for what comes next.',
-    identityText:
-      'Omani architecture lends the experience its calm and permanence; lightweight engineering makes it useful to owners, developers and tenants in their language and context.',
-    identityQuote: 'Your property. Your lease. Clearly managed.',
-    ctaTitle: 'One property or a complete portfolio—start in the workspace built for your role.',
-    ctaText:
-      'One BHD account, independent permissions inside BHD R and isolated data for every organization.',
+    ctaTitle: 'One property or a full portfolio',
+    ctaText: 'One BHD account, separate permissions for every role.',
     portal: 'Open your workspace',
   },
 } as const;
@@ -105,138 +68,121 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   const t = await getTranslations();
   const copy = homeCopy[locale === 'en' ? 'en' : 'ar'];
   const emptyListings = { data: [], pagination: { nextCursor: null, hasMore: false } };
-  let listings = emptyListings as ListingCollection;
   const emptyShowcase: BadgeShowcase = { awards: [], activeCount: 0, holderCount: 0 };
+  const database = hasDatabaseUrl();
 
-  const [viewer, showcase] = await Promise.all([
+  const [viewer, showcase, leaders, listings] = await Promise.all([
     getShellViewer().catch(() => null),
-    hasDatabaseUrl()
+    database
       ? import('@/lib/badges-neon')
-          .then(({ loadBadgeShowcaseSafe }) => loadBadgeShowcaseSafe(6))
+          .then(({ loadBadgeShowcaseSafe }) => loadBadgeShowcaseSafe(4))
           .catch(() => emptyShowcase)
       : emptyShowcase,
-    (async () => {
-      if (!hasDatabaseUrl()) return;
-      try {
-        const { searchPublicListingsFromNeon } = await import('@/lib/search-public-listings-neon');
-        listings = await withTimeoutFallback(
-          searchPublicListingsFromNeon({ limit: 6 }),
-          8_000,
-          emptyListings,
-          'home-neon',
-        );
-      } catch {
-        listings = emptyListings;
-      }
-    })(),
+    database
+      ? import('@/lib/home-leaderboards-neon')
+          .then(({ loadHomeLeaderboardsSafe }) => loadHomeLeaderboardsSafe())
+          .catch((): HomeLeaderboards => EMPTY_LEADERBOARDS)
+      : EMPTY_LEADERBOARDS,
+    database
+      ? import('@/lib/search-public-listings-neon')
+          .then(({ searchPublicListingsFromNeon }) =>
+            withTimeoutFallback(
+              searchPublicListingsFromNeon({ limit: 6 }),
+              8_000,
+              emptyListings as ListingCollection,
+              'home-neon',
+            ),
+          )
+          .catch(() => emptyListings as ListingCollection)
+      : (emptyListings as ListingCollection),
   ]);
   const signedIn = Boolean(viewer);
   const workspaceHref = `/${locale}/portal`;
   const signInHref = `/api/auth/bhd/start?returnTo=${encodeURIComponent(workspaceHref)}`;
-  // Skip Nest fallback on the homepage — cold Nest turns soft-nav into a minute-long hang.
+  const stats = (Object.keys(copy.stats) as (keyof typeof copy.stats)[])
+    .map((key) => ({ key, value: leaders.stats[key], label: copy.stats[key] }))
+    .filter((stat) => stat.value > 0);
 
   return (
     <>
-      <section className="hero hero--oman">
+      <section className="home-hero">
         <Image
-          className="hero__image"
+          className="home-hero__image"
           src="/images/oman/fort-bg.webp"
-          alt={
-            locale === 'ar'
-              ? 'حصن عُماني بين الجبال والنخيل'
-              : 'An Omani fort among mountains and palms'
-          }
+          alt=""
           fill
           priority
           sizes="100vw"
         />
-        <div className="hero__veil" aria-hidden="true" />
-        <div className="container hero-grid">
-          <div className="hero-content">
-            <span className="eyebrow eyebrow--light">{copy.heroNote}</span>
+        <div className="home-hero__veil" aria-hidden="true" />
+        <div className="container home-hero__inner">
+          <div className="home-hero__copy">
+            <span className="home-hero__note">{copy.heroNote}</span>
             <h1>{t('Home.title')}</h1>
-            <p className="hero-copy">{t('Home.subtitle')}</p>
-            <div className="hero-actions">
-              <Link href="/properties" className="button button--gold">
+            <p>{copy.subtitle}</p>
+            <div className="home-hero__actions">
+              <Link href="/properties" className="button button--gold button--small">
                 {t('Home.cta')}
-                <span aria-hidden="true">←</span>
               </Link>
               {signedIn ? (
-                <Link href="/portal" className="button button--glass">
+                <Link href="/portal" className="button button--glass button--small">
                   {locale === 'ar' ? 'مساحتي' : 'Workspace'}
                 </Link>
               ) : (
-                <a href={signInHref} className="button button--glass">
+                <a href={signInHref} className="button button--glass button--small">
                   {t('Nav.login')}
                 </a>
               )}
             </div>
           </div>
-
-          <aside className="hero-proof" aria-label={copy.proofTitle}>
-            <div className="hero-proof__brand">
-              <Logo descriptor={t('Brand.descriptor')} />
-              <span>{locale === 'ar' ? 'منتج من منظومة BHD' : 'A BHD product'}</span>
-            </div>
-            <h2>{copy.proofTitle}</h2>
-            <ul>
-              {copy.proofItems.map((item) => (
-                <li key={item}>
-                  <span aria-hidden="true">✓</span>
-                  {item}
+          {stats.length ? (
+            <ul
+              className="home-hero__stats"
+              aria-label={locale === 'ar' ? 'أرقام حية' : 'Live numbers'}
+            >
+              {stats.map((stat) => (
+                <li key={stat.key}>
+                  <strong>
+                    {stat.value.toLocaleString(locale === 'ar' ? 'ar-OM-u-nu-latn' : 'en')}
+                  </strong>
+                  <span>{stat.label}</span>
                 </li>
               ))}
             </ul>
-            <p className="hero-proof__live">
-              <i aria-hidden="true" />
-              {copy.live}
-            </p>
-          </aside>
-        </div>
-        <div className="container hero-search">
-          {isStaysPublicSurfaceEnabled() ? (
-            <div className="hero-search__booking-wrap">
-              <HomeSearchTabs
-                locale={locale}
-                rentSearch={<PropertySearch locale={locale} defaults={{ purpose: 'rent' }} />}
-                saleSearch={<PropertySearch locale={locale} defaults={{ purpose: 'sale' }} />}
-                staySearch={<StaySearch locale={locale} variant="hero" />}
-              />
-            </div>
-          ) : (
-            <PropertySearch locale={locale} />
-          )}
+          ) : null}
+          <div className="hero-search home-hero__search">
+            {isStaysPublicSurfaceEnabled() ? (
+              <div className="hero-search__booking-wrap">
+                <HomeSearchTabs
+                  locale={locale}
+                  rentSearch={<PropertySearch locale={locale} defaults={{ purpose: 'rent' }} />}
+                  saleSearch={<PropertySearch locale={locale} defaults={{ purpose: 'sale' }} />}
+                  staySearch={<StaySearch locale={locale} variant="hero" />}
+                />
+              </div>
+            ) : (
+              <PropertySearch locale={locale} />
+            )}
+          </div>
         </div>
       </section>
 
-      <section
-        className="trust-strip"
-        aria-label={locale === 'ar' ? 'مزايا المنصة' : 'Platform advantages'}
-      >
-        <div className="container trust-strip__grid">
-          {copy.stats.map(([value, label]) => (
-            <div key={label}>
-              <strong>{value}</strong>
-              <span>{label}</span>
-            </div>
-          ))}
-        </div>
-      </section>
+      <HomeLeaderboardsSection data={leaders} locale={locale} />
 
-      <section className="section" aria-labelledby="featured-title">
+      <section className="home-section" aria-labelledby="featured-title">
         <div className="container">
-          <div className="section-heading">
+          <header className="home-head">
             <div>
-              <span className="section-kicker">{t('Home.availableNow')}</span>
+              <span className="home-head__kicker">{t('Home.availableNow')}</span>
               <h2 id="featured-title">{t('Home.featured')}</h2>
               <p>{t('Home.featuredHint')}</p>
             </div>
-            <Link className="text-link" href="/properties">
-              {t('Common.viewAll')} <span aria-hidden="true">←</span>
+            <Link className="home-head__link" href="/properties">
+              {t('Common.viewAll')}
             </Link>
-          </div>
+          </header>
           {listings.data.length ? (
-            <div className="listing-grid">
+            <div className="listing-grid home-listings">
               {listings.data.map((listing) => (
                 <ListingCard key={listing.id} listing={listing} locale={locale} />
               ))}
@@ -247,85 +193,43 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         </div>
       </section>
 
-      <BadgeShowcaseSection showcase={showcase} locale={locale} />
+      <div className="home-showcase">
+        <BadgeShowcaseSection showcase={showcase} locale={locale} />
+      </div>
 
-      <section id="how-it-works" className="section journey-section">
-        <div className="container journey-layout">
-          <div className="journey-intro">
-            <span className="section-kicker section-kicker--gold">{copy.journeyEyebrow}</span>
-            <h2>{copy.journeyTitle}</h2>
-            <p>{copy.journeyText}</p>
+      <section
+        id="how-it-works"
+        className="home-section home-flow"
+        aria-labelledby="home-flow-title"
+      >
+        <div className="container home-flow__inner">
+          <div className="home-flow__steps">
+            <h2 id="home-flow-title">{copy.stepsTitle}</h2>
+            <ol>
+              {copy.steps.map(([title, text], index) => (
+                <li key={title}>
+                  <span aria-hidden="true">{index + 1}</span>
+                  <div>
+                    <strong>{title}</strong>
+                    <small>{text}</small>
+                  </div>
+                </li>
+              ))}
+            </ol>
           </div>
-          <ol className="journey-steps">
-            {copy.steps.map(([number, title, text]) => (
-              <li key={number}>
-                <span>{number}</span>
-                <div>
-                  <h3>{title}</h3>
-                  <p>{text}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </section>
-
-      <section className="section role-section" aria-labelledby="roles-title">
-        <div className="container">
-          <div className="section-heading section-heading--center">
-            <span className="section-kicker">{copy.rolesEyebrow}</span>
-            <h2 id="roles-title">{copy.rolesTitle}</h2>
-          </div>
-          <div className="role-grid">
-            {copy.roles.map(([title, text], index) => (
-              <article key={title} className="role-card">
-                <span aria-hidden="true">0{index + 1}</span>
-                <h3>{title}</h3>
-                <p>{text}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="oman-identity">
-        <div className="oman-identity__image">
-          <Image
-            src="/images/oman/oman-alam-palace.webp"
-            alt={locale === 'ar' ? 'قصر العلم في مسقط' : 'Al Alam Palace in Muscat'}
-            fill
-            sizes="(max-width: 900px) 100vw, 50vw"
-          />
-        </div>
-        <div className="oman-identity__content">
-          <span className="section-kicker section-kicker--gold">{copy.identityEyebrow}</span>
-          <h2>{copy.identityTitle}</h2>
-          <p>{copy.identityText}</p>
-          <blockquote>{copy.identityQuote}</blockquote>
-          <span className="oman-identity__place">
-            مسقط · سلطنة عُمان · Muscat, Sultanate of Oman
-          </span>
-        </div>
-      </section>
-
-      <section className="section final-cta">
-        <div className="container final-cta__inner">
-          <div>
-            <span className="section-kicker section-kicker--gold">BHD R</span>
-            <h2>{copy.ctaTitle}</h2>
+          <div className="home-flow__cta">
+            <strong>{copy.ctaTitle}</strong>
             <p>{copy.ctaText}</p>
+            {signedIn ? (
+              <Link href="/portal" className="button button--gold button--small">
+                {copy.portal}
+              </Link>
+            ) : (
+              <a href={signInHref} className="button button--gold button--small">
+                {copy.portal}
+              </a>
+            )}
           </div>
-          {signedIn ? (
-            <Link href="/portal" className="button button--gold">
-              {copy.portal}
-              <span aria-hidden="true">←</span>
-            </Link>
-          ) : (
-            <a href={signInHref} className="button button--gold">
-              {copy.portal}
-              <span aria-hidden="true">←</span>
-            </a>
-          )}
         </div>
       </section>
     </>

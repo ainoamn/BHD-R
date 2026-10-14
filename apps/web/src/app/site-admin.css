@@ -1,0 +1,221 @@
+/* Site administration: sections nav, plans, subscriptions, users, delegation (0.8.64) */
+
+.site-admin-nav {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: 0.6rem 1rem;
+  background: rgb(251 250 247 / 0.94);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+.site-admin-nav__role {
+  flex: none;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  color: #fff;
+  background: var(--oman-deep);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.site-admin-nav__tabs {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.site-admin-nav__tabs::-webkit-scrollbar {
+  display: none;
+}
+.site-admin-nav__tabs a {
+  flex: none;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--oman-deep);
+  background: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.site-admin-nav__tabs a.is-current {
+  color: #fff;
+  background: var(--bhd-teal);
+  border-color: var(--bhd-teal);
+}
+
+.site-admin--wide {
+  max-width: 76rem;
+}
+
+.sa-input {
+  width: 100%;
+  min-height: 2.35rem;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid rgb(9 45 36 / 0.18);
+  border-radius: 0.6rem;
+  background: #fff;
+  font: inherit;
+  font-size: 0.88rem;
+}
+.sa-input--key {
+  max-width: 10rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.sa-input--search {
+  max-width: 18rem;
+}
+.sa-field {
+  display: grid;
+  flex: 1 1 8rem;
+  gap: 0.2rem;
+  min-width: 0;
+}
+.sa-field > span {
+  color: #55706a;
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+.sa-field--grow {
+  flex: 3 1 14rem;
+}
+.sa-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+.sa-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.sa-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.sa-scopes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.9rem;
+  font-size: 0.86rem;
+}
+.sa-scopes label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Plans */
+.sa-plans {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+  gap: 0.75rem;
+}
+.sa-plan {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.85rem;
+  border: 1px solid rgb(9 45 36 / 0.12);
+  border-radius: 0.9rem;
+  background: #fff;
+}
+.sa-plan.is-off {
+  background: #f6f6f4;
+  opacity: 0.85;
+}
+.sa-plan__head,
+.sa-plan__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+}
+.sa-plan__head code {
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.4rem;
+  background: #eef4f1;
+  font-weight: 700;
+}
+.sa-plan .sa-row .sa-field {
+  flex-basis: 6.5rem;
+}
+
+/* Subscriptions */
+.sa-org__facts {
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+}
+.sa-org__form {
+  padding-top: 0.6rem;
+  border-top: 1px dashed rgb(9 45 36 / 0.14);
+}
+
+/* Users */
+.sa-search {
+  display: flex;
+  gap: 0.5rem;
+  max-width: 32rem;
+}
+.sa-table-wrap {
+  overflow-x: auto;
+  border: 1px solid rgb(9 45 36 / 0.12);
+  border-radius: 0.9rem;
+  background: #fff;
+}
+.sa-table {
+  width: 100%;
+  min-width: 46rem;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+.sa-table th,
+.sa-table td {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid #edf1ef;
+  text-align: start;
+  vertical-align: top;
+}
+.sa-table th {
+  color: #55706a;
+  background: #f7faf9;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+.sa-table td small {
+  display: block;
+  color: var(--muted);
+}
+.sa-table tr.is-off td {
+  background: #fbf3f2;
+}
+.sa-tag {
+  margin-inline-start: 0.35rem;
+  font-size: 0.68rem;
+}
+.sa-orgs {
+  display: grid;
+  gap: 0.15rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (max-width: 640px) {
+  .site-admin-nav {
+    padding-inline: 0.75rem;
+  }
+  .sa-org__form > .button {
+    width: 100%;
+  }
+}

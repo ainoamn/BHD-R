@@ -2,6 +2,23 @@
 
 **تسليم الجلسة كاملة (0.2.24 → 0.8.33):** للاستكمال من جهاز آخر ابدأ من [`docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه خطوات الإعداد، والمراحل بالتاريخ والوقت، والمهام المفتوحة. ويرافقه فهرس الإصدارات (251 إصداراً) والمحادثة كاملة بعد حذف الأسرار.
 
+# CONTINUE — 2026-10-14 13:30 (مسقط)
+
+**0.8.64** · رئيسية مختصرة بقوائم «الأفضل»، وإدارة الموقع بالتفويض:
+
+- **القوائم:** `leaderboards-shared.ts` (`bayesRating`، و`propertyScore`/`partnerScore`/`ownerScore`/`tenantScore`، و`eligible`، و`rankEntries`) + `home-leaderboards-neon.ts`:
+  - `computeMetrics` لكل منشأة نشطة (365 يوماً) داخل `elevatedTx`.
+  - `unstable_cache` بالوسم `home-leaderboards` (1800 ثانية) داخل مهلة 9 ثوانٍ.
+- **الرئيسية:** `[locale]/page.tsx` + `home-leaderboards.tsx` + `home.css`.
+- **التفويض:** `site-admin-neon.ts`:
+  - `siteAdminAccess`/`hasAdminScope`، والصلاحيات `complaints|verification|plans|users|delegates`.
+  - الإدارة العليا = `site_admin_contacts.emails` أو `platform_admin`. والمفوَّضون في `platform_settings.site_admin_delegates`.
+- **الباقات:** `plan_catalog`، و`organization_subscriptions`، و`organizations.plan_key`. `organizationSeatPlan` يغذّي `team-neon`.
+- **المستخدمون:** `setUserSuspended` (`disabled_at`، ورفع `session_version`، وإلغاء `sessions`).
+- **مفتوح:** Nest API ما زالت على حدود `@bhd-r/domain` الثابتة. لا تحصيل آلي للاشتراكات. ولا تطبيق لحدود العقارات والوحدات على الإنشاء بعد.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.64-AR.md`](./docs/implementation/RELEASE-0.8.64-AR.md)
+
 # CONTINUE — 2026-10-14 12:00 (مسقط)
 
 **0.8.63** · الشارات في كل مكان، ولوحة الشرف، وصفحة الشارات، وإصلاح التسليم:
