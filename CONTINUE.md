@@ -2,6 +2,28 @@
 
 **تسليم الجلسة كاملة (0.2.24 → 0.8.33):** للاستكمال من جهاز آخر ابدأ من [`docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه خطوات الإعداد، والمراحل بالتاريخ والوقت، والمهام المفتوحة. ويرافقه فهرس الإصدارات (251 إصداراً) والمحادثة كاملة بعد حذف الأسرار.
 
+# CONTINUE — 2026-10-14 11:15 (مسقط)
+
+**0.8.62** · دعوات الفريق والبريد:
+
+- **المُرسِل** `email-outbox.ts` يقرأ `outbox_events` (`notification.delivery.requested`) ويرسل عبر Resend (`RESEND_API_KEY`، و`RESEND_FROM_EMAIL` بعنوانه فقط واسم «BHD R»):
+  - `FOR UPDATE SKIP LOCKED`، و`Idempotency-Key: bhd-r-outbox-<id>`.
+  - حتى 6 محاولات بانتظار 2^n دقيقة (حد ساعة)، ولا يرسل ما عمره أكثر من 12 ساعة.
+  - 400/422 أو حمولة تالفة: `attempts = 6`.
+- **التشغيل:** `sendQueuedEmailsSoon()` عبر `after()` بعد كل إدراج في الطابور، وفي GET الفريق إذا وُجدت دعوة قيد الإرسال. واحتياطياً `/api/cron/send-emails` (`50 3 * * *`).
+- **الفريق:**
+  - `TeamView.invites` (sent/sending/failed)، و`inviteUrl` = `/ar/login?org=<org>`، و`organizationName`.
+  - `POST /api/owner/team/:userId/invite` → `resendTeamInvite`، بمهلة 10 دقائق، و`team_invite_too_soon` و`team_invite_not_needed`.
+- **الدخول:** `start?org=` يضبط `bhd_r_org`، ولا يُستخدم إلا للأعضاء (`chooseOrganization`).
+- **الربط** `resolveIdentityUser`:
+  - بريد غير مؤكد على حساب بلا subject: `identity_email_unverified`.
+  - بريد مؤكد على subject آخر: `identity_email_taken`.
+  - بريد غير مؤكد جديد: لا يُخزَّن.
+  - بريد مؤكد جديد لمستخدم قائم: `adoptVerifiedEmail`، ويدمج حساب الدعوة غير المستخدم عبر `mergeUnclaimedAccount` (العضويات، وكل مفاتيح `users.id` بنقطة حفظ لكل عمود).
+- **مفتوح:** الرسائل الـ 11 القديمة لم تُرسل (أقدم من 12 ساعة). ونطاق Resend يجب أن يكون موثّقاً.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.62-AR.md`](./docs/implementation/RELEASE-0.8.62-AR.md)
+
 # CONTINUE — 2026-10-14 10:30 (مسقط)
 
 **0.8.61** · الشارات والتوثيق:

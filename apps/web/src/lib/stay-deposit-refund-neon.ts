@@ -18,6 +18,7 @@ import { assertStayBookingTransition } from '@bhd-r/domain';
 import { hasBookingReview } from '@/lib/booking-reviews-neon';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 import { formatMoney } from '@/lib/format';
+import { sendQueuedEmailsSoon } from '@/lib/email-outbox';
 import { escapeHtml } from '@/lib/lease-booking-contract';
 import { decimalToMinor } from '@/lib/property-contracts-neon';
 import { publicWebOrigin } from '@/lib/seo';
@@ -436,6 +437,7 @@ export async function queueGuestEmail(
         .join('')}<p><a href="${escapeHtml(pageUrl)}">افتح صفحة إقامتك</a></p><p>BHD R</p></div>`,
     },
   });
+  sendQueuedEmailsSoon();
 }
 
 export function guestStayUrl(booking: Pick<RefundBooking, 'id' | 'referenceCode'>): string {

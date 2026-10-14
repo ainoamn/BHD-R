@@ -34,6 +34,11 @@ type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 const tokenHash = (token: string) => createHash('sha256').update(token).digest('hex');
 
+/** Stand-in email domain for accounts without a verified address of their own. */
+const PLACEHOLDER_EMAIL_DOMAIN = 'identity.bhd-om.local';
+/** Moved by hand in mergeUnclaimedAccount, or meaningless to move. */
+const MERGE_SKIPPED_TABLES = new Set(['users', 'memberships', 'sessions']);
+
 function sessionSecret(): Uint8Array {
   const raw =
     process.env.BHD_R_SESSION_SECRET?.replace(/^\uFEFF/, '')
@@ -236,7 +241,7 @@ async function provisionIdentityUser(
 ) {
   const email =
     identity.email?.trim().toLowerCase() ||
-    `${identity.subject.replace(/[^a-z0-9]/gi, '').slice(0, 24) || 'user'}@identity.bhd-om.local`;
+    `${identity.subject.replace(/[^a-z0-9]/gi, '').slice(0, 24) || 'user'}@${PLACEHOLDER_EMAIL_DOMAIN}`;
   const displayName = identity.name?.trim() || email.split('@')[0] || 'BHD user';
   const base =
     email
@@ -331,6 +336,92 @@ export async function ensureOwnerPartyId(input: {
   );
 }
 
+/**
+ * Keeps the account's email in step with its verified BHD email. When a team invitation is
+ * waiting on that email (an account nobody has signed in to), it is merged into this account.
+ * An email held by someone who did sign in stays theirs.
+ */
+async function adoptVerifiedEmail(tx: Tx, userId: string, email: string): Promise<boolean> {
+  const [holder] = await tx.select().from(users).where(eq(users.email, email)).for('update');
+  if (holder?.id === userId) return true;
+  if (holder) {
+    if (holder.identitySubject || holder.credentialHash) return false;
+    await mergeUnclaimedAccount(tx, holder.id, userId);
+    await tx
+      .update(users)
+      .set({
+        email: `merged-${holder.id}@${PLACEHOLDER_EMAIL_DOMAIN}`,
+        disabledAt: new Date(),
+        sessionVersion: sql`${users.sessionVersion} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, holder.id));
+  }
+  await tx
+    .update(users)
+    .set({
+      email,
+      updatedAt: new Date(),
+      // Other devices re-sign silently with the merged memberships (they are not signed out).
+      ...(holder ? { sessionVersion: sql`${users.sessionVersion} + 1` } : {}),
+    })
+    .where(eq(users.id, userId));
+  return true;
+}
+
+/** Moves an invited, never-used account's memberships and assignments onto the real account. */
+async function mergeUnclaimedAccount(tx: Tx, fromId: string, toId: string) {
+  await tx.execute(sql`
+    update memberships target
+    set status = source.status, permissions = source.permissions,
+        party_id = coalesce(source.party_id, target.party_id)
+    from memberships source
+    where source.user_id = ${fromId}::uuid and target.user_id = ${toId}::uuid
+      and target.organization_id = source.organization_id and target.role_key = source.role_key
+      and source.status in ('active', 'inactive') and target.status not in ('active', 'inactive')
+  `);
+  await tx.execute(sql`
+    update memberships source set user_id = ${toId}::uuid
+    where source.user_id = ${fromId}::uuid and not exists (
+      select 1 from memberships target
+      where target.user_id = ${toId}::uuid
+        and target.organization_id = source.organization_id and target.role_key = source.role_key
+    )
+  `);
+  await tx.execute(sql`
+    update memberships set status = 'archived'
+    where user_id = ${fromId}::uuid and status <> 'archived'
+  `);
+
+  const references = (await tx.execute(sql`
+    select n.nspname as "schema", r.relname as "table", a.attname as "column"
+    from pg_constraint c
+    join pg_class r on r.oid = c.conrelid
+    join pg_namespace n on n.oid = r.relnamespace
+    join pg_attribute a on a.attrelid = c.conrelid and a.attnum = c.conkey[1]
+    where c.contype = 'f' and c.confrelid = 'public.users'::regclass
+      and array_length(c.conkey, 1) = 1
+  `)) as unknown as
+    | { schema: string; table: string; column: string }[]
+    | { rows: { schema: string; table: string; column: string }[] };
+  const rows = Array.isArray(references) ? references : references.rows;
+  for (const ref of rows) {
+    if (MERGE_SKIPPED_TABLES.has(ref.table)) continue;
+    const table = sql`${sql.identifier(ref.schema)}.${sql.identifier(ref.table)}`;
+    const column = sql.identifier(ref.column);
+    try {
+      // A savepoint per column: a per-user unique row that both accounts have stays where it is.
+      await tx.transaction((savepoint) =>
+        savepoint.execute(
+          sql`update ${table} set ${column} = ${toId}::uuid where ${column} = ${fromId}::uuid`,
+        ),
+      );
+    } catch {
+      // Left on the disabled invitation account.
+    }
+  }
+}
+
 /** Issue BHD R session from a verified Identity ID token (SSO §0.7). */
 export async function issueIdentitySession(input: {
   idToken: string;
@@ -370,61 +461,10 @@ export async function issueIdentitySession(input: {
   // Skip redundant decodeJwt nonce check — verifyBhdIdToken already enforced nonce.
 
   return withSystem(async (tx) => {
-    let user = await tx.query.users.findFirst({
-      where: eq(users.identitySubject, identity.subject),
-    });
-
-    if (!user && identity.email && identity.emailVerified) {
-      const byEmail = await tx.query.users.findFirst({
-        where: eq(users.email, identity.email.trim().toLowerCase()),
-      });
-      if (byEmail && !byEmail.identitySubject) {
-        const linked = await tx
-          .update(users)
-          .set({
-            identitySubject: identity.subject,
-            displayName: identity.name?.trim() || byEmail.displayName,
-          })
-          .where(and(eq(users.id, byEmail.id), isNull(users.identitySubject)))
-          .returning();
-        user = linked[0] ?? byEmail;
-      }
-    }
-
-    if (!user) {
-      try {
-        user = await provisionIdentityUser(tx, {
-          subject: identity.subject,
-          ...(identity.email ? { email: identity.email } : {}),
-          ...(identity.name ? { name: identity.name } : {}),
-        });
-      } catch (error) {
-        throw new Error(
-          `identity_provision:${error instanceof Error ? error.message : String(error)}`,
-          { cause: error },
-        );
-      }
-    }
-
-    if (!user || user.disabledAt) throw new Error('Identity account cannot sign in');
-
-    if (identity.name?.trim() && identity.name.trim() !== user.displayName) {
-      await tx
-        .update(users)
-        .set({ displayName: identity.name.trim() })
-        .where(eq(users.id, user.id));
-    }
-
-    const active = await tx
-      .select({ organizationId: memberships.organizationId })
-      .from(memberships)
-      .where(and(eq(memberships.userId, user.id), eq(memberships.status, 'active')))
-      .limit(1);
-    if (active.length === 0) await provisionPersonalOrganization(tx, user, identity.subject);
-
+    const userId = await resolveIdentityUser(tx, identity);
     // Signing in on another device must not end existing sessions (BHD-SESSION-POLICY).
     try {
-      return await issueForUser(tx, user.id, {
+      return await issueForUser(tx, userId, {
         ...(input.preferredOrganizationId ? { preferred: input.preferredOrganizationId } : {}),
       });
     } catch (error) {
@@ -434,6 +474,76 @@ export async function issueIdentitySession(input: {
       );
     }
   });
+}
+
+/**
+ * The BHD R account for a verified BHD identity: found by subject, linked to the account waiting
+ * on its verified email, or created. Returns the user id.
+ */
+export async function resolveIdentityUser(
+  tx: Tx,
+  identity: { subject: string; email?: string; emailVerified: boolean; name?: string },
+): Promise<string> {
+  const email = identity.email?.trim().toLowerCase() || undefined;
+  const verified = Boolean(email && identity.emailVerified);
+  let user = await tx.query.users.findFirst({
+    where: eq(users.identitySubject, identity.subject),
+  });
+
+  if (!user && email) {
+    const [byEmail] = await tx.select().from(users).where(eq(users.email, email)).for('update');
+    if (byEmail?.identitySubject) {
+      // Another BHD account holds this email here; an unverified claim just gets its own account.
+      if (verified) throw new Error('identity_email_taken');
+    } else if (byEmail) {
+      // A team invitation (or an older account) waits on this email: only its verified owner may take it.
+      if (!verified) throw new Error('identity_email_unverified');
+      const linked = await tx
+        .update(users)
+        .set({
+          identitySubject: identity.subject,
+          displayName: identity.name?.trim() || byEmail.displayName,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(users.id, byEmail.id), isNull(users.identitySubject)))
+        .returning();
+      user = linked[0] ?? byEmail;
+    }
+  }
+
+  if (!user) {
+    try {
+      user = await provisionIdentityUser(tx, {
+        subject: identity.subject,
+        // An unverified address is never stored: a later invitation to it must not reach this account.
+        ...(email && verified ? { email } : {}),
+        ...(identity.name ? { name: identity.name } : {}),
+      });
+    } catch (error) {
+      throw new Error(
+        `identity_provision:${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
+  }
+
+  if (!user || user.disabledAt) throw new Error('Identity account cannot sign in');
+
+  if (email && verified && email !== user.email && (await adoptVerifiedEmail(tx, user.id, email))) {
+    user = { ...user, email };
+  }
+
+  if (identity.name?.trim() && identity.name.trim() !== user.displayName) {
+    await tx.update(users).set({ displayName: identity.name.trim() }).where(eq(users.id, user.id));
+  }
+
+  const active = await tx
+    .select({ organizationId: memberships.organizationId })
+    .from(memberships)
+    .where(and(eq(memberships.userId, user.id), eq(memberships.status, 'active')))
+    .limit(1);
+  if (active.length === 0) await provisionPersonalOrganization(tx, user, identity.subject);
+  return user.id;
 }
 
 /**

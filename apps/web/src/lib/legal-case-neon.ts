@@ -18,6 +18,7 @@ import {
   workflowEvents,
 } from '@bhd-r/db';
 import { applySessionSettings } from '@/lib/db-session-settings';
+import { sendQueuedEmailsSoon } from '@/lib/email-outbox';
 import { escapeHtml } from '@/lib/lease-booking-contract';
 import {
   LEGAL_CHANGE_LABELS,
@@ -614,6 +615,7 @@ async function notifyOtherSide(
       },
     });
   }
+  sendQueuedEmailsSoon();
 }
 
 export type LegalCaseUpdate = {

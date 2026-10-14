@@ -44,7 +44,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const payload = await createStayPaymentSessionOnNeon(parsed.data, idempotencyKey);
+    const payload = await createStayPaymentSessionOnNeon(parsed.data);
     return stayBookingJson(payload);
   } catch (error) {
     return stayBookingErrorResponse(error);

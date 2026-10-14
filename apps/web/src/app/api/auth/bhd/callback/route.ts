@@ -18,6 +18,8 @@ export const runtime = 'nodejs';
 function classifySessionError(error: unknown): { code: string } {
   const message = error instanceof Error ? error.message : String(error);
   console.error('[bhd callback] session detail', message.slice(0, 200));
+  if (/identity_email_unverified/.test(message)) return { code: 'email_unverified' };
+  if (/identity_email_taken/.test(message)) return { code: 'email_taken' };
   if (
     /identity_verify_failed|userinfo|access:|id_token:|jwks:|missing_access_token|missing_hs256/i.test(
       message,

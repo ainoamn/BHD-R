@@ -8258,6 +8258,43 @@ body:has(.stays-booking-receipt) #main-content {
   align-items: center;
   gap: 0.4rem;
 }
+.team-invite {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.6rem 0.75rem;
+  background: #fbf7ee;
+  border: 1px solid #efe2c4;
+  border-radius: 10px;
+}
+.team-invite--sent {
+  background: #f1f8f4;
+  border-color: #cfe6d9;
+}
+.team-invite--failed {
+  background: #fdf1f0;
+  border-color: #f2d0cc;
+}
+.team-invite__line {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--warning);
+}
+.team-invite--sent .team-invite__line {
+  color: var(--success);
+}
+.team-invite--failed .team-invite__line {
+  color: var(--danger);
+}
+.team-invite .ops-action {
+  text-decoration: none;
+}
+.team-hint {
+  padding: 0.5rem 0.7rem;
+  background: #f4f8f6;
+  border-inline-start: 3px solid var(--oman-deep);
+  border-radius: 6px;
+}
 .team-edit {
   display: grid;
   gap: 0.7rem;

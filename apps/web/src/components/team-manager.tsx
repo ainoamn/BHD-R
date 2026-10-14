@@ -53,6 +53,14 @@ const ERRORS: Record<string, [string, string]> = {
     'وصلت إلى الحد الأعلى للأدوار المخصصة (30).',
     'Custom role limit (30) reached.',
   ],
+  team_invite_not_needed: [
+    'دخل هذا الشخص بحسابه بالفعل، فلا حاجة لدعوة.',
+    'This person has already signed in; no invitation needed.',
+  ],
+  team_invite_too_soon: [
+    'أُرسلت له دعوة قبل قليل. انتظر 10 دقائق قبل إعادة الإرسال، أو أرسل الرابط عبر واتساب.',
+    'An invitation was sent moments ago. Wait 10 minutes to resend, or share the link on WhatsApp.',
+  ],
   forbidden: ['لا تملك صلاحية هذا الإجراء.', 'You cannot do this.'],
   rate_limited: ['محاولات كثيرة، انتظر دقيقة.', 'Too many attempts; wait a minute.'],
 };
@@ -338,10 +346,10 @@ function AddMemberForm({
       ar
         ? result.existingAccount
           ? 'أُضيف العضو. سيجد الفريق في قائمة حسابه عند دخوله.'
-          : 'أُضيف العضو وأُرسل له بريد. ينضم عند أول دخول بحساب BHD بنفس البريد.'
+          : 'أُضيف العضو وتُرسل له دعوة بالبريد الآن؛ تظهر حالتها تحت اسمه. ينضم عند أول دخول بحساب BHD بنفس البريد.'
         : result.existingAccount
           ? 'Member added. They will find the team in their account menu.'
-          : 'Member added and emailed. They join on first BHD sign-in with that email.',
+          : 'Member added; an invitation email is on its way (status shows under their name). They join on first BHD sign-in with that email.',
     );
   };
 
@@ -352,6 +360,11 @@ function AddMemberForm({
         {ar
           ? 'أدخل البريد الذي يستخدمه في حساب BHD، واختر دوراً أو أكثر، ثم أضف ما تريد من صلاحيات منفصلة.'
           : 'Use the email of their BHD account, choose one or more roles, then add any separate permissions.'}
+      </p>
+      <p className="team-muted team-hint">
+        {ar
+          ? 'مهم: يُربط العضو بحسابه فقط إذا كان هذا هو البريد المؤكَّد في حسابه على BHD. إن كان يعمل في منشأة أخرى فلا مشكلة: يبقى حساب واحد ويبدّل بين المنشآت من قائمة حسابه، ولا تختلط البيانات.'
+          : 'Important: the member is linked only if this is the verified email of their BHD account. Working for another organization is fine: one account, switching organizations from the account menu, with data kept separate.'}
       </p>
       <div className="team-add__grid">
         <label className="team-field">
@@ -398,6 +411,87 @@ function AddMemberForm({
         ) : null}
       </div>
     </form>
+  );
+}
+
+/** Invitation status and ways to reach someone who has not signed in yet. */
+function InvitePanel({
+  ar,
+  person,
+  view,
+  onChanged,
+}: {
+  ar: boolean;
+  person: { userId: string; email: string; status: 'active' | 'inactive'; signedIn: boolean };
+  view: TeamView;
+  onChanged: (message: string) => void;
+}) {
+  const { busy, error, run } = useMutation(ar);
+  const [copied, setCopied] = useState(false);
+  if (!view.canManage || !view.inviteUrl || person.signedIn || person.status !== 'active') {
+    return null;
+  }
+  const invite = view.invites[person.userId];
+  const when = invite
+    ? new Date(invite.at).toLocaleString(ar ? 'ar-OM' : 'en-GB', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      })
+    : '';
+  const line = !invite
+    ? ar
+      ? 'لم تُرسل له دعوة بالبريد.'
+      : 'No invitation email was sent.'
+    : invite.state === 'sent'
+      ? ar
+        ? `أُرسلت الدعوة إلى بريده ${when}.`
+        : `Invitation emailed ${when}.`
+      : invite.state === 'sending'
+        ? ar
+          ? 'الدعوة قيد الإرسال إلى بريده.'
+          : 'The invitation email is on its way.'
+        : ar
+          ? 'تعذّر إرسال الدعوة بالبريد. أعد الإرسال أو أرسل له الرابط مباشرة.'
+          : 'The invitation email could not be sent. Resend it or share the link directly.';
+  const message = ar
+    ? `دعوة للانضمام إلى فريق «${view.organizationName}» على BHD R.\nادخل بحساب BHD المسجّل بالبريد ${person.email}:\n${view.inviteUrl}`
+    : `You are invited to the “${view.organizationName}” team on BHD R.\nSign in with the BHD account that uses ${person.email}:\n${view.inviteUrl}`;
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(message);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2_000);
+    } catch {
+      setCopied(false);
+    }
+  };
+  const resend = async () => {
+    const path = `/api/owner/team/${encodeURIComponent(person.userId)}/invite`;
+    if (await run(path, 'POST')) {
+      onChanged(ar ? 'أُعيد إرسال الدعوة إلى بريده.' : 'Invitation email sent again.');
+    }
+  };
+  return (
+    <div className={`team-invite team-invite--${invite?.state ?? 'none'}`}>
+      <p className="team-invite__line">{line}</p>
+      <div className="team-actions">
+        <button type="button" className="ops-action" disabled={busy} onClick={() => void resend()}>
+          {busy ? (ar ? 'جارٍ الإرسال…' : 'Sending…') : ar ? 'إعادة إرسال الدعوة' : 'Resend invite'}
+        </button>
+        <button type="button" className="ops-action" onClick={() => void copy()}>
+          {copied ? (ar ? 'نُسخت الدعوة' : 'Copied') : ar ? 'نسخ نص الدعوة' : 'Copy invite'}
+        </button>
+        <a
+          className="ops-action"
+          href={`https://wa.me/?text=${encodeURIComponent(message)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {ar ? 'إرسال عبر واتساب' : 'Send on WhatsApp'}
+        </a>
+      </div>
+      {error ? <p className="team-error">{error}</p> : null}
+    </div>
   );
 }
 
@@ -462,6 +556,9 @@ function MemberRow({
             <i key={id}>{capabilityLabel(id, ar)}</i>
           ))}
         </div>
+      ) : null}
+      {!owner && !member.isSelf ? (
+        <InvitePanel ar={ar} person={member} view={view} onChanged={onChanged} />
       ) : null}
       {manageable && !editing ? (
         <div className="team-actions">
@@ -604,6 +701,7 @@ function OwnerRow({
         </span>
         <span className={`team-status ${status.className}`}>{status.text}</span>
       </div>
+      <InvitePanel ar={ar} person={owner} view={view} onChanged={onChanged} />
       {view.canManage ? (
         <div className="team-actions">
           {view.ownerParties.length > 1 ? (
@@ -702,8 +800,8 @@ function AddOwnerForm({
     setName('');
     onDone(
       ar
-        ? 'أُضيف مالك العقار. يدخل بحساب BHD بنفس البريد فيرى عقاراته فقط.'
-        : 'Property owner added. They sign in with that email and see only their properties.',
+        ? 'أُضيف مالك العقار وتُرسل له دعوة بالبريد. يدخل بحساب BHD المؤكَّد بنفس البريد فيرى عقاراته فقط.'
+        : 'Property owner added; an invitation email is on its way. They sign in with the BHD account verified on that email and see only their properties.',
     );
   };
 
@@ -804,6 +902,7 @@ function LawyerRow({
         </span>
         <span className={`team-status ${status.className}`}>{status.text}</span>
       </div>
+      <InvitePanel ar={ar} person={lawyer} view={view} onChanged={onChanged} />
       {view.canManage ? (
         <div className="team-actions">
           {view.lawyerParties.length > 1 ? (
@@ -904,8 +1003,8 @@ function AddLawyerForm({
     setPartyId('');
     onDone(
       ar
-        ? 'أُضيف المحامي. يدخل بحساب BHD بنفس البريد فيرى القضايا المسندة إليه فقط. أسند إليه القضايا من صفحة كل قضية.'
-        : 'Lawyer added. They sign in with that email and see only the cases assigned to them. Assign cases from each case page.',
+        ? 'أُضيف المحامي وتُرسل له دعوة بالبريد. يدخل بحساب BHD المؤكَّد بنفس البريد فيرى القضايا المسندة إليه فقط. أسند إليه القضايا من صفحة كل قضية.'
+        : 'Lawyer added; an invitation email is on its way. They sign in with the BHD account verified on that email and see only the cases assigned to them. Assign cases from each case page.',
     );
   };
 

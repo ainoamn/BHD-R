@@ -21,6 +21,8 @@ import {
   type Database,
 } from '@bhd-r/db';
 import { assertStayBookingTransition } from '@bhd-r/domain';
+import { sendQueuedEmailsSoon } from '@/lib/email-outbox';
+import { escapeHtml } from '@/lib/lease-booking-contract';
 import {
   isRangeAvailableInTransaction,
   PublicStayBookingError,
@@ -72,10 +74,7 @@ function publicWebOrigin(): string {
   ).replace(/\/$/, '');
 }
 
-export async function createStayPaymentSessionOnNeon(
-  input: CreateStayPaymentSessionInput,
-  _idempotencyKey: string,
-) {
+export async function createStayPaymentSessionOnNeon(input: CreateStayPaymentSessionInput) {
   assertSandboxEnabled();
 
   return asSystem(async (transaction) => {
@@ -247,8 +246,11 @@ export async function completeStaySandboxPaymentOnNeon(
       ['day_use', 'overnight_only', 'overnight_stay'].includes(
         (booking.pricingSnapshotJson as { stayType: string }).stayType,
       )
-        ? ((booking.pricingSnapshotJson as { stayType: 'day_use' | 'overnight_only' | 'overnight_stay' })
-            .stayType)
+        ? (
+            booking.pricingSnapshotJson as {
+              stayType: 'day_use' | 'overnight_only' | 'overnight_stay';
+            }
+          ).stayType
         : ('overnight_stay' as const);
 
     // Concurrent pay race: if another guest already confirmed a conflicting slot, abort.
@@ -517,7 +519,7 @@ export async function completeStaySandboxPaymentOnNeon(
 
     const snapshot =
       booking.pricingSnapshotJson && typeof booking.pricingSnapshotJson === 'object'
-        ? (booking.pricingSnapshotJson as Record<string, unknown>)
+        ? booking.pricingSnapshotJson
         : {};
     const guestContact =
       snapshot.guestContact && typeof snapshot.guestContact === 'object'
@@ -561,15 +563,15 @@ export async function completeStaySandboxPaymentOnNeon(
         'BHD R — A BHD Product',
       ].join('\n');
       const html = `
-        <p>${guestName ? `مرحباً <strong>${guestName}</strong>,` : 'مرحباً،'}</p>
-        <p>تم تأكيد حجزك <strong dir="ltr">${booking.referenceCode}</strong>.</p>
+        <p>${guestName ? `مرحباً <strong>${escapeHtml(guestName)}</strong>,` : 'مرحباً،'}</p>
+        <p>تم تأكيد حجزك <strong dir="ltr">${escapeHtml(booking.referenceCode)}</strong>.</p>
         <ul>
-          <li>الوصول: <span dir="ltr">${booking.checkInOn}</span></li>
-          <li>المغادرة: <span dir="ltr">${booking.checkOutOn}</span></li>
-          <li>المبلغ: <span dir="ltr">${amountLabel}</span></li>
+          <li>الوصول: <span dir="ltr">${escapeHtml(booking.checkInOn)}</span></li>
+          <li>المغادرة: <span dir="ltr">${escapeHtml(booking.checkOutOn)}</span></li>
+          <li>المبلغ: <span dir="ltr">${escapeHtml(amountLabel)}</span></li>
         </ul>
-        <p><a href="${receiptUrl}">فتح إيصال الدفع (حفظ كـ PDF)</a></p>
-        <p><a href="${origin}${confirmedPath}">صفحة تأكيد الحجز</a></p>
+        <p><a href="${escapeHtml(receiptUrl)}">فتح إيصال الدفع (حفظ كـ PDF)</a></p>
+        <p><a href="${escapeHtml(origin + confirmedPath)}">صفحة تأكيد الحجز</a></p>
         <p>BHD R — A BHD Product</p>
       `;
       await transaction.insert(outboxEvents).values({
@@ -588,6 +590,7 @@ export async function completeStaySandboxPaymentOnNeon(
           html,
         },
       });
+      sendQueuedEmailsSoon();
     }
 
     return {
@@ -661,7 +664,7 @@ export async function lookupStaySandboxSessionOnNeon(
     });
     const snapshot =
       booking.pricingSnapshotJson && typeof booking.pricingSnapshotJson === 'object'
-        ? (booking.pricingSnapshotJson as Record<string, unknown>)
+        ? booking.pricingSnapshotJson
         : {};
     const contact =
       snapshot.guestContact && typeof snapshot.guestContact === 'object'

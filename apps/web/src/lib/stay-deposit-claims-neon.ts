@@ -18,6 +18,7 @@ import {
 } from '@bhd-r/db';
 import { applySessionSettings } from '@/lib/db-session-settings';
 import { formatMoney } from '@/lib/format';
+import { sendQueuedEmailsSoon } from '@/lib/email-outbox';
 import { escapeHtml } from '@/lib/lease-booking-contract';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 import { decimalToMinor } from '@/lib/property-contracts-neon';
@@ -627,6 +628,7 @@ async function notifySiteAdmins(
       },
     });
   }
+  if (settings.emails.length) sendQueuedEmailsSoon();
   return [];
 }
 

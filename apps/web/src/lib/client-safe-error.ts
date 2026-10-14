@@ -118,6 +118,8 @@ const KNOWN_CODES = new Set([
   'verification_unpaid',
   'verification_renewal_closed',
   'avatar_invalid',
+  'team_invite_not_needed',
+  'team_invite_too_soon',
 ]);
 
 export function clientSafeErrorCode(error: unknown, fallback = 'request_failed'): string {
@@ -196,7 +198,10 @@ export function statusForSafeCode(code: string): number {
     case 'team_seat_limit':
     case 'team_member_exists':
     case 'team_role_limit':
+    case 'team_invite_not_needed':
       return 409;
+    case 'team_invite_too_soon':
+      return 429;
     case 'team_email_invalid':
     case 'team_roles_required':
     case 'team_owner_party_required':

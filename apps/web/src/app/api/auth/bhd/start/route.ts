@@ -6,6 +6,7 @@ import {
   sealOidcState,
   secureCookies,
 } from '@/lib/bhd/oauth';
+import { ORGANIZATION_COOKIE, rememberedOrganization } from '@/lib/bhd/session-cookies';
 
 export const runtime = 'nodejs';
 
@@ -38,6 +39,19 @@ export async function GET(request: Request) {
   }
 
   const response = NextResponse.redirect(authorization.toString(), 302);
+  // An invitation link names its team; sign-in opens it only when the person is a member.
+  const invitedOrganization = rememberedOrganization(url.searchParams.get('org') ?? undefined);
+  if (invitedOrganization) {
+    response.cookies.set({
+      name: ORGANIZATION_COOKIE,
+      value: invitedOrganization,
+      httpOnly: true,
+      secure: secureCookies(),
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 365,
+    });
+  }
   response.cookies.set({
     name: 'bhd_oauth_state',
     value: sealOidcState({ state, nonce, verifier, returnTo, redirectUri }),

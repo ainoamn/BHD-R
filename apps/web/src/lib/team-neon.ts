@@ -18,6 +18,7 @@ import {
 } from '@bhd-r/db';
 import { entitlementsForPlan } from '@bhd-r/domain';
 import { applySessionSettings } from '@/lib/db-session-settings';
+import { emailDeliveryState, sendQueuedEmailsSoon } from '@/lib/email-outbox';
 import { marksForUsers } from '@/lib/identity-marks-neon';
 import { escapeHtml } from '@/lib/lease-booking-contract';
 import { publicWebOrigin } from '@/lib/seo';
@@ -27,6 +28,7 @@ import {
   canManageMember,
   capabilitiesFromPermissions,
   grantableCapabilities,
+  INVITE_RESEND_MINUTES,
   isCustomRoleKey,
   permissionsForCapabilities,
   primaryRole,
@@ -43,6 +45,7 @@ import {
   type OwnerPartyChoice,
   type PropertyOwnerMember,
   type SavedRole,
+  type TeamInvite,
   type TeamMember,
   type TeamView,
   type TenantMember,
@@ -64,6 +67,8 @@ const globalForDb = globalThis as unknown as { __bhdRWebDb?: DbHandle };
 /** Rows that are not staff roles: they never take a seat or appear in the staff list. */
 const NOT_STAFF = ['organization_owner', 'tenant', 'property_owner', 'lawyer'];
 const NOT_STAFF_ROWS = ['tenant', 'property_owner', 'lawyer'];
+/** Rows that never get a team invitation email (tenants are invited from their lease). */
+const NOT_INVITED = ['organization_owner', 'tenant'];
 const MAX_ROLES_PER_MEMBER = 6;
 const MAX_SAVED_ROLES = 30;
 const CAPABILITY_PERMISSIONS = new Set<string>(
@@ -295,7 +300,11 @@ async function loadTeamView(claims: SessionClaims): Promise<TeamView> {
   const organizationId = organizationOf(claims);
   return elevated(async (tx) => {
     const [organization] = await tx
-      .select({ planKey: organizations.planKey })
+      .select({
+        planKey: organizations.planKey,
+        displayNameAr: organizations.displayNameAr,
+        displayNameEn: organizations.displayNameEn,
+      })
       .from(organizations)
       .where(eq(organizations.id, organizationId));
     const rows = await tx
@@ -428,6 +437,15 @@ async function loadTeamView(claims: SessionClaims): Promise<TeamView> {
 
     const canManage = hasPermission(claims, 'organization.members.write');
     const plan = entitlementsForPlan(organization?.planKey);
+    const invites = canManage
+      ? await latestInvites(
+          tx,
+          organizationId,
+          rows
+            .filter((row) => !signedIn(row) && !NOT_INVITED.includes(row.roleKey))
+            .map((row) => row.userId),
+        )
+      : {};
     return {
       members,
       owners,
@@ -457,8 +475,51 @@ async function loadTeamView(claims: SessionClaims): Promise<TeamView> {
         ? grantableCapabilities(claims.permissions, claims.roles)
         : [],
       roleCapabilities: roleCapabilityMap(savedRoleRows),
+      invites,
+      inviteUrl: canManage ? inviteUrlFor(organizationId) : null,
+      organizationName: organization?.displayNameAr || organization?.displayNameEn || '',
     };
   });
+}
+
+/** Opens BHD R in the inviting organization once the person signs in with BHD. */
+function inviteUrlFor(organizationId: string): string {
+  return `${publicWebOrigin()}/ar/login?org=${organizationId}`;
+}
+
+async function latestInvites(
+  tx: Tx,
+  organizationId: string,
+  userIds: readonly string[],
+): Promise<Record<string, TeamInvite>> {
+  const ids = [...new Set(userIds)];
+  if (!ids.length) return {};
+  const rows = await tx
+    .selectDistinctOn([outboxEvents.aggregateId], {
+      userId: outboxEvents.aggregateId,
+      occurredAt: outboxEvents.occurredAt,
+      publishedAt: outboxEvents.publishedAt,
+      attempts: outboxEvents.attempts,
+    })
+    .from(outboxEvents)
+    .where(
+      and(
+        eq(outboxEvents.organizationId, organizationId),
+        eq(outboxEvents.topic, 'notification.delivery.requested'),
+        eq(outboxEvents.aggregateType, 'membership'),
+        inArray(outboxEvents.aggregateId, ids),
+      ),
+    )
+    .orderBy(outboxEvents.aggregateId, desc(outboxEvents.occurredAt));
+  return Object.fromEntries(
+    rows.map((row) => [
+      row.userId,
+      {
+        state: emailDeliveryState(row),
+        at: (row.publishedAt ?? row.occurredAt).toISOString(),
+      },
+    ]),
+  );
 }
 
 function usernameFor(email: string): string {
@@ -483,12 +544,13 @@ async function queueWelcomeEmail(
     invitedBy: string;
   },
 ) {
-  const loginUrl = `${publicWebOrigin()}/ar/login`;
+  const loginUrl = inviteUrlFor(input.organizationId);
   const subject = `تمت إضافتك إلى فريق ${input.organizationName} على BHD R`;
   const lines = [
     `أضافك ${input.invitedBy} إلى فريق «${input.organizationName}» بصفة ${input.roleText}.`,
     `ادخل إلى BHD R بحساب BHD المسجّل بهذا البريد (${input.email}) لتظهر لك أعمال الفريق حسب صلاحياتك.`,
-    'إن كان لديك أكثر من منشأة فاختر هذا الفريق من قائمة حسابك أعلى الصفحة.',
+    'إن كان حسابك في BHD ببريد آخر فاطلب من مدير الفريق إضافتك بذلك البريد.',
+    'يفتح الرابط هذا الفريق مباشرة، وإن كان لديك أكثر من منشأة فبدّل بينها من قائمة حسابك أعلى الصفحة.',
   ];
   const greeting = input.name ? `مرحباً ${input.name}،` : 'مرحباً،';
   await tx.insert(outboxEvents).values({
@@ -509,6 +571,7 @@ async function queueWelcomeEmail(
         .join('')}<p><a href="${escapeHtml(loginUrl)}">الدخول إلى BHD R</a></p><p>BHD R</p></div>`,
     },
   });
+  sendQueuedEmailsSoon();
 }
 
 async function actorName(tx: Tx, claims: SessionClaims): Promise<string> {
@@ -831,6 +894,77 @@ export async function addPropertyOwner(
   });
 }
 
+const LAWYER_ROLE_TEXT = 'محامٍ يتابع القضايا المسندة إليه';
+
+/** Sends the invitation email again to someone in this team who has not signed in yet. */
+export async function resendTeamInvite(
+  claims: SessionClaims,
+  userId: string,
+): Promise<{ queued: true }> {
+  requireMembersWrite(claims);
+  const organizationId = organizationOf(claims);
+  if (userId === claims.sub) throw new Error('team_self_change');
+  return elevated(async (tx) => {
+    const organization = await lockOrganization(tx, organizationId);
+    const rows = await tx
+      .select({
+        roleKey: memberships.roleKey,
+        email: users.email,
+        displayName: users.displayName,
+        identitySubject: users.identitySubject,
+        credentialHash: users.credentialHash,
+      })
+      .from(memberships)
+      .innerJoin(users, eq(users.id, memberships.userId))
+      .where(
+        and(
+          eq(memberships.organizationId, organizationId),
+          eq(memberships.userId, userId),
+          eq(memberships.status, 'active'),
+          notInArray(memberships.roleKey, NOT_INVITED),
+        ),
+      );
+    const first = rows[0];
+    if (!first) throw new Error('team_member_not_found');
+    if (signedIn(first)) throw new Error('team_invite_not_needed');
+    if (!validTeamEmail(first.email)) throw new Error('team_email_invalid');
+    const [recent] = await tx
+      .select({ id: outboxEvents.id })
+      .from(outboxEvents)
+      .where(
+        and(
+          eq(outboxEvents.organizationId, organizationId),
+          eq(outboxEvents.topic, 'notification.delivery.requested'),
+          eq(outboxEvents.aggregateType, 'membership'),
+          eq(outboxEvents.aggregateId, userId),
+          sql`${outboxEvents.occurredAt} > now() - make_interval(mins => ${INVITE_RESEND_MINUTES})`,
+        ),
+      )
+      .limit(1);
+    if (recent) throw new Error('team_invite_too_soon');
+
+    const roles = rows.map((row) => row.roleKey);
+    const staff = roles.filter((role) => !NOT_STAFF_ROWS.includes(role));
+    const savedRoles = staff.some(isCustomRoleKey) ? await readSavedRoles(tx, organizationId) : [];
+    const roleText = [
+      ...(staff.length ? [rolesText(staff, savedRoles)] : []),
+      ...(roles.includes('property_owner') ? [roleLabel('property_owner', true)] : []),
+      ...(roles.includes('lawyer') ? [LAWYER_ROLE_TEXT] : []),
+    ].join(' و');
+    await queueWelcomeEmail(tx, {
+      organizationId,
+      organizationName: organization.displayNameAr || organization.displayNameEn,
+      memberId: userId,
+      email: first.email,
+      name: first.displayName,
+      roleText,
+      invitedBy: await actorName(tx, claims),
+    });
+    await audit(tx, claims, 'organization.member.invite_resent', userId, { roles });
+    return { queued: true as const };
+  });
+}
+
 export async function updatePropertyOwner(
   claims: SessionClaims,
   userId: string,
@@ -1013,7 +1147,7 @@ export async function addLawyer(
       memberId: user.id,
       email,
       name: user.displayName,
-      roleText: 'محامٍ يتابع القضايا المسندة إليه',
+      roleText: LAWYER_ROLE_TEXT,
       invitedBy: await actorName(tx, claims),
     });
     return { userId: user.id, partyId, existingAccount };

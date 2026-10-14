@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { SessionClaims } from '@bhd-r/authz';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { clientSafeErrorCode } from '@/lib/client-safe-error';
+import { sendQueuedEmailsSoon } from '@/lib/email-outbox';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
 import { addTeamMember, loadTeam } from '@/lib/team-neon';
 import {
@@ -41,7 +42,11 @@ export async function GET(request: Request) {
     return NextResponse.json(mapped.body, { status: mapped.status });
   }
   try {
-    return NextResponse.json(await loadTeam(claims));
+    const view = await loadTeam(claims);
+    if (Object.values(view.invites).some((invite) => invite.state === 'sending')) {
+      sendQueuedEmailsSoon();
+    }
+    return NextResponse.json(view);
   } catch (error) {
     return teamErrorResponse(clientSafeErrorCode(error, 'request_failed'));
   }

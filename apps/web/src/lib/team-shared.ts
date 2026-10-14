@@ -568,6 +568,16 @@ export type TenantMember = {
   createdAt: string;
 };
 
+/** Delivery of the latest invitation email to someone who has not signed in yet. */
+export type TeamInvite = {
+  state: 'sent' | 'sending' | 'failed';
+  /** Sent time when sent, otherwise when it was queued. */
+  at: string;
+};
+
+/** Minimum gap between two invitation emails to the same person. */
+export const INVITE_RESEND_MINUTES = 10;
+
 export type TeamView = {
   members: TeamMember[];
   owners: PropertyOwnerMember[];
@@ -586,6 +596,11 @@ export type TeamView = {
   grantableCapabilities: string[];
   /** Capabilities each role already includes, shown ticked and locked. */
   roleCapabilities: Record<string, string[]>;
+  /** Latest invitation per user id, for people who have not signed in (managers only). */
+  invites: Record<string, TeamInvite>;
+  /** Sign-in link that opens this organization after BHD sign-in (managers only). */
+  inviteUrl: string | null;
+  organizationName: string;
   /** Verified tick and picture per user id. */
   marks?: Record<string, IdentityMark>;
 };

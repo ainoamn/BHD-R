@@ -10,7 +10,17 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const bhdErrors: Record<string, { ar: string; en: string }> = {
+  email_unverified: {
+    ar: 'بريد حسابك في BHD غير مؤكَّد، وهو مسجّل هنا لحساب آخر أو لدعوة فريق. أكّد بريدك من صفحة حسابك في BHD ثم ادخل مجدداً.',
+    en: 'Your BHD account email is not verified, and it is already used here by another account or a team invitation. Verify your email in your BHD account, then sign in again.',
+  },
+  email_taken: {
+    ar: 'هذا البريد مربوط هنا بحساب BHD آخر. ادخل بالحساب الذي أُضيف به البريد، أو تواصل مع الدعم لنقله.',
+    en: 'This email is already linked here to a different BHD account. Sign in with that account, or contact support to move it.',
+  },
   state: {
     ar: 'انتهت صلاحية جلسة الدخول. حاول مرة أخرى عبر بوابة الهوية.',
     en: 'Sign-in state expired. Please try again via the identity gateway.',
@@ -100,12 +110,17 @@ export default async function LoginPage({
     );
   }
 
+  const invitedOrganization =
+    typeof query.org === 'string' && UUID.test(query.org) ? query.org : null;
+  const startHref = `/api/auth/bhd/start?returnTo=${encodeURIComponent(returnTo)}${
+    invitedOrganization ? `&org=${invitedOrganization}` : ''
+  }`;
+
   // §3.2 — no product password portal; credentials live only on id.bhd-om.com
   if (!local && !bhdCode) {
-    redirect(`/api/auth/bhd/start?returnTo=${encodeURIComponent(returnTo)}`);
+    redirect(startHref);
   }
 
-  const startHref = `/api/auth/bhd/start?returnTo=${encodeURIComponent(returnTo)}`;
   const errorCopy = bhdCode
     ? (bhdErrors[bhdCode] ?? {
         ar: 'تعذّر إكمال الدخول الموحّد عبر id.bhd-om.com.',
@@ -138,8 +153,19 @@ export default async function LoginPage({
               </span>
               <h2>{ar ? 'لم يكتمل الدخول الموحّد' : 'Unified sign-in did not finish'}</h2>
               <p role="alert">{ar ? errorCopy.ar : errorCopy.en}</p>
+              {bhdCode === 'email_unverified' || bhdCode === 'email_taken' ? (
+                <p>
+                  <a href="https://id.bhd-om.com/account">
+                    {ar ? 'فتح حساب BHD' : 'Open BHD account'}
+                  </a>
+                </p>
+              ) : null}
               {bhdDetail ? (
-                <p className="muted" dir="ltr" style={{ wordBreak: 'break-all', fontSize: '0.85rem' }}>
+                <p
+                  className="muted"
+                  dir="ltr"
+                  style={{ wordBreak: 'break-all', fontSize: '0.85rem' }}
+                >
                   {bhdDetail}
                 </p>
               ) : null}
@@ -171,9 +197,7 @@ export default async function LoginPage({
               <div className="login-local__form">
                 <PasswordLoginForm />
                 <p className="muted">{t('Auth.activation')}</p>
-                <Link href="/forgot-password">
-                  {ar ? 'نسيت كلمة المرور؟' : 'Forgot password?'}
-                </Link>
+                <Link href="/forgot-password">{ar ? 'نسيت كلمة المرور؟' : 'Forgot password?'}</Link>
               </div>
               <p className="login-footnote">
                 <a href={startHref}>
