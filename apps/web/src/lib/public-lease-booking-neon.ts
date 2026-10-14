@@ -192,8 +192,18 @@ const ERRORS = {
   ],
   handover_invalid: [
     400,
-    'أكمل بيانات التسليم وصورة المستأجر عند استلام المفتاح.',
-    'Complete the handover details and the photo of the tenant receiving the key.',
+    'أكمل بيانات التسليم: اسم المستلم والصور بالعدد المسموح.',
+    'Complete the handover details: the recipient’s name and photos within the limit.',
+  ],
+  handover_selfie_required: [
+    409,
+    'التقط صورة سيلفي لنفسك أولاً، ثم أكّد استلام العقار.',
+    'Take a selfie first, then confirm you received the premises.',
+  ],
+  handover_selfie_closed: [
+    409,
+    'لا يُطلب منك سيلفي الآن — اطلب من ممثل المالك مسح رمزك مرة أخرى.',
+    'No selfie is being asked for now — ask the owner’s representative to scan your code again.',
   ],
   handover_defects_closed: [
     409,

@@ -40,6 +40,7 @@ import {
 } from '@/lib/stay-deposit-claims-neon';
 import { canDecideUnitSale, listSaleDecisionUnits } from '@/lib/unit-sale-decision-neon';
 import { unreadLegalCases } from '@/lib/legal-case-neon';
+import { tenantRequestApprovalItems } from '@/lib/tenant-requests-neon';
 import { withTimeoutFallback } from '@/lib/with-timeout';
 
 const ITEM_LIMIT = 50;
@@ -103,8 +104,12 @@ function queueItem(
  * first, after legal cases with unread messages. Owner-scoped users only see their own properties.
  */
 export async function loadPendingApprovals(claims: SessionClaims): Promise<PendingApprovals> {
-  const [queue, legal] = await Promise.all([loadApprovalQueue(claims), legalItems(claims)]);
-  return withLegal(queue, legal);
+  const [queue, legal, requests] = await Promise.all([
+    loadApprovalQueue(claims),
+    legalItems(claims),
+    tenantRequestApprovalItems(claims).catch(() => [] as PendingApprovalItem[]),
+  ]);
+  return withLegal(queue, [...legal, ...requests]);
 }
 
 async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApprovals> {

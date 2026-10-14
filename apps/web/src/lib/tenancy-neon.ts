@@ -1,13 +1,15 @@
 import 'server-only';
 import { cache } from 'react';
-import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { permissionsForRoles, type SessionClaims } from '@bhd-r/authz';
 import {
+  cheques,
   contractSignatures,
   contracts,
   createDatabase,
   invoices,
   leases,
+  operationalRequests,
   payments,
   reservations,
   units,
@@ -33,8 +35,15 @@ import {
   type TenancyLease,
   type TenancyPayment,
   type TenancyReservation,
+  type TenancyStatement,
   type TenancyStay,
 } from '@/lib/tenancy-shared';
+import { buildLeaseStatement, ledgerTermsOf } from '@/lib/tenant-ledger';
+import {
+  TENANT_REQUEST_SOURCE,
+  tenantRequestFromRow,
+  type TenantRequest,
+} from '@/lib/tenant-requests-shared';
 import { withTimeoutFallback } from '@/lib/with-timeout';
 
 type DbHandle = { db: Database };
@@ -44,6 +53,16 @@ type Row = Record<string, unknown>;
 const globalForDb = globalThis as unknown as { __bhdRWebDb?: DbHandle };
 const MAX_LANDLORDS = 12;
 const LIST_LIMIT = 30;
+/** Cheques and invoices read for the statements of one landlord's leases. */
+const STATEMENT_ROWS = 600;
+const STATEMENT_LEASE_STATUS = new Set([
+  'active',
+  'cancel_requested',
+  'clearance_pending',
+  'renewal_pending',
+  'ended',
+  'terminated',
+]);
 
 /** The account's tenant/guest record inside one landlord organization. */
 export type TenancyLink = { organizationId: string; partyId: string; landlord: TenancyLandlord };
@@ -237,6 +256,89 @@ export async function tenantClaimsForContract(
   return link ? tenantClaims(claims, link) : null;
 }
 
+/** Writes on the tenant's own records in one landlord organization, in tenant mode. */
+export function withinTenancyLink<T>(
+  userId: string,
+  link: TenancyLink,
+  work: (tx: Tx) => Promise<T>,
+): Promise<T> {
+  return withinTenant(userId, link, work);
+}
+
+export type TenancyLeaseRef = {
+  link: TenancyLink;
+  leaseId: string;
+  contractId: string | null;
+  unitId: string;
+  propertyId: string | null;
+  status: string;
+  currency: string;
+};
+
+/** A lease the account is the tenant on, in whichever landlord organization. */
+export async function findTenancyLease(
+  userId: string,
+  leaseId: string,
+): Promise<TenancyLeaseRef | null> {
+  const links = await loadTenancyLinks(userId);
+  if (!links.length) return null;
+  const [row] = await elevated((tx) =>
+    tx
+      .select({
+        organizationId: leases.organizationId,
+        tenantPartyId: leases.tenantPartyId,
+        contractId: leases.contractId,
+        unitId: leases.unitId,
+        propertyId: units.propertyId,
+        status: leases.status,
+        currency: leases.currency,
+      })
+      .from(leases)
+      .leftJoin(units, eq(units.id, leases.unitId))
+      .where(eq(leases.id, leaseId))
+      .limit(1),
+  );
+  if (!row) return null;
+  const link = links.find(
+    (item) => item.organizationId === row.organizationId && item.partyId === row.tenantPartyId,
+  );
+  if (!link) return null;
+  return {
+    link,
+    leaseId,
+    contractId: row.contractId,
+    unitId: row.unitId,
+    propertyId: row.propertyId,
+    status: row.status,
+    currency: row.currency,
+  };
+}
+
+/** The organization of a request the account sent as tenant, with the matching link. */
+export async function findTenancyRequestLink(
+  userId: string,
+  requestId: string,
+): Promise<TenancyLink | null> {
+  const links = await loadTenancyLinks(userId);
+  if (!links.length) return null;
+  const [row] = await elevated((tx) =>
+    tx
+      .select({
+        organizationId: operationalRequests.organizationId,
+        requesterPartyId: operationalRequests.requesterPartyId,
+      })
+      .from(operationalRequests)
+      .where(eq(operationalRequests.id, requestId))
+      .limit(1),
+  );
+  if (!row) return null;
+  return (
+    links.find(
+      (item) => item.organizationId === row.organizationId && item.partyId === row.requesterPartyId,
+    ) ?? null
+  );
+}
+
 type LinkTenancy = Omit<MyTenancy, 'stays' | 'alerts'> & { reservationUnitIds: string[] };
 
 async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkTenancy> {
@@ -286,6 +388,11 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
             unitAr: units.nameAr,
             unitEn: units.nameEn,
             sourceType: sql<string | null>`${contracts.payloadSnapshot}->'source'->>'type'`,
+            contractReference: contracts.reference,
+            leaseTerms: sql<unknown>`${contracts.payloadSnapshot}->'leaseTerms'`,
+            contractAmountMinor: sql<
+              string | null
+            >`${contracts.payloadSnapshot}->'amount'->>'amountMinor'`,
           })
           .from(leases)
           .leftJoin(units, eq(units.id, leases.unitId))
@@ -350,6 +457,127 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
           .orderBy(desc(reservations.createdAt))
           .limit(LIST_LIMIT),
       ]);
+
+    const statementLeases = leaseRows.filter(
+      (row) => row.sourceType !== 'stay_booking' && STATEMENT_LEASE_STATUS.has(row.status),
+    );
+    const statementLeaseIds = statementLeases.map((row) => row.id);
+    const [chequeRows, leaseInvoiceRows, requestRows] = await Promise.all([
+      statementLeaseIds.length
+        ? tx
+            .select({
+              id: cheques.id,
+              leaseId: cheques.leaseId,
+              chequeNumber: cheques.chequeNumber,
+              bankName: cheques.bankName,
+              amountMinor: cheques.amountMinor,
+              dueOn: cheques.dueOn,
+              reviewStatus: cheques.reviewStatus,
+            })
+            .from(cheques)
+            .where(
+              and(eq(cheques.organizationId, org), inArray(cheques.leaseId, statementLeaseIds)),
+            )
+            .orderBy(asc(cheques.dueOn))
+            .limit(STATEMENT_ROWS)
+        : [],
+      statementLeaseIds.length
+        ? tx
+            .select({
+              id: invoices.id,
+              leaseId: invoices.leaseId,
+              number: invoices.invoiceNumber,
+              status: invoices.status,
+              issuedOn: invoices.issuedOn,
+              dueOn: invoices.dueOn,
+              totalMinor: invoices.totalMinor,
+              paidMinor: invoices.paidMinor,
+              billingPeriodStart: invoices.billingPeriodStart,
+            })
+            .from(invoices)
+            .where(
+              and(
+                eq(invoices.organizationId, org),
+                eq(invoices.tenantPartyId, party),
+                inArray(invoices.leaseId, statementLeaseIds),
+                ne(invoices.status, 'draft'),
+              ),
+            )
+            .orderBy(asc(invoices.dueOn))
+            .limit(STATEMENT_ROWS)
+        : [],
+      tx
+        .select({
+          id: operationalRequests.id,
+          reference: operationalRequests.reference,
+          type: operationalRequests.type,
+          subject: operationalRequests.subject,
+          description: operationalRequests.description,
+          priority: operationalRequests.priority,
+          status: operationalRequests.status,
+          metadata: operationalRequests.metadata,
+          createdAt: operationalRequests.createdAt,
+          updatedAt: operationalRequests.updatedAt,
+          unitCode: units.code,
+          unitAr: units.nameAr,
+          unitEn: units.nameEn,
+        })
+        .from(operationalRequests)
+        .leftJoin(units, eq(units.id, operationalRequests.unitId))
+        .where(
+          and(
+            eq(operationalRequests.organizationId, org),
+            eq(operationalRequests.requesterPartyId, party),
+            eq(operationalRequests.source, TENANT_REQUEST_SOURCE),
+          ),
+        )
+        .orderBy(desc(operationalRequests.createdAt))
+        .limit(LIST_LIMIT),
+    ]);
+    const today = muscatToday();
+    const statementItems: TenancyStatement[] = statementLeases.map((row) => ({
+      leaseId: row.id,
+      contractId: row.contractId,
+      contractReference: row.contractReference,
+      landlord,
+      status: row.status,
+      startsOn: String(row.startsOn),
+      endsOn: String(row.endsOn),
+      currency: row.currency,
+      unitCode: row.unitCode,
+      unitAr: row.unitAr,
+      unitEn: row.unitEn,
+      statement: buildLeaseStatement({
+        terms: ledgerTermsOf({ leaseTerms: row.leaseTerms }),
+        contractAmountMinor: row.contractAmountMinor,
+        cheques: chequeRows
+          .filter((cheque) => cheque.leaseId === row.id)
+          .map((cheque) => ({
+            id: cheque.id,
+            chequeNumber: cheque.chequeNumber,
+            bankName: cheque.bankName,
+            amountMinor: cheque.amountMinor.toString(),
+            dueOn: String(cheque.dueOn),
+            reviewStatus: cheque.reviewStatus,
+          })),
+        invoices: leaseInvoiceRows
+          .filter((invoice) => invoice.leaseId === row.id)
+          .map((invoice) => ({
+            id: invoice.id,
+            number: invoice.number,
+            status: invoice.status,
+            issuedOn: String(invoice.issuedOn),
+            dueOn: String(invoice.dueOn),
+            totalMinor: invoice.totalMinor.toString(),
+            paidMinor: invoice.paidMinor.toString(),
+            billingPeriodStart: invoice.billingPeriodStart
+              ? String(invoice.billingPeriodStart)
+              : null,
+          })),
+        today,
+      }),
+    }));
+    const requestItems: TenantRequest[] = requestRows.map((row) => tenantRequestFromRow(row, org));
 
     const signed = new Set(signedRows.map((row) => row.contractId));
     const contractItems: TenancyContract[] = contractRows.map((row) => {
@@ -441,6 +669,8 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
       invoices: invoiceItems,
       payments: paymentItems,
       reservations: reservationItems,
+      statements: statementItems,
+      requests: requestItems,
       reservationUnitIds: reservationRows.map((row) => row.unitId),
     };
   });
@@ -531,6 +761,12 @@ export const loadMyTenancy = cache(async (userId: string): Promise<MyTenancy> =>
       .sort((a, b) => b.receivedAt.localeCompare(a.receivedAt)),
     reservations: reservationsWithUnits.sort((a, b) => b.expiresAt.localeCompare(a.expiresAt)),
     stays,
+    statements: perLink
+      .flatMap((item) => item.statements)
+      .sort((a, b) => b.startsOn.localeCompare(a.startsOn)),
+    requests: perLink
+      .flatMap((item) => item.requests)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
   };
   return { ...data, alerts: buildTenancyAlerts(data, muscatToday()) };
 });

@@ -84,6 +84,8 @@ export type ReservationLifecycle = {
     status?: 'awaiting_tenant' | 'accepted';
     evidenceEventId?: string;
     recipientPhoto?: HandoverPhotoMeta | null;
+    /** The tenant's own selfie event; older records kept the staff photo in `evidenceEventId`. */
+    recipientPhotoEventId?: string | null;
     photos?: HandoverPhotoMeta[];
     acceptedAt?: string | null;
     /** End of the window in which the tenant may still report defects with photos. */
@@ -94,6 +96,13 @@ export type ReservationLifecycle = {
       evidenceEventId: string;
       photos: HandoverPhotoMeta[];
     } | null;
+  };
+  /** A staff member scanned the pass: the tenant is asked for a selfie on their own phone. */
+  handoverScan?: {
+    at: string;
+    byName: string | null;
+    byUserId: string | null;
+    selfie: { at: string; evidenceEventId: string; photo: HandoverPhotoMeta } | null;
   };
 };
 
@@ -108,8 +117,44 @@ export type HandoverPhotoMeta = {
 /** Hours after accepting the keys in which the tenant may report defects with photos. */
 export const HANDOVER_DEFECTS_HOURS = 3;
 
+/** How long after a scan the tenant's page keeps asking for the selfie. */
+export const HANDOVER_SELFIE_REQUEST_MINUTES = 30;
+/** How long a selfie taken at the door still counts for the handover record. */
+export const HANDOVER_SELFIE_VALID_HOURS = 6;
+
 export function handoverAwaitingTenant(lifecycle: ReservationLifecycle | null | undefined) {
   return lifecycle?.handover?.status === 'awaiting_tenant';
+}
+
+/** The selfie taken at the door, while it still counts for the record. */
+export function handoverLiveSelfie(
+  lifecycle: ReservationLifecycle | null | undefined,
+  now: Date = new Date(),
+) {
+  const selfie = lifecycle?.handoverScan?.selfie;
+  if (!selfie) return null;
+  return now.getTime() - Date.parse(selfie.at) < HANDOVER_SELFIE_VALID_HOURS * 3_600_000
+    ? selfie
+    : null;
+}
+
+/**
+ * Where the selfie stands for the tenant's page: asked for after a recent scan, already sent,
+ * or still owed on a record awaiting acceptance; null when nothing is asked.
+ */
+export function handoverSelfieState(
+  lifecycle: ReservationLifecycle | null | undefined,
+  now: Date = new Date(),
+): 'requested' | 'sent' | null {
+  const handover = lifecycle?.handover;
+  if (handover && handover.status !== 'awaiting_tenant') return null;
+  if (handover?.recipientPhoto || handoverLiveSelfie(lifecycle, now)) return 'sent';
+  if (handover) return 'requested';
+  const scan = lifecycle?.handoverScan;
+  if (!scan) return null;
+  return now.getTime() - Date.parse(scan.at) < HANDOVER_SELFIE_REQUEST_MINUTES * 60_000
+    ? 'requested'
+    : null;
 }
 
 /** The tenant may still attach defect photos: accepted, inside the window, none sent yet. */

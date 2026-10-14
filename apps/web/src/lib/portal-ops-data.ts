@@ -288,7 +288,7 @@ async function listContacts(claims: SessionClaims): Promise<Record<string, unkno
 function asIso(value: unknown): string | null {
   if (!value) return null;
   if (value instanceof Date) return value.toISOString();
-  return String(value);
+  return typeof value === 'string' || typeof value === 'number' ? String(value) : null;
 }
 
 async function listApprovals(claims: SessionClaims): Promise<Record<string, unknown>[]> {
@@ -340,6 +340,7 @@ async function listInvoices(claims: SessionClaims): Promise<Record<string, unkno
       .limit(200);
     return rows.map((row) => ({
       ...row,
+      totalMinor: row.totalMinor.toString(),
       reference: row.invoiceNumber,
       createdAt: asIso(row.createdAt),
     }));

@@ -37,7 +37,7 @@ const photoSchema = z
   .strict();
 
 const bodySchema = z.discriminatedUnion('action', [
-  z.object({ action: z.literal('preview'), key: keySchema }).strict(),
+  z.object({ action: z.literal('preview'), key: keySchema, poll: z.boolean().optional() }).strict(),
   z
     .object({
       action: z.literal('offer'),
@@ -47,7 +47,6 @@ const bodySchema = z.discriminatedUnion('action', [
       electricityReading: z.string().max(40).optional(),
       waterReading: z.string().max(40).optional(),
       notes: z.string().max(1000).optional(),
-      recipientPhoto: photoSchema,
       photos: z.array(photoSchema).max(HANDOVER_PHOTOS_MAX),
     })
     .strict(),
@@ -55,7 +54,8 @@ const bodySchema = z.discriminatedUnion('action', [
 
 /**
  * POST /api/handover — a staff member with `reservation.handover` reads whose pass they scanned
- * (`preview`), then records the handover with the key-receipt photo (`offer`).
+ * (`preview`, which asks the tenant's phone for a selfie; `poll` only re-reads), then records
+ * the handover (`offer`).
  */
 export async function POST(request: Request) {
   if (!hasDatabaseUrl()) {
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
   }
   const limited = assertRouteRateLimit({
     key: hashRateKey(['lease-handover-staff', claims.sub, clientIp(request)]),
-    limit: 12,
+    limit: 30,
     windowMs: 60_000,
   });
   if (!limited.ok) {
@@ -89,7 +89,9 @@ export async function POST(request: Request) {
   try {
     const body = parsed.data;
     const key: HandoverKey = body.key;
-    if (body.action === 'preview') return leaseBookingJson(await previewHandover(claims, key));
+    if (body.action === 'preview') {
+      return leaseBookingJson(await previewHandover(claims, key, { requestSelfie: !body.poll }));
+    }
     return leaseBookingJson(
       await offerHandover(claims, key, {
         recipientName: body.recipientName,
@@ -97,7 +99,6 @@ export async function POST(request: Request) {
         electricityReading: body.electricityReading,
         waterReading: body.waterReading,
         notes: body.notes,
-        recipientPhoto: body.recipientPhoto,
         photos: body.photos,
       }),
     );

@@ -1,4 +1,6 @@
 /** Client-safe shapes and alert rules for the signed-in account's own rentals and bookings. */
+import type { LeaseStatement } from '@/lib/tenant-ledger';
+import type { TenantRequest } from '@/lib/tenant-requests-shared';
 
 export type TenancyLandlord = { organizationId: string; ar: string; en: string };
 
@@ -91,8 +93,25 @@ export type TenancyStay = {
   canRequestDepositRefund: boolean;
 };
 
+/** One lease's account: installments by due date, what was paid, overdue and remaining. */
+export type TenancyStatement = {
+  leaseId: string;
+  contractId: string | null;
+  contractReference: string | null;
+  landlord: TenancyLandlord;
+  status: string;
+  startsOn: string;
+  endsOn: string;
+  currency: string;
+  unitCode: string | null;
+  unitAr: string | null;
+  unitEn: string | null;
+  statement: LeaseStatement;
+};
+
 export type TenancyAlertKind =
   | 'contract_sign'
+  | 'rent_overdue'
   | 'invoice_overdue'
   | 'invoice_due'
   | 'lease_expiring'
@@ -124,6 +143,8 @@ export type MyTenancy = {
   payments: TenancyPayment[];
   reservations: TenancyReservation[];
   stays: TenancyStay[];
+  statements: TenancyStatement[];
+  requests: TenantRequest[];
   alerts: TenancyAlert[];
 };
 
@@ -134,6 +155,8 @@ export const EMPTY_TENANCY: MyTenancy = {
   payments: [],
   reservations: [],
   stays: [],
+  statements: [],
+  requests: [],
   alerts: [],
 };
 
@@ -177,6 +200,19 @@ export function buildTenancyAlerts(data: Omit<MyTenancy, 'alerts'>, today: strin
       date: contract.startsOn,
       amountMinor: contract.amountMinor,
       currency: contract.currency,
+      action: true,
+    });
+  }
+  for (const item of data.statements ?? []) {
+    if (item.statement.overdueMinor === '0') continue;
+    alerts.push({
+      kind: 'rent_overdue',
+      id: item.leaseId,
+      reference: item.contractReference ?? item.unitCode ?? item.leaseId.slice(0, 8),
+      href: '/tenant/invoices',
+      date: null,
+      amountMinor: item.statement.overdueMinor,
+      currency: item.currency,
       action: true,
     });
   }
@@ -263,6 +299,7 @@ export function buildTenancyAlerts(data: Omit<MyTenancy, 'alerts'>, today: strin
   const rank: Record<TenancyAlertKind, number> = {
     handover_accept: -2,
     handover_defects: -1,
+    rent_overdue: 0,
     invoice_overdue: 0,
     contract_sign: 1,
     reservation_payment: 2,
@@ -280,6 +317,7 @@ export function buildTenancyAlerts(data: Omit<MyTenancy, 'alerts'>, today: strin
 
 const ALERT_LABEL: Record<TenancyAlertKind, { ar: string; en: string }> = {
   contract_sign: { ar: 'عقد بانتظار توقيعك', en: 'Contract awaiting your signature' },
+  rent_overdue: { ar: 'مبالغ متأخرة على عقد الإيجار', en: 'Overdue amounts on your lease' },
   invoice_overdue: { ar: 'فاتورة متأخرة السداد', en: 'Overdue invoice' },
   invoice_due: { ar: 'فاتورة مستحقة قريباً', en: 'Invoice due soon' },
   lease_expiring: { ar: 'عقد إيجار ينتهي قريباً', en: 'Lease ending soon' },
@@ -296,7 +334,7 @@ const ALERT_LABEL: Record<TenancyAlertKind, { ar: string; en: string }> = {
     en: 'Confirm you received the premises',
   },
   handover_defects: {
-    ar: 'أرفق ملاحظات الاستلام خلال 3 ساعات',
+    ar: 'ارفع صور العقار خلال 3 ساعات',
     en: 'Report defects within 3 hours',
   },
 };

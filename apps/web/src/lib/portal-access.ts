@@ -132,6 +132,9 @@ const PAGE_PERMISSIONS: Readonly<Record<string, readonly string[]>> = {
 export function canOpenPortalPath(access: PortalAccess, portal: PortalRole, path: string): boolean {
   const basePath = path.split('?')[0] ?? '';
   if (!basePath) return true;
+  if (basePath === '/tenant-requests' && portal !== 'tenant') {
+    return access.permissions.includes('request.update') || access.roles.includes('property_owner');
+  }
   const section = basePath.slice(1) as OperationsSection;
   if (section in SECTION_PERMISSIONS) return canOpenSection(access, portal, section);
   const needed = PAGE_PERMISSIONS[basePath];

@@ -2,6 +2,25 @@
 
 **تسليم الجلسة كاملة (0.2.24 → 0.8.33):** للاستكمال من جهاز آخر ابدأ من [`docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه خطوات الإعداد، والمراحل بالتاريخ والوقت، والمهام المفتوحة. ويرافقه فهرس الإصدارات (251 إصداراً) والمحادثة كاملة بعد حذف الأسرار.
 
+# CONTINUE — 2026-10-14 15:30 (مسقط)
+
+**0.8.65** · سيلفي المستأجر عند المسح، وكشف حساب العقد، وطلبات المستأجر:
+
+- **السيلفي:**
+  - `previewHandover(..., {requestSelfie})` يسجّل `lifecycle.handoverScan`. و`handoverSelfieState` يعيد `requested|sent`.
+  - `submitHandoverSelfie` يحفظ `handover.recipientPhoto`. و`acceptHandover` يرفض بلا صورة (`handover_selfie_required`).
+  - الواجهة: `handover-selfie.tsx` داخل `lease-handover-panel.tsx` (استطلاع كل 5 ثوانٍ). والكاميرا مسموحة في `/book/confirmed` من `next.config.ts`.
+- **الكشف:** `tenant-ledger.ts` (`buildLeaseStatement`) من `payloadSnapshot.leaseTerms` والشيكات والفواتير. يُحمّل في `loadLinkTenancy` (`statements`). والعرض في `tenant-statement.tsx`.
+- **الطلبات:**
+  - `operational_requests` بالمصدر `tenant_portal`. و`tenant-requests-neon.ts` فيه: `createTenantRequest`، و`actOnTenantRequest`، و`decideTenantRequest` (التأجيل ينقل `cheques.due_on`، والإيقاف يجعله `cancelled`)، و`tenantRequestApprovalItems`.
+  - الصفحتان `/tenant/requests` و`/owner/tenant-requests`.
+- **محلياً:** `@bhd-r/i18n` يُقرأ من `dist`. بعد تعديل `packages/i18n/src` ابنِه (`tsc -p packages/i18n/tsconfig.json`)، وإلا تظهر مفاتيح الترجمة خاماً.
+- **مفتوح:**
+  - الرسوم والإضافات لا تُحسب متأخرة حتى تصدر لها فاتورة.
+  - لا رفع مرفقات مع طلب الصيانة بعد.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.65-AR.md`](./docs/implementation/RELEASE-0.8.65-AR.md)
+
 # CONTINUE — 2026-10-14 13:30 (مسقط)
 
 **0.8.64** · رئيسية مختصرة بقوائم «الأفضل»، وإدارة الموقع بالتفويض:

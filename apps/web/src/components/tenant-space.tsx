@@ -3,6 +3,9 @@ import { Children, cloneElement, isValidElement, type ReactNode } from 'react';
 import { Link } from '@/i18n/navigation';
 import { formatMoney } from '@/lib/format';
 import { BadgeChips } from '@/components/badges/badge-chips';
+import { TenantRequestLauncher } from '@/components/tenant-request-form';
+import { TenantRequestsList } from '@/components/tenant-requests-list';
+import { requestLeasesOf, TenantStatements } from '@/components/tenant-statement';
 import type { BadgeChip } from '@/lib/badges-shared';
 import { loadMyTenancy, loadMyTenantBadges } from '@/lib/tenancy-neon';
 import {
@@ -15,11 +18,12 @@ import {
   tenancyUnitLabel,
   type MyTenancy,
 } from '@/lib/tenancy-shared';
+import { OPEN_TENANT_REQUEST } from '@/lib/tenant-requests-shared';
 import { domainStatusLabel, stayStatusLabel } from '@/lib/ui-labels';
 import { requirePortal } from '@/lib/viewer';
 
 export type TenantSpaceView =
-  'overview' | 'bookings' | 'contracts' | 'leases' | 'invoices' | 'payments';
+  'overview' | 'bookings' | 'contracts' | 'leases' | 'invoices' | 'payments' | 'requests';
 
 export const TENANT_SPACE_SECTIONS: Record<string, TenantSpaceView> = {
   reservations: 'bookings',
@@ -27,6 +31,7 @@ export const TENANT_SPACE_SECTIONS: Record<string, TenantSpaceView> = {
   leases: 'leases',
   invoices: 'invoices',
   payments: 'payments',
+  requests: 'requests',
 };
 
 const OPEN_INVOICE = new Set(['issued', 'partially_paid', 'overdue']);
@@ -431,12 +436,28 @@ const VIEW_COPY: Record<
     en: ['My leases', 'Units rented to you and their terms.'],
   },
   invoices: {
-    ar: ['فواتيري', 'الفواتير الصادرة لك وما تبقى منها.'],
-    en: ['My invoices', 'Invoices issued to you and what remains due.'],
+    ar: [
+      'فواتيري وكشف حسابي',
+      'لكل عقد: الأقساط والشيكات بحسب تاريخها كما في العقد، وما دفعته وما تأخر وما تبقى من قيمة العقد، ثم الفواتير الأخرى والمدفوعات.',
+    ],
+    en: [
+      'My invoices & statement',
+      'For each lease: installments and cheques by date as in the contract, what you paid, what is overdue and what remains, then other invoices and payments.',
+    ],
   },
   payments: {
     ar: ['مدفوعاتي', 'ما دفعته للملاك، وأي مبالغ مستردة.'],
     en: ['My payments', 'What you paid landlords, and any refunds.'],
+  },
+  requests: {
+    ar: [
+      'طلباتي',
+      'طلبات الصيانة وتأجيل الشيكات وإيقافها وإلغاء العقد أو تجديده وغيرها. يصل كل طلب إلى المالك مباشرة ويصلك رده هنا.',
+    ],
+    en: [
+      'My requests',
+      'Maintenance, postponing or stopping cheques, cancelling or renewing the lease and more. Each reaches the landlord directly; answers arrive here.',
+    ],
   },
 };
 
@@ -503,6 +524,7 @@ export function TenantSpaceContent({
 
   if (view !== 'overview') {
     const [title, hint] = ar ? VIEW_COPY[view].ar : VIEW_COPY[view].en;
+    const requestLeases = requestLeasesOf(data.statements, ar);
     return (
       <div className="dash-shell tenant-space">
         <header className="portal-topbar">
@@ -530,7 +552,36 @@ export function TenantSpaceContent({
         ) : view === 'leases' ? (
           <LeasesTable {...ctx} />
         ) : view === 'invoices' ? (
-          <InvoicesTable {...ctx} />
+          <>
+            <Section title={ar ? 'كشف حساب العقود' : 'Lease statements'}>
+              <TenantStatements statements={data.statements} ar={ar} locale={locale} />
+            </Section>
+            <Section title={ar ? 'كل الفواتير الصادرة لك' : 'All invoices issued to you'}>
+              <InvoicesTable {...ctx} />
+            </Section>
+            <Section title={ar ? 'المدفوعات المباشرة' : 'Direct payments'}>
+              <PaymentsTable {...ctx} />
+            </Section>
+          </>
+        ) : view === 'requests' ? (
+          <>
+            <div className="tenant-space__toolbar">
+              <TenantRequestLauncher
+                locale={locale}
+                leases={requestLeases}
+                label={ar ? '＋ طلب جديد' : '＋ New request'}
+                className="button button--primary"
+              />
+            </div>
+            {requestLeases.length ? null : (
+              <p className="tenant-notice">
+                {ar
+                  ? 'تظهر إمكانية إرسال الطلبات عندما يكون لديك عقد إيجار ساري.'
+                  : 'You can send requests once you have an active lease.'}
+              </p>
+            )}
+            <TenantRequestsList requests={data.requests} locale={locale} />
+          </>
         ) : (
           <PaymentsTable {...ctx} />
         )}
@@ -540,6 +591,7 @@ export function TenantSpaceContent({
 
   const liveLeases = data.leases.filter((lease) => !lease.fromStay && lease.status === 'active');
   const openInvoices = data.invoices.filter((invoice) => OPEN_INVOICE.has(invoice.status));
+  const openRequests = data.requests.filter((request) => OPEN_TENANT_REQUEST.has(request.status));
   const metrics = [
     {
       key: 'bookings',
@@ -564,6 +616,12 @@ export function TenantSpaceContent({
       label: ar ? 'فواتير مستحقة' : 'Invoices due',
       value: openInvoices.length,
       href: '/tenant/invoices',
+    },
+    {
+      key: 'requests',
+      label: ar ? 'طلبات مفتوحة' : 'Open requests',
+      value: openRequests.length,
+      href: '/tenant/requests',
     },
   ];
 
@@ -591,6 +649,16 @@ export function TenantSpaceContent({
           <Link href="/properties" className="button button--primary">
             {ar ? 'تصفّح العقارات' : 'Browse properties'}
           </Link>
+          {data.statements.length ? (
+            <Link href="/tenant/invoices" className="button button--quiet">
+              {ar ? 'كشف حسابي' : 'My statement'}
+            </Link>
+          ) : null}
+          {data.statements.length ? (
+            <Link href="/tenant/requests" className="button button--quiet">
+              {ar ? 'طلباتي' : 'My requests'}
+            </Link>
+          ) : null}
           {ownerPortal ? (
             <Link href={`/${ownerPortal}`} className="button button--quiet">
               {ar ? 'مساحة المالك' : 'Owner space'}

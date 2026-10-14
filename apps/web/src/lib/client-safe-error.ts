@@ -120,6 +120,10 @@ const KNOWN_CODES = new Set([
   'avatar_invalid',
   'team_invite_not_needed',
   'team_invite_too_soon',
+  'tenant_request_invalid',
+  'tenant_request_not_found',
+  'tenant_request_closed',
+  'tenant_request_duplicate',
 ]);
 
 export function clientSafeErrorCode(error: unknown, fallback = 'request_failed'): string {
@@ -151,7 +155,13 @@ export function statusForSafeCode(code: string): number {
     case 'reservation_not_found':
     case 'requirement_not_found':
     case 'legal_case_not_found':
+    case 'tenant_request_not_found':
       return 404;
+    case 'tenant_request_invalid':
+      return 400;
+    case 'tenant_request_closed':
+    case 'tenant_request_duplicate':
+      return 409;
     case 'legal_invalid':
     case 'legal_file_invalid':
     case 'legal_lawyer_invalid':

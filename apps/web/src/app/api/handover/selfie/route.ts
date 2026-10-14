@@ -7,8 +7,9 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
- * GET /api/handover/selfie?t=… (or ?ref=…&code=…) — the selfie the tenant took when signing,
- * for the staff member at the door, only while the scanned pass is live.
+ * GET /api/handover/selfie?t=… (or ?ref=…&code=…) — the selfie the tenant took when signing
+ * (or, with `live=1`, the one just taken at the door), for the staff member at the door, only
+ * while the scanned pass is live.
  */
 export async function GET(request: Request) {
   if (!hasDatabaseUrl()) return new NextResponse(null, { status: 503 });
@@ -30,7 +31,8 @@ export async function GET(request: Request) {
         ? { reference, code }
         : null;
   if (!key) return new NextResponse(null, { status: 404 });
-  const photo = await readHandoverSelfie(claims, key).catch(() => null);
+  const which = query.get('live') === '1' ? 'live' : 'signing';
+  const photo = await readHandoverSelfie(claims, key, which).catch(() => null);
   if (!photo) return new NextResponse(null, { status: 404 });
   return new NextResponse(new Uint8Array(photo.bytes), {
     headers: {

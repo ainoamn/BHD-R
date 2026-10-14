@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { NoteTranslateBar } from '@/components/note-translate';
 import { compressPhoto } from '@/components/stays/stay-handover-form';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { HANDOVER_PHOTOS_MAX, HANDOVER_PHOTO_MAX } from '@/lib/stay-handover';
@@ -19,7 +20,12 @@ type Preview = {
   contractReference: string | null;
   tenantSignedAt: string | null;
   hasSelfie: boolean;
+  selfieRequestedAt: string | null;
+  liveSelfieAt: string | null;
 };
+
+/** How often the desk checks whether the tenant's selfie has arrived. */
+const SELFIE_POLL_MS = 5000;
 
 type Detector = { detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue: string }>> };
 type DetectorConstructor = new (options: { formats: string[] }) => Detector;
@@ -87,14 +93,36 @@ export function HandoverDesk({
     if (initialToken) void load({ token: initialToken });
   }, [initialToken, load]);
 
+  const waitingForSelfie = Boolean(
+    key && preview?.ready && !preview.awaitingTenant && !preview.liveSelfieAt,
+  );
+  useEffect(() => {
+    if (!waitingForSelfie || !key) return;
+    let stopped = false;
+    const timer = window.setInterval(() => {
+      browserNextMutation<Preview>('/api/handover', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'preview', key, poll: true }),
+      })
+        .then((next) => {
+          if (!stopped) setPreview(next);
+        })
+        .catch(() => undefined);
+    }, SELFIE_POLL_MS);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [waitingForSelfie, key]);
+
   if (done) {
     return (
       <section className="handover-desk handover-desk--done" role="status">
         <h2>{ar ? 'تم إرسال محضر التسليم ✅' : 'Handover record sent ✅'}</h2>
         <p>
           {ar
-            ? `وصل إشعار للمستأجر في حجز ${done} ليوافق على استلام العقار. بمجرد موافقته يُعدّ العقار مسلَّماً بالطريقة القانونية والنظامية، وتُفتح له مهلة 3 ساعات لإرفاق أي ملاحظات.`
-            : `The tenant of booking ${done} was notified to accept the premises. Once they accept, the handover is legal and formal, and they have 3 hours to report any defects.`}
+            ? `وصل إشعار للمستأجر في حجز ${done} ليوافق على استلام العقار. بمجرد موافقته يُعدّ العقار مسلَّماً بالطريقة القانونية والنظامية، ويُنبَّه بأن عليه رفع صور للعقار خلال 3 ساعات، وإلا يُعتبر أنه استلمه بدون عيوب وفي حالة جيدة.`
+            : `The tenant of booking ${done} was notified to accept the premises. Once they accept, the handover is legal and formal, and they are told to upload photos of the premises within 3 hours or the premises count as received in good condition without defects.`}
         </p>
         <button
           type="button"
@@ -293,14 +321,12 @@ function PhotoPicker({
   max,
   photos,
   onChange,
-  capture,
 }: {
   ar: boolean;
   label: string;
   max: number;
   photos: Photo[];
   onChange: (photos: Photo[]) => void;
-  capture: 'user' | 'environment';
 }) {
   const cameraRef = useRef<HTMLInputElement>(null);
   const deviceRef = useRef<HTMLInputElement>(null);
@@ -354,7 +380,7 @@ function PhotoPicker({
           ref={cameraRef}
           type="file"
           accept="image/*"
-          capture={capture}
+          capture="environment"
           hidden
           onChange={(event) => {
             void add(event.target.files, 'camera');
@@ -414,7 +440,6 @@ function HandoverForm({
   const [electricity, setElectricity] = useState('');
   const [water, setWater] = useState('');
   const [notes, setNotes] = useState('');
-  const [recipient, setRecipient] = useState<Photo[]>([]);
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -424,7 +449,7 @@ function HandoverForm({
     locale === 'ar' ? preview.property.nameAr : preview.property.nameEn || preview.property.nameAr;
 
   async function submit() {
-    if (!recipient[0] || recipientName.trim().length < 2) return;
+    if (recipientName.trim().length < 2) return;
     setBusy(true);
     setError(null);
     try {
@@ -438,7 +463,6 @@ function HandoverForm({
           electricityReading: electricity.trim() || undefined,
           waterReading: water.trim() || undefined,
           notes: notes.trim() || undefined,
-          recipientPhoto: recipient[0],
           photos,
         }),
       });
@@ -453,13 +477,28 @@ function HandoverForm({
   return (
     <section className="handover-desk__form">
       <div className="handover-desk__tenant">
-        {preview.hasSelfie ? (
-          <img
-            className="handover-desk__selfie"
-            src={selfieHref(handoverKey)}
-            alt={ar ? 'صورة المستأجر عند التوقيع' : 'Tenant at signing'}
-          />
-        ) : null}
+        <div className="handover-desk__faces">
+          {preview.hasSelfie ? (
+            <figure>
+              <img
+                className="handover-desk__selfie"
+                src={selfieHref(handoverKey)}
+                alt={ar ? 'صورة المستأجر عند التوقيع' : 'Tenant at signing'}
+              />
+              <figcaption>{ar ? 'عند التوقيع' : 'At signing'}</figcaption>
+            </figure>
+          ) : null}
+          {preview.liveSelfieAt ? (
+            <figure>
+              <img
+                className="handover-desk__selfie"
+                src={`${selfieHref(handoverKey)}&live=1&v=${encodeURIComponent(preview.liveSelfieAt)}`}
+                alt={ar ? 'سيلفي المستأجر الآن' : 'Tenant’s selfie now'}
+              />
+              <figcaption>{ar ? 'سيلفي الآن' : 'Selfie now'}</figcaption>
+            </figure>
+          ) : null}
+        </div>
         <div>
           <span className="ops-kicker">
             {ar ? 'تعرّف النظام على المستأجر' : 'Tenant recognised'}
@@ -472,12 +511,20 @@ function HandoverForm({
             {preview.referenceCode}
             {preview.contractReference ? ` · ${preview.contractReference}` : ''}
           </p>
-          {preview.hasSelfie ? (
-            <p className="muted">
-              {ar
-                ? 'طابق وجه الحاضر مع صورة السيلفي التي التقطها المستأجر عند التوقيع.'
-                : 'Match the person in front of you with the selfie taken at signing.'}
-            </p>
+          {preview.ready && !preview.awaitingTenant ? (
+            preview.liveSelfieAt ? (
+              <p className="notice notice--success" role="status">
+                {ar
+                  ? 'وصلت صورة السيلفي التي التقطها المستأجر بهاتفه الآن. طابقها مع الحاضر ومع صورة التوقيع، ثم أكمل المحضر.'
+                  : 'The tenant’s selfie from their own phone has arrived. Match it with the person and the signing photo, then complete the record.'}
+              </p>
+            ) : (
+              <p className="notice notice--info handover-desk__waiting" role="status">
+                {ar
+                  ? 'أرسلنا للمستأجر طلباً على هاتفه ليلتقط صورة سيلفي لنفسه الآن. ستظهر هنا تلقائياً فور التقاطها.'
+                  : 'We asked the tenant’s phone for a selfie now. It appears here as soon as they take it.'}
+              </p>
+            )
           ) : null}
         </div>
       </div>
@@ -501,18 +548,6 @@ function HandoverForm({
                 : 'A handover is already awaiting the tenant; sending this record replaces it.'}
             </p>
           ) : null}
-          <PhotoPicker
-            ar={ar}
-            label={
-              ar
-                ? 'صورة المستأجر عند استلام المفتاح (إلزامية)'
-                : 'Photo of the tenant receiving the key (required)'
-            }
-            max={1}
-            photos={recipient}
-            onChange={setRecipient}
-            capture="environment"
-          />
           <div className="handover-desk__fields">
             <label>
               <span>{ar ? 'اسم المستلم' : 'Recipient name'}</span>
@@ -567,6 +602,9 @@ function HandoverForm({
                 onChange={(event) => setNotes(event.target.value)}
               />
             </label>
+            <div className="handover-desk__wide">
+              <NoteTranslateBar value={notes} onChange={setNotes} locale={locale} max={1000} />
+            </div>
           </div>
           <PhotoPicker
             ar={ar}
@@ -578,7 +616,6 @@ function HandoverForm({
             max={HANDOVER_PHOTOS_MAX}
             photos={photos}
             onChange={setPhotos}
-            capture="environment"
           />
           {error ? (
             <p className="notice notice--error" role="alert">
@@ -589,7 +626,7 @@ function HandoverForm({
             <button
               type="button"
               className="button button--primary"
-              disabled={busy || !recipient[0] || recipientName.trim().length < 2}
+              disabled={busy || recipientName.trim().length < 2}
               onClick={() => void submit()}
             >
               {busy
@@ -600,11 +637,11 @@ function HandoverForm({
                   ? 'إرسال المحضر لموافقة المستأجر'
                   : 'Send for the tenant’s acceptance'}
             </button>
-            {!recipient[0] ? (
+            {!preview.liveSelfieAt ? (
               <small className="muted">
                 {ar
-                  ? 'صوّر المستأجر وهو يستلم المفتاح أولاً.'
-                  : 'Photograph the tenant receiving the key first.'}
+                  ? 'يمكنك الإرسال الآن؛ لن يستطيع المستأجر الموافقة على الاستلام قبل أن يلتقط صورته.'
+                  : 'You can send now; the tenant cannot accept before taking their selfie.'}
               </small>
             ) : null}
           </div>

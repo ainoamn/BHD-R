@@ -5,6 +5,7 @@ import { leaseBookingErrorResponse, leaseBookingJson } from '@/lib/lease-booking
 import {
   acceptHandover,
   reportHandoverDefects,
+  submitHandoverSelfie,
   tenantHandoverPass,
 } from '@/lib/lease-reservation-lifecycle-neon';
 import { requireLiveSession } from '@/lib/next-route-guard';
@@ -26,6 +27,7 @@ const photoSchema = z
 
 const bodySchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('accept') }).strict(),
+  z.object({ action: z.literal('selfie'), photo: photoSchema }).strict(),
   z
     .object({
       action: z.literal('defects'),
@@ -74,7 +76,10 @@ export async function GET(request: Request, context: { params: Promise<{ referen
   }
 }
 
-/** POST — the tenant accepts the premises, or reports defects with photos within three hours. */
+/**
+ * POST — the tenant sends their selfie at the door, accepts the premises, or reports defects
+ * with photos within three hours.
+ */
 export async function POST(request: Request, context: { params: Promise<{ reference: string }> }) {
   if (!hasDatabaseUrl()) {
     return leaseBookingJson({ error: { code: 'db_unconfigured' } }, { status: 503 });
@@ -110,7 +115,12 @@ export async function POST(request: Request, context: { params: Promise<{ refere
     return leaseBookingJson(
       body.action === 'accept'
         ? await acceptHandover(claims, reference)
-        : await reportHandoverDefects(claims, reference, { note: body.note, photos: body.photos }),
+        : body.action === 'selfie'
+          ? await submitHandoverSelfie(claims, reference, body.photo)
+          : await reportHandoverDefects(claims, reference, {
+              note: body.note,
+              photos: body.photos,
+            }),
     );
   } catch (error) {
     return leaseBookingErrorResponse(error, 'request_failed');

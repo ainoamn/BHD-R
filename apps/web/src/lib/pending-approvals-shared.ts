@@ -1,5 +1,6 @@
 import { formatMoney } from '@/lib/format';
 import type { LeaseJourneyPhase } from '@/lib/lease-reservation-lifecycle';
+import { isTenantRequestType, tenantRequestTypeLabel } from '@/lib/tenant-requests-shared';
 
 /**
  * One thing waiting for the viewer: a contract to sign, a stay booking request, a paid rent or
@@ -18,7 +19,8 @@ export type PendingApprovalItem = {
     | 'deposit_complaint'
     | 'sale_decision'
     | 'guest_review'
-    | 'legal_message';
+    | 'legal_message'
+    | 'tenant_request';
   id: string;
   reference: string;
   propertyId: string;
@@ -40,6 +42,8 @@ export type PendingApprovalItem = {
   decision?: 'keep_selling' | 'hide_leased' | 'hide_sold' | null;
   /** For `legal_message`: unread messages and updates on the case. */
   unread?: number;
+  /** For `tenant_request`: what the tenant asked for. */
+  requestType?: string;
 };
 
 export type PendingApprovals = {
@@ -70,6 +74,9 @@ export const PENDING_APPROVALS_CHANGED_EVENT = 'bhd-r-pending-approvals-changed'
 /** Where the viewer approves the item: the property hub tab that holds the approve button. */
 export function pendingApprovalHref(portal: string, item: PendingApprovalItem): string {
   if (item.kind === 'legal_message') return `/${portal}/legal/${encodeURIComponent(item.id)}`;
+  if (item.kind === 'tenant_request') {
+    return `/owner/tenant-requests?focus=${encodeURIComponent(item.id)}`;
+  }
   const base = `/${portal}/properties/${encodeURIComponent(item.propertyId)}`;
   if (item.kind === 'contract') {
     return `${base}?section=contracts&focus=${encodeURIComponent(item.id)}`;
@@ -116,6 +123,11 @@ export function pendingApprovalTitle(item: PendingApprovalItem, ar: boolean): st
     return count > 1
       ? `Legal case — ${count} new messages and updates`
       : 'Legal case — new message';
+  }
+  if (item.kind === 'tenant_request') {
+    const type = isTenantRequestType(item.requestType) ? item.requestType : 'other';
+    const label = tenantRequestTypeLabel(type, ar);
+    return ar ? `طلب من المستأجر — ${label}` : `Tenant request — ${label}`;
   }
   if (item.kind === 'stay_booking') {
     return ar ? 'طلب حجز بانتظار الاعتماد' : 'Booking request awaiting approval';

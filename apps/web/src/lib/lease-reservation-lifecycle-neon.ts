@@ -1,5 +1,5 @@
 import 'server-only';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import {
@@ -20,12 +20,17 @@ import { HANDOVER_PHOTOS_MAX, HANDOVER_PHOTO_MAX } from '@/lib/stay-handover';
 import { delegateClaims, resolveApprovalPolicy } from '@/lib/approval-policy-neon';
 import { clientSafeErrorCode } from '@/lib/client-safe-error';
 import { applySessionSettings, viewerTenantSettings } from '@/lib/db-session-settings';
+import { sendQueuedEmailsSoon } from '@/lib/email-outbox';
+import { escapeHtml } from '@/lib/lease-booking-contract';
+import { publicWebOrigin } from '@/lib/seo';
 import {
   HANDOVER_DEFECTS_HOURS,
   REQUIREMENT_FILE_MAX_CHARS,
   REQUIREMENT_FILE_TYPES,
   handoverAwaitingTenant,
   handoverDefectsOpen,
+  handoverLiveSelfie,
+  handoverSelfieState,
   leaseJourneyPhase,
   lifecycleOf,
   type HandoverPhotoMeta,
@@ -1141,12 +1146,123 @@ export async function tenantHandoverPass(claims: SessionClaims, referenceCode: s
     if (phase === 'handed_over') return { state: 'handed_over' as const };
     if (phase !== 'awaiting_handover') return { state: 'not_ready' as const };
     if (handoverAwaitingTenant(lifecycle)) return { state: 'awaiting_acceptance' as const };
-    return { state: 'pass' as const, ...issueHandoverPass(match.id) };
+    return {
+      state: 'pass' as const,
+      ...issueHandoverPass(match.id),
+      selfie: handoverSelfieState(lifecycle),
+      scannedBy: lifecycle.handoverScan?.byName ?? null,
+    };
   });
 }
 
-/** Who the scanned pass belongs to, for the staff member about to hand over the keys. */
-export async function previewHandover(claims: SessionClaims, key: HandoverKey) {
+/** A short email to the tenant about the handover; their booking page carries the details. */
+async function queueTenantHandoverEmail(
+  tx: Tx,
+  input: {
+    orgId: string;
+    reservationId: string;
+    recipient: string | null;
+    referenceCode: string;
+    subject: string;
+    lines: string[];
+  },
+) {
+  const recipient = input.recipient?.trim().toLowerCase() ?? '';
+  if (!recipient.includes('@') || recipient.endsWith('@identity.bhd-om.local')) return;
+  const link = `${publicWebOrigin()}/ar/book/confirmed?ref=${encodeURIComponent(input.referenceCode)}`;
+  await tx.insert(outboxEvents).values({
+    organizationId: input.orgId,
+    topic: 'notification.delivery.requested',
+    aggregateType: 'reservation',
+    aggregateId: input.reservationId,
+    payload: {
+      correlationId: randomUUID(),
+      organizationId: input.orgId,
+      notificationId: randomUUID(),
+      channel: 'email',
+      recipient,
+      subject: input.subject,
+      text: ['مرحباً،', '', ...input.lines, '', `فتح الحجز: ${link}`, '', 'BHD R'].join('\n'),
+      html: `<div dir="rtl"><p>مرحباً،</p>${input.lines
+        .map((line) => `<p>${escapeHtml(line)}</p>`)
+        .join('')}<p><a href="${escapeHtml(link)}">فتح الحجز</a></p><p>BHD R</p></div>`,
+    },
+  });
+  sendQueuedEmailsSoon();
+}
+
+/** The tenant's selfie at the door, re-encoded once with the platform mark and stored as evidence. */
+export async function submitHandoverSelfie(
+  claims: SessionClaims,
+  referenceCode: string,
+  photo: HandoverPhotoInput,
+) {
+  const [branded] = await brandHandoverPhotos([photo]);
+  const { db } = getDatabase();
+  return db.transaction(async (transaction) => {
+    const current = await customerReservation(transaction, claims.sub, referenceCode);
+    const lifecycle = current.lifecycle;
+    const handover = lifecycle.handover;
+    if (current.phase !== 'awaiting_handover' && !handoverAwaitingTenant(lifecycle)) {
+      leaseBookingFail('not_ready');
+    }
+    const owed = handover?.status === 'awaiting_tenant' && !handover.recipientPhoto;
+    if (!owed && handoverSelfieState(lifecycle) !== 'requested') {
+      leaseBookingFail('handover_selfie_closed');
+    }
+    const orgId = current.match.organizationId;
+    const at = new Date().toISOString();
+    const [evidence] = await transaction
+      .insert(workflowEvents)
+      .values({
+        organizationId: orgId,
+        actorUserId: claims.sub,
+        resourceType: 'reservation_handover',
+        resourceId: current.match.id,
+        eventType: 'reservation.handover_selfie',
+        metadata: { referenceCode: current.snapshot.referenceCode, recipientPhoto: branded!.data },
+      })
+      .returning({ id: workflowEvents.id });
+    const selfie = { at, evidenceEventId: evidence!.id, photo: branded!.meta };
+    const scan = lifecycle.handoverScan ?? { at, byName: null, byUserId: null, selfie: null };
+    await saveLifecycle(
+      transaction,
+      { id: current.match.id, snapshot: current.snapshot },
+      {
+        ...lifecycle,
+        handoverScan: { ...scan, selfie },
+        ...(handover && owed
+          ? {
+              handover: {
+                ...handover,
+                recipientPhoto: branded!.meta,
+                recipientPhotoEventId: evidence!.id,
+              },
+            }
+          : {}),
+      },
+    );
+    await logEvent(transaction, {
+      orgId,
+      actorUserId: claims.sub,
+      reservationId: current.match.id,
+      eventType: 'reservation.handover_selfie_taken',
+      status: current.status,
+      metadata: { referenceCode: current.snapshot.referenceCode, evidenceEventId: evidence!.id },
+    });
+    return { takenAt: at };
+  });
+}
+
+/**
+ * Who the scanned pass belongs to, for the staff member about to hand over the keys. With
+ * `requestSelfie`, a fresh scan asks the tenant's own phone for a selfie (page prompt + email).
+ */
+export async function previewHandover(
+  claims: SessionClaims,
+  key: HandoverKey,
+  options: { requestSelfie?: boolean } = {},
+) {
   if (!claims.organizationId || !hasPermission(claims, 'reservation.handover')) fail('forbidden');
   return withinViewerTenant(claims, async (tx) => {
     const reservationId = await reservationIdForKey(tx, key);
@@ -1158,10 +1274,47 @@ export async function previewHandover(claims: SessionClaims, key: HandoverKey) {
     if (ownerPartyId && match.ownerPartyId !== ownerPartyId) {
       leaseBookingFail('handover_pass_invalid');
     }
-    const lifecycle = lifecycleOf(match.snapshot);
+    let lifecycle = lifecycleOf(match.snapshot);
     const phase = phaseOf(match.status, match.snapshot, lifecycle);
+    if (
+      options.requestSelfie &&
+      phase === 'awaiting_handover' &&
+      !handoverAwaitingTenant(lifecycle) &&
+      !handoverSelfieState(lifecycle)
+    ) {
+      const row = await loadForOwner(tx, claims, reservationId);
+      if (!handoverSelfieState(row.lifecycle) && !row.lifecycle.handover) {
+        const byName = await viewerName(tx, claims.sub);
+        lifecycle = {
+          ...row.lifecycle,
+          handoverScan: {
+            at: new Date().toISOString(),
+            byName,
+            byUserId: claims.sub,
+            selfie: null,
+          },
+        };
+        await saveLifecycle(tx, row, lifecycle);
+        await queueTenantHandoverEmail(tx, {
+          orgId: row.orgId,
+          reservationId: row.id,
+          recipient: match.partyEmail,
+          referenceCode: row.snapshot.referenceCode,
+          subject: `التقط صورة سيلفي لاستلام العقار — ${row.snapshot.referenceCode}`,
+          lines: [
+            `مسح ${byName ?? 'ممثل المالك'} رمز التسليم الخاص بك لحجز ${row.snapshot.referenceCode}.`,
+            'افتح صفحة حجزك الآن والتقط صورة سيلفي لنفسك من هاتفك لتوثيق استلامك للمفتاح.',
+          ],
+        });
+      } else {
+        lifecycle = row.lifecycle;
+      }
+    }
     const party = match.snapshot.party as { nameAr?: unknown } | undefined;
+    const liveSelfie = handoverLiveSelfie(lifecycle);
     return {
+      selfieRequestedAt: lifecycle.handoverScan?.at ?? null,
+      liveSelfieAt: liveSelfie?.at ?? null,
       reservationId: match.id,
       referenceCode: match.snapshot.referenceCode,
       mode: match.snapshot.mode,
@@ -1185,16 +1338,23 @@ export async function previewHandover(claims: SessionClaims, key: HandoverKey) {
 export async function readHandoverSelfie(
   claims: SessionClaims,
   key: HandoverKey,
+  which: 'signing' | 'live' = 'signing',
 ): Promise<{ mimeType: string; bytes: Buffer } | null> {
   const preview = await previewHandover(claims, key);
   const { db } = getDatabase();
   const dataUrl = await db.transaction(async (transaction) => {
     const match = await findLeaseReservation(transaction, 'id', preview.reservationId);
-    const eventId = match?.snapshot.esign?.evidenceEventId;
+    const live = match ? handoverLiveSelfie(lifecycleOf(match.snapshot)) : null;
+    const eventId =
+      which === 'live' ? live?.evidenceEventId : match?.snapshot.esign?.evidenceEventId;
     if (!match || !eventId) return null;
+    const path =
+      which === 'live'
+        ? sql<string | null>`${workflowEvents.metadata}->>'recipientPhoto'`
+        : sql<string | null>`${workflowEvents.metadata}->'esign'->>'selfiePng'`;
     return withElevatedRead(transaction, async () => {
       const [row] = await transaction
-        .select({ png: sql<string | null>`${workflowEvents.metadata}->'esign'->>'selfiePng'` })
+        .select({ png: path })
         .from(workflowEvents)
         .where(
           and(
@@ -1212,8 +1372,9 @@ export async function readHandoverSelfie(
 }
 
 /**
- * The staff member records the handover after scanning the tenant's pass: keys, meters, a photo
- * of the tenant receiving the key and photos of the premises. The tenant then accepts it.
+ * The staff member records the handover after scanning the tenant's pass: keys, meters, notes
+ * and photos of the premises. The tenant's own selfie from the door becomes the key-receipt
+ * photo; without one, the tenant takes it before accepting.
  */
 export async function offerHandover(
   claims: SessionClaims,
@@ -1224,7 +1385,6 @@ export async function offerHandover(
     electricityReading?: string | undefined;
     waterReading?: string | undefined;
     notes?: string | undefined;
-    recipientPhoto: HandoverPhotoInput;
     photos: HandoverPhotoInput[];
   },
 ) {
@@ -1233,7 +1393,6 @@ export async function offerHandover(
   if (recipientName.length < 2 || input.photos.length > HANDOVER_PHOTOS_MAX) {
     leaseBookingFail('handover_invalid');
   }
-  const [recipient] = await brandHandoverPhotos([input.recipientPhoto]);
   const photos = await brandHandoverPhotos(input.photos);
   const text = (value: string | undefined, max: number) => value?.trim().slice(0, max) || null;
 
@@ -1258,11 +1417,11 @@ export async function offerHandover(
         eventType: 'reservation.handover_evidence',
         metadata: {
           referenceCode: row.snapshot.referenceCode,
-          recipientPhoto: recipient!.data,
           photos: photos.map((photo) => photo.data),
         },
       })
       .returning({ id: workflowEvents.id });
+    const selfie = handoverLiveSelfie(row.lifecycle, now);
     const lifecycle: ReservationLifecycle = {
       ...row.lifecycle,
       handover: {
@@ -1278,7 +1437,8 @@ export async function offerHandover(
         method: 'scan',
         status: 'awaiting_tenant',
         evidenceEventId: evidence!.id,
-        recipientPhoto: recipient!.meta,
+        recipientPhoto: selfie?.photo ?? null,
+        recipientPhotoEventId: selfie?.evidenceEventId ?? null,
         photos: photos.map((photo) => photo.meta),
         acceptedAt: null,
         defectsUntil: null,
@@ -1307,7 +1467,22 @@ export async function offerHandover(
       aggregateId: row.id,
       payload: { referenceCode: row.snapshot.referenceCode, offeredAt: at },
     });
-    return { referenceCode: row.snapshot.referenceCode, offeredAt: at };
+    const tenant = await findLeaseReservation(tx, 'id', row.id);
+    await queueTenantHandoverEmail(tx, {
+      orgId: row.orgId,
+      reservationId: row.id,
+      recipient: tenant?.partyEmail ?? null,
+      referenceCode: row.snapshot.referenceCode,
+      subject: `محضر تسليم العقار بانتظار موافقتك — ${row.snapshot.referenceCode}`,
+      lines: [
+        `سجّل ${byName ?? 'ممثل المالك'} محضر تسليم العقار إليك.`,
+        selfie
+          ? 'راجع المحضر والصور في صفحة حجزك ثم أكّد الاستلام.'
+          : 'افتح صفحة حجزك، والتقط صورة سيلفي لنفسك، ثم راجع المحضر وأكّد الاستلام.',
+        `بعد موافقتك عليك رفع صور للعقار خلال ${HANDOVER_DEFECTS_HOURS} ساعات، وإلا يُعتبر أنك استلمته بدون عيوب وفي حالة جيدة.`,
+      ],
+    });
+    return { referenceCode: row.snapshot.referenceCode, offeredAt: at, hasSelfie: Boolean(selfie) };
   });
 }
 
@@ -1324,6 +1499,7 @@ export async function acceptHandover(claims: SessionClaims, referenceCode: strin
       };
     }
     if (!handover || handover.status !== 'awaiting_tenant') leaseBookingFail('not_ready');
+    if (!handover.recipientPhoto) leaseBookingFail('handover_selfie_required');
     const now = new Date();
     const acceptedAt = now.toISOString();
     const defectsUntil = new Date(
@@ -1357,6 +1533,18 @@ export async function acceptHandover(claims: SessionClaims, referenceCode: strin
       aggregateType: 'reservation',
       aggregateId: current.match.id,
       payload: { referenceCode: current.snapshot.referenceCode, acceptedAt, defectsUntil },
+    });
+    await queueTenantHandoverEmail(transaction, {
+      orgId,
+      reservationId: current.match.id,
+      recipient: current.match.partyEmail,
+      referenceCode: current.snapshot.referenceCode,
+      subject: `تنبيه: ارفع صور العقار خلال ${HANDOVER_DEFECTS_HOURS} ساعات — ${current.snapshot.referenceCode}`,
+      lines: [
+        'أكّدت استلام العقار، وأصبح التسليم رسمياً.',
+        `عليك رفع صور للعقار فوراً خلال ${HANDOVER_DEFECTS_HOURS} ساعات من صفحة حجزك، مع وصف أي عيوب أو أشياء تحتاج إلى إصلاح.`,
+        'إن لم ترفع صوراً خلال هذه المهلة يُعتبر أنك استلمت العقار بدون عيوب وأنه في حالة جيدة.',
+      ],
     });
     return { acceptedAt, defectsUntil };
   });
@@ -1447,8 +1635,11 @@ export async function handoverPhotoDataUrl(
 ): Promise<string | null> {
   const handover = lifecycle.handover;
   if (!handover || !HANDOVER_PHOTO_FILE.test(file)) return null;
-  const defect = file.startsWith('defect-');
-  const eventId = defect ? handover.defects?.evidenceEventId : handover.evidenceEventId;
+  const eventId = file.startsWith('defect-')
+    ? handover.defects?.evidenceEventId
+    : file === 'handover-recipient'
+      ? (handover.recipientPhotoEventId ?? handover.evidenceEventId)
+      : handover.evidenceEventId;
   if (!eventId) return null;
   const path =
     file === 'handover-recipient'

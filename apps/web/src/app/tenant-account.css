@@ -1,0 +1,385 @@
+/* Handover: the tenant's selfie at the door and the three-hour photo duty. */
+.handover-desk__faces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+}
+.handover-desk__faces:empty {
+  display: none;
+}
+.handover-desk__faces figure {
+  display: grid;
+  justify-items: center;
+  gap: 0.3rem;
+  margin: 0;
+}
+.handover-desk__faces figcaption {
+  color: #4b5f57;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.handover-desk__waiting {
+  position: relative;
+  padding-inline-start: 2.2rem;
+}
+.handover-desk__waiting::before {
+  position: absolute;
+  inset-inline-start: 0.9rem;
+  top: 50%;
+  width: 0.6rem;
+  height: 0.6rem;
+  margin-top: -0.3rem;
+  content: '';
+  border-radius: 50%;
+  background: #c9a646;
+  animation: handover-pulse 1.2s ease-in-out infinite;
+}
+@keyframes handover-pulse {
+  50% {
+    opacity: 0.25;
+    transform: scale(0.7);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .handover-desk__waiting::before {
+    animation: none;
+  }
+}
+.handover-selfie .esign-cam {
+  max-width: 22rem;
+}
+.handover-selfie__review {
+  display: grid;
+  justify-items: start;
+  gap: 0.75rem;
+}
+.handover-selfie__review img {
+  width: min(16rem, 100%);
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border: 3px solid #c9a646;
+  border-radius: 1rem;
+}
+.handover-selfie__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.handover-duty {
+  color: #7a3b05;
+  background: #fff4e0;
+  border: 1px solid #f0c987;
+  line-height: 1.7;
+}
+
+/* Tenant account statement: one card per lease. */
+.tenant-status--bad {
+  background: #fde9e9;
+  color: #8e2028;
+}
+.tenant-status--warn {
+  background: #fff4e0;
+  color: #8a4b08;
+}
+.tenant-status--info {
+  background: #e8f0fb;
+  color: #1d4f91;
+}
+.tenant-statements {
+  display: grid;
+  gap: 1.5rem;
+}
+.tenant-statement {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: rgb(255 255 255 / 0.97);
+  border: 1px solid rgb(9 45 36 / 0.09);
+  border-radius: 1.2rem;
+  box-shadow: 0 14px 36px rgb(9 45 36 / 0.05);
+}
+.tenant-statement__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.tenant-statement__head h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+.tenant-statement__head p {
+  margin: 0.25rem 0 0;
+}
+.tenant-statement__totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(10rem, 40%), 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+.tenant-statement__totals div {
+  padding: 0.75rem 0.9rem;
+  background: #f6f8f7;
+  border-radius: 0.85rem;
+}
+.tenant-statement__totals dt {
+  color: #4b5f57;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.tenant-statement__totals dd {
+  margin: 0.3rem 0 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+.tenant-statement__totals dd small {
+  display: block;
+  color: #4b5f57;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.tenant-statement__total--good {
+  background: #e7f5ee !important;
+}
+.tenant-statement__total--good dd {
+  color: #0f5b4a;
+}
+.tenant-statement__total--bad {
+  background: #fde9e9 !important;
+}
+.tenant-statement__total--bad dd {
+  color: #8e2028;
+}
+.tenant-statement__bar {
+  height: 0.55rem;
+  overflow: hidden;
+  background: #e8ece9;
+  border-radius: 999px;
+}
+.tenant-statement__bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #0f5b4a, #3fa27f);
+  border-radius: inherit;
+}
+.tenant-statement__aside td {
+  color: #5c6b64;
+  background: #fafbfa;
+}
+.tenant-statement__row-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.tenant-statement__other h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+.tenant-statement__other h3 small {
+  color: #8e2028;
+  font-weight: 700;
+}
+.tenant-statement__other ul {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tenant-statement__other li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: #f6f8f7;
+  border-radius: 0.65rem;
+}
+.tenant-statement__manage {
+  display: grid;
+  gap: 0.5rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #e3ebe7;
+}
+.tenant-statement__manage > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.tenant-space__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+
+/* Request form (modal). */
+.tenant-request-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(6 20 16 / 0.55);
+}
+.tenant-request-modal__panel {
+  width: min(34rem, 100%);
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  padding: 1.25rem;
+  background: #fff;
+  border-radius: 1.1rem;
+  box-shadow: 0 30px 80px rgb(0 0 0 / 0.25);
+}
+.tenant-request-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+.tenant-request-modal__head h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+.tenant-request-modal__close {
+  width: 2.2rem;
+  height: 2.2rem;
+  font-size: 1.4rem;
+  line-height: 1;
+  background: #f1f4f2;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.tenant-request-modal__done {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: start;
+}
+.tenant-request-form {
+  display: grid;
+  gap: 0.8rem;
+}
+.tenant-request-form label {
+  display: grid;
+  gap: 0.3rem;
+}
+.tenant-request-form label > span {
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+.tenant-request-form__lease {
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  font-weight: 700;
+  background: #f6f8f7;
+  border-radius: 0.65rem;
+}
+.tenant-request-form__hint {
+  margin: -0.35rem 0 0;
+  font-size: 0.84rem;
+}
+.tenant-request-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Request lists: the tenant's own and the landlord's inbox. */
+.tenant-requests {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tenant-requests__filter {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.tenant-request {
+  display: grid;
+  gap: 0.6rem;
+  padding: 1rem 1.1rem;
+  background: rgb(255 255 255 / 0.97);
+  border: 1px solid rgb(9 45 36 / 0.09);
+  border-radius: 1rem;
+}
+.tenant-request--focus {
+  border-color: #c9a646;
+  box-shadow: 0 0 0 3px rgb(201 166 70 / 0.25);
+}
+.tenant-request__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.tenant-request__subject {
+  margin: 0;
+  font-size: 1.02rem;
+}
+.tenant-request__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+  margin: 0;
+}
+.tenant-request__facts dt {
+  color: #4b5f57;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+.tenant-request__facts dd {
+  margin: 0.1rem 0 0;
+}
+.tenant-request__text {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.tenant-request__replies {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tenant-request__reply {
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.7rem;
+  background: #f6f8f7;
+}
+.tenant-request__reply--owner {
+  background: #eef5f1;
+  border-inline-start: 3px solid #0f5b4a;
+}
+.tenant-request__reply p {
+  margin: 0.2rem 0 0;
+  white-space: pre-wrap;
+}
+.tenant-request__reply span {
+  font-size: 0.78rem;
+}
+.tenant-request__act {
+  display: grid;
+  gap: 0.5rem;
+}
+.tenant-request__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.tenant-request__date {
+  display: grid;
+  gap: 0.3rem;
+  max-width: 16rem;
+}
+.tenant-request__date span {
+  font-size: 0.85rem;
+  font-weight: 700;
+}

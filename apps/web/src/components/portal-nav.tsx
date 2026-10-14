@@ -88,6 +88,7 @@ const navGroups: Record<PortalRole, NavGroup[]> = {
       label: 'Portal.groupPipeline',
       items: [
         { path: '/requests', label: 'Common.requests', mark: '◌' },
+        { path: '/tenant-requests', label: 'Common.tenantRequests', mark: '✉' },
         { path: '/bookings', label: 'Common.bookings', mark: '⌁' },
         { path: '/leasing', label: 'Common.leasing', mark: '⌂' },
         { path: '/sales', label: 'Common.sales', mark: '◆' },
@@ -190,6 +191,7 @@ const navGroups: Record<PortalRole, NavGroup[]> = {
         { path: '/reservations', label: 'Common.bookings', mark: '⌁' },
         { path: '/contracts', label: 'Common.contracts', mark: '✎' },
         { path: '/leases', label: 'Common.leasing', mark: '⌂' },
+        { path: '/requests', label: 'Common.myRequests', mark: '✉' },
       ],
     },
     {
@@ -203,10 +205,7 @@ const navGroups: Record<PortalRole, NavGroup[]> = {
     {
       id: 'ops',
       label: 'Portal.groupOps',
-      items: [
-        { path: '/maintenance', label: 'Common.maintenance', mark: '◉' },
-        { path: '/requests', label: 'Common.requests', mark: '◌' },
-      ],
+      items: [{ path: '/maintenance', label: 'Common.maintenance', mark: '◉' }],
     },
   ],
 };
