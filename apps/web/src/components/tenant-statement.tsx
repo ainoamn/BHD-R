@@ -2,6 +2,13 @@ import { EmptyState } from '@bhd-r/ui';
 import { Link } from '@/i18n/navigation';
 import { formatMoney } from '@/lib/format';
 import { TenantRequestLauncher, type RequestLease } from '@/components/tenant-request-form';
+import {
+  rentDocHref,
+  rentDocKindsOf,
+  rentDocSubjects,
+  rentMonthLabel,
+  type RentDocSubject,
+} from '@/lib/rent-documents';
 import { chargeCategoryOf, chargeLabel } from '@/lib/tenant-charges-shared';
 import {
   arrearsLabel,
@@ -53,6 +60,41 @@ export function requestLeasesOf(statements: TenancyStatement[], ar: boolean): Re
       arrearsMinor: item.statement.arrears.totalMinor,
       arrears: item.statement.arrears.byCategory,
     }));
+}
+
+/** Links to the signed receipt (anything paid) and demand invoice (anything left) of one item. */
+function DocLinks({
+  leaseId,
+  subject,
+  ar,
+}: {
+  leaseId: string;
+  subject: RentDocSubject | undefined;
+  ar: boolean;
+}) {
+  if (!subject) return null;
+  const kinds = rentDocKindsOf(subject);
+  if (!kinds.length) return null;
+  return (
+    <span className="tenant-statement__docs">
+      {kinds.map((kind) => (
+        <Link
+          key={kind}
+          className={`tenant-doc-link tenant-doc-link--${kind}`}
+          href={rentDocHref('tenant', leaseId, subject.key, kind)}
+          prefetch={false}
+        >
+          {kind === 'receipt'
+            ? ar
+              ? '🧾 إيصال القبض'
+              : '🧾 Receipt'
+            : ar
+              ? '📄 الفاتورة'
+              : '📄 Invoice'}
+        </Link>
+      ))}
+    </span>
+  );
 }
 
 /** Everything the tenant is late on for this lease: rent, utility bills, maintenance, damage. */
@@ -130,6 +172,7 @@ function StatementCard({
     total > 0n ? Math.min(100, Number((BigInt(statement.paidMinor) * 1000n) / total) / 10) : 0;
   const leases = requestLease ? [requestLease] : [];
   const overdue = statement.overdueMinor !== '0';
+  const subjects = new Map(rentDocSubjects(statement).map((subject) => [subject.key, subject]));
 
   return (
     <article className="tenant-statement" aria-labelledby={`statement-${item.leaseId}`}>
@@ -201,6 +244,7 @@ function StatementCard({
                 <th>{ar ? 'المدفوع' : 'Paid'}</th>
                 <th>{ar ? 'الشيك' : 'Cheque'}</th>
                 <th>{ar ? 'الحالة' : 'Status'}</th>
+                <th>{ar ? 'الإيصال والفاتورة' : 'Receipt & invoice'}</th>
                 <th />
               </tr>
             </thead>
@@ -212,6 +256,12 @@ function StatementCard({
                 >
                   <td data-label={ar ? 'البند' : 'Item'}>
                     {ledgerLineLabel(line, ar)}
+                    {line.kind === 'rent' ? (
+                      <small className="tenant-table__sub">
+                        {ar ? 'عن شهر ' : 'For '}
+                        {rentMonthLabel(line, ar)}
+                      </small>
+                    ) : null}
                     {line.periodFrom && line.periodTo ? (
                       <small className="tenant-table__sub">
                         {day(line.periodFrom, ar)} – {day(line.periodTo, ar)}
@@ -250,6 +300,9 @@ function StatementCard({
                     >
                       {ledgerStatusLabel(line.status, ar)}
                     </span>
+                  </td>
+                  <td data-label={ar ? 'الإيصال والفاتورة' : 'Receipt & invoice'}>
+                    <DocLinks leaseId={item.leaseId} subject={subjects.get(line.key)} ar={ar} />
                   </td>
                   <td>
                     {chequeIsAdjustable(line) && requestLease ? (
@@ -306,6 +359,11 @@ function StatementCard({
                   <span>{day(invoice.dueOn, ar)}</span>
                   <span>{money(invoice.totalMinor)}</span>
                   <span className="tenant-status">{domainStatusLabel(invoice.status, ar)}</span>
+                  <DocLinks
+                    leaseId={item.leaseId}
+                    subject={subjects.get(`charge-${invoice.id}`)}
+                    ar={ar}
+                  />
                 </li>
               );
             })}

@@ -88,6 +88,8 @@ export type LedgerLine = {
   chequeStatus: LedgerChequeStatus | null;
   chequeNumber: string | null;
   bankName: string | null;
+  /** The invoice that records payments of this line, once one exists. */
+  invoiceId: string | null;
   invoiceNumber: string | null;
   /** The security deposit is held, not part of the contract value. */
   outsideTotal: boolean;
@@ -139,6 +141,20 @@ function plusDays(isoDate: string, days: number): string {
   const date = new Date(`${isoDate}T00:00:00Z`);
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
+}
+
+/**
+ * Number of the invoice that records the payments of one contract installment, opened when the
+ * landlord records the first payment on it: `RNT-99EB6705-RENT-3`.
+ */
+export function installmentInvoiceNumber(leaseId: string, key: string): string {
+  return `RNT-${leaseId.replace(/-/g, '').slice(0, 8).toUpperCase()}-${key.toUpperCase()}`;
+}
+
+/** The ledger line an installment invoice records, or null for any other invoice. */
+export function installmentKeyOf(invoiceNumber: string): string | null {
+  const match = /^RNT-[0-9A-F]{8}-((?:RENT|VAT|DEPOSIT)-\d{1,3}|FEES)$/.exec(invoiceNumber);
+  return match ? match[1]!.toLowerCase() : null;
 }
 
 function min(a: bigint, b: bigint): bigint {
@@ -215,16 +231,29 @@ export function buildLeaseStatement(input: {
   };
   const chequePaid = (cheque: LedgerCheque | null, amount: bigint) =>
     cheque?.reviewStatus === 'cleared' ? amount : 0n;
+  const keyed = new Map<string, LedgerInvoice>();
+  for (const invoice of installmentInvoices) {
+    const key = installmentKeyOf(invoice.number);
+    if (key && !keyed.has(key)) keyed.set(key, invoice);
+  }
+  const receiptsOf = (key: string): LedgerInvoice | null => {
+    const invoice = keyed.get(key) ?? null;
+    if (invoice) usedInvoices.add(invoice.id);
+    return invoice;
+  };
 
   if (terms) {
     for (const row of terms.schedule) {
       const cheque = chequeFor(row.chequeNumber);
-      const invoice = installmentInvoices.find(
-        (item) =>
-          !usedInvoices.has(item.id) &&
-          ((row.periodFrom && item.billingPeriodStart === row.periodFrom) ||
-            (!item.billingPeriodStart && item.dueOn === row.dueOn)),
-      );
+      const invoice =
+        receiptsOf(`rent-${row.index}`) ??
+        installmentInvoices.find(
+          (item) =>
+            !usedInvoices.has(item.id) &&
+            !installmentKeyOf(item.number) &&
+            ((row.periodFrom && item.billingPeriodStart === row.periodFrom) ||
+              (!item.billingPeriodStart && item.dueOn === row.dueOn)),
+        );
       if (invoice) usedInvoices.add(invoice.id);
       const amount = BigInt(Math.trunc(row.totalMinor));
       const dueOn = cheque?.dueOn ?? row.dueOn;
@@ -242,12 +271,14 @@ export function buildLeaseStatement(input: {
         chequeId: cheque?.id ?? null,
         chequeNumber: row.chequeNumber,
         bankName: cheque?.bankName ?? row.bankName,
+        invoiceId: invoice?.id ?? null,
         invoiceNumber: invoice?.number ?? null,
         outsideTotal: false,
       });
     }
     for (const row of terms.vatCheques) {
       const cheque = chequeFor(row.chequeNumber);
+      const invoice = receiptsOf(`vat-${row.index}`);
       const amount = BigInt(Math.trunc(row.amountMinor));
       const dueOn = cheque?.dueOn ?? row.dueOn;
       drafts.push({
@@ -259,18 +290,20 @@ export function buildLeaseStatement(input: {
         dueOn,
         originalDueOn: dueOn !== row.dueOn ? row.dueOn : null,
         amountMinor: amount.toString(),
-        paid: chequePaid(cheque, amount),
+        paid: chequePaid(cheque, amount) || big(invoice?.paidMinor),
         cheque,
         chequeId: cheque?.id ?? null,
         chequeNumber: row.chequeNumber,
         bankName: cheque?.bankName ?? null,
-        invoiceNumber: null,
+        invoiceId: invoice?.id ?? null,
+        invoiceNumber: invoice?.number ?? null,
         outsideTotal: false,
       });
     }
     const scheduled = drafts.reduce((sum, line) => sum + big(line.amountMinor), 0n);
     const fees = BigInt(Math.trunc(terms.grandTotalMinor)) - scheduled;
     if (fees > 0n) {
+      const invoice = receiptsOf('fees');
       drafts.push({
         key: 'fees',
         kind: 'fees',
@@ -280,12 +313,13 @@ export function buildLeaseStatement(input: {
         dueOn: terms.startsOn,
         originalDueOn: null,
         amountMinor: fees.toString(),
-        paid: 0n,
+        paid: big(invoice?.paidMinor),
         cheque: null,
         chequeId: null,
         chequeNumber: null,
         bankName: null,
-        invoiceNumber: null,
+        invoiceId: invoice?.id ?? null,
+        invoiceNumber: invoice?.number ?? null,
         outsideTotal: false,
       });
     }
@@ -293,6 +327,7 @@ export function buildLeaseStatement(input: {
       const cheque = item.method === 'cheque' ? chequeFor(item.reference) : null;
       const amount = BigInt(Math.trunc(item.amountMinor));
       if (amount <= 0n) return;
+      const invoice = receiptsOf(`deposit-${at}`);
       drafts.push({
         key: `deposit-${at}`,
         kind: 'deposit',
@@ -302,12 +337,13 @@ export function buildLeaseStatement(input: {
         dueOn: cheque?.dueOn ?? item.dueOn ?? terms.startsOn,
         originalDueOn: null,
         amountMinor: amount.toString(),
-        paid: chequePaid(cheque, amount),
+        paid: chequePaid(cheque, amount) || big(invoice?.paidMinor),
         cheque,
         chequeId: cheque?.id ?? null,
         chequeNumber: item.method === 'cheque' ? item.reference : null,
         bankName: cheque?.bankName ?? item.bankName,
-        invoiceNumber: null,
+        invoiceId: invoice?.id ?? null,
+        invoiceNumber: invoice?.number ?? null,
         outsideTotal: true,
       });
     });
@@ -331,6 +367,7 @@ export function buildLeaseStatement(input: {
       chequeId: cheque.id,
       chequeNumber: cheque.chequeNumber,
       bankName: cheque.bankName,
+      invoiceId: null,
       invoiceNumber: null,
       outsideTotal: false,
     });
@@ -355,6 +392,7 @@ export function buildLeaseStatement(input: {
         chequeId: null,
         chequeNumber: null,
         bankName: null,
+        invoiceId: invoice.id,
         invoiceNumber: invoice.number,
         outsideTotal: false,
       });

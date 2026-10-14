@@ -1,5 +1,5 @@
 /** Client-safe shapes and alert rules for the signed-in account's own rentals and bookings. */
-import type { LeaseStatement } from '@/lib/tenant-ledger';
+import { installmentKeyOf, type LeaseStatement } from '@/lib/tenant-ledger';
 import type { TenantRequest } from '@/lib/tenant-requests-shared';
 
 export type TenancyLandlord = { organizationId: string; ar: string; en: string };
@@ -221,7 +221,7 @@ export function buildTenancyAlerts(data: Omit<MyTenancy, 'alerts'>, today: strin
   }
   const dueSoon = addDays(today, INVOICE_DUE_SOON_DAYS);
   for (const invoice of data.invoices) {
-    if (!OPEN_INVOICE.has(invoice.status)) continue;
+    if (!OPEN_INVOICE.has(invoice.status) || installmentKeyOf(invoice.number)) continue;
     const overdue = invoice.status === 'overdue' || invoice.dueOn < today;
     if (!overdue && invoice.dueOn > dueSoon) continue;
     alerts.push({

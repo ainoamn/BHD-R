@@ -68,7 +68,7 @@ function amountOf(value: string): bigint {
 }
 
 /** A lease of the organization the viewer may bill, with its tenant and property. */
-async function chargeableLease(tx: Tx, claims: SessionClaims, leaseId: string) {
+export async function chargeableLease(tx: Tx, claims: SessionClaims, leaseId: string) {
   const orgId = claims.organizationId!;
   const scoped = ownerPartyScope(claims);
   const [row] = await tx
@@ -160,7 +160,10 @@ export async function insertChargeInvoice(
   return { id: invoice.id, number, dueOn: String(invoice.dueOn), minorUnit };
 }
 
-/** Records a manual payment on a charge invoice; paid in full unless an amount is given. */
+/**
+ * Records a manual payment on a charge invoice (or, with `installment`, on the invoice of a contract
+ * installment); paid in full unless an amount is given.
+ */
 export async function recordChargePayment(
   tx: Tx,
   input: {
@@ -169,6 +172,10 @@ export async function recordChargePayment(
     invoiceId: string;
     amountMinor?: bigint | undefined;
     method: ChargePaymentMethod;
+    installment?: boolean;
+    receivedAt?: Date;
+    eventType?: string;
+    eventMetadata?: Record<string, unknown>;
   },
 ) {
   const [invoice] = await tx
@@ -185,7 +192,9 @@ export async function recordChargePayment(
     .where(and(eq(invoices.id, input.invoiceId), eq(invoices.organizationId, input.orgId)))
     .for('update')
     .limit(1);
-  if (!invoice || !chargeCategoryOf(invoice.number)) fail('tenant_request_not_found');
+  if (!invoice || (!input.installment && !chargeCategoryOf(invoice.number))) {
+    fail('tenant_request_not_found');
+  }
   if (invoice.status === 'void') fail('tenant_charge_invalid');
   const left = invoice.totalMinor - invoice.paidMinor;
   if (left <= 0n || invoice.status === 'paid') fail('tenant_charge_paid');
@@ -194,18 +203,22 @@ export async function recordChargePayment(
   const paid = invoice.paidMinor + amount;
   const status = paid >= invoice.totalMinor ? 'paid' : 'partially_paid';
   const now = new Date();
-  await tx.insert(payments).values({
-    organizationId: input.orgId,
-    invoiceId: invoice.id,
-    status: 'succeeded',
-    amountMinor: amount,
-    currency: invoice.currency,
-    minorUnit: invoice.minorUnit,
-    provider: 'manual',
-    providerReference: `manual:${invoice.id}:${randomUUID()}`,
-    method: input.method,
-    receivedAt: now,
-  });
+  const receivedAt = input.receivedAt ?? now;
+  const [payment] = await tx
+    .insert(payments)
+    .values({
+      organizationId: input.orgId,
+      invoiceId: invoice.id,
+      status: 'succeeded',
+      amountMinor: amount,
+      currency: invoice.currency,
+      minorUnit: invoice.minorUnit,
+      provider: 'manual',
+      providerReference: `manual:${invoice.id}:${randomUUID()}`,
+      method: input.method,
+      receivedAt,
+    })
+    .returning({ id: payments.id });
   await tx
     .update(invoices)
     .set({ paidMinor: paid, status, updatedAt: now })
@@ -215,16 +228,24 @@ export async function recordChargePayment(
     actorUserId: input.actorUserId,
     resourceType: 'invoice',
     resourceId: invoice.id,
-    eventType: 'tenant_charge.payment_recorded',
+    eventType: input.eventType ?? 'tenant_charge.payment_recorded',
     fromStatus: invoice.status,
     toStatus: status,
     metadata: {
+      ...input.eventMetadata,
       invoiceNumber: invoice.number,
+      paymentId: payment?.id ?? null,
       amountMinor: amount.toString(),
       method: input.method,
     },
   });
-  return { invoiceId: invoice.id, status, paidMinor: paid.toString(), paidAt: now.toISOString() };
+  return {
+    invoiceId: invoice.id,
+    paymentId: payment?.id ?? null,
+    status,
+    paidMinor: paid.toString(),
+    paidAt: receivedAt.toISOString(),
+  };
 }
 
 export type TenantChargeView = {

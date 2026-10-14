@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import { elevatedTx, rowsOf } from '@/lib/elevated-db';
 import { appLink, notifyByEmail } from '@/lib/email-notify';
 import { formatMoney } from '@/lib/format';
+import { rentDocHref, rentMonthLabel } from '@/lib/rent-documents';
 import { leaseStatementsInTx } from '@/lib/tenancy-neon';
 import { muscatToday } from '@/lib/tenant-charges-neon';
 import { arrearsLabel, type LeaseStatement, type LedgerLine } from '@/lib/tenant-ledger';
@@ -215,7 +216,6 @@ export async function sendDailyReminders(
     const statement = statements.get(lease.id);
     if (!statement) continue;
     const place = `${lease.property} — ${lease.unit}`;
-    const tenantLink = appLink('/ar/tenant');
     const arrears = statement.arrears;
     const oldest = arrears.items[0];
 
@@ -251,7 +251,15 @@ export async function sendDailyReminders(
               })),
               { label: 'أقدم تاريخ استحقاق', value: arDate(oldest.dueOn) },
             ],
-            cta: { label: 'عرض كشف الحساب', url: tenantLink },
+            lines: [
+              'فاتورة المطالبة الموقّعة إلكترونياً بكل التفاصيل جاهزة للتحميل من الزر أدناه، وكشف حسابك الكامل في مساحة المستأجر.',
+            ],
+            cta: {
+              label: 'تحميل فاتورة المطالبة',
+              url: appLink(
+                `/ar${rentDocHref('tenant', lease.id, oldest.invoiceId ? `charge-${oldest.invoiceId}` : oldest.key, 'invoice')}`,
+              ),
+            },
             footnote: 'إن كنت سدّدت للتوّ فتجاهل هذه الرسالة، وشكراً لك 🙏',
           }),
         });
@@ -285,10 +293,16 @@ export async function sendDailyReminders(
                     ? `القسط رقم ${line.index}`
                     : 'دفعة مستحقة',
             },
+            ...(line.kind === 'rent'
+              ? [{ label: 'عن شهر', value: rentMonthLabel(line, true) }]
+              : []),
             { label: 'المبلغ', value: amountOf(left, lease.currency) },
             { label: 'تاريخ الاستحقاق', value: arDate(line.dueOn) },
           ],
-          cta: { label: 'عرض كشف الحساب', url: tenantLink },
+          cta: {
+            label: 'تحميل فاتورة المطالبة',
+            url: appLink(`/ar${rentDocHref('tenant', lease.id, line.key, 'invoice')}`),
+          },
         }),
       });
     }

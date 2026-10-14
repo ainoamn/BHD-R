@@ -1,10 +1,12 @@
 import { Link } from '@/i18n/navigation';
+import { OwnerRentCollection } from '@/components/owner-rent-collection';
 import { OwnerTenantCharges } from '@/components/owner-tenant-charges';
 import { OwnerTenantPolicy } from '@/components/owner-tenant-policy';
 import { OwnerTenantRequests } from '@/components/owner-tenant-requests';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { persistentPortalPage } from '@/lib/persistent-portal-page';
 import { readClaims } from '@/lib/portal-ops-data';
+import { canViewRentCollection, loadRentCollection } from '@/lib/rent-collection-neon';
 import {
   canChargeTenants,
   canRecordTenantPayments,
@@ -14,14 +16,18 @@ import { loadTenantPolicyForOwner, tenantPolicyAccess } from '@/lib/tenant-polic
 import { canHandleTenantRequests, listOwnerTenantRequests } from '@/lib/tenant-requests-neon';
 import { requirePortal } from '@/lib/viewer';
 
-type Tab = 'requests' | 'charges' | 'settings';
+type Tab = 'requests' | 'rent' | 'charges' | 'settings';
 
 async function Page({
   params,
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ focus?: string | string[]; tab?: string | string[] }>;
+  searchParams: Promise<{
+    focus?: string | string[];
+    tab?: string | string[];
+    lease?: string | string[];
+  }>;
 }) {
   const { locale: rawLocale } = await params;
   const locale = rawLocale === 'en' ? 'en' : 'ar';
@@ -34,14 +40,19 @@ async function Page({
     live && claims && (canChargeTenants(claims) || canRecordTenantPayments(claims)),
   );
   const settings = Boolean(live && claims && tenantPolicyAccess(claims));
+  const collecting = Boolean(live && claims && canViewRentCollection(claims));
   const query = await searchParams;
   const asked = typeof query.tab === 'string' ? query.tab : 'requests';
   const tab: Tab =
-    asked === 'charges' && charging
-      ? 'charges'
-      : asked === 'settings' && settings
-        ? 'settings'
-        : 'requests';
+    asked === 'rent' && collecting
+      ? 'rent'
+      : asked === 'charges' && charging
+        ? 'charges'
+        : asked === 'settings' && settings
+          ? 'settings'
+          : 'requests';
+  const leaseParam =
+    typeof query.lease === 'string' && /^[0-9a-f-]{36}$/i.test(query.lease) ? query.lease : null;
   const focus =
     typeof query.focus === 'string' && /^[0-9a-f-]{36}$/i.test(query.focus) ? query.focus : null;
 
@@ -56,6 +67,10 @@ async function Page({
       ? ((await listOwnerTenantRequests(claims).catch(onFail('owner tenant requests failed'))) ??
         [])
       : [];
+  const rent =
+    tab === 'rent' && claims
+      ? await loadRentCollection(claims, leaseParam).catch(onFail('owner rent collection failed'))
+      : null;
   const charges =
     tab === 'charges' && claims
       ? await listTenantCharges(claims).catch(onFail('owner tenant charges failed'))
@@ -67,6 +82,7 @@ async function Page({
 
   const tabs: Array<{ key: Tab; ar: string; en: string; shown: boolean }> = [
     { key: 'requests', ar: 'الطلبات والبلاغات', en: 'Requests & reports', shown: true },
+    { key: 'rent', ar: 'تحصيل الإيجار والإيصالات', en: 'Rent & receipts', shown: collecting },
     { key: 'charges', ar: 'المطالبات المالية', en: 'Charges', shown: charging },
     { key: 'settings', ar: 'الإعدادات', en: 'Settings', shown: settings },
   ];
@@ -109,6 +125,12 @@ async function Page({
             ? 'تعذّر التحميل الآن، أعد المحاولة بعد لحظات.'
             : 'Could not load; try again shortly.'}
         </p>
+      ) : tab === 'rent' && rent && claims ? (
+        <OwnerRentCollection
+          locale={locale}
+          view={rent}
+          canRecord={canRecordTenantPayments(claims)}
+        />
       ) : tab === 'charges' && charges && claims ? (
         <OwnerTenantCharges
           locale={locale}
