@@ -86,6 +86,9 @@ export type ReservationLifecycle = {
     recipientPhoto?: HandoverPhotoMeta | null;
     /** The tenant's own selfie event; older records kept the staff photo in `evidenceEventId`. */
     recipientPhotoEventId?: string | null;
+    /** The staff member's own selfie at the door, taken at the same time as the tenant's. */
+    handlerPhoto?: HandoverPhotoMeta | null;
+    handlerPhotoEventId?: string | null;
     photos?: HandoverPhotoMeta[];
     acceptedAt?: string | null;
     /** End of the window in which the tenant may still report defects with photos. */
@@ -103,6 +106,14 @@ export type ReservationLifecycle = {
     byName: string | null;
     byUserId: string | null;
     selfie: { at: string; evidenceEventId: string; photo: HandoverPhotoMeta } | null;
+    /** The scanning staff member's selfie from their own device, asked for at the same moment. */
+    handlerSelfie?: {
+      at: string;
+      evidenceEventId: string;
+      photo: HandoverPhotoMeta;
+      byUserId: string | null;
+      byName: string | null;
+    } | null;
   };
 };
 
@@ -132,6 +143,18 @@ export function handoverLiveSelfie(
   now: Date = new Date(),
 ) {
   const selfie = lifecycle?.handoverScan?.selfie;
+  if (!selfie) return null;
+  return now.getTime() - Date.parse(selfie.at) < HANDOVER_SELFIE_VALID_HOURS * 3_600_000
+    ? selfie
+    : null;
+}
+
+/** The staff member's selfie taken at the door, while it still counts for the record. */
+export function handoverHandlerSelfie(
+  lifecycle: ReservationLifecycle | null | undefined,
+  now: Date = new Date(),
+) {
+  const selfie = lifecycle?.handoverScan?.handlerSelfie;
   if (!selfie) return null;
   return now.getTime() - Date.parse(selfie.at) < HANDOVER_SELFIE_VALID_HOURS * 3_600_000
     ? selfie

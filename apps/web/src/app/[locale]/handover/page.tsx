@@ -50,8 +50,8 @@ export default async function HandoverDeskPage({
         <h1>{ar ? 'تسليم العقار للمستأجر' : 'Hand over the premises'}</h1>
         <p className="muted">
           {ar
-            ? 'امسح رمز التسليم الظاهر في حساب المستأجر أو أدخل رمزه؛ يُطلب من المستأجر فوراً التقاط صورة سيلفي بهاتفه لتظهر لك هنا. طابق وجهه، ثم سجّل حالة العقار.'
-            : 'Scan the handover code in the tenant’s account or type it; the tenant is asked at once to take a selfie on their phone, which appears here. Match the face, then record the state of the premises.'}
+            ? 'امسح رمز التسليم الظاهر في حساب المستأجر أو أدخل رمزه؛ يُطلب في اللحظة نفسها من الطرفين صورة سيلفي: المستأجر من هاتفه، وأنت من جهازك. طابق وجه المستأجر، ثم سجّل حالة العقار.'
+            : 'Scan the handover code in the tenant’s account or type it; both of you are asked for a selfie at the same moment: the tenant on their phone, and you on your device. Match the tenant’s face, then record the state of the premises.'}
         </p>
       </header>
       {allowed ? (

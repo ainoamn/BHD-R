@@ -5,6 +5,7 @@ import { leaseBookingErrorResponse, leaseBookingJson } from '@/lib/lease-booking
 import {
   offerHandover,
   previewHandover,
+  submitHandlerSelfie,
   type HandoverKey,
 } from '@/lib/lease-reservation-lifecycle-neon';
 import { requireLiveSession } from '@/lib/next-route-guard';
@@ -38,6 +39,7 @@ const photoSchema = z
 
 const bodySchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('preview'), key: keySchema, poll: z.boolean().optional() }).strict(),
+  z.object({ action: z.literal('handler_selfie'), key: keySchema, photo: photoSchema }).strict(),
   z
     .object({
       action: z.literal('offer'),
@@ -54,8 +56,8 @@ const bodySchema = z.discriminatedUnion('action', [
 
 /**
  * POST /api/handover — a staff member with `reservation.handover` reads whose pass they scanned
- * (`preview`, which asks the tenant's phone for a selfie; `poll` only re-reads), then records
- * the handover (`offer`).
+ * (`preview`, which asks the tenant's phone for a selfie; `poll` only re-reads), takes their own
+ * selfie at the same time (`handler_selfie`), then records the handover (`offer`).
  */
 export async function POST(request: Request) {
   if (!hasDatabaseUrl()) {
@@ -91,6 +93,9 @@ export async function POST(request: Request) {
     const key: HandoverKey = body.key;
     if (body.action === 'preview') {
       return leaseBookingJson(await previewHandover(claims, key, { requestSelfie: !body.poll }));
+    }
+    if (body.action === 'handler_selfie') {
+      return leaseBookingJson(await submitHandlerSelfie(claims, key, body.photo));
     }
     return leaseBookingJson(
       await offerHandover(claims, key, {

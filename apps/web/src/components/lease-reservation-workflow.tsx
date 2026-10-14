@@ -728,8 +728,8 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                 </h3>
                 <p>
                   {t(
-                    'العقد موقّع من الطرفين. عند حضور المستأجر لاستلام المفاتيح يعرض رمز التسليم المشفّر من حسابه، فيمسحه المالك أو ممثله أو حارس المبنى، ويصوّر المستأجر عند استلام المفتاح ويوثّق حالة العقار. يصل للمستأجر إشعار ليوافق، وبموافقته يُعدّ العقار مسلَّماً بالطريقة القانونية والنظامية.',
-                    'The contract is signed by both parties. When the tenant comes for the keys they show the sealed handover code from their account; the owner, a representative or the building guard scans it, photographs the tenant receiving the key and records the premises. The tenant is notified to accept, which completes the handover legally.',
+                    'العقد موقّع من الطرفين. عند حضور المستأجر لاستلام المفاتيح يعرض رمز التسليم المشفّر من حسابه، فيمسحه المالك أو ممثله أو حارس المبنى، فيلتقط كل من المستلم والمسلِّم صورة سيلفي في اللحظة نفسها، ثم يوثّق المسلِّم حالة العقار. يصل للمستأجر إشعار ليوافق، وبموافقته يُعدّ العقار مسلَّماً بالطريقة القانونية والنظامية.',
+                    'The contract is signed by both parties. When the tenant comes for the keys they show the sealed handover code from their account; the owner, a representative or the building guard scans it, the tenant and the person handing over each take a selfie at the same moment, and the premises are recorded. The tenant is notified to accept, which completes the handover legally.',
                   )}
                 </p>
                 <ol className="lrw__handover-steps">
@@ -744,8 +744,8 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                   </li>
                   <li>
                     {t(
-                      'طابق وجهه مع صورة التوقيع، وصوّره وهو يستلم المفتاح، وأضف صور العقار وملاحظاتك.',
-                      'Match their face with the signing selfie, photograph them taking the key, add premises photos and notes.',
+                      'يلتقط المستأجر سيلفي من هاتفه وتلتقط أنت سيلفي من جهازك؛ طابق وجهه مع صورة التوقيع، وأضف صور العقار وملاحظاتك.',
+                      'The tenant takes a selfie on their phone and you take one on yours; match their face with the signing selfie, add premises photos and notes.',
                     )}
                   </li>
                 </ol>

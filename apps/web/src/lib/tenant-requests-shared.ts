@@ -1,5 +1,7 @@
 /** Client-safe shapes and labels for the requests a tenant sends their landlord about a lease. */
 
+import type { ChargePayment } from '@/lib/tenant-charges-shared';
+
 export const TENANT_REQUEST_TYPES = [
   'maintenance',
   'cheque_postpone',
@@ -8,9 +10,18 @@ export const TENANT_REQUEST_TYPES = [
   'lease_renew',
   'contract_amend',
   'payment_arrangement',
+  'report_property',
+  'report_staff',
   'other',
 ] as const;
 export type TenantRequestType = (typeof TENANT_REQUEST_TYPES)[number];
+
+/** What makes a maintenance request urgent enough to bypass the arrears rule. */
+export const EMERGENCY_SCOPES = ['building', 'safety', 'occupants'] as const;
+export type EmergencyScope = (typeof EMERGENCY_SCOPES)[number];
+
+/** Photos a tenant may attach to a maintenance request or a report. */
+export const TENANT_REQUEST_PHOTOS_MAX = 4;
 
 export const TENANT_REQUEST_SOURCE = 'tenant_portal';
 
@@ -56,6 +67,23 @@ export type TenantRequest = {
   unitAr: string | null;
   unitEn: string | null;
   replies: TenantRequestReply[];
+  /** An urgent maintenance request about the building or people's safety, and management's check. */
+  emergency: { scope: EmergencyScope; verified: boolean | null } | null;
+  photoCount: number;
+  /** For a report about the company's staff: who it is about, as the tenant wrote it. */
+  staffName: string | null;
+  /** Maintenance accepted at the tenant's cost, billed as an invoice on the lease. */
+  charge: TenantRequestCharge | null;
+};
+
+export type TenantRequestCharge = {
+  invoiceId: string;
+  invoiceNumber: string;
+  amountMinor: string;
+  currency: string;
+  payment: ChargePayment;
+  dueOn: string;
+  paidAt: string | null;
 };
 
 /** A request as the landlord's team sees it, with who sent it and from which property. */
@@ -64,6 +92,8 @@ export type OwnerTenantRequest = TenantRequest & {
   propertyId: string | null;
   propertyNameAr: string | null;
   propertyNameEn: string | null;
+  /** What the tenant is late on for this lease, when anything. */
+  arrearsMinor: string | null;
 };
 
 const TYPE_LABEL: Record<TenantRequestType, { ar: string; en: string }> = {
@@ -74,6 +104,8 @@ const TYPE_LABEL: Record<TenantRequestType, { ar: string; en: string }> = {
   lease_renew: { ar: 'تجديد عقد الإيجار', en: 'Renew the lease' },
   contract_amend: { ar: 'تعديل بنود العقد', en: 'Amend the contract' },
   payment_arrangement: { ar: 'ترتيب سداد / تقسيط', en: 'Payment arrangement' },
+  report_property: { ar: 'بلاغ عن العقار', en: 'Report about the property' },
+  report_staff: { ar: 'بلاغ عن موظف لدى الشركة', en: 'Report about a staff member' },
   other: { ar: 'طلب آخر', en: 'Other request' },
 };
 
@@ -106,8 +138,39 @@ const TYPE_HINT: Record<TenantRequestType, { ar: string; en: string }> = {
     ar: 'اذكر المبلغ والجدول الذي تقترحه للسداد.',
     en: 'Give the amount and the schedule you propose.',
   },
+  report_property: {
+    ar: 'صف ما لاحظته في العقار (مخالفة، إزعاج، خطر، ضرر في المرافق المشتركة) ومكانه ووقته، وأرفق صوراً إن أمكن.',
+    en: 'Describe what you noticed at the property (a violation, nuisance, hazard or damage to shared areas), where and when, with photos if you can.',
+  },
+  report_staff: {
+    ar: 'اذكر اسم الموظف أو وصفه، وما حدث ومتى. يصل البلاغ إلى إدارة الشركة فقط ويُعامل بسرية.',
+    en: 'Name or describe the staff member, what happened and when. Only the company’s management sees it, in confidence.',
+  },
   other: { ar: 'اكتب طلبك بوضوح.', en: 'Write your request clearly.' },
 };
+
+const EMERGENCY_LABEL: Record<EmergencyScope, { ar: string; en: string }> = {
+  building: {
+    ar: 'سلامة المبنى (تسرب، كهرباء، حريق، انهيار)',
+    en: 'The building (leak, power, fire, structure)',
+  },
+  safety: { ar: 'خطر على السلامة العامة', en: 'A public-safety hazard' },
+  occupants: { ar: 'خطر على القاطنين في المبنى', en: 'A danger to the building’s occupants' },
+};
+
+export function emergencyScopeLabel(scope: EmergencyScope, ar: boolean): string {
+  return ar ? EMERGENCY_LABEL[scope].ar : EMERGENCY_LABEL[scope].en;
+}
+
+/** Reports carry no lease effect: they go to the people who manage the property or the staff. */
+export function isTenantReport(type: TenantRequestType): boolean {
+  return type === 'report_property' || type === 'report_staff';
+}
+
+/** Types the tenant may attach photos to. */
+export function requestTakesPhotos(type: TenantRequestType): boolean {
+  return type === 'maintenance' || isTenantReport(type);
+}
 
 const STATUS_LABEL: Record<TenantRequestStatus, { ar: string; en: string }> = {
   pending: { ar: 'بانتظار رد المالك', en: 'Awaiting the landlord' },
@@ -235,7 +298,49 @@ export function tenantRequestFromRow(
     unitAr: row.unitAr,
     unitEn: row.unitEn,
     replies: repliesOf(meta.replies),
+    emergency: emergencyOf(meta.emergency),
+    photoCount:
+      typeof meta.photoCount === 'number' && Number.isInteger(meta.photoCount)
+        ? Math.max(0, Math.min(TENANT_REQUEST_PHOTOS_MAX, meta.photoCount))
+        : 0,
+    staffName: text(meta.staffName),
+    charge: chargeOf(meta.charge),
   };
+}
+
+function emergencyOf(value: unknown): TenantRequest['emergency'] {
+  const item = value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
+  if (!item || !(EMERGENCY_SCOPES as readonly unknown[]).includes(item.scope)) return null;
+  return {
+    scope: item.scope as EmergencyScope,
+    verified: typeof item.verified === 'boolean' ? item.verified : null,
+  };
+}
+
+function chargeOf(value: unknown): TenantRequestCharge | null {
+  const item = value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
+  const invoiceId = text(item?.invoiceId);
+  const invoiceNumber = text(item?.invoiceNumber);
+  const amountMinor = text(item?.amountMinor);
+  if (!item || !invoiceId || !invoiceNumber || !amountMinor) return null;
+  return {
+    invoiceId,
+    invoiceNumber,
+    amountMinor,
+    currency: text(item.currency) ?? 'OMR',
+    payment: item.payment === 'before_work' ? 'before_work' : 'deferred',
+    dueOn: text(item.dueOn) ?? '',
+    paidAt: text(item.paidAt),
+  };
+}
+
+/** Accepted maintenance that waits for the tenant to pay its cost before the work starts. */
+export function requestAwaitsPayment(request: Pick<TenantRequest, 'charge' | 'status'>): boolean {
+  return (
+    request.status === 'on_hold' &&
+    request.charge?.payment === 'before_work' &&
+    !request.charge.paidAt
+  );
 }
 
 const TENANT_REQUEST_ERRORS: Record<string, { ar: string; en: string }> = {
@@ -251,6 +356,22 @@ const TENANT_REQUEST_ERRORS: Record<string, { ar: string; en: string }> = {
   tenant_request_duplicate: {
     ar: 'لديك طلب مفتوح من النوع نفسه على هذا الشيك أو العقد؛ تابعه أولاً.',
     en: 'You already have an open request of this kind for this cheque or lease.',
+  },
+  tenant_request_arrears: {
+    ar: 'عليك مبالغ متأخرة على هذا العقد؛ سدّدها أولاً لتُفتح لك طلبات الصيانة العادية. يبقى بإمكانك تقديم طلب صيانة مستعجل يخص سلامة المبنى أو القاطنين.',
+    en: 'You have overdue amounts on this lease; settle them first to open ordinary maintenance requests. You can still send an urgent request about the building’s or occupants’ safety.',
+  },
+  tenant_request_photos: {
+    ar: 'تعذّر قبول الصور: أرفق حتى 4 صور بصيغة JPG أو PNG وبحجم معقول.',
+    en: 'The photos could not be accepted: attach up to 4 JPG or PNG photos of reasonable size.',
+  },
+  tenant_charge_invalid: {
+    ar: 'أكمل بيانات المطالبة: النوع والمبلغ وتاريخ الاستحقاق.',
+    en: 'Complete the charge: category, amount and due date.',
+  },
+  tenant_charge_paid: {
+    ar: 'هذه المطالبة مسددة بالكامل.',
+    en: 'This charge is already paid in full.',
   },
   forbidden: { ar: 'ليست لديك صلاحية على هذا الطلب.', en: 'You may not act on this request.' },
   rate_limited: { ar: 'محاولات كثيرة، انتظر دقيقة.', en: 'Too many attempts; wait a minute.' },

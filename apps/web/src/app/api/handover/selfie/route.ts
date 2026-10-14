@@ -8,7 +8,8 @@ export const dynamic = 'force-dynamic';
 
 /**
  * GET /api/handover/selfie?t=… (or ?ref=…&code=…) — the selfie the tenant took when signing
- * (or, with `live=1`, the one just taken at the door), for the staff member at the door, only
+ * (or, with `live=1`, the one just taken at the door; with `live=handler`, the staff member's own
+ * selfie), for the staff member at the door, only
  * while the scanned pass is live.
  */
 export async function GET(request: Request) {
@@ -31,7 +32,8 @@ export async function GET(request: Request) {
         ? { reference, code }
         : null;
   if (!key) return new NextResponse(null, { status: 404 });
-  const which = query.get('live') === '1' ? 'live' : 'signing';
+  const live = query.get('live');
+  const which = live === '1' ? 'live' : live === 'handler' ? 'handler' : 'signing';
   const photo = await readHandoverSelfie(claims, key, which).catch(() => null);
   if (!photo) return new NextResponse(null, { status: 404 });
   return new NextResponse(new Uint8Array(photo.bytes), {

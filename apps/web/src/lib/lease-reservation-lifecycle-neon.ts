@@ -29,6 +29,7 @@ import {
   REQUIREMENT_FILE_TYPES,
   handoverAwaitingTenant,
   handoverDefectsOpen,
+  handoverHandlerSelfie,
   handoverLiveSelfie,
   handoverSelfieState,
   leaseJourneyPhase,
@@ -1312,9 +1313,12 @@ export async function previewHandover(
     }
     const party = match.snapshot.party as { nameAr?: unknown } | undefined;
     const liveSelfie = handoverLiveSelfie(lifecycle);
+    const handlerSelfie = handoverHandlerSelfie(lifecycle);
     return {
       selfieRequestedAt: lifecycle.handoverScan?.at ?? null,
       liveSelfieAt: liveSelfie?.at ?? null,
+      handlerSelfieAt: handlerSelfie?.at ?? null,
+      handlerSelfieBy: handlerSelfie?.byName ?? null,
       reservationId: match.id,
       referenceCode: match.snapshot.referenceCode,
       mode: match.snapshot.mode,
@@ -1334,24 +1338,96 @@ export async function previewHandover(
   });
 }
 
-/** The selfie the tenant took when signing, so the staff member can match the face at the door. */
+/**
+ * The staff member's own selfie at the door, from their device, asked for at the same moment as
+ * the tenant's. Both faces go on the handover record.
+ */
+export async function submitHandlerSelfie(
+  claims: SessionClaims,
+  key: HandoverKey,
+  photo: HandoverPhotoInput,
+) {
+  if (!claims.organizationId || !hasPermission(claims, 'reservation.handover')) fail('forbidden');
+  const [branded] = await brandHandoverPhotos([photo]);
+  return withinViewerTenant(claims, async (tx) => {
+    const reservationId = await reservationIdForKey(tx, key);
+    const row = await loadForOwner(tx, claims, reservationId);
+    assertOpen(row);
+    const existing = row.lifecycle.handover;
+    if (!row.lifecycle.tenantSignature || (existing && existing.status !== 'awaiting_tenant')) {
+      fail('reservation_not_ready');
+    }
+    const at = new Date().toISOString();
+    const byName = await viewerName(tx, claims.sub);
+    const [evidence] = await tx
+      .insert(workflowEvents)
+      .values({
+        organizationId: row.orgId,
+        actorUserId: claims.sub,
+        resourceType: 'reservation_handover',
+        resourceId: row.id,
+        eventType: 'reservation.handover_handler_selfie',
+        metadata: { referenceCode: row.snapshot.referenceCode, handlerPhoto: branded!.data },
+      })
+      .returning({ id: workflowEvents.id });
+    const scan = row.lifecycle.handoverScan ?? {
+      at,
+      byName,
+      byUserId: claims.sub,
+      selfie: null,
+    };
+    await saveLifecycle(tx, row, {
+      ...row.lifecycle,
+      handoverScan: {
+        ...scan,
+        handlerSelfie: {
+          at,
+          evidenceEventId: evidence!.id,
+          photo: branded!.meta,
+          byUserId: claims.sub,
+          byName,
+        },
+      },
+    });
+    await logEvent(tx, {
+      orgId: row.orgId,
+      actorUserId: claims.sub,
+      reservationId: row.id,
+      eventType: 'reservation.handover_handler_selfie_taken',
+      status: row.status,
+      metadata: { referenceCode: row.snapshot.referenceCode, evidenceEventId: evidence!.id },
+    });
+    return { takenAt: at };
+  });
+}
+
+/**
+ * Faces for the staff member at the door: the selfie the tenant took when signing, the tenant's
+ * live selfie, or the staff member's own selfie.
+ */
 export async function readHandoverSelfie(
   claims: SessionClaims,
   key: HandoverKey,
-  which: 'signing' | 'live' = 'signing',
+  which: 'signing' | 'live' | 'handler' = 'signing',
 ): Promise<{ mimeType: string; bytes: Buffer } | null> {
   const preview = await previewHandover(claims, key);
   const { db } = getDatabase();
   const dataUrl = await db.transaction(async (transaction) => {
     const match = await findLeaseReservation(transaction, 'id', preview.reservationId);
-    const live = match ? handoverLiveSelfie(lifecycleOf(match.snapshot)) : null;
+    const lifecycle = match ? lifecycleOf(match.snapshot) : null;
     const eventId =
-      which === 'live' ? live?.evidenceEventId : match?.snapshot.esign?.evidenceEventId;
+      which === 'live'
+        ? handoverLiveSelfie(lifecycle)?.evidenceEventId
+        : which === 'handler'
+          ? handoverHandlerSelfie(lifecycle)?.evidenceEventId
+          : match?.snapshot.esign?.evidenceEventId;
     if (!match || !eventId) return null;
     const path =
       which === 'live'
         ? sql<string | null>`${workflowEvents.metadata}->>'recipientPhoto'`
-        : sql<string | null>`${workflowEvents.metadata}->'esign'->>'selfiePng'`;
+        : which === 'handler'
+          ? sql<string | null>`${workflowEvents.metadata}->>'handlerPhoto'`
+          : sql<string | null>`${workflowEvents.metadata}->'esign'->>'selfiePng'`;
     return withElevatedRead(transaction, async () => {
       const [row] = await transaction
         .select({ png: path })
@@ -1406,6 +1482,8 @@ export async function offerHandover(
     }
     const now = new Date();
     const at = now.toISOString();
+    const handlerSelfie = handoverHandlerSelfie(row.lifecycle, now);
+    if (!handlerSelfie) leaseBookingFail('handover_handler_selfie_required');
     const byName = await viewerName(tx, claims.sub);
     const [evidence] = await tx
       .insert(workflowEvents)
@@ -1439,6 +1517,8 @@ export async function offerHandover(
         evidenceEventId: evidence!.id,
         recipientPhoto: selfie?.photo ?? null,
         recipientPhotoEventId: selfie?.evidenceEventId ?? null,
+        handlerPhoto: handlerSelfie.photo,
+        handlerPhotoEventId: handlerSelfie.evidenceEventId,
         photos: photos.map((photo) => photo.meta),
         acceptedAt: null,
         defectsUntil: null,
@@ -1623,8 +1703,12 @@ export async function reportHandoverDefects(
   });
 }
 
-/** `handover-recipient`, `handover-<n>` (premises) or `defect-<n>` (tenant's defect photos). */
-export const HANDOVER_PHOTO_FILE = /^(?:handover-recipient|handover-[0-5]|defect-[0-5])$/;
+/**
+ * `handover-recipient` (tenant's selfie), `handover-handler` (staff member's selfie),
+ * `handover-<n>` (premises) or `defect-<n>` (tenant's defect photos).
+ */
+export const HANDOVER_PHOTO_FILE =
+  /^(?:handover-recipient|handover-handler|handover-[0-5]|defect-[0-5])$/;
 
 /** One stored handover photo as a data URL, read inside an organization-scoped transaction. */
 export async function handoverPhotoDataUrl(
@@ -1639,12 +1723,16 @@ export async function handoverPhotoDataUrl(
     ? handover.defects?.evidenceEventId
     : file === 'handover-recipient'
       ? (handover.recipientPhotoEventId ?? handover.evidenceEventId)
-      : handover.evidenceEventId;
+      : file === 'handover-handler'
+        ? handover.handlerPhotoEventId
+        : handover.evidenceEventId;
   if (!eventId) return null;
   const path =
     file === 'handover-recipient'
       ? sql`${workflowEvents.metadata}->>'recipientPhoto'`
-      : sql`${workflowEvents.metadata}->'photos'->>${sql.raw(String(Number(file.slice(file.lastIndexOf('-') + 1))))}`;
+      : file === 'handover-handler'
+        ? sql`${workflowEvents.metadata}->>'handlerPhoto'`
+        : sql`${workflowEvents.metadata}->'photos'->>${sql.raw(String(Number(file.slice(file.lastIndexOf('-') + 1))))}`;
   return withElevatedRead(tx, async () => {
     const [row] = await tx
       .select({ value: sql<string | null>`${path}` })

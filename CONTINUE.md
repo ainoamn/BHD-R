@@ -2,6 +2,32 @@
 
 **تسليم الجلسة كاملة (0.2.24 → 0.8.33):** للاستكمال من جهاز آخر ابدأ من [`docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](./docs/handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md). فيه خطوات الإعداد، والمراحل بالتاريخ والوقت، والمهام المفتوحة. ويرافقه فهرس الإصدارات (251 إصداراً) والمحادثة كاملة بعد حذف الأسرار.
 
+# CONTINUE — 2026-10-14 17:45 (مسقط)
+
+**0.8.66** · سيلفي الطرفين، والمتأخرات والمطالبات، وسياسة الصيانة، والبلاغات:
+
+- **سيلفي المسلِّم:**
+  - `submitHandlerSelfie` يحفظ `lifecycle.handoverScan.handlerSelfie`، والصورة في `workflow_events` (`metadata.handlerPhoto`).
+  - `offerHandover` يرفض بلا سيلفي صالح (`handover_handler_selfie_required`)، وينسخه إلى `handover.handlerPhoto`.
+  - القراءة: `?live=handler` للمسلِّم، و`handover-handler` للمستأجر.
+- **المطالبات:**
+  - `tenant-charges-neon.ts`: `insertChargeInvoice` و`recordChargePayment`، والدفعة يدوية `provider: manual`.
+  - النوع من بادئة الرقم (`chargeCategoryOf`).
+  - `tenant-ledger.ts` يستبعدها من مطابقة الأقساط، ويبني `arrears` (`items` و`byCategory`).
+- **السياسة:**
+  - `platform_settings` بالمفتاح `tenant_policy:<org>` عبر `elevatedTx`.
+  - `maintenanceBlockedByPolicy`.
+  - المنع في `createTenantRequest` (`blockingArrears`) إلا لـ `emergency`.
+- **الطلبات:**
+  - `metadata.emergency {scope, verified}` و`metadata.charge {invoiceId, payment, paidAt}`، والصور في الحدث `tenant_request.photos`.
+  - الإجراءات `emergency_confirm|emergency_deny|charge_paid`.
+  - `report_staff` يُستبعد في `ownerScope` لمن لا يملك `organization.members.write` ولا دور مالك المنشأة أو مديرها.
+- **مفتوح:**
+  - لا دفع إلكتروني للمطالبات.
+  - مدير العقار لا يصدر المطالبات ولا يسجّل السداد بدوره الافتراضي.
+
+**تفاصيل:** [`docs/implementation/RELEASE-0.8.66-AR.md`](./docs/implementation/RELEASE-0.8.66-AR.md)
+
 # CONTINUE — 2026-10-14 15:30 (مسقط)
 
 **0.8.65** · سيلفي المستأجر عند المسح، وكشف حساب العقد، وطلبات المستأجر:

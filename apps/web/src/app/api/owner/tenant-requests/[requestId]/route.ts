@@ -5,26 +5,47 @@ import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { clientSafeErrorCode, statusForSafeCode } from '@/lib/client-safe-error';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
+import { PAYMENT_METHODS } from '@/lib/tenant-charges-neon';
 import { decideTenantRequest } from '@/lib/tenant-requests-neon';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
 const bodySchema = z
   .object({
-    action: z.enum(['approve', 'reject', 'in_progress', 'on_hold', 'complete', 'reply']),
+    action: z.enum([
+      'approve',
+      'reject',
+      'in_progress',
+      'on_hold',
+      'complete',
+      'reply',
+      'emergency_confirm',
+      'emergency_deny',
+      'charge_paid',
+    ]),
     note: z.string().max(1000).optional(),
-    date: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/)
+    date: isoDate.optional(),
+    charge: z
+      .object({
+        amountMinor: z.string().regex(/^\d{1,12}$/),
+        payment: z.enum(['before_work', 'deferred']),
+        dueOn: isoDate.optional(),
+      })
+      .strict()
       .optional(),
+    method: z.enum(PAYMENT_METHODS).optional(),
   })
   .strict();
 
 /**
  * POST /api/owner/tenant-requests/:requestId
- * The landlord's team answers a tenant request: approve (applying a cheque postponement or stop),
- * reject with a reason, mark in progress, on hold or completed, or reply.
+ * The landlord's team answers a tenant request: approve (applying a cheque postponement or stop,
+ * or billing maintenance to the tenant before the work or later), reject with a reason, mark in
+ * progress, on hold or completed, reply, confirm or deny an urgent request, or record that the
+ * tenant paid the maintenance charge.
  */
 export async function POST(request: Request, context: { params: Promise<{ requestId: string }> }) {
   if (!hasDatabaseUrl()) {

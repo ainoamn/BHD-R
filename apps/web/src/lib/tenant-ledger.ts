@@ -4,6 +4,8 @@
  * what is overdue and what remains of the full contract value. Client-safe and pure.
  */
 
+import { chargeCategoryOf, chargeLabel, type ChargeCategory } from '@/lib/tenant-charges-shared';
+
 export type LedgerChequeStatus =
   'pending' | 'accepted' | 'rejected' | 'deposited' | 'cleared' | 'bounced' | 'cancelled';
 
@@ -101,6 +103,28 @@ export type LeaseStatement = {
   /** Invoices that are not one of the contract's installments: services, fines, extras. */
   otherInvoices: LedgerInvoice[];
   otherOutstandingMinor: string;
+  /** Everything the tenant is late on: rent, VAT, bounced cheques and overdue bills. */
+  arrears: LeaseArrears;
+};
+
+export type ArrearsCategory = 'rent' | 'vat' | 'cheque' | ChargeCategory;
+
+export type ArrearsItem = {
+  key: string;
+  category: ArrearsCategory;
+  dueOn: string;
+  /** What is still owed on it. */
+  amountMinor: string;
+  invoiceId: string | null;
+  invoiceNumber: string | null;
+  index: number | null;
+};
+
+export type LeaseArrears = {
+  totalMinor: string;
+  items: ArrearsItem[];
+  /** Totals per category, largest first. */
+  byCategory: Array<{ category: ArrearsCategory; amountMinor: string }>;
 };
 
 const DUE_SOON_DAYS = 14;
@@ -180,6 +204,7 @@ export function buildLeaseStatement(input: {
   const usedCheques = new Set<string>();
   const usedInvoices = new Set<string>();
   const invoices = input.invoices.filter((invoice) => invoice.status !== 'void');
+  const installmentInvoices = invoices.filter((invoice) => !chargeCategoryOf(invoice.number));
   const drafts: Draft[] = [];
 
   const chequeFor = (number: string | null) => {
@@ -194,7 +219,7 @@ export function buildLeaseStatement(input: {
   if (terms) {
     for (const row of terms.schedule) {
       const cheque = chequeFor(row.chequeNumber);
-      const invoice = invoices.find(
+      const invoice = installmentInvoices.find(
         (item) =>
           !usedInvoices.has(item.id) &&
           ((row.periodFrom && item.billingPeriodStart === row.periodFrom) ||
@@ -314,7 +339,7 @@ export function buildLeaseStatement(input: {
   // With no contract schedule and no cheques, the invoices are the installments.
   const invoicesAreInstallments = !terms && !input.cheques.length;
   if (invoicesAreInstallments) {
-    for (const invoice of invoices) {
+    for (const invoice of installmentInvoices) {
       usedInvoices.add(invoice.id);
       drafts.push({
         key: `invoice-${invoice.id}`,
@@ -362,6 +387,40 @@ export function buildLeaseStatement(input: {
       return sum + (left > 0n ? left : 0n);
     }, 0n);
 
+  const arrearsItems: ArrearsItem[] = [
+    ...counted
+      .filter((line) => countsOverdue(line, today))
+      .map((line): ArrearsItem => ({
+        key: line.key,
+        category: line.kind === 'vat' ? 'vat' : line.kind === 'cheque' ? 'cheque' : 'rent',
+        dueOn: line.dueOn,
+        amountMinor: (big(line.amountMinor) - big(line.paidMinor)).toString(),
+        invoiceId: null,
+        invoiceNumber: line.invoiceNumber,
+        index: line.index,
+      })),
+    ...otherInvoices
+      .filter(
+        (invoice) =>
+          OPEN_INVOICE.has(invoice.status) &&
+          (invoice.status === 'overdue' || invoice.dueOn < today) &&
+          big(invoice.totalMinor) > big(invoice.paidMinor),
+      )
+      .map((invoice) => ({
+        key: `invoice-${invoice.id}`,
+        category: chargeCategoryOf(invoice.number) ?? ('other' as const),
+        dueOn: invoice.dueOn,
+        amountMinor: (big(invoice.totalMinor) - big(invoice.paidMinor)).toString(),
+        invoiceId: invoice.id,
+        invoiceNumber: invoice.number,
+        index: null,
+      })),
+  ].sort((a, b) => a.dueOn.localeCompare(b.dueOn));
+  const perCategory = new Map<ArrearsCategory, bigint>();
+  for (const item of arrearsItems) {
+    perCategory.set(item.category, (perCategory.get(item.category) ?? 0n) + big(item.amountMinor));
+  }
+
   return {
     contractTotalMinor: contractTotal.toString(),
     paidMinor: paid.toString(),
@@ -376,7 +435,27 @@ export function buildLeaseStatement(input: {
     lines,
     otherInvoices,
     otherOutstandingMinor: otherOutstanding.toString(),
+    arrears: {
+      totalMinor: arrearsItems.reduce((sum, item) => sum + big(item.amountMinor), 0n).toString(),
+      items: arrearsItems,
+      byCategory: [...perCategory.entries()]
+        .sort((a, b) => (b[1] > a[1] ? 1 : b[1] < a[1] ? -1 : 0))
+        .map(([category, amount]) => ({ category, amountMinor: amount.toString() })),
+    },
   };
+}
+
+const ARREARS_LABEL: Record<'rent' | 'vat' | 'cheque', { ar: string; en: string }> = {
+  rent: { ar: 'إيجار متأخر', en: 'Overdue rent' },
+  vat: { ar: 'ضريبة القيمة المضافة', en: 'VAT' },
+  cheque: { ar: 'شيك مرتجع أو غير مسدد', en: 'Bounced or unpaid cheque' },
+};
+
+export function arrearsLabel(category: ArrearsCategory, ar: boolean): string {
+  if (category === 'rent' || category === 'vat' || category === 'cheque') {
+    return ar ? ARREARS_LABEL[category].ar : ARREARS_LABEL[category].en;
+  }
+  return chargeLabel(category, ar);
 }
 
 /** Lease terms from a contract payload, or null when the contract carries none. */

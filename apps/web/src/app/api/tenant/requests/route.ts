@@ -5,11 +5,17 @@ import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { clientSafeErrorCode, statusForSafeCode } from '@/lib/client-safe-error';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
+import { HANDOVER_PHOTO_MAX } from '@/lib/stay-handover';
 import { createTenantRequest } from '@/lib/tenant-requests-neon';
-import { TENANT_REQUEST_TYPES } from '@/lib/tenant-requests-shared';
+import {
+  EMERGENCY_SCOPES,
+  TENANT_REQUEST_PHOTOS_MAX,
+  TENANT_REQUEST_TYPES,
+} from '@/lib/tenant-requests-shared';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 const bodySchema = z
   .object({
@@ -23,13 +29,29 @@ const bodySchema = z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .optional(),
+    emergency: z.enum(EMERGENCY_SCOPES).optional(),
+    staffName: z.string().max(120).optional(),
+    photos: z
+      .array(
+        z
+          .object({
+            data: z.string().startsWith('data:image/').max(HANDOVER_PHOTO_MAX),
+            takenAt: z.string().max(40),
+            source: z.enum(['camera', 'device']),
+          })
+          .strict(),
+      )
+      .max(TENANT_REQUEST_PHOTOS_MAX)
+      .optional(),
   })
   .strict();
 
 /**
  * POST /api/tenant/requests
- * The signed-in tenant sends their landlord a request about one of their leases: maintenance,
- * postponing or stopping a cheque, cancelling, renewing or amending the lease, and the like.
+ * The signed-in tenant sends their landlord a request about one of their leases: maintenance
+ * (with photos, or urgent for the building's or occupants' safety), postponing or stopping a
+ * cheque, cancelling, renewing or amending the lease, a report about the property or the
+ * company's staff, and the like.
  */
 export async function POST(request: Request) {
   if (!hasDatabaseUrl()) {

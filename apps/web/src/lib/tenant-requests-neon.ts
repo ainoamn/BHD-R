@@ -1,9 +1,10 @@
 import 'server-only';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, ne, or, sql } from 'drizzle-orm';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import {
   cheques,
+  leases,
   memberships,
   operationalRequests,
   outboxEvents,
@@ -13,19 +14,43 @@ import {
   users,
   workflowEvents,
 } from '@bhd-r/db';
+import { brandUploadedPhoto } from '@/lib/brand-uploaded-photo';
 import { sendQueuedEmailsSoon } from '@/lib/email-outbox';
+import { formatMoney } from '@/lib/format';
 import { escapeHtml } from '@/lib/lease-booking-contract';
 import type { PendingApprovalItem } from '@/lib/pending-approvals-shared';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
+import { withElevatedRead } from '@/lib/public-booking-neon';
 import { publicWebOrigin } from '@/lib/seo';
-import { findTenancyLease, findTenancyRequestLink, withinTenancyLink } from '@/lib/tenancy-neon';
+import { HANDOVER_PHOTO_MAX } from '@/lib/stay-handover';
+import {
+  findTenancyLease,
+  findTenancyRequestLink,
+  leaseStatementsInTx,
+  withinTenancyLink,
+} from '@/lib/tenancy-neon';
+import {
+  canRecordTenantPayments,
+  insertChargeInvoice,
+  muscatToday,
+  recordChargePayment,
+  type ChargePaymentMethod,
+} from '@/lib/tenant-charges-neon';
+import type { ChargePayment } from '@/lib/tenant-charges-shared';
+import { loadTenantPolicy } from '@/lib/tenant-policy-neon';
+import { maintenanceBlockedByPolicy } from '@/lib/tenant-policy-shared';
 import {
   OPEN_TENANT_REQUEST,
+  TENANT_REQUEST_PHOTOS_MAX,
   TENANT_REQUEST_SOURCE,
+  emergencyScopeLabel,
+  isTenantReport,
   requestNeedsCheque,
   requestNeedsDate,
+  requestTakesPhotos,
   tenantRequestFromRow,
   tenantRequestTypeLabel,
+  type EmergencyScope,
   type OwnerTenantRequest,
   type TenantRequestReply,
   type TenantRequestStatus,
@@ -39,6 +64,9 @@ const EMAIL_RECIPIENTS_MAX = 12;
 const OWNER_LIST_LIMIT = 100;
 const REPLIES_MAX = 40;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const REQUEST_IMAGE = /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+/** Roles that receive and see reports about the company's own staff. */
+const STAFF_REPORT_ROLES = ['organization_owner', 'organization_admin'];
 
 function fail(code: string): never {
   throw new Error(code);
@@ -53,6 +81,10 @@ function meta(value: unknown): Record<string, unknown> {
 function reference(): string {
   const day = new Date().toISOString().slice(2, 10).replaceAll('-', '');
   return `TR-${day}-${randomBytes(3).toString('hex').toUpperCase()}`;
+}
+
+function requestAwaitsPaymentRow(status: string, payment: ChargePayment): boolean {
+  return status === 'on_hold' && payment === 'before_work';
 }
 
 function replies(value: unknown): TenantRequestReply[] {
@@ -141,6 +173,42 @@ async function ownerRecipients(tx: Tx, orgId: string, propertyId: string | null)
   return rows.filter((row) => row.email.includes('@'));
 }
 
+/** The company's management, who alone receive reports about its staff. */
+async function staffReportRecipients(tx: Tx, orgId: string) {
+  const rows = await tx
+    .selectDistinct({ email: users.email, name: users.displayName })
+    .from(memberships)
+    .innerJoin(users, eq(users.id, memberships.userId))
+    .where(
+      and(
+        eq(memberships.organizationId, orgId),
+        eq(memberships.status, 'active'),
+        sql`${users.disabledAt} is null`,
+        or(
+          inArray(memberships.roleKey, STAFF_REPORT_ROLES),
+          sql`${memberships.permissions} @> '["organization.members.write"]'::jsonb`,
+        ),
+      ),
+    )
+    .limit(EMAIL_RECIPIENTS_MAX);
+  return rows.filter((row) => row.email.includes('@'));
+}
+
+/** Reports about staff stay with the company's management, never with a building owner. */
+export function canSeeStaffReports(claims: SessionClaims): boolean {
+  return (
+    !ownerPartyScope(claims) &&
+    (claims.roles.some((role) => STAFF_REPORT_ROLES.includes(role)) ||
+      hasPermission(claims, 'organization.members.write'))
+  );
+}
+
+export type TenantRequestPhotoInput = {
+  data: string;
+  takenAt: string;
+  source: 'camera' | 'device';
+};
+
 export type TenantRequestInput = {
   leaseId: string;
   type: TenantRequestType;
@@ -149,9 +217,29 @@ export type TenantRequestInput = {
   priority?: 'low' | 'normal' | 'high' | 'urgent' | undefined;
   chequeId?: string | undefined;
   proposedDate?: string | undefined;
+  /** An urgent maintenance request about the building or people's safety. */
+  emergency?: EmergencyScope | undefined;
+  staffName?: string | undefined;
+  photos?: TenantRequestPhotoInput[] | undefined;
 };
 
-/** The tenant sends a request about their lease; it lands with the landlord at once. */
+/** The tenant's arrears on a lease, read in their own session, when the landlord's rule applies. */
+async function blockingArrears(
+  tx: Tx,
+  orgId: string,
+  partyId: string,
+  leaseId: string,
+): Promise<string | null> {
+  const found = (await leaseStatementsInTx(tx, orgId, [leaseId], partyId)).get(leaseId);
+  const total = found?.statement.arrears.totalMinor ?? '0';
+  return total === '0' ? null : total;
+}
+
+/**
+ * The tenant sends a request about their lease; it lands with the landlord at once. Ordinary
+ * maintenance waits for arrears to be settled when the landlord's rule says so; urgent requests
+ * about the building or people's safety always go through, for management to verify.
+ */
 export async function createTenantRequest(claims: SessionClaims, input: TenantRequestInput) {
   const lease = await findTenancyLease(claims.sub, input.leaseId);
   if (!lease) fail('tenant_request_not_found');
@@ -159,9 +247,31 @@ export async function createTenantRequest(claims: SessionClaims, input: TenantRe
   if (requestNeedsDate(input.type) && !(input.proposedDate && ISO_DATE.test(input.proposedDate))) {
     fail('tenant_request_invalid');
   }
+  if (input.emergency && input.type !== 'maintenance') fail('tenant_request_invalid');
+  const photoInputs = input.photos ?? [];
+  if (
+    photoInputs.length > TENANT_REQUEST_PHOTOS_MAX ||
+    (photoInputs.length && !requestTakesPhotos(input.type)) ||
+    photoInputs.some(
+      (photo) => !REQUEST_IMAGE.test(photo.data) || photo.data.length > HANDOVER_PHOTO_MAX,
+    )
+  ) {
+    fail('tenant_request_photos');
+  }
   const { link } = lease;
   const orgId = link.organizationId;
+  const gated =
+    input.type === 'maintenance' &&
+    !input.emergency &&
+    maintenanceBlockedByPolicy(await loadTenantPolicy(orgId), lease.propertyId);
+  const photos: string[] = [];
+  for (const photo of photoInputs) {
+    photos.push(await brandUploadedPhoto(photo.data, HANDOVER_PHOTO_MAX));
+  }
   const created = await withinTenancyLink(claims.sub, link, async (tx) => {
+    if (gated && (await blockingArrears(tx, orgId, link.partyId, lease.leaseId))) {
+      fail('tenant_request_arrears');
+    }
     let cheque: {
       id: string;
       chequeNumber: string;
@@ -214,7 +324,10 @@ export async function createTenantRequest(claims: SessionClaims, input: TenantRe
       const data = meta(row.metadata);
       if (cheque) return data.chequeId === cheque.id;
       return (
-        input.type !== 'maintenance' && input.type !== 'other' && data.leaseId === lease.leaseId
+        input.type !== 'maintenance' &&
+        input.type !== 'other' &&
+        !isTenantReport(input.type) &&
+        data.leaseId === lease.leaseId
       );
     });
     if (clash) fail('tenant_request_duplicate');
@@ -226,9 +339,12 @@ export async function createTenantRequest(claims: SessionClaims, input: TenantRe
       .limit(1);
     const subject = input.subject?.trim().slice(0, 200) || tenantRequestTypeLabel(input.type, true);
     const description = input.description?.trim().slice(0, 2000) || null;
-    const priority =
-      input.priority ??
-      (input.type === 'cheque_stop' || input.type === 'cheque_postpone' ? 'high' : 'normal');
+    const priority = input.emergency
+      ? 'urgent'
+      : (input.priority ??
+        (input.type === 'cheque_stop' || input.type === 'cheque_postpone' ? 'high' : 'normal'));
+    const staffName =
+      input.type === 'report_staff' ? input.staffName?.trim().slice(0, 120) || null : null;
     const ref = reference();
     const [row] = await tx
       .insert(operationalRequests)
@@ -258,6 +374,8 @@ export async function createTenantRequest(claims: SessionClaims, input: TenantRe
               }
             : { currency: lease.currency }),
           ...(input.proposedDate ? { proposedDate: input.proposedDate } : {}),
+          ...(input.emergency ? { emergency: { scope: input.emergency, verified: null } } : {}),
+          ...(staffName ? { staffName } : {}),
           replies: [],
         },
       })
@@ -272,28 +390,61 @@ export async function createTenantRequest(claims: SessionClaims, input: TenantRe
       toStatus: 'pending',
       metadata: { reference: ref, type: input.type, leaseId: lease.leaseId },
     });
+    if (photos.length) {
+      const [evidence] = await tx
+        .insert(workflowEvents)
+        .values({
+          organizationId: orgId,
+          actorUserId: claims.sub,
+          resourceType: 'operational_request',
+          resourceId: row.id,
+          eventType: 'tenant_request.photos',
+          metadata: { reference: ref, photos },
+        })
+        .returning({ id: workflowEvents.id });
+      await tx
+        .update(operationalRequests)
+        .set({
+          metadata: sql`${operationalRequests.metadata} || ${JSON.stringify({
+            photosEventId: evidence!.id,
+            photoCount: photos.length,
+          })}::jsonb`,
+        })
+        .where(eq(operationalRequests.id, row.id));
+    }
 
     const typeLabel = tenantRequestTypeLabel(input.type, true);
-    const people = await ownerRecipients(tx, orgId, lease.propertyId);
+    const people =
+      input.type === 'report_staff'
+        ? await staffReportRecipients(tx, orgId)
+        : await ownerRecipients(tx, orgId, lease.propertyId);
     const ownerLink = `${publicWebOrigin()}/ar/owner/tenant-requests?focus=${row.id}`;
+    const kind = isTenantReport(input.type) ? 'بلاغ' : 'طلب';
     for (const person of people) {
       await queueEmail(tx, {
         orgId,
         requestId: row.id,
         recipient: person.email,
         name: person.name,
-        subject: `طلب جديد من المستأجر: ${typeLabel} (${ref})`,
+        subject: `${input.emergency ? 'عاجل — ' : ''}${kind} جديد من المستأجر: ${typeLabel} (${ref})`,
         lines: [
           tenant?.name
-            ? `أرسل المستأجر ${tenant.name} طلباً جديداً: ${typeLabel}.`
-            : `أرسل المستأجر طلباً جديداً: ${typeLabel}.`,
+            ? `أرسل المستأجر ${tenant.name} ${kind}اً جديداً: ${typeLabel}.`
+            : `أرسل المستأجر ${kind}اً جديداً: ${typeLabel}.`,
+          ...(input.emergency
+            ? [
+                `وصفه المستأجر بأنه مستعجل: ${emergencyScopeLabel(input.emergency, true)}. تحقّق من صحة الحالة.`,
+              ]
+            : []),
           `الموضوع: ${subject}`,
+          ...(staffName ? [`الموظف المعني: ${staffName}`] : []),
           ...(cheque ? [`الشيك رقم ${cheque.chequeNumber} المستحق في ${cheque.dueOn}.`] : []),
           ...(input.proposedDate ? [`التاريخ المقترح: ${input.proposedDate}`] : []),
-          'افتح الطلب في BHD R للرد عليه والموافقة أو الرفض.',
+          ...(photos.length ? [`أرفق ${photos.length} صورة.`] : []),
+          'افتحه في BHD R للرد عليه.',
         ],
         link: ownerLink,
-        linkLabel: 'فتح طلبات المستأجرين',
+        linkLabel: 'فتح طلبات وبلاغات المستأجرين',
       });
     }
     return { id: row.id, reference: ref, notified: people.length };
@@ -363,7 +514,10 @@ export async function actOnTenantRequest(
       toStatus: status,
       metadata: { reference: row.reference },
     });
-    const people = await ownerRecipients(tx, orgId, row.propertyId);
+    const people =
+      row.type === 'report_staff'
+        ? await staffReportRecipients(tx, orgId)
+        : await ownerRecipients(tx, orgId, row.propertyId);
     const typeLabel = tenantRequestTypeLabel(
       tenantRequestFromRow({ ...row, unitCode: null, unitAr: null, unitEn: null }, orgId).type,
       true,
@@ -409,6 +563,7 @@ function ownerScope(claims: SessionClaims) {
     eq(operationalRequests.organizationId, orgId),
     eq(operationalRequests.source, TENANT_REQUEST_SOURCE),
     ...(scoped ? [eq(properties.ownerPartyId, scoped)] : []),
+    ...(canSeeStaffReports(claims) ? [] : [ne(operationalRequests.type, 'report_staff')]),
   );
 }
 
@@ -446,19 +601,46 @@ export async function listOwnerTenantRequests(
       .where(ownerScope(claims))
       .orderBy(desc(operationalRequests.createdAt))
       .limit(OWNER_LIST_LIMIT);
-    return rows.map((row) => ({
-      ...tenantRequestFromRow(row, orgId),
-      tenantName: row.tenantName,
-      propertyId: row.propertyId,
-      propertyNameAr: row.propertyNameAr,
-      propertyNameEn: row.propertyNameEn,
-    }));
+    const requests = rows.map((row) => tenantRequestFromRow(row, orgId));
+    const statements = await leaseStatementsInTx(
+      tx,
+      orgId,
+      requests.flatMap((request) =>
+        request.leaseId && OPEN_TENANT_REQUEST.has(request.status) ? [request.leaseId] : [],
+      ),
+    );
+    return rows.map((row, index) => {
+      const request = requests[index]!;
+      const arrears = request.leaseId
+        ? statements.get(request.leaseId)?.statement.arrears.totalMinor
+        : undefined;
+      return {
+        ...request,
+        tenantName: row.tenantName,
+        propertyId: row.propertyId,
+        propertyNameAr: row.propertyNameAr,
+        propertyNameEn: row.propertyNameEn,
+        arrearsMinor: arrears && arrears !== '0' ? arrears : null,
+      };
+    });
   });
 }
 
-export type OwnerDecision = 'approve' | 'reject' | 'in_progress' | 'on_hold' | 'complete' | 'reply';
+export type OwnerDecision =
+  | 'approve'
+  | 'reject'
+  | 'in_progress'
+  | 'on_hold'
+  | 'complete'
+  | 'reply'
+  | 'emergency_confirm'
+  | 'emergency_deny'
+  | 'charge_paid';
 
-const DECISION_STATUS: Record<Exclude<OwnerDecision, 'reply'>, TenantRequestStatus> = {
+const DECISION_STATUS: Record<
+  Exclude<OwnerDecision, 'reply' | 'emergency_confirm' | 'emergency_deny' | 'charge_paid'>,
+  TenantRequestStatus
+> = {
   approve: 'approved',
   reject: 'rejected',
   in_progress: 'in_progress',
@@ -466,21 +648,44 @@ const DECISION_STATUS: Record<Exclude<OwnerDecision, 'reply'>, TenantRequestStat
   complete: 'completed',
 };
 
+export type OwnerDecisionInput = {
+  action: OwnerDecision;
+  note?: string | undefined;
+  date?: string | undefined;
+  /** Approving maintenance at the tenant's cost: paid before the work, or later by `dueOn`. */
+  charge?: { amountMinor: string; payment: ChargePayment; dueOn?: string | undefined } | undefined;
+  method?: ChargePaymentMethod | undefined;
+};
+
 /**
  * The landlord answers a tenant request. Approving a cheque postponement moves the cheque to the
- * new date; approving a stop marks the cheque cancelled. Either way the tenant is emailed.
+ * new date; approving a stop marks the cheque cancelled. Approving maintenance may bill the
+ * tenant for it, before the work or later. Management confirms or denies an urgent request.
+ * Either way the tenant is emailed.
  */
 export async function decideTenantRequest(
   claims: SessionClaims,
   requestId: string,
-  input: { action: OwnerDecision; note?: string | undefined; date?: string | undefined },
+  input: OwnerDecisionInput,
 ) {
   if (!canHandleTenantRequests(claims)) fail('forbidden');
   const note = input.note?.trim().slice(0, 1000) ?? '';
-  if ((input.action === 'reject' || input.action === 'reply') && !note) {
+  if (
+    (input.action === 'reject' || input.action === 'reply' || input.action === 'emergency_deny') &&
+    !note
+  ) {
     fail('tenant_request_invalid');
   }
+  if (input.action === 'charge_paid' && !canRecordTenantPayments(claims)) fail('forbidden');
+  if (input.charge) {
+    if (input.action !== 'approve' || !/^\d{1,12}$/.test(input.charge.amountMinor)) {
+      fail('tenant_charge_invalid');
+    }
+    if (input.charge.dueOn && !ISO_DATE.test(input.charge.dueOn)) fail('tenant_charge_invalid');
+    if (BigInt(input.charge.amountMinor) <= 0n) fail('tenant_charge_invalid');
+  }
   const orgId = claims.organizationId!;
+  const policy = input.action === 'emergency_deny' ? await loadTenantPolicy(orgId) : null;
   const result = await withinViewerTenant(claims, async (tx) => {
     const [found] = await tx
       .select({ id: operationalRequests.id })
@@ -496,7 +701,9 @@ export async function decideTenantRequest(
       .for('update')
       .limit(1);
     if (!row) fail('tenant_request_not_found');
-    if (!OPEN_TENANT_REQUEST.has(row.status)) fail('tenant_request_closed');
+    if (!OPEN_TENANT_REQUEST.has(row.status) && input.action !== 'charge_paid') {
+      fail('tenant_request_closed');
+    }
     const data = meta(row.metadata);
     const request = tenantRequestFromRow(
       { ...row, unitCode: null, unitAr: null, unitEn: null },
@@ -504,8 +711,101 @@ export async function decideTenantRequest(
     );
     const now = new Date();
     let status: TenantRequestStatus =
-      input.action === 'reply' ? request.status : DECISION_STATUS[input.action];
+      input.action === 'reply' ||
+      input.action === 'emergency_confirm' ||
+      input.action === 'emergency_deny' ||
+      input.action === 'charge_paid'
+        ? request.status
+        : DECISION_STATUS[input.action];
     let effect: string | null = null;
+    let priority = row.priority;
+
+    if (input.action === 'emergency_confirm' || input.action === 'emergency_deny') {
+      if (!request.emergency) fail('tenant_request_invalid');
+      const confirmed = input.action === 'emergency_confirm';
+      data.emergency = { ...request.emergency, verified: confirmed };
+      if (confirmed) {
+        effect = 'تحققت الإدارة من أن الحالة مستعجلة، وستُعالج بالأولوية.';
+      } else {
+        priority = 'normal';
+        const blocked =
+          request.leaseId &&
+          row.requesterPartyId &&
+          policy &&
+          maintenanceBlockedByPolicy(policy, row.propertyId)
+            ? (await leaseStatementsInTx(tx, orgId, [request.leaseId], row.requesterPartyId)).get(
+                request.leaseId,
+              )?.statement.arrears.totalMinor
+            : null;
+        if (blocked && blocked !== '0') {
+          status = 'on_hold';
+          effect =
+            'لم تعتبر الإدارة الحالة مستعجلة؛ يُعامل كطلب صيانة عادي ويُستأنف بعد تسوية المبالغ المتأخرة عليك.';
+        } else {
+          effect = 'لم تعتبر الإدارة الحالة مستعجلة؛ يُعامل كطلب صيانة عادي.';
+        }
+      }
+    }
+
+    if (input.action === 'approve' && input.charge) {
+      if (request.type !== 'maintenance' || request.charge || !request.leaseId) {
+        fail('tenant_charge_invalid');
+      }
+      if (!row.requesterPartyId) fail('tenant_charge_invalid');
+      const [lease] = await tx
+        .select({ currency: leases.currency, tenantPartyId: leases.tenantPartyId })
+        .from(leases)
+        .where(and(eq(leases.id, request.leaseId), eq(leases.organizationId, orgId)))
+        .limit(1);
+      if (!lease) fail('tenant_request_not_found');
+      const today = muscatToday();
+      const dueOn = input.charge.payment === 'before_work' ? today : (input.charge.dueOn ?? today);
+      const amount = BigInt(input.charge.amountMinor);
+      const invoice = await insertChargeInvoice(tx, {
+        orgId,
+        actorUserId: claims.sub,
+        leaseId: request.leaseId,
+        tenantPartyId: lease.tenantPartyId,
+        currency: lease.currency,
+        category: 'maintenance',
+        amountMinor: amount,
+        dueOn,
+        description: `تكلفة صيانة — ${row.subject}`.slice(0, 300),
+        notes: `طلب المستأجر ${row.reference}`,
+      });
+      data.charge = {
+        invoiceId: invoice.id,
+        invoiceNumber: invoice.number,
+        amountMinor: amount.toString(),
+        currency: lease.currency,
+        payment: input.charge.payment,
+        dueOn: invoice.dueOn,
+        paidAt: null,
+      };
+      const money = formatMoney(amount.toString(), lease.currency, 'ar');
+      if (input.charge.payment === 'before_work') {
+        status = 'on_hold';
+        effect = `تمت الموافقة على الصيانة بتكلفة ${money} على المستأجر (فاتورة ${invoice.number})، ويبدأ التنفيذ بعد سدادها.`;
+      } else {
+        effect = `تمت الموافقة على الصيانة بتكلفة ${money} على المستأجر (فاتورة ${invoice.number})، تُسدد حتى ${invoice.dueOn.split('-').reverse().join('/')}.`;
+      }
+    }
+
+    if (input.action === 'charge_paid') {
+      if (!request.charge || request.charge.paidAt) fail('tenant_charge_paid');
+      const paid = await recordChargePayment(tx, {
+        orgId,
+        actorUserId: claims.sub,
+        invoiceId: request.charge.invoiceId,
+        method: input.method ?? 'cash',
+      });
+      data.charge = { ...meta(data.charge), paidAt: paid.paidAt };
+      if (requestAwaitsPaymentRow(request.status, request.charge.payment)) status = 'approved';
+      effect =
+        status === 'approved' && request.status === 'on_hold'
+          ? 'سُجّل سداد تكلفة الصيانة؛ يُستأنف تنفيذ الطلب.'
+          : 'سُجّل سداد تكلفة الصيانة.';
+    }
 
     if (input.action === 'approve' && requestNeedsCheque(request.type) && request.chequeId) {
       const leaseId = request.leaseId;
@@ -573,6 +873,7 @@ export async function decideTenantRequest(
       .update(operationalRequests)
       .set({
         status,
+        priority,
         assignedToUserId: row.assignedToUserId ?? claims.sub,
         metadata: { ...data, replies: [...replies(data.replies), reply].slice(-REPLIES_MAX) },
         updatedAt: now,
@@ -599,15 +900,23 @@ export async function decideTenantRequest(
       if (tenant?.email) {
         const typeLabel = tenantRequestTypeLabel(request.type, true);
         const verdict =
-          status === row.status
-            ? 'أضاف المالك رداً على طلبك.'
-            : status === 'approved' || status === 'completed'
-              ? 'وافق المالك على طلبك.'
-              : status === 'rejected'
-                ? 'رفض المالك طلبك.'
-                : status === 'in_progress'
-                  ? 'بدأ المالك تنفيذ طلبك.'
-                  : 'علّق المالك طلبك مؤقتاً.';
+          input.action === 'approve' && input.charge?.payment === 'before_work'
+            ? 'وافقت إدارة العقار على طلب الصيانة، وعليك سداد تكلفتها قبل بدء التنفيذ.'
+            : input.action === 'approve' && input.charge
+              ? 'وافقت إدارة العقار على طلب الصيانة، وتُضاف تكلفتها إلى حسابك للسداد لاحقاً.'
+              : input.action === 'emergency_confirm'
+                ? 'تحققت الإدارة من طلبك المستعجل.'
+                : input.action === 'emergency_deny'
+                  ? 'راجعت الإدارة طلبك المستعجل.'
+                  : status === row.status
+                    ? 'أضاف المالك رداً على طلبك.'
+                    : status === 'approved' || status === 'completed'
+                      ? 'وافق المالك على طلبك.'
+                      : status === 'rejected'
+                        ? 'رفض المالك طلبك.'
+                        : status === 'in_progress'
+                          ? 'بدأ المالك تنفيذ طلبك.'
+                          : 'علّق المالك طلبك مؤقتاً.';
         await queueEmail(tx, {
           orgId,
           requestId: row.id,
@@ -670,4 +979,67 @@ export async function tenantRequestApprovalItems(
       requestType: row.type,
     }));
   });
+}
+
+const DATA_URL = /^data:([^;,]+);base64,(.+)$/;
+
+async function requestPhotoInTx(
+  tx: Tx,
+  orgId: string,
+  metadata: unknown,
+  index: number,
+): Promise<string | null> {
+  const eventId = meta(metadata).photosEventId;
+  if (typeof eventId !== 'string') return null;
+  return withElevatedRead(tx, async () => {
+    const [event] = await tx
+      .select({
+        value: sql<string | null>`${workflowEvents.metadata}->'photos'->>${sql.raw(String(index))}`,
+      })
+      .from(workflowEvents)
+      .where(and(eq(workflowEvents.id, eventId), eq(workflowEvents.organizationId, orgId)))
+      .limit(1);
+    return event?.value ?? null;
+  });
+}
+
+/** One photo the tenant attached, for the tenant themselves or the landlord's people in scope. */
+export async function readTenantRequestPhoto(
+  claims: SessionClaims,
+  requestId: string,
+  index: number,
+): Promise<{ mimeType: string; bytes: Buffer } | null> {
+  if (!Number.isInteger(index) || index < 0 || index >= TENANT_REQUEST_PHOTOS_MAX) return null;
+  const link = await findTenancyRequestLink(claims.sub, requestId);
+  let dataUrl: string | null = null;
+  if (link) {
+    dataUrl = await withinTenancyLink(claims.sub, link, async (tx) => {
+      const [row] = await tx
+        .select({ metadata: operationalRequests.metadata })
+        .from(operationalRequests)
+        .where(
+          and(
+            eq(operationalRequests.id, requestId),
+            eq(operationalRequests.organizationId, link.organizationId),
+            eq(operationalRequests.requesterPartyId, link.partyId),
+          ),
+        )
+        .limit(1);
+      return row ? requestPhotoInTx(tx, link.organizationId, row.metadata, index) : null;
+    });
+  } else if (canHandleTenantRequests(claims)) {
+    const orgId = claims.organizationId!;
+    dataUrl = await withinViewerTenant(claims, async (tx) => {
+      const [row] = await tx
+        .select({ metadata: operationalRequests.metadata })
+        .from(operationalRequests)
+        .leftJoin(properties, eq(properties.id, operationalRequests.propertyId))
+        .where(and(eq(operationalRequests.id, requestId), ownerScope(claims)))
+        .limit(1);
+      return row ? requestPhotoInTx(tx, orgId, row.metadata, index) : null;
+    });
+  }
+  const parsed = dataUrl && REQUEST_IMAGE.test(dataUrl) ? DATA_URL.exec(dataUrl) : null;
+  if (!parsed) return null;
+  return { mimeType: parsed[1]!, bytes: Buffer.from(parsed[2]!, 'base64') };
 }

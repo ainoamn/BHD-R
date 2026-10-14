@@ -200,6 +200,11 @@ const ERRORS = {
     'التقط صورة سيلفي لنفسك أولاً، ثم أكّد استلام العقار.',
     'Take a selfie first, then confirm you received the premises.',
   ],
+  handover_handler_selfie_required: [
+    409,
+    'التقط صورة سيلفي لنفسك من جهازك أولاً — يُوثَّق التسليم بوجه المستلم والمسلِّم معاً.',
+    'Take a selfie of yourself on your device first — the handover records both the recipient’s and the handler’s faces.',
+  ],
   handover_selfie_closed: [
     409,
     'لا يُطلب منك سيلفي الآن — اطلب من ممثل المالك مسح رمزك مرة أخرى.',
@@ -797,6 +802,7 @@ function visibleLifecycle(lifecycle: ReservationLifecycle) {
           status: lifecycle.handover.status ?? ('accepted' as const),
           scanned: lifecycle.handover.method === 'scan',
           hasRecipientPhoto: Boolean(lifecycle.handover.recipientPhoto),
+          hasHandlerPhoto: Boolean(lifecycle.handover.handlerPhoto),
           photos: (lifecycle.handover.photos ?? []).map((photo) => photo.index),
           acceptedAt: lifecycle.handover.acceptedAt ?? null,
           defectsUntil: lifecycle.handover.defectsUntil ?? null,

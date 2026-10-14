@@ -2,7 +2,9 @@ import { EmptyState } from '@bhd-r/ui';
 import { Link } from '@/i18n/navigation';
 import { formatMoney } from '@/lib/format';
 import { TenantRequestLauncher, type RequestLease } from '@/components/tenant-request-form';
+import { chargeCategoryOf, chargeLabel } from '@/lib/tenant-charges-shared';
 import {
+  arrearsLabel,
   chequeIsAdjustable,
   ledgerLineLabel,
   ledgerStatusLabel,
@@ -47,7 +49,67 @@ export function requestLeasesOf(statements: TenancyStatement[], ar: boolean): Re
         dueOn: line.dueOn,
         amountMinor: line.amountMinor,
       })),
+      maintenanceBlocked: item.maintenanceBlocked,
+      arrearsMinor: item.statement.arrears.totalMinor,
+      arrears: item.statement.arrears.byCategory,
     }));
+}
+
+/** Everything the tenant is late on for this lease: rent, utility bills, maintenance, damage. */
+function ArrearsPanel({
+  item,
+  ar,
+  money,
+}: {
+  item: TenancyStatement;
+  ar: boolean;
+  money: (minor: string) => string;
+}) {
+  const { arrears } = item.statement;
+  if (arrears.totalMinor === '0') return null;
+  return (
+    <section className="tenant-arrears" aria-labelledby={`arrears-${item.leaseId}`}>
+      <header>
+        <h3 id={`arrears-${item.leaseId}`}>{ar ? 'المتأخرات عليك' : 'Your arrears'}</h3>
+        <strong>{money(arrears.totalMinor)}</strong>
+      </header>
+      <ul className="tenant-arrears__totals">
+        {arrears.byCategory.map((group) => (
+          <li key={group.category}>
+            <span>{arrearsLabel(group.category, ar)}</span>
+            <b>{money(group.amountMinor)}</b>
+          </li>
+        ))}
+      </ul>
+      <ul className="tenant-arrears__items">
+        {arrears.items.map((entry) => (
+          <li key={entry.key}>
+            <span>
+              {arrearsLabel(entry.category, ar)}
+              {entry.index ? ` ${entry.index}` : ''}
+              {entry.invoiceNumber ? (
+                <small className="tenant-table__sub">
+                  <bdi>{entry.invoiceNumber}</bdi>
+                </small>
+              ) : null}
+            </span>
+            <span>
+              {ar ? 'استحق في ' : 'Due '}
+              {day(entry.dueOn, ar)}
+            </span>
+            <b>{money(entry.amountMinor)}</b>
+          </li>
+        ))}
+      </ul>
+      {item.maintenanceBlocked ? (
+        <p className="notice notice--error">
+          {ar
+            ? 'حسب سياسة إدارة العقار لا تُقبل طلبات الصيانة العادية قبل تسوية هذه المبالغ. يمكنك دائماً تقديم طلب صيانة مستعجل يخص سلامة المبنى أو القاطنين.'
+            : 'Under the property management’s rule, ordinary maintenance requests open once these are settled. You can always send an urgent request about the building’s or occupants’ safety.'}
+        </p>
+      ) : null}
+    </section>
+  );
 }
 
 function StatementCard({
@@ -125,6 +187,8 @@ function StatementCard({
       >
         <span style={{ width: `${paidShare}%` }} />
       </div>
+
+      <ArrearsPanel item={item} ar={ar} money={money} />
 
       {statement.lines.length ? (
         <div className="data-table-wrap tenant-table-wrap">
@@ -233,14 +297,18 @@ function StatementCard({
             ) : null}
           </h3>
           <ul>
-            {statement.otherInvoices.map((invoice) => (
-              <li key={invoice.id}>
-                <bdi>{invoice.number}</bdi>
-                <span>{day(invoice.dueOn, ar)}</span>
-                <span>{money(invoice.totalMinor)}</span>
-                <span className="tenant-status">{domainStatusLabel(invoice.status, ar)}</span>
-              </li>
-            ))}
+            {statement.otherInvoices.map((invoice) => {
+              const category = chargeCategoryOf(invoice.number);
+              return (
+                <li key={invoice.id}>
+                  {category ? <strong>{chargeLabel(category, ar)}</strong> : null}
+                  <bdi>{invoice.number}</bdi>
+                  <span>{day(invoice.dueOn, ar)}</span>
+                  <span>{money(invoice.totalMinor)}</span>
+                  <span className="tenant-status">{domainStatusLabel(invoice.status, ar)}</span>
+                </li>
+              );
+            })}
           </ul>
         </div>
       ) : null}
@@ -291,6 +359,20 @@ function StatementCard({
               type="other"
               label={ar ? 'طلب آخر' : 'Other'}
             />
+            <TenantRequestLauncher
+              locale={locale}
+              leases={leases}
+              leaseId={item.leaseId}
+              type="report_property"
+              label={ar ? 'بلاغ عن العقار' : 'Report about the property'}
+            />
+            <TenantRequestLauncher
+              locale={locale}
+              leases={leases}
+              leaseId={item.leaseId}
+              type="report_staff"
+              label={ar ? 'بلاغ عن موظف' : 'Report a staff member'}
+            />
             {item.contractId ? (
               <Link
                 className="button button--quiet button--tiny"
@@ -303,6 +385,53 @@ function StatementCard({
         </footer>
       ) : null}
     </article>
+  );
+}
+
+/** A short reminder of the arrears on the requests page, with the way to the full statement. */
+export function TenantArrearsSummary({
+  statements,
+  ar,
+  locale,
+}: {
+  statements: TenancyStatement[];
+  ar: boolean;
+  locale: 'ar' | 'en';
+}) {
+  const owing = statements.filter((item) => item.statement.arrears.totalMinor !== '0');
+  if (!owing.length) return null;
+  return (
+    <div className="tenant-arrears tenant-arrears--summary">
+      {owing.map((item) => (
+        <div key={item.leaseId}>
+          <header>
+            <h3>
+              {ar ? 'المتأخرات عليك — ' : 'Your arrears — '}
+              {tenancyUnitLabel(item, ar)}
+            </h3>
+            <strong>{formatMoney(item.statement.arrears.totalMinor, item.currency, locale)}</strong>
+          </header>
+          <ul className="tenant-arrears__totals">
+            {item.statement.arrears.byCategory.map((group) => (
+              <li key={group.category}>
+                <span>{arrearsLabel(group.category, ar)}</span>
+                <b>{formatMoney(group.amountMinor, item.currency, locale)}</b>
+              </li>
+            ))}
+          </ul>
+          {item.maintenanceBlocked ? (
+            <p className="muted">
+              {ar
+                ? 'طلبات الصيانة العادية لهذا العقد تُفتح بعد تسوية المتأخرات؛ الطلبات المستعجلة متاحة دائماً.'
+                : 'Ordinary maintenance for this lease opens once the arrears are settled; urgent requests are always open.'}
+            </p>
+          ) : null}
+        </div>
+      ))}
+      <Link className="button button--quiet button--tiny" href="/tenant/invoices">
+        {ar ? 'كشف الحساب الكامل' : 'Full statement'}
+      </Link>
+    </div>
   );
 }
 

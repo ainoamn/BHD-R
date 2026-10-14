@@ -223,6 +223,16 @@ function HandoverRecord({
           },
         ]
       : []),
+    ...(handover.hasHandlerPhoto
+      ? [
+          {
+            file: 'handover-handler',
+            label: ar
+              ? `من سلّمك المفتاح${handover.byName ? ` — ${handover.byName}` : ''}`
+              : `Who handed you the key${handover.byName ? ` — ${handover.byName}` : ''}`,
+          },
+        ]
+      : []),
     ...handover.photos.map((index) => ({
       file: `handover-${index}`,
       label: ar ? `صورة العقار ${index + 1}` : `Premises photo ${index + 1}`,

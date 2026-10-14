@@ -124,6 +124,10 @@ const KNOWN_CODES = new Set([
   'tenant_request_not_found',
   'tenant_request_closed',
   'tenant_request_duplicate',
+  'tenant_request_arrears',
+  'tenant_request_photos',
+  'tenant_charge_invalid',
+  'tenant_charge_paid',
 ]);
 
 export function clientSafeErrorCode(error: unknown, fallback = 'request_failed'): string {
@@ -158,9 +162,13 @@ export function statusForSafeCode(code: string): number {
     case 'tenant_request_not_found':
       return 404;
     case 'tenant_request_invalid':
+    case 'tenant_request_photos':
+    case 'tenant_charge_invalid':
       return 400;
     case 'tenant_request_closed':
     case 'tenant_request_duplicate':
+    case 'tenant_request_arrears':
+    case 'tenant_charge_paid':
       return 409;
     case 'legal_invalid':
     case 'legal_file_invalid':

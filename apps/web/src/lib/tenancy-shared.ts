@@ -106,6 +106,9 @@ export type TenancyStatement = {
   unitCode: string | null;
   unitAr: string | null;
   unitEn: string | null;
+  propertyId: string | null;
+  /** The landlord stops ordinary maintenance requests until the arrears are settled. */
+  maintenanceBlocked: boolean;
   statement: LeaseStatement;
 };
 

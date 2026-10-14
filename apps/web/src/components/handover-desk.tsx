@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { fileFromDataUrl } from '@/components/handover-selfie';
 import { NoteTranslateBar } from '@/components/note-translate';
+import { EsignCameraCapture } from '@/components/stays/esign/esign-camera-capture';
 import { compressPhoto } from '@/components/stays/stay-handover-form';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { HANDOVER_PHOTOS_MAX, HANDOVER_PHOTO_MAX } from '@/lib/stay-handover';
@@ -22,6 +24,8 @@ type Preview = {
   hasSelfie: boolean;
   selfieRequestedAt: string | null;
   liveSelfieAt: string | null;
+  handlerSelfieAt: string | null;
+  handlerSelfieBy: string | null;
 };
 
 /** How often the desk checks whether the tenant's selfie has arrived. */
@@ -152,6 +156,9 @@ export function HandoverDesk({
           locale={locale}
           handoverKey={key}
           preview={preview}
+          onHandlerSelfie={(takenAt) =>
+            setPreview((current) => (current ? { ...current, handlerSelfieAt: takenAt } : current))
+          }
           onDone={() => setDone(preview.referenceCode)}
           onBack={() => {
             setPreview(null);
@@ -420,11 +427,105 @@ function PhotoPicker({
   );
 }
 
+/** The staff member's own selfie from the front camera of their device, at the same moment as the tenant's. */
+function HandlerSelfieCard({
+  ar,
+  locale,
+  handoverKey,
+  onSent,
+}: {
+  ar: boolean;
+  locale: 'ar' | 'en';
+  handoverKey: Key;
+  onSent: (takenAt: string) => void;
+}) {
+  const [shot, setShot] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function send() {
+    if (!shot) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const data = await compressPhoto(fileFromDataUrl(shot), HANDOVER_PHOTO_MAX);
+      const result = await browserNextMutation<{ takenAt: string }>('/api/handover', {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'handler_selfie',
+          key: handoverKey,
+          photo: { data, takenAt: new Date().toISOString(), source: 'camera' },
+        }),
+      });
+      onSent(result.takenAt);
+    } catch (caught) {
+      setError(errorMessage(caught, ar));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="handover-desk__handler" aria-labelledby="handover-handler-title">
+      <h3 id="handover-handler-title">
+        {ar ? 'التقط صورة سيلفي لنفسك الآن' : 'Take a selfie of yourself now'}
+      </h3>
+      <p className="muted">
+        {ar
+          ? 'يُطلب من المستلم والمسلِّم التصوير في الوقت نفسه: المستأجر من هاتفه، وأنت من جهازك. تُرفق الصورتان بمحضر التسليم ويراهما المستأجر.'
+          : 'The recipient and the handler are asked at the same time: the tenant on their phone, you on your device. Both photos join the handover record and the tenant sees them.'}
+      </p>
+      {shot ? (
+        <div className="handover-selfie__review">
+          <img src={shot} alt={ar ? 'صورتك' : 'Your selfie'} />
+          <div className="handover-selfie__actions">
+            <button
+              type="button"
+              className="button button--primary"
+              disabled={busy}
+              onClick={() => void send()}
+            >
+              {busy ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : ar ? 'اعتماد صورتي' : 'Use my photo'}
+            </button>
+            <button
+              type="button"
+              className="button button--quiet"
+              disabled={busy}
+              onClick={() => setShot(null)}
+            >
+              {ar ? 'إعادة الالتقاط' : 'Retake'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <EsignCameraCapture
+          locale={locale}
+          facingMode="user"
+          frame="selfie"
+          onCaptured={setShot}
+          onError={() =>
+            setError(
+              ar
+                ? 'تعذّر تشغيل الكاميرا؛ اسمح بالوصول إليها أو التقط الصورة من زر الرفع.'
+                : 'The camera could not start; allow access or use the upload button.',
+            )
+          }
+        />
+      )}
+      {error ? (
+        <p className="notice notice--error" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 function HandoverForm({
   ar,
   locale,
   handoverKey,
   preview,
+  onHandlerSelfie,
   onDone,
   onBack,
 }: {
@@ -432,6 +533,7 @@ function HandoverForm({
   locale: 'ar' | 'en';
   handoverKey: Key;
   preview: Preview;
+  onHandlerSelfie: (takenAt: string) => void;
   onDone: () => void;
   onBack: () => void;
 }) {
@@ -498,6 +600,16 @@ function HandoverForm({
               <figcaption>{ar ? 'سيلفي الآن' : 'Selfie now'}</figcaption>
             </figure>
           ) : null}
+          {preview.handlerSelfieAt ? (
+            <figure>
+              <img
+                className="handover-desk__selfie"
+                src={`${selfieHref(handoverKey)}&live=handler&v=${encodeURIComponent(preview.handlerSelfieAt)}`}
+                alt={ar ? 'سيلفي المسلِّم' : 'Handler’s selfie'}
+              />
+              <figcaption>{ar ? 'أنت (المسلِّم)' : 'You (handler)'}</figcaption>
+            </figure>
+          ) : null}
         </div>
         <div>
           <span className="ops-kicker">
@@ -528,6 +640,15 @@ function HandoverForm({
           ) : null}
         </div>
       </div>
+
+      {preview.ready && !preview.handlerSelfieAt ? (
+        <HandlerSelfieCard
+          ar={ar}
+          locale={locale}
+          handoverKey={handoverKey}
+          onSent={onHandlerSelfie}
+        />
+      ) : null}
 
       {!preview.ready ? (
         <p className="notice notice--error">
@@ -626,7 +747,7 @@ function HandoverForm({
             <button
               type="button"
               className="button button--primary"
-              disabled={busy || recipientName.trim().length < 2}
+              disabled={busy || recipientName.trim().length < 2 || !preview.handlerSelfieAt}
               onClick={() => void submit()}
             >
               {busy
@@ -637,7 +758,13 @@ function HandoverForm({
                   ? 'إرسال المحضر لموافقة المستأجر'
                   : 'Send for the tenant’s acceptance'}
             </button>
-            {!preview.liveSelfieAt ? (
+            {!preview.handlerSelfieAt ? (
+              <small className="muted">
+                {ar
+                  ? 'التقط صورتك السيلفي أعلاه أولاً؛ لا يُرسل المحضر بدون وجه المسلِّم.'
+                  : 'Take your selfie above first; the record is not sent without the handler’s face.'}
+              </small>
+            ) : !preview.liveSelfieAt ? (
               <small className="muted">
                 {ar
                   ? 'يمكنك الإرسال الآن؛ لن يستطيع المستأجر الموافقة على الاستلام قبل أن يلتقط صورته.'

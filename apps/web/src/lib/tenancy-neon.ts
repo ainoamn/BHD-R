@@ -38,7 +38,9 @@ import {
   type TenancyStatement,
   type TenancyStay,
 } from '@/lib/tenancy-shared';
-import { buildLeaseStatement, ledgerTermsOf } from '@/lib/tenant-ledger';
+import { buildLeaseStatement, ledgerTermsOf, type LeaseStatement } from '@/lib/tenant-ledger';
+import { loadTenantPolicy } from '@/lib/tenant-policy-neon';
+import { maintenanceBlockedByPolicy } from '@/lib/tenant-policy-shared';
 import {
   TENANT_REQUEST_SOURCE,
   tenantRequestFromRow,
@@ -341,8 +343,129 @@ export async function findTenancyRequestLink(
 
 type LinkTenancy = Omit<MyTenancy, 'stays' | 'alerts'> & { reservationUnitIds: string[] };
 
+export type LeaseStatementRow = {
+  leaseId: string;
+  tenantPartyId: string;
+  propertyId: string | null;
+  unitId: string;
+  currency: string;
+  statement: LeaseStatement;
+};
+
+/**
+ * Account statements for leases of one organization, read in the caller's transaction (tenant or
+ * staff). With `partyId`, only that tenant's invoices count.
+ */
+export async function leaseStatementsInTx(
+  tx: Tx,
+  orgId: string,
+  leaseIds: readonly string[],
+  partyId?: string,
+): Promise<Map<string, LeaseStatementRow>> {
+  const ids = [...new Set(leaseIds)];
+  if (!ids.length) return new Map();
+  const [leaseRows, chequeRows, invoiceRows] = await Promise.all([
+    tx
+      .select({
+        id: leases.id,
+        tenantPartyId: leases.tenantPartyId,
+        unitId: leases.unitId,
+        propertyId: units.propertyId,
+        currency: leases.currency,
+        leaseTerms: sql<unknown>`${contracts.payloadSnapshot}->'leaseTerms'`,
+        contractAmountMinor: sql<
+          string | null
+        >`${contracts.payloadSnapshot}->'amount'->>'amountMinor'`,
+      })
+      .from(leases)
+      .leftJoin(units, eq(units.id, leases.unitId))
+      .leftJoin(contracts, eq(contracts.id, leases.contractId))
+      .where(and(eq(leases.organizationId, orgId), inArray(leases.id, ids))),
+    tx
+      .select({
+        id: cheques.id,
+        leaseId: cheques.leaseId,
+        chequeNumber: cheques.chequeNumber,
+        bankName: cheques.bankName,
+        amountMinor: cheques.amountMinor,
+        dueOn: cheques.dueOn,
+        reviewStatus: cheques.reviewStatus,
+      })
+      .from(cheques)
+      .where(and(eq(cheques.organizationId, orgId), inArray(cheques.leaseId, ids)))
+      .orderBy(asc(cheques.dueOn))
+      .limit(STATEMENT_ROWS),
+    tx
+      .select({
+        id: invoices.id,
+        leaseId: invoices.leaseId,
+        number: invoices.invoiceNumber,
+        status: invoices.status,
+        issuedOn: invoices.issuedOn,
+        dueOn: invoices.dueOn,
+        totalMinor: invoices.totalMinor,
+        paidMinor: invoices.paidMinor,
+        billingPeriodStart: invoices.billingPeriodStart,
+      })
+      .from(invoices)
+      .where(
+        and(
+          eq(invoices.organizationId, orgId),
+          inArray(invoices.leaseId, ids),
+          ne(invoices.status, 'draft'),
+          ...(partyId ? [eq(invoices.tenantPartyId, partyId)] : []),
+        ),
+      )
+      .orderBy(asc(invoices.dueOn))
+      .limit(STATEMENT_ROWS),
+  ]);
+  const today = muscatToday();
+  return new Map(
+    leaseRows.map((row) => [
+      row.id,
+      {
+        leaseId: row.id,
+        tenantPartyId: row.tenantPartyId,
+        propertyId: row.propertyId,
+        unitId: row.unitId,
+        currency: row.currency,
+        statement: buildLeaseStatement({
+          terms: ledgerTermsOf({ leaseTerms: row.leaseTerms }),
+          contractAmountMinor: row.contractAmountMinor,
+          cheques: chequeRows
+            .filter((cheque) => cheque.leaseId === row.id)
+            .map((cheque) => ({
+              id: cheque.id,
+              chequeNumber: cheque.chequeNumber,
+              bankName: cheque.bankName,
+              amountMinor: cheque.amountMinor.toString(),
+              dueOn: String(cheque.dueOn),
+              reviewStatus: cheque.reviewStatus,
+            })),
+          invoices: invoiceRows
+            .filter((invoice) => invoice.leaseId === row.id)
+            .map((invoice) => ({
+              id: invoice.id,
+              number: invoice.number,
+              status: invoice.status,
+              issuedOn: String(invoice.issuedOn),
+              dueOn: String(invoice.dueOn),
+              totalMinor: invoice.totalMinor.toString(),
+              paidMinor: invoice.paidMinor.toString(),
+              billingPeriodStart: invoice.billingPeriodStart
+                ? String(invoice.billingPeriodStart)
+                : null,
+            })),
+          today,
+        }),
+      },
+    ]),
+  );
+}
+
 async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkTenancy> {
   const { organizationId: org, partyId: party, landlord } = link;
+  const policy = await loadTenantPolicy(org);
   return withinTenant(userId, link, async (tx) => {
     const [contractRows, signedRows, leaseRows, invoiceRows, paymentRows, reservationRows] =
       await Promise.all([
@@ -462,50 +585,8 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
       (row) => row.sourceType !== 'stay_booking' && STATEMENT_LEASE_STATUS.has(row.status),
     );
     const statementLeaseIds = statementLeases.map((row) => row.id);
-    const [chequeRows, leaseInvoiceRows, requestRows] = await Promise.all([
-      statementLeaseIds.length
-        ? tx
-            .select({
-              id: cheques.id,
-              leaseId: cheques.leaseId,
-              chequeNumber: cheques.chequeNumber,
-              bankName: cheques.bankName,
-              amountMinor: cheques.amountMinor,
-              dueOn: cheques.dueOn,
-              reviewStatus: cheques.reviewStatus,
-            })
-            .from(cheques)
-            .where(
-              and(eq(cheques.organizationId, org), inArray(cheques.leaseId, statementLeaseIds)),
-            )
-            .orderBy(asc(cheques.dueOn))
-            .limit(STATEMENT_ROWS)
-        : [],
-      statementLeaseIds.length
-        ? tx
-            .select({
-              id: invoices.id,
-              leaseId: invoices.leaseId,
-              number: invoices.invoiceNumber,
-              status: invoices.status,
-              issuedOn: invoices.issuedOn,
-              dueOn: invoices.dueOn,
-              totalMinor: invoices.totalMinor,
-              paidMinor: invoices.paidMinor,
-              billingPeriodStart: invoices.billingPeriodStart,
-            })
-            .from(invoices)
-            .where(
-              and(
-                eq(invoices.organizationId, org),
-                eq(invoices.tenantPartyId, party),
-                inArray(invoices.leaseId, statementLeaseIds),
-                ne(invoices.status, 'draft'),
-              ),
-            )
-            .orderBy(asc(invoices.dueOn))
-            .limit(STATEMENT_ROWS)
-        : [],
+    const [statements, requestRows] = await Promise.all([
+      leaseStatementsInTx(tx, org, statementLeaseIds, party),
       tx
         .select({
           id: operationalRequests.id,
@@ -534,49 +615,30 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
         .orderBy(desc(operationalRequests.createdAt))
         .limit(LIST_LIMIT),
     ]);
-    const today = muscatToday();
-    const statementItems: TenancyStatement[] = statementLeases.map((row) => ({
-      leaseId: row.id,
-      contractId: row.contractId,
-      contractReference: row.contractReference,
-      landlord,
-      status: row.status,
-      startsOn: String(row.startsOn),
-      endsOn: String(row.endsOn),
-      currency: row.currency,
-      unitCode: row.unitCode,
-      unitAr: row.unitAr,
-      unitEn: row.unitEn,
-      statement: buildLeaseStatement({
-        terms: ledgerTermsOf({ leaseTerms: row.leaseTerms }),
-        contractAmountMinor: row.contractAmountMinor,
-        cheques: chequeRows
-          .filter((cheque) => cheque.leaseId === row.id)
-          .map((cheque) => ({
-            id: cheque.id,
-            chequeNumber: cheque.chequeNumber,
-            bankName: cheque.bankName,
-            amountMinor: cheque.amountMinor.toString(),
-            dueOn: String(cheque.dueOn),
-            reviewStatus: cheque.reviewStatus,
-          })),
-        invoices: leaseInvoiceRows
-          .filter((invoice) => invoice.leaseId === row.id)
-          .map((invoice) => ({
-            id: invoice.id,
-            number: invoice.number,
-            status: invoice.status,
-            issuedOn: String(invoice.issuedOn),
-            dueOn: String(invoice.dueOn),
-            totalMinor: invoice.totalMinor.toString(),
-            paidMinor: invoice.paidMinor.toString(),
-            billingPeriodStart: invoice.billingPeriodStart
-              ? String(invoice.billingPeriodStart)
-              : null,
-          })),
-        today,
-      }),
-    }));
+    const statementItems: TenancyStatement[] = statementLeases.flatMap((row) => {
+      const found = statements.get(row.id);
+      if (!found) return [];
+      return [
+        {
+          leaseId: row.id,
+          contractId: row.contractId,
+          contractReference: row.contractReference,
+          landlord,
+          status: row.status,
+          startsOn: String(row.startsOn),
+          endsOn: String(row.endsOn),
+          currency: row.currency,
+          unitCode: row.unitCode,
+          unitAr: row.unitAr,
+          unitEn: row.unitEn,
+          propertyId: found.propertyId,
+          maintenanceBlocked:
+            found.statement.arrears.totalMinor !== '0' &&
+            maintenanceBlockedByPolicy(policy, found.propertyId),
+          statement: found.statement,
+        },
+      ];
+    });
     const requestItems: TenantRequest[] = requestRows.map((row) => tenantRequestFromRow(row, org));
 
     const signed = new Set(signedRows.map((row) => row.contractId));

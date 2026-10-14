@@ -45,8 +45,21 @@
     animation: none;
   }
 }
-.handover-selfie .esign-cam {
+.handover-selfie .esign-cam,
+.handover-desk__handler .esign-cam {
   max-width: 22rem;
+}
+.handover-desk__handler {
+  display: grid;
+  gap: 0.6rem;
+  padding: 1rem;
+  background: #fffaf0;
+  border: 1px solid #ecd9a3;
+  border-radius: 1rem;
+}
+.handover-desk__handler h3,
+.handover-desk__handler p {
+  margin: 0;
 }
 .handover-selfie__review {
   display: grid;
@@ -210,8 +223,70 @@
 
 .tenant-space__toolbar {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 0.5rem;
   margin-bottom: 1rem;
+}
+
+/* Arrears: what the tenant is late on, by category. */
+.tenant-arrears {
+  display: grid;
+  gap: 0.7rem;
+  padding: 1rem;
+  background: #fff7f7;
+  border: 1px solid #f2c4c4;
+  border-radius: 1rem;
+}
+.tenant-arrears--summary {
+  margin-bottom: 1rem;
+}
+.tenant-arrears--summary > div {
+  display: grid;
+  gap: 0.5rem;
+}
+.tenant-arrears header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.tenant-arrears h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: #8e2028;
+}
+.tenant-arrears header strong {
+  color: #8e2028;
+  font-size: 1.15rem;
+}
+.tenant-arrears ul {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tenant-arrears__totals {
+  grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
+}
+.tenant-arrears__totals li,
+.tenant-arrears__items li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0.7rem;
+  background: #fff;
+  border-radius: 0.6rem;
+}
+.tenant-arrears__items li span:first-child {
+  flex: 1 1 10rem;
+}
+.tenant-arrears p {
+  margin: 0;
 }
 
 /* Request form (modal). */
@@ -286,6 +361,59 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+.tenant-request-form fieldset {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.75rem;
+  border: 1px solid #e3ebe7;
+  border-radius: 0.75rem;
+}
+.tenant-request-form legend {
+  padding: 0 0.3rem;
+  font-weight: 700;
+  font-size: 0.88rem;
+}
+.tenant-request-form__check {
+  display: flex !important;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-weight: 700;
+}
+.tenant-request-form__check input {
+  margin-top: 0.25rem;
+}
+.tenant-request-form__urgent {
+  background: #fffaf0;
+  border-color: #ecd9a3 !important;
+}
+.tenant-request-form__arrears {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+  padding: 0.85rem;
+  color: #6d1a20;
+  background: #fde9e9;
+  border-radius: 0.8rem;
+}
+.tenant-request-form__arrears ul {
+  display: grid;
+  gap: 0.25rem;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tenant-request-form__arrears li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.tenant-request-form__arrears p {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.6;
 }
 
 /* Request lists: the tenant's own and the landlord's inbox. */
@@ -381,5 +509,99 @@
 }
 .tenant-request__date span {
   font-size: 0.85rem;
+  font-weight: 700;
+}
+.tenant-request__owes dd {
+  color: #8e2028;
+  font-weight: 800;
+}
+.tenant-request__pay {
+  margin: 0;
+}
+.tenant-request__photos {
+  margin: 0;
+}
+.tenant-request__photos img {
+  cursor: zoom-in;
+}
+.tenant-request__verify {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.7rem;
+  background: #fffaf0;
+  border: 1px solid #ecd9a3;
+  border-radius: 0.75rem;
+}
+.tenant-request__cost {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.7rem;
+  border: 1px solid #e3ebe7;
+  border-radius: 0.75rem;
+}
+.tenant-request__cost-fields,
+.owner-charges__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(11rem, 100%), 1fr));
+  gap: 0.6rem;
+}
+.tenant-request__cost-fields label,
+.owner-charges__row label {
+  display: grid;
+  gap: 0.3rem;
+}
+.tenant-request__cost-fields span {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.tenant-request__charge-pay {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  background: #fff4e0;
+  border-radius: 0.7rem;
+}
+.tenant-request__charge-pay select {
+  width: auto;
+}
+
+/* Owner: tabs, charges and the arrears rule. */
+.tenant-requests__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.1rem;
+}
+.owner-charges {
+  display: grid;
+  gap: 1rem;
+}
+.owner-charges h2,
+.owner-policy h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+.owner-charges__form,
+.owner-policy {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1.1rem;
+  background: rgb(255 255 255 / 0.97);
+  border: 1px solid rgb(9 45 36 / 0.09);
+  border-radius: 1rem;
+}
+.owner-policy__org {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.75rem;
+  border: 1px solid #e3ebe7;
+  border-radius: 0.75rem;
+}
+.owner-policy__org legend {
+  padding: 0 0.3rem;
   font-weight: 700;
 }

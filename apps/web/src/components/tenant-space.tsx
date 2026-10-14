@@ -5,7 +5,11 @@ import { formatMoney } from '@/lib/format';
 import { BadgeChips } from '@/components/badges/badge-chips';
 import { TenantRequestLauncher } from '@/components/tenant-request-form';
 import { TenantRequestsList } from '@/components/tenant-requests-list';
-import { requestLeasesOf, TenantStatements } from '@/components/tenant-statement';
+import {
+  requestLeasesOf,
+  TenantArrearsSummary,
+  TenantStatements,
+} from '@/components/tenant-statement';
 import type { BadgeChip } from '@/lib/badges-shared';
 import { loadMyTenancy, loadMyTenantBadges } from '@/lib/tenancy-neon';
 import {
@@ -572,7 +576,31 @@ export function TenantSpaceContent({
                 label={ar ? '＋ طلب جديد' : '＋ New request'}
                 className="button button--primary"
               />
+              <TenantRequestLauncher
+                locale={locale}
+                leases={requestLeases}
+                type="maintenance"
+                label={ar ? 'طلب صيانة' : 'Maintenance'}
+                className="button button--quiet"
+              />
+              <TenantRequestLauncher
+                locale={locale}
+                leases={requestLeases}
+                type="report_property"
+                label={ar ? 'بلاغ عن العقار' : 'Report about the property'}
+                className="button button--quiet"
+              />
+              <TenantRequestLauncher
+                locale={locale}
+                leases={requestLeases}
+                type="report_staff"
+                label={ar ? 'بلاغ عن موظف' : 'Report a staff member'}
+                className="button button--quiet"
+              />
             </div>
+            {data.statements.some((item) => item.statement.arrears.totalMinor !== '0') ? (
+              <TenantArrearsSummary statements={data.statements} ar={ar} locale={locale} />
+            ) : null}
             {requestLeases.length ? null : (
               <p className="tenant-notice">
                 {ar

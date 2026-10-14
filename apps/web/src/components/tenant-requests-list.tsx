@@ -6,6 +6,8 @@ import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import {
   OPEN_TENANT_REQUEST,
+  emergencyScopeLabel,
+  requestAwaitsPayment,
   tenantRequestErrorText,
   tenantRequestStatusLabel,
   tenantRequestTypeLabel,
@@ -98,8 +100,85 @@ export function RequestSummary({
             <dd>{requestStamp(request.proposedDate, ar)}</dd>
           </div>
         ) : null}
+        {request.emergency ? (
+          <div>
+            <dt>{ar ? 'مستعجل' : 'Urgent'}</dt>
+            <dd>
+              {emergencyScopeLabel(request.emergency.scope, ar)}
+              {' · '}
+              {request.emergency.verified === true
+                ? ar
+                  ? 'أكدته الإدارة'
+                  : 'Confirmed by management'
+                : request.emergency.verified === false
+                  ? ar
+                    ? 'لم تعتبره الإدارة مستعجلاً'
+                    : 'Not considered urgent'
+                  : ar
+                    ? 'قيد تحقق الإدارة'
+                    : 'Being verified'}
+            </dd>
+          </div>
+        ) : null}
+        {request.staffName ? (
+          <div>
+            <dt>{ar ? 'الموظف المعني' : 'Staff member'}</dt>
+            <dd>{request.staffName}</dd>
+          </div>
+        ) : null}
+        {request.charge ? (
+          <div>
+            <dt>{ar ? 'تكلفة على المستأجر' : 'Cost to the tenant'}</dt>
+            <dd>
+              {formatMoney(request.charge.amountMinor, request.charge.currency, locale)}
+              {' · '}
+              <bdi>{request.charge.invoiceNumber}</bdi>
+              {' · '}
+              {request.charge.paidAt
+                ? ar
+                  ? 'مسددة'
+                  : 'Paid'
+                : request.charge.payment === 'before_work'
+                  ? ar
+                    ? 'تُسدد قبل بدء العمل'
+                    : 'Pay before the work'
+                  : ar
+                    ? `مؤجلة حتى ${requestStamp(request.charge.dueOn, ar)}`
+                    : `Deferred until ${requestStamp(request.charge.dueOn, ar)}`}
+            </dd>
+          </div>
+        ) : null}
       </dl>
+      {requestAwaitsPayment(request) ? (
+        <p className="notice notice--error tenant-request__pay">
+          {ar
+            ? 'وافقت الإدارة على الطلب، ويبدأ التنفيذ بعد سداد التكلفة المذكورة. تواصل مع الإدارة للسداد، وسيُستأنف الطلب تلقائياً بعد تسجيله.'
+            : 'Management approved the request; the work starts once the cost above is paid. Contact management to pay; the request resumes as soon as it is recorded.'}
+        </p>
+      ) : null}
       {request.description ? <p className="tenant-request__text">{request.description}</p> : null}
+      {request.photoCount ? (
+        <div className="handover-shots tenant-request__photos">
+          {Array.from({ length: request.photoCount }, (_, index) => {
+            const href = `/api/tenant/requests/${encodeURIComponent(request.id)}/photos/${index}`;
+            return (
+              <a
+                key={index}
+                className="handover-shots__item"
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <img
+                  src={href}
+                  alt={ar ? `صورة ${index + 1}` : `Photo ${index + 1}`}
+                  loading="lazy"
+                />
+              </a>
+            );
+          })}
+        </div>
+      ) : null}
       {request.replies.length ? (
         <ol className="tenant-request__replies">
           {request.replies.map((reply, index) => (
@@ -220,8 +299,8 @@ export function TenantRequestsList({
     return (
       <p className="dash-alerts__empty">
         {ar
-          ? 'لم ترسل أي طلب بعد. يمكنك طلب صيانة أو تأجيل شيك أو إيقافه أو إلغاء العقد وغيرها، ويصل الطلب إلى المالك مباشرة.'
-          : 'No requests yet. Ask for maintenance, to postpone or stop a cheque, to cancel the lease and more; it reaches the landlord directly.'}
+          ? 'لم ترسل أي طلب بعد. يمكنك طلب صيانة أو تأجيل شيك أو إيقافه أو إلغاء العقد، أو تقديم بلاغ عن العقار أو عن أحد العاملين لدى الشركة، ويصل مباشرة إلى المسؤولين.'
+          : 'No requests yet. Ask for maintenance, to postpone or stop a cheque, to cancel the lease, or report something about the property or a staff member; it reaches the people in charge directly.'}
       </p>
     );
   }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { chargeCategoryOf, chargeInvoiceNumber } from '@/lib/tenant-charges-shared';
 import {
   buildLeaseStatement,
   chequeIsAdjustable,
@@ -158,6 +159,48 @@ describe('buildLeaseStatement', () => {
     expect(result.paidMinor).toBe('50000');
     expect(result.overdueMinor).toBe('150000');
     expect(result.remainingMinor).toBe('2350000');
+  });
+
+  it('keeps charge invoices out of the installments and lists every arrear by category', () => {
+    const invoice = (id: string, number: string, dueOn: string, total: string, paid = '0') => ({
+      id,
+      number,
+      status: 'issued',
+      issuedOn: dueOn,
+      dueOn,
+      totalMinor: total,
+      paidMinor: paid,
+      billingPeriodStart: null,
+    });
+    const result = buildLeaseStatement({
+      terms: null,
+      contractAmountMinor: null,
+      cheques: [cheque('101', 'bounced', '2026-01-01')],
+      invoices: [
+        invoice('e1', 'ELC-260110-AAAAAA', '2026-01-20', '30000'),
+        invoice('w1', 'WTR-260110-BBBBBB', '2026-01-25', '12000', '2000'),
+        invoice('m1', 'MNT-260301-CCCCCC', '2026-03-01', '80000'),
+      ],
+      today: '2026-02-01',
+    });
+    expect(result.lines.map((line) => line.kind)).toEqual(['cheque']);
+    expect(result.otherInvoices).toHaveLength(3);
+    expect(result.arrears.items.map((item) => item.category)).toEqual([
+      'cheque',
+      'electricity',
+      'water',
+    ]);
+    expect(result.arrears.totalMinor).toBe('1040000');
+    expect(result.arrears.byCategory[0]).toEqual({ category: 'cheque', amountMinor: '1000000' });
+  });
+});
+
+describe('charge invoices', () => {
+  it('round-trips the category through the invoice number', () => {
+    const number = chargeInvoiceNumber('damage', '2026-10-14', 'a1-b2c3d4');
+    expect(number).toBe('DMG-261014-A1B2C3');
+    expect(chargeCategoryOf(number)).toBe('damage');
+    expect(chargeCategoryOf('INV-0001')).toBeNull();
   });
 });
 

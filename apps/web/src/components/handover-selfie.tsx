@@ -6,7 +6,7 @@ import { EsignCameraCapture } from '@/components/stays/esign/esign-camera-captur
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { HANDOVER_PHOTO_MAX } from '@/lib/stay-handover';
 
-function fileFromDataUrl(dataUrl: string): File {
+export function fileFromDataUrl(dataUrl: string): File {
   const [head, body = ''] = dataUrl.split(',');
   const type = /data:([^;]+)/.exec(head ?? '')?.[1] ?? 'image/jpeg';
   const binary = atob(body);
@@ -79,8 +79,8 @@ export function HandoverSelfieCard({
             ? 'قبل أن توافق على استلام العقار التقط صورة لوجهك بكاميرا هاتفك الأمامية؛ تُرفق بمحضر التسليم كإثبات لاستلامك المفتاح.'
             : 'Before accepting the premises, take a photo of your face with your front camera; it joins the handover record as proof you received the key.'
           : ar
-            ? `مسح ${scannedBy ?? 'ممثل المالك'} رمزك. التقط صورة لوجهك بكاميرا هاتفك الأمامية لتظهر له فوراً ويطابقها معك، وتُرفق بمحضر التسليم.`
-            : `${scannedBy ?? 'The owner’s representative'} scanned your code. Take a photo of your face with your front camera; it shows on their screen at once and joins the handover record.`}
+            ? `مسح ${scannedBy ?? 'ممثل المالك'} رمزك. التقط صورة لوجهك بكاميرا هاتفك الأمامية لتظهر له فوراً ويطابقها معك، وتُرفق بمحضر التسليم. في الوقت نفسه يلتقط ممثل المالك صورة سيلفي لنفسه، فيُوثَّق التسليم بوجه المستلم والمسلِّم معاً.`
+            : `${scannedBy ?? 'The owner’s representative'} scanned your code. Take a photo of your face with your front camera; it shows on their screen at once and joins the handover record. At the same time the representative takes a selfie of themselves, so the record carries both faces.`}
       </p>
       {shot ? (
         <div className="handover-selfie__review">
