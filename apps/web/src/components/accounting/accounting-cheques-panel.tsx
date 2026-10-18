@@ -241,6 +241,7 @@ export function AccountingChequesPanel({
                       title={`${row.chequeNumber} · ${row.tenantName || row.propertyName || ''}`.trim()}
                       detail={[row.propertyName, row.unitCode, row.bankName].filter(Boolean).join(' · ')}
                       dueOn={row.dueOn}
+                      status={row.lineStatus || row.reviewStatus}
                     />
                   </td>
                 </tr>

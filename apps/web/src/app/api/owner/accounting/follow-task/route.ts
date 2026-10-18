@@ -43,6 +43,7 @@ export async function POST(request: Request) {
       priority?: string;
       dueOn?: string;
       note?: string;
+      attachments?: string[];
     } | null;
     if (!body?.kind || !body.sourceId || !body.title || !body.assignedToUserId) {
       return NextResponse.json({ error: { code: 'invalid_input' } }, { status: 400 });
@@ -56,6 +57,7 @@ export async function POST(request: Request) {
       priority: body.priority,
       dueOn: body.dueOn,
       note: body.note,
+      attachments: Array.isArray(body.attachments) ? body.attachments : undefined,
     });
     return NextResponse.json(task, { status: task.existing ? 200 : 201 });
   } catch (error) {

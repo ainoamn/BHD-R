@@ -899,7 +899,7 @@ export function AccountingHub({
                         <div className="accounting-hub__row-actions">
                           <button
                             type="button"
-                            className="button button--quiet button--sm"
+                            className="accounting-act accounting-act--print"
                             onClick={() => {
                               void printAccountingDocument(row, locale).then((failed) => {
                                 if (failed) setError(failed);
@@ -910,7 +910,7 @@ export function AccountingHub({
                           </button>
                           <button
                             type="button"
-                            className="button button--quiet button--sm"
+                            className="accounting-act accounting-act--send"
                             disabled={busy}
                             onClick={() =>
                               void run(async () => {
@@ -953,6 +953,7 @@ export function AccountingHub({
                               .filter(Boolean)
                               .join(' · ')}
                             dueOn={row.occurredOn}
+                            status={row.status}
                           />
                         </div>
                       </td>
@@ -1059,6 +1060,7 @@ export function AccountingHub({
                           title={`${row.reference} · ${textLabel(row.description)}`}
                           detail={sourceLabel(row.sourceType)}
                           dueOn={row.occurredOn}
+                          status={row.status}
                         />
                       </td>
                     </tr>
@@ -1150,6 +1152,7 @@ export function AccountingHub({
                           title={`${row.reference} · ${textLabel(row.description)}`}
                           detail={row.category}
                           dueOn={row.issuedOn}
+                          status={row.status}
                         />
                       </td>
                     </tr>

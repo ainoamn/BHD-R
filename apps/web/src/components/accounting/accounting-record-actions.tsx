@@ -51,7 +51,7 @@ export function AccountingRecordActions({
       {kind === 'journal' && status === 'draft' ? (
         <button
           type="button"
-          className="button button--quiet button--sm"
+          className="accounting-act accounting-act--void"
           disabled={disabled}
           onClick={() =>
             run('discard', 'journal', ar ? 'حذف مسودة القيد نهائياً؟' : 'Delete this draft journal?')
@@ -63,7 +63,7 @@ export function AccountingRecordActions({
       {kind === 'journal' && status === 'posted' ? (
         <button
           type="button"
-          className="button button--quiet button--sm"
+          className="accounting-act accounting-act--draft"
           disabled={disabled}
           onClick={() =>
             run(
@@ -81,7 +81,7 @@ export function AccountingRecordActions({
       {invoiceLike && status !== 'void' && status !== 'paid' ? (
         <button
           type="button"
-          className="button button--quiet button--sm"
+          className="accounting-act accounting-act--void"
           disabled={disabled}
           onClick={() =>
             run('void', 'invoice', ar ? 'إلغاء الفاتورة؟ لا يُلغى ما عليه مدفوعات.' : 'Void this invoice?')
@@ -93,7 +93,7 @@ export function AccountingRecordActions({
       {kind === 'expense' && status !== 'cancelled' && status !== 'void' ? (
         <button
           type="button"
-          className="button button--quiet button--sm"
+          className="accounting-act accounting-act--void"
           disabled={disabled}
           onClick={() => run('cancel', 'expense', ar ? 'إلغاء المصروف؟' : 'Cancel this expense?')}
         >
@@ -102,7 +102,7 @@ export function AccountingRecordActions({
       ) : null}
       <button
         type="button"
-        className="button button--quiet button--sm"
+        className="accounting-act accounting-act--archive"
         disabled={disabled}
         onClick={() =>
           run(

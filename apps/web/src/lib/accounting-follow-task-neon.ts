@@ -25,6 +25,7 @@ const OPEN = ['pending', 'approved', 'in_progress', 'on_hold'] as const;
 export type AccountingFollowAssignee = {
   userId: string;
   name: string;
+  roleKey: string;
 };
 
 function canCreateFollowTask(claims: SessionClaims): boolean {
@@ -52,17 +53,27 @@ export async function listAccountingFollowAssignees(
       .select({
         userId: users.id,
         name: users.displayName,
+        roleKey: memberships.roleKey,
       })
       .from(memberships)
       .innerJoin(users, eq(users.id, memberships.userId))
       .where(and(eq(memberships.organizationId, orgId), eq(memberships.status, 'active')));
-    const seen = new Set<string>();
-    const people: AccountingFollowAssignee[] = [];
+    const seen = new Map<string, AccountingFollowAssignee>();
     for (const row of rows) {
-      if (seen.has(row.userId)) continue;
-      seen.add(row.userId);
-      people.push({ userId: row.userId, name: row.name || row.userId.slice(0, 8) });
+      const current = seen.get(row.userId);
+      if (!current) {
+        seen.set(row.userId, {
+          userId: row.userId,
+          name: row.name || row.userId.slice(0, 8),
+          roleKey: row.roleKey,
+        });
+        continue;
+      }
+      if (!current.roleKey.split(' · ').includes(row.roleKey)) {
+        current.roleKey = `${current.roleKey} · ${row.roleKey}`;
+      }
     }
+    const people = [...seen.values()];
     people.sort((a, b) => a.name.localeCompare(b.name, 'ar'));
     return people;
   });
@@ -79,6 +90,7 @@ export async function createAccountingFollowTask(
     priority?: string | undefined;
     dueOn?: string | undefined;
     note?: string | undefined;
+    attachments?: string[] | undefined;
   },
 ): Promise<{ id: string; reference: string; existing: boolean }> {
   if (!canCreateFollowTask(claims)) fail('forbidden');
@@ -95,7 +107,16 @@ export async function createAccountingFollowTask(
   const relatedId = UUID.test(sourceId) ? sourceId : null;
   const dueAt =
     input.dueOn && ISO_DATE.test(input.dueOn) ? new Date(`${input.dueOn}T16:00:00.000Z`) : null;
-  const description = [input.detail?.trim(), input.note?.trim(), sourceId ? `source:${kind}:${sourceId}` : '']
+  const attachments = (input.attachments ?? [])
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .slice(0, 8);
+  const description = [
+    input.detail?.trim(),
+    input.note?.trim(),
+    attachments.length ? `مرفقات: ${attachments.join('، ')}` : '',
+    sourceId ? `source:${kind}:${sourceId}` : '',
+  ]
     .filter(Boolean)
     .join('\n')
     .slice(0, 4000);
@@ -144,6 +165,7 @@ export async function createAccountingFollowTask(
         relatedType,
         relatedId,
         dueAt,
+        checklist: attachments.map((label) => ({ label: label.slice(0, 200), done: false })),
       })
       .returning({ id: workTasks.id, reference: workTasks.reference, status: workTasks.status });
     const row = rows[0];

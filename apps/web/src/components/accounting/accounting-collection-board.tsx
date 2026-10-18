@@ -159,7 +159,7 @@ export function AccountingCollectionBoard({
                     {canManage && uuid ? (
                       <button
                         type="button"
-                        className="button button--primary button--sm"
+                        className="accounting-act accounting-act--send"
                         disabled={busyId === row.id}
                         onClick={() => {
                           setBusyId(row.id);

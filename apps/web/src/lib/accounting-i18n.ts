@@ -19,6 +19,10 @@ const EXPENSE_STATUS: Record<string, { ar: string; en: string }> = {
   overdue: { ar: 'متأخرة', en: 'Overdue' },
   succeeded: { ar: 'محصّلة', en: 'Collected' },
   draft: { ar: 'مسودة', en: 'Draft' },
+  upcoming: { ar: 'قادم', en: 'Upcoming' },
+  collecting: { ar: 'قيد التحصيل', en: 'Being collected' },
+  due_soon: { ar: 'مستحق قريباً', en: 'Due soon' },
+  bounced: { ar: 'مرتجع', en: 'Bounced' },
 };
 
 const SOURCE_TYPE: Record<string, { ar: string; en: string }> = {
