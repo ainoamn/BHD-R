@@ -229,8 +229,9 @@ export function AccountingEntryDrawer({
                 type="button"
                 className="button button--quiet"
                 onClick={() => {
-                  const failed = printAccountingJournal(detail, locale);
-                  if (failed) setError(failed);
+                  void printAccountingJournal(detail, locale).then((failed) => {
+                    if (failed) setError(failed);
+                  });
                 }}
               >
                 {ar ? 'طباعة' : 'Print'}

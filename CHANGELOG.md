@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.76 — 2026-10-18
+
+- **طباعة المحاسبة:** زر الطباعة ينزّل ملف PDF ويفتحه ثم يستدعي الطباعة من عارض الملف، بدل نافذة `about:blank` البيضاء.
+
 ## 0.8.75 — 2026-10-18
 
 - **توافق Hisaby:** معرّفات `bhd-r:…` في التصدير، حمولة قيود أغنى للدفع، ووثيقة عدم تعارض GL التشغيلي مع حسابي.

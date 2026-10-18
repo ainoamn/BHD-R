@@ -805,8 +805,9 @@ export function AccountingHub({
                             type="button"
                             className="button button--quiet button--sm"
                             onClick={() => {
-                              const failed = printAccountingDocument(row, locale);
-                              if (failed) setError(failed);
+                              void printAccountingDocument(row, locale).then((failed) => {
+                                if (failed) setError(failed);
+                              });
                             }}
                           >
                             {ar ? 'طباعة' : 'Print'}
@@ -1424,8 +1425,11 @@ export function AccountingHub({
               disabled={!report || busy}
               onClick={() => {
                 if (!report) return;
-                const failed = printCurrentReport(report, reportKind, fromDate, toDate, locale);
-                if (failed) setError(failed);
+                void printCurrentReport(report, reportKind, fromDate, toDate, locale).then(
+                  (failed) => {
+                    if (failed) setError(failed);
+                  },
+                );
               }}
             >
               {ar ? 'طباعة التقرير' : 'Print report'}
@@ -1675,7 +1679,7 @@ function printCurrentReport(
   fromDate: string,
   toDate: string,
   locale: 'ar' | 'en',
-): string | null {
+): Promise<string | null> {
   const ar = locale === 'ar';
   const currency = reportCurrency(report);
   const title = reportTitle(kind, ar);
