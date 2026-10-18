@@ -209,9 +209,13 @@ export function AccountingHub({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const tab = searchParams.get('focus')
-    ? 'deposits'
-    : parseAccountingHubTab(searchParams.get('tab'));
+  /** Document/journal highlight id from print “back”; deposits used focus alone historically. */
+  const focusId = searchParams.get('focus');
+  const tab = searchParams.get('tab')
+    ? parseAccountingHubTab(searchParams.get('tab'))
+    : focusId
+      ? 'deposits'
+      : 'dashboard';
   const [dash, setDash] = useState<HubDash | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [journals, setJournals] = useState<JournalRow[]>([]);
@@ -301,15 +305,45 @@ export function AccountingHub({
     (next: AccountingHubTab) => {
       startTransition(() => {
         const params = new URLSearchParams(searchParams.toString());
-        if (next !== 'deposits') params.delete('focus');
+        // Manual tab clicks clear row highlight; deposit deep-links keep focus without a tab.
+        if (next === 'deposits' && !searchParams.get('tab') && focusId) {
+          /* keep focus */
+        } else {
+          params.delete('focus');
+          params.delete('open');
+        }
         if (next === 'dashboard') params.delete('tab');
         else params.set('tab', next);
         const query = params.toString();
         router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
       });
     },
-    [pathname, router, searchParams],
+    [focusId, pathname, router, searchParams],
   );
+
+  useEffect(() => {
+    if (!active || !focusId) return;
+    if (tab === 'documents' && documents.length) {
+      const row = documents.find((doc) => doc.id === focusId);
+      if (row?.journalId) setOpenJournalId(row.journalId);
+      const timer = window.setTimeout(() => {
+        document
+          .getElementById(`accounting-doc-${focusId}`)
+          ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 140);
+      return () => window.clearTimeout(timer);
+    }
+    if (tab === 'journal' && journals.length) {
+      if (/^[0-9a-f-]{36}$/i.test(focusId)) setOpenJournalId(focusId);
+      const timer = window.setTimeout(() => {
+        document
+          .getElementById(`accounting-journal-${focusId}`)
+          ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 140);
+      return () => window.clearTimeout(timer);
+    }
+    return undefined;
+  }, [active, documents, focusId, journals, tab]);
 
   const refreshDash = useCallback(async () => {
     const data = await getJson<HubDash>('/api/owner/accounting/hub');
@@ -795,7 +829,13 @@ export function AccountingHub({
                   documents.map((row) => (
                     <tr
                       key={`${row.kind}-${row.id}`}
-                      className={row.journalId ? 'is-clickable' : undefined}
+                      id={`accounting-doc-${row.id}`}
+                      className={[
+                        row.journalId ? 'is-clickable' : '',
+                        focusId === row.id ? 'is-focus' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ') || undefined}
                       onClick={() => {
                         if (row.journalId) setOpenJournalId(row.journalId);
                       }}
@@ -930,7 +970,8 @@ export function AccountingHub({
                   journals.map((row) => (
                     <tr
                       key={row.id}
-                      className="is-clickable"
+                      id={`accounting-journal-${row.id}`}
+                      className={`is-clickable${focusId === row.id || openJournalId === row.id ? ' is-focus' : ''}`}
                       onClick={() => setOpenJournalId(row.id)}
                     >
                       <td>{row.reference}</td>

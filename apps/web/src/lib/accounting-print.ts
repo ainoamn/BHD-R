@@ -12,22 +12,52 @@ function currentAccountingReturn(): string | null {
   return path.startsWith('/owner/accounting') ? path : null;
 }
 
-/** Open the letterheaded print page (same flow as rent invoices → Save as PDF). */
+/** Hub return URL with focus/open so Back highlights the printed row. */
+function returnWithFocus(kind: AccountingPrintKind, id: string, from: string | null): string | null {
+  const base = from ?? '/owner/accounting';
+  if (!base.startsWith('/owner/accounting')) return from;
+  const qIndex = base.indexOf('?');
+  const path = qIndex >= 0 ? base.slice(0, qIndex) : base;
+  const params = new URLSearchParams(qIndex >= 0 ? base.slice(qIndex + 1) : '');
+  if (kind === 'document') {
+    if (!params.get('tab')) params.set('tab', 'documents');
+    if (/^[0-9a-f-]{36}$/i.test(id)) params.set('focus', id);
+  } else if (kind === 'journal') {
+    if (!params.get('tab')) params.set('tab', 'journal');
+    if (/^[0-9a-f-]{36}$/i.test(id)) {
+      params.set('open', id);
+      params.set('focus', id);
+    }
+  } else if (kind === 'report' && !params.get('tab')) {
+    params.set('tab', 'reports');
+  }
+  const query = params.toString();
+  return query ? `${path}?${query}` : path;
+}
+
+/**
+ * Open the letterheaded print page in a new tab only.
+ * Do not pass `noopener` to window.open — browsers then return null and a naive
+ * fallback would also navigate the current tab (double open).
+ */
 export function openAccountingPrint(
   locale: 'ar' | 'en',
   kind: AccountingPrintKind,
   id: string,
   extra?: Record<string, string>,
 ): string | null {
-  const from = extra?.from ?? currentAccountingReturn();
+  const from = returnWithFocus(kind, id, extra?.from ?? currentAccountingReturn());
   const path = accountingPrintPath(locale, kind, id, {
     ...(extra ?? {}),
     ...(from ? { from } : {}),
   });
-  const opened = window.open(path, '_blank', 'noopener,noreferrer');
-  if (!opened) {
-    window.location.assign(path);
+  const opened = window.open(path, '_blank');
+  if (opened) {
+    opened.opener = null;
+    return null;
   }
+  // Popup blocked: same-tab only (never both).
+  window.location.assign(path);
   return null;
 }
 

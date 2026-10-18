@@ -57,6 +57,7 @@ export function accountingPrintPath(
 /**
  * Safe back target for the print toolbar: the hub URL the user came from, or the tab that
  * matches the printed kind (documents / journal / reports) instead of the dashboard.
+ * Always attaches focus/open for the printed id so the hub can highlight that row.
  */
 export function accountingPrintBackHref(
   kind: AccountingPrintKind,
@@ -64,16 +65,32 @@ export function accountingPrintBackHref(
   from?: string | null,
 ): string {
   const raw = (from ?? '').trim().slice(0, 512);
-  if (
+  let href =
     raw.startsWith('/owner/accounting') &&
     !raw.startsWith('//') &&
     !/^[a-z][a-z0-9+.-]*:/i.test(raw)
-  ) {
-    return raw;
+      ? raw
+      : kind === 'document'
+        ? '/owner/accounting?tab=documents'
+        : kind === 'journal'
+          ? '/owner/accounting?tab=journal'
+          : kind === 'report'
+            ? '/owner/accounting?tab=reports'
+            : '/owner/accounting';
+
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return href;
+
+  const qIndex = href.indexOf('?');
+  const path = qIndex >= 0 ? href.slice(0, qIndex) : href;
+  const params = new URLSearchParams(qIndex >= 0 ? href.slice(qIndex + 1) : '');
+  if (kind === 'document') {
+    if (!params.get('tab')) params.set('tab', 'documents');
+    params.set('focus', id);
+  } else if (kind === 'journal') {
+    if (!params.get('tab')) params.set('tab', 'journal');
+    params.set('open', id);
+    params.set('focus', id);
   }
-  const open = /^[0-9a-f-]{36}$/i.test(id) ? `&open=${encodeURIComponent(id)}` : '';
-  if (kind === 'document') return `/owner/accounting?tab=documents${open}`;
-  if (kind === 'journal') return `/owner/accounting?tab=journal${open}`;
-  if (kind === 'report') return '/owner/accounting?tab=reports';
-  return '/owner/accounting';
+  const query = params.toString();
+  return query ? `${path}?${query}` : path;
 }

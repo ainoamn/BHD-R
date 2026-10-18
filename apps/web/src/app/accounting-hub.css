@@ -340,6 +340,13 @@
   transition: background 120ms ease;
 }
 
+.accounting-hub__table--interactive tr.is-focus {
+  outline: 2px solid color-mix(in srgb, #0f6b45 55%, #fff);
+  outline-offset: -2px;
+  background: color-mix(in srgb, #0f6b45 10%, #fff);
+  box-shadow: inset 3px 0 0 #0f6b45;
+}
+
 .accounting-hub__table--interactive tr.is-clickable:hover {
   background: color-mix(in srgb, #0f6b45 7%, #fff);
 }
