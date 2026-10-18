@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.77 — 2026-10-18
+
+- **محاسبة بلا وميض:** كل تبويبات `/owner/accounting` تُحمَّل مرة واحدة في الخلفية وتبقى مثبتة؛ الانتقال فوري بدون إعادة تحميل، والتحديث صامت في الخلفية.
+
 ## 0.8.76 — 2026-10-18
 
 - **طباعة المحاسبة:** زر الطباعة ينزّل ملف PDF ويفتحه ثم يستدعي الطباعة من عارض الملف، بدل نافذة `about:blank` البيضاء.

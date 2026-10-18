@@ -1,7 +1,15 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { AccountingEntryDrawer } from '@/components/accounting/accounting-entry-drawer';
 import { DepositLedgerPanel } from '@/components/accounting/deposit-ledger';
 import { usePathname, useRouter } from '@/i18n/navigation';
@@ -17,6 +25,31 @@ import {
 } from '@/lib/accounting-print';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
+import { LIVE_CHANGE_EVENT } from '@/lib/live-sync-shared';
+
+/** Keep every tab mounted; only visibility flips so switches stay instant. */
+function AccountingTabPanel({
+  id,
+  tab,
+  children,
+}: {
+  id: AccountingHubTab;
+  tab: AccountingHubTab;
+  children: ReactNode;
+}) {
+  const selected = tab === id;
+  return (
+    <div
+      role="tabpanel"
+      id={`accounting-panel-${id}`}
+      hidden={!selected}
+      inert={!selected || undefined}
+      className="accounting-hub__slot"
+    >
+      {children}
+    </div>
+  );
+}
 
 type Caps = { manage: boolean; post: boolean };
 type HubDash = {
@@ -207,6 +240,7 @@ export function AccountingHub({
   const [toDate, setToDate] = useState(todayIso());
   const [report, setReport] = useState<Record<string, unknown> | null>(null);
   const [busy, setBusy] = useState(false);
+  const [warming, setWarming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [accountForm, setAccountForm] = useState({
     code: '',
@@ -274,15 +308,29 @@ export function AccountingHub({
       depositsMinor: '0',
     };
   const syncedRef = useRef(false);
+  const warmedRef = useRef(false);
+  const refreshGen = useRef(0);
+  const reportKindRef = useRef(reportKind);
+  const fromDateRef = useRef(fromDate);
+  const toDateRef = useRef(toDate);
+  const ledgerScopeRef = useRef(ledgerScope);
+  const ledgerIdRef = useRef(ledgerId);
+  reportKindRef.current = reportKind;
+  fromDateRef.current = fromDate;
+  toDateRef.current = toDate;
+  ledgerScopeRef.current = ledgerScope;
+  ledgerIdRef.current = ledgerId;
 
   const setTab = useCallback(
     (next: AccountingHubTab) => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (next !== 'deposits') params.delete('focus');
-      if (next === 'dashboard') params.delete('tab');
-      else params.set('tab', next);
-      const query = params.toString();
-      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+      startTransition(() => {
+        const params = new URLSearchParams(searchParams.toString());
+        if (next !== 'deposits') params.delete('focus');
+        if (next === 'dashboard') params.delete('tab');
+        else params.set('tab', next);
+        const query = params.toString();
+        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+      });
     },
     [pathname, router, searchParams],
   );
@@ -290,122 +338,139 @@ export function AccountingHub({
   const refreshDash = useCallback(async () => {
     const data = await getJson<HubDash>('/api/owner/accounting/hub');
     setDash(data);
+    return data;
   }, []);
 
-  const loadTab = useCallback(
-    async (current: AccountingHubTab) => {
+  const refreshReport = useCallback(async () => {
+    const kind = reportKindRef.current;
+    const from = fromDateRef.current;
+    const to = toDateRef.current;
+    const data = await getJson<Record<string, unknown>>(
+      `/api/owner/accounting/reports?report=${encodeURIComponent(kind)}&fromDate=${from}&toDate=${to}&asOfDate=${to}`,
+    );
+    setReport(data);
+  }, []);
+
+  const refreshLedgers = useCallback(async () => {
+    const id = ledgerIdRef.current.trim();
+    if (!id) {
+      setLedgerRows([]);
+      setLedgerTotals({ debitMinor: '0', creditMinor: '0' });
+      return;
+    }
+    const scope = ledgerScopeRef.current;
+    const from = fromDateRef.current;
+    const to = toDateRef.current;
+    const data = await getJson<{
+      rows: typeof ledgerRows;
+      totals: { debitMinor: string; creditMinor: string };
+    }>(
+      `/api/owner/accounting/ledgers?${encodeURIComponent(scope)}=${encodeURIComponent(id)}&fromDate=${from}&toDate=${to}`,
+    );
+    setLedgerRows(data.rows);
+    setLedgerTotals(data.totals);
+  }, []);
+
+  /** Warm every tab once, then refresh silently in the background — never on tab click. */
+  const refreshAll = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      const silent = opts?.silent ?? warmedRef.current;
+      const gen = ++refreshGen.current;
+      if (!silent) setWarming(true);
       setError(null);
-      if (current === 'dashboard' || current === 'deposits') {
-        await refreshDash();
-        return;
-      }
-      if (current === 'accounts') {
-        const data = await getJson<{ accounts: Account[] }>('/api/owner/accounting/accounts');
-        setAccounts(data.accounts);
-        await refreshDash();
-        return;
-      }
-      if (current === 'journal') {
-        const [journalData, accountData] = await Promise.all([
-          getJson<{ journals: JournalRow[] }>('/api/owner/accounting/journals'),
-          getJson<{ accounts: Account[] }>('/api/owner/accounting/accounts'),
+      try {
+        const [hub, docs, journalBundle, expenseData, periodData, auditData] = await Promise.all([
+          getJson<HubDash>('/api/owner/accounting/hub'),
+          getJson<{ documents: DocRow[] }>('/api/owner/accounting/documents'),
+          Promise.all([
+            getJson<{ journals: JournalRow[] }>('/api/owner/accounting/journals'),
+            getJson<{ accounts: Account[] }>('/api/owner/accounting/accounts'),
+          ]),
+          getJson<{ expenses: ExpenseRow[] }>('/api/owner/accounting/expenses'),
+          getJson<{ periods: PeriodRow[] }>('/api/owner/accounting/periods'),
+          getJson<{ events: AuditRow[] }>('/api/owner/accounting/audit'),
         ]);
-        setJournals(journalData.journals);
-        setAccounts(accountData.accounts);
-        if (!accountData.accounts.length) {
+        if (gen !== refreshGen.current) return;
+        setDash(hub);
+        setDocuments(docs.documents);
+        setJournals(journalBundle[0].journals);
+        setAccounts(journalBundle[1].accounts);
+        setExpenses(expenseData.expenses);
+        setPeriods(periodData.periods);
+        setAudit(auditData.events);
+
+        if (!journalBundle[1].accounts.length && (hub.capabilities.manage || hub.capabilities.post)) {
           try {
             await browserNextMutation('/api/owner/accounting/accounts/bootstrap', {
               method: 'POST',
               body: '{}',
             });
+            if (gen !== refreshGen.current) return;
             const again = await getJson<{ accounts: Account[] }>('/api/owner/accounting/accounts');
+            if (gen !== refreshGen.current) return;
             setAccounts(again.accounts);
           } catch {
             /* manage permission may be missing */
           }
         }
-        return;
-      }
-      if (current === 'documents') {
-        const data = await getJson<{ documents: DocRow[] }>('/api/owner/accounting/documents');
-        setDocuments(data.documents);
-        return;
-      }
-      if (current === 'expenses') {
-        const data = await getJson<{ expenses: ExpenseRow[] }>('/api/owner/accounting/expenses');
-        setExpenses(data.expenses);
-        return;
-      }
-      if (current === 'ledgers') {
-        if (!ledgerId.trim()) {
-          setLedgerRows([]);
-          setLedgerTotals({ debitMinor: '0', creditMinor: '0' });
-          return;
+
+        await Promise.all([
+          refreshReport().catch(() => undefined),
+          ledgerIdRef.current.trim() ? refreshLedgers().catch(() => undefined) : Promise.resolve(),
+        ]);
+        if (gen !== refreshGen.current) return;
+        warmedRef.current = true;
+
+        if (
+          !syncedRef.current &&
+          hub.needsSetup &&
+          (hub.capabilities.manage || hub.capabilities.post)
+        ) {
+          syncedRef.current = true;
+          await browserNextMutation('/api/owner/accounting/sync', {
+            method: 'POST',
+            body: '{}',
+          });
+          if (gen !== refreshGen.current) return;
+          await refreshDash();
         }
-        const data = await getJson<{
-          rows: typeof ledgerRows;
-          totals: { debitMinor: string; creditMinor: string };
-        }>(
-          `/api/owner/accounting/ledgers?${encodeURIComponent(ledgerScope)}=${encodeURIComponent(ledgerId.trim())}&fromDate=${fromDate}&toDate=${toDate}`,
-        );
-        setLedgerRows(data.rows);
-        setLedgerTotals(data.totals);
-        return;
-      }
-      if (current === 'reports') {
-        const data = await getJson<Record<string, unknown>>(
-          `/api/owner/accounting/reports?report=${encodeURIComponent(reportKind)}&fromDate=${fromDate}&toDate=${toDate}&asOfDate=${toDate}`,
-        );
-        setReport(data);
-        return;
-      }
-      if (current === 'periods') {
-        const data = await getJson<{ periods: PeriodRow[] }>('/api/owner/accounting/periods');
-        setPeriods(data.periods);
-        return;
-      }
-      if (current === 'audit') {
-        const data = await getJson<{ events: AuditRow[] }>('/api/owner/accounting/audit');
-        setAudit(data.events);
+      } catch (err) {
+        if (gen !== refreshGen.current) return;
+        if (!silent || !warmedRef.current) {
+          setError(err instanceof ApiError ? err.message : ar ? 'تعذر التحميل' : 'Load failed');
+        }
+      } finally {
+        if (gen === refreshGen.current && !silent) setWarming(false);
       }
     },
-    [fromDate, ledgerId, ledgerScope, refreshDash, reportKind, toDate],
+    [ar, refreshDash, refreshLedgers, refreshReport],
   );
 
   useEffect(() => {
     if (!active) return;
-    let cancelled = false;
-    setBusy(true);
-    void loadTab(tab)
-      .then(async () => {
-        if (cancelled || tab !== 'dashboard' || syncedRef.current) return;
-        const fresh = await getJson<HubDash>('/api/owner/accounting/hub').catch(() => null);
-        if (
-          cancelled ||
-          !fresh?.needsSetup ||
-          !(fresh.capabilities.manage || fresh.capabilities.post)
-        ) {
-          return;
-        }
-        syncedRef.current = true;
-        await browserNextMutation('/api/owner/accounting/sync', {
-          method: 'POST',
-          body: '{}',
-        });
-        if (!cancelled) await refreshDash();
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          setError(err instanceof ApiError ? err.message : ar ? 'تعذر التحميل' : 'Load failed');
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setBusy(false);
-      });
-    return () => {
-      cancelled = true;
+    void refreshAll({ silent: warmedRef.current });
+    const onLive = () => {
+      void refreshAll({ silent: true });
     };
-  }, [active, ar, loadTab, refreshDash, syncedRef, tab]);
+    window.addEventListener(LIVE_CHANGE_EVENT, onLive);
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void refreshAll({ silent: true });
+    }, 45_000);
+    return () => {
+      window.removeEventListener(LIVE_CHANGE_EVENT, onLive);
+      window.clearInterval(timer);
+    };
+  }, [active, refreshAll]);
+
+  useEffect(() => {
+    if (!active || !warmedRef.current) return;
+    void refreshReport().catch(() => undefined);
+  }, [active, fromDate, reportKind, toDate, refreshReport]);
+
+  useEffect(() => {
+    if (!active || !warmedRef.current) return;
+    void refreshLedgers().catch(() => undefined);
+  }, [active, fromDate, ledgerId, ledgerScope, toDate, refreshLedgers]);
 
   const lineBalance = useMemo(() => {
     let debit = 0n;
@@ -422,7 +487,7 @@ export function AccountingHub({
     setError(null);
     try {
       await action();
-      await loadTab(tab);
+      await refreshAll({ silent: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : ar ? 'تعذر الحفظ' : 'Save failed');
     } finally {
@@ -496,6 +561,8 @@ export function AccountingHub({
             role="tab"
             className="accounting-hub__tab"
             aria-selected={tab === id}
+            aria-controls={`accounting-panel-${id}`}
+            id={`accounting-tab-${id}`}
             onClick={() => setTab(id)}
           >
             {ar ? TAB_LABEL[id].ar : TAB_LABEL[id].en}
@@ -508,6 +575,8 @@ export function AccountingHub({
             role="tab"
             className="accounting-hub__tab accounting-hub__tab--muted"
             aria-selected={tab === id}
+            aria-controls={`accounting-panel-${id}`}
+            id={`accounting-tab-${id}`}
             onClick={() => setTab(id)}
           >
             {ar ? TAB_LABEL[id].ar : TAB_LABEL[id].en}
@@ -516,9 +585,13 @@ export function AccountingHub({
       </div>
 
       {error ? <p className="accounting-hub__error">{error}</p> : null}
-      {busy ? <p className="accounting-hub__muted">{ar ? 'جاري التحديث…' : 'Updating…'}</p> : null}
+      {warming && !dash ? (
+        <p className="accounting-hub__muted accounting-hub__muted--soft">
+          {ar ? 'تجهيز الأقسام في الخلفية…' : 'Warming sections in the background…'}
+        </p>
+      ) : null}
 
-      {tab === 'dashboard' ? (
+      <AccountingTabPanel id="dashboard" tab={tab}>
         <div className="accounting-hub__panel accounting-hub__panel--hero">
           <div className="accounting-hub__hero-copy">
             <h2>{ar ? 'ملخص الماليات' : 'Money at a glance'}</h2>
@@ -603,13 +676,13 @@ export function AccountingHub({
             </button>
           </div>
         </div>
-      ) : null}
+      </AccountingTabPanel>
 
-      {tab === 'deposits' ? (
-        <DepositLedgerPanel portal={portal} locale={locale} active={active && tab === 'deposits'} />
-      ) : null}
+      <AccountingTabPanel id="deposits" tab={tab}>
+        <DepositLedgerPanel portal={portal} locale={locale} active={active} />
+      </AccountingTabPanel>
 
-      {tab === 'accounts' ? (
+      <AccountingTabPanel id="accounts" tab={tab}>
         <div className="accounting-hub__panel">
           <div className="accounting-hub__toolbar">
             <h2>{ar ? 'دليل الحسابات' : 'Chart of accounts'}</h2>
@@ -728,9 +801,9 @@ export function AccountingHub({
             </p>
           ) : null}
         </div>
-      ) : null}
+      </AccountingTabPanel>
 
-      {tab === 'documents' ? (
+      <AccountingTabPanel id="documents" tab={tab}>
         <div className="accounting-hub__panel accounting-hub__panel--workspace">
           <div className="accounting-hub__toolbar">
             <div>
@@ -847,9 +920,9 @@ export function AccountingHub({
             </table>
           </div>
         </div>
-      ) : null}
+      </AccountingTabPanel>
 
-      {tab === 'journal' ? (
+      <AccountingTabPanel id="journal" tab={tab}>
         <div className="accounting-hub__panel accounting-hub__panel--workspace">
           <div className="accounting-hub__toolbar">
             <div>
@@ -1125,9 +1198,9 @@ export function AccountingHub({
             </table>
           </div>
         </div>
-      ) : null}
+      </AccountingTabPanel>
 
-      {tab === 'expenses' ? (
+      <AccountingTabPanel id="expenses" tab={tab}>
         <div className="accounting-hub__panel">
           <h2>{ar ? 'المصروفات' : 'Expenses'}</h2>
           {caps.manage ? (
@@ -1266,9 +1339,9 @@ export function AccountingHub({
             </table>
           </div>
         </div>
-      ) : null}
+      </AccountingTabPanel>
 
-      {tab === 'ledgers' ? (
+      <AccountingTabPanel id="ledgers" tab={tab}>
         <div className="accounting-hub__panel">
           <h2>{ar ? 'أستاذ تحليلي (مبنى / وحدة / طرف)' : 'Dimensional ledger'}</h2>
           <p className="accounting-hub__hint">
@@ -1316,7 +1389,7 @@ export function AccountingHub({
               disabled={busy || !ledgerId.trim()}
               onClick={() => {
                 void run(async () => {
-                  await loadTab('ledgers');
+                  await refreshLedgers();
                 });
               }}
             >
@@ -1379,9 +1452,9 @@ export function AccountingHub({
             </table>
           </div>
         </div>
-      ) : null}
+      </AccountingTabPanel>
 
-      {tab === 'reports' ? (
+      <AccountingTabPanel id="reports" tab={tab}>
         <div className="accounting-hub__panel">
           <h2>{ar ? 'التقارير المالية' : 'Financial reports'}</h2>
           <div className="accounting-hub__toolbar">
@@ -1415,7 +1488,7 @@ export function AccountingHub({
               type="button"
               className="button button--primary"
               disabled={busy}
-              onClick={() => void run(async () => loadTab('reports'))}
+              onClick={() => void run(async () => refreshReport())}
             >
               {ar ? 'عرض' : 'Run'}
             </button>
@@ -1466,9 +1539,9 @@ export function AccountingHub({
           </div>
           <ReportView ar={ar} report={report} />
         </div>
-      ) : null}
+      </AccountingTabPanel>
 
-      {tab === 'periods' ? (
+      <AccountingTabPanel id="periods" tab={tab}>
         <div className="accounting-hub__panel">
           <h2>{ar ? 'إقفال الفترات المالية' : 'Fiscal period lock'}</h2>
           <p className="accounting-hub__muted">
@@ -1572,9 +1645,9 @@ export function AccountingHub({
             </table>
           </div>
         </div>
-      ) : null}
+      </AccountingTabPanel>
 
-      {tab === 'audit' ? (
+      <AccountingTabPanel id="audit" tab={tab}>
         <div className="accounting-hub__panel">
           <h2>{ar ? 'سجل التدقيق المحاسبي' : 'Accounting audit trail'}</h2>
           <div className="accounting-hub__table-wrap">
@@ -1602,7 +1675,7 @@ export function AccountingHub({
             </table>
           </div>
         </div>
-      ) : null}
+      </AccountingTabPanel>
 
       <AccountingEntryDrawer
         journalId={openJournalId}

@@ -11,6 +11,16 @@
   color: var(--gl-ink);
 }
 
+/* Panels stay mounted; only visibility flips so tab switches never remount or flash. */
+.accounting-hub__slot[hidden] {
+  display: none !important;
+}
+
+.accounting-hub__muted--soft {
+  opacity: 0.7;
+  font-size: 0.85rem;
+}
+
 .accounting-hub__eyebrow {
   margin: 0 0 0.2rem;
   font-size: 0.78rem;
