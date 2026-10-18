@@ -122,7 +122,8 @@ export function depositHolding(
 ): DepositHolding {
   if (refundStatus === 'executed' || refundStatus === 'rejected') return 'deposit_settled';
   if (refundStatus === 'approved') return 'awaiting_refund_transfer';
-  if (bookingStatus === 'checked_in') return 'deposit_held';
+  // Confirmed stays with a deposit are shown as held so the accountant sees money paid / due.
+  if (bookingStatus === 'checked_in' || bookingStatus === 'confirmed') return 'deposit_held';
   return 'awaiting_deposit_refund';
 }
 

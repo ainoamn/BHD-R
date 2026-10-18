@@ -98,6 +98,7 @@ describe('deposit refund', () => {
 
   it('keeps deposits out of income until settled, then books only the deduction', () => {
     expect(depositHolding('checked_in', null)).toBe('deposit_held');
+    expect(depositHolding('confirmed', null)).toBe('deposit_held');
     expect(depositHolding('checked_out', null)).toBe('awaiting_deposit_refund');
     expect(depositHolding('checked_out', 'requested')).toBe('awaiting_deposit_refund');
     expect(depositHolding('checked_out', 'approved')).toBe('awaiting_refund_transfer');

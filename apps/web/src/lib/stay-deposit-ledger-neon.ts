@@ -3,6 +3,7 @@ import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import {
   properties,
+  reservations,
   stayBookingGuests,
   stayBookings,
   stayProfiles,
@@ -37,8 +38,12 @@ export type DepositLedgerRow = Record<string, string | null>;
 
 const LEDGER_LIMIT = 500;
 
-/** A deposit is received at check-in; stays before that hold no guest money as deposit. */
-const STAYS_HOLDING_DEPOSIT = ['checked_in', 'checked_out', 'closed'] as const;
+/**
+ * Stay statuses that may hold or have held a guest deposit.
+ * `confirmed` is included: many stays collect / require the deposit at booking, and past
+ * check-in dates without a desk check-in still owe a trust row for the accountant.
+ */
+const STAYS_HOLDING_DEPOSIT = ['confirmed', 'checked_in', 'checked_out', 'closed'] as const;
 
 /** Full account numbers for refund approvers and accountants; masked for everyone else. */
 export function accountReader(revealAccounts: boolean) {
@@ -208,6 +213,80 @@ export function canReadDepositLedger(claims: SessionClaims): boolean {
   );
 }
 
+/** Website rent/sale booking deposits paid by the client (عربون), shown on the trust ledger. */
+async function loadReservationDepositLedgerRows(
+  tx: Tx,
+  orgId: string,
+  ownerPartyId: string | null,
+): Promise<DepositLedgerRow[]> {
+  const snapshot = reservations.termsSnapshot;
+  const rows = await tx
+    .select({
+      id: reservations.id,
+      status: reservations.status,
+      currency: reservations.currency,
+      referenceCode: sql<string | null>`${snapshot}->>'referenceCode'`,
+      mode: sql<string | null>`${snapshot}->>'mode'`,
+      depositMinor: sql<string | null>`${snapshot}->>'depositMinor'`,
+      paidAt: sql<string | null>`${snapshot}->>'depositPaidAt'`,
+      contactName: sql<string | null>`${snapshot}->'contact'->>'fullName'`,
+      propertyId: properties.id,
+      propertyNameAr: properties.nameAr,
+      propertyNameEn: properties.nameEn,
+      unitCode: units.code,
+    })
+    .from(reservations)
+    .innerJoin(units, eq(units.id, reservations.unitId))
+    .innerJoin(properties, eq(properties.id, units.propertyId))
+    .where(
+      and(
+        eq(reservations.organizationId, orgId),
+        sql`${snapshot}->>'depositPaidAt' is not null`,
+        sql`coalesce(${snapshot}->>'depositMinor','') ~ '^[1-9][0-9]*$'`,
+        ...(ownerPartyId ? [eq(properties.ownerPartyId, ownerPartyId)] : []),
+      ),
+    )
+    .orderBy(desc(sql`${snapshot}->>'depositPaidAt'`))
+    .limit(LEDGER_LIMIT);
+
+  return rows.flatMap((row) => {
+    if (!row.depositMinor || !row.paidAt) return [];
+    const reference = row.referenceCode ?? row.id.slice(0, 8).toUpperCase();
+    const settled = row.status === 'converted' || row.status === 'cancelled' || row.status === 'expired';
+    return [
+      {
+        id: row.id,
+        kind: 'reservation_deposit',
+        reference,
+        bookingStatus: row.status,
+        status: settled ? 'deposit_settled' : 'deposit_held',
+        propertyId: row.propertyId,
+        propertyName: row.propertyNameAr || row.propertyNameEn || null,
+        propertyNameEn: row.propertyNameEn || row.propertyNameAr || null,
+        unitCode: row.unitCode ?? null,
+        party: row.contactName,
+        currency: row.currency ?? 'OMR',
+        depositMinor: row.depositMinor,
+        refundedMinor: null,
+        retainedMinor: null,
+        receivedOn: row.paidAt.slice(0, 10),
+        checkOutOn: null,
+        settledOn: settled ? row.paidAt.slice(0, 10) : null,
+        refundReceiptNo: null,
+        incomeReceiptNo: null,
+        refundStatus: null,
+        refundAmountMinor: null,
+        refundPaidMinor: null,
+        refundDueMinor: null,
+        refundDecisionNote:
+          row.mode === 'sale'
+            ? 'عربون حجز شراء من الموقع'
+            : 'عربون حجز إيجار من الموقع',
+      },
+    ];
+  });
+}
+
 /** Deposits ledger of the viewer's organization (owners see their own properties only). */
 export async function loadDepositLedgerForViewer(claims: SessionClaims): Promise<{
   rows: DepositLedgerRow[];
@@ -222,15 +301,15 @@ export async function loadDepositLedgerForViewer(claims: SessionClaims): Promise
   };
   if (!orgId) return { rows: [], claims: {}, viewer };
   const revealAccounts = viewer.canPayRefunds || viewer.canDecideRefunds;
+  const ownerPartyId = ownerPartyScope(claims);
   const { rows, byBooking } = await withinViewerTenant(claims, async (tx) => {
-    const rows = await loadDepositLedger(
-      tx,
-      orgId,
-      { ownerPartyId: ownerPartyScope(claims) },
-      revealAccounts,
-    );
-    const ids = rows.flatMap((row) => (row.id ? [row.id] : []));
-    return { rows, byBooking: await loadDepositClaims(tx, orgId, ids) };
+    const [stayRows, reservationRows] = await Promise.all([
+      loadDepositLedger(tx, orgId, { ownerPartyId }, revealAccounts),
+      loadReservationDepositLedgerRows(tx, orgId, ownerPartyId),
+    ]);
+    const rows = [...reservationRows, ...stayRows];
+    const stayIds = stayRows.flatMap((row) => (row.id ? [row.id] : []));
+    return { rows, byBooking: await loadDepositClaims(tx, orgId, stayIds) };
   });
   return { rows, claims: Object.fromEntries(byBooking), viewer };
 }

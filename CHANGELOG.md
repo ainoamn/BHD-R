@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.79 — 2026-10-18
+
+- **أمانات التأمين:** ظهور تأمينات الإقامة المؤكدة والمستلمة وعربون حجوزات الموقع في تبويب الأمانات؛ الفلتر الافتراضي «الكل» حتى لا تُخفى المبالغ المُسوّاة.
+- التفاصيل: [`docs/implementation/RELEASE-0.8.79-AR.md`](./docs/implementation/RELEASE-0.8.79-AR.md).
+
 ## 0.8.78 — 2026-10-18
 
 - **ترويسة وتوقيع محاسبي:** طباعة القيود والفواتير والكشوفات بنفس ترويسة الشركة والتوقيع الإلكتروني ورمز QR كما في فواتير الإيجار، مع صفحة تحقق عامة.

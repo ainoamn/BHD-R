@@ -103,7 +103,8 @@ export function DepositLedgerPanel({
   const [hidden, setHidden] = useState(false);
   const [failed, setFailed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
-  const [filter, setFilter] = useState<Filter>('open');
+  /** Default to all so settled refunds still show the deposit the guest paid. */
+  const [filter, setFilter] = useState<Filter>('all');
   const [payoutId, setPayoutId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -226,11 +227,11 @@ export function DepositLedgerPanel({
     },
   ];
   const filters: Array<[Filter, string]> = [
+    ['all', ar ? 'الكل' : 'All'],
     ['open', ar ? 'المفتوحة' : 'Open'],
     ['awaiting_refund_transfer', ar ? 'بانتظار التحويل' : 'To transfer'],
     ['deposit_held', ar ? 'محتجزة' : 'Held'],
     ['deposit_settled', ar ? 'مُسوّاة' : 'Settled'],
-    ['all', ar ? 'الكل' : 'All'],
   ];
 
   async function submitPayout(row: Row, value: RefundSubmit) {
@@ -300,8 +301,8 @@ export function DepositLedgerPanel({
           <h2 id="deposit-ledger-title">{ar ? 'أمانات التأمين' : 'Deposits held in trust'}</h2>
           <p className="muted">
             {ar
-              ? 'مبالغ التأمين أمانة لدى العقار، معزولة عن الإيرادات والإيجارات والصيانة والرواتب. لا يدخل منها في الدخل إلا ما يُخصم عند الاسترداد، ويُسجَّل للعقار نفسه بإيصال مرتبط بإيصال الاسترداد.'
-              : 'Deposits are held in trust, apart from income, rent, maintenance and salaries. Only what is deducted at refund becomes income of the same property, with a receipt linked to the refund receipt.'}
+              ? 'تأمينات الإقامة وعربون حجوزات الموقع أمانة لدى العقار، معزولة عن الإيرادات. لا يدخل من تأمين الإقامة في الدخل إلا ما يُخصم عند الاسترداد.'
+              : 'Stay deposits and website booking deposits are held in trust, apart from income. Only what is deducted from a stay deposit at refund becomes income.'}
           </p>
         </div>
       </header>
@@ -365,8 +366,8 @@ export function DepositLedgerPanel({
               ? 'لا توجد مبالغ تأمين في هذا التصنيف.'
               : 'No deposits in this view.'
             : ar
-              ? 'لا توجد مبالغ تأمين مستلمة بعد.'
-              : 'No deposits received yet.'}
+              ? 'لا توجد مبالغ تأمين أو عربون مسجّلة بعد. تظهر هنا تأمينات الإقامة المؤكدة والمستلمة وعربون حجوزات الموقع.'
+              : 'No stay deposits or booking deposits yet. Confirmed stay deposits and website booking deposits appear here.'}
         </p>
       ) : (
         <ul className="deposit-ledger__list">
@@ -431,6 +432,11 @@ export function DepositLedgerPanel({
                     <span className={`pmh-badge pmh-badge--${TONE[status] ?? 'muted'}`}>
                       {domainStatusLabel(status, locale)}
                     </span>
+                    {row.kind === 'reservation_deposit' ? (
+                      <span className="pmh-badge pmh-badge--info">
+                        {ar ? 'عربون حجز' : 'Booking deposit'}
+                      </span>
+                    ) : null}
                     {hasClaim ? (
                       <span className="pmh-badge pmh-badge--danger">
                         {ar ? 'طلب من الضيف' : 'Guest request'}
@@ -438,7 +444,9 @@ export function DepositLedgerPanel({
                     ) : null}
                   </div>
                   <div className="deposit-ledger__row-actions">
-                    {status === 'awaiting_refund_transfer' && viewer.canPayRefunds ? (
+                    {row.kind !== 'reservation_deposit' &&
+                    status === 'awaiting_refund_transfer' &&
+                    viewer.canPayRefunds ? (
                       <button
                         type="button"
                         className="button button--primary"
@@ -469,7 +477,7 @@ export function DepositLedgerPanel({
                     </button>
                   </div>
                 </div>
-                {payoutId === id ? (
+                {row.kind !== 'reservation_deposit' && payoutId === id ? (
                   <DepositRefundForm
                     mode="payout"
                     row={{ ...row, kind: 'deposit_refund' }}
@@ -488,49 +496,60 @@ export function DepositLedgerPanel({
                         <bdi>{row.party}</bdi>
                       </p>
                     ) : null}
-                    <div className="deposit-ledger__item-body">
-                      <section className="deposit-ledger__panel">
-                        <h3 className="deposit-ledger__panel-title">
-                          {ar ? 'التسوية' : 'Settlement'}
-                        </h3>
-                        <DepositReconciliation
-                          row={row}
-                          locale={locale}
-                          hideNote={Boolean(row.refundStatus)}
-                          onError={(message) => setNotice({ tone: 'error', text: message })}
-                        />
-                      </section>
-                      {row.refundStatus ? (
-                        <section className="deposit-ledger__panel deposit-ledger__panel--refund">
+                    {row.kind === 'reservation_deposit' ? (
+                      <p className="muted">
+                        {row.refundDecisionNote ||
+                          (ar
+                            ? 'عربون مدفوع من موقع الحجز (إيجار/بيع).'
+                            : 'Deposit paid on the website booking (rent/sale).')}
+                      </p>
+                    ) : (
+                      <div className="deposit-ledger__item-body">
+                        <section className="deposit-ledger__panel">
                           <h3 className="deposit-ledger__panel-title">
-                            {ar ? 'تفاصيل الاسترداد' : 'Refund details'}
+                            {ar ? 'التسوية' : 'Settlement'}
                           </h3>
-                          <DepositRefundCell
-                            row={{ ...row, kind: 'deposit_refund' }}
+                          <DepositReconciliation
+                            row={row}
                             locale={locale}
-                            receiptHref={
-                              row.refundReceipt && propertyId
-                                ? `/api/owner/properties/${encodeURIComponent(propertyId)}/records/refund-receipt/${id}`
-                                : null
-                            }
+                            hideNote={Boolean(row.refundStatus)}
+                            onError={(message) => setNotice({ tone: 'error', text: message })}
                           />
                         </section>
-                      ) : null}
-                      <DepositClaimsAdmin
-                        claims={claims[id] ?? []}
-                        currency={row.currency || 'OMR'}
-                        canDecide={viewer.canDecideRefunds}
-                        locale={locale}
-                        onDone={(next, reload) => {
-                          setNotice(next);
-                          if (!reload) return;
-                          window.dispatchEvent(new Event(PENDING_APPROVALS_CHANGED_EVENT));
-                          setReloadKey((key) => key + 1);
-                        }}
-                      />
-                    </div>
+                        {row.refundStatus ? (
+                          <section className="deposit-ledger__panel deposit-ledger__panel--refund">
+                            <h3 className="deposit-ledger__panel-title">
+                              {ar ? 'تفاصيل الاسترداد' : 'Refund details'}
+                            </h3>
+                            <DepositRefundCell
+                              row={{ ...row, kind: 'deposit_refund' }}
+                              locale={locale}
+                              receiptHref={
+                                row.refundReceipt && propertyId
+                                  ? `/api/owner/properties/${encodeURIComponent(propertyId)}/records/refund-receipt/${id}`
+                                  : null
+                              }
+                            />
+                          </section>
+                        ) : null}
+                        <DepositClaimsAdmin
+                          claims={claims[id] ?? []}
+                          currency={row.currency || 'OMR'}
+                          canDecide={viewer.canDecideRefunds}
+                          locale={locale}
+                          onDone={(next, reload) => {
+                            setNotice(next);
+                            if (!reload) return;
+                            window.dispatchEvent(new Event(PENDING_APPROVALS_CHANGED_EVENT));
+                            setReloadKey((key) => key + 1);
+                          }}
+                        />
+                      </div>
+                    )}
                     <div className="deposit-ledger__actions">
-                      {status === 'awaiting_deposit_refund' && viewer.canDecideRefunds ? (
+                      {row.kind !== 'reservation_deposit' &&
+                      status === 'awaiting_deposit_refund' &&
+                      viewer.canDecideRefunds ? (
                         <Link
                           className="button button--quiet"
                           href={`${propertyHref}?section=bookings&focus=${encodeURIComponent(id)}`}
