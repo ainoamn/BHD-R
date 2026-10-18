@@ -91,6 +91,7 @@ export async function createAccountingFollowTask(
     dueOn?: string | undefined;
     note?: string | undefined;
     attachments?: string[] | undefined;
+    followers?: Array<{ userId: string; duty: string }> | undefined;
   },
 ): Promise<{ id: string; reference: string; existing: boolean }> {
   if (!canCreateFollowTask(claims)) fail('forbidden');
@@ -99,8 +100,28 @@ export async function createAccountingFollowTask(
   if (!KINDS.has(kind)) fail('invalid_input');
   const title = input.title.trim().slice(0, 200);
   if (title.length < 2) fail('invalid_input');
-  const assignee = input.assignedToUserId.trim();
-  if (!UUID.test(assignee)) fail('invalid_input');
+  const DUTY_LABEL: Record<string, string> = {
+    lead: 'المسؤول',
+    executor: 'المنفّذ',
+    supervisor: 'المراقب',
+    viewer: 'للاطلاع',
+  };
+  const followers = (input.followers?.length
+    ? input.followers
+    : [{ userId: input.assignedToUserId, duty: 'lead' }]
+  )
+    .map((row) => ({
+      userId: row.userId.trim(),
+      duty: DUTY_LABEL[row.duty] ? row.duty : 'viewer',
+    }))
+    .filter((row) => UUID.test(row.userId))
+    .slice(0, 12);
+  const uniqueFollowers = followers.filter(
+    (row, index) => followers.findIndex((item) => item.userId === row.userId) === index,
+  );
+  if (!uniqueFollowers.length) fail('invalid_input');
+  const lead = uniqueFollowers.find((row) => row.duty === 'lead') ?? uniqueFollowers[0]!;
+  const assignee = lead.userId;
   const priority = PRIORITIES.has(input.priority ?? '') ? input.priority! : 'normal';
   const sourceId = input.sourceId.trim().slice(0, 80);
   const relatedType = `acct_${kind}`.slice(0, 60);
@@ -111,29 +132,37 @@ export async function createAccountingFollowTask(
     .map((name) => name.trim())
     .filter(Boolean)
     .slice(0, 8);
-  const description = [
-    input.detail?.trim(),
-    input.note?.trim(),
-    attachments.length ? `مرفقات: ${attachments.join('، ')}` : '',
-    sourceId ? `source:${kind}:${sourceId}` : '',
-  ]
-    .filter(Boolean)
-    .join('\n')
-    .slice(0, 4000);
 
   return withinViewerTenant(claims, async (tx) => {
     const member = await tx
-      .select({ userId: memberships.userId })
+      .select({ userId: memberships.userId, name: users.displayName })
       .from(memberships)
+      .innerJoin(users, eq(users.id, memberships.userId))
       .where(
         and(
           eq(memberships.organizationId, orgId),
-          eq(memberships.userId, assignee),
+          inArray(
+            memberships.userId,
+            uniqueFollowers.map((row) => row.userId),
+          ),
           eq(memberships.status, 'active'),
         ),
-      )
-      .limit(1);
-    if (!member.length) fail('invalid_input');
+      );
+    const names = new Map(member.map((row) => [row.userId, row.name]));
+    if (uniqueFollowers.some((row) => !names.has(row.userId))) fail('invalid_input');
+    const roster = uniqueFollowers
+      .map((person) => `${names.get(person.userId) ?? person.userId}: ${DUTY_LABEL[person.duty]}`)
+      .join('\n');
+    const description = [
+      input.detail?.trim(),
+      input.note?.trim(),
+      roster ? `المتابعون:\n${roster}` : '',
+      attachments.length ? `مرفقات: ${attachments.join('، ')}` : '',
+      sourceId ? `source:${kind}:${sourceId}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n')
+      .slice(0, 4000);
 
     if (relatedId) {
       const open = await tx
@@ -178,7 +207,15 @@ export async function createAccountingFollowTask(
       eventType: 'task.created',
       toStatus: row.status,
       note: `accounting:${kind}`,
-      metadata: { kind, sourceId },
+      metadata: {
+        kind,
+        sourceId,
+        followers: uniqueFollowers.map((person) => ({
+          userId: person.userId,
+          duty: person.duty,
+          name: names.get(person.userId) ?? '',
+        })),
+      },
     });
     return { id: row.id, reference: row.reference, existing: false };
   });

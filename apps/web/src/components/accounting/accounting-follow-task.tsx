@@ -5,8 +5,11 @@ import { Link } from '@/i18n/navigation';
 import { browserNextMutation } from '@/lib/api';
 import { accountingExpenseStatusLabel } from '@/lib/accounting-i18n';
 import { roleLabel } from '@/lib/team-shared';
+import { NoteTranslateBar } from '@/components/note-translate';
 
 type Assignee = { userId: string; name: string; roleKey: string };
+type Duty = 'lead' | 'executor' | 'supervisor' | 'viewer';
+type Seat = { userId: string; duty: Duty };
 
 const PRIORITY = [
   { id: 'low', ar: 'منخفضة', en: 'Low', tone: 'muted' },
@@ -14,6 +17,13 @@ const PRIORITY = [
   { id: 'high', ar: 'عالية', en: 'High', tone: 'warn' },
   { id: 'urgent', ar: 'عاجلة', en: 'Urgent', tone: 'bad' },
 ] as const;
+
+const DUTY: Array<{ id: Duty; ar: string; en: string }> = [
+  { id: 'lead', ar: 'المسؤول', en: 'Responsible' },
+  { id: 'executor', ar: 'المنفّذ', en: 'Doer' },
+  { id: 'supervisor', ar: 'المراقب', en: 'Reviewer' },
+  { id: 'viewer', ar: 'للاطلاع', en: 'For information' },
+];
 
 /** Assign any accounting line as a follower task that shows on /owner/tasks. */
 export function AccountingFollowTask({
@@ -36,7 +46,7 @@ export function AccountingFollowTask({
   const ar = locale === 'ar';
   const [open, setOpen] = useState(false);
   const [assignees, setAssignees] = useState<Assignee[] | null>(null);
-  const [assigneeId, setAssigneeId] = useState('');
+  const [seats, setSeats] = useState<Seat[]>([]);
   const [priority, setPriority] = useState<(typeof PRIORITY)[number]['id']>('normal');
   const [due, setDue] = useState(dueOn && /^\d{4}-\d{2}-\d{2}$/.test(dueOn) ? dueOn : '');
   const [note, setNote] = useState('');
@@ -61,7 +71,9 @@ export function AccountingFollowTask({
         const payload = (await response.json()) as { assignees?: Assignee[] };
         const people = payload.assignees ?? [];
         setAssignees(people);
-        setAssigneeId((current) => current || people[0]?.userId || '');
+        setSeats((current) =>
+          current.length || !people[0] ? current : [{ userId: people[0].userId, duty: 'lead' }],
+        );
       } catch {
         setAssignees([]);
         setMessage(ar ? 'تعذر تحميل الموظفين' : 'Could not load the team');
@@ -69,7 +81,28 @@ export function AccountingFollowTask({
     })();
   };
 
-  const chosen = assignees?.find((person) => person.userId === assigneeId);
+  const lead = seats.find((seat) => seat.duty === 'lead') ?? seats[0];
+  const leadName = assignees?.find((person) => person.userId === lead?.userId)?.name ?? '';
+
+  const setDuty = (index: number, duty: Duty) => {
+    setSeats((current) =>
+      current.map((seat, seatIndex) => {
+        if (seatIndex === index) return { ...seat, duty };
+        if (duty === 'lead' && seat.duty === 'lead') return { ...seat, duty: 'supervisor' };
+        return seat;
+      }),
+    );
+  };
+
+  const addSeat = () => {
+    const taken = new Set(seats.map((seat) => seat.userId));
+    const next = assignees?.find((person) => !taken.has(person.userId));
+    if (!next) {
+      setMessage(ar ? 'كل أعضاء الفريق مضافون. أضف مستخدماً جديداً من صفحة الفريق.' : 'Everyone on the team is already added.');
+      return;
+    }
+    setSeats((current) => [...current, { userId: next.userId, duty: 'viewer' }]);
+  };
 
   return (
     <>
@@ -86,7 +119,7 @@ export function AccountingFollowTask({
             onClick={(event) => event.stopPropagation()}
             onSubmit={(event) => {
               event.preventDefault();
-              if (!assigneeId || busy) return;
+              if (!seats.length || busy) return;
               setBusy(true);
               setMessage(null);
               void (async () => {
@@ -101,11 +134,12 @@ export function AccountingFollowTask({
                       sourceId,
                       title: title.slice(0, 200),
                       detail: detail ?? undefined,
-                      assignedToUserId: assigneeId,
+                      assignedToUserId: lead?.userId,
                       priority,
                       dueOn: due || undefined,
                       note: note.trim() || undefined,
                       attachments: files,
+                      followers: seats,
                     }),
                   });
                   setDoneRef(result.reference);
@@ -115,8 +149,8 @@ export function AccountingFollowTask({
                         ? `المهمة ${result.reference} مفتوحة مسبقاً لهذا البند.`
                         : `Task ${result.reference} is already open for this item.`
                       : ar
-                        ? `أُسندت المهمة ${result.reference} إلى ${chosen?.name ?? ''}.`
-                        : `Task ${result.reference} was assigned to ${chosen?.name ?? ''}.`,
+                        ? `أُسندت المهمة ${result.reference} إلى ${leadName} ومعه ${seats.length} متابع.`
+                        : `Task ${result.reference} was assigned to ${leadName} with ${seats.length} followers.`,
                   );
                 } catch {
                   setMessage(ar ? 'تعذر إنشاء المهمة' : 'Could not create the task');
@@ -147,40 +181,86 @@ export function AccountingFollowTask({
             </div>
 
             <fieldset className="accounting-task__people">
-              <legend>{ar ? 'من سيتابع المهمة' : 'Who will follow this'}</legend>
+              <legend>{ar ? 'المتابعون وأدوارهم' : 'Followers and their roles'}</legend>
               {assignees === null ? (
                 <p className="accounting-hub__muted">{ar ? 'جارٍ تحميل الفريق…' : 'Loading the team…'}</p>
               ) : assignees.length === 0 ? (
                 <p className="accounting-hub__error">{ar ? 'لا موظفون نشطون في الفريق.' : 'No active team members.'}</p>
               ) : (
-                <div className="accounting-task__grid">
-                  {assignees.map((person) => {
-                    const roles = person.roleKey
+                <ul className="accounting-task__seats">
+                  {seats.map((seat, index) => {
+                    const person = assignees.find((item) => item.userId === seat.userId);
+                    const roles = (person?.roleKey ?? '')
                       .split(' · ')
+                      .filter(Boolean)
                       .map((role) => roleLabel(role, ar))
                       .join(' · ');
-                    const on = person.userId === assigneeId;
                     return (
-                      <label key={person.userId} className={`accounting-task__person${on ? ' is-on' : ''}`}>
-                        <input
-                          type="radio"
-                          name="assignee"
-                          value={person.userId}
-                          checked={on}
-                          onChange={() => setAssigneeId(person.userId)}
-                        />
+                      <li key={`${seat.userId}-${index}`} className="accounting-task__seat">
                         <span className="accounting-task__avatar" aria-hidden="true">
-                          {(person.name || '?').slice(0, 1)}
+                          {(person?.name || '?').slice(0, 1)}
                         </span>
-                        <span>
-                          <strong>{person.name}</strong>
-                          <small>{roles}</small>
-                        </span>
-                      </label>
+                        <label>
+                          <span className="sr-only">{ar ? 'المتابع' : 'Follower'}</span>
+                          <select
+                            value={seat.userId}
+                            onChange={(event) => {
+                              const userId = event.target.value;
+                              setSeats((current) =>
+                                current.map((item, seatIndex) =>
+                                  seatIndex === index ? { ...item, userId } : item,
+                                ),
+                              );
+                            }}
+                          >
+                            {assignees
+                              .filter(
+                                (option) =>
+                                  option.userId === seat.userId ||
+                                  !seats.some((other) => other.userId === option.userId),
+                              )
+                              .map((option) => (
+                                <option key={option.userId} value={option.userId}>
+                                  {option.name}
+                                </option>
+                              ))}
+                          </select>
+                          {roles ? <small>{roles}</small> : null}
+                        </label>
+                        <label>
+                          <span className="sr-only">{ar ? 'الدور في المتابعة' : 'Follow-up role'}</span>
+                          <select
+                            value={seat.duty}
+                            onChange={(event) => setDuty(index, event.target.value as Duty)}
+                          >
+                            {DUTY.map((duty) => (
+                              <option key={duty.id} value={duty.id}>
+                                {ar ? duty.ar : duty.en}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <button
+                          type="button"
+                          className="accounting-act accounting-act--void"
+                          disabled={seats.length < 2}
+                          onClick={() =>
+                            setSeats((current) => current.filter((_, seatIndex) => seatIndex !== index))
+                          }
+                        >
+                          {ar ? 'إزالة' : 'Remove'}
+                        </button>
+                      </li>
                     );
                   })}
-                </div>
+                </ul>
               )}
+              <div className="accounting-task__add">
+                <button type="button" className="accounting-act accounting-act--task" onClick={addSeat}>
+                  {ar ? 'إضافة متابع' : 'Add follower'}
+                </button>
+                <Link href="/owner/team">{ar ? 'إضافة مستخدم للفريق' : 'Add a user to the team'}</Link>
+              </div>
             </fieldset>
 
             <div className="accounting-task__row">
@@ -210,6 +290,7 @@ export function AccountingFollowTask({
               <span>{ar ? 'ملاحظة للمتابع' : 'Note for the follower'}</span>
               <textarea
                 rows={6}
+                maxLength={2000}
                 value={note}
                 placeholder={
                   ar
@@ -219,6 +300,7 @@ export function AccountingFollowTask({
                 onChange={(event) => setNote(event.target.value)}
               />
             </label>
+            <NoteTranslateBar value={note} onChange={setNote} locale={locale} max={2000} disabled={busy} />
 
             <label className="accounting-task__files">
               {ar ? 'مرفقات (أسماء الملفات تُرفق مع المهمة)' : 'Attachments (file names travel with the task)'}
@@ -248,7 +330,7 @@ export function AccountingFollowTask({
               </p>
             ) : null}
             <div className="accounting-task__submit">
-              <button className="button button--primary" type="submit" disabled={busy || !assigneeId}>
+              <button className="button button--primary" type="submit" disabled={busy || !seats.length}>
                 {busy ? (ar ? 'جارٍ الإسناد…' : 'Assigning…') : ar ? 'إسناد المهمة' : 'Assign task'}
               </button>
             </div>
