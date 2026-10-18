@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.69 — 2026-10-18
+
+- **محور محاسبة عالمي في `/ar/owner/accounting`:** لوحة تحكم، دليل حسابات (24 حساباً)، قيود يومية مزدوجة متوازنة مع ترحيل/عكس، مصروفات، تقارير (ميزان مراجعة، قائمة دخل، ميزانية، تدفقات نقدية، أعمار ذمم)، إقفال فترات مالية، وسجل تدقيق — فوق جداول Neon الحالية بدون ترحيل.
+- **أمانات التأمين** بقيت تبويباً داخل المحور؛ رابط Hisaby للكشوفات المفصّلة الخارجية.
+- التفاصيل: [`docs/implementation/RELEASE-0.8.69-AR.md`](./docs/implementation/RELEASE-0.8.69-AR.md).
+
 ## 0.8.68 — 2026-10-14
 
 - **إيصال قبض وفاتورة مطالبة لكل بند في `/ar/tenant/invoices`:**

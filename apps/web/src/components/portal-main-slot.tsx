@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { Link, usePathname } from '@/i18n/navigation';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { DepositLedgerPanel } from '@/components/accounting/deposit-ledger';
+import { AccountingHub } from '@/components/accounting/accounting-hub';
 import { ApprovalsHub } from '@/components/approvals-hub';
 import { ContactsBoard } from '@/components/contacts-board';
 import { LegalCasesBoard } from '@/components/legal-cases-board';
@@ -130,15 +130,7 @@ export function PortalMainSlot({
           ) : panel === 'team' ? (
             <TeamManager locale={locale} active={panel === section} />
           ) : panel === 'accounting' ? (
-            <OperationsWorkspaceClient
-              portal={portal}
-              section={panel}
-              locale={locale}
-              active={panel === section}
-              beforeList={
-                <DepositLedgerPanel portal={portal} locale={locale} active={panel === section} />
-              }
-            />
+            <AccountingHub portal={portal} locale={locale} active={panel === section} />
           ) : panel === 'maintenance' && portal === 'owner' ? (
             <OperationsWorkspaceClient
               portal={portal}

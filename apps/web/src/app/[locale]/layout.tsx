@@ -16,6 +16,7 @@ import '../home.css';
 import '../site-admin.css';
 import '../tenant-account.css';
 import '../rent-documents.css';
+import '../accounting-hub.css';
 
 const publicWebOrigin =
   process.env.PUBLIC_WEB_ORIGIN ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'https://r.bhd-om.com';
