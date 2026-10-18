@@ -3,6 +3,15 @@
 import { accountingPrintPath, type AccountingPrintKind } from '@/lib/accounting-letterhead';
 import { whatsappLink } from '@/lib/stay-deposit-claims';
 
+/** Current accounting hub path (no locale) so print can return to the same tab/context. */
+function currentAccountingReturn(): string | null {
+  const path = `${window.location.pathname}${window.location.search}`.replace(
+    /^\/(ar|en)(?=\/|$)/,
+    '',
+  );
+  return path.startsWith('/owner/accounting') ? path : null;
+}
+
 /** Open the letterheaded print page (same flow as rent invoices → Save as PDF). */
 export function openAccountingPrint(
   locale: 'ar' | 'en',
@@ -10,7 +19,11 @@ export function openAccountingPrint(
   id: string,
   extra?: Record<string, string>,
 ): string | null {
-  const path = accountingPrintPath(locale, kind, id, extra);
+  const from = extra?.from ?? currentAccountingReturn();
+  const path = accountingPrintPath(locale, kind, id, {
+    ...(extra ?? {}),
+    ...(from ? { from } : {}),
+  });
   const opened = window.open(path, '_blank', 'noopener,noreferrer');
   if (!opened) {
     window.location.assign(path);

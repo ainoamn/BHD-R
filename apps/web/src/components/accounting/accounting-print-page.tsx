@@ -9,20 +9,26 @@ import type { AccountingPrintDoc } from '@/lib/accounting-letterhead';
 export function AccountingPrintPage({
   doc,
   locale,
+  backHref,
 }: {
   doc: AccountingPrintDoc | null;
   locale: 'ar' | 'en';
+  /** Hub URL to restore (tab / open journal), never the bare dashboard when avoidable. */
+  backHref: string;
 }) {
   const ar = locale === 'ar';
+  const back = (
+    <Link className="button button--quiet" href={backHref}>
+      {ar ? 'العودة للمحاسبة' : 'Back to accounting'}
+    </Link>
+  );
   if (!doc) {
     return (
       <div className="dash-shell rent-doc-page">
         <p className="accounting-hub__error">
           {ar ? 'المستند غير متاح أو لا تملك صلاحية عرضه.' : 'Document unavailable or not allowed.'}
         </p>
-        <Link className="button button--quiet" href="/owner/accounting">
-          {ar ? 'العودة للمحاسبة' : 'Back to accounting'}
-        </Link>
+        {back}
       </div>
     );
   }
@@ -33,9 +39,7 @@ export function AccountingPrintPage({
           locale={locale}
           label={ar ? '⬇ تحميل / طباعة PDF' : '⬇ Download / print PDF'}
         />
-        <Link className="button button--quiet" href="/owner/accounting">
-          {ar ? 'العودة للمحاسبة' : 'Back to accounting'}
-        </Link>
+        {back}
       </div>
       <p className="rent-doc-page__hint muted">
         {ar

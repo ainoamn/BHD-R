@@ -53,3 +53,27 @@ export function accountingPrintPath(
   const params = new URLSearchParams({ kind, id, ...(extra ?? {}) });
   return `/${locale}/owner/accounting/print?${params.toString()}`;
 }
+
+/**
+ * Safe back target for the print toolbar: the hub URL the user came from, or the tab that
+ * matches the printed kind (documents / journal / reports) instead of the dashboard.
+ */
+export function accountingPrintBackHref(
+  kind: AccountingPrintKind,
+  id: string,
+  from?: string | null,
+): string {
+  const raw = (from ?? '').trim().slice(0, 512);
+  if (
+    raw.startsWith('/owner/accounting') &&
+    !raw.startsWith('//') &&
+    !/^[a-z][a-z0-9+.-]*:/i.test(raw)
+  ) {
+    return raw;
+  }
+  const open = /^[0-9a-f-]{36}$/i.test(id) ? `&open=${encodeURIComponent(id)}` : '';
+  if (kind === 'document') return `/owner/accounting?tab=documents${open}`;
+  if (kind === 'journal') return `/owner/accounting?tab=journal${open}`;
+  if (kind === 'report') return '/owner/accounting?tab=reports';
+  return '/owner/accounting';
+}

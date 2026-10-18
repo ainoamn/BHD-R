@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.80 — 2026-10-18
+
+- **رجوع الطباعة المحاسبية:** زر «العودة للمحاسبة» يعيد إلى نفس التبويب/السياق (مستندات، قيود، تقارير) بدل اللوحة الرئيسية.
+- التفاصيل: [`docs/implementation/RELEASE-0.8.80-AR.md`](./docs/implementation/RELEASE-0.8.80-AR.md).
+
 ## 0.8.79 — 2026-10-18
 
 - **أمانات التأمين:** ظهور تأمينات الإقامة المؤكدة والمستلمة وعربون حجوزات الموقع في تبويب الأمانات؛ الفلتر الافتراضي «الكل» حتى لا تُخفى المبالغ المُسوّاة.
