@@ -11,6 +11,10 @@ import {
   type ReactNode,
 } from 'react';
 import { AccountingChequesPanel } from '@/components/accounting/accounting-cheques-panel';
+import {
+  AccountingCollectionBoard,
+  type CollectionOutlook,
+} from '@/components/accounting/accounting-collection-board';
 import { AccountingFollowTask } from '@/components/accounting/accounting-follow-task';
 import { AccountingRecordActions } from '@/components/accounting/accounting-record-actions';
 import { AccountingEntryDrawer } from '@/components/accounting/accounting-entry-drawer';
@@ -277,6 +281,7 @@ export function AccountingHub({
   >([]);
   const [ledgerTotals, setLedgerTotals] = useState({ debitMinor: '0', creditMinor: '0' });
   const [documents, setDocuments] = useState<DocRow[]>([]);
+  const [outlook, setOutlook] = useState<CollectionOutlook | null>(null);
   const [openJournalId, setOpenJournalId] = useState<string | null>(
     searchParams.get('open') && /^[0-9a-f-]{36}$/i.test(searchParams.get('open')!)
       ? searchParams.get('open')
@@ -401,7 +406,8 @@ export function AccountingHub({
       if (!silent) setWarming(true);
       setError(null);
       try {
-        const [hub, docs, journalBundle, expenseData, periodData, auditData] = await Promise.all([
+        const [hub, docs, journalBundle, expenseData, periodData, auditData, collection] =
+          await Promise.all([
           getJson<HubDash>('/api/owner/accounting/hub'),
           getJson<{ documents: DocRow[] }>('/api/owner/accounting/documents'),
           Promise.all([
@@ -411,6 +417,7 @@ export function AccountingHub({
           getJson<{ expenses: ExpenseRow[] }>('/api/owner/accounting/expenses'),
           getJson<{ periods: PeriodRow[] }>('/api/owner/accounting/periods'),
           getJson<{ events: AuditRow[] }>('/api/owner/accounting/audit'),
+          getJson<CollectionOutlook>('/api/owner/accounting/cheques').catch(() => null),
         ]);
         if (gen !== refreshGen.current) return;
         setDash(hub);
@@ -420,6 +427,7 @@ export function AccountingHub({
         setExpenses(expenseData.expenses);
         setPeriods(periodData.periods);
         setAudit(auditData.events);
+        setOutlook(collection);
 
         if (!journalBundle[1].accounts.length && (hub.capabilities.manage || hub.capabilities.post)) {
           try {
@@ -605,6 +613,12 @@ export function AccountingHub({
             <h2>{t.moneyGlance}</h2>
             <p className="accounting-hub__hint">{t.moneyHint}</p>
           </div>
+          <AccountingCollectionBoard
+            locale={locale}
+            outlook={outlook}
+            canManage={caps.manage}
+            onChanged={() => void refreshAll({ silent: true })}
+          />
           <div className="accounting-hub__kpis accounting-hub__kpis--hero">
             <div className="accounting-hub__kpi accounting-hub__kpi--accent">
               <span>{t.collected}</span>

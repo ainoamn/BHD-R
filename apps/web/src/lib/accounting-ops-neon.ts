@@ -287,6 +287,12 @@ export type AccountingChequesSummary = {
   overdueCount: number;
   upcomingCount: number;
   currency: string;
+  windows: {
+    today: { amountMinor: string; count: number };
+    week: { amountMinor: string; count: number };
+    month: { amountMinor: string; count: number };
+    year: { amountMinor: string; count: number };
+  };
 };
 
 export type AccountingChequesPayload = {
@@ -652,6 +658,27 @@ export async function listAccountingCheques(
 
     out.sort((a, b) => a.dueOn.localeCompare(b.dueOn) || a.chequeNumber.localeCompare(b.chequeNumber));
 
+    const weekEnd = plusIsoDays(today, 7);
+    const monthStart = `${today.slice(0, 7)}-01`;
+    const monthEnd = plusIsoDays(
+      `${today.slice(0, 7)}-${new Date(Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)), 0)).getUTCDate().toString().padStart(2, '0')}`,
+      0,
+    );
+    const yearStart = `${today.slice(0, 4)}-01-01`;
+    const yearEnd = `${today.slice(0, 4)}-12-31`;
+    const bucket = (match: (dueOn: string) => boolean) => {
+      let amount = 0n;
+      let count = 0;
+      for (const row of out) {
+        if (!openCheque(row) || !match(row.dueOn)) continue;
+        const left = BigInt(row.amountMinor) - BigInt(row.paidMinor || '0');
+        if (left <= 0n) continue;
+        amount += left;
+        count += 1;
+      }
+      return { amountMinor: amount.toString(), count };
+    };
+
     return {
       cheques: out.slice(0, 4000),
       summary: {
@@ -660,8 +687,50 @@ export async function listAccountingCheques(
         overdueCount,
         upcomingCount,
         currency,
+        windows: {
+          today: bucket((due) => due === today),
+          week: bucket((due) => due >= today && due <= weekEnd),
+          month: bucket((due) => due >= monthStart && due <= monthEnd),
+          year: bucket((due) => due >= yearStart && due <= yearEnd),
+        },
       },
     };
+  });
+}
+
+function plusIsoDays(iso: string, days: number): string {
+  const date = new Date(`${iso.slice(0, 10)}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function openCheque(row: AccountingChequeRow): boolean {
+  return (
+    row.lineStatus !== 'paid' &&
+    row.reviewStatus !== 'cleared' &&
+    row.reviewStatus !== 'cancelled' &&
+    row.reviewStatus !== 'rejected'
+  );
+}
+
+/** Accountant confirms the office received the installment. Marks the cheque cleared. */
+export async function confirmChequeCollected(claims: SessionClaims, id: string): Promise<{ id: string }> {
+  if (!canManageAccounting(claims)) fail('forbidden');
+  if (!UUID.test(id)) fail('invalid_input');
+  const orgId = claims.organizationId!;
+  return withinViewerTenant(claims, async (tx) => {
+    const row = await tx
+      .select({ id: cheques.id, status: cheques.reviewStatus })
+      .from(cheques)
+      .where(and(eq(cheques.id, id), eq(cheques.organizationId, orgId)))
+      .limit(1);
+    if (!row[0]) fail('not_found');
+    if (row[0].status === 'cancelled' || row[0].status === 'rejected') fail('invalid_input');
+    await tx
+      .update(cheques)
+      .set({ reviewStatus: 'cleared', updatedAt: new Date() })
+      .where(eq(cheques.id, id));
+    return { id };
   });
 }
 

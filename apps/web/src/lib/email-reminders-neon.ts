@@ -23,6 +23,7 @@ export type ReminderRun = {
   arrears: number;
   dueSoon: number;
   leaseExpiry: number;
+  collections: number;
   digests: number;
   skipped: number;
   stoppedEarly: boolean;
@@ -188,6 +189,7 @@ export async function sendDailyReminders(
     arrears: 0,
     dueSoon: 0,
     leaseExpiry: 0,
+    collections: 0,
     digests: 0,
     skipped: 0,
     stoppedEarly: false,
@@ -360,6 +362,56 @@ export async function sendDailyReminders(
               lease.contract_id ? `/ar/owner/contracts/${lease.contract_id}` : '/ar/owner',
             ),
           },
+        }),
+      });
+    }
+  }
+
+  const collectDays = [0, 1, 2];
+  const byOrg = new Map<string, Map<number, string[]>>();
+  for (const lease of leases) {
+    const statement = statements.get(lease.id);
+    if (!statement) continue;
+    for (const line of statement.lines) {
+      if (line.outsideTotal || line.status === 'paid') continue;
+      if (line.kind !== 'rent' && line.kind !== 'vat' && line.kind !== 'cheque') continue;
+      const left = BigInt(line.amountMinor) - BigInt(line.paidMinor);
+      if (left <= 0n) continue;
+      const ahead = daysBetween(today, line.dueOn);
+      if (!collectDays.includes(ahead)) continue;
+      const orgMap = byOrg.get(lease.organization_id) ?? new Map<number, string[]>();
+      const lines = orgMap.get(ahead) ?? [];
+      if (lines.length < 12) {
+        lines.push(
+          `${lease.property} — ${lease.unit}: ${amountOf(left, lease.currency)} في ${arDate(line.dueOn)}${line.chequeNumber ? ` (شيك ${line.chequeNumber})` : ''}`,
+        );
+      }
+      orgMap.set(ahead, lines);
+      byOrg.set(lease.organization_id, orgMap);
+    }
+  }
+  for (const [orgId, offsets] of byOrg) {
+    if (outOfTime()) return run;
+    for (const [ahead, lines] of offsets) {
+      const key = `reminder:collect:${orgId}:${plusDays(today, ahead)}:d${ahead}`;
+      if (!fresh(key) || !lines.length) continue;
+      const when =
+        ahead === 0 ? 'اليوم' : ahead === 1 ? 'غداً' : 'بعد يومين';
+      run.collections += await notifyByEmail({
+        orgId,
+        aggregateType: 'organization',
+        aggregateId: orgId,
+        dedupeKey: key,
+        audience: { managersOf: { orgId } },
+        content: () => ({
+          tone: 'reminder',
+          subject: `💳 شيكات واجبة التحصيل ${when}`,
+          title: ahead === 0 ? 'تحصيل مستحق اليوم' : `تحصيل يستحق ${when}`,
+          intro:
+            'تنبيه للمحاسب والمدير: هناك أقساط أو شيكات يجب استلامها. بعد القبض أكّد الاستلام من الصفحة الرئيسية للمحاسبة.',
+          details: [{ label: 'عدد البنود', value: String(lines.length) }],
+          lines,
+          cta: { label: 'فتح التحصيل', url: appLink('/ar/owner/accounting') },
         }),
       });
     }

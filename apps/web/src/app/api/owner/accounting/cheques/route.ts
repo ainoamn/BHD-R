@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server';
 import { canManageAccounting, canReadAccounting } from '@/lib/accounting-gl-neon';
 import { accountingErrorResponse } from '@/lib/accounting-gl-http';
 import { parseChequeImportCsv } from '@/lib/accounting-ops';
-import { importAccountingCheques, listAccountingCheques } from '@/lib/accounting-ops-neon';
+import {
+  confirmChequeCollected,
+  importAccountingCheques,
+  listAccountingCheques,
+} from '@/lib/accounting-ops-neon';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { requireLiveSession } from '@/lib/next-route-guard';
 
@@ -29,7 +33,7 @@ export async function GET(request: Request) {
   }
 }
 
-/** POST CSV import: { csv: string } or { rows: [...] }. */
+/** POST { confirmId } marks a cheque collected, or CSV import { csv } / { rows }. */
 export async function POST(request: Request) {
   if (!hasDatabaseUrl()) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
@@ -40,6 +44,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: { code: 'forbidden' } }, { status: 403 });
     }
     const body = (await request.json().catch(() => null)) as {
+      confirmId?: string;
       csv?: string;
       rows?: Array<{
         chequeNumber: string;
@@ -51,6 +56,9 @@ export async function POST(request: Request) {
         tenantPartyId?: string;
       }>;
     } | null;
+    if (body?.confirmId) {
+      return NextResponse.json(await confirmChequeCollected(claims, body.confirmId));
+    }
     const rows = body?.rows?.length
       ? body.rows
       : typeof body?.csv === 'string'
