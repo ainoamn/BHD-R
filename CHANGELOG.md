@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.97 — 2026-10-18
+
+- **المهام:** الربط التلقائي بالعقار، وحسابات المستأجر تظهر في العقار وفي حسابه. مرفقات الردود تُحفظ مع الرد.
+
 ## 0.8.96 — 2026-10-18
 
 - **المحاسبة:** الحقول والخانات والبيانات أضيق وتأخذ مساحة أقل، مع بقاء حجم الخط كما هو.

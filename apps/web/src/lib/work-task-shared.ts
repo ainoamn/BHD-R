@@ -5,6 +5,7 @@ export type WorkTaskEvent = {
   note: string | null;
   at: string;
   actorName: string;
+  files: WorkTaskFile[];
 };
 export type WorkTaskSummary = {
   id: string;
@@ -17,6 +18,11 @@ export type WorkTaskSummary = {
   assigneeName: string | null;
 };
 export type WorkTaskFile = { id: string; name: string };
+export type WorkTaskPlace = {
+  property: { id: string; label: string } | null;
+  unit: { id: string; label: string } | null;
+  party: { id: string; label: string } | null;
+};
 export type WorkTaskSubject = {
   kind: 'party' | 'property' | 'unit';
   id: string;
@@ -32,6 +38,7 @@ export type WorkTaskDetail = WorkTaskSummary & {
   followers: WorkTaskFollower[];
   files: WorkTaskFile[];
   subject: WorkTaskSubject | null;
+  place: WorkTaskPlace;
   events: WorkTaskEvent[];
   legalCase: { id: string; reference: string } | null;
   people: Array<{ userId: string; name: string }>;

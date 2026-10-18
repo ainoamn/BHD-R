@@ -68,6 +68,7 @@ export function WorkTaskWorkspace({
   const ar = locale === 'ar';
   const [detail, setDetail] = useState(initial);
   const [reply, setReply] = useState('');
+  const [replyFiles, setReplyFiles] = useState<Array<{ name: string; data: string }>>([]);
   const [assignTo, setAssignTo] = useState(detail.assigneeId ?? '');
   const [lawyerId, setLawyerId] = useState(detail.lawyers[0]?.id ?? '');
   const [legalNote, setLegalNote] = useState('');
@@ -91,7 +92,10 @@ export function WorkTaskWorkspace({
       setDetail(next);
       setAssignTo(next.assigneeId ?? '');
       setMessage(ok);
-      if (path.endsWith('/reply')) setReply('');
+      if (path.endsWith('/reply')) {
+        setReply('');
+        setReplyFiles([]);
+      }
       if (path.endsWith('/legal')) setLegalNote('');
     } catch {
       setMessage(ar ? 'تعذر حفظ الإجراء' : 'Could not save that action');
@@ -220,6 +224,19 @@ export function WorkTaskWorkspace({
                         </small>
                       </header>
                       {event.note ? <p>{event.note}</p> : null}
+                      {event.files.length ? (
+                        <ul className="task-page__checks">
+                          {event.files.map((file) => (
+                            <li key={file.id}>
+                              <a
+                                href={`/api/portal/tasks/${encodeURIComponent(detail.id)}/files/${encodeURIComponent(file.id)}`}
+                              >
+                                {file.name}
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
                     </li>
                   );
                 })
@@ -234,8 +251,12 @@ export function WorkTaskWorkspace({
                 className="task-page__reply"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  if (reply.trim().length < 2) return;
-                  void run(`${base}/reply`, { note: reply.trim() }, ar ? 'أُرسل الرد' : 'Reply sent');
+                  if (reply.trim().length < 2 && !replyFiles.length) return;
+                  void run(
+                    `${base}/reply`,
+                    { note: reply.trim(), files: replyFiles },
+                    ar ? 'أُرسل الرد' : 'Reply sent',
+                  );
                 }}
               >
                 <label>
@@ -249,7 +270,52 @@ export function WorkTaskWorkspace({
                   />
                 </label>
                 <NoteTranslateBar value={reply} onChange={setReply} locale={locale} max={2000} disabled={busy} />
-                <button className="button button--primary" type="submit" disabled={busy || reply.trim().length < 2}>
+                <label>
+                  <span>{ar ? 'مرفق مع الرد' : 'Attachment with the reply'}</span>
+                  <input
+                    type="file"
+                    multiple
+                    disabled={busy}
+                    onChange={(event) => {
+                      const picked = [...(event.target.files ?? [])].slice(0, 4);
+                      event.target.value = '';
+                      for (const file of picked) {
+                        if (file.size > 700_000) {
+                          setMessage(ar ? 'أحد الملفات أكبر من حوالي ٧٠٠ ك.ب.' : 'A file is larger than about 700 KB.');
+                          continue;
+                        }
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          const data = typeof reader.result === 'string' ? reader.result : '';
+                          if (!data) return;
+                          setReplyFiles((current) => [...current, { name: file.name, data }].slice(0, 4));
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </label>
+                {replyFiles.length ? (
+                  <ul className="task-page__checks">
+                    {replyFiles.map((file) => (
+                      <li key={file.name}>
+                        <span>{file.name}</span>
+                        <button
+                          type="button"
+                          className="button button--quiet"
+                          onClick={() => setReplyFiles((current) => current.filter((item) => item.name !== file.name))}
+                        >
+                          {ar ? 'إزالة' : 'Remove'}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                <button
+                  className="button button--primary"
+                  type="submit"
+                  disabled={busy || (reply.trim().length < 2 && !replyFiles.length)}
+                >
                   {busy ? (ar ? 'جارٍ الإرسال…' : 'Sending…') : ar ? 'إرسال الرد' : 'Send reply'}
                 </button>
               </form>
@@ -367,32 +433,34 @@ export function WorkTaskWorkspace({
 
           <section className="task-page__card">
             <h2>{ar ? 'ربط المهمة' : 'Link this task'}</h2>
-            {detail.subject ? (
-              <p>
-                <Link
-                  href={
-                    detail.subject.kind === 'party'
-                      ? `/${portal}/contacts/${encodeURIComponent(detail.subject.id)}`
-                      : detail.subject.kind === 'unit'
-                        ? `/${portal}/properties/${encodeURIComponent(detail.units.find((unit) => unit.id === detail.subject?.id)?.propertyId ?? '')}?unit=${encodeURIComponent(detail.subject.id)}`
-                        : `/${portal}/properties/${encodeURIComponent(detail.subject.id)}`
-                  }
-                >
-                  {detail.subject.kind === 'party'
-                    ? ar
-                      ? `المستأجر: ${detail.subject.label}`
-                      : `Tenant: ${detail.subject.label}`
-                    : detail.subject.kind === 'unit'
-                      ? ar
-                        ? `الوحدة: ${detail.subject.label}`
-                        : `Unit: ${detail.subject.label}`
-                      : ar
-                        ? `المبنى: ${detail.subject.label}`
-                        : `Building: ${detail.subject.label}`}
-                </Link>
-              </p>
+            {detail.place.property || detail.place.unit || detail.place.party ? (
+              <ul className="task-page__checks">
+                {detail.place.property ? (
+                  <li>
+                    <Link href={`/${portal}/properties/${encodeURIComponent(detail.place.property.id)}`}>
+                      {ar ? `المبنى: ${detail.place.property.label}` : `Building: ${detail.place.property.label}`}
+                    </Link>
+                  </li>
+                ) : null}
+                {detail.place.unit ? (
+                  <li>
+                    <Link
+                      href={`/${portal}/properties/${encodeURIComponent(detail.place.property?.id ?? detail.units.find((unit) => unit.id === detail.place.unit?.id)?.propertyId ?? '')}?unit=${encodeURIComponent(detail.place.unit.id)}`}
+                    >
+                      {ar ? `الوحدة: ${detail.place.unit.label}` : `Unit: ${detail.place.unit.label}`}
+                    </Link>
+                  </li>
+                ) : null}
+                {detail.place.party ? (
+                  <li>
+                    <Link href={`/${portal}/contacts/${encodeURIComponent(detail.place.party.id)}`}>
+                      {ar ? `المستأجر: ${detail.place.party.label}` : `Tenant: ${detail.place.party.label}`}
+                    </Link>
+                  </li>
+                ) : null}
+              </ul>
             ) : (
-              <p>{ar ? 'غير مربوطة بعد.' : 'Not linked yet.'}</p>
+              <p>{ar ? 'تُربط تلقائياً إذا كانت العملية لعقار أو لمستأجر.' : 'Links automatically when the line belongs to a property or a tenant.'}</p>
             )}
             {detail.canUpdate ? (
               <form

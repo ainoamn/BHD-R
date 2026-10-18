@@ -22,6 +22,7 @@ import type {
   WorkTaskEvent,
   WorkTaskFile,
   WorkTaskFollower,
+  WorkTaskPlace,
   WorkTaskSubject,
   WorkTaskSummary,
 } from '@/lib/work-task-shared';
@@ -32,6 +33,7 @@ export type {
   WorkTaskEvent,
   WorkTaskFile,
   WorkTaskFollower,
+  WorkTaskPlace,
   WorkTaskSubject,
   WorkTaskSummary,
 };
@@ -142,6 +144,8 @@ export async function readWorkTask(
         checklist: workTasks.checklist,
         propertyId: workTasks.propertyId,
         unitId: workTasks.unitId,
+        relatedType: workTasks.relatedType,
+        relatedId: workTasks.relatedId,
         assigneeId: workTasks.assignedToUserId,
         assigneeName: assignee.displayName,
       })
@@ -150,6 +154,9 @@ export async function readWorkTask(
       .where(and(eq(workTasks.organizationId, orgId), eq(workTasks.id, taskId)))
       .limit(1);
     if (!task) missing();
+    if (task.relatedType?.startsWith('acct_') && task.relatedId) {
+      await ensureAccountingPlace(tx, orgId, claims.sub, task.id, task.relatedType.slice(5), task.relatedId);
+    }
 
     const events = await tx
       .select({
@@ -210,8 +217,8 @@ export async function readWorkTask(
           : task.propertyId
             ? { kind: 'property', id: task.propertyId, label: task.propertyId.slice(0, 8) }
             : null;
-    const fileRows = await tx.execute<{ id: string; name: string | null }>(sql`
-      select id::text as id, metadata->>'name' as name
+    const fileRows = await tx.execute<{ id: string; name: string | null; reply_id: string | null }>(sql`
+      select id::text as id, metadata->>'name' as name, metadata->>'replyId' as reply_id
       from workflow_events
       where organization_id = ${orgId}
         and resource_type = 'work_task'
@@ -223,7 +230,9 @@ export async function readWorkTask(
     const fileList = (Array.isArray(fileRows) ? fileRows : ((fileRows as { rows?: unknown[] }).rows ?? [])) as Array<{
       id: string;
       name: string | null;
+      reply_id: string | null;
     }>;
+    const place = placeFrom(link?.metadata, task.propertyId, task.unitId);
     const [partyChoices, propertyChoices, unitChoices] = await Promise.all([
       tx
         .select({ id: parties.id, label: parties.displayName })
@@ -287,6 +296,7 @@ export async function readWorkTask(
       followers: followersFrom(created?.metadata),
       files: fileList.map((file) => ({ id: file.id, name: file.name || 'file' })),
       subject,
+      place,
       parties: partyChoices,
       properties: propertyChoices,
       units: unitChoices.map((unit) => ({
@@ -300,6 +310,9 @@ export async function readWorkTask(
         note: event.note,
         at: event.at.toISOString(),
         actorName: event.actorName ?? '',
+        files: fileList
+          .filter((file) => file.reply_id === event.id)
+          .map((file) => ({ id: file.id, name: file.name || 'file' })),
       })),
       legalCase: legal ?? null,
       people: [...seen.values()],
@@ -315,10 +328,15 @@ export async function replyWorkTask(
   claims: SessionClaims,
   taskId: string,
   note: string,
+  files: Array<{ name: string; data: string }> = [],
 ): Promise<WorkTaskDetail> {
   if (!canRead(claims) || !hasPermission(claims, 'task.update')) deny();
   const text = note.trim().slice(0, 4000);
-  if (text.length < 2) bad();
+  const attachments = files
+    .map((file) => ({ name: file.name.trim().slice(0, 180), data: file.data.trim() }))
+    .filter((file) => file.name && file.data.length <= 1_200_000 && FILE_DATA.test(file.data))
+    .slice(0, 4);
+  if (text.length < 2 && !attachments.length) bad();
   const orgId = claims.organizationId!;
   await withinViewerTenant(claims, async (tx) => {
     const [task] = await tx
@@ -327,15 +345,30 @@ export async function replyWorkTask(
       .where(and(eq(workTasks.organizationId, orgId), eq(workTasks.id, taskId)))
       .limit(1);
     if (!task) missing();
-    await tx.insert(workflowEvents).values({
-      organizationId: orgId,
-      actorUserId: claims.sub,
-      resourceType: 'work_task',
-      resourceId: taskId,
-      eventType: 'task.reply',
-      note: text,
-      metadata: {},
-    });
+    const [reply] = await tx
+      .insert(workflowEvents)
+      .values({
+        organizationId: orgId,
+        actorUserId: claims.sub,
+        resourceType: 'work_task',
+        resourceId: taskId,
+        eventType: 'task.reply',
+        note: text || attachments.map((file) => file.name).join('، '),
+        metadata: {},
+      })
+      .returning({ id: workflowEvents.id });
+    if (!reply) bad();
+    for (const file of attachments) {
+      await tx.insert(workflowEvents).values({
+        organizationId: orgId,
+        actorUserId: claims.sub,
+        resourceType: 'work_task',
+        resourceId: taskId,
+        eventType: 'task.file',
+        note: file.name,
+        metadata: { name: file.name, data: file.data, replyId: reply.id },
+      });
+    }
   });
   return readWorkTask(claims, taskId);
 }
@@ -691,15 +724,35 @@ export async function linkWorkTaskSubject(
   const orgId = claims.organizationId!;
   await withinViewerTenant(claims, async (tx) => {
     const [task] = await tx
-      .select({ id: workTasks.id })
+      .select({ id: workTasks.id, propertyId: workTasks.propertyId, unitId: workTasks.unitId })
       .from(workTasks)
       .where(and(eq(workTasks.organizationId, orgId), eq(workTasks.id, taskId)))
       .limit(1);
     if (!task) missing();
+    const [prior] = await tx
+      .select({ metadata: workflowEvents.metadata })
+      .from(workflowEvents)
+      .where(
+        and(
+          eq(workflowEvents.organizationId, orgId),
+          eq(workflowEvents.resourceType, 'work_task'),
+          eq(workflowEvents.resourceId, task.id),
+          eq(workflowEvents.eventType, 'task.link'),
+        ),
+      )
+      .orderBy(desc(workflowEvents.occurredAt))
+      .limit(1);
+    const priorMeta =
+      prior?.metadata && typeof prior.metadata === 'object'
+        ? (prior.metadata as Record<string, unknown>)
+        : {};
     let label = '';
-    let propertyId: string | null = null;
-    let unitId: string | null = null;
-    let partyId: string | null = null;
+    let propertyId = task.propertyId;
+    let unitId = task.unitId;
+    let partyId = typeof priorMeta.partyId === 'string' ? priorMeta.partyId : null;
+    let propertyLabel = typeof priorMeta.propertyLabel === 'string' ? priorMeta.propertyLabel : '';
+    let unitLabel = typeof priorMeta.unitLabel === 'string' ? priorMeta.unitLabel : '';
+    let partyLabel = typeof priorMeta.partyLabel === 'string' ? priorMeta.partyLabel : '';
     if (input.kind === 'party') {
       const [party] = await tx
         .select({ id: parties.id, name: parties.displayName })
@@ -709,6 +762,7 @@ export async function linkWorkTaskSubject(
       if (!party) bad();
       label = party.name;
       partyId = party.id;
+      partyLabel = party.name;
     } else if (input.kind === 'property') {
       const [property] = await tx
         .select({ id: properties.id, name: properties.nameAr })
@@ -718,6 +772,9 @@ export async function linkWorkTaskSubject(
       if (!property) bad();
       label = property.name;
       propertyId = property.id;
+      unitId = null;
+      propertyLabel = property.name;
+      unitLabel = '';
     } else {
       const [unit] = await tx
         .select({
@@ -733,7 +790,9 @@ export async function linkWorkTaskSubject(
       label = `${unit.code} · ${unit.name}`;
       unitId = unit.id;
       propertyId = unit.propertyId;
+      unitLabel = label;
     }
+    const note = [propertyLabel, unitLabel, partyLabel].filter(Boolean).join(' · ') || label;
     await tx
       .update(workTasks)
       .set({ propertyId, unitId, updatedAt: new Date() })
@@ -744,8 +803,18 @@ export async function linkWorkTaskSubject(
       resourceType: 'work_task',
       resourceId: task.id,
       eventType: 'task.link',
-      note: label,
-      metadata: { kind: input.kind, id: input.id, label, partyId },
+      note,
+      metadata: {
+        kind: input.kind,
+        id: input.id,
+        label,
+        partyId,
+        propertyId,
+        unitId,
+        propertyLabel,
+        unitLabel,
+        partyLabel,
+      },
     });
   });
   return readWorkTask(claims, taskId);
@@ -803,5 +872,160 @@ export async function listSubjectTasks(
       limit 40
     `);
     return sqlRows(result);
+  });
+}
+
+function idOf(value: unknown): string | null {
+  return typeof value === 'string' && /^[0-9a-f-]{36}$/i.test(value) ? value : null;
+}
+
+function placeFrom(
+  metadata: unknown,
+  propertyId: string | null,
+  unitId: string | null,
+): WorkTaskPlace {
+  const meta = metadata && typeof metadata === 'object' ? (metadata as Record<string, unknown>) : {};
+  const property = idOf(meta.propertyId) ?? propertyId;
+  const unit = idOf(meta.unitId) ?? unitId;
+  const party = idOf(meta.partyId);
+  const label = (key: string, id: string) =>
+    typeof meta[key] === 'string' && meta[key] ? String(meta[key]) : id.slice(0, 8);
+  return {
+    property: property ? { id: property, label: label('propertyLabel', property) } : null,
+    unit: unit ? { id: unit, label: label('unitLabel', unit) } : null,
+    party: party ? { id: party, label: label('partyLabel', party) } : null,
+  };
+}
+
+type AccountingPlace = {
+  propertyId: string | null;
+  unitId: string | null;
+  partyId: string | null;
+  propertyLabel: string;
+  unitLabel: string;
+  partyLabel: string;
+};
+
+/** Link an accounting task to its property and, when the line is a tenant's, to that tenant too. */
+export async function ensureAccountingPlace(
+  tx: Parameters<Parameters<typeof withinViewerTenant>[1]>[0],
+  orgId: string,
+  actorUserId: string,
+  taskId: string,
+  kind: string,
+  sourceId: string,
+): Promise<void> {
+  if (!/^[0-9a-f-]{36}$/i.test(sourceId)) return;
+  const [linked] = await tx
+    .select({ id: workflowEvents.id })
+    .from(workflowEvents)
+    .where(
+      and(
+        eq(workflowEvents.organizationId, orgId),
+        eq(workflowEvents.resourceType, 'work_task'),
+        eq(workflowEvents.resourceId, taskId),
+        eq(workflowEvents.eventType, 'task.link'),
+      ),
+    )
+    .limit(1);
+  if (linked) return;
+  const found = sqlRows<AccountingPlace>(
+    await tx.execute(sql`
+      select property_id as "propertyId", unit_id as "unitId", party_id as "partyId",
+             property_label as "propertyLabel", unit_label as "unitLabel", party_label as "partyLabel"
+      from (
+        select u.property_id, l.unit_id, i.tenant_party_id as party_id,
+               p.name_ar as property_label, u.code as unit_label, pa.display_name as party_label
+        from invoices i
+        join leases l on l.id = i.lease_id
+        join units u on u.id = l.unit_id
+        join properties p on p.id = u.property_id
+        join parties pa on pa.id = i.tenant_party_id
+        where i.organization_id = ${orgId} and i.id = ${sourceId}
+        union all
+        select b.property_id, b.unit_id, b.guest_party_id,
+               p.name_ar, u.code, coalesce(pa.display_name, '')
+        from stay_payment_intents s
+        join stay_bookings b on b.id = s.booking_id
+        join units u on u.id = b.unit_id
+        join properties p on p.id = b.property_id
+        left join parties pa on pa.id = b.guest_party_id
+        where s.organization_id = ${orgId} and s.id = ${sourceId}
+        union all
+        select u.property_id, l.unit_id, l.tenant_party_id,
+               p.name_ar, u.code, pa.display_name
+        from cheques c
+        join leases l on l.id = c.lease_id
+        join units u on u.id = l.unit_id
+        join properties p on p.id = u.property_id
+        join parties pa on pa.id = l.tenant_party_id
+        where c.organization_id = ${orgId} and c.id = ${sourceId}
+        union all
+        select e.property_id, e.unit_id, null::uuid,
+               coalesce(p.name_ar, ''), coalesce(u.code, ''), ''
+        from expenses e
+        left join properties p on p.id = e.property_id
+        left join units u on u.id = e.unit_id
+        where e.organization_id = ${orgId} and e.id = ${sourceId}
+          and (e.property_id is not null or e.unit_id is not null)
+        union all
+        select b.property_id, b.unit_id, b.guest_party_id,
+               p.name_ar, u.code, coalesce(pa.display_name, '')
+        from stay_bookings b
+        join units u on u.id = b.unit_id
+        join properties p on p.id = b.property_id
+        left join parties pa on pa.id = b.guest_party_id
+        where b.organization_id = ${orgId} and b.id = ${sourceId}
+        union all
+        select u.property_id, r.unit_id, r.tenant_party_id,
+               p.name_ar, u.code, pa.display_name
+        from reservations r
+        join units u on u.id = r.unit_id
+        join properties p on p.id = u.property_id
+        join parties pa on pa.id = r.tenant_party_id
+        where r.organization_id = ${orgId} and r.id = ${sourceId}
+        union all
+        select jl.property_id, jl.unit_id, jl.party_id,
+               coalesce(p.name_ar, ''), coalesce(u.code, ''), coalesce(pa.display_name, '')
+        from journal_lines jl
+        left join properties p on p.id = jl.property_id
+        left join units u on u.id = jl.unit_id
+        left join parties pa on pa.id = jl.party_id
+        where jl.organization_id = ${orgId} and jl.journal_entry_id = ${sourceId}
+          and (jl.property_id is not null or jl.unit_id is not null or jl.party_id is not null)
+      ) found
+      limit 1
+    `),
+  )[0];
+  if (!found?.propertyId && !found?.unitId && !found?.partyId) return;
+  const kindName = found.unitId ? 'unit' : found.propertyId ? 'property' : 'party';
+  const id = found.unitId ?? found.propertyId ?? found.partyId ?? '';
+  const note = [found.propertyLabel, found.unitLabel, found.partyLabel].filter(Boolean).join(' · ');
+  await tx
+    .update(workTasks)
+    .set({
+      propertyId: found.propertyId,
+      unitId: found.unitId,
+      updatedAt: new Date(),
+    })
+    .where(eq(workTasks.id, taskId));
+  await tx.insert(workflowEvents).values({
+    organizationId: orgId,
+    actorUserId,
+    resourceType: 'work_task',
+    resourceId: taskId,
+    eventType: 'task.link',
+    note: note || kind,
+    metadata: {
+      kind: kindName,
+      id,
+      label: note,
+      propertyId: found.propertyId,
+      unitId: found.unitId,
+      partyId: found.partyId,
+      propertyLabel: found.propertyLabel,
+      unitLabel: found.unitLabel,
+      partyLabel: found.partyLabel,
+    },
   });
 }

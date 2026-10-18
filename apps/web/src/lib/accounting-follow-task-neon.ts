@@ -6,6 +6,7 @@ import { hasPermission } from '@bhd-r/authz';
 import { memberships, users, workflowEvents, workTasks } from '@bhd-r/db';
 import { fail } from '@/lib/accounting-gl-neon';
 import { withinViewerTenant } from '@/lib/portal-ops-data';
+import { ensureAccountingPlace } from '@/lib/work-task-neon';
 
 const UUID = /^[0-9a-f-]{36}$/i;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -237,7 +238,10 @@ export async function createAccountingFollowTask(
         )
         .orderBy(desc(workTasks.createdAt))
         .limit(1);
-      if (open[0]) return { id: open[0].id, reference: open[0].reference, existing: true };
+      if (open[0]) {
+        if (relatedId) await ensureAccountingPlace(tx, orgId, claims.sub, open[0].id, kind, relatedId);
+        return { id: open[0].id, reference: open[0].reference, existing: true };
+      }
     }
 
     const rows = await tx
@@ -277,6 +281,7 @@ export async function createAccountingFollowTask(
         })),
       },
     });
+    if (relatedId) await ensureAccountingPlace(tx, orgId, claims.sub, row.id, kind, relatedId);
     return { id: row.id, reference: row.reference, existing: false };
   });
 }
