@@ -3,6 +3,7 @@
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from '@/i18n/navigation';
+import { AccountingFollowTask } from '@/components/accounting/accounting-follow-task';
 import { DepositClaimsAdmin } from '@/components/accounting/deposit-claims-admin';
 import { DepositReconciliation } from '@/components/accounting/deposit-receipts';
 import {
@@ -460,6 +461,14 @@ export function DepositLedgerPanel({
                         {ar ? 'تحويل التأمين' : 'Transfer deposit'}
                       </button>
                     ) : null}
+                    <AccountingFollowTask
+                      locale={locale}
+                      kind="deposit"
+                      sourceId={id}
+                      title={`${row.reference ?? id} · ${property ?? ''}`.trim()}
+                      detail={[row.unitCode, row.guestName].filter(Boolean).join(' · ')}
+                      dueOn={row.refundRequestedAt?.slice(0, 10)}
+                    />
                     <button
                       type="button"
                       className="button button--secondary deposit-ledger__toggle"

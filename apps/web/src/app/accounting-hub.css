@@ -549,6 +549,12 @@
   box-shadow: 0 18px 48px color-mix(in srgb, #0b3d2e 18%, transparent);
 }
 
+.accounting-hub__modal-card--narrow {
+  width: min(28rem, 100%);
+  display: grid;
+  gap: 0.7rem;
+}
+
 .accounting-hub__modal-head {
   display: flex;
   align-items: center;

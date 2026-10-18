@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from 'react';
 import { AccountingChequesPanel } from '@/components/accounting/accounting-cheques-panel';
+import { AccountingFollowTask } from '@/components/accounting/accounting-follow-task';
 import { AccountingEntryDrawer } from '@/components/accounting/accounting-entry-drawer';
 import { AccountingJournalComposerModal } from '@/components/accounting/accounting-journal-composer';
 import {
@@ -904,6 +905,16 @@ export function AccountingHub({
                           >
                             {ar ? 'إرسال' : 'Send'}
                           </button>
+                          <AccountingFollowTask
+                            locale={locale}
+                            kind={row.kind === 'receipt' ? 'receipt' : row.kind === 'invoice' ? 'invoice' : 'journal'}
+                            sourceId={row.id}
+                            title={`${row.reference} · ${textLabel(row.title)}`}
+                            detail={[row.partyName, textLabel(row.propertyLabel), row.note]
+                              .filter(Boolean)
+                              .join(' · ')}
+                            dueOn={row.occurredOn}
+                          />
                         </div>
                       </td>
                     </tr>
@@ -954,12 +965,13 @@ export function AccountingHub({
                   <th>{ar ? 'المصدر' : 'Source'}</th>
                   <th>{ar ? 'الحالة' : 'Status'}</th>
                   <th className="num">{ar ? 'المبلغ' : 'Amount'}</th>
+                  <th>{ar ? 'إجراءات' : 'Actions'}</th>
                 </tr>
               </thead>
               <tbody>
                 {journals.length === 0 ? (
                   <tr>
-                    <td colSpan={6}>
+                    <td colSpan={7}>
                       {ar
                         ? 'لا قيود بعد — أنشئ قيداً أعلاه أو اضغط مزامنة المدفوعات لترحيل التحصيلات.'
                         : 'No journals yet — compose an entry above or sync payments.'}
@@ -985,6 +997,16 @@ export function AccountingHub({
                         </span>
                       </td>
                       <td className="num">{money(row.debitMinor, row.currency ?? 'OMR', ar)}</td>
+                      <td onClick={(event) => event.stopPropagation()}>
+                        <AccountingFollowTask
+                          locale={locale}
+                          kind="journal"
+                          sourceId={row.id}
+                          title={`${row.reference} · ${textLabel(row.description)}`}
+                          detail={sourceLabel(row.sourceType)}
+                          dueOn={row.occurredOn}
+                        />
+                      </td>
                     </tr>
                   ))
                 )}
@@ -1029,12 +1051,13 @@ export function AccountingHub({
                   <th>{t.description}</th>
                   <th>{t.status}</th>
                   <th className="num">{t.colAmount}</th>
+                  <th>{ar ? 'إجراءات' : 'Actions'}</th>
                 </tr>
               </thead>
               <tbody>
                 {expenses.length === 0 ? (
                   <tr>
-                    <td colSpan={5}>
+                    <td colSpan={6}>
                       {ar ? 'لا مصروفات مسجّلة بعد.' : 'No expenses recorded yet.'}
                     </td>
                   </tr>
@@ -1046,6 +1069,16 @@ export function AccountingHub({
                       <td>{textLabel(row.description)}</td>
                       <td>{accountingExpenseStatusLabel(row.status, locale)}</td>
                       <td className="num">{money(row.amountMinor, row.currency, ar)}</td>
+                      <td>
+                        <AccountingFollowTask
+                          locale={locale}
+                          kind="expense"
+                          sourceId={row.id}
+                          title={`${row.reference} · ${textLabel(row.description)}`}
+                          detail={row.category}
+                          dueOn={row.issuedOn}
+                        />
+                      </td>
                     </tr>
                   ))
                 )}
@@ -1164,12 +1197,13 @@ export function AccountingHub({
                   <th>{ar ? 'المبنى / الوحدة' : 'Property / unit'}</th>
                   <th className="num">{ar ? 'مدين' : 'Debit'}</th>
                   <th className="num">{ar ? 'دائن' : 'Credit'}</th>
+                  <th>{ar ? 'إجراءات' : 'Actions'}</th>
                 </tr>
               </thead>
               <tbody>
                 {ledgerRows.length === 0 ? (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={8}>
                       {ar
                         ? ledgerId.trim()
                           ? 'لا توجد حركات ضمن النطاق'
@@ -1196,6 +1230,16 @@ export function AccountingHub({
                       </td>
                       <td className="num">
                         {row.creditMinor !== '0' ? money(row.creditMinor, row.currency, ar) : '—'}
+                      </td>
+                      <td>
+                        <AccountingFollowTask
+                          locale={locale}
+                          kind="ledger"
+                          sourceId={`${row.reference}:${row.accountCode}:${row.occurredOn}`}
+                          title={`${row.reference} · ${row.accountCode}`}
+                          detail={row.description}
+                          dueOn={row.occurredOn}
+                        />
                       </td>
                     </tr>
                   ))

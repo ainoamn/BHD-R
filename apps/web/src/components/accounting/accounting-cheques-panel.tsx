@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { AccountingFollowTask } from '@/components/accounting/accounting-follow-task';
 import { accountingChequeStatusLabel } from '@/lib/accounting-i18n';
 import { browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
@@ -194,16 +195,17 @@ export function AccountingChequesPanel({
               <th>{ar ? 'الاستحقاق' : 'Due'}</th>
               <th>{ar ? 'الحالة' : 'Status'}</th>
               <th className="num">{ar ? 'المبلغ' : 'Amount'}</th>
+              <th>{ar ? 'إجراءات' : 'Actions'}</th>
             </tr>
           </thead>
           <tbody>
             {rows === null ? (
               <tr>
-                <td colSpan={7}>{ar ? 'جارٍ التحميل…' : 'Loading…'}</td>
+                <td colSpan={8}>{ar ? 'جارٍ التحميل…' : 'Loading…'}</td>
               </tr>
             ) : visible.length === 0 ? (
               <tr>
-                <td colSpan={7}>
+                <td colSpan={8}>
                   {ar
                     ? 'لا أقساط بعد — وثّق عقد إيجار بجدول دفعات لتظهر هنا مباشرة.'
                     : 'No installments yet — document a lease with a payment schedule to see them here.'}
@@ -224,6 +226,16 @@ export function AccountingChequesPanel({
                   <td>{statusLabel(row)}</td>
                   <td className="num">
                     {formatMoney(row.amountMinor, row.currency || 'OMR', locale)}
+                  </td>
+                  <td>
+                    <AccountingFollowTask
+                      locale={locale}
+                      kind="cheque"
+                      sourceId={row.id}
+                      title={`${row.chequeNumber} · ${row.tenantName || row.propertyName || ''}`.trim()}
+                      detail={[row.propertyName, row.unitCode, row.bankName].filter(Boolean).join(' · ')}
+                      dueOn={row.dueOn}
+                    />
                   </td>
                 </tr>
               ))
