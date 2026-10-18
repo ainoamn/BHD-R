@@ -17,6 +17,12 @@ import {
   users,
   workflowEvents,
 } from '@bhd-r/db';
+import {
+  deterministicSourceId,
+  ensureAccountCodeMap,
+  postSourceDocumentInTx,
+} from '@/lib/accounting-gl-neon';
+import { postingLegalRecovery } from '@/lib/accounting-posting';
 import { applySessionSettings } from '@/lib/db-session-settings';
 import { sendQueuedEmailsSoon } from '@/lib/email-outbox';
 import { escapeHtml } from '@/lib/lease-booking-contract';
@@ -701,12 +707,16 @@ export async function updateLegalCase(
       });
       set.claimAmountMinor = claim;
     }
+    let recoveryDelta: bigint | null = null;
     if (recovered !== undefined && recovered !== legal.recoveredAmountMinor) {
       changes.push({
         field: 'recoveredAmountMinor',
         from: legal.recoveredAmountMinor.toString(),
         to: recovered.toString(),
       });
+      if (recovered > legal.recoveredAmountMinor) {
+        recoveryDelta = recovered - legal.recoveredAmountMinor;
+      }
       set.recoveredAmountMinor = recovered;
     }
     if (input.lawyerPartyId !== undefined && input.lawyerPartyId !== legal.lawyerPartyId) {
@@ -748,6 +758,40 @@ export async function updateLegalCase(
       title: 'تحديث بيانات القضية',
       notes: JSON.stringify({ changes, note }),
     });
+    // GL: increase in recovered amount → Dr bank, Cr other income (idempotent per case+total).
+    if (recoveryDelta && recoveryDelta > 0n) {
+      const map = await ensureAccountCodeMap(tx, scope.organizationId);
+      let propertyId = legal.propertyId;
+      if (!propertyId && legal.unitId) {
+        const [unit] = await tx
+          .select({ propertyId: units.propertyId })
+          .from(units)
+          .where(eq(units.id, legal.unitId))
+          .limit(1);
+        propertyId = unit?.propertyId ?? null;
+      }
+      const occurredOn = muscatToday();
+      await postSourceDocumentInTx(tx, {
+        organizationId: scope.organizationId,
+        actorUserId: scope.userId,
+        occurredOn,
+        description: `تحصيل قضية ${legal.reference}`.slice(0, 500),
+        sourceType: 'legal_recovery',
+        sourceId: deterministicSourceId(`legal_recovery:${legal.id}:${recovered!.toString()}`),
+        lines: postingLegalRecovery(
+          map,
+          recoveryDelta.toString(),
+          {
+            currency: legal.currency,
+            ...(legal.counterpartyId ? { partyId: legal.counterpartyId } : {}),
+            ...(propertyId ? { propertyId } : {}),
+            ...(legal.unitId ? { unitId: legal.unitId } : {}),
+          },
+          'bank',
+          `قضية ${legal.reference}`,
+        ),
+      });
+    }
     const notified = {
       ...legal,
       lawyerPartyId: set.lawyerPartyId !== undefined ? set.lawyerPartyId : legal.lawyerPartyId,

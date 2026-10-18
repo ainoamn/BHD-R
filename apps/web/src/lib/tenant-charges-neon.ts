@@ -15,7 +15,7 @@ import {
   workflowEvents,
 } from '@bhd-r/db';
 import { ensureAccountCodeMap, postSourceDocumentInTx } from '@/lib/accounting-gl-neon';
-import { channelFromMethod, postingRentReceipt } from '@/lib/accounting-posting';
+import { channelFromMethod, postingChargeReceipt } from '@/lib/accounting-posting';
 import { appLink, notifyByEmail } from '@/lib/email-notify';
 import { formatMoney } from '@/lib/format';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
@@ -512,7 +512,7 @@ export async function payTenantCharge(
           description: `تحصيل مطالبة ${invoice.number}`.slice(0, 500),
           sourceType: 'tenant_charge_payment',
           sourceId: paid.paymentId,
-          lines: postingRentReceipt(
+          lines: postingChargeReceipt(
             map,
             minor,
             {
@@ -522,6 +522,7 @@ export async function payTenantCharge(
               unitId: lease.unitId,
             },
             channelFromMethod(input.method),
+            chargeCategoryOf(invoice.number),
             invoice.number,
           ),
         });

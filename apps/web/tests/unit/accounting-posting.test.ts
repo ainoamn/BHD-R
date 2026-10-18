@@ -3,13 +3,16 @@ import {
   cashAccountCode,
   channelFromMethod,
   expenseCodeFromCategory,
+  postingChargeReceipt,
   postingDepositHeld,
   postingDepositRefund,
   postingDepositRetained,
   postingExpensePaid,
+  postingLegalRecovery,
   postingReceivableCollection,
   postingRentReceipt,
   postingTenantInvoice,
+  revenueCodeFromChargeCategory,
 } from '@/lib/accounting-posting';
 import { validateBalanced } from '@/lib/accounting-gl';
 
@@ -95,5 +98,17 @@ describe('accounting-posting', () => {
     expect(() => postingRentReceipt(new Map(), '100', DIMS, 'cash', 'x')).toThrow(
       /account_missing/,
     );
+  });
+
+  it('maps charge categories to non-rent revenue and posts legal recovery', () => {
+    expect(revenueCodeFromChargeCategory('maintenance')).toBe('4300');
+    expect(revenueCodeFromChargeCategory('service')).toBe('4200');
+    expect(revenueCodeFromChargeCategory('electricity')).toBe('4300');
+    const charge = postingChargeReceipt(MAP, '12000', DIMS, 'bank', 'maintenance', 'MNT-1');
+    expect(charge[1]!.accountId).toBe('other');
+    expect(() => validateBalanced(charge)).not.toThrow();
+    const recovery = postingLegalRecovery(MAP, '90000', DIMS, 'bank', 'قضية');
+    expect(recovery[1]!.accountId).toBe('other');
+    expect(() => validateBalanced(recovery)).not.toThrow();
   });
 });

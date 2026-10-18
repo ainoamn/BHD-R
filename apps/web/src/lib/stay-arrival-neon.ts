@@ -7,11 +7,14 @@ import {
   properties,
   stayBookingStatusHistory,
   stayBookings,
+  stayProfiles,
   users,
   workflowEvents,
   type Database,
 } from '@bhd-r/db';
 import { assertStayBookingTransition } from '@bhd-r/domain';
+import { ensureAccountCodeMap, postSourceDocumentInTx } from '@/lib/accounting-gl-neon';
+import { postingDepositHeld } from '@/lib/accounting-posting';
 import { brandUploadedPhoto } from '@/lib/brand-uploaded-photo';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 import {
@@ -331,10 +334,15 @@ export async function recordStayStampOnNeon(
         status: stayBookings.status,
         referenceCode: stayBookings.referenceCode,
         unitId: stayBookings.unitId,
+        propertyId: stayBookings.propertyId,
+        currency: stayBookings.currency,
+        guestPartyId: stayBookings.guestPartyId,
         checkOutOn: stayBookings.checkOutOn,
+        depositMinor: stayProfiles.depositMinor,
       })
       .from(stayBookings)
       .innerJoin(properties, eq(properties.id, stayBookings.propertyId))
+      .leftJoin(stayProfiles, eq(stayProfiles.id, stayBookings.stayProfileId))
       .where(
         and(
           eq(stayBookings.id, bookingId),
@@ -431,6 +439,31 @@ export async function recordStayStampOnNeon(
         aggregateType: 'stay_booking',
         aggregateId: booking.id,
         payload: { unitId: booking.unitId, checkOutOn: booking.checkOutOn },
+      });
+    }
+    // Trust liability: deposit held at check-in (Dr cash, Cr 2100) — dims on property/unit/guest.
+    if (input.kind === 'check_in' && booking.depositMinor && booking.depositMinor > 0n) {
+      const map = await ensureAccountCodeMap(tx, orgId);
+      const occurredOn = stamp.at.slice(0, 10);
+      await postSourceDocumentInTx(tx, {
+        organizationId: orgId,
+        actorUserId: claims.sub,
+        occurredOn,
+        description: `تأمين إقامة محتجز ${booking.referenceCode}`.slice(0, 500),
+        sourceType: 'stay_deposit_held',
+        sourceId: booking.id,
+        lines: postingDepositHeld(
+          map,
+          booking.depositMinor.toString(),
+          {
+            currency: booking.currency,
+            propertyId: booking.propertyId,
+            unitId: booking.unitId,
+            ...(booking.guestPartyId ? { partyId: booking.guestPartyId } : {}),
+          },
+          'cash',
+          `تأمين ${booking.referenceCode}`,
+        ),
       });
     }
     return { bookingStatus: toStatus, stamp };

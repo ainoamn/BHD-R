@@ -24,6 +24,8 @@ import {
   withElevatedRead,
   type Tx,
 } from '@/lib/public-booking-neon';
+import { ensureAccountCodeMap, postSourceDocumentInTx } from '@/lib/accounting-gl-neon';
+import { postingDepositHeld } from '@/lib/accounting-posting';
 import { resolveApprovalPolicy } from '@/lib/approval-policy-neon';
 import type { TermsBlock } from '@/lib/booking-terms';
 import { depositForMode } from '@/lib/booking-deposit';
@@ -740,6 +742,31 @@ export async function completeLeaseSandboxPayment(
         currency: snapshot.currency,
       },
     });
+
+    // Booking deposit held in trust (Dr bank, Cr 2100) — linked to unit/property/tenant.
+    if (snapshot.depositMinor && /^[1-9]\d*$/.test(String(snapshot.depositMinor))) {
+      const map = await ensureAccountCodeMap(transaction, match.organizationId);
+      await postSourceDocumentInTx(transaction, {
+        organizationId: match.organizationId,
+        actorUserId: claims.sub,
+        occurredOn: paidAt.slice(0, 10),
+        description: `عربون حجز محتجز ${snapshot.referenceCode}`.slice(0, 500),
+        sourceType: 'reservation_deposit',
+        sourceId: match.id,
+        lines: postingDepositHeld(
+          map,
+          String(snapshot.depositMinor),
+          {
+            currency: snapshot.currency,
+            propertyId: match.propertyId,
+            unitId: match.unitId,
+            partyId: match.tenantPartyId,
+          },
+          'bank',
+          `عربون ${snapshot.referenceCode}`,
+        ),
+      });
+    }
 
     return {
       completed: true as const,

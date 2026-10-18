@@ -169,3 +169,60 @@ export function expenseCodeFromCategory(category: string): '5000' | '5100' | '52
   if (/أخرى|other/.test(value)) return '5500';
   return '5000';
 }
+
+/** Revenue account for a tenant charge category (not rent). */
+export function revenueCodeFromChargeCategory(
+  category: string | null | undefined,
+): '4000' | '4200' | '4300' {
+  const value = (category ?? '').toLowerCase();
+  if (value === 'service' || /خدم|service/.test(value)) return '4200';
+  if (
+    value === 'maintenance' ||
+    value === 'damage' ||
+    value === 'electricity' ||
+    value === 'water' ||
+    value === 'other' ||
+    /صيان|تلف|كهرب|ماء|other|maint|damage|elec|water/.test(value)
+  ) {
+    return '4300';
+  }
+  return '4000';
+}
+
+/**
+ * Legal recovery received: Dr cash family, Cr other income 4300.
+ * Posts the delta only (caller supplies the increase in recovered amount).
+ */
+export function postingLegalRecovery(
+  map: AccountCodeMap,
+  amountMinor: string,
+  dims: PostingDimensions,
+  channel: CashChannel,
+  memo: string,
+): JournalLineInput[] {
+  if (!/^[1-9]\d*$/.test(amountMinor)) throw new Error('invalid_amount');
+  return [
+    line(requireCode(map, cashAccountCode(channel)), 'debit', amountMinor, dims, memo),
+    line(requireCode(map, '4300'), 'credit', amountMinor, dims, memo),
+  ];
+}
+
+/**
+ * Charge collection that is not rent: Dr cash, Cr revenue by category.
+ * Prefer over postingRentReceipt for maintenance/utilities/damage/service.
+ */
+export function postingChargeReceipt(
+  map: AccountCodeMap,
+  amountMinor: string,
+  dims: PostingDimensions,
+  channel: CashChannel,
+  category: string | null | undefined,
+  memo: string,
+): JournalLineInput[] {
+  if (!/^[1-9]\d*$/.test(amountMinor)) throw new Error('invalid_amount');
+  const revenue = revenueCodeFromChargeCategory(category);
+  return [
+    line(requireCode(map, cashAccountCode(channel)), 'debit', amountMinor, dims, memo),
+    line(requireCode(map, revenue), 'credit', amountMinor, dims, memo),
+  ];
+}
