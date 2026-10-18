@@ -256,13 +256,24 @@
   background: linear-gradient(180deg, #f7fbf8, #f2f7f4);
 }
 
-.accounting-hub__form-grid {
+.accounting-hub__form-grid,
+.accounting-hub__dims {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
   gap: 0.75rem;
 }
 
+.accounting-hub__form-grid > *,
+.accounting-hub__dims > * {
+  min-width: 0;
+}
+
+.accounting-hub__dims,
 .accounting-hub__form-grid label.accounting-hub__search {
+  grid-column: 1 / -1;
+}
+
+.accounting-hub__dims label.accounting-hub__search {
   grid-column: 1 / -1;
 }
 
@@ -273,14 +284,38 @@
 
 .accounting-hub__line {
   display: grid;
-  grid-template-columns: minmax(10rem, 2fr) 1fr 1fr minmax(7rem, 1.2fr) auto;
+  grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.4fr) auto;
   gap: 0.45rem;
   align-items: center;
 }
 
-@media (max-width: 720px) {
-  .accounting-hub__line {
-    grid-template-columns: 1fr 1fr;
+@media (max-width: 860px) {
+  .accounting-hub__form-grid,
+  .accounting-hub__dims,
+  .accounting-hub__line,
+  .accounting-hub__kpis--hero {
+    grid-template-columns: 1fr;
+  }
+
+  .accounting-hub__head,
+  .accounting-hub__toolbar {
+    align-items: stretch;
+  }
+
+  .accounting-hub__panel {
+    padding: 0.85rem;
+  }
+
+  .accounting-hub__table {
+    font-size: 0.82rem;
+  }
+
+  .accounting-drawer__panel {
+    width: 100%;
+  }
+
+  .accounting-hub__row-actions .button {
+    flex: 1 1 auto;
   }
 }
 
@@ -367,8 +402,45 @@
   background: color-mix(in srgb, #b54708 18%, transparent);
 }
 
-.accounting-hub__status--reversed {
-  background: color-mix(in srgb, #b42318 16%, transparent);
+.accounting-hub__status--reversed,
+.accounting-hub__status--void,
+.accounting-hub__status--cancelled,
+.accounting-hub__status--bounced,
+.accounting-hub__status--rejected,
+.accounting-hub__status--failed {
+  background: color-mix(in srgb, #b42318 16%, #fff);
+  color: #7a1b14;
+}
+
+.accounting-hub__status--draft,
+.accounting-hub__status--pending,
+.accounting-hub__status--overdue {
+  background: color-mix(in srgb, #b54708 18%, #fff);
+  color: #7a3b08;
+}
+
+.accounting-hub__status--posted,
+.accounting-hub__status--paid,
+.accounting-hub__status--cleared,
+.accounting-hub__status--succeeded,
+.accounting-hub__status--issued,
+.accounting-hub__status--approved,
+.accounting-hub__status--accepted {
+  background: color-mix(in srgb, #0f7a45 18%, #fff);
+  color: #0b3d2e;
+}
+
+.accounting-hub__status--partially_paid,
+.accounting-hub__status--deposited,
+.accounting-hub__status--collecting,
+.accounting-hub__status--due_soon {
+  background: color-mix(in srgb, #175cd3 16%, #fff);
+  color: #123a86;
+}
+
+.accounting-hub__status--archived {
+  background: color-mix(in srgb, #64748b 22%, #fff);
+  color: #334155;
 }
 
 .accounting-hub__chip {
@@ -539,7 +611,7 @@
 }
 
 .accounting-hub__modal-card {
-  width: min(920px, 100%);
+  width: min(68rem, calc(100vw - 1.25rem));
   max-height: min(92vh, 900px);
   overflow: auto;
   padding: 1.1rem 1.2rem 1.25rem;
@@ -550,7 +622,7 @@
 }
 
 .accounting-hub__modal-card--narrow {
-  width: min(28rem, 100%);
+  width: min(32rem, calc(100vw - 1.25rem));
   display: grid;
   gap: 0.7rem;
 }

@@ -12,6 +12,7 @@ import {
 } from 'react';
 import { AccountingChequesPanel } from '@/components/accounting/accounting-cheques-panel';
 import { AccountingFollowTask } from '@/components/accounting/accounting-follow-task';
+import { AccountingRecordActions } from '@/components/accounting/accounting-record-actions';
 import { AccountingEntryDrawer } from '@/components/accounting/accounting-entry-drawer';
 import { AccountingJournalComposerModal } from '@/components/accounting/accounting-journal-composer';
 import {
@@ -104,6 +105,7 @@ type JournalRow = {
   description: string;
   status: string;
   sourceType?: string | null;
+  archived?: boolean;
   currency: string | null;
   debitMinor: string | null;
   creditMinor: string | null;
@@ -118,6 +120,7 @@ type ExpenseRow = {
   currency: string;
   status: string;
   issuedOn: string;
+  archived?: boolean;
 };
 type PeriodRow = {
   id: string;
@@ -150,6 +153,7 @@ type DocRow = {
   propertyLabel: string | null;
   journalId: string | null;
   note: string | null;
+  archived?: boolean;
 };
 
 const TYPE_LABEL: Record<LedgerAccountType, { ar: string; en: string }> = {
@@ -816,6 +820,7 @@ export function AccountingHub({
               <thead>
                 <tr>
                   <th>{ar ? 'النوع' : 'Kind'}</th>
+                  <th>{ar ? 'الحالة' : 'Status'}</th>
                   <th>{ar ? 'المرجع' : 'Ref'}</th>
                   <th>{ar ? 'العنوان' : 'Title'}</th>
                   <th>{ar ? 'الطرف / العقار' : 'Party / property'}</th>
@@ -827,7 +832,7 @@ export function AccountingHub({
               <tbody>
                 {documents.length === 0 ? (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={8}>
                       {ar
                         ? 'لا مستندات بعد — سجّل قبض إيجار أو ادفع إقامة ثم اضغط مزامنة المدفوعات.'
                         : 'No documents yet — record rent or stay payments, then sync.'}
@@ -852,6 +857,16 @@ export function AccountingHub({
                         <span className={`accounting-hub__chip accounting-hub__chip--${row.kind}`}>
                           {accountingDocKindLabel(row.kind, locale)}
                         </span>
+                      </td>
+                      <td>
+                        <span className={`accounting-hub__status accounting-hub__status--${row.status}`}>
+                          {accountingExpenseStatusLabel(row.status, locale)}
+                        </span>
+                        {row.archived ? (
+                          <span className="accounting-hub__status accounting-hub__status--archived">
+                            {ar ? 'أرشيف' : 'Archived'}
+                          </span>
+                        ) : null}
                       </td>
                       <td>{row.reference}</td>
                       <td>{textLabel(row.title)}</td>
@@ -905,6 +920,16 @@ export function AccountingHub({
                           >
                             {ar ? 'إرسال' : 'Send'}
                           </button>
+                          <AccountingRecordActions
+                            locale={locale}
+                            kind={row.kind}
+                            id={row.kind === 'journal' ? row.journalId || row.id : row.id}
+                            status={row.status}
+                            archived={row.archived}
+                            disabled={busy}
+                            onDone={() => void refreshAll({ silent: true })}
+                            onError={(message) => setError(message)}
+                          />
                           <AccountingFollowTask
                             locale={locale}
                             kind={row.kind === 'receipt' ? 'receipt' : row.kind === 'invoice' ? 'invoice' : 'journal'}
@@ -995,9 +1020,24 @@ export function AccountingHub({
                         >
                           {statusLabel(row.status)}
                         </span>
+                        {row.archived ? (
+                          <span className="accounting-hub__status accounting-hub__status--archived">
+                            {ar ? 'أرشيف' : 'Archived'}
+                          </span>
+                        ) : null}
                       </td>
                       <td className="num">{money(row.debitMinor, row.currency ?? 'OMR', ar)}</td>
                       <td onClick={(event) => event.stopPropagation()}>
+                        <AccountingRecordActions
+                          locale={locale}
+                          kind="journal"
+                          id={row.id}
+                          status={row.status}
+                          archived={row.archived}
+                          disabled={busy}
+                          onDone={() => void refreshAll({ silent: true })}
+                          onError={(message) => setError(message)}
+                        />
                         <AccountingFollowTask
                           locale={locale}
                           kind="journal"
@@ -1067,9 +1107,28 @@ export function AccountingHub({
                       <td>{row.reference}</td>
                       <td>{row.category}</td>
                       <td>{textLabel(row.description)}</td>
-                      <td>{accountingExpenseStatusLabel(row.status, locale)}</td>
+                      <td>
+                        <span className={`accounting-hub__status accounting-hub__status--${row.status}`}>
+                          {accountingExpenseStatusLabel(row.status, locale)}
+                        </span>
+                        {row.archived ? (
+                          <span className="accounting-hub__status accounting-hub__status--archived">
+                            {ar ? 'أرشيف' : 'Archived'}
+                          </span>
+                        ) : null}
+                      </td>
                       <td className="num">{money(row.amountMinor, row.currency, ar)}</td>
                       <td>
+                        <AccountingRecordActions
+                          locale={locale}
+                          kind="expense"
+                          id={row.id}
+                          status={row.status}
+                          archived={row.archived}
+                          disabled={busy}
+                          onDone={() => void refreshAll({ silent: true })}
+                          onError={(message) => setError(message)}
+                        />
                         <AccountingFollowTask
                           locale={locale}
                           kind="expense"
@@ -1488,6 +1547,7 @@ export function AccountingHub({
             setOpenJournalId(id);
           })
         }
+        onChanged={() => void refreshAll({ silent: true })}
         onReverse={(id) =>
           void run(async () => {
             await browserNextMutation(`/api/owner/accounting/journals/${id}/reverse`, {

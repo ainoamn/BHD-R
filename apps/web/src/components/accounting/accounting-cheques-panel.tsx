@@ -223,7 +223,13 @@ export function AccountingChequesPanel({
                   </td>
                   <td>{row.bankName}</td>
                   <td dir="ltr">{row.dueOn}</td>
-                  <td>{statusLabel(row)}</td>
+                  <td>
+                    <span
+                      className={`accounting-hub__status accounting-hub__status--${row.lineStatus || row.reviewStatus}`}
+                    >
+                      {statusLabel(row)}
+                    </span>
+                  </td>
                   <td className="num">
                     {formatMoney(row.amountMinor, row.currency || 'OMR', locale)}
                   </td>

@@ -309,6 +309,12 @@ export async function listJournals(claims: SessionClaims, limit = 100) {
         ),
       )
       .groupBy(journalLines.journalEntryId, journalLines.currency);
+    const archived = await archivedIdSet(
+      tx,
+      orgId,
+      'journal_entry',
+      rows.map((row) => row.id),
+    );
     return rows.map((row) => {
       const amounts = totals.filter((total) => total.journalEntryId === row.id);
       const single = amounts.length === 1 ? amounts[0]! : null;
@@ -320,6 +326,7 @@ export async function listJournals(claims: SessionClaims, limit = 100) {
         currency: single?.currency ?? null,
         debitMinor: single?.debitMinor ?? null,
         creditMinor: single?.creditMinor ?? null,
+        archived: archived.has(row.id),
       };
     });
   });
@@ -430,6 +437,7 @@ export type AccountingDocument = {
   propertyLabel: string | null;
   journalId: string | null;
   note: string | null;
+  archived?: boolean;
 };
 
 /** Invoices, stay receipts and source journals for the documents register. */
@@ -583,7 +591,18 @@ export async function listAccountingDocuments(
       });
     }
     docs.sort((a, b) => (a.occurredOn < b.occurredOn ? 1 : a.occurredOn > b.occurredOn ? -1 : 0));
-    return docs.slice(0, cap);
+    const page = docs.slice(0, cap);
+    const invoiceIds = page.filter((row) => row.kind !== 'journal').map((row) => row.id);
+    const journalIds = page.filter((row) => row.kind === 'journal').map((row) => row.id);
+    const [archivedInvoices, archivedJournals] = await Promise.all([
+      archivedIdSet(tx, orgId, 'invoice', invoiceIds),
+      archivedIdSet(tx, orgId, 'journal_entry', journalIds),
+    ]);
+    return page.map((row) => ({
+      ...row,
+      archived:
+        row.kind === 'journal' ? archivedJournals.has(row.id) : archivedInvoices.has(row.id),
+    }));
   });
 }
 
@@ -833,6 +852,175 @@ export async function reverseJournal(
       note,
     });
     return reversal;
+  });
+}
+
+async function archivedIdSet(
+  tx: GlTx,
+  orgId: string,
+  resourceType: string,
+  ids: string[],
+): Promise<Set<string>> {
+  if (!ids.length) return new Set();
+  const rows = await tx
+    .select({
+      resourceId: workflowEvents.resourceId,
+      eventType: workflowEvents.eventType,
+    })
+    .from(workflowEvents)
+    .where(
+      and(
+        eq(workflowEvents.organizationId, orgId),
+        eq(workflowEvents.resourceType, resourceType),
+        inArray(workflowEvents.resourceId, ids),
+        inArray(workflowEvents.eventType, ['accounting.archived', 'accounting.restored']),
+      ),
+    )
+    .orderBy(desc(workflowEvents.occurredAt));
+  const seen = new Set<string>();
+  const archived = new Set<string>();
+  for (const row of rows) {
+    if (seen.has(row.resourceId)) continue;
+    seen.add(row.resourceId);
+    if (row.eventType === 'accounting.archived') archived.add(row.resourceId);
+  }
+  return archived;
+}
+
+/** Drop a draft journal. Posted books stay; use reverse or unpost for those. */
+export async function discardDraftJournal(claims: SessionClaims, id: string) {
+  if (!canManageAccounting(claims) && !canPostAccounting(claims)) fail('forbidden');
+  const orgId = claims.organizationId!;
+  return withinViewerTenant(claims, async (tx) => {
+    const entry = await tx.query.journalEntries.findFirst({
+      where: and(eq(journalEntries.id, id), eq(journalEntries.organizationId, orgId)),
+    });
+    if (!entry) fail('not_found');
+    if (entry.status !== 'draft') fail('not_draft');
+    await tx.delete(journalLines).where(eq(journalLines.journalEntryId, id));
+    await tx.delete(journalEntries).where(eq(journalEntries.id, id));
+    await tx.insert(workflowEvents).values({
+      organizationId: orgId,
+      actorUserId: claims.sub,
+      resourceType: 'journal_entry',
+      resourceId: id,
+      eventType: 'journal.discarded',
+      fromStatus: 'draft',
+      toStatus: 'deleted',
+      note: entry.reference,
+    });
+    return { id, reference: entry.reference };
+  });
+}
+
+/** Return a posted journal to draft when it has not been reversed and the period is open. */
+export async function unpostJournal(claims: SessionClaims, id: string) {
+  if (!canPostAccounting(claims)) fail('forbidden');
+  const orgId = claims.organizationId!;
+  return withinViewerTenant(claims, async (tx) => {
+    const entry = await tx.query.journalEntries.findFirst({
+      where: and(eq(journalEntries.id, id), eq(journalEntries.organizationId, orgId)),
+    });
+    if (!entry) fail('not_found');
+    if (entry.status !== 'posted') fail('not_posted');
+    await assertPeriodOpen(tx, orgId, entry.occurredOn);
+    const reversal = await tx.query.journalEntries.findFirst({
+      where: and(eq(journalEntries.organizationId, orgId), eq(journalEntries.reversalOfId, id)),
+    });
+    if (reversal) fail('already_reversed');
+    await tx
+      .update(journalEntries)
+      .set({
+        status: 'draft',
+        postedAt: null,
+        postedByUserId: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(journalEntries.id, id));
+    await tx.insert(workflowEvents).values({
+      organizationId: orgId,
+      actorUserId: claims.sub,
+      resourceType: 'journal_entry',
+      resourceId: id,
+      eventType: 'journal.unposted',
+      fromStatus: 'posted',
+      toStatus: 'draft',
+    });
+    return { id, status: 'draft' as const };
+  });
+}
+
+export async function setAccountingArchived(
+  claims: SessionClaims,
+  resourceType: 'journal_entry' | 'invoice' | 'expense',
+  id: string,
+  archived: boolean,
+) {
+  if (!canManageAccounting(claims)) fail('forbidden');
+  const orgId = claims.organizationId!;
+  return withinViewerTenant(claims, async (tx) => {
+    await tx.insert(workflowEvents).values({
+      organizationId: orgId,
+      actorUserId: claims.sub,
+      resourceType,
+      resourceId: id,
+      eventType: archived ? 'accounting.archived' : 'accounting.restored',
+      toStatus: archived ? 'archived' : 'active',
+    });
+    return { id, archived };
+  });
+}
+
+export async function voidAccountingInvoice(claims: SessionClaims, id: string) {
+  if (!canManageAccounting(claims)) fail('forbidden');
+  const orgId = claims.organizationId!;
+  return withinViewerTenant(claims, async (tx) => {
+    const row = await tx.query.invoices.findFirst({
+      where: and(eq(invoices.id, id), eq(invoices.organizationId, orgId)),
+    });
+    if (!row) fail('not_found');
+    if (row.status === 'void') fail('already_void');
+    if (row.paidMinor > 0n) fail('has_payments');
+    await tx
+      .update(invoices)
+      .set({ status: 'void', updatedAt: new Date() })
+      .where(eq(invoices.id, id));
+    await tx.insert(workflowEvents).values({
+      organizationId: orgId,
+      actorUserId: claims.sub,
+      resourceType: 'invoice',
+      resourceId: id,
+      eventType: 'invoice.voided',
+      fromStatus: row.status,
+      toStatus: 'void',
+    });
+    return { id, status: 'void' as const };
+  });
+}
+
+export async function cancelAccountingExpense(claims: SessionClaims, id: string) {
+  if (!canManageAccounting(claims)) fail('forbidden');
+  const orgId = claims.organizationId!;
+  return withinViewerTenant(claims, async (tx) => {
+    const row = await tx.query.expenses.findFirst({
+      where: and(eq(expenses.id, id), eq(expenses.organizationId, orgId)),
+    });
+    if (!row) fail('not_found');
+    if (row.status === 'cancelled') fail('already_void');
+    await tx
+      .update(expenses)
+      .set({ status: 'cancelled', updatedAt: new Date() })
+      .where(eq(expenses.id, id));
+    await tx.insert(workflowEvents).values({
+      organizationId: orgId,
+      actorUserId: claims.sub,
+      resourceType: 'expense',
+      resourceId: id,
+      eventType: 'expense.cancelled',
+      fromStatus: row.status,
+      toStatus: 'cancelled',
+    });
+    return { id, status: 'cancelled' as const };
   });
 }
 
@@ -1125,11 +1313,18 @@ export async function listExpensesGl(claims: SessionClaims, limit = 80) {
       .where(eq(expenses.organizationId, orgId))
       .orderBy(desc(expenses.issuedOn), desc(expenses.createdAt))
       .limit(Math.min(Math.max(limit, 1), 200));
+    const archived = await archivedIdSet(
+      tx,
+      orgId,
+      'expense',
+      rows.map((row) => row.id),
+    );
     return rows.map((row) => ({
       ...row,
       amountMinor: row.amountMinor.toString(),
       taxMinor: row.taxMinor.toString(),
       createdAt: row.createdAt.toISOString(),
+      archived: archived.has(row.id),
     }));
   });
 }

@@ -159,7 +159,7 @@ export function AccountingPropertyUnitFields({
   }
 
   return (
-    <>
+    <div className="accounting-hub__dims">
       <label className="accounting-hub__search">
         {ar ? 'بحث عن العقار' : 'Search property'}
         <input
@@ -251,6 +251,6 @@ export function AccountingPropertyUnitFields({
           <bdi>{selected.ownerName}</bdi>
         </p>
       ) : null}
-    </>
+    </div>
   );
 }

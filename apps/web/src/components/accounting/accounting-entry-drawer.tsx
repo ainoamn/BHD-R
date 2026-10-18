@@ -6,6 +6,7 @@ import {
   accountingJournalStatusLabel,
   accountingSourceTypeLabel,
 } from '@/lib/accounting-i18n';
+import { AccountingRecordActions } from '@/components/accounting/accounting-record-actions';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import {
   accountingMailtoShare,
@@ -68,6 +69,7 @@ export function AccountingEntryDrawer({
   onClose,
   onPost,
   onReverse,
+  onChanged,
   canPost,
   busy,
 }: {
@@ -76,6 +78,7 @@ export function AccountingEntryDrawer({
   onClose: () => void;
   onPost?: (id: string) => void;
   onReverse?: (id: string) => void;
+  onChanged?: () => void;
   canPost: boolean;
   busy: boolean;
 }) {
@@ -329,6 +332,17 @@ export function AccountingEntryDrawer({
                 >
                   {ar ? 'ترحيل القيد' : 'Post entry'}
                 </button>
+              ) : null}
+              {detail ? (
+                <AccountingRecordActions
+                  locale={locale}
+                  kind="journal"
+                  id={detail.id}
+                  status={detail.status}
+                  disabled={busy}
+                  onDone={() => onChanged?.()}
+                  onError={(message) => setError(message)}
+                />
               ) : null}
               {detail.status === 'posted' && canPost && onReverse ? (
                 <button

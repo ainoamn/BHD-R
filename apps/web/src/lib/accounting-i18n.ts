@@ -13,6 +13,12 @@ const EXPENSE_STATUS: Record<string, { ar: string; en: string }> = {
   approved: { ar: 'معتمد', en: 'Approved' },
   paid: { ar: 'مدفوع', en: 'Paid' },
   void: { ar: 'ملغى', en: 'Void' },
+  cancelled: { ar: 'ملغى', en: 'Cancelled' },
+  issued: { ar: 'صادرة', en: 'Issued' },
+  partially_paid: { ar: 'مدفوعة جزئياً', en: 'Part paid' },
+  overdue: { ar: 'متأخرة', en: 'Overdue' },
+  succeeded: { ar: 'محصّلة', en: 'Collected' },
+  draft: { ar: 'مسودة', en: 'Draft' },
 };
 
 const SOURCE_TYPE: Record<string, { ar: string; en: string }> = {
