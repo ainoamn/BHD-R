@@ -848,23 +848,26 @@ export function AccountingHub({
                   return;
                 }
                 void run(async () => {
-                  const created = (await browserNextMutation('/api/owner/accounting/journals', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                      occurredOn: journalForm.occurredOn,
-                      description: journalForm.description,
-                      post: journalForm.post,
-                      lines: journalForm.lines
-                        .filter((line) => line.accountId && (line.debit || line.credit))
-                        .map((line) => ({
-                          accountId: line.accountId,
-                          debitMinor: toMinor(line.debit),
-                          creditMinor: toMinor(line.credit),
-                          currency: 'OMR',
-                          memo: line.memo || undefined,
-                        })),
-                    }),
-                  })) as { journal?: { id?: string } };
+                  const created = await browserNextMutation<{ journal?: { id?: string } }>(
+                    '/api/owner/accounting/journals',
+                    {
+                      method: 'POST',
+                      body: JSON.stringify({
+                        occurredOn: journalForm.occurredOn,
+                        description: journalForm.description,
+                        post: journalForm.post,
+                        lines: journalForm.lines
+                          .filter((line) => line.accountId && (line.debit || line.credit))
+                          .map((line) => ({
+                            accountId: line.accountId,
+                            debitMinor: toMinor(line.debit),
+                            creditMinor: toMinor(line.credit),
+                            currency: 'OMR',
+                            memo: line.memo || undefined,
+                          })),
+                      }),
+                    },
+                  );
                   setJournalForm((current) => ({
                     ...current,
                     description: '',
@@ -873,7 +876,7 @@ export function AccountingHub({
                       { accountId: '', debit: '', credit: '', memo: '' },
                     ],
                   }));
-                  if (created?.journal?.id) setOpenJournalId(created.journal.id);
+                  if (created.journal?.id) setOpenJournalId(created.journal.id);
                 });
               }}
             >
