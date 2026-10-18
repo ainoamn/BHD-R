@@ -50,8 +50,41 @@ const PERIOD_RESOURCE = 'fiscal_period';
 
 export type GlTx = Parameters<Parameters<typeof withinViewerTenant>[1]>[0];
 
-function fail(code: string): never {
+export function fail(code: string): never {
   throw new Error(code);
+}
+
+/** Hisaby-compatible outbox payload for operational journals (pull remains source of full lines). */
+function hisabyJournalPayload(input: {
+  journalId: string;
+  reference: string;
+  occurredOn: string;
+  description: string;
+  amountMinor: string;
+  currency?: string;
+  sourceType?: string | null;
+  sourceId?: string | null;
+}) {
+  return {
+    reference: input.reference,
+    journalId: input.journalId,
+    amountMinor: input.amountMinor,
+    currency: input.currency ?? 'OMR',
+    memo: input.description,
+    occurredOn: input.occurredOn,
+    direction: 'inbound' as const,
+    accountLabel: 'BHD-R operational GL',
+    sourceType: input.sourceType ?? undefined,
+    sourceId: input.sourceId ?? undefined,
+    sourceRefs: {
+      journalId: input.journalId,
+      ...(input.sourceType === 'invoice' && input.sourceId ? { invoiceId: input.sourceId } : {}),
+      ...(input.sourceType === 'payment' && input.sourceId ? { paymentId: input.sourceId } : {}),
+      ...(input.sourceType === 'stay_payment' && input.sourceId
+        ? { paymentId: input.sourceId }
+        : {}),
+    },
+  };
 }
 
 /** Stable UUID v5-like from a seed (journal source_id and fiscal period resource_id are uuid). */
@@ -359,6 +392,13 @@ export async function getJournal(claims: SessionClaims, id: string) {
         creditMinor: line.creditMinor.toString(),
       };
     });
+    const contactLine = lines.find((line) => line.partyId);
+    const partyContact = contactLine?.partyId
+      ? await tx.query.parties.findFirst({
+          where: eq(parties.id, contactLine.partyId),
+          columns: { email: true, phone: true, displayName: true },
+        })
+      : null;
     return {
       ...entry,
       postedAt: entry.postedAt?.toISOString() ?? null,
@@ -366,6 +406,9 @@ export async function getJournal(claims: SessionClaims, id: string) {
       updatedAt: entry.updatedAt.toISOString(),
       totals: { debitMinor: debit.toString(), creditMinor: credit.toString() },
       lines: mapped,
+      partyEmail: partyContact?.email ?? null,
+      partyPhone: partyContact?.phone ?? null,
+      partyName: partyContact?.displayName ?? contactLine?.partyName ?? null,
       trail: trail.map((row) => ({
         ...row,
         occurredAt: row.occurredAt.toISOString(),
@@ -565,7 +608,10 @@ export async function createJournal(
   }
   const orgId = claims.organizationId!;
   const shouldPost = Boolean(input.post) && canPostAccounting(claims);
-  return withinViewerTenant(claims, async (tx) => {
+  const amountMinor = input.lines
+    .reduce((sum, line) => sum + BigInt(line.debitMinor || '0'), 0n)
+    .toString();
+  const created = await withinViewerTenant(claims, async (tx) => {
     await assertPeriodOpen(tx, orgId, input.occurredOn);
     const accountIds = [...new Set(input.lines.map((line) => line.accountId))];
     const accountRows = await tx
@@ -620,7 +666,15 @@ export async function createJournal(
         topic: 'accounting.journal-posted',
         aggregateType: 'journal_entry',
         aggregateId: entry.id,
-        payload: { reference: entry.reference },
+        payload: hisabyJournalPayload({
+          journalId: entry.id,
+          reference: entry.reference,
+          occurredOn: entry.occurredOn,
+          description: entry.description,
+          amountMinor,
+          ...(input.sourceType ? { sourceType: input.sourceType } : {}),
+          ...(input.sourceId ? { sourceId: input.sourceId } : {}),
+        }),
       });
     }
     return {
@@ -630,12 +684,18 @@ export async function createJournal(
       occurredOn: entry.occurredOn,
     };
   });
+  if (shouldPost) {
+    void import('@/lib/accounting-send-neon')
+      .then(({ notifyPartyOnJournalPosted }) => notifyPartyOnJournalPosted(claims, created.id))
+      .catch(() => undefined);
+  }
+  return created;
 }
 
 export async function postJournal(claims: SessionClaims, id: string) {
   if (!canPostAccounting(claims)) fail('forbidden');
   const orgId = claims.organizationId!;
-  return withinViewerTenant(claims, async (tx) => {
+  const posted = await withinViewerTenant(claims, async (tx) => {
     const entry = await tx.query.journalEntries.findFirst({
       where: and(eq(journalEntries.id, id), eq(journalEntries.organizationId, orgId)),
     });
@@ -655,6 +715,7 @@ export async function postJournal(claims: SessionClaims, id: string) {
     } catch {
       fail('unbalanced');
     }
+    const amountMinor = lines.reduce((sum, line) => sum + line.debitMinor, 0n).toString();
     const rows = await tx
       .update(journalEntries)
       .set({
@@ -683,10 +744,22 @@ export async function postJournal(claims: SessionClaims, id: string) {
       topic: 'accounting.journal-posted',
       aggregateType: 'journal_entry',
       aggregateId: id,
-      payload: { reference: entry.reference },
+      payload: hisabyJournalPayload({
+        journalId: id,
+        reference: entry.reference,
+        occurredOn: entry.occurredOn,
+        description: entry.description,
+        amountMinor,
+        ...(entry.sourceType ? { sourceType: entry.sourceType } : {}),
+        ...(entry.sourceId ? { sourceId: entry.sourceId } : {}),
+      }),
     });
     return rows[0]!;
   });
+  void import('@/lib/accounting-send-neon')
+    .then(({ notifyPartyOnJournalPosted }) => notifyPartyOnJournalPosted(claims, id))
+    .catch(() => undefined);
+  return posted;
 }
 
 export async function reverseJournal(
@@ -1760,12 +1833,23 @@ export async function postSourceDocumentInTx(
     note: `${input.sourceType}:${input.sourceId}`.slice(0, 500),
     metadata: { sourceType: input.sourceType, sourceId: input.sourceId },
   });
+  const amountMinor = input.lines
+    .reduce((sum, row) => sum + BigInt(row.debitMinor || '0'), 0n)
+    .toString();
   await tx.insert(outboxEvents).values({
     organizationId: input.organizationId,
     topic: 'accounting.journal-posted',
     aggregateType: 'journal_entry',
     aggregateId: entry.id,
-    payload: { reference: entry.reference, sourceType: input.sourceType, sourceId: input.sourceId },
+    payload: hisabyJournalPayload({
+      journalId: entry.id,
+      reference: entry.reference,
+      occurredOn: input.occurredOn,
+      description: input.description,
+      amountMinor,
+      sourceType: input.sourceType,
+      sourceId: input.sourceId,
+    }),
   });
   return { id: entry.id, reference: entry.reference, status: entry.status, created: true };
 }

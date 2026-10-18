@@ -121,10 +121,23 @@ export async function pushHisabyDomainEvent(
       ['hisaby.bhd-om.com'],
     );
 
+    const nested =
+      input.payload.sourceRefs && typeof input.payload.sourceRefs === 'object'
+        ? (input.payload.sourceRefs as Record<string, unknown>)
+        : {};
+    const ref = (key: string): string | undefined => {
+      const top = input.payload[key];
+      if (typeof top === 'string') return top;
+      const fromNested = nested[key];
+      return typeof fromNested === 'string' ? fromNested : undefined;
+    };
     const body = {
       idempotencyKey: input.eventId,
       type: mapTopic(input.topic),
-      occurredOn: new Date().toISOString(),
+      occurredOn:
+        typeof input.payload.occurredOn === 'string'
+          ? input.payload.occurredOn
+          : new Date().toISOString(),
       organizationExternalId: input.organizationId,
       hisabyCompanyId: link.hisaby_company_id,
       source: 'bhd-r',
@@ -137,18 +150,23 @@ export async function pushHisabyDomainEvent(
           ? String(input.payload.amountMinor)
           : undefined,
       currency: typeof input.payload.currency === 'string' ? input.payload.currency : undefined,
-      propertyId:
-        typeof input.payload.propertyId === 'string' ? input.payload.propertyId : undefined,
-      unitId: typeof input.payload.unitId === 'string' ? input.payload.unitId : undefined,
+      propertyId: ref('propertyId'),
+      unitId: ref('unitId'),
       memo: typeof input.payload.memo === 'string' ? input.payload.memo : undefined,
       sourceRefs: {
         eventId: input.eventId,
         bookingId:
-          typeof input.payload.bookingId === 'string' ? input.payload.bookingId : input.aggregateId,
-        invoiceId:
-          typeof input.payload.invoiceId === 'string' ? input.payload.invoiceId : undefined,
-        paymentId:
-          typeof input.payload.paymentId === 'string' ? input.payload.paymentId : undefined,
+          ref('bookingId') ??
+          (input.aggregateType === 'stay_booking' || input.aggregateType === 'reservation'
+            ? input.aggregateId
+            : undefined),
+        invoiceId: ref('invoiceId'),
+        paymentId: ref('paymentId'),
+        journalId:
+          ref('journalId') ??
+          (input.aggregateType === 'journal_entry' ? input.aggregateId : undefined),
+        expenseId: ref('expenseId'),
+        leaseId: ref('leaseId'),
       },
     };
 

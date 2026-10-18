@@ -3,7 +3,8 @@
 **تاريخ:** 2026-09-09  
 **الحالة:** **منشور على `main`** (BHD-R `1478983` · Hisaby `6c410e4`) — يتطلب ترحيل قواعد البيانات على الإنتاج قبل أول ربط  
 **قرار:** D-207  
-**دليل Hisaby التشغيلي:** [HISABY-BHD-R-INTEGRATION.md](https://github.com/ainoamn/hisaby/blob/main/docs/HISABY-BHD-R-INTEGRATION.md)
+**دليل Hisaby التشغيلي:** [HISABY-BHD-R-INTEGRATION.md](https://github.com/ainoamn/hisaby/blob/main/docs/HISABY-BHD-R-INTEGRATION.md)  
+**توافق البيانات والمحاسبة التشغيلية (0.8.75):** [`HISABY-ACCOUNTING-COMPAT-AR.md`](./HISABY-ACCOUNTING-COMPAT-AR.md)
 
 **المستودعات:**
 - عقارات: [ainoamn/BHD-R](https://github.com/ainoamn/BHD-R) · https://r.bhd-om.com · API https://api.r.bhd-om.com  

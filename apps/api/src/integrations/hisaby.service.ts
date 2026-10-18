@@ -339,6 +339,7 @@ export class HisabyService {
           const profile = profileByProperty.get(property.id);
           return {
             id: property.id,
+            externalId: `bhd-r:property:${property.id}`,
             serialNumber: property.serialNumber,
             nameAr: property.nameAr,
             nameEn: property.nameEn,
@@ -373,6 +374,7 @@ export class HisabyService {
               .filter((unit) => unit.propertyId === property.id)
               .map((unit) => ({
                 id: unit.id,
+                externalId: `bhd-r:unit:${unit.id}`,
                 code: unit.code,
                 nameAr: unit.nameAr,
                 nameEn: unit.nameEn,
@@ -423,6 +425,7 @@ export class HisabyService {
         ]);
         snapshot.parties = partyRows.map((party) => ({
           id: party.id,
+          externalId: `bhd-r:party:${party.id}`,
           type: party.type,
           displayName: party.displayName,
           email: party.email,
@@ -481,6 +484,7 @@ export class HisabyService {
           .limit(5_000);
         snapshot.invoices = invoiceRows.map((invoice) => ({
           id: invoice.id,
+          externalId: `bhd-r:invoice:${invoice.id}`,
           leaseId: invoice.leaseId,
           invoiceNumber: invoice.invoiceNumber,
           status: invoice.status,
@@ -503,6 +507,7 @@ export class HisabyService {
           .limit(5_000);
         snapshot.payments = paymentRows.map((payment) => ({
           id: payment.id,
+          externalId: `bhd-r:payment:${payment.id}`,
           invoiceId: payment.invoiceId,
           status: payment.status,
           method: payment.method,
@@ -523,6 +528,7 @@ export class HisabyService {
           .limit(5_000);
         snapshot.receipts = receiptRows.map((receipt) => ({
           id: receipt.id,
+          externalId: `bhd-r:receipt:${receipt.id}`,
           paymentId: receipt.paymentId,
           receiptNumber: receipt.receiptNumber,
           issuedAt: receipt.issuedAt.toISOString(),
@@ -560,6 +566,7 @@ export class HisabyService {
           : [];
         snapshot.accounts = accounts.map((account) => ({
           id: account.id,
+          externalId: `bhd-r:account:${account.id}`,
           code: account.code,
           nameAr: account.nameAr,
           nameEn: account.nameEn,
@@ -569,6 +576,7 @@ export class HisabyService {
         }));
         snapshot.journals = journals.map((journal) => ({
           id: journal.id,
+          externalId: `bhd-r:journal:${journal.id}`,
           reference: journal.reference,
           occurredOn: journal.occurredOn,
           description: journal.description,
@@ -579,9 +587,13 @@ export class HisabyService {
             .filter((line) => line.journalEntryId === journal.id)
             .map((line) => ({
               accountId: line.accountId,
+              accountExternalId: `bhd-r:account:${line.accountId}`,
               partyId: line.partyId,
+              partyExternalId: line.partyId ? `bhd-r:party:${line.partyId}` : null,
               propertyId: line.propertyId,
+              propertyExternalId: line.propertyId ? `bhd-r:property:${line.propertyId}` : null,
               unitId: line.unitId,
+              unitExternalId: line.unitId ? `bhd-r:unit:${line.unitId}` : null,
               debitMinor: serializeMoney(line.debitMinor),
               creditMinor: serializeMoney(line.creditMinor),
               currency: line.currency,
@@ -590,6 +602,7 @@ export class HisabyService {
         }));
         snapshot.expenses = expenseRows.map((expense) => ({
           id: expense.id,
+          externalId: `bhd-r:expense:${expense.id}`,
           propertyId: expense.propertyId,
           unitId: expense.unitId,
           vendorId: expense.vendorId,
@@ -603,6 +616,15 @@ export class HisabyService {
           dueOn: expense.dueOn,
           direction: 'outbound',
         }));
+        snapshot.compatibility = {
+          moneyScale: 'minor_units_string',
+          omrMinorDigits: 3,
+          idempotencyPrefix: 'bhd-r:',
+          glRole: 'operational',
+          deepGl: 'hisaby',
+          note:
+            'BHD-R posts operational journals; Hisaby remains the deep GL. Money events (stay/lease/expense) are authoritative for Hisaby documents — journal.posted is informational to avoid double-post.',
+        };
       }
 
       if (hasPermission(claims, 'stay.booking.read')) {

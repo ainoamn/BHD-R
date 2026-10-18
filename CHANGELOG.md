@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.75 — 2026-10-18
+
+- **توافق Hisaby:** معرّفات `bhd-r:…` في التصدير، حمولة قيود أغنى للدفع، ووثيقة عدم تعارض GL التشغيلي مع حسابي.
+- **طباعة وإرسال:** فواتير/إيصالات/قيود/تقارير من محور المحاسبة عبر البريد والواتساب (`wa.me` + طابور الإيميل).
+- التفاصيل: [`docs/implementation/RELEASE-0.8.75-AR.md`](./docs/implementation/RELEASE-0.8.75-AR.md).
+
 ## 0.8.74 — 2026-10-18
 
 - **مساحة عمل محاسبية:** تبويب مستندات (فواتير/إيصالات)، فتح القيد بتفاصيل وأسطر وملاحظات وسجل تتبع، نموذج قيد يومية أوضح، وواجهة احترافية.

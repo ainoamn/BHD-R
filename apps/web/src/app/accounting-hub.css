@@ -385,6 +385,12 @@
   gap: 0.4rem;
 }
 
+.accounting-hub__row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
 .accounting-hub__error {
   margin: 0;
   color: #b42318;

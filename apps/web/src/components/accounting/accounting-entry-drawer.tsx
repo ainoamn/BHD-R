@@ -1,7 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ApiError } from '@/lib/api';
+import { ApiError, browserNextMutation } from '@/lib/api';
+import {
+  accountingMailtoShare,
+  accountingWhatsappShare,
+  printAccountingJournal,
+} from '@/lib/accounting-print';
 import { formatMoney } from '@/lib/format';
 
 type JournalDetail = {
@@ -15,6 +20,9 @@ type JournalDetail = {
   postedAt: string | null;
   createdAt: string;
   totals: { debitMinor: string; creditMinor: string };
+  partyEmail?: string | null;
+  partyPhone?: string | null;
+  partyName?: string | null;
   lines: Array<{
     id: string;
     code: string;
@@ -70,6 +78,8 @@ export function AccountingEntryDrawer({
   const [detail, setDetail] = useState<JournalDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [sendNotice, setSendNotice] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     if (!journalId) {
@@ -215,6 +225,93 @@ export function AccountingEntryDrawer({
             )}
 
             <div className="accounting-hub__actions">
+              <button
+                type="button"
+                className="button button--quiet"
+                onClick={() => {
+                  const failed = printAccountingJournal(detail, locale);
+                  if (failed) setError(failed);
+                }}
+              >
+                {ar ? 'طباعة' : 'Print'}
+              </button>
+              <button
+                type="button"
+                className="button button--quiet"
+                disabled={sending}
+                onClick={() => {
+                  void (async () => {
+                    setSending(true);
+                    setSendNotice(null);
+                    try {
+                      const result = await browserNextMutation<{
+                        emailed: number;
+                        whatsappUrl: string | null;
+                      }>('/api/owner/accounting/send', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                          kind: 'journal',
+                          id: detail.id,
+                          channel: 'both',
+                          locale,
+                          ...(detail.partyEmail ? { email: detail.partyEmail } : {}),
+                          ...(detail.partyPhone ? { phone: detail.partyPhone } : {}),
+                        }),
+                      });
+                      if (result.whatsappUrl) {
+                        window.open(result.whatsappUrl, '_blank', 'noopener,noreferrer');
+                      }
+                      setSendNotice(
+                        ar
+                          ? result.emailed
+                            ? `أُرسل بالبريد (${result.emailed}) وفُتح واتساب`
+                            : 'فُتح واتساب — لا بريد للمستلم'
+                          : result.emailed
+                            ? `Emailed (${result.emailed}) and opened WhatsApp`
+                            : 'Opened WhatsApp — no recipient email',
+                      );
+                    } catch (err) {
+                      setError(
+                        err instanceof ApiError
+                          ? err.message
+                          : ar
+                            ? 'تعذر الإرسال'
+                            : 'Send failed',
+                      );
+                    } finally {
+                      setSending(false);
+                    }
+                  })();
+                }}
+              >
+                {ar ? 'بريد + واتساب' : 'Email + WhatsApp'}
+              </button>
+              <a
+                className="button button--quiet"
+                href={accountingWhatsappShare({
+                  ...(detail.partyPhone ? { phone: detail.partyPhone } : {}),
+                  title: ar ? 'قيد يومية' : 'Journal entry',
+                  reference: detail.reference,
+                  amountText: money(detail.totals.debitMinor, 'OMR', ar),
+                  occurredOn: detail.occurredOn,
+                  locale,
+                })}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {ar ? 'واتساب' : 'WhatsApp'}
+              </a>
+              <a
+                className="button button--quiet"
+                href={accountingMailtoShare({
+                  ...(detail.partyEmail ? { email: detail.partyEmail } : {}),
+                  title: ar ? 'قيد يومية' : 'Journal entry',
+                  reference: detail.reference,
+                  body: `${detail.description}\n${money(detail.totals.debitMinor, 'OMR', ar)}`,
+                })}
+              >
+                {ar ? 'بريد' : 'Email'}
+              </a>
               {detail.status === 'draft' && canPost && onPost ? (
                 <button
                   type="button"
@@ -236,6 +333,7 @@ export function AccountingEntryDrawer({
                 </button>
               ) : null}
             </div>
+            {sendNotice ? <p className="accounting-hub__muted">{sendNotice}</p> : null}
           </>
         ) : null}
       </aside>

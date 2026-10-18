@@ -11,6 +11,10 @@ import {
   type AccountingHubTab,
   type LedgerAccountType,
 } from '@/lib/accounting-gl';
+import {
+  printAccountingDocument,
+  printAccountingReport,
+} from '@/lib/accounting-print';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 
@@ -253,7 +257,11 @@ export function AccountingHub({
   >([]);
   const [ledgerTotals, setLedgerTotals] = useState({ debitMinor: '0', creditMinor: '0' });
   const [documents, setDocuments] = useState<DocRow[]>([]);
-  const [openJournalId, setOpenJournalId] = useState<string | null>(null);
+  const [openJournalId, setOpenJournalId] = useState<string | null>(
+    searchParams.get('open') && /^[0-9a-f-]{36}$/i.test(searchParams.get('open')!)
+      ? searchParams.get('open')
+      : null,
+  );
   const [composeOpen, setComposeOpen] = useState(true);
 
   const caps = dash?.capabilities ?? { manage: false, post: false };
@@ -729,8 +737,8 @@ export function AccountingHub({
               <h2>{ar ? 'المستندات والإيصالات' : 'Documents & receipts'}</h2>
               <p className="accounting-hub__hint">
                 {ar
-                  ? 'فواتير المطالبة، إيصالات القبض، وقيود المصدر المرتبطة — اضغط سطراً لفتح القيد المحاسبي.'
-                  : 'Demand invoices, receipts and linked source journals — open a row to inspect the GL entry.'}
+                  ? 'فواتير المطالبة، إيصالات القبض، وقيود المصدر المرتبطة — اضغط سطراً لفتح القيد، أو اطبع/أرسل من الأزرار.'
+                  : 'Demand invoices, receipts and linked journals — open a row for the GL entry, or print/send from the actions.'}
               </p>
             </div>
           </div>
@@ -744,12 +752,13 @@ export function AccountingHub({
                   <th>{ar ? 'الطرف / العقار' : 'Party / property'}</th>
                   <th>{ar ? 'ملاحظة' : 'Note'}</th>
                   <th className="num">{ar ? 'المبلغ' : 'Amount'}</th>
+                  <th>{ar ? 'إجراءات' : 'Actions'}</th>
                 </tr>
               </thead>
               <tbody>
                 {documents.length === 0 ? (
                   <tr>
-                    <td colSpan={6}>
+                    <td colSpan={7}>
                       {ar
                         ? 'لا مستندات بعد — سجّل قبض إيجار أو ادفع إقامة ثم اضغط مزامنة المدفوعات.'
                         : 'No documents yet — record rent or stay payments, then sync.'}
@@ -789,6 +798,46 @@ export function AccountingHub({
                         {row.amountMinor !== '0'
                           ? money(row.amountMinor, row.currency, ar)
                           : '—'}
+                      </td>
+                      <td onClick={(event) => event.stopPropagation()}>
+                        <div className="accounting-hub__row-actions">
+                          <button
+                            type="button"
+                            className="button button--quiet button--sm"
+                            onClick={() => {
+                              const failed = printAccountingDocument(row, locale);
+                              if (failed) setError(failed);
+                            }}
+                          >
+                            {ar ? 'طباعة' : 'Print'}
+                          </button>
+                          <button
+                            type="button"
+                            className="button button--quiet button--sm"
+                            disabled={busy}
+                            onClick={() =>
+                              void run(async () => {
+                                const result = await browserNextMutation<{
+                                  emailed: number;
+                                  whatsappUrl: string | null;
+                                }>('/api/owner/accounting/send', {
+                                  method: 'POST',
+                                  body: JSON.stringify({
+                                    kind: 'document',
+                                    id: row.id,
+                                    channel: 'both',
+                                    locale,
+                                  }),
+                                });
+                                if (result.whatsappUrl) {
+                                  window.open(result.whatsappUrl, '_blank', 'noopener,noreferrer');
+                                }
+                              })
+                            }
+                          >
+                            {ar ? 'إرسال' : 'Send'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -1369,6 +1418,47 @@ export function AccountingHub({
             >
               {ar ? 'عرض' : 'Run'}
             </button>
+            <button
+              type="button"
+              className="button button--quiet"
+              disabled={!report || busy}
+              onClick={() => {
+                if (!report) return;
+                const failed = printCurrentReport(report, reportKind, fromDate, toDate, locale);
+                if (failed) setError(failed);
+              }}
+            >
+              {ar ? 'طباعة التقرير' : 'Print report'}
+            </button>
+            <button
+              type="button"
+              className="button button--quiet"
+              disabled={!report || busy}
+              onClick={() =>
+                void run(async () => {
+                  if (!report) return;
+                  const summary = reportShareSummary(report, reportKind, fromDate, toDate, ar);
+                  const result = await browserNextMutation<{
+                    emailed: number;
+                    whatsappUrl: string | null;
+                  }>('/api/owner/accounting/send', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                      kind: 'report',
+                      id: `${reportKind}-${fromDate}-${toDate}`,
+                      channel: 'both',
+                      locale,
+                      reportSummary: summary,
+                    }),
+                  });
+                  if (result.whatsappUrl) {
+                    window.open(result.whatsappUrl, '_blank', 'noopener,noreferrer');
+                  }
+                })
+              }
+            >
+              {ar ? 'إرسال التقرير' : 'Send report'}
+            </button>
           </div>
           <ReportView ar={ar} report={report} />
         </div>
@@ -1541,6 +1631,191 @@ export function AccountingHub({
 
 function reportCurrency(report: Record<string, unknown>): string {
   return typeof report.currency === 'string' && report.currency ? report.currency : 'OMR';
+}
+
+function reportTitle(kind: string, ar: boolean): string {
+  const map: Record<string, { ar: string; en: string }> = {
+    trial: { ar: 'ميزان المراجعة', en: 'Trial balance' },
+    income: { ar: 'قائمة الدخل', en: 'Income statement' },
+    balance: { ar: 'الميزانية العمومية', en: 'Balance sheet' },
+    cashflow: { ar: 'التدفقات النقدية', en: 'Cash flow' },
+    aging: { ar: 'أعمار الذمم', en: 'AR aging' },
+  };
+  const row = map[kind];
+  return row ? (ar ? row.ar : row.en) : kind;
+}
+
+function reportShareSummary(
+  report: Record<string, unknown>,
+  kind: string,
+  fromDate: string,
+  toDate: string,
+  ar: boolean,
+): string {
+  const currency = reportCurrency(report);
+  const title = reportTitle(kind, ar);
+  if (kind === 'income') {
+    return `${title} (${fromDate} → ${toDate}): ${ar ? 'صافي الدخل' : 'net'} ${money(String(report.netIncomeMinor), currency, ar)}`;
+  }
+  if (kind === 'cashflow') {
+    return `${title} (${fromDate} → ${toDate}): ${ar ? 'صافي النقد' : 'net cash'} ${money(String(report.netMinor), currency, ar)}`;
+  }
+  if (kind === 'aging') {
+    return `${title}: ${ar ? 'المستحق' : 'outstanding'} ${money(String(report.totalOutstandingMinor), currency, ar)}`;
+  }
+  if (kind === 'balance') {
+    return `${title} @ ${toDate}: ${report.balanced ? (ar ? 'متوازنة' : 'balanced') : ar ? 'غير متوازنة' : 'unbalanced'}`;
+  }
+  return `${title} (${fromDate} → ${toDate})`;
+}
+
+function printCurrentReport(
+  report: Record<string, unknown>,
+  kind: string,
+  fromDate: string,
+  toDate: string,
+  locale: 'ar' | 'en',
+): string | null {
+  const ar = locale === 'ar';
+  const currency = reportCurrency(report);
+  const title = reportTitle(kind, ar);
+  const subtitle = `${fromDate} → ${toDate}`;
+  const footer = ar
+    ? 'تقرير تشغيلي من BHD R — الضريبة والأستاذ المفصّل في Hisaby عند الربط.'
+    : 'Operational report from BHD R — tax and deep GL live in Hisaby when linked.';
+
+  if (kind === 'trial' && Array.isArray(report.rows)) {
+    const rows = (
+      report.rows as Array<{
+        code: string;
+        nameAr: string;
+        nameEn: string;
+        type: string;
+        debitMinor: string;
+        creditMinor: string;
+        currency: string;
+      }>
+    )
+      .filter((row) => row.debitMinor !== '0' || row.creditMinor !== '0')
+      .map((row) => [
+        row.code,
+        ar ? row.nameAr : row.nameEn,
+        row.type,
+        money(row.debitMinor, row.currency || currency, ar),
+        money(row.creditMinor, row.currency || currency, ar),
+      ]);
+    return printAccountingReport(
+      {
+        title,
+        subtitle,
+        columns: [
+          ar ? 'الرمز' : 'Code',
+          ar ? 'الحساب' : 'Account',
+          ar ? 'النوع' : 'Type',
+          ar ? 'مدين' : 'Debit',
+          ar ? 'دائن' : 'Credit',
+        ],
+        rows,
+        footer,
+      },
+      locale,
+    );
+  }
+
+  if (kind === 'income' || kind === 'balance') {
+    const sections =
+      kind === 'income'
+        ? [
+            ['revenue', ar ? 'الإيرادات' : 'Revenue', report.revenue],
+            ['expenses', ar ? 'المصروفات' : 'Expenses', report.expenses],
+          ]
+        : [
+            ['assets', ar ? 'الأصول' : 'Assets', report.assets],
+            ['liabilities', ar ? 'الالتزامات' : 'Liabilities', report.liabilities],
+            ['equity', ar ? 'حقوق الملكية' : 'Equity', report.equity],
+          ];
+    const rows: string[][] = [];
+    for (const [, label, section] of sections) {
+      const block = section as {
+        totalMinor: string;
+        rows: Array<{ code: string; nameAr: string; nameEn: string; balanceMinor: string }>;
+      } | null;
+      if (!block) continue;
+      rows.push([label as string, '', money(block.totalMinor, currency, ar)]);
+      for (const row of block.rows) {
+        rows.push([
+          row.code,
+          ar ? row.nameAr : row.nameEn,
+          money(row.balanceMinor, currency, ar),
+        ]);
+      }
+    }
+    if (kind === 'income') {
+      rows.push([
+        ar ? 'صافي الدخل' : 'Net income',
+        '',
+        money(String(report.netIncomeMinor), currency, ar),
+      ]);
+    }
+    return printAccountingReport(
+      {
+        title,
+        subtitle,
+        columns: [ar ? 'البند' : 'Item', ar ? 'الاسم' : 'Name', ar ? 'المبلغ' : 'Amount'],
+        rows,
+        footer,
+      },
+      locale,
+    );
+  }
+
+  if (kind === 'cashflow') {
+    return printAccountingReport(
+      {
+        title,
+        subtitle,
+        columns: [ar ? 'البند' : 'Item', ar ? 'المبلغ' : 'Amount'],
+        rows: [
+          [ar ? 'وارد' : 'Inflow', money(String(report.inflowMinor), currency, ar)],
+          [ar ? 'صادر' : 'Outflow', money(String(report.outflowMinor), currency, ar)],
+          [ar ? 'صافي النقد' : 'Net cash', money(String(report.netMinor), currency, ar)],
+        ],
+        footer,
+      },
+      locale,
+    );
+  }
+
+  if (kind === 'aging') {
+    const buckets = (report.buckets as Record<string, string>) ?? {};
+    return printAccountingReport(
+      {
+        title,
+        subtitle: toDate,
+        columns: [ar ? 'الفئة' : 'Bucket', ar ? 'المبلغ' : 'Amount'],
+        rows: [
+          ...Object.entries(buckets).map(([key, value]) => [key, money(value, currency, ar)]),
+          [
+            ar ? 'الإجمالي' : 'Total',
+            money(String(report.totalOutstandingMinor), currency, ar),
+          ],
+        ],
+        footer,
+      },
+      locale,
+    );
+  }
+
+  return printAccountingReport(
+    {
+      title,
+      subtitle,
+      columns: [ar ? 'البيانات' : 'Data'],
+      rows: [[JSON.stringify(report).slice(0, 2000)]],
+      footer,
+    },
+    locale,
+  );
 }
 
 function ReportView({ ar, report }: { ar: boolean; report: Record<string, unknown> | null }) {
