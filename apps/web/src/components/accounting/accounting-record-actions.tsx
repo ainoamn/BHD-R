@@ -9,6 +9,7 @@ export function AccountingRecordActions({
   locale,
   kind,
   id,
+  journalId,
   status,
   archived = false,
   disabled = false,
@@ -18,6 +19,8 @@ export function AccountingRecordActions({
   locale: 'ar' | 'en';
   kind: Kind;
   id: string;
+  /** Posted journal behind a receipt or document, when the row itself is not the journal. */
+  journalId?: string | null | undefined;
   status: string;
   archived?: boolean | undefined;
   disabled?: boolean | undefined;
@@ -28,13 +31,17 @@ export function AccountingRecordActions({
   const uuid = /^[0-9a-f-]{36}$/i.test(id);
   if (!uuid) return null;
 
-  const run = (action: string, resource: Kind, prompt: string) => {
+  const run = (action: string, resource: Kind, prompt: string, targetId = id) => {
     if (!window.confirm(prompt)) return;
     void (async () => {
       try {
         await browserNextMutation('/api/owner/accounting/lifecycle', {
           method: 'POST',
-          body: JSON.stringify({ action, kind: resource === 'receipt' ? 'invoice' : resource, id }),
+          body: JSON.stringify({
+            action,
+            kind: resource === 'receipt' ? 'invoice' : resource,
+            id: targetId,
+          }),
         });
         onDone();
       } catch (error) {
@@ -45,9 +52,41 @@ export function AccountingRecordActions({
 
   const archiveKind: Kind = kind === 'receipt' ? 'invoice' : kind;
   const invoiceLike = kind === 'invoice' || (kind === 'receipt' && status !== 'succeeded');
+  const journalTarget =
+    journalId && /^[0-9a-f-]{36}$/i.test(journalId)
+      ? journalId
+      : kind === 'journal'
+        ? id
+        : null;
+  const posted = status === 'posted' || status === 'succeeded' || status === 'paid' || status === 'issued';
+  const undo = (action: 'reverse' | 'unpost') => {
+    if (!journalTarget) return;
+    run(
+      action,
+      'journal',
+      action === 'reverse'
+        ? ar
+          ? 'التراجع ينشئ قيد عكس ويبقي أثراً في الدفتر. متابعة؟'
+          : 'Undo posts a reversing entry and keeps an audit trail. Continue?'
+        : ar
+          ? 'حذف الترحيل يُخرج القيد من الدفاتر ويعيده مسودة. متابعة؟'
+          : 'Delete the posting and return the entry to draft?',
+      journalTarget,
+    );
+  };
 
   return (
     <div className="accounting-hub__row-actions">
+      {journalTarget && status !== 'draft' && status !== 'reversed' && status !== 'void' && posted ? (
+        <button
+          type="button"
+          className="accounting-act accounting-act--draft"
+          disabled={disabled}
+          onClick={() => undo('reverse')}
+        >
+          {ar ? 'تراجع' : 'Undo'}
+        </button>
+      ) : null}
       {kind === 'journal' && status === 'draft' ? (
         <button
           type="button"
@@ -60,22 +99,14 @@ export function AccountingRecordActions({
           {ar ? 'حذف' : 'Delete'}
         </button>
       ) : null}
-      {kind === 'journal' && status === 'posted' ? (
+      {journalTarget && status === 'posted' ? (
         <button
           type="button"
-          className="accounting-act accounting-act--draft"
+          className="accounting-act accounting-act--void"
           disabled={disabled}
-          onClick={() =>
-            run(
-              'unpost',
-              'journal',
-              ar
-                ? 'إرجاع القيد إلى مسودة وإخراجه من الدفاتر المرحّلة؟'
-                : 'Return this entry to draft and remove it from the posted books?',
-            )
-          }
+          onClick={() => undo('unpost')}
         >
-          {ar ? 'مسودة' : 'Draft'}
+          {ar ? 'حذف الترحيل' : 'Unpost'}
         </button>
       ) : null}
       {invoiceLike && status !== 'void' && status !== 'paid' ? (
@@ -87,7 +118,7 @@ export function AccountingRecordActions({
             run('void', 'invoice', ar ? 'إلغاء الفاتورة؟ لا يُلغى ما عليه مدفوعات.' : 'Void this invoice?')
           }
         >
-          {ar ? 'إلغاء' : 'Void'}
+          {ar ? 'حذف' : 'Delete'}
         </button>
       ) : null}
       {kind === 'expense' && status !== 'cancelled' && status !== 'void' ? (
@@ -97,7 +128,7 @@ export function AccountingRecordActions({
           disabled={disabled}
           onClick={() => run('cancel', 'expense', ar ? 'إلغاء المصروف؟' : 'Cancel this expense?')}
         >
-          {ar ? 'إلغاء' : 'Cancel'}
+          {ar ? 'حذف' : 'Delete'}
         </button>
       ) : null}
       <button

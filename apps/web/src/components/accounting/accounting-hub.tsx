@@ -937,7 +937,8 @@ export function AccountingHub({
                           <AccountingRecordActions
                             locale={locale}
                             kind={row.kind}
-                            id={row.kind === 'journal' ? row.journalId || row.id : row.id}
+                            id={row.id}
+                            journalId={row.journalId}
                             status={row.status}
                             archived={row.archived}
                             disabled={busy}

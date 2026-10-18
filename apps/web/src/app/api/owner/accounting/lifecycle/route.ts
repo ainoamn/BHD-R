@@ -3,10 +3,12 @@ import { accountingErrorResponse } from '@/lib/accounting-gl-http';
 import {
   cancelAccountingExpense,
   discardDraftJournal,
+  reverseJournal,
   setAccountingArchived,
   unpostJournal,
   voidAccountingInvoice,
 } from '@/lib/accounting-gl-neon';
+import { muscatToday } from '@/lib/contract-list-facets';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { requireLiveSession } from '@/lib/next-route-guard';
 
@@ -36,6 +38,11 @@ export async function POST(request: Request) {
     }
     if (body.action === 'unpost' && body.kind === 'journal') {
       return NextResponse.json(await unpostJournal(claims, id));
+    }
+    if (body.action === 'reverse' && body.kind === 'journal') {
+      return NextResponse.json({
+        journal: await reverseJournal(claims, id, muscatToday(), 'تراجع من شاشة المحاسبة'),
+      });
     }
     if (body.action === 'void' && body.kind === 'invoice') {
       return NextResponse.json(await voidAccountingInvoice(claims, id));
