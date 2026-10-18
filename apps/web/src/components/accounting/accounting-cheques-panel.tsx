@@ -213,8 +213,13 @@ export function AccountingChequesPanel({
               </tr>
             ) : (
               visible.map((row) => (
-                <tr key={row.id}>
-                  <td dir="ltr">{row.chequeNumber}</td>
+                <tr key={row.id} data-kind="cheque">
+                  <td dir="ltr">
+                    <span className="accounting-hub__chip accounting-hub__chip--cheque">
+                      <i aria-hidden="true" />
+                    </span>{' '}
+                    {row.chequeNumber}
+                  </td>
                   <td>
                     <bdi>{row.tenantName || '—'}</bdi>
                   </td>

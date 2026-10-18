@@ -172,6 +172,29 @@ const TYPE_LABEL: Record<LedgerAccountType, { ar: string; en: string }> = {
   expense: { ar: 'مصروف', en: 'Expense' },
 };
 
+const TAB_MARK: Record<string, string> = {
+  dashboard: '▣',
+  documents: '▤',
+  journal: '≡',
+  deposits: '◈',
+  expenses: '↘',
+  trading: '⇄',
+  cheques: '▦',
+  reports: '◔',
+  accounts: '#',
+  ledgers: '▦',
+  periods: '◷',
+  audit: '✓',
+};
+
+function TabMark({ id }: { id: string }) {
+  return (
+    <span className={`accounting-tab-icon accounting-tab-icon--${id}`} aria-hidden="true">
+      {TAB_MARK[id] ?? '•'}
+    </span>
+  );
+}
+
 function money(minor: string | null | undefined, currency = 'OMR', ar = true) {
   if (!minor || !/^-?\d+$/.test(minor)) return '—';
   const negative = minor.startsWith('-');
@@ -582,12 +605,13 @@ export function AccountingHub({
             key={id}
             type="button"
             role="tab"
-            className="accounting-hub__tab"
+            className={`accounting-hub__tab accounting-hub__tab--${id}`}
             aria-selected={tab === id}
             aria-controls={`accounting-panel-${id}`}
             id={`accounting-tab-${id}`}
             onClick={() => setTab(id)}
           >
+            <TabMark id={id} />
             {t.tabLabel(id)}
           </button>
         ))}
@@ -596,12 +620,13 @@ export function AccountingHub({
             key={id}
             type="button"
             role="tab"
-            className="accounting-hub__tab accounting-hub__tab--muted"
+            className={`accounting-hub__tab accounting-hub__tab--muted accounting-hub__tab--${id}`}
             aria-selected={tab === id}
             aria-controls={`accounting-panel-${id}`}
             id={`accounting-tab-${id}`}
             onClick={() => setTab(id)}
           >
+            <TabMark id={id} />
             {t.tabLabel(id)}
           </button>
         ))}
@@ -626,19 +651,19 @@ export function AccountingHub({
           />
           <AccountingTasksInbox locale={locale} />
           <div className="accounting-hub__kpis accounting-hub__kpis--hero">
-            <div className="accounting-hub__kpi accounting-hub__kpi--accent">
+            <div className="accounting-hub__kpi accounting-hub__kpi--in">
               <span>{t.collected}</span>
               <strong>{money(omr.collectedMinor, omr.currency, ar)}</strong>
             </div>
-            <div className="accounting-hub__kpi">
+            <div className="accounting-hub__kpi accounting-hub__kpi--hold">
               <span>{t.depositsHeld}</span>
               <strong>{money(omr.depositsMinor ?? '0', omr.currency, ar)}</strong>
             </div>
-            <div className="accounting-hub__kpi">
+            <div className="accounting-hub__kpi accounting-hub__kpi--due">
               <span>{t.receivables}</span>
               <strong>{money(omr.receivableMinor, omr.currency, ar)}</strong>
             </div>
-            <div className="accounting-hub__kpi">
+            <div className="accounting-hub__kpi accounting-hub__kpi--out">
               <span>{t.expenses}</span>
               <strong>{money(omr.expenseMinor, omr.currency, ar)}</strong>
             </div>
@@ -863,6 +888,7 @@ export function AccountingHub({
                     <tr
                       key={`${row.kind}-${row.id}`}
                       id={`accounting-doc-${row.id}`}
+                      data-kind={row.kind}
                       className={[
                         row.journalId ? 'is-clickable' : '',
                         focusId === row.id ? 'is-focus' : '',
@@ -875,6 +901,7 @@ export function AccountingHub({
                     >
                       <td>
                         <span className={`accounting-hub__chip accounting-hub__chip--${row.kind}`}>
+                          <i aria-hidden="true" />
                           {accountingDocKindLabel(row.kind, locale)}
                         </span>
                       </td>
@@ -1029,10 +1056,16 @@ export function AccountingHub({
                     <tr
                       key={row.id}
                       id={`accounting-journal-${row.id}`}
+                      data-kind="journal"
                       className={`is-clickable${focusId === row.id || openJournalId === row.id ? ' is-focus' : ''}`}
                       onClick={() => setOpenJournalId(row.id)}
                     >
-                      <td>{row.reference}</td>
+                      <td>
+                        <span className="accounting-hub__chip accounting-hub__chip--journal">
+                          <i aria-hidden="true" />
+                        </span>{' '}
+                        {row.reference}
+                      </td>
                       <td>{row.occurredOn}</td>
                       <td>{textLabel(row.description)}</td>
                       <td>{sourceLabel(row.sourceType)}</td>
@@ -1126,8 +1159,13 @@ export function AccountingHub({
                   </tr>
                 ) : (
                   expenses.map((row) => (
-                    <tr key={row.id}>
-                      <td>{row.reference}</td>
+                    <tr key={row.id} data-kind="expense">
+                      <td>
+                        <span className="accounting-hub__chip accounting-hub__chip--expense">
+                          <i aria-hidden="true" />
+                        </span>{' '}
+                        {row.reference}
+                      </td>
                       <td>{row.category}</td>
                       <td>{textLabel(row.description)}</td>
                       <td>

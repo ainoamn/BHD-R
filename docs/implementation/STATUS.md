@@ -1,7 +1,7 @@
 # Implementation status
 
 **Updated:** 2026-10-18  
-**Product version:** 0.8.97  
+**Product version:** 0.8.98  
 **Active focus:** Accounting task followers with roles and AI note translation (0.8.92); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
 
 
@@ -18,6 +18,7 @@
 
 | Version         | Focus                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.8.98          | Accounting hub uses colored tab icons, tinted summary cards, and a distinct mark, row color, and amount color per transaction kind; font sizes unchanged |
 | 0.8.97          | Accounting tasks link themselves to the property and, for a tenant line, also to that tenant; replies can carry file attachments |
 | 0.8.96          | Accounting hub fields, cards, and tables use less padding and gap while font sizes stay the same |
 | 0.8.95          | A task can gain followers, file attachments, and a link to a tenant, building, or unit; those tasks show on the contact and property pages; no migration |

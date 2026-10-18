@@ -1230,3 +1230,167 @@
 .accounting-hub__modal-head {
   margin-bottom: 0.4rem;
 }
+
+/* Transaction colors and marks. Font sizes stay as set above. */
+.accounting-hub__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+}
+
+.accounting-tab-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 0.32rem;
+  font-size: 0.68rem;
+  line-height: 1;
+  color: #fff;
+  background: #64748b;
+  flex: 0 0 auto;
+}
+
+.accounting-tab-icon--dashboard { background: #0f6b45; }
+.accounting-tab-icon--documents { background: #0f766e; }
+.accounting-tab-icon--journal { background: #1d4ed8; }
+.accounting-tab-icon--deposits { background: #b45309; }
+.accounting-tab-icon--expenses { background: #be123c; }
+.accounting-tab-icon--trading { background: #7c3aed; }
+.accounting-tab-icon--cheques { background: #0e7490; }
+.accounting-tab-icon--reports { background: #334155; }
+.accounting-tab-icon--accounts { background: #0369a1; }
+.accounting-tab-icon--ledgers { background: #4338ca; }
+.accounting-tab-icon--periods { background: #a16207; }
+.accounting-tab-icon--audit { background: #047857; }
+
+.accounting-hub__tab--journal[aria-selected='true'] { color: #1d4ed8; }
+.accounting-hub__tab--deposits[aria-selected='true'] { color: #b45309; }
+.accounting-hub__tab--expenses[aria-selected='true'] { color: #be123c; }
+.accounting-hub__tab--trading[aria-selected='true'] { color: #6d28d9; }
+.accounting-hub__tab--cheques[aria-selected='true'] { color: #0e7490; }
+.accounting-hub__tab--documents[aria-selected='true'] { color: #0f766e; }
+.accounting-hub__tab--reports[aria-selected='true'] { color: #1e293b; }
+.accounting-hub__tab--accounts[aria-selected='true'] { color: #0369a1; }
+.accounting-hub__tab--ledgers[aria-selected='true'] { color: #4338ca; }
+.accounting-hub__tab--periods[aria-selected='true'] { color: #a16207; }
+.accounting-hub__tab--audit[aria-selected='true'] { color: #047857; }
+
+.accounting-hub__kpi--in,
+.accounting-hub__kpi--hold,
+.accounting-hub__kpi--due,
+.accounting-hub__kpi--out {
+  border-inline-start-width: 3px;
+  border-inline-start-style: solid;
+}
+
+.accounting-hub__kpi--in {
+  background: #f0fdf6;
+  border-color: #6ee7b7;
+  border-inline-start-color: #059669;
+}
+.accounting-hub__kpi--hold {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  border-inline-start-color: #d97706;
+}
+.accounting-hub__kpi--due {
+  background: #fff7ed;
+  border-color: #fdba74;
+  border-inline-start-color: #ea580c;
+}
+.accounting-hub__kpi--out {
+  background: #fff1f2;
+  border-color: #fda4af;
+  border-inline-start-color: #e11d48;
+}
+
+.accounting-hub__kpi--in span,
+.accounting-hub__kpi--in strong { color: #047857; }
+.accounting-hub__kpi--hold span,
+.accounting-hub__kpi--hold strong { color: #b45309; }
+.accounting-hub__kpi--due span,
+.accounting-hub__kpi--due strong { color: #c2410c; }
+.accounting-hub__kpi--out span,
+.accounting-hub__kpi--out strong { color: #be123c; }
+
+.accounting-collect__card--today { border-inline-start: 3px solid #c2410c; }
+.accounting-collect__card--week { border-inline-start: 3px solid #1d4ed8; }
+.accounting-collect__card--month { border-inline-start: 3px solid #059669; }
+.accounting-collect__card--year { border-inline-start: 3px solid #7c3aed; }
+
+.accounting-hub__chip {
+  align-items: center;
+  gap: 0.28rem;
+  border: 1px solid transparent;
+}
+
+.accounting-hub__chip i {
+  width: 0.48rem;
+  height: 0.48rem;
+  border-radius: 99px;
+  background: currentColor;
+  display: inline-block;
+  flex: 0 0 auto;
+}
+
+.accounting-hub__chip--invoice {
+  background: #fff7ed;
+  color: #c2410c;
+  border-color: #fdba74;
+}
+.accounting-hub__chip--receipt {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #6ee7b7;
+}
+.accounting-hub__chip--journal {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #93c5fd;
+}
+.accounting-hub__chip--expense {
+  background: #fff1f2;
+  color: #be123c;
+  border-color: #fda4af;
+}
+.accounting-hub__chip--cheque {
+  background: #ecfeff;
+  color: #0e7490;
+  border-color: #67e8f9;
+}
+
+.accounting-hub__table tbody tr[data-kind='invoice'] { background: #fffaf3; }
+.accounting-hub__table tbody tr[data-kind='receipt'] { background: #f3fdf8; }
+.accounting-hub__table tbody tr[data-kind='journal'] { background: #f5f8ff; }
+.accounting-hub__table tbody tr[data-kind='expense'] { background: #fff5f6; }
+.accounting-hub__table tbody tr[data-kind='cheque'] { background: #f3fcfd; }
+
+.accounting-hub__table tbody tr[data-kind='invoice'] td:first-child { box-shadow: inset 3px 0 0 #ea580c; }
+.accounting-hub__table tbody tr[data-kind='receipt'] td:first-child { box-shadow: inset 3px 0 0 #059669; }
+.accounting-hub__table tbody tr[data-kind='journal'] td:first-child { box-shadow: inset 3px 0 0 #2563eb; }
+.accounting-hub__table tbody tr[data-kind='expense'] td:first-child { box-shadow: inset 3px 0 0 #e11d48; }
+.accounting-hub__table tbody tr[data-kind='cheque'] td:first-child { box-shadow: inset 3px 0 0 #0891b2; }
+
+[dir='rtl'] .accounting-hub__table tbody tr[data-kind='invoice'] td:first-child { box-shadow: inset -3px 0 0 #ea580c; }
+[dir='rtl'] .accounting-hub__table tbody tr[data-kind='receipt'] td:first-child { box-shadow: inset -3px 0 0 #059669; }
+[dir='rtl'] .accounting-hub__table tbody tr[data-kind='journal'] td:first-child { box-shadow: inset -3px 0 0 #2563eb; }
+[dir='rtl'] .accounting-hub__table tbody tr[data-kind='expense'] td:first-child { box-shadow: inset -3px 0 0 #e11d48; }
+[dir='rtl'] .accounting-hub__table tbody tr[data-kind='cheque'] td:first-child { box-shadow: inset -3px 0 0 #0891b2; }
+
+.accounting-hub__table tbody tr[data-kind='invoice'] td.num { color: #c2410c; }
+.accounting-hub__table tbody tr[data-kind='receipt'] td.num { color: #047857; }
+.accounting-hub__table tbody tr[data-kind='journal'] td.num { color: #1d4ed8; }
+.accounting-hub__table tbody tr[data-kind='expense'] td.num { color: #be123c; }
+.accounting-hub__table tbody tr[data-kind='cheque'] td.num { color: #0e7490; }
+
+.accounting-hub__table--interactive tbody tr[data-kind='invoice']:hover,
+.accounting-hub__table--interactive tbody tr[data-kind='invoice'].is-focus { background: #ffedd5; }
+.accounting-hub__table--interactive tbody tr[data-kind='receipt']:hover,
+.accounting-hub__table--interactive tbody tr[data-kind='receipt'].is-focus { background: #d1fae5; }
+.accounting-hub__table--interactive tbody tr[data-kind='journal']:hover,
+.accounting-hub__table--interactive tbody tr[data-kind='journal'].is-focus { background: #dbeafe; }
+.accounting-hub__table--interactive tbody tr[data-kind='expense']:hover,
+.accounting-hub__table--interactive tbody tr[data-kind='expense'].is-focus { background: #ffe4e6; }
+.accounting-hub__table--interactive tbody tr[data-kind='cheque']:hover,
+.accounting-hub__table--interactive tbody tr[data-kind='cheque'].is-focus { background: #cffafe; }
