@@ -253,6 +253,8 @@ const bookingColumns = {
   currency: stayBookings.currency,
   stayProfileId: stayBookings.stayProfileId,
   propertyId: stayBookings.propertyId,
+  unitId: stayBookings.unitId,
+  guestPartyId: stayBookings.guestPartyId,
 };
 
 async function claimCounts(tx: Tx, bookingId: string) {
@@ -730,6 +732,8 @@ export async function listDepositComplaints(claims: SessionClaims): Promise<Depo
         bookingStatus: stayBookings.status,
         stayProfileId: stayBookings.stayProfileId,
         propertyId: stayBookings.propertyId,
+        unitId: stayBookings.unitId,
+        guestPartyId: stayBookings.guestPartyId,
         propertyAr: properties.nameAr,
         propertyEn: properties.nameEn,
         organizationAr: organizations.displayNameAr,
@@ -769,6 +773,9 @@ export async function listDepositComplaints(claims: SessionClaims): Promise<Depo
         referenceCode: row.reference,
         currency: row.currency,
         stayProfileId: row.stayProfileId,
+        propertyId: row.propertyId,
+        unitId: row.unitId,
+        guestPartyId: row.guestPartyId,
       };
       const decision = row.refundId ? await refundDecision(tx, booking, row.refundId) : null;
       const settledAt = settledAtOf(
