@@ -7,6 +7,7 @@ import { AccountingHub } from '@/components/accounting/accounting-hub';
 import { ApprovalsHub } from '@/components/approvals-hub';
 import { ContactsBoard } from '@/components/contacts-board';
 import { LegalCasesBoard } from '@/components/legal-cases-board';
+import { WorkTasksBoard } from '@/components/work-tasks-board';
 import { OperationsWorkspaceClient } from '@/components/operations-workspace-client';
 import { PortalPageContext } from '@/components/portal-page';
 import { TeamManager } from '@/components/team-manager';
@@ -138,6 +139,16 @@ export function PortalMainSlot({
               locale={locale}
               active={panel === section}
               beforeList={<TenantMaintenanceBoard locale={locale} active={panel === section} />}
+            />
+          ) : panel === 'tasks' && (portal === 'owner' || portal === 'developer') ? (
+            <OperationsWorkspaceClient
+              portal={portal}
+              section={panel}
+              locale={locale}
+              active={panel === section}
+              listOverride={
+                <WorkTasksBoard portal={portal} locale={locale} active={panel === section} />
+              }
             />
           ) : panel === 'legal' && (portal === 'owner' || portal === 'developer') ? (
             <OperationsWorkspaceClient

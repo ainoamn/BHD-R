@@ -26453,3 +26453,52 @@ button.handover-shots__item {
     max-width: 100%;
   }
 }
+
+.task-desk {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem 0 2rem;
+}
+.task-desk__body {
+  white-space: pre-wrap;
+  line-height: 1.7;
+  margin: 0;
+}
+.task-desk__people,
+.task-desk__checks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+.task-desk__people li,
+.task-desk__actions,
+.task-desk__transfer,
+.task-desk__reply,
+.task-desk__legal form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+}
+.task-desk__people small {
+  color: var(--muted);
+}
+.task-desk__reply,
+.task-desk__legal form,
+.task-desk__transfer {
+  display: grid;
+  justify-items: start;
+}
+.task-desk__reply textarea,
+.task-desk__legal textarea,
+.task-desk__transfer select,
+.task-desk__legal select {
+  width: min(100%, 36rem);
+  min-height: 2.6rem;
+}
+.task-desk__reply textarea,
+.task-desk__legal textarea {
+  min-height: 7rem;
+}
