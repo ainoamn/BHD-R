@@ -506,23 +506,57 @@ export function ledgerTermsOf(payload: unknown): LedgerTerms | null {
   const value = terms as Partial<{
     startsOn: string;
     paymentMethod: string;
-    totals: { grandTotalMinor?: number };
-    schedule: LedgerTerms['schedule'];
-    vatCheques: LedgerTerms['vatCheques'];
-    depositItems: LedgerTerms['depositItems'];
+    totals: { grandTotalMinor?: number | string };
+    schedule: Array<Record<string, unknown>>;
+    vatCheques: Array<Record<string, unknown>>;
+    depositItems: Array<Record<string, unknown>>;
   }>;
   if (typeof value.startsOn !== 'string' || !Array.isArray(value.schedule)) return null;
+  const asNumber = (raw: unknown) => {
+    if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+    if (typeof raw === 'string' && /^-?\d+(\.\d+)?$/.test(raw.trim())) return Number(raw);
+    return null;
+  };
+  const schedule = value.schedule.flatMap((row, index) => {
+    if (!row || typeof row.dueOn !== 'string') return [];
+    const totalMinor = asNumber(row.totalMinor) ?? asNumber(row.rentMinor);
+    if (totalMinor === null || totalMinor <= 0) return [];
+    return [
+      {
+        index: typeof row.index === 'number' ? row.index : index + 1,
+        periodFrom: typeof row.periodFrom === 'string' ? row.periodFrom : null,
+        periodTo: typeof row.periodTo === 'string' ? row.periodTo : null,
+        dueOn: row.dueOn,
+        totalMinor,
+        chequeNumber: typeof row.chequeNumber === 'string' ? row.chequeNumber : null,
+        bankName: typeof row.bankName === 'string' ? row.bankName : null,
+      },
+    ];
+  });
+  const vatCheques = Array.isArray(value.vatCheques)
+    ? value.vatCheques.flatMap((row, index) => {
+        if (!row || typeof row.dueOn !== 'string') return [];
+        const amountMinor = asNumber(row.amountMinor);
+        if (amountMinor === null || amountMinor <= 0) return [];
+        return [
+          {
+            index: typeof row.index === 'number' ? row.index : index + 1,
+            dueOn: row.dueOn,
+            amountMinor,
+            chequeNumber: typeof row.chequeNumber === 'string' ? row.chequeNumber : null,
+          },
+        ];
+      })
+    : [];
   return {
     startsOn: value.startsOn,
     paymentMethod: typeof value.paymentMethod === 'string' ? value.paymentMethod : 'cheque',
-    grandTotalMinor: Number(value.totals?.grandTotalMinor ?? 0) || 0,
-    schedule: value.schedule.filter(
-      (row) => row && typeof row.dueOn === 'string' && Number.isFinite(row.totalMinor),
-    ),
-    vatCheques: Array.isArray(value.vatCheques)
-      ? value.vatCheques.filter((row) => row && typeof row.dueOn === 'string')
+    grandTotalMinor: asNumber(value.totals?.grandTotalMinor) ?? 0,
+    schedule,
+    vatCheques,
+    depositItems: Array.isArray(value.depositItems)
+      ? (value.depositItems as LedgerTerms['depositItems'])
       : [],
-    depositItems: Array.isArray(value.depositItems) ? value.depositItems : [],
   };
 }
 

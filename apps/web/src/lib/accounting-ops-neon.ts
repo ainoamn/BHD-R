@@ -3,7 +3,16 @@ import { and, asc, desc, eq, inArray, ne, or, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import type { SessionClaims } from '@bhd-r/authz';
 import type { CurrencyCode } from '@bhd-r/contracts';
-import { addresses, cheques, contracts, leases, parties, properties, units } from '@bhd-r/db';
+import {
+  addresses,
+  cheques,
+  contracts,
+  invoices,
+  leases,
+  parties,
+  properties,
+  units,
+} from '@bhd-r/db';
 import {
   canManageAccounting,
   canReadAccounting,
@@ -20,8 +29,9 @@ import {
   type PostingDimensions,
 } from '@/lib/accounting-posting';
 import type { ChequeImportRow } from '@/lib/accounting-ops';
+import { muscatToday } from '@/lib/contract-list-facets';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
-import { ledgerTermsOf } from '@/lib/tenant-ledger';
+import { buildLeaseStatement, ledgerTermsOf } from '@/lib/tenant-ledger';
 
 export type { ChequeImportRow };
 
@@ -258,18 +268,62 @@ export type AccountingChequeRow = {
   chequeNumber: string;
   bankName: string;
   amountMinor: string;
+  paidMinor: string;
   currency: string;
   dueOn: string;
   reviewStatus: string;
+  /** Ledger line status from the same builder as tenant invoices. */
+  lineStatus: string;
+  kind: string;
   leaseId: string | null;
   tenantName: string | null;
   propertyName: string | null;
   unitCode: string | null;
 };
 
+export type AccountingChequesSummary = {
+  arrearsMinor: string;
+  expectedMinor: string;
+  overdueCount: number;
+  upcomingCount: number;
+  currency: string;
+};
+
+export type AccountingChequesPayload = {
+  cheques: AccountingChequeRow[];
+  summary: AccountingChequesSummary;
+};
+
+/** Stable placeholder when the lease schedule has no physical cheque number. */
+function scheduleChequeNumber(
+  leaseId: string,
+  kind: 'RENT' | 'VAT',
+  index: number,
+  explicit: string | null | undefined,
+): string {
+  const trimmed = (explicit ?? '').trim();
+  if (trimmed) return trimmed.slice(0, 80);
+  const short = leaseId.replace(/-/g, '').slice(0, 8).toUpperCase();
+  return `SCH-${short}-${kind}-${index}`.slice(0, 80);
+}
+
+function reviewStatusFromLine(
+  chequeStatus: string | null,
+  lineStatus: string,
+): string {
+  if (chequeStatus) return chequeStatus;
+  if (lineStatus === 'paid') return 'cleared';
+  if (lineStatus === 'bounced') return 'bounced';
+  if (lineStatus === 'stopped') return 'cancelled';
+  if (lineStatus === 'collecting') return 'deposited';
+  return 'pending';
+}
+
 /**
- * Pull cheque schedule rows from signed / active lease contracts into `cheques`
+ * Pull rent/VAT schedule rows from signed / active lease contracts into `cheques`
  * when they are not already registered (idempotent by org + cheque number).
+ * Rows without a physical cheque number get a stable `SCH-…` placeholder so the
+ * register matches tenant invoices.
  */
 async function ensureChequesFromApprovedLeases(
   tx: GlTx,
@@ -322,22 +376,21 @@ async function ensureChequesFromApprovedLeases(
     if (!terms) continue;
     const scheduleRows = [
       ...terms.schedule.map((row) => ({
-        number: row.chequeNumber,
+        number: scheduleChequeNumber(lease.leaseId, 'RENT', row.index, row.chequeNumber),
         bank: row.bankName,
         dueOn: row.dueOn,
         amountMinor: Math.round(Number(row.totalMinor) || 0),
       })),
       ...terms.vatCheques.map((row) => ({
-        number: row.chequeNumber,
+        number: scheduleChequeNumber(lease.leaseId, 'VAT', row.index, row.chequeNumber),
         bank: null as string | null,
         dueOn: row.dueOn,
         amountMinor: Math.round(Number(row.amountMinor) || 0),
       })),
     ];
     for (const row of scheduleRows) {
-      const number = (row.number ?? '').trim();
-      if (!number || !ISO_DATE.test(row.dueOn) || row.amountMinor <= 0) continue;
-      const key = number.toLowerCase();
+      if (!ISO_DATE.test(row.dueOn) || row.amountMinor <= 0) continue;
+      const key = row.number.toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
       toInsert.push({
@@ -345,7 +398,7 @@ async function ensureChequesFromApprovedLeases(
         leaseId: lease.leaseId,
         ownerPartyId: lease.tenantPartyId,
         bankName: (row.bank ?? '—').slice(0, 160) || '—',
-        chequeNumber: number.slice(0, 80),
+        chequeNumber: row.number,
         amountMinor: BigInt(row.amountMinor),
         currency: lease.currency || 'OMR',
         dueOn: row.dueOn,
@@ -358,52 +411,257 @@ async function ensureChequesFromApprovedLeases(
   }
 }
 
-/** All organisation cheques (tenant rent schedule), with property / unit labels. */
-export async function listAccountingCheques(claims: SessionClaims): Promise<AccountingChequeRow[]> {
+/**
+ * Tenant collection register: same lease schedule / arrears logic as tenant invoices,
+ * merged with cheque review status and property labels.
+ */
+export async function listAccountingCheques(
+  claims: SessionClaims,
+): Promise<AccountingChequesPayload> {
   if (!canReadAccounting(claims)) fail('forbidden');
   const orgId = claims.organizationId!;
   const ownerPartyId = ownerPartyScope(claims);
   return withinViewerTenant(claims, async (tx) => {
     await ensureChequesFromApprovedLeases(tx, orgId, ownerPartyId);
-    const rows = await tx
+
+    const leaseRows = await tx
       .select({
-        id: cheques.id,
-        chequeNumber: cheques.chequeNumber,
-        bankName: cheques.bankName,
-        amountMinor: cheques.amountMinor,
-        currency: cheques.currency,
-        dueOn: cheques.dueOn,
-        reviewStatus: cheques.reviewStatus,
-        leaseId: cheques.leaseId,
+        leaseId: leases.id,
+        tenantPartyId: leases.tenantPartyId,
+        currency: leases.currency,
         tenantName: parties.displayName,
         propertyNameAr: properties.nameAr,
         propertyNameEn: properties.nameEn,
         unitCode: units.code,
         propertyOwnerPartyId: properties.ownerPartyId,
+        leaseTerms: sql<unknown>`${contracts.payloadSnapshot}->'leaseTerms'`,
+        contractAmountMinor: sql<
+          string | null
+        >`${contracts.payloadSnapshot}->'amount'->>'amountMinor'`,
       })
-      .from(cheques)
-      .leftJoin(parties, eq(parties.id, cheques.ownerPartyId))
-      .leftJoin(leases, eq(leases.id, cheques.leaseId))
-      .leftJoin(units, eq(units.id, leases.unitId))
-      .leftJoin(properties, eq(properties.id, units.propertyId))
-      .where(eq(cheques.organizationId, orgId))
-      .orderBy(asc(cheques.dueOn), desc(cheques.createdAt))
-      .limit(2000);
-    return rows
-      .filter((row) => !ownerPartyId || row.propertyOwnerPartyId === ownerPartyId || !row.leaseId)
-      .map((row) => ({
+      .from(leases)
+      .innerJoin(contracts, eq(contracts.id, leases.contractId))
+      .innerJoin(units, eq(units.id, leases.unitId))
+      .innerJoin(properties, eq(properties.id, units.propertyId))
+      .leftJoin(parties, eq(parties.id, leases.tenantPartyId))
+      .where(
+        and(
+          eq(leases.organizationId, orgId),
+          or(
+            eq(contracts.status, 'signed'),
+            inArray(leases.status, ['active', 'clearance_pending', 'ended', 'cancel_requested']),
+          ),
+          ...(ownerPartyId ? [eq(properties.ownerPartyId, ownerPartyId)] : []),
+        ),
+      )
+      .limit(500);
+
+    const leaseIds = leaseRows.map((row) => row.leaseId);
+    const [chequeRows, invoiceRows, orphanCheques] = await Promise.all([
+      leaseIds.length
+        ? tx
+            .select({
+              id: cheques.id,
+              leaseId: cheques.leaseId,
+              chequeNumber: cheques.chequeNumber,
+              bankName: cheques.bankName,
+              amountMinor: cheques.amountMinor,
+              dueOn: cheques.dueOn,
+              reviewStatus: cheques.reviewStatus,
+            })
+            .from(cheques)
+            .where(and(eq(cheques.organizationId, orgId), inArray(cheques.leaseId, leaseIds)))
+            .limit(4000)
+        : Promise.resolve([]),
+      leaseIds.length
+        ? tx
+            .select({
+              id: invoices.id,
+              leaseId: invoices.leaseId,
+              number: invoices.invoiceNumber,
+              status: invoices.status,
+              issuedOn: invoices.issuedOn,
+              dueOn: invoices.dueOn,
+              totalMinor: invoices.totalMinor,
+              paidMinor: invoices.paidMinor,
+              billingPeriodStart: invoices.billingPeriodStart,
+            })
+            .from(invoices)
+            .where(
+              and(
+                eq(invoices.organizationId, orgId),
+                inArray(invoices.leaseId, leaseIds),
+                ne(invoices.status, 'draft'),
+              ),
+            )
+            .limit(4000)
+        : Promise.resolve([]),
+      tx
+        .select({
+          id: cheques.id,
+          chequeNumber: cheques.chequeNumber,
+          bankName: cheques.bankName,
+          amountMinor: cheques.amountMinor,
+          currency: cheques.currency,
+          dueOn: cheques.dueOn,
+          reviewStatus: cheques.reviewStatus,
+          leaseId: cheques.leaseId,
+          tenantName: parties.displayName,
+          propertyNameAr: properties.nameAr,
+          propertyNameEn: properties.nameEn,
+          unitCode: units.code,
+          propertyOwnerPartyId: properties.ownerPartyId,
+        })
+        .from(cheques)
+        .leftJoin(parties, eq(parties.id, cheques.ownerPartyId))
+        .leftJoin(leases, eq(leases.id, cheques.leaseId))
+        .leftJoin(units, eq(units.id, leases.unitId))
+        .leftJoin(properties, eq(properties.id, units.propertyId))
+        .where(eq(cheques.organizationId, orgId))
+        .orderBy(asc(cheques.dueOn), desc(cheques.createdAt))
+        .limit(2000),
+    ]);
+
+    const today = muscatToday();
+    const usedChequeIds = new Set<string>();
+    const out: AccountingChequeRow[] = [];
+    let arrears = 0n;
+    let expected = 0n;
+    let overdueCount = 0;
+    let upcomingCount = 0;
+    let currency = 'OMR';
+
+    for (const lease of leaseRows) {
+      currency = lease.currency || currency;
+      const terms = ledgerTermsOf({ leaseTerms: lease.leaseTerms });
+      if (terms) {
+        // Align schedule cheque numbers with the placeholders we sync into `cheques`.
+        terms.schedule = terms.schedule.map((row) => ({
+          ...row,
+          chequeNumber: scheduleChequeNumber(lease.leaseId, 'RENT', row.index, row.chequeNumber),
+        }));
+        terms.vatCheques = terms.vatCheques.map((row) => ({
+          ...row,
+          chequeNumber: scheduleChequeNumber(lease.leaseId, 'VAT', row.index, row.chequeNumber),
+        }));
+      }
+      const statement = buildLeaseStatement({
+        terms,
+        contractAmountMinor: lease.contractAmountMinor,
+        cheques: chequeRows
+          .filter((cheque) => cheque.leaseId === lease.leaseId)
+          .map((cheque) => ({
+            id: cheque.id,
+            chequeNumber: cheque.chequeNumber,
+            bankName: cheque.bankName,
+            amountMinor: cheque.amountMinor.toString(),
+            dueOn: String(cheque.dueOn),
+            reviewStatus: cheque.reviewStatus,
+          })),
+        invoices: invoiceRows
+          .filter((invoice) => invoice.leaseId === lease.leaseId)
+          .map((invoice) => ({
+            id: invoice.id,
+            number: invoice.number,
+            status: invoice.status,
+            issuedOn: String(invoice.issuedOn),
+            dueOn: String(invoice.dueOn),
+            totalMinor: invoice.totalMinor.toString(),
+            paidMinor: invoice.paidMinor.toString(),
+            billingPeriodStart: invoice.billingPeriodStart
+              ? String(invoice.billingPeriodStart)
+              : null,
+          })),
+        today,
+      });
+
+      arrears += BigInt(statement.arrears.totalMinor || '0');
+      for (const line of statement.lines) {
+        if (line.kind !== 'rent' && line.kind !== 'vat' && line.kind !== 'cheque') continue;
+        if (line.chequeId) usedChequeIds.add(line.chequeId);
+        const amount = BigInt(line.amountMinor || '0');
+        const paid = BigInt(line.paidMinor || '0');
+        const open = amount > paid ? amount - paid : 0n;
+        if (line.status === 'overdue' || line.status === 'bounced') {
+          overdueCount += 1;
+        } else if (
+          open > 0n &&
+          (line.status === 'upcoming' || line.status === 'due_soon' || line.status === 'due')
+        ) {
+          expected += open;
+          upcomingCount += 1;
+        }
+        out.push({
+          id: line.chequeId ?? `line:${lease.leaseId}:${line.key}`,
+          chequeNumber: line.chequeNumber || '—',
+          bankName: line.bankName || '—',
+          amountMinor: line.amountMinor,
+          paidMinor: line.paidMinor,
+          currency: lease.currency || 'OMR',
+          dueOn: line.dueOn,
+          reviewStatus: reviewStatusFromLine(line.chequeStatus, line.status),
+          lineStatus: line.status,
+          kind: line.kind,
+          leaseId: lease.leaseId,
+          tenantName: lease.tenantName,
+          propertyName: lease.propertyNameAr || lease.propertyNameEn || null,
+          unitCode: lease.unitCode,
+        });
+      }
+    }
+
+    for (const row of orphanCheques) {
+      if (usedChequeIds.has(row.id)) continue;
+      if (ownerPartyId && row.propertyOwnerPartyId && row.propertyOwnerPartyId !== ownerPartyId) {
+        continue;
+      }
+      const dueOn = String(row.dueOn);
+      const closed =
+        row.reviewStatus === 'cleared' ||
+        row.reviewStatus === 'cancelled' ||
+        row.reviewStatus === 'rejected';
+      let lineStatus = 'upcoming';
+      if (row.reviewStatus === 'cleared') lineStatus = 'paid';
+      else if (row.reviewStatus === 'bounced') lineStatus = 'bounced';
+      else if (row.reviewStatus === 'cancelled') lineStatus = 'stopped';
+      else if (row.reviewStatus === 'deposited') lineStatus = 'collecting';
+      else if (dueOn < today) lineStatus = 'overdue';
+      else if (dueOn <= today) lineStatus = 'due_soon';
+      if (lineStatus === 'overdue' || lineStatus === 'bounced') overdueCount += 1;
+      else if (!closed && dueOn >= today) {
+        expected += row.amountMinor;
+        upcomingCount += 1;
+      }
+      out.push({
         id: row.id,
         chequeNumber: row.chequeNumber,
         bankName: row.bankName,
         amountMinor: row.amountMinor.toString(),
+        paidMinor: row.reviewStatus === 'cleared' ? row.amountMinor.toString() : '0',
         currency: row.currency,
-        dueOn: String(row.dueOn),
+        dueOn,
         reviewStatus: row.reviewStatus,
+        lineStatus,
+        kind: 'cheque',
         leaseId: row.leaseId,
         tenantName: row.tenantName,
         propertyName: row.propertyNameAr || row.propertyNameEn || null,
         unitCode: row.unitCode,
-      }));
+      });
+    }
+
+    out.sort((a, b) => a.dueOn.localeCompare(b.dueOn) || a.chequeNumber.localeCompare(b.chequeNumber));
+
+    return {
+      cheques: out.slice(0, 4000),
+      summary: {
+        arrearsMinor: arrears.toString(),
+        expectedMinor: expected.toString(),
+        overdueCount,
+        upcomingCount,
+        currency,
+      },
+    };
   });
 }
 

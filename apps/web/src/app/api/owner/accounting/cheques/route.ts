@@ -20,10 +20,10 @@ export async function GET(request: Request) {
     if (!canReadAccounting(claims)) {
       return NextResponse.json({ error: { code: 'forbidden' } }, { status: 403 });
     }
-    return NextResponse.json(
-      { cheques: await listAccountingCheques(claims) },
-      { headers: { 'Cache-Control': 'private, no-store' } },
-    );
+    const payload = await listAccountingCheques(claims);
+    return NextResponse.json(payload, {
+      headers: { 'Cache-Control': 'private, no-store' },
+    });
   } catch (error) {
     return accountingErrorResponse(error, 'GET /api/owner/accounting/cheques');
   }

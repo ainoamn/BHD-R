@@ -214,4 +214,28 @@ describe('ledgerTermsOf', () => {
     expect(parsed?.schedule).toHaveLength(3);
     expect(parsed?.grandTotalMinor).toBe(3_150_000);
   });
+
+  it('coerces string amounts so JSON-serialized schedules still parse', () => {
+    const parsed = ledgerTermsOf({
+      leaseTerms: {
+        startsOn: '2026-01-01',
+        paymentMethod: 'cheque',
+        totals: { grandTotalMinor: '180000' },
+        schedule: [
+          {
+            index: 1,
+            dueOn: '2026-01-05',
+            totalMinor: '180000',
+            rentMinor: '180000',
+            chequeNumber: null,
+          },
+        ],
+        vatCheques: [],
+        depositItems: [],
+      },
+    });
+    expect(parsed?.schedule).toHaveLength(1);
+    expect(parsed?.schedule[0]?.totalMinor).toBe(180_000);
+    expect(parsed?.grandTotalMinor).toBe(180_000);
+  });
 });

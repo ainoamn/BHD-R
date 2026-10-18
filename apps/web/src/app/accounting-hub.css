@@ -567,3 +567,30 @@
   flex-wrap: wrap;
   gap: 0.4rem;
 }
+
+.accounting-hub__stat-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 0.75rem;
+  margin: 0 0 0.85rem;
+}
+
+.accounting-hub__stat {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.85rem 1rem;
+  border-radius: 0.85rem;
+  border: 1px solid var(--gl-line);
+  background: var(--gl-card);
+}
+
+.accounting-hub__stat-label {
+  font-size: 0.82rem;
+  color: var(--gl-muted);
+}
+
+.accounting-hub__stat strong {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
