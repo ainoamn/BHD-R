@@ -742,6 +742,39 @@
 .accounting-task__priority--bad { background: #fdecec; color: #9f1239; }
 .accounting-task__priority.is-on { outline: 2px solid currentColor; }
 
+.accounting-task__note {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.accounting-task__note span {
+  font-size: 0.95rem;
+  font-weight: 750;
+  color: var(--gl-ink);
+}
+
+.accounting-task__note textarea {
+  display: block;
+  width: 100%;
+  min-height: 9.5rem;
+  height: 9.5rem;
+  resize: vertical;
+  padding: 0.85rem 1rem;
+  border-radius: 0.9rem;
+  border: 1px solid color-mix(in srgb, #0f6b45 35%, #c5d5cb);
+  background: #fff;
+  color: var(--gl-ink);
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.55;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #0f6b45 8%, transparent);
+}
+
+.accounting-task__note textarea:focus {
+  outline: 2px solid #0f6b45;
+  outline-offset: 1px;
+}
+
 .accounting-task__files ul {
   margin: 0.35rem 0 0;
   padding-inline-start: 1.1rem;

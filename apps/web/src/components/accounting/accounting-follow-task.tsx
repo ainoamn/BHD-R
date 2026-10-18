@@ -206,9 +206,18 @@ export function AccountingFollowTask({
               </label>
             </div>
 
-            <label>
-              {ar ? 'ملاحظة للمتابع' : 'Note for the follower'}
-              <textarea rows={3} value={note} onChange={(event) => setNote(event.target.value)} />
+            <label className="accounting-task__note">
+              <span>{ar ? 'ملاحظة للمتابع' : 'Note for the follower'}</span>
+              <textarea
+                rows={6}
+                value={note}
+                placeholder={
+                  ar
+                    ? 'اكتب هنا ما يجب على المتابع فعله، بالتفصيل…'
+                    : 'Write what the follower should do…'
+                }
+                onChange={(event) => setNote(event.target.value)}
+              />
             </label>
 
             <label className="accounting-task__files">
