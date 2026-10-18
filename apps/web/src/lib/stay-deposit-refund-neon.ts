@@ -15,6 +15,12 @@ import {
   type Database,
 } from '@bhd-r/db';
 import { assertStayBookingTransition } from '@bhd-r/domain';
+import { ensureAccountCodeMap, postSourceDocumentInTx } from '@/lib/accounting-gl-neon';
+import {
+  channelFromMethod,
+  postingDepositRefund,
+  postingDepositRetained,
+} from '@/lib/accounting-posting';
 import { hasBookingReview } from '@/lib/booking-reviews-neon';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 import { formatMoney } from '@/lib/format';
@@ -235,6 +241,9 @@ export type RefundBooking = {
   referenceCode: string;
   currency: string;
   stayProfileId: string;
+  propertyId: string;
+  unitId: string;
+  guestPartyId: string | null;
 };
 
 export async function lockBooking(tx: Tx, bookingId: string) {
@@ -538,6 +547,9 @@ async function loadHostBooking(
       referenceCode: stayBookings.referenceCode,
       currency: stayBookings.currency,
       stayProfileId: stayBookings.stayProfileId,
+      propertyId: stayBookings.propertyId,
+      unitId: stayBookings.unitId,
+      guestPartyId: stayBookings.guestPartyId,
     })
     .from(stayBookings)
     .innerJoin(properties, eq(properties.id, stayBookings.propertyId))
@@ -768,6 +780,53 @@ export async function recordDepositRefundPayoutOnNeon(
       note: decision.note,
       transferNote: transfer.note ?? null,
     });
+
+    // GL: refund clears liability; retained portion becomes property income — both dimensional.
+    const map = await ensureAccountCodeMap(tx, booking.organizationId);
+    const occurredOn = at.toISOString().slice(0, 10);
+    const dims = {
+      currency: booking.currency,
+      propertyId: booking.propertyId,
+      unitId: booking.unitId,
+      ...(booking.guestPartyId ? { partyId: booking.guestPartyId } : {}),
+    };
+    const channel = channelFromMethod(
+      input.method === 'bank' || input.method === 'phone' ? 'bank_transfer' : input.method,
+    );
+    if (due > 0n) {
+      await postSourceDocumentInTx(tx, {
+        organizationId: booking.organizationId,
+        actorUserId: claims.sub,
+        occurredOn,
+        description: `استرداد تأمين ${booking.referenceCode}`.slice(0, 500),
+        sourceType: 'deposit_refund',
+        sourceId: refund.id,
+        lines: postingDepositRefund(
+          map,
+          due.toString(),
+          dims,
+          channel,
+          `استرداد ${booking.referenceCode}`,
+        ),
+      });
+    }
+    if (retained > 0n) {
+      await postSourceDocumentInTx(tx, {
+        organizationId: booking.organizationId,
+        actorUserId: claims.sub,
+        occurredOn,
+        description: `خصم تأمين محتفظ به ${booking.referenceCode}`.slice(0, 500),
+        sourceType: 'deposit_retained',
+        sourceId: refund.id,
+        lines: postingDepositRetained(
+          map,
+          retained.toString(),
+          dims,
+          `خصم تأمين ${booking.referenceCode}`,
+        ),
+      });
+    }
+
     const bookingStatus = await closeBooking(tx, booking, claims.sub, 'deposit_refund_paid');
     return { refundStatus: 'executed', bookingStatus };
   });

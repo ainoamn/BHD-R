@@ -224,6 +224,20 @@
   font-size: 0.88rem;
 }
 
+.accounting-hub__hint {
+  margin: 0 0 0.75rem;
+  color: var(--muted, #5b6573);
+  font-size: 0.9rem;
+  max-width: 48rem;
+  line-height: 1.45;
+}
+
+.accounting-hub__meta {
+  margin: 0.35rem 0 0.75rem;
+  font-size: 0.88rem;
+  color: var(--muted, #5b6573);
+}
+
 @media (max-width: 720px) {
   .accounting-hub__line {
     grid-template-columns: 1fr 1fr;

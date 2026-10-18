@@ -14,6 +14,8 @@ import {
   units,
   workflowEvents,
 } from '@bhd-r/db';
+import { ensureAccountCodeMap, postSourceDocumentInTx } from '@/lib/accounting-gl-neon';
+import { channelFromMethod, postingRentReceipt } from '@/lib/accounting-posting';
 import { appLink, notifyByEmail } from '@/lib/email-notify';
 import { formatMoney } from '@/lib/format';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
@@ -478,10 +480,53 @@ export async function payTenantCharge(
         currency: invoices.currency,
         totalMinor: invoices.totalMinor,
         tenantPartyId: invoices.tenantPartyId,
+        leaseId: invoices.leaseId,
       })
       .from(invoices)
       .where(eq(invoices.id, invoiceId))
       .limit(1);
+    if (paid.paymentId && invoice?.leaseId) {
+      const [lease] = await tx
+        .select({
+          unitId: leases.unitId,
+          propertyId: units.propertyId,
+          currency: leases.currency,
+          tenantPartyId: leases.tenantPartyId,
+        })
+        .from(leases)
+        .innerJoin(units, eq(units.id, leases.unitId))
+        .where(eq(leases.id, invoice.leaseId))
+        .limit(1);
+      const [paymentRow] = await tx
+        .select({ amountMinor: payments.amountMinor })
+        .from(payments)
+        .where(eq(payments.id, paid.paymentId))
+        .limit(1);
+      const minor = paymentRow?.amountMinor?.toString() ?? '';
+      if (lease && /^[1-9]\d*$/.test(minor)) {
+        const map = await ensureAccountCodeMap(tx, orgId);
+        await postSourceDocumentInTx(tx, {
+          organizationId: orgId,
+          actorUserId: claims.sub,
+          occurredOn: muscatToday(),
+          description: `تحصيل مطالبة ${invoice.number}`.slice(0, 500),
+          sourceType: 'tenant_charge_payment',
+          sourceId: paid.paymentId,
+          lines: postingRentReceipt(
+            map,
+            minor,
+            {
+              currency: lease.currency,
+              partyId: lease.tenantPartyId,
+              propertyId: lease.propertyId,
+              unitId: lease.unitId,
+            },
+            channelFromMethod(input.method),
+            invoice.number,
+          ),
+        });
+      }
+    }
     return { ...paid, invoice: invoice ?? null };
   });
   const { invoice, ...result } = paid;

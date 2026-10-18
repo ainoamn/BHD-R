@@ -107,6 +107,7 @@ describe('accounting-gl', () => {
     expect(agingBucket(120)).toBe('90+');
     expect(daysBetween('2026-01-01', '2026-01-31')).toBe(30);
     expect(parseAccountingHubTab('journal')).toBe('journal');
+    expect(parseAccountingHubTab('ledgers')).toBe('ledgers');
     expect(parseAccountingHubTab('nope')).toBe('dashboard');
   });
 });

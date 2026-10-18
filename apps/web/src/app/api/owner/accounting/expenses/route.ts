@@ -49,6 +49,8 @@ export async function POST(request: Request) {
       issuedOn?: string;
       dueOn?: string;
       propertyId?: string;
+      unitId?: string;
+      partyId?: string;
       notes?: string;
     } | null;
     if (!body?.category || !body.description || !body.amountMinor || !body.issuedOn) {
@@ -63,6 +65,8 @@ export async function POST(request: Request) {
       ...(body.taxMinor ? { taxMinor: body.taxMinor } : {}),
       ...(body.dueOn ? { dueOn: body.dueOn } : {}),
       ...(body.propertyId ? { propertyId: body.propertyId } : {}),
+      ...(body.unitId ? { unitId: body.unitId } : {}),
+      ...(body.partyId ? { partyId: body.partyId } : {}),
       ...(body.notes ? { notes: body.notes } : {}),
     });
     return NextResponse.json({ expense }, { status: 201 });

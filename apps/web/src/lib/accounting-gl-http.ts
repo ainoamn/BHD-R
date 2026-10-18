@@ -36,12 +36,14 @@ const CODE_AR: Record<string, string> = {
 };
 
 export function accountingErrorResponse(error: unknown, label: string) {
-  if (error instanceof Error && CODE_STATUS[error.message]) {
-    const code = error.message;
-    return NextResponse.json(
-      { error: { code, message: code, messageAr: CODE_AR[code] ?? code } },
-      { status: CODE_STATUS[code]! },
-    );
+  if (error instanceof Error) {
+    const code = error.message.startsWith('account_missing:') ? 'account_missing' : error.message;
+    if (CODE_STATUS[code]) {
+      return NextResponse.json(
+        { error: { code, message: code, messageAr: CODE_AR[code] ?? code } },
+        { status: CODE_STATUS[code]! },
+      );
+    }
   }
   const mapped = guardErrorResponse(error);
   if (mapped.status >= 500) console.error(label, error);

@@ -88,6 +88,7 @@ const TAB_LABEL: Record<AccountingHubTab, { ar: string; en: string }> = {
   accounts: { ar: 'دليل الحسابات', en: 'Chart of accounts' },
   journal: { ar: 'قيود اليومية', en: 'Journal' },
   expenses: { ar: 'المصروفات', en: 'Expenses' },
+  ledgers: { ar: 'أستاذ تحليلي', en: 'Dimensional ledger' },
   reports: { ar: 'التقارير', en: 'Reports' },
   periods: { ar: 'الفترات', en: 'Periods' },
   audit: { ar: 'التدقيق', en: 'Audit' },
@@ -195,12 +196,34 @@ export function AccountingHub({
     description: '',
     amount: '',
     issuedOn: todayIso(),
+    propertyId: '',
+    unitId: '',
+    partyId: '',
   });
   const [periodForm, setPeriodForm] = useState({
     from: `${todayIso().slice(0, 4)}-01-01`,
     to: todayIso(),
     note: '',
   });
+  const [ledgerScope, setLedgerScope] = useState<'propertyId' | 'unitId' | 'partyId'>('propertyId');
+  const [ledgerId, setLedgerId] = useState(searchParams.get('propertyId') ?? '');
+  const [ledgerRows, setLedgerRows] = useState<
+    Array<{
+      reference: string;
+      occurredOn: string;
+      accountCode: string;
+      accountNameAr: string;
+      accountNameEn: string;
+      debitMinor: string;
+      creditMinor: string;
+      currency: string;
+      partyName: string | null;
+      propertyNameAr: string | null;
+      unitCode: string | null;
+      description: string;
+    }>
+  >([]);
+  const [ledgerTotals, setLedgerTotals] = useState({ debitMinor: '0', creditMinor: '0' });
 
   const caps = dash?.capabilities ?? { manage: false, post: false };
   const omr = dash?.totalsByCurrency.find((row) => row.currency === 'OMR') ??
@@ -255,6 +278,22 @@ export function AccountingHub({
         setExpenses(data.expenses);
         return;
       }
+      if (current === 'ledgers') {
+        if (!ledgerId.trim()) {
+          setLedgerRows([]);
+          setLedgerTotals({ debitMinor: '0', creditMinor: '0' });
+          return;
+        }
+        const data = await getJson<{
+          rows: typeof ledgerRows;
+          totals: { debitMinor: string; creditMinor: string };
+        }>(
+          `/api/owner/accounting/ledgers?${encodeURIComponent(ledgerScope)}=${encodeURIComponent(ledgerId.trim())}&fromDate=${fromDate}&toDate=${toDate}`,
+        );
+        setLedgerRows(data.rows);
+        setLedgerTotals(data.totals);
+        return;
+      }
       if (current === 'reports') {
         const data = await getJson<Record<string, unknown>>(
           `/api/owner/accounting/reports?report=${encodeURIComponent(reportKind)}&fromDate=${fromDate}&toDate=${toDate}&asOfDate=${toDate}`,
@@ -272,7 +311,7 @@ export function AccountingHub({
         setAudit(data.events);
       }
     },
-    [fromDate, refreshDash, reportKind, toDate],
+    [fromDate, ledgerId, ledgerScope, refreshDash, reportKind, toDate],
   );
 
   useEffect(() => {
@@ -842,6 +881,15 @@ export function AccountingHub({
                       amountMinor: toMinor(expenseForm.amount),
                       currency: 'OMR',
                       issuedOn: expenseForm.issuedOn,
+                      ...(expenseForm.propertyId.trim()
+                        ? { propertyId: expenseForm.propertyId.trim() }
+                        : {}),
+                      ...(expenseForm.unitId.trim()
+                        ? { unitId: expenseForm.unitId.trim() }
+                        : {}),
+                      ...(expenseForm.partyId.trim()
+                        ? { partyId: expenseForm.partyId.trim() }
+                        : {}),
                     }),
                   });
                   setExpenseForm((current) => ({ ...current, description: '', amount: '' }));
@@ -891,6 +939,39 @@ export function AccountingHub({
                     required
                   />
                 </label>
+                <label>
+                  {ar ? 'المبنى (اختياري)' : 'Property (optional)'}
+                  <input
+                    value={expenseForm.propertyId}
+                    onChange={(event) =>
+                      setExpenseForm((current) => ({
+                        ...current,
+                        propertyId: event.target.value,
+                      }))
+                    }
+                    placeholder="UUID"
+                  />
+                </label>
+                <label>
+                  {ar ? 'الوحدة (اختياري)' : 'Unit (optional)'}
+                  <input
+                    value={expenseForm.unitId}
+                    onChange={(event) =>
+                      setExpenseForm((current) => ({ ...current, unitId: event.target.value }))
+                    }
+                    placeholder="UUID"
+                  />
+                </label>
+                <label>
+                  {ar ? 'الطرف (اختياري)' : 'Party (optional)'}
+                  <input
+                    value={expenseForm.partyId}
+                    onChange={(event) =>
+                      setExpenseForm((current) => ({ ...current, partyId: event.target.value }))
+                    }
+                    placeholder="UUID"
+                  />
+                </label>
               </div>
               <button className="button button--primary" type="submit" disabled={busy}>
                 {ar ? 'تسجيل مصروف' : 'Record expense'}
@@ -918,6 +999,119 @@ export function AccountingHub({
                     <td className="num">{money(row.amountMinor, row.currency, ar)}</td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+
+      {tab === 'ledgers' ? (
+        <div className="accounting-hub__panel">
+          <h2>{ar ? 'أستاذ تحليلي (مبنى / وحدة / طرف)' : 'Dimensional ledger'}</h2>
+          <p className="accounting-hub__hint">
+            {ar
+              ? 'اعرض حركة القيود المرحّلة المرتبطة بمبنى أو وحدة أو طرف — الإيجار والتأمين والمصروفات تظهر هنا عند الربط الصحيح.'
+              : 'Posted journal activity scoped to a property, unit, or party — rent, deposits, and expenses appear when dimensions are set.'}
+          </p>
+          <div className="accounting-hub__toolbar">
+            <label>
+              {ar ? 'النطاق' : 'Scope'}
+              <select
+                value={ledgerScope}
+                onChange={(event) =>
+                  setLedgerScope(event.target.value as 'propertyId' | 'unitId' | 'partyId')
+                }
+              >
+                <option value="propertyId">{ar ? 'مبنى' : 'Property'}</option>
+                <option value="unitId">{ar ? 'وحدة' : 'Unit'}</option>
+                <option value="partyId">{ar ? 'طرف' : 'Party'}</option>
+              </select>
+            </label>
+            <label>
+              {ar ? 'المعرّف' : 'ID'}
+              <input
+                value={ledgerId}
+                onChange={(event) => setLedgerId(event.target.value)}
+                placeholder="UUID"
+              />
+            </label>
+            <label>
+              {ar ? 'من' : 'From'}
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(event) => setFromDate(event.target.value)}
+              />
+            </label>
+            <label>
+              {ar ? 'إلى' : 'To'}
+              <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} />
+            </label>
+            <button
+              className="button button--primary"
+              type="button"
+              disabled={busy || !ledgerId.trim()}
+              onClick={() => {
+                void run(async () => {
+                  await loadTab('ledgers');
+                });
+              }}
+            >
+              {ar ? 'عرض' : 'Load'}
+            </button>
+          </div>
+          <p className="accounting-hub__meta">
+            {ar ? 'إجمالي مدين' : 'Total debit'}: {money(ledgerTotals.debitMinor, 'OMR', ar)}
+            {' · '}
+            {ar ? 'إجمالي دائن' : 'Total credit'}: {money(ledgerTotals.creditMinor, 'OMR', ar)}
+          </p>
+          <div className="accounting-hub__table-wrap">
+            <table className="accounting-hub__table">
+              <thead>
+                <tr>
+                  <th>{ar ? 'التاريخ' : 'Date'}</th>
+                  <th>{ar ? 'المرجع' : 'Ref'}</th>
+                  <th>{ar ? 'الحساب' : 'Account'}</th>
+                  <th>{ar ? 'الطرف' : 'Party'}</th>
+                  <th>{ar ? 'المبنى / الوحدة' : 'Property / unit'}</th>
+                  <th className="num">{ar ? 'مدين' : 'Debit'}</th>
+                  <th className="num">{ar ? 'دائن' : 'Credit'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ledgerRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={7}>
+                      {ar
+                        ? ledgerId.trim()
+                          ? 'لا توجد حركات ضمن النطاق'
+                          : 'أدخل معرّف المبنى أو الوحدة أو الطرف'
+                        : ledgerId.trim()
+                          ? 'No rows in scope'
+                          : 'Enter a property, unit, or party id'}
+                    </td>
+                  </tr>
+                ) : (
+                  ledgerRows.map((row, index) => (
+                    <tr key={`${row.reference}-${row.accountCode}-${index}`}>
+                      <td>{row.occurredOn}</td>
+                      <td>{row.reference}</td>
+                      <td>
+                        {row.accountCode} · {ar ? row.accountNameAr : row.accountNameEn}
+                      </td>
+                      <td>{row.partyName ?? '—'}</td>
+                      <td>
+                        {[row.propertyNameAr, row.unitCode].filter(Boolean).join(' / ') || '—'}
+                      </td>
+                      <td className="num">
+                        {row.debitMinor !== '0' ? money(row.debitMinor, row.currency, ar) : '—'}
+                      </td>
+                      <td className="num">
+                        {row.creditMinor !== '0' ? money(row.creditMinor, row.currency, ar) : '—'}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

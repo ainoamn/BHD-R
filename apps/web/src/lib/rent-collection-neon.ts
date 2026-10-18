@@ -3,6 +3,11 @@ import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import { currencyMinorUnits, type CurrencyCode } from '@bhd-r/contracts';
 import { contracts, invoiceLines, invoices, leases, parties, properties, units } from '@bhd-r/db';
+import { ensureAccountCodeMap, postSourceDocumentInTx } from '@/lib/accounting-gl-neon';
+import {
+  channelFromMethod,
+  postingRentReceipt,
+} from '@/lib/accounting-posting';
 import { appLink, notifyByEmail } from '@/lib/email-notify';
 import { formatMoney } from '@/lib/format';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
@@ -255,6 +260,32 @@ export async function recordRentPayment(
         invoiceId,
         paidAt: paid.paidAt,
         actorUserId: claims.sub,
+      });
+    }
+    // Official GL post: Dr cash/bank, Cr rent revenue — linked to tenant, property and unit.
+    if (paid.paymentId) {
+      const map = await ensureAccountCodeMap(tx, orgId);
+      const occurredOn = (input.receivedOn ?? today).slice(0, 10);
+      const memo = `${subject.label.ar} · ${rentMonthLabel(subject, true)}`.slice(0, 500);
+      await postSourceDocumentInTx(tx, {
+        organizationId: orgId,
+        actorUserId: claims.sub,
+        occurredOn,
+        description: `قبض إيجار ${memo}`.slice(0, 500),
+        sourceType: 'rent_payment',
+        sourceId: paid.paymentId,
+        lines: postingRentReceipt(
+          map,
+          amount.toString(),
+          {
+            currency: lease.currency,
+            partyId: lease.tenantPartyId,
+            propertyId: lease.propertyId,
+            unitId: lease.unitId,
+          },
+          channelFromMethod(input.method),
+          memo,
+        ),
       });
     }
     return {

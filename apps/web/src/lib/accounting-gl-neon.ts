@@ -10,7 +10,10 @@ import {
   journalLines,
   ledgerAccounts,
   outboxEvents,
+  parties,
   payments,
+  properties,
+  units,
   workflowEvents,
 } from '@bhd-r/db';
 import {
@@ -28,10 +31,17 @@ import {
   type LedgerAccountType,
   type TrialBalanceRow,
 } from '@/lib/accounting-gl';
+import {
+  expenseCodeFromCategory,
+  postingExpensePaid,
+  type AccountCodeMap,
+} from '@/lib/accounting-posting';
 import { withinViewerTenant } from '@/lib/portal-ops-data';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const PERIOD_RESOURCE = 'fiscal_period';
+
+export type GlTx = Parameters<Parameters<typeof withinViewerTenant>[1]>[0];
 
 function fail(code: string): never {
   throw new Error(code);
@@ -841,7 +851,11 @@ export async function createExpenseGl(
     issuedOn: string;
     dueOn?: string;
     propertyId?: string;
+    unitId?: string;
+    partyId?: string;
     notes?: string;
+    /** When true (default), post a balanced expense journal linked to property/unit/party. */
+    postJournal?: boolean;
   },
 ) {
   if (!canManageAccounting(claims)) fail('forbidden');
@@ -855,6 +869,8 @@ export async function createExpenseGl(
     .toISOString()
     .replace(/[-:TZ.]/g, '')
     .slice(0, 14);
+  const total =
+    BigInt(input.amountMinor) + BigInt(input.taxMinor && /^\d+$/.test(input.taxMinor) ? input.taxMinor : '0');
   return withinViewerTenant(claims, async (tx) => {
     const rows = await tx
       .insert(expenses)
@@ -870,6 +886,7 @@ export async function createExpenseGl(
         issuedOn: input.issuedOn,
         dueOn: input.dueOn,
         propertyId: input.propertyId,
+        unitId: input.unitId,
         notes: input.notes,
         status: 'pending',
       })
@@ -887,6 +904,30 @@ export async function createExpenseGl(
       eventType: 'expense.created',
       toStatus: row.status,
     });
+    if (input.postJournal !== false && total > 0n) {
+      const map = await ensureAccountCodeMap(tx, orgId);
+      await postSourceDocumentInTx(tx, {
+        organizationId: orgId,
+        actorUserId: claims.sub,
+        occurredOn: input.issuedOn,
+        description: `مصروف ${row.reference}: ${input.description}`.slice(0, 500),
+        sourceType: 'expense',
+        sourceId: row.id,
+        lines: postingExpensePaid(
+          map,
+          total.toString(),
+          {
+            currency,
+            ...(input.propertyId ? { propertyId: input.propertyId } : {}),
+            ...(input.unitId ? { unitId: input.unitId } : {}),
+            ...(input.partyId ? { partyId: input.partyId } : {}),
+          },
+          'bank',
+          expenseCodeFromCategory(input.category),
+          input.category.slice(0, 500),
+        ),
+      });
+    }
     return row;
   });
 }
@@ -1076,6 +1117,259 @@ export async function accountingDashboard(claims: SessionClaims) {
         manage: canManageAccounting(claims),
         post: canPostAccounting(claims),
       },
+    };
+  });
+}
+
+/** Ensure the default chart exists and return code → account id for posting rules. */
+export async function ensureAccountCodeMap(tx: GlTx, organizationId: string): Promise<AccountCodeMap> {
+  await tx
+    .insert(ledgerAccounts)
+    .values(
+      DEFAULT_CHART_OF_ACCOUNTS.map((account) => ({
+        organizationId,
+        ...account,
+        system: true,
+      })),
+    )
+    .onConflictDoNothing({
+      target: [ledgerAccounts.organizationId, ledgerAccounts.code],
+    });
+  const rows = await tx
+    .select({ id: ledgerAccounts.id, code: ledgerAccounts.code })
+    .from(ledgerAccounts)
+    .where(eq(ledgerAccounts.organizationId, organizationId));
+  return new Map(rows.map((row) => [row.code, row.id]));
+}
+
+/**
+ * Idempotent posted journal from an operational source (payment, refund, expense).
+ * Unique (organization_id, source_type, source_id) prevents double posting (SRS §5).
+ */
+export async function postSourceDocumentInTx(
+  tx: GlTx,
+  input: {
+    organizationId: string;
+    actorUserId: string;
+    occurredOn: string;
+    description: string;
+    sourceType: string;
+    sourceId: string;
+    lines: JournalLineInput[];
+  },
+): Promise<{ id: string; reference: string; status: string; created: boolean }> {
+  if (!ISO_DATE.test(input.occurredOn)) fail('invalid_date');
+  try {
+    validateBalanced(input.lines);
+  } catch (error) {
+    if (error instanceof AccountingBalanceError) fail('unbalanced');
+    throw error;
+  }
+  const existing = await tx.query.journalEntries.findFirst({
+    where: and(
+      eq(journalEntries.organizationId, input.organizationId),
+      eq(journalEntries.sourceType, input.sourceType),
+      eq(journalEntries.sourceId, input.sourceId),
+    ),
+    columns: { id: true, reference: true, status: true },
+  });
+  if (existing) {
+    return {
+      id: existing.id,
+      reference: existing.reference,
+      status: existing.status,
+      created: false,
+    };
+  }
+  await assertPeriodOpen(tx, input.organizationId, input.occurredOn);
+  const accountIds = [...new Set(input.lines.map((line) => line.accountId))];
+  const accountRows = await tx
+    .select({ id: ledgerAccounts.id })
+    .from(ledgerAccounts)
+    .where(
+      and(
+        eq(ledgerAccounts.organizationId, input.organizationId),
+        inArray(ledgerAccounts.id, accountIds),
+      ),
+    );
+  if (accountRows.length !== accountIds.length) fail('account_missing');
+  const entryRows = await tx
+    .insert(journalEntries)
+    .values({
+      organizationId: input.organizationId,
+      reference: await allocateJournalReference(tx, input.organizationId, input.occurredOn, 'JRN'),
+      occurredOn: input.occurredOn,
+      description: input.description.trim().slice(0, 500),
+      sourceType: input.sourceType,
+      sourceId: input.sourceId,
+      status: 'posted',
+      postedByUserId: input.actorUserId,
+      postedAt: new Date(),
+    })
+    .onConflictDoNothing()
+    .returning({
+      id: journalEntries.id,
+      reference: journalEntries.reference,
+      status: journalEntries.status,
+    });
+  if (!entryRows[0]) {
+    const again = await tx.query.journalEntries.findFirst({
+      where: and(
+        eq(journalEntries.organizationId, input.organizationId),
+        eq(journalEntries.sourceType, input.sourceType),
+        eq(journalEntries.sourceId, input.sourceId),
+      ),
+      columns: { id: true, reference: true, status: true },
+    });
+    if (!again) fail('not_found');
+    return { id: again.id, reference: again.reference, status: again.status, created: false };
+  }
+  const entry = entryRows[0];
+  await tx.insert(journalLines).values(
+    input.lines.map((row) => {
+      const currency = (row.currency || 'OMR') as CurrencyCode;
+      return {
+        organizationId: input.organizationId,
+        journalEntryId: entry.id,
+        accountId: row.accountId,
+        partyId: row.partyId,
+        propertyId: row.propertyId,
+        unitId: row.unitId,
+        debitMinor: BigInt(row.debitMinor),
+        creditMinor: BigInt(row.creditMinor),
+        currency,
+        minorUnit: currencyMinorUnits[currency] ?? 3,
+        memo: row.memo?.slice(0, 500),
+      };
+    }),
+  );
+  await tx.insert(workflowEvents).values({
+    organizationId: input.organizationId,
+    actorUserId: input.actorUserId,
+    resourceType: 'journal_entry',
+    resourceId: entry.id,
+    eventType: 'journal.posted',
+    toStatus: 'posted',
+    note: `${input.sourceType}:${input.sourceId}`.slice(0, 500),
+    metadata: { sourceType: input.sourceType, sourceId: input.sourceId },
+  });
+  await tx.insert(outboxEvents).values({
+    organizationId: input.organizationId,
+    topic: 'accounting.journal-posted',
+    aggregateType: 'journal_entry',
+    aggregateId: entry.id,
+    payload: { reference: entry.reference, sourceType: input.sourceType, sourceId: input.sourceId },
+  });
+  return { id: entry.id, reference: entry.reference, status: entry.status, created: true };
+}
+
+export type DimensionLedgerRow = {
+  journalId: string;
+  reference: string;
+  occurredOn: string;
+  description: string;
+  accountCode: string;
+  accountNameAr: string;
+  accountNameEn: string;
+  debitMinor: string;
+  creditMinor: string;
+  currency: string;
+  memo: string | null;
+  partyId: string | null;
+  partyName: string | null;
+  propertyId: string | null;
+  propertyNameAr: string | null;
+  unitId: string | null;
+  unitCode: string | null;
+};
+
+/** Analytical ledger filtered by property, unit or party (SRS §6 general ledger). */
+export async function loadDimensionLedger(
+  claims: SessionClaims,
+  input: {
+    propertyId?: string;
+    unitId?: string;
+    partyId?: string;
+    fromDate?: string;
+    toDate?: string;
+    limit?: number;
+  },
+): Promise<{ rows: DimensionLedgerRow[]; totals: { debitMinor: string; creditMinor: string } }> {
+  if (!canReadAccounting(claims)) fail('forbidden');
+  if (!input.propertyId && !input.unitId && !input.partyId) fail('invalid_input');
+  const orgId = claims.organizationId!;
+  const limit = Math.min(Math.max(input.limit ?? 200, 1), 500);
+  return withinViewerTenant(claims, async (tx) => {
+    const filters = [
+      eq(journalEntries.organizationId, orgId),
+      eq(journalEntries.status, 'posted'),
+      ...(input.propertyId ? [eq(journalLines.propertyId, input.propertyId)] : []),
+      ...(input.unitId ? [eq(journalLines.unitId, input.unitId)] : []),
+      ...(input.partyId ? [eq(journalLines.partyId, input.partyId)] : []),
+      ...(input.fromDate && ISO_DATE.test(input.fromDate)
+        ? [gte(journalEntries.occurredOn, input.fromDate)]
+        : []),
+      ...(input.toDate && ISO_DATE.test(input.toDate)
+        ? [lte(journalEntries.occurredOn, input.toDate)]
+        : []),
+    ];
+    const rows = await tx
+      .select({
+        journalId: journalEntries.id,
+        reference: journalEntries.reference,
+        occurredOn: journalEntries.occurredOn,
+        description: journalEntries.description,
+        accountCode: ledgerAccounts.code,
+        accountNameAr: ledgerAccounts.nameAr,
+        accountNameEn: ledgerAccounts.nameEn,
+        debitMinor: journalLines.debitMinor,
+        creditMinor: journalLines.creditMinor,
+        currency: journalLines.currency,
+        memo: journalLines.memo,
+        partyId: journalLines.partyId,
+        partyName: parties.displayName,
+        propertyId: journalLines.propertyId,
+        propertyNameAr: properties.nameAr,
+        unitId: journalLines.unitId,
+        unitCode: units.code,
+      })
+      .from(journalLines)
+      .innerJoin(journalEntries, eq(journalEntries.id, journalLines.journalEntryId))
+      .innerJoin(ledgerAccounts, eq(ledgerAccounts.id, journalLines.accountId))
+      .leftJoin(parties, eq(parties.id, journalLines.partyId))
+      .leftJoin(properties, eq(properties.id, journalLines.propertyId))
+      .leftJoin(units, eq(units.id, journalLines.unitId))
+      .where(and(...filters))
+      .orderBy(desc(journalEntries.occurredOn), desc(journalEntries.createdAt))
+      .limit(limit);
+    let debit = 0n;
+    let credit = 0n;
+    const mapped = rows.map((row) => {
+      debit += row.debitMinor;
+      credit += row.creditMinor;
+      return {
+        journalId: row.journalId,
+        reference: row.reference,
+        occurredOn: row.occurredOn,
+        description: row.description,
+        accountCode: row.accountCode,
+        accountNameAr: row.accountNameAr,
+        accountNameEn: row.accountNameEn,
+        debitMinor: row.debitMinor.toString(),
+        creditMinor: row.creditMinor.toString(),
+        currency: row.currency,
+        memo: row.memo,
+        partyId: row.partyId,
+        partyName: row.partyName,
+        propertyId: row.propertyId,
+        propertyNameAr: row.propertyNameAr,
+        unitId: row.unitId,
+        unitCode: row.unitCode,
+      };
+    });
+    return {
+      rows: mapped,
+      totals: { debitMinor: debit.toString(), creditMinor: credit.toString() },
     };
   });
 }
