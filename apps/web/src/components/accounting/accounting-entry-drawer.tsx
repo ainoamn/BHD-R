@@ -234,7 +234,7 @@ export function AccountingEntryDrawer({
                   });
                 }}
               >
-                {ar ? 'طباعة' : 'Print'}
+                {ar ? '⬇ طباعة / PDF بترويسة' : '⬇ Print / letterhead PDF'}
               </button>
               <button
                 type="button"

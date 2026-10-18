@@ -19,10 +19,8 @@ import {
   type AccountingHubTab,
   type LedgerAccountType,
 } from '@/lib/accounting-gl';
-import {
-  printAccountingDocument,
-  printAccountingReport,
-} from '@/lib/accounting-print';
+import { accountingHubCopy } from '@/lib/accounting-hub-copy';
+import { openAccountingPrint, printAccountingDocument } from '@/lib/accounting-print';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { LIVE_CHANGE_EVENT } from '@/lib/live-sync-shared';
@@ -131,19 +129,6 @@ type DraftLine = {
   memo: string;
 };
 
-const TAB_LABEL: Record<AccountingHubTab, { ar: string; en: string }> = {
-  dashboard: { ar: 'الملخص', en: 'Overview' },
-  documents: { ar: 'المستندات', en: 'Documents' },
-  deposits: { ar: 'أمانات التأمين', en: 'Deposits' },
-  accounts: { ar: 'دليل الحسابات', en: 'Chart of accounts' },
-  journal: { ar: 'القيود اليومية', en: 'Journal' },
-  expenses: { ar: 'المصروفات', en: 'Expenses' },
-  ledgers: { ar: 'أستاذ تحليلي', en: 'Dimensional ledger' },
-  reports: { ar: 'التقارير', en: 'Reports' },
-  periods: { ar: 'الفترات', en: 'Periods' },
-  audit: { ar: 'التدقيق', en: 'Audit' },
-};
-
 type DocRow = {
   id: string;
   kind: 'invoice' | 'receipt' | 'journal';
@@ -223,6 +208,7 @@ export function AccountingHub({
   active: boolean;
 }) {
   const ar = locale === 'ar';
+  const t = useMemo(() => accountingHubCopy(locale), [locale]);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -511,13 +497,9 @@ export function AccountingHub({
     <section className="accounting-hub" data-testid="accounting-hub" hidden={!active}>
       <header className="accounting-hub__head">
         <div>
-          <p className="accounting-hub__eyebrow">{ar ? 'دفتر الأستاذ العقاري' : 'Property general ledger'}</p>
-          <h1>{ar ? 'نظام المحاسبة' : 'Accounting system'}</h1>
-          <p>
-            {ar
-              ? 'قيد مزدوج، مستندات مصدر، تتبع كامل للمعاملات، وتقارير قابلة لإعادة الإنتاج — وفق معايير المحاسبة الدولية.'
-              : 'Double-entry, source documents, full transaction trails, and reproducible reports — IFRS-ready property GL.'}
-          </p>
+          <p className="accounting-hub__eyebrow">{t.eyebrow}</p>
+          <h1>{t.title}</h1>
+          <p>{t.subtitle}</p>
         </div>
         <div className="accounting-hub__actions">
           {(caps.manage || caps.post) && (
@@ -535,7 +517,7 @@ export function AccountingHub({
                 })
               }
             >
-              {ar ? 'مزامنة المدفوعات' : 'Sync payments'}
+              {t.sync}
             </button>
           )}
           <a
@@ -544,7 +526,7 @@ export function AccountingHub({
             target="_blank"
             rel="noreferrer"
           >
-            {ar ? 'حسابي' : 'Hisaby'}
+            {t.hisaby}
           </a>
         </div>
       </header>
@@ -552,7 +534,7 @@ export function AccountingHub({
       <div
         className="accounting-hub__tabs"
         role="tablist"
-        aria-label={ar ? 'أقسام المحاسبة' : 'Accounting tabs'}
+        aria-label={ar ? 'أقسام المحاسبة · Accounting sections' : 'Accounting sections · أقسام المحاسبة'}
       >
         {PRIMARY_TABS.map((id) => (
           <button
@@ -565,7 +547,7 @@ export function AccountingHub({
             id={`accounting-tab-${id}`}
             onClick={() => setTab(id)}
           >
-            {ar ? TAB_LABEL[id].ar : TAB_LABEL[id].en}
+            {t.tabLabel(id)}
           </button>
         ))}
         {MORE_TABS.map((id) => (
@@ -579,43 +561,37 @@ export function AccountingHub({
             id={`accounting-tab-${id}`}
             onClick={() => setTab(id)}
           >
-            {ar ? TAB_LABEL[id].ar : TAB_LABEL[id].en}
+            {t.tabLabel(id)}
           </button>
         ))}
       </div>
 
       {error ? <p className="accounting-hub__error">{error}</p> : null}
       {warming && !dash ? (
-        <p className="accounting-hub__muted accounting-hub__muted--soft">
-          {ar ? 'تجهيز الأقسام في الخلفية…' : 'Warming sections in the background…'}
-        </p>
+        <p className="accounting-hub__muted accounting-hub__muted--soft">{t.warming}</p>
       ) : null}
 
       <AccountingTabPanel id="dashboard" tab={tab}>
         <div className="accounting-hub__panel accounting-hub__panel--hero">
           <div className="accounting-hub__hero-copy">
-            <h2>{ar ? 'ملخص الماليات' : 'Money at a glance'}</h2>
-            <p className="accounting-hub__hint">
-              {ar
-                ? 'يشمل تحصيل الإيجارات والإقامات، والعربون والتأمين، والمصروفات المسجّلة.'
-                : 'Includes rent and stay collections, booking deposits held in trust, and recorded expenses.'}
-            </p>
+            <h2>{t.moneyGlance}</h2>
+            <p className="accounting-hub__hint">{t.moneyHint}</p>
           </div>
           <div className="accounting-hub__kpis accounting-hub__kpis--hero">
             <div className="accounting-hub__kpi accounting-hub__kpi--accent">
-              <span>{ar ? 'المحصّل' : 'Collected'}</span>
+              <span>{t.collected}</span>
               <strong>{money(omr.collectedMinor, omr.currency, ar)}</strong>
             </div>
             <div className="accounting-hub__kpi">
-              <span>{ar ? 'تأمينات وعربون' : 'Deposits held'}</span>
+              <span>{t.depositsHeld}</span>
               <strong>{money(omr.depositsMinor ?? '0', omr.currency, ar)}</strong>
             </div>
             <div className="accounting-hub__kpi">
-              <span>{ar ? 'الذمم المدينة' : 'Receivables'}</span>
+              <span>{t.receivables}</span>
               <strong>{money(omr.receivableMinor, omr.currency, ar)}</strong>
             </div>
             <div className="accounting-hub__kpi">
-              <span>{ar ? 'المصروفات' : 'Expenses'}</span>
+              <span>{t.expenses}</span>
               <strong>{money(omr.expenseMinor, omr.currency, ar)}</strong>
             </div>
           </div>
@@ -807,12 +783,8 @@ export function AccountingHub({
         <div className="accounting-hub__panel accounting-hub__panel--workspace">
           <div className="accounting-hub__toolbar">
             <div>
-              <h2>{ar ? 'المستندات والإيصالات' : 'Documents & receipts'}</h2>
-              <p className="accounting-hub__hint">
-                {ar
-                  ? 'فواتير المطالبة، إيصالات القبض، وقيود المصدر المرتبطة — اضغط سطراً لفتح القيد، أو اطبع/أرسل من الأزرار.'
-                  : 'Demand invoices, receipts and linked journals — open a row for the GL entry, or print/send from the actions.'}
-              </p>
+              <h2>{t.docsTitle}</h2>
+              <p className="accounting-hub__hint">{t.docsHint}</p>
             </div>
           </div>
           <div className="accounting-hub__table-wrap">
@@ -1498,14 +1470,14 @@ export function AccountingHub({
               disabled={!report || busy}
               onClick={() => {
                 if (!report) return;
-                void printCurrentReport(report, reportKind, fromDate, toDate, locale).then(
-                  (failed) => {
-                    if (failed) setError(failed);
-                  },
-                );
+                void openAccountingPrint(locale, 'report', `${reportKind}-${toDate}`, {
+                  report: reportKind,
+                  fromDate,
+                  toDate,
+                });
               }}
             >
-              {ar ? 'طباعة التقرير' : 'Print report'}
+              {t.printReport}
             </button>
             <button
               type="button"
@@ -1744,155 +1716,6 @@ function reportShareSummary(
     return `${title} @ ${toDate}: ${report.balanced ? (ar ? 'متوازنة' : 'balanced') : ar ? 'غير متوازنة' : 'unbalanced'}`;
   }
   return `${title} (${fromDate} → ${toDate})`;
-}
-
-function printCurrentReport(
-  report: Record<string, unknown>,
-  kind: string,
-  fromDate: string,
-  toDate: string,
-  locale: 'ar' | 'en',
-): Promise<string | null> {
-  const ar = locale === 'ar';
-  const currency = reportCurrency(report);
-  const title = reportTitle(kind, ar);
-  const subtitle = `${fromDate} → ${toDate}`;
-  const footer = ar
-    ? 'تقرير تشغيلي من BHD R — الضريبة والأستاذ المفصّل في Hisaby عند الربط.'
-    : 'Operational report from BHD R — tax and deep GL live in Hisaby when linked.';
-
-  if (kind === 'trial' && Array.isArray(report.rows)) {
-    const rows = (
-      report.rows as Array<{
-        code: string;
-        nameAr: string;
-        nameEn: string;
-        type: string;
-        debitMinor: string;
-        creditMinor: string;
-        currency: string;
-      }>
-    )
-      .filter((row) => row.debitMinor !== '0' || row.creditMinor !== '0')
-      .map((row) => [
-        row.code,
-        ar ? row.nameAr : row.nameEn,
-        row.type,
-        money(row.debitMinor, row.currency || currency, ar),
-        money(row.creditMinor, row.currency || currency, ar),
-      ]);
-    return printAccountingReport(
-      {
-        title,
-        subtitle,
-        columns: [
-          ar ? 'الرمز' : 'Code',
-          ar ? 'الحساب' : 'Account',
-          ar ? 'النوع' : 'Type',
-          ar ? 'مدين' : 'Debit',
-          ar ? 'دائن' : 'Credit',
-        ],
-        rows,
-        footer,
-      },
-      locale,
-    );
-  }
-
-  if (kind === 'income' || kind === 'balance') {
-    const sections =
-      kind === 'income'
-        ? [
-            ['revenue', ar ? 'الإيرادات' : 'Revenue', report.revenue],
-            ['expenses', ar ? 'المصروفات' : 'Expenses', report.expenses],
-          ]
-        : [
-            ['assets', ar ? 'الأصول' : 'Assets', report.assets],
-            ['liabilities', ar ? 'الالتزامات' : 'Liabilities', report.liabilities],
-            ['equity', ar ? 'حقوق الملكية' : 'Equity', report.equity],
-          ];
-    const rows: string[][] = [];
-    for (const [, label, section] of sections) {
-      const block = section as {
-        totalMinor: string;
-        rows: Array<{ code: string; nameAr: string; nameEn: string; balanceMinor: string }>;
-      } | null;
-      if (!block) continue;
-      rows.push([label as string, '', money(block.totalMinor, currency, ar)]);
-      for (const row of block.rows) {
-        rows.push([
-          row.code,
-          ar ? row.nameAr : row.nameEn,
-          money(row.balanceMinor, currency, ar),
-        ]);
-      }
-    }
-    if (kind === 'income') {
-      rows.push([
-        ar ? 'صافي الدخل' : 'Net income',
-        '',
-        money(String(report.netIncomeMinor), currency, ar),
-      ]);
-    }
-    return printAccountingReport(
-      {
-        title,
-        subtitle,
-        columns: [ar ? 'البند' : 'Item', ar ? 'الاسم' : 'Name', ar ? 'المبلغ' : 'Amount'],
-        rows,
-        footer,
-      },
-      locale,
-    );
-  }
-
-  if (kind === 'cashflow') {
-    return printAccountingReport(
-      {
-        title,
-        subtitle,
-        columns: [ar ? 'البند' : 'Item', ar ? 'المبلغ' : 'Amount'],
-        rows: [
-          [ar ? 'وارد' : 'Inflow', money(String(report.inflowMinor), currency, ar)],
-          [ar ? 'صادر' : 'Outflow', money(String(report.outflowMinor), currency, ar)],
-          [ar ? 'صافي النقد' : 'Net cash', money(String(report.netMinor), currency, ar)],
-        ],
-        footer,
-      },
-      locale,
-    );
-  }
-
-  if (kind === 'aging') {
-    const buckets = (report.buckets as Record<string, string>) ?? {};
-    return printAccountingReport(
-      {
-        title,
-        subtitle: toDate,
-        columns: [ar ? 'الفئة' : 'Bucket', ar ? 'المبلغ' : 'Amount'],
-        rows: [
-          ...Object.entries(buckets).map(([key, value]) => [key, money(value, currency, ar)]),
-          [
-            ar ? 'الإجمالي' : 'Total',
-            money(String(report.totalOutstandingMinor), currency, ar),
-          ],
-        ],
-        footer,
-      },
-      locale,
-    );
-  }
-
-  return printAccountingReport(
-    {
-      title,
-      subtitle,
-      columns: [ar ? 'البيانات' : 'Data'],
-      rows: [[JSON.stringify(report).slice(0, 2000)]],
-      footer,
-    },
-    locale,
-  );
 }
 
 function ReportView({ ar, report }: { ar: boolean; report: Record<string, unknown> | null }) {
