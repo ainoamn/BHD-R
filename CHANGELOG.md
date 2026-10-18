@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.83 — 2026-10-18
+
+- **تعريب المحاسبة:** الحالات والمصادر والبيانات تتبع لغة الواجهة؛ شيكات المستأجرين من العقود المعتمدة تلقائياً؛ نوافذ منبثقة لصرف/دخل ومشتريات/مبيعات.
+- التفاصيل: [`docs/implementation/RELEASE-0.8.83-AR.md`](./docs/implementation/RELEASE-0.8.83-AR.md).
+
 ## 0.8.82 — 2026-10-18
 
 - **طباعة المحاسبة:** فتح صفحة الطباعة في تبويب واحد فقط (إصلاح الفتح المزدوج)، وزر الرجوع يُبرز المستند/القيد الذي طُبع.

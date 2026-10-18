@@ -13,8 +13,10 @@ import {
 import { AccountingChequesPanel } from '@/components/accounting/accounting-cheques-panel';
 import { AccountingEntryDrawer } from '@/components/accounting/accounting-entry-drawer';
 import { AccountingJournalComposerModal } from '@/components/accounting/accounting-journal-composer';
-import { AccountingPropertyUnitFields } from '@/components/accounting/accounting-property-unit-fields';
-import { AccountingTradingPanel } from '@/components/accounting/accounting-trading-panel';
+import {
+  AccountingExpenseIncomeModal,
+  AccountingTradingModal,
+} from '@/components/accounting/accounting-ops-modals';
 import { DepositLedgerPanel } from '@/components/accounting/deposit-ledger';
 import { usePathname, useRouter } from '@/i18n/navigation';
 import {
@@ -24,6 +26,14 @@ import {
   type LedgerAccountType,
 } from '@/lib/accounting-gl';
 import { accountingHubCopy } from '@/lib/accounting-hub-copy';
+import {
+  accountingAccountTypeLabel,
+  accountingDisplayText,
+  accountingDocKindLabel,
+  accountingExpenseStatusLabel,
+  accountingJournalStatusLabel,
+  accountingSourceTypeLabel,
+} from '@/lib/accounting-i18n';
 import { openAccountingPrint, printAccountingDocument } from '@/lib/accounting-print';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
@@ -235,17 +245,8 @@ export function AccountingHub({
     nameEn: '',
     type: 'expense' as LedgerAccountType,
   });
-  const [expenseKind, setExpenseKind] = useState<'expense' | 'income'>('expense');
-  const [expenseForm, setExpenseForm] = useState({
-    category: 'تشغيل',
-    description: '',
-    amount: '',
-    issuedOn: todayIso(),
-    method: 'bank',
-    propertyId: '',
-    unitId: '',
-    partyId: '',
-  });
+  const [expenseModalOpen, setExpenseModalOpen] = useState(false);
+  const [tradingModalOpen, setTradingModalOpen] = useState(false);
   const [periodForm, setPeriodForm] = useState({
     from: `${todayIso().slice(0, 4)}-01-01`,
     to: todayIso(),
@@ -277,6 +278,12 @@ export function AccountingHub({
       : null,
   );
   const [composeOpen, setComposeOpen] = useState(false);
+  // locale-aware labels for table cells
+  const statusLabel = (value: string | null | undefined) =>
+    accountingJournalStatusLabel(value, locale);
+  const sourceLabel = (value: string | null | undefined) =>
+    accountingSourceTypeLabel(value, locale);
+  const textLabel = (value: string | null | undefined) => accountingDisplayText(value, locale);
 
   const caps = dash?.capabilities ?? { manage: false, post: false };
   const omr = dash?.totalsByCurrency.find((row) => row.currency === 'OMR') ??
@@ -779,7 +786,7 @@ export function AccountingHub({
                   <tr key={account.id}>
                     <td>{account.code}</td>
                     <td>{ar ? account.nameAr : account.nameEn}</td>
-                    <td>{ar ? TYPE_LABEL[account.type].ar : TYPE_LABEL[account.type].en}</td>
+                    <td>{accountingAccountTypeLabel(account.type, locale)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -842,23 +849,15 @@ export function AccountingHub({
                     >
                       <td>
                         <span className={`accounting-hub__chip accounting-hub__chip--${row.kind}`}>
-                          {row.kind === 'receipt'
-                            ? ar
-                              ? 'إيصال'
-                              : 'Receipt'
-                            : row.kind === 'invoice'
-                              ? ar
-                                ? 'فاتورة'
-                                : 'Invoice'
-                              : ar
-                                ? 'قيد'
-                                : 'Journal'}
+                          {accountingDocKindLabel(row.kind, locale)}
                         </span>
                       </td>
                       <td>{row.reference}</td>
-                      <td>{row.title}</td>
+                      <td>{textLabel(row.title)}</td>
                       <td>
-                        {[row.partyName, row.propertyLabel].filter(Boolean).join(' · ') || '—'}
+                        {[row.partyName, textLabel(row.propertyLabel)]
+                          .filter((part) => part && part !== '—')
+                          .join(' · ') || '—'}
                       </td>
                       <td>{row.note ?? '—'}</td>
                       <td className="num">
@@ -976,13 +975,13 @@ export function AccountingHub({
                     >
                       <td>{row.reference}</td>
                       <td>{row.occurredOn}</td>
-                      <td>{row.description}</td>
-                      <td>{row.sourceType ?? (ar ? 'يدوي' : 'Manual')}</td>
+                      <td>{textLabel(row.description)}</td>
+                      <td>{sourceLabel(row.sourceType)}</td>
                       <td>
                         <span
                           className={`accounting-hub__status accounting-hub__status--${row.status}`}
                         >
-                          {row.status}
+                          {statusLabel(row.status)}
                         </span>
                       </td>
                       <td className="num">{money(row.debitMinor, row.currency ?? 'OMR', ar)}</td>
@@ -997,169 +996,59 @@ export function AccountingHub({
 
       <AccountingTabPanel id="expenses" tab={tab}>
         <div className="accounting-hub__panel">
-          <h2>{t.expensesTitle}</h2>
-          <p className="accounting-hub__hint">
-            {ar
-              ? 'سجّل صرفاً أو دخلاً واربطه بمبنى أو وحدة من القائمة — تُجلب المباني والوحدات تلقائياً.'
-              : 'Record an expense or income and link it to a property or unit from the list — buildings and units load automatically.'}
-          </p>
-          {caps.manage ? (
-            <form
-              className="accounting-hub__form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void run(async () => {
-                  if (expenseKind === 'income') {
-                    await browserNextMutation('/api/owner/accounting/ops', {
-                      method: 'POST',
-                      body: JSON.stringify({
-                        kind: 'income',
-                        description: expenseForm.description,
-                        amountMinor: toMinor(expenseForm.amount),
-                        occurredOn: expenseForm.issuedOn,
-                        method: expenseForm.method,
-                        ...(expenseForm.propertyId
-                          ? { propertyId: expenseForm.propertyId }
-                          : {}),
-                        ...(expenseForm.unitId ? { unitId: expenseForm.unitId } : {}),
-                        ...(expenseForm.partyId.trim()
-                          ? { partyId: expenseForm.partyId.trim() }
-                          : {}),
-                      }),
-                    });
-                  } else {
-                    await browserNextMutation('/api/owner/accounting/expenses', {
-                      method: 'POST',
-                      body: JSON.stringify({
-                        category: expenseForm.category,
-                        description: expenseForm.description,
-                        amountMinor: toMinor(expenseForm.amount),
-                        currency: 'OMR',
-                        issuedOn: expenseForm.issuedOn,
-                        ...(expenseForm.propertyId
-                          ? { propertyId: expenseForm.propertyId }
-                          : {}),
-                        ...(expenseForm.unitId ? { unitId: expenseForm.unitId } : {}),
-                        ...(expenseForm.partyId.trim()
-                          ? { partyId: expenseForm.partyId.trim() }
-                          : {}),
-                      }),
-                    });
-                  }
-                  setExpenseForm((current) => ({ ...current, description: '', amount: '' }));
-                });
-              }}
-            >
-              <div className="accounting-hub__form-grid">
-                <label>
-                  {ar ? 'النوع' : 'Type'}
-                  <select
-                    value={expenseKind}
-                    onChange={(event) =>
-                      setExpenseKind(event.target.value as 'expense' | 'income')
-                    }
-                  >
-                    <option value="expense">{ar ? 'صرف / مصروف' : 'Expense'}</option>
-                    <option value="income">{ar ? 'دخل' : 'Income'}</option>
-                  </select>
-                </label>
-                {expenseKind === 'expense' ? (
-                  <label>
-                    {ar ? 'التصنيف' : 'Category'}
-                    <input
-                      value={expenseForm.category}
-                      onChange={(event) =>
-                        setExpenseForm((current) => ({ ...current, category: event.target.value }))
-                      }
-                      required
-                    />
-                  </label>
-                ) : (
-                  <label>
-                    {ar ? 'طريقة القبض' : 'Collection method'}
-                    <select
-                      value={expenseForm.method}
-                      onChange={(event) =>
-                        setExpenseForm((current) => ({ ...current, method: event.target.value }))
-                      }
-                    >
-                      <option value="cash">{ar ? 'نقداً' : 'Cash'}</option>
-                      <option value="bank">{ar ? 'بنك / تحويل' : 'Bank / transfer'}</option>
-                      <option value="cheque">{ar ? 'شيك' : 'Cheque'}</option>
-                    </select>
-                  </label>
-                )}
-                <label>
-                  {ar ? 'الوصف' : 'Description'}
-                  <input
-                    value={expenseForm.description}
-                    onChange={(event) =>
-                      setExpenseForm((current) => ({ ...current, description: event.target.value }))
-                    }
-                    required
-                  />
-                </label>
-                <label>
-                  {ar ? 'المبلغ' : 'Amount'}
-                  <input
-                    inputMode="decimal"
-                    value={expenseForm.amount}
-                    onChange={(event) =>
-                      setExpenseForm((current) => ({ ...current, amount: event.target.value }))
-                    }
-                    required
-                  />
-                </label>
-                <label>
-                  {ar ? 'التاريخ' : 'Date'}
-                  <input
-                    type="date"
-                    value={expenseForm.issuedOn}
-                    onChange={(event) =>
-                      setExpenseForm((current) => ({ ...current, issuedOn: event.target.value }))
-                    }
-                    required
-                  />
-                </label>
-                <AccountingPropertyUnitFields
-                  locale={locale}
-                  propertyId={expenseForm.propertyId}
-                  unitId={expenseForm.unitId}
-                  onChange={(next) => setExpenseForm((current) => ({ ...current, ...next }))}
-                />
-              </div>
-              <button className="button button--primary" type="submit" disabled={busy}>
-                {expenseKind === 'income'
-                  ? ar
-                    ? 'تسجيل دخل + قيد'
-                    : 'Record income + journal'
-                  : ar
-                    ? 'تسجيل مصروف + قيد'
-                    : 'Record expense + journal'}
+          <div className="accounting-hub__toolbar">
+            <div>
+              <h2>{t.expensesTitle}</h2>
+              <p className="accounting-hub__hint">{t.expensesHint}</p>
+            </div>
+            {caps.manage ? (
+              <button
+                type="button"
+                className="button button--primary"
+                onClick={() => setExpenseModalOpen(true)}
+              >
+                {t.addExpenseIncome}
               </button>
-            </form>
-          ) : null}
+            ) : null}
+          </div>
+          <AccountingExpenseIncomeModal
+            open={expenseModalOpen}
+            onClose={() => setExpenseModalOpen(false)}
+            locale={locale}
+            busy={busy}
+            onBusy={setBusy}
+            onDone={() => void refreshAll({ silent: true })}
+            onError={(message) => setError(message)}
+          />
           <div className="accounting-hub__table-wrap">
             <table className="accounting-hub__table">
               <thead>
                 <tr>
-                  <th>{ar ? 'المرجع' : 'Ref'}</th>
+                  <th>{t.colRef}</th>
                   <th>{ar ? 'التصنيف' : 'Category'}</th>
-                  <th>{ar ? 'الوصف' : 'Description'}</th>
-                  <th>{ar ? 'الحالة' : 'Status'}</th>
-                  <th className="num">{ar ? 'المبلغ' : 'Amount'}</th>
+                  <th>{t.description}</th>
+                  <th>{t.status}</th>
+                  <th className="num">{t.colAmount}</th>
                 </tr>
               </thead>
               <tbody>
-                {expenses.map((row) => (
-                  <tr key={row.id}>
-                    <td>{row.reference}</td>
-                    <td>{row.category}</td>
-                    <td>{row.description}</td>
-                    <td>{row.status}</td>
-                    <td className="num">{money(row.amountMinor, row.currency, ar)}</td>
+                {expenses.length === 0 ? (
+                  <tr>
+                    <td colSpan={5}>
+                      {ar ? 'لا مصروفات مسجّلة بعد.' : 'No expenses recorded yet.'}
+                    </td>
                   </tr>
-                ))}
+                ) : (
+                  expenses.map((row) => (
+                    <tr key={row.id}>
+                      <td>{row.reference}</td>
+                      <td>{row.category}</td>
+                      <td>{textLabel(row.description)}</td>
+                      <td>{accountingExpenseStatusLabel(row.status, locale)}</td>
+                      <td className="num">{money(row.amountMinor, row.currency, ar)}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -1167,14 +1056,37 @@ export function AccountingHub({
       </AccountingTabPanel>
 
       <AccountingTabPanel id="trading" tab={tab}>
-        <AccountingTradingPanel
-          locale={locale}
-          canManage={caps.manage}
-          busy={busy}
-          onBusy={setBusy}
-          onDone={() => void refreshAll({ silent: true })}
-          onError={(message) => setError(message)}
-        />
+        <div className="accounting-hub__panel">
+          <div className="accounting-hub__toolbar">
+            <div>
+              <h2>{t.tradingTitle}</h2>
+              <p className="accounting-hub__hint">{t.tradingHint}</p>
+            </div>
+            {caps.manage ? (
+              <button
+                type="button"
+                className="button button--primary"
+                onClick={() => setTradingModalOpen(true)}
+              >
+                {t.addTrading}
+              </button>
+            ) : null}
+          </div>
+          <AccountingTradingModal
+            open={tradingModalOpen}
+            onClose={() => setTradingModalOpen(false)}
+            locale={locale}
+            busy={busy}
+            onBusy={setBusy}
+            onDone={() => void refreshAll({ silent: true })}
+            onError={(message) => setError(message)}
+          />
+          <p className="accounting-hub__hint">
+            {ar
+              ? 'بعد الحفظ يظهر القيد في دفتر اليومية والمستندات. استخدم «إضافة مشتريات / مبيعات» لكل حركة جديدة.'
+              : 'After saving, the journal appears under Journal and Documents. Use “Add purchase / sale” for each new entry.'}
+          </p>
+        </div>
       </AccountingTabPanel>
 
       <AccountingTabPanel id="cheques" tab={tab}>

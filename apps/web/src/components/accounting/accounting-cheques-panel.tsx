@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { accountingChequeStatusLabel } from '@/lib/accounting-i18n';
 import { browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
-import { domainStatusLabel } from '@/lib/ui-labels';
 
 type ChequeRow = {
   id: string;
@@ -97,8 +97,8 @@ export function AccountingChequesPanel({
           <h2>{ar ? 'شيكات المستأجرين' : 'Tenant cheques'}</h2>
           <p className="accounting-hub__hint">
             {ar
-              ? 'كل الشيكات المسجّلة على العقود مع حالتها وتاريخ الاستحقاق. يمكن استيراد ملف CSV.'
-              : 'All cheques on leases with status and due date. Import a CSV file when needed.'}
+              ? 'تُجلب تلقائياً من جداول الشيكات في عقود الإيجار المعتمدة، مع الحالة وتاريخ الاستحقاق. يمكن أيضاً استيراد CSV.'
+              : 'Loaded automatically from cheque schedules on approved lease contracts, with status and due date. CSV import is also available.'}
           </p>
         </div>
       </div>
@@ -159,7 +159,7 @@ export function AccountingChequesPanel({
                   </td>
                   <td>{row.bankName}</td>
                   <td dir="ltr">{row.dueOn}</td>
-                  <td>{domainStatusLabel(row.reviewStatus, locale)}</td>
+                  <td>{accountingChequeStatusLabel(row.reviewStatus, locale)}</td>
                   <td className="num">
                     {formatMoney(row.amountMinor, row.currency || 'OMR', locale)}
                   </td>

@@ -1,15 +1,16 @@
 import 'server-only';
-import { and, asc, desc, eq, inArray, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, ne, or, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import type { SessionClaims } from '@bhd-r/authz';
 import type { CurrencyCode } from '@bhd-r/contracts';
-import { cheques, leases, parties, properties, units } from '@bhd-r/db';
+import { cheques, contracts, leases, parties, properties, units } from '@bhd-r/db';
 import {
   canManageAccounting,
   canReadAccounting,
   ensureAccountCodeMap,
   fail,
   postSourceDocumentInTx,
+  type GlTx,
 } from '@/lib/accounting-gl-neon';
 import {
   channelFromMethod,
@@ -20,6 +21,7 @@ import {
 } from '@/lib/accounting-posting';
 import type { ChequeImportRow } from '@/lib/accounting-ops';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
+import { ledgerTermsOf } from '@/lib/tenant-ledger';
 
 export type { ChequeImportRow };
 
@@ -214,12 +216,104 @@ export type AccountingChequeRow = {
   unitCode: string | null;
 };
 
+/**
+ * Pull cheque schedule rows from signed / active lease contracts into `cheques`
+ * when they are not already registered (idempotent by org + cheque number).
+ */
+async function ensureChequesFromApprovedLeases(
+  tx: GlTx,
+  orgId: string,
+  ownerPartyId: string | null,
+): Promise<void> {
+  const leaseRows = await tx
+    .select({
+      leaseId: leases.id,
+      tenantPartyId: leases.tenantPartyId,
+      currency: leases.currency,
+      leaseTerms: sql<unknown>`${contracts.payloadSnapshot}->'leaseTerms'`,
+    })
+    .from(leases)
+    .innerJoin(contracts, eq(contracts.id, leases.contractId))
+    .innerJoin(units, eq(units.id, leases.unitId))
+    .innerJoin(properties, eq(properties.id, units.propertyId))
+    .where(
+      and(
+        eq(leases.organizationId, orgId),
+        or(
+          eq(contracts.status, 'signed'),
+          inArray(leases.status, ['active', 'clearance_pending', 'ended', 'cancel_requested']),
+        ),
+        ...(ownerPartyId ? [eq(properties.ownerPartyId, ownerPartyId)] : []),
+      ),
+    )
+    .limit(500);
+
+  if (!leaseRows.length) return;
+
+  const existing = await tx
+    .select({ chequeNumber: cheques.chequeNumber })
+    .from(cheques)
+    .where(eq(cheques.organizationId, orgId));
+  const seen = new Set(existing.map((row) => row.chequeNumber.toLowerCase()));
+  const toInsert: Array<{
+    organizationId: string;
+    leaseId: string;
+    ownerPartyId: string;
+    bankName: string;
+    chequeNumber: string;
+    amountMinor: bigint;
+    currency: string;
+    dueOn: string;
+  }> = [];
+
+  for (const lease of leaseRows) {
+    const terms = ledgerTermsOf({ leaseTerms: lease.leaseTerms });
+    if (!terms) continue;
+    const scheduleRows = [
+      ...terms.schedule.map((row) => ({
+        number: row.chequeNumber,
+        bank: row.bankName,
+        dueOn: row.dueOn,
+        amountMinor: Math.round(Number(row.totalMinor) || 0),
+      })),
+      ...terms.vatCheques.map((row) => ({
+        number: row.chequeNumber,
+        bank: null as string | null,
+        dueOn: row.dueOn,
+        amountMinor: Math.round(Number(row.amountMinor) || 0),
+      })),
+    ];
+    for (const row of scheduleRows) {
+      const number = (row.number ?? '').trim();
+      if (!number || !ISO_DATE.test(row.dueOn) || row.amountMinor <= 0) continue;
+      const key = number.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      toInsert.push({
+        organizationId: orgId,
+        leaseId: lease.leaseId,
+        ownerPartyId: lease.tenantPartyId,
+        bankName: (row.bank ?? '—').slice(0, 160) || '—',
+        chequeNumber: number.slice(0, 80),
+        amountMinor: BigInt(row.amountMinor),
+        currency: lease.currency || 'OMR',
+        dueOn: row.dueOn,
+      });
+    }
+  }
+
+  if (toInsert.length) {
+    await tx.insert(cheques).values(toInsert).onConflictDoNothing();
+  }
+}
+
 /** All organisation cheques (tenant rent schedule), with property / unit labels. */
 export async function listAccountingCheques(claims: SessionClaims): Promise<AccountingChequeRow[]> {
   if (!canReadAccounting(claims)) fail('forbidden');
   const orgId = claims.organizationId!;
   const ownerPartyId = ownerPartyScope(claims);
   return withinViewerTenant(claims, async (tx) => {
+    await ensureChequesFromApprovedLeases(tx, orgId, ownerPartyId);
     const rows = await tx
       .select({
         id: cheques.id,

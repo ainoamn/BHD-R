@@ -23,7 +23,7 @@ export function accountingHubCopy(locale: 'ar' | 'en') {
       journal: { ar: 'القيود اليومية', en: 'Journal' },
       expenses: { ar: 'صرف ودخل', en: 'Expense & income' },
       trading: { ar: 'مشتريات ومبيعات', en: 'Purchases & sales' },
-      cheques: { ar: 'الشيكات', en: 'Cheques' },
+      cheques: { ar: 'شيكات المستأجرين', en: 'Tenant cheques' },
       ledgers: { ar: 'أستاذ تحليلي', en: 'Dimensional ledger' },
       reports: { ar: 'التقارير', en: 'Reports' },
       periods: { ar: 'الفترات', en: 'Periods' },
@@ -74,8 +74,19 @@ export function accountingHubCopy(locale: 'ar' | 'en') {
     newJournal: ar ? '＋ إضافة قيد' : '+ Add entry',
     hideComposer: ar ? 'إغلاق' : 'Close',
     expensesTitle: ar ? 'صرف ودخل' : 'Expense & income',
+    expensesHint: ar
+      ? 'سجّل صرفاً أو دخلاً واربطه بمبنى أو وحدة. اضغط الزر لفتح نافذة الإدخال.'
+      : 'Record expense or income linked to a property or unit. Use the button to open the entry window.',
+    addExpenseIncome: ar ? '＋ إضافة صرف / دخل' : '+ Add expense / income',
     tradingTitle: ar ? 'مشتريات ومبيعات' : 'Purchases & sales',
-    chequesTitle: ar ? 'الشيكات' : 'Cheques',
+    tradingHint: ar
+      ? 'قيود المشتريات والمبيعات مع ربط اختياري بالعقار. اضغط الزر لفتح نافذة الإدخال.'
+      : 'Purchase and sale journals with optional property link. Use the button to open the entry window.',
+    addTrading: ar ? '＋ إضافة مشتريات / مبيعات' : '+ Add purchase / sale',
+    chequesTitle: ar ? 'شيكات المستأجرين' : 'Tenant cheques',
+    chequesHint: ar
+      ? 'تُجلب تلقائياً من جداول الشيكات في عقود الإيجار المعتمدة، مع الحالة وتاريخ الاستحقاق.'
+      : 'Loaded automatically from cheque schedules on approved lease contracts, with status and due date.',
     reportsTitle: ar ? 'التقارير المالية' : 'Financial reports',
     printReport: ar ? 'طباعة التقرير' : 'Print report',
     sendReport: ar ? 'إرسال التقرير' : 'Send report',

@@ -576,6 +576,7 @@ export async function listAccountingDocuments(
         currency: 'OMR',
         occurredOn: row.occurredOn,
         partyName: null,
+        /** Keep source type code; UI localizes it — never show raw snake_case as property. */
         propertyLabel: row.sourceType,
         journalId: row.id,
         note: null,
@@ -792,7 +793,7 @@ export async function reverseJournal(
         organizationId: orgId,
         reference: await allocateJournalReference(tx, orgId, occurredOn, 'REV'),
         occurredOn,
-        description: (note ?? `Reversal of ${entry.reference}`).slice(0, 500),
+        description: (note ?? `عكس القيد ${entry.reference}`).slice(0, 500),
         status: 'posted',
         sourceType: 'journal_reversal',
         sourceId: id,
@@ -814,7 +815,7 @@ export async function reverseJournal(
         creditMinor: line.debitMinor,
         currency: line.currency,
         minorUnit: line.minorUnit,
-        memo: `Reversal: ${line.memo ?? entry.reference}`.slice(0, 500),
+        memo: `عكس: ${line.memo ?? entry.reference}`.slice(0, 500),
       })),
     );
     await tx

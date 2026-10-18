@@ -1,6 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import {
+  accountingDisplayText,
+  accountingJournalStatusLabel,
+  accountingSourceTypeLabel,
+} from '@/lib/accounting-i18n';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import {
   accountingMailtoShare,
@@ -152,12 +157,12 @@ export function AccountingEntryDrawer({
               <div>
                 <span>{ar ? 'الحالة' : 'Status'}</span>
                 <strong className={`accounting-hub__status accounting-hub__status--${detail.status}`}>
-                  {detail.status}
+                  {accountingJournalStatusLabel(detail.status, locale)}
                 </strong>
               </div>
               <div>
                 <span>{ar ? 'المصدر' : 'Source'}</span>
-                <strong>{detail.sourceType ?? (ar ? 'يدوي' : 'Manual')}</strong>
+                <strong>{accountingSourceTypeLabel(detail.sourceType, locale)}</strong>
               </div>
               <div>
                 <span>{ar ? 'الإجمالي' : 'Total'}</span>
@@ -165,7 +170,9 @@ export function AccountingEntryDrawer({
               </div>
             </div>
 
-            <p className="accounting-drawer__desc">{detail.description}</p>
+            <p className="accounting-drawer__desc">
+              {accountingDisplayText(detail.description, locale)}
+            </p>
 
             <h3>{ar ? 'أسطر القيد' : 'Journal lines'}</h3>
             <div className="accounting-hub__table-wrap">
@@ -174,7 +181,7 @@ export function AccountingEntryDrawer({
                   <tr>
                     <th>{ar ? 'الحساب' : 'Account'}</th>
                     <th>{ar ? 'البُعد' : 'Dimension'}</th>
-                    <th>{ar ? 'ملاحظة' : 'Memo'}</th>
+                    <th>{ar ? 'البيان' : 'Memo'}</th>
                     <th className="num">{ar ? 'مدين' : 'Debit'}</th>
                     <th className="num">{ar ? 'دائن' : 'Credit'}</th>
                   </tr>
@@ -190,7 +197,7 @@ export function AccountingEntryDrawer({
                           .filter(Boolean)
                           .join(' · ') || '—'}
                       </td>
-                      <td>{line.memo ?? '—'}</td>
+                      <td>{accountingDisplayText(line.memo, locale)}</td>
                       <td className="num">
                         {line.debitMinor !== '0' ? money(line.debitMinor, line.currency, ar) : '—'}
                       </td>
