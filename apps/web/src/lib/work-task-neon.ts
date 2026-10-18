@@ -1,6 +1,6 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, ne, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import {
@@ -8,15 +8,33 @@ import {
   memberships,
   parties,
   partyRoles,
+  properties,
+  units,
   users,
   workflowEvents,
   workTasks,
 } from '@bhd-r/db';
 import { muscatToday } from '@/lib/tenant-charges-neon';
 import { withinViewerTenant } from '@/lib/portal-ops-data';
-import type { WorkTaskDetail, WorkTaskEvent, WorkTaskFollower, WorkTaskSummary } from '@/lib/work-task-shared';
+import type {
+  WorkTaskChoice,
+  WorkTaskDetail,
+  WorkTaskEvent,
+  WorkTaskFile,
+  WorkTaskFollower,
+  WorkTaskSubject,
+  WorkTaskSummary,
+} from '@/lib/work-task-shared';
 
-export type { WorkTaskDetail, WorkTaskEvent, WorkTaskFollower, WorkTaskSummary };
+export type {
+  WorkTaskChoice,
+  WorkTaskDetail,
+  WorkTaskEvent,
+  WorkTaskFile,
+  WorkTaskFollower,
+  WorkTaskSubject,
+  WorkTaskSummary,
+};
 
 const OPEN = new Set(['draft', 'pending', 'approved', 'in_progress', 'on_hold']);
 const STATUSES = new Set([
@@ -122,6 +140,8 @@ export async function readWorkTask(
         dueAt: workTasks.dueAt,
         completedAt: workTasks.completedAt,
         checklist: workTasks.checklist,
+        propertyId: workTasks.propertyId,
+        unitId: workTasks.unitId,
         assigneeId: workTasks.assignedToUserId,
         assigneeName: assignee.displayName,
       })
@@ -143,7 +163,12 @@ export async function readWorkTask(
       .from(workflowEvents)
       .leftJoin(actor, eq(actor.id, workflowEvents.actorUserId))
       .where(
-        and(eq(workflowEvents.organizationId, orgId), eq(workflowEvents.resourceType, 'work_task'), eq(workflowEvents.resourceId, taskId)),
+        and(
+          eq(workflowEvents.organizationId, orgId),
+          eq(workflowEvents.resourceType, 'work_task'),
+          eq(workflowEvents.resourceId, taskId),
+          ne(workflowEvents.eventType, 'task.file'),
+        ),
       )
       .orderBy(asc(workflowEvents.occurredAt))
       .limit(200);
@@ -165,7 +190,60 @@ export async function readWorkTask(
             .limit(1)
         )[0]
       : null;
-    const created = events.find((event) => event.type === 'task.created');
+    const created = [...events].reverse().find((event) => event.type === 'task.roster') ?? events.find((event) => event.type === 'task.created');
+    const link = [...events].reverse().find((event) => event.type === 'task.link');
+    const linkMeta =
+      link?.metadata && typeof link.metadata === 'object'
+        ? (link.metadata as { kind?: unknown; id?: unknown; label?: unknown })
+        : null;
+    const subject: WorkTaskSubject | null =
+      linkMeta &&
+      (linkMeta.kind === 'party' || linkMeta.kind === 'property' || linkMeta.kind === 'unit') &&
+      typeof linkMeta.id === 'string'
+        ? {
+            kind: linkMeta.kind,
+            id: linkMeta.id,
+            label: typeof linkMeta.label === 'string' ? linkMeta.label : linkMeta.id.slice(0, 8),
+          }
+        : task.unitId
+          ? { kind: 'unit', id: task.unitId, label: task.unitId.slice(0, 8) }
+          : task.propertyId
+            ? { kind: 'property', id: task.propertyId, label: task.propertyId.slice(0, 8) }
+            : null;
+    const fileRows = await tx.execute<{ id: string; name: string | null }>(sql`
+      select id::text as id, metadata->>'name' as name
+      from workflow_events
+      where organization_id = ${orgId}
+        and resource_type = 'work_task'
+        and resource_id = ${taskId}
+        and event_type = 'task.file'
+      order by occurred_at
+      limit 12
+    `);
+    const fileList = (Array.isArray(fileRows) ? fileRows : ((fileRows as { rows?: unknown[] }).rows ?? [])) as Array<{
+      id: string;
+      name: string | null;
+    }>;
+    const [partyChoices, propertyChoices, unitChoices] = await Promise.all([
+      tx
+        .select({ id: parties.id, label: parties.displayName })
+        .from(parties)
+        .where(eq(parties.organizationId, orgId))
+        .orderBy(parties.displayName)
+        .limit(200),
+      tx
+        .select({ id: properties.id, label: properties.nameAr })
+        .from(properties)
+        .where(eq(properties.organizationId, orgId))
+        .orderBy(properties.nameAr)
+        .limit(200),
+      tx
+        .select({ id: units.id, label: units.code, propertyId: units.propertyId, name: units.nameAr })
+        .from(units)
+        .where(eq(units.organizationId, orgId))
+        .orderBy(units.code)
+        .limit(400),
+    ]);
     const people = await tx
       .select({ userId: users.id, name: users.displayName })
       .from(memberships)
@@ -207,6 +285,15 @@ export async function readWorkTask(
       assigneeName: task.assigneeName,
       checklist: task.checklist ?? [],
       followers: followersFrom(created?.metadata),
+      files: fileList.map((file) => ({ id: file.id, name: file.name || 'file' })),
+      subject,
+      parties: partyChoices,
+      properties: propertyChoices,
+      units: unitChoices.map((unit) => ({
+        id: unit.id,
+        label: `${unit.label} · ${unit.name}`,
+        propertyId: unit.propertyId,
+      })),
       events: events.map((event) => ({
         id: event.id,
         type: event.type,
@@ -436,4 +523,285 @@ export async function openLegalCaseFromTask(
   });
   });
   return readWorkTask(claims, taskId);
+}
+
+const DUTIES = new Set(['lead', 'executor', 'supervisor', 'viewer']);
+const FILE_DATA = /^data:([a-z0-9.+-]+\/[a-z0-9.+-]+);base64,[A-Za-z0-9+/]+={0,2}$/i;
+
+function sqlRows<T>(result: unknown): T[] {
+  return (Array.isArray(result) ? result : ((result as { rows?: T[] }).rows ?? [])) as T[];
+}
+
+export async function addWorkTaskFollower(
+  claims: SessionClaims,
+  taskId: string,
+  input: { userId: string; duty: string },
+): Promise<WorkTaskDetail> {
+  if (!canRead(claims) || (!hasPermission(claims, 'task.assign') && !hasPermission(claims, 'task.update'))) deny();
+  const duty = DUTIES.has(input.duty) ? input.duty : '';
+  if (!duty) bad();
+  const orgId = claims.organizationId!;
+  await withinViewerTenant(claims, async (tx) => {
+    const current = await readRoster(tx, orgId, taskId);
+    const [member] = await tx
+      .select({ userId: users.id, name: users.displayName })
+      .from(memberships)
+      .innerJoin(users, eq(users.id, memberships.userId))
+      .where(
+        and(
+          eq(memberships.organizationId, orgId),
+          eq(memberships.userId, input.userId),
+          eq(memberships.status, 'active'),
+        ),
+      )
+      .limit(1);
+    if (!member) bad();
+    const next = current.filter((person) => person.userId !== member.userId);
+    if (duty === 'lead') {
+      for (const person of next) {
+        if (person.duty === 'lead') person.duty = 'supervisor';
+      }
+    }
+    next.push({ userId: member.userId, name: member.name, duty });
+    await tx
+      .update(workTasks)
+      .set({
+        assignedToUserId: next.find((person) => person.duty === 'lead')?.userId ?? member.userId,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(workTasks.organizationId, orgId), eq(workTasks.id, taskId)));
+    await tx.insert(workflowEvents).values({
+      organizationId: orgId,
+      actorUserId: claims.sub,
+      resourceType: 'work_task',
+      resourceId: taskId,
+      eventType: 'task.roster',
+      note: `${member.name}: ${duty}`,
+      metadata: { followers: next },
+    });
+  });
+  return readWorkTask(claims, taskId);
+}
+
+async function readRoster(
+  tx: Parameters<Parameters<typeof withinViewerTenant>[1]>[0],
+  orgId: string,
+  taskId: string,
+): Promise<WorkTaskFollower[]> {
+  const [task] = await tx
+    .select({ id: workTasks.id })
+    .from(workTasks)
+    .where(and(eq(workTasks.organizationId, orgId), eq(workTasks.id, taskId)))
+    .limit(1);
+  if (!task) missing();
+  const events = await tx
+    .select({ type: workflowEvents.eventType, metadata: workflowEvents.metadata })
+    .from(workflowEvents)
+    .where(
+      and(
+        eq(workflowEvents.organizationId, orgId),
+        eq(workflowEvents.resourceType, 'work_task'),
+        eq(workflowEvents.resourceId, taskId),
+      ),
+    )
+    .orderBy(desc(workflowEvents.occurredAt))
+    .limit(40);
+  const roster =
+    events.find((event) => event.type === 'task.roster') ??
+    events.find((event) => event.type === 'task.created');
+  return followersFrom(roster?.metadata);
+}
+
+export async function attachWorkTaskFile(
+  claims: SessionClaims,
+  taskId: string,
+  input: { name: string; data: string },
+): Promise<WorkTaskDetail> {
+  if (!canRead(claims) || !hasPermission(claims, 'task.update')) deny();
+  const name = input.name.trim().slice(0, 180);
+  const data = input.data.trim();
+  if (name.length < 1 || data.length > 1_200_000 || !FILE_DATA.test(data)) bad();
+  const orgId = claims.organizationId!;
+  await withinViewerTenant(claims, async (tx) => {
+    const [task] = await tx
+      .select({ id: workTasks.id })
+      .from(workTasks)
+      .where(and(eq(workTasks.organizationId, orgId), eq(workTasks.id, taskId)))
+      .limit(1);
+    if (!task) missing();
+    const existing = await tx.execute<{ count: number }>(sql`
+      select count(*)::int as count from workflow_events
+      where organization_id = ${orgId} and resource_type = 'work_task'
+        and resource_id = ${taskId} and event_type = 'task.file'
+    `);
+    const count = sqlRows<{ count: number }>(existing)[0]?.count ?? 0;
+    if (Number(count) >= 8) bad();
+    await tx.insert(workflowEvents).values({
+      organizationId: orgId,
+      actorUserId: claims.sub,
+      resourceType: 'work_task',
+      resourceId: taskId,
+      eventType: 'task.file',
+      note: name,
+      metadata: { name, data },
+    });
+  });
+  return readWorkTask(claims, taskId);
+}
+
+export async function readWorkTaskFile(
+  claims: SessionClaims,
+  taskId: string,
+  fileId: string,
+): Promise<{ name: string; mime: string; bytes: Buffer } | null> {
+  if (!canRead(claims)) return null;
+  const orgId = claims.organizationId!;
+  return withinViewerTenant(claims, async (tx) => {
+    const [row] = await tx
+      .select({ metadata: workflowEvents.metadata })
+      .from(workflowEvents)
+      .where(
+        and(
+          eq(workflowEvents.id, fileId),
+          eq(workflowEvents.organizationId, orgId),
+          eq(workflowEvents.resourceType, 'work_task'),
+          eq(workflowEvents.resourceId, taskId),
+          eq(workflowEvents.eventType, 'task.file'),
+        ),
+      )
+      .limit(1);
+    const meta = row?.metadata as { name?: unknown; data?: unknown } | undefined;
+    const data = typeof meta?.data === 'string' ? meta.data : '';
+    const matched = /^data:([^;]+);base64,([A-Za-z0-9+/]+={0,2})$/i.exec(data);
+    if (!matched?.[2]) return null;
+    return {
+      name: typeof meta?.name === 'string' ? meta.name : 'file',
+      mime: matched[1] || 'application/octet-stream',
+      bytes: Buffer.from(matched[2], 'base64'),
+    };
+  });
+}
+
+export async function linkWorkTaskSubject(
+  claims: SessionClaims,
+  taskId: string,
+  input: { kind: 'party' | 'property' | 'unit'; id: string },
+): Promise<WorkTaskDetail> {
+  if (!canRead(claims) || !hasPermission(claims, 'task.update')) deny();
+  const orgId = claims.organizationId!;
+  await withinViewerTenant(claims, async (tx) => {
+    const [task] = await tx
+      .select({ id: workTasks.id })
+      .from(workTasks)
+      .where(and(eq(workTasks.organizationId, orgId), eq(workTasks.id, taskId)))
+      .limit(1);
+    if (!task) missing();
+    let label = '';
+    let propertyId: string | null = null;
+    let unitId: string | null = null;
+    let partyId: string | null = null;
+    if (input.kind === 'party') {
+      const [party] = await tx
+        .select({ id: parties.id, name: parties.displayName })
+        .from(parties)
+        .where(and(eq(parties.organizationId, orgId), eq(parties.id, input.id)))
+        .limit(1);
+      if (!party) bad();
+      label = party.name;
+      partyId = party.id;
+    } else if (input.kind === 'property') {
+      const [property] = await tx
+        .select({ id: properties.id, name: properties.nameAr })
+        .from(properties)
+        .where(and(eq(properties.organizationId, orgId), eq(properties.id, input.id)))
+        .limit(1);
+      if (!property) bad();
+      label = property.name;
+      propertyId = property.id;
+    } else {
+      const [unit] = await tx
+        .select({
+          id: units.id,
+          code: units.code,
+          name: units.nameAr,
+          propertyId: units.propertyId,
+        })
+        .from(units)
+        .where(and(eq(units.organizationId, orgId), eq(units.id, input.id)))
+        .limit(1);
+      if (!unit) bad();
+      label = `${unit.code} · ${unit.name}`;
+      unitId = unit.id;
+      propertyId = unit.propertyId;
+    }
+    await tx
+      .update(workTasks)
+      .set({ propertyId, unitId, updatedAt: new Date() })
+      .where(eq(workTasks.id, task.id));
+    await tx.insert(workflowEvents).values({
+      organizationId: orgId,
+      actorUserId: claims.sub,
+      resourceType: 'work_task',
+      resourceId: task.id,
+      eventType: 'task.link',
+      note: label,
+      metadata: { kind: input.kind, id: input.id, label, partyId },
+    });
+  });
+  return readWorkTask(claims, taskId);
+}
+
+export async function listSubjectTasks(
+  claims: SessionClaims,
+  filter: { partyId?: string; propertyId?: string; unitId?: string },
+): Promise<Array<{ id: string; reference: string; title: string; status: string }>> {
+  if (!canRead(claims)) deny();
+  const orgId = claims.organizationId!;
+  return withinViewerTenant(claims, async (tx) => {
+    if (filter.unitId) {
+      return tx
+        .select({
+          id: workTasks.id,
+          reference: workTasks.reference,
+          title: workTasks.title,
+          status: workTasks.status,
+        })
+        .from(workTasks)
+        .where(and(eq(workTasks.organizationId, orgId), eq(workTasks.unitId, filter.unitId)))
+        .orderBy(desc(workTasks.createdAt))
+        .limit(40);
+    }
+    if (filter.propertyId) {
+      return tx
+        .select({
+          id: workTasks.id,
+          reference: workTasks.reference,
+          title: workTasks.title,
+          status: workTasks.status,
+        })
+        .from(workTasks)
+        .where(and(eq(workTasks.organizationId, orgId), eq(workTasks.propertyId, filter.propertyId)))
+        .orderBy(desc(workTasks.createdAt))
+        .limit(40);
+    }
+    if (!filter.partyId) return [];
+    const result = await tx.execute<{ id: string; reference: string; title: string; status: string }>(sql`
+      select t.id::text as id, t.reference, t.title, t.status::text as status
+      from work_tasks t
+      join lateral (
+        select metadata from workflow_events e
+        where e.organization_id = t.organization_id
+          and e.resource_type = 'work_task'
+          and e.resource_id = t.id
+          and e.event_type = 'task.link'
+        order by e.occurred_at desc
+        limit 1
+      ) link on true
+      where t.organization_id = ${orgId}
+        and link.metadata->>'partyId' = ${filter.partyId}
+      order by t.created_at desc
+      limit 40
+    `);
+    return sqlRows(result);
+  });
 }

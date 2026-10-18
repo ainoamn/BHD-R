@@ -564,6 +564,26 @@ async function readContactRows(
       `),
     );
 
+    const taskRows = rows<{ id: string; reference: string; title: string; status: string }>(
+      await tx.execute(sql`
+        select t.id::text as id, t.reference, t.title, t.status::text as status
+        from work_tasks t
+        join lateral (
+          select metadata from workflow_events e
+          where e.organization_id = t.organization_id
+            and e.resource_type = 'work_task'
+            and e.resource_id = t.id
+            and e.event_type = 'task.link'
+          order by e.occurred_at desc
+          limit 1
+        ) link on true
+        where t.organization_id = ${orgId}
+          and link.metadata->>'partyId' = ${partyId}
+        order by t.created_at desc
+        limit 40
+      `),
+    );
+
     const money = await loadMoney(tx, orgId, partyId, ownedIds, claims);
 
     return {
@@ -660,6 +680,7 @@ async function readContactRows(
         currency: row.currency,
         nextHearingAt: iso(row.next_hearing_at),
       })),
+      tasks: taskRows,
       money,
     };
   });

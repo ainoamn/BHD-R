@@ -300,6 +300,7 @@ export function ContactWorkspace({
     { id: 'stays', ar: 'الإقامات اليومية', en: 'Daily stays', count: detail.stays.length },
     { id: 'maintenance', ar: 'الصيانة', en: 'Maintenance', count: detail.maintenance.length },
     { id: 'legal', ar: 'القضايا', en: 'Legal cases', count: detail.legal.length },
+    { id: 'tasks', ar: 'المهام', en: 'Tasks', count: detail.tasks.length },
   ].filter((item) => item.count > 0);
 
   return (
@@ -899,6 +900,29 @@ export function ContactWorkspace({
                   href={`/${portal}/maintenance`}
                 >
                   {ar ? 'الصيانة' : 'Maintenance'}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      ) : null}
+
+      {detail.tasks.length ? (
+        <Section id="tasks" title={ar ? 'المهام' : 'Tasks'} count={detail.tasks.length}>
+          <ul className="contact-rows">
+            {detail.tasks.map((row) => (
+              <li key={row.id}>
+                <div>
+                  <strong>
+                    <bdi className="contact-code">{row.reference}</bdi> · {row.title}
+                  </strong>
+                </div>
+                <span className={`contact-status contact-status--${row.status}`}>{row.status}</span>
+                <Link
+                  className="button button--secondary button--small"
+                  href={`/${portal}/tasks/${encodeURIComponent(row.id)}`}
+                >
+                  {ar ? 'فتح' : 'Open'}
                 </Link>
               </li>
             ))}

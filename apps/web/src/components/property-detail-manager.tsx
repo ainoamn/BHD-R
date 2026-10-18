@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { SubjectTasks } from '@/components/subject-tasks';
 import type { CurrencyCode } from '@bhd-r/contracts';
 import { BrandMark } from '@bhd-r/ui';
 import { browserMutation } from '@/lib/api';
@@ -1006,6 +1007,15 @@ export function PropertyDetailManager({
               subjectKey={reviewedUnitId ?? property.id}
               locale={locale}
               hostKey={property.organizationId ?? null}
+            />
+          ) : null}
+
+          {!isPublic ? (
+            <SubjectTasks
+              portal={portal}
+              locale={locale}
+              propertyId={property.id}
+              unitId={focusUnitId}
             />
           ) : null}
 

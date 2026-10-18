@@ -31,6 +31,8 @@ const EVENT: Record<string, [string, string]> = {
   'task.status': ['تغيير الحالة', 'Status change'],
   'task.reassigned': ['تحويل', 'Reassigned'],
   'task.legal': ['فُتحت قضية', 'Legal case opened'],
+  'task.roster': ['أُضيف متابع', 'Follower added'],
+  'task.link': ['رُبطت المهمة', 'Task linked'],
 };
 
 const NEXT: Record<string, Array<{ status: string; ar: string; en: string }>> = {
@@ -69,6 +71,10 @@ export function WorkTaskWorkspace({
   const [assignTo, setAssignTo] = useState(detail.assigneeId ?? '');
   const [lawyerId, setLawyerId] = useState(detail.lawyers[0]?.id ?? '');
   const [legalNote, setLegalNote] = useState('');
+  const [memberId, setMemberId] = useState('');
+  const [memberDuty, setMemberDuty] = useState<'lead' | 'executor' | 'supervisor' | 'viewer'>('viewer');
+  const [subjectKind, setSubjectKind] = useState<'party' | 'property' | 'unit'>(detail.subject?.kind ?? 'party');
+  const [subjectId, setSubjectId] = useState(detail.subject?.id ?? '');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const closed = detail.status === 'completed' || detail.status === 'cancelled' || detail.status === 'rejected';
@@ -79,7 +85,7 @@ export function WorkTaskWorkspace({
     setMessage(null);
     try {
       const next = await browserNextMutation<WorkTaskDetail>(path, {
-        method: path.endsWith('/reply') || path.endsWith('/legal') ? 'POST' : 'PATCH',
+        method: path === base ? 'PATCH' : 'POST',
         body: JSON.stringify(body),
       });
       setDetail(next);
@@ -159,6 +165,41 @@ export function WorkTaskWorkspace({
                   </li>
                 ))}
               </ul>
+            ) : null}
+            {detail.files.length ? (
+              <ul className="task-page__checks">
+                {detail.files.map((file) => (
+                  <li key={file.id}>
+                    <a href={`/api/portal/tasks/${encodeURIComponent(detail.id)}/files/${encodeURIComponent(file.id)}`}>
+                      {file.name}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {detail.canUpdate ? (
+              <label className="task-page__stack">
+                <span>{ar ? 'إرفاق ملف' : 'Attach a file'}</span>
+                <input
+                  type="file"
+                  disabled={busy}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = '';
+                    if (!file) return;
+                    if (file.size > 700_000) {
+                      setMessage(ar ? 'الملف أكبر من المسموح (حوالي ٧٠٠ ك.ب).' : 'The file is larger than about 700 KB.');
+                      return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      const data = typeof reader.result === 'string' ? reader.result : '';
+                      void run(`${base}/files`, { name: file.name, data }, ar ? 'أُرفق الملف' : 'File attached');
+                    };
+                    reader.readAsDataURL(file);
+                  }}
+                />
+              </label>
             ) : null}
           </section>
 
@@ -253,6 +294,51 @@ export function WorkTaskWorkspace({
 
           {detail.canAssign ? (
             <section className="task-page__card">
+              <h2>{ar ? 'إضافة عضو' : 'Add a member'}</h2>
+              <form
+                className="task-page__stack"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!memberId) return;
+                  void run(
+                    `${base}/members`,
+                    { userId: memberId, duty: memberDuty },
+                    ar ? 'أُضيف العضو' : 'Member added',
+                  );
+                }}
+              >
+                <label>
+                  <span>{ar ? 'العضو' : 'Member'}</span>
+                  <select value={memberId} onChange={(event) => setMemberId(event.target.value)}>
+                    <option value="">{ar ? 'اختر موظفاً' : 'Choose a person'}</option>
+                    {detail.people
+                      .filter((person) => !detail.followers.some((seat) => seat.userId === person.userId))
+                      .map((person) => (
+                        <option key={person.userId} value={person.userId}>
+                          {person.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <label>
+                  <span>{ar ? 'دوره في المهمة' : 'Duty on this task'}</span>
+                  <select value={memberDuty} onChange={(event) => setMemberDuty(event.target.value as typeof memberDuty)}>
+                    {Object.entries(DUTY).map(([id, label]) => (
+                      <option key={id} value={id}>
+                        {ar ? label[0] : label[1]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button className="button button--quiet" type="submit" disabled={busy || !memberId}>
+                  {ar ? 'إضافة' : 'Add'}
+                </button>
+              </form>
+            </section>
+          ) : null}
+
+          {detail.canAssign ? (
+            <section className="task-page__card">
               <h2>{ar ? 'تحويل المهمة' : 'Transfer'}</h2>
               <form
                 className="task-page__stack"
@@ -278,6 +364,81 @@ export function WorkTaskWorkspace({
               </form>
             </section>
           ) : null}
+
+          <section className="task-page__card">
+            <h2>{ar ? 'ربط المهمة' : 'Link this task'}</h2>
+            {detail.subject ? (
+              <p>
+                <Link
+                  href={
+                    detail.subject.kind === 'party'
+                      ? `/${portal}/contacts/${encodeURIComponent(detail.subject.id)}`
+                      : detail.subject.kind === 'unit'
+                        ? `/${portal}/properties/${encodeURIComponent(detail.units.find((unit) => unit.id === detail.subject?.id)?.propertyId ?? '')}?unit=${encodeURIComponent(detail.subject.id)}`
+                        : `/${portal}/properties/${encodeURIComponent(detail.subject.id)}`
+                  }
+                >
+                  {detail.subject.kind === 'party'
+                    ? ar
+                      ? `المستأجر: ${detail.subject.label}`
+                      : `Tenant: ${detail.subject.label}`
+                    : detail.subject.kind === 'unit'
+                      ? ar
+                        ? `الوحدة: ${detail.subject.label}`
+                        : `Unit: ${detail.subject.label}`
+                      : ar
+                        ? `المبنى: ${detail.subject.label}`
+                        : `Building: ${detail.subject.label}`}
+                </Link>
+              </p>
+            ) : (
+              <p>{ar ? 'غير مربوطة بعد.' : 'Not linked yet.'}</p>
+            )}
+            {detail.canUpdate ? (
+              <form
+                className="task-page__stack"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!subjectId) return;
+                  void run(`${base}/link`, { kind: subjectKind, id: subjectId }, ar ? 'رُبطت المهمة' : 'Task linked');
+                }}
+              >
+                <label>
+                  <span>{ar ? 'النوع' : 'Type'}</span>
+                  <select
+                    value={subjectKind}
+                    onChange={(event) => {
+                      setSubjectKind(event.target.value as typeof subjectKind);
+                      setSubjectId('');
+                    }}
+                  >
+                    <option value="party">{ar ? 'مستأجر / شخص' : 'Tenant / person'}</option>
+                    <option value="property">{ar ? 'مبنى' : 'Building'}</option>
+                    <option value="unit">{ar ? 'وحدة' : 'Unit'}</option>
+                  </select>
+                </label>
+                <label>
+                  <span>{ar ? 'الاسم' : 'Name'}</span>
+                  <select value={subjectId} onChange={(event) => setSubjectId(event.target.value)}>
+                    <option value="">{ar ? 'اختر' : 'Choose'}</option>
+                    {(subjectKind === 'party'
+                      ? detail.parties
+                      : subjectKind === 'property'
+                        ? detail.properties
+                        : detail.units
+                    ).map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button className="button button--quiet" type="submit" disabled={busy || !subjectId}>
+                  {ar ? 'حفظ الربط' : 'Save link'}
+                </button>
+              </form>
+            ) : null}
+          </section>
 
           <section className="task-page__card">
             <h2>{ar ? 'المحامي' : 'Lawyer'}</h2>

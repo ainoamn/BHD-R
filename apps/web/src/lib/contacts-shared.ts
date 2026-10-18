@@ -174,6 +174,12 @@ export type ContactDetail = {
     currency: string;
     nextHearingAt: string | null;
   }[];
+  tasks: {
+    id: string;
+    reference: string;
+    title: string;
+    status: string;
+  }[];
   money: {
     /** Paid by the party: stays, booking deposits, invoices. */
     received: MoneyTotals;
