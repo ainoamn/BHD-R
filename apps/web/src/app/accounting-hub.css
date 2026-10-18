@@ -1115,3 +1115,118 @@
   font-weight: 700;
   letter-spacing: -0.02em;
 }
+
+/* Tighter boxes and fields. Type sizes above stay as they are. */
+.accounting-hub {
+  gap: 0.55rem;
+  padding-bottom: 0.8rem;
+}
+
+.accounting-hub__head {
+  gap: 0.45rem 0.75rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.75rem;
+}
+
+.accounting-hub__head p:not(.accounting-hub__eyebrow) {
+  margin-top: 0.15rem;
+}
+
+.accounting-hub__tabs {
+  padding: 0.15rem;
+}
+
+.accounting-hub__tab {
+  padding: 0.28rem 0.62rem;
+}
+
+.accounting-collect,
+.accounting-hub__kpis,
+.accounting-hub__panel,
+.accounting-hub__panel--hero,
+.accounting-hub__panel--workspace,
+.accounting-hub__form,
+.accounting-tasks {
+  gap: 0.45rem;
+}
+
+.accounting-collect__cards {
+  gap: 0.4rem;
+}
+
+.accounting-collect__card,
+.accounting-hub__kpi,
+.accounting-hub__stat {
+  padding: 0.4rem 0.55rem;
+  border-radius: 0.6rem;
+}
+
+.accounting-hub__kpi strong {
+  margin-top: 0.12rem;
+}
+
+.accounting-collect__detail li,
+.accounting-hub__activity li,
+.accounting-tasks a {
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.55rem;
+}
+
+.accounting-hub__panel,
+.accounting-hub__form,
+.accounting-tasks {
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.7rem;
+}
+
+.accounting-hub__form-grid,
+.accounting-hub__dims,
+.accounting-hub__stat-row {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
+  gap: 0.4rem;
+}
+
+.accounting-hub__toolbar input,
+.accounting-hub__toolbar select,
+.accounting-hub__form input,
+.accounting-hub__form select,
+.accounting-hub__form textarea,
+.accounting-task__seat select,
+.accounting-hub__modal-card input,
+.accounting-hub__modal-card select {
+  padding: 0.28rem 0.45rem;
+}
+
+.accounting-hub__table th,
+.accounting-hub__table td {
+  padding: 0.32rem 0.48rem;
+}
+
+.accounting-hub__table-wrap {
+  border-radius: 0.55rem;
+}
+
+.accounting-hub__meta,
+.accounting-hub__meta-row,
+.accounting-hub__toolbar,
+.accounting-hub__actions {
+  gap: 0.35rem 0.7rem;
+}
+
+.accounting-drawer__panel {
+  padding: 0.7rem 0.8rem 1rem;
+  gap: 0.5rem;
+}
+
+.accounting-drawer__meta > div,
+.accounting-drawer__trail li {
+  padding: 0.35rem 0.5rem;
+}
+
+.accounting-hub__modal-card {
+  padding: 0.7rem 0.8rem 0.85rem;
+}
+
+.accounting-hub__modal-head {
+  margin-bottom: 0.4rem;
+}
