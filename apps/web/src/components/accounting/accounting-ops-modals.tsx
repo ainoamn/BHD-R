@@ -79,6 +79,8 @@ export function AccountingExpenseIncomeModal({
     method: 'bank',
     propertyId: '',
     unitId: '',
+    partyId: '',
+    linkTo: 'property' as 'property' | 'tenant' | 'owner',
   });
 
   return (
@@ -105,6 +107,7 @@ export function AccountingExpenseIncomeModal({
                     method: form.method,
                     ...(form.propertyId ? { propertyId: form.propertyId } : {}),
                     ...(form.unitId ? { unitId: form.unitId } : {}),
+                    ...(form.partyId ? { partyId: form.partyId } : {}),
                   }),
                 });
               } else {
@@ -118,6 +121,7 @@ export function AccountingExpenseIncomeModal({
                     issuedOn: form.issuedOn,
                     ...(form.propertyId ? { propertyId: form.propertyId } : {}),
                     ...(form.unitId ? { unitId: form.unitId } : {}),
+                    ...(form.partyId ? { partyId: form.partyId } : {}),
                   }),
                 });
               }
@@ -205,6 +209,9 @@ export function AccountingExpenseIncomeModal({
             locale={locale}
             propertyId={form.propertyId}
             unitId={form.unitId}
+            partyId={form.partyId}
+            linkTo={form.linkTo}
+            showLink
             onChange={(next) => setForm((current) => ({ ...current, ...next }))}
           />
         </div>

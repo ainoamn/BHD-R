@@ -262,11 +262,8 @@
   gap: 0.75rem;
 }
 
-.accounting-hub__form-grid label {
-  display: grid;
-  gap: 0.25rem;
-  font-size: 0.8rem;
-  color: var(--gl-muted);
+.accounting-hub__form-grid label.accounting-hub__search {
+  grid-column: 1 / -1;
 }
 
 .accounting-hub__lines {

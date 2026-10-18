@@ -2,7 +2,15 @@
 
 import { useEffect, useMemo, useState } from 'react';
 
-export type DimensionProperty = { id: string; nameAr: string; nameEn: string };
+export type DimensionProperty = {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  serial?: string | null;
+  place?: string | null;
+  ownerPartyId?: string;
+  ownerName?: string;
+};
 export type DimensionUnit = {
   id: string;
   propertyId: string;
@@ -10,8 +18,26 @@ export type DimensionUnit = {
   nameAr: string;
   nameEn: string;
 };
+export type DimensionTenant = {
+  partyId: string;
+  name: string;
+  propertyId: string;
+  unitId: string | null;
+};
 
-type Dimensions = { properties: DimensionProperty[]; units: DimensionUnit[] };
+type Dimensions = {
+  properties: DimensionProperty[];
+  units: DimensionUnit[];
+  tenants: DimensionTenant[];
+};
+
+export type DimensionLink = 'property' | 'tenant' | 'owner';
+
+export type DimensionPick = {
+  propertyId: string;
+  unitId: string;
+  partyId: string;
+};
 
 let cached: Dimensions | null = null;
 let inflight: Promise<Dimensions> | null = null;
@@ -25,15 +51,16 @@ async function loadDimensions(): Promise<Dimensions> {
       headers: { accept: 'application/json' },
     })
       .then(async (response) => {
-        if (!response.ok) return { properties: [], units: [] };
+        if (!response.ok) return { properties: [], units: [], tenants: [] };
         const payload = (await response.json()) as Dimensions;
         cached = {
           properties: payload.properties ?? [],
           units: payload.units ?? [],
+          tenants: payload.tenants ?? [],
         };
         return cached;
       })
-      .catch(() => ({ properties: [], units: [] }))
+      .catch(() => ({ properties: [], units: [], tenants: [] }))
       .finally(() => {
         inflight = null;
       });
@@ -41,22 +68,47 @@ async function loadDimensions(): Promise<Dimensions> {
   return inflight;
 }
 
-/** Property + unit selects that load the viewer's buildings automatically. */
+function haystack(property: DimensionProperty, units: DimensionUnit[], tenants: DimensionTenant[]) {
+  const bits = [
+    property.nameAr,
+    property.nameEn,
+    property.serial,
+    property.place,
+    property.ownerName,
+    ...units.filter((unit) => unit.propertyId === property.id).flatMap((unit) => [unit.code, unit.nameAr, unit.nameEn]),
+    ...tenants.filter((tenant) => tenant.propertyId === property.id).map((tenant) => tenant.name),
+  ];
+  return bits.filter(Boolean).join(' ').toLowerCase();
+}
+
+/**
+ * Keyword search for a building, then unit. Expense/income can also link the
+ * entry to the property, its tenant, or its owner.
+ */
 export function AccountingPropertyUnitFields({
   locale,
   propertyId,
   unitId,
+  partyId = '',
+  linkTo = 'property',
+  showLink = false,
   onChange,
   required = false,
 }: {
   locale: 'ar' | 'en';
   propertyId: string;
   unitId: string;
-  onChange: (next: { propertyId: string; unitId: string }) => void;
+  partyId?: string;
+  linkTo?: DimensionLink;
+  showLink?: boolean;
+  onChange: (next: DimensionPick & { linkTo: DimensionLink }) => void;
   required?: boolean;
 }) {
   const ar = locale === 'ar';
-  const [dims, setDims] = useState<Dimensions>(cached ?? { properties: [], units: [] });
+  const [dims, setDims] = useState<Dimensions>(
+    cached ?? { properties: [], units: [], tenants: [] },
+  );
+  const [query, setQuery] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -68,34 +120,79 @@ export function AccountingPropertyUnitFields({
     };
   }, []);
 
+  const q = query.trim().toLowerCase();
+  const properties = useMemo(() => {
+    if (!q) return dims.properties;
+    return dims.properties.filter((property) =>
+      haystack(property, dims.units, dims.tenants).includes(q),
+    );
+  }, [dims.properties, dims.tenants, dims.units, q]);
+
   const units = useMemo(
     () =>
-      propertyId ? dims.units.filter((unit) => unit.propertyId === propertyId) : dims.units,
+      propertyId ? dims.units.filter((unit) => unit.propertyId === propertyId) : [],
     [dims.units, propertyId],
   );
 
+  const tenants = useMemo(() => {
+    const list = dims.tenants.filter((tenant) => tenant.propertyId === propertyId);
+    return unitId ? list.filter((tenant) => !tenant.unitId || tenant.unitId === unitId) : list;
+  }, [dims.tenants, propertyId, unitId]);
+
+  const selected = dims.properties.find((property) => property.id === propertyId);
+
+  function emit(next: Partial<DimensionPick> & { linkTo?: DimensionLink }) {
+    const nextProperty = next.propertyId ?? propertyId;
+    const nextUnit = next.unitId ?? (next.propertyId && next.propertyId !== propertyId ? '' : unitId);
+    const nextLink = next.linkTo ?? linkTo;
+    const building = dims.properties.find((property) => property.id === nextProperty);
+    let nextParty = next.partyId ?? partyId;
+    if (nextLink === 'owner') nextParty = building?.ownerPartyId ?? '';
+    if (nextLink === 'property') nextParty = '';
+    if (nextLink === 'tenant' && next.propertyId && next.propertyId !== propertyId) nextParty = '';
+    onChange({
+      propertyId: nextProperty,
+      unitId: nextUnit,
+      partyId: nextParty,
+      linkTo: nextLink,
+    });
+  }
+
   return (
     <>
+      <label className="accounting-hub__search">
+        {ar ? 'بحث عن العقار' : 'Search property'}
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={
+            ar
+              ? 'اسم، وحدة، مالك، مستأجر، موقع…'
+              : 'Name, unit, owner, tenant, place…'
+          }
+        />
+      </label>
       <label>
-        {ar ? 'المبنى' : 'Property'}
+        {ar ? 'العقار' : 'Property'}
         <select
           value={propertyId}
           required={required}
-          onChange={(event) => {
-            const nextProperty = event.target.value;
-            const unitStillValid = dims.units.some(
-              (unit) => unit.id === unitId && unit.propertyId === nextProperty,
-            );
-            onChange({
-              propertyId: nextProperty,
-              unitId: unitStillValid ? unitId : '',
-            });
-          }}
+          onChange={(event) => emit({ propertyId: event.target.value, unitId: '' })}
         >
-          <option value="">{ar ? '— اختياري —' : '— optional —'}</option>
-          {dims.properties.map((property) => (
+          <option value="">
+            {q
+              ? ar
+                ? `${properties.length} نتيجة`
+                : `${properties.length} matches`
+              : ar
+                ? '— اختر بعد البحث —'
+                : '— pick after search —'}
+          </option>
+          {properties.map((property) => (
             <option key={property.id} value={property.id}>
-              {ar ? property.nameAr : property.nameEn}
+              {(ar ? property.nameAr : property.nameEn) +
+                (property.place ? ` · ${property.place}` : '') +
+                (property.serial ? ` · ${property.serial}` : '')}
             </option>
           ))}
         </select>
@@ -104,15 +201,8 @@ export function AccountingPropertyUnitFields({
         {ar ? 'الوحدة' : 'Unit'}
         <select
           value={unitId}
-          disabled={!propertyId && dims.units.length > 40}
-          onChange={(event) => {
-            const nextUnit = event.target.value;
-            const match = dims.units.find((unit) => unit.id === nextUnit);
-            onChange({
-              propertyId: match?.propertyId || propertyId,
-              unitId: nextUnit,
-            });
-          }}
+          disabled={!propertyId}
+          onChange={(event) => emit({ unitId: event.target.value })}
         >
           <option value="">{ar ? '— اختياري —' : '— optional —'}</option>
           {units.map((unit) => (
@@ -125,6 +215,42 @@ export function AccountingPropertyUnitFields({
           ))}
         </select>
       </label>
+      {showLink ? (
+        <label>
+          {ar ? 'الربط' : 'Link to'}
+          <select
+            value={linkTo}
+            onChange={(event) => emit({ linkTo: event.target.value as DimensionLink })}
+          >
+            <option value="property">{ar ? 'العقار' : 'The property'}</option>
+            <option value="tenant">{ar ? 'مستأجر العقار' : 'Property tenant'}</option>
+            <option value="owner">{ar ? 'المالك' : 'The owner'}</option>
+          </select>
+        </label>
+      ) : null}
+      {showLink && linkTo === 'tenant' ? (
+        <label>
+          {ar ? 'المستأجر' : 'Tenant'}
+          <select
+            value={partyId}
+            onChange={(event) => emit({ partyId: event.target.value, linkTo: 'tenant' })}
+            disabled={!propertyId}
+          >
+            <option value="">{ar ? '— اختر المستأجر —' : '— pick a tenant —'}</option>
+            {tenants.map((tenant) => (
+              <option key={`${tenant.partyId}-${tenant.unitId ?? ''}`} value={tenant.partyId}>
+                {tenant.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
+      {showLink && linkTo === 'owner' && selected?.ownerName ? (
+        <p className="accounting-hub__hint">
+          {ar ? 'المالك: ' : 'Owner: '}
+          <bdi>{selected.ownerName}</bdi>
+        </p>
+      ) : null}
     </>
   );
 }

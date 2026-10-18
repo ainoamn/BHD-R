@@ -198,7 +198,13 @@ export function AccountingJournalComposerModal({
               locale={locale}
               propertyId={form.propertyId}
               unitId={form.unitId}
-              onChange={(next) => setForm((current) => ({ ...current, ...next }))}
+              onChange={(next) =>
+                setForm((current) => ({
+                  ...current,
+                  propertyId: next.propertyId,
+                  unitId: next.unitId,
+                }))
+              }
             />
           </div>
           <div className="accounting-hub__lines">

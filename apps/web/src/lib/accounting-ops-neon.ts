@@ -3,7 +3,7 @@ import { and, asc, desc, eq, inArray, ne, or, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import type { SessionClaims } from '@bhd-r/authz';
 import type { CurrencyCode } from '@bhd-r/contracts';
-import { cheques, contracts, leases, parties, properties, units } from '@bhd-r/db';
+import { addresses, cheques, contracts, leases, parties, properties, units } from '@bhd-r/db';
 import {
   canManageAccounting,
   canReadAccounting,
@@ -32,6 +32,10 @@ export type AccountingPropertyOption = {
   id: string;
   nameAr: string;
   nameEn: string;
+  serial: string | null;
+  place: string | null;
+  ownerPartyId: string;
+  ownerName: string;
 };
 
 export type AccountingUnitOption = {
@@ -42,10 +46,18 @@ export type AccountingUnitOption = {
   nameEn: string;
 };
 
-/** Buildings and units the viewer may dimension expense/income/trading journals against. */
+export type AccountingTenantOption = {
+  partyId: string;
+  name: string;
+  propertyId: string;
+  unitId: string | null;
+};
+
+/** Buildings, units, owners and current tenants for expense/income/journal pickers. */
 export async function listAccountingDimensions(claims: SessionClaims): Promise<{
   properties: AccountingPropertyOption[];
   units: AccountingUnitOption[];
+  tenants: AccountingTenantOption[];
 }> {
   if (!canReadAccounting(claims)) fail('forbidden');
   const orgId = claims.organizationId!;
@@ -56,8 +68,15 @@ export async function listAccountingDimensions(claims: SessionClaims): Promise<{
         id: properties.id,
         nameAr: properties.nameAr,
         nameEn: properties.nameEn,
+        serialNumber: properties.serialNumber,
+        ownerPartyId: properties.ownerPartyId,
+        ownerName: parties.displayName,
+        city: addresses.city,
+        wilayat: addresses.wilayat,
       })
       .from(properties)
+      .leftJoin(parties, eq(parties.id, properties.ownerPartyId))
+      .leftJoin(addresses, eq(addresses.id, properties.addressId))
       .where(
         and(
           eq(properties.organizationId, orgId),
@@ -86,11 +105,35 @@ export async function listAccountingDimensions(claims: SessionClaims): Promise<{
           )
           .orderBy(asc(units.code))
       : [];
+    const tenantRows = propertyIds.length
+      ? await tx
+          .select({
+            partyId: leases.tenantPartyId,
+            name: parties.displayName,
+            propertyId: units.propertyId,
+            unitId: leases.unitId,
+          })
+          .from(leases)
+          .innerJoin(units, eq(units.id, leases.unitId))
+          .leftJoin(parties, eq(parties.id, leases.tenantPartyId))
+          .where(
+            and(
+              eq(leases.organizationId, orgId),
+              inArray(units.propertyId, propertyIds),
+              inArray(leases.status, ['active', 'clearance_pending', 'cancel_requested']),
+            ),
+          )
+          .orderBy(asc(parties.displayName))
+      : [];
     return {
       properties: propertyRows.map((row) => ({
         id: row.id,
         nameAr: row.nameAr || row.nameEn || row.id,
         nameEn: row.nameEn || row.nameAr || row.id,
+        serial: row.serialNumber,
+        place: [row.city, row.wilayat].filter(Boolean).join(' · ') || null,
+        ownerPartyId: row.ownerPartyId,
+        ownerName: row.ownerName || '',
       })),
       units: unitRows.map((row) => ({
         id: row.id,
@@ -99,6 +142,14 @@ export async function listAccountingDimensions(claims: SessionClaims): Promise<{
         nameAr: row.nameAr,
         nameEn: row.nameEn,
       })),
+      tenants: tenantRows
+        .filter((row) => row.partyId)
+        .map((row) => ({
+          partyId: row.partyId,
+          name: row.name || row.partyId,
+          propertyId: row.propertyId,
+          unitId: row.unitId,
+        })),
     };
   });
 }
