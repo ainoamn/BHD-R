@@ -1,0 +1,244 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { ApiError } from '@/lib/api';
+import { formatMoney } from '@/lib/format';
+
+type JournalDetail = {
+  id: string;
+  reference: string;
+  occurredOn: string;
+  description: string;
+  status: string;
+  sourceType: string | null;
+  sourceId: string | null;
+  postedAt: string | null;
+  createdAt: string;
+  totals: { debitMinor: string; creditMinor: string };
+  lines: Array<{
+    id: string;
+    code: string;
+    nameAr: string;
+    nameEn: string;
+    debitMinor: string;
+    creditMinor: string;
+    currency: string;
+    memo: string | null;
+    partyName: string | null;
+    propertyNameAr: string | null;
+    unitCode: string | null;
+  }>;
+  trail: Array<{
+    id: string;
+    eventType: string;
+    fromStatus: string | null;
+    toStatus: string | null;
+    note: string | null;
+    occurredAt: string;
+  }>;
+};
+
+function money(minor: string, currency: string, ar: boolean) {
+  if (!minor || minor === '0') return '—';
+  return formatMoney(minor, currency, ar ? 'ar' : 'en');
+}
+
+const EVENT_LABEL: Record<string, { ar: string; en: string }> = {
+  'journal.created': { ar: 'إنشاء مسودة', en: 'Draft created' },
+  'journal.posted': { ar: 'ترحيل القيد', en: 'Posted' },
+  'journal.reversed': { ar: 'عكس القيد', en: 'Reversed' },
+};
+
+export function AccountingEntryDrawer({
+  journalId,
+  locale,
+  onClose,
+  onPost,
+  onReverse,
+  canPost,
+  busy,
+}: {
+  journalId: string | null;
+  locale: 'ar' | 'en';
+  onClose: () => void;
+  onPost?: (id: string) => void;
+  onReverse?: (id: string) => void;
+  canPost: boolean;
+  busy: boolean;
+}) {
+  const ar = locale === 'ar';
+  const [detail, setDetail] = useState<JournalDetail | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!journalId) {
+      setDetail(null);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    void fetch(`/api/owner/accounting/journals/${encodeURIComponent(journalId)}`, {
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: { accept: 'application/json' },
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const payload = (await response.json().catch(() => null)) as {
+            error?: { messageAr?: string; message?: string; code?: string };
+          } | null;
+          throw new ApiError(
+            response.status,
+            payload?.error?.code ?? 'request_failed',
+            payload?.error?.messageAr ?? payload?.error?.message ?? 'Request failed',
+          );
+        }
+        return response.json() as Promise<{ journal: JournalDetail }>;
+      })
+      .then((data) => {
+        if (!cancelled) setDetail(data.journal);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setError(err instanceof ApiError ? err.message : ar ? 'تعذر التحميل' : 'Load failed');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ar, journalId]);
+
+  if (!journalId) return null;
+
+  return (
+    <div className="accounting-drawer" role="dialog" aria-modal="true" aria-labelledby="gl-drawer-title">
+      <button type="button" className="accounting-drawer__backdrop" aria-label="Close" onClick={onClose} />
+      <aside className="accounting-drawer__panel">
+        <header className="accounting-drawer__head">
+          <div>
+            <p className="accounting-drawer__eyebrow">{ar ? 'تفاصيل المعاملة' : 'Transaction detail'}</p>
+            <h2 id="gl-drawer-title">{detail?.reference ?? '…'}</h2>
+          </div>
+          <button type="button" className="button button--quiet button--sm" onClick={onClose}>
+            {ar ? 'إغلاق' : 'Close'}
+          </button>
+        </header>
+
+        {loading ? <p className="accounting-hub__muted">{ar ? 'جاري التحميل…' : 'Loading…'}</p> : null}
+        {error ? <p className="accounting-hub__error">{error}</p> : null}
+
+        {detail ? (
+          <>
+            <div className="accounting-drawer__meta">
+              <div>
+                <span>{ar ? 'التاريخ' : 'Date'}</span>
+                <strong>{detail.occurredOn}</strong>
+              </div>
+              <div>
+                <span>{ar ? 'الحالة' : 'Status'}</span>
+                <strong className={`accounting-hub__status accounting-hub__status--${detail.status}`}>
+                  {detail.status}
+                </strong>
+              </div>
+              <div>
+                <span>{ar ? 'المصدر' : 'Source'}</span>
+                <strong>{detail.sourceType ?? (ar ? 'يدوي' : 'Manual')}</strong>
+              </div>
+              <div>
+                <span>{ar ? 'الإجمالي' : 'Total'}</span>
+                <strong>{money(detail.totals.debitMinor, 'OMR', ar)}</strong>
+              </div>
+            </div>
+
+            <p className="accounting-drawer__desc">{detail.description}</p>
+
+            <h3>{ar ? 'أسطر القيد' : 'Journal lines'}</h3>
+            <div className="accounting-hub__table-wrap">
+              <table className="accounting-hub__table">
+                <thead>
+                  <tr>
+                    <th>{ar ? 'الحساب' : 'Account'}</th>
+                    <th>{ar ? 'البُعد' : 'Dimension'}</th>
+                    <th>{ar ? 'ملاحظة' : 'Memo'}</th>
+                    <th className="num">{ar ? 'مدين' : 'Debit'}</th>
+                    <th className="num">{ar ? 'دائن' : 'Credit'}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detail.lines.map((line) => (
+                    <tr key={line.id}>
+                      <td>
+                        {line.code} · {ar ? line.nameAr : line.nameEn}
+                      </td>
+                      <td>
+                        {[line.partyName, line.propertyNameAr, line.unitCode]
+                          .filter(Boolean)
+                          .join(' · ') || '—'}
+                      </td>
+                      <td>{line.memo ?? '—'}</td>
+                      <td className="num">
+                        {line.debitMinor !== '0' ? money(line.debitMinor, line.currency, ar) : '—'}
+                      </td>
+                      <td className="num">
+                        {line.creditMinor !== '0' ? money(line.creditMinor, line.currency, ar) : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <h3>{ar ? 'سجل التتبع' : 'Audit trail'}</h3>
+            {detail.trail.length ? (
+              <ol className="accounting-drawer__trail">
+                {detail.trail.map((event) => (
+                  <li key={event.id}>
+                    <strong>
+                      {EVENT_LABEL[event.eventType]
+                        ? ar
+                          ? EVENT_LABEL[event.eventType]!.ar
+                          : EVENT_LABEL[event.eventType]!.en
+                        : event.eventType}
+                    </strong>
+                    <span>{new Date(event.occurredAt).toLocaleString(ar ? 'ar-OM' : 'en-GB')}</span>
+                    {event.note ? <em>{event.note}</em> : null}
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="accounting-hub__muted">{ar ? 'لا أحداث مسجّلة بعد' : 'No events yet'}</p>
+            )}
+
+            <div className="accounting-hub__actions">
+              {detail.status === 'draft' && canPost && onPost ? (
+                <button
+                  type="button"
+                  className="button button--primary"
+                  disabled={busy}
+                  onClick={() => onPost(detail.id)}
+                >
+                  {ar ? 'ترحيل القيد' : 'Post entry'}
+                </button>
+              ) : null}
+              {detail.status === 'posted' && canPost && onReverse ? (
+                <button
+                  type="button"
+                  className="button button--quiet"
+                  disabled={busy}
+                  onClick={() => onReverse(detail.id)}
+                >
+                  {ar ? 'عكس القيد' : 'Reverse'}
+                </button>
+              ) : null}
+            </div>
+          </>
+        ) : null}
+      </aside>
+    </div>
+  );
+}

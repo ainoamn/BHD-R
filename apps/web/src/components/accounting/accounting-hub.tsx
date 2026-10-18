@@ -2,6 +2,7 @@
 
 import { useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AccountingEntryDrawer } from '@/components/accounting/accounting-entry-drawer';
 import { DepositLedgerPanel } from '@/components/accounting/deposit-ledger';
 import { usePathname, useRouter } from '@/i18n/navigation';
 import {
@@ -52,6 +53,7 @@ type JournalRow = {
   occurredOn: string;
   description: string;
   status: string;
+  sourceType?: string | null;
   currency: string | null;
   debitMinor: string | null;
   creditMinor: string | null;
@@ -93,15 +95,31 @@ type DraftLine = {
 };
 
 const TAB_LABEL: Record<AccountingHubTab, { ar: string; en: string }> = {
-  dashboard: { ar: 'لوحة التحكم', en: 'Dashboard' },
+  dashboard: { ar: 'الملخص', en: 'Overview' },
+  documents: { ar: 'المستندات', en: 'Documents' },
   deposits: { ar: 'أمانات التأمين', en: 'Deposits' },
   accounts: { ar: 'دليل الحسابات', en: 'Chart of accounts' },
-  journal: { ar: 'قيود اليومية', en: 'Journal' },
+  journal: { ar: 'القيود اليومية', en: 'Journal' },
   expenses: { ar: 'المصروفات', en: 'Expenses' },
   ledgers: { ar: 'أستاذ تحليلي', en: 'Dimensional ledger' },
   reports: { ar: 'التقارير', en: 'Reports' },
   periods: { ar: 'الفترات', en: 'Periods' },
   audit: { ar: 'التدقيق', en: 'Audit' },
+};
+
+type DocRow = {
+  id: string;
+  kind: 'invoice' | 'receipt' | 'journal';
+  reference: string;
+  title: string;
+  status: string;
+  amountMinor: string;
+  currency: string;
+  occurredOn: string;
+  partyName: string | null;
+  propertyLabel: string | null;
+  journalId: string | null;
+  note: string | null;
 };
 
 const TYPE_LABEL: Record<LedgerAccountType, { ar: string; en: string }> = {
@@ -234,6 +252,9 @@ export function AccountingHub({
     }>
   >([]);
   const [ledgerTotals, setLedgerTotals] = useState({ debitMinor: '0', creditMinor: '0' });
+  const [documents, setDocuments] = useState<DocRow[]>([]);
+  const [openJournalId, setOpenJournalId] = useState<string | null>(null);
+  const [composeOpen, setComposeOpen] = useState(true);
 
   const caps = dash?.capabilities ?? { manage: false, post: false };
   const omr = dash?.totalsByCurrency.find((row) => row.currency === 'OMR') ??
@@ -283,6 +304,23 @@ export function AccountingHub({
         ]);
         setJournals(journalData.journals);
         setAccounts(accountData.accounts);
+        if (!accountData.accounts.length) {
+          try {
+            await browserNextMutation('/api/owner/accounting/accounts/bootstrap', {
+              method: 'POST',
+              body: '{}',
+            });
+            const again = await getJson<{ accounts: Account[] }>('/api/owner/accounting/accounts');
+            setAccounts(again.accounts);
+          } catch {
+            /* manage permission may be missing */
+          }
+        }
+        return;
+      }
+      if (current === 'documents') {
+        const data = await getJson<{ documents: DocRow[] }>('/api/owner/accounting/documents');
+        setDocuments(data.documents);
         return;
       }
       if (current === 'expenses') {
@@ -386,10 +424,10 @@ export function AccountingHub({
 
   const PRIMARY_TABS: AccountingHubTab[] = [
     'dashboard',
-    'deposits',
+    'documents',
     'journal',
+    'deposits',
     'expenses',
-    'ledgers',
     'reports',
   ];
   const MORE_TABS: AccountingHubTab[] = ACCOUNTING_HUB_TABS.filter(
@@ -400,11 +438,12 @@ export function AccountingHub({
     <section className="accounting-hub" data-testid="accounting-hub" hidden={!active}>
       <header className="accounting-hub__head">
         <div>
-          <h1>{ar ? 'المحاسبة' : 'Accounting'}</h1>
+          <p className="accounting-hub__eyebrow">{ar ? 'دفتر الأستاذ العقاري' : 'Property general ledger'}</p>
+          <h1>{ar ? 'نظام المحاسبة' : 'Accounting system'}</h1>
           <p>
             {ar
-              ? 'ملخص تحصيلاتك وتأميناتك ومصروفاتك في مكان واحد، مع قيود يومية قابلة للتدقيق.'
-              : 'Collections, deposits and expenses in one place, with auditable journals.'}
+              ? 'قيد مزدوج، مستندات مصدر، تتبع كامل للمعاملات، وتقارير قابلة لإعادة الإنتاج — وفق معايير المحاسبة الدولية.'
+              : 'Double-entry, source documents, full transaction trails, and reproducible reports — IFRS-ready property GL.'}
           </p>
         </div>
         <div className="accounting-hub__actions">
@@ -683,12 +722,113 @@ export function AccountingHub({
         </div>
       ) : null}
 
+      {tab === 'documents' ? (
+        <div className="accounting-hub__panel accounting-hub__panel--workspace">
+          <div className="accounting-hub__toolbar">
+            <div>
+              <h2>{ar ? 'المستندات والإيصالات' : 'Documents & receipts'}</h2>
+              <p className="accounting-hub__hint">
+                {ar
+                  ? 'فواتير المطالبة، إيصالات القبض، وقيود المصدر المرتبطة — اضغط سطراً لفتح القيد المحاسبي.'
+                  : 'Demand invoices, receipts and linked source journals — open a row to inspect the GL entry.'}
+              </p>
+            </div>
+          </div>
+          <div className="accounting-hub__table-wrap">
+            <table className="accounting-hub__table accounting-hub__table--interactive">
+              <thead>
+                <tr>
+                  <th>{ar ? 'النوع' : 'Kind'}</th>
+                  <th>{ar ? 'المرجع' : 'Ref'}</th>
+                  <th>{ar ? 'العنوان' : 'Title'}</th>
+                  <th>{ar ? 'الطرف / العقار' : 'Party / property'}</th>
+                  <th>{ar ? 'ملاحظة' : 'Note'}</th>
+                  <th className="num">{ar ? 'المبلغ' : 'Amount'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {documents.length === 0 ? (
+                  <tr>
+                    <td colSpan={6}>
+                      {ar
+                        ? 'لا مستندات بعد — سجّل قبض إيجار أو ادفع إقامة ثم اضغط مزامنة المدفوعات.'
+                        : 'No documents yet — record rent or stay payments, then sync.'}
+                    </td>
+                  </tr>
+                ) : (
+                  documents.map((row) => (
+                    <tr
+                      key={`${row.kind}-${row.id}`}
+                      className={row.journalId ? 'is-clickable' : undefined}
+                      onClick={() => {
+                        if (row.journalId) setOpenJournalId(row.journalId);
+                      }}
+                    >
+                      <td>
+                        <span className={`accounting-hub__chip accounting-hub__chip--${row.kind}`}>
+                          {row.kind === 'receipt'
+                            ? ar
+                              ? 'إيصال'
+                              : 'Receipt'
+                            : row.kind === 'invoice'
+                              ? ar
+                                ? 'فاتورة'
+                                : 'Invoice'
+                              : ar
+                                ? 'قيد'
+                                : 'Journal'}
+                        </span>
+                      </td>
+                      <td>{row.reference}</td>
+                      <td>{row.title}</td>
+                      <td>
+                        {[row.partyName, row.propertyLabel].filter(Boolean).join(' · ') || '—'}
+                      </td>
+                      <td>{row.note ?? '—'}</td>
+                      <td className="num">
+                        {row.amountMinor !== '0'
+                          ? money(row.amountMinor, row.currency, ar)
+                          : '—'}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+
       {tab === 'journal' ? (
-        <div className="accounting-hub__panel">
-          <h2>{ar ? 'قيود اليومية' : 'Journal entries'}</h2>
-          {caps.manage ? (
+        <div className="accounting-hub__panel accounting-hub__panel--workspace">
+          <div className="accounting-hub__toolbar">
+            <div>
+              <h2>{ar ? 'دفتر اليومية' : 'General journal'}</h2>
+              <p className="accounting-hub__hint">
+                {ar
+                  ? 'أنشئ قيداً مزدوجاً متوازناً، أو افتح أي قيد للاطلاع على الأسطر والملاحظات وسجل التتبع.'
+                  : 'Create a balanced double-entry, or open any entry for lines, memos and audit trail.'}
+              </p>
+            </div>
+            {caps.manage ? (
+              <button
+                type="button"
+                className="button button--primary"
+                onClick={() => setComposeOpen((open) => !open)}
+              >
+                {composeOpen
+                  ? ar
+                    ? 'إخفاء نموذج القيد'
+                    : 'Hide composer'
+                  : ar
+                    ? '＋ قيد يومية جديد'
+                    : '+ New journal entry'}
+              </button>
+            ) : null}
+          </div>
+          {caps.manage && composeOpen ? (
             <form
-              className="accounting-hub__form"
+              className="accounting-hub__form accounting-hub__form--composer"
               onSubmit={(event) => {
                 event.preventDefault();
                 if (!lineBalance.ok) {
@@ -699,8 +839,16 @@ export function AccountingHub({
                   );
                   return;
                 }
+                if (!accounts.length) {
+                  setError(
+                    ar
+                      ? 'لا حسابات في الدليل — اضغط مزامنة المدفوعات أو تهيئة الدليل'
+                      : 'No accounts — sync payments or bootstrap the chart',
+                  );
+                  return;
+                }
                 void run(async () => {
-                  await browserNextMutation('/api/owner/accounting/journals', {
+                  const created = (await browserNextMutation('/api/owner/accounting/journals', {
                     method: 'POST',
                     body: JSON.stringify({
                       occurredOn: journalForm.occurredOn,
@@ -716,7 +864,7 @@ export function AccountingHub({
                           memo: line.memo || undefined,
                         })),
                     }),
-                  });
+                  })) as { journal?: { id?: string } };
                   setJournalForm((current) => ({
                     ...current,
                     description: '',
@@ -725,6 +873,7 @@ export function AccountingHub({
                       { accountId: '', debit: '', credit: '', memo: '' },
                     ],
                   }));
+                  if (created?.journal?.id) setOpenJournalId(created.journal.id);
                 });
               }}
             >
@@ -877,74 +1026,48 @@ export function AccountingHub({
             </form>
           ) : null}
           <div className="accounting-hub__table-wrap">
-            <table className="accounting-hub__table">
+            <table className="accounting-hub__table accounting-hub__table--interactive">
               <thead>
                 <tr>
                   <th>{ar ? 'المرجع' : 'Ref'}</th>
                   <th>{ar ? 'التاريخ' : 'Date'}</th>
                   <th>{ar ? 'البيان' : 'Description'}</th>
+                  <th>{ar ? 'المصدر' : 'Source'}</th>
                   <th>{ar ? 'الحالة' : 'Status'}</th>
                   <th className="num">{ar ? 'المبلغ' : 'Amount'}</th>
-                  <th />
                 </tr>
               </thead>
               <tbody>
-                {journals.map((row) => (
-                  <tr key={row.id}>
-                    <td>{row.reference}</td>
-                    <td>{row.occurredOn}</td>
-                    <td>{row.description}</td>
-                    <td>
-                      <span
-                        className={`accounting-hub__status accounting-hub__status--${row.status}`}
-                      >
-                        {row.status}
-                      </span>
-                    </td>
-                    <td className="num">{money(row.debitMinor, row.currency ?? 'OMR', ar)}</td>
-                    <td>
-                      <div className="accounting-hub__actions">
-                        {row.status === 'draft' && caps.post ? (
-                          <button
-                            type="button"
-                            className="button button--quiet button--sm"
-                            disabled={busy}
-                            onClick={() =>
-                              void run(async () => {
-                                await browserNextMutation(
-                                  `/api/owner/accounting/journals/${row.id}/post`,
-                                  { method: 'POST', body: '{}' },
-                                );
-                              })
-                            }
-                          >
-                            {ar ? 'ترحيل' : 'Post'}
-                          </button>
-                        ) : null}
-                        {row.status === 'posted' && caps.post ? (
-                          <button
-                            type="button"
-                            className="button button--quiet button--sm"
-                            disabled={busy}
-                            onClick={() =>
-                              void run(async () => {
-                                await browserNextMutation(
-                                  `/api/owner/accounting/journals/${row.id}/reverse`,
-                                  {
-                                    method: 'POST',
-                                    body: JSON.stringify({ occurredOn: todayIso() }),
-                                  },
-                                );
-                              })
-                            }
-                          >
-                            {ar ? 'عكس' : 'Reverse'}
-                          </button>
-                        ) : null}
-                      </div>
+                {journals.length === 0 ? (
+                  <tr>
+                    <td colSpan={6}>
+                      {ar
+                        ? 'لا قيود بعد — أنشئ قيداً أعلاه أو اضغط مزامنة المدفوعات لترحيل التحصيلات.'
+                        : 'No journals yet — compose an entry above or sync payments.'}
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  journals.map((row) => (
+                    <tr
+                      key={row.id}
+                      className="is-clickable"
+                      onClick={() => setOpenJournalId(row.id)}
+                    >
+                      <td>{row.reference}</td>
+                      <td>{row.occurredOn}</td>
+                      <td>{row.description}</td>
+                      <td>{row.sourceType ?? (ar ? 'يدوي' : 'Manual')}</td>
+                      <td>
+                        <span
+                          className={`accounting-hub__status accounting-hub__status--${row.status}`}
+                        >
+                          {row.status}
+                        </span>
+                      </td>
+                      <td className="num">{money(row.debitMinor, row.currency ?? 'OMR', ar)}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -1383,6 +1506,32 @@ export function AccountingHub({
           </div>
         </div>
       ) : null}
+
+      <AccountingEntryDrawer
+        journalId={openJournalId}
+        locale={locale}
+        busy={busy}
+        canPost={caps.post}
+        onClose={() => setOpenJournalId(null)}
+        onPost={(id) =>
+          void run(async () => {
+            await browserNextMutation(`/api/owner/accounting/journals/${id}/post`, {
+              method: 'POST',
+              body: '{}',
+            });
+            setOpenJournalId(id);
+          })
+        }
+        onReverse={(id) =>
+          void run(async () => {
+            await browserNextMutation(`/api/owner/accounting/journals/${id}/reverse`, {
+              method: 'POST',
+              body: JSON.stringify({ occurredOn: todayIso() }),
+            });
+            setOpenJournalId(null);
+          })
+        }
+      />
     </section>
   );
 }

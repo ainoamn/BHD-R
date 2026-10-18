@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.74 — 2026-10-18
+
+- **مساحة عمل محاسبية:** تبويب مستندات (فواتير/إيصالات)، فتح القيد بتفاصيل وأسطر وملاحظات وسجل تتبع، نموذج قيد يومية أوضح، وواجهة احترافية.
+- التفاصيل: [`docs/implementation/RELEASE-0.8.74-AR.md`](./docs/implementation/RELEASE-0.8.74-AR.md).
+
 ## 0.8.73 — 2026-10-18
 
 - **المحاسبة تجلب المدفوعات الحقيقية:** محصّل الإقامات والعربون والتأمينات في اللوحة؛ مزامنة إلى قيود يومية؛ ترحيل فوري لدفع الإقامة.

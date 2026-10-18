@@ -320,9 +320,10 @@ export function daysBetween(fromIso: string, toIso: string): number {
 
 export const ACCOUNTING_HUB_TABS = [
   'dashboard',
+  'documents',
+  'journal',
   'deposits',
   'accounts',
-  'journal',
   'expenses',
   'ledgers',
   'reports',
