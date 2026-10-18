@@ -15,7 +15,11 @@ import {
   AccountingCollectionBoard,
   type CollectionOutlook,
 } from '@/components/accounting/accounting-collection-board';
-import { AccountingFollowTask } from '@/components/accounting/accounting-follow-task';
+import {
+  AccountingFollowTask,
+  AccountingTasksInbox,
+  AccountingTasksProvider,
+} from '@/components/accounting/accounting-follow-task';
 import { AccountingRecordActions } from '@/components/accounting/accounting-record-actions';
 import { AccountingEntryDrawer } from '@/components/accounting/accounting-entry-drawer';
 import { AccountingJournalComposerModal } from '@/components/accounting/accounting-journal-composer';
@@ -530,6 +534,7 @@ export function AccountingHub({
   );
 
   return (
+    <AccountingTasksProvider active={active}>
     <section className="accounting-hub" data-testid="accounting-hub" hidden={!active}>
       <header className="accounting-hub__head">
         <div>
@@ -619,6 +624,7 @@ export function AccountingHub({
             canManage={caps.manage}
             onChanged={() => void refreshAll({ silent: true })}
           />
+          <AccountingTasksInbox locale={locale} />
           <div className="accounting-hub__kpis accounting-hub__kpis--hero">
             <div className="accounting-hub__kpi accounting-hub__kpi--accent">
               <span>{t.collected}</span>
@@ -1577,6 +1583,7 @@ export function AccountingHub({
         }
       />
     </section>
+    </AccountingTasksProvider>
   );
 }
 

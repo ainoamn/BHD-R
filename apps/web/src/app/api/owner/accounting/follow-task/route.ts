@@ -3,6 +3,7 @@ import { accountingErrorResponse } from '@/lib/accounting-gl-http';
 import {
   createAccountingFollowTask,
   listAccountingFollowAssignees,
+  listAccountingFollowLinks,
 } from '@/lib/accounting-follow-task-neon';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { requireLiveSession } from '@/lib/next-route-guard';
@@ -17,9 +18,12 @@ export async function GET(request: Request) {
   }
   try {
     const claims = await requireLiveSession(request);
-    const assignees = await listAccountingFollowAssignees(claims);
+    const [assignees, tasks] = await Promise.all([
+      listAccountingFollowAssignees(claims).catch(() => []),
+      listAccountingFollowLinks(claims),
+    ]);
     return NextResponse.json(
-      { assignees },
+      { assignees, tasks },
       { headers: { 'Cache-Control': 'private, no-store' } },
     );
   } catch (error) {

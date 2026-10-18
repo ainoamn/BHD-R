@@ -1,7 +1,7 @@
 # Implementation status
 
 **Updated:** 2026-10-18  
-**Product version:** 0.8.93  
+**Product version:** 0.8.94  
 **Active focus:** Accounting task followers with roles and AI note translation (0.8.92); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
 
 
@@ -18,6 +18,7 @@
 
 | Version         | Focus                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.8.94          | Task page redesigned; accounting home lists referred tasks; an open task turns the row action red and blocks a second task for the same line; no migration |
 | 0.8.93          | Tasks open into a workspace: reply, reassign, status changes, close, and open a legal case for a lawyer; no migration |
 | 0.8.92          | Accounting follow-up tasks translate the note with the existing AI note bar, and accept several followers each with a duty (responsible, doer, reviewer, for information); roster stored on the task description; no migration |
 | 0.8.91          | Accounting task note field is a visible multi-line box; no migration                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |

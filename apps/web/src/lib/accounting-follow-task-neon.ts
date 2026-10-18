@@ -1,6 +1,6 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, like } from 'drizzle-orm';
 import type { SessionClaims } from '@bhd-r/authz';
 import { hasPermission } from '@bhd-r/authz';
 import { memberships, users, workflowEvents, workTasks } from '@bhd-r/db';
@@ -20,13 +20,26 @@ const KINDS = new Set([
   'ledger',
 ]);
 const PRIORITIES = new Set(['low', 'normal', 'high', 'urgent']);
-const OPEN = ['pending', 'approved', 'in_progress', 'on_hold'] as const;
-
 export type AccountingFollowAssignee = {
   userId: string;
   name: string;
   roleKey: string;
 };
+
+export type AccountingFollowLink = {
+  id: string;
+  reference: string;
+  title: string;
+  status: string;
+  kind: string;
+  sourceId: string;
+};
+
+const TASK_OPEN = new Set(['draft', 'pending', 'approved', 'in_progress', 'on_hold']);
+
+export function accountingTaskIsOpen(status: string): boolean {
+  return TASK_OPEN.has(status);
+}
 
 function canCreateFollowTask(claims: SessionClaims): boolean {
   return (
@@ -76,6 +89,53 @@ export async function listAccountingFollowAssignees(
     const people = [...seen.values()];
     people.sort((a, b) => a.name.localeCompare(b.name, 'ar'));
     return people;
+  });
+}
+
+/** Accounting lines already turned into a task. One row per source, newest first. */
+export async function listAccountingFollowLinks(
+  claims: SessionClaims,
+): Promise<AccountingFollowLink[]> {
+  if (!claims.organizationId) fail('forbidden');
+  if (
+    !hasPermission(claims, 'accounting.read') &&
+    !hasPermission(claims, 'task.read') &&
+    !canCreateFollowTask(claims)
+  ) {
+    fail('forbidden');
+  }
+  const orgId = claims.organizationId;
+  return withinViewerTenant(claims, async (tx) => {
+    const rows = await tx
+      .select({
+        id: workTasks.id,
+        reference: workTasks.reference,
+        title: workTasks.title,
+        status: workTasks.status,
+        relatedType: workTasks.relatedType,
+        relatedId: workTasks.relatedId,
+      })
+      .from(workTasks)
+      .where(and(eq(workTasks.organizationId, orgId), like(workTasks.relatedType, 'acct_%')))
+      .orderBy(desc(workTasks.createdAt))
+      .limit(200);
+    const seen = new Set<string>();
+    const links: AccountingFollowLink[] = [];
+    for (const row of rows) {
+      if (!row.relatedId || !row.relatedType) continue;
+      const key = `${row.relatedType}:${row.relatedId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      links.push({
+        id: row.id,
+        reference: row.reference,
+        title: row.title,
+        status: row.status,
+        kind: row.relatedType.slice(5),
+        sourceId: row.relatedId,
+      });
+    }
+    return links;
   });
 }
 
@@ -173,9 +233,9 @@ export async function createAccountingFollowTask(
             eq(workTasks.organizationId, orgId),
             eq(workTasks.relatedType, relatedType),
             eq(workTasks.relatedId, relatedId),
-            inArray(workTasks.status, [...OPEN]),
           ),
         )
+        .orderBy(desc(workTasks.createdAt))
         .limit(1);
       if (open[0]) return { id: open[0].id, reference: open[0].reference, existing: true };
     }

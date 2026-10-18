@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { Link } from '@/i18n/navigation';
 import { browserNextMutation } from '@/lib/api';
 import { accountingExpenseStatusLabel } from '@/lib/accounting-i18n';
@@ -8,6 +8,116 @@ import { roleLabel } from '@/lib/team-shared';
 import { NoteTranslateBar } from '@/components/note-translate';
 
 type Assignee = { userId: string; name: string; roleKey: string };
+
+export type AccountingTaskLink = {
+  id: string;
+  reference: string;
+  title: string;
+  status: string;
+  kind: string;
+  sourceId: string;
+};
+
+const TASK_OPEN = new Set(['draft', 'pending', 'approved', 'in_progress', 'on_hold']);
+
+const KIND_LABEL: Record<string, [string, string]> = {
+  invoice: ['فاتورة', 'Invoice'],
+  receipt: ['إيصال', 'Receipt'],
+  journal: ['قيد', 'Journal'],
+  expense: ['مصروف', 'Expense'],
+  cheque: ['شيك', 'Cheque'],
+  deposit: ['تأمين', 'Deposit'],
+  payment: ['دفعة', 'Payment'],
+  ledger: ['أستاذ', 'Ledger'],
+};
+
+const TaskLinks = createContext<{ tasks: AccountingTaskLink[]; reload: () => void }>({
+  tasks: [],
+  reload: () => undefined,
+});
+
+/** Loads which accounting lines already have a task, once for the whole hub. */
+export function AccountingTasksProvider({
+  active,
+  children,
+}: {
+  active: boolean;
+  children: ReactNode;
+}) {
+  const [tasks, setTasks] = useState<AccountingTaskLink[]>([]);
+  const reload = useCallback(() => {
+    void fetch('/api/owner/accounting/follow-task', {
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: { accept: 'application/json' },
+    })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const payload = (await response.json()) as { tasks?: AccountingTaskLink[] };
+        setTasks(payload.tasks ?? []);
+      })
+      .catch(() => undefined);
+  }, []);
+  useEffect(() => {
+    if (active) reload();
+  }, [active, reload]);
+  return <TaskLinks.Provider value={{ tasks, reload }}>{children}</TaskLinks.Provider>;
+}
+
+/** Accounting lines that were sent to tasks. */
+export function AccountingTasksInbox({ locale }: { locale: 'ar' | 'en' }) {
+  const ar = locale === 'ar';
+  const { tasks } = useContext(TaskLinks);
+  return (
+    <section className="accounting-tasks" aria-label={ar ? 'المهام المحاسبية' : 'Accounting tasks'}>
+      <header>
+        <h2>{ar ? 'المهام المحاسبية' : 'Accounting tasks'}</h2>
+        <p>
+          {ar
+            ? 'كل عملية أُحيلت للمتابعة تظهر هنا. العملية الواحدة لها مهمة واحدة.'
+            : 'Every accounting line sent for follow-up is listed here. Each line has one task.'}
+        </p>
+      </header>
+      {tasks.length === 0 ? (
+        <p className="accounting-hub__muted">{ar ? 'لا مهام محاسبية بعد.' : 'No accounting tasks yet.'}</p>
+      ) : (
+        <ul>
+          {tasks.slice(0, 12).map((task) => {
+            const kind = KIND_LABEL[task.kind] ?? [task.kind, task.kind];
+            const live = TASK_OPEN.has(task.status);
+            return (
+              <li key={task.id}>
+                <Link href={`/owner/tasks/${encodeURIComponent(task.id)}`}>
+                  <span className={live ? 'accounting-tasks__mark is-open' : 'accounting-tasks__mark'}>
+                    {live ? (ar ? 'مفتوحة' : 'Open') : ar ? 'مغلقة' : 'Closed'}
+                  </span>
+                  <strong>{task.title}</strong>
+                  <small>
+                    {ar ? kind[0] : kind[1]} · {task.reference}
+                  </small>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {tasks.length > 12 ? <Link href="/owner/tasks">{ar ? 'كل المهام' : 'All tasks'}</Link> : null}
+    </section>
+  );
+}
+
+function OpenTaskIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M5 3.5h9.2L19 8.2V20.5H5V3.5zm8.2 1.6V8.8H18l-4.8-3.7zM8 12h8v1.4H8V12zm0 3.2h5.2v1.4H8v-1.4z"
+      />
+      <circle cx="17.2" cy="17.2" r="3.2" fill="#fff" />
+      <circle cx="17.2" cy="17.2" r="2.1" />
+    </svg>
+  );
+}
 type Duty = 'lead' | 'executor' | 'supervisor' | 'viewer';
 type Seat = { userId: string; duty: Duty };
 
@@ -44,6 +154,8 @@ export function AccountingFollowTask({
   status?: string | null | undefined;
 }) {
   const ar = locale === 'ar';
+  const { tasks, reload } = useContext(TaskLinks);
+  const existing = tasks.find((task) => task.kind === kind && task.sourceId === sourceId);
   const [open, setOpen] = useState(false);
   const [assignees, setAssignees] = useState<Assignee[] | null>(null);
   const [seats, setSeats] = useState<Seat[]>([]);
@@ -106,9 +218,30 @@ export function AccountingFollowTask({
 
   return (
     <>
-      <button type="button" className="accounting-act accounting-act--task" onClick={load}>
-        {ar ? 'مهمة' : 'Task'}
-      </button>
+      {existing ? (
+        <Link
+          href={`/owner/tasks/${encodeURIComponent(existing.id)}`}
+          className={
+            TASK_OPEN.has(existing.status)
+              ? 'accounting-act accounting-act--task-open'
+              : 'accounting-act accounting-act--task-done'
+          }
+          title={existing.reference}
+        >
+          <OpenTaskIcon />
+          {TASK_OPEN.has(existing.status)
+            ? ar
+              ? 'مهمة مفتوحة'
+              : 'Open task'
+            : ar
+              ? 'مهمة مغلقة'
+              : 'Closed task'}
+        </Link>
+      ) : (
+        <button type="button" className="accounting-act accounting-act--task" onClick={load}>
+          {ar ? 'مهمة' : 'Task'}
+        </button>
+      )}
       {open ? (
         <div className="accounting-hub__modal" role="presentation" onClick={() => setOpen(false)}>
           <form
@@ -143,6 +276,7 @@ export function AccountingFollowTask({
                     }),
                   });
                   setDoneRef(result.reference);
+                  reload();
                   setMessage(
                     result.existing
                       ? ar
