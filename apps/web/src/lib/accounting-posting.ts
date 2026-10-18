@@ -121,13 +121,65 @@ export function postingExpensePaid(
   amountMinor: string,
   dims: PostingDimensions,
   channel: CashChannel,
-  expenseCode: '5000' | '5100' | '5200' | '5300' | '5400' | '5500',
+  expenseCode: '5000' | '5100' | '5200' | '5300' | '5400' | '5500' | '5600',
   memo: string,
 ): JournalLineInput[] {
   if (!/^[1-9]\d*$/.test(amountMinor)) throw new Error('invalid_amount');
   return [
     line(requireCode(map, expenseCode), 'debit', amountMinor, dims, memo),
     line(requireCode(map, cashAccountCode(channel)), 'credit', amountMinor, dims, memo),
+  ];
+}
+
+/** Other income received: Dr cash family, Cr other / sales revenue. */
+export function postingIncomeReceived(
+  map: AccountCodeMap,
+  amountMinor: string,
+  dims: PostingDimensions,
+  channel: CashChannel,
+  revenueCode: '4000' | '4100' | '4200' | '4300' | '4400',
+  memo: string,
+): JournalLineInput[] {
+  if (!/^[1-9]\d*$/.test(amountMinor)) throw new Error('invalid_amount');
+  return [
+    line(requireCode(map, cashAccountCode(channel)), 'debit', amountMinor, dims, memo),
+    line(requireCode(map, revenueCode), 'credit', amountMinor, dims, memo),
+  ];
+}
+
+/** Purchase paid or on credit: Dr purchases, Cr cash/bank or payables. */
+export function postingPurchase(
+  map: AccountCodeMap,
+  amountMinor: string,
+  dims: PostingDimensions,
+  payWith: CashChannel | 'payable',
+  memo: string,
+): JournalLineInput[] {
+  if (!/^[1-9]\d*$/.test(amountMinor)) throw new Error('invalid_amount');
+  const credit =
+    payWith === 'payable' ? requireCode(map, '2000') : requireCode(map, cashAccountCode(payWith));
+  return [
+    line(requireCode(map, '5600'), 'debit', amountMinor, dims, memo),
+    line(credit, 'credit', amountMinor, dims, memo),
+  ];
+}
+
+/** Sale cash/bank or on credit: Dr cash/AR, Cr sales. */
+export function postingSale(
+  map: AccountCodeMap,
+  amountMinor: string,
+  dims: PostingDimensions,
+  collectWith: CashChannel | 'receivable',
+  memo: string,
+): JournalLineInput[] {
+  if (!/^[1-9]\d*$/.test(amountMinor)) throw new Error('invalid_amount');
+  const debit =
+    collectWith === 'receivable'
+      ? requireCode(map, '1200')
+      : requireCode(map, cashAccountCode(collectWith));
+  return [
+    line(debit, 'debit', amountMinor, dims, memo),
+    line(requireCode(map, '4400'), 'credit', amountMinor, dims, memo),
   ];
 }
 

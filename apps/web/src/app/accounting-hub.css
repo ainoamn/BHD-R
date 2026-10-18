@@ -523,3 +523,43 @@
   font-style: normal;
   font-size: 0.86rem;
 }
+
+.accounting-hub__modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: color-mix(in srgb, #0b3d2e 45%, transparent);
+}
+
+.accounting-hub__modal-card {
+  width: min(920px, 100%);
+  max-height: min(92vh, 900px);
+  overflow: auto;
+  padding: 1.1rem 1.2rem 1.25rem;
+  border-radius: 1.05rem;
+  background: #fff;
+  border: 1px solid var(--gl-line);
+  box-shadow: 0 18px 48px color-mix(in srgb, #0b3d2e 18%, transparent);
+}
+
+.accounting-hub__modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.accounting-hub__modal-head h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.accounting-hub__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}

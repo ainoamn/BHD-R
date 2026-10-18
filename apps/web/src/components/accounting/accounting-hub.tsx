@@ -10,7 +10,11 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { AccountingChequesPanel } from '@/components/accounting/accounting-cheques-panel';
 import { AccountingEntryDrawer } from '@/components/accounting/accounting-entry-drawer';
+import { AccountingJournalComposerModal } from '@/components/accounting/accounting-journal-composer';
+import { AccountingPropertyUnitFields } from '@/components/accounting/accounting-property-unit-fields';
+import { AccountingTradingPanel } from '@/components/accounting/accounting-trading-panel';
 import { DepositLedgerPanel } from '@/components/accounting/deposit-ledger';
 import { usePathname, useRouter } from '@/i18n/navigation';
 import {
@@ -122,13 +126,6 @@ type AuditRow = {
   note: string | null;
   occurredAt: string;
 };
-type DraftLine = {
-  accountId: string;
-  debit: string;
-  credit: string;
-  memo: string;
-};
-
 type DocRow = {
   id: string;
   kind: 'invoice' | 'receipt' | 'journal';
@@ -234,20 +231,13 @@ export function AccountingHub({
     nameEn: '',
     type: 'expense' as LedgerAccountType,
   });
-  const [journalForm, setJournalForm] = useState({
-    occurredOn: todayIso(),
-    description: '',
-    post: true,
-    lines: [
-      { accountId: '', debit: '', credit: '', memo: '' },
-      { accountId: '', debit: '', credit: '', memo: '' },
-    ] as DraftLine[],
-  });
+  const [expenseKind, setExpenseKind] = useState<'expense' | 'income'>('expense');
   const [expenseForm, setExpenseForm] = useState({
     category: 'تشغيل',
     description: '',
     amount: '',
     issuedOn: todayIso(),
+    method: 'bank',
     propertyId: '',
     unitId: '',
     partyId: '',
@@ -282,7 +272,7 @@ export function AccountingHub({
       ? searchParams.get('open')
       : null,
   );
-  const [composeOpen, setComposeOpen] = useState(true);
+  const [composeOpen, setComposeOpen] = useState(false);
 
   const caps = dash?.capabilities ?? { manage: false, post: false };
   const omr = dash?.totalsByCurrency.find((row) => row.currency === 'OMR') ??
@@ -458,16 +448,6 @@ export function AccountingHub({
     void refreshLedgers().catch(() => undefined);
   }, [active, fromDate, ledgerId, ledgerScope, toDate, refreshLedgers]);
 
-  const lineBalance = useMemo(() => {
-    let debit = 0n;
-    let credit = 0n;
-    for (const line of journalForm.lines) {
-      debit += BigInt(toMinor(line.debit));
-      credit += BigInt(toMinor(line.credit));
-    }
-    return { debit, credit, ok: debit === credit && debit > 0n };
-  }, [journalForm.lines]);
-
   async function run(action: () => Promise<void>) {
     setBusy(true);
     setError(null);
@@ -487,6 +467,8 @@ export function AccountingHub({
     'journal',
     'deposits',
     'expenses',
+    'trading',
+    'cheques',
     'reports',
   ];
   const MORE_TABS: AccountingHubTab[] = ACCOUNTING_HUB_TABS.filter(
@@ -898,231 +880,31 @@ export function AccountingHub({
         <div className="accounting-hub__panel accounting-hub__panel--workspace">
           <div className="accounting-hub__toolbar">
             <div>
-              <h2>{ar ? 'دفتر اليومية' : 'General journal'}</h2>
-              <p className="accounting-hub__hint">
-                {ar
-                  ? 'أنشئ قيداً مزدوجاً متوازناً، أو افتح أي قيد للاطلاع على الأسطر والملاحظات وسجل التتبع.'
-                  : 'Create a balanced double-entry, or open any entry for lines, memos and audit trail.'}
-              </p>
+              <h2>{t.journalTitle}</h2>
+              <p className="accounting-hub__hint">{t.journalHint}</p>
             </div>
             {caps.manage ? (
               <button
                 type="button"
                 className="button button--primary"
-                onClick={() => setComposeOpen((open) => !open)}
+                onClick={() => setComposeOpen(true)}
               >
-                {composeOpen
-                  ? ar
-                    ? 'إخفاء نموذج القيد'
-                    : 'Hide composer'
-                  : ar
-                    ? '＋ قيد يومية جديد'
-                    : '+ New journal entry'}
+                {t.newJournal}
               </button>
             ) : null}
           </div>
-          {caps.manage && composeOpen ? (
-            <form
-              className="accounting-hub__form accounting-hub__form--composer"
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (!lineBalance.ok) {
-                  setError(
-                    ar
-                      ? 'القيد غير متوازن أو بلا مبالغ'
-                      : 'Journal is unbalanced or has no amounts',
-                  );
-                  return;
-                }
-                if (!accounts.length) {
-                  setError(
-                    ar
-                      ? 'لا حسابات في الدليل — اضغط مزامنة المدفوعات أو تهيئة الدليل'
-                      : 'No accounts — sync payments or bootstrap the chart',
-                  );
-                  return;
-                }
-                void run(async () => {
-                  const created = await browserNextMutation<{ journal?: { id?: string } }>(
-                    '/api/owner/accounting/journals',
-                    {
-                      method: 'POST',
-                      body: JSON.stringify({
-                        occurredOn: journalForm.occurredOn,
-                        description: journalForm.description,
-                        post: journalForm.post,
-                        lines: journalForm.lines
-                          .filter((line) => line.accountId && (line.debit || line.credit))
-                          .map((line) => ({
-                            accountId: line.accountId,
-                            debitMinor: toMinor(line.debit),
-                            creditMinor: toMinor(line.credit),
-                            currency: 'OMR',
-                            memo: line.memo || undefined,
-                          })),
-                      }),
-                    },
-                  );
-                  setJournalForm((current) => ({
-                    ...current,
-                    description: '',
-                    lines: [
-                      { accountId: '', debit: '', credit: '', memo: '' },
-                      { accountId: '', debit: '', credit: '', memo: '' },
-                    ],
-                  }));
-                  if (created.journal?.id) setOpenJournalId(created.journal.id);
-                });
-              }}
-            >
-              <div className="accounting-hub__form-grid">
-                <label>
-                  {ar ? 'التاريخ' : 'Date'}
-                  <input
-                    type="date"
-                    value={journalForm.occurredOn}
-                    onChange={(event) =>
-                      setJournalForm((current) => ({ ...current, occurredOn: event.target.value }))
-                    }
-                    required
-                  />
-                </label>
-                <label>
-                  {ar ? 'البيان' : 'Description'}
-                  <input
-                    value={journalForm.description}
-                    onChange={(event) =>
-                      setJournalForm((current) => ({ ...current, description: event.target.value }))
-                    }
-                    required
-                  />
-                </label>
-                <label>
-                  {ar ? 'الترحيل فوراً' : 'Post immediately'}
-                  <select
-                    value={journalForm.post ? 'yes' : 'no'}
-                    onChange={(event) =>
-                      setJournalForm((current) => ({
-                        ...current,
-                        post: event.target.value === 'yes',
-                      }))
-                    }
-                    disabled={!caps.post}
-                  >
-                    <option value="yes">{ar ? 'نعم' : 'Yes'}</option>
-                    <option value="no">{ar ? 'مسودة' : 'Draft'}</option>
-                  </select>
-                </label>
-              </div>
-              <div className="accounting-hub__lines">
-                {journalForm.lines.map((line, index) => (
-                  <div className="accounting-hub__line" key={index}>
-                    <select
-                      value={line.accountId}
-                      onChange={(event) =>
-                        setJournalForm((current) => {
-                          const lines = [...current.lines];
-                          lines[index] = { ...lines[index]!, accountId: event.target.value };
-                          return { ...current, lines };
-                        })
-                      }
-                      required
-                    >
-                      <option value="">{ar ? 'الحساب…' : 'Account…'}</option>
-                      {accounts.map((account) => (
-                        <option key={account.id} value={account.id}>
-                          {account.code} — {ar ? account.nameAr : account.nameEn}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      inputMode="decimal"
-                      placeholder={ar ? 'مدين' : 'Debit'}
-                      value={line.debit}
-                      onChange={(event) =>
-                        setJournalForm((current) => {
-                          const lines = [...current.lines];
-                          lines[index] = {
-                            ...lines[index]!,
-                            debit: event.target.value,
-                            credit: event.target.value ? '' : lines[index]!.credit,
-                          };
-                          return { ...current, lines };
-                        })
-                      }
-                    />
-                    <input
-                      inputMode="decimal"
-                      placeholder={ar ? 'دائن' : 'Credit'}
-                      value={line.credit}
-                      onChange={(event) =>
-                        setJournalForm((current) => {
-                          const lines = [...current.lines];
-                          lines[index] = {
-                            ...lines[index]!,
-                            credit: event.target.value,
-                            debit: event.target.value ? '' : lines[index]!.debit,
-                          };
-                          return { ...current, lines };
-                        })
-                      }
-                    />
-                    <input
-                      placeholder={ar ? 'ملاحظة' : 'Memo'}
-                      value={line.memo}
-                      onChange={(event) =>
-                        setJournalForm((current) => {
-                          const lines = [...current.lines];
-                          lines[index] = { ...lines[index]!, memo: event.target.value };
-                          return { ...current, lines };
-                        })
-                      }
-                    />
-                    <button
-                      type="button"
-                      className="button button--quiet button--sm"
-                      onClick={() =>
-                        setJournalForm((current) => ({
-                          ...current,
-                          lines: current.lines.filter((_, i) => i !== index),
-                        }))
-                      }
-                      disabled={journalForm.lines.length <= 2}
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <div className="accounting-hub__actions">
-                <button
-                  type="button"
-                  className="button button--quiet"
-                  onClick={() =>
-                    setJournalForm((current) => ({
-                      ...current,
-                      lines: [...current.lines, { accountId: '', debit: '', credit: '', memo: '' }],
-                    }))
-                  }
-                >
-                  {ar ? '＋ سطر' : '+ Line'}
-                </button>
-                <span
-                  className={`accounting-hub__balance ${lineBalance.ok ? 'accounting-hub__balance--ok' : 'accounting-hub__balance--bad'}`}
-                >
-                  {ar ? 'مدين' : 'Debit'} {money(lineBalance.debit.toString(), 'OMR', ar)} ·{' '}
-                  {ar ? 'دائن' : 'Credit'} {money(lineBalance.credit.toString(), 'OMR', ar)}
-                </span>
-                <button
-                  className="button button--primary"
-                  type="submit"
-                  disabled={busy || !accounts.length}
-                >
-                  {ar ? 'حفظ القيد' : 'Save entry'}
-                </button>
-              </div>
-            </form>
-          ) : null}
+          <AccountingJournalComposerModal
+            open={composeOpen}
+            onClose={() => setComposeOpen(false)}
+            locale={locale}
+            accounts={accounts}
+            canPost={caps.post}
+            busy={busy}
+            onSaved={(journalId) => {
+              if (journalId) setOpenJournalId(journalId);
+              void refreshAll({ silent: true });
+            }}
+          />
           <div className="accounting-hub__table-wrap">
             <table className="accounting-hub__table accounting-hub__table--interactive">
               <thead>
@@ -1174,47 +956,98 @@ export function AccountingHub({
 
       <AccountingTabPanel id="expenses" tab={tab}>
         <div className="accounting-hub__panel">
-          <h2>{ar ? 'المصروفات' : 'Expenses'}</h2>
+          <h2>{t.expensesTitle}</h2>
+          <p className="accounting-hub__hint">
+            {ar
+              ? 'سجّل صرفاً أو دخلاً واربطه بمبنى أو وحدة من القائمة — تُجلب المباني والوحدات تلقائياً.'
+              : 'Record an expense or income and link it to a property or unit from the list — buildings and units load automatically.'}
+          </p>
           {caps.manage ? (
             <form
               className="accounting-hub__form"
               onSubmit={(event) => {
                 event.preventDefault();
                 void run(async () => {
-                  await browserNextMutation('/api/owner/accounting/expenses', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                      category: expenseForm.category,
-                      description: expenseForm.description,
-                      amountMinor: toMinor(expenseForm.amount),
-                      currency: 'OMR',
-                      issuedOn: expenseForm.issuedOn,
-                      ...(expenseForm.propertyId.trim()
-                        ? { propertyId: expenseForm.propertyId.trim() }
-                        : {}),
-                      ...(expenseForm.unitId.trim()
-                        ? { unitId: expenseForm.unitId.trim() }
-                        : {}),
-                      ...(expenseForm.partyId.trim()
-                        ? { partyId: expenseForm.partyId.trim() }
-                        : {}),
-                    }),
-                  });
+                  if (expenseKind === 'income') {
+                    await browserNextMutation('/api/owner/accounting/ops', {
+                      method: 'POST',
+                      body: JSON.stringify({
+                        kind: 'income',
+                        description: expenseForm.description,
+                        amountMinor: toMinor(expenseForm.amount),
+                        occurredOn: expenseForm.issuedOn,
+                        method: expenseForm.method,
+                        ...(expenseForm.propertyId
+                          ? { propertyId: expenseForm.propertyId }
+                          : {}),
+                        ...(expenseForm.unitId ? { unitId: expenseForm.unitId } : {}),
+                        ...(expenseForm.partyId.trim()
+                          ? { partyId: expenseForm.partyId.trim() }
+                          : {}),
+                      }),
+                    });
+                  } else {
+                    await browserNextMutation('/api/owner/accounting/expenses', {
+                      method: 'POST',
+                      body: JSON.stringify({
+                        category: expenseForm.category,
+                        description: expenseForm.description,
+                        amountMinor: toMinor(expenseForm.amount),
+                        currency: 'OMR',
+                        issuedOn: expenseForm.issuedOn,
+                        ...(expenseForm.propertyId
+                          ? { propertyId: expenseForm.propertyId }
+                          : {}),
+                        ...(expenseForm.unitId ? { unitId: expenseForm.unitId } : {}),
+                        ...(expenseForm.partyId.trim()
+                          ? { partyId: expenseForm.partyId.trim() }
+                          : {}),
+                      }),
+                    });
+                  }
                   setExpenseForm((current) => ({ ...current, description: '', amount: '' }));
                 });
               }}
             >
               <div className="accounting-hub__form-grid">
                 <label>
-                  {ar ? 'التصنيف' : 'Category'}
-                  <input
-                    value={expenseForm.category}
+                  {ar ? 'النوع' : 'Type'}
+                  <select
+                    value={expenseKind}
                     onChange={(event) =>
-                      setExpenseForm((current) => ({ ...current, category: event.target.value }))
+                      setExpenseKind(event.target.value as 'expense' | 'income')
                     }
-                    required
-                  />
+                  >
+                    <option value="expense">{ar ? 'صرف / مصروف' : 'Expense'}</option>
+                    <option value="income">{ar ? 'دخل' : 'Income'}</option>
+                  </select>
                 </label>
+                {expenseKind === 'expense' ? (
+                  <label>
+                    {ar ? 'التصنيف' : 'Category'}
+                    <input
+                      value={expenseForm.category}
+                      onChange={(event) =>
+                        setExpenseForm((current) => ({ ...current, category: event.target.value }))
+                      }
+                      required
+                    />
+                  </label>
+                ) : (
+                  <label>
+                    {ar ? 'طريقة القبض' : 'Collection method'}
+                    <select
+                      value={expenseForm.method}
+                      onChange={(event) =>
+                        setExpenseForm((current) => ({ ...current, method: event.target.value }))
+                      }
+                    >
+                      <option value="cash">{ar ? 'نقداً' : 'Cash'}</option>
+                      <option value="bank">{ar ? 'بنك / تحويل' : 'Bank / transfer'}</option>
+                      <option value="cheque">{ar ? 'شيك' : 'Cheque'}</option>
+                    </select>
+                  </label>
+                )}
                 <label>
                   {ar ? 'الوصف' : 'Description'}
                   <input
@@ -1247,42 +1080,21 @@ export function AccountingHub({
                     required
                   />
                 </label>
-                <label>
-                  {ar ? 'المبنى (اختياري)' : 'Property (optional)'}
-                  <input
-                    value={expenseForm.propertyId}
-                    onChange={(event) =>
-                      setExpenseForm((current) => ({
-                        ...current,
-                        propertyId: event.target.value,
-                      }))
-                    }
-                    placeholder="UUID"
-                  />
-                </label>
-                <label>
-                  {ar ? 'الوحدة (اختياري)' : 'Unit (optional)'}
-                  <input
-                    value={expenseForm.unitId}
-                    onChange={(event) =>
-                      setExpenseForm((current) => ({ ...current, unitId: event.target.value }))
-                    }
-                    placeholder="UUID"
-                  />
-                </label>
-                <label>
-                  {ar ? 'الطرف (اختياري)' : 'Party (optional)'}
-                  <input
-                    value={expenseForm.partyId}
-                    onChange={(event) =>
-                      setExpenseForm((current) => ({ ...current, partyId: event.target.value }))
-                    }
-                    placeholder="UUID"
-                  />
-                </label>
+                <AccountingPropertyUnitFields
+                  locale={locale}
+                  propertyId={expenseForm.propertyId}
+                  unitId={expenseForm.unitId}
+                  onChange={(next) => setExpenseForm((current) => ({ ...current, ...next }))}
+                />
               </div>
               <button className="button button--primary" type="submit" disabled={busy}>
-                {ar ? 'تسجيل مصروف' : 'Record expense'}
+                {expenseKind === 'income'
+                  ? ar
+                    ? 'تسجيل دخل + قيد'
+                    : 'Record income + journal'
+                  : ar
+                    ? 'تسجيل مصروف + قيد'
+                    : 'Record expense + journal'}
               </button>
             </form>
           ) : null}
@@ -1311,6 +1123,21 @@ export function AccountingHub({
             </table>
           </div>
         </div>
+      </AccountingTabPanel>
+
+      <AccountingTabPanel id="trading" tab={tab}>
+        <AccountingTradingPanel
+          locale={locale}
+          canManage={caps.manage}
+          busy={busy}
+          onBusy={setBusy}
+          onDone={() => void refreshAll({ silent: true })}
+          onError={(message) => setError(message)}
+        />
+      </AccountingTabPanel>
+
+      <AccountingTabPanel id="cheques" tab={tab}>
+        <AccountingChequesPanel locale={locale} active={active && tab === 'cheques'} canManage={caps.manage} />
       </AccountingTabPanel>
 
       <AccountingTabPanel id="ledgers" tab={tab}>

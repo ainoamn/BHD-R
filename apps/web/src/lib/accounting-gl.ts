@@ -64,6 +64,8 @@ export const DEFAULT_CHART_OF_ACCOUNTS: readonly ChartSeed[] = [
   { code: '5300', nameAr: 'مرافق وإيجارات', nameEn: 'Utilities & rents', type: 'expense' },
   { code: '5400', nameAr: 'رواتب ومزايا', nameEn: 'Salaries & benefits', type: 'expense' },
   { code: '5500', nameAr: 'مصروفات أخرى', nameEn: 'Other expenses', type: 'expense' },
+  { code: '5600', nameAr: 'مشتريات', nameEn: 'Purchases', type: 'expense' },
+  { code: '4400', nameAr: 'مبيعات', nameEn: 'Sales', type: 'revenue' },
 ] as const;
 
 export class AccountingBalanceError extends Error {
@@ -325,6 +327,8 @@ export const ACCOUNTING_HUB_TABS = [
   'deposits',
   'accounts',
   'expenses',
+  'trading',
+  'cheques',
   'ledgers',
   'reports',
   'periods',

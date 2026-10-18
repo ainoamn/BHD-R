@@ -2,6 +2,11 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.81 — 2026-10-18
+
+- **محاسبة تشغيلية أوضح:** إضافة قيد من زر/نافذة، تبويب صرف ودخل ومشتريات/مبيعات مع ربط مبنى ووحدة تلقائياً، وتبويب شيكات المستأجرين مع استيراد CSV.
+- التفاصيل: [`docs/implementation/RELEASE-0.8.81-AR.md`](./docs/implementation/RELEASE-0.8.81-AR.md).
+
 ## 0.8.80 — 2026-10-18
 
 - **رجوع الطباعة المحاسبية:** زر «العودة للمحاسبة» يعيد إلى نفس التبويب/السياق (مستندات، قيود، تقارير) بدل اللوحة الرئيسية.
