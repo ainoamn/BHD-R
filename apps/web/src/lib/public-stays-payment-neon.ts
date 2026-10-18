@@ -21,6 +21,8 @@ import {
   type Database,
 } from '@bhd-r/db';
 import { assertStayBookingTransition } from '@bhd-r/domain';
+import { ensureAccountCodeMap, postSourceDocumentInTx } from '@/lib/accounting-gl-neon';
+import { postingRentReceipt } from '@/lib/accounting-posting';
 import { sendQueuedEmailsSoon } from '@/lib/email-outbox';
 import { escapeHtml } from '@/lib/lease-booking-contract';
 import {
@@ -379,6 +381,29 @@ export async function completeStaySandboxPaymentOnNeon(
         ...safeMask,
       },
     });
+
+    if (intent.amountMinor > 0n) {
+      const map = await ensureAccountCodeMap(transaction, intent.organizationId);
+      await postSourceDocumentInTx(transaction, {
+        organizationId: intent.organizationId,
+        occurredOn: now.toISOString().slice(0, 10),
+        description: `تحصيل إقامة ${booking.referenceCode}`.slice(0, 500),
+        sourceType: 'stay_payment',
+        sourceId: intent.id,
+        lines: postingRentReceipt(
+          map,
+          intent.amountMinor.toString(),
+          {
+            currency: intent.currency,
+            propertyId: booking.propertyId,
+            unitId: booking.unitId,
+            ...(booking.guestPartyId ? { partyId: booking.guestPartyId } : {}),
+          },
+          'bank',
+          booking.referenceCode,
+        ),
+      });
+    }
 
     // Mark booked nights for full overnight stays only.
     // Half-day (morning/evening) coexistence relies on lock_slot + booking checks.

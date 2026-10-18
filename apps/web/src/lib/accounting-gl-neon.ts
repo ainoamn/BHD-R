@@ -13,6 +13,10 @@ import {
   parties,
   payments,
   properties,
+  reservations,
+  stayBookings,
+  stayPaymentIntents,
+  stayProfiles,
   units,
   workflowEvents,
 } from '@bhd-r/db';
@@ -33,7 +37,9 @@ import {
 } from '@/lib/accounting-gl';
 import {
   expenseCodeFromCategory,
+  postingDepositHeld,
   postingExpensePaid,
+  postingRentReceipt,
   type AccountCodeMap,
 } from '@/lib/accounting-posting';
 import { withinViewerTenant } from '@/lib/portal-ops-data';
@@ -1038,88 +1044,375 @@ export async function listAccountingAudit(claims: SessionClaims, limit = 80) {
   });
 }
 
+function addMinor(
+  map: Map<string, { receivable: bigint; collected: bigint; expense: bigint; deposits: bigint }>,
+  currency: string,
+  field: 'receivable' | 'collected' | 'expense' | 'deposits',
+  value: string | null | undefined,
+) {
+  if (!value || !/^-?\d+$/.test(value)) return;
+  const row = map.get(currency) ?? {
+    receivable: 0n,
+    collected: 0n,
+    expense: 0n,
+    deposits: 0n,
+  };
+  row[field] += BigInt(value);
+  map.set(currency, row);
+}
+
 export async function accountingDashboard(claims: SessionClaims) {
   if (!canReadAccounting(claims)) fail('forbidden');
   const orgId = claims.organizationId!;
   return withinViewerTenant(claims, async (tx) => {
-    const [receivable, collected, expenseTotal, draftJournals, overdue, accountCount, postedCount] =
-      await Promise.all([
-        tx
-          .select({
-            currency: invoices.currency,
-            value: sql<string>`coalesce(sum(${invoices.totalMinor} - ${invoices.paidMinor}), 0)::text`,
-          })
-          .from(invoices)
-          .where(
-            and(
-              eq(invoices.organizationId, orgId),
-              inArray(invoices.status, ['issued', 'partially_paid', 'overdue']),
-            ),
-          )
-          .groupBy(invoices.currency),
-        tx
-          .select({
-            currency: payments.currency,
-            value: sql<string>`coalesce(sum(${payments.amountMinor} - ${payments.refundedMinor}), 0)::text`,
-          })
-          .from(payments)
-          .where(
-            and(
-              eq(payments.organizationId, orgId),
-              inArray(payments.status, ['succeeded', 'partially_refunded', 'refunded']),
-            ),
-          )
-          .groupBy(payments.currency),
-        tx
-          .select({
-            currency: expenses.currency,
-            value: sql<string>`coalesce(sum(${expenses.amountMinor} + ${expenses.taxMinor}), 0)::text`,
-          })
-          .from(expenses)
-          .where(
-            and(
-              eq(expenses.organizationId, orgId),
-              inArray(expenses.status, ['approved', 'in_progress', 'completed']),
-            ),
-          )
-          .groupBy(expenses.currency),
-        tx
-          .select({ value: sql<number>`count(*)::int` })
-          .from(journalEntries)
-          .where(and(eq(journalEntries.organizationId, orgId), eq(journalEntries.status, 'draft'))),
-        tx
-          .select({ value: sql<number>`count(*)::int` })
-          .from(invoices)
-          .where(and(eq(invoices.organizationId, orgId), eq(invoices.status, 'overdue'))),
-        tx
-          .select({ value: sql<number>`count(*)::int` })
-          .from(ledgerAccounts)
-          .where(eq(ledgerAccounts.organizationId, orgId)),
-        tx
-          .select({ value: sql<number>`count(*)::int` })
-          .from(journalEntries)
-          .where(
-            and(eq(journalEntries.organizationId, orgId), eq(journalEntries.status, 'posted')),
+    const [
+      receivable,
+      invoiceCollected,
+      stayCollected,
+      expenseTotal,
+      depositHeld,
+      bookingDeposits,
+      draftJournals,
+      overdue,
+      accountCount,
+      postedCount,
+      recentStay,
+    ] = await Promise.all([
+      tx
+        .select({
+          currency: invoices.currency,
+          value: sql<string>`coalesce(sum(${invoices.totalMinor} - ${invoices.paidMinor}), 0)::text`,
+        })
+        .from(invoices)
+        .where(
+          and(
+            eq(invoices.organizationId, orgId),
+            inArray(invoices.status, ['issued', 'partially_paid', 'overdue']),
           ),
-      ]);
-    const currencies = [
-      ...new Set([...receivable, ...collected, ...expenseTotal].map((row) => row.currency)),
-    ].sort();
+        )
+        .groupBy(invoices.currency),
+      tx
+        .select({
+          currency: payments.currency,
+          value: sql<string>`coalesce(sum(${payments.amountMinor} - ${payments.refundedMinor}), 0)::text`,
+        })
+        .from(payments)
+        .where(
+          and(
+            eq(payments.organizationId, orgId),
+            inArray(payments.status, ['succeeded', 'partially_refunded', 'refunded']),
+          ),
+        )
+        .groupBy(payments.currency),
+      tx
+        .select({
+          currency: stayPaymentIntents.currency,
+          value: sql<string>`coalesce(sum(${stayPaymentIntents.amountMinor}), 0)::text`,
+        })
+        .from(stayPaymentIntents)
+        .where(
+          and(
+            eq(stayPaymentIntents.organizationId, orgId),
+            eq(stayPaymentIntents.status, 'succeeded'),
+          ),
+        )
+        .groupBy(stayPaymentIntents.currency),
+      tx
+        .select({
+          currency: expenses.currency,
+          value: sql<string>`coalesce(sum(${expenses.amountMinor} + ${expenses.taxMinor}), 0)::text`,
+        })
+        .from(expenses)
+        .where(
+          and(
+            eq(expenses.organizationId, orgId),
+            inArray(expenses.status, ['approved', 'in_progress', 'completed', 'pending']),
+          ),
+        )
+        .groupBy(expenses.currency),
+      tx
+        .select({
+          currency: stayBookings.currency,
+          value: sql<string>`coalesce(sum(${stayProfiles.depositMinor}), 0)::text`,
+        })
+        .from(stayBookings)
+        .leftJoin(stayProfiles, eq(stayProfiles.id, stayBookings.stayProfileId))
+        .where(
+          and(
+            eq(stayBookings.organizationId, orgId),
+            inArray(stayBookings.status, ['checked_in', 'checked_out', 'closed', 'confirmed']),
+            sql`${stayProfiles.depositMinor} is not null and ${stayProfiles.depositMinor} > 0`,
+          ),
+        )
+        .groupBy(stayBookings.currency),
+      tx
+        .select({
+          currency: sql<string>`coalesce(${reservations.termsSnapshot}->>'currency', 'OMR')`,
+          value: sql<string>`coalesce(sum((${reservations.termsSnapshot}->>'depositMinor')::bigint), 0)::text`,
+        })
+        .from(reservations)
+        .where(
+          and(
+            eq(reservations.organizationId, orgId),
+            sql`${reservations.termsSnapshot}->>'depositPaidAt' is not null`,
+            sql`${reservations.termsSnapshot}->>'depositMinor' ~ '^[1-9][0-9]*$'`,
+          ),
+        )
+        .groupBy(sql`coalesce(${reservations.termsSnapshot}->>'currency', 'OMR')`),
+      tx
+        .select({ value: sql<number>`count(*)::int` })
+        .from(journalEntries)
+        .where(and(eq(journalEntries.organizationId, orgId), eq(journalEntries.status, 'draft'))),
+      tx
+        .select({ value: sql<number>`count(*)::int` })
+        .from(invoices)
+        .where(and(eq(invoices.organizationId, orgId), eq(invoices.status, 'overdue'))),
+      tx
+        .select({ value: sql<number>`count(*)::int` })
+        .from(ledgerAccounts)
+        .where(eq(ledgerAccounts.organizationId, orgId)),
+      tx
+        .select({ value: sql<number>`count(*)::int` })
+        .from(journalEntries)
+        .where(
+          and(eq(journalEntries.organizationId, orgId), eq(journalEntries.status, 'posted')),
+        ),
+      tx
+        .select({
+          id: stayPaymentIntents.id,
+          amountMinor: stayPaymentIntents.amountMinor,
+          currency: stayPaymentIntents.currency,
+          referenceCode: stayBookings.referenceCode,
+          receivedAt: stayPaymentIntents.updatedAt,
+        })
+        .from(stayPaymentIntents)
+        .innerJoin(stayBookings, eq(stayBookings.id, stayPaymentIntents.bookingId))
+        .where(
+          and(
+            eq(stayPaymentIntents.organizationId, orgId),
+            eq(stayPaymentIntents.status, 'succeeded'),
+          ),
+        )
+        .orderBy(desc(stayPaymentIntents.updatedAt))
+        .limit(8),
+    ]);
+
+    const byCurrency = new Map<
+      string,
+      { receivable: bigint; collected: bigint; expense: bigint; deposits: bigint }
+    >();
+    for (const row of receivable) addMinor(byCurrency, row.currency, 'receivable', row.value);
+    for (const row of invoiceCollected) addMinor(byCurrency, row.currency, 'collected', row.value);
+    for (const row of stayCollected) addMinor(byCurrency, row.currency, 'collected', row.value);
+    for (const row of expenseTotal) addMinor(byCurrency, row.currency, 'expense', row.value);
+    for (const row of depositHeld) addMinor(byCurrency, row.currency, 'deposits', row.value);
+    for (const row of bookingDeposits) addMinor(byCurrency, row.currency, 'deposits', row.value);
+
+    const currencies = [...byCurrency.keys()].sort();
+    if (!currencies.length) currencies.push('OMR');
+    const accounts = Number(accountCount[0]?.value ?? 0);
+    const posted = Number(postedCount[0]?.value ?? 0);
     return {
-      totalsByCurrency: currencies.map((currency) => ({
-        currency,
-        receivableMinor: receivable.find((row) => row.currency === currency)?.value ?? '0',
-        collectedMinor: collected.find((row) => row.currency === currency)?.value ?? '0',
-        expenseMinor: expenseTotal.find((row) => row.currency === currency)?.value ?? '0',
-      })),
+      totalsByCurrency: currencies.map((currency) => {
+        const row = byCurrency.get(currency) ?? {
+          receivable: 0n,
+          collected: 0n,
+          expense: 0n,
+          deposits: 0n,
+        };
+        return {
+          currency,
+          receivableMinor: row.receivable.toString(),
+          collectedMinor: row.collected.toString(),
+          expenseMinor: row.expense.toString(),
+          depositsMinor: row.deposits.toString(),
+        };
+      }),
       draftJournals: Number(draftJournals[0]?.value ?? 0),
       overdueInvoices: Number(overdue[0]?.value ?? 0),
-      accountCount: Number(accountCount[0]?.value ?? 0),
-      postedJournals: Number(postedCount[0]?.value ?? 0),
+      accountCount: accounts,
+      postedJournals: posted,
+      needsSetup: accounts === 0 || posted === 0,
+      recentActivity: recentStay.map((row) => ({
+        id: row.id,
+        kind: 'stay_payment' as const,
+        label: row.referenceCode,
+        amountMinor: row.amountMinor.toString(),
+        currency: row.currency,
+        at: row.receivedAt.toISOString(),
+      })),
       capabilities: {
         manage: canManageAccounting(claims),
         post: canPostAccounting(claims),
       },
+    };
+  });
+}
+
+/**
+ * Bootstrap CoA and post historical stay payments + paid booking deposits into the GL
+ * (idempotent via sourceType+sourceId). Does not invent amounts — only existing ops rows.
+ */
+export async function syncOperationalGl(claims: SessionClaims) {
+  if (!canManageAccounting(claims) && !canPostAccounting(claims)) fail('forbidden');
+  const orgId = claims.organizationId!;
+  const actorUserId = claims.sub;
+  return withinViewerTenant(claims, async (tx) => {
+    const map = await ensureAccountCodeMap(tx, orgId);
+    let stayPayments = 0;
+    let reservationDeposits = 0;
+    let stayDeposits = 0;
+
+    const stays = await tx
+      .select({
+        id: stayPaymentIntents.id,
+        amountMinor: stayPaymentIntents.amountMinor,
+        currency: stayPaymentIntents.currency,
+        updatedAt: stayPaymentIntents.updatedAt,
+        bookingId: stayBookings.id,
+        referenceCode: stayBookings.referenceCode,
+        propertyId: stayBookings.propertyId,
+        unitId: stayBookings.unitId,
+        guestPartyId: stayBookings.guestPartyId,
+      })
+      .from(stayPaymentIntents)
+      .innerJoin(stayBookings, eq(stayBookings.id, stayPaymentIntents.bookingId))
+      .where(
+        and(
+          eq(stayPaymentIntents.organizationId, orgId),
+          eq(stayPaymentIntents.status, 'succeeded'),
+          sql`${stayPaymentIntents.amountMinor} > 0`,
+        ),
+      )
+      .limit(500);
+    for (const row of stays) {
+      const posted = await postSourceDocumentInTx(tx, {
+        organizationId: orgId,
+        actorUserId,
+        occurredOn: row.updatedAt.toISOString().slice(0, 10),
+        description: `تحصيل إقامة ${row.referenceCode}`.slice(0, 500),
+        sourceType: 'stay_payment',
+        sourceId: row.id,
+        lines: postingRentReceipt(
+          map,
+          row.amountMinor.toString(),
+          {
+            currency: row.currency,
+            propertyId: row.propertyId,
+            unitId: row.unitId,
+            ...(row.guestPartyId ? { partyId: row.guestPartyId } : {}),
+          },
+          'bank',
+          row.referenceCode,
+        ),
+      });
+      if (posted.created) stayPayments += 1;
+    }
+
+    const bookingRows = await tx
+      .select({
+        id: reservations.id,
+        propertyId: units.propertyId,
+        unitId: reservations.unitId,
+        tenantPartyId: reservations.tenantPartyId,
+        snapshot: reservations.termsSnapshot,
+      })
+      .from(reservations)
+      .innerJoin(units, eq(units.id, reservations.unitId))
+      .where(
+        and(
+          eq(reservations.organizationId, orgId),
+          sql`${reservations.termsSnapshot}->>'depositPaidAt' is not null`,
+          sql`${reservations.termsSnapshot}->>'depositMinor' ~ '^[1-9][0-9]*$'`,
+        ),
+      )
+      .limit(300);
+    for (const row of bookingRows) {
+      const snap = row.snapshot as {
+        depositMinor?: string;
+        currency?: string;
+        referenceCode?: string;
+        depositPaidAt?: string;
+      };
+      const amount = snap.depositMinor!;
+      const currency = snap.currency ?? 'OMR';
+      const occurredOn = (snap.depositPaidAt ?? new Date().toISOString()).slice(0, 10);
+      const posted = await postSourceDocumentInTx(tx, {
+        organizationId: orgId,
+        actorUserId,
+        occurredOn: ISO_DATE.test(occurredOn) ? occurredOn : new Date().toISOString().slice(0, 10),
+        description: `عربون حجز محتجز ${snap.referenceCode ?? row.id.slice(0, 8)}`.slice(0, 500),
+        sourceType: 'reservation_deposit',
+        sourceId: row.id,
+        lines: postingDepositHeld(
+          map,
+          amount,
+          {
+            currency,
+            propertyId: row.propertyId,
+            unitId: row.unitId,
+            partyId: row.tenantPartyId,
+          },
+          'bank',
+          snap.referenceCode ?? row.id.slice(0, 8),
+        ),
+      });
+      if (posted.created) reservationDeposits += 1;
+    }
+
+    const heldStays = await tx
+      .select({
+        id: stayBookings.id,
+        currency: stayBookings.currency,
+        referenceCode: stayBookings.referenceCode,
+        propertyId: stayBookings.propertyId,
+        unitId: stayBookings.unitId,
+        guestPartyId: stayBookings.guestPartyId,
+        depositMinor: stayProfiles.depositMinor,
+        checkInOn: stayBookings.checkInOn,
+      })
+      .from(stayBookings)
+      .leftJoin(stayProfiles, eq(stayProfiles.id, stayBookings.stayProfileId))
+      .where(
+        and(
+          eq(stayBookings.organizationId, orgId),
+          inArray(stayBookings.status, ['checked_in', 'checked_out', 'closed']),
+          sql`${stayProfiles.depositMinor} is not null and ${stayProfiles.depositMinor} > 0`,
+        ),
+      )
+      .limit(300);
+    for (const row of heldStays) {
+      if (!row.depositMinor || row.depositMinor <= 0n) continue;
+      const occurredOn = String(row.checkInOn).slice(0, 10);
+      const posted = await postSourceDocumentInTx(tx, {
+        organizationId: orgId,
+        actorUserId,
+        occurredOn,
+        description: `تأمين إقامة محتجز ${row.referenceCode}`.slice(0, 500),
+        sourceType: 'stay_deposit_held',
+        sourceId: row.id,
+        lines: postingDepositHeld(
+          map,
+          row.depositMinor.toString(),
+          {
+            currency: row.currency,
+            propertyId: row.propertyId,
+            unitId: row.unitId,
+            ...(row.guestPartyId ? { partyId: row.guestPartyId } : {}),
+          },
+          'cash',
+          row.referenceCode,
+        ),
+      });
+      if (posted.created) stayDeposits += 1;
+    }
+
+    const accounts = await listAccountsInTx(tx, orgId);
+    return {
+      accountCount: accounts.length,
+      stayPaymentsPosted: stayPayments,
+      reservationDepositsPosted: reservationDeposits,
+      stayDepositsPosted: stayDeposits,
     };
   });
 }
@@ -1153,7 +1446,7 @@ export async function postSourceDocumentInTx(
   tx: GlTx,
   input: {
     organizationId: string;
-    actorUserId: string;
+    actorUserId?: string | null;
     occurredOn: string;
     description: string;
     sourceType: string;
@@ -1206,7 +1499,7 @@ export async function postSourceDocumentInTx(
       sourceType: input.sourceType,
       sourceId: input.sourceId,
       status: 'posted',
-      postedByUserId: input.actorUserId,
+      postedByUserId: input.actorUserId ?? undefined,
       postedAt: new Date(),
     })
     .onConflictDoNothing()

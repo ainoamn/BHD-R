@@ -14,25 +14,29 @@
 
 .accounting-hub__head h1 {
   margin: 0;
-  font-size: 1.35rem;
+  font-size: clamp(1.45rem, 2.4vw, 1.85rem);
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
+  color: color-mix(in srgb, var(--ink, #13251c) 92%, #0b3d2e);
 }
 
 .accounting-hub__head p {
-  margin: 0.2rem 0 0;
+  margin: 0.35rem 0 0;
   color: var(--muted, #5b6573);
-  font-size: 0.92rem;
-  max-width: 42rem;
+  font-size: 0.95rem;
+  max-width: 36rem;
+  line-height: 1.45;
 }
 
 .accounting-hub__tabs {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  padding: 0.2rem;
-  border-radius: 0.75rem;
-  background: color-mix(in srgb, var(--surface, #f4f6f8) 88%, #c9d2dc);
+  flex-wrap: nowrap;
+  gap: 0.3rem;
+  padding: 0.28rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, #e7efe9 70%, #f7faf8);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .accounting-hub__tab {
@@ -40,17 +44,24 @@
   border: 0;
   background: transparent;
   color: inherit;
-  padding: 0.45rem 0.75rem;
-  border-radius: 0.55rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
   font: inherit;
-  font-size: 0.88rem;
+  font-size: 0.86rem;
   cursor: pointer;
+  white-space: nowrap;
+}
+
+.accounting-hub__tab--muted {
+  opacity: 0.72;
 }
 
 .accounting-hub__tab[aria-selected='true'] {
-  background: var(--card, #fff);
-  box-shadow: 0 1px 0 color-mix(in srgb, #000 8%, transparent);
-  font-weight: 600;
+  background: #fff;
+  box-shadow: 0 1px 0 color-mix(in srgb, #0b3d2e 12%, transparent);
+  font-weight: 650;
+  color: #0b3d2e;
+  opacity: 1;
 }
 
 .accounting-hub__kpis {
@@ -59,24 +70,45 @@
   gap: 0.65rem;
 }
 
+.accounting-hub__kpis--hero {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+@media (max-width: 900px) {
+  .accounting-hub__kpis--hero {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .accounting-hub__kpi {
-  padding: 0.85rem 0.95rem;
-  border-radius: 0.8rem;
-  background: var(--card, #fff);
-  border: 1px solid color-mix(in srgb, #000 8%, transparent);
+  padding: 1rem 1.05rem;
+  border-radius: 1rem;
+  background: color-mix(in srgb, #fff 88%, #eef5f0);
+  border: 1px solid color-mix(in srgb, #0b3d2e 8%, transparent);
+}
+
+.accounting-hub__kpi--accent {
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, #0f7a45 16%, #fff),
+    color-mix(in srgb, #12352a 6%, #fff)
+  );
+  border-color: color-mix(in srgb, #0f7a45 22%, transparent);
 }
 
 .accounting-hub__kpi span {
   display: block;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   color: var(--muted, #5b6573);
 }
 
 .accounting-hub__kpi strong {
   display: block;
-  margin-top: 0.25rem;
-  font-size: 1.05rem;
+  margin-top: 0.35rem;
+  font-size: 1.2rem;
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
 }
 
 .accounting-hub__panel {
@@ -86,6 +118,61 @@
   border-radius: 0.9rem;
   background: var(--card, #fff);
   border: 1px solid color-mix(in srgb, #000 8%, transparent);
+}
+
+.accounting-hub__panel--hero {
+  gap: 1rem;
+  padding: 1.15rem 1.2rem 1.25rem;
+  border: 0;
+  background:
+    radial-gradient(120% 80% at 100% 0%, color-mix(in srgb, #0f7a45 10%, transparent), transparent 55%),
+    linear-gradient(180deg, #f4faf6 0%, #ffffff 55%);
+  box-shadow: 0 1px 0 color-mix(in srgb, #0b3d2e 6%, transparent);
+}
+
+.accounting-hub__hero-copy h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.accounting-hub__meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  font-size: 0.82rem;
+  color: var(--muted, #5b6573);
+}
+
+.accounting-hub__activity {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.accounting-hub__activity h3 {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.accounting-hub__activity ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.accounting-hub__activity li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, #fff 70%, #e8f2ec);
+  font-size: 0.88rem;
+}
+
+.accounting-hub__activity li strong {
+  font-variant-numeric: tabular-nums;
 }
 
 .accounting-hub__panel h2 {

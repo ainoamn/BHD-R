@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.73 — 2026-10-18
+
+- **المحاسبة تجلب المدفوعات الحقيقية:** محصّل الإقامات والعربون والتأمينات في اللوحة؛ مزامنة إلى قيود يومية؛ ترحيل فوري لدفع الإقامة.
+- **واجهة أبسط وأوضح** بأربعة مؤشرات وقائمة آخر التحصيلات.
+- التفاصيل: [`docs/implementation/RELEASE-0.8.73-AR.md`](./docs/implementation/RELEASE-0.8.73-AR.md).
+
 ## 0.8.72 — 2026-10-18
 
 - **إصلاح بناء الإنتاج:** استكمال أعمدة `RefundBooking` (`unitId` / `guestPartyId`) في مطالبات التأمين بعد ترحيل GL في 0.8.70–0.8.71.

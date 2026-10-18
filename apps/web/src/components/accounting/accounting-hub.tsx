@@ -1,7 +1,7 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DepositLedgerPanel } from '@/components/accounting/deposit-ledger';
 import { usePathname, useRouter } from '@/i18n/navigation';
 import {
@@ -20,11 +20,21 @@ type HubDash = {
     receivableMinor: string;
     collectedMinor: string;
     expenseMinor: string;
+    depositsMinor?: string;
   }>;
   draftJournals: number;
   overdueInvoices: number;
   accountCount: number;
   postedJournals: number;
+  needsSetup?: boolean;
+  recentActivity?: Array<{
+    id: string;
+    kind: string;
+    label: string;
+    amountMinor: string;
+    currency: string;
+    at: string;
+  }>;
   capabilities: Caps;
 };
 type Account = {
@@ -232,7 +242,9 @@ export function AccountingHub({
       receivableMinor: '0',
       collectedMinor: '0',
       expenseMinor: '0',
+      depositsMinor: '0',
     };
+  const syncedRef = useRef(false);
 
   const setTab = useCallback(
     (next: AccountingHubTab) => {
@@ -319,6 +331,23 @@ export function AccountingHub({
     let cancelled = false;
     setBusy(true);
     void loadTab(tab)
+      .then(async () => {
+        if (cancelled || tab !== 'dashboard' || syncedRef.current) return;
+        const fresh = await getJson<HubDash>('/api/owner/accounting/hub').catch(() => null);
+        if (
+          cancelled ||
+          !fresh?.needsSetup ||
+          !(fresh.capabilities.manage || fresh.capabilities.post)
+        ) {
+          return;
+        }
+        syncedRef.current = true;
+        await browserNextMutation('/api/owner/accounting/sync', {
+          method: 'POST',
+          body: '{}',
+        });
+        if (!cancelled) await refreshDash();
+      })
       .catch((err: unknown) => {
         if (!cancelled) {
           setError(err instanceof ApiError ? err.message : ar ? 'تعذر التحميل' : 'Load failed');
@@ -330,7 +359,7 @@ export function AccountingHub({
     return () => {
       cancelled = true;
     };
-  }, [active, ar, loadTab, tab]);
+  }, [active, ar, loadTab, refreshDash, syncedRef, tab]);
 
   const lineBalance = useMemo(() => {
     let debit = 0n;
@@ -355,25 +384,55 @@ export function AccountingHub({
     }
   }
 
+  const PRIMARY_TABS: AccountingHubTab[] = [
+    'dashboard',
+    'deposits',
+    'journal',
+    'expenses',
+    'ledgers',
+    'reports',
+  ];
+  const MORE_TABS: AccountingHubTab[] = ACCOUNTING_HUB_TABS.filter(
+    (id) => !PRIMARY_TABS.includes(id),
+  );
+
   return (
     <section className="accounting-hub" data-testid="accounting-hub" hidden={!active}>
       <header className="accounting-hub__head">
         <div>
-          <h1>{ar ? 'نظام المحاسبة' : 'Accounting system'}</h1>
+          <h1>{ar ? 'المحاسبة' : 'Accounting'}</h1>
           <p>
             {ar
-              ? 'قيد مزدوج، دليل حسابات، تقارير مالية، إقفال فترات، وأمانات التأمين — بمعايير محاسبة عالمية للعقار.'
-              : 'Double-entry, chart of accounts, financial statements, period lock, and trust deposits — world-class property accounting.'}
+              ? 'ملخص تحصيلاتك وتأميناتك ومصروفاتك في مكان واحد، مع قيود يومية قابلة للتدقيق.'
+              : 'Collections, deposits and expenses in one place, with auditable journals.'}
           </p>
         </div>
         <div className="accounting-hub__actions">
+          {(caps.manage || caps.post) && (
+            <button
+              type="button"
+              className="button button--primary button--sm"
+              disabled={busy}
+              onClick={() =>
+                void run(async () => {
+                  await browserNextMutation('/api/owner/accounting/sync', {
+                    method: 'POST',
+                    body: '{}',
+                  });
+                  await refreshDash();
+                })
+              }
+            >
+              {ar ? 'مزامنة المدفوعات' : 'Sync payments'}
+            </button>
+          )}
           <a
             className="button button--quiet button--sm"
             href="https://hisaby.bhd-om.com"
             target="_blank"
             rel="noreferrer"
           >
-            {ar ? 'فتح حسابي (كشوفات مفصّلة)' : 'Open Hisaby'}
+            {ar ? 'حسابي' : 'Hisaby'}
           </a>
         </div>
       </header>
@@ -383,12 +442,24 @@ export function AccountingHub({
         role="tablist"
         aria-label={ar ? 'أقسام المحاسبة' : 'Accounting tabs'}
       >
-        {ACCOUNTING_HUB_TABS.map((id) => (
+        {PRIMARY_TABS.map((id) => (
           <button
             key={id}
             type="button"
             role="tab"
             className="accounting-hub__tab"
+            aria-selected={tab === id}
+            onClick={() => setTab(id)}
+          >
+            {ar ? TAB_LABEL[id].ar : TAB_LABEL[id].en}
+          </button>
+        ))}
+        {MORE_TABS.map((id) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            className="accounting-hub__tab accounting-hub__tab--muted"
             aria-selected={tab === id}
             onClick={() => setTab(id)}
           >
@@ -401,57 +472,73 @@ export function AccountingHub({
       {busy ? <p className="accounting-hub__muted">{ar ? 'جاري التحديث…' : 'Updating…'}</p> : null}
 
       {tab === 'dashboard' ? (
-        <div className="accounting-hub__panel">
-          <h2>{ar ? 'نبض المالية' : 'Finance pulse'}</h2>
-          <div className="accounting-hub__kpis">
+        <div className="accounting-hub__panel accounting-hub__panel--hero">
+          <div className="accounting-hub__hero-copy">
+            <h2>{ar ? 'ملخص الماليات' : 'Money at a glance'}</h2>
+            <p className="accounting-hub__hint">
+              {ar
+                ? 'يشمل تحصيل الإيجارات والإقامات، والعربون والتأمين، والمصروفات المسجّلة.'
+                : 'Includes rent and stay collections, booking deposits held in trust, and recorded expenses.'}
+            </p>
+          </div>
+          <div className="accounting-hub__kpis accounting-hub__kpis--hero">
+            <div className="accounting-hub__kpi accounting-hub__kpi--accent">
+              <span>{ar ? 'المحصّل' : 'Collected'}</span>
+              <strong>{money(omr.collectedMinor, omr.currency, ar)}</strong>
+            </div>
+            <div className="accounting-hub__kpi">
+              <span>{ar ? 'تأمينات وعربون' : 'Deposits held'}</span>
+              <strong>{money(omr.depositsMinor ?? '0', omr.currency, ar)}</strong>
+            </div>
             <div className="accounting-hub__kpi">
               <span>{ar ? 'الذمم المدينة' : 'Receivables'}</span>
               <strong>{money(omr.receivableMinor, omr.currency, ar)}</strong>
             </div>
             <div className="accounting-hub__kpi">
-              <span>{ar ? 'المحصّل' : 'Collected'}</span>
-              <strong>{money(omr.collectedMinor, omr.currency, ar)}</strong>
-            </div>
-            <div className="accounting-hub__kpi">
               <span>{ar ? 'المصروفات' : 'Expenses'}</span>
               <strong>{money(omr.expenseMinor, omr.currency, ar)}</strong>
             </div>
-            <div className="accounting-hub__kpi">
-              <span>{ar ? 'قيود مسودة' : 'Draft journals'}</span>
-              <strong>{dash?.draftJournals ?? 0}</strong>
-            </div>
-            <div className="accounting-hub__kpi">
-              <span>{ar ? 'قيود مرحّلة' : 'Posted journals'}</span>
-              <strong>{dash?.postedJournals ?? 0}</strong>
-            </div>
-            <div className="accounting-hub__kpi">
-              <span>{ar ? 'حسابات الدليل' : 'Ledger accounts'}</span>
-              <strong>{dash?.accountCount ?? 0}</strong>
-            </div>
-            <div className="accounting-hub__kpi">
-              <span>{ar ? 'فواتير متأخرة' : 'Overdue invoices'}</span>
-              <strong>{dash?.overdueInvoices ?? 0}</strong>
-            </div>
           </div>
-          <p className="accounting-hub__muted">
-            {ar
-              ? 'ابدأ بتهيئة دليل الحسابات، ثم سجّل قيوداً متوازنة، ثم اطبع ميزان المراجعة وقائمة الدخل والميزانية.'
-              : 'Bootstrap the chart, post balanced journals, then run trial balance, P&L and balance sheet.'}
-          </p>
+          <div className="accounting-hub__meta-row">
+            <span>
+              {ar ? 'قيود مرحّلة' : 'Posted'}: {dash?.postedJournals ?? 0}
+            </span>
+            <span>
+              {ar ? 'حسابات' : 'Accounts'}: {dash?.accountCount ?? 0}
+            </span>
+            <span>
+              {ar ? 'فواتير متأخرة' : 'Overdue'}: {dash?.overdueInvoices ?? 0}
+            </span>
+          </div>
+          {(dash?.recentActivity?.length ?? 0) > 0 ? (
+            <div className="accounting-hub__activity">
+              <h3>{ar ? 'آخر التحصيلات' : 'Recent collections'}</h3>
+              <ul>
+                {dash!.recentActivity!.map((row) => (
+                  <li key={row.id}>
+                    <span>{row.label}</span>
+                    <strong>{money(row.amountMinor, row.currency, ar)}</strong>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="accounting-hub__muted">
+              {ar
+                ? 'لا تحصيلات ظاهرة بعد — اضغط «مزامنة المدفوعات» لجلب مدفوعات الإقامة والعربون إلى القيود.'
+                : 'No collections yet — press “Sync payments” to pull stay and deposit money into journals.'}
+            </p>
+          )}
           <div className="accounting-hub__actions">
             <button
               type="button"
               className="button button--quiet"
-              onClick={() => setTab('accounts')}
+              onClick={() => setTab('deposits')}
             >
-              {ar ? 'دليل الحسابات' : 'Accounts'}
+              {ar ? 'أمانات التأمين' : 'Deposits'}
             </button>
-            <button
-              type="button"
-              className="button button--primary"
-              onClick={() => setTab('journal')}
-            >
-              {ar ? 'قيد يومية' : 'Journal entry'}
+            <button type="button" className="button button--quiet" onClick={() => setTab('ledgers')}>
+              {ar ? 'أستاذ تحليلي' : 'Ledgers'}
             </button>
             <button
               type="button"
@@ -463,9 +550,9 @@ export function AccountingHub({
             <button
               type="button"
               className="button button--quiet"
-              onClick={() => setTab('deposits')}
+              onClick={() => setTab('accounts')}
             >
-              {ar ? 'أمانات التأمين' : 'Deposits'}
+              {ar ? 'دليل الحسابات' : 'Accounts'}
             </button>
           </div>
         </div>
