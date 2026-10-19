@@ -256,6 +256,7 @@ export async function loadPublicStayBySlugOnNeon(
         sp.day_use_max_guests,
         sp.overnight_max_guests,
         sp.deposit_minor::text AS deposit_minor,
+        sp.allow_viewing_requests,
         sp.policies_ar,
         sp.policies_en,
         sp.policies_json,
@@ -371,6 +372,7 @@ export async function loadPublicStayBySlugOnNeon(
           day_use_max_guests: number | null;
           overnight_max_guests: number | null;
           deposit_minor: string | null;
+          allow_viewing_requests: boolean | null;
           policies_ar: string | null;
           policies_en: string | null;
           policies_json: unknown;
@@ -440,6 +442,7 @@ export async function loadPublicStayBySlugOnNeon(
       dayUseMaxGuests: row.day_use_max_guests,
       overnightMaxGuests: row.overnight_max_guests,
       depositMinor: row.deposit_minor,
+      allowViewingRequests: row.allow_viewing_requests !== false,
       policiesAr: row.policies_ar,
       policiesEn: row.policies_en,
       policiesJson: row.policies_json ?? [],

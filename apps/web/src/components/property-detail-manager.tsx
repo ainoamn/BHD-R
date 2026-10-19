@@ -6,10 +6,11 @@ import Link from 'next/link';
 import { SubjectTasks } from '@/components/subject-tasks';
 import type { CurrencyCode } from '@bhd-r/contracts';
 import { BrandMark } from '@bhd-r/ui';
-import { browserMutation } from '@/lib/api';
+import { browserMutation, fetchBrowserCsrfToken } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { formatListingLocation } from '@/lib/listing-card-copy';
 import { PropertyQrCard } from '@/components/property-qr-card';
+import { ListingEngagementBar } from '@/components/listing-engagement-bar';
 import { PublicListingActions } from '@/components/public-listing-actions';
 import { PropertyManageHub, type PropertyHubAccess } from '@/components/property-manage-hub';
 import { PropertyReviewScore } from '@/components/property-review-score';
@@ -229,6 +230,7 @@ export function PropertyDetailManager({
     checkOutOn?: string;
     adults?: string;
     children?: string;
+    allowViewingRequests?: boolean;
   };
   stayDetail?: StayPublicDetail | null;
   /** Daily stay: the unit's guest score, shown on the main photo. */
@@ -243,6 +245,8 @@ export function PropertyDetailManager({
   const isPublic = variant === 'public';
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stayViewingMessage, setStayViewingMessage] = useState<string | null>(null);
+  const [stayViewingError, setStayViewingError] = useState<string | null>(null);
   const [activeImage, setActiveImage] = useState(0);
   const initialStayIn = stayBooking?.checkInOn ?? defaultStayCheckIn();
   const [stayCheckInOn, setStayCheckInOn] = useState(initialStayIn);
@@ -430,6 +434,53 @@ export function PropertyDetailManager({
         {...(hubAccess ? { access: hubAccess } : {})}
       />
     );
+  }
+
+  async function requestStayViewing() {
+    const unitId = stayBooking?.unitId ?? primaryUnit?.id;
+    if (!unitId) return;
+    if (!signedIn) {
+      router.push(
+        `/${locale}/login?next=${encodeURIComponent(
+          `/${locale}/stays/${encodeURIComponent(stayBooking?.slug ?? '')}${
+            unitId ? `?unit=${encodeURIComponent(unitId)}` : ''
+          }`,
+        )}`,
+      );
+      return;
+    }
+    setBusy(true);
+    setStayViewingError(null);
+    setStayViewingMessage(null);
+    try {
+      const response = await fetch('/api/public/viewing-requests', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'content-type': 'application/json',
+          accept: 'application/json',
+          'x-csrf-token': await fetchBrowserCsrfToken(),
+          'idempotency-key': crypto.randomUUID(),
+        },
+        body: JSON.stringify({ unitId, locale, interest: 'rent' }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        reference?: string;
+        error?: { message?: string; code?: string };
+      } | null;
+      if (!response.ok) {
+        throw new Error(payload?.error?.message ?? payload?.error?.code ?? 'request_failed');
+      }
+      setStayViewingMessage(
+        ar
+          ? `تم إرسال طلب المعاينة${payload?.reference ? ` · المرجع ${payload.reference}` : ''}.`
+          : `Viewing request sent${payload?.reference ? ` · ref ${payload.reference}` : ''}.`,
+      );
+    } catch (caught) {
+      setStayViewingError(caught instanceof Error ? caught.message : 'request_failed');
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function archiveOrRestore() {
@@ -723,8 +774,8 @@ export function PropertyDetailManager({
                 mode="public"
                 slug={stayBooking.slug}
                 {...(stayBooking.unitId ? { unitId: stayBooking.unitId } : {})}
-                size="large"
-                monthCount={2}
+                size="compact"
+                monthCount={1}
                 selectedCheckIn={stayCheckInOn}
                 selectedCheckOut={stayCheckOutOn}
                 onRangeChange={(nextIn, nextOut, halfDay) => {
@@ -1478,6 +1529,49 @@ export function PropertyDetailManager({
                   </Link>
                 ) : null}
               </>
+            ) : stayBooking ? (
+              <div className="property-360__viewing property-360__viewing--stay-engage">
+                <ListingEngagementBar
+                  listingKey={stayBooking.unitId ?? stayBooking.slug}
+                  path={`/${locale}/stays/${encodeURIComponent(stayBooking.slug)}${
+                    stayBooking.unitId ? `?unit=${encodeURIComponent(stayBooking.unitId)}` : ''
+                  }`}
+                  title={stayBooking.title ?? headline}
+                  description={
+                    ar
+                      ? property.descriptionAr || property.descriptionEn
+                      : property.descriptionEn || property.descriptionAr
+                  }
+                  locale={locale}
+                />
+                {stayBooking.allowViewingRequests !== false && primaryUnit ? (
+                  <div className="stays-viewing-cta">
+                    <button
+                      type="button"
+                      className="button button--secondary property-360__summary-cta"
+                      disabled={busy}
+                      onClick={() => void requestStayViewing()}
+                    >
+                      {ar ? 'طلب معاينة' : 'Request a viewing'}
+                    </button>
+                    <p className="muted stays-viewing-cta__hint">
+                      {ar
+                        ? 'معاينة ميدانية للوحدة قبل الحجز — لا تلغي تواريخ التقويم.'
+                        : 'An on-site visit before you book — does not lock calendar dates.'}
+                    </p>
+                    {stayViewingMessage ? (
+                      <p className="notice" role="status">
+                        {stayViewingMessage}
+                      </p>
+                    ) : null}
+                    {stayViewingError ? (
+                      <p className="notice notice--danger" role="alert">
+                        {stayViewingError}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
             ) : primaryUnit ? (
               <div className="property-360__viewing">
                 <PublicListingActions

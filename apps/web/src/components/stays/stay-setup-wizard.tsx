@@ -267,6 +267,8 @@ const copy = {
     minNights: 'الحد الأدنى لليالي',
     maxNights: 'الحد الأقصى لليالي',
     instantBook: 'الحجز من الموقع فوري: يدفع الضيف مباشرة ويتأكّد الحجز بعد الدفع.',
+    allowViewing:
+      'السماح للضيف بطلب معاينة هذه الوحدة من صفحة الإقامة اليومية (يمكن إيقافه لاحقاً).',
     policiesHint: 'سطر واحد لكل سياسة. اكتب بالعربية أو الإنجليزية ثم استخدم الترجمة التلقائية.',
     policiesAr: 'السياسات (عربي)',
     policiesEn: 'السياسات (إنجليزي)',
@@ -340,6 +342,8 @@ const copy = {
     maxNights: 'Maximum nights',
     instantBook:
       'Site bookings are instant: the guest pays right away and the booking confirms after payment.',
+    allowViewing:
+      'Allow guests to request an on-site viewing from the daily-stay page (you can turn this off later).',
     policiesHint: 'One policy per line. Write in Arabic or English, then use automatic translation.',
     policiesAr: 'Policies (Arabic)',
     policiesEn: 'Policies (English)',
@@ -416,6 +420,7 @@ export function StaySetupWizard({
   const [dayUseCheckOutUntil, setDayUseCheckOutUntil] = useState('23:00');
   const [overnightCheckOutUntil, setOvernightCheckOutUntil] = useState('11:00');
   const [instantBook, setInstantBook] = useState(true);
+  const [allowViewingRequests, setAllowViewingRequests] = useState(true);
   const [policiesAr, setPoliciesAr] = useState(DEFAULT_POLICIES_AR.join('\n'));
   const [policiesEn, setPoliciesEn] = useState(DEFAULT_POLICIES_EN.join('\n'));
   const [cancellationPoliciesAr, setCancellationPoliciesAr] = useState(
@@ -480,6 +485,9 @@ export function StaySetupWizard({
       if (draft.minNights) setMinNights(String(draft.minNights));
       if (draft.maxNights) setMaxNights(String(draft.maxNights));
       if (typeof draft.instantBook === 'boolean') setInstantBook(draft.instantBook);
+      if (typeof draft.allowViewingRequests === 'boolean') {
+        setAllowViewingRequests(draft.allowViewingRequests);
+      }
       if (draft.checkInFrom) setCheckInFrom(normalizeTime(draft.checkInFrom, '15:00'));
       if (draft.dayUseCheckOutUntil)
         setDayUseCheckOutUntil(normalizeTime(draft.dayUseCheckOutUntil, '23:00'));
@@ -856,6 +864,7 @@ export function StaySetupWizard({
       minNights: Number.parseInt(minNights, 10) || 1,
       maxNights: Number.parseInt(maxNights, 10) || 30,
       instantBook,
+      allowViewingRequests,
       checkInFrom,
       dayUseCheckOutUntil,
       overnightCheckOutUntil,
@@ -1430,6 +1439,14 @@ export function StaySetupWizard({
                   </div>
                 </div>
                 <p className="muted">{t.instantBook}</p>
+                <label className="stays-setup-check">
+                  <input
+                    type="checkbox"
+                    checked={allowViewingRequests}
+                    onChange={(event) => setAllowViewingRequests(event.target.checked)}
+                  />
+                  <span>{t.allowViewing}</span>
+                </label>
               </section>
 
               <section className="stays-setup-section">

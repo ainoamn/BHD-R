@@ -216,7 +216,7 @@ export function StayAvailabilityCalendar({
   slug?: string;
   unitId?: string;
   monthCount?: 1 | 2;
-  size?: 'default' | 'large';
+  size?: 'default' | 'large' | 'compact';
   selectedCheckIn?: string;
   selectedCheckOut?: string;
   /** `halfDay` is set when the guest picks the free slot of a partially booked day. */

@@ -1,8 +1,8 @@
 # Implementation status
 
 **Updated:** 2026-10-19  
-**Product version:** 0.8.120  
-**Active focus:** Stay book CTA sticky on mobile + lab-reset clears booked inventory days (0.8.120); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
+**Product version:** 0.8.121  
+**Active focus:** Stay share/like/favorite, compact calendar, viewing CTA + owner toggle (0.8.121); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
 
 
 

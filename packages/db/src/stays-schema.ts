@@ -117,6 +117,8 @@ export const stayProfiles = pgTable(
     enabled: boolean('enabled').notNull().default(false),
     publishStatus: varchar('publish_status', { length: 24 }).notNull().default('draft'),
     instantBook: boolean('instant_book').notNull().default(false),
+    /** When false, the public stay page hides “request a viewing”. */
+    allowViewingRequests: boolean('allow_viewing_requests').notNull().default(true),
     timezone: varchar('timezone', { length: 64 }).notNull().default('Asia/Muscat'),
     currency: varchar('currency', { length: 3 }).notNull().default('OMR'),
     minorUnit: integer('minor_unit').notNull().default(3),

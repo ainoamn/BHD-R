@@ -28,6 +28,7 @@ export const stayProfileSchema = z.object({
   enabled: z.boolean(),
   publishStatus: stayPublishStatusSchema,
   instantBook: z.boolean(),
+  allowViewingRequests: z.boolean().optional(),
   timezone: z.string().min(1).max(64),
   currency: currencyCodeSchema,
   minorUnit: z.number().int().min(0).max(6),
@@ -326,6 +327,8 @@ export const stayPublicDetailSchema = z.object({
   instructionsEn: z.string().nullable().optional(),
   coverImageUrl: z.string().nullable().optional(),
   imageUrls: z.array(z.string()).optional(),
+  /** Owner opt-in: guest may request an on-site viewing for this stay unit. */
+  allowViewingRequests: z.boolean().optional(),
 });
 
 export type StayProfile = z.infer<typeof stayProfileSchema>;

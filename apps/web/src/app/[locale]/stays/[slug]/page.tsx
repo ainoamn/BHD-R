@@ -178,6 +178,7 @@ export default async function StayDetailPage({
             ...(detail.nightlyMinor != null ? { nightlyMinor: detail.nightlyMinor } : {}),
             ...(detail.currency != null ? { currency: detail.currency } : {}),
             ...(detail.maxGuests != null ? { maxGuests: detail.maxGuests } : {}),
+            allowViewingRequests: detail.allowViewingRequests !== false,
             ...dateDefaults,
           }}
           stayDetail={detail}
