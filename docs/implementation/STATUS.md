@@ -2,7 +2,7 @@
 
 **Updated:** 2026-10-19  
 **Product version:** 0.8.129  
-**Active focus:** Faster owner bookings list (0.8.129); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
+**Active focus:** Viewing visit pass + faster bookings list shipped (0.8.128–0.8.129); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
 
 
 
@@ -22,7 +22,8 @@
 
 | Version         | Focus                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0.8.129         | Owner bookings list: Neon-only fast path, skip heavy ops context on first paint |
+| 0.8.129         | Owner bookings list: Neon-only fast path, short context budget, warm bookings first |
+| 0.8.128.1       | Fix viewing-pass TypeScript build failure on Vercel |
 | 0.8.128         | Viewing: open fix for building owners; visit pass + guest/guard emails; gate scan arrival; post-visit book/decline |
 | 0.8.127         | Unit listing: sticky rent/sale CTA bar on mobile; gold buy button |
 | 0.8.126         | Stay page: buy CTA uses gold button (distinct from white secondary) |

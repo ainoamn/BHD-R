@@ -5,15 +5,19 @@ All notable changes are documented here. The project follows Semantic Versioning
 ## 0.8.129 — 2026-10-19
 
 - **أداء:** صفحة الحجوزات (`/owner/bookings`) تُحمَّل من Neon مباشرة دون انتظار سياق النماذج الثقيل، ومسار مالك المبنى أخف بكثير.
+- التفاصيل: [`docs/implementation/RELEASE-0.8.129-AR.md`](docs/implementation/RELEASE-0.8.129-AR.md).
 
 ## 0.8.128.1 — 2026-10-19
 
 - **بناء:** إصلاح خطأ TypeScript في مسار إصدار بطاقة المعاينة الذي كان يوقف نشر Vercel.
+- التفاصيل: [`docs/implementation/RELEASE-0.8.128.1-AR.md`](docs/implementation/RELEASE-0.8.128.1-AR.md).
 
 ## 0.8.128 — 2026-10-19
 
 - **معاينة:** إصلاح فتح الطلب لمالك المبنى (`viewing.read` / `viewing.manage`).
 - **معاينة:** بعد اعتماد الموعد تُصدَر بطاقة زيارة (باركود + اسم مستخدم + رقم سري)، ويُرسل البريد للعميل وللحارس/الموظف؛ مسح الباركود في `/viewing-gate` يوثّق وقت الوصول؛ بعد الوصول يظهر للعميل حجز إيجار/شراء أو الرفض.
+- **قاعدة البيانات:** `custom/0043_viewing_visit_pass.sql` (مربوط في `migrate.ts`).
+- التفاصيل: [`docs/implementation/RELEASE-0.8.128-AR.md`](docs/implementation/RELEASE-0.8.128-AR.md).
 
 ## 0.8.127 — 2026-10-19
 

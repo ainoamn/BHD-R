@@ -12,9 +12,10 @@
 ## الحل
 
 - منح `property_owner` صلاحيات `viewing.read` / `viewing.manage` / `viewing.checkin`، وصلاحية `viewing.checkin` للحارس والأدوار الإدارية.
-- ترحيل أعمدة `access_username` / `access_pin` / `arrived_at` / `guest_decision*` على `viewing_requests`.
+- ترحيل: `packages/db/migrations/custom/0043_viewing_visit_pass.sql` — أعمدة `access_username` / `access_pin` / `arrived_at` / `guest_decision*` على `viewing_requests` (مطبّق على Neon الإنتاج، ومربوط في `migrate.ts`).
 - عند `schedule`: إصدار بيانات الدخول + رمز QR مشفّر، بريد للعميل (`/viewing-pass`) وبريد للمديرين والحراس (`/viewing-gate`).
 - بوابة المسح للموظفين المسجّلين؛ بطاقة العميل العامة مع قرار ما بعد الزيارة وروابط `/book/:unitId`.
+- إصلاح البناء اللاحق: [RELEASE-0.8.128.1-AR.md](./RELEASE-0.8.128.1-AR.md).
 
 ## ملاحظة
 

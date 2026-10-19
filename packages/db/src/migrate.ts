@@ -45,6 +45,12 @@ try {
   await client.unsafe(
     await readFile(resolve(migrationsRoot, 'custom/0031_badges_verification.sql'), 'utf8'),
   );
+  await client.unsafe(
+    await readFile(resolve(migrationsRoot, 'custom/0042_stay_allow_viewing.sql'), 'utf8'),
+  );
+  await client.unsafe(
+    await readFile(resolve(migrationsRoot, 'custom/0043_viewing_visit_pass.sql'), 'utf8'),
+  );
   if (process.env.APPLY_PRIVILEGED_ROLES === 'true') {
     await client.unsafe(
       await readFile(resolve(migrationsRoot, 'privileged/runtime_roles.sql'), 'utf8'),
