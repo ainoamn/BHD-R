@@ -159,7 +159,7 @@ export function AccountingPropertyUnitFields({
   }
 
   return (
-    <div className="accounting-hub__dims">
+    <div className="accounting-hub__dims accounting-hub__dims--modal">
       <label className="accounting-hub__search">
         {ar ? 'بحث عن العقار' : 'Search property'}
         <input
@@ -172,79 +172,81 @@ export function AccountingPropertyUnitFields({
           }
         />
       </label>
-      <label>
-        {ar ? 'العقار' : 'Property'}
-        <select
-          value={propertyId}
-          required={required}
-          onChange={(event) => emit({ propertyId: event.target.value, unitId: '' })}
-        >
-          <option value="">
-            {q
-              ? ar
-                ? `${properties.length} نتيجة`
-                : `${properties.length} matches`
-              : ar
-                ? '— اختر بعد البحث —'
-                : '— pick after search —'}
-          </option>
-          {properties.map((property) => (
-            <option key={property.id} value={property.id}>
-              {(ar ? property.nameAr : property.nameEn) +
-                (property.place ? ` · ${property.place}` : '') +
-                (property.serial ? ` · ${property.serial}` : '')}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        {ar ? 'الوحدة' : 'Unit'}
-        <select
-          value={unitId}
-          disabled={!propertyId}
-          onChange={(event) => emit({ unitId: event.target.value })}
-        >
-          <option value="">{ar ? '— اختياري —' : '— optional —'}</option>
-          {units.map((unit) => (
-            <option key={unit.id} value={unit.id}>
-              {unit.code}
-              {unit.nameAr || unit.nameEn
-                ? ` · ${ar ? unit.nameAr || unit.nameEn : unit.nameEn || unit.nameAr}`
-                : ''}
-            </option>
-          ))}
-        </select>
-      </label>
-      {showLink ? (
+      <div className="accounting-hub__dims-picks">
         <label>
-          {ar ? 'الربط' : 'Link to'}
+          {ar ? 'العقار' : 'Property'}
           <select
-            value={linkTo}
-            onChange={(event) => emit({ linkTo: event.target.value as DimensionLink })}
+            value={propertyId}
+            required={required}
+            onChange={(event) => emit({ propertyId: event.target.value, unitId: '' })}
           >
-            <option value="property">{ar ? 'العقار' : 'The property'}</option>
-            <option value="tenant">{ar ? 'مستأجر العقار' : 'Property tenant'}</option>
-            <option value="owner">{ar ? 'المالك' : 'The owner'}</option>
-          </select>
-        </label>
-      ) : null}
-      {showLink && linkTo === 'tenant' ? (
-        <label>
-          {ar ? 'المستأجر' : 'Tenant'}
-          <select
-            value={partyId}
-            onChange={(event) => emit({ partyId: event.target.value, linkTo: 'tenant' })}
-            disabled={!propertyId}
-          >
-            <option value="">{ar ? '— اختر المستأجر —' : '— pick a tenant —'}</option>
-            {tenants.map((tenant) => (
-              <option key={`${tenant.partyId}-${tenant.unitId ?? ''}`} value={tenant.partyId}>
-                {tenant.name}
+            <option value="">
+              {q
+                ? ar
+                  ? `${properties.length} نتيجة`
+                  : `${properties.length} matches`
+                : ar
+                  ? '— اختر بعد البحث —'
+                  : '— pick after search —'}
+            </option>
+            {properties.map((property) => (
+              <option key={property.id} value={property.id}>
+                {(ar ? property.nameAr : property.nameEn) +
+                  (property.place ? ` · ${property.place}` : '') +
+                  (property.serial ? ` · ${property.serial}` : '')}
               </option>
             ))}
           </select>
         </label>
-      ) : null}
+        <label>
+          {ar ? 'الوحدة — اختياري' : 'Unit — optional'}
+          <select
+            value={unitId}
+            disabled={!propertyId}
+            onChange={(event) => emit({ unitId: event.target.value })}
+          >
+            <option value="">{ar ? '— اختياري —' : '— optional —'}</option>
+            {units.map((unit) => (
+              <option key={unit.id} value={unit.id}>
+                {unit.code}
+                {unit.nameAr || unit.nameEn
+                  ? ` · ${ar ? unit.nameAr || unit.nameEn : unit.nameEn || unit.nameAr}`
+                  : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+        {showLink ? (
+          <label>
+            {ar ? 'الربط العقاري' : 'Link to'}
+            <select
+              value={linkTo}
+              onChange={(event) => emit({ linkTo: event.target.value as DimensionLink })}
+            >
+              <option value="property">{ar ? 'العقار' : 'The property'}</option>
+              <option value="tenant">{ar ? 'مستأجر العقار' : 'Property tenant'}</option>
+              <option value="owner">{ar ? 'المالك' : 'The owner'}</option>
+            </select>
+          </label>
+        ) : null}
+        {showLink && linkTo === 'tenant' ? (
+          <label>
+            {ar ? 'المستأجر' : 'Tenant'}
+            <select
+              value={partyId}
+              onChange={(event) => emit({ partyId: event.target.value, linkTo: 'tenant' })}
+              disabled={!propertyId}
+            >
+              <option value="">{ar ? '— اختر المستأجر —' : '— pick a tenant —'}</option>
+              {tenants.map((tenant) => (
+                <option key={`${tenant.partyId}-${tenant.unitId ?? ''}`} value={tenant.partyId}>
+                  {tenant.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+      </div>
       {showLink && linkTo === 'owner' && selected?.ownerName ? (
         <p className="accounting-hub__hint">
           {ar ? 'المالك: ' : 'Owner: '}

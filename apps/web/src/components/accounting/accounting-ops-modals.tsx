@@ -22,11 +22,13 @@ function ModalShell({
   title,
   onClose,
   children,
+  tone,
 }: {
   open: boolean;
   title: string;
   onClose: () => void;
   children: ReactNode;
+  tone?: 'expense' | 'income' | 'purchase' | 'sale' | 'journal';
 }) {
   if (!open) return null;
   return (
@@ -38,7 +40,9 @@ function ModalShell({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div className="accounting-hub__modal-card">
+      <div
+        className={`accounting-hub__modal-card accounting-hub__modal-card--form${tone ? ` accounting-hub__modal-card--${tone}` : ''}`}
+      >
         <header className="accounting-hub__modal-head">
           <h2>{title}</h2>
           <button type="button" className="button button--quiet" onClick={onClose}>
@@ -88,9 +92,10 @@ export function AccountingExpenseIncomeModal({
       open={open}
       title={ar ? 'إضافة صرف أو دخل' : 'Add expense or income'}
       onClose={onClose}
+      tone={kind}
     >
       <form
-        className="accounting-hub__form"
+        className="accounting-hub__form accounting-hub__form--modal"
         onSubmit={(event) => {
           event.preventDefault();
           onBusy(true);
@@ -136,75 +141,81 @@ export function AccountingExpenseIncomeModal({
           })();
         }}
       >
-        <div className="accounting-hub__form-grid">
-          <label>
-            {ar ? 'النوع' : 'Type'}
-            <select
-              value={kind}
-              onChange={(event) => setKind(event.target.value as 'expense' | 'income')}
-            >
-              <option value="expense">{ar ? 'صرف / مصروف' : 'Expense'}</option>
-              <option value="income">{ar ? 'دخل' : 'Income'}</option>
-            </select>
-          </label>
-          {kind === 'expense' ? (
+        <section className="accounting-form-section">
+          <h3>{ar ? 'بيانات الحركة' : 'Entry details'}</h3>
+          <div className="accounting-hub__form-grid accounting-hub__form-grid--modal">
             <label>
-              {ar ? 'التصنيف' : 'Category'}
+              {ar ? 'النوع' : 'Type'}
+              <select
+                value={kind}
+                onChange={(event) => setKind(event.target.value as 'expense' | 'income')}
+              >
+                <option value="expense">{ar ? 'صرف / مصروف' : 'Expense'}</option>
+                <option value="income">{ar ? 'دخل' : 'Income'}</option>
+              </select>
+            </label>
+            {kind === 'expense' ? (
+              <label>
+                {ar ? 'التصنيف' : 'Category'}
+                <input
+                  value={form.category}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, category: event.target.value }))
+                  }
+                  required
+                />
+              </label>
+            ) : (
+              <label>
+                {ar ? 'طريقة القبض' : 'Collection method'}
+                <select
+                  value={form.method}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, method: event.target.value }))
+                  }
+                >
+                  <option value="cash">{ar ? 'نقداً' : 'Cash'}</option>
+                  <option value="bank">{ar ? 'بنك / تحويل' : 'Bank / transfer'}</option>
+                  <option value="cheque">{ar ? 'شيك' : 'Cheque'}</option>
+                </select>
+              </label>
+            )}
+            <label>
+              {ar ? 'المبلغ' : 'Amount'}
               <input
-                value={form.category}
+                inputMode="decimal"
+                value={form.amount}
                 onChange={(event) =>
-                  setForm((current) => ({ ...current, category: event.target.value }))
+                  setForm((current) => ({ ...current, amount: event.target.value }))
                 }
                 required
               />
             </label>
-          ) : (
             <label>
-              {ar ? 'طريقة القبض' : 'Collection method'}
-              <select
-                value={form.method}
+              {ar ? 'التاريخ' : 'Date'}
+              <input
+                type="date"
+                value={form.issuedOn}
                 onChange={(event) =>
-                  setForm((current) => ({ ...current, method: event.target.value }))
+                  setForm((current) => ({ ...current, issuedOn: event.target.value }))
                 }
-              >
-                <option value="cash">{ar ? 'نقداً' : 'Cash'}</option>
-                <option value="bank">{ar ? 'بنك / تحويل' : 'Bank / transfer'}</option>
-                <option value="cheque">{ar ? 'شيك' : 'Cheque'}</option>
-              </select>
+                required
+              />
             </label>
-          )}
-          <label>
-            {ar ? 'الوصف' : 'Description'}
-            <input
-              value={form.description}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, description: event.target.value }))
-              }
-              required
-            />
-          </label>
-          <label>
-            {ar ? 'المبلغ' : 'Amount'}
-            <input
-              inputMode="decimal"
-              value={form.amount}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, amount: event.target.value }))
-              }
-              required
-            />
-          </label>
-          <label>
-            {ar ? 'التاريخ' : 'Date'}
-            <input
-              type="date"
-              value={form.issuedOn}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, issuedOn: event.target.value }))
-              }
-              required
-            />
-          </label>
+            <label className="accounting-field--wide">
+              {ar ? 'الوصف' : 'Description'}
+              <input
+                value={form.description}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, description: event.target.value }))
+                }
+                required
+              />
+            </label>
+          </div>
+        </section>
+        <section className="accounting-form-section">
+          <h3>{ar ? 'الربط بالعقار' : 'Property link'}</h3>
           <AccountingPropertyUnitFields
             locale={locale}
             propertyId={form.propertyId}
@@ -214,7 +225,7 @@ export function AccountingExpenseIncomeModal({
             showLink
             onChange={(next) => setForm((current) => ({ ...current, ...next }))}
           />
-        </div>
+        </section>
         <div className="accounting-hub__actions">
           <button type="button" className="button button--quiet" onClick={onClose}>
             {ar ? 'إلغاء' : 'Cancel'}
@@ -268,9 +279,10 @@ export function AccountingTradingModal({
       open={open}
       title={ar ? 'إضافة مشتريات أو مبيعات' : 'Add purchase or sale'}
       onClose={onClose}
+      tone={kind}
     >
       <form
-        className="accounting-hub__form"
+        className="accounting-hub__form accounting-hub__form--modal"
         onSubmit={(event) => {
           event.preventDefault();
           onBusy(true);
@@ -299,74 +311,80 @@ export function AccountingTradingModal({
           })();
         }}
       >
-        <div className="accounting-hub__form-grid">
-          <label>
-            {ar ? 'النوع' : 'Type'}
-            <select
-              value={kind}
-              onChange={(event) => setKind(event.target.value as 'purchase' | 'sale')}
-            >
-              <option value="purchase">{ar ? 'مشتريات' : 'Purchase'}</option>
-              <option value="sale">{ar ? 'مبيعات' : 'Sale'}</option>
-            </select>
-          </label>
-          <label>
-            {ar ? 'الوصف' : 'Description'}
-            <input
-              value={form.description}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, description: event.target.value }))
-              }
-              required
-            />
-          </label>
-          <label>
-            {ar ? 'المبلغ' : 'Amount'}
-            <input
-              inputMode="decimal"
-              value={form.amount}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, amount: event.target.value }))
-              }
-              required
-            />
-          </label>
-          <label>
-            {ar ? 'التاريخ' : 'Date'}
-            <input
-              type="date"
-              value={form.occurredOn}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, occurredOn: event.target.value }))
-              }
-              required
-            />
-          </label>
-          <label>
-            {ar ? 'طريقة الدفع / التحصيل' : 'Pay / collect via'}
-            <select
-              value={form.method}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, method: event.target.value }))
-              }
-            >
-              <option value="cash">{ar ? 'نقداً' : 'Cash'}</option>
-              <option value="bank">{ar ? 'بنك / تحويل' : 'Bank / transfer'}</option>
-              <option value="cheque">{ar ? 'شيك' : 'Cheque'}</option>
-              {kind === 'purchase' ? (
-                <option value="payable">{ar ? 'آجل (موردون)' : 'On credit (payables)'}</option>
-              ) : (
-                <option value="receivable">{ar ? 'آجل (ذمم)' : 'On credit (receivables)'}</option>
-              )}
-            </select>
-          </label>
+        <section className="accounting-form-section">
+          <h3>{ar ? 'بيانات الحركة' : 'Entry details'}</h3>
+          <div className="accounting-hub__form-grid accounting-hub__form-grid--modal">
+            <label>
+              {ar ? 'النوع' : 'Type'}
+              <select
+                value={kind}
+                onChange={(event) => setKind(event.target.value as 'purchase' | 'sale')}
+              >
+                <option value="purchase">{ar ? 'مشتريات' : 'Purchase'}</option>
+                <option value="sale">{ar ? 'مبيعات' : 'Sale'}</option>
+              </select>
+            </label>
+            <label>
+              {ar ? 'طريقة الدفع / التحصيل' : 'Pay / collect via'}
+              <select
+                value={form.method}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, method: event.target.value }))
+                }
+              >
+                <option value="cash">{ar ? 'نقداً' : 'Cash'}</option>
+                <option value="bank">{ar ? 'بنك / تحويل' : 'Bank / transfer'}</option>
+                <option value="cheque">{ar ? 'شيك' : 'Cheque'}</option>
+                {kind === 'purchase' ? (
+                  <option value="payable">{ar ? 'آجل (موردون)' : 'On credit (payables)'}</option>
+                ) : (
+                  <option value="receivable">{ar ? 'آجل (ذمم)' : 'On credit (receivables)'}</option>
+                )}
+              </select>
+            </label>
+            <label>
+              {ar ? 'المبلغ' : 'Amount'}
+              <input
+                inputMode="decimal"
+                value={form.amount}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, amount: event.target.value }))
+                }
+                required
+              />
+            </label>
+            <label>
+              {ar ? 'التاريخ' : 'Date'}
+              <input
+                type="date"
+                value={form.occurredOn}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, occurredOn: event.target.value }))
+                }
+                required
+              />
+            </label>
+            <label className="accounting-field--wide">
+              {ar ? 'الوصف' : 'Description'}
+              <input
+                value={form.description}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, description: event.target.value }))
+                }
+                required
+              />
+            </label>
+          </div>
+        </section>
+        <section className="accounting-form-section">
+          <h3>{ar ? 'الربط بالعقار' : 'Property link'}</h3>
           <AccountingPropertyUnitFields
             locale={locale}
             propertyId={form.propertyId}
             unitId={form.unitId}
             onChange={(next) => setForm((current) => ({ ...current, ...next }))}
           />
-        </div>
+        </section>
         <div className="accounting-hub__actions">
           <button type="button" className="button button--quiet" onClick={onClose}>
             {ar ? 'إلغاء' : 'Cancel'}

@@ -96,7 +96,7 @@ export function AccountingJournalComposerModal({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div className="accounting-hub__modal-card">
+      <div className="accounting-hub__modal-card accounting-hub__modal-card--form accounting-hub__modal-card--journal">
         <header className="accounting-hub__modal-head">
           <h2 id="journal-composer-title">{ar ? 'إضافة قيد يومية' : 'Add journal entry'}</h2>
           <button type="button" className="button button--quiet" onClick={onClose}>
@@ -104,7 +104,7 @@ export function AccountingJournalComposerModal({
           </button>
         </header>
         <form
-          className="accounting-hub__form accounting-hub__form--composer"
+          className="accounting-hub__form accounting-hub__form--composer accounting-hub__form--modal"
           onSubmit={(event) => {
             event.preventDefault();
             if (!lineBalance.ok) {
@@ -159,41 +159,47 @@ export function AccountingJournalComposerModal({
             })();
           }}
         >
-          <div className="accounting-hub__form-grid">
-            <label>
-              {ar ? 'التاريخ' : 'Date'}
-              <input
-                type="date"
-                value={form.occurredOn}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, occurredOn: event.target.value }))
-                }
-                required
-              />
-            </label>
-            <label>
-              {ar ? 'البيان' : 'Description'}
-              <input
-                value={form.description}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, description: event.target.value }))
-                }
-                required
-              />
-            </label>
-            <label>
-              {ar ? 'الترحيل فوراً' : 'Post immediately'}
-              <select
-                value={form.post ? 'yes' : 'no'}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, post: event.target.value === 'yes' }))
-                }
-                disabled={!canPost}
-              >
-                <option value="yes">{ar ? 'نعم' : 'Yes'}</option>
-                <option value="no">{ar ? 'مسودة' : 'Draft'}</option>
-              </select>
-            </label>
+          <section className="accounting-form-section">
+            <h3>{ar ? 'رأس القيد' : 'Entry header'}</h3>
+            <div className="accounting-hub__form-grid accounting-hub__form-grid--modal">
+              <label>
+                {ar ? 'التاريخ' : 'Date'}
+                <input
+                  type="date"
+                  value={form.occurredOn}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, occurredOn: event.target.value }))
+                  }
+                  required
+                />
+              </label>
+              <label>
+                {ar ? 'الترحيل فوراً' : 'Post immediately'}
+                <select
+                  value={form.post ? 'yes' : 'no'}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, post: event.target.value === 'yes' }))
+                  }
+                  disabled={!canPost}
+                >
+                  <option value="yes">{ar ? 'نعم' : 'Yes'}</option>
+                  <option value="no">{ar ? 'مسودة' : 'Draft'}</option>
+                </select>
+              </label>
+              <label className="accounting-field--wide">
+                {ar ? 'البيان' : 'Description'}
+                <input
+                  value={form.description}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, description: event.target.value }))
+                  }
+                  required
+                />
+              </label>
+            </div>
+          </section>
+          <section className="accounting-form-section">
+            <h3>{ar ? 'الربط بالعقار' : 'Property link'}</h3>
             <AccountingPropertyUnitFields
               locale={locale}
               propertyId={form.propertyId}
@@ -206,87 +212,104 @@ export function AccountingJournalComposerModal({
                 }))
               }
             />
-          </div>
-          <div className="accounting-hub__lines">
-            {form.lines.map((line, index) => (
-              <div className="accounting-hub__line" key={index}>
-                <select
-                  value={line.accountId}
-                  onChange={(event) =>
-                    setForm((current) => {
-                      const lines = [...current.lines];
-                      lines[index] = { ...lines[index]!, accountId: event.target.value };
-                      return { ...current, lines };
-                    })
-                  }
-                  required
-                >
-                  <option value="">{ar ? 'الحساب…' : 'Account…'}</option>
-                  {accounts.map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {account.code} — {ar ? account.nameAr : account.nameEn}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  inputMode="decimal"
-                  placeholder={ar ? 'مدين' : 'Debit'}
-                  value={line.debit}
-                  onChange={(event) =>
-                    setForm((current) => {
-                      const lines = [...current.lines];
-                      lines[index] = {
-                        ...lines[index]!,
-                        debit: event.target.value,
-                        credit: event.target.value ? '' : lines[index]!.credit,
-                      };
-                      return { ...current, lines };
-                    })
-                  }
-                />
-                <input
-                  inputMode="decimal"
-                  placeholder={ar ? 'دائن' : 'Credit'}
-                  value={line.credit}
-                  onChange={(event) =>
-                    setForm((current) => {
-                      const lines = [...current.lines];
-                      lines[index] = {
-                        ...lines[index]!,
-                        credit: event.target.value,
-                        debit: event.target.value ? '' : lines[index]!.debit,
-                      };
-                      return { ...current, lines };
-                    })
-                  }
-                />
-                <input
-                  placeholder={ar ? 'ملاحظة' : 'Memo'}
-                  value={line.memo}
-                  onChange={(event) =>
-                    setForm((current) => {
-                      const lines = [...current.lines];
-                      lines[index] = { ...lines[index]!, memo: event.target.value };
-                      return { ...current, lines };
-                    })
-                  }
-                />
-                <button
-                  type="button"
-                  className="button button--quiet button--sm"
-                  onClick={() =>
-                    setForm((current) => ({
-                      ...current,
-                      lines: current.lines.filter((_, i) => i !== index),
-                    }))
-                  }
-                  disabled={form.lines.length <= 2}
-                >
-                  ×
-                </button>
+          </section>
+          <section className="accounting-form-section">
+            <h3>{ar ? 'أسطر القيد' : 'Journal lines'}</h3>
+            <div className="accounting-hub__lines">
+              <div className="accounting-hub__line accounting-hub__line--head" aria-hidden="true">
+                <span>{ar ? 'الحساب' : 'Account'}</span>
+                <span className="accounting-hub__line-debit">{ar ? 'مدين' : 'Debit'}</span>
+                <span className="accounting-hub__line-credit">{ar ? 'دائن' : 'Credit'}</span>
+                <span>{ar ? 'ملاحظة' : 'Memo'}</span>
+                <span />
               </div>
-            ))}
-          </div>
+              {form.lines.map((line, index) => (
+                <div className="accounting-hub__line" key={index}>
+                  <select
+                    value={line.accountId}
+                    onChange={(event) =>
+                      setForm((current) => {
+                        const lines = [...current.lines];
+                        lines[index] = { ...lines[index]!, accountId: event.target.value };
+                        return { ...current, lines };
+                      })
+                    }
+                    required
+                    aria-label={ar ? 'الحساب' : 'Account'}
+                  >
+                    <option value="">{ar ? 'اختر الحساب…' : 'Pick account…'}</option>
+                    {accounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.code} — {ar ? account.nameAr : account.nameEn}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    className="accounting-hub__line-debit"
+                    inputMode="decimal"
+                    placeholder="0.000"
+                    value={line.debit}
+                    aria-label={ar ? 'مدين' : 'Debit'}
+                    onChange={(event) =>
+                      setForm((current) => {
+                        const lines = [...current.lines];
+                        lines[index] = {
+                          ...lines[index]!,
+                          debit: event.target.value,
+                          credit: event.target.value ? '' : lines[index]!.credit,
+                        };
+                        return { ...current, lines };
+                      })
+                    }
+                  />
+                  <input
+                    className="accounting-hub__line-credit"
+                    inputMode="decimal"
+                    placeholder="0.000"
+                    value={line.credit}
+                    aria-label={ar ? 'دائن' : 'Credit'}
+                    onChange={(event) =>
+                      setForm((current) => {
+                        const lines = [...current.lines];
+                        lines[index] = {
+                          ...lines[index]!,
+                          credit: event.target.value,
+                          debit: event.target.value ? '' : lines[index]!.debit,
+                        };
+                        return { ...current, lines };
+                      })
+                    }
+                  />
+                  <input
+                    placeholder={ar ? 'ملاحظة' : 'Memo'}
+                    value={line.memo}
+                    aria-label={ar ? 'ملاحظة' : 'Memo'}
+                    onChange={(event) =>
+                      setForm((current) => {
+                        const lines = [...current.lines];
+                        lines[index] = { ...lines[index]!, memo: event.target.value };
+                        return { ...current, lines };
+                      })
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="button button--quiet button--sm"
+                    onClick={() =>
+                      setForm((current) => ({
+                        ...current,
+                        lines: current.lines.filter((_, i) => i !== index),
+                      }))
+                    }
+                    disabled={form.lines.length <= 2}
+                    aria-label={ar ? 'حذف السطر' : 'Remove line'}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
           <div className="accounting-hub__actions">
             <button
               type="button"
