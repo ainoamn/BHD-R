@@ -287,7 +287,7 @@ export async function respondToViewingRequest(
             ? 'no_show'
             : null;
 
-  let issuedPass: {
+  type IssuedPass = {
     username: string;
     pin: string;
     token: string;
@@ -299,7 +299,9 @@ export async function respondToViewingRequest(
     prospectPartyId: string;
     organizationId: string;
     reference: string;
-  } | null = null;
+  };
+  // Holder avoids TS treating assignments inside the async callback as unreachable.
+  const issued: { pass: IssuedPass | null } = { pass: null };
 
   await withinViewerTenant(claims, async (tx) => {
     const ownerPartyId = ownerPartyScope(claims);
@@ -378,7 +380,7 @@ export async function respondToViewingRequest(
       .where(eq(viewingRequests.id, viewingId));
 
     if (input.action === 'schedule' && scheduledAt && token) {
-      issuedPass = {
+      issued.pass = {
         username,
         pin,
         token,
@@ -394,8 +396,8 @@ export async function respondToViewingRequest(
     }
   });
 
-  if (issuedPass) {
-    const pass = issuedPass;
+  if (issued.pass) {
+    const pass = issued.pass;
     const passUrl = appLink(`/ar/viewing-pass?t=${encodeURIComponent(pass.token)}`);
     const gateUrl = appLink(`/ar/viewing-gate?t=${encodeURIComponent(pass.token)}`);
     const whenLabel = pass.when.slice(0, 16).replace('T', ' ');
