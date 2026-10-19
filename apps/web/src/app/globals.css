@@ -14765,6 +14765,385 @@ body:has(.guest-stay-detail) #main-content {
     padding-inline: 1rem;
   }
 }
+
+/* Stay public desk — book-first, dual stay/sale, collapsible details */
+.stay-desk {
+  display: grid;
+  gap: 1rem;
+  padding-bottom: 5.5rem;
+}
+.stay-desk__sticky {
+  position: sticky;
+  inset-block-start: 4.75rem;
+  z-index: 46;
+  margin: 0 0 0.35rem;
+  padding: 0.65rem 0.75rem;
+  background: rgb(251 250 247 / 0.97);
+  border: 1px solid color-mix(in srgb, var(--border, #d7ddd8) 80%, transparent);
+  border-radius: 0.9rem;
+  box-shadow: 0 12px 30px rgb(15 23 42 / 0.08);
+  backdrop-filter: blur(12px);
+}
+.stay-desk__sticky-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+}
+.stay-desk__sticky-prices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+  min-width: 0;
+}
+.stay-desk__price-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  min-width: 0;
+}
+.stay-desk__price-chip strong {
+  font-size: 1.05rem;
+  line-height: 1.15;
+}
+.stay-desk__price-chip em {
+  font-style: normal;
+  color: var(--muted, #5b6b66);
+  font-size: 0.78rem;
+}
+.stay-desk__price-chip--sale strong {
+  color: color-mix(in srgb, var(--accent, #1f6b4a) 85%, #0f172a);
+}
+.stay-desk__sticky-dates {
+  color: var(--muted, #5b6b66);
+  font-size: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.stay-desk__sticky-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: flex-end;
+}
+.stay-desk__cta {
+  min-height: 2.65rem;
+  white-space: nowrap;
+  padding-inline: 0.95rem;
+}
+.stay-desk__layout {
+  display: grid;
+  gap: 1.1rem;
+}
+.stay-desk__gallery {
+  display: grid;
+  gap: 0.55rem;
+}
+.stay-desk__hero-shot {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  border-radius: 1rem;
+  background: #1a2420;
+}
+.stay-desk__hero-shot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.stay-desk__gallery-empty {
+  aspect-ratio: 16 / 10;
+  border-radius: 1rem;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, #1a2420, #2c3b34);
+}
+.stay-desk__serial {
+  display: flex;
+  gap: 0.4rem;
+  align-items: baseline;
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted, #5b6b66);
+}
+.stay-desk__thumbs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(4.5rem, 1fr);
+  gap: 0.4rem;
+  overflow-x: auto;
+}
+.stay-desk__thumb {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 0.55rem;
+  overflow: hidden;
+  background: transparent;
+  cursor: pointer;
+  aspect-ratio: 4 / 3;
+}
+.stay-desk__thumb.is-active {
+  border-color: var(--accent, #1f6b4a);
+}
+.stay-desk__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.stay-desk__titlebar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.85rem;
+  align-items: flex-start;
+}
+.stay-desk__titlebar h1 {
+  margin: 0.2rem 0 0.35rem;
+  font-size: clamp(1.45rem, 2.4vw, 1.9rem);
+  line-height: 1.25;
+}
+.stay-desk__badges {
+  margin-block: 0.35rem;
+}
+.stay-desk__building,
+.stay-desk__location {
+  margin: 0.15rem 0;
+  color: var(--muted, #5b6b66);
+}
+.stay-desk__building-link {
+  margin: 0.35rem 0 0;
+}
+.stay-desk__offer-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.65rem;
+}
+.stay-desk__offer {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--border, #d7ddd8) 75%, transparent);
+  background: color-mix(in srgb, var(--surface, #fff) 92%, #e8f2ec);
+}
+.stay-desk__offer--sale {
+  background: color-mix(in srgb, var(--surface, #fff) 88%, #efe6d6);
+  border-color: color-mix(in srgb, #c4a574 35%, var(--border, #d7ddd8));
+}
+.stay-desk__offer-label {
+  font-size: 0.78rem;
+  color: var(--muted, #5b6b66);
+  letter-spacing: 0.02em;
+}
+.stay-desk__offer strong {
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+.stay-desk__offer em {
+  font-style: normal;
+  font-size: 0.82rem;
+  color: var(--muted, #5b6b66);
+}
+.stay-desk__facts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+.stay-desk__facts li {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 4.5rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--surface, #fff) 94%, #dfe8e3);
+}
+.stay-desk__facts span {
+  font-size: 0.72rem;
+  color: var(--muted, #5b6b66);
+}
+.stay-desk__facts strong {
+  font-size: 0.98rem;
+}
+.stay-desk__book {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem;
+  border-radius: 1rem;
+  border: 1px solid color-mix(in srgb, var(--border, #d7ddd8) 80%, transparent);
+  background: color-mix(in srgb, var(--surface, #fff) 96%, #eef5f1);
+}
+.stay-desk__book-head h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.2rem;
+}
+.stay-desk__book-footer {
+  display: grid;
+  gap: 0.75rem;
+}
+.stay-desk__book-dates {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: 0.55rem;
+  margin: 0;
+}
+.stay-desk__book-dates div {
+  display: grid;
+  gap: 0.1rem;
+}
+.stay-desk__book-dates dt {
+  font-size: 0.75rem;
+  color: var(--muted, #5b6b66);
+}
+.stay-desk__book-dates dd {
+  margin: 0;
+  font-weight: 600;
+}
+.stay-desk__book-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.stay-desk__signin-hint {
+  margin: 0;
+  font-size: 0.85rem;
+}
+.stay-desk__more {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.35rem;
+}
+.stay-desk__more-lead {
+  margin: 0 0 0.15rem;
+  font-size: 0.9rem;
+}
+.stay-desk__panel {
+  border: 1px solid color-mix(in srgb, var(--border, #d7ddd8) 80%, transparent);
+  border-radius: 0.85rem;
+  background: var(--surface, #fff);
+  overflow: hidden;
+}
+.stay-desk__panel > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 0.85rem 1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.stay-desk__panel > summary::-webkit-details-marker {
+  display: none;
+}
+.stay-desk__panel > summary::after {
+  content: '+';
+  font-weight: 500;
+  color: var(--muted, #5b6b66);
+  font-size: 1.1rem;
+  line-height: 1;
+}
+.stay-desk__panel[open] > summary::after {
+  content: '−';
+}
+.stay-desk__panel-body {
+  padding: 0 1rem 1rem;
+  display: grid;
+  gap: 0.65rem;
+}
+.stay-desk__panel-body p {
+  margin: 0;
+  line-height: 1.55;
+}
+.stay-desk__building-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.65rem;
+  margin: 0;
+}
+.stay-desk__building-facts dt {
+  font-size: 0.75rem;
+  color: var(--muted, #5b6b66);
+}
+.stay-desk__building-facts dd {
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+}
+.stay-desk__amenities {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: 0.45rem;
+}
+.stay-desk__amenities li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--surface, #fff) 92%, #e4ece8);
+}
+.stay-desk__amenities em {
+  font-style: normal;
+  font-size: 0.9rem;
+}
+.stay-desk__map {
+  border-radius: 0.75rem;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  background: #e8ece9;
+}
+.stay-desk__map iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.stay-desk__qr {
+  justify-items: start;
+}
+@media (max-width: 720px) {
+  .stay-desk {
+    padding-bottom: 6.5rem;
+  }
+  .stay-desk__sticky {
+    inset-block-start: 4.35rem;
+    border-radius: 0.75rem;
+  }
+  .stay-desk__sticky-inner {
+    grid-template-columns: 1fr;
+  }
+  .stay-desk__sticky-actions {
+    justify-content: stretch;
+  }
+  .stay-desk__sticky-actions .stay-desk__cta {
+    flex: 1 1 calc(50% - 0.25rem);
+    justify-content: center;
+    text-align: center;
+  }
+  .stay-desk__hero-shot {
+    aspect-ratio: 5 / 4;
+    border-radius: 0.85rem;
+  }
+  .stay-desk__book-actions .stay-desk__cta {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+}
+
 @media (max-width: 900px) {
   .stays-book-page__layout {
     grid-template-columns: 1fr;
