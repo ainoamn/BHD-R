@@ -664,9 +664,42 @@ export function WorkTaskWorkspace({
               <div className="task-desk__reopen">
                 <p className="task-desk__muted">
                   {ar
-                    ? 'هذه المهمة مغلقة وتبقى في السجل. إعادة الفتح تنشئ مهمة جديدة برقم جديد مرتبطة بهذه المهمة.'
-                    : 'This task stays closed in the record. Reopening creates a new ticket with a new number, linked both ways.'}
+                    ? 'هذه المهمة مغلقة وتبقى في السجل. يمكنك مواصلة التعليق والمرفقات هنا. إعادة الفتح تنشئ مهمة جديدة برقم جديد مرتبطة بهذه المهمة.'
+                    : 'This task stays closed in the record. You can still comment and attach files here. Reopening creates a new ticket with a new number, linked both ways.'}
                 </p>
+                {detail.canUpdate ? (
+                  <form
+                    className="task-desk__reply task-desk__reply--inline"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      if (reply.trim().length < 2 && !replyFiles.length) return;
+                      void run(
+                        `${base}/reply`,
+                        { note: reply.trim(), files: replyFiles },
+                        ar ? 'أُرسل التعليق' : 'Comment sent',
+                      );
+                    }}
+                  >
+                    <textarea
+                      rows={3}
+                      maxLength={2000}
+                      value={reply}
+                      placeholder={
+                        ar
+                          ? 'اكتب تعليقاً على المهمة المغلقة…'
+                          : 'Write a comment on the closed task…'
+                      }
+                      onChange={(event) => setReply(event.target.value)}
+                    />
+                    <button
+                      className="button button--quiet"
+                      type="submit"
+                      disabled={busy || (reply.trim().length < 2 && !replyFiles.length)}
+                    >
+                      {ar ? 'إضافة تعليق' : 'Add comment'}
+                    </button>
+                  </form>
+                ) : null}
                 {detail.canCreate ? (
                   <button
                     type="button"

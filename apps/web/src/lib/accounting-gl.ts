@@ -324,6 +324,7 @@ export const ACCOUNTING_HUB_TABS = [
   'dashboard',
   'documents',
   'journal',
+  'tasks',
   'deposits',
   'accounts',
   'expenses',

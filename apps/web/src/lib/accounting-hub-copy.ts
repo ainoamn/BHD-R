@@ -18,9 +18,10 @@ export function accountingHubCopy(locale: 'ar' | 'en') {
     tabs: {
       dashboard: { ar: 'الملخص', en: 'Summary' },
       documents: { ar: 'المستندات', en: 'Documents' },
+      journal: { ar: 'القيود اليومية', en: 'Journal' },
+      tasks: { ar: 'المهام', en: 'Tasks' },
       deposits: { ar: 'أمانات التأمين', en: 'Deposits' },
       accounts: { ar: 'دليل الحسابات', en: 'Chart of accounts' },
-      journal: { ar: 'القيود اليومية', en: 'Journal' },
       expenses: { ar: 'صرف ودخل', en: 'Expense & income' },
       trading: { ar: 'مشتريات ومبيعات', en: 'Purchases & sales' },
       cheques: { ar: 'شيكات المستأجرين', en: 'Tenant cheques' },

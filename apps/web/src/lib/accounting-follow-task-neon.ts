@@ -34,6 +34,8 @@ export type AccountingFollowLink = {
   status: string;
   kind: string;
   sourceId: string;
+  updatedAt: string;
+  open: boolean;
 };
 
 const TASK_OPEN = new Set(['draft', 'pending', 'approved', 'in_progress', 'on_hold']);
@@ -115,10 +117,11 @@ export async function listAccountingFollowLinks(
         status: workTasks.status,
         relatedType: workTasks.relatedType,
         relatedId: workTasks.relatedId,
+        updatedAt: workTasks.updatedAt,
       })
       .from(workTasks)
       .where(and(eq(workTasks.organizationId, orgId), like(workTasks.relatedType, 'acct_%')))
-      .orderBy(desc(workTasks.createdAt))
+      .orderBy(desc(workTasks.updatedAt), desc(workTasks.createdAt))
       .limit(200);
     const seen = new Set<string>();
     const links: AccountingFollowLink[] = [];
@@ -134,6 +137,8 @@ export async function listAccountingFollowLinks(
         status: row.status,
         kind: row.relatedType.slice(5),
         sourceId: row.relatedId,
+        updatedAt: row.updatedAt.toISOString(),
+        open: accountingTaskIsOpen(row.status),
       });
     }
     return links;

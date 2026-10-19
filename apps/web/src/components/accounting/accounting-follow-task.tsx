@@ -16,9 +16,12 @@ export type AccountingTaskLink = {
   status: string;
   kind: string;
   sourceId: string;
+  updatedAt?: string;
+  open?: boolean;
 };
 
 const TASK_OPEN = new Set(['draft', 'pending', 'approved', 'in_progress', 'on_hold']);
+const SEEN_KEY = 'bhd-r-acct-tasks-seen';
 
 const KIND_LABEL: Record<string, [string, string]> = {
   invoice: ['فاتورة', 'Invoice'],
@@ -31,10 +34,38 @@ const KIND_LABEL: Record<string, [string, string]> = {
   ledger: ['أستاذ', 'Ledger'],
 };
 
-const TaskLinks = createContext<{ tasks: AccountingTaskLink[]; reload: () => void }>({
+const TaskLinks = createContext<{
+  tasks: AccountingTaskLink[];
+  reload: () => void;
+  unreadCount: number;
+  markTasksSeen: () => void;
+}>({
   tasks: [],
   reload: () => undefined,
+  unreadCount: 0,
+  markTasksSeen: () => undefined,
 });
+
+function readSeenAt(): string | null {
+  try {
+    return window.localStorage.getItem(SEEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function taskIsOpen(task: AccountingTaskLink): boolean {
+  return typeof task.open === 'boolean' ? task.open : TASK_OPEN.has(task.status);
+}
+
+function countUnread(tasks: AccountingTaskLink[], seenAt: string | null): number {
+  return tasks.filter((task) => {
+    if (!taskIsOpen(task)) return false;
+    if (!seenAt) return true;
+    if (!task.updatedAt) return true;
+    return task.updatedAt > seenAt;
+  }).length;
+}
 
 /** Loads which accounting lines already have a task, once for the whole hub. */
 export function AccountingTasksProvider({
@@ -45,6 +76,7 @@ export function AccountingTasksProvider({
   children: ReactNode;
 }) {
   const [tasks, setTasks] = useState<AccountingTaskLink[]>([]);
+  const [seenAt, setSeenAt] = useState<string | null>(null);
   const reload = useCallback(() => {
     void fetch('/api/owner/accounting/follow-task', {
       credentials: 'same-origin',
@@ -59,15 +91,71 @@ export function AccountingTasksProvider({
       .catch(() => undefined);
   }, []);
   useEffect(() => {
-    if (active) reload();
+    if (active) {
+      setSeenAt(readSeenAt());
+      reload();
+    }
   }, [active, reload]);
-  return <TaskLinks.Provider value={{ tasks, reload }}>{children}</TaskLinks.Provider>;
+  const markTasksSeen = useCallback(() => {
+    const now = new Date().toISOString();
+    try {
+      window.localStorage.setItem(SEEN_KEY, now);
+    } catch {
+      /* ignore */
+    }
+    setSeenAt(now);
+  }, []);
+  const unreadCount = countUnread(tasks, seenAt);
+  return (
+    <TaskLinks.Provider value={{ tasks, reload, unreadCount, markTasksSeen }}>
+      {children}
+    </TaskLinks.Provider>
+  );
+}
+
+/** Red dashboard cue when open accounting tasks have updates since last visit. */
+export function AccountingTasksAlert({
+  locale,
+  onOpen,
+}: {
+  locale: 'ar' | 'en';
+  onOpen: () => void;
+}) {
+  const ar = locale === 'ar';
+  const { unreadCount, markTasksSeen } = useContext(TaskLinks);
+  if (unreadCount <= 0) return null;
+  return (
+    <button
+      type="button"
+      className="accounting-tasks-alert"
+      onClick={() => {
+        markTasksSeen();
+        onOpen();
+      }}
+    >
+      <strong>{ar ? 'تنبيه مهام محاسبية' : 'Accounting tasks alert'}</strong>
+      <span>
+        {ar
+          ? `${unreadCount} مهمة فيها تحديث — اضغط للاطلاع`
+          : `${unreadCount} task${unreadCount === 1 ? '' : 's'} with updates — tap to review`}
+      </span>
+    </button>
+  );
 }
 
 /** Accounting lines that were sent to tasks. */
-export function AccountingTasksInbox({ locale }: { locale: 'ar' | 'en' }) {
+export function AccountingTasksInbox({
+  locale,
+  markSeen = false,
+}: {
+  locale: 'ar' | 'en';
+  markSeen?: boolean;
+}) {
   const ar = locale === 'ar';
-  const { tasks } = useContext(TaskLinks);
+  const { tasks, markTasksSeen } = useContext(TaskLinks);
+  useEffect(() => {
+    if (markSeen) markTasksSeen();
+  }, [markSeen, markTasksSeen]);
   return (
     <section className="accounting-tasks" aria-label={ar ? 'المهام المحاسبية' : 'Accounting tasks'}>
       <header>
@@ -82,9 +170,9 @@ export function AccountingTasksInbox({ locale }: { locale: 'ar' | 'en' }) {
         <p className="accounting-hub__muted">{ar ? 'لا مهام محاسبية بعد.' : 'No accounting tasks yet.'}</p>
       ) : (
         <ul>
-          {tasks.slice(0, 12).map((task) => {
+          {tasks.map((task) => {
             const kind = KIND_LABEL[task.kind] ?? [task.kind, task.kind];
-            const live = TASK_OPEN.has(task.status);
+            const live = taskIsOpen(task);
             return (
               <li key={task.id}>
                 <Link href={`/owner/tasks/${encodeURIComponent(task.id)}`}>
@@ -101,7 +189,7 @@ export function AccountingTasksInbox({ locale }: { locale: 'ar' | 'en' }) {
           })}
         </ul>
       )}
-      {tasks.length > 12 ? <Link href="/owner/tasks">{ar ? 'كل المهام' : 'All tasks'}</Link> : null}
+      <Link href="/owner/tasks">{ar ? 'كل مهام المنصة' : 'All platform tasks'}</Link>
     </section>
   );
 }

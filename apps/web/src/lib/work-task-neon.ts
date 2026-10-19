@@ -723,6 +723,7 @@ export async function replyWorkTask(
   note: string,
   files: Array<{ name: string; data: string }> = [],
 ): Promise<WorkTaskDetail> {
+  // Replies stay allowed on closed/rejected tickets — the record is frozen, the thread is not.
   if (!canRead(claims) || !hasPermission(claims, 'task.update')) deny();
   const text = note.trim().slice(0, 4000);
   const attachments = files
@@ -762,6 +763,10 @@ export async function replyWorkTask(
         metadata: { name: file.name, data: file.data, replyId: reply.id },
       });
     }
+    await tx
+      .update(workTasks)
+      .set({ updatedAt: new Date() })
+      .where(eq(workTasks.id, taskId));
   });
   return readWorkTask(claims, taskId);
 }

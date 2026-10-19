@@ -17,6 +17,7 @@ import {
 } from '@/components/accounting/accounting-collection-board';
 import {
   AccountingFollowTask,
+  AccountingTasksAlert,
   AccountingTasksInbox,
   AccountingTasksProvider,
 } from '@/components/accounting/accounting-follow-task';
@@ -184,6 +185,7 @@ const TAB_MARK: Record<string, string> = {
   dashboard: '▣',
   documents: '▤',
   journal: '≡',
+  tasks: '✓',
   deposits: '◈',
   expenses: '↘',
   trading: '⇄',
@@ -193,7 +195,7 @@ const TAB_MARK: Record<string, string> = {
   ledgers: '▦',
   periods: '◷',
   settings: '⚙',
-  audit: '✓',
+  audit: '◎',
 };
 
 function TabMark({ id }: { id: string }) {
@@ -603,6 +605,7 @@ export function AccountingHub({
     'dashboard',
     'documents',
     'journal',
+    'tasks',
     'deposits',
     'expenses',
     'trading',
@@ -700,13 +703,13 @@ export function AccountingHub({
             <h2>{t.moneyGlance}</h2>
             <p className="accounting-hub__hint">{t.moneyHint}</p>
           </div>
+          <AccountingTasksAlert locale={locale} onOpen={() => setTab('tasks')} />
           <AccountingCollectionBoard
             locale={locale}
             outlook={outlook}
             canManage={caps.manage}
             onChanged={() => void refreshAll({ silent: true })}
           />
-          <AccountingTasksInbox locale={locale} />
           <div className="accounting-hub__kpis accounting-hub__kpis--hero">
             <div className="accounting-hub__kpi accounting-hub__kpi--in">
               <span>{t.collected}</span>
@@ -1190,6 +1193,12 @@ export function AccountingHub({
               </tbody>
             </table>
           </div>
+        </div>
+      </AccountingTabPanel>
+
+      <AccountingTabPanel id="tasks" tab={tab}>
+        <div className="accounting-hub__panel accounting-hub__panel--workspace">
+          <AccountingTasksInbox locale={locale} markSeen={active && tab === 'tasks'} />
         </div>
       </AccountingTabPanel>
 

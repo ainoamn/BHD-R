@@ -643,6 +643,34 @@
   color: #9f1239;
 }
 
+.accounting-tasks-alert {
+  display: grid;
+  gap: 0.2rem;
+  justify-items: start;
+  width: 100%;
+  text-align: inherit;
+  border: 1px solid #fecaca;
+  border-radius: 0.9rem;
+  padding: 0.85rem 1rem;
+  background: linear-gradient(135deg, #fef2f2, #fff1f2);
+  color: #9f1239;
+  cursor: pointer;
+  font: inherit;
+  box-shadow: 0 8px 22px rgb(190 18 60 / 12%);
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+.accounting-tasks-alert:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgb(190 18 60 / 16%);
+}
+.accounting-tasks-alert strong {
+  font-size: 0.95rem;
+}
+.accounting-tasks-alert span {
+  font-size: 0.86rem;
+  color: #be123c;
+}
+
 .accounting-tasks {
   display: grid;
   gap: 0.7rem;
@@ -1254,6 +1282,7 @@
 .accounting-tab-icon--dashboard { background: #0f6b45; }
 .accounting-tab-icon--documents { background: #0f766e; }
 .accounting-tab-icon--journal { background: #1d4ed8; }
+.accounting-tab-icon--tasks { background: #be123c; }
 .accounting-tab-icon--deposits { background: #b45309; }
 .accounting-tab-icon--expenses { background: #be123c; }
 .accounting-tab-icon--trading { background: #7c3aed; }
