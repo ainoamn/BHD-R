@@ -41,6 +41,7 @@ import {
 import { canDecideUnitSale, listSaleDecisionUnits } from '@/lib/unit-sale-decision-neon';
 import { unreadLegalCases } from '@/lib/legal-case-neon';
 import { tenantRequestApprovalItems } from '@/lib/tenant-requests-neon';
+import { viewingRequestApprovalItems } from '@/lib/viewing-requests-neon';
 import { withTimeoutFallback } from '@/lib/with-timeout';
 
 const ITEM_LIMIT = 50;
@@ -104,12 +105,19 @@ function queueItem(
  * first, after legal cases with unread messages. Owner-scoped users only see their own properties.
  */
 export async function loadPendingApprovals(claims: SessionClaims): Promise<PendingApprovals> {
-  const [queue, legal, requests] = await Promise.all([
+  const [queue, legal, requests, viewings] = await Promise.all([
     loadApprovalQueue(claims),
     legalItems(claims),
     tenantRequestApprovalItems(claims).catch(() => [] as PendingApprovalItem[]),
+    viewingRequestApprovalItems(claims).catch(() => [] as PendingApprovalItem[]),
   ]);
-  return withLegal(queue, [...legal, ...requests]);
+  const merged = withLegal(queue, [...legal, ...requests, ...viewings]);
+  if (!viewings.length) return merged;
+  return {
+    ...merged,
+    viewings: viewings.length,
+    total: merged.total,
+  };
 }
 
 async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApprovals> {
@@ -428,6 +436,7 @@ async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApproval
       items,
       contracts: contractRows.length,
       bookings: bookingRows.length,
+      viewings: 0,
       reservations: items.filter((item) => item.kind === 'lease_reservation').length,
       refunds: refundItems.length + depositItems.length,
       reviews: reviewRows.length,

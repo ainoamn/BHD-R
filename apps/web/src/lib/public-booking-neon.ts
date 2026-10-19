@@ -272,13 +272,17 @@ export async function createAuthenticatedViewingRequest(
           eq(viewingRequests.organizationId, preview.organizationId),
           eq(viewingRequests.reference, reference),
         ),
-        columns: { reference: true, status: true },
+        columns: { id: true, reference: true, status: true, unitId: true, organizationId: true },
       });
       if (existing) {
         return {
           accepted: true as const,
+          id: existing.id,
           reference: existing.reference,
           status: existing.status,
+          organizationId: existing.organizationId,
+          unitId: existing.unitId,
+          duplicate: true as const,
         };
       }
       const unit = await assertUnitBookable(transaction, unitId);
@@ -294,11 +298,20 @@ export async function createAuthenticatedViewingRequest(
           status: 'requested',
           notes,
         })
-        .returning({ reference: viewingRequests.reference, status: viewingRequests.status });
+        .returning({
+          id: viewingRequests.id,
+          reference: viewingRequests.reference,
+          status: viewingRequests.status,
+          organizationId: viewingRequests.organizationId,
+          unitId: viewingRequests.unitId,
+        });
       return {
         accepted: true as const,
+        id: inserted[0]!.id,
         reference: inserted[0]!.reference,
         status: inserted[0]!.status,
+        organizationId: inserted[0]!.organizationId,
+        unitId: inserted[0]!.unitId,
       };
     }
 
@@ -316,11 +329,20 @@ export async function createAuthenticatedViewingRequest(
         status: 'requested',
         notes,
       })
-      .returning({ reference: viewingRequests.reference, status: viewingRequests.status });
+      .returning({
+        id: viewingRequests.id,
+        reference: viewingRequests.reference,
+        status: viewingRequests.status,
+        organizationId: viewingRequests.organizationId,
+        unitId: viewingRequests.unitId,
+      });
     return {
       accepted: true as const,
+      id: inserted[0]!.id,
       reference: inserted[0]!.reference,
       status: inserted[0]!.status,
+      organizationId: inserted[0]!.organizationId,
+      unitId: inserted[0]!.unitId,
     };
   });
 }

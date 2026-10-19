@@ -14766,6 +14766,69 @@ body:has(.guest-stay-detail) #main-content {
   }
 }
 
+/* Owner viewing request desk */
+.viewing-desk {
+  display: grid;
+  gap: 1.1rem;
+  max-width: 44rem;
+}
+.viewing-desk__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.85rem;
+  align-items: flex-start;
+}
+.viewing-desk__head h1 {
+  margin: 0.2rem 0 0.25rem;
+  font-size: 1.45rem;
+}
+.viewing-desk__facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+.viewing-desk__facts dt {
+  font-size: 0.75rem;
+  color: var(--muted, #5b6b66);
+}
+.viewing-desk__facts dd {
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+}
+.viewing-desk__notes-body {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: inherit;
+  line-height: 1.5;
+  padding: 0.85rem 1rem;
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--surface, #fff) 92%, #e8efe9);
+  border: 1px solid color-mix(in srgb, var(--border, #d7ddd8) 75%, transparent);
+}
+.viewing-desk__reply {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 0.9rem;
+  border: 1px solid color-mix(in srgb, var(--border, #d7ddd8) 80%, transparent);
+  background: color-mix(in srgb, var(--surface, #fff) 96%, #eef5f1);
+}
+.viewing-desk__reply h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+.viewing-desk__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.viewing-desk__links {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
 /* Stay public desk — book-first, dual stay/sale, collapsible details */
 .stay-desk {
   display: grid;

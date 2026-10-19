@@ -4595,6 +4595,15 @@ ${depositHtml}${
                                   {ar ? 'عقد الإقامة' : 'Stay contract'}
                                 </Link>
                               ) : section === 'bookings' &&
+                                safeString(row.recordKind) === 'viewing' ? (
+                                <Link
+                                  className="ops-action ops-action--primary"
+                                  href={`/${portal}/bookings/viewings/${encodeURIComponent(safeString(row.id))}`}
+                                  prefetch
+                                >
+                                  {ar ? 'فتح المعاينة والرد' : 'Open & reply'}
+                                </Link>
+                              ) : section === 'bookings' &&
                                 safeString(row.recordKind) === 'reservation' ? (
                                 <span className="ops-inline-actions">
                                   {safeString(row.status) === 'pending' ? (
@@ -4932,6 +4941,39 @@ ${depositHtml}${
                             prefetch
                           >
                             {ar ? 'عرض العقد' : 'View contract'}
+                          </Link>
+                        </div>
+                      ) : section === 'bookings' &&
+                        safeString(row.recordKind) === 'viewing' ? (
+                        <div className="ops-action-group">
+                          <Link
+                            className="ops-action button button--quiet ops-action--primary"
+                            href={`/${portal}/bookings/viewings/${encodeURIComponent(safeString(row.id))}`}
+                            prefetch
+                          >
+                            {ar ? 'فتح المعاينة والرد' : 'Open & reply'}
+                          </Link>
+                        </div>
+                      ) : section === 'bookings' &&
+                        safeString(row.recordKind) === 'stay_booking' ? (
+                        <div className="ops-action-group">
+                          <Link
+                            className="ops-action button button--quiet ops-action--primary"
+                            href={`/${portal}/stays/bookings/${encodeURIComponent(safeString(row.id))}`}
+                            prefetch
+                          >
+                            {ar ? 'عقد الإقامة' : 'Stay contract'}
+                          </Link>
+                        </div>
+                      ) : section === 'bookings' &&
+                        safeString(row.recordKind) === 'reservation' ? (
+                        <div className="ops-action-group">
+                          <Link
+                            className="ops-action button button--quiet ops-action--primary"
+                            href={`/${portal}/bookings/${encodeURIComponent(safeString(row.id))}`}
+                            prefetch
+                          >
+                            {ar ? 'المستندات' : 'Documents'}
                           </Link>
                         </div>
                       ) : null}

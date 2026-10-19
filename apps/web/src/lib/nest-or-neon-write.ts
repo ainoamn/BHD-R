@@ -14,6 +14,10 @@ import {
   createAuthenticatedViewingRequest,
   updatePropertyDepositOnNeon,
 } from '@/lib/public-booking-neon';
+import {
+  findViewingNotifyTarget,
+  notifyOwnersOfViewingRequest,
+} from '@/lib/viewing-requests-neon';
 
 async function loadViewerContact(userId: string): Promise<{ email: string; displayName: string }> {
   const { db } = createDatabase(process.env.DATABASE_URL!, { max: 1 });
@@ -100,10 +104,21 @@ export async function createViewingRequestNestOrNeon(
             reference?: string;
             status?: string;
           };
+          const reference = payload.reference ?? `WEB-${submissionId}`;
+          const status = payload.status ?? 'requested';
+          const target = await findViewingNotifyTarget(reference, unitId).catch(() => null);
+          if (target) {
+            void notifyOwnersOfViewingRequest({
+              viewingId: target.viewingId,
+              organizationId: target.organizationId,
+              unitId: target.unitId,
+              reference: target.reference,
+            });
+          }
           return {
             accepted: true,
-            reference: payload.reference ?? `WEB-${submissionId}`,
-            status: payload.status ?? 'requested',
+            reference,
+            status,
             via: 'nest',
           };
         }
@@ -117,7 +132,20 @@ export async function createViewingRequestNestOrNeon(
     idempotencyKey: options.idempotencyKey ?? submissionId,
     ...(options.interest ? { interest: options.interest } : {}),
   });
-  return { ...neon, via: 'neon' };
+  if (!('duplicate' in neon && neon.duplicate)) {
+    void notifyOwnersOfViewingRequest({
+      viewingId: neon.id,
+      organizationId: neon.organizationId,
+      unitId: neon.unitId,
+      reference: neon.reference,
+    });
+  }
+  return {
+    accepted: true,
+    reference: neon.reference,
+    status: neon.status,
+    via: 'neon',
+  };
 }
 
 /** Prefer Nest public booking checkout; fall back to Neon. */

@@ -133,6 +133,12 @@ const KNOWN_CODES = new Set([
   'tenant_request_proof',
   'tenant_charge_invalid',
   'tenant_charge_paid',
+  'viewing_invalid',
+  'viewing_schedule_required',
+  'viewing_schedule_invalid',
+  'viewing_note_required',
+  'viewing_closed',
+  'viewing_action_invalid',
 ]);
 
 export function clientSafeErrorCode(error: unknown, fallback = 'request_failed'): string {

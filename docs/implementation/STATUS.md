@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-10-19  
-**Product version:** 0.8.122  
-**Active focus:** Stay public desk rebuild — dual stay/sale prices + sticky dual CTAs + collapsible details (0.8.122); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
+**Product version:** 0.8.123  
+**Active focus:** Viewing requests — owner notify + desk to schedule/reply (0.8.123); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
+
 
 
 
@@ -17,6 +18,7 @@
 
 | Version         | Focus                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.8.123         | Viewing requests: email owner, home/bell alerts, open desk to set date/time + notes |
 | 0.8.122         | Stay public desk: dual nightly + sale prices, equal sticky book/buy CTAs, calendar-first with collapsible details |
 | 0.8.121         | Stay page: social share + like/favorite; compact calendar; viewing request + owner toggle |
 | 0.8.120         | Stay page: top/sticky Continue-to-book CTA; lab-reset clears booked inventory days |

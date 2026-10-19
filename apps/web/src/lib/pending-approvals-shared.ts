@@ -20,7 +20,8 @@ export type PendingApprovalItem = {
     | 'sale_decision'
     | 'guest_review'
     | 'legal_message'
-    | 'tenant_request';
+    | 'tenant_request'
+    | 'viewing_request';
   id: string;
   reference: string;
   propertyId: string;
@@ -50,6 +51,8 @@ export type PendingApprovals = {
   items: PendingApprovalItem[];
   contracts: number;
   bookings: number;
+  /** Open viewing requests awaiting a scheduled slot from the host. */
+  viewings: number;
   /** Paid rent or purchase bookings awaiting their final contract. */
   reservations: number;
   refunds: number;
@@ -62,6 +65,7 @@ export const EMPTY_PENDING_APPROVALS: PendingApprovals = {
   items: [],
   contracts: 0,
   bookings: 0,
+  viewings: 0,
   reservations: 0,
   refunds: 0,
   reviews: 0,
@@ -76,6 +80,9 @@ export function pendingApprovalHref(portal: string, item: PendingApprovalItem): 
   if (item.kind === 'legal_message') return `/${portal}/legal/${encodeURIComponent(item.id)}`;
   if (item.kind === 'tenant_request') {
     return `/owner/tenant-requests?focus=${encodeURIComponent(item.id)}`;
+  }
+  if (item.kind === 'viewing_request') {
+    return `/${portal}/bookings/viewings/${encodeURIComponent(item.id)}`;
   }
   const base = `/${portal}/properties/${encodeURIComponent(item.propertyId)}`;
   if (item.kind === 'contract') {
@@ -128,6 +135,9 @@ export function pendingApprovalTitle(item: PendingApprovalItem, ar: boolean): st
     const type = isTenantRequestType(item.requestType) ? item.requestType : 'other';
     const label = tenantRequestTypeLabel(type, ar);
     return ar ? `طلب من المستأجر — ${label}` : `Tenant request — ${label}`;
+  }
+  if (item.kind === 'viewing_request') {
+    return ar ? 'طلب معاينة بانتظار تحديد الموعد' : 'Viewing request awaiting a schedule';
   }
   if (item.kind === 'stay_booking') {
     return ar ? 'طلب حجز بانتظار الاعتماد' : 'Booking request awaiting approval';

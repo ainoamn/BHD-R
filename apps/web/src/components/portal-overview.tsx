@@ -27,6 +27,7 @@ function alertCopy(
   code: string,
   count: number,
   t: Awaited<ReturnType<typeof getTranslations>>,
+  locale: string,
 ): string {
   switch (code) {
     case 'open_tickets':
@@ -43,6 +44,10 @@ function alertCopy(
       return t('Portal.alertContractsApproval', { count });
     case 'booking_requests':
       return t('Portal.alertBookingRequests', { count });
+    case 'viewing_requests':
+      return locale === 'ar'
+        ? `${count} طلب معاينة بانتظار الموعد`
+        : `${count} viewing request${count === 1 ? '' : 's'} awaiting a schedule`;
     case 'paid_reservations':
       return t('Portal.alertPaidReservations', { count });
     case 'deposit_refunds':
@@ -124,6 +129,21 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
       : []),
     ...(approvals.bookings
       ? [{ code: 'booking_requests', count: approvals.bookings, href: `/${portal}/bookings` }]
+      : []),
+    ...(approvals.viewings
+      ? [
+          {
+            code: 'viewing_requests',
+            count: approvals.viewings,
+            href:
+              approvals.viewings === 1 && approvals.items.find((item) => item.kind === 'viewing_request')
+                ? pendingApprovalHref(
+                    portal,
+                    approvals.items.find((item) => item.kind === 'viewing_request')!,
+                  )
+                : `/${portal}/bookings`,
+          },
+        ]
       : []),
     ...(approvals.reservations && firstReservation
       ? [
@@ -436,7 +456,7 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
               <li key={alert.code} className="dash-alert dash-alert--approval">
                 <Link href={alert.href} prefetch>
                   <strong>{alert.count}</strong>
-                  <span>{alertCopy(alert.code, alert.count, t)}</span>
+                  <span>{alertCopy(alert.code, alert.count, t, locale)}</span>
                 </Link>
               </li>
             ))}
@@ -445,12 +465,12 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
                 {opens(alertHref(portal, alert.code)) ? (
                   <Link href={alertHref(portal, alert.code)} prefetch>
                     <strong>{alert.count}</strong>
-                    <span>{alertCopy(alert.code, alert.count, t)}</span>
+                    <span>{alertCopy(alert.code, alert.count, t, locale)}</span>
                   </Link>
                 ) : (
                   <span>
                     <strong>{alert.count}</strong>
-                    <span>{alertCopy(alert.code, alert.count, t)}</span>
+                    <span>{alertCopy(alert.code, alert.count, t, locale)}</span>
                   </span>
                 )}
               </li>

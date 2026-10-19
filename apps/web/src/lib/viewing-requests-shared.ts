@@ -1,0 +1,21 @@
+export type ViewingRequestDetail = {
+  id: string;
+  reference: string;
+  status: string;
+  channel: string;
+  notes: string | null;
+  preferredAt: string | null;
+  scheduledAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  unitId: string;
+  unitCode: string;
+  propertyId: string;
+  propertyNameAr: string;
+  propertyNameEn: string | null;
+  prospectPartyId: string;
+  prospectName: string;
+  prospectEmail: string | null;
+  prospectPhone: string | null;
+  canManage: boolean;
+};
