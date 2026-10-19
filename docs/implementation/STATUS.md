@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-10-19  
-**Product version:** 0.8.124  
-**Active focus:** Stay page restored to Property 360 layout with dual stay/sale prices (0.8.124); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
+**Product version:** 0.8.125  
+**Active focus:** Stay availability calendar wide two-month strip (0.8.125); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
+
 
 
 
@@ -19,6 +20,7 @@
 
 | Version         | Focus                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.8.125         | Stay availability calendar: full-width two months side by side |
 | 0.8.124         | Stay public page restored to Property 360 layout; dual nightly + sale prices kept |
 | 0.8.123         | Viewing requests: email owner, home/bell alerts, open desk to set date/time + notes |
 | 0.8.122         | Stay public desk: dual nightly + sale prices, equal sticky book/buy CTAs, calendar-first with collapsible details |

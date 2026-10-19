@@ -816,7 +816,7 @@ export function PropertyDetailManager({
                 slug={stayBooking.slug}
                 {...(stayBooking.unitId ? { unitId: stayBooking.unitId } : {})}
                 size="compact"
-                monthCount={1}
+                monthCount={2}
                 selectedCheckIn={stayCheckInOn}
                 selectedCheckOut={stayCheckOutOn}
                 onRangeChange={(nextIn, nextOut, halfDay) => {
