@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.128.1 — 2026-10-19
+
+- **بناء:** إصلاح خطأ TypeScript في مسار إصدار بطاقة المعاينة الذي كان يوقف نشر Vercel.
+
 ## 0.8.128 — 2026-10-19
 
 - **معاينة:** إصلاح فتح الطلب لمالك المبنى (`viewing.read` / `viewing.manage`).
