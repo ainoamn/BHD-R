@@ -14,8 +14,11 @@ import {
   workflowEvents,
   workTasks,
 } from '@bhd-r/db';
-import { muscatToday } from '@/lib/tenant-charges-neon';
+import { appLink, notifyByEmail } from '@/lib/email-notify';
 import { withinViewerTenant } from '@/lib/portal-ops-data';
+import { addTeamMember } from '@/lib/team-neon';
+import { validTeamEmail } from '@/lib/team-shared';
+import { muscatToday } from '@/lib/tenant-charges-neon';
 import type {
   WorkTaskChoice,
   WorkTaskDetail,
@@ -1345,6 +1348,95 @@ export async function addWorkTaskFollower(
     });
   });
   return readWorkTask(claims, taskId);
+}
+
+/**
+ * Add a follower by email: existing org members join the roster; unknown emails get a team
+ * invitation (admin_staff) when the viewer may manage members, then join the task.
+ */
+export async function inviteWorkTaskFollower(
+  claims: SessionClaims,
+  taskId: string,
+  input: { email: string; duty: string; displayName?: string },
+): Promise<WorkTaskDetail> {
+  if (!canRead(claims) || (!hasPermission(claims, 'task.assign') && !hasPermission(claims, 'task.update'))) {
+    deny();
+  }
+  const duty = DUTIES.has(input.duty) ? input.duty : '';
+  if (!duty) bad();
+  const email = input.email.trim().toLowerCase();
+  if (!validTeamEmail(email)) throw new Error('team_email_invalid');
+  const orgId = claims.organizationId!;
+
+  const existing = await withinViewerTenant(claims, async (tx) => {
+    const [row] = await tx
+      .select({ userId: users.id, email: users.email, name: users.displayName })
+      .from(memberships)
+      .innerJoin(users, eq(users.id, memberships.userId))
+      .where(
+        and(
+          eq(memberships.organizationId, orgId),
+          eq(memberships.status, 'active'),
+          eq(users.email, email),
+        ),
+      )
+      .limit(1);
+    return row ?? null;
+  });
+
+  let userId = existing?.userId ?? null;
+  if (!userId) {
+    if (!hasPermission(claims, 'organization.members.write')) deny();
+    try {
+      const created = await addTeamMember(claims, {
+        email,
+        roles: ['admin_staff'],
+        capabilities: [],
+        ...(input.displayName?.trim()
+          ? { displayName: input.displayName.trim().slice(0, 160) }
+          : {}),
+      });
+      userId = created.userId;
+    } catch (error) {
+      if (!(error instanceof Error) || error.message !== 'team_member_exists') throw error;
+      const again = await withinViewerTenant(claims, async (tx) => {
+        const [row] = await tx
+          .select({ userId: users.id })
+          .from(memberships)
+          .innerJoin(users, eq(users.id, memberships.userId))
+          .where(
+            and(
+              eq(memberships.organizationId, orgId),
+              eq(memberships.status, 'active'),
+              eq(users.email, email),
+            ),
+          )
+          .limit(1);
+        return row ?? null;
+      });
+      if (!again) throw error;
+      userId = again.userId;
+    }
+  }
+
+  const detail = await addWorkTaskFollower(claims, taskId, { userId, duty });
+  const taskPath = `/ar/owner/tasks/${encodeURIComponent(detail.id)}`;
+  await notifyByEmail({
+    orgId,
+    aggregateType: 'work_task',
+    aggregateId: detail.id,
+    audience: { users: [userId] },
+    content: () => ({
+      tone: 'team',
+      subject: `مهمة ${detail.reference} · Task ${detail.reference}`,
+      title: 'أُضيفت إلى مهمة في فريقك',
+      intro: `أُضيفتَ إلى مهمة ${detail.reference} في BHD R.`,
+      lines: [detail.title, `You were added to task ${detail.reference} on BHD R.`],
+      cta: { label: 'فتح المهمة · Open task', url: appLink(taskPath) },
+    }),
+    dedupeKey: `task-member:${detail.id}:${userId}`,
+  });
+  return detail;
 }
 
 async function readRoster(

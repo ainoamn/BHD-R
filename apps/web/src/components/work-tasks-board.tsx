@@ -669,6 +669,13 @@ export function WorkTasksBoard({
                     onChange={(event) => setDraft((prev) => ({ ...prev, tags: event.target.value }))}
                   />
                 </label>
+                <NoteTranslateBar
+                  value={draft.tags}
+                  onChange={(next) => setDraft((prev) => ({ ...prev, tags: next.slice(0, 240) }))}
+                  locale={locale}
+                  max={240}
+                  disabled={busy}
+                />
               </div>
             ) : null}
 
@@ -685,6 +692,15 @@ export function WorkTasksBoard({
                     }
                   />
                 </label>
+                <NoteTranslateBar
+                  value={draft.checklist}
+                  onChange={(next) =>
+                    setDraft((prev) => ({ ...prev, checklist: next.slice(0, 2000) }))
+                  }
+                  locale={locale}
+                  max={2000}
+                  disabled={busy}
+                />
               </div>
             ) : null}
 

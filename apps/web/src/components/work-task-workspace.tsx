@@ -74,6 +74,7 @@ export function WorkTaskWorkspace({
   const [lawyerId, setLawyerId] = useState(detail.lawyers[0]?.id ?? '');
   const [legalNote, setLegalNote] = useState('');
   const [memberId, setMemberId] = useState('');
+  const [memberEmail, setMemberEmail] = useState('');
   const [memberDuty, setMemberDuty] = useState<'lead' | 'executor' | 'supervisor' | 'viewer'>('viewer');
   const [subjectKind, setSubjectKind] = useState<'party' | 'property' | 'unit'>(detail.subject?.kind ?? 'party');
   const [subjectId, setSubjectId] = useState(detail.subject?.id ?? '');
@@ -117,6 +118,10 @@ export function WorkTaskWorkspace({
         setReplyFiles([]);
       }
       if (path.endsWith('/legal')) setLegalNote('');
+      if (path.endsWith('/members')) {
+        setMemberId('');
+        setMemberEmail('');
+      }
       setPendingStatus(null);
       setStatusReason('');
       setSubtaskDraft('');
@@ -127,6 +132,14 @@ export function WorkTaskWorkspace({
           ar
             ? 'اكتب سبب الرفض أو الإغلاق أو الإلغاء (خمسة أحرف على الأقل).'
             : 'Write a reason for reject, close, or cancel (at least 5 characters).',
+        );
+      } else if (code === 'team_email_invalid') {
+        setMessage(ar ? 'البريد الإلكتروني غير صالح.' : 'That email address is not valid.');
+      } else if (code === 'forbidden') {
+        setMessage(
+          ar
+            ? 'ليست لديك صلاحية دعوة عضو جديد بهذا البريد — اختر موظفاً من القائمة أو اطلب من مدير الفريق.'
+            : 'You cannot invite a new person by email — pick someone on the list or ask a team admin.',
         );
       } else {
         setMessage(ar ? 'تعذر حفظ الإجراء' : 'Could not save that action');
@@ -275,6 +288,9 @@ export function WorkTaskWorkspace({
           ) : (
             <span className="task-desk__muted">{ar ? 'لا وسوم بعد' : 'No tags yet'}</span>
           )}
+          {detail.tags?.length ? (
+            <TranslatableNote text={detail.tags.join(', ')} locale={locale} />
+          ) : null}
         </div>
       ) : detail.tags?.length ? (
         <div className="task-desk__tags">
@@ -283,6 +299,7 @@ export function WorkTaskWorkspace({
               <em key={tag}>{tag}</em>
             ))}
           </span>
+          <TranslatableNote text={detail.tags.join(', ')} locale={locale} />
         </div>
       ) : null}
 
@@ -375,6 +392,7 @@ export function WorkTaskWorkspace({
                       />
                       <span className={item.done ? 'is-done' : undefined}>{item.label}</span>
                     </label>
+                    <TranslatableNote text={item.label} locale={locale} />
                   </li>
                 ))}
               </ul>
@@ -384,25 +402,38 @@ export function WorkTaskWorkspace({
               </p>
             )}
             {detail.canUpdate && !closed ? (
-              <form
-                className="task-desk__inline"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  const label = subtaskDraft.trim();
-                  if (!label) return;
-                  void run(base, { checklistAdd: label }, ar ? 'أُضيفت مهمة فرعية' : 'Subtask added');
-                }}
-              >
-                <input
+              <div className="task-desk__stack">
+                <form
+                  className="task-desk__inline"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const label = subtaskDraft.trim();
+                    if (!label) return;
+                    void run(base, { checklistAdd: label }, ar ? 'أُضيفت مهمة فرعية' : 'Subtask added');
+                  }}
+                >
+                  <input
+                    value={subtaskDraft}
+                    maxLength={200}
+                    placeholder={ar ? 'أضف مهمة فرعية…' : 'Add a subtask…'}
+                    onChange={(event) => setSubtaskDraft(event.target.value)}
+                  />
+                  <button
+                    className="button button--quiet"
+                    type="submit"
+                    disabled={busy || !subtaskDraft.trim()}
+                  >
+                    {ar ? 'إضافة' : 'Add'}
+                  </button>
+                </form>
+                <NoteTranslateBar
                   value={subtaskDraft}
-                  maxLength={200}
-                  placeholder={ar ? 'أضف مهمة فرعية…' : 'Add a subtask…'}
-                  onChange={(event) => setSubtaskDraft(event.target.value)}
+                  onChange={(next) => setSubtaskDraft(next.slice(0, 200))}
+                  locale={locale}
+                  max={200}
+                  disabled={busy}
                 />
-                <button className="button button--quiet" type="submit" disabled={busy || !subtaskDraft.trim()}>
-                  {ar ? 'إضافة' : 'Add'}
-                </button>
-              </form>
+              </div>
             ) : null}
           </section>
 
@@ -464,7 +495,7 @@ export function WorkTaskWorkspace({
                 </select>
               </label>
               <form
-                className="task-desk__inline"
+                className="task-desk__stack"
                 onSubmit={(event) => {
                   event.preventDefault();
                   const tags = tagDraft
@@ -475,16 +506,31 @@ export function WorkTaskWorkspace({
                   void run(base, { tags }, ar ? 'حُفظت الوسوم' : 'Tags saved');
                 }}
               >
-                <input
+                <div className="task-desk__inline">
+                  <input
+                    value={tagDraft}
+                    maxLength={240}
+                    placeholder={ar ? 'وسوم مفصولة بفاصلة' : 'Comma-separated tags'}
+                    onChange={(event) => setTagDraft(event.target.value)}
+                  />
+                  <button className="button button--quiet" type="submit" disabled={busy}>
+                    {ar ? 'حفظ الوسوم' : 'Save tags'}
+                  </button>
+                </div>
+                <NoteTranslateBar
                   value={tagDraft}
-                  maxLength={240}
-                  placeholder={ar ? 'وسوم مفصولة بفاصلة' : 'Comma-separated tags'}
-                  onChange={(event) => setTagDraft(event.target.value)}
+                  onChange={(next) => setTagDraft(next.slice(0, 240))}
+                  locale={locale}
+                  max={240}
+                  disabled={busy}
                 />
-                <button className="button button--quiet" type="submit" disabled={busy}>
-                  {ar ? 'حفظ الوسوم' : 'Save tags'}
-                </button>
               </form>
+            </section>
+          ) : detail.tags?.length ? (
+            <section className="task-desk__card">
+              <h2>{ar ? 'الوسوم' : 'Tags'}</h2>
+              <p className="task-desk__body">{detail.tags.join(' · ')}</p>
+              <TranslatableNote text={detail.tags.join(', ')} locale={locale} />
             </section>
           ) : null}
 
@@ -887,6 +933,17 @@ export function WorkTaskWorkspace({
                   className="task-desk__stack"
                   onSubmit={(event) => {
                     event.preventDefault();
+                    const email = memberEmail.trim();
+                    if (email) {
+                      void run(
+                        `${base}/members`,
+                        { email, duty: memberDuty },
+                        ar
+                          ? 'أُرسلت الدعوة / أُضيف العضو'
+                          : 'Invitation sent / member added',
+                      );
+                      return;
+                    }
                     if (!memberId) return;
                     void run(
                       `${base}/members`,
@@ -897,8 +954,15 @@ export function WorkTaskWorkspace({
                 >
                   <h3>{ar ? 'إضافة عضو' : 'Add a member'}</h3>
                   <label>
-                    <span>{ar ? 'العضو' : 'Member'}</span>
-                    <select value={memberId} onChange={(event) => setMemberId(event.target.value)}>
+                    <span>{ar ? 'من الفريق' : 'From the team'}</span>
+                    <select
+                      value={memberId}
+                      disabled={Boolean(memberEmail.trim())}
+                      onChange={(event) => {
+                        setMemberId(event.target.value);
+                        if (event.target.value) setMemberEmail('');
+                      }}
+                    >
                       <option value="">{ar ? 'اختر موظفاً' : 'Choose a person'}</option>
                       {detail.people
                         .filter((person) => !detail.followers.some((seat) => seat.userId === person.userId))
@@ -909,6 +973,25 @@ export function WorkTaskWorkspace({
                         ))}
                     </select>
                   </label>
+                  <label>
+                    <span>{ar ? 'أو دعوة بالبريد' : 'Or invite by email'}</span>
+                    <input
+                      type="email"
+                      value={memberEmail}
+                      maxLength={320}
+                      placeholder={ar ? 'name@example.com' : 'name@example.com'}
+                      disabled={Boolean(memberId)}
+                      onChange={(event) => {
+                        setMemberEmail(event.target.value);
+                        if (event.target.value.trim()) setMemberId('');
+                      }}
+                    />
+                  </label>
+                  <p className="task-desk__muted">
+                    {ar
+                      ? 'إذا لم يكن البريد في الفريق تُرسل دعوة للانضمام ثم يُضاف للمهمة.'
+                      : 'If the email is new to the team, an invite is sent and they are added to this task.'}
+                  </p>
                   <label>
                     <span>{ar ? 'دوره' : 'Duty'}</span>
                     <select
@@ -922,8 +1005,18 @@ export function WorkTaskWorkspace({
                       ))}
                     </select>
                   </label>
-                  <button className="button button--quiet" type="submit" disabled={busy || !memberId}>
-                    {ar ? 'إضافة' : 'Add'}
+                  <button
+                    className="button button--quiet"
+                    type="submit"
+                    disabled={busy || (!memberId && !memberEmail.trim())}
+                  >
+                    {memberEmail.trim()
+                      ? ar
+                        ? 'دعوة وإضافة'
+                        : 'Invite & add'
+                      : ar
+                        ? 'إضافة'
+                        : 'Add'}
                   </button>
                 </form>
               ) : null}
@@ -999,6 +1092,13 @@ export function WorkTaskWorkspace({
                         onChange={(event) => setLegalNote(event.target.value)}
                       />
                     </label>
+                    <NoteTranslateBar
+                      value={legalNote}
+                      onChange={setLegalNote}
+                      locale={locale}
+                      max={2000}
+                      disabled={busy}
+                    />
                     <button className="button button--primary" type="submit" disabled={busy}>
                       {ar ? 'فتح قضية' : 'Open a case'}
                     </button>
