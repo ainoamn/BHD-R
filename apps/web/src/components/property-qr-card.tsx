@@ -26,14 +26,12 @@ export function PropertyQrCard({
   useEffect(() => {
     const absolute = new URL(path, window.location.origin).toString();
     let cancelled = false;
-    void import('qrcode')
-      .then((mod) =>
-        mod.toDataURL(absolute, {
-          // Higher ECC so a center logo overlay still scans reliably.
-          errorCorrectionLevel: 'H',
-          margin: 1,
+    void Promise.all([import('qrcode'), import('@/lib/qr-brand')])
+      .then(([mod, brand]) =>
+        brand.brandedQrDataUrl(mod.toString.bind(mod), absolute, {
           width: px,
-          color: { dark: '#0f172a', light: '#ffffff' },
+          dark: '#0f172a',
+          light: '#ffffff',
         }),
       )
       .then((dataUrl) => {
@@ -66,10 +64,6 @@ export function PropertyQrCard({
             aria-hidden="true"
           />
         )}
-        <span className="property-qr__badge" aria-hidden="true">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/brand/bhd-official-symbol.svg" alt="" />
-        </span>
       </div>
       <p>
         <strong>{ar ? labelAr : labelEn}</strong>

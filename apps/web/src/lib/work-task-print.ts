@@ -1,5 +1,5 @@
 import 'server-only';
-import QRCode from 'qrcode';
+import { serverBrandedQrSvg } from '@/lib/qr-branded';
 import { publicWebOrigin } from '@/lib/seo';
 import type { PortalRole } from '@/lib/types';
 
@@ -14,13 +14,11 @@ export function workTaskOpenUrl(
   return `${publicWebOrigin()}/${locale}/${portal}/tasks/${encodeURIComponent(taskId)}`;
 }
 
-/** Inline SVG QR that resolves to the live task page. */
+/** Inline SVG QR (with BHD mark) that resolves to the live task page. */
 export async function workTaskQrSvg(url: string): Promise<string> {
-  return QRCode.toString(url, {
-    type: 'svg',
-    margin: 1,
-    errorCorrectionLevel: 'M',
-    color: { dark: '#0f172a', light: '#ffffff' },
+  return serverBrandedQrSvg(url, {
     width: 160,
+    dark: '#0f172a',
+    light: '#ffffff',
   });
 }

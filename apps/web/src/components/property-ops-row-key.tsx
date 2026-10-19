@@ -27,13 +27,12 @@ export function PropertyOpsRowKey({
     const path = `/${locale}/properties/${propertyId}`;
     const absolute = new URL(path, window.location.origin).toString();
     let cancelled = false;
-    void import('qrcode')
-      .then((mod) =>
-        mod.toDataURL(absolute, {
-          errorCorrectionLevel: 'M',
-          margin: 1,
+    void Promise.all([import('qrcode'), import('@/lib/qr-brand')])
+      .then(([mod, brand]) =>
+        brand.brandedQrDataUrl(mod.toString.bind(mod), absolute, {
           width: 96,
-          color: { dark: '#0f172a', light: '#ffffff' },
+          dark: '#0f172a',
+          light: '#ffffff',
         }),
       )
       .then((dataUrl) => {

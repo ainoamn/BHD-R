@@ -41,13 +41,12 @@ function useQr(path: string): string | null {
   useEffect(() => {
     let cancelled = false;
     const absolute = new URL(path, window.location.origin).toString();
-    void import('qrcode')
-      .then((mod) =>
-        mod.toDataURL(absolute, {
-          errorCorrectionLevel: 'M',
-          margin: 1,
+    void Promise.all([import('qrcode'), import('@/lib/qr-brand')])
+      .then(([mod, brand]) =>
+        brand.brandedQrDataUrl(mod.toString.bind(mod), absolute, {
           width: 132,
-          color: { dark: '#0f172a', light: '#ffffff' },
+          dark: '#0f172a',
+          light: '#ffffff',
         }),
       )
       .then((data) => {
