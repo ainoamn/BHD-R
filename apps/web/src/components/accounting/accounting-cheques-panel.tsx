@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { AccountingFollowTask } from '@/components/accounting/accounting-follow-task';
+import {
+  fetchAccountingJson,
+  getAccountingCache,
+} from '@/lib/accounting-client-cache';
 import { accountingChequeStatusLabel } from '@/lib/accounting-i18n';
 import { browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
@@ -56,20 +60,23 @@ export function AccountingChequesPanel({
 
   useEffect(() => {
     if (!active && rows !== null) return;
+    const cached = getAccountingCache<{ cheques?: ChequeRow[]; summary?: Summary }>(
+      '/api/owner/accounting/cheques',
+    );
+    if (cached && rows === null) {
+      setRows(cached.cheques ?? []);
+      setSummary(cached.summary ?? null);
+    }
     const controller = new AbortController();
     void (async () => {
       try {
-        const response = await fetch('/api/owner/accounting/cheques', {
-          credentials: 'same-origin',
-          cache: 'no-store',
-          headers: { accept: 'application/json' },
-          signal: controller.signal,
-        });
-        if (!response.ok) throw new Error('fail');
-        const payload = (await response.json()) as {
+        const payload = await fetchAccountingJson<{
           cheques?: ChequeRow[];
           summary?: Summary;
-        };
+        }>('/api/owner/accounting/cheques', {
+          preferCache: rows !== null,
+          signal: controller.signal,
+        });
         setRows(payload.cheques ?? []);
         setSummary(payload.summary ?? null);
         setFailed(false);

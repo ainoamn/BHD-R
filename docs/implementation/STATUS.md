@@ -1,7 +1,7 @@
 # Implementation status
 
 **Updated:** 2026-10-18  
-**Product version:** 0.8.100  
+**Product version:** 0.8.101  
 **Active focus:** Accounting task followers with roles and AI note translation (0.8.92); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
 
 
@@ -18,6 +18,7 @@
 
 | Version         | Focus                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.8.101         | Accounting hub paints from cache, prioritizes dashboard fetch, warms on nav hover, and refreshes silently without blanking the UI |
 | 0.8.100         | Accounting entry modals use a two-column sectioned layout so fields no longer pack/overlap; kind-colored modal rails and clearer debit/credit lines |
 | 0.8.99          | Accounting integrity: linked/electronic posts cannot be unposted; reverse needs reason + refund confirm (optional second approver); settings tab for VAT, taxes, FX |
 | 0.8.98          | Accounting hub uses colored tab icons, tinted summary cards, and a distinct mark, row color, and amount color per transaction kind; font sizes unchanged |

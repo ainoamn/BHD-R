@@ -46,6 +46,12 @@ import {
   accountingSourceTypeLabel,
 } from '@/lib/accounting-i18n';
 import { openAccountingPrint, printAccountingDocument } from '@/lib/accounting-print';
+import {
+  fetchAccountingJson,
+  getAccountingCache,
+  invalidateAccountingCache,
+  warmAccountingHub,
+} from '@/lib/accounting-client-cache';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { LIVE_CHANGE_EVENT } from '@/lib/live-sync-shared';
@@ -221,23 +227,21 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
-async function getJson<T>(path: string): Promise<T> {
-  const response = await fetch(path, {
-    credentials: 'same-origin',
-    cache: 'no-store',
-    headers: { accept: 'application/json' },
-  });
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as {
-      error?: { messageAr?: string; message?: string; code?: string };
-    } | null;
+async function getJson<T>(path: string, preferCache = false): Promise<T> {
+  try {
+    return await fetchAccountingJson<T>(path, { preferCache });
+  } catch (error) {
     throw new ApiError(
-      response.status,
-      payload?.error?.code ?? 'request_failed',
-      payload?.error?.messageAr ?? payload?.error?.message ?? 'Request failed',
+      500,
+      'request_failed',
+      error instanceof Error ? error.message : 'Request failed',
     );
   }
-  return response.json() as Promise<T>;
+}
+
+function hydrateFromCache<T>(path: string, apply: (value: T) => void) {
+  const hit = getAccountingCache<T>(path);
+  if (hit !== null) apply(hit);
 }
 
 /**
@@ -266,11 +270,11 @@ export function AccountingHub({
       ? 'deposits'
       : 'dashboard';
   const [dash, setDash] = useState<HubDash | null>(null);
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [journals, setJournals] = useState<JournalRow[]>([]);
-  const [expenses, setExpenses] = useState<ExpenseRow[]>([]);
-  const [periods, setPeriods] = useState<PeriodRow[]>([]);
-  const [audit, setAudit] = useState<AuditRow[]>([]);
+  const [accounts, setAccounts] = useState<Account[] | null>(null);
+  const [journals, setJournals] = useState<JournalRow[] | null>(null);
+  const [expenses, setExpenses] = useState<ExpenseRow[] | null>(null);
+  const [periods, setPeriods] = useState<PeriodRow[] | null>(null);
+  const [audit, setAudit] = useState<AuditRow[] | null>(null);
   const [reportKind, setReportKind] = useState('trial');
   const [fromDate, setFromDate] = useState(`${todayIso().slice(0, 4)}-01-01`);
   const [toDate, setToDate] = useState(todayIso());
@@ -310,7 +314,7 @@ export function AccountingHub({
     }>
   >([]);
   const [ledgerTotals, setLedgerTotals] = useState({ debitMinor: '0', creditMinor: '0' });
-  const [documents, setDocuments] = useState<DocRow[]>([]);
+  const [documents, setDocuments] = useState<DocRow[] | null>(null);
   const [outlook, setOutlook] = useState<CollectionOutlook | null>(null);
   const [openJournalId, setOpenJournalId] = useState<string | null>(
     searchParams.get('open') && /^[0-9a-f-]{36}$/i.test(searchParams.get('open')!)
@@ -337,6 +341,7 @@ export function AccountingHub({
   const syncedRef = useRef(false);
   const warmedRef = useRef(false);
   const refreshGen = useRef(0);
+  const refreshAllRef = useRef<(opts?: { silent?: boolean }) => Promise<void>>(async () => undefined);
   const reportKindRef = useRef(reportKind);
   const fromDateRef = useRef(fromDate);
   const toDateRef = useRef(toDate);
@@ -370,7 +375,7 @@ export function AccountingHub({
 
   useEffect(() => {
     if (!active || !focusId) return;
-    if (tab === 'documents' && documents.length) {
+    if (tab === 'documents' && documents?.length) {
       const row = documents.find((doc) => doc.id === focusId);
       if (row?.journalId) setOpenJournalId(row.journalId);
       const timer = window.setTimeout(() => {
@@ -380,7 +385,7 @@ export function AccountingHub({
       }, 140);
       return () => window.clearTimeout(timer);
     }
-    if (tab === 'journal' && journals.length) {
+    if (tab === 'journal' && journals?.length) {
       if (/^[0-9a-f-]{36}$/i.test(focusId)) setOpenJournalId(focusId);
       const timer = window.setTimeout(() => {
         document
@@ -428,58 +433,92 @@ export function AccountingHub({
     setLedgerTotals(data.totals);
   }, []);
 
-  /** Warm every tab once, then refresh silently in the background — never on tab click. */
+  /** Paint dashboard first, warm other tabs in the background — never blank the UI. */
   const refreshAll = useCallback(
     async (opts?: { silent?: boolean }) => {
       const silent = opts?.silent ?? warmedRef.current;
       const gen = ++refreshGen.current;
-      if (!silent) setWarming(true);
+      const hadDash =
+        warmedRef.current || Boolean(getAccountingCache('/api/owner/accounting/hub'));
+      if (!silent && !hadDash) setWarming(true);
       setError(null);
+
+      hydrateFromCache<HubDash>('/api/owner/accounting/hub', setDash);
+      hydrateFromCache<CollectionOutlook>('/api/owner/accounting/cheques', setOutlook);
+      hydrateFromCache<{ documents: DocRow[] }>('/api/owner/accounting/documents', (payload) =>
+        setDocuments(payload.documents),
+      );
+      hydrateFromCache<{ journals: JournalRow[] }>('/api/owner/accounting/journals', (payload) =>
+        setJournals(payload.journals),
+      );
+      hydrateFromCache<{ accounts: Account[] }>('/api/owner/accounting/accounts', (payload) =>
+        setAccounts(payload.accounts),
+      );
+      hydrateFromCache<{ expenses: ExpenseRow[] }>('/api/owner/accounting/expenses', (payload) =>
+        setExpenses(payload.expenses),
+      );
+      hydrateFromCache<{ periods: PeriodRow[] }>('/api/owner/accounting/periods', (payload) =>
+        setPeriods(payload.periods),
+      );
+      hydrateFromCache<{ events: AuditRow[] }>('/api/owner/accounting/audit', (payload) =>
+        setAudit(payload.events),
+      );
+
       try {
-        const [hub, docs, journalBundle, expenseData, periodData, auditData, collection] =
-          await Promise.all([
-          getJson<HubDash>('/api/owner/accounting/hub'),
-          getJson<{ documents: DocRow[] }>('/api/owner/accounting/documents'),
-          Promise.all([
-            getJson<{ journals: JournalRow[] }>('/api/owner/accounting/journals'),
-            getJson<{ accounts: Account[] }>('/api/owner/accounting/accounts'),
-          ]),
-          getJson<{ expenses: ExpenseRow[] }>('/api/owner/accounting/expenses'),
-          getJson<{ periods: PeriodRow[] }>('/api/owner/accounting/periods'),
-          getJson<{ events: AuditRow[] }>('/api/owner/accounting/audit'),
-          getJson<CollectionOutlook>('/api/owner/accounting/cheques').catch(() => null),
+        const [hub, collection] = await Promise.all([
+          getJson<HubDash>('/api/owner/accounting/hub', true),
+          getJson<CollectionOutlook>('/api/owner/accounting/cheques', true).catch(() => null),
         ]);
         if (gen !== refreshGen.current) return;
         setDash(hub);
-        setDocuments(docs.documents);
-        setJournals(journalBundle[0].journals);
-        setAccounts(journalBundle[1].accounts);
-        setExpenses(expenseData.expenses);
-        setPeriods(periodData.periods);
-        setAudit(auditData.events);
-        setOutlook(collection);
-
-        if (!journalBundle[1].accounts.length && (hub.capabilities.manage || hub.capabilities.post)) {
-          try {
-            await browserNextMutation('/api/owner/accounting/accounts/bootstrap', {
-              method: 'POST',
-              body: '{}',
-            });
-            if (gen !== refreshGen.current) return;
-            const again = await getJson<{ accounts: Account[] }>('/api/owner/accounting/accounts');
-            if (gen !== refreshGen.current) return;
-            setAccounts(again.accounts);
-          } catch {
-            /* manage permission may be missing */
-          }
-        }
-
-        await Promise.all([
-          refreshReport().catch(() => undefined),
-          ledgerIdRef.current.trim() ? refreshLedgers().catch(() => undefined) : Promise.resolve(),
-        ]);
-        if (gen !== refreshGen.current) return;
+        if (collection) setOutlook(collection);
         warmedRef.current = true;
+        if (gen === refreshGen.current) setWarming(false);
+
+        const rest = Promise.all([
+          getJson<{ documents: DocRow[] }>('/api/owner/accounting/documents', true),
+          getJson<{ journals: JournalRow[] }>('/api/owner/accounting/journals', true),
+          getJson<{ accounts: Account[] }>('/api/owner/accounting/accounts', true),
+          getJson<{ expenses: ExpenseRow[] }>('/api/owner/accounting/expenses', true),
+          getJson<{ periods: PeriodRow[] }>('/api/owner/accounting/periods', true),
+          getJson<{ events: AuditRow[] }>('/api/owner/accounting/audit', true),
+        ]).then(async ([docs, journalData, accountData, expenseData, periodData, auditData]) => {
+          if (gen !== refreshGen.current) return;
+          setDocuments(docs.documents);
+          setJournals(journalData.journals);
+          setAccounts(accountData.accounts);
+          setExpenses(expenseData.expenses);
+          setPeriods(periodData.periods);
+          setAudit(auditData.events);
+
+          if (
+            !accountData.accounts.length &&
+            (hub.capabilities.manage || hub.capabilities.post)
+          ) {
+            try {
+              await browserNextMutation('/api/owner/accounting/accounts/bootstrap', {
+                method: 'POST',
+                body: '{}',
+              });
+              invalidateAccountingCache('/api/owner/accounting/accounts');
+              if (gen !== refreshGen.current) return;
+              const again = await getJson<{ accounts: Account[] }>(
+                '/api/owner/accounting/accounts',
+              );
+              if (gen !== refreshGen.current) return;
+              setAccounts(again.accounts);
+            } catch {
+              /* manage permission may be missing */
+            }
+          }
+
+          await Promise.all([
+            refreshReport().catch(() => undefined),
+            ledgerIdRef.current.trim()
+              ? refreshLedgers().catch(() => undefined)
+              : Promise.resolve(),
+          ]);
+        });
 
         if (
           !syncedRef.current &&
@@ -487,29 +526,42 @@ export function AccountingHub({
           (hub.capabilities.manage || hub.capabilities.post)
         ) {
           syncedRef.current = true;
-          await browserNextMutation('/api/owner/accounting/sync', {
-            method: 'POST',
-            body: '{}',
-          });
-          if (gen !== refreshGen.current) return;
-          await refreshDash();
+          void (async () => {
+            try {
+              await browserNextMutation('/api/owner/accounting/sync', {
+                method: 'POST',
+                body: '{}',
+              });
+              invalidateAccountingCache();
+              if (gen !== refreshGen.current) return;
+              await refreshDash();
+              void refreshAllRef.current({ silent: true });
+            } catch {
+              /* sync is best-effort in the background */
+            }
+          })();
         }
+
+        await rest.catch(() => undefined);
       } catch (err) {
         if (gen !== refreshGen.current) return;
         if (!silent || !warmedRef.current) {
           setError(err instanceof ApiError ? err.message : ar ? 'تعذر التحميل' : 'Load failed');
         }
       } finally {
-        if (gen === refreshGen.current && !silent) setWarming(false);
+        if (gen === refreshGen.current) setWarming(false);
       }
     },
     [ar, refreshDash, refreshLedgers, refreshReport],
   );
+  refreshAllRef.current = refreshAll;
 
   useEffect(() => {
     if (!active) return;
-    void refreshAll({ silent: warmedRef.current });
+    void warmAccountingHub();
+    void refreshAll({ silent: warmedRef.current || Boolean(getAccountingCache('/api/owner/accounting/hub')) });
     const onLive = () => {
+      invalidateAccountingCache();
       void refreshAll({ silent: true });
     };
     window.addEventListener(LIVE_CHANGE_EVENT, onLive);
@@ -520,7 +572,8 @@ export function AccountingHub({
       window.removeEventListener(LIVE_CHANGE_EVENT, onLive);
       window.clearInterval(timer);
     };
-  }, [active, refreshAll]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount/active only; refreshAll identity would loop
+  }, [active]);
 
   useEffect(() => {
     if (!active || !warmedRef.current) return;
@@ -537,6 +590,7 @@ export function AccountingHub({
     setError(null);
     try {
       await action();
+      invalidateAccountingCache();
       await refreshAll({ silent: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : ar ? 'تعذر الحفظ' : 'Save failed');
@@ -694,11 +748,15 @@ export function AccountingHub({
                 ))}
               </ul>
             </div>
-          ) : (
+          ) : dash ? (
             <p className="accounting-hub__muted">
               {ar
                 ? 'لا تحصيلات ظاهرة بعد — اضغط «مزامنة المدفوعات» لجلب مدفوعات الإقامة والعربون إلى القيود.'
                 : 'No collections yet — press “Sync payments” to pull stay and deposit money into journals.'}
+            </p>
+          ) : (
+            <p className="accounting-hub__muted accounting-hub__muted--soft">
+              {ar ? 'جاري تجهيز الملخص…' : 'Preparing summary…'}
             </p>
           )}
           <div className="accounting-hub__actions">
@@ -731,7 +789,11 @@ export function AccountingHub({
       </AccountingTabPanel>
 
       <AccountingTabPanel id="deposits" tab={tab}>
-        <DepositLedgerPanel portal={portal} locale={locale} active={active} />
+        <DepositLedgerPanel
+          portal={portal}
+          locale={locale}
+          active={active && tab === 'deposits'}
+        />
       </AccountingTabPanel>
 
       <AccountingTabPanel id="accounts" tab={tab}>
@@ -835,7 +897,7 @@ export function AccountingHub({
                 </tr>
               </thead>
               <tbody>
-                {accounts.map((account) => (
+                {(accounts ?? []).map((account) => (
                   <tr key={account.id}>
                     <td>{account.code}</td>
                     <td>{ar ? account.nameAr : account.nameEn}</td>
@@ -845,7 +907,11 @@ export function AccountingHub({
               </tbody>
             </table>
           </div>
-          {!accounts.length ? (
+          {accounts === null ? (
+            <p className="accounting-hub__muted accounting-hub__muted--soft">
+              {ar ? 'جاري التحميل…' : 'Loading…'}
+            </p>
+          ) : accounts.length === 0 ? (
             <p className="accounting-hub__muted">
               {ar
                 ? 'لا حسابات بعد — اضغط تهيئة الدليل الافتراضي.'
@@ -878,7 +944,13 @@ export function AccountingHub({
                 </tr>
               </thead>
               <tbody>
-                {documents.length === 0 ? (
+                {documents === null ? (
+                  <tr>
+                    <td colSpan={8}>
+                      {ar ? 'جاري التحميل…' : 'Loading…'}
+                    </td>
+                  </tr>
+                ) : documents.length === 0 ? (
                   <tr>
                     <td colSpan={8}>
                       {ar
@@ -1025,7 +1097,7 @@ export function AccountingHub({
             open={composeOpen}
             onClose={() => setComposeOpen(false)}
             locale={locale}
-            accounts={accounts}
+            accounts={accounts ?? []}
             canPost={caps.post}
             busy={busy}
             onSaved={(journalId) => {
@@ -1047,7 +1119,11 @@ export function AccountingHub({
                 </tr>
               </thead>
               <tbody>
-                {journals.length === 0 ? (
+                {journals === null ? (
+                  <tr>
+                    <td colSpan={7}>{ar ? 'جاري التحميل…' : 'Loading…'}</td>
+                  </tr>
+                ) : journals.length === 0 ? (
                   <tr>
                     <td colSpan={7}>
                       {ar
@@ -1156,7 +1232,11 @@ export function AccountingHub({
                 </tr>
               </thead>
               <tbody>
-                {expenses.length === 0 ? (
+                {expenses === null ? (
+                  <tr>
+                    <td colSpan={6}>{ar ? 'جاري التحميل…' : 'Loading…'}</td>
+                  </tr>
+                ) : expenses.length === 0 ? (
                   <tr>
                     <td colSpan={6}>
                       {ar ? 'لا مصروفات مسجّلة بعد.' : 'No expenses recorded yet.'}
@@ -1534,36 +1614,48 @@ export function AccountingHub({
                 </tr>
               </thead>
               <tbody>
-                {periods.map((period) => (
-                  <tr key={period.id}>
-                    <td>{period.from}</td>
-                    <td>{period.to}</td>
-                    <td>{period.locked ? (ar ? 'مقفلة' : 'Locked') : ar ? 'مفتوحة' : 'Open'}</td>
-                    <td>
-                      {caps.manage && period.locked ? (
-                        <button
-                          type="button"
-                          className="button button--quiet button--sm"
-                          disabled={busy}
-                          onClick={() =>
-                            void run(async () => {
-                              await browserNextMutation('/api/owner/accounting/periods', {
-                                method: 'POST',
-                                body: JSON.stringify({
-                                  from: period.from,
-                                  to: period.to,
-                                  lock: false,
-                                }),
-                              });
-                            })
-                          }
-                        >
-                          {ar ? 'فتح' : 'Unlock'}
-                        </button>
-                      ) : null}
+                {periods === null ? (
+                  <tr>
+                    <td colSpan={4}>{ar ? 'جاري التحميل…' : 'Loading…'}</td>
+                  </tr>
+                ) : periods.length === 0 ? (
+                  <tr>
+                    <td colSpan={4}>
+                      {ar ? 'لا فترات مقفلة بعد.' : 'No locked periods yet.'}
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  periods.map((period) => (
+                    <tr key={period.id}>
+                      <td>{period.from}</td>
+                      <td>{period.to}</td>
+                      <td>{period.locked ? (ar ? 'مقفلة' : 'Locked') : ar ? 'مفتوحة' : 'Open'}</td>
+                      <td>
+                        {caps.manage && period.locked ? (
+                          <button
+                            type="button"
+                            className="button button--quiet button--sm"
+                            disabled={busy}
+                            onClick={() =>
+                              void run(async () => {
+                                await browserNextMutation('/api/owner/accounting/periods', {
+                                  method: 'POST',
+                                  body: JSON.stringify({
+                                    from: period.from,
+                                    to: period.to,
+                                    lock: false,
+                                  }),
+                                });
+                              })
+                            }
+                          >
+                            {ar ? 'فتح' : 'Unlock'}
+                          </button>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -1594,16 +1686,26 @@ export function AccountingHub({
                 </tr>
               </thead>
               <tbody>
-                {audit.map((row) => (
-                  <tr key={row.id}>
-                    <td>{row.occurredAt.replace('T', ' ').slice(0, 19)}</td>
-                    <td>{row.eventType}</td>
-                    <td>
-                      {row.resourceType}:{row.resourceId.slice(0, 8)}
-                    </td>
-                    <td>{[row.fromStatus, row.toStatus].filter(Boolean).join(' → ') || '—'}</td>
+                {audit === null ? (
+                  <tr>
+                    <td colSpan={4}>{ar ? 'جاري التحميل…' : 'Loading…'}</td>
                   </tr>
-                ))}
+                ) : audit.length === 0 ? (
+                  <tr>
+                    <td colSpan={4}>{ar ? 'لا أحداث بعد.' : 'No events yet.'}</td>
+                  </tr>
+                ) : (
+                  audit.map((row) => (
+                    <tr key={row.id}>
+                      <td>{row.occurredAt.replace('T', ' ').slice(0, 19)}</td>
+                      <td>{row.eventType}</td>
+                      <td>
+                        {row.resourceType}:{row.resourceId.slice(0, 8)}
+                      </td>
+                      <td>{[row.fromStatus, row.toStatus].filter(Boolean).join(' → ') || '—'}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

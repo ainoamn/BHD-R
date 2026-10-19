@@ -7,6 +7,7 @@ import { Link, usePathname, useRouter } from '@/i18n/navigation';
 import { PortalHeader } from '@/components/portal-header';
 import { canOpenPortalPath, scopedOwnerParty } from '@/lib/portal-access';
 import { persistPortalNavCollapsed } from '@/lib/portal-nav-state';
+import { warmAccountingHub } from '@/lib/accounting-client-cache';
 import { warmOpsSection } from '@/lib/portal-ops-client-cache';
 import {
   isOperationsSection,
@@ -253,6 +254,7 @@ function PortalIntentLink({
       /* route prefetch is best-effort */
     }
     if (section) void warmOpsSection(portal, section);
+    if (href.includes('/accounting')) void warmAccountingHub();
   };
 
   return (
