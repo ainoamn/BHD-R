@@ -72,6 +72,10 @@ function linkLocked(): never {
   throw new Error('link_locked');
 }
 
+function followupOpen(): never {
+  throw new Error('followup_open');
+}
+
 function iso(value: Date | null): string | null {
   return value ? value.toISOString() : null;
 }
@@ -527,6 +531,40 @@ export async function reopenWorkTask(
     if (!source) missing();
     if (!CLOSED.has(source.status)) bad();
 
+    const reopenLinks = await tx
+      .select({ metadata: workflowEvents.metadata })
+      .from(workflowEvents)
+      .where(
+        and(
+          eq(workflowEvents.organizationId, orgId),
+          eq(workflowEvents.resourceType, 'work_task'),
+          eq(workflowEvents.resourceId, source.id),
+          eq(workflowEvents.eventType, 'task.reopen'),
+        ),
+      )
+      .orderBy(desc(workflowEvents.occurredAt))
+      .limit(40);
+    const successorIds = [
+      ...new Set(
+        reopenLinks.flatMap((row) => {
+          const meta =
+            row.metadata && typeof row.metadata === 'object'
+              ? (row.metadata as { successorId?: unknown })
+              : {};
+          return typeof meta.successorId === 'string' ? [meta.successorId] : [];
+        }),
+      ),
+    ];
+    if (successorIds.length) {
+      const successors = await tx
+        .select({ id: workTasks.id, status: workTasks.status })
+        .from(workTasks)
+        .where(
+          and(eq(workTasks.organizationId, orgId), inArray(workTasks.id, successorIds)),
+        );
+      if (successors.some((row) => !CLOSED.has(row.status))) followupOpen();
+    }
+
     const events = await tx
       .select({
         type: workflowEvents.eventType,
@@ -863,6 +901,10 @@ export async function readWorkTask(
         if (a.relation !== b.relation) return a.relation === 'previous' ? -1 : 1;
         return a.reference.localeCompare(b.reference);
       });
+    const hasOpenFollowUp = related.some(
+      (row) => row.relation === 'next' && !CLOSED.has(row.status),
+    );
+    const canCreate = hasPermission(claims, 'task.create');
 
     return {
       id: task.id,
@@ -911,7 +953,8 @@ export async function readWorkTask(
       canUpdate: hasPermission(claims, 'task.update'),
       canAssign: hasPermission(claims, 'task.assign') || hasPermission(claims, 'task.update'),
       canLegal: hasPermission(claims, 'legal.manage'),
-      canCreate: hasPermission(claims, 'task.create'),
+      canCreate,
+      canReopen: CLOSED.has(task.status) && canCreate && !hasOpenFollowUp,
     };
   });
 }

@@ -1,8 +1,8 @@
 # Implementation status
 
 **Updated:** 2026-10-19  
-**Product version:** 0.8.111  
-**Active focus:** Unit↔property task link + AI translate on tasks (0.8.111); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
+**Product version:** 0.8.112  
+**Active focus:** Block reopen while open follow-up exists (0.8.112); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
 
 
 
@@ -20,6 +20,7 @@
 
 | Version         | Focus                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.8.112         | Tasks: reopen blocked while a linked follow-up is still open; button returns after that follow-up closes |
 | 0.8.111         | Tasks: unit requires parent property; AI translate on create/replies + on-demand for recipients |
 | 0.8.110         | Task print: clearer layout + zebra conversation; all site QR codes embed BHD logo |
 | 0.8.109         | Tasks: create modal place chip (property/tenant/unit); place link locks after first set |

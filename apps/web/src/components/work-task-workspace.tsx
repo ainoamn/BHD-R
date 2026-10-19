@@ -197,9 +197,13 @@ export function WorkTaskWorkspace({
             ? ar
               ? 'اكتب سبب إعادة الفتح والشرح (خمسة أحرف على الأقل).'
               : 'Write why you are reopening (at least 5 characters).'
-            : ar
-              ? 'تعذر فتح متابعة جديدة. المهمة المغلقة تبقى كما هي.'
-              : 'Could not open a follow-up. The closed task stays closed.',
+            : code === 'followup_open'
+              ? ar
+                ? 'توجد متابعة مفتوحة مرتبطة — أغلقها أولاً ثم أعد المحاولة.'
+                : 'An open linked follow-up already exists — close it first, then try again.'
+              : ar
+                ? 'تعذر فتح متابعة جديدة. المهمة المغلقة تبقى كما هي.'
+                : 'Could not open a follow-up. The closed task stays closed.',
       );
     } finally {
       setBusy(false);
@@ -809,31 +813,66 @@ export function WorkTaskWorkspace({
               </>
             ) : closed ? (
               <div className="task-desk__reopen">
-                <p className="task-desk__muted">
-                  {ar
-                    ? 'هذه المهمة مغلقة في السجل للقراءة فقط. الإجراء الوحيد المتاح هو فتح متابعة جديدة مرتبطة بها.'
-                    : 'This task is closed and read-only. The only action is to open a linked follow-up task.'}
-                </p>
-                {detail.canCreate ? (
-                  <button
-                    type="button"
-                    className="button button--primary"
-                    disabled={busy}
-                    onClick={() => {
-                      setReopenReason('');
-                      setMessage(null);
-                      setReopenOpen(true);
-                    }}
-                  >
-                    {ar ? 'إعادة فتح كمهمة جديدة' : 'Reopen as a new task'}
-                  </button>
-                ) : (
-                  <p className="task-desk__muted">
-                    {ar
-                      ? 'ليست لديك صلاحية إنشاء متابعة جديدة.'
-                      : 'You do not have permission to create a follow-up.'}
-                  </p>
-                )}
+                {(() => {
+                  const openFollowUps = (detail.related ?? []).filter(
+                    (row) =>
+                      row.relation === 'next' &&
+                      row.status !== 'completed' &&
+                      row.status !== 'cancelled' &&
+                      row.status !== 'rejected',
+                  );
+                  const openFollowUp = openFollowUps[0] ?? null;
+                  if (openFollowUp) {
+                    return (
+                      <>
+                        <p className="task-desk__muted">
+                          {ar
+                            ? 'لا يمكن إعادة الفتح مرة أخرى بينما توجد متابعة مفتوحة مرتبطة. أغلق المتابعة أولاً.'
+                            : 'Cannot reopen again while a linked follow-up is still open. Close that follow-up first.'}
+                        </p>
+                        <Link
+                          className="button button--primary"
+                          href={`/${portal}/tasks/${encodeURIComponent(openFollowUp.id)}`}
+                          prefetch={false}
+                        >
+                          {ar
+                            ? `فتح المتابعة ${openFollowUp.reference}`
+                            : `Open follow-up ${openFollowUp.reference}`}
+                        </Link>
+                      </>
+                    );
+                  }
+                  if (detail.canReopen) {
+                    return (
+                      <>
+                        <p className="task-desk__muted">
+                          {ar
+                            ? 'هذه المهمة مغلقة في السجل للقراءة فقط. يمكنك فتح متابعة جديدة مرتبطة بها.'
+                            : 'This task is closed and read-only. You can open a linked follow-up.'}
+                        </p>
+                        <button
+                          type="button"
+                          className="button button--primary"
+                          disabled={busy}
+                          onClick={() => {
+                            setReopenReason('');
+                            setMessage(null);
+                            setReopenOpen(true);
+                          }}
+                        >
+                          {ar ? 'إعادة فتح كمهمة جديدة' : 'Reopen as a new task'}
+                        </button>
+                      </>
+                    );
+                  }
+                  return (
+                    <p className="task-desk__muted">
+                      {ar
+                        ? 'ليست لديك صلاحية إنشاء متابعة جديدة.'
+                        : 'You do not have permission to create a follow-up.'}
+                    </p>
+                  );
+                })()}
               </div>
             ) : null}
             {message ? <p className="task-desk__notice">{message}</p> : null}

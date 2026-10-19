@@ -66,4 +66,6 @@ export type WorkTaskDetail = WorkTaskSummary & {
   canAssign: boolean;
   canLegal: boolean;
   canCreate: boolean;
+  /** Closed task may reopen only when no open follow-up successor exists. */
+  canReopen: boolean;
 };
