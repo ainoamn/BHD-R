@@ -16,8 +16,12 @@ export type WorkTaskSummary = {
   category: string;
   status: string;
   priority: string;
+  startsAt: string | null;
   dueAt: string | null;
   assigneeName: string | null;
+  tags: string[];
+  checklistTotal: number;
+  checklistDone: number;
 };
 export type WorkTaskFile = { id: string; name: string };
 export type WorkTaskPlace = {
@@ -51,4 +55,5 @@ export type WorkTaskDetail = WorkTaskSummary & {
   canUpdate: boolean;
   canAssign: boolean;
   canLegal: boolean;
+  canCreate: boolean;
 };

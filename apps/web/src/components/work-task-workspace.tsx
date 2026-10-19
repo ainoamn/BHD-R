@@ -7,6 +7,7 @@ import { NoteTranslateBar } from '@/components/note-translate';
 import type { WorkTaskDetail } from '@/lib/work-task-shared';
 import type { PortalRole } from '@/lib/types';
 import {
+  taskDay,
   taskNeedsReason,
   taskPriorityLabel,
   taskStatusLabel,
@@ -28,6 +29,9 @@ const EVENT: Record<string, [string, string]> = {
   'task.roster': ['أُضيف متابع', 'Follower added'],
   'task.link': ['رُبطت المهمة', 'Task linked'],
   'task.file': ['مرفق', 'File'],
+  'task.tags': ['تحديث الوسوم', 'Tags updated'],
+  'task.dates': ['تحديث التواريخ', 'Dates updated'],
+  'task.priority': ['تحديث الأولوية', 'Priority updated'],
 };
 
 const NEXT: Record<string, Array<{ status: string; ar: string; en: string }>> = {
@@ -75,10 +79,15 @@ export function WorkTaskWorkspace({
   const [message, setMessage] = useState<string | null>(null);
   const [statusReason, setStatusReason] = useState('');
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
+  const [tagDraft, setTagDraft] = useState((initial.tags ?? []).join(', '));
+  const [subtaskDraft, setSubtaskDraft] = useState('');
+  const [startsDraft, setStartsDraft] = useState(taskDay(initial.startsAt));
+  const [dueDraft, setDueDraft] = useState(taskDay(initial.dueAt));
   const closed = detail.status === 'completed' || detail.status === 'cancelled' || detail.status === 'rejected';
   const base = `/api/portal/tasks/${encodeURIComponent(detail.id)}`;
   const steps = NEXT[detail.status] ?? [];
   const due = detail.dueAt ? detail.dueAt.slice(0, 10) : null;
+  const starts = detail.startsAt ? detail.startsAt.slice(0, 10) : null;
 
   const run = async (path: string, body: unknown, ok: string) => {
     setBusy(true);
@@ -90,6 +99,9 @@ export function WorkTaskWorkspace({
       });
       setDetail(next);
       setAssignTo(next.assigneeId ?? '');
+      setTagDraft((next.tags ?? []).join(', '));
+      setStartsDraft(taskDay(next.startsAt));
+      setDueDraft(taskDay(next.dueAt));
       setMessage(ok);
       if (path.endsWith('/reply')) {
         setReply('');
@@ -98,6 +110,7 @@ export function WorkTaskWorkspace({
       if (path.endsWith('/legal')) setLegalNote('');
       setPendingStatus(null);
       setStatusReason('');
+      setSubtaskDraft('');
     } catch (error) {
       const code = error instanceof ApiError ? error.code : '';
       if (code === 'reason_required') {
@@ -163,7 +176,11 @@ export function WorkTaskWorkspace({
       <div className="task-desk__meta">
         <div className="task-desk__meta-item">
           <span className="task-desk__meta-label">{ar ? 'المسؤول' : 'Assignee'}</span>
-          <strong>{detail.assigneeName || (ar ? '—' : '—')}</strong>
+          <strong>{detail.assigneeName || '—'}</strong>
+        </div>
+        <div className="task-desk__meta-item">
+          <span className="task-desk__meta-label">{ar ? 'البدء' : 'Start'}</span>
+          <strong>{starts || (ar ? 'بدون تاريخ' : 'No date')}</strong>
         </div>
         <div className="task-desk__meta-item">
           <span className="task-desk__meta-label">{ar ? 'الاستحقاق' : 'Due'}</span>
@@ -172,6 +189,7 @@ export function WorkTaskWorkspace({
         <div className="task-desk__meta-item">
           <span className="task-desk__meta-label">{ar ? 'الأولوية' : 'Priority'}</span>
           <strong className={`task-priority task-priority--${detail.priority}`}>
+            <i className={`task-priority-flag task-priority-flag--${detail.priority}`} aria-hidden="true" />{' '}
             {taskPriorityLabel(detail.priority, locale)}
           </strong>
         </div>
@@ -180,6 +198,28 @@ export function WorkTaskWorkspace({
           <strong>{detail.category || '—'}</strong>
         </div>
       </div>
+
+      {(detail.tags?.length || detail.canUpdate) && !closed ? (
+        <div className="task-desk__tags">
+          {detail.tags?.length ? (
+            <span className="task-board__tags">
+              {detail.tags.map((tag) => (
+                <em key={tag}>{tag}</em>
+              ))}
+            </span>
+          ) : (
+            <span className="task-desk__muted">{ar ? 'لا وسوم بعد' : 'No tags yet'}</span>
+          )}
+        </div>
+      ) : detail.tags?.length ? (
+        <div className="task-desk__tags">
+          <span className="task-board__tags">
+            {detail.tags.map((tag) => (
+              <em key={tag}>{tag}</em>
+            ))}
+          </span>
+        </div>
+      ) : null}
 
       {(detail.place.property || detail.place.unit || detail.place.party) && (
         <div className="task-desk__links">
@@ -225,14 +265,14 @@ export function WorkTaskWorkspace({
             </section>
           ) : null}
 
-          {detail.checklist.length ? (
-            <section className="task-desk__card">
-              <h2>
-                {ar ? 'القائمة' : 'Checklist'}{' '}
-                <small>
-                  {detail.checklist.filter((item) => item.done).length}/{detail.checklist.length}
-                </small>
-              </h2>
+          <section className="task-desk__card">
+            <h2>
+              {ar ? 'المهام الفرعية' : 'Subtasks'}{' '}
+              <small>
+                {detail.checklist.filter((item) => item.done).length}/{detail.checklist.length}
+              </small>
+            </h2>
+            {detail.checklist.length ? (
               <ul className="task-desk__checks">
                 {detail.checklist.map((item, index) => (
                   <li key={`${item.label}-${index}`}>
@@ -240,7 +280,7 @@ export function WorkTaskWorkspace({
                       <input
                         type="checkbox"
                         checked={item.done}
-                        disabled={busy || !detail.canUpdate}
+                        disabled={busy || !detail.canUpdate || closed}
                         onChange={(event) =>
                           void run(
                             base,
@@ -249,11 +289,118 @@ export function WorkTaskWorkspace({
                           )
                         }
                       />
-                      <span>{item.label}</span>
+                      <span className={item.done ? 'is-done' : undefined}>{item.label}</span>
                     </label>
                   </li>
                 ))}
               </ul>
+            ) : (
+              <p className="task-desk__muted">
+                {ar ? 'لا مهام فرعية بعد.' : 'No subtasks yet.'}
+              </p>
+            )}
+            {detail.canUpdate && !closed ? (
+              <form
+                className="task-desk__inline"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const label = subtaskDraft.trim();
+                  if (!label) return;
+                  void run(base, { checklistAdd: label }, ar ? 'أُضيفت مهمة فرعية' : 'Subtask added');
+                }}
+              >
+                <input
+                  value={subtaskDraft}
+                  maxLength={200}
+                  placeholder={ar ? 'أضف مهمة فرعية…' : 'Add a subtask…'}
+                  onChange={(event) => setSubtaskDraft(event.target.value)}
+                />
+                <button className="button button--quiet" type="submit" disabled={busy || !subtaskDraft.trim()}>
+                  {ar ? 'إضافة' : 'Add'}
+                </button>
+              </form>
+            ) : null}
+          </section>
+
+          {detail.canUpdate && !closed ? (
+            <section className="task-desk__card">
+              <h2>{ar ? 'التواريخ والأولوية والوسوم' : 'Dates, priority & tags'}</h2>
+              <form
+                className="task-desk__more-grid"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void run(
+                    base,
+                    {
+                      startsAt: startsDraft || null,
+                      dueAt: dueDraft || null,
+                    },
+                    ar ? 'حُفظت التواريخ' : 'Dates saved',
+                  );
+                }}
+              >
+                <label className="task-desk__stack">
+                  <span>{ar ? 'تاريخ البدء' : 'Start date'}</span>
+                  <input
+                    type="date"
+                    value={startsDraft}
+                    onChange={(event) => setStartsDraft(event.target.value)}
+                  />
+                </label>
+                <label className="task-desk__stack">
+                  <span>{ar ? 'تاريخ الاستحقاق' : 'Due date'}</span>
+                  <input
+                    type="date"
+                    value={dueDraft}
+                    onChange={(event) => setDueDraft(event.target.value)}
+                  />
+                </label>
+                <button className="button button--quiet" type="submit" disabled={busy}>
+                  {ar ? 'حفظ التواريخ' : 'Save dates'}
+                </button>
+              </form>
+              <label className="task-desk__stack">
+                <span>{ar ? 'الأولوية' : 'Priority'}</span>
+                <select
+                  value={detail.priority}
+                  disabled={busy}
+                  onChange={(event) =>
+                    void run(
+                      base,
+                      { priority: event.target.value },
+                      ar ? 'حُفظت الأولوية' : 'Priority saved',
+                    )
+                  }
+                >
+                  {(['urgent', 'high', 'normal', 'low'] as const).map((priority) => (
+                    <option key={priority} value={priority}>
+                      {taskPriorityLabel(priority, locale)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <form
+                className="task-desk__inline"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const tags = tagDraft
+                    .split(/[,،]/)
+                    .map((tag) => tag.trim())
+                    .filter(Boolean)
+                    .slice(0, 12);
+                  void run(base, { tags }, ar ? 'حُفظت الوسوم' : 'Tags saved');
+                }}
+              >
+                <input
+                  value={tagDraft}
+                  maxLength={240}
+                  placeholder={ar ? 'وسوم مفصولة بفاصلة' : 'Comma-separated tags'}
+                  onChange={(event) => setTagDraft(event.target.value)}
+                />
+                <button className="button button--quiet" type="submit" disabled={busy}>
+                  {ar ? 'حفظ الوسوم' : 'Save tags'}
+                </button>
+              </form>
             </section>
           ) : null}
 

@@ -20,10 +20,17 @@ const STATUSES = [
   'rejected',
 ] as const;
 
+const PRIORITIES = ['low', 'normal', 'high', 'urgent'] as const;
+
 const bodySchema = z
   .object({
     status: z.enum(STATUSES).optional(),
     assignedToUserId: z.string().uuid().nullable().optional(),
+    priority: z.enum(PRIORITIES).optional(),
+    startsAt: z.string().max(32).nullable().optional(),
+    dueAt: z.string().max(32).nullable().optional(),
+    tags: z.array(z.string().max(40)).max(12).optional(),
+    checklistAdd: z.string().trim().min(1).max(200).optional(),
     checklistIndex: z.number().int().min(0).max(40).optional(),
     checklistDone: z.boolean().optional(),
     note: z.string().max(2000).optional(),

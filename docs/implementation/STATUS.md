@@ -1,11 +1,8 @@
 # Implementation status
 
-**Updated:** 2026-10-18  
-**Product version:** 0.8.102  
-**Active focus:** Accounting task followers with roles and AI note translation (0.8.92); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
-
-
-
+**Updated:** 2026-10-19  
+**Product version:** 0.8.103  
+**Active focus:** ClickUp-style task create/list/board with tags, dates, subtasks (0.8.103); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
 
 
 **Release 0.6.3:** [`RELEASE-0.6.3-AR.md`](./RELEASE-0.6.3-AR.md)  
@@ -18,6 +15,7 @@
 
 | Version         | Focus                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.8.103         | Tasks: create modal, tags, start/due dates, subtasks, List + Board (kanban) views; tags stored on workflow events (no migration) |
 | 0.8.102         | Tasks: colored statuses, ClickUp-style grouped list and desk layout; status changes log who/when/from→to and require a reason to reject/close/cancel |
 | 0.8.101         | Accounting hub paints from cache, prioritizes dashboard fetch, warms on nav hover, and refreshes silently without blanking the UI |
 | 0.8.100         | Accounting entry modals use a two-column sectioned layout so fields no longer pack/overlap; kind-colored modal rails and clearer debit/credit lines |

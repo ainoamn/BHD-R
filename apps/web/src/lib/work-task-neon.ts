@@ -1,6 +1,6 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { and, asc, desc, eq, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import {
@@ -91,6 +91,58 @@ function followersFrom(metadata: unknown): WorkTaskFollower[] {
   });
 }
 
+function tagsFrom(metadata: unknown): string[] {
+  if (!metadata || typeof metadata !== 'object') return [];
+  const rows = (metadata as { tags?: unknown }).tags;
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((row) => String(row ?? '').trim().slice(0, 40))
+    .filter(Boolean)
+    .slice(0, 12);
+}
+
+function taskReference(): string {
+  const now = new Date()
+    .toISOString()
+    .replace(/[-:TZ.]/g, '')
+    .slice(0, 14);
+  return `TSK-${now}-${randomUUID().slice(0, 6).toUpperCase()}`;
+}
+
+const PRIORITIES = new Set(['low', 'normal', 'high', 'urgent']);
+
+async function latestTagsByTask(
+  tx: Parameters<Parameters<typeof withinViewerTenant>[1]>[0],
+  orgId: string,
+  taskIds: string[],
+): Promise<Map<string, string[]>> {
+  const map = new Map<string, string[]>();
+  if (!taskIds.length) return map;
+  const rows = await tx
+    .select({
+      resourceId: workflowEvents.resourceId,
+      metadata: workflowEvents.metadata,
+      at: workflowEvents.occurredAt,
+    })
+    .from(workflowEvents)
+    .where(
+      and(
+        eq(workflowEvents.organizationId, orgId),
+        eq(workflowEvents.resourceType, 'work_task'),
+        inArray(workflowEvents.resourceId, taskIds),
+        inArray(workflowEvents.eventType, ['task.tags', 'task.created']),
+      ),
+    )
+    .orderBy(desc(workflowEvents.occurredAt))
+    .limit(Math.min(taskIds.length * 4, 800));
+  for (const row of rows) {
+    if (map.has(row.resourceId)) continue;
+    const tags = tagsFrom(row.metadata);
+    if (tags.length || row.metadata) map.set(row.resourceId, tags);
+  }
+  return map;
+}
+
 export async function listWorkTasks(claims: SessionClaims): Promise<WorkTaskSummary[]> {
   if (!canRead(claims)) deny();
   const orgId = claims.organizationId!;
@@ -104,7 +156,9 @@ export async function listWorkTasks(claims: SessionClaims): Promise<WorkTaskSumm
         category: workTasks.category,
         status: workTasks.status,
         priority: workTasks.priority,
+        startsAt: workTasks.startsAt,
         dueAt: workTasks.dueAt,
+        checklist: workTasks.checklist,
         assigneeName: assignee.displayName,
       })
       .from(workTasks)
@@ -112,17 +166,127 @@ export async function listWorkTasks(claims: SessionClaims): Promise<WorkTaskSumm
       .where(eq(workTasks.organizationId, orgId))
       .orderBy(desc(workTasks.createdAt))
       .limit(200);
-    return rows.map((row) => ({
-      id: row.id,
-      reference: row.reference,
-      title: row.title,
-      category: row.category,
-      status: row.status,
-      priority: row.priority,
-      dueAt: iso(row.dueAt),
-      assigneeName: row.assigneeName,
-    }));
+    const tagsMap = await latestTagsByTask(
+      tx,
+      orgId,
+      rows.map((row) => row.id),
+    );
+    return rows.map((row) => {
+      const checklist = row.checklist ?? [];
+      return {
+        id: row.id,
+        reference: row.reference,
+        title: row.title,
+        category: row.category,
+        status: row.status,
+        priority: row.priority,
+        startsAt: iso(row.startsAt),
+        dueAt: iso(row.dueAt),
+        assigneeName: row.assigneeName,
+        tags: tagsMap.get(row.id) ?? [],
+        checklistTotal: checklist.length,
+        checklistDone: checklist.filter((item) => item.done).length,
+      };
+    });
   });
+}
+
+export async function createWorkTask(
+  claims: SessionClaims,
+  input: {
+    title: string;
+    description?: string;
+    priority?: string;
+    status?: string;
+    assignedToUserId?: string | null;
+    startsAt?: string | null;
+    dueAt?: string | null;
+    category?: string;
+    tags?: string[];
+    checklist?: string[];
+    propertyId?: string | null;
+    unitId?: string | null;
+  },
+): Promise<WorkTaskDetail> {
+  if (!canRead(claims) || !hasPermission(claims, 'task.create')) deny();
+  const title = input.title.trim().slice(0, 200);
+  if (title.length < 2) bad();
+  const priority = PRIORITIES.has(input.priority ?? '') ? input.priority! : 'normal';
+  const status =
+    input.status && STATUSES.has(input.status) && input.status !== 'completed'
+      ? input.status
+      : 'pending';
+  const tags = (input.tags ?? [])
+    .map((tag) => tag.trim().slice(0, 40))
+    .filter(Boolean)
+    .slice(0, 12);
+  const checklist = (input.checklist ?? [])
+    .map((label) => label.trim().slice(0, 200))
+    .filter(Boolean)
+    .slice(0, 40)
+    .map((label) => ({ label, done: false }));
+  const startsAt =
+    input.startsAt && /^\d{4}-\d{2}-\d{2}/.test(input.startsAt)
+      ? new Date(input.startsAt.slice(0, 10) + 'T08:00:00.000Z')
+      : null;
+  const dueAt =
+    input.dueAt && /^\d{4}-\d{2}-\d{2}/.test(input.dueAt)
+      ? new Date(input.dueAt.slice(0, 10) + 'T16:00:00.000Z')
+      : null;
+  const orgId = claims.organizationId!;
+  const createdId = await withinViewerTenant(claims, async (tx) => {
+    if (input.assignedToUserId) {
+      const [member] = await tx
+        .select({ userId: memberships.userId })
+        .from(memberships)
+        .where(
+          and(
+            eq(memberships.organizationId, orgId),
+            eq(memberships.userId, input.assignedToUserId),
+            eq(memberships.status, 'active'),
+          ),
+        )
+        .limit(1);
+      if (!member) bad();
+    }
+    const [row] = await tx
+      .insert(workTasks)
+      .values({
+        organizationId: orgId,
+        reference: taskReference(),
+        title,
+        description: input.description?.trim().slice(0, 4000) || null,
+        category: (input.category?.trim() || 'general').slice(0, 60),
+        status: status as typeof workTasks.$inferInsert.status,
+        priority: priority as 'low' | 'normal' | 'high' | 'urgent',
+        createdByUserId: claims.sub,
+        assignedToUserId: input.assignedToUserId ?? null,
+        propertyId: input.propertyId ?? null,
+        unitId: input.unitId ?? null,
+        startsAt,
+        dueAt,
+        checklist,
+      })
+      .returning({ id: workTasks.id, status: workTasks.status });
+    if (!row) bad();
+    await tx.insert(workflowEvents).values({
+      organizationId: orgId,
+      actorUserId: claims.sub,
+      resourceType: 'work_task',
+      resourceId: row.id,
+      eventType: 'task.created',
+      toStatus: row.status,
+      note: title,
+      metadata: {
+        tags,
+        followers: input.assignedToUserId
+          ? [{ userId: input.assignedToUserId, duty: 'lead' }]
+          : [],
+      },
+    });
+    return row.id;
+  });
+  return readWorkTask(claims, createdId);
 }
 
 export async function readWorkTask(
@@ -143,6 +307,7 @@ export async function readWorkTask(
         category: workTasks.category,
         status: workTasks.status,
         priority: workTasks.priority,
+        startsAt: workTasks.startsAt,
         dueAt: workTasks.dueAt,
         completedAt: workTasks.completedAt,
         checklist: workTasks.checklist,
@@ -285,6 +450,15 @@ export async function readWorkTask(
     for (const person of people) {
       if (!seen.has(person.userId)) seen.set(person.userId, person);
     }
+    const tagsEvent = [...events]
+      .reverse()
+      .find((event) => event.type === 'task.tags' || event.type === 'task.created');
+    const tags = tagsFrom(tagsEvent?.metadata);
+    const checklist = task.checklist ?? [];
+    const followers = followersFrom(created?.metadata).map((follower) => ({
+      ...follower,
+      name: seen.get(follower.userId)?.name ?? follower.name,
+    }));
 
     return {
       id: task.id,
@@ -294,12 +468,16 @@ export async function readWorkTask(
       category: task.category,
       status: task.status,
       priority: task.priority,
+      startsAt: iso(task.startsAt),
       dueAt: iso(task.dueAt),
       completedAt: iso(task.completedAt),
       assigneeId: task.assigneeId,
       assigneeName: task.assigneeName,
-      checklist: task.checklist ?? [],
-      followers: followersFrom(created?.metadata),
+      tags,
+      checklistTotal: checklist.length,
+      checklistDone: checklist.filter((item) => item.done).length,
+      checklist,
+      followers,
       files: fileList.map((file) => ({ id: file.id, name: file.name || 'file' })),
       subject,
       place,
@@ -328,6 +506,7 @@ export async function readWorkTask(
       canUpdate: hasPermission(claims, 'task.update'),
       canAssign: hasPermission(claims, 'task.assign') || hasPermission(claims, 'task.update'),
       canLegal: hasPermission(claims, 'legal.manage'),
+      canCreate: hasPermission(claims, 'task.create'),
     };
   });
 }
@@ -387,6 +566,11 @@ export async function updateWorkTask(
   input: {
     status?: string | undefined;
     assignedToUserId?: string | null | undefined;
+    priority?: string | undefined;
+    startsAt?: string | null | undefined;
+    dueAt?: string | null | undefined;
+    tags?: string[] | undefined;
+    checklistAdd?: string | undefined;
     checklistIndex?: number | undefined;
     checklistDone?: boolean | undefined;
     note?: string | undefined;
@@ -403,79 +587,160 @@ export async function updateWorkTask(
       .limit(1);
     if (!task) missing();
 
-  if (input.status) {
-    if (!hasPermission(claims, 'task.update')) deny();
-    if (!STATUSES.has(input.status) || input.status === task.status) bad();
-    const closing = !OPEN.has(input.status);
-    const needsReason =
-      input.status === 'rejected' ||
-      input.status === 'cancelled' ||
-      input.status === 'completed';
-    if (needsReason && (!note || note.length < 5)) reasonRequired();
-    await tx
-      .update(workTasks)
-      .set({
-        status: input.status as typeof task.status,
-        completedAt: closing ? new Date() : null,
-        updatedAt: new Date(),
-      })
-      .where(eq(workTasks.id, task.id));
-    await tx.insert(workflowEvents).values({
-      organizationId: orgId,
-      actorUserId: claims.sub,
-      resourceType: 'work_task',
-      resourceId: task.id,
-      eventType: 'task.status',
-      fromStatus: task.status,
-      toStatus: input.status,
-      note,
-      metadata: { reasonRequired: needsReason },
-    });
-  }
-
-  if (input.assignedToUserId !== undefined) {
-    if (!hasPermission(claims, 'task.assign') && !hasPermission(claims, 'task.update')) deny();
-    const userId = input.assignedToUserId;
-    if (userId) {
-      const [member] = await tx
-        .select({ userId: memberships.userId })
-        .from(memberships)
-        .where(
-          and(
-            eq(memberships.organizationId, orgId),
-            eq(memberships.userId, userId),
-            eq(memberships.status, 'active'),
-          ),
-        )
-        .limit(1);
-      if (!member) bad();
+    if (input.status) {
+      if (!hasPermission(claims, 'task.update')) deny();
+      if (!STATUSES.has(input.status) || input.status === task.status) bad();
+      const closing = !OPEN.has(input.status);
+      const needsReason =
+        input.status === 'rejected' ||
+        input.status === 'cancelled' ||
+        input.status === 'completed';
+      if (needsReason && (!note || note.length < 5)) reasonRequired();
+      await tx
+        .update(workTasks)
+        .set({
+          status: input.status as typeof task.status,
+          completedAt: closing ? new Date() : null,
+          updatedAt: new Date(),
+        })
+        .where(eq(workTasks.id, task.id));
+      await tx.insert(workflowEvents).values({
+        organizationId: orgId,
+        actorUserId: claims.sub,
+        resourceType: 'work_task',
+        resourceId: task.id,
+        eventType: 'task.status',
+        fromStatus: task.status,
+        toStatus: input.status,
+        note,
+        metadata: { reasonRequired: needsReason },
+      });
     }
-    await tx
-      .update(workTasks)
-      .set({ assignedToUserId: userId, updatedAt: new Date() })
-      .where(eq(workTasks.id, task.id));
-    await tx.insert(workflowEvents).values({
-      organizationId: orgId,
-      actorUserId: claims.sub,
-      resourceType: 'work_task',
-      resourceId: task.id,
-      eventType: 'task.reassigned',
-      note,
-      metadata: { assignedToUserId: userId },
-    });
-  }
 
-  if (input.checklistIndex !== undefined) {
-    if (!hasPermission(claims, 'task.update')) deny();
-    const checklist = [...(task.checklist ?? [])];
-    const item = checklist[input.checklistIndex];
-    if (!item) bad();
-    checklist[input.checklistIndex] = { ...item, done: Boolean(input.checklistDone) };
-    await tx
-      .update(workTasks)
-      .set({ checklist, updatedAt: new Date() })
-      .where(eq(workTasks.id, task.id));
-  }
+    if (input.assignedToUserId !== undefined) {
+      if (!hasPermission(claims, 'task.assign') && !hasPermission(claims, 'task.update')) deny();
+      const userId = input.assignedToUserId;
+      if (userId) {
+        const [member] = await tx
+          .select({ userId: memberships.userId })
+          .from(memberships)
+          .where(
+            and(
+              eq(memberships.organizationId, orgId),
+              eq(memberships.userId, userId),
+              eq(memberships.status, 'active'),
+            ),
+          )
+          .limit(1);
+        if (!member) bad();
+      }
+      await tx
+        .update(workTasks)
+        .set({ assignedToUserId: userId, updatedAt: new Date() })
+        .where(eq(workTasks.id, task.id));
+      await tx.insert(workflowEvents).values({
+        organizationId: orgId,
+        actorUserId: claims.sub,
+        resourceType: 'work_task',
+        resourceId: task.id,
+        eventType: 'task.reassigned',
+        note,
+        metadata: { assignedToUserId: userId },
+      });
+    }
+
+    if (input.priority !== undefined) {
+      if (!hasPermission(claims, 'task.update')) deny();
+      if (!PRIORITIES.has(input.priority)) bad();
+      await tx
+        .update(workTasks)
+        .set({
+          priority: input.priority as 'low' | 'normal' | 'high' | 'urgent',
+          updatedAt: new Date(),
+        })
+        .where(eq(workTasks.id, task.id));
+      await tx.insert(workflowEvents).values({
+        organizationId: orgId,
+        actorUserId: claims.sub,
+        resourceType: 'work_task',
+        resourceId: task.id,
+        eventType: 'task.priority',
+        note,
+        metadata: { priority: input.priority },
+      });
+    }
+
+    if (input.startsAt !== undefined || input.dueAt !== undefined) {
+      if (!hasPermission(claims, 'task.update')) deny();
+      const parseDay = (value: string | null | undefined, hour: string) => {
+        if (value === null) return null;
+        if (value === undefined) return undefined;
+        if (!/^\d{4}-\d{2}-\d{2}/.test(value)) bad();
+        return new Date(value.slice(0, 10) + `T${hour}.000Z`);
+      };
+      const startsAt = parseDay(input.startsAt, '08:00:00');
+      const dueAt = parseDay(input.dueAt, '16:00:00');
+      await tx
+        .update(workTasks)
+        .set({
+          ...(startsAt !== undefined ? { startsAt } : {}),
+          ...(dueAt !== undefined ? { dueAt } : {}),
+          updatedAt: new Date(),
+        })
+        .where(eq(workTasks.id, task.id));
+      await tx.insert(workflowEvents).values({
+        organizationId: orgId,
+        actorUserId: claims.sub,
+        resourceType: 'work_task',
+        resourceId: task.id,
+        eventType: 'task.dates',
+        note,
+        metadata: {
+          startsAt: input.startsAt ?? undefined,
+          dueAt: input.dueAt ?? undefined,
+        },
+      });
+    }
+
+    if (input.tags !== undefined) {
+      if (!hasPermission(claims, 'task.update')) deny();
+      const tags = input.tags
+        .map((tag) => tag.trim().slice(0, 40))
+        .filter(Boolean)
+        .slice(0, 12);
+      await tx.insert(workflowEvents).values({
+        organizationId: orgId,
+        actorUserId: claims.sub,
+        resourceType: 'work_task',
+        resourceId: task.id,
+        eventType: 'task.tags',
+        note,
+        metadata: { tags },
+      });
+    }
+
+    if (input.checklistAdd !== undefined) {
+      if (!hasPermission(claims, 'task.update')) deny();
+      const label = input.checklistAdd.trim().slice(0, 200);
+      if (label.length < 1) bad();
+      const checklist = [...(task.checklist ?? []), { label, done: false }].slice(0, 40);
+      await tx
+        .update(workTasks)
+        .set({ checklist, updatedAt: new Date() })
+        .where(eq(workTasks.id, task.id));
+    }
+
+    if (input.checklistIndex !== undefined) {
+      if (!hasPermission(claims, 'task.update')) deny();
+      const checklist = [...(task.checklist ?? [])];
+      const item = checklist[input.checklistIndex];
+      if (!item) bad();
+      checklist[input.checklistIndex] = { ...item, done: Boolean(input.checklistDone) };
+      await tx
+        .update(workTasks)
+        .set({ checklist, updatedAt: new Date() })
+        .where(eq(workTasks.id, task.id));
+    }
   });
 
   return readWorkTask(claims, taskId);
