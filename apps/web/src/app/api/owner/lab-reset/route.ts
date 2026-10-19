@@ -9,7 +9,8 @@ import { assertRouteRateLimit, hashRateKey } from '@/lib/route-rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 120;
+/** Keep at 60 so this route shares the existing Hobby function bucket (120 would add a 13th). */
+export const maxDuration = 60;
 
 const purgeSchema = z
   .object({

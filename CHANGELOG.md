@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.116 — 2026-10-19
+
+- **نشر:** إصلاح فشل Vercel Hobby بعد 0.8.114 — `lab-reset` كان بـ `maxDuration=120` فأنشأ دالة إضافية فوق حد الـ 12؛ أصبح 60 مع باقي المسارات.
+
 ## 0.8.115 — 2026-10-19
 
 - **العقارات:** علامات وفرز لنوع العرض — إيجار يومي، عقد طويل، وللبيع — في قائمة الإدارة وصفحة العقار.
