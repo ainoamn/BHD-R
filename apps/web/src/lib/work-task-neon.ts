@@ -143,6 +143,27 @@ async function latestTagsByTask(
   return map;
 }
 
+export async function listWorkTaskPeople(
+  claims: SessionClaims,
+): Promise<Array<{ userId: string; name: string }>> {
+  if (!canRead(claims)) deny();
+  const orgId = claims.organizationId!;
+  return withinViewerTenant(claims, async (tx) => {
+    const rows = await tx
+      .select({ userId: users.id, name: users.displayName })
+      .from(memberships)
+      .innerJoin(users, eq(users.id, memberships.userId))
+      .where(and(eq(memberships.organizationId, orgId), eq(memberships.status, 'active')))
+      .orderBy(users.displayName)
+      .limit(80);
+    const seen = new Map<string, { userId: string; name: string }>();
+    for (const row of rows) {
+      if (!seen.has(row.userId)) seen.set(row.userId, row);
+    }
+    return [...seen.values()];
+  });
+}
+
 export async function listWorkTasks(claims: SessionClaims): Promise<WorkTaskSummary[]> {
   if (!canRead(claims)) deny();
   const orgId = claims.organizationId!;

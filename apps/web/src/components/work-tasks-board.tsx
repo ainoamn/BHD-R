@@ -13,6 +13,9 @@ import {
 } from '@/lib/work-task-ui';
 
 type ViewMode = 'list' | 'board';
+type ChipPanel = 'assignee' | 'due' | 'priority' | 'tags' | 'checklist' | null;
+
+type Person = { userId: string; name: string };
 
 type Draft = {
   title: string;
@@ -23,6 +26,7 @@ type Draft = {
   startsAt: string;
   tags: string;
   checklist: string;
+  assignedToUserId: string;
 };
 
 const EMPTY_DRAFT: Draft = {
@@ -34,9 +38,10 @@ const EMPTY_DRAFT: Draft = {
   startsAt: '',
   tags: '',
   checklist: '',
+  assignedToUserId: '',
 };
 
-/** ClickUp-style list + board: status groups, create modal, priority flags. */
+/** ClickUp/Bitrix-inspired list + board with one quick-create desk. */
 export function WorkTasksBoard({
   portal,
   locale,
@@ -49,14 +54,16 @@ export function WorkTasksBoard({
   const ar = locale === 'ar';
   const router = useRouter();
   const [tasks, setTasks] = useState<WorkTaskSummary[] | null>(null);
+  const [people, setPeople] = useState<Person[]>([]);
   const [failed, setFailed] = useState(false);
   const [query, setQuery] = useState('');
   const [view, setView] = useState<ViewMode>('list');
   const [creating, setCreating] = useState(false);
+  const [chip, setChip] = useState<ChipPanel>(null);
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [canCreate, setCanCreate] = useState(true);
+  const [canCreate, setCanCreate] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -67,7 +74,14 @@ export function WorkTasksBoard({
         signal: AbortSignal.timeout(15_000),
       });
       if (!response.ok) throw new Error(String(response.status));
-      setTasks(((await response.json()) as { tasks: WorkTaskSummary[] }).tasks);
+      const body = (await response.json()) as {
+        tasks: WorkTaskSummary[];
+        people?: Person[];
+        canCreate?: boolean;
+      };
+      setTasks(body.tasks);
+      setPeople(body.people ?? []);
+      setCanCreate(Boolean(body.canCreate));
       setFailed(false);
     } catch {
       setFailed(true);
@@ -85,6 +99,24 @@ export function WorkTasksBoard({
     return () => window.removeEventListener('bhd-r-ops-refresh', onRefresh);
   }, [active, load]);
 
+  useEffect(() => {
+    if (!active || !canCreate) return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('create') === '1') {
+        setDraft({ ...EMPTY_DRAFT });
+        setChip(null);
+        setMessage(null);
+        setCreating(true);
+        params.delete('create');
+        const next = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`;
+        window.history.replaceState({}, '', next);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [active, canCreate]);
+
   const needle = query.trim().toLowerCase();
   const shown = useMemo(
     () =>
@@ -98,7 +130,7 @@ export function WorkTasksBoard({
     [needle, tasks],
   );
 
-  const groups = useMemo(() => {
+  const listGroups = useMemo(() => {
     const map = new Map<string, WorkTaskSummary[]>();
     for (const status of TASK_STATUS_ORDER) map.set(status, []);
     for (const item of shown) {
@@ -111,8 +143,6 @@ export function WorkTasksBoard({
     })).filter((group) => group.items.length > 0);
   }, [shown]);
 
-  const listGroups = groups;
-
   const boardColumns = useMemo(
     () =>
       TASK_BOARD_COLUMNS.map((status) => ({
@@ -124,14 +154,26 @@ export function WorkTasksBoard({
 
   const openCreate = (status = 'pending') => {
     setDraft({ ...EMPTY_DRAFT, status });
+    setChip(null);
     setMessage(null);
     setCreating(true);
   };
 
-  const submitCreate = async () => {
+  const assigneeName =
+    people.find((person) => person.userId === draft.assignedToUserId)?.name ?? null;
+  const checklistCount = draft.checklist
+    .split(/\n/)
+    .map((line) => line.trim())
+    .filter(Boolean).length;
+  const tagCount = draft.tags
+    .split(/[,،]/)
+    .map((tag) => tag.trim())
+    .filter(Boolean).length;
+
+  const submitCreate = async (andOpen = true) => {
     const title = draft.title.trim();
     if (title.length < 2) {
-      setMessage(ar ? 'اكتب عنوان المهمة (حرفان على الأقل).' : 'Enter a task title (at least 2 characters).');
+      setMessage(ar ? 'اكتب اسم المهمة (حرفان على الأقل).' : 'Enter a task name (at least 2 characters).');
       return;
     }
     setBusy(true);
@@ -154,6 +196,7 @@ export function WorkTasksBoard({
           description: draft.description.trim() || undefined,
           priority: draft.priority,
           status: draft.status,
+          assignedToUserId: draft.assignedToUserId || null,
           startsAt: draft.startsAt || null,
           dueAt: draft.dueAt || null,
           tags: tags.length ? tags : undefined,
@@ -163,7 +206,7 @@ export function WorkTasksBoard({
       setCreating(false);
       setDraft(EMPTY_DRAFT);
       await load();
-      router.push(`/${portal}/tasks/${encodeURIComponent(created.id)}`);
+      if (andOpen) router.push(`/${portal}/tasks/${encodeURIComponent(created.id)}`);
     } catch (error) {
       const code = error instanceof ApiError ? error.code : '';
       if (code === 'forbidden') {
@@ -177,17 +220,11 @@ export function WorkTasksBoard({
     }
   };
 
+  const toggleChip = (next: ChipPanel) => setChip((current) => (current === next ? null : next));
+
   return (
     <section className="task-board" aria-label={ar ? 'المهام' : 'Tasks'}>
-      <div className="task-board__toolbar">
-        <div>
-          <h2>{ar ? 'مساحة المهام' : 'Task space'}</h2>
-          <p>
-            {ar
-              ? 'قائمة ولوحة بنفس تسلسل الحالات — أنشئ، أرفِق، وتابع من مكان واحد.'
-              : 'List and board with the same status flow — create, attach, and follow up in one place.'}
-          </p>
-        </div>
+      <div className="task-board__toolbar task-board__toolbar--slim">
         <div className="task-board__tools">
           <div className="task-board__views" role="group" aria-label={ar ? 'طريقة العرض' : 'View mode'}>
             <button
@@ -213,8 +250,9 @@ export function WorkTasksBoard({
             aria-label={ar ? 'بحث في المهام' : 'Search tasks'}
           />
           {canCreate ? (
-            <button type="button" className="button button--primary" onClick={() => openCreate()}>
-              {ar ? '+ مهمة جديدة' : '+ New task'}
+            <button type="button" className="task-board__create" onClick={() => openCreate()}>
+              <span aria-hidden="true">+</span>
+              {ar ? 'مهمة جديدة' : 'New task'}
             </button>
           ) : null}
         </div>
@@ -230,14 +268,24 @@ export function WorkTasksBoard({
           </button>
         </p>
       ) : !shown.length && view === 'list' ? (
-        <p className="task-board__empty">
-          {needle ? (ar ? 'لا مهام مطابقة.' : 'No matching tasks.') : ar ? 'لا مهام بعد.' : 'No tasks yet.'}{' '}
+        <div className="task-board__hero-empty">
+          <h3>{needle ? (ar ? 'لا مهام مطابقة' : 'No matching tasks') : ar ? 'ابدأ أول مهمة' : 'Start your first task'}</h3>
+          <p>
+            {needle
+              ? ar
+                ? 'جرّب كلمة أخرى أو امسح البحث.'
+                : 'Try another word or clear the search.'
+              : ar
+                ? 'عنوان واضح، مسؤول، موعد، ومرفقات — بنفس أسلوب أنظمة المتابعة العالمية.'
+                : 'A clear title, owner, due date, and files — the same flow as world-class work desks.'}
+          </p>
           {canCreate && !needle ? (
-            <button type="button" className="ops-action" onClick={() => openCreate()}>
-              {ar ? 'أنشئ الأولى' : 'Create the first'}
+            <button type="button" className="task-board__create" onClick={() => openCreate()}>
+              <span aria-hidden="true">+</span>
+              {ar ? 'إنشاء مهمة' : 'Create a task'}
             </button>
           ) : null}
-        </p>
+        </div>
       ) : view === 'list' ? (
         <div className="task-board__groups">
           {listGroups.map((group) => (
@@ -247,13 +295,14 @@ export function WorkTasksBoard({
                   {taskStatusLabel(group.status, locale)}
                 </span>
                 <em>{group.items.length}</em>
-                {canCreate && TASK_BOARD_COLUMNS.includes(group.status as (typeof TASK_BOARD_COLUMNS)[number]) ? (
+                {canCreate &&
+                TASK_BOARD_COLUMNS.includes(group.status as (typeof TASK_BOARD_COLUMNS)[number]) ? (
                   <button
                     type="button"
                     className="task-board__add"
                     onClick={() => openCreate(group.status)}
                   >
-                    {ar ? '+ إضافة' : '+ Add'}
+                    {ar ? '+ إضافة هنا' : '+ Add here'}
                   </button>
                 ) : null}
               </header>
@@ -287,7 +336,7 @@ export function WorkTasksBoard({
                     className="task-board__add"
                     onClick={() => openCreate(column.status)}
                   >
-                    {ar ? '+' : '+'}
+                    +
                   </button>
                 ) : null}
               </header>
@@ -323,7 +372,7 @@ export function WorkTasksBoard({
                 ))}
                 {!column.items.length ? (
                   <li className="task-board__card-empty">
-                    {ar ? 'اسحب أو أنشئ هنا' : 'Add a task here'}
+                    {ar ? 'أضف مهمة لهذه الحالة' : 'Add a task to this status'}
                   </li>
                 ) : null}
               </ul>
@@ -333,111 +382,215 @@ export function WorkTasksBoard({
       )}
 
       {creating ? (
-        <div className="task-board__modal" role="dialog" aria-modal="true" aria-labelledby="task-create-title">
-          <div className="task-board__modal-card">
-            <header>
-              <h3 id="task-create-title">{ar ? 'مهمة جديدة' : 'New task'}</h3>
+        <div
+          className="task-quick"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="task-quick-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !busy) setCreating(false);
+          }}
+        >
+          <div className="task-quick__card" dir={ar ? 'rtl' : 'ltr'}>
+            <header className="task-quick__head">
+              <div>
+                <p className="task-quick__eyebrow" id="task-quick-title">
+                  {ar ? 'مهمة' : 'Task'}
+                </p>
+                <p className="task-quick__list">
+                  {ar ? 'مساحة العمل · ' : 'Workspace · '}
+                  {taskStatusLabel(draft.status, locale)}
+                </p>
+              </div>
               <button
                 type="button"
-                className="button button--quiet"
+                className="task-quick__close"
+                aria-label={ar ? 'إغلاق' : 'Close'}
                 disabled={busy}
                 onClick={() => setCreating(false)}
               >
-                {ar ? 'إغلاق' : 'Close'}
+                ×
               </button>
             </header>
-            <div className="task-board__modal-grid">
-              <label>
-                <span>{ar ? 'العنوان' : 'Title'}</span>
-                <input
-                  value={draft.title}
-                  autoFocus
-                  maxLength={200}
-                  onChange={(event) => setDraft((prev) => ({ ...prev, title: event.target.value }))}
-                />
-              </label>
-              <label>
-                <span>{ar ? 'الوصف' : 'Description'}</span>
-                <textarea
-                  rows={3}
-                  maxLength={4000}
-                  value={draft.description}
-                  onChange={(event) =>
-                    setDraft((prev) => ({ ...prev, description: event.target.value }))
-                  }
-                />
-              </label>
-              <label>
-                <span>{ar ? 'الحالة' : 'Status'}</span>
-                <select
-                  value={draft.status}
-                  onChange={(event) => setDraft((prev) => ({ ...prev, status: event.target.value }))}
-                >
-                  {TASK_BOARD_COLUMNS.map((status) => (
-                    <option key={status} value={status}>
-                      {taskStatusLabel(status, locale)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span>{ar ? 'الأولوية' : 'Priority'}</span>
-                <select
-                  value={draft.priority}
-                  onChange={(event) =>
-                    setDraft((prev) => ({ ...prev, priority: event.target.value }))
-                  }
-                >
-                  {(['urgent', 'high', 'normal', 'low'] as const).map((priority) => (
-                    <option key={priority} value={priority}>
-                      {taskPriorityLabel(priority, locale)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <span>{ar ? 'تاريخ البدء' : 'Start date'}</span>
-                <input
-                  type="date"
-                  value={draft.startsAt}
-                  onChange={(event) =>
-                    setDraft((prev) => ({ ...prev, startsAt: event.target.value }))
-                  }
-                />
-              </label>
-              <label>
-                <span>{ar ? 'تاريخ الاستحقاق' : 'Due date'}</span>
-                <input
-                  type="date"
-                  value={draft.dueAt}
-                  onChange={(event) => setDraft((prev) => ({ ...prev, dueAt: event.target.value }))}
-                />
-              </label>
-              <label>
-                <span>{ar ? 'الوسوم (مفصولة بفاصلة)' : 'Tags (comma separated)'}</span>
-                <input
-                  value={draft.tags}
-                  placeholder={ar ? 'صيانة، تحصيل…' : 'maintenance, collection…'}
-                  onChange={(event) => setDraft((prev) => ({ ...prev, tags: event.target.value }))}
-                />
-              </label>
-              <label>
-                <span>{ar ? 'مهام فرعية (سطر لكل بند)' : 'Subtasks (one per line)'}</span>
-                <textarea
-                  rows={3}
-                  value={draft.checklist}
-                  placeholder={ar ? 'راجع العقود\nاتصل بالمستأجر' : 'Review lease\nCall tenant'}
-                  onChange={(event) =>
-                    setDraft((prev) => ({ ...prev, checklist: event.target.value }))
-                  }
-                />
-              </label>
-            </div>
-            {message ? <p className="task-board__modal-msg">{message}</p> : null}
-            <footer>
+
+            <input
+              className="task-quick__title"
+              value={draft.title}
+              autoFocus
+              maxLength={200}
+              placeholder={ar ? 'اسم المهمة…' : 'Task name…'}
+              onChange={(event) => setDraft((prev) => ({ ...prev, title: event.target.value }))}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault();
+                  void submitCreate(true);
+                }
+              }}
+            />
+            <textarea
+              className="task-quick__desc"
+              rows={3}
+              maxLength={4000}
+              value={draft.description}
+              placeholder={ar ? 'الوصف (اختياري)…' : 'Description (optional)…'}
+              onChange={(event) =>
+                setDraft((prev) => ({ ...prev, description: event.target.value }))
+              }
+            />
+
+            <div className="task-quick__chips" role="toolbar" aria-label={ar ? 'خصائص المهمة' : 'Task details'}>
               <button
                 type="button"
-                className="button button--quiet"
+                className={chip === 'assignee' || draft.assignedToUserId ? 'is-on' : undefined}
+                onClick={() => toggleChip('assignee')}
+              >
+                <i className="task-quick__mark task-quick__mark--person" aria-hidden="true" />
+                {assigneeName || (ar ? 'المسؤول' : 'Assignee')}
+              </button>
+              <button
+                type="button"
+                className={chip === 'due' || draft.dueAt || draft.startsAt ? 'is-on' : undefined}
+                onClick={() => toggleChip('due')}
+              >
+                <i className="task-quick__mark task-quick__mark--date" aria-hidden="true" />
+                {draft.dueAt || (ar ? 'الموعد' : 'Due date')}
+              </button>
+              <button
+                type="button"
+                className={chip === 'priority' || draft.priority !== 'normal' ? 'is-on' : undefined}
+                onClick={() => toggleChip('priority')}
+              >
+                <span className={`task-priority-flag task-priority-flag--${draft.priority}`} />
+                {taskPriorityLabel(draft.priority, locale)}
+              </button>
+              <button
+                type="button"
+                className={chip === 'tags' || tagCount > 0 ? 'is-on' : undefined}
+                onClick={() => toggleChip('tags')}
+              >
+                <i className="task-quick__mark task-quick__mark--tag" aria-hidden="true" />
+                {tagCount > 0
+                  ? ar
+                    ? `${tagCount} وسم`
+                    : `${tagCount} tags`
+                  : ar
+                    ? 'الوسوم'
+                    : 'Tags'}
+              </button>
+              <button
+                type="button"
+                className={chip === 'checklist' || checklistCount > 0 ? 'is-on' : undefined}
+                onClick={() => toggleChip('checklist')}
+              >
+                <i className="task-quick__mark task-quick__mark--check" aria-hidden="true" />
+                {checklistCount > 0
+                  ? ar
+                    ? `${checklistCount} فرعية`
+                    : `${checklistCount} subtasks`
+                  : ar
+                    ? 'قائمة تحقق'
+                    : 'Checklist'}
+              </button>
+            </div>
+
+            {chip === 'assignee' ? (
+              <div className="task-quick__panel">
+                <label>
+                  <span>{ar ? 'اختر المسؤول' : 'Choose assignee'}</span>
+                  <select
+                    value={draft.assignedToUserId}
+                    onChange={(event) =>
+                      setDraft((prev) => ({ ...prev, assignedToUserId: event.target.value }))
+                    }
+                  >
+                    <option value="">{ar ? 'بدون مسؤول' : 'Unassigned'}</option>
+                    {people.map((person) => (
+                      <option key={person.userId} value={person.userId}>
+                        {person.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            ) : null}
+
+            {chip === 'due' ? (
+              <div className="task-quick__panel task-quick__panel--dates">
+                <label>
+                  <span>{ar ? 'البدء' : 'Start'}</span>
+                  <input
+                    type="date"
+                    value={draft.startsAt}
+                    onChange={(event) =>
+                      setDraft((prev) => ({ ...prev, startsAt: event.target.value }))
+                    }
+                  />
+                </label>
+                <label>
+                  <span>{ar ? 'الاستحقاق' : 'Due'}</span>
+                  <input
+                    type="date"
+                    value={draft.dueAt}
+                    onChange={(event) => setDraft((prev) => ({ ...prev, dueAt: event.target.value }))}
+                  />
+                </label>
+              </div>
+            ) : null}
+
+            {chip === 'priority' ? (
+              <div className="task-quick__panel task-quick__priorities">
+                {(['urgent', 'high', 'normal', 'low'] as const).map((priority) => (
+                  <button
+                    key={priority}
+                    type="button"
+                    className={draft.priority === priority ? 'is-active' : undefined}
+                    onClick={() => {
+                      setDraft((prev) => ({ ...prev, priority }));
+                      setChip(null);
+                    }}
+                  >
+                    <span className={`task-priority-flag task-priority-flag--${priority}`} />
+                    {taskPriorityLabel(priority, locale)}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            {chip === 'tags' ? (
+              <div className="task-quick__panel">
+                <label>
+                  <span>{ar ? 'وسوم مفصولة بفاصلة' : 'Comma-separated tags'}</span>
+                  <input
+                    value={draft.tags}
+                    placeholder={ar ? 'صيانة، تحصيل…' : 'maintenance, collection…'}
+                    onChange={(event) => setDraft((prev) => ({ ...prev, tags: event.target.value }))}
+                  />
+                </label>
+              </div>
+            ) : null}
+
+            {chip === 'checklist' ? (
+              <div className="task-quick__panel">
+                <label>
+                  <span>{ar ? 'مهمة فرعية في كل سطر' : 'One subtask per line'}</span>
+                  <textarea
+                    rows={4}
+                    value={draft.checklist}
+                    placeholder={ar ? 'راجع العقود\nاتصل بالمستأجر' : 'Review lease\nCall tenant'}
+                    onChange={(event) =>
+                      setDraft((prev) => ({ ...prev, checklist: event.target.value }))
+                    }
+                  />
+                </label>
+              </div>
+            ) : null}
+
+            {message ? <p className="task-quick__msg">{message}</p> : null}
+
+            <footer className="task-quick__foot">
+              <button
+                type="button"
+                className="task-quick__ghost"
                 disabled={busy}
                 onClick={() => setCreating(false)}
               >
@@ -445,11 +598,11 @@ export function WorkTasksBoard({
               </button>
               <button
                 type="button"
-                className="button button--primary"
+                className="task-quick__submit"
                 disabled={busy || draft.title.trim().length < 2}
-                onClick={() => void submitCreate()}
+                onClick={() => void submitCreate(true)}
               >
-                {busy ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : ar ? 'إنشاء المهمة' : 'Create task'}
+                {busy ? (ar ? 'جارٍ الإنشاء…' : 'Creating…') : ar ? 'إنشاء' : 'Create'}
               </button>
             </footer>
           </div>
@@ -468,7 +621,6 @@ function TaskRow({
   portal: PortalRole;
   locale: 'ar' | 'en';
 }) {
-  const ar = locale === 'ar';
   const start = item.startsAt?.slice(0, 10);
   const due = item.dueAt?.slice(0, 10);
   return (
@@ -498,11 +650,7 @@ function TaskRow({
           {start || due ? `${start || '—'} → ${due || '—'}` : '—'}
         </span>
         <span className="task-board__subs">
-          {item.checklistTotal > 0
-            ? `${item.checklistDone}/${item.checklistTotal}`
-            : ar
-              ? '—'
-              : '—'}
+          {item.checklistTotal > 0 ? `${item.checklistDone}/${item.checklistTotal}` : '—'}
         </span>
         <span className={`task-priority task-priority--${item.priority}`}>
           {taskPriorityLabel(item.priority, locale)}

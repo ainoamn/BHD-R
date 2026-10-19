@@ -4,7 +4,13 @@ import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { legalErrorResponse, legalJson } from '@/lib/legal-case-route';
 import { requireLiveSession } from '@/lib/next-route-guard';
 import { assertRouteRateLimit, hashRateKey } from '@/lib/route-rate-limit';
-import { createWorkTask, listSubjectTasks, listWorkTasks } from '@/lib/work-task-neon';
+import { hasPermission } from '@bhd-r/authz';
+import {
+  createWorkTask,
+  listSubjectTasks,
+  listWorkTaskPeople,
+  listWorkTasks,
+} from '@/lib/work-task-neon';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -58,7 +64,15 @@ export async function GET(request: Request) {
         }),
       });
     }
-    return legalJson({ tasks: await listWorkTasks(claims) });
+    const [tasks, people] = await Promise.all([
+      listWorkTasks(claims),
+      listWorkTaskPeople(claims),
+    ]);
+    return legalJson({
+      tasks,
+      people,
+      canCreate: hasPermission(claims, 'task.create'),
+    });
   } catch (error) {
     return legalErrorResponse(error, 'load_failed');
   }

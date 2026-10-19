@@ -146,6 +146,7 @@ export function PortalMainSlot({
               section={panel}
               locale={locale}
               active={panel === section}
+              allowCreate={false}
               listOverride={
                 <WorkTasksBoard portal={portal} locale={locale} active={panel === section} />
               }
