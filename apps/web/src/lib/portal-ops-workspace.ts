@@ -12,6 +12,8 @@ import {
   loadOpsRecordsFromDb,
 } from '@/lib/portal-ops-data';
 import { loadOpsSectionFromNeon } from '@/lib/portal-ops-sections-neon';
+import { readClaims } from '@/lib/portal-ops-data';
+import { loadAllPropertyBookings } from '@/lib/property-records-neon';
 import { loadStayIncomeRowsForViewer } from '@/lib/stay-deposit-ledger-neon';
 import { loadStayBookingOpsRows, tagLeaseBookingPurpose } from '@/lib/unified-bookings';
 import type { PortalRole } from '@/lib/types';
@@ -389,20 +391,71 @@ export async function loadOperationsWorkspacePayload(
   const locale = localeHint ?? ((await getLocale()) === 'en' ? 'en' : 'ar');
   const nestConfigured = isNestApiConfiguredForRuntime();
   if (portal !== 'tenant' && scopedOwnerParty(access)) {
-    // Organization context and Nest rows are not party-scoped, so a building owner gets only
-    // their own properties here; their bookings list comes from the scoped property records.
-    const records =
-      section === 'properties'
-        ? await withSectionBadges(section, (await loadOpsRecordsFromDb(portal, section)) ?? [])
-        : [];
+    // Building owners: properties + bookings/viewings for their buildings only (not Nest org-wide).
+    if (section === 'properties') {
+      const records = await withSectionBadges(
+        section,
+        (await loadOpsRecordsFromDb(portal, section)) ?? [],
+      );
+      return {
+        records,
+        summary: {},
+        secondary: [],
+        context: {},
+        apiOnline: true,
+        nestConfigured,
+        recordsEmpty: !records.length,
+        apiUnauthorized: false,
+        dataFromDb: true,
+        loadError: false,
+        locale,
+      };
+    }
+    if (section === 'bookings' && (portal === 'owner' || portal === 'developer')) {
+      const claims = await readClaims();
+      const packed = claims
+        ? await loadAllPropertyBookings(claims).catch(() => null)
+        : null;
+      const records = await withSectionBadges(
+        section,
+        (packed?.rows ?? []).map((row) => {
+          const kind = String(row.kind ?? '');
+          const recordKind =
+            kind === 'stay'
+              ? 'stay_booking'
+              : kind === 'viewing' || kind === 'reservation' || kind === 'hold'
+                ? kind
+                : kind || 'reservation';
+          return tagLeaseBookingPurpose({
+            ...row,
+            recordKind,
+            scheduledAt: row.fromOn ?? row.scheduledAt ?? null,
+            unitId: row.unitId ?? null,
+          });
+        }),
+      );
+      return {
+        records,
+        summary: {},
+        secondary: [],
+        context: {},
+        apiOnline: true,
+        nestConfigured,
+        recordsEmpty: !records.length,
+        apiUnauthorized: false,
+        dataFromDb: true,
+        loadError: false,
+        locale,
+      };
+    }
     return {
-      records,
+      records: [],
       summary: {},
       secondary: [],
       context: {},
       apiOnline: true,
       nestConfigured,
-      recordsEmpty: !records.length,
+      recordsEmpty: true,
       apiUnauthorized: false,
       dataFromDb: true,
       loadError: false,

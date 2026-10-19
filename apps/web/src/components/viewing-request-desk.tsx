@@ -83,8 +83,8 @@ export function ViewingRequestDesk({
       setMessage(
         action === 'schedule'
           ? ar
-            ? 'تم تحديد الموعد وإشعار العميل.'
-            : 'Schedule saved and the guest was notified.'
+            ? 'تم تحديد الموعد وإصدار بطاقة المعاينة وإشعار العميل والحارس.'
+            : 'Schedule saved; visit pass issued; guest and guard notified.'
           : action === 'reply'
             ? ar
               ? 'أُضيفت الملاحظة.'
@@ -167,6 +167,54 @@ export function ViewingRequestDesk({
         <section className="viewing-desk__notes">
           <h2>{ar ? 'الملاحظات' : 'Notes'}</h2>
           <pre className="viewing-desk__notes-body">{viewing.notes}</pre>
+        </section>
+      ) : null}
+
+      {viewing.accessUsername && viewing.accessPin ? (
+        <section className="viewing-desk__pass" aria-labelledby="viewing-pass-title">
+          <h2 id="viewing-pass-title">{ar ? 'بطاقة زيارة المعاينة' : 'Viewing visit pass'}</h2>
+          <p className="muted">
+            {ar
+              ? 'أُرسلت للعميل بالبريد مع الباركود؛ ويصل إشعار للحارس/الموظف لمسحها عند الوصول.'
+              : 'Emailed to the guest with a barcode; staff/guards are notified to scan on arrival.'}
+          </p>
+          <dl className="viewing-desk__facts">
+            <div>
+              <dt>{ar ? 'اسم المستخدم' : 'Username'}</dt>
+              <dd dir="ltr">{viewing.accessUsername}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'الرقم السري' : 'PIN'}</dt>
+              <dd dir="ltr">{viewing.accessPin}</dd>
+            </div>
+            {viewing.arrivedAt ? (
+              <div>
+                <dt>{ar ? 'وقت الوصول' : 'Arrived'}</dt>
+                <dd dir="ltr">{viewing.arrivedAt.slice(0, 16).replace('T', ' ')}</dd>
+              </div>
+            ) : null}
+            {viewing.guestDecision ? (
+              <div>
+                <dt>{ar ? 'قرار العميل' : 'Guest decision'}</dt>
+                <dd>{viewing.guestDecision}</dd>
+              </div>
+            ) : null}
+          </dl>
+          {viewing.passPath ? (
+            <p>
+              <Link href={`/${locale}${viewing.passPath}`} target="_blank" rel="noreferrer">
+                {ar ? 'فتح بطاقة العميل' : 'Open guest pass'}
+              </Link>
+              {viewing.gatePath ? (
+                <>
+                  {' · '}
+                  <Link href={`/${locale}${viewing.gatePath}`} target="_blank" rel="noreferrer">
+                    {ar ? 'بوابة المسح' : 'Scan gate'}
+                  </Link>
+                </>
+              ) : null}
+            </p>
+          ) : null}
         </section>
       ) : null}
 

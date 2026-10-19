@@ -1,3 +1,5 @@
+export type ViewingGuestDecision = 'book_rent' | 'book_sale' | 'declined';
+
 export type ViewingRequestDetail = {
   id: string;
   reference: string;
@@ -18,4 +20,31 @@ export type ViewingRequestDetail = {
   prospectEmail: string | null;
   prospectPhone: string | null;
   canManage: boolean;
+  accessUsername: string | null;
+  accessPin: string | null;
+  arrivedAt: string | null;
+  guestDecision: ViewingGuestDecision | null;
+  guestDecisionAt: string | null;
+  /** Guest QR path once scheduled (relative, locale-prefixed by caller). */
+  passPath: string | null;
+  gatePath: string | null;
+};
+
+export type ViewingGuestPass = {
+  id: string;
+  reference: string;
+  status: string;
+  scheduledAt: string | null;
+  arrivedAt: string | null;
+  accessUsername: string;
+  accessPin: string;
+  propertyNameAr: string;
+  propertyNameEn: string | null;
+  unitCode: string;
+  unitId: string;
+  propertyId: string;
+  prospectName: string;
+  guestDecision: ViewingGuestDecision | null;
+  token: string;
+  listingPurpose: 'rent' | 'sale' | 'both';
 };

@@ -253,6 +253,12 @@ export const CAPABILITY_GROUPS: readonly CapabilityGroup[] = [
         permissions: ['reservation.handover'],
       },
       {
+        id: 'viewing_checkin',
+        ar: 'مسح بطاقة المعاينة عند وصول الزائر',
+        en: 'Scan viewing pass when a visitor arrives',
+        permissions: ['viewing.checkin'],
+      },
+      {
         id: 'stay_rates',
         ar: 'الأسعار والتقويم وإعداد الإقامة اليومية',
         en: 'Rates, calendar and daily-stay setup',

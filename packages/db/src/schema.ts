@@ -1596,6 +1596,15 @@ export const viewingRequests = pgTable(
     scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
     completedAt: timestamp('completed_at', { withTimezone: true }),
     notes: text('notes'),
+    /** Guest visit username (usually the viewing reference). */
+    accessUsername: varchar('access_username', { length: 64 }),
+    /** Six-digit PIN shown to the guest and typed by the guard if the camera fails. */
+    accessPin: varchar('access_pin', { length: 12 }),
+    /** When the building guard scanned / checked the visitor in. */
+    arrivedAt: timestamp('arrived_at', { withTimezone: true }),
+    /** After the visit: book_rent | book_sale | declined. */
+    guestDecision: varchar('guest_decision', { length: 24 }),
+    guestDecisionAt: timestamp('guest_decision_at', { withTimezone: true }),
   },
   (table) => [
     uniqueIndex('viewing_requests_org_reference_unique').on(table.organizationId, table.reference),

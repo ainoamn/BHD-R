@@ -139,6 +139,10 @@ const KNOWN_CODES = new Set([
   'viewing_note_required',
   'viewing_closed',
   'viewing_action_invalid',
+  'viewing_pass_invalid',
+  'viewing_decision_locked',
+  'checkin_failed',
+  'decision_failed',
 ]);
 
 export function clientSafeErrorCode(error: unknown, fallback = 'request_failed'): string {

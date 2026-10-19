@@ -77,6 +77,8 @@ export type EmailAudience = {
   users?: ReadonlyArray<string | null | undefined>;
   /** The organization's owners, admins and property managers, plus the property's owner. */
   managersOf?: { orgId: string; propertyId?: string | null | undefined };
+  /** Active members holding any of these role keys (e.g. building_guard). */
+  rolesOf?: { orgId: string; roles: readonly string[] };
   addresses?: ReadonlyArray<EmailRecipient>;
 };
 
@@ -126,6 +128,22 @@ async function resolveAudience(tx: ElevatedTx, audience: EmailAudience): Promise
           limit ${AUDIENCE_MAX}`),
       ),
     );
+  }
+  const rolesOf = audience.rolesOf;
+  if (rolesOf && UUID.test(rolesOf.orgId) && rolesOf.roles.length) {
+    const roleList = rolesOf.roles.filter((role) => /^[a-z_]{2,40}$/.test(role));
+    if (roleList.length) {
+      found.push(
+        ...rowsOf<EmailRecipient>(
+          await tx.execute(sql`select distinct u.email, u.display_name as name
+            from memberships m join users u on u.id = m.user_id
+            where m.organization_id = ${rolesOf.orgId}::uuid and m.status = 'active'
+              and u.disabled_at is null
+              and m.role_key = any(${`{${roleList.join(',')}}`}::text[])
+            limit ${AUDIENCE_MAX}`),
+        ),
+      );
+    }
   }
   const seen = new Set<string>();
   return found.filter((person) => {

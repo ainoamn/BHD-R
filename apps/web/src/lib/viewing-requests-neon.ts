@@ -5,9 +5,14 @@ import { parties, properties, units, viewingRequests } from '@bhd-r/db';
 import { appLink, notifyByEmail } from '@/lib/email-notify';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 import type { PendingApprovalItem } from '@/lib/pending-approvals-shared';
-import type { ViewingRequestDetail } from '@/lib/viewing-requests-shared';
+import { issueViewingPassToken, openViewingPassToken, randomViewingPin } from '@/lib/viewing-pass';
+import type {
+  ViewingGuestDecision,
+  ViewingGuestPass,
+  ViewingRequestDetail,
+} from '@/lib/viewing-requests-shared';
 
-export type { ViewingRequestDetail };
+export type { ViewingRequestDetail, ViewingGuestPass };
 
 function iso(value: Date | string | null | undefined): string | null {
   if (!value) return null;
@@ -16,6 +21,76 @@ function iso(value: Date | string | null | undefined): string | null {
 
 function fail(code: string): never {
   throw new Error(code);
+}
+
+function mapDetail(
+  row: {
+    id: string;
+    reference: string;
+    status: string;
+    channel: string;
+    notes: string | null;
+    preferredAt: Date | null;
+    scheduledAt: Date | null;
+    completedAt: Date | null;
+    createdAt: Date;
+    unitId: string;
+    unitCode: string;
+    propertyId: string;
+    propertyNameAr: string;
+    propertyNameEn: string | null;
+    prospectPartyId: string;
+    prospectName: string;
+    prospectEmail: string | null;
+    prospectPhone: string | null;
+    accessUsername: string | null;
+    accessPin: string | null;
+    arrivedAt: Date | null;
+    guestDecision: string | null;
+    guestDecisionAt: Date | null;
+  },
+  canManage: boolean,
+): ViewingRequestDetail {
+  let token: string | null = null;
+  if (row.accessUsername && row.accessPin && row.scheduledAt) {
+    try {
+      const until = Math.max(
+        row.scheduledAt.getTime() + 36 * 60 * 60 * 1000,
+        Date.now() + 7 * 24 * 60 * 60 * 1000,
+      );
+      token = issueViewingPassToken(row.id, new Date(until));
+    } catch {
+      token = null;
+    }
+  }
+  return {
+    id: row.id,
+    reference: row.reference,
+    status: row.status,
+    channel: row.channel,
+    notes: row.notes,
+    preferredAt: iso(row.preferredAt),
+    scheduledAt: iso(row.scheduledAt),
+    completedAt: iso(row.completedAt),
+    createdAt: iso(row.createdAt) ?? '',
+    unitId: row.unitId,
+    unitCode: row.unitCode,
+    propertyId: row.propertyId,
+    propertyNameAr: row.propertyNameAr,
+    propertyNameEn: row.propertyNameEn,
+    prospectPartyId: row.prospectPartyId,
+    prospectName: row.prospectName,
+    prospectEmail: row.prospectEmail,
+    prospectPhone: row.prospectPhone,
+    canManage,
+    accessUsername: row.accessUsername,
+    accessPin: row.accessPin,
+    arrivedAt: iso(row.arrivedAt),
+    guestDecision: (row.guestDecision as ViewingGuestDecision | null) ?? null,
+    guestDecisionAt: iso(row.guestDecisionAt),
+    passPath: token ? `/viewing-pass?t=${encodeURIComponent(token)}` : null,
+    gatePath: token ? `/viewing-gate?t=${encodeURIComponent(token)}` : null,
+  };
 }
 
 /** Email the property's managers when a guest submits a viewing request. */
@@ -152,7 +227,11 @@ export async function loadViewingRequestForStaff(
         prospectName: parties.displayName,
         prospectEmail: parties.email,
         prospectPhone: parties.phone,
-        ownerPartyId: properties.ownerPartyId,
+        accessUsername: viewingRequests.accessUsername,
+        accessPin: viewingRequests.accessPin,
+        arrivedAt: viewingRequests.arrivedAt,
+        guestDecision: viewingRequests.guestDecision,
+        guestDecisionAt: viewingRequests.guestDecisionAt,
       })
       .from(viewingRequests)
       .innerJoin(units, eq(units.id, viewingRequests.unitId))
@@ -168,27 +247,7 @@ export async function loadViewingRequestForStaff(
       .limit(1);
     const row = rows[0];
     if (!row) return null;
-    return {
-      id: row.id,
-      reference: row.reference,
-      status: row.status,
-      channel: row.channel,
-      notes: row.notes,
-      preferredAt: iso(row.preferredAt),
-      scheduledAt: iso(row.scheduledAt),
-      completedAt: iso(row.completedAt),
-      createdAt: iso(row.createdAt) ?? '',
-      unitId: row.unitId,
-      unitCode: row.unitCode,
-      propertyId: row.propertyId,
-      propertyNameAr: row.propertyNameAr,
-      propertyNameEn: row.propertyNameEn,
-      prospectPartyId: row.prospectPartyId,
-      prospectName: row.prospectName,
-      prospectEmail: row.prospectEmail,
-      prospectPhone: row.prospectPhone,
-      canManage: hasPermission(claims, 'viewing.manage'),
-    };
+    return mapDetail(row, hasPermission(claims, 'viewing.manage'));
   });
 }
 
@@ -228,6 +287,20 @@ export async function respondToViewingRequest(
             ? 'no_show'
             : null;
 
+  let issuedPass: {
+    username: string;
+    pin: string;
+    token: string;
+    when: string;
+    propertyId: string;
+    propertyNameAr: string;
+    unitCode: string;
+    prospectName: string;
+    prospectPartyId: string;
+    organizationId: string;
+    reference: string;
+  } | null = null;
+
   await withinViewerTenant(claims, async (tx) => {
     const ownerPartyId = ownerPartyScope(claims);
     const current = await tx
@@ -238,13 +311,18 @@ export async function respondToViewingRequest(
         prospectPartyId: viewingRequests.prospectPartyId,
         reference: viewingRequests.reference,
         unitId: viewingRequests.unitId,
+        propertyId: properties.id,
         propertyNameAr: properties.nameAr,
         unitCode: units.code,
         organizationId: viewingRequests.organizationId,
+        prospectName: parties.displayName,
+        accessUsername: viewingRequests.accessUsername,
+        accessPin: viewingRequests.accessPin,
       })
       .from(viewingRequests)
       .innerJoin(units, eq(units.id, viewingRequests.unitId))
       .innerJoin(properties, eq(properties.id, units.propertyId))
+      .innerJoin(parties, eq(parties.id, viewingRequests.prospectPartyId))
       .where(
         and(
           eq(viewingRequests.id, viewingId),
@@ -273,12 +351,25 @@ export async function respondToViewingRequest(
         : note
       : row.notes;
 
+    const username = row.accessUsername ?? row.reference;
+    const pin = row.accessPin ?? randomViewingPin();
+    const passExpires = scheduledAt
+      ? new Date(scheduledAt.getTime() + 36 * 60 * 60 * 1000)
+      : null;
+    const token =
+      input.action === 'schedule' && scheduledAt && passExpires
+        ? issueViewingPassToken(viewingId, passExpires)
+        : null;
+
     await tx
       .update(viewingRequests)
       .set({
         status: nextStatus as typeof row.status,
         ...(scheduledAt ? { scheduledAt } : {}),
         ...(mergedNotes !== row.notes ? { notes: mergedNotes } : {}),
+        ...(input.action === 'schedule'
+          ? { accessUsername: username, accessPin: pin }
+          : {}),
         ...(nextStatus === 'completed' || nextStatus === 'cancelled' || nextStatus === 'no_show'
           ? { completedAt: new Date() }
           : {}),
@@ -286,32 +377,76 @@ export async function respondToViewingRequest(
       })
       .where(eq(viewingRequests.id, viewingId));
 
-    if (input.action === 'schedule' && scheduledAt) {
-      const when = scheduledAt.toISOString();
-      void notifyByEmail({
-        orgId: row.organizationId,
-        aggregateType: 'viewing_request',
-        aggregateId: viewingId,
-        audience: { parties: [row.prospectPartyId] },
-        dedupeKey: `viewing-scheduled:${viewingId}:${when}`,
-        content: () => ({
-          tone: 'booking',
-          subject: `موعد المعاينة — ${row.reference}`,
-          title: 'تم تحديد موعد المعاينة',
-          intro: `حدّد المالك موعد معاينة للوحدة ${row.unitCode} في ${row.propertyNameAr}.`,
-          details: [
-            { label: 'المرجع', value: row.reference },
-            { label: 'الموعد', value: when },
-            ...(note ? [{ label: 'ملاحظة', value: note }] : []),
-          ],
-          cta: {
-            label: 'تفاصيل الوحدة',
-            url: appLink(`/ar/units/${row.unitId}`),
-          },
-        }),
-      }).catch(() => undefined);
+    if (input.action === 'schedule' && scheduledAt && token) {
+      issuedPass = {
+        username,
+        pin,
+        token,
+        when: scheduledAt.toISOString(),
+        propertyId: row.propertyId,
+        propertyNameAr: row.propertyNameAr,
+        unitCode: row.unitCode,
+        prospectName: row.prospectName,
+        prospectPartyId: row.prospectPartyId,
+        organizationId: row.organizationId,
+        reference: row.reference,
+      };
     }
   });
+
+  if (issuedPass) {
+    const pass = issuedPass;
+    const passUrl = appLink(`/ar/viewing-pass?t=${encodeURIComponent(pass.token)}`);
+    const gateUrl = appLink(`/ar/viewing-gate?t=${encodeURIComponent(pass.token)}`);
+    const whenLabel = pass.when.slice(0, 16).replace('T', ' ');
+
+    void notifyByEmail({
+      orgId: pass.organizationId,
+      aggregateType: 'viewing_request',
+      aggregateId: viewingId,
+      audience: { parties: [pass.prospectPartyId] },
+      dedupeKey: `viewing-scheduled:${viewingId}:${pass.when}`,
+      content: () => ({
+        tone: 'booking',
+        subject: `موافقة المعاينة — ${pass.reference}`,
+        title: 'تمت الموافقة على موعد المعاينة',
+        intro: `وافق المالك على معاينة الوحدة ${pass.unitCode} في ${pass.propertyNameAr}. احفظ بطاقة الزيارة وبيانات الدخول أدناه واعرضها عند الوصول.`,
+        details: [
+          { label: 'المرجع', value: pass.reference },
+          { label: 'الموعد', value: whenLabel },
+          { label: 'اسم المستخدم', value: pass.username },
+          { label: 'الرقم السري', value: pass.pin },
+          ...(note ? [{ label: 'ملاحظة', value: note }] : []),
+        ],
+        cta: { label: 'بطاقة المعاينة والباركود', url: passUrl },
+      }),
+    }).catch(() => undefined);
+
+    void notifyByEmail({
+      orgId: pass.organizationId,
+      aggregateType: 'viewing_request',
+      aggregateId: viewingId,
+      audience: {
+        managersOf: { orgId: pass.organizationId, propertyId: pass.propertyId },
+        rolesOf: { orgId: pass.organizationId, roles: ['building_guard'] },
+      },
+      dedupeKey: `viewing-guard:${viewingId}:${pass.when}`,
+      content: () => ({
+        tone: 'booking',
+        subject: `زيارة معاينة قادمة — ${pass.reference}`,
+        title: 'عميل سيزور المبنى للمعاينة',
+        intro: `${pass.prospectName} سيزور الوحدة ${pass.unitCode} في ${pass.propertyNameAr}. عند وصوله امسح باركود بطاقة المعاينة لتوثيق الحضور.`,
+        details: [
+          { label: 'المرجع', value: pass.reference },
+          { label: 'الزائر', value: pass.prospectName },
+          { label: 'الموعد', value: whenLabel },
+          { label: 'اسم المستخدم', value: pass.username },
+          { label: 'الرقم السري', value: pass.pin },
+        ],
+        cta: { label: 'مسح بطاقة المعاينة', url: gateUrl },
+      }),
+    }).catch(() => undefined);
+  }
 
   const detail = await loadViewingRequestForStaff(claims, viewingId);
   if (!detail) fail('not_found');
@@ -363,4 +498,190 @@ export async function viewingRequestApprovalItems(
       requestedAt: iso(row.requestedAt) ?? '',
     }));
   });
+}
+
+/** Public guest pass from a sealed QR token (no login). */
+export async function loadViewingGuestPass(token: string): Promise<ViewingGuestPass | null> {
+  const viewingId = openViewingPassToken(token);
+  if (!viewingId) return null;
+  const { elevatedTx } = await import('@/lib/elevated-db');
+  return elevatedTx(async (tx) => {
+    const rows = await tx
+      .select({
+        id: viewingRequests.id,
+        reference: viewingRequests.reference,
+        status: viewingRequests.status,
+        scheduledAt: viewingRequests.scheduledAt,
+        arrivedAt: viewingRequests.arrivedAt,
+        accessUsername: viewingRequests.accessUsername,
+        accessPin: viewingRequests.accessPin,
+        propertyNameAr: properties.nameAr,
+        propertyNameEn: properties.nameEn,
+        unitCode: units.code,
+        unitId: units.id,
+        propertyId: properties.id,
+        prospectName: parties.displayName,
+        guestDecision: viewingRequests.guestDecision,
+        listingPurpose: units.listingPurpose,
+      })
+      .from(viewingRequests)
+      .innerJoin(units, eq(units.id, viewingRequests.unitId))
+      .innerJoin(properties, eq(properties.id, units.propertyId))
+      .innerJoin(parties, eq(parties.id, viewingRequests.prospectPartyId))
+      .where(eq(viewingRequests.id, viewingId))
+      .limit(1);
+    const row = rows[0];
+    if (!row?.accessUsername || !row.accessPin) return null;
+    if (row.status !== 'scheduled' && row.status !== 'completed') return null;
+    const purpose =
+      row.listingPurpose === 'sale' || row.listingPurpose === 'both' || row.listingPurpose === 'rent'
+        ? row.listingPurpose
+        : 'rent';
+    return {
+      id: row.id,
+      reference: row.reference,
+      status: row.status,
+      scheduledAt: iso(row.scheduledAt),
+      arrivedAt: iso(row.arrivedAt),
+      accessUsername: row.accessUsername,
+      accessPin: row.accessPin,
+      propertyNameAr: row.propertyNameAr,
+      propertyNameEn: row.propertyNameEn,
+      unitCode: row.unitCode,
+      unitId: row.unitId,
+      propertyId: row.propertyId,
+      prospectName: row.prospectName,
+      guestDecision: (row.guestDecision as ViewingGuestDecision | null) ?? null,
+      token,
+      listingPurpose: purpose,
+    };
+  });
+}
+
+/** Staff/guard check-in: scan token or type username+PIN → mark arrived. */
+export async function checkInViewingVisit(
+  claims: SessionClaims,
+  input: { token?: string | null; username?: string | null; pin?: string | null },
+): Promise<{
+  ok: true;
+  alreadyArrived: boolean;
+  arrivedAt: string;
+  reference: string;
+  prospectName: string;
+  unitCode: string;
+  propertyNameAr: string;
+  scheduledAt: string | null;
+}> {
+  if (!hasPermission(claims, 'viewing.checkin')) fail('forbidden');
+  if (!claims.organizationId) fail('forbidden');
+
+  let viewingId: string | null = null;
+  if (input.token) {
+    viewingId = openViewingPassToken(input.token);
+    if (!viewingId) fail('viewing_pass_invalid');
+  }
+
+  const ownerPartyId = ownerPartyScope(claims);
+  return withinViewerTenant(claims, async (tx) => {
+    const rows = await tx
+      .select({
+        id: viewingRequests.id,
+        reference: viewingRequests.reference,
+        status: viewingRequests.status,
+        scheduledAt: viewingRequests.scheduledAt,
+        arrivedAt: viewingRequests.arrivedAt,
+        accessUsername: viewingRequests.accessUsername,
+        accessPin: viewingRequests.accessPin,
+        prospectName: parties.displayName,
+        unitCode: units.code,
+        propertyNameAr: properties.nameAr,
+      })
+      .from(viewingRequests)
+      .innerJoin(units, eq(units.id, viewingRequests.unitId))
+      .innerJoin(properties, eq(properties.id, units.propertyId))
+      .innerJoin(parties, eq(parties.id, viewingRequests.prospectPartyId))
+      .where(
+        and(
+          eq(viewingRequests.organizationId, claims.organizationId!),
+          ...(viewingId
+            ? [eq(viewingRequests.id, viewingId)]
+            : [
+                eq(viewingRequests.accessUsername, (input.username ?? '').trim()),
+                eq(viewingRequests.accessPin, (input.pin ?? '').trim()),
+              ]),
+          ...(ownerPartyId ? [eq(properties.ownerPartyId, ownerPartyId)] : []),
+        ),
+      )
+      .limit(1);
+    const row = rows[0];
+    if (!row) fail('not_found');
+    if (row.status !== 'scheduled' && row.status !== 'completed') fail('viewing_closed');
+    if (row.arrivedAt) {
+      return {
+        ok: true as const,
+        alreadyArrived: true,
+        arrivedAt: iso(row.arrivedAt)!,
+        reference: row.reference,
+        prospectName: row.prospectName,
+        unitCode: row.unitCode,
+        propertyNameAr: row.propertyNameAr,
+        scheduledAt: iso(row.scheduledAt),
+      };
+    }
+    const now = new Date();
+    await tx
+      .update(viewingRequests)
+      .set({ arrivedAt: now, updatedAt: now })
+      .where(eq(viewingRequests.id, row.id));
+    return {
+      ok: true as const,
+      alreadyArrived: false,
+      arrivedAt: now.toISOString(),
+      reference: row.reference,
+      prospectName: row.prospectName,
+      unitCode: row.unitCode,
+      propertyNameAr: row.propertyNameAr,
+      scheduledAt: iso(row.scheduledAt),
+    };
+  });
+}
+
+/** Guest records post-visit decision (book rent/sale or decline). */
+export async function recordViewingGuestDecision(
+  token: string,
+  decision: ViewingGuestDecision,
+): Promise<ViewingGuestPass> {
+  const viewingId = openViewingPassToken(token);
+  if (!viewingId) fail('viewing_pass_invalid');
+  const { elevatedTx } = await import('@/lib/elevated-db');
+  await elevatedTx(async (tx) => {
+    const rows = await tx
+      .select({
+        id: viewingRequests.id,
+        status: viewingRequests.status,
+        guestDecision: viewingRequests.guestDecision,
+        arrivedAt: viewingRequests.arrivedAt,
+        scheduledAt: viewingRequests.scheduledAt,
+      })
+      .from(viewingRequests)
+      .where(eq(viewingRequests.id, viewingId))
+      .limit(1);
+    const row = rows[0];
+    if (!row) fail('not_found');
+    if (row.status !== 'scheduled' && row.status !== 'completed') fail('viewing_closed');
+    if (row.guestDecision) fail('viewing_decision_locked');
+    const now = new Date();
+    await tx
+      .update(viewingRequests)
+      .set({
+        guestDecision: decision,
+        guestDecisionAt: now,
+        ...(row.status === 'scheduled' ? { status: 'completed', completedAt: now } : {}),
+        updatedAt: now,
+      })
+      .where(eq(viewingRequests.id, viewingId));
+  });
+  const pass = await loadViewingGuestPass(token);
+  if (!pass) fail('not_found');
+  return pass;
 }
