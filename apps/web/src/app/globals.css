@@ -27326,6 +27326,56 @@ button.handover-shots__item {
 .task-desk__tags {
   margin-top: -0.15rem;
 }
+.task-desk__chain-link {
+  font-weight: 700;
+  color: #0f766e !important;
+}
+.task-desk__chain {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+.task-desk__chain a {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.2rem 0.65rem;
+  align-items: center;
+  text-decoration: none;
+  color: inherit;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.task-desk__chain a:hover {
+  border-color: color-mix(in srgb, var(--bhd-teal) 40%, #cbd5e1);
+  background: color-mix(in srgb, var(--bhd-teal) 8%, #fff);
+}
+.task-desk__chain strong {
+  grid-row: 1 / 3;
+  font-size: 0.78rem;
+  color: #0f766e;
+}
+.task-desk__chain span {
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+.task-desk__chain em {
+  grid-row: 1 / 3;
+  justify-self: end;
+}
+.task-desk__chain small {
+  color: #64748b;
+  font-size: 0.72rem;
+}
+.task-desk__reopen {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: start;
+}
 .task-desk__inline {
   display: flex;
   gap: 0.45rem;

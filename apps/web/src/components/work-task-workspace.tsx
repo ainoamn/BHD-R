@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Link } from '@/i18n/navigation';
+import { Link, useRouter } from '@/i18n/navigation';
 import { browserNextMutation, ApiError } from '@/lib/api';
 import { NoteTranslateBar } from '@/components/note-translate';
 import type { WorkTaskDetail } from '@/lib/work-task-shared';
@@ -32,6 +32,7 @@ const EVENT: Record<string, [string, string]> = {
   'task.tags': ['تحديث الوسوم', 'Tags updated'],
   'task.dates': ['تحديث التواريخ', 'Dates updated'],
   'task.priority': ['تحديث الأولوية', 'Priority updated'],
+  'task.reopen': ['إعادة فتح / متابعة', 'Reopened / follow-up'],
 };
 
 const NEXT: Record<string, Array<{ status: string; ar: string; en: string }>> = {
@@ -65,6 +66,7 @@ export function WorkTaskWorkspace({
   portal: PortalRole;
 }) {
   const ar = locale === 'ar';
+  const router = useRouter();
   const [detail, setDetail] = useState(initial);
   const [reply, setReply] = useState('');
   const [replyFiles, setReplyFiles] = useState<Array<{ name: string; data: string }>>([]);
@@ -156,6 +158,32 @@ export function WorkTaskWorkspace({
     );
   };
 
+  const reopenAsNew = async () => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const next = await browserNextMutation<WorkTaskDetail>(`${base}/reopen`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      });
+      setMessage(ar ? `فُتحت متابعة ${next.reference}` : `Opened follow-up ${next.reference}`);
+      router.push(`/${portal}/tasks/${encodeURIComponent(next.id)}`);
+    } catch (error) {
+      const code = error instanceof ApiError ? error.code : '';
+      setMessage(
+        code === 'forbidden'
+          ? ar
+            ? 'ليست لديك صلاحية إنشاء مهمة جديدة.'
+            : 'You do not have permission to create a new task.'
+          : ar
+            ? 'تعذر فتح متابعة جديدة. المهمة المغلقة تبقى كما هي.'
+            : 'Could not open a follow-up. The closed task stays closed.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <article className="task-desk" dir={ar ? 'rtl' : 'ltr'} data-status={detail.status}>
       <header className="task-desk__top">
@@ -221,7 +249,7 @@ export function WorkTaskWorkspace({
         </div>
       ) : null}
 
-      {(detail.place.property || detail.place.unit || detail.place.party) && (
+      {(detail.place.property || detail.place.unit || detail.place.party || detail.related?.length) && (
         <div className="task-desk__links">
           {detail.place.property ? (
             <Link href={`/${portal}/properties/${encodeURIComponent(detail.place.property.id)}`}>
@@ -233,9 +261,25 @@ export function WorkTaskWorkspace({
           ) : null}
           {detail.place.party ? (
             <Link href={`/${portal}/contacts/${encodeURIComponent(detail.place.party.id)}`}>
-              {ar ? `الطرف: ${detail.place.party.label}` : `Party: ${detail.place.party.label}`}
+              {ar ? `المستأجر / الطرف: ${detail.place.party.label}` : `Tenant / party: ${detail.place.party.label}`}
             </Link>
           ) : null}
+          {(detail.related ?? []).map((row) => (
+            <Link
+              key={row.id}
+              href={`/${portal}/tasks/${encodeURIComponent(row.id)}`}
+              className="task-desk__chain-link"
+              prefetch={false}
+            >
+              {row.relation === 'previous'
+                ? ar
+                  ? `المهمة السابقة: ${row.reference}`
+                  : `Previous: ${row.reference}`
+                : ar
+                  ? `المتابعة: ${row.reference}`
+                  : `Follow-up: ${row.reference}`}
+            </Link>
+          ))}
         </div>
       )}
 
@@ -453,6 +497,93 @@ export function WorkTaskWorkspace({
             </section>
           ) : null}
 
+          {(detail.related ?? []).length ? (
+            <section className="task-desk__card">
+              <h2>{ar ? 'سلسلة المتابعة' : 'Follow-up chain'}</h2>
+              <ul className="task-desk__chain">
+                {(detail.related ?? []).map((row) => (
+                  <li key={row.id}>
+                    <Link href={`/${portal}/tasks/${encodeURIComponent(row.id)}`} prefetch={false}>
+                      <strong dir="ltr">{row.reference}</strong>
+                      <span>{row.title}</span>
+                      <em className={`task-status task-status--sm task-status--${row.status}`}>
+                        {taskStatusLabel(row.status, locale)}
+                      </em>
+                      <small>
+                        {row.relation === 'previous'
+                          ? ar
+                            ? 'مهمة سابقة'
+                            : 'Previous task'
+                          : ar
+                            ? 'مهمة متابعة'
+                            : 'Follow-up task'}
+                      </small>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          <section className="task-desk__card">
+            <h2>{ar ? 'ربط بعقار / مستأجر / وحدة' : 'Link to building / tenant / unit'}</h2>
+            <form
+              className="task-desk__stack"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!subjectId) return;
+                void run(
+                  `${base}/link`,
+                  { kind: subjectKind, id: subjectId },
+                  ar ? 'رُبطت المهمة' : 'Task linked',
+                );
+              }}
+            >
+              <label>
+                <span>{ar ? 'النوع' : 'Type'}</span>
+                <select
+                  value={subjectKind}
+                  disabled={busy || !detail.canUpdate}
+                  onChange={(event) => {
+                    setSubjectKind(event.target.value as typeof subjectKind);
+                    setSubjectId('');
+                  }}
+                >
+                  <option value="party">{ar ? 'مستأجر / شخص' : 'Tenant / person'}</option>
+                  <option value="property">{ar ? 'مبنى' : 'Building'}</option>
+                  <option value="unit">{ar ? 'وحدة' : 'Unit'}</option>
+                </select>
+              </label>
+              <label>
+                <span>{ar ? 'الاسم' : 'Name'}</span>
+                <select
+                  value={subjectId}
+                  disabled={busy || !detail.canUpdate}
+                  onChange={(event) => setSubjectId(event.target.value)}
+                >
+                  <option value="">{ar ? 'اختر' : 'Choose'}</option>
+                  {(subjectKind === 'party'
+                    ? detail.parties
+                    : subjectKind === 'property'
+                      ? detail.properties
+                      : detail.units
+                  ).map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                className="button button--quiet"
+                type="submit"
+                disabled={busy || !subjectId || !detail.canUpdate}
+              >
+                {ar ? 'حفظ الربط' : 'Save link'}
+              </button>
+            </form>
+          </section>
+
           <section className="task-desk__card task-desk__card--actions">
             <h2>{ar ? 'تغيير الحالة' : 'Change status'}</h2>
             {detail.canUpdate && !closed ? (
@@ -530,17 +661,35 @@ export function WorkTaskWorkspace({
                 ) : null}
               </>
             ) : (
-              <p className="task-desk__muted">
-                {ar
-                  ? 'هذه المهمة مغلقة. يمكنك قراءة النشاط والردود.'
-                  : 'This task is closed. Activity and replies stay readable.'}
-              </p>
+              <div className="task-desk__reopen">
+                <p className="task-desk__muted">
+                  {ar
+                    ? 'هذه المهمة مغلقة وتبقى في السجل. إعادة الفتح تنشئ مهمة جديدة برقم جديد مرتبطة بهذه المهمة.'
+                    : 'This task stays closed in the record. Reopening creates a new ticket with a new number, linked both ways.'}
+                </p>
+                {detail.canCreate ? (
+                  <button
+                    type="button"
+                    className="button button--primary"
+                    disabled={busy}
+                    onClick={() => void reopenAsNew()}
+                  >
+                    {busy
+                      ? ar
+                        ? 'جارٍ الفتح…'
+                        : 'Opening…'
+                      : ar
+                        ? 'إعادة فتح كمهمة جديدة'
+                        : 'Reopen as a new task'}
+                  </button>
+                ) : null}
+              </div>
             )}
             {message ? <p className="task-desk__notice">{message}</p> : null}
           </section>
 
           <details className="task-desk__more">
-            <summary>{ar ? 'المزيد: أعضاء، تحويل، ربط، محامٍ' : 'More: members, transfer, link, lawyer'}</summary>
+            <summary>{ar ? 'المزيد: أعضاء، تحويل، محامٍ' : 'More: members, transfer, lawyer'}</summary>
             <div className="task-desk__more-grid">
               {detail.canAssign ? (
                 <form
@@ -617,58 +766,6 @@ export function WorkTaskWorkspace({
                   </button>
                 </form>
               ) : null}
-
-              <form
-                className="task-desk__stack"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (!subjectId) return;
-                  void run(
-                    `${base}/link`,
-                    { kind: subjectKind, id: subjectId },
-                    ar ? 'رُبطت المهمة' : 'Task linked',
-                  );
-                }}
-              >
-                <h3>{ar ? 'ربط يدوي' : 'Manual link'}</h3>
-                <label>
-                  <span>{ar ? 'النوع' : 'Type'}</span>
-                  <select
-                    value={subjectKind}
-                    onChange={(event) => {
-                      setSubjectKind(event.target.value as typeof subjectKind);
-                      setSubjectId('');
-                    }}
-                  >
-                    <option value="party">{ar ? 'مستأجر / شخص' : 'Tenant / person'}</option>
-                    <option value="property">{ar ? 'مبنى' : 'Building'}</option>
-                    <option value="unit">{ar ? 'وحدة' : 'Unit'}</option>
-                  </select>
-                </label>
-                <label>
-                  <span>{ar ? 'الاسم' : 'Name'}</span>
-                  <select value={subjectId} onChange={(event) => setSubjectId(event.target.value)}>
-                    <option value="">{ar ? 'اختر' : 'Choose'}</option>
-                    {(subjectKind === 'party'
-                      ? detail.parties
-                      : subjectKind === 'property'
-                        ? detail.properties
-                        : detail.units
-                    ).map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <button
-                  className="button button--quiet"
-                  type="submit"
-                  disabled={busy || !subjectId || !detail.canUpdate}
-                >
-                  {ar ? 'حفظ الربط' : 'Save link'}
-                </button>
-              </form>
 
               <div className="task-desk__stack">
                 <h3>{ar ? 'المحامي' : 'Lawyer'}</h3>

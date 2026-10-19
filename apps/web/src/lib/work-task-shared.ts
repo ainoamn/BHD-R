@@ -36,6 +36,15 @@ export type WorkTaskSubject = {
 };
 export type WorkTaskChoice = { id: string; label: string; propertyId?: string };
 
+/** Bidirectional reopen chain: previous closed tickets and successor reopenings. */
+export type WorkTaskRelated = {
+  id: string;
+  reference: string;
+  title: string;
+  status: string;
+  relation: 'previous' | 'next';
+};
+
 export type WorkTaskDetail = WorkTaskSummary & {
   description: string | null;
   completedAt: string | null;
@@ -45,6 +54,7 @@ export type WorkTaskDetail = WorkTaskSummary & {
   files: WorkTaskFile[];
   subject: WorkTaskSubject | null;
   place: WorkTaskPlace;
+  related: WorkTaskRelated[];
   events: WorkTaskEvent[];
   legalCase: { id: string; reference: string } | null;
   people: Array<{ userId: string; name: string }>;

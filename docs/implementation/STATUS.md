@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-10-19  
-**Product version:** 0.8.104  
-**Active focus:** Unified quick-create task desk (0.8.104); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
+**Product version:** 0.8.105  
+**Active focus:** Task reopen-as-new with bidirectional chain (0.8.105); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
+
 
 
 
@@ -16,6 +17,7 @@
 
 | Version         | Focus                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.8.105         | Tasks: reopen creates a new numbered ticket linked both ways to the closed one; building/tenant/unit link on the desk |
 | 0.8.104         | Tasks: one create button; ClickUp/Bitrix quick-create desk with chips for assignee, dates, priority, tags, checklist |
 | 0.8.103         | Tasks: create modal, tags, start/due dates, subtasks, List + Board (kanban) views; tags stored on workflow events (no migration) |
 | 0.8.102         | Tasks: colored statuses, ClickUp-style grouped list and desk layout; status changes log who/when/from→to and require a reason to reject/close/cancel |

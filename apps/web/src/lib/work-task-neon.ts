@@ -23,6 +23,7 @@ import type {
   WorkTaskFile,
   WorkTaskFollower,
   WorkTaskPlace,
+  WorkTaskRelated,
   WorkTaskSubject,
   WorkTaskSummary,
 } from '@/lib/work-task-shared';
@@ -34,11 +35,13 @@ export type {
   WorkTaskFile,
   WorkTaskFollower,
   WorkTaskPlace,
+  WorkTaskRelated,
   WorkTaskSubject,
   WorkTaskSummary,
 };
 
 const OPEN = new Set(['draft', 'pending', 'approved', 'in_progress', 'on_hold']);
+const CLOSED = new Set(['completed', 'cancelled', 'rejected']);
 const STATUSES = new Set([
   'pending',
   'approved',
@@ -101,12 +104,15 @@ function tagsFrom(metadata: unknown): string[] {
     .slice(0, 12);
 }
 
-function taskReference(): string {
-  const now = new Date()
-    .toISOString()
-    .replace(/[-:TZ.]/g, '')
-    .slice(0, 14);
-  return `TSK-${now}-${randomUUID().slice(0, 6).toUpperCase()}`;
+async function nextTaskReference(
+  tx: Parameters<Parameters<typeof withinViewerTenant>[1]>[0],
+  orgId: string,
+): Promise<string> {
+  const result = await tx.execute<{ n: number }>(sql`
+    select count(*)::int as n from work_tasks where organization_id = ${orgId}
+  `);
+  const n = (sqlRows<{ n: number }>(result)[0]?.n ?? 0) + 1;
+  return `TSK-${String(n).padStart(5, '0')}-${randomUUID().slice(0, 4).toUpperCase()}`;
 }
 
 const PRIORITIES = new Set(['low', 'normal', 'high', 'urgent']);
@@ -270,11 +276,12 @@ export async function createWorkTask(
         .limit(1);
       if (!member) bad();
     }
+    const reference = await nextTaskReference(tx, orgId);
     const [row] = await tx
       .insert(workTasks)
       .values({
         organizationId: orgId,
-        reference: taskReference(),
+        reference,
         title,
         description: input.description?.trim().slice(0, 4000) || null,
         category: (input.category?.trim() || 'general').slice(0, 60),
@@ -306,6 +313,143 @@ export async function createWorkTask(
       },
     });
     return row.id;
+  });
+  return readWorkTask(claims, createdId);
+}
+
+/** Closed tasks stay closed — reopen always opens a new ticket linked both ways. */
+export async function reopenWorkTask(
+  claims: SessionClaims,
+  taskId: string,
+  note?: string | null,
+): Promise<WorkTaskDetail> {
+  if (!canRead(claims) || !hasPermission(claims, 'task.create')) deny();
+  const orgId = claims.organizationId!;
+  const reason = note?.trim().slice(0, 2000) || null;
+  const createdId = await withinViewerTenant(claims, async (tx) => {
+    const [source] = await tx
+      .select()
+      .from(workTasks)
+      .where(and(eq(workTasks.organizationId, orgId), eq(workTasks.id, taskId)))
+      .limit(1);
+    if (!source) missing();
+    if (!CLOSED.has(source.status)) bad();
+
+    const events = await tx
+      .select({
+        type: workflowEvents.eventType,
+        metadata: workflowEvents.metadata,
+        at: workflowEvents.occurredAt,
+      })
+      .from(workflowEvents)
+      .where(
+        and(
+          eq(workflowEvents.organizationId, orgId),
+          eq(workflowEvents.resourceType, 'work_task'),
+          eq(workflowEvents.resourceId, source.id),
+          inArray(workflowEvents.eventType, [
+            'task.created',
+            'task.roster',
+            'task.tags',
+            'task.link',
+          ]),
+        ),
+      )
+      .orderBy(desc(workflowEvents.occurredAt))
+      .limit(40);
+
+    const createdMeta =
+      events.find((event) => event.type === 'task.roster')?.metadata ??
+      events.find((event) => event.type === 'task.created')?.metadata;
+    const tagsMeta = events.find((event) => event.type === 'task.tags' || event.type === 'task.created')
+      ?.metadata;
+    const linkMeta = events.find((event) => event.type === 'task.link')?.metadata;
+    const tags = tagsFrom(tagsMeta ?? createdMeta);
+    const followers = followersFrom(createdMeta);
+    const checklist = (source.checklist ?? []).map((item) => ({
+      label: item.label,
+      done: false,
+    }));
+    const reference = await nextTaskReference(tx, orgId);
+    const [created] = await tx
+      .insert(workTasks)
+      .values({
+        organizationId: orgId,
+        reference,
+        title: source.title.slice(0, 200),
+        description: source.description,
+        category: source.category,
+        status: 'pending',
+        priority: source.priority,
+        createdByUserId: claims.sub,
+        assignedToUserId: source.assignedToUserId,
+        propertyId: source.propertyId,
+        unitId: source.unitId,
+        relatedType: source.relatedType,
+        relatedId: source.relatedId,
+        startsAt: null,
+        dueAt: null,
+        checklist,
+      })
+      .returning({ id: workTasks.id, reference: workTasks.reference, status: workTasks.status });
+    if (!created) bad();
+
+    await tx.insert(workflowEvents).values({
+      organizationId: orgId,
+      actorUserId: claims.sub,
+      resourceType: 'work_task',
+      resourceId: created.id,
+      eventType: 'task.created',
+      toStatus: created.status,
+      note: source.title,
+      metadata: {
+        tags,
+        followers,
+        reopenedFromId: source.id,
+        reopenedFromReference: source.reference,
+      },
+    });
+    await tx.insert(workflowEvents).values({
+      organizationId: orgId,
+      actorUserId: claims.sub,
+      resourceType: 'work_task',
+      resourceId: created.id,
+      eventType: 'task.reopen',
+      note: reason ?? `إعادة فتح من ${source.reference}`,
+      metadata: {
+        predecessorId: source.id,
+        predecessorReference: source.reference,
+        relation: 'previous',
+      },
+    });
+    await tx.insert(workflowEvents).values({
+      organizationId: orgId,
+      actorUserId: claims.sub,
+      resourceType: 'work_task',
+      resourceId: source.id,
+      eventType: 'task.reopen',
+      note: reason ?? `فُتحت متابعة ${created.reference}`,
+      metadata: {
+        successorId: created.id,
+        successorReference: created.reference,
+        relation: 'next',
+      },
+    });
+
+    if (linkMeta && typeof linkMeta === 'object') {
+      const meta = linkMeta as Record<string, unknown>;
+      await tx.insert(workflowEvents).values({
+        organizationId: orgId,
+        actorUserId: claims.sub,
+        resourceType: 'work_task',
+        resourceId: created.id,
+        eventType: 'task.link',
+        note: typeof meta.label === 'string' ? meta.label : null,
+        metadata: meta,
+      });
+    }
+
+    return created.id;
   });
   return readWorkTask(claims, createdId);
 }
@@ -480,6 +624,46 @@ export async function readWorkTask(
       ...follower,
       name: seen.get(follower.userId)?.name ?? follower.name,
     }));
+    const relatedIds = new Map<string, 'previous' | 'next'>();
+    for (const event of events) {
+      if (event.type !== 'task.reopen' || !event.metadata || typeof event.metadata !== 'object') {
+        continue;
+      }
+      const meta = event.metadata as {
+        predecessorId?: unknown;
+        successorId?: unknown;
+      };
+      if (typeof meta.predecessorId === 'string') relatedIds.set(meta.predecessorId, 'previous');
+      if (typeof meta.successorId === 'string') relatedIds.set(meta.successorId, 'next');
+    }
+    const relatedRows = relatedIds.size
+      ? await tx
+          .select({
+            id: workTasks.id,
+            reference: workTasks.reference,
+            title: workTasks.title,
+            status: workTasks.status,
+          })
+          .from(workTasks)
+          .where(
+            and(
+              eq(workTasks.organizationId, orgId),
+              inArray(workTasks.id, [...relatedIds.keys()]),
+            ),
+          )
+      : [];
+    const related: WorkTaskRelated[] = relatedRows
+      .map((row) => ({
+        id: row.id,
+        reference: row.reference,
+        title: row.title,
+        status: row.status,
+        relation: relatedIds.get(row.id) ?? 'previous',
+      }))
+      .sort((a, b) => {
+        if (a.relation !== b.relation) return a.relation === 'previous' ? -1 : 1;
+        return a.reference.localeCompare(b.reference);
+      });
 
     return {
       id: task.id,
@@ -502,6 +686,7 @@ export async function readWorkTask(
       files: fileList.map((file) => ({ id: file.id, name: file.name || 'file' })),
       subject,
       place,
+      related,
       parties: partyChoices,
       properties: propertyChoices,
       units: unitChoices.map((unit) => ({

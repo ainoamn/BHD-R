@@ -1,0 +1,43 @@
+import { z } from 'zod';
+import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { legalErrorResponse, legalJson } from '@/lib/legal-case-route';
+import { requireLiveSession } from '@/lib/next-route-guard';
+import { assertRouteRateLimit, hashRateKey } from '@/lib/route-rate-limit';
+import { reopenWorkTask } from '@/lib/work-task-neon';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+type Context = { params: Promise<{ taskId: string }> };
+
+/** POST /api/portal/tasks/:taskId/reopen — new linked ticket; closed ones stay closed. */
+export async function POST(request: Request, context: Context) {
+  if (!hasDatabaseUrl()) return legalJson({ error: { code: 'db_unconfigured' } }, { status: 503 });
+  const { taskId } = await context.params;
+  if (!z.string().uuid().safeParse(taskId).success) {
+    return legalJson({ error: { code: 'not_found' } }, { status: 404 });
+  }
+  try {
+    const claims = await requireLiveSession(request, {
+      requireCsrf: true,
+      anyPermission: ['task.create'],
+    });
+    const limited = assertRouteRateLimit({
+      key: hashRateKey(['work-task-reopen', claims.sub]),
+      limit: 20,
+      windowMs: 60_000,
+    });
+    if (!limited.ok) return legalJson({ error: { code: 'rate_limited' } }, { status: 429 });
+    const parsed = z
+      .object({ note: z.string().max(2000).optional() })
+      .strict()
+      .safeParse(await request.json().catch(() => ({})));
+    if (!parsed.success) return legalJson({ error: { code: 'invalid_body' } }, { status: 400 });
+    return legalJson(
+      await reopenWorkTask(claims, taskId, parsed.data.note ?? null),
+      { status: 201 },
+    );
+  } catch (error) {
+    return legalErrorResponse(error, 'create_failed');
+  }
+}
