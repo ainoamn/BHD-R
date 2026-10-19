@@ -2,21 +2,15 @@
 
 import { useState } from 'react';
 import { Link } from '@/i18n/navigation';
-import { browserNextMutation } from '@/lib/api';
+import { browserNextMutation, ApiError } from '@/lib/api';
 import { NoteTranslateBar } from '@/components/note-translate';
 import type { WorkTaskDetail } from '@/lib/work-task-shared';
 import type { PortalRole } from '@/lib/types';
-
-const STATUS: Record<string, [string, string]> = {
-  draft: ['مسودة', 'Draft'],
-  pending: ['جديدة', 'New'],
-  approved: ['معتمدة', 'Approved'],
-  in_progress: ['قيد التنفيذ', 'In progress'],
-  on_hold: ['معلقة', 'On hold'],
-  completed: ['مغلقة', 'Closed'],
-  cancelled: ['ملغاة', 'Cancelled'],
-  rejected: ['مرفوضة', 'Rejected'],
-};
+import {
+  taskNeedsReason,
+  taskPriorityLabel,
+  taskStatusLabel,
+} from '@/lib/work-task-ui';
 
 const DUTY: Record<string, [string, string]> = {
   lead: ['المسؤول', 'Responsible'],
@@ -33,6 +27,7 @@ const EVENT: Record<string, [string, string]> = {
   'task.legal': ['فُتحت قضية', 'Legal case opened'],
   'task.roster': ['أُضيف متابع', 'Follower added'],
   'task.link': ['رُبطت المهمة', 'Task linked'],
+  'task.file': ['مرفق', 'File'],
 };
 
 const NEXT: Record<string, Array<{ status: string; ar: string; en: string }>> = {
@@ -55,7 +50,7 @@ const NEXT: Record<string, Array<{ status: string; ar: string; en: string }>> = 
   ],
 };
 
-/** One task: read it, reply, reassign, change its status, or open a legal case. */
+/** ClickUp-style workspace: colored status, activity with who/when, reason on close/reject. */
 export function WorkTaskWorkspace({
   initial,
   locale,
@@ -78,8 +73,12 @@ export function WorkTaskWorkspace({
   const [subjectId, setSubjectId] = useState(detail.subject?.id ?? '');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [statusReason, setStatusReason] = useState('');
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null);
   const closed = detail.status === 'completed' || detail.status === 'cancelled' || detail.status === 'rejected';
-  const status = STATUS[detail.status] ?? [detail.status, detail.status];
+  const base = `/api/portal/tasks/${encodeURIComponent(detail.id)}`;
+  const steps = NEXT[detail.status] ?? [];
+  const due = detail.dueAt ? detail.dueAt.slice(0, 10) : null;
 
   const run = async (path: string, body: unknown, ok: string) => {
     setBusy(true);
@@ -97,45 +96,122 @@ export function WorkTaskWorkspace({
         setReplyFiles([]);
       }
       if (path.endsWith('/legal')) setLegalNote('');
-    } catch {
-      setMessage(ar ? 'تعذر حفظ الإجراء' : 'Could not save that action');
+      setPendingStatus(null);
+      setStatusReason('');
+    } catch (error) {
+      const code = error instanceof ApiError ? error.code : '';
+      if (code === 'reason_required') {
+        setMessage(
+          ar
+            ? 'اكتب سبب الرفض أو الإغلاق أو الإلغاء (خمسة أحرف على الأقل).'
+            : 'Write a reason for reject, close, or cancel (at least 5 characters).',
+        );
+      } else {
+        setMessage(ar ? 'تعذر حفظ الإجراء' : 'Could not save that action');
+      }
     } finally {
       setBusy(false);
     }
   };
 
-  const base = `/api/portal/tasks/${encodeURIComponent(detail.id)}`;
-  const steps = NEXT[detail.status] ?? [];
-  const due = detail.dueAt ? detail.dueAt.slice(0, 10) : null;
+  const requestStatus = (status: string, label: string) => {
+    if (taskNeedsReason(status)) {
+      setPendingStatus(status);
+      setStatusReason('');
+      setMessage(null);
+      return;
+    }
+    void run(base, { status }, label);
+  };
+
+  const confirmStatus = () => {
+    if (!pendingStatus) return;
+    if (statusReason.trim().length < 5) {
+      setMessage(
+        ar
+          ? 'اكتب سبب الرفض أو الإغلاق أو الإلغاء (خمسة أحرف على الأقل).'
+          : 'Write a reason for reject, close, or cancel (at least 5 characters).',
+      );
+      return;
+    }
+    void run(
+      base,
+      { status: pendingStatus, note: statusReason.trim() },
+      ar
+        ? `الحالة: ${taskStatusLabel(pendingStatus, 'ar')}`
+        : `Status: ${taskStatusLabel(pendingStatus, 'en')}`,
+    );
+  };
 
   return (
-    <article className="task-page" dir={ar ? 'rtl' : 'ltr'}>
-      <header className="task-page__hero">
-        <Link href={`/${portal}/tasks`} className="task-page__back" prefetch={false}>
-          {ar ? 'كل المهام' : 'All tasks'}
+    <article className="task-desk" dir={ar ? 'rtl' : 'ltr'} data-status={detail.status}>
+      <header className="task-desk__top">
+        <Link href={`/${portal}/tasks`} className="task-desk__back" prefetch={false}>
+          {ar ? '← المهام' : '← Tasks'}
         </Link>
-        <div className="task-page__identity">
-          <p>
-            <span dir="ltr">{detail.reference}</span>
-            {due ? <span>{ar ? `الاستحقاق ${due}` : `Due ${due}`}</span> : null}
-            {detail.assigneeName ? <span>{detail.assigneeName}</span> : null}
+        <div className="task-desk__title-block">
+          <p className="task-desk__ref" dir="ltr">
+            {detail.reference}
           </p>
           <h1>{detail.title}</h1>
         </div>
-        <span className={`task-page__status task-page__status--${detail.status}`}>
-          {ar ? status[0] : status[1]}
+        <span className={`task-status task-status--${detail.status}`}>
+          {taskStatusLabel(detail.status, locale)}
         </span>
       </header>
 
-      <div className="task-page__grid">
-        <div className="task-page__main">
-          <section className="task-page__card">
-            <h2>{ar ? 'تفاصيل المهمة' : 'Task details'}</h2>
-            <p className="task-page__body">
+      <div className="task-desk__meta">
+        <div className="task-desk__meta-item">
+          <span className="task-desk__meta-label">{ar ? 'المسؤول' : 'Assignee'}</span>
+          <strong>{detail.assigneeName || (ar ? '—' : '—')}</strong>
+        </div>
+        <div className="task-desk__meta-item">
+          <span className="task-desk__meta-label">{ar ? 'الاستحقاق' : 'Due'}</span>
+          <strong>{due || (ar ? 'بدون تاريخ' : 'No date')}</strong>
+        </div>
+        <div className="task-desk__meta-item">
+          <span className="task-desk__meta-label">{ar ? 'الأولوية' : 'Priority'}</span>
+          <strong className={`task-priority task-priority--${detail.priority}`}>
+            {taskPriorityLabel(detail.priority, locale)}
+          </strong>
+        </div>
+        <div className="task-desk__meta-item">
+          <span className="task-desk__meta-label">{ar ? 'التصنيف' : 'Category'}</span>
+          <strong>{detail.category || '—'}</strong>
+        </div>
+      </div>
+
+      {(detail.place.property || detail.place.unit || detail.place.party) && (
+        <div className="task-desk__links">
+          {detail.place.property ? (
+            <Link href={`/${portal}/properties/${encodeURIComponent(detail.place.property.id)}`}>
+              {ar ? `المبنى: ${detail.place.property.label}` : `Building: ${detail.place.property.label}`}
+            </Link>
+          ) : null}
+          {detail.place.unit ? (
+            <span>{ar ? `الوحدة: ${detail.place.unit.label}` : `Unit: ${detail.place.unit.label}`}</span>
+          ) : null}
+          {detail.place.party ? (
+            <Link href={`/${portal}/contacts/${encodeURIComponent(detail.place.party.id)}`}>
+              {ar ? `الطرف: ${detail.place.party.label}` : `Party: ${detail.place.party.label}`}
+            </Link>
+          ) : null}
+        </div>
+      )}
+
+      <div className="task-desk__grid">
+        <div className="task-desk__main">
+          <section className="task-desk__card">
+            <h2>{ar ? 'الوصف' : 'Description'}</h2>
+            <p className="task-desk__body">
               {detail.description?.trim() || (ar ? 'لا يوجد وصف.' : 'No description.')}
             </p>
-            {detail.followers.length ? (
-              <ul className="task-page__roster">
+          </section>
+
+          {detail.followers.length ? (
+            <section className="task-desk__card">
+              <h2>{ar ? 'الفريق' : 'Team'}</h2>
+              <ul className="task-desk__roster">
                 {detail.followers.map((person) => {
                   const duty = DUTY[person.duty] ?? [person.duty, person.duty];
                   return (
@@ -146,9 +222,18 @@ export function WorkTaskWorkspace({
                   );
                 })}
               </ul>
-            ) : null}
-            {detail.checklist.length ? (
-              <ul className="task-page__checks">
+            </section>
+          ) : null}
+
+          {detail.checklist.length ? (
+            <section className="task-desk__card">
+              <h2>
+                {ar ? 'القائمة' : 'Checklist'}{' '}
+                <small>
+                  {detail.checklist.filter((item) => item.done).length}/{detail.checklist.length}
+                </small>
+              </h2>
+              <ul className="task-desk__checks">
                 {detail.checklist.map((item, index) => (
                   <li key={`${item.label}-${index}`}>
                     <label>
@@ -169,308 +254,236 @@ export function WorkTaskWorkspace({
                   </li>
                 ))}
               </ul>
-            ) : null}
-            {detail.files.length ? (
-              <ul className="task-page__checks">
-                {detail.files.map((file) => (
-                  <li key={file.id}>
-                    <a href={`/api/portal/tasks/${encodeURIComponent(detail.id)}/files/${encodeURIComponent(file.id)}`}>
-                      {file.name}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-            {detail.canUpdate ? (
-              <label className="task-page__stack">
-                <span>{ar ? 'إرفاق ملف' : 'Attach a file'}</span>
-                <input
-                  type="file"
-                  disabled={busy}
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    event.target.value = '';
-                    if (!file) return;
-                    if (file.size > 700_000) {
-                      setMessage(ar ? 'الملف أكبر من المسموح (حوالي ٧٠٠ ك.ب).' : 'The file is larger than about 700 KB.');
-                      return;
-                    }
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                      const data = typeof reader.result === 'string' ? reader.result : '';
-                      void run(`${base}/files`, { name: file.name, data }, ar ? 'أُرفق الملف' : 'File attached');
-                    };
-                    reader.readAsDataURL(file);
-                  }}
-                />
-              </label>
-            ) : null}
-          </section>
+            </section>
+          ) : null}
 
-          <section className="task-page__card">
-            <h2>{ar ? 'المحادثة' : 'Conversation'}</h2>
-            <ol className="task-page__thread">
-              {detail.events.length ? (
-                detail.events.map((event) => {
-                  const label = EVENT[event.type] ?? [event.type, event.type];
-                  return (
-                    <li key={event.id} className={event.type === 'task.reply' ? 'is-reply' : ''}>
-                      <header>
-                        <strong>{ar ? label[0] : label[1]}</strong>
-                        <small>
-                          {[event.actorName, event.at.slice(0, 16).replace('T', ' ')]
-                            .filter(Boolean)
-                            .join(' · ')}
-                        </small>
-                      </header>
-                      {event.note ? <p>{event.note}</p> : null}
-                      {event.files.length ? (
-                        <ul className="task-page__checks">
-                          {event.files.map((file) => (
-                            <li key={file.id}>
-                              <a
-                                href={`/api/portal/tasks/${encodeURIComponent(detail.id)}/files/${encodeURIComponent(file.id)}`}
-                              >
-                                {file.name}
-                              </a>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : null}
+          {detail.files.length || detail.canUpdate ? (
+            <section className="task-desk__card">
+              <h2>{ar ? 'المرفقات' : 'Files'}</h2>
+              {detail.files.length ? (
+                <ul className="task-desk__checks">
+                  {detail.files.map((file) => (
+                    <li key={file.id}>
+                      <a
+                        href={`/api/portal/tasks/${encodeURIComponent(detail.id)}/files/${encodeURIComponent(file.id)}`}
+                      >
+                        {file.name}
+                      </a>
                     </li>
-                  );
-                })
-              ) : (
-                <li>
-                  <p>{ar ? 'لا ردود بعد. اكتب أول ملاحظة بالأسفل.' : 'No replies yet. Write the first note below.'}</p>
-                </li>
-              )}
-            </ol>
-            {detail.canUpdate ? (
-              <form
-                className="task-page__reply"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (reply.trim().length < 2 && !replyFiles.length) return;
-                  void run(
-                    `${base}/reply`,
-                    { note: reply.trim(), files: replyFiles },
-                    ar ? 'أُرسل الرد' : 'Reply sent',
-                  );
-                }}
-              >
-                <label>
-                  <span>{ar ? 'اكتب رداً' : 'Write a reply'}</span>
-                  <textarea
-                    rows={5}
-                    maxLength={2000}
-                    value={reply}
-                    placeholder={ar ? 'ما الذي تم، أو ما المطلوب الآن؟' : 'What was done, or what is needed now?'}
-                    onChange={(event) => setReply(event.target.value)}
-                  />
-                </label>
-                <NoteTranslateBar value={reply} onChange={setReply} locale={locale} max={2000} disabled={busy} />
-                <label>
-                  <span>{ar ? 'مرفق مع الرد' : 'Attachment with the reply'}</span>
+                  ))}
+                </ul>
+              ) : null}
+              {detail.canUpdate ? (
+                <label className="task-desk__stack">
+                  <span>{ar ? 'إرفاق ملف' : 'Attach a file'}</span>
                   <input
                     type="file"
-                    multiple
                     disabled={busy}
                     onChange={(event) => {
-                      const picked = [...(event.target.files ?? [])].slice(0, 4);
+                      const file = event.target.files?.[0];
                       event.target.value = '';
-                      for (const file of picked) {
-                        if (file.size > 700_000) {
-                          setMessage(ar ? 'أحد الملفات أكبر من حوالي ٧٠٠ ك.ب.' : 'A file is larger than about 700 KB.');
-                          continue;
-                        }
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                          const data = typeof reader.result === 'string' ? reader.result : '';
-                          if (!data) return;
-                          setReplyFiles((current) => [...current, { name: file.name, data }].slice(0, 4));
-                        };
-                        reader.readAsDataURL(file);
+                      if (!file) return;
+                      if (file.size > 700_000) {
+                        setMessage(
+                          ar ? 'الملف أكبر من المسموح (حوالي ٧٠٠ ك.ب).' : 'The file is larger than about 700 KB.',
+                        );
+                        return;
                       }
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        const data = typeof reader.result === 'string' ? reader.result : '';
+                        void run(
+                          `${base}/files`,
+                          { name: file.name, data },
+                          ar ? 'أُرفق الملف' : 'File attached',
+                        );
+                      };
+                      reader.readAsDataURL(file);
                     }}
                   />
                 </label>
-                {replyFiles.length ? (
-                  <ul className="task-page__checks">
-                    {replyFiles.map((file) => (
-                      <li key={file.name}>
-                        <span>{file.name}</span>
-                        <button
-                          type="button"
-                          className="button button--quiet"
-                          onClick={() => setReplyFiles((current) => current.filter((item) => item.name !== file.name))}
-                        >
-                          {ar ? 'إزالة' : 'Remove'}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-                <button
-                  className="button button--primary"
-                  type="submit"
-                  disabled={busy || (reply.trim().length < 2 && !replyFiles.length)}
-                >
-                  {busy ? (ar ? 'جارٍ الإرسال…' : 'Sending…') : ar ? 'إرسال الرد' : 'Send reply'}
-                </button>
-              </form>
-            ) : null}
-          </section>
-        </div>
+              ) : null}
+            </section>
+          ) : null}
 
-        <aside className="task-page__side">
-          <section className="task-page__card">
-            <h2>{ar ? 'الإجراء' : 'Action'}</h2>
+          <section className="task-desk__card task-desk__card--actions">
+            <h2>{ar ? 'تغيير الحالة' : 'Change status'}</h2>
             {detail.canUpdate && !closed ? (
-              <div className="task-page__actions">
-                {steps.map((action) => (
-                  <button
-                    key={action.status}
-                    type="button"
-                    className={action.status === 'completed' ? 'button button--primary' : 'button button--quiet'}
-                    disabled={busy}
-                    onClick={() =>
-                      void run(base, { status: action.status }, ar ? `الحالة: ${action.ar}` : `Status: ${action.en}`)
-                    }
-                  >
-                    {ar ? action.ar : action.en}
-                  </button>
-                ))}
-                {!steps.some((action) => action.status === 'completed') ? (
-                  <button
-                    type="button"
-                    className="button button--primary"
-                    disabled={busy}
-                    onClick={() => void run(base, { status: 'completed' }, ar ? 'أُغلقت المهمة' : 'Task closed')}
-                  >
-                    {ar ? 'إغلاق المهمة' : 'Close task'}
-                  </button>
+              <>
+                <div className="task-desk__actions">
+                  {steps.map((action) => (
+                    <button
+                      key={action.status}
+                      type="button"
+                      className={`task-status-btn task-status-btn--${action.status}`}
+                      disabled={busy}
+                      onClick={() =>
+                        requestStatus(
+                          action.status,
+                          ar ? `الحالة: ${action.ar}` : `Status: ${action.en}`,
+                        )
+                      }
+                    >
+                      {ar ? action.ar : action.en}
+                    </button>
+                  ))}
+                  {!steps.some((action) => action.status === 'completed') ? (
+                    <button
+                      type="button"
+                      className="task-status-btn task-status-btn--completed"
+                      disabled={busy}
+                      onClick={() =>
+                        requestStatus('completed', ar ? 'أُغلقت المهمة' : 'Task closed')
+                      }
+                    >
+                      {ar ? 'إغلاق المهمة' : 'Close task'}
+                    </button>
+                  ) : null}
+                </div>
+                {pendingStatus ? (
+                  <div className="task-desk__reason">
+                    <p>
+                      {ar
+                        ? `سبب «${taskStatusLabel(pendingStatus, 'ar')}» مطلوب قبل الحفظ:`
+                        : `A reason for “${taskStatusLabel(pendingStatus, 'en')}” is required:`}
+                    </p>
+                    <textarea
+                      rows={3}
+                      maxLength={2000}
+                      value={statusReason}
+                      placeholder={
+                        ar
+                          ? 'اكتب سبب الرفض أو الإغلاق أو الإلغاء…'
+                          : 'Write why you are rejecting, closing, or cancelling…'
+                      }
+                      onChange={(event) => setStatusReason(event.target.value)}
+                    />
+                    <div className="task-desk__reason-actions">
+                      <button
+                        type="button"
+                        className="button button--quiet"
+                        disabled={busy}
+                        onClick={() => {
+                          setPendingStatus(null);
+                          setStatusReason('');
+                        }}
+                      >
+                        {ar ? 'إلغاء' : 'Cancel'}
+                      </button>
+                      <button
+                        type="button"
+                        className="button button--primary"
+                        disabled={busy || statusReason.trim().length < 5}
+                        onClick={confirmStatus}
+                      >
+                        {ar ? 'تأكيد التغيير' : 'Confirm change'}
+                      </button>
+                    </div>
+                  </div>
                 ) : null}
-              </div>
+              </>
             ) : (
-              <p>{ar ? 'هذه المهمة مغلقة. يمكنك ما زلت قراءة المحادثة.' : 'This task is closed. The conversation stays readable.'}</p>
+              <p className="task-desk__muted">
+                {ar
+                  ? 'هذه المهمة مغلقة. يمكنك قراءة النشاط والردود.'
+                  : 'This task is closed. Activity and replies stay readable.'}
+              </p>
             )}
-            {message ? <p className="task-page__notice">{message}</p> : null}
+            {message ? <p className="task-desk__notice">{message}</p> : null}
           </section>
 
-          {detail.canAssign ? (
-            <section className="task-page__card">
-              <h2>{ar ? 'إضافة عضو' : 'Add a member'}</h2>
-              <form
-                className="task-page__stack"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (!memberId) return;
-                  void run(
-                    `${base}/members`,
-                    { userId: memberId, duty: memberDuty },
-                    ar ? 'أُضيف العضو' : 'Member added',
-                  );
-                }}
-              >
-                <label>
-                  <span>{ar ? 'العضو' : 'Member'}</span>
-                  <select value={memberId} onChange={(event) => setMemberId(event.target.value)}>
-                    <option value="">{ar ? 'اختر موظفاً' : 'Choose a person'}</option>
-                    {detail.people
-                      .filter((person) => !detail.followers.some((seat) => seat.userId === person.userId))
-                      .map((person) => (
+          <details className="task-desk__more">
+            <summary>{ar ? 'المزيد: أعضاء، تحويل، ربط، محامٍ' : 'More: members, transfer, link, lawyer'}</summary>
+            <div className="task-desk__more-grid">
+              {detail.canAssign ? (
+                <form
+                  className="task-desk__stack"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    if (!memberId) return;
+                    void run(
+                      `${base}/members`,
+                      { userId: memberId, duty: memberDuty },
+                      ar ? 'أُضيف العضو' : 'Member added',
+                    );
+                  }}
+                >
+                  <h3>{ar ? 'إضافة عضو' : 'Add a member'}</h3>
+                  <label>
+                    <span>{ar ? 'العضو' : 'Member'}</span>
+                    <select value={memberId} onChange={(event) => setMemberId(event.target.value)}>
+                      <option value="">{ar ? 'اختر موظفاً' : 'Choose a person'}</option>
+                      {detail.people
+                        .filter((person) => !detail.followers.some((seat) => seat.userId === person.userId))
+                        .map((person) => (
+                          <option key={person.userId} value={person.userId}>
+                            {person.name}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span>{ar ? 'دوره' : 'Duty'}</span>
+                    <select
+                      value={memberDuty}
+                      onChange={(event) => setMemberDuty(event.target.value as typeof memberDuty)}
+                    >
+                      {Object.entries(DUTY).map(([id, label]) => (
+                        <option key={id} value={id}>
+                          {ar ? label[0] : label[1]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button className="button button--quiet" type="submit" disabled={busy || !memberId}>
+                    {ar ? 'إضافة' : 'Add'}
+                  </button>
+                </form>
+              ) : null}
+
+              {detail.canAssign ? (
+                <form
+                  className="task-desk__stack"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void run(
+                      base,
+                      { assignedToUserId: assignTo || null },
+                      ar ? 'حُوّلت المهمة' : 'Task transferred',
+                    );
+                  }}
+                >
+                  <h3>{ar ? 'تحويل' : 'Transfer'}</h3>
+                  <label>
+                    <span>{ar ? 'المسؤول الجديد' : 'New owner'}</span>
+                    <select value={assignTo} onChange={(event) => setAssignTo(event.target.value)}>
+                      <option value="">{ar ? 'بدون مسؤول' : 'Unassigned'}</option>
+                      {detail.people.map((person) => (
                         <option key={person.userId} value={person.userId}>
                           {person.name}
                         </option>
                       ))}
-                  </select>
-                </label>
-                <label>
-                  <span>{ar ? 'دوره في المهمة' : 'Duty on this task'}</span>
-                  <select value={memberDuty} onChange={(event) => setMemberDuty(event.target.value as typeof memberDuty)}>
-                    {Object.entries(DUTY).map(([id, label]) => (
-                      <option key={id} value={id}>
-                        {ar ? label[0] : label[1]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <button className="button button--quiet" type="submit" disabled={busy || !memberId}>
-                  {ar ? 'إضافة' : 'Add'}
-                </button>
-              </form>
-            </section>
-          ) : null}
+                    </select>
+                  </label>
+                  <button className="button button--quiet" type="submit" disabled={busy}>
+                    {ar ? 'تحويل' : 'Transfer'}
+                  </button>
+                </form>
+              ) : null}
 
-          {detail.canAssign ? (
-            <section className="task-page__card">
-              <h2>{ar ? 'تحويل المهمة' : 'Transfer'}</h2>
               <form
-                className="task-page__stack"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void run(base, { assignedToUserId: assignTo || null }, ar ? 'حُوّلت المهمة' : 'Task transferred');
-                }}
-              >
-                <label>
-                  <span>{ar ? 'المسؤول الجديد' : 'New owner'}</span>
-                  <select value={assignTo} onChange={(event) => setAssignTo(event.target.value)}>
-                    <option value="">{ar ? 'بدون مسؤول' : 'Unassigned'}</option>
-                    {detail.people.map((person) => (
-                      <option key={person.userId} value={person.userId}>
-                        {person.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <button className="button button--quiet" type="submit" disabled={busy}>
-                  {ar ? 'تحويل' : 'Transfer'}
-                </button>
-              </form>
-            </section>
-          ) : null}
-
-          <section className="task-page__card">
-            <h2>{ar ? 'ربط المهمة' : 'Link this task'}</h2>
-            {detail.place.property || detail.place.unit || detail.place.party ? (
-              <ul className="task-page__checks">
-                {detail.place.property ? (
-                  <li>
-                    <Link href={`/${portal}/properties/${encodeURIComponent(detail.place.property.id)}`}>
-                      {ar ? `المبنى: ${detail.place.property.label}` : `Building: ${detail.place.property.label}`}
-                    </Link>
-                  </li>
-                ) : null}
-                {detail.place.unit ? (
-                  <li>
-                    <Link
-                      href={`/${portal}/properties/${encodeURIComponent(detail.place.property?.id ?? detail.units.find((unit) => unit.id === detail.place.unit?.id)?.propertyId ?? '')}?unit=${encodeURIComponent(detail.place.unit.id)}`}
-                    >
-                      {ar ? `الوحدة: ${detail.place.unit.label}` : `Unit: ${detail.place.unit.label}`}
-                    </Link>
-                  </li>
-                ) : null}
-                {detail.place.party ? (
-                  <li>
-                    <Link href={`/${portal}/contacts/${encodeURIComponent(detail.place.party.id)}`}>
-                      {ar ? `المستأجر: ${detail.place.party.label}` : `Tenant: ${detail.place.party.label}`}
-                    </Link>
-                  </li>
-                ) : null}
-              </ul>
-            ) : (
-              <p>{ar ? 'تُربط تلقائياً إذا كانت العملية لعقار أو لمستأجر.' : 'Links automatically when the line belongs to a property or a tenant.'}</p>
-            )}
-            {detail.canUpdate ? (
-              <form
-                className="task-page__stack"
+                className="task-desk__stack"
                 onSubmit={(event) => {
                   event.preventDefault();
                   if (!subjectId) return;
-                  void run(`${base}/link`, { kind: subjectKind, id: subjectId }, ar ? 'رُبطت المهمة' : 'Task linked');
+                  void run(
+                    `${base}/link`,
+                    { kind: subjectKind, id: subjectId },
+                    ar ? 'رُبطت المهمة' : 'Task linked',
+                  );
                 }}
               >
+                <h3>{ar ? 'ربط يدوي' : 'Manual link'}</h3>
                 <label>
                   <span>{ar ? 'النوع' : 'Type'}</span>
                   <select
@@ -501,53 +514,228 @@ export function WorkTaskWorkspace({
                     ))}
                   </select>
                 </label>
-                <button className="button button--quiet" type="submit" disabled={busy || !subjectId}>
+                <button
+                  className="button button--quiet"
+                  type="submit"
+                  disabled={busy || !subjectId || !detail.canUpdate}
+                >
                   {ar ? 'حفظ الربط' : 'Save link'}
                 </button>
               </form>
-            ) : null}
-          </section>
 
-          <section className="task-page__card">
-            <h2>{ar ? 'المحامي' : 'Lawyer'}</h2>
-            {detail.legalCase ? (
-              <Link className="button button--primary" href={`/${portal}/legal/${encodeURIComponent(detail.legalCase.id)}`}>
-                {ar ? `القضية ${detail.legalCase.reference}` : `Case ${detail.legalCase.reference}`}
-              </Link>
-            ) : detail.canLegal ? (
+              <div className="task-desk__stack">
+                <h3>{ar ? 'المحامي' : 'Lawyer'}</h3>
+                {detail.legalCase ? (
+                  <Link
+                    className="button button--primary"
+                    href={`/${portal}/legal/${encodeURIComponent(detail.legalCase.id)}`}
+                  >
+                    {ar ? `القضية ${detail.legalCase.reference}` : `Case ${detail.legalCase.reference}`}
+                  </Link>
+                ) : detail.canLegal ? (
+                  <form
+                    className="task-desk__stack"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void run(
+                        `${base}/legal`,
+                        { lawyerPartyId: lawyerId || null, note: legalNote.trim() || undefined },
+                        ar ? 'فُتحت القضية' : 'Case opened',
+                      );
+                    }}
+                  >
+                    <label>
+                      <span>{ar ? 'اختر المحامي' : 'Choose a lawyer'}</span>
+                      <select value={lawyerId} onChange={(event) => setLawyerId(event.target.value)}>
+                        <option value="">{ar ? 'بدون محامٍ الآن' : 'No lawyer yet'}</option>
+                        {detail.lawyers.map((lawyer) => (
+                          <option key={lawyer.id} value={lawyer.id}>
+                            {lawyer.name}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      <span>{ar ? 'ملاحظة للمحامي' : 'Note for the lawyer'}</span>
+                      <textarea
+                        rows={3}
+                        maxLength={2000}
+                        value={legalNote}
+                        onChange={(event) => setLegalNote(event.target.value)}
+                      />
+                    </label>
+                    <button className="button button--primary" type="submit" disabled={busy}>
+                      {ar ? 'فتح قضية' : 'Open a case'}
+                    </button>
+                  </form>
+                ) : (
+                  <p className="task-desk__muted">
+                    {ar
+                      ? 'فتح القضية يحتاج صلاحية إدارة المحاماة.'
+                      : 'Opening a case needs legal management access.'}
+                  </p>
+                )}
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <aside className="task-desk__side">
+          <section className="task-desk__card task-desk__activity">
+            <header className="task-desk__activity-head">
+              <h2>{ar ? 'النشاط والردود' : 'Activity & comments'}</h2>
+              <small>
+                {ar ? 'أُنشئت' : 'Created'}{' '}
+                {detail.events[0]?.at.slice(0, 10) ?? '—'}
+              </small>
+            </header>
+            <ol className="task-desk__thread">
+              {detail.events.length ? (
+                [...detail.events].reverse().map((event) => {
+                  const label = EVENT[event.type] ?? [event.type, event.type];
+                  const isStatus = event.type === 'task.status';
+                  return (
+                    <li
+                      key={event.id}
+                      className={
+                        event.type === 'task.reply'
+                          ? 'is-reply'
+                          : isStatus
+                            ? 'is-status'
+                            : ''
+                      }
+                    >
+                      <header>
+                        <strong>{ar ? label[0] : label[1]}</strong>
+                        <small>
+                          {[event.actorName, event.at.slice(0, 16).replace('T', ' ')]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </small>
+                      </header>
+                      {isStatus && (event.fromStatus || event.toStatus) ? (
+                        <p className="task-desk__status-change">
+                          <span className={`task-status task-status--sm task-status--${event.fromStatus ?? 'draft'}`}>
+                            {taskStatusLabel(event.fromStatus ?? 'draft', locale)}
+                          </span>
+                          <span aria-hidden="true">→</span>
+                          <span className={`task-status task-status--sm task-status--${event.toStatus ?? 'draft'}`}>
+                            {taskStatusLabel(event.toStatus ?? 'draft', locale)}
+                          </span>
+                        </p>
+                      ) : null}
+                      {event.note ? (
+                        <p>
+                          {isStatus && taskNeedsReason(event.toStatus ?? '')
+                            ? `${ar ? 'السبب:' : 'Reason:'} ${event.note}`
+                            : event.note}
+                        </p>
+                      ) : null}
+                      {event.files.length ? (
+                        <ul className="task-desk__checks">
+                          {event.files.map((file) => (
+                            <li key={file.id}>
+                              <a
+                                href={`/api/portal/tasks/${encodeURIComponent(detail.id)}/files/${encodeURIComponent(file.id)}`}
+                              >
+                                {file.name}
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </li>
+                  );
+                })
+              ) : (
+                <li>
+                  <p className="task-desk__muted">
+                    {ar ? 'لا نشاط بعد. اكتب أول ملاحظة بالأسفل.' : 'No activity yet. Write the first note below.'}
+                  </p>
+                </li>
+              )}
+            </ol>
+            {detail.canUpdate ? (
               <form
-                className="task-page__stack"
+                className="task-desk__reply"
                 onSubmit={(event) => {
                   event.preventDefault();
+                  if (reply.trim().length < 2 && !replyFiles.length) return;
                   void run(
-                    `${base}/legal`,
-                    { lawyerPartyId: lawyerId || null, note: legalNote.trim() || undefined },
-                    ar ? 'فُتحت القضية' : 'Case opened',
+                    `${base}/reply`,
+                    { note: reply.trim(), files: replyFiles },
+                    ar ? 'أُرسل الرد' : 'Reply sent',
                   );
                 }}
               >
-                <label>
-                  <span>{ar ? 'اختر المحامي' : 'Choose a lawyer'}</span>
-                  <select value={lawyerId} onChange={(event) => setLawyerId(event.target.value)}>
-                    <option value="">{ar ? 'بدون محامٍ الآن' : 'No lawyer yet'}</option>
-                    {detail.lawyers.map((lawyer) => (
-                      <option key={lawyer.id} value={lawyer.id}>
-                        {lawyer.name}
-                      </option>
+                <textarea
+                  rows={4}
+                  maxLength={2000}
+                  value={reply}
+                  placeholder={ar ? 'اكتب تعليقاً أو رداً…' : 'Write a comment or reply…'}
+                  onChange={(event) => setReply(event.target.value)}
+                />
+                <NoteTranslateBar value={reply} onChange={setReply} locale={locale} max={2000} disabled={busy} />
+                <label className="task-desk__stack">
+                  <span>{ar ? 'مرفق مع الرد' : 'Attachment with the reply'}</span>
+                  <input
+                    type="file"
+                    multiple
+                    disabled={busy}
+                    onChange={(event) => {
+                      const picked = [...(event.target.files ?? [])].slice(0, 4);
+                      event.target.value = '';
+                      for (const file of picked) {
+                        if (file.size > 700_000) {
+                          setMessage(
+                            ar
+                              ? 'أحد الملفات أكبر من حوالي ٧٠٠ ك.ب.'
+                              : 'A file is larger than about 700 KB.',
+                          );
+                          continue;
+                        }
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          const data = typeof reader.result === 'string' ? reader.result : '';
+                          if (!data) return;
+                          setReplyFiles((current) =>
+                            [...current, { name: file.name, data }].slice(0, 4),
+                          );
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </label>
+                {replyFiles.length ? (
+                  <ul className="task-desk__checks">
+                    {replyFiles.map((file) => (
+                      <li key={file.name}>
+                        <span>{file.name}</span>
+                        <button
+                          type="button"
+                          className="button button--quiet"
+                          onClick={() =>
+                            setReplyFiles((current) =>
+                              current.filter((item) => item.name !== file.name),
+                            )
+                          }
+                        >
+                          {ar ? 'إزالة' : 'Remove'}
+                        </button>
+                      </li>
                     ))}
-                  </select>
-                </label>
-                <label>
-                  <span>{ar ? 'ملاحظة للمحامي' : 'Note for the lawyer'}</span>
-                  <textarea rows={3} maxLength={2000} value={legalNote} onChange={(event) => setLegalNote(event.target.value)} />
-                </label>
-                <button className="button button--primary" type="submit" disabled={busy}>
-                  {ar ? 'فتح قضية' : 'Open a case'}
+                  </ul>
+                ) : null}
+                <button
+                  className="button button--primary"
+                  type="submit"
+                  disabled={busy || (reply.trim().length < 2 && !replyFiles.length)}
+                >
+                  {busy ? (ar ? 'جارٍ الإرسال…' : 'Sending…') : ar ? 'إرسال' : 'Send'}
                 </button>
               </form>
-            ) : (
-              <p>{ar ? 'فتح القضية يحتاج صلاحية إدارة المحاماة.' : 'Opening a case needs legal management access.'}</p>
-            )}
+            ) : null}
           </section>
         </aside>
       </div>

@@ -5,6 +5,8 @@ export type WorkTaskEvent = {
   note: string | null;
   at: string;
   actorName: string;
+  fromStatus: string | null;
+  toStatus: string | null;
   files: WorkTaskFile[];
 };
 export type WorkTaskSummary = {

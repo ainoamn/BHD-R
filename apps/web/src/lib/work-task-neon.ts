@@ -61,6 +61,10 @@ function bad(): never {
   throw new Error('invalid_body');
 }
 
+function reasonRequired(): never {
+  throw new Error('reason_required');
+}
+
 function iso(value: Date | null): string | null {
   return value ? value.toISOString() : null;
 }
@@ -165,6 +169,8 @@ export async function readWorkTask(
         note: workflowEvents.note,
         at: workflowEvents.occurredAt,
         metadata: workflowEvents.metadata,
+        fromStatus: workflowEvents.fromStatus,
+        toStatus: workflowEvents.toStatus,
         actorName: actor.displayName,
       })
       .from(workflowEvents)
@@ -310,6 +316,8 @@ export async function readWorkTask(
         note: event.note,
         at: event.at.toISOString(),
         actorName: event.actorName ?? '',
+        fromStatus: event.fromStatus,
+        toStatus: event.toStatus,
         files: fileList
           .filter((file) => file.reply_id === event.id)
           .map((file) => ({ id: file.id, name: file.name || 'file' })),
@@ -399,6 +407,11 @@ export async function updateWorkTask(
     if (!hasPermission(claims, 'task.update')) deny();
     if (!STATUSES.has(input.status) || input.status === task.status) bad();
     const closing = !OPEN.has(input.status);
+    const needsReason =
+      input.status === 'rejected' ||
+      input.status === 'cancelled' ||
+      input.status === 'completed';
+    if (needsReason && (!note || note.length < 5)) reasonRequired();
     await tx
       .update(workTasks)
       .set({
@@ -416,7 +429,7 @@ export async function updateWorkTask(
       fromStatus: task.status,
       toStatus: input.status,
       note,
-      metadata: {},
+      metadata: { reasonRequired: needsReason },
     });
   }
 
