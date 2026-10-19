@@ -14747,23 +14747,47 @@ body:has(.guest-stay-detail) #main-content {
     gap: 0.1rem;
     min-width: 0;
   }
+  .stays-book-sticky__prices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.75rem;
+    align-items: baseline;
+  }
   .stays-book-sticky__meta strong {
     font-size: 1rem;
     line-height: 1.2;
   }
-  .stays-book-sticky__meta span {
+  .stays-book-sticky__meta strong em {
+    font-style: normal;
+    font-weight: 500;
+    font-size: 0.75rem;
+    color: var(--muted, #5b6b66);
+  }
+  .stays-book-sticky__sale {
+    color: color-mix(in srgb, var(--accent, #1f6b4a) 80%, #0f172a);
+  }
+  .stays-book-sticky__meta > span {
     color: var(--muted, #5b6b66);
     font-size: 0.75rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .stays-book-sticky__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    justify-content: flex-end;
+  }
   .stays-book-sticky__cta {
-    justify-self: end;
     white-space: nowrap;
     min-height: 2.65rem;
-    padding-inline: 1rem;
+    padding-inline: 0.9rem;
   }
+}
+.stays-book-cta__actions {
+  display: grid;
+  gap: 0.45rem;
 }
 
 /* Owner viewing request desk */

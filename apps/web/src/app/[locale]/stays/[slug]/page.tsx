@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
-import { StayPublicDesk } from '@/components/stays/stay-public-desk';
+import { PropertyDetailManager } from '@/components/property-detail-manager';
 import { loadHostSummarySafe, loadUnitRatings, type UnitRating } from '@/lib/booking-reviews-neon';
 import { withTimeoutFallback } from '@/lib/with-timeout';
 import { subjectBadgeChips } from '@/lib/badge-chips-neon';
@@ -75,7 +75,7 @@ export async function generateMetadata({
   };
 }
 
-/** Public stay desk — book-first, dual stay/sale prices, details on demand. */
+/** Public stay — Property 360 layout (same as unit listings) with daily-stay booking. */
 export default async function StayDetailPage({
   params,
   searchParams,
@@ -162,11 +162,13 @@ export default async function StayDetailPage({
   };
 
   return (
-    <main className="section stay-desk-page">
+    <main className="section">
       <div className="container">
-        <StayPublicDesk
+        <PropertyDetailManager
           property={propertyForDisplay}
           locale={locale}
+          portal="owner"
+          variant="public"
           {...(focusUnitId ? { focusUnitId } : {})}
           signedIn={Boolean(viewer)}
           stayBooking={{

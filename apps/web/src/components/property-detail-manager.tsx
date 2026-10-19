@@ -7,6 +7,7 @@ import { SubjectTasks } from '@/components/subject-tasks';
 import type { CurrencyCode } from '@bhd-r/contracts';
 import { BrandMark } from '@bhd-r/ui';
 import { browserMutation, fetchBrowserCsrfToken } from '@/lib/api';
+import { depositForMode } from '@/lib/booking-deposit';
 import { formatMoney } from '@/lib/format';
 import { formatListingLocation } from '@/lib/listing-card-copy';
 import { PropertyQrCard } from '@/components/property-qr-card';
@@ -307,6 +308,21 @@ export function PropertyDetailManager({
   const primaryUnit =
     (focusUnitId ? property.units.find((unit) => unit.id === focusUnitId) : undefined) ??
     (property.kind === 'multi_unit' && !focusUnitId ? undefined : property.units[0]);
+  const stayOffersSale =
+    Boolean(stayBooking) &&
+    Boolean(primaryUnit?.salePriceMinor) &&
+    primaryUnit!.salePriceMinor !== '0' &&
+    (primaryUnit!.listingPurpose === 'sale' || primaryUnit!.listingPurpose === 'both');
+  const staySalePriceLabel =
+    stayOffersSale && primaryUnit?.salePriceMinor
+      ? formatMoney(primaryUnit.salePriceMinor, primaryUnit.currency, locale)
+      : null;
+  const staySaleDeposit =
+    stayOffersSale && primaryUnit
+      ? depositForMode('sale', primaryUnit.depositMinor, primaryUnit.saleDepositMinor ?? null)
+      : null;
+  const staySaleBookHref =
+    stayOffersSale && primaryUnit ? `/${locale}/book/${primaryUnit.id}?mode=sale` : null;
   const unitSerials = useMemo(
     () =>
       assignUnitSerials(
@@ -524,18 +540,43 @@ export function PropertyDetailManager({
         >
           <div className="stays-book-sticky__inner">
             <div className="stays-book-sticky__meta">
-              {stayNightlyLabel ? (
-                <strong dir="ltr">{stayNightlyLabel}</strong>
-              ) : (
-                <strong>{ar ? 'إقامة يومية' : 'Daily stay'}</strong>
-              )}
+              <div className="stays-book-sticky__prices">
+                {stayNightlyLabel ? (
+                  <strong dir="ltr">
+                    {stayNightlyLabel}
+                    <em>{ar ? ' لليلة' : '/night'}</em>
+                  </strong>
+                ) : (
+                  <strong>{ar ? 'إقامة يومية' : 'Daily stay'}</strong>
+                )}
+                {staySalePriceLabel ? (
+                  <strong dir="ltr" className="stays-book-sticky__sale">
+                    {staySalePriceLabel}
+                    <em>{ar ? ' للبيع' : ' sale'}</em>
+                  </strong>
+                ) : null}
+              </div>
               <span dir="ltr">
                 {stayCheckInOn} → {stayCheckOutOn}
               </span>
             </div>
-            <Link className="button button--primary stays-book-sticky__cta" href={stayBookHref}>
-              {ar ? 'متابعة الحجز' : 'Continue to book'}
-            </Link>
+            <div className="stays-book-sticky__actions">
+              <Link className="button button--primary stays-book-sticky__cta" href={stayBookHref}>
+                {ar ? 'متابعة الحجز' : 'Continue to book'}
+              </Link>
+              {staySaleBookHref ? (
+                <Link
+                  className="button button--secondary stays-book-sticky__cta"
+                  href={
+                    signedIn
+                      ? staySaleBookHref
+                      : `/${locale}/login?next=${encodeURIComponent(staySaleBookHref)}`
+                  }
+                >
+                  {ar ? 'شراء الوحدة' : 'Buy unit'}
+                </Link>
+              ) : null}
+            </div>
           </div>
         </div>
       ) : null}
@@ -1298,12 +1339,26 @@ export function PropertyDetailManager({
                     ? 'اختر التواريخ من التقويم ثم اضغط متابعة الحجز.'
                     : 'Pick dates on the calendar, then tap continue to book.'}
                 </p>
-                <Link
-                  className="button button--primary property-360__summary-cta"
-                  href={stayBookHref}
-                >
-                  {ar ? 'متابعة الحجز' : 'Continue to book'}
-                </Link>
+                <div className="stays-book-cta__actions">
+                  <Link
+                    className="button button--primary property-360__summary-cta"
+                    href={stayBookHref}
+                  >
+                    {ar ? 'متابعة الحجز' : 'Continue to book'}
+                  </Link>
+                  {staySaleBookHref ? (
+                    <Link
+                      className="button button--secondary property-360__summary-cta"
+                      href={
+                        signedIn
+                          ? staySaleBookHref
+                          : `/${locale}/login?next=${encodeURIComponent(staySaleBookHref)}`
+                      }
+                    >
+                      {ar ? 'شراء هذه الوحدة' : 'Buy this unit'}
+                    </Link>
+                  ) : null}
+                </div>
               </section>
             ) : null}
             <div className="property-360__qr">
@@ -1325,10 +1380,26 @@ export function PropertyDetailManager({
             <p className="property-360__price">
               {stayBooking?.nightlyMinor && stayBooking.currency ? (
                 <>
-                  <strong dir="ltr">
-                    {formatMoney(stayBooking.nightlyMinor, stayBooking.currency, locale)}
-                  </strong>
-                  <span>{ar ? 'لليلة' : 'per night'}</span>
+                  <span className="property-360__price-dual">
+                    <strong dir="ltr">
+                      {formatMoney(stayBooking.nightlyMinor, stayBooking.currency, locale)}
+                    </strong>
+                    <span>{ar ? 'لليلة' : 'per night'}</span>
+                  </span>
+                  {staySalePriceLabel ? (
+                    <span className="property-360__price-dual">
+                      <strong dir="ltr">{staySalePriceLabel}</strong>
+                      <span>
+                        {staySaleDeposit
+                          ? ar
+                            ? `للبيع · عربون ${formatMoney(staySaleDeposit, primaryUnit!.currency, locale)}`
+                            : `for sale · deposit ${formatMoney(staySaleDeposit, primaryUnit!.currency, locale)}`
+                          : ar
+                            ? 'للبيع'
+                            : 'for sale'}
+                      </span>
+                    </span>
+                  ) : null}
                 </>
               ) : primaryUnit?.listingPurpose === 'both' ? (
                 <>
