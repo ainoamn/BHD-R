@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.130 — 2026-10-19
+
+- **معاينة:** زر «فتح المعاينة والرد» في جدول الحجوزات لصفوف المعاينة (كان عمود الإجراءات فارغاً).
+
 ## 0.8.129 — 2026-10-19
 
 - **أداء:** صفحة الحجوزات (`/owner/bookings`) تُحمَّل من Neon مباشرة دون انتظار سياق النماذج الثقيل، ومسار مالك المبنى أخف بكثير.

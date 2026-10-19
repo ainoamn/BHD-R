@@ -1,8 +1,8 @@
 # Implementation status
 
 **Updated:** 2026-10-19  
-**Product version:** 0.8.129  
-**Active focus:** Viewing visit pass + faster bookings list shipped (0.8.128–0.8.129); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
+**Product version:** 0.8.130  
+**Active focus:** Viewing open action on bookings table (0.8.130); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
 
 
 
@@ -22,6 +22,7 @@
 
 | Version         | Focus                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.8.130         | Bookings table: Open & reply action for viewing rows |
 | 0.8.129         | Owner bookings list: Neon-only fast path, short context budget, warm bookings first |
 | 0.8.128.1       | Fix viewing-pass TypeScript build failure on Vercel |
 | 0.8.128         | Viewing: open fix for building owners; visit pass + guest/guard emails; gate scan arrival; post-visit book/decline |

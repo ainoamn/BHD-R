@@ -143,7 +143,9 @@ const SECTIONS: Record<PropertyRecordSection, SectionConfig> = {
         ? `/${portal}/stays/bookings/${row.id}`
         : row.kind === 'reservation'
           ? `/${portal}/bookings/${row.id}`
-          : null,
+          : row.kind === 'viewing'
+            ? `/${portal}/bookings/viewings/${row.id}`
+            : null,
   },
   contracts: {
     titleAr: 'عقود العقار',
@@ -1928,8 +1930,18 @@ export function PropertySectionRecords({
                           <div className="psr-actions">
                             {rowActions(row)}
                             {href ? (
-                              <Link className="pmh-card__link" href={href} prefetch={false}>
-                                {ar ? 'فتح' : 'Open'}
+                              <Link
+                                className={`pmh-card__link${row.kind === 'viewing' ? ' button button--primary psr-action' : ''}`}
+                                href={href}
+                                prefetch={false}
+                              >
+                                {row.kind === 'viewing'
+                                  ? ar
+                                    ? 'فتح المعاينة والرد'
+                                    : 'Open & reply'
+                                  : ar
+                                    ? 'فتح'
+                                    : 'Open'}
                               </Link>
                             ) : null}
                           </div>
