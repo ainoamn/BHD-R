@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
 import { browserNextMutation, ApiError } from '@/lib/api';
-import { NoteTranslateBar } from '@/components/note-translate';
+import { NoteTranslateBar, TranslatableNote } from '@/components/note-translate';
 import type { WorkTaskDetail } from '@/lib/work-task-shared';
 import type { PortalRole } from '@/lib/types';
 import {
@@ -77,6 +77,11 @@ export function WorkTaskWorkspace({
   const [memberDuty, setMemberDuty] = useState<'lead' | 'executor' | 'supervisor' | 'viewer'>('viewer');
   const [subjectKind, setSubjectKind] = useState<'party' | 'property' | 'unit'>(detail.subject?.kind ?? 'party');
   const [subjectId, setSubjectId] = useState(detail.subject?.id ?? '');
+  const [subjectPropertyId, setSubjectPropertyId] = useState(
+    detail.place.property?.id ??
+      detail.units.find((item) => item.id === detail.subject?.id)?.propertyId ??
+      '',
+  );
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [statusReason, setStatusReason] = useState('');
@@ -212,6 +217,7 @@ export function WorkTaskWorkspace({
             {detail.reference}
           </p>
           <h1>{detail.title}</h1>
+          <TranslatableNote text={detail.title} locale={locale} />
         </div>
         <div className="task-desk__top-actions">
           <a
@@ -317,6 +323,9 @@ export function WorkTaskWorkspace({
             <p className="task-desk__body">
               {detail.description?.trim() || (ar ? 'لا يوجد وصف.' : 'No description.')}
             </p>
+            {detail.description?.trim() ? (
+              <TranslatableNote text={detail.description} locale={locale} />
+            ) : null}
           </section>
 
           {detail.followers.length ? (
@@ -596,9 +605,23 @@ export function WorkTaskWorkspace({
                   onSubmit={(event) => {
                     event.preventDefault();
                     if (!subjectId) return;
+                    if (subjectKind === 'unit' && !subjectPropertyId) {
+                      setMessage(
+                        ar
+                          ? 'اختر رقم العقار الأصلي أولاً ثم الوحدة.'
+                          : 'Choose the parent property first, then the unit.',
+                      );
+                      return;
+                    }
                     void run(
                       `${base}/link`,
-                      { kind: subjectKind, id: subjectId },
+                      {
+                        kind: subjectKind,
+                        id: subjectId,
+                        ...(subjectKind === 'unit' && subjectPropertyId
+                          ? { propertyId: subjectPropertyId }
+                          : {}),
+                      },
                       ar ? 'رُبطت المهمة' : 'Task linked',
                     );
                   }}
@@ -611,6 +634,7 @@ export function WorkTaskWorkspace({
                       onChange={(event) => {
                         setSubjectKind(event.target.value as typeof subjectKind);
                         setSubjectId('');
+                        setSubjectPropertyId('');
                       }}
                     >
                       <option value="party">{ar ? 'مستأجر / شخص' : 'Tenant / person'}</option>
@@ -618,19 +642,58 @@ export function WorkTaskWorkspace({
                       <option value="unit">{ar ? 'وحدة' : 'Unit'}</option>
                     </select>
                   </label>
+                  {subjectKind === 'unit' ? (
+                    <label>
+                      <span>{ar ? 'رقم العقار الأصلي' : 'Parent property'}</span>
+                      <select
+                        value={subjectPropertyId}
+                        disabled={busy}
+                        onChange={(event) => {
+                          setSubjectPropertyId(event.target.value);
+                          setSubjectId('');
+                        }}
+                      >
+                        <option value="">{ar ? 'اختر العقار أولاً' : 'Choose property first'}</option>
+                        {detail.properties.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
                   <label>
-                    <span>{ar ? 'الاسم' : 'Name'}</span>
+                    <span>
+                      {subjectKind === 'unit'
+                        ? ar
+                          ? 'الوحدة'
+                          : 'Unit'
+                        : ar
+                          ? 'الاسم'
+                          : 'Name'}
+                    </span>
                     <select
                       value={subjectId}
-                      disabled={busy}
+                      disabled={busy || (subjectKind === 'unit' && !subjectPropertyId)}
                       onChange={(event) => setSubjectId(event.target.value)}
                     >
-                      <option value="">{ar ? 'اختر' : 'Choose'}</option>
+                      <option value="">
+                        {subjectKind === 'unit' && !subjectPropertyId
+                          ? ar
+                            ? 'اختر العقار أولاً'
+                            : 'Choose property first'
+                          : ar
+                            ? 'اختر'
+                            : 'Choose'}
+                      </option>
                       {(subjectKind === 'party'
                         ? detail.parties
                         : subjectKind === 'property'
                           ? detail.properties
-                          : detail.units
+                          : detail.units.filter(
+                              (item) =>
+                                !subjectPropertyId || item.propertyId === subjectPropertyId,
+                            )
                       ).map((item) => (
                         <option key={item.id} value={item.id}>
                           {item.label}
@@ -638,10 +701,21 @@ export function WorkTaskWorkspace({
                       ))}
                     </select>
                   </label>
+                  {subjectKind === 'unit' ? (
+                    <p className="task-desk__muted">
+                      {ar
+                        ? 'تظهر المهمة على صفحة العقار وصفحة الوحدة معاً.'
+                        : 'The task will appear on both the property and unit pages.'}
+                    </p>
+                  ) : null}
                   <button
                     className="button button--quiet"
                     type="submit"
-                    disabled={busy || !subjectId}
+                    disabled={
+                      busy ||
+                      !subjectId ||
+                      (subjectKind === 'unit' && !subjectPropertyId)
+                    }
                   >
                     {ar ? 'حفظ الربط' : 'Save link'}
                   </button>
@@ -701,6 +775,13 @@ export function WorkTaskWorkspace({
                           : 'Write why you are rejecting, closing, or cancelling…'
                       }
                       onChange={(event) => setStatusReason(event.target.value)}
+                    />
+                    <NoteTranslateBar
+                      value={statusReason}
+                      onChange={setStatusReason}
+                      locale={locale}
+                      max={2000}
+                      disabled={busy}
                     />
                     <div className="task-desk__reason-actions">
                       <button
@@ -941,11 +1022,14 @@ export function WorkTaskWorkspace({
                         </p>
                       ) : null}
                       {event.note ? (
-                        <p>
-                          {isStatus && taskNeedsReason(event.toStatus ?? '')
-                            ? `${ar ? 'السبب:' : 'Reason:'} ${event.note}`
-                            : event.note}
-                        </p>
+                        <>
+                          <p>
+                            {isStatus && taskNeedsReason(event.toStatus ?? '')
+                              ? `${ar ? 'السبب:' : 'Reason:'} ${event.note}`
+                              : event.note}
+                          </p>
+                          <TranslatableNote text={event.note} locale={locale} />
+                        </>
                       ) : null}
                       {event.files.length ? (
                         <ul className="task-desk__checks">
@@ -1105,6 +1189,13 @@ export function WorkTaskWorkspace({
               value={reopenReason}
               placeholder={ar ? 'السبب والشرح…' : 'Reason and explanation…'}
               onChange={(event) => setReopenReason(event.target.value)}
+            />
+            <NoteTranslateBar
+              value={reopenReason}
+              onChange={setReopenReason}
+              locale={locale}
+              max={2000}
+              disabled={busy}
             />
             {message ? <p className="task-quick__msg">{message}</p> : null}
             <footer className="task-quick__foot">

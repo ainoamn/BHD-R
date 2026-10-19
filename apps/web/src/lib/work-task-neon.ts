@@ -208,7 +208,7 @@ export async function listWorkTaskPlaceChoices(claims: SessionClaims): Promise<{
       units: unitChoices.map((unit) => ({
         id: unit.id,
         label: `${unit.label} · ${unit.name}`,
-        propertyId: unit.propertyId,
+        ...(unit.propertyId ? { propertyId: unit.propertyId } : {}),
       })),
     };
   });
@@ -433,6 +433,16 @@ export async function createWorkTask(
           partyLabel: '',
         })
       : null;
+    // Unit must belong to the property the writer picked (so both pages show the task).
+    if (
+      place &&
+      link?.kind === 'unit' &&
+      input.propertyId &&
+      place.propertyId &&
+      place.propertyId !== input.propertyId
+    ) {
+      bad();
+    }
     const reference = await nextTaskReference(tx, orgId);
     const [row] = await tx
       .insert(workTasks)
@@ -881,7 +891,7 @@ export async function readWorkTask(
       units: unitChoices.map((unit) => ({
         id: unit.id,
         label: `${unit.label} · ${unit.name}`,
-        propertyId: unit.propertyId,
+        ...(unit.propertyId ? { propertyId: unit.propertyId } : {}),
       })),
       events: events.map((event) => ({
         id: event.id,
@@ -1396,7 +1406,7 @@ export async function readWorkTaskFile(
 export async function linkWorkTaskSubject(
   claims: SessionClaims,
   taskId: string,
-  input: { kind: 'party' | 'property' | 'unit'; id: string },
+  input: { kind: 'party' | 'property' | 'unit'; id: string; propertyId?: string },
 ): Promise<WorkTaskDetail> {
   if (!canRead(claims) || !hasPermission(claims, 'task.update')) deny();
   const orgId = claims.organizationId!;
@@ -1439,7 +1449,7 @@ export async function linkWorkTaskSubject(
       if (!same) linkLocked();
       return;
     }
-    const place = await resolvePlaceLink(tx, orgId, input, {
+    const place = await resolvePlaceLink(tx, orgId, { kind: input.kind, id: input.id }, {
       propertyId: task.propertyId,
       unitId: task.unitId,
       partyId: priorPartyId,
@@ -1447,6 +1457,14 @@ export async function linkWorkTaskSubject(
       unitLabel: typeof priorMeta.unitLabel === 'string' ? priorMeta.unitLabel : '',
       partyLabel: typeof priorMeta.partyLabel === 'string' ? priorMeta.partyLabel : '',
     });
+    if (
+      input.kind === 'unit' &&
+      input.propertyId &&
+      place.propertyId &&
+      place.propertyId !== input.propertyId
+    ) {
+      bad();
+    }
     const note =
       [place.propertyLabel, place.unitLabel, place.partyLabel].filter(Boolean).join(' · ') ||
       place.label;

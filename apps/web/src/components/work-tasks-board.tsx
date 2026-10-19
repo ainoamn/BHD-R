@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
 import { ApiError, browserNextMutation } from '@/lib/api';
+import { NoteTranslateBar } from '@/components/note-translate';
 import type { WorkTaskChoice, WorkTaskDetail, WorkTaskSummary } from '@/lib/work-task-shared';
 import type { PortalRole } from '@/lib/types';
 import {
@@ -30,6 +31,8 @@ type Draft = {
   assignedToUserId: string;
   linkKind: PlaceKind;
   linkId: string;
+  /** Required before picking a unit — ensures the task shows on the property page too. */
+  propertyScopeId: string;
 };
 
 const EMPTY_DRAFT: Draft = {
@@ -44,6 +47,7 @@ const EMPTY_DRAFT: Draft = {
   assignedToUserId: '',
   linkKind: 'property',
   linkId: '',
+  propertyScopeId: '',
 };
 
 /** ClickUp/Bitrix-inspired list + board with one quick-create desk. */
@@ -175,9 +179,25 @@ export function WorkTasksBoard({
 
   const assigneeName =
     people.find((person) => person.userId === draft.assignedToUserId)?.name ?? null;
+  const unitChoices = units.filter(
+    (item) => !draft.propertyScopeId || item.propertyId === draft.propertyScopeId,
+  );
   const placeChoices =
-    draft.linkKind === 'party' ? parties : draft.linkKind === 'property' ? properties : units;
-  const placeLabel = placeChoices.find((item) => item.id === draft.linkId)?.label ?? null;
+    draft.linkKind === 'party'
+      ? parties
+      : draft.linkKind === 'property'
+        ? properties
+        : unitChoices;
+  const selectedUnit = units.find((item) => item.id === draft.linkId);
+  const scopedProperty =
+    properties.find((item) => item.id === draft.propertyScopeId) ??
+    (selectedUnit?.propertyId
+      ? properties.find((item) => item.id === selectedUnit.propertyId)
+      : undefined);
+  const placeLabel =
+    draft.linkKind === 'unit' && draft.linkId
+      ? [scopedProperty?.label, selectedUnit?.label].filter(Boolean).join(' · ') || null
+      : (placeChoices.find((item) => item.id === draft.linkId)?.label ?? null);
   const checklistCount = draft.checklist
     .split(/\n/)
     .map((line) => line.trim())
@@ -191,6 +211,30 @@ export function WorkTasksBoard({
     const title = draft.title.trim();
     if (title.length < 2) {
       setMessage(ar ? 'اكتب اسم المهمة (حرفان على الأقل).' : 'Enter a task name (at least 2 characters).');
+      return;
+    }
+    if (draft.linkKind === 'unit' && draft.linkId && !draft.propertyScopeId) {
+      setMessage(
+        ar
+          ? 'اختر رقم العقار الأصلي أولاً ثم الوحدة.'
+          : 'Choose the parent property first, then the unit.',
+      );
+      setChip('place');
+      return;
+    }
+    if (
+      draft.linkKind === 'unit' &&
+      draft.linkId &&
+      draft.propertyScopeId &&
+      selectedUnit?.propertyId &&
+      selectedUnit.propertyId !== draft.propertyScopeId
+    ) {
+      setMessage(
+        ar
+          ? 'الوحدة لا تتبع العقار المحدد؛ اختر وحدة من نفس العقار.'
+          : 'That unit does not belong to the selected property.',
+      );
+      setChip('place');
       return;
     }
     setBusy(true);
@@ -219,7 +263,13 @@ export function WorkTasksBoard({
           tags: tags.length ? tags : undefined,
           checklist: checklist.length ? checklist : undefined,
           ...(draft.linkId
-            ? { linkKind: draft.linkKind, linkId: draft.linkId }
+            ? {
+                linkKind: draft.linkKind,
+                linkId: draft.linkId,
+                ...(draft.linkKind === 'unit' && draft.propertyScopeId
+                  ? { propertyId: draft.propertyScopeId }
+                  : {}),
+              }
             : {}),
         }),
       });
@@ -447,6 +497,13 @@ export function WorkTasksBoard({
                 }
               }}
             />
+            <NoteTranslateBar
+              value={draft.title}
+              onChange={(next) => setDraft((prev) => ({ ...prev, title: next.slice(0, 200) }))}
+              locale={locale}
+              max={200}
+              disabled={busy}
+            />
             <textarea
               className="task-quick__desc"
               rows={3}
@@ -456,6 +513,13 @@ export function WorkTasksBoard({
               onChange={(event) =>
                 setDraft((prev) => ({ ...prev, description: event.target.value }))
               }
+            />
+            <NoteTranslateBar
+              value={draft.description}
+              onChange={(next) => setDraft((prev) => ({ ...prev, description: next.slice(0, 4000) }))}
+              locale={locale}
+              max={4000}
+              disabled={busy}
             />
 
             <div className="task-quick__chips" role="toolbar" aria-label={ar ? 'خصائص المهمة' : 'Task details'}>
@@ -625,7 +689,7 @@ export function WorkTasksBoard({
             ) : null}
 
             {chip === 'place' ? (
-              <div className="task-quick__panel task-quick__panel--dates">
+              <div className="task-quick__panel">
                 <label>
                   <span>{ar ? 'النوع' : 'Type'}</span>
                   <select
@@ -635,6 +699,7 @@ export function WorkTasksBoard({
                         ...prev,
                         linkKind: event.target.value as PlaceKind,
                         linkId: '',
+                        propertyScopeId: '',
                       }))
                     }
                   >
@@ -643,15 +708,54 @@ export function WorkTasksBoard({
                     <option value="unit">{ar ? 'وحدة' : 'Unit'}</option>
                   </select>
                 </label>
+                {draft.linkKind === 'unit' ? (
+                  <label>
+                    <span>{ar ? 'رقم العقار الأصلي' : 'Parent property'}</span>
+                    <select
+                      value={draft.propertyScopeId}
+                      onChange={(event) =>
+                        setDraft((prev) => ({
+                          ...prev,
+                          propertyScopeId: event.target.value,
+                          linkId: '',
+                        }))
+                      }
+                    >
+                      <option value="">{ar ? 'اختر العقار أولاً' : 'Choose property first'}</option>
+                      {properties.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
                 <label>
-                  <span>{ar ? 'الاسم' : 'Name'}</span>
+                  <span>
+                    {draft.linkKind === 'unit'
+                      ? ar
+                        ? 'الوحدة'
+                        : 'Unit'
+                      : ar
+                        ? 'الاسم'
+                        : 'Name'}
+                  </span>
                   <select
                     value={draft.linkId}
+                    disabled={draft.linkKind === 'unit' && !draft.propertyScopeId}
                     onChange={(event) =>
                       setDraft((prev) => ({ ...prev, linkId: event.target.value }))
                     }
                   >
-                    <option value="">{ar ? 'بدون ربط' : 'No link'}</option>
+                    <option value="">
+                      {draft.linkKind === 'unit' && !draft.propertyScopeId
+                        ? ar
+                          ? 'اختر العقار أولاً'
+                          : 'Choose property first'
+                        : ar
+                          ? 'بدون ربط'
+                          : 'No link'}
+                    </option>
                     {placeChoices.map((item) => (
                       <option key={item.id} value={item.id}>
                         {item.label}
@@ -659,6 +763,13 @@ export function WorkTasksBoard({
                     ))}
                   </select>
                 </label>
+                {draft.linkKind === 'unit' ? (
+                  <p className="task-quick__hint">
+                    {ar
+                      ? 'تظهر المهمة على صفحة العقار وصفحة الوحدة معاً.'
+                      : 'The task will appear on both the property and unit pages.'}
+                  </p>
+                ) : null}
               </div>
             ) : null}
 

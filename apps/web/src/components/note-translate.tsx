@@ -325,7 +325,9 @@ export function TranslatableNote({ text, locale }: { text: string; locale: 'ar' 
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const source = noteLanguage(text);
+  const trimmed = text.trim();
+  if (!trimmed || hasNoteTranslation(trimmed)) return null;
+  const source = noteLanguage(trimmed);
   const target = source === locale ? otherLanguage(source) : locale;
   const [targetAr, targetEn] = LANG_LABEL[target];
 
@@ -337,7 +339,7 @@ export function TranslatableNote({ text, locale }: { text: string; locale: 'ar' 
     setBusy(true);
     setError(null);
     try {
-      setResult(await requestTranslation(text.slice(0, NOTE_TRANSLATE_MAX), target));
+      setResult(await requestTranslation(trimmed.slice(0, NOTE_TRANSLATE_MAX), target));
     } catch (caught) {
       setError(errorMessage(caught, ar));
     } finally {

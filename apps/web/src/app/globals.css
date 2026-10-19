@@ -27285,6 +27285,12 @@ button.handover-shots__item {
   border-color: color-mix(in srgb, var(--bhd-teal) 50%, #cbd5e1);
   background: color-mix(in srgb, var(--bhd-teal) 10%, #fff);
 }
+.task-quick__hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #64748b;
+  line-height: 1.4;
+}
 .task-quick__msg {
   margin: 0;
   color: #be123c;

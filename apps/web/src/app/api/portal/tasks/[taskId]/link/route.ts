@@ -25,11 +25,19 @@ export async function POST(request: Request, context: Context) {
       .object({
         kind: z.enum(['party', 'property', 'unit']),
         id: z.string().uuid(),
+        propertyId: z.string().uuid().optional(),
       })
       .strict()
       .safeParse(await request.json().catch(() => null));
     if (!parsed.success) return legalJson({ error: { code: 'invalid_body' } }, { status: 400 });
-    return legalJson(await linkWorkTaskSubject(claims, taskId, parsed.data));
+    const data = parsed.data;
+    return legalJson(
+      await linkWorkTaskSubject(claims, taskId, {
+        kind: data.kind,
+        id: data.id,
+        ...(data.propertyId ? { propertyId: data.propertyId } : {}),
+      }),
+    );
   } catch (error) {
     return legalErrorResponse(error, 'update_failed');
   }
