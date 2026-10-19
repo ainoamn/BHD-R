@@ -25,6 +25,10 @@ import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { applySessionSettings, viewerTenantSettings } from '@/lib/db-session-settings';
 import { scopedOwnerParty } from '@/lib/portal-access';
 import { loadOpsContextExtras } from '@/lib/portal-ops-context-extras';
+import {
+  aggregateOfferingChannels,
+  unitOfferingChannels,
+} from '@/lib/property-offering-channels';
 import { requireSessionSecret } from '@/lib/runtime-env';
 import type { PortalRole } from '@/lib/types';
 
@@ -160,6 +164,7 @@ async function listProperties(claims: SessionClaims): Promise<Record<string, unk
 
     const purposeRows = await transaction
       .select({
+        unitId: units.id,
         propertyId: units.propertyId,
         listingPurpose: units.listingPurpose,
       })
@@ -168,6 +173,7 @@ async function listProperties(claims: SessionClaims): Promise<Record<string, unk
 
     const stayChannelRows = await transaction
       .select({
+        unitId: units.id,
         propertyId: units.propertyId,
         publishStatus: stayProfiles.publishStatus,
         enabled: stayProfiles.enabled,
@@ -176,41 +182,43 @@ async function listProperties(claims: SessionClaims): Promise<Record<string, unk
       .innerJoin(units, eq(units.id, stayProfiles.unitId))
       .where(and(eq(stayProfiles.organizationId, orgId), inArray(units.propertyId, propertyIds)));
 
-    const channelsByProperty = new Map<string, Array<'rent' | 'sale' | 'stay'>>();
-    for (const id of propertyIds) channelsByProperty.set(id, []);
-    for (const row of purposeRows) {
-      const list = channelsByProperty.get(row.propertyId) ?? [];
-      if (
-        (row.listingPurpose === 'rent' || row.listingPurpose === 'both') &&
-        !list.includes('rent')
-      ) {
-        list.push('rent');
-      }
-      if (
-        (row.listingPurpose === 'sale' || row.listingPurpose === 'both') &&
-        !list.includes('sale')
-      ) {
-        list.push('sale');
-      }
-      channelsByProperty.set(row.propertyId, list);
-    }
+    const stayUnitIds = new Set<string>();
     for (const row of stayChannelRows) {
-      // Manage list: any enabled daily-stay setup counts (published or still being prepared).
+      // Count only units with daily-stay actually on (enabled or published).
       if (!row.enabled && row.publishStatus !== 'published') continue;
-      const list = channelsByProperty.get(row.propertyId) ?? [];
-      if (!list.includes('stay')) list.push('stay');
-      channelsByProperty.set(row.propertyId, list);
+      stayUnitIds.add(row.unitId);
     }
-    // Stable order: daily → long-term → sale.
-    for (const [id, list] of channelsByProperty) {
-      const order = { stay: 0, rent: 1, sale: 2 } as const;
-      channelsByProperty.set(
-        id,
-        [...list].sort(
-          (a, b) =>
-            (order[a as keyof typeof order] ?? 9) - (order[b as keyof typeof order] ?? 9),
-        ),
+
+    const unitFactsByProperty = new Map<
+      string,
+      Array<{ unitId: string; purpose: string | null; hasDailyStay: boolean }>
+    >();
+    for (const row of purposeRows) {
+      const list = unitFactsByProperty.get(row.propertyId) ?? [];
+      list.push({
+        unitId: row.unitId,
+        purpose: row.listingPurpose,
+        hasDailyStay: stayUnitIds.has(row.unitId),
+      });
+      unitFactsByProperty.set(row.propertyId, list);
+    }
+
+    const channelsByProperty = new Map<string, Array<'rent' | 'sale' | 'stay'>>();
+    const channelCountsByProperty = new Map<
+      string,
+      Partial<Record<'rent' | 'sale' | 'stay', number>>
+    >();
+    const channelsByUnit = new Map<string, Array<'rent' | 'sale' | 'stay'>>();
+    for (const id of propertyIds) {
+      const facts = unitFactsByProperty.get(id) ?? [];
+      const aggregated = aggregateOfferingChannels(
+        facts.map((fact) => ({ purpose: fact.purpose, hasDailyStay: fact.hasDailyStay })),
       );
+      channelsByProperty.set(id, aggregated.channels);
+      channelCountsByProperty.set(id, aggregated.counts);
+      for (const fact of facts) {
+        channelsByUnit.set(fact.unitId, unitOfferingChannels(fact.purpose, fact.hasDailyStay));
+      }
     }
 
     const multiUnitPropertyIds = rows
@@ -262,6 +270,7 @@ async function listProperties(claims: SessionClaims): Promise<Record<string, unk
         kind: 'unit',
         units: 0,
         coverImageUrl: coverByProperty.get(unit.propertyId) ?? null,
+        channels: channelsByUnit.get(unit.id) ?? [],
       });
       childUnitsByProperty.set(unit.propertyId, list);
     }
@@ -274,6 +283,7 @@ async function listProperties(claims: SessionClaims): Promise<Record<string, unk
       units: byProperty.get(row.id) ?? 0,
       coverImageUrl: coverByProperty.get(row.id) ?? null,
       channels: channelsByProperty.get(row.id) ?? [],
+      channelCounts: channelCountsByProperty.get(row.id) ?? {},
       childUnits: row.kind === 'multi_unit' ? (childUnitsByProperty.get(row.id) ?? []) : [],
     }));
   });

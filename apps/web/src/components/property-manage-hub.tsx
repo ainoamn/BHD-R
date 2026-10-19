@@ -12,9 +12,10 @@ import { formatMoney } from '@/lib/format';
 import { formatListingLocation } from '@/lib/listing-card-copy';
 import { listingPurposeCaption, occupancyLabel } from '@/lib/listing-purpose-display';
 import {
+  aggregateOfferingChannels,
+  offeringChannelBadgeLabel,
   offeringChannelLabel,
   offeringChannelTone,
-  offeringChannelsFromPurposes,
 } from '@/lib/property-offering-channels';
 import { inferUnitKind, unitKindLabel } from '@/lib/unit-identity';
 import { depositForMode } from '@/lib/booking-deposit';
@@ -301,14 +302,16 @@ export function PropertyManageHub({
   const liveLeaseCount =
     pulse?.leases.filter((row) => ['active', 'pending_start', 'draft'].includes(row.status))
       .length ?? 0;
-  const offeringChannels = useMemo(
-    () =>
-      offeringChannelsFromPurposes(
-        property.units.map((unit) => unit.listingPurpose),
-        Boolean(pulse?.stayConfigured || liveStayCount > 0),
-      ),
-    [liveStayCount, property.units, pulse?.stayConfigured],
-  );
+  const offeringSummary = useMemo(() => {
+    const stayUnitIds = new Set(pulse?.stayUnitIds ?? []);
+    return aggregateOfferingChannels(
+      property.units.map((unit) => ({
+        purpose: unit.listingPurpose,
+        hasDailyStay: stayUnitIds.has(unit.id),
+      })),
+    );
+  }, [property.units, pulse?.stayUnitIds]);
+  const showOfferingCounts = property.kind === 'multi_unit' && property.units.length > 1;
 
   const alerts = useMemo(() => {
     const items: Array<{ text: string; href?: string }> = [];
@@ -713,14 +716,25 @@ export function PropertyManageHub({
                   </span>
                 ) : null}
               </div>
-              {offeringChannels.length ? (
+              {offeringSummary.channels.length ? (
                 <div className="ops-channel-badges pmh-offering-badges" aria-label={ar ? 'نوع العرض' : 'Offering'}>
-                  {offeringChannels.map((channel) => (
+                  {offeringSummary.channels.map((channel) => (
                     <span
                       key={channel}
                       className={`status-pill status-pill--${offeringChannelTone(channel)}`}
+                      title={
+                        showOfferingCounts
+                          ? ar
+                            ? `${offeringChannelLabel(channel, locale)} — ${offeringSummary.counts[channel] ?? 0} من ${property.units.length} وحدات`
+                            : `${offeringChannelLabel(channel, locale)} — ${offeringSummary.counts[channel] ?? 0} of ${property.units.length} units`
+                          : undefined
+                      }
                     >
-                      {offeringChannelLabel(channel, locale)}
+                      {offeringChannelBadgeLabel(
+                        channel,
+                        locale,
+                        showOfferingCounts ? offeringSummary.counts[channel] : undefined,
+                      )}
                     </span>
                   ))}
                 </div>

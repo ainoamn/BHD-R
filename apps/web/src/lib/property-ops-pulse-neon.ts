@@ -72,6 +72,8 @@ export type PropertyOpsPulse = {
   stayBookings: PropertyOpsStayBooking[];
   /** At least one unit has daily-stay setup (enabled or published). */
   stayConfigured: boolean;
+  /** Unit ids with daily-stay enabled or published (not the whole building). */
+  stayUnitIds: string[];
   /** Checked-out stays whose deposit refund waits on the host's decision or the transfer. */
   depositRefunds: { decision: number; transfer: number };
   contracts: PropertyOpsContract[];
@@ -164,6 +166,7 @@ export async function loadPropertyOpsPulseOnNeon(
     // postgres.js pipelines concurrent queries on the transaction's connection.
     const stayConfiguredQuery = transaction
       .select({
+        unitId: stayProfiles.unitId,
         enabled: stayProfiles.enabled,
         publishStatus: stayProfiles.publishStatus,
       })
@@ -175,7 +178,7 @@ export async function loadPropertyOpsPulseOnNeon(
           eq(units.propertyId, propertyId),
         ),
       )
-      .limit(20);
+      .limit(200);
 
     const [unitRows, stayRows, refundQueue, stayProfileRows] = await Promise.all([
       unitRowsQuery,
@@ -387,13 +390,19 @@ export async function loadPropertyOpsPulseOnNeon(
       }
     }
 
-    const stayConfigured = stayProfileRows.some(
-      (row) => row.enabled || row.publishStatus === 'published',
-    );
+    const stayUnitIds = [
+      ...new Set(
+        stayProfileRows
+          .filter((row) => row.enabled || row.publishStatus === 'published')
+          .map((row) => row.unitId),
+      ),
+    ];
+    const stayConfigured = stayUnitIds.length > 0;
 
     return {
       stayBookings: stayBookingItems,
       stayConfigured,
+      stayUnitIds,
       depositRefunds: {
         decision: refundQueue.filter((item) => item.step === 'decision').length,
         transfer: refundQueue.filter((item) => item.step === 'transfer').length,
@@ -414,6 +423,7 @@ export async function loadPropertyOpsPulseOnNeon(
 export const emptyPropertyOpsPulse = (): PropertyOpsPulse => ({
   stayBookings: [],
   stayConfigured: false,
+  stayUnitIds: [],
   depositRefunds: { decision: 0, transfer: 0 },
   contracts: [],
   leases: [],

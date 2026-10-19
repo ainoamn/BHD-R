@@ -55,6 +55,7 @@ import {
 } from '@/lib/unified-bookings-shared';
 import {
   PROPERTY_OFFERING_FILTERS,
+  offeringChannelBadgeLabel,
   offeringChannelLabel,
   offeringChannelTone,
   offeringFilterLabel,
@@ -1013,16 +1014,33 @@ function displayCellValue(
   if (column.format === 'channels') {
     const channels = Array.isArray(row.channels) ? row.channels.map((item) => String(item)) : [];
     if (!channels.length) return '—';
+    const counts =
+      row.channelCounts && typeof row.channelCounts === 'object'
+        ? (row.channelCounts as Partial<Record<PropertyOfferingChannel, number>>)
+        : null;
+    const showCounts =
+      safeString(row.kind) === 'multi_unit' &&
+      Number(row.units ?? 0) > 1 &&
+      Boolean(counts);
+    const loc = locale === 'ar' ? 'ar' : 'en';
     return (
       <span className="ops-channel-badges">
         {channels.map((code) => {
-          const channel = code as 'stay' | 'rent' | 'sale';
+          const channel = code as PropertyOfferingChannel;
+          const count = showCounts ? counts?.[channel] : undefined;
           return (
             <span
               key={code}
               className={`status-pill status-pill--${offeringChannelTone(channel)}`}
+              title={
+                typeof count === 'number'
+                  ? loc === 'ar'
+                    ? `${offeringChannelLabel(channel, loc)} — ${count} من ${Number(row.units)} وحدات`
+                    : `${offeringChannelLabel(channel, loc)} — ${count} of ${Number(row.units)} units`
+                  : undefined
+              }
             >
-              {offeringChannelLabel(channel, locale === 'ar' ? 'ar' : 'en')}
+              {offeringChannelBadgeLabel(channel, loc, count)}
             </span>
           );
         })}
@@ -4832,12 +4850,26 @@ ${depositHtml}${
                             <div className="ops-channel-badges ops-channel-badges--mobile">
                               {(row.channels as unknown[]).map((code) => {
                                 const channel = String(code) as PropertyOfferingChannel;
+                                const counts =
+                                  row.channelCounts && typeof row.channelCounts === 'object'
+                                    ? (row.channelCounts as Partial<
+                                        Record<PropertyOfferingChannel, number>
+                                      >)
+                                    : null;
+                                const count =
+                                  safeString(row.kind) === 'multi_unit' && Number(row.units ?? 0) > 1
+                                    ? counts?.[channel]
+                                    : undefined;
                                 return (
                                   <span
                                     key={channel}
                                     className={`status-pill status-pill--${offeringChannelTone(channel)}`}
                                   >
-                                    {offeringChannelLabel(channel, locale === 'ar' ? 'ar' : 'en')}
+                                    {offeringChannelBadgeLabel(
+                                      channel,
+                                      locale === 'ar' ? 'ar' : 'en',
+                                      count,
+                                    )}
                                   </span>
                                 );
                               })}

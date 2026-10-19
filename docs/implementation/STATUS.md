@@ -1,8 +1,8 @@
 # Implementation status
 
 **Updated:** 2026-10-19  
-**Product version:** 0.8.117  
-**Active focus:** Lab-reset FK wipe order fix (0.8.117); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
+**Product version:** 0.8.118  
+**Active focus:** Multi-unit offering badges show per-channel unit counts (0.8.118); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
 
 
 
@@ -20,6 +20,7 @@
 
 | Version         | Focus                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.8.118         | Multi-unit offering badges: per-channel unit counts + per-unit marks when expanded |
 | 0.8.117         | Lab-reset: fix FK wipe order (stay payment intents before folios; release cheque/rental-app links) |
 | 0.8.116         | Vercel: lab-reset maxDuration 120→60 so Hobby stays within 12 serverless function buckets |
 | 0.8.115         | Properties: daily stay / long-term lease / for-sale badges and filter on manage list + property hub |
