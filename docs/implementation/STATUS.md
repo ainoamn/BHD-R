@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-10-19  
-**Product version:** 0.8.107  
-**Active focus:** Locked closed tasks with reopen-reason modal (0.8.107); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
+**Product version:** 0.8.108  
+**Active focus:** Task print sheet with QR open link (0.8.108); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
+
 
 
 
@@ -19,6 +20,7 @@
 
 | Version         | Focus                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.8.108         | Task print sheet: full details/events/attachments/dates plus QR that opens the live task |
 | 0.8.107         | Closed/rejected tasks are read-only with one Reopen action (reason modal → new linked ticket) |
 | 0.8.106         | Closed tasks keep comments; accounting hub gains a Tasks tab + red dashboard alert for unread task updates |
 | 0.8.105         | Tasks: reopen creates a new numbered ticket linked both ways to the closed one; building/tenant/unit link on the desk |

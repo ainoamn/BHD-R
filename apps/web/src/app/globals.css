@@ -27376,6 +27376,203 @@ button.handover-shots__item {
   gap: 0.75rem;
   justify-items: start;
 }
+.task-desk__top-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  justify-content: flex-end;
+}
+
+.task-print-shell {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 1rem 1.1rem 2rem;
+}
+.task-print-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-bottom: 1rem;
+}
+.task-print {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.85rem;
+  padding: 1.25rem 1.35rem 1.5rem;
+  display: grid;
+  gap: 1rem;
+  color: #0f172a;
+}
+.task-print__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 0.85rem;
+}
+.task-print__brand {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 750;
+  color: #0f766e;
+  letter-spacing: 0.02em;
+}
+.task-print h1 {
+  margin: 0.25rem 0 0;
+  font-size: 1.45rem;
+  line-height: 1.3;
+}
+.task-print__ref {
+  margin: 0.35rem 0 0;
+  font-size: 0.86rem;
+  color: #64748b;
+  font-weight: 650;
+}
+.task-print__qr {
+  display: grid;
+  justify-items: center;
+  gap: 0.25rem;
+  text-align: center;
+  min-width: 8.5rem;
+}
+.task-print__qr-svg {
+  width: 7.5rem;
+  height: 7.5rem;
+}
+.task-print__qr-svg svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.task-print__qr small {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #334155;
+}
+.task-print__qr-url {
+  font-size: 0.58rem;
+  color: #94a3b8;
+  max-width: 10rem;
+  word-break: break-all;
+  line-height: 1.3;
+}
+.task-print__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+.task-print__grid > div {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.55rem;
+  background: #f8fafc;
+  border: 1px solid #eef2f7;
+}
+.task-print__grid span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #64748b;
+}
+.task-print__grid strong {
+  font-size: 0.9rem;
+}
+.task-print__block h2 {
+  margin: 0 0 0.45rem;
+  font-size: 1rem;
+}
+.task-print__block h2 small {
+  font-size: 0.78rem;
+  color: #64748b;
+  font-weight: 650;
+}
+.task-print__block ul,
+.task-print__timeline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.4rem;
+}
+.task-print__block li,
+.task-print__timeline li {
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.45rem;
+  background: #f8fafc;
+  border: 1px solid #eef2f7;
+  font-size: 0.88rem;
+}
+.task-print__timeline header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.35rem;
+  margin-bottom: 0.2rem;
+}
+.task-print__timeline header span {
+  color: #64748b;
+  font-size: 0.78rem;
+}
+.task-print__timeline p {
+  margin: 0.2rem 0 0;
+  white-space: pre-wrap;
+}
+.task-print__body {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.55;
+  font-size: 0.95rem;
+}
+.task-print__checks .is-done {
+  text-decoration: line-through;
+  color: #64748b;
+}
+.task-print__muted {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.88rem;
+}
+.task-print__foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e2e8f0;
+  font-size: 0.75rem;
+  color: #94a3b8;
+}
+
+@media (max-width: 800px) {
+  .task-print__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media print {
+  .no-print,
+  .task-print-toolbar {
+    display: none !important;
+  }
+  .task-print-shell {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+  .task-print {
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+  .task-print__grid > div,
+  .task-print__block li,
+  .task-print__timeline li {
+    break-inside: avoid;
+  }
+}
 .task-desk__reply--inline {
   width: min(100%, 28rem);
   margin: 0;

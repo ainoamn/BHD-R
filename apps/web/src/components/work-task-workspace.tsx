@@ -213,9 +213,19 @@ export function WorkTaskWorkspace({
           </p>
           <h1>{detail.title}</h1>
         </div>
-        <span className={`task-status task-status--${detail.status}`}>
-          {taskStatusLabel(detail.status, locale)}
-        </span>
+        <div className="task-desk__top-actions">
+          <a
+            className="button button--quiet"
+            href={`/${locale}/${portal}/tasks/${encodeURIComponent(detail.id)}/print`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {ar ? 'طباعة' : 'Print'}
+          </a>
+          <span className={`task-status task-status--${detail.status}`}>
+            {taskStatusLabel(detail.status, locale)}
+          </span>
+        </div>
       </header>
 
       <div className="task-desk__meta">
