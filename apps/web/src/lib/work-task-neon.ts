@@ -68,6 +68,10 @@ function reasonRequired(): never {
   throw new Error('reason_required');
 }
 
+function linkLocked(): never {
+  throw new Error('link_locked');
+}
+
 function iso(value: Date | null): string | null {
   return value ? value.toISOString() : null;
 }
@@ -170,6 +174,46 @@ export async function listWorkTaskPeople(
   });
 }
 
+export async function listWorkTaskPlaceChoices(claims: SessionClaims): Promise<{
+  parties: WorkTaskChoice[];
+  properties: WorkTaskChoice[];
+  units: WorkTaskChoice[];
+}> {
+  if (!canRead(claims)) deny();
+  const orgId = claims.organizationId!;
+  return withinViewerTenant(claims, async (tx) => {
+    const [partyChoices, propertyChoices, unitChoices] = await Promise.all([
+      tx
+        .select({ id: parties.id, label: parties.displayName })
+        .from(parties)
+        .where(eq(parties.organizationId, orgId))
+        .orderBy(parties.displayName)
+        .limit(200),
+      tx
+        .select({ id: properties.id, label: properties.nameAr })
+        .from(properties)
+        .where(eq(properties.organizationId, orgId))
+        .orderBy(properties.nameAr)
+        .limit(200),
+      tx
+        .select({ id: units.id, label: units.code, propertyId: units.propertyId, name: units.nameAr })
+        .from(units)
+        .where(eq(units.organizationId, orgId))
+        .orderBy(units.code)
+        .limit(400),
+    ]);
+    return {
+      parties: partyChoices,
+      properties: propertyChoices,
+      units: unitChoices.map((unit) => ({
+        id: unit.id,
+        label: `${unit.label} · ${unit.name}`,
+        propertyId: unit.propertyId,
+      })),
+    };
+  });
+}
+
 export async function listWorkTasks(claims: SessionClaims): Promise<WorkTaskSummary[]> {
   if (!canRead(claims)) deny();
   const orgId = claims.organizationId!;
@@ -218,6 +262,96 @@ export async function listWorkTasks(claims: SessionClaims): Promise<WorkTaskSumm
   });
 }
 
+async function resolvePlaceLink(
+  tx: Parameters<Parameters<typeof withinViewerTenant>[1]>[0],
+  orgId: string,
+  input: { kind: 'party' | 'property' | 'unit'; id: string },
+  prior: {
+    propertyId: string | null;
+    unitId: string | null;
+    partyId: string | null;
+    propertyLabel: string;
+    unitLabel: string;
+    partyLabel: string;
+  },
+): Promise<{
+  label: string;
+  propertyId: string | null;
+  unitId: string | null;
+  partyId: string | null;
+  propertyLabel: string;
+  unitLabel: string;
+  partyLabel: string;
+  kind: 'party' | 'property' | 'unit';
+  id: string;
+}> {
+  let label = '';
+  let propertyId = prior.propertyId;
+  let unitId = prior.unitId;
+  let partyId = prior.partyId;
+  let propertyLabel = prior.propertyLabel;
+  let unitLabel = prior.unitLabel;
+  let partyLabel = prior.partyLabel;
+  if (input.kind === 'party') {
+    const [party] = await tx
+      .select({ id: parties.id, name: parties.displayName })
+      .from(parties)
+      .where(and(eq(parties.organizationId, orgId), eq(parties.id, input.id)))
+      .limit(1);
+    if (!party) bad();
+    label = party.name;
+    partyId = party.id;
+    partyLabel = party.name;
+  } else if (input.kind === 'property') {
+    const [property] = await tx
+      .select({ id: properties.id, name: properties.nameAr })
+      .from(properties)
+      .where(and(eq(properties.organizationId, orgId), eq(properties.id, input.id)))
+      .limit(1);
+    if (!property) bad();
+    label = property.name;
+    propertyId = property.id;
+    unitId = null;
+    propertyLabel = property.name;
+    unitLabel = '';
+  } else {
+    const [unit] = await tx
+      .select({
+        id: units.id,
+        code: units.code,
+        name: units.nameAr,
+        propertyId: units.propertyId,
+      })
+      .from(units)
+      .where(and(eq(units.organizationId, orgId), eq(units.id, input.id)))
+      .limit(1);
+    if (!unit) bad();
+    label = `${unit.code} · ${unit.name}`;
+    unitId = unit.id;
+    propertyId = unit.propertyId;
+    unitLabel = label;
+    if (unit.propertyId) {
+      const [property] = await tx
+        .select({ name: properties.nameAr })
+        .from(properties)
+        .where(and(eq(properties.organizationId, orgId), eq(properties.id, unit.propertyId)))
+        .limit(1);
+      propertyLabel = property?.name ?? propertyLabel;
+    }
+  }
+  return {
+    label,
+    propertyId,
+    unitId,
+    partyId,
+    propertyLabel,
+    unitLabel,
+    partyLabel,
+    kind: input.kind,
+    id: input.id,
+  };
+}
+
 export async function createWorkTask(
   claims: SessionClaims,
   input: {
@@ -233,6 +367,9 @@ export async function createWorkTask(
     checklist?: string[];
     propertyId?: string | null;
     unitId?: string | null;
+    partyId?: string | null;
+    linkKind?: 'party' | 'property' | 'unit';
+    linkId?: string;
   },
 ): Promise<WorkTaskDetail> {
   if (!canRead(claims) || !hasPermission(claims, 'task.create')) deny();
@@ -260,6 +397,16 @@ export async function createWorkTask(
     input.dueAt && /^\d{4}-\d{2}-\d{2}/.test(input.dueAt)
       ? new Date(input.dueAt.slice(0, 10) + 'T16:00:00.000Z')
       : null;
+  const link =
+    input.linkKind && input.linkId
+      ? { kind: input.linkKind, id: input.linkId }
+      : input.unitId
+        ? { kind: 'unit' as const, id: input.unitId }
+        : input.propertyId
+          ? { kind: 'property' as const, id: input.propertyId }
+          : input.partyId
+            ? { kind: 'party' as const, id: input.partyId }
+            : null;
   const orgId = claims.organizationId!;
   const createdId = await withinViewerTenant(claims, async (tx) => {
     if (input.assignedToUserId) {
@@ -276,6 +423,16 @@ export async function createWorkTask(
         .limit(1);
       if (!member) bad();
     }
+    const place = link
+      ? await resolvePlaceLink(tx, orgId, link, {
+          propertyId: null,
+          unitId: null,
+          partyId: null,
+          propertyLabel: '',
+          unitLabel: '',
+          partyLabel: '',
+        })
+      : null;
     const reference = await nextTaskReference(tx, orgId);
     const [row] = await tx
       .insert(workTasks)
@@ -289,8 +446,8 @@ export async function createWorkTask(
         priority: priority as 'low' | 'normal' | 'high' | 'urgent',
         createdByUserId: claims.sub,
         assignedToUserId: input.assignedToUserId ?? null,
-        propertyId: input.propertyId ?? null,
-        unitId: input.unitId ?? null,
+        propertyId: place?.propertyId ?? null,
+        unitId: place?.unitId ?? null,
         startsAt,
         dueAt,
         checklist,
@@ -312,6 +469,30 @@ export async function createWorkTask(
           : [],
       },
     });
+    if (place) {
+      const note = [place.propertyLabel, place.unitLabel, place.partyLabel]
+        .filter(Boolean)
+        .join(' · ') || place.label;
+      await tx.insert(workflowEvents).values({
+        organizationId: orgId,
+        actorUserId: claims.sub,
+        resourceType: 'work_task',
+        resourceId: row.id,
+        eventType: 'task.link',
+        note,
+        metadata: {
+          kind: place.kind,
+          id: place.id,
+          label: place.label,
+          partyId: place.partyId,
+          propertyId: place.propertyId,
+          unitId: place.unitId,
+          propertyLabel: place.propertyLabel,
+          unitLabel: place.unitLabel,
+          partyLabel: place.partyLabel,
+        },
+      });
+    }
     return row.id;
   });
   return readWorkTask(claims, createdId);
@@ -1243,56 +1424,35 @@ export async function linkWorkTaskSubject(
       prior?.metadata && typeof prior.metadata === 'object'
         ? (prior.metadata as Record<string, unknown>)
         : {};
-    let label = '';
-    let propertyId = task.propertyId;
-    let unitId = task.unitId;
-    let partyId = typeof priorMeta.partyId === 'string' ? priorMeta.partyId : null;
-    let propertyLabel = typeof priorMeta.propertyLabel === 'string' ? priorMeta.propertyLabel : '';
-    let unitLabel = typeof priorMeta.unitLabel === 'string' ? priorMeta.unitLabel : '';
-    let partyLabel = typeof priorMeta.partyLabel === 'string' ? priorMeta.partyLabel : '';
-    if (input.kind === 'party') {
-      const [party] = await tx
-        .select({ id: parties.id, name: parties.displayName })
-        .from(parties)
-        .where(and(eq(parties.organizationId, orgId), eq(parties.id, input.id)))
-        .limit(1);
-      if (!party) bad();
-      label = party.name;
-      partyId = party.id;
-      partyLabel = party.name;
-    } else if (input.kind === 'property') {
-      const [property] = await tx
-        .select({ id: properties.id, name: properties.nameAr })
-        .from(properties)
-        .where(and(eq(properties.organizationId, orgId), eq(properties.id, input.id)))
-        .limit(1);
-      if (!property) bad();
-      label = property.name;
-      propertyId = property.id;
-      unitId = null;
-      propertyLabel = property.name;
-      unitLabel = '';
-    } else {
-      const [unit] = await tx
-        .select({
-          id: units.id,
-          code: units.code,
-          name: units.nameAr,
-          propertyId: units.propertyId,
-        })
-        .from(units)
-        .where(and(eq(units.organizationId, orgId), eq(units.id, input.id)))
-        .limit(1);
-      if (!unit) bad();
-      label = `${unit.code} · ${unit.name}`;
-      unitId = unit.id;
-      propertyId = unit.propertyId;
-      unitLabel = label;
+    const priorPartyId = typeof priorMeta.partyId === 'string' ? priorMeta.partyId : null;
+    const priorPropertyId =
+      typeof priorMeta.propertyId === 'string' ? priorMeta.propertyId : task.propertyId;
+    const priorUnitId = typeof priorMeta.unitId === 'string' ? priorMeta.unitId : task.unitId;
+    const alreadyLinked = Boolean(
+      task.propertyId || task.unitId || priorPartyId || prior?.metadata,
+    );
+    if (alreadyLinked) {
+      const same =
+        (input.kind === 'property' && priorPropertyId === input.id) ||
+        (input.kind === 'unit' && priorUnitId === input.id) ||
+        (input.kind === 'party' && priorPartyId === input.id);
+      if (!same) linkLocked();
+      return;
     }
-    const note = [propertyLabel, unitLabel, partyLabel].filter(Boolean).join(' · ') || label;
+    const place = await resolvePlaceLink(tx, orgId, input, {
+      propertyId: task.propertyId,
+      unitId: task.unitId,
+      partyId: priorPartyId,
+      propertyLabel: typeof priorMeta.propertyLabel === 'string' ? priorMeta.propertyLabel : '',
+      unitLabel: typeof priorMeta.unitLabel === 'string' ? priorMeta.unitLabel : '',
+      partyLabel: typeof priorMeta.partyLabel === 'string' ? priorMeta.partyLabel : '',
+    });
+    const note =
+      [place.propertyLabel, place.unitLabel, place.partyLabel].filter(Boolean).join(' · ') ||
+      place.label;
     await tx
       .update(workTasks)
-      .set({ propertyId, unitId, updatedAt: new Date() })
+      .set({ propertyId: place.propertyId, unitId: place.unitId, updatedAt: new Date() })
       .where(eq(workTasks.id, task.id));
     await tx.insert(workflowEvents).values({
       organizationId: orgId,
@@ -1302,15 +1462,15 @@ export async function linkWorkTaskSubject(
       eventType: 'task.link',
       note,
       metadata: {
-        kind: input.kind,
-        id: input.id,
-        label,
-        partyId,
-        propertyId,
-        unitId,
-        propertyLabel,
-        unitLabel,
-        partyLabel,
+        kind: place.kind,
+        id: place.id,
+        label: place.label,
+        partyId: place.partyId,
+        propertyId: place.propertyId,
+        unitId: place.unitId,
+        propertyLabel: place.propertyLabel,
+        unitLabel: place.unitLabel,
+        partyLabel: place.partyLabel,
       },
     });
   });

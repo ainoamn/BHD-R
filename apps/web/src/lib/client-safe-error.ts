@@ -7,6 +7,7 @@ const KNOWN_CODES = new Set([
   'not_found',
   'invalid_body',
   'reason_required',
+  'link_locked',
   'invalid_file',
   'unit_unavailable',
   'deposit_not_set',
@@ -268,6 +269,7 @@ export function statusForSafeCode(code: string): number {
       return 400;
     case 'invalid_body':
     case 'reason_required':
+    case 'link_locked':
     case 'invalid_file':
     case 'organization_required':
     case 'invalid_dates':

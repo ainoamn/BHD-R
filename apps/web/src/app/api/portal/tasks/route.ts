@@ -9,6 +9,7 @@ import {
   createWorkTask,
   listSubjectTasks,
   listWorkTaskPeople,
+  listWorkTaskPlaceChoices,
   listWorkTasks,
 } from '@/lib/work-task-neon';
 
@@ -40,6 +41,9 @@ const createSchema = z
     checklist: z.array(z.string().max(200)).max(40).optional(),
     propertyId: z.string().uuid().nullable().optional(),
     unitId: z.string().uuid().nullable().optional(),
+    partyId: z.string().uuid().nullable().optional(),
+    linkKind: z.enum(['party', 'property', 'unit']).optional(),
+    linkId: z.string().uuid().optional(),
   })
   .strict();
 
@@ -64,13 +68,17 @@ export async function GET(request: Request) {
         }),
       });
     }
-    const [tasks, people] = await Promise.all([
+    const [tasks, people, places] = await Promise.all([
       listWorkTasks(claims),
       listWorkTaskPeople(claims),
+      listWorkTaskPlaceChoices(claims),
     ]);
     return legalJson({
       tasks,
       people,
+      parties: places.parties,
+      properties: places.properties,
+      units: places.units,
       canCreate: hasPermission(claims, 'task.create'),
     });
   } catch (error) {
@@ -111,6 +119,9 @@ export async function POST(request: Request) {
         ...(data.checklist !== undefined ? { checklist: data.checklist } : {}),
         ...(data.propertyId !== undefined ? { propertyId: data.propertyId } : {}),
         ...(data.unitId !== undefined ? { unitId: data.unitId } : {}),
+        ...(data.partyId !== undefined ? { partyId: data.partyId } : {}),
+        ...(data.linkKind !== undefined ? { linkKind: data.linkKind } : {}),
+        ...(data.linkId !== undefined ? { linkId: data.linkId } : {}),
       }),
       { status: 201 },
     );

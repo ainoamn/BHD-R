@@ -27228,6 +27228,12 @@ button.handover-shots__item {
     linear-gradient(135deg, transparent 45%, #fff 45% 55%, transparent 55%),
     #0f766e;
 }
+.task-quick__mark--place {
+  border-radius: 0.15rem 0.15rem 0.35rem 0.35rem;
+  background:
+    linear-gradient(180deg, #94a3b8 0 35%, transparent 35%),
+    #0f766e;
+}
 .task-quick__panel {
   display: grid;
   gap: 0.55rem;

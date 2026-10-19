@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
 import { ApiError, browserNextMutation } from '@/lib/api';
-import type { WorkTaskDetail, WorkTaskSummary } from '@/lib/work-task-shared';
+import type { WorkTaskChoice, WorkTaskDetail, WorkTaskSummary } from '@/lib/work-task-shared';
 import type { PortalRole } from '@/lib/types';
 import {
   TASK_BOARD_COLUMNS,
@@ -13,7 +13,8 @@ import {
 } from '@/lib/work-task-ui';
 
 type ViewMode = 'list' | 'board';
-type ChipPanel = 'assignee' | 'due' | 'priority' | 'tags' | 'checklist' | null;
+type ChipPanel = 'assignee' | 'due' | 'priority' | 'tags' | 'checklist' | 'place' | null;
+type PlaceKind = 'party' | 'property' | 'unit';
 
 type Person = { userId: string; name: string };
 
@@ -27,6 +28,8 @@ type Draft = {
   tags: string;
   checklist: string;
   assignedToUserId: string;
+  linkKind: PlaceKind;
+  linkId: string;
 };
 
 const EMPTY_DRAFT: Draft = {
@@ -39,6 +42,8 @@ const EMPTY_DRAFT: Draft = {
   tags: '',
   checklist: '',
   assignedToUserId: '',
+  linkKind: 'property',
+  linkId: '',
 };
 
 /** ClickUp/Bitrix-inspired list + board with one quick-create desk. */
@@ -55,6 +60,9 @@ export function WorkTasksBoard({
   const router = useRouter();
   const [tasks, setTasks] = useState<WorkTaskSummary[] | null>(null);
   const [people, setPeople] = useState<Person[]>([]);
+  const [parties, setParties] = useState<WorkTaskChoice[]>([]);
+  const [properties, setProperties] = useState<WorkTaskChoice[]>([]);
+  const [units, setUnits] = useState<WorkTaskChoice[]>([]);
   const [failed, setFailed] = useState(false);
   const [query, setQuery] = useState('');
   const [view, setView] = useState<ViewMode>('list');
@@ -77,10 +85,16 @@ export function WorkTasksBoard({
       const body = (await response.json()) as {
         tasks: WorkTaskSummary[];
         people?: Person[];
+        parties?: WorkTaskChoice[];
+        properties?: WorkTaskChoice[];
+        units?: WorkTaskChoice[];
         canCreate?: boolean;
       };
       setTasks(body.tasks);
       setPeople(body.people ?? []);
+      setParties(body.parties ?? []);
+      setProperties(body.properties ?? []);
+      setUnits(body.units ?? []);
       setCanCreate(Boolean(body.canCreate));
       setFailed(false);
     } catch {
@@ -161,6 +175,9 @@ export function WorkTasksBoard({
 
   const assigneeName =
     people.find((person) => person.userId === draft.assignedToUserId)?.name ?? null;
+  const placeChoices =
+    draft.linkKind === 'party' ? parties : draft.linkKind === 'property' ? properties : units;
+  const placeLabel = placeChoices.find((item) => item.id === draft.linkId)?.label ?? null;
   const checklistCount = draft.checklist
     .split(/\n/)
     .map((line) => line.trim())
@@ -201,6 +218,9 @@ export function WorkTasksBoard({
           dueAt: draft.dueAt || null,
           tags: tags.length ? tags : undefined,
           checklist: checklist.length ? checklist : undefined,
+          ...(draft.linkId
+            ? { linkKind: draft.linkKind, linkId: draft.linkId }
+            : {}),
         }),
       });
       setCreating(false);
@@ -491,6 +511,25 @@ export function WorkTasksBoard({
                     ? 'قائمة تحقق'
                     : 'Checklist'}
               </button>
+              <button
+                type="button"
+                className={chip === 'place' || draft.linkId ? 'is-on' : undefined}
+                onClick={() => toggleChip('place')}
+              >
+                <i className="task-quick__mark task-quick__mark--place" aria-hidden="true" />
+                {placeLabel ||
+                  (ar
+                    ? draft.linkKind === 'party'
+                      ? 'مستأجر'
+                      : draft.linkKind === 'unit'
+                        ? 'وحدة'
+                        : 'عقار'
+                    : draft.linkKind === 'party'
+                      ? 'Tenant'
+                      : draft.linkKind === 'unit'
+                        ? 'Unit'
+                        : 'Property')}
+              </button>
             </div>
 
             {chip === 'assignee' ? (
@@ -581,6 +620,44 @@ export function WorkTasksBoard({
                       setDraft((prev) => ({ ...prev, checklist: event.target.value }))
                     }
                   />
+                </label>
+              </div>
+            ) : null}
+
+            {chip === 'place' ? (
+              <div className="task-quick__panel task-quick__panel--dates">
+                <label>
+                  <span>{ar ? 'النوع' : 'Type'}</span>
+                  <select
+                    value={draft.linkKind}
+                    onChange={(event) =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        linkKind: event.target.value as PlaceKind,
+                        linkId: '',
+                      }))
+                    }
+                  >
+                    <option value="property">{ar ? 'عقار / مبنى' : 'Property / building'}</option>
+                    <option value="party">{ar ? 'مستأجر / طرف' : 'Tenant / party'}</option>
+                    <option value="unit">{ar ? 'وحدة' : 'Unit'}</option>
+                  </select>
+                </label>
+                <label>
+                  <span>{ar ? 'الاسم' : 'Name'}</span>
+                  <select
+                    value={draft.linkId}
+                    onChange={(event) =>
+                      setDraft((prev) => ({ ...prev, linkId: event.target.value }))
+                    }
+                  >
+                    <option value="">{ar ? 'بدون ربط' : 'No link'}</option>
+                    {placeChoices.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
                 </label>
               </div>
             ) : null}

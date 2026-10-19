@@ -554,66 +554,101 @@ export function WorkTaskWorkspace({
             </section>
           ) : null}
 
-          {!closed ? (
-            <section className="task-desk__card">
-              <h2>{ar ? 'ربط بعقار / مستأجر / وحدة' : 'Link to building / tenant / unit'}</h2>
-              <form
-                className="task-desk__stack"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (!subjectId) return;
-                  void run(
-                    `${base}/link`,
-                    { kind: subjectKind, id: subjectId },
-                    ar ? 'رُبطت المهمة' : 'Task linked',
-                  );
-                }}
-              >
-                <label>
-                  <span>{ar ? 'النوع' : 'Type'}</span>
-                  <select
-                    value={subjectKind}
-                    disabled={busy || !detail.canUpdate}
-                    onChange={(event) => {
-                      setSubjectKind(event.target.value as typeof subjectKind);
-                      setSubjectId('');
-                    }}
-                  >
-                    <option value="party">{ar ? 'مستأجر / شخص' : 'Tenant / person'}</option>
-                    <option value="property">{ar ? 'مبنى' : 'Building'}</option>
-                    <option value="unit">{ar ? 'وحدة' : 'Unit'}</option>
-                  </select>
-                </label>
-                <label>
-                  <span>{ar ? 'الاسم' : 'Name'}</span>
-                  <select
-                    value={subjectId}
-                    disabled={busy || !detail.canUpdate}
-                    onChange={(event) => setSubjectId(event.target.value)}
-                  >
-                    <option value="">{ar ? 'اختر' : 'Choose'}</option>
-                    {(subjectKind === 'party'
-                      ? detail.parties
-                      : subjectKind === 'property'
-                        ? detail.properties
-                        : detail.units
-                    ).map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <button
-                  className="button button--quiet"
-                  type="submit"
-                  disabled={busy || !subjectId || !detail.canUpdate}
+          {(() => {
+            const placeLocked = Boolean(
+              detail.place.property || detail.place.unit || detail.place.party || detail.subject,
+            );
+            if (placeLocked) {
+              return (
+                <section className="task-desk__card">
+                  <h2>{ar ? 'الربط (ثابت)' : 'Link (locked)'}</h2>
+                  <p className="task-desk__muted">
+                    {ar
+                      ? 'هذه المهمة مربوطة ولا يمكن تغيير العقار أو المستأجر أو الوحدة بعد الربط.'
+                      : 'This task is linked. Building, tenant, or unit cannot be changed after linking.'}
+                  </p>
+                  <ul className="task-desk__checks">
+                    {detail.place.property ? (
+                      <li>
+                        {ar ? 'المبنى' : 'Building'}: {detail.place.property.label}
+                      </li>
+                    ) : null}
+                    {detail.place.unit ? (
+                      <li>
+                        {ar ? 'الوحدة' : 'Unit'}: {detail.place.unit.label}
+                      </li>
+                    ) : null}
+                    {detail.place.party ? (
+                      <li>
+                        {ar ? 'المستأجر / الطرف' : 'Tenant / party'}: {detail.place.party.label}
+                      </li>
+                    ) : null}
+                  </ul>
+                </section>
+              );
+            }
+            if (closed || !detail.canUpdate) return null;
+            return (
+              <section className="task-desk__card">
+                <h2>{ar ? 'ربط بعقار / مستأجر / وحدة' : 'Link to building / tenant / unit'}</h2>
+                <form
+                  className="task-desk__stack"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    if (!subjectId) return;
+                    void run(
+                      `${base}/link`,
+                      { kind: subjectKind, id: subjectId },
+                      ar ? 'رُبطت المهمة' : 'Task linked',
+                    );
+                  }}
                 >
-                  {ar ? 'حفظ الربط' : 'Save link'}
-                </button>
-              </form>
-            </section>
-          ) : null}
+                  <label>
+                    <span>{ar ? 'النوع' : 'Type'}</span>
+                    <select
+                      value={subjectKind}
+                      disabled={busy}
+                      onChange={(event) => {
+                        setSubjectKind(event.target.value as typeof subjectKind);
+                        setSubjectId('');
+                      }}
+                    >
+                      <option value="party">{ar ? 'مستأجر / شخص' : 'Tenant / person'}</option>
+                      <option value="property">{ar ? 'مبنى' : 'Building'}</option>
+                      <option value="unit">{ar ? 'وحدة' : 'Unit'}</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>{ar ? 'الاسم' : 'Name'}</span>
+                    <select
+                      value={subjectId}
+                      disabled={busy}
+                      onChange={(event) => setSubjectId(event.target.value)}
+                    >
+                      <option value="">{ar ? 'اختر' : 'Choose'}</option>
+                      {(subjectKind === 'party'
+                        ? detail.parties
+                        : subjectKind === 'property'
+                          ? detail.properties
+                          : detail.units
+                      ).map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    className="button button--quiet"
+                    type="submit"
+                    disabled={busy || !subjectId}
+                  >
+                    {ar ? 'حفظ الربط' : 'Save link'}
+                  </button>
+                </form>
+              </section>
+            );
+          })()}
 
           <section className="task-desk__card task-desk__card--actions">
             <h2>{closed ? (ar ? 'المهمة مغلقة' : 'Task closed') : ar ? 'تغيير الحالة' : 'Change status'}</h2>
