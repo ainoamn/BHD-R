@@ -332,6 +332,7 @@ export const ACCOUNTING_HUB_TABS = [
   'ledgers',
   'reports',
   'periods',
+  'settings',
   'audit',
 ] as const;
 

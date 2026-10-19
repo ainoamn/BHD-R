@@ -22,13 +22,18 @@ export async function POST(request: Request, { params }: Params) {
     const body = (await request.json().catch(() => null)) as {
       occurredOn?: string;
       note?: string;
+      refundConfirmed?: boolean;
+      approvalId?: string;
     } | null;
     if (!body?.occurredOn) {
       return NextResponse.json({ error: { code: 'invalid_date' } }, { status: 400 });
     }
     const { id } = await params;
     return NextResponse.json({
-      journal: await reverseJournal(claims, id, body.occurredOn, body.note),
+      journal: await reverseJournal(claims, id, body.occurredOn, body.note, {
+        refundConfirmed: Boolean(body.refundConfirmed),
+        ...(body.approvalId ? { approvalId: body.approvalId } : {}),
+      }),
     });
   } catch (error) {
     return accountingErrorResponse(error, 'POST /api/owner/accounting/journals/[id]/reverse');

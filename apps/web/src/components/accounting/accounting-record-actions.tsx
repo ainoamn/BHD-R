@@ -1,16 +1,18 @@
 'use client';
 
+import { isProtectedJournalSource, canUnpostJournalSource } from '@/lib/accounting-integrity';
 import { browserNextMutation } from '@/lib/api';
 
 type Kind = 'journal' | 'invoice' | 'expense' | 'receipt';
 
-/** Standard follow-up actions: delete draft, return to draft, void, archive. */
+/** Standard follow-up actions: delete draft, reverse (not erase), void, archive. */
 export function AccountingRecordActions({
   locale,
   kind,
   id,
   journalId,
   status,
+  sourceType,
   archived = false,
   disabled = false,
   onDone,
@@ -22,6 +24,7 @@ export function AccountingRecordActions({
   /** Posted journal behind a receipt or document, when the row itself is not the journal. */
   journalId?: string | null | undefined;
   status: string;
+  sourceType?: string | null | undefined;
   archived?: boolean | undefined;
   disabled?: boolean | undefined;
   onDone: () => void;
@@ -31,7 +34,13 @@ export function AccountingRecordActions({
   const uuid = /^[0-9a-f-]{36}$/i.test(id);
   if (!uuid) return null;
 
-  const run = (action: string, resource: Kind, prompt: string, targetId = id) => {
+  const run = (
+    action: string,
+    resource: Kind,
+    prompt: string,
+    targetId = id,
+    extra?: { note?: string; refundConfirmed?: boolean; approvalId?: string },
+  ) => {
     if (!window.confirm(prompt)) return;
     void (async () => {
       try {
@@ -41,6 +50,7 @@ export function AccountingRecordActions({
             action,
             kind: resource === 'receipt' ? 'invoice' : resource,
             id: targetId,
+            ...extra,
           }),
         });
         onDone();
@@ -58,20 +68,52 @@ export function AccountingRecordActions({
       : kind === 'journal'
         ? id
         : null;
-  const posted = status === 'posted' || status === 'succeeded' || status === 'paid' || status === 'issued';
-  const undo = (action: 'reverse' | 'unpost') => {
+  const resolvedSource =
+    sourceType ??
+    (kind === 'receipt' && status === 'succeeded'
+      ? 'stay_payment'
+      : kind === 'receipt'
+        ? 'rent_payment'
+        : kind === 'expense'
+          ? 'expense'
+          : null);
+  const protectedLine = isProtectedJournalSource(resolvedSource);
+  const allowUnpost = canUnpostJournalSource(resolvedSource);
+  const posted =
+    status === 'posted' || status === 'succeeded' || status === 'paid' || status === 'issued';
+
+  const undoReverse = () => {
     if (!journalTarget) return;
+    const reason = window.prompt(
+      ar
+        ? 'سبب العكس / الاسترداد (مطلوب للمعاملات الإلكترونية):'
+        : 'Reason for reverse / refund (required for electronic lines):',
+      '',
+    );
+    if (reason === null) return;
+    if (protectedLine && reason.trim().length < 8) {
+      onError(ar ? 'أدخل سبباً أوضح (ثمانية أحرف على الأقل).' : 'Enter a clearer reason (8+ characters).');
+      return;
+    }
+    if (protectedLine) {
+      const okRefund = window.confirm(
+        ar
+          ? 'هل تم عكس المبلغ من بوابة التحصيل (مثل ثواني) أو تسجيل استرداد يدوي موثّق؟ لا يُسمح بالعكس الإلكتروني بدون ذلك.'
+          : 'Has the amount been reversed at the payment gateway (e.g. Thawani) or a documented manual refund recorded? Electronic reverse is blocked without that.',
+      );
+      if (!okRefund) return;
+    }
     run(
-      action,
+      'reverse',
       'journal',
-      action === 'reverse'
-        ? ar
-          ? 'التراجع ينشئ قيد عكس ويبقي أثراً في الدفتر. متابعة؟'
-          : 'Undo posts a reversing entry and keeps an audit trail. Continue?'
-        : ar
-          ? 'حذف الترحيل يُخرج القيد من الدفاتر ويعيده مسودة. متابعة؟'
-          : 'Delete the posting and return the entry to draft?',
+      ar
+        ? 'التراجع ينشئ قيد عكس ويبقي أثراً في الدفتر. متابعة؟'
+        : 'Undo posts a reversing entry and keeps an audit trail. Continue?',
       journalTarget,
+      {
+        note: reason.trim() || (ar ? 'تراجع من شاشة المحاسبة' : 'Undo from accounting'),
+        refundConfirmed: protectedLine,
+      },
     );
   };
 
@@ -82,7 +124,7 @@ export function AccountingRecordActions({
           type="button"
           className="accounting-act accounting-act--draft"
           disabled={disabled}
-          onClick={() => undo('reverse')}
+          onClick={undoReverse}
         >
           {ar ? 'تراجع' : 'Undo'}
         </button>
@@ -99,12 +141,21 @@ export function AccountingRecordActions({
           {ar ? 'حذف' : 'Delete'}
         </button>
       ) : null}
-      {journalTarget && status === 'posted' ? (
+      {journalTarget && status === 'posted' && allowUnpost && !protectedLine ? (
         <button
           type="button"
           className="accounting-act accounting-act--void"
           disabled={disabled}
-          onClick={() => undo('unpost')}
+          onClick={() =>
+            run(
+              'unpost',
+              'journal',
+              ar
+                ? 'حذف الترحيل يُخرج القيد اليدوي من الدفاتر ويعيده مسودة. متابعة؟'
+                : 'Unpost this manual entry back to draft?',
+              journalTarget,
+            )
+          }
         >
           {ar ? 'حذف الترحيل' : 'Unpost'}
         </button>
@@ -115,7 +166,13 @@ export function AccountingRecordActions({
           className="accounting-act accounting-act--void"
           disabled={disabled}
           onClick={() =>
-            run('void', 'invoice', ar ? 'إلغاء الفاتورة؟ لا يُلغى ما عليه مدفوعات.' : 'Void this invoice?')
+            run(
+              'void',
+              'invoice',
+              ar
+                ? 'إلغاء الفاتورة؟ لا يُلغى ما عليه مدفوعات أو تحصيل إلكتروني.'
+                : 'Void this invoice? Paid or electronic collections cannot be voided.',
+            )
           }
         >
           {ar ? 'حذف' : 'Delete'}
@@ -126,7 +183,15 @@ export function AccountingRecordActions({
           type="button"
           className="accounting-act accounting-act--void"
           disabled={disabled}
-          onClick={() => run('cancel', 'expense', ar ? 'إلغاء المصروف؟' : 'Cancel this expense?')}
+          onClick={() =>
+            run(
+              'cancel',
+              'expense',
+              ar
+                ? 'إلغاء المصروف؟ إن وُجد قيد مرحّل يجب عكسه أولاً.'
+                : 'Cancel this expense? A posted journal must be reversed first.',
+            )
+          }
         >
           {ar ? 'حذف' : 'Delete'}
         </button>

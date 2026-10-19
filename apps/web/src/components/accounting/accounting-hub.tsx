@@ -27,6 +27,7 @@ import {
   AccountingExpenseIncomeModal,
   AccountingTradingModal,
 } from '@/components/accounting/accounting-ops-modals';
+import { AccountingSettingsPanel } from '@/components/accounting/accounting-settings-panel';
 import { DepositLedgerPanel } from '@/components/accounting/deposit-ledger';
 import { usePathname, useRouter } from '@/i18n/navigation';
 import {
@@ -161,6 +162,7 @@ type DocRow = {
   propertyLabel: string | null;
   journalId: string | null;
   note: string | null;
+  sourceType?: string | null;
   archived?: boolean;
 };
 
@@ -184,6 +186,7 @@ const TAB_MARK: Record<string, string> = {
   accounts: '#',
   ledgers: '▦',
   periods: '◷',
+  settings: '⚙',
   audit: '✓',
 };
 
@@ -973,6 +976,7 @@ export function AccountingHub({
                             id={row.id}
                             journalId={row.journalId}
                             status={row.status}
+                            sourceType={row.sourceType}
                             archived={row.archived}
                             disabled={busy}
                             onDone={() => void refreshAll({ silent: true })}
@@ -1088,6 +1092,7 @@ export function AccountingHub({
                           kind="journal"
                           id={row.id}
                           status={row.status}
+                          sourceType={row.sourceType}
                           archived={row.archived}
                           disabled={busy}
                           onDone={() => void refreshAll({ silent: true })}
@@ -1185,6 +1190,7 @@ export function AccountingHub({
                           kind="expense"
                           id={row.id}
                           status={row.status}
+                          sourceType="expense"
                           archived={row.archived}
                           disabled={busy}
                           onDone={() => void refreshAll({ silent: true })}
@@ -1564,6 +1570,16 @@ export function AccountingHub({
         </div>
       </AccountingTabPanel>
 
+      <AccountingTabPanel id="settings" tab={tab}>
+        <AccountingSettingsPanel
+          locale={locale}
+          canManage={caps.manage}
+          busy={busy}
+          onBusy={setBusy}
+          onError={(message) => setError(message)}
+        />
+      </AccountingTabPanel>
+
       <AccountingTabPanel id="audit" tab={tab}>
         <div className="accounting-hub__panel">
           <h2>{ar ? 'سجل التدقيق المحاسبي' : 'Accounting audit trail'}</h2>
@@ -1610,15 +1626,32 @@ export function AccountingHub({
           })
         }
         onChanged={() => void refreshAll({ silent: true })}
-        onReverse={(id) =>
+        onReverse={(id) => {
+          const reason = window.prompt(
+            ar
+              ? 'سبب العكس / الاسترداد (مطلوب للمعاملات المرتبطة أو الإلكترونية):'
+              : 'Reason for reverse / refund (required for linked or electronic lines):',
+            '',
+          );
+          if (reason === null) return;
+          const refundOk = window.confirm(
+            ar
+              ? 'أكد أن الاسترداد أو فشل التحصيل موثّق قبل عكس القيد الإلكتروني.'
+              : 'Confirm the refund or collection failure is documented before reversing an electronic entry.',
+          );
+          if (!refundOk) return;
           void run(async () => {
             await browserNextMutation(`/api/owner/accounting/journals/${id}/reverse`, {
               method: 'POST',
-              body: JSON.stringify({ occurredOn: todayIso() }),
+              body: JSON.stringify({
+                occurredOn: todayIso(),
+                note: reason.trim() || undefined,
+                refundConfirmed: true,
+              }),
             });
             setOpenJournalId(null);
-          })
-        }
+          });
+        }}
       />
     </section>
     </AccountingTasksProvider>

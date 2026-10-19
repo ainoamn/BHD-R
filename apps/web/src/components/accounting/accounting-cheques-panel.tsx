@@ -135,8 +135,8 @@ export function AccountingChequesPanel({
           <h2>{ar ? 'التحصيل والشيكات' : 'Collections & cheques'}</h2>
           <p className="accounting-hub__hint">
             {ar
-              ? 'تُجلب تلقائياً من جداول أقساط عقود الإيجار الموثّقة (نفس بيانات فواتير المستأجر)، مع المتأخرات والمبالغ المتوقعة.'
-              : 'Loaded from signed lease installment schedules (same data as tenant invoices), with arrears and expected receipts.'}
+              ? 'تُجلب من جداول أقساط العقود الموثّقة. لا تُحذف أقساط أو شيكات مرتبطة بالعقد — تُحدَّث الحالة بعد التحقق والتحصيل فقط.'
+              : 'From signed lease schedules. Lease-linked installments and cheques are not deleted — only status changes after verification and collection.'}
           </p>
         </div>
       </div>

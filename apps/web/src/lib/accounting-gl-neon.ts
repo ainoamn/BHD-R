@@ -4,6 +4,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import { currencyMinorUnits, type CurrencyCode } from '@bhd-r/contracts';
 import {
+  approvalRequests,
   expenses,
   invoices,
   journalEntries,
@@ -37,6 +38,13 @@ import {
   type TrialBalanceRow,
 } from '@/lib/accounting-gl';
 import {
+  canUnpostJournalSource,
+  isProtectedJournalSource,
+  normalizeAccountingSettings,
+  type AccountingSettings,
+  DEFAULT_ACCOUNTING_SETTINGS,
+} from '@/lib/accounting-integrity';
+import {
   expenseCodeFromCategory,
   postingDepositHeld,
   postingExpensePaid,
@@ -47,6 +55,7 @@ import { withinViewerTenant } from '@/lib/portal-ops-data';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const PERIOD_RESOURCE = 'fiscal_period';
+const SETTINGS_RESOURCE = 'accounting_settings';
 
 export type GlTx = Parameters<Parameters<typeof withinViewerTenant>[1]>[0];
 
@@ -437,6 +446,7 @@ export type AccountingDocument = {
   propertyLabel: string | null;
   journalId: string | null;
   note: string | null;
+  sourceType?: string | null;
   archived?: boolean;
 };
 
@@ -555,6 +565,7 @@ export async function listAccountingDocuments(
         propertyLabel: [row.propertyNameAr, row.unitCode].filter(Boolean).join(' / ') || null,
         journalId: sourceJournal.get(`rent_payment:${row.id}`) ?? null,
         note: row.notes,
+        sourceType: paid ? 'rent_payment' : 'invoice',
       });
     }
     for (const row of stayRows) {
@@ -571,6 +582,7 @@ export async function listAccountingDocuments(
         propertyLabel: [row.propertyNameAr, row.unitCode].filter(Boolean).join(' / '),
         journalId: sourceJournal.get(`stay_payment:${row.id}`) ?? null,
         note: null,
+        sourceType: 'stay_payment',
       });
     }
     for (const row of journalDocs) {
@@ -588,6 +600,7 @@ export async function listAccountingDocuments(
         propertyLabel: row.sourceType,
         journalId: row.id,
         note: null,
+        sourceType: row.sourceType,
       });
     }
     docs.sort((a, b) => (a.occurredOn < b.occurredOn ? 1 : a.occurredOn > b.occurredOn ? -1 : 0));
@@ -787,6 +800,7 @@ export async function reverseJournal(
   id: string,
   occurredOn: string,
   note?: string,
+  opts?: { refundConfirmed?: boolean; approvalId?: string },
 ) {
   if (!canPostAccounting(claims)) fail('forbidden');
   if (!ISO_DATE.test(occurredOn)) fail('invalid_date');
@@ -802,6 +816,56 @@ export async function reverseJournal(
       where: and(eq(journalEntries.organizationId, orgId), eq(journalEntries.reversalOfId, id)),
     });
     if (existing) fail('already_reversed');
+
+    const settings = await readAccountingSettingsInTx(tx, orgId);
+    const protectedSource = isProtectedJournalSource(entry.sourceType);
+    let reason = (note ?? '').trim();
+    if (protectedSource) {
+      if (settings.requireSecondApproverForOnline && opts?.approvalId) {
+        const approvalRows = await tx
+          .select({ decisionNote: approvalRequests.decisionNote })
+          .from(approvalRequests)
+          .where(
+            and(
+              eq(approvalRequests.id, opts.approvalId),
+              eq(approvalRequests.organizationId, orgId),
+              eq(approvalRequests.resourceId, id),
+            ),
+          )
+          .limit(1);
+        const approvalNote = approvalRows[0]?.decisionNote?.trim();
+        if (approvalNote && reason.length < 8) reason = approvalNote;
+      }
+      if (reason.length < 8) fail('reason_required');
+      if (settings.requireRefundConfirmForOnline && !opts?.refundConfirmed) {
+        fail('refund_confirm_required');
+      }
+      if (settings.requireSecondApproverForOnline) {
+        if (opts?.approvalId) {
+          await assertApprovedJournalReverse(tx, claims, orgId, id, opts.approvalId);
+        } else {
+          const approvalId = await createJournalReverseApproval(tx, orgId, claims.sub, entry, reason);
+          fail(`approval_required:${approvalId}`);
+        }
+      } else if (!canManageAccounting(claims)) {
+        fail('forbidden');
+      } else {
+        await tx.insert(approvalRequests).values({
+          organizationId: orgId,
+          reference: `JR-${entry.reference}-${Date.now().toString(36)}`.slice(0, 64),
+          type: 'journal_reverse',
+          subject: `عكس معتمد: ${entry.reference} — ${reason}`.slice(0, 240),
+          resourceType: 'journal_entry',
+          resourceId: id,
+          requestedByUserId: claims.sub,
+          assignedToUserId: claims.sub,
+          status: 'approved',
+          decisionNote: reason.slice(0, 500),
+          decidedAt: new Date(),
+        });
+      }
+    }
+
     const sourceLines = await tx
       .select()
       .from(journalLines)
@@ -812,7 +876,7 @@ export async function reverseJournal(
         organizationId: orgId,
         reference: await allocateJournalReference(tx, orgId, occurredOn, 'REV'),
         occurredOn,
-        description: (note ?? `عكس القيد ${entry.reference}`).slice(0, 500),
+        description: (reason || note || `عكس القيد ${entry.reference}`).slice(0, 500),
         status: 'posted',
         sourceType: 'journal_reversal',
         sourceId: id,
@@ -849,9 +913,112 @@ export async function reverseJournal(
       eventType: 'journal.reversed',
       fromStatus: 'posted',
       toStatus: 'reversed',
-      note,
+      note: reason || note,
+      metadata: {
+        protected: protectedSource,
+        refundConfirmed: Boolean(opts?.refundConfirmed),
+        sourceType: entry.sourceType,
+        approvalId: opts?.approvalId ?? null,
+      },
     });
     return reversal;
+  });
+}
+
+async function createJournalReverseApproval(
+  tx: GlTx,
+  orgId: string,
+  actorUserId: string,
+  entry: { id: string; reference: string },
+  reason: string,
+) {
+  const pendingRows = await tx
+    .select({ id: approvalRequests.id })
+    .from(approvalRequests)
+    .where(
+      and(
+        eq(approvalRequests.organizationId, orgId),
+        eq(approvalRequests.resourceType, 'journal_entry'),
+        eq(approvalRequests.resourceId, entry.id),
+        eq(approvalRequests.type, 'journal_reverse'),
+        eq(approvalRequests.status, 'pending'),
+      ),
+    )
+    .limit(1);
+  const pending = pendingRows[0];
+  if (pending) fail(`approval_required:${pending.id}`);
+  const rows = await tx
+    .insert(approvalRequests)
+    .values({
+      organizationId: orgId,
+      reference: `JR-${entry.reference}-${Date.now().toString(36)}`.slice(0, 64),
+      type: 'journal_reverse',
+      subject: `طلب عكس قيد إلكتروني ${entry.reference}: ${reason}`.slice(0, 240),
+      resourceType: 'journal_entry',
+      resourceId: entry.id,
+      requestedByUserId: actorUserId,
+      status: 'pending',
+      decisionNote: reason.slice(0, 500),
+    })
+    .returning({ id: approvalRequests.id });
+  return rows[0]!.id;
+}
+
+async function assertApprovedJournalReverse(
+  tx: GlTx,
+  claims: SessionClaims,
+  orgId: string,
+  journalId: string,
+  approvalId: string,
+) {
+  const rows = await tx
+    .select({
+      status: approvalRequests.status,
+      requestedByUserId: approvalRequests.requestedByUserId,
+      decisionNote: approvalRequests.decisionNote,
+    })
+    .from(approvalRequests)
+    .where(
+      and(
+        eq(approvalRequests.id, approvalId),
+        eq(approvalRequests.organizationId, orgId),
+        eq(approvalRequests.resourceType, 'journal_entry'),
+        eq(approvalRequests.resourceId, journalId),
+        eq(approvalRequests.type, 'journal_reverse'),
+      ),
+    )
+    .limit(1);
+  const row = rows[0];
+  if (!row) fail('not_found');
+  if (row.status === 'pending') {
+    if (row.requestedByUserId === claims.sub) fail('approval_pending');
+    if (!hasPermission(claims, 'approval.decide')) fail('forbidden');
+    await tx
+      .update(approvalRequests)
+      .set({
+        status: 'approved',
+        assignedToUserId: claims.sub,
+        decidedAt: new Date(),
+        decisionNote: row.decisionNote,
+      })
+      .where(eq(approvalRequests.id, approvalId));
+    return;
+  }
+  if (row.status !== 'approved') fail('approval_pending');
+}
+
+/** Second approver confirms a pending electronic reverse, then posts the reversing entry. */
+export async function approveAndReverseJournal(
+  claims: SessionClaims,
+  id: string,
+  approvalId: string,
+  occurredOn: string,
+  note?: string,
+) {
+  if (!canPostAccounting(claims) || !hasPermission(claims, 'approval.decide')) fail('forbidden');
+  return reverseJournal(claims, id, occurredOn, note, {
+    refundConfirmed: true,
+    approvalId,
   });
 }
 
@@ -913,7 +1080,7 @@ export async function discardDraftJournal(claims: SessionClaims, id: string) {
   });
 }
 
-/** Return a posted journal to draft when it has not been reversed and the period is open. */
+/** Return a posted manual journal to draft when it has not been reversed and the period is open. */
 export async function unpostJournal(claims: SessionClaims, id: string) {
   if (!canPostAccounting(claims)) fail('forbidden');
   const orgId = claims.organizationId!;
@@ -923,6 +1090,14 @@ export async function unpostJournal(claims: SessionClaims, id: string) {
     });
     if (!entry) fail('not_found');
     if (entry.status !== 'posted') fail('not_posted');
+    const settings = await readAccountingSettingsInTx(tx, orgId);
+    if (
+      settings.blockUnpostForLinked
+        ? !canUnpostJournalSource(entry.sourceType)
+        : isProtectedJournalSource(entry.sourceType)
+    ) {
+      fail('unpost_forbidden');
+    }
     await assertPeriodOpen(tx, orgId, entry.occurredOn);
     const reversal = await tx.query.journalEntries.findFirst({
       where: and(eq(journalEntries.organizationId, orgId), eq(journalEntries.reversalOfId, id)),
@@ -1007,6 +1182,19 @@ export async function cancelAccountingExpense(claims: SessionClaims, id: string)
     });
     if (!row) fail('not_found');
     if (row.status === 'cancelled') fail('already_void');
+    const linked = await tx.query.journalEntries.findFirst({
+      where: and(
+        eq(journalEntries.organizationId, orgId),
+        eq(journalEntries.sourceType, 'expense'),
+        eq(journalEntries.sourceId, id),
+        inArray(journalEntries.status, ['posted', 'draft']),
+      ),
+    });
+    if (linked?.status === 'posted') fail('must_reverse_first');
+    if (linked?.status === 'draft') {
+      await tx.delete(journalLines).where(eq(journalLines.journalEntryId, linked.id));
+      await tx.delete(journalEntries).where(eq(journalEntries.id, linked.id));
+    }
     await tx
       .update(expenses)
       .set({ status: 'cancelled', updatedAt: new Date() })
@@ -1487,6 +1675,56 @@ export async function setFiscalPeriodLock(
   });
 }
 
+function settingsResourceId(orgId: string): string {
+  return deterministicSourceId(`bhd-r:accounting-settings:${orgId}`);
+}
+
+async function readAccountingSettingsInTx(tx: GlTx, orgId: string): Promise<AccountingSettings> {
+  const row = await tx
+    .select({ metadata: workflowEvents.metadata })
+    .from(workflowEvents)
+    .where(
+      and(
+        eq(workflowEvents.organizationId, orgId),
+        eq(workflowEvents.resourceType, SETTINGS_RESOURCE),
+        eq(workflowEvents.resourceId, settingsResourceId(orgId)),
+        eq(workflowEvents.eventType, 'settings.updated'),
+      ),
+    )
+    .orderBy(desc(workflowEvents.occurredAt))
+    .limit(1);
+  if (!row[0]) return { ...DEFAULT_ACCOUNTING_SETTINGS };
+  return normalizeAccountingSettings(row[0].metadata);
+}
+
+export async function getAccountingSettings(claims: SessionClaims): Promise<AccountingSettings> {
+  if (!canReadAccounting(claims)) fail('forbidden');
+  const orgId = claims.organizationId!;
+  return withinViewerTenant(claims, async (tx) => readAccountingSettingsInTx(tx, orgId));
+}
+
+export async function setAccountingSettings(
+  claims: SessionClaims,
+  input: unknown,
+): Promise<AccountingSettings> {
+  if (!canManageAccounting(claims)) fail('forbidden');
+  const orgId = claims.organizationId!;
+  const settings = normalizeAccountingSettings(input);
+  return withinViewerTenant(claims, async (tx) => {
+    await tx.insert(workflowEvents).values({
+      organizationId: orgId,
+      actorUserId: claims.sub,
+      resourceType: SETTINGS_RESOURCE,
+      resourceId: settingsResourceId(orgId),
+      eventType: 'settings.updated',
+      toStatus: 'active',
+      note: `VAT ${settings.vatEnabled ? settings.vatRatePercent : 0}% · ${settings.baseCurrency}`,
+      metadata: settings,
+    });
+    return settings;
+  });
+}
+
 export async function listAccountingAudit(claims: SessionClaims, limit = 80) {
   if (!canReadAccounting(claims)) fail('forbidden');
   const orgId = claims.organizationId!;
@@ -1511,7 +1749,9 @@ export async function listAccountingAudit(claims: SessionClaims, limit = 80) {
             'journal_entry',
             'ledger_account',
             'expense',
+            'invoice',
             PERIOD_RESOURCE,
+            SETTINGS_RESOURCE,
           ]),
         ),
       )

@@ -1263,6 +1263,7 @@
 .accounting-tab-icon--ledgers { background: #4338ca; }
 .accounting-tab-icon--periods { background: #a16207; }
 .accounting-tab-icon--audit { background: #047857; }
+.accounting-tab-icon--settings { background: #475569; }
 
 .accounting-hub__tab--journal[aria-selected='true'] { color: #1d4ed8; }
 .accounting-hub__tab--deposits[aria-selected='true'] { color: #b45309; }
@@ -1275,6 +1276,40 @@
 .accounting-hub__tab--ledgers[aria-selected='true'] { color: #4338ca; }
 .accounting-hub__tab--periods[aria-selected='true'] { color: #a16207; }
 .accounting-hub__tab--audit[aria-selected='true'] { color: #047857; }
+.accounting-hub__tab--settings[aria-selected='true'] { color: #334155; }
+
+.accounting-settings {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.accounting-settings__block {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--gl-line);
+  border-radius: 0.7rem;
+  background: #fff;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.accounting-settings__block legend {
+  padding: 0 0.35rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.accounting-settings__check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.accounting-settings__check input {
+  margin-top: 0.2rem;
+}
 
 .accounting-hub__kpi--in,
 .accounting-hub__kpi--hold,

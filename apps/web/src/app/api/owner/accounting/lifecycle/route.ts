@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { accountingErrorResponse } from '@/lib/accounting-gl-http';
 import {
+  approveAndReverseJournal,
   cancelAccountingExpense,
   discardDraftJournal,
   reverseJournal,
@@ -28,6 +29,9 @@ export async function POST(request: Request) {
       action?: string;
       kind?: string;
       id?: string;
+      note?: string;
+      refundConfirmed?: boolean;
+      approvalId?: string;
     } | null;
     const id = body?.id?.trim() ?? '';
     if (!UUID.test(id) || !body?.action || !body.kind) {
@@ -41,7 +45,27 @@ export async function POST(request: Request) {
     }
     if (body.action === 'reverse' && body.kind === 'journal') {
       return NextResponse.json({
-        journal: await reverseJournal(claims, id, muscatToday(), 'تراجع من شاشة المحاسبة'),
+        journal: await reverseJournal(claims, id, muscatToday(), body.note, {
+          refundConfirmed: Boolean(body.refundConfirmed),
+          ...(body.approvalId && UUID.test(body.approvalId)
+            ? { approvalId: body.approvalId }
+            : {}),
+        }),
+      });
+    }
+    if (body.action === 'approve_reverse' && body.kind === 'journal') {
+      const approvalId = body.approvalId?.trim() ?? '';
+      if (!UUID.test(approvalId)) {
+        return NextResponse.json({ error: { code: 'invalid_input' } }, { status: 400 });
+      }
+      return NextResponse.json({
+        journal: await approveAndReverseJournal(
+          claims,
+          id,
+          approvalId,
+          muscatToday(),
+          body.note,
+        ),
       });
     }
     if (body.action === 'void' && body.kind === 'invoice') {

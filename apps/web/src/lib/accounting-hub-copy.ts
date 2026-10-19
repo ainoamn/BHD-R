@@ -27,6 +27,7 @@ export function accountingHubCopy(locale: 'ar' | 'en') {
       ledgers: { ar: 'أستاذ تحليلي', en: 'Dimensional ledger' },
       reports: { ar: 'التقارير', en: 'Reports' },
       periods: { ar: 'الفترات', en: 'Periods' },
+      settings: { ar: 'ضبط الحسابات', en: 'Settings' },
       audit: { ar: 'التدقيق', en: 'Audit' },
     } satisfies Record<AccountingHubTab, { ar: string; en: string }>,
     tabLabel(id: AccountingHubTab) {

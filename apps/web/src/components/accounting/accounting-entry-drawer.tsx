@@ -339,6 +339,7 @@ export function AccountingEntryDrawer({
                   kind="journal"
                   id={detail.id}
                   status={detail.status}
+                  sourceType={detail.sourceType}
                   disabled={busy}
                   onDone={() => onChanged?.()}
                   onError={(message) => setError(message)}
