@@ -28,6 +28,11 @@ export type ViewingRequestDetail = {
   /** Guest QR path once scheduled (relative, locale-prefixed by caller). */
   passPath: string | null;
   gatePath: string | null;
+  /** Building viewing contact (guard) set on the property page. */
+  viewingContactUserId: string | null;
+  viewingContactName: string | null;
+  /** False until the property has a viewing contact — schedule stays locked. */
+  canSchedule: boolean;
 };
 
 export type ViewingGuestPass = {

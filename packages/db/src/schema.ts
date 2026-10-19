@@ -616,12 +616,15 @@ export const properties = pgTable(
     descriptionEn: text('description_en'),
     defaultCurrency: varchar('default_currency', { length: 3 }).notNull(),
     serialNumber: varchar('serial_number', { length: 40 }),
+    /** Staff user who meets viewing guests (building guard or on-site responsible). */
+    viewingContactUserId: uuid('viewing_contact_user_id').references(() => users.id),
     status: lifecycleStatus('status').notNull().default('draft'),
   },
   (table) => [
     index('properties_org_idx').on(table.organizationId),
     index('properties_owner_idx').on(table.ownerPartyId),
     uniqueIndex('properties_org_serial_unique').on(table.organizationId, table.serialNumber),
+    index('properties_viewing_contact_user_idx').on(table.viewingContactUserId),
   ],
 );
 

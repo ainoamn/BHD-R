@@ -51,6 +51,9 @@ try {
   await client.unsafe(
     await readFile(resolve(migrationsRoot, 'custom/0043_viewing_visit_pass.sql'), 'utf8'),
   );
+  await client.unsafe(
+    await readFile(resolve(migrationsRoot, 'custom/0044_property_viewing_contact.sql'), 'utf8'),
+  );
   if (process.env.APPLY_PRIVILEGED_ROLES === 'true') {
     await client.unsafe(
       await readFile(resolve(migrationsRoot, 'privileged/runtime_roles.sql'), 'utf8'),

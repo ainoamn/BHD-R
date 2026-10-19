@@ -97,7 +97,18 @@ export function ViewingRequestDesk({
       window.dispatchEvent(new Event('bhd-r-pending-approvals-changed'));
       window.dispatchEvent(new Event('bhd-r-ops-refresh'));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'update_failed');
+      const code = caught instanceof Error ? caught.message : 'update_failed';
+      if (code === 'viewing_contact_required') {
+        setError(
+          ar
+            ? 'حدّد حارس المبنى أو مسؤول المعاينة في صفحة العقار قبل تأكيد الموعد.'
+            : 'Set the building guard or viewing contact on the property page before confirming.',
+        );
+      } else if (code === 'viewing_schedule_required') {
+        setError(ar ? 'اختر تاريخ ووقت المعاينة.' : 'Choose a viewing date and time.');
+      } else {
+        setError(code);
+      }
     } finally {
       setBusy(false);
     }
@@ -161,7 +172,30 @@ export function ViewingRequestDesk({
             <dd dir="ltr">{viewing.scheduledAt.slice(0, 16).replace('T', ' ')}</dd>
           </div>
         ) : null}
+        <div>
+          <dt>{ar ? 'مسؤول المعاينة' : 'Viewing contact'}</dt>
+          <dd>
+            {viewing.viewingContactName ? (
+              viewing.viewingContactName
+            ) : (
+              <span className="ops-status ops-status--requested">
+                {ar ? 'غير محدد' : 'Not set'}
+              </span>
+            )}
+          </dd>
+        </div>
       </dl>
+
+      {viewing.canManage && open && !viewing.canSchedule ? (
+        <p className="notice notice--error" role="alert">
+          {ar
+            ? 'لا يمكن تأكيد الموعد وإشعار العميل قبل تحديد حارس المبنى أو المسؤول عن المعاينة في صفحة العقار.'
+            : 'Confirming the schedule and notifying the guest requires a building guard or viewing contact on the property page first.'}{' '}
+          <Link href={`/${locale}/${portal}/properties/${viewing.propertyId}`}>
+            {ar ? 'افتح صفحة العقار وحدّد المسؤول' : 'Open property page and set the contact'}
+          </Link>
+        </p>
+      ) : null}
 
       {viewing.notes ? (
         <section className="viewing-desk__notes">
@@ -234,6 +268,7 @@ export function ViewingRequestDesk({
               value={scheduledAt}
               onChange={(event) => setScheduledAt(event.target.value)}
               required
+              disabled={!viewing.canSchedule}
             />
           </label>
           <label className="field">
@@ -254,7 +289,14 @@ export function ViewingRequestDesk({
             <button
               type="button"
               className="button button--primary"
-              disabled={busy || !scheduledAt}
+              disabled={busy || !scheduledAt || !viewing.canSchedule}
+              title={
+                !viewing.canSchedule
+                  ? ar
+                    ? 'حدّد مسؤول المعاينة في صفحة العقار أولاً'
+                    : 'Set the viewing contact on the property page first'
+                  : undefined
+              }
               onClick={() => void submit('schedule')}
             >
               {ar ? 'تأكيد الموعد وإشعار العميل' : 'Confirm schedule & notify guest'}

@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.131 — 2026-10-19
+
+- **معاينة:** لا يمكن تأكيد الموعد وإشعار العميل قبل تحديد حارس المبنى / مسؤول المعاينة في صفحة العقار؛ البطاقة على صفحة العقار، والواجهة والخادم يمنعان التأكيد بدونها.
+- **قاعدة البيانات:** `custom/0044_property_viewing_contact.sql`.
+- التفاصيل: [`docs/implementation/RELEASE-0.8.131-AR.md`](docs/implementation/RELEASE-0.8.131-AR.md).
+
 ## 0.8.130 — 2026-10-19
 
 - **معاينة:** زر «فتح المعاينة والرد» في جدول الحجوزات لصفوف المعاينة (كان عمود الإجراءات فارغاً).

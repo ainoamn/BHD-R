@@ -1,7 +1,7 @@
 import 'server-only';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
-import { parties, properties, units, viewingRequests } from '@bhd-r/db';
+import { parties, properties, units, users, viewingRequests } from '@bhd-r/db';
 import { appLink, notifyByEmail } from '@/lib/email-notify';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 import type { PendingApprovalItem } from '@/lib/pending-approvals-shared';
@@ -48,6 +48,8 @@ function mapDetail(
     arrivedAt: Date | null;
     guestDecision: string | null;
     guestDecisionAt: Date | null;
+    viewingContactUserId: string | null;
+    viewingContactName: string | null;
   },
   canManage: boolean,
 ): ViewingRequestDetail {
@@ -63,6 +65,7 @@ function mapDetail(
       token = null;
     }
   }
+  const canSchedule = Boolean(row.viewingContactUserId);
   return {
     id: row.id,
     reference: row.reference,
@@ -90,6 +93,9 @@ function mapDetail(
     guestDecisionAt: iso(row.guestDecisionAt),
     passPath: token ? `/viewing-pass?t=${encodeURIComponent(token)}` : null,
     gatePath: token ? `/viewing-gate?t=${encodeURIComponent(token)}` : null,
+    viewingContactUserId: row.viewingContactUserId,
+    viewingContactName: row.viewingContactName,
+    canSchedule,
   };
 }
 
@@ -232,11 +238,14 @@ export async function loadViewingRequestForStaff(
         arrivedAt: viewingRequests.arrivedAt,
         guestDecision: viewingRequests.guestDecision,
         guestDecisionAt: viewingRequests.guestDecisionAt,
+        viewingContactUserId: properties.viewingContactUserId,
+        viewingContactName: users.displayName,
       })
       .from(viewingRequests)
       .innerJoin(units, eq(units.id, viewingRequests.unitId))
       .innerJoin(properties, eq(properties.id, units.propertyId))
       .innerJoin(parties, eq(parties.id, viewingRequests.prospectPartyId))
+      .leftJoin(users, eq(users.id, properties.viewingContactUserId))
       .where(
         and(
           eq(viewingRequests.id, viewingId),
@@ -299,6 +308,8 @@ export async function respondToViewingRequest(
     prospectPartyId: string;
     organizationId: string;
     reference: string;
+    contactUserId: string;
+    contactName: string | null;
   };
   // Holder avoids TS treating assignments inside the async callback as unreachable.
   const issued: { pass: IssuedPass | null } = { pass: null };
@@ -320,11 +331,14 @@ export async function respondToViewingRequest(
         prospectName: parties.displayName,
         accessUsername: viewingRequests.accessUsername,
         accessPin: viewingRequests.accessPin,
+        viewingContactUserId: properties.viewingContactUserId,
+        viewingContactName: users.displayName,
       })
       .from(viewingRequests)
       .innerJoin(units, eq(units.id, viewingRequests.unitId))
       .innerJoin(properties, eq(properties.id, units.propertyId))
       .innerJoin(parties, eq(parties.id, viewingRequests.prospectPartyId))
+      .leftJoin(users, eq(users.id, properties.viewingContactUserId))
       .where(
         and(
           eq(viewingRequests.id, viewingId),
@@ -346,6 +360,11 @@ export async function respondToViewingRequest(
     }
     if (!OPEN_STATUSES.has(row.status) && input.action === 'schedule') fail('viewing_closed');
     if (!nextStatus) fail('viewing_action_invalid');
+
+    if (input.action === 'schedule') {
+      if (!scheduledAt) fail('viewing_schedule_required');
+      if (!row.viewingContactUserId) fail('viewing_contact_required');
+    }
 
     const mergedNotes = note
       ? row.notes
@@ -369,8 +388,12 @@ export async function respondToViewingRequest(
         status: nextStatus as typeof row.status,
         ...(scheduledAt ? { scheduledAt } : {}),
         ...(mergedNotes !== row.notes ? { notes: mergedNotes } : {}),
-        ...(input.action === 'schedule'
-          ? { accessUsername: username, accessPin: pin }
+        ...(input.action === 'schedule' && row.viewingContactUserId
+          ? {
+              accessUsername: username,
+              accessPin: pin,
+              assignedToUserId: row.viewingContactUserId,
+            }
           : {}),
         ...(nextStatus === 'completed' || nextStatus === 'cancelled' || nextStatus === 'no_show'
           ? { completedAt: new Date() }
@@ -379,7 +402,7 @@ export async function respondToViewingRequest(
       })
       .where(eq(viewingRequests.id, viewingId));
 
-    if (input.action === 'schedule' && scheduledAt && token) {
+    if (input.action === 'schedule' && scheduledAt && token && row.viewingContactUserId) {
       issued.pass = {
         username,
         pin,
@@ -392,6 +415,8 @@ export async function respondToViewingRequest(
         prospectPartyId: row.prospectPartyId,
         organizationId: row.organizationId,
         reference: row.reference,
+        contactUserId: row.viewingContactUserId,
+        contactName: row.viewingContactName,
       };
     }
   });
@@ -418,6 +443,9 @@ export async function respondToViewingRequest(
           { label: 'الموعد', value: whenLabel },
           { label: 'اسم المستخدم', value: pass.username },
           { label: 'الرقم السري', value: pass.pin },
+          ...(pass.contactName
+            ? [{ label: 'مسؤول الاستقبال', value: pass.contactName }]
+            : []),
           ...(note ? [{ label: 'ملاحظة', value: note }] : []),
         ],
         cta: { label: 'بطاقة المعاينة والباركود', url: passUrl },
@@ -429,8 +457,8 @@ export async function respondToViewingRequest(
       aggregateType: 'viewing_request',
       aggregateId: viewingId,
       audience: {
+        users: [pass.contactUserId],
         managersOf: { orgId: pass.organizationId, propertyId: pass.propertyId },
-        rolesOf: { orgId: pass.organizationId, roles: ['building_guard'] },
       },
       dedupeKey: `viewing-guard:${viewingId}:${pass.when}`,
       content: () => ({

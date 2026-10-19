@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Link } from '@/i18n/navigation';
 import { BadgeChips } from '@/components/badges/badge-chips';
 import { PropertySectionRecords } from '@/components/property-section-records';
+import { PropertyViewingContactCard } from '@/components/property-viewing-contact-card';
 import type { BadgeChip } from '@/lib/badges-shared';
 import type { PropertyRecordSection } from '@/lib/property-records-neon';
 import { clearBrowserCsrfCache, fetchBrowserCsrfToken } from '@/lib/api';
@@ -695,6 +696,7 @@ export function PropertyManageHub({
         />
       ) : (
         <>
+          <PropertyViewingContactCard propertyId={property.id} locale={locale} />
           <section className="pmh-hero">
             <div className="pmh-hero__media">
               {cover ? (

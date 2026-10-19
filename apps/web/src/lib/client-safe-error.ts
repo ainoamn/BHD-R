@@ -141,6 +141,8 @@ const KNOWN_CODES = new Set([
   'viewing_action_invalid',
   'viewing_pass_invalid',
   'viewing_decision_locked',
+  'viewing_contact_required',
+  'viewing_contact_invalid',
   'checkin_failed',
   'decision_failed',
 ]);
@@ -261,6 +263,9 @@ export function statusForSafeCode(code: string): number {
     case 'review_required':
     case 'review_exists':
     case 'review_not_open':
+    case 'viewing_contact_required':
+    case 'viewing_closed':
+    case 'viewing_decision_locked':
       return 409;
     case 'review_invalid':
     case 'review_comment_required':
@@ -289,6 +294,13 @@ export function statusForSafeCode(code: string): number {
     case 'invalid_schedule':
     case 'invalid_terms':
     case 'duplicate_cheque_number':
+    case 'viewing_contact_invalid':
+    case 'viewing_schedule_required':
+    case 'viewing_schedule_invalid':
+    case 'viewing_note_required':
+    case 'viewing_action_invalid':
+    case 'viewing_invalid':
+    case 'viewing_pass_invalid':
       return 400;
     case 'rate_limited':
       return 429;
