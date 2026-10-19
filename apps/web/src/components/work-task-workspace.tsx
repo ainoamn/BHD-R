@@ -85,6 +85,8 @@ export function WorkTaskWorkspace({
   const [subtaskDraft, setSubtaskDraft] = useState('');
   const [startsDraft, setStartsDraft] = useState(taskDay(initial.startsAt));
   const [dueDraft, setDueDraft] = useState(taskDay(initial.dueAt));
+  const [reopenOpen, setReopenOpen] = useState(false);
+  const [reopenReason, setReopenReason] = useState('');
   const closed = detail.status === 'completed' || detail.status === 'cancelled' || detail.status === 'rejected';
   const base = `/api/portal/tasks/${encodeURIComponent(detail.id)}`;
   const steps = NEXT[detail.status] ?? [];
@@ -159,13 +161,24 @@ export function WorkTaskWorkspace({
   };
 
   const reopenAsNew = async () => {
+    const note = reopenReason.trim();
+    if (note.length < 5) {
+      setMessage(
+        ar
+          ? 'اكتب سبب إعادة الفتح والشرح (خمسة أحرف على الأقل).'
+          : 'Write why you are reopening (at least 5 characters).',
+      );
+      return;
+    }
     setBusy(true);
     setMessage(null);
     try {
       const next = await browserNextMutation<WorkTaskDetail>(`${base}/reopen`, {
         method: 'POST',
-        body: JSON.stringify({}),
+        body: JSON.stringify({ note }),
       });
+      setReopenOpen(false);
+      setReopenReason('');
       setMessage(ar ? `فُتحت متابعة ${next.reference}` : `Opened follow-up ${next.reference}`);
       router.push(`/${portal}/tasks/${encodeURIComponent(next.id)}`);
     } catch (error) {
@@ -175,9 +188,13 @@ export function WorkTaskWorkspace({
           ? ar
             ? 'ليست لديك صلاحية إنشاء مهمة جديدة.'
             : 'You do not have permission to create a new task.'
-          : ar
-            ? 'تعذر فتح متابعة جديدة. المهمة المغلقة تبقى كما هي.'
-            : 'Could not open a follow-up. The closed task stays closed.',
+          : code === 'reason_required'
+            ? ar
+              ? 'اكتب سبب إعادة الفتح والشرح (خمسة أحرف على الأقل).'
+              : 'Write why you are reopening (at least 5 characters).'
+            : ar
+              ? 'تعذر فتح متابعة جديدة. المهمة المغلقة تبقى كما هي.'
+              : 'Could not open a follow-up. The closed task stays closed.',
       );
     } finally {
       setBusy(false);
@@ -448,7 +465,7 @@ export function WorkTaskWorkspace({
             </section>
           ) : null}
 
-          {detail.files.length || detail.canUpdate ? (
+          {detail.files.length || (detail.canUpdate && !closed) ? (
             <section className="task-desk__card">
               <h2>{ar ? 'المرفقات' : 'Files'}</h2>
               {detail.files.length ? (
@@ -463,8 +480,10 @@ export function WorkTaskWorkspace({
                     </li>
                   ))}
                 </ul>
-              ) : null}
-              {detail.canUpdate ? (
+              ) : (
+                <p className="task-desk__muted">{ar ? 'لا مرفقات.' : 'No files.'}</p>
+              )}
+              {detail.canUpdate && !closed ? (
                 <label className="task-desk__stack">
                   <span>{ar ? 'إرفاق ملف' : 'Attach a file'}</span>
                   <input
@@ -525,67 +544,69 @@ export function WorkTaskWorkspace({
             </section>
           ) : null}
 
-          <section className="task-desk__card">
-            <h2>{ar ? 'ربط بعقار / مستأجر / وحدة' : 'Link to building / tenant / unit'}</h2>
-            <form
-              className="task-desk__stack"
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (!subjectId) return;
-                void run(
-                  `${base}/link`,
-                  { kind: subjectKind, id: subjectId },
-                  ar ? 'رُبطت المهمة' : 'Task linked',
-                );
-              }}
-            >
-              <label>
-                <span>{ar ? 'النوع' : 'Type'}</span>
-                <select
-                  value={subjectKind}
-                  disabled={busy || !detail.canUpdate}
-                  onChange={(event) => {
-                    setSubjectKind(event.target.value as typeof subjectKind);
-                    setSubjectId('');
-                  }}
-                >
-                  <option value="party">{ar ? 'مستأجر / شخص' : 'Tenant / person'}</option>
-                  <option value="property">{ar ? 'مبنى' : 'Building'}</option>
-                  <option value="unit">{ar ? 'وحدة' : 'Unit'}</option>
-                </select>
-              </label>
-              <label>
-                <span>{ar ? 'الاسم' : 'Name'}</span>
-                <select
-                  value={subjectId}
-                  disabled={busy || !detail.canUpdate}
-                  onChange={(event) => setSubjectId(event.target.value)}
-                >
-                  <option value="">{ar ? 'اختر' : 'Choose'}</option>
-                  {(subjectKind === 'party'
-                    ? detail.parties
-                    : subjectKind === 'property'
-                      ? detail.properties
-                      : detail.units
-                  ).map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button
-                className="button button--quiet"
-                type="submit"
-                disabled={busy || !subjectId || !detail.canUpdate}
+          {!closed ? (
+            <section className="task-desk__card">
+              <h2>{ar ? 'ربط بعقار / مستأجر / وحدة' : 'Link to building / tenant / unit'}</h2>
+              <form
+                className="task-desk__stack"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!subjectId) return;
+                  void run(
+                    `${base}/link`,
+                    { kind: subjectKind, id: subjectId },
+                    ar ? 'رُبطت المهمة' : 'Task linked',
+                  );
+                }}
               >
-                {ar ? 'حفظ الربط' : 'Save link'}
-              </button>
-            </form>
-          </section>
+                <label>
+                  <span>{ar ? 'النوع' : 'Type'}</span>
+                  <select
+                    value={subjectKind}
+                    disabled={busy || !detail.canUpdate}
+                    onChange={(event) => {
+                      setSubjectKind(event.target.value as typeof subjectKind);
+                      setSubjectId('');
+                    }}
+                  >
+                    <option value="party">{ar ? 'مستأجر / شخص' : 'Tenant / person'}</option>
+                    <option value="property">{ar ? 'مبنى' : 'Building'}</option>
+                    <option value="unit">{ar ? 'وحدة' : 'Unit'}</option>
+                  </select>
+                </label>
+                <label>
+                  <span>{ar ? 'الاسم' : 'Name'}</span>
+                  <select
+                    value={subjectId}
+                    disabled={busy || !detail.canUpdate}
+                    onChange={(event) => setSubjectId(event.target.value)}
+                  >
+                    <option value="">{ar ? 'اختر' : 'Choose'}</option>
+                    {(subjectKind === 'party'
+                      ? detail.parties
+                      : subjectKind === 'property'
+                        ? detail.properties
+                        : detail.units
+                    ).map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  className="button button--quiet"
+                  type="submit"
+                  disabled={busy || !subjectId || !detail.canUpdate}
+                >
+                  {ar ? 'حفظ الربط' : 'Save link'}
+                </button>
+              </form>
+            </section>
+          ) : null}
 
           <section className="task-desk__card task-desk__card--actions">
-            <h2>{ar ? 'تغيير الحالة' : 'Change status'}</h2>
+            <h2>{closed ? (ar ? 'المهمة مغلقة' : 'Task closed') : ar ? 'تغيير الحالة' : 'Change status'}</h2>
             {detail.canUpdate && !closed ? (
               <>
                 <div className="task-desk__actions">
@@ -660,67 +681,39 @@ export function WorkTaskWorkspace({
                   </div>
                 ) : null}
               </>
-            ) : (
+            ) : closed ? (
               <div className="task-desk__reopen">
                 <p className="task-desk__muted">
                   {ar
-                    ? 'هذه المهمة مغلقة وتبقى في السجل. يمكنك مواصلة التعليق والمرفقات هنا. إعادة الفتح تنشئ مهمة جديدة برقم جديد مرتبطة بهذه المهمة.'
-                    : 'This task stays closed in the record. You can still comment and attach files here. Reopening creates a new ticket with a new number, linked both ways.'}
+                    ? 'هذه المهمة مغلقة في السجل للقراءة فقط. الإجراء الوحيد المتاح هو فتح متابعة جديدة مرتبطة بها.'
+                    : 'This task is closed and read-only. The only action is to open a linked follow-up task.'}
                 </p>
-                {detail.canUpdate ? (
-                  <form
-                    className="task-desk__reply task-desk__reply--inline"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      if (reply.trim().length < 2 && !replyFiles.length) return;
-                      void run(
-                        `${base}/reply`,
-                        { note: reply.trim(), files: replyFiles },
-                        ar ? 'أُرسل التعليق' : 'Comment sent',
-                      );
-                    }}
-                  >
-                    <textarea
-                      rows={3}
-                      maxLength={2000}
-                      value={reply}
-                      placeholder={
-                        ar
-                          ? 'اكتب تعليقاً على المهمة المغلقة…'
-                          : 'Write a comment on the closed task…'
-                      }
-                      onChange={(event) => setReply(event.target.value)}
-                    />
-                    <button
-                      className="button button--quiet"
-                      type="submit"
-                      disabled={busy || (reply.trim().length < 2 && !replyFiles.length)}
-                    >
-                      {ar ? 'إضافة تعليق' : 'Add comment'}
-                    </button>
-                  </form>
-                ) : null}
                 {detail.canCreate ? (
                   <button
                     type="button"
                     className="button button--primary"
                     disabled={busy}
-                    onClick={() => void reopenAsNew()}
+                    onClick={() => {
+                      setReopenReason('');
+                      setMessage(null);
+                      setReopenOpen(true);
+                    }}
                   >
-                    {busy
-                      ? ar
-                        ? 'جارٍ الفتح…'
-                        : 'Opening…'
-                      : ar
-                        ? 'إعادة فتح كمهمة جديدة'
-                        : 'Reopen as a new task'}
+                    {ar ? 'إعادة فتح كمهمة جديدة' : 'Reopen as a new task'}
                   </button>
-                ) : null}
+                ) : (
+                  <p className="task-desk__muted">
+                    {ar
+                      ? 'ليست لديك صلاحية إنشاء متابعة جديدة.'
+                      : 'You do not have permission to create a follow-up.'}
+                  </p>
+                )}
               </div>
-            )}
+            ) : null}
             {message ? <p className="task-desk__notice">{message}</p> : null}
           </section>
 
+          {!closed ? (
           <details className="task-desk__more">
             <summary>{ar ? 'المزيد: أعضاء، تحويل، محامٍ' : 'More: members, transfer, lawyer'}</summary>
             <div className="task-desk__more-grid">
@@ -855,6 +848,7 @@ export function WorkTaskWorkspace({
               </div>
             </div>
           </details>
+          ) : null}
         </div>
 
         <aside className="task-desk__side">
@@ -927,12 +921,12 @@ export function WorkTaskWorkspace({
               ) : (
                 <li>
                   <p className="task-desk__muted">
-                    {ar ? 'لا نشاط بعد. اكتب أول ملاحظة بالأسفل.' : 'No activity yet. Write the first note below.'}
+                    {ar ? 'لا نشاط بعد.' : 'No activity yet.'}
                   </p>
                 </li>
               )}
             </ol>
-            {detail.canUpdate ? (
+            {detail.canUpdate && !closed ? (
               <form
                 className="task-desk__reply"
                 onSubmit={(event) => {
@@ -1012,10 +1006,89 @@ export function WorkTaskWorkspace({
                   {busy ? (ar ? 'جارٍ الإرسال…' : 'Sending…') : ar ? 'إرسال' : 'Send'}
                 </button>
               </form>
+            ) : closed ? (
+              <p className="task-desk__muted">
+                {ar
+                  ? 'المهمة مغلقة — التعليقات الجديدة تكون على مهمة المتابعة بعد إعادة الفتح.'
+                  : 'This task is closed — new comments go on the follow-up after reopen.'}
+              </p>
             ) : null}
           </section>
         </aside>
       </div>
+
+      {reopenOpen ? (
+        <div
+          className="task-quick"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="task-reopen-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !busy) setReopenOpen(false);
+          }}
+        >
+          <div className="task-quick__card" dir={ar ? 'rtl' : 'ltr'}>
+            <header className="task-quick__head">
+              <div>
+                <p className="task-quick__eyebrow" id="task-reopen-title">
+                  {ar ? 'إعادة فتح كمهمة جديدة' : 'Reopen as a new task'}
+                </p>
+                <p className="task-quick__list" dir="ltr">
+                  {detail.reference}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="task-quick__close"
+                aria-label={ar ? 'إغلاق' : 'Close'}
+                disabled={busy}
+                onClick={() => setReopenOpen(false)}
+              >
+                ×
+              </button>
+            </header>
+            <p className="task-desk__muted">
+              {ar
+                ? 'اكتب سبب إعادة الفتح والشرح. ستُنشأ مهمة جديدة برقم جديد مرتبطة بهذه المهمة المغلقة.'
+                : 'Write the reason and explanation. A new numbered task will open, linked to this closed one.'}
+            </p>
+            <textarea
+              className="task-quick__desc"
+              rows={5}
+              maxLength={2000}
+              autoFocus
+              value={reopenReason}
+              placeholder={ar ? 'السبب والشرح…' : 'Reason and explanation…'}
+              onChange={(event) => setReopenReason(event.target.value)}
+            />
+            {message ? <p className="task-quick__msg">{message}</p> : null}
+            <footer className="task-quick__foot">
+              <button
+                type="button"
+                className="task-quick__ghost"
+                disabled={busy}
+                onClick={() => setReopenOpen(false)}
+              >
+                {ar ? 'إلغاء' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                className="task-quick__submit"
+                disabled={busy || reopenReason.trim().length < 5}
+                onClick={() => void reopenAsNew()}
+              >
+                {busy
+                  ? ar
+                    ? 'جارٍ الفتح…'
+                    : 'Opening…'
+                  : ar
+                    ? 'إنشاء المتابعة'
+                    : 'Create follow-up'}
+              </button>
+            </footer>
+          </div>
+        </div>
+      ) : null}
     </article>
   );
 }

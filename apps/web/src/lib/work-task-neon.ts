@@ -325,7 +325,8 @@ export async function reopenWorkTask(
 ): Promise<WorkTaskDetail> {
   if (!canRead(claims) || !hasPermission(claims, 'task.create')) deny();
   const orgId = claims.organizationId!;
-  const reason = note?.trim().slice(0, 2000) || null;
+  const reason = note?.trim().slice(0, 2000) || '';
+  if (reason.length < 5) reasonRequired();
   const createdId = await withinViewerTenant(claims, async (tx) => {
     const [source] = await tx
       .select()
@@ -371,13 +372,20 @@ export async function reopenWorkTask(
       done: false,
     }));
     const reference = await nextTaskReference(tx, orgId);
+    const reopenNote = [
+      `إعادة فتح / Reopen — ${reason}`,
+      source.description?.trim() || null,
+    ]
+      .filter(Boolean)
+      .join('\n\n')
+      .slice(0, 4000);
     const [created] = await tx
       .insert(workTasks)
       .values({
         organizationId: orgId,
         reference,
         title: source.title.slice(0, 200),
-        description: source.description,
+        description: reopenNote,
         category: source.category,
         status: 'pending',
         priority: source.priority,
@@ -415,7 +423,7 @@ export async function reopenWorkTask(
       resourceType: 'work_task',
       resourceId: created.id,
       eventType: 'task.reopen',
-      note: reason ?? `إعادة فتح من ${source.reference}`,
+      note: reason,
       metadata: {
         predecessorId: source.id,
         predecessorReference: source.reference,
@@ -428,7 +436,7 @@ export async function reopenWorkTask(
       resourceType: 'work_task',
       resourceId: source.id,
       eventType: 'task.reopen',
-      note: reason ?? `فُتحت متابعة ${created.reference}`,
+      note: reason,
       metadata: {
         successorId: created.id,
         successorReference: created.reference,

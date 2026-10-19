@@ -29,14 +29,11 @@ export async function POST(request: Request, context: Context) {
     });
     if (!limited.ok) return legalJson({ error: { code: 'rate_limited' } }, { status: 429 });
     const parsed = z
-      .object({ note: z.string().max(2000).optional() })
+      .object({ note: z.string().trim().min(5).max(2000) })
       .strict()
-      .safeParse(await request.json().catch(() => ({})));
-    if (!parsed.success) return legalJson({ error: { code: 'invalid_body' } }, { status: 400 });
-    return legalJson(
-      await reopenWorkTask(claims, taskId, parsed.data.note ?? null),
-      { status: 201 },
-    );
+      .safeParse(await request.json().catch(() => null));
+    if (!parsed.success) return legalJson({ error: { code: 'reason_required' } }, { status: 400 });
+    return legalJson(await reopenWorkTask(claims, taskId, parsed.data.note), { status: 201 });
   } catch (error) {
     return legalErrorResponse(error, 'create_failed');
   }
