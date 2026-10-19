@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.127 — 2026-10-19
+
+- **عقارات:** شريط ثابت أعلى صفحة الوحدة للإيجار الطويل والبيع (أسعار + أزرار)، وزر الشراء بالذهبي في الملخص أيضاً.
+
 ## 0.8.126 — 2026-10-19
 
 - **إقامة:** زر «شراء الوحدة» بلون ذهبي واضح بدل الأبيض ليتميّز عن «متابعة الحجز».

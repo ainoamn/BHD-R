@@ -239,7 +239,7 @@ export function PublicListingActions({
             </button>
             <button
               type="button"
-              className={`button ${interest === 'sale' ? 'button--primary' : 'button--quiet'}`}
+              className={`button ${interest === 'sale' ? 'button--gold' : 'button--quiet'}`}
               disabled={busy}
               onClick={() => startBooking('sale')}
             >
@@ -264,7 +264,7 @@ export function PublicListingActions({
       {showSaleActions ? (
         <button
           type="button"
-          className="button button--primary property-360__summary-cta"
+          className="button button--gold property-360__summary-cta"
           disabled={busy}
           onClick={() => startBooking('sale')}
         >

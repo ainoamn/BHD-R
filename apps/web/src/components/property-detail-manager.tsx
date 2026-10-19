@@ -323,6 +323,39 @@ export function PropertyDetailManager({
       : null;
   const staySaleBookHref =
     stayOffersSale && primaryUnit ? `/${locale}/book/${primaryUnit.id}?mode=sale` : null;
+  const listingTaken =
+    primaryUnit?.occupancy === 'sold' ||
+    (primaryUnit?.occupancy === 'leased' && primaryUnit.listingPurpose === 'rent');
+  const listingPurposeForCta =
+    primaryUnit?.occupancy === 'leased' && primaryUnit.listingPurpose === 'both'
+      ? 'sale'
+      : (primaryUnit?.listingPurpose ?? 'rent');
+  const listingShowRent =
+    Boolean(primaryUnit) &&
+    !listingTaken &&
+    primaryUnit!.listingEnabled !== false &&
+    (listingPurposeForCta === 'rent' || listingPurposeForCta === 'both');
+  const listingShowSale =
+    Boolean(primaryUnit) &&
+    !listingTaken &&
+    primaryUnit!.listingEnabled !== false &&
+    (listingPurposeForCta === 'sale' || listingPurposeForCta === 'both') &&
+    Boolean(primaryUnit!.salePriceMinor) &&
+    primaryUnit!.salePriceMinor !== '0';
+  const listingRentLabel =
+    listingShowRent && primaryUnit && primaryUnit.rentMinor !== '0'
+      ? formatMoney(primaryUnit.rentMinor, primaryUnit.currency, locale)
+      : null;
+  const listingSaleLabel =
+    listingShowSale && primaryUnit?.salePriceMinor
+      ? formatMoney(primaryUnit.salePriceMinor, primaryUnit.currency, locale)
+      : null;
+  const listingRentHref =
+    listingShowRent && primaryUnit ? `/${locale}/book/${primaryUnit.id}?mode=rent` : null;
+  const listingSaleHref =
+    listingShowSale && primaryUnit ? `/${locale}/book/${primaryUnit.id}?mode=sale` : null;
+  const showListingSticky =
+    isPublic && !stayBooking && Boolean(primaryUnit) && (listingShowRent || listingShowSale);
   const unitSerials = useMemo(
     () =>
       assignUnitSerials(
@@ -529,7 +562,7 @@ export function PropertyDetailManager({
   return (
     <div
       className={`form-shell property-manager property-manager--readonly property-360${
-        stayBooking ? ' property-360--stay' : ''
+        stayBooking ? ' property-360--stay' : showListingSticky ? ' property-360--listing' : ''
       }`}
     >
       {isPublic && stayBooking && stayBookHref ? (
@@ -574,6 +607,62 @@ export function PropertyDetailManager({
                   }
                 >
                   {ar ? 'شراء الوحدة' : 'Buy unit'}
+                </Link>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {showListingSticky ? (
+        <div
+          className="stays-book-sticky listing-cta-sticky"
+          role="region"
+          aria-label={ar ? 'التأجير أو الشراء' : 'Rent or buy'}
+        >
+          <div className="stays-book-sticky__inner">
+            <div className="stays-book-sticky__meta">
+              <div className="stays-book-sticky__prices">
+                {listingRentLabel ? (
+                  <strong dir="ltr">
+                    {listingRentLabel}
+                    <em>{ar ? ' شهرياً' : '/mo'}</em>
+                  </strong>
+                ) : null}
+                {listingSaleLabel ? (
+                  <strong dir="ltr" className="stays-book-sticky__sale">
+                    {listingSaleLabel}
+                    <em>{ar ? ' للبيع' : ' sale'}</em>
+                  </strong>
+                ) : null}
+                {!listingRentLabel && !listingSaleLabel ? (
+                  <strong>{ar ? 'العقار متاح' : 'Available'}</strong>
+                ) : null}
+              </div>
+              <span>{headline}</span>
+            </div>
+            <div className="stays-book-sticky__actions">
+              {listingRentHref ? (
+                <Link
+                  className="button button--primary stays-book-sticky__cta"
+                  href={
+                    signedIn
+                      ? listingRentHref
+                      : `/${locale}/login?next=${encodeURIComponent(listingRentHref)}`
+                  }
+                >
+                  {ar ? 'أريد التأجير' : 'I want to rent'}
+                </Link>
+              ) : null}
+              {listingSaleHref ? (
+                <Link
+                  className="button button--gold stays-book-sticky__cta"
+                  href={
+                    signedIn
+                      ? listingSaleHref
+                      : `/${locale}/login?next=${encodeURIComponent(listingSaleHref)}`
+                  }
+                >
+                  {ar ? 'أريد الشراء' : 'I want to buy'}
                 </Link>
               ) : null}
             </div>
