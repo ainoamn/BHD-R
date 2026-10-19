@@ -1,8 +1,8 @@
 # Implementation status
 
 **Updated:** 2026-10-19  
-**Product version:** 0.8.118  
-**Active focus:** Multi-unit offering badges show per-channel unit counts (0.8.118); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
+**Product version:** 0.8.119  
+**Active focus:** Portal header/sidebar link back to public home (0.8.119); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
 
 
 

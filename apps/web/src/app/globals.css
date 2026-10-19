@@ -3040,6 +3040,31 @@ body:has(.stays-booking-receipt) #main-content {
   flex: 0 0 auto;
   min-width: 0;
 }
+.portal-chrome__home {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  min-height: 2.45rem;
+  padding: 0 0.85rem;
+  color: var(--bhd-navy);
+  background: rgb(23 75 112 / 0.06);
+  border: 1px solid rgb(23 75 112 / 0.14);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 750;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    transform 0.18s ease;
+}
+.portal-chrome__home:hover {
+  background: rgb(23 75 112 / 0.1);
+  border-color: rgb(23 75 112 / 0.22);
+  transform: translateY(-1px);
+}
 .portal-chrome__lang {
   display: inline-grid;
   place-content: center;
@@ -6859,6 +6884,11 @@ body:has(.stays-booking-receipt) #main-content {
   }
   .portal-chrome__user {
     display: none;
+  }
+  .portal-chrome__home {
+    min-height: 2rem;
+    padding: 0 0.65rem;
+    font-size: 0.72rem;
   }
   .portal-chrome__lang span:not(.portal-chrome__lang-code) {
     display: none;

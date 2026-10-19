@@ -575,6 +575,9 @@ export function PortalNav({
           ))}
         </nav>
         <div className="portal-sidebar__foot">
+          <Link href="/" className="portal-sidebar__account" onClick={() => setOpen(false)}>
+            {locale === 'ar' ? 'الصفحة الرئيسية (BHD R)' : 'BHD R public home'}
+          </Link>
           <a href="https://id.bhd-om.com/account" className="portal-sidebar__account">
             {locale === 'ar' ? 'إدارة حساب BHD' : 'Manage BHD account'}
           </a>
@@ -584,7 +587,7 @@ export function PortalNav({
             </a>
           ) : null}
           <a href="https://www.bhd-om.com" className="portal-sidebar__account">
-            {locale === 'ar' ? 'بوابة BHD الرئيسية' : 'BHD main portal'}
+            {locale === 'ar' ? 'موقع شركة بن حمود' : 'Ben Hamood company site'}
           </a>
         </div>
       </aside>

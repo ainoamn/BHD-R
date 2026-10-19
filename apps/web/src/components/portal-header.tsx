@@ -94,6 +94,14 @@ export function PortalHeader({
             </nav>
           ) : null}
           <Link
+            href="/"
+            className="portal-chrome__home"
+            title={ar ? 'الصفحة الرئيسية للموقع العام' : 'Public site home'}
+            aria-label={t('Common.home')}
+          >
+            {t('Common.home')}
+          </Link>
+          <Link
             href={pathname}
             locale={nextLocale}
             className="portal-chrome__lang"
