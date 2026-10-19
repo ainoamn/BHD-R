@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.126 — 2026-10-19
+
+- **إقامة:** زر «شراء الوحدة» بلون ذهبي واضح بدل الأبيض ليتميّز عن «متابعة الحجز».
+
 ## 0.8.125 — 2026-10-19
 
 - **إقامة:** تقويم التوفر بعرض الصفحة — شهران جنباً إلى جنب بدل عمود ضيق يترك الصفحة فارغة.

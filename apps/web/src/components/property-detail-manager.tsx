@@ -566,7 +566,7 @@ export function PropertyDetailManager({
               </Link>
               {staySaleBookHref ? (
                 <Link
-                  className="button button--secondary stays-book-sticky__cta"
+                  className="button button--gold stays-book-sticky__cta"
                   href={
                     signedIn
                       ? staySaleBookHref
@@ -1348,7 +1348,7 @@ export function PropertyDetailManager({
                   </Link>
                   {staySaleBookHref ? (
                     <Link
-                      className="button button--secondary property-360__summary-cta"
+                      className="button button--gold property-360__summary-cta"
                       href={
                         signedIn
                           ? staySaleBookHref

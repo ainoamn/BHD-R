@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-10-19  
-**Product version:** 0.8.125  
-**Active focus:** Stay availability calendar wide two-month strip (0.8.125); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
+**Product version:** 0.8.126  
+**Active focus:** Stay buy CTA gold (not white) vs book primary (0.8.126); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
+
 
 
 
@@ -20,6 +21,7 @@
 
 | Version         | Focus                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.8.126         | Stay page: buy CTA uses gold button (distinct from white secondary) |
 | 0.8.125         | Stay availability calendar: full-width two months side by side |
 | 0.8.124         | Stay public page restored to Property 360 layout; dual nightly + sale prices kept |
 | 0.8.123         | Viewing requests: email owner, home/bell alerts, open desk to set date/time + notes |
