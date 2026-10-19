@@ -122,9 +122,13 @@ export function LabResetDesk({ locale }: { locale: 'ar' | 'en' }) {
             ? ar
               ? `اكتب ${LAB_RESET_CONFIRM} واختر فئة.`
               : `Type ${LAB_RESET_CONFIRM} and pick a category.`
-            : ar
-              ? 'تعذر الحذف. أعد المحاولة أو راجع السجلات.'
-              : 'Could not reset. Try again or check logs.',
+            : code === 'rate_limited'
+              ? ar
+                ? 'محاولات كثيرة — انتظر دقيقة ثم أعد المحاولة.'
+                : 'Too many attempts — wait a minute and retry.'
+              : ar
+                ? `تعذر الحذف${code ? ` (${code})` : ''}. أعد المحاولة.`
+                : `Could not reset${code ? ` (${code})` : ''}. Try again.`,
       );
     } finally {
       setBusy(false);

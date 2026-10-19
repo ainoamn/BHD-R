@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.117 — 2026-10-19
+
+- **تجريب:** إصلاح فشل «إعادة ضبط التجارب» — ترتيب حذف الإقامة اليومية، وتحرير روابط الشيكات/طلبات التأجير قبل حذف الحجوزات والعقود.
+
 ## 0.8.116 — 2026-10-19
 
 - **نشر:** إصلاح فشل Vercel Hobby بعد 0.8.114 — `lab-reset` كان بـ `maxDuration=120` فأنشأ دالة إضافية فوق حد الـ 12؛ أصبح 60 مع باقي المسارات.

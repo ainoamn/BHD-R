@@ -168,25 +168,34 @@ async function wipeAccounting(
   return lines + entries + expenses + cheques;
 }
 
-async function wipeLeasing(
+async function softNull(
   tx: Parameters<Parameters<typeof elevatedTx>[0]>[0],
   orgId: string,
-): Promise<number> {
+  table: string,
+  setClause: string,
+): Promise<void> {
   try {
     await tx.execute(
-      sql`update legal_cases set lease_id = null where organization_id = ${orgId}::uuid`,
-    );
-  } catch (error) {
-    if (!isMissingTable(error)) throw error;
-  }
-  try {
-    await tx.execute(
-      sql`update leases set renewal_pending_contract_id = null, contract_id = null
+      sql`update ${sql.identifier(table)} set ${sql.raw(setClause)}
           where organization_id = ${orgId}::uuid`,
     );
   } catch (error) {
     if (!isMissingTable(error)) throw error;
   }
+}
+
+async function wipeLeasing(
+  tx: Parameters<Parameters<typeof elevatedTx>[0]>[0],
+  orgId: string,
+): Promise<number> {
+  await softNull(tx, orgId, 'legal_cases', 'lease_id = null');
+  await softNull(tx, orgId, 'cheques', 'lease_id = null');
+  await softNull(
+    tx,
+    orgId,
+    'leases',
+    'renewal_pending_contract_id = null, contract_id = null',
+  );
   const n =
     (await deleteTable(tx, orgId, 'receipts')) +
     (await deleteTable(tx, orgId, 'refunds')) +
@@ -213,14 +222,15 @@ async function wipeBookings(
   tx: Parameters<Parameters<typeof elevatedTx>[0]>[0],
   orgId: string,
 ): Promise<number> {
-  try {
-    await tx.execute(
-      sql`update leases set contract_id = null, renewal_pending_contract_id = null
-          where organization_id = ${orgId}::uuid`,
-    );
-  } catch (error) {
-    if (!isMissingTable(error)) throw error;
-  }
+  await softNull(tx, orgId, 'leases', 'contract_id = null, renewal_pending_contract_id = null');
+  // Cheques / rental apps keep rows but must release reservation/viewing FKs.
+  await softNull(tx, orgId, 'cheques', 'reservation_id = null');
+  await softNull(
+    tx,
+    orgId,
+    'rental_applications',
+    'reservation_id = null, viewing_request_id = null',
+  );
   const n =
     (await deleteTable(tx, orgId, 'signature_challenges')) +
     (await deleteTable(tx, orgId, 'contract_signatures')) +
@@ -244,6 +254,7 @@ async function wipeStays(
   tx: Parameters<Parameters<typeof elevatedTx>[0]>[0],
   orgId: string,
 ): Promise<number> {
+  // Child → parent order. Payment intents reference folios, so intents before folios.
   return sumDeletes(tx, orgId, [
     'booking_review_photos',
     'booking_reviews',
@@ -252,8 +263,8 @@ async function wipeStays(
     'stay_refunds',
     'stay_payment_allocations',
     'stay_charges',
-    'stay_folios',
     'stay_payment_intents',
+    'stay_folios',
     'stay_booking_status_history',
     'stay_booking_guests',
     'stay_housekeeping_tasks',
