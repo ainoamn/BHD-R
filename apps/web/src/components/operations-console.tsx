@@ -53,6 +53,15 @@ import {
   opsRowToStayBooking,
   type BookingPurposeTab,
 } from '@/lib/unified-bookings-shared';
+import {
+  PROPERTY_OFFERING_FILTERS,
+  offeringChannelLabel,
+  offeringChannelTone,
+  offeringFilterLabel,
+  rowMatchesOfferingFilter,
+  type PropertyOfferingChannel,
+  type PropertyOfferingFilter,
+} from '@/lib/property-offering-channels';
 
 type DataRow = Record<string, unknown>;
 
@@ -235,7 +244,7 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
       { key: 'nameAr', fallbackKeys: ['nameEn', 'name'], ar: 'العقار', en: 'Property' },
       { key: 'location', fallbackKeys: ['governorate', 'city'], ar: 'الموقع', en: 'Location' },
       { key: 'kind', ar: 'النوع', en: 'Kind', format: 'kind' },
-      { key: 'channels', ar: 'القنوات', en: 'Channels', format: 'channels' },
+      { key: 'channels', ar: 'نوع العرض', en: 'Offering', format: 'channels' },
       { key: 'units', ar: 'الوحدات', en: 'Units', format: 'count' },
       { key: 'status', ar: 'الحالة', en: 'Status', format: 'status' },
     ],
@@ -1004,24 +1013,19 @@ function displayCellValue(
   if (column.format === 'channels') {
     const channels = Array.isArray(row.channels) ? row.channels.map((item) => String(item)) : [];
     if (!channels.length) return '—';
-    const label = (code: string) => {
-      if (code === 'rent') return locale === 'ar' ? 'إيجار' : 'Rent';
-      if (code === 'sale') return locale === 'ar' ? 'بيع' : 'Sale';
-      if (code === 'stay') return locale === 'ar' ? 'إقامة' : 'Stay';
-      return code;
-    };
     return (
       <span className="ops-channel-badges">
-        {channels.map((code) => (
-          <span
-            key={code}
-            className={`status-pill status-pill--${
-              code === 'stay' ? 'ready' : code === 'sale' ? 'warn' : 'muted'
-            }`}
-          >
-            {label(code)}
-          </span>
-        ))}
+        {channels.map((code) => {
+          const channel = code as 'stay' | 'rent' | 'sale';
+          return (
+            <span
+              key={code}
+              className={`status-pill status-pill--${offeringChannelTone(channel)}`}
+            >
+              {offeringChannelLabel(channel, locale === 'ar' ? 'ar' : 'en')}
+            </span>
+          );
+        })}
       </span>
     );
   }
@@ -2501,6 +2505,8 @@ export function OperationsConsole({
   const [prefillTenantId, setPrefillTenantId] = useState('');
   const [propertyFilter, setPropertyFilter] = useState('');
   const [bookingPurposeTab, setBookingPurposeTab] = useState<BookingPurposeTab>('all');
+  const [propertyOfferingFilter, setPropertyOfferingFilter] =
+    useState<PropertyOfferingFilter>('all');
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [hideApiBanner, setHideApiBanner] = useState(false);
   const [statsOpen, setStatsOpen] = useState(section !== 'bookings');
@@ -2622,6 +2628,9 @@ export function OperationsConsole({
         } else if (status === 'archived') {
           return false;
         }
+        if (!rowMatchesOfferingFilter(row.channels, propertyOfferingFilter)) {
+          return false;
+        }
       } else if (statusFilter && status !== statusFilter) {
         return false;
       }
@@ -2646,6 +2655,7 @@ export function OperationsConsole({
     statusFilter,
     contractFilter,
     propertyFilter,
+    propertyOfferingFilter,
     context.units,
     context.vacantUnits,
     section,
@@ -4073,6 +4083,43 @@ ${depositHtml}${
         </nav>
       ) : null}
 
+      {section === 'properties' && !listOverride ? (
+        <nav
+          className="purpose-tabs"
+          aria-label={ar ? 'فرز نوع العرض' : 'Offering type filter'}
+        >
+          {PROPERTY_OFFERING_FILTERS.map((filter) => {
+            const count =
+              filter === 'all'
+                ? sourceRecords.filter((row) => safeString(row.status) !== 'archived' || archiveMode)
+                    .length
+                : sourceRecords.filter(
+                    (row) =>
+                      (archiveMode
+                        ? safeString(row.status) === 'archived'
+                        : safeString(row.status) !== 'archived') &&
+                      rowMatchesOfferingFilter(row.channels, filter),
+                  ).length;
+            return (
+              <button
+                key={filter}
+                type="button"
+                className={
+                  propertyOfferingFilter === filter
+                    ? 'purpose-tabs__item is-active'
+                    : 'purpose-tabs__item'
+                }
+                aria-current={propertyOfferingFilter === filter ? 'page' : undefined}
+                onClick={() => setPropertyOfferingFilter(filter)}
+              >
+                {offeringFilterLabel(filter, locale === 'ar' ? 'ar' : 'en')}
+                <span className="muted"> {count}</span>
+              </button>
+            );
+          })}
+        </nav>
+      ) : null}
+
       {isDailyBookings && (portal === 'owner' || portal === 'developer') ? (
         <StaysPortalNav locale={locale} portal={portal} section="bookings" />
       ) : null}
@@ -4784,29 +4831,13 @@ ${depositHtml}${
                           row.channels.length ? (
                             <div className="ops-channel-badges ops-channel-badges--mobile">
                               {(row.channels as unknown[]).map((code) => {
-                                const key = String(code);
-                                const label =
-                                  key === 'rent'
-                                    ? ar
-                                      ? 'إيجار'
-                                      : 'Rent'
-                                    : key === 'sale'
-                                      ? ar
-                                        ? 'بيع'
-                                        : 'Sale'
-                                      : key === 'stay'
-                                        ? ar
-                                          ? 'إقامة'
-                                          : 'Stay'
-                                        : key;
+                                const channel = String(code) as PropertyOfferingChannel;
                                 return (
                                   <span
-                                    key={key}
-                                    className={`status-pill status-pill--${
-                                      key === 'stay' ? 'ready' : key === 'sale' ? 'warn' : 'muted'
-                                    }`}
+                                    key={channel}
+                                    className={`status-pill status-pill--${offeringChannelTone(channel)}`}
                                   >
-                                    {label}
+                                    {offeringChannelLabel(channel, locale === 'ar' ? 'ar' : 'en')}
                                   </span>
                                 );
                               })}

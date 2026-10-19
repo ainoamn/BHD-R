@@ -11,6 +11,11 @@ import { clearBrowserCsrfCache, fetchBrowserCsrfToken } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { formatListingLocation } from '@/lib/listing-card-copy';
 import { listingPurposeCaption, occupancyLabel } from '@/lib/listing-purpose-display';
+import {
+  offeringChannelLabel,
+  offeringChannelTone,
+  offeringChannelsFromPurposes,
+} from '@/lib/property-offering-channels';
 import { inferUnitKind, unitKindLabel } from '@/lib/unit-identity';
 import { depositForMode } from '@/lib/booking-deposit';
 import { offeringModesFromListingPurpose } from '@/lib/unit-offering-modes';
@@ -296,6 +301,14 @@ export function PropertyManageHub({
   const liveLeaseCount =
     pulse?.leases.filter((row) => ['active', 'pending_start', 'draft'].includes(row.status))
       .length ?? 0;
+  const offeringChannels = useMemo(
+    () =>
+      offeringChannelsFromPurposes(
+        property.units.map((unit) => unit.listingPurpose),
+        Boolean(pulse?.stayConfigured || liveStayCount > 0),
+      ),
+    [liveStayCount, property.units, pulse?.stayConfigured],
+  );
 
   const alerts = useMemo(() => {
     const items: Array<{ text: string; href?: string }> = [];
@@ -700,6 +713,18 @@ export function PropertyManageHub({
                   </span>
                 ) : null}
               </div>
+              {offeringChannels.length ? (
+                <div className="ops-channel-badges pmh-offering-badges" aria-label={ar ? 'نوع العرض' : 'Offering'}>
+                  {offeringChannels.map((channel) => (
+                    <span
+                      key={channel}
+                      className={`status-pill status-pill--${offeringChannelTone(channel)}`}
+                    >
+                      {offeringChannelLabel(channel, locale)}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
               <h1>{name}</h1>
               <BadgeChips
                 badges={badges}

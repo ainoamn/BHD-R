@@ -195,10 +195,22 @@ async function listProperties(claims: SessionClaims): Promise<Record<string, unk
       channelsByProperty.set(row.propertyId, list);
     }
     for (const row of stayChannelRows) {
-      if (row.publishStatus !== 'published' || !row.enabled) continue;
+      // Manage list: any enabled daily-stay setup counts (published or still being prepared).
+      if (!row.enabled && row.publishStatus !== 'published') continue;
       const list = channelsByProperty.get(row.propertyId) ?? [];
       if (!list.includes('stay')) list.push('stay');
       channelsByProperty.set(row.propertyId, list);
+    }
+    // Stable order: daily → long-term → sale.
+    for (const [id, list] of channelsByProperty) {
+      const order = { stay: 0, rent: 1, sale: 2 } as const;
+      channelsByProperty.set(
+        id,
+        [...list].sort(
+          (a, b) =>
+            (order[a as keyof typeof order] ?? 9) - (order[b as keyof typeof order] ?? 9),
+        ),
+      );
     }
 
     const multiUnitPropertyIds = rows

@@ -11,6 +11,7 @@ import {
   stayBookings,
   stayBookingGuests,
   stayPaymentIntents,
+  stayProfiles,
   units,
   type Database,
 } from '@bhd-r/db';
@@ -69,6 +70,8 @@ export type PropertyOpsStayPayment = {
 
 export type PropertyOpsPulse = {
   stayBookings: PropertyOpsStayBooking[];
+  /** At least one unit has daily-stay setup (enabled or published). */
+  stayConfigured: boolean;
   /** Checked-out stays whose deposit refund waits on the host's decision or the transfer. */
   depositRefunds: { decision: number; transfer: number };
   contracts: PropertyOpsContract[];
@@ -159,10 +162,26 @@ export async function loadPropertyOpsPulseOnNeon(
       .limit(40);
 
     // postgres.js pipelines concurrent queries on the transaction's connection.
-    const [unitRows, stayRows, refundQueue] = await Promise.all([
+    const stayConfiguredQuery = transaction
+      .select({
+        enabled: stayProfiles.enabled,
+        publishStatus: stayProfiles.publishStatus,
+      })
+      .from(stayProfiles)
+      .innerJoin(units, eq(units.id, stayProfiles.unitId))
+      .where(
+        and(
+          eq(stayProfiles.organizationId, organizationId),
+          eq(units.propertyId, propertyId),
+        ),
+      )
+      .limit(20);
+
+    const [unitRows, stayRows, refundQueue, stayProfileRows] = await Promise.all([
       unitRowsQuery,
       stayRowsQuery,
       loadDepositRefundQueue(transaction, organizationId, { propertyId }),
+      stayConfiguredQuery,
     ]);
     const unitIds = unitRows.map((row) => row.id);
     const unitCodeById = new Map(unitRows.map((row) => [row.id, row.code]));
@@ -368,8 +387,13 @@ export async function loadPropertyOpsPulseOnNeon(
       }
     }
 
+    const stayConfigured = stayProfileRows.some(
+      (row) => row.enabled || row.publishStatus === 'published',
+    );
+
     return {
       stayBookings: stayBookingItems,
+      stayConfigured,
       depositRefunds: {
         decision: refundQueue.filter((item) => item.step === 'decision').length,
         transfer: refundQueue.filter((item) => item.step === 'transfer').length,
@@ -389,6 +413,7 @@ export async function loadPropertyOpsPulseOnNeon(
 
 export const emptyPropertyOpsPulse = (): PropertyOpsPulse => ({
   stayBookings: [],
+  stayConfigured: false,
   depositRefunds: { decision: 0, transfer: 0 },
   contracts: [],
   leases: [],

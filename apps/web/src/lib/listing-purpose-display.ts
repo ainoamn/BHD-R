@@ -8,8 +8,8 @@ export function listingPurposeBadges(
 ): string[] {
   const ar = locale === 'ar';
   if (purpose === 'sale') return [ar ? 'للبيع' : 'For sale'];
-  if (purpose === 'both') return [ar ? 'للإيجار' : 'For rent', ar ? 'للبيع' : 'For sale'];
-  return [ar ? 'للإيجار' : 'For rent'];
+  if (purpose === 'both') return [ar ? 'عقد طويل' : 'Long-term lease', ar ? 'للبيع' : 'For sale'];
+  return [ar ? 'عقد طويل' : 'Long-term lease'];
 }
 
 export function listingPurposeCaption(
@@ -18,7 +18,7 @@ export function listingPurposeCaption(
 ): string {
   const badges = listingPurposeBadges(purpose, locale);
   if (badges.length === 2) {
-    return locale === 'ar' ? 'للإيجار أو البيع' : 'For rent or sale';
+    return locale === 'ar' ? 'عقد طويل أو للبيع' : 'Long-term lease or for sale';
   }
   return badges[0] ?? (locale === 'ar' ? 'متاح' : 'Available');
 }

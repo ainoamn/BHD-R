@@ -10032,6 +10032,14 @@ button.ops-row-key {
 .ops-channel-badges .status-pill {
   font-size: 0.68rem;
   padding: 0.15rem 0.45rem;
+  font-weight: 700;
+}
+.pmh-offering-badges {
+  margin: 0.35rem 0 0.15rem;
+}
+.pmh-offering-badges .status-pill {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.55rem;
 }
 .ops-status::before {
   width: 0.4rem;
