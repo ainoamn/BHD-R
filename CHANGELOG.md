@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.129 — 2026-10-19
+
+- **أداء:** صفحة الحجوزات (`/owner/bookings`) تُحمَّل من Neon مباشرة دون انتظار سياق النماذج الثقيل، ومسار مالك المبنى أخف بكثير.
+
 ## 0.8.128.1 — 2026-10-19
 
 - **بناء:** إصلاح خطأ TypeScript في مسار إصدار بطاقة المعاينة الذي كان يوقف نشر Vercel.

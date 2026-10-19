@@ -45,13 +45,13 @@ export const OPERATIONS_SECTIONS = [
 
 /** Prefer high-traffic sections first when warming the client cache. */
 export const OPS_WARM_ORDER: OperationsSection[] = [
+  'bookings',
   'properties',
   'accounting',
   'invoices',
   'payments',
   'contracts',
   'leasing',
-  'bookings',
   'maintenance',
   'contacts',
   'requests',

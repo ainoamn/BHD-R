@@ -12,8 +12,6 @@ import {
   loadOpsRecordsFromDb,
 } from '@/lib/portal-ops-data';
 import { loadOpsSectionFromNeon } from '@/lib/portal-ops-sections-neon';
-import { readClaims } from '@/lib/portal-ops-data';
-import { loadAllPropertyBookings } from '@/lib/property-records-neon';
 import { loadStayIncomeRowsForViewer } from '@/lib/stay-deposit-ledger-neon';
 import { loadStayBookingOpsRows, tagLeaseBookingPurpose } from '@/lib/unified-bookings';
 import type { PortalRole } from '@/lib/types';
@@ -412,28 +410,9 @@ export async function loadOperationsWorkspacePayload(
       };
     }
     if (section === 'bookings' && (portal === 'owner' || portal === 'developer')) {
-      const claims = await readClaims();
-      const packed = claims
-        ? await loadAllPropertyBookings(claims).catch(() => null)
-        : null;
-      const records = await withSectionBadges(
-        section,
-        (packed?.rows ?? []).map((row) => {
-          const kind = String(row.kind ?? '');
-          const recordKind =
-            kind === 'stay'
-              ? 'stay_booking'
-              : kind === 'viewing' || kind === 'reservation' || kind === 'hold'
-                ? kind
-                : kind || 'reservation';
-          return tagLeaseBookingPurpose({
-            ...row,
-            recordKind,
-            scheduledAt: row.fromOn ?? row.scheduledAt ?? null,
-            unitId: row.unitId ?? null,
-          });
-        }),
-      );
+      // Neon-only, owner-scoped list — avoid the heavy property-records pack + badges.
+      const fromNeon = await loadOpsSectionFromNeon(portal, section);
+      const records = fromNeon?.records ?? [];
       return {
         records,
         summary: {},
@@ -471,19 +450,21 @@ export async function loadOperationsWorkspacePayload(
     clearOpsContextDbCache();
   }
 
-  // Skip heavy ops context on the properties grid — it is only needed for
-  // create/filter forms on other sections. When needed, load it alongside the list.
+  // Skip heavy ops context on list pages that do not need create-form dropdowns
+  // on first paint. Bookings still wants vacantUnits when available, but must not
+  // wait on a cold context load (was up to ~1.8s).
   const needsOpsContext =
     portal !== 'tenant' &&
     section !== 'properties' &&
     section !== 'approvals' &&
     section !== 'team' &&
     section !== 'api-keys';
+  const contextBudgetMs = section === 'bookings' ? 350 : 1_800;
   const neonContextPromise: Promise<Record<string, unknown> | null> = needsOpsContext
     ? Promise.race([
         loadOpsContextFromDb(portal).catch(() => null),
         new Promise<null>((resolve) => {
-          setTimeout(() => resolve(null), 1_800);
+          setTimeout(() => resolve(null), contextBudgetMs);
         }),
       ])
     : Promise.resolve(null);

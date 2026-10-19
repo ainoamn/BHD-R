@@ -30,7 +30,7 @@ import {
 } from '@bhd-r/db';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { contractCategory, contractTerm, propertyUsage } from '@/lib/contract-list-facets';
-import { readClaims, withinViewerTenant } from '@/lib/portal-ops-data';
+import { ownerPartyScope, readClaims, withinViewerTenant } from '@/lib/portal-ops-data';
 import { loadStayIncomeRowsForViewer } from '@/lib/stay-deposit-ledger-neon';
 import type { OperationsSection } from '@/lib/portal-ops-types';
 import type { PortalRole } from '@/lib/types';
@@ -48,8 +48,12 @@ export type NeonSectionLoad = {
   contextPatch?: Record<string, unknown>;
 };
 
+/** Bookings list is painted often — keep the row cap tight for first byte. */
+const BOOKINGS_LIMIT = 120;
 const LIST_LIMIT = 300;
 const SECTION_CAP_MS = 8_000;
+/** Bookings must answer from Neon quickly; fall through only if the DB is wedged. */
+const BOOKINGS_CAP_MS = 2_500;
 
 /** Same wire shape Nest sends: bigint → string, timestamps → ISO. */
 function jsonSafe(row: object): DataRow {
@@ -110,35 +114,56 @@ async function loadRequests(tx: OpsTransaction, orgId: string): Promise<NeonSect
   return { records: rows.map(jsonSafe) };
 }
 
+async function scopedUnitIds(
+  tx: OpsTransaction,
+  orgId: string,
+  ownerPartyId: string | null,
+): Promise<string[] | null> {
+  if (!ownerPartyId) return null;
+  const rows = await tx
+    .select({ id: units.id })
+    .from(units)
+    .innerJoin(properties, eq(properties.id, units.propertyId))
+    .where(and(eq(units.organizationId, orgId), eq(properties.ownerPartyId, ownerPartyId)));
+  return rows.map((row) => row.id);
+}
+
 async function loadLeaseBookings(
   tx: OpsTransaction,
   orgId: string,
   can: (permission: Permission) => boolean,
+  ownerPartyId: string | null,
 ): Promise<DataRow[]> {
+  const unitIds = await scopedUnitIds(tx, orgId, ownerPartyId);
+  if (unitIds && !unitIds.length) return [];
+  const scopeUnits = unitIds ? [inArray(reservations.unitId, unitIds)] : [];
+  const scopeViewings = unitIds ? [inArray(viewingRequests.unitId, unitIds)] : [];
+  const scopeHolds = unitIds ? [inArray(holds.unitId, unitIds)] : [];
+
   const [reservationRows, viewingRows, holdRows] = await Promise.all([
     can('reservation.read')
       ? tx
           .select()
           .from(reservations)
-          .where(eq(reservations.organizationId, orgId))
+          .where(and(eq(reservations.organizationId, orgId), ...scopeUnits))
           .orderBy(desc(reservations.createdAt))
-          .limit(LIST_LIMIT)
+          .limit(BOOKINGS_LIMIT)
       : none<typeof reservations.$inferSelect>(),
     can('viewing.read')
       ? tx
           .select()
           .from(viewingRequests)
-          .where(eq(viewingRequests.organizationId, orgId))
+          .where(and(eq(viewingRequests.organizationId, orgId), ...scopeViewings))
           .orderBy(desc(viewingRequests.createdAt))
-          .limit(LIST_LIMIT)
+          .limit(BOOKINGS_LIMIT)
       : none<typeof viewingRequests.$inferSelect>(),
     can('reservation.read')
       ? tx
           .select()
           .from(holds)
-          .where(eq(holds.organizationId, orgId))
+          .where(and(eq(holds.organizationId, orgId), ...scopeHolds))
           .orderBy(desc(holds.createdAt))
-          .limit(LIST_LIMIT)
+          .limit(BOOKINGS_LIMIT)
       : none<typeof holds.$inferSelect>(),
   ]);
   return [
@@ -680,10 +705,11 @@ async function readSection(
 
   switch (section) {
     case 'bookings': {
+      const ownerPartyId = ownerPartyScope(claims);
       const [leaseRows, stayRows] = await Promise.all([
-        withinViewerTenant(claims, (tx) => loadLeaseBookings(tx, orgId, can)),
+        withinViewerTenant(claims, (tx) => loadLeaseBookings(tx, orgId, can, ownerPartyId)),
         isStaysPlatformEnabled()
-          ? loadStayBookingOpsRows({ limit: 80 }).catch(() => [] as DataRow[])
+          ? loadStayBookingOpsRows({ limit: BOOKINGS_LIMIT }).catch(() => [] as DataRow[])
           : Promise.resolve([] as DataRow[]),
       ]);
       return { records: [...stayRows, ...leaseRows] };
@@ -742,10 +768,11 @@ export async function loadOpsSectionFromNeon(
   const claims = await readClaims();
   if (!claims?.organizationId) return null;
   try {
+    const capMs = section === 'bookings' ? BOOKINGS_CAP_MS : SECTION_CAP_MS;
     return await Promise.race([
       readSection(claims, section),
       new Promise<null>((resolve) => {
-        setTimeout(() => resolve(null), SECTION_CAP_MS);
+        setTimeout(() => resolve(null), capMs);
       }),
     ]);
   } catch {
