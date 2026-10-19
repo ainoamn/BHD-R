@@ -255,7 +255,7 @@ async function wipeStays(
   orgId: string,
 ): Promise<number> {
   // Child → parent order. Payment intents reference folios, so intents before folios.
-  return sumDeletes(tx, orgId, [
+  const deleted = await sumDeletes(tx, orgId, [
     'booking_review_photos',
     'booking_reviews',
     'stay_reviews',
@@ -273,6 +273,30 @@ async function wipeStays(
     'stay_quotes',
     'stay_inventory_locks',
   ]);
+  // Calendar day marks survive booking deletes — clear booking blocks, keep owner blocks/rates.
+  let clearedDays = 0;
+  try {
+    const before = await countTable(
+      tx,
+      orgId,
+      'stay_inventory_days',
+      sql`and availability_status = 'booked'`,
+    );
+    if (before) {
+      await tx.execute(
+        sql`update stay_inventory_days
+            set availability_status = 'available',
+                public_note = null,
+                updated_at = now()
+            where organization_id = ${orgId}::uuid
+              and availability_status = 'booked'`,
+      );
+      clearedDays = before;
+    }
+  } catch (error) {
+    if (!isMissingTable(error)) throw error;
+  }
+  return deleted + clearedDays;
 }
 
 async function wipeMaintenance(

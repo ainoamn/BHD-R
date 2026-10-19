@@ -1,8 +1,8 @@
 # Implementation status
 
 **Updated:** 2026-10-19  
-**Product version:** 0.8.119  
-**Active focus:** Portal header/sidebar link back to public home (0.8.119); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
+**Product version:** 0.8.120  
+**Active focus:** Stay book CTA sticky on mobile + lab-reset clears booked inventory days (0.8.120); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
 
 
 
@@ -20,6 +20,7 @@
 
 | Version         | Focus                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.8.120         | Stay page: top/sticky Continue-to-book CTA; lab-reset clears booked inventory days |
 | 0.8.119         | Owner/tenant portals: Home button back to public site (/ar) in header and sidebar |
 | 0.8.118         | Multi-unit offering badges: per-channel unit counts + per-unit marks when expanded |
 | 0.8.117         | Lab-reset: fix FK wipe order (stay payment intents before folios; release cheque/rental-app links) |

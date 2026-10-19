@@ -251,6 +251,20 @@ export function PropertyDetailManager({
   );
   const [stayHalfDay, setStayHalfDay] = useState<HalfDayStayType | null>(null);
   const editHref = `/${locale}/${portal}/properties/${property.id}/edit`;
+  const stayBookHref = stayBooking
+    ? `/${locale}/stays/${encodeURIComponent(stayBooking.slug)}/book?${new URLSearchParams({
+        checkInOn: stayCheckInOn,
+        checkOutOn: stayCheckOutOn,
+        ...(stayBooking.unitId ? { unit: stayBooking.unitId } : {}),
+        ...(stayBooking.adults ? { adults: stayBooking.adults } : {}),
+        ...(stayBooking.children ? { children: stayBooking.children } : {}),
+        ...(stayHalfDay ? { stayType: stayHalfDay } : {}),
+      }).toString()}`
+    : null;
+  const stayNightlyLabel =
+    stayBooking?.nightlyMinor && stayBooking.currency
+      ? formatMoney(stayBooking.nightlyMinor, stayBooking.currency, locale)
+      : null;
 
   const currentOwner =
     [...property.ownership]
@@ -446,7 +460,34 @@ export function PropertyDetailManager({
   }
 
   return (
-    <div className="form-shell property-manager property-manager--readonly property-360">
+    <div
+      className={`form-shell property-manager property-manager--readonly property-360${
+        stayBooking ? ' property-360--stay' : ''
+      }`}
+    >
+      {isPublic && stayBooking && stayBookHref ? (
+        <div
+          className="stays-book-sticky"
+          role="region"
+          aria-label={ar ? 'متابعة الحجز' : 'Continue booking'}
+        >
+          <div className="stays-book-sticky__inner">
+            <div className="stays-book-sticky__meta">
+              {stayNightlyLabel ? (
+                <strong dir="ltr">{stayNightlyLabel}</strong>
+              ) : (
+                <strong>{ar ? 'إقامة يومية' : 'Daily stay'}</strong>
+              )}
+              <span dir="ltr">
+                {stayCheckInOn} → {stayCheckOutOn}
+              </span>
+            </div>
+            <Link className="button button--primary stays-book-sticky__cta" href={stayBookHref}>
+              {ar ? 'متابعة الحجز' : 'Continue to book'}
+            </Link>
+          </div>
+        </div>
+      ) : null}
       <div className="property-360__layout">
         <div className="property-360__main">
           <section
@@ -1174,6 +1215,46 @@ export function PropertyDetailManager({
 
         <aside className="property-360__summary" aria-label={ar ? 'ملخص السعر' : 'Price summary'}>
           <div className="property-360__summary-card">
+            {stayBooking && stayBookHref ? (
+              <section className="stays-book-cta stays-book-cta--top" aria-labelledby="stays-book-cta-title">
+                <h2 id="stays-book-cta-title">{ar ? 'احجز هذه الإقامة' : 'Book this stay'}</h2>
+                <dl className="stays-checkout__summary stays-checkout__summary--inline">
+                  <div>
+                    <dt>{ar ? 'الوصول' : 'Check-in'}</dt>
+                    <dd dir="ltr">{stayCheckInOn}</dd>
+                  </div>
+                  <div>
+                    <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
+                    <dd dir="ltr">{stayCheckOutOn}</dd>
+                  </div>
+                  {stayHalfDay ? (
+                    <div>
+                      <dt>{ar ? 'الفترة' : 'Slot'}</dt>
+                      <dd>
+                        {stayHalfDay === 'day_use'
+                          ? ar
+                            ? 'الصباحية (بدون مبيت)'
+                            : 'Morning (day use)'
+                          : ar
+                            ? 'المسائية (مبيت فقط)'
+                            : 'Evening (overnight only)'}
+                      </dd>
+                    </div>
+                  ) : null}
+                </dl>
+                <p className="muted stays-checkout__hint">
+                  {ar
+                    ? 'اختر التواريخ من التقويم ثم اضغط متابعة الحجز.'
+                    : 'Pick dates on the calendar, then tap continue to book.'}
+                </p>
+                <Link
+                  className="button button--primary property-360__summary-cta"
+                  href={stayBookHref}
+                >
+                  {ar ? 'متابعة الحجز' : 'Continue to book'}
+                </Link>
+              </section>
+            ) : null}
             <div className="property-360__qr">
               <PropertyQrCard
                 path={propertyPath}
@@ -1397,56 +1478,6 @@ export function PropertyDetailManager({
                   </Link>
                 ) : null}
               </>
-            ) : stayBooking ? (
-              <div className="property-360__viewing property-360__viewing--stay">
-                <section className="stays-book-cta" aria-labelledby="stays-book-cta-title">
-                  <h2 id="stays-book-cta-title">{ar ? 'احجز هذه الإقامة' : 'Book this stay'}</h2>
-                  <dl className="stays-checkout__summary stays-checkout__summary--inline">
-                    <div>
-                      <dt>{ar ? 'الوصول' : 'Check-in'}</dt>
-                      <dd dir="ltr">{stayCheckInOn}</dd>
-                    </div>
-                    <div>
-                      <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
-                      <dd dir="ltr">{stayCheckOutOn}</dd>
-                    </div>
-                    {stayHalfDay ? (
-                      <div>
-                        <dt>{ar ? 'الفترة' : 'Slot'}</dt>
-                        <dd>
-                          {stayHalfDay === 'day_use'
-                            ? ar
-                              ? 'الصباحية (بدون مبيت)'
-                              : 'Morning (day use)'
-                            : ar
-                              ? 'المسائية (مبيت فقط)'
-                              : 'Evening (overnight only)'}
-                        </dd>
-                      </div>
-                    ) : null}
-                  </dl>
-                  <p className="muted stays-checkout__hint">
-                    {ar
-                      ? 'اختر التواريخ من التقويم ثم افتح صفحة الحجز لإكمال التأكيد والدفع.'
-                      : 'Pick dates on the calendar, then open the booking page to confirm and pay.'}
-                  </p>
-                  <Link
-                    className="button button--primary property-360__summary-cta"
-                    href={`/${locale}/stays/${encodeURIComponent(stayBooking.slug)}/book?${new URLSearchParams(
-                      {
-                        checkInOn: stayCheckInOn,
-                        checkOutOn: stayCheckOutOn,
-                        ...(stayBooking.unitId ? { unit: stayBooking.unitId } : {}),
-                        ...(stayBooking.adults ? { adults: stayBooking.adults } : {}),
-                        ...(stayBooking.children ? { children: stayBooking.children } : {}),
-                        ...(stayHalfDay ? { stayType: stayHalfDay } : {}),
-                      },
-                    ).toString()}`}
-                  >
-                    {ar ? 'متابعة الحجز' : 'Continue to book'}
-                  </Link>
-                </section>
-              </div>
             ) : primaryUnit ? (
               <div className="property-360__viewing">
                 <PublicListingActions
