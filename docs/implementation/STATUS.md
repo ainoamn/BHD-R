@@ -1,8 +1,8 @@
 # Implementation status
 
 **Updated:** 2026-10-19  
-**Product version:** 0.8.113  
-**Active focus:** Task AI translate on subtasks/tags/lawyer + email invite (0.8.113); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
+**Product version:** 0.8.114  
+**Active focus:** Owner lab-reset desk for experimental data wipe (0.8.114); next: Oman tax/e-invoice, Meta WhatsApp Cloud API, OCR/AI approvals  
 
 
 
@@ -20,6 +20,7 @@
 
 | Version         | Focus                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.8.114         | Owner lab-reset: selective wipe of tasks/accounting/leases/bookings/etc. while keeping properties |
 | 0.8.113         | Tasks: AI translate for subtasks/tags/lawyer note; invite member by email with team invite + task notice |
 | 0.8.112         | Tasks: reopen blocked while a linked follow-up is still open; button returns after that follow-up closes |
 | 0.8.111         | Tasks: unit requires parent property; AI translate on create/replies + on-demand for recipients |
