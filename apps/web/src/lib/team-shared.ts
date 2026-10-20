@@ -697,7 +697,4 @@ export function canAssignSavedRole(
   return rolePermissions.every((permission) => actorPermissions.includes(permission));
 }
 
-export function validTeamEmail(value: string): boolean {
-  const email = value.trim();
-  return email.length <= 320 && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
-}
+export { isPlausibleEmail as validTeamEmail, normalizeEmailInput } from '@/lib/email-address';

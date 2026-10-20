@@ -5,6 +5,7 @@ import { outboxEvents } from '@bhd-r/db';
 import { elevatedTx, rowsOf, type ElevatedTx } from '@/lib/elevated-db';
 import { sendQueuedEmailsSoon } from '@/lib/email-outbox';
 import { renderBrandedEmail, type BrandedEmailInput } from '@/lib/email-template';
+import { normalizeEmailInput } from '@/lib/email-address';
 import { publicWebOrigin } from '@/lib/seo';
 
 /** Any transaction (tenant-scoped or elevated) that may write to the outbox. */
@@ -26,8 +27,8 @@ export type BrandedEmailJob = BrandedEmailInput & {
 
 /** A real mailbox: placeholder addresses minted for phone-only accounts never receive mail. */
 export function emailableAddress(value: string | null | undefined): string | null {
-  const address = value?.trim().toLowerCase() ?? '';
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) return null;
+  const address = normalizeEmailInput(value ?? '');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(address)) return null;
   if (address.endsWith('@identity.bhd-om.local')) return null;
   return address;
 }

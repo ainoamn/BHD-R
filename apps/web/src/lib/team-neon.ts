@@ -41,6 +41,7 @@ import {
   savedRoleKey,
   STAFF_ROLES,
   TEAM_CAPABILITIES,
+  normalizeEmailInput,
   validTeamEmail,
   type LawyerMember,
   type LawyerPartyChoice,
@@ -622,14 +623,57 @@ async function actorName(tx: Tx, claims: SessionClaims): Promise<string> {
   return actor?.displayName ?? 'المالك';
 }
 
+function cleanPersonName(value: string | undefined, fallback: string): string {
+  const cleaned = (value ?? '')
+    .normalize('NFKC')
+    .replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g, '')
+    .trim()
+    .slice(0, 160);
+  return cleaned || fallback;
+}
+
 /** Find the account for an email, or create one that the person claims at first BHD sign-in. */
 async function accountFor(tx: Tx, email: string, displayName: string | undefined) {
-  const existing = await tx.query.users.findFirst({ where: eq(users.email, email) });
-  if (existing) return { user: existing, existingAccount: true };
-  const name = displayName?.trim().slice(0, 160) || email.split('@')[0]!;
+  const cleanEmail = normalizeEmailInput(email);
+  const existing = await tx.query.users.findFirst({ where: eq(users.email, cleanEmail) });
+  if (existing) {
+    const healedName = cleanPersonName(existing.displayName, cleanEmail.split('@')[0]!);
+    if (existing.email !== cleanEmail || existing.displayName !== healedName) {
+      const [updated] = await tx
+        .update(users)
+        .set({
+          email: cleanEmail,
+          displayName: healedName,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, existing.id))
+        .returning();
+      return { user: updated!, existingAccount: true };
+    }
+    return { user: existing, existingAccount: true };
+  }
+  // Older invites may have stored the mailbox with invisible RTL marks — reuse that row.
+  const [tainted] = await tx
+    .select()
+    .from(users)
+    .where(sql`lower(regexp_replace(${users.email}, '[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]', '', 'g')) = ${cleanEmail}`)
+    .limit(1);
+  if (tainted) {
+    const healedName = cleanPersonName(
+      displayName || tainted.displayName,
+      cleanEmail.split('@')[0]!,
+    );
+    const [updated] = await tx
+      .update(users)
+      .set({ email: cleanEmail, displayName: healedName, updatedAt: new Date() })
+      .where(eq(users.id, tainted.id))
+      .returning();
+    return { user: updated!, existingAccount: true };
+  }
+  const name = cleanPersonName(displayName, cleanEmail.split('@')[0]!);
   const inserted = await tx
     .insert(users)
-    .values({ username: usernameFor(email), email, displayName: name })
+    .values({ username: usernameFor(cleanEmail), email: cleanEmail, displayName: name })
     .returning();
   return { user: inserted[0]!, existingAccount: false };
 }
@@ -726,7 +770,7 @@ export async function addTeamMember(
   input: { email: string; displayName?: string; roles: string[]; capabilities: string[] },
 ): Promise<{ userId: string; existingAccount: boolean }> {
   requireMembersWrite(claims);
-  const email = input.email.trim().toLowerCase();
+  const email = normalizeEmailInput(input.email);
   if (!validTeamEmail(email)) throw new Error('team_email_invalid');
   const organizationId = organizationOf(claims);
   return elevated(async (tx) => {
@@ -897,7 +941,7 @@ export async function addPropertyOwner(
   input: { email: string; displayName?: string; partyId: string },
 ): Promise<{ userId: string; existingAccount: boolean }> {
   requireMembersWrite(claims);
-  const email = input.email.trim().toLowerCase();
+  const email = normalizeEmailInput(input.email);
   if (!validTeamEmail(email)) throw new Error('team_email_invalid');
   const organizationId = organizationOf(claims);
   return elevated(async (tx) => {
@@ -973,9 +1017,25 @@ export async function resendTeamInvite(
     const first = rows[0];
     if (!first) throw new Error('team_member_not_found');
     if (signedIn(first)) throw new Error('team_invite_not_needed');
-    if (!validTeamEmail(first.email)) throw new Error('team_email_invalid');
+    const cleanEmail = normalizeEmailInput(first.email);
+    if (!validTeamEmail(cleanEmail)) throw new Error('team_email_invalid');
+    if (first.email !== cleanEmail || first.displayName !== cleanPersonName(first.displayName, cleanEmail.split('@')[0]!)) {
+      await tx
+        .update(users)
+        .set({
+          email: cleanEmail,
+          displayName: cleanPersonName(first.displayName, cleanEmail.split('@')[0]!),
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId));
+    }
     const [recent] = await tx
-      .select({ id: outboxEvents.id })
+      .select({
+        id: outboxEvents.id,
+        publishedAt: outboxEvents.publishedAt,
+        occurredAt: outboxEvents.occurredAt,
+        attempts: outboxEvents.attempts,
+      })
       .from(outboxEvents)
       .where(
         and(
@@ -986,8 +1046,12 @@ export async function resendTeamInvite(
           sql`${outboxEvents.occurredAt} > now() - make_interval(mins => ${INVITE_RESEND_MINUTES})`,
         ),
       )
+      .orderBy(desc(outboxEvents.occurredAt))
       .limit(1);
-    if (recent) throw new Error('team_invite_too_soon');
+    // Failed invites may be resent immediately; only throttle successful / in-flight ones.
+    if (recent && emailDeliveryState(recent) !== 'failed') {
+      throw new Error('team_invite_too_soon');
+    }
 
     const roles = rows.map((row) => row.roleKey);
     const staff = roles.filter((role) => !NOT_STAFF_ROWS.includes(role));
@@ -1001,8 +1065,8 @@ export async function resendTeamInvite(
       organizationId,
       organizationName: organization.displayNameAr || organization.displayNameEn,
       memberId: userId,
-      email: first.email,
-      name: first.displayName,
+      email: cleanEmail,
+      name: cleanPersonName(first.displayName, cleanEmail.split('@')[0]!),
       roleText,
       invitedBy: await actorName(tx, claims),
     });
@@ -1145,7 +1209,7 @@ export async function addLawyer(
   },
 ): Promise<{ userId: string; partyId: string; existingAccount: boolean }> {
   requireMembersWrite(claims);
-  const email = input.email.trim().toLowerCase();
+  const email = normalizeEmailInput(input.email);
   if (!validTeamEmail(email)) throw new Error('team_email_invalid');
   const organizationId = organizationOf(claims);
   return elevated(async (tx) => {

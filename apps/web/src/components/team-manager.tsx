@@ -22,6 +22,7 @@ import {
   roleLabel,
   savedRoleKey,
   TEAM_CAPABILITIES,
+  normalizeEmailInput,
   validTeamEmail,
   type LawyerMember,
   type PropertyOwnerMember,
@@ -356,7 +357,7 @@ function AddMemberForm({
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     event.stopPropagation();
-    const trimmed = email.trim();
+    const trimmed = normalizeEmailInput(email);
     if (!trimmed) {
       setError(ar ? 'أدخل البريد الإلكتروني.' : 'Enter an email address.');
       return;
@@ -856,10 +857,11 @@ function AddOwnerForm({
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!validTeamEmail(email)) return setError(ERRORS.team_email_invalid![ar ? 0 : 1]);
+    const cleanEmail = normalizeEmailInput(email);
+    if (!validTeamEmail(cleanEmail)) return setError(ERRORS.team_email_invalid![ar ? 0 : 1]);
     if (!partyId) return setError(ERRORS.team_owner_party_required![ar ? 0 : 1]);
     const result = await run('/api/owner/team/owners', 'POST', {
-      email: email.trim(),
+      email: cleanEmail,
       partyId,
       ...(name.trim() ? { displayName: name.trim() } : {}),
     });
@@ -1058,9 +1060,10 @@ function AddLawyerForm({
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!validTeamEmail(email)) return setError(ERRORS.team_email_invalid![ar ? 0 : 1]);
+    const cleanEmail = normalizeEmailInput(email);
+    if (!validTeamEmail(cleanEmail)) return setError(ERRORS.team_email_invalid![ar ? 0 : 1]);
     const result = await run('/api/owner/team/lawyers', 'POST', {
-      email: email.trim(),
+      email: cleanEmail,
       ...(name.trim() ? { displayName: name.trim() } : {}),
       ...(partyId ? { partyId } : firm.trim() ? { firmName: firm.trim() } : {}),
     });
