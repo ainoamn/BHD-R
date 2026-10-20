@@ -12,6 +12,12 @@ import {
   rememberedOrganization,
   setSessionCookies,
 } from '@/lib/bhd/session-cookies';
+import {
+  ROSTER_COOKIE,
+  readRosterCookie,
+  setRosterCookie,
+  upsertRoster,
+} from '@/lib/bhd/account-roster';
 
 export const runtime = 'nodejs';
 
@@ -181,5 +187,9 @@ export async function GET(request: Request) {
     maxAge: 0,
   });
   setSessionCookies(response, issued);
+  if (issued.rosterAccount) {
+    const prior = readRosterCookie(cookieStore.get(ROSTER_COOKIE)?.value);
+    setRosterCookie(response, upsertRoster(prior, issued.rosterAccount));
+  }
   return response;
 }

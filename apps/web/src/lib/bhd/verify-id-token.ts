@@ -43,7 +43,16 @@ export async function verifyBhdIdToken(input: {
   sharedSecret?: string;
   accessToken?: string;
   jwksUri?: string;
-}): Promise<{ subject: string; email?: string; emailVerified: boolean; name?: string }> {
+}): Promise<{
+  subject: string;
+  email?: string;
+  emailVerified: boolean;
+  name?: string;
+  picture?: string;
+  username?: string;
+  phone?: string;
+  providers?: Array<'password' | 'google' | 'facebook' | 'whatsapp'>;
+}> {
   const issuer = input.issuer.replace(/\/$/, '');
   const header = decodeProtectedHeader(input.token);
   const alg = header.alg;
@@ -122,12 +131,25 @@ export async function verifyBhdIdToken(input: {
   throw new Error(`identity_verify_failed:${errors.join('|')}`);
 }
 
+const AUTH_PROVIDERS = ['password', 'google', 'facebook', 'whatsapp'] as const;
+
 function toIdentity(payload: JWTPayload): {
   subject: string;
   email?: string;
   emailVerified: boolean;
   name?: string;
+  picture?: string;
+  username?: string;
+  phone?: string;
+  providers?: Array<'password' | 'google' | 'facebook' | 'whatsapp'>;
 } {
+  const providers = Array.isArray(payload.providers)
+    ? payload.providers.filter(
+        (item): item is (typeof AUTH_PROVIDERS)[number] =>
+          typeof item === 'string' &&
+          (AUTH_PROVIDERS as readonly string[]).includes(item),
+      )
+    : undefined;
   return {
     subject: String(payload.sub),
     ...(typeof payload.email === 'string' && payload.email.includes('@')
@@ -135,6 +157,20 @@ function toIdentity(payload: JWTPayload): {
       : {}),
     emailVerified: payload.email_verified === true || payload.email_verified === 'true',
     ...(typeof payload.name === 'string' ? { name: payload.name } : {}),
+    ...(typeof payload.picture === 'string' && payload.picture.startsWith('http')
+      ? { picture: payload.picture }
+      : {}),
+    ...(typeof payload.preferred_username === 'string'
+      ? { username: payload.preferred_username }
+      : typeof payload.username === 'string'
+        ? { username: payload.username }
+        : {}),
+    ...(typeof payload.phone_number === 'string'
+      ? { phone: payload.phone_number }
+      : typeof payload.phone === 'string'
+        ? { phone: payload.phone }
+        : {}),
+    ...(providers?.length ? { providers } : {}),
   };
 }
 
@@ -158,6 +194,12 @@ async function claimsFromUserinfo(
       email: z.union([z.string(), z.null()]).optional(),
       email_verified: z.union([z.boolean(), z.null()]).optional(),
       name: z.union([z.string(), z.null()]).optional(),
+      picture: z.union([z.string(), z.null()]).optional(),
+      username: z.union([z.string(), z.null()]).optional(),
+      preferred_username: z.union([z.string(), z.null()]).optional(),
+      phone: z.union([z.string(), z.null()]).optional(),
+      phone_number: z.union([z.string(), z.null()]).optional(),
+      providers: z.array(z.string()).optional(),
     })
     .parse(await response.json());
   if (info.sub !== decoded.sub) throw new Error('userinfo_sub_mismatch');
@@ -167,5 +209,17 @@ async function claimsFromUserinfo(
     ...(typeof info.email === 'string' && info.email.includes('@') ? { email: info.email } : {}),
     email_verified: info.email_verified === true,
     ...(typeof info.name === 'string' ? { name: info.name } : {}),
+    ...(typeof info.picture === 'string' ? { picture: info.picture } : {}),
+    ...(typeof info.preferred_username === 'string'
+      ? { preferred_username: info.preferred_username }
+      : typeof info.username === 'string'
+        ? { username: info.username }
+        : {}),
+    ...(typeof info.phone_number === 'string'
+      ? { phone_number: info.phone_number }
+      : typeof info.phone === 'string'
+        ? { phone: info.phone }
+        : {}),
+    ...(info.providers ? { providers: info.providers } : {}),
   };
 }

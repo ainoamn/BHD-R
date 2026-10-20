@@ -2,6 +2,21 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.134.9 — 2026-10-20
+
+- **بطاقة الحساب كقائمة جوجل (BHD-ACCOUNT-SWITCHER):** الحساب النشط صورة 56px + بريد `dir=ltr`، والبقية صفوف صورة 40px + بريد؛ شارة المصدر على زاوية الصورة؛ إضافة حساب بـ `+`؛ خروج نصي بلا أزرار داكنة.
+- **وثائق:** نسخ `docs/BHD-ACCOUNT-SWITCHER.md` من الهوية/ONE-BHD حرفياً.
+
+## 0.8.134.8 — 2026-10-20
+
+- **قائمة الحسابات في الرأس:** المعرّف الظاهر = البريد ثم اسم المستخدم ثم الهاتف (لا الاسم وحده)، مع شارات المصدر `G` / `f` / `WA` / `●` من `providers` — مطابقة الهوية.
+- **وثائق:** إعادة مزامنة `docs/BHD-APP-SWITCHER.md` و`BHD-SESSION-POLICY.md` من ONE-BHD.
+
+## 0.8.134.7 — 2026-10-20
+
+- **حسابات متعددة من الرأس (BHD-SESSION-POLICY / APP-SWITCHER / UNIFIED §0.2):** قائمة الحسابات في بطاقة الحساب، «إضافة حساب» عبر الهوية `login?add=1`، تبديل فوري بلا كلمة مرور عبر `/api/auth/switch`، وخروج هذا الحساب / كل الحسابات (`end-session?all=1`). مرآة `bhd_r_roster` عند SSO callback؛ `/api/auth/me` يعيد `accounts` بلا `Set-Cookie`.
+- **وثائق:** مزامنة `docs/BHD-SESSION-POLICY.md` و`BHD-APP-SWITCHER.md` و`BHD-UNIFIED-LOGIN-AND-APPS.md` من ONE-BHD؛ رقعة الهوية `docs/patches/identity-auth-switch-get.md`.
+
 ## 0.8.134.6 — 2026-10-20
 
 - **مساحة المستأجر:** التنقل بين الأقسام أصبح فورياً بلا وميض — البيانات تُحمَّل مرة وتُحفظ في الخلفية، والصفحات تبقى محمّلة مع تبديل ناعم مثل مساحة المالك.

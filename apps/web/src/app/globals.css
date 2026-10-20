@@ -8257,32 +8257,36 @@ body:has(.stays-booking-receipt) #main-content {
   background: currentColor;
   border-radius: 1px;
 }
-.bhd-switcher-avatar > span,
-.bhd-switcher-account__initial {
+.bhd-switcher-avatar img,
+.bhd-switcher-avatar > span {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.bhd-switcher-avatar > span {
   display: grid;
   place-content: center;
   color: white;
   background: linear-gradient(145deg, var(--bhd-teal), var(--oman-deep));
-  border-radius: 50%;
-  font-weight: 900;
-}
-.bhd-switcher-avatar > span {
-  width: 2rem;
-  height: 2rem;
   font-size: 0.78rem;
+  font-weight: 900;
 }
 .bhd-switcher-card {
   position: absolute;
   inset-block-start: calc(100% + 0.75rem);
   inset-inline-end: 0;
+  inset-inline-start: auto;
   z-index: 90;
   width: min(21rem, calc(100vw - 2rem));
+  max-height: min(360px, calc(100svh - 96px));
+  overflow: auto;
   padding: 0.85rem;
   color: var(--oman-deep);
   background: white;
-  border: 1px solid #d8e2dd;
+  border: 1px solid #d7e2dc;
   border-radius: 1rem;
-  box-shadow: 0 24px 60px rgb(9 45 36 / 0.16);
+  box-shadow: 0 18px 40px rgba(9, 45, 36, 0.12);
 }
 .bhd-switcher-card__head {
   display: grid;
@@ -8346,64 +8350,165 @@ body:has(.stays-booking-receipt) #main-content {
   color: #315d89;
   background: #e9f0f7;
 }
+/* BHD-ACCOUNT-SWITCHER.md — Google-like account card (copy class names) */
 .bhd-switcher-account {
-  display: grid;
-  gap: 0.45rem;
+  width: min(360px, calc(100vw - 24px));
+  max-height: min(480px, calc(100svh - 88px));
+  padding: 8px 0 4px;
 }
-.bhd-switcher-account__user {
+.bhd-switcher-account-now {
+  display: grid;
+  justify-items: stretch;
+  gap: 4px;
+  padding: 12px 16px 10px;
+}
+.bhd-switcher-account-now .bhd-switcher-person {
+  padding: 4px 0 8px;
+}
+.bhd-switcher-manage {
+  display: inline-flex;
+  align-self: start;
+  margin-inline-start: 68px;
+  padding: 4px 0 2px;
+  color: #075c45;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.bhd-switcher-account-list,
+.bhd-switcher-account-foot {
+  border-top: 1px solid #e6eeea;
+}
+.bhd-switcher-person {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
-  padding: 0.25rem 0.25rem 0.65rem;
-  border-bottom: 1px solid #e4ebe7;
-}
-.bhd-switcher-account__initial {
-  width: 2.75rem;
-  height: 2.75rem;
-  flex: 0 0 auto;
-}
-.bhd-switcher-account__user div {
+  gap: 12px;
   min-width: 0;
+  width: 100%;
 }
-.bhd-switcher-account__user strong,
-.bhd-switcher-account__user small {
+.bhd-switcher-face {
+  position: relative;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+}
+.bhd-switcher-face.is-large {
+  flex-basis: 56px;
+  width: 56px;
+  height: 56px;
+}
+.bhd-switcher-face img,
+.bhd-switcher-face > span {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #092d24;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+}
+.bhd-switcher-face.is-action > span {
+  background: #f4f7f5;
+  color: #092d24;
+  box-shadow: inset 0 0 0 1px #d7e2dc;
+  font-size: 22px;
+  font-weight: 500;
+}
+.bhd-switcher-face .bhd-switcher-providers {
+  position: absolute;
+  inset-inline-end: -2px;
+  bottom: -2px;
+}
+.bhd-switcher-who {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 2px;
+}
+.bhd-switcher-who strong,
+.bhd-switcher-who small {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.bhd-switcher-account__user small {
-  color: var(--muted);
-  font-size: 0.72rem;
+.bhd-switcher-who strong {
+  font-size: 13px;
+  font-weight: 650;
+  color: #092d24;
 }
-.bhd-switcher-account > a,
-.bhd-switcher-account > button,
-.bhd-switcher-account__logout > button {
-  width: 100%;
-  min-height: 2.7rem;
-  padding: 0.65rem 0.75rem;
-  color: var(--oman-deep);
-  background: #f2f6f4;
-  border: 0;
-  border-radius: 0.7rem;
-  font: inherit;
-  font-size: 0.78rem;
+.bhd-switcher-who small {
+  color: #5d7169;
+  font-size: 12px;
+  font-weight: 500;
+}
+.bhd-switcher-providers {
+  display: flex;
+  gap: 2px;
+}
+.bhd-switcher-provider {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  text-decoration: none;
+  font-size: 10px;
   font-weight: 800;
+  line-height: 1;
+  cursor: default;
+  box-shadow: 0 0 0 2px #fff;
+}
+.bhd-switcher-provider.is-password {
+  background: #092d24;
+  color: #fff;
+}
+.bhd-switcher-provider.is-google {
+  background: #fff;
+  color: #1a73e8;
+  box-shadow:
+    0 0 0 2px #fff,
+    inset 0 0 0 1px #dadce0;
+}
+.bhd-switcher-provider.is-facebook {
+  background: #1877f2;
+  color: #fff;
+}
+.bhd-switcher-provider.is-whatsapp {
+  background: #25d366;
+  color: #fff;
+}
+.bhd-switcher-account-choice {
+  display: flex;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 16px;
+  border: 0;
+  background: transparent;
+  color: var(--oman-deep);
+  font: inherit;
   text-align: start;
   cursor: pointer;
 }
-.bhd-switcher-account__logout {
-  margin: 0;
+.bhd-switcher-account-choice:hover,
+.bhd-switcher-account-choice:focus-visible {
+  background: #f5f7f6;
 }
-.bhd-switcher-account > button,
-.bhd-switcher-account__logout > button {
-  color: white;
-  background: var(--oman-deep);
+.bhd-switcher-account-foot .bhd-switcher-account-choice {
+  min-height: 44px;
+  font-size: 13px;
+  font-weight: 650;
 }
 .bhd-switcher-orgs {
   display: grid;
   gap: 0.3rem;
-  padding-bottom: 0.45rem;
-  border-bottom: 1px solid #e4ebe7;
+  margin-top: 0.35rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid #e6eeea;
 }
 .bhd-switcher-orgs > small {
   color: var(--muted);

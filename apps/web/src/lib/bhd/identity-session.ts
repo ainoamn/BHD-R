@@ -22,12 +22,15 @@ import {
 import { loadSavedRolePermissions } from '@/lib/organization-roles-read';
 import { requireCsrfSecret } from '@/lib/runtime-env';
 import { createCsrfToken } from '@bhd-r/security';
+import { inferProviders, type RosterAccount } from '@/lib/bhd/account-roster-shared';
 import { verifyBhdIdToken } from '@/lib/bhd/verify-id-token';
 
 export type IssuedSession = {
   token: string;
   csrf: string;
   claims: SessionClaims;
+  /** Identity `sub` mirror for multi-account roster (BHD-SESSION-POLICY §0.2). */
+  rosterAccount?: RosterAccount;
 };
 
 type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
@@ -228,10 +231,24 @@ async function issueForUser(
     tokenIdHash: tokenHash(token),
     expiresAt: new Date(Date.now() + PRODUCT_SESSION_MAX_AGE_SECONDS * 1000),
   });
+  const identitySub = user.identitySubject?.trim();
   return {
     token,
     csrf: createCsrfToken(sid, requireCsrfSecret()),
     claims,
+    ...(identitySub
+      ? {
+          rosterAccount: {
+            sub: identitySub,
+            name: user.displayName || user.email || 'BHD',
+            email: user.email || '',
+            username: user.username || null,
+            phone: null,
+            picture: null,
+            providers: inferProviders({ hasPassword: Boolean(user.credentialHash) }),
+          },
+        }
+      : {}),
   };
 }
 
@@ -464,9 +481,28 @@ export async function issueIdentitySession(input: {
     const userId = await resolveIdentityUser(tx, identity);
     // Signing in on another device must not end existing sessions (BHD-SESSION-POLICY).
     try {
-      return await issueForUser(tx, userId, {
+      const issued = await issueForUser(tx, userId, {
         ...(input.preferredOrganizationId ? { preferred: input.preferredOrganizationId } : {}),
       });
+      if (!issued.rosterAccount) return issued;
+      const picture = identity.picture?.trim() || null;
+      const providers = inferProviders({
+        picture,
+        providers: identity.providers,
+        hasPassword: issued.rosterAccount.providers.includes('password'),
+      });
+      return {
+        ...issued,
+        rosterAccount: {
+          ...issued.rosterAccount,
+          name: identity.name?.trim() || issued.rosterAccount.name,
+          email: identity.email?.trim().toLowerCase() || issued.rosterAccount.email,
+          username: identity.username?.trim() || issued.rosterAccount.username,
+          phone: identity.phone?.trim() || issued.rosterAccount.phone,
+          picture,
+          providers: providers.length ? providers : ['password'],
+        },
+      };
     } catch (error) {
       throw new Error(
         `identity_session_issue:${error instanceof Error ? error.message : String(error)}`,
