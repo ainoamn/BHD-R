@@ -54,6 +54,7 @@ describe('booking priority', () => {
     expect(bookingStatusTone('scheduled', 'viewing')).toBe('info');
     expect(bookingStatusTone('confirmed', 'stay_booking')).toBe('positive');
     expect(bookingStatusTone('checked_out', 'stay_booking')).toBe('neutral');
+    expect(bookingStatusTone('completed', 'viewing')).toBe('positive');
     expect(bookingStatusTone('cancelled', 'stay_booking')).toBe('negative');
   });
 });

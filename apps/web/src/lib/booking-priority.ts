@@ -46,9 +46,9 @@ export function bookingStatusTone(status: string, recordKind?: string): BookingS
   if (bookingNeedsApproval(status, recordKind)) return 'approval';
   if (NEEDS_ACTION.has(status) || status === 'pending') return 'warning';
   if (status === 'scheduled' || (recordKind === 'hold' && status === 'active')) return 'info';
-  if (IN_PROGRESS.has(status) || UPCOMING.has(status) || status === 'converted') {
-    return 'positive';
-  }
+  if (IN_PROGRESS.has(status) || UPCOMING.has(status)) return 'positive';
+  // Completed viewings / conversions read as success; stay check-out stays neutral.
+  if (status === 'completed' || status === 'converted') return 'positive';
   if (CANCELLED.has(status)) return 'negative';
   return 'neutral';
 }
