@@ -28,6 +28,7 @@ export function NotificationTemplatesStudio({ locale }: { locale: 'ar' | 'en' })
   const [preview, setPreview] = useState<PreviewPayload | null>(null);
   const [tab, setTab] = useState<'email' | 'whatsapp'>('email');
   const [category, setCategory] = useState<NotificationCategory | 'all'>('all');
+  const [wishRotate, setWishRotate] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [loadingList, setLoadingList] = useState(true);
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -66,6 +67,10 @@ export function NotificationTemplatesStudio({ locale }: { locale: 'ar' | 'en' })
   }, []);
 
   useEffect(() => {
+    setWishRotate(0);
+  }, [selectedId]);
+
+  useEffect(() => {
     if (!selectedId) {
       setPreview(null);
       return;
@@ -76,7 +81,7 @@ export function NotificationTemplatesStudio({ locale }: { locale: 'ar' | 'en' })
       setError(null);
       try {
         const response = await fetch(
-          `/api/owner/notification-templates/${encodeURIComponent(selectedId)}/preview`,
+          `/api/owner/notification-templates/${encodeURIComponent(selectedId)}/preview?rotate=${wishRotate}`,
           { credentials: 'same-origin', cache: 'no-store' },
         );
         const body = (await response.json().catch(() => null)) as
@@ -105,7 +110,7 @@ export function NotificationTemplatesStudio({ locale }: { locale: 'ar' | 'en' })
     return () => {
       stopped = true;
     };
-  }, [selectedId]);
+  }, [selectedId, wishRotate]);
 
   const filtered =
     category === 'all' ? templates : templates.filter((item) => item.category === category);
@@ -123,8 +128,8 @@ export function NotificationTemplatesStudio({ locale }: { locale: 'ar' | 'en' })
           <h1>{ar ? 'قوالب البريد وواتساب' : 'Email & WhatsApp templates'}</h1>
           <p className="muted">
             {ar
-              ? 'كل القوالب بالعربي والإنجليزي. اطّلع على شكل الرسائل كما تصل للمستلم. التحرير المباشر من هنا قادم بعد ربط واتساب الرسمي (Meta).'
-              : 'Every template is bilingual (Arabic + English). Preview messages as recipients see them. In-page editing comes after official WhatsApp (Meta) is wired.'}
+              ? 'كل القوالب بالعربي والإنجليزي، مع عبارات مرحّة وتحفيزية تتغيّر مع كل إشعار حسب مضمونه. التحرير اليدوي للعبارات قادم لاحقاً.'
+              : 'Every template is bilingual, with cheerful motivational closings that rotate per message and match its tone. Manual phrase editing comes later.'}
           </p>
         </div>
       </header>
@@ -191,8 +196,8 @@ export function NotificationTemplatesStudio({ locale }: { locale: 'ar' | 'en' })
                 <p className="muted">{ar ? selected.descriptionAr : selected.descriptionEn}</p>
                 <p className="notice" role="status">
                   {ar
-                    ? 'المعاينة فقط في هذه المرحلة — النصوص تُدار من المنصة وسيتاح الضبط لاحقاً.'
-                    : 'Preview only for now — copy is platform-managed; editing arrives later.'}
+                    ? 'في أسفل كل بريد تظهر أمنية تناسب النوع + عبارة تشجيعية عشوائية تتغيّر مع كل رسالة.'
+                    : 'Each email ends with a tone-matched wish plus a rotating encouragement line.'}
                 </p>
               </header>
 
@@ -204,6 +209,16 @@ export function NotificationTemplatesStudio({ locale }: { locale: 'ar' | 'en' })
                     onClick={() => setTab('email')}
                   >
                     {ar ? 'معاينة البريد' : 'Email preview'}
+                  </button>
+                ) : null}
+                {preview?.email ? (
+                  <button
+                    type="button"
+                    className="button button--quiet"
+                    disabled={loadingPreview}
+                    onClick={() => setWishRotate((value) => value + 1)}
+                  >
+                    {ar ? 'غيّر العبارة المرحّة' : 'Shuffle cheerful line'}
                   </button>
                 ) : null}
                 {preview?.whatsapp ? (

@@ -31,12 +31,14 @@ export async function GET(
   }
   try {
     const origin = publicWebOrigin();
+    const rotate = new URL(request.url).searchParams.get('rotate')?.trim() || '0';
     const email = template.email
       ? {
           subject: template.email.subject,
           ...renderBrandedEmail(template.email, {
             origin,
-            seed: `preview:${template.id}`,
+            // Stable per template by default; `rotate` reshuffles cheerful closing lines in the studio.
+            seed: `preview:${template.id}:${rotate}`,
           }),
         }
       : null;
@@ -46,6 +48,7 @@ export async function GET(
         channel: template.channel,
         email,
         whatsapp: template.whatsapp ?? null,
+        wishSeed: rotate,
       },
       { headers: { 'cache-control': 'no-store' } },
     );
