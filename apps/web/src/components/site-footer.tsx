@@ -13,6 +13,7 @@ const FOOTER_PROGRAMS = [
   { id: 'nasab', nameAr: 'نَسَب', nameEn: 'NASAB' },
   { id: 'store', nameAr: 'متجر BHD', nameEn: 'BHD Store' },
   { id: 'office', nameAr: 'مكتب BHD', nameEn: 'BHD Office' },
+  { id: 'hr', nameAr: 'الموارد البشرية', nameEn: 'BHD HR' },
 ] as const;
 
 function hrefForApp(app: BhdApp): string {

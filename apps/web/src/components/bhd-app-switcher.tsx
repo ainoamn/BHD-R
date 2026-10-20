@@ -16,6 +16,7 @@ import {
   launchUrlForApp,
   type BhdApp,
 } from '@/lib/bhd/apps';
+import { BhdAppIcon } from '@/components/bhd/bhd-app-icon';
 import {
   addAccountUrl,
   applyAccountIsolation,
@@ -496,12 +497,7 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
                   aria-current={currentApp ? 'page' : undefined}
                   onClick={(event) => onAppClick(app, event)}
                 >
-                  <span
-                    className="bhd-app-mark"
-                    style={{ background: app.soft, color: app.accent }}
-                  >
-                    {app.mark}
-                  </span>
+                  <BhdAppIcon id={app.id} title={ar ? app.nameAr : app.nameEn} />
                   <span>{ar ? app.nameAr : app.nameEn}</span>
                 </a>
               );

@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.134.17 — 2026-10-20
+
+- **مشغّل التطبيقات §4.1 — الموارد البشرية:** مزامنة `docs/BHD-APP-SWITCHER.md` و`lib/bhd/apps.ts` و`BhdAppIcon` من ONE-BHD؛ يظهر «الموارد البشرية» في المشغّل والفوتر (`hr.bhd-om.com`).
+
 ## 0.8.134.16 — 2026-10-20
 
 - **بطاقة المعاينة:** بعد الوصول يمكن للعميل كتابة ملاحظة اختيارية قبل اختيار الاستئجار/الشراء/الرفض، أو المتابعة بلا تعليق؛ تُحفظ الملاحظة في سجل الطلب ويُشعر المالك.

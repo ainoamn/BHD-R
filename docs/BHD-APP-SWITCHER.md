@@ -132,6 +132,7 @@ sequenceDiagram
 | BHD R | `/ar/portal` |
 | المتجر | `/dashboard` |
 | المكتب | `/ar` |
+| الموارد البشرية | `/` |
 
 `returnTo` من الرئيسية ومن المشغّل = `workspacePath` فقط (مسار نسبي داخل نفس المنتج). كل منتج يسمح بهذه المسارات في تحقق `returnTo` بعد `callback`. لا تمرّر عنوان الصفحة الحالية إلى موقع آخر. `/admin` يبقى عبر `admin-entry` فقط.
 
@@ -151,6 +152,51 @@ sequenceDiagram
 عندما يُكمل منتج قسم 6 من SSO، **لا يعدّل المنتج ملفه**. يُغيَّر `mode` من `"browse"` إلى `"sso"` هنا في ONE-BHD ثم يُنسخ `apps.ts` إلى الجميع.
 
 `hisaby.pro` ليس عنصرًا في المشغّل. العنصر الرسمي حسابي هو `hisaby.bhd-om.com`.
+
+### 4.1 إضافة إلزامية — الموارد البشرية (20 أكتوبر 2026)
+
+انسخ هذا الملف و`lib/bhd/apps.ts` و`BhdAppIcon.tsx` إلى **كل** موقع BHD. بعد النسخ يظهر «الموارد البشرية» في ثلاثة مواضع بلا تعديل محلي:
+
+1. مشغّل الأيقونات (تسع النقاط) بعد الدخول  
+2. صفحة الحساب `https://id.bhd-om.com/account` (المواقع المرتبطة)  
+3. فوتر «برامجنا»
+
+| الحقل | القيمة |
+|---|---|
+| `id` | `hr` |
+| `clientId` | `bhd-hr` |
+| الاسم | الموارد البشرية / BHD HR |
+| الأصل | `https://hr.bhd-om.com` (اسم إضافي مسموح: `https://hr.hd-om.com`) |
+| `workspacePath` | `/` |
+| `mode` | `sso` |
+| `enabled` | `true` |
+| `mark` | `HR` |
+| `accent` / `soft` | `#3d5a45` / `#e7efe9` |
+| `startUrl` | `https://hr.bhd-om.com/api/auth/bhd/start?returnTo=%2F` |
+
+عنصر الكتالوج (يُدرج في `BHD_APPS` بعد «المكتب»):
+
+```ts
+{
+  id: "hr",
+  clientId: "bhd-hr",
+  nameAr: "الموارد البشرية",
+  nameEn: "BHD HR",
+  origin: "https://hr.bhd-om.com",
+  workspacePath: "/",
+  startUrl: ssoStart("https://hr.bhd-om.com", "/"),
+  mode: "sso",
+  enabled: true,
+  mark: "HR",
+  accent: "#3d5a45",
+  soft: "#e7efe9",
+},
+```
+
+في `BhdAppIcon`: أضف `hr` إلى `IconId` و`ICONS` و`SLUG_TO_ICON` (`hr` و`bhd-hr` → `hr`).  
+المصدر الحي: `BHD-Complete-Brand-and-Portal-v1.1.0/app/lib/bhd/apps.ts` و`.../components/bhd/BhdAppIcon.tsx`.
+
+لا تحذف تطبيقاً قديماً ولا تغيّر ترتيب البقية. لا تضف `hr` يدوياً في الفوتر إن كان الفوتر يقرأ من الكتالوج/`products` بعد مزامنة الملفين أعلاه.
 
 ---
 

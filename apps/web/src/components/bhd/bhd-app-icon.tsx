@@ -1,7 +1,16 @@
 import type { ReactNode } from 'react';
 
 type IconId =
-  'account' | 'portal' | 'wazen' | 'hisaby' | 'nasab' | 'baitak' | 'store' | 'office' | 'bhd-r';
+  | 'account'
+  | 'portal'
+  | 'wazen'
+  | 'hisaby'
+  | 'nasab'
+  | 'baitak'
+  | 'store'
+  | 'office'
+  | 'bhd-r'
+  | 'hr';
 
 const ICONS: Record<IconId, { label: string; soft: string; accent: string; glyph: ReactNode }> = {
   account: {
@@ -109,6 +118,19 @@ const ICONS: Record<IconId, { label: string; soft: string; accent: string; glyph
       </>
     ),
   },
+  hr: {
+    label: 'الموارد البشرية',
+    soft: '#dce8df',
+    accent: '#3d5a45',
+    glyph: (
+      <>
+        <circle cx="18" cy="17" r="4.5" />
+        <circle cx="30" cy="17" r="4.5" />
+        <path d="M11.5 34c.8-6 3.8-9 6.5-9s5.7 3 6.5 9" />
+        <path d="M23.5 34c.8-6 3.8-9 6.5-9s5.7 3 6.5 9" />
+      </>
+    ),
+  },
 };
 
 const SLUG_TO_ICON: Record<string, IconId> = {
@@ -126,6 +148,8 @@ const SLUG_TO_ICON: Record<string, IconId> = {
   office: 'office',
   'bhd-r': 'bhd-r',
   'real-estate': 'bhd-r',
+  hr: 'hr',
+  'bhd-hr': 'hr',
 };
 
 export function appIconId(idOrSlug: string): IconId {

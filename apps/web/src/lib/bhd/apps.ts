@@ -142,6 +142,20 @@ export const BHD_APPS: BhdApp[] = [
     accent: '#283b4d',
     soft: '#e9edf0',
   },
+  {
+    id: 'hr',
+    clientId: 'bhd-hr',
+    nameAr: 'الموارد البشرية',
+    nameEn: 'BHD HR',
+    origin: 'https://hr.bhd-om.com',
+    workspacePath: '/',
+    startUrl: ssoStart('https://hr.bhd-om.com', '/'),
+    mode: 'sso',
+    enabled: true,
+    mark: 'HR',
+    accent: '#3d5a45',
+    soft: '#e7efe9',
+  },
 ];
 
 export function gatewayApps(): BhdApp[] {
