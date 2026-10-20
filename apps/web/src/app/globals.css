@@ -7740,11 +7740,352 @@ body:has(.stays-booking-receipt) #main-content {
 /* Tenant space: its own blue tint so it never reads as the owner dashboard */
 .tenant-space {
   --tenant-accent: #1d4f8a;
+  --tenant-accent-soft: #e8f0f8;
+  --tenant-ink: #12355e;
+  --tenant-muted: #5b6f86;
 }
 .portal-layout .tenant-space .dash-hero {
   background:
     radial-gradient(circle at 0% 0%, rgb(29 79 138 / 0.09), transparent 22rem),
     linear-gradient(135deg, #f1f5fb 0%, #fff 55%);
+}
+
+/* Tenant bookings board — card feed instead of stacked tables */
+.tenant-bookings-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
+  margin-bottom: 0.35rem;
+  padding: 1.15rem 1.25rem;
+  border-radius: 1.25rem;
+  border: 1px solid rgb(29 79 138 / 0.14);
+  background:
+    radial-gradient(circle at 100% 0%, rgb(29 79 138 / 0.12), transparent 18rem),
+    linear-gradient(145deg, #eef4fb 0%, #fff 58%);
+  box-shadow: 0 16px 40px rgb(18 53 94 / 0.06);
+}
+.tenant-bookings-hero__copy {
+  display: grid;
+  gap: 0.35rem;
+  max-width: 40rem;
+}
+.tenant-bookings-hero__copy h1 {
+  margin: 0;
+  color: var(--tenant-ink);
+  font-size: clamp(1.45rem, 2.4vw, 1.85rem);
+  letter-spacing: -0.02em;
+}
+.tenant-bookings-hero__copy p {
+  margin: 0;
+  color: var(--tenant-muted);
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+.tenant-bookings-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.tenant-bookings {
+  display: grid;
+  gap: 1rem;
+}
+.tenant-bookings__stats {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+.tenant-bookings__stat {
+  display: grid;
+  align-content: start;
+  gap: 0.15rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 1rem;
+  border: 1px solid rgb(29 79 138 / 0.14);
+  background: #fff;
+  box-shadow: 0 10px 24px rgb(18 53 94 / 0.04);
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    transform 0.15s ease;
+}
+.tenant-bookings__stat:hover {
+  border-color: rgb(29 79 138 / 0.32);
+  transform: translateY(-1px);
+}
+.tenant-bookings__stat strong {
+  font-size: 1.45rem;
+  line-height: 1.1;
+  color: var(--tenant-ink);
+  font-variant-numeric: tabular-nums;
+}
+.tenant-bookings__stat span {
+  font-size: 0.82rem;
+  font-weight: 750;
+  color: var(--tenant-ink);
+}
+.tenant-bookings__stat.is-attention {
+  border-inline-start: 4px solid #c47a1a;
+}
+.tenant-bookings__stat.is-viewing {
+  border-inline-start: 4px solid #3b82c4;
+}
+.tenant-bookings__stat.is-stay {
+  border-inline-start: 4px solid #0d9488;
+}
+.tenant-bookings__stat.is-reservation {
+  border-inline-start: 4px solid #1d4f8a;
+}
+.tenant-bookings__stat.is-selected {
+  background: var(--tenant-ink);
+  border-color: var(--tenant-ink);
+}
+.tenant-bookings__stat.is-selected strong,
+.tenant-bookings__stat.is-selected span {
+  color: #f4f7fb;
+}
+.tenant-bookings__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem 1rem;
+}
+.tenant-bookings__count {
+  margin: 0;
+  color: var(--tenant-muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+.tenant-bookings__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.tenant-bookings__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.25rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgb(29 79 138 / 0.18);
+  background: #fff;
+  color: var(--tenant-ink);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+.tenant-bookings__chip em {
+  font-style: normal;
+  font-size: 0.76rem;
+  font-weight: 800;
+  min-width: 1.3rem;
+  padding: 0.08rem 0.38rem;
+  border-radius: 999px;
+  background: var(--tenant-accent-soft);
+  text-align: center;
+}
+.tenant-bookings__chip.is-active {
+  background: var(--tenant-ink);
+  border-color: var(--tenant-ink);
+  color: #f4f7fb;
+}
+.tenant-bookings__chip.is-active em {
+  background: rgb(244 247 251 / 0.18);
+  color: #f4f7fb;
+}
+.tenant-bookings__empty {
+  margin: 0;
+  padding: 1.4rem 1rem;
+  text-align: center;
+  border-radius: 1rem;
+  border: 1px dashed rgb(29 79 138 / 0.28);
+  background: #f7fafd;
+  color: var(--tenant-muted);
+}
+.tenant-bookings__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.8rem;
+}
+.tenant-bookings__card {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  border-radius: 1.1rem;
+  background: #fff;
+  border: 1px solid rgb(29 79 138 / 0.12);
+  box-shadow: 0 14px 30px rgb(18 53 94 / 0.05);
+  border-inline-start: 4px solid #9bb0c4;
+  animation: tenant-bookings-in 0.35s ease both;
+}
+.tenant-bookings__card.is-viewing {
+  border-inline-start-color: #3b82c4;
+}
+.tenant-bookings__card.is-stay {
+  border-inline-start-color: #0d9488;
+}
+.tenant-bookings__card.is-reservation {
+  border-inline-start-color: #1d4f8a;
+}
+.tenant-bookings__card.is-attention {
+  background: linear-gradient(135deg, #fffaf3 0%, #fff 70%);
+  border-color: rgb(196 122 26 / 0.28);
+}
+.tenant-bookings__card-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.85rem 1.2rem;
+  align-items: center;
+}
+.tenant-bookings__card-info {
+  display: grid;
+  gap: 0.28rem;
+  min-width: 0;
+}
+.tenant-bookings__card-identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+.tenant-bookings__kind {
+  display: inline-flex;
+  padding: 0.16rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  background: var(--tenant-accent-soft);
+  color: var(--tenant-accent);
+}
+.tenant-bookings__kind.is-viewing {
+  background: #e8f1fb;
+  color: #1d4f8a;
+}
+.tenant-bookings__kind.is-stay {
+  background: #e7f7f5;
+  color: #0f766e;
+}
+.tenant-bookings__kind.is-reservation {
+  background: #eef2f8;
+  color: #12355e;
+}
+.tenant-bookings__ref {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--tenant-muted);
+}
+.tenant-bookings__card-info h3 {
+  margin: 0;
+  color: var(--tenant-ink);
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+}
+.tenant-bookings__subtitle {
+  margin: 0;
+  color: var(--tenant-muted);
+  font-size: 0.86rem;
+}
+.tenant-bookings__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.9rem;
+  margin-top: 0.15rem;
+  color: var(--tenant-ink);
+  font-size: 0.84rem;
+}
+.tenant-bookings__meta em {
+  font-style: normal;
+  font-weight: 750;
+  color: var(--tenant-muted);
+  margin-inline-end: 0.25rem;
+}
+.tenant-bookings__card-side {
+  display: grid;
+  justify-items: end;
+  gap: 0.55rem;
+  align-content: center;
+}
+.tenant-bookings__waiting {
+  color: var(--tenant-muted);
+  font-size: 0.8rem;
+  font-weight: 650;
+  text-align: end;
+}
+.tenant-bookings__browse {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-top: 0.25rem;
+  padding: 1rem 1.15rem;
+  border-radius: 1.1rem;
+  border: 1px solid rgb(29 79 138 / 0.14);
+  background: linear-gradient(135deg, #f3f7fc 0%, #fff 65%);
+}
+.tenant-bookings__browse p {
+  margin: 0;
+  max-width: 36rem;
+  color: var(--tenant-muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+.tenant-bookings--compact .tenant-bookings__toolbar {
+  margin-bottom: -0.15rem;
+}
+@keyframes tenant-bookings-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.35rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (max-width: 960px) {
+  .tenant-bookings__stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .tenant-bookings__card-main {
+    grid-template-columns: 1fr;
+  }
+  .tenant-bookings__card-side {
+    justify-items: start;
+    grid-auto-flow: column;
+    justify-content: space-between;
+    width: 100%;
+  }
+}
+@media (max-width: 640px) {
+  .tenant-bookings-hero {
+    padding: 1rem;
+  }
+  .tenant-bookings-hero__actions {
+    width: 100%;
+  }
+  .tenant-bookings-hero__actions .button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+  .tenant-bookings__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .tenant-bookings__stat:first-child {
+    grid-column: 1 / -1;
+  }
 }
 .tenant-space .dash-hero__kicker,
 .tenant-kicker {

@@ -3,6 +3,7 @@ import { Children, cloneElement, isValidElement, type ReactNode } from 'react';
 import { Link } from '@/i18n/navigation';
 import { formatMoney } from '@/lib/format';
 import { BadgeChips } from '@/components/badges/badge-chips';
+import { TenantBookingsBoard } from '@/components/tenant-bookings-board';
 import { TenantRequestLauncher } from '@/components/tenant-request-form';
 import { TenantRequestsList } from '@/components/tenant-requests-list';
 import {
@@ -15,16 +16,13 @@ import { loadMyTenancy, loadMyTenantBadges } from '@/lib/tenancy-neon';
 import {
   EMPTY_TENANCY,
   invoiceOutstandingMinor,
-  reservationHref,
-  stayHref,
   tenancyAlertLabel,
   tenancyLandlordName,
   tenancyUnitLabel,
-  viewingHref,
   type MyTenancy,
 } from '@/lib/tenancy-shared';
 import { OPEN_TENANT_REQUEST } from '@/lib/tenant-requests-shared';
-import { domainStatusLabel, stayStatusLabel } from '@/lib/ui-labels';
+import { domainStatusLabel } from '@/lib/ui-labels';
 import { requirePortal } from '@/lib/viewer';
 
 export type TenantSpaceView =
@@ -92,151 +90,6 @@ function Table({ head, children }: { head: string[]; children: ReactNode }) {
 
 function Status({ label, tone }: { label: string; tone?: 'action' | 'good' | undefined }) {
   return <span className={`tenant-status${tone ? ` tenant-status--${tone}` : ''}`}>{label}</span>;
-}
-
-function StaysTable({ ar, locale, data }: Ctx) {
-  if (!data.stays.length) return <EmptyState title={ar ? 'لا إقامات يومية' : 'No daily stays'} />;
-  return (
-    <Table
-      head={
-        ar
-          ? ['المرجع', 'المكان', 'الفترة', 'المبلغ', 'الحالة', '']
-          : ['Reference', 'Place', 'Dates', 'Amount', 'Status', '']
-      }
-    >
-      {data.stays.map((stay) => (
-        <tr key={stay.id}>
-          <td className="tenant-table__ref">
-            <bdi>{stay.referenceCode}</bdi>
-          </td>
-          <td>{(ar ? stay.titleAr || stay.titleEn : stay.titleEn || stay.titleAr) ?? '—'}</td>
-          <td>{period(stay.checkInOn, stay.checkOutOn, ar)}</td>
-          <td>{money(stay.totalMinor, stay.currency, locale)}</td>
-          <td>
-            <Status
-              label={stayStatusLabel(stay.status, ar)}
-              tone={
-                ['payment_pending', 'payment_failed'].includes(stay.status) ? 'action' : undefined
-              }
-            />
-          </td>
-          <td>
-            <Link className="ops-action" href={stayHref(stay)}>
-              {ar ? 'فتح الحجز' : 'Open booking'}
-            </Link>
-          </td>
-        </tr>
-      ))}
-    </Table>
-  );
-}
-
-function ReservationsTable({ ar, locale, data }: Ctx) {
-  if (!data.reservations.length) {
-    return <EmptyState title={ar ? 'لا حجوزات إيجار أو شراء' : 'No rent or purchase bookings'} />;
-  }
-  return (
-    <Table
-      head={
-        ar
-          ? ['المرجع', 'الوحدة', 'المالك', 'النوع', 'الضمان', 'صالح حتى', 'الحالة', '']
-          : ['Reference', 'Unit', 'Landlord', 'Type', 'Deposit', 'Valid until', 'Status', '']
-      }
-    >
-      {data.reservations.map((reservation) => {
-        const href = reservationHref(reservation);
-        return (
-          <tr key={reservation.id}>
-            <td className="tenant-table__ref">
-              <bdi>{reservation.referenceCode ?? reservation.id.slice(0, 8)}</bdi>
-            </td>
-            <td>{tenancyUnitLabel(reservation, ar)}</td>
-            <td>{tenancyLandlordName(reservation.landlord, ar)}</td>
-            <td>
-              {reservation.mode === 'sale' ? (ar ? 'شراء' : 'Purchase') : ar ? 'إيجار' : 'Rent'}
-            </td>
-            <td>{money(reservation.depositMinor, reservation.currency, locale)}</td>
-            <td>{formatDate(reservation.expiresAt, ar)}</td>
-            <td>
-              <Status
-                label={
-                  reservation.status === 'pending' && reservation.awaitingPayment
-                    ? ar
-                      ? 'بانتظار دفع الضمان'
-                      : 'Deposit payment due'
-                    : domainStatusLabel(reservation.status, ar)
-                }
-                tone={
-                  reservation.status === 'pending' && reservation.awaitingPayment
-                    ? 'action'
-                    : undefined
-                }
-              />
-            </td>
-            <td>
-              {href ? (
-                <Link className="ops-action" href={href}>
-                  {ar ? 'متابعة الحجز' : 'Continue'}
-                </Link>
-              ) : null}
-            </td>
-          </tr>
-        );
-      })}
-    </Table>
-  );
-}
-
-function ViewingsTable({ ar, data }: Ctx) {
-  if (!data.viewings.length) {
-    return <EmptyState title={ar ? 'لا طلبات معاينة' : 'No viewing requests'} />;
-  }
-  return (
-    <Table
-      head={
-        ar
-          ? ['المرجع', 'الوحدة', 'العقار', 'المالك', 'الموعد', 'الحالة', '']
-          : ['Reference', 'Unit', 'Property', 'Landlord', 'When', 'Status', '']
-      }
-    >
-      {data.viewings.map((viewing) => {
-        const href = viewingHref(viewing);
-        const when = viewing.scheduledAt || viewing.preferredAt || viewing.createdAt;
-        const place =
-          (ar
-            ? viewing.propertyNameAr || viewing.propertyNameEn
-            : viewing.propertyNameEn || viewing.propertyNameAr) ?? '—';
-        return (
-          <tr key={viewing.id}>
-            <td className="tenant-table__ref">
-              <bdi>{viewing.reference}</bdi>
-            </td>
-            <td>{tenancyUnitLabel(viewing, ar)}</td>
-            <td>{place}</td>
-            <td>{tenancyLandlordName(viewing.landlord, ar)}</td>
-            <td>{formatDate(when, ar)}</td>
-            <td>
-              <Status
-                label={domainStatusLabel(viewing.status, ar)}
-                tone={viewing.status === 'scheduled' ? 'good' : undefined}
-              />
-            </td>
-            <td>
-              {href ? (
-                <Link className="ops-action" href={href}>
-                  {ar ? 'بطاقة الزيارة' : 'Visit pass'}
-                </Link>
-              ) : viewing.status === 'requested' ? (
-                <span className="tenant-table__sub">
-                  {ar ? 'بانتظار التأكيد' : 'Awaiting confirmation'}
-                </span>
-              ) : null}
-            </td>
-          </tr>
-        );
-      })}
-    </Table>
-  );
 }
 
 function ContractsTable({ ar, locale, data }: Ctx) {
@@ -481,10 +334,13 @@ const VIEW_COPY: Record<
   { ar: [string, string]; en: [string, string] }
 > = {
   bookings: {
-    ar: ['حجوزاتي', 'الإقامات اليومية وطلبات المعاينة وحجوزات الإيجار أو الشراء لدى كل الملاك.'],
+    ar: [
+      'حجوزاتي',
+      'كل طلبات المعاينة والإقامات اليومية وحجوزات الإيجار أو الشراء في مكان واحد مرتّب.',
+    ],
     en: [
       'My bookings',
-      'Daily stays, viewing requests, and rent or purchase bookings with every landlord.',
+      'All viewing requests, daily stays, and rent or purchase bookings in one clear place.',
     ],
   },
   contracts: {
@@ -585,6 +441,36 @@ export function TenantSpaceContent({
   if (view !== 'overview') {
     const [title, hint] = ar ? VIEW_COPY[view].ar : VIEW_COPY[view].en;
     const requestLeases = requestLeasesOf(data.statements, ar);
+    if (view === 'bookings') {
+      return (
+        <div className="dash-shell tenant-space tenant-space--bookings">
+          <header className="tenant-bookings-hero">
+            <div className="tenant-bookings-hero__copy">
+              <span className="tenant-kicker">{ar ? 'مساحة المستأجر' : 'Tenant space'}</span>
+              <h1>{title}</h1>
+              <p>{hint}</p>
+            </div>
+            <div className="tenant-bookings-hero__actions">
+              <Link href="/properties" className="button button--primary">
+                {ar ? 'تصفّح العقارات' : 'Browse properties'}
+              </Link>
+              <Link href="/tenant" className="button button--quiet">
+                {ar ? 'لوحة المستأجر' : 'Tenant dashboard'}
+              </Link>
+            </div>
+          </header>
+          {notice}
+          <TenantBookingsBoard
+            locale={locale}
+            data={{
+              viewings: data.viewings,
+              stays: data.stays,
+              reservations: data.reservations,
+            }}
+          />
+        </div>
+      );
+    }
     return (
       <div className="dash-shell tenant-space">
         <header className="portal-topbar">
@@ -598,19 +484,7 @@ export function TenantSpaceContent({
           </Link>
         </header>
         {notice}
-        {view === 'bookings' ? (
-          <>
-            <Section title={ar ? 'طلبات المعاينة' : 'Viewing requests'}>
-              <ViewingsTable {...ctx} />
-            </Section>
-            <Section title={ar ? 'الإقامات اليومية' : 'Daily stays'}>
-              <StaysTable {...ctx} />
-            </Section>
-            <Section title={ar ? 'حجوزات الإيجار والشراء' : 'Rent & purchase bookings'}>
-              <ReservationsTable {...ctx} />
-            </Section>
-          </>
-        ) : view === 'contracts' ? (
+        {view === 'contracts' ? (
           <ContractsTable {...ctx} />
         ) : view === 'leases' ? (
           <LeasesTable {...ctx} />
@@ -782,28 +656,24 @@ export function TenantSpaceContent({
         </div>
       </section>
 
-      {data.viewings.length ? (
-        <Section
-          title={ar ? 'طلبات المعاينة' : 'Viewing requests'}
-          more={{ href: '/tenant/reservations', label: ar ? 'كل الحجوزات' : 'All bookings' }}
-        >
-          <ViewingsTable {...ctx} data={{ ...data, viewings: data.viewings.slice(0, 5) }} />
-        </Section>
-      ) : null}
       <Section
-        title={ar ? 'الإقامات اليومية' : 'Daily stays'}
+        title={ar ? 'حجوزاتي' : 'My bookings'}
         more={{ href: '/tenant/reservations', label: ar ? 'كل الحجوزات' : 'All bookings' }}
       >
-        <StaysTable {...ctx} data={{ ...data, stays: data.stays.slice(0, 5) }} />
-      </Section>
-      {data.reservations.length ? (
-        <Section title={ar ? 'حجوزات الإيجار والشراء' : 'Rent & purchase bookings'}>
-          <ReservationsTable
-            {...ctx}
-            data={{ ...data, reservations: data.reservations.slice(0, 5) }}
+        {data.viewings.length || data.stays.length || data.reservations.length ? (
+          <TenantBookingsBoard
+            locale={locale}
+            compact
+            data={{
+              viewings: data.viewings.slice(0, 4),
+              stays: data.stays.slice(0, 4),
+              reservations: data.reservations.slice(0, 4),
+            }}
           />
-        </Section>
-      ) : null}
+        ) : (
+          <EmptyState title={ar ? 'لا حجوزات بعد' : 'No bookings yet'} />
+        )}
+      </Section>
       <Section
         title={ar ? 'عقودي' : 'My contracts'}
         more={{ href: '/tenant/contracts', label: ar ? 'كل العقود' : 'All contracts' }}

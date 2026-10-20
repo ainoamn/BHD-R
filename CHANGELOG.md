@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.134.4 — 2026-10-20
+
+- **حجوزات العميل:** إعادة تصميم `/tenant/reservations` — بطاقة بطل، ملخص أرقام، فلاتر، وقائمة بطاقات موحّدة للمعاينات والإقامات وحجوزات الإيجار/الشراء بدل الجداول المتفرقة.
+
 ## 0.8.134.3 — 2026-10-20
 
 - **حجوزات العميل:** طلبات المعاينة تظهر في `/tenant/reservations` مع حالة الموعد ورابط بطاقة الزيارة عند التأكيد.
