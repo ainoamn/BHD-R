@@ -208,8 +208,12 @@ export async function setPropertyViewingContact(
     if (!propertyRows[0]) fail('not_found');
 
     if (contactUserId) {
-      const member = await tx
-        .select({ userId: memberships.userId, partyId: memberships.partyId })
+      const memberRows = await tx
+        .select({
+          userId: memberships.userId,
+          partyId: memberships.partyId,
+          roleKey: memberships.roleKey,
+        })
         .from(memberships)
         .where(
           and(
@@ -219,20 +223,78 @@ export async function setPropertyViewingContact(
             inArray(memberships.roleKey, [...STAFF_ROLES]),
           ),
         )
-        .limit(1);
-      if (!member[0]) fail('viewing_contact_invalid');
+        .limit(8);
+      if (!memberRows[0]) fail('viewing_contact_invalid');
 
       const existing = await staffPartyPhone(tx, claims.organizationId!, contactUserId);
+      let partyId = existing.partyId ?? memberRows.find((row) => row.partyId)?.partyId ?? null;
       const nextPhone = phone ?? existing.phone;
       if (!nextPhone) fail('viewing_contact_phone_required');
 
       if (phone) {
-        if (!existing.partyId) fail('viewing_contact_phone_required');
+        if (!partyId) {
+          const [user] = await tx
+            .select({
+              name: users.displayName,
+              email: users.email,
+            })
+            .from(users)
+            .where(eq(users.id, contactUserId))
+            .limit(1);
+          if (!user) fail('viewing_contact_invalid');
+
+          const email = user.email?.trim() || null;
+          if (email) {
+            const [byEmail] = await tx
+              .select({ id: parties.id })
+              .from(parties)
+              .where(
+                and(
+                  eq(parties.organizationId, claims.organizationId!),
+                  eq(parties.email, email),
+                ),
+              )
+              .limit(1);
+            partyId = byEmail?.id ?? null;
+          }
+
+          if (!partyId) {
+            const [created] = await tx
+              .insert(parties)
+              .values({
+                organizationId: claims.organizationId!,
+                type: 'person',
+                displayName: user.name,
+                email,
+                phone,
+                status: 'active',
+              })
+              .returning({ id: parties.id });
+            partyId = created?.id ?? null;
+          }
+
+          if (!partyId) fail('viewing_contact_phone_required');
+
+          for (const row of memberRows) {
+            if (row.partyId) continue;
+            await tx
+              .update(memberships)
+              .set({ partyId })
+              .where(
+                and(
+                  eq(memberships.organizationId, claims.organizationId!),
+                  eq(memberships.userId, contactUserId),
+                  eq(memberships.roleKey, row.roleKey),
+                ),
+              );
+          }
+        }
+
         await tx
           .update(parties)
           .set({ phone, updatedAt: new Date() })
           .where(
-            and(eq(parties.id, existing.partyId), eq(parties.organizationId, claims.organizationId!)),
+            and(eq(parties.id, partyId), eq(parties.organizationId, claims.organizationId!)),
           );
       }
     }

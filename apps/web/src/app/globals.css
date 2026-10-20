@@ -543,6 +543,34 @@ h3 {
 .property-manage-hub {
   display: grid;
   gap: 1.25rem;
+  width: 100%;
+  max-width: none;
+}
+
+.property-viewing-contact {
+  width: 100%;
+}
+.property-viewing-contact__form {
+  display: grid;
+  gap: 1rem;
+  width: 100%;
+  max-width: none;
+}
+@media (min-width: 900px) {
+  .property-viewing-contact__form {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+    align-items: start;
+    column-gap: 1.35rem;
+  }
+  .property-viewing-contact__form > .field,
+  .property-viewing-contact__form > .intl-phone {
+    min-width: 0;
+  }
+  .property-viewing-contact__form > .notice,
+  .property-viewing-contact__form > .button,
+  .property-viewing-contact__form > .muted {
+    grid-column: 1 / -1;
+  }
 }
 
 .property-manage-hub__header {

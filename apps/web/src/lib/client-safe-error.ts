@@ -145,6 +145,8 @@ const KNOWN_CODES = new Set([
   'viewing_already_arrived',
   'viewing_contact_required',
   'viewing_contact_invalid',
+  'viewing_contact_phone_required',
+  'viewing_contact_phone_invalid',
   'checkin_failed',
   'decision_failed',
 ]);
@@ -299,6 +301,8 @@ export function statusForSafeCode(code: string): number {
     case 'invalid_terms':
     case 'duplicate_cheque_number':
     case 'viewing_contact_invalid':
+    case 'viewing_contact_phone_required':
+    case 'viewing_contact_phone_invalid':
     case 'viewing_schedule_required':
     case 'viewing_schedule_invalid':
     case 'viewing_note_required':

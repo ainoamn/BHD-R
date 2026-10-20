@@ -116,7 +116,21 @@ export function PropertyViewingContactCard({
         if (code === 'viewing_contact_phone_invalid') {
           throw new Error(ar ? 'رقم الهاتف غير صالح.' : 'Phone number is invalid.');
         }
-        throw new Error(code);
+        if (code === 'viewing_contact_invalid') {
+          throw new Error(
+            ar
+              ? 'هذا العضو غير صالح كمسؤول معاينة. اختر حارساً أو موظفاً من القائمة.'
+              : 'That member cannot be the viewing contact. Pick a guard or staff from the list.',
+          );
+        }
+        if (code === 'forbidden') {
+          throw new Error(
+            ar ? 'ليست لديك صلاحية تعديل مسؤول المعاينة.' : 'You cannot update the viewing contact.',
+          );
+        }
+        throw new Error(
+          ar ? 'تعذّر الحفظ. حاول مرة أخرى.' : 'Could not save. Please try again.',
+        );
       }
       setDetail(body);
       setSelected(body.contactUserId ?? '');
