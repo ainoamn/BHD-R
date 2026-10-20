@@ -3,6 +3,7 @@ import {
   issueViewingPassToken,
   openViewingPassToken,
   randomViewingPin,
+  randomViewingUsername,
 } from '@/lib/viewing-pass';
 
 const VIEWING = '86f47be6-1111-4222-8333-abcdef012345';
@@ -20,6 +21,10 @@ describe('viewing-pass', () => {
 
   it('issues a six-digit PIN', () => {
     expect(randomViewingPin()).toMatch(/^\d{6}$/);
+  });
+
+  it('issues a short gate username (handover-style)', () => {
+    expect(randomViewingUsername()).toMatch(/^V\d{6}$/);
   });
 
   it('round-trips a sealed viewing token before expiry', () => {

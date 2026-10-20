@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.134.13 — 2026-10-20
+
+- **بطاقة المعاينة:** اسم المستخدم عند إصدار الباركود أصبح رمزاً قصيراً (`V` + 6 أرقام) مثل رمز محضر التسليم، بدل المرجع الطويل `WEB-…`؛ واسم الزائر واسم الحارس على الصفحة العامة مختصران (`maskedPersonName`) كصفحة التحقق من المستندات.
+
 ## 0.8.134.12 — 2026-10-20
 
 - **إصلاح انهيار التبويب (Aw Snap / RESULT_CODE_KILLED_BAD_MESSAGE):** أُلغي تحويل الميدلوير من الصفحات المحمية إلى `start` — كان يسبب حلقة تحويل تسقط Chrome بعد ثانية؛ الدخول الصامت يبقى عبر `requirePortalShell` فقط، والتسخين `preconnect` بلا prefetch عبر المواقع.

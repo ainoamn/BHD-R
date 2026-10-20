@@ -264,6 +264,12 @@ export function ViewingPassCard({
           ) : null}
           <dl className="viewing-pass__facts">
             <div>
+              <dt>{ar ? 'الزائر' : 'Visitor'}</dt>
+              <dd>
+                <bdi>{pass.prospectName}</bdi>
+              </dd>
+            </div>
+            <div>
               <dt>{ar ? 'المرجع' : 'Reference'}</dt>
               <dd dir="ltr">{pass.reference}</dd>
             </div>

@@ -1,8 +1,9 @@
 import { createCipheriv, createDecipheriv, createHmac, hkdfSync, randomBytes } from 'node:crypto';
 
 /**
- * Viewing visit pass: sealed QR token naming the viewing, plus a fixed six-digit PIN
- * issued when the owner schedules the visit (username = viewing reference).
+ * Viewing visit pass: sealed QR token naming the viewing, plus a short gate username
+ * and a fixed six-digit PIN issued when the owner schedules the visit.
+ * Username is a short code (like the handover manual code), never the long WEB-… reference.
  */
 
 const IV_BYTES = 12;
@@ -26,6 +27,11 @@ function bytesUuid(bytes: Buffer): string {
 
 export function randomViewingPin(): string {
   return String(randomBytes(3).readUIntBE(0, 3) % 1_000_000).padStart(6, '0');
+}
+
+/** Short typed username for the guard desk — `V` + six digits (handover-style length). */
+export function randomViewingUsername(): string {
+  return `V${randomViewingPin()}`;
 }
 
 /** Sealed token embedded in the guest QR; valid until `expiresAt` (unix seconds in payload). */

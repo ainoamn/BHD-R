@@ -16,7 +16,13 @@ import { googleMapsLinkFromCoords } from '@/lib/parse-google-maps-url';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 import type { PendingApprovalItem } from '@/lib/pending-approvals-shared';
 import { loadPropertyLocation } from '@/lib/property-location-neon';
-import { issueViewingPassToken, openViewingPassToken, randomViewingPin } from '@/lib/viewing-pass';
+import { maskedPersonName } from '@/lib/rent-documents';
+import {
+  issueViewingPassToken,
+  openViewingPassToken,
+  randomViewingPin,
+  randomViewingUsername,
+} from '@/lib/viewing-pass';
 import type {
   ViewingGuestDecision,
   ViewingGuestPass,
@@ -26,6 +32,30 @@ import type {
 export type { ViewingRequestDetail, ViewingGuestPass };
 
 type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
+
+/** Legacy passes stored the long WEB-… reference as the username; those need a short code. */
+function needsShortViewingUsername(username: string | null | undefined): boolean {
+  if (!username) return true;
+  return username.length > 12 || /^WEB-/i.test(username);
+}
+
+async function allocateViewingUsername(tx: Tx, organizationId: string): Promise<string> {
+  for (let attempt = 0; attempt < 16; attempt++) {
+    const candidate = randomViewingUsername();
+    const [hit] = await tx
+      .select({ id: viewingRequests.id })
+      .from(viewingRequests)
+      .where(
+        and(
+          eq(viewingRequests.organizationId, organizationId),
+          eq(viewingRequests.accessUsername, candidate),
+        ),
+      )
+      .limit(1);
+    if (!hit) return candidate;
+  }
+  fail('viewing_username_exhausted');
+}
 
 function iso(value: Date | string | null | undefined): string | null {
   if (!value) return null;
@@ -535,8 +565,13 @@ export async function respondToViewingRequest(
         : note
       : row.notes;
 
-    const username = row.accessUsername ?? row.reference;
     const pin = row.accessPin ?? randomViewingPin();
+    const username =
+      input.action === 'schedule' && row.viewingContactUserId
+        ? needsShortViewingUsername(row.accessUsername)
+          ? await allocateViewingUsername(tx, row.organizationId)
+          : row.accessUsername!
+        : (row.accessUsername ?? row.reference);
     const passExpires = scheduledAt
       ? new Date(scheduledAt.getTime() + 36 * 60 * 60 * 1000)
       : null;
@@ -620,7 +655,7 @@ export async function respondToViewingRequest(
           { label: 'اسم المستخدم / Username', value: pass.username },
           { label: 'الرقم السري / PIN', value: pass.pin },
           ...(pass.contactName
-            ? [{ label: 'الحارس / Guard', value: pass.contactName }]
+            ? [{ label: 'الحارس / Guard', value: maskedPersonName(pass.contactName) }]
             : []),
           ...(pass.contactPhone
             ? [{ label: 'هاتف الحارس / Guard phone', value: pass.contactPhone }]
@@ -766,6 +801,19 @@ export async function loadViewingGuestPass(token: string): Promise<ViewingGuestP
       row.status === 'cancelled' ||
       row.status === 'no_show';
     if (!openPass) return null;
+    // Upgrade legacy WEB-… usernames to a short gate code while the visit is still open.
+    let accessUsername = row.accessUsername;
+    if (
+      row.status === 'scheduled' &&
+      !row.arrivedAt &&
+      needsShortViewingUsername(accessUsername)
+    ) {
+      accessUsername = await allocateViewingUsername(tx, row.organizationId);
+      await tx
+        .update(viewingRequests)
+        .set({ accessUsername, updatedAt: new Date() })
+        .where(eq(viewingRequests.id, row.id));
+    }
     const purpose =
       row.listingPurpose === 'sale' || row.listingPurpose === 'both' || row.listingPurpose === 'rent'
         ? row.listingPurpose
@@ -781,18 +829,19 @@ export async function loadViewingGuestPass(token: string): Promise<ViewingGuestP
       scheduledAt: iso(row.scheduledAt),
       preferredAt: iso(row.preferredAt),
       arrivedAt: iso(row.arrivedAt),
-      accessUsername: row.accessUsername,
+      accessUsername,
       accessPin: row.accessPin,
       propertyNameAr: row.propertyNameAr,
       propertyNameEn: row.propertyNameEn,
       unitCode: row.unitCode,
       unitId: row.unitId,
       propertyId: row.propertyId,
-      prospectName: row.prospectName,
+      // Public pass: person names shortened like rent-document / handover verify pages.
+      prospectName: maskedPersonName(row.prospectName),
       guestDecision: (row.guestDecision as ViewingGuestDecision | null) ?? null,
       token,
       listingPurpose: purpose,
-      contactName: row.viewingContactName,
+      contactName: row.viewingContactName ? maskedPersonName(row.viewingContactName) : null,
       contactPhone,
       propertyAddress: directions.address,
       propertyMapsUrl: directions.mapsUrl,
