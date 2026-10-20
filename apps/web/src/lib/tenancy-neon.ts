@@ -11,8 +11,10 @@ import {
   leases,
   operationalRequests,
   payments,
+  properties,
   reservations,
   units,
+  viewingRequests,
   type Database,
 } from '@bhd-r/db';
 import { activeBadgeChips } from '@/lib/badge-chips-neon';
@@ -37,6 +39,7 @@ import {
   type TenancyReservation,
   type TenancyStatement,
   type TenancyStay,
+  type TenancyViewing,
 } from '@/lib/tenancy-shared';
 import { buildLeaseStatement, ledgerTermsOf, type LeaseStatement } from '@/lib/tenant-ledger';
 import { loadTenantPolicy } from '@/lib/tenant-policy-neon';
@@ -46,6 +49,7 @@ import {
   tenantRequestFromRow,
   type TenantRequest,
 } from '@/lib/tenant-requests-shared';
+import { issueViewingPassToken } from '@/lib/viewing-pass';
 import { withTimeoutFallback } from '@/lib/with-timeout';
 
 type DbHandle = { db: Database };
@@ -148,11 +152,14 @@ export const loadTenancyLinks = cache(async (userId: string): Promise<TenancyLin
              o.display_name_ar as "ar",
              o.display_name_en as "en"
       from users u
-      join parties p on lower(p.email) = lower(u.email) and p.status = 'active'
+      join parties p on p.status = 'active'
+        and (
+          (u.email not like '%@identity.bhd-om.local' and lower(p.email) = lower(u.email))
+          or (p.metadata->>'userId') = u.id::text
+        )
       join organizations o on o.id = p.organization_id and o.status = 'active'
       where u.id = ${userId}
         and u.disabled_at is null
-        and u.email not like '%@identity.bhd-om.local'
         and (
           exists (select 1 from contracts c
                   where c.organization_id = p.organization_id and c.tenant_party_id = p.id)
@@ -164,6 +171,8 @@ export const loadTenancyLinks = cache(async (userId: string): Promise<TenancyLin
                   where i.organization_id = p.organization_id and i.tenant_party_id = p.id)
           or exists (select 1 from stay_bookings b
                   where b.organization_id = p.organization_id and b.guest_party_id = p.id)
+          or exists (select 1 from viewing_requests vr
+                  where vr.organization_id = p.organization_id and vr.prospect_party_id = p.id)
         )
       order by o.display_name_en
       limit ${MAX_LANDLORDS}
@@ -211,7 +220,10 @@ export const loadTenancySummary = cache(async (userId: string): Promise<TenancyS
           (select count(*)::int from stay_bookings
             where guest_party_id in (${partyIds}) or user_id = ${userId}::uuid)
           + (select count(*)::int from reservations
-            where tenant_party_id in (${partyIds}) and status in ('pending', 'confirmed')) as "bookings",
+            where tenant_party_id in (${partyIds}) and status in ('pending', 'confirmed'))
+          + (select count(*)::int from viewing_requests
+            where prospect_party_id in (${partyIds})
+              and status in ('requested', 'scheduled')) as "bookings",
           (select count(*)::int from invoices
             where tenant_party_id in (${partyIds})
               and status in ('issued', 'partially_paid', 'overdue')) as "openInvoices"
@@ -341,7 +353,21 @@ export async function findTenancyRequestLink(
   );
 }
 
-type LinkTenancy = Omit<MyTenancy, 'stays' | 'alerts'> & { reservationUnitIds: string[] };
+type LinkTenancy = Omit<MyTenancy, 'stays' | 'alerts'> & {
+  reservationUnitIds: string[];
+};
+
+function viewingPassHref(viewingId: string, scheduledAt: Date | null): string | null {
+  if (!scheduledAt) return null;
+  const expires = new Date(scheduledAt.getTime() + 36 * 60 * 60 * 1000);
+  if (expires.getTime() <= Date.now()) return null;
+  try {
+    const token = issueViewingPassToken(viewingId, expires);
+    return `/viewing-pass?t=${encodeURIComponent(token)}`;
+  } catch {
+    return null;
+  }
+}
 
 export type LeaseStatementRow = {
   leaseId: string;
@@ -467,8 +493,15 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
   const { organizationId: org, partyId: party, landlord } = link;
   const policy = await loadTenantPolicy(org);
   return withinTenant(userId, link, async (tx) => {
-    const [contractRows, signedRows, leaseRows, invoiceRows, paymentRows, reservationRows] =
-      await Promise.all([
+    const [
+      contractRows,
+      signedRows,
+      leaseRows,
+      invoiceRows,
+      paymentRows,
+      reservationRows,
+      viewingRows,
+    ] = await Promise.all([
         tx
           .select({
             id: contracts.id,
@@ -578,6 +611,28 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
           .from(reservations)
           .where(and(eq(reservations.organizationId, org), eq(reservations.tenantPartyId, party)))
           .orderBy(desc(reservations.createdAt))
+          .limit(LIST_LIMIT),
+        tx
+          .select({
+            id: viewingRequests.id,
+            reference: viewingRequests.reference,
+            status: viewingRequests.status,
+            scheduledAt: viewingRequests.scheduledAt,
+            preferredAt: viewingRequests.preferredAt,
+            createdAt: viewingRequests.createdAt,
+            unitCode: units.code,
+            unitAr: units.nameAr,
+            unitEn: units.nameEn,
+            propertyNameAr: properties.nameAr,
+            propertyNameEn: properties.nameEn,
+          })
+          .from(viewingRequests)
+          .innerJoin(units, eq(units.id, viewingRequests.unitId))
+          .innerJoin(properties, eq(properties.id, units.propertyId))
+          .where(
+            and(eq(viewingRequests.organizationId, org), eq(viewingRequests.prospectPartyId, party)),
+          )
+          .orderBy(desc(viewingRequests.createdAt))
           .limit(LIST_LIMIT),
       ]);
 
@@ -725,12 +780,29 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
         unitEn: null,
       };
     });
+    const viewingItems: TenancyViewing[] = viewingRows.map((row) => ({
+      id: row.id,
+      landlord,
+      reference: row.reference,
+      status: row.status,
+      scheduledAt: iso(row.scheduledAt) || null,
+      preferredAt: iso(row.preferredAt) || null,
+      createdAt: iso(row.createdAt),
+      unitCode: row.unitCode,
+      unitAr: row.unitAr,
+      unitEn: row.unitEn,
+      propertyNameAr: row.propertyNameAr,
+      propertyNameEn: row.propertyNameEn,
+      passHref:
+        row.status === 'scheduled' ? viewingPassHref(row.id, row.scheduledAt ?? null) : null,
+    }));
     return {
       contracts: contractItems,
       leases: leaseItems,
       invoices: invoiceItems,
       payments: paymentItems,
       reservations: reservationItems,
+      viewings: viewingItems,
       statements: statementItems,
       requests: requestItems,
       reservationUnitIds: reservationRows.map((row) => row.unitId),
@@ -823,6 +895,9 @@ export const loadMyTenancy = cache(async (userId: string): Promise<MyTenancy> =>
       .sort((a, b) => b.receivedAt.localeCompare(a.receivedAt)),
     reservations: reservationsWithUnits.sort((a, b) => b.expiresAt.localeCompare(a.expiresAt)),
     stays,
+    viewings: perLink
+      .flatMap((item) => item.viewings)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     statements: perLink
       .flatMap((item) => item.statements)
       .sort((a, b) => b.startsOn.localeCompare(a.startsOn)),

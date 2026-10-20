@@ -199,7 +199,22 @@ export async function ensureProspectParty(
   const existing = await transaction.query.parties.findFirst({
     where: and(eq(parties.organizationId, organizationId), eq(parties.email, email)),
   });
-  if (existing) return existing;
+  if (existing) {
+    const meta =
+      existing.metadata && typeof existing.metadata === 'object' && !Array.isArray(existing.metadata)
+        ? { ...(existing.metadata as Record<string, unknown>) }
+        : {};
+    if (meta.userId !== user.id) {
+      await transaction
+        .update(parties)
+        .set({
+          metadata: { ...meta, source: meta.source ?? 'authenticated_public', userId: user.id },
+          updatedAt: new Date(),
+        })
+        .where(eq(parties.id, existing.id));
+    }
+    return existing;
+  }
   const inserted = await transaction
     .insert(parties)
     .values({

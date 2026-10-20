@@ -20,6 +20,7 @@ import {
   tenancyAlertLabel,
   tenancyLandlordName,
   tenancyUnitLabel,
+  viewingHref,
   type MyTenancy,
 } from '@/lib/tenancy-shared';
 import { OPEN_TENANT_REQUEST } from '@/lib/tenant-requests-shared';
@@ -177,6 +178,58 @@ function ReservationsTable({ ar, locale, data }: Ctx) {
                 <Link className="ops-action" href={href}>
                   {ar ? 'متابعة الحجز' : 'Continue'}
                 </Link>
+              ) : null}
+            </td>
+          </tr>
+        );
+      })}
+    </Table>
+  );
+}
+
+function ViewingsTable({ ar, data }: Ctx) {
+  if (!data.viewings.length) {
+    return <EmptyState title={ar ? 'لا طلبات معاينة' : 'No viewing requests'} />;
+  }
+  return (
+    <Table
+      head={
+        ar
+          ? ['المرجع', 'الوحدة', 'العقار', 'المالك', 'الموعد', 'الحالة', '']
+          : ['Reference', 'Unit', 'Property', 'Landlord', 'When', 'Status', '']
+      }
+    >
+      {data.viewings.map((viewing) => {
+        const href = viewingHref(viewing);
+        const when = viewing.scheduledAt || viewing.preferredAt || viewing.createdAt;
+        const place =
+          (ar
+            ? viewing.propertyNameAr || viewing.propertyNameEn
+            : viewing.propertyNameEn || viewing.propertyNameAr) ?? '—';
+        return (
+          <tr key={viewing.id}>
+            <td className="tenant-table__ref">
+              <bdi>{viewing.reference}</bdi>
+            </td>
+            <td>{tenancyUnitLabel(viewing, ar)}</td>
+            <td>{place}</td>
+            <td>{tenancyLandlordName(viewing.landlord, ar)}</td>
+            <td>{formatDate(when, ar)}</td>
+            <td>
+              <Status
+                label={domainStatusLabel(viewing.status, ar)}
+                tone={viewing.status === 'scheduled' ? 'good' : undefined}
+              />
+            </td>
+            <td>
+              {href ? (
+                <Link className="ops-action" href={href}>
+                  {ar ? 'بطاقة الزيارة' : 'Visit pass'}
+                </Link>
+              ) : viewing.status === 'requested' ? (
+                <span className="tenant-table__sub">
+                  {ar ? 'بانتظار التأكيد' : 'Awaiting confirmation'}
+                </span>
               ) : null}
             </td>
           </tr>
@@ -428,8 +481,11 @@ const VIEW_COPY: Record<
   { ar: [string, string]; en: [string, string] }
 > = {
   bookings: {
-    ar: ['حجوزاتي', 'الإقامات اليومية وحجوزات الإيجار أو الشراء لدى كل الملاك.'],
-    en: ['My bookings', 'Daily stays and rent or purchase bookings with every landlord.'],
+    ar: ['حجوزاتي', 'الإقامات اليومية وطلبات المعاينة وحجوزات الإيجار أو الشراء لدى كل الملاك.'],
+    en: [
+      'My bookings',
+      'Daily stays, viewing requests, and rent or purchase bookings with every landlord.',
+    ],
   },
   contracts: {
     ar: ['عقودي', 'كل عقد أنت فيه الطرف المستأجر، مع حالة التوقيع.'],
@@ -544,6 +600,9 @@ export function TenantSpaceContent({
         {notice}
         {view === 'bookings' ? (
           <>
+            <Section title={ar ? 'طلبات المعاينة' : 'Viewing requests'}>
+              <ViewingsTable {...ctx} />
+            </Section>
             <Section title={ar ? 'الإقامات اليومية' : 'Daily stays'}>
               <StaysTable {...ctx} />
             </Section>
@@ -624,7 +683,7 @@ export function TenantSpaceContent({
     {
       key: 'bookings',
       label: ar ? 'حجوزاتي' : 'Bookings',
-      value: data.stays.length + data.reservations.length,
+      value: data.stays.length + data.reservations.length + data.viewings.length,
       href: '/tenant/reservations',
     },
     {
@@ -723,6 +782,14 @@ export function TenantSpaceContent({
         </div>
       </section>
 
+      {data.viewings.length ? (
+        <Section
+          title={ar ? 'طلبات المعاينة' : 'Viewing requests'}
+          more={{ href: '/tenant/reservations', label: ar ? 'كل الحجوزات' : 'All bookings' }}
+        >
+          <ViewingsTable {...ctx} data={{ ...data, viewings: data.viewings.slice(0, 5) }} />
+        </Section>
+      ) : null}
       <Section
         title={ar ? 'الإقامات اليومية' : 'Daily stays'}
         more={{ href: '/tenant/reservations', label: ar ? 'كل الحجوزات' : 'All bookings' }}

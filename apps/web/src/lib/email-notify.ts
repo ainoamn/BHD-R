@@ -97,10 +97,28 @@ async function resolveAudience(tx: ElevatedTx, audience: EmailAudience): Promise
   const found: EmailRecipient[] = [...(audience.addresses ?? [])];
   const partyIds = ids(audience.parties);
   if (partyIds.length) {
+    // Prefer a real party mailbox; if the party was minted for a phone-only account
+    // (@identity.bhd-om.local), fall back to the linked user email when metadata.userId is set.
     found.push(
       ...rowsOf<EmailRecipient>(
-        await tx.execute(sql`select email, display_name as name from parties
-          where id = any(${`{${partyIds.join(',')}}`}::uuid[])`),
+        await tx.execute(sql`
+          select coalesce(
+                   nullif(
+                     case
+                       when p.email is null then null
+                       when p.email ilike '%@identity.bhd-om.local' then null
+                       else p.email
+                     end,
+                     ''
+                   ),
+                   u.email
+                 ) as email,
+                 coalesce(nullif(p.display_name, ''), u.display_name) as name
+          from parties p
+          left join users u
+            on u.id = nullif(p.metadata->>'userId', '')::uuid
+           and u.disabled_at is null
+          where p.id = any(${`{${partyIds.join(',')}}`}::uuid[])`),
       ),
     );
   }

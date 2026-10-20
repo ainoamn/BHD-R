@@ -222,10 +222,12 @@ export async function notifyOwnersOfViewingRequest(input: {
         property_name_en: string | null;
         unit_code: string;
         prospect_name: string | null;
+        prospect_party_id: string | null;
       }>(
         await tx.execute(sql`
           select p.id as property_id, p.name_ar as property_name_ar, p.name_en as property_name_en,
-                 u.code as unit_code, pt.display_name as prospect_name
+                 u.code as unit_code, pt.display_name as prospect_name,
+                 vr.prospect_party_id::text as prospect_party_id
           from viewing_requests vr
           join units u on u.id = vr.unit_id
           join properties p on p.id = u.property_id
@@ -262,6 +264,36 @@ export async function notifyOwnersOfViewingRequest(input: {
         },
       }),
     });
+    if (facts.prospect_party_id) {
+      await notifyByEmail({
+        orgId: input.organizationId,
+        aggregateType: 'viewing_request',
+        aggregateId: input.viewingId,
+        audience: { parties: [facts.prospect_party_id] },
+        dedupeKey: `viewing-requested-guest:${input.viewingId}`,
+        content: () => ({
+          tone: 'booking',
+          subject: `استلمنا طلب المعاينة — ${input.reference} · Viewing request received`,
+          title: 'استلمنا طلب المعاينة · Viewing request received',
+          intro: `وصل طلبك لمعاينة الوحدة ${facts.unit_code} في ${facts.property_name_ar}. سنخطرك عند اعتماد الموعد مع بيانات الدخول والموقع.`,
+          lines: [
+            '— English —',
+            `We received your request to view unit ${facts.unit_code} at ${facts.property_name_ar}. We will notify you when the appointment is confirmed, with access details and directions.`,
+          ],
+          details: [
+            { label: 'المرجع / Ref', value: input.reference },
+            { label: 'العقار / Property', value: facts.property_name_ar },
+            { label: 'الوحدة / Unit', value: facts.unit_code },
+          ],
+          cta: {
+            label: 'حجوزاتي · My bookings',
+            url: appLink('/ar/tenant/reservations'),
+          },
+          footnote:
+            'أُرسلت لأنك قدّمت طلب معاينة. · Sent because you submitted a viewing request.',
+        }),
+      });
+    }
   } catch (error) {
     console.error('viewing owner notify failed', error);
   }

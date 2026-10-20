@@ -93,6 +93,24 @@ export type TenancyStay = {
   canRequestDepositRefund: boolean;
 };
 
+/** Property viewing requests the signed-in guest submitted (or was linked to). */
+export type TenancyViewing = {
+  id: string;
+  landlord: TenancyLandlord;
+  reference: string;
+  status: string;
+  scheduledAt: string | null;
+  preferredAt: string | null;
+  createdAt: string;
+  unitCode: string | null;
+  unitAr: string | null;
+  unitEn: string | null;
+  propertyNameAr: string | null;
+  propertyNameEn: string | null;
+  /** Locale-less path to the visit pass when the appointment is still open. */
+  passHref: string | null;
+};
+
 /** One lease's account: installments by due date, what was paid, overdue and remaining. */
 export type TenancyStatement = {
   leaseId: string;
@@ -124,7 +142,9 @@ export type TenancyAlertKind =
   | 'stay_request'
   | 'stay_refund'
   | 'handover_accept'
-  | 'handover_defects';
+  | 'handover_defects'
+  | 'viewing_scheduled'
+  | 'viewing_pending';
 
 export type TenancyAlert = {
   kind: TenancyAlertKind;
@@ -146,6 +166,7 @@ export type MyTenancy = {
   payments: TenancyPayment[];
   reservations: TenancyReservation[];
   stays: TenancyStay[];
+  viewings: TenancyViewing[];
   statements: TenancyStatement[];
   requests: TenantRequest[];
   alerts: TenancyAlert[];
@@ -158,10 +179,15 @@ export const EMPTY_TENANCY: MyTenancy = {
   payments: [],
   reservations: [],
   stays: [],
+  viewings: [],
   statements: [],
   requests: [],
   alerts: [],
 };
+
+export function viewingHref(viewing: Pick<TenancyViewing, 'passHref'>): string | null {
+  return viewing.passHref;
+}
 
 const INVOICE_DUE_SOON_DAYS = 14;
 const LEASE_EXPIRY_DAYS = 60;
@@ -299,6 +325,33 @@ export function buildTenancyAlerts(data: Omit<MyTenancy, 'alerts'>, today: strin
       action: kind !== 'stay_request',
     });
   }
+  for (const viewing of data.viewings ?? []) {
+    if (viewing.status === 'scheduled') {
+      alerts.push({
+        kind: 'viewing_scheduled',
+        id: viewing.id,
+        reference: viewing.reference,
+        href: viewing.passHref ?? '/tenant/reservations',
+        date: viewing.scheduledAt?.slice(0, 10) ?? null,
+        amountMinor: null,
+        currency: null,
+        action: Boolean(viewing.passHref),
+      });
+      continue;
+    }
+    if (viewing.status === 'requested') {
+      alerts.push({
+        kind: 'viewing_pending',
+        id: viewing.id,
+        reference: viewing.reference,
+        href: '/tenant/reservations',
+        date: (viewing.preferredAt ?? viewing.createdAt).slice(0, 10),
+        amountMinor: null,
+        currency: null,
+        action: false,
+      });
+    }
+  }
   const rank: Record<TenancyAlertKind, number> = {
     handover_accept: -2,
     handover_defects: -1,
@@ -307,11 +360,13 @@ export function buildTenancyAlerts(data: Omit<MyTenancy, 'alerts'>, today: strin
     contract_sign: 1,
     reservation_payment: 2,
     stay_payment: 3,
+    viewing_scheduled: 3,
     invoice_due: 4,
     stay_refund: 5,
     lease_expiring: 6,
     reservation_review: 7,
     stay_request: 8,
+    viewing_pending: 9,
   };
   return alerts.sort(
     (a, b) => rank[a.kind] - rank[b.kind] || (a.date ?? '').localeCompare(b.date ?? ''),
@@ -340,6 +395,14 @@ const ALERT_LABEL: Record<TenancyAlertKind, { ar: string; en: string }> = {
     ar: 'ارفع صور العقار خلال 3 ساعات',
     en: 'Report defects within 3 hours',
   },
+  viewing_scheduled: {
+    ar: 'موعد معاينة مؤكّد — افتح بطاقة الزيارة',
+    en: 'Viewing confirmed — open your visit pass',
+  },
+  viewing_pending: {
+    ar: 'طلب معاينة بانتظار رد المالك',
+    en: 'Viewing request awaiting the owner',
+  },
 };
 
 export function tenancyAlertLabel(kind: TenancyAlertKind, ar: boolean): string {
@@ -365,6 +428,7 @@ export function hasTenancy(data: MyTenancy): boolean {
     data.leases.length ||
     data.invoices.length ||
     data.reservations.length ||
-    data.stays.length,
+    data.stays.length ||
+    data.viewings.length,
   );
 }
