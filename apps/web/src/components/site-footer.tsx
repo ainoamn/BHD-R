@@ -3,22 +3,20 @@
 import { Logo } from '@bhd-r/ui';
 import { useLocale } from 'next-intl';
 import { usePathname } from '@/i18n/navigation';
-import { BHD_APPS, type BhdApp } from '@/lib/bhd/apps';
+import { BHD_APPS, launchUrlForApp, type BhdApp } from '@/lib/bhd/apps';
 import { BhdAppIcon } from '@/components/bhd/bhd-app-icon';
 
 /** Same product order and labels as www.bhd-om.com footer (ONE-BHD SiteFooter). */
 const FOOTER_PROGRAMS = [
   { id: 'wazen', nameAr: 'وازن', nameEn: 'WAZEN' },
   { id: 'hisaby', nameAr: 'حسابي', nameEn: 'HISABY' },
-  { id: 'baitak', nameAr: 'بيتك', nameEn: 'BAITAK' },
   { id: 'nasab', nameAr: 'نَسَب', nameEn: 'NASAB' },
   { id: 'store', nameAr: 'متجر BHD', nameEn: 'BHD Store' },
   { id: 'office', nameAr: 'مكتب BHD', nameEn: 'BHD Office' },
 ] as const;
 
 function hrefForApp(app: BhdApp): string {
-  if (app.mode === 'sso' && app.startUrl) return app.startUrl;
-  return `${app.origin.replace(/\/$/, '')}/`;
+  return launchUrlForApp(app);
 }
 
 export function SiteFooter() {

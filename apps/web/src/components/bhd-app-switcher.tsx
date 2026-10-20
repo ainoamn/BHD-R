@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { browserNextMutation } from '@/lib/api';
 import {
   accountHandle,
@@ -9,7 +10,12 @@ import {
   type AuthProvider,
   type RosterAccount,
 } from '@/lib/bhd/account-roster-shared';
-import { BHD_APPS, type BhdApp } from '@/lib/bhd/apps';
+import {
+  BHD_APPS,
+  hopOrigins,
+  launchUrlForApp,
+  type BhdApp,
+} from '@/lib/bhd/apps';
 import { roleLabel, type OrganizationChoice } from '@/lib/team-shared';
 import type { Viewer } from '@/lib/types';
 
@@ -25,6 +31,8 @@ type SwitcherPerson = {
   providers?: AuthProvider[];
 };
 
+const IDENTITY_ORIGIN = 'https://id.bhd-om.com';
+
 const PROVIDER_LABEL: Record<AuthProvider, { mark: string; ar: string; en: string }> = {
   password: { mark: '●', ar: 'تسجيل عادي', en: 'Password' },
   google: { mark: 'G', ar: 'جوجل', en: 'Google' },
@@ -32,15 +40,94 @@ const PROVIDER_LABEL: Record<AuthProvider, { mark: string; ar: string; en: strin
   whatsapp: { mark: 'WA', ar: 'واتساب', en: 'WhatsApp' },
 };
 
-function isCurrentApp(app: BhdApp): boolean {
-  return app.id === 'bhd-r' || app.clientId === 'bhd-r';
+function isCurrentApp(app: BhdApp, pageOrigin: string): boolean {
+  const here = pageOrigin.replace(/\/$/, '');
+  if (app.id === 'bhd-r' || app.clientId === 'bhd-r') {
+    return (
+      here === 'https://r.bhd-om.com' ||
+      here.endsWith('.vercel.app') ||
+      /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(here)
+    );
+  }
+  return Boolean(app.origin) && here === app.origin.replace(/\/$/, '');
 }
 
-function hrefForApp(app: BhdApp, locale: 'ar' | 'en'): string {
-  if (app.id === 'account') return 'https://id.bhd-om.com/account';
-  if (isCurrentApp(app)) return `/${locale}`;
-  if (app.mode === 'sso' && app.startUrl) return app.startUrl;
-  return `${app.origin.replace(/\/$/, '')}/`;
+/** BHD-ACCOUNT-SWITCHER §5 — warm product origins and workspace documents. */
+function hintHop(url: string) {
+  if (!url || typeof document === 'undefined') return;
+  if (url.startsWith('/')) {
+    if (!document.head.querySelector(`link[data-bhd-prefetch="${url}"]`)) {
+      const prefetch = document.createElement('link');
+      prefetch.rel = 'prefetch';
+      prefetch.as = 'document';
+      prefetch.href = url;
+      prefetch.setAttribute('data-bhd-prefetch', url);
+      document.head.appendChild(prefetch);
+    }
+    return;
+  }
+  try {
+    const origin = new URL(url, window.location.origin).origin;
+    if (!document.head.querySelector(`link[data-bhd-hop="${origin}"]`)) {
+      const pre = document.createElement('link');
+      pre.rel = 'preconnect';
+      pre.href = origin;
+      pre.setAttribute('data-bhd-hop', origin);
+      document.head.appendChild(pre);
+    }
+    if (!document.head.querySelector(`link[data-bhd-prefetch="${url}"]`)) {
+      const prefetch = document.createElement('link');
+      prefetch.rel = 'prefetch';
+      prefetch.as = 'document';
+      prefetch.href = url;
+      prefetch.setAttribute('data-bhd-prefetch', url);
+      document.head.appendChild(prefetch);
+    }
+  } catch {
+    /* ignore bad urls */
+  }
+}
+
+function openApp(app: BhdApp, pageOrigin: string, push: (href: string) => void) {
+  const url = launchUrlForApp(app, pageOrigin);
+  if (url.startsWith('/')) {
+    push(url);
+    return;
+  }
+  try {
+    const target = new URL(url);
+    if (target.origin === window.location.origin) {
+      push(`${target.pathname}${target.search}${target.hash}`);
+      return;
+    }
+  } catch {
+    /* fall through */
+  }
+  window.location.assign(url);
+}
+
+function rosterFromIdentityAccounts(
+  items: Array<{
+    id?: string;
+    email?: string;
+    name?: string;
+    username?: string | null;
+    phone?: string | null;
+    picture?: string | null;
+    providers?: AuthProvider[];
+  }>,
+): RosterAccount[] {
+  return items
+    .filter((item) => typeof item.id === 'string' && item.id.length >= 8)
+    .map((item) => ({
+      sub: item.id!,
+      name: item.name || item.email || 'BHD',
+      email: (item.email || '').toLowerCase(),
+      username: item.username || null,
+      phone: item.phone || null,
+      picture: item.picture || null,
+      providers: item.providers?.length ? item.providers : (['password'] as AuthProvider[]),
+    }));
 }
 
 function toPerson(account: RosterAccount): SwitcherPerson {
@@ -207,13 +294,28 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
   const rootRef = useRef<HTMLDivElement>(null);
   const appsId = useId();
   const accountId = useId();
+  const router = useRouter();
   const ar = locale === 'ar';
   const apps = BHD_APPS.filter((app) => app.enabled);
+  const [origin, setOrigin] = useState('');
   const [siteAdmin, setSiteAdmin] = useState<boolean | null>(null);
   const [accounts, setAccounts] = useState<RosterAccount[]>([]);
   const [currentSub, setCurrentSub] = useState<string | null>(null);
   const [switchBusy, setSwitchBusy] = useState<string | null>(null);
   const [avatarBroken, setAvatarBroken] = useState(false);
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
+    hopOrigins().forEach((item) => hintHop(item));
+  }, []);
+
+  useEffect(() => {
+    if (panel !== 'apps' || !origin) return;
+    BHD_APPS.forEach((app) => {
+      if (!app.enabled) return;
+      hintHop(launchUrlForApp(app, origin));
+    });
+  }, [panel, origin]);
 
   const current =
     (currentSub && accounts.find((item) => item.sub === currentSub)) || accounts[0] || null;
@@ -304,17 +406,78 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
   const addAccount = () => {
     const start = new URL('/api/auth/bhd/start', window.location.origin);
     start.searchParams.set('returnTo', `/${locale}/portal`);
-    const login = new URL('https://id.bhd-om.com/login');
+    const login = new URL(`${IDENTITY_ORIGIN}/login`);
     login.searchParams.set('add', '1');
     login.searchParams.set('return_to', start.toString());
     window.location.assign(login.toString());
   };
 
-  const switchTo = (sub: string) => {
+  /** Instant header update — no reload (BHD-ACCOUNT-SWITCHER §5). */
+  const switchTo = async (sub: string) => {
     if (!sub || sub === currentSub || switchBusy) return;
+    const prior = accounts.find((item) => item.sub === sub);
+    if (prior) {
+      setCurrentSub(sub);
+      setAccounts((list) => [prior, ...list.filter((item) => item.sub !== sub)]);
+      setAvatarBroken(false);
+    }
     setSwitchBusy(sub);
-    const href = `/api/auth/switch?sub=${encodeURIComponent(sub)}&locale=${locale}&returnTo=${encodeURIComponent(`/${locale}/portal`)}`;
-    window.location.assign(href);
+    try {
+      await fetch(`${IDENTITY_ORIGIN}/api/auth/switch`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { accept: 'application/json', 'content-type': 'application/json' },
+        body: JSON.stringify({ sub }),
+      })
+        .then(async (response) => {
+          if (!response.ok) return null;
+          return response.json() as Promise<{
+            user?: {
+              id?: string;
+              email?: string;
+              name?: string;
+              username?: string | null;
+              phone?: string | null;
+              picture?: string | null;
+              providers?: AuthProvider[];
+            };
+            accounts?: Array<{
+              id?: string;
+              email?: string;
+              name?: string;
+              username?: string | null;
+              phone?: string | null;
+              picture?: string | null;
+              providers?: AuthProvider[];
+            }>;
+          }>;
+        })
+        .then((payload) => {
+          if (!payload?.accounts) return;
+          const next = rosterFromIdentityAccounts(payload.accounts);
+          if (next.length) setAccounts(next);
+          if (payload.user?.id) setCurrentSub(payload.user.id);
+        })
+        .catch(() => undefined);
+
+      const product = await browserNextMutation<{
+        ok?: boolean;
+        currentSub?: string;
+        accounts?: RosterAccount[];
+      }>('/api/auth/switch', {
+        method: 'POST',
+        body: JSON.stringify({ sub }),
+      });
+      if (Array.isArray(product.accounts)) setAccounts(product.accounts);
+      if (product.currentSub) setCurrentSub(product.currentSub);
+      setPanel(null);
+      window.dispatchEvent(new CustomEvent('bhd-account-changed', { detail: { sub } }));
+      router.refresh();
+    } catch {
+      setSwitchBusy(null);
+      return;
+    }
+    setSwitchBusy(null);
   };
 
   const signOut = (all = false) => {
@@ -326,6 +489,20 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
     form.action = action;
     document.body.appendChild(form);
     form.submit();
+  };
+
+  const onAppClick = (app: BhdApp, event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    if (!app.enabled) return;
+    const pageOrigin = origin || window.location.origin;
+    if (isCurrentApp(app, pageOrigin)) {
+      setPanel(null);
+      return;
+    }
+    openApp(app, pageOrigin, (href) => {
+      setPanel(null);
+      router.push(href);
+    });
   };
 
   return (
@@ -382,14 +559,16 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
           </div>
           <div className="bhd-switcher-apps">
             {apps.map((app) => {
-              const currentApp = isCurrentApp(app);
+              const pageOrigin = origin || (typeof window !== 'undefined' ? window.location.origin : '');
+              const currentApp = pageOrigin ? isCurrentApp(app, pageOrigin) : false;
+              const href = launchUrlForApp(app, pageOrigin || undefined);
               return (
                 <a
                   key={app.id}
                   className={currentApp ? 'bhd-switcher-app is-current' : 'bhd-switcher-app'}
-                  href={hrefForApp(app, locale)}
+                  href={href}
                   aria-current={currentApp ? 'page' : undefined}
-                  onClick={() => setPanel(null)}
+                  onClick={(event) => onAppClick(app, event)}
                 >
                   <span
                     className="bhd-app-mark"
@@ -446,7 +625,7 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
                   className="bhd-switcher-account-choice"
                   aria-label={ar ? `تبديل إلى ${handle}` : `Switch to ${handle}`}
                   disabled={switchBusy !== null}
-                  onClick={() => switchTo(account.sub)}
+                  onClick={() => void switchTo(account.sub)}
                 >
                   <AccountRow user={person} ar={ar} />
                 </button>

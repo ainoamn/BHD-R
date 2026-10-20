@@ -2,6 +2,12 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.134.10 — 2026-10-20
+
+- **سرعة بلا وميض (BHD-ACCOUNT-SWITCHER §5):** تبديل الحساب يحدّث الرأس من JSON فوراً (`POST` هوية + منتج) بلا `reload`؛ فتح تطبيق يذهب إلى `workspacePath` مباشرة مع `preconnect`/`prefetch`؛ الميدلوير يحوّل إلى `start` فقط إن لم توجد جلسة.
+- **كتالوج:** مزامنة `lib/bhd/apps.ts` المجمد من ONE-BHD (`launchUrlForApp` / `hopOrigins`).
+- **وثائق:** إعادة نسخ `docs/BHD-ACCOUNT-SWITCHER.md` و`BHD-APP-SWITCHER.md` و`BHD-SESSION-POLICY.md`.
+
 ## 0.8.134.9 — 2026-10-20
 
 - **بطاقة الحساب كقائمة جوجل (BHD-ACCOUNT-SWITCHER):** الحساب النشط صورة 56px + بريد `dir=ltr`، والبقية صفوف صورة 40px + بريد؛ شارة المصدر على زاوية الصورة؛ إضافة حساب بـ `+`؛ خروج نصي بلا أزرار داكنة.

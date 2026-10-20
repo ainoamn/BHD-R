@@ -58,9 +58,12 @@ function nestConnectOrigins(): string[] {
 }
 
 function csp(nonce: string): string {
-  const connect = ["'self'", 'https://nominatim.openstreetmap.org', ...nestConnectOrigins()].join(
-    ' ',
-  );
+  const connect = [
+    "'self'",
+    identityOrigin,
+    'https://nominatim.openstreetmap.org',
+    ...nestConnectOrigins(),
+  ].join(' ');
   const img = [
     "'self'",
     'data:',
@@ -122,6 +125,17 @@ export default function proxy(request: NextRequest): NextResponse {
     const url = request.nextUrl.clone();
     url.pathname = `/${locale}/platform${rest}`;
     return NextResponse.redirect(url);
+  }
+
+  // BHD-ACCOUNT-SWITCHER §5: protected workspace without product session → silent start once.
+  const protectedMatch = pathname.match(
+    /^\/(ar|en)\/(portal|owner|developer|tenant|platform|site-admin|account)(\/|$)/i,
+  );
+  if (protectedMatch && !request.cookies.get('bhd_r_session')?.value) {
+    const start = request.nextUrl.clone();
+    start.pathname = '/api/auth/bhd/start';
+    start.search = `?returnTo=${encodeURIComponent(pathname)}`;
+    return NextResponse.redirect(start, 302);
   }
 
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');

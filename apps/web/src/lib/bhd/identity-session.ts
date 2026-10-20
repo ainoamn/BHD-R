@@ -604,6 +604,41 @@ export async function switchOrganizationSession(input: {
   });
 }
 
+/**
+ * Switch this device's product session to another identity `sub` already on the roster
+ * (BHD-ACCOUNT-SWITCHER §5 — no full page reload; cookies rewritten, JSON returned).
+ */
+export async function switchIdentityAccountSession(input: {
+  identitySubject: string;
+  previousSessionId?: string;
+  previousUserId?: string;
+  preferredOrganizationId?: string;
+}): Promise<IssuedSession> {
+  return withSystem(async (tx) => {
+    const user = await tx.query.users.findFirst({
+      where: eq(users.identitySubject, input.identitySubject),
+      columns: { id: true, disabledAt: true },
+    });
+    if (!user || user.disabledAt) throw new Error('identity_account_missing');
+    const issued = await issueForUser(tx, user.id, {
+      ...(input.preferredOrganizationId ? { preferred: input.preferredOrganizationId } : {}),
+    });
+    if (input.previousSessionId && input.previousUserId) {
+      await tx
+        .update(sessions)
+        .set({ revokedAt: new Date() })
+        .where(
+          and(
+            eq(sessions.id, input.previousSessionId),
+            eq(sessions.userId, input.previousUserId),
+            isNull(sessions.revokedAt),
+          ),
+        );
+    }
+    return issued;
+  });
+}
+
 export function hasDatabaseUrl(): boolean {
   return Boolean(
     process.env.DATABASE_URL?.replace(/^\uFEFF/, '')
