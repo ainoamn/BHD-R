@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import { ViewingPassCard } from '@/components/viewing-pass-card';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { contractQrSvg } from '@/lib/contract-verify';
+import { loadViewingGuestPass } from '@/lib/viewing-requests-neon';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,9 +32,13 @@ export default async function ViewingPassPage({
     typeof tokenRaw === 'string' && /^[A-Za-z0-9_-]{40,120}$/.test(tokenRaw) ? tokenRaw : null;
   if (!token) notFound();
 
+  const pass = await loadViewingGuestPass(token).catch(() => null);
+  if (!pass) notFound();
+  const qrSvg = !pass.arrivedAt ? await contractQrSvg(pass.token).catch(() => null) : null;
+
   return (
     <main className="viewing-pass-page" dir={ar ? 'rtl' : 'ltr'}>
-      <ViewingPassCard locale={locale} token={token} />
+      <ViewingPassCard locale={locale} token={token} initialPass={{ ...pass, qrSvg }} />
     </main>
   );
 }

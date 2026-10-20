@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.134.20 — 2026-10-20
+
+- **بطاقة المعاينة — ملء الشاشة والجوال:** الصفحة بعرض كامل مع خلفية مسرح، تذكرة أكبر، باركود أوضح، التفاف المراجع الطويلة، تخطيط حافة-لحافة على الهاتف مع أزرار لمس أوضح، وتحميل البيانات من الخادم مباشرة بلا انتظار.
+
 ## 0.8.134.19 — 2026-10-20
 
 - **إصلاح نشر Vercel:** `exactOptionalPropertyTypes` في مشغّل الحسابات — `IdentityUser.email` يقبل `null` عند تحويل قائمة الحسابات من الهوية.

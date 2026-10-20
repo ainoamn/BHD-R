@@ -84,15 +84,19 @@ function PassBadge({ tone, children }: { tone: string; children: ReactNode }) {
 export function ViewingPassCard({
   locale,
   token,
+  initialPass = null,
 }: {
   locale: 'ar' | 'en';
   token: string;
+  initialPass?: PassPayload | null;
 }) {
   const ar = locale === 'ar';
-  const [pass, setPass] = useState<PassPayload | null>(null);
+  const [pass, setPass] = useState<PassPayload | null>(initialPass);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [preferredAt, setPreferredAt] = useState('');
+  const [preferredAt, setPreferredAt] = useState(() =>
+    initialPass ? toLocalInputValue(initialPass.preferredAt || initialPass.scheduledAt) : '',
+  );
   const [manageNote, setManageNote] = useState('');
   const [decisionNote, setDecisionNote] = useState('');
   const [manageOpen, setManageOpen] = useState(false);
@@ -119,6 +123,7 @@ export function ViewingPassCard({
   }, [token]);
 
   useEffect(() => {
+    if (initialPass) return;
     let stopped = false;
     void (async () => {
       try {
@@ -131,7 +136,7 @@ export function ViewingPassCard({
     return () => {
       stopped = true;
     };
-  }, [applyPass, loadPass]);
+  }, [applyPass, initialPass, loadPass]);
 
   // Poll until the guard checks the guest in so the book/decline prompt appears live.
   useEffect(() => {
