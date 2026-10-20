@@ -31,6 +31,11 @@ export type ViewingRequestDetail = {
   /** Building viewing contact (guard) set on the property page. */
   viewingContactUserId: string | null;
   viewingContactName: string | null;
+  viewingContactPhone: string | null;
+  /** Human-readable property address for directions. */
+  propertyAddress: string | null;
+  /** Google Maps link from the property pin / saved maps URL. */
+  propertyMapsUrl: string | null;
   /** False until the property has a viewing contact — schedule stays locked. */
   canSchedule: boolean;
 };
@@ -52,4 +57,8 @@ export type ViewingGuestPass = {
   guestDecision: ViewingGuestDecision | null;
   token: string;
   listingPurpose: 'rent' | 'sale' | 'both';
+  contactName: string | null;
+  contactPhone: string | null;
+  propertyAddress: string | null;
+  propertyMapsUrl: string | null;
 };

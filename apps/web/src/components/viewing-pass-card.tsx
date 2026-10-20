@@ -145,6 +145,36 @@ export function ViewingPassCard({
             <dt>{ar ? 'الموعد' : 'Scheduled'}</dt>
             <dd dir="ltr">{stamp(pass.scheduledAt, ar)}</dd>
           </div>
+          {pass.contactName ? (
+            <div>
+              <dt>{ar ? 'الحارس / المسؤول' : 'Guard / host'}</dt>
+              <dd>{pass.contactName}</dd>
+            </div>
+          ) : null}
+          {pass.contactPhone ? (
+            <div>
+              <dt>{ar ? 'هاتف الحارس' : 'Guard phone'}</dt>
+              <dd dir="ltr">
+                <a href={`tel:${pass.contactPhone.replace(/[^\d+]/g, '')}`}>{pass.contactPhone}</a>
+              </dd>
+            </div>
+          ) : null}
+          {pass.propertyAddress ? (
+            <div>
+              <dt>{ar ? 'الموقع' : 'Location'}</dt>
+              <dd>{pass.propertyAddress}</dd>
+            </div>
+          ) : null}
+          {pass.propertyMapsUrl ? (
+            <div>
+              <dt>{ar ? 'خريطة الوصول' : 'Directions'}</dt>
+              <dd>
+                <a href={pass.propertyMapsUrl} target="_blank" rel="noreferrer">
+                  {ar ? 'افتح الموقع على الخريطة' : 'Open on Google Maps'}
+                </a>
+              </dd>
+            </div>
+          ) : null}
           {pass.arrivedAt ? (
             <div>
               <dt>{ar ? 'وقت الوصول' : 'Arrived'}</dt>
@@ -156,8 +186,8 @@ export function ViewingPassCard({
 
       <p className="viewing-pass__note">
         {ar
-          ? 'اعرض هذا الباركود أو البيانات على حارس المبنى أو المسؤول عند وصولك لتوثيق حضورك.'
-          : 'Show this barcode or credentials to the building guard when you arrive so your visit is recorded.'}
+          ? 'اعرض هذا الباركود أو البيانات على حارس المبنى أو المسؤول عند وصولك لتوثيق حضورك. إن احتجت مساعدة في الوصول اتصل برقم الحارس أو افتح الخريطة.'
+          : 'Show this barcode or credentials to the building guard when you arrive so your visit is recorded. Call the guard or open the map if you need help finding the place.'}
       </p>
 
       {pass.guestDecision ? (

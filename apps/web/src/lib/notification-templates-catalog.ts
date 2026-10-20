@@ -186,8 +186,10 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       recipientName: SAMPLE_SON,
       titleAr: 'موعد المعاينة جاهز 🗝️',
       titleEn: 'Your viewing is ready',
-      introAr: 'حدّدنا لك موعداً لمعاينة الوحدة. احفظ بطاقة الزيارة وأظهرها عند الوصول.',
-      introEn: 'Your unit viewing is confirmed. Keep the visit pass ready and show it on arrival.',
+      introAr:
+        'حدّدنا لك موعداً لمعاينة الوحدة. احفظ بطاقة الزيارة، واتصل بالحارس عند الحاجة، واستخدم رابط الخريطة للوصول.',
+      introEn:
+        'Your unit viewing is confirmed. Keep the visit pass ready, call the guard if needed, and use the map link to reach the property.',
       linesAr: ['سيصلك أيضاً اسم مستخدم ورقم سري للدخول إن لزم.'],
       linesEn: ['You will also receive a username and PIN if access credentials are needed.'],
       details: [
@@ -195,6 +197,22 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
         { labelAr: 'الوحدة', labelEn: 'Unit', value: 'A-12' },
         { labelAr: 'الموعد', labelEn: 'When', value: '2026-10-22 17:00' },
         { labelAr: 'المرجع', labelEn: 'Reference', value: 'VR-1042' },
+        {
+          labelAr: 'الحارس',
+          labelEn: 'Guard',
+          value: `${SAMPLE_SON} / ${SAMPLE_SON_EN}`,
+        },
+        { labelAr: 'هاتف الحارس', labelEn: 'Guard phone', value: '+968 9XXX XXXX' },
+        {
+          labelAr: 'الموقع',
+          labelEn: 'Location',
+          value: 'مسقط، بوشر · Muscat, Bausher',
+        },
+        {
+          labelAr: 'خريطة الوصول',
+          labelEn: 'Map',
+          value: 'https://www.google.com/maps?q=23.588000,58.382900',
+        },
       ],
       ctaAr: 'فتح بطاقة المعاينة',
       ctaEn: 'Open visit pass',

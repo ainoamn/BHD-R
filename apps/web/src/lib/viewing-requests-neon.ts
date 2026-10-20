@@ -1,10 +1,21 @@
 import 'server-only';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
-import { parties, properties, units, users, viewingRequests } from '@bhd-r/db';
+import {
+  addresses,
+  memberships,
+  parties,
+  properties,
+  units,
+  users,
+  viewingRequests,
+  type Database,
+} from '@bhd-r/db';
 import { appLink, notifyByEmail } from '@/lib/email-notify';
+import { googleMapsLinkFromCoords } from '@/lib/parse-google-maps-url';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 import type { PendingApprovalItem } from '@/lib/pending-approvals-shared';
+import { loadPropertyLocation } from '@/lib/property-location-neon';
 import { issueViewingPassToken, openViewingPassToken, randomViewingPin } from '@/lib/viewing-pass';
 import type {
   ViewingGuestDecision,
@@ -14,6 +25,8 @@ import type {
 
 export type { ViewingRequestDetail, ViewingGuestPass };
 
+type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
+
 function iso(value: Date | string | null | undefined): string | null {
   if (!value) return null;
   return typeof value === 'string' ? value : value.toISOString();
@@ -21,6 +34,93 @@ function iso(value: Date | string | null | undefined): string | null {
 
 function fail(code: string): never {
   throw new Error(code);
+}
+
+function formatPropertyAddress(parts: {
+  buildingNumber: string | null;
+  street: string | null;
+  area: string | null;
+  city: string | null;
+  wilayat: string | null;
+  governorate: string | null;
+}): string | null {
+  const line = [
+    parts.buildingNumber ? `مبنى ${parts.buildingNumber}` : null,
+    parts.street,
+    parts.area,
+    parts.city,
+    parts.wilayat,
+    parts.governorate,
+  ]
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join('، ');
+  return line || null;
+}
+
+/** Phone from the staff member's linked party card (team identity). */
+async function staffContactPhone(
+  tx: Pick<Tx, 'select'>,
+  orgId: string,
+  userId: string,
+): Promise<string | null> {
+  const rows = await tx
+    .select({ phone: parties.phone })
+    .from(memberships)
+    .innerJoin(
+      parties,
+      and(eq(parties.id, memberships.partyId), eq(parties.organizationId, orgId)),
+    )
+    .where(
+      and(
+        eq(memberships.organizationId, orgId),
+        eq(memberships.userId, userId),
+        eq(memberships.status, 'active'),
+      ),
+    )
+    .limit(8);
+  for (const row of rows) {
+    const phone = row.phone?.trim();
+    if (phone) return phone;
+  }
+  return null;
+}
+
+async function propertyDirections(
+  tx: Pick<Tx, 'select'>,
+  orgId: string,
+  propertyId: string,
+): Promise<{ address: string | null; mapsUrl: string | null }> {
+  const [row] = await tx
+    .select({
+      buildingNumber: addresses.buildingNumber,
+      street: addresses.street,
+      area: addresses.area,
+      city: addresses.city,
+      wilayat: addresses.wilayat,
+      governorate: addresses.governorate,
+      latitude: sql<
+        number | string | null
+      >`case when ${addresses.location} is not null then ST_Y(${addresses.location}::geometry) end`,
+      longitude: sql<
+        number | string | null
+      >`case when ${addresses.location} is not null then ST_X(${addresses.location}::geometry) end`,
+    })
+    .from(properties)
+    .innerJoin(addresses, eq(addresses.id, properties.addressId))
+    .where(and(eq(properties.id, propertyId), eq(properties.organizationId, orgId)))
+    .limit(1);
+  const address = row ? formatPropertyAddress(row) : null;
+  const location = await loadPropertyLocation(tx, orgId, propertyId);
+  let mapsUrl = location?.mapsUrl ?? null;
+  if (!mapsUrl && row) {
+    const lat = row.latitude == null || row.latitude === '' ? null : Number(row.latitude);
+    const lng = row.longitude == null || row.longitude === '' ? null : Number(row.longitude);
+    if (lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng)) {
+      mapsUrl = googleMapsLinkFromCoords(lat, lng);
+    }
+  }
+  return { address, mapsUrl };
 }
 
 function mapDetail(
@@ -50,6 +150,9 @@ function mapDetail(
     guestDecisionAt: Date | null;
     viewingContactUserId: string | null;
     viewingContactName: string | null;
+    viewingContactPhone: string | null;
+    propertyAddress: string | null;
+    propertyMapsUrl: string | null;
   },
   canManage: boolean,
 ): ViewingRequestDetail {
@@ -95,6 +198,9 @@ function mapDetail(
     gatePath: token ? `/viewing-gate?t=${encodeURIComponent(token)}` : null,
     viewingContactUserId: row.viewingContactUserId,
     viewingContactName: row.viewingContactName,
+    viewingContactPhone: row.viewingContactPhone,
+    propertyAddress: row.propertyAddress,
+    propertyMapsUrl: row.propertyMapsUrl,
     canSchedule,
   };
 }
@@ -266,7 +372,19 @@ export async function loadViewingRequestForStaff(
         (row.assignedToUserId === claims.sub || row.viewingContactUserId === claims.sub);
       if (!mine) return null;
     }
-    return mapDetail(row, canManage);
+    const contactPhone = row.viewingContactUserId
+      ? await staffContactPhone(tx, claims.organizationId!, row.viewingContactUserId)
+      : null;
+    const directions = await propertyDirections(tx, claims.organizationId!, row.propertyId);
+    return mapDetail(
+      {
+        ...row,
+        viewingContactPhone: contactPhone,
+        propertyAddress: directions.address,
+        propertyMapsUrl: directions.mapsUrl,
+      },
+      canManage,
+    );
   });
 }
 
@@ -320,6 +438,9 @@ export async function respondToViewingRequest(
     reference: string;
     contactUserId: string;
     contactName: string | null;
+    contactPhone: string | null;
+    propertyAddress: string | null;
+    propertyMapsUrl: string | null;
   };
   // Holder avoids TS treating assignments inside the async callback as unreachable.
   const issued: { pass: IssuedPass | null } = { pass: null };
@@ -413,6 +534,12 @@ export async function respondToViewingRequest(
       .where(eq(viewingRequests.id, viewingId));
 
     if (input.action === 'schedule' && scheduledAt && token && row.viewingContactUserId) {
+      const contactPhone = await staffContactPhone(
+        tx,
+        row.organizationId,
+        row.viewingContactUserId,
+      );
+      const directions = await propertyDirections(tx, row.organizationId, row.propertyId);
       issued.pass = {
         username,
         pin,
@@ -427,6 +554,9 @@ export async function respondToViewingRequest(
         reference: row.reference,
         contactUserId: row.viewingContactUserId,
         contactName: row.viewingContactName,
+        contactPhone,
+        propertyAddress: directions.address,
+        propertyMapsUrl: directions.mapsUrl,
       };
     }
   });
@@ -445,20 +575,35 @@ export async function respondToViewingRequest(
       dedupeKey: `viewing-scheduled:${viewingId}:${pass.when}`,
       content: () => ({
         tone: 'booking',
-        subject: `موافقة المعاينة — ${pass.reference}`,
-        title: 'تمت الموافقة على موعد المعاينة',
-        intro: `وافق المالك على معاينة الوحدة ${pass.unitCode} في ${pass.propertyNameAr}. احفظ بطاقة الزيارة وبيانات الدخول أدناه واعرضها عند الوصول.`,
-        details: [
-          { label: 'المرجع', value: pass.reference },
-          { label: 'الموعد', value: whenLabel },
-          { label: 'اسم المستخدم', value: pass.username },
-          { label: 'الرقم السري', value: pass.pin },
-          ...(pass.contactName
-            ? [{ label: 'مسؤول الاستقبال', value: pass.contactName }]
-            : []),
-          ...(note ? [{ label: 'ملاحظة', value: note }] : []),
+        subject: `موافقة المعاينة — ${pass.reference} · Viewing confirmed`,
+        title: 'تمت الموافقة على موعد المعاينة · Viewing confirmed',
+        intro: `وافق المالك على معاينة الوحدة ${pass.unitCode} في ${pass.propertyNameAr}. احفظ بطاقة الزيارة وبيانات الدخول أدناه، واتصل بالحارس عند الحاجة، واستخدم رابط الخريطة للوصول.`,
+        lines: [
+          '— English —',
+          `Your viewing of unit ${pass.unitCode} at ${pass.propertyNameAr} is confirmed. Keep the visit pass ready, call the guard if needed, and use the map link to reach the property.`,
         ],
-        cta: { label: 'بطاقة المعاينة والباركود', url: passUrl },
+        details: [
+          { label: 'المرجع / Ref', value: pass.reference },
+          { label: 'الموعد / When', value: whenLabel },
+          { label: 'اسم المستخدم / Username', value: pass.username },
+          { label: 'الرقم السري / PIN', value: pass.pin },
+          ...(pass.contactName
+            ? [{ label: 'الحارس / Guard', value: pass.contactName }]
+            : []),
+          ...(pass.contactPhone
+            ? [{ label: 'هاتف الحارس / Guard phone', value: pass.contactPhone }]
+            : []),
+          ...(pass.propertyAddress
+            ? [{ label: 'الموقع / Location', value: pass.propertyAddress }]
+            : []),
+          ...(pass.propertyMapsUrl
+            ? [{ label: 'خريطة الوصول / Map', value: pass.propertyMapsUrl }]
+            : []),
+          ...(note ? [{ label: 'ملاحظة / Note', value: note }] : []),
+        ],
+        cta: { label: 'بطاقة المعاينة والباركود · Visit pass', url: passUrl },
+        footnote:
+          'أُرسلت لأن موعد معاينتك اعتُمد. · Sent because your viewing appointment was confirmed.',
       }),
     }).catch(() => undefined);
 
@@ -566,14 +711,18 @@ export async function loadViewingGuestPass(token: string): Promise<ViewingGuestP
         unitCode: units.code,
         unitId: units.id,
         propertyId: properties.id,
+        organizationId: viewingRequests.organizationId,
         prospectName: parties.displayName,
         guestDecision: viewingRequests.guestDecision,
         listingPurpose: units.listingPurpose,
+        viewingContactUserId: properties.viewingContactUserId,
+        viewingContactName: users.displayName,
       })
       .from(viewingRequests)
       .innerJoin(units, eq(units.id, viewingRequests.unitId))
       .innerJoin(properties, eq(properties.id, units.propertyId))
       .innerJoin(parties, eq(parties.id, viewingRequests.prospectPartyId))
+      .leftJoin(users, eq(users.id, properties.viewingContactUserId))
       .where(eq(viewingRequests.id, viewingId))
       .limit(1);
     const row = rows[0];
@@ -583,6 +732,10 @@ export async function loadViewingGuestPass(token: string): Promise<ViewingGuestP
       row.listingPurpose === 'sale' || row.listingPurpose === 'both' || row.listingPurpose === 'rent'
         ? row.listingPurpose
         : 'rent';
+    const contactPhone = row.viewingContactUserId
+      ? await staffContactPhone(tx, row.organizationId, row.viewingContactUserId)
+      : null;
+    const directions = await propertyDirections(tx, row.organizationId, row.propertyId);
     return {
       id: row.id,
       reference: row.reference,
@@ -600,6 +753,10 @@ export async function loadViewingGuestPass(token: string): Promise<ViewingGuestP
       guestDecision: (row.guestDecision as ViewingGuestDecision | null) ?? null,
       token,
       listingPurpose: purpose,
+      contactName: row.viewingContactName,
+      contactPhone,
+      propertyAddress: directions.address,
+      propertyMapsUrl: directions.mapsUrl,
     };
   });
 }

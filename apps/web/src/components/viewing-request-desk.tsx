@@ -187,6 +187,32 @@ export function ViewingRequestDesk({
             )}
           </dd>
         </div>
+        {viewing.viewingContactPhone ? (
+          <div>
+            <dt>{ar ? 'هاتف الحارس' : 'Guard phone'}</dt>
+            <dd dir="ltr">
+              <a href={`tel:${viewing.viewingContactPhone.replace(/[^\d+]/g, '')}`}>
+                {viewing.viewingContactPhone}
+              </a>
+            </dd>
+          </div>
+        ) : null}
+        {viewing.propertyAddress ? (
+          <div>
+            <dt>{ar ? 'موقع العقار' : 'Property location'}</dt>
+            <dd>{viewing.propertyAddress}</dd>
+          </div>
+        ) : null}
+        {viewing.propertyMapsUrl ? (
+          <div>
+            <dt>{ar ? 'خريطة الوصول' : 'Directions'}</dt>
+            <dd>
+              <a href={viewing.propertyMapsUrl} target="_blank" rel="noreferrer">
+                {ar ? 'فتح الخريطة' : 'Open map'}
+              </a>
+            </dd>
+          </div>
+        ) : null}
       </dl>
 
       {viewing.canManage && open && !viewing.canSchedule ? (
