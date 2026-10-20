@@ -23,6 +23,7 @@ const postSchema = z.union([
       action: z.literal('decision'),
       token: tokenSchema,
       decision: z.enum(['book_rent', 'book_sale', 'declined']),
+      note: z.string().max(500).optional().nullable(),
     })
     .strict(),
   z
@@ -52,6 +53,7 @@ const postSchema = z.union([
     .object({
       token: tokenSchema,
       decision: z.enum(['book_rent', 'book_sale', 'declined']),
+      note: z.string().max(500).optional().nullable(),
     })
     .strict(),
 ]);
@@ -123,11 +125,11 @@ export async function POST(request: Request) {
   try {
     const body = parsed.data;
     if ('decision' in body && !('action' in body)) {
-      const pass = await recordViewingGuestDecision(body.token, body.decision);
+      const pass = await recordViewingGuestDecision(body.token, body.decision, body.note ?? null);
       return NextResponse.json(pass, { headers: { 'cache-control': 'no-store' } });
     }
     if (body.action === 'decision') {
-      const pass = await recordViewingGuestDecision(body.token, body.decision);
+      const pass = await recordViewingGuestDecision(body.token, body.decision, body.note ?? null);
       return NextResponse.json(pass, { headers: { 'cache-control': 'no-store' } });
     }
     if (body.action === 'reschedule') {

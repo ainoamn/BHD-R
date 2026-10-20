@@ -1044,19 +1044,39 @@ export async function checkInViewingVisit(
 export async function recordViewingGuestDecision(
   token: string,
   decision: ViewingGuestDecision,
+  note?: string | null,
 ): Promise<ViewingGuestPass> {
   const viewingId = openViewingPassToken(token);
   if (!viewingId) fail('viewing_pass_invalid');
+  const noteText = note?.trim().slice(0, 500) || null;
+  const decisionLabel =
+    decision === 'book_rent'
+      ? 'أرغب بالاستئجار / wants to rent'
+      : decision === 'book_sale'
+        ? 'أرغب بالشراء / wants to buy'
+        : 'رفض التأجير/الشراء / declined';
+
   const { elevatedTx } = await import('@/lib/elevated-db');
-  await elevatedTx(async (tx) => {
+  const facts = await elevatedTx(async (tx) => {
     const rows = await tx
       .select({
         id: viewingRequests.id,
+        organizationId: viewingRequests.organizationId,
+        reference: viewingRequests.reference,
         status: viewingRequests.status,
+        notes: viewingRequests.notes,
         guestDecision: viewingRequests.guestDecision,
         arrivedAt: viewingRequests.arrivedAt,
+        propertyId: properties.id,
+        propertyNameAr: properties.nameAr,
+        unitCode: units.code,
+        prospectName: parties.displayName,
+        viewingContactUserId: properties.viewingContactUserId,
       })
       .from(viewingRequests)
+      .innerJoin(units, eq(units.id, viewingRequests.unitId))
+      .innerJoin(properties, eq(properties.id, units.propertyId))
+      .innerJoin(parties, eq(parties.id, viewingRequests.prospectPartyId))
       .where(eq(viewingRequests.id, viewingId))
       .limit(1);
     const row = rows[0];
@@ -1065,16 +1085,53 @@ export async function recordViewingGuestDecision(
     if (row.guestDecision) fail('viewing_decision_locked');
     if (!row.arrivedAt) fail('viewing_not_arrived');
     const now = new Date();
+    const line = noteText
+      ? `قرار العميل بعد المعاينة — ${decisionLabel}: ${noteText}`
+      : `قرار العميل بعد المعاينة — ${decisionLabel}`;
+    const merged = row.notes ? `${row.notes}\n\n—\n${line}` : line;
     await tx
       .update(viewingRequests)
       .set({
         guestDecision: decision,
         guestDecisionAt: now,
+        notes: merged,
         ...(row.status === 'scheduled' ? { status: 'completed', completedAt: now } : {}),
         updatedAt: now,
       })
       .where(eq(viewingRequests.id, viewingId));
+    return row;
   });
+
+  const deskUrl = appLink(`/ar/owner/bookings/viewings/${facts.id}`);
+  void notifyByEmail({
+    orgId: facts.organizationId,
+    aggregateType: 'viewing_request',
+    aggregateId: facts.id,
+    audience: {
+      managersOf: { orgId: facts.organizationId, propertyId: facts.propertyId },
+      ...(facts.viewingContactUserId ? { users: [facts.viewingContactUserId] } : {}),
+    },
+    dedupeKey: `viewing-guest-decision:${facts.id}:${decision}`,
+    content: () => ({
+      tone: decision === 'declined' ? 'alert' : 'booking',
+      subject: `قرار المعاينة — ${facts.reference}`,
+      title: 'قرار العميل بعد المعاينة · Guest decision after viewing',
+      intro: `${facts.prospectName} سجّل قراره لمعاينة الوحدة ${facts.unitCode} في ${facts.propertyNameAr}: ${decisionLabel}.`,
+      lines: [
+        '— English —',
+        `${facts.prospectName} recorded a decision for unit ${facts.unitCode} at ${facts.propertyNameAr}: ${decisionLabel}.`,
+      ],
+      details: [
+        { label: 'المرجع / Ref', value: facts.reference },
+        { label: 'القرار / Decision', value: decisionLabel },
+        ...(noteText ? [{ label: 'ملاحظة العميل / Guest note', value: noteText }] : []),
+      ],
+      cta: { label: 'فتح طلب المعاينة · Open viewing', url: deskUrl },
+      footnote:
+        'أُرسلت لأن العميل سجّل قراره من بطاقة المعاينة بعد الوصول. · Sent because the guest recorded a decision from the viewing pass after check-in.',
+    }),
+  }).catch(() => undefined);
+
   const pass = await loadViewingGuestPass(token);
   if (!pass) fail('not_found');
   return pass;

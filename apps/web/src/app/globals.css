@@ -15294,6 +15294,65 @@ body:has(.guest-stay-detail) #main-content {
   margin: 0.2rem 0 0.25rem;
   font-size: 1.45rem;
 }
+.viewing-desk__head-side {
+  display: grid;
+  gap: 0.55rem;
+  justify-items: end;
+  align-content: start;
+}
+.viewing-desk__status {
+  font-size: 0.92rem;
+  padding: 0.35rem 0.75rem;
+}
+.viewing-desk__panel {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  border-radius: 0.95rem;
+  border: 1px solid #d7e2dc;
+  background: #fff;
+  border-inline-start: 4px solid #94a3b8;
+}
+.viewing-desk__panel h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+.viewing-desk__panel--summary {
+  border-inline-start-color: #1b5e91;
+  background: color-mix(in srgb, #eaf4fc 35%, #fff);
+}
+.viewing-desk__panel--notes {
+  border-inline-start-color: #7c6f2e;
+  background: color-mix(in srgb, #fff8e6 45%, #fff);
+}
+.viewing-desk__panel--pass {
+  border-inline-start-color: #08734c;
+  background: color-mix(in srgb, #e7f6ef 40%, #fff);
+}
+.viewing-desk__panel--actions {
+  border-inline-start-color: #c2410c;
+  background: color-mix(in srgb, #fff4e8 50%, #fff);
+}
+.viewing-desk--positive .viewing-desk__head {
+  border-inline-start: 4px solid #08734c;
+  padding-inline-start: 0.75rem;
+}
+.viewing-desk--info .viewing-desk__head {
+  border-inline-start: 4px solid #1b5e91;
+  padding-inline-start: 0.75rem;
+}
+.viewing-desk--warning .viewing-desk__head {
+  border-inline-start: 4px solid #9a6100;
+  padding-inline-start: 0.75rem;
+}
+.viewing-desk--danger .viewing-desk__head {
+  border-inline-start: 4px solid #a3292d;
+  padding-inline-start: 0.75rem;
+}
+.viewing-desk--approval .viewing-desk__head {
+  border-inline-start: 4px solid #c2410c;
+  padding-inline-start: 0.75rem;
+}
 .viewing-desk__facts {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
@@ -15321,10 +15380,6 @@ body:has(.guest-stay-detail) #main-content {
 .viewing-desk__reply {
   display: grid;
   gap: 0.75rem;
-  padding: 1rem;
-  border-radius: 0.9rem;
-  border: 1px solid color-mix(in srgb, var(--border, #d7ddd8) 80%, transparent);
-  background: color-mix(in srgb, var(--surface, #fff) 96%, #eef5f1);
 }
 .viewing-desk__suggestions {
   display: grid;
@@ -15348,10 +15403,6 @@ body:has(.guest-stay-detail) #main-content {
   display: block;
   font-size: 0.78rem;
   margin-top: 0.25rem;
-}
-.viewing-desk__reply h2 {
-  margin: 0;
-  font-size: 1.15rem;
 }
 .viewing-desk__actions {
   display: flex;
@@ -15563,18 +15614,6 @@ body:has(.guest-stay-detail) #main-content {
 .notify-studio__wa-bubble--en {
   background: #fff;
   border-radius: 0.7rem 0.7rem 0.7rem 0.2rem;
-}
-
-.viewing-desk__pass {
-  margin: 1.25rem 0;
-  padding: 1rem 1.1rem;
-  border: 1px solid color-mix(in srgb, var(--border, #d7ddd8) 85%, transparent);
-  border-radius: 0.85rem;
-  background: #fbfaf7;
-}
-.viewing-desk__pass h2 {
-  margin: 0 0 0.35rem;
-  font-size: 1.05rem;
 }
 
 .viewing-pass-page,

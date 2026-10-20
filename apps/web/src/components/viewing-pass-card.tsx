@@ -59,6 +59,7 @@ export function ViewingPassCard({
   const [busy, setBusy] = useState(false);
   const [preferredAt, setPreferredAt] = useState('');
   const [manageNote, setManageNote] = useState('');
+  const [decisionNote, setDecisionNote] = useState('');
   const [manageOpen, setManageOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -162,7 +163,13 @@ export function ViewingPassCard({
   }
 
   async function decide(decision: ViewingGuestDecision) {
-    await postAction({ action: 'decision', token, decision });
+    const result = await postAction({
+      action: 'decision',
+      token,
+      decision,
+      note: decisionNote.trim() || null,
+    });
+    if (result && 'accessUsername' in result) setDecisionNote('');
   }
 
   async function requestReschedule() {
@@ -470,9 +477,24 @@ export function ViewingPassCard({
           <h2 id="viewing-decision-title">{ar ? 'بعد المعاينة' : 'After the viewing'}</h2>
           <p className="muted">
             {ar
-              ? 'تم تسجيل وصولك. هل ترغب بمواصلة الحجز أم ترفض التأجير/الشراء؟'
-              : 'Your arrival is recorded. Would you like to continue booking, or decline renting/buying?'}
+              ? 'تم تسجيل وصولك. يمكنك كتابة ملاحظة اختيارية ثم اختيار المتابعة أو الرفض، أو المتابعة مباشرة بلا تعليق.'
+              : 'Your arrival is recorded. You may leave an optional note, then choose to continue or decline — or proceed with no comment.'}
           </p>
+          <label className="field">
+            <span>{ar ? 'ملاحظة للمالك (اختياري)' : 'Note for the owner (optional)'}</span>
+            <textarea
+              rows={3}
+              value={decisionNote}
+              onChange={(event) => setDecisionNote(event.target.value)}
+              disabled={busy}
+              maxLength={500}
+              placeholder={
+                ar
+                  ? 'مثال: أرغب بعقد سنوي يبدأ الشهر القادم — أو اتركه فارغاً'
+                  : 'e.g. I want a yearly lease starting next month — or leave blank'
+              }
+            />
+          </label>
           <div className="viewing-pass__actions">
             {purpose === 'rent' || purpose === 'both' ? (
               <button

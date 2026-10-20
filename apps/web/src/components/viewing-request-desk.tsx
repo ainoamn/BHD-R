@@ -30,6 +30,38 @@ function statusLabel(status: string, ar: boolean): string {
   return pair ? (ar ? pair[0] : pair[1]) : status;
 }
 
+/** Maps viewing status to ops-status color tokens. */
+function statusTone(status: string): string {
+  switch (status) {
+    case 'requested':
+      return 'approval';
+    case 'scheduled':
+      return 'info';
+    case 'completed':
+    case 'converted':
+      return 'positive';
+    case 'no_show':
+      return 'warning';
+    case 'cancelled':
+      return 'danger';
+    default:
+      return 'neutral';
+  }
+}
+
+function decisionLabel(decision: string, ar: boolean): string {
+  if (decision === 'book_rent') return ar ? 'يرغب بالاستئجار' : 'Wants to rent';
+  if (decision === 'book_sale') return ar ? 'يرغب بالشراء' : 'Wants to buy';
+  if (decision === 'declined') return ar ? 'رفض التأجير/الشراء' : 'Declined';
+  return decision;
+}
+
+function decisionTone(decision: string): string {
+  if (decision === 'declined') return 'danger';
+  if (decision === 'book_rent' || decision === 'book_sale') return 'positive';
+  return 'neutral';
+}
+
 export function ViewingRequestDesk({
   viewing: initial,
   locale,
@@ -128,7 +160,7 @@ export function ViewingRequestDesk({
   const open = viewing.status === 'requested' || viewing.status === 'scheduled';
 
   return (
-    <div className="form-shell viewing-desk">
+    <div className={`form-shell viewing-desk viewing-desk--${statusTone(viewing.status)}`}>
       <header className="viewing-desk__head">
         <div>
           <span className="ops-kicker">{ar ? 'طلب معاينة' : 'Viewing request'}</span>
@@ -139,95 +171,119 @@ export function ViewingRequestDesk({
             {viewing.unitCode}
           </p>
         </div>
-        <Link className="button button--quiet" href={`/${locale}/${portal}/bookings`}>
-          {ar ? 'العودة للحجوزات' : 'Back to bookings'}
-        </Link>
+        <div className="viewing-desk__head-side">
+          <span className={`ops-status ops-status--${statusTone(viewing.status)} viewing-desk__status`}>
+            {statusLabel(viewing.status, ar)}
+          </span>
+          <Link className="button button--quiet" href={`/${locale}/${portal}/bookings`}>
+            {ar ? 'العودة للحجوزات' : 'Back to bookings'}
+          </Link>
+        </div>
       </header>
 
-      <dl className="viewing-desk__facts">
-        <div>
-          <dt>{ar ? 'الحالة' : 'Status'}</dt>
-          <dd>
-            <span className={`ops-status ops-status--${viewing.status}`}>
-              {statusLabel(viewing.status, ar)}
-            </span>
-          </dd>
-        </div>
-        <div>
-          <dt>{ar ? 'الطالب' : 'Prospect'}</dt>
-          <dd>{viewing.prospectName}</dd>
-        </div>
-        {viewing.prospectEmail ? (
+      <section className="viewing-desk__panel viewing-desk__panel--summary" aria-labelledby="viewing-summary-title">
+        <h2 id="viewing-summary-title">{ar ? 'ملخص الطلب' : 'Request summary'}</h2>
+        <dl className="viewing-desk__facts">
           <div>
-            <dt>{ar ? 'البريد' : 'Email'}</dt>
-            <dd dir="ltr">
-              <a href={`mailto:${viewing.prospectEmail}`}>{viewing.prospectEmail}</a>
-            </dd>
-          </div>
-        ) : null}
-        {viewing.prospectPhone ? (
-          <div>
-            <dt>{ar ? 'الهاتف' : 'Phone'}</dt>
-            <dd dir="ltr">
-              <a href={`tel:${viewing.prospectPhone}`}>{viewing.prospectPhone}</a>
-            </dd>
-          </div>
-        ) : null}
-        <div>
-          <dt>{ar ? 'تاريخ الطلب' : 'Requested'}</dt>
-          <dd dir="ltr">{viewing.createdAt.slice(0, 16).replace('T', ' ')}</dd>
-        </div>
-        {viewing.scheduledAt ? (
-          <div>
-            <dt>{ar ? 'الموعد المحدد' : 'Scheduled'}</dt>
-            <dd dir="ltr">{viewing.scheduledAt.slice(0, 16).replace('T', ' ')}</dd>
-          </div>
-        ) : null}
-        {viewing.preferredAt ? (
-          <div>
-            <dt>{ar ? 'موعد بديل طلبه العميل' : 'Guest-requested time'}</dt>
-            <dd dir="ltr">{viewing.preferredAt.slice(0, 16).replace('T', ' ')}</dd>
-          </div>
-        ) : null}
-        <div>
-          <dt>{ar ? 'مسؤول المعاينة' : 'Viewing contact'}</dt>
-          <dd>
-            {viewing.viewingContactName ? (
-              viewing.viewingContactName
-            ) : (
-              <span className="ops-status ops-status--requested">
-                {ar ? 'غير محدد' : 'Not set'}
-              </span>
-            )}
-          </dd>
-        </div>
-        {viewing.viewingContactPhone ? (
-          <div>
-            <dt>{ar ? 'هاتف الحارس' : 'Guard phone'}</dt>
-            <dd dir="ltr">
-              <a href={`tel:${viewing.viewingContactPhone.replace(/[^\d+]/g, '')}`}>
-                {viewing.viewingContactPhone}
-              </a>
-            </dd>
-          </div>
-        ) : null}
-        {viewing.propertyAddress ? (
-          <div>
-            <dt>{ar ? 'موقع العقار' : 'Property location'}</dt>
-            <dd>{viewing.propertyAddress}</dd>
-          </div>
-        ) : null}
-        {viewing.propertyMapsUrl ? (
-          <div>
-            <dt>{ar ? 'خريطة الوصول' : 'Directions'}</dt>
+            <dt>{ar ? 'الحالة' : 'Status'}</dt>
             <dd>
-              <a href={viewing.propertyMapsUrl} target="_blank" rel="noreferrer">
-                {ar ? 'فتح الخريطة' : 'Open map'}
-              </a>
+              <span className={`ops-status ops-status--${statusTone(viewing.status)}`}>
+                {statusLabel(viewing.status, ar)}
+              </span>
             </dd>
           </div>
-        ) : null}
-      </dl>
+          <div>
+            <dt>{ar ? 'الطالب' : 'Prospect'}</dt>
+            <dd>{viewing.prospectName}</dd>
+          </div>
+          {viewing.prospectEmail ? (
+            <div>
+              <dt>{ar ? 'البريد' : 'Email'}</dt>
+              <dd dir="ltr">
+                <a href={`mailto:${viewing.prospectEmail}`}>{viewing.prospectEmail}</a>
+              </dd>
+            </div>
+          ) : null}
+          {viewing.prospectPhone ? (
+            <div>
+              <dt>{ar ? 'الهاتف' : 'Phone'}</dt>
+              <dd dir="ltr">
+                <a href={`tel:${viewing.prospectPhone}`}>{viewing.prospectPhone}</a>
+              </dd>
+            </div>
+          ) : null}
+          <div>
+            <dt>{ar ? 'تاريخ الطلب' : 'Requested'}</dt>
+            <dd dir="ltr">{viewing.createdAt.slice(0, 16).replace('T', ' ')}</dd>
+          </div>
+          {viewing.scheduledAt ? (
+            <div>
+              <dt>{ar ? 'الموعد المحدد' : 'Scheduled'}</dt>
+              <dd dir="ltr">{viewing.scheduledAt.slice(0, 16).replace('T', ' ')}</dd>
+            </div>
+          ) : null}
+          {viewing.preferredAt ? (
+            <div>
+              <dt>{ar ? 'موعد بديل طلبه العميل' : 'Guest-requested time'}</dt>
+              <dd dir="ltr">{viewing.preferredAt.slice(0, 16).replace('T', ' ')}</dd>
+            </div>
+          ) : null}
+          {viewing.arrivedAt ? (
+            <div>
+              <dt>{ar ? 'وقت الوصول' : 'Arrived'}</dt>
+              <dd dir="ltr">{viewing.arrivedAt.slice(0, 16).replace('T', ' ')}</dd>
+            </div>
+          ) : null}
+          {viewing.guestDecision ? (
+            <div>
+              <dt>{ar ? 'قرار العميل' : 'Guest decision'}</dt>
+              <dd>
+                <span className={`ops-status ops-status--${decisionTone(viewing.guestDecision)}`}>
+                  {decisionLabel(viewing.guestDecision, ar)}
+                </span>
+              </dd>
+            </div>
+          ) : null}
+          <div>
+            <dt>{ar ? 'مسؤول المعاينة' : 'Viewing contact'}</dt>
+            <dd>
+              {viewing.viewingContactName ? (
+                viewing.viewingContactName
+              ) : (
+                <span className="ops-status ops-status--warning">
+                  {ar ? 'غير محدد' : 'Not set'}
+                </span>
+              )}
+            </dd>
+          </div>
+          {viewing.viewingContactPhone ? (
+            <div>
+              <dt>{ar ? 'هاتف الحارس' : 'Guard phone'}</dt>
+              <dd dir="ltr">
+                <a href={`tel:${viewing.viewingContactPhone.replace(/[^\d+]/g, '')}`}>
+                  {viewing.viewingContactPhone}
+                </a>
+              </dd>
+            </div>
+          ) : null}
+          {viewing.propertyAddress ? (
+            <div>
+              <dt>{ar ? 'موقع العقار' : 'Property location'}</dt>
+              <dd>{viewing.propertyAddress}</dd>
+            </div>
+          ) : null}
+          {viewing.propertyMapsUrl ? (
+            <div>
+              <dt>{ar ? 'خريطة الوصول' : 'Directions'}</dt>
+              <dd>
+                <a href={viewing.propertyMapsUrl} target="_blank" rel="noreferrer">
+                  {ar ? 'فتح الخريطة' : 'Open map'}
+                </a>
+              </dd>
+            </div>
+          ) : null}
+        </dl>
+      </section>
 
       {viewing.preferredAt && viewing.status === 'scheduled' && !viewing.arrivedAt ? (
         <p className="notice" role="status">
@@ -254,14 +310,14 @@ export function ViewingRequestDesk({
       ) : null}
 
       {viewing.notes ? (
-        <section className="viewing-desk__notes">
-          <h2>{ar ? 'الملاحظات' : 'Notes'}</h2>
+        <section className="viewing-desk__panel viewing-desk__panel--notes" aria-labelledby="viewing-notes-title">
+          <h2 id="viewing-notes-title">{ar ? 'الملاحظات وسجل القرارات' : 'Notes & decision log'}</h2>
           <pre className="viewing-desk__notes-body">{viewing.notes}</pre>
         </section>
       ) : null}
 
       {viewing.accessUsername && viewing.accessPin ? (
-        <section className="viewing-desk__pass" aria-labelledby="viewing-pass-title">
+        <section className="viewing-desk__panel viewing-desk__panel--pass" aria-labelledby="viewing-pass-title">
           <h2 id="viewing-pass-title">{ar ? 'بطاقة زيارة المعاينة' : 'Viewing visit pass'}</h2>
           <p className="muted">
             {ar
@@ -286,7 +342,11 @@ export function ViewingRequestDesk({
             {viewing.guestDecision ? (
               <div>
                 <dt>{ar ? 'قرار العميل' : 'Guest decision'}</dt>
-                <dd>{viewing.guestDecision}</dd>
+                <dd>
+                  <span className={`ops-status ops-status--${decisionTone(viewing.guestDecision)}`}>
+                    {decisionLabel(viewing.guestDecision, ar)}
+                  </span>
+                </dd>
               </div>
             ) : null}
           </dl>
@@ -309,7 +369,7 @@ export function ViewingRequestDesk({
       ) : null}
 
       {viewing.canManage && open ? (
-        <section className="viewing-desk__reply" aria-labelledby="viewing-reply-title">
+        <section className="viewing-desk__panel viewing-desk__panel--actions" aria-labelledby="viewing-reply-title">
           <h2 id="viewing-reply-title">{ar ? 'الرد وتحديد الموعد' : 'Reply and schedule'}</h2>
           <p className="muted">
             {ar
