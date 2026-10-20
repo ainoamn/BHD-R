@@ -39,6 +39,13 @@ export type NotificationTemplateSample = NotificationTemplateMeta & {
 const SAMPLE_ORIGIN = 'https://r.bhd-om.com';
 const EN_MARK = '— English —';
 
+/** Demo identity — always the owner and his son; never generic filler names. */
+const SAMPLE_OWNER = 'عبد الحميد الرواحي';
+const SAMPLE_OWNER_EN = 'Abdul Hamid Al Rawahi';
+const SAMPLE_SON = 'مدرك الرواحي';
+const SAMPLE_SON_EN = 'Mudrik Al Rawahi';
+const SAMPLE_SON_EMAIL = 'mudrik@example.com';
+
 export const NOTIFICATION_CATEGORY_LABELS: Record<
   NotificationCategory,
   { ar: string; en: string }
@@ -139,13 +146,11 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       tone: 'team',
       subjectAr: 'مرحباً بك في فريق مبنى النور على BHD R',
       subjectEn: 'Welcome to the Mabani Al Noor team on BHD R',
-      recipientName: 'سعيد الحارثي',
+      recipientName: SAMPLE_SON,
       titleAr: 'أنت مدعو لفريق مبنى النور 🎉',
       titleEn: 'You’re invited to Mabani Al Noor',
-      introAr:
-        'خبر سار: عبد الحميد دعاك للانضمام إلى فريق «مبنى النور» بصفة حارس مبنى. مرحباً بك معنا — فنجان القهوة الافتراضي جاهز!',
-      introEn:
-        'Good news: Abdul Hamid invited you to join the “Mabani Al Noor” team as Building guard. Welcome aboard — virtual coffee is on us!',
+      introAr: `خبر سار: ${SAMPLE_OWNER} دعاك للانضمام إلى فريق «مبنى النور» بصفة حارس مبنى. مرحباً بك معنا — فنجان القهوة الافتراضي جاهز!`,
+      introEn: `Good news: ${SAMPLE_OWNER_EN} invited you to join the “Mabani Al Noor” team as Building guard. Welcome aboard — virtual coffee is on us!`,
       linesAr: [
         'إن لم يكن لديك حساب بعد، اضغط الزر أدناه وسجّل أو فعّل حسابك بنفس هذا البريد.',
       ],
@@ -155,7 +160,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       details: [
         { labelAr: 'الفريق', labelEn: 'Team', value: 'مبنى النور / Mabani Al Noor' },
         { labelAr: 'الدور', labelEn: 'Role', value: 'حارس مبنى / Building guard' },
-        { labelAr: 'البريد', labelEn: 'Email', value: 'guard@example.com' },
+        { labelAr: 'البريد', labelEn: 'Email', value: SAMPLE_SON_EMAIL },
       ],
       ctaAr: 'تفعيل الحساب والدخول',
       ctaEn: 'Activate & sign in',
@@ -178,7 +183,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       tone: 'booking',
       subjectAr: 'تم تأكيد موعد معاينتك',
       subjectEn: 'Your viewing is confirmed',
-      recipientName: 'أحمد الزدجالي',
+      recipientName: SAMPLE_SON,
       titleAr: 'موعد المعاينة جاهز 🗝️',
       titleEn: 'Your viewing is ready',
       introAr: 'حدّدنا لك موعداً لمعاينة الوحدة. احفظ بطاقة الزيارة وأظهرها عند الوصول.',
@@ -212,7 +217,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       tone: 'team',
       subjectAr: 'معاينة قادمة — امسح البطاقة عند الوصول',
       subjectEn: 'Upcoming viewing — scan the pass on arrival',
-      recipientName: 'سعيد الحارثي',
+      recipientName: SAMPLE_SON,
       titleAr: 'زائر معاينة في الطريق 🤝',
       titleEn: 'A viewing guest is coming',
       introAr: 'حُدّد موعد معاينة. عند وصول الزائر امسح باركود بطاقة الزيارة من بوابة المسح.',
@@ -221,7 +226,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
         { labelAr: 'العقار', labelEn: 'Property', value: 'مبنى النور / Mabani Al Noor' },
         { labelAr: 'الوحدة', labelEn: 'Unit', value: 'A-12' },
         { labelAr: 'الموعد', labelEn: 'When', value: '2026-10-22 17:00' },
-        { labelAr: 'الزائر', labelEn: 'Guest', value: 'أحمد الزدجالي' },
+        { labelAr: 'الزائر', labelEn: 'Guest', value: `${SAMPLE_OWNER} / ${SAMPLE_OWNER_EN}` },
       ],
       ctaAr: 'فتح بوابة المسح',
       ctaEn: 'Open scan gate',
@@ -244,7 +249,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       tone: 'request',
       subjectAr: 'طلب معاينة جديد',
       subjectEn: 'New viewing request',
-      recipientName: 'عبد الحميد الرواحي',
+      recipientName: SAMPLE_OWNER,
       titleAr: 'طلب معاينة بانتظار ردك 📨',
       titleEn: 'A viewing request awaits your reply',
       introAr: 'عميل مهتم بمعاينة وحدة. افتح الطلب لتحديد الموعد أو إضافة ملاحظة.',
@@ -252,7 +257,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       details: [
         { labelAr: 'العقار', labelEn: 'Property', value: 'مبنى النور / Mabani Al Noor' },
         { labelAr: 'الوحدة', labelEn: 'Unit', value: 'A-12' },
-        { labelAr: 'الطالب', labelEn: 'Prospect', value: 'أحمد الزدجالي' },
+        { labelAr: 'الطالب', labelEn: 'Prospect', value: `${SAMPLE_SON} / ${SAMPLE_SON_EN}` },
       ],
       ctaAr: 'فتح طلب المعاينة',
       ctaEn: 'Open viewing request',
@@ -275,7 +280,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       tone: 'booking',
       subjectAr: 'تم تأكيد حجزك',
       subjectEn: 'Your booking is confirmed',
-      recipientName: 'سارة الكندي',
+      recipientName: SAMPLE_SON,
       titleAr: 'حجزك مؤكّد 🌴',
       titleEn: 'Booking confirmed',
       introAr: 'تم اعتماد طلبك. تفاصيل الوصول والمغادرة أدناه.',
@@ -306,7 +311,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       tone: 'contract',
       subjectAr: 'عقد الإيجار جاهز للتوقيع',
       subjectEn: 'Lease contract ready to sign',
-      recipientName: 'أحمد الزدجالي',
+      recipientName: SAMPLE_SON,
       titleAr: 'عقدك بانتظار التوقيع 📜',
       titleEn: 'Your contract awaits signature',
       introAr: 'راجع البنود ووقّع إلكترونياً لإكمال الإجراء.',
@@ -336,7 +341,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       tone: 'invoice',
       subjectAr: 'فاتورة إيجار أكتوبر',
       subjectEn: 'October rent invoice',
-      recipientName: 'أحمد الزدجالي',
+      recipientName: SAMPLE_SON,
       titleAr: 'فاتورتك جاهزة 🧾',
       titleEn: 'Your invoice is ready',
       introAr: 'مرفق تفاصيل المبلغ وتاريخ الاستحقاق.',
@@ -367,7 +372,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       tone: 'arrears',
       subjectAr: 'تذكير ودّي بمتأخرات الإيجار',
       subjectEn: 'Friendly rent arrears reminder',
-      recipientName: 'أحمد الزدجالي',
+      recipientName: SAMPLE_SON,
       titleAr: 'تذكير لطيف ⏰',
       titleEn: 'A gentle reminder',
       introAr: 'نذكّرك بوجود مبلغ مستحق. إن دفعتَ مسبقاً فتجاهل هذه الرسالة.',
@@ -397,7 +402,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       tone: 'maintenance',
       subjectAr: 'تحديث على طلب الصيانة',
       subjectEn: 'Maintenance request update',
-      recipientName: 'أحمد الزدجالي',
+      recipientName: SAMPLE_SON,
       titleAr: 'طلب الصيانة قيد التنفيذ 🛠️',
       titleEn: 'Maintenance in progress',
       introAr: 'الفني في الطريق أو يعمل على البلاغ. سنُعلمك عند الإغلاق.',
@@ -427,7 +432,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       tone: 'reward',
       subjectAr: 'تم اعتماد توثيق حسابك',
       subjectEn: 'Your account verification was approved',
-      recipientName: 'عبد الحميد الرواحي',
+      recipientName: SAMPLE_OWNER,
       titleAr: 'حسابك موثّق 🏆',
       titleEn: 'Your account is verified',
       introAr: 'اعتماد التوثيق يفتح صلاحيات أوضح وثقة أعلى للمستأجرين.',
@@ -456,7 +461,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       tone: 'reward',
       subjectAr: 'حصلت على شارة جديدة',
       subjectEn: 'You earned a new badge',
-      recipientName: 'عبد الحميد الرواحي',
+      recipientName: SAMPLE_OWNER,
       titleAr: 'شارة جديدة تستحق الاحتفال ✨',
       titleEn: 'A new badge to celebrate',
       introAr: 'أُضيفت شارة إلى ملفك تقديراً لالتزامك.',
