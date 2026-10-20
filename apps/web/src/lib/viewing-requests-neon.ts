@@ -12,7 +12,11 @@ import {
   type Database,
 } from '@bhd-r/db';
 import { appLink, notifyByEmail } from '@/lib/email-notify';
-import { googleMapsLinkFromCoords } from '@/lib/parse-google-maps-url';
+import {
+  googleMapsEmbedSrc,
+  googleMapsLinkFromCoords,
+  parseGoogleMapsUrl,
+} from '@/lib/parse-google-maps-url';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 import type { PendingApprovalItem } from '@/lib/pending-approvals-shared';
 import { loadPropertyLocation } from '@/lib/property-location-neon';
@@ -120,7 +124,11 @@ async function propertyDirections(
   tx: Pick<Tx, 'select'>,
   orgId: string,
   propertyId: string,
-): Promise<{ address: string | null; mapsUrl: string | null }> {
+): Promise<{
+  address: string | null;
+  mapsUrl: string | null;
+  mapEmbedSrc: string | null;
+}> {
   const [row] = await tx
     .select({
       buildingNumber: addresses.buildingNumber,
@@ -143,14 +151,27 @@ async function propertyDirections(
   const address = row ? formatPropertyAddress(row) : null;
   const location = await loadPropertyLocation(tx, orgId, propertyId);
   let mapsUrl = location?.mapsUrl ?? null;
-  if (!mapsUrl && row) {
+  let latitude: number | null = null;
+  let longitude: number | null = null;
+  if (row) {
     const lat = row.latitude == null || row.latitude === '' ? null : Number(row.latitude);
     const lng = row.longitude == null || row.longitude === '' ? null : Number(row.longitude);
     if (lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng)) {
-      mapsUrl = googleMapsLinkFromCoords(lat, lng);
+      latitude = lat;
+      longitude = lng;
+      if (!mapsUrl) mapsUrl = googleMapsLinkFromCoords(lat, lng);
     }
   }
-  return { address, mapsUrl };
+  if ((latitude == null || longitude == null) && mapsUrl) {
+    const parsed = parseGoogleMapsUrl(mapsUrl);
+    if (parsed) {
+      latitude = parsed.latitude;
+      longitude = parsed.longitude;
+    }
+  }
+  const mapEmbedSrc =
+    latitude != null && longitude != null ? googleMapsEmbedSrc(latitude, longitude) : null;
+  return { address, mapsUrl, mapEmbedSrc };
 }
 
 function mapDetail(
@@ -198,7 +219,7 @@ function mapDetail(
       token = null;
     }
   }
-  const canSchedule = Boolean(row.viewingContactUserId);
+  const canSchedule = Boolean(row.viewingContactUserId && row.viewingContactPhone?.trim());
   return {
     id: row.id,
     reference: row.reference,
@@ -557,6 +578,12 @@ export async function respondToViewingRequest(
     if (input.action === 'schedule') {
       if (!scheduledAt) fail('viewing_schedule_required');
       if (!row.viewingContactUserId) fail('viewing_contact_required');
+      const contactPhoneForSchedule = await staffContactPhone(
+        tx,
+        row.organizationId,
+        row.viewingContactUserId,
+      );
+      if (!contactPhoneForSchedule) fail('viewing_contact_phone_required');
     }
 
     const mergedNotes = note
@@ -845,6 +872,82 @@ export async function loadViewingGuestPass(token: string): Promise<ViewingGuestP
       contactPhone,
       propertyAddress: directions.address,
       propertyMapsUrl: directions.mapsUrl,
+      mapEmbedSrc: directions.mapEmbedSrc,
+    };
+  });
+}
+
+export type ViewingGatePreview = {
+  ok: true;
+  preview: true;
+  reference: string;
+  prospectName: string;
+  unitCode: string;
+  propertyNameAr: string;
+  scheduledAt: string | null;
+  alreadyArrived: boolean;
+  arrivedAt: string | null;
+};
+
+/** Staff preview of a pass without recording arrival — used before explicit confirm. */
+export async function previewViewingVisit(
+  claims: SessionClaims,
+  input: { token?: string | null; username?: string | null; pin?: string | null },
+): Promise<ViewingGatePreview> {
+  if (!hasPermission(claims, 'viewing.checkin')) fail('forbidden');
+  if (!claims.organizationId) fail('forbidden');
+
+  let viewingId: string | null = null;
+  if (input.token) {
+    viewingId = openViewingPassToken(input.token);
+    if (!viewingId) fail('viewing_pass_invalid');
+  }
+
+  const ownerPartyId = ownerPartyScope(claims);
+  return withinViewerTenant(claims, async (tx) => {
+    const rows = await tx
+      .select({
+        id: viewingRequests.id,
+        reference: viewingRequests.reference,
+        status: viewingRequests.status,
+        scheduledAt: viewingRequests.scheduledAt,
+        arrivedAt: viewingRequests.arrivedAt,
+        accessUsername: viewingRequests.accessUsername,
+        accessPin: viewingRequests.accessPin,
+        prospectName: parties.displayName,
+        unitCode: units.code,
+        propertyNameAr: properties.nameAr,
+      })
+      .from(viewingRequests)
+      .innerJoin(units, eq(units.id, viewingRequests.unitId))
+      .innerJoin(properties, eq(properties.id, units.propertyId))
+      .innerJoin(parties, eq(parties.id, viewingRequests.prospectPartyId))
+      .where(
+        and(
+          eq(viewingRequests.organizationId, claims.organizationId!),
+          ...(viewingId
+            ? [eq(viewingRequests.id, viewingId)]
+            : [
+                eq(viewingRequests.accessUsername, (input.username ?? '').trim()),
+                eq(viewingRequests.accessPin, (input.pin ?? '').trim()),
+              ]),
+          ...(ownerPartyId ? [eq(properties.ownerPartyId, ownerPartyId)] : []),
+        ),
+      )
+      .limit(1);
+    const row = rows[0];
+    if (!row) fail('not_found');
+    if (row.status !== 'scheduled' && row.status !== 'completed') fail('viewing_closed');
+    return {
+      ok: true as const,
+      preview: true as const,
+      reference: row.reference,
+      prospectName: row.prospectName,
+      unitCode: row.unitCode,
+      propertyNameAr: row.propertyNameAr,
+      scheduledAt: iso(row.scheduledAt),
+      alreadyArrived: Boolean(row.arrivedAt),
+      arrivedAt: iso(row.arrivedAt),
     };
   });
 }

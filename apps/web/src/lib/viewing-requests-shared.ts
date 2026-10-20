@@ -63,6 +63,8 @@ export type ViewingGuestPass = {
   contactPhone: string | null;
   propertyAddress: string | null;
   propertyMapsUrl: string | null;
+  /** Embeddable Google Maps iframe src (same as property / contract pages). */
+  mapEmbedSrc: string | null;
 };
 
 export type ViewingGuestManageResult =

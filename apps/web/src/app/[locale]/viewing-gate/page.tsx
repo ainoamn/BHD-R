@@ -50,8 +50,8 @@ export default async function ViewingGatePage({
         <h1>{ar ? 'تسجيل وصول زائر المعاينة' : 'Viewing visitor check-in'}</h1>
         <p className="muted">
           {ar
-            ? 'امسح باركود بطاقة المعاينة أو أدخل اسم المستخدم والرقم السري؛ يظهر لك علامة صح ويُوثَّق وقت الوصول.'
-            : 'Scan the viewing pass barcode or type the username and PIN; a checkmark appears and the arrival time is recorded.'}
+            ? 'للحارس أو مسؤول/مالك العقار فقط: امسح الباركود من هذه الصفحة بعد تسجيل الدخول، راجع بيانات الزائر، ثم أكّد الوصول. مسح الباركود من كاميرا الهاتف وحدها لا يسجّل الحضور.'
+            : 'Guards, property managers and owners only: scan the barcode from this page after signing in, review the visitor, then confirm arrival. Scanning with the phone camera alone does not record attendance.'}
         </p>
       </header>
       {allowed ? (
@@ -59,8 +59,8 @@ export default async function ViewingGatePage({
       ) : (
         <p className="notice notice--error" role="alert">
           {ar
-            ? 'لا تملك صلاحية تسجيل وصول المعاينات. يمنحها المالك من صفحة الفريق («مسح بطاقة المعاينة عند وصول الزائر»).'
-            : 'You do not have permission to check in viewing visitors. The owner grants it on the team page.'}
+            ? 'لا تملك صلاحية تسجيل وصول المعاينات. يمنحها المالك من صفحة الفريق للحارس أو مسؤول العقار («مسح بطاقة المعاينة عند وصول الزائر»).'
+            : 'You do not have permission to check in viewing visitors. The owner grants it on the team page to the guard or property manager.'}
         </p>
       )}
     </main>

@@ -109,6 +109,12 @@ export function ViewingRequestDesk({
             ? 'حدّد حارس المبنى أو مسؤول المعاينة في صفحة العقار قبل تأكيد الموعد.'
             : 'Set the building guard or viewing contact on the property page before confirming.',
         );
+      } else if (code === 'viewing_contact_phone_required') {
+        setError(
+          ar
+            ? 'أضف رقم هاتف الحارس في صفحة العقار (مسؤول المعاينة) قبل تأكيد الموعد.'
+            : 'Add the guard’s phone on the property viewing-contact card before confirming.',
+        );
       } else if (code === 'viewing_schedule_required') {
         setError(ar ? 'اختر تاريخ ووقت المعاينة.' : 'Choose a viewing date and time.');
       } else {
@@ -235,8 +241,8 @@ export function ViewingRequestDesk({
         <div className="notice notice--error viewing-desk__contact-gate" role="alert">
           <p>
             {ar
-              ? 'لا يمكن تأكيد الموعد وإشعار العميل قبل تحديد حارس المبنى أو المسؤول عن المعاينة في صفحة العقار.'
-              : 'Confirming the schedule and notifying the guest requires a building guard or viewing contact on the property page first.'}
+              ? 'لا يمكن تأكيد الموعد وإشعار العميل قبل تحديد حارس المبنى أو المسؤول عن المعاينة ورقم هاتفه في صفحة العقار.'
+              : 'Confirming the schedule and notifying the guest requires a building guard or viewing contact with a phone number on the property page first.'}
           </p>
           <Link
             className="button button--primary"

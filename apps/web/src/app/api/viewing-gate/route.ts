@@ -5,15 +5,21 @@ import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { clientSafeErrorCode, statusForSafeCode } from '@/lib/client-safe-error';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
-import { checkInViewingVisit } from '@/lib/viewing-requests-neon';
+import { checkInViewingVisit, previewViewingVisit } from '@/lib/viewing-requests-neon';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const bodySchema = z.union([
-  z.object({ token: z.string().min(40).max(120) }).strict(),
   z
     .object({
+      action: z.enum(['preview', 'checkin']).optional(),
+      token: z.string().min(40).max(120),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.enum(['preview', 'checkin']).optional(),
       username: z.string().trim().min(2).max(64),
       pin: z
         .string()
@@ -24,8 +30,9 @@ const bodySchema = z.union([
 ]);
 
 /**
- * POST /api/viewing-gate — building guard / staff scans the guest viewing pass (or types
- * username + PIN) and records arrival time.
+ * POST /api/viewing-gate — building guard / staff with viewing.checkin:
+ * `preview` reads the pass without recording arrival; `checkin` (default) records it.
+ * Opening a URL alone must never check anyone in — the desk confirms explicitly.
  */
 export async function POST(request: Request) {
   if (!hasDatabaseUrl()) {
@@ -54,7 +61,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: { code: 'invalid_body' } }, { status: 400 });
   }
   try {
-    const result = await checkInViewingVisit(claims, parsed.data);
+    const body = parsed.data;
+    const credentials =
+      'token' in body
+        ? { token: body.token }
+        : { username: body.username, pin: body.pin };
+    if (body.action === 'preview') {
+      const result = await previewViewingVisit(claims, credentials);
+      return NextResponse.json(result, { headers: { 'cache-control': 'no-store' } });
+    }
+    const result = await checkInViewingVisit(claims, credentials);
     return NextResponse.json(result, { headers: { 'cache-control': 'no-store' } });
   } catch (error) {
     const code = clientSafeErrorCode(error, 'checkin_failed');

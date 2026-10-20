@@ -16,6 +16,8 @@ export const dynamic = 'force-dynamic';
 const patchSchema = z
   .object({
     contactUserId: z.string().uuid().nullable(),
+    /** Required when setting a contact — saved on the staff member’s party card. */
+    phone: z.string().trim().min(8).max(24).nullable().optional(),
   })
   .strict();
 
@@ -86,6 +88,7 @@ export async function PATCH(
       claims,
       propertyId,
       parsed.data.contactUserId,
+      parsed.data.phone ?? null,
     );
     return NextResponse.json(detail, { headers: { 'cache-control': 'no-store' } });
   } catch (error) {

@@ -319,16 +319,6 @@ export function ViewingPassCard({
                 <dd>{pass.propertyAddress}</dd>
               </div>
             ) : null}
-            {pass.propertyMapsUrl ? (
-              <div>
-                <dt>{ar ? 'خريطة الوصول' : 'Directions'}</dt>
-                <dd>
-                  <a href={pass.propertyMapsUrl} target="_blank" rel="noreferrer">
-                    {ar ? 'افتح الموقع على الخريطة' : 'Open on Google Maps'}
-                  </a>
-                </dd>
-              </div>
-            ) : null}
             {pass.arrivedAt ? (
               <div>
                 <dt>{ar ? 'وقت الوصول' : 'Arrived'}</dt>
@@ -336,6 +326,45 @@ export function ViewingPassCard({
               </div>
             ) : null}
           </dl>
+          {pass.mapEmbedSrc || pass.propertyMapsUrl ? (
+            <div className="viewing-pass__map-wrap">
+              {pass.mapEmbedSrc ? (
+                <div
+                  className="viewing-pass__map"
+                  role={pass.propertyMapsUrl ? 'link' : undefined}
+                  tabIndex={pass.propertyMapsUrl ? 0 : undefined}
+                  aria-label={ar ? 'افتح موقع العقار على الخريطة' : 'Open property on the map'}
+                  onClick={() => {
+                    if (pass.propertyMapsUrl) {
+                      window.open(pass.propertyMapsUrl, '_blank', 'noopener,noreferrer');
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (!pass.propertyMapsUrl) return;
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      window.open(pass.propertyMapsUrl, '_blank', 'noopener,noreferrer');
+                    }
+                  }}
+                >
+                  <iframe
+                    title={ar ? 'خريطة العقار' : 'Property map'}
+                    src={pass.mapEmbedSrc}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    tabIndex={-1}
+                  />
+                </div>
+              ) : null}
+              {pass.propertyMapsUrl ? (
+                <p>
+                  <a href={pass.propertyMapsUrl} target="_blank" rel="noreferrer" dir="ltr">
+                    {ar ? 'فتح في خرائط Google' : 'Open in Google Maps'}
+                  </a>
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ) : null}
 

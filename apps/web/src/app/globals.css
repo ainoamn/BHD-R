@@ -15604,6 +15604,26 @@ body:has(.guest-stay-detail) #main-content {
   width: 100%;
   height: 100%;
 }
+.viewing-pass__map-wrap {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 0.45rem;
+}
+.viewing-pass__map {
+  overflow: hidden;
+  border-radius: 0.9rem;
+  border: 1px solid var(--border, #e3ebe7);
+  aspect-ratio: 16 / 9;
+  background: #e2e8f0;
+  cursor: pointer;
+}
+.viewing-pass__map iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  pointer-events: none;
+}
 .viewing-pass__facts {
   display: grid;
   gap: 0.55rem;
@@ -15710,7 +15730,8 @@ body:has(.guest-stay-detail) #main-content {
 }
 .viewing-gate__scan,
 .viewing-gate__manual,
-.viewing-gate--ok {
+.viewing-gate--ok,
+.viewing-gate--preview {
   padding: 1.25rem;
   border: 1px solid #e3ebe7;
   border-radius: 1rem;

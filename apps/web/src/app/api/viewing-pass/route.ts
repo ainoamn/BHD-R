@@ -82,8 +82,11 @@ export async function GET(request: Request) {
     if (!pass) {
       return NextResponse.json({ error: { code: 'not_found' } }, { status: 404 });
     }
-    const gateUrl = appLink(`/ar/viewing-gate?t=${encodeURIComponent(pass.token)}`);
-    const qrSvg = await contractQrSvg(gateUrl).catch(() => null);
+    // QR encodes the sealed token only — not a public URL — so a phone camera cannot
+    // open the gate and accidentally check someone in. Staff must be signed in on
+    // /viewing-gate and scan with the in-app camera (or type username + PIN).
+    const gateUrl = appLink(`/ar/viewing-gate`);
+    const qrSvg = await contractQrSvg(pass.token).catch(() => null);
     return NextResponse.json(
       { ...pass, qrSvg, gateUrl },
       { headers: { 'cache-control': 'no-store' } },
