@@ -1,6 +1,6 @@
 /**
  * Catalog of outbound notifications (email + WhatsApp) for the studio preview page.
- * Sample payloads mirror what production sends; editing lives in a later release.
+ * Every sample is bilingual (Arabic first, then English) so previews match the product rule.
  */
 import type { BrandedEmailInput, EmailTone } from '@/lib/email-template';
 
@@ -35,6 +35,7 @@ export type NotificationTemplateSample = NotificationTemplateMeta & {
 };
 
 const SAMPLE_ORIGIN = 'https://r.bhd-om.com';
+const EN_MARK = '— English —';
 
 export const NOTIFICATION_CATEGORY_LABELS: Record<
   NotificationCategory,
@@ -50,7 +51,50 @@ export const NOTIFICATION_CATEGORY_LABELS: Record<
   account: { ar: 'الحساب', en: 'Account' },
 };
 
-/** Full samples used for live preview. */
+/** Build a bilingual branded email sample (Arabic block, then English block). */
+function bilingualEmail(input: {
+  tone: EmailTone;
+  subjectAr: string;
+  subjectEn: string;
+  recipientName: string;
+  titleAr: string;
+  titleEn: string;
+  introAr: string;
+  introEn: string;
+  linesAr?: readonly string[];
+  linesEn?: readonly string[];
+  details: ReadonlyArray<{ labelAr: string; labelEn: string; value: string }>;
+  ctaAr: string;
+  ctaEn: string;
+  ctaUrl: string;
+  footnoteAr: string;
+  footnoteEn: string;
+}): BrandedEmailInput & { subject: string } {
+  return {
+    tone: input.tone,
+    subject: `${input.subjectAr} · ${input.subjectEn}`,
+    recipientName: input.recipientName,
+    title: `${input.titleAr} · ${input.titleEn}`,
+    intro: input.introAr,
+    lines: [
+      ...(input.linesAr ?? []),
+      EN_MARK,
+      input.introEn,
+      ...(input.linesEn ?? []),
+    ],
+    details: input.details.map((item) => ({
+      label: `${item.labelAr} / ${item.labelEn}`,
+      value: item.value,
+    })),
+    cta: {
+      label: `${input.ctaAr} · ${input.ctaEn}`,
+      url: input.ctaUrl,
+    },
+    footnote: `${input.footnoteAr} · ${input.footnoteEn}`,
+  };
+}
+
+/** Full samples used for live preview — every channel is AR + EN. */
 export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
   {
     id: 'team-invite',
@@ -62,30 +106,34 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
     descriptionEn: 'Sent when a guard or staff member is invited by email.',
     editable: false,
     tone: 'team',
-    email: {
+    email: bilingualEmail({
       tone: 'team',
-      subject: 'مرحباً بك في فريق مبنى النور على BHD R · Welcome to the Mabani Al Noor team',
+      subjectAr: 'مرحباً بك في فريق مبنى النور على BHD R',
+      subjectEn: 'Welcome to the Mabani Al Noor team on BHD R',
       recipientName: 'سعيد الحارثي',
-      title: 'أنت مدعو لفريق مبنى النور 🎉',
-      intro:
-        'خبر سار: عبد الحميد دعاك للانضمام إلى فريق «مبنى النور» على منصة BHD R بصفة حارس مبنى / Building guard. مرحباً بك معنا!',
-      lines: [
+      titleAr: 'أنت مدعو لفريق مبنى النور 🎉',
+      titleEn: 'You’re invited to Mabani Al Noor',
+      introAr:
+        'خبر سار: عبد الحميد دعاك للانضمام إلى فريق «مبنى النور» بصفة حارس مبنى. مرحباً بك معنا — فنجان القهوة الافتراضي جاهز!',
+      introEn:
+        'Good news: Abdul Hamid invited you to join the “Mabani Al Noor” team as Building guard. Welcome aboard — virtual coffee is on us!',
+      linesAr: [
         'إن لم يكن لديك حساب بعد، اضغط الزر أدناه وسجّل أو فعّل حسابك بنفس هذا البريد.',
-        '— English —',
-        'Good news: you were invited to join the team on BHD R as Building guard. Welcome aboard!',
-        'Use the button below to sign in or activate your account with the same email.',
+      ],
+      linesEn: [
+        'If you do not have an account yet, tap the button below and sign in or activate with this same email.',
       ],
       details: [
-        { label: 'الفريق / Team', value: 'مبنى النور' },
-        { label: 'الدور / Role', value: 'حارس مبنى / Building guard' },
-        { label: 'البريد / Email', value: 'guard@example.com' },
+        { labelAr: 'الفريق', labelEn: 'Team', value: 'مبنى النور / Mabani Al Noor' },
+        { labelAr: 'الدور', labelEn: 'Role', value: 'حارس مبنى / Building guard' },
+        { labelAr: 'البريد', labelEn: 'Email', value: 'guard@example.com' },
       ],
-      cta: {
-        label: 'تفعيل الحساب والدخول · Activate & sign in',
-        url: `${SAMPLE_ORIGIN}/ar/login?org=sample`,
-      },
-      footnote: 'وصلت هذه الدعوة لأن مدير الفريق أضاف بريدك في BHD R.',
-    },
+      ctaAr: 'تفعيل الحساب والدخول',
+      ctaEn: 'Activate & sign in',
+      ctaUrl: `${SAMPLE_ORIGIN}/ar/login?org=sample`,
+      footnoteAr: 'وصلت هذه الدعوة لأن مدير الفريق أضاف بريدك في BHD R.',
+      footnoteEn: 'You received this because a team admin added your email in BHD R.',
+    }),
     whatsapp: {
       textAr:
         'دعوة للانضمام إلى فريق «مبنى النور» على BHD R.\nادخل بحساب BHD المسجّل بالبريد guard@example.com:\nhttps://r.bhd-om.com/ar/login?org=sample',
@@ -95,38 +143,47 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
   },
   {
     id: 'viewing-scheduled-guest',
-    channel: 'email',
+    channel: 'both',
     category: 'viewing',
     nameAr: 'تأكيد موعد معاينة للعميل',
     nameEn: 'Viewing schedule — guest',
-    descriptionAr: 'بريد العميل بعد تأكيد الموعد مع بطاقة الزيارة.',
-    descriptionEn: 'Guest email after the viewing time is confirmed, with visit pass.',
+    descriptionAr: 'بريد وواتساب للعميل بعد تأكيد الموعد مع بطاقة الزيارة.',
+    descriptionEn: 'Email and WhatsApp to the guest after the viewing is confirmed, with visit pass.',
     editable: false,
     tone: 'booking',
-    email: {
+    email: bilingualEmail({
       tone: 'booking',
-      subject: 'تم تأكيد موعد معاينتك · Viewing confirmed',
+      subjectAr: 'تم تأكيد موعد معاينتك',
+      subjectEn: 'Your viewing is confirmed',
       recipientName: 'أحمد الزدجالي',
-      title: 'موعد المعاينة جاهز 🗝️',
-      intro: 'حدّدنا لك موعداً لمعاينة الوحدة. احفظ بطاقة الزيارة وأظهرها عند الوصول.',
-      lines: [
-        'Your viewing is confirmed. Keep the visit pass ready and show it on arrival.',
-      ],
+      titleAr: 'موعد المعاينة جاهز 🗝️',
+      titleEn: 'Your viewing is ready',
+      introAr: 'حدّدنا لك موعداً لمعاينة الوحدة. احفظ بطاقة الزيارة وأظهرها عند الوصول.',
+      introEn: 'Your unit viewing is confirmed. Keep the visit pass ready and show it on arrival.',
+      linesAr: ['سيصلك أيضاً اسم مستخدم ورقم سري للدخول إن لزم.'],
+      linesEn: ['You will also receive a username and PIN if access credentials are needed.'],
       details: [
-        { label: 'العقار', value: 'مبنى النور' },
-        { label: 'الوحدة', value: 'A-12' },
-        { label: 'الموعد', value: '2026-10-22 17:00' },
-        { label: 'المرجع', value: 'VR-1042' },
+        { labelAr: 'العقار', labelEn: 'Property', value: 'مبنى النور / Mabani Al Noor' },
+        { labelAr: 'الوحدة', labelEn: 'Unit', value: 'A-12' },
+        { labelAr: 'الموعد', labelEn: 'When', value: '2026-10-22 17:00' },
+        { labelAr: 'المرجع', labelEn: 'Reference', value: 'VR-1042' },
       ],
-      cta: {
-        label: 'فتح بطاقة المعاينة',
-        url: `${SAMPLE_ORIGIN}/ar/viewing-pass?t=sample`,
-      },
+      ctaAr: 'فتح بطاقة المعاينة',
+      ctaEn: 'Open visit pass',
+      ctaUrl: `${SAMPLE_ORIGIN}/ar/viewing-pass?t=sample`,
+      footnoteAr: 'أُرسلت لأن موعد معاينتك اعتُمد.',
+      footnoteEn: 'Sent because your viewing appointment was confirmed.',
+    }),
+    whatsapp: {
+      textAr:
+        'تم تأكيد معاينتك في مبنى النور · وحدة A-12\nالموعد: 2026-10-22 17:00\nبطاقة الزيارة:\nhttps://r.bhd-om.com/ar/viewing-pass?t=sample',
+      textEn:
+        'Your viewing at Mabani Al Noor · unit A-12 is confirmed\nWhen: 2026-10-22 17:00\nVisit pass:\nhttps://r.bhd-om.com/ar/viewing-pass?t=sample',
     },
   },
   {
     id: 'viewing-scheduled-contact',
-    channel: 'email',
+    channel: 'both',
     category: 'viewing',
     nameAr: 'إشعار مسؤول المعاينة / الحارس',
     nameEn: 'Viewing notice — guard / contact',
@@ -134,27 +191,37 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
     descriptionEn: 'Sent to the viewing contact to scan the guest barcode on arrival.',
     editable: false,
     tone: 'team',
-    email: {
+    email: bilingualEmail({
       tone: 'team',
-      subject: 'معاينة قادمة — امسح البطاقة عند الوصول',
+      subjectAr: 'معاينة قادمة — امسح البطاقة عند الوصول',
+      subjectEn: 'Upcoming viewing — scan the pass on arrival',
       recipientName: 'سعيد الحارثي',
-      title: 'زائر معاينة في الطريق 🤝',
-      intro: 'حُدّد موعد معاينة. عند وصول الزائر امسح باركود بطاقة الزيارة من بوابة المسح.',
+      titleAr: 'زائر معاينة في الطريق 🤝',
+      titleEn: 'A viewing guest is coming',
+      introAr: 'حُدّد موعد معاينة. عند وصول الزائر امسح باركود بطاقة الزيارة من بوابة المسح.',
+      introEn: 'A viewing is scheduled. When the guest arrives, scan their visit-pass barcode at the gate.',
       details: [
-        { label: 'العقار', value: 'مبنى النور' },
-        { label: 'الوحدة', value: 'A-12' },
-        { label: 'الموعد', value: '2026-10-22 17:00' },
-        { label: 'الزائر', value: 'أحمد الزدجالي' },
+        { labelAr: 'العقار', labelEn: 'Property', value: 'مبنى النور / Mabani Al Noor' },
+        { labelAr: 'الوحدة', labelEn: 'Unit', value: 'A-12' },
+        { labelAr: 'الموعد', labelEn: 'When', value: '2026-10-22 17:00' },
+        { labelAr: 'الزائر', labelEn: 'Guest', value: 'أحمد الزدجالي' },
       ],
-      cta: {
-        label: 'فتح بوابة المسح',
-        url: `${SAMPLE_ORIGIN}/ar/viewing-gate?t=sample`,
-      },
+      ctaAr: 'فتح بوابة المسح',
+      ctaEn: 'Open scan gate',
+      ctaUrl: `${SAMPLE_ORIGIN}/ar/viewing-gate?t=sample`,
+      footnoteAr: 'أُرسلت لأنك مسؤول المعاينة لهذا العقار.',
+      footnoteEn: 'Sent because you are the viewing contact for this property.',
+    }),
+    whatsapp: {
+      textAr:
+        'معاينة قادمة — مبنى النور · A-12\nالموعد: 2026-10-22 17:00\nالزائر: أحمد الزدجالي\nامسح البطاقة:\nhttps://r.bhd-om.com/ar/viewing-gate?t=sample',
+      textEn:
+        'Upcoming viewing — Mabani Al Noor · A-12\nWhen: 2026-10-22 17:00\nGuest: Ahmed Al Zedjali\nScan gate:\nhttps://r.bhd-om.com/ar/viewing-gate?t=sample',
     },
   },
   {
     id: 'viewing-request-owner',
-    channel: 'email',
+    channel: 'both',
     category: 'viewing',
     nameAr: 'طلب معاينة جديد للمالك',
     nameEn: 'New viewing request — owner',
@@ -162,26 +229,36 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
     descriptionEn: 'Owner alert when a prospect requests a viewing.',
     editable: false,
     tone: 'request',
-    email: {
+    email: bilingualEmail({
       tone: 'request',
-      subject: 'طلب معاينة جديد',
+      subjectAr: 'طلب معاينة جديد',
+      subjectEn: 'New viewing request',
       recipientName: 'عبد الحميد الرواحي',
-      title: 'طلب معاينة بانتظار ردك 📨',
-      intro: 'عميل مهتم بمعاينة وحدة. افتح الطلب لتحديد الموعد أو إضافة ملاحظة.',
+      titleAr: 'طلب معاينة بانتظار ردك 📨',
+      titleEn: 'A viewing request awaits your reply',
+      introAr: 'عميل مهتم بمعاينة وحدة. افتح الطلب لتحديد الموعد أو إضافة ملاحظة.',
+      introEn: 'A prospect wants to view a unit. Open the request to set a time or add a note.',
       details: [
-        { label: 'العقار', value: 'مبنى النور' },
-        { label: 'الوحدة', value: 'A-12' },
-        { label: 'الطالب', value: 'أحمد الزدجالي' },
+        { labelAr: 'العقار', labelEn: 'Property', value: 'مبنى النور / Mabani Al Noor' },
+        { labelAr: 'الوحدة', labelEn: 'Unit', value: 'A-12' },
+        { labelAr: 'الطالب', labelEn: 'Prospect', value: 'أحمد الزدجالي' },
       ],
-      cta: {
-        label: 'فتح طلب المعاينة',
-        url: `${SAMPLE_ORIGIN}/ar/owner/bookings/viewings/sample`,
-      },
+      ctaAr: 'فتح طلب المعاينة',
+      ctaEn: 'Open viewing request',
+      ctaUrl: `${SAMPLE_ORIGIN}/ar/owner/bookings/viewings/sample`,
+      footnoteAr: 'أُرسلت لأن عقارك استقبل طلب معاينة.',
+      footnoteEn: 'Sent because your property received a viewing request.',
+    }),
+    whatsapp: {
+      textAr:
+        'طلب معاينة جديد — مبنى النور · A-12\nالطالب: أحمد الزدجالي\nافتح الطلب:\nhttps://r.bhd-om.com/ar/owner/bookings/viewings/sample',
+      textEn:
+        'New viewing request — Mabani Al Noor · A-12\nProspect: Ahmed Al Zedjali\nOpen request:\nhttps://r.bhd-om.com/ar/owner/bookings/viewings/sample',
     },
   },
   {
     id: 'booking-confirmed',
-    channel: 'email',
+    channel: 'both',
     category: 'booking',
     nameAr: 'تأكيد حجز / إقامة',
     nameEn: 'Booking / stay confirmed',
@@ -189,23 +266,36 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
     descriptionEn: 'Confirmation after a booking is approved.',
     editable: false,
     tone: 'booking',
-    email: {
+    email: bilingualEmail({
       tone: 'booking',
-      subject: 'تم تأكيد حجزك',
+      subjectAr: 'تم تأكيد حجزك',
+      subjectEn: 'Your booking is confirmed',
       recipientName: 'سارة الكندي',
-      title: 'حجزك مؤكّد 🌴',
-      intro: 'تم اعتماد طلبك. تفاصيل الوصول والمغادرة أدناه.',
+      titleAr: 'حجزك مؤكّد 🌴',
+      titleEn: 'Booking confirmed',
+      introAr: 'تم اعتماد طلبك. تفاصيل الوصول والمغادرة أدناه.',
+      introEn: 'Your request was approved. Check-in and check-out details are below.',
       details: [
-        { label: 'العقار', value: 'مبنى النور' },
-        { label: 'الوصول', value: '2026-11-01' },
-        { label: 'المغادرة', value: '2026-11-05' },
+        { labelAr: 'العقار', labelEn: 'Property', value: 'مبنى النور / Mabani Al Noor' },
+        { labelAr: 'الوصول', labelEn: 'Check-in', value: '2026-11-01' },
+        { labelAr: 'المغادرة', labelEn: 'Check-out', value: '2026-11-05' },
       ],
-      cta: { label: 'عرض الحجز', url: `${SAMPLE_ORIGIN}/ar/portal` },
+      ctaAr: 'عرض الحجز',
+      ctaEn: 'View booking',
+      ctaUrl: `${SAMPLE_ORIGIN}/ar/portal`,
+      footnoteAr: 'أُرسلت بعد اعتماد حجزك.',
+      footnoteEn: 'Sent after your booking was approved.',
+    }),
+    whatsapp: {
+      textAr:
+        'تم تأكيد حجزك في مبنى النور\nالوصول: 2026-11-01\nالمغادرة: 2026-11-05\nhttps://r.bhd-om.com/ar/portal',
+      textEn:
+        'Your booking at Mabani Al Noor is confirmed\nCheck-in: 2026-11-01\nCheck-out: 2026-11-05\nhttps://r.bhd-om.com/ar/portal',
     },
   },
   {
     id: 'contract-ready',
-    channel: 'email',
+    channel: 'both',
     category: 'contract',
     nameAr: 'عقد جاهز للتوقيع',
     nameEn: 'Contract ready to sign',
@@ -213,17 +303,30 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
     descriptionEn: 'Sent when a contract awaits a party signature.',
     editable: false,
     tone: 'contract',
-    email: {
+    email: bilingualEmail({
       tone: 'contract',
-      subject: 'عقد الإيجار جاهز للتوقيع',
+      subjectAr: 'عقد الإيجار جاهز للتوقيع',
+      subjectEn: 'Lease contract ready to sign',
       recipientName: 'أحمد الزدجالي',
-      title: 'عقدك بانتظار التوقيع 📜',
-      intro: 'راجع البنود ووقّع إلكترونياً لإكمال الإجراء.',
+      titleAr: 'عقدك بانتظار التوقيع 📜',
+      titleEn: 'Your contract awaits signature',
+      introAr: 'راجع البنود ووقّع إلكترونياً لإكمال الإجراء.',
+      introEn: 'Review the terms and sign electronically to complete the process.',
       details: [
-        { label: 'العقار', value: 'مبنى النور · A-12' },
-        { label: 'المرجع', value: 'LC-2201' },
+        { labelAr: 'العقار', labelEn: 'Property', value: 'مبنى النور · A-12' },
+        { labelAr: 'المرجع', labelEn: 'Reference', value: 'LC-2201' },
       ],
-      cta: { label: 'فتح العقد', url: `${SAMPLE_ORIGIN}/ar/portal` },
+      ctaAr: 'فتح العقد',
+      ctaEn: 'Open contract',
+      ctaUrl: `${SAMPLE_ORIGIN}/ar/portal`,
+      footnoteAr: 'أُرسلت لأن عقدك بانتظار توقيعك.',
+      footnoteEn: 'Sent because your contract is waiting for your signature.',
+    }),
+    whatsapp: {
+      textAr:
+        'عقد الإيجار جاهز للتوقيع — مبنى النور · A-12\nالمرجع LC-2201\nhttps://r.bhd-om.com/ar/portal',
+      textEn:
+        'Lease contract ready to sign — Mabani Al Noor · A-12\nRef LC-2201\nhttps://r.bhd-om.com/ar/portal',
     },
   },
   {
@@ -236,19 +339,26 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
     descriptionEn: 'Email and WhatsApp when sending an invoice or journal from accounting.',
     editable: false,
     tone: 'invoice',
-    email: {
+    email: bilingualEmail({
       tone: 'invoice',
-      subject: 'فاتورة إيجار أكتوبر',
+      subjectAr: 'فاتورة إيجار أكتوبر',
+      subjectEn: 'October rent invoice',
       recipientName: 'أحمد الزدجالي',
-      title: 'فاتورتك جاهزة 🧾',
-      intro: 'مرفق تفاصيل المبلغ وتاريخ الاستحقاق.',
+      titleAr: 'فاتورتك جاهزة 🧾',
+      titleEn: 'Your invoice is ready',
+      introAr: 'مرفق تفاصيل المبلغ وتاريخ الاستحقاق.',
+      introEn: 'Amount and due date are listed below.',
       details: [
-        { label: 'المبلغ', value: '150.000 ر.ع' },
-        { label: 'الاستحقاق', value: '2026-10-05' },
-        { label: 'المرجع', value: 'INV-8841' },
+        { labelAr: 'المبلغ', labelEn: 'Amount', value: '150.000 ر.ع / OMR' },
+        { labelAr: 'الاستحقاق', labelEn: 'Due', value: '2026-10-05' },
+        { labelAr: 'المرجع', labelEn: 'Reference', value: 'INV-8841' },
       ],
-      cta: { label: 'عرض الفاتورة', url: `${SAMPLE_ORIGIN}/ar/portal` },
-    },
+      ctaAr: 'عرض الفاتورة',
+      ctaEn: 'View invoice',
+      ctaUrl: `${SAMPLE_ORIGIN}/ar/portal`,
+      footnoteAr: 'أُرسلت من محاسبة العقار.',
+      footnoteEn: 'Sent from property accounting.',
+    }),
     whatsapp: {
       textAr:
         'فاتورة إيجار أكتوبر — 150.000 ر.ع تستحق في 2026-10-05.\nالمرجع INV-8841\nhttps://r.bhd-om.com/ar/portal',
@@ -258,7 +368,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
   },
   {
     id: 'arrears-reminder',
-    channel: 'email',
+    channel: 'both',
     category: 'reminder',
     nameAr: 'تذكير متأخرات إيجار',
     nameEn: 'Rent arrears reminder',
@@ -266,22 +376,35 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
     descriptionEn: 'Friendly automated reminder when rent is overdue.',
     editable: false,
     tone: 'arrears',
-    email: {
+    email: bilingualEmail({
       tone: 'arrears',
-      subject: 'تذكير ودّي بمتأخرات الإيجار',
+      subjectAr: 'تذكير ودّي بمتأخرات الإيجار',
+      subjectEn: 'Friendly rent arrears reminder',
       recipientName: 'أحمد الزدجالي',
-      title: 'تذكير لطيف ⏰',
-      intro: 'نذكّرك بوجود مبلغ مستحق. إن دفعتَ مسبقاً فتجاهل هذه الرسالة.',
+      titleAr: 'تذكير لطيف ⏰',
+      titleEn: 'A gentle reminder',
+      introAr: 'نذكّرك بوجود مبلغ مستحق. إن دفعتَ مسبقاً فتجاهل هذه الرسالة.',
+      introEn: 'This is a friendly note about an outstanding amount. If you already paid, please ignore this.',
       details: [
-        { label: 'المبلغ', value: '150.000 ر.ع' },
-        { label: 'الوحدة', value: 'مبنى النور · A-12' },
+        { labelAr: 'المبلغ', labelEn: 'Amount', value: '150.000 ر.ع / OMR' },
+        { labelAr: 'الوحدة', labelEn: 'Unit', value: 'مبنى النور · A-12' },
       ],
-      cta: { label: 'عرض التفاصيل', url: `${SAMPLE_ORIGIN}/ar/portal` },
+      ctaAr: 'عرض التفاصيل',
+      ctaEn: 'View details',
+      ctaUrl: `${SAMPLE_ORIGIN}/ar/portal`,
+      footnoteAr: 'تذكير آلي من نظام التحصيل.',
+      footnoteEn: 'Automated reminder from collections.',
+    }),
+    whatsapp: {
+      textAr:
+        'تذكير ودّي: متأخرات إيجار 150.000 ر.ع — مبنى النور · A-12\nhttps://r.bhd-om.com/ar/portal',
+      textEn:
+        'Friendly reminder: rent arrears OMR 150.000 — Mabani Al Noor · A-12\nhttps://r.bhd-om.com/ar/portal',
     },
   },
   {
     id: 'maintenance-update',
-    channel: 'email',
+    channel: 'both',
     category: 'maintenance',
     nameAr: 'تحديث طلب صيانة',
     nameEn: 'Maintenance request update',
@@ -289,22 +412,35 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
     descriptionEn: 'Notice when a maintenance request status changes.',
     editable: false,
     tone: 'maintenance',
-    email: {
+    email: bilingualEmail({
       tone: 'maintenance',
-      subject: 'تحديث على طلب الصيانة',
+      subjectAr: 'تحديث على طلب الصيانة',
+      subjectEn: 'Maintenance request update',
       recipientName: 'أحمد الزدجالي',
-      title: 'طلب الصيانة قيد التنفيذ 🛠️',
-      intro: 'الفني في الطريق أو يعمل على البلاغ. سنُعلمك عند الإغلاق.',
+      titleAr: 'طلب الصيانة قيد التنفيذ 🛠️',
+      titleEn: 'Maintenance in progress',
+      introAr: 'الفني في الطريق أو يعمل على البلاغ. سنُعلمك عند الإغلاق.',
+      introEn: 'A technician is on the way or working on the request. We will notify you when it is closed.',
       details: [
-        { label: 'الوحدة', value: 'A-12' },
-        { label: 'الحالة', value: 'قيد التنفيذ' },
+        { labelAr: 'الوحدة', labelEn: 'Unit', value: 'A-12' },
+        { labelAr: 'الحالة', labelEn: 'Status', value: 'قيد التنفيذ / In progress' },
       ],
-      cta: { label: 'عرض الطلب', url: `${SAMPLE_ORIGIN}/ar/portal` },
+      ctaAr: 'عرض الطلب',
+      ctaEn: 'View request',
+      ctaUrl: `${SAMPLE_ORIGIN}/ar/portal`,
+      footnoteAr: 'أُرسلت لأن حالة طلب الصيانة تغيّرت.',
+      footnoteEn: 'Sent because the maintenance request status changed.',
+    }),
+    whatsapp: {
+      textAr:
+        'تحديث صيانة — وحدة A-12\nالحالة: قيد التنفيذ\nhttps://r.bhd-om.com/ar/portal',
+      textEn:
+        'Maintenance update — unit A-12\nStatus: In progress\nhttps://r.bhd-om.com/ar/portal',
     },
   },
   {
     id: 'verification',
-    channel: 'email',
+    channel: 'both',
     category: 'account',
     nameAr: 'توثيق الحساب',
     nameEn: 'Account verification',
@@ -312,18 +448,32 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
     descriptionEn: 'Outcome of an account verification review.',
     editable: false,
     tone: 'reward',
-    email: {
+    email: bilingualEmail({
       tone: 'reward',
-      subject: 'تم اعتماد توثيق حسابك',
+      subjectAr: 'تم اعتماد توثيق حسابك',
+      subjectEn: 'Your account verification was approved',
       recipientName: 'عبد الحميد الرواحي',
-      title: 'حسابك موثّق 🏆',
-      intro: 'اعتماد التوثيق يفتح صلاحيات أوضح وثقة أعلى للمستأجرين.',
-      cta: { label: 'فتح الحساب', url: `${SAMPLE_ORIGIN}/ar/portal` },
+      titleAr: 'حسابك موثّق 🏆',
+      titleEn: 'Your account is verified',
+      introAr: 'اعتماد التوثيق يفتح صلاحيات أوضح وثقة أعلى للمستأجرين.',
+      introEn: 'Verification unlocks clearer permissions and stronger trust with tenants.',
+      details: [
+        { labelAr: 'الحالة', labelEn: 'Status', value: 'موثّق / Verified' },
+      ],
+      ctaAr: 'فتح الحساب',
+      ctaEn: 'Open account',
+      ctaUrl: `${SAMPLE_ORIGIN}/ar/portal`,
+      footnoteAr: 'أُرسلت بعد مراجعة طلب التوثيق.',
+      footnoteEn: 'Sent after your verification request was reviewed.',
+    }),
+    whatsapp: {
+      textAr: 'تم اعتماد توثيق حسابك على BHD R.\nhttps://r.bhd-om.com/ar/portal',
+      textEn: 'Your BHD R account verification was approved.\nhttps://r.bhd-om.com/ar/portal',
     },
   },
   {
     id: 'badge-awarded',
-    channel: 'email',
+    channel: 'both',
     category: 'account',
     nameAr: 'شارة / مكافأة',
     nameEn: 'Badge / reward',
@@ -331,22 +481,35 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
     descriptionEn: 'When a badge is awarded to an organization or party.',
     editable: false,
     tone: 'reward',
-    email: {
+    email: bilingualEmail({
       tone: 'reward',
-      subject: 'حصلت على شارة جديدة',
+      subjectAr: 'حصلت على شارة جديدة',
+      subjectEn: 'You earned a new badge',
       recipientName: 'عبد الحميد الرواحي',
-      title: 'شارة جديدة تستحق الاحتفال ✨',
-      intro: 'أُضيفت شارة إلى ملفك تقديراً لالتزامك.',
-      details: [{ label: 'الشارة', value: 'مضيف موثوق' }],
-      cta: { label: 'عرض الشارات', url: `${SAMPLE_ORIGIN}/ar/owner/badges` },
+      titleAr: 'شارة جديدة تستحق الاحتفال ✨',
+      titleEn: 'A new badge to celebrate',
+      introAr: 'أُضيفت شارة إلى ملفك تقديراً لالتزامك.',
+      introEn: 'A badge was added to your profile in recognition of your commitment.',
+      details: [
+        { labelAr: 'الشارة', labelEn: 'Badge', value: 'مضيف موثوق / Trusted host' },
+      ],
+      ctaAr: 'عرض الشارات',
+      ctaEn: 'View badges',
+      ctaUrl: `${SAMPLE_ORIGIN}/ar/owner/badges`,
+      footnoteAr: 'أُرسلت لأنك حصلت على شارة جديدة.',
+      footnoteEn: 'Sent because you were awarded a new badge.',
+    }),
+    whatsapp: {
+      textAr:
+        'مبروك! حصلت على شارة «مضيف موثوق» على BHD R.\nhttps://r.bhd-om.com/ar/owner/badges',
+      textEn:
+        'Congrats! You earned the “Trusted host” badge on BHD R.\nhttps://r.bhd-om.com/ar/owner/badges',
     },
   },
 ];
 
 export function listNotificationTemplates(): NotificationTemplateMeta[] {
-  return NOTIFICATION_TEMPLATES.map(
-    ({ email: _e, whatsapp: _w, ...meta }) => meta,
-  );
+  return NOTIFICATION_TEMPLATES.map(({ email: _e, whatsapp: _w, ...meta }) => meta);
 }
 
 export function getNotificationTemplate(id: string): NotificationTemplateSample | null {

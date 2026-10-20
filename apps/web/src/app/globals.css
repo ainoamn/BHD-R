@@ -14975,6 +14975,13 @@ body:has(.guest-stay-detail) #main-content {
   display: grid;
   gap: 0.65rem;
 }
+.notify-studio__wa-lang {
+  margin: 0.15rem 0 0;
+  color: #b7e0d8;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
 .notify-studio__wa-bubble {
   margin: 0;
   padding: 0.75rem 0.9rem;

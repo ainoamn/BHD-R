@@ -123,8 +123,8 @@ export function NotificationTemplatesStudio({ locale }: { locale: 'ar' | 'en' })
           <h1>{ar ? 'قوالب البريد وواتساب' : 'Email & WhatsApp templates'}</h1>
           <p className="muted">
             {ar
-              ? 'اطّلع على شكل الرسائل كما تصل للمستلم. التحرير المباشر من هنا قادم بعد ربط واتساب الرسمي (Meta).'
-              : 'Preview messages as recipients see them. In-page editing comes after official WhatsApp (Meta) is wired.'}
+              ? 'كل القوالب بالعربي والإنجليزي. اطّلع على شكل الرسائل كما تصل للمستلم. التحرير المباشر من هنا قادم بعد ربط واتساب الرسمي (Meta).'
+              : 'Every template is bilingual (Arabic + English). Preview messages as recipients see them. In-page editing comes after official WhatsApp (Meta) is wired.'}
           </p>
         </div>
       </header>
@@ -239,7 +239,9 @@ export function NotificationTemplatesStudio({ locale }: { locale: 'ar' | 'en' })
               {!loadingPreview && tab === 'whatsapp' && preview?.whatsapp ? (
                 <div className="notify-studio__wa">
                   <div className="notify-studio__wa-phone" dir="auto">
+                    <p className="notify-studio__wa-lang">العربية</p>
                     <p className="notify-studio__wa-bubble">{preview.whatsapp.textAr}</p>
+                    <p className="notify-studio__wa-lang">English</p>
                     <p className="notify-studio__wa-bubble notify-studio__wa-bubble--en">
                       {preview.whatsapp.textEn}
                     </p>
