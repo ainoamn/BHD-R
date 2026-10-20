@@ -21,9 +21,11 @@ export const dynamic = 'force-dynamic';
 const bodySchema = z.object({ sub: z.string().min(8).max(200) });
 
 /**
- * POST /api/auth/switch — instant product session switch (BHD-ACCOUNT-SWITCHER §5).
- * Returns JSON + Set-Cookie. No page reload. Pair with identity POST /api/auth/switch
- * from the browser (CORS + credentials) so `bhd_id` stays aligned.
+ * POST /api/auth/switch — product session rebind helper.
+ * Preferred client flow (BHD-ACCOUNT-SWITCHER §2): identity POST /switch then
+ * `location.assign(/api/auth/bhd/start?returnTo=…)` so the page reloads with the
+ * new account only. This JSON endpoint remains for clients that set cookies
+ * before navigating to start.
  */
 export async function POST(request: Request) {
   if (!hasDatabaseUrl()) {

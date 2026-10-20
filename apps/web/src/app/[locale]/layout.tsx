@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, setRequestLocale } from 'next-intl/server';
 import { isAppLocale, localeConfig, locales } from '@bhd-r/i18n';
+import { BhdSilentSso } from '@/components/bhd-silent-sso';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
 import { MarketingRoutePrefetch } from '@/components/marketing-route-prefetch';
@@ -114,6 +115,7 @@ export default async function LocaleLayout({
           {locale === 'ar' ? 'انتقل إلى المحتوى' : 'Skip to content'}
         </a>
         <NextIntlClientProvider messages={messages}>
+          <BhdSilentSso />
           <NavigationProgress />
           <MarketingRoutePrefetch />
           <SiteHeader />

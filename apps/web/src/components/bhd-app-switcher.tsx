@@ -16,6 +16,12 @@ import {
   launchUrlForApp,
   type BhdApp,
 } from '@/lib/bhd/apps';
+import {
+  addAccountUrl,
+  applyAccountIsolation,
+  identityFetch,
+  identityMe,
+} from '@/lib/identity/client';
 import { roleLabel, type OrganizationChoice } from '@/lib/team-shared';
 import type { Viewer } from '@/lib/types';
 
@@ -30,8 +36,6 @@ type SwitcherPerson = {
   picture: string | null;
   providers?: AuthProvider[];
 };
-
-const IDENTITY_ORIGIN = 'https://id.bhd-om.com';
 
 const PROVIDER_LABEL: Record<AuthProvider, { mark: string; ar: string; en: string }> = {
   password: { mark: '●', ar: 'تسجيل عادي', en: 'Password' },
@@ -146,15 +150,8 @@ function ProviderMarks({ providers, ar }: { providers: AuthProvider[]; ar: boole
   );
 }
 
-function Face({
-  user,
-  ar,
-  large = false,
-}: {
-  user: SwitcherPerson;
-  ar: boolean;
-  large?: boolean;
-}) {
+/** Circular photo only — provider badge sits beside the email (BHD-ACCOUNT-SWITCHER §1). */
+function Face({ user, large = false }: { user: SwitcherPerson; large?: boolean }) {
   const [broken, setBroken] = useState(false);
   const show = Boolean(user.picture) && !broken;
   const initial = (user.name || user.email || 'B').trim().slice(0, 1).toUpperCase();
@@ -173,7 +170,6 @@ function Face({
       ) : (
         <span aria-hidden="true">{initial}</span>
       )}
-      <ProviderMarks providers={user.providers || []} ar={ar} />
     </span>
   );
 }
@@ -190,12 +186,13 @@ function AccountRow({
   const meta = accountMeta(user);
   return (
     <span className="bhd-switcher-person">
-      <Face user={user} ar={ar} large={large} />
+      <Face user={user} large={large} />
       <span className="bhd-switcher-who">
-        <strong dir="ltr">{accountHandle(user)}</strong>
-        {meta.length ? (
-          <small dir="ltr">{meta.join(' · ')}</small>
-        ) : null}
+        <span className="bhd-switcher-who__line">
+          <strong dir="ltr">{accountHandle(user)}</strong>
+          <ProviderMarks providers={user.providers || []} ar={ar} />
+        </span>
+        {meta.length ? <small dir="ltr">{meta.join(' · ')}</small> : null}
       </span>
     </span>
   );
@@ -323,29 +320,18 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
     setAvatarBroken(false);
   }, [activePerson.picture]);
 
+  // Accounts list from identity host directly (BHD-ACCOUNT-SWITCHER §2.1).
   useEffect(() => {
     if (panel !== 'account') return;
     let live = true;
-    void fetch('/api/auth/me', {
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: { accept: 'application/json' },
-    })
-      .then((response) => (response.ok ? response.json() : null))
-      .then(
-        (
-          payload: {
-            accounts?: RosterAccount[];
-            currentSub?: string | null;
-          } | null,
-        ) => {
-          if (!live || !payload) return;
-          if (Array.isArray(payload.accounts)) setAccounts(payload.accounts);
-          if (typeof payload.currentSub === 'string' || payload.currentSub === null) {
-            setCurrentSub(payload.currentSub ?? null);
-          }
-        },
-      )
+    void identityMe()
+      .then((payload) => {
+        if (!live || !payload) return;
+        if (Array.isArray(payload.accounts)) {
+          setAccounts(rosterFromIdentityAccounts(payload.accounts));
+        }
+        if (payload.user?.id) setCurrentSub(payload.user.id);
+      })
       .catch(() => undefined);
     return () => {
       live = false;
@@ -386,81 +372,38 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
     };
   }, [panel]);
 
+  /** Only entry that may open `/login?add=1` — never used for switch. */
   const addAccount = () => {
-    const start = new URL('/api/auth/bhd/start', window.location.origin);
-    start.searchParams.set('returnTo', `/${locale}/portal`);
-    const login = new URL(`${IDENTITY_ORIGIN}/login`);
-    login.searchParams.set('add', '1');
-    login.searchParams.set('return_to', start.toString());
-    window.location.assign(login.toString());
+    window.location.assign(
+      addAccountUrl(`${window.location.pathname}${window.location.search}` || `/${locale}/portal`),
+    );
   };
 
-  /** Instant header update — no reload (BHD-ACCOUNT-SWITCHER §5). */
+  /**
+   * Switch active identity account, then rebind this product via SSO start so
+   * every page shows the new account’s data only (BHD-ACCOUNT-SWITCHER §2).
+   * Must not open `/login?add=1`.
+   */
   const switchTo = async (sub: string) => {
     if (!sub || sub === currentSub || switchBusy) return;
-    const prior = accounts.find((item) => item.sub === sub);
-    if (prior) {
-      setCurrentSub(sub);
-      setAccounts((list) => [prior, ...list.filter((item) => item.sub !== sub)]);
-      setAvatarBroken(false);
-    }
     setSwitchBusy(sub);
     try {
-      await fetch(`${IDENTITY_ORIGIN}/api/auth/switch`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { accept: 'application/json', 'content-type': 'application/json' },
-        body: JSON.stringify({ sub }),
-      })
-        .then(async (response) => {
-          if (!response.ok) return null;
-          return response.json() as Promise<{
-            user?: {
-              id?: string;
-              email?: string;
-              name?: string;
-              username?: string | null;
-              phone?: string | null;
-              picture?: string | null;
-              providers?: AuthProvider[];
-            };
-            accounts?: Array<{
-              id?: string;
-              email?: string;
-              name?: string;
-              username?: string | null;
-              phone?: string | null;
-              picture?: string | null;
-              providers?: AuthProvider[];
-            }>;
-          }>;
-        })
-        .then((payload) => {
-          if (!payload?.accounts) return;
-          const next = rosterFromIdentityAccounts(payload.accounts);
-          if (next.length) setAccounts(next);
-          if (payload.user?.id) setCurrentSub(payload.user.id);
-        })
-        .catch(() => undefined);
-
-      const product = await browserNextMutation<{
-        ok?: boolean;
-        currentSub?: string;
-        accounts?: RosterAccount[];
-      }>('/api/auth/switch', {
+      const response = await identityFetch('/api/auth/switch', {
         method: 'POST',
         body: JSON.stringify({ sub }),
       });
-      if (Array.isArray(product.accounts)) setAccounts(product.accounts);
-      if (product.currentSub) setCurrentSub(product.currentSub);
-      setPanel(null);
-      window.dispatchEvent(new CustomEvent('bhd-account-changed', { detail: { sub } }));
-      router.refresh();
+      if (!response.ok) {
+        setSwitchBusy(null);
+        return;
+      }
+      // Drop prior product session/data — start issues cookies for the new sub.
+      applyAccountIsolation(
+        `${window.location.pathname}${window.location.search}${window.location.hash}` ||
+          `/${locale}/portal`,
+      );
     } catch {
       setSwitchBusy(null);
-      return;
     }
-    setSwitchBusy(null);
   };
 
   const signOut = (all = false) => {

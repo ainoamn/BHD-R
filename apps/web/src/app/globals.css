@@ -8417,16 +8417,17 @@ body:has(.stays-booking-receipt) #main-content {
   font-size: 22px;
   font-weight: 500;
 }
-.bhd-switcher-face .bhd-switcher-providers {
-  position: absolute;
-  inset-inline-end: -2px;
-  bottom: -2px;
-}
 .bhd-switcher-who {
   min-width: 0;
   flex: 1;
   display: grid;
   gap: 2px;
+}
+.bhd-switcher-who__line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
 }
 .bhd-switcher-who strong,
 .bhd-switcher-who small {
@@ -8434,6 +8435,10 @@ body:has(.stays-booking-receipt) #main-content {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.bhd-switcher-who__line strong {
+  flex: 1;
+  min-width: 0;
 }
 .bhd-switcher-who strong {
   font-size: 13px;
@@ -8447,6 +8452,7 @@ body:has(.stays-booking-receipt) #main-content {
 }
 .bhd-switcher-providers {
   display: flex;
+  flex: 0 0 auto;
   gap: 2px;
 }
 .bhd-switcher-provider {
@@ -8461,7 +8467,6 @@ body:has(.stays-booking-receipt) #main-content {
   font-weight: 800;
   line-height: 1;
   cursor: default;
-  box-shadow: 0 0 0 2px #fff;
 }
 .bhd-switcher-provider.is-password {
   background: #092d24;
