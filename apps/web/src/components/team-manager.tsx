@@ -1,6 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react';
 import { BadgeChips } from '@/components/badges/badge-chips';
 import { IdentityAvatar, VerifiedMark } from '@/components/identity/verified-mark';
 import { ApiError, browserNextMutation } from '@/lib/api';
@@ -65,6 +73,16 @@ const ERRORS: Record<string, [string, string]> = {
   ],
   forbidden: ['لا تملك صلاحية هذا الإجراء.', 'You cannot do this.'],
   rate_limited: ['محاولات كثيرة، انتظر دقيقة.', 'Too many attempts; wait a minute.'],
+  invalid_body: ['البيانات غير مكتملة أو غير صحيحة.', 'The form data is incomplete or invalid.'],
+  create_failed: ['تعذر إضافة العضو. أعد المحاولة.', 'Could not add the member. Try again.'],
+  csrf_rejected: [
+    'انتهت صلاحية الحماية. حدّث الصفحة ثم أعد المحاولة.',
+    'Security token expired. Refresh the page and try again.',
+  ],
+  network_error: [
+    'تعذر الاتصال. تحقق من الشبكة ثم أعد المحاولة.',
+    'Could not connect. Check the network and try again.',
+  ],
 };
 
 function errorText(error: unknown, ar: boolean): string {
@@ -326,15 +344,33 @@ function AddMemberForm({
   const [roles, setRoles] = useState<string[]>([]);
   const [extras, setExtras] = useState<string[]>([]);
   const { busy, error, setError, run } = useMutation(ar);
+  const errorRef = useRef<HTMLParagraphElement>(null);
   const full = view.seats.used >= view.seats.limit;
   const included = includedBy(view, roles);
 
+  useEffect(() => {
+    if (!error) return;
+    errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [error]);
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!validTeamEmail(email)) return setError(ERRORS.team_email_invalid![ar ? 0 : 1]);
-    if (!roles.length) return setError(ERRORS.team_roles_required![ar ? 0 : 1]);
+    event.stopPropagation();
+    const trimmed = email.trim();
+    if (!trimmed) {
+      setError(ar ? 'أدخل البريد الإلكتروني.' : 'Enter an email address.');
+      return;
+    }
+    if (!validTeamEmail(trimmed)) {
+      setError(ERRORS.team_email_invalid![ar ? 0 : 1]);
+      return;
+    }
+    if (!roles.length) {
+      setError(ERRORS.team_roles_required![ar ? 0 : 1]);
+      return;
+    }
     const result = await run('/api/owner/team', 'POST', {
-      email: email.trim(),
+      email: trimmed,
       ...(name.trim() ? { displayName: name.trim() } : {}),
       roles,
       capabilities: extras.filter((id) => !included.has(id)),
@@ -356,13 +392,22 @@ function AddMemberForm({
   };
 
   return (
-    <form className="team-card team-add" onSubmit={(event) => void submit(event)}>
+    <form
+      className="team-card team-add"
+      noValidate
+      onSubmit={(event) => void submit(event)}
+    >
       <h2>{ar ? 'إضافة عضو للفريق' : 'Add a team member'}</h2>
       <p className="team-muted">
         {ar
-          ? 'أدخل البريد الذي يستخدمه في حساب BHD، واختر دوراً أو أكثر، ثم أضف ما تريد من صلاحيات منفصلة.'
-          : 'Use the email of their BHD account, choose one or more roles, then add any separate permissions.'}
+          ? 'أدخل البريد الذي يستخدمه في حساب BHD، واختر دوراً أو أكثر (مثل حارس مبنى)، ثم أضف ما تريد من صلاحيات منفصلة.'
+          : 'Use the email of their BHD account, choose one or more roles (e.g. building guard), then add any separate permissions.'}
       </p>
+      {error ? (
+        <p ref={errorRef} className="team-error team-error--banner" role="alert">
+          {error}
+        </p>
+      ) : null}
       <p className="team-muted team-hint">
         {ar
           ? 'مهم: يُربط العضو بحسابه فقط إذا كان هذا هو البريد المؤكَّد في حسابه على BHD. إن كان يعمل في منشأة أخرى فلا مشكلة: يبقى حساب واحد ويبدّل بين المنشآت من قائمة حسابه، ولا تختلط البيانات.'
@@ -374,9 +419,12 @@ function AddMemberForm({
           <input
             type="email"
             dir="ltr"
-            required
+            autoComplete="email"
             value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            onChange={(event) => {
+              setEmail(event.target.value);
+              if (error) setError(null);
+            }}
             placeholder="name@example.com"
           />
         </label>
@@ -386,6 +434,13 @@ function AddMemberForm({
         </label>
       </div>
       <RolePicker ar={ar} view={view} selected={roles} onChange={setRoles} />
+      {!roles.length ? (
+        <p className="team-muted team-hint">
+          {ar
+            ? 'اختر دوراً واحداً على الأقل قبل الإضافة — مثل «حارس مبنى» من مجموعة الميدان.'
+            : 'Choose at least one role before adding — e.g. “Building guard” under Field.'}
+        </p>
+      ) : null}
       <CapabilityPicker
         ar={ar}
         view={view}
@@ -398,7 +453,6 @@ function AddMemberForm({
             : 'Separate extra permissions (for example some accountant powers without the full role)'
         }
       />
-      {error ? <p className="team-error">{error}</p> : null}
       <div className="team-actions">
         <button className="button button--primary" type="submit" disabled={busy || full}>
           {busy ? (ar ? 'جارٍ الإضافة…' : 'Adding…') : ar ? 'إضافة للفريق' : 'Add to team'}
@@ -1494,9 +1548,13 @@ export function TeamManager({ locale, active }: { locale: 'ar' | 'en'; active: b
     if (active) void load();
   }, [active, load]);
 
+  const noticeRef = useRef<HTMLParagraphElement>(null);
   const changed = (message: string) => {
     setNotice(message);
     void load();
+    queueMicrotask(() =>
+      noticeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }),
+    );
   };
 
   const tabs: { id: Tab; label: string; count?: number }[] = view
@@ -1742,7 +1800,7 @@ export function TeamManager({ locale, active }: { locale: 'ar' | 'en'; active: b
       ) : null}
 
       {notice ? (
-        <p className="team-notice" role="status">
+        <p ref={noticeRef} className="team-notice" role="status">
           {notice}
         </p>
       ) : null}

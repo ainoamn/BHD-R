@@ -8160,6 +8160,14 @@ body:has(.stays-booking-receipt) #main-content {
   font-size: 0.8rem;
   font-weight: 700;
 }
+.team-error--banner {
+  margin: 0 0 0.75rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.75rem;
+  background: #fff1f0;
+  border: 1px solid #f0c2bc;
+  font-size: 0.88rem;
+}
 .team-notice {
   margin: 0;
   padding: 0.7rem 1rem;

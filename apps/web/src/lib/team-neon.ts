@@ -599,6 +599,21 @@ async function queueWelcomeEmail(
   if (queued) sendQueuedEmailsSoon();
 }
 
+/** Queue invite mail without rolling back the membership if the outbox write fails. */
+async function tryQueueWelcomeEmail(
+  tx: Tx,
+  input: Parameters<typeof queueWelcomeEmail>[1],
+): Promise<void> {
+  try {
+    await queueWelcomeEmail(tx, input);
+  } catch (error) {
+    console.error(
+      'team welcome email queue failed',
+      error instanceof Error ? error.message : 'unknown',
+    );
+  }
+}
+
 async function actorName(tx: Tx, claims: SessionClaims): Promise<string> {
   const actor = await tx.query.users.findFirst({
     where: eq(users.id, claims.sub),
@@ -742,7 +757,7 @@ export async function addTeamMember(
       roles,
       capabilities: capabilitiesFromPermissions(permissions),
     });
-    await queueWelcomeEmail(tx, {
+    await tryQueueWelcomeEmail(tx, {
       organizationId,
       organizationName: organization.displayNameAr || organization.displayNameEn,
       memberId: user.id,
@@ -912,7 +927,7 @@ export async function addPropertyOwner(
     await audit(tx, claims, 'organization.property_owner.added', user.id, {
       partyId: input.partyId,
     });
-    await queueWelcomeEmail(tx, {
+    await tryQueueWelcomeEmail(tx, {
       organizationId,
       organizationName: organization.displayNameAr || organization.displayNameEn,
       memberId: user.id,
@@ -982,7 +997,7 @@ export async function resendTeamInvite(
       ...(roles.includes('property_owner') ? [roleLabel('property_owner', true)] : []),
       ...(roles.includes('lawyer') ? [LAWYER_ROLE_TEXT] : []),
     ].join(' و');
-    await queueWelcomeEmail(tx, {
+    await tryQueueWelcomeEmail(tx, {
       organizationId,
       organizationName: organization.displayNameAr || organization.displayNameEn,
       memberId: userId,
@@ -1172,7 +1187,7 @@ export async function addLawyer(
       });
     if (existingAccount) await refreshMemberSessions(tx, user.id);
     await audit(tx, claims, 'organization.lawyer.added', user.id, { partyId });
-    await queueWelcomeEmail(tx, {
+    await tryQueueWelcomeEmail(tx, {
       organizationId,
       organizationName: organization.displayNameAr || organization.displayNameEn,
       memberId: user.id,
