@@ -2,15 +2,16 @@ import { notFound } from 'next/navigation';
 import { persistentPortalPage } from '@/lib/persistent-portal-page';
 import { ViewingRequestDesk } from '@/components/viewing-request-desk';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { canOpenPortalPath } from '@/lib/portal-access';
 import { readClaims } from '@/lib/portal-ops-data';
 import { loadViewingRequestForStaff } from '@/lib/viewing-requests-neon';
-import { requirePortal, requirePortalPath } from '@/lib/viewer';
+import { requirePortal } from '@/lib/viewer';
 
 async function Page({ params }: { params: Promise<{ locale: string; viewingId: string }> }) {
   const { locale: rawLocale, viewingId } = await params;
   const locale = rawLocale === 'en' ? 'en' : 'ar';
-  await requirePortal(locale, 'developer');
-  await requirePortalPath('developer', '/bookings');
+  const viewer = await requirePortal(locale, 'developer');
+  if (!canOpenPortalPath(viewer, 'developer', '/bookings')) notFound();
 
   if (!hasDatabaseUrl()) notFound();
   const claims = await readClaims();

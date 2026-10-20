@@ -175,7 +175,9 @@ export async function requirePortal(locale: string, portal: PortalRole): Promise
 
 /** Pages outside the ops sections follow the same rules as their sidebar entry. */
 export async function requirePortalPath(portal: PortalRole, path: string): Promise<void> {
-  const viewer = await getShellViewer();
+  // Prefer the full viewer: the shell JWT stub can race cold Neon and omit permissions,
+  // which previously 404'd valid sessions on deep links like viewing desks.
+  const viewer = (await getViewer()) ?? (await getShellViewer());
   if (!viewer || !canOpenPortalPath(viewer, portal, path)) {
     const { notFound } = await import('next/navigation');
     notFound();

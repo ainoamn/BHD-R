@@ -637,18 +637,24 @@ export async function loadViewingRequestForStaff(
       ? await staffContactPhone(tx, claims.organizationId!, row.viewingContactUserId)
       : null;
     const directions = await propertyDirections(tx, claims.organizationId!, row.propertyId);
-    const timeline = await loadViewingTimeline(tx, claims.organizationId!, row.id, {
-      createdAt: row.createdAt,
-      scheduledAt: row.scheduledAt,
-      arrivedAt: row.arrivedAt,
-      guestDecisionAt: row.guestDecisionAt,
-      completedAt: row.completedAt,
-      status: row.status,
-      prospectName: row.prospectName,
-      viewingContactName: row.viewingContactName,
-      notes: row.notes,
-      guestDecision: row.guestDecision,
-    });
+    let timeline: ViewingTimelineEntry[] = [];
+    try {
+      timeline = await loadViewingTimeline(tx, claims.organizationId!, row.id, {
+        createdAt: row.createdAt,
+        scheduledAt: row.scheduledAt,
+        arrivedAt: row.arrivedAt,
+        guestDecisionAt: row.guestDecisionAt,
+        completedAt: row.completedAt,
+        status: row.status,
+        prospectName: row.prospectName,
+        viewingContactName: row.viewingContactName,
+        notes: row.notes,
+        guestDecision: row.guestDecision,
+      });
+    } catch {
+      // Desk still opens if the history query fails (RLS / timeout); notes remain on the row.
+      timeline = [];
+    }
     return mapDetail(
       {
         ...row,
