@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.132 — 2026-10-20
+
+- **الإشعارات:** صفحة استوديو قوالب البريد وواتساب (`/owner/notifications`) للمعاينة الحية حسب التصنيف؛ التحرير المباشر لاحقاً مع Meta WhatsApp.
+
 ## 0.8.131.2 — 2026-10-20
 
 - **الفريق:** دعوة العضو الجديد بالبريد أصبحت بقالب الشركة (شعار BHD)، مرحّبة وبالعربي والإنجليزي، مع زر تفعيل الحساب والدخول.

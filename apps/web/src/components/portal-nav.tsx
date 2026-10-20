@@ -124,6 +124,7 @@ const navGroups: Record<PortalRole, NavGroup[]> = {
       items: [
         { path: '/reports', label: 'Common.reports', mark: '↗' },
         { path: '/team', label: 'Common.team', mark: '◎' },
+        { path: '/notifications', label: 'Common.notifications', mark: '✉' },
         { path: '/badges', label: 'Common.badges', mark: '★' },
         { path: '/api-keys', label: 'Common.apiKeys', mark: '⌘' },
         { path: '/lab-reset', label: 'Common.labReset', mark: '⟲' },
@@ -179,6 +180,7 @@ const navGroups: Record<PortalRole, NavGroup[]> = {
       items: [
         { path: '/reports', label: 'Common.reports', mark: '↗' },
         { path: '/team', label: 'Common.team', mark: '◎' },
+        { path: '/notifications', label: 'Common.notifications', mark: '✉' },
         { path: '/badges', label: 'Common.badges', mark: '★' },
         { path: '/api-keys', label: 'Common.apiKeys', mark: '⌘' },
         { path: '/lab-reset', label: 'Common.labReset', mark: '⟲' },
