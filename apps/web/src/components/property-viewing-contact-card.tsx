@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { fetchBrowserCsrfToken } from '@/lib/api';
 import type { PropertyViewingContact } from '@/lib/property-viewing-contact-neon';
 
@@ -12,6 +13,13 @@ function roleLabel(roleKey: string, ar: boolean): string {
   return roleKey;
 }
 
+/** Same-origin relative path only — blocks open redirects. */
+function safePortalReturnTo(raw: string | null): string | null {
+  if (!raw || !raw.startsWith('/') || raw.startsWith('//') || raw.includes('://')) return null;
+  if (!/^\/(ar|en)\/(owner|developer)\//.test(raw)) return null;
+  return raw;
+}
+
 export function PropertyViewingContactCard({
   propertyId,
   locale,
@@ -20,6 +28,9 @@ export function PropertyViewingContactCard({
   locale: 'ar' | 'en';
 }) {
   const ar = locale === 'ar';
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnTo = safePortalReturnTo(searchParams.get('returnTo'));
   const [detail, setDetail] = useState<PropertyViewingContact | null>(null);
   const [selected, setSelected] = useState('');
   const [busy, setBusy] = useState(false);
@@ -82,6 +93,11 @@ export function PropertyViewingContactCard({
       setDetail(body);
       setSelected(body.contactUserId ?? '');
       setSaved(true);
+      if (returnTo && body.contactUserId) {
+        router.push(returnTo);
+        router.refresh();
+        return;
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'update_failed');
     } finally {
@@ -90,7 +106,11 @@ export function PropertyViewingContactCard({
   }
 
   return (
-    <section className="pmh-card property-viewing-contact" aria-labelledby="viewing-contact-title">
+    <section
+      className="pmh-card property-viewing-contact"
+      aria-labelledby="viewing-contact-title"
+      id="viewing-contact"
+    >
       <header className="pmh-card__head">
         <h2 id="viewing-contact-title">
           {ar ? 'مسؤول المعاينة / حارس المبنى' : 'Viewing contact / building guard'}
@@ -101,6 +121,13 @@ export function PropertyViewingContactCard({
           ? 'حدّد من يستقبل زائر المعاينة ويمسح باركوده عند الوصول. لن يُفعَّل تأكيد الموعد وإشعار العميل قبل اختيار المسؤول.'
           : 'Choose who greets viewing guests and scans their pass on arrival. Scheduling and guest notification stay locked until a contact is set.'}
       </p>
+      {returnTo ? (
+        <p className="notice" role="status">
+          {ar
+            ? 'بعد الحفظ ستُعاد إلى طلب المعاينة لإكمال تأكيد الموعد.'
+            : 'After saving you will return to the viewing request to confirm the schedule.'}
+        </p>
+      ) : null}
       {!detail && !error ? (
         <p className="muted" role="status">
           {ar ? 'جارٍ التحميل…' : 'Loading…'}
@@ -139,12 +166,26 @@ export function PropertyViewingContactCard({
           <button
             type="button"
             className="button button--primary"
-            disabled={busy || selected === (detail.contactUserId ?? '')}
+            disabled={
+              busy ||
+              selected === (detail.contactUserId ?? '') ||
+              Boolean(returnTo && !selected)
+            }
             onClick={() => void save()}
           >
-            {busy ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : ar ? 'حفظ المسؤول' : 'Save contact'}
+            {busy
+              ? ar
+                ? 'جارٍ الحفظ…'
+                : 'Saving…'
+              : returnTo
+                ? ar
+                  ? 'حفظ والعودة لطلب المعاينة'
+                  : 'Save and return to viewing'
+                : ar
+                  ? 'حفظ المسؤول'
+                  : 'Save contact'}
           </button>
-          {saved ? (
+          {saved && !returnTo ? (
             <p className="notice notice--success" role="status">
               {ar ? 'تم حفظ مسؤول المعاينة.' : 'Viewing contact saved.'}
             </p>

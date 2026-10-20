@@ -187,14 +187,19 @@ export function ViewingRequestDesk({
       </dl>
 
       {viewing.canManage && open && !viewing.canSchedule ? (
-        <p className="notice notice--error" role="alert">
-          {ar
-            ? 'لا يمكن تأكيد الموعد وإشعار العميل قبل تحديد حارس المبنى أو المسؤول عن المعاينة في صفحة العقار.'
-            : 'Confirming the schedule and notifying the guest requires a building guard or viewing contact on the property page first.'}{' '}
-          <Link href={`/${locale}/${portal}/properties/${viewing.propertyId}`}>
-            {ar ? 'افتح صفحة العقار وحدّد المسؤول' : 'Open property page and set the contact'}
+        <div className="notice notice--error viewing-desk__contact-gate" role="alert">
+          <p>
+            {ar
+              ? 'لا يمكن تأكيد الموعد وإشعار العميل قبل تحديد حارس المبنى أو المسؤول عن المعاينة في صفحة العقار.'
+              : 'Confirming the schedule and notifying the guest requires a building guard or viewing contact on the property page first.'}
+          </p>
+          <Link
+            className="button button--primary"
+            href={`/${locale}/${portal}/properties/${viewing.propertyId}?returnTo=${encodeURIComponent(`/${locale}/${portal}/bookings/viewings/${viewing.id}`)}#viewing-contact`}
+          >
+            {ar ? 'تحديد المسؤول الآن' : 'Set contact now'}
           </Link>
-        </p>
+        </div>
       ) : null}
 
       {viewing.notes ? (
