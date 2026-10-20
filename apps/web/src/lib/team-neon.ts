@@ -910,7 +910,7 @@ export async function addTeamMember(
     await assertSeatAvailable(tx, organizationId, organization.planKey);
     const { user, existingAccount } = await accountFor(tx, email, input.displayName);
     const partyId = await staffPartyFor(tx, organizationId, {
-      partyId: input.partyId,
+      ...(input.partyId ? { partyId: input.partyId } : {}),
       email,
       name: input.displayName?.trim().slice(0, 200) || user.displayName || email.split('@')[0]!,
     });
