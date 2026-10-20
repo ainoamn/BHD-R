@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { fetchBrowserCsrfToken } from '@/lib/api';
 import type { PropertyViewingContact } from '@/lib/property-viewing-contact-neon';
@@ -31,6 +32,7 @@ export function PropertyViewingContactCard({
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = safePortalReturnTo(searchParams.get('returnTo'));
+  const teamHref = `/${locale}/owner/team`;
   const [detail, setDetail] = useState<PropertyViewingContact | null>(null);
   const [selected, setSelected] = useState('');
   const [busy, setBusy] = useState(false);
@@ -118,8 +120,8 @@ export function PropertyViewingContactCard({
       </header>
       <p className="muted">
         {ar
-          ? 'حدّد من يستقبل زائر المعاينة ويمسح باركوده عند الوصول. لن يُفعَّل تأكيد الموعد وإشعار العميل قبل اختيار المسؤول.'
-          : 'Choose who greets viewing guests and scans their pass on arrival. Scheduling and guest notification stay locked until a contact is set.'}
+          ? 'حدّد من يستقبل زائر المعاينة ويمسح باركوده عند الوصول. الأسماء هنا من أعضاء الفريق (ليس من دفتر الأطراف). لن يُفعَّل تأكيد الموعد قبل اختيار المسؤول.'
+          : 'Choose who greets viewing guests and scans their pass on arrival. Names come from team members (not the contacts book). Scheduling stays locked until a contact is set.'}
       </p>
       {returnTo ? (
         <p className="notice" role="status">
@@ -156,11 +158,29 @@ export function PropertyViewingContactCard({
               ))}
             </select>
           </label>
+          {detail.candidates.length <= 1 ? (
+            <p className="notice" role="status">
+              {ar ? (
+                <>
+                  لإضافة حارس أو مسؤول آخر: افتح{' '}
+                  <Link href={teamHref}>الفريق</Link> → دعوة عضو → الدور{' '}
+                  <strong>حارس مبنى</strong> (أو مدير عقار / موظف إداري). بعد قبول الدعوة يظهر هنا.
+                </>
+              ) : (
+                <>
+                  To add another guard or staff member: open{' '}
+                  <Link href={teamHref}>Team</Link> → invite → role{' '}
+                  <strong>Building guard</strong> (or property manager / admin staff). They appear
+                  here after accepting.
+                </>
+              )}
+            </p>
+          ) : null}
           {!detail.candidates.length ? (
             <p className="notice notice--error" role="alert">
               {ar
-                ? 'لا يوجد أعضاء فريق بصلاحية الميدان بعد. أضف حارس مبنى أو موظفاً من صفحة الفريق أولاً.'
-                : 'No field staff yet. Add a building guard or staff member on the team page first.'}
+                ? 'لا يوجد أعضاء فريق بعد. أضف حارس مبنى من صفحة الفريق أولاً.'
+                : 'No team members yet. Add a building guard on the team page first.'}
             </p>
           ) : null}
           <button
