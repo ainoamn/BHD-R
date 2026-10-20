@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.132.1 — 2026-10-20
+
+- **حارس المبنى:** صلاحيات أضيق (معاينات + وصول + صيانة + مهام) دون قوالب الإشعارات/الشارات/المحفظة/الطلبات؛ وإضافة `viewing.read` حتى تفتح صفحة المعاينة بدل 404.
+
 ## 0.8.132 — 2026-10-20
 
 - **الإشعارات:** صفحة استوديو قوالب البريد وواتساب (`/owner/notifications`) للمعاينة الحية حسب التصنيف؛ التحرير المباشر لاحقاً مع Meta WhatsApp.

@@ -110,8 +110,10 @@ export const ROLE_LABELS: Record<
   building_guard: {
     ar: 'حارس مبنى',
     en: 'Building guard',
-    hintAr: 'يرى العقارات والحجوزات القادمة ويفتح طلبات الصيانة والمهام اليومية.',
-    hintEn: 'Sees properties and arrivals; opens maintenance requests and daily tasks.',
+    hintAr:
+      'يرى الحجوزات والمعاينات القادمة ويمسح بطاقة الزائر، ويفتح الصيانة والمهام اليومية — دون إدارة الفريق أو القوالب أو المحفظة.',
+    hintEn:
+      'Sees upcoming bookings and viewings, scans visitor passes, and opens maintenance and daily tasks — not team admin, templates or the portfolio.',
   },
   auditor: {
     ar: 'مدقق (قراءة فقط)',

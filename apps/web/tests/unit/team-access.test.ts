@@ -184,10 +184,20 @@ describe('membership access', () => {
     expect(canOpenSection(staff, 'owner', 'invoices')).toBe(true);
     const guard = accessFromMemberships([{ roleKey: 'building_guard', permissions: [] }]);
     expect(canOpenSection(guard, 'owner', 'maintenance')).toBe(true);
+    expect(canOpenSection(guard, 'owner', 'bookings')).toBe(true);
     expect(canOpenSection(guard, 'owner', 'invoices')).toBe(false);
     expect(canOpenSection(guard, 'owner', 'contacts')).toBe(false);
+    expect(canOpenPortalPath(guard, 'owner', '/properties')).toBe(false);
+    expect(canOpenPortalPath(guard, 'owner', '/requests')).toBe(false);
+    expect(canOpenPortalPath(guard, 'owner', '/notifications')).toBe(false);
+    expect(canOpenPortalPath(guard, 'owner', '/badges')).toBe(false);
+    expect(canOpenPortalPath(guard, 'owner', '/stays')).toBe(false);
     expect(canOpenPortalPath(guard, 'owner', '/stays/rates')).toBe(false);
     expect(canOpenPortalPath(guard, 'owner', '/stays/calendar')).toBe(true);
+    expect(guard.permissions).toContain('viewing.read');
+    expect(guard.permissions).toContain('viewing.checkin');
+    expect(guard.permissions).not.toContain('property.read');
+    expect(guard.permissions).not.toContain('request.read');
   });
 
   it('limits an external lawyer to the legal cases assigned to their party', () => {

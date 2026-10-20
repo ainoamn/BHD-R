@@ -623,17 +623,18 @@ export const rolePermissions: Readonly<Record<RoleKey, readonly Permission[]>> =
     'stay.booking.read',
     'stay.booking.manage',
   ],
-  /** On-site guard: who arrives and leaves, and reporting issues. */
+  /**
+   * On-site guard: arrivals, viewing check-in, maintenance reports and daily tasks.
+   * No org admin surfaces (notification templates, badges, portfolio editor, requests inbox).
+   */
   building_guard: [
-    'property.read',
     'unit.read',
     'stay.booking.read',
     'reservation.handover',
+    'viewing.read',
     'viewing.checkin',
     'maintenance.read',
     'maintenance.create',
-    'request.read',
-    'request.create',
     'task.read',
     'task.update',
   ],

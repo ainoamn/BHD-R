@@ -115,21 +115,28 @@ export function canOpenSection(
   return !scopedOwnerParty(access) || SCOPED_OWNER_SECTIONS.has(section);
 }
 
+/** Field staff who should not see org-admin or portfolio-management surfaces. */
+const FIELD_OPS_ROLES: ReadonlySet<string> = new Set(['building_guard', 'maintenance_agent']);
+
+/** True when the viewer only holds field ops roles (guard / technician), not managers. */
+export function isFieldOpsOnly(access: PortalAccess): boolean {
+  const owned = access.roles.filter((role) => OWNER_PORTAL_ROLES.includes(role));
+  return owned.length > 0 && owned.every((role) => FIELD_OPS_ROLES.has(role));
+}
+
 /** Owner-portal pages outside the ops sections (stays, terms) and what opens them. */
 const PAGE_PERMISSIONS: Readonly<Record<string, readonly string[]>> = {
-  '/stays': ['stay.booking.read', 'stay.inventory.manage', 'stay.rate.manage'],
+  /** Stays board is management; calendar stays open via stay.booking.read for arrivals. */
+  '/stays': ['stay.inventory.manage', 'stay.rate.manage', 'stay.booking.manage'],
   '/stays/calendar': ['stay.booking.read', 'stay.inventory.manage'],
   '/stays/rates': ['stay.rate.manage'],
   '/stays/setup': ['stay.inventory.manage'],
   '/terms': ['property.update', 'contract.template.read'],
-  '/badges': ['party.read', 'property.read', 'organization.members.read'],
+  /** Property owners reach badges via property.read; field ops are blocked separately. */
+  '/badges': ['party.read', 'property.read', 'organization.members.read', 'organization.write'],
   '/lab-reset': ['organization.write'],
-  '/notifications': [
-    'organization.members.read',
-    'organization.write',
-    'property.read',
-    'party.read',
-  ],
+  /** Templates studio is for owners/admins who shape org messaging — not field staff. */
+  '/notifications': ['organization.members.read', 'organization.write'],
   '/properties/new': ['property.create'],
   '/properties/edit': ['property.update'],
   '/properties/terms': ['property.update', 'contract.template.read'],
@@ -143,9 +150,20 @@ export function canOpenPortalPath(access: PortalAccess, portal: PortalRole, path
     return access.permissions.includes('request.update') || access.roles.includes('property_owner');
   }
   const section = basePath.slice(1) as OperationsSection;
-  if (section in SECTION_PERMISSIONS) return canOpenSection(access, portal, section);
+  if (section in SECTION_PERMISSIONS) {
+    if (isFieldOpsOnly(access) && (section === 'properties' || section === 'requests')) {
+      return false;
+    }
+    return canOpenSection(access, portal, section);
+  }
   const needed = PAGE_PERMISSIONS[basePath];
   if (!needed || portal === 'tenant') return true;
   if (scopedOwnerParty(access)) return false;
+  if (
+    isFieldOpsOnly(access) &&
+    (basePath === '/notifications' || basePath === '/badges' || basePath === '/stays')
+  ) {
+    return false;
+  }
   return needed.some((permission) => access.permissions.includes(permission));
 }
