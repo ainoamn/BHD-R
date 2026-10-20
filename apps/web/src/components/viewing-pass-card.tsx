@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import type { ViewingGuestDecision, ViewingGuestPass } from '@/lib/viewing-requests-shared';
 
@@ -44,6 +44,41 @@ function errorMessage(code: string, ar: boolean): string {
     default:
       return ar ? 'تعذّر إكمال الطلب. حاول مرة أخرى.' : 'Could not complete the request. Try again.';
   }
+}
+
+function statusLabel(status: string, ar: boolean): string {
+  const map: Record<string, [string, string]> = {
+    requested: ['طلب', 'Requested'],
+    scheduled: ['مجدول', 'Scheduled'],
+    completed: ['مكتمل', 'Completed'],
+    no_show: ['لم يحضر', 'No-show'],
+    cancelled: ['ملغى', 'Cancelled'],
+    converted: ['تحوّل لحجز', 'Converted'],
+  };
+  const pair = map[status];
+  return pair ? (ar ? pair[0] : pair[1]) : status;
+}
+
+function statusTone(status: string): string {
+  switch (status) {
+    case 'requested':
+      return 'request';
+    case 'scheduled':
+      return 'scheduled';
+    case 'completed':
+    case 'converted':
+      return 'done';
+    case 'no_show':
+      return 'missed';
+    case 'cancelled':
+      return 'cancelled';
+    default:
+      return 'neutral';
+  }
+}
+
+function PassBadge({ tone, children }: { tone: string; children: ReactNode }) {
+  return <span className={`vp-badge vp-badge--${tone}`}>{children}</span>;
 }
 
 export function ViewingPassCard({
@@ -215,16 +250,19 @@ export function ViewingPassCard({
 
   if (error && !pass) {
     return (
-      <p className="notice notice--error" role="alert">
-        {ar ? 'بطاقة المعاينة غير صالحة أو منتهية.' : 'This viewing pass is invalid or expired.'}
-      </p>
+      <div className="vp vp--empty">
+        <p className="vp__banner vp__banner--err" role="alert">
+          {ar ? 'بطاقة المعاينة غير صالحة أو منتهية.' : 'This viewing pass is invalid or expired.'}
+        </p>
+      </div>
     );
   }
   if (!pass) {
     return (
-      <p className="muted" role="status">
-        {ar ? 'جارٍ تحميل بطاقة المعاينة…' : 'Loading viewing pass…'}
-      </p>
+      <div className="vp vp--empty" role="status">
+        <div className="vp__skeleton" aria-hidden="true" />
+        <p className="vp__loading">{ar ? 'جارٍ تحميل بطاقة المعاينة…' : 'Loading viewing pass…'}</p>
+      </div>
     );
   }
 
@@ -234,159 +272,176 @@ export function ViewingPassCard({
   const showDecision = !pass.guestDecision && Boolean(pass.arrivedAt) && !closed;
   const waitingArrival = canManage;
   const purpose = pass.listingPurpose;
+  const tone = statusTone(pass.status);
+  const propertyTitle = ar ? pass.propertyNameAr : pass.propertyNameEn || pass.propertyNameAr;
 
   return (
-    <div className="viewing-pass">
-      <header className="viewing-pass__head">
-        <span className="ops-kicker">BHD R · VIEWING</span>
-        <h1>{ar ? 'بطاقة معاينة العقار' : 'Property viewing pass'}</h1>
-        <p className="muted">
-          {ar ? pass.propertyNameAr : pass.propertyNameEn || pass.propertyNameAr}
-          {' · '}
-          {pass.unitCode}
-        </p>
-      </header>
+    <div className={`vp vp--${tone}`}>
+      <article className="vp__ticket">
+        <header className="vp__ticket-head">
+          <div>
+            <p className="vp__brand">BHD R · {ar ? 'معاينة' : 'Viewing'}</p>
+            <h1>{propertyTitle}</h1>
+            <p className="vp__unit" dir="ltr">
+              {pass.unitCode}
+            </p>
+          </div>
+          <PassBadge tone={tone}>{statusLabel(pass.status, ar)}</PassBadge>
+        </header>
 
-      {closed ? (
-        <p className="notice" role="status">
-          {pass.status === 'no_show'
-            ? ar
-              ? 'تم تسجيل عدم حضورك لهذا الموعد.'
-              : 'This appointment was marked as not attended.'
-            : ar
-              ? 'تم إلغاء هذا الموعد.'
-              : 'This appointment was cancelled.'}
-        </p>
-      ) : null}
+        {closed ? (
+          <p className="vp__banner vp__banner--warn" role="status">
+            {pass.status === 'no_show'
+              ? ar
+                ? 'تم تسجيل عدم حضورك لهذا الموعد.'
+                : 'This appointment was marked as not attended.'
+              : ar
+                ? 'تم إلغاء هذا الموعد.'
+                : 'This appointment was cancelled.'}
+          </p>
+        ) : null}
 
-      {!closed ? (
-        <div className="viewing-pass__body">
-          {pass.qrSvg && !pass.arrivedAt ? (
-            <span
-              className="viewing-pass__qr"
-              role="img"
-              aria-label={ar ? 'باركود المعاينة' : 'Viewing barcode'}
-              dangerouslySetInnerHTML={{ __html: pass.qrSvg }}
-            />
-          ) : null}
-          <dl className="viewing-pass__facts">
-            <div>
-              <dt>{ar ? 'الزائر' : 'Visitor'}</dt>
-              <dd>
-                <bdi>{pass.prospectName}</bdi>
-              </dd>
-            </div>
-            <div>
-              <dt>{ar ? 'المرجع' : 'Reference'}</dt>
-              <dd dir="ltr">{pass.reference}</dd>
-            </div>
-            {!pass.arrivedAt ? (
-              <>
-                <div>
-                  <dt>{ar ? 'اسم المستخدم' : 'Username'}</dt>
-                  <dd dir="ltr" className="viewing-pass__code">
-                    {pass.accessUsername}
-                  </dd>
-                </div>
-                <div>
-                  <dt>{ar ? 'الرقم السري' : 'PIN'}</dt>
-                  <dd dir="ltr" className="viewing-pass__code">
-                    {pass.accessPin.slice(0, 3)} {pass.accessPin.slice(3)}
-                  </dd>
-                </div>
-              </>
-            ) : null}
-            <div>
-              <dt>{ar ? 'الموعد' : 'Scheduled'}</dt>
-              <dd dir="ltr">{stamp(pass.scheduledAt, ar)}</dd>
-            </div>
-            {pass.preferredAt ? (
-              <div>
-                <dt>{ar ? 'موعد بديل مطلوب' : 'Requested new time'}</dt>
-                <dd dir="ltr">{stamp(pass.preferredAt, ar)}</dd>
+        {!closed ? (
+          <div className="vp__ticket-body">
+            {pass.qrSvg && !pass.arrivedAt ? (
+              <div className="vp__qr-well">
+                <span
+                  className="vp__qr"
+                  role="img"
+                  aria-label={ar ? 'باركود المعاينة' : 'Viewing barcode'}
+                  dangerouslySetInnerHTML={{ __html: pass.qrSvg }}
+                />
+                <p>{ar ? 'اعرض هذا الرمز للحارس' : 'Show this code to the guard'}</p>
               </div>
             ) : null}
-            {pass.contactName ? (
-              <div>
-                <dt>{ar ? 'الحارس / المسؤول' : 'Guard / host'}</dt>
-                <dd>{pass.contactName}</dd>
+
+            <div className="vp__meta">
+              <div className="vp__meta-row">
+                <span>{ar ? 'الزائر' : 'Visitor'}</span>
+                <strong>
+                  <bdi>{pass.prospectName}</bdi>
+                </strong>
               </div>
-            ) : null}
-            {pass.contactPhone ? (
-              <div>
-                <dt>{ar ? 'هاتف الحارس' : 'Guard phone'}</dt>
-                <dd dir="ltr">
-                  <a href={`tel:${pass.contactPhone.replace(/[^\d+]/g, '')}`}>{pass.contactPhone}</a>
-                </dd>
+              <div className="vp__meta-row">
+                <span>{ar ? 'المرجع' : 'Reference'}</span>
+                <strong dir="ltr">{pass.reference}</strong>
               </div>
-            ) : null}
-            {pass.propertyAddress ? (
-              <div>
-                <dt>{ar ? 'الموقع' : 'Location'}</dt>
-                <dd>{pass.propertyAddress}</dd>
+              <div className="vp__meta-row">
+                <span>{ar ? 'الموعد' : 'Scheduled'}</span>
+                <strong dir="ltr">{stamp(pass.scheduledAt, ar)}</strong>
               </div>
-            ) : null}
-            {pass.arrivedAt ? (
-              <div>
-                <dt>{ar ? 'وقت الوصول' : 'Arrived'}</dt>
-                <dd dir="ltr">{stamp(pass.arrivedAt, ar)}</dd>
-              </div>
-            ) : null}
-          </dl>
-          {pass.mapEmbedSrc || pass.propertyMapsUrl ? (
-            <div className="viewing-pass__map-wrap">
-              {pass.mapEmbedSrc ? (
-                <div
-                  className="viewing-pass__map"
-                  role={pass.propertyMapsUrl ? 'link' : undefined}
-                  tabIndex={pass.propertyMapsUrl ? 0 : undefined}
-                  aria-label={ar ? 'افتح موقع العقار على الخريطة' : 'Open property on the map'}
-                  onClick={() => {
-                    if (pass.propertyMapsUrl) {
-                      window.open(pass.propertyMapsUrl, '_blank', 'noopener,noreferrer');
-                    }
-                  }}
-                  onKeyDown={(event) => {
-                    if (!pass.propertyMapsUrl) return;
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      window.open(pass.propertyMapsUrl, '_blank', 'noopener,noreferrer');
-                    }
-                  }}
-                >
-                  <iframe
-                    title={ar ? 'خريطة العقار' : 'Property map'}
-                    src={pass.mapEmbedSrc}
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                    tabIndex={-1}
-                  />
+              {pass.preferredAt ? (
+                <div className="vp__meta-row">
+                  <span>{ar ? 'موعد بديل مطلوب' : 'Requested new time'}</span>
+                  <strong dir="ltr">{stamp(pass.preferredAt, ar)}</strong>
                 </div>
               ) : null}
-              {pass.propertyMapsUrl ? (
-                <p>
-                  <a href={pass.propertyMapsUrl} target="_blank" rel="noreferrer" dir="ltr">
+              {pass.arrivedAt ? (
+                <div className="vp__meta-row">
+                  <span>{ar ? 'وقت الوصول' : 'Arrived'}</span>
+                  <strong dir="ltr">{stamp(pass.arrivedAt, ar)}</strong>
+                </div>
+              ) : null}
+            </div>
+
+            {!pass.arrivedAt ? (
+              <div className="vp__creds">
+                <div className="vp__cred">
+                  <span>{ar ? 'اسم المستخدم' : 'Username'}</span>
+                  <strong dir="ltr">{pass.accessUsername}</strong>
+                </div>
+                <div className="vp__cred">
+                  <span>{ar ? 'الرقم السري' : 'PIN'}</span>
+                  <strong dir="ltr">
+                    {pass.accessPin.slice(0, 3)} {pass.accessPin.slice(3)}
+                  </strong>
+                </div>
+              </div>
+            ) : null}
+
+            {(pass.contactName || pass.contactPhone || pass.propertyAddress) && (
+              <div className="vp__contact">
+                {pass.contactName ? (
+                  <div>
+                    <span>{ar ? 'الحارس / المسؤول' : 'Guard / host'}</span>
+                    <strong>{pass.contactName}</strong>
+                  </div>
+                ) : null}
+                {pass.contactPhone ? (
+                  <div>
+                    <span>{ar ? 'هاتف الحارس' : 'Guard phone'}</span>
+                    <strong dir="ltr">
+                      <a href={`tel:${pass.contactPhone.replace(/[^\d+]/g, '')}`}>{pass.contactPhone}</a>
+                    </strong>
+                  </div>
+                ) : null}
+                {pass.propertyAddress ? (
+                  <div className="vp__contact-wide">
+                    <span>{ar ? 'الموقع' : 'Location'}</span>
+                    <strong>{pass.propertyAddress}</strong>
+                  </div>
+                ) : null}
+              </div>
+            )}
+
+            {pass.mapEmbedSrc || pass.propertyMapsUrl ? (
+              <div className="vp__map-wrap">
+                {pass.mapEmbedSrc ? (
+                  <div
+                    className="vp__map"
+                    role={pass.propertyMapsUrl ? 'link' : undefined}
+                    tabIndex={pass.propertyMapsUrl ? 0 : undefined}
+                    aria-label={ar ? 'افتح موقع العقار على الخريطة' : 'Open property on the map'}
+                    onClick={() => {
+                      if (pass.propertyMapsUrl) {
+                        window.open(pass.propertyMapsUrl, '_blank', 'noopener,noreferrer');
+                      }
+                    }}
+                    onKeyDown={(event) => {
+                      if (!pass.propertyMapsUrl) return;
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        window.open(pass.propertyMapsUrl, '_blank', 'noopener,noreferrer');
+                      }
+                    }}
+                  >
+                    <iframe
+                      title={ar ? 'خريطة العقار' : 'Property map'}
+                      src={pass.mapEmbedSrc}
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      tabIndex={-1}
+                    />
+                  </div>
+                ) : null}
+                {pass.propertyMapsUrl ? (
+                  <a
+                    className="vp__map-link"
+                    href={pass.propertyMapsUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
                     {ar ? 'فتح في خرائط Google' : 'Open in Google Maps'}
                   </a>
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+      </article>
 
       {waitingArrival ? (
-        <p className="viewing-pass__note viewing-pass__note--wait" role="status">
+        <p className="vp__banner vp__banner--wait" role="status">
           {ar
-            ? 'اعرض الباركود أو بيانات الدخول على الحارس عند وصولك. بعد تسجيل الحضور ستظهر لك خيارات متابعة الحجز أو الرفض تلقائياً.'
-            : 'Show the barcode or credentials to the guard when you arrive. After check-in, options to continue booking or decline will appear here automatically.'}
+            ? 'اعرض الباركود أو بيانات الدخول للحارس عند وصولك. بعد تسجيل الحضور ستظهر خيارات الحجز أو الرفض تلقائياً.'
+            : 'Show the barcode or credentials to the guard when you arrive. After check-in, book or decline options appear here automatically.'}
         </p>
       ) : null}
 
       {canManage ? (
-        <section className="viewing-pass__manage" aria-labelledby="viewing-manage-title">
-          <div className="viewing-pass__manage-head">
-            <h2 id="viewing-manage-title">{ar ? 'إدارة الموعد' : 'Manage appointment'}</h2>
+        <section className="vp__panel" aria-labelledby="vp-manage-title">
+          <div className="vp__panel-head">
+            <h2 id="vp-manage-title">{ar ? 'إدارة الموعد' : 'Manage appointment'}</h2>
             <button
               type="button"
               className="button button--quiet button--tiny"
@@ -396,7 +451,7 @@ export function ViewingPassCard({
             </button>
           </div>
           {manageOpen ? (
-            <div className="viewing-pass__manage-body">
+            <div className="vp__panel-body">
               <label className="field">
                 <span>{ar ? 'موعد جديد مقترح' : 'Proposed new time'}</span>
                 <input
@@ -419,7 +474,7 @@ export function ViewingPassCard({
                   }
                 />
               </label>
-              <div className="viewing-pass__actions">
+              <div className="vp__actions">
                 <button
                   type="button"
                   className="button button--primary"
@@ -451,13 +506,13 @@ export function ViewingPassCard({
       ) : null}
 
       {notice ? (
-        <p className="notice notice--success" role="status">
+        <p className="vp__banner vp__banner--ok" role="status">
           {notice}
         </p>
       ) : null}
 
       {pass.guestDecision ? (
-        <p className="notice notice--success" role="status">
+        <p className="vp__banner vp__banner--ok" role="status">
           {pass.guestDecision === 'declined'
             ? ar
               ? 'سجّلنا أنك لست راغباً حالياً. شكراً لزيارتك.'
@@ -473,12 +528,12 @@ export function ViewingPassCard({
       ) : null}
 
       {showDecision ? (
-        <section className="viewing-pass__decision" aria-labelledby="viewing-decision-title">
-          <h2 id="viewing-decision-title">{ar ? 'بعد المعاينة' : 'After the viewing'}</h2>
-          <p className="muted">
+        <section className="vp__decision" aria-labelledby="vp-decision-title">
+          <h2 id="vp-decision-title">{ar ? 'بعد المعاينة' : 'After the viewing'}</h2>
+          <p>
             {ar
-              ? 'تم تسجيل وصولك. يمكنك كتابة ملاحظة اختيارية ثم اختيار المتابعة أو الرفض، أو المتابعة مباشرة بلا تعليق.'
-              : 'Your arrival is recorded. You may leave an optional note, then choose to continue or decline — or proceed with no comment.'}
+              ? 'تم تسجيل وصولك. يمكنك كتابة ملاحظة اختيارية ثم اختيار المتابعة أو الرفض.'
+              : 'Your arrival is recorded. Leave an optional note, then continue or decline.'}
           </p>
           <label className="field">
             <span>{ar ? 'ملاحظة للمالك (اختياري)' : 'Note for the owner (optional)'}</span>
@@ -495,7 +550,7 @@ export function ViewingPassCard({
               }
             />
           </label>
-          <div className="viewing-pass__actions">
+          <div className="vp__actions">
             {purpose === 'rent' || purpose === 'both' ? (
               <button
                 type="button"
@@ -529,14 +584,14 @@ export function ViewingPassCard({
       ) : null}
 
       {pass.guestDecision === 'book_rent' ? (
-        <p>
+        <p className="vp__cta">
           <Link className="button button--primary" href={`/${locale}/book/${pass.unitId}?mode=rent`}>
             {ar ? 'إكمال بيانات الاستئجار' : 'Complete rental details'}
           </Link>
         </p>
       ) : null}
       {pass.guestDecision === 'book_sale' ? (
-        <p>
+        <p className="vp__cta">
           <Link className="button button--primary" href={`/${locale}/book/${pass.unitId}?mode=sale`}>
             {ar ? 'إكمال بيانات الشراء' : 'Complete purchase details'}
           </Link>
@@ -544,7 +599,7 @@ export function ViewingPassCard({
       ) : null}
 
       {error ? (
-        <p className="notice notice--error" role="alert">
+        <p className="vp__banner vp__banner--err" role="alert">
           {errorMessage(error, ar)}
         </p>
       ) : null}

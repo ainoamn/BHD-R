@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.134.18 — 2026-10-20
+
+- **مكتب المعاينة + بطاقة الزائر:** إعادة بناء التصميم بالكامل — شارة حالة ملوّنة بقوة (مكتمل أخضر ممتلئ، مجدول أزرق، طلب برتقالي، ملغى أحمر)، شريط مراحل، بطاقة زيارة بأسلوب تذكرة، وواجهة أوضح للعميل والمالك.
+
 ## 0.8.134.17 — 2026-10-20
 
 - **مشغّل التطبيقات §4.1 — الموارد البشرية:** مزامنة `docs/BHD-APP-SWITCHER.md` و`lib/bhd/apps.ts` و`BhdAppIcon` من ONE-BHD؛ يظهر «الموارد البشرية» في المشغّل والفوتر (`hr.bhd-om.com`).

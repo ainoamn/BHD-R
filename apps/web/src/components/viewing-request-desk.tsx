@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { NoteTranslateBar } from '@/components/note-translate';
@@ -17,6 +17,18 @@ function toLocalInput(value: string | null): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+function stamp(iso: string | null, ar: boolean): string {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleString(ar ? 'ar-OM' : 'en-GB', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+  } catch {
+    return iso.slice(0, 16).replace('T', ' ');
+  }
+}
+
 function statusLabel(status: string, ar: boolean): string {
   const map: Record<string, [string, string]> = {
     requested: ['طلب معاينة', 'Requested'],
@@ -30,20 +42,20 @@ function statusLabel(status: string, ar: boolean): string {
   return pair ? (ar ? pair[0] : pair[1]) : status;
 }
 
-/** Maps viewing status to ops-status color tokens. */
+/** Strong tone token used for badge + page accent. */
 function statusTone(status: string): string {
   switch (status) {
     case 'requested':
-      return 'approval';
+      return 'request';
     case 'scheduled':
-      return 'info';
+      return 'scheduled';
     case 'completed':
     case 'converted':
-      return 'positive';
+      return 'done';
     case 'no_show':
-      return 'warning';
+      return 'missed';
     case 'cancelled':
-      return 'danger';
+      return 'cancelled';
     default:
       return 'neutral';
   }
@@ -57,9 +69,23 @@ function decisionLabel(decision: string, ar: boolean): string {
 }
 
 function decisionTone(decision: string): string {
-  if (decision === 'declined') return 'danger';
-  if (decision === 'book_rent' || decision === 'book_sale') return 'positive';
+  if (decision === 'declined') return 'cancelled';
+  if (decision === 'book_rent' || decision === 'book_sale') return 'done';
   return 'neutral';
+}
+
+function StatusBadge({
+  tone,
+  children,
+  large,
+}: {
+  tone: string;
+  children: ReactNode;
+  large?: boolean;
+}) {
+  return (
+    <span className={`vd-badge vd-badge--${tone}${large ? ' vd-badge--lg' : ''}`}>{children}</span>
+  );
 }
 
 export function ViewingRequestDesk({
@@ -158,135 +184,199 @@ export function ViewingRequestDesk({
   }
 
   const open = viewing.status === 'requested' || viewing.status === 'scheduled';
+  const tone = statusTone(viewing.status);
+  const propertyTitle = ar
+    ? viewing.propertyNameAr
+    : viewing.propertyNameEn || viewing.propertyNameAr;
+
+  const steps = [
+    {
+      id: 'requested',
+      label: ar ? 'طلب' : 'Request',
+      done: true,
+    },
+    {
+      id: 'scheduled',
+      label: ar ? 'جدولة' : 'Scheduled',
+      done: Boolean(viewing.scheduledAt) || ['scheduled', 'completed', 'converted'].includes(viewing.status),
+    },
+    {
+      id: 'arrived',
+      label: ar ? 'وصول' : 'Arrived',
+      done: Boolean(viewing.arrivedAt),
+    },
+    {
+      id: 'decision',
+      label: ar ? 'قرار' : 'Decision',
+      done: Boolean(viewing.guestDecision),
+    },
+    {
+      id: 'closed',
+      label: ar ? 'إغلاق' : 'Closed',
+      done: ['completed', 'converted', 'cancelled', 'no_show'].includes(viewing.status),
+    },
+  ];
 
   return (
-    <div className={`form-shell viewing-desk viewing-desk--${statusTone(viewing.status)}`}>
-      <header className="viewing-desk__head">
-        <div>
-          <span className="ops-kicker">{ar ? 'طلب معاينة' : 'Viewing request'}</span>
-          <h1 dir="ltr">{viewing.reference}</h1>
-          <p className="muted">
-            {ar ? viewing.propertyNameAr : viewing.propertyNameEn || viewing.propertyNameAr}
-            {' · '}
-            {viewing.unitCode}
+    <div className={`vd vd--${tone}`}>
+      <header className="vd__hero">
+        <div className="vd__hero-main">
+          <p className="vd__kicker">{ar ? 'مكتب طلبات المعاينة' : 'Viewing request desk'}</p>
+          <h1 className="vd__title" dir="ltr">
+            {viewing.reference}
+          </h1>
+          <p className="vd__subtitle">
+            {propertyTitle}
+            <span aria-hidden="true"> · </span>
+            <span dir="ltr">{viewing.unitCode}</span>
           </p>
         </div>
-        <div className="viewing-desk__head-side">
-          <span className={`ops-status ops-status--${statusTone(viewing.status)} viewing-desk__status`}>
+        <div className="vd__hero-side">
+          <StatusBadge tone={tone} large>
             {statusLabel(viewing.status, ar)}
-          </span>
+          </StatusBadge>
           <Link className="button button--quiet" href={`/${locale}/${portal}/bookings`}>
             {ar ? 'العودة للحجوزات' : 'Back to bookings'}
           </Link>
         </div>
       </header>
 
-      <section className="viewing-desk__panel viewing-desk__panel--summary" aria-labelledby="viewing-summary-title">
-        <h2 id="viewing-summary-title">{ar ? 'ملخص الطلب' : 'Request summary'}</h2>
-        <dl className="viewing-desk__facts">
-          <div>
-            <dt>{ar ? 'الحالة' : 'Status'}</dt>
-            <dd>
-              <span className={`ops-status ops-status--${statusTone(viewing.status)}`}>
-                {statusLabel(viewing.status, ar)}
-              </span>
-            </dd>
-          </div>
-          <div>
-            <dt>{ar ? 'الطالب' : 'Prospect'}</dt>
-            <dd>{viewing.prospectName}</dd>
-          </div>
-          {viewing.prospectEmail ? (
+      <ol className="vd__steps" aria-label={ar ? 'مراحل المعاينة' : 'Viewing stages'}>
+        {steps.map((step, index) => (
+          <li
+            key={step.id}
+            className={`vd__step${step.done ? ' is-done' : ''}${
+              (step.id === 'scheduled' && viewing.status === 'scheduled' && !viewing.arrivedAt) ||
+              (step.id === 'arrived' && viewing.arrivedAt && !viewing.guestDecision) ||
+              (step.id === 'requested' && viewing.status === 'requested')
+                ? ' is-current'
+                : ''
+            }`}
+          >
+            <span className="vd__step-index" aria-hidden="true">
+              {index + 1}
+            </span>
+            <span>{step.label}</span>
+          </li>
+        ))}
+      </ol>
+
+      <div className="vd__grid">
+        <section className="vd__card" aria-labelledby="vd-guest-title">
+          <h2 id="vd-guest-title">{ar ? 'العميل' : 'Guest'}</h2>
+          <dl className="vd__facts">
             <div>
-              <dt>{ar ? 'البريد' : 'Email'}</dt>
-              <dd dir="ltr">
-                <a href={`mailto:${viewing.prospectEmail}`}>{viewing.prospectEmail}</a>
-              </dd>
+              <dt>{ar ? 'الاسم' : 'Name'}</dt>
+              <dd>{viewing.prospectName}</dd>
             </div>
-          ) : null}
-          {viewing.prospectPhone ? (
+            {viewing.prospectPhone ? (
+              <div>
+                <dt>{ar ? 'الهاتف' : 'Phone'}</dt>
+                <dd dir="ltr">
+                  <a href={`tel:${viewing.prospectPhone}`}>{viewing.prospectPhone}</a>
+                </dd>
+              </div>
+            ) : null}
+            {viewing.prospectEmail ? (
+              <div>
+                <dt>{ar ? 'البريد' : 'Email'}</dt>
+                <dd dir="ltr">
+                  <a href={`mailto:${viewing.prospectEmail}`}>{viewing.prospectEmail}</a>
+                </dd>
+              </div>
+            ) : null}
             <div>
-              <dt>{ar ? 'الهاتف' : 'Phone'}</dt>
-              <dd dir="ltr">
-                <a href={`tel:${viewing.prospectPhone}`}>{viewing.prospectPhone}</a>
-              </dd>
+              <dt>{ar ? 'تاريخ الطلب' : 'Requested'}</dt>
+              <dd dir="ltr">{stamp(viewing.createdAt, ar)}</dd>
             </div>
-          ) : null}
-          <div>
-            <dt>{ar ? 'تاريخ الطلب' : 'Requested'}</dt>
-            <dd dir="ltr">{viewing.createdAt.slice(0, 16).replace('T', ' ')}</dd>
-          </div>
-          {viewing.scheduledAt ? (
+          </dl>
+        </section>
+
+        <section className="vd__card" aria-labelledby="vd-visit-title">
+          <h2 id="vd-visit-title">{ar ? 'الموعد والوصول' : 'Visit & arrival'}</h2>
+          <dl className="vd__facts">
             <div>
-              <dt>{ar ? 'الموعد المحدد' : 'Scheduled'}</dt>
-              <dd dir="ltr">{viewing.scheduledAt.slice(0, 16).replace('T', ' ')}</dd>
-            </div>
-          ) : null}
-          {viewing.preferredAt ? (
-            <div>
-              <dt>{ar ? 'موعد بديل طلبه العميل' : 'Guest-requested time'}</dt>
-              <dd dir="ltr">{viewing.preferredAt.slice(0, 16).replace('T', ' ')}</dd>
-            </div>
-          ) : null}
-          {viewing.arrivedAt ? (
-            <div>
-              <dt>{ar ? 'وقت الوصول' : 'Arrived'}</dt>
-              <dd dir="ltr">{viewing.arrivedAt.slice(0, 16).replace('T', ' ')}</dd>
-            </div>
-          ) : null}
-          {viewing.guestDecision ? (
-            <div>
-              <dt>{ar ? 'قرار العميل' : 'Guest decision'}</dt>
+              <dt>{ar ? 'الحالة' : 'Status'}</dt>
               <dd>
-                <span className={`ops-status ops-status--${decisionTone(viewing.guestDecision)}`}>
-                  {decisionLabel(viewing.guestDecision, ar)}
-                </span>
+                <StatusBadge tone={tone}>{statusLabel(viewing.status, ar)}</StatusBadge>
               </dd>
             </div>
-          ) : null}
-          <div>
-            <dt>{ar ? 'مسؤول المعاينة' : 'Viewing contact'}</dt>
-            <dd>
-              {viewing.viewingContactName ? (
-                viewing.viewingContactName
-              ) : (
-                <span className="ops-status ops-status--warning">
-                  {ar ? 'غير محدد' : 'Not set'}
-                </span>
-              )}
-            </dd>
-          </div>
-          {viewing.viewingContactPhone ? (
+            {viewing.scheduledAt ? (
+              <div>
+                <dt>{ar ? 'الموعد المحدد' : 'Scheduled'}</dt>
+                <dd dir="ltr">{stamp(viewing.scheduledAt, ar)}</dd>
+              </div>
+            ) : null}
+            {viewing.preferredAt ? (
+              <div>
+                <dt>{ar ? 'موعد بديل طلبه العميل' : 'Guest-requested time'}</dt>
+                <dd dir="ltr">{stamp(viewing.preferredAt, ar)}</dd>
+              </div>
+            ) : null}
+            {viewing.arrivedAt ? (
+              <div>
+                <dt>{ar ? 'وقت الوصول' : 'Arrived'}</dt>
+                <dd dir="ltr">{stamp(viewing.arrivedAt, ar)}</dd>
+              </div>
+            ) : null}
+            {viewing.guestDecision ? (
+              <div>
+                <dt>{ar ? 'قرار العميل' : 'Guest decision'}</dt>
+                <dd>
+                  <StatusBadge tone={decisionTone(viewing.guestDecision)}>
+                    {decisionLabel(viewing.guestDecision, ar)}
+                  </StatusBadge>
+                </dd>
+              </div>
+            ) : null}
+          </dl>
+        </section>
+
+        <section className="vd__card" aria-labelledby="vd-site-title">
+          <h2 id="vd-site-title">{ar ? 'الموقع والحارس' : 'Site & guard'}</h2>
+          <dl className="vd__facts">
             <div>
-              <dt>{ar ? 'هاتف الحارس' : 'Guard phone'}</dt>
-              <dd dir="ltr">
-                <a href={`tel:${viewing.viewingContactPhone.replace(/[^\d+]/g, '')}`}>
-                  {viewing.viewingContactPhone}
-                </a>
-              </dd>
-            </div>
-          ) : null}
-          {viewing.propertyAddress ? (
-            <div>
-              <dt>{ar ? 'موقع العقار' : 'Property location'}</dt>
-              <dd>{viewing.propertyAddress}</dd>
-            </div>
-          ) : null}
-          {viewing.propertyMapsUrl ? (
-            <div>
-              <dt>{ar ? 'خريطة الوصول' : 'Directions'}</dt>
+              <dt>{ar ? 'مسؤول المعاينة' : 'Viewing contact'}</dt>
               <dd>
-                <a href={viewing.propertyMapsUrl} target="_blank" rel="noreferrer">
-                  {ar ? 'فتح الخريطة' : 'Open map'}
-                </a>
+                {viewing.viewingContactName ? (
+                  viewing.viewingContactName
+                ) : (
+                  <StatusBadge tone="missed">{ar ? 'غير محدد' : 'Not set'}</StatusBadge>
+                )}
               </dd>
             </div>
-          ) : null}
-        </dl>
-      </section>
+            {viewing.viewingContactPhone ? (
+              <div>
+                <dt>{ar ? 'هاتف الحارس' : 'Guard phone'}</dt>
+                <dd dir="ltr">
+                  <a href={`tel:${viewing.viewingContactPhone.replace(/[^\d+]/g, '')}`}>
+                    {viewing.viewingContactPhone}
+                  </a>
+                </dd>
+              </div>
+            ) : null}
+            {viewing.propertyAddress ? (
+              <div className="vd__fact--wide">
+                <dt>{ar ? 'موقع العقار' : 'Property location'}</dt>
+                <dd>{viewing.propertyAddress}</dd>
+              </div>
+            ) : null}
+            {viewing.propertyMapsUrl ? (
+              <div>
+                <dt>{ar ? 'خريطة الوصول' : 'Directions'}</dt>
+                <dd>
+                  <a href={viewing.propertyMapsUrl} target="_blank" rel="noreferrer">
+                    {ar ? 'فتح الخريطة' : 'Open map'}
+                  </a>
+                </dd>
+              </div>
+            ) : null}
+          </dl>
+        </section>
+      </div>
 
       {viewing.preferredAt && viewing.status === 'scheduled' && !viewing.arrivedAt ? (
-        <p className="notice" role="status">
+        <p className="vd__banner vd__banner--info" role="status">
           {ar
             ? 'العميل طلب تغيير الموعد من بطاقة الزيارة. أكّد الموعد الجديد أدناه لإصدار بطاقة محدّثة.'
             : 'The guest requested a new time from the visit pass. Confirm the new schedule below to issue an updated pass.'}
@@ -294,11 +384,11 @@ export function ViewingRequestDesk({
       ) : null}
 
       {viewing.canManage && open && !viewing.canSchedule ? (
-        <div className="notice notice--error viewing-desk__contact-gate" role="alert">
+        <div className="vd__banner vd__banner--warn" role="alert">
           <p>
             {ar
-              ? 'لا يمكن تأكيد الموعد وإشعار العميل قبل تحديد حارس المبنى أو المسؤول عن المعاينة ورقم هاتفه في صفحة العقار.'
-              : 'Confirming the schedule and notifying the guest requires a building guard or viewing contact with a phone number on the property page first.'}
+              ? 'لا يمكن تأكيد الموعد قبل تحديد حارس المبنى أو مسؤول المعاينة ورقم هاتفه في صفحة العقار.'
+              : 'Confirming the schedule requires a building guard or viewing contact with a phone number on the property page first.'}
           </p>
           <Link
             className="button button--primary"
@@ -309,69 +399,64 @@ export function ViewingRequestDesk({
         </div>
       ) : null}
 
-      {viewing.notes ? (
-        <section className="viewing-desk__panel viewing-desk__panel--notes" aria-labelledby="viewing-notes-title">
-          <h2 id="viewing-notes-title">{ar ? 'الملاحظات وسجل القرارات' : 'Notes & decision log'}</h2>
-          <pre className="viewing-desk__notes-body">{viewing.notes}</pre>
+      {viewing.accessUsername && viewing.accessPin ? (
+        <section className="vd__pass" aria-labelledby="vd-pass-title">
+          <div className="vd__pass-head">
+            <div>
+              <h2 id="vd-pass-title">{ar ? 'بطاقة زيارة المعاينة' : 'Viewing visit pass'}</h2>
+              <p>
+                {ar
+                  ? 'أُرسلت للعميل بالبريد مع الباركود؛ ويصل إشعار للحارس لمسحها عند الوصول.'
+                  : 'Emailed to the guest with a barcode; the guard is notified to scan on arrival.'}
+              </p>
+            </div>
+            <div className="vd__pass-links">
+              {viewing.passPath ? (
+                <Link
+                  className="button button--quiet"
+                  href={`/${locale}${viewing.passPath}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {ar ? 'بطاقة العميل' : 'Guest pass'}
+                </Link>
+              ) : null}
+              {viewing.gatePath ? (
+                <Link
+                  className="button button--quiet"
+                  href={`/${locale}${viewing.gatePath}`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {ar ? 'بوابة المسح' : 'Scan gate'}
+                </Link>
+              ) : null}
+            </div>
+          </div>
+          <div className="vd__creds">
+            <div className="vd__cred">
+              <span>{ar ? 'اسم المستخدم' : 'Username'}</span>
+              <strong dir="ltr">{viewing.accessUsername}</strong>
+            </div>
+            <div className="vd__cred">
+              <span>{ar ? 'الرقم السري' : 'PIN'}</span>
+              <strong dir="ltr">{viewing.accessPin}</strong>
+            </div>
+          </div>
         </section>
       ) : null}
 
-      {viewing.accessUsername && viewing.accessPin ? (
-        <section className="viewing-desk__panel viewing-desk__panel--pass" aria-labelledby="viewing-pass-title">
-          <h2 id="viewing-pass-title">{ar ? 'بطاقة زيارة المعاينة' : 'Viewing visit pass'}</h2>
-          <p className="muted">
-            {ar
-              ? 'أُرسلت للعميل بالبريد مع الباركود؛ ويصل إشعار للحارس/الموظف لمسحها عند الوصول.'
-              : 'Emailed to the guest with a barcode; staff/guards are notified to scan on arrival.'}
-          </p>
-          <dl className="viewing-desk__facts">
-            <div>
-              <dt>{ar ? 'اسم المستخدم' : 'Username'}</dt>
-              <dd dir="ltr">{viewing.accessUsername}</dd>
-            </div>
-            <div>
-              <dt>{ar ? 'الرقم السري' : 'PIN'}</dt>
-              <dd dir="ltr">{viewing.accessPin}</dd>
-            </div>
-            {viewing.arrivedAt ? (
-              <div>
-                <dt>{ar ? 'وقت الوصول' : 'Arrived'}</dt>
-                <dd dir="ltr">{viewing.arrivedAt.slice(0, 16).replace('T', ' ')}</dd>
-              </div>
-            ) : null}
-            {viewing.guestDecision ? (
-              <div>
-                <dt>{ar ? 'قرار العميل' : 'Guest decision'}</dt>
-                <dd>
-                  <span className={`ops-status ops-status--${decisionTone(viewing.guestDecision)}`}>
-                    {decisionLabel(viewing.guestDecision, ar)}
-                  </span>
-                </dd>
-              </div>
-            ) : null}
-          </dl>
-          {viewing.passPath ? (
-            <p>
-              <Link href={`/${locale}${viewing.passPath}`} target="_blank" rel="noreferrer">
-                {ar ? 'فتح بطاقة العميل' : 'Open guest pass'}
-              </Link>
-              {viewing.gatePath ? (
-                <>
-                  {' · '}
-                  <Link href={`/${locale}${viewing.gatePath}`} target="_blank" rel="noreferrer">
-                    {ar ? 'بوابة المسح' : 'Scan gate'}
-                  </Link>
-                </>
-              ) : null}
-            </p>
-          ) : null}
+      {viewing.notes ? (
+        <section className="vd__card vd__card--notes" aria-labelledby="vd-notes-title">
+          <h2 id="vd-notes-title">{ar ? 'الملاحظات وسجل القرارات' : 'Notes & decision log'}</h2>
+          <pre className="vd__notes">{viewing.notes}</pre>
         </section>
       ) : null}
 
       {viewing.canManage && open ? (
-        <section className="viewing-desk__panel viewing-desk__panel--actions" aria-labelledby="viewing-reply-title">
-          <h2 id="viewing-reply-title">{ar ? 'الرد وتحديد الموعد' : 'Reply and schedule'}</h2>
-          <p className="muted">
+        <section className="vd__actions-panel" aria-labelledby="vd-reply-title">
+          <h2 id="vd-reply-title">{ar ? 'الرد وتحديد الموعد' : 'Reply and schedule'}</h2>
+          <p className="vd__hint">
             {ar
               ? 'حدّد تاريخ ووقت المعاينة، واكتب تفاصيل الوصول أو أي ملاحظات للعميل.'
               : 'Set the viewing date and time, and add access details or notes for the guest.'}
@@ -397,23 +482,21 @@ export function ViewingRequestDesk({
               onChange={(event) => setNote(event.target.value)}
               placeholder={
                 ar
-                  ? 'اكتب ملاحظة، أو اختر اقتراحاً مرحّاً بالأسفل، ثم استخدم الذكاء الاصطناعي للترجمة والصياغة…'
-                  : 'Write a note, or pick a cheerful suggestion below, then use AI to translate and rephrase…'
+                  ? 'اكتب ملاحظة، أو اختر اقتراحاً مرحّاً بالأسفل…'
+                  : 'Write a note, or pick a cheerful suggestion below…'
               }
             />
           </label>
-          <div className="viewing-desk__suggestions" role="group" aria-label={ar ? 'اقتراحات جاهزة' : 'Ready suggestions'}>
-            <p className="muted viewing-desk__suggestions-label">
-              {ar
-                ? 'اقتراحات مرحّة جاهزة (عربي + إنجليزي) — اضغط لإدراجها:'
-                : 'Cheerful ready-made notes (AR + EN) — tap to insert:'}
+          <div className="vd__suggestions" role="group" aria-label={ar ? 'اقتراحات جاهزة' : 'Ready suggestions'}>
+            <p className="vd__hint">
+              {ar ? 'اقتراحات جاهزة — اضغط لإدراجها:' : 'Ready suggestions — tap to insert:'}
             </p>
-            <div className="viewing-desk__suggestion-chips">
+            <div className="vd__chips">
               {VIEWING_NOTE_SUGGESTIONS.map((item) => (
                 <button
                   key={item.id}
                   type="button"
-                  className="button button--quiet viewing-desk__chip"
+                  className="button button--quiet vd__chip"
                   disabled={busy}
                   onClick={() =>
                     setNote(joinNoteTranslation(item.textAr, item.textEn, 'en').slice(0, 4000))
@@ -425,7 +508,7 @@ export function ViewingRequestDesk({
             </div>
           </div>
           <NoteTranslateBar value={note} onChange={setNote} locale={locale} max={4000} disabled={busy} />
-          <div className="viewing-desk__actions">
+          <div className="vd__action-row">
             <button
               type="button"
               className="button button--primary"
@@ -478,25 +561,24 @@ export function ViewingRequestDesk({
       ) : null}
 
       {message ? (
-        <p className="notice notice--success" role="status">
+        <p className="vd__banner vd__banner--ok" role="status">
           {message}
         </p>
       ) : null}
       {error ? (
-        <p className="notice notice--error" role="alert">
+        <p className="vd__banner vd__banner--err" role="alert">
           {error}
         </p>
       ) : null}
 
-      <p className="viewing-desk__links">
+      <nav className="vd__footer-links" aria-label={ar ? 'روابط إضافية' : 'More links'}>
         <Link href={`/${locale}/units/${viewing.unitId}`}>
           {ar ? 'صفحة الوحدة العامة' : 'Public unit page'}
         </Link>
-        {' · '}
         <Link href={`/${locale}/${portal}/properties/${viewing.propertyId}`}>
           {ar ? 'إدارة العقار' : 'Manage property'}
         </Link>
-      </p>
+      </nav>
     </div>
   );
 }
