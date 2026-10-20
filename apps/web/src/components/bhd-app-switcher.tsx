@@ -7,6 +7,7 @@ import { browserNextMutation } from '@/lib/api';
 import {
   accountHandle,
   accountMeta,
+  asProviders,
   type AuthProvider,
   type RosterAccount,
 } from '@/lib/bhd/account-roster-shared';
@@ -97,25 +98,28 @@ function openApp(app: BhdApp, pageOrigin: string, push: (href: string) => void) 
 function rosterFromIdentityAccounts(
   items: Array<{
     id?: string;
-    email?: string;
-    name?: string;
+    email?: string | null;
+    name?: string | null;
     username?: string | null;
     phone?: string | null;
     picture?: string | null;
-    providers?: AuthProvider[];
+    providers?: AuthProvider[] | string[];
   }>,
 ): RosterAccount[] {
   return items
     .filter((item) => typeof item.id === 'string' && item.id.length >= 8)
-    .map((item) => ({
-      sub: item.id!,
-      name: item.name || item.email || 'BHD',
-      email: (item.email || '').toLowerCase(),
-      username: item.username || null,
-      phone: item.phone || null,
-      picture: item.picture || null,
-      providers: item.providers?.length ? item.providers : (['password'] as AuthProvider[]),
-    }));
+    .map((item) => {
+      const providers = asProviders(item.providers);
+      return {
+        sub: item.id!,
+        name: item.name || item.email || 'BHD',
+        email: (item.email || '').toLowerCase(),
+        username: item.username || null,
+        phone: item.phone || null,
+        picture: item.picture || null,
+        providers: providers.length ? providers : (['password'] as AuthProvider[]),
+      };
+    });
 }
 
 function toPerson(account: RosterAccount): SwitcherPerson {

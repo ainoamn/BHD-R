@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.134.19 — 2026-10-20
+
+- **إصلاح نشر Vercel:** `exactOptionalPropertyTypes` في مشغّل الحسابات — `IdentityUser.email` يقبل `null` عند تحويل قائمة الحسابات من الهوية.
+
 ## 0.8.134.18 — 2026-10-20
 
 - **مكتب المعاينة + بطاقة الزائر:** إعادة بناء التصميم بالكامل — شارة حالة ملوّنة بقوة (مكتمل أخضر ممتلئ، مجدول أزرق، طلب برتقالي، ملغى أحمر)، شريط مراحل، بطاقة زيارة بأسلوب تذكرة، وواجهة أوضح للعميل والمالك؛ وإصلاح لون «مكتمل» في قائمة الحجوزات (`bookingStatusTone`).
