@@ -94,7 +94,7 @@ export function mergeRosterAccount(
     phone: next.phone || prev?.phone || null,
     picture: next.picture || prev?.picture || null,
     providers: inferProviders({
-      picture: next.picture || prev?.picture,
+      picture: next.picture || prev?.picture || null,
       providers: [...(prev?.providers || []), ...(next.providers || [])],
     }),
   });

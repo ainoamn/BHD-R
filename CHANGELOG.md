@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.134.11 — 2026-10-20
+
+- **إصلاح نشر Vercel:** أخطاء TypeScript في تبديل الحساب (`exactOptionalPropertyTypes` + تعارض `MouseEvent`) كانت توقف بناء `bhd-r-api`.
+
 ## 0.8.134.10 — 2026-10-20
 
 - **سرعة بلا وميض (BHD-ACCOUNT-SWITCHER §5):** تبديل الحساب يحدّث الرأس من JSON فوراً (`POST` هوية + منتج) بلا `reload`؛ فتح تطبيق يذهب إلى `workspacePath` مباشرة مع `preconnect`/`prefetch`؛ الميدلوير يحوّل إلى `start` فقط إن لم توجد جلسة.

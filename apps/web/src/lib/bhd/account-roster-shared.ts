@@ -26,12 +26,12 @@ export function asProviders(value: unknown): AuthProvider[] {
 
 /** Match identity `inferProviders` — picture URL + explicit flags/providers. */
 export function inferProviders(input: {
-  picture?: string | null;
-  providers?: AuthProvider[];
-  googleLinked?: boolean;
-  facebookLinked?: boolean;
-  hasPassword?: boolean;
-  via?: AuthProvider;
+  picture?: string | null | undefined;
+  providers?: AuthProvider[] | undefined;
+  googleLinked?: boolean | undefined;
+  facebookLinked?: boolean | undefined;
+  hasPassword?: boolean | undefined;
+  via?: AuthProvider | undefined;
 }): AuthProvider[] {
   const found = new Set<AuthProvider>(input.providers || []);
   if (input.googleLinked) found.add('google');

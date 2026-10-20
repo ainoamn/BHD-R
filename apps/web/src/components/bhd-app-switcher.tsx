@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useId, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { browserNextMutation } from '@/lib/api';
@@ -392,7 +392,7 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setPanel(null);
     };
-    const closeOnOutsideClick = (event: MouseEvent) => {
+    const closeOnOutsideClick = (event: globalThis.MouseEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) setPanel(null);
     };
     document.addEventListener('keydown', closeOnEscape);
@@ -491,7 +491,7 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
     form.submit();
   };
 
-  const onAppClick = (app: BhdApp, event: MouseEvent<HTMLAnchorElement>) => {
+  const onAppClick = (app: BhdApp, event: ReactMouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     if (!app.enabled) return;
     const pageOrigin = origin || window.location.origin;

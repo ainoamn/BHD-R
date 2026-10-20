@@ -56,8 +56,8 @@ export async function GET() {
               phone: prior?.phone || null,
               picture: prior?.picture || null,
               providers: inferProviders({
-                picture: prior?.picture,
-                providers: prior?.providers,
+                picture: prior?.picture ?? null,
+                ...(prior?.providers ? { providers: prior.providers } : {}),
                 hasPassword: Boolean(row?.credentialHash),
               }),
             };

@@ -488,7 +488,7 @@ export async function issueIdentitySession(input: {
       const picture = identity.picture?.trim() || null;
       const providers = inferProviders({
         picture,
-        providers: identity.providers,
+        ...(identity.providers ? { providers: identity.providers } : {}),
         hasPassword: issued.rosterAccount.providers.includes('password'),
       });
       return {
