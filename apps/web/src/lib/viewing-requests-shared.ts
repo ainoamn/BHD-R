@@ -45,6 +45,8 @@ export type ViewingGuestPass = {
   reference: string;
   status: string;
   scheduledAt: string | null;
+  /** Guest-requested alternative time awaiting owner confirmation. */
+  preferredAt: string | null;
   arrivedAt: string | null;
   accessUsername: string;
   accessPin: string;
@@ -62,3 +64,12 @@ export type ViewingGuestPass = {
   propertyAddress: string | null;
   propertyMapsUrl: string | null;
 };
+
+export type ViewingGuestManageResult =
+  | ViewingGuestPass
+  | {
+      ok: true;
+      status: 'cancelled' | 'no_show';
+      reference: string;
+      id: string;
+    };

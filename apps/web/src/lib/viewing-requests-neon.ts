@@ -735,6 +735,7 @@ export async function loadViewingGuestPass(token: string): Promise<ViewingGuestP
         reference: viewingRequests.reference,
         status: viewingRequests.status,
         scheduledAt: viewingRequests.scheduledAt,
+        preferredAt: viewingRequests.preferredAt,
         arrivedAt: viewingRequests.arrivedAt,
         accessUsername: viewingRequests.accessUsername,
         accessPin: viewingRequests.accessPin,
@@ -759,7 +760,12 @@ export async function loadViewingGuestPass(token: string): Promise<ViewingGuestP
       .limit(1);
     const row = rows[0];
     if (!row?.accessUsername || !row.accessPin) return null;
-    if (row.status !== 'scheduled' && row.status !== 'completed') return null;
+    const openPass =
+      row.status === 'scheduled' ||
+      row.status === 'completed' ||
+      row.status === 'cancelled' ||
+      row.status === 'no_show';
+    if (!openPass) return null;
     const purpose =
       row.listingPurpose === 'sale' || row.listingPurpose === 'both' || row.listingPurpose === 'rent'
         ? row.listingPurpose
@@ -773,6 +779,7 @@ export async function loadViewingGuestPass(token: string): Promise<ViewingGuestP
       reference: row.reference,
       status: row.status,
       scheduledAt: iso(row.scheduledAt),
+      preferredAt: iso(row.preferredAt),
       arrivedAt: iso(row.arrivedAt),
       accessUsername: row.accessUsername,
       accessPin: row.accessPin,
@@ -881,7 +888,7 @@ export async function checkInViewingVisit(
   });
 }
 
-/** Guest records post-visit decision (book rent/sale or decline). */
+/** Guest records post-visit decision (book rent/sale or decline) — only after check-in. */
 export async function recordViewingGuestDecision(
   token: string,
   decision: ViewingGuestDecision,
@@ -896,7 +903,6 @@ export async function recordViewingGuestDecision(
         status: viewingRequests.status,
         guestDecision: viewingRequests.guestDecision,
         arrivedAt: viewingRequests.arrivedAt,
-        scheduledAt: viewingRequests.scheduledAt,
       })
       .from(viewingRequests)
       .where(eq(viewingRequests.id, viewingId))
@@ -905,6 +911,7 @@ export async function recordViewingGuestDecision(
     if (!row) fail('not_found');
     if (row.status !== 'scheduled' && row.status !== 'completed') fail('viewing_closed');
     if (row.guestDecision) fail('viewing_decision_locked');
+    if (!row.arrivedAt) fail('viewing_not_arrived');
     const now = new Date();
     await tx
       .update(viewingRequests)
@@ -919,4 +926,201 @@ export async function recordViewingGuestDecision(
   const pass = await loadViewingGuestPass(token);
   if (!pass) fail('not_found');
   return pass;
+}
+
+type GuestVisitRow = {
+  id: string;
+  organizationId: string;
+  reference: string;
+  status: string;
+  notes: string | null;
+  arrivedAt: Date | null;
+  guestDecision: string | null;
+  propertyId: string;
+  propertyNameAr: string;
+  unitCode: string;
+  prospectName: string;
+  viewingContactUserId: string | null;
+};
+
+async function loadGuestVisitForToken(
+  tx: Tx,
+  viewingId: string,
+): Promise<GuestVisitRow | null> {
+  const rows = await tx
+    .select({
+      id: viewingRequests.id,
+      organizationId: viewingRequests.organizationId,
+      reference: viewingRequests.reference,
+      status: viewingRequests.status,
+      notes: viewingRequests.notes,
+      arrivedAt: viewingRequests.arrivedAt,
+      guestDecision: viewingRequests.guestDecision,
+      propertyId: properties.id,
+      propertyNameAr: properties.nameAr,
+      unitCode: units.code,
+      prospectName: parties.displayName,
+      viewingContactUserId: properties.viewingContactUserId,
+    })
+    .from(viewingRequests)
+    .innerJoin(units, eq(units.id, viewingRequests.unitId))
+    .innerJoin(properties, eq(properties.id, units.propertyId))
+    .innerJoin(parties, eq(parties.id, viewingRequests.prospectPartyId))
+    .where(eq(viewingRequests.id, viewingId))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+function assertGuestCanManage(row: GuestVisitRow) {
+  if (row.status !== 'scheduled') fail('viewing_closed');
+  if (row.guestDecision) fail('viewing_decision_locked');
+  if (row.arrivedAt) fail('viewing_already_arrived');
+}
+
+/** Guest asks to move the appointment; owner confirms via the viewing desk. */
+export async function requestViewingGuestReschedule(
+  token: string,
+  preferredAtIso: string,
+  note?: string | null,
+): Promise<ViewingGuestPass> {
+  const viewingId = openViewingPassToken(token);
+  if (!viewingId) fail('viewing_pass_invalid');
+  const preferredAt = new Date(preferredAtIso);
+  if (Number.isNaN(preferredAt.getTime())) fail('viewing_schedule_invalid');
+  if (preferredAt.getTime() < Date.now() - 60_000) fail('viewing_schedule_invalid');
+  const noteText = note?.trim().slice(0, 500) || null;
+
+  const { elevatedTx } = await import('@/lib/elevated-db');
+  const facts = await elevatedTx(async (tx) => {
+    const row = await loadGuestVisitForToken(tx, viewingId);
+    if (!row) fail('not_found');
+    assertGuestCanManage(row);
+    const stamp = preferredAt.toISOString().slice(0, 16).replace('T', ' ');
+    const line = noteText
+      ? `طلب العميل تغيير الموعد إلى ${stamp}: ${noteText}`
+      : `طلب العميل تغيير الموعد إلى ${stamp}`;
+    const merged = row.notes ? `${row.notes}\n\n—\n${line}` : line;
+    const now = new Date();
+    await tx
+      .update(viewingRequests)
+      .set({ preferredAt, notes: merged, updatedAt: now })
+      .where(eq(viewingRequests.id, viewingId));
+    return row;
+  });
+
+  const deskUrl = appLink(`/ar/owner/bookings/viewings/${facts.id}`);
+  const whenLabel = preferredAt.toISOString().slice(0, 16).replace('T', ' ');
+  void notifyByEmail({
+    orgId: facts.organizationId,
+    aggregateType: 'viewing_request',
+    aggregateId: facts.id,
+    audience: {
+      managersOf: { orgId: facts.organizationId, propertyId: facts.propertyId },
+      ...(facts.viewingContactUserId ? { users: [facts.viewingContactUserId] } : {}),
+    },
+    dedupeKey: `viewing-guest-reschedule:${facts.id}:${preferredAt.toISOString()}`,
+    content: () => ({
+      tone: 'booking',
+      subject: `طلب تغيير موعد معاينة — ${facts.reference}`,
+      title: 'طلب تغيير موعد المعاينة · Reschedule requested',
+      intro: `${facts.prospectName} يطلب نقل معاينة الوحدة ${facts.unitCode} في ${facts.propertyNameAr} إلى ${whenLabel}.`,
+      lines: [
+        '— English —',
+        `${facts.prospectName} asked to move the viewing of unit ${facts.unitCode} at ${facts.propertyNameAr} to ${whenLabel}.`,
+      ],
+      details: [
+        { label: 'المرجع / Ref', value: facts.reference },
+        { label: 'الموعد المقترح / Proposed', value: whenLabel },
+        ...(noteText ? [{ label: 'ملاحظة / Note', value: noteText }] : []),
+      ],
+      cta: { label: 'فتح طلب المعاينة · Open viewing', url: deskUrl },
+      footnote:
+        'أُرسلت لأن العميل طلب تغيير موعد المعاينة من بطاقة الزيارة. · Sent because the guest requested a new viewing time from the visit pass.',
+    }),
+  }).catch(() => undefined);
+
+  const pass = await loadViewingGuestPass(token);
+  if (!pass) fail('not_found');
+  return pass;
+}
+
+/** Guest cancels or marks that they will not attend (before check-in). */
+export async function cancelViewingGuestVisit(
+  token: string,
+  reason: 'cancel' | 'not_attending',
+  note?: string | null,
+): Promise<{ ok: true; status: 'cancelled' | 'no_show'; reference: string; id: string }> {
+  const viewingId = openViewingPassToken(token);
+  if (!viewingId) fail('viewing_pass_invalid');
+  const nextStatus = reason === 'not_attending' ? 'no_show' : 'cancelled';
+  const noteText = note?.trim().slice(0, 500) || null;
+
+  const { elevatedTx } = await import('@/lib/elevated-db');
+  const facts = await elevatedTx(async (tx) => {
+    const row = await loadGuestVisitForToken(tx, viewingId);
+    if (!row) fail('not_found');
+    assertGuestCanManage(row);
+    const line =
+      reason === 'not_attending'
+        ? noteText
+          ? `العميل أبلغ بعدم الحضور: ${noteText}`
+          : 'العميل أبلغ بعدم الحضور'
+        : noteText
+          ? `العميل ألغى الموعد: ${noteText}`
+          : 'العميل ألغى الموعد';
+    const merged = row.notes ? `${row.notes}\n\n—\n${line}` : line;
+    const now = new Date();
+    await tx
+      .update(viewingRequests)
+      .set({
+        status: nextStatus,
+        completedAt: now,
+        notes: merged,
+        updatedAt: now,
+      })
+      .where(eq(viewingRequests.id, viewingId));
+    return row;
+  });
+
+  const deskUrl = appLink(`/ar/owner/bookings/viewings/${facts.id}`);
+  void notifyByEmail({
+    orgId: facts.organizationId,
+    aggregateType: 'viewing_request',
+    aggregateId: facts.id,
+    audience: {
+      managersOf: { orgId: facts.organizationId, propertyId: facts.propertyId },
+      ...(facts.viewingContactUserId ? { users: [facts.viewingContactUserId] } : {}),
+    },
+    dedupeKey: `viewing-guest-${nextStatus}:${facts.id}`,
+    content: () => ({
+      tone: 'booking',
+      subject:
+        nextStatus === 'no_show'
+          ? `عدم حضور معاينة — ${facts.reference}`
+          : `إلغاء معاينة — ${facts.reference}`,
+      title:
+        nextStatus === 'no_show'
+          ? 'العميل لن يحضر · Guest will not attend'
+          : 'أُلغي موعد المعاينة · Viewing cancelled',
+      intro: `${facts.prospectName} ${
+        nextStatus === 'no_show' ? 'أبلغ بعدم حضور' : 'ألغى'
+      } معاينة الوحدة ${facts.unitCode} في ${facts.propertyNameAr}.`,
+      lines: [
+        '— English —',
+        `${facts.prospectName} ${
+          nextStatus === 'no_show' ? 'will not attend' : 'cancelled'
+        } the viewing of unit ${facts.unitCode} at ${facts.propertyNameAr}.`,
+      ],
+      details: [
+        { label: 'المرجع / Ref', value: facts.reference },
+        { label: 'الزائر / Guest', value: facts.prospectName },
+        ...(noteText ? [{ label: 'ملاحظة / Note', value: noteText }] : []),
+      ],
+      cta: { label: 'فتح الطلب · Open request', url: deskUrl },
+      footnote:
+        'أُرسلت لأن العميل حدّث الموعد من بطاقة الزيارة. · Sent because the guest updated the appointment from the visit pass.',
+    }),
+  }).catch(() => undefined);
+
+  return { ok: true, status: nextStatus, reference: facts.reference, id: facts.id };
 }

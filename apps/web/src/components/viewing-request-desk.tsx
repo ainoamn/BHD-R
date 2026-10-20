@@ -43,7 +43,9 @@ export function ViewingRequestDesk({
   const router = useRouter();
   const [viewing, setViewing] = useState(initial);
   const [scheduledAt, setScheduledAt] = useState(
-    toLocalInput(initial.scheduledAt) || toLocalInput(new Date(Date.now() + 86_400_000).toISOString()),
+    toLocalInput(initial.preferredAt) ||
+      toLocalInput(initial.scheduledAt) ||
+      toLocalInput(new Date(Date.now() + 86_400_000).toISOString()),
   );
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
@@ -175,6 +177,12 @@ export function ViewingRequestDesk({
             <dd dir="ltr">{viewing.scheduledAt.slice(0, 16).replace('T', ' ')}</dd>
           </div>
         ) : null}
+        {viewing.preferredAt ? (
+          <div>
+            <dt>{ar ? 'موعد بديل طلبه العميل' : 'Guest-requested time'}</dt>
+            <dd dir="ltr">{viewing.preferredAt.slice(0, 16).replace('T', ' ')}</dd>
+          </div>
+        ) : null}
         <div>
           <dt>{ar ? 'مسؤول المعاينة' : 'Viewing contact'}</dt>
           <dd>
@@ -214,6 +222,14 @@ export function ViewingRequestDesk({
           </div>
         ) : null}
       </dl>
+
+      {viewing.preferredAt && viewing.status === 'scheduled' && !viewing.arrivedAt ? (
+        <p className="notice" role="status">
+          {ar
+            ? 'العميل طلب تغيير الموعد من بطاقة الزيارة. أكّد الموعد الجديد أدناه لإصدار بطاقة محدّثة.'
+            : 'The guest requested a new time from the visit pass. Confirm the new schedule below to issue an updated pass.'}
+        </p>
+      ) : null}
 
       {viewing.canManage && open && !viewing.canSchedule ? (
         <div className="notice notice--error viewing-desk__contact-gate" role="alert">

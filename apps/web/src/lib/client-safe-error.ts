@@ -141,6 +141,8 @@ const KNOWN_CODES = new Set([
   'viewing_action_invalid',
   'viewing_pass_invalid',
   'viewing_decision_locked',
+  'viewing_not_arrived',
+  'viewing_already_arrived',
   'viewing_contact_required',
   'viewing_contact_invalid',
   'checkin_failed',
@@ -266,6 +268,8 @@ export function statusForSafeCode(code: string): number {
     case 'viewing_contact_required':
     case 'viewing_closed':
     case 'viewing_decision_locked':
+    case 'viewing_not_arrived':
+    case 'viewing_already_arrived':
       return 409;
     case 'review_invalid':
     case 'review_comment_required':
