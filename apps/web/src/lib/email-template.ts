@@ -181,10 +181,11 @@ const TONES: Record<EmailTone, ToneStyle> = {
     icon: '🤝',
     accent: '#174b70',
     soft: '#e9f0f7',
-    badge: 'الفريق',
+    badge: 'الفريق · Team',
     wishes: [
-      'أهلاً بك في فريق يعشق الترتيب أكثر من عشقه للقهوة… تقريباً ☕',
-      'نتمنى لك بداية مليئة بالإنجازات وقليل من الاجتماعات 😄',
+      'أهلاً بك في الفريق! نتمنى لك بداية موفقة… وقهوة ساخنة قبل أول مهمة ☕ · Welcome aboard — may your first day be smoother than a Muscat sunrise ☀️',
+      'فريقك ينتظرك بابتسامة وصلاحيات مرتبة. Welcome to the crew — we’re glad you’re here 🤝',
+      'بداية مليئة بالإنجازات… وقليل من الاجتماعات إن أمكن 😄 · Here’s to fewer meetings and more wins!',
     ],
   },
   legal: {

@@ -20,8 +20,8 @@ import { activeBadgeChips, type BadgeRef } from '@/lib/badge-chips-neon';
 import type { BadgeChip } from '@/lib/badges-shared';
 import { applySessionSettings } from '@/lib/db-session-settings';
 import { emailDeliveryState, sendQueuedEmailsSoon } from '@/lib/email-outbox';
+import { queueBrandedEmail } from '@/lib/email-notify';
 import { marksForUsers } from '@/lib/identity-marks-neon';
-import { escapeHtml } from '@/lib/lease-booking-contract';
 import { publicWebOrigin } from '@/lib/seo';
 import { organizationSeatPlan } from '@/lib/site-admin-neon';
 import { withTimeoutFallback } from '@/lib/with-timeout';
@@ -564,33 +564,39 @@ async function queueWelcomeEmail(
   },
 ) {
   const loginUrl = inviteUrlFor(input.organizationId);
-  const subject = `تمت إضافتك إلى فريق ${input.organizationName} على BHD R`;
-  const lines = [
-    `أضافك ${input.invitedBy} إلى فريق «${input.organizationName}» بصفة ${input.roleText}.`,
-    `ادخل إلى BHD R بحساب BHD المسجّل بهذا البريد (${input.email}) لتظهر لك أعمال الفريق حسب صلاحياتك.`,
-    'إن كان حسابك في BHD ببريد آخر فاطلب من مدير الفريق إضافتك بذلك البريد.',
-    'يفتح الرابط هذا الفريق مباشرة، وإن كان لديك أكثر من منشأة فبدّل بينها من قائمة حسابك أعلى الصفحة.',
-  ];
-  const greeting = input.name ? `مرحباً ${input.name}،` : 'مرحباً،';
-  await tx.insert(outboxEvents).values({
-    organizationId: input.organizationId,
-    topic: 'notification.delivery.requested',
+  const org = input.organizationName;
+  const subject = `مرحباً بك في فريق ${org} على BHD R · Welcome to the ${org} team`;
+  const queued = await queueBrandedEmail(tx, {
+    orgId: input.organizationId,
+    recipient: input.email,
+    recipientName: input.name,
+    subject,
     aggregateType: 'membership',
     aggregateId: input.memberId,
-    payload: {
-      correlationId: randomUUID(),
-      organizationId: input.organizationId,
-      notificationId: randomUUID(),
-      channel: 'email',
-      recipient: input.email,
-      subject,
-      text: [greeting, '', ...lines, '', `الدخول: ${loginUrl}`, '', 'BHD R'].join('\n'),
-      html: `<div dir="rtl"><p>${escapeHtml(greeting)}</p>${lines
-        .map((line) => `<p>${escapeHtml(line)}</p>`)
-        .join('')}<p><a href="${escapeHtml(loginUrl)}">الدخول إلى BHD R</a></p><p>BHD R</p></div>`,
+    tone: 'team',
+    title: `أنت مدعو لفريق ${org} 🎉`,
+    intro: `خبر سار: ${input.invitedBy} دعاك للانضمام إلى فريق «${org}» على منصة BHD R بصفة ${input.roleText}. مرحباً بك معنا — فنجان القهوة الافتراضي جاهز!`,
+    lines: [
+      'إن لم يكن لديك حساب بعد، اضغط الزر أدناه وسجّل أو فعّل حسابك بنفس هذا البريد، ثم ستظهر لك أعمال الفريق حسب صلاحياتك.',
+      'إن كان حسابك في BHD ببريد آخر، اطلب من مدير الفريق إضافتك بذلك البريد.',
+      '— English —',
+      `Good news: ${input.invitedBy} invited you to join the “${org}” team on BHD R as ${input.roleText}. Welcome aboard — virtual coffee is on us!`,
+      `Use the button below to sign in or activate your account with this same email (${input.email}). Your team workspace opens right away.`,
+      'If your BHD account uses a different email, ask your team admin to invite that address instead.',
+    ],
+    details: [
+      { label: 'الفريق / Team', value: org },
+      { label: 'الدور / Role', value: input.roleText },
+      { label: 'البريد / Email', value: input.email },
+    ],
+    cta: {
+      label: 'تفعيل الحساب والدخول · Activate & sign in',
+      url: loginUrl,
     },
+    footnote:
+      'وصلت هذه الدعوة لأن أحد مديري الفريق أضاف بريدك في BHD R. · You received this because a team admin added your email in BHD R.',
   });
-  sendQueuedEmailsSoon();
+  if (queued) sendQueuedEmailsSoon();
 }
 
 async function actorName(tx: Tx, claims: SessionClaims): Promise<string> {
@@ -691,7 +697,13 @@ async function writeStaffRoles(
 }
 
 function rolesText(roles: readonly string[], savedRoles: readonly SavedRoleRow[]): string {
-  return roles.map((role) => roleLabel(role, true, savedRoles)).join(' و');
+  return roles
+    .map((role) => {
+      const ar = roleLabel(role, true, savedRoles);
+      const en = roleLabel(role, false, savedRoles);
+      return ar === en ? ar : `${ar} / ${en}`;
+    })
+    .join(' · ');
 }
 
 export async function addTeamMember(
@@ -906,14 +918,14 @@ export async function addPropertyOwner(
       memberId: user.id,
       email,
       name: user.displayName,
-      roleText: roleLabel('property_owner', true),
+      roleText: `${roleLabel('property_owner', true)} / ${roleLabel('property_owner', false)}`,
       invitedBy: await actorName(tx, claims),
     });
     return { userId: user.id, existingAccount };
   });
 }
 
-const LAWYER_ROLE_TEXT = 'محامٍ يتابع القضايا المسندة إليه';
+const LAWYER_ROLE_TEXT = 'محامٍ يتابع القضايا المسندة إليه / Lawyer following assigned cases';
 
 /** Sends the invitation email again to someone in this team who has not signed in yet. */
 export async function resendTeamInvite(
