@@ -74,6 +74,10 @@ type Viewer = {
   canDecideRefunds?: boolean;
   canPayRefunds?: boolean;
   canReviewGuests?: boolean;
+  /** Owner/admin who schedules viewings. */
+  canManageViewings?: boolean;
+  /** Guard / viewing contact who scans visit passes. */
+  canCheckInViewings?: boolean;
 };
 
 type StampKind = 'check_in' | 'check_out';
@@ -87,6 +91,8 @@ const NO_VIEWER: Viewer = {
   canDecideRefunds: false,
   canPayRefunds: false,
   canReviewGuests: false,
+  canManageViewings: false,
+  canCheckInViewings: false,
 };
 
 type ContractOutcome = {
@@ -266,6 +272,17 @@ const PROPERTY_COLUMN: Column = {
   format: 'property',
 };
 
+/** Org-wide bookings board: fewer columns so cells never pile into each other. */
+const BOOKINGS_ORG_COLUMNS: Column[] = [
+  { key: 'kind', ar: 'النوع', en: 'Type', format: 'kind' },
+  { key: 'reference', ar: 'المرجع', en: 'Reference' },
+  PROPERTY_COLUMN,
+  { key: 'unitCode', ar: 'الوحدة', en: 'Unit' },
+  { key: 'party', ar: 'العميل / الضيف', en: 'Client / guest' },
+  { key: 'fromOn', ar: 'الموعد / الفترة', en: 'When', format: 'period' },
+  { key: 'status', ar: 'الحالة', en: 'Status', format: 'status' },
+];
+
 /** Sections whose rows carry workflow buttons. */
 const ACTION_SECTIONS = new Set<PropertyRecordSection>([
   'bookings',
@@ -304,7 +321,10 @@ const INFO = new Set([
   'awaiting_terms_signature',
   'awaiting_documents',
   'awaiting_tenant_signature',
+  'viewing_scheduled',
+  'scheduled',
 ]);
+const ATTENTION = new Set(['viewing_requested', 'requested', 'request_pending']);
 const CHECK_IN_READY = new Set(['confirmed', 'pre_arrival']);
 const STAY_DEPARTED = new Set(['checked_out', 'closed']);
 const DANGER = new Set(['overdue', 'failed', 'payment_failed', 'no_show']);
@@ -434,10 +454,13 @@ function formatStamp(value: string, locale: 'ar' | 'en'): string {
 
 /** Stay rows show where the guest stands (awaiting check-in / check-out) instead of the raw status. */
 function displayStatus(row: PropertyRecordRow): string | null {
+  if (row.kind === 'viewing' && row.status === 'requested') return 'viewing_requested';
+  if (row.kind === 'viewing' && row.status === 'scheduled') return 'viewing_scheduled';
   return row.stage ?? row.status ?? null;
 }
 
 function statusTone(status: string): string {
+  if (ATTENTION.has(status)) return 'warn';
   if (INFO.has(status)) return 'info';
   if (READY.has(status)) return 'ready';
   if (DANGER.has(status)) return 'danger';
@@ -1055,15 +1078,13 @@ export function PropertySectionRecords({
 }) {
   const ar = locale === 'ar';
   const config = SECTIONS[section];
-  const columns = useMemo(
-    () =>
-      propertyId
-        ? config.columns
-        : config.columns.flatMap((column) =>
-            column.key === 'reference' ? [column, PROPERTY_COLUMN] : [column],
-          ),
-    [config, propertyId],
-  );
+  const columns = useMemo(() => {
+    if (propertyId) return config.columns;
+    if (section === 'bookings') return BOOKINGS_ORG_COLUMNS;
+    return config.columns.flatMap((column) =>
+      column.key === 'reference' ? [column, PROPERTY_COLUMN] : [column],
+    );
+  }, [config, propertyId, section]);
   const propertyOf = (row: PropertyRecordRow) => propertyId ?? row.propertyId ?? '';
   const searchParams = useSearchParams();
   const focusId = searchParams.get('focus');
@@ -1929,7 +1950,24 @@ export function PropertySectionRecords({
                         <td className="psr-col--actions">
                           <div className="psr-actions">
                             {rowActions(row)}
-                            {href ? (
+                            {row.kind === 'viewing' &&
+                            row.status === 'scheduled' &&
+                            viewer.canCheckInViewings &&
+                            !viewer.canManageViewings ? (
+                              <Link
+                                className="button button--primary psr-action"
+                                href="/viewing-gate"
+                                prefetch={false}
+                              >
+                                {ar ? 'مسح الباركود / إدخال الرمز' : 'Scan barcode / enter PIN'}
+                              </Link>
+                            ) : null}
+                            {href &&
+                            !(
+                              row.kind === 'viewing' &&
+                              !viewer.canManageViewings &&
+                              viewer.canCheckInViewings
+                            ) ? (
                               <Link
                                 className={`pmh-card__link${row.kind === 'viewing' ? ' button button--primary psr-action' : ''}`}
                                 href={href}
@@ -1943,6 +1981,14 @@ export function PropertySectionRecords({
                                     ? 'فتح'
                                     : 'Open'}
                               </Link>
+                            ) : null}
+                            {row.kind === 'viewing' &&
+                            row.status === 'scheduled' &&
+                            row.accessUsername &&
+                            viewer.canCheckInViewings ? (
+                              <span className="psr-viewing-creds muted" dir="ltr">
+                                {ar ? 'المستخدم' : 'User'}: {row.accessUsername}
+                              </span>
                             ) : null}
                           </div>
                         </td>

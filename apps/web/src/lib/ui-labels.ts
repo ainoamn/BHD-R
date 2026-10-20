@@ -120,6 +120,8 @@ const DOMAIN_STATUS: Record<string, { ar: string; en: string }> = {
   cancel_requested: { ar: 'طلب إلغاء', en: 'Cancellation requested' },
   clearance_pending: { ar: 'بانتظار المخالصة', en: 'Clearance pending' },
   requested: { ar: 'مطلوب', en: 'Requested' },
+  viewing_requested: { ar: 'طلب معاينة', en: 'Viewing requested' },
+  viewing_scheduled: { ar: 'معاينة مجدولة', en: 'Viewing scheduled' },
   on_hold: { ar: 'معلّق', en: 'On hold' },
   lead: { ar: 'عميل محتمل', en: 'Lead' },
   qualified: { ar: 'مؤهَّل', en: 'Qualified' },

@@ -113,8 +113,11 @@ function buildSide(
     `✨ ${lang === 'ar' ? wish.sparkAr : wish.sparkEn}`,
     '',
     lang === 'ar'
-      ? `مع أطيب التحيات — فريق ${PRODUCT_NAME} 🏠🔑🌴`
-      : `Warm regards — ${PRODUCT_NAME} team 🏠🔑🌴`,
+      ? `مع أطيب التحيات من فريق ${PRODUCT_NAME} — ${COMPANY_NAME_AR} 🏠🔑🌴`
+      : `Warm regards from the ${PRODUCT_NAME} team — ${COMPANY_NAME_EN} 🏠🔑🌴`,
+    lang === 'ar'
+      ? 'هذه رسالة آلية من منصتنا؛ لا تقلق، فهي لا تعضّ 🐾'
+      : 'This is an automated message from our platform; don’t worry — it doesn’t bite 🐾',
   );
 
   return body.join('\n').replace(/\n{3,}/g, '\n\n').trim();

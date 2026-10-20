@@ -194,6 +194,11 @@ export async function loadPropertySectionRecords(
               unitIds,
               codeOf,
               unitProperty: new Map(unitIds.map((id) => [id, propertyId])),
+              viewingFieldUserId:
+                hasPermission(claims, 'viewing.read') &&
+                !hasPermission(claims, 'viewing.manage')
+                  ? claims.sub
+                  : null,
             },
             revealsRefundAccounts(claims),
           );
@@ -283,6 +288,10 @@ export async function loadAllPropertyBookings(
   const orgId = claims.organizationId;
   if (!orgId) return null;
   const ownerPartyId = ownerPartyScope(claims);
+  const viewingFieldUserId =
+    hasPermission(claims, 'viewing.read') && !hasPermission(claims, 'viewing.manage')
+      ? claims.sub
+      : null;
 
   const records = await withinViewerTenant(claims, async (tx) => {
     const propertyRows = await tx
@@ -312,6 +321,7 @@ export async function loadAllPropertyBookings(
         propertyNames: new Map(
           propertyRows.map((row) => [row.id, { ar: row.nameAr, en: row.nameEn }]),
         ),
+        viewingFieldUserId,
       },
       revealsRefundAccounts(claims),
     );
@@ -422,12 +432,17 @@ type BookingScope = {
   unitProperty: Map<string, string>;
   /** Set when the list spans several properties, so each row names its property. */
   propertyNames?: Map<string, { ar: string; en: string }>;
+  /**
+   * Field staff (guards): only scheduled+ viewings assigned to them — never raw requests
+   * waiting for admin to confirm a time.
+   */
+  viewingFieldUserId?: string | null;
 };
 
 async function loadBookings(
   tx: Tx,
   orgId: string,
-  { propertyIds, unitIds, codeOf, unitProperty, propertyNames }: BookingScope,
+  { propertyIds, unitIds, codeOf, unitProperty, propertyNames, viewingFieldUserId }: BookingScope,
   /** Refund account numbers in full; other viewers see them masked. */
   revealAccounts: boolean,
 ): Promise<PropertyRecordRow[]> {
@@ -527,12 +542,29 @@ async function loadBookings(
             preferredAt: viewingRequests.preferredAt,
             scheduledAt: viewingRequests.scheduledAt,
             createdAt: viewingRequests.createdAt,
+            accessUsername: viewingRequests.accessUsername,
           })
           .from(viewingRequests)
+          .innerJoin(units, eq(units.id, viewingRequests.unitId))
+          .innerJoin(properties, eq(properties.id, units.propertyId))
           .where(
             and(
               eq(viewingRequests.organizationId, orgId),
               inArray(viewingRequests.unitId, unitIds),
+              ...(viewingFieldUserId
+                ? [
+                    inArray(viewingRequests.status, [
+                      'scheduled',
+                      'completed',
+                      'no_show',
+                      'converted',
+                    ]),
+                    or(
+                      eq(viewingRequests.assignedToUserId, viewingFieldUserId),
+                      eq(properties.viewingContactUserId, viewingFieldUserId),
+                    ),
+                  ]
+                : []),
             ),
           )
           .orderBy(desc(viewingRequests.createdAt))
@@ -659,11 +691,13 @@ async function loadBookings(
       amountMinor: null,
       currency: null,
       status: row.status,
+      accessUsername: row.accessUsername ?? null,
       sortOn: isoDate(row.createdAt),
     })),
   ];
   const awaiting = (row: PropertyRecordRow) =>
     row.status === 'request_pending' ||
+    (row.kind === 'viewing' && row.status === 'requested') ||
     (row.kind === 'reservation' &&
       !!row.stage &&
       phaseWaitsOn(row.stage as LeaseJourneyPhase) === 'owner') ||

@@ -35,6 +35,7 @@ export function NotificationTemplatesStudio({ locale }: { locale: 'ar' | 'en' })
   const [loadingPreview, setLoadingPreview] = useState(false);
 
   useEffect(() => {
+    if (templates.length) return;
     let stopped = false;
     void (async () => {
       setLoadingList(true);
@@ -65,7 +66,7 @@ export function NotificationTemplatesStudio({ locale }: { locale: 'ar' | 'en' })
     return () => {
       stopped = true;
     };
-  }, []);
+  }, [templates.length]);
 
   useEffect(() => {
     setWishRotate(0);

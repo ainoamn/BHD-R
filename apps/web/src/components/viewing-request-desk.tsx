@@ -3,7 +3,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { NoteTranslateBar } from '@/components/note-translate';
 import { fetchBrowserCsrfToken } from '@/lib/api';
+import { joinNoteTranslation } from '@/lib/note-translation';
+import { VIEWING_NOTE_SUGGESTIONS } from '@/lib/viewing-note-suggestions';
 import type { ViewingRequestDetail } from '@/lib/viewing-requests-shared';
 
 function toLocalInput(value: string | null): string {
@@ -282,14 +285,38 @@ export function ViewingRequestDesk({
               className="textarea"
               rows={4}
               value={note}
+              maxLength={4000}
               onChange={(event) => setNote(event.target.value)}
               placeholder={
                 ar
-                  ? 'مثال: الدخول من البوابة الجنوبية، الاتصال قبل 15 دقيقة…'
-                  : 'e.g. Enter via the south gate, call 15 minutes before…'
+                  ? 'اكتب ملاحظة، أو اختر اقتراحاً مرحّاً بالأسفل، ثم استخدم الذكاء الاصطناعي للترجمة والصياغة…'
+                  : 'Write a note, or pick a cheerful suggestion below, then use AI to translate and rephrase…'
               }
             />
           </label>
+          <div className="viewing-desk__suggestions" role="group" aria-label={ar ? 'اقتراحات جاهزة' : 'Ready suggestions'}>
+            <p className="muted viewing-desk__suggestions-label">
+              {ar
+                ? 'اقتراحات مرحّة جاهزة (عربي + إنجليزي) — اضغط لإدراجها:'
+                : 'Cheerful ready-made notes (AR + EN) — tap to insert:'}
+            </p>
+            <div className="viewing-desk__suggestion-chips">
+              {VIEWING_NOTE_SUGGESTIONS.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="button button--quiet viewing-desk__chip"
+                  disabled={busy}
+                  onClick={() =>
+                    setNote(joinNoteTranslation(item.textAr, item.textEn, 'en').slice(0, 4000))
+                  }
+                >
+                  {ar ? item.labelAr : item.labelEn}
+                </button>
+              ))}
+            </div>
+          </div>
+          <NoteTranslateBar value={note} onChange={setNote} locale={locale} max={4000} disabled={busy} />
           <div className="viewing-desk__actions">
             <button
               type="button"

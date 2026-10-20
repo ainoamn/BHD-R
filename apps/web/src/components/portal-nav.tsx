@@ -223,10 +223,23 @@ function insertStaysGroup(groups: NavGroup[]): NavGroup[] {
   return next;
 }
 
+/** Portal pages kept alive in PortalMainSlot — soft-switch like ops sections (no full remount flash). */
+const SOFT_PORTAL_PATHS = new Set([
+  '/notifications',
+  '/badges',
+  '/terms',
+  '/lab-reset',
+  '/stays',
+  '/stays/calendar',
+  '/stays/rates',
+  '/stays/setup',
+]);
+
 function PortalIntentLink({
   portal,
   href,
   section,
+  softPath,
   active,
   mark,
   title,
@@ -236,6 +249,7 @@ function PortalIntentLink({
   portal: PortalRole;
   href: string;
   section: OperationsSection | null;
+  softPath: boolean;
   active: boolean;
   mark: string;
   title?: string | undefined;
@@ -245,6 +259,7 @@ function PortalIntentLink({
   const router = useRouter();
   const [armed, setArmed] = useState(false);
   const warmed = useRef(false);
+  const soft = Boolean(section) || softPath;
 
   const warmDestination = () => {
     if (warmed.current || active) return;
@@ -266,9 +281,9 @@ function PortalIntentLink({
       href={href}
       prefetch={armed ? null : false}
       scroll={false}
-      // Ops soft-switch paints from memory — skip the top progress bar so it
+      // Soft-switch paints from memory — skip the top progress bar so it
       // does not feel like a full document reload.
-      {...(section ? { 'data-no-progress': '' } : {})}
+      {...(soft ? { 'data-no-progress': '' } : {})}
       aria-current={active ? 'page' : undefined}
       title={title}
       onMouseEnter={warmDestination}
@@ -276,7 +291,7 @@ function PortalIntentLink({
       onTouchStart={warmDestination}
       onClick={(event) => {
         if (
-          section &&
+          soft &&
           !event.defaultPrevented &&
           event.button === 0 &&
           !event.metaKey &&
@@ -288,7 +303,7 @@ function PortalIntentLink({
           event.preventDefault();
           const url = new URL(event.currentTarget.href);
           if (url.pathname !== window.location.pathname || url.search !== window.location.search) {
-            // Ops are client panes; native history integrates with Next's pathname hooks.
+            // Client panes; native history integrates with Next's pathname hooks.
             window.history.pushState(null, '', url.pathname + url.search + url.hash);
           }
         }
@@ -401,6 +416,7 @@ export function PortalNav({
         portal={portal}
         href={`${root}${item.path}`}
         section={section}
+        softPath={SOFT_PORTAL_PATHS.has(basePath)}
         active={isActive(item)}
         mark={item.mark}
         title={railed ? t(item.label) : undefined}

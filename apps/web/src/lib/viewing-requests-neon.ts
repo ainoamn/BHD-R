@@ -240,6 +240,7 @@ export async function loadViewingRequestForStaff(
         guestDecisionAt: viewingRequests.guestDecisionAt,
         viewingContactUserId: properties.viewingContactUserId,
         viewingContactName: users.displayName,
+        assignedToUserId: viewingRequests.assignedToUserId,
       })
       .from(viewingRequests)
       .innerJoin(units, eq(units.id, viewingRequests.unitId))
@@ -256,7 +257,16 @@ export async function loadViewingRequestForStaff(
       .limit(1);
     const row = rows[0];
     if (!row) return null;
-    return mapDetail(row, hasPermission(claims, 'viewing.manage'));
+    const canManage = hasPermission(claims, 'viewing.manage');
+    // Field staff only see a viewing after admin schedules it (and only if assigned).
+    if (!canManage) {
+      if (row.status === 'requested') return null;
+      const mine =
+        !!claims.sub &&
+        (row.assignedToUserId === claims.sub || row.viewingContactUserId === claims.sub);
+      if (!mine) return null;
+    }
+    return mapDetail(row, canManage);
   });
 }
 
@@ -462,18 +472,24 @@ export async function respondToViewingRequest(
       },
       dedupeKey: `viewing-guard:${viewingId}:${pass.when}`,
       content: () => ({
-        tone: 'booking',
-        subject: `زيارة معاينة قادمة — ${pass.reference}`,
-        title: 'عميل سيزور المبنى للمعاينة',
-        intro: `${pass.prospectName} سيزور الوحدة ${pass.unitCode} في ${pass.propertyNameAr}. عند وصوله امسح باركود بطاقة المعاينة لتوثيق الحضور.`,
-        details: [
-          { label: 'المرجع', value: pass.reference },
-          { label: 'الزائر', value: pass.prospectName },
-          { label: 'الموعد', value: whenLabel },
-          { label: 'اسم المستخدم', value: pass.username },
-          { label: 'الرقم السري', value: pass.pin },
+        tone: 'team',
+        subject: `معاينة قادمة — ${pass.reference} · Upcoming viewing`,
+        title: `زائر معاينة في الطريق 🤝 · A viewing guest is coming`,
+        intro: `${pass.prospectName} سيزور الوحدة ${pass.unitCode} في ${pass.propertyNameAr}. عند الوصول: امسح الباركود من بوابة المسح، أو أدخل اسم المستخدم والرقم السري يدوياً.`,
+        lines: [
+          '— English —',
+          `${pass.prospectName} will visit unit ${pass.unitCode} at ${pass.propertyNameAr}. On arrival: scan the visit-pass barcode at the gate, or enter the username and PIN manually.`,
         ],
-        cta: { label: 'مسح بطاقة المعاينة', url: gateUrl },
+        details: [
+          { label: 'المرجع / Ref', value: pass.reference },
+          { label: 'الزائر / Guest', value: pass.prospectName },
+          { label: 'الموعد / When', value: whenLabel },
+          { label: 'اسم المستخدم / Username', value: pass.username },
+          { label: 'الرقم السري / PIN', value: pass.pin },
+        ],
+        cta: { label: 'فتح بوابة المسح · Open scan gate', url: gateUrl },
+        footnote:
+          'أُرسلت لأنك مسؤول المعاينة لهذا العقار. · Sent because you are the viewing contact for this property.',
       }),
     }).catch(() => undefined);
   }

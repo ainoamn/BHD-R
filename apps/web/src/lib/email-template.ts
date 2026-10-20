@@ -448,10 +448,15 @@ export function renderBrandedEmail(
     '',
     wish,
     '',
-    `مع أطيب التحيات،`,
-    `فريق ${PRODUCT_NAME} — ${COMPANY_NAME_AR}`,
+    `مع أطيب التحيات من فريق ${PRODUCT_NAME} — ${COMPANY_NAME_AR}`,
+    `Warm regards from the ${PRODUCT_NAME} team — ${COMPANY_NAME_EN}`,
     origin,
-    ...(input.footnote ? ['', input.footnote] : []),
+    ...(input.footnote
+      ? ['', ...input.footnote.split(/\s*·\s*/).map((part) => part.trim()).filter(Boolean)]
+      : []),
+    '',
+    'هذه رسالة آلية من منصتنا؛ لا تقلق، فهي لا تعضّ 🐾',
+    'This is an automated message from our platform; don’t worry — it doesn’t bite 🐾',
   ].join('\n');
 
   // Stacked label→value rows (no nowrap / no side-by-side) so Gmail/Outlook/phone never clip text.
@@ -535,8 +540,23 @@ export function renderBrandedEmail(
     <tr><td class="bhd-pad" style="background:#f7fafb;border-top:1px solid #e3eaef;border-radius:0 0 18px 18px;padding:14px 16px;text-align:center;color:#6b7c8d;font-size:12px;line-height:1.75;word-break:break-word;overflow-wrap:anywhere">
       <div style="font-size:18px;letter-spacing:6px">🏠 🔑 🌴</div>
       <div>مع أطيب التحيات من فريق <b style="color:#174b70">${PRODUCT_NAME}</b> — ${COMPANY_NAME_AR}</div>
-      ${input.footnote ? `<div style="margin-top:6px">${escape(input.footnote)}</div>` : ''}
-      <div style="margin-top:6px">هذه رسالة آلية من منصتنا؛ لا تقلق، فهي لا تعضّ 🐾 · <a href="${escape(origin)}" style="color:#0b8f8a;word-break:break-all">${escape(origin.replace(/^https?:\/\//, ''))}</a></div>
+      <div style="margin-top:2px;color:#8a99a8">Warm regards from the <b style="color:#174b70">${PRODUCT_NAME}</b> team — ${COMPANY_NAME_EN}</div>
+      ${
+        input.footnote
+          ? input.footnote
+              .split(/\s*·\s*/)
+              .map((part) => part.trim())
+              .filter(Boolean)
+              .map(
+                (part) =>
+                  `<div style="margin-top:6px;word-break:break-word">${escape(part)}</div>`,
+              )
+              .join('')
+          : ''
+      }
+      <div style="margin-top:8px">هذه رسالة آلية من منصتنا؛ لا تقلق، فهي لا تعضّ 🐾</div>
+      <div style="color:#8a99a8">This is an automated message from our platform; don’t worry — it doesn’t bite 🐾</div>
+      <div style="margin-top:6px"><a href="${escape(origin)}" style="color:#0b8f8a;word-break:break-all">${escape(origin.replace(/^https?:\/\//, ''))}</a></div>
     </td></tr>
   </table>
 </div>

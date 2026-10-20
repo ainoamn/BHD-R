@@ -771,13 +771,17 @@ a.pmh-actionbar__title[aria-current='page'] {
 @media (min-width: 961px) {
   .psr-table td {
     white-space: nowrap;
+    overflow: hidden;
+    vertical-align: middle;
   }
   .data-table.psr-table :is(th, td) {
-    padding-inline: 0.6rem;
+    padding-inline: 0.65rem;
+    padding-block: 0.7rem;
   }
   .data-table.psr-table th {
     white-space: normal;
     min-width: 4.5rem;
+    line-height: 1.25;
   }
   /* Long text wraps so the table fits the card instead of scrolling sideways. */
   .data-table.psr-table
@@ -790,15 +794,39 @@ a.pmh-actionbar__title[aria-current='page'] {
       .psr-col--signatures,
       .psr-col--source,
       .psr-col--contractKind,
-      .psr-col--contractType
+      .psr-col--contractType,
+      .psr-col--property,
+      .psr-col--period
     ) {
     min-width: 4.5rem;
-    max-width: 14rem;
+    max-width: 12rem;
     white-space: normal;
-    overflow-wrap: break-word;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
   .data-table.psr-table td:is(.psr-key--reference, .psr-key--unitCode) {
     white-space: nowrap;
+    max-width: 9rem;
+    text-overflow: ellipsis;
+  }
+  .data-table.psr-table .name-with-mark {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    max-width: 100%;
+    min-width: 0;
+  }
+  .data-table.psr-table .name-with-mark > bdi,
+  .data-table.psr-table .name-with-mark > span:first-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .data-table.psr-table .pmh-badge {
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .data-table.psr-table td.psr-col--stayLog {
     max-width: 16rem;
@@ -14846,6 +14874,29 @@ body:has(.guest-stay-detail) #main-content {
   border-radius: 0.9rem;
   border: 1px solid color-mix(in srgb, var(--border, #d7ddd8) 80%, transparent);
   background: color-mix(in srgb, var(--surface, #fff) 96%, #eef5f1);
+}
+.viewing-desk__suggestions {
+  display: grid;
+  gap: 0.45rem;
+}
+.viewing-desk__suggestions-label {
+  margin: 0;
+  font-size: 0.85rem;
+}
+.viewing-desk__suggestion-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.viewing-desk__chip {
+  font-size: 0.82rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+}
+.psr-viewing-creds {
+  display: block;
+  font-size: 0.78rem;
+  margin-top: 0.25rem;
 }
 .viewing-desk__reply h2 {
   margin: 0;

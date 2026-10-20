@@ -23,6 +23,19 @@ const PropertySectionRecords = dynamic(() =>
   import('@/components/property-section-records').then((mod) => mod.PropertySectionRecords),
 );
 
+const NotificationTemplatesStudio = dynamic(() =>
+  import('@/components/notification-templates-studio').then(
+    (mod) => mod.NotificationTemplatesStudio,
+  ),
+);
+
+type SoftExtra = 'notifications';
+
+function softExtraFromPath(pathname: string, portal: PortalRole): SoftExtra | null {
+  if (pathname === `/${portal}/notifications`) return 'notifications';
+  return null;
+}
+
 export function opsSectionFromPathname(
   pathname: string,
   portal: PortalRole,
@@ -91,7 +104,9 @@ export function PortalMainSlot({
 }) {
   const pathname = usePathname();
   const section = opsSectionFromPathname(pathname, portal);
+  const extra = softExtraFromPath(pathname, portal);
   const [visited, setVisited] = useState<OperationsSection[]>(() => (section ? [section] : []));
+  const [visitedExtras, setVisitedExtras] = useState<SoftExtra[]>(() => (extra ? [extra] : []));
   const [pages, setPages] = useState<Record<string, ReactNode>>({});
   const register = useCallback((path: string, content: ReactNode) => {
     setPages((current) => (current[path] === content ? current : { ...current, [path]: content }));
@@ -102,7 +117,13 @@ export function PortalMainSlot({
     setVisited((current) => (current.includes(section) ? current : [...current, section]));
   }, [section]);
 
+  useEffect(() => {
+    if (!extra) return;
+    setVisitedExtras((current) => (current.includes(extra) ? current : [...current, extra]));
+  }, [extra]);
+
   const panels = section && !visited.includes(section) ? [...visited, section] : visited;
+  const showPersistedPage = !section && !extra;
   return (
     <PortalPageContext.Provider value={register}>
       {/* Leave Next's router mounted exactly once; pages register their actual content. */}
@@ -111,13 +132,23 @@ export function PortalMainSlot({
         <div
           key={path}
           className="portal-persisted-page"
-          hidden={!!section || path !== pathname}
-          inert={!!section || path !== pathname}
-          aria-hidden={!!section || path !== pathname || undefined}
+          hidden={!showPersistedPage || path !== pathname}
+          inert={!showPersistedPage || path !== pathname}
+          aria-hidden={!showPersistedPage || path !== pathname || undefined}
         >
           {content}
         </div>
       ))}
+      {visitedExtras.includes('notifications') ? (
+        <div
+          className="portal-persisted-panel"
+          hidden={extra !== 'notifications'}
+          inert={extra !== 'notifications'}
+          aria-hidden={extra !== 'notifications' || undefined}
+        >
+          <NotificationTemplatesStudio locale={locale} />
+        </div>
+      ) : null}
       {panels.map((panel) => (
         <div
           key={panel}

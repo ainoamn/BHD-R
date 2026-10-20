@@ -1,8 +1,8 @@
 # Implementation status
 
 **Updated:** 2026-10-20  
-**Product version:** 0.8.133  
-**Active focus:** Responsive branded email + bilingual cheerful WhatsApp (0.8.133); next: editable templates + Meta WhatsApp Cloud API, Oman tax/e-invoice, OCR/AI approvals  
+**Product version:** 0.8.134  
+**Active focus:** Viewing AI notes + guard schedule gate + bookings table + soft-nav notifications (0.8.134); next: editable templates + Meta WhatsApp Cloud API, Oman tax/e-invoice, OCR/AI approvals  
 
 
 
@@ -23,6 +23,7 @@
 
 | Version         | Focus                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.8.134         | Viewing desk AI/suggestions; hide unscheduled viewings from guards; bookings table layout; bilingual email footers; soft-nav notifications |
 | 0.8.133         | Responsive email layout on all devices; bilingual cheerful WhatsApp formatter + studio device preview |
 | 0.8.132         | Owner/developer studio: preview email & WhatsApp notification templates |
 | 0.8.131         | Viewing: require property guard/contact before confirm & notify |

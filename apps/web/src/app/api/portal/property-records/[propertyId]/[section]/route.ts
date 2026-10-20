@@ -75,6 +75,8 @@ export async function GET(
           canDecideRefunds: can('stay.booking.manage') || can('stay.refund.approve'),
           canPayRefunds: can('payment.refund'),
           canReviewGuests: canReviewGuests(claims),
+          canManageViewings: can('viewing.manage'),
+          canCheckInViewings: can('viewing.checkin') || can('viewing.manage'),
         },
       },
       { headers: { 'Cache-Control': 'private, no-store' } },
