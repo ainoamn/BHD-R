@@ -3,6 +3,7 @@
  * Every sample is bilingual (Arabic first, then English) so previews match the product rule.
  */
 import type { BrandedEmailInput, EmailTone } from '@/lib/email-template';
+import type { WhatsAppDraft } from '@/lib/whatsapp-message';
 
 export type NotificationChannel = 'email' | 'whatsapp' | 'both';
 
@@ -31,7 +32,8 @@ export type NotificationTemplateMeta = {
 
 export type NotificationTemplateSample = NotificationTemplateMeta & {
   email?: BrandedEmailInput & { subject: string };
-  whatsapp?: { textAr: string; textEn: string };
+  /** Draft rendered live with cheerful wishes (same seed as email). */
+  whatsapp?: WhatsAppDraft;
 };
 
 const SAMPLE_ORIGIN = 'https://r.bhd-om.com';
@@ -51,8 +53,7 @@ export const NOTIFICATION_CATEGORY_LABELS: Record<
   account: { ar: 'الحساب', en: 'Account' },
 };
 
-/** Build a bilingual branded email sample (Arabic block, then English block). */
-function bilingualEmail(input: {
+type BilingualSample = {
   tone: EmailTone;
   subjectAr: string;
   subjectEn: string;
@@ -69,7 +70,10 @@ function bilingualEmail(input: {
   ctaUrl: string;
   footnoteAr: string;
   footnoteEn: string;
-}): BrandedEmailInput & { subject: string } {
+};
+
+/** Build a bilingual branded email sample (Arabic block, then English block). */
+function bilingualEmail(input: BilingualSample): BrandedEmailInput & { subject: string } {
   return {
     tone: input.tone,
     subject: `${input.subjectAr} · ${input.subjectEn}`,
@@ -94,6 +98,31 @@ function bilingualEmail(input: {
   };
 }
 
+/** Matching WhatsApp draft — rendered with icons + rotating wishes at preview time. */
+function bilingualWhatsApp(input: BilingualSample): WhatsAppDraft {
+  return {
+    tone: input.tone,
+    recipientName: input.recipientName,
+    titleAr: input.titleAr,
+    titleEn: input.titleEn,
+    introAr: input.introAr,
+    introEn: input.introEn,
+    linesAr: input.linesAr,
+    linesEn: input.linesEn,
+    details: input.details,
+    linkLabelAr: input.ctaAr,
+    linkLabelEn: input.ctaEn,
+    link: input.ctaUrl,
+  };
+}
+
+function pair(input: BilingualSample): {
+  email: BrandedEmailInput & { subject: string };
+  whatsapp: WhatsAppDraft;
+} {
+  return { email: bilingualEmail(input), whatsapp: bilingualWhatsApp(input) };
+}
+
 /** Full samples used for live preview — every channel is AR + EN. */
 export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
   {
@@ -106,7 +135,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
     descriptionEn: 'Sent when a guard or staff member is invited by email.',
     editable: false,
     tone: 'team',
-    email: bilingualEmail({
+    ...pair({
       tone: 'team',
       subjectAr: 'مرحباً بك في فريق مبنى النور على BHD R',
       subjectEn: 'Welcome to the Mabani Al Noor team on BHD R',
@@ -134,12 +163,6 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       footnoteAr: 'وصلت هذه الدعوة لأن مدير الفريق أضاف بريدك في BHD R.',
       footnoteEn: 'You received this because a team admin added your email in BHD R.',
     }),
-    whatsapp: {
-      textAr:
-        'دعوة للانضمام إلى فريق «مبنى النور» على BHD R.\nادخل بحساب BHD المسجّل بالبريد guard@example.com:\nhttps://r.bhd-om.com/ar/login?org=sample',
-      textEn:
-        'You are invited to the “Mabani Al Noor” team on BHD R.\nSign in with the BHD account that uses guard@example.com:\nhttps://r.bhd-om.com/ar/login?org=sample',
-    },
   },
   {
     id: 'viewing-scheduled-guest',
@@ -151,7 +174,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
     descriptionEn: 'Email and WhatsApp to the guest after the viewing is confirmed, with visit pass.',
     editable: false,
     tone: 'booking',
-    email: bilingualEmail({
+    ...pair({
       tone: 'booking',
       subjectAr: 'تم تأكيد موعد معاينتك',
       subjectEn: 'Your viewing is confirmed',
@@ -174,12 +197,6 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       footnoteAr: 'أُرسلت لأن موعد معاينتك اعتُمد.',
       footnoteEn: 'Sent because your viewing appointment was confirmed.',
     }),
-    whatsapp: {
-      textAr:
-        'تم تأكيد معاينتك في مبنى النور · وحدة A-12\nالموعد: 2026-10-22 17:00\nبطاقة الزيارة:\nhttps://r.bhd-om.com/ar/viewing-pass?t=sample',
-      textEn:
-        'Your viewing at Mabani Al Noor · unit A-12 is confirmed\nWhen: 2026-10-22 17:00\nVisit pass:\nhttps://r.bhd-om.com/ar/viewing-pass?t=sample',
-    },
   },
   {
     id: 'viewing-scheduled-contact',
@@ -191,7 +208,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
     descriptionEn: 'Sent to the viewing contact to scan the guest barcode on arrival.',
     editable: false,
     tone: 'team',
-    email: bilingualEmail({
+    ...pair({
       tone: 'team',
       subjectAr: 'معاينة قادمة — امسح البطاقة عند الوصول',
       subjectEn: 'Upcoming viewing — scan the pass on arrival',
@@ -212,12 +229,6 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       footnoteAr: 'أُرسلت لأنك مسؤول المعاينة لهذا العقار.',
       footnoteEn: 'Sent because you are the viewing contact for this property.',
     }),
-    whatsapp: {
-      textAr:
-        'معاينة قادمة — مبنى النور · A-12\nالموعد: 2026-10-22 17:00\nالزائر: أحمد الزدجالي\nامسح البطاقة:\nhttps://r.bhd-om.com/ar/viewing-gate?t=sample',
-      textEn:
-        'Upcoming viewing — Mabani Al Noor · A-12\nWhen: 2026-10-22 17:00\nGuest: Ahmed Al Zedjali\nScan gate:\nhttps://r.bhd-om.com/ar/viewing-gate?t=sample',
-    },
   },
   {
     id: 'viewing-request-owner',
@@ -229,7 +240,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
     descriptionEn: 'Owner alert when a prospect requests a viewing.',
     editable: false,
     tone: 'request',
-    email: bilingualEmail({
+    ...pair({
       tone: 'request',
       subjectAr: 'طلب معاينة جديد',
       subjectEn: 'New viewing request',
@@ -249,12 +260,6 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       footnoteAr: 'أُرسلت لأن عقارك استقبل طلب معاينة.',
       footnoteEn: 'Sent because your property received a viewing request.',
     }),
-    whatsapp: {
-      textAr:
-        'طلب معاينة جديد — مبنى النور · A-12\nالطالب: أحمد الزدجالي\nافتح الطلب:\nhttps://r.bhd-om.com/ar/owner/bookings/viewings/sample',
-      textEn:
-        'New viewing request — Mabani Al Noor · A-12\nProspect: Ahmed Al Zedjali\nOpen request:\nhttps://r.bhd-om.com/ar/owner/bookings/viewings/sample',
-    },
   },
   {
     id: 'booking-confirmed',
@@ -266,7 +271,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
     descriptionEn: 'Confirmation after a booking is approved.',
     editable: false,
     tone: 'booking',
-    email: bilingualEmail({
+    ...pair({
       tone: 'booking',
       subjectAr: 'تم تأكيد حجزك',
       subjectEn: 'Your booking is confirmed',
@@ -286,12 +291,6 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       footnoteAr: 'أُرسلت بعد اعتماد حجزك.',
       footnoteEn: 'Sent after your booking was approved.',
     }),
-    whatsapp: {
-      textAr:
-        'تم تأكيد حجزك في مبنى النور\nالوصول: 2026-11-01\nالمغادرة: 2026-11-05\nhttps://r.bhd-om.com/ar/portal',
-      textEn:
-        'Your booking at Mabani Al Noor is confirmed\nCheck-in: 2026-11-01\nCheck-out: 2026-11-05\nhttps://r.bhd-om.com/ar/portal',
-    },
   },
   {
     id: 'contract-ready',
@@ -303,7 +302,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
     descriptionEn: 'Sent when a contract awaits a party signature.',
     editable: false,
     tone: 'contract',
-    email: bilingualEmail({
+    ...pair({
       tone: 'contract',
       subjectAr: 'عقد الإيجار جاهز للتوقيع',
       subjectEn: 'Lease contract ready to sign',
@@ -322,12 +321,6 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       footnoteAr: 'أُرسلت لأن عقدك بانتظار توقيعك.',
       footnoteEn: 'Sent because your contract is waiting for your signature.',
     }),
-    whatsapp: {
-      textAr:
-        'عقد الإيجار جاهز للتوقيع — مبنى النور · A-12\nالمرجع LC-2201\nhttps://r.bhd-om.com/ar/portal',
-      textEn:
-        'Lease contract ready to sign — Mabani Al Noor · A-12\nRef LC-2201\nhttps://r.bhd-om.com/ar/portal',
-    },
   },
   {
     id: 'invoice-issued',
@@ -339,7 +332,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
     descriptionEn: 'Email and WhatsApp when sending an invoice or journal from accounting.',
     editable: false,
     tone: 'invoice',
-    email: bilingualEmail({
+    ...pair({
       tone: 'invoice',
       subjectAr: 'فاتورة إيجار أكتوبر',
       subjectEn: 'October rent invoice',
@@ -359,12 +352,6 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       footnoteAr: 'أُرسلت من محاسبة العقار.',
       footnoteEn: 'Sent from property accounting.',
     }),
-    whatsapp: {
-      textAr:
-        'فاتورة إيجار أكتوبر — 150.000 ر.ع تستحق في 2026-10-05.\nالمرجع INV-8841\nhttps://r.bhd-om.com/ar/portal',
-      textEn:
-        'October rent invoice — OMR 150.000 due 2026-10-05.\nRef INV-8841\nhttps://r.bhd-om.com/ar/portal',
-    },
   },
   {
     id: 'arrears-reminder',
@@ -376,7 +363,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
     descriptionEn: 'Friendly automated reminder when rent is overdue.',
     editable: false,
     tone: 'arrears',
-    email: bilingualEmail({
+    ...pair({
       tone: 'arrears',
       subjectAr: 'تذكير ودّي بمتأخرات الإيجار',
       subjectEn: 'Friendly rent arrears reminder',
@@ -395,12 +382,6 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       footnoteAr: 'تذكير آلي من نظام التحصيل.',
       footnoteEn: 'Automated reminder from collections.',
     }),
-    whatsapp: {
-      textAr:
-        'تذكير ودّي: متأخرات إيجار 150.000 ر.ع — مبنى النور · A-12\nhttps://r.bhd-om.com/ar/portal',
-      textEn:
-        'Friendly reminder: rent arrears OMR 150.000 — Mabani Al Noor · A-12\nhttps://r.bhd-om.com/ar/portal',
-    },
   },
   {
     id: 'maintenance-update',
@@ -412,7 +393,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
     descriptionEn: 'Notice when a maintenance request status changes.',
     editable: false,
     tone: 'maintenance',
-    email: bilingualEmail({
+    ...pair({
       tone: 'maintenance',
       subjectAr: 'تحديث على طلب الصيانة',
       subjectEn: 'Maintenance request update',
@@ -431,12 +412,6 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       footnoteAr: 'أُرسلت لأن حالة طلب الصيانة تغيّرت.',
       footnoteEn: 'Sent because the maintenance request status changed.',
     }),
-    whatsapp: {
-      textAr:
-        'تحديث صيانة — وحدة A-12\nالحالة: قيد التنفيذ\nhttps://r.bhd-om.com/ar/portal',
-      textEn:
-        'Maintenance update — unit A-12\nStatus: In progress\nhttps://r.bhd-om.com/ar/portal',
-    },
   },
   {
     id: 'verification',
@@ -448,7 +423,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
     descriptionEn: 'Outcome of an account verification review.',
     editable: false,
     tone: 'reward',
-    email: bilingualEmail({
+    ...pair({
       tone: 'reward',
       subjectAr: 'تم اعتماد توثيق حسابك',
       subjectEn: 'Your account verification was approved',
@@ -466,10 +441,6 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       footnoteAr: 'أُرسلت بعد مراجعة طلب التوثيق.',
       footnoteEn: 'Sent after your verification request was reviewed.',
     }),
-    whatsapp: {
-      textAr: 'تم اعتماد توثيق حسابك على BHD R.\nhttps://r.bhd-om.com/ar/portal',
-      textEn: 'Your BHD R account verification was approved.\nhttps://r.bhd-om.com/ar/portal',
-    },
   },
   {
     id: 'badge-awarded',
@@ -481,7 +452,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
     descriptionEn: 'When a badge is awarded to an organization or party.',
     editable: false,
     tone: 'reward',
-    email: bilingualEmail({
+    ...pair({
       tone: 'reward',
       subjectAr: 'حصلت على شارة جديدة',
       subjectEn: 'You earned a new badge',
@@ -499,12 +470,6 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       footnoteAr: 'أُرسلت لأنك حصلت على شارة جديدة.',
       footnoteEn: 'Sent because you were awarded a new badge.',
     }),
-    whatsapp: {
-      textAr:
-        'مبروك! حصلت على شارة «مضيف موثوق» على BHD R.\nhttps://r.bhd-om.com/ar/owner/badges',
-      textEn:
-        'Congrats! You earned the “Trusted host” badge on BHD R.\nhttps://r.bhd-om.com/ar/owner/badges',
-    },
   },
 ];
 

@@ -2,6 +2,7 @@
 
 import { accountingPrintPath, type AccountingPrintKind } from '@/lib/accounting-letterhead';
 import { whatsappLink } from '@/lib/stay-deposit-claims';
+import { renderWhatsAppMessage } from '@/lib/whatsapp-message';
 
 /** Current accounting hub path (no locale) so print can return to the same tab/context. */
 function currentAccountingReturn(): string | null {
@@ -102,15 +103,23 @@ export function accountingWhatsappShare(input: {
   link?: string;
   locale: 'ar' | 'en';
 }): string {
-  const ar = input.locale === 'ar';
-  const lines = [
-    `BHD R · ${input.title}`,
-    `${ar ? 'المرجع' : 'Ref'}: ${input.reference}`,
-    `${ar ? 'التاريخ' : 'Date'}: ${input.occurredOn}`,
-    `${ar ? 'المبلغ' : 'Amount'}: ${input.amountText}`,
-  ];
-  if (input.link) lines.push(input.link);
-  const text = lines.join('\n');
+  const rendered = renderWhatsAppMessage(
+    {
+      tone: 'invoice',
+      titleAr: input.title,
+      titleEn: input.title,
+      details: [
+        { labelAr: 'المرجع', labelEn: 'Ref', value: input.reference },
+        { labelAr: 'التاريخ', labelEn: 'Date', value: input.occurredOn },
+        { labelAr: 'المبلغ', labelEn: 'Amount', value: input.amountText },
+      ],
+      linkLabelAr: 'فتح المستند',
+      linkLabelEn: 'Open document',
+      ...(input.link ? { link: input.link } : {}),
+    },
+    { seed: `acct:${input.reference}` },
+  );
+  const text = input.locale === 'ar' ? rendered.textAr : rendered.textEn;
   if (input.phone) {
     const url = whatsappLink(input.phone, text);
     if (url) return url;

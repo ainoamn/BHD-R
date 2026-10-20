@@ -7,6 +7,36 @@ import { appLink, notifyByEmail } from '@/lib/email-notify';
 import { formatMoney } from '@/lib/format';
 import { whatsappLink } from '@/lib/stay-deposit-claims';
 import { withinViewerTenant } from '@/lib/portal-ops-data';
+import { renderWhatsAppMessage } from '@/lib/whatsapp-message';
+
+function accountingWhatsAppText(input: {
+  tone?: 'invoice' | 'reminder';
+  titleAr: string;
+  titleEn: string;
+  seed: string;
+  details: ReadonlyArray<{ labelAr: string; labelEn: string; value: string }>;
+  link: string;
+  linkLabelAr: string;
+  linkLabelEn: string;
+  locale: 'ar' | 'en';
+  /** When true, ship AR+EN in one bubble (default for shares). */
+  bilingual?: boolean;
+}): string {
+  const rendered = renderWhatsAppMessage(
+    {
+      tone: input.tone ?? 'invoice',
+      titleAr: input.titleAr,
+      titleEn: input.titleEn,
+      details: input.details,
+      link: input.link,
+      linkLabelAr: input.linkLabelAr,
+      linkLabelEn: input.linkLabelEn,
+    },
+    { seed: input.seed },
+  );
+  if (input.bilingual !== false) return rendered.combined;
+  return input.locale === 'ar' ? rendered.textAr : rendered.textEn;
+}
 
 export type AccountingSendKind = 'journal' | 'document' | 'report';
 
@@ -61,13 +91,6 @@ export async function sendAccountingArtifact(
     const title = ar ? 'قيد يومية' : 'Journal entry';
     const amount = moneyText(journal.totals.debitMinor, 'OMR', ar);
     const link = appLink(`/${input.locale}/owner/accounting?tab=journal&open=${journal.id}`);
-    const bodyLines = [
-      `${title}: ${journal.reference}`,
-      `${ar ? 'التاريخ' : 'Date'}: ${journal.occurredOn}`,
-      `${ar ? 'البيان' : 'Description'}: ${journal.description}`,
-      `${ar ? 'المبلغ' : 'Amount'}: ${amount}`,
-      link,
-    ];
     const email = input.email ?? partyContact?.email ?? null;
     const phone = input.phone ?? partyContact?.phone ?? null;
     let emailed = 0;
@@ -97,7 +120,21 @@ export async function sendAccountingArtifact(
         }),
       });
     }
-    const text = bodyLines.join('\n');
+    const text = accountingWhatsAppText({
+      titleAr: 'قيد يومية',
+      titleEn: 'Journal entry',
+      seed: `journal:${journal.id}`,
+      locale: input.locale,
+      details: [
+        { labelAr: 'المرجع', labelEn: 'Reference', value: journal.reference },
+        { labelAr: 'التاريخ', labelEn: 'Date', value: journal.occurredOn },
+        { labelAr: 'البيان', labelEn: 'Description', value: journal.description },
+        { labelAr: 'المبلغ', labelEn: 'Amount', value: amount },
+      ],
+      link,
+      linkLabelAr: 'فتح المحاسبة',
+      linkLabelEn: 'Open accounting',
+    });
     return {
       emailed,
       whatsappUrl:
@@ -133,16 +170,6 @@ export async function sendAccountingArtifact(
     const link = appLink(
       `/${input.locale}/owner/accounting?tab=documents${doc.journalId ? `&open=${doc.journalId}` : ''}`,
     );
-    const text = [
-      `BHD R · ${title}`,
-      `${ar ? 'المرجع' : 'Ref'}: ${doc.reference}`,
-      `${ar ? 'التاريخ' : 'Date'}: ${doc.occurredOn}`,
-      `${ar ? 'المبلغ' : 'Amount'}: ${amount}`,
-      doc.partyName ? `${ar ? 'الطرف' : 'Party'}: ${doc.partyName}` : null,
-      link,
-    ]
-      .filter(Boolean)
-      .join('\n');
     const email = input.email ?? null;
     const phone = input.phone ?? null;
     let emailed = 0;
@@ -172,6 +199,27 @@ export async function sendAccountingArtifact(
         }),
       });
     }
+    const titleAr =
+      doc.kind === 'receipt' ? 'إيصال قبض' : doc.kind === 'invoice' ? 'فاتورة مطالبة' : 'مستند محاسبي';
+    const titleEn =
+      doc.kind === 'receipt' ? 'Receipt' : doc.kind === 'invoice' ? 'Demand invoice' : 'Accounting document';
+    const text = accountingWhatsAppText({
+      titleAr,
+      titleEn,
+      seed: `doc:${doc.id}`,
+      locale: input.locale,
+      details: [
+        { labelAr: 'المرجع', labelEn: 'Reference', value: doc.reference },
+        { labelAr: 'التاريخ', labelEn: 'Date', value: doc.occurredOn },
+        { labelAr: 'المبلغ', labelEn: 'Amount', value: amount },
+        ...(doc.partyName
+          ? [{ labelAr: 'الطرف', labelEn: 'Party', value: doc.partyName }]
+          : []),
+      ],
+      link,
+      linkLabelAr: 'فتح المحاسبة',
+      linkLabelEn: 'Open accounting',
+    });
     return {
       emailed,
       whatsappUrl:
@@ -190,7 +238,16 @@ export async function sendAccountingArtifact(
   const title = ar ? 'تقرير محاسبي' : 'Accounting report';
   const summary = (input.reportSummary ?? '').trim() || title;
   const link = appLink(`/${input.locale}/owner/accounting?tab=reports`);
-  const text = [`BHD R · ${title}`, summary, link].join('\n');
+  const text = accountingWhatsAppText({
+    titleAr: 'تقرير محاسبي',
+    titleEn: 'Accounting report',
+    seed: `report:${input.id || 'report'}`,
+    locale: input.locale,
+    details: [{ labelAr: 'الملخص', labelEn: 'Summary', value: summary.slice(0, 300) }],
+    link,
+    linkLabelAr: 'فتح التقارير',
+    linkLabelEn: 'Open reports',
+  });
   let emailed = 0;
   if (input.channel === 'email' || input.channel === 'both') {
     emailed = await notifyByEmail({

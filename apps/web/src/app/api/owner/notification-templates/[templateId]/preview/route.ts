@@ -5,6 +5,7 @@ import { renderBrandedEmail } from '@/lib/email-template';
 import { getNotificationTemplate } from '@/lib/notification-templates-catalog';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
 import { publicWebOrigin } from '@/lib/seo';
+import { renderWhatsAppMessage } from '@/lib/whatsapp-message';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,22 +33,20 @@ export async function GET(
   try {
     const origin = publicWebOrigin();
     const rotate = new URL(request.url).searchParams.get('rotate')?.trim() || '0';
+    const seed = `preview:${template.id}:${rotate}`;
     const email = template.email
       ? {
           subject: template.email.subject,
-          ...renderBrandedEmail(template.email, {
-            origin,
-            // Stable per template by default; `rotate` reshuffles cheerful closing lines in the studio.
-            seed: `preview:${template.id}:${rotate}`,
-          }),
+          ...renderBrandedEmail(template.email, { origin, seed }),
         }
       : null;
+    const whatsapp = template.whatsapp ? renderWhatsAppMessage(template.whatsapp, { seed }) : null;
     return NextResponse.json(
       {
         id: template.id,
         channel: template.channel,
         email,
-        whatsapp: template.whatsapp ?? null,
+        whatsapp,
         wishSeed: rotate,
       },
       { headers: { 'cache-control': 'no-store' } },

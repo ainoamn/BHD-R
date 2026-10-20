@@ -31,6 +31,7 @@ import {
   type TeamView,
   type TenantMember,
 } from '@/lib/team-shared';
+import { renderWhatsAppMessage } from '@/lib/whatsapp-message';
 
 const ERRORS: Record<string, [string, string]> = {
   team_seat_limit: [
@@ -510,9 +511,23 @@ function InvitePanel({
         : ar
           ? 'تعذّر إرسال الدعوة بالبريد. أعد الإرسال أو أرسل له الرابط مباشرة.'
           : 'The invitation email could not be sent. Resend it or share the link directly.';
-  const message = ar
-    ? `دعوة للانضمام إلى فريق «${view.organizationName}» على BHD R.\nادخل بحساب BHD المسجّل بالبريد ${person.email}:\n${view.inviteUrl}`
-    : `You are invited to the “${view.organizationName}” team on BHD R.\nSign in with the BHD account that uses ${person.email}:\n${view.inviteUrl}`;
+  const message = renderWhatsAppMessage(
+    {
+      tone: 'team',
+      titleAr: `أنت مدعو لفريق «${view.organizationName}» 🎉`,
+      titleEn: `You’re invited to “${view.organizationName}”`,
+      introAr: `ادخل بحساب BHD المسجّل بالبريد ${person.email}.`,
+      introEn: `Sign in with the BHD account that uses ${person.email}.`,
+      details: [
+        { labelAr: 'الفريق', labelEn: 'Team', value: view.organizationName },
+        { labelAr: 'البريد', labelEn: 'Email', value: person.email },
+      ],
+      linkLabelAr: 'تفعيل الحساب والدخول',
+      linkLabelEn: 'Activate & sign in',
+      link: view.inviteUrl,
+    },
+    { seed: `team-invite:${person.userId}` },
+  ).combined;
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(message);

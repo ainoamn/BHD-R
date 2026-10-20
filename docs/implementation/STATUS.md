@@ -1,8 +1,9 @@
 # Implementation status
 
-**Updated:** 2026-10-19  
-**Product version:** 0.8.132  
-**Active focus:** Notification templates studio preview (0.8.132); next: editable templates + Meta WhatsApp Cloud API, Oman tax/e-invoice, OCR/AI approvals  
+**Updated:** 2026-10-20  
+**Product version:** 0.8.133  
+**Active focus:** Responsive branded email + bilingual cheerful WhatsApp (0.8.133); next: editable templates + Meta WhatsApp Cloud API, Oman tax/e-invoice, OCR/AI approvals  
+
 
 
 
@@ -22,6 +23,7 @@
 
 | Version         | Focus                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.8.133         | Responsive email layout on all devices; bilingual cheerful WhatsApp formatter + studio device preview |
 | 0.8.132         | Owner/developer studio: preview email & WhatsApp notification templates |
 | 0.8.131         | Viewing: require property guard/contact before confirm & notify |
 | 0.8.130         | Bookings table: Open & reply action for viewing rows |

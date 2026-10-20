@@ -44,6 +44,11 @@ export type BrandedEmailInput = {
 
 type ToneStyle = { icon: string; accent: string; soft: string; badge: string; wishes: string[] };
 
+export function toneVisual(tone: EmailTone): { icon: string; accent: string; soft: string; badge: string } {
+  const style = TONES[tone];
+  return { icon: style.icon, accent: style.accent, soft: style.soft, badge: style.badge };
+}
+
 /**
  * Tone-matched cheerful lines (Arabic · English). Picked per message from the seed so retries
  * stay stable, while different notifications keep rotating through the pool.
@@ -365,12 +370,36 @@ function detailIcon(label: string): string {
   return DETAIL_ICONS.find(([pattern]) => pattern.test(label))?.[1] ?? '🔹';
 }
 
+/** Split a bilingual “Arabic · English” (or reversed) line into language halves. */
+export function splitBilingualLine(line: string): { ar: string; en: string } {
+  const parts = line.split(' · ');
+  if (parts.length < 2) return { ar: line, en: line };
+  const left = parts[0]!.trim();
+  const right = parts.slice(1).join(' · ').trim();
+  const leftAr = /[\u0600-\u06FF]/.test(left);
+  const rightAr = /[\u0600-\u06FF]/.test(right);
+  if (leftAr && !rightAr) return { ar: left, en: right };
+  if (rightAr && !leftAr) return { ar: right, en: left };
+  return { ar: left, en: right };
+}
+
 /** Tone wish + rotating spark; stable for the same seed (retries), varied across messages. */
 export function emailWish(tone: EmailTone, seed: string): string {
   const wishes = TONES[tone].wishes;
   const wish = wishes[seedIndex(seed, wishes.length)]!;
   const spark = SPARKS[seedIndex(`${seed}:spark`, SPARKS.length)]!;
   return `${wish}\n${spark}`;
+}
+
+/** Same pool as emailWish, split so WhatsApp can send AR and EN cleanly. */
+export function emailWishParts(
+  tone: EmailTone,
+  seed: string,
+): { wishAr: string; wishEn: string; sparkAr: string; sparkEn: string } {
+  const wishes = TONES[tone].wishes;
+  const wish = splitBilingualLine(wishes[seedIndex(seed, wishes.length)]!);
+  const spark = splitBilingualLine(SPARKS[seedIndex(`${seed}:spark`, SPARKS.length)]!);
+  return { wishAr: wish.ar, wishEn: wish.en, sparkAr: spark.ar, sparkEn: spark.en };
 }
 
 export function emailGreeting(name: string | null | undefined, seed = 'greet'): string {
@@ -380,6 +409,14 @@ export function emailGreeting(name: string | null | undefined, seed = 'greet'): 
     return greet(clean);
   }
   return GREETINGS_ANON[seedIndex(`${seed}:hi`, GREETINGS_ANON.length)]!;
+}
+
+/** Greeting halves for channel-specific copy (WhatsApp AR / EN bubbles). */
+export function emailGreetingParts(
+  name: string | null | undefined,
+  seed = 'greet',
+): { ar: string; en: string } {
+  return splitBilingualLine(emailGreeting(name, seed));
 }
 
 /** How many rotating lines a tone carries (studio / docs). */
@@ -417,60 +454,89 @@ export function renderBrandedEmail(
     ...(input.footnote ? ['', input.footnote] : []),
   ].join('\n');
 
+  // Stacked label→value rows (no nowrap / no side-by-side) so Gmail/Outlook/phone never clip text.
   const detailRows = details
-    .map(
-      (item, index) => `<tr>
-        <td style="padding:10px 14px;background:${index % 2 ? '#ffffff' : '#f7fafb'};color:#5b6b7a;font-size:13px;white-space:nowrap;border-bottom:1px solid #edf1f4">${detailIcon(item.label)}&nbsp; ${escape(item.label)}</td>
-        <td style="padding:10px 14px;background:${index % 2 ? '#ffffff' : '#f7fafb'};color:#10243a;font-size:14px;font-weight:600;border-bottom:1px solid #edf1f4">${escape(item.value)}</td>
-      </tr>`,
-    )
+    .map((item, index) => {
+      const bg = index % 2 ? '#ffffff' : '#f7fafb';
+      const bottom = index === details.length - 1 ? '0' : '1px solid #edf1f4';
+      return `<tr>
+        <td style="padding:12px 14px;background:${bg};border-bottom:${bottom};word-break:break-word;overflow-wrap:anywhere">
+          <div style="color:#5b6b7a;font-size:12px;line-height:1.45;margin:0 0 4px">${detailIcon(item.label)}&nbsp; ${escape(item.label)}</div>
+          <div style="color:#10243a;font-size:15px;font-weight:700;line-height:1.55;margin:0">${escape(item.value)}</div>
+        </td>
+      </tr>`;
+    })
     .join('');
 
   const html = `<!doctype html>
 <html lang="ar" dir="rtl">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${escape(input.title)}</title></head>
-<body style="margin:0;padding:0;background:#eef5f5">
-<div ${BRANDED_MARK} dir="rtl" style="background:#eef5f5;padding:24px 10px;font-family:Tahoma,'Segoe UI',Arial,sans-serif">
-  <div style="display:none;max-height:0;overflow:hidden;opacity:0">${escape(input.intro ?? input.title)}</div>
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;margin:0 auto;border-collapse:separate">
-    <tr><td style="background:linear-gradient(135deg,#08a39f,#174b70);background-color:#0b8f8a;border-radius:20px 20px 0 0;padding:4px"></td></tr>
-    <tr><td style="background:#ffffff;padding:22px 26px 6px;text-align:center">
-      <a href="${escape(origin)}" style="text-decoration:none"><img src="${escape(origin)}/brand/bhd-email-logo.png" width="150" height="47" alt="BHD" style="display:inline-block;border:0;width:150px;height:auto"></a>
-      <div style="margin-top:8px;color:#174b70;font-size:14px;font-weight:700;letter-spacing:.2px">${COMPANY_NAME_AR}</div>
-      <div style="color:#8a99a8;font-size:11px;letter-spacing:1.5px">${PRODUCT_NAME} · ${COMPANY_NAME_EN}</div>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="x-apple-disable-message-reformatting">
+<title>${escape(input.title)}</title>
+<style>
+  html,body{margin:0!important;padding:0!important;width:100%!important;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%}
+  table,td{border-collapse:collapse}
+  img{border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;max-width:100%;height:auto}
+  a{word-break:break-word}
+  .bhd-wrap{width:100%!important;max-width:600px!important}
+  .bhd-pad{padding-left:16px!important;padding-right:16px!important}
+  .bhd-title{font-size:20px!important;line-height:1.45!important;word-break:break-word}
+  .bhd-body{font-size:15px!important;line-height:1.75!important;word-break:break-word;overflow-wrap:anywhere}
+  .bhd-cta a{display:block!important;width:100%!important;max-width:100%!important;box-sizing:border-box!important;text-align:center!important}
+  @media only screen and (max-width:620px){
+    .bhd-shell{padding:12px 6px!important}
+    .bhd-pad{padding-left:14px!important;padding-right:14px!important}
+    .bhd-title{font-size:18px!important}
+    .bhd-icon{width:64px!important;height:64px!important;line-height:64px!important;font-size:32px!important}
+  }
+</style>
+<!--[if mso]><style>table,td{font-family:Arial,sans-serif!important}</style><![endif]-->
+</head>
+<body style="margin:0;padding:0;background:#eef5f5;width:100%">
+<div ${BRANDED_MARK} class="bhd-shell" dir="rtl" style="background:#eef5f5;padding:20px 8px;font-family:Tahoma,'Segoe UI',Arial,sans-serif;width:100%;box-sizing:border-box">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all">${escape(input.intro ?? input.title)}</div>
+  <table role="presentation" class="bhd-wrap" width="100%" cellspacing="0" cellpadding="0" align="center" style="width:100%;max-width:600px;margin:0 auto;border-collapse:separate">
+    <tr><td style="background:linear-gradient(135deg,#08a39f,#174b70);background-color:#0b8f8a;border-radius:18px 18px 0 0;padding:4px"></td></tr>
+    <tr><td class="bhd-pad" style="background:#ffffff;padding:18px 16px 6px;text-align:center">
+      <a href="${escape(origin)}" style="text-decoration:none"><img src="${escape(origin)}/brand/bhd-email-logo.png" width="140" height="44" alt="BHD" style="display:inline-block;border:0;width:140px;max-width:70%;height:auto"></a>
+      <div style="margin-top:8px;color:#174b70;font-size:13px;font-weight:700;letter-spacing:.2px;word-break:break-word">${COMPANY_NAME_AR}</div>
+      <div style="color:#8a99a8;font-size:11px;letter-spacing:1px;word-break:break-word">${PRODUCT_NAME} · ${COMPANY_NAME_EN}</div>
     </td></tr>
-    <tr><td style="background:#ffffff;padding:18px 26px 0;text-align:center">
-      <div style="display:inline-block;width:76px;height:76px;line-height:76px;border-radius:50%;background:${tone.soft};font-size:38px">${tone.icon}</div>
-      <div style="margin-top:10px"><span style="display:inline-block;background:${tone.soft};color:${tone.accent};border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700">${escape(tone.badge)}</span></div>
-      <h1 style="margin:12px 0 4px;color:#10243a;font-size:21px;line-height:1.5">${escape(input.title)}</h1>
+    <tr><td class="bhd-pad" style="background:#ffffff;padding:14px 16px 0;text-align:center">
+      <div class="bhd-icon" style="display:inline-block;width:72px;height:72px;line-height:72px;border-radius:50%;background:${tone.soft};font-size:36px">${tone.icon}</div>
+      <div style="margin-top:10px"><span style="display:inline-block;background:${tone.soft};color:${tone.accent};border-radius:999px;padding:4px 12px;font-size:11px;font-weight:700;line-height:1.4;max-width:100%;box-sizing:border-box;word-break:break-word">${escape(tone.badge)}</span></div>
+      <h1 class="bhd-title" style="margin:12px 0 4px;color:#10243a;font-size:20px;line-height:1.45;font-weight:700;word-break:break-word;overflow-wrap:anywhere">${escape(input.title)}</h1>
     </td></tr>
-    <tr><td style="background:#ffffff;padding:8px 30px 4px;color:#24384d;font-size:15px;line-height:1.9;text-align:right">
-      <p style="margin:0 0 10px;font-size:16px;font-weight:700;color:#10243a">${escape(greeting)}</p>
-      ${input.intro ? `<p style="margin:0 0 10px">${escape(input.intro)}</p>` : ''}
-      ${lines.map((line) => `<p style="margin:0 0 10px">${escape(line)}</p>`).join('')}
+    <tr><td class="bhd-pad bhd-body" style="background:#ffffff;padding:8px 16px 4px;color:#24384d;font-size:15px;line-height:1.75;text-align:right;word-break:break-word;overflow-wrap:anywhere">
+      <p style="margin:0 0 10px;font-size:16px;font-weight:700;color:#10243a;word-break:break-word">${escape(greeting)}</p>
+      ${input.intro ? `<p style="margin:0 0 10px;word-break:break-word;overflow-wrap:anywhere">${escape(input.intro)}</p>` : ''}
+      ${lines.map((line) => `<p style="margin:0 0 10px;word-break:break-word;overflow-wrap:anywhere">${escape(line)}</p>`).join('')}
     </td></tr>
     ${
       detailRows
-        ? `<tr><td style="background:#ffffff;padding:6px 26px 4px">
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e3eaef;border-radius:14px;overflow:hidden;border-collapse:separate">${detailRows}</table>
+        ? `<tr><td class="bhd-pad" style="background:#ffffff;padding:6px 16px 4px">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;border:1px solid #e3eaef;border-radius:14px;overflow:hidden;border-collapse:separate">${detailRows}</table>
     </td></tr>`
         : ''
     }
     ${
       input.cta
-        ? `<tr><td style="background:#ffffff;padding:18px 26px 6px;text-align:center">
-      <a href="${escape(input.cta.url)}" style="display:inline-block;background:${tone.accent};color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:13px 28px;border-radius:12px">${escape(input.cta.label)} ←</a>
+        ? `<tr><td class="bhd-pad bhd-cta" style="background:#ffffff;padding:16px 16px 6px;text-align:center">
+      <a href="${escape(input.cta.url)}" style="display:block;width:100%;box-sizing:border-box;background:${tone.accent};color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;line-height:1.4;padding:14px 16px;border-radius:12px;word-break:break-word">${escape(input.cta.label)} ←</a>
     </td></tr>`
         : ''
     }
-    <tr><td style="background:#ffffff;padding:18px 26px 22px">
-      <div style="background:${tone.soft};border-radius:14px;padding:14px 16px;color:#24384d;font-size:14px;line-height:1.85;text-align:center">🌟 ${wishHtml}</div>
+    <tr><td class="bhd-pad" style="background:#ffffff;padding:16px 16px 18px">
+      <div style="background:${tone.soft};border-radius:14px;padding:14px 14px;color:#24384d;font-size:13px;line-height:1.8;text-align:center;word-break:break-word;overflow-wrap:anywhere">🌟 ${wishHtml}</div>
     </td></tr>
-    <tr><td style="background:#f7fafb;border-top:1px solid #e3eaef;border-radius:0 0 20px 20px;padding:16px 26px;text-align:center;color:#6b7c8d;font-size:12px;line-height:1.8">
+    <tr><td class="bhd-pad" style="background:#f7fafb;border-top:1px solid #e3eaef;border-radius:0 0 18px 18px;padding:14px 16px;text-align:center;color:#6b7c8d;font-size:12px;line-height:1.75;word-break:break-word;overflow-wrap:anywhere">
       <div style="font-size:18px;letter-spacing:6px">🏠 🔑 🌴</div>
       <div>مع أطيب التحيات من فريق <b style="color:#174b70">${PRODUCT_NAME}</b> — ${COMPANY_NAME_AR}</div>
       ${input.footnote ? `<div style="margin-top:6px">${escape(input.footnote)}</div>` : ''}
-      <div style="margin-top:6px">هذه رسالة آلية من منصتنا؛ لا تقلق، فهي لا تعضّ 🐾 · <a href="${escape(origin)}" style="color:#0b8f8a">${escape(origin.replace(/^https?:\/\//, ''))}</a></div>
+      <div style="margin-top:6px">هذه رسالة آلية من منصتنا؛ لا تقلق، فهي لا تعضّ 🐾 · <a href="${escape(origin)}" style="color:#0b8f8a;word-break:break-all">${escape(origin.replace(/^https?:\/\//, ''))}</a></div>
     </td></tr>
   </table>
 </div>

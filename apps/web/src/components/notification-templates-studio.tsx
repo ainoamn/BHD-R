@@ -12,7 +12,7 @@ type PreviewPayload = {
   id: string;
   channel: NotificationChannel;
   email: { subject: string; text: string; html: string } | null;
-  whatsapp: { textAr: string; textEn: string } | null;
+  whatsapp: { textAr: string; textEn: string; combined: string } | null;
 };
 
 const CHANNEL_LABEL: Record<NotificationChannel, { ar: string; en: string }> = {
@@ -29,6 +29,7 @@ export function NotificationTemplatesStudio({ locale }: { locale: 'ar' | 'en' })
   const [tab, setTab] = useState<'email' | 'whatsapp'>('email');
   const [category, setCategory] = useState<NotificationCategory | 'all'>('all');
   const [wishRotate, setWishRotate] = useState(0);
+  const [device, setDevice] = useState<'phone' | 'tablet' | 'desktop'>('phone');
   const [error, setError] = useState<string | null>(null);
   const [loadingList, setLoadingList] = useState(true);
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -128,8 +129,8 @@ export function NotificationTemplatesStudio({ locale }: { locale: 'ar' | 'en' })
           <h1>{ar ? 'قوالب البريد وواتساب' : 'Email & WhatsApp templates'}</h1>
           <p className="muted">
             {ar
-              ? 'كل القوالب بالعربي والإنجليزي، مع عبارات مرحّة وتحفيزية تتغيّر مع كل إشعار حسب مضمونه. التحرير اليدوي للعبارات قادم لاحقاً.'
-              : 'Every template is bilingual, with cheerful motivational closings that rotate per message and match its tone. Manual phrase editing comes later.'}
+              ? 'معاينة متجاوبة للجوال واللوحي وسطح المكتب، مع رسائل واتساب مرحّة بالعربي والإنجليزي ونفس العبارات التحفيزية والأيقونات.'
+              : 'Responsive email preview across phone, tablet and desktop, plus cheerful bilingual WhatsApp with the same icons and motivational closings.'}
           </p>
         </div>
       </header>
@@ -196,8 +197,8 @@ export function NotificationTemplatesStudio({ locale }: { locale: 'ar' | 'en' })
                 <p className="muted">{ar ? selected.descriptionAr : selected.descriptionEn}</p>
                 <p className="notice" role="status">
                   {ar
-                    ? 'في أسفل كل بريد تظهر أمنية تناسب النوع + عبارة تشجيعية عشوائية تتغيّر مع كل رسالة.'
-                    : 'Each email ends with a tone-matched wish plus a rotating encouragement line.'}
+                    ? 'البريد لا يقطع النص على الهاتف، وواتساب يحمل أيقونة النوع + أمنية مرحّة + عبارة تشجيعية تتغيّر مع كل رسالة.'
+                    : 'Email stays readable on phones; WhatsApp carries the tone icon, a cheerful wish, and a rotating encouragement line.'}
                 </p>
               </header>
 
@@ -211,16 +212,6 @@ export function NotificationTemplatesStudio({ locale }: { locale: 'ar' | 'en' })
                     {ar ? 'معاينة البريد' : 'Email preview'}
                   </button>
                 ) : null}
-                {preview?.email ? (
-                  <button
-                    type="button"
-                    className="button button--quiet"
-                    disabled={loadingPreview}
-                    onClick={() => setWishRotate((value) => value + 1)}
-                  >
-                    {ar ? 'غيّر العبارة المرحّة' : 'Shuffle cheerful line'}
-                  </button>
-                ) : null}
                 {preview?.whatsapp ? (
                   <button
                     type="button"
@@ -230,34 +221,70 @@ export function NotificationTemplatesStudio({ locale }: { locale: 'ar' | 'en' })
                     {ar ? 'معاينة واتساب' : 'WhatsApp preview'}
                   </button>
                 ) : null}
+                {(preview?.email || preview?.whatsapp) && (
+                  <button
+                    type="button"
+                    className="button button--quiet"
+                    disabled={loadingPreview}
+                    onClick={() => setWishRotate((value) => value + 1)}
+                  >
+                    {ar ? 'غيّر العبارة المرحّة' : 'Shuffle cheerful line'}
+                  </button>
+                )}
               </div>
+
+              {tab === 'email' && preview?.email ? (
+                <div className="notify-studio__devices" role="group" aria-label={ar ? 'الجهاز' : 'Device'}>
+                  {(
+                    [
+                      ['phone', ar ? 'جوال' : 'Phone'],
+                      ['tablet', ar ? 'لوحي' : 'Tablet'],
+                      ['desktop', ar ? 'سطح مكتب' : 'Desktop'],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      className={device === key ? 'is-active' : undefined}
+                      onClick={() => setDevice(key)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
 
               {loadingPreview ? (
                 <p className="muted">{ar ? 'جارٍ تجهيز المعاينة…' : 'Preparing preview…'}</p>
               ) : null}
 
               {!loadingPreview && tab === 'email' && preview?.email ? (
-                <div className="notify-studio__email">
+                <div className={`notify-studio__email notify-studio__email--${device}`}>
                   <p className="notify-studio__subject" dir="auto">
                     <span className="muted">{ar ? 'الموضوع:' : 'Subject:'}</span>{' '}
                     {preview.email.subject}
                   </p>
-                  <iframe
-                    title={ar ? 'معاينة البريد' : 'Email preview'}
-                    className="notify-studio__iframe"
-                    srcDoc={preview.email.html}
-                    sandbox=""
-                  />
+                  <div className="notify-studio__frame">
+                    <iframe
+                      title={ar ? 'معاينة البريد' : 'Email preview'}
+                      className="notify-studio__iframe"
+                      srcDoc={preview.email.html}
+                      sandbox=""
+                    />
+                  </div>
                 </div>
               ) : null}
 
               {!loadingPreview && tab === 'whatsapp' && preview?.whatsapp ? (
                 <div className="notify-studio__wa">
-                  <div className="notify-studio__wa-phone" dir="auto">
+                  <div className="notify-studio__wa-phone">
+                    <div className="notify-studio__wa-status">BHD R · WhatsApp</div>
                     <p className="notify-studio__wa-lang">العربية</p>
-                    <p className="notify-studio__wa-bubble">{preview.whatsapp.textAr}</p>
+                    <p className="notify-studio__wa-bubble" dir="rtl">
+                      {preview.whatsapp.textAr}
+                    </p>
                     <p className="notify-studio__wa-lang">English</p>
-                    <p className="notify-studio__wa-bubble notify-studio__wa-bubble--en">
+                    <p className="notify-studio__wa-bubble notify-studio__wa-bubble--en" dir="ltr">
                       {preview.whatsapp.textEn}
                     </p>
                   </div>
