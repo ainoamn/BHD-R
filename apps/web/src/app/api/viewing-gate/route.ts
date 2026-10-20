@@ -10,11 +10,14 @@ import { checkInViewingVisit, previewViewingVisit } from '@/lib/viewing-requests
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const noteField = z.string().trim().max(500).optional().nullable();
+
 const bodySchema = z.union([
   z
     .object({
       action: z.enum(['preview', 'checkin']).optional(),
       token: z.string().min(40).max(120),
+      note: noteField,
     })
     .strict(),
   z
@@ -25,6 +28,7 @@ const bodySchema = z.union([
         .string()
         .trim()
         .regex(/^\d{6}$/),
+      note: noteField,
     })
     .strict(),
 ]);
@@ -70,7 +74,10 @@ export async function POST(request: Request) {
       const result = await previewViewingVisit(claims, credentials);
       return NextResponse.json(result, { headers: { 'cache-control': 'no-store' } });
     }
-    const result = await checkInViewingVisit(claims, credentials);
+    const result = await checkInViewingVisit(claims, {
+      ...credentials,
+      note: body.note ?? null,
+    });
     return NextResponse.json(result, { headers: { 'cache-control': 'no-store' } });
   } catch (error) {
     const code = clientSafeErrorCode(error, 'checkin_failed');

@@ -9,6 +9,7 @@ import {
   units,
   users,
   viewingRequests,
+  workflowEvents,
   type Database,
 } from '@bhd-r/db';
 import { appLink, notifyByEmail } from '@/lib/email-notify';
@@ -31,9 +32,10 @@ import type {
   ViewingGuestDecision,
   ViewingGuestPass,
   ViewingRequestDetail,
+  ViewingTimelineEntry,
 } from '@/lib/viewing-requests-shared';
 
-export type { ViewingRequestDetail, ViewingGuestPass };
+export type { ViewingRequestDetail, ViewingGuestPass, ViewingTimelineEntry };
 
 type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
@@ -174,6 +176,180 @@ async function propertyDirections(
   return { address, mapsUrl, mapEmbedSrc };
 }
 
+async function appendViewingEvent(
+  tx: Tx,
+  input: {
+    organizationId: string;
+    viewingId: string;
+    actorUserId?: string | null;
+    eventType: string;
+    fromStatus?: string | null;
+    toStatus?: string | null;
+    note?: string | null;
+    metadata?: Record<string, unknown>;
+  },
+) {
+  await tx.insert(workflowEvents).values({
+    organizationId: input.organizationId,
+    actorUserId: input.actorUserId ?? null,
+    resourceType: 'viewing_request',
+    resourceId: input.viewingId,
+    eventType: input.eventType,
+    fromStatus: input.fromStatus ?? null,
+    toStatus: input.toStatus ?? null,
+    note: input.note?.trim().slice(0, 2000) || null,
+    metadata: input.metadata ?? {},
+  });
+}
+
+function timelineSource(
+  eventType: string,
+  metadata: Record<string, unknown> | null | undefined,
+  hasActor: boolean,
+): ViewingTimelineEntry['source'] {
+  const metaSource = typeof metadata?.source === 'string' ? metadata.source : '';
+  if (metaSource === 'guest_pass' || eventType.startsWith('viewing.guest_')) return 'guest';
+  if (eventType === 'viewing.checked_in' || metaSource === 'gate') return 'guard';
+  if (hasActor) return 'staff';
+  return 'system';
+}
+
+async function loadViewingTimeline(
+  tx: Tx,
+  organizationId: string,
+  viewingId: string,
+  fallback: {
+    createdAt: Date;
+    scheduledAt: Date | null;
+    arrivedAt: Date | null;
+    guestDecisionAt: Date | null;
+    completedAt: Date | null;
+    status: string;
+    prospectName: string;
+    viewingContactName: string | null;
+    notes: string | null;
+    guestDecision: string | null;
+  },
+): Promise<ViewingTimelineEntry[]> {
+  const rows = await tx
+    .select({
+      id: workflowEvents.id,
+      occurredAt: workflowEvents.occurredAt,
+      eventType: workflowEvents.eventType,
+      fromStatus: workflowEvents.fromStatus,
+      toStatus: workflowEvents.toStatus,
+      note: workflowEvents.note,
+      metadata: workflowEvents.metadata,
+      actorName: users.displayName,
+    })
+    .from(workflowEvents)
+    .leftJoin(users, eq(users.id, workflowEvents.actorUserId))
+    .where(
+      and(
+        eq(workflowEvents.organizationId, organizationId),
+        eq(workflowEvents.resourceType, 'viewing_request'),
+        eq(workflowEvents.resourceId, viewingId),
+      ),
+    )
+    .orderBy(asc(workflowEvents.occurredAt))
+    .limit(120);
+
+  if (rows.length) {
+    return rows.map((row) => {
+      const metadata = (row.metadata ?? {}) as Record<string, unknown>;
+      return {
+        id: row.id,
+        at: row.occurredAt.toISOString(),
+        eventType: row.eventType,
+        fromStatus: row.fromStatus,
+        toStatus: row.toStatus,
+        note: row.note,
+        actorName: row.actorName,
+        source: timelineSource(row.eventType, metadata, Boolean(row.actorName)),
+      };
+    });
+  }
+
+  /** Legacy rows before workflow logging — reconstruct a readable history. */
+  const out: ViewingTimelineEntry[] = [
+    {
+      id: `${viewingId}:requested`,
+      at: fallback.createdAt.toISOString(),
+      eventType: 'viewing.requested',
+      fromStatus: null,
+      toStatus: 'requested',
+      note: null,
+      actorName: fallback.prospectName,
+      source: 'guest',
+    },
+  ];
+  if (fallback.scheduledAt) {
+    out.push({
+      id: `${viewingId}:scheduled`,
+      at: fallback.scheduledAt.toISOString(),
+      eventType: 'viewing.scheduled',
+      fromStatus: 'requested',
+      toStatus: 'scheduled',
+      note: null,
+      actorName: null,
+      source: 'staff',
+    });
+  }
+  if (fallback.arrivedAt) {
+    out.push({
+      id: `${viewingId}:arrived`,
+      at: fallback.arrivedAt.toISOString(),
+      eventType: 'viewing.checked_in',
+      fromStatus: 'scheduled',
+      toStatus: 'scheduled',
+      note: null,
+      actorName: fallback.viewingContactName,
+      source: 'guard',
+    });
+  }
+  if (fallback.guestDecisionAt) {
+    out.push({
+      id: `${viewingId}:decision`,
+      at: fallback.guestDecisionAt.toISOString(),
+      eventType: 'viewing.guest_decision',
+      fromStatus: 'scheduled',
+      toStatus: fallback.status === 'completed' ? 'completed' : fallback.status,
+      note: fallback.guestDecision,
+      actorName: fallback.prospectName,
+      source: 'guest',
+    });
+  }
+  if (fallback.completedAt && fallback.status !== 'scheduled' && !fallback.guestDecisionAt) {
+    out.push({
+      id: `${viewingId}:closed`,
+      at: fallback.completedAt.toISOString(),
+      eventType: 'viewing.status_changed',
+      fromStatus: 'scheduled',
+      toStatus: fallback.status,
+      note: null,
+      actorName: null,
+      source: 'system',
+    });
+  }
+  if (fallback.notes) {
+    for (const [index, chunk] of fallback.notes.split(/\n\n—\n/).entries()) {
+      const text = chunk.trim();
+      if (!text) continue;
+      out.push({
+        id: `${viewingId}:note:${index}`,
+        at: fallback.completedAt?.toISOString() ?? fallback.createdAt.toISOString(),
+        eventType: 'viewing.note',
+        fromStatus: null,
+        toStatus: null,
+        note: text.slice(0, 2000),
+        actorName: null,
+        source: 'system',
+      });
+    }
+  }
+  return out;
+}
+
 function mapDetail(
   row: {
     id: string;
@@ -206,6 +382,7 @@ function mapDetail(
     propertyMapsUrl: string | null;
   },
   canManage: boolean,
+  timeline: ViewingTimelineEntry[] = [],
 ): ViewingRequestDetail {
   let token: string | null = null;
   if (row.accessUsername && row.accessPin && row.scheduledAt) {
@@ -253,6 +430,7 @@ function mapDetail(
     propertyAddress: row.propertyAddress,
     propertyMapsUrl: row.propertyMapsUrl,
     canSchedule,
+    timeline,
   };
 }
 
@@ -459,6 +637,18 @@ export async function loadViewingRequestForStaff(
       ? await staffContactPhone(tx, claims.organizationId!, row.viewingContactUserId)
       : null;
     const directions = await propertyDirections(tx, claims.organizationId!, row.propertyId);
+    const timeline = await loadViewingTimeline(tx, claims.organizationId!, row.id, {
+      createdAt: row.createdAt,
+      scheduledAt: row.scheduledAt,
+      arrivedAt: row.arrivedAt,
+      guestDecisionAt: row.guestDecisionAt,
+      completedAt: row.completedAt,
+      status: row.status,
+      prospectName: row.prospectName,
+      viewingContactName: row.viewingContactName,
+      notes: row.notes,
+      guestDecision: row.guestDecision,
+    });
     return mapDetail(
       {
         ...row,
@@ -467,6 +657,7 @@ export async function loadViewingRequestForStaff(
         propertyMapsUrl: directions.mapsUrl,
       },
       canManage,
+      timeline,
     );
   });
 }
@@ -570,6 +761,16 @@ export async function respondToViewingRequest(
         .update(viewingRequests)
         .set({ notes: merged, updatedAt: new Date() })
         .where(eq(viewingRequests.id, viewingId));
+      await appendViewingEvent(tx, {
+        organizationId: row.organizationId,
+        viewingId,
+        actorUserId: claims.sub,
+        eventType: 'viewing.reply',
+        fromStatus: row.status,
+        toStatus: row.status,
+        note,
+        metadata: { source: 'staff_desk' },
+      });
       return;
     }
     if (!OPEN_STATUSES.has(row.status) && input.action === 'schedule') fail('viewing_closed');
@@ -626,6 +827,21 @@ export async function respondToViewingRequest(
         updatedAt: new Date(),
       })
       .where(eq(viewingRequests.id, viewingId));
+
+    await appendViewingEvent(tx, {
+      organizationId: row.organizationId,
+      viewingId,
+      actorUserId: claims.sub,
+      eventType: input.action === 'schedule' ? 'viewing.scheduled' : 'viewing.status_changed',
+      fromStatus: row.status,
+      toStatus: nextStatus,
+      note,
+      metadata: {
+        source: 'staff_desk',
+        action: input.action,
+        ...(scheduledAt ? { scheduledAt: scheduledAt.toISOString() } : {}),
+      },
+    });
 
     if (input.action === 'schedule' && scheduledAt && token && row.viewingContactUserId) {
       const contactPhone = await staffContactPhone(
@@ -955,7 +1171,13 @@ export async function previewViewingVisit(
 /** Staff/guard check-in: scan token or type username+PIN → mark arrived. */
 export async function checkInViewingVisit(
   claims: SessionClaims,
-  input: { token?: string | null; username?: string | null; pin?: string | null },
+  input: {
+    token?: string | null;
+    username?: string | null;
+    pin?: string | null;
+    /** Optional guard comment saved on the viewing timeline. */
+    note?: string | null;
+  },
 ): Promise<{
   ok: true;
   alreadyArrived: boolean;
@@ -968,6 +1190,7 @@ export async function checkInViewingVisit(
 }> {
   if (!hasPermission(claims, 'viewing.checkin')) fail('forbidden');
   if (!claims.organizationId) fail('forbidden');
+  const noteText = input.note?.trim().slice(0, 500) || null;
 
   let viewingId: string | null = null;
   if (input.token) {
@@ -980,10 +1203,12 @@ export async function checkInViewingVisit(
     const rows = await tx
       .select({
         id: viewingRequests.id,
+        organizationId: viewingRequests.organizationId,
         reference: viewingRequests.reference,
         status: viewingRequests.status,
         scheduledAt: viewingRequests.scheduledAt,
         arrivedAt: viewingRequests.arrivedAt,
+        notes: viewingRequests.notes,
         accessUsername: viewingRequests.accessUsername,
         accessPin: viewingRequests.accessPin,
         prospectName: parties.displayName,
@@ -1023,10 +1248,32 @@ export async function checkInViewingVisit(
       };
     }
     const now = new Date();
+    const guardLine = noteText
+      ? `تعليق الحارس عند الوصول: ${noteText}`
+      : null;
+    const merged = guardLine
+      ? row.notes
+        ? `${row.notes}\n\n—\n${guardLine}`
+        : guardLine
+      : row.notes;
     await tx
       .update(viewingRequests)
-      .set({ arrivedAt: now, updatedAt: now })
+      .set({
+        arrivedAt: now,
+        updatedAt: now,
+        ...(merged !== row.notes ? { notes: merged } : {}),
+      })
       .where(eq(viewingRequests.id, row.id));
+    await appendViewingEvent(tx, {
+      organizationId: row.organizationId,
+      viewingId: row.id,
+      actorUserId: claims.sub,
+      eventType: 'viewing.checked_in',
+      fromStatus: row.status,
+      toStatus: row.status,
+      note: noteText,
+      metadata: { source: 'gate' },
+    });
     return {
       ok: true as const,
       alreadyArrived: false,
@@ -1089,6 +1336,7 @@ export async function recordViewingGuestDecision(
       ? `قرار العميل بعد المعاينة — ${decisionLabel}: ${noteText}`
       : `قرار العميل بعد المعاينة — ${decisionLabel}`;
     const merged = row.notes ? `${row.notes}\n\n—\n${line}` : line;
+    const nextStatus = row.status === 'scheduled' ? 'completed' : row.status;
     await tx
       .update(viewingRequests)
       .set({
@@ -1099,6 +1347,16 @@ export async function recordViewingGuestDecision(
         updatedAt: now,
       })
       .where(eq(viewingRequests.id, viewingId));
+    await appendViewingEvent(tx, {
+      organizationId: row.organizationId,
+      viewingId,
+      actorUserId: null,
+      eventType: 'viewing.guest_decision',
+      fromStatus: row.status,
+      toStatus: nextStatus,
+      note: noteText ? `${decisionLabel}: ${noteText}` : decisionLabel,
+      metadata: { source: 'guest_pass', decision },
+    });
     return row;
   });
 
@@ -1214,6 +1472,19 @@ export async function requestViewingGuestReschedule(
       .update(viewingRequests)
       .set({ preferredAt, notes: merged, updatedAt: now })
       .where(eq(viewingRequests.id, viewingId));
+    await appendViewingEvent(tx, {
+      organizationId: row.organizationId,
+      viewingId,
+      actorUserId: null,
+      eventType: 'viewing.guest_reschedule',
+      fromStatus: row.status,
+      toStatus: row.status,
+      note: noteText ? `${stamp}: ${noteText}` : stamp,
+      metadata: {
+        source: 'guest_pass',
+        preferredAt: preferredAt.toISOString(),
+      },
+    });
     return row;
   });
 
@@ -1288,6 +1559,16 @@ export async function cancelViewingGuestVisit(
         updatedAt: now,
       })
       .where(eq(viewingRequests.id, viewingId));
+    await appendViewingEvent(tx, {
+      organizationId: row.organizationId,
+      viewingId,
+      actorUserId: null,
+      eventType: reason === 'not_attending' ? 'viewing.guest_not_attending' : 'viewing.guest_cancel',
+      fromStatus: row.status,
+      toStatus: nextStatus,
+      note: noteText,
+      metadata: { source: 'guest_pass', reason },
+    });
     return row;
   });
 
@@ -1332,4 +1613,12 @@ export async function cancelViewingGuestVisit(
   }).catch(() => undefined);
 
   return { ok: true, status: nextStatus, reference: facts.reference, id: facts.id };
+}
+
+/** Valid pass token and an open visit — used by the public note assist route. */
+export async function assertViewingPassNoteAssist(token: string): Promise<void> {
+  const pass = await loadViewingGuestPass(token);
+  if (!pass) fail('viewing_pass_invalid');
+  if (pass.status === 'cancelled' || pass.status === 'no_show') fail('viewing_closed');
+  if (pass.guestDecision) fail('viewing_decision_locked');
 }

@@ -55,3 +55,42 @@ export const VIEWING_NOTE_SUGGESTIONS: readonly ViewingNoteSuggestion[] = [
     textEn: 'Welcome to the building! Omani coffee awaits after the viewing if you’d like ☕🌴',
   },
 ];
+
+/** Guest-facing chips on the viewing pass (reschedule / cancel notes). */
+export const GUEST_VIEWING_NOTE_SUGGESTIONS: readonly ViewingNoteSuggestion[] = [
+  {
+    id: 'after-work',
+    labelAr: 'بعد العمل',
+    labelEn: 'After work',
+    textAr: 'أحتاج موعداً مساءً بعد دوامي إن أمكن. شكراً لتفهّمكم.',
+    textEn: 'I need an evening slot after work if possible. Thank you for understanding.',
+  },
+  {
+    id: 'traffic',
+    labelAr: 'ازدحام',
+    labelEn: 'Traffic delay',
+    textAr: 'قد أتأخر قليلاً بسبب الزحام. هل يمكن تأجيل الموعد نصف ساعة؟',
+    textEn: 'I may be slightly late due to traffic. Could we push the visit by about 30 minutes?',
+  },
+  {
+    id: 'family',
+    labelAr: 'مع العائلة',
+    labelEn: 'With family',
+    textAr: 'سأحضر مع أفراد من العائلة؛ نفضّل موعداً في عطلة نهاية الأسبوع.',
+    textEn: 'I will come with family members; a weekend slot would work better for us.',
+  },
+  {
+    id: 'cannot-make',
+    labelAr: 'تعذّر الحضور',
+    labelEn: 'Cannot attend',
+    textAr: 'أعتذر، لن أتمكن من الحضور في الموعد الحالي. أرجو إلغاءه أو اقتراح بديل.',
+    textEn: 'Sorry, I cannot make the current appointment. Please cancel it or suggest another time.',
+  },
+  {
+    id: 'thanks',
+    labelAr: 'شكر وترتيب',
+    labelEn: 'Thanks',
+    textAr: 'شكراً لترتيب الموعد. أرجو تأكيد الوقت الجديد عبر الرسالة.',
+    textEn: 'Thank you for arranging the visit. Please confirm the new time by message.',
+  },
+];

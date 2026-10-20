@@ -1,5 +1,18 @@
 export type ViewingGuestDecision = 'book_rent' | 'book_sale' | 'declined';
 
+/** One step in the viewing desk history (approvals, check-in, guest replies). */
+export type ViewingTimelineEntry = {
+  id: string;
+  at: string;
+  eventType: string;
+  fromStatus: string | null;
+  toStatus: string | null;
+  note: string | null;
+  actorName: string | null;
+  /** Who triggered it — for labels. */
+  source: 'staff' | 'guest' | 'guard' | 'system';
+};
+
 export type ViewingRequestDetail = {
   id: string;
   reference: string;
@@ -38,6 +51,8 @@ export type ViewingRequestDetail = {
   propertyMapsUrl: string | null;
   /** False until the property has a viewing contact — schedule stays locked. */
   canSchedule: boolean;
+  /** Chronological approvals, check-ins, guest notes and status changes. */
+  timeline: ViewingTimelineEntry[];
 };
 
 export type ViewingGuestPass = {

@@ -7,7 +7,37 @@ import { NoteTranslateBar } from '@/components/note-translate';
 import { fetchBrowserCsrfToken } from '@/lib/api';
 import { joinNoteTranslation } from '@/lib/note-translation';
 import { VIEWING_NOTE_SUGGESTIONS } from '@/lib/viewing-note-suggestions';
-import type { ViewingRequestDetail } from '@/lib/viewing-requests-shared';
+import type { ViewingRequestDetail, ViewingTimelineEntry } from '@/lib/viewing-requests-shared';
+
+function timelineTitle(entry: ViewingTimelineEntry, ar: boolean): string {
+  const map: Record<string, [string, string]> = {
+    'viewing.requested': ['طلب المعاينة', 'Viewing requested'],
+    'viewing.scheduled': ['موافقة وتحديد الموعد', 'Approved & scheduled'],
+    'viewing.status_changed': ['تغيير الحالة', 'Status changed'],
+    'viewing.reply': ['رد من الفريق', 'Team reply'],
+    'viewing.checked_in': ['تسجيل وصول (الحارس)', 'Check-in (guard)'],
+    'viewing.guest_reschedule': ['طلب تغيير موعد من العميل', 'Guest reschedule request'],
+    'viewing.guest_cancel': ['إلغاء من العميل', 'Guest cancelled'],
+    'viewing.guest_not_attending': ['عدم حضور من العميل', 'Guest will not attend'],
+    'viewing.guest_decision': ['قرار العميل بعد المعاينة', 'Guest decision after visit'],
+    'viewing.note': ['ملاحظة', 'Note'],
+  };
+  const pair = map[entry.eventType];
+  return pair ? (ar ? pair[0] : pair[1]) : entry.eventType;
+}
+
+function sourceLabel(source: ViewingTimelineEntry['source'], ar: boolean): string {
+  switch (source) {
+    case 'guest':
+      return ar ? 'العميل' : 'Guest';
+    case 'guard':
+      return ar ? 'الحارس' : 'Guard';
+    case 'staff':
+      return ar ? 'الفريق' : 'Staff';
+    default:
+      return ar ? 'النظام' : 'System';
+  }
+}
 
 function toLocalInput(value: string | null): string {
   if (!value) return '';
@@ -446,7 +476,47 @@ export function ViewingRequestDesk({
         </section>
       ) : null}
 
-      {viewing.notes ? (
+      {(viewing.timeline?.length ?? 0) > 0 ? (
+        <section className="vd__card vd__card--timeline" aria-labelledby="vd-timeline-title">
+          <h2 id="vd-timeline-title">
+            {ar ? 'سجل الموافقات والردود' : 'Approvals & replies log'}
+          </h2>
+          <p className="vd__hint">
+            {ar
+              ? 'من وافق، ومتى سجّل الحارس الوصول، وما كتبه العميل أو الحارس.'
+              : 'Who approved, when the guard checked in, and notes from the guest or guard.'}
+          </p>
+          <ol className="vd__timeline">
+            {(viewing.timeline ?? []).map((entry) => (
+              <li key={entry.id} className={`vd__timeline-item vd__timeline-item--${entry.source}`}>
+                <div className="vd__timeline-meta">
+                  <strong>{timelineTitle(entry, ar)}</strong>
+                  <time dateTime={entry.at}>{stamp(entry.at, ar)}</time>
+                </div>
+                <p className="vd__timeline-who">
+                  <span className="vd__timeline-source">{sourceLabel(entry.source, ar)}</span>
+                  {entry.actorName ? (
+                    <>
+                      {' · '}
+                      <span>{entry.actorName}</span>
+                    </>
+                  ) : null}
+                  {entry.toStatus && entry.toStatus !== entry.fromStatus ? (
+                    <>
+                      {' · '}
+                      <span dir="ltr">
+                        {entry.fromStatus ? `${entry.fromStatus} → ` : ''}
+                        {entry.toStatus}
+                      </span>
+                    </>
+                  ) : null}
+                </p>
+                {entry.note ? <p className="vd__timeline-note">{entry.note}</p> : null}
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : viewing.notes ? (
         <section className="vd__card vd__card--notes" aria-labelledby="vd-notes-title">
           <h2 id="vd-notes-title">{ar ? 'الملاحظات وسجل القرارات' : 'Notes & decision log'}</h2>
           <pre className="vd__notes">{viewing.notes}</pre>

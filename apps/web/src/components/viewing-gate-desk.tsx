@@ -74,11 +74,13 @@ export function ViewingGateDesk({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [guardNote, setGuardNote] = useState('');
 
   const postGate = useCallback(
     async (
       action: 'preview' | 'checkin',
       body: { token: string } | { username: string; pin: string },
+      note?: string,
     ) => {
       const response = await fetch('/api/viewing-gate', {
         method: 'POST',
@@ -88,7 +90,11 @@ export function ViewingGateDesk({
           accept: 'application/json',
           'x-csrf-token': await fetchBrowserCsrfToken(),
         },
-        body: JSON.stringify({ action, ...body }),
+        body: JSON.stringify({
+          action,
+          ...body,
+          ...(action === 'checkin' && note?.trim() ? { note: note.trim() } : {}),
+        }),
       });
       const payload = (await response.json().catch(() => null)) as
         | CheckInResult
@@ -155,19 +161,20 @@ export function ViewingGateDesk({
         pending.kind === 'token'
           ? { token: pending.token }
           : { username: pending.username, pin: pending.pin };
-      const payload = await postGate('checkin', body);
+      const payload = await postGate('checkin', body, guardNote);
       if (!payload || !('ok' in payload) || !payload.ok || 'preview' in payload) {
         throw new Error('checkin_failed');
       }
       setResult(payload as CheckInResult);
       setPending(null);
       setPreview(null);
+      setGuardNote('');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'checkin_failed');
     } finally {
       setBusy(false);
     }
-  }, [pending, postGate]);
+  }, [pending, postGate, guardNote]);
 
   // Deep link / email with ?t= only previews — never auto check-in.
   useEffect(() => {
@@ -312,6 +319,21 @@ export function ViewingGateDesk({
             <dd dir="ltr">{stamp(preview.scheduledAt, ar)}</dd>
           </div>
         </dl>
+        <label className="field">
+          <span>{ar ? 'تعليق الحارس (اختياري)' : 'Guard note (optional)'}</span>
+          <textarea
+            rows={2}
+            value={guardNote}
+            maxLength={500}
+            disabled={busy}
+            onChange={(event) => setGuardNote(event.target.value)}
+            placeholder={
+              ar
+                ? 'مثال: وصل مع مرافقين، أو تأخر 10 دقائق'
+                : 'e.g. Arrived with companions, or 10 minutes late'
+            }
+          />
+        </label>
         <div className="viewing-pass__actions">
           <button
             type="button"

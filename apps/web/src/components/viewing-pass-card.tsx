@@ -1,7 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
+import { guestViewingPassNoteService, NoteTranslateBar } from '@/components/note-translate';
+import { GUEST_VIEWING_NOTE_SUGGESTIONS } from '@/lib/viewing-note-suggestions';
 import type { ViewingGuestDecision, ViewingGuestPass } from '@/lib/viewing-requests-shared';
 
 type PassPayload = ViewingGuestPass & { qrSvg: string | null };
@@ -98,6 +100,7 @@ export function ViewingPassCard({
     initialPass ? toLocalInputValue(initialPass.preferredAt || initialPass.scheduledAt) : '',
   );
   const [manageNote, setManageNote] = useState('');
+  const noteService = useMemo(() => guestViewingPassNoteService(token), [token]);
   const [decisionNote, setDecisionNote] = useState('');
   const [manageOpen, setManageOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -479,6 +482,34 @@ export function ViewingPassCard({
                   }
                 />
               </label>
+              <div className="vp__suggestions" role="group" aria-label={ar ? 'جمل جاهزة' : 'Ready phrases'}>
+                <p className="muted" style={{ margin: 0, fontSize: '0.85rem' }}>
+                  {ar ? 'جمل جاهزة — اضغط لإدراجها:' : 'Ready phrases — tap to insert:'}
+                </p>
+                <div className="vp__chips">
+                  {GUEST_VIEWING_NOTE_SUGGESTIONS.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className="button button--quiet vp__chip"
+                      disabled={busy}
+                      onClick={() =>
+                        setManageNote((ar ? item.textAr : item.textEn).slice(0, 500))
+                      }
+                    >
+                      {ar ? item.labelAr : item.labelEn}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <NoteTranslateBar
+                value={manageNote}
+                onChange={setManageNote}
+                locale={locale}
+                max={500}
+                disabled={busy}
+                service={noteService}
+              />
               <div className="vp__actions">
                 <button
                   type="button"
@@ -555,6 +586,14 @@ export function ViewingPassCard({
               }
             />
           </label>
+          <NoteTranslateBar
+            value={decisionNote}
+            onChange={setDecisionNote}
+            locale={locale}
+            max={500}
+            disabled={busy}
+            service={noteService}
+          />
           <div className="vp__actions">
             {purpose === 'rent' || purpose === 'both' ? (
               <button
