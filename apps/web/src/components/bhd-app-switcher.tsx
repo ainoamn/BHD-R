@@ -52,37 +52,20 @@ function isCurrentApp(app: BhdApp, pageOrigin: string): boolean {
   return Boolean(app.origin) && here === app.origin.replace(/\/$/, '');
 }
 
-/** BHD-ACCOUNT-SWITCHER §5 — warm product origins and workspace documents. */
-function hintHop(url: string) {
-  if (!url || typeof document === 'undefined') return;
-  if (url.startsWith('/')) {
-    if (!document.head.querySelector(`link[data-bhd-prefetch="${url}"]`)) {
-      const prefetch = document.createElement('link');
-      prefetch.rel = 'prefetch';
-      prefetch.as = 'document';
-      prefetch.href = url;
-      prefetch.setAttribute('data-bhd-prefetch', url);
-      document.head.appendChild(prefetch);
-    }
-    return;
-  }
+/** BHD-ACCOUNT-SWITCHER §5 — warm product origins (preconnect only; avoid cross-origin document prefetch storms). */
+function hintHop(urlOrOrigin: string) {
+  if (!urlOrOrigin || typeof document === 'undefined') return;
   try {
-    const origin = new URL(url, window.location.origin).origin;
-    if (!document.head.querySelector(`link[data-bhd-hop="${origin}"]`)) {
-      const pre = document.createElement('link');
-      pre.rel = 'preconnect';
-      pre.href = origin;
-      pre.setAttribute('data-bhd-hop', origin);
-      document.head.appendChild(pre);
-    }
-    if (!document.head.querySelector(`link[data-bhd-prefetch="${url}"]`)) {
-      const prefetch = document.createElement('link');
-      prefetch.rel = 'prefetch';
-      prefetch.as = 'document';
-      prefetch.href = url;
-      prefetch.setAttribute('data-bhd-prefetch', url);
-      document.head.appendChild(prefetch);
-    }
+    const origin = urlOrOrigin.startsWith('/')
+      ? window.location.origin
+      : new URL(urlOrOrigin, window.location.origin).origin;
+    if (document.head.querySelector(`link[data-bhd-hop="${origin}"]`)) return;
+    const pre = document.createElement('link');
+    pre.rel = 'preconnect';
+    pre.href = origin;
+    pre.crossOrigin = 'anonymous';
+    pre.setAttribute('data-bhd-hop', origin);
+    document.head.appendChild(pre);
   } catch {
     /* ignore bad urls */
   }

@@ -127,16 +127,8 @@ export default function proxy(request: NextRequest): NextResponse {
     return NextResponse.redirect(url);
   }
 
-  // BHD-ACCOUNT-SWITCHER §5: protected workspace without product session → silent start once.
-  const protectedMatch = pathname.match(
-    /^\/(ar|en)\/(portal|owner|developer|tenant|platform|site-admin|account)(\/|$)/i,
-  );
-  if (protectedMatch && !request.cookies.get('bhd_r_session')?.value) {
-    const start = request.nextUrl.clone();
-    start.pathname = '/api/auth/bhd/start';
-    start.search = `?returnTo=${encodeURIComponent(pathname)}`;
-    return NextResponse.redirect(start, 302);
-  }
+  // Session gate stays in requirePortalShell (silent start). Do not redirect from
+  // middleware — a start↔page loop crashes Chromium (RESULT_CODE_KILLED_BAD_MESSAGE).
 
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64');
   const requestHeaders = new Headers(request.headers);
