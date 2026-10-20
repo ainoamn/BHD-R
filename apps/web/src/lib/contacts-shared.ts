@@ -10,6 +10,7 @@ export const CONTACT_ROLE_KEYS = [
   'government',
   'authorized_representative',
   'lawyer',
+  'staff',
   'other',
 ] as const;
 
@@ -24,6 +25,7 @@ export const CONTACT_ROLE_LABELS: Record<ContactRoleKey, { ar: string; en: strin
   government: { ar: 'جهة حكومية', en: 'Government' },
   authorized_representative: { ar: 'مفوّض', en: 'Representative' },
   lawyer: { ar: 'محامٍ', en: 'Lawyer' },
+  staff: { ar: 'موظف / فريق', en: 'Staff / team' },
   other: { ar: 'أخرى', en: 'Other' },
 };
 

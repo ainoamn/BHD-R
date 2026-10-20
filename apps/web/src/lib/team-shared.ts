@@ -567,6 +567,14 @@ export type LawyerMember = {
 /** A lawyer or law firm contact; several lawyer accounts may work for one firm. */
 export type LawyerPartyChoice = { id: string; name: string; caseCount: number };
 
+/** Address-book people with email who can be invited into the staff team. */
+export type TeamDirectoryContact = {
+  partyId: string;
+  displayName: string;
+  email: string;
+  phone: string | null;
+};
+
 export type TenantMember = {
   userId: string;
   displayName: string;
@@ -593,6 +601,8 @@ export type TeamView = {
   ownerParties: OwnerPartyChoice[];
   lawyers: LawyerMember[];
   lawyerParties: LawyerPartyChoice[];
+  /** Address-book contacts (with email) not already on the staff team — for import. */
+  directoryContacts: TeamDirectoryContact[];
   tenants: TenantMember[];
   savedRoles: SavedRole[];
   seats: { used: number; limit: number; plan: string };

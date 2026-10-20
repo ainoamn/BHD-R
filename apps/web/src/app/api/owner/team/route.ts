@@ -22,6 +22,8 @@ const bodySchema = z
   .object({
     email: z.string().trim().min(3).max(320),
     displayName: z.string().trim().max(160).optional(),
+    /** Address-book party to import; membership is linked and marked staff. */
+    partyId: z.string().uuid().optional(),
     roles: roleListSchema.optional(),
     /** Single role, as sent before members could hold several. */
     role: z.string().min(2).max(80).optional(),
@@ -69,6 +71,7 @@ export async function POST(request: Request) {
       roles: body.roles ?? [body.role!],
       capabilities: body.capabilities,
       ...(body.displayName ? { displayName: body.displayName } : {}),
+      ...(body.partyId ? { partyId: body.partyId } : {}),
     });
     return NextResponse.json(result, { status: 201 });
   } catch (error) {

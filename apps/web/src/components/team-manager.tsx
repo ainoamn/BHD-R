@@ -52,6 +52,10 @@ const ERRORS: Record<string, [string, string]> = {
     'اختر المالك من ملاك العقارات المسجلين.',
     'Choose the owner from the registered property owners.',
   ],
+  team_party_invalid: [
+    'جهة الاتصال غير موجودة في دفتر العناوين.',
+    'That contact is not in the address book.',
+  ],
   team_lawyer_invalid: [
     'اختر المحامي أو المكتب من القائمة.',
     'Choose the lawyer or firm from the list.',
@@ -341,6 +345,7 @@ function AddMemberForm({
   onDone: (message: string) => void;
   onCancel: () => void;
 }) {
+  const [partyId, setPartyId] = useState('');
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [roles, setRoles] = useState<string[]>([]);
@@ -349,11 +354,22 @@ function AddMemberForm({
   const errorRef = useRef<HTMLParagraphElement>(null);
   const full = view.seats.used >= view.seats.limit;
   const included = includedBy(view, roles);
+  const fromDirectory = Boolean(partyId);
 
   useEffect(() => {
     if (!error) return;
     errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [error]);
+
+  const pickContact = (nextPartyId: string) => {
+    setPartyId(nextPartyId);
+    if (error) setError(null);
+    if (!nextPartyId) return;
+    const contact = (view.directoryContacts ?? []).find((item) => item.partyId === nextPartyId);
+    if (!contact) return;
+    setEmail(contact.email);
+    setName(contact.displayName);
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -374,10 +390,12 @@ function AddMemberForm({
     const result = await run('/api/owner/team', 'POST', {
       email: trimmed,
       ...(name.trim() ? { displayName: name.trim() } : {}),
+      ...(partyId ? { partyId } : {}),
       roles,
       capabilities: extras.filter((id) => !included.has(id)),
     });
     if (!result) return;
+    setPartyId('');
     setEmail('');
     setName('');
     setRoles([]);
@@ -385,11 +403,11 @@ function AddMemberForm({
     onDone(
       ar
         ? result.existingAccount
-          ? 'أُضيف العضو. سيجد الفريق في قائمة حسابه عند دخوله.'
-          : 'أُضيف العضو وتُرسل له دعوة بالبريد الآن؛ تظهر حالتها تحت اسمه. ينضم عند أول دخول بحساب BHD بنفس البريد.'
+          ? 'أُضيف العضو إلى الفريق ودفتر العناوين. سيجد الفريق في قائمة حسابه عند دخوله.'
+          : 'أُضيف العضو إلى الفريق ودفتر العناوين، وتُرسل له دعوة بالبريد؛ تظهر حالتها تحت اسمه. ينضم عند أول دخول بحساب BHD بنفس البريد.'
         : result.existingAccount
-          ? 'Member added. They will find the team in their account menu.'
-          : 'Member added; an invitation email is on its way (status shows under their name). They join on first BHD sign-in with that email.',
+          ? 'Member added to the team and address book. They will find the team in their account menu.'
+          : 'Member added to the team and address book; an invitation email is on its way (status shows under their name). They join on first BHD sign-in with that email.',
     );
   };
 
@@ -402,8 +420,8 @@ function AddMemberForm({
       <h2>{ar ? 'إضافة عضو للفريق' : 'Add a team member'}</h2>
       <p className="team-muted">
         {ar
-          ? 'أدخل البريد الذي يستخدمه في حساب BHD، واختر دوراً أو أكثر (مثل حارس مبنى)، ثم أضف ما تريد من صلاحيات منفصلة.'
-          : 'Use the email of their BHD account, choose one or more roles (e.g. building guard), then add any separate permissions.'}
+          ? 'استورد من دفتر العناوين أو أدخل البريد يدوياً — يُضاف تلقائياً إلى دفتر العناوين كموظف. اختر دوراً أو أكثر ثم الصلاحيات الإضافية.'
+          : 'Import from the address book or enter an email — they are added to the address book as staff. Choose one or more roles, then any extra permissions.'}
       </p>
       {error ? (
         <p ref={errorRef} className="team-error team-error--banner" role="alert">
@@ -416,6 +434,21 @@ function AddMemberForm({
           : 'Important: the member is linked only if this is the verified email of their BHD account. Working for another organization is fine: one account, switching organizations from the account menu, with data kept separate.'}
       </p>
       <div className="team-add__grid">
+        {(view.directoryContacts ?? []).length ? (
+          <label className="team-field">
+            <span>{ar ? 'من دفتر العناوين' : 'From address book'}</span>
+            <select value={partyId} onChange={(event) => pickContact(event.target.value)}>
+              <option value="">
+                {ar ? '— إدخال يدوي بالبريد —' : '— Enter email manually —'}
+              </option>
+              {(view.directoryContacts ?? []).map((contact) => (
+                <option key={contact.partyId} value={contact.partyId}>
+                  {contact.displayName} — {contact.email}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         <label className="team-field">
           <span>{ar ? 'البريد الإلكتروني' : 'Email'}</span>
           <input
@@ -423,6 +456,7 @@ function AddMemberForm({
             dir="ltr"
             autoComplete="email"
             value={email}
+            readOnly={fromDirectory}
             onChange={(event) => {
               setEmail(event.target.value);
               if (error) setError(null);
@@ -432,7 +466,12 @@ function AddMemberForm({
         </label>
         <label className="team-field">
           <span>{ar ? 'الاسم (اختياري)' : 'Name (optional)'}</span>
-          <input value={name} maxLength={160} onChange={(event) => setName(event.target.value)} />
+          <input
+            value={name}
+            maxLength={160}
+            readOnly={fromDirectory}
+            onChange={(event) => setName(event.target.value)}
+          />
         </label>
       </div>
       <RolePicker ar={ar} view={view} selected={roles} onChange={setRoles} />

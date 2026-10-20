@@ -454,7 +454,7 @@ export const partyRoles = pgTable(
     index('party_roles_org_role_idx').on(table.organizationId, table.roleKey, table.status),
     check(
       'party_roles_key_check',
-      sql`${table.roleKey} IN ('prospect', 'tenant', 'owner', 'supplier', 'partner', 'government', 'authorized_representative', 'lawyer', 'other')`,
+      sql`${table.roleKey} IN ('prospect', 'tenant', 'owner', 'supplier', 'partner', 'government', 'authorized_representative', 'lawyer', 'staff', 'other')`,
     ),
     check(
       'party_roles_dates_check',

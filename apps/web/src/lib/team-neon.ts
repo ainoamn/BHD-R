@@ -49,6 +49,7 @@ import {
   type OwnerPartyChoice,
   type PropertyOwnerMember,
   type SavedRole,
+  type TeamDirectoryContact,
   type TeamInvite,
   type TeamMember,
   type TeamView,
@@ -290,6 +291,102 @@ async function loadLawyerParties(tx: Tx, organizationId: string): Promise<Lawyer
   return rows.map((row) => ({ ...row, caseCount: Number(row.caseCount) }));
 }
 
+/** People in the address book with email who are not already on the staff team. */
+async function loadDirectoryContacts(
+  tx: Tx,
+  organizationId: string,
+  memberEmails: ReadonlySet<string>,
+  linkedPartyIds: ReadonlySet<string>,
+): Promise<TeamDirectoryContact[]> {
+  const rows = await tx
+    .select({
+      id: parties.id,
+      displayName: parties.displayName,
+      email: parties.email,
+      phone: parties.phone,
+    })
+    .from(parties)
+    .where(
+      and(
+        eq(parties.organizationId, organizationId),
+        eq(parties.status, 'active'),
+        sql`${parties.email} is not null and btrim(${parties.email}) <> ''`,
+      ),
+    )
+    .orderBy(parties.displayName)
+    .limit(500);
+  const out: TeamDirectoryContact[] = [];
+  for (const row of rows) {
+    if (!row.email || linkedPartyIds.has(row.id)) continue;
+    const email = normalizeEmailInput(row.email);
+    if (!email || !validTeamEmail(email) || memberEmails.has(email)) continue;
+    out.push({
+      partyId: row.id,
+      displayName: row.displayName,
+      email,
+      phone: row.phone,
+    });
+  }
+  return out;
+}
+
+/** Create or reuse an address-book party and mark them as staff. */
+async function staffPartyFor(
+  tx: Tx,
+  organizationId: string,
+  input: { partyId?: string | null; email: string; name: string },
+): Promise<string> {
+  let partyId = input.partyId ?? null;
+  if (partyId) {
+    const [row] = await tx
+      .select({ id: parties.id, email: parties.email })
+      .from(parties)
+      .where(
+        and(
+          eq(parties.organizationId, organizationId),
+          eq(parties.id, partyId),
+          eq(parties.status, 'active'),
+        ),
+      )
+      .limit(1);
+    if (!row) throw new Error('team_party_invalid');
+    if (!row.email) {
+      await tx
+        .update(parties)
+        .set({ email: input.email, updatedAt: new Date() })
+        .where(eq(parties.id, row.id));
+    }
+  } else {
+    const [existing] = await tx
+      .select({ id: parties.id })
+      .from(parties)
+      .where(and(eq(parties.organizationId, organizationId), eq(parties.email, input.email)))
+      .limit(1);
+    partyId =
+      existing?.id ??
+      (
+        await tx
+          .insert(parties)
+          .values({
+            organizationId,
+            type: 'person',
+            displayName: input.name,
+            email: input.email,
+            status: 'active',
+          })
+          .returning({ id: parties.id })
+      )[0]!.id;
+  }
+  await tx
+    .insert(partyRoles)
+    .values({ organizationId, partyId, roleKey: 'staff', status: 'active' })
+    .onConflictDoUpdate({
+      target: [partyRoles.organizationId, partyRoles.partyId, partyRoles.roleKey],
+      set: { status: 'active', updatedAt: new Date() },
+    });
+  return partyId;
+}
+
 export async function loadTeam(claims: SessionClaims): Promise<TeamView> {
   const view = await loadTeamView(claims);
   const [marks, badges] = await Promise.all([
@@ -466,12 +563,25 @@ async function loadTeamView(claims: SessionClaims): Promise<TeamView> {
             .map((row) => row.userId),
         )
       : {};
+    const directoryContacts = canManage
+      ? await loadDirectoryContacts(
+          tx,
+          organizationId,
+          new Set(members.map((member) => normalizeEmailInput(member.email))),
+          new Set(
+            staffEntries
+              .map((row) => row.partyId)
+              .filter((id): id is string => Boolean(id)),
+          ),
+        )
+      : [];
     return {
       members,
       owners,
       ownerParties: canManage ? ownerParties : [],
       lawyers,
       lawyerParties: canManage ? lawyerParties : [],
+      directoryContacts,
       tenants,
       savedRoles,
       seats: {
@@ -724,6 +834,7 @@ async function writeStaffRoles(
     roles: readonly string[];
     permissions: string[];
     status: 'active' | 'inactive';
+    partyId?: string | null;
   },
 ) {
   for (const [index, roleKey] of input.roles.entries()) {
@@ -736,10 +847,15 @@ async function writeStaffRoles(
         roleKey,
         permissions,
         status: input.status,
+        ...(input.partyId ? { partyId: input.partyId } : {}),
       })
       .onConflictDoUpdate({
         target: [memberships.organizationId, memberships.userId, memberships.roleKey],
-        set: { permissions, status: input.status },
+        set: {
+          permissions,
+          status: input.status,
+          ...(input.partyId ? { partyId: input.partyId } : {}),
+        },
       });
   }
   await tx
@@ -767,8 +883,15 @@ function rolesText(roles: readonly string[], savedRoles: readonly SavedRoleRow[]
 
 export async function addTeamMember(
   claims: SessionClaims,
-  input: { email: string; displayName?: string; roles: string[]; capabilities: string[] },
-): Promise<{ userId: string; existingAccount: boolean }> {
+  input: {
+    email: string;
+    displayName?: string;
+    roles: string[];
+    capabilities: string[];
+    /** Import from address book; otherwise a staff party is created/linked by email. */
+    partyId?: string;
+  },
+): Promise<{ userId: string; partyId: string; existingAccount: boolean }> {
   requireMembersWrite(claims);
   const email = normalizeEmailInput(input.email);
   if (!validTeamEmail(email)) throw new Error('team_email_invalid');
@@ -786,6 +909,11 @@ export async function addTeamMember(
     }
     await assertSeatAvailable(tx, organizationId, organization.planKey);
     const { user, existingAccount } = await accountFor(tx, email, input.displayName);
+    const partyId = await staffPartyFor(tx, organizationId, {
+      partyId: input.partyId,
+      email,
+      name: input.displayName?.trim().slice(0, 200) || user.displayName || email.split('@')[0]!,
+    });
 
     const permissions = mergedPermissions(claims, [], input.capabilities);
     await writeStaffRoles(tx, {
@@ -794,11 +922,13 @@ export async function addTeamMember(
       roles,
       permissions,
       status: 'active',
+      partyId,
     });
     if (existingAccount) await refreshMemberSessions(tx, user.id);
 
     await audit(tx, claims, 'organization.member.added', user.id, {
       roles,
+      partyId,
       capabilities: capabilitiesFromPermissions(permissions),
     });
     await tryQueueWelcomeEmail(tx, {
@@ -810,7 +940,7 @@ export async function addTeamMember(
       roleText: rolesText(roles, savedRoles),
       invitedBy: await actorName(tx, claims),
     });
-    return { userId: user.id, existingAccount };
+    return { userId: user.id, partyId, existingAccount };
   });
 }
 

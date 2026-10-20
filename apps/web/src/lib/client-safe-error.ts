@@ -77,6 +77,7 @@ const KNOWN_CODES = new Set([
   'team_email_invalid',
   'team_roles_required',
   'team_owner_party_required',
+  'team_party_invalid',
   'team_role_invalid',
   'team_role_not_found',
   'team_role_limit',
@@ -246,6 +247,7 @@ export function statusForSafeCode(code: string): number {
     case 'team_email_invalid':
     case 'team_roles_required':
     case 'team_owner_party_required':
+    case 'team_party_invalid':
     case 'team_role_invalid':
       return 400;
     case 'booking_not_approvable':
