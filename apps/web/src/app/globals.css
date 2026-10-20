@@ -15745,12 +15745,17 @@ body:has(.guest-stay-detail) #main-content {
   padding: 1rem 1.1rem;
   border: 1px solid #cfe8df;
   border-radius: 1rem;
+  border-inline-start: 4px solid #08734c;
   background: linear-gradient(160deg, #f3fbf7 0%, #fff 70%);
   box-shadow: 0 12px 28px rgb(9 45 36 / 0.05);
 }
 .viewing-pass__decision h2 {
   margin: 0;
   font-size: 1.05rem;
+}
+.viewing-pass__decision .field textarea {
+  width: 100%;
+  resize: vertical;
 }
 .viewing-pass__actions {
   display: flex;
