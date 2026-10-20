@@ -12,11 +12,13 @@ import { OperationsWorkspaceClient } from '@/components/operations-workspace-cli
 import { PortalPageContext } from '@/components/portal-page';
 import { TeamManager } from '@/components/team-manager';
 import { TenantMaintenanceBoard } from '@/components/tenant-maintenance-board';
+import { TenantSpaceHost } from '@/components/tenant-space-host';
 import {
   isOperationsSection,
   opsSectionsForPortal,
   type OperationsSection,
 } from '@/lib/portal-ops-types';
+import { tenantSoftViewFromPath } from '@/lib/tenant-soft-nav';
 import type { PortalRole } from '@/lib/types';
 
 const PropertySectionRecords = dynamic(() =>
@@ -105,8 +107,10 @@ export function PortalMainSlot({
   const pathname = usePathname();
   const section = opsSectionFromPathname(pathname, portal);
   const extra = softExtraFromPath(pathname, portal);
+  const tenantSoft = portal === 'tenant' ? tenantSoftViewFromPath(pathname) : null;
   const [visited, setVisited] = useState<OperationsSection[]>(() => (section ? [section] : []));
   const [visitedExtras, setVisitedExtras] = useState<SoftExtra[]>(() => (extra ? [extra] : []));
+  const [tenantHostMounted, setTenantHostMounted] = useState(() => Boolean(tenantSoft));
   const [pages, setPages] = useState<Record<string, ReactNode>>({});
   const register = useCallback((path: string, content: ReactNode) => {
     setPages((current) => (current[path] === content ? current : { ...current, [path]: content }));
@@ -122,8 +126,13 @@ export function PortalMainSlot({
     setVisitedExtras((current) => (current.includes(extra) ? current : [...current, extra]));
   }, [extra]);
 
+  useEffect(() => {
+    if (!tenantSoft) return;
+    setTenantHostMounted(true);
+  }, [tenantSoft]);
+
   const panels = section && !visited.includes(section) ? [...visited, section] : visited;
-  const showPersistedPage = !section && !extra;
+  const showPersistedPage = !section && !extra && !tenantSoft;
   return (
     <PortalPageContext.Provider value={register}>
       {/* Leave Next's router mounted exactly once; pages register their actual content. */}
@@ -139,6 +148,16 @@ export function PortalMainSlot({
           {content}
         </div>
       ))}
+      {tenantHostMounted ? (
+        <div
+          className="portal-persisted-panel"
+          hidden={!tenantSoft}
+          inert={!tenantSoft}
+          aria-hidden={!tenantSoft || undefined}
+        >
+          <TenantSpaceHost locale={locale} active={Boolean(tenantSoft)} />
+        </div>
+      ) : null}
       {visitedExtras.includes('notifications') ? (
         <div
           className="portal-persisted-panel"

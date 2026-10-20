@@ -10,6 +10,7 @@ import {
   type OperationsSection,
 } from '@/lib/portal-ops-types';
 import { hasOpsInflight, OPS_WARM_DONE_EVENT, warmOpsSection } from '@/lib/portal-ops-client-cache';
+import { warmTenantSpace } from '@/lib/tenant-space-client-cache';
 
 const PROPERTY_SEED_LIMIT = 6;
 /** Background work waits this long after the page finished loading its own data. */
@@ -154,7 +155,11 @@ export function PortalRoutePrefetch({
         return;
       }
       later(drain, 0);
-      void warmNext();
+      if (portal === 'tenant') {
+        void warmTenantSpace();
+      } else {
+        void warmNext();
+      }
     };
     later(begin, SETTLE_MS);
     const refreshQueue = () => {

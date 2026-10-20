@@ -1,8 +1,10 @@
+'use client';
+
 import { EmptyState } from '@bhd-r/ui';
 import { Children, cloneElement, isValidElement, type ReactNode } from 'react';
-import { Link } from '@/i18n/navigation';
 import { formatMoney } from '@/lib/format';
 import { BadgeChips } from '@/components/badges/badge-chips';
+import { SoftPortalLink as Link } from '@/components/soft-portal-link';
 import { TenantBookingsBoard } from '@/components/tenant-bookings-board';
 import { TenantRequestLauncher } from '@/components/tenant-request-form';
 import { TenantRequestsList } from '@/components/tenant-requests-list';
@@ -12,9 +14,7 @@ import {
   TenantStatements,
 } from '@/components/tenant-statement';
 import type { BadgeChip } from '@/lib/badges-shared';
-import { loadMyTenancy, loadMyTenantBadges } from '@/lib/tenancy-neon';
 import {
-  EMPTY_TENANCY,
   invoiceOutstandingMinor,
   tenancyAlertLabel,
   tenancyLandlordName,
@@ -22,20 +22,14 @@ import {
   type MyTenancy,
 } from '@/lib/tenancy-shared';
 import { OPEN_TENANT_REQUEST } from '@/lib/tenant-requests-shared';
+import {
+  TENANT_SPACE_SECTIONS,
+  type TenantSpaceView,
+} from '@/lib/tenant-soft-nav';
 import { domainStatusLabel } from '@/lib/ui-labels';
-import { requirePortal } from '@/lib/viewer';
 
-export type TenantSpaceView =
-  'overview' | 'bookings' | 'contracts' | 'leases' | 'invoices' | 'payments' | 'requests';
-
-export const TENANT_SPACE_SECTIONS: Record<string, TenantSpaceView> = {
-  reservations: 'bookings',
-  contracts: 'contracts',
-  leases: 'leases',
-  invoices: 'invoices',
-  payments: 'payments',
-  requests: 'requests',
-};
+export type { TenantSpaceView };
+export { TENANT_SPACE_SECTIONS };
 
 const OPEN_INVOICE = new Set(['issued', 'partially_paid', 'overdue']);
 
@@ -376,39 +370,6 @@ const VIEW_COPY: Record<
     ],
   },
 };
-
-export async function TenantSpace({
-  locale: rawLocale,
-  view,
-}: {
-  locale: string;
-  view: TenantSpaceView;
-}) {
-  const locale = rawLocale === 'en' ? 'en' : 'ar';
-  const viewer = await requirePortal(locale, 'tenant');
-  let failed = false;
-  const [data, badges] = await Promise.all([
-    loadMyTenancy(viewer.id).catch((error: unknown) => {
-      console.error('tenant space failed', error);
-      failed = true;
-      return EMPTY_TENANCY;
-    }),
-    loadMyTenantBadges(viewer.id).catch(() => []),
-  ]);
-  return (
-    <TenantSpaceContent
-      locale={locale}
-      view={view}
-      data={data}
-      failed={failed}
-      badges={badges}
-      displayName={viewer.displayName}
-      ownerPortal={
-        viewer.portals.find((portal) => portal === 'owner' || portal === 'developer') ?? null
-      }
-    />
-  );
-}
 
 export function TenantSpaceContent({
   locale,

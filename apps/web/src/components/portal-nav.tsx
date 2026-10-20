@@ -14,6 +14,8 @@ import {
   opsSectionsForPortal,
   type OperationsSection,
 } from '@/lib/portal-ops-types';
+import { isTenantSoftBasePath } from '@/lib/tenant-soft-nav';
+import { warmTenantSpace } from '@/lib/tenant-space-client-cache';
 import type { PortalRole, Viewer } from '@/lib/types';
 
 type NavItem = { path: string; label: string; mark: string; children?: NavItem[] };
@@ -274,6 +276,7 @@ function PortalIntentLink({
     }
     if (section) void warmOpsSection(portal, section);
     if (href.includes('/accounting')) void warmAccountingHub();
+    if (portal === 'tenant' && soft) void warmTenantSpace();
   };
 
   return (
@@ -416,7 +419,10 @@ export function PortalNav({
         portal={portal}
         href={`${root}${item.path}`}
         section={section}
-        softPath={SOFT_PORTAL_PATHS.has(basePath)}
+        softPath={
+          SOFT_PORTAL_PATHS.has(basePath) ||
+          (portal === 'tenant' && isTenantSoftBasePath(basePath))
+        }
         active={isActive(item)}
         mark={item.mark}
         title={railed ? t(item.label) : undefined}
