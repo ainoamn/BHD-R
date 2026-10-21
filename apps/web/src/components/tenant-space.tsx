@@ -17,9 +17,12 @@ import type { BadgeChip } from '@/lib/badges-shared';
 import {
   invoiceOutstandingMinor,
   tenancyAlertLabel,
+  tenancyContractGroups,
+  tenancyContractKindLabel,
   tenancyLandlordName,
   tenancyUnitLabel,
   type MyTenancy,
+  type TenancyContract,
 } from '@/lib/tenancy-shared';
 import { OPEN_TENANT_REQUEST } from '@/lib/tenant-requests-shared';
 import {
@@ -92,8 +95,26 @@ function Status({
   return <span className={`tenant-status${tone ? ` tenant-status--${tone}` : ''}`}>{label}</span>;
 }
 
+function contractStatusCell(contract: TenancyContract, ar: boolean) {
+  const awaitingMe =
+    ['sent', 'partially_signed'].includes(contract.status) && !contract.tenantSigned;
+  return (
+    <Status
+      label={
+        awaitingMe
+          ? ar
+            ? 'بانتظار توقيعك'
+            : 'Awaiting your signature'
+          : domainStatusLabel(contract.status, ar)
+      }
+      tone={awaitingMe ? 'action' : contract.status === 'signed' ? 'good' : undefined}
+    />
+  );
+}
+
 function ContractsTable({ ar, locale, data }: Ctx) {
-  if (!data.contracts.length) return <EmptyState title={ar ? 'لا عقود بعد' : 'No contracts yet'} />;
+  const groups = tenancyContractGroups(data.contracts);
+  if (!groups.length) return <EmptyState title={ar ? 'لا عقود بعد' : 'No contracts yet'} />;
   return (
     <Table
       head={
@@ -102,45 +123,54 @@ function ContractsTable({ ar, locale, data }: Ctx) {
           : ['Contract', 'Unit', 'Landlord', 'Term', 'Value', 'Status', '']
       }
     >
-      {data.contracts.map((contract) => {
-        const awaitingMe =
-          ['sent', 'partially_signed'].includes(contract.status) && !contract.tenantSigned;
-        return (
-          <tr key={contract.id}>
-            <td className="tenant-table__ref">
+      {groups.map(({ root: contract, attachments }) => (
+        <tr key={contract.id}>
+          <td className="tenant-table__ref">
+            <div className="tenant-contract-ref">
               <bdi>{contract.reference}</bdi>
-            </td>
-            <td>
-              {tenancyUnitLabel(contract, ar)}
-              {contract.stayReference ? (
-                <small className="tenant-table__sub">
-                  {ar ? 'إقامة يومية' : 'Daily stay'} · <bdi>{contract.stayReference}</bdi>
-                </small>
+              {attachments.length ? (
+                <details className="tenant-contract-attach">
+                  <summary>
+                    {ar
+                      ? `المرفقات (${attachments.length})`
+                      : `Attached (${attachments.length})`}
+                  </summary>
+                  <ul>
+                    {attachments.map((item) => (
+                      <li key={item.id}>
+                        <Link href={`/tenant/contracts/${item.id}`}>
+                          <bdi>{item.reference}</bdi>
+                        </Link>
+                        <span>
+                          {tenancyContractKindLabel(item.kind, ar)} ·{' '}
+                          {domainStatusLabel(item.status, ar)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
               ) : null}
-            </td>
-            <td>{tenancyLandlordName(contract.landlord, ar)}</td>
-            <td>{period(contract.startsOn, contract.endsOn, ar)}</td>
-            <td>{money(contract.amountMinor, contract.currency, locale)}</td>
-            <td>
-              <Status
-                label={
-                  awaitingMe
-                    ? ar
-                      ? 'بانتظار توقيعك'
-                      : 'Awaiting your signature'
-                    : domainStatusLabel(contract.status, ar)
-                }
-                tone={awaitingMe ? 'action' : contract.status === 'signed' ? 'good' : undefined}
-              />
-            </td>
-            <td>
-              <Link className="ops-action" href={`/tenant/contracts/${contract.id}`}>
-                {ar ? 'عرض العقد' : 'View contract'}
-              </Link>
-            </td>
-          </tr>
-        );
-      })}
+            </div>
+          </td>
+          <td>
+            {tenancyUnitLabel(contract, ar)}
+            {contract.stayReference ? (
+              <small className="tenant-table__sub">
+                {ar ? 'إقامة يومية' : 'Daily stay'} · <bdi>{contract.stayReference}</bdi>
+              </small>
+            ) : null}
+          </td>
+          <td>{tenancyLandlordName(contract.landlord, ar)}</td>
+          <td>{period(contract.startsOn, contract.endsOn, ar)}</td>
+          <td>{money(contract.amountMinor, contract.currency, locale)}</td>
+          <td>{contractStatusCell(contract, ar)}</td>
+          <td>
+            <Link className="ops-action" href={`/tenant/contracts/${contract.id}`}>
+              {ar ? 'عرض العقد' : 'View contract'}
+            </Link>
+          </td>
+        </tr>
+      ))}
     </Table>
   );
 }
@@ -530,7 +560,7 @@ export function TenantSpaceContent({
     {
       key: 'contracts',
       label: ar ? 'عقودي' : 'Contracts',
-      value: data.contracts.length,
+      value: tenancyContractGroups(data.contracts).length,
       href: '/tenant/contracts',
     },
     {
@@ -645,7 +675,15 @@ export function TenantSpaceContent({
         title={ar ? 'عقودي' : 'My contracts'}
         more={{ href: '/tenant/contracts', label: ar ? 'كل العقود' : 'All contracts' }}
       >
-        <ContractsTable {...ctx} data={{ ...data, contracts: data.contracts.slice(0, 5) }} />
+        <ContractsTable
+          {...ctx}
+          data={{
+            ...data,
+            contracts: tenancyContractGroups(data.contracts)
+              .slice(0, 5)
+              .flatMap(({ root, attachments }) => [root, ...attachments]),
+          }}
+        />
       </Section>
       <Section
         title={ar ? 'فواتير مستحقة' : 'Invoices due'}

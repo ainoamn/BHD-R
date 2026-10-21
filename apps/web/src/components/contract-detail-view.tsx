@@ -211,7 +211,7 @@ function SimpleContractView({
                   <dt>{ar ? 'العقد الأصلي' : 'Original contract'}</dt>
                   <dd>
                     <Link href={`/${locale}/${portal}/contracts/${contract.parentContractId}`}>
-                      {ar ? 'عرض العقد المرتبط' : 'View linked contract'}
+                      {ar ? 'عرض العقد الأصلي' : 'View original contract'}
                     </Link>
                   </dd>
                 </div>

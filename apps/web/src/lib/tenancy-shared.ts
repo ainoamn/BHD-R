@@ -9,6 +9,8 @@ export type TenancyContract = {
   landlord: TenancyLandlord;
   reference: string;
   kind: string;
+  /** Parent contract when this row is an amendment / renewal addendum. */
+  parentContractId: string | null;
   status: string;
   tenantSigned: boolean;
   startsOn: string | null;
@@ -22,6 +24,40 @@ export type TenancyContract = {
   stayReference: string | null;
   createdAt: string;
 };
+
+export type TenancyContractGroup = {
+  root: TenancyContract;
+  attachments: TenancyContract[];
+};
+
+/** One row per original contract; amendments hang off as attachments. */
+export function tenancyContractGroups(contracts: TenancyContract[]): TenancyContractGroup[] {
+  const byId = new Map(contracts.map((row) => [row.id, row]));
+  const children = new Map<string, TenancyContract[]>();
+  const roots: TenancyContract[] = [];
+  for (const row of contracts) {
+    if (row.parentContractId && byId.has(row.parentContractId)) {
+      const list = children.get(row.parentContractId) ?? [];
+      list.push(row);
+      children.set(row.parentContractId, list);
+    } else {
+      roots.push(row);
+    }
+  }
+  return roots.map((root) => ({
+    root,
+    attachments: (children.get(root.id) ?? []).slice().sort((a, b) =>
+      b.createdAt.localeCompare(a.createdAt),
+    ),
+  }));
+}
+
+export function tenancyContractKindLabel(kind: string, ar: boolean): string {
+  if (kind === 'renewal') return ar ? 'تجديد' : 'Renewal';
+  if (kind === 'amendment') return ar ? 'تعديل تواريخ' : 'Date change';
+  if (kind === 'termination') return ar ? 'إنهاء' : 'Termination';
+  return ar ? 'عقد أساسي' : 'Initial';
+}
 
 export type TenancyLease = {
   id: string;

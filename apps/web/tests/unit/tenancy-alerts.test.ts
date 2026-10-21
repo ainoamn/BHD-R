@@ -3,6 +3,7 @@ import {
   buildTenancyAlerts,
   EMPTY_TENANCY,
   invoiceOutstandingMinor,
+  tenancyContractGroups,
   type TenancyContract,
   type TenancyInvoice,
   type TenancyLease,
@@ -17,6 +18,7 @@ function contract(patch: Partial<TenancyContract>): TenancyContract {
     landlord,
     reference: 'CTR-1',
     kind: 'initial',
+    parentContractId: null,
     status: 'sent',
     tenantSigned: false,
     startsOn: '2026-11-01',
@@ -156,5 +158,20 @@ describe('tenancy alerts', () => {
 
   it('never reports a negative outstanding amount', () => {
     expect(invoiceOutstandingMinor(invoice({ paidMinor: '200000' }))).toBe('0');
+  });
+
+  it('groups amendments under the original contract', () => {
+    const root = contract({ id: 'root', reference: 'CTR-1', kind: 'initial' });
+    const addendum = contract({
+      id: 'add',
+      reference: 'CTR-2',
+      kind: 'amendment',
+      parentContractId: 'root',
+      createdAt: '2026-10-11T00:00:00.000Z',
+    });
+    const groups = tenancyContractGroups([addendum, root]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.root.id).toBe('root');
+    expect(groups[0]?.attachments.map((row) => row.id)).toEqual(['add']);
   });
 });

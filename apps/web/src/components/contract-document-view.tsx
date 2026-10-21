@@ -1185,7 +1185,7 @@ export function ContractArticle({
 
               {reservation ? null : (
                 <section className="contract-doc__section">
-                  {heading(['الملاحق', 'Addenda'])}
+                  {heading(['الملاحق والعقود المرفقة', 'Addenda & attached contracts'])}
                   {doc.parent ? (
                     <p className="contract-doc__parent">
                       {bi(['هذا ملحق للعقد الأصلي', 'This is an addendum to'])}{' '}

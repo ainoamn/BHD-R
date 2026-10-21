@@ -3544,8 +3544,9 @@ body:has(.stays-booking-receipt) #main-content {
   min-width: 0;
   padding: clamp(1rem, 3vw, 2rem);
 }
+/* Soft-nav unhides panes with [hidden]; entrance animations restart on every show and flash. */
 .portal-ops-pane {
-  animation: portal-chrome-in 0.16s ease both;
+  animation: none;
 }
 .portal-persisted-panel[hidden] {
   display: none !important;
@@ -8446,6 +8447,69 @@ body:has(.stays-booking-receipt) #main-content {
   display: block;
   color: var(--calm-muted, #5c6b64);
   font-size: 0.76rem;
+}
+.tenant-contract-ref {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.65rem;
+}
+.tenant-contract-attach {
+  position: relative;
+  font-weight: 600;
+}
+.tenant-contract-attach > summary {
+  cursor: pointer;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgb(9 45 36 / 0.14);
+  background: rgb(9 45 36 / 0.04);
+  color: var(--calm-ink, #0f2922);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+.tenant-contract-attach > summary::-webkit-details-marker {
+  display: none;
+}
+.tenant-contract-attach[open] > summary {
+  background: rgb(9 45 36 / 0.08);
+}
+.tenant-contract-attach > ul {
+  position: absolute;
+  z-index: 4;
+  inset-inline-start: 0;
+  top: calc(100% + 0.35rem);
+  margin: 0;
+  padding: 0.45rem 0.55rem;
+  min-width: 14rem;
+  list-style: none;
+  border-radius: 0.75rem;
+  border: 1px solid rgb(9 45 36 / 0.12);
+  background: #fff;
+  box-shadow: 0 12px 28px rgb(9 45 36 / 0.12);
+}
+.tenant-contract-attach > ul li {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.35rem 0.15rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+.tenant-contract-attach > ul li + li {
+  border-top: 1px solid rgb(9 45 36 / 0.08);
+}
+.tenant-contract-attach > ul a {
+  color: var(--calm-ink, #0f2922);
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+}
+.tenant-contract-attach > ul span {
+  color: var(--calm-muted, #5c6b64);
+  font-size: 0.72rem;
 }
 @keyframes header-shimmer {
   to {
@@ -22589,7 +22653,7 @@ button.lrw__step-body:focus-visible {
   }
 }
 
-/* Smooth page entrance */
+/* Soft-nav remounts / LiveSync refresh re-apply these; opacity-from-0 caused page flicker. */
 @keyframes portal-calm-in {
   from {
     opacity: 0;
@@ -22597,7 +22661,7 @@ button.lrw__step-body:focus-visible {
   }
 }
 .portal-layout :is(.dash-shell, .ops-workspace, .pmh, .stays-portal) {
-  animation: portal-calm-in 0.28s var(--calm-ease) backwards;
+  animation: none;
 }
 
 /* Page headers */
