@@ -237,7 +237,7 @@ export function DepositLedgerPanel({
     ['open', ar ? 'تحتاج إجراء' : 'Needs action'],
     ['awaiting_refund_transfer', ar ? 'للتحويل' : 'To pay'],
     ['deposit_held', ar ? 'محتجزة' : 'Held'],
-    ['deposit_settled', ar ? 'مُسوّاة' : 'Settled'],
+    ['deposit_settled', ar ? 'محوّلة' : 'Transferred'],
     ['all', ar ? 'الكل' : 'All'],
   ];
 
@@ -265,12 +265,12 @@ export function DepositLedgerPanel({
               kept > 0n
                 ? `، وسُجّل ${formatMoney(kept.toString(), currency, locale)} دخلاً للعقار بإيصال مرتبط بإيصال الاسترداد`
                 : ''
-            }. أُغلق الحجز ويرى الضيف أن المبلغ حُوّل.`
+            }. المعاملة مكتملة حتى دون تأكيد الضيف.`
           : `Deposit transfer recorded for ${row.reference}${
               kept > 0n
                 ? `; ${formatMoney(kept.toString(), currency, locale)} was booked as property income with a linked receipt`
                 : ''
-            }. The booking is closed.`,
+            }. The transfer is complete without guest confirmation.`,
       });
       window.dispatchEvent(new Event(PENDING_APPROVALS_CHANGED_EVENT));
       setReloadKey((key) => key + 1);
@@ -604,7 +604,7 @@ export function DepositLedgerPanel({
                         <DepositClaimsAdmin
                           claims={claims[id] ?? []}
                           currency={row.currency || 'OMR'}
-                          canDecide={viewer.canDecideRefunds}
+                          canDecide={viewer.canDecideRefunds || viewer.canPayRefunds}
                           locale={locale}
                           onDone={(next, reload) => {
                             setNotice(next);

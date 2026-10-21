@@ -49,14 +49,18 @@ function receiptStateLabel(state: string, deadline: string | null | undefined, a
   switch (state) {
     case 'pending':
       return ar
-        ? `بانتظار تأكيد الضيف للاستلام${deadline ? ` حتى ${formatStamp(deadline, ar)}` : ''}`
-        : `Waiting for the guest to confirm${deadline ? ` by ${formatStamp(deadline, ar)}` : ''}`;
+        ? `التحويل مكتمل — تأكيد الاستلام اختياري من الضيف${deadline ? ` حتى ${formatStamp(deadline, ar)}` : ''}`
+        : `Transfer complete — optional guest confirmation${deadline ? ` by ${formatStamp(deadline, ar)}` : ''}`;
     case 'confirmed':
       return ar ? '✓ أكّد الضيف استلام المبلغ' : '✓ The guest confirmed receipt';
     case 'not_received':
-      return ar ? 'أبلغ الضيف بعدم وصول المبلغ' : 'The guest reported it did not arrive';
+      return ar
+        ? 'بلاغ على نفس التحويل: لم يستلم الضيف المبلغ — مهمة مفتوحة للمحاسب'
+        : 'Note on this transfer: guest did not receive it — open task for the accountant';
     default:
-      return ar ? 'اعتُبر مستلَماً تلقائياً بعد 24 ساعة' : 'Counted as received after 24 hours';
+      return ar
+        ? 'التحويل مكتمل (اعتُبر مستلَماً بعد المهلة)'
+        : 'Transfer complete (counted received after the window)';
   }
 }
 

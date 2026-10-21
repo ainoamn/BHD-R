@@ -15,20 +15,23 @@ export function stayPaymentKindLabel(kind: StayBookingPaymentKind, ar: boolean):
   }
 }
 
-/** Tenant-facing phase of a stay deposit refund (partial is derived, not a DB status). */
+/** Tenant-facing phase of a stay deposit refund (partial / dispute are derived). */
 export type TenantDepositRefundPhase =
   | 'requested'
   | 'approved_processing'
   | 'partial'
   | 'transferred'
+  | 'not_received'
   | 'rejected';
 
 export function tenantDepositRefundPhase(refund: {
   status: DepositRefundStatus;
   amountMinor: string;
   paidMinor: string;
+  guestReceipt?: 'confirmed' | 'not_received' | null;
 }): TenantDepositRefundPhase {
   if (refund.status === 'rejected') return 'rejected';
+  if (refund.status === 'executed' && refund.guestReceipt === 'not_received') return 'not_received';
   if (refund.status === 'executed') return 'transferred';
   if (refund.status === 'requested') return 'requested';
   const paid = BigInt(refund.paidMinor || '0');
@@ -50,6 +53,8 @@ export function tenantDepositRefundStatusLabel(phase: TenantDepositRefundPhase, 
       return ar ? 'تم التحويل الجزئي' : 'Partially transferred';
     case 'transferred':
       return ar ? 'تم التحويل' : 'Transferred';
+    case 'not_received':
+      return ar ? 'مهمة: لم يصل مبلغ التأمين · قيد المتابعة' : 'Task: deposit not received · in progress';
     case 'rejected':
       return ar ? 'رفض التحويل' : 'Transfer declined';
   }
@@ -60,6 +65,7 @@ export function tenantDepositRefundStatusTone(
 ): 'action' | 'good' | 'danger' | undefined {
   switch (phase) {
     case 'rejected':
+    case 'not_received':
       return 'danger';
     case 'transferred':
       return 'good';

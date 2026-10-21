@@ -64,6 +64,7 @@ export type TenancyDepositRefund = {
   status: 'requested' | 'approved' | 'rejected' | 'executed';
   amountMinor: string;
   paidMinor: string;
+  guestReceipt?: 'confirmed' | 'not_received' | null;
 };
 
 export type TenancyInvoice = {
@@ -130,6 +131,8 @@ export type TenancyStay = {
   titleAr: string | null;
   titleEn: string | null;
   canRequestDepositRefund: boolean;
+  /** Open «did not receive transfer» dispute — tenant task / follow-up. */
+  depositDisputeOpen?: boolean;
 };
 
 /** Property viewing requests the signed-in guest submitted (or was linked to). */
@@ -182,6 +185,7 @@ export type TenancyAlertKind =
   | 'stay_payment'
   | 'stay_request'
   | 'stay_refund'
+  | 'deposit_dispute'
   | 'handover_accept'
   | 'handover_defects'
   | 'viewing_scheduled'
@@ -346,6 +350,18 @@ export function buildTenancyAlerts(data: Omit<MyTenancy, 'alerts'>, today: strin
     });
   }
   for (const stay of data.stays) {
+    if (stay.depositDisputeOpen) {
+      alerts.push({
+        kind: 'deposit_dispute',
+        id: stay.id,
+        reference: stay.referenceCode,
+        href: stayHref(stay),
+        date: stay.checkOutOn,
+        amountMinor: null,
+        currency: null,
+        action: true,
+      });
+    }
     const kind: TenancyAlertKind | null =
       stay.status === 'payment_pending' || stay.status === 'payment_failed'
         ? 'stay_payment'
@@ -396,6 +412,7 @@ export function buildTenancyAlerts(data: Omit<MyTenancy, 'alerts'>, today: strin
   const rank: Record<TenancyAlertKind, number> = {
     handover_accept: -2,
     handover_defects: -1,
+    deposit_dispute: -1,
     rent_overdue: 0,
     invoice_overdue: 0,
     contract_sign: 1,
@@ -428,6 +445,10 @@ const ALERT_LABEL: Record<TenancyAlertKind, { ar: string; en: string }> = {
   stay_payment: { ar: 'إقامة بانتظار الدفع', en: 'Stay awaiting payment' },
   stay_request: { ar: 'طلب إقامة بانتظار موافقة المالك', en: 'Stay request awaiting the host' },
   stay_refund: { ar: 'يمكنك طلب استرداد التأمين', en: 'You can request your deposit back' },
+  deposit_dispute: {
+    ar: 'مهمة: لم يصل مبلغ التأمين — تابِع البلاغ من صفحة الإقامة',
+    en: 'Task: deposit not received — follow up from your stay page',
+  },
   handover_accept: {
     ar: 'أكّد استلامك للعقار',
     en: 'Confirm you received the premises',

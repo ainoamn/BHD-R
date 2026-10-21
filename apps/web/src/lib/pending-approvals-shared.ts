@@ -198,7 +198,9 @@ export function pendingApprovalTitle(item: PendingApprovalItem, ar: boolean): st
       : 'Refund transfer to make (Accounting)';
   }
   if (item.kind === 'deposit_claim') {
-    return ar ? 'طلب أو اعتراض من الضيف على التأمين' : 'Guest deposit request or objection';
+    return ar
+      ? 'بلاغ ضيف: لم يصل مبلغ التأمين — مهمة للمحاسب'
+      : 'Guest report: deposit not received — accountant task';
   }
   if (item.kind === 'deposit_complaint') {
     return ar ? 'شكوى تأمين لدى إدارة الموقع' : 'Deposit complaint for the site administration';

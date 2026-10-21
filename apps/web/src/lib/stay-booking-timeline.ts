@@ -776,8 +776,8 @@ export function buildStayBookingTimeline(
   if (receipt?.state === 'pending' && receipt.deadline) {
     waiting.push(
       ar
-        ? `بانتظار تأكيد الضيف استلام المبلغ حتى ${stamp(receipt.deadline)}، ثم يُعتبر مؤكداً.`
-        : `Awaiting the guest’s receipt confirmation until ${stamp(receipt.deadline)}, then it counts as confirmed.`,
+        ? `التحويل مكتمل؛ تأكيد الاستلام اختياري من الضيف حتى ${stamp(receipt.deadline)}.`
+        : `Transfer complete; optional guest confirmation until ${stamp(receipt.deadline)}.`,
     );
   }
   if (hostReview && !hostReview.released) {

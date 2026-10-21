@@ -44,10 +44,12 @@ import {
   type DepositClaimView,
   type SiteAdminSettings,
 } from '@/lib/stay-deposit-claims';
+import { openDepositNotReceivedFollowTask } from '@/lib/accounting-follow-task-neon';
 import {
   actorName,
   addToDepositRefund,
   canDecideDepositRefunds,
+  canPayDepositRefunds,
   currentRefund,
   guestStayUrl,
   keptOfRefund,
@@ -429,6 +431,15 @@ export async function guestDepositClaimAction(
       aggregateId: booking.id,
       payload: { referenceCode: booking.referenceCode, claimId: created!.id, kind },
     });
+    if (kind === 'not_received') {
+      await openDepositNotReceivedFollowTask(tx, {
+        organizationId: booking.organizationId,
+        bookingId: booking.id,
+        claimId: created!.id,
+        referenceCode: booking.referenceCode,
+        guestMessage: message!,
+      });
+    }
     return { whatsapp: [] };
   });
 }
@@ -437,20 +448,26 @@ function decisionLines(
   booking: RefundBooking,
   claim: { kind: string },
   input: { accepted: boolean; note: string; amount: bigint | null; voided: bigint | null },
-  who: 'host' | 'admin',
+  who: 'host' | 'admin' | 'accountant',
 ): string[] {
   const money = (minor: bigint) => formatMoney(minor.toString(), booking.currency, 'ar');
+  const acceptedLine =
+    who === 'accountant'
+      ? 'قبِل المحاسب بلاغك وسيُراجع التحويل.'
+      : who === 'host'
+        ? 'قبِل المالك طلبك.'
+        : 'بتّت إدارة الموقع لصالحك.';
+  const rejectedLine =
+    who === 'accountant'
+      ? 'ردّ المحاسب على بلاغك بالرفض.'
+      : who === 'host'
+        ? 'لم يقبل المالك طلبك.'
+        : 'بتّت إدارة الموقع لصالح المالك.';
+  const noteLabel =
+    who === 'accountant' ? 'رد المحاسب' : who === 'host' ? 'رد المالك' : 'قرار الإدارة';
   const lines = [
-    `${claimKindLabel(claim.kind, true)}: ${
-      input.accepted
-        ? who === 'host'
-          ? 'قبِل المالك طلبك.'
-          : 'بتّت إدارة الموقع لصالحك.'
-        : who === 'host'
-          ? 'لم يقبل المالك طلبك.'
-          : 'بتّت إدارة الموقع لصالح المالك.'
-    }`,
-    `${who === 'host' ? 'رد المالك' : 'قرار الإدارة'}: ${input.note}`,
+    `${claimKindLabel(claim.kind, true)}: ${input.accepted ? acceptedLine : rejectedLine}`,
+    `${noteLabel}: ${input.note}`,
   ];
   if (input.voided) {
     lines.push(`سيعيد المحاسب تحويل ${money(input.voided)}، ويصلك إشعار عند التحويل.`);
@@ -460,18 +477,20 @@ function decisionLines(
   return lines;
 }
 
-/** Host answers a guest's claim: accept (giving money back or re-sending a transfer) or decline. */
+/** Host or accountant answers a guest's claim: accept (re-send / top-up) or decline. */
 export async function respondToDepositClaimOnNeon(
   claims: SessionClaims,
   claimId: string,
   input: { decision: 'accept' | 'reject'; note: string; amount?: string | undefined },
 ): Promise<{ status: DepositClaimStatus }> {
-  if (!canDecideDepositRefunds(claims)) fail('forbidden');
   const orgId = claims.organizationId ?? fail('forbidden');
   if (!UUID.test(claimId)) fail('claim_not_found');
   const note = cleanText(input.note, CLAIM_MESSAGE_MAX);
   if ((note?.length ?? 0) < CLAIM_NOTE_MIN) fail('claim_note_required');
   const ownerPartyId = ownerPartyScope(claims);
+  const hostMayDecide = canDecideDepositRefunds(claims);
+  const accountantMayDecide = canPayDepositRefunds(claims);
+  if (!hostMayDecide && !accountantMayDecide) fail('forbidden');
 
   return withinViewerTenant(claims, async (tx) => {
     const [booking] = await tx
@@ -497,9 +516,12 @@ export async function respondToDepositClaimOnNeon(
       .where(eq(stayDepositClaims.id, claimId))
       .limit(1);
     if (claim?.status !== 'open') fail('claim_closed');
+    if (!hostMayDecide && claim.kind !== 'not_received') fail('forbidden');
 
     const accepted = input.decision === 'accept';
     const by = await actorName(tx, claims.sub);
+    const who: 'host' | 'admin' | 'accountant' =
+      accountantMayDecide && !hostMayDecide ? 'accountant' : 'host';
     const meta = { claimId, note, by, actorUserId: claims.sub };
     let amount: bigint | null = null;
     let voided: bigint | null = null;
@@ -531,9 +553,12 @@ export async function respondToDepositClaimOnNeon(
       amountMinor: (voided ?? amount)?.toString() ?? null,
     });
     await queueGuestEmail(tx, booking, {
-      subject: `رد المالك على طلبك بشأن التأمين — ${booking.referenceCode}`,
+      subject:
+        who === 'admin'
+          ? `رد المحاسب على بلاغ التأمين — ${booking.referenceCode}`
+          : `رد المالك على طلبك بشأن التأمين — ${booking.referenceCode}`,
       body: [
-        ...decisionLines(booking, claim, { accepted, note: note!, amount, voided }, 'host'),
+        ...decisionLines(booking, claim, { accepted, note: note!, amount, voided }, who),
         'إن لم يكن الرد مرضياً، يمكنك رفع شكوى لإدارة الموقع من صفحة إقامتك بعد 3 أيام عمل من استرداد التأمين.',
       ],
     });

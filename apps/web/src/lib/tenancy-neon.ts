@@ -14,6 +14,7 @@ import {
   properties,
   reservations,
   stayBookings,
+  stayDepositClaims,
   stayPaymentIntents,
   stayRefunds,
   units,
@@ -841,12 +842,34 @@ async function unitLabels(unitIds: string[]) {
   return new Map(rows.map((row) => [row.id, { code: row.code, ar: row.ar, en: row.en }]));
 }
 
+async function loadOpenDepositDisputes(bookingIds: string[]): Promise<Set<string>> {
+  if (!bookingIds.length) return new Set();
+  try {
+    const rows = await elevated(async (tx) =>
+      tx
+        .select({ bookingId: stayDepositClaims.bookingId })
+        .from(stayDepositClaims)
+        .where(
+          and(
+            inArray(stayDepositClaims.bookingId, bookingIds),
+            eq(stayDepositClaims.kind, 'not_received'),
+            eq(stayDepositClaims.status, 'open'),
+          ),
+        ),
+    );
+    return new Set(rows.map((row) => row.bookingId));
+  } catch {
+    return new Set();
+  }
+}
+
 async function loadStays(userId: string, links: TenancyLink[]): Promise<TenancyStay[]> {
   try {
     const { items } = await listGuestStayBookingsOnNeon(
       userId,
       links.map((link) => link.partyId),
     );
+    const disputeOpen = await loadOpenDepositDisputes(items.map((item) => item.id));
     return items.map((item) => ({
       id: item.id,
       referenceCode: item.referenceCode,
@@ -858,6 +881,7 @@ async function loadStays(userId: string, links: TenancyLink[]): Promise<TenancyS
       titleAr: item.listingTitleAr ?? null,
       titleEn: item.listingTitleEn ?? null,
       canRequestDepositRefund: Boolean(item.canRequestDepositRefund),
+      depositDisputeOpen: disputeOpen.has(item.id),
     }));
   } catch {
     return [];
@@ -887,6 +911,7 @@ function pickStayDepositRefund(
     amountMinor: bigint;
     paidMinor: bigint;
     idempotencyKey: string | null;
+    guestReceipt: string | null;
   }>,
 ): Map<string, TenancyDepositRefund> {
   const byBooking = new Map<string, TenancyDepositRefund & { depositKey: boolean }>();
@@ -899,6 +924,10 @@ function pickStayDepositRefund(
       status: row.status as DepositRefundStatus,
       amountMinor: row.amountMinor.toString(),
       paidMinor: row.paidMinor.toString(),
+      guestReceipt:
+        row.guestReceipt === 'confirmed' || row.guestReceipt === 'not_received'
+          ? row.guestReceipt
+          : null,
       depositKey,
     });
   }
@@ -908,6 +937,7 @@ function pickStayDepositRefund(
       status: value.status,
       amountMinor: value.amountMinor,
       paidMinor: value.paidMinor,
+      guestReceipt: value.guestReceipt ?? null,
     });
   }
   return out;
@@ -1019,6 +1049,7 @@ async function loadStayFinance(links: TenancyLink[]): Promise<{
                   amountMinor: stayRefunds.amountMinor,
                   paidMinor: stayRefunds.paidMinor,
                   idempotencyKey: stayRefunds.idempotencyKey,
+                  guestReceipt: stayRefunds.guestReceipt,
                 })
                 .from(stayRefunds)
                 .where(

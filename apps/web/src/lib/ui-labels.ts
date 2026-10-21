@@ -73,7 +73,7 @@ const DOMAIN_STATUS: Record<string, { ar: string; en: string }> = {
   awaiting_handover: { ar: 'عقد موقّع — بانتظار التسليم', en: 'Signed — awaiting handover' },
   handed_over: { ar: 'تم تسليم العقار', en: 'Handed over' },
   deposit_held: { ar: 'أمانة محتجزة', en: 'Held in trust' },
-  deposit_settled: { ar: 'تأمين مُسوّى', en: 'Deposit settled' },
+  deposit_settled: { ar: 'تم التحويل', en: 'Transferred' },
   deposit_income: { ar: 'دخل للعقار', en: 'Property income' },
   active: { ar: 'ساري', en: 'Active' },
   inactive: { ar: 'غير نشط', en: 'Inactive' },

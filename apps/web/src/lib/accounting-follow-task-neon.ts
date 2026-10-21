@@ -2,11 +2,19 @@ import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { and, desc, eq, inArray, like } from 'drizzle-orm';
 import type { SessionClaims } from '@bhd-r/authz';
-import { hasPermission } from '@bhd-r/authz';
-import { memberships, users, workflowEvents, workTasks } from '@bhd-r/db';
+import { hasPermission, rolePermissions, type RoleKey } from '@bhd-r/authz';
+import { memberships, users, workflowEvents, workTasks, type Database } from '@bhd-r/db';
 import { fail } from '@/lib/accounting-gl-neon';
 import { withinViewerTenant } from '@/lib/portal-ops-data';
 import { ensureAccountingPlace } from '@/lib/work-task-neon';
+
+type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
+
+const PAY_REFUND_ROLES = (Object.entries(rolePermissions) as Array<[RoleKey, readonly string[]]>)
+  .filter(([, perms]) => perms.includes('payment.refund'))
+  .map(([role]) => role);
+
+const PARTNER_ROLES: RoleKey[] = ['organization_owner', 'property_manager', 'property_owner'];
 
 const UUID = /^[0-9a-f-]{36}$/i;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -289,4 +297,175 @@ export async function createAccountingFollowTask(
     if (relatedId) await ensureAccountingPlace(tx, orgId, claims.sub, row.id, kind, relatedId);
     return { id: row.id, reference: row.reference, existing: false };
   });
+}
+
+/**
+ * When a guest reports that the deposit transfer did not arrive: open (or reuse) an accounting
+ * follow-up task for the accountant, with the owner / property manager as partners, and post the
+ * guest's note on the thread.
+ */
+export async function openDepositNotReceivedFollowTask(
+  tx: Tx,
+  input: {
+    organizationId: string;
+    bookingId: string;
+    claimId: string;
+    referenceCode: string;
+    guestMessage: string;
+  },
+): Promise<{ id: string; reference: string; created: boolean } | null> {
+  const orgId = input.organizationId;
+  const bookingId = input.bookingId;
+  if (!UUID.test(bookingId) || !UUID.test(input.claimId)) return null;
+
+  const relatedType = 'acct_deposit';
+  const [existing] = await tx
+    .select({
+      id: workTasks.id,
+      reference: workTasks.reference,
+      status: workTasks.status,
+      assignedToUserId: workTasks.assignedToUserId,
+    })
+    .from(workTasks)
+    .where(
+      and(
+        eq(workTasks.organizationId, orgId),
+        eq(workTasks.relatedType, relatedType),
+        eq(workTasks.relatedId, bookingId),
+      ),
+    )
+    .orderBy(desc(workTasks.createdAt))
+    .limit(1);
+
+  const memberRows = await tx
+    .select({
+      userId: memberships.userId,
+      roleKey: memberships.roleKey,
+      name: users.displayName,
+    })
+    .from(memberships)
+    .innerJoin(users, eq(users.id, memberships.userId))
+    .where(and(eq(memberships.organizationId, orgId), eq(memberships.status, 'active')));
+
+  const byUser = new Map<string, { name: string; roles: Set<string> }>();
+  for (const row of memberRows) {
+    const current = byUser.get(row.userId) ?? { name: row.name || row.userId.slice(0, 8), roles: new Set() };
+    current.roles.add(row.roleKey);
+    byUser.set(row.userId, current);
+  }
+
+  const payers = [...byUser.entries()].filter(([, info]) =>
+    [...info.roles].some((role) => PAY_REFUND_ROLES.includes(role as RoleKey)),
+  );
+  const partners = [...byUser.entries()].filter(([, info]) =>
+    [...info.roles].some((role) => PARTNER_ROLES.includes(role as RoleKey)),
+  );
+  const leadId =
+    payers.find(([, info]) => info.roles.has('finance_manager'))?.[0] ??
+    payers[0]?.[0] ??
+    partners.find(([, info]) => info.roles.has('organization_owner'))?.[0] ??
+    partners[0]?.[0] ??
+    null;
+  if (!leadId) return null;
+
+  const DUTY_LABEL = {
+    lead: 'المسؤول',
+    supervisor: 'المراقب',
+    viewer: 'للاطلاع',
+  } as const;
+  const followers: Array<{ userId: string; duty: keyof typeof DUTY_LABEL; name: string }> = [
+    { userId: leadId, duty: 'lead', name: byUser.get(leadId)?.name ?? '' },
+  ];
+  for (const [userId, info] of partners) {
+    if (userId === leadId) continue;
+    if (followers.length >= 12) break;
+    followers.push({ userId, duty: 'supervisor', name: info.name });
+  }
+
+  const guestNote = input.guestMessage.trim().slice(0, 2000) || 'لم يصلني مبلغ التأمين المحوَّل.';
+  const title = `لم يصل مبلغ التأمين — ${input.referenceCode}`.slice(0, 200);
+
+  let taskId = existing?.id ?? null;
+  let taskReference = existing?.reference ?? null;
+  let created = false;
+
+  if (!taskId || !accountingTaskIsOpen(existing?.status ?? '')) {
+    const nextReference = reference();
+    const roster = followers
+      .map((person) => `${person.name || person.userId}: ${DUTY_LABEL[person.duty]}`)
+      .join('\n');
+    const description = [
+      `بلاغ الضيف بعدم استلام تحويل التأمين للحجز ${input.referenceCode}.`,
+      `claim:${input.claimId}`,
+      roster ? `المتابعون:\n${roster}` : '',
+      `source:deposit:${bookingId}`,
+    ]
+      .filter(Boolean)
+      .join('\n')
+      .slice(0, 4000);
+    const [row] = await tx
+      .insert(workTasks)
+      .values({
+        organizationId: orgId,
+        reference: nextReference,
+        title,
+        description,
+        category: 'accounting',
+        priority: 'high',
+        createdByUserId: leadId,
+        assignedToUserId: leadId,
+        relatedType,
+        relatedId: bookingId,
+      })
+      .returning({ id: workTasks.id, reference: workTasks.reference, status: workTasks.status });
+    if (!row) return null;
+    taskId = row.id;
+    taskReference = row.reference;
+    created = true;
+    await tx.insert(workflowEvents).values({
+      organizationId: orgId,
+      actorUserId: leadId,
+      resourceType: 'work_task',
+      resourceId: row.id,
+      eventType: 'task.created',
+      toStatus: row.status,
+      note: 'accounting:deposit_not_received',
+      metadata: {
+        kind: 'deposit',
+        sourceId: bookingId,
+        claimId: input.claimId,
+        followers: followers.map((person) => ({
+          userId: person.userId,
+          duty: person.duty,
+          name: person.name,
+        })),
+      },
+    });
+    await ensureAccountingPlace(tx, orgId, leadId, row.id, 'deposit', bookingId);
+  } else if (existing && existing.assignedToUserId !== leadId) {
+    await tx
+      .update(workTasks)
+      .set({ assignedToUserId: leadId, updatedAt: new Date(), priority: 'high' })
+      .where(eq(workTasks.id, existing.id));
+  }
+
+  await tx.insert(workflowEvents).values({
+    organizationId: orgId,
+    actorUserId: leadId,
+    resourceType: 'work_task',
+    resourceId: taskId,
+    eventType: 'task.reply',
+    note: `الضيف: ${guestNote}`,
+    metadata: {
+      from: 'guest',
+      claimId: input.claimId,
+      kind: 'deposit_not_received',
+    },
+  });
+  await tx
+    .update(workTasks)
+    .set({ updatedAt: new Date(), title })
+    .where(eq(workTasks.id, taskId));
+
+  return { id: taskId, reference: taskReference!, created };
 }
