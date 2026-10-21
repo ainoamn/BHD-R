@@ -273,10 +273,25 @@ export function StayBookingContract({
     booking.unitCode ||
     '—';
   const amountLabel = formatMoney(booking.totalMinor, booking.currency, locale);
+  const paidSumMinor =
+    (booking.payments?.length ?? 0) > 0
+      ? booking.payments!
+          .reduce((sum, line) => sum + BigInt(line.amountMinor), 0n)
+          .toString()
+      : booking.paidAmountMinor;
   const paidAmountLabel =
-    booking.paidAmountMinor && booking.paidCurrency
-      ? formatMoney(booking.paidAmountMinor, booking.paidCurrency, locale)
+    paidSumMinor && (booking.paidCurrency || booking.currency)
+      ? formatMoney(paidSumMinor, booking.paidCurrency || booking.currency, locale)
       : amountLabel;
+  const paymentBreakdown =
+    (booking.payments?.length ?? 0) > 1
+      ? booking
+          .payments!.map(
+            (line) =>
+              `${stayPaymentKindLabel(line.kind, ar)} ${formatMoney(line.amountMinor, line.currency, locale)}`,
+          )
+          .join(ar ? ' + ' : ' + ')
+      : null;
   const issuedOn = new Intl.DateTimeFormat(ar ? 'ar-OM' : 'en-GB', {
     dateStyle: 'medium',
     timeStyle: 'short',
@@ -379,8 +394,8 @@ export function StayBookingContract({
           <p className="stay-desk__amount-label">
             {paid
               ? ar
-                ? 'المبلغ المستلم'
-                : 'Amount received'
+                ? 'إجمالي المستلم'
+                : 'Total received'
               : offline
                 ? ar
                   ? 'قيمة الحجز'
@@ -389,6 +404,17 @@ export function StayBookingContract({
                   ? 'المبلغ المستحق'
                   : 'Amount due'}
           </p>
+          {paid ? (
+            <p className="stay-desk__amount-meta muted">
+              {ar ? `قيمة الحجز الحالية ${amountLabel}` : `Current booking value ${amountLabel}`}
+              {paymentBreakdown ? (
+                <>
+                  <br />
+                  <span dir="ltr">{paymentBreakdown}</span>
+                </>
+              ) : null}
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -683,10 +709,24 @@ export function StayBookingContract({
               : []),
             ...(paidOn ? [{ label: ar ? 'آخر دفعة' : 'Last paid', value: paidOn }] : []),
             {
+              label: ar ? 'قيمة الحجز الحالية' : 'Current booking value',
+              value: amountLabel,
+              ltr: true,
+            },
+            {
               label: ar ? 'إجمالي المستلم' : 'Total received',
               value: paid ? paidAmountLabel : '—',
               ltr: true,
             },
+            ...(paymentBreakdown
+              ? [
+                  {
+                    label: ar ? 'تفصيل الدفعات' : 'Payment breakdown',
+                    value: paymentBreakdown,
+                    ltr: true as const,
+                  },
+                ]
+              : []),
             {
               label: ar ? 'عقد الإقامة' : 'Stay contract',
               value: booking.esignSignaturePng ? (

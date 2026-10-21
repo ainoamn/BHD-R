@@ -15561,6 +15561,12 @@ body:has(.guest-stay-detail) #main-content {
   font-weight: 900;
   color: var(--oman-deep, #092d24);
 }
+.stay-desk__amount-meta {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  text-align: inherit;
+}
 .stay-desk__amount-label {
   margin: 0.1rem 0 0;
   font-size: 0.75rem;

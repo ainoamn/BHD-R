@@ -185,23 +185,77 @@ const SETTLED_STATUSES = new Set([
   'closed',
 ]);
 
+function timelineHistoryDetail(meta: unknown): StayBookingTimelineFacts['history'][number]['detail'] {
+  if (!meta || typeof meta !== 'object') return null;
+  const root = meta as Record<string, unknown>;
+  const pending =
+    root.pending && typeof root.pending === 'object'
+      ? (root.pending as Record<string, unknown>)
+      : null;
+  const src = pending ?? root;
+  const pick = (key: string): string | null => {
+    const fromSrc = src[key];
+    if (typeof fromSrc === 'string' && fromSrc) return fromSrc;
+    const fromRoot = root[key];
+    return typeof fromRoot === 'string' && fromRoot ? fromRoot : null;
+  };
+  const detail: NonNullable<StayBookingTimelineFacts['history'][number]['detail']> = {};
+  const fromCheckInOn = pick('fromCheckInOn');
+  const fromCheckOutOn = pick('fromCheckOutOn');
+  const toCheckInOn = pick('toCheckInOn');
+  const toCheckOutOn = pick('toCheckOutOn');
+  const fromStayType = pick('fromStayType');
+  const toStayType = pick('toStayType');
+  const stayType = pick('stayType');
+  const checkInOn = pick('checkInOn');
+  const checkOutOn = pick('checkOutOn');
+  const extraDueMinor = pick('extraDueMinor');
+  const quotedTotalMinor = pick('quotedTotalMinor');
+  const chargedTotalMinor = pick('chargedTotalMinor');
+  const originalTotalMinor = pick('originalTotalMinor');
+  const forfeitedMinor = pick('forfeitedMinor');
+  const depositMinor = pick('depositMinor');
+  const paymentIntentId =
+    typeof root.paymentIntentId === 'string' ? root.paymentIntentId : null;
+  if (fromCheckInOn) detail.fromCheckInOn = fromCheckInOn;
+  if (fromCheckOutOn) detail.fromCheckOutOn = fromCheckOutOn;
+  if (toCheckInOn) detail.toCheckInOn = toCheckInOn;
+  if (toCheckOutOn) detail.toCheckOutOn = toCheckOutOn;
+  if (fromStayType) detail.fromStayType = fromStayType;
+  if (toStayType) detail.toStayType = toStayType;
+  if (stayType) detail.stayType = stayType;
+  if (checkInOn) detail.checkInOn = checkInOn;
+  if (checkOutOn) detail.checkOutOn = checkOutOn;
+  if (extraDueMinor) detail.extraDueMinor = extraDueMinor;
+  if (quotedTotalMinor) detail.quotedTotalMinor = quotedTotalMinor;
+  if (chargedTotalMinor) detail.chargedTotalMinor = chargedTotalMinor;
+  if (originalTotalMinor) detail.originalTotalMinor = originalTotalMinor;
+  if (forfeitedMinor) detail.forfeitedMinor = forfeitedMinor;
+  if (depositMinor) detail.depositMinor = depositMinor;
+  if (paymentIntentId) detail.paymentIntentId = paymentIntentId;
+  return Object.keys(detail).length ? detail : null;
+}
+
 async function loadTimelineFacts(
   tx: Parameters<Parameters<Database['transaction']>[0]>[0],
   organizationId: string,
   bookingId: string,
 ): Promise<StayBookingTimelineFacts> {
   const ids = [bookingId];
-  const [history, stamps, deposits, refunds, claims, reviews] = await Promise.all([
+  const [history, stamps, deposits, refunds, claims, reviews, payments] = await Promise.all([
     tx
       .select({
         at: stayBookingStatusHistory.createdAt,
+        fromStatus: stayBookingStatusHistory.fromStatus,
         toStatus: stayBookingStatusHistory.toStatus,
         reason: stayBookingStatusHistory.reason,
+        metadataJson: stayBookingStatusHistory.metadataJson,
         by: sql<string | null>`coalesce(
           ${stayBookingStatusHistory.metadataJson}->>'approvedBy',
           ${stayBookingStatusHistory.metadataJson}->>'recordedBy',
           ${stayBookingStatusHistory.metadataJson}->>'decidedBy',
-          ${stayBookingStatusHistory.metadataJson}->>'cancelledBy'
+          ${stayBookingStatusHistory.metadataJson}->>'cancelledBy',
+          ${stayBookingStatusHistory.metadataJson}->>'byName'
         )`,
       })
       .from(stayBookingStatusHistory)
@@ -212,21 +266,34 @@ async function loadTimelineFacts(
         ),
       )
       .orderBy(asc(stayBookingStatusHistory.createdAt))
-      .limit(80),
+      .limit(120),
     loadStayStamps(tx, organizationId, ids),
     loadBookingDeposits(tx, organizationId, ids),
     loadDepositRefunds(tx, organizationId, ids),
     loadDepositClaims(tx, organizationId, ids),
     loadBookingReviewMoments(tx, bookingId),
+    loadStayBookingPayments(tx, organizationId, bookingId, { succeededOnly: true }),
   ]);
   const stamp = stamps.get(bookingId);
   return {
-    history: history.map((entry) => ({
-      at: entry.at instanceof Date ? entry.at.toISOString() : String(entry.at),
-      toStatus: entry.toStatus,
-      reason: entry.reason,
-      by: entry.by,
-    })),
+    history: history.map((entry) => {
+      const meta =
+        entry.metadataJson && typeof entry.metadataJson === 'object'
+          ? (entry.metadataJson as Record<string, unknown>)
+          : null;
+      const note =
+        typeof meta?.note === 'string' && meta.note.trim() ? meta.note.trim() : null;
+      return {
+        at: entry.at instanceof Date ? entry.at.toISOString() : String(entry.at),
+        fromStatus: entry.fromStatus ?? null,
+        toStatus: entry.toStatus,
+        reason: entry.reason,
+        by: entry.by,
+        note,
+        detail: timelineHistoryDetail(entry.metadataJson),
+      };
+    }),
+    payments,
     checkIn: stamp?.checkIn ?? null,
     checkOut: stamp?.checkOut ?? null,
     depositMinor: deposits.get(bookingId) ?? null,

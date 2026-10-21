@@ -6,18 +6,44 @@ import {
   type DepositClaimView,
 } from '@/lib/stay-deposit-claims';
 import { hasDeposit, maskAccount, type DepositRefundView } from '@/lib/stay-deposit-refund';
-import { stayStatusLabel } from '@/lib/ui-labels';
+import type { StayBookingPaymentLine } from '@/lib/stay-booking-payments';
+import {
+  stayPaymentKindLabel,
+} from '@/lib/stay-booking-payment-labels';
+import { stayStatusLabel, stayTypeLabel } from '@/lib/ui-labels';
 
 export type StayTimelineHistory = {
   at: string;
   toStatus: string;
+  fromStatus: string | null;
   reason: string | null;
   by: string | null;
+  note: string | null;
+  /** Selected fields from status-history metadata for reschedule / payment detail. */
+  detail: {
+    fromCheckInOn?: string;
+    fromCheckOutOn?: string;
+    toCheckInOn?: string;
+    toCheckOutOn?: string;
+    fromStayType?: string;
+    toStayType?: string;
+    stayType?: string;
+    checkInOn?: string;
+    checkOutOn?: string;
+    extraDueMinor?: string;
+    quotedTotalMinor?: string;
+    chargedTotalMinor?: string;
+    originalTotalMinor?: string;
+    forfeitedMinor?: string;
+    depositMinor?: string;
+    paymentIntentId?: string;
+  } | null;
 };
 
 /** Everything that happened to a stay booking, as the host's booking page shows it. */
 export type StayBookingTimelineFacts = {
   history: StayTimelineHistory[];
+  payments: StayBookingPaymentLine[];
   checkIn: StayStamp | null;
   checkOut: StayStamp | null;
   depositMinor: string | null;
@@ -59,15 +85,159 @@ const AWAITING_ARRIVAL = new Set(['confirmed', 'paid', 'pre_arrival']);
 /** Status history rows told better by the stamps, the refund and the claims. */
 const TOLD_ELSEWHERE = new Set(['checked_in', 'checked_out', 'deposit_refund']);
 
+function dateRange(from: string | undefined, to: string | undefined): string | null {
+  if (!from || !to) return null;
+  return `${from} → ${to}`;
+}
+
+function stayLabel(value: string | undefined, ar: boolean): string | null {
+  if (!value) return null;
+  return stayTypeLabel(value, ar);
+}
+
 function historyEvent(
   row: StayTimelineHistory,
   index: number,
   ar: boolean,
   request: boolean,
+  money: (minor: string) => string,
 ): StayTimelineEvent | null {
   if (TOLD_ELSEWHERE.has(row.toStatus)) return null;
-  const freeText = row.reason && !/^[a-z0-9_]+$/i.test(row.reason) ? row.reason : null;
+  const reason = row.reason ?? '';
+  const d = row.detail;
+  const freeText =
+    row.note ||
+    (reason && !/^[a-z0-9_]+$/i.test(reason) && !reason.startsWith('Sandbox') ? reason : null);
   const base = { key: `h${index}`, at: row.at, by: row.by };
+
+  if (reason === 'guest_reschedule_requested') {
+    const range = dateRange(d?.checkInOn, d?.checkOutOn);
+    const stay = stayLabel(d?.stayType, ar);
+    const extra =
+      d?.extraDueMinor && d.extraDueMinor !== '0'
+        ? ar
+          ? `فرق مستحق: ${money(d.extraDueMinor)}`
+          : `Top-up due: ${money(d.extraDueMinor)}`
+        : ar
+          ? 'بدون فرق سعر'
+          : 'No price difference';
+    return {
+      ...base,
+      tone: 'warn',
+      title: ar ? 'طلب الضيف تعديل التواريخ' : 'Guest requested a date change',
+      detail: [range, stay, extra].filter(Boolean).join(' · ') || null,
+    };
+  }
+  if (reason === 'owner_rejected_reschedule') {
+    return {
+      ...base,
+      tone: 'danger',
+      title: ar ? 'رفض المالك طلب تعديل التواريخ' : 'Host declined the date-change request',
+      detail:
+        freeText ||
+        (d?.checkInOn && d?.checkOutOn
+          ? ar
+            ? `الطلب المرفوض: ${d.checkInOn} → ${d.checkOutOn}`
+            : `Declined request: ${d.checkInOn} → ${d.checkOutOn}`
+          : null),
+    };
+  }
+  if (reason === 'owner_approved_reschedule_awaiting_payment') {
+    const extra =
+      d?.extraDueMinor && d.extraDueMinor !== '0'
+        ? money(d.extraDueMinor)
+        : null;
+    return {
+      ...base,
+      tone: 'info',
+      title: ar
+        ? 'اعتمد المالك التعديل — بانتظار دفع الفرق'
+        : 'Host approved the change — awaiting top-up',
+      detail: [
+        dateRange(d?.checkInOn, d?.checkOutOn),
+        stayLabel(d?.stayType, ar),
+        extra
+          ? ar
+            ? `المبلغ المطلوب: ${extra}`
+            : `Amount due: ${extra}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' · ') || null,
+    };
+  }
+  if (reason === 'guest_rescheduled') {
+    const from = dateRange(d?.fromCheckInOn, d?.fromCheckOutOn);
+    const to = dateRange(d?.toCheckInOn, d?.toCheckOutOn);
+    const stayChange =
+      d?.fromStayType || d?.toStayType
+        ? `${stayLabel(d?.fromStayType, ar) ?? '—'} → ${stayLabel(d?.toStayType, ar) ?? '—'}`
+        : null;
+    const charged =
+      d?.chargedTotalMinor || d?.quotedTotalMinor
+        ? ar
+          ? `إجمالي العرض: ${money(d.chargedTotalMinor || d.quotedTotalMinor || '0')}`
+          : `Quoted total: ${money(d.chargedTotalMinor || d.quotedTotalMinor || '0')}`
+        : null;
+    return {
+      ...base,
+      tone: 'done',
+      title: ar ? 'طُبّق تعديل التواريخ / نوع الإقامة' : 'Date / stay-type change applied',
+      detail: [
+        from && to ? (ar ? `من ${from} إلى ${to}` : `From ${from} to ${to}`) : to || from,
+        stayChange,
+        charged,
+      ]
+        .filter(Boolean)
+        .join('\n') || null,
+    };
+  }
+  if (reason === 'deposit_waived') {
+    return {
+      ...base,
+      tone: 'warn',
+      title: ar ? 'استُثني مبلغ التأمين يدوياً' : 'Security deposit waived by host',
+      detail: d?.depositMinor
+        ? ar
+          ? `المبلغ المستثنى: ${money(d.depositMinor)}`
+          : `Waived amount: ${money(d.depositMinor)}`
+        : null,
+    };
+  }
+  if (/electronic signature/i.test(reason) || reason === 'esign_completed') {
+    return {
+      ...base,
+      tone: 'done',
+      title: ar ? 'وقّع الضيف عقد الإقامة إلكترونياً' : 'Guest signed the stay contract',
+      detail: null,
+    };
+  }
+  if (reason === 'public_booking_created') {
+    return {
+      ...base,
+      tone: 'info',
+      title: ar ? 'أُنشئ الحجز' : 'Booking created',
+      detail: null,
+    };
+  }
+  if (/sandbox payment|payment/i.test(reason) && row.toStatus === 'confirmed') {
+    return {
+      ...base,
+      tone: 'done',
+      title: request
+        ? ar
+          ? 'اعتُمد طلب الحجز بعد الدفع'
+          : 'Booking request approved after payment'
+        : ar
+          ? 'تأكّد الحجز بعد الدفع'
+          : 'Booking confirmed after payment',
+      detail: null,
+    };
+  }
+
+  const freeReason =
+    reason && !/^[a-z0-9_]+$/i.test(reason) && !reason.startsWith('Sandbox') ? reason : null;
+
   switch (row.toStatus) {
     case 'request_pending':
       return {
@@ -84,6 +254,8 @@ function historyEvent(
         detail: null,
       };
     case 'confirmed':
+      // Same-status ops without a known reason — skip noisy "confirmed" repeats.
+      if (row.fromStatus === 'confirmed' && !freeReason && !freeText) return null;
       return {
         ...base,
         tone: 'done',
@@ -94,7 +266,7 @@ function historyEvent(
           : ar
             ? 'تأكّد الحجز'
             : 'Booking confirmed',
-        detail: null,
+        detail: freeText || freeReason,
       };
     case 'paid':
       return { ...base, tone: 'done', title: ar ? 'تم الدفع' : 'Paid', detail: null };
@@ -141,7 +313,12 @@ function historyEvent(
         detail: freeText,
       };
     default:
-      return { ...base, tone: 'info', title: stayStatusLabel(row.toStatus, ar), detail: freeText };
+      return {
+        ...base,
+        tone: 'info',
+        title: stayStatusLabel(row.toStatus, ar),
+        detail: freeText || freeReason,
+      };
   }
 }
 
@@ -205,10 +382,10 @@ export function buildStayBookingTimeline(
 
   const events: StayTimelineEvent[] = [];
   facts.history.forEach((row, index) => {
-    const event = historyEvent(row, index, ar, request);
+    const event = historyEvent(row, index, ar, request, money);
     if (event) events.push(event);
   });
-  if (!facts.history.some((row) => row.toStatus === 'request_pending')) {
+  if (!facts.history.some((row) => row.toStatus === 'request_pending' || row.reason === 'public_booking_created')) {
     events.push({
       key: 'created',
       at: input.createdAt,
@@ -224,6 +401,25 @@ export function buildStayBookingTimeline(
       by: null,
     });
   }
+
+  for (const pay of facts.payments) {
+    if (pay.status !== 'succeeded') continue;
+    events.push({
+      key: `pay-${pay.id}`,
+      at: pay.paidAt ?? input.createdAt,
+      tone: 'done',
+      title: ar
+        ? `دُفع ${money(pay.amountMinor)} · ${stayPaymentKindLabel(pay.kind, true)}`
+        : `Paid ${money(pay.amountMinor)} · ${stayPaymentKindLabel(pay.kind, false)}`,
+      detail: pay.providerIntentId
+        ? ar
+          ? `مرجع المزود: ${pay.providerIntentId}`
+          : `Provider ref: ${pay.providerIntentId}`
+        : null,
+      by: null,
+    });
+  }
+
   if (facts.checkIn) {
     events.push({
       key: 'check-in',
@@ -449,7 +645,7 @@ export function buildStayBookingTimeline(
         key: 'approval',
         label: request ? (ar ? 'اعتماد الحجز' : 'Approval') : ar ? 'الدفع' : 'Payment',
         done: !['request_pending', 'payment_pending'].includes(status),
-        at: atOf('confirmed') ?? atOf('paid'),
+        at: atOf('confirmed') ?? atOf('paid') ?? facts.payments[0]?.paidAt ?? null,
       },
       {
         key: 'check-in',

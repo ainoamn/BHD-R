@@ -29,6 +29,7 @@ function paymentKind(idempotencyKey: string): StayBookingPaymentKind {
   if (idempotencyKey.startsWith('stay_deposit:')) return 'deposit';
   if (
     idempotencyKey.startsWith('stay_booking:') ||
+    idempotencyKey.startsWith('stay-book-') ||
     idempotencyKey.startsWith('booking:') ||
     idempotencyKey.includes('instant') ||
     idempotencyKey.includes('request')

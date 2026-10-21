@@ -50,16 +50,33 @@ const refund = (over: Partial<DepositRefundView>): DepositRefundView => ({
   ...over,
 });
 
+const hist = (
+  over: Partial<StayBookingTimelineFacts['history'][number]> &
+    Pick<StayBookingTimelineFacts['history'][number], 'at' | 'toStatus'>,
+): StayBookingTimelineFacts['history'][number] => ({
+  fromStatus: null,
+  reason: null,
+  by: null,
+  note: null,
+  detail: null,
+  ...over,
+});
+
 const facts = (over: Partial<StayBookingTimelineFacts>): StayBookingTimelineFacts => ({
   history: [
-    {
+    hist({
       at: '2026-10-08T07:32:00Z',
       toStatus: 'request_pending',
       reason: 'public_booking_created',
-      by: null,
-    },
-    { at: '2026-10-12T04:42:00Z', toStatus: 'confirmed', reason: 'Owner approved', by: 'Host' },
+    }),
+    hist({
+      at: '2026-10-12T04:42:00Z',
+      toStatus: 'confirmed',
+      reason: 'Owner approved',
+      by: 'Host',
+    }),
   ],
+  payments: [],
   checkIn: null,
   checkOut: null,
   depositMinor: '80000',
@@ -97,7 +114,7 @@ describe('buildStayBookingTimeline', () => {
     expect(timeline.next?.href).toBe('/owner/properties/p1?section=bookings&focus=b1');
     expect(timeline.events.map((event) => event.title)).toEqual([
       'اعتُمد طلب الحجز',
-      'وصل طلب الحجز',
+      'أُنشئ الحجز',
     ]);
   });
 
@@ -176,8 +193,12 @@ describe('buildStayBookingTimeline', () => {
       'cancelled',
       facts({
         history: [
-          { at: '2026-10-08T07:32:00Z', toStatus: 'request_pending', reason: null, by: null },
-          { at: '2026-10-09T07:32:00Z', toStatus: 'cancelled', reason: 'host_cancelled', by: null },
+          hist({ at: '2026-10-08T07:32:00Z', toStatus: 'request_pending' }),
+          hist({
+            at: '2026-10-09T07:32:00Z',
+            toStatus: 'cancelled',
+            reason: 'host_cancelled',
+          }),
         ],
       }),
     );
