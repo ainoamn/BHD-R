@@ -16,6 +16,7 @@ import { LIVE_CHANGE_EVENT } from '@/lib/live-sync-shared';
 import { reviewScoreTone } from '@/lib/review-rubric';
 import { ReviewForm, hostReviewAssistant, type ReviewFormValue } from './reviews/review-form';
 import { StayHandoverForm, type HandoverSubmit } from './stays/stay-handover-form';
+import { StayGateDesk } from './stays/stay-gate-desk';
 import {
   DepositRefundCell,
   DepositRefundForm,
@@ -1799,6 +1800,32 @@ export function PropertySectionRecords({
           role={notice.tone === 'success' ? 'status' : 'alert'}
         >
           {notice.text}
+        </div>
+      ) : null}
+
+      {section === 'bookings' && propertyId && viewer.canRecordStays ? (
+        <div className="psr-stay-gate">
+          <h3 className="psr-stay-gate__title">
+            {ar ? 'مسح باركود تسجيل وصول الضيف' : 'Scan guest check-in barcode'}
+          </h3>
+          <p className="muted psr-stay-gate__hint">
+            {ar
+              ? 'امسح باركود الضيف هنا فيُسجَّل تاريخ ووقت الدخول فوراً. لا يُقبل المسح قبل موعد الوصول بأكثر من 4 ساعات، وبعد انتهاء مدة الحجز يُلغى تلقائياً إن لم يُسجَّل الدخول.'
+              : 'Scan the guest barcode here to record check-in date and time immediately. Check-in opens at most 4 hours before arrival; after the stay ends without check-in the booking is cancelled automatically.'}
+          </p>
+          <StayGateDesk
+            locale={ar ? 'ar' : 'en'}
+            initialToken={null}
+            propertyId={propertyId}
+            autoConfirm
+            onCheckedIn={() => {
+              setNotice({
+                tone: 'success',
+                text: ar ? 'تم تسجيل دخول الضيف.' : 'Guest checked in.',
+              });
+              setReloadKey((key) => key + 1);
+            }}
+          />
         </div>
       ) : null}
 

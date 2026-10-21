@@ -22,12 +22,19 @@ const keySchema = z.union([
 ]);
 
 const bodySchema = z.discriminatedUnion('action', [
-  z.object({ action: z.literal('preview'), key: keySchema }).strict(),
+  z
+    .object({
+      action: z.literal('preview'),
+      key: keySchema,
+      propertyId: z.string().uuid().optional(),
+    })
+    .strict(),
   z
     .object({
       action: z.literal('checkin'),
       key: keySchema,
       note: z.string().trim().max(500).optional(),
+      propertyId: z.string().uuid().optional(),
     })
     .strict(),
 ]);
@@ -38,15 +45,43 @@ function json(body: unknown, init?: ResponseInit) {
 
 function errorResponse(error: unknown) {
   const code = error instanceof Error ? error.message : 'request_failed';
+  const messages: Record<string, { ar: string; en: string }> = {
+    stay_checkin_too_early: {
+      ar: 'لا يمكن تسجيل الدخول قبل موعد الوصول بأكثر من 4 ساعات.',
+      en: 'Check-in opens at most 4 hours before the arrival time.',
+    },
+    stay_checkin_window_closed: {
+      ar: 'انتهت مدة الحجز دون تسجيل وصول — أُلغي الحجز تلقائياً.',
+      en: 'The stay ended without check-in — the booking was cancelled automatically.',
+    },
+    wrong_property: {
+      ar: 'هذا الحجز لا يخص هذا العقار.',
+      en: 'This booking does not belong to this property.',
+    },
+  };
   const status =
     code === 'forbidden'
       ? 403
       : code === 'booking_not_found'
         ? 404
-        : code === 'pass_invalid' || code === 'stay_not_ready' || code === 'stay_status_invalid'
+        : code === 'pass_invalid' ||
+            code === 'stay_not_ready' ||
+            code === 'stay_status_invalid' ||
+            code === 'stay_checkin_too_early' ||
+            code === 'stay_checkin_window_closed' ||
+            code === 'wrong_property'
           ? 409
           : 400;
-  return json({ error: { code } }, { status });
+  const message = messages[code];
+  return json(
+    {
+      error: {
+        code,
+        ...(message ? { messageAr: message.ar, message: message.en } : {}),
+      },
+    },
+    { status },
+  );
 }
 
 /** POST /api/stay-gate — staff preview or confirm stay arrival from QR / code. */
@@ -78,9 +113,9 @@ export async function POST(request: Request) {
   try {
     const body = parsed.data;
     if (body.action === 'preview') {
-      return json(await previewStayGate(claims, body.key));
+      return json(await previewStayGate(claims, body.key, body.propertyId));
     }
-    return json(await confirmStayGate(claims, body.key, body.note));
+    return json(await confirmStayGate(claims, body.key, body.note, body.propertyId));
   } catch (error) {
     return errorResponse(error);
   }

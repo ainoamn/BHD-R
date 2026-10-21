@@ -13,6 +13,10 @@ type Pass = {
 
 type Arrived = { state: 'arrived'; referenceCode: string; status: string };
 type NotReady = { state: 'not_ready'; referenceCode: string; status: string };
+type TooEarly = { state: 'too_early'; referenceCode: string; status: string; opensAt: string };
+type Expired = { state: 'expired'; referenceCode: string; status: string };
+
+type PassBody = Pass | Arrived | NotReady | TooEarly | Expired;
 
 const stamp = (iso: string, ar: boolean) =>
   new Date(iso).toLocaleString(ar ? 'ar-OM' : 'en-GB', {
@@ -35,6 +39,9 @@ export function StayCheckinPass({
   const ar = locale === 'ar';
   const [pass, setPass] = useState<Pass | null>(null);
   const [arrived, setArrived] = useState(false);
+  const [tooEarly, setTooEarly] = useState<string | null>(null);
+  const [expired, setExpired] = useState(false);
+  const [notReady, setNotReady] = useState(false);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -47,9 +54,7 @@ export function StayCheckinPass({
           { credentials: 'same-origin', cache: 'no-store' },
         );
         const body = (await response.json().catch(() => null)) as
-          | (Pass & { qrSvg?: string })
-          | Arrived
-          | NotReady
+          | (PassBody & { qrSvg?: string })
           | { error?: { code?: string } }
           | null;
         if (stopped) return;
@@ -58,12 +63,33 @@ export function StayCheckinPass({
         } else if (body.state === 'arrived') {
           setArrived(true);
           setPass(null);
+          setTooEarly(null);
+          setExpired(false);
+          setNotReady(false);
           return;
-        } else if (body.state === 'not_ready') {
-          setFailed(false);
+        } else if (body.state === 'expired') {
+          setExpired(true);
           setPass(null);
+          setTooEarly(null);
+          setNotReady(false);
+          return;
+        } else if (body.state === 'too_early') {
+          setTooEarly(body.opensAt);
+          setPass(null);
+          setExpired(false);
+          setNotReady(false);
+          setFailed(false);
+        } else if (body.state === 'not_ready') {
+          setNotReady(true);
+          setPass(null);
+          setTooEarly(null);
+          setExpired(false);
+          setFailed(false);
         } else if (body.state === 'pass' && body.qrSvg && body.code && body.refreshAt) {
           setFailed(false);
+          setTooEarly(null);
+          setExpired(false);
+          setNotReady(false);
           setPass((current) =>
             current?.refreshAt === body.refreshAt ? current : (body as Pass),
           );
@@ -93,13 +119,52 @@ export function StayCheckinPass({
     );
   }
 
+  if (expired) {
+    return (
+      <section className="guest-stay-detail__card handover-pass" aria-labelledby="stay-checkin-title">
+        <h2 id="stay-checkin-title">{ar ? 'أُلغي الحجز' : 'Booking cancelled'}</h2>
+        <p className="notice notice--error" role="alert">
+          {ar
+            ? 'انتهت مدة الحجز دون تسجيل دخول — أُلغي الحجز تلقائياً.'
+            : 'The stay ended without check-in — the booking was cancelled automatically.'}
+        </p>
+      </section>
+    );
+  }
+
+  if (tooEarly) {
+    return (
+      <section className="guest-stay-detail__card handover-pass" aria-labelledby="stay-checkin-title">
+        <h2 id="stay-checkin-title">{ar ? 'باركود تسجيل الوصول' : 'Check-in barcode'}</h2>
+        <p className="notice" role="status">
+          {ar
+            ? `يفتح تسجيل الدخول قبل موعد الوصول بـ 4 ساعات كحد أقصى — اعتباراً من ${stamp(tooEarly, ar)}.`
+            : `Check-in opens at most 4 hours before arrival — from ${stamp(tooEarly, ar)}.`}
+        </p>
+      </section>
+    );
+  }
+
+  if (notReady) {
+    return (
+      <section className="guest-stay-detail__card handover-pass" aria-labelledby="stay-checkin-title">
+        <h2 id="stay-checkin-title">{ar ? 'باركود تسجيل الوصول' : 'Check-in barcode'}</h2>
+        <p className="muted" role="status">
+          {ar
+            ? 'رمز الوصول يظهر بعد تأكيد الحجز والدفع.'
+            : 'The arrival code appears after the booking is confirmed and paid.'}
+        </p>
+      </section>
+    );
+  }
+
   return (
     <section className="guest-stay-detail__card handover-pass" aria-labelledby="stay-checkin-title">
       <h2 id="stay-checkin-title">{ar ? 'باركود تسجيل الوصول' : 'Check-in barcode'}</h2>
       <p>
         {ar
-          ? 'عند وصولك اعرض هذا الرمز على عامل العقار أو الحارس ليمسحه — يُسجَّل دخولك فوراً ويُؤكَّد الحجز.'
-          : 'On arrival, show this code to the property staff or guard to scan — your check-in is recorded at once.'}
+          ? 'عند وصولك اعرض هذا الرمز على عامل العقار ليمسحه — يُسجَّل تاريخ ووقت دخولك فوراً.'
+          : 'On arrival, show this code to property staff to scan — your check-in date and time are recorded at once.'}
       </p>
       <div className="handover-pass__body">
         {pass ? (
@@ -138,8 +203,8 @@ export function StayCheckinPass({
       </div>
       <p className="handover-pass__note">
         {ar
-          ? 'الرمز مشفّر ويتغيّر كل خمس دقائق؛ اعرضه فقط عند الوصول للعامل المخوّل.'
-          : 'The code is sealed and rotates every five minutes; show it only on arrival to authorised staff.'}
+          ? 'لا يُقبل المسح قبل موعد الوصول بأكثر من 4 ساعات؛ بعد انتهاء مدة الحجز يُلغى تلقائياً إن لم يُسجَّل الدخول.'
+          : 'Scanning is not accepted more than 4 hours before arrival; after the stay ends without check-in the booking is cancelled automatically.'}
       </p>
     </section>
   );

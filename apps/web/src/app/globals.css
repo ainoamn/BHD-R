@@ -721,6 +721,32 @@ a.pmh-actionbar__title[aria-current='page'] {
 }
 
 /* Property section records (in-page tabs of the property hub) */
+.psr-stay-gate {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0.85rem 0 1.1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--pmh-line);
+  border-radius: 0.9rem;
+  background: var(--pmh-soft);
+}
+.psr-stay-gate__title {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--oman-deep);
+}
+.psr-stay-gate__hint {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+.psr-stay-gate .viewing-gate {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
 .psr-refresh {
   padding: 0;
   background: none;

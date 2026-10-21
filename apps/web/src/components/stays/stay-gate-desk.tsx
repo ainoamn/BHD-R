@@ -37,6 +37,7 @@ function stamp(iso: string | null, ar: boolean): string {
   if (!iso) return '—';
   try {
     return new Date(iso).toLocaleString(ar ? 'ar-OM' : 'en-GB', {
+      timeZone: 'Asia/Muscat',
       dateStyle: 'medium',
       timeStyle: 'short',
     });
@@ -45,12 +46,39 @@ function stamp(iso: string | null, ar: boolean): string {
   }
 }
 
+function humanGateError(code: string, ar: boolean): string {
+  switch (code) {
+    case 'stay_checkin_too_early':
+      return ar
+        ? 'لا يمكن تسجيل الدخول قبل موعد الوصول بأكثر من 4 ساعات.'
+        : 'Check-in opens at most 4 hours before arrival.';
+    case 'stay_checkin_window_closed':
+      return ar
+        ? 'انتهت مدة الحجز دون وصول — أُلغي الحجز تلقائياً.'
+        : 'Stay ended without arrival — booking cancelled automatically.';
+    case 'wrong_property':
+      return ar ? 'هذا الحجز لا يخص هذا العقار.' : 'This booking is not for this property.';
+    case 'pass_invalid':
+      return ar ? 'الرمز غير صالح أو منتهٍ.' : 'Code is invalid or expired.';
+    default:
+      return ar ? 'تعذّر تسجيل الوصول.' : 'Could not check in.';
+  }
+}
+
 export function StayGateDesk({
   locale,
   initialToken,
+  propertyId,
+  autoConfirm = false,
+  onCheckedIn,
 }: {
   locale: 'ar' | 'en';
   initialToken: string | null;
+  /** When set, only bookings for this property are accepted. */
+  propertyId?: string;
+  /** Scan/enter → record check-in immediately (no confirm step). */
+  autoConfirm?: boolean;
+  onCheckedIn?: () => void;
 }) {
   const ar = locale === 'ar';
   const [reference, setReference] = useState('');
@@ -59,7 +87,7 @@ export function StayGateDesk({
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CheckInResult | null>(null);
   const [pending, setPending] = useState<Pending | null>(
-    initialToken ? { kind: 'token', token: initialToken } : null,
+    initialToken && !autoConfirm ? { kind: 'token', token: initialToken } : null,
   );
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -84,22 +112,23 @@ export function StayGateDesk({
         body: JSON.stringify({
           action,
           key,
+          ...(propertyId ? { propertyId } : {}),
           ...(action === 'checkin' && note?.trim() ? { note: note.trim() } : {}),
         }),
       });
       const payload = (await response.json().catch(() => null)) as
         | CheckInResult
         | PreviewResult
-        | { error?: { code?: string } }
+        | { error?: { code?: string; messageAr?: string; message?: string } }
         | null;
       if (!response.ok) {
-        throw new Error(
-          (payload && 'error' in payload && payload.error?.code) || 'checkin_failed',
-        );
+        const errCode =
+          (payload && 'error' in payload && payload.error?.code) || 'checkin_failed';
+        throw new Error(errCode);
       }
       return payload;
     },
-    [],
+    [propertyId],
   );
 
   const loadPreview = useCallback(
@@ -108,6 +137,17 @@ export function StayGateDesk({
       setError(null);
       setResult(null);
       try {
+        if (autoConfirm) {
+          const payload = await postGate('checkin', next);
+          if (!payload || !('ok' in payload) || !payload.ok) {
+            throw new Error('checkin_failed');
+          }
+          setResult(payload as CheckInResult);
+          setPending(null);
+          setPreview(null);
+          onCheckedIn?.();
+          return;
+        }
         const payload = await postGate('preview', next);
         if (!payload || !('preview' in payload) || !payload.preview) {
           throw new Error('checkin_failed');
@@ -122,12 +162,13 @@ export function StayGateDesk({
       } catch (caught) {
         setPending(null);
         setPreview(null);
-        setError(caught instanceof Error ? caught.message : 'checkin_failed');
+        const code = caught instanceof Error ? caught.message : 'checkin_failed';
+        setError(humanGateError(code, ar));
       } finally {
         setBusy(false);
       }
     },
-    [postGate],
+    [postGate, autoConfirm, onCheckedIn, ar],
   );
 
   const confirmCheckIn = useCallback(async () => {
@@ -143,12 +184,14 @@ export function StayGateDesk({
       setPending(null);
       setPreview(null);
       setGuardNote('');
+      onCheckedIn?.();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'checkin_failed');
+      const code = caught instanceof Error ? caught.message : 'checkin_failed';
+      setError(humanGateError(code, ar));
     } finally {
       setBusy(false);
     }
-  }, [pending, postGate, guardNote]);
+  }, [pending, postGate, guardNote, ar, onCheckedIn]);
 
   useEffect(() => {
     if (initialToken) void loadPreview({ kind: 'token', token: initialToken });
@@ -223,8 +266,8 @@ export function StayGateDesk({
               ? 'تم تسجيل الوصول مسبقاً'
               : 'Already checked in'
             : ar
-              ? 'تم التحقق — مرحباً بالضيف'
-              : 'Verified — guest welcome'}
+              ? 'تم تسجيل الدخول'
+              : 'Checked in'}
         </h2>
         <dl className="viewing-gate__facts">
           <div>
@@ -242,7 +285,7 @@ export function StayGateDesk({
             </dd>
           </div>
           <div>
-            <dt>{ar ? 'وقت الوصول' : 'Arrived at'}</dt>
+            <dt>{ar ? 'تاريخ ووقت الدخول' : 'Check-in date & time'}</dt>
             <dd dir="ltr">{stamp(result.arrivedAt, ar)}</dd>
           </div>
         </dl>
@@ -403,7 +446,17 @@ export function StayGateDesk({
           className="button button--primary"
           disabled={busy || code.length !== 6}
         >
-          {ar ? 'عرض بيانات الضيف' : 'Show guest details'}
+          {autoConfirm
+            ? busy
+              ? ar
+                ? 'جارٍ التسجيل…'
+                : 'Recording…'
+              : ar
+                ? 'تسجيل الدخول الآن'
+                : 'Check in now'
+            : ar
+              ? 'عرض بيانات الضيف'
+              : 'Show guest details'}
         </button>
       </form>
 

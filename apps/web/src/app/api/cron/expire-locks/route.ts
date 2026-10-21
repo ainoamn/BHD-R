@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm';
 import { createDatabase } from '@bhd-r/db';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { assertCronAuthorized } from '@/lib/route-rate-limit';
+import { expireStayNoShowsOnNeon } from '@/lib/stay-checkin-neon';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -37,7 +38,13 @@ export async function GET(request: Request) {
       `);
       return { expired: true as const };
     });
-    return NextResponse.json({ ok: true, ...result, ms: Date.now() - started });
+    const noShows = await expireStayNoShowsOnNeon().catch(() => ({ marked: 0 }));
+    return NextResponse.json({
+      ok: true,
+      ...result,
+      stayNoShows: noShows.marked,
+      ms: Date.now() - started,
+    });
   } catch (error) {
     console.error('[cron/expire-locks]', error);
     return NextResponse.json(
