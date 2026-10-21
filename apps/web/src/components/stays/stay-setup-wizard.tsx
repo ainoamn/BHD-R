@@ -418,10 +418,10 @@ export function StaySetupWizard({
   const [overnightMaxGuests, setOvernightMaxGuests] = useState('4');
   const [minNights, setMinNights] = useState('1');
   const [maxNights, setMaxNights] = useState('30');
-  const [checkInFrom, setCheckInFrom] = useState('15:00');
-  const [dayUseCheckInFrom, setDayUseCheckInFrom] = useState('08:00');
-  const [dayUseCheckOutUntil, setDayUseCheckOutUntil] = useState('23:00');
-  const [overnightCheckOutUntil, setOvernightCheckOutUntil] = useState('11:00');
+  const [checkInFrom, setCheckInFrom] = useState('23:00');
+  const [dayUseCheckInFrom, setDayUseCheckInFrom] = useState('10:00');
+  const [dayUseCheckOutUntil, setDayUseCheckOutUntil] = useState('22:00');
+  const [overnightCheckOutUntil, setOvernightCheckOutUntil] = useState('09:00');
   const [instantBook, setInstantBook] = useState(true);
   const [allowViewingRequests, setAllowViewingRequests] = useState(true);
   const [policiesAr, setPoliciesAr] = useState(DEFAULT_POLICIES_AR.join('\n'));
@@ -491,13 +491,13 @@ export function StaySetupWizard({
       if (typeof draft.allowViewingRequests === 'boolean') {
         setAllowViewingRequests(draft.allowViewingRequests);
       }
-      if (draft.checkInFrom) setCheckInFrom(normalizeTime(draft.checkInFrom, '15:00'));
+      if (draft.checkInFrom) setCheckInFrom(normalizeTime(draft.checkInFrom, '23:00'));
       if (draft.dayUseCheckInFrom)
-        setDayUseCheckInFrom(normalizeTime(draft.dayUseCheckInFrom, '08:00'));
+        setDayUseCheckInFrom(normalizeTime(draft.dayUseCheckInFrom, '10:00'));
       if (draft.dayUseCheckOutUntil)
-        setDayUseCheckOutUntil(normalizeTime(draft.dayUseCheckOutUntil, '23:00'));
+        setDayUseCheckOutUntil(normalizeTime(draft.dayUseCheckOutUntil, '22:00'));
       if (draft.overnightCheckOutUntil)
-        setOvernightCheckOutUntil(normalizeTime(draft.overnightCheckOutUntil, '11:00'));
+        setOvernightCheckOutUntil(normalizeTime(draft.overnightCheckOutUntil, '09:00'));
       const structured = parseStayPoliciesJson(draft.policiesJson, {
         policiesAr: draft.policiesAr ?? null,
         policiesEn: draft.policiesEn ?? null,

@@ -639,12 +639,12 @@ export async function createStayProfilesOnNeon(
           maxGuests,
           minNights: input.minNights,
           maxNights: input.maxNights,
-          checkInFrom: input.checkInFrom ?? '15:00',
-          checkInUntil: input.checkInUntil ?? '22:00',
-          checkOutUntil: input.checkOutUntil ?? '11:00',
-          dayUseCheckInFrom: '08:00',
-          dayUseCheckOutUntil: '23:00',
-          overnightCheckOutUntil: input.checkOutUntil ?? '11:00',
+          checkInFrom: input.checkInFrom ?? '23:00',
+          checkInUntil: input.checkInUntil ?? '23:00',
+          checkOutUntil: input.checkOutUntil ?? '09:00',
+          dayUseCheckInFrom: '10:00',
+          dayUseCheckOutUntil: '22:00',
+          overnightCheckOutUntil: input.checkOutUntil ?? '09:00',
         })
         .returning({ id: stayProfiles.id, unitId: stayProfiles.unitId });
       if (inserted) created.push(inserted);

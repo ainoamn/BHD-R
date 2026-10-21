@@ -1127,11 +1127,11 @@ export function StayCheckout({
                       <p className="stays-checkout__period-note">
                         {stayType === 'day_use'
                           ? ar
-                            ? 'صباحية · تقريباً 11:00–16:00'
-                            : 'Morning · about 11:00–16:00'
+                            ? `صباحية · ${periodTimes.checkInTime} → ${periodTimes.checkOutTime}`
+                            : `Morning · ${periodTimes.checkInTime} → ${periodTimes.checkOutTime}`
                           : ar
-                            ? 'مسائية مع مبيت'
-                            : 'Evening with overnight'}
+                            ? `مسائية مع مبيت · ${periodTimes.checkInTime} → ${periodTimes.checkOutTime}`
+                            : `Evening with overnight · ${periodTimes.checkInTime} → ${periodTimes.checkOutTime}`}
                       </p>
                     </div>
                   )}

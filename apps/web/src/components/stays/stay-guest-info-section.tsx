@@ -75,14 +75,14 @@ export function StayGuestInfoSection({
     detail.dayUseCheckInFrom || detail.dayUseCheckOutUntil
       ? {
           label: ar ? 'الفترة الصباحية (دخول → خروج)' : 'Morning (in → out)',
-          value: `${detail.dayUseCheckInFrom ?? '08:00'} → ${detail.dayUseCheckOutUntil ?? '23:00'}`,
+          value: `${detail.dayUseCheckInFrom ?? '10:00'} → ${detail.dayUseCheckOutUntil ?? '22:00'}`,
           dir: 'ltr' as const,
         }
       : null,
     detail.checkInFrom || detail.overnightCheckOutUntil || detail.checkOutUntil
       ? {
           label: ar ? 'المبيت / المسائية (دخول → خروج)' : 'Overnight / evening (in → out)',
-          value: `${detail.checkInFrom ?? '15:00'} → ${detail.overnightCheckOutUntil ?? detail.checkOutUntil ?? '11:00'}`,
+          value: `${detail.checkInFrom ?? '23:00'} → ${detail.overnightCheckOutUntil ?? detail.checkOutUntil ?? '09:00'}`,
           dir: 'ltr' as const,
         }
       : null,

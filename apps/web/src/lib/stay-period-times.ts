@@ -15,6 +15,13 @@ export type StayPeriodTimes = {
   checkOutTime: string;
 };
 
+/** Default clocks when the property has not set times yet. */
+export const STAY_DEFAULT_DAY_USE_CHECK_IN = '10:00';
+export const STAY_DEFAULT_DAY_USE_CHECK_OUT = '22:00';
+/** Evening / overnight: 11:00 مساءً → 9:00 صباحاً. */
+export const STAY_DEFAULT_OVERNIGHT_CHECK_IN = '23:00';
+export const STAY_DEFAULT_OVERNIGHT_CHECK_OUT = '09:00';
+
 function normalizeTime(value: string | null | undefined, fallback: string): string {
   const raw = (value ?? '').trim();
   const match = raw.match(/^(\d{1,2}):(\d{2})/);
@@ -27,12 +34,12 @@ export function resolveStayPeriodTimes(
   stayType: StayPeriodType | null | undefined,
   profile: StayPeriodProfileTimes,
 ): StayPeriodTimes {
-  const dayIn = normalizeTime(profile.dayUseCheckInFrom, '08:00');
-  const dayOut = normalizeTime(profile.dayUseCheckOutUntil, '23:00');
-  const nightIn = normalizeTime(profile.checkInFrom, '15:00');
+  const dayIn = normalizeTime(profile.dayUseCheckInFrom, STAY_DEFAULT_DAY_USE_CHECK_IN);
+  const dayOut = normalizeTime(profile.dayUseCheckOutUntil, STAY_DEFAULT_DAY_USE_CHECK_OUT);
+  const nightIn = normalizeTime(profile.checkInFrom, STAY_DEFAULT_OVERNIGHT_CHECK_IN);
   const nightOut = normalizeTime(
     profile.overnightCheckOutUntil ?? profile.checkOutUntil,
-    '11:00',
+    STAY_DEFAULT_OVERNIGHT_CHECK_OUT,
   );
   if (stayType === 'day_use') {
     return { checkInTime: dayIn, checkOutTime: dayOut };

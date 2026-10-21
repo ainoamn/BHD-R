@@ -172,11 +172,11 @@ export default async function StayBookPage({
         : `${Math.round(detail.areaSquareMeters)} m²`
       : null,
   ].filter((fact): fact is string => Boolean(fact));
-  const dayIn = shortTime(detail.dayUseCheckInFrom) || '08:00';
-  const dayOut = shortTime(detail.dayUseCheckOutUntil) || '23:00';
-  const nightIn = shortTime(detail.checkInFrom) || '15:00';
+  const dayIn = shortTime(detail.dayUseCheckInFrom) || '10:00';
+  const dayOut = shortTime(detail.dayUseCheckOutUntil) || '22:00';
+  const nightIn = shortTime(detail.checkInFrom) || '23:00';
   const nightOut =
-    shortTime(detail.overnightCheckOutUntil) || shortTime(detail.checkOutUntil) || '11:00';
+    shortTime(detail.overnightCheckOutUntil) || shortTime(detail.checkOutUntil) || '09:00';
   const details = [
     ...facts,
     detail.nightlyMinor

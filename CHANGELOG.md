@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.134.41 — 2026-10-21
+
+- **أوقات الإقامة الافتراضية:** صباحي 10:00–22:00، ومسائي/مبيت 23:00–09:00 (قابلة للتعديل من إعدادات العقار).
+
 ## 0.8.134.40 — 2026-10-21
 
 - **بناء الإنتاج:** إصلاح TypeScript بعد حقول أوقات الدخول/المغادرة (`checkInTime` / `day_use_check_in_from`).

@@ -207,7 +207,7 @@ export function StayPublicShowcase({
               <div>
                 <dt>{ar ? 'الفترة الصباحية' : 'Morning (day use)'}</dt>
                 <dd dir="ltr">
-                  {detail.dayUseCheckInFrom ?? '08:00'} → {detail.dayUseCheckOutUntil ?? '23:00'}
+                  {detail.dayUseCheckInFrom ?? '10:00'} → {detail.dayUseCheckOutUntil ?? '22:00'}
                 </dd>
               </div>
             ) : null}
@@ -215,8 +215,8 @@ export function StayPublicShowcase({
               <div>
                 <dt>{ar ? 'المبيت / المسائية' : 'Overnight / evening'}</dt>
                 <dd dir="ltr">
-                  {detail.checkInFrom ?? '15:00'} →{' '}
-                  {detail.overnightCheckOutUntil ?? detail.checkOutUntil ?? '11:00'}
+                  {detail.checkInFrom ?? '23:00'} →{' '}
+                  {detail.overnightCheckOutUntil ?? detail.checkOutUntil ?? '09:00'}
                 </dd>
               </div>
             ) : null}

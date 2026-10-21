@@ -1,5 +1,12 @@
 /** Arrival window for daily-stay check-in (Muscat-style local civil times). */
 
+import {
+  STAY_DEFAULT_DAY_USE_CHECK_IN,
+  STAY_DEFAULT_DAY_USE_CHECK_OUT,
+  STAY_DEFAULT_OVERNIGHT_CHECK_IN,
+  STAY_DEFAULT_OVERNIGHT_CHECK_OUT,
+} from '@/lib/stay-period-times';
+
 export const STAY_CHECKIN_EARLY_MS = 4 * 60 * 60 * 1000;
 
 export type StayCheckinType = 'overnight_stay' | 'day_use' | 'overnight_only';
@@ -44,13 +51,13 @@ export function stayArrivalWindow(input: StayArrivalWindowInput): {
   checkOutAt: Date;
 } {
   const type = input.stayType ?? 'overnight_stay';
-  const eveningIn = normalizeTime(input.checkInFrom) || '15:00';
+  const eveningIn = normalizeTime(input.checkInFrom) || STAY_DEFAULT_OVERNIGHT_CHECK_IN;
   const overnightOut =
     normalizeTime(input.overnightCheckOutUntil) ||
     normalizeTime(input.checkOutUntil) ||
-    '11:00';
-  const dayUseIn = normalizeTime(input.dayUseCheckInFrom) || '08:00';
-  const dayUseOut = normalizeTime(input.dayUseCheckOutUntil) || '23:00';
+    STAY_DEFAULT_OVERNIGHT_CHECK_OUT;
+  const dayUseIn = normalizeTime(input.dayUseCheckInFrom) || STAY_DEFAULT_DAY_USE_CHECK_IN;
+  const dayUseOut = normalizeTime(input.dayUseCheckOutUntil) || STAY_DEFAULT_DAY_USE_CHECK_OUT;
 
   let checkInAt: Date;
   let checkOutAt: Date;
