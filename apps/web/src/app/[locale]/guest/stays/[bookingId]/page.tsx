@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { GuestStayActions } from '@/components/stays/guest-stay-actions';
+import { StayCheckinPass } from '@/components/stays/stay-checkin-pass';
 import { bookingStatusTone } from '@/lib/booking-priority';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { loadGuestReviewState } from '@/lib/booking-reviews-neon';
@@ -506,6 +507,12 @@ export default async function GuestStayDetailPage({
                 plateNo={booking.referenceCode}
                 ar={ar}
               />
+            ) : null}
+            {paid &&
+            !ENDED_STATUSES.has(booking.status) &&
+            booking.status !== 'checked_out' &&
+            booking.status !== 'closed' ? (
+              <StayCheckinPass locale={locale} referenceCode={booking.referenceCode} />
             ) : null}
             <section className="guest-stay-detail__card">
               <h2>{ar ? 'موعد الإقامة' : 'Your dates'}</h2>

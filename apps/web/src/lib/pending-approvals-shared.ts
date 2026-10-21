@@ -45,6 +45,8 @@ export type PendingApprovalItem = {
   unread?: number;
   /** For `tenant_request`: what the tenant asked for. */
   requestType?: string;
+  /** For `stay_booking`: request queue vs newly confirmed paid stay. */
+  stayPhase?: 'request' | 'confirmed';
 };
 
 export type PendingApprovals = {
@@ -140,6 +142,9 @@ export function pendingApprovalTitle(item: PendingApprovalItem, ar: boolean): st
     return ar ? 'طلب معاينة بانتظار تحديد الموعد' : 'Viewing request awaiting a schedule';
   }
   if (item.kind === 'stay_booking') {
+    if (item.stayPhase === 'confirmed') {
+      return ar ? 'حجز إقامة جديد مؤكد' : 'New stay booking confirmed';
+    }
     return ar ? 'طلب حجز بانتظار الاعتماد' : 'Booking request awaiting approval';
   }
   if (item.kind === 'lease_reservation') {

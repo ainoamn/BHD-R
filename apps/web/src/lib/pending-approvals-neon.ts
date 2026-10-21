@@ -202,6 +202,7 @@ async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApproval
             >`${stayBookings.pricingSnapshotJson}->'guestContact'->>'displayName'`,
             fromOn: stayBookings.checkInOn,
             requestedAt: stayBookings.createdAt,
+            status: stayBookings.status,
           })
           .from(stayBookings)
           .innerJoin(properties, eq(properties.id, stayBookings.propertyId))
@@ -209,8 +210,14 @@ async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApproval
           .where(
             and(
               eq(stayBookings.organizationId, orgId),
-              eq(stayBookings.status, 'request_pending'),
               ...(ownerPartyId ? [eq(properties.ownerPartyId, ownerPartyId)] : []),
+              sql`(
+                ${stayBookings.status} = 'request_pending'
+                or (
+                  ${stayBookings.status} in ('confirmed', 'paid', 'pre_arrival')
+                  and ${stayBookings.createdAt} > now() - interval '7 days'
+                )
+              )`,
             ),
           )
           .orderBy(asc(stayBookings.createdAt))
@@ -350,6 +357,8 @@ async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApproval
         contractType: null,
         fromOn: iso(row.fromOn)?.slice(0, 10) ?? null,
         requestedAt: iso(row.requestedAt) ?? '',
+        stayPhase:
+          row.status === 'request_pending' ? ('request' as const) : ('confirmed' as const),
       })),
       ...reservationRows
         .flatMap((row) => {

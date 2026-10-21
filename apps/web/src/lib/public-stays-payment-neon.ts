@@ -29,6 +29,7 @@ import {
   isRangeAvailableInTransaction,
   PublicStayBookingError,
 } from '@/lib/public-stays-booking-neon';
+import { notifyOwnersOfStayBooking } from '@/lib/stay-checkin-neon';
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdRPublicStaysPaymentDb?: DbHandle };
@@ -199,7 +200,7 @@ export async function completeStaySandboxPaymentOnNeon(
       : {}),
   };
 
-  return asSystem(async (transaction) => {
+  const result = await asSystem(async (transaction) => {
     await transaction.execute(
       sql`select pg_advisory_xact_lock(hashtextextended(${sessionReference}, 23))`,
     );
@@ -619,16 +620,30 @@ export async function completeStaySandboxPaymentOnNeon(
     }
 
     return {
-      completed: true,
-      duplicate: false,
+      completed: true as const,
+      duplicate: false as const,
       kind: 'stay_booking' as const,
       paymentIntentId: intent.id,
       returnPath: returnPath ?? null,
       referenceCode: booking.referenceCode,
       receiptPath: `/stays/booking/receipt?ref=${encodeURIComponent(booking.referenceCode)}`,
       emailQueued: Boolean(guestEmail),
+      notifyOwner: {
+        bookingId: booking.id,
+        organizationId: intent.organizationId,
+        referenceCode: booking.referenceCode,
+      },
     };
   });
+
+  if (result.completed && !result.duplicate && 'notifyOwner' in result && result.notifyOwner) {
+    void notifyOwnersOfStayBooking({ ...result.notifyOwner, kind: 'confirmed' });
+  }
+  if ('notifyOwner' in result) {
+    const { notifyOwner: _n, ...publicResult } = result;
+    return publicResult;
+  }
+  return result;
 }
 
 export type StaySandboxSessionSummary = {
