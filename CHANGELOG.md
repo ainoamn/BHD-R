@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.134.29 — 2026-10-21
+
+- **حجز الإقامة (جوال):** شريط صورة قصير فقط — إخفاء نص التعريف والخطوات الجانبية؛ رقم المرحلة يبقى في شريط إكمال الحجز.
+
 ## 0.8.134.28 — 2026-10-21
 
 - **بناء الإنتاج:** إصلاح تمرير `unitId` الاختياري في تقويم حجز الإقامة تحت `exactOptionalPropertyTypes`.

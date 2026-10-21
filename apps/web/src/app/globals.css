@@ -18176,41 +18176,6 @@ body:has(.stays-book-shell) #main-content {
   overflow: hidden;
   color: #f5fbf8;
 }
-/* Phone: compact photo strip so the form keeps most of the screen. */
-@media (max-width: 899px) {
-  .stays-book-shell__aside,
-  .stays-book-shell--wide-form .stays-book-shell__aside {
-    min-height: 6.75rem;
-  }
-  .stays-book-shell__aside-content {
-    min-height: 6.75rem;
-    padding: 0.55rem max(0.85rem, env(safe-area-inset-inline-start)) 0.65rem
-      max(0.85rem, env(safe-area-inset-inline-end));
-    gap: 0.3rem;
-  }
-  .stays-book-shell__intro {
-    gap: 0.2rem;
-  }
-  .stays-book-shell__brand,
-  .stays-book-shell__headline,
-  .stays-book-shell__lede,
-  .stays-book-shell__facts,
-  .stays-book-shell__steps,
-  .stays-book-shell__cta {
-    display: none;
-  }
-  .stays-book-shell__place {
-    margin: 0;
-    font-size: 0.95rem;
-    font-weight: 800;
-  }
-  .stays-book-shell__place small {
-    font-size: 0.78rem;
-  }
-  .stays-book-shell__aside-bg {
-    object-position: center 35%;
-  }
-}
 .stays-book-shell__aside-inner {
   position: relative;
   isolation: isolate;
@@ -19985,6 +19950,61 @@ button.lrw__step-body:focus-visible {
   }
   .stays-book-shell--wide-form .stays-book-shell__panel .stays-checkout--page {
     width: min(100%, 50rem);
+  }
+}
+/*
+ * Phone: thin photo strip only. Marketing copy lives after all base
+ * display: rules so it actually wins; stage numbers stay in the form stepper.
+ */
+@media (max-width: 899px) {
+  .stays-book-shell__aside,
+  .stays-book-shell--wide-form .stays-book-shell__aside {
+    height: 5.5rem;
+    min-height: 5.5rem;
+    max-height: 5.5rem;
+  }
+  .stays-book-shell__aside-inner,
+  .stays-book-shell__aside-content {
+    height: 100%;
+    min-height: 0;
+    max-height: 100%;
+  }
+  .stays-book-shell__aside-content {
+    grid-template-rows: auto;
+    align-content: center;
+    justify-items: stretch;
+    gap: 0;
+    padding: 0.45rem max(0.75rem, env(safe-area-inset-inline-start)) 0.45rem
+      max(0.75rem, env(safe-area-inset-inline-end));
+  }
+  .stays-book-shell__intro {
+    display: none;
+  }
+  .stays-book-shell__brand,
+  .stays-book-shell__headline,
+  .stays-book-shell__lede,
+  .stays-book-shell__facts,
+  .stays-book-shell__steps,
+  .stays-book-shell__cta,
+  .stays-book-shell__place {
+    display: none;
+  }
+  .stays-book-shell__topbar {
+    width: 100%;
+  }
+  .stays-book-shell__back,
+  .stays-book-shell__lang {
+    font-size: 0.82rem;
+  }
+  .stays-book-shell__aside-bg {
+    object-position: center 32%;
+  }
+  .stays-book-shell__aside-scrim {
+    background: linear-gradient(
+      180deg,
+      rgba(5, 22, 18, 0.55) 0%,
+      rgba(5, 22, 18, 0.35) 100%
+    );
   }
 }
 
