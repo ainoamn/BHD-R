@@ -14,6 +14,7 @@ import {
 } from '@/lib/stay-esign-flags';
 import { ModalPortal } from '@/components/modal-portal';
 import { StayAvailabilityCalendar } from '@/components/stays/stay-availability-calendar';
+import { noteForLocale } from '@/lib/note-translation';
 import { stayTypeLabel } from '@/lib/ui-labels';
 
 export type GuestStayActionBooking = {
@@ -41,6 +42,10 @@ export type GuestStayActionBooking = {
     quotedTotalMinor: string;
     chargedTotalMinor: string;
     paymentRedirectUrl?: string | null;
+  } | null;
+  rescheduleRejection?: {
+    note: string | null;
+    at: string;
   } | null;
 };
 
@@ -250,6 +255,10 @@ export function GuestStayActions({
   );
   const showCancel = Boolean(booking.canCancel);
   const pendingReschedule = booking.pendingReschedule ?? null;
+  const rescheduleRejection = booking.rescheduleRejection ?? null;
+  const rejectionNote = rescheduleRejection?.note
+    ? noteForLocale(rescheduleRejection.note, ar ? 'ar' : 'en')
+    : null;
   const showModifyDates = Boolean(
     booking.listingSlug &&
     booking.unitId &&
@@ -258,7 +267,14 @@ export function GuestStayActions({
   );
   const showRebook = Boolean(booking.canRebook && rebookHref && !showModifyDates);
 
-  if (!showPay && !showCancel && !showRebook && !showModifyDates && !pendingReschedule) {
+  if (
+    !showPay &&
+    !showCancel &&
+    !showRebook &&
+    !showModifyDates &&
+    !pendingReschedule &&
+    !rescheduleRejection
+  ) {
     return null;
   }
 
@@ -266,6 +282,19 @@ export function GuestStayActions({
     <div
       className={compact ? 'guest-stay-actions guest-stay-actions--compact' : 'guest-stay-actions'}
     >
+      {rescheduleRejection && !pendingReschedule ? (
+        <p className="notice notice--warn guest-stay-actions__pending" role="status">
+          {ar
+            ? 'رفض المالك طلب تعديل التواريخ؛ يبقى حجزك على التواريخ الحالية.'
+            : 'The host declined your date-change request; your booking stays on the current dates.'}
+          {rejectionNote ? (
+            <>
+              {' '}
+              {ar ? 'السبب:' : 'Reason:'} {rejectionNote}
+            </>
+          ) : null}
+        </p>
+      ) : null}
       {pendingReschedule ? (
         <p className="notice notice--info guest-stay-actions__pending" role="status">
           {pendingReschedule.status === 'awaiting_owner'

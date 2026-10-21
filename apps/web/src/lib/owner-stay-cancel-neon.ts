@@ -35,7 +35,9 @@ const CANCELABLE = new Set([
 ]);
 
 export type OwnerStayCancelInput = {
-  note: string;
+  note?: string | null | undefined;
+  /** Default true for cancel; reject-request flows may pass false. */
+  noteRequired?: boolean | undefined;
   /** Required when a succeeded payment exists. */
   refundDecision?: 'refund' | 'keep' | null | undefined;
   /** When set, the booking must belong to this property (property hub reject). */
@@ -48,9 +50,13 @@ function fail(code: string): never {
   throw new Error(code);
 }
 
-function cleanNote(value: string): string {
-  const note = value.trim().slice(0, REFUND_NOTE_MAX);
-  if (note.length < 3) fail('cancel_note_required');
+function cleanNote(value: string | null | undefined, required: boolean): string | null {
+  const note = (value ?? '').trim().slice(0, REFUND_NOTE_MAX);
+  if (!note) {
+    if (required) fail('cancel_note_required');
+    return null;
+  }
+  if (required && note.length < 3) fail('cancel_note_required');
   return note;
 }
 
@@ -84,7 +90,7 @@ export async function cancelOwnerStayBookingOnNeon(
   input: OwnerStayCancelInput,
 ): Promise<{ id: string; status: string; refundCreated: boolean }> {
   if (!hasPermission(claims, 'stay.booking.manage')) fail('forbidden');
-  const note = cleanNote(input.note);
+  const note = cleanNote(input.note, input.noteRequired !== false);
 
   return withinViewerTenant(claims, async (tx) => {
     const orgId = claims.organizationId ?? fail('organization_required');
@@ -259,7 +265,7 @@ export async function cancelOwnerStayBookingOnNeon(
           status: 'approved',
           amountMinor: paidAmount,
           currency: paidIntent.currency || booking.currency,
-          reason: note,
+          reason: note ?? (fromRequest ? 'owner_rejected' : 'ops_cancel'),
           requestedByUserId: claims.sub,
           approvedByUserId: claims.sub,
           approvedAt: now,
@@ -390,7 +396,7 @@ export async function cancelOwnerStayBookingOnNeon(
           { label: 'رقم الحجز', value: booking.referenceCode },
           { label: 'تاريخ الوصول', value: arDate(booking.checkInOn) },
           { label: 'تاريخ المغادرة', value: arDate(booking.checkOutOn) },
-          { label: 'ملاحظة المضيف', value: note },
+          ...(note ? [{ label: 'ملاحظة المضيف', value: note }] : []),
           ...(refundLine ? [{ label: 'المبلغ', value: refundLine }] : []),
         ],
         lines: [
@@ -419,7 +425,7 @@ export async function cancelOwnerStayBookingOnNeon(
           details: [
             { label: 'العقار', value: booking.propertyNameAr },
             { label: 'المبلغ', value: money ?? paidAmount.toString() },
-            { label: 'سبب الإلغاء', value: note },
+            ...(note ? [{ label: 'سبب الإلغاء', value: note }] : []),
           ],
           lines: ['افتح صفحة الحسابات ← أمانات التأمين لتسجيل التحويل.'],
           cta: {

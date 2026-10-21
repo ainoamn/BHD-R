@@ -140,6 +140,11 @@ export type GuestStayBookingProjection = {
     currency: string | null;
     fromRequest: boolean;
   } | null;
+  /** Latest owner rejection of a date-change request (booking stays active). */
+  rescheduleRejection?: {
+    note: string | null;
+    at: string;
+  } | null;
 };
 
 const STAMPED_STATUSES = new Set(['checked_in', 'checked_out', 'closed']);
@@ -452,6 +457,38 @@ async function refreshUnpaidBooking(transaction: Tx, bookingId: string) {
   });
 }
 
+async function loadRescheduleRejection(
+  transaction: Tx,
+  organizationId: string,
+  bookingId: string,
+): Promise<GuestStayBookingProjection['rescheduleRejection']> {
+  const [row] = await transaction
+    .select({
+      at: stayBookingStatusHistory.createdAt,
+      metadata: stayBookingStatusHistory.metadataJson,
+    })
+    .from(stayBookingStatusHistory)
+    .where(
+      and(
+        eq(stayBookingStatusHistory.organizationId, organizationId),
+        eq(stayBookingStatusHistory.bookingId, bookingId),
+        eq(stayBookingStatusHistory.reason, 'owner_rejected_reschedule'),
+      ),
+    )
+    .orderBy(desc(stayBookingStatusHistory.createdAt))
+    .limit(1);
+  if (!row) return null;
+  const meta =
+    row.metadata && typeof row.metadata === 'object'
+      ? (row.metadata as Record<string, unknown>)
+      : null;
+  const note = typeof meta?.note === 'string' && meta.note.trim() ? meta.note.trim() : null;
+  return {
+    note,
+    at: row.at instanceof Date ? row.at.toISOString() : String(row.at),
+  };
+}
+
 async function loadCancelOutcome(
   transaction: Tx,
   organizationId: string,
@@ -535,29 +572,41 @@ async function enrichProjection(
     guestDisplayName: guestDisplayName ?? null,
     listingSlug: null,
   });
-  const [paymentIntentId, listing, stamps, deposits, refunds, claims, cancelOutcome, payUrl] =
-    await Promise.all([
-      resolvePaymentIntentId(transaction, booking.organizationId, booking.id),
-      resolveListing(transaction, booking.organizationId, booking.stayProfileId),
-      STAMPED_STATUSES.has(booking.status)
-        ? loadStayStamps(transaction, booking.organizationId, [booking.id])
-        : Promise.resolve(null),
-      departed
-        ? loadBookingDeposits(transaction, booking.organizationId, [booking.id])
-        : Promise.resolve(null),
-      departed
-        ? loadDepositRefunds(transaction, booking.organizationId, [booking.id])
-        : Promise.resolve(null),
-      departed
-        ? loadDepositClaims(transaction, booking.organizationId, [booking.id])
-        : Promise.resolve(null),
-      cancelled
-        ? loadCancelOutcome(transaction, booking.organizationId, booking.id)
-        : Promise.resolve(null),
-      base.pendingReschedule
-        ? resolveRescheduleTopUpRedirect(transaction, booking, base.pendingReschedule)
-        : Promise.resolve(null),
-    ]);
+  const [
+    paymentIntentId,
+    listing,
+    stamps,
+    deposits,
+    refunds,
+    claims,
+    cancelOutcome,
+    rescheduleRejection,
+    payUrl,
+  ] = await Promise.all([
+    resolvePaymentIntentId(transaction, booking.organizationId, booking.id),
+    resolveListing(transaction, booking.organizationId, booking.stayProfileId),
+    STAMPED_STATUSES.has(booking.status)
+      ? loadStayStamps(transaction, booking.organizationId, [booking.id])
+      : Promise.resolve(null),
+    departed
+      ? loadBookingDeposits(transaction, booking.organizationId, [booking.id])
+      : Promise.resolve(null),
+    departed
+      ? loadDepositRefunds(transaction, booking.organizationId, [booking.id])
+      : Promise.resolve(null),
+    departed
+      ? loadDepositClaims(transaction, booking.organizationId, [booking.id])
+      : Promise.resolve(null),
+    cancelled
+      ? loadCancelOutcome(transaction, booking.organizationId, booking.id)
+      : Promise.resolve(null),
+    !cancelled && !base.pendingReschedule
+      ? loadRescheduleRejection(transaction, booking.organizationId, booking.id)
+      : Promise.resolve(null),
+    base.pendingReschedule
+      ? resolveRescheduleTopUpRedirect(transaction, booking, base.pendingReschedule)
+      : Promise.resolve(null),
+  ]);
   const stamp = stamps?.get(booking.id);
   const depositMinor = deposits?.get(booking.id) ?? null;
   const refund = refunds?.get(booking.id);
@@ -577,6 +626,7 @@ async function enrichProjection(
     checkIn: stamp?.checkIn ? { ...stamp.checkIn, recipient: null, photos: [] } : null,
     checkOut: stamp?.checkOut ? { ...stamp.checkOut, recipient: null, photos: [] } : null,
     cancelOutcome: cancelOutcome ?? null,
+    rescheduleRejection: rescheduleRejection ?? null,
     pendingReschedule,
     canPay: Boolean(
       (base.canPay && paymentIntentId) ||

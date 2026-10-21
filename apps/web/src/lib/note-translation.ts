@@ -34,3 +34,14 @@ export function joinNoteTranslation(
 ): string {
   return `${original.trim()}\n${MARKER[target]}\n${translated.trim()}`;
 }
+
+/** Prefer the half of a bilingual note that matches the reader’s language. */
+export function noteForLocale(value: string, locale: NoteLang): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  if (!hasNoteTranslation(trimmed)) return trimmed;
+  const original = noteOriginal(trimmed);
+  const match = trimmed.match(/\n— (?:English|العربية) —\n([\s\S]*)$/);
+  const translated = match?.[1]?.trim() ?? '';
+  return noteLanguage(original) === locale ? original : translated || original;
+}

@@ -6,6 +6,7 @@ import { Link } from '@/i18n/navigation';
 import { ModalPortal } from '@/components/modal-portal';
 import { StayAvailabilityCalendar } from '@/components/stays/stay-availability-calendar';
 import type { StayBookingPendingReschedule } from '@/components/stays/stay-booking-contract';
+import { RejectStayNoteForm } from '@/components/stays/reject-stay-note-form';
 import { ApiError, browserMutation, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { PENDING_APPROVALS_CHANGED_EVENT } from '@/lib/pending-approvals-shared';
@@ -57,6 +58,7 @@ export function StayBookingDetailOps({
   const [error, setError] = useState<string | null>(null);
   const [currentStatus, setCurrentStatus] = useState(status);
   const [reschedule, setReschedule] = useState(pendingReschedule ?? null);
+  const [rejectOpen, setRejectOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelStep, setCancelStep] = useState<CancelStep>('note');
   const [note, setNote] = useState('');
@@ -191,19 +193,24 @@ export function StayBookingDetailOps({
     }
   }
 
-  async function decideReschedule(action: 'approve_reschedule' | 'reject_reschedule') {
+  async function decideReschedule(
+    action: 'approve_reschedule' | 'reject_reschedule',
+    note?: string | null,
+  ) {
     if (!reschedule) return;
-    const fromRange = `${checkInOn} → ${checkOutOn}`;
-    const toRange = `${reschedule.checkInOn} → ${reschedule.checkOutOn}`;
-    const confirmMessage =
-      action === 'approve_reschedule'
-        ? ar
-          ? `اعتماد تعديل تواريخ الحجز؟\nمن: ${fromRange}\nإلى: ${toRange}`
-          : `Approve the date change?\nFrom: ${fromRange}\nTo: ${toRange}`
-        : ar
-          ? `رفض طلب تعديل التواريخ؟ يبقى الحجز على:\n${fromRange}`
-          : `Reject the date change? The booking stays on:\n${fromRange}`;
-    if (!window.confirm(confirmMessage)) return;
+    if (action === 'approve_reschedule') {
+      const fromRange = `${checkInOn} → ${checkOutOn}`;
+      const toRange = `${reschedule.checkInOn} → ${reschedule.checkOutOn}`;
+      if (
+        !window.confirm(
+          ar
+            ? `اعتماد تعديل تواريخ الحجز؟\nمن: ${fromRange}\nإلى: ${toRange}`
+            : `Approve the date change?\nFrom: ${fromRange}\nTo: ${toRange}`,
+        )
+      ) {
+        return;
+      }
+    }
 
     setError(null);
     setBusy(true);
@@ -213,12 +220,17 @@ export function StayBookingDetailOps({
         awaitsGuestPayment?: boolean;
       }>(`/api/owner/properties/${encodeURIComponent(propertyId)}/records`, {
         method: 'POST',
-        body: JSON.stringify({ action, bookingId }),
+        body: JSON.stringify({
+          action,
+          bookingId,
+          ...(action === 'reject_reschedule' && note ? { note } : {}),
+        }),
       });
       window.dispatchEvent(new Event(PENDING_APPROVALS_CHANGED_EVENT));
       window.dispatchEvent(new Event('bhd-r-live-change'));
       if (action === 'reject_reschedule' || result.applied) {
         setReschedule(null);
+        setRejectOpen(false);
       } else if (result.awaitsGuestPayment && reschedule) {
         setReschedule({ ...reschedule, status: 'awaiting_guest_payment' });
       }
@@ -301,11 +313,24 @@ export function StayBookingDetailOps({
                 type="button"
                 className="button button--quiet"
                 disabled={busy || pending}
-                onClick={() => void decideReschedule('reject_reschedule')}
+                aria-expanded={rejectOpen}
+                onClick={() => setRejectOpen((open) => !open)}
               >
                 {ar ? 'رفض التعديل' : 'Reject change'}
               </button>
             </div>
+          ) : null}
+          {rejectOpen && reschedule.status === 'awaiting_owner' ? (
+            <RejectStayNoteForm
+              kind="reschedule"
+              reference={bookingId.slice(0, 8).toUpperCase()}
+              locale={locale === 'en' ? 'en' : 'ar'}
+              busy={busy || pending}
+              fromRange={`${checkInOn} → ${checkOutOn}`}
+              toRange={`${reschedule.checkInOn} → ${reschedule.checkOutOn}`}
+              onConfirm={(note) => void decideReschedule('reject_reschedule', note)}
+              onCancel={() => setRejectOpen(false)}
+            />
           ) : null}
         </div>
       ) : null}

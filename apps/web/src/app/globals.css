@@ -1005,6 +1005,42 @@ a.pmh-actionbar__title[aria-current='page'] {
   background: linear-gradient(180deg, #fff5f5 0%, #ffffff 70%);
   box-shadow: inset 3px 0 0 #dc2626;
 }
+.psr-reject-form {
+  display: grid;
+  gap: 0.85rem;
+  max-width: 40rem;
+  padding: 0.85rem 1rem;
+  border-radius: 0.85rem;
+  border: 1px solid color-mix(in srgb, #dc2626 28%, #fecaca);
+  background: #fff8f8;
+}
+.psr-reject-form__head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #991b1b;
+}
+.psr-reject-form__head p {
+  margin: 0.3rem 0 0;
+}
+.psr-reject-form__change {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.psr-reject-form__change th,
+.psr-reject-form__change td {
+  padding: 0.35rem 0.45rem;
+  border-bottom: 1px solid #f1d5d5;
+  text-align: start;
+}
+.psr-reject-form__change td.is-from {
+  color: #7a4a14;
+  text-decoration: line-through;
+}
+.psr-reject-form__change td.is-to {
+  color: #b91c1c;
+  font-weight: 800;
+}
 .psr-table tr.psr-row--unconfirmed td {
   background: linear-gradient(180deg, #fffbeb 0%, #ffffff 70%);
   box-shadow: inset 3px 0 0 #d97706;

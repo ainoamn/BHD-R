@@ -23,6 +23,10 @@ import {
   type RefundFormMode,
   type RefundSubmit,
 } from './stays/stay-deposit-refund-admin';
+import {
+  RejectStayNoteForm,
+  type RejectStayKind,
+} from './stays/reject-stay-note-form';
 import { HANDOVER_PHOTOS_MAX, handoverDocumentKind } from '@/lib/stay-handover';
 import { PENDING_APPROVALS_CHANGED_EVENT } from '@/lib/pending-approvals-shared';
 import { domainStatusLabel } from '@/lib/ui-labels';
@@ -1167,6 +1171,9 @@ export function PropertySectionRecords({
   const [refundForm, setRefundForm] = useState<{ rowId: string; mode: RefundFormMode } | null>(
     null,
   );
+  const [rejectForm, setRejectForm] = useState<{ rowId: string; kind: RejectStayKind } | null>(
+    null,
+  );
   const [reviewRowId, setReviewRowId] = useState<string | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const silentReload = useRef(false);
@@ -1400,21 +1407,7 @@ export function PropertySectionRecords({
     setReloadKey((key) => key + 1);
   }
 
-  async function rejectBooking(row: PropertyRecordRow) {
-    const note = window.prompt(
-      ar
-        ? `رفض طلب الحجز ${row.reference}. اكتب سبب عدم القبول:`
-        : `Reject booking ${row.reference}. Enter the reason:`,
-    );
-    if (note === null) return;
-    const trimmed = note.trim();
-    if (trimmed.length < 3) {
-      setNotice({
-        tone: 'error',
-        text: ar ? 'أدخل ملاحظة عن السبب (٣ أحرف على الأقل).' : 'Enter a reason (at least 3 characters).',
-      });
-      return;
-    }
+  async function rejectBooking(row: PropertyRecordRow, note: string | null) {
     const id = row.id ?? '';
     const paid =
       typeof row.paidAmountMinor === 'string' &&
@@ -1447,12 +1440,13 @@ export function PropertySectionRecords({
       {
         action: 'reject_booking',
         bookingId: id,
-        note: trimmed,
+        ...(note ? { note } : {}),
         ...(refundDecision ? { refundDecision } : {}),
       },
       propertyOf(row),
     );
     if (!result) return;
+    setRejectForm(null);
     setNotice({
       tone: 'success',
       text: ar
@@ -1828,19 +1822,19 @@ export function PropertySectionRecords({
     setReloadKey((key) => key + 1);
   }
 
-  async function rejectReschedule(row: PropertyRecordRow) {
-    if (
-      !window.confirm(
-        ar
-          ? `رفض طلب تعديل تواريخ الحجز ${row.reference}؟ يبقى الحجز على تواريخه الحالية.`
-          : `Reject the date change for ${row.reference}? The booking stays on its current dates.`,
-      )
-    ) {
-      return;
-    }
+  async function rejectReschedule(row: PropertyRecordRow, note: string | null) {
     const id = row.id ?? '';
-    const result = await runAction(id, { action: 'reject_reschedule', bookingId: id }, propertyOf(row));
+    const result = await runAction(
+      id,
+      {
+        action: 'reject_reschedule',
+        bookingId: id,
+        ...(note ? { note } : {}),
+      },
+      propertyOf(row),
+    );
     if (!result) return;
+    setRejectForm(null);
     setNotice({
       tone: 'success',
       text: ar ? `رُفض طلب التعديل لـ ${row.reference}.` : `Date change rejected for ${row.reference}.`,
@@ -1848,9 +1842,19 @@ export function PropertySectionRecords({
     setReloadKey((key) => key + 1);
   }
 
+  function openRejectForm(row: PropertyRecordRow, kind: RejectStayKind) {
+    setNotice(null);
+    setStampForm(null);
+    setRefundForm(null);
+    setReviewRowId(null);
+    const same = rejectForm?.rowId === row.id && rejectForm?.kind === kind;
+    setRejectForm(same ? null : { rowId: row.id ?? '', kind });
+  }
+
   function bookingApprovalAction(row: PropertyRecordRow, busy: boolean) {
     if (section === 'bookings' && row.kind === 'stay' && viewer.canManageBookings) {
       if (row.reschedulePending === '1') {
+        const rejectOpen = rejectForm?.rowId === row.id && rejectForm?.kind === 'reschedule';
         return (
           <>
             <button
@@ -1865,7 +1869,8 @@ export function PropertySectionRecords({
               type="button"
               className="button button--quiet psr-action"
               disabled={busy}
-              onClick={() => void rejectReschedule(row)}
+              aria-expanded={rejectOpen}
+              onClick={() => openRejectForm(row, 'reschedule')}
             >
               {ar ? 'رفض التعديل' : 'Reject change'}
             </button>
@@ -1873,6 +1878,7 @@ export function PropertySectionRecords({
         );
       }
       if (row.status === 'request_pending') {
+        const rejectOpen = rejectForm?.rowId === row.id && rejectForm?.kind === 'booking';
         return (
           <>
             <button
@@ -1887,7 +1893,8 @@ export function PropertySectionRecords({
               type="button"
               className="button button--quiet psr-action"
               disabled={busy}
-              onClick={() => void rejectBooking(row)}
+              aria-expanded={rejectOpen}
+              onClick={() => openRejectForm(row, 'booking')}
             >
               {ar ? 'رفض' : 'Reject'}
             </button>
@@ -2248,6 +2255,34 @@ export function PropertySectionRecords({
                             )}
                             onSubmit={(value) => void submitRefund(row, value)}
                             onCancel={() => setRefundForm(null)}
+                          />
+                        </td>
+                      </tr>
+                    ) : null}
+                    {rejectForm && rejectForm.rowId === row.id ? (
+                      <tr className="psr-details">
+                        <td colSpan={columns.length + (showActions ? 1 : 0)}>
+                          <RejectStayNoteForm
+                            kind={rejectForm.kind}
+                            reference={row.reference ?? ''}
+                            locale={locale}
+                            busy={busyId === row.id}
+                            fromRange={
+                              row.fromOn && row.toOn
+                                ? `${row.fromOn} → ${row.toOn}`
+                                : row.fromOn || row.toOn || null
+                            }
+                            toRange={
+                              row.rescheduleCheckInOn && row.rescheduleCheckOutOn
+                                ? `${row.rescheduleCheckInOn} → ${row.rescheduleCheckOutOn}`
+                                : null
+                            }
+                            onConfirm={(note) =>
+                              void (rejectForm.kind === 'reschedule'
+                                ? rejectReschedule(row, note)
+                                : rejectBooking(row, note))
+                            }
+                            onCancel={() => setRejectForm(null)}
                           />
                         </td>
                       </tr>

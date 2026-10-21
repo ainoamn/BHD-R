@@ -66,7 +66,7 @@ const bodySchema = z.discriminatedUnion('action', [
     .object({
       action: z.literal('reject_booking'),
       bookingId: uuid,
-      note: z.string().trim().min(3).max(REFUND_NOTE_MAX),
+      note: z.string().trim().max(REFUND_NOTE_MAX).optional().nullable(),
       refundDecision: z.enum(['refund', 'keep']).optional().nullable(),
     })
     .strict(),
@@ -75,7 +75,7 @@ const bodySchema = z.discriminatedUnion('action', [
     .object({
       action: z.literal('reject_reschedule'),
       bookingId: uuid,
-      note: z.string().trim().max(REFUND_NOTE_MAX).optional(),
+      note: z.string().trim().max(REFUND_NOTE_MAX).optional().nullable(),
     })
     .strict(),
   z.object({ action: z.literal('approve_contract'), contractId: uuid }).strict(),

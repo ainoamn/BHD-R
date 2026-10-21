@@ -88,6 +88,10 @@ type GuestBooking = {
     currency: string | null;
     fromRequest: boolean;
   } | null;
+  rescheduleRejection?: {
+    note: string | null;
+    at: string;
+  } | null;
 };
 
 const REFUND_STATE: Record<GuestDepositRefund['status'], StayRefundMoment['state']> = {

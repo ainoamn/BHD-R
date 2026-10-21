@@ -1,3 +1,5 @@
+import { noteForLocale } from '@/lib/note-translation';
+
 export type StayGreeting = {
   stage:
     | 'submitted'
@@ -304,7 +306,9 @@ export function stayGuestGreeting(input: {
             : ' The booking payment will not be refunded.';
       }
       if (note) {
-        moneyLine += ar ? ` ملاحظة الإلغاء: ${note}` : ` Cancellation note: ${note}`;
+        moneyLine += ar
+          ? ` ملاحظة الإلغاء: ${noteForLocale(note, 'ar')}`
+          : ` Cancellation note: ${noteForLocale(note, 'en')}`;
       }
       return {
         stage: 'ended',

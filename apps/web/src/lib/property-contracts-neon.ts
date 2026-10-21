@@ -871,13 +871,15 @@ export async function rejectStayBookingOnNeon(
   claims: SessionClaims,
   propertyId: string,
   bookingId: string,
-  input: { note: string; refundDecision?: 'refund' | 'keep' | null | undefined } = {
-    note: 'رفض طلب الحجز',
-  },
+  input: {
+    note?: string | null | undefined;
+    refundDecision?: 'refund' | 'keep' | null | undefined;
+  } = {},
 ): Promise<{ bookingStatus: string }> {
   const { cancelOwnerStayBookingOnNeon } = await import('@/lib/owner-stay-cancel-neon');
   const result = await cancelOwnerStayBookingOnNeon(claims, bookingId, {
-    note: input.note,
+    note: input.note ?? null,
+    noteRequired: false,
     refundDecision: input.refundDecision ?? null,
     propertyId,
     onlyStatuses: ['request_pending'],
@@ -997,7 +999,7 @@ export async function rejectGuestRescheduleOnNeon(
   claims: SessionClaims,
   propertyId: string,
   bookingId: string,
-  note?: string,
+  note?: string | null,
 ): Promise<{ bookingStatus: string }> {
   if (!hasPermission(claims, 'stay.booking.manage')) fail('forbidden');
   const { clearPendingRescheduleInTx } = await import('@/lib/public-stays-guest-neon');
