@@ -3,11 +3,13 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
 import { Link } from '@/i18n/navigation';
+import { NoteTranslateBar, TENANT_NOTE_SERVICE } from '@/components/note-translate';
 import { uploadRequestMedia } from '@/components/request-media';
 import { compressPhoto } from '@/components/stays/stay-handover-form';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { HANDOVER_PHOTO_MAX } from '@/lib/stay-handover';
+import { NOTE_TRANSLATE_MAX } from '@/lib/note-translation';
 import { arrearsLabel, type ArrearsCategory } from '@/lib/tenant-ledger';
 import {
   EMERGENCY_SCOPES,
@@ -570,12 +572,20 @@ function TenantRequestDialog({
                 onChange={(event) => setSubject(event.target.value)}
               />
             </label>
+            <NoteTranslateBar
+              value={subject}
+              onChange={setSubject}
+              locale={locale}
+              max={200}
+              disabled={busy}
+              service={TENANT_NOTE_SERVICE}
+            />
             <label>
               <span>{ar ? 'التفاصيل' : 'Details'}</span>
               <textarea
                 className="input"
                 rows={4}
-                maxLength={2000}
+                maxLength={NOTE_TRANSLATE_MAX}
                 required={
                   type === 'maintenance' || type === 'other' || type === 'contract_amend' || report
                 }
@@ -583,6 +593,14 @@ function TenantRequestDialog({
                 onChange={(event) => setDescription(event.target.value)}
               />
             </label>
+            <NoteTranslateBar
+              value={description}
+              onChange={setDescription}
+              locale={locale}
+              max={NOTE_TRANSLATE_MAX}
+              disabled={busy}
+              service={TENANT_NOTE_SERVICE}
+            />
             {requestTakesPhotos(type) && !gated ? (
               <RequestPhotos
                 ar={ar}

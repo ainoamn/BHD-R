@@ -55,6 +55,22 @@ export const OWNER_NOTE_SERVICE: NoteService = {
   translate: requestTranslation,
 };
 
+/** Tenant portal: same AI assist/translate without requiring an owner organization. */
+export const TENANT_NOTE_SERVICE: NoteService = {
+  assist: (text, signal) =>
+    browserNextMutation<Assist>('/api/tenant/notes/assist', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+      signal,
+    }),
+  translate: (text, target) =>
+    browserNextMutation<Result>('/api/tenant/notes/translate', {
+      method: 'POST',
+      body: JSON.stringify({ text, target }),
+      signal: AbortSignal.timeout(60_000),
+    }),
+};
+
 /** The guest's review comment: public route, allowed while the stay's review is open. */
 export function guestReviewNoteService(referenceCode: string): NoteService {
   const post = async <T,>(body: Record<string, unknown>, signal: AbortSignal): Promise<T> => {

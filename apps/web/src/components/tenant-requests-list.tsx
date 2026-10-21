@@ -2,9 +2,11 @@
 
 import { useRouter } from 'next/navigation';
 import { useState, useTransition, type ReactNode } from 'react';
+import { NoteTranslateBar, TENANT_NOTE_SERVICE } from '@/components/note-translate';
 import { RequestMediaButton, RequestMediaGallery } from '@/components/request-media';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
+import { NOTE_TRANSLATE_MAX } from '@/lib/note-translation';
 import {
   OPEN_TENANT_REQUEST,
   emergencyScopeLabel,
@@ -246,12 +248,20 @@ function TenantRequestItem({ request, locale }: { request: TenantRequest; locale
           <textarea
             className="input"
             rows={2}
-            maxLength={1000}
+            maxLength={Math.min(1000, NOTE_TRANSLATE_MAX)}
             placeholder={
               ar ? 'أضف رداً أو توضيحاً للمالك…' : 'Add a reply or detail for the landlord…'
             }
             value={note}
             onChange={(event) => setNote(event.target.value)}
+          />
+          <NoteTranslateBar
+            value={note}
+            onChange={setNote}
+            locale={locale}
+            max={Math.min(1000, NOTE_TRANSLATE_MAX)}
+            disabled={busy !== null}
+            service={TENANT_NOTE_SERVICE}
           />
           <div className="tenant-request__buttons">
             <button
