@@ -184,7 +184,9 @@ export function pendingApprovalTitle(item: PendingApprovalItem, ar: boolean): st
     return ar ? 'استرداد تأمين بانتظار قرارك' : 'Deposit refund awaiting your decision';
   }
   if (item.kind === 'refund_transfer') {
-    return ar ? 'معاملة تحويل تأمين (الحسابات)' : 'Deposit transfer to make (Accounting)';
+    return ar
+      ? 'معاملة تحويل استرداد (الحسابات)'
+      : 'Refund transfer to make (Accounting)';
   }
   if (item.kind === 'deposit_claim') {
     return ar ? 'طلب أو اعتراض من الضيف على التأمين' : 'Guest deposit request or objection';

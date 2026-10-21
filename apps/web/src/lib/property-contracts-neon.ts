@@ -871,98 +871,18 @@ export async function rejectStayBookingOnNeon(
   claims: SessionClaims,
   propertyId: string,
   bookingId: string,
+  input: { note: string; refundDecision?: 'refund' | 'keep' | null | undefined } = {
+    note: 'رفض طلب الحجز',
+  },
 ): Promise<{ bookingStatus: string }> {
-  if (!hasPermission(claims, 'stay.booking.manage')) fail('forbidden');
-  return withinViewerTenant(claims, async (tx) => {
-    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${bookingId}, 29))`);
-    const { orgId, property } = await loadProperty(tx, claims, propertyId);
-    const [booking] = await tx
-      .select({
-        id: stayBookings.id,
-        status: stayBookings.status,
-        inventoryLockId: stayBookings.inventoryLockId,
-        referenceCode: stayBookings.referenceCode,
-        guestPartyId: stayBookings.guestPartyId,
-        checkInOn: stayBookings.checkInOn,
-        checkOutOn: stayBookings.checkOutOn,
-        snapshot: stayBookings.pricingSnapshotJson,
-      })
-      .from(stayBookings)
-      .where(
-        and(
-          eq(stayBookings.id, bookingId),
-          eq(stayBookings.organizationId, orgId),
-          eq(stayBookings.propertyId, property.id),
-        ),
-      )
-      .limit(1);
-    if (!booking) fail('booking_not_found');
-    if (booking.status !== 'request_pending') fail('booking_not_approvable');
-    const now = new Date();
-    await tx
-      .update(stayBookings)
-      .set({ status: 'cancelled', updatedAt: now })
-      .where(and(eq(stayBookings.id, booking.id), eq(stayBookings.organizationId, orgId)));
-    if (booking.inventoryLockId) {
-      await tx
-        .update(stayInventoryLocks)
-        .set({ status: 'released', updatedAt: now })
-        .where(
-          and(
-            eq(stayInventoryLocks.id, booking.inventoryLockId),
-            eq(stayInventoryLocks.organizationId, orgId),
-          ),
-        );
-    }
-    await tx.insert(stayBookingStatusHistory).values({
-      organizationId: orgId,
-      bookingId: booking.id,
-      fromStatus: 'request_pending',
-      toStatus: 'cancelled',
-      actorUserId: claims.sub,
-      reason: 'Owner rejected booking request',
-    });
-    await tx.insert(workflowEvents).values({
-      organizationId: orgId,
-      actorUserId: claims.sub,
-      resourceType: 'stay_booking',
-      resourceId: booking.id,
-      eventType: 'stay.cancelled',
-      fromStatus: 'request_pending',
-      toStatus: 'cancelled',
-      metadata: { referenceCode: booking.referenceCode, reason: 'owner_rejected' },
-    });
-    const contact = snapshotObject(snapshotObject(booking.snapshot).guestContact);
-    await notifyInTx(tx, {
-      orgId,
-      aggregateType: 'stay_booking',
-      aggregateId: booking.id,
-      audience: booking.guestPartyId
-        ? { parties: [booking.guestPartyId] }
-        : {
-            addresses: [
-              {
-                email: typeof contact.email === 'string' ? contact.email : null,
-                name: typeof contact.displayName === 'string' ? contact.displayName : null,
-              },
-            ],
-          },
-      content: () => ({
-        tone: 'booking',
-        subject: `عن طلب حجزك ${booking.referenceCode} في ${property.nameAr}`,
-        title: 'للأسف، التواريخ لم تناسب المضيف هذه المرة',
-        intro: `اعتذر المضيف عن قبول طلب حجزك في ${property.nameAr}، وأُلغي الطلب دون أي التزام عليك.`,
-        details: [
-          { label: 'رقم الحجز', value: booking.referenceCode },
-          { label: 'تاريخ الوصول', value: arDate(booking.checkInOn) },
-          { label: 'تاريخ المغادرة', value: arDate(booking.checkOutOn) },
-        ],
-        lines: ['لا تحزن، فالمكان المثالي ما زال ينتظرك؛ لدينا خيارات كثيرة أخرى تستحق نظرة.'],
-        cta: { label: 'تصفّح أماكن أخرى', url: appLink('/ar/stays') },
-      }),
-    });
-    return { bookingStatus: 'cancelled' };
+  const { cancelOwnerStayBookingOnNeon } = await import('@/lib/owner-stay-cancel-neon');
+  const result = await cancelOwnerStayBookingOnNeon(claims, bookingId, {
+    note: input.note,
+    refundDecision: input.refundDecision ?? null,
+    propertyId,
+    onlyStatuses: ['request_pending'],
   });
+  return { bookingStatus: result.status };
 }
 
 /** Manager (contract.sign) approves a contract someone without signing rights prepared. */

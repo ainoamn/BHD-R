@@ -60,7 +60,14 @@ const party = {
 
 const bodySchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('approve_booking'), bookingId: uuid }).strict(),
-  z.object({ action: z.literal('reject_booking'), bookingId: uuid }).strict(),
+  z
+    .object({
+      action: z.literal('reject_booking'),
+      bookingId: uuid,
+      note: z.string().trim().min(3).max(REFUND_NOTE_MAX),
+      refundDecision: z.enum(['refund', 'keep']).optional().nullable(),
+    })
+    .strict(),
   z.object({ action: z.literal('approve_contract'), contractId: uuid }).strict(),
   z
     .object({
@@ -188,7 +195,12 @@ export async function POST(request: Request, context: { params: Promise<{ proper
           await approveStayBookingOnNeon(claims, propertyId, body.bookingId),
         );
       case 'reject_booking':
-        return NextResponse.json(await rejectStayBookingOnNeon(claims, propertyId, body.bookingId));
+        return NextResponse.json(
+          await rejectStayBookingOnNeon(claims, propertyId, body.bookingId, {
+            note: body.note,
+            refundDecision: body.refundDecision ?? null,
+          }),
+        );
       case 'approve_contract':
         return NextResponse.json(await approveContractOnNeon(claims, propertyId, body.contractId));
       case 'check_in':

@@ -438,6 +438,11 @@ export function DepositLedgerPanel({
                         {ar ? 'عربون حجز' : 'Booking deposit'}
                       </span>
                     ) : null}
+                    {row.kind === 'stay_payment_refund' ? (
+                      <span className="pmh-badge pmh-badge--warn">
+                        {ar ? 'إرجاع مبلغ حجز ملغى' : 'Cancelled booking refund'}
+                      </span>
+                    ) : null}
                     {hasClaim ? (
                       <span className="pmh-badge pmh-badge--danger">
                         {ar ? 'طلب من الضيف' : 'Guest request'}
@@ -458,7 +463,13 @@ export function DepositLedgerPanel({
                           setPayoutId(payoutId === id ? null : id);
                         }}
                       >
-                        {ar ? 'تحويل التأمين' : 'Transfer deposit'}
+                        {row.kind === 'stay_payment_refund'
+                          ? ar
+                            ? 'تحويل مبلغ الحجز'
+                            : 'Transfer booking payment'
+                          : ar
+                            ? 'تحويل التأمين'
+                            : 'Transfer deposit'}
                       </button>
                     ) : null}
                     <AccountingFollowTask

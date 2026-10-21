@@ -1337,14 +1337,55 @@ export function PropertySectionRecords({
   }
 
   async function rejectBooking(row: PropertyRecordRow) {
-    const question = ar
-      ? `رفض طلب الحجز ${row.reference}؟ سيُلغى الطلب وتُحرَّر التواريخ.`
-      : `Reject booking request ${row.reference}? The dates will be freed.`;
-    if (!window.confirm(question)) return;
+    const note = window.prompt(
+      ar
+        ? `رفض طلب الحجز ${row.reference}. اكتب سبب عدم القبول:`
+        : `Reject booking ${row.reference}. Enter the reason:`,
+    );
+    if (note === null) return;
+    const trimmed = note.trim();
+    if (trimmed.length < 3) {
+      setNotice({
+        tone: 'error',
+        text: ar ? 'أدخل ملاحظة عن السبب (٣ أحرف على الأقل).' : 'Enter a reason (at least 3 characters).',
+      });
+      return;
+    }
     const id = row.id ?? '';
+    const paid =
+      typeof row.paidAmountMinor === 'string' &&
+      /^\d+$/.test(row.paidAmountMinor) &&
+      BigInt(row.paidAmountMinor) > 0n;
+    let refundDecision: 'refund' | 'keep' | null = null;
+    if (paid) {
+      const keep = window.confirm(
+        ar
+          ? `يوجد مبلغ مدفوع. حسناً = استرجاع المبلغ للمحاسب · إلغاء = خصم المبلغ دون إرجاع.`
+          : `A payment exists. OK = refund via accountant · Cancel = keep the payment.`,
+      );
+      refundDecision = keep ? 'refund' : 'keep';
+      if (
+        !window.confirm(
+          ar
+            ? refundDecision === 'refund'
+              ? 'تأكيد رفض الطلب مع استرجاع المبلغ؟'
+              : 'تأكيد رفض الطلب مع خصم المبلغ؟'
+            : refundDecision === 'refund'
+              ? 'Confirm reject with refund?'
+              : 'Confirm reject and keep the payment?',
+        )
+      ) {
+        return;
+      }
+    }
     const result = await runAction(
       id,
-      { action: 'reject_booking', bookingId: id },
+      {
+        action: 'reject_booking',
+        bookingId: id,
+        note: trimmed,
+        ...(refundDecision ? { refundDecision } : {}),
+      },
       propertyOf(row),
     );
     if (!result) return;

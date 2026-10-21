@@ -72,6 +72,16 @@ export function stayGuestGreeting(input: {
   /** Check-out day relative to today in Muscat. */
   departure?: 'upcoming' | 'today' | 'due' | undefined;
   needsEsign?: boolean;
+  /** Owner cancel/reject: refund vs keep + host note. */
+  cancelOutcome?: {
+    note: string | null;
+    refundDecision: 'refund' | 'keep' | null;
+    paidAmountMinor: string | null;
+    currency: string | null;
+    fromRequest: boolean;
+  } | null;
+  /** Formatted paid amount for cancel messaging, when available. */
+  paidAmountLabel?: string | null;
 }): StayGreeting | null {
   const { status, ar, welcome, checkInDate, needsEsign } = input;
   const trip = (kind: StayTripMoment['kind'], arText: string, enText: string) => ({
@@ -271,15 +281,48 @@ export function stayGuestGreeting(input: {
           : 'The host could not accept your request this time — but no need to be sad: other lovely places are waiting, and the best one may be a single tap away.',
         rebook: true,
       };
-    case 'cancelled':
+    case 'cancelled': {
+      const outcome = input.cancelOutcome;
+      const paidLabel = input.paidAmountLabel;
+      const note = outcome?.note?.trim() || null;
+      let moneyLine = '';
+      if (outcome?.refundDecision === 'refund') {
+        moneyLine = ar
+          ? paidLabel
+            ? ` مبلغ الحجز (${paidLabel}) سيُرد إليك بعد معالجة المحاسب.`
+            : ' مبلغ الحجز سيُرد إليك بعد معالجة المحاسب.'
+          : paidLabel
+            ? ` The booking payment (${paidLabel}) will be refunded after accounting processes it.`
+            : ' The booking payment will be refunded after accounting processes it.';
+      } else if (outcome?.refundDecision === 'keep') {
+        moneyLine = ar
+          ? paidLabel
+            ? ` مبلغ الحجز (${paidLabel}) لن يُسترد.`
+            : ' مبلغ الحجز لن يُسترد.'
+          : paidLabel
+            ? ` The booking payment (${paidLabel}) will not be refunded.`
+            : ' The booking payment will not be refunded.';
+        if (note) {
+          moneyLine += ar ? ` السبب: ${note}` : ` Reason: ${note}`;
+        }
+      } else if (note && outcome?.fromRequest) {
+        moneyLine = ar ? ` ملاحظة المضيف: ${note}` : ` Host note: ${note}`;
+      } else if (note) {
+        moneyLine = ar ? ` السبب: ${note}` : ` Reason: ${note}`;
+      }
       return {
         stage: 'ended',
-        headline: ar ? 'أُلغي هذا الحجز' : 'This booking was cancelled',
+        headline: outcome?.fromRequest
+          ? hi('نعتذر منك{name}', 'We are sorry{name}')
+          : ar
+            ? 'أُلغي هذا الحجز'
+            : 'This booking was cancelled',
         body: ar
-          ? 'يؤسفنا أن الرحلة لم تكتمل هذه المرة، لكن أبوابنا مفتوحة دائماً، ويسعدنا أن نستضيفك في الوقت الذي يناسبك.'
-          : 'We are sorry this trip did not happen, but our doors are always open and we would love to host you whenever suits you.',
+          ? `يؤسفنا أن الرحلة لم تكتمل هذه المرة.${moneyLine} أبوابنا مفتوحة دائماً، ويسعدنا أن نستضيفك في الوقت الذي يناسبك.`
+          : `We are sorry this trip did not happen.${moneyLine} Our doors are always open and we would love to host you whenever suits you.`,
         rebook: true,
       };
+    }
     case 'expired':
       return {
         stage: 'ended',

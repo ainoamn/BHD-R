@@ -60,6 +60,11 @@ async function DeveloperStayBookingDetailPage({
         checkInOn={booking.checkInOn}
         checkOutOn={booking.checkOutOn}
         stayListingSlug={booking.stayListingSlug}
+        paidAmountMinor={booking.paidAmountMinor ?? booking.totalMinor}
+        paidCurrency={booking.paidCurrency ?? booking.currency}
+        paymentSucceeded={
+          booking.paymentStatus === 'succeeded' || booking.paymentStatus === 'offline'
+        }
       />
       <StayBookingContract booking={booking} locale={locale} portal="developer" badges={badges} />
     </StaysPortalPage>

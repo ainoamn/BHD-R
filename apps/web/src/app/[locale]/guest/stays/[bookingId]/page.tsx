@@ -71,6 +71,13 @@ type GuestBooking = {
   depositRefund?: GuestDepositRefund | null;
   canRequestDepositRefund?: boolean;
   depositClaims?: DepositClaimView[];
+  cancelOutcome?: {
+    note: string | null;
+    refundDecision: 'refund' | 'keep' | null;
+    paidAmountMinor: string | null;
+    currency: string | null;
+    fromRequest: boolean;
+  } | null;
 };
 
 const REFUND_STATE: Record<GuestDepositRefund['status'], StayRefundMoment['state']> = {
@@ -318,6 +325,11 @@ export default async function GuestStayDetailPage({
       : value.slice(0, 10) === muscatToday
         ? ('today' as const)
         : ('due' as const);
+  const cancelOutcome = booking.cancelOutcome ?? null;
+  const paidAmountLabel =
+    cancelOutcome?.paidAmountMinor && cancelOutcome.currency
+      ? formatMoney(cancelOutcome.paidAmountMinor, cancelOutcome.currency, locale)
+      : null;
   const greetingInput = {
     status: booking.status,
     ar,
@@ -327,6 +339,8 @@ export default async function GuestStayDetailPage({
     arrival: relativeDay(booking.checkInOn),
     departure: relativeDay(booking.checkOutOn),
     needsEsign,
+    cancelOutcome,
+    paidAmountLabel,
   };
   const otherLocale = ar ? 'en' : 'ar';
   const samePageHref = `/guest/stays/${encodeURIComponent(bookingId)}${

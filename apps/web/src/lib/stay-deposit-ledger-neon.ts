@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import {
   properties,
@@ -287,6 +287,92 @@ async function loadReservationDepositLedgerRows(
   });
 }
 
+/** Cancelled stays with an approved/executed booking-payment refund for the accountant. */
+async function loadBookingCancelRefundLedgerRows(
+  tx: Tx,
+  orgId: string,
+  scope: { ownerPartyId?: string | null },
+  revealAccounts: boolean,
+): Promise<DepositLedgerRow[]> {
+  const stays = await tx
+    .select({
+      id: stayBookings.id,
+      referenceCode: stayBookings.referenceCode,
+      status: stayBookings.status,
+      currency: stayBookings.currency,
+      propertyId: stayBookings.propertyId,
+      propertyNameAr: properties.nameAr,
+      propertyNameEn: properties.nameEn,
+      unitCode: units.code,
+      checkInOn: stayBookings.checkInOn,
+      checkOutOn: stayBookings.checkOutOn,
+      contactName: sql<
+        string | null
+      >`${stayBookings.pricingSnapshotJson}->'guestContact'->>'displayName'`,
+    })
+    .from(stayRefunds)
+    .innerJoin(stayBookings, eq(stayBookings.id, stayRefunds.bookingId))
+    .innerJoin(properties, eq(properties.id, stayBookings.propertyId))
+    .leftJoin(units, eq(units.id, stayBookings.unitId))
+    .where(
+      and(
+        eq(stayRefunds.organizationId, orgId),
+        sql`${stayRefunds.idempotencyKey} like 'booking_cancel:%'`,
+        inArray(stayRefunds.status, ['approved', 'executed']),
+        eq(stayBookings.organizationId, orgId),
+        ...(scope.ownerPartyId ? [eq(properties.ownerPartyId, scope.ownerPartyId)] : []),
+      ),
+    )
+    .orderBy(asc(stayRefunds.updatedAt))
+    .limit(LEDGER_LIMIT);
+  if (!stays.length) return [];
+  const refunds = await loadDepositRefunds(
+    tx,
+    orgId,
+    stays.map((row) => row.id),
+  );
+  const account = accountReader(revealAccounts);
+  return stays.flatMap((row) => {
+    const refund = refunds.get(row.id);
+    if (!refund) return [];
+    const amount = refund.amountMinor;
+    const refunded =
+      refund.status === 'executed'
+        ? refund.amountMinor
+        : refund.paidMinor !== '0'
+          ? refund.paidMinor
+          : null;
+    return [
+      {
+        ...refundFields(refund, account),
+        id: row.id,
+        kind: 'stay_payment_refund',
+        reference: row.referenceCode,
+        bookingStatus: row.status,
+        status: depositHolding(row.status, refund.status),
+        propertyId: row.propertyId,
+        propertyName: row.propertyNameAr || row.propertyNameEn || null,
+        propertyNameEn: row.propertyNameEn || row.propertyNameAr || null,
+        unitCode: row.unitCode ?? null,
+        party: row.contactName,
+        currency: refund.currency || row.currency,
+        depositMinor: amount,
+        refundedMinor: refunded,
+        retainedMinor: null,
+        receivedOn: isoDay(row.checkInOn),
+        checkOutOn: isoDay(row.checkOutOn),
+        settledOn:
+          refund.status === 'executed'
+            ? (refund.transfer?.at ?? refund.decidedAt)
+            : null,
+        refundReceiptNo: null,
+        incomeReceiptNo: null,
+        refundDecisionNote: refund.decisionNote,
+      },
+    ];
+  });
+}
+
 /** Deposits ledger of the viewer's organization (owners see their own properties only). */
 export async function loadDepositLedgerForViewer(claims: SessionClaims): Promise<{
   rows: DepositLedgerRow[];
@@ -303,12 +389,13 @@ export async function loadDepositLedgerForViewer(claims: SessionClaims): Promise
   const revealAccounts = viewer.canPayRefunds || viewer.canDecideRefunds;
   const ownerPartyId = ownerPartyScope(claims);
   const { rows, byBooking } = await withinViewerTenant(claims, async (tx) => {
-    const [stayRows, reservationRows] = await Promise.all([
+    const [stayRows, reservationRows, cancelRows] = await Promise.all([
       loadDepositLedger(tx, orgId, { ownerPartyId }, revealAccounts),
       loadReservationDepositLedgerRows(tx, orgId, ownerPartyId),
+      loadBookingCancelRefundLedgerRows(tx, orgId, { ownerPartyId }, revealAccounts),
     ]);
-    const rows = [...reservationRows, ...stayRows];
-    const stayIds = stayRows.flatMap((row) => (row.id ? [row.id] : []));
+    const rows = [...reservationRows, ...stayRows, ...cancelRows];
+    const stayIds = [...stayRows, ...cancelRows].flatMap((row) => (row.id ? [row.id] : []));
     return { rows, byBooking: await loadDepositClaims(tx, orgId, stayIds) };
   });
   return { rows, claims: Object.fromEntries(byBooking), viewer };

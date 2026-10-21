@@ -15254,14 +15254,26 @@ body:has(.guest-stay-detail) #main-content {
   background: #f7faf8;
 }
 .stay-booking-ops__links,
-.stay-booking-ops__actions {
+.stay-booking-ops__actions,
+.stay-booking-ops__refund-choices {
   display: flex;
   flex-wrap: wrap;
   gap: 0.55rem;
 }
+.stay-booking-ops__refund-choices {
+  margin-block: 0.75rem;
+}
 .stay-booking-ops__calendar h2 {
   margin: 0 0 0.35rem;
   font-size: 1.05rem;
+}
+.ops-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  padding: 0.85rem 1.1rem 1.1rem;
+  border-top: 1px solid var(--sand-200, #d8e1dc);
 }
 @media print {
   .stay-booking-ops {

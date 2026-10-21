@@ -55,6 +55,9 @@ const FUTURE_TOLERANCE_MS = 15 * 60_000;
 
 const refundKey = (bookingId: string) => `deposit:${bookingId}`;
 
+/** Approved stay-payment refund after owner cancel/reject (accountant transfer queue). */
+export const bookingCancelRefundKey = (bookingId: string) => `booking_cancel:${bookingId}`;
+
 function fail(code: string): never {
   throw new Error(code);
 }
@@ -128,13 +131,14 @@ export async function loadDepositRefunds(
         transferRecordedAt: stayRefunds.transferRecordedAt,
         guestReceipt: stayRefunds.guestReceipt,
         guestReceiptAt: stayRefunds.guestReceiptAt,
+        idempotencyKey: stayRefunds.idempotencyKey,
       })
       .from(stayRefunds)
       .where(
         and(
           eq(stayRefunds.organizationId, orgId),
           inArray(stayRefunds.bookingId, bookingIds),
-          sql`${stayRefunds.idempotencyKey} like 'deposit:%'`,
+          sql`(${stayRefunds.idempotencyKey} like 'deposit:%' or ${stayRefunds.idempotencyKey} like 'booking_cancel:%')`,
         ),
       )
       .orderBy(asc(stayRefunds.createdAt)),
@@ -168,6 +172,14 @@ export async function loadDepositRefunds(
   }
 
   for (const refund of refunds) {
+    const existing = views.get(refund.bookingId);
+    if (
+      existing &&
+      typeof refund.idempotencyKey === 'string' &&
+      refund.idempotencyKey.startsWith('booking_cancel:')
+    ) {
+      continue;
+    }
     const view: DepositRefundView = {
       id: refund.id,
       status: refund.status as DepositRefundStatus,
@@ -180,7 +192,7 @@ export async function loadDepositRefunds(
       guestPayout: null,
       decidedAt: iso(refund.approvedAt),
       decidedBy: null,
-      decisionNote: null,
+      decisionNote: text(refund.reason),
       transfer: null,
       settledDepositMinor: null,
       paidMinor: refund.paidMinor.toString(),
@@ -251,7 +263,7 @@ export async function lockBooking(tx: Tx, bookingId: string) {
 }
 
 export async function currentRefund(tx: Tx, booking: RefundBooking) {
-  const [row] = await tx
+  const rows = await tx
     .select({
       id: stayRefunds.id,
       status: stayRefunds.status,
@@ -261,16 +273,24 @@ export async function currentRefund(tx: Tx, booking: RefundBooking) {
       approvedAt: stayRefunds.approvedAt,
       transferRecordedAt: stayRefunds.transferRecordedAt,
       guestReceipt: stayRefunds.guestReceipt,
+      idempotencyKey: stayRefunds.idempotencyKey,
     })
     .from(stayRefunds)
     .where(
       and(
         eq(stayRefunds.organizationId, booking.organizationId),
-        eq(stayRefunds.idempotencyKey, refundKey(booking.id)),
+        eq(stayRefunds.bookingId, booking.id),
+        inArray(stayRefunds.idempotencyKey, [
+          refundKey(booking.id),
+          bookingCancelRefundKey(booking.id),
+        ]),
       ),
     )
-    .limit(1);
-  return row ?? null;
+    .orderBy(desc(stayRefunds.createdAt))
+    .limit(4);
+  const deposit = rows.find((row) => row.idempotencyKey === refundKey(booking.id));
+  if (deposit) return deposit;
+  return rows.find((row) => row.idempotencyKey === bookingCancelRefundKey(booking.id)) ?? null;
 }
 
 async function depositOf(tx: Tx, booking: RefundBooking): Promise<bigint> {
@@ -719,9 +739,19 @@ export async function recordDepositRefundPayoutOnNeon(
     if (refund?.status !== 'approved') fail('refund_not_approved');
     const due = refund.amountMinor - refund.paidMinor;
     if (due <= 0n) fail('refund_not_approved');
+    const isBookingCancel =
+      refund.idempotencyKey === bookingCancelRefundKey(booking.id) ||
+      (typeof refund.idempotencyKey === 'string' &&
+        refund.idempotencyKey.startsWith('booking_cancel:'));
     const decision = await refundDecision(tx, booking, refund.id);
-    const deposit = decision.depositMinor ?? (await depositOf(tx, booking));
-    const retained = deposit > refund.amountMinor ? deposit - refund.amountMinor : 0n;
+    const deposit = isBookingCancel
+      ? refund.amountMinor
+      : (decision.depositMinor ?? (await depositOf(tx, booking)));
+    const retained = isBookingCancel
+      ? 0n
+      : deposit > refund.amountMinor
+        ? deposit - refund.amountMinor
+        : 0n;
     const receipts = depositReceiptNumbers(booking.referenceCode);
     const now = new Date();
     await tx
@@ -798,7 +828,10 @@ export async function recordDepositRefundPayoutOnNeon(
         organizationId: booking.organizationId,
         actorUserId: claims.sub,
         occurredOn,
-        description: `استرداد تأمين ${booking.referenceCode}`.slice(0, 500),
+        description: (isBookingCancel
+          ? `استرداد مبلغ حجز ${booking.referenceCode}`
+          : `استرداد تأمين ${booking.referenceCode}`
+        ).slice(0, 500),
         sourceType: 'deposit_refund',
         sourceId: refund.id,
         lines: postingDepositRefund(
@@ -827,7 +860,9 @@ export async function recordDepositRefundPayoutOnNeon(
       });
     }
 
-    const bookingStatus = await closeBooking(tx, booking, claims.sub, 'deposit_refund_paid');
+    const bookingStatus = isBookingCancel
+      ? booking.status
+      : await closeBooking(tx, booking, claims.sub, 'deposit_refund_paid');
     return { refundStatus: 'executed', bookingStatus };
   });
 }
@@ -1056,6 +1091,7 @@ export async function loadDepositRefundQueue(
   orgId: string,
   scope: { ownerPartyId?: string | null; propertyId?: string | null; limit?: number } = {},
 ): Promise<DepositRefundQueueItem[]> {
+  const limit = scope.limit ?? 50;
   const rows = await tx
     .select({
       bookingId: stayBookings.id,
@@ -1095,8 +1131,44 @@ export async function loadDepositRefundQueue(
       ),
     )
     .orderBy(asc(stayBookings.updatedAt))
-    .limit(scope.limit ?? 50);
-  return rows.flatMap((row) => {
+    .limit(limit);
+
+  const cancelRows = await tx
+    .select({
+      bookingId: stayBookings.id,
+      reference: stayBookings.referenceCode,
+      propertyId: properties.id,
+      propertyNameAr: properties.nameAr,
+      propertyNameEn: properties.nameEn,
+      unitCode: units.code,
+      party: sql<
+        string | null
+      >`${stayBookings.pricingSnapshotJson}->'guestContact'->>'displayName'`,
+      refundStatus: stayRefunds.status,
+      refundAmountMinor: stayRefunds.amountMinor,
+      refundPaidMinor: stayRefunds.paidMinor,
+      currency: stayBookings.currency,
+      refundUpdatedAt: stayRefunds.updatedAt,
+      bookingUpdatedAt: stayBookings.updatedAt,
+    })
+    .from(stayRefunds)
+    .innerJoin(stayBookings, eq(stayBookings.id, stayRefunds.bookingId))
+    .innerJoin(properties, eq(properties.id, stayBookings.propertyId))
+    .leftJoin(units, eq(units.id, stayBookings.unitId))
+    .where(
+      and(
+        eq(stayRefunds.organizationId, orgId),
+        eq(stayRefunds.status, 'approved'),
+        sql`${stayRefunds.idempotencyKey} like 'booking_cancel:%'`,
+        eq(stayBookings.organizationId, orgId),
+        ...(scope.propertyId ? [eq(stayBookings.propertyId, scope.propertyId)] : []),
+        ...(scope.ownerPartyId ? [eq(properties.ownerPartyId, scope.ownerPartyId)] : []),
+      ),
+    )
+    .orderBy(asc(stayRefunds.updatedAt))
+    .limit(limit);
+
+  const fromDeposit = rows.flatMap((row) => {
     const step =
       !row.refundStatus || row.refundStatus === 'requested'
         ? ('decision' as const)
@@ -1123,4 +1195,25 @@ export async function loadDepositRefundQueue(
       },
     ];
   });
+
+  const fromCancel = cancelRows.map((row) => ({
+    bookingId: row.bookingId,
+    reference: row.reference,
+    propertyId: row.propertyId,
+    propertyNameAr: row.propertyNameAr,
+    propertyNameEn: row.propertyNameEn,
+    unitCode: row.unitCode,
+    party: row.party,
+    step: 'transfer' as const,
+    dueMinor:
+      row.refundAmountMinor !== null
+        ? (row.refundAmountMinor - (row.refundPaidMinor ?? 0n)).toString()
+        : null,
+    currency: row.currency,
+    since: iso(row.refundUpdatedAt ?? row.bookingUpdatedAt) ?? '',
+  }));
+
+  return [...fromDeposit, ...fromCancel]
+    .sort((a, b) => a.since.localeCompare(b.since))
+    .slice(0, limit);
 }
