@@ -42,34 +42,45 @@ async function DeveloperStayBookingDetailPage({
 
   return (
     <StaysPortalPage locale={locale} portal="developer" section="bookings">
-      <p className="stay-contract-nav">
-        <Link className="text-link" href="/developer/bookings?tab=daily">
-          {ar ? '← العودة للحجوزات' : '← Back to bookings'}
-        </Link>
-      </p>
-      <div className="stay-contract-toolbar">
-        <StayReceiptPrintButton locale={locale} />
+      <div className="stay-booking-sheet">
+        <div className="stay-booking-sheet__toolbar stay-booking-sheet__no-print">
+          <p className="stay-contract-nav">
+            <Link className="text-link" href="/developer/bookings?tab=daily">
+              {ar ? '← العودة للحجوزات' : '← Back to bookings'}
+            </Link>
+          </p>
+          <div className="stay-contract-toolbar">
+            <StayReceiptPrintButton locale={locale} />
+          </div>
+        </div>
+
+        <StayBookingContract booking={booking} locale={locale} portal="developer" badges={badges} />
+
+        <div className="stay-booking-sheet__tools stay-booking-sheet__no-print">
+          <h2 className="stay-booking-sheet__tools-title">
+            {ar ? 'أدوات التشغيل' : 'Operations tools'}
+          </h2>
+          <StayBookingDetailOps
+            locale={locale}
+            portal="developer"
+            bookingId={booking.id}
+            unitId={booking.unitId}
+            propertyId={booking.propertyId}
+            status={booking.status}
+            checkInOn={booking.checkInOn}
+            checkOutOn={booking.checkOutOn}
+            stayListingSlug={booking.stayListingSlug}
+            paidAmountMinor={booking.paidAmountMinor ?? booking.totalMinor}
+            paidCurrency={booking.paidCurrency ?? booking.currency}
+            paymentSucceeded={
+              booking.paymentStatus === 'succeeded' || booking.paymentStatus === 'offline'
+            }
+            pendingReschedule={booking.pendingReschedule}
+            currency={booking.currency}
+            stayType={booking.stayType}
+          />
+        </div>
       </div>
-      <StayBookingDetailOps
-        locale={locale}
-        portal="developer"
-        bookingId={booking.id}
-        unitId={booking.unitId}
-        propertyId={booking.propertyId}
-        status={booking.status}
-        checkInOn={booking.checkInOn}
-        checkOutOn={booking.checkOutOn}
-        stayListingSlug={booking.stayListingSlug}
-        paidAmountMinor={booking.paidAmountMinor ?? booking.totalMinor}
-        paidCurrency={booking.paidCurrency ?? booking.currency}
-        paymentSucceeded={
-          booking.paymentStatus === 'succeeded' || booking.paymentStatus === 'offline'
-        }
-        pendingReschedule={booking.pendingReschedule}
-        currency={booking.currency}
-        stayType={booking.stayType}
-      />
-      <StayBookingContract booking={booking} locale={locale} portal="developer" badges={badges} />
     </StaysPortalPage>
   );
 }

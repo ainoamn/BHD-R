@@ -208,14 +208,36 @@ function FactTable({
   );
 }
 
-function Fold({ title, icon, children }: { title: string; icon: IconName; children: ReactNode }) {
+function DocSection({
+  title,
+  icon,
+  children,
+  collapsible = false,
+}: {
+  title: string;
+  icon: IconName;
+  children: ReactNode;
+  /** Screen-only collapse; always expanded when printing. */
+  collapsible?: boolean;
+}) {
+  if (!collapsible) {
+    return (
+      <section className="stay-desk__section">
+        <header className="stay-desk__section-head">
+          <Icon name={icon} size={16} />
+          <h2>{title}</h2>
+        </header>
+        <div className="stay-desk__section-body">{children}</div>
+      </section>
+    );
+  }
   return (
-    <details className="stay-desk__fold">
-      <summary>
+    <details className="stay-desk__fold stay-desk__section" open>
+      <summary className="stay-desk__section-head">
         <Icon name={icon} size={16} />
-        <span>{title}</span>
+        <h2>{title}</h2>
       </summary>
-      <div className="stay-desk__fold-body">{children}</div>
+      <div className="stay-desk__section-body stay-desk__fold-body">{children}</div>
     </details>
   );
 }
@@ -286,17 +308,27 @@ export function StayBookingContract({
 
   return (
     <article className="stay-doc stay-doc--contract stay-desk" id="stay-booking-contract">
-      <header className="stay-desk__hero">
-        <div className="stay-desk__hero-main">
-          <p className="stay-desk__kicker">{ar ? 'مستند الحجز' : 'Booking record'}</p>
-          <h1 className="stay-desk__title" dir="ltr">
-            {booking.referenceCode}
-          </h1>
-          <p className="stay-desk__sub">
-            {ar ? 'طُلب في' : 'Requested'} · {issuedOn}
-          </p>
+      <header className="stay-desk__letterhead">
+        <div className="stay-desk__brand">
+          <span className="stay-desk__logo logo__product" aria-label="BHD R">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/bhd-official-symbol.svg" alt="" width="96" height="32" />
+            <i>R</i>
+          </span>
+          <div className="stay-desk__brand-copy">
+            <p className="stay-desk__org">BHD R</p>
+            <p className="stay-desk__doc-type">
+              {ar ? 'مستند حجز إقامة يومية رسمي' : 'Official daily stay booking record'}
+            </p>
+          </div>
         </div>
-        <div className="stay-desk__hero-side">
+        <div className="stay-desk__letterhead-meta">
+          <p className="stay-desk__ref" dir="ltr">
+            {booking.referenceCode}
+          </p>
+          <p className="stay-desk__sub">
+            {ar ? 'تاريخ الطلب' : 'Requested'} · {issuedOn}
+          </p>
           <span
             className="stay-desk__status"
             data-tone={
@@ -316,6 +348,22 @@ export function StayBookingContract({
                 : 'Date change requested'
               : stayStatusLabel(booking.status, ar)}
           </span>
+        </div>
+      </header>
+
+      <div className="stay-desk__hero">
+        <div className="stay-desk__hero-main">
+          <p className="stay-desk__kicker">{ar ? 'ملخص الحجز' : 'Booking summary'}</p>
+          <h1 className="stay-desk__title">
+            {propertyName || (ar ? 'إقامة يومية' : 'Daily stay')}
+            <span className="stay-desk__title-unit"> · {unitLabel}</span>
+          </h1>
+          <p className="stay-desk__sub" dir="ltr">
+            {dateRange(booking.checkInOn, booking.checkOutOn)}
+            {guestsLabel ? ` · ${guestsLabel}` : ''}
+          </p>
+        </div>
+        <div className="stay-desk__hero-side">
           <p className="stay-desk__amount" dir="ltr">
             {paid ? paidAmountLabel : amountLabel}
           </p>
@@ -333,7 +381,7 @@ export function StayBookingContract({
                   : 'Amount due'}
           </p>
         </div>
-      </header>
+      </div>
 
       {pending ? (
         <section className="stay-desk__change" aria-label={ar ? 'تعديل التواريخ' : 'Date change'}>
@@ -653,9 +701,10 @@ export function StayBookingContract({
       {(booking.overlappingBookings && booking.overlappingBookings.length > 0) ||
       booking.previousBooking ||
       booking.nextBooking ? (
-        <Fold
+        <DocSection
           title={ar ? 'حجوزات مجاورة على نفس الوحدة' : 'Neighboring bookings on this unit'}
           icon="list"
+          collapsible
         >
           {booking.overlappingBookings && booking.overlappingBookings.length > 0 ? (
             <div className="notice notice--danger stay-doc__overlap" role="status">
@@ -741,11 +790,11 @@ export function StayBookingContract({
               </tbody>
             </table>
           </div>
-        </Fold>
+        </DocSection>
       ) : null}
 
       {booking.location || booking.propertyCoverUrl ? (
-        <Fold title={ar ? 'الموقع والصورة' : 'Location & photo'} icon="pin">
+        <DocSection title={ar ? 'الموقع والصورة' : 'Location & photo'} icon="pin" collapsible>
           {booking.propertyCoverUrl ? (
             <figure className="stay-doc__cover">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -759,11 +808,15 @@ export function StayBookingContract({
           {booking.location ? (
             <PropertyLocationMap location={booking.location} locale={locale} />
           ) : null}
-        </Fold>
+        </DocSection>
       ) : null}
 
       {booking.esignSignaturePng ? (
-        <Fold title={ar ? 'التوقيع الإلكتروني والمستندات' : 'E-signature & documents'} icon="file">
+        <DocSection
+          title={ar ? 'التوقيع الإلكتروني والمستندات' : 'E-signature & documents'}
+          icon="file"
+          collapsible
+        >
           {booking.esignSignedAt ? (
             <p className="muted">
               {ar ? 'وقت التوقيع' : 'Signed at'}:{' '}
@@ -801,16 +854,23 @@ export function StayBookingContract({
               </figure>
             ) : null}
           </div>
-        </Fold>
+        </DocSection>
       ) : null}
 
-      <footer className="stay-doc__footer">
+      <footer className="stay-doc__footer stay-desk__seal">
+        <div className="stay-desk__seal-brand">
+          <span className="stay-desk__logo logo__product" aria-hidden="true">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/bhd-official-symbol.svg" alt="" width="72" height="24" />
+            <i>R</i>
+          </span>
+          <p className="stay-doc__thanks">{ar ? 'BHD R · منظومة BHD' : 'BHD R · BHD ecosystem'}</p>
+        </div>
         <p>
           {ar
-            ? 'هذا المستند ملخص تشغيلي للحجز من لوحة المالك. يُستخدم للمراجعة والمتابعة مع الضيف، وليس بديلاً عن عقد إيجار طويل الأجل.'
-            : 'This is an operational booking record for the owner portal. It supports guest follow-up and is not a long-term lease contract.'}
+            ? 'مستند رسمي تشغيلي من لوحة المالك — للمراجعة والمتابعة مع الضيف. ليس بديلاً عن عقد إيجار طويل الأجل.'
+            : 'Official operational record from the owner portal — for review and guest follow-up. Not a long-term lease contract.'}
         </p>
-        <p className="stay-doc__thanks">{ar ? 'BHD R · منظومة BHD' : 'BHD R · BHD ecosystem'}</p>
       </footer>
     </article>
   );

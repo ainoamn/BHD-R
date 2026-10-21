@@ -15313,14 +15313,32 @@ body:has(.guest-stay-detail) #main-content {
     display: none;
   }
 }
+.stay-booking-sheet {
+  display: grid;
+  gap: 1.25rem;
+  max-width: 58rem;
+  margin-inline: auto;
+}
+.stay-booking-sheet__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.stay-booking-sheet__tools-title {
+  margin: 0 0 0.55rem;
+  font-size: 1.05rem;
+  color: var(--oman-deep, #092d24);
+}
 .stay-contract-nav {
-  margin: 0 0 0.75rem;
+  margin: 0;
 }
 .stay-contract-toolbar {
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
-  margin-block-end: 0.85rem;
+  margin: 0;
 }
 .stay-doc__cover {
   margin: 0 0 1rem;
@@ -15363,9 +15381,68 @@ body:has(.guest-stay-detail) #main-content {
 .stay-doc__overlap {
   margin-bottom: 0.85rem;
 }
+.stay-doc.stay-desk {
+  display: grid;
+  gap: 1.1rem;
+  padding: 1.35rem 1.4rem 1.25rem;
+  border: 1px solid color-mix(in srgb, var(--oman-deep, #092d24) 18%, #d7e1db);
+  border-radius: 1rem;
+  background:
+    linear-gradient(180deg, #fffdf8 0%, #ffffff 38%),
+    #fff;
+  box-shadow: 0 18px 40px rgb(9 45 36 / 0.07);
+}
 .stay-desk {
   display: grid;
-  gap: 1rem;
+  gap: 1.1rem;
+}
+.stay-desk__letterhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
+  padding-bottom: 0.95rem;
+  border-bottom: 3px double color-mix(in srgb, var(--oman-deep, #092d24) 55%, #c4a574);
+}
+.stay-desk__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+.stay-desk__logo img {
+  width: 5.2rem;
+  height: auto;
+}
+.stay-desk__brand-copy {
+  display: grid;
+  gap: 0.15rem;
+}
+.stay-desk__org {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: var(--oman-deep, #092d24);
+}
+.stay-desk__doc-type {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #5c6b64;
+}
+.stay-desk__letterhead-meta {
+  display: grid;
+  gap: 0.3rem;
+  justify-items: end;
+  text-align: end;
+}
+.stay-desk__ref {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: var(--oman-deep, #092d24);
 }
 .stay-desk__hero {
   display: flex;
@@ -15373,29 +15450,73 @@ body:has(.guest-stay-detail) #main-content {
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem 1.5rem;
-  padding-bottom: 0.85rem;
-  border-bottom: 2px solid color-mix(in srgb, var(--oman-deep, #092d24) 45%, #c4a574);
+  padding: 0.85rem 1rem;
+  border-radius: 0.85rem;
+  background: linear-gradient(135deg, #f4f8f6 0%, #fffaf2 100%);
+  border: 1px solid color-mix(in srgb, var(--oman-deep, #092d24) 10%, #d7e1db);
 }
 .stay-desk__kicker {
   margin: 0;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: #5c6b64;
 }
 .stay-desk__title {
-  margin: 0.15rem 0 0;
-  font-size: clamp(1.35rem, 3vw, 1.7rem);
+  margin: 0.2rem 0 0;
+  font-size: clamp(1.25rem, 2.8vw, 1.55rem);
   font-weight: 900;
-  letter-spacing: 0.02em;
   color: var(--oman-deep, #092d24);
+  line-height: 1.35;
+}
+.stay-desk__title-unit {
+  font-weight: 700;
+  color: #44554d;
 }
 .stay-desk__sub {
-  margin: 0.25rem 0 0;
-  font-size: 0.82rem;
+  margin: 0.3rem 0 0;
+  font-size: 0.88rem;
   color: #5c6b64;
 }
 .stay-desk__hero-side {
   text-align: end;
+}
+.stay-desk__section {
+  border: 1px solid var(--stay-doc-line, #d7e1db);
+  border-radius: 0.85rem;
+  overflow: hidden;
+  background: #fff;
+}
+.stay-desk__section-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  background: #f3f7f5;
+  border-bottom: 1px solid var(--stay-doc-line, #d7e1db);
+  color: var(--oman-deep, #092d24);
+  font-weight: 800;
+}
+.stay-desk__section-head h2 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.stay-desk__section-body {
+  padding: 0.75rem 0.9rem 0.9rem;
+}
+.stay-desk__seal {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.25rem;
+  padding-top: 0.95rem;
+  border-top: 2px solid color-mix(in srgb, var(--oman-deep, #092d24) 35%, #c4a574);
+}
+.stay-desk__seal-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
 }
 .stay-desk__status {
   display: inline-flex;
@@ -15569,27 +15690,17 @@ body:has(.guest-stay-detail) #main-content {
   font-weight: 800;
 }
 .stay-desk__fold {
-  border: 1px solid var(--stay-doc-line, #d7e1db);
-  border-radius: 0.85rem;
   background: #fbfcfc;
-  overflow: hidden;
 }
 .stay-desk__fold > summary {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.75rem 0.9rem;
   cursor: pointer;
   list-style: none;
-  font-weight: 800;
-  color: var(--oman-deep, #092d24);
   user-select: none;
 }
 .stay-desk__fold > summary::-webkit-details-marker {
   display: none;
 }
 .stay-desk__fold-body {
-  padding: 0 0.9rem 0.9rem;
   display: grid;
   gap: 0.75rem;
 }
@@ -15644,8 +15755,10 @@ body:has(.guest-stay-detail) #main-content {
   .stay-desk__grid {
     grid-template-columns: 1fr;
   }
-  .stay-desk__hero-side {
+  .stay-desk__hero-side,
+  .stay-desk__letterhead-meta {
     text-align: start;
+    justify-items: start;
     width: 100%;
   }
 }
@@ -15672,22 +15785,79 @@ body:has(.guest-stay-detail) #main-content {
   border-top: 1px solid var(--sand-200, #d8e1dc);
 }
 @media print {
-  .stay-booking-ops {
-    display: none !important;
+  @page {
+    margin: 12mm;
   }
-}
-@media print {
+  .stay-booking-sheet__no-print,
+  .stay-booking-ops,
   .stay-contract-nav,
   .stay-contract-toolbar,
   .stays-portal__header,
   .stays-nav,
   .portal-sidebar,
-  .portal-header {
+  .portal-header,
+  .portal-main > .portal-breadcrumbs,
+  .site-header,
+  .site-footer,
+  .skip-link,
+  .button,
+  .stay-timeline__next {
     display: none !important;
   }
+  .stay-booking-sheet {
+    max-width: none;
+    gap: 0;
+  }
+  .stay-doc.stay-desk,
   .stay-doc--contract {
-    border: 0;
-    box-shadow: none;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+  .stay-desk__letterhead {
+    border-bottom: 2px solid #092d24;
+    break-inside: avoid;
+  }
+  .stay-desk__hero,
+  .stay-desk__kpi,
+  .stay-desk__panel,
+  .stay-desk__section,
+  .stay-desk__change,
+  .stay-timeline__step,
+  .stay-timeline__event {
+    break-inside: avoid;
+  }
+  .stay-desk__status,
+  .stay-desk__kpi,
+  .stay-desk__change,
+  .stay-desk__panel-head,
+  .stay-desk__section-head,
+  .stay-desk__table th[scope='row'],
+  .stay-desk__table thead th,
+  .stay-desk__hero {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .stay-desk__fold {
+    display: block !important;
+  }
+  .stay-desk__fold > summary {
+    cursor: default;
+  }
+  .stay-desk__fold-body,
+  .stay-desk__section-body {
+    display: grid !important;
+  }
+  .stay-doc__cover img,
+  .stay-doc__esign-grid img {
+    max-height: none;
+    break-inside: avoid;
+  }
+  a {
+    color: inherit !important;
+    text-decoration: none !important;
   }
 }
 @media (max-width: 640px) {
