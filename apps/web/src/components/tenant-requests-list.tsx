@@ -38,37 +38,94 @@ export function requestStamp(iso: string, ar: boolean): string {
   });
 }
 
+function statusToneClass(status: string): string {
+  const tone = STATUS_TONE[status];
+  return tone ? `tenant-status tenant-status--${tone}` : 'tenant-status';
+}
+
+/** Compact inbox row: reference, who/what, date-time, status — expand to read the thread. */
+export function RequestInboxRow({
+  reference,
+  party,
+  kind,
+  createdAt,
+  status,
+  ar,
+  expanded,
+  onToggle,
+  controlsId,
+}: {
+  reference: string;
+  /** Tenant name (owner inbox) or request type (tenant inbox). */
+  party: string;
+  /** Secondary line: type/unit/subject. */
+  kind: string;
+  createdAt: string;
+  status: string;
+  ar: boolean;
+  expanded: boolean;
+  onToggle: () => void;
+  controlsId: string;
+}) {
+  return (
+    <button
+      type="button"
+      className="tenant-request__row"
+      aria-expanded={expanded}
+      aria-controls={controlsId}
+      onClick={onToggle}
+    >
+      <bdi className="tenant-request__ref">{reference}</bdi>
+      <span className="tenant-request__party">
+        <strong>{party}</strong>
+        {kind ? <small>{kind}</small> : null}
+      </span>
+      <time className="tenant-request__when" dateTime={createdAt}>
+        {requestStamp(createdAt, ar)}
+      </time>
+      <span className={statusToneClass(status)}>{tenantRequestStatusLabel(status, ar)}</span>
+      <span className="tenant-request__chevron" aria-hidden="true">
+        {expanded ? (ar ? '▾' : '▾') : ar ? '◂' : '▸'}
+      </span>
+    </button>
+  );
+}
+
 /** What the request is about and what was said on it, for both the tenant and the landlord. */
 export function RequestSummary({
   request,
   ar,
   locale,
   extra,
+  showHead = true,
 }: {
   request: TenantRequest;
   ar: boolean;
   locale: 'ar' | 'en';
   extra?: ReactNode;
+  /** Hide the top meta row when the inbox already shows reference/status/date. */
+  showHead?: boolean;
 }) {
-  const tone = STATUS_TONE[request.status];
   const unit =
     (ar ? request.unitAr || request.unitEn : request.unitEn || request.unitAr) ?? request.unitCode;
   return (
     <>
-      <header className="tenant-request__head">
-        <div>
-          <strong>{tenantRequestTypeLabel(request.type, ar)}</strong>
-          <span className="muted">
-            {' · '}
-            <bdi>{request.reference}</bdi>
-            {' · '}
-            {requestStamp(request.createdAt, ar)}
+      {showHead ? (
+        <header className="tenant-request__head">
+          <div>
+            <strong>{tenantRequestTypeLabel(request.type, ar)}</strong>
+            <span className="muted">
+              {' · '}
+              <bdi>{request.reference}</bdi>
+              {' · '}
+              {requestStamp(request.createdAt, ar)}
+            </span>
+          </div>
+          <span className={statusToneClass(request.status)}>
+            {tenantRequestStatusLabel(request.status, ar)}
           </span>
-        </div>
-        <span className={`tenant-status${tone ? ` tenant-status--${tone}` : ''}`}>
-          {tenantRequestStatusLabel(request.status, ar)}
-        </span>
-      </header>
+        </header>
+      ) : null}
       <h3 className="tenant-request__subject">{request.subject}</h3>
       <dl className="tenant-request__facts">
         {extra}
@@ -215,10 +272,15 @@ function TenantRequestItem({ request, locale }: { request: TenantRequest; locale
   const ar = locale === 'ar';
   const router = useRouter();
   const [, startRefresh] = useTransition();
+  const [expanded, setExpanded] = useState(false);
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState<'cancel' | 'reply' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const open = OPEN_TENANT_REQUEST.has(request.status);
+  const bodyId = `tenant-request-body-${request.id}`;
+  const unit =
+    (ar ? request.unitAr || request.unitEn : request.unitEn || request.unitAr) ?? request.unitCode;
+  const kindLine = [request.subject, unit].filter(Boolean).join(' · ');
 
   async function act(action: 'cancel' | 'reply') {
     if (action === 'cancel' && !window.confirm(ar ? 'سحب هذا الطلب؟' : 'Withdraw this request?')) {
@@ -241,68 +303,83 @@ function TenantRequestItem({ request, locale }: { request: TenantRequest; locale
   }
 
   return (
-    <li className="tenant-request">
-      <RequestSummary request={request} ar={ar} locale={locale} />
-      {open ? (
-        <div className="tenant-request__act">
-          <textarea
-            className="input"
-            rows={2}
-            maxLength={Math.min(1000, NOTE_TRANSLATE_MAX)}
-            placeholder={
-              ar ? 'أضف رداً أو توضيحاً للمالك…' : 'Add a reply or detail for the landlord…'
-            }
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-          />
-          <NoteTranslateBar
-            value={note}
-            onChange={setNote}
-            locale={locale}
-            max={Math.min(1000, NOTE_TRANSLATE_MAX)}
-            disabled={busy !== null}
-            service={TENANT_NOTE_SERVICE}
-          />
-          <div className="tenant-request__buttons">
-            <button
-              type="button"
-              className="button button--primary button--tiny"
-              disabled={busy !== null || !note.trim()}
-              onClick={() => void act('reply')}
-            >
-              {busy === 'reply'
-                ? ar
-                  ? 'جارٍ الإرسال…'
-                  : 'Sending…'
-                : ar
-                  ? 'إرسال الرد'
-                  : 'Send reply'}
-            </button>
-            {request.status === 'pending' ? (
-              <button
-                type="button"
-                className="button button--quiet button--tiny"
-                disabled={busy !== null}
-                onClick={() => void act('cancel')}
-              >
-                {ar ? 'سحب الطلب' : 'Withdraw'}
-              </button>
-            ) : null}
-            {requestTakesPhotos(request.type) ? (
-              <RequestMediaButton
-                requestId={request.id}
-                stage="report"
-                ar={ar}
-                label={ar ? '📎 إرفاق صورة أو فيديو' : '📎 Add a photo or video'}
-                accept="image/*,video/mp4,video/quicktime,video/webm"
-                onAdded={() => startRefresh(() => router.refresh())}
+    <li className={`tenant-request${expanded ? ' is-open' : ''}`}>
+      <RequestInboxRow
+        reference={request.reference}
+        party={tenantRequestTypeLabel(request.type, ar)}
+        kind={kindLine}
+        createdAt={request.createdAt}
+        status={request.status}
+        ar={ar}
+        expanded={expanded}
+        onToggle={() => setExpanded((value) => !value)}
+        controlsId={bodyId}
+      />
+      {expanded ? (
+        <div className="tenant-request__body" id={bodyId}>
+          <RequestSummary request={request} ar={ar} locale={locale} showHead={false} />
+          {open ? (
+            <div className="tenant-request__act">
+              <textarea
+                className="input"
+                rows={2}
+                maxLength={Math.min(1000, NOTE_TRANSLATE_MAX)}
+                placeholder={
+                  ar ? 'أضف رداً أو توضيحاً للمالك…' : 'Add a reply or detail for the landlord…'
+                }
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
               />
-            ) : null}
-          </div>
-          {error ? (
-            <p className="notice notice--error" role="alert">
-              {error}
-            </p>
+              <NoteTranslateBar
+                value={note}
+                onChange={setNote}
+                locale={locale}
+                max={Math.min(1000, NOTE_TRANSLATE_MAX)}
+                disabled={busy !== null}
+                service={TENANT_NOTE_SERVICE}
+              />
+              <div className="tenant-request__buttons">
+                <button
+                  type="button"
+                  className="button button--primary button--tiny"
+                  disabled={busy !== null || !note.trim()}
+                  onClick={() => void act('reply')}
+                >
+                  {busy === 'reply'
+                    ? ar
+                      ? 'جارٍ الإرسال…'
+                      : 'Sending…'
+                    : ar
+                      ? 'إرسال الرد'
+                      : 'Send reply'}
+                </button>
+                {request.status === 'pending' ? (
+                  <button
+                    type="button"
+                    className="button button--quiet button--tiny"
+                    disabled={busy !== null}
+                    onClick={() => void act('cancel')}
+                  >
+                    {ar ? 'سحب الطلب' : 'Withdraw'}
+                  </button>
+                ) : null}
+                {requestTakesPhotos(request.type) ? (
+                  <RequestMediaButton
+                    requestId={request.id}
+                    stage="report"
+                    ar={ar}
+                    label={ar ? '📎 إرفاق صورة أو فيديو' : '📎 Add a photo or video'}
+                    accept="image/*,video/mp4,video/quicktime,video/webm"
+                    onAdded={() => startRefresh(() => router.refresh())}
+                  />
+                ) : null}
+              </div>
+              {error ? (
+                <p className="notice notice--error" role="alert">
+                  {error}
+                </p>
+              ) : null}
+            </div>
           ) : null}
         </div>
       ) : null}

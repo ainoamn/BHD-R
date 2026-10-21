@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.134.77 — 2026-10-21
+
+- **قائمة طلبات قابلة للفتح:** في `/owner/tenant-requests` و`/tenant/requests` تظهر الطلبات كصفوف مختصرة (الرقم، المستأجر أو نوع الطلب، التاريخ والوقت، الحالة) وتُفتح عند الطلب لاستعراض المحادثة والإجراءات.
+
 ## 0.8.134.76 — 2026-10-21
 
 - **ترجمة وصياغة ردود المالك على طلبات المستأجر:** في `/owner/tenant-requests` يظهر تحت حقل الملاحظة شريط الترجمة والتصحيح وإعادة الصياغة بالذكاء الاصطناعي.

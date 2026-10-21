@@ -431,15 +431,107 @@
 }
 .tenant-request {
   display: grid;
-  gap: 0.6rem;
-  padding: 1rem 1.1rem;
+  gap: 0;
+  padding: 0;
   background: rgb(255 255 255 / 0.97);
   border: 1px solid rgb(9 45 36 / 0.09);
   border-radius: 1rem;
+  overflow: hidden;
 }
 .tenant-request--focus {
   border-color: #c9a646;
   box-shadow: 0 0 0 3px rgb(201 166 70 / 0.25);
+}
+.tenant-request.is-open {
+  border-color: rgb(15 91 74 / 0.28);
+}
+.tenant-request__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 0.55rem 0.85rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.85rem 1.05rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+  font: inherit;
+}
+.tenant-request__row:hover {
+  background: #f6f9f7;
+}
+.tenant-request__row:focus-visible {
+  outline: 2px solid #0f5b4a;
+  outline-offset: -2px;
+}
+.tenant-request__ref {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  color: var(--oman-deep, #092d24);
+  white-space: nowrap;
+}
+.tenant-request__party {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.tenant-request__party strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tenant-request__party small {
+  color: #4b5f57;
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tenant-request__when {
+  color: #4b5f57;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.tenant-request__chevron {
+  color: #6c7b75;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+.tenant-request__body {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.85rem 1.05rem 1rem;
+  border-top: 1px solid rgb(9 45 36 / 0.08);
+}
+@media (max-width: 720px) {
+  .tenant-request__row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'ref party chevron'
+      'when status chevron';
+  }
+  .tenant-request__ref {
+    grid-area: ref;
+  }
+  .tenant-request__party {
+    grid-area: party;
+  }
+  .tenant-request__when {
+    grid-area: when;
+  }
+  .tenant-request__row .tenant-status {
+    grid-area: status;
+    justify-self: start;
+  }
+  .tenant-request__chevron {
+    grid-area: chevron;
+    align-self: center;
+  }
 }
 .tenant-request__head {
   display: flex;

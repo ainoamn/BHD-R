@@ -5,7 +5,7 @@ import { useEffect, useState, useTransition } from 'react';
 import type { CurrencyCode } from '@bhd-r/contracts';
 import { NoteTranslateBar, OWNER_NOTE_SERVICE } from '@/components/note-translate';
 import { ClosureProofPanel } from '@/components/request-media';
-import { RequestSummary } from '@/components/tenant-requests-list';
+import { RequestInboxRow, RequestSummary } from '@/components/tenant-requests-list';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney, toMinorUnits } from '@/lib/format';
 import { NOTE_TRANSLATE_MAX } from '@/lib/note-translation';
@@ -17,6 +17,7 @@ import {
   isTenantReport,
   requestNeedsCheque,
   tenantRequestErrorText,
+  tenantRequestTypeLabel,
   type OwnerTenantRequest,
 } from '@/lib/tenant-requests-shared';
 
@@ -67,6 +68,7 @@ function OwnerRequestItem({
   const [, startRefresh] = useTransition();
   const refresh = onChanged ?? (() => startRefresh(() => router.refresh()));
   const proofMissing = request.type === 'maintenance' ? closureProofMissing(request.media) : [];
+  const [expanded, setExpanded] = useState(focused);
   const [note, setNote] = useState('');
   const [date, setDate] = useState(request.proposedDate ?? '');
   const [charged, setCharged] = useState(false);
@@ -79,6 +81,11 @@ function OwnerRequestItem({
   const open = OPEN_TENANT_REQUEST.has(request.status);
   const cheque = requestNeedsCheque(request.type);
   const currency = (request.currency ?? 'OMR') as CurrencyCode;
+  const bodyId = `owner-request-body-${request.id}`;
+
+  useEffect(() => {
+    if (focused) setExpanded(true);
+  }, [focused]);
 
   async function act(action: Action) {
     if (
@@ -128,68 +135,93 @@ function OwnerRequestItem({
   const property = ar
     ? request.propertyNameAr || request.propertyNameEn
     : request.propertyNameEn || request.propertyNameAr;
+  const unit =
+    (ar ? request.unitAr || request.unitEn : request.unitEn || request.unitAr) ?? request.unitCode;
+  const kindLine = [tenantRequestTypeLabel(request.type, ar), property, unit]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <li
       id={`request-${request.id}`}
-      className={`tenant-request${focused ? ' tenant-request--focus' : ''}`}
+      className={[
+        'tenant-request',
+        focused ? 'tenant-request--focus' : '',
+        expanded ? 'is-open' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
     >
-      <RequestSummary
-        request={request}
+      <RequestInboxRow
+        reference={request.reference}
+        party={request.tenantName?.trim() || (ar ? 'مستأجر' : 'Tenant')}
+        kind={kindLine}
+        createdAt={request.createdAt}
+        status={request.status}
         ar={ar}
-        locale={locale}
-        extra={
-          <>
-            <div>
-              <dt>{ar ? 'المستأجر' : 'Tenant'}</dt>
-              <dd>{request.tenantName ?? '—'}</dd>
-            </div>
-            {property ? (
-              <div>
-                <dt>{ar ? 'العقار' : 'Property'}</dt>
-                <dd>{property}</dd>
-              </div>
-            ) : null}
-            {request.arrearsMinor ? (
-              <div className="tenant-request__owes">
-                <dt>{ar ? 'متأخرات على المستأجر' : 'Tenant’s arrears'}</dt>
-                <dd>{formatMoney(request.arrearsMinor, currency, locale)}</dd>
-              </div>
-            ) : null}
-          </>
-        }
+        expanded={expanded}
+        onToggle={() => setExpanded((value) => !value)}
+        controlsId={bodyId}
       />
-      {request.charge && !request.charge.paidAt && canRecordPayments ? (
-        <div className="tenant-request__charge-pay">
-          <span>
-            {ar
-              ? `تكلفة الصيانة ${formatMoney(request.charge.amountMinor, request.charge.currency, locale)} غير مسددة بعد.`
-              : `The maintenance cost of ${formatMoney(request.charge.amountMinor, request.charge.currency, locale)} is not paid yet.`}
-          </span>
-          <select
-            className="input"
-            value={method}
-            aria-label={ar ? 'طريقة السداد' : 'Payment method'}
-            onChange={(event) => setMethod(event.target.value as PaymentMethod)}
-          >
-            {(Object.keys(PAYMENT_METHOD_LABEL) as PaymentMethod[]).map((item) => (
-              <option key={item} value={item}>
-                {ar ? PAYMENT_METHOD_LABEL[item].ar : PAYMENT_METHOD_LABEL[item].en}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            className="button button--primary button--tiny"
-            disabled={busy !== null}
-            onClick={() => void act('charge_paid')}
-          >
-            {ar ? 'تسجيل السداد' : 'Record payment'}
-          </button>
-        </div>
-      ) : null}
-      {open ? (
-        <div className="tenant-request__act">
+      {expanded ? (
+        <div className="tenant-request__body" id={bodyId}>
+          <RequestSummary
+            request={request}
+            ar={ar}
+            locale={locale}
+            showHead={false}
+            extra={
+              <>
+                <div>
+                  <dt>{ar ? 'المستأجر' : 'Tenant'}</dt>
+                  <dd>{request.tenantName ?? '—'}</dd>
+                </div>
+                {property ? (
+                  <div>
+                    <dt>{ar ? 'العقار' : 'Property'}</dt>
+                    <dd>{property}</dd>
+                  </div>
+                ) : null}
+                {request.arrearsMinor ? (
+                  <div className="tenant-request__owes">
+                    <dt>{ar ? 'متأخرات على المستأجر' : 'Tenant’s arrears'}</dt>
+                    <dd>{formatMoney(request.arrearsMinor, currency, locale)}</dd>
+                  </div>
+                ) : null}
+              </>
+            }
+          />
+          {request.charge && !request.charge.paidAt && canRecordPayments ? (
+            <div className="tenant-request__charge-pay">
+              <span>
+                {ar
+                  ? `تكلفة الصيانة ${formatMoney(request.charge.amountMinor, request.charge.currency, locale)} غير مسددة بعد.`
+                  : `The maintenance cost of ${formatMoney(request.charge.amountMinor, request.charge.currency, locale)} is not paid yet.`}
+              </span>
+              <select
+                className="input"
+                value={method}
+                aria-label={ar ? 'طريقة السداد' : 'Payment method'}
+                onChange={(event) => setMethod(event.target.value as PaymentMethod)}
+              >
+                {(Object.keys(PAYMENT_METHOD_LABEL) as PaymentMethod[]).map((item) => (
+                  <option key={item} value={item}>
+                    {ar ? PAYMENT_METHOD_LABEL[item].ar : PAYMENT_METHOD_LABEL[item].en}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="button button--primary button--tiny"
+                disabled={busy !== null}
+                onClick={() => void act('charge_paid')}
+              >
+                {ar ? 'تسجيل السداد' : 'Record payment'}
+              </button>
+            </div>
+          ) : null}
+          {open ? (
+            <div className="tenant-request__act">
           {request.emergency && request.emergency.verified === null ? (
             <div className="tenant-request__verify">
               <strong>
@@ -405,6 +437,8 @@ function OwnerRequestItem({
             <p className="notice notice--error" role="alert">
               {error}
             </p>
+          ) : null}
+            </div>
           ) : null}
         </div>
       ) : null}
