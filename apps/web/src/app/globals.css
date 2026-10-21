@@ -18094,6 +18094,41 @@ body:has(.stays-book-shell) #main-content {
   overflow: hidden;
   color: #f5fbf8;
 }
+/* Phone: compact photo strip so the form keeps most of the screen. */
+@media (max-width: 899px) {
+  .stays-book-shell__aside,
+  .stays-book-shell--wide-form .stays-book-shell__aside {
+    min-height: 6.75rem;
+  }
+  .stays-book-shell__aside-content {
+    min-height: 6.75rem;
+    padding: 0.55rem max(0.85rem, env(safe-area-inset-inline-start)) 0.65rem
+      max(0.85rem, env(safe-area-inset-inline-end));
+    gap: 0.3rem;
+  }
+  .stays-book-shell__intro {
+    gap: 0.2rem;
+  }
+  .stays-book-shell__brand,
+  .stays-book-shell__headline,
+  .stays-book-shell__lede,
+  .stays-book-shell__facts,
+  .stays-book-shell__steps,
+  .stays-book-shell__cta {
+    display: none;
+  }
+  .stays-book-shell__place {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 800;
+  }
+  .stays-book-shell__place small {
+    font-size: 0.78rem;
+  }
+  .stays-book-shell__aside-bg {
+    object-position: center 35%;
+  }
+}
 .stays-book-shell__aside-inner {
   position: relative;
   isolation: isolate;
@@ -19744,8 +19779,10 @@ button.lrw__step-body:focus-visible {
     width: min(100%, 36rem);
   }
 }
-.stays-book-shell--wide-form .stays-book-shell__aside {
-  min-height: clamp(12rem, 34vw, 16rem);
+@media (min-width: 900px) {
+  .stays-book-shell--wide-form .stays-book-shell__aside {
+    min-height: clamp(12rem, 34vw, 16rem);
+  }
 }
 .stays-book-shell--wide-form .stays-book-shell__headline {
   font-size: clamp(1.4rem, 3.6vw, 1.9rem);
@@ -19993,6 +20030,11 @@ button.lrw__step-body:focus-visible {
 }
 .terms-acceptance {
   margin: 0 0 1rem;
+  display: grid;
+  gap: 0.65rem;
+}
+.terms-acceptance__view {
+  font-size: 0.88rem;
 }
 .lease-checkout__question {
   margin: 0 0 0.5rem;
@@ -20006,6 +20048,9 @@ button.lrw__step-body:focus-visible {
   color: #7a4b00;
   font-size: 0.88rem;
   font-weight: 600;
+}
+.stays-checkout__calendar-hint {
+  margin: 0 0 0.55rem;
 }
 .stays-checkout__terms-title {
   margin: 1rem 0 0.5rem;

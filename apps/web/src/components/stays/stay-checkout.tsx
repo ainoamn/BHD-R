@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { BookingStepScene } from '@/components/stays/booking-step-scene';
 import { GuestCountField, isValidGuestCount } from '@/components/stays/guest-count-field';
+import { StayAvailabilityCalendar } from '@/components/stays/stay-availability-calendar';
 import { TermsAcceptance } from '@/components/terms-acceptance';
 import { Link } from '@/i18n/navigation';
 import {
@@ -1028,55 +1029,90 @@ export function StayCheckout({
                 </div>
               </dl>
             ) : (
-              <div className="stays-checkout__dates">
-                <div className="stays-checkout__date">
-                  <label htmlFor="stay-book-in">
-                    {isSameCalendarDayStay(stayType)
-                      ? ar
-                        ? 'اليوم'
-                        : 'Day'
-                      : ar
-                        ? 'الوصول'
-                        : 'Check-in'}
-                  </label>
-                  <input
-                    className="input"
-                    id="stay-book-in"
-                    type="date"
-                    required
-                    min={today}
-                    value={checkInOn}
-                    onChange={(event) => changeCheckIn(event.target.value)}
-                  />
-                </div>
-                {!isSameCalendarDayStay(stayType) ? (
+              <>
+                <p className="stays-checkout__hint stays-checkout__calendar-hint">
+                  {ar
+                    ? 'الأيام غير الشاغرة معلّمة ولا يمكن اختيارها. اختر الوصول ثم المغادرة من الأيام المتاحة.'
+                    : 'Unavailable days are marked and cannot be selected. Pick arrival then departure from free days.'}
+                </p>
+                <StayAvailabilityCalendar
+                  locale={locale}
+                  mode="public"
+                  slug={slug}
+                  unitId={unitId}
+                  monthCount={1}
+                  size="compact"
+                  selectedCheckIn={checkInOn}
+                  selectedCheckOut={isSameCalendarDayStay(stayType) ? '' : checkOutOn}
+                  onRangeChange={(nextIn, nextOut, halfDay) => {
+                    if (halfDay) {
+                      setStayType(halfDay);
+                      setCheckInOn(nextIn);
+                      setCheckOutOn(nextIn);
+                      return;
+                    }
+                    setCheckInOn(nextIn);
+                    if (isSameCalendarDayStay(stayType)) {
+                      setCheckOutOn(nextIn);
+                      return;
+                    }
+                    if (nextOut > nextIn) {
+                      setCheckOutOn(nextOut);
+                      return;
+                    }
+                    setCheckOutOn(addUtcDays(nextIn, Math.max(1, stayNights || 1)));
+                  }}
+                />
+                <div className="stays-checkout__dates">
                   <div className="stays-checkout__date">
-                    <label htmlFor="stay-book-out">{ar ? 'المغادرة' : 'Check-out'}</label>
+                    <label htmlFor="stay-book-in">
+                      {isSameCalendarDayStay(stayType)
+                        ? ar
+                          ? 'اليوم'
+                          : 'Day'
+                        : ar
+                          ? 'الوصول'
+                          : 'Check-in'}
+                    </label>
                     <input
                       className="input"
-                      id="stay-book-out"
+                      id="stay-book-in"
                       type="date"
                       required
-                      min={isIsoDate(checkInOn) ? addUtcDays(checkInOn, 1) : today}
-                      value={checkOutOn}
-                      onChange={(event) => setCheckOutOn(event.target.value)}
+                      min={today}
+                      value={checkInOn}
+                      onChange={(event) => changeCheckIn(event.target.value)}
                     />
                   </div>
-                ) : (
-                  <div className="stays-checkout__date stays-checkout__date--note">
-                    <span className="stays-checkout__date-label">{ar ? 'الفترة' : 'Period'}</span>
-                    <p className="stays-checkout__period-note">
-                      {stayType === 'day_use'
-                        ? ar
-                          ? 'صباحية · تقريباً 11:00–16:00'
-                          : 'Morning · about 11:00–16:00'
-                        : ar
-                          ? 'مسائية مع مبيت'
-                          : 'Evening with overnight'}
-                    </p>
-                  </div>
-                )}
-              </div>
+                  {!isSameCalendarDayStay(stayType) ? (
+                    <div className="stays-checkout__date">
+                      <label htmlFor="stay-book-out">{ar ? 'المغادرة' : 'Check-out'}</label>
+                      <input
+                        className="input"
+                        id="stay-book-out"
+                        type="date"
+                        required
+                        min={isIsoDate(checkInOn) ? addUtcDays(checkInOn, 1) : today}
+                        value={checkOutOn}
+                        onChange={(event) => setCheckOutOn(event.target.value)}
+                      />
+                    </div>
+                  ) : (
+                    <div className="stays-checkout__date stays-checkout__date--note">
+                      <span className="stays-checkout__date-label">{ar ? 'الفترة' : 'Period'}</span>
+                      <p className="stays-checkout__period-note">
+                        {stayType === 'day_use'
+                          ? ar
+                            ? 'صباحية · تقريباً 11:00–16:00'
+                            : 'Morning · about 11:00–16:00'
+                          : ar
+                            ? 'مسائية مع مبيت'
+                            : 'Evening with overnight'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
             {!embedded && !isSameCalendarDayStay(stayType) ? (
               <div className="stays-checkout__nights">

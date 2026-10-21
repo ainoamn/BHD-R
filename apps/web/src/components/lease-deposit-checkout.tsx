@@ -473,6 +473,7 @@ export function LeaseDepositCheckout({
             onAcceptedChange={setAccepted}
             resetKey={`${mode}:${termsRef}`}
             id="lease-booking-terms"
+            mode="scroll"
           />
           <button
             type="button"
