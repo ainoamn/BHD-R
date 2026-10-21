@@ -980,13 +980,46 @@ export function AccountingHub({
                       }}
                     >
                       <td>
-                        <span className={`accounting-hub__chip accounting-hub__chip--${row.kind}`}>
-                          <i aria-hidden="true" />
-                          {accountingDocKindLabel(row.kind, locale)}
+                        <span
+                          className={
+                            row.kind === 'receipt'
+                              ? 'tenant-doc-link tenant-doc-link--receipt'
+                              : row.kind === 'invoice'
+                                ? 'tenant-doc-link tenant-doc-link--invoice'
+                                : `accounting-hub__chip accounting-hub__chip--${row.kind}`
+                          }
+                        >
+                          {row.kind === 'receipt' || row.kind === 'invoice' ? null : (
+                            <i aria-hidden="true" />
+                          )}
+                          {row.kind === 'receipt'
+                            ? ar
+                              ? 'إيصال القبض'
+                              : 'Receipt'
+                            : row.kind === 'invoice'
+                              ? ar
+                                ? 'الفاتورة'
+                                : 'Invoice'
+                              : accountingDocKindLabel(row.kind, locale)}
                         </span>
                       </td>
                       <td>
-                        <span className={`accounting-hub__status accounting-hub__status--${row.status}`}>
+                        <span
+                          className={
+                            row.status === 'overdue' ||
+                            row.status === 'bounced' ||
+                            row.status === 'failed'
+                              ? 'tenant-status tenant-status--bad'
+                              : row.status === 'paid' ||
+                                  row.status === 'posted' ||
+                                  row.status === 'succeeded' ||
+                                  row.status === 'cleared'
+                                ? 'tenant-status tenant-status--good'
+                                : row.status === 'partially_paid' || row.status === 'due_soon'
+                                  ? 'tenant-status tenant-status--warn'
+                                  : `accounting-hub__status accounting-hub__status--${row.status}`
+                          }
+                        >
                           {accountingExpenseStatusLabel(row.status, locale)}
                         </span>
                         {row.archived ? (
@@ -1012,14 +1045,30 @@ export function AccountingHub({
                         <div className="accounting-hub__row-actions">
                           <button
                             type="button"
-                            className="accounting-act accounting-act--print"
+                            className={
+                              row.kind === 'receipt'
+                                ? 'tenant-doc-link tenant-doc-link--receipt'
+                                : row.kind === 'invoice'
+                                  ? 'tenant-doc-link tenant-doc-link--invoice'
+                                  : 'accounting-act accounting-act--print'
+                            }
                             onClick={() => {
                               void printAccountingDocument(row, locale).then((failed) => {
                                 if (failed) setError(failed);
                               });
                             }}
                           >
-                            {ar ? 'طباعة' : 'Print'}
+                            {row.kind === 'receipt'
+                              ? ar
+                                ? 'إيصال القبض'
+                                : 'Receipt'
+                              : row.kind === 'invoice'
+                                ? ar
+                                  ? 'الفاتورة'
+                                  : 'Invoice'
+                                : ar
+                                  ? 'طباعة'
+                                  : 'Print'}
                           </button>
                           <button
                             type="button"

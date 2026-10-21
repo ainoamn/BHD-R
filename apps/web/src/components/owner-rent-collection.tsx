@@ -7,16 +7,12 @@ import {
   minorOf,
   type PaymentMethod,
 } from '@/components/owner-tenant-requests';
+import { RentDocLinks } from '@/components/rent-doc-links';
 import { Link, useRouter } from '@/i18n/navigation';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import type { RentCollectionLease, RentCollectionView } from '@/lib/rent-collection-neon';
-import {
-  rentDocHref,
-  rentDocKindsOf,
-  rentMonthLabel,
-  type RentDocSubject,
-} from '@/lib/rent-documents';
+import { rentMonthLabel, type RentDocSubject } from '@/lib/rent-documents';
 import { tenantRequestErrorText } from '@/lib/tenant-requests-shared';
 
 function leaseLabel(lease: RentCollectionLease, ar: boolean): string {
@@ -134,22 +130,7 @@ function SubjectRow({
         {ar ? subject.status.ar : subject.status.en}
       </span>
       <div className="rent-collect__actions">
-        {rentDocKindsOf(subject).map((kind) => (
-          <Link
-            key={kind}
-            className="button button--quiet button--tiny"
-            href={rentDocHref('owner', leaseId, subject.key, kind)}
-            prefetch={false}
-          >
-            {kind === 'receipt'
-              ? ar
-                ? '🧾 الإيصال'
-                : '🧾 Receipt'
-              : ar
-                ? '📄 الفاتورة'
-                : '📄 Invoice'}
-          </Link>
-        ))}
+        <RentDocLinks portal="owner" leaseId={leaseId} subject={subject} ar={ar} />
         {recordable ? (
           <button
             type="button"

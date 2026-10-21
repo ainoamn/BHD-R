@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { AccountingFollowTask } from '@/components/accounting/accounting-follow-task';
+import { outstandingMinorOf, RentDocLinks } from '@/components/rent-doc-links';
 import {
   fetchAccountingJson,
   getAccountingCache,
@@ -22,10 +23,21 @@ type ChequeRow = {
   reviewStatus: string;
   lineStatus?: string;
   kind?: string;
+  lineKey?: string | null;
   leaseId: string | null;
   tenantName: string | null;
   propertyName: string | null;
   unitCode: string | null;
+};
+
+const STATUS_TONE: Partial<Record<string, string>> = {
+  paid: 'good',
+  overdue: 'bad',
+  bounced: 'bad',
+  stopped: 'bad',
+  partially_paid: 'warn',
+  due_soon: 'warn',
+  collecting: 'info',
 };
 
 type Summary = {
@@ -149,26 +161,35 @@ export function AccountingChequesPanel({
       </div>
 
       {summary ? (
-        <div className="accounting-hub__stat-row" role="group" aria-label={ar ? 'ملخص التحصيل' : 'Collection summary'}>
-          <div className="accounting-hub__stat">
-            <span className="accounting-hub__stat-label">{ar ? 'متأخرات العقارات' : 'Property arrears'}</span>
-            <strong>
-              {formatMoney(summary.arrearsMinor, summary.currency || 'OMR', locale)}
-            </strong>
-            <span className="accounting-hub__meta">
-              {ar ? `${summary.overdueCount} قسط متأخر` : `${summary.overdueCount} overdue`}
-            </span>
-          </div>
-          <div className="accounting-hub__stat">
-            <span className="accounting-hub__stat-label">
-              {ar ? 'متوقع استلامه لاحقاً' : 'Expected receipts'}
-            </span>
-            <strong>
-              {formatMoney(summary.expectedMinor, summary.currency || 'OMR', locale)}
-            </strong>
-            <span className="accounting-hub__meta">
-              {ar ? `${summary.upcomingCount} قسط قادم` : `${summary.upcomingCount} upcoming`}
-            </span>
+        <div className="accounting-hub__finance-summary">
+          {summary.arrearsMinor !== '0' ? (
+            <section className="tenant-arrears" aria-label={ar ? 'المتأخرات' : 'Arrears'}>
+              <header>
+                <h3>{ar ? 'المتأخرات على المستأجرين' : 'Tenant arrears'}</h3>
+                <strong>
+                  {formatMoney(summary.arrearsMinor, summary.currency || 'OMR', locale)}
+                </strong>
+              </header>
+              <ul className="tenant-arrears__totals">
+                <li>
+                  <span>{ar ? 'أقساط متأخرة' : 'Overdue installments'}</span>
+                  <b>{summary.overdueCount}</b>
+                </li>
+              </ul>
+            </section>
+          ) : null}
+          <div className="accounting-hub__stat-row" role="group" aria-label={ar ? 'ملخص التحصيل' : 'Collection summary'}>
+            <div className="accounting-hub__stat">
+              <span className="accounting-hub__stat-label">
+                {ar ? 'متوقع استلامه لاحقاً' : 'Expected receipts'}
+              </span>
+              <strong>
+                {formatMoney(summary.expectedMinor, summary.currency || 'OMR', locale)}
+              </strong>
+              <span className="accounting-hub__meta">
+                {ar ? `${summary.upcomingCount} قسط قادم` : `${summary.upcomingCount} upcoming`}
+              </span>
+            </div>
           </div>
         </div>
       ) : null}
@@ -202,62 +223,83 @@ export function AccountingChequesPanel({
               <th>{ar ? 'الاستحقاق' : 'Due'}</th>
               <th>{ar ? 'الحالة' : 'Status'}</th>
               <th className="num">{ar ? 'المبلغ' : 'Amount'}</th>
+              <th>{ar ? 'الإيصال والفاتورة' : 'Receipt & invoice'}</th>
               <th>{ar ? 'إجراءات' : 'Actions'}</th>
             </tr>
           </thead>
           <tbody>
             {rows === null ? (
               <tr>
-                <td colSpan={8}>{ar ? 'جارٍ التحميل…' : 'Loading…'}</td>
+                <td colSpan={9}>{ar ? 'جارٍ التحميل…' : 'Loading…'}</td>
               </tr>
             ) : visible.length === 0 ? (
               <tr>
-                <td colSpan={8}>
+                <td colSpan={9}>
                   {ar
                     ? 'لا أقساط بعد — وثّق عقد إيجار بجدول دفعات لتظهر هنا مباشرة.'
                     : 'No installments yet — document a lease with a payment schedule to see them here.'}
                 </td>
               </tr>
             ) : (
-              visible.map((row) => (
-                <tr key={row.id} data-kind="cheque">
-                  <td dir="ltr">
-                    <span className="accounting-hub__chip accounting-hub__chip--cheque">
-                      <i aria-hidden="true" />
-                    </span>{' '}
-                    {row.chequeNumber}
-                  </td>
-                  <td>
-                    <bdi>{row.tenantName || '—'}</bdi>
-                  </td>
-                  <td>
-                    {[row.propertyName, row.unitCode].filter(Boolean).join(' · ') || '—'}
-                  </td>
-                  <td>{row.bankName}</td>
-                  <td dir="ltr">{row.dueOn}</td>
-                  <td>
-                    <span
-                      className={`accounting-hub__status accounting-hub__status--${row.lineStatus || row.reviewStatus}`}
-                    >
-                      {statusLabel(row)}
-                    </span>
-                  </td>
-                  <td className="num">
-                    {formatMoney(row.amountMinor, row.currency || 'OMR', locale)}
-                  </td>
-                  <td>
-                    <AccountingFollowTask
-                      locale={locale}
-                      kind="cheque"
-                      sourceId={row.id}
-                      title={`${row.chequeNumber} · ${row.tenantName || row.propertyName || ''}`.trim()}
-                      detail={[row.propertyName, row.unitCode, row.bankName].filter(Boolean).join(' · ')}
-                      dueOn={row.dueOn}
-                      status={row.lineStatus || row.reviewStatus}
-                    />
-                  </td>
-                </tr>
-              ))
+              visible.map((row) => {
+                const tone = STATUS_TONE[row.lineStatus || ''] ?? '';
+                const paid = row.paidMinor ?? '0';
+                return (
+                  <tr key={row.id} data-kind="cheque">
+                    <td dir="ltr">
+                      <span className="accounting-hub__chip accounting-hub__chip--cheque">
+                        <i aria-hidden="true" />
+                      </span>{' '}
+                      {row.chequeNumber}
+                    </td>
+                    <td>
+                      <bdi>{row.tenantName || '—'}</bdi>
+                    </td>
+                    <td>
+                      {[row.propertyName, row.unitCode].filter(Boolean).join(' · ') || '—'}
+                    </td>
+                    <td>{row.bankName}</td>
+                    <td dir="ltr">{row.dueOn}</td>
+                    <td>
+                      <span
+                        className={`tenant-status${tone ? ` tenant-status--${tone}` : ''}`}
+                      >
+                        {statusLabel(row)}
+                      </span>
+                    </td>
+                    <td className="num">
+                      {formatMoney(row.amountMinor, row.currency || 'OMR', locale)}
+                    </td>
+                    <td>
+                      {row.leaseId && row.lineKey ? (
+                        <RentDocLinks
+                          portal="owner"
+                          leaseId={row.leaseId}
+                          lineKey={row.lineKey}
+                          paidMinor={paid}
+                          outstandingMinor={outstandingMinorOf(row.amountMinor, paid)}
+                          ar={ar}
+                        />
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td>
+                      <AccountingFollowTask
+                        locale={locale}
+                        kind="cheque"
+                        sourceId={row.id}
+                        title={`${row.chequeNumber} · ${row.tenantName || row.propertyName || ''}`.trim()}
+                        detail={[row.propertyName, row.unitCode, row.bankName]
+                          .filter(Boolean)
+                          .join(' · ')}
+                        dueOn={row.dueOn}
+                        status={row.lineStatus || row.reviewStatus}
+                      />
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

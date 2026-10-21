@@ -2,13 +2,8 @@ import { EmptyState } from '@bhd-r/ui';
 import { Link } from '@/i18n/navigation';
 import { formatMoney } from '@/lib/format';
 import { TenantRequestLauncher, type RequestLease } from '@/components/tenant-request-form';
-import {
-  rentDocHref,
-  rentDocKindsOf,
-  rentDocSubjects,
-  rentMonthLabel,
-  type RentDocSubject,
-} from '@/lib/rent-documents';
+import { RentDocLinks } from '@/components/rent-doc-links';
+import { rentDocSubjects, rentMonthLabel } from '@/lib/rent-documents';
 import { chargeCategoryOf, chargeLabel } from '@/lib/tenant-charges-shared';
 import {
   arrearsLabel,
@@ -60,41 +55,6 @@ export function requestLeasesOf(statements: TenancyStatement[], ar: boolean): Re
       arrearsMinor: item.statement.arrears.totalMinor,
       arrears: item.statement.arrears.byCategory,
     }));
-}
-
-/** Links to the signed receipt (anything paid) and demand invoice (anything left) of one item. */
-function DocLinks({
-  leaseId,
-  subject,
-  ar,
-}: {
-  leaseId: string;
-  subject: RentDocSubject | undefined;
-  ar: boolean;
-}) {
-  if (!subject) return null;
-  const kinds = rentDocKindsOf(subject);
-  if (!kinds.length) return null;
-  return (
-    <span className="tenant-statement__docs">
-      {kinds.map((kind) => (
-        <Link
-          key={kind}
-          className={`tenant-doc-link tenant-doc-link--${kind}`}
-          href={rentDocHref('tenant', leaseId, subject.key, kind)}
-          prefetch={false}
-        >
-          {kind === 'receipt'
-            ? ar
-              ? '🧾 إيصال القبض'
-              : '🧾 Receipt'
-            : ar
-              ? '📄 الفاتورة'
-              : '📄 Invoice'}
-        </Link>
-      ))}
-    </span>
-  );
 }
 
 /** Everything the tenant is late on for this lease: rent, utility bills, maintenance, damage. */
@@ -302,7 +262,12 @@ function StatementCard({
                     </span>
                   </td>
                   <td data-label={ar ? 'الإيصال والفاتورة' : 'Receipt & invoice'}>
-                    <DocLinks leaseId={item.leaseId} subject={subjects.get(line.key)} ar={ar} />
+                    <RentDocLinks
+                      portal="tenant"
+                      leaseId={item.leaseId}
+                      subject={subjects.get(line.key)}
+                      ar={ar}
+                    />
                   </td>
                   <td>
                     {chequeIsAdjustable(line) && requestLease ? (
@@ -359,7 +324,8 @@ function StatementCard({
                   <span>{day(invoice.dueOn, ar)}</span>
                   <span>{money(invoice.totalMinor)}</span>
                   <span className="tenant-status">{domainStatusLabel(invoice.status, ar)}</span>
-                  <DocLinks
+                  <RentDocLinks
+                    portal="tenant"
                     leaseId={item.leaseId}
                     subject={subjects.get(`charge-${invoice.id}`)}
                     ar={ar}

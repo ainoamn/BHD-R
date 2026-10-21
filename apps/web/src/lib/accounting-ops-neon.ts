@@ -275,6 +275,8 @@ export type AccountingChequeRow = {
   /** Ledger line status from the same builder as tenant invoices. */
   lineStatus: string;
   kind: string;
+  /** Ledger / rent-document line key (`rent-3`, `cheque-…`) for receipt & invoice links. */
+  lineKey: string | null;
   leaseId: string | null;
   tenantName: string | null;
   propertyName: string | null;
@@ -608,6 +610,7 @@ export async function listAccountingCheques(
           reviewStatus: reviewStatusFromLine(line.chequeStatus, line.status),
           lineStatus: line.status,
           kind: line.kind,
+          lineKey: line.key,
           leaseId: lease.leaseId,
           tenantName: lease.tenantName,
           propertyName: lease.propertyNameAr || lease.propertyNameEn || null,
@@ -649,6 +652,7 @@ export async function listAccountingCheques(
         reviewStatus: row.reviewStatus,
         lineStatus,
         kind: 'cheque',
+        lineKey: row.leaseId ? `cheque-${row.id}` : null,
         leaseId: row.leaseId,
         tenantName: row.tenantName,
         propertyName: row.propertyNameAr || row.propertyNameEn || null,

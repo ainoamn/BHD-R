@@ -259,8 +259,10 @@ function InvoicesTable({ ar, locale, data, openOnly = false }: Ctx & { openOnly?
             <Status
               label={domainStatusLabel(invoice.status, ar)}
               tone={
-                invoice.status === 'overdue'
-                  ? 'action'
+                invoice.status === 'overdue' || invoice.status === 'partially_paid'
+                  ? invoice.status === 'overdue'
+                    ? 'danger'
+                    : 'action'
                   : invoice.status === 'paid'
                     ? 'good'
                     : undefined
@@ -269,9 +271,13 @@ function InvoicesTable({ ar, locale, data, openOnly = false }: Ctx & { openOnly?
           </td>
           <td>
             {invoice.receiptHref ? (
-              <Link className="ops-action" href={invoice.receiptHref}>
-                {ar ? 'الإيصال' : 'Receipt'}
+              <Link className="tenant-doc-link tenant-doc-link--receipt" href={invoice.receiptHref}>
+                {ar ? 'إيصال القبض' : 'Receipt'}
               </Link>
+            ) : OPEN_INVOICE.has(invoice.status) ? (
+              <span className="tenant-doc-link tenant-doc-link--invoice">
+                {ar ? 'الفاتورة' : 'Invoice'}
+              </span>
             ) : null}
           </td>
         </tr>
@@ -321,8 +327,8 @@ function PaymentsTable({ ar, locale, data }: Ctx) {
           </td>
           <td>
             {payment.receiptHref ? (
-              <Link className="ops-action" href={payment.receiptHref}>
-                {ar ? 'الإيصال' : 'Receipt'}
+              <Link className="tenant-doc-link tenant-doc-link--receipt" href={payment.receiptHref}>
+                {ar ? 'إيصال القبض' : 'Receipt'}
               </Link>
             ) : null}
           </td>
@@ -428,8 +434,14 @@ const VIEW_COPY: Record<
     ],
   },
   payments: {
-    ar: ['مدفوعاتي', 'ما دفعته للملاك، وأي مبالغ مستردة.'],
-    en: ['My payments', 'What you paid landlords, and any refunds.'],
+    ar: [
+      'مدفوعاتي والفواتير',
+      'كشف أقساط العقود والشيكات والمتأخرات، مع إيصالات القبض والفواتير، ثم المدفوعات المباشرة.',
+    ],
+    en: [
+      'My payments & invoices',
+      'Lease installments, cheques and arrears with receipts and invoices, then direct payments.',
+    ],
   },
   requests: {
     ar: [
@@ -521,9 +533,12 @@ export function TenantSpaceContent({
           <ContractsTable {...ctx} />
         ) : view === 'leases' ? (
           <LeasesTable {...ctx} />
-        ) : view === 'invoices' ? (
+        ) : view === 'invoices' || view === 'payments' ? (
           <>
-            <Section title={ar ? 'كشف حساب العقود' : 'Lease statements'}>
+            {data.statements.some((item) => item.statement.arrears.totalMinor !== '0') ? (
+              <TenantArrearsSummary statements={data.statements} ar={ar} locale={locale} />
+            ) : null}
+            <Section title={ar ? 'كشف حساب العقود والشيكات' : 'Lease statements & cheques'}>
               <TenantStatements statements={data.statements} ar={ar} locale={locale} />
             </Section>
             <Section title={ar ? 'كل الفواتير الصادرة لك' : 'All invoices issued to you'}>
@@ -576,9 +591,7 @@ export function TenantSpaceContent({
             )}
             <TenantRequestsList requests={data.requests} locale={locale} />
           </>
-        ) : (
-          <PaymentsTable {...ctx} />
-        )}
+        ) : null}
       </div>
     );
   }
