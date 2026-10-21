@@ -501,7 +501,7 @@ export function DepositLedgerPanel({
                 {row.kind !== 'reservation_deposit' && payoutId === id ? (
                   <ModalPortal onClose={() => !busyId && setPayoutId(null)}>
                     <div
-                      className="ops-modal deposit-payout-modal"
+                      className="ops-modal ops-modal--create deposit-payout-modal"
                       role="presentation"
                       onMouseDown={(event) => {
                         if (event.target === event.currentTarget && !busyId) setPayoutId(null);
