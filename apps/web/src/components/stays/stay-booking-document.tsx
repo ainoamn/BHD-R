@@ -1,6 +1,23 @@
 import type { ReactNode } from 'react';
+import { StayCheckinPass } from '@/components/stays/stay-checkin-pass';
 import { formatMoney } from '@/lib/format';
+import {
+  stayPaymentKindLabel,
+  stayPaymentMethodLabel,
+  type StayBookingPaymentKind,
+} from '@/lib/stay-booking-payment-labels';
 import { stayStatusLabel, stayTypeLabel } from '@/lib/ui-labels';
+
+export type StayBookingDocumentPayment = {
+  id: string;
+  amountMinor: string;
+  currency: string;
+  kind: StayBookingPaymentKind;
+  sequence: number;
+  paidAt: string | null;
+  provider: string;
+  providerIntentId?: string | null;
+};
 
 export type StayBookingDocumentData = {
   referenceCode: string;
@@ -15,6 +32,9 @@ export type StayBookingDocumentData = {
   adults?: number | null;
   children?: number | null;
   stayType?: string | null;
+  /** When set, payment receipt shows this charge only (not booking total). */
+  payment?: StayBookingDocumentPayment | null;
+  paymentCount?: number;
 };
 
 export type StayBookingDocumentKind = 'payment' | 'confirmation';
@@ -46,30 +66,39 @@ export function StayBookingDocument({
 }) {
   const ar = locale === 'ar';
   const paid = booking.status === 'confirmed' || booking.status === 'paid';
+  const payment = kind === 'payment' ? (booking.payment ?? null) : null;
   const title =
     kind === 'payment'
-      ? ar
-        ? 'إيصال دفع'
-        : 'Payment receipt'
+      ? payment
+        ? ar
+          ? `إيصال دفع · ${stayPaymentKindLabel(payment.kind, true)}`
+          : `Payment receipt · ${stayPaymentKindLabel(payment.kind, false)}`
+        : ar
+          ? 'إيصال دفع'
+          : 'Payment receipt'
       : ar
         ? 'تأكيد حجز'
         : 'Booking confirmation';
   const subtitle =
     kind === 'payment'
-      ? ar
-        ? 'مستند رسمي لاستلام مبلغ حجز إقامة يومية.'
-        : 'Official record of stay booking payment.'
+      ? payment
+        ? ar
+          ? `مستند رسمي لاستلام دفعة رقم ${payment.sequence}${(booking.paymentCount ?? 0) > 1 ? ` من ${booking.paymentCount}` : ''} المرتبطة بالحجز.`
+          : `Official record of payment #${payment.sequence}${(booking.paymentCount ?? 0) > 1 ? ` of ${booking.paymentCount}` : ''} on this booking.`
+        : ar
+          ? 'مستند رسمي لاستلام مبلغ حجز إقامة يومية.'
+          : 'Official record of stay booking payment.'
       : ar
         ? 'مستند رسمي لتأكيد تفاصيل حجز الإقامة.'
         : 'Official confirmation of stay booking details.';
+  const amountMinor = payment?.amountMinor ?? booking.totalMinor;
+  const amountCurrency = payment?.currency ?? booking.currency;
   const amountLabel =
-    booking.totalMinor && booking.currency
-      ? formatMoney(booking.totalMinor, booking.currency, locale)
-      : null;
+    amountMinor && amountCurrency ? formatMoney(amountMinor, amountCurrency, locale) : null;
   const issuedOn = new Intl.DateTimeFormat(ar ? 'ar-OM' : 'en-GB', {
     dateStyle: 'medium',
     timeStyle: 'short',
-  }).format(new Date());
+  }).format(payment?.paidAt ? new Date(payment.paidAt) : new Date());
 
   return (
     <article className="stay-doc" id="stay-receipt" data-doc-kind={kind}>
@@ -86,6 +115,12 @@ export function StayBookingDocument({
           <p className="stay-doc__kind">{title}</p>
           <p className="stay-doc__number" dir="ltr">
             {booking.referenceCode}
+            {payment ? (
+              <>
+                {' · '}
+                {ar ? `دفعة ${payment.sequence}` : `Pay ${payment.sequence}`}
+              </>
+            ) : null}
           </p>
           <p className="stay-doc__issued">
             {ar ? 'تاريخ الإصدار' : 'Issued'} · {issuedOn}
@@ -135,6 +170,21 @@ export function StayBookingDocument({
         {typeof booking.children === 'number' ? (
           <Row label={ar ? 'أطفال' : 'Children'} value={String(booking.children)} />
         ) : null}
+        {payment ? (
+          <>
+            <Row
+              label={ar ? 'نوع الدفعة' : 'Payment kind'}
+              value={stayPaymentKindLabel(payment.kind, ar)}
+            />
+            <Row
+              label={ar ? 'طريقة الدفع' : 'Payment method'}
+              value={stayPaymentMethodLabel(payment.provider, ar)}
+            />
+            {payment.providerIntentId ? (
+              <Row label={ar ? 'مرجع المزود' : 'Provider ref'} value={payment.providerIntentId} ltr />
+            ) : null}
+          </>
+        ) : null}
       </dl>
 
       {amountLabel ? (
@@ -152,6 +202,12 @@ export function StayBookingDocument({
         </div>
       ) : null}
 
+      {kind === 'confirmation' ? (
+        <div className="stay-doc__checkin-pass">
+          <StayCheckinPass locale={locale} referenceCode={booking.referenceCode} />
+        </div>
+      ) : null}
+
       <footer className="stay-doc__footer">
         <p>
           {kind === 'payment'
@@ -159,8 +215,8 @@ export function StayBookingDocument({
               ? 'يُعدّ هذا المستند إيصالاً مالياً لعملية الدفع المرتبطة برقم الحجز أعلاه.'
               : 'This document is a financial receipt for the payment linked to the booking reference above.'
             : ar
-              ? 'يُعدّ هذا المستند تأكيداً رسمياً لتفاصيل الحجز. يُرجى الاحتفاظ به ليوم الوصول.'
-              : 'This document is an official confirmation of the booking details. Please keep it for check-in.'}
+              ? 'يُعدّ هذا المستند تأكيداً رسمياً لتفاصيل الحجز. اعرض الباركود أعلاه عند الوصول لتسجيل الدخول.'
+              : 'This document is an official confirmation of the booking details. Show the barcode above at arrival for check-in.'}
         </p>
         <p className="stay-doc__thanks">
           {ar ? 'شكراً لاختياركم BHD R' : 'Thank you for choosing BHD R'}

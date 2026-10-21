@@ -38,6 +38,10 @@ import {
 import type { DepositClaimView } from '@/lib/stay-deposit-claims';
 import { loadDepositClaims } from '@/lib/stay-deposit-claims-neon';
 import { stayRescheduleCharge, type StayRescheduleCharge } from '@/lib/stay-reschedule-pricing';
+import {
+  loadStayBookingPayments,
+  type StayBookingPaymentLine,
+} from '@/lib/stay-booking-payments';
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdRPublicStaysGuestDb?: DbHandle };
@@ -102,6 +106,8 @@ export type GuestStayBookingProjection = {
   children?: number | null;
   stayType?: string | null;
   paymentIntentId?: string | null;
+  /** Succeeded charges on this booking — one receipt each. */
+  payments?: StayBookingPaymentLine[];
   listingSlug?: string | null;
   listingTitleAr?: string | null;
   listingTitleEn?: string | null;
@@ -574,6 +580,7 @@ async function enrichProjection(
   });
   const [
     paymentIntentId,
+    payments,
     listing,
     stamps,
     deposits,
@@ -584,6 +591,9 @@ async function enrichProjection(
     payUrl,
   ] = await Promise.all([
     resolvePaymentIntentId(transaction, booking.organizationId, booking.id),
+    loadStayBookingPayments(transaction, booking.organizationId, booking.id, {
+      succeededOnly: true,
+    }),
     resolveListing(transaction, booking.organizationId, booking.stayProfileId),
     STAMPED_STATUSES.has(booking.status)
       ? loadStayStamps(transaction, booking.organizationId, [booking.id])
@@ -620,6 +630,7 @@ async function enrichProjection(
     canRequestDepositRefund: Boolean(depositMinor && !refund && booking.status === 'checked_out'),
     ...base,
     paymentIntentId,
+    payments,
     listingSlug: listing?.slug ?? null,
     listingTitleAr: listing?.titleAr ?? null,
     listingTitleEn: listing?.titleEn ?? null,

@@ -9,6 +9,8 @@ import { bookingStatusTone } from '@/lib/booking-priority';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { loadGuestReviewState } from '@/lib/booking-reviews-neon';
 import { lookupPublicStayBookingOnNeon } from '@/lib/public-stays-guest-neon';
+import { stayPaymentKindLabel } from '@/lib/stay-booking-payment-labels';
+import type { StayBookingPaymentLine } from '@/lib/stay-booking-payments';
 import { StayGuestReview } from '@/components/stays/stay-guest-review';
 import { isStaysPlatformEnabled } from '@/lib/stays-flags';
 import { ApiError, apiFetch, publicApiFetch } from '@/lib/server-api';
@@ -51,6 +53,7 @@ type GuestBooking = {
   bookingMode?: string;
   timezone?: string;
   paymentIntentId?: string | null;
+  payments?: StayBookingPaymentLine[];
   listingSlug?: string | null;
   listingTitleAr?: string | null;
   listingTitleEn?: string | null;
@@ -666,12 +669,26 @@ export default async function GuestStayDetailPage({
             ) : null}
             {paid ? (
               <div className="guest-stay-detail__docs">
-                <Link
-                  className="button button--quiet"
-                  href={`/stays/booking/receipt?ref=${refQuery}&doc=payment`}
-                >
-                  {ar ? 'إيصال الدفع (PDF)' : 'Payment receipt (PDF)'}
-                </Link>
+                {(booking.payments?.length ?? 0) > 0 ? (
+                  booking.payments!.map((line) => (
+                    <Link
+                      key={line.id}
+                      className="button button--quiet"
+                      href={`/stays/booking/receipt?ref=${refQuery}&doc=payment&pay=${encodeURIComponent(line.id)}`}
+                    >
+                      {ar
+                        ? `إيصال ${stayPaymentKindLabel(line.kind, true)} (${formatMoney(line.amountMinor, line.currency, locale)})`
+                        : `${stayPaymentKindLabel(line.kind, false)} receipt (${formatMoney(line.amountMinor, line.currency, locale)})`}
+                    </Link>
+                  ))
+                ) : (
+                  <Link
+                    className="button button--quiet"
+                    href={`/stays/booking/receipt?ref=${refQuery}&doc=payment`}
+                  >
+                    {ar ? 'إيصال الدفع (PDF)' : 'Payment receipt (PDF)'}
+                  </Link>
+                )}
                 <Link
                   className="button button--quiet"
                   href={`/stays/booking/receipt?ref=${refQuery}&doc=confirmation`}

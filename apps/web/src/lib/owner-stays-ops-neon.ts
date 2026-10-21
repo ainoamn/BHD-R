@@ -8,7 +8,6 @@ import {
   stayBookings,
   stayBookingGuests,
   stayBookingStatusHistory,
-  stayPaymentIntents,
   stayProfiles,
   stayPublicListings,
   units,
@@ -37,6 +36,7 @@ import { loadStayStamps } from '@/lib/stay-arrival-neon';
 import { loadDepositClaims } from '@/lib/stay-deposit-claims-neon';
 import { loadBookingDeposits, loadDepositRefunds } from '@/lib/stay-deposit-refund-neon';
 import type { StayBookingTimelineFacts } from '@/lib/stay-booking-timeline';
+import { loadStayBookingPayments } from '@/lib/stay-booking-payments';
 import { resolveStayPeriodTimes, type StayPeriodType } from '@/lib/stay-period-times';
 
 type DbHandle = { db: Database };
@@ -324,7 +324,7 @@ export async function getOwnerStayBookingContractOnNeon(
 
     const [
       guest,
-      intent,
+      paymentLines,
       paymentHistory,
       coverRaw,
       listingRow,
@@ -347,25 +347,7 @@ export async function getOwnerStayBookingContractOnNeon(
         )
         .limit(1)
         .then((rows) => rows[0] ?? null),
-      transaction
-        .select({
-          status: stayPaymentIntents.status,
-          provider: stayPaymentIntents.provider,
-          providerIntentId: stayPaymentIntents.providerIntentId,
-          amountMinor: stayPaymentIntents.amountMinor,
-          currency: stayPaymentIntents.currency,
-          updatedAt: stayPaymentIntents.updatedAt,
-        })
-        .from(stayPaymentIntents)
-        .where(
-          and(
-            eq(stayPaymentIntents.organizationId, organizationId),
-            eq(stayPaymentIntents.bookingId, bookingId),
-          ),
-        )
-        .orderBy(desc(stayPaymentIntents.updatedAt))
-        .limit(1)
-        .then((rows) => rows[0] ?? null),
+      loadStayBookingPayments(transaction, organizationId, bookingId, { succeededOnly: false }),
       transaction
         .select({
           metadataJson: stayBookingStatusHistory.metadataJson,
@@ -500,8 +482,19 @@ export async function getOwnerStayBookingContractOnNeon(
         rateMinor: status === 'available' ? remainingSlotRateMinor(slot, prices) : null,
       };
     }
-    const paid = intent?.status === 'succeeded';
+    const succeededPayments = paymentLines.filter((line) => line.status === 'succeeded');
+    const latestIntent = paymentLines.length ? paymentLines[paymentLines.length - 1]! : null;
+    const paid = succeededPayments.length > 0;
     const settled = SETTLED_STATUSES.has(row.status);
+    const paidSumMinor = succeededPayments.reduce(
+      (sum, line) => sum + BigInt(line.amountMinor),
+      0n,
+    );
+    const paidCurrency =
+      succeededPayments[succeededPayments.length - 1]?.currency ??
+      latestIntent?.currency ??
+      null;
+    const lastPaid = succeededPayments[succeededPayments.length - 1] ?? null;
 
     let cardLast4: string | null = null;
     let cardBrand: string | null = null;
@@ -622,18 +615,16 @@ export async function getOwnerStayBookingContractOnNeon(
       unitCode: row.unitCode,
       unitNameAr: row.unitNameAr,
       unitNameEn: row.unitNameEn,
-      paymentStatus: paid ? 'succeeded' : settled ? 'offline' : (intent?.status ?? 'pending'),
+      paymentStatus: paid ? 'succeeded' : settled ? 'offline' : (latestIntent?.status ?? 'pending'),
       paymentMethod:
-        paid || !settled ? paymentMethodLabel(intent?.provider, row.status) : 'offline',
-      paymentProviderRef: intent?.providerIntentId ?? null,
-      paidAt:
-        paid && intent?.updatedAt
-          ? intent.updatedAt instanceof Date
-            ? intent.updatedAt.toISOString()
-            : String(intent.updatedAt)
-          : null,
-      paidAmountMinor: intent?.amountMinor != null ? String(intent.amountMinor) : null,
-      paidCurrency: intent?.currency ?? null,
+        paid || !settled
+          ? paymentMethodLabel(lastPaid?.provider ?? latestIntent?.provider, row.status)
+          : 'offline',
+      paymentProviderRef: lastPaid?.providerIntentId ?? latestIntent?.providerIntentId ?? null,
+      paidAt: lastPaid?.paidAt ?? null,
+      paidAmountMinor: paid ? paidSumMinor.toString() : null,
+      paidCurrency,
+      payments: succeededPayments,
       cardLast4,
       cardBrand,
       cardholderName,

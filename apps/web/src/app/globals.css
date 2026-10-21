@@ -15179,6 +15179,20 @@ body:has(.guest-stay-detail) #main-content {
   font-weight: 800;
   color: var(--oman-deep, #092d24) !important;
 }
+.stay-doc__checkin-pass {
+  margin: 1.25rem 0 0;
+}
+.stay-doc__checkin-pass .guest-stay-detail__card {
+  margin: 0;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--stay-doc-line, #d5ddd8);
+  border-radius: 0.75rem;
+  box-shadow: none;
+  background: color-mix(in srgb, #f4faf7 70%, #fff);
+}
+.stay-doc__checkin-pass .handover-pass__qr {
+  width: min(12rem, 55vw);
+}
 .stay-doc--contract .stay-doc__section {
   margin-block: 1.15rem;
 }

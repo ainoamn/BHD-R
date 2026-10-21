@@ -8,6 +8,11 @@ import { StayBookingTimelineSection } from '@/components/stays/stay-booking-time
 import type { PropertyLocation } from '@/lib/contract-document';
 import { formatMoney } from '@/lib/format';
 import type { StayBookingTimelineFacts } from '@/lib/stay-booking-timeline';
+import {
+  stayPaymentKindLabel,
+  stayPaymentMethodLabel,
+} from '@/lib/stay-booking-payment-labels';
+import type { StayBookingPaymentLine } from '@/lib/stay-booking-payments';
 import { stayBookingModeLabel, stayStatusLabel, stayTypeLabel } from '@/lib/ui-labels';
 
 export type StayBookingNeighbor = {
@@ -75,6 +80,8 @@ export type StayBookingContractData = {
   paidAt?: string | null;
   paidAmountMinor?: string | null;
   paidCurrency?: string | null;
+  /** Succeeded payment intents — one receipt each (booking + top-ups). */
+  payments?: StayBookingPaymentLine[];
   /** Safe PCI display fields only — never full PAN. */
   cardLast4?: string | null;
   cardBrand?: string | null;
@@ -209,11 +216,13 @@ function FactTable({
 }
 
 function DocSection({
+  id,
   title,
   icon,
   children,
   collapsible = false,
 }: {
+  id?: string;
   title: string;
   icon: IconName;
   children: ReactNode;
@@ -222,7 +231,7 @@ function DocSection({
 }) {
   if (!collapsible) {
     return (
-      <section className="stay-desk__section">
+      <section className="stay-desk__section" id={id}>
         <header className="stay-desk__section-head">
           <Icon name={icon} size={16} />
           <h2>{title}</h2>
@@ -232,7 +241,7 @@ function DocSection({
     );
   }
   return (
-    <details className="stay-desk__fold stay-desk__section" open>
+    <details className="stay-desk__fold stay-desk__section" id={id} open>
       <summary className="stay-desk__section-head">
         <Icon name={icon} size={16} />
         <h2>{title}</h2>
@@ -628,7 +637,7 @@ export function StayBookingContract({
         />
 
         <FactTable
-          title={ar ? 'الدفع والإيصال' : 'Payment & receipt'}
+          title={ar ? 'الدفع والمستندات' : 'Payment & documents'}
           icon="receipt"
           tone={paid ? 'ok' : offline ? 'default' : 'warn'}
           rows={[
@@ -636,6 +645,19 @@ export function StayBookingContract({
               label: ar ? 'حالة الدفع' : 'Payment status',
               value: paymentStatusCopy(booking.paymentStatus, ar),
               highlight: !paid && !offline,
+            },
+            {
+              label: ar ? 'عدد الدفعات' : 'Payments',
+              value:
+                (booking.payments?.length ?? 0) > 0
+                  ? ar
+                    ? `${booking.payments!.length} ${booking.payments!.length === 1 ? 'دفعة' : 'دفعات'}`
+                    : `${booking.payments!.length} ${booking.payments!.length === 1 ? 'payment' : 'payments'}`
+                  : paid
+                    ? ar
+                      ? 'دفعة واحدة'
+                      : '1 payment'
+                    : '—',
             },
             {
               label: ar ? 'طريقة الدفع' : 'Payment method',
@@ -659,29 +681,20 @@ export function StayBookingContract({
                   },
                 ]
               : []),
-            ...(paidOn ? [{ label: ar ? 'تاريخ الدفع' : 'Paid at', value: paidOn }] : []),
-            ...(booking.paymentProviderRef
-              ? [
-                  {
-                    label: ar ? 'مرجع المزود' : 'Provider ref',
-                    value: booking.paymentProviderRef,
-                    ltr: true as const,
-                  },
-                ]
-              : []),
+            ...(paidOn ? [{ label: ar ? 'آخر دفعة' : 'Last paid', value: paidOn }] : []),
             {
-              label: ar ? 'المبلغ المستلم' : 'Amount received',
+              label: ar ? 'إجمالي المستلم' : 'Total received',
               value: paid ? paidAmountLabel : '—',
               ltr: true,
             },
             {
-              label: ar ? 'إيصال الضيف' : 'Guest receipt',
-              value: (
-                <Link
-                  href={`/stays/booking/receipt?ref=${encodeURIComponent(booking.referenceCode)}&doc=payment`}
-                >
-                  {ar ? 'فتح الإيصال' : 'Open receipt'}
-                </Link>
+              label: ar ? 'عقد الإقامة' : 'Stay contract',
+              value: booking.esignSignaturePng ? (
+                <a href="#stay-esign">{ar ? 'عرض التوقيع والمستندات' : 'View signature & documents'}</a>
+              ) : ar ? (
+                'لم يُوقَّع بعد'
+              ) : (
+                'Not signed yet'
               ),
             },
             {
@@ -690,13 +703,68 @@ export function StayBookingContract({
                 <Link
                   href={`/stays/booking/receipt?ref=${encodeURIComponent(booking.referenceCode)}&doc=confirmation`}
                 >
-                  {ar ? 'فتح التأكيد' : 'Open confirmation'}
+                  {ar ? 'فتح التأكيد والباركود' : 'Open confirmation & barcode'}
                 </Link>
               ),
             },
           ]}
         />
       </div>
+
+      {(booking.payments?.length ?? 0) > 0 ? (
+        <DocSection
+          title={ar ? 'سجل الدفعات والإيصالات' : 'Payment ledger & receipts'}
+          icon="receipt"
+        >
+          <p className="muted">
+            {ar
+              ? 'كل معاملة ناجحة لها إيصال مستقل — دفعة الحجز وفرق تعديل التواريخ منفصلان.'
+              : 'Each successful charge has its own receipt — booking payment and date-change top-ups are separate.'}
+          </p>
+          <div className="stay-desk__table-wrap">
+            <table className="stay-desk__table">
+              <thead>
+                <tr>
+                  <th>{ar ? '#' : '#'}</th>
+                  <th>{ar ? 'النوع' : 'Kind'}</th>
+                  <th>{ar ? 'المبلغ' : 'Amount'}</th>
+                  <th>{ar ? 'الطريقة' : 'Method'}</th>
+                  <th>{ar ? 'التاريخ' : 'Paid at'}</th>
+                  <th>{ar ? 'المرجع' : 'Ref'}</th>
+                  <th>{ar ? 'الإيصال' : 'Receipt'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {booking.payments!.map((line) => {
+                  const when = line.paidAt
+                    ? new Intl.DateTimeFormat(ar ? 'ar-OM' : 'en-GB', {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                      }).format(new Date(line.paidAt))
+                    : '—';
+                  return (
+                    <tr key={line.id}>
+                      <td dir="ltr">{line.sequence}</td>
+                      <td>{stayPaymentKindLabel(line.kind, ar)}</td>
+                      <td dir="ltr">{formatMoney(line.amountMinor, line.currency, locale)}</td>
+                      <td>{stayPaymentMethodLabel(line.provider, ar)}</td>
+                      <td>{when}</td>
+                      <td dir="ltr">{line.providerIntentId || '—'}</td>
+                      <td>
+                        <Link
+                          href={`/stays/booking/receipt?ref=${encodeURIComponent(booking.referenceCode)}&doc=payment&pay=${encodeURIComponent(line.id)}`}
+                        >
+                          {ar ? 'تنزيل' : 'Download'}
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </DocSection>
+      ) : null}
 
       {(booking.overlappingBookings && booking.overlappingBookings.length > 0) ||
       booking.previousBooking ||
@@ -813,6 +881,7 @@ export function StayBookingContract({
 
       {booking.esignSignaturePng ? (
         <DocSection
+          id="stay-esign"
           title={ar ? 'التوقيع الإلكتروني والمستندات' : 'E-signature & documents'}
           icon="file"
           collapsible
