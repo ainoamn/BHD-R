@@ -102,7 +102,9 @@ function toOpsBooking(row: {
   unitNameAr?: string | null;
   unitNameEn?: string | null;
   guestDisplayName?: string | null;
+  pricingSnapshotJson?: unknown;
 }): OpsStayBooking {
+  const pending = readPendingReschedule(row.pricingSnapshotJson);
   return {
     id: row.id,
     referenceCode: row.referenceCode,
@@ -122,6 +124,15 @@ function toOpsBooking(row: {
     ...(row.unitNameAr ? { unitNameAr: row.unitNameAr } : {}),
     ...(row.unitNameEn ? { unitNameEn: row.unitNameEn } : {}),
     ...(row.guestDisplayName ? { guestDisplayName: row.guestDisplayName } : {}),
+    ...(pending
+      ? {
+          pendingReschedule: {
+            status: pending.status,
+            checkInOn: pending.checkInOn,
+            checkOutOn: pending.checkOutOn,
+          },
+        }
+      : {}),
   };
 }
 
@@ -833,6 +844,7 @@ export async function listOwnerStayBookingsOnNeon(
         source: stayBookings.source,
         currency: stayBookings.currency,
         totalMinor: stayBookings.totalMinor,
+        pricingSnapshotJson: stayBookings.pricingSnapshotJson,
         propertyNameAr: properties.nameAr,
         propertyNameEn: properties.nameEn,
         unitCode: units.code,

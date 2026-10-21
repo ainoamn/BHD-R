@@ -47,10 +47,28 @@ export function matchesBookingPurposeTab(
   return resolveBookingPurpose(row) === tab;
 }
 
+function readOpsPendingReschedule(
+  value: unknown,
+): OpsStayBooking['pendingReschedule'] {
+  if (!value || typeof value !== 'object') return null;
+  const row = value as Record<string, unknown>;
+  const status =
+    row.status === 'awaiting_owner' ||
+    row.status === 'awaiting_guest_payment' ||
+    row.status === 'awaiting_payment'
+      ? row.status
+      : null;
+  if (!status || typeof row.checkInOn !== 'string' || typeof row.checkOutOn !== 'string') {
+    return null;
+  }
+  return { status, checkInOn: row.checkInOn, checkOutOn: row.checkOutOn };
+}
+
 export function opsRowToStayBooking(row: Record<string, unknown>): OpsStayBooking | null {
   if (String(row.recordKind ?? '') !== 'stay_booking') return null;
   const id = String(row.id ?? '');
   if (!id) return null;
+  const pendingReschedule = readOpsPendingReschedule(row.pendingReschedule);
   return {
     id,
     referenceCode: String(row.referenceCode ?? row.reference ?? id),
@@ -70,5 +88,6 @@ export function opsRowToStayBooking(row: Record<string, unknown>): OpsStayBookin
     ...(typeof row.unitNameAr === 'string' ? { unitNameAr: row.unitNameAr } : {}),
     ...(typeof row.unitNameEn === 'string' ? { unitNameEn: row.unitNameEn } : {}),
     ...(typeof row.guestDisplayName === 'string' ? { guestDisplayName: row.guestDisplayName } : {}),
+    ...(pendingReschedule ? { pendingReschedule } : {}),
   };
 }

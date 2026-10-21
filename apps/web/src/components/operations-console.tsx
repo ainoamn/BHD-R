@@ -2693,9 +2693,18 @@ export function OperationsConsole({
   const isDailyBookings = section === 'bookings' && bookingPurposeTab === 'daily';
   const bookingApprovalCount =
     section === 'bookings'
-      ? records.filter((row) =>
-          bookingNeedsApproval(safeString(row.status), safeString(row.recordKind)),
-        ).length
+      ? records.filter((row) => {
+          if (bookingNeedsApproval(safeString(row.status), safeString(row.recordKind))) {
+            return true;
+          }
+          if (safeString(row.recordKind) !== 'stay_booking') return false;
+          const pending = row.pendingReschedule;
+          return (
+            pending &&
+            typeof pending === 'object' &&
+            (pending as { status?: unknown }).status === 'awaiting_owner'
+          );
+        }).length
       : 0;
 
   function setBookingTab(tab: BookingPurposeTab) {

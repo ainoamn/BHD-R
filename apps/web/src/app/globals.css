@@ -13298,20 +13298,54 @@ button.ops-row-key {
   background: #f6f9f7;
   border-radius: 0.8rem;
 }
+.stays-bookings-card__dates.is-change {
+  grid-template-columns: 1fr;
+  gap: 0.35rem;
+  border: 1px solid color-mix(in srgb, #dc2626 28%, #fde8e8);
+  background: #fff8f8;
+}
 .stays-bookings-card__dates > div {
   display: grid;
   gap: 0.15rem;
+}
+.stays-bookings-card__dates-leg strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-variant-numeric: tabular-nums;
+}
+.stays-bookings-card__dates-leg.is-from strong {
+  color: #7a4a14;
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+  font-weight: 650;
+}
+.stays-bookings-card__dates-leg.is-to .stays-bookings-card__label {
+  color: #b91c1c;
+}
+.stays-bookings-card__dates-leg.is-to strong {
+  color: #b91c1c;
 }
 .stays-bookings-card__arrow {
   padding-bottom: 0.15rem;
   color: #8a9891;
   font-weight: 700;
 }
+.stays-bookings-card__dates-leg .stays-bookings-card__arrow {
+  padding-bottom: 0;
+}
 .stays-bookings-card__dates em {
   grid-column: 1 / -1;
   font-style: normal;
   font-size: 0.8rem;
   color: var(--muted, #5c6b64);
+}
+.stays-bookings-card__dates.is-change em {
+  color: #b91c1c;
+  font-weight: 650;
+}
+.stays-bookings-card.has-reschedule {
+  border-color: color-mix(in srgb, #dc2626 35%, #e6eeea);
 }
 .stays-bookings-card__amount strong {
   font-size: 1.05rem;

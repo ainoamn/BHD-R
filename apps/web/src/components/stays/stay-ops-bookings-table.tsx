@@ -9,6 +9,12 @@ import { compareBookingPriority } from '@/lib/booking-priority';
 import { formatMoney } from '@/lib/format';
 import { stayBookingModeLabel, stayStatusLabel } from '@/lib/ui-labels';
 
+export type OpsStayPendingReschedule = {
+  status: 'awaiting_owner' | 'awaiting_guest_payment' | 'awaiting_payment';
+  checkInOn: string;
+  checkOutOn: string;
+};
+
 export type OpsStayBooking = {
   id: string;
   referenceCode: string;
@@ -28,6 +34,8 @@ export type OpsStayBooking = {
   unitNameAr?: string;
   unitNameEn?: string;
   guestDisplayName?: string;
+  /** Guest-requested dates stored until owner approval / top-up applies them. */
+  pendingReschedule?: OpsStayPendingReschedule | null;
 };
 
 const CANCELABLE = new Set(['request_pending', 'payment_pending', 'confirmed', 'pre_arrival']);
@@ -73,10 +81,18 @@ function formatStayDate(value: string, locale: string): string {
   }).format(new Date(`${value}T00:00:00.000Z`));
 }
 
+function hasOwnerRescheduleAction(booking: OpsStayBooking): boolean {
+  return booking.pendingReschedule?.status === 'awaiting_owner';
+}
+
 function matchesFilter(booking: OpsStayBooking, filter: FilterId, today: string): boolean {
   switch (filter) {
     case 'attention':
-      return booking.status === 'request_pending' || booking.status === 'payment_pending';
+      return (
+        booking.status === 'request_pending' ||
+        booking.status === 'payment_pending' ||
+        hasOwnerRescheduleAction(booking)
+      );
     case 'upcoming':
       return (
         ['confirmed', 'paid', 'pre_arrival'].includes(booking.status) && booking.checkInOn >= today
@@ -150,7 +166,12 @@ export function StayOpsBookingsTable({
         .toLowerCase();
       return haystack.includes(q);
     });
-    return matching.sort((a, b) => compareBookingPriority(sortKey(a), sortKey(b)));
+    return matching.sort((a, b) => {
+      const aReschedule = hasOwnerRescheduleAction(a) ? 0 : 1;
+      const bReschedule = hasOwnerRescheduleAction(b) ? 0 : 1;
+      if (aReschedule !== bReschedule) return aReschedule - bReschedule;
+      return compareBookingPriority(sortKey(a), sortKey(b));
+    });
   }, [rows, filter, query, today, ar]);
 
   async function runAction(bookingId: string, action: 'cancel' | 'no-show' | 'checkout') {
@@ -188,7 +209,9 @@ export function StayOpsBookingsTable({
     {
       id: 'attention',
       label: ar ? 'تحتاج إجراء' : 'Needs action',
-      hint: ar ? 'بانتظار الدفع أو الاعتماد' : 'Awaiting payment or approval',
+      hint: ar
+        ? 'بانتظار الدفع أو اعتماد الحجز أو تعديل التواريخ'
+        : 'Awaiting payment, booking approval, or date change',
       count: stats.attention,
     },
     {
@@ -306,40 +329,107 @@ export function StayOpsBookingsTable({
                 : ar
                   ? 'إلغاء'
                   : 'Cancel';
-            const tone = statusTone(booking.status);
+            const pendingReschedule = booking.pendingReschedule ?? null;
+            const rescheduleAwaitingOwner = hasOwnerRescheduleAction(booking);
+            const tone = rescheduleAwaitingOwner ? 'attention' : statusTone(booking.status);
 
             return (
-              <li key={booking.id} className={`stays-bookings-card is-${tone}`}>
+              <li
+                key={booking.id}
+                className={[
+                  'stays-bookings-card',
+                  `is-${tone}`,
+                  pendingReschedule ? 'has-reschedule' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
                 <div className="stays-bookings-card__main">
-                  <div className="stays-bookings-card__dates">
-                    <div>
-                      <span className="stays-bookings-card__label">{ar ? 'وصول' : 'Check-in'}</span>
-                      <strong>{formatStayDate(booking.checkInOn, locale)}</strong>
-                    </div>
-                    <span className="stays-bookings-card__arrow" aria-hidden>
-                      {ar ? '←' : '→'}
-                    </span>
-                    <div>
-                      <span className="stays-bookings-card__label">
-                        {ar ? 'مغادرة' : 'Check-out'}
-                      </span>
-                      <strong>{formatStayDate(booking.checkOutOn, locale)}</strong>
-                    </div>
-                    <em>
-                      {booking.nights
-                        ? `${booking.nights} ${
-                            ar
-                              ? booking.nights === 1
-                                ? 'ليلة'
-                                : 'ليالٍ'
-                              : booking.nights === 1
-                                ? 'night'
-                                : 'nights'
-                          }`
-                        : ar
-                          ? 'بدون مبيت'
-                          : 'Day use'}
-                    </em>
+                  <div
+                    className={[
+                      'stays-bookings-card__dates',
+                      pendingReschedule ? 'is-change' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                    title={
+                      pendingReschedule
+                        ? ar
+                          ? 'طلب تعديل التواريخ'
+                          : 'Date change requested'
+                        : undefined
+                    }
+                  >
+                    {pendingReschedule ? (
+                      <>
+                        <div className="stays-bookings-card__dates-leg is-from">
+                          <span className="stays-bookings-card__label">
+                            {ar ? 'من' : 'From'}
+                          </span>
+                          <strong dir="ltr">
+                            {formatStayDate(booking.checkInOn, locale)}
+                            <span className="stays-bookings-card__arrow" aria-hidden>
+                              {ar ? '←' : '→'}
+                            </span>
+                            {formatStayDate(booking.checkOutOn, locale)}
+                          </strong>
+                        </div>
+                        <div className="stays-bookings-card__dates-leg is-to">
+                          <span className="stays-bookings-card__label">
+                            {ar ? 'إلى' : 'To'}
+                          </span>
+                          <strong dir="ltr">
+                            {formatStayDate(pendingReschedule.checkInOn, locale)}
+                            <span className="stays-bookings-card__arrow" aria-hidden>
+                              {ar ? '←' : '→'}
+                            </span>
+                            {formatStayDate(pendingReschedule.checkOutOn, locale)}
+                          </strong>
+                        </div>
+                        <em>
+                          {rescheduleAwaitingOwner
+                            ? ar
+                              ? 'بانتظار اعتماد التعديل'
+                              : 'Awaiting date-change approval'
+                            : ar
+                              ? 'بانتظار دفع فرق التعديل'
+                              : 'Awaiting date-change payment'}
+                        </em>
+                      </>
+                    ) : (
+                      <>
+                        <div>
+                          <span className="stays-bookings-card__label">
+                            {ar ? 'وصول' : 'Check-in'}
+                          </span>
+                          <strong>{formatStayDate(booking.checkInOn, locale)}</strong>
+                        </div>
+                        <span className="stays-bookings-card__arrow" aria-hidden>
+                          {ar ? '←' : '→'}
+                        </span>
+                        <div>
+                          <span className="stays-bookings-card__label">
+                            {ar ? 'مغادرة' : 'Check-out'}
+                          </span>
+                          <strong>{formatStayDate(booking.checkOutOn, locale)}</strong>
+                        </div>
+                        <em>
+                          {booking.nights
+                            ? `${booking.nights} ${
+                                ar
+                                  ? booking.nights === 1
+                                    ? 'ليلة'
+                                    : 'ليالٍ'
+                                  : booking.nights === 1
+                                    ? 'night'
+                                    : 'nights'
+                              }`
+                            : ar
+                              ? 'بدون مبيت'
+                              : 'Day use'}
+                        </em>
+                      </>
+                    )}
                   </div>
 
                   <div className="stays-bookings-card__info">
@@ -347,7 +437,12 @@ export function StayOpsBookingsTable({
                       <strong className="stays-bookings-card__guest">
                         {booking.guestDisplayName || (ar ? 'ضيف' : 'Guest')}
                       </strong>
-                      <span className={`stays-bookings-card__badge is-${tone}`}>
+                      {pendingReschedule ? (
+                        <span className="stays-bookings-card__badge is-attention">
+                          {ar ? 'تعديل تواريخ' : 'Date change'}
+                        </span>
+                      ) : null}
+                      <span className={`stays-bookings-card__badge is-${statusTone(booking.status)}`}>
                         {stayStatusLabel(booking.status, locale)}
                       </span>
                     </div>
@@ -382,7 +477,13 @@ export function StayOpsBookingsTable({
                     className="button button--primary"
                     href={`/${portal}/stays/bookings/${booking.id}`}
                   >
-                    {ar ? 'عرض التفاصيل' : 'View details'}
+                    {rescheduleAwaitingOwner
+                      ? ar
+                        ? 'اعتماد التعديل'
+                        : 'Review change'
+                      : ar
+                        ? 'عرض التفاصيل'
+                        : 'View details'}
                   </Link>
                   {canCheckout ? (
                     <button
