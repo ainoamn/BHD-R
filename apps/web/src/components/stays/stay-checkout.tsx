@@ -230,7 +230,7 @@ function stayTypeHint(
   if (type === 'overnight_only') {
     return (ar ? 'فترة مسائية مع مبيت' : 'Evening slot with overnight') + clock;
   }
-  return (ar ? 'ليلة أو أكثر · قابل للتمديد' : 'One night or more · extendable') + clock;
+  return (ar ? 'يوم كامل · من الصباح حتى صباح المغادرة' : 'Full day · morning until next-day checkout') + clock;
 }
 
 function stayTypeUnit(type: StayType, ar: boolean): string {

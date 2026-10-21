@@ -213,13 +213,20 @@ export function StayPublicShowcase({
             ) : null}
             {detail.checkInFrom || detail.overnightCheckOutUntil || detail.checkOutUntil ? (
               <div>
-                <dt>{ar ? 'المبيت / المسائية' : 'Overnight / evening'}</dt>
+                <dt>{ar ? 'الفترة المسائية' : 'Evening (overnight only)'}</dt>
                 <dd dir="ltr">
                   {detail.checkInFrom ?? '23:00'} →{' '}
                   {detail.overnightCheckOutUntil ?? detail.checkOutUntil ?? '09:00'}
                 </dd>
               </div>
             ) : null}
+            <div>
+              <dt>{ar ? 'اليوم الكامل' : 'Full day'}</dt>
+              <dd dir="ltr">
+                {detail.dayUseCheckInFrom ?? '10:00'} →{' '}
+                {detail.overnightCheckOutUntil ?? detail.checkOutUntil ?? '09:00'}
+              </dd>
+            </div>
           </dl>
           {detail.unitId && !preview ? (
             <p className="stay-showcase__unit-link">

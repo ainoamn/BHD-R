@@ -44,7 +44,11 @@ export function resolveStayPeriodTimes(
   if (stayType === 'day_use') {
     return { checkInTime: dayIn, checkOutTime: dayOut };
   }
-  return { checkInTime: nightIn, checkOutTime: nightOut };
+  if (stayType === 'overnight_only') {
+    return { checkInTime: nightIn, checkOutTime: nightOut };
+  }
+  // Full day (overnight_stay): from morning check-in until overnight check-out next day.
+  return { checkInTime: dayIn, checkOutTime: nightOut };
 }
 
 /** Display “2026-10-21 · 15:00”. */

@@ -42,7 +42,7 @@ export type StayArrivalWindowInput = {
  *
  * - day_use (صباحي / بدون مبيت): same calendar day until day-use check-out
  * - overnight_only (مسائي / مبيت فقط): from evening check-in until overnight check-out
- * - overnight_stay: from check-in time until overnight check-out on departure day
+ * - overnight_stay (يوم كامل): from morning check-in until overnight check-out on departure day
  */
 export function stayArrivalWindow(input: StayArrivalWindowInput): {
   opensAt: Date;
@@ -71,7 +71,8 @@ export function stayArrivalWindow(input: StayArrivalWindowInput): {
     // Inventory checkOutOn is the exclusive next morning for half-day slots.
     checkOutAt = muscatLocalDateTime(input.checkOutOn, overnightOut);
   } else {
-    checkInAt = muscatLocalDateTime(input.checkInOn, eveningIn);
+    // Full day: morning start → overnight check-out on departure day.
+    checkInAt = muscatLocalDateTime(input.checkInOn, dayUseIn);
     checkOutAt = muscatLocalDateTime(input.checkOutOn, overnightOut);
   }
 

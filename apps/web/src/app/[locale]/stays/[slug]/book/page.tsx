@@ -185,7 +185,8 @@ export default async function StayBookPage({
         : `From ${formatMoney(detail.nightlyMinor, currency, locale)} / night`
       : null,
     ar ? `صباحي: ${dayIn} → ${dayOut}` : `Morning: ${dayIn} → ${dayOut}`,
-    ar ? `مبيت: ${nightIn} → ${nightOut}` : `Overnight: ${nightIn} → ${nightOut}`,
+    ar ? `مسائي: ${nightIn} → ${nightOut}` : `Evening: ${nightIn} → ${nightOut}`,
+    ar ? `يوم كامل: ${dayIn} → ${nightOut}` : `Full day: ${dayIn} → ${nightOut}`,
   ].filter((item): item is string => Boolean(item));
 
   return (

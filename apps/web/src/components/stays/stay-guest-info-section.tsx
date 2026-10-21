@@ -71,22 +71,27 @@ export function StayGuestInfoSection({
       : null,
   ].filter(Boolean) as Array<{ label: string; value: ReactNode }>;
 
+  const dayIn = detail.dayUseCheckInFrom ?? '10:00';
+  const dayOut = detail.dayUseCheckOutUntil ?? '22:00';
+  const nightIn = detail.checkInFrom ?? '23:00';
+  const nightOut = detail.overnightCheckOutUntil ?? detail.checkOutUntil ?? '09:00';
   const timeRows = [
-    detail.dayUseCheckInFrom || detail.dayUseCheckOutUntil
-      ? {
-          label: ar ? 'الفترة الصباحية (دخول → خروج)' : 'Morning (in → out)',
-          value: `${detail.dayUseCheckInFrom ?? '10:00'} → ${detail.dayUseCheckOutUntil ?? '22:00'}`,
-          dir: 'ltr' as const,
-        }
-      : null,
-    detail.checkInFrom || detail.overnightCheckOutUntil || detail.checkOutUntil
-      ? {
-          label: ar ? 'المبيت / المسائية (دخول → خروج)' : 'Overnight / evening (in → out)',
-          value: `${detail.checkInFrom ?? '23:00'} → ${detail.overnightCheckOutUntil ?? detail.checkOutUntil ?? '09:00'}`,
-          dir: 'ltr' as const,
-        }
-      : null,
-  ].filter(Boolean) as Array<{ label: string; value: ReactNode; dir?: 'ltr' | 'rtl' }>;
+    {
+      label: ar ? 'الفترة الصباحية (دخول → خروج)' : 'Morning (in → out)',
+      value: `${dayIn} → ${dayOut}`,
+      dir: 'ltr' as const,
+    },
+    {
+      label: ar ? 'الفترة المسائية (دخول → خروج)' : 'Evening (in → out)',
+      value: `${nightIn} → ${nightOut}`,
+      dir: 'ltr' as const,
+    },
+    {
+      label: ar ? 'اليوم الكامل (دخول → خروج)' : 'Full day (in → out)',
+      value: `${dayIn} → ${nightOut}`,
+      dir: 'ltr' as const,
+    },
+  ] as Array<{ label: string; value: ReactNode; dir?: 'ltr' | 'rtl' }>;
 
   const hasPolicies = Boolean(
     detail.policiesJson || detail.policiesAr?.trim() || detail.policiesEn?.trim(),
