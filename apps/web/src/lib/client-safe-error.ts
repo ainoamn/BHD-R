@@ -63,6 +63,7 @@ const KNOWN_CODES = new Set([
   'handover_phone_invalid',
   'handover_photo_invalid',
   'handover_photos_too_many',
+  'deposit_unpaid',
   'refund_not_open',
   'refund_no_deposit',
   'refund_already_decided',
@@ -266,6 +267,7 @@ export function statusForSafeCode(code: string): number {
     case 'multi_unit_requires_units':
     case 'idempotency_payload_mismatch':
     case 'stay_status_invalid':
+    case 'deposit_unpaid':
     case 'refund_not_open':
     case 'refund_no_deposit':
     case 'refund_already_decided':

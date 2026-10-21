@@ -42,6 +42,11 @@ import {
   loadStayBookingPayments,
   type StayBookingPaymentLine,
 } from '@/lib/stay-booking-payments';
+import type { StayDepositGateStatus } from '@/lib/stay-deposit-gate';
+import {
+  ensureStayDepositPaymentInTx,
+  loadStayDepositGate,
+} from '@/lib/stay-deposit-gate-neon';
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdRPublicStaysGuestDb?: DbHandle };
@@ -134,6 +139,8 @@ export type GuestStayBookingProjection = {
   checkOut?: StayStamp | null;
   /** Security deposit held for the stay (not part of the booking total). */
   depositMinor?: string | null;
+  depositStatus?: StayDepositGateStatus | null;
+  depositPaymentUrl?: string | null;
   depositRefund?: GuestDepositRefund | null;
   canRequestDepositRefund?: boolean;
   /** The guest's deposit requests and objections to the host, oldest first. */
@@ -573,6 +580,7 @@ async function enrichProjection(
 ): Promise<GuestStayBookingProjection> {
   const departed = DEPARTED_STATUSES.has(booking.status);
   const cancelled = booking.status === 'cancelled';
+  const arrivalReady = PAID_STATUSES.has(booking.status);
   const base = toProjection({
     ...booking,
     guestDisplayName: guestDisplayName ?? null,
@@ -589,6 +597,7 @@ async function enrichProjection(
     cancelOutcome,
     rescheduleRejection,
     payUrl,
+    depositGate,
   ] = await Promise.all([
     resolvePaymentIntentId(transaction, booking.organizationId, booking.id),
     loadStayBookingPayments(transaction, booking.organizationId, booking.id, {
@@ -598,7 +607,7 @@ async function enrichProjection(
     STAMPED_STATUSES.has(booking.status)
       ? loadStayStamps(transaction, booking.organizationId, [booking.id])
       : Promise.resolve(null),
-    departed
+    departed || arrivalReady
       ? loadBookingDeposits(transaction, booking.organizationId, [booking.id])
       : Promise.resolve(null),
     departed
@@ -616,15 +625,45 @@ async function enrichProjection(
     base.pendingReschedule
       ? resolveRescheduleTopUpRedirect(transaction, booking, base.pendingReschedule)
       : Promise.resolve(null),
+    arrivalReady && !departed
+      ? loadStayDepositGate(transaction, booking.organizationId, booking.id)
+      : Promise.resolve(null),
   ]);
   const stamp = stamps?.get(booking.id);
-  const depositMinor = deposits?.get(booking.id) ?? null;
+  const depositMinor =
+    depositGate?.amountMinor ?? deposits?.get(booking.id) ?? null;
+  let depositPaymentUrl: string | null = null;
+  if (
+    depositGate?.required &&
+    depositGate.status === 'unpaid' &&
+    depositGate.amountMinor &&
+    arrivalReady
+  ) {
+    try {
+      const pay = await ensureStayDepositPaymentInTx(
+        transaction,
+        {
+          id: booking.id,
+          organizationId: booking.organizationId,
+          referenceCode: booking.referenceCode,
+          currency: booking.currency,
+        },
+        depositGate.amountMinor,
+        'ar',
+      );
+      depositPaymentUrl = pay.redirectUrl;
+    } catch {
+      depositPaymentUrl = null;
+    }
+  }
   const refund = refunds?.get(booking.id);
   const pendingReschedule = base.pendingReschedule
     ? { ...base.pendingReschedule, paymentRedirectUrl: payUrl }
     : null;
   return {
     depositMinor,
+    depositStatus: depositGate?.status ?? null,
+    depositPaymentUrl,
     depositRefund: refund ? guestDepositRefund(refund) : null,
     depositClaims: claims?.get(booking.id) ?? [],
     canRequestDepositRefund: Boolean(depositMinor && !refund && booking.status === 'checked_out'),

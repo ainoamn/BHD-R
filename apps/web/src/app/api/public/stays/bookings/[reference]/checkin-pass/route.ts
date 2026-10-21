@@ -33,7 +33,7 @@ export async function GET(
   const { reference } = await context.params;
   const locale = new URL(request.url).searchParams.get('locale') === 'en' ? 'en' : 'ar';
   try {
-    const result = await guestStayCheckinPass(reference);
+    const result = await guestStayCheckinPass(reference, locale);
     if (result.state !== 'pass') return json(result);
     const { token, ...pass } = result;
     const url = `${publicWebOrigin()}/${locale}/stay-gate?t=${encodeURIComponent(token)}`;

@@ -17,6 +17,7 @@ import {
 import { announceReleasedReviews } from '@/lib/review-release-neon';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 import { recordStayStampOnNeon } from '@/lib/stay-arrival-neon';
+import { waiveStayDepositOnNeon } from '@/lib/stay-deposit-gate-neon';
 import {
   REFUND_NOTE_MAX,
   REFUND_PAYOUT_METHODS,
@@ -81,6 +82,12 @@ const bodySchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('approve_contract'), contractId: uuid }).strict(),
   z
     .object({
+      action: z.literal('waive_deposit'),
+      bookingId: uuid,
+    })
+    .strict(),
+  z
+    .object({
       action: z.enum(['check_in', 'check_out']),
       bookingId: uuid,
       at: z
@@ -90,6 +97,7 @@ const bodySchema = z.discriminatedUnion('action', [
       notes: z.string().max(1000).optional(),
       noteKeys: z.array(z.string().max(40)).max(20).optional(),
       important: z.boolean().optional(),
+      depositWaived: z.boolean().optional(),
       recipient: z
         .object({
           name: z.string().max(120).optional(),
@@ -226,6 +234,10 @@ export async function POST(request: Request, context: { params: Promise<{ proper
         );
       case 'approve_contract':
         return NextResponse.json(await approveContractOnNeon(claims, propertyId, body.contractId));
+      case 'waive_deposit':
+        return NextResponse.json(
+          await waiveStayDepositOnNeon(claims, body.bookingId, propertyId),
+        );
       case 'check_in':
       case 'check_out':
         return NextResponse.json(
@@ -237,6 +249,9 @@ export async function POST(request: Request, context: { params: Promise<{ proper
             important: body.important,
             recipient: body.recipient,
             photos: body.photos,
+            ...(body.action === 'check_in' && body.depositWaived
+              ? { depositWaived: true }
+              : {}),
           }),
         );
       case 'create_lease':

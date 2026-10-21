@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { formatMoney } from '@/lib/format';
 
 type Pass = {
   state: 'pass';
@@ -15,8 +16,16 @@ type Arrived = { state: 'arrived'; referenceCode: string; status: string };
 type NotReady = { state: 'not_ready'; referenceCode: string; status: string };
 type TooEarly = { state: 'too_early'; referenceCode: string; status: string; opensAt: string };
 type Expired = { state: 'expired'; referenceCode: string; status: string };
+type DepositUnpaid = {
+  state: 'deposit_unpaid';
+  referenceCode: string;
+  status: string;
+  depositMinor: string;
+  currency: string;
+  paymentRedirectUrl: string | null;
+};
 
-type PassBody = Pass | Arrived | NotReady | TooEarly | Expired;
+type PassBody = Pass | Arrived | NotReady | TooEarly | Expired | DepositUnpaid;
 
 const stamp = (iso: string, ar: boolean) =>
   new Date(iso).toLocaleString(ar ? 'ar-OM' : 'en-GB', {
@@ -42,6 +51,7 @@ export function StayCheckinPass({
   const [tooEarly, setTooEarly] = useState<string | null>(null);
   const [expired, setExpired] = useState(false);
   const [notReady, setNotReady] = useState(false);
+  const [depositUnpaid, setDepositUnpaid] = useState<DepositUnpaid | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -66,30 +76,42 @@ export function StayCheckinPass({
           setTooEarly(null);
           setExpired(false);
           setNotReady(false);
+          setDepositUnpaid(null);
           return;
         } else if (body.state === 'expired') {
           setExpired(true);
           setPass(null);
           setTooEarly(null);
           setNotReady(false);
+          setDepositUnpaid(null);
           return;
+        } else if (body.state === 'deposit_unpaid') {
+          setDepositUnpaid(body);
+          setPass(null);
+          setTooEarly(null);
+          setExpired(false);
+          setNotReady(false);
+          setFailed(false);
         } else if (body.state === 'too_early') {
           setTooEarly(body.opensAt);
           setPass(null);
           setExpired(false);
           setNotReady(false);
+          setDepositUnpaid(null);
           setFailed(false);
         } else if (body.state === 'not_ready') {
           setNotReady(true);
           setPass(null);
           setTooEarly(null);
           setExpired(false);
+          setDepositUnpaid(null);
           setFailed(false);
         } else if (body.state === 'pass' && body.qrSvg && body.code && body.refreshAt) {
           setFailed(false);
           setTooEarly(null);
           setExpired(false);
           setNotReady(false);
+          setDepositUnpaid(null);
           setPass((current) =>
             current?.refreshAt === body.refreshAt ? current : (body as Pass),
           );
@@ -128,6 +150,31 @@ export function StayCheckinPass({
             ? 'انتهت مدة الحجز دون تسجيل دخول — أُلغي الحجز تلقائياً.'
             : 'The stay ended without check-in — the booking was cancelled automatically.'}
         </p>
+      </section>
+    );
+  }
+
+  if (depositUnpaid) {
+    const amount = formatMoney(
+      depositUnpaid.depositMinor,
+      depositUnpaid.currency,
+      locale,
+    );
+    return (
+      <section className="guest-stay-detail__card handover-pass" aria-labelledby="stay-checkin-title">
+        <h2 id="stay-checkin-title">{ar ? 'ادفع مبلغ التأمين أولاً' : 'Pay the deposit first'}</h2>
+        <p className="notice notice--warn" role="status">
+          {ar
+            ? `قبل ظهور باركود الوصول يجب دفع مبلغ التأمين المسترد (${amount}). أو ينتظر المالك لاستثنائه يدوياً عند تسجيل الدخول.`
+            : `The arrival barcode appears after you pay the refundable deposit (${amount}), or after the host waives it at check-in.`}
+        </p>
+        {depositUnpaid.paymentRedirectUrl ? (
+          <p>
+            <a className="button button--primary" href={depositUnpaid.paymentRedirectUrl}>
+              {ar ? `ادفع التأمين · ${amount}` : `Pay deposit · ${amount}`}
+            </a>
+          </p>
+        ) : null}
       </section>
     );
   }

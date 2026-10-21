@@ -417,6 +417,10 @@ const ERROR_TEXT: Record<string, [string, string]> = {
     `الحد الأقصى ${HANDOVER_PHOTOS_MAX} صور لكل محضر.`,
     `At most ${HANDOVER_PHOTOS_MAX} photos per record.`,
   ],
+  deposit_unpaid: [
+    'الضيف لم يدفع مبلغ التأمين المسترد. اطلب الدفع أو استثنِ التأمين عند تسجيل الدخول.',
+    'Guest has not paid the refundable deposit. Require payment or waive it at check-in.',
+  ],
   refund_not_open: [
     'استرداد التأمين متاح بعد تأكيد المغادرة فقط. حدّث الصفحة.',
     'Deposit refunds open after check-out only. Refresh the page.',
@@ -1166,9 +1170,15 @@ export function PropertySectionRecords({
   const [statusFilter, setStatusFilter] = useState('');
   const [query, setQuery] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
+  const [notice, setNotice] = useState<{ tone: 'success' | 'error' | 'warn'; text: string } | null>(
+    null,
+  );
   const [formOpen, setFormOpen] = useState(false);
-  const [stampForm, setStampForm] = useState<{ rowId: string; kind: StampKind } | null>(null);
+  const [stampForm, setStampForm] = useState<{
+    rowId: string;
+    kind: StampKind;
+    skipVerify?: boolean;
+  } | null>(null);
   const [refundForm, setRefundForm] = useState<{ rowId: string; mode: RefundFormMode } | null>(
     null,
   );
@@ -1640,11 +1650,41 @@ export function PropertySectionRecords({
         className="button button--primary psr-action"
         disabled={busy}
         onClick={() => {
-          setNotice(null);
-          setRefundForm(null);
-          setRejectForm(null);
-          setReviewRowId(null);
-          setStampForm({ rowId: row.id ?? '', kind });
+          void (async () => {
+            setNotice(null);
+            setRefundForm(null);
+            setRejectForm(null);
+            setReviewRowId(null);
+            if (kind === 'check_in' && row.depositStatus === 'unpaid') {
+              const amount =
+                row.depositMinor && row.currency
+                  ? formatMoney(row.depositMinor, row.currency, locale)
+                  : null;
+              const continueWithout = window.confirm(
+                ar
+                  ? `المستأجر لم يدفع مبلغ التأمين المسترد${amount ? ` (${amount})` : ''}. هل تريد المتابعة بتسجيل دخوله بدون تأمين؟\n\nموافق = استثناء التأمين وفتح تسجيل الدخول (ويظهر باركود الضيف).\nإلغاء = عليه دفع التأمين أولاً.`
+                  : `Guest has not paid the refundable deposit${amount ? ` (${amount})` : ''}. Continue check-in without deposit?\n\nOK = waive deposit and open check-in (guest barcode unlocks).\nCancel = require payment first.`,
+              );
+              if (!continueWithout) {
+                setNotice({
+                  tone: 'warn',
+                  text: ar
+                    ? 'أُوقف تسجيل الدخول — بانتظار دفع الضيف لمبلغ التأمين.'
+                    : 'Check-in paused — waiting for the guest to pay the deposit.',
+                });
+                return;
+              }
+              const waived = await runAction(
+                row.id!,
+                { action: 'waive_deposit', bookingId: row.id },
+                propertyOf(row),
+              );
+              if (!waived) return;
+              setStampForm({ rowId: row.id!, kind, skipVerify: true });
+              return;
+            }
+            setStampForm({ rowId: row.id!, kind });
+          })();
         }}
       >
         {kind === 'check_in'
@@ -1986,8 +2026,14 @@ export function PropertySectionRecords({
 
       {notice ? (
         <div
-          className={notice.tone === 'success' ? 'notice notice--success' : 'notice notice--error'}
-          role={notice.tone === 'success' ? 'status' : 'alert'}
+          className={
+            notice.tone === 'success'
+              ? 'notice notice--success'
+              : notice.tone === 'warn'
+                ? 'notice notice--warn'
+                : 'notice notice--error'
+          }
+          role={notice.tone === 'error' ? 'alert' : 'status'}
         >
           {notice.text}
         </div>
@@ -2305,6 +2351,7 @@ export function PropertySectionRecords({
                 guestPhone={row.guestPhone ?? null}
                 guestName={row.party ?? null}
                 propertyId={propertyOf(row) || null}
+                skipVerify={stampForm.skipVerify === true}
                 onSubmit={(value) => void submitStamp(row, stampForm.kind, value)}
                 onClose={() => setStampForm(null)}
               />

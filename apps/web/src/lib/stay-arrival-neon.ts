@@ -277,6 +277,8 @@ export async function recordStayStampOnNeon(
     important?: boolean | undefined;
     recipient?: StayRecipientInput | undefined;
     photos?: StayPhotoInput[] | undefined;
+    /** Owner admits the guest without the refundable deposit being paid online. */
+    depositWaived?: boolean | undefined;
   },
 ): Promise<{ bookingStatus: string; stamp: StayStamp }> {
   if (!hasPermission(claims, 'stay.booking.manage')) fail('forbidden');
@@ -355,6 +357,54 @@ export async function recordStayStampOnNeon(
       .limit(1);
     if (!booking) fail('booking_not_found');
     if (!assertStayBookingTransition(booking.status, toStatus).ok) fail('stay_status_invalid');
+
+    if (input.kind === 'check_in') {
+      const { loadStayDepositGate } = await import('@/lib/stay-deposit-gate-neon');
+      const deposit = await loadStayDepositGate(tx, orgId, booking.id);
+      if (deposit.required && deposit.status === 'unpaid') {
+        if (!input.depositWaived) fail('deposit_unpaid');
+        const [actorForWaive] = await tx
+          .select({ displayName: users.displayName })
+          .from(users)
+          .where(eq(users.id, claims.sub))
+          .limit(1);
+        const [snapRow] = await tx
+          .select({ pricingSnapshotJson: stayBookings.pricingSnapshotJson })
+          .from(stayBookings)
+          .where(and(eq(stayBookings.id, booking.id), eq(stayBookings.organizationId, orgId)))
+          .limit(1);
+        const snapshot =
+          snapRow?.pricingSnapshotJson && typeof snapRow.pricingSnapshotJson === 'object'
+            ? { ...(snapRow.pricingSnapshotJson as Record<string, unknown>) }
+            : {};
+        const waive = {
+          at: now.toISOString(),
+          byUserId: claims.sub,
+          byName: actorForWaive?.displayName ?? null,
+        };
+        await tx
+          .update(stayBookings)
+          .set({
+            pricingSnapshotJson: { ...snapshot, depositWaived: waive },
+            updatedAt: now,
+          })
+          .where(and(eq(stayBookings.id, booking.id), eq(stayBookings.organizationId, orgId)));
+        await tx.insert(stayBookingStatusHistory).values({
+          organizationId: orgId,
+          bookingId: booking.id,
+          fromStatus: booking.status,
+          toStatus: booking.status,
+          actorUserId: claims.sub,
+          reason: 'deposit_waived',
+          metadataJson: {
+            ...waive,
+            depositMinor: deposit.amountMinor,
+            currency: booking.currency,
+            source: 'host_check_in',
+          },
+        });
+      }
+    }
 
     if (input.kind === 'check_out') {
       const checkIn = (await loadStayStamps(tx, orgId, [booking.id])).get(booking.id)?.checkIn;
@@ -441,30 +491,34 @@ export async function recordStayStampOnNeon(
         payload: { unitId: booking.unitId, checkOutOn: booking.checkOutOn },
       });
     }
-    // Trust liability: deposit held at check-in (Dr cash, Cr 2100) — dims on property/unit/guest.
+    // Trust liability when deposit was collected (online payment posts bank; skip if waived).
     if (input.kind === 'check_in' && booking.depositMinor && booking.depositMinor > 0n) {
-      const map = await ensureAccountCodeMap(tx, orgId);
-      const occurredOn = stamp.at.slice(0, 10);
-      await postSourceDocumentInTx(tx, {
-        organizationId: orgId,
-        actorUserId: claims.sub,
-        occurredOn,
-        description: `تأمين إقامة محتجز ${booking.referenceCode}`.slice(0, 500),
-        sourceType: 'stay_deposit_held',
-        sourceId: booking.id,
-        lines: postingDepositHeld(
-          map,
-          booking.depositMinor.toString(),
-          {
-            currency: booking.currency,
-            propertyId: booking.propertyId,
-            unitId: booking.unitId,
-            ...(booking.guestPartyId ? { partyId: booking.guestPartyId } : {}),
-          },
-          'cash',
-          `تأمين ${booking.referenceCode}`,
-        ),
-      });
+      const { loadStayDepositGate } = await import('@/lib/stay-deposit-gate-neon');
+      const depositGate = await loadStayDepositGate(tx, orgId, booking.id);
+      if (depositGate.status !== 'waived') {
+        const map = await ensureAccountCodeMap(tx, orgId);
+        const occurredOn = stamp.at.slice(0, 10);
+        await postSourceDocumentInTx(tx, {
+          organizationId: orgId,
+          actorUserId: claims.sub,
+          occurredOn,
+          description: `تأمين إقامة محتجز ${booking.referenceCode}`.slice(0, 500),
+          sourceType: 'stay_deposit_held',
+          sourceId: booking.id,
+          lines: postingDepositHeld(
+            map,
+            booking.depositMinor.toString(),
+            {
+              currency: booking.currency,
+              propertyId: booking.propertyId,
+              unitId: booking.unitId,
+              ...(booking.guestPartyId ? { partyId: booking.guestPartyId } : {}),
+            },
+            depositGate.status === 'paid' ? 'bank' : 'cash',
+            `تأمين ${booking.referenceCode}`,
+          ),
+        });
+      }
     }
     return { bookingStatus: toStatus, stamp };
   });

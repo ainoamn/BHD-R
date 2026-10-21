@@ -22,7 +22,7 @@ import {
 } from '@bhd-r/db';
 import { assertStayBookingTransition } from '@bhd-r/domain';
 import { ensureAccountCodeMap, postSourceDocumentInTx } from '@/lib/accounting-gl-neon';
-import { postingRentReceipt } from '@/lib/accounting-posting';
+import { postingDepositHeld, postingRentReceipt } from '@/lib/accounting-posting';
 import { sendQueuedEmailsSoon } from '@/lib/email-outbox';
 import { escapeHtml } from '@/lib/lease-booking-contract';
 import {
@@ -244,9 +244,85 @@ export async function completeStaySandboxPaymentOnNeon(
       throw new PublicStayBookingError('booking_missing', 'Stay booking not found', 404);
     }
 
+    const isDeposit =
+      typeof intent.idempotencyKey === 'string' &&
+      intent.idempotencyKey.startsWith('stay_deposit:');
     const isRescheduleTopUp =
       typeof intent.idempotencyKey === 'string' &&
       intent.idempotencyKey.startsWith('reschedule_topup:');
+
+    if (isDeposit) {
+      const ready = new Set(['confirmed', 'paid', 'pre_arrival', 'checked_in']);
+      if (!ready.has(booking.status)) {
+        throw new PublicStayBookingError(
+          'booking_not_payable',
+          `Stay booking cannot accept deposit in status ${booking.status}`,
+          409,
+        );
+      }
+      const now = new Date();
+      await transaction
+        .update(stayPaymentIntents)
+        .set({
+          status: 'succeeded',
+          provider: 'sandbox',
+          providerIntentId: sessionReference,
+          providerEventId: `sandbox-stay-deposit:${sessionReference}`,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(stayPaymentIntents.id, intent.id),
+            eq(stayPaymentIntents.organizationId, intent.organizationId),
+          ),
+        );
+
+      if (intent.amountMinor > 0n) {
+        const map = await ensureAccountCodeMap(transaction, intent.organizationId);
+        await postSourceDocumentInTx(transaction, {
+          organizationId: intent.organizationId,
+          occurredOn: now.toISOString().slice(0, 10),
+          description: `تأمين إقامة ${booking.referenceCode}`.slice(0, 500),
+          sourceType: 'stay_deposit_held',
+          sourceId: booking.id,
+          lines: postingDepositHeld(
+            map,
+            intent.amountMinor.toString(),
+            {
+              currency: intent.currency,
+              propertyId: booking.propertyId,
+              unitId: booking.unitId,
+              ...(booking.guestPartyId ? { partyId: booking.guestPartyId } : {}),
+            },
+            'bank',
+            `تأمين ${booking.referenceCode}`,
+          ),
+        });
+      }
+
+      await transaction.insert(outboxEvents).values({
+        organizationId: intent.organizationId,
+        topic: 'stay.booking.deposit_paid',
+        aggregateType: 'stay_booking',
+        aggregateId: booking.id,
+        payload: {
+          paymentIntentId: intent.id,
+          referenceCode: booking.referenceCode,
+          amountMinor: intent.amountMinor.toString(),
+          provider: 'sandbox',
+          ...safeMask,
+        },
+      });
+
+      return {
+        completed: true as const,
+        duplicate: false as const,
+        kind: 'stay_booking' as const,
+        paymentIntentId: intent.id,
+        returnPath: returnPath ?? null,
+        referenceCode: booking.referenceCode,
+      };
+    }
 
     if (isRescheduleTopUp) {
       const paidStatuses = new Set(['confirmed', 'paid', 'pre_arrival']);

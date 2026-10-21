@@ -1,9 +1,11 @@
-export type StayBookingPaymentKind = 'booking' | 'reschedule_topup' | 'other';
+export type StayBookingPaymentKind = 'booking' | 'reschedule_topup' | 'deposit' | 'other';
 
 export function stayPaymentKindLabel(kind: StayBookingPaymentKind, ar: boolean): string {
   switch (kind) {
     case 'reschedule_topup':
       return ar ? 'فرق تعديل التواريخ' : 'Date-change top-up';
+    case 'deposit':
+      return ar ? 'مبلغ التأمين' : 'Security deposit';
     case 'booking':
       return ar ? 'دفعة الحجز' : 'Booking payment';
     default:

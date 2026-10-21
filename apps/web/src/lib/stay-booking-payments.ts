@@ -26,6 +26,7 @@ type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 function paymentKind(idempotencyKey: string): StayBookingPaymentKind {
   if (idempotencyKey.startsWith('reschedule_topup:')) return 'reschedule_topup';
+  if (idempotencyKey.startsWith('stay_deposit:')) return 'deposit';
   if (
     idempotencyKey.startsWith('stay_booking:') ||
     idempotencyKey.startsWith('booking:') ||

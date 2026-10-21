@@ -15,7 +15,13 @@ type CheckInResult = {
   checkOutOn: string;
 };
 
-type PreviewResult = CheckInResult & { preview: true };
+type PreviewResult = CheckInResult & {
+  preview: true;
+  depositRequired?: boolean;
+  depositStatus?: string;
+  depositMinor?: string | null;
+  depositCurrency?: string;
+};
 
 type Pending =
   | { kind: 'token'; token: string }
@@ -60,6 +66,10 @@ function humanGateError(code: string, ar: boolean): string {
       return ar ? 'هذا الحجز لا يخص هذا العقار.' : 'This booking is not for this property.';
     case 'pass_invalid':
       return ar ? 'الرمز غير صالح أو منتهٍ.' : 'Code is invalid or expired.';
+    case 'deposit_unpaid':
+      return ar
+        ? 'الضيف لم يدفع مبلغ التأمين. أكّد الاستثناء للمتابعة أو اطلب الدفع أولاً.'
+        : 'Guest has not paid the deposit. Confirm a waiver to continue, or require payment first.';
     default:
       return ar ? 'تعذّر تسجيل الوصول.' : 'Could not check in.';
   }
@@ -96,7 +106,11 @@ export function StayGateDesk({
   const [guardNote, setGuardNote] = useState('');
 
   const postGate = useCallback(
-    async (action: 'preview' | 'checkin', next: Pending, note?: string) => {
+    async (
+      action: 'preview' | 'checkin',
+      next: Pending,
+      options?: { note?: string; depositWaived?: boolean },
+    ) => {
       const key =
         next.kind === 'token'
           ? { token: next.token }
@@ -113,7 +127,10 @@ export function StayGateDesk({
           action,
           key,
           ...(propertyId ? { propertyId } : {}),
-          ...(action === 'checkin' && note?.trim() ? { note: note.trim() } : {}),
+          ...(action === 'checkin' && options?.note?.trim()
+            ? { note: options.note.trim() }
+            : {}),
+          ...(action === 'checkin' && options?.depositWaived ? { depositWaived: true } : {}),
         }),
       });
       const payload = (await response.json().catch(() => null)) as
@@ -138,15 +155,37 @@ export function StayGateDesk({
       setResult(null);
       try {
         if (autoConfirm) {
-          const payload = await postGate('checkin', next);
-          if (!payload || !('ok' in payload) || !payload.ok) {
-            throw new Error('checkin_failed');
+          try {
+            const payload = await postGate('checkin', next);
+            if (!payload || !('ok' in payload) || !payload.ok) {
+              throw new Error('checkin_failed');
+            }
+            setResult(payload as CheckInResult);
+            setPending(null);
+            setPreview(null);
+            onCheckedIn?.();
+            return;
+          } catch (caught) {
+            const code = caught instanceof Error ? caught.message : 'checkin_failed';
+            if (code === 'deposit_unpaid') {
+              const waive = window.confirm(
+                ar
+                  ? 'المستأجر لم يدفع مبلغ التأمين المسترد. هل تريد المتابعة بتسجيل دخوله بدون تأمين؟ إلغاء = عليه الدفع أولاً.'
+                  : 'Guest has not paid the refundable deposit. Continue check-in without deposit? Cancel = require payment first.',
+              );
+              if (!waive) throw new Error('deposit_unpaid');
+              const payload = await postGate('checkin', next, { depositWaived: true });
+              if (!payload || !('ok' in payload) || !payload.ok) {
+                throw new Error('checkin_failed');
+              }
+              setResult(payload as CheckInResult);
+              setPending(null);
+              setPreview(null);
+              onCheckedIn?.();
+              return;
+            }
+            throw caught;
           }
-          setResult(payload as CheckInResult);
-          setPending(null);
-          setPreview(null);
-          onCheckedIn?.();
-          return;
         }
         const payload = await postGate('preview', next);
         if (!payload || !('preview' in payload) || !payload.preview) {
@@ -171,27 +210,61 @@ export function StayGateDesk({
     [postGate, autoConfirm, onCheckedIn, ar],
   );
 
-  const confirmCheckIn = useCallback(async () => {
-    if (!pending) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const payload = await postGate('checkin', pending, guardNote);
-      if (!payload || !('ok' in payload) || !payload.ok || 'preview' in payload) {
-        throw new Error('checkin_failed');
+  const confirmCheckIn = useCallback(
+    async (depositWaived = false) => {
+      if (!pending) return;
+      setBusy(true);
+      setError(null);
+      try {
+        if (
+          !depositWaived &&
+          preview?.depositRequired &&
+          preview.depositStatus === 'unpaid'
+        ) {
+          const waive = window.confirm(
+            ar
+              ? 'المستأجر لم يدفع مبلغ التأمين المسترد. هل تريد المتابعة بتسجيل دخوله بدون تأمين؟ إلغاء = عليه الدفع أولاً.'
+              : 'Guest has not paid the refundable deposit. Continue check-in without deposit? Cancel = require payment first.',
+          );
+          if (!waive) {
+            setError(humanGateError('deposit_unpaid', ar));
+            return;
+          }
+          depositWaived = true;
+        }
+        const payload = await postGate('checkin', pending, {
+          note: guardNote,
+          depositWaived,
+        });
+        if (!payload || !('ok' in payload) || !payload.ok || 'preview' in payload) {
+          throw new Error('checkin_failed');
+        }
+        setResult(payload as CheckInResult);
+        setPending(null);
+        setPreview(null);
+        setGuardNote('');
+        onCheckedIn?.();
+      } catch (caught) {
+        const code = caught instanceof Error ? caught.message : 'checkin_failed';
+        if (code === 'deposit_unpaid' && !depositWaived) {
+          const waive = window.confirm(
+            ar
+              ? 'المستأجر لم يدفع مبلغ التأمين المسترد. هل تريد المتابعة بتسجيل دخوله بدون تأمين؟ إلغاء = عليه الدفع أولاً.'
+              : 'Guest has not paid the refundable deposit. Continue check-in without deposit? Cancel = require payment first.',
+          );
+          if (waive) {
+            setBusy(false);
+            void confirmCheckIn(true);
+            return;
+          }
+        }
+        setError(humanGateError(code, ar));
+      } finally {
+        setBusy(false);
       }
-      setResult(payload as CheckInResult);
-      setPending(null);
-      setPreview(null);
-      setGuardNote('');
-      onCheckedIn?.();
-    } catch (caught) {
-      const code = caught instanceof Error ? caught.message : 'checkin_failed';
-      setError(humanGateError(code, ar));
-    } finally {
-      setBusy(false);
-    }
-  }, [pending, postGate, guardNote, ar, onCheckedIn]);
+    },
+    [pending, preview, postGate, guardNote, ar, onCheckedIn],
+  );
 
   useEffect(() => {
     if (initialToken) void loadPreview({ kind: 'token', token: initialToken });
@@ -315,6 +388,13 @@ export function StayGateDesk({
             ? 'راجع البيانات ثم اضغط تأكيد لتسجيل الدخول.'
             : 'Review the details, then confirm to record check-in.'}
         </p>
+        {preview.depositRequired && preview.depositStatus === 'unpaid' ? (
+          <p className="notice notice--warn" role="status">
+            {ar
+              ? 'تنبيه: لم يُدفع مبلغ التأمين المسترد بعد. عند التأكيد سيُطلب منك استثناء التأمين أو إلغاء التسجيل.'
+              : 'Notice: the refundable deposit is unpaid. Confirming will ask you to waive it or cancel.'}
+          </p>
+        ) : null}
         <dl className="viewing-gate__facts">
           <div>
             <dt>{ar ? 'الضيف' : 'Guest'}</dt>

@@ -25,6 +25,10 @@ import {
   stayArrivalWindow,
   type StayCheckinType,
 } from '@/lib/stay-checkin-window';
+import {
+  ensureStayDepositPaymentInTx,
+  loadStayDepositGate,
+} from '@/lib/stay-deposit-gate-neon';
 
 const ARRIVAL_READY = new Set(['confirmed', 'paid', 'pre_arrival']);
 
@@ -162,7 +166,10 @@ function enforceCheckinWindow(facts: StayFacts, now: Date = new Date()) {
 }
 
 /** Public: guest page loads a rotating sealed pass for a paid booking. */
-export async function guestStayCheckinPass(referenceCode: string) {
+export async function guestStayCheckinPass(
+  referenceCode: string,
+  locale: 'ar' | 'en' = 'ar',
+) {
   const { createDatabase } = await import('@bhd-r/db');
   const url = process.env.DATABASE_URL;
   if (!url) fail('db_unconfigured');
@@ -197,6 +204,34 @@ export async function guestStayCheckinPass(referenceCode: string) {
         referenceCode: facts.referenceCode,
         status: facts.status,
         opensAt: window.opensAt.toISOString(),
+      };
+    }
+    const deposit = await loadStayDepositGate(tx, facts.organizationId, facts.id);
+    if (deposit.required && deposit.status === 'unpaid' && deposit.amountMinor) {
+      let paymentRedirectUrl: string | null = null;
+      try {
+        const pay = await ensureStayDepositPaymentInTx(
+          tx,
+          {
+            id: facts.id,
+            organizationId: facts.organizationId,
+            referenceCode: facts.referenceCode,
+            currency: deposit.currency,
+          },
+          deposit.amountMinor,
+          locale,
+        );
+        paymentRedirectUrl = pay.redirectUrl;
+      } catch {
+        paymentRedirectUrl = null;
+      }
+      return {
+        state: 'deposit_unpaid' as const,
+        referenceCode: facts.referenceCode,
+        status: facts.status,
+        depositMinor: deposit.amountMinor,
+        currency: deposit.currency,
+        paymentRedirectUrl,
       };
     }
     const pass = issueStayCheckinPass(facts.id);
@@ -296,11 +331,16 @@ export async function previewStayGate(
     }
     if (!ARRIVAL_READY.has(facts.status)) fail('stay_not_ready');
     if (!window.ok) fail(window.code);
+    const deposit = await loadStayDepositGate(tx, facts.organizationId, facts.id);
     return {
       ...gatePayload(facts, false, null),
       preview: true as const,
       opensAt: window.opensAt.toISOString(),
       closesAt: window.closesAt.toISOString(),
+      depositRequired: deposit.required,
+      depositStatus: deposit.status,
+      depositMinor: deposit.amountMinor,
+      depositCurrency: deposit.currency,
     };
   });
 }
@@ -311,6 +351,7 @@ export async function confirmStayGate(
   key: StayKey,
   note?: string | null,
   propertyId?: string | null,
+  depositWaived?: boolean,
 ) {
   if (!hasPermission(claims, 'stay.booking.manage')) fail('forbidden');
   const orgId = claims.organizationId ?? fail('organization_required');
@@ -346,6 +387,54 @@ export async function confirmStayGate(
     if (!window.ok) fail(window.code);
     if (!assertStayBookingTransition(facts.status, 'checked_in').ok) fail('stay_status_invalid');
 
+    let deposit = await loadStayDepositGate(tx, orgId, facts.id);
+    if (deposit.required && deposit.status === 'unpaid') {
+      if (!depositWaived) {
+        fail('deposit_unpaid');
+      }
+      const [actorForWaive] = await tx
+        .select({ displayName: users.displayName })
+        .from(users)
+        .where(eq(users.id, claims.sub))
+        .limit(1);
+      const [bookingRow] = await tx
+        .select({ pricingSnapshotJson: stayBookings.pricingSnapshotJson })
+        .from(stayBookings)
+        .where(and(eq(stayBookings.id, facts.id), eq(stayBookings.organizationId, orgId)))
+        .limit(1);
+      const snapshot =
+        bookingRow?.pricingSnapshotJson && typeof bookingRow.pricingSnapshotJson === 'object'
+          ? { ...(bookingRow.pricingSnapshotJson as Record<string, unknown>) }
+          : {};
+      const waive = {
+        at: now.toISOString(),
+        byUserId: claims.sub,
+        byName: actorForWaive?.displayName ?? null,
+      };
+      await tx
+        .update(stayBookings)
+        .set({
+          pricingSnapshotJson: { ...snapshot, depositWaived: waive },
+          updatedAt: now,
+        })
+        .where(and(eq(stayBookings.id, facts.id), eq(stayBookings.organizationId, orgId)));
+      await tx.insert(stayBookingStatusHistory).values({
+        organizationId: orgId,
+        bookingId: facts.id,
+        fromStatus: facts.status,
+        toStatus: facts.status,
+        actorUserId: claims.sub,
+        reason: 'deposit_waived',
+        metadataJson: {
+          ...waive,
+          depositMinor: deposit.amountMinor,
+          currency: deposit.currency,
+          source: 'stay_gate',
+        },
+      });
+      deposit = { ...deposit, status: 'waived' };
+    }
+
     const [actor] = await tx
       .select({ displayName: users.displayName })
       .from(users)
@@ -373,6 +462,8 @@ export async function confirmStayGate(
         customNote: notes,
         important: false,
         source: 'stay_gate',
+        depositStatus: deposit.status,
+        depositWaived: deposit.status === 'waived',
       },
     });
     await tx.insert(workflowEvents).values({
@@ -388,6 +479,7 @@ export async function confirmStayGate(
         at,
         source: 'stay_gate',
         notes,
+        depositStatus: deposit.status,
       },
     });
     return gatePayload(facts, false, at);

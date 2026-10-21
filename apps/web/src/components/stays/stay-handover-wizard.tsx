@@ -70,6 +70,7 @@ export function StayHandoverWizard({
   guestPhone,
   guestName,
   propertyId,
+  skipVerify = false,
   onSubmit,
   onClose,
 }: {
@@ -80,12 +81,14 @@ export function StayHandoverWizard({
   guestPhone: string | null;
   guestName?: string | null;
   propertyId?: string | null;
+  /** Owner already verified the booking row (e.g. after waiving deposit). */
+  skipVerify?: boolean;
   onSubmit: (value: HandoverSubmit) => void;
   onClose: () => void;
 }) {
   const ar = locale === 'ar';
   const checkIn = kind === 'check_in';
-  const steps = checkIn ? CHECK_IN_STEPS : CHECK_OUT_STEPS;
+  const steps = checkIn && !skipVerify ? CHECK_IN_STEPS : checkIn ? CHECK_IN_STEPS.filter((s) => s.id !== 'verify') : CHECK_OUT_STEPS;
   const [stepIndex, setStepIndex] = useState(0);
   const step = steps[stepIndex]!.id;
 
@@ -104,7 +107,7 @@ export function StayHandoverWizard({
   const [photoError, setPhotoError] = useState<string | null>(null);
   const [tried, setTried] = useState(false);
 
-  const [verified, setVerified] = useState(!checkIn);
+  const [verified, setVerified] = useState(!checkIn || skipVerify);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const [verifyBusy, setVerifyBusy] = useState(false);

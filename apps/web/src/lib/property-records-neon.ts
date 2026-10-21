@@ -584,6 +584,16 @@ async function loadBookings(
   const departedIds = stays
     .filter((row) => STAY_AFTER_CHECK_OUT.has(row.status))
     .map((row) => row.id);
+  const depositBookingIds = stays
+    .filter(
+      (row) =>
+        STAY_AFTER_CHECK_OUT.has(row.status) ||
+        row.status === 'confirmed' ||
+        row.status === 'paid' ||
+        row.status === 'pre_arrival' ||
+        row.status === 'checked_in',
+    )
+    .map((row) => row.id);
   const [names, bookingContracts, stamps, deposits, refunds, reviewFacts] = await Promise.all([
     partyNames(tx, [
       ...stays.map((row) => row.guestPartyId),
@@ -598,13 +608,28 @@ async function loadBookings(
         .filter((row) => row.status === 'checked_in' || STAY_AFTER_CHECK_OUT.has(row.status))
         .map((row) => row.id),
     ),
-    loadBookingDeposits(tx, orgId, departedIds),
+    loadBookingDeposits(tx, orgId, depositBookingIds),
     loadDepositRefunds(tx, orgId, departedIds),
     loadBookingReviewFacts(
       tx,
       stays.map((row) => ({ id: row.id, userId: row.userId, email: row.contactEmail })),
     ),
   ]);
+  const { loadStayDepositGate } = await import('@/lib/stay-deposit-gate-neon');
+  const depositGates = new Map<string, string>();
+  await Promise.all(
+    stays
+      .filter(
+        (row) =>
+          row.status === 'confirmed' ||
+          row.status === 'paid' ||
+          row.status === 'pre_arrival',
+      )
+      .map(async (row) => {
+        const gate = await loadStayDepositGate(tx, orgId, row.id);
+        if (gate.required) depositGates.set(row.id, gate.status);
+      }),
+  );
 
   const rows: PropertyRecordRow[] = [
     ...stays.map((row) => {
@@ -622,6 +647,7 @@ async function loadBookings(
         stage:
           depositRefundStage(row.status, depositMinor, refund?.status) ?? stayStage(row.status),
         depositMinor,
+        depositStatus: depositGates.get(row.id) ?? null,
         ...refundFields(refund, account),
         checkedInAt: stamp?.checkIn?.at ?? null,
         checkInNotes: stamp?.checkIn?.notes ?? null,

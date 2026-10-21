@@ -35,6 +35,7 @@ const bodySchema = z.discriminatedUnion('action', [
       key: keySchema,
       note: z.string().trim().max(500).optional(),
       propertyId: z.string().uuid().optional(),
+      depositWaived: z.boolean().optional(),
     })
     .strict(),
 ]);
@@ -58,6 +59,10 @@ function errorResponse(error: unknown) {
       ar: 'هذا الحجز لا يخص هذا العقار.',
       en: 'This booking does not belong to this property.',
     },
+    deposit_unpaid: {
+      ar: 'الضيف لم يدفع مبلغ التأمين المسترد بعد. ادفع أولاً أو استثنِ التأمين للمتابعة.',
+      en: 'The guest has not paid the refundable deposit yet. Collect payment first, or waive the deposit to continue.',
+    },
   };
   const status =
     code === 'forbidden'
@@ -69,7 +74,8 @@ function errorResponse(error: unknown) {
             code === 'stay_status_invalid' ||
             code === 'stay_checkin_too_early' ||
             code === 'stay_checkin_window_closed' ||
-            code === 'wrong_property'
+            code === 'wrong_property' ||
+            code === 'deposit_unpaid'
           ? 409
           : 400;
   const message = messages[code];
@@ -115,7 +121,15 @@ export async function POST(request: Request) {
     if (body.action === 'preview') {
       return json(await previewStayGate(claims, body.key, body.propertyId));
     }
-    return json(await confirmStayGate(claims, body.key, body.note, body.propertyId));
+    return json(
+      await confirmStayGate(
+        claims,
+        body.key,
+        body.note,
+        body.propertyId,
+        body.depositWaived === true,
+      ),
+    );
   } catch (error) {
     return errorResponse(error);
   }
