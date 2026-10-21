@@ -2,6 +2,7 @@
 
 import type { ComponentProps, MouseEvent, ReactNode } from 'react';
 import { Link } from '@/i18n/navigation';
+import { pushSoftPortalUrl } from '@/lib/soft-portal-nav';
 import { isTenantSoftBasePath } from '@/lib/tenant-soft-nav';
 
 function softTenantHref(href: string): boolean {
@@ -47,10 +48,7 @@ export function SoftPortalLink({
           (!event.currentTarget.target || event.currentTarget.target === '_self')
         ) {
           event.preventDefault();
-          const url = new URL(event.currentTarget.href);
-          if (url.pathname !== window.location.pathname || url.search !== window.location.search) {
-            window.history.pushState(null, '', url.pathname + url.search + url.hash);
-          }
+          pushSoftPortalUrl(event.currentTarget.href);
         }
       }}
     >

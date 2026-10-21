@@ -3,7 +3,7 @@
 import { useSearchParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { Link, usePathname, useRouter } from '@/i18n/navigation';
+import { Link, useRouter } from '@/i18n/navigation';
 import { PortalHeader } from '@/components/portal-header';
 import { canOpenPortalPath, scopedOwnerParty } from '@/lib/portal-access';
 import { persistPortalNavCollapsed } from '@/lib/portal-nav-state';
@@ -14,6 +14,7 @@ import {
   opsSectionsForPortal,
   type OperationsSection,
 } from '@/lib/portal-ops-types';
+import { pushSoftPortalUrl, useSoftPortalPathname } from '@/lib/soft-portal-nav';
 import { isTenantSoftBasePath } from '@/lib/tenant-soft-nav';
 import { warmTenantSpace } from '@/lib/tenant-space-client-cache';
 import type { PortalRole, Viewer } from '@/lib/types';
@@ -307,11 +308,8 @@ function PortalIntentLink({
           (!event.currentTarget.target || event.currentTarget.target === '_self')
         ) {
           event.preventDefault();
-          const url = new URL(event.currentTarget.href);
-          if (url.pathname !== window.location.pathname || url.search !== window.location.search) {
-            // Client panes; native history integrates with Next's pathname hooks.
-            window.history.pushState(null, '', url.pathname + url.search + url.hash);
-          }
+          // Client panes stay mounted; pushState + soft-nav event updates the active view.
+          pushSoftPortalUrl(event.currentTarget.href);
         }
         onNavigate();
       }}
@@ -338,7 +336,7 @@ export function PortalNav({
   initialCollapsed?: boolean;
 }) {
   const t = useTranslations();
-  const pathname = usePathname();
+  const pathname = useSoftPortalPathname();
   const searchParams = useSearchParams();
   const manageMode = searchParams.get('mode') === 'manage';
   const locale = useLocale() as 'ar' | 'en';

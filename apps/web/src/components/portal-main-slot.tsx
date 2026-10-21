@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { Link, usePathname } from '@/i18n/navigation';
+import { Link } from '@/i18n/navigation';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { AccountingHub } from '@/components/accounting/accounting-hub';
 import { ApprovalsHub } from '@/components/approvals-hub';
@@ -18,6 +18,7 @@ import {
   opsSectionsForPortal,
   type OperationsSection,
 } from '@/lib/portal-ops-types';
+import { useSoftPortalPathname } from '@/lib/soft-portal-nav';
 import { tenantSoftViewFromPath } from '@/lib/tenant-soft-nav';
 import type { PortalRole } from '@/lib/types';
 
@@ -104,10 +105,11 @@ export function PortalMainSlot({
   lawyer?: boolean;
   children: ReactNode;
 }) {
-  const pathname = usePathname();
+  const pathname = useSoftPortalPathname();
   const section = opsSectionFromPathname(pathname, portal);
   const extra = softExtraFromPath(pathname, portal);
   const tenantSoft = portal === 'tenant' ? tenantSoftViewFromPath(pathname) : null;
+  const softPane = Boolean(section || extra || tenantSoft);
   const [visited, setVisited] = useState<OperationsSection[]>(() => (section ? [section] : []));
   const [visitedExtras, setVisitedExtras] = useState<SoftExtra[]>(() => (extra ? [extra] : []));
   const [tenantHostMounted, setTenantHostMounted] = useState(() => Boolean(tenantSoft));
@@ -137,8 +139,14 @@ export function PortalMainSlot({
   const showPersistedPage = !section && !extra && !tenantSoft;
   return (
     <PortalPageContext.Provider value={register}>
-      {/* Leave Next's router mounted exactly once; pages register their actual content. */}
-      {children}
+      {/* Keep the router outlet mounted once, but hide it while soft panes own the main area. */}
+      <div
+        hidden={softPane}
+        inert={softPane || undefined}
+        aria-hidden={softPane || undefined}
+      >
+        {children}
+      </div>
       {Object.entries(pages).map(([path, content]) => (
         <div
           key={path}

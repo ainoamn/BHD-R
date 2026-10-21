@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { usePathname } from '@/i18n/navigation';
 import { TenantSpaceContent } from '@/components/tenant-space';
+import { useSoftPortalPathname } from '@/lib/soft-portal-nav';
 import { EMPTY_TENANCY } from '@/lib/tenancy-shared';
 import { tenantSoftViewFromPath } from '@/lib/tenant-soft-nav';
 import {
@@ -22,7 +22,7 @@ export function TenantSpaceHost({
   locale: 'ar' | 'en';
   active: boolean;
 }) {
-  const pathname = usePathname();
+  const pathname = useSoftPortalPathname();
   const view = tenantSoftViewFromPath(pathname) ?? 'overview';
   const [payload, setPayload] = useState<TenantSpacePayload | null>(() => getTenantSpaceCache());
 
