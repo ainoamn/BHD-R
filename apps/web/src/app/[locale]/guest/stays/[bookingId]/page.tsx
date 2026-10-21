@@ -19,6 +19,10 @@ import { getViewer } from '@/lib/viewer';
 import { formatMoney } from '@/lib/format';
 import { LiveSync } from '@/components/live-sync';
 import {
+  displayStayCheckoutOn,
+  isHalfDayStayType,
+} from '@/lib/stay-period-times';
+import {
   StayJourneyCard,
   StayJourneyProvider,
   StayJourneySteps,
@@ -59,6 +63,8 @@ type GuestBooking = {
   listingTitleEn?: string | null;
   unitId?: string | null;
   stayType?: string | null;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
   guestDisplayName?: string | null;
   adults?: number | null;
   children?: number | null;
@@ -333,8 +339,13 @@ export default async function GuestStayDetailPage({
     booking.listingTitleAr ??
     booking.listingTitleEn ??
     (ar ? 'إقامتك في عُمان' : 'Your stay in Oman');
+  const displayCheckoutOn = displayStayCheckoutOn(
+    booking.stayType,
+    booking.checkInOn,
+    booking.checkOutOn,
+  );
   const checkIn = formatStayDate(booking.checkInOn, ar);
-  const checkOut = formatStayDate(booking.checkOutOn, ar);
+  const checkOut = formatStayDate(displayCheckoutOn, ar);
   const muscatToday = new Date(Date.now() + 4 * 3_600_000).toISOString().slice(0, 10);
   const relativeDay = (value: string) =>
     value.slice(0, 10) > muscatToday
@@ -354,7 +365,7 @@ export default async function GuestStayDetailPage({
     guestName: booking.guestDisplayName,
     checkInDate: [checkIn.weekday, checkIn.date].filter(Boolean).join(' '),
     arrival: relativeDay(booking.checkInOn),
-    departure: relativeDay(booking.checkOutOn),
+    departure: relativeDay(displayCheckoutOn),
     needsEsign,
     cancelOutcome,
     paidAmountLabel,
@@ -380,15 +391,23 @@ export default async function GuestStayDetailPage({
   const rebookHref = booking.listingSlug
     ? `/stays/${encodeURIComponent(booking.listingSlug)}`
     : '/stays';
+  const halfDay = isHalfDayStayType(booking.stayType);
   const nights = typeof booking.nights === 'number' ? booking.nights : null;
   const total = formatMoney(booking.totalMinor, booking.currency, locale);
   const perNight =
-    nights && nights > 0
+    !halfDay && nights && nights > 0
       ? formatMoney(
           (BigInt(booking.totalMinor) / BigInt(nights)).toString(),
           booking.currency,
           locale,
         )
+      : null;
+  const staySpanLabel = halfDay
+    ? booking.stayType
+      ? stayTypeLabel(booking.stayType, locale)
+      : null
+    : nights != null
+      ? nightsLabel(nights, ar)
       : null;
   const guests = [
     typeof booking.adults === 'number' && booking.adults > 0
@@ -553,17 +572,26 @@ export default async function GuestStayDetailPage({
                     {ar ? 'الوصول' : 'Check-in'}
                   </span>
                   <strong>{checkIn.date}</strong>
-                  <span className="muted">{checkIn.weekday}</span>
+                  <span className="muted">
+                    {checkIn.weekday}
+                    {booking.checkInTime ? ` · ${booking.checkInTime}` : ''}
+                  </span>
                 </div>
-                <div className="guest-stay-detail__nights" aria-hidden={nights == null}>
-                  {nights != null ? <span>{nightsLabel(nights, ar)}</span> : null}
+                <div
+                  className="guest-stay-detail__nights"
+                  aria-hidden={staySpanLabel == null}
+                >
+                  {staySpanLabel ? <span>{staySpanLabel}</span> : null}
                 </div>
                 <div className="guest-stay-detail__date">
                   <span className="guest-stay-detail__date-label">
                     {ar ? 'المغادرة' : 'Check-out'}
                   </span>
                   <strong>{checkOut.date}</strong>
-                  <span className="muted">{checkOut.weekday}</span>
+                  <span className="muted">
+                    {checkOut.weekday}
+                    {booking.checkOutTime ? ` · ${booking.checkOutTime}` : ''}
+                  </span>
                 </div>
               </div>
             </section>
@@ -719,11 +747,13 @@ export default async function GuestStayDetailPage({
               <strong className="guest-stay-detail__price-total" dir="ltr">
                 {total}
               </strong>
-              {perNight && nights ? (
+              {staySpanLabel ? (
                 <span className="guest-stay-detail__price-meta">
-                  {ar
-                    ? `${nightsLabel(nights, ar)} · متوسط سعر الليلة ${perNight}`
-                    : `${nightsLabel(nights, ar)} · ${perNight} per night on average`}
+                  {perNight
+                    ? ar
+                      ? `${staySpanLabel} · متوسط سعر الليلة ${perNight}`
+                      : `${staySpanLabel} · ${perNight} per night on average`
+                    : staySpanLabel}
                 </span>
               ) : null}
             </div>

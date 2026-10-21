@@ -1817,27 +1817,13 @@ export function PropertySectionRecords({
   }
 
   async function approveReschedule(row: PropertyRecordRow) {
-    const fromRange =
-      row.fromOn && row.toOn ? `${row.fromOn} → ${row.toOn}` : row.fromOn || row.toOn || '';
-    const toRange =
-      row.rescheduleCheckInOn && row.rescheduleCheckOutOn
-        ? `${row.rescheduleCheckInOn} → ${row.rescheduleCheckOutOn}`
-        : '';
-    if (
-      !window.confirm(
-        ar
-          ? `اعتماد تعديل تواريخ الحجز ${row.reference}؟\nمن: ${fromRange || '—'}\nإلى: ${toRange || '—'}`
-          : `Approve the date change for ${row.reference}?\nFrom: ${fromRange || '—'}\nTo: ${toRange || '—'}`,
-      )
-    ) {
-      return;
-    }
     const id = row.id ?? '';
     const result = await runAction<{
       applied?: boolean;
       awaitsGuestPayment?: boolean;
     }>(id, { action: 'approve_reschedule', bookingId: id }, propertyOf(row));
     if (!result) return;
+    window.dispatchEvent(new Event(LIVE_CHANGE_EVENT));
     setNotice({
       tone: 'success',
       text: result.awaitsGuestPayment
@@ -1863,6 +1849,7 @@ export function PropertySectionRecords({
       propertyOf(row),
     );
     if (!result) return;
+    window.dispatchEvent(new Event(LIVE_CHANGE_EVENT));
     setRejectForm(null);
     setNotice({
       tone: 'success',

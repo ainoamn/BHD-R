@@ -9,8 +9,10 @@ import type { StayBookingPendingReschedule } from '@/components/stays/stay-booki
 import { RejectStayNoteForm } from '@/components/stays/reject-stay-note-form';
 import { ApiError, browserMutation, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
+import { LIVE_CHANGE_EVENT } from '@/lib/live-sync-shared';
 import { PENDING_APPROVALS_CHANGED_EVENT } from '@/lib/pending-approvals-shared';
 import { REFUND_NOTE_MAX } from '@/lib/stay-deposit-refund';
+import { displayStayCheckoutOn } from '@/lib/stay-period-times';
 import { stayTypeLabel } from '@/lib/ui-labels';
 
 const CANCELABLE = new Set(['request_pending', 'payment_pending', 'confirmed', 'pre_arrival']);
@@ -59,6 +61,7 @@ export function StayBookingDetailOps({
   const [currentStatus, setCurrentStatus] = useState(status);
   const [reschedule, setReschedule] = useState(pendingReschedule ?? null);
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [approveConfirm, setApproveConfirm] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelStep, setCancelStep] = useState<CancelStep>('note');
   const [note, setNote] = useState('');
@@ -198,19 +201,6 @@ export function StayBookingDetailOps({
     note?: string | null,
   ) {
     if (!reschedule) return;
-    if (action === 'approve_reschedule') {
-      const fromRange = `${checkInOn} → ${checkOutOn}`;
-      const toRange = `${reschedule.checkInOn} → ${reschedule.checkOutOn}`;
-      if (
-        !window.confirm(
-          ar
-            ? `اعتماد تعديل تواريخ الحجز؟\nمن: ${fromRange}\nإلى: ${toRange}`
-            : `Approve the date change?\nFrom: ${fromRange}\nTo: ${toRange}`,
-        )
-      ) {
-        return;
-      }
-    }
 
     setError(null);
     setBusy(true);
@@ -227,12 +217,14 @@ export function StayBookingDetailOps({
         }),
       });
       window.dispatchEvent(new Event(PENDING_APPROVALS_CHANGED_EVENT));
-      window.dispatchEvent(new Event('bhd-r-live-change'));
+      window.dispatchEvent(new Event(LIVE_CHANGE_EVENT));
       if (action === 'reject_reschedule' || result.applied) {
         setReschedule(null);
         setRejectOpen(false);
+        setApproveConfirm(false);
       } else if (result.awaitsGuestPayment && reschedule) {
         setReschedule({ ...reschedule, status: 'awaiting_guest_payment' });
+        setApproveConfirm(false);
       }
       startTransition(() => router.refresh());
     } catch (caught) {
@@ -247,6 +239,11 @@ export function StayBookingDetailOps({
       setBusy(false);
     }
   }
+
+  const fromDisplayOut = displayStayCheckoutOn(stayType, checkInOn, checkOutOn);
+  const toDisplayOut = reschedule
+    ? displayStayCheckoutOn(reschedule.stayType, reschedule.checkInOn, reschedule.checkOutOn)
+    : null;
 
   const moneyCurrency = currency ?? paidCurrency ?? 'OMR';
 
@@ -275,10 +272,14 @@ export function StayBookingDetailOps({
               <tr>
                 <th scope="row">{ar ? 'الفترة' : 'Dates'}</th>
                 <td className="is-from" dir="ltr">
-                  {checkInOn} → {checkOutOn}
+                  {checkInOn}
+                  {fromDisplayOut !== checkInOn.slice(0, 10) ? ` → ${fromDisplayOut}` : ''}
                 </td>
                 <td className="is-to" dir="ltr">
-                  {reschedule.checkInOn} → {reschedule.checkOutOn}
+                  {reschedule.checkInOn}
+                  {toDisplayOut && toDisplayOut !== reschedule.checkInOn.slice(0, 10)
+                    ? ` → ${toDisplayOut}`
+                    : ''}
                 </td>
               </tr>
               <tr>
@@ -301,20 +302,53 @@ export function StayBookingDetailOps({
           </table>
           {reschedule.status === 'awaiting_owner' ? (
             <div className="stay-booking-ops__change-actions">
-              <button
-                type="button"
-                className="button button--primary"
-                disabled={busy || pending}
-                onClick={() => void decideReschedule('approve_reschedule')}
-              >
-                {busy ? (ar ? 'جارٍ…' : 'Working…') : ar ? 'اعتماد التعديل' : 'Approve change'}
-              </button>
+              {!approveConfirm ? (
+                <button
+                  type="button"
+                  className="button button--primary"
+                  disabled={busy || pending}
+                  onClick={() => {
+                    setRejectOpen(false);
+                    setApproveConfirm(true);
+                  }}
+                >
+                  {ar ? 'اعتماد التعديل' : 'Approve change'}
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="button button--primary"
+                    disabled={busy || pending}
+                    onClick={() => void decideReschedule('approve_reschedule')}
+                  >
+                    {busy
+                      ? ar
+                        ? 'جارٍ…'
+                        : 'Working…'
+                      : ar
+                        ? 'تأكيد الاعتماد'
+                        : 'Confirm approval'}
+                  </button>
+                  <button
+                    type="button"
+                    className="button button--quiet"
+                    disabled={busy || pending}
+                    onClick={() => setApproveConfirm(false)}
+                  >
+                    {ar ? 'رجوع' : 'Back'}
+                  </button>
+                </>
+              )}
               <button
                 type="button"
                 className="button button--quiet"
                 disabled={busy || pending}
                 aria-expanded={rejectOpen}
-                onClick={() => setRejectOpen((open) => !open)}
+                onClick={() => {
+                  setApproveConfirm(false);
+                  setRejectOpen((open) => !open);
+                }}
               >
                 {ar ? 'رفض التعديل' : 'Reject change'}
               </button>
@@ -326,8 +360,16 @@ export function StayBookingDetailOps({
               reference={bookingId.slice(0, 8).toUpperCase()}
               locale={locale === 'en' ? 'en' : 'ar'}
               busy={busy || pending}
-              fromRange={`${checkInOn} → ${checkOutOn}`}
-              toRange={`${reschedule.checkInOn} → ${reschedule.checkOutOn}`}
+              fromRange={
+                fromDisplayOut !== checkInOn.slice(0, 10)
+                  ? `${checkInOn} → ${fromDisplayOut}`
+                  : checkInOn
+              }
+              toRange={
+                toDisplayOut && toDisplayOut !== reschedule.checkInOn.slice(0, 10)
+                  ? `${reschedule.checkInOn} → ${toDisplayOut}`
+                  : reschedule.checkInOn
+              }
               onConfirm={(note) => void decideReschedule('reject_reschedule', note)}
               onCancel={() => setRejectOpen(false)}
             />

@@ -57,3 +57,20 @@ export function formatStayDateTime(dateOn: string, timeHHMM: string): string {
   const time = normalizeTime(timeHHMM, '00:00');
   return `${day} · ${time}`;
 }
+
+export function isHalfDayStayType(stayType: string | null | undefined): boolean {
+  return stayType === 'day_use' || stayType === 'overnight_only';
+}
+
+/**
+ * Calendar day shown as check-out to guests/owners.
+ * Day-use is stored as an exclusive [checkIn, checkIn+1) range but ends the same day.
+ */
+export function displayStayCheckoutOn(
+  stayType: string | null | undefined,
+  checkInOn: string,
+  checkOutOn: string,
+): string {
+  if (stayType === 'day_use') return checkInOn.slice(0, 10);
+  return checkOutOn.slice(0, 10);
+}

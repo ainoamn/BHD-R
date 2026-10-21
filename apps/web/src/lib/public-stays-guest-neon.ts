@@ -1,6 +1,6 @@
 import 'server-only';
 import { randomBytes } from 'node:crypto';
-import { and, desc, eq, inArray, ne, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, ne, or, sql } from 'drizzle-orm';
 import { resolveStaysEnabledFromEnv, readStaysFlagsFromEnv } from '@bhd-r/config';
 import {
   contracts,
@@ -49,7 +49,7 @@ import {
   ensureStayDepositPaymentInTx,
   loadStayDepositGate,
 } from '@/lib/stay-deposit-gate-neon';
-import { resolveStayPeriodTimes } from '@/lib/stay-period-times';
+import { resolveStayPeriodTimes, type StayPeriodType } from '@/lib/stay-period-times';
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdRPublicStaysGuestDb?: DbHandle };
@@ -113,6 +113,9 @@ export type GuestStayBookingProjection = {
   adults?: number | null;
   children?: number | null;
   stayType?: string | null;
+  /** Property period clocks for the booking stay type. */
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
   paymentIntentId?: string | null;
   /** Succeeded charges on this booking — one receipt each. */
   payments?: StayBookingPaymentLine[];
@@ -494,6 +497,20 @@ async function loadRescheduleRejection(
     .orderBy(desc(stayBookingStatusHistory.createdAt))
     .limit(1);
   if (!row) return null;
+  // A later applied reschedule supersedes an older rejection notice.
+  const [laterApply] = await transaction
+    .select({ id: stayBookingStatusHistory.id })
+    .from(stayBookingStatusHistory)
+    .where(
+      and(
+        eq(stayBookingStatusHistory.organizationId, organizationId),
+        eq(stayBookingStatusHistory.bookingId, bookingId),
+        eq(stayBookingStatusHistory.reason, 'guest_rescheduled'),
+        gt(stayBookingStatusHistory.createdAt, row.at),
+      ),
+    )
+    .limit(1);
+  if (laterApply) return null;
   const meta =
     row.metadata && typeof row.metadata === 'object'
       ? (row.metadata as Record<string, unknown>)
@@ -663,6 +680,26 @@ async function enrichProjection(
   const pendingReschedule = base.pendingReschedule
     ? { ...base.pendingReschedule, paymentRedirectUrl: payUrl }
     : null;
+  const [profileTimes] = await transaction
+    .select({
+      checkInFrom: stayProfiles.checkInFrom,
+      dayUseCheckInFrom: stayProfiles.dayUseCheckInFrom,
+      dayUseCheckOutUntil: stayProfiles.dayUseCheckOutUntil,
+      overnightCheckOutUntil: stayProfiles.overnightCheckOutUntil,
+      checkOutUntil: stayProfiles.checkOutUntil,
+    })
+    .from(stayProfiles)
+    .where(
+      and(
+        eq(stayProfiles.id, booking.stayProfileId),
+        eq(stayProfiles.organizationId, booking.organizationId),
+      ),
+    )
+    .limit(1);
+  const period = resolveStayPeriodTimes(
+    (base.stayType as StayPeriodType | null | undefined) ?? null,
+    profileTimes ?? {},
+  );
   return {
     depositMinor,
     depositStatus: depositGate?.status ?? null,
@@ -671,6 +708,8 @@ async function enrichProjection(
     depositClaims: claims?.get(booking.id) ?? [],
     canRequestDepositRefund: Boolean(depositMinor && !refund && booking.status === 'checked_out'),
     ...base,
+    checkInTime: period.checkInTime,
+    checkOutTime: period.checkOutTime,
     paymentIntentId,
     payments,
     listingSlug: listing?.slug ?? null,

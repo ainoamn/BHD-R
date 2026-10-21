@@ -15,7 +15,13 @@ import {
 import { ModalPortal } from '@/components/modal-portal';
 import { StayAvailabilityCalendar } from '@/components/stays/stay-availability-calendar';
 import { noteForLocale } from '@/lib/note-translation';
+import { LIVE_CHANGE_EVENT } from '@/lib/live-sync-shared';
 import { stayTypeLabel } from '@/lib/ui-labels';
+import {
+  displayStayCheckoutOn,
+  isHalfDayStayType,
+  resolveStayPeriodTimes,
+} from '@/lib/stay-period-times';
 
 export type GuestStayActionBooking = {
   id: string;
@@ -72,11 +78,29 @@ type RescheduleQuote = {
 const STAY_TYPE_OPTIONS: StayTypeOption[] = ['overnight_stay', 'day_use', 'overnight_only'];
 
 function isHalfDayStay(type: string | null | undefined): boolean {
-  return type === 'day_use' || type === 'overnight_only';
+  return isHalfDayStayType(type);
 }
 
 function normalizeStayType(value: string | null | undefined): StayTypeOption {
   return value === 'day_use' || value === 'overnight_only' ? value : 'overnight_stay';
+}
+
+function formatStayRange(
+  checkInOn: string,
+  checkOutOn: string,
+  stayType: string | null | undefined,
+  ar: boolean,
+): string {
+  const displayOut = displayStayCheckoutOn(stayType, checkInOn, checkOutOn);
+  if (displayOut === checkInOn.slice(0, 10)) {
+    return formatDay(checkInOn, ar);
+  }
+  return `${formatDay(checkInOn, ar)} — ${formatDay(displayOut, ar)}`;
+}
+
+function periodSpanLabel(stayType: StayTypeOption): string {
+  const times = resolveStayPeriodTimes(stayType, {});
+  return `${times.checkInTime} – ${times.checkOutTime}`;
 }
 
 const PAID_STATUSES = new Set(['confirmed', 'paid', 'pre_arrival']);
@@ -299,8 +323,8 @@ export function GuestStayActions({
         <p className="notice notice--info guest-stay-actions__pending" role="status">
           {pendingReschedule.status === 'awaiting_owner'
             ? ar
-              ? `طلب تعديل التواريخ إلى ${formatDay(pendingReschedule.checkInOn, ar)} بانتظار اعتماد المالك.`
-              : `Your request to change dates to ${formatDay(pendingReschedule.checkInOn, ar)} is awaiting owner approval.`
+              ? `طلب التعديل إلى ${formatStayRange(pendingReschedule.checkInOn, pendingReschedule.checkOutOn, pendingReschedule.stayType, ar)} · ${stayTypeLabel(pendingReschedule.stayType, 'ar')} بانتظار اعتماد المالك.`
+              : `Your request to change to ${formatStayRange(pendingReschedule.checkInOn, pendingReschedule.checkOutOn, pendingReschedule.stayType, ar)} · ${stayTypeLabel(pendingReschedule.stayType, 'en')} is awaiting owner approval.`
             : pendingReschedule.status === 'awaiting_guest_payment'
               ? ar
                 ? `اعتمد المالك التعديل — ادفع الفرق (${formatMoney(pendingReschedule.extraDueMinor, booking.currency ?? 'OMR', locale)}) لإتمامه.`
@@ -417,7 +441,12 @@ export function GuestStayActions({
                   <div>
                     <dt>{ar ? 'موعد الإقامة' : 'Stay'}</dt>
                     <dd>
-                      {formatDay(booking.checkInOn, ar)} — {formatDay(booking.checkOutOn, ar)}
+                      {formatStayRange(
+                        booking.checkInOn,
+                        booking.checkOutOn,
+                        booking.stayType,
+                        ar,
+                      )}
                     </dd>
                   </div>
                   {booking.totalMinor ? (
@@ -492,6 +521,7 @@ export function GuestStayActions({
                   ? 'تم تعديل الحجز.'
                   : 'Booking updated.',
             );
+            window.dispatchEvent(new Event(LIVE_CHANGE_EVENT));
             router.refresh();
           }}
         />
@@ -631,6 +661,10 @@ function RescheduleDialog({
 
   function confirmMove() {
     if (!quote || !mode) return;
+    // Confirm the priced quote only — never a newer local selection that raced the quote.
+    const confirmIn = quote.checkInOn;
+    const confirmOut = isHalfDayStay(quote.stayType) ? quote.checkInOn : quote.checkOutOn;
+    const confirmType = quote.stayType;
     startSaving(async () => {
       setQuoteError(null);
       try {
@@ -642,9 +676,9 @@ function RescheduleDialog({
           '/api/public/stays/guest/reschedule',
           {
             referenceCode: booking.referenceCode,
-            checkInOn: effectiveCheckIn,
-            checkOutOn: halfDay ? effectiveCheckIn : effectiveCheckOut,
-            stayType,
+            checkInOn: confirmIn,
+            checkOutOn: confirmOut,
+            stayType: confirmType,
             confirm: true,
             locale: ar ? 'ar' : 'en',
           },
@@ -716,8 +750,12 @@ function RescheduleDialog({
             <p className="guest-stay-dialog__current">
               <span>{ar ? 'حجزك الحالي' : 'Current booking'}</span>
               <strong>
-                {formatDay(booking.checkInOn, ar)} — {formatDay(booking.checkOutOn, ar)}
-                <small> · {stayTypeLabel(currentType, ar ? 'ar' : 'en')}</small>
+                {formatStayRange(booking.checkInOn, booking.checkOutOn, currentType, ar)}
+                <small>
+                  {' '}
+                  · {stayTypeLabel(currentType, ar ? 'ar' : 'en')} ·{' '}
+                  {periodSpanLabel(currentType)}
+                </small>
               </strong>
               {booking.totalMinor ? <em>{money(booking.totalMinor)}</em> : null}
             </p>
@@ -776,7 +814,14 @@ function RescheduleDialog({
                       type="button"
                       className={`guest-stay-dialog__period-btn${stayType === type ? ' is-selected' : ''}`}
                       aria-pressed={stayType === type}
-                      onClick={() => setStayType(type)}
+                      onClick={() => {
+                        setQuote(null);
+                        setQuoteError(null);
+                        setStayType(type);
+                        if (isHalfDayStay(type) && checkIn) {
+                          setCheckOut(checkIn);
+                        }
+                      }}
                       disabled={saving || (mode === 'period' && type === currentType)}
                     >
                       {stayTypeLabel(type, ar ? 'ar' : 'en')}
@@ -808,7 +853,20 @@ function RescheduleDialog({
                     selectedCheckIn={checkIn}
                     selectedCheckOut={halfDay ? '' : checkOut}
                     ownRange={ownRange}
-                    onRangeChange={(nextIn, nextOut) => {
+                    onRangeChange={(nextIn, nextOut, halfDayHint) => {
+                      setQuote(null);
+                      setQuoteError(null);
+                      if (halfDayHint) {
+                        setStayType(halfDayHint);
+                        setCheckIn(nextIn);
+                        setCheckOut(nextIn);
+                        return;
+                      }
+                      if (isHalfDayStay(stayType)) {
+                        setCheckIn(nextIn);
+                        setCheckOut(nextIn);
+                        return;
+                      }
                       setCheckIn(nextIn);
                       setCheckOut(nextOut > nextIn ? nextOut : '');
                     }}
@@ -840,10 +898,19 @@ function RescheduleDialog({
                     <div>
                       <dt>{ar ? 'بعد التعديل' : 'After change'}</dt>
                       <dd>
-                        {formatDay(quote.checkInOn, ar)} — {formatDay(quote.checkOutOn, ar)}
+                        {formatStayRange(
+                          quote.checkInOn,
+                          quote.checkOutOn,
+                          quote.stayType,
+                          ar,
+                        )}
                         <small>
-                          {stayTypeLabel(quote.stayType, ar ? 'ar' : 'en')}
-                          {quote.nights > 0 ? ` · ${nightsText(quote.nights, ar)}` : ''}
+                          {' '}
+                          · {stayTypeLabel(quote.stayType, ar ? 'ar' : 'en')} ·{' '}
+                          {periodSpanLabel(quote.stayType)}
+                          {!isHalfDayStay(quote.stayType) && quote.nights > 0
+                            ? ` · ${nightsText(quote.nights, ar)}`
+                            : ''}
                         </small>
                       </dd>
                     </div>
