@@ -16,12 +16,13 @@ const paid = {
 };
 
 describe('approval policy', () => {
-  it('keeps every step manual except payment unless the owner says otherwise', () => {
+  it('defaults contract and payment to auto; invalid steps fall back to defaults', () => {
     expect(sanitizeApprovalPolicy(null)).toEqual(DEFAULT_APPROVAL_POLICY);
     expect(sanitizeApprovalPolicy({ booking: 'auto', contract: 'bogus' })).toEqual({
       booking: 'auto',
-      contract: 'manual',
+      contract: 'auto',
       payment: 'auto',
+      reschedule: 'auto',
     });
   });
 });

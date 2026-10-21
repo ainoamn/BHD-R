@@ -331,6 +331,13 @@ export async function previewStayGate(
     }
     if (!ARRIVAL_READY.has(facts.status)) fail('stay_not_ready');
     if (!window.ok) fail(window.code);
+    const { findStayBookingContractInTx } = await import('@/lib/property-contracts-neon');
+    const stayContract = await findStayBookingContractInTx(
+      tx,
+      facts.organizationId,
+      facts.id,
+    );
+    if (!stayContract) fail('contract_required');
     const deposit = await loadStayDepositGate(tx, facts.organizationId, facts.id);
     return {
       ...gatePayload(facts, false, null),
@@ -386,6 +393,10 @@ export async function confirmStayGate(
     if (!ARRIVAL_READY.has(facts.status)) fail('stay_not_ready');
     if (!window.ok) fail(window.code);
     if (!assertStayBookingTransition(facts.status, 'checked_in').ok) fail('stay_status_invalid');
+
+    const { findStayBookingContractInTx } = await import('@/lib/property-contracts-neon');
+    const stayContract = await findStayBookingContractInTx(tx, orgId, facts.id);
+    if (!stayContract) fail('contract_required');
 
     let deposit = await loadStayDepositGate(tx, orgId, facts.id);
     if (deposit.required && deposit.status === 'unpaid') {

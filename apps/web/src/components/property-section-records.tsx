@@ -103,7 +103,9 @@ const NO_VIEWER: Viewer = {
 };
 
 type ContractOutcome = {
-  contractReference?: string;
+  contractId?: string | null;
+  contractReference?: string | null;
+  contractStatus?: string | null;
   routedToManager?: boolean;
   alreadyExisted?: boolean;
 };
@@ -421,6 +423,10 @@ const ERROR_TEXT: Record<string, [string, string]> = {
   deposit_unpaid: [
     'الضيف لم يدفع مبلغ التأمين المسترد. اطلب الدفع أو استثنِ التأمين عند تسجيل الدخول.',
     'Guest has not paid the refundable deposit. Require payment or waive it at check-in.',
+  ],
+  contract_required: [
+    'لا يمكن تسجيل الوصول بدون عقد إيجار. أنشئ العقد من زر «إنشاء العقد» أولاً.',
+    'Check-in requires a lease contract. Issue the contract first.',
   ],
   refund_not_open: [
     'استرداد التأمين متاح بعد تأكيد المغادرة فقط. حدّث الصفحة.',
@@ -1380,6 +1386,11 @@ export function PropertySectionRecords({
   }
 
   function contractMessage(result: ContractOutcome, lead: string): string {
+    if (!result.contractId) {
+      return ar
+        ? `${lead} أنشئ العقد يدوياً من «إنشاء العقد» قبل استلام الضيف — لا يُسمح بتسجيل الوصول بدون عقد.`
+        : `${lead} Issue the contract manually before check-in — arrival is blocked without a contract.`;
+    }
     const reference = result.contractReference ?? '';
     if (result.routedToManager) {
       return ar
@@ -1395,10 +1406,10 @@ export function PropertySectionRecords({
     const pending = row.status === 'request_pending';
     const question = ar
       ? pending
-        ? `اعتماد الحجز ${row.reference}؟ سيُؤكَّد الحجز ويُنشأ عقد الإيجار للفترة ${row.fromOn} – ${row.toOn}.`
+        ? `اعتماد الحجز ${row.reference}؟ سيُؤكَّد الحجز، ويُنشأ عقد الإيجار تلقائياً إن كانت سياسة العقد إلكترونية.`
         : `إنشاء عقد الإيجار للحجز ${row.reference}؟`
       : pending
-        ? `Approve booking ${row.reference}? It will be confirmed and a lease contract issued.`
+        ? `Approve booking ${row.reference}? It will be confirmed, and a lease is created automatically when contract policy is electronic.`
         : `Issue the lease contract for booking ${row.reference}?`;
     if (!window.confirm(question)) return;
     const id = row.id ?? '';

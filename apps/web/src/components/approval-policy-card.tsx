@@ -99,8 +99,8 @@ export function ApprovalPolicyCard({
                   'Choose for each step — including stay date changes — whether you approve it or the system does for you. Without an override the property follows the organization policy.',
                 )
               : t(
-                  'تنطبق على حجوزات الإيجار والشراء وتعديل تواريخ الإقامات اليومية من الموقع في كل عقاراتك. يمكن تخصيصها لأي عقار من صفحة شروطه.',
-                  'Applies to website rent/purchase bookings and daily-stay date changes on all your properties; any property can override it from its terms page.',
+                  'تنطبق على حجوزات الإيجار والشراء والإقامات اليومية (بما فيها إنشاء العقد إلكترونياً أو يدوياً وتعديل التواريخ) في كل عقاراتك. يمكن تخصيصها لأي عقار من صفحة شروطه.',
+                  'Applies to website rent/purchase bookings and daily stays (including electronic vs manual contract creation and date changes) on all your properties; any property can override it from its terms page.',
                 )}
           </p>
         </div>

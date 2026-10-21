@@ -359,6 +359,10 @@ export async function recordStayStampOnNeon(
     if (!assertStayBookingTransition(booking.status, toStatus).ok) fail('stay_status_invalid');
 
     if (input.kind === 'check_in') {
+      const { findStayBookingContractInTx } = await import('@/lib/property-contracts-neon');
+      const stayContract = await findStayBookingContractInTx(tx, orgId, booking.id);
+      if (!stayContract) fail('contract_required');
+
       const { loadStayDepositGate } = await import('@/lib/stay-deposit-gate-neon');
       const deposit = await loadStayDepositGate(tx, orgId, booking.id);
       if (deposit.required && deposit.status === 'unpaid') {

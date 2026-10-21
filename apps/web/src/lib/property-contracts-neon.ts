@@ -1,7 +1,12 @@
 import 'server-only';
 import { createHash, randomUUID } from 'node:crypto';
 import { and, asc, eq, inArray, isNull, lte, gte, ne, sql } from 'drizzle-orm';
-import { hasPermission, type SessionClaims } from '@bhd-r/authz';
+import {
+  accessFromMemberships,
+  customRoleIds,
+  hasPermission,
+  type SessionClaims,
+} from '@bhd-r/authz';
 import { currencyMinorUnits, type CurrencyCode } from '@bhd-r/contracts';
 import {
   approvalRequests,
@@ -27,18 +32,24 @@ import {
 } from '@bhd-r/db';
 import { assertStayBookingTransition } from '@bhd-r/domain';
 import {
+  delegateClaims,
+  resolveApprovalPolicy,
+} from '@/lib/approval-policy-neon';
+import {
   DEFAULT_CONTRACT_TEMPLATES,
   type DefaultContractTemplateKey,
 } from '@/lib/contract-default-templates';
 import { appLink, notifyByEmail, notifyInTx } from '@/lib/email-notify';
 import { formatMoney } from '@/lib/format';
 import { computeLeaseTerms, type LeaseTermsDraft } from '@/lib/lease-terms';
+import { loadSavedRolePermissions } from '@/lib/organization-roles-read';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 import {
   PublicStayBookingError,
   createLockInTransaction,
   isRangeAvailableInTransaction,
 } from '@/lib/public-stays-booking-neon';
+import { withElevatedRead } from '@/lib/public-booking-neon';
 import { resolveStayPeriodTimes } from '@/lib/stay-period-times';
 
 type Tx = Parameters<Parameters<typeof withinViewerTenant>[1]>[0];
@@ -583,7 +594,7 @@ function stayTypeOf(snapshot: Record<string, unknown>): StayType {
   return value === 'day_use' || value === 'overnight_only' ? value : 'overnight_stay';
 }
 
-async function existingBookingContract(tx: Tx, orgId: string, bookingId: string) {
+export async function findStayBookingContractInTx(tx: Tx, orgId: string, bookingId: string) {
   const [row] = await tx
     .select({ id: contracts.id, reference: contracts.reference, status: contracts.status })
     .from(contracts)
@@ -599,15 +610,318 @@ async function existingBookingContract(tx: Tx, orgId: string, bookingId: string)
   return row ?? null;
 }
 
+type StayBookingContractRow = {
+  id: string;
+  referenceCode: string;
+  unitId: string;
+  status: string;
+  guestPartyId: string | null;
+  checkInOn: string;
+  checkOutOn: string;
+  totalMinor: bigint;
+  currency: string;
+  createdAt: Date;
+  snapshot: unknown;
+  stayProfileId: string | null;
+};
+
+export type StayApproveOutcome = {
+  bookingStatus: string;
+  contractId: string | null;
+  contractReference: string | null;
+  contractStatus: string | null;
+  routedToManager: boolean;
+  alreadyExisted?: boolean;
+};
+
+/** Prefer the policy delegate; otherwise any org member who can create (and ideally sign) contracts. */
+async function resolveStayContractSignerClaims(
+  tx: Tx,
+  orgId: string,
+  propertyId: string,
+): Promise<SessionClaims | null> {
+  const resolved = await resolveApprovalPolicy(tx, orgId, propertyId);
+  if (resolved.policy.contract !== 'auto') return null;
+  if (resolved.delegate) {
+    const signed = await delegateClaims(tx, orgId, resolved.delegate);
+    if (signed) return signed;
+  }
+  const rows = await withElevatedRead(tx, () =>
+    tx
+      .select({
+        userId: memberships.userId,
+        roleKey: memberships.roleKey,
+        partyId: memberships.partyId,
+        permissions: memberships.permissions,
+      })
+      .from(memberships)
+      .where(and(eq(memberships.organizationId, orgId), eq(memberships.status, 'active'))),
+  );
+  if (!rows.length) return null;
+  const byUser = new Map<string, typeof rows>();
+  for (const row of rows) {
+    const list = byUser.get(row.userId) ?? [];
+    list.push(row);
+    byUser.set(row.userId, list);
+  }
+  const ordered = [...byUser.entries()].sort((a, b) => {
+    const rank = (list: typeof rows) =>
+      list.some((r) => r.roleKey === 'owner' || r.roleKey === 'property_owner')
+        ? 0
+        : list.some((r) => r.roleKey === 'property_manager')
+          ? 1
+          : 2;
+    return rank(a[1]) - rank(b[1]);
+  });
+  for (const [userId, membershipRows] of ordered) {
+    const savedRoles = await withElevatedRead(tx, () =>
+      loadSavedRolePermissions(tx, orgId, customRoleIds(membershipRows)),
+    );
+    const access = accessFromMemberships(membershipRows, savedRoles);
+    const claims: SessionClaims = {
+      sub: userId,
+      sid: randomUUID(),
+      organizationId: orgId,
+      partyId: access.partyId,
+      roles: access.roles,
+      permissions: access.permissions,
+      locale: 'ar',
+      sessionVersion: 0,
+    };
+    if (hasPermission(claims, 'contract.create')) return claims;
+  }
+  return null;
+}
+
+async function issueStayBookingContractInTx(
+  tx: Tx,
+  claims: SessionClaims,
+  orgId: string,
+  property: { id: string; ownerPartyId: string; nameAr: string; nameEn: string },
+  booking: StayBookingContractRow,
+  bookingStatus: string,
+  options?: { notifyGuest?: boolean },
+): Promise<ContractOutcome & { leaseId: string | null }> {
+  const snapshot = snapshotObject(booking.snapshot);
+  const stayType = stayTypeOf(snapshot);
+  const now = new Date();
+  const contact = snapshotObject(snapshot.guestContact);
+  let tenant: { id: string; displayName: string };
+  if (booking.guestPartyId) {
+    tenant = { id: booking.guestPartyId, displayName: await partyName(tx, booking.guestPartyId) };
+  } else {
+    const [primaryGuest] = await tx
+      .select({ name: stayBookingGuests.displayName })
+      .from(stayBookingGuests)
+      .where(
+        and(eq(stayBookingGuests.bookingId, booking.id), eq(stayBookingGuests.isPrimary, true)),
+      )
+      .limit(1);
+    const displayName =
+      (typeof contact.displayName === 'string' && contact.displayName.trim()) ||
+      primaryGuest?.name?.trim() ||
+      `Guest ${booking.referenceCode}`;
+    tenant = await findOrCreateParty(
+      tx,
+      orgId,
+      {
+        displayName,
+        email: typeof contact.email === 'string' ? contact.email : null,
+        phone: typeof contact.phone === 'string' ? contact.phone : null,
+      },
+      'tenant',
+      'stay_booking',
+    );
+    await tx
+      .update(stayBookings)
+      .set({ guestPartyId: tenant.id, updatedAt: now })
+      .where(and(eq(stayBookings.id, booking.id), eq(stayBookings.organizationId, orgId)));
+  }
+
+  const acceptedTerms = snapshotObject(snapshot.acceptedTerms);
+  const acceptedAt =
+    typeof acceptedTerms.acceptedAt === 'string' ? new Date(acceptedTerms.acceptedAt) : null;
+  const counterpartySignature: CounterpartySignature = acceptedAt
+    ? {
+        partyId: tenant.id,
+        method: 'booking_terms_acceptance',
+        evidence: {
+          bookingReference: booking.referenceCode,
+          acceptedTerms,
+          guestContact: contact,
+        },
+        signedAt: acceptedAt,
+      }
+    : {
+        partyId: tenant.id,
+        method: 'booking_confirmation',
+        evidence: {
+          bookingReference: booking.referenceCode,
+          bookingStatus,
+          guestContact: contact,
+        },
+        signedAt: booking.createdAt,
+      };
+
+  const unit = await loadUnit(tx, orgId, property.id, booking.unitId);
+  const [profileTimes] = booking.stayProfileId
+    ? await tx
+        .select({
+          checkInFrom: stayProfiles.checkInFrom,
+          dayUseCheckInFrom: stayProfiles.dayUseCheckInFrom,
+          dayUseCheckOutUntil: stayProfiles.dayUseCheckOutUntil,
+          overnightCheckOutUntil: stayProfiles.overnightCheckOutUntil,
+          checkOutUntil: stayProfiles.checkOutUntil,
+        })
+        .from(stayProfiles)
+        .where(
+          and(eq(stayProfiles.id, booking.stayProfileId), eq(stayProfiles.organizationId, orgId)),
+        )
+        .limit(1)
+    : [null];
+  const period = resolveStayPeriodTimes(stayType, profileTimes ?? {});
+  const endsOn =
+    booking.checkOutOn > booking.checkInOn ? booking.checkOutOn : addDays(booking.checkInOn, 1);
+  const outcome = await issueContract(tx, {
+    claims,
+    orgId,
+    property,
+    unit: { id: unit.id, code: unit.code, nameAr: unit.nameAr, nameEn: unit.nameEn },
+    counterparty: tenant,
+    type: 'lease',
+    startsOn: booking.checkInOn,
+    endsOn,
+    amountMinor: booking.totalMinor,
+    depositMinor: null,
+    currency: booking.currency,
+    source: {
+      type: 'stay_booking',
+      stayBookingId: booking.id,
+      referenceCode: booking.referenceCode,
+    },
+    extra: {
+      stayType,
+      checkInTime: period.checkInTime,
+      checkOutTime: period.checkOutTime,
+    },
+    counterpartySignature,
+  });
+  if (options?.notifyGuest !== false) {
+    await notifyInTx(tx, {
+      orgId,
+      aggregateType: 'stay_booking',
+      aggregateId: booking.id,
+      audience: { parties: [tenant.id] },
+      content: () => ({
+        tone: 'booking',
+        subject: `🌴 تأكّد حجزك ${booking.referenceCode} في ${property.nameAr}`,
+        title: 'حجزك مؤكد، فجهّز حقيبتك!',
+        intro: `وافق المضيف على حجزك في ${property.nameAr}.`,
+        details: [
+          { label: 'رقم الحجز', value: booking.referenceCode },
+          { label: 'العقار', value: `${property.nameAr} — ${unit.nameAr || unit.code}` },
+          {
+            label: 'العقد',
+            value: outcome.contractReference,
+          },
+          {
+            label: 'الوصول',
+            value: `${arDate(booking.checkInOn)} · ${period.checkInTime}`,
+          },
+          {
+            label: 'المغادرة',
+            value: `${arDate(stayType === 'day_use' ? booking.checkInOn : booking.checkOutOn)} · ${period.checkOutTime}`,
+          },
+          {
+            label: 'الإجمالي',
+            value: formatMoney(booking.totalMinor.toString(), booking.currency, 'ar'),
+          },
+        ],
+        cta: { label: 'تفاصيل الحجز', url: appLink(`/ar/guest/stays/${booking.id}`) },
+      }),
+    });
+  }
+  return outcome;
+}
+
+/**
+ * After a stay booking becomes confirmed (payment or owner), issue the lease when the
+ * organization policy says contracts are created electronically.
+ */
+export async function autoIssueStayContractAfterConfirmInTx(
+  tx: Tx,
+  orgId: string,
+  propertyId: string,
+  bookingId: string,
+): Promise<ContractOutcome | null> {
+  const existing = await findStayBookingContractInTx(tx, orgId, bookingId);
+  if (existing) {
+    return {
+      contractId: existing.id,
+      contractReference: existing.reference ?? existing.id.slice(0, 8).toUpperCase(),
+      contractStatus: existing.status,
+      routedToManager: existing.status !== 'signed',
+      alreadyExisted: true,
+    };
+  }
+  const signer = await resolveStayContractSignerClaims(tx, orgId, propertyId);
+  if (!signer) return null;
+
+  const [property] = await withElevatedRead(tx, () =>
+    tx
+      .select({
+        id: properties.id,
+        ownerPartyId: properties.ownerPartyId,
+        nameAr: properties.nameAr,
+        nameEn: properties.nameEn,
+      })
+      .from(properties)
+      .where(and(eq(properties.id, propertyId), eq(properties.organizationId, orgId)))
+      .limit(1),
+  );
+  if (!property) return null;
+
+  const [booking] = await tx
+    .select({
+      id: stayBookings.id,
+      referenceCode: stayBookings.referenceCode,
+      unitId: stayBookings.unitId,
+      status: stayBookings.status,
+      guestPartyId: stayBookings.guestPartyId,
+      checkInOn: stayBookings.checkInOn,
+      checkOutOn: stayBookings.checkOutOn,
+      totalMinor: stayBookings.totalMinor,
+      currency: stayBookings.currency,
+      createdAt: stayBookings.createdAt,
+      snapshot: stayBookings.pricingSnapshotJson,
+      stayProfileId: stayBookings.stayProfileId,
+    })
+    .from(stayBookings)
+    .where(
+      and(
+        eq(stayBookings.id, bookingId),
+        eq(stayBookings.organizationId, orgId),
+        eq(stayBookings.propertyId, propertyId),
+      ),
+    )
+    .limit(1);
+  if (!booking || !ACCEPTED_STAY_STATUSES.has(booking.status)) return null;
+
+  return issueStayBookingContractInTx(tx, signer, orgId, property, booking, booking.status, {
+    notifyGuest: false,
+  });
+}
+
 /**
  * Owner approves a stay booking: a pending request is confirmed (dates re-checked and
- * locked), then the booking becomes a contract and a lease for the stay dates.
+ * locked). The lease contract is issued when policy is electronic, or when the owner
+ * explicitly issues it for an already-accepted booking.
  */
 export async function approveStayBookingOnNeon(
   claims: SessionClaims,
   propertyId: string,
   bookingId: string,
-): Promise<ContractOutcome & { bookingStatus: string }> {
+): Promise<StayApproveOutcome> {
   if (!hasPermission(claims, 'stay.booking.manage') || !hasPermission(claims, 'contract.create')) {
     fail('forbidden');
   }
@@ -640,7 +954,7 @@ export async function approveStayBookingOnNeon(
       .limit(1);
     if (!booking) fail('booking_not_found');
 
-    const existing = await existingBookingContract(tx, orgId, booking.id);
+    const existing = await findStayBookingContractInTx(tx, orgId, booking.id);
     if (existing && booking.status !== 'request_pending') {
       return {
         bookingStatus: booking.status,
@@ -656,9 +970,10 @@ export async function approveStayBookingOnNeon(
     const stayType = stayTypeOf(snapshot);
     const viewer = await viewerIdentity(tx, claims);
     const now = new Date();
+    const startedPending = booking.status === 'request_pending';
     let bookingStatus = booking.status;
 
-    if (booking.status === 'request_pending') {
+    if (startedPending) {
       if (!assertStayBookingTransition('request_pending', 'confirmed').ok)
         fail('booking_not_approvable');
       const free = await isRangeAvailableInTransaction(
@@ -730,140 +1045,35 @@ export async function approveStayBookingOnNeon(
       };
     }
 
-    const contact = snapshotObject(snapshot.guestContact);
-    let tenant: { id: string; displayName: string };
-    if (booking.guestPartyId) {
-      tenant = { id: booking.guestPartyId, displayName: await partyName(tx, booking.guestPartyId) };
-    } else {
-      const [primaryGuest] = await tx
-        .select({ name: stayBookingGuests.displayName })
-        .from(stayBookingGuests)
-        .where(
-          and(eq(stayBookingGuests.bookingId, booking.id), eq(stayBookingGuests.isPrimary, true)),
-        )
-        .limit(1);
-      const displayName =
-        (typeof contact.displayName === 'string' && contact.displayName.trim()) ||
-        primaryGuest?.name?.trim() ||
-        `Guest ${booking.referenceCode}`;
-      tenant = await findOrCreateParty(
-        tx,
-        orgId,
-        {
-          displayName,
-          email: typeof contact.email === 'string' ? contact.email : null,
-          phone: typeof contact.phone === 'string' ? contact.phone : null,
-        },
-        'tenant',
-        'stay_booking',
-      );
-      await tx
-        .update(stayBookings)
-        .set({ guestPartyId: tenant.id, updatedAt: now })
-        .where(and(eq(stayBookings.id, booking.id), eq(stayBookings.organizationId, orgId)));
+    const resolved = await resolveApprovalPolicy(tx, orgId, property.id);
+    // Manual issue button on an already-accepted booking always creates the contract.
+    // Approving a pending request only auto-issues when policy.contract === 'auto'.
+    const shouldIssue = !startedPending || resolved.policy.contract === 'auto';
+    if (!shouldIssue) {
+      return {
+        bookingStatus,
+        contractId: null,
+        contractReference: null,
+        contractStatus: null,
+        routedToManager: false,
+      };
     }
 
-    const acceptedTerms = snapshotObject(snapshot.acceptedTerms);
-    const acceptedAt =
-      typeof acceptedTerms.acceptedAt === 'string' ? new Date(acceptedTerms.acceptedAt) : null;
-    const counterpartySignature: CounterpartySignature = acceptedAt
-      ? {
-          partyId: tenant.id,
-          method: 'booking_terms_acceptance',
-          evidence: {
-            bookingReference: booking.referenceCode,
-            acceptedTerms,
-            guestContact: contact,
-          },
-          signedAt: acceptedAt,
-        }
-      : {
-          partyId: tenant.id,
-          method: 'booking_confirmation',
-          evidence: {
-            bookingReference: booking.referenceCode,
-            bookingStatus,
-            guestContact: contact,
-          },
-          signedAt: booking.createdAt,
-        };
-
-    const unit = await loadUnit(tx, orgId, property.id, booking.unitId);
-    const [profileTimes] = booking.stayProfileId
-      ? await tx
-          .select({
-            checkInFrom: stayProfiles.checkInFrom,
-            dayUseCheckInFrom: stayProfiles.dayUseCheckInFrom,
-            dayUseCheckOutUntil: stayProfiles.dayUseCheckOutUntil,
-            overnightCheckOutUntil: stayProfiles.overnightCheckOutUntil,
-            checkOutUntil: stayProfiles.checkOutUntil,
-          })
-          .from(stayProfiles)
-          .where(
-            and(
-              eq(stayProfiles.id, booking.stayProfileId),
-              eq(stayProfiles.organizationId, orgId),
-            ),
-          )
-          .limit(1)
-      : [null];
-    const period = resolveStayPeriodTimes(stayType, profileTimes ?? {});
-    const endsOn =
-      booking.checkOutOn > booking.checkInOn ? booking.checkOutOn : addDays(booking.checkInOn, 1);
-    const outcome = await issueContract(tx, {
+    const outcome = await issueStayBookingContractInTx(
+      tx,
       claims,
       orgId,
       property,
-      unit: { id: unit.id, code: unit.code, nameAr: unit.nameAr, nameEn: unit.nameEn },
-      counterparty: tenant,
-      type: 'lease',
-      startsOn: booking.checkInOn,
-      endsOn,
-      amountMinor: booking.totalMinor,
-      depositMinor: null,
-      currency: booking.currency,
-      source: {
-        type: 'stay_booking',
-        stayBookingId: booking.id,
-        referenceCode: booking.referenceCode,
-      },
-      extra: {
-        stayType,
-        checkInTime: period.checkInTime,
-        checkOutTime: period.checkOutTime,
-      },
-      counterpartySignature,
-    });
-    await notifyInTx(tx, {
-      orgId,
-      aggregateType: 'stay_booking',
-      aggregateId: booking.id,
-      audience: { parties: [tenant.id] },
-      content: () => ({
-        tone: 'booking',
-        subject: `🌴 تأكّد حجزك ${booking.referenceCode} في ${property.nameAr}`,
-        title: 'حجزك مؤكد، فجهّز حقيبتك!',
-        intro: `وافق المضيف على حجزك في ${property.nameAr}.`,
-        details: [
-          { label: 'رقم الحجز', value: booking.referenceCode },
-          { label: 'العقار', value: `${property.nameAr} — ${unit.nameAr || unit.code}` },
-          {
-            label: 'الوصول',
-            value: `${arDate(booking.checkInOn)} · ${period.checkInTime}`,
-          },
-          {
-            label: 'المغادرة',
-            value: `${arDate(stayType === 'day_use' ? booking.checkInOn : booking.checkOutOn)} · ${period.checkOutTime}`,
-          },
-          {
-            label: 'الإجمالي',
-            value: formatMoney(booking.totalMinor.toString(), booking.currency, 'ar'),
-          },
-        ],
-        cta: { label: 'تفاصيل الحجز', url: appLink(`/ar/guest/stays/${booking.id}`) },
-      }),
-    });
-    return { bookingStatus, ...outcome };
+      { ...booking, status: bookingStatus },
+      bookingStatus,
+    );
+    return {
+      bookingStatus,
+      contractId: outcome.contractId,
+      contractReference: outcome.contractReference,
+      contractStatus: outcome.contractStatus,
+      routedToManager: outcome.routedToManager,
+    };
   });
 }
 

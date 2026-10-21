@@ -8,7 +8,10 @@ export type ApprovalMode = 'manual' | 'auto';
 export type ApprovalPolicy = {
   /** Approve a paid, signed booking. */
   booking: ApprovalMode;
-  /** Accept the required documents and approve the contract once they are all uploaded. */
+  /**
+   * Create / approve the lease contract electronically (stays: on booking confirm;
+   * long-term: when required documents are in), or leave it for the owner to issue by hand.
+   */
   contract: ApprovalMode;
   /** Trust the payment channel's success report, or confirm receipt of the money by hand. */
   payment: ApprovalMode;
@@ -27,7 +30,8 @@ export type ApprovalStep = (typeof APPROVAL_STEPS)[number];
 
 export const DEFAULT_APPROVAL_POLICY: ApprovalPolicy = {
   booking: 'manual',
-  contract: 'manual',
+  /** Stay leases are issued electronically on confirm unless the owner opts into manual. */
+  contract: 'auto',
   payment: 'auto',
   reschedule: 'auto',
 };
@@ -52,7 +56,10 @@ export function sanitizeApprovalPolicy(value: unknown): ApprovalPolicy {
 export function approvalStepLabel(step: ApprovalStep, ar: boolean): string {
   const labels: Record<ApprovalStep, [string, string]> = {
     booking: ['اعتماد الحجز بعد الدفع', 'Booking approval after payment'],
-    contract: ['اعتماد العقد بعد اكتمال المستندات', 'Contract approval once documents are in'],
+    contract: [
+      'إنشاء العقد إلكترونياً أو يدوياً',
+      'Create the contract electronically or manually',
+    ],
     payment: ['تأكيد استلام مبلغ العربون أو الضمان', 'Confirming the deposit was received'],
     reschedule: [
       'اعتماد تعديل الحجز (التواريخ / الفترة)',
@@ -76,12 +83,12 @@ export function approvalStepHelp(step: ApprovalStep, mode: ApprovalMode, ar: boo
     },
     contract: {
       auto: [
-        'حين يرفع العميل كل المستندات التي حددتها يقبلها النظام ويعتمد العقد ويوقّعه باسمك، ويبقى للفريق التحقق منها لاحقاً.',
-        'When the client uploads every document you asked for, the system accepts them and approves and signs the contract for you; your team still verifies them.',
+        'للإقامات اليومية: ينشئ النظام عقد الإيجار ويوقّعه باسمك فور اعتماد الحجز (دفع أو موافقة). للإيجار الطويل: حين تكتمل المستندات يعتمد العقد إلكترونياً ويبقى للفريق التحقق.',
+        'Daily stays: the system creates and signs the lease when the booking is approved (payment or owner). Long-term: once documents are complete the contract is approved electronically; your team still verifies them.',
       ],
       manual: [
-        'تراجع كل مستند وتعتمد العقد بنفسك.',
-        'You review each document and approve the contract yourself.',
+        'لا يُنشأ العقد تلقائياً — تنشئه أو تعتمده بنفسك من الحجوزات أو العقود. لا يمكن تسجيل وصول الضيف قبل وجود عقد.',
+        'No automatic contract — you issue or approve it yourself from bookings or contracts. Guests cannot check in without a contract.',
       ],
     },
     payment: {

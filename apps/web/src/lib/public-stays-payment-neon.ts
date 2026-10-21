@@ -573,6 +573,17 @@ export async function completeStaySandboxPaymentOnNeon(
       },
     });
 
+    // Electronic contract policy: issue the stay lease as soon as payment confirms.
+    const { autoIssueStayContractAfterConfirmInTx } = await import(
+      '@/lib/property-contracts-neon'
+    );
+    await autoIssueStayContractAfterConfirmInTx(
+      transaction,
+      intent.organizationId,
+      booking.propertyId,
+      booking.id,
+    );
+
     if (intent.amountMinor > 0n) {
       const map = await ensureAccountCodeMap(transaction, intent.organizationId);
       await postSourceDocumentInTx(transaction, {

@@ -74,6 +74,10 @@ function humanGateError(code: string, ar: boolean): string {
       return ar
         ? 'الضيف لم يدفع مبلغ التأمين. أكّد الاستثناء للمتابعة أو اطلب الدفع أولاً.'
         : 'Guest has not paid the deposit. Confirm a waiver to continue, or require payment first.';
+    case 'contract_required':
+      return ar
+        ? 'لا يوجد عقد إيجار لهذا الحجز. أنشئ العقد من الحجوزات قبل تسجيل الوصول.'
+        : 'No lease contract for this booking. Issue the contract from bookings before check-in.';
     default:
       return ar ? 'تعذّر تسجيل الوصول.' : 'Could not check in.';
   }
