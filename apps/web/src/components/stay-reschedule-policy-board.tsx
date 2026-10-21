@@ -109,12 +109,14 @@ export function StayReschedulePolicyBoard({
     return (
       <section className="portal-settings__card" aria-labelledby="stay-reschedule-title">
         <h2 id="stay-reschedule-title">
-          {ar ? 'تعديل تواريخ الإقامات اليومية' : 'Daily-stay date changes'}
+          {ar
+            ? 'تخصيص اعتماد التعديل لكل وحدة إقامة'
+            : 'Per-unit override for date-change approval'}
         </h2>
         <p className="muted">
           {ar
-            ? 'لا توجد وحدات إيجار يومي بعد. أضف إقامة يومية من العقارات ثم عد هنا.'
-            : 'No daily-stay units yet. Add a daily stay on a property, then return here.'}
+            ? 'لا توجد وحدات إيجار يومي بعد. استخدم خطوة «اعتماد تعديل الحجز» في السياسة أعلاه؛ وبعد إضافة إقامة يومية تظهر الوحدات هنا للتخصيص.'
+            : 'No daily-stay units yet. Use the “Approve booking changes” step in the policy above; units appear here for overrides after you add a daily stay.'}
         </p>
       </section>
     );
@@ -125,12 +127,14 @@ export function StayReschedulePolicyBoard({
       <header className="portal-settings__card-head">
         <div>
           <h2 id="stay-reschedule-title">
-            {ar ? 'تعديل تواريخ الإقامات اليومية' : 'Daily-stay date changes'}
+            {ar
+              ? 'تخصيص اعتماد التعديل لكل وحدة إقامة'
+              : 'Per-unit override for date-change approval'}
           </h2>
           <p className="muted">
             {ar
-              ? 'اختر هل يعتمد النظام طلب المستأجر لتغيير التاريخ أو الفترة تلقائياً، أم تصل إليك أولاً.'
-              : 'Choose whether the system auto-applies a guest’s date or period change, or waits for you.'}
+              ? 'السياسة العامة أعلاه هي المرجع. هنا يمكنك إبقاء وحدة بموافقة تلقائية وأخرى بمراجعة يدوية.'
+              : 'The policy above is the default. Here you can keep one unit automatic and another manual.'}
           </p>
         </div>
         <span className="portal-settings__stat">

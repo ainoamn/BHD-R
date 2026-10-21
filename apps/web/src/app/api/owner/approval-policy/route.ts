@@ -15,7 +15,15 @@ const mode = z.enum(['manual', 'auto']);
 const bodySchema = z
   .object({
     propertyId: z.string().uuid().nullable(),
-    policy: z.object({ booking: mode, contract: mode, payment: mode }).strict().nullable(),
+    policy: z
+      .object({
+        booking: mode,
+        contract: mode,
+        payment: mode,
+        reschedule: mode.default('auto'),
+      })
+      .strict()
+      .nullable(),
   })
   .strict();
 

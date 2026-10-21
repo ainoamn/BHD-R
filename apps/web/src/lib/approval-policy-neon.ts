@@ -1,6 +1,6 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import {
   accessFromMemberships,
   customRoleIds,
@@ -8,7 +8,7 @@ import {
   type Permission,
   type SessionClaims,
 } from '@bhd-r/authz';
-import { memberships, properties, stayPolicies, users } from '@bhd-r/db';
+import { memberships, properties, stayPolicies, stayProfiles, units, users } from '@bhd-r/db';
 import { loadSavedRolePermissions } from '@/lib/organization-roles-read';
 import {
   DEFAULT_APPROVAL_POLICY,
@@ -211,8 +211,46 @@ export async function saveApprovalPolicy(
       },
       status: 'active',
     });
+    await syncStayRescheduleApprovalInTx(
+      transaction,
+      organizationId,
+      propertyId,
+      clean.reschedule === 'auto',
+    );
     return { policy: clean, delegateName: viewer?.name ?? null };
   });
+}
+
+/** Keep stay profile toggles aligned with the org/property reschedule approval step. */
+async function syncStayRescheduleApprovalInTx(
+  transaction: Tx,
+  organizationId: string,
+  propertyId: string | null,
+  autoApproveReschedule: boolean,
+) {
+  const now = new Date();
+  if (propertyId) {
+    const unitRows = await transaction
+      .select({ id: units.id })
+      .from(units)
+      .where(and(eq(units.organizationId, organizationId), eq(units.propertyId, propertyId)));
+    const unitIds = unitRows.map((row) => row.id);
+    if (!unitIds.length) return;
+    await transaction
+      .update(stayProfiles)
+      .set({ autoApproveReschedule, updatedAt: now })
+      .where(
+        and(
+          eq(stayProfiles.organizationId, organizationId),
+          inArray(stayProfiles.unitId, unitIds),
+        ),
+      );
+    return;
+  }
+  await transaction
+    .update(stayProfiles)
+    .set({ autoApproveReschedule, updatedAt: now })
+    .where(eq(stayProfiles.organizationId, organizationId));
 }
 
 /**

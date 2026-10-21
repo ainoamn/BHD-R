@@ -90,17 +90,17 @@ export function ApprovalPolicyCard({
           <h2 id="approval-policy-title">
             {propertyId
               ? t('سياسة اعتماد حجوزات هذا العقار', 'Booking approvals for this property')
-              : t('سياسة اعتماد الحجوزات', 'Booking approval policy')}
+              : t('سياسة اعتماد الحجوزات والتعديلات', 'Booking and change approval policy')}
           </h2>
           <p className="muted">
             {propertyId
               ? t(
-                  'حدّد لكل مرحلة هل تعتمدها بنفسك أو يعتمدها النظام نيابةً عنك. بدون تخصيص يتبع العقار سياسة المؤسسة.',
-                  'Choose for each step whether you approve it or the system does for you. Without an override the property follows the organization policy.',
+                  'حدّد لكل مرحلة — بما فيها تعديل تواريخ الإقامة — هل تعتمدها بنفسك أو يعتمدها النظام نيابةً عنك. بدون تخصيص يتبع العقار سياسة المؤسسة.',
+                  'Choose for each step — including stay date changes — whether you approve it or the system does for you. Without an override the property follows the organization policy.',
                 )
               : t(
-                  'تنطبق على حجوزات الإيجار والشراء من الموقع في كل عقاراتك، ويمكن تخصيصها لأي عقار من صفحة شروطه.',
-                  'Applies to website rent and purchase bookings on all your properties; any property can override it from its terms page.',
+                  'تنطبق على حجوزات الإيجار والشراء وتعديل تواريخ الإقامات اليومية من الموقع في كل عقاراتك. يمكن تخصيصها لأي عقار من صفحة شروطه.',
+                  'Applies to website rent/purchase bookings and daily-stay date changes on all your properties; any property can override it from its terms page.',
                 )}
           </p>
         </div>

@@ -129,7 +129,18 @@ export async function PortalSettingsDesk({
 
       {isStaysPlatformEnabled() ? (
         <StayReschedulePolicyBoard locale={locale} units={stayUnits} />
-      ) : null}
+      ) : (
+        <section className="portal-settings__card" aria-labelledby="stay-reschedule-fallback">
+          <h2 id="stay-reschedule-fallback">
+            {ar ? 'اعتماد تعديل الحجز (التواريخ / الفترة)' : 'Approve booking changes (dates / period)'}
+          </h2>
+          <p className="muted">
+            {ar
+              ? 'اضبطه من خطوة «اعتماد تعديل الحجز» في سياسة الاعتماد أعلاه. بعد تفعيل الإقامات اليومية تُطبَّق على كل الوحدات.'
+              : 'Set it with the “Approve booking changes” step in the approval policy above. Once daily stays are enabled it applies to every unit.'}
+          </p>
+        </section>
+      )}
 
       <section className="portal-settings__card" aria-labelledby="settings-links-title">
         <h2 id="settings-links-title">{ar ? 'إعدادات مرتبطة' : 'Related settings'}</h2>
