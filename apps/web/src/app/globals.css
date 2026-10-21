@@ -18993,6 +18993,18 @@ body:has(.stay-esign-shell) {
   font-size: 0.95rem;
   font-weight: 650;
   color: #e8f2ef;
+  line-height: 1.55;
+  max-width: 36ch;
+  justify-self: center;
+}
+.stay-esign__privacy {
+  margin: -0.15rem 0 0;
+  text-align: center;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  max-width: 38ch;
+  justify-self: center;
+  color: rgb(232 242 239 / 0.72);
 }
 .stay-esign__contract {
   margin: 0 0 1rem;

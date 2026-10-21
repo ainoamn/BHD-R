@@ -209,11 +209,16 @@ export function StayEsignWizard({
             <p className="stay-esign__guide">
               {step === 'id_front'
                 ? ar
-                  ? 'حاذِ وجه البطاقة الشخصية داخل الإطار ثم التقط الصورة'
-                  : 'Align the ID front inside the frame, then capture'
+                  ? 'صوّر وجه البطاقة الشخصية بوضوح داخل الإطار — للتحقق من مطابقتها للحجز'
+                  : 'Photograph the front of your ID clearly inside the frame — to match it with the booking'
                 : ar
-                  ? 'حاذِ ظهر البطاقة الشخصية داخل الإطار ثم التقط الصورة'
-                  : 'Align the ID back inside the frame, then capture'}
+                  ? 'صوّر ظهر البطاقة الشخصية بوضوح داخل الإطار'
+                  : 'Photograph the back of your ID clearly inside the frame'}
+            </p>
+            <p className="muted stay-esign__privacy">
+              {ar
+                ? 'هذه الصور تُستخدم فقط لاستكمال عقد الإقامة وتُعد جزءاً مكمّلاً ومتمّماً له.'
+                : 'These photos are used only to complete the stay contract and form an integral part of it.'}
             </p>
             <div className="esign-id-stage">
               <EsignCameraCapture
@@ -255,8 +260,13 @@ export function StayEsignWizard({
           <section className="stay-esign__panel stay-esign__panel--capture">
             <p className="stay-esign__guide">
               {ar
-                ? 'افتح الكاميرا الأمامية وضع وجهك داخل الإطار الطولي'
-                : 'Use the front camera and place your face inside the portrait frame'}
+                ? 'لحماية حجزك والتحقق من شخصيتك: افتح الكاميرا الأمامية وضع وجهك داخل الإطار — نحتاج صورة مباشرة لمطابقتها مع البطاقة والحجز.'
+                : 'To protect your booking and verify it’s you: open the front camera and place your face in the frame — we need a live photo to match your ID and booking.'}
+            </p>
+            <p className="muted stay-esign__privacy">
+              {ar
+                ? 'سياسة الموقع تطلب صورة مباشرة لهذا الغرض فقط. الصور تُستخدم لاستكمال عقد الإقامة وتُعد مكمّلة ومتمّمة له، ولا تُستخدم لأي غرض آخر.'
+                : 'Site policy requires a live photo for this purpose only. Photos complete the stay contract as an integral part of it, and are not used for anything else.'}
             </p>
             <div className="esign-selfie-stage">
               <EsignCameraCapture

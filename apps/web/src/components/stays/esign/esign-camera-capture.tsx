@@ -222,8 +222,8 @@ export function EsignCameraCapture({
                     ? 'افتح الكاميرا لتصوير البطاقة، أو اختر صورة من المعرض'
                     : 'Open the camera to photograph the ID, or pick from the gallery'
                   : ar
-                    ? 'افتح الكاميرا الأمامية للصورة الشخصية، أو اختر من المعرض'
-                    : 'Open the front camera for your portrait, or pick from the gallery'}
+                    ? 'افتح الكاميرا لالتقاط صورة مباشرة لوجهك داخل الإطار، أو اختر من المعرض'
+                    : 'Open the camera for a live photo of your face in the frame, or pick from the gallery'}
             </p>
           </div>
         ) : null}
