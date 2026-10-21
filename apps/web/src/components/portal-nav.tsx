@@ -125,6 +125,7 @@ const navGroups: Record<PortalRole, NavGroup[]> = {
       label: 'Portal.groupOrg',
       items: [
         { path: '/reports', label: 'Common.reports', mark: '↗' },
+        { path: '/settings', label: 'Common.control', mark: '⚙' },
         { path: '/team', label: 'Common.team', mark: '◎' },
         { path: '/notifications', label: 'Common.notifications', mark: '✉' },
         { path: '/badges', label: 'Common.badges', mark: '★' },
@@ -181,6 +182,7 @@ const navGroups: Record<PortalRole, NavGroup[]> = {
       label: 'Portal.groupOrg',
       items: [
         { path: '/reports', label: 'Common.reports', mark: '↗' },
+        { path: '/settings', label: 'Common.control', mark: '⚙' },
         { path: '/team', label: 'Common.team', mark: '◎' },
         { path: '/notifications', label: 'Common.notifications', mark: '✉' },
         { path: '/badges', label: 'Common.badges', mark: '★' },
@@ -230,6 +232,7 @@ const SOFT_PORTAL_PATHS = new Set([
   '/notifications',
   '/badges',
   '/terms',
+  '/settings',
   '/lab-reset',
   '/stays',
   '/stays/calendar',

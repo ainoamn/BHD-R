@@ -132,6 +132,13 @@ const PAGE_PERMISSIONS: Readonly<Record<string, readonly string[]>> = {
   '/stays/rates': ['stay.rate.manage'],
   '/stays/setup': ['stay.inventory.manage'],
   '/terms': ['property.update', 'contract.template.read'],
+  /** Org-wide site control: approvals, stay reschedule defaults, links to team/permissions. */
+  '/settings': [
+    'reservation.manage',
+    'property.update',
+    'organization.write',
+    'organization.members.read',
+  ],
   /** Property owners reach badges via property.read; field ops are blocked separately. */
   '/badges': ['party.read', 'property.read', 'organization.members.read', 'organization.write'],
   '/lab-reset': ['organization.write'],
@@ -161,7 +168,10 @@ export function canOpenPortalPath(access: PortalAccess, portal: PortalRole, path
   if (scopedOwnerParty(access)) return false;
   if (
     isFieldOpsOnly(access) &&
-    (basePath === '/notifications' || basePath === '/badges' || basePath === '/stays')
+    (basePath === '/notifications' ||
+      basePath === '/badges' ||
+      basePath === '/stays' ||
+      basePath === '/settings')
   ) {
     return false;
   }
