@@ -39,14 +39,32 @@ export default async function StayBookingSignPage({
       ? formatMoney(booking.totalMinor, booking.currency, locale)
       : '—';
   const accepted = booking.acceptedTerms;
-  const termsHtml = accepted
-    ? `<p class="stay-doc__subtitle">${ar ? 'الشروط والأحكام المعتمدة' : 'Accepted terms and conditions'}</p>
-      ${termsDocumentHtml(bookingTermsDocument({ mode: 'daily', blocks: accepted.blocks }))}`
+  const termsBody = accepted
+    ? termsDocumentHtml(bookingTermsDocument({ mode: 'daily', blocks: accepted.blocks }))
     : `<p class="stay-doc__subtitle">${
         ar
           ? 'بالتوقيع أوافق على سياسات الإقامة والإلغاء ومبلغ التأمين وشروط الاستخدام الخاصة بالعقار.'
           : 'By signing I agree to the stay policies, cancellation rules, deposit terms, and property house rules.'
       }</p>`;
+  const termsSummary = accepted
+    ? ar
+      ? 'الشروط والأحكام المعتمدة'
+      : 'Accepted terms and conditions'
+    : ar
+      ? 'الشروط والأحكام'
+      : 'Terms and conditions';
+  const termsHtml = `
+    <details class="stay-doc__terms-fold">
+      <summary class="stay-doc__terms-fold-summary">
+        <span>${termsSummary}</span>
+        <span class="stay-doc__terms-fold-hint" aria-hidden="true">
+          <span class="stay-doc__terms-fold-hint--closed">${ar ? 'عرض' : 'Show'}</span>
+          <span class="stay-doc__terms-fold-hint--open">${ar ? 'إخفاء' : 'Hide'}</span>
+        </span>
+      </summary>
+      <div class="stay-doc__terms-fold-body">${termsBody}</div>
+    </details>
+  `;
 
   const contractHtml = `
     <article class="stay-doc stay-doc--contract">

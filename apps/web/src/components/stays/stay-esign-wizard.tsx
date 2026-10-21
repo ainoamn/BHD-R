@@ -167,9 +167,18 @@ export function StayEsignWizard({
                   ? 'راجع بنود العقد وبيانات الحجز، ثم وافق ووقّع إلكترونياً وأرفق مستنداتك.'
                   : 'Review the contract terms and booking details, then agree, sign, and attach your documents.'
                 : ar
-                  ? 'راجع شروط الإقامة وبيانات الحجز، ثم وافق ووقّع إلكترونياً.'
-                  : 'Review stay terms and booking details, then agree and sign electronically.'}
+                  ? 'راجع بيانات الحجز، ثم وافق ووقّع إلكترونياً. الشروط مطوية ويمكن فتحها عند الحاجة.'
+                  : 'Review booking details, then agree and sign. Terms are collapsed — open them if you need to read.'}
             </p>
+            <div className="stay-esign__actions stay-esign__actions--top">
+              <button
+                type="button"
+                className="button button--primary"
+                onClick={() => setStep('sign')}
+              >
+                {ar ? 'الموافقة والمتابعة للتوقيع' : 'Agree & continue to sign'}
+              </button>
+            </div>
             {contractDocument ? (
               <div className="stay-esign__document">{contractDocument}</div>
             ) : (
@@ -387,14 +396,6 @@ export function StayEsignWizard({
           </section>
         ) : null}
       </div>
-
-      {step === 'contract' ? (
-        <footer className="stay-esign__dock">
-          <button type="button" className="button button--primary" onClick={() => setStep('sign')}>
-            {ar ? 'الموافقة والمتابعة للتوقيع' : 'Agree & continue to sign'}
-          </button>
-        </footer>
-      ) : null}
 
       {step === 'review' ? (
         <footer className="stay-esign__dock">
