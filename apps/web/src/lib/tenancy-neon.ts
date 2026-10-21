@@ -34,6 +34,10 @@ import { listGuestStayBookingsOnNeon } from '@/lib/public-stays-guest-neon';
 import type { StayBookingPaymentKind } from '@/lib/stay-booking-payment-labels';
 import type { DepositRefundStatus } from '@/lib/stay-deposit-refund';
 import {
+  depositRefundDocHref,
+  depositTransferReceiptHref,
+} from '@/lib/stay-deposit-settlement-docs';
+import {
   buildTenancyAlerts,
   EMPTY_TENANCY,
   type MyTenancy,
@@ -1067,24 +1071,42 @@ async function loadStayFinance(links: TenancyLink[]): Promise<{
       if (payment.stayKind !== 'deposit') continue;
       const refund = refundByBooking.get(paymentBookingIds[i]!);
       if (!refund) continue;
-      payment.depositRefund = refund;
+      const ref = payment.stayReference ?? payment.invoiceNumber;
+      const docs =
+        refund.status === 'executed'
+          ? {
+              transferReceiptHref: depositTransferReceiptHref(ref),
+              refundDocHref: depositRefundDocHref(ref),
+            }
+          : {};
+      payment.depositRefund = { ...refund, ...docs };
       payment.refundedMinor = refund.paidMinor !== '0' ? refund.paidMinor : '0';
     }
 
-    const invoices: TenancyInvoice[] = [...bookingTotals.entries()].map(([bookingId, bucket]) => ({
-      id: `stay-invoice:${bookingId}`,
-      landlord: bucket.landlord,
-      number: bucket.referenceCode,
-      status: 'paid',
-      issuedOn: bucket.checkInOn,
-      dueOn: bucket.checkInOn,
-      totalMinor: bucket.total.toString(),
-      paidMinor: bucket.total.toString(),
-      currency: bucket.currency,
-      stayReference: bucket.referenceCode,
-      receiptHref: `/stays/booking/receipt?ref=${encodeURIComponent(bucket.referenceCode)}&doc=payment&pay=${encodeURIComponent(bucket.lastIntentId)}`,
-      depositRefund: refundByBooking.get(bookingId) ?? null,
-    }));
+    const invoices: TenancyInvoice[] = [...bookingTotals.entries()].map(([bookingId, bucket]) => {
+      const refund = refundByBooking.get(bookingId) ?? null;
+      const docs =
+        refund?.status === 'executed'
+          ? {
+              transferReceiptHref: depositTransferReceiptHref(bucket.referenceCode),
+              refundDocHref: depositRefundDocHref(bucket.referenceCode),
+            }
+          : {};
+      return {
+        id: `stay-invoice:${bookingId}`,
+        landlord: bucket.landlord,
+        number: bucket.referenceCode,
+        status: 'paid',
+        issuedOn: bucket.checkInOn,
+        dueOn: bucket.checkInOn,
+        totalMinor: bucket.total.toString(),
+        paidMinor: bucket.total.toString(),
+        currency: bucket.currency,
+        stayReference: bucket.referenceCode,
+        receiptHref: `/stays/booking/receipt?ref=${encodeURIComponent(bucket.referenceCode)}&doc=payment&pay=${encodeURIComponent(bucket.lastIntentId)}`,
+        depositRefund: refund ? { ...refund, ...docs } : null,
+      };
+    });
 
     return { invoices, payments };
   } catch {

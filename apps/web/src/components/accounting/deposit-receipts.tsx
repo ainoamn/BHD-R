@@ -1,6 +1,8 @@
 'use client';
 
+import { Link } from '@/i18n/navigation';
 import { formatMoney } from '@/lib/format';
+import { depositRefundDocHref } from '@/lib/stay-deposit-settlement-docs';
 import { maskAccount } from '@/lib/stay-deposit-refund';
 
 type Row = Record<string, string | null | undefined>;
@@ -237,7 +239,17 @@ export function DepositReconciliation({
       ) : null}
       {row.refundReceiptNo || row.incomeReceiptNo ? (
         <div className="deposit-recon__actions">
-          {row.refundReceiptNo ? (
+          {row.refundReceiptNo && row.reference ? (
+            <Link
+              className="button button--quiet"
+              href={depositRefundDocHref(row.reference)}
+              prefetch={false}
+            >
+              {ar
+                ? `مستند عكس المعاملة ${row.refundReceiptNo}`
+                : `Reverse document ${row.refundReceiptNo}`}
+            </Link>
+          ) : row.refundReceiptNo ? (
             <button type="button" className="button button--quiet" onClick={() => print('refund')}>
               {ar
                 ? `إيصال الاسترداد ${row.refundReceiptNo}`

@@ -289,15 +289,38 @@ function InvoicesTable({ ar, locale, data, openOnly = false }: Ctx & { openOnly?
               )}
             </td>
             <td>
-              {invoice.receiptHref ? (
-                <Link className="tenant-doc-link tenant-doc-link--receipt" href={invoice.receiptHref}>
-                  {ar ? 'إيصال القبض' : 'Receipt'}
-                </Link>
-              ) : OPEN_INVOICE.has(invoice.status) ? (
-                <span className="tenant-doc-link tenant-doc-link--invoice">
-                  {ar ? 'الفاتورة' : 'Invoice'}
-                </span>
-              ) : null}
+              <span className="tenant-doc-links">
+                {invoice.receiptHref ? (
+                  <Link
+                    className="tenant-doc-link tenant-doc-link--receipt"
+                    href={invoice.receiptHref}
+                  >
+                    {ar ? 'إيصال القبض' : 'Receipt'}
+                  </Link>
+                ) : OPEN_INVOICE.has(invoice.status) ? (
+                  <span className="tenant-doc-link tenant-doc-link--invoice">
+                    {ar ? 'الفاتورة' : 'Invoice'}
+                  </span>
+                ) : null}
+                {invoice.depositRefund?.transferReceiptHref ? (
+                  <a
+                    className="tenant-doc-link tenant-doc-link--receipt"
+                    href={invoice.depositRefund.transferReceiptHref}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {ar ? 'إيصال التحويل' : 'Transfer slip'}
+                  </a>
+                ) : null}
+                {invoice.depositRefund?.refundDocHref ? (
+                  <Link
+                    className="tenant-doc-link tenant-doc-link--receipt"
+                    href={invoice.depositRefund.refundDocHref}
+                  >
+                    {ar ? 'مستند عكس المعاملة' : 'Reverse document'}
+                  </Link>
+                ) : null}
+              </span>
             </td>
           </tr>
         );
@@ -353,11 +376,34 @@ function PaymentsTable({ ar, locale, data }: Ctx) {
               )}
             </td>
             <td>
-              {payment.receiptHref ? (
-                <Link className="tenant-doc-link tenant-doc-link--receipt" href={payment.receiptHref}>
-                  {ar ? 'إيصال القبض' : 'Receipt'}
-                </Link>
-              ) : null}
+              <span className="tenant-doc-links">
+                {payment.receiptHref ? (
+                  <Link
+                    className="tenant-doc-link tenant-doc-link--receipt"
+                    href={payment.receiptHref}
+                  >
+                    {ar ? 'إيصال القبض' : 'Receipt'}
+                  </Link>
+                ) : null}
+                {payment.depositRefund?.transferReceiptHref ? (
+                  <a
+                    className="tenant-doc-link tenant-doc-link--receipt"
+                    href={payment.depositRefund.transferReceiptHref}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {ar ? 'إيصال التحويل' : 'Transfer slip'}
+                  </a>
+                ) : null}
+                {payment.depositRefund?.refundDocHref ? (
+                  <Link
+                    className="tenant-doc-link tenant-doc-link--receipt"
+                    href={payment.depositRefund.refundDocHref}
+                  >
+                    {ar ? 'مستند عكس المعاملة' : 'Reverse document'}
+                  </Link>
+                ) : null}
+              </span>
             </td>
           </tr>
         );

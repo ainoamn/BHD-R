@@ -17,6 +17,10 @@ import { formatMoney } from '@/lib/format';
 import { LIVE_CHANGE_EVENT } from '@/lib/live-sync-shared';
 import { PENDING_APPROVALS_CHANGED_EVENT } from '@/lib/pending-approvals-shared';
 import type { DepositClaimView } from '@/lib/stay-deposit-claims';
+import {
+  depositRefundDocHref,
+  depositTransferReceiptHref,
+} from '@/lib/stay-deposit-settlement-docs';
 import { domainStatusLabel } from '@/lib/ui-labels';
 
 type Row = Record<string, string | null>;
@@ -483,6 +487,31 @@ export function DepositLedgerPanel({
                         {ar ? 'حوّل' : 'Transfer'}
                       </button>
                     ) : null}
+                    {row.kind !== 'reservation_deposit' &&
+                    row.refundStatus === 'executed' &&
+                    row.reference ? (
+                      <>
+                        {row.refundReceipt ? (
+                          <a
+                            className="button button--quiet"
+                            href={depositTransferReceiptHref(row.reference)}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {ar ? 'إيصال التحويل' : 'Transfer slip'}
+                          </a>
+                        ) : null}
+                        {row.refundReceiptNo ? (
+                          <Link
+                            className="button button--quiet"
+                            href={depositRefundDocHref(row.reference)}
+                            prefetch={false}
+                          >
+                            {ar ? 'مستند عكس المعاملة' : 'Reverse document'}
+                          </Link>
+                        ) : null}
+                      </>
+                    ) : null}
                     <AccountingFollowTask
                       locale={locale}
                       kind="deposit"
@@ -594,11 +623,24 @@ export function DepositLedgerPanel({
                               row={{ ...row, kind: 'deposit_refund' }}
                               locale={locale}
                               receiptHref={
-                                row.refundReceipt && propertyId
-                                  ? `/api/owner/properties/${encodeURIComponent(propertyId)}/records/refund-receipt/${id}`
+                                row.refundReceipt && row.reference
+                                  ? depositTransferReceiptHref(row.reference)
                                   : null
                               }
                             />
+                            {row.refundReceiptNo && row.reference ? (
+                              <p className="deposit-ledger__doc-links">
+                                <Link
+                                  className="button button--quiet"
+                                  href={depositRefundDocHref(row.reference)}
+                                  prefetch={false}
+                                >
+                                  {ar
+                                    ? `مستند عكس المعاملة · ${row.refundReceiptNo}`
+                                    : `Reverse document · ${row.refundReceiptNo}`}
+                                </Link>
+                              </p>
+                            ) : null}
                           </section>
                         ) : null}
                         <DepositClaimsAdmin

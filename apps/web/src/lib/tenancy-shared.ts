@@ -65,6 +65,10 @@ export type TenancyDepositRefund = {
   amountMinor: string;
   paidMinor: string;
   guestReceipt?: 'confirmed' | 'not_received' | null;
+  /** Bank transfer slip (إيصال التحويل). */
+  transferReceiptHref?: string | null;
+  /** Reverse / settlement document for the guest account (إيصال الاسترداد DR-…). */
+  refundDocHref?: string | null;
 };
 
 export type TenancyInvoice = {
