@@ -14,6 +14,7 @@ import {
 } from '@/lib/stay-esign-flags';
 import { ModalPortal } from '@/components/modal-portal';
 import { StayAvailabilityCalendar } from '@/components/stays/stay-availability-calendar';
+import { stayTypeLabel } from '@/lib/ui-labels';
 
 export type GuestStayActionBooking = {
   id: string;
@@ -31,13 +32,27 @@ export type GuestStayActionBooking = {
   canCancel?: boolean;
   canRebook?: boolean;
   canReschedule?: boolean;
+  pendingReschedule?: {
+    status: 'awaiting_owner' | 'awaiting_guest_payment' | 'awaiting_payment';
+    checkInOn: string;
+    checkOutOn: string;
+    stayType: string;
+    extraDueMinor: string;
+    quotedTotalMinor: string;
+    chargedTotalMinor: string;
+    paymentRedirectUrl?: string | null;
+  } | null;
 };
+
+type StayTypeOption = 'overnight_stay' | 'day_use' | 'overnight_only';
+type RescheduleMode = 'period' | 'dates' | 'both';
 
 type RescheduleQuote = {
   currency: string;
   checkInOn: string;
   checkOutOn: string;
   nights: number;
+  stayType: StayTypeOption;
   originalTotalMinor: string;
   quotedTotalMinor: string;
   chargedTotalMinor: string;
@@ -48,6 +63,16 @@ type RescheduleQuote = {
   hasOffer: boolean;
   paid: boolean;
 };
+
+const STAY_TYPE_OPTIONS: StayTypeOption[] = ['overnight_stay', 'day_use', 'overnight_only'];
+
+function isHalfDayStay(type: string | null | undefined): boolean {
+  return type === 'day_use' || type === 'overnight_only';
+}
+
+function normalizeStayType(value: string | null | undefined): StayTypeOption {
+  return value === 'day_use' || value === 'overnight_only' ? value : 'overnight_stay';
+}
 
 const PAID_STATUSES = new Set(['confirmed', 'paid', 'pre_arrival']);
 const RESCHEDULABLE = new Set([
@@ -143,6 +168,27 @@ export function GuestStayActions({
   }
 
   function payNow() {
+    const reschedulePayUrl = booking.pendingReschedule?.paymentRedirectUrl;
+    if (reschedulePayUrl) {
+      startTransition(() => {
+        setError(null);
+        setHint(ar ? 'التحويل إلى بوابة الدفع…' : 'Opening payment…');
+        try {
+          const target = new URL(reschedulePayUrl, window.location.origin);
+          if (
+            target.protocol !== 'https:' &&
+            !(target.protocol === 'http:' && target.hostname === 'localhost')
+          ) {
+            throw new Error('invalid_payment_redirect');
+          }
+          window.location.assign(target.href);
+        } catch (caught) {
+          setHint(null);
+          setError(humanizeBrowserError(caught, ar));
+        }
+      });
+      return;
+    }
     if (!booking.paymentIntentId) return;
     startTransition(async () => {
       setError(null);
@@ -198,16 +244,21 @@ export function GuestStayActions({
     });
   }
 
-  const showPay = Boolean(booking.canPay && booking.paymentIntentId);
+  const showPay = Boolean(
+    (booking.canPay && booking.paymentIntentId) ||
+      booking.pendingReschedule?.paymentRedirectUrl,
+  );
   const showCancel = Boolean(booking.canCancel);
+  const pendingReschedule = booking.pendingReschedule ?? null;
   const showModifyDates = Boolean(
     booking.listingSlug &&
     booking.unitId &&
+    !pendingReschedule &&
     (booking.canReschedule ?? RESCHEDULABLE.has(booking.status)),
   );
   const showRebook = Boolean(booking.canRebook && rebookHref && !showModifyDates);
 
-  if (!showPay && !showCancel && !showRebook && !showModifyDates) {
+  if (!showPay && !showCancel && !showRebook && !showModifyDates && !pendingReschedule) {
     return null;
   }
 
@@ -215,6 +266,21 @@ export function GuestStayActions({
     <div
       className={compact ? 'guest-stay-actions guest-stay-actions--compact' : 'guest-stay-actions'}
     >
+      {pendingReschedule ? (
+        <p className="notice notice--info guest-stay-actions__pending" role="status">
+          {pendingReschedule.status === 'awaiting_owner'
+            ? ar
+              ? `طلب تعديل التواريخ إلى ${formatDay(pendingReschedule.checkInOn, ar)} بانتظار اعتماد المالك.`
+              : `Your request to change dates to ${formatDay(pendingReschedule.checkInOn, ar)} is awaiting owner approval.`
+            : pendingReschedule.status === 'awaiting_guest_payment'
+              ? ar
+                ? `اعتمد المالك التعديل — ادفع الفرق (${formatMoney(pendingReschedule.extraDueMinor, booking.currency ?? 'OMR', locale)}) لإتمامه.`
+                : `The owner approved the change — pay the difference (${formatMoney(pendingReschedule.extraDueMinor, booking.currency ?? 'OMR', locale)}) to finish.`
+              : ar
+                ? 'أكمل دفع فرق التعديل لإتمام تغيير التواريخ.'
+                : 'Complete the top-up payment to finish the date change.'}
+        </p>
+      ) : null}
       {showPay ? (
         <button
           type="button"
@@ -384,11 +450,19 @@ export function GuestStayActions({
           unitId={booking.unitId}
           locale={locale}
           onClose={() => setDialog(null)}
-          onDone={(next) => {
+          onDone={(next, meta) => {
             persistAlert(next);
             onUpdated?.(next);
             setDialog(null);
-            setHint(ar ? 'تم تعديل تواريخ الحجز.' : 'Booking dates updated.');
+            setHint(
+              meta?.awaitingOwnerApproval
+                ? ar
+                  ? 'أُرسل طلب التعديل للمالك — بانتظار اعتماده.'
+                  : 'Change request sent to the owner — awaiting approval.'
+                : ar
+                  ? 'تم تعديل الحجز.'
+                  : 'Booking updated.',
+            );
             router.refresh();
           }}
         />
@@ -410,10 +484,15 @@ function RescheduleDialog({
   unitId: string;
   locale: string;
   onClose: () => void;
-  onDone: (next: GuestStayActionBooking) => void;
+  onDone: (
+    next: GuestStayActionBooking,
+    meta?: { awaitingOwnerApproval?: boolean },
+  ) => void;
 }) {
   const ar = locale === 'ar';
-  const halfDay = booking.stayType === 'day_use' || booking.stayType === 'overnight_only';
+  const currentType = normalizeStayType(booking.stayType);
+  const [mode, setMode] = useState<RescheduleMode | null>(null);
+  const [stayType, setStayType] = useState<StayTypeOption>(currentType);
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
   const [quote, setQuote] = useState<RescheduleQuote | null>(null);
@@ -428,18 +507,54 @@ function RescheduleDialog({
   const money = (minor: string) =>
     formatMoney(minor, quote?.currency ?? booking.currency ?? 'OMR', locale);
 
+  const needsDates = mode === 'dates' || mode === 'both';
+  const needsPeriod = mode === 'period' || mode === 'both';
+  const halfDay = isHalfDayStay(stayType);
+  const effectiveCheckIn = needsDates ? checkIn : booking.checkInOn;
+  const effectiveCheckOut = needsDates
+    ? halfDay
+      ? checkIn
+      : checkOut
+    : halfDay
+      ? booking.checkInOn
+      : booking.checkOutOn;
+
   useEffect(() => {
-    const query = window.matchMedia('(min-width: 900px)');
+    const query = window.matchMedia('(min-width: 720px)');
     const sync = () => setMonthCount(query.matches ? 2 : 1);
     sync();
     query.addEventListener('change', sync);
     return () => query.removeEventListener('change', sync);
   }, []);
 
-  const rangeReady = Boolean(checkIn && (halfDay || (checkOut && checkOut > checkIn)));
+  useEffect(() => {
+    if (!mode) return;
+    setStayType(currentType);
+    if (mode === 'period') {
+      setCheckIn(booking.checkInOn);
+      setCheckOut(booking.checkOutOn);
+    } else {
+      setCheckIn('');
+      setCheckOut('');
+    }
+    setQuote(null);
+    setQuoteError(null);
+  }, [mode, booking.checkInOn, booking.checkOutOn, currentType]);
+
+  const rangeReady = Boolean(
+    mode &&
+      effectiveCheckIn &&
+      (halfDay || (effectiveCheckOut && effectiveCheckOut > effectiveCheckIn)),
+  );
+  const selectionChanged = Boolean(
+    mode &&
+      (effectiveCheckIn !== booking.checkInOn ||
+        effectiveCheckOut !== booking.checkOutOn ||
+        stayType !== currentType),
+  );
 
   useEffect(() => {
-    if (!rangeReady) {
+    if (!mode || !rangeReady || !selectionChanged) {
       setQuote(null);
       setQuoteError(null);
       return;
@@ -452,12 +567,14 @@ function RescheduleDialog({
       '/api/public/stays/guest/reschedule',
       {
         referenceCode: booking.referenceCode,
-        checkInOn: checkIn,
-        checkOutOn: halfDay ? checkIn : checkOut,
+        checkInOn: effectiveCheckIn,
+        checkOutOn: halfDay ? effectiveCheckIn : effectiveCheckOut,
+        stayType,
         confirm: false,
+        locale: ar ? 'ar' : 'en',
       },
       ar,
-      ar ? 'تعذّر حساب سعر التواريخ الجديدة.' : 'Could not price the new dates.',
+      ar ? 'تعذّر حساب سعر التعديل.' : 'Could not price the change.',
     )
       .then((payload) => {
         if (!cancelled) setQuote(payload.quote);
@@ -471,25 +588,56 @@ function RescheduleDialog({
     return () => {
       cancelled = true;
     };
-  }, [ar, booking.referenceCode, checkIn, checkOut, halfDay, rangeReady]);
+  }, [
+    ar,
+    booking.referenceCode,
+    effectiveCheckIn,
+    effectiveCheckOut,
+    halfDay,
+    mode,
+    rangeReady,
+    selectionChanged,
+    stayType,
+  ]);
 
   function confirmMove() {
-    if (!quote || quote.requiresPayment) return;
+    if (!quote || !mode) return;
     startSaving(async () => {
       setQuoteError(null);
       try {
-        const payload = await guestStayPost<{ booking: GuestStayActionBooking }>(
+        const payload = await guestStayPost<{
+          booking?: GuestStayActionBooking;
+          payment?: { redirectUrl: string };
+          awaitingOwnerApproval?: boolean;
+        }>(
           '/api/public/stays/guest/reschedule',
           {
             referenceCode: booking.referenceCode,
-            checkInOn: checkIn,
-            checkOutOn: halfDay ? checkIn : checkOut,
+            checkInOn: effectiveCheckIn,
+            checkOutOn: halfDay ? effectiveCheckIn : effectiveCheckOut,
+            stayType,
             confirm: true,
+            locale: ar ? 'ar' : 'en',
           },
           ar,
-          ar ? 'تعذّر تعديل التواريخ.' : 'Could not change the dates.',
+          ar ? 'تعذّر تعديل الحجز.' : 'Could not change the booking.',
         );
-        onDone(payload.booking);
+        if (payload.payment?.redirectUrl) {
+          const target = new URL(payload.payment.redirectUrl, window.location.origin);
+          if (
+            target.protocol !== 'https:' &&
+            !(target.protocol === 'http:' && target.hostname === 'localhost')
+          ) {
+            throw new Error('invalid_payment_redirect');
+          }
+          window.location.assign(target.href);
+          return;
+        }
+        if (payload.booking) {
+          onDone(payload.booking, {
+            awaitingOwnerApproval: Boolean(payload.awaitingOwnerApproval),
+          });
+        }
       } catch (caught) {
         setQuoteError(humanizeBrowserError(caught, ar));
       }
@@ -497,6 +645,13 @@ function RescheduleDialog({
   }
 
   const busy = saving || quoting;
+  const confirmLabel = quote?.requiresPayment
+    ? ar
+      ? `ادفع الفرق ${money(quote.extraDueMinor)}`
+      : `Pay difference ${money(quote.extraDueMinor)}`
+    : ar
+      ? 'تأكيد التعديل'
+      : 'Confirm change';
 
   return (
     <ModalPortal onClose={() => !saving && onClose()}>
@@ -517,7 +672,7 @@ function RescheduleDialog({
           <header>
             <div>
               <span className="ops-kicker">{booking.referenceCode}</span>
-              <h2 id="guest-reschedule-title">{ar ? 'تعديل التواريخ' : 'Change dates'}</h2>
+              <h2 id="guest-reschedule-title">{ar ? 'تعديل الحجز' : 'Change booking'}</h2>
             </div>
             <button
               type="button"
@@ -530,43 +685,123 @@ function RescheduleDialog({
           </header>
           <div className="guest-stay-dialog__body">
             <p className="guest-stay-dialog__current">
-              <span>{ar ? 'موعدك الحالي' : 'Current stay'}</span>
+              <span>{ar ? 'حجزك الحالي' : 'Current booking'}</span>
               <strong>
                 {formatDay(booking.checkInOn, ar)} — {formatDay(booking.checkOutOn, ar)}
+                <small> · {stayTypeLabel(currentType, ar ? 'ar' : 'en')}</small>
               </strong>
               {booking.totalMinor ? <em>{money(booking.totalMinor)}</em> : null}
             </p>
-            <p className="muted guest-stay-dialog__hint">
-              {halfDay
-                ? ar
-                  ? 'اختر يوماً شاغراً. الأيام المحجوزة أو المغلقة غير قابلة للاختيار، والسعر الظاهر هو سعر اليوم.'
-                  : 'Pick a free day. Booked or closed days cannot be selected; the price shown is the day rate.'
-                : ar
-                  ? 'اختر يوم الوصول ثم يوم المغادرة من الأيام الشاغرة فقط. السعر الظاهر على كل يوم هو سعر الليلة.'
-                  : 'Pick arrival then departure from free days only. The price on each day is the nightly rate.'}
-            </p>
-            <StayAvailabilityCalendar
-              locale={locale}
-              mode="public"
-              slug={slug}
-              unitId={unitId}
-              monthCount={monthCount}
-              size="large"
-              selectedCheckIn={checkIn}
-              selectedCheckOut={halfDay ? '' : checkOut}
-              ownRange={ownRange}
-              onRangeChange={(nextIn, nextOut) => {
-                setCheckIn(nextIn);
-                setCheckOut(nextOut > nextIn ? nextOut : '');
-              }}
-            />
+
+            <fieldset className="guest-stay-dialog__modes">
+              <legend>{ar ? 'ماذا تريد تغييره؟' : 'What do you want to change?'}</legend>
+              <div className="guest-stay-dialog__mode-grid" role="radiogroup">
+                {(
+                  [
+                    {
+                      id: 'period' as const,
+                      title: ar ? 'الفترة فقط' : 'Period only',
+                      hint: ar
+                        ? 'نفس التاريخ — بدّل نوع الإقامة (صباحي / مبيت / كامل).'
+                        : 'Same dates — switch stay period (day use / overnight / full).',
+                    },
+                    {
+                      id: 'dates' as const,
+                      title: ar ? 'التاريخ فقط' : 'Dates only',
+                      hint: ar
+                        ? 'نفس نوع الإقامة — اختر أياماً أخرى.'
+                        : 'Same stay type — pick different days.',
+                    },
+                    {
+                      id: 'both' as const,
+                      title: ar ? 'التاريخ والفترة' : 'Dates and period',
+                      hint: ar
+                        ? 'غيّر الأيام ونوع الإقامة معاً.'
+                        : 'Change both the days and the stay type.',
+                    },
+                  ] as const
+                ).map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={mode === option.id}
+                    className={`guest-stay-dialog__mode${mode === option.id ? ' is-selected' : ''}`}
+                    onClick={() => setMode(option.id)}
+                    disabled={saving}
+                  >
+                    <strong>{option.title}</strong>
+                    <span>{option.hint}</span>
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+
+            {needsPeriod ? (
+              <fieldset className="guest-stay-dialog__period">
+                <legend>{ar ? 'نوع الإقامة الجديد' : 'New stay type'}</legend>
+                <div className="guest-stay-dialog__period-grid">
+                  {STAY_TYPE_OPTIONS.map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      className={`guest-stay-dialog__period-btn${stayType === type ? ' is-selected' : ''}`}
+                      aria-pressed={stayType === type}
+                      onClick={() => setStayType(type)}
+                      disabled={saving || (mode === 'period' && type === currentType)}
+                    >
+                      {stayTypeLabel(type, ar ? 'ar' : 'en')}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            ) : null}
+
+            {needsDates ? (
+              <>
+                <p className="muted guest-stay-dialog__hint">
+                  {halfDay
+                    ? ar
+                      ? 'اختر يوماً شاغراً. الأيام المحجوزة أو المغلقة غير قابلة للاختيار.'
+                      : 'Pick a free day. Booked or closed days cannot be selected.'
+                    : ar
+                      ? 'اختر يوم الوصول ثم يوم المغادرة من الأيام الشاغرة فقط.'
+                      : 'Pick arrival then departure from free days only.'}
+                </p>
+                <div className="guest-stay-dialog__calendar">
+                  <StayAvailabilityCalendar
+                    locale={locale}
+                    mode="public"
+                    slug={slug}
+                    unitId={unitId}
+                    monthCount={monthCount}
+                    size="compact"
+                    selectedCheckIn={checkIn}
+                    selectedCheckOut={halfDay ? '' : checkOut}
+                    ownRange={ownRange}
+                    onRangeChange={(nextIn, nextOut) => {
+                      setCheckIn(nextIn);
+                      setCheckOut(nextOut > nextIn ? nextOut : '');
+                    }}
+                  />
+                </div>
+              </>
+            ) : null}
 
             <div className="guest-stay-dialog__quote" aria-live="polite">
-              {!rangeReady ? (
+              {!mode ? (
+                <p className="muted">
+                  {ar ? 'اختر نوع التعديل أولاً.' : 'Choose what to change first.'}
+                </p>
+              ) : needsDates && !rangeReady ? (
+                <p className="muted">
+                  {ar ? 'اختر التواريخ الجديدة لعرض السعر.' : 'Pick the new dates to see the price.'}
+                </p>
+              ) : needsPeriod && !selectionChanged ? (
                 <p className="muted">
                   {ar
-                    ? 'اختر التواريخ الجديدة لعرض السعر.'
-                    : 'Pick the new dates to see the price.'}
+                    ? 'اختر نوع إقامة مختلفاً عن حجزك الحالي.'
+                    : 'Pick a stay type different from your current booking.'}
                 </p>
               ) : quoting ? (
                 <p className="muted">{ar ? 'جارٍ حساب السعر…' : 'Pricing…'}</p>
@@ -574,16 +809,17 @@ function RescheduleDialog({
                 <>
                   <dl className="guest-stay-dialog__facts">
                     <div>
-                      <dt>{ar ? 'التواريخ الجديدة' : 'New dates'}</dt>
+                      <dt>{ar ? 'بعد التعديل' : 'After change'}</dt>
                       <dd>
                         {formatDay(quote.checkInOn, ar)} — {formatDay(quote.checkOutOn, ar)}
-                        <small>{nightsText(quote.nights, ar)}</small>
+                        <small>
+                          {stayTypeLabel(quote.stayType, ar ? 'ar' : 'en')}
+                          {quote.nights > 0 ? ` · ${nightsText(quote.nights, ar)}` : ''}
+                        </small>
                       </dd>
                     </div>
                     <div>
-                      <dt>
-                        {ar ? 'سعر التواريخ الجديدة (حسب التقويم)' : 'Calendar price for new dates'}
-                      </dt>
+                      <dt>{ar ? 'سعر الخيار الجديد' : 'New option price'}</dt>
                       <dd>{money(quote.quotedTotalMinor)}</dd>
                     </div>
                     <div className="guest-stay-dialog__total">
@@ -594,39 +830,35 @@ function RescheduleDialog({
                   {quote.keptOriginalPrice ? (
                     <div className="guest-stay-dialog__warning" role="note">
                       <strong>
-                        {quote.hasOffer
-                          ? ar
-                            ? 'هذه الأيام عليها عرض'
-                            : 'These days are on offer'
-                          : ar
-                            ? 'سعر التواريخ الجديدة أقل'
-                            : 'The new dates cost less'}
+                        {ar
+                          ? 'السعر الجديد أقل من المدفوع'
+                          : 'New price is lower than what you paid'}
                       </strong>
                       <p>
                         {ar
-                          ? `لن يُسترد فرق السعر (${money(quote.forfeitedMinor)})، وتبقى المحاسبة على سعر حجزك الأصلي ${money(quote.originalTotalMinor)}.`
-                          : `The difference (${money(quote.forfeitedMinor)}) is not refunded; you are charged your original booking price of ${money(quote.originalTotalMinor)}.`}
+                          ? `لا يُسترد الفرق (${money(quote.forfeitedMinor)}). يبقى حجزك بنفس المبلغ المدفوع ${money(quote.originalTotalMinor)}. لا يمكن تخفيض الفترة لاسترداد جزء من المبلغ.`
+                          : `The difference (${money(quote.forfeitedMinor)}) is not refunded. Your booking keeps the paid amount of ${money(quote.originalTotalMinor)}. A cheaper period cannot reduce what you already paid.`}
                       </p>
                     </div>
                   ) : null}
                   {quote.requiresPayment ? (
-                    <p className="notice notice--error" role="alert">
+                    <p className="notice notice--info" role="status">
                       {ar
-                        ? `سعر التواريخ الجديدة أعلى من المبلغ المدفوع بـ ${money(quote.extraDueMinor)}. لا يمكن دفع الفرق إلكترونياً حالياً — اختر تواريخ أخرى أو تواصل مع المالك.`
-                        : `The new dates cost ${money(quote.extraDueMinor)} more than you paid. The difference cannot be paid online yet — pick other dates or contact the owner.`}
+                        ? `الخيار الجديد أعلى بـ ${money(quote.extraDueMinor)}. ادفع الفرق لإتمام التعديل.`
+                        : `The new option costs ${money(quote.extraDueMinor)} more. Pay the difference to apply the change.`}
                     </p>
                   ) : quote.extraDueMinor !== '0' ? (
                     <p className="notice notice--info">
                       {ar
-                        ? `سعر التواريخ الجديدة أعلى بـ ${money(quote.extraDueMinor)}، وسيصبح إجمالي الحجز ${money(quote.chargedTotalMinor)}.`
-                        : `The new dates cost ${money(quote.extraDueMinor)} more; the booking total becomes ${money(quote.chargedTotalMinor)}.`}
+                        ? `السعر أعلى بـ ${money(quote.extraDueMinor)}، وسيصبح إجمالي الحجز ${money(quote.chargedTotalMinor)}.`
+                        : `The new option costs ${money(quote.extraDueMinor)} more; the booking total becomes ${money(quote.chargedTotalMinor)}.`}
                     </p>
                   ) : null}
                   {booking.status === 'request_pending' ? (
                     <p className="muted">
                       {ar
-                        ? 'يبقى طلبك بانتظار اعتماد المالك بالتواريخ الجديدة.'
-                        : 'Your request stays with the owner for approval on the new dates.'}
+                        ? 'يبقى طلبك بانتظار اعتماد المالك بالخيار الجديد.'
+                        : 'Your request stays with the owner for approval on the new option.'}
                     </p>
                   ) : null}
                 </>
@@ -642,18 +874,34 @@ function RescheduleDialog({
             <button
               type="button"
               className="button button--quiet"
-              onClick={onClose}
+              onClick={() => {
+                if (mode && !saving) {
+                  setMode(null);
+                  setQuote(null);
+                  setQuoteError(null);
+                  return;
+                }
+                onClose();
+              }}
               disabled={saving}
             >
-              {ar ? 'تراجع' : 'Back'}
+              {mode ? (ar ? 'رجوع' : 'Back') : ar ? 'تراجع' : 'Cancel'}
             </button>
             <button
               type="button"
               className="button button--primary"
               onClick={confirmMove}
-              disabled={busy || !quote || quote.requiresPayment}
+              disabled={busy || !quote}
             >
-              {saving ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : ar ? 'تأكيد التعديل' : 'Confirm change'}
+              {saving
+                ? quote?.requiresPayment
+                  ? ar
+                    ? 'جارٍ التحويل للدفع…'
+                    : 'Opening payment…'
+                  : ar
+                    ? 'جارٍ الحفظ…'
+                    : 'Saving…'
+                : confirmLabel}
             </button>
           </div>
         </section>

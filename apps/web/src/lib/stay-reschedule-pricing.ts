@@ -1,10 +1,10 @@
 /**
- * Price rule when a guest moves a stay to new dates:
- * - The new dates are priced at the rates shown on the calendar (offers included).
- * - The guest never gets money back: if the new dates cost less (an offer or a cheaper
- *   period), the booking keeps its original price and the difference is forfeited.
- * - If the new dates cost more, the booking takes the new price. A paid booking cannot
- *   collect the extra online, so it is flagged as requiring payment.
+ * Price rule when a guest moves a stay to new dates and/or period:
+ * - The new selection is priced at the rates shown on the calendar (offers included).
+ * - The guest never gets money back: if the new selection costs less, the booking keeps
+ *   its original paid amount and the difference is forfeited (no period downgrade refund).
+ * - If the new selection costs more, the booking takes the new price. A paid booking
+ *   must pay the difference online (`requiresPayment`) before the move applies.
  */
 export type StayRescheduleCharge = {
   originalTotalMinor: string;

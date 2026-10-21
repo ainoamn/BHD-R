@@ -481,6 +481,15 @@ async function loadBookings(
       contactEmail: sql<
         string | null
       >`${stayBookings.pricingSnapshotJson}->'guestContact'->>'email'`,
+      rescheduleStatus: sql<
+        string | null
+      >`${stayBookings.pricingSnapshotJson}->'pendingReschedule'->>'status'`,
+      rescheduleCheckInOn: sql<
+        string | null
+      >`${stayBookings.pricingSnapshotJson}->'pendingReschedule'->>'checkInOn'`,
+      rescheduleCheckOutOn: sql<
+        string | null
+      >`${stayBookings.pricingSnapshotJson}->'pendingReschedule'->>'checkOutOn'`,
       userId: stayBookings.userId,
     })
     .from(stayBookings)
@@ -645,6 +654,9 @@ async function loadBookings(
         contractId: contract?.id ?? null,
         contractReference: contract?.reference ?? null,
         contractStatus: contract?.status ?? null,
+        reschedulePending: row.rescheduleStatus === 'awaiting_owner' ? '1' : null,
+        rescheduleCheckInOn: row.rescheduleCheckInOn,
+        rescheduleCheckOutOn: row.rescheduleCheckOutOn,
         sortOn: isoDate(row.createdAt),
       };
     }),

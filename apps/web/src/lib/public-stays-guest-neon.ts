@@ -1,4 +1,5 @@
 import 'server-only';
+import { randomBytes } from 'node:crypto';
 import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import { resolveStaysEnabledFromEnv, readStaysFlagsFromEnv } from '@bhd-r/config';
 import {
@@ -11,9 +12,11 @@ import {
   stayHolds,
   stayInventoryLocks,
   stayPaymentIntents,
+  stayProfiles,
   type Database,
 } from '@bhd-r/db';
 import { assertStayBookingTransition, nightsBetween } from '@bhd-r/domain';
+import { publicWebOrigin } from '@/lib/seo';
 import { termsBlocksFromStored, type TermsBlock } from '@/lib/booking-terms';
 import {
   createLockInTransaction,
@@ -110,6 +113,17 @@ export type GuestStayBookingProjection = {
   canCancel?: boolean;
   canRebook?: boolean;
   canReschedule?: boolean;
+  /** Guest asked to move dates; waiting on owner or on a top-up payment. */
+  pendingReschedule?: {
+    status: 'awaiting_owner' | 'awaiting_guest_payment' | 'awaiting_payment';
+    checkInOn: string;
+    checkOutOn: string;
+    stayType: string;
+    extraDueMinor: string;
+    quotedTotalMinor: string;
+    chargedTotalMinor: string;
+    paymentRedirectUrl?: string | null;
+  } | null;
   checkIn?: StayStamp | null;
   checkOut?: StayStamp | null;
   /** Security deposit held for the stay (not part of the booking total). */
@@ -217,6 +231,31 @@ function readStayTypeFromSnapshot(snapshot: unknown): string | null {
   return null;
 }
 
+function readPendingReschedule(
+  snapshot: unknown,
+): GuestStayBookingProjection['pendingReschedule'] {
+  if (!snapshot || typeof snapshot !== 'object') return null;
+  const pending = (snapshot as Record<string, unknown>).pendingReschedule;
+  if (!pending || typeof pending !== 'object') return null;
+  const row = pending as Record<string, unknown>;
+  const status =
+    row.status === 'awaiting_owner' ||
+    row.status === 'awaiting_guest_payment' ||
+    row.status === 'awaiting_payment'
+      ? row.status
+      : 'awaiting_payment';
+  if (typeof row.checkInOn !== 'string' || typeof row.checkOutOn !== 'string') return null;
+  return {
+    status,
+    checkInOn: row.checkInOn,
+    checkOutOn: row.checkOutOn,
+    stayType: typeof row.stayType === 'string' ? row.stayType : 'overnight_stay',
+    extraDueMinor: typeof row.extraDueMinor === 'string' ? row.extraDueMinor : '0',
+    quotedTotalMinor: typeof row.quotedTotalMinor === 'string' ? row.quotedTotalMinor : '0',
+    chargedTotalMinor: typeof row.chargedTotalMinor === 'string' ? row.chargedTotalMinor : '0',
+  };
+}
+
 function actionFlags(status: string): {
   canPay: boolean;
   canCancel: boolean;
@@ -273,6 +312,7 @@ function toProjection(booking: {
       ? (booking.pricingSnapshotJson as { children: number }).children
       : null;
   const flags = actionFlags(booking.status);
+  const pendingReschedule = readPendingReschedule(booking.pricingSnapshotJson);
   return {
     id: booking.id,
     referenceCode: booking.referenceCode,
@@ -303,7 +343,9 @@ function toProjection(booking: {
     acceptedTerms: readAcceptedTerms(booking.pricingSnapshotJson),
     ...readBookedBy(booking.pricingSnapshotJson),
     ...flags,
+    canReschedule: flags.canReschedule && !pendingReschedule,
     canPay: flags.canPay && Boolean(booking.paymentIntentId),
+    pendingReschedule: pendingReschedule ?? null,
   };
 }
 
@@ -452,6 +494,35 @@ async function loadCancelOutcome(
   };
 }
 
+async function resolveRescheduleTopUpRedirect(
+  transaction: Tx,
+  booking: typeof stayBookings.$inferSelect,
+  pending: NonNullable<GuestStayBookingProjection['pendingReschedule']>,
+): Promise<string | null> {
+  if (pending.status !== 'awaiting_guest_payment' && pending.status !== 'awaiting_payment') {
+    return null;
+  }
+  const idempotencyKey = `reschedule_topup:${booking.id}:${pending.checkInOn}:${pending.checkOutOn}:${pending.stayType}`;
+  const [intent] = await transaction
+    .select({
+      providerIntentId: stayPaymentIntents.providerIntentId,
+      status: stayPaymentIntents.status,
+    })
+    .from(stayPaymentIntents)
+    .where(
+      and(
+        eq(stayPaymentIntents.organizationId, booking.organizationId),
+        eq(stayPaymentIntents.idempotencyKey, idempotencyKey),
+      ),
+    )
+    .limit(1);
+  if (!intent || intent.status !== 'pending' || !intent.providerIntentId) return null;
+  if (!/^[A-Za-z0-9_-]{24,80}$/.test(intent.providerIntentId)) return null;
+  const origin = publicWebOrigin();
+  const returnPath = `/ar/guest/stays/${booking.id}?ref=${encodeURIComponent(booking.referenceCode)}`;
+  return `${origin}/ar/payments/sandbox/${intent.providerIntentId}?kind=stay&return=${encodeURIComponent(returnPath)}`;
+}
+
 async function enrichProjection(
   transaction: Tx,
   booking: typeof stayBookings.$inferSelect,
@@ -459,7 +530,12 @@ async function enrichProjection(
 ): Promise<GuestStayBookingProjection> {
   const departed = DEPARTED_STATUSES.has(booking.status);
   const cancelled = booking.status === 'cancelled';
-  const [paymentIntentId, listing, stamps, deposits, refunds, claims, cancelOutcome] =
+  const base = toProjection({
+    ...booking,
+    guestDisplayName: guestDisplayName ?? null,
+    listingSlug: null,
+  });
+  const [paymentIntentId, listing, stamps, deposits, refunds, claims, cancelOutcome, payUrl] =
     await Promise.all([
       resolvePaymentIntentId(transaction, booking.organizationId, booking.id),
       resolveListing(transaction, booking.organizationId, booking.stayProfileId),
@@ -478,26 +554,36 @@ async function enrichProjection(
       cancelled
         ? loadCancelOutcome(transaction, booking.organizationId, booking.id)
         : Promise.resolve(null),
+      base.pendingReschedule
+        ? resolveRescheduleTopUpRedirect(transaction, booking, base.pendingReschedule)
+        : Promise.resolve(null),
     ]);
   const stamp = stamps?.get(booking.id);
   const depositMinor = deposits?.get(booking.id) ?? null;
   const refund = refunds?.get(booking.id);
+  const pendingReschedule = base.pendingReschedule
+    ? { ...base.pendingReschedule, paymentRedirectUrl: payUrl }
+    : null;
   return {
     depositMinor,
     depositRefund: refund ? guestDepositRefund(refund) : null,
     depositClaims: claims?.get(booking.id) ?? [],
     canRequestDepositRefund: Boolean(depositMinor && !refund && booking.status === 'checked_out'),
-    ...toProjection({
-      ...booking,
-      guestDisplayName: guestDisplayName ?? null,
-      paymentIntentId,
-      listingSlug: listing?.slug ?? null,
-    }),
+    ...base,
+    paymentIntentId,
+    listingSlug: listing?.slug ?? null,
     listingTitleAr: listing?.titleAr ?? null,
     listingTitleEn: listing?.titleEn ?? null,
     checkIn: stamp?.checkIn ? { ...stamp.checkIn, recipient: null, photos: [] } : null,
     checkOut: stamp?.checkOut ? { ...stamp.checkOut, recipient: null, photos: [] } : null,
     cancelOutcome: cancelOutcome ?? null,
+    pendingReschedule,
+    canPay: Boolean(
+      (base.canPay && paymentIntentId) ||
+        (pendingReschedule?.paymentRedirectUrl &&
+          (pendingReschedule.status === 'awaiting_guest_payment' ||
+            pendingReschedule.status === 'awaiting_payment')),
+    ),
   };
 }
 
@@ -779,19 +865,194 @@ export type GuestStayRescheduleQuote = StayRescheduleCharge & {
   nights: number;
   hasOffer: boolean;
   paid: boolean;
+  stayType: RescheduleStayType;
 };
 
+export type GuestStayReschedulePayment = {
+  redirectUrl: string;
+  paymentIntentId: string;
+  amountMinor: string;
+  currency: string;
+};
+
+type PricedStayRange = Awaited<ReturnType<typeof priceStayRangeForUnitOnNeon>>;
+
+async function applyGuestRescheduleInTx(
+  transaction: Tx,
+  booking: typeof stayBookings.$inferSelect,
+  priced: PricedStayRange,
+  stayType: RescheduleStayType,
+  charge: StayRescheduleCharge,
+): Promise<typeof stayBookings.$inferSelect> {
+  const now = new Date();
+  let inventoryLockId = booking.inventoryLockId;
+  if (booking.inventoryLockId) {
+    const [oldLock] = await transaction
+      .select()
+      .from(stayInventoryLocks)
+      .where(
+        and(
+          eq(stayInventoryLocks.id, booking.inventoryLockId),
+          eq(stayInventoryLocks.organizationId, booking.organizationId),
+        ),
+      )
+      .limit(1);
+    if (oldLock?.status === 'active') {
+      await transaction
+        .update(stayInventoryLocks)
+        .set({ status: 'released', updatedAt: now })
+        .where(eq(stayInventoryLocks.id, oldLock.id));
+      const lock = await createLockInTransaction(transaction, {
+        organizationId: booking.organizationId,
+        unitId: booking.unitId,
+        checkInOn: priced.checkInOn,
+        checkOutOn: priced.checkOutOn,
+        kind: oldLock.kind,
+        lockSlot:
+          stayType === 'day_use' ? 'morning' : stayType === 'overnight_only' ? 'evening' : 'full',
+        ...(oldLock.expiresAt ? { expiresAt: oldLock.expiresAt } : {}),
+        ...(oldLock.sourceType ? { sourceType: oldLock.sourceType } : {}),
+        ...(oldLock.sourceId ? { sourceId: oldLock.sourceId } : {}),
+        note: `Guest rescheduled ${booking.referenceCode}`,
+      });
+      inventoryLockId = lock.id;
+      if (booking.holdId) {
+        await transaction
+          .update(stayHolds)
+          .set({ inventoryLockId: lock.id, updatedAt: now })
+          .where(
+            and(
+              eq(stayHolds.id, booking.holdId),
+              eq(stayHolds.organizationId, booking.organizationId),
+            ),
+          );
+      }
+    }
+  }
+
+  const rawSnapshot: unknown = booking.pricingSnapshotJson;
+  const snapshot: Record<string, unknown> =
+    rawSnapshot && typeof rawSnapshot === 'object' ? { ...rawSnapshot } : {};
+  const previousMoves: unknown[] = Array.isArray(snapshot.reschedules)
+    ? (snapshot.reschedules as unknown[])
+    : [];
+  const fromStayType = rescheduleStayType(readStayTypeFromSnapshot(booking.pricingSnapshotJson));
+  const move = {
+    at: now.toISOString(),
+    fromCheckInOn: booking.checkInOn,
+    fromCheckOutOn: booking.checkOutOn,
+    fromStayType,
+    toCheckInOn: priced.checkInOn,
+    toCheckOutOn: priced.checkOutOn,
+    toStayType: stayType,
+    quotedTotalMinor: charge.quotedTotalMinor,
+    chargedTotalMinor: charge.chargedTotalMinor,
+    forfeitedMinor: charge.forfeitedMinor,
+    hasOffer: priced.hasOffer,
+  };
+  const takesNewPrice = !charge.keptOriginalPrice;
+  const [updated] = await transaction
+    .update(stayBookings)
+    .set({
+      checkInOn: priced.checkInOn,
+      checkOutOn: priced.checkOutOn,
+      inventoryLockId,
+      ...(takesNewPrice
+        ? {
+            subtotalMinor: BigInt(priced.subtotalMinor),
+            feesMinor: BigInt(priced.feesMinor),
+            totalMinor: BigInt(charge.chargedTotalMinor),
+          }
+        : {}),
+      pricingSnapshotJson: {
+        ...snapshot,
+        stayType,
+        lineItems: priced.nightLines,
+        pendingReschedule: null,
+        reschedules: [...previousMoves, move],
+      },
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(stayBookings.id, booking.id),
+        eq(stayBookings.organizationId, booking.organizationId),
+      ),
+    )
+    .returning();
+  if (!updated) {
+    throw new PublicStayBookingError('reschedule_failed', 'Could not change dates', 409);
+  }
+
+  const paid = PAID_STATUSES.has(booking.status);
+  if (!paid && charge.chargedTotalMinor !== charge.originalTotalMinor) {
+    const amount = BigInt(charge.chargedTotalMinor);
+    await transaction
+      .update(stayPaymentIntents)
+      .set({ amountMinor: amount, updatedAt: now })
+      .where(
+        and(
+          eq(stayPaymentIntents.bookingId, booking.id),
+          eq(stayPaymentIntents.organizationId, booking.organizationId),
+          eq(stayPaymentIntents.status, 'pending'),
+        ),
+      );
+    await transaction
+      .update(stayFolios)
+      .set({ balanceMinor: amount, updatedAt: now })
+      .where(
+        and(
+          eq(stayFolios.bookingId, booking.id),
+          eq(stayFolios.organizationId, booking.organizationId),
+          eq(stayFolios.status, 'open'),
+        ),
+      );
+  }
+
+  await transaction.insert(stayBookingStatusHistory).values({
+    organizationId: booking.organizationId,
+    bookingId: booking.id,
+    fromStatus: booking.status,
+    toStatus: booking.status,
+    reason: 'guest_rescheduled',
+    metadataJson: move,
+  });
+  await transaction.insert(outboxEvents).values({
+    organizationId: booking.organizationId,
+    topic: 'stay.booking.rescheduled',
+    aggregateType: 'stay_booking',
+    aggregateId: booking.id,
+    payload: { referenceCode: booking.referenceCode, unitId: booking.unitId, ...move },
+  });
+
+  return updated;
+}
+
 /**
- * Guest moves a booking to new free dates. With `confirm: false` it only prices the move;
- * with `confirm: true` it moves the inventory lock and updates the booking in one transaction.
- * See `stayRescheduleCharge` for the no-refund price rule.
+ * Guest moves a booking to new free dates and/or period. With `confirm: false` it only prices;
+ * with `confirm: true` it applies the move, or returns a top-up payment redirect when more is due.
  */
+export type GuestStayRescheduleNotify = {
+  bookingId: string;
+  organizationId: string;
+  referenceCode: string;
+  kind: 'reschedule_requested' | 'reschedule_auto';
+};
+
 export async function rescheduleGuestStayBookingOnNeon(input: {
   referenceCode: string;
   checkInOn: string;
   checkOutOn: string;
+  stayType?: RescheduleStayType | undefined;
   confirm: boolean;
-}): Promise<{ quote: GuestStayRescheduleQuote; booking?: GuestStayBookingProjection }> {
+  locale?: 'ar' | 'en' | undefined;
+}): Promise<{
+  quote: GuestStayRescheduleQuote;
+  booking?: GuestStayBookingProjection;
+  payment?: GuestStayReschedulePayment;
+  awaitingOwnerApproval?: boolean;
+  notifyOwner?: GuestStayRescheduleNotify;
+}> {
   assertPlatformEnabled();
   const normalized = input.referenceCode.trim().toUpperCase();
   if (normalized.length < 4) {
@@ -829,7 +1090,8 @@ export async function rescheduleGuestStayBookingOnNeon(input: {
       throw new PublicStayBookingError('not_found', 'Stay listing not found', 404);
     }
 
-    const stayType = rescheduleStayType(readStayTypeFromSnapshot(booking.pricingSnapshotJson));
+    const currentType = rescheduleStayType(readStayTypeFromSnapshot(booking.pricingSnapshotJson));
+    const stayType = input.stayType ? rescheduleStayType(input.stayType) : currentType;
     const priced = await priceStayRangeForUnitOnNeon({
       slug: listing.slug,
       unitId: booking.unitId,
@@ -837,8 +1099,12 @@ export async function rescheduleGuestStayBookingOnNeon(input: {
       checkInOn: input.checkInOn,
       checkOutOn: input.checkOutOn,
     });
-    if (priced.checkInOn === booking.checkInOn && priced.checkOutOn === booking.checkOutOn) {
-      throw new PublicStayBookingError('same_dates', 'New dates match the current booking', 409);
+    if (
+      priced.checkInOn === booking.checkInOn &&
+      priced.checkOutOn === booking.checkOutOn &&
+      stayType === currentType
+    ) {
+      throw new PublicStayBookingError('same_dates', 'Selection matches the current booking', 409);
     }
     if (priced.currency !== booking.currency) {
       throw new PublicStayBookingError('currency_changed', 'Listing currency changed', 409);
@@ -876,151 +1142,363 @@ export async function rescheduleGuestStayBookingOnNeon(input: {
       nights: priced.nights,
       hasOffer: priced.hasOffer,
       paid,
+      stayType,
     };
     if (!input.confirm) return { quote };
-    if (charge.requiresPayment) {
+
+    const existingPending = readPendingReschedule(booking.pricingSnapshotJson);
+    if (existingPending) {
       throw new PublicStayBookingError(
-        'reschedule_requires_payment',
-        'New dates cost more than the amount paid',
+        'reschedule_pending',
+        'A date change is already awaiting approval or payment',
         409,
       );
     }
 
-    const now = new Date();
-    let inventoryLockId = booking.inventoryLockId;
-    if (booking.inventoryLockId) {
-      const [oldLock] = await transaction
-        .select()
-        .from(stayInventoryLocks)
-        .where(
-          and(
-            eq(stayInventoryLocks.id, booking.inventoryLockId),
-            eq(stayInventoryLocks.organizationId, booking.organizationId),
-          ),
-        )
-        .limit(1);
-      if (oldLock?.status === 'active') {
-        await transaction
-          .update(stayInventoryLocks)
-          .set({ status: 'released', updatedAt: now })
-          .where(eq(stayInventoryLocks.id, oldLock.id));
-        const lock = await createLockInTransaction(transaction, {
-          organizationId: booking.organizationId,
-          unitId: booking.unitId,
-          checkInOn: priced.checkInOn,
-          checkOutOn: priced.checkOutOn,
-          kind: oldLock.kind,
-          lockSlot:
-            stayType === 'day_use' ? 'morning' : stayType === 'overnight_only' ? 'evening' : 'full',
-          ...(oldLock.expiresAt ? { expiresAt: oldLock.expiresAt } : {}),
-          ...(oldLock.sourceType ? { sourceType: oldLock.sourceType } : {}),
-          ...(oldLock.sourceId ? { sourceId: oldLock.sourceId } : {}),
-          note: `Guest rescheduled ${booking.referenceCode}`,
-        });
-        inventoryLockId = lock.id;
-        if (booking.holdId) {
-          await transaction
-            .update(stayHolds)
-            .set({ inventoryLockId: lock.id, updatedAt: now })
-            .where(
-              and(
-                eq(stayHolds.id, booking.holdId),
-                eq(stayHolds.organizationId, booking.organizationId),
-              ),
-            );
-        }
-      }
-    }
-
-    const rawSnapshot: unknown = booking.pricingSnapshotJson;
-    const snapshot: Record<string, unknown> =
-      rawSnapshot && typeof rawSnapshot === 'object' ? { ...rawSnapshot } : {};
-    const previousMoves: unknown[] = Array.isArray(snapshot.reschedules)
-      ? (snapshot.reschedules as unknown[])
-      : [];
-    const move = {
-      at: now.toISOString(),
-      fromCheckInOn: booking.checkInOn,
-      fromCheckOutOn: booking.checkOutOn,
-      toCheckInOn: priced.checkInOn,
-      toCheckOutOn: priced.checkOutOn,
-      quotedTotalMinor: charge.quotedTotalMinor,
-      chargedTotalMinor: charge.chargedTotalMinor,
-      forfeitedMinor: charge.forfeitedMinor,
-      hasOffer: priced.hasOffer,
-    };
-    const takesNewPrice = !charge.keptOriginalPrice;
-    const [updated] = await transaction
-      .update(stayBookings)
-      .set({
-        checkInOn: priced.checkInOn,
-        checkOutOn: priced.checkOutOn,
-        inventoryLockId,
-        ...(takesNewPrice
-          ? {
-              subtotalMinor: BigInt(priced.subtotalMinor),
-              feesMinor: BigInt(priced.feesMinor),
-              totalMinor: BigInt(priced.totalMinor),
-            }
-          : {}),
-        pricingSnapshotJson: {
-          ...snapshot,
-          lineItems: priced.nightLines,
-          reschedules: [...previousMoves, move],
-        },
-        updatedAt: now,
-      })
+    const [profile] = await transaction
+      .select({ autoApproveReschedule: stayProfiles.autoApproveReschedule })
+      .from(stayProfiles)
       .where(
         and(
-          eq(stayBookings.id, booking.id),
-          eq(stayBookings.organizationId, booking.organizationId),
+          eq(stayProfiles.id, booking.stayProfileId),
+          eq(stayProfiles.organizationId, booking.organizationId),
         ),
       )
-      .returning();
-    if (!updated) {
-      throw new PublicStayBookingError('reschedule_failed', 'Could not change dates', 409);
-    }
+      .limit(1);
+    const autoApprove = profile?.autoApproveReschedule !== false;
 
-    if (!paid && charge.chargedTotalMinor !== charge.originalTotalMinor) {
-      const amount = BigInt(charge.chargedTotalMinor);
-      await transaction
-        .update(stayPaymentIntents)
-        .set({ amountMinor: amount, updatedAt: now })
+    const pendingBase = {
+      checkInOn: priced.checkInOn,
+      checkOutOn: priced.checkOutOn,
+      stayType,
+      quotedTotalMinor: charge.quotedTotalMinor,
+      chargedTotalMinor: charge.chargedTotalMinor,
+      extraDueMinor: charge.extraDueMinor,
+      originalTotalMinor: charge.originalTotalMinor,
+      subtotalMinor: priced.subtotalMinor,
+      feesMinor: priced.feesMinor,
+      nightLines: priced.nightLines,
+      hasOffer: priced.hasOffer,
+      at: new Date().toISOString(),
+    };
+
+    if (!autoApprove) {
+      const now = new Date();
+      const rawSnapshot: unknown = booking.pricingSnapshotJson;
+      const snapshot: Record<string, unknown> =
+        rawSnapshot && typeof rawSnapshot === 'object' ? { ...rawSnapshot } : {};
+      const pending = { ...pendingBase, status: 'awaiting_owner' as const };
+      const [updated] = await transaction
+        .update(stayBookings)
+        .set({
+          pricingSnapshotJson: { ...snapshot, pendingReschedule: pending },
+          updatedAt: now,
+        })
         .where(
           and(
-            eq(stayPaymentIntents.bookingId, booking.id),
-            eq(stayPaymentIntents.organizationId, booking.organizationId),
-            eq(stayPaymentIntents.status, 'pending'),
+            eq(stayBookings.id, booking.id),
+            eq(stayBookings.organizationId, booking.organizationId),
           ),
-        );
-      await transaction
-        .update(stayFolios)
-        .set({ balanceMinor: amount, updatedAt: now })
-        .where(
-          and(
-            eq(stayFolios.bookingId, booking.id),
-            eq(stayFolios.organizationId, booking.organizationId),
-            eq(stayFolios.status, 'open'),
-          ),
-        );
+        )
+        .returning();
+      if (!updated) {
+        throw new PublicStayBookingError('reschedule_failed', 'Could not request date change', 409);
+      }
+      await transaction.insert(stayBookingStatusHistory).values({
+        organizationId: booking.organizationId,
+        bookingId: booking.id,
+        fromStatus: booking.status,
+        toStatus: booking.status,
+        reason: 'guest_reschedule_requested',
+        metadataJson: pending,
+      });
+      await transaction.insert(outboxEvents).values({
+        organizationId: booking.organizationId,
+        topic: 'stay.booking.reschedule_requested',
+        aggregateType: 'stay_booking',
+        aggregateId: booking.id,
+        payload: {
+          referenceCode: booking.referenceCode,
+          unitId: booking.unitId,
+          ...pending,
+        },
+      });
+      return {
+        quote,
+        booking: await enrichProjection(transaction, updated),
+        awaitingOwnerApproval: true as const,
+        notifyOwner: {
+          bookingId: booking.id,
+          organizationId: booking.organizationId,
+          referenceCode: booking.referenceCode,
+          kind: 'reschedule_requested' as const,
+        },
+      };
     }
 
-    await transaction.insert(stayBookingStatusHistory).values({
-      organizationId: booking.organizationId,
-      bookingId: booking.id,
-      fromStatus: booking.status,
-      toStatus: booking.status,
-      reason: 'guest_rescheduled',
-      metadataJson: move,
-    });
-    await transaction.insert(outboxEvents).values({
-      organizationId: booking.organizationId,
-      topic: 'stay.booking.rescheduled',
-      aggregateType: 'stay_booking',
-      aggregateId: booking.id,
-      payload: { referenceCode: booking.referenceCode, unitId: booking.unitId, ...move },
-    });
+    if (charge.requiresPayment) {
+      const payment = await createRescheduleTopUpPaymentInTx(
+        transaction,
+        booking,
+        {
+          ...pendingBase,
+          status: 'awaiting_payment' as const,
+        },
+        input.locale === 'en' ? 'en' : 'ar',
+      );
+      return { quote, payment };
+    }
 
-    return { quote, booking: await enrichProjection(transaction, updated) };
+    const updated = await applyGuestRescheduleInTx(
+      transaction,
+      booking,
+      priced,
+      stayType,
+      charge,
+    );
+    return {
+      quote,
+      booking: await enrichProjection(transaction, updated),
+      notifyOwner: {
+        bookingId: booking.id,
+        organizationId: booking.organizationId,
+        referenceCode: booking.referenceCode,
+        kind: 'reschedule_auto' as const,
+      },
+    };
   });
+}
+
+export async function createRescheduleTopUpPaymentInTx(
+  transaction: Tx,
+  booking: typeof stayBookings.$inferSelect,
+  pending: Record<string, unknown> & {
+    checkInOn: string;
+    checkOutOn: string;
+    stayType: RescheduleStayType;
+    extraDueMinor: string;
+  },
+  locale: 'ar' | 'en' = 'ar',
+): Promise<GuestStayReschedulePayment> {
+  const now = new Date();
+  const rawSnapshot: unknown = booking.pricingSnapshotJson;
+  const snapshot: Record<string, unknown> =
+    rawSnapshot && typeof rawSnapshot === 'object' ? { ...rawSnapshot } : {};
+  await transaction
+    .update(stayBookings)
+    .set({
+      pricingSnapshotJson: { ...snapshot, pendingReschedule: pending },
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(stayBookings.id, booking.id),
+        eq(stayBookings.organizationId, booking.organizationId),
+      ),
+    );
+
+  const idempotencyKey = `reschedule_topup:${booking.id}:${pending.checkInOn}:${pending.checkOutOn}:${pending.stayType}`;
+  const [existing] = await transaction
+    .select()
+    .from(stayPaymentIntents)
+    .where(
+      and(
+        eq(stayPaymentIntents.organizationId, booking.organizationId),
+        eq(stayPaymentIntents.idempotencyKey, idempotencyKey),
+      ),
+    )
+    .limit(1);
+  let intentId = existing?.id;
+  let sessionReference = existing?.providerIntentId ?? null;
+  if (!existing || existing.status === 'cancelled' || existing.status === 'failed') {
+    const [created] = await transaction
+      .insert(stayPaymentIntents)
+      .values({
+        organizationId: booking.organizationId,
+        bookingId: booking.id,
+        status: 'pending',
+        amountMinor: BigInt(pending.extraDueMinor),
+        currency: booking.currency,
+        idempotencyKey,
+        provider: 'sandbox',
+      })
+      .returning({ id: stayPaymentIntents.id });
+    intentId = created?.id;
+  } else if (existing.status === 'succeeded') {
+    throw new PublicStayBookingError(
+      'reschedule_requires_payment',
+      'Top-up already paid — refresh and confirm again',
+      409,
+    );
+  } else if (existing.amountMinor.toString() !== pending.extraDueMinor) {
+    await transaction
+      .update(stayPaymentIntents)
+      .set({ amountMinor: BigInt(pending.extraDueMinor), updatedAt: now })
+      .where(eq(stayPaymentIntents.id, existing.id));
+  }
+
+  if (!intentId) {
+    throw new PublicStayBookingError(
+      'reschedule_payment_failed',
+      'Could not create top-up payment',
+      500,
+    );
+  }
+
+  if (!sessionReference || !/^[A-Za-z0-9_-]{24,80}$/.test(sessionReference)) {
+    sessionReference = randomBytes(24).toString('base64url');
+    await transaction
+      .update(stayPaymentIntents)
+      .set({
+        provider: 'sandbox',
+        providerIntentId: sessionReference,
+        status: 'pending',
+        updatedAt: now,
+      })
+      .where(eq(stayPaymentIntents.id, intentId));
+  }
+
+  const origin = publicWebOrigin();
+  const returnPath = `/${locale}/guest/stays/${booking.id}?ref=${encodeURIComponent(booking.referenceCode)}`;
+  return {
+    redirectUrl: `${origin}/${locale}/payments/sandbox/${sessionReference}?kind=stay&return=${encodeURIComponent(returnPath)}`,
+    paymentIntentId: intentId,
+    amountMinor: pending.extraDueMinor,
+    currency: booking.currency,
+  };
+}
+
+/**
+ * Apply a stored `pendingReschedule` after top-up payment or owner approval.
+ * `mode: 'topup'` forces the new quoted total (difference already paid).
+ */
+export async function applyStoredPendingRescheduleInTx(
+  transaction: Tx,
+  booking: typeof stayBookings.$inferSelect,
+  mode: 'topup' | 'owner' = 'topup',
+): Promise<typeof stayBookings.$inferSelect | null> {
+  const snapshot =
+    booking.pricingSnapshotJson && typeof booking.pricingSnapshotJson === 'object'
+      ? (booking.pricingSnapshotJson as Record<string, unknown>)
+      : null;
+  const pending =
+    snapshot?.pendingReschedule && typeof snapshot.pendingReschedule === 'object'
+      ? (snapshot.pendingReschedule as Record<string, unknown>)
+      : null;
+  if (!pending) return null;
+  const checkInOn = typeof pending.checkInOn === 'string' ? pending.checkInOn : null;
+  const checkOutOn = typeof pending.checkOutOn === 'string' ? pending.checkOutOn : null;
+  const stayType = rescheduleStayType(
+    typeof pending.stayType === 'string' ? pending.stayType : null,
+  );
+  if (!checkInOn || !checkOutOn) return null;
+
+  const available = await isRangeAvailableInTransaction(
+    transaction,
+    booking.organizationId,
+    booking.unitId,
+    checkInOn,
+    checkOutOn,
+    stayType,
+    booking.id,
+  );
+  if (!available) {
+    throw new PublicStayBookingError(
+      'dates_unavailable',
+      'Selected dates are no longer available',
+      409,
+    );
+  }
+
+  const quotedTotalMinor =
+    typeof pending.quotedTotalMinor === 'string' ? pending.quotedTotalMinor : null;
+  const chargedTotalMinor =
+    typeof pending.chargedTotalMinor === 'string' ? pending.chargedTotalMinor : null;
+  const originalTotalMinor =
+    typeof pending.originalTotalMinor === 'string'
+      ? pending.originalTotalMinor
+      : booking.totalMinor.toString();
+  if (!quotedTotalMinor || !chargedTotalMinor) return null;
+
+  const charge = stayRescheduleCharge({
+    originalTotalMinor,
+    quotedTotalMinor,
+    paid: true,
+  });
+  const priced = {
+    checkInOn,
+    checkOutOn,
+    nights:
+      typeof pending.nightLines === 'object' && Array.isArray(pending.nightLines)
+        ? pending.nightLines.length || 1
+        : 1,
+    totalMinor: chargedTotalMinor,
+    subtotalMinor:
+      typeof pending.subtotalMinor === 'string' ? pending.subtotalMinor : chargedTotalMinor,
+    feesMinor: typeof pending.feesMinor === 'string' ? pending.feesMinor : '0',
+    nightLines: Array.isArray(pending.nightLines) ? pending.nightLines : [],
+    hasOffer: pending.hasOffer === true,
+    currency: booking.currency,
+  } as PricedStayRange;
+
+  const appliedCharge: StayRescheduleCharge =
+    mode === 'topup'
+      ? {
+          ...charge,
+          chargedTotalMinor: quotedTotalMinor,
+          keptOriginalPrice: false,
+          requiresPayment: false,
+          extraDueMinor: '0',
+          forfeitedMinor: '0',
+        }
+      : { ...charge, requiresPayment: false };
+
+  return applyGuestRescheduleInTx(transaction, booking, priced, stayType, appliedCharge);
+}
+
+/** @deprecated Prefer applyStoredPendingRescheduleInTx — kept for payment callers. */
+export async function applyPendingRescheduleAfterTopUpInTx(
+  transaction: Tx,
+  booking: typeof stayBookings.$inferSelect,
+): Promise<typeof stayBookings.$inferSelect | null> {
+  return applyStoredPendingRescheduleInTx(transaction, booking, 'topup');
+}
+
+/** Clear a pending guest reschedule (owner reject or guest cancel of the request). */
+export async function clearPendingRescheduleInTx(
+  transaction: Tx,
+  booking: typeof stayBookings.$inferSelect,
+  reason: string,
+  metadata: Record<string, unknown> = {},
+): Promise<typeof stayBookings.$inferSelect> {
+  const rawSnapshot: unknown = booking.pricingSnapshotJson;
+  const snapshot: Record<string, unknown> =
+    rawSnapshot && typeof rawSnapshot === 'object' ? { ...rawSnapshot } : {};
+  const pending = snapshot.pendingReschedule;
+  const now = new Date();
+  const [updated] = await transaction
+    .update(stayBookings)
+    .set({
+      pricingSnapshotJson: { ...snapshot, pendingReschedule: null },
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(stayBookings.id, booking.id),
+        eq(stayBookings.organizationId, booking.organizationId),
+      ),
+    )
+    .returning();
+  if (!updated) {
+    throw new PublicStayBookingError('reschedule_failed', 'Could not clear pending reschedule', 409);
+  }
+  await transaction.insert(stayBookingStatusHistory).values({
+    organizationId: booking.organizationId,
+    bookingId: booking.id,
+    fromStatus: booking.status,
+    toStatus: booking.status,
+    reason,
+    metadataJson: { pending, ...metadata },
+  });
+  return updated;
 }

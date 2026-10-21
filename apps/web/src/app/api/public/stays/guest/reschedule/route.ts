@@ -6,6 +6,7 @@ import {
   stayBookingJson,
 } from '@/lib/public-stays-booking-route';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
+import { notifyOwnersOfStayBooking } from '@/lib/stay-checkin-neon';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -17,7 +18,9 @@ const bodySchema = z
     referenceCode: z.string().trim().min(4).max(40),
     checkInOn: isoDate,
     checkOutOn: isoDate,
+    stayType: z.enum(['overnight_stay', 'day_use', 'overnight_only']).optional(),
     confirm: z.boolean().default(false),
+    locale: z.enum(['ar', 'en']).optional(),
   })
   .strict();
 
@@ -54,7 +57,11 @@ export async function POST(request: Request) {
 
   try {
     const payload = await rescheduleGuestStayBookingOnNeon(parsed.data);
-    return stayBookingJson(payload);
+    if (payload.notifyOwner) {
+      void notifyOwnersOfStayBooking(payload.notifyOwner);
+    }
+    const { notifyOwner: _n, ...publicPayload } = payload;
+    return stayBookingJson(publicPayload);
   } catch (error) {
     return stayBookingErrorResponse(error);
   }

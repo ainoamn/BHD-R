@@ -29,6 +29,7 @@ import {
   isRangeAvailableInTransaction,
   PublicStayBookingError,
 } from '@/lib/public-stays-booking-neon';
+import { applyPendingRescheduleAfterTopUpInTx } from '@/lib/public-stays-guest-neon';
 import { notifyOwnersOfStayBooking } from '@/lib/stay-checkin-neon';
 
 type DbHandle = { db: Database };
@@ -216,12 +217,20 @@ export async function completeStaySandboxPaymentOnNeon(
     }
 
     if (intent.status === 'succeeded') {
+      const paidBooking = await transaction.query.stayBookings.findFirst({
+        where: and(
+          eq(stayBookings.id, intent.bookingId),
+          eq(stayBookings.organizationId, intent.organizationId),
+        ),
+        columns: { referenceCode: true },
+      });
       return {
         completed: true,
         duplicate: true,
         kind: 'stay_booking' as const,
         paymentIntentId: intent.id,
         returnPath: returnPath ?? null,
+        ...(paidBooking?.referenceCode ? { referenceCode: paidBooking.referenceCode } : {}),
       };
     }
 
@@ -234,6 +243,111 @@ export async function completeStaySandboxPaymentOnNeon(
     if (!booking) {
       throw new PublicStayBookingError('booking_missing', 'Stay booking not found', 404);
     }
+
+    const isRescheduleTopUp =
+      typeof intent.idempotencyKey === 'string' &&
+      intent.idempotencyKey.startsWith('reschedule_topup:');
+
+    if (isRescheduleTopUp) {
+      const paidStatuses = new Set(['confirmed', 'paid', 'pre_arrival']);
+      if (!paidStatuses.has(booking.status)) {
+        throw new PublicStayBookingError(
+          'booking_not_payable',
+          `Stay booking cannot accept reschedule top-up in status ${booking.status}`,
+          409,
+        );
+      }
+
+      const pendingStatus =
+        booking.pricingSnapshotJson &&
+        typeof booking.pricingSnapshotJson === 'object' &&
+        (booking.pricingSnapshotJson as { pendingReschedule?: { status?: string } })
+          .pendingReschedule?.status;
+
+      const now = new Date();
+      await transaction
+        .update(stayPaymentIntents)
+        .set({
+          status: 'succeeded',
+          provider: 'sandbox',
+          providerIntentId: sessionReference,
+          providerEventId: `sandbox-stay-reschedule:${sessionReference}`,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(stayPaymentIntents.id, intent.id),
+            eq(stayPaymentIntents.organizationId, intent.organizationId),
+          ),
+        );
+
+      const updated = await applyPendingRescheduleAfterTopUpInTx(transaction, booking);
+      if (!updated) {
+        throw new PublicStayBookingError(
+          'reschedule_failed',
+          'Pending reschedule missing after top-up',
+          409,
+        );
+      }
+
+      if (intent.amountMinor > 0n) {
+        const map = await ensureAccountCodeMap(transaction, intent.organizationId);
+        await postSourceDocumentInTx(transaction, {
+          organizationId: intent.organizationId,
+          occurredOn: now.toISOString().slice(0, 10),
+          description: `فرق تعديل إقامة ${updated.referenceCode}`.slice(0, 500),
+          sourceType: 'stay_payment',
+          sourceId: intent.id,
+          lines: postingRentReceipt(
+            map,
+            intent.amountMinor.toString(),
+            {
+              currency: intent.currency,
+              propertyId: updated.propertyId,
+              unitId: updated.unitId,
+              ...(updated.guestPartyId ? { partyId: updated.guestPartyId } : {}),
+            },
+            'bank',
+            updated.referenceCode,
+          ),
+        });
+      }
+
+      await transaction.insert(outboxEvents).values({
+        organizationId: intent.organizationId,
+        topic: 'stay.booking.reschedule_paid',
+        aggregateType: 'stay_booking',
+        aggregateId: updated.id,
+        payload: {
+          paymentIntentId: intent.id,
+          referenceCode: updated.referenceCode,
+          unitId: updated.unitId,
+          amountMinor: intent.amountMinor.toString(),
+          provider: 'sandbox',
+          ...safeMask,
+        },
+      });
+
+      return {
+        completed: true as const,
+        duplicate: false as const,
+        kind: 'stay_booking' as const,
+        paymentIntentId: intent.id,
+        returnPath: returnPath ?? null,
+        referenceCode: updated.referenceCode,
+        ...(pendingStatus === 'awaiting_payment'
+          ? {
+              notifyOwner: {
+                bookingId: updated.id,
+                organizationId: intent.organizationId,
+                referenceCode: updated.referenceCode,
+                kind: 'reschedule_auto' as const,
+              },
+            }
+          : {}),
+      };
+    }
+
     if (booking.status !== 'payment_pending') {
       throw new PublicStayBookingError(
         booking.status === 'expired' ? 'booking_expired' : 'booking_not_payable',
@@ -637,7 +751,18 @@ export async function completeStaySandboxPaymentOnNeon(
   });
 
   if (result.completed && !result.duplicate && 'notifyOwner' in result && result.notifyOwner) {
-    void notifyOwnersOfStayBooking({ ...result.notifyOwner, kind: 'confirmed' });
+    const ownerNotify = result.notifyOwner as {
+      bookingId: string;
+      organizationId: string;
+      referenceCode: string;
+      kind?: 'requested' | 'confirmed' | 'reschedule_requested' | 'reschedule_auto';
+    };
+    void notifyOwnersOfStayBooking({
+      bookingId: ownerNotify.bookingId,
+      organizationId: ownerNotify.organizationId,
+      referenceCode: ownerNotify.referenceCode,
+      kind: ownerNotify.kind ?? 'confirmed',
+    });
   }
   if ('notifyOwner' in result) {
     const { notifyOwner: _n, ...publicResult } = result;

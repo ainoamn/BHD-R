@@ -63,6 +63,16 @@ type GuestBooking = {
   canCancel?: boolean;
   canRebook?: boolean;
   canReschedule?: boolean;
+  pendingReschedule?: {
+    status: 'awaiting_owner' | 'awaiting_guest_payment' | 'awaiting_payment';
+    checkInOn: string;
+    checkOutOn: string;
+    stayType: string;
+    extraDueMinor: string;
+    quotedTotalMinor: string;
+    chargedTotalMinor: string;
+    paymentRedirectUrl?: string | null;
+  } | null;
   guestEmail?: string | null;
   esignCompleted?: boolean;
   checkIn?: StayStamp | null;

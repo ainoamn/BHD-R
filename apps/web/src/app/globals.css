@@ -961,6 +961,14 @@ a.pmh-actionbar__title[aria-current='page'] {
   font-size: 0.78rem;
   line-height: 1.5;
 }
+.psr-table tr.psr-row--reschedule td {
+  background: linear-gradient(180deg, #fff5f5 0%, #ffffff 70%);
+  box-shadow: inset 3px 0 0 #dc2626;
+}
+.psr-table tr.psr-row--unconfirmed td {
+  background: linear-gradient(180deg, #fffbeb 0%, #ffffff 70%);
+  box-shadow: inset 3px 0 0 #d97706;
+}
 .psr-table tr.psr-row--focus td {
   background: #fff6dc;
 }
@@ -6669,6 +6677,37 @@ body:has(.stays-booking-receipt) #main-content {
 .stay-settings-unit__check {
   align-self: end;
 }
+.stay-settings-unit__toggle {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin: 0.35rem 0 0.75rem;
+  padding: 0.85rem 1rem;
+  background: #f7faf9;
+  border: 1px solid #dfe8e4;
+  border-radius: 0.85rem;
+}
+.stay-settings-unit__toggle input {
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-top: 0.2rem;
+  accent-color: #0a6b4b;
+}
+.stay-settings-unit__toggle span {
+  display: grid;
+  gap: 0.2rem;
+}
+.stay-settings-unit__toggle strong {
+  color: var(--oman-deep, #092d24);
+  font-size: 0.95rem;
+}
+.stay-settings-unit__toggle em {
+  color: #5b6b65;
+  font-size: 0.82rem;
+  font-style: normal;
+  line-height: 1.45;
+}
+
 .stay-settings-unit__actions {
   display: grid;
   gap: 0.6rem;
@@ -21401,12 +21440,103 @@ button.lrw__step-body:focus-visible {
 .guest-stay-dialog--cancel .ops-modal__card {
   width: min(100%, 34rem);
 }
+.guest-stay-dialog--reschedule {
+  padding: 0;
+}
+.guest-stay-dialog--reschedule .ops-modal__card {
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.guest-stay-dialog--reschedule .ops-modal__card > header {
+  padding-top: max(0.9rem, env(safe-area-inset-top));
+}
 .guest-stay-dialog__body {
   display: grid;
   flex: 1 0 auto;
   align-content: start;
   gap: 0.9rem;
   padding-bottom: 1rem;
+}
+.guest-stay-dialog__modes,
+.guest-stay-dialog__period {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.guest-stay-dialog__modes legend,
+.guest-stay-dialog__period legend {
+  margin-bottom: 0.55rem;
+  color: var(--oman-deep, #092d24);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+.guest-stay-dialog__mode-grid {
+  display: grid;
+  gap: 0.55rem;
+}
+@media (min-width: 720px) {
+  .guest-stay-dialog__mode-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.guest-stay-dialog__mode {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.85rem 0.95rem;
+  text-align: start;
+  cursor: pointer;
+  background: #f7faf9;
+  border: 1px solid #dfe8e4;
+  border-radius: 0.85rem;
+}
+.guest-stay-dialog__mode strong {
+  color: var(--oman-deep, #092d24);
+  font-size: 0.95rem;
+}
+.guest-stay-dialog__mode span {
+  color: #5b6b65;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+.guest-stay-dialog__mode.is-selected {
+  background: #e9f7f5;
+  border-color: #08a39f;
+  box-shadow: inset 0 0 0 1px #08a39f;
+}
+.guest-stay-dialog__period-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.guest-stay-dialog__period-btn {
+  flex: 1 1 8rem;
+  padding: 0.7rem 0.85rem;
+  color: var(--oman-deep, #092d24);
+  font-weight: 700;
+  cursor: pointer;
+  background: #fff;
+  border: 1px solid #dfe8e4;
+  border-radius: 0.75rem;
+}
+.guest-stay-dialog__period-btn.is-selected {
+  color: #065f46;
+  background: #e9f7f5;
+  border-color: #08a39f;
+}
+.guest-stay-dialog__period-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.guest-stay-dialog__calendar {
+  width: min(100%, 34rem);
+  margin-inline: auto;
+}
+.guest-stay-dialog__calendar .stays-calendar {
+  margin: 0;
 }
 .guest-stay-dialog__body > p {
   margin: 0;
@@ -21483,7 +21613,14 @@ button.lrw__step-body:focus-visible {
   font-size: 0.8rem;
 }
 .guest-stay-dialog__current strong {
+  display: grid;
+  gap: 0.15rem;
   color: var(--oman-deep, #092d24);
+}
+.guest-stay-dialog__current strong small {
+  color: #5b6b65;
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 .guest-stay-dialog__current em {
   margin-inline-start: auto;

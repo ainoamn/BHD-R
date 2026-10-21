@@ -45,8 +45,8 @@ export type PendingApprovalItem = {
   unread?: number;
   /** For `tenant_request`: what the tenant asked for. */
   requestType?: string;
-  /** For `stay_booking`: request queue vs newly confirmed paid stay. */
-  stayPhase?: 'request' | 'confirmed';
+  /** For `stay_booking`: request queue, newly confirmed, or guest reschedule awaiting owner. */
+  stayPhase?: 'request' | 'confirmed' | 'reschedule';
 };
 
 export type PendingApprovals = {
@@ -104,6 +104,12 @@ export function pendingApprovalHref(portal: string, item: PendingApprovalItem): 
   }
   if (item.kind === 'deposit_complaint') return '/site-admin';
   if (item.kind === 'sale_decision') return `${base}?unit=${encodeURIComponent(item.id)}`;
+  if (item.kind === 'stay_booking' && item.stayPhase === 'reschedule' && portal === 'owner') {
+    return `/owner/bookings?tab=daily&focus=${encodeURIComponent(item.id)}`;
+  }
+  if (item.kind === 'stay_booking') {
+    return `${base}?section=bookings&focus=${encodeURIComponent(item.id)}`;
+  }
   return `${base}?section=bookings`;
 }
 
@@ -142,6 +148,9 @@ export function pendingApprovalTitle(item: PendingApprovalItem, ar: boolean): st
     return ar ? 'طلب معاينة بانتظار تحديد الموعد' : 'Viewing request awaiting a schedule';
   }
   if (item.kind === 'stay_booking') {
+    if (item.stayPhase === 'reschedule') {
+      return ar ? 'تعديل تواريخ بانتظار اعتمادك' : 'Date change awaiting your approval';
+    }
     if (item.stayPhase === 'confirmed') {
       return ar ? 'حجز إقامة جديد مؤكد' : 'New stay booking confirmed';
     }

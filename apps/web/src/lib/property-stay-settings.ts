@@ -17,6 +17,8 @@ export type PropertyStaySettingsUnit = {
   minNights: number;
   maxNights: number;
   instantBook: boolean;
+  /** When true, guest date changes apply immediately; when false, owner must approve. */
+  autoApproveReschedule: boolean;
   checkInFrom: string | null;
   dayUseCheckInFrom: string | null;
   dayUseCheckOutUntil: string | null;

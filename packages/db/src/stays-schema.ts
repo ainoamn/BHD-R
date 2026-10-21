@@ -119,6 +119,11 @@ export const stayProfiles = pgTable(
     instantBook: boolean('instant_book').notNull().default(false),
     /** When false, the public stay page hides “request a viewing”. */
     allowViewingRequests: boolean('allow_viewing_requests').notNull().default(true),
+    /**
+     * When true (default), guest date/period changes apply immediately.
+     * When false, the owner must approve each reschedule request.
+     */
+    autoApproveReschedule: boolean('auto_approve_reschedule').notNull().default(true),
     timezone: varchar('timezone', { length: 64 }).notNull().default('Asia/Muscat'),
     currency: varchar('currency', { length: 3 }).notNull().default('OMR'),
     minorUnit: integer('minor_unit').notNull().default(3),

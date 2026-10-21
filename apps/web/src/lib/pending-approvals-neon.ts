@@ -202,7 +202,11 @@ async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApproval
             >`${stayBookings.pricingSnapshotJson}->'guestContact'->>'displayName'`,
             fromOn: stayBookings.checkInOn,
             requestedAt: stayBookings.createdAt,
+            updatedAt: stayBookings.updatedAt,
             status: stayBookings.status,
+            rescheduleStatus: sql<
+              string | null
+            >`${stayBookings.pricingSnapshotJson}->'pendingReschedule'->>'status'`,
           })
           .from(stayBookings)
           .innerJoin(properties, eq(properties.id, stayBookings.propertyId))
@@ -214,8 +218,12 @@ async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApproval
               sql`(
                 ${stayBookings.status} = 'request_pending'
                 or (
+                  ${stayBookings.pricingSnapshotJson}->'pendingReschedule'->>'status' = 'awaiting_owner'
+                )
+                or (
                   ${stayBookings.status} in ('confirmed', 'paid', 'pre_arrival')
                   and ${stayBookings.createdAt} > now() - interval '7 days'
+                  and coalesce(${stayBookings.pricingSnapshotJson}->'pendingReschedule'->>'status', '') <> 'awaiting_owner'
                 )
               )`,
             ),
@@ -356,9 +364,16 @@ async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApproval
         party: row.party,
         contractType: null,
         fromOn: iso(row.fromOn)?.slice(0, 10) ?? null,
-        requestedAt: iso(row.requestedAt) ?? '',
+        requestedAt:
+          row.rescheduleStatus === 'awaiting_owner'
+            ? (iso(row.updatedAt) ?? iso(row.requestedAt) ?? '')
+            : (iso(row.requestedAt) ?? ''),
         stayPhase:
-          row.status === 'request_pending' ? ('request' as const) : ('confirmed' as const),
+          row.rescheduleStatus === 'awaiting_owner'
+            ? ('reschedule' as const)
+            : row.status === 'request_pending'
+              ? ('request' as const)
+              : ('confirmed' as const),
       })),
       ...reservationRows
         .flatMap((row) => {

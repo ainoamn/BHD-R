@@ -885,6 +885,154 @@ export async function rejectStayBookingOnNeon(
   return { bookingStatus: result.status };
 }
 
+/** Owner approves a guest's pending date/period change. */
+export async function approveGuestRescheduleOnNeon(
+  claims: SessionClaims,
+  propertyId: string,
+  bookingId: string,
+): Promise<{
+  bookingStatus: string;
+  applied: boolean;
+  awaitsGuestPayment: boolean;
+  paymentRedirectUrl?: string;
+}> {
+  if (!hasPermission(claims, 'stay.booking.manage')) fail('forbidden');
+  const {
+    applyStoredPendingRescheduleInTx,
+    createRescheduleTopUpPaymentInTx,
+  } = await import('@/lib/public-stays-guest-neon');
+  return withinViewerTenant(claims, async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${bookingId}, 29))`);
+    const { orgId, property } = await loadProperty(tx, claims, propertyId);
+    const [booking] = await tx
+      .select()
+      .from(stayBookings)
+      .where(
+        and(
+          eq(stayBookings.id, bookingId),
+          eq(stayBookings.organizationId, orgId),
+          eq(stayBookings.propertyId, property.id),
+        ),
+      )
+      .limit(1);
+    if (!booking) fail('booking_not_found');
+    const snapshot =
+      booking.pricingSnapshotJson && typeof booking.pricingSnapshotJson === 'object'
+        ? (booking.pricingSnapshotJson as Record<string, unknown>)
+        : null;
+    const pending =
+      snapshot?.pendingReschedule && typeof snapshot.pendingReschedule === 'object'
+        ? (snapshot.pendingReschedule as Record<string, unknown>)
+        : null;
+    if (!pending || pending.status !== 'awaiting_owner') fail('reschedule_not_pending');
+
+    const extraDue =
+      typeof pending.extraDueMinor === 'string' && /^\d+$/.test(pending.extraDueMinor)
+        ? BigInt(pending.extraDueMinor)
+        : 0n;
+    if (extraDue > 0n) {
+      const stayType =
+        pending.stayType === 'day_use' || pending.stayType === 'overnight_only'
+          ? pending.stayType
+          : 'overnight_stay';
+      const checkInOn = typeof pending.checkInOn === 'string' ? pending.checkInOn : null;
+      const checkOutOn = typeof pending.checkOutOn === 'string' ? pending.checkOutOn : null;
+      if (!checkInOn || !checkOutOn) fail('reschedule_not_pending');
+      const payment = await createRescheduleTopUpPaymentInTx(
+        tx,
+        booking,
+        {
+          ...pending,
+          status: 'awaiting_guest_payment',
+          checkInOn,
+          checkOutOn,
+          stayType,
+          extraDueMinor: pending.extraDueMinor as string,
+        },
+        'ar',
+      );
+      await tx.insert(stayBookingStatusHistory).values({
+        organizationId: orgId,
+        bookingId: booking.id,
+        fromStatus: booking.status,
+        toStatus: booking.status,
+        actorUserId: claims.sub,
+        reason: 'owner_approved_reschedule_awaiting_payment',
+        metadataJson: pending,
+      });
+      return {
+        bookingStatus: booking.status,
+        applied: false,
+        awaitsGuestPayment: true,
+        paymentRedirectUrl: payment.redirectUrl,
+      };
+    }
+
+    const updated = await applyStoredPendingRescheduleInTx(tx, booking, 'owner');
+    if (!updated) fail('reschedule_not_pending');
+    await tx.insert(workflowEvents).values({
+      organizationId: orgId,
+      actorUserId: claims.sub,
+      resourceType: 'stay_booking',
+      resourceId: booking.id,
+      eventType: 'stay.booking.reschedule_approved',
+      fromStatus: booking.status,
+      toStatus: updated.status,
+      metadata: {
+        referenceCode: booking.referenceCode,
+        fromCheckInOn: booking.checkInOn,
+        toCheckInOn: updated.checkInOn,
+      },
+    });
+    return {
+      bookingStatus: updated.status,
+      applied: true,
+      awaitsGuestPayment: false,
+    };
+  });
+}
+
+/** Owner rejects a guest's pending date/period change. */
+export async function rejectGuestRescheduleOnNeon(
+  claims: SessionClaims,
+  propertyId: string,
+  bookingId: string,
+  note?: string,
+): Promise<{ bookingStatus: string }> {
+  if (!hasPermission(claims, 'stay.booking.manage')) fail('forbidden');
+  const { clearPendingRescheduleInTx } = await import('@/lib/public-stays-guest-neon');
+  return withinViewerTenant(claims, async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${bookingId}, 29))`);
+    const { orgId, property } = await loadProperty(tx, claims, propertyId);
+    const [booking] = await tx
+      .select()
+      .from(stayBookings)
+      .where(
+        and(
+          eq(stayBookings.id, bookingId),
+          eq(stayBookings.organizationId, orgId),
+          eq(stayBookings.propertyId, property.id),
+        ),
+      )
+      .limit(1);
+    if (!booking) fail('booking_not_found');
+    const snapshot =
+      booking.pricingSnapshotJson && typeof booking.pricingSnapshotJson === 'object'
+        ? (booking.pricingSnapshotJson as Record<string, unknown>)
+        : null;
+    const pending =
+      snapshot?.pendingReschedule && typeof snapshot.pendingReschedule === 'object'
+        ? (snapshot.pendingReschedule as Record<string, unknown>)
+        : null;
+    if (!pending || pending.status !== 'awaiting_owner') fail('reschedule_not_pending');
+    const updated = await clearPendingRescheduleInTx(tx, booking, 'owner_rejected_reschedule', {
+      note: note?.trim() || null,
+      actorUserId: claims.sub,
+    });
+    return { bookingStatus: updated.status };
+  });
+}
+
 /** Manager (contract.sign) approves a contract someone without signing rights prepared. */
 export async function approveContractOnNeon(
   claims: SessionClaims,

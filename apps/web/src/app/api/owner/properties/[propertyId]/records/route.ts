@@ -7,9 +7,11 @@ import { leaseTenantSchema, leaseTermsSchema } from '@/lib/lease-contract-schema
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
 import {
   approveContractOnNeon,
+  approveGuestRescheduleOnNeon,
   approveStayBookingOnNeon,
   createManualLeaseContractOnNeon,
   createManualSaleContractOnNeon,
+  rejectGuestRescheduleOnNeon,
   rejectStayBookingOnNeon,
 } from '@/lib/property-contracts-neon';
 import { announceReleasedReviews } from '@/lib/review-release-neon';
@@ -66,6 +68,14 @@ const bodySchema = z.discriminatedUnion('action', [
       bookingId: uuid,
       note: z.string().trim().min(3).max(REFUND_NOTE_MAX),
       refundDecision: z.enum(['refund', 'keep']).optional().nullable(),
+    })
+    .strict(),
+  z.object({ action: z.literal('approve_reschedule'), bookingId: uuid }).strict(),
+  z
+    .object({
+      action: z.literal('reject_reschedule'),
+      bookingId: uuid,
+      note: z.string().trim().max(REFUND_NOTE_MAX).optional(),
     })
     .strict(),
   z.object({ action: z.literal('approve_contract'), contractId: uuid }).strict(),
@@ -200,6 +210,19 @@ export async function POST(request: Request, context: { params: Promise<{ proper
             note: body.note,
             refundDecision: body.refundDecision ?? null,
           }),
+        );
+      case 'approve_reschedule':
+        return NextResponse.json(
+          await approveGuestRescheduleOnNeon(claims, propertyId, body.bookingId),
+        );
+      case 'reject_reschedule':
+        return NextResponse.json(
+          await rejectGuestRescheduleOnNeon(
+            claims,
+            propertyId,
+            body.bookingId,
+            body.note,
+          ),
         );
       case 'approve_contract':
         return NextResponse.json(await approveContractOnNeon(claims, propertyId, body.contractId));

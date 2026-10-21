@@ -328,7 +328,13 @@ const INFO = new Set([
 const ATTENTION = new Set(['viewing_requested', 'requested', 'request_pending']);
 const CHECK_IN_READY = new Set(['confirmed', 'pre_arrival']);
 const STAY_DEPARTED = new Set(['checked_out', 'closed']);
-const DANGER = new Set(['overdue', 'failed', 'payment_failed', 'no_show']);
+const DANGER = new Set([
+  'overdue',
+  'failed',
+  'payment_failed',
+  'no_show',
+  'reschedule_pending',
+]);
 const MUTED = new Set([
   'cancelled',
   'void',
@@ -349,6 +355,10 @@ const ERROR_TEXT: Record<string, [string, string]> = {
   booking_not_approvable: [
     'لا يمكن اعتماد هذا الحجز بحالته الحالية.',
     'This booking cannot be approved in its current status.',
+  ],
+  reschedule_not_pending: [
+    'لا يوجد طلب تعديل تواريخ بانتظار الاعتماد.',
+    'There is no date-change request awaiting approval.',
   ],
   contract_not_pending: [
     'هذا العقد ليس بانتظار الاعتماد.',
@@ -457,7 +467,18 @@ function formatStamp(value: string, locale: 'ar' | 'en'): string {
 function displayStatus(row: PropertyRecordRow): string | null {
   if (row.kind === 'viewing' && row.status === 'requested') return 'viewing_requested';
   if (row.kind === 'viewing' && row.status === 'scheduled') return 'viewing_scheduled';
+  if (row.kind === 'stay' && row.reschedulePending === '1') return 'reschedule_pending';
   return row.stage ?? row.status ?? null;
+}
+
+function rowHighlightClass(row: PropertyRecordRow, focused: boolean): string | undefined {
+  const classes: string[] = [];
+  if (focused) classes.push('psr-row--focus');
+  if (row.kind === 'stay' && row.reschedulePending === '1') classes.push('psr-row--reschedule');
+  else if (row.kind === 'stay' && row.status === 'request_pending') {
+    classes.push('psr-row--unconfirmed');
+  }
+  return classes.length ? classes.join(' ') : undefined;
 }
 
 function statusTone(status: string): string {
@@ -1273,11 +1294,15 @@ export function PropertySectionRecords({
     return [];
   }, [rows, section, ar]);
 
-  async function runAction(busyKey: string, body: Record<string, unknown>, target: string) {
+  async function runAction<T = ContractOutcome>(
+    busyKey: string,
+    body: Record<string, unknown>,
+    target: string,
+  ) {
     setBusyId(busyKey);
     setNotice(null);
     try {
-      const result = await browserNextMutation<ContractOutcome>(
+      const result = await browserNextMutation<T>(
         `/api/owner/properties/${encodeURIComponent(target)}/records`,
         { method: 'POST', body: JSON.stringify(body) },
       );
@@ -1729,8 +1754,83 @@ export function PropertySectionRecords({
     return null;
   }
 
+  async function approveReschedule(row: PropertyRecordRow) {
+    const when =
+      row.rescheduleCheckInOn && row.rescheduleCheckOutOn
+        ? `${row.rescheduleCheckInOn} → ${row.rescheduleCheckOutOn}`
+        : '';
+    if (
+      !window.confirm(
+        ar
+          ? `اعتماد تعديل تواريخ الحجز ${row.reference}${when ? ` إلى ${when}` : ''}؟`
+          : `Approve the date change for ${row.reference}${when ? ` to ${when}` : ''}?`,
+      )
+    ) {
+      return;
+    }
+    const id = row.id ?? '';
+    const result = await runAction<{
+      applied?: boolean;
+      awaitsGuestPayment?: boolean;
+    }>(id, { action: 'approve_reschedule', bookingId: id }, propertyOf(row));
+    if (!result) return;
+    setNotice({
+      tone: 'success',
+      text: result.awaitsGuestPayment
+        ? ar
+          ? `اعتُمد التعديل — بانتظار دفع الضيف للفرق.`
+          : `Change approved — waiting for the guest to pay the difference.`
+        : ar
+          ? `تم تطبيق تعديل تواريخ ${row.reference}.`
+          : `Date change applied for ${row.reference}.`,
+    });
+    setReloadKey((key) => key + 1);
+  }
+
+  async function rejectReschedule(row: PropertyRecordRow) {
+    if (
+      !window.confirm(
+        ar
+          ? `رفض طلب تعديل تواريخ الحجز ${row.reference}؟ يبقى الحجز على تواريخه الحالية.`
+          : `Reject the date change for ${row.reference}? The booking stays on its current dates.`,
+      )
+    ) {
+      return;
+    }
+    const id = row.id ?? '';
+    const result = await runAction(id, { action: 'reject_reschedule', bookingId: id }, propertyOf(row));
+    if (!result) return;
+    setNotice({
+      tone: 'success',
+      text: ar ? `رُفض طلب التعديل لـ ${row.reference}.` : `Date change rejected for ${row.reference}.`,
+    });
+    setReloadKey((key) => key + 1);
+  }
+
   function bookingApprovalAction(row: PropertyRecordRow, busy: boolean) {
     if (section === 'bookings' && row.kind === 'stay' && viewer.canManageBookings) {
+      if (row.reschedulePending === '1') {
+        return (
+          <>
+            <button
+              type="button"
+              className="button button--primary psr-action"
+              disabled={busy}
+              onClick={() => void approveReschedule(row)}
+            >
+              {busy ? (ar ? 'جارٍ…' : 'Working…') : ar ? 'اعتماد التعديل' : 'Approve change'}
+            </button>
+            <button
+              type="button"
+              className="button button--quiet psr-action"
+              disabled={busy}
+              onClick={() => void rejectReschedule(row)}
+            >
+              {ar ? 'رفض التعديل' : 'Reject change'}
+            </button>
+          </>
+        );
+      }
       if (row.status === 'request_pending') {
         return (
           <>
@@ -1981,7 +2081,7 @@ export function PropertySectionRecords({
                   <Fragment key={`${row.kind ?? section}-${row.id}`}>
                     <tr
                       id={`psr-row-${row.id}`}
-                      className={focusId === row.id ? 'psr-row--focus' : undefined}
+                      className={rowHighlightClass(row, focusId === row.id)}
                     >
                       {columns.map((column) => (
                         <td

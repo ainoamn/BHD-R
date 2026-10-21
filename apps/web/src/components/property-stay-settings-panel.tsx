@@ -13,6 +13,7 @@ type Draft = {
   minNights: string;
   maxNights: string;
   instantBook: boolean;
+  autoApproveReschedule: boolean;
   checkInFrom: string;
   dayUseCheckInFrom: string;
   dayUseCheckOutUntil: string;
@@ -57,6 +58,7 @@ function toDraft(unit: PropertyStaySettingsUnit): Draft {
     minNights: String(unit.minNights),
     maxNights: String(unit.maxNights),
     instantBook: unit.instantBook,
+    autoApproveReschedule: unit.autoApproveReschedule !== false,
     checkInFrom: time(unit.checkInFrom, '23:00'),
     dayUseCheckInFrom: time(unit.dayUseCheckInFrom, '10:00'),
     dayUseCheckOutUntil: time(unit.dayUseCheckOutUntil, '22:00'),
@@ -180,6 +182,7 @@ export function UnitStaySettings({
         minNights,
         maxNights,
         instantBook: draft.instantBook,
+        autoApproveReschedule: draft.autoApproveReschedule,
         checkInFrom: draft.checkInFrom || null,
         dayUseCheckInFrom: draft.dayUseCheckInFrom || null,
         dayUseCheckOutUntil: draft.dayUseCheckOutUntil || null,
@@ -217,6 +220,10 @@ export function UnitStaySettings({
       setStatus({ kind: 'saved' });
       onSaved?.({
         ...unit,
+        instantBook: Boolean(checked.profile.instantBook ?? unit.instantBook),
+        autoApproveReschedule: Boolean(
+          checked.profile.autoApproveReschedule ?? unit.autoApproveReschedule,
+        ),
         baseNightlyMinor: checked.rates.baseNightlyMinor ?? null,
         weekendNightlyMinor: checked.rates.weekendNightlyMinor ?? null,
         dayUseMinor: checked.rates.dayUseMinor ?? null,
@@ -358,6 +365,27 @@ export function UnitStaySettings({
                 : 'These times appear during booking and on the stay contract. Site bookings confirm after payment.'}
             </p>
           </div>
+
+          <h4 className="stay-settings-unit__title">
+            {ar ? 'تعديل تواريخ الضيف' : 'Guest date changes'}
+          </h4>
+          <label className="stay-settings-unit__toggle">
+            <input
+              type="checkbox"
+              checked={draft.autoApproveReschedule}
+              onChange={(event) => set('autoApproveReschedule', event.target.checked)}
+            />
+            <span>
+              <strong>
+                {ar ? 'موافقة تلقائية على تعديل التواريخ' : 'Auto-approve date changes'}
+              </strong>
+              <em>
+                {ar
+                  ? 'إن أوقفتها، يصل طلب التعديل إليك لتعتمده أو ترفضه قبل تطبيقه.'
+                  : 'If off, you must approve or reject each guest change before it applies.'}
+              </em>
+            </span>
+          </label>
         </>
       )}
 

@@ -464,13 +464,47 @@ export async function notifyOwnersOfStayBooking(input: {
   bookingId: string;
   organizationId: string;
   referenceCode: string;
-  kind: 'requested' | 'confirmed';
+  kind: 'requested' | 'confirmed' | 'reschedule_requested' | 'reschedule_auto';
 }): Promise<void> {
   try {
     const { elevatedTx } = await import('@/lib/elevated-db');
     const facts = await elevatedTx(async (tx) => loadStayById(tx, input.bookingId));
     if (!facts) return;
     const requested = input.kind === 'requested';
+    const rescheduleRequested = input.kind === 'reschedule_requested';
+    const rescheduleAuto = input.kind === 'reschedule_auto';
+    const bookingsHref = appLink(
+      rescheduleRequested || rescheduleAuto
+        ? `/ar/owner/bookings?tab=daily&focus=${input.bookingId}`
+        : `/ar/owner/properties/${facts.propertyId}?section=bookings&focus=${input.bookingId}`,
+    );
+    const copy = rescheduleRequested
+      ? {
+          subject: `طلب تعديل تواريخ إقامة — ${input.referenceCode}`,
+          title: 'المستأجر يطلب تعديل التواريخ',
+          intro: `${facts.guestName} يطلب تغيير تواريخ/فترة الحجز ${input.referenceCode} للوحدة ${facts.unitCode} في ${facts.propertyNameAr}. راجع الطلب واعتمد أو ارفض.`,
+          cta: 'مراجعة طلب التعديل',
+        }
+      : rescheduleAuto
+        ? {
+            subject: `تم تعديل تواريخ إقامة تلقائياً — ${input.referenceCode}`,
+            title: 'عدّل النظام التواريخ بموافقة إلكترونية',
+            intro: `طبّق النظام تعديل تواريخ الحجز ${input.referenceCode} للضيف ${facts.guestName} (الوحدة ${facts.unitCode} · ${facts.propertyNameAr}) وأُعطيت موافقة إلكترونية تلقائية حسب إعداد العقار.`,
+            cta: 'فتح الحجوزات',
+          }
+        : requested
+          ? {
+              subject: `طلب حجز إقامة بانتظار الاعتماد — ${input.referenceCode}`,
+              title: 'طلب حجز إقامة بانتظار الاعتماد',
+              intro: `${facts.guestName} طلب حجز الوحدة ${facts.unitCode} في ${facts.propertyNameAr} (${facts.checkInOn} → ${facts.checkOutOn}).`,
+              cta: 'فتح الحجوزات',
+            }
+          : {
+              subject: `حجز إقامة جديد مؤكد — ${input.referenceCode}`,
+              title: 'حجز إقامة جديد مؤكد',
+              intro: `تم تأكيد حجز ${facts.guestName} للوحدة ${facts.unitCode} في ${facts.propertyNameAr} (${facts.checkInOn} → ${facts.checkOutOn}).`,
+              cta: 'فتح الحجوزات',
+            };
     await notifyByEmail({
       orgId: input.organizationId,
       aggregateType: 'stay_booking',
@@ -478,16 +512,12 @@ export async function notifyOwnersOfStayBooking(input: {
       audience: {
         managersOf: { orgId: input.organizationId, propertyId: facts.propertyId },
       },
-      dedupeKey: `stay-${input.kind}:${input.bookingId}`,
+      dedupeKey: `stay-${input.kind}:${input.bookingId}:${rescheduleAuto || rescheduleRequested ? facts.checkInOn : 'v1'}`,
       content: () => ({
         tone: 'booking' as const,
-        subject: requested
-          ? `طلب حجز إقامة بانتظار الاعتماد — ${input.referenceCode}`
-          : `حجز إقامة جديد مؤكد — ${input.referenceCode}`,
-        title: requested ? 'طلب حجز إقامة بانتظار الاعتماد' : 'حجز إقامة جديد مؤكد',
-        intro: requested
-          ? `${facts.guestName} طلب حجز الوحدة ${facts.unitCode} في ${facts.propertyNameAr} (${facts.checkInOn} → ${facts.checkOutOn}).`
-          : `تم تأكيد حجز ${facts.guestName} للوحدة ${facts.unitCode} في ${facts.propertyNameAr} (${facts.checkInOn} → ${facts.checkOutOn}).`,
+        subject: copy.subject,
+        title: copy.title,
+        intro: copy.intro,
         details: [
           { label: 'المرجع', value: input.referenceCode },
           { label: 'العقار', value: facts.propertyNameAr },
@@ -496,10 +526,8 @@ export async function notifyOwnersOfStayBooking(input: {
           { label: 'المغادرة', value: facts.checkOutOn },
         ],
         cta: {
-          label: 'فتح الحجوزات',
-          url: appLink(
-            `/ar/owner/properties/${facts.propertyId}?section=bookings&focus=${input.bookingId}`,
-          ),
+          label: copy.cta,
+          url: bookingsHref,
         },
       }),
     });

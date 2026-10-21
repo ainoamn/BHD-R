@@ -13,6 +13,7 @@ function pick(ar: boolean, arabic: string, english: string): string {
 const STAY_STATUS: Record<string, { ar: string; en: string }> = {
   payment_pending: { ar: 'بانتظار الدفع', en: 'Awaiting payment' },
   request_pending: { ar: 'بانتظار الاعتماد', en: 'Awaiting approval' },
+  reschedule_pending: { ar: 'طلب تعديل التواريخ', en: 'Date change requested' },
   confirmed: { ar: 'مؤكّد', en: 'Confirmed' },
   paid: { ar: 'مدفوع', en: 'Paid' },
   pre_arrival: { ar: 'قبل الوصول', en: 'Pre-arrival' },
