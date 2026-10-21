@@ -281,17 +281,6 @@ const PROPERTY_COLUMN: Column = {
   format: 'property',
 };
 
-/** Org-wide bookings board: fewer columns so cells never pile into each other. */
-const BOOKINGS_ORG_COLUMNS: Column[] = [
-  { key: 'kind', ar: 'النوع', en: 'Type', format: 'kind' },
-  { key: 'reference', ar: 'المرجع', en: 'Reference' },
-  PROPERTY_COLUMN,
-  { key: 'unitCode', ar: 'الوحدة', en: 'Unit' },
-  { key: 'party', ar: 'العميل / الضيف', en: 'Client / guest' },
-  { key: 'fromOn', ar: 'الموعد / الفترة', en: 'When', format: 'period' },
-  { key: 'status', ar: 'الحالة', en: 'Status', format: 'status' },
-];
-
 /** Sections whose rows carry workflow buttons. */
 const ACTION_SECTIONS = new Set<PropertyRecordSection>([
   'bookings',
@@ -1157,7 +1146,7 @@ export function PropertySectionRecords({
   const config = SECTIONS[section];
   const columns = useMemo(() => {
     if (propertyId) return config.columns;
-    if (section === 'bookings') return BOOKINGS_ORG_COLUMNS;
+    // Org-wide bookings: same rich columns as the property hub, plus property name.
     return config.columns.flatMap((column) =>
       column.key === 'reference' ? [column, PROPERTY_COLUMN] : [column],
     );

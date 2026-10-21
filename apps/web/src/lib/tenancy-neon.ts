@@ -13,6 +13,8 @@ import {
   payments,
   properties,
   reservations,
+  stayBookings,
+  stayPaymentIntents,
   units,
   viewingRequests,
   type Database,
@@ -27,6 +29,7 @@ import {
   lifecycleOf,
 } from '@/lib/lease-reservation-lifecycle';
 import { listGuestStayBookingsOnNeon } from '@/lib/public-stays-guest-neon';
+import type { StayBookingPaymentKind } from '@/lib/stay-booking-payment-labels';
 import {
   buildTenancyAlerts,
   EMPTY_TENANCY,
@@ -847,6 +850,132 @@ async function loadStays(userId: string, links: TenancyLink[]): Promise<TenancyS
   }
 }
 
+function stayIntentKind(idempotencyKey: string): StayBookingPaymentKind {
+  if (idempotencyKey.startsWith('reschedule_topup:')) return 'reschedule_topup';
+  if (idempotencyKey.startsWith('stay_deposit:')) return 'deposit';
+  if (
+    idempotencyKey.startsWith('stay_booking:') ||
+    idempotencyKey.startsWith('stay-book-') ||
+    idempotencyKey.startsWith('booking:') ||
+    idempotencyKey.includes('instant') ||
+    idempotencyKey.includes('request')
+  ) {
+    return 'booking';
+  }
+  return 'other';
+}
+
+/** Succeeded stay checkout / deposit intents → tenant invoices + payments lists. */
+async function loadStayFinance(links: TenancyLink[]): Promise<{
+  invoices: TenancyInvoice[];
+  payments: TenancyPayment[];
+}> {
+  if (!links.length) return { invoices: [], payments: [] };
+  const byOrg = new Map<string, TenancyLink>();
+  for (const link of links) byOrg.set(`${link.organizationId}:${link.partyId}`, link);
+
+  try {
+    const rows = await elevated(async (tx) => {
+      const partyIds = [...new Set(links.map((link) => link.partyId))];
+      const orgIds = [...new Set(links.map((link) => link.organizationId))];
+      return tx
+        .select({
+          intentId: stayPaymentIntents.id,
+          amountMinor: stayPaymentIntents.amountMinor,
+          currency: stayPaymentIntents.currency,
+          provider: stayPaymentIntents.provider,
+          idempotencyKey: stayPaymentIntents.idempotencyKey,
+          paidAt: stayPaymentIntents.updatedAt,
+          organizationId: stayBookings.organizationId,
+          guestPartyId: stayBookings.guestPartyId,
+          bookingId: stayBookings.id,
+          referenceCode: stayBookings.referenceCode,
+          checkInOn: stayBookings.checkInOn,
+        })
+        .from(stayPaymentIntents)
+        .innerJoin(stayBookings, eq(stayBookings.id, stayPaymentIntents.bookingId))
+        .where(
+          and(
+            inArray(stayBookings.organizationId, orgIds),
+            inArray(stayBookings.guestPartyId, partyIds),
+            eq(stayPaymentIntents.status, 'succeeded'),
+          ),
+        )
+        .orderBy(desc(stayPaymentIntents.updatedAt))
+        .limit(LIST_LIMIT * 2);
+    });
+
+    const payments: TenancyPayment[] = [];
+    const bookingTotals = new Map<
+      string,
+      {
+        landlord: TenancyLandlord;
+        referenceCode: string;
+        currency: string;
+        total: bigint;
+        paidAt: string;
+        checkInOn: string;
+        lastIntentId: string;
+      }
+    >();
+
+    for (const row of rows) {
+      const link = byOrg.get(`${row.organizationId}:${row.guestPartyId ?? ''}`);
+      if (!link) continue;
+      const paidAt = iso(row.paidAt);
+      const kind = stayIntentKind(row.idempotencyKey);
+      const receiptHref = `/stays/booking/receipt?ref=${encodeURIComponent(row.referenceCode)}&doc=payment&pay=${encodeURIComponent(row.intentId)}`;
+      payments.push({
+        id: row.intentId,
+        landlord: link.landlord,
+        invoiceNumber: row.referenceCode,
+        status: 'succeeded',
+        method: row.provider ?? 'sandbox',
+        amountMinor: row.amountMinor.toString(),
+        refundedMinor: '0',
+        currency: row.currency,
+        receivedAt: paidAt,
+        receiptHref,
+        stayReference: row.referenceCode,
+        stayKind: kind,
+      });
+      const bucket = bookingTotals.get(row.bookingId) ?? {
+        landlord: link.landlord,
+        referenceCode: row.referenceCode,
+        currency: row.currency,
+        total: 0n,
+        paidAt,
+        checkInOn: String(row.checkInOn),
+        lastIntentId: row.intentId,
+      };
+      bucket.total += BigInt(row.amountMinor.toString());
+      if (paidAt > bucket.paidAt) {
+        bucket.paidAt = paidAt;
+        bucket.lastIntentId = row.intentId;
+      }
+      bookingTotals.set(row.bookingId, bucket);
+    }
+
+    const invoices: TenancyInvoice[] = [...bookingTotals.entries()].map(([bookingId, bucket]) => ({
+      id: `stay-invoice:${bookingId}`,
+      landlord: bucket.landlord,
+      number: bucket.referenceCode,
+      status: 'paid',
+      issuedOn: bucket.checkInOn,
+      dueOn: bucket.checkInOn,
+      totalMinor: bucket.total.toString(),
+      paidMinor: bucket.total.toString(),
+      currency: bucket.currency,
+      stayReference: bucket.referenceCode,
+      receiptHref: `/stays/booking/receipt?ref=${encodeURIComponent(bucket.referenceCode)}&doc=payment&pay=${encodeURIComponent(bucket.lastIntentId)}`,
+    }));
+
+    return { invoices, payments };
+  } catch {
+    return { invoices: [], payments: [] };
+  }
+}
+
 function muscatToday(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Muscat' });
 }
@@ -869,9 +998,10 @@ export async function loadMyTenantBadges(userId: string): Promise<BadgeChip[]> {
 export const loadMyTenancy = cache(async (userId: string): Promise<MyTenancy> => {
   if (!hasDatabaseUrl()) return EMPTY_TENANCY;
   const links = await loadTenancyLinks(userId);
-  const [perLink, stays] = await Promise.all([
+  const [perLink, stays, stayFinance] = await Promise.all([
     Promise.all(links.map((link) => loadLinkTenancy(userId, link))),
     loadStays(userId, links),
+    loadStayFinance(links),
   ]);
   const labels = await unitLabels(perLink.flatMap((item) => item.reservationUnitIds));
   const reservationsWithUnits = perLink.flatMap((item) =>
@@ -889,12 +1019,12 @@ export const loadMyTenancy = cache(async (userId: string): Promise<MyTenancy> =>
     leases: perLink
       .flatMap((item) => item.leases)
       .sort((a, b) => b.startsOn.localeCompare(a.startsOn)),
-    invoices: perLink
-      .flatMap((item) => item.invoices)
-      .sort((a, b) => b.dueOn.localeCompare(a.dueOn)),
-    payments: perLink
-      .flatMap((item) => item.payments)
-      .sort((a, b) => b.receivedAt.localeCompare(a.receivedAt)),
+    invoices: [...perLink.flatMap((item) => item.invoices), ...stayFinance.invoices].sort((a, b) =>
+      b.dueOn.localeCompare(a.dueOn),
+    ),
+    payments: [...perLink.flatMap((item) => item.payments), ...stayFinance.payments].sort((a, b) =>
+      b.receivedAt.localeCompare(a.receivedAt),
+    ),
     reservations: reservationsWithUnits.sort((a, b) => b.expiresAt.localeCompare(a.expiresAt)),
     stays,
     viewings: perLink

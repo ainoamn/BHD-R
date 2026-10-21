@@ -15,6 +15,10 @@ import {
 } from '@/components/tenant-statement';
 import type { BadgeChip } from '@/lib/badges-shared';
 import {
+  stayPaymentKindLabel,
+  stayPaymentMethodLabel,
+} from '@/lib/stay-booking-payment-labels';
+import {
   invoiceOutstandingMinor,
   tenancyAlertLabel,
   tenancyContractGroups,
@@ -228,14 +232,19 @@ function InvoicesTable({ ar, locale, data, openOnly = false }: Ctx & { openOnly?
     <Table
       head={
         ar
-          ? ['الفاتورة', 'المالك', 'تاريخ الإصدار', 'الاستحقاق', 'الإجمالي', 'المتبقي', 'الحالة']
-          : ['Invoice', 'Landlord', 'Issued', 'Due', 'Total', 'Outstanding', 'Status']
+          ? ['الفاتورة', 'المالك', 'تاريخ الإصدار', 'الاستحقاق', 'الإجمالي', 'المتبقي', 'الحالة', '']
+          : ['Invoice', 'Landlord', 'Issued', 'Due', 'Total', 'Outstanding', 'Status', '']
       }
     >
       {rows.map((invoice) => (
         <tr key={invoice.id}>
           <td className="tenant-table__ref">
             <bdi>{invoice.number}</bdi>
+            {invoice.stayReference ? (
+              <small className="tenant-table__sub">
+                {ar ? 'إقامة يومية' : 'Daily stay'}
+              </small>
+            ) : null}
           </td>
           <td>{tenancyLandlordName(invoice.landlord, ar)}</td>
           <td>{formatDate(invoice.issuedOn, ar)}</td>
@@ -254,6 +263,13 @@ function InvoicesTable({ ar, locale, data, openOnly = false }: Ctx & { openOnly?
               }
             />
           </td>
+          <td>
+            {invoice.receiptHref ? (
+              <Link className="ops-action" href={invoice.receiptHref}>
+                {ar ? 'الإيصال' : 'Receipt'}
+              </Link>
+            ) : null}
+          </td>
         </tr>
       ))}
     </Table>
@@ -266,8 +282,8 @@ function PaymentsTable({ ar, locale, data }: Ctx) {
     <Table
       head={
         ar
-          ? ['التاريخ', 'الفاتورة', 'المالك', 'المبلغ', 'المسترد', 'الطريقة', 'الحالة']
-          : ['Date', 'Invoice', 'Landlord', 'Amount', 'Refunded', 'Method', 'Status']
+          ? ['التاريخ', 'المرجع', 'المالك', 'المبلغ', 'المسترد', 'الطريقة', 'الحالة', '']
+          : ['Date', 'Reference', 'Landlord', 'Amount', 'Refunded', 'Method', 'Status', '']
       }
     >
       {data.payments.map((payment) => (
@@ -275,6 +291,11 @@ function PaymentsTable({ ar, locale, data }: Ctx) {
           <td>{formatDate(payment.receivedAt, ar)}</td>
           <td className="tenant-table__ref">
             <bdi>{payment.invoiceNumber}</bdi>
+            {payment.stayKind ? (
+              <small className="tenant-table__sub">
+                {stayPaymentKindLabel(payment.stayKind, ar)}
+              </small>
+            ) : null}
           </td>
           <td>{tenancyLandlordName(payment.landlord, ar)}</td>
           <td>{money(payment.amountMinor, payment.currency, locale)}</td>
@@ -283,12 +304,23 @@ function PaymentsTable({ ar, locale, data }: Ctx) {
               ? money(payment.refundedMinor, payment.currency, locale)
               : '—'}
           </td>
-          <td>{payment.method}</td>
+          <td>
+            {payment.stayReference
+              ? stayPaymentMethodLabel(payment.method, ar)
+              : payment.method}
+          </td>
           <td>
             <Status
               label={domainStatusLabel(payment.status, ar)}
               tone={payment.status === 'succeeded' ? 'good' : undefined}
             />
+          </td>
+          <td>
+            {payment.receiptHref ? (
+              <Link className="ops-action" href={payment.receiptHref}>
+                {ar ? 'الإيصال' : 'Receipt'}
+              </Link>
+            ) : null}
           </td>
         </tr>
       ))}

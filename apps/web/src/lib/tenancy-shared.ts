@@ -69,6 +69,9 @@ export type TenancyInvoice = {
   totalMinor: string;
   paidMinor: string;
   currency: string;
+  /** Stay booking receipt page when this row is a daily-stay charge summary. */
+  receiptHref?: string | null;
+  stayReference?: string | null;
 };
 
 export type TenancyPayment = {
@@ -81,6 +84,11 @@ export type TenancyPayment = {
   refundedMinor: string;
   currency: string;
   receivedAt: string;
+  /** Official stay payment receipt (PDF/print page). */
+  receiptHref?: string | null;
+  stayReference?: string | null;
+  /** Stay intent kind when this row is from a daily-stay checkout. */
+  stayKind?: 'booking' | 'reschedule_topup' | 'deposit' | 'other' | null;
 };
 
 export type TenancyReservation = {
