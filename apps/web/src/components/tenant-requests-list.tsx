@@ -16,6 +16,7 @@ import {
   tenantRequestStatusLabel,
   tenantRequestTypeLabel,
   type TenantRequest,
+  type TenantRequestStatus,
 } from '@/lib/tenant-requests-shared';
 
 const STATUS_TONE: Record<string, string> = {
@@ -61,7 +62,7 @@ export function RequestInboxRow({
   /** Secondary line: type/unit/subject. */
   kind: string;
   createdAt: string;
-  status: string;
+  status: TenantRequestStatus;
   ar: boolean;
   expanded: boolean;
   onToggle: () => void;

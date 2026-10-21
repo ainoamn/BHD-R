@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.134.78 — 2026-10-21
+
+- **إصلاح بناء قائمة الطلبات:** تصحيح نوع حالة الطلب في صف القائمة المختصر حتى يمرّ فحص TypeScript في النشر.
+
 ## 0.8.134.77 — 2026-10-21
 
 - **قائمة طلبات قابلة للفتح:** في `/owner/tenant-requests` و`/tenant/requests` تظهر الطلبات كصفوف مختصرة (الرقم، المستأجر أو نوع الطلب، التاريخ والوقت، الحالة) وتُفتح عند الطلب لاستعراض المحادثة والإجراءات.
