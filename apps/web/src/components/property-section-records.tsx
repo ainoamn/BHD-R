@@ -839,15 +839,54 @@ function Cell({
     }
     case 'date':
       return value ? <span dir="ltr">{value}</span> : <span className="muted">—</span>;
-    case 'period':
+    case 'period': {
+      const currentFrom = value ?? '—';
+      const currentTo = row.toOn ?? '—';
+      if (
+        row.kind === 'stay' &&
+        row.reschedulePending === '1' &&
+        row.rescheduleCheckInOn &&
+        row.rescheduleCheckOutOn
+      ) {
+        return (
+          <span className="psr-period psr-period--change" title={ar ? 'طلب تعديل التواريخ' : 'Date change requested'}>
+            <span className="psr-period__leg psr-period__leg--from">
+              <span className="psr-period__label">{ar ? 'من' : 'From'}</span>
+              <span className="psr-period__range" dir="ltr">
+                {currentFrom}
+                <span className="psr-period__arrow" aria-hidden="true">
+                  →
+                </span>
+                {currentTo}
+              </span>
+            </span>
+            <span className="psr-period__leg psr-period__leg--to">
+              <span className="psr-period__label">{ar ? 'إلى' : 'To'}</span>
+              <span className="psr-period__range" dir="ltr">
+                {row.rescheduleCheckInOn}
+                <span className="psr-period__arrow" aria-hidden="true">
+                  →
+                </span>
+                {row.rescheduleCheckOutOn}
+              </span>
+            </span>
+          </span>
+        );
+      }
       return value || row.toOn ? (
         <span className="psr-period">
-          <span dir="ltr">{value ?? '—'}</span>
-          <span dir="ltr">{row.toOn ?? '—'}</span>
+          <span className="psr-period__range" dir="ltr">
+            {currentFrom}
+            <span className="psr-period__arrow" aria-hidden="true">
+              →
+            </span>
+            {currentTo}
+          </span>
         </span>
       ) : (
         <span className="muted">—</span>
       );
+    }
     case 'money':
       return value && row.currency ? (
         <span dir="ltr">{formatMoney(value, row.currency, locale)}</span>
@@ -1755,15 +1794,17 @@ export function PropertySectionRecords({
   }
 
   async function approveReschedule(row: PropertyRecordRow) {
-    const when =
+    const fromRange =
+      row.fromOn && row.toOn ? `${row.fromOn} → ${row.toOn}` : row.fromOn || row.toOn || '';
+    const toRange =
       row.rescheduleCheckInOn && row.rescheduleCheckOutOn
         ? `${row.rescheduleCheckInOn} → ${row.rescheduleCheckOutOn}`
         : '';
     if (
       !window.confirm(
         ar
-          ? `اعتماد تعديل تواريخ الحجز ${row.reference}${when ? ` إلى ${when}` : ''}؟`
-          : `Approve the date change for ${row.reference}${when ? ` to ${when}` : ''}?`,
+          ? `اعتماد تعديل تواريخ الحجز ${row.reference}؟\nمن: ${fromRange || '—'}\nإلى: ${toRange || '—'}`
+          : `Approve the date change for ${row.reference}?\nFrom: ${fromRange || '—'}\nTo: ${toRange || '—'}`,
       )
     ) {
       return;

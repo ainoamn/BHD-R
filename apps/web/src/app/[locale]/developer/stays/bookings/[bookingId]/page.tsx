@@ -65,6 +65,9 @@ async function DeveloperStayBookingDetailPage({
         paymentSucceeded={
           booking.paymentStatus === 'succeeded' || booking.paymentStatus === 'offline'
         }
+        pendingReschedule={booking.pendingReschedule}
+        currency={booking.currency}
+        stayType={booking.stayType}
       />
       <StayBookingContract booking={booking} locale={locale} portal="developer" badges={badges} />
     </StaysPortalPage>

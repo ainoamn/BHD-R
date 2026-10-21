@@ -148,6 +148,33 @@ function readGuestContact(snapshot: unknown): {
   };
 }
 
+function readPendingReschedule(
+  snapshot: unknown,
+): StayBookingContractData['pendingReschedule'] {
+  if (!snapshot || typeof snapshot !== 'object') return null;
+  const pending = (snapshot as Record<string, unknown>).pendingReschedule;
+  if (!pending || typeof pending !== 'object') return null;
+  const row = pending as Record<string, unknown>;
+  const status =
+    row.status === 'awaiting_owner' ||
+    row.status === 'awaiting_guest_payment' ||
+    row.status === 'awaiting_payment'
+      ? row.status
+      : null;
+  if (!status || typeof row.checkInOn !== 'string' || typeof row.checkOutOn !== 'string') {
+    return null;
+  }
+  return {
+    status,
+    checkInOn: row.checkInOn,
+    checkOutOn: row.checkOutOn,
+    stayType: typeof row.stayType === 'string' ? row.stayType : 'overnight_stay',
+    extraDueMinor: typeof row.extraDueMinor === 'string' ? row.extraDueMinor : '0',
+    quotedTotalMinor: typeof row.quotedTotalMinor === 'string' ? row.quotedTotalMinor : '0',
+    chargedTotalMinor: typeof row.chargedTotalMinor === 'string' ? row.chargedTotalMinor : '0',
+  };
+}
+
 /** Past payment or approval: the stay went ahead, so nothing is still due. */
 const SETTLED_STATUSES = new Set([
   'confirmed',
@@ -450,6 +477,7 @@ export async function getOwnerStayBookingContractOnNeon(
     const timeline = await loadTimelineFacts(transaction, organizationId, bookingId);
 
     const contact = readGuestContact(row.pricingSnapshotJson);
+    const pendingReschedule = readPendingReschedule(row.pricingSnapshotJson);
     let otherSlot: StayBookingContractData['otherSlot'] = null;
     if (contact.stayType === 'day_use' || contact.stayType === 'overnight_only') {
       const slot = contact.stayType === 'day_use' ? 'evening' : 'morning';
@@ -614,6 +642,7 @@ export async function getOwnerStayBookingContractOnNeon(
       esignIdFrontPng,
       esignIdBackPng,
       esignSelfiePng,
+      pendingReschedule: pendingReschedule ?? null,
       previousBooking: previousRow
         ? toNeighbor({
             ...previousRow,

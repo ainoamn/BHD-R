@@ -1,0 +1,17 @@
+---
+description: Always commit, push, and publish after shipping UI/API fixes so live site testing works
+alwaysApply: true
+---
+
+# Auto push & publish
+
+The owner tests on the live site (`r.bhd-om.com`), not locally.
+
+After finishing a coherent change set that is ready to verify on production:
+
+1. Update `CHANGELOG.md` when the change is user-facing.
+2. Commit with a clear message (no need to ask first).
+3. `git push -u origin HEAD` (or push the current branch).
+4. Do not wait for the user to say «ارفع» / «انشر».
+
+Exceptions: do not push secrets, half-broken WIP the user asked to keep local, or destructive git ops (force push, hard reset) unless explicitly requested.

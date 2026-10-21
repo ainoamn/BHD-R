@@ -5,10 +5,12 @@ import { useState, useTransition } from 'react';
 import { Link } from '@/i18n/navigation';
 import { ModalPortal } from '@/components/modal-portal';
 import { StayAvailabilityCalendar } from '@/components/stays/stay-availability-calendar';
+import type { StayBookingPendingReschedule } from '@/components/stays/stay-booking-contract';
 import { ApiError, browserMutation, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { PENDING_APPROVALS_CHANGED_EVENT } from '@/lib/pending-approvals-shared';
 import { REFUND_NOTE_MAX } from '@/lib/stay-deposit-refund';
+import { stayTypeLabel } from '@/lib/ui-labels';
 
 const CANCELABLE = new Set(['request_pending', 'payment_pending', 'confirmed', 'pre_arrival']);
 const NO_SHOWABLE = new Set(['confirmed', 'pre_arrival']);
@@ -28,6 +30,9 @@ export function StayBookingDetailOps({
   paidAmountMinor,
   paidCurrency,
   paymentSucceeded,
+  pendingReschedule,
+  currency,
+  stayType,
 }: {
   locale: string;
   portal: 'owner' | 'developer';
@@ -41,6 +46,9 @@ export function StayBookingDetailOps({
   paidAmountMinor?: string | null | undefined;
   paidCurrency?: string | null | undefined;
   paymentSucceeded?: boolean | undefined;
+  pendingReschedule?: StayBookingPendingReschedule | null | undefined;
+  currency?: string | null | undefined;
+  stayType?: string | null | undefined;
 }) {
   const ar = locale === 'ar';
   const router = useRouter();
@@ -48,6 +56,7 @@ export function StayBookingDetailOps({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentStatus, setCurrentStatus] = useState(status);
+  const [reschedule, setReschedule] = useState(pendingReschedule ?? null);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelStep, setCancelStep] = useState<CancelStep>('note');
   const [note, setNote] = useState('');
@@ -182,8 +191,125 @@ export function StayBookingDetailOps({
     }
   }
 
+  async function decideReschedule(action: 'approve_reschedule' | 'reject_reschedule') {
+    if (!reschedule) return;
+    const fromRange = `${checkInOn} → ${checkOutOn}`;
+    const toRange = `${reschedule.checkInOn} → ${reschedule.checkOutOn}`;
+    const confirmMessage =
+      action === 'approve_reschedule'
+        ? ar
+          ? `اعتماد تعديل تواريخ الحجز؟\nمن: ${fromRange}\nإلى: ${toRange}`
+          : `Approve the date change?\nFrom: ${fromRange}\nTo: ${toRange}`
+        : ar
+          ? `رفض طلب تعديل التواريخ؟ يبقى الحجز على:\n${fromRange}`
+          : `Reject the date change? The booking stays on:\n${fromRange}`;
+    if (!window.confirm(confirmMessage)) return;
+
+    setError(null);
+    setBusy(true);
+    try {
+      const result = await browserNextMutation<{
+        applied?: boolean;
+        awaitsGuestPayment?: boolean;
+      }>(`/api/owner/properties/${encodeURIComponent(propertyId)}/records`, {
+        method: 'POST',
+        body: JSON.stringify({ action, bookingId }),
+      });
+      window.dispatchEvent(new Event(PENDING_APPROVALS_CHANGED_EVENT));
+      window.dispatchEvent(new Event('bhd-r-live-change'));
+      if (action === 'reject_reschedule' || result.applied) {
+        setReschedule(null);
+      } else if (result.awaitsGuestPayment && reschedule) {
+        setReschedule({ ...reschedule, status: 'awaiting_guest_payment' });
+      }
+      startTransition(() => router.refresh());
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError
+          ? caught.message
+          : ar
+            ? 'فشل تحديث طلب التعديل'
+            : 'Failed to update the date-change request',
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const moneyCurrency = currency ?? paidCurrency ?? 'OMR';
+
   return (
     <section className="stay-booking-ops" aria-label={ar ? 'مراجعة تشغيلية' : 'Ops review'}>
+      {reschedule ? (
+        <div className="stay-booking-ops__change" role="region" aria-label={ar ? 'تعديل التواريخ' : 'Date change'}>
+          <h2>
+            {reschedule.status === 'awaiting_owner'
+              ? ar
+                ? 'طلب تعديل التواريخ بانتظار اعتمادك'
+                : 'Date change awaiting your approval'
+              : ar
+                ? 'تعديل التواريخ بانتظار دفع الضيف'
+                : 'Date change awaiting guest payment'}
+          </h2>
+          <table className="stay-booking-ops__change-table">
+            <thead>
+              <tr>
+                <th>{ar ? 'البيان' : 'Item'}</th>
+                <th>{ar ? 'من' : 'From'}</th>
+                <th>{ar ? 'إلى' : 'To'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">{ar ? 'الفترة' : 'Dates'}</th>
+                <td className="is-from" dir="ltr">
+                  {checkInOn} → {checkOutOn}
+                </td>
+                <td className="is-to" dir="ltr">
+                  {reschedule.checkInOn} → {reschedule.checkOutOn}
+                </td>
+              </tr>
+              <tr>
+                <th scope="row">{ar ? 'نوع الإقامة' : 'Stay type'}</th>
+                <td className="is-from">
+                  {stayType ? stayTypeLabel(stayType, ar) : '—'}
+                </td>
+                <td className="is-to">{stayTypeLabel(reschedule.stayType, ar)}</td>
+              </tr>
+              {reschedule.extraDueMinor !== '0' ? (
+                <tr>
+                  <th scope="row">{ar ? 'فرق الدفع' : 'Top-up'}</th>
+                  <td>—</td>
+                  <td className="is-to" dir="ltr">
+                    {formatMoney(reschedule.extraDueMinor, moneyCurrency, locale === 'en' ? 'en' : 'ar')}
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+          {reschedule.status === 'awaiting_owner' ? (
+            <div className="stay-booking-ops__change-actions">
+              <button
+                type="button"
+                className="button button--primary"
+                disabled={busy || pending}
+                onClick={() => void decideReschedule('approve_reschedule')}
+              >
+                {busy ? (ar ? 'جارٍ…' : 'Working…') : ar ? 'اعتماد التعديل' : 'Approve change'}
+              </button>
+              <button
+                type="button"
+                className="button button--quiet"
+                disabled={busy || pending}
+                onClick={() => void decideReschedule('reject_reschedule')}
+              >
+                {ar ? 'رفض التعديل' : 'Reject change'}
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="stay-booking-ops__links">
         <Link className="button button--quiet" href={`/${portal}/properties/${propertyId}`}>
           {ar ? 'تفاصيل العقار في البوابة' : 'Property in portal'}

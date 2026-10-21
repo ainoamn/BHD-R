@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link } from '@/i18n/navigation';
 import { BadgeChips } from '@/components/badges/badge-chips';
+import { Icon, type IconName } from '@/components/pmh-icon';
 import { PropertyLocationMap } from '@/components/property-location-map';
 import type { BadgeChip } from '@/lib/badges-shared';
 import { StayBookingTimelineSection } from '@/components/stays/stay-booking-timeline';
@@ -16,6 +17,16 @@ export type StayBookingNeighbor = {
   checkOutOn: string;
   status: string;
   guestDisplayName?: string | null;
+};
+
+export type StayBookingPendingReschedule = {
+  status: 'awaiting_owner' | 'awaiting_guest_payment' | 'awaiting_payment';
+  checkInOn: string;
+  checkOutOn: string;
+  stayType: string;
+  extraDueMinor: string;
+  quotedTotalMinor: string;
+  chargedTotalMinor: string;
 };
 
 export type StayBookingContractData = {
@@ -73,20 +84,12 @@ export type StayBookingContractData = {
   esignIdFrontPng?: string | null;
   esignIdBackPng?: string | null;
   esignSelfiePng?: string | null;
+  pendingReschedule?: StayBookingPendingReschedule | null;
   previousBooking?: StayBookingNeighbor | null;
   nextBooking?: StayBookingNeighbor | null;
   overlappingBookings?: StayBookingNeighbor[];
   timeline?: StayBookingTimelineFacts | null;
 };
-
-function Row({ label, value, ltr }: { label: string; value: ReactNode; ltr?: boolean }) {
-  return (
-    <div className="stay-doc__row">
-      <dt>{label}</dt>
-      <dd dir={ltr ? 'ltr' : undefined}>{value}</dd>
-    </div>
-  );
-}
 
 function cardBrandCopy(brand: string | null | undefined, ar: boolean): string {
   switch (brand) {
@@ -168,6 +171,55 @@ function otherSlotCopy(
   }
 }
 
+function dateRange(from: string, to: string): string {
+  return `${from} → ${to}`;
+}
+
+function FactTable({
+  title,
+  icon,
+  tone,
+  rows,
+}: {
+  title: string;
+  icon: IconName;
+  tone?: 'default' | 'warn' | 'danger' | 'ok';
+  rows: Array<{ label: string; value: ReactNode; ltr?: boolean; highlight?: boolean }>;
+}) {
+  return (
+    <section className={`stay-desk__panel stay-desk__panel--${tone ?? 'default'}`}>
+      <header className="stay-desk__panel-head">
+        <Icon name={icon} size={18} />
+        <h2>{title}</h2>
+      </header>
+      <div className="stay-desk__table-wrap">
+        <table className="stay-desk__table">
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.label} className={row.highlight ? 'is-highlight' : undefined}>
+                <th scope="row">{row.label}</th>
+                <td dir={row.ltr ? 'ltr' : undefined}>{row.value}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function Fold({ title, icon, children }: { title: string; icon: IconName; children: ReactNode }) {
+  return (
+    <details className="stay-desk__fold">
+      <summary>
+        <Icon name={icon} size={16} />
+        <span>{title}</span>
+      </summary>
+      <div className="stay-desk__fold-body">{children}</div>
+    </details>
+  );
+}
+
 export function StayBookingContract({
   booking,
   locale,
@@ -204,50 +256,182 @@ export function StayBookingContract({
         timeStyle: 'short',
       }).format(new Date(booking.paidAt))
     : null;
+  const pending = booking.pendingReschedule ?? null;
+  const nightsLabel = `${booking.nights} ${
+    ar
+      ? booking.nights === 1
+        ? 'ليلة'
+        : 'ليالٍ'
+      : booking.nights === 1
+        ? 'night'
+        : 'nights'
+  }`;
+  const guestsLabel = [
+    typeof booking.adults === 'number'
+      ? `${booking.adults} ${ar ? (booking.adults === 1 ? 'بالغ' : 'بالغون') : booking.adults === 1 ? 'adult' : 'adults'}`
+      : null,
+    typeof booking.children === 'number' && booking.children > 0
+      ? `${booking.children} ${ar ? (booking.children === 1 ? 'طفل' : 'أطفال') : booking.children === 1 ? 'child' : 'children'}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+  const checkInLabel = booking.checkInTime
+    ? `${booking.checkInOn} · ${booking.checkInTime}`
+    : booking.checkInOn;
+  const checkOutLabel = booking.checkOutTime
+    ? `${booking.stayType === 'day_use' ? booking.checkInOn : booking.checkOutOn} · ${booking.checkOutTime}`
+    : booking.checkOutOn;
 
   return (
-    <article className="stay-doc stay-doc--contract" id="stay-booking-contract">
-      <header className="stay-doc__header">
-        <div className="stay-doc__brand">
-          <span className="stay-doc__logo logo__product" aria-label="BHD R">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/brand/bhd-official-symbol.svg" alt="" width="88" height="28" />
-            <i>R</i>
-          </span>
-          <p className="stay-doc__tagline">
-            {ar ? 'عقد / مستند حجز إقامة يومية' : 'Daily stay booking contract'}
+    <article className="stay-doc stay-doc--contract stay-desk" id="stay-booking-contract">
+      <header className="stay-desk__hero">
+        <div className="stay-desk__hero-main">
+          <p className="stay-desk__kicker">{ar ? 'مستند الحجز' : 'Booking record'}</p>
+          <h1 className="stay-desk__title" dir="ltr">
+            {booking.referenceCode}
+          </h1>
+          <p className="stay-desk__sub">
+            {ar ? 'طُلب في' : 'Requested'} · {issuedOn}
           </p>
         </div>
-        <div className="stay-doc__meta">
-          <p className="stay-doc__kind">{ar ? 'مستند الحجز' : 'Booking record'}</p>
-          <p className="stay-doc__number" dir="ltr">
-            {booking.referenceCode}
+        <div className="stay-desk__hero-side">
+          <span
+            className="stay-desk__status"
+            data-tone={
+              pending
+                ? 'danger'
+                : paid || offline
+                  ? 'ok'
+                  : booking.paymentStatus === 'pending'
+                    ? 'warn'
+                    : 'default'
+            }
+          >
+            <Icon name={pending ? 'alert' : paid || offline ? 'check' : 'clock'} size={16} />
+            {pending
+              ? ar
+                ? 'طلب تعديل التواريخ'
+                : 'Date change requested'
+              : stayStatusLabel(booking.status, ar)}
+          </span>
+          <p className="stay-desk__amount" dir="ltr">
+            {paid ? paidAmountLabel : amountLabel}
           </p>
-          <p className="stay-doc__issued">
-            {ar ? 'تاريخ الطلب' : 'Requested'} · {issuedOn}
+          <p className="stay-desk__amount-label">
+            {paid
+              ? ar
+                ? 'المبلغ المستلم'
+                : 'Amount received'
+              : offline
+                ? ar
+                  ? 'قيمة الحجز'
+                  : 'Booking value'
+                : ar
+                  ? 'المبلغ المستحق'
+                  : 'Amount due'}
           </p>
         </div>
       </header>
 
-      <p className="stay-doc__subtitle">
-        {ar
-          ? 'تفاصيل الطلب والحجز وبيانات التواصل والعقار وطريقة الدفع في مستند واحد.'
-          : 'Request, guest contacts, property, and payment details in one contract-style record.'}
-      </p>
-
-      {booking.propertyCoverUrl ? (
-        <figure className="stay-doc__cover">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={booking.propertyCoverUrl}
-            alt={propertyName || (ar ? 'صورة العقار' : 'Property photo')}
-          />
-          <figcaption>{propertyName || (ar ? 'العقار' : 'Property')}</figcaption>
-        </figure>
+      {pending ? (
+        <section className="stay-desk__change" aria-label={ar ? 'تعديل التواريخ' : 'Date change'}>
+          <header className="stay-desk__change-head">
+            <Icon name="calendar" size={18} />
+            <div>
+              <h2>{ar ? 'طلب تعديل التواريخ' : 'Requested date change'}</h2>
+              <p>
+                {pending.status === 'awaiting_owner'
+                  ? ar
+                    ? 'بانتظار اعتمادك — راجع الفترة الحالية والمطلوبة أدناه.'
+                    : 'Awaiting your approval — compare current and requested dates below.'
+                  : pending.status === 'awaiting_guest_payment'
+                    ? ar
+                      ? 'اعتُمد التعديل — بانتظار دفع الضيف للفرق.'
+                      : 'Change approved — waiting for the guest to pay the difference.'
+                    : ar
+                      ? 'بانتظار إتمام الدفع لإكمال التعديل.'
+                      : 'Awaiting payment to finish the change.'}
+              </p>
+            </div>
+          </header>
+          <div className="stay-desk__table-wrap">
+            <table className="stay-desk__table stay-desk__table--change">
+              <thead>
+                <tr>
+                  <th scope="col">{ar ? 'البيان' : 'Item'}</th>
+                  <th scope="col">{ar ? 'من (الحالي)' : 'From (current)'}</th>
+                  <th scope="col">{ar ? 'إلى (المطلوب)' : 'To (requested)'}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <th scope="row">{ar ? 'الفترة' : 'Dates'}</th>
+                  <td className="is-from" dir="ltr">
+                    {dateRange(booking.checkInOn, booking.checkOutOn)}
+                  </td>
+                  <td className="is-to" dir="ltr">
+                    {dateRange(pending.checkInOn, pending.checkOutOn)}
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row">{ar ? 'نوع الإقامة' : 'Stay type'}</th>
+                  <td className="is-from">
+                    {booking.stayType ? stayTypeLabel(booking.stayType, ar) : '—'}
+                  </td>
+                  <td className="is-to">{stayTypeLabel(pending.stayType, ar)}</td>
+                </tr>
+                <tr>
+                  <th scope="row">{ar ? 'إجمالي العرض' : 'Quoted total'}</th>
+                  <td className="is-from" dir="ltr">
+                    {amountLabel}
+                  </td>
+                  <td className="is-to" dir="ltr">
+                    {formatMoney(pending.quotedTotalMinor || pending.chargedTotalMinor, booking.currency, locale)}
+                  </td>
+                </tr>
+                {pending.extraDueMinor !== '0' ? (
+                  <tr>
+                    <th scope="row">{ar ? 'فرق الدفع' : 'Top-up due'}</th>
+                    <td>—</td>
+                    <td className="is-to" dir="ltr">
+                      {formatMoney(pending.extraDueMinor, booking.currency, locale)}
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </section>
       ) : null}
 
-      <div className="stay-doc__badge" data-paid={paid || offline ? 'true' : 'false'}>
-        {stayStatusLabel(booking.status, ar)}
+      <div className="stay-desk__kpis" role="list">
+        <div className="stay-desk__kpi" role="listitem">
+          <Icon name="arrivals" size={18} />
+          <span>{ar ? 'الوصول' : 'Check-in'}</span>
+          <strong dir="ltr">{checkInLabel}</strong>
+        </div>
+        <div className="stay-desk__kpi" role="listitem">
+          <Icon name="departures" size={18} />
+          <span>{ar ? 'المغادرة' : 'Check-out'}</span>
+          <strong dir="ltr">{checkOutLabel}</strong>
+        </div>
+        <div className="stay-desk__kpi" role="listitem">
+          <Icon name="bed" size={18} />
+          <span>{ar ? 'الليالي' : 'Nights'}</span>
+          <strong>{nightsLabel}</strong>
+        </div>
+        <div className="stay-desk__kpi" role="listitem">
+          <Icon name="users" size={18} />
+          <span>{ar ? 'الضيوف' : 'Guests'}</span>
+          <strong>{guestsLabel || '—'}</strong>
+        </div>
+        <div className="stay-desk__kpi" role="listitem" data-tone={paid ? 'ok' : offline ? 'ok' : 'warn'}>
+          <Icon name="receipt" size={18} />
+          <span>{ar ? 'الدفع' : 'Payment'}</span>
+          <strong>{paymentStatusCopy(booking.paymentStatus, ar)}</strong>
+        </div>
       </div>
 
       {booking.timeline ? (
@@ -264,167 +448,215 @@ export function StayBookingContract({
         />
       ) : null}
 
-      <section className="stay-doc__section">
-        <h2>{ar ? 'بيانات الحجز' : 'Booking details'}</h2>
-        <dl className="stay-doc__grid">
-          <Row label={ar ? 'المرجع' : 'Reference'} value={booking.referenceCode} ltr />
-          <Row
-            label={ar ? 'نمط الحجز' : 'Booking mode'}
-            value={stayBookingModeLabel(booking.bookingMode, ar)}
-          />
-          <Row
-            label={ar ? 'الوصول' : 'Check-in'}
-            value={
-              booking.checkInTime
-                ? `${booking.checkInOn} · ${booking.checkInTime}`
-                : booking.checkInOn
-            }
-            ltr
-          />
-          <Row
-            label={ar ? 'المغادرة' : 'Check-out'}
-            value={
-              booking.checkOutTime
-                ? `${booking.stayType === 'day_use' ? booking.checkInOn : booking.checkOutOn} · ${booking.checkOutTime}`
-                : booking.checkOutOn
-            }
-            ltr
-          />
-          <Row
-            label={ar ? 'عدد الليالي' : 'Nights'}
-            value={`${booking.nights} ${
-              ar
-                ? booking.nights === 1
-                  ? 'ليلة'
-                  : 'ليالٍ'
-                : booking.nights === 1
-                  ? 'night'
-                  : 'nights'
-            }`}
-          />
-          {booking.stayType ? (
-            <Row
-              label={ar ? 'نوع الإقامة' : 'Stay type'}
-              value={stayTypeLabel(booking.stayType, ar)}
-            />
-          ) : null}
-          <Row
-            label={ar ? 'نطاق الحجز' : 'Booking scope'}
-            value={stayScopeCopy(booking.stayType, ar)}
-          />
-          {booking.otherSlot ? (
-            <Row
-              label={
-                booking.otherSlot.slot === 'morning'
-                  ? ar
-                    ? 'الفترة الصباحية'
-                    : 'Morning slot'
-                  : ar
-                    ? 'الفترة المسائية'
-                    : 'Evening slot'
-              }
-              value={otherSlotCopy(booking.otherSlot, booking.currency, locale)}
-            />
-          ) : null}
-          {typeof booking.adults === 'number' ? (
-            <Row label={ar ? 'بالغون' : 'Adults'} value={String(booking.adults)} />
-          ) : null}
-          {typeof booking.children === 'number' ? (
-            <Row label={ar ? 'أطفال' : 'Children'} value={String(booking.children)} />
-          ) : null}
-          <Row label={ar ? 'إجمالي الحجز' : 'Booking total'} value={amountLabel} ltr />
-        </dl>
-      </section>
+      <div className="stay-desk__grid">
+        <FactTable
+          title={ar ? 'بيانات الحجز' : 'Booking'}
+          icon="calendar"
+          rows={[
+            { label: ar ? 'المرجع' : 'Reference', value: booking.referenceCode, ltr: true },
+            {
+              label: ar ? 'الحالة' : 'Status',
+              value: stayStatusLabel(booking.status, ar),
+              highlight: Boolean(pending),
+            },
+            {
+              label: ar ? 'نمط الحجز' : 'Booking mode',
+              value: stayBookingModeLabel(booking.bookingMode, ar),
+            },
+            { label: ar ? 'الوصول' : 'Check-in', value: checkInLabel, ltr: true },
+            { label: ar ? 'المغادرة' : 'Check-out', value: checkOutLabel, ltr: true },
+            { label: ar ? 'عدد الليالي' : 'Nights', value: nightsLabel },
+            ...(booking.stayType
+              ? [
+                  {
+                    label: ar ? 'نوع الإقامة' : 'Stay type',
+                    value: stayTypeLabel(booking.stayType, ar),
+                  },
+                ]
+              : []),
+            {
+              label: ar ? 'نطاق الحجز' : 'Booking scope',
+              value: stayScopeCopy(booking.stayType, ar),
+            },
+            ...(booking.otherSlot
+              ? [
+                  {
+                    label:
+                      booking.otherSlot.slot === 'morning'
+                        ? ar
+                          ? 'الفترة الصباحية'
+                          : 'Morning slot'
+                        : ar
+                          ? 'الفترة المسائية'
+                          : 'Evening slot',
+                    value: otherSlotCopy(booking.otherSlot, booking.currency, locale),
+                  },
+                ]
+              : []),
+            { label: ar ? 'إجمالي الحجز' : 'Booking total', value: amountLabel, ltr: true },
+          ]}
+        />
 
-      <section className="stay-doc__section">
-        <h2>{ar ? 'الضيف ووسائل التواصل' : 'Guest & contacts'}</h2>
-        <dl className="stay-doc__grid">
-          <Row
-            label={ar ? 'اسم الضيف' : 'Guest name'}
-            value={
-              <span className="name-with-mark">
-                {booking.guestDisplayName || (ar ? 'غير متوفر' : 'Not provided')}
-                <BadgeChips badges={badges?.guest} locale={locale} />
-              </span>
-            }
-          />
-          <Row
-            label={ar ? 'البريد' : 'Email'}
-            value={
-              booking.guestEmail ? (
+        <FactTable
+          title={ar ? 'الضيف' : 'Guest'}
+          icon="users"
+          rows={[
+            {
+              label: ar ? 'الاسم' : 'Name',
+              value: (
+                <span className="name-with-mark">
+                  {booking.guestDisplayName || (ar ? 'غير متوفر' : 'Not provided')}
+                  <BadgeChips badges={badges?.guest} locale={locale} />
+                </span>
+              ),
+            },
+            {
+              label: ar ? 'البريد' : 'Email',
+              value: booking.guestEmail ? (
                 <a href={`mailto:${booking.guestEmail}`}>{booking.guestEmail}</a>
               ) : (
                 '—'
-              )
-            }
-            ltr
-          />
-          <Row
-            label={ar ? 'رقم التواصل' : 'Phone'}
-            value={
-              booking.guestPhone ? (
+              ),
+              ltr: true,
+            },
+            {
+              label: ar ? 'الهاتف' : 'Phone',
+              value: booking.guestPhone ? (
                 <a href={`tel:${booking.guestPhone}`}>{booking.guestPhone}</a>
               ) : (
                 '—'
-              )
-            }
-            ltr
-          />
-        </dl>
-      </section>
+              ),
+              ltr: true,
+            },
+            ...(guestsLabel
+              ? [{ label: ar ? 'عدد الضيوف' : 'Party size', value: guestsLabel }]
+              : []),
+          ]}
+        />
 
-      <section className="stay-doc__section">
-        <h2>{ar ? 'العقار والوحدة' : 'Property & unit'}</h2>
-        <dl className="stay-doc__grid">
-          <Row
-            label={ar ? 'العقار' : 'Property'}
-            value={
-              <span className="stay-doc__link-stack">
-                <span className="name-with-mark">
-                  <Link href={`/${portal}/properties/${booking.propertyId}`}>
-                    {propertyName || (ar ? 'فتح العقار' : 'Open property')}
-                  </Link>
-                  <BadgeChips badges={badges?.property} locale={locale} />
+        <FactTable
+          title={ar ? 'العقار والوحدة' : 'Property & unit'}
+          icon="home"
+          rows={[
+            {
+              label: ar ? 'العقار' : 'Property',
+              value: (
+                <span className="stay-doc__link-stack">
+                  <span className="name-with-mark">
+                    <Link href={`/${portal}/properties/${booking.propertyId}`}>
+                      {propertyName || (ar ? 'فتح العقار' : 'Open property')}
+                    </Link>
+                    <BadgeChips badges={badges?.property} locale={locale} />
+                  </span>
+                  {booking.stayListingSlug ? (
+                    <Link href={`/stays/${booking.stayListingSlug}`}>
+                      {ar ? 'صفحة الإقامة العامة' : 'Public stay page'}
+                    </Link>
+                  ) : (
+                    <Link href={`/properties/${booking.propertyId}`}>
+                      {ar ? 'عرض العقار للعامة' : 'Public property page'}
+                    </Link>
+                  )}
                 </span>
-                {booking.stayListingSlug ? (
-                  <Link href={`/stays/${booking.stayListingSlug}`}>
-                    {ar ? 'صفحة الإقامة العامة + التقويم' : 'Public stay page + calendar'}
-                  </Link>
-                ) : (
-                  <Link href={`/properties/${booking.propertyId}`}>
-                    {ar ? 'عرض العقار للعامة' : 'Public property page'}
-                  </Link>
-                )}
-              </span>
-            }
-          />
-          <Row
-            label={ar ? 'الوحدة' : 'Unit'}
-            value={
-              <Link href={`/${portal}/properties/${booking.propertyId}?unit=${booking.unitId}`}>
-                {unitLabel}
-              </Link>
-            }
-          />
-          <Row
-            label={ar ? 'تقويم الإقامات' : 'Stays calendar'}
-            value={
-              <Link href={`/${portal}/stays/calendar`}>
-                {ar ? 'فتح التقويم الكامل' : 'Open full calendar'}
-              </Link>
-            }
-          />
-        </dl>
-        {booking.location ? (
-          <PropertyLocationMap location={booking.location} locale={locale} />
-        ) : null}
-      </section>
+              ),
+            },
+            {
+              label: ar ? 'الوحدة' : 'Unit',
+              value: (
+                <Link href={`/${portal}/properties/${booking.propertyId}?unit=${booking.unitId}`}>
+                  {unitLabel}
+                </Link>
+              ),
+            },
+            {
+              label: ar ? 'التقويم' : 'Calendar',
+              value: (
+                <Link href={`/${portal}/stays/calendar`}>
+                  {ar ? 'فتح التقويم الكامل' : 'Open full calendar'}
+                </Link>
+              ),
+            },
+          ]}
+        />
+
+        <FactTable
+          title={ar ? 'الدفع والإيصال' : 'Payment & receipt'}
+          icon="receipt"
+          tone={paid ? 'ok' : offline ? 'default' : 'warn'}
+          rows={[
+            {
+              label: ar ? 'حالة الدفع' : 'Payment status',
+              value: paymentStatusCopy(booking.paymentStatus, ar),
+              highlight: !paid && !offline,
+            },
+            {
+              label: ar ? 'طريقة الدفع' : 'Payment method',
+              value: paymentMethodCopy(booking.paymentMethod, ar),
+            },
+            ...(booking.cardholderName
+              ? [
+                  {
+                    label: ar ? 'اسم حامل البطاقة' : 'Cardholder',
+                    value: booking.cardholderName,
+                    ltr: true as const,
+                  },
+                ]
+              : []),
+            ...(booking.cardLast4
+              ? [
+                  {
+                    label: ar ? 'البطاقة' : 'Card',
+                    value: `${cardBrandCopy(booking.cardBrand, ar)} •••• ${booking.cardLast4}`,
+                    ltr: true as const,
+                  },
+                ]
+              : []),
+            ...(paidOn ? [{ label: ar ? 'تاريخ الدفع' : 'Paid at', value: paidOn }] : []),
+            ...(booking.paymentProviderRef
+              ? [
+                  {
+                    label: ar ? 'مرجع المزود' : 'Provider ref',
+                    value: booking.paymentProviderRef,
+                    ltr: true as const,
+                  },
+                ]
+              : []),
+            {
+              label: ar ? 'المبلغ المستلم' : 'Amount received',
+              value: paid ? paidAmountLabel : '—',
+              ltr: true,
+            },
+            {
+              label: ar ? 'إيصال الضيف' : 'Guest receipt',
+              value: (
+                <Link
+                  href={`/stays/booking/receipt?ref=${encodeURIComponent(booking.referenceCode)}&doc=payment`}
+                >
+                  {ar ? 'فتح الإيصال' : 'Open receipt'}
+                </Link>
+              ),
+            },
+            {
+              label: ar ? 'تأكيد الحجز' : 'Confirmation',
+              value: (
+                <Link
+                  href={`/stays/booking/receipt?ref=${encodeURIComponent(booking.referenceCode)}&doc=confirmation`}
+                >
+                  {ar ? 'فتح التأكيد' : 'Open confirmation'}
+                </Link>
+              ),
+            },
+          ]}
+        />
+      </div>
 
       {(booking.overlappingBookings && booking.overlappingBookings.length > 0) ||
       booking.previousBooking ||
       booking.nextBooking ? (
-        <section className="stay-doc__section">
-          <h2>{ar ? 'حجوزات مجاورة على نفس الوحدة' : 'Neighboring bookings on this unit'}</h2>
+        <Fold
+          title={ar ? 'حجوزات مجاورة على نفس الوحدة' : 'Neighboring bookings on this unit'}
+          icon="list"
+        >
           {booking.overlappingBookings && booking.overlappingBookings.length > 0 ? (
             <div className="notice notice--danger stay-doc__overlap" role="status">
               <p>
@@ -432,131 +664,106 @@ export function StayBookingContract({
                   ? 'تنبيه: توجد حجوزات حية متداخلة مع نفس التواريخ — راجع قبل القبول أو ارفض الطلب إن كان هناك خطأ.'
                   : 'Warning: live bookings overlap these dates — review before accepting, or reject if this is an error.'}
               </p>
-              <ul className="stay-doc__neighbor-list">
-                {booking.overlappingBookings.map((item) => (
-                  <li key={item.id}>
-                    <Link href={`/${portal}/stays/bookings/${item.id}`}>
-                      <strong dir="ltr">{item.referenceCode}</strong>
-                      <span dir="ltr">
-                        {item.checkInOn} → {item.checkOutOn}
-                      </span>
-                      <span>{stayStatusLabel(item.status, ar)}</span>
-                      {item.guestDisplayName ? <span>{item.guestDisplayName}</span> : null}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              <div className="stay-desk__table-wrap">
+                <table className="stay-desk__table">
+                  <thead>
+                    <tr>
+                      <th>{ar ? 'المرجع' : 'Ref'}</th>
+                      <th>{ar ? 'الفترة' : 'Dates'}</th>
+                      <th>{ar ? 'الحالة' : 'Status'}</th>
+                      <th>{ar ? 'الضيف' : 'Guest'}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {booking.overlappingBookings.map((item) => (
+                      <tr key={item.id}>
+                        <td>
+                          <Link href={`/${portal}/stays/bookings/${item.id}`} dir="ltr">
+                            {item.referenceCode}
+                          </Link>
+                        </td>
+                        <td dir="ltr">{dateRange(item.checkInOn, item.checkOutOn)}</td>
+                        <td>{stayStatusLabel(item.status, ar)}</td>
+                        <td>{item.guestDisplayName || '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           ) : null}
-          <dl className="stay-doc__grid">
-            <Row
-              label={ar ? 'الحجز السابق' : 'Previous booking'}
-              value={
-                booking.previousBooking ? (
-                  <Link href={`/${portal}/stays/bookings/${booking.previousBooking.id}`}>
-                    <span dir="ltr">{booking.previousBooking.referenceCode}</span>
-                    {' · '}
-                    <span dir="ltr">
-                      {booking.previousBooking.checkInOn} → {booking.previousBooking.checkOutOn}
-                    </span>
-                    {' · '}
-                    {stayStatusLabel(booking.previousBooking.status, ar)}
-                  </Link>
-                ) : ar ? (
-                  'لا يوجد'
-                ) : (
-                  'None'
-                )
-              }
-            />
-            <Row
-              label={ar ? 'الحجز اللاحق' : 'Next booking'}
-              value={
-                booking.nextBooking ? (
-                  <Link href={`/${portal}/stays/bookings/${booking.nextBooking.id}`}>
-                    <span dir="ltr">{booking.nextBooking.referenceCode}</span>
-                    {' · '}
-                    <span dir="ltr">
-                      {booking.nextBooking.checkInOn} → {booking.nextBooking.checkOutOn}
-                    </span>
-                    {' · '}
-                    {stayStatusLabel(booking.nextBooking.status, ar)}
-                  </Link>
-                ) : ar ? (
-                  'لا يوجد'
-                ) : (
-                  'None'
-                )
-              }
-            />
-          </dl>
-        </section>
+          <div className="stay-desk__table-wrap">
+            <table className="stay-desk__table">
+              <tbody>
+                <tr>
+                  <th scope="row">{ar ? 'الحجز السابق' : 'Previous booking'}</th>
+                  <td>
+                    {booking.previousBooking ? (
+                      <Link href={`/${portal}/stays/bookings/${booking.previousBooking.id}`}>
+                        <span dir="ltr">{booking.previousBooking.referenceCode}</span>
+                        {' · '}
+                        <span dir="ltr">
+                          {dateRange(
+                            booking.previousBooking.checkInOn,
+                            booking.previousBooking.checkOutOn,
+                          )}
+                        </span>
+                        {' · '}
+                        {stayStatusLabel(booking.previousBooking.status, ar)}
+                      </Link>
+                    ) : ar ? (
+                      'لا يوجد'
+                    ) : (
+                      'None'
+                    )}
+                  </td>
+                </tr>
+                <tr>
+                  <th scope="row">{ar ? 'الحجز اللاحق' : 'Next booking'}</th>
+                  <td>
+                    {booking.nextBooking ? (
+                      <Link href={`/${portal}/stays/bookings/${booking.nextBooking.id}`}>
+                        <span dir="ltr">{booking.nextBooking.referenceCode}</span>
+                        {' · '}
+                        <span dir="ltr">
+                          {dateRange(booking.nextBooking.checkInOn, booking.nextBooking.checkOutOn)}
+                        </span>
+                        {' · '}
+                        {stayStatusLabel(booking.nextBooking.status, ar)}
+                      </Link>
+                    ) : ar ? (
+                      'لا يوجد'
+                    ) : (
+                      'None'
+                    )}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </Fold>
       ) : null}
 
-      <section className="stay-doc__section">
-        <h2>{ar ? 'الإيصال وطريقة الدفع' : 'Receipt & payment'}</h2>
-        <dl className="stay-doc__grid">
-          <Row
-            label={ar ? 'حالة الدفع' : 'Payment status'}
-            value={paymentStatusCopy(booking.paymentStatus, ar)}
-          />
-          <Row
-            label={ar ? 'طريقة الدفع' : 'Payment method'}
-            value={paymentMethodCopy(booking.paymentMethod, ar)}
-          />
-          {booking.cardholderName ? (
-            <Row
-              label={ar ? 'اسم حامل البطاقة' : 'Cardholder'}
-              value={booking.cardholderName}
-              ltr
-            />
+      {booking.location || booking.propertyCoverUrl ? (
+        <Fold title={ar ? 'الموقع والصورة' : 'Location & photo'} icon="pin">
+          {booking.propertyCoverUrl ? (
+            <figure className="stay-doc__cover">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={booking.propertyCoverUrl}
+                alt={propertyName || (ar ? 'صورة العقار' : 'Property photo')}
+              />
+              <figcaption>{propertyName || (ar ? 'العقار' : 'Property')}</figcaption>
+            </figure>
           ) : null}
-          {booking.cardLast4 ? (
-            <Row
-              label={ar ? 'البطاقة' : 'Card'}
-              value={`${cardBrandCopy(booking.cardBrand, ar)} •••• ${booking.cardLast4}`}
-              ltr
-            />
+          {booking.location ? (
+            <PropertyLocationMap location={booking.location} locale={locale} />
           ) : null}
-          {paidOn ? <Row label={ar ? 'تاريخ الدفع' : 'Paid at'} value={paidOn} /> : null}
-          {booking.paymentProviderRef ? (
-            <Row
-              label={ar ? 'مرجع المزود' : 'Provider ref'}
-              value={booking.paymentProviderRef}
-              ltr
-            />
-          ) : null}
-          <Row
-            label={ar ? 'المبلغ المستلم' : 'Amount received'}
-            value={paid ? paidAmountLabel : '—'}
-            ltr
-          />
-          <Row
-            label={ar ? 'إيصال الضيف' : 'Guest receipt'}
-            value={
-              <Link
-                href={`/stays/booking/receipt?ref=${encodeURIComponent(booking.referenceCode)}&doc=payment`}
-              >
-                {ar ? 'فتح الإيصال' : 'Open receipt'}
-              </Link>
-            }
-          />
-          <Row
-            label={ar ? 'تأكيد الحجز' : 'Confirmation'}
-            value={
-              <Link
-                href={`/stays/booking/receipt?ref=${encodeURIComponent(booking.referenceCode)}&doc=confirmation`}
-              >
-                {ar ? 'فتح التأكيد' : 'Open confirmation'}
-              </Link>
-            }
-          />
-        </dl>
-      </section>
+        </Fold>
+      ) : null}
 
       {booking.esignSignaturePng ? (
-        <section className="stay-doc__section">
-          <h2>{ar ? 'التوقيع الإلكتروني والمستندات' : 'E-signature & documents'}</h2>
+        <Fold title={ar ? 'التوقيع الإلكتروني والمستندات' : 'E-signature & documents'} icon="file">
           {booking.esignSignedAt ? (
             <p className="muted">
               {ar ? 'وقت التوقيع' : 'Signed at'}:{' '}
@@ -594,25 +801,8 @@ export function StayBookingContract({
               </figure>
             ) : null}
           </div>
-        </section>
+        </Fold>
       ) : null}
-
-      <div className="stay-doc__total">
-        <span>
-          {paid
-            ? ar
-              ? 'المبلغ المستلم'
-              : 'Amount received'
-            : offline
-              ? ar
-                ? 'قيمة الحجز'
-                : 'Booking value'
-              : ar
-                ? 'المبلغ المستحق'
-                : 'Amount due'}
-        </span>
-        <strong dir="ltr">{paid ? paidAmountLabel : amountLabel}</strong>
-      </div>
 
       <footer className="stay-doc__footer">
         <p>
