@@ -41,6 +41,8 @@ export type TenancyLease = {
 
 export type TenancyInvoice = {
   id: string;
+  /** Lease the invoice belongs to — used for rent-doc detail links. */
+  leaseId?: string | null;
   landlord: TenancyLandlord;
   number: string;
   status: string;
