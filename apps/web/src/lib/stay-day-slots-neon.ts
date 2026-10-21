@@ -177,11 +177,31 @@ export function applyStayDaySlots<
         : day.publicNote;
     const base = { ...day, ...(day.publicNote !== undefined ? { publicNote } : {}) };
     const slots = slotsByDate.get(day.stayDate);
-    if (!slots || CLOSED_DAY.has(day.availabilityStatus)) return base;
+    if (CLOSED_DAY.has(day.availabilityStatus)) return base;
+
+    // No live lock/booking: drop stale booked/hold rows left in stay_inventory_days after cancel.
+    if (!slots) {
+      if (day.availabilityStatus === 'booked' || day.availabilityStatus === 'hold') {
+        return {
+          ...base,
+          availabilityStatus: 'available' as T['availabilityStatus'],
+        };
+      }
+      return base;
+    }
 
     const morningFree = slots.morning === 'available';
     const eveningFree = slots.evening === 'available';
-    if (morningFree && eveningFree) return { ...base, slots };
+    if (morningFree && eveningFree) {
+      if (day.availabilityStatus === 'booked' || day.availabilityStatus === 'hold') {
+        return {
+          ...base,
+          slots,
+          availabilityStatus: 'available' as T['availabilityStatus'],
+        };
+      }
+      return { ...base, slots };
+    }
 
     const taken = [slots.morning, slots.evening].filter((state) => state !== 'available');
     const worst = taken.reduce((a, b) => (SLOT_RANK[b] > SLOT_RANK[a] ? b : a));

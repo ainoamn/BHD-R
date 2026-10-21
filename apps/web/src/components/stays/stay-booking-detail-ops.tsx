@@ -7,6 +7,7 @@ import { ModalPortal } from '@/components/modal-portal';
 import { StayAvailabilityCalendar } from '@/components/stays/stay-availability-calendar';
 import { ApiError, browserMutation, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
+import { PENDING_APPROVALS_CHANGED_EVENT } from '@/lib/pending-approvals-shared';
 import { REFUND_NOTE_MAX } from '@/lib/stay-deposit-refund';
 
 const CANCELABLE = new Set(['request_pending', 'payment_pending', 'confirmed', 'pre_arrival']);
@@ -130,6 +131,8 @@ export function StayBookingDetailOps({
       );
       setCurrentStatus(payload.status ?? 'cancelled');
       setCancelOpen(false);
+      window.dispatchEvent(new Event(PENDING_APPROVALS_CHANGED_EVENT));
+      window.dispatchEvent(new Event('bhd-r-live-change'));
       startTransition(() => router.refresh());
     } catch (caught) {
       const code = caught instanceof ApiError ? caught.code : '';

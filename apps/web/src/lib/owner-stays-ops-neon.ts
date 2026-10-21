@@ -993,6 +993,40 @@ export async function getOwnerStayInventoryDaysOnNeon(
         updated_at = now()
     `);
 
+    // Free days that were projected booked/hold but no longer have an active lock or booking.
+    await transaction.execute(sql`
+      UPDATE stay_inventory_days d
+      SET availability_status = 'available', updated_at = now()
+      WHERE d.organization_id = ${organizationId}::uuid
+        AND d.unit_id = ${unitId}::uuid
+        AND d.stay_date >= ${fromOn}::date
+        AND d.stay_date < ${toOn}::date
+        AND d.availability_status IN ('booked', 'hold')
+        AND NOT EXISTS (
+          SELECT 1 FROM stay_inventory_locks l
+          WHERE l.organization_id = d.organization_id
+            AND l.unit_id = d.unit_id
+            AND l.status = 'active'
+            AND l.kind IN ('booking', 'hold')
+            AND (l.expires_at IS NULL OR l.expires_at > now())
+            AND l.stay_range @> d.stay_date
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM stay_bookings b
+          WHERE b.organization_id = d.organization_id
+            AND b.unit_id = d.unit_id
+            AND b.status IN (
+              'request_pending', 'payment_pending', 'confirmed', 'paid',
+              'pre_arrival', 'checked_in'
+            )
+            AND daterange(
+              b.check_in_on,
+              GREATEST(b.check_out_on, b.check_in_on + 1),
+              '[)'
+            ) @> d.stay_date
+        )
+    `);
+
     const dayResult = await transaction.execute(sql`
       SELECT
         stay_date::text AS stay_date,

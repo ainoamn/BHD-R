@@ -32,7 +32,7 @@ type BoardItem = {
   whenValue: string;
   amount: string | null;
   statusLabel: string;
-  statusTone: 'action' | 'good' | undefined;
+  statusTone: 'action' | 'good' | 'danger' | undefined;
   href: string | null;
   cta: string | null;
 };
@@ -131,7 +131,13 @@ function buildItems(
       whenValue: period(stay.checkInOn, stay.checkOutOn, ar),
       amount: money(stay.totalMinor, stay.currency, locale),
       statusLabel: stayStatusLabel(stay.status, ar),
-      statusTone: ['payment_pending', 'payment_failed'].includes(stay.status) ? 'action' : undefined,
+      statusTone: ['payment_pending', 'payment_failed'].includes(stay.status)
+        ? 'action'
+        : ['cancelled', 'rejected', 'no_show', 'expired'].includes(stay.status)
+          ? 'danger'
+          : ['confirmed', 'pre_arrival', 'checked_in'].includes(stay.status)
+            ? 'good'
+            : undefined,
       href: stayHref(stay),
       cta: ar ? 'فتح الحجز' : 'Open booking',
     };

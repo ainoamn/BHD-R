@@ -8313,6 +8313,10 @@ body:has(.stays-booking-receipt) #main-content {
   background: #e7f5ee;
   color: #0f5b4a;
 }
+.tenant-status--danger {
+  background: #fee2e2;
+  color: #991b1b;
+}
 .tenant-table-wrap {
   background: rgb(255 255 255 / 0.96);
   border: 1px solid rgb(9 45 36 / 0.08);
@@ -22443,6 +22447,65 @@ button.lrw__step-body:focus-visible {
 .deposit-ledger__item.is-focus {
   border-color: #d6a63a;
   box-shadow: 0 0 0 3px rgb(214 166 58 / 0.18);
+}
+.deposit-ledger__item.is-action {
+  border-color: #dc2626;
+  background: linear-gradient(180deg, #fff5f5 0%, #ffffff 55%);
+  box-shadow: 0 0 0 3px rgb(220 38 38 / 0.14);
+}
+.deposit-ledger__item.is-action.is-focus {
+  border-color: #b91c1c;
+  box-shadow:
+    0 0 0 3px rgb(220 38 38 / 0.2),
+    0 0 0 6px rgb(214 166 58 / 0.12);
+}
+.accounting-refunds-alert {
+  display: grid;
+  gap: 0.2rem;
+  width: 100%;
+  margin: 0 0 0.85rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid #fecaca;
+  border-radius: 0.9rem;
+  background: linear-gradient(135deg, #fef2f2, #fff7ed);
+  color: #7f1d1d;
+  text-align: start;
+  cursor: pointer;
+}
+.accounting-refunds-alert strong {
+  font-size: 0.98rem;
+}
+.accounting-refunds-alert span {
+  font-size: 0.86rem;
+  opacity: 0.92;
+}
+.deposit-payout-modal .ops-modal__card {
+  width: min(36rem, calc(100vw - 1.5rem));
+  max-height: min(92vh, 52rem);
+  overflow: auto;
+}
+.deposit-payout-modal__body {
+  padding: 0 1.1rem 1.1rem;
+}
+.deposit-payout-modal__body .psr-refund-form {
+  margin: 0;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+}
+.deposit-payout-modal__body .psr-refund-form > h3 {
+  display: none;
+}
+@media (max-width: 640px) {
+  .deposit-payout-modal .ops-modal__card {
+    width: 100%;
+    max-height: 100dvh;
+    border-radius: 1rem 1rem 0 0;
+    margin-top: auto;
+  }
+  .deposit-payout-modal {
+    align-items: flex-end;
+  }
 }
 .deposit-ledger__row {
   display: grid;

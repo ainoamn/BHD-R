@@ -82,7 +82,13 @@ function Table({ head, children }: { head: string[]; children: ReactNode }) {
   );
 }
 
-function Status({ label, tone }: { label: string; tone?: 'action' | 'good' | undefined }) {
+function Status({
+  label,
+  tone,
+}: {
+  label: string;
+  tone?: 'action' | 'good' | 'danger' | undefined;
+}) {
   return <span className={`tenant-status${tone ? ` tenant-status--${tone}` : ''}`}>{label}</span>;
 }
 

@@ -190,6 +190,40 @@ export async function cancelOwnerStayBookingOnNeon(
         );
     }
 
+    // Clear projected booked days so the public calendar and catalogue reopen immediately.
+    await tx.execute(sql`
+      UPDATE stay_inventory_days d
+      SET availability_status = 'available', updated_at = ${now.toISOString()}
+      WHERE d.organization_id = ${orgId}::uuid
+        AND d.unit_id = ${booking.unitId}::uuid
+        AND d.availability_status IN ('booked', 'hold')
+        AND d.stay_date >= ${booking.checkInOn}::date
+        AND d.stay_date < GREATEST(${booking.checkOutOn}::date, ${booking.checkInOn}::date + 1)
+        AND NOT EXISTS (
+          SELECT 1 FROM stay_inventory_locks l
+          WHERE l.organization_id = d.organization_id
+            AND l.unit_id = d.unit_id
+            AND l.status = 'active'
+            AND (l.expires_at IS NULL OR l.expires_at > now())
+            AND l.stay_range @> d.stay_date
+        )
+        AND NOT EXISTS (
+          SELECT 1 FROM stay_bookings b
+          WHERE b.organization_id = d.organization_id
+            AND b.unit_id = d.unit_id
+            AND b.id <> ${booking.id}::uuid
+            AND b.status IN (
+              'request_pending', 'payment_pending', 'confirmed', 'paid',
+              'pre_arrival', 'checked_in'
+            )
+            AND daterange(
+              b.check_in_on,
+              GREATEST(b.check_out_on, b.check_in_on + 1),
+              '[)'
+            ) @> d.stay_date
+        )
+    `);
+
     if (booking.holdId) {
       await tx
         .update(stayHolds)

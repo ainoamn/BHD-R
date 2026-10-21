@@ -30,6 +30,7 @@ import {
 } from '@/components/accounting/accounting-ops-modals';
 import { AccountingSettingsPanel } from '@/components/accounting/accounting-settings-panel';
 import { DepositLedgerPanel } from '@/components/accounting/deposit-ledger';
+import { AccountingRefundsAlert } from '@/components/accounting/accounting-refunds-alert';
 import { usePathname, useRouter } from '@/i18n/navigation';
 import {
   ACCOUNTING_HUB_TABS,
@@ -704,6 +705,7 @@ export function AccountingHub({
             <p className="accounting-hub__hint">{t.moneyHint}</p>
           </div>
           <AccountingTasksAlert locale={locale} onOpen={() => setTab('tasks')} />
+          <AccountingRefundsAlert locale={locale} onOpen={() => setTab('deposits')} />
           <AccountingCollectionBoard
             locale={locale}
             outlook={outlook}

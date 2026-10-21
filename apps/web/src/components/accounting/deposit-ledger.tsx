@@ -6,6 +6,7 @@ import { Link } from '@/i18n/navigation';
 import { AccountingFollowTask } from '@/components/accounting/accounting-follow-task';
 import { DepositClaimsAdmin } from '@/components/accounting/deposit-claims-admin';
 import { DepositReconciliation } from '@/components/accounting/deposit-receipts';
+import { ModalPortal } from '@/components/modal-portal';
 import {
   DepositRefundCell,
   DepositRefundForm,
@@ -30,7 +31,7 @@ const ORDER: Record<string, number> = {
 };
 
 const TONE: Record<string, string> = {
-  awaiting_refund_transfer: 'warn',
+  awaiting_refund_transfer: 'danger',
   awaiting_deposit_refund: 'warn',
   deposit_held: 'info',
   deposit_settled: 'ready',
@@ -391,7 +392,7 @@ export function DepositLedgerPanel({
                 id={`deposit-${id}`}
                 className={`deposit-ledger__item${focusId === id ? ' is-focus' : ''}${
                   isOpen ? ' is-open' : ''
-                }`}
+                }${status === 'awaiting_refund_transfer' ? ' is-action' : ''}`}
               >
                 <div className="deposit-ledger__row">
                   <div className="deposit-ledger__who">
@@ -498,15 +499,59 @@ export function DepositLedgerPanel({
                   </div>
                 </div>
                 {row.kind !== 'reservation_deposit' && payoutId === id ? (
-                  <DepositRefundForm
-                    mode="payout"
-                    row={{ ...row, kind: 'deposit_refund' }}
-                    locale={locale}
-                    busy={busyId === id}
-                    defaultAmount=""
-                    onSubmit={(value) => void submitPayout(row, value)}
-                    onCancel={() => setPayoutId(null)}
-                  />
+                  <ModalPortal onClose={() => !busyId && setPayoutId(null)}>
+                    <div
+                      className="ops-modal deposit-payout-modal"
+                      role="presentation"
+                      onMouseDown={(event) => {
+                        if (event.target === event.currentTarget && !busyId) setPayoutId(null);
+                      }}
+                    >
+                      <section
+                        className="ops-modal__card deposit-payout-modal__card"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby={`deposit-payout-title-${id}`}
+                        dir={ar ? 'rtl' : 'ltr'}
+                      >
+                        <header>
+                          <div>
+                            <span className="ops-kicker" dir="ltr">
+                              {row.reference}
+                            </span>
+                            <h2 id={`deposit-payout-title-${id}`}>
+                              {row.kind === 'stay_payment_refund'
+                                ? ar
+                                  ? 'تحويل مبلغ الحجز'
+                                  : 'Transfer booking payment'
+                                : ar
+                                  ? 'تحويل التأمين'
+                                  : 'Transfer deposit'}
+                            </h2>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setPayoutId(null)}
+                            disabled={Boolean(busyId)}
+                            aria-label={ar ? 'إغلاق' : 'Close'}
+                          >
+                            ×
+                          </button>
+                        </header>
+                        <div className="deposit-payout-modal__body">
+                          <DepositRefundForm
+                            mode="payout"
+                            row={{ ...row, kind: 'deposit_refund' }}
+                            locale={locale}
+                            busy={busyId === id}
+                            defaultAmount=""
+                            onSubmit={(value) => void submitPayout(row, value)}
+                            onCancel={() => setPayoutId(null)}
+                          />
+                        </div>
+                      </section>
+                    </div>
+                  </ModalPortal>
                 ) : null}
                 {isOpen ? (
                   <div className="deposit-ledger__details" id={detailsId}>

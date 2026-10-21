@@ -302,13 +302,9 @@ export function stayGuestGreeting(input: {
           : paidLabel
             ? ` The booking payment (${paidLabel}) will not be refunded.`
             : ' The booking payment will not be refunded.';
-        if (note) {
-          moneyLine += ar ? ` السبب: ${note}` : ` Reason: ${note}`;
-        }
-      } else if (note && outcome?.fromRequest) {
-        moneyLine = ar ? ` ملاحظة المضيف: ${note}` : ` Host note: ${note}`;
-      } else if (note) {
-        moneyLine = ar ? ` السبب: ${note}` : ` Reason: ${note}`;
+      }
+      if (note) {
+        moneyLine += ar ? ` ملاحظة الإلغاء: ${note}` : ` Cancellation note: ${note}`;
       }
       return {
         stage: 'ended',
