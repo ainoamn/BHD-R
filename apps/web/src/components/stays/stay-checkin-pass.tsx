@@ -165,8 +165,8 @@ export function StayCheckinPass({
         <h2 id="stay-checkin-title">{ar ? 'ادفع مبلغ التأمين أولاً' : 'Pay the deposit first'}</h2>
         <p className="notice notice--warn" role="status">
           {ar
-            ? `قبل ظهور باركود الوصول يجب دفع مبلغ التأمين المسترد (${amount}). أو ينتظر المالك لاستثنائه يدوياً عند تسجيل الدخول.`
-            : `The arrival barcode appears after you pay the refundable deposit (${amount}), or after the host waives it at check-in.`}
+            ? `قبل ظهور باركود الوصول يجب دفع مبلغ التأمين المسترد (${amount}).`
+            : `Pay the refundable deposit (${amount}) before the arrival barcode appears.`}
         </p>
         {depositUnpaid.paymentRedirectUrl ? (
           <p>

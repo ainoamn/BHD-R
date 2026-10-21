@@ -18,6 +18,7 @@ import { ReviewForm, hostReviewAssistant, type ReviewFormValue } from './reviews
 import type { HandoverSubmit } from './stays/stay-handover-form';
 import { StayHandoverWizard } from './stays/stay-handover-wizard';
 import { StayGateDesk } from './stays/stay-gate-desk';
+import { DepositWaiveDialog } from './stays/deposit-waive-dialog';
 import {
   DepositRefundCell,
   DepositRefundForm,
@@ -1179,6 +1180,11 @@ export function PropertySectionRecords({
     kind: StampKind;
     skipVerify?: boolean;
   } | null>(null);
+  const [depositWaivePrompt, setDepositWaivePrompt] = useState<{
+    rowId: string;
+    amountLabel: string | null;
+  } | null>(null);
+  const [depositWaiveBusy, setDepositWaiveBusy] = useState(false);
   const [refundForm, setRefundForm] = useState<{ rowId: string; mode: RefundFormMode } | null>(
     null,
   );
@@ -1656,31 +1662,13 @@ export function PropertySectionRecords({
             setRejectForm(null);
             setReviewRowId(null);
             if (kind === 'check_in' && row.depositStatus === 'unpaid') {
-              const amount =
-                row.depositMinor && row.currency
-                  ? formatMoney(row.depositMinor, row.currency, locale)
-                  : null;
-              const continueWithout = window.confirm(
-                ar
-                  ? `المستأجر لم يدفع مبلغ التأمين المسترد${amount ? ` (${amount})` : ''}. هل تريد المتابعة بتسجيل دخوله بدون تأمين؟\n\nموافق = استثناء التأمين وفتح تسجيل الدخول (ويظهر باركود الضيف).\nإلغاء = عليه دفع التأمين أولاً.`
-                  : `Guest has not paid the refundable deposit${amount ? ` (${amount})` : ''}. Continue check-in without deposit?\n\nOK = waive deposit and open check-in (guest barcode unlocks).\nCancel = require payment first.`,
-              );
-              if (!continueWithout) {
-                setNotice({
-                  tone: 'warn',
-                  text: ar
-                    ? 'أُوقف تسجيل الدخول — بانتظار دفع الضيف لمبلغ التأمين.'
-                    : 'Check-in paused — waiting for the guest to pay the deposit.',
-                });
-                return;
-              }
-              const waived = await runAction(
-                row.id!,
-                { action: 'waive_deposit', bookingId: row.id },
-                propertyOf(row),
-              );
-              if (!waived) return;
-              setStampForm({ rowId: row.id!, kind, skipVerify: true });
+              setDepositWaivePrompt({
+                rowId: row.id!,
+                amountLabel:
+                  row.depositMinor && row.currency
+                    ? formatMoney(row.depositMinor, row.currency, locale)
+                    : null,
+              });
               return;
             }
             setStampForm({ rowId: row.id!, kind });
@@ -2354,6 +2342,46 @@ export function PropertySectionRecords({
                 skipVerify={stampForm.skipVerify === true}
                 onSubmit={(value) => void submitStamp(row, stampForm.kind, value)}
                 onClose={() => setStampForm(null)}
+              />
+            );
+          })()
+        : null}
+
+      {depositWaivePrompt
+        ? (() => {
+            const row = rows?.find((item) => item.id === depositWaivePrompt.rowId) ?? null;
+            if (!row?.id) return null;
+            return (
+              <DepositWaiveDialog
+                locale={locale}
+                amountLabel={depositWaivePrompt.amountLabel}
+                busy={depositWaiveBusy}
+                onRequirePayment={() => {
+                  setDepositWaivePrompt(null);
+                  setNotice({
+                    tone: 'warn',
+                    text: ar
+                      ? 'أُوقف تسجيل الدخول — بانتظار دفع الضيف لمبلغ التأمين.'
+                      : 'Check-in paused — waiting for the guest to pay the deposit.',
+                  });
+                }}
+                onWaive={() => {
+                  void (async () => {
+                    setDepositWaiveBusy(true);
+                    try {
+                      const waived = await runAction(
+                        row.id!,
+                        { action: 'waive_deposit', bookingId: row.id },
+                        propertyOf(row),
+                      );
+                      if (!waived) return;
+                      setDepositWaivePrompt(null);
+                      setStampForm({ rowId: row.id!, kind: 'check_in', skipVerify: true });
+                    } finally {
+                      setDepositWaiveBusy(false);
+                    }
+                  })();
+                }}
               />
             );
           })()
