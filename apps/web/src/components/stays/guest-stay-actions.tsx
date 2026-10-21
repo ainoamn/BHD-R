@@ -228,7 +228,7 @@ export function GuestStayActions({
       {showModifyDates ? (
         <button
           type="button"
-          className="button"
+          className="button guest-stay-actions__modify"
           disabled={pending}
           onClick={() => {
             setError(null);
@@ -256,7 +256,7 @@ export function GuestStayActions({
       {showCancel ? (
         <button
           type="button"
-          className="button button--quiet"
+          className="button guest-stay-actions__cancel"
           disabled={pending}
           onClick={() => {
             setError(null);

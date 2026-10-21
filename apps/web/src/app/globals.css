@@ -13953,6 +13953,27 @@ button.ops-row-key {
 .guest-stay-actions--compact {
   margin-top: 0.75rem;
 }
+.guest-stay-actions__modify {
+  color: #fff;
+  background: #0f766e;
+  border-color: #0d9488;
+  font-weight: 800;
+}
+.guest-stay-actions__modify:hover:not(:disabled) {
+  background: #0d9488;
+  border-color: #14b8a6;
+}
+.guest-stay-actions__cancel {
+  color: #b91c1c;
+  background: #fef2f2;
+  border-color: #fca5a5;
+  font-weight: 800;
+}
+.guest-stay-actions__cancel:hover:not(:disabled) {
+  background: #fee2e2;
+  border-color: #f87171;
+  color: #991b1b;
+}
 .guest-stays__list {
   margin-top: 2rem;
 }
@@ -14390,6 +14411,52 @@ body:has(.guest-stay-detail) #main-content {
 @media (orientation: portrait) and (max-width: 1199px) {
   .guest-stay-detail__caption {
     display: none;
+  }
+}
+/* Phone: shorter hero so booking content stays above the fold. */
+@media (orientation: portrait) and (max-width: 699px) {
+  .guest-stay-detail__hero {
+    gap: 0.45rem;
+    max-height: min(38dvh, 15.5rem);
+    padding: max(0.55rem, env(safe-area-inset-top)) max(0.85rem, env(safe-area-inset-right))
+      0.55rem max(0.85rem, env(safe-area-inset-left));
+  }
+  .guest-stay-detail__hero-img {
+    object-position: center 28%;
+  }
+  .guest-stay-detail__logo img {
+    width: 3.35rem;
+  }
+  .guest-stay-detail__back {
+    padding: 0.28rem 0.65rem;
+    font-size: 0.78rem;
+  }
+  .guest-stay-detail__kicker {
+    font-size: 0.72rem;
+  }
+  .guest-stay-detail__title {
+    font-size: clamp(1.15rem, 5.2vw, 1.45rem);
+  }
+  .guest-stay-detail__status,
+  .guest-stay-detail__ref {
+    padding: 0.18rem 0.55rem;
+    font-size: 0.72rem;
+  }
+  .guest-stay-detail__message {
+    display: none;
+  }
+  .guest-stay-detail__steps {
+    margin-top: 0.15rem;
+    padding: 0.4rem 0.25rem;
+    border-radius: 0.7rem;
+  }
+  .guest-stay-detail__step-label {
+    font-size: 0.68rem;
+  }
+  .guest-stay-detail__step-dot {
+    width: 1.35rem;
+    height: 1.35rem;
+    font-size: 0.72rem;
   }
 }
 @media (orientation: portrait) and (min-width: 600px) and (max-width: 1199px) {
