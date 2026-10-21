@@ -1,7 +1,6 @@
 /* Rent receipts and demand invoices: an A4 document with letterhead, stamp and e-signature. */
-.rent-doc-page.ops-workspace--rent-doc,
 .rent-doc-page {
-  max-width: 56rem;
+  max-width: 900px;
 }
 .rent-doc-page__actions {
   display: flex;
@@ -11,17 +10,7 @@
 }
 .rent-doc-page__hint {
   margin: 0 0 0.85rem;
-  padding-inline: 0.15rem;
   font-size: 0.85rem;
-}
-.rent-doc-page__status-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
-  margin: 0.55rem 0 0;
-}
-.ops-panel--rent-doc .rent-doc {
-  box-shadow: none;
 }
 .rent-doc {
   --rent-ink: #12302a;

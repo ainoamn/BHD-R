@@ -1,7 +1,6 @@
 import { EmptyState } from '@bhd-r/ui';
 import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
-import { OpsAttentionList, OpsAttentionSection, type OpsAttentionItem } from '@/components/ops-attention-list';
 import { formatMoney } from '@/lib/format';
 import { loadViewerPendingApprovals } from '@/lib/pending-approvals-neon';
 import {
@@ -446,46 +445,41 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
         </div>
       </section>
 
-      <OpsAttentionSection
-        kicker={locale === 'ar' ? 'تنبيهات' : 'Alerts'}
-        title={t('Portal.alertsTitle')}
-        hint={t('Portal.alertsHint')}
-        ar={locale === 'ar'}
-        count={alerts.length + approvalAlerts.length}
-      >
-        <OpsAttentionList
-          ar={locale === 'ar'}
-          empty={<p className="dash-alerts__empty">{t('Portal.noAlerts')}</p>}
-          items={[
-            ...approvalAlerts.map(
-              (alert): OpsAttentionItem => ({
-                key: `approval:${alert.code}`,
-                title: alertCopy(alert.code, alert.count, t, locale),
-                count: alert.count,
-                href: alert.href,
-                tone: 'approval',
-                actionLabel: locale === 'ar' ? 'راجع الآن' : 'Review now',
-              }),
-            ),
-            ...alerts.map((alert): OpsAttentionItem => {
-              const href = alertHref(portal, alert.code);
-              const canOpen = opens(href);
-              return {
-                key: alert.code,
-                title: alertCopy(alert.code, alert.count, t, locale),
-                count: alert.count,
-                tone: alert.severity,
-                ...(canOpen
-                  ? {
-                      href,
-                      actionLabel: locale === 'ar' ? 'عرض التفاصيل' : 'View details',
-                    }
-                  : {}),
-              };
-            }),
-          ]}
-        />
-      </OpsAttentionSection>
+      <section className="dash-alerts" aria-label={t('Portal.alertsTitle')}>
+        <div className="dash-section-head dash-section-head--compact">
+          <h2>{t('Portal.alertsTitle')}</h2>
+          <p className="dash-section-hint">{t('Portal.alertsHint')}</p>
+        </div>
+        {alerts.length || approvalAlerts.length ? (
+          <ul className="dash-alerts__list">
+            {approvalAlerts.map((alert) => (
+              <li key={alert.code} className="dash-alert dash-alert--approval">
+                <Link href={alert.href} prefetch>
+                  <strong>{alert.count}</strong>
+                  <span>{alertCopy(alert.code, alert.count, t, locale)}</span>
+                </Link>
+              </li>
+            ))}
+            {alerts.map((alert) => (
+              <li key={alert.code} className={`dash-alert dash-alert--${alert.severity}`}>
+                {opens(alertHref(portal, alert.code)) ? (
+                  <Link href={alertHref(portal, alert.code)} prefetch>
+                    <strong>{alert.count}</strong>
+                    <span>{alertCopy(alert.code, alert.count, t, locale)}</span>
+                  </Link>
+                ) : (
+                  <span>
+                    <strong>{alert.count}</strong>
+                    <span>{alertCopy(alert.code, alert.count, t, locale)}</span>
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="dash-alerts__empty">{t('Portal.noAlerts')}</p>
+        )}
+      </section>
 
       <div className="dash-mid">
         {financeLinks.length || opens(`/${portal}/accounting`) ? (

@@ -565,7 +565,6 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
         tx
           .select({
             id: invoices.id,
-            leaseId: invoices.leaseId,
             number: invoices.invoiceNumber,
             status: invoices.status,
             issuedOn: invoices.issuedOn,
@@ -737,7 +736,6 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
     }));
     const invoiceItems: TenancyInvoice[] = invoiceRows.map((row) => ({
       id: row.id,
-      leaseId: row.leaseId ?? null,
       landlord,
       number: row.number,
       status: row.status,
