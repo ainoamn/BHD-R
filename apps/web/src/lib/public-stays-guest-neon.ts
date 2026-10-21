@@ -20,6 +20,7 @@ import {
   type Database,
 } from '@bhd-r/db';
 import { DEFAULT_CONTRACT_TEMPLATES } from '@/lib/contract-default-templates';
+import { allocateChildContractReference } from '@/lib/contract-reference-neon';
 import { assertStayBookingTransition, nightsBetween } from '@bhd-r/domain';
 import { publicWebOrigin } from '@/lib/seo';
 import { termsBlocksFromStored, type TermsBlock } from '@/lib/booking-terms';
@@ -1117,23 +1118,6 @@ async function ensureStayRescheduleAmendmentTemplate(
   return created!.id;
 }
 
-async function allocateStayContractReference(
-  transaction: Tx,
-  orgId: string,
-  year: number,
-): Promise<string> {
-  const [row] = rowsOf<{ allocated: string | number | bigint }>(
-    await transaction.execute(sql`
-      insert into contract_sequences (organization_id, year, next_value)
-      values (${orgId}, ${year}, 2)
-      on conflict (organization_id, year)
-      do update set next_value = contract_sequences.next_value + 1
-      returning next_value - 1 as allocated
-    `),
-  );
-  return `CTR-${year}-${String(row!.allocated).padStart(6, '0')}`;
-}
-
 function contractSignatureHash(parts: string[]): string {
   return createHash('sha256').update(parts.join('|')).digest('hex');
 }
@@ -1226,13 +1210,14 @@ async function syncStayContractAfterRescheduleInTx(
     transaction,
     booking.organizationId,
   );
-  const reference = await allocateStayContractReference(
-    transaction,
-    booking.organizationId,
-    Number(startsOn.slice(0, 4)),
-  );
   const parentReference =
     parent.reference ?? `CTR-${parent.id.slice(0, 8).toUpperCase()}`;
+  const reference = await allocateChildContractReference(
+    transaction,
+    booking.organizationId,
+    parent.id,
+    parentReference,
+  );
   const owner = snapshot.owner && typeof snapshot.owner === 'object' ? snapshot.owner : null;
   const tenant =
     (snapshot.tenant && typeof snapshot.tenant === 'object' ? snapshot.tenant : null) ??

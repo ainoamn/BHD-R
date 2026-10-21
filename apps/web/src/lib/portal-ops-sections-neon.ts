@@ -208,6 +208,10 @@ async function loadSales(tx: OpsTransaction, orgId: string): Promise<NeonSection
 }
 
 async function loadContracts(tx: OpsTransaction, orgId: string): Promise<NeonSectionLoad> {
+  const { repairChildContractReferencesInTx } = await import('@/lib/contract-reference-neon');
+  await repairChildContractReferencesInTx(tx, orgId).catch((error: unknown) => {
+    console.error('repair child contract references failed', error);
+  });
   const snapshot = contracts.payloadSnapshot;
   const rows = await tx
     .select({

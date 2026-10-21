@@ -337,6 +337,10 @@ async function readContactRows(
   partyId: string,
 ): Promise<ContactDetail | null> {
   return withinViewerTenant(claims, async (tx) => {
+    const { repairChildContractReferencesInTx } = await import('@/lib/contract-reference-neon');
+    await repairChildContractReferencesInTx(tx, orgId).catch((error: unknown) => {
+      console.error('repair child contract references failed', error);
+    });
     const [party] = rows<{
       id: string;
       display_name: string;

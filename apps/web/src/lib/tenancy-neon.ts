@@ -496,6 +496,10 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
   const { organizationId: org, partyId: party, landlord } = link;
   const policy = await loadTenantPolicy(org);
   return withinTenant(userId, link, async (tx) => {
+    const { repairChildContractReferencesInTx } = await import('@/lib/contract-reference-neon');
+    await repairChildContractReferencesInTx(tx, org).catch((error: unknown) => {
+      console.error('repair child contract references failed', error);
+    });
     const [
       contractRows,
       signedRows,

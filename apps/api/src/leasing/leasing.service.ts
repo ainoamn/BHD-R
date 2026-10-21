@@ -40,6 +40,10 @@ import type { SessionClaims } from '@bhd-r/authz';
 import { hasPermission, type Permission } from '@bhd-r/authz';
 import type { CreateHoldInput, CreateLeaseInput, CurrencyCode } from '@bhd-r/contracts';
 import { currencyMinorUnits, signatureEvidenceSchema } from '@bhd-r/contracts';
+import {
+  formatChildContractReference,
+  nextChildContractSequence,
+} from '@bhd-r/domain';
 import { sanitizeDocumentTemplate, sanitizeRichText } from '@bhd-r/security';
 import { createHash, randomUUID } from 'node:crypto';
 import { DatabaseService, type DatabaseTransaction } from '../database/database.service.js';
@@ -642,22 +646,37 @@ export class LeasingService {
       const effectiveDate = new Date(`${lease.endsOn}T00:00:00.000Z`);
       effectiveDate.setUTCDate(effectiveDate.getUTCDate() + 1);
       const startsOn = effectiveDate.toISOString().slice(0, 10);
-      const contractYear = Number(startsOn.slice(0, 4));
-      const sequence = await transaction.execute(sql<{ allocated: bigint }>`
-        insert into contract_sequences (organization_id, year, next_value)
-        values (${claims.organizationId!}, ${contractYear}, 2)
-        on conflict (organization_id, year)
-        do update set next_value = contract_sequences.next_value + 1
-        returning next_value - 1 as allocated
-      `);
-      const allocated = BigInt(String(sequence[0]!.allocated));
-      const contractReference = `CTR-${contractYear}-${allocated.toString().padStart(6, '0')}`;
+      const parentReference =
+        parentContract.reference?.trim() ||
+        `CTR-${parentContract.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+      await transaction.execute(
+        sql`select pg_advisory_xact_lock(hashtextextended(${parentContract.id}, 41))`,
+      );
+      const siblings = await transaction
+        .select({ reference: contracts.reference })
+        .from(contracts)
+        .where(
+          and(
+            eq(contracts.organizationId, claims.organizationId!),
+            eq(contracts.parentContractId, parentContract.id),
+            ne(contracts.status, 'void'),
+          ),
+        );
+      const contractReference = formatChildContractReference(
+        parentReference,
+        nextChildContractSequence(
+          parentReference,
+          siblings
+            .map((row) => row.reference)
+            .filter((value): value is string => Boolean(value)),
+        ),
+      );
       const rentMinor = input.rent?.amountMinor ?? lease.rentMinor.toString();
       const payload = {
         contract: {
           reference: contractReference,
           kind: 'renewal',
-          parentReference: parentContract.reference,
+          parentReference,
         },
         owner: { id: owner.id, displayName: owner.displayName },
         tenant: { id: tenant.id, displayName: tenant.displayName },
