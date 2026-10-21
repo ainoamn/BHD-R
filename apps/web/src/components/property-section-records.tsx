@@ -5,6 +5,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from '
 import { Link } from '@/i18n/navigation';
 import { LeaseContractForm, type LeaseContractPayload } from '@/components/lease-contract-form';
 import { LeaseTermsView, parseLeaseTerms, parseTenantDetails } from '@/components/lease-terms-view';
+import { ModalPortal } from '@/components/modal-portal';
 import { NoteTranslateBar } from '@/components/note-translate';
 import { Icon, type IconName } from '@/components/pmh-icon';
 import { DepositReconciliation } from '@/components/accounting/deposit-receipts';
@@ -2249,22 +2250,72 @@ export function PropertySectionRecords({
                       </tr>
                     ) : null}
                     {refundForm && refundForm.rowId === row.id ? (
-                      <tr className="psr-details">
-                        <td colSpan={columns.length + (showActions ? 1 : 0)}>
-                          <DepositRefundForm
-                            mode={refundForm.mode}
-                            row={row}
-                            locale={locale}
-                            busy={busyId === row.id}
-                            defaultAmount={minorToDecimal(
-                              row.refundAmountMinor ?? row.depositMinor ?? null,
-                              row.currency ?? 'OMR',
-                            )}
-                            onSubmit={(value) => void submitRefund(row, value)}
-                            onCancel={() => setRefundForm(null)}
-                          />
-                        </td>
-                      </tr>
+                      <ModalPortal
+                        onClose={() => {
+                          if (busyId !== row.id) setRefundForm(null);
+                        }}
+                      >
+                        <div
+                          className="ops-modal ops-modal--create deposit-payout-modal"
+                          role="presentation"
+                          onMouseDown={(event) => {
+                            if (event.target === event.currentTarget && busyId !== row.id) {
+                              setRefundForm(null);
+                            }
+                          }}
+                        >
+                          <section
+                            className="ops-modal__card deposit-payout-modal__card"
+                            role="dialog"
+                            aria-modal="true"
+                            aria-labelledby={`psr-refund-title-${row.id}`}
+                            dir={ar ? 'rtl' : 'ltr'}
+                          >
+                            <header>
+                              <div>
+                                <span className="ops-kicker" dir="ltr">
+                                  {row.reference}
+                                </span>
+                                <h2 id={`psr-refund-title-${row.id}`}>
+                                  {refundForm.mode === 'approve'
+                                    ? ar
+                                      ? 'اعتماد استرداد التأمين'
+                                      : 'Approve deposit refund'
+                                    : refundForm.mode === 'reject'
+                                      ? ar
+                                        ? 'رفض استرداد التأمين'
+                                        : 'Reject deposit refund'
+                                      : ar
+                                        ? 'تسجيل تحويل التأمين'
+                                        : 'Record deposit transfer'}
+                                </h2>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setRefundForm(null)}
+                                disabled={busyId === row.id}
+                                aria-label={ar ? 'إغلاق' : 'Close'}
+                              >
+                                ×
+                              </button>
+                            </header>
+                            <div className="deposit-payout-modal__body">
+                              <DepositRefundForm
+                                mode={refundForm.mode}
+                                row={row}
+                                locale={locale}
+                                busy={busyId === row.id}
+                                defaultAmount={minorToDecimal(
+                                  row.refundAmountMinor ?? row.depositMinor ?? null,
+                                  row.currency ?? 'OMR',
+                                )}
+                                onSubmit={(value) => void submitRefund(row, value)}
+                                onCancel={() => setRefundForm(null)}
+                              />
+                            </div>
+                          </section>
+                        </div>
+                      </ModalPortal>
                     ) : null}
                     {rejectForm && rejectForm.rowId === row.id ? (
                       <tr className="psr-details">

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { openStayReviewDialog } from '@/components/stays/stay-guest-review';
 import type { StayRefundMoment } from '@/lib/stay-guest-greeting';
 import {
   OMAN_BANKS,
@@ -148,9 +149,13 @@ export function StayDepositRefund({ moment, ar }: { moment: StayRefundMoment; ar
               ? 'قبل طلب استرداد التأمين، قيّم إقامتك: نظافة المكان والعقار وتعامل الإدارة.'
               : 'Before requesting your deposit, rate your stay: cleanliness, the property and the management.'}
           </p>
-          <a className="button button--primary stay-refund__ask" href="#stay-review">
+          <button
+            type="button"
+            className="button button--primary stay-refund__ask"
+            onClick={() => openStayReviewDialog()}
+          >
             {ar ? 'قيّم إقامتك أولاً' : 'Rate your stay first'}
-          </a>
+          </button>
         </div>
       ) : null}
       {moment.state === 'open' && !moment.reviewRequired && !formOpen ? (

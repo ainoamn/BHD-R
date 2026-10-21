@@ -23553,6 +23553,43 @@ button.lrw__step-body:focus-visible {
   font-size: 0.86rem;
   opacity: 0.92;
 }
+.stay-review-modal {
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.stay-review-modal .ops-modal__card,
+.stay-review-modal .stay-review-modal__card {
+  width: min(42rem, 100%);
+  max-height: min(92dvh, 56rem);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.stay-review-modal__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 1.15rem 1.25rem;
+}
+.stay-review-modal__body .review-form__live {
+  top: 0;
+}
+@media (max-width: 640px) {
+  .stay-review-modal {
+    padding: 0;
+    align-items: stretch;
+  }
+  .stay-review-modal .ops-modal__card,
+  .stay-review-modal .stay-review-modal__card {
+    width: 100vw;
+    max-width: none;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+  }
+}
+
 .deposit-payout-modal {
   align-items: stretch;
   justify-content: stretch;

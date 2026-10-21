@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { ModalPortal } from '@/components/modal-portal';
 import {
   ReviewForm,
   ScoreBadge,
@@ -9,6 +10,18 @@ import {
   type ReviewFormValue,
 } from '@/components/reviews/review-form';
 import type { ReviewText } from '@/lib/review-rubric';
+
+/** Open the guest review dialog from anywhere on the stay page (e.g. deposit CTA). */
+export const STAY_REVIEW_OPEN_EVENT = 'bhd-r-stay-review-open';
+
+export function openStayReviewDialog(): void {
+  if (typeof window === 'undefined') return;
+  const { pathname, search } = window.location;
+  if (window.location.hash !== '#stay-review') {
+    window.history.replaceState(null, '', `${pathname}${search}#stay-review`);
+  }
+  window.dispatchEvent(new Event(STAY_REVIEW_OPEN_EVENT));
+}
 
 export type StayGuestReviewState = {
   required: boolean;
@@ -44,6 +57,27 @@ export function StayGuestReview({
   const [saved, setSaved] = useState<number | null>(null);
   const assistant = useMemo(() => guestReviewAssistant(referenceCode), [referenceCode]);
 
+  useEffect(() => {
+    const openFromHash = () => {
+      if (window.location.hash === '#stay-review') setOpen(true);
+    };
+    openFromHash();
+    window.addEventListener('hashchange', openFromHash);
+    window.addEventListener(STAY_REVIEW_OPEN_EVENT, openFromHash);
+    return () => {
+      window.removeEventListener('hashchange', openFromHash);
+      window.removeEventListener(STAY_REVIEW_OPEN_EVENT, openFromHash);
+    };
+  }, []);
+
+  function closeDialog() {
+    setOpen(false);
+    if (typeof window !== 'undefined' && window.location.hash === '#stay-review') {
+      const { pathname, search } = window.location;
+      window.history.replaceState(null, '', `${pathname}${search}`);
+    }
+  }
+
   function submit(value: ReviewFormValue) {
     startTransition(async () => {
       setError(null);
@@ -70,7 +104,7 @@ export function StayGuestReview({
           );
         }
         setSaved(payload.review.score);
-        setOpen(false);
+        closeDialog();
         router.refresh();
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : String(caught));
@@ -161,28 +195,67 @@ export function StayGuestReview({
           ? 'لن يرى المالك تقييمك ولن يُبلَّغ بوجوده قبل استرداد التأمين.'
           : 'The host will not see your review, or know it exists, before your deposit is refunded.'}
       </p>
-      {open ? (
-        <ReviewForm
-          direction="guest_to_host"
-          ar={ar}
-          idPrefix={`guest-review-${referenceCode}`}
-          busy={pending}
-          error={error}
-          subjectName={propertyName}
-          assistant={assistant}
-          onSubmit={submit}
-          onCancel={() => setOpen(false)}
-        />
-      ) : (
-        <button
-          type="button"
-          className="button button--primary stay-guest-review__start"
-          onClick={() => setOpen(true)}
-        >
-          {ar ? 'ابدأ التقييم' : 'Start the review'}
-        </button>
-      )}
+      <button
+        type="button"
+        className="button button--primary stay-guest-review__start"
+        onClick={() => openStayReviewDialog()}
+      >
+        {ar ? 'ابدأ التقييم' : 'Start the review'}
+      </button>
       {fromHost}
+
+      {open ? (
+        <ModalPortal onClose={() => !pending && closeDialog()}>
+          <div
+            className="ops-modal ops-modal--create stay-review-modal"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget && !pending) closeDialog();
+            }}
+          >
+            <section
+              className="ops-modal__card stay-review-modal__card"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="stay-review-dialog-title"
+              dir={ar ? 'rtl' : 'ltr'}
+            >
+              <header>
+                <div>
+                  <span className="ops-kicker" dir="ltr">
+                    {referenceCode}
+                  </span>
+                  <h2 id="stay-review-dialog-title">
+                    {ar ? 'تقييم الإقامة' : 'Stay review'}
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => closeDialog()}
+                  disabled={pending}
+                  aria-label={ar ? 'إغلاق' : 'Close'}
+                >
+                  ×
+                </button>
+              </header>
+              <div className="stay-review-modal__body">
+                <ReviewForm
+                  direction="guest_to_host"
+                  ar={ar}
+                  idPrefix={`guest-review-${referenceCode}`}
+                  busy={pending}
+                  error={error}
+                  subjectName={propertyName}
+                  assistant={assistant}
+                  stepped
+                  onSubmit={submit}
+                  onCancel={closeDialog}
+                />
+              </div>
+            </section>
+          </div>
+        </ModalPortal>
+      ) : null}
     </section>
   );
 }
