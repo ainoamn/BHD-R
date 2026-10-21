@@ -1,5 +1,37 @@
 import { contractPeriod, isIsoDate } from '@/lib/lease-terms';
 
+/** Group amendments under the original contract (owner + tenant lists). */
+export function groupContractRowsByParent<
+  T extends { id: string; parentContractId?: string | null; createdAt?: string | Date | null },
+>(rows: T[]): Array<{ root: T; attachments: T[] }> {
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  const children = new Map<string, T[]>();
+  const roots: T[] = [];
+  for (const row of rows) {
+    const parentId = row.parentContractId ?? null;
+    if (parentId && byId.has(parentId)) {
+      const list = children.get(parentId) ?? [];
+      list.push(row);
+      children.set(parentId, list);
+    } else {
+      roots.push(row);
+    }
+  }
+  return roots.map((root) => ({
+    root,
+    attachments: (children.get(root.id) ?? [])
+      .slice()
+      .sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? ''))),
+  }));
+}
+
+export function contractKindLabel(kind: string, ar: boolean): string {
+  if (kind === 'renewal') return ar ? 'تجديد' : 'Renewal';
+  if (kind === 'amendment') return ar ? 'تعديل تواريخ' : 'Date change';
+  if (kind === 'termination') return ar ? 'إنهاء' : 'Termination';
+  return ar ? 'عقد أساسي' : 'Initial';
+}
+
 export const CONTRACT_TERMS = ['daily', 'monthly', 'yearly', 'sale'] as const;
 export type ContractTerm = (typeof CONTRACT_TERMS)[number];
 

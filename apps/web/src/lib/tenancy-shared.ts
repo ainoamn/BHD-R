@@ -1,4 +1,8 @@
 /** Client-safe shapes and alert rules for the signed-in account's own rentals and bookings. */
+import {
+  contractKindLabel,
+  groupContractRowsByParent,
+} from '@/lib/contract-list-facets';
 import { installmentKeyOf, type LeaseStatement } from '@/lib/tenant-ledger';
 import type { TenantRequest } from '@/lib/tenant-requests-shared';
 
@@ -32,31 +36,11 @@ export type TenancyContractGroup = {
 
 /** One row per original contract; amendments hang off as attachments. */
 export function tenancyContractGroups(contracts: TenancyContract[]): TenancyContractGroup[] {
-  const byId = new Map(contracts.map((row) => [row.id, row]));
-  const children = new Map<string, TenancyContract[]>();
-  const roots: TenancyContract[] = [];
-  for (const row of contracts) {
-    if (row.parentContractId && byId.has(row.parentContractId)) {
-      const list = children.get(row.parentContractId) ?? [];
-      list.push(row);
-      children.set(row.parentContractId, list);
-    } else {
-      roots.push(row);
-    }
-  }
-  return roots.map((root) => ({
-    root,
-    attachments: (children.get(root.id) ?? []).slice().sort((a, b) =>
-      b.createdAt.localeCompare(a.createdAt),
-    ),
-  }));
+  return groupContractRowsByParent(contracts);
 }
 
 export function tenancyContractKindLabel(kind: string, ar: boolean): string {
-  if (kind === 'renewal') return ar ? 'تجديد' : 'Renewal';
-  if (kind === 'amendment') return ar ? 'تعديل تواريخ' : 'Date change';
-  if (kind === 'termination') return ar ? 'إنهاء' : 'Termination';
-  return ar ? 'عقد أساسي' : 'Initial';
+  return contractKindLabel(kind, ar);
 }
 
 export type TenancyLease = {

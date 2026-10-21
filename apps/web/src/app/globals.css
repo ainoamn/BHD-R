@@ -15929,6 +15929,18 @@ body:has(.guest-stay-detail) #main-content {
   @page {
     margin: 12mm;
   }
+  /* Chrome clips RTL pages; document keeps its own dir on the article. */
+  html:has(body.printing-stay) {
+    direction: ltr;
+    background: #fff;
+  }
+  body.printing-stay,
+  body.printing-stay .portal-layout,
+  body.printing-stay .portal-main {
+    overflow: visible !important;
+    height: auto !important;
+    background: #fff !important;
+  }
   .stay-booking-sheet__no-print,
   .stay-booking-ops,
   .stay-contract-nav,
@@ -15937,6 +15949,7 @@ body:has(.guest-stay-detail) #main-content {
   .stays-nav,
   .portal-sidebar,
   .portal-header,
+  .portal-chrome,
   .portal-main > .portal-breadcrumbs,
   .site-header,
   .site-footer,
@@ -15956,19 +15969,31 @@ body:has(.guest-stay-detail) #main-content {
     box-shadow: none !important;
     padding: 0 !important;
     background: #fff !important;
+    overflow: visible !important;
   }
   .stay-desk__letterhead {
     border-bottom: 2px solid #092d24;
     break-inside: avoid;
   }
-  .stay-desk__hero,
-  .stay-desk__kpi,
-  .stay-desk__panel,
   .stay-desk__section,
+  .stay-desk__panel,
+  .stay-doc__cover,
+  .stay-desk__hero-shot {
+    overflow: visible !important;
+  }
+  .stay-desk__kpi,
   .stay-desk__change,
   .stay-timeline__step,
-  .stay-timeline__event {
+  .stay-timeline__event,
+  .stay-desk__letterhead {
     break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  .stay-desk__hero,
+  .stay-desk__panel,
+  .stay-desk__section {
+    break-inside: auto;
+    page-break-inside: auto;
   }
   .stay-desk__status,
   .stay-desk__kpi,

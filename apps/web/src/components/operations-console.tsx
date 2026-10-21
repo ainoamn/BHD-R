@@ -28,7 +28,9 @@ import {
   CONTRACT_TERMS,
   PROPERTY_USAGE_LABELS,
   PROPERTY_USAGES,
+  contractKindLabel,
   contractState,
+  groupContractRowsByParent,
   isContractCategory,
   muscatToday,
   rowContractCategory,
@@ -2708,11 +2710,36 @@ export function OperationsConsole({
     const qs = params.toString();
     router.replace(`/${locale}/${portal}/bookings${qs ? `?${qs}` : ''}`, { scroll: false });
   }
+  const contractGroups = useMemo(() => {
+    if (section !== 'contracts') return [] as Array<{ root: DataRow; attachments: DataRow[] }>;
+    const keyed = filtered.map((row) => ({
+      row,
+      id: safeString(row.id),
+      parentContractId: safeString(row.parentContractId) || null,
+      createdAt: safeString(row.createdAt),
+    }));
+    return groupContractRowsByParent(keyed).map(({ root, attachments }) => ({
+      root: root.row,
+      attachments: attachments.map((item) => item.row),
+    }));
+  }, [section, filtered]);
+
+  const contractAttachmentsById = useMemo(() => {
+    const map = new Map<string, DataRow[]>();
+    for (const group of contractGroups) {
+      map.set(safeString(group.root.id), group.attachments);
+    }
+    return map;
+  }, [contractGroups]);
+
   const tableRows = useMemo(() => {
     if (section === 'bookings') {
       return [...filtered].sort((a, b) =>
         compareBookingPriority(bookingSortKey(a), bookingSortKey(b)),
       );
+    }
+    if (section === 'contracts') {
+      return contractGroups.map((group) => group.root);
     }
     if (section !== 'properties') return filtered;
     const rows: DataRow[] = [];
@@ -2728,7 +2755,7 @@ export function OperationsConsole({
       }
     }
     return rows;
-  }, [expandedProperties, filtered, section]);
+  }, [expandedProperties, filtered, section, contractGroups]);
   const openCount = records.filter(
     (row) =>
       ![
@@ -4177,7 +4204,8 @@ ${depositHtml}${
                 </select>
               </label>
               <span className="ops-result-count">
-                {filtered.length} {ar ? 'نتيجة' : 'results'}
+                {(section === 'contracts' ? tableRows.length : filtered.length)}{' '}
+                {ar ? 'نتيجة' : 'results'}
               </span>
               {section === 'accounting' ? (
                 <span className="ops-inline-actions ops-toolbar__accounting">
@@ -4415,6 +4443,48 @@ ${depositHtml}${
                                     })()}
                                   />
                                 </span>
+                              ) : section === 'contracts' && column.key === 'reference' ? (
+                                <div className="tenant-contract-ref">
+                                  <bdi>
+                                    {displayCell(row, column, locale, context, definition.flow)}
+                                  </bdi>
+                                  {(() => {
+                                    const attachments =
+                                      contractAttachmentsById.get(safeString(row.id)) ?? [];
+                                    if (!attachments.length) return null;
+                                    return (
+                                      <details className="tenant-contract-attach">
+                                        <summary>
+                                          {ar
+                                            ? `المرفقات (${attachments.length})`
+                                            : `Attached (${attachments.length})`}
+                                        </summary>
+                                        <ul>
+                                          {attachments.map((item) => (
+                                            <li key={safeString(item.id)}>
+                                              <Link
+                                                href={`/${portal}/contracts/${encodeURIComponent(safeString(item.id))}`}
+                                                prefetch
+                                              >
+                                                <bdi>
+                                                  {safeString(item.reference) ||
+                                                    safeString(item.id).slice(0, 8)}
+                                                </bdi>
+                                              </Link>
+                                              <span>
+                                                {contractKindLabel(safeString(item.kind), ar)} ·{' '}
+                                                {domainStatusLabel(
+                                                  safeString(item.state) || safeString(item.status),
+                                                  ar,
+                                                )}
+                                              </span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </details>
+                                    );
+                                  })()}
+                                </div>
                               ) : (
                                 displayCell(row, column, locale, context, definition.flow)
                               )}
@@ -4800,8 +4870,13 @@ ${depositHtml}${
                 </table>
               </div>
               <div className="ops-mobile-cards" aria-label={ar ? 'قائمة السجلات' : 'Records list'}>
-                {(section === 'bookings' ? tableRows : filtered).map((row, index) => {
+                {(section === 'bookings' || section === 'contracts' ? tableRows : filtered).map(
+                  (row, index) => {
                   const serial = safeString(row.serialNumber);
+                  const contractAttachments =
+                    section === 'contracts'
+                      ? (contractAttachmentsById.get(safeString(row.id)) ?? [])
+                      : [];
                   const name =
                     (section === 'contracts' ? safeString(row.reference) : '') ||
                     safeString(row.nameAr) ||
@@ -4848,6 +4923,37 @@ ${depositHtml}${
                             {name}
                             <BadgeChips badges={badgesOf(row.badges)} locale={locale} size={18} />
                           </h3>
+                          {contractAttachments.length ? (
+                            <details className="tenant-contract-attach">
+                              <summary>
+                                {ar
+                                  ? `المرفقات (${contractAttachments.length})`
+                                  : `Attached (${contractAttachments.length})`}
+                              </summary>
+                              <ul>
+                                {contractAttachments.map((item) => (
+                                  <li key={safeString(item.id)}>
+                                    <Link
+                                      href={`/${portal}/contracts/${encodeURIComponent(safeString(item.id))}`}
+                                      prefetch
+                                    >
+                                      <bdi>
+                                        {safeString(item.reference) ||
+                                          safeString(item.id).slice(0, 8)}
+                                      </bdi>
+                                    </Link>
+                                    <span>
+                                      {contractKindLabel(safeString(item.kind), ar)} ·{' '}
+                                      {domainStatusLabel(
+                                        safeString(item.state) || safeString(item.status),
+                                        ar,
+                                      )}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </details>
+                          ) : null}
                           {serial ? (
                             <p className="ops-mobile-card__serial" dir="ltr">
                               {serial}
