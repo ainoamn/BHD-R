@@ -101,6 +101,8 @@ type GuestBooking = {
     note: string | null;
     at: string;
   } | null;
+  contract?: { id: string; reference: string; status: string } | null;
+  amendmentContract?: { id: string; reference: string; status: string } | null;
 };
 
 const REFUND_STATE: Record<GuestDepositRefund['status'], StayRefundMoment['state']> = {
@@ -665,7 +667,25 @@ export default async function GuestStayDetailPage({
                     </dd>
                   </div>
                 ) : null}
-                {esignRequired && accepted ? (
+                {booking.contract ? (
+                  <div>
+                    <dt>{ar ? 'عقد الإقامة' : 'Stay contract'}</dt>
+                    <dd>
+                      <Link href={`/tenant/contracts/${booking.contract.id}`}>
+                        <bdi dir="ltr">{booking.contract.reference}</bdi>
+                      </Link>
+                      {esignRequired && accepted && !needsEsign
+                        ? ar
+                          ? ' · موقّع إلكترونياً'
+                          : ' · Signed electronically'
+                        : needsEsign
+                          ? ar
+                            ? ' · بانتظار توقيعك'
+                            : ' · Awaiting your signature'
+                          : null}
+                    </dd>
+                  </div>
+                ) : esignRequired && accepted ? (
                   <div>
                     <dt>{ar ? 'عقد الإقامة' : 'Stay contract'}</dt>
                     <dd>
@@ -676,6 +696,16 @@ export default async function GuestStayDetailPage({
                         : ar
                           ? 'موقّع إلكترونياً'
                           : 'Signed electronically'}
+                    </dd>
+                  </div>
+                ) : null}
+                {booking.amendmentContract ? (
+                  <div>
+                    <dt>{ar ? 'ملحق تعديل التواريخ' : 'Date-change addendum'}</dt>
+                    <dd>
+                      <Link href={`/tenant/contracts/${booking.amendmentContract.id}`}>
+                        <bdi dir="ltr">{booking.amendmentContract.reference}</bdi>
+                      </Link>
                     </dd>
                   </div>
                 ) : null}
@@ -723,6 +753,26 @@ export default async function GuestStayDetailPage({
                 >
                   {ar ? 'تأكيد الحجز (PDF)' : 'Booking confirmation (PDF)'}
                 </Link>
+                {booking.contract ? (
+                  <Link
+                    className="button button--quiet"
+                    href={`/tenant/contracts/${booking.contract.id}`}
+                  >
+                    {ar
+                      ? `عقد الإقامة (${booking.contract.reference})`
+                      : `Stay contract (${booking.contract.reference})`}
+                  </Link>
+                ) : null}
+                {booking.amendmentContract ? (
+                  <Link
+                    className="button button--quiet"
+                    href={`/tenant/contracts/${booking.amendmentContract.id}`}
+                  >
+                    {ar
+                      ? `ملحق التعديل (${booking.amendmentContract.reference})`
+                      : `Amendment (${booking.amendmentContract.reference})`}
+                  </Link>
+                ) : null}
               </div>
             ) : null}
             {welcome && paid && booking.guestEmail ? (

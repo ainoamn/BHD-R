@@ -48,8 +48,14 @@ export function StayBookingTimelineSection({
     (iso) => formatStamp(iso, ar),
   );
 
+  const logKey = `${facts.history.length}:${facts.history[facts.history.length - 1]?.at ?? ''}:${facts.payments.length}`;
+
   return (
-    <section className="stay-doc__section stay-timeline" aria-labelledby="stay-timeline-title">
+    <section
+      key={logKey}
+      className="stay-doc__section stay-timeline"
+      aria-labelledby="stay-timeline-title"
+    >
       <h2 id="stay-timeline-title">{ar ? 'مسار الحجز ومستجداته' : 'Booking progress'}</h2>
       {timeline.steps.length ? (
         <ol className="stay-timeline__steps">

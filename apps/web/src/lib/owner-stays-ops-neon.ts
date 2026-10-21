@@ -1,8 +1,9 @@
 import 'server-only';
-import { and, asc, desc, eq, gt, inArray, lt, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, isNull, lt, ne, sql } from 'drizzle-orm';
 import type { SessionClaims } from '@bhd-r/authz';
 import type { StayInventoryCalendarResponse } from '@bhd-r/contracts';
 import {
+  contracts,
   createDatabase,
   properties,
   stayBookings,
@@ -215,6 +216,16 @@ function timelineHistoryDetail(meta: unknown): StayBookingTimelineFacts['history
   const originalTotalMinor = pick('originalTotalMinor');
   const forfeitedMinor = pick('forfeitedMinor');
   const depositMinor = pick('depositMinor');
+  const checkInTime = pick('checkInTime');
+  const checkOutTime = pick('checkOutTime');
+  const fromCheckInTime = pick('fromCheckInTime');
+  const fromCheckOutTime = pick('fromCheckOutTime');
+  const toCheckInTime = pick('toCheckInTime');
+  const toCheckOutTime = pick('toCheckOutTime');
+  const amendmentReference = pick('amendmentReference');
+  const amendmentContractId = pick('amendmentContractId');
+  const contractReference = pick('contractReference');
+  const contractId = pick('contractId');
   const paymentIntentId =
     typeof root.paymentIntentId === 'string' ? root.paymentIntentId : null;
   if (fromCheckInOn) detail.fromCheckInOn = fromCheckInOn;
@@ -226,12 +237,22 @@ function timelineHistoryDetail(meta: unknown): StayBookingTimelineFacts['history
   if (stayType) detail.stayType = stayType;
   if (checkInOn) detail.checkInOn = checkInOn;
   if (checkOutOn) detail.checkOutOn = checkOutOn;
+  if (checkInTime) detail.checkInTime = checkInTime;
+  if (checkOutTime) detail.checkOutTime = checkOutTime;
+  if (fromCheckInTime) detail.fromCheckInTime = fromCheckInTime;
+  if (fromCheckOutTime) detail.fromCheckOutTime = fromCheckOutTime;
+  if (toCheckInTime) detail.toCheckInTime = toCheckInTime;
+  if (toCheckOutTime) detail.toCheckOutTime = toCheckOutTime;
   if (extraDueMinor) detail.extraDueMinor = extraDueMinor;
   if (quotedTotalMinor) detail.quotedTotalMinor = quotedTotalMinor;
   if (chargedTotalMinor) detail.chargedTotalMinor = chargedTotalMinor;
   if (originalTotalMinor) detail.originalTotalMinor = originalTotalMinor;
   if (forfeitedMinor) detail.forfeitedMinor = forfeitedMinor;
   if (depositMinor) detail.depositMinor = depositMinor;
+  if (amendmentReference) detail.amendmentReference = amendmentReference;
+  if (amendmentContractId) detail.amendmentContractId = amendmentContractId;
+  if (contractReference) detail.contractReference = contractReference;
+  if (contractId) detail.contractId = contractId;
   if (paymentIntentId) detail.paymentIntentId = paymentIntentId;
   return Object.keys(detail).length ? detail : null;
 }
@@ -523,7 +544,44 @@ export async function getOwnerStayBookingContractOnNeon(
         .limit(8),
       loadPropertyLocation(transaction, organizationId, row.propertyId),
     ]);
-    const timeline = await loadTimelineFacts(transaction, organizationId, bookingId);
+    const [timeline, parentContract, latestAmendment] = await Promise.all([
+      loadTimelineFacts(transaction, organizationId, bookingId),
+      transaction
+        .select({
+          id: contracts.id,
+          reference: contracts.reference,
+          status: contracts.status,
+        })
+        .from(contracts)
+        .where(
+          and(
+            eq(contracts.organizationId, organizationId),
+            sql`${contracts.payloadSnapshot}->'source'->>'stayBookingId' = ${bookingId}`,
+            isNull(contracts.parentContractId),
+            ne(contracts.status, 'void'),
+          ),
+        )
+        .limit(1)
+        .then((rows) => rows[0] ?? null),
+      transaction
+        .select({
+          id: contracts.id,
+          reference: contracts.reference,
+          status: contracts.status,
+        })
+        .from(contracts)
+        .where(
+          and(
+            eq(contracts.organizationId, organizationId),
+            eq(contracts.kind, 'amendment'),
+            ne(contracts.status, 'void'),
+            sql`${contracts.payloadSnapshot}->'source'->>'stayBookingId' = ${bookingId}`,
+          ),
+        )
+        .orderBy(desc(contracts.createdAt))
+        .limit(1)
+        .then((rows) => rows[0] ?? null),
+    ]);
 
     const contact = readGuestContact(row.pricingSnapshotJson);
     const pendingReschedule = readPendingReschedule(row.pricingSnapshotJson);
@@ -714,6 +772,23 @@ export async function getOwnerStayBookingContractOnNeon(
           })
         : null,
       timeline,
+      contract: parentContract
+        ? {
+            id: parentContract.id,
+            reference:
+              parentContract.reference ?? `CTR-${parentContract.id.slice(0, 8).toUpperCase()}`,
+            status: parentContract.status,
+          }
+        : null,
+      amendmentContract: latestAmendment
+        ? {
+            id: latestAmendment.id,
+            reference:
+              latestAmendment.reference ??
+              `CTR-${latestAmendment.id.slice(0, 8).toUpperCase()}`,
+            status: latestAmendment.status,
+          }
+        : null,
       overlappingBookings: overlapRows.map((item) =>
         toNeighbor({
           ...item,

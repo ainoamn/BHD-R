@@ -167,6 +167,10 @@ export type GuestStayBookingProjection = {
     note: string | null;
     at: string;
   } | null;
+  /** Parent stay contract when issued. */
+  contract?: { id: string; reference: string; status: string } | null;
+  /** Latest date-change amendment. */
+  amendmentContract?: { id: string; reference: string; status: string } | null;
 };
 
 const STAMPED_STATUSES = new Set(['checked_in', 'checked_out', 'closed']);
@@ -703,6 +707,43 @@ async function enrichProjection(
     (base.stayType as StayPeriodType | null | undefined) ?? null,
     profileTimes ?? {},
   );
+  const [parentContract, latestAmendment] = await Promise.all([
+    transaction
+      .select({
+        id: contracts.id,
+        reference: contracts.reference,
+        status: contracts.status,
+      })
+      .from(contracts)
+      .where(
+        and(
+          eq(contracts.organizationId, booking.organizationId),
+          sql`${contracts.payloadSnapshot}->'source'->>'stayBookingId' = ${booking.id}`,
+          isNull(contracts.parentContractId),
+          ne(contracts.status, 'void'),
+        ),
+      )
+      .limit(1)
+      .then((rows) => rows[0] ?? null),
+    transaction
+      .select({
+        id: contracts.id,
+        reference: contracts.reference,
+        status: contracts.status,
+      })
+      .from(contracts)
+      .where(
+        and(
+          eq(contracts.organizationId, booking.organizationId),
+          eq(contracts.kind, 'amendment'),
+          ne(contracts.status, 'void'),
+          sql`${contracts.payloadSnapshot}->'source'->>'stayBookingId' = ${booking.id}`,
+        ),
+      )
+      .orderBy(desc(contracts.createdAt))
+      .limit(1)
+      .then((rows) => rows[0] ?? null),
+  ]);
   return {
     depositMinor,
     depositStatus: depositGate?.status ?? null,
@@ -713,6 +754,22 @@ async function enrichProjection(
     ...base,
     checkInTime: period.checkInTime,
     checkOutTime: period.checkOutTime,
+    contract: parentContract
+      ? {
+          id: parentContract.id,
+          reference:
+            parentContract.reference ?? `CTR-${parentContract.id.slice(0, 8).toUpperCase()}`,
+          status: parentContract.status,
+        }
+      : null,
+    amendmentContract: latestAmendment
+      ? {
+          id: latestAmendment.id,
+          reference:
+            latestAmendment.reference ?? `CTR-${latestAmendment.id.slice(0, 8).toUpperCase()}`,
+          status: latestAmendment.status,
+        }
+      : null,
     paymentIntentId,
     payments,
     listingSlug: listing?.slug ?? null,
@@ -1090,7 +1147,7 @@ async function syncStayContractAfterRescheduleInTx(
   booking: typeof stayBookings.$inferSelect,
   stayType: RescheduleStayType,
   move: RescheduleMove,
-): Promise<void> {
+): Promise<{ id: string; reference: string } | null> {
   const [parent] = await transaction
     .select({
       id: contracts.id,
@@ -1111,7 +1168,7 @@ async function syncStayContractAfterRescheduleInTx(
       ),
     )
     .limit(1);
-  if (!parent) return;
+  if (!parent) return null;
 
   const [profileTimes] = booking.stayProfileId
     ? await transaction
@@ -1341,6 +1398,8 @@ async function syncStayContractAfterRescheduleInTx(
         inArray(leases.status, ['draft', 'active', 'cancel_requested', 'clearance_pending']),
       ),
     );
+
+  return amendment ? { id: amendment.id, reference } : null;
 }
 
 function todayInTimezone(timezone: string): string {
@@ -1510,23 +1569,63 @@ async function applyGuestRescheduleInTx(
       );
   }
 
+  const amendment = await syncStayContractAfterRescheduleInTx(
+    transaction,
+    updated,
+    stayType,
+    move,
+  );
+  const [profileTimesForLog] = booking.stayProfileId
+    ? await transaction
+        .select({
+          checkInFrom: stayProfiles.checkInFrom,
+          dayUseCheckInFrom: stayProfiles.dayUseCheckInFrom,
+          dayUseCheckOutUntil: stayProfiles.dayUseCheckOutUntil,
+          overnightCheckOutUntil: stayProfiles.overnightCheckOutUntil,
+          checkOutUntil: stayProfiles.checkOutUntil,
+        })
+        .from(stayProfiles)
+        .where(
+          and(
+            eq(stayProfiles.id, booking.stayProfileId),
+            eq(stayProfiles.organizationId, booking.organizationId),
+          ),
+        )
+        .limit(1)
+    : [null];
+  const fromPeriod = resolveStayPeriodTimes(move.fromStayType, profileTimesForLog ?? {});
+  const toPeriod = resolveStayPeriodTimes(stayType, profileTimesForLog ?? {});
+  const historyMeta = {
+    ...move,
+    fromCheckInTime: fromPeriod.checkInTime,
+    fromCheckOutTime: fromPeriod.checkOutTime,
+    toCheckInTime: toPeriod.checkInTime,
+    toCheckOutTime: toPeriod.checkOutTime,
+    ...(amendment
+      ? {
+          amendmentContractId: amendment.id,
+          amendmentReference: amendment.reference,
+          contractId: amendment.id,
+          contractReference: amendment.reference,
+        }
+      : {}),
+  };
+
   await transaction.insert(stayBookingStatusHistory).values({
     organizationId: booking.organizationId,
     bookingId: booking.id,
     fromStatus: booking.status,
     toStatus: booking.status,
     reason: 'guest_rescheduled',
-    metadataJson: move,
+    metadataJson: historyMeta,
   });
   await transaction.insert(outboxEvents).values({
     organizationId: booking.organizationId,
     topic: 'stay.booking.rescheduled',
     aggregateType: 'stay_booking',
     aggregateId: booking.id,
-    payload: { referenceCode: booking.referenceCode, unitId: booking.unitId, ...move },
+    payload: { referenceCode: booking.referenceCode, unitId: booking.unitId, ...historyMeta },
   });
-
-  await syncStayContractAfterRescheduleInTx(transaction, updated, stayType, move);
 
   return updated;
 }
@@ -1659,7 +1758,14 @@ export async function rescheduleGuestStayBookingOnNeon(input: {
     }
 
     const [profile] = await transaction
-      .select({ autoApproveReschedule: stayProfiles.autoApproveReschedule })
+      .select({
+        autoApproveReschedule: stayProfiles.autoApproveReschedule,
+        checkInFrom: stayProfiles.checkInFrom,
+        dayUseCheckInFrom: stayProfiles.dayUseCheckInFrom,
+        dayUseCheckOutUntil: stayProfiles.dayUseCheckOutUntil,
+        overnightCheckOutUntil: stayProfiles.overnightCheckOutUntil,
+        checkOutUntil: stayProfiles.checkOutUntil,
+      })
       .from(stayProfiles)
       .where(
         and(
@@ -1669,11 +1775,14 @@ export async function rescheduleGuestStayBookingOnNeon(input: {
       )
       .limit(1);
     const autoApprove = profile?.autoApproveReschedule !== false;
+    const requestedPeriod = resolveStayPeriodTimes(stayType, profile ?? {});
 
     const pendingBase = {
       checkInOn: priced.checkInOn,
       checkOutOn: priced.checkOutOn,
       stayType,
+      checkInTime: requestedPeriod.checkInTime,
+      checkOutTime: requestedPeriod.checkOutTime,
       quotedTotalMinor: charge.quotedTotalMinor,
       chargedTotalMinor: charge.chargedTotalMinor,
       extraDueMinor: charge.extraDueMinor,

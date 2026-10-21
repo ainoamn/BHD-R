@@ -10,6 +10,7 @@ import type { StayBookingPaymentLine } from '@/lib/stay-booking-payments';
 import {
   stayPaymentKindLabel,
 } from '@/lib/stay-booking-payment-labels';
+import { displayStayCheckoutOn } from '@/lib/stay-period-times';
 import { stayStatusLabel, stayTypeLabel } from '@/lib/ui-labels';
 
 export type StayTimelineHistory = {
@@ -30,6 +31,12 @@ export type StayTimelineHistory = {
     stayType?: string;
     checkInOn?: string;
     checkOutOn?: string;
+    checkInTime?: string;
+    checkOutTime?: string;
+    fromCheckInTime?: string;
+    fromCheckOutTime?: string;
+    toCheckInTime?: string;
+    toCheckOutTime?: string;
     extraDueMinor?: string;
     quotedTotalMinor?: string;
     chargedTotalMinor?: string;
@@ -37,6 +44,10 @@ export type StayTimelineHistory = {
     forfeitedMinor?: string;
     depositMinor?: string;
     paymentIntentId?: string;
+    amendmentReference?: string;
+    amendmentContractId?: string;
+    contractReference?: string;
+    contractId?: string;
   } | null;
 };
 
@@ -85,14 +96,31 @@ const AWAITING_ARRIVAL = new Set(['confirmed', 'paid', 'pre_arrival']);
 /** Status history rows told better by the stamps, the refund and the claims. */
 const TOLD_ELSEWHERE = new Set(['checked_in', 'checked_out', 'deposit_refund']);
 
-function dateRange(from: string | undefined, to: string | undefined): string | null {
-  if (!from || !to) return null;
-  return `${from} → ${to}`;
+function dateRange(
+  from: string | undefined,
+  to: string | undefined,
+  stayType?: string | undefined,
+): string | null {
+  if (!from) return null;
+  const displayOut = to ? displayStayCheckoutOn(stayType, from, to) : from;
+  if (!to || displayOut === from.slice(0, 10)) return from.slice(0, 10);
+  return `${from.slice(0, 10)} → ${displayOut}`;
 }
 
 function stayLabel(value: string | undefined, ar: boolean): string | null {
   if (!value) return null;
   return stayTypeLabel(value, ar);
+}
+
+function withTimes(
+  range: string | null,
+  checkInTime?: string | undefined,
+  checkOutTime?: string | undefined,
+): string | null {
+  if (!range) return null;
+  if (checkInTime && checkOutTime) return `${range} · ${checkInTime}–${checkOutTime}`;
+  if (checkInTime) return `${range} · ${checkInTime}`;
+  return range;
 }
 
 function historyEvent(
@@ -111,7 +139,11 @@ function historyEvent(
   const base = { key: `h${index}`, at: row.at, by: row.by };
 
   if (reason === 'guest_reschedule_requested') {
-    const range = dateRange(d?.checkInOn, d?.checkOutOn);
+    const range = withTimes(
+      dateRange(d?.checkInOn, d?.checkOutOn, d?.stayType),
+      d?.checkInTime ?? d?.toCheckInTime,
+      d?.checkOutTime ?? d?.toCheckOutTime,
+    );
     const stay = stayLabel(d?.stayType, ar);
     const extra =
       d?.extraDueMinor && d.extraDueMinor !== '0'
@@ -124,38 +156,54 @@ function historyEvent(
     return {
       ...base,
       tone: 'warn',
-      title: ar ? 'طلب الضيف تعديل التواريخ' : 'Guest requested a date change',
-      detail: [range, stay, extra].filter(Boolean).join(' · ') || null,
+      title: ar ? 'طلب الضيف تعديل التواريخ / الفترة' : 'Guest requested a date / period change',
+      detail: [range ? (ar ? `إلى: ${range}` : `To: ${range}`) : null, stay, extra]
+        .filter(Boolean)
+        .join('\n') || null,
     };
   }
   if (reason === 'owner_rejected_reschedule') {
+    const declined = withTimes(
+      dateRange(d?.checkInOn, d?.checkOutOn, d?.stayType),
+      d?.checkInTime,
+      d?.checkOutTime,
+    );
     return {
       ...base,
       tone: 'danger',
       title: ar ? 'رفض المالك طلب تعديل التواريخ' : 'Host declined the date-change request',
       detail:
         freeText ||
-        (d?.checkInOn && d?.checkOutOn
+        (declined
           ? ar
-            ? `الطلب المرفوض: ${d.checkInOn} → ${d.checkOutOn}`
-            : `Declined request: ${d.checkInOn} → ${d.checkOutOn}`
+            ? `الطلب المرفوض: ${declined}`
+            : `Declined request: ${declined}`
           : null),
     };
   }
-  if (reason === 'owner_approved_reschedule_awaiting_payment') {
+  if (reason === 'owner_approved_reschedule' || reason === 'owner_approved_reschedule_awaiting_payment') {
+    const awaitingPay = reason === 'owner_approved_reschedule_awaiting_payment';
     const extra =
-      d?.extraDueMinor && d.extraDueMinor !== '0'
-        ? money(d.extraDueMinor)
-        : null;
+      d?.extraDueMinor && d.extraDueMinor !== '0' ? money(d.extraDueMinor) : null;
+    const range = withTimes(
+      dateRange(d?.checkInOn, d?.checkOutOn, d?.stayType) ||
+        dateRange(d?.toCheckInOn, d?.toCheckOutOn, d?.toStayType),
+      d?.checkInTime ?? d?.toCheckInTime,
+      d?.checkOutTime ?? d?.toCheckOutTime,
+    );
     return {
       ...base,
-      tone: 'info',
-      title: ar
-        ? 'اعتمد المالك التعديل — بانتظار دفع الفرق'
-        : 'Host approved the change — awaiting top-up',
+      tone: awaitingPay ? 'info' : 'done',
+      title: awaitingPay
+        ? ar
+          ? 'وافق المالك على التعديل — بانتظار دفع الفرق'
+          : 'Host approved the change — awaiting top-up'
+        : ar
+          ? 'وافق المالك على تعديل التواريخ'
+          : 'Host approved the date change',
       detail: [
-        dateRange(d?.checkInOn, d?.checkOutOn),
-        stayLabel(d?.stayType, ar),
+        range ? (ar ? `إلى: ${range}` : `To: ${range}`) : null,
+        stayLabel(d?.stayType ?? d?.toStayType, ar),
         extra
           ? ar
             ? `المبلغ المطلوب: ${extra}`
@@ -163,12 +211,20 @@ function historyEvent(
           : null,
       ]
         .filter(Boolean)
-        .join(' · ') || null,
+        .join('\n') || null,
     };
   }
-  if (reason === 'guest_rescheduled') {
-    const from = dateRange(d?.fromCheckInOn, d?.fromCheckOutOn);
-    const to = dateRange(d?.toCheckInOn, d?.toCheckOutOn);
+  if (reason === 'guest_rescheduled' || reason === 'reschedule_applied') {
+    const from = withTimes(
+      dateRange(d?.fromCheckInOn, d?.fromCheckOutOn, d?.fromStayType),
+      d?.fromCheckInTime,
+      d?.fromCheckOutTime,
+    );
+    const to = withTimes(
+      dateRange(d?.toCheckInOn, d?.toCheckOutOn, d?.toStayType),
+      d?.toCheckInTime,
+      d?.toCheckOutTime,
+    );
     const stayChange =
       d?.fromStayType || d?.toStayType
         ? `${stayLabel(d?.fromStayType, ar) ?? '—'} → ${stayLabel(d?.toStayType, ar) ?? '—'}`
@@ -176,20 +232,39 @@ function historyEvent(
     const charged =
       d?.chargedTotalMinor || d?.quotedTotalMinor
         ? ar
-          ? `إجمالي العرض: ${money(d.chargedTotalMinor || d.quotedTotalMinor || '0')}`
-          : `Quoted total: ${money(d.chargedTotalMinor || d.quotedTotalMinor || '0')}`
+          ? `المبلغ بعد التعديل: ${money(d.chargedTotalMinor || d.quotedTotalMinor || '0')}`
+          : `Amount after change: ${money(d.chargedTotalMinor || d.quotedTotalMinor || '0')}`
+        : null;
+    const amendment =
+      d?.amendmentReference || d?.contractReference
+        ? ar
+          ? `ملحق العقد: ${d.amendmentReference || d.contractReference}`
+          : `Contract addendum: ${d.amendmentReference || d.contractReference}`
         : null;
     return {
       ...base,
       tone: 'done',
       title: ar ? 'طُبّق تعديل التواريخ / نوع الإقامة' : 'Date / stay-type change applied',
       detail: [
-        from && to ? (ar ? `من ${from} إلى ${to}` : `From ${from} to ${to}`) : to || from,
+        from && to ? (ar ? `من: ${from}\nإلى: ${to}` : `From: ${from}\nTo: ${to}`) : to || from,
         stayChange,
         charged,
+        amendment,
       ]
         .filter(Boolean)
         .join('\n') || null,
+    };
+  }
+  if (reason === 'stay_contract_issued' || reason === 'contract_issued') {
+    return {
+      ...base,
+      tone: 'done',
+      title: ar ? 'أُصدر عقد الإقامة' : 'Stay contract issued',
+      detail: d?.contractReference
+        ? ar
+          ? `رقم العقد: ${d.contractReference}`
+          : `Contract: ${d.contractReference}`
+        : null,
     };
   }
   if (reason === 'deposit_waived') {

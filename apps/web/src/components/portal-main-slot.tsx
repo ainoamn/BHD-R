@@ -113,7 +113,9 @@ export function PortalMainSlot({
   const [tenantHostMounted, setTenantHostMounted] = useState(() => Boolean(tenantSoft));
   const [pages, setPages] = useState<Record<string, ReactNode>>({});
   const register = useCallback((path: string, content: ReactNode) => {
-    setPages((current) => (current[path] === content ? current : { ...current, [path]: content }));
+    // Always replace — soft-nav + router.refresh() must show fresh RSC output
+    // (e.g. booking timeline after reschedule), not a stale first-visit tree.
+    setPages((current) => ({ ...current, [path]: content }));
   }, []);
 
   useEffect(() => {

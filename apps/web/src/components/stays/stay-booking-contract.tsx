@@ -96,6 +96,10 @@ export type StayBookingContractData = {
   nextBooking?: StayBookingNeighbor | null;
   overlappingBookings?: StayBookingNeighbor[];
   timeline?: StayBookingTimelineFacts | null;
+  /** Parent stay contract (initial), when issued. */
+  contract?: { id: string; reference: string; status: string } | null;
+  /** Latest date-change amendment linked to the parent contract. */
+  amendmentContract?: { id: string; reference: string; status: string } | null;
 };
 
 function cardBrandCopy(brand: string | null | undefined, ar: boolean): string {
@@ -729,14 +733,30 @@ export function StayBookingContract({
               : []),
             {
               label: ar ? 'عقد الإقامة' : 'Stay contract',
-              value: booking.esignSignaturePng ? (
+              value: booking.contract ? (
+                <Link href={`/${portal}/contracts/${booking.contract.id}`}>
+                  <bdi dir="ltr">{booking.contract.reference}</bdi>
+                </Link>
+              ) : booking.esignSignaturePng ? (
                 <a href="#stay-esign">{ar ? 'عرض التوقيع والمستندات' : 'View signature & documents'}</a>
               ) : ar ? (
-                'لم يُوقَّع بعد'
+                'لم يُصدَر بعد'
               ) : (
-                'Not signed yet'
+                'Not issued yet'
               ),
             },
+            ...(booking.amendmentContract
+              ? [
+                  {
+                    label: ar ? 'آخر ملحق تعديل' : 'Latest amendment',
+                    value: (
+                      <Link href={`/${portal}/contracts/${booking.amendmentContract.id}`}>
+                        <bdi dir="ltr">{booking.amendmentContract.reference}</bdi>
+                      </Link>
+                    ),
+                  },
+                ]
+              : []),
             {
               label: ar ? 'تأكيد الحجز' : 'Confirmation',
               value: (

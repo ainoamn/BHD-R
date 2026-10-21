@@ -971,6 +971,15 @@ export async function approveGuestRescheduleOnNeon(
       };
     }
 
+    await tx.insert(stayBookingStatusHistory).values({
+      organizationId: orgId,
+      bookingId: booking.id,
+      fromStatus: booking.status,
+      toStatus: booking.status,
+      actorUserId: claims.sub,
+      reason: 'owner_approved_reschedule',
+      metadataJson: pending,
+    });
     const updated = await applyStoredPendingRescheduleInTx(tx, booking, 'owner');
     if (!updated) fail('reschedule_not_pending');
     await tx.insert(workflowEvents).values({
