@@ -8,7 +8,13 @@ const IMAGE_WAIT_MS = 8_000;
 type Recipient = { name: string | null; email: string | null; phone: string | null };
 
 /** A document on the page that can go into the print, e.g. the contract and its annexes. */
-type PrintPart = { id: string; label: string; available: boolean };
+type PrintPart = {
+  id: string;
+  label: string;
+  available: boolean;
+  /** When set, print opens this URL (full document) instead of cloning a local node. */
+  href?: string;
+};
 
 /** Lazy images in a hidden part have not loaded yet; print only once they have (or time out). */
 function imagesReady(root: HTMLElement): Promise<void> {
@@ -72,6 +78,16 @@ export function ContractDocumentToolbar({
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('print') !== '1') return;
+    setPrinting([documentId]);
+    params.delete('print');
+    const next = `${window.location.pathname}${params.toString() ? `?${params}` : ''}${window.location.hash}`;
+    window.history.replaceState(null, '', next);
+  }, [documentId]);
+
+  useEffect(() => {
     if (!printing) return;
     const sources = printing
       .map((id) => document.getElementById(id))
@@ -129,7 +145,20 @@ export function ContractDocumentToolbar({
     if (!ids.length) return;
     if (picker === 'pdf') showPdfHint();
     setPicker(null);
-    setPrinting(ids);
+    const byId = new Map((parts ?? []).map((part) => [part.id, part]));
+    const local: string[] = [];
+    const remote: string[] = [];
+    for (const id of ids) {
+      const href = byId.get(id)?.href;
+      if (href) remote.push(href);
+      else local.push(id);
+    }
+    for (const href of remote) {
+      const url = new URL(href, window.location.origin);
+      url.searchParams.set('print', '1');
+      window.open(url.toString(), '_blank', 'noopener,noreferrer');
+    }
+    if (local.length) setPrinting(local);
   };
   const toggle = (id: string) =>
     setSelected((current) =>
@@ -271,8 +300,8 @@ export function ContractDocumentToolbar({
           </ul>
           <p className="muted">
             {ar
-              ? 'تُطبع المستندات المحددة معاً، ويبدأ كل محضر في صفحة جديدة. ولطباعة كل مستند على حدة اضغط «هذا وحده».'
-              : 'The selected documents print together, each record on a new page. To print one on its own, use “This only”.'}
+              ? 'العقد والمحاضر تُطبع معاً من هذه الصفحة. كل ملحق محدد يُفتح في تبويب جديد للطباعة الكاملة. استخدم «هذا وحده» لمستند واحد.'
+              : 'The contract and recorded annexes print from this page. Each selected addendum opens in a new tab for a full print. Use “This only” for a single document.'}
           </p>
           <div className="contract-print-picker__actions">
             <button

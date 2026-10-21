@@ -4453,7 +4453,10 @@ ${depositHtml}${
                                       contractAttachmentsById.get(safeString(row.id)) ?? [];
                                     if (!attachments.length) return null;
                                     return (
-                                      <details className="tenant-contract-attach">
+                                      <details
+                                        className="tenant-contract-attach"
+                                        onClick={(event) => event.stopPropagation()}
+                                      >
                                         <summary>
                                           {ar
                                             ? `المرفقات (${attachments.length})`
@@ -4924,7 +4927,10 @@ ${depositHtml}${
                             <BadgeChips badges={badgesOf(row.badges)} locale={locale} size={18} />
                           </h3>
                           {contractAttachments.length ? (
-                            <details className="tenant-contract-attach">
+                            <details
+                              className="tenant-contract-attach"
+                              onClick={(event) => event.stopPropagation()}
+                            >
                               <summary>
                                 {ar
                                   ? `المرفقات (${contractAttachments.length})`

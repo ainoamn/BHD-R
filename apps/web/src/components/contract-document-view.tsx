@@ -39,7 +39,15 @@ type Portal = Exclude<PortalRole, 'platform'>;
 
 const DOCUMENT_ID = 'contract-document';
 const annexDocumentId = (kind: string) => `contract-annex-${kind}`;
+const addendumDocumentId = (id: string) => `contract-addendum-${id}`;
 const BOOKING_COPY_ID = 'contract-booking-copy';
+
+function addendumTitle(kind: string, ar: boolean): string {
+  if (kind === 'renewal') return ar ? 'ملحق تجديد' : 'Renewal addendum';
+  if (kind === 'amendment') return ar ? 'ملحق تعديل التواريخ' : 'Date-change addendum';
+  if (kind === 'termination') return ar ? 'ملحق إنهاء' : 'Termination addendum';
+  return ar ? 'ملحق عقد' : 'Contract addendum';
+}
 
 /** The QR's own link, kept on the site's origin so it opens in the same session. */
 function bookingDocumentHref(booking: NonNullable<ContractDocument['booking']>): string {
@@ -340,9 +348,9 @@ export function ContractDocumentView({
         recipientPath={portal === 'tenant' ? null : recipientPath}
         pdfUrl={contract.documentUrl}
         parts={
-          doc.annexes.length || bookingCopy
+          doc.annexes.length || bookingCopy || doc.addenda.length
             ? [
-                { id: DOCUMENT_ID, label: ar ? 'العقد' : 'Contract', available: true },
+                { id: DOCUMENT_ID, label: ar ? 'العقد الأصلي' : 'Original contract', available: true },
                 ...(bookingCopy
                   ? [
                       {
@@ -357,13 +365,19 @@ export function ContractDocumentView({
                   label: pick(ANNEX_META[annex.kind].title),
                   available: annexDocuments.some((item) => item.kind === annex.kind),
                 })),
+                ...doc.addenda.map((addendum) => ({
+                  id: addendumDocumentId(addendum.id),
+                  label: `${addendumTitle(addendum.kind, ar)} · ${addendum.reference}`,
+                  available: true,
+                  href: `/${locale}/${portal}/contracts/${addendum.id}`,
+                })),
               ]
             : null
         }
       />
 
-      {doc.annexes.length || doc.booking ? (
-        <nav className="contract-annex-bar" aria-label={ar ? 'محاضر العقد' : 'Contract records'}>
+      {doc.annexes.length || doc.booking || doc.addenda.length ? (
+        <nav className="contract-annex-bar" aria-label={ar ? 'محاضر العقد وملاحقه' : 'Contract records & addenda'}>
           {doc.booking ? (
             <Link className="contract-annex-bar__item" href={bookingDocumentHref(doc.booking)}>
               <span className="contract-annex-bar__no">RSV</span>
@@ -406,6 +420,19 @@ export function ContractDocumentView({
               </span>
             );
           })}
+          {doc.addenda.map((addendum, index) => (
+            <Link
+              key={addendum.id}
+              className="contract-annex-bar__item"
+              href={`/${locale}/${portal}/contracts/${addendum.id}`}
+            >
+              <span className="contract-annex-bar__no">M{index + 1}</span>
+              <span className="contract-annex-bar__title">
+                {addendumTitle(addendum.kind, ar)}
+              </span>
+              <small dir="ltr">{addendum.reference}</small>
+            </Link>
+          ))}
         </nav>
       ) : null}
 
@@ -1228,26 +1255,28 @@ export function ContractArticle({
                     </>
                   ) : null}
                   {doc.addenda.length ? (
-                    <ul className="contract-doc__addenda">
-                      {doc.addenda.map((addendum) => (
+                    <ol className="contract-doc__annexes">
+                      {doc.addenda.map((addendum, index) => (
                         <li key={addendum.id}>
-                          <Link href={links.contract(addendum.id)}>
+                          <span className="contract-doc__annex-no">M{index + 1}</span>
+                          <span className="contract-doc__annex-title">
+                            <Link href={links.contract(addendum.id)}>
+                              {bi([
+                                addendumTitle(addendum.kind, true),
+                                addendumTitle(addendum.kind, false),
+                              ])}
+                            </Link>
                             <bdi dir="ltr">{addendum.reference}</bdi>
-                          </Link>
-                          <span>
-                            {bi(
-                              addendum.kind === 'renewal'
-                                ? ['تجديد', 'Renewal']
-                                : addendum.kind === 'amendment'
-                                  ? ['تعديل تواريخ', 'Date change']
-                                  : [addendum.kind, addendum.kind],
-                            )}
                           </span>
-                          <span>{bi(label(STATUS_LABELS, addendum.status))}</span>
-                          <span>{bi(day(addendum.createdAt))}</span>
+                          <span className="contract-doc__annex-state">
+                            {bi(label(STATUS_LABELS, addendum.status) ?? [
+                              addendum.status,
+                              addendum.status,
+                            ])}
+                          </span>
                         </li>
                       ))}
-                    </ul>
+                    </ol>
                   ) : doc.parent || doc.annexes.length ? null : (
                     para('لا توجد ملاحق لهذا العقد.', 'No addenda.', 'contract-doc__lead')
                   )}

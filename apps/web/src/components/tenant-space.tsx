@@ -120,62 +120,66 @@ function ContractsTable({ ar, locale, data }: Ctx) {
   const groups = tenancyContractGroups(data.contracts);
   if (!groups.length) return <EmptyState title={ar ? 'لا عقود بعد' : 'No contracts yet'} />;
   return (
-    <Table
-      head={
-        ar
-          ? ['العقد', 'الوحدة', 'المالك', 'المدة', 'القيمة', 'الحالة', '']
-          : ['Contract', 'Unit', 'Landlord', 'Term', 'Value', 'Status', '']
-      }
-    >
+    <ul className="tenant-contract-list">
       {groups.map(({ root: contract, attachments }) => (
-        <tr key={contract.id}>
-          <td className="tenant-table__ref">
-            <div className="tenant-contract-ref">
-              <bdi>{contract.reference}</bdi>
-              {attachments.length ? (
-                <details className="tenant-contract-attach">
-                  <summary>
-                    {ar
-                      ? `المرفقات (${attachments.length})`
-                      : `Attached (${attachments.length})`}
-                  </summary>
-                  <ul>
-                    {attachments.map((item) => (
-                      <li key={item.id}>
-                        <Link href={`/tenant/contracts/${item.id}`}>
-                          <bdi>{item.reference}</bdi>
-                        </Link>
-                        <span>
-                          {tenancyContractKindLabel(item.kind, ar)} ·{' '}
-                          {domainStatusLabel(item.status, ar)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              ) : null}
+        <li key={contract.id} className="tenant-contract-card">
+          <div className="tenant-contract-card__main">
+            <div className="tenant-contract-card__head">
+              <bdi className="tenant-contract-card__ref">{contract.reference}</bdi>
+              {contractStatusCell(contract, ar)}
             </div>
-          </td>
-          <td>
-            {tenancyUnitLabel(contract, ar)}
-            {contract.stayReference ? (
-              <small className="tenant-table__sub">
-                {ar ? 'إقامة يومية' : 'Daily stay'} · <bdi>{contract.stayReference}</bdi>
-              </small>
+            <dl className="tenant-contract-card__meta">
+              <div>
+                <dt>{ar ? 'الوحدة' : 'Unit'}</dt>
+                <dd>
+                  {tenancyUnitLabel(contract, ar)}
+                  {contract.stayReference ? (
+                    <small className="tenant-table__sub">
+                      {ar ? 'إقامة يومية' : 'Daily stay'} · <bdi>{contract.stayReference}</bdi>
+                    </small>
+                  ) : null}
+                </dd>
+              </div>
+              <div>
+                <dt>{ar ? 'المالك' : 'Landlord'}</dt>
+                <dd>{tenancyLandlordName(contract.landlord, ar)}</dd>
+              </div>
+              <div>
+                <dt>{ar ? 'المدة' : 'Term'}</dt>
+                <dd>{period(contract.startsOn, contract.endsOn, ar)}</dd>
+              </div>
+              <div>
+                <dt>{ar ? 'القيمة' : 'Value'}</dt>
+                <dd>{money(contract.amountMinor, contract.currency, locale)}</dd>
+              </div>
+            </dl>
+            {attachments.length ? (
+              <details className="tenant-contract-attach">
+                <summary>
+                  {ar ? `المرفقات (${attachments.length})` : `Attached (${attachments.length})`}
+                </summary>
+                <ul>
+                  {attachments.map((item) => (
+                    <li key={item.id}>
+                      <Link href={`/tenant/contracts/${item.id}`}>
+                        <bdi>{item.reference}</bdi>
+                      </Link>
+                      <span>
+                        {tenancyContractKindLabel(item.kind, ar)} ·{' '}
+                        {domainStatusLabel(item.status, ar)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </details>
             ) : null}
-          </td>
-          <td>{tenancyLandlordName(contract.landlord, ar)}</td>
-          <td>{period(contract.startsOn, contract.endsOn, ar)}</td>
-          <td>{money(contract.amountMinor, contract.currency, locale)}</td>
-          <td>{contractStatusCell(contract, ar)}</td>
-          <td>
-            <Link className="ops-action" href={`/tenant/contracts/${contract.id}`}>
-              {ar ? 'عرض العقد' : 'View contract'}
-            </Link>
-          </td>
-        </tr>
+          </div>
+          <Link className="button button--secondary" href={`/tenant/contracts/${contract.id}`}>
+            {ar ? 'عرض العقد' : 'View contract'}
+          </Link>
+        </li>
       ))}
-    </Table>
+    </ul>
   );
 }
 
