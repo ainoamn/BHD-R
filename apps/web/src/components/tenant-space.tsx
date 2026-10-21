@@ -535,11 +535,21 @@ export function TenantSpaceContent({
           <LeasesTable {...ctx} />
         ) : view === 'invoices' || view === 'payments' ? (
           <>
-            {data.statements.some((item) => item.statement.arrears.totalMinor !== '0') ? (
-              <TenantArrearsSummary statements={data.statements} ar={ar} locale={locale} />
+            {data.statements.some(
+              (item) => !item.fromStay && item.statement.arrears.totalMinor !== '0',
+            ) ? (
+              <TenantArrearsSummary
+                statements={data.statements.filter((item) => !item.fromStay)}
+                ar={ar}
+                locale={locale}
+              />
             ) : null}
             <Section title={ar ? 'كشف حساب العقود والشيكات' : 'Lease statements & cheques'}>
-              <TenantStatements statements={data.statements} ar={ar} locale={locale} />
+              <TenantStatements
+                statements={data.statements.filter((item) => !item.fromStay)}
+                ar={ar}
+                locale={locale}
+              />
             </Section>
             <Section title={ar ? 'كل الفواتير الصادرة لك' : 'All invoices issued to you'}>
               <InvoicesTable {...ctx} />
@@ -579,14 +589,20 @@ export function TenantSpaceContent({
                 className="button button--quiet"
               />
             </div>
-            {data.statements.some((item) => item.statement.arrears.totalMinor !== '0') ? (
-              <TenantArrearsSummary statements={data.statements} ar={ar} locale={locale} />
+            {data.statements.some(
+              (item) => !item.fromStay && item.statement.arrears.totalMinor !== '0',
+            ) ? (
+              <TenantArrearsSummary
+                statements={data.statements.filter((item) => !item.fromStay)}
+                ar={ar}
+                locale={locale}
+              />
             ) : null}
             {requestLeases.length ? null : (
               <p className="tenant-notice">
                 {ar
-                  ? 'تظهر إمكانية إرسال الطلبات عندما يكون لديك عقد إيجار ساري.'
-                  : 'You can send requests once you have an active lease.'}
+                  ? 'تظهر إمكانية إرسال الطلبات عندما يكون لديك عقد إيجار أو إقامة يومية سارية.'
+                  : 'You can send requests once you have an active lease or daily stay contract.'}
               </p>
             )}
             <TenantRequestsList requests={data.requests} locale={locale} />
@@ -656,12 +672,14 @@ export function TenantSpaceContent({
           <Link href="/properties" className="button button--primary">
             {ar ? 'تصفّح العقارات' : 'Browse properties'}
           </Link>
-          {data.statements.length ? (
+          {data.statements.some((item) => !item.fromStay) ? (
             <Link href="/tenant/invoices" className="button button--quiet">
               {ar ? 'كشف حسابي' : 'My statement'}
             </Link>
           ) : null}
-          {data.statements.length ? (
+          {data.statements.some((item) =>
+            ['active', 'cancel_requested', 'renewal_pending'].includes(item.status),
+          ) ? (
             <Link href="/tenant/requests" className="button button--quiet">
               {ar ? 'طلباتي' : 'My requests'}
             </Link>

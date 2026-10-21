@@ -16,6 +16,7 @@ import {
   TENANT_REQUEST_TYPES,
   emergencyScopeLabel,
   isTenantReport,
+  requestAllowedForStay,
   requestNeedsCheque,
   requestNeedsDate,
   requestTakesPhotos,
@@ -42,6 +43,8 @@ export type RequestLease = {
   maintenanceBlocked: boolean;
   arrearsMinor: string;
   arrears: Array<{ category: ArrearsCategory; amountMinor: string }>;
+  /** Active daily stay contract — hide long-term cheque / renew options. */
+  fromStay?: boolean;
 };
 
 type Photo = { data: string; takenAt: string; source: 'camera' | 'device' };
@@ -361,9 +364,10 @@ function TenantRequestDialog({
     }
   }
 
-  const types = TENANT_REQUEST_TYPES.filter(
-    (item) => !requestNeedsCheque(item) || cheques.length > 0,
-  );
+  const types = TENANT_REQUEST_TYPES.filter((item) => {
+    if (lease?.fromStay && !requestAllowedForStay(item)) return false;
+    return !requestNeedsCheque(item) || cheques.length > 0;
+  });
 
   return (
     <div className="tenant-request-modal" role="presentation" onClick={onClose}>

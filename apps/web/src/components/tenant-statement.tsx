@@ -45,15 +45,18 @@ export function requestLeasesOf(statements: TenancyStatement[], ar: boolean): Re
         .filter(Boolean)
         .join(' · '),
       currency: item.currency,
-      cheques: item.statement.lines.filter(chequeIsAdjustable).map((line) => ({
-        id: line.chequeId!,
-        number: line.chequeNumber ?? '—',
-        dueOn: line.dueOn,
-        amountMinor: line.amountMinor,
-      })),
+      cheques: item.fromStay
+        ? []
+        : item.statement.lines.filter(chequeIsAdjustable).map((line) => ({
+            id: line.chequeId!,
+            number: line.chequeNumber ?? '—',
+            dueOn: line.dueOn,
+            amountMinor: line.amountMinor,
+          })),
       maintenanceBlocked: item.maintenanceBlocked,
-      arrearsMinor: item.statement.arrears.totalMinor,
-      arrears: item.statement.arrears.byCategory,
+      arrearsMinor: item.fromStay ? '0' : item.statement.arrears.totalMinor,
+      arrears: item.fromStay ? [] : item.statement.arrears.byCategory,
+      fromStay: Boolean(item.fromStay),
     }));
 }
 

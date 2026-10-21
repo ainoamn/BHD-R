@@ -290,6 +290,7 @@ export type TenancyLeaseRef = {
   propertyId: string | null;
   status: string;
   currency: string;
+  fromStay: boolean;
 };
 
 /** A lease the account is the tenant on, in whichever landlord organization. */
@@ -309,9 +310,11 @@ export async function findTenancyLease(
         propertyId: units.propertyId,
         status: leases.status,
         currency: leases.currency,
+        sourceType: sql<string | null>`${contracts.payloadSnapshot}->'source'->>'type'`,
       })
       .from(leases)
       .leftJoin(units, eq(units.id, leases.unitId))
+      .leftJoin(contracts, eq(contracts.id, leases.contractId))
       .where(eq(leases.id, leaseId))
       .limit(1),
   );
@@ -328,6 +331,7 @@ export async function findTenancyLease(
     propertyId: row.propertyId,
     status: row.status,
     currency: row.currency,
+    fromStay: row.sourceType === 'stay_booking',
   };
 }
 
@@ -644,9 +648,9 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
           .limit(LIST_LIMIT),
       ]);
 
-    const statementLeases = leaseRows.filter(
-      (row) => row.sourceType !== 'stay_booking' && STATEMENT_LEASE_STATUS.has(row.status),
-    );
+    // Long-term leases keep cheque/installment statements; daily stay leases are included so
+    // guests with an active stay contract can open maintenance/contact requests until checkout.
+    const statementLeases = leaseRows.filter((row) => STATEMENT_LEASE_STATUS.has(row.status));
     const statementLeaseIds = statementLeases.map((row) => row.id);
     const [statements, requestRows] = await Promise.all([
       leaseStatementsInTx(tx, org, statementLeaseIds, party),
@@ -681,6 +685,7 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
     const statementItems: TenancyStatement[] = statementLeases.flatMap((row) => {
       const found = statements.get(row.id);
       if (!found) return [];
+      const fromStay = row.sourceType === 'stay_booking';
       return [
         {
           leaseId: row.id,
@@ -695,7 +700,9 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
           unitAr: row.unitAr,
           unitEn: row.unitEn,
           propertyId: found.propertyId,
+          fromStay,
           maintenanceBlocked:
+            !fromStay &&
             found.statement.arrears.totalMinor !== '0' &&
             maintenanceBlockedByPolicy(policy, found.propertyId),
           statement: found.statement,

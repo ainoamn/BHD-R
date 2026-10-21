@@ -56,6 +56,7 @@ import {
   tenantRequestStatusLabel,
   type RequestMediaStage,
   isTenantReport,
+  requestAllowedForStay,
   requestNeedsCheque,
   requestNeedsDate,
   requestTakesPhotos,
@@ -243,6 +244,7 @@ async function blockingArrears(
 export async function createTenantRequest(claims: SessionClaims, input: TenantRequestInput) {
   const lease = await findTenancyLease(claims.sub, input.leaseId);
   if (!lease) fail('tenant_request_not_found');
+  if (lease.fromStay && !requestAllowedForStay(input.type)) fail('tenant_request_invalid');
   if (requestNeedsCheque(input.type) && !input.chequeId) fail('tenant_request_invalid');
   if (requestNeedsDate(input.type) && !(input.proposedDate && ISO_DATE.test(input.proposedDate))) {
     fail('tenant_request_invalid');

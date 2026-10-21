@@ -153,6 +153,8 @@ export type TenancyStatement = {
   unitAr: string | null;
   unitEn: string | null;
   propertyId: string | null;
+  /** Daily stay contract — request-eligible while live; not a long-term cheque ledger. */
+  fromStay?: boolean;
   /** The landlord stops ordinary maintenance requests until the arrears are settled. */
   maintenanceBlocked: boolean;
   statement: LeaseStatement;

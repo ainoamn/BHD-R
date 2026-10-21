@@ -246,6 +246,20 @@ export function requestNeedsCheque(type: TenantRequestType): boolean {
   return type === 'cheque_postpone' || type === 'cheque_stop';
 }
 
+/** Daily-stay guests: maintenance, reports, cancel, amend, other — not cheque/renew rent flows. */
+const STAY_REQUEST_TYPES = new Set<TenantRequestType>([
+  'maintenance',
+  'lease_cancel',
+  'contract_amend',
+  'report_property',
+  'report_staff',
+  'other',
+]);
+
+export function requestAllowedForStay(type: TenantRequestType): boolean {
+  return STAY_REQUEST_TYPES.has(type);
+}
+
 /** Types that carry a proposed date: the new cheque date or the move-out date. */
 export function requestNeedsDate(type: TenantRequestType): boolean {
   return type === 'cheque_postpone' || type === 'lease_cancel';
