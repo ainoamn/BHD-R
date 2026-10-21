@@ -4352,7 +4352,8 @@ body:has(.stays-booking-receipt) #main-content {
 }
 .portal-layout .form-shell,
 .portal-layout .stays-portal,
-.portal-layout .ops-workspace {
+.portal-layout .ops-workspace,
+.portal-layout .tenant-space {
   max-width: none;
   width: 100%;
 }
@@ -7970,6 +7971,20 @@ body:has(.stays-booking-receipt) #main-content {
   --tenant-accent-soft: #e8f0f8;
   --tenant-ink: #12355e;
   --tenant-muted: #5b6f86;
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+/* Contracts / leases / invoices: use the full main column like owner ops tables */
+.tenant-space--lists {
+  width: 100%;
+  max-width: none;
+}
+.tenant-space--lists .portal-topbar {
+  width: 100%;
+}
+.tenant-space--lists .tenant-table-wrap {
+  width: 100%;
 }
 .portal-layout .tenant-space .dash-hero {
   background:
@@ -8434,10 +8449,52 @@ body:has(.stays-booking-receipt) #main-content {
   color: #991b1b;
 }
 .tenant-table-wrap {
+  width: 100%;
+  min-width: 0;
   background: rgb(255 255 255 / 0.96);
   border: 1px solid rgb(9 45 36 / 0.08);
   border-radius: 1.2rem;
   box-shadow: 0 14px 36px rgb(9 45 36 / 0.05);
+}
+.portal-layout .tenant-space .tenant-table {
+  width: 100%;
+  table-layout: fixed;
+  white-space: normal;
+}
+.portal-layout .tenant-space .tenant-table th,
+.portal-layout .tenant-space .tenant-table td {
+  white-space: normal;
+  vertical-align: top;
+  padding: 1rem 1.15rem;
+  overflow-wrap: anywhere;
+}
+.portal-layout .tenant-space .tenant-table th:nth-child(1),
+.portal-layout .tenant-space .tenant-table td:nth-child(1) {
+  width: 18%;
+}
+.portal-layout .tenant-space .tenant-table th:nth-child(2),
+.portal-layout .tenant-space .tenant-table td:nth-child(2) {
+  width: 22%;
+}
+.portal-layout .tenant-space .tenant-table th:nth-child(3),
+.portal-layout .tenant-space .tenant-table td:nth-child(3) {
+  width: 16%;
+}
+.portal-layout .tenant-space .tenant-table th:nth-child(4),
+.portal-layout .tenant-space .tenant-table td:nth-child(4) {
+  width: 14%;
+}
+.portal-layout .tenant-space .tenant-table th:nth-child(5),
+.portal-layout .tenant-space .tenant-table td:nth-child(5) {
+  width: 10%;
+}
+.portal-layout .tenant-space .tenant-table th:nth-child(6),
+.portal-layout .tenant-space .tenant-table td:nth-child(6) {
+  width: 10%;
+}
+.portal-layout .tenant-space .tenant-table th:nth-child(7),
+.portal-layout .tenant-space .tenant-table td:nth-child(7) {
+  width: 10%;
 }
 .tenant-table__ref {
   font-weight: 700;

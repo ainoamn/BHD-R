@@ -469,7 +469,7 @@ export function TenantSpaceContent({
       );
     }
     return (
-      <div className="dash-shell tenant-space">
+      <div className="dash-shell tenant-space tenant-space--lists">
         <header className="portal-topbar">
           <div>
             <span className="tenant-kicker">{ar ? 'مساحة المستأجر' : 'Tenant space'}</span>
