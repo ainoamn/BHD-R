@@ -1,9 +1,11 @@
 import 'server-only';
 import { randomBytes } from 'node:crypto';
-import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, ne, or, sql } from 'drizzle-orm';
 import { resolveStaysEnabledFromEnv, readStaysFlagsFromEnv } from '@bhd-r/config';
 import {
+  contracts,
   createDatabase,
+  leases,
   outboxEvents,
   stayBookingGuests,
   stayBookingStatusHistory,
@@ -47,6 +49,7 @@ import {
   ensureStayDepositPaymentInTx,
   loadStayDepositGate,
 } from '@/lib/stay-deposit-gate-neon';
+import { resolveStayPeriodTimes } from '@/lib/stay-period-times';
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdRPublicStaysGuestDb?: DbHandle };
@@ -944,6 +947,117 @@ function rescheduleStayType(value: string | null): RescheduleStayType {
   return value === 'day_use' || value === 'overnight_only' ? value : 'overnight_stay';
 }
 
+function addCalendarDays(isoDate: string, days: number): string {
+  const day = isoDate.slice(0, 10);
+  const d = new Date(`${day}T12:00:00.000Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Keep the issued stay contract (and its lease) aligned with booking dates/period/amount
+ * after a guest reschedule is applied.
+ */
+async function syncStayContractAfterRescheduleInTx(
+  transaction: Tx,
+  booking: typeof stayBookings.$inferSelect,
+  stayType: RescheduleStayType,
+): Promise<void> {
+  const [contract] = await transaction
+    .select({
+      id: contracts.id,
+      payloadSnapshot: contracts.payloadSnapshot,
+    })
+    .from(contracts)
+    .where(
+      and(
+        eq(contracts.organizationId, booking.organizationId),
+        sql`${contracts.payloadSnapshot}->'source'->>'stayBookingId' = ${booking.id}`,
+        ne(contracts.status, 'void'),
+      ),
+    )
+    .limit(1);
+  if (!contract) return;
+
+  const [profileTimes] = booking.stayProfileId
+    ? await transaction
+        .select({
+          checkInFrom: stayProfiles.checkInFrom,
+          dayUseCheckInFrom: stayProfiles.dayUseCheckInFrom,
+          dayUseCheckOutUntil: stayProfiles.dayUseCheckOutUntil,
+          overnightCheckOutUntil: stayProfiles.overnightCheckOutUntil,
+          checkOutUntil: stayProfiles.checkOutUntil,
+        })
+        .from(stayProfiles)
+        .where(
+          and(
+            eq(stayProfiles.id, booking.stayProfileId),
+            eq(stayProfiles.organizationId, booking.organizationId),
+          ),
+        )
+        .limit(1)
+    : [null];
+  const period = resolveStayPeriodTimes(stayType, profileTimes ?? {});
+  const startsOn = booking.checkInOn.slice(0, 10);
+  const endsOn =
+    booking.checkOutOn.slice(0, 10) > startsOn
+      ? booking.checkOutOn.slice(0, 10)
+      : addCalendarDays(startsOn, 1);
+  const snapshot =
+    contract.payloadSnapshot && typeof contract.payloadSnapshot === 'object'
+      ? { ...(contract.payloadSnapshot as Record<string, unknown>) }
+      : {};
+  const priorAmount =
+    snapshot.amount && typeof snapshot.amount === 'object'
+      ? (snapshot.amount as Record<string, unknown>)
+      : {};
+  const now = new Date();
+  await transaction
+    .update(contracts)
+    .set({
+      payloadSnapshot: {
+        ...snapshot,
+        startsOn,
+        endsOn,
+        stayType,
+        checkInTime: period.checkInTime,
+        checkOutTime: period.checkOutTime,
+        amount: {
+          ...priorAmount,
+          amountMinor: booking.totalMinor.toString(),
+          currency:
+            typeof priorAmount.currency === 'string' ? priorAmount.currency : booking.currency,
+        },
+        rescheduleSync: {
+          at: now.toISOString(),
+          fromStartsOn: snapshot.startsOn ?? null,
+          fromEndsOn: snapshot.endsOn ?? null,
+          fromStayType: snapshot.stayType ?? null,
+        },
+      },
+      updatedAt: now,
+    })
+    .where(
+      and(eq(contracts.id, contract.id), eq(contracts.organizationId, booking.organizationId)),
+    );
+
+  await transaction
+    .update(leases)
+    .set({
+      startsOn,
+      endsOn,
+      rentMinor: booking.totalMinor,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(leases.organizationId, booking.organizationId),
+        eq(leases.contractId, contract.id),
+        inArray(leases.status, ['draft', 'active', 'cancel_requested', 'clearance_pending']),
+      ),
+    );
+}
+
 function todayInTimezone(timezone: string): string {
   try {
     return new Intl.DateTimeFormat('en-CA', {
@@ -1124,6 +1238,8 @@ async function applyGuestRescheduleInTx(
     aggregateId: booking.id,
     payload: { referenceCode: booking.referenceCode, unitId: booking.unitId, ...move },
   });
+
+  await syncStayContractAfterRescheduleInTx(transaction, updated, stayType);
 
   return updated;
 }
