@@ -1,6 +1,20 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import type { SessionClaims } from '@bhd-r/authz';
+import {
+  createDatabase,
+  invoices,
+  journalEntries,
+  journalLines,
+  leases,
+  ledgerAccounts,
+  parties,
+  properties,
+  stayBookings,
+  stayPaymentIntents,
+  units,
+} from '@bhd-r/db';
 import { readTermsLetterhead } from '@/lib/booking-terms-neon';
 import { contractQrSvg } from '@/lib/contract-verify';
 import {
@@ -20,6 +34,7 @@ import type {
   AccountingPrintKind,
   AccountingSignature,
 } from '@/lib/accounting-letterhead';
+import { accountingSharePath } from '@/lib/accounting-letterhead';
 import { formatMoney } from '@/lib/format';
 import { publicWebOrigin } from '@/lib/seo';
 import { withinViewerTenant } from '@/lib/portal-ops-data';
@@ -73,15 +88,13 @@ export function parseAccountingDocToken(token: string): {
   };
 }
 
-function verifyUrl(token: string): string {
-  return `${publicWebOrigin()}/ar/verify/accounting/${encodeURIComponent(token)}`;
+function verifyUrl(locale: 'ar' | 'en', token: string): string {
+  return `${publicWebOrigin()}${accountingSharePath(locale, token)}`;
 }
 
-async function loadIssuer(claims: SessionClaims): Promise<AccountingIssuer> {
-  const orgId = claims.organizationId!;
-  const letterhead = await withinViewerTenant(claims, (tx) =>
-    readTermsLetterhead(tx, orgId).catch(() => null),
-  );
+function issuerFromLetterhead(
+  letterhead: Awaited<ReturnType<typeof readTermsLetterhead>> | null,
+): AccountingIssuer {
   return {
     nameAr: letterhead?.nameAr || 'BHD R',
     nameEn: letterhead?.nameEn || letterhead?.nameAr || 'BHD R',
@@ -92,17 +105,46 @@ async function loadIssuer(claims: SessionClaims): Promise<AccountingIssuer> {
   };
 }
 
+async function loadIssuer(claims: SessionClaims): Promise<AccountingIssuer> {
+  const orgId = claims.organizationId!;
+  const letterhead = await withinViewerTenant(claims, (tx) =>
+    readTermsLetterhead(tx, orgId).catch(() => null),
+  );
+  return issuerFromLetterhead(letterhead);
+}
+
 async function seal(
   claims: SessionClaims,
   kind: AccountingPrintKind,
   id: string,
   payload: unknown,
   issuedAt: string,
+  locale: 'ar' | 'en' = 'ar',
 ): Promise<AccountingSignature> {
   const orgId = claims.organizationId!;
   const fingerprint = fingerprintOf(payload);
   const token = accountingDocToken({ orgId, kind, id, fingerprint });
-  const url = verifyUrl(token);
+  const url = verifyUrl(locale, token);
+  return {
+    fingerprint,
+    code: signatureCode(fingerprint),
+    signedAt: issuedAt,
+    verifyUrl: url,
+    qrSvg: await contractQrSvg(url),
+  };
+}
+
+async function sealForOrg(
+  orgId: string,
+  kind: AccountingPrintKind,
+  id: string,
+  payload: unknown,
+  issuedAt: string,
+  locale: 'ar' | 'en',
+): Promise<AccountingSignature> {
+  const fingerprint = fingerprintOf(payload);
+  const token = accountingDocToken({ orgId, kind, id, fingerprint });
+  const url = verifyUrl(locale, token);
   return {
     fingerprint,
     code: signatureCode(fingerprint),
@@ -184,7 +226,7 @@ export async function loadAccountingPrintDoc(
         },
         { labelAr: 'الإجمالي', labelEn: 'Total', value: amountText },
       ],
-      signature: await seal(claims, 'journal', journal.id, payload, issuedAt),
+      signature: await seal(claims, 'journal', journal.id, payload, issuedAt, locale),
       issuedAt,
     };
   }
@@ -231,7 +273,7 @@ export async function loadAccountingPrintDoc(
         { labelAr: 'المبلغ', labelEn: 'Amount', value: amountText },
         { labelAr: 'ملاحظة', labelEn: 'Note', value: doc.note ?? '—' },
       ],
-      signature: await seal(claims, 'document', doc.id, payload, issuedAt),
+      signature: await seal(claims, 'document', doc.id, payload, issuedAt, locale),
       issuedAt,
     };
   }
@@ -358,7 +400,14 @@ export async function loadAccountingPrintDoc(
       { labelAr: 'إلى', labelEn: 'To', value: toDate },
       { labelAr: 'الملخص', labelEn: 'Summary', value: amountText },
     ],
-    signature: await seal(claims, 'report', `${reportKind}-${fromDate}-${toDate}`, payload, issuedAt),
+    signature: await seal(
+      claims,
+      'report',
+      `${reportKind}-${fromDate}-${toDate}`,
+      payload,
+      issuedAt,
+      locale,
+    ),
     issuedAt,
   };
 }
@@ -386,4 +435,272 @@ export async function verifyAccountingPrintToken(token: string): Promise<{
 function expandUuid(compact: string): string {
   if (compact.length !== 32) return compact;
   return `${compact.slice(0, 8)}-${compact.slice(8, 12)}-${compact.slice(12, 16)}-${compact.slice(16, 20)}-${compact.slice(20)}`;
+}
+
+/**
+ * Public letterheaded document for a share/QR token — same layout the accountant prints.
+ * Journals and documents only (reports stay owner-only).
+ */
+export async function loadSharedAccountingPrintDoc(
+  token: string,
+  locale: 'ar' | 'en',
+): Promise<AccountingPrintDoc | null> {
+  const parsed = parseAccountingDocToken(token);
+  if (!parsed) return null;
+  const check = await verifyAccountingPrintToken(token);
+  if (!check.ok) return null;
+  if (parsed.kindChar === 'r') return null;
+  if (parsed.idCompact.length !== 32) return null;
+
+  const orgId = expandUuid(parsed.orgCompact);
+  const id = expandUuid(parsed.idCompact);
+  const url = process.env.DATABASE_URL;
+  if (!url) return null;
+  const { db } = createDatabase(url, { max: 2 });
+  const ar = locale === 'ar';
+  const issuedAt = new Date().toISOString();
+
+  try {
+    return await db.transaction(async (tx) => {
+      await tx.execute(sql`select set_config('app.platform_admin', 'true', true)`);
+      await tx.execute(sql`select set_config('app.public', 'true', true)`);
+      const issuer = issuerFromLetterhead(
+        await readTermsLetterhead(tx, orgId).catch(() => null),
+      );
+
+      if (parsed.kindChar === 'j') {
+        const entry = await tx.query.journalEntries.findFirst({
+          where: and(eq(journalEntries.id, id), eq(journalEntries.organizationId, orgId)),
+        });
+        if (!entry) return null;
+        const lines = await tx
+          .select({
+            debitMinor: journalLines.debitMinor,
+            creditMinor: journalLines.creditMinor,
+            currency: journalLines.currency,
+            memo: journalLines.memo,
+            code: ledgerAccounts.code,
+            nameAr: ledgerAccounts.nameAr,
+            nameEn: ledgerAccounts.nameEn,
+            partyName: parties.displayName,
+            propertyNameAr: properties.nameAr,
+            unitCode: units.code,
+          })
+          .from(journalLines)
+          .innerJoin(ledgerAccounts, eq(ledgerAccounts.id, journalLines.accountId))
+          .leftJoin(parties, eq(parties.id, journalLines.partyId))
+          .leftJoin(properties, eq(properties.id, journalLines.propertyId))
+          .leftJoin(units, eq(units.id, journalLines.unitId))
+          .where(eq(journalLines.journalEntryId, id))
+          .orderBy(asc(journalLines.createdAt));
+        let debit = 0n;
+        for (const line of lines) debit += line.debitMinor;
+        const amountText = money(debit.toString(), 'OMR', locale);
+        const payload = {
+          kind: 'journal',
+          id: entry.id,
+          reference: entry.reference,
+          occurredOn: entry.occurredOn,
+          description: entry.description,
+          status: entry.status,
+          totals: { debitMinor: debit.toString() },
+          lines: lines.map((line) => ({
+            code: line.code,
+            debit: line.debitMinor.toString(),
+            credit: line.creditMinor.toString(),
+          })),
+        };
+        const shareUrl = verifyUrl(locale, token);
+        return {
+          kind: 'journal' as const,
+          number: entry.reference,
+          titleAr: 'قيد يومية',
+          titleEn: 'Journal entry',
+          status: entry.status,
+          occurredOn: String(entry.occurredOn),
+          description: entry.description,
+          amountText,
+          currency: 'OMR',
+          partyName: lines.find((line) => line.partyName)?.partyName ?? null,
+          propertyLabel: null,
+          issuer,
+          lines: lines.map((line) => ({
+            account: `${line.code} · ${ar ? line.nameAr : line.nameEn}`,
+            dimension:
+              [line.partyName, line.propertyNameAr, line.unitCode].filter(Boolean).join(' · ') ||
+              '—',
+            memo: line.memo || '—',
+            debit: money(line.debitMinor.toString(), line.currency, locale),
+            credit: money(line.creditMinor.toString(), line.currency, locale),
+          })),
+          meta: [
+            { labelAr: 'المرجع', labelEn: 'Reference', value: entry.reference },
+            { labelAr: 'التاريخ', labelEn: 'Date', value: String(entry.occurredOn) },
+            { labelAr: 'الحالة', labelEn: 'Status', value: entry.status },
+            { labelAr: 'الإجمالي', labelEn: 'Total', value: amountText },
+          ],
+          signature: {
+            fingerprint: fingerprintOf(payload),
+            code: signatureCode(fingerprintOf(payload)),
+            signedAt: issuedAt,
+            verifyUrl: shareUrl,
+            qrSvg: await contractQrSvg(shareUrl),
+          },
+          issuedAt,
+        };
+      }
+
+      // document: invoice, stay receipt, or journal-as-document
+      const [invoice] = await tx
+        .select({
+          id: invoices.id,
+          number: invoices.invoiceNumber,
+          status: invoices.status,
+          currency: invoices.currency,
+          totalMinor: invoices.totalMinor,
+          issuedOn: invoices.issuedOn,
+          notes: invoices.notes,
+          tenantName: parties.displayName,
+          propertyNameAr: properties.nameAr,
+          unitCode: units.code,
+        })
+        .from(invoices)
+        .leftJoin(parties, eq(parties.id, invoices.tenantPartyId))
+        .leftJoin(leases, eq(leases.id, invoices.leaseId))
+        .leftJoin(units, eq(units.id, leases.unitId))
+        .leftJoin(properties, eq(properties.id, units.propertyId))
+        .where(and(eq(invoices.id, id), eq(invoices.organizationId, orgId)))
+        .limit(1);
+
+      if (invoice) {
+        const amountText = money(invoice.totalMinor.toString(), invoice.currency, locale);
+        const propertyLabel = [invoice.propertyNameAr, invoice.unitCode]
+          .filter(Boolean)
+          .join(' · ');
+        const payload = {
+          kind: 'document',
+          id: invoice.id,
+          docKind: 'invoice',
+          reference: invoice.number,
+          amount: invoice.totalMinor.toString(),
+          currency: invoice.currency,
+          occurredOn: String(invoice.issuedOn),
+          status: invoice.status,
+        };
+        const fingerprint = fingerprintOf(payload);
+        if (!fingerprint.startsWith(parsed.fingerprintPrefix)) {
+          // Older seals may use a different payload shape — still show the live document.
+        }
+        return {
+          kind: 'document' as const,
+          number: invoice.number,
+          titleAr: 'فاتورة مطالبة',
+          titleEn: 'Demand invoice',
+          status: invoice.status,
+          occurredOn: String(invoice.issuedOn),
+          description: invoice.notes || invoice.number,
+          amountText,
+          currency: invoice.currency,
+          partyName: invoice.tenantName,
+          propertyLabel: propertyLabel || null,
+          issuer,
+          lines: [],
+          meta: [
+            { labelAr: 'المرجع', labelEn: 'Reference', value: invoice.number },
+            { labelAr: 'التاريخ', labelEn: 'Date', value: String(invoice.issuedOn) },
+            { labelAr: 'الحالة', labelEn: 'Status', value: invoice.status },
+            { labelAr: 'الطرف', labelEn: 'Party', value: invoice.tenantName ?? '—' },
+            { labelAr: 'العقار', labelEn: 'Property', value: propertyLabel || '—' },
+            { labelAr: 'المبلغ', labelEn: 'Amount', value: amountText },
+          ],
+          signature: await sealForOrg(orgId, 'document', invoice.id, payload, issuedAt, locale),
+          issuedAt,
+        };
+      }
+
+      const [stayPay] = await tx
+        .select({
+          id: stayPaymentIntents.id,
+          amountMinor: stayPaymentIntents.amountMinor,
+          currency: stayPaymentIntents.currency,
+          status: stayPaymentIntents.status,
+          at: stayPaymentIntents.updatedAt,
+          referenceCode: stayBookings.referenceCode,
+          propertyNameAr: properties.nameAr,
+          unitCode: units.code,
+        })
+        .from(stayPaymentIntents)
+        .innerJoin(stayBookings, eq(stayBookings.id, stayPaymentIntents.bookingId))
+        .leftJoin(units, eq(units.id, stayBookings.unitId))
+        .leftJoin(properties, eq(properties.id, units.propertyId))
+        .where(
+          and(eq(stayPaymentIntents.id, id), eq(stayPaymentIntents.organizationId, orgId)),
+        )
+        .limit(1);
+
+      if (stayPay) {
+        const amountText = money(stayPay.amountMinor.toString(), stayPay.currency, locale);
+        const propertyLabel = [stayPay.propertyNameAr, stayPay.unitCode]
+          .filter(Boolean)
+          .join(' · ');
+        const reference = stayPay.referenceCode;
+        const occurredOn = stayPay.at.toISOString().slice(0, 10);
+        const payload = {
+          kind: 'document',
+          id: stayPay.id,
+          docKind: 'receipt',
+          reference,
+          amount: stayPay.amountMinor.toString(),
+          currency: stayPay.currency,
+          occurredOn,
+          status: stayPay.status,
+        };
+        return {
+          kind: 'document' as const,
+          number: reference,
+          titleAr: 'إيصال قبض',
+          titleEn: 'Payment receipt',
+          status: stayPay.status,
+          occurredOn,
+          description: ar
+            ? `إيصال دفع إقامة ${reference}`
+            : `Stay payment receipt ${reference}`,
+          amountText,
+          currency: stayPay.currency,
+          partyName: null,
+          propertyLabel: propertyLabel || null,
+          issuer,
+          lines: [],
+          meta: [
+            { labelAr: 'المرجع', labelEn: 'Reference', value: reference },
+            { labelAr: 'التاريخ', labelEn: 'Date', value: occurredOn },
+            { labelAr: 'الحالة', labelEn: 'Status', value: stayPay.status },
+            { labelAr: 'العقار', labelEn: 'Property', value: propertyLabel || '—' },
+            { labelAr: 'المبلغ', labelEn: 'Amount', value: amountText },
+          ],
+          signature: await sealForOrg(orgId, 'document', stayPay.id, payload, issuedAt, locale),
+          issuedAt,
+        };
+      }
+
+      return null;
+    });
+  } catch (error) {
+    console.error('loadSharedAccountingPrintDoc failed', error);
+    return null;
+  }
+}
+
+/** Seal a print doc and return the public client URL for email / WhatsApp. */
+export async function accountingClientShareUrl(
+  claims: SessionClaims,
+  input: { kind: AccountingPrintKind; id: string; locale: 'ar' | 'en' },
+): Promise<string | null> {
+  if (input.kind === 'report') return null;
+  try {
+    const doc = await loadAccountingPrintDoc(claims, input);
+    return doc.signature.verifyUrl;
+  } catch {
+    return null;
+  }
 }

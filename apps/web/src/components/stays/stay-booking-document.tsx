@@ -1,12 +1,14 @@
-import type { ReactNode } from 'react';
 import { StayCheckinPass } from '@/components/stays/stay-checkin-pass';
 import { formatMoney } from '@/lib/format';
+import type { AccountingIssuer, AccountingSignature } from '@/lib/accounting-letterhead';
 import {
   stayPaymentKindLabel,
   stayPaymentMethodLabel,
   type StayBookingPaymentKind,
 } from '@/lib/stay-booking-payment-labels';
 import { stayStatusLabel, stayTypeLabel } from '@/lib/ui-labels';
+
+const BRAND_LOGO = '/brand/bhd-official-symbol.svg';
 
 export type StayBookingDocumentPayment = {
   id: string;
@@ -32,7 +34,6 @@ export type StayBookingDocumentData = {
   adults?: number | null;
   children?: number | null;
   stayType?: string | null;
-  /** When set, payment receipt shows this charge only (not booking total). */
   payment?: StayBookingDocumentPayment | null;
   paymentCount?: number;
 };
@@ -46,40 +47,49 @@ function statusLabel(status: string, paid: boolean, ar: boolean): string {
   return stayStatusLabel(status, ar);
 }
 
-function Row({ label, value, ltr }: { label: string; value: ReactNode; ltr?: boolean }) {
-  return (
-    <div className="stay-doc__row">
-      <dt>{label}</dt>
-      <dd dir={ltr ? 'ltr' : undefined}>{value}</dd>
-    </div>
-  );
+function stampOf(value: string, ar: boolean): string {
+  return new Date(value).toLocaleString(ar ? 'ar-OM' : 'en-GB', {
+    timeZone: 'Asia/Muscat',
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
 }
 
+/**
+ * Stay payment receipt / confirmation using the same official letterhead stack as
+ * accounting print and rent receipts (company data, QR, print-ready layout).
+ */
 export function StayBookingDocument({
   kind,
   booking,
   locale,
+  issuer,
+  signature,
 }: {
   kind: StayBookingDocumentKind;
   booking: StayBookingDocumentData;
   locale: string;
+  issuer?: AccountingIssuer | null;
+  signature?: AccountingSignature | null;
 }) {
   const ar = locale === 'ar';
   const paid = booking.status === 'confirmed' || booking.status === 'paid';
   const payment = kind === 'payment' ? (booking.payment ?? null) : null;
-  const title =
+  const titleAr =
     kind === 'payment'
       ? payment
-        ? ar
-          ? `إيصال دفع · ${stayPaymentKindLabel(payment.kind, true)}`
-          : `Payment receipt · ${stayPaymentKindLabel(payment.kind, false)}`
-        : ar
-          ? 'إيصال دفع'
-          : 'Payment receipt'
-      : ar
-        ? 'تأكيد حجز'
-        : 'Booking confirmation';
-  const subtitle =
+        ? `إيصال قبض · ${stayPaymentKindLabel(payment.kind, true)}`
+        : 'إيصال قبض'
+      : 'تأكيد حجز';
+  const titleEn =
+    kind === 'payment'
+      ? payment
+        ? `Payment receipt · ${stayPaymentKindLabel(payment.kind, false)}`
+        : 'Payment receipt'
+      : 'Booking confirmation';
+  const title = ar ? titleAr : titleEn;
+  const titleAlt = ar ? titleEn : titleAr;
+  const lead =
     kind === 'payment'
       ? payment
         ? ar
@@ -95,100 +105,146 @@ export function StayBookingDocument({
   const amountCurrency = payment?.currency ?? booking.currency;
   const amountLabel =
     amountMinor && amountCurrency ? formatMoney(amountMinor, amountCurrency, locale) : null;
-  const issuedOn = new Intl.DateTimeFormat(ar ? 'ar-OM' : 'en-GB', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(payment?.paidAt ? new Date(payment.paidAt) : new Date());
+  const issuedOn = payment?.paidAt
+    ? stampOf(payment.paidAt, ar)
+    : new Intl.DateTimeFormat(ar ? 'ar-OM' : 'en-GB', {
+        dateStyle: 'medium',
+      }).format(new Date());
+  const issuerName = issuer
+    ? ar
+      ? issuer.nameAr
+      : issuer.nameEn
+    : ar
+      ? 'BHD R'
+      : 'BHD R';
+  const docNumber = payment
+    ? `${booking.referenceCode}-P${String(payment.sequence).padStart(2, '0')}`
+    : booking.referenceCode;
+
+  const meta: Array<{ labelAr: string; labelEn: string; value: string }> = [
+    {
+      labelAr: 'الحالة',
+      labelEn: 'Status',
+      value: statusLabel(booking.status, paid, ar),
+    },
+  ];
+  if (booking.guestDisplayName) {
+    meta.push({ labelAr: 'الضيف', labelEn: 'Guest', value: booking.guestDisplayName });
+  }
+  if (booking.guestEmail) {
+    meta.push({ labelAr: 'البريد', labelEn: 'Email', value: booking.guestEmail });
+  }
+  if (booking.checkInOn) {
+    meta.push({ labelAr: 'الوصول', labelEn: 'Check-in', value: booking.checkInOn });
+  }
+  if (booking.checkOutOn) {
+    meta.push({ labelAr: 'المغادرة', labelEn: 'Check-out', value: booking.checkOutOn });
+  }
+  if (typeof booking.nights === 'number') {
+    meta.push({
+      labelAr: 'عدد الليالي',
+      labelEn: 'Nights',
+      value: String(booking.nights),
+    });
+  }
+  if (booking.stayType) {
+    meta.push({
+      labelAr: 'نوع الحجز',
+      labelEn: 'Stay type',
+      value: stayTypeLabel(booking.stayType, ar),
+    });
+  }
+  if (typeof booking.adults === 'number') {
+    meta.push({ labelAr: 'بالغون', labelEn: 'Adults', value: String(booking.adults) });
+  }
+  if (typeof booking.children === 'number') {
+    meta.push({ labelAr: 'أطفال', labelEn: 'Children', value: String(booking.children) });
+  }
+  if (payment) {
+    meta.push({
+      labelAr: 'نوع الدفعة',
+      labelEn: 'Payment kind',
+      value: stayPaymentKindLabel(payment.kind, ar),
+    });
+    meta.push({
+      labelAr: 'طريقة الدفع',
+      labelEn: 'Payment method',
+      value: stayPaymentMethodLabel(payment.provider, ar),
+    });
+    if (payment.providerIntentId) {
+      meta.push({
+        labelAr: 'مرجع المزود',
+        labelEn: 'Provider ref',
+        value: payment.providerIntentId,
+      });
+    }
+  }
 
   return (
-    <article className="stay-doc" id="stay-receipt" data-doc-kind={kind}>
-      <header className="stay-doc__header">
-        <div className="stay-doc__brand">
-          <span className="stay-doc__logo logo__product" aria-label="BHD R">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/brand/bhd-official-symbol.svg" alt="" width="88" height="28" />
-            <i>R</i>
-          </span>
-          <p className="stay-doc__tagline">{ar ? 'منتج من منظومة BHD' : 'A BHD Product · Oman'}</p>
-        </div>
-        <div className="stay-doc__meta">
-          <p className="stay-doc__kind">{title}</p>
-          <p className="stay-doc__number" dir="ltr">
-            {booking.referenceCode}
-            {payment ? (
-              <>
-                {' · '}
-                {ar ? `دفعة ${payment.sequence}` : `Pay ${payment.sequence}`}
-              </>
+    <article
+      className="rent-doc rent-doc--receipt stay-receipt-doc"
+      id="stay-receipt"
+      data-doc-kind={kind}
+      dir={ar ? 'rtl' : 'ltr'}
+      lang={locale === 'en' ? 'en' : 'ar'}
+      aria-label={docNumber}
+    >
+      <header className="rent-doc__head">
+        <div className="rent-doc__issuer">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={issuer?.logoDataUrl || BRAND_LOGO} alt="" width={132} height={52} />
+          <div>
+            <strong>{issuerName}</strong>
+            {issuer && issuer.nameEn !== issuer.nameAr ? (
+              <span lang={ar ? 'en' : 'ar'} dir={ar ? 'ltr' : 'rtl'}>
+                {ar ? issuer.nameEn : issuer.nameAr}
+              </span>
             ) : null}
-          </p>
-          <p className="stay-doc__issued">
-            {ar ? 'تاريخ الإصدار' : 'Issued'} · {issuedOn}
-          </p>
+            {issuer?.phone ? <small dir="ltr">{issuer.phone}</small> : null}
+            {issuer?.email ? <small dir="ltr">{issuer.email}</small> : null}
+            {issuer?.registrationNumber ? (
+              <small dir="ltr">CR {issuer.registrationNumber}</small>
+            ) : null}
+          </div>
+        </div>
+        <div className="rent-doc__title">
+          <h1>{title}</h1>
+          <span className="rent-doc__title-alt" lang={ar ? 'en' : 'ar'}>
+            {titleAlt}
+          </span>
+          <dl>
+            <div>
+              <dt>{ar ? 'الرقم' : 'No.'}</dt>
+              <dd dir="ltr">{docNumber}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'التاريخ' : 'Date'}</dt>
+              <dd>{issuedOn}</dd>
+            </div>
+          </dl>
         </div>
       </header>
 
-      <p className="stay-doc__subtitle">{subtitle}</p>
+      <p className="rent-doc__lead">{lead}</p>
 
-      <div className="stay-doc__badge" data-paid={paid ? 'true' : 'false'}>
+      <p
+        className={`rent-doc__stamp rent-doc__stamp--${paid ? 'paid' : 'due'}`}
+        style={{ margin: '0 0 0.75rem' }}
+      >
         {statusLabel(booking.status, paid, ar)}
-      </div>
+      </p>
 
-      <dl className="stay-doc__grid">
-        {booking.guestDisplayName ? (
-          <Row label={ar ? 'الضيف' : 'Guest'} value={booking.guestDisplayName} />
-        ) : null}
-        {booking.guestEmail ? (
-          <Row label={ar ? 'البريد' : 'Email'} value={booking.guestEmail} ltr />
-        ) : null}
-        {booking.checkInOn ? (
-          <Row label={ar ? 'الوصول' : 'Check-in'} value={booking.checkInOn} ltr />
-        ) : null}
-        {booking.checkOutOn ? (
-          <Row label={ar ? 'المغادرة' : 'Check-out'} value={booking.checkOutOn} ltr />
-        ) : null}
-        {typeof booking.nights === 'number' ? (
-          <Row
-            label={ar ? 'عدد الليالي' : 'Nights'}
-            value={`${booking.nights} ${
-              ar
-                ? booking.nights === 1
-                  ? 'ليلة'
-                  : 'ليالٍ'
-                : booking.nights === 1
-                  ? 'night'
-                  : 'nights'
-            }`}
-          />
-        ) : null}
-        {booking.stayType ? (
-          <Row label={ar ? 'نوع الحجز' : 'Stay type'} value={stayTypeLabel(booking.stayType, ar)} />
-        ) : null}
-        {typeof booking.adults === 'number' ? (
-          <Row label={ar ? 'بالغون' : 'Adults'} value={String(booking.adults)} />
-        ) : null}
-        {typeof booking.children === 'number' ? (
-          <Row label={ar ? 'أطفال' : 'Children'} value={String(booking.children)} />
-        ) : null}
-        {payment ? (
-          <>
-            <Row
-              label={ar ? 'نوع الدفعة' : 'Payment kind'}
-              value={stayPaymentKindLabel(payment.kind, ar)}
-            />
-            <Row
-              label={ar ? 'طريقة الدفع' : 'Payment method'}
-              value={stayPaymentMethodLabel(payment.provider, ar)}
-            />
-            {payment.providerIntentId ? (
-              <Row label={ar ? 'مرجع المزود' : 'Provider ref'} value={payment.providerIntentId} ltr />
-            ) : null}
-          </>
-        ) : null}
+      <dl className="rent-doc__parties">
+        {meta.map((row) => (
+          <div key={`${row.labelEn}-${row.value}`}>
+            <dt>{ar ? row.labelAr : row.labelEn}</dt>
+            <dd>{row.value}</dd>
+          </div>
+        ))}
       </dl>
 
       {amountLabel ? (
-        <div className="stay-doc__total">
+        <div className="rent-doc__total">
           <span>
             {kind === 'payment'
               ? ar
@@ -203,24 +259,73 @@ export function StayBookingDocument({
       ) : null}
 
       {kind === 'confirmation' ? (
-        <div className="stay-doc__checkin-pass">
+        <div className="stay-doc__checkin-pass" style={{ marginTop: '1rem' }}>
           <StayCheckinPass locale={locale} referenceCode={booking.referenceCode} />
         </div>
       ) : null}
 
-      <footer className="stay-doc__footer">
-        <p>
-          {kind === 'payment'
-            ? ar
-              ? 'يُعدّ هذا المستند إيصالاً مالياً لعملية الدفع المرتبطة برقم الحجز أعلاه.'
-              : 'This document is a financial receipt for the payment linked to the booking reference above.'
-            : ar
-              ? 'يُعدّ هذا المستند تأكيداً رسمياً لتفاصيل الحجز. اعرض الباركود أعلاه عند الوصول لتسجيل الدخول.'
-              : 'This document is an official confirmation of the booking details. Show the barcode above at arrival for check-in.'}
-        </p>
-        <p className="stay-doc__thanks">
-          {ar ? 'شكراً لاختياركم BHD R' : 'Thank you for choosing BHD R'}
-        </p>
+      {signature ? (
+        <section
+          className="rent-doc__sign"
+          aria-label={ar ? 'التوقيع الإلكتروني' : 'Electronic signature'}
+        >
+          <div
+            className="rent-doc__qr"
+            role="img"
+            aria-label={ar ? 'رمز التحقق من المستند' : 'Document verification code'}
+            dangerouslySetInnerHTML={{ __html: signature.qrSvg }}
+          />
+          <div className="rent-doc__sign-body">
+            <h2>
+              <span aria-hidden="true">✓ </span>
+              {ar ? 'موقّع إلكترونياً' : 'Electronically signed'}
+            </h2>
+            <dl>
+              <div>
+                <dt>{ar ? 'الموقّع' : 'Signed by'}</dt>
+                <dd>
+                  {ar
+                    ? `${issuerName} — عبر منصة BHD R`
+                    : `${issuerName} — via the BHD R platform`}
+                </dd>
+              </div>
+              <div>
+                <dt>{ar ? 'تاريخ التوقيع' : 'Signed at'}</dt>
+                <dd>{stampOf(signature.signedAt, ar)}</dd>
+              </div>
+              <div>
+                <dt>{ar ? 'رمز التوقيع' : 'Signature code'}</dt>
+                <dd dir="ltr" className="rent-doc__code">
+                  {signature.code}
+                </dd>
+              </div>
+              <div>
+                <dt>{ar ? 'بصمة المستند (SHA-256)' : 'Document fingerprint (SHA-256)'}</dt>
+                <dd dir="ltr" className="rent-doc__hash">
+                  {signature.fingerprint}
+                </dd>
+              </div>
+            </dl>
+            <p>
+              {ar
+                ? 'للتحقق من صحة المستند امسح الرمز أو افتح الرابط:'
+                : 'To verify this document, scan the code or open:'}{' '}
+              <bdi dir="ltr" className="rent-doc__url">
+                {signature.verifyUrl}
+              </bdi>
+            </p>
+          </div>
+        </section>
+      ) : null}
+
+      <footer className="rent-doc__foot">
+        {kind === 'payment'
+          ? ar
+            ? 'إيصال قبض إلكتروني صادر بترويسة الشركة عبر منصة BHD R. أي تعديل على بياناته يُبطل التحقق منه.'
+            : 'An electronic payment receipt issued on the company letterhead via BHD R. Any change to its contents voids verification.'
+          : ar
+            ? 'تأكيد حجز إلكتروني صادر بترويسة الشركة. اعرض باركود الوصول أعلاه عند التسجيل.'
+            : 'An electronic booking confirmation on the company letterhead. Show the check-in barcode above at arrival.'}
       </footer>
     </article>
   );

@@ -3,6 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { journalLines, parties } from '@bhd-r/db';
 import type { SessionClaims } from '@bhd-r/authz';
 import { canReadAccounting, fail, getJournal, listAccountingDocuments } from '@/lib/accounting-gl-neon';
+import { accountingClientShareUrl } from '@/lib/accounting-letterhead-neon';
 import { appLink, notifyByEmail } from '@/lib/email-notify';
 import { formatMoney } from '@/lib/format';
 import { whatsappLink } from '@/lib/stay-deposit-claims';
@@ -90,7 +91,12 @@ export async function sendAccountingArtifact(
     });
     const title = ar ? 'قيد يومية' : 'Journal entry';
     const amount = moneyText(journal.totals.debitMinor, 'OMR', ar);
-    const link = appLink(`/${input.locale}/owner/accounting?tab=journal&open=${journal.id}`);
+    const share =
+      (await accountingClientShareUrl(claims, {
+        kind: 'journal',
+        id: journal.id,
+        locale: input.locale,
+      })) ?? appLink(`/${input.locale}/owner/accounting/print?kind=journal&id=${journal.id}`);
     const email = input.email ?? partyContact?.email ?? null;
     const phone = input.phone ?? partyContact?.phone ?? null;
     let emailed = 0;
@@ -116,7 +122,7 @@ export async function sendAccountingArtifact(
             { label: ar ? 'المبلغ' : 'Amount', value: amount },
             { label: ar ? 'البيان' : 'Description', value: journal.description },
           ],
-          cta: { label: ar ? 'فتح المحاسبة' : 'Open accounting', url: link },
+          cta: { label: ar ? 'عرض المستند الرسمي' : 'View official document', url: share },
         }),
       });
     }
@@ -131,9 +137,9 @@ export async function sendAccountingArtifact(
         { labelAr: 'البيان', labelEn: 'Description', value: journal.description },
         { labelAr: 'المبلغ', labelEn: 'Amount', value: amount },
       ],
-      link,
-      linkLabelAr: 'فتح المحاسبة',
-      linkLabelEn: 'Open accounting',
+      link: share,
+      linkLabelAr: 'عرض المستند الرسمي',
+      linkLabelEn: 'View official document',
     });
     return {
       emailed,
@@ -167,9 +173,15 @@ export async function sendAccountingArtifact(
             ? 'مستند محاسبي'
             : 'Accounting document';
     const amount = moneyText(doc.amountMinor, doc.currency, ar);
-    const link = appLink(
-      `/${input.locale}/owner/accounting?tab=documents${doc.journalId ? `&open=${doc.journalId}` : ''}`,
-    );
+    const share =
+      (await accountingClientShareUrl(claims, {
+        kind: 'document',
+        id: doc.id,
+        locale: input.locale,
+      })) ??
+      appLink(
+        `/${input.locale}/owner/accounting/print?kind=document&id=${encodeURIComponent(doc.id)}`,
+      );
     const email = input.email ?? null;
     const phone = input.phone ?? null;
     let emailed = 0;
@@ -195,7 +207,7 @@ export async function sendAccountingArtifact(
             { label: ar ? 'المبلغ' : 'Amount', value: amount },
             { label: ar ? 'الطرف' : 'Party', value: doc.partyName ?? '—' },
           ],
-          cta: { label: ar ? 'فتح المحاسبة' : 'Open accounting', url: link },
+          cta: { label: ar ? 'عرض المستند الرسمي' : 'View official document', url: share },
         }),
       });
     }
@@ -216,9 +228,9 @@ export async function sendAccountingArtifact(
           ? [{ labelAr: 'الطرف', labelEn: 'Party', value: doc.partyName }]
           : []),
       ],
-      link,
-      linkLabelAr: 'فتح المحاسبة',
-      linkLabelEn: 'Open accounting',
+      link: share,
+      linkLabelAr: 'عرض المستند الرسمي',
+      linkLabelEn: 'View official document',
     });
     return {
       emailed,

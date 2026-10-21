@@ -12,6 +12,7 @@ import { formatMoney } from '@/lib/format';
 import { lookupPublicStayBookingOnNeon } from '@/lib/public-stays-guest-neon';
 import { stayPaymentKindLabel } from '@/lib/stay-booking-payment-labels';
 import type { StayBookingPaymentLine } from '@/lib/stay-booking-payments';
+import { loadStayReceiptLetterhead } from '@/lib/stay-receipt-letterhead-neon';
 import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
 import { publicApiFetch } from '@/lib/server-api';
 
@@ -19,6 +20,7 @@ type PublicBooking = {
   id?: string;
   referenceCode: string;
   status: string;
+  organizationId?: string;
   checkInOn?: string;
   checkOutOn?: string;
   currency?: string;
@@ -82,6 +84,7 @@ export default async function StayBookingReceiptPage({
   const query = await searchParams;
   setRequestLocale(locale);
   const ar = locale === 'ar';
+  const lang = locale === 'en' ? 'en' : 'ar';
 
   const refRaw = query.ref;
   const ref = typeof refRaw === 'string' ? refRaw : Array.isArray(refRaw) ? refRaw[0] : undefined;
@@ -98,9 +101,7 @@ export default async function StayBookingReceiptPage({
     if (payId) {
       selected = payments.find((line) => line.id === payId) ?? null;
       if (!selected) notFound();
-    } else if (payments.length === 1) {
-      selected = payments[0] ?? null;
-    } else if (payments.length > 1) {
+    } else if (payments.length >= 1) {
       selected = payments[0] ?? null;
     }
   }
@@ -131,12 +132,23 @@ export default async function StayBookingReceiptPage({
       ? `/stays/booking/receipt?ref=${encodeURIComponent(ref)}&doc=payment&pay=${encodeURIComponent(payments[0].id)}`
       : `/stays/booking/receipt?ref=${encodeURIComponent(ref)}&doc=${otherKind}`;
 
+  const letterhead = booking.organizationId
+    ? await loadStayReceiptLetterhead({
+        organizationId: booking.organizationId,
+        referenceCode: booking.referenceCode,
+        docKind: kind,
+        paymentId: selected?.id ?? null,
+        amountMinor: selected?.amountMinor ?? booking.totalMinor ?? null,
+        locale: lang,
+      })
+    : null;
+
   return (
-    <div className="container section stays-booking-receipt">
-      <div className="stays-booking-receipt__actions">
+    <div className="dash-shell rent-doc-page stays-booking-receipt">
+      <div className="rent-doc-page__actions">
         <StayReceiptPrintButton
           locale={locale}
-          label={ar ? 'تنزيل / طباعة PDF' : 'Download / print PDF'}
+          label={ar ? '⬇ تحميل / طباعة PDF' : '⬇ Download / print PDF'}
         />
         <Link className="button button--quiet" href={otherHref}>
           {otherLabel}
@@ -166,14 +178,13 @@ export default async function StayBookingReceiptPage({
         </Link>
       </div>
 
-      <header className="stays-booking-receipt__page-head">
-        <h1 className="stays-booking-receipt__page-title">{title}</h1>
-        <p className="muted">
-          {ar
-            ? 'مستند جاهز للطباعة أو الحفظ كملف PDF بنفس أسلوب الإيصالات الرسمية.'
-            : 'Print-ready document — save as PDF in the same style as official receipts.'}
-        </p>
-      </header>
+      <p className="rent-doc-page__hint muted">
+        {ar
+          ? 'مستند رسمي بترويسة الشركة ورمز التحقق — بنفس أسلوب المستندات المحاسبية. لحفظه كـ PDF اختر «حفظ كـ PDF» من نافذة الطباعة.'
+          : 'Official company letterhead and verification code — same style as accounting documents. To keep a PDF, choose “Save as PDF” in the print dialog.'}
+      </p>
+
+      <h1 className="sr-only">{title}</h1>
 
       <StayBookingDocument
         kind={kind}
@@ -183,6 +194,8 @@ export default async function StayBookingReceiptPage({
           paymentCount: payments.length,
         }}
         locale={locale}
+        issuer={letterhead?.issuer ?? null}
+        signature={letterhead?.signature ?? null}
       />
     </div>
   );

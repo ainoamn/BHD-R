@@ -54,6 +54,11 @@ export function accountingPrintPath(
   return `/${locale}/owner/accounting/print?${params.toString()}`;
 }
 
+/** Public letterheaded view the client opens from email / WhatsApp / QR. */
+export function accountingSharePath(locale: 'ar' | 'en', token: string): string {
+  return `/${locale}/verify/accounting/${encodeURIComponent(token)}`;
+}
+
 /**
  * Safe back target for the print toolbar: the hub URL the user came from, or the tab that
  * matches the printed kind (documents / journal / reports) instead of the dashboard.
