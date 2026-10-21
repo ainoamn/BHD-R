@@ -19025,6 +19025,35 @@ body:has(.stay-esign-shell) {
   flex: 1;
   min-height: 3rem;
 }
+.stay-esign__sticky-cta {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: grid;
+  padding: calc(0.65rem + env(safe-area-inset-top, 0px)) 1rem 0.75rem;
+  background: linear-gradient(180deg, rgb(11 28 26 / 0.97) 55%, rgb(11 28 26 / 0.88));
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgb(244 240 232 / 0.12);
+  box-shadow: 0 10px 28px rgb(0 0 0 / 0.28);
+}
+.stay-esign__sticky-cta .button {
+  min-height: 3rem;
+  font-weight: 800;
+}
+.stay-esign[data-step='done'] {
+  grid-template-rows: auto 1fr;
+}
+/* Keep the continue control pinned while the contract scrolls underneath. */
+.stay-esign[data-step='done'] .stay-esign__sticky-cta {
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  width: min(100%, 720px);
+  margin-inline: auto;
+}
+.stay-esign[data-step='done'] .stay-esign__body {
+  padding-top: calc(4.25rem + env(safe-area-inset-top, 0px));
+}
 .stay-esign__footer-nav {
   display: flex;
   justify-content: flex-start;
@@ -19041,7 +19070,7 @@ body:has(.stay-esign-shell) {
 .stay-esign__done {
   display: grid;
   gap: 1rem;
-  padding-top: calc(0.85rem + env(safe-area-inset-top, 0px));
+  padding-top: 0.85rem;
 }
 .stay-esign__seal {
   display: flex;
